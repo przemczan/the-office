@@ -29,7 +29,7 @@ Leave out: the proof-of-concept publish target and conflict resolution between p
 - [ ] 2. Gate Stages in the interpreter: Waiting on you, the actions and what each does, events; the Gate view inline on the Task page. Commit.
 - [ ] 3. Screenshots: the excluded folder, keeping it across test runs, attaching exactly the listed files; the brief tells Agents where to write them. Commit.
 - [ ] 4. Publish Stages: push + PR and merge, the PR body from the record, failures to the on-failure target, the clean-apply check, worktree removal. Commit.
-- [ ] 5. Check on the Test Project: a Task whose Pipeline copy has a Gate before Publish (set through the API; the editor is task 15) runs through the Gate to Publish in its publishing mode. Publishing leaves the workstation, so ask the user before this step runs; log the PR or the merge. Commit.
+- [ ] 5. Check on the Test Project: a Task whose Pipeline copy has a Gate before Publish (seeded into the Task by a check script; the editor is task 15) runs through the Gate to Publish in its publishing mode. Publishing leaves the workstation, so ask the user before this step runs; log the PR or the merge. Commit.
 
 ## Progress
 

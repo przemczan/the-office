@@ -22,7 +22,7 @@ The skeleton every module grows in: the NestJS service on `localhost`, Postgres 
 
 ## Steps
 
-- [ ] 1. Workspace tooling: TypeScript strict in `tsconfig.base.json`, oxlint and Prettier configs, Vitest workspace config, and the root `verify` script. Confirm the chosen TypeScript version emits decorator metadata for Nest (`experimentalDecorators`, `emitDecoratorMetadata`), and that Vitest runs Nest code through SWC. Commit.
+- [ ] 1. Workspace tooling: `.gitattributes` with `* text=auto eol=lf` (the checkout converts to CRLF otherwise, and Prettier expects LF), TypeScript strict in `tsconfig.base.json`, oxlint and Prettier configs, Vitest workspace config, and the root `verify` script. Confirm the chosen TypeScript version emits decorator metadata for Nest (`experimentalDecorators`, `emitDecoratorMetadata`), and that Vitest runs Nest code through SWC. Commit.
 - [ ] 2. `docker-compose.yml` with Postgres and `grafana/otel-lgtm`, a `.env.example` with the database URL and `OFFICE_DATA_DIR`, and typed config loading in the service that refuses to start on a missing value. Commit.
 - [ ] 3. `apps/service`: NestJS bound to `127.0.0.1`, `src/platform/` with config and the database (Drizzle, a migrations folder, migrate on start), and `GET /api/health`. Commit.
 - [ ] 4. Domain events: a typed in-process event bus in `src/platform/events/`, a WebSocket gateway that forwards the events the web subscribes to, and their schemas in `packages/contracts`. Commit.

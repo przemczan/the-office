@@ -39,7 +39,6 @@ Each check runs in a throwaway git repository created in a temp folder, uses the
 - [ ] 4. Permission checks:
   - a `PreToolUse` hook sees every tool call first, under `permissionPrompts: 'none'`;
   - a hook can refuse with a reason the Agent reads and acts on;
-  - a hook can hold a call for at least 10 minutes (a Decision being answered) without the engine timing it out; record the limit if there is one;
   - a Bash deny rule alone turns the PowerShell tool off, and a twin rule keeps it on;
   - `blockReadsOutsideWorkingDirectories` fences the file tools to the worktree and the session's folders;
   - `.git`, `.claude` and `.mcp.json` are never auto-approved;
@@ -49,6 +48,7 @@ Each check runs in a throwaway git repository created in a temp folder, uses the
 - [ ] 5. Engine behaviour checks:
   - message `priority: 'next'` lands between tool calls, `'later'` after the turn, `'now'` interrupts;
   - `interrupt()` stops the turn and the session can be resumed;
+  - an Agent told by an Office tool's result to end its turn and wait does so, and an answer sent as the next message after more than an hour continues the work in that session (this is how Agents wait on Decisions);
   - resume by session id within the hour reads the cache (cache-read tokens above zero);
   - `rate_limit_event` carries utilization and `resetsAt` for `five_hour` and `seven_day`;
   - three sessions run in parallel;

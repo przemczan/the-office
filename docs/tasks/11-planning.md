@@ -22,7 +22,7 @@ Planning as a conversation: "Plan with *the Planner*" moves a Task to Planning a
 
 ## Steps
 
-- [ ] 1. Decisions in the Conversations module: a Decision Thread on a home (question, options, recommendation, context), its answer (option, free text), follow-ups, the event that resumes the asking Agent, and the Office tool "open a Decision". Commit.
+- [ ] 1. Decisions in the Conversations module: a Decision Thread on a home (question, options, recommendation, context), its answer (option, free text), follow-ups, and the Office tool "open a Decision". The tool returns at once, telling the Agent to end its turn and wait; the answer is sent into the asking session as its next message, continued through the Context policy. No tool call blocks while the user decides. Commit.
 - [ ] 2. Planning use case in Work: Backlog → Planning, the Task's branch and worktree through the Projects git service, the planning Thread with the Planner and its Brief parts from Work. Commit.
 - [ ] 3. Office tools for planning: write the Plan, write the Definition of Done, propose a Pipeline; each lands on the record as proposed, with confirm and edit for the user. Commit.
 - [ ] 4. The Task page: the planning Thread, proposed and confirmed states on Plan, Definition of Done and Pipeline, the Decision card with its options and free answer, Mark Ready with its reason. Commit.

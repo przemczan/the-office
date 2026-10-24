@@ -28,7 +28,7 @@ Leave out: Consultations with colleagues (the consult tool only asks the user in
 
 - [ ] 1. Barge-in: the composer on a running Stage Thread sends with `next` priority; the log marks the message delivered when it lands. Commit.
 - [ ] 2. Stop, Pause and Resume in Pipelines: interrupt and discard, hold after the current step, resume through the Context policy; the states and events on the Task. Commit.
-- [ ] 3. Office tools for Stages: open a Decision, consult (to the user, the Decision naming who would have been asked), attach, the Handover note. Commit.
+- [ ] 3. Office tools for Stages: open a Decision and consult wait the way task 11 built (the tool returns at once, the answer arrives as the session's next message); consult opens a Decision for the user naming who would have been asked; attach; the Handover note. Commit.
 - [ ] 4. Hard switches: the followed ones written into the brief from the Role card, each value's wording tested. Commit.
 - [ ] 5. The Task page and board: Waiting on you, the Decision in the Stage Thread, Pause, Stop and Resume, live tokens. Commit.
 - [ ] 6. Check on the Test Project: run a Task, barge in once, answer a Decision, Pause and Resume, Stop once and resume fresh; log what each did. Commit.

@@ -33,7 +33,7 @@ The Pipelines module runs a Ready Task: the user starts it (or is told why not),
 - [ ] 5. Script Stages: the command runner from task 05, the flake re-run, worktree restore after tests, results on the Stage. Commit.
 - [ ] 6. Limits: round limits and budgets checked before each engine call, the Decisions they open and what each answer does, accepted issues recorded for the commit message; optional Stage skipping and the Done check. Commit.
 - [ ] 7. The Task page: the Stages block with each Stage's state, person or command, time, tokens, session kind and Handover note; Start with its reason. Commit.
-- [ ] 8. Check on the Test Project: start the Task planned in task 11 on a copy of Quick fix without its Publish Stage, set through the API (Publish is task 14, the editor task 15), and discard the branch afterwards; log each Stage's tokens, session and result. Commit.
+- [ ] 8. Check on the Test Project: start the Task planned in task 11 on a copy of Quick fix without its Publish Stage, seeded into the Task by a check script (Publish is task 14, the editor task 15), and discard the branch afterwards; log each Stage's tokens, session and result. Commit.
 
 ## Progress
 
