@@ -1,6 +1,6 @@
 # 01 · Engine spike: pinned versions and the engine check
 
-Status: todo
+Status: in progress
 
 ## Goal
 
@@ -25,7 +25,7 @@ Pin the Agent SDK version and settle, against live sessions on it, everything ti
 
 Each check runs in a throwaway git repository created in a temp folder, uses the cheapest model with tiny prompts, and records its tokens. Checks that only concern `claude -p` are tier 2 and skipped.
 
-- [ ] 1. Workspace root: `package.json` with npm workspaces, `.nvmrc` (Node 22), `tsconfig.base.json` (strict), `.gitignore` for `node_modules` and build output. Add `tools/engine-check` with the SDK pinned to the latest release (exact version, no range). Commit.
+- [x] 1. Workspace root: `package.json` with npm workspaces, `.nvmrc` (Node 22), `tsconfig.base.json` (strict), `.gitignore` for `node_modules` and build output. Add `tools/engine-check` with the SDK pinned to the latest release (exact version, no range). Commit.
 - [ ] 2. A harness in `tools/engine-check` that starts a session with the options of spec §5.6 (session plugin folder, `settingSources: ['project']`, `skills`, the settings), collects the `init` message, `getContextUsage()`, every stream event and every hook call, and compares each check's observation with its recorded expectation. Commit.
 - [ ] 3. Skills checks:
   - the start check itself: `init` lists the plugin with no errors, and the skill names in `getContextUsage()` equal the expected set;
@@ -64,3 +64,4 @@ Each check runs in a throwaway git repository created in a temp folder, uses the
 ## Progress
 
 <!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next; anything surprising. -->
+- 2026-10-24 · step 1: workspace root (npm workspaces `apps/*`, `packages/*`, `tools/*`; Node 22 in `.nvmrc` and `engines`; `.npmrc` with `save-exact` and `engine-strict`; strict `tsconfig.base.json`; TypeScript 7.0.2 and `@types/node` 22.20.5 at the root) and `tools/engine-check` with `@anthropic-ai/claude-agent-sdk` pinned to 0.3.310, the latest release, which bundles Claude Code 2.1.310. Checked: `npm install` clean, `npm ls` shows the exact pins, the SDK imports from the workspace, the lockfile holds every platform's binary package (Linux included), and a stub typechecks against the base config. Next: step 2, the harness; `tools/engine-check/tsconfig.json` and a TS runner arrive with its code. Surprising: the allowlist behaviour in step 3 was read on Claude Code 2.1.308, so the version has moved; TypeScript 7 is the native compiler, and task 02 step 1 still has to confirm it emits Nest's decorator metadata.
