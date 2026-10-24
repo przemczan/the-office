@@ -64,7 +64,7 @@ export async function runCheck(check: Check, expectations: Expectations, platfor
     clearTimeout(timer);
     await Promise.allSettled(sessions.map((session) => session.close()));
     await Promise.allSettled(sessions.map((session) => deleteSession(session.sessionId, { dir: session.repository })));
-    await Promise.allSettled([...new Set(sessions.map((session) => session.repository))].map(removeTranscriptFolder));
+    await Promise.allSettled([...new Set([...sessions.map((session) => session.repository), ...sandbox.repositories])].map(removeTranscriptFolder));
     await sandbox.dispose();
   }
 

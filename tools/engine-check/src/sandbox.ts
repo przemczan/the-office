@@ -30,6 +30,7 @@ export interface CommandFixture {
 export class Sandbox {
   readonly root: string;
   readonly officeData: string;
+  private readonly createdRepositories: string[] = [];
 
   private constructor(root: string) {
     this.root = root;
@@ -44,12 +45,25 @@ export class Sandbox {
 
   async createRepository(name = "repository"): Promise<string> {
     const repository = join(this.root, name);
+    this.createdRepositories.push(repository);
     await mkdir(repository);
     await git(repository, "init", "--quiet", "--initial-branch=main");
     await writeFile(join(repository, "README.md"), "# Engine check repository\n");
     await git(repository, "add", "--all");
     await git(repository, "commit", "--quiet", "--message", "Initial commit");
     return repository;
+  }
+
+  /** A worktree of `repository` on a new branch, at a stable path under the Office data directory, as the Office makes one per Task (spec §5.5). */
+  async addWorktree(repository: string, branch: string): Promise<string> {
+    const worktree = join(this.officeData, "worktrees", branch);
+    await git(repository, "worktree", "add", "--quiet", "-b", branch, worktree);
+    return worktree;
+  }
+
+  /** Every repository the check created; the engine keeps a worktree session's memory folder under its repository's name. */
+  get repositories(): readonly string[] {
+    return this.createdRepositories;
   }
 
   sessionPluginFolder(sessionId: string): string {

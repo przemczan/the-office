@@ -3,17 +3,23 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import type { Check, Platform } from "./check.ts";
+import { DECISION_WAIT_VARIABLE, DEFAULT_DECISION_WAIT_MINUTES } from "./checks/engine/decision-wait.ts";
 import { checks } from "./checks/index.ts";
-import { loadExpectations, saveExpectations } from "./expectations.ts";
+import { loadExpectations, recordObservations } from "./expectations.ts";
 import { runCheck, sumTokens, type CheckOutcome } from "./run-checks.ts";
 
-const USAGE = `Usage: npm run engine-check -- [--only <id prefix>]... [--record]
+const USAGE = `Usage: npm run engine-check -- [--only <id prefix>]... [--include-slow] [--record]
 
 Runs the engine checks on this platform and compares each observation with the one recorded in
 expectations.json. Exits non-zero when a check differs, has no recorded result or fails.
 
-  --only <prefix>  run only checks whose id starts with the prefix (repeatable)
-  --record         write this run's observations into expectations.json for this platform
+  --only <prefix>   run only checks whose id starts with the prefix (repeatable)
+  --include-slow    also run the slow checks, which are left out otherwise, even when --only names them
+  --record          write this run's observations into expectations.json for this platform
+
+Slow checks:
+  engine.decision-wait  waits ${DECISION_WAIT_VARIABLE} (default ${DEFAULT_DECISION_WAIT_MINUTES}) before answering
+                        a Decision, to see the answer continue the work past the 1-hour cache
 `;
 
 const toolRoot = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -23,6 +29,7 @@ async function main(): Promise<number> {
   const { values } = parseArgs({
     options: {
       only: { type: "string", multiple: true, default: [] },
+      "include-slow": { type: "boolean", default: false },
       record: { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },
@@ -32,7 +39,7 @@ async function main(): Promise<number> {
     return 0;
   }
   const platform = currentPlatform();
-  const selected = selectChecks(checks, platform, values.only);
+  const selected = selectChecks(checks, platform, values.only, values["include-slow"]);
   if (selected.length === 0) {
     process.stderr.write(`No checks selected for ${platform}.\n`);
     return 1;
@@ -49,10 +56,8 @@ async function main(): Promise<number> {
 
   const reportPath = await writeReport(platform, outcomes);
   if (values.record) {
-    for (const outcome of outcomes.filter((outcome) => outcome.observed !== undefined)) {
-      expectations[outcome.id] = { ...expectations[outcome.id], [platform]: outcome.observed };
-    }
-    await saveExpectations(expectationsPath, expectations);
+    const observations = outcomes.flatMap((outcome) => (outcome.observed === undefined ? [] : [[outcome.id, outcome.observed] as const]));
+    await recordObservations(expectationsPath, platform, Object.fromEntries(observations));
   }
   process.stdout.write(describeSummary(outcomes, reportPath, values.record));
 
@@ -68,10 +73,11 @@ function currentPlatform(): Platform {
   throw new Error(`The engine check runs on Windows and Linux, not ${process.platform}`);
 }
 
-function selectChecks(all: readonly Check[], platform: Platform, prefixes: readonly string[]): Check[] {
+function selectChecks(all: readonly Check[], platform: Platform, prefixes: readonly string[], includeSlow: boolean): Check[] {
   return all.filter(
     (check) =>
       (check.platforms?.includes(platform) ?? true) &&
+      (includeSlow || check.slow !== true) &&
       (prefixes.length === 0 || prefixes.some((prefix) => check.id.startsWith(prefix))),
   );
 }

@@ -1,4 +1,214 @@
 {
+  "engine.decision-wait": {
+    "win32": {
+      "decisionOpened": true,
+      "toolCallsAfterDecisionInItsTurn": [],
+      "waitedPastOneHour": true,
+      "answerTurn": {
+        "sameSession": true,
+        "readOfChosenFile": "allowed",
+        "readsEarlierTurnsFromCache": false
+      }
+    }
+  },
+  "engine.interrupt": {
+    "win32": {
+      "receiptCapabilityAdvertised": true,
+      "receiptListsStillQueued": true,
+      "interruptedTurnEnded": "aborted_tools",
+      "command": {
+        "outcome": "failed",
+        "interrupted": false,
+        "movedToBackground": false
+      },
+      "nextTurnInSameQuery": "completed",
+      "resumed": {
+        "turnEnded": "completed",
+        "sameSession": true
+      },
+      "commandRanToItsEnd": false
+    }
+  },
+  "engine.lean-options": {
+    "win32": {
+      "officeOptions": {
+        "firstCallContext": "about 30k",
+        "builtInTools": [
+          "Bash",
+          "CronCreate",
+          "CronDelete",
+          "CronList",
+          "DesignSync",
+          "Edit",
+          "EnterWorktree",
+          "ExitWorktree",
+          "Glob",
+          "Grep",
+          "ListAgents",
+          "Monitor",
+          "NotebookEdit",
+          "PowerShell",
+          "PushNotification",
+          "Read",
+          "RemoteTrigger",
+          "ReportFindings",
+          "ScheduleWakeup",
+          "SendMessage",
+          "Skill",
+          "Task",
+          "TaskStop",
+          "ToolSearch",
+          "WebSearch",
+          "Workflow",
+          "Write"
+        ],
+        "claudeAiConnectorsLoaded": true
+      },
+      "secondWorktreeReadsFirstWorktreesPrefix": true,
+      "leanVariant": {
+        "context": "about 10k",
+        "tools": [
+          "Bash",
+          "Edit",
+          "Glob",
+          "Grep",
+          "PowerShell",
+          "Read",
+          "Skill",
+          "Write"
+        ],
+        "mcpServers": []
+      }
+    }
+  },
+  "engine.office-tool": {
+    "win32": {
+      "listedInInitTools": true,
+      "serverStatus": "connected",
+      "withAllowRule": {
+        "call": {
+          "outcome": "allowed",
+          "preToolUseFirst": true,
+          "permissionDeniedMessage": null,
+          "permissionDeniedHook": false
+        },
+        "handlerReceived": [
+          "check"
+        ]
+      },
+      "withoutAllowRule": {
+        "call": {
+          "outcome": "denied",
+          "preToolUseFirst": true,
+          "permissionDeniedMessage": "asyncAgent",
+          "permissionDeniedHook": false
+        },
+        "handlerReceived": []
+      }
+    }
+  },
+  "engine.parallel-sessions": {
+    "win32": {
+      "allInAToolCallAtOnce": true,
+      "turnsEnded": [
+        "completed"
+      ],
+      "distinctSessions": true
+    }
+  },
+  "engine.priority-later": {
+    "win32": {
+      "sentWhileCommandRan": true,
+      "firstTurnEnded": "completed",
+      "landedIn": "next turn",
+      "command": {
+        "outcome": "allowed",
+        "interrupted": false,
+        "movedToBackground": false
+      }
+    }
+  },
+  "engine.priority-next": {
+    "win32": {
+      "sentWhileCommandRan": true,
+      "firstTurnEnded": "completed",
+      "landedIn": "running turn",
+      "command": {
+        "outcome": "allowed",
+        "interrupted": false,
+        "movedToBackground": false
+      }
+    }
+  },
+  "engine.priority-now": {
+    "win32": {
+      "withoutOrigin": {
+        "sentWhileCommandRan": true,
+        "firstTurnEnded": "aborted_tools",
+        "landedIn": "next turn",
+        "command": {
+          "outcome": "allowed",
+          "interrupted": false,
+          "movedToBackground": false
+        }
+      },
+      "humanOrigin": {
+        "sentWhileCommandRan": true,
+        "firstTurnEnded": "aborted_tools",
+        "landedIn": "next turn",
+        "command": {
+          "outcome": "allowed",
+          "interrupted": false,
+          "movedToBackground": true
+        }
+      }
+    }
+  },
+  "engine.rate-limit-event": {
+    "win32": {
+      "eventArrived": true,
+      "topLevel": {
+        "utilization": false,
+        "resetsAt": true
+      },
+      "eventWindows": [
+        "five_hour",
+        "seven_day"
+      ],
+      "eventWindowFields": {
+        "five_hour": {
+          "utilization": true,
+          "resetsAt": true
+        },
+        "seven_day": {
+          "utilization": true,
+          "resetsAt": true
+        }
+      },
+      "usageQuery": {
+        "rateLimitsAvailable": true,
+        "windows": {
+          "five_hour": {
+            "utilization": true,
+            "resetsAt": true
+          },
+          "seven_day": {
+            "utilization": true,
+            "resetsAt": true
+          }
+        }
+      }
+    }
+  },
+  "engine.resume-cache": {
+    "win32": {
+      "cacheReadAboveZero": true,
+      "readsEarlierConversationFromCache": true,
+      "cacheWriteLifetimes": [
+        "1h"
+      ]
+    }
+  },
   "permissions.file-tool-fence": {
     "win32": {
       "fileTools": {

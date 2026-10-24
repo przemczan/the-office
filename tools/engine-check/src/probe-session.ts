@@ -119,13 +119,17 @@ export class ProbeSession {
     return this.stderrChunks.join("");
   }
 
-  send(text: string, delivery: MessageDelivery = {}): void {
+  /** Returns the uuid the message is stamped with, which a result's `user_message_uuids` names once a turn consumed it. */
+  send(text: string, delivery: MessageDelivery = {}): string {
+    const uuid = randomUUID();
     this.input.push({
       type: "user",
       message: { role: "user", content: text },
       parent_tool_use_id: null,
+      uuid,
       ...delivery,
     });
+    return uuid;
   }
 
   init(): Promise<SDKSystemMessage> {

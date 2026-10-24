@@ -22,5 +22,7 @@ export interface Check {
   /** Platforms the check runs on; both when omitted. */
   readonly platforms?: readonly Platform[];
   readonly timeoutMs?: number;
+  /** Runs for a long time on purpose, so it runs only when asked for with `--include-slow`. */
+  readonly slow?: boolean;
   run(context: CheckContext): Promise<Observation>;
 }

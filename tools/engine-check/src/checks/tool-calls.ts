@@ -83,6 +83,12 @@ export function toolResultText(messages: readonly SDKMessage[], toolUseId: strin
     .join("\n");
 }
 
+/** The tool's structured output for the call, such as Bash's `interrupted` flag; undefined when the engine sent none. */
+export function toolUseResult(messages: readonly SDKMessage[], toolUseId: string): unknown {
+  const message = messages[toolResultIndex(messages, toolUseId)];
+  return message?.type === "user" ? message.tool_use_result : undefined;
+}
+
 /**
  * The engine's `permission_denied` message for the call, which it sends only for some refusals:
  * by its docs, not for hook denies or path-scoped deny rules on file tools.
