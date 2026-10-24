@@ -1,12 +1,12 @@
 import { deleteSession, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { rmdir } from "node:fs/promises";
-import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Check, Observation, Platform } from "./check.ts";
 import type { Expectations } from "./expectations.ts";
 import { diffJson, type JsonDifference } from "./json.ts";
 import { ProbeSession, type HookCall, type TokenUsage } from "./probe-session.ts";
 import { Sandbox } from "./sandbox.ts";
+import { transcriptFolder } from "./transcripts.ts";
 
 const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
 
@@ -91,7 +91,7 @@ export async function runCheck(check: Check, expectations: Expectations, platfor
  * `rmdir` removes each only when empty, so nothing a check did not leave behind is touched.
  */
 async function removeTranscriptFolder(repository: string): Promise<void> {
-  const folder = join(homedir(), ".claude", "projects", repository.replace(/[^a-zA-Z0-9]/g, "-"));
+  const folder = transcriptFolder(repository);
   await rmdir(join(folder, "memory")).catch(() => undefined);
   await rmdir(folder);
 }

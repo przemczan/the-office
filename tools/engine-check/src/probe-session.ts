@@ -29,6 +29,8 @@ export interface SessionSpec {
   readonly repository: string;
   /** Copied into the session plugin folder. */
   readonly skills?: readonly SkillFixture[];
+  /** Further plugin folders loaded beside the session plugin. */
+  readonly additionalPlugins?: readonly string[];
   /** The `skills` allowlist; defaults to `office:<name>` for each of `skills`. */
   readonly allowedSkills?: readonly string[];
   /** Merged over the spec §5.6 and §6 settings. */
@@ -37,6 +39,8 @@ export interface SessionSpec {
   readonly hooks?: Partial<Record<HookEvent, ProbeHook>>;
   /** Session id to resume; the plugin folder is rebuilt from `skills`, as the Office does. */
   readonly resume?: string;
+  /** Id for a new session, chosen up front as the Office does, since it names the plugin folder; random when omitted. */
+  readonly sessionId?: string;
   /** Last-word overrides for what a check varies on purpose. */
   readonly options?: Partial<Options>;
 }
@@ -101,7 +105,7 @@ export class ProbeSession {
   }
 
   static async start(sandbox: Sandbox, spec: SessionSpec, signal: AbortSignal): Promise<ProbeSession> {
-    const sessionId = spec.resume ?? randomUUID();
+    const sessionId = spec.resume ?? spec.sessionId ?? randomUUID();
     const pluginFolder = await sandbox.writeSessionPlugin(sessionId, spec.skills ?? []);
     return new ProbeSession(sessionId, pluginFolder, spec, signal);
   }
@@ -126,6 +130,18 @@ export class ProbeSession {
 
   init(): Promise<SDKSystemMessage> {
     return this.waitForMessage((message): message is SDKSystemMessage => message.type === "system" && message.subtype === "init");
+  }
+
+  /**
+   * `init` without a model call: a message that does not query still starts the session and runs the
+   * turn-start attachments, the skill listing among them; its text joins the next message that queries.
+   */
+  async initWithoutTurn(): Promise<SDKSystemMessage> {
+    this.send("Session started.", { shouldQuery: false });
+    const init = await this.init();
+    // That message still ends in a result; taking it here leaves nextResult() to real turns.
+    await this.nextResult();
+    return init;
   }
 
   /** The next turn's result not yet returned by an earlier call. */
@@ -169,7 +185,7 @@ export class ProbeSession {
       cwd: spec.repository,
       model: CHECK_MODEL,
       settingSources: ["project"],
-      plugins: [{ type: "local", path: this.pluginFolder, skipMcpDiscovery: true }],
+      plugins: [this.pluginFolder, ...(spec.additionalPlugins ?? [])].map((path) => ({ type: "local", path, skipMcpDiscovery: true })),
       skills: [...(spec.allowedSkills ?? skills.map((skill) => `${SESSION_PLUGIN_NAME}:${skill.name}`))],
       settings: sessionSettings(spec.settings),
       permissionPrompts: "none",

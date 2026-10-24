@@ -1,7 +1,7 @@
 import { execFile } from "node:child_process";
 import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
@@ -10,6 +10,14 @@ const execFileAsync = promisify(execFile);
 export const SESSION_PLUGIN_NAME = "office";
 
 export interface SkillFixture {
+  readonly name: string;
+  readonly description: string;
+  readonly body: string;
+  /** Supporting files beside `SKILL.md`, by path relative to the skill folder. */
+  readonly files?: Readonly<Record<string, string>>;
+}
+
+export interface CommandFixture {
   readonly name: string;
   readonly description: string;
   readonly body: string;
@@ -48,13 +56,11 @@ export class Sandbox {
     return join(this.officeData, "sessions", sessionId, "skills");
   }
 
+  /** Rebuilds the folder from scratch, as the Office does on resume, so a dropped skill leaves nothing behind. */
   async writeSessionPlugin(sessionId: string, skills: readonly SkillFixture[]): Promise<string> {
     const folder = this.sessionPluginFolder(sessionId);
-    await mkdir(join(folder, ".claude-plugin"), { recursive: true });
-    await writeFile(join(folder, ".claude-plugin", "plugin.json"), JSON.stringify({ name: SESSION_PLUGIN_NAME }));
-    for (const skill of skills) {
-      await writeSkill(join(folder, "skills", skill.name), skill);
-    }
+    await rm(folder, { recursive: true, force: true });
+    await writePlugin(folder, SESSION_PLUGIN_NAME, skills);
     return folder;
   }
 
@@ -64,10 +70,41 @@ export class Sandbox {
   }
 }
 
-export async function writeSkill(folder: string, skill: SkillFixture): Promise<void> {
+/** A plugin folder with `skills/<name>/` for each skill; without a manifest the engine names it after the folder. */
+export async function writePlugin(folder: string, manifestName: string | undefined, skills: readonly SkillFixture[]): Promise<void> {
   await mkdir(folder, { recursive: true });
+  if (manifestName !== undefined) {
+    await writeFileWithFolders(join(folder, ".claude-plugin", "plugin.json"), JSON.stringify({ name: manifestName }));
+  }
+  for (const skill of skills) {
+    await writeSkill(join(folder, "skills", skill.name), skill);
+  }
+}
+
+/** A Project skill under `<repository>/<subfolder>/.claude/skills`, the repository root when `subfolder` is omitted. */
+export async function writeProjectSkill(repository: string, skill: SkillFixture, subfolder = ""): Promise<void> {
+  await writeSkill(join(repository, subfolder, ".claude", "skills", skill.name), skill);
+}
+
+/** A Project command, the older single-file form of a skill, under `<repository>/.claude/commands`. */
+export async function writeProjectCommand(repository: string, command: CommandFixture): Promise<void> {
+  await writeFileWithFolders(
+    join(repository, ".claude", "commands", `${command.name}.md`),
+    `---\ndescription: ${command.description}\n---\n\n${command.body}\n`,
+  );
+}
+
+export async function writeSkill(folder: string, skill: SkillFixture): Promise<void> {
   const frontmatter = `---\nname: ${skill.name}\ndescription: ${skill.description}\n---\n`;
-  await writeFile(join(folder, "SKILL.md"), `${frontmatter}\n${skill.body}\n`);
+  await writeFileWithFolders(join(folder, "SKILL.md"), `${frontmatter}\n${skill.body}\n`);
+  for (const [path, content] of Object.entries(skill.files ?? {})) {
+    await writeFileWithFolders(join(folder, path), content);
+  }
+}
+
+async function writeFileWithFolders(path: string, content: string): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, content);
 }
 
 async function git(repository: string, ...args: string[]): Promise<void> {

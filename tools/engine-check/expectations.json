@@ -1,1 +1,156 @@
-{}
+{
+  "skills.allowlist-suffix": {
+    "win32": {
+      "listedSkills": [
+        "office:alpha",
+        "office:beta",
+        "office:review",
+        "review",
+        "vendor:review"
+      ]
+    }
+  },
+  "skills.deny-rule": {
+    "win32": {
+      "listedSkills": [
+        "office:alpha",
+        "office:beta"
+      ],
+      "userInvocable": [
+        "office:alpha",
+        "office:beta"
+      ],
+      "deniedSkillInvocation": "denied"
+    }
+  },
+  "skills.overrides-off": {
+    "win32": {
+      "atStart": {
+        "listed": [
+          "lint",
+          "notes"
+        ],
+        "userInvocable": [
+          "lint",
+          "notes"
+        ]
+      },
+      "nestedFileRead": true,
+      "afterNestedFileRead": {
+        "listed": [
+          "audit",
+          "lint",
+          "notes",
+          "release"
+        ],
+        "userInvocable": [
+          "audit",
+          "lint",
+          "notes",
+          "release"
+        ]
+      }
+    }
+  },
+  "skills.plugin-detection": {
+    "win32": {
+      "plugins": [
+        "child at folder-of-plugins/with-manifest",
+        "skill-at-root at skill-at-root",
+        "without-manifest at without-manifest"
+      ],
+      "listedSkills": [
+        "child:three",
+        "skill-at-root:two",
+        "without-manifest:one"
+      ],
+      "pluginErrors": []
+    }
+  },
+  "skills.plugin-folder-reads": {
+    "win32": {
+      "officeOptions": {
+        "skillFolder": "denied",
+        "outsideFile": "denied"
+      },
+      "readAllowRule": {
+        "skillFolder": "denied",
+        "outsideFile": "denied"
+      },
+      "permissionsAdditionalDirectory": {
+        "skillFolder": "allowed",
+        "outsideFile": "denied"
+      },
+      "additionalDirectoriesOption": {
+        "skillFolder": "allowed",
+        "outsideFile": "denied"
+      }
+    }
+  },
+  "skills.resume": {
+    "win32": {
+      "listedAtStart": [
+        "office:alpha",
+        "office:beta"
+      ],
+      "listedAfterResume": [
+        "office:beta",
+        "office:gamma"
+      ],
+      "listingsAttachedForModel": [
+        [
+          "office:alpha",
+          "office:beta"
+        ],
+        [
+          "office:gamma"
+        ]
+      ]
+    }
+  },
+  "skills.start-check": {
+    "win32": {
+      "sessionPluginAtItsFolder": true,
+      "pluginErrors": [],
+      "listedSkills": [
+        "office:alpha",
+        "office:beta"
+      ],
+      "listingEqualsSessionSkills": true,
+      "otherPlugins": [
+        "cc-plugin-agents-md",
+        "cc-plugin-plugin-authoring",
+        "cc-plugin-telemetry"
+      ],
+      "initSkillsOutsideSession": [
+        "design",
+        "doctor",
+        "plugin-authoring"
+      ]
+    }
+  },
+  "skills.user-scope": {
+    "win32": {
+      "installedPlugins": {
+        "present": true,
+        "loaded": []
+      },
+      "skills": {
+        "present": true,
+        "loaded": []
+      },
+      "commands": {
+        "present": false,
+        "loaded": []
+      },
+      "syncedSkills": {
+        "present": true,
+        "loaded": []
+      },
+      "syncedPlugins": {
+        "present": true,
+        "loaded": []
+      }
+    }
+  }
+}
