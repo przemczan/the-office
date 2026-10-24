@@ -9,18 +9,21 @@ import { skill } from "./fixtures.ts";
 
 const SUPPORTING_FILE = "reference.md";
 
-/** Ways to let a session read its plugin folder, each tried in its own session; the first is the Office's options alone. */
+/**
+ * Ways to let a session read its plugin folder, each tried in its own session. The Office's options
+ * grant it through `permissions.additionalDirectories` (spec §5.6); the others start without that grant.
+ */
 const GRANTS: Readonly<Record<string, (pluginFolder: string) => Partial<SessionSpec>>> = {
+  withoutGrant: () => ({ settings: { permissions: { additionalDirectories: [] } } }),
+  readAllowRule: (pluginFolder) => ({ settings: { permissions: { additionalDirectories: [], allow: [`Read(${rulePath(pluginFolder)}/**)`] } } }),
   officeOptions: () => ({}),
-  readAllowRule: (pluginFolder) => ({ settings: { permissions: { allow: [`Read(${rulePath(pluginFolder)}/**)`] } } }),
-  permissionsAdditionalDirectory: (pluginFolder) => ({ settings: { permissions: { additionalDirectories: [pluginFolder] } } }),
-  additionalDirectoriesOption: (pluginFolder) => ({ options: { additionalDirectories: [pluginFolder] } }),
+  additionalDirectoriesOption: (pluginFolder) => ({ settings: { permissions: { additionalDirectories: [] } }, options: { additionalDirectories: [pluginFolder] } }),
 };
 
 /**
  * Whether the Read tool may read a supporting file in the session plugin's folder, which is outside
  * the working directories, while `blockReadsOutsideWorkingDirectories` is on (spec §6: everyone reads
- * their session's skills folder); a file elsewhere in the Office data directory is the control.
+ * their session's skills folder); a file elsewhere in the Office data directory must stay refused.
  */
 export const pluginFolderReadsCheck: Check = {
   id: "skills.plugin-folder-reads",

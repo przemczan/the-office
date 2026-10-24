@@ -6,7 +6,7 @@ import { cacheWriteLifetimes, readsEarlierPromptFromCache, requestUsages } from 
  * Resume by session id within the hour (spec §2.5 "Resume, cache warm"). Any session reads the shared
  * system prompt and tools from the cache, so the fact is whether the resumed request also reads the
  * earlier conversation. The earlier turn makes a tool call, as work does: after a session's only
- * request the next one re-reads just the system prompt (see the task's Progress log).
+ * request the next one re-reads just the system prompt (docs/engine-check.md).
  */
 export const resumeCacheCheck: Check = {
   id: "engine.resume-cache",

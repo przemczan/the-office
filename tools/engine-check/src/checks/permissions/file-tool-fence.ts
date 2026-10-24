@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import type { Check, Observation } from "../../check.ts";
@@ -9,10 +8,10 @@ import { callsOn, lastOutcome, toolCalls, type AttemptOutcome } from "../tool-ca
 const MARKER = "fence-marker";
 const FILE_TOOLS = ["Read", "Grep", "Glob"] as const;
 
-/** Each tried in its own session: the Office's options alone, and step 3's proposed grant of the session's skills folder. */
-const GRANTS: Readonly<Record<string, (pluginFolder: string) => Partial<SessionSpec>>> = {
-  officeOptions: () => ({}),
-  permissionsAdditionalDirectory: (pluginFolder) => ({ settings: { permissions: { additionalDirectories: [pluginFolder] } } }),
+/** Each tried in its own session: the Office's options, which grant the session's skills folder (spec §5.6), and the same without that grant. */
+const GRANTS: Readonly<Record<string, Partial<SessionSpec>>> = {
+  withoutGrant: { settings: { permissions: { additionalDirectories: [] } } },
+  officeOptions: {},
 };
 
 /** A place a file tool is pointed at: a file for Read, its folder for Grep and Glob. */
@@ -38,14 +37,8 @@ export const fileToolFenceCheck: Check = {
     await writeFile(worktree.file, `${MARKER}\n`);
     const [fileTools, shellReadOfOfficeData] = await Promise.all([
       Promise.all(
-        Object.entries(GRANTS).map(async ([grant, specFor]) => {
-          const sessionId = randomUUID();
-          const session = await startSession({
-            repository,
-            sessionId,
-            skills: [skill("notes", { "reference.md": `${MARKER}\n` })],
-            ...specFor(sandbox.sessionPluginFolder(sessionId)),
-          });
+        Object.entries(GRANTS).map(async ([grant, spec]) => {
+          const session = await startSession({ repository, skills: [skill("notes", { "reference.md": `${MARKER}\n` })], ...spec });
           const skillFolder = join(session.pluginFolder, "skills", "notes");
           const sessionSkillsFolder: Place = { folder: skillFolder, file: join(skillFolder, "reference.md") };
           return [grant, await tryFileTools(session, { worktree, sessionSkillsFolder, officeData })] as const;

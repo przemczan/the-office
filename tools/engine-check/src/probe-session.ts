@@ -20,6 +20,12 @@ import { sessionEnvironment } from "./session-environment.ts";
 /** The cheapest model that proves the point: checks observe the engine, not the model's quality. */
 export const CHECK_MODEL = "claude-haiku-5-5";
 
+/**
+ * The engine's built-in plugins, turned off by id (spec §5.6); a release that adds one shows in
+ * `skills.start-check` as another plugin beside the session's.
+ */
+const BUILT_IN_PLUGINS = ["cc-plugin-agents-md", "cc-plugin-telemetry", "cc-plugin-plugin-authoring"];
+
 /** Hook events the Office registers; a check registers more only when it observes them. */
 const OFFICE_HOOK_EVENTS: readonly HookEvent[] = ["PreToolUse", "PostToolUse", "PermissionDenied"];
 
@@ -33,7 +39,7 @@ export interface SessionSpec {
   readonly additionalPlugins?: readonly string[];
   /** The `skills` allowlist; defaults to `office:<name>` for each of `skills`. */
   readonly allowedSkills?: readonly string[];
-  /** Merged over the spec §5.6 and §6 settings. */
+  /** Merged over the spec §5.4, §5.6 and §6 settings; `permissions` merges a level deeper. */
   readonly settings?: Settings;
   /** Decides a hook call; events without one are recorded and allowed to continue. */
   readonly hooks?: Partial<Record<HookEvent, ProbeHook>>;
@@ -191,7 +197,7 @@ export class ProbeSession {
       settingSources: ["project"],
       plugins: [this.pluginFolder, ...(spec.additionalPlugins ?? [])].map((path) => ({ type: "local", path, skipMcpDiscovery: true })),
       skills: [...(spec.allowedSkills ?? skills.map((skill) => `${SESSION_PLUGIN_NAME}:${skill.name}`))],
-      settings: sessionSettings(spec.settings),
+      settings: sessionSettings(this.pluginFolder, spec.settings),
       permissionPrompts: "none",
       systemPrompt: { type: "preset", preset: "claude_code", excludeDynamicSections: true },
       env: sessionEnvironment(),
@@ -272,12 +278,16 @@ export class ProbeSession {
   }
 }
 
-function sessionSettings(overrides: Settings = {}): Settings {
+function sessionSettings(pluginFolder: string, overrides: Settings = {}): Settings {
   return {
     syncClaudeAiSkills: false,
     syncClaudeAiPlugins: false,
     disableBundledSkills: true,
+    disableClaudeAiConnectors: true,
+    autoMemoryEnabled: false,
+    autoDreamEnabled: false,
+    enabledPlugins: Object.fromEntries(BUILT_IN_PLUGINS.map((plugin) => [`${plugin}@builtin`, false])),
     ...overrides,
-    permissions: { blockReadsOutsideWorkingDirectories: true, ...overrides.permissions },
+    permissions: { blockReadsOutsideWorkingDirectories: true, additionalDirectories: [pluginFolder], ...overrides.permissions },
   };
 }

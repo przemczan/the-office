@@ -1,15 +1,17 @@
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Check } from "../../check.ts";
+import type { ProbeSession } from "../../probe-session.ts";
 import { sortedNames } from "../observations.ts";
 import { rulePath } from "../paths.ts";
-import { callsOn, toolCalls } from "../tool-calls.ts";
+import { callsOn, toolCalls, type ToolCall } from "../tool-calls.ts";
 import { observeCall, seenFirstByPreToolUse } from "./call-observations.ts";
 
 /**
- * The Office's one `PreToolUse` hook must see every call before the engine answers it (spec §6), so
- * the calls cover each way the engine answers under `permissionPrompts: 'none'`: allowed, refused by a
- * deny rule, by the read fence, for want of an approval surface, and a subagent's own call.
+ * The Office's one `PreToolUse` hook must see every call before any rule decides it (spec §6), so the
+ * calls cover each way the engine answers under `permissionPrompts: 'none'`: allowed, refused by the
+ * read fence, for want of an approval surface, and a subagent's own call. A path-scoped deny rule is
+ * the counter-example: it refuses before the hook, which is why the Office sets none.
  */
 export const hookSeesEveryCallCheck: Check = {
   id: "permissions.hook-sees-every-call",
@@ -24,26 +26,41 @@ export const hookSeesEveryCallCheck: Check = {
     await writeFile(secret, "Denied by a rule.\n");
     await writeFile(forSubagent, "Read by a subagent.\n");
     await writeFile(outside, "Outside the working directory.\n");
-    const session = await startSession({ repository, settings: { permissions: { deny: [`Read(${rulePath(secret)})`] } } });
-    session.send(
-      "Make these tool calls one at a time, in this order. Do not retry a refused call and do not use any other tool. Then reply with just OK.\n" +
-        `1. Read ${readme}\n2. Read ${secret}\n3. Read ${outside}\n4. Write ${written} with the content: check`,
-    );
-    await session.nextResult();
-    session.send(
-      `Use the Task tool once to start a general-purpose subagent with this prompt: "Use the Read tool on ${forSubagent}, then reply with just OK." Then reply with just OK.`,
-    );
-    await session.nextResult();
-    const calls = toolCalls(session.messages);
+    const [main, subagent] = await Promise.all([
+      startSession({ repository, settings: { permissions: { deny: [`Read(${rulePath(secret)})`] } } }).then((session) =>
+        runTurn(
+          session,
+          "Make these tool calls one at a time, in this order. Do not retry a refused call and do not use any other tool. Then reply with just OK.\n" +
+            `1. Read ${readme}\n2. Read ${secret}\n3. Read ${outside}\n4. Write ${written} with the content: check`,
+        ),
+      ),
+      // A session of its own: after the refusals above, the model at times declined to start the subagent.
+      startSession({ repository }).then((session) =>
+        runTurn(
+          session,
+          `Use the Task tool once to start a general-purpose subagent with this prompt: "Use the Read tool on ${forSubagent}, then reply with just OK." Then reply with just OK.`,
+        ),
+      ),
+    ]);
     return {
       calls: {
-        allowedRead: observeCall(session, callsOn(calls, "Read", readme)),
-        readDeniedByRule: observeCall(session, callsOn(calls, "Read", secret)),
-        readOutsideWorkingDirectory: observeCall(session, callsOn(calls, "Read", outside)),
-        writeWithoutApproval: observeCall(session, callsOn(calls, "Write", written)),
-        subagentRead: observeCall(session, callsOn(calls, "Read", forSubagent)),
+        allowedRead: observeCall(main.session, callsOn(main.calls, "Read", readme)),
+        readDeniedByRule: observeCall(main.session, callsOn(main.calls, "Read", secret)),
+        readOutsideWorkingDirectory: observeCall(main.session, callsOn(main.calls, "Read", outside)),
+        writeWithoutApproval: observeCall(main.session, callsOn(main.calls, "Write", written)),
+        subagentRead: observeCall(subagent.session, callsOn(subagent.calls, "Read", forSubagent)),
       },
-      toolsNotSeenFirst: sortedNames(calls.filter((call) => !seenFirstByPreToolUse(session, call)).map((call) => call.name)),
+      toolsNotSeenFirst: sortedNames([main, subagent].flatMap(({ session, calls }) => notSeenFirst(session, calls))),
     };
   },
 };
+
+async function runTurn(session: ProbeSession, prompt: string): Promise<{ session: ProbeSession; calls: ToolCall[] }> {
+  session.send(prompt);
+  await session.nextResult();
+  return { session, calls: toolCalls(session.messages) };
+}
+
+function notSeenFirst(session: ProbeSession, calls: readonly ToolCall[]): string[] {
+  return calls.filter((call) => !seenFirstByPreToolUse(session, call)).map((call) => call.name);
+}

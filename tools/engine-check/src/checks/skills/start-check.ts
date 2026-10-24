@@ -23,7 +23,7 @@ export const startCheck: Check = {
       pluginErrors: pluginErrors(init),
       listedSkills: listed,
       listingEqualsSessionSkills: JSON.stringify(listed) === JSON.stringify(sessionSkills),
-      // Engine-version facts: built-in plugins load beside the session plugin, and `init.skills` is not filtered by the allowlist.
+      // Engine-version facts: a built-in plugin the Office does not turn off shows here, and `init.skills` is not filtered by the allowlist.
       otherPlugins: sortedNames(init.plugins.filter((plugin) => plugin.name !== SESSION_PLUGIN_NAME).map((plugin) => plugin.name)),
       initSkillsOutsideSession: sortedNames(init.skills.filter((name) => !sessionSkills.includes(name))),
     };

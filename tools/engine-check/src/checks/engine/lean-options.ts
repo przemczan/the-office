@@ -5,7 +5,7 @@ import { promptTokens, requestUsages, roundedTokens, type RequestUsage } from ".
 
 /**
  * The reference runner's lean set beyond what the Office already passes: an explicit built-in tool
- * list and no MCP servers but the session's own, claude.ai connectors included.
+ * list and no MCP servers but the session's own.
  */
 const LEAN_TOOLS = ["Bash", "Edit", "Glob", "Grep", "PowerShell", "Read", "Skill", "Write"];
 
@@ -26,7 +26,6 @@ export const leanOptionsCheck: Check = {
 
     const lean = await startSession({
       repository: firstWorktree,
-      settings: { disableClaudeAiConnectors: true },
       options: { tools: LEAN_TOOLS, strictMcpConfig: true },
     });
     const leanInit = await lean.initWithoutTurn();

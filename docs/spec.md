@@ -215,9 +215,10 @@ Hexagonal + DDD, modules as bounded contexts: **Work**, **People**, **Pipelines*
 
 - **An `AgentEngine` port, not Claude-shaped:** start a session with a brief, send a message with priority, interrupt, resume, read usage, the tool-permission hook; each adapter declares which capabilities it has and The Office degrades where one is missing. A Role picks its engine and model.
 - **Adapters:** the TypeScript Claude Agent SDK on the user's own login (tier 1); `claude -p` as fallback (tier 2); others later. One long-lived streaming `query()` per session.
-- **Native features used:** message `priority` for barge-in (`next` between tool calls, `later` after the turn, `now` interrupts); `interrupt()` for Stop; resume by session id; the 1-hour prompt cache on the main conversation; in-process Office tools via `createSdkMcpServer()`; `rate_limit_event` and the experimental usage query for the 5-hour and 7-day windows (never the CLI's OAuth token).
+- **Native features used:** message `priority` for barge-in (`next` between tool calls, `later` after the turn); `interrupt()` for Stop, the only way to stop a running command (`now` is not used: it ends the turn but leaves a running command to finish or run on in the background); resume by session id; the 1-hour prompt cache on the main conversation; in-process Office tools via `createSdkMcpServer()`; `rate_limit_event` and the experimental usage query for the 5-hour and 7-day windows (never the CLI's OAuth token).
+- **Engine features turned off:** claude.ai connectors (`disableClaudeAiConnectors`); the engine's built-in plugins (each set false in `enabledPlugins`); auto-memory (`autoMemoryEnabled` and `autoDreamEnabled` false), whose folder outside the worktree is shared by every worktree of a repository and written without a prompt. Memory is The Office's own (Shared memory, tier 2). The built-in tool set stays the engine's default for now; trimming it is open, with its cost measured in [engine-check.md](engine-check.md).
 - **Cache breakers to avoid mid-session:** changing model, effort, MCP servers (with tool search off) or the Claude Code version.
-- **Versions are pinned** (the SDK bundles the binary) and bumped deliberately, re-checking what was read from the binary ([5.6](#56-skills-per-session), [6](#6-permissions-and-safety)).
+- **Versions are pinned** (the SDK bundles the binary) and bumped deliberately, re-checking what was read from the binary ([5.6](#56-skills-per-session), [6](#6-permissions-and-safety)) with the engine check ([engine-check.md](engine-check.md)).
 
 ### 5.5 Git and isolation
 
@@ -229,8 +230,8 @@ Hexagonal + DDD, modules as bounded contexts: **Work**, **People**, **Pipelines*
 
 From [22](../.scratch/the-office/issues/22-skills-per-session.md); details and the "Could not confirm" list in [research/skills-per-session.md](../.scratch/the-office/research/skills-per-session.md).
 
-- No engine option names skill folders, so the Engine adapter writes `<office-data>/sessions/<session-id>/skills/` outside the worktree and the library: `.claude-plugin/plugin.json` (`{"name":"office"}`) and a copy of each skill at its pinned version, regular files only (links and junctions refused). Removed once the session can't be resumed; rebuilt from recorded versions on resume.
-- SDK options: `settingSources: ['project']`; the folder in `plugins`; `skills` listing `office:<name>` for each skill plus the Project's skill names when allowed. Settings: `syncClaudeAiSkills` and `syncClaudeAiPlugins` false, `disableBundledSkills` true, `skillOverrides: "off"` per Project skill when the Project turns them off.
+- No engine option names skill folders, so the Engine adapter writes `<office-data>/sessions/<session-id>/skills/` outside the worktree and the library: `.claude-plugin/plugin.json` (`{"name":"office"}`) and a copy of each skill at its pinned version, regular files only (links and junctions refused). Removed once the session can't be resumed; rebuilt from recorded versions on resume, never with a changed set (the engine announces only added skills on resume, so a removed one would stay named in the conversation).
+- SDK options: `settingSources: ['project']`; the folder in `plugins`; `skills` listing `office:<name>` for each skill plus the Project's skill names when allowed. Settings: `syncClaudeAiSkills` and `syncClaudeAiPlugins` false, `disableBundledSkills` true, `skillOverrides: "off"` per Project skill when the Project turns them off (keyed by the bare name: nested skills are listed bare), and the folder in `permissions.additionalDirectories`, which lets the file tools read it under the read fence ([6](#6-permissions-and-safety)). A `Read` allow rule does not lift the fence, and the `additionalDirectories` option would also load the folder's `.claude` as a project source.
 - The allowlist only filters the context and matches names by suffix; check allowed Project names against the session's other skill names.
 - **At start:** the `init` message lists the plugin with no errors and the skill names in `getContextUsage()` equal the expected set, or the session doesn't start.
 - A per-session `CLAUDE_CONFIG_DIR` is ruled out (credentials and transcripts move with it).
@@ -241,7 +242,7 @@ From [25](../.scratch/the-office/issues/25-agent-permissions.md), amending [05](
 
 - **Threat model:** the rules guard against an Agent's mistakes and keep the user in charge of what leaves the workstation; they do not contain a hostile Agent. Native Windows has no command sandbox, and Linux runs under the same rules so both behave alike; stronger containment (the engine's sandbox on Linux and WSL2, or a separate user) is tier 3.
 - **Two layers:**
-  - **Office rules in code,** which no profile loosens: Agents never change git (read-only `status`, `diff`, `log`, `show` only, every Stage); the HEAD and branch check; worktree restore after tests; the enforced Hard switches; the secrets refusal; one `PreToolUse` hook that sees every call first.
+  - **Office rules in code,** which no profile loosens: Agents never change git (read-only `status`, `diff`, `log`, `show` only, every Stage); the HEAD and branch check; worktree restore after tests; the enforced Hard switches; the secrets refusal; one `PreToolUse` hook that sees every call the engine's own input validation lets through, before any rule decides. The Office sets no path-scoped deny rule, which would refuse before the hook; validation refusals show only in `result.permission_denials` and are logged from there.
   - **A permission profile as data on the Role card:** read, edit, run, web. A Stage may narrow it, never widen it. Editable in tier 2.
 - **Hard switches:**
 
@@ -268,11 +269,13 @@ From [25](../.scratch/the-office/issues/25-agent-permissions.md), amending [05](
 - **Chats only read:** a chat session reads every Project's base branch, searches the web and uses the Office tools (read records, capture an Idea, open a Task); no edits, read-only commands only.
 - **Secrets:** the hook refuses reads, by file tools or in command text, of `~/.ssh`, the Claude credentials in `~/.claude`, `~/.config/gh`, `~/.aws`, browser profiles (where each lives on Windows and on Linux is the platform layer's), and The Office's own data and database credentials. A `.env` inside the worktree stays readable.
 - **Build rules:**
-  - Runtime decisions (holding, refusing with a reason) are made in hooks: `permissionPrompts: 'none'` skips `canUseTool`.
+  - Runtime decisions (holding, refusing with a reason) are made in hooks: `permissionPrompts: 'none'` skips `canUseTool`, and refuses whatever would prompt, so the Office tools are allowed by rule.
+  - Path decisions (secrets, protected paths, what lies outside the worktree) are made in the hook, never in path-scoped deny rules.
+  - Refusals are logged from the hook's own decisions, `permission_denied` messages and `result.permission_denials`; the `PermissionDenied` hook is not relied on, since it fires for none of them.
   - Every shell rule has a PowerShell twin on Windows; a Bash deny rule alone silently turns the PowerShell tool off. On Linux the Bash rules apply alone.
-  - `permissions.blockReadsOutsideWorkingDirectories` is on; shell reads outside are accepted under the threat model.
+  - `permissions.blockReadsOutsideWorkingDirectories` is on and fences Read, Grep and Glob to the worktree and the session's skills folder. Shell reads outside work only for profiles that allow commands (without an allow rule the command would prompt, and is refused); where they work, they are accepted under the threat model.
   - The Office ends a session's leftover processes (dev servers, watchers) when its Stage ends.
-  - `.git`, `.claude` and `.mcp.json` are protected paths the engine never auto-approves; The Office's own writes there go through Office code, not Agents.
+  - `.git`, `.claude` and `.mcp.json` are protected paths: the hook refuses Agents' writes there first, with a clear reason; the engine's own protection (it never auto-approves them, and its refusal reads like any other prompt refusal) stays as a backstop. The Office's own writes there go through Office code, not Agents.
 
 ## 7. Building it
 

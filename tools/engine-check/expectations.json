@@ -1,4 +1,22 @@
 {
+  "engine.auto-memory": {
+    "win32": {
+      "officeOptions": {
+        "memoryFolderAnnounced": false,
+        "memoryFolderCreated": false,
+        "memoryWriteOutcomes": [],
+        "memoryWritesSeenFirstByPreToolUse": true
+      },
+      "engineDefault": {
+        "memoryFolderAnnounced": true,
+        "memoryFolderCreated": true,
+        "memoryWriteOutcomes": [
+          "allowed"
+        ],
+        "memoryWritesSeenFirstByPreToolUse": true
+      }
+    }
+  },
   "engine.decision-wait": {
     "win32": {
       "decisionOpened": true,
@@ -62,7 +80,7 @@
           "Workflow",
           "Write"
         ],
-        "claudeAiConnectorsLoaded": true
+        "claudeAiConnectorsLoaded": false
       },
       "secondWorktreeReadsFirstWorktreesPrefix": true,
       "leanVariant": {
@@ -212,7 +230,7 @@
   "permissions.file-tool-fence": {
     "win32": {
       "fileTools": {
-        "officeOptions": {
+        "withoutGrant": {
           "worktree": {
             "Read": "allowed",
             "Grep": "allowed",
@@ -229,7 +247,7 @@
             "Glob": "denied"
           }
         },
-        "permissionsAdditionalDirectory": {
+        "officeOptions": {
           "worktree": {
             "Read": "allowed",
             "Grep": "allowed",
@@ -493,7 +511,7 @@
   },
   "skills.plugin-folder-reads": {
     "win32": {
-      "officeOptions": {
+      "withoutGrant": {
         "skillFolder": "denied",
         "outsideFile": "denied"
       },
@@ -501,7 +519,7 @@
         "skillFolder": "denied",
         "outsideFile": "denied"
       },
-      "permissionsAdditionalDirectory": {
+      "officeOptions": {
         "skillFolder": "allowed",
         "outsideFile": "denied"
       },
@@ -541,15 +559,10 @@
         "office:beta"
       ],
       "listingEqualsSessionSkills": true,
-      "otherPlugins": [
-        "cc-plugin-agents-md",
-        "cc-plugin-plugin-authoring",
-        "cc-plugin-telemetry"
-      ],
+      "otherPlugins": [],
       "initSkillsOutsideSession": [
         "design",
-        "doctor",
-        "plugin-authoring"
+        "doctor"
       ]
     }
   },
