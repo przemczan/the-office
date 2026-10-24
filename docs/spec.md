@@ -285,7 +285,7 @@ From [13](../.scratch/the-office/issues/13-first-slice.md).
   4. **Work and the Task page:** Ideas, Tasks, planning in a Thread, the Pipeline run, Gates, publishing.
   5. **Now:** Needs you, Running, Since you left, the status strip, Notifications.
   6. **Settings:** limits and appearance.
-- **Build tasks** are files in the new repo, `docs/tasks/NN-slug.md`: Goal and Definition of Done (with how to check it), Read first, Steps (each small, ending in a commit), Progress (the log a session updates as it goes, which replaces a handover). Each fits a few sessions. The repo's CLAUDE.md tells every session to resume from the task's Progress and first unchecked step, and to tick and log before each commit. Tier 1 is sliced by [24](../.scratch/the-office/issues/24-slice-tier-1.md); later tiers when they are reached.
+- **Build tasks** are files in the new repo, `docs/tasks/NN-slug.md`: Goal and Definition of Done (with how to check it), Read first, Steps (each small, ending in a commit), Progress (the log a session updates as it goes, which replaces a handover). Each fits a few sessions. The repo's CLAUDE.md tells every session to resume from the task's Progress and first unchecked step, and to tick and log before each commit. Tier 1 is sliced by [24](../.scratch/the-office/issues/24-slice-tier-1.md) into [docs/tasks/](tasks/README.md), with the build defaults it chose and a coverage table; later tiers when they are reached.
 
 ## 8. Open questions and risks
 

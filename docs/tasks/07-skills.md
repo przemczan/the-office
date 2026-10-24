@@ -1,0 +1,38 @@
+# 07 · Skills: the library and each session's skills
+
+Status: todo
+
+## Goal
+
+The Skills module: one Office-wide library the user fills by uploading or writing skills, each arriving off until reviewed, with an "everyone" flag; Settings → Skills to manage it; the Project page's list of the repository's own skills with their switch; and the per-session plugin folder that gives a session exactly its skills and nothing else, verified at start. Assigning skills to Roles comes with the Role card in task 08.
+
+## Definition of Done
+
+- [ ] The user uploads a `.md` or a zipped folder, or writes a skill in place; it arrives off, its files are shown for review, and turning it on is one click. Links, junctions and files outside the skill's folder in an upload are refused. Check: upload one of each, plus a zip with a link.
+- [ ] Each saved change makes a new version (files hash), and a session records the versions it got. Check: edit a skill, start a session, read the recorded versions.
+- [ ] For a given set (named skills, "everyone" skills, the Project's when allowed), the folder builder writes `<office-data>/sessions/<session-id>/skills/` with `.claude-plugin/plugin.json` and regular-file copies, returns the allowlist and settings of [spec §5.6](../spec.md#56-skills-per-session), and rebuilds the same folder from recorded versions. Check: unit tests on the folder and the options.
+- [ ] A session starts only when `init` lists the plugin with no errors and the skill names in `getContextUsage()` equal the expected set; otherwise it is refused with the difference. Check: a live session with one "everyone" skill on the Test Project, and a test with a mismatch.
+- [ ] The Project page lists the repository's `.claude/skills` read-only with "Use this Project's skills"; turned off, the session settings carry `skillOverrides: "off"` for each, and an allowed Project skill name that would also match another skill by suffix is reported. Check: a test repository with a Project skill, switched both ways.
+- [ ] Session folders are removed once their session can't be resumed. Check: a test of the cleanup rule.
+
+## Read first
+
+- [Spec §2.6](../spec.md#26-skills), [§5.6](../spec.md#56-skills-per-session), [§9](../spec.md#9-defaults-chosen-in-this-spec) (skills you write arrive off; review is one click).
+- [engine-check.md](../engine-check.md): the skills results.
+- [research/skills-per-session.md](../../.scratch/the-office/research/skills-per-session.md) "Recommended mechanism" and §6 "Interactions to plan for".
+- Click-through: the Skills section and its dialogs in [app/settings.js](../../.scratch/the-office/prototypes/app/settings.js); the Skills block in [app/projects.js](../../.scratch/the-office/prototypes/app/projects.js).
+
+Build from Settings → Skills: the library table (skill, source, who has it, state), Add a skill with Upload and Write, Review, Remove. Leave out: Install from a source, update review, and "Uses this week".
+
+## Steps
+
+- [ ] 1. Skills module domain and persistence: skill record (name, description, source, version, enabled, files hash), versions, the "everyone" flag, the library folder under the Office data directory; rules for names and descriptions (short, since the listing gets about 1% of the context). Commit.
+- [ ] 2. Adding: upload (`.md`, zip) and write in place, with link and path checks; arrive off; review shows the files and flags scripts; turn on, turn off, remove. Commit.
+- [ ] 3. The session folder builder and the session options it returns (allowlist, settings, Project skill overrides, the suffix check), with cleanup and rebuild from recorded versions. Commit.
+- [ ] 4. The start check in the Engine adapter: compare `init` and `getContextUsage()` with the expected set, refuse with the difference. Commit.
+- [ ] 5. Settings → Skills in `apps/web` (Settings gets its section navigation here), and the Project page's Skills block with its switch. Commit.
+- [ ] 6. Check on the Test Project: write a skill, review it, mark it for everyone, start a session that lists exactly that skill and the Project's; log the context usage. Commit.
+
+## Progress
+
+<!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next; anything surprising. -->
