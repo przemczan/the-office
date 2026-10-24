@@ -7,6 +7,9 @@
     "packages/*",
     "tools/*"
   ],
+  "scripts": {
+    "engine-check": "npm run check --workspace @the-office/engine-check --"
+  },
   "engines": {
     "node": ">=22.18 <23"
   },

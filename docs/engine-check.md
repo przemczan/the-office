@@ -2,6 +2,14 @@
 
 What tier 1 takes on trust about the engine, checked against live sessions on the pinned versions: the skills mechanism of [spec §5.6](spec.md#56-skills-per-session), the permission build rules of [§6](spec.md#6-permissions-and-safety) and the engine behaviours of [§5.4](spec.md#54-the-engine). The check lives in [tools/engine-check](../tools/engine-check); each entry below names the check id it shares with `tools/engine-check/expectations.json`, where the observed facts are recorded per platform.
 
+## When to run
+
+- **On every SDK bump, before the bump is merged,** on Windows and on Linux: `npm run engine-check`. It exits non-zero when any check differs from what is recorded for that platform, has nothing recorded, or fails. A difference is read, its entry here updated (and the spec amended with the user when it contradicts it), then recorded with `npm run engine-check -- --record`.
+- **Once per bump, also the slow check:** `npm run engine-check -- --only engine.decision-wait --include-slow`, which waits an hour on purpose.
+- **To re-check one area:** `--only <id prefix>`, for example `--only permissions.`; `npm run engine-check -- --help` lists the options.
+
+Every run writes `tools/engine-check/out/report-<platform>.json` with each session's messages and hook calls, and prints its tokens. A full run costs a few minutes and, on `claude-haiku-5-5`, about 15k output tokens and 2.7M cache-read tokens.
+
 ## Pinned versions
 
 | What | Version |
@@ -34,15 +42,16 @@ A check records facts that hold run to run (booleans, outcomes, sorted names, to
 
 ## Spec amendments
 
-Results that contradicted the spec, and how the spec reads now. Each was decided by the user on 2026-10-24 and 2026-10-25.
+Results that contradicted or went beyond the spec, and how the spec reads now. Each change was agreed with the user on 2026-10-24 or 2026-10-25.
 
 | Check | Spec | Was | Now |
 |---|---|---|---|
 | `skills.plugin-folder-reads`, `permissions.file-tool-fence` | §5.6, §6 | "Everyone also reads their session's skills folder", with no grant named | The folder is in `permissions.additionalDirectories`; a `Read` allow rule does not lift the fence |
 | `permissions.hook-sees-every-call` | §6 | One `PreToolUse` hook sees every call first | It sees every call the engine's input validation lets through, before any rule; no path-scoped deny rules; path decisions are the hook's |
-| `permissions.hook-sees-every-call`, `engine.office-tool` | §6 | Refusals logged on the Thread | Logged from the hook's decisions, `permission_denied` messages and `result.permission_denials`; the `PermissionDenied` hook is not relied on |
+| `permissions.hook-sees-every-call` | §6 | Refusals logged on the Thread | Logged from the hook's decisions, `permission_denied` messages and `result.permission_denials`; the `PermissionDenied` hook is not relied on |
 | `permissions.file-tool-fence` | §6 | Shell reads outside are accepted | They work only for profiles that allow commands |
 | `permissions.protected-paths` | §6 | The engine never auto-approves the protected paths | The hook refuses Agents' writes there first, with a clear reason; the engine stays a backstop |
+| `engine.office-tool` | §6 | Not covered | The Office allows its own tools by rule: `permissionPrompts: 'none'` refuses whatever would prompt |
 | `engine.priority-now` | §5.4 | `now` interrupts | `now` is not used; `interrupt()` is the only way to stop a running command |
 | `engine.auto-memory`, `engine.lean-options`, `skills.start-check` | §5.4 | Not covered | claude.ai connectors, built-in plugins and auto-memory are off |
 | `skills.resume`, `skills.overrides-off` | §5.6 | Rebuilt on resume; `skillOverrides` per Project skill | Never a changed set on resume; overrides keyed by the bare name |
@@ -193,7 +202,7 @@ Slow: about an hour; runs only with `--include-slow`. Recorded 2026-10-24 under 
 
 - **Run:** a session asked to save a fact to its auto-memory, under the Office's options and with `autoMemoryEnabled: true` (the engine's default).
 - **Observed:** under the Office's options `init` names no memory folder, the model has none to write to, and no folder is created. With the engine's default, `init.memory_paths` (not in the typings) names `~/.claude/projects/<repository>/memory/`, and the model writes there with no prompt despite the read fence and `permissionPrompts: 'none'`; the hook sees those writes first.
-- **Meaning:** §5.4 now turns auto-memory off: its folder is outside the worktree, shared by every worktree of a repository and every Role, and outside the Brief. Memory stays The Office's own (Shared memory, tier 2).
+- **Meaning:** §5.4 now turns auto-memory off: its folder is outside the worktree, shared by every worktree of a repository and every Role, and outside the Brief. Memory stays The Office's own (Shared memory, tier 2). The engine auto-allows writes to some of its own paths outside the worktree, so the read fence and `permissionPrompts: 'none'` do not keep writes in the worktree: the hook fences writes itself (task 06).
 
 ## Other observations
 
@@ -207,4 +216,5 @@ Seen while running the checks, recorded so a bump can be compared against them.
 ## Not checked
 
 - Items that concern only `claude -p` (tier 2), among them whether the Skill tool asks for permission by default.
+- Which engine-owned paths outside the worktree, other than the auto-memory folder, the engine auto-allows writes to. The hook fences writes regardless.
 - From the research's "Could not confirm": whether `forkSession` resumes read the parent's cache, a non-child process posting into a session's inbox on Windows, concurrency limits beyond three sessions and how cache reads count against plan quota, `projectConfigRoot` and `CLAUDE_SECURESTORAGE_CONFIG_DIR`. Tier 1 uses none of them.

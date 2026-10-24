@@ -62,7 +62,7 @@ Every tier 1 item of the spec and the task that builds it. A row with no task is
 | §5.1 | Lean harness and a stable cached prefix | 06 |
 | §6 | The `PreToolUse` hook; profiles; git deny; secrets; PowerShell twins on Windows; protected paths; reads fenced | 06 |
 | §6 | Leftover processes ended | 06 (mechanism), 12 (at Stage end) |
-| §5.4 | `rate_limit_event` for the 5-hour window; usage per call | 06 |
+| §5.4 | The 5-hour and 7-day windows from the usage query on each `rate_limit_event`; usage per call | 06 |
 | §2.6, §5.6 | Skill library, uploads and skills written in place, off until reviewed, "everyone"; per-session plugin folder; the start check | 07 |
 | §3 | The Project's skills listed with their switch | 07 |
 | §2.2 | Planner, Developer, Reviewer from presets; the Role card form; Hard switches; Task limit; preset profiles shown | 08 |
