@@ -12,6 +12,7 @@ Pin the Agent SDK version and settle, against live sessions on it, everything ti
 - [ ] Every check listed in the Steps has a recorded result on the pinned version: what was run, what was observed, what it means for the build. Check: [engine-check.md](../engine-check.md) has one entry per check, none blank.
 - [ ] Every result that contradicts the spec has amended the spec in the same task, and the user has been told. Check: the Progress log names each amendment.
 - [ ] `npm run engine-check` re-runs the checks and exits non-zero when a result differs from the recorded one. Check: run it, then break one expectation and see it fail.
+- [ ] The checks have run on Windows and on Linux, with results recorded per platform where they differ; PowerShell checks run on Windows only. Check: [engine-check.md](../engine-check.md) names both runs.
 
 ## Read first
 
@@ -57,7 +58,8 @@ Each check runs in a throwaway git repository created in a temp folder, uses the
 
   Commit.
 - [ ] 6. Write [engine-check.md](../engine-check.md): the pinned versions, then one entry per check (run, observed, meaning for the build). Amend spec §5.4, §5.6 or §6 where a result contradicts it, tell the user, and log each amendment. Commit.
-- [ ] 7. `npm run engine-check` at the root runs the whole check; [engine-check.md](../engine-check.md) opens with when to run it (every SDK bump, before the bump is merged). Commit.
+- [ ] 7. `npm run engine-check` at the root runs the whole check; [engine-check.md](../engine-check.md) opens with when to run it (every SDK bump, before the bump is merged, on both platforms). Commit.
+- [ ] 8. Run the check on Linux: ask the user for a Linux system signed in to Claude Code (a WSL distribution or another machine), run it there, and record what differs. Commit.
 
 ## Progress
 

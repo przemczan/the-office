@@ -7,8 +7,8 @@ A single-user workspace run like an office, built from [docs/spec.md](docs/spec.
 1. Open [docs/tasks/README.md](docs/tasks/README.md). The current task is the first row that is not `done`.
 2. Open that task's file. Read its Read first, then its Progress, and continue from its first unchecked step. A task still `todo` becomes `in progress`, in its file and in the README.
 3. Work one step at a time. A step ends in one commit holding its code, the ticked step and a Progress line (`- YYYY-MM-DD · step N: what changed; what is next; anything surprising`). The log is the handover: the next session reads nothing else.
-4. Before each commit, `npm run verify` passes (task 01 runs before it exists and states its own check).
-5. When every Definition of Done box is ticked, with its check run, set the task to `done` in its file and the README, and commit.
+4. Before each commit, `npm run verify` passes (task 01 runs before it exists and states its own check). A step that touches the platform layer also passes `npm run verify:linux`.
+5. When every Definition of Done box is ticked, with its check run, and `npm run verify:linux` passes too, set the task to `done` in its file and the README, and commit.
 
 ## Rules
 

@@ -28,6 +28,7 @@ Tier 1 of [the spec](../spec.md#tier-1-the-base), sliced into tasks in build ord
 
 Choices the spec leaves open, made when tier 1 was sliced. Change one only with the user, and update this list in the same commit.
 
+- **Windows and Linux:** The Office runs on both ([spec §5.1](../spec.md#51-shape)). Operating-system differences live only in the service's `src/platform/os/`. `npm run verify` passes on both: on the Windows workstation, Linux is checked with `npm run verify:linux`, which runs the same checks in a `node:22` container. A task's check with real sessions runs on Linux too when a Linux system with the user signed in to Claude Code is available (a WSL distribution or another machine); the task asks the user.
 - **Workspace:** npm workspaces; Node 22 pinned in `.nvmrc` and `engines`. Layout:
   - `apps/service`: the NestJS service. Each module of [spec §5.3](../spec.md#53-modules) is `src/modules/<module>/` with `domain/`, `application/`, `ports/` and `adapters/`; shared plumbing (config, database, domain events, telemetry, WebSocket) is `src/platform/`.
   - `apps/web`: React + Vite, `src/shell/` and `src/surfaces/<surface>/`.
@@ -35,7 +36,7 @@ Choices the spec leaves open, made when tier 1 was sliced. Change one only with 
   - `packages/ui`: the design system for React. A typed barrel over `design-system/components/**` (the `.jsx` files with their `.d.ts`), plus the theme layers. `design-system/` itself stays as exported, so it can be re-exported from claude.ai.
   - `tools/engine-check`: the engine check from task 01, re-run on every SDK bump.
 - **Checks:** TypeScript strict everywhere; oxlint, with `design-system/_adherence.oxlintrc.json` applied to `apps/web`; Prettier; Vitest (with SWC for Nest's decorator metadata); Playwright for the web. `npm run verify` runs all of them.
-- **Office data directory:** `OFFICE_DATA_DIR`, default `%LOCALAPPDATA%\the-office`, holding `worktrees/`, `sessions/`, `skills/` (the library) and `attachments/`. Kept short for Windows `MAX_PATH`.
+- **Office data directory:** `OFFICE_DATA_DIR`, default `%LOCALAPPDATA%\the-office` on Windows and `$XDG_DATA_HOME/the-office` (or `~/.local/share/the-office`) on Linux, holding `worktrees/`, `sessions/`, `skills/` (the library) and `attachments/`. Kept short for Windows `MAX_PATH`.
 - **The scripted engine adapter** replays recorded engine output, so every test of Conversations and Pipelines runs without model calls ([research §11.9](../../.scratch/the-office/research/factory-reference.md#119-agentstagerunner-seam-and-scripted-end-to-end-tests)). Real model calls happen only in the engine check and in each task's check on the Test Project.
 - **Settings → Skills is built with People** (task 07), because the Planner's chat needs the skill library; task 17 adds limits and appearance to Settings.
 - **The click-through is built tier 1 only.** Each task names the prototype parts it builds; the tier 2 and 3 parts of the same screens are left out, with no placeholders or disabled controls.
@@ -48,6 +49,7 @@ Every tier 1 item of the spec and the task that builds it. A row with no task is
 |---|---|---|
 | §5.4, §5.6, §6 | The "Could not confirm" checks and permission build rules on pinned versions | 01 |
 | §5.1, §5.2 | One Node service on `localhost`; Postgres and `otel-lgtm` in Docker; WebSocket push | 02 |
+| §5.1 | Windows and Linux: the platform layer; `verify` on both | 02 (layer, Linux check), 05 and 06 (their platform parts), 17 (a run on Linux) |
 | §5.3 | Modules as bounded contexts; domain events for every state change | 02 (pattern), each module's task |
 | §5.2 | OpenTelemetry: a trace per Task, spans per Stage and engine call with tokens; metrics; logs | 02 (setup), 06 (engine calls), 12 (Stages) |
 | §4 | A3 · Desk: rail, top bar with Idea, status strip frame, panels; theme layers with Light and Dark; brand lockup | 03 |
@@ -58,7 +60,7 @@ Every tier 1 item of the spec and the task that builds it. A row with no task is
 | §5.5 | Environment as data; the environment check in a fresh worktree | 05 |
 | §5.4 | `AgentEngine` port with capability flags; Agent SDK adapter; scripted adapter | 06 |
 | §5.1 | Lean harness and a stable cached prefix | 06 |
-| §6 | The `PreToolUse` hook; profiles; git deny; secrets; PowerShell twins; protected paths; reads fenced | 06 |
+| §6 | The `PreToolUse` hook; profiles; git deny; secrets; PowerShell twins on Windows; protected paths; reads fenced | 06 |
 | §6 | Leftover processes ended | 06 (mechanism), 12 (at Stage end) |
 | §5.4 | `rate_limit_event` for the 5-hour window; usage per call | 06 |
 | §2.6, §5.6 | Skill library, uploads and skills written in place, off until reviewed, "everyone"; per-session plugin folder; the start check | 07 |

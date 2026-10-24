@@ -10,9 +10,9 @@ The Engine module runs sessions behind an `AgentEngine` port that isn't Claude-s
 
 - [ ] The port covers: start a session with a brief and options, send a message with a priority, interrupt, resume by session id, end (with its process tree), and a typed stream of messages, tool calls, usage and rate-limit events; each adapter declares its capabilities. Check: the port's contract tests run against both adapters.
 - [ ] The Agent SDK adapter starts sessions with the lean option set [engine-check.md](../engine-check.md) settled, and two sessions in different worktrees of one repository share their cached prefix. Check: the adapter's integration test reads cache tokens on the second session.
-- [ ] The hook refuses, with a reason the Agent reads: a git command that changes anything; reads of the secrets of spec §6; anything outside the given profile. Each shell rule has a PowerShell twin. Check: unit tests per rule for Bash and PowerShell, and one live session that is refused and reads the reason.
+- [ ] The hook refuses, with a reason the Agent reads: a git command that changes anything; reads of the secrets of spec §6; anything outside the given profile. Each shell rule has a PowerShell twin on Windows, and the secret paths come from the platform layer for each operating system. Check: unit tests per rule for Bash and PowerShell on both platforms' paths, and one live session that is refused and reads the reason.
 - [ ] Every engine call is a span with input, output, cache-read and cache-write tokens and cost; `rate_limit_event` updates an Office-wide window state (5-hour and 7-day utilization and reset time) published as a domain event. Check: the trace in Grafana and the event in a test.
-- [ ] Ending a session ends every process it started (dev servers, watchers). Check: a session that starts a long-running process, then end it and look for the process.
+- [ ] Ending a session ends every process it started (dev servers, watchers): its process tree on Windows, its process group on Linux, both behind the platform layer. Check: a session that starts a long-running process, then end it and look for the process, on both platforms.
 - [ ] Office tools: modules register in-process tools on one registry, and a session gets the ones its caller names. Check: a test tool called from a live session.
 
 ## Read first

@@ -22,7 +22,7 @@ From [11](../.scratch/the-office/issues/11-surfaces.md), [16](../.scratch/the-of
 
 From [07](../.scratch/the-office/issues/07-work-model.md), with [08](../.scratch/the-office/issues/08-pipelines.md) and [19](../.scratch/the-office/issues/19-work-mockup.md).
 
-- **Project:** a repository The Office works on, with its own commands (install, build, lint, test, publish), default Pipeline, publishing mode, environment and skills setting.
+- **Project:** a repository The Office works on, with its own commands (install, build, lint, test), default Pipeline, publishing mode (push + PR, or merge, run by The Office's own code; see [9](#9-defaults-chosen-in-this-spec)), environment and skills setting.
 - **Idea:** captured quickly, in a Project or Office-wide. States: new, shaped, dropped. Shaping makes an Initiative or a Task and keeps the Idea as the origin link; its Attachments move with it.
 - **Initiative** (tier 2): Office-level, spans Projects; each of its Tasks is in one Project. States: shaping (with the CTO), active, done (all Tasks done), dropped. Order inside it is dependencies plus manual order.
 - **Task:** one unit of work in one Project, done when its **Definition of Done** is met: a published change, an Attachment, or both.
@@ -144,7 +144,7 @@ From [13](../.scratch/the-office/issues/13-first-slice.md), with [16](../.scratc
 | Pipelines | All three Stage kinds; Full, Quick fix, Document; on-failure loops and limits; optional Stages; the Planner proposing a Pipeline; "Edit for this Task"; Gates with the Changes tab; publish as push + PR or merge; one Task in progress per Project |
 | Context policy | All of [2.5](#25-context-policy) |
 | Skills | The library from uploads and skills written in place; review before use; assignment on the Role card; "everyone"; the per-session plugin folder |
-| Permissions | All of [6](#6-permissions-and-safety); every Consult value falls back to the user; the preset profiles, not yet editable |
+| Permissions | All of [6](#6-permissions-and-safety) except holding an enforced Hard switch's call, which no tier 1 Role needs ([9](#9-defaults-chosen-in-this-spec)); every Consult value falls back to the user; the preset profiles, not yet editable |
 | Shell | A3 · Desk: rail, top bar with Idea, status strip (needs you, tokens today, 5-hour window); Now; the Needs you panel; the Task page; the chat modal; the theme layers with Light and Dark |
 | Notifications | In-app and desktop; the kinds tree in code |
 
@@ -161,7 +161,7 @@ From [13](../.scratch/the-office/issues/13-first-slice.md), with [16](../.scratc
 - **Safety:** the fire alarm.
 - **Phone:** HTTPS on the LAN with a local certificate authority, the PIN, the installed app, phone views, phone push.
 - **Notifications:** the kinds × channels grid; quiet hours; batching; the at-desk hold.
-- **Running:** start at login (Windows service or scheduled task); the `-p` fallback adapter.
+- **Running:** start at login (a Windows service or scheduled task; a systemd user service on Linux); the `-p` fallback adapter.
 
 ### Tier 3: on need
 
@@ -192,6 +192,7 @@ From [12](../.scratch/the-office/issues/12-architecture.md) (amended by [13](../
 ### 5.1 Shape
 
 - **One long-running Node service** on the workstation hosts the API, the web UI, the agent supervisor and the database connection. Agents are child processes (the SDK spawns the Claude Code binary per session). No separate runner, no remote protocol; the supervisor sits behind its own boundary so it could become a separate host later. Tier 1 serves `localhost` only; the LAN with a PIN and HTTPS come with the phone in tier 2.
+- **Windows and Linux.** The workstation runs either, and every tier is built and checked on both. What differs (the Office data directory, shells and their rules, finding a command that can't run, ending a process tree, path length limits, where secrets live, starting at login) sits behind one platform layer in the service; nothing else branches on the operating system.
 - **Fresh code; functionality copied, not code.** What [03](../.scratch/the-office/issues/03-factory-reference.md) marks "keep" is re-implemented from its described behaviour ([research/factory-reference.md](../.scratch/the-office/research/factory-reference.md)): the lean harness with a stable cached prefix, the resume-vs-fresh rule with a standalone brief, the flat Stage result envelope, Office-owned git with a worktree per Task, the environment as data verified in a fresh worktree, loop limits and budgets, telemetry tagged with prompt features, tool output filtering and the flaky-test re-run, the screenshot trust model, the layered settings merge. Dropped: remote runners, leases, the runner protocol, the `/factory` plugin and MCP entry.
 
 ### 5.2 Stack
@@ -238,7 +239,7 @@ From [22](../.scratch/the-office/issues/22-skills-per-session.md); details and t
 
 From [25](../.scratch/the-office/issues/25-agent-permissions.md), amending [05](../.scratch/the-office/issues/05-roles.md), [08](../.scratch/the-office/issues/08-pipelines.md), [09](../.scratch/the-office/issues/09-conversations.md).
 
-- **Threat model:** the rules guard against an Agent's mistakes and keep the user in charge of what leaves the workstation; they do not contain a hostile Agent. Native Windows has no command sandbox; stronger containment is tier 3.
+- **Threat model:** the rules guard against an Agent's mistakes and keep the user in charge of what leaves the workstation; they do not contain a hostile Agent. Native Windows has no command sandbox, and Linux runs under the same rules so both behave alike; stronger containment (the engine's sandbox on Linux and WSL2, or a separate user) is tier 3.
 - **Two layers:**
   - **Office rules in code,** which no profile loosens: Agents never change git (read-only `status`, `diff`, `log`, `show` only, every Stage); the HEAD and branch check; worktree restore after tests; the enforced Hard switches; the secrets refusal; one `PreToolUse` hook that sees every call first.
   - **A permission profile as data on the Role card:** read, edit, run, web. A Stage may narrow it, never widen it. Editable in tier 2.
@@ -265,10 +266,10 @@ From [25](../.scratch/the-office/issues/25-agent-permissions.md), amending [05](
 
   Everyone also reads their session's skills folder and uses the Office tools.
 - **Chats only read:** a chat session reads every Project's base branch, searches the web and uses the Office tools (read records, capture an Idea, open a Task); no edits, read-only commands only.
-- **Secrets:** the hook refuses reads, by file tools or in command text, of `~/.ssh`, the Claude credentials in `~/.claude`, `~/.config/gh`, `~/.aws`, browser profiles, and The Office's own data and database credentials. A `.env` inside the worktree stays readable.
+- **Secrets:** the hook refuses reads, by file tools or in command text, of `~/.ssh`, the Claude credentials in `~/.claude`, `~/.config/gh`, `~/.aws`, browser profiles (where each lives on Windows and on Linux is the platform layer's), and The Office's own data and database credentials. A `.env` inside the worktree stays readable.
 - **Build rules:**
   - Runtime decisions (holding, refusing with a reason) are made in hooks: `permissionPrompts: 'none'` skips `canUseTool`.
-  - Every shell rule has a PowerShell twin; a Bash deny rule alone silently turns the PowerShell tool off.
+  - Every shell rule has a PowerShell twin on Windows; a Bash deny rule alone silently turns the PowerShell tool off. On Linux the Bash rules apply alone.
   - `permissions.blockReadsOutsideWorkingDirectories` is on; shell reads outside are accepted under the threat model.
   - The Office ends a session's leftover processes (dev servers, watchers) when its Stage ends.
   - `.git`, `.claude` and `.mcp.json` are protected paths the engine never auto-approves; The Office's own writes there go through Office code, not Agents.
@@ -300,7 +301,7 @@ None blocks tier 1. Each becomes a ticket when its tier starts.
 
 - **Subscription terms** for programmatic use are being revised; a 24/7 multi-agent office is a gray zone under "ordinary, individual usage". Mitigation: the engine boundary, pinned versions, the `-p` fallback in tier 2 ([02](../.scratch/the-office/issues/02-agent-engines.md)).
 - **Undocumented internals:** the skills allowlist's suffix matching and plugin detection were read from the binary, and the permission behaviour comes from docs fetched as summaries. Re-check on every version bump; the spike checks them first.
-- **No sandbox on native Windows:** an Agent's shell can read and write outside the worktree; installs and outside publishing rest on Agents following rules. Backstops: per-Stage commits, the HEAD check, the Office tools.
+- **No sandbox** (none on native Windows, none used on Linux until tier 3): an Agent's shell can read and write outside the worktree; installs and outside publishing rest on Agents following rules. Backstops: per-Stage commits, the HEAD check, the Office tools.
 - **Quota:** parallel sessions spend quota about N times as fast, and plan windows are account-wide, so per-session quota is only an estimate.
 - **The PowerShell tool is a preview** with its own rule quirks.
 - **Cache:** a Decision answered after more than an hour resumes on a cold cache; the label shows it, and the Context policy may start fresh.
@@ -319,3 +320,10 @@ Gaps no ticket settled, filled with the simplest choice consistent with the tick
 - **Thread titles** come from the first message and can be renamed (tier 1).
 - **Skills is its own module,** next to People and Engine, since it owns the library, versions and assignment that the Engine adapter reads when it builds a session's folder ([12](../.scratch/the-office/issues/12-architecture.md) predates [23](../.scratch/the-office/issues/23-skills.md)).
 - **The Office's own credentials for publishing** (git push, `gh`) are the user's, used by Office code only; Agents never see them.
+
+Added while slicing tier 1 ([24](../.scratch/the-office/issues/24-slice-tier-1.md)), accepted by the user on 2026-10-24:
+
+- **Publish is a publishing mode, not a Project command:** push + PR, or merge, run by The Office's own git code, which is what keeps the credentials out of Agents' reach. The click-through's "Publish" command row becomes the publishing mode.
+- **Holding an enforced Hard switch's call waits for tier 2:** in tier 1 no Role holds "change Roles" and git is always enforced, so no call is ever held. Agents ask through the consult tool for the followed switches.
+- **Agents wait on the user without blocking a tool call:** "open a Decision" and consult return at once and the Agent ends its turn; the answer arrives as the session's next message, continued through the Context policy.
+- **Windows and Linux** are both supported from tier 1 ([5.1](#51-shape)).
