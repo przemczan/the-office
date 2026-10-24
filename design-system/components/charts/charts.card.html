@@ -1,0 +1,21 @@
+<!-- @dsCard group="Components" viewport="700x460" name="Charts" subtitle="LineChart, BarChart, DonutChart, Sparkline" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{padding:20px;background:var(--bg)}.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.col{display:flex;flex-direction:column;gap:14px}.lbl{font:400 11px/1 var(--font-mono);color:var(--fg-3);width:64px;flex:none}</style></head><body><div id="root"></div>
+<script type="text/babel">
+const NS=window.NotNullSoftAdminDesignSystem_a508e9;
+const {LineChart,BarChart,DonutChart,Sparkline,Card,SegmentedControl}=NS;
+const days=Array.from({length:14},(_,i)=>(i+1)+' Oct');const cur=[32,41,38,45,52,48,61,58,64,70,66,74,81,78].map(v=>v*100);const prev=[30,33,35,34,40,42,44,43,47,50,49,52,55,54].map(v=>v*100);
+function App(){const[r,setR]=React.useState('14d');
+return <div className="col">
+<Card title="Revenue" subtitle="Daily, USD" actions={<SegmentedControl size="sm" options={['7d','14d','30d']} value={r} onChange={setR}/>}><LineChart height={170} labels={days} series={[{name:'This period',data:cur},{name:'Previous period',data:prev,color:'var(--chart-6)',dashed:true}]} yFormat={v=>'$'+(v>=1000?(v/1000)+'k':v)}/></Card>
+<div style={{display:'grid',gridTemplateColumns:'1.3fr 1fr',gap:12}}><Card title="Signups by plan"><BarChart height={130} stacked labels={['Mon','Tue','Wed','Thu','Fri','Sat','Sun']} series={[{name:'Pro',data:[42,51,48,60,55,22,18]},{name:'Team',data:[20,24,22,28,30,10,8],color:'var(--chart-2)'}]}/></Card>
+<Card title="Users by status"><DonutChart size={110} thickness={14} centerValue="1,284" centerLabel="Total" data={[{label:'Active',value:1040},{label:'Invited',value:156},{label:'Suspended',value:88}]}/></Card></div>
+<div className="row"><span className="lbl">sparkline</span><Sparkline data={[3,4,4,6,5,7,8]} color="var(--positive)"/><Sparkline data={[9,8,9,8,7,8,6]} color="var(--negative)"/><Sparkline data={[5,6,4,7,5,6,5]}/></div>
+</div>}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script></body></html>

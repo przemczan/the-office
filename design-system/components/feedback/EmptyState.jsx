@@ -1,0 +1,3 @@
+import React from 'react';
+import {Icon} from '../core/Icon.jsx';
+export function EmptyState({icon='inbox',title,description,action,compact=false,style}){return <div style={{display:'flex',flexDirection:'column',alignItems:'center',textAlign:'center',gap:12,padding:compact?'24px 16px':'48px 24px',...style}}><span style={{width:40,height:40,borderRadius:'var(--radius-lg)',display:'grid',placeItems:'center',background:'var(--surface-sunken)',border:'1px solid var(--border)',color:'var(--fg-3)'}}><Icon name={icon} size={20}/></span><div style={{maxWidth:360}}><div style={{font:'var(--type-card-title)',color:'var(--fg-1)'}}>{title}</div>{description&&<div style={{font:'var(--type-body-sm)',color:'var(--fg-3)',marginTop:4}}>{description}</div>}</div>{action}</div>;}

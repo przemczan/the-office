@@ -1,0 +1,6 @@
+import React from 'react';
+function useHP(){const[h,sh]=React.useState(false);const[p,sp]=React.useState(false);return[{h,p},{onMouseEnter:()=>sh(true),onMouseLeave:()=>{sh(false);sp(false)},onMouseDown:()=>sp(true),onMouseUp:()=>sp(false)}];}
+export function IconButton({icon,label,variant='ghost',size='md',disabled=false,onClick,style,...rest}){const[s,ev]=useHP();const d={xs:24,sm:28,md:32,lg:40}[size]||32;
+const st=(a,b,c)=>disabled?a:s.p?c:s.h?b:a;
+const V={ghost:{bg:st('transparent','var(--control-hover)','var(--control-press)'),fg:s.h?'var(--fg-1)':'var(--fg-2)',bd:'transparent'},secondary:{bg:st('var(--surface)','var(--control-hover)','var(--control-press)'),fg:'var(--fg-1)',bd:'var(--border-strong)'},primary:{bg:st('var(--primary)','var(--primary-hover)','var(--primary-press)'),fg:'var(--primary-fg)',bd:'transparent'}}[variant]||{};
+return <button type="button" aria-label={label} title={label} disabled={disabled} onClick={onClick} {...ev} {...rest} style={{width:d,height:d,display:'inline-grid',placeItems:'center',flex:'none',padding:0,color:V.fg,background:V.bg,border:`1px solid ${V.bd}`,borderRadius:'var(--radius-control)',cursor:disabled?'not-allowed':'pointer',opacity:disabled?.45:1,transition:'background var(--duration-fast) var(--ease-out),color var(--duration-fast)',...style}}>{icon}</button>;}

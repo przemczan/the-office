@@ -1,0 +1,2 @@
+import React from 'react';
+export function Skeleton({width='100%',height=12,radius=4,style}){return <span aria-hidden="true" style={{display:'block',width,height,borderRadius:radius,background:'linear-gradient(90deg,var(--surface-sunken) 0%,var(--border-subtle) 50%,var(--surface-sunken) 100%)',backgroundSize:'200% 100%',animation:'nns-shimmer 1.4s ease-in-out infinite',...style}}><style>{'@keyframes nns-shimmer{from{background-position:100% 0}to{background-position:-100% 0}}'}</style></span>;}

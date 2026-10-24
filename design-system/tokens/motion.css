@@ -1,0 +1,5 @@
+:root{
+--ease-out:cubic-bezier(.2,.8,.2,1);/* @kind other */--ease-in-out:cubic-bezier(.65,0,.35,1);/* @kind other */
+--duration-instant:80ms;/* @kind other */--duration-fast:120ms;/* @kind other */--duration-base:200ms;/* @kind other */--duration-slow:280ms;/* @kind other */
+--z-base:0;/* @kind other */--z-sticky:100;/* @kind other */--z-dropdown:200;/* @kind other */--z-drawer:300;/* @kind other */--z-modal:400;/* @kind other */--z-toast:500;/* @kind other */--z-tooltip:600;/* @kind other */
+}

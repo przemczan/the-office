@@ -1,0 +1,4 @@
+import React from 'react';
+export function Sparkline({data=[],width=96,height=28,color='var(--chart-1)',area=true,strokeWidth=1.5,style}){if(data.length<2)return <svg width={width} height={height}/>;const mn=Math.min(...data),mx=Math.max(...data),rg=mx-mn||1;const p=strokeWidth;
+const pts=data.map((v,i)=>[p+i*(width-2*p)/(data.length-1),p+(height-2*p)*(1-(v-mn)/rg)]);const d=pts.map((q,i)=>(i?'L':'M')+q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' ');const last=pts[pts.length-1];
+return <svg width={width} height={height} style={{display:'block',overflow:'visible',flex:'none',...style}} aria-hidden="true">{area&&<path d={d+` L${last[0]} ${height} L${pts[0][0]} ${height} Z`} fill={color} fillOpacity=".1"/>}<path d={d} fill="none" stroke={color} strokeWidth={strokeWidth} strokeLinejoin="round" strokeLinecap="round"/><circle cx={last[0]} cy={last[1]} r="2.5" fill={color}/></svg>;}

@@ -1,0 +1,13 @@
+import React from 'react';
+import {Icon} from '../core/Icon.jsx';
+function Item({it,active,collapsed,onSelect}){const[h,sh]=React.useState(false);
+return <button type="button" title={collapsed?it.label:undefined} onClick={()=>onSelect&&onSelect(it.id)} onMouseEnter={()=>sh(true)} onMouseLeave={()=>sh(false)} aria-current={active?'page':undefined} style={{display:'flex',alignItems:'center',gap:10,width:'100%',height:32,padding:collapsed?0:'0 10px',justifyContent:collapsed?'center':'flex-start',border:0,borderRadius:'var(--radius-control)',background:active?'var(--sidebar-active-bg)':h?'var(--control-hover)':'transparent',color:active?'var(--sidebar-active-fg)':'var(--sidebar-fg)',font:`${active?600:500} 13px/1 var(--font-sans)`,cursor:'pointer',textAlign:'left',transition:'background var(--duration-fast)'}}>
+{it.icon&&<span style={{color:active?'var(--accent)':'inherit',display:'grid'}}><Icon name={it.icon} size={16}/></span>}
+{!collapsed&&<span style={{flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{it.label}</span>}
+{!collapsed&&it.badge!=null&&<span style={{font:'500 11px/1 var(--font-mono)',padding:'3px 6px',borderRadius:'var(--radius-sm)',background:active?'var(--surface)':'var(--surface-sunken)',color:'var(--fg-2)',border:'1px solid var(--border)'}}>{it.badge}</span>}</button>;}
+export function Sidebar({header,sections=[],activeId,onSelect,footer,collapsed=false,style}){
+return <nav style={{width:collapsed?'var(--sidebar-collapsed)':'var(--sidebar-width)',flex:'none',height:'100%',display:'flex',flexDirection:'column',background:'var(--sidebar-bg)',borderRight:'1px solid var(--border)',transition:'width var(--duration-base) var(--ease-out)',overflow:'hidden',...style}}>
+{header&&<div style={{height:'var(--topbar-height)',display:'flex',alignItems:'center',padding:collapsed?0:'0 16px',justifyContent:collapsed?'center':'flex-start',borderBottom:'1px solid var(--border)',flex:'none'}}>{header}</div>}
+<div style={{flex:1,overflowY:'auto',padding:collapsed?'12px 8px':'12px 10px',display:'flex',flexDirection:'column',gap:16}}>
+{sections.map((s,i)=><div key={i} style={{display:'flex',flexDirection:'column',gap:2}}>{s.title&&!collapsed&&<div style={{font:'var(--type-overline)',textTransform:'uppercase',letterSpacing:'var(--tracking-caps)',color:'var(--fg-3)',padding:'4px 10px 6px'}}>{s.title}</div>}{s.items.map(it=><Item key={it.id} it={it} active={it.id===activeId} collapsed={collapsed} onSelect={onSelect}/>)}</div>)}</div>
+{footer&&<div style={{borderTop:'1px solid var(--border)',padding:collapsed?8:10,flex:'none'}}>{footer}</div>}</nav>;}

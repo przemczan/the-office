@@ -1,0 +1,4 @@
+import React from 'react';
+export function Tooltip({content,side='top',children,open:force}){const[o,setO]=React.useState(false);const open=force??o;
+const pos={top:{bottom:'calc(100% + 6px)',left:'50%',transform:'translateX(-50%)'},bottom:{top:'calc(100% + 6px)',left:'50%',transform:'translateX(-50%)'},left:{right:'calc(100% + 6px)',top:'50%',transform:'translateY(-50%)'},right:{left:'calc(100% + 6px)',top:'50%',transform:'translateY(-50%)'}}[side];
+return <span style={{position:'relative',display:'inline-flex'}} onMouseEnter={()=>setO(true)} onMouseLeave={()=>setO(false)} onFocus={()=>setO(true)} onBlur={()=>setO(false)}>{children}{open&&<span role="tooltip" style={{position:'absolute',...pos,zIndex:'var(--z-tooltip)',padding:'5px 8px',background:'var(--surface-inverse)',color:'var(--fg-inverse)',font:'500 12px/1.35 var(--font-sans)',borderRadius:'var(--radius-sm)',whiteSpace:'nowrap',pointerEvents:'none',boxShadow:'var(--shadow-2)'}}>{content}</span>}</span>;}

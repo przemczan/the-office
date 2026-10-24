@@ -1,0 +1,23 @@
+<!-- @dsCard group="Components" viewport="700x460" name="Data" subtitle="StatCard, DataTable, DescriptionList, Timeline, ProgressBar" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{padding:20px;background:var(--bg)}.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.col{display:flex;flex-direction:column;gap:14px}.lbl{font:400 11px/1 var(--font-mono);color:var(--fg-3);width:64px;flex:none}</style></head><body><div id="root"></div>
+<script type="text/babel">
+const NS=window.NotNullSoftAdminDesignSystem_a508e9;
+const {StatCard,DataTable,Badge,Avatar,Card,ProgressBar,Timeline,DescriptionList}=NS;
+const rows=[{id:'usr_1',name:'Marta Kowalska',email:'marta@acme.io',status:'Active',spend:4210},{id:'usr_2',name:'Jan Nowak',email:'jan@northwind.pl',status:'Pending',spend:890},{id:'usr_3',name:'Ola Wiśniewska',email:'ola@initech.com',status:'Suspended',spend:12040}];
+const tone={Active:'success',Pending:'warning',Suspended:'danger'};
+function App(){const[sel,setSel]=React.useState(['usr_2']);const[sort,setSort]=React.useState({key:'spend',dir:'desc'});
+const r=[...rows].sort((a,b)=>(sort.dir==='asc'?1:-1)*(a[sort.key]>b[sort.key]?1:-1));
+return <div className="col">
+<div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12}}><StatCard label="Revenue" icon="wallet" value="$48,210" delta={12.4} comparison="vs last 30d" trend={[3,4,4,6,5,7,8]}/><StatCard label="Active users" icon="users" value="1,040" delta={-2.1} comparison="vs last 30d" trend={[9,8,9,8,7,8,7]}/><StatCard label="Error rate" icon="activity" value="0.42%" delta={-0.08} deltaSuffix="pp" invertDelta comparison="vs last 30d"/></div>
+<div style={{display:'grid',gridTemplateColumns:'1.6fr 1fr',gap:12}}><Card padding="none" title="Users"><DataTable rows={r} selectable selected={sel} onSelectionChange={setSel} sort={sort} onSortChange={setSort} onRowClick={()=>{}} density="compact" columns={[{key:'name',header:'Name',sortable:true,render:u=><span style={{display:'flex',alignItems:'center',gap:8}}><Avatar name={u.name} size="xs"/>{u.name}</span>},{key:'status',header:'Status',render:u=><Badge size="sm" tone={tone[u.status]} dot>{u.status}</Badge>},{key:'spend',header:'Spend',align:'right',sortable:true,render:u=>'$'+u.spend.toLocaleString('en-US')}]}/></Card>
+<Card title="Activity"><Timeline items={[{actor:'Jan',title:'changed role to Admin',time:'14:02',icon:'shield',tone:'info'},{actor:'System',title:'suspended usr_3',time:'13:40',icon:'user-x',tone:'danger'}]}/></Card></div>
+<div style={{display:'grid',gridTemplateColumns:'1.6fr 1fr',gap:12}}><DescriptionList items={[{label:'User ID',value:'usr_8f2k1',mono:true,copyable:true},{label:'Created',value:'12 Mar 2026, 09:14'}]} labelWidth={110}/><div className="col" style={{gap:10}}><ProgressBar label="Seats" value={41} max={50} valueLabel="41 / 50" tone="auto"/><ProgressBar label="Storage" value={46} size="sm"/></div></div>
+</div>}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script></body></html>

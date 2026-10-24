@@ -1,0 +1,18 @@
+<!-- @dsCard group="Components" viewport="700x420" name="Overlays" subtitle="Dialog, Drawer, Menu, Tooltip" -->
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="../../styles.css">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="../../_ds_bundle.js"></script>
+<style>body{padding:20px;background:var(--bg)}.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.col{display:flex;flex-direction:column;gap:14px}.lbl{font:400 11px/1 var(--font-mono);color:var(--fg-3);width:64px;flex:none}</style></head><body><div id="root"></div>
+<script type="text/babel">
+const NS=window.NotNullSoftAdminDesignSystem_a508e9;
+const {Dialog,Drawer,Menu,Tooltip,Button,IconButton,Icon,DescriptionList,Badge}=NS;
+function App(){return <div style={{display:'grid',gridTemplateColumns:'1fr 300px',gap:16,height:380}}>
+<div className="col"><Dialog inline tone="danger" title="Suspend user?" description="Marta loses access immediately. You can reactivate her later." onClose={()=>{}} actions={<><Button variant="secondary">Cancel</Button><Button variant="danger">Suspend user</Button></>}/>
+<div className="row" style={{gap:16}}><Menu open trigger={<IconButton variant="secondary" label="Actions" icon={<Icon name="more-horizontal"/>}/>} align="start" items={[{label:'Edit',icon:<Icon name="pencil" size={14}/>,shortcut:'E'},{label:'Reset password',icon:<Icon name="key-round" size={14}/>},{divider:true},{label:'Suspend',icon:<Icon name="user-x" size={14}/>,danger:true}]}/><span style={{width:200}}/><Tooltip open content="Export CSV"><IconButton variant="secondary" label="Export" icon={<Icon name="download"/>}/></Tooltip></div></div>
+<div style={{border:'1px solid var(--border)',borderRadius:8,overflow:'hidden'}}><Drawer inline title="Order #10482" description="Placed 12 Oct, 14:02" onClose={()=>{}} footer={<><Button variant="secondary" size="sm">Refund</Button><Button size="sm">Mark shipped</Button></>}><DescriptionList labelWidth={80} items={[{label:'Status',value:<Badge tone="warning" dot>Pending</Badge>},{label:'Total',value:'$412.00'},{label:'Customer',value:'Marta K.'}]}/></Drawer></div>
+</div>}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script></body></html>

@@ -1,0 +1,5 @@
+:root{
+--chart-1:var(--ember-500);--chart-2:var(--blue-500);--chart-3:var(--teal-500);--chart-4:var(--flare-500);--chart-5:var(--violet-500);--chart-6:var(--gray-400);
+--chart-grid:var(--gray-100);--chart-axis:var(--gray-500);--chart-track:var(--gray-100);
+}
+[data-theme="dark"]{--chart-grid:var(--gray-800);--chart-axis:var(--gray-400);--chart-track:var(--gray-800);--chart-6:var(--gray-500)}

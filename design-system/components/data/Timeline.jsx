@@ -1,0 +1,9 @@
+import React from 'react';
+import {Icon} from '../core/Icon.jsx';
+const T={neutral:['var(--surface-sunken)','var(--fg-2)'],accent:['var(--accent-subtle)','var(--accent-subtle-fg)'],success:['var(--success-subtle)','var(--success-fg)'],warning:['var(--warning-subtle)','var(--warning-fg)'],danger:['var(--danger-subtle)','var(--danger-fg)'],info:['var(--info-subtle)','var(--info-fg)']};
+export function Timeline({items=[],style}){return <ol style={{listStyle:'none',margin:0,padding:0,...style}}>{items.map((it,i)=>{const[bg,fg]=T[it.tone]||T.neutral;const last=i===items.length-1;
+return <li key={it.id??i} style={{display:'grid',gridTemplateColumns:'28px minmax(0,1fr)',gap:12,position:'relative'}}>
+<div style={{position:'relative',display:'flex',justifyContent:'center'}}>{!last&&<span style={{position:'absolute',top:28,bottom:0,width:1,background:'var(--border)'}}/>}<span style={{width:28,height:28,borderRadius:'50%',background:bg,color:fg,display:'grid',placeItems:'center',border:'1px solid var(--surface)',boxShadow:'0 0 0 1px var(--border)',position:'relative'}}>{it.avatar||<Icon name={it.icon||'circle-dot'} size={14}/>}</span></div>
+<div style={{paddingBottom:last?0:20,minWidth:0}}><div style={{display:'flex',gap:12,alignItems:'baseline',justifyContent:'space-between',minHeight:28,paddingTop:4}}><div style={{font:'var(--type-body)',color:'var(--fg-2)',minWidth:0}}>{it.actor&&<strong style={{fontWeight:600,color:'var(--fg-1)'}}>{it.actor} </strong>}{it.title}</div>{it.time&&<time style={{font:'400 12px/1 var(--font-mono)',color:'var(--fg-3)',whiteSpace:'nowrap',flex:'none'}}>{it.time}</time>}</div>
+{it.description&&<div style={{font:'var(--type-body-sm)',color:'var(--fg-3)',marginTop:2}}>{it.description}</div>}
+{it.meta&&<div style={{marginTop:8}}>{it.meta}</div>}</div></li>})}</ol>;}
