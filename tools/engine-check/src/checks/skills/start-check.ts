@@ -1,7 +1,9 @@
 import type { Check } from "../../check.ts";
 import { SESSION_PLUGIN_NAME } from "../../sandbox.ts";
+import { sortedNames } from "../observations.ts";
+import { samePath } from "../paths.ts";
 import { skill } from "./fixtures.ts";
-import { listedSkillNames, pluginErrors, samePath, sortedNames } from "./skill-observations.ts";
+import { listedSkillNames, pluginErrors } from "./skill-observations.ts";
 
 const SESSION_SKILLS = [skill("alpha"), skill("beta")];
 

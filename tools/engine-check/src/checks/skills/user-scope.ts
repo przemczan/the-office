@@ -4,8 +4,9 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { Check } from "../../check.ts";
 import { SESSION_PLUGIN_NAME } from "../../sandbox.ts";
+import { sortedNames } from "../observations.ts";
 import { skill } from "./fixtures.ts";
-import { listedSkillNames, namesSkill, sortedNames, userInvocableNames } from "./skill-observations.ts";
+import { listedSkillNames, namesSkill, userInvocableNames } from "./skill-observations.ts";
 
 /** What this workstation's `~/.claude` holds, read only: the check never installs or changes anything there. */
 interface UserScope {

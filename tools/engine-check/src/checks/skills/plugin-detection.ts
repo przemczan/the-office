@@ -1,8 +1,9 @@
 import { isAbsolute, join, relative, sep } from "node:path";
 import type { Check } from "../../check.ts";
 import { writePlugin, writeSkill } from "../../sandbox.ts";
+import { sortedNames } from "../observations.ts";
 import { skill } from "./fixtures.ts";
-import { pluginErrors, sortedNames } from "./skill-observations.ts";
+import { pluginErrors } from "./skill-observations.ts";
 
 /**
  * The research read from the 2.1.308 binary that a plugin folder is one plugin when its top level holds

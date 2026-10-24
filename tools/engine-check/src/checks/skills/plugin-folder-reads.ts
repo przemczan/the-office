@@ -3,9 +3,9 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Check } from "../../check.ts";
 import type { ProbeSession, SessionSpec } from "../../probe-session.ts";
-import { toolCalls, type ToolCallOutcome } from "../tool-calls.ts";
+import { rulePath } from "../paths.ts";
+import { callsOn, lastOutcome, toolCalls, type AttemptOutcome } from "../tool-calls.ts";
 import { skill } from "./fixtures.ts";
-import { samePath } from "./skill-observations.ts";
 
 const SUPPORTING_FILE = "reference.md";
 
@@ -16,8 +16,6 @@ const GRANTS: Readonly<Record<string, (pluginFolder: string) => Partial<SessionS
   permissionsAdditionalDirectory: (pluginFolder) => ({ settings: { permissions: { additionalDirectories: [pluginFolder] } } }),
   additionalDirectoriesOption: (pluginFolder) => ({ options: { additionalDirectories: [pluginFolder] } }),
 };
-
-type ReadOutcome = ToolCallOutcome | "not attempted";
 
 /**
  * Whether the Read tool may read a supporting file in the session plugin's folder, which is outside
@@ -48,19 +46,10 @@ export const pluginFolderReadsCheck: Check = {
   },
 };
 
-async function readBoth(session: ProbeSession, outsideFile: string): Promise<{ skillFolder: ReadOutcome; outsideFile: ReadOutcome }> {
+async function readBoth(session: ProbeSession, outsideFile: string): Promise<{ skillFolder: AttemptOutcome; outsideFile: AttemptOutcome }> {
   const skillFile = join(session.pluginFolder, "skills", "notes", SUPPORTING_FILE);
   session.send(`Use the Read tool on each of these files, one call per file, then reply with just OK.\n${skillFile}\n${outsideFile}`);
   await session.nextResult();
-  return { skillFolder: readOutcome(session, skillFile), outsideFile: readOutcome(session, outsideFile) };
-}
-
-function readOutcome(session: ProbeSession, path: string): ReadOutcome {
-  const reads = toolCalls(session.messages).filter((call) => call.name === "Read" && samePath(String(call.input["file_path"]), path));
-  return reads.at(-1)?.outcome ?? "not attempted";
-}
-
-/** Permission rules write an absolute path `//`-rooted in POSIX form, a Windows drive as `/c`. */
-function rulePath(path: string): string {
-  return `/${path.replaceAll("\\", "/").replace(/^([A-Za-z]):/, (_, drive: string) => `/${drive.toLowerCase()}`)}`;
+  const calls = toolCalls(session.messages);
+  return { skillFolder: lastOutcome(callsOn(calls, "Read", skillFile)), outsideFile: lastOutcome(callsOn(calls, "Read", outsideFile)) };
 }

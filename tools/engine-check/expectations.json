@@ -1,4 +1,218 @@
 {
+  "permissions.file-tool-fence": {
+    "win32": {
+      "fileTools": {
+        "officeOptions": {
+          "worktree": {
+            "Read": "allowed",
+            "Grep": "allowed",
+            "Glob": "allowed"
+          },
+          "sessionSkillsFolder": {
+            "Read": "denied",
+            "Grep": "denied",
+            "Glob": "denied"
+          },
+          "officeData": {
+            "Read": "denied",
+            "Grep": "denied",
+            "Glob": "denied"
+          }
+        },
+        "permissionsAdditionalDirectory": {
+          "worktree": {
+            "Read": "allowed",
+            "Grep": "allowed",
+            "Glob": "allowed"
+          },
+          "sessionSkillsFolder": {
+            "Read": "allowed",
+            "Grep": "allowed",
+            "Glob": "allowed"
+          },
+          "officeData": {
+            "Read": "denied",
+            "Grep": "denied",
+            "Glob": "denied"
+          }
+        }
+      },
+      "shellReadOfOfficeData": "denied"
+    }
+  },
+  "permissions.hook-after-resume": {
+    "win32": {
+      "beforeResume": {
+        "outcome": "allowed",
+        "onDisk": true
+      },
+      "afterResume": {
+        "outcome": "denied",
+        "preToolUseFirst": true,
+        "permissionDeniedMessage": null,
+        "permissionDeniedHook": false,
+        "reasonReachedModel": true,
+        "onDisk": false
+      }
+    }
+  },
+  "permissions.hook-refusal": {
+    "win32": {
+      "refusedRead": {
+        "outcome": "denied",
+        "preToolUseFirst": true,
+        "permissionDeniedMessage": null,
+        "permissionDeniedHook": false
+      },
+      "reasonReachedModel": true,
+      "readOfNamedFile": "allowed"
+    }
+  },
+  "permissions.hook-sees-every-call": {
+    "win32": {
+      "calls": {
+        "allowedRead": {
+          "outcome": "allowed",
+          "preToolUseFirst": true,
+          "permissionDeniedMessage": null,
+          "permissionDeniedHook": false
+        },
+        "readDeniedByRule": {
+          "outcome": "denied",
+          "preToolUseFirst": false,
+          "permissionDeniedMessage": null,
+          "permissionDeniedHook": false
+        },
+        "readOutsideWorkingDirectory": {
+          "outcome": "denied",
+          "preToolUseFirst": true,
+          "permissionDeniedMessage": "other",
+          "permissionDeniedHook": false
+        },
+        "writeWithoutApproval": {
+          "outcome": "denied",
+          "preToolUseFirst": true,
+          "permissionDeniedMessage": "asyncAgent",
+          "permissionDeniedHook": false
+        },
+        "subagentRead": {
+          "outcome": "allowed",
+          "preToolUseFirst": true,
+          "permissionDeniedMessage": null,
+          "permissionDeniedHook": false
+        }
+      },
+      "toolsNotSeenFirst": [
+        "Read"
+      ]
+    }
+  },
+  "permissions.powershell-twin": {
+    "win32": {
+      "tools": {
+        "officeOptions": {
+          "bashTool": true,
+          "powerShellTool": true
+        },
+        "bashDenyRule": {
+          "bashTool": true,
+          "powerShellTool": false
+        },
+        "bashDenyRuleWithTwin": {
+          "bashTool": true,
+          "powerShellTool": true
+        },
+        "bashDenyRuleWithPowerShellAllowRule": {
+          "bashTool": true,
+          "powerShellTool": true
+        },
+        "bashAllowRule": {
+          "bashTool": true,
+          "powerShellTool": true
+        }
+      },
+      "twinRuleInForce": {
+        "gitStatus": {
+          "outcome": "allowed",
+          "permissionDeniedMessage": null
+        },
+        "gitPush": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "rule"
+        }
+      }
+    }
+  },
+  "permissions.protected-paths": {
+    "win32": {
+      "acceptEditsMode": {
+        "control": {
+          "outcome": "allowed",
+          "permissionDeniedMessage": null,
+          "onDisk": true
+        },
+        "git": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        },
+        "claude": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        },
+        "mcpJson": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        }
+      },
+      "editAllowRule": {
+        "control": {
+          "outcome": "allowed",
+          "permissionDeniedMessage": null,
+          "onDisk": true
+        },
+        "git": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        },
+        "claude": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        },
+        "mcpJson": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        }
+      },
+      "hookAllow": {
+        "control": {
+          "outcome": "allowed",
+          "permissionDeniedMessage": null,
+          "onDisk": true
+        },
+        "git": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        },
+        "claude": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        },
+        "mcpJson": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        }
+      }
+    }
+  },
   "skills.allowlist-suffix": {
     "win32": {
       "listedSkills": [

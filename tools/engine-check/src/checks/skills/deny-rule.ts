@@ -1,6 +1,6 @@
 import type { Check } from "../../check.ts";
 import { SESSION_PLUGIN_NAME } from "../../sandbox.ts";
-import { toolCalls } from "../tool-calls.ts";
+import { lastOutcome, toolCalls } from "../tool-calls.ts";
 import { skill } from "./fixtures.ts";
 import { listedSkillNames, userInvocableNames } from "./skill-observations.ts";
 
@@ -25,6 +25,6 @@ export const denyRuleCheck: Check = {
     session.send(`Use the Skill tool to run the ${DENIED_SKILL} skill, then reply with just OK.`);
     await session.nextResult();
     const invocations = toolCalls(session.messages).filter((call) => call.name === "Skill" && call.input["skill"] === DENIED_SKILL);
-    return { listedSkills, userInvocable, deniedSkillInvocation: invocations.at(-1)?.outcome ?? "not attempted" };
+    return { listedSkills, userInvocable, deniedSkillInvocation: lastOutcome(invocations) };
   },
 };

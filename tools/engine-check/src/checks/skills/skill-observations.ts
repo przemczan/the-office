@@ -1,10 +1,6 @@
 import type { SDKSystemMessage } from "@anthropic-ai/claude-agent-sdk";
-import { relative } from "node:path";
 import type { ProbeSession } from "../../probe-session.ts";
-
-export function sortedNames(names: Iterable<string>): string[] {
-  return [...new Set(names)].sort();
-}
+import { sortedNames } from "../observations.ts";
 
 /**
  * Skill names in the model's listing, after the allowlist and the overrides. The `summary` detail
@@ -28,9 +24,4 @@ export function pluginErrors(init: SDKSystemMessage): string[] {
 /** Whether `name` is the skill itself or any plugin's or nested folder's skill of that name. */
 export function namesSkill(name: string, skill: string): boolean {
   return name === skill || name.endsWith(`:${skill}`);
-}
-
-/** Path equality as the platform compares paths, case-insensitive on Windows. */
-export function samePath(a: string, b: string): boolean {
-  return relative(a, b) === "";
 }
