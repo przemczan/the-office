@@ -1,6 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { z } from "zod";
-import type { MessagePriority, UsageWindows, UserMessage } from "../../ports/engine-session.js";
+import type { UsageWindows } from "../../domain/usage-windows.js";
+import type { MessagePriority, UserMessage } from "../../ports/engine-session.js";
 import type { SessionEvent } from "../../ports/session-events.js";
 
 /**

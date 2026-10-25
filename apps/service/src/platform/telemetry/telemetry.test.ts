@@ -113,6 +113,25 @@ describe("Telemetry", () => {
     ]);
   });
 
+  it("counts an engine call's cost and puts it on its span", async () => {
+    const { telemetry, spans, metricReader } = setUp();
+
+    await telemetry.inSpan("engine call", {}, (span) => {
+      telemetry.recordCost(span, 0.25, { "office.role": "Developer" });
+      telemetry.recordCost(span, 0.5, { "office.role": "Developer" });
+      return Promise.resolve();
+    });
+
+    const { resourceMetrics } = await metricReader.collect();
+    const cost = resourceMetrics.scopeMetrics
+      .flatMap((scope) => scope.metrics)
+      .find((each) => each.descriptor.name === "office.cost");
+    expect(cost?.dataPoints.map((point) => [point.attributes, point.value])).toEqual([
+      [{ "office.role": "Developer" }, 0.75],
+    ]);
+    expect(spans.getFinishedSpans()[0]?.attributes).toEqual({ "office.cost.usd": 0.5 });
+  });
+
   it("puts the tokens on the span", async () => {
     const { telemetry, spans } = setUp();
 

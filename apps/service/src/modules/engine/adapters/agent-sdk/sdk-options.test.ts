@@ -42,6 +42,7 @@ function optionsFor(session: Partial<SdkSession> = {}) {
     options: OPTIONS,
     agentShells: ["bash"],
     preToolUse: PRE_TOOL_USE,
+    stderr: () => undefined,
     ...session,
   });
 }

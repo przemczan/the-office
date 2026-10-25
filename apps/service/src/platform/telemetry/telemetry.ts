@@ -7,6 +7,9 @@ import {
   type Tracer,
 } from "@opentelemetry/api";
 
+/** What spans and metrics are described by: names to strings, numbers, booleans or arrays of them. */
+export type TelemetryAttributes = Attributes;
+
 /**
  * The tokens one engine call used, split as the engine reports them. The four parts add up to the
  * call's tokens; none of them includes another.
@@ -23,6 +26,7 @@ export interface TokenUsage {
 
 /** Office-namespaced: the GenAI conventions count cached tokens inside input tokens. */
 const TOKENS_METRIC = "office.tokens";
+const COST_METRIC = "office.cost";
 const TOKEN_TYPE_ATTRIBUTE = "office.token.type";
 const TOKEN_TYPES = {
   input: "input",
@@ -37,6 +41,7 @@ const TOKEN_TYPES = {
  */
 export class Telemetry {
   private readonly tokens: Counter;
+  private readonly cost: Counter;
 
   constructor(
     private readonly tracer: Tracer,
@@ -45,6 +50,10 @@ export class Telemetry {
     this.tokens = meter.createCounter(TOKENS_METRIC, {
       description: "Tokens used by engine calls, by token type",
       unit: "{token}",
+    });
+    this.cost = meter.createCounter(COST_METRIC, {
+      description: "What engine calls cost at list price, an estimate on a subscription",
+      unit: "USD",
     });
   }
 
@@ -75,6 +84,12 @@ export class Telemetry {
       this.tokens.add(usage[part], { ...attributes, [TOKEN_TYPE_ATTRIBUTE]: type });
       span.setAttribute(`${TOKENS_METRIC}.${type}`, usage[part]);
     }
+  }
+
+  /** Counts an engine call's cost in US dollars and puts it on its span; attributes as for tokens. */
+  recordCost(span: Span, usd: number, attributes: Attributes = {}): void {
+    this.cost.add(usd, attributes);
+    span.setAttribute(`${COST_METRIC}.usd`, usd);
   }
 }
 

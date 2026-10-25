@@ -6,7 +6,7 @@ import type {
   SDKResultMessage,
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
-import type { UsageWindow, UsageWindows } from "../../ports/engine-session.js";
+import type { UsageWindow, UsageWindows } from "../../domain/usage-windows.js";
 import type { RateLimitStatus, SessionEvent, TurnOutcome } from "../../ports/session-events.js";
 import { OFFICE_TOOL_PREFIX } from "./sdk-options.js";
 

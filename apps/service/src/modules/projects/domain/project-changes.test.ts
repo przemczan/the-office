@@ -103,7 +103,8 @@ describe("changeEnvironment", () => {
     const change = changeEnvironment(aProject(), environment);
 
     expect(change?.project.environment).toEqual(environment);
-    expect(change?.event).toEqual(new ProjectEnvironmentChanged("admin-panel", environment));
+    expect(change?.event).toBeInstanceOf(ProjectEnvironmentChanged);
+    expect(change?.event).toMatchObject({ projectId: "admin-panel", environment });
   });
 
   it("changes nothing when the Project already has that environment", () => {

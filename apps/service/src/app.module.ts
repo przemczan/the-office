@@ -1,4 +1,5 @@
 import { Module, type DynamicModule } from "@nestjs/common";
+import { EngineModule } from "./modules/engine/index.js";
 import { PipelineLibrary, PipelinesModule } from "./modules/pipelines/index.js";
 import { ProjectsModule } from "./modules/projects/index.js";
 import type { OfficeConfig } from "./platform/config/office-config.js";
@@ -17,6 +18,7 @@ export class AppModule {
       module: AppModule,
       imports: [
         DatabaseModule.forRoot({ url: config.databaseUrl }),
+        EngineModule,
         EventsModule,
         EventStreamModule,
         HealthModule,

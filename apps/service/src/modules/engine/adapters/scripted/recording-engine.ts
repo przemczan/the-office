@@ -1,13 +1,9 @@
 import { AgentEngine, type EngineCapabilities, type NewSession } from "../../ports/agent-engine.js";
-import type {
-  EngineSession,
-  MessagePriority,
-  UsageWindows,
-  UserMessage,
-} from "../../ports/engine-session.js";
+import type { EngineSession, MessagePriority, UserMessage } from "../../ports/engine-session.js";
+import type { UsageWindows } from "../../domain/usage-windows.js";
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
-import { AsyncChannel } from "../async-channel.js";
+import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import { writeRecording, type ScriptStep } from "./session-script.js";
 
 /**

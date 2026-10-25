@@ -4,16 +4,12 @@ import {
   type EngineCapabilities,
   type NewSession,
 } from "../../ports/agent-engine.js";
-import type {
-  EngineSession,
-  MessagePriority,
-  UsageWindows,
-  UserMessage,
-} from "../../ports/engine-session.js";
+import type { EngineSession, MessagePriority, UserMessage } from "../../ports/engine-session.js";
+import type { UsageWindows } from "../../domain/usage-windows.js";
 import type { OfficeToolResult } from "../../ports/office-tool.js";
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
-import { AsyncChannel } from "../async-channel.js";
+import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import {
   inFolder,
   type CallerRequest,
@@ -66,7 +62,11 @@ export class ScriptedEngine extends AgentEngine {
     return this.open(sessionId, options, { step: "resume" });
   }
 
-  private open(id: string, options: SessionOptions, opening: CallerRequest): ScriptedSession {
+  private open(
+    id: string,
+    options: SessionOptions,
+    opening: Extract<CallerRequest, { step: "start" | "resume" }>,
+  ): ScriptedSession {
     const script = this.scripts.shift();
     if (script === undefined) {
       throw new ScriptMismatch(`No script is left for session ${id} to ${opening.step}.`);
@@ -78,9 +78,13 @@ export class ScriptedEngine extends AgentEngine {
   }
 }
 
+/** A step the replay waits at until the caller takes it. */
+type AwaitedStep = Exclude<CallerStep, { step: "read-usage-windows" }>;
+type AwaitedRequest = Exclude<CallerRequest, { step: "read-usage-windows" }>;
+
 interface PendingRequest {
-  readonly request: CallerRequest;
-  readonly answer: (windows: UsageWindows | undefined) => void;
+  readonly request: AwaitedRequest;
+  readonly answer: () => void;
   readonly refuse: (error: unknown) => void;
 }
 
@@ -88,6 +92,8 @@ interface PendingRequest {
  * One replayed session. It reports the script's events in order and waits at each of the
  * caller's steps until the caller takes it; doing anything else fails the session with
  * `ScriptMismatch`. Office tools the script calls run, and the Agent reads what they answer.
+ * Reading the usage windows is answered whenever it comes, from the windows the script recorded
+ * in order, the last again once all were read, since who reads them and when is the Office's.
  */
 export class ScriptedSession implements EngineSession {
   /** What the caller did, for a test to look at. */
@@ -98,6 +104,7 @@ export class ScriptedSession implements EngineSession {
   /** The script's message ids to the ids the caller chose. */
   private readonly messageIds = new Map<string, string>();
   private readonly officeToolResults = new Map<string, Promise<OfficeToolResult>>();
+  private readonly recordedWindows: (UsageWindows | undefined)[];
   private readonly played: Promise<void>;
 
   constructor(
@@ -106,7 +113,11 @@ export class ScriptedSession implements EngineSession {
     script: SessionScript,
     private readonly capabilities: EngineCapabilities,
   ) {
-    this.played = this.play(script.map((step) => inFolder(step, options.folder)));
+    const steps = script.map((step) => inFolder(step, options.folder));
+    this.recordedWindows = steps.flatMap((step) =>
+      step.step === "read-usage-windows" ? [step.windows] : [],
+    );
+    this.played = this.play(steps);
     // A failure reaches the reader of the events; end() returns it too.
     this.played.catch(() => undefined);
   }
@@ -116,7 +127,7 @@ export class ScriptedSession implements EngineSession {
   }
 
   /** The start or resume that opened the session. */
-  open(opening: CallerRequest): void {
+  open(opening: AwaitedRequest): void {
     this.request(opening).catch(() => undefined);
   }
 
@@ -131,7 +142,8 @@ export class ScriptedSession implements EngineSession {
 
   async readUsageWindows(): Promise<UsageWindows | undefined> {
     if (!this.capabilities.usageWindows) throw new CapabilityMissing("usageWindows");
-    return this.request({ step: "read-usage-windows" });
+    this.received.push({ step: "read-usage-windows" });
+    return this.recordedWindows.length > 1 ? this.recordedWindows.shift() : this.recordedWindows[0];
   }
 
   async end(): Promise<void> {
@@ -139,7 +151,7 @@ export class ScriptedSession implements EngineSession {
     await this.played;
   }
 
-  private request(request: CallerRequest): Promise<UsageWindows | undefined> {
+  private request(request: AwaitedRequest): Promise<void> {
     this.received.push(request);
     return new Promise((answer, refuse) => {
       if (this.requests.isOpen) {
@@ -159,7 +171,7 @@ export class ScriptedSession implements EngineSession {
       for (const step of script) {
         if (step.step === "event") {
           this.reported.push(await this.replay(step.event));
-        } else {
+        } else if (step.step !== "read-usage-windows") {
           await this.takeRequest(step);
         }
       }
@@ -172,7 +184,7 @@ export class ScriptedSession implements EngineSession {
     }
   }
 
-  private async takeRequest(expected: CallerStep): Promise<void> {
+  private async takeRequest(expected: AwaitedStep): Promise<void> {
     const next = await this.nextRequests.next();
     const { request, answer, refuse } = next.value as PendingRequest;
     const mismatch = mismatchOf(expected, request);
@@ -189,7 +201,7 @@ export class ScriptedSession implements EngineSession {
     }
     // An interrupt stops the running Office tool calls; the engine reports their end, not the tool.
     if (expected.step === "interrupt") this.officeToolResults.clear();
-    answer(expected.step === "read-usage-windows" ? expected.windows : undefined);
+    answer();
   }
 
   private async replay(event: SessionEvent): Promise<SessionEvent> {
@@ -238,7 +250,7 @@ export class ScriptedSession implements EngineSession {
   }
 }
 
-function mismatchOf(expected: CallerStep, actual: CallerRequest): string | undefined {
+function mismatchOf(expected: AwaitedStep, actual: AwaitedRequest): string | undefined {
   const matches =
     expected.step === actual.step &&
     (expected.step !== "send" || actual.step !== "send" || expected.priority === actual.priority);
@@ -247,13 +259,6 @@ function mismatchOf(expected: CallerStep, actual: CallerRequest): string | undef
     : `the script has its caller ${describe(expected)} next, but the caller asked to ${describe(actual)}.`;
 }
 
-function describe(step: CallerRequest): string {
-  switch (step.step) {
-    case "send":
-      return `send a message with priority ${step.priority}`;
-    case "read-usage-windows":
-      return "read the usage windows";
-    default:
-      return step.step;
-  }
+function describe(step: AwaitedRequest): string {
+  return step.step === "send" ? `send a message with priority ${step.priority}` : step.step;
 }

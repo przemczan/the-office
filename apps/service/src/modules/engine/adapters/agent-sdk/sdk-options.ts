@@ -80,13 +80,22 @@ export interface SdkSession {
   readonly agentShells: readonly AgentShell[];
   /** Decides every tool call by the Office rules. */
   readonly preToolUse: HookCallback;
+  /** Takes what the engine writes to its standard error, which says why it stopped. */
+  readonly stderr: (chunk: string) => void;
 }
 
 /**
  * The Agent SDK's options for one Office session (spec §5.4, §5.6, §6), as the engine check
  * measured them (docs/engine-check.md).
  */
-export function sdkOptions({ id, resumes, options, agentShells, preToolUse }: SdkSession): Options {
+export function sdkOptions({
+  id,
+  resumes,
+  options,
+  agentShells,
+  preToolUse,
+  stderr,
+}: SdkSession): Options {
   return {
     cwd: options.folder,
     model: options.model,
@@ -109,6 +118,7 @@ export function sdkOptions({ id, resumes, options, agentShells, preToolUse }: Sd
       outputFormat: { type: "json_schema", schema: { ...options.outputSchema } },
     }),
     ...(resumes ? { resume: id } : { sessionId: id }),
+    stderr,
   };
 }
 
