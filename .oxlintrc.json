@@ -15,6 +15,7 @@
   "rules": {
     "office/workspace-boundaries": "error",
     "office/module-boundaries": "error",
+    "office/operating-system-branches": "error",
     "import/no-cycle": "error"
   },
   "overrides": [

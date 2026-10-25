@@ -63,3 +63,34 @@ tester.run("workspace-boundaries", plugin.rules["workspace-boundaries"], {
     },
   ],
 });
+
+const platformLayerFile = inRepository("apps/service/src/platform/os/windows.ts");
+const readsOfTheSystem = [
+  `const windows = process.platform === "win32";`,
+  `const windows = process["platform"] === "win32";`,
+  `const windows = globalThis.process.platform === "win32";`,
+  `const { platform } = process;`,
+  `import { platform } from "node:os";`,
+  `import { type as systemType } from "os";`,
+  `import os from "node:os"; const windows = os.platform() === "win32";`,
+  `import * as os from "node:os"; const linux = os.type() === "Linux";`,
+];
+
+tester.run("operating-system-branches", plugin.rules["operating-system-branches"], {
+  valid: [
+    ...readsOfTheSystem.map((code) => ({ filename: platformLayerFile, code })),
+    ...readsOfTheSystem.map((code) => ({
+      filename: inRepository("tools/engine-check/src/main.ts"),
+      code,
+    })),
+    { filename: workApplication, code: `import { homedir } from "node:os"; homedir();` },
+    { filename: workApplication, code: `const version = process.version;` },
+  ],
+  invalid: readsOfTheSystem.map((code) => ({
+    filename: workApplication,
+    code,
+    errors: [
+      { message: /Only apps\/service\/src\/platform\/os\/ branches on the operating system/ },
+    ],
+  })),
+});

@@ -1,12 +1,10 @@
-import { homedir } from "node:os";
 import { Logger, type INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module.js";
 import { InvalidOfficeConfigError } from "./platform/config/invalid-office-config-error.js";
 import { readOfficeConfig, type OfficeConfig } from "./platform/config/office-config.js";
 import { configureHttp } from "./platform/http/configure-http.js";
-import { defaultOfficeDataDirectory } from "./platform/os/office-data-directory.js";
-import { currentOperatingSystem } from "./platform/os/operating-system.js";
+import { currentOperatingSystem } from "./platform/os/current-operating-system.js";
 import { OfficeLogger } from "./platform/telemetry/office-logger.js";
 import type { StartedTelemetry } from "./platform/telemetry/start-telemetry.js";
 
@@ -19,11 +17,7 @@ const logger = new Logger("Office");
 
 function readConfig(): OfficeConfig {
   return readOfficeConfig(process.env, {
-    officeDataDirectory: () =>
-      defaultOfficeDataDirectory(currentOperatingSystem(), {
-        environment: process.env,
-        homeDirectory: homedir(),
-      }),
+    officeDataDirectory: () => currentOperatingSystem().defaultOfficeDataDirectory,
   });
 }
 

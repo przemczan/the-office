@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "npm run dev --workspace @the-office/service",
     "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test",
+    "verify:linux": "docker compose run --rm verify-linux",
     "typecheck": "tsc -p . && npm run typecheck --workspaces --if-present",
     "lint": "oxlint",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,json,css,yaml,yml}\"",

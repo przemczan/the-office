@@ -35,7 +35,8 @@ Choices the spec leaves open, made when tier 1 was sliced. Change one only with 
   - `packages/contracts`: the HTTP and WebSocket contract (zod schemas and their types), the one thing the service and the web share.
   - `packages/ui`: the design system for React. A typed barrel over `design-system/components/**` (the `.jsx` files with their `.d.ts`), plus the theme layers. `design-system/` itself stays as exported, so it can be re-exported from claude.ai.
   - `tools/engine-check`: the engine check from task 01, re-run on every SDK bump.
-  - `tools/lint-rules`: the oxlint plugin that enforces the module and workspace boundaries ([apps/service/README.md](../../apps/service/README.md)).
+  - `tools/lint-rules`: the oxlint plugin that enforces the module and workspace boundaries ([apps/service/README.md](../../apps/service/README.md)) and keeps `process.platform` in the platform layer.
+  - `tools/verify-linux`: the script `npm run verify:linux` runs in compose's `verify-linux` container (a folder, not a workspace).
 - **Checks:** TypeScript strict everywhere; oxlint, with `design-system/_adherence.oxlintrc.json` applied to `apps/web`; Prettier; Vitest (with SWC for Nest's decorator metadata); Playwright for the web. `npm run verify` runs all of them.
 - **Office data directory:** `OFFICE_DATA_DIR`, default `%LOCALAPPDATA%\the-office` on Windows and `$XDG_DATA_HOME/the-office` (or `~/.local/share/the-office`) on Linux, holding `worktrees/`, `sessions/`, `skills/` (the library) and `attachments/`. Kept short for Windows `MAX_PATH`.
 - **The scripted engine adapter** replays recorded engine output, so every test of Conversations and Pipelines runs without model calls ([research §11.9](../../.scratch/the-office/research/factory-reference.md#119-agentstagerunner-seam-and-scripted-end-to-end-tests)). Real model calls happen only in the engine check and in each task's check on the Test Project.

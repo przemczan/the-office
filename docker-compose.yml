@@ -1,7 +1,7 @@
 # Local infrastructure for The Office: Postgres and the OpenTelemetry backend (spec §5.2).
 # Values come from .env (copy .env.example). Ports are published on 127.0.0.1 only, since
-# The Office serves localhost alone (spec §5.1). A container that needs Postgres, such as
-# npm run verify:linux, joins the the-office_default network and reaches it as postgres:5432.
+# The Office serves localhost alone (spec §5.1). verify-linux, behind its own profile, is
+# npm run verify:linux; it reaches the others over the project network by service name.
 name: the-office
 
 services:
@@ -43,5 +43,29 @@ services:
       start_interval: 2s
     restart: unless-stopped
 
+  # npm run verify:linux (Build defaults in docs/tasks/README.md): tools/verify-linux/verify-linux.sh
+  # on the working tree, mounted read-only. Started only by `docker compose run`.
+  verify-linux:
+    profiles: [verify-linux]
+    image: node:22.23.4-trixie@sha256:77d0c7953e80648137a237496c8edbcb3a14bedc5c5298b93a6d0dfa6c3e1271
+    working_dir: /work
+    command: ["bash", "/source/tools/verify-linux/verify-linux.sh"]
+    environment:
+      OFFICE_PORT: ${OFFICE_PORT:?copy .env.example to .env}
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-lgtm:4318
+    volumes:
+      - type: bind
+        source: .
+        target: /source
+        read_only: true
+      - npm-cache:/root/.npm
+    depends_on:
+      postgres:
+        condition: service_healthy
+      otel-lgtm:
+        condition: service_healthy
+
 volumes:
   postgres-data:
+  npm-cache:
