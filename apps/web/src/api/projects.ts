@@ -1,9 +1,13 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
+  environmentCheckSchema,
+  latestEnvironmentCheckSchema,
   projectListSchema,
   projectSchema,
+  type EnvironmentCheck,
   type NewProject,
   type Project,
+  type ProjectEnvironment,
   type ProjectCommandKey,
   type ProjectWebEvent,
   type PublishingMode,
@@ -24,6 +28,14 @@ export const projectQueries = {
       queryKey: [...PROJECTS, id],
       queryFn: ({ signal }) => getFromApi(projectPath(id), projectSchema, signal),
     }),
+  /** The running environment check, or the last finished one. */
+  environmentCheck: (id: string) =>
+    queryOptions({
+      queryKey: [...PROJECTS, id, "environment-check"],
+      queryFn: ({ signal }) =>
+        getFromApi(`${projectPath(id)}/environment-check`, latestEnvironmentCheckSchema, signal),
+      select: ({ check }) => check,
+    }),
 };
 
 export function addProject(newProject: NewProject): Promise<Project> {
@@ -43,6 +55,19 @@ export function changeInstallInputs(
   installInputs: readonly string[],
 ): Promise<Project> {
   return sendToApi("PUT", `${projectPath(id)}/install-inputs`, { installInputs }, projectSchema);
+}
+
+/** Starts a check of `environment`; the Project keeps it only when every check passes. */
+export function startEnvironmentCheck(
+  id: string,
+  environment: ProjectEnvironment,
+): Promise<EnvironmentCheck> {
+  return sendToApi(
+    "POST",
+    `${projectPath(id)}/environment-check`,
+    { environment },
+    environmentCheckSchema,
+  );
 }
 
 export function changePublishingMode(id: string, publishingMode: PublishingMode): Promise<Project> {

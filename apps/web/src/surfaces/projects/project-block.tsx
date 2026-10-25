@@ -5,11 +5,14 @@ import type { ReactNode } from "react";
 export function ProjectBlock({
   icon,
   title,
+  actions,
   note,
   children,
 }: {
   readonly icon: string;
   readonly title: string;
+  /** Beside the title, such as a status badge. */
+  readonly actions?: ReactNode;
   readonly note?: string;
   readonly children: ReactNode;
 }): ReactNode {
@@ -21,6 +24,7 @@ export function ProjectBlock({
           {title}
         </span>
       }
+      actions={actions}
     >
       {children}
       {note !== undefined && <p className="project-block-note">{note}</p>}

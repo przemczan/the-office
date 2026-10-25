@@ -2,7 +2,9 @@
 // that is recreated for every run (the service migrates it as it starts). Run on Node type
 // stripping, from apps/web.
 import { spawn } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import { Client } from "pg";
@@ -17,15 +19,21 @@ const serverUrl = new URL(required("DATABASE_URL"));
 const databaseName = `${serverUrl.pathname.slice(1)}_e2e_${serverUrl.hostname.replace(/\W/g, "_")}`;
 
 await recreateDatabase(serverUrl, databaseName);
+// An Office data directory of its own, so the environment checks' worktrees stay out of the user's.
+const officeData = mkdtempSync(path.join(tmpdir(), "office-e2e-data-"));
 const service = spawn(process.execPath, ["--enable-source-maps", SERVICE_MAIN], {
   stdio: "inherit",
   env: {
     ...environment,
     DATABASE_URL: Object.assign(new URL(serverUrl), { pathname: `/${databaseName}` }).href,
     OFFICE_PORT: required("OFFICE_PORT"),
+    OFFICE_DATA_DIR: officeData,
   },
 });
-service.on("exit", (code) => process.exit(code ?? 1));
+service.on("exit", (code) => {
+  rmSync(officeData, { recursive: true, force: true });
+  process.exit(code ?? 1);
+});
 for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, () => service.kill(signal));
 
 function readEnvFile(): Record<string, string | undefined> {

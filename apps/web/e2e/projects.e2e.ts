@@ -19,13 +19,22 @@ test.afterAll(async () => {
 });
 
 /** Adds a Project through the API, for the tests that start on its page. */
-async function addedProject(page: Page, name: string): Promise<Project> {
+async function addedProject(
+  page: Page,
+  name: string,
+  commands: NewProject["commands"] = {
+    install: "npm ci",
+    build: "npm run build",
+    lint: "npm run lint",
+    test: "npm test",
+  },
+): Promise<Project> {
   const newProject: NewProject = {
     name,
     path: repository.path,
     baseBranch: "main",
     mark: { label: "AP", colour: "violet" },
-    commands: { install: "npm ci", build: "npm run build", lint: "npm run lint", test: "npm test" },
+    commands,
     installInputs: [],
     publishingMode: "push-and-pull-request",
     defaultPipeline: "full",
@@ -164,6 +173,42 @@ test("a command changed in one tab shows in another", async ({ page, context }) 
   await page.getByRole("button", { name: "Save" }).click();
 
   await expect(other.getByText("oxlint", { exact: true })).toBeVisible();
+});
+
+test("the environment check shows each check, and saves the environment only once all pass", async ({
+  page,
+}) => {
+  const passes = `node -e "process.exit(0)"`;
+  const project = await addedProject(page, "Environment check", {
+    install: passes,
+    build: passes,
+    lint: `node -e "console.error('lint error: 1 problem'); process.exit(1)"`,
+    test: `node -e "process.exit(process.env.GREETING === 'hello' ? 0 : 1)"`,
+  });
+  await page.goto(`/projects/${project.id}`);
+  await expect(page.getByText("Not checked yet.")).toBeVisible();
+  const checks = page.getByRole("list", { name: "Environment checks" });
+
+  await page.getByLabel("Variables to set").fill("GREETING=hello");
+  await page.getByRole("button", { name: "Run the environment check" }).click();
+
+  await expect(page.getByText("Failed", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await expect(checks).toContainText("failed with exit code 1");
+  await expect(checks.getByLabel("Output")).toHaveText("lint error: 1 problem");
+  await expect(checks.getByRole("img", { name: "Passed" })).toHaveCount(4);
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-project-environment-failed.png"),
+  });
+
+  await page.request.put(`/api/projects/${project.id}/commands/lint`, {
+    data: { commandLine: passes },
+  });
+  await page.getByRole("button", { name: "Run the environment check" }).click();
+
+  await expect(page.getByText("Ready", { exact: true })).toBeVisible({ timeout: 30_000 });
+  await page.reload();
+  await expect(page.getByLabel("Variables to set")).toHaveValue("GREETING=hello");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-environment.png") });
 });
 
 test("a Project that doesn't exist says so, with the way back", async ({ page }) => {

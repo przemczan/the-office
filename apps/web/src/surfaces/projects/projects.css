@@ -280,3 +280,147 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---- the environment and its check */
+.environment-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.environment-check {
+  display: grid;
+  grid-template-columns: 15px minmax(0, 1fr);
+  gap: 2px 8px;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.environment-check-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+}
+
+.environment-check-meta,
+.environment-check-output {
+  grid-column: 2;
+}
+
+.environment-check-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+
+.environment-check-icon {
+  display: inline-flex;
+  padding-top: 2px;
+  color: var(--fg-3);
+}
+
+.environment-check.passed {
+  color: var(--fg-1);
+}
+
+.environment-check.passed .environment-check-icon {
+  color: var(--success-fg);
+}
+
+.environment-check.failed {
+  color: var(--fg-1);
+}
+
+.environment-check.failed .environment-check-icon {
+  color: var(--danger-fg);
+}
+
+.environment-check.running .environment-check-icon {
+  color: var(--fg-1);
+  animation: environment-check-spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .environment-check.running .environment-check-icon {
+    animation: none;
+  }
+}
+
+@keyframes environment-check-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.environment-check-command {
+  min-width: 0;
+  font: var(--type-mono);
+  font-size: 12px;
+  color: var(--fg-2);
+  overflow-wrap: anywhere;
+}
+
+.environment-check-detail {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.environment-check.failed .environment-check-detail {
+  color: var(--danger-fg);
+}
+
+.environment-check-toggle {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: var(--type-caption);
+  color: var(--fg-2);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.environment-check-output {
+  max-height: 280px;
+  margin: 4px 0 0;
+  padding: 8px 10px;
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  background: var(--surface-sunken);
+  font: var(--type-mono);
+  font-size: 12px;
+  color: var(--fg-1);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.environment-unchecked {
+  margin-top: 0;
+}
+
+.environment-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.environment-reasons {
+  margin: 0;
+  padding-left: 18px;
+  font: var(--type-caption);
+  color: var(--danger-fg);
+}
+
+.environment-actions {
+  display: flex;
+  justify-content: flex-end;
+}
