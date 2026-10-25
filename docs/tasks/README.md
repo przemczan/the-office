@@ -6,7 +6,7 @@ Tier 1 of [the spec](../spec.md#tier-1-the-base), sliced into tasks in build ord
 
 | # | Task | Surface | Status |
 |---|---|---|---|
-| 01 | [Engine spike: pinned versions and the engine check](01-engine-spike.md) | Spike | in progress |
+| 01 | [Engine spike: pinned versions and the engine check](01-engine-spike.md) | Spike | done |
 | 02 | [Foundation: workspace, service, database, events, telemetry](02-foundation.md) | Projects | in progress |
 | 03 | [Web shell: design system, themes and A3 · Desk](03-web-shell.md) | Projects | todo |
 | 04 | [Projects: the record, commands and the Projects page](04-projects.md) | Projects | todo |

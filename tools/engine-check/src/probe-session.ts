@@ -26,6 +26,40 @@ export const CHECK_MODEL = "claude-haiku-5-5";
  */
 const BUILT_IN_PLUGINS = ["cc-plugin-agents-md", "cc-plugin-telemetry", "cc-plugin-plugin-authoring"];
 
+/**
+ * The built-in tools, named explicitly so both platforms get the same set (spec §5.4): the engine's
+ * Linux default drops Grep and Glob for shell search. This is the Windows default of 2.1.310.
+ */
+const OFFICE_TOOLS = [
+  "Bash",
+  "CronCreate",
+  "CronDelete",
+  "CronList",
+  "DesignSync",
+  "Edit",
+  "EnterWorktree",
+  "ExitWorktree",
+  "Glob",
+  "Grep",
+  "ListAgents",
+  "Monitor",
+  "NotebookEdit",
+  "PushNotification",
+  "Read",
+  "RemoteTrigger",
+  "ReportFindings",
+  "ScheduleWakeup",
+  "SendMessage",
+  "Skill",
+  "Task",
+  "TaskStop",
+  "ToolSearch",
+  "WebSearch",
+  "Workflow",
+  "Write",
+  ...(process.platform === "win32" ? ["PowerShell"] : []),
+];
+
 /** Hook events the Office registers; a check registers more only when it observes them. */
 const OFFICE_HOOK_EVENTS: readonly HookEvent[] = ["PreToolUse", "PostToolUse", "PermissionDenied"];
 
@@ -194,6 +228,7 @@ export class ProbeSession {
     return {
       cwd: spec.repository,
       model: CHECK_MODEL,
+      tools: OFFICE_TOOLS,
       settingSources: ["project"],
       plugins: [this.pluginFolder, ...(spec.additionalPlugins ?? [])].map((path) => ({ type: "local", path, skipMcpDiscovery: true })),
       skills: [...(spec.allowedSkills ?? skills.map((skill) => `${SESSION_PLUGIN_NAME}:${skill.name}`))],

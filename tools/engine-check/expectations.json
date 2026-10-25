@@ -15,6 +15,22 @@
         ],
         "memoryWritesSeenFirstByPreToolUse": true
       }
+    },
+    "linux": {
+      "officeOptions": {
+        "memoryFolderAnnounced": false,
+        "memoryFolderCreated": false,
+        "memoryWriteOutcomes": [],
+        "memoryWritesSeenFirstByPreToolUse": true
+      },
+      "engineDefault": {
+        "memoryFolderAnnounced": true,
+        "memoryFolderCreated": true,
+        "memoryWriteOutcomes": [
+          "allowed"
+        ],
+        "memoryWritesSeenFirstByPreToolUse": true
+      }
     }
   },
   "engine.decision-wait": {
@@ -27,10 +43,36 @@
         "readOfChosenFile": "allowed",
         "readsEarlierTurnsFromCache": false
       }
+    },
+    "linux": {
+      "decisionOpened": true,
+      "toolCallsAfterDecisionInItsTurn": [],
+      "waitedPastOneHour": true,
+      "answerTurn": {
+        "sameSession": true,
+        "readOfChosenFile": "allowed",
+        "readsEarlierTurnsFromCache": false
+      }
     }
   },
   "engine.interrupt": {
     "win32": {
+      "receiptCapabilityAdvertised": true,
+      "receiptListsStillQueued": true,
+      "interruptedTurnEnded": "aborted_tools",
+      "command": {
+        "outcome": "failed",
+        "interrupted": false,
+        "movedToBackground": false
+      },
+      "nextTurnInSameQuery": "completed",
+      "resumed": {
+        "turnEnded": "completed",
+        "sameSession": true
+      },
+      "commandRanToItsEnd": false
+    },
+    "linux": {
       "receiptCapabilityAdvertised": true,
       "receiptListsStillQueued": true,
       "interruptedTurnEnded": "aborted_tools",
@@ -97,10 +139,82 @@
         ],
         "mcpServers": []
       }
+    },
+    "linux": {
+      "officeOptions": {
+        "firstCallContext": "about 20k",
+        "builtInTools": [
+          "Bash",
+          "CronCreate",
+          "CronDelete",
+          "CronList",
+          "DesignSync",
+          "Edit",
+          "EnterWorktree",
+          "ExitWorktree",
+          "Glob",
+          "Grep",
+          "ListAgents",
+          "Monitor",
+          "NotebookEdit",
+          "PushNotification",
+          "Read",
+          "RemoteTrigger",
+          "ReportFindings",
+          "ScheduleWakeup",
+          "SendMessage",
+          "Skill",
+          "Task",
+          "TaskStop",
+          "ToolSearch",
+          "WebSearch",
+          "Workflow",
+          "Write"
+        ],
+        "claudeAiConnectorsLoaded": false
+      },
+      "secondWorktreeReadsFirstWorktreesPrefix": true,
+      "leanVariant": {
+        "context": "about 10k",
+        "tools": [
+          "Bash",
+          "Edit",
+          "Glob",
+          "Grep",
+          "Read",
+          "Skill",
+          "Write"
+        ],
+        "mcpServers": []
+      }
     }
   },
   "engine.office-tool": {
     "win32": {
+      "listedInInitTools": true,
+      "serverStatus": "connected",
+      "withAllowRule": {
+        "call": {
+          "outcome": "allowed",
+          "preToolUseFirst": true,
+          "permissionDeniedMessage": null,
+          "permissionDeniedHook": false
+        },
+        "handlerReceived": [
+          "check"
+        ]
+      },
+      "withoutAllowRule": {
+        "call": {
+          "outcome": "denied",
+          "preToolUseFirst": true,
+          "permissionDeniedMessage": "asyncAgent",
+          "permissionDeniedHook": false
+        },
+        "handlerReceived": []
+      }
+    },
+    "linux": {
       "listedInInitTools": true,
       "serverStatus": "connected",
       "withAllowRule": {
@@ -132,6 +246,13 @@
         "completed"
       ],
       "distinctSessions": true
+    },
+    "linux": {
+      "allInAToolCallAtOnce": true,
+      "turnsEnded": [
+        "completed"
+      ],
+      "distinctSessions": true
     }
   },
   "engine.priority-later": {
@@ -144,10 +265,30 @@
         "interrupted": false,
         "movedToBackground": false
       }
+    },
+    "linux": {
+      "sentWhileCommandRan": true,
+      "firstTurnEnded": "completed",
+      "landedIn": "next turn",
+      "command": {
+        "outcome": "allowed",
+        "interrupted": false,
+        "movedToBackground": false
+      }
     }
   },
   "engine.priority-next": {
     "win32": {
+      "sentWhileCommandRan": true,
+      "firstTurnEnded": "completed",
+      "landedIn": "running turn",
+      "command": {
+        "outcome": "allowed",
+        "interrupted": false,
+        "movedToBackground": false
+      }
+    },
+    "linux": {
       "sentWhileCommandRan": true,
       "firstTurnEnded": "completed",
       "landedIn": "running turn",
@@ -174,6 +315,28 @@
         "sentWhileCommandRan": true,
         "firstTurnEnded": "aborted_tools",
         "landedIn": "next turn",
+        "command": {
+          "outcome": "allowed",
+          "interrupted": false,
+          "movedToBackground": true
+        }
+      }
+    },
+    "linux": {
+      "withoutOrigin": {
+        "sentWhileCommandRan": true,
+        "firstTurnEnded": "aborted_tools",
+        "landedIn": "next turn",
+        "command": {
+          "outcome": "allowed",
+          "interrupted": false,
+          "movedToBackground": false
+        }
+      },
+      "humanOrigin": {
+        "sentWhileCommandRan": true,
+        "firstTurnEnded": "completed",
+        "landedIn": "running turn",
         "command": {
           "outcome": "allowed",
           "interrupted": false,
@@ -216,6 +379,40 @@
           }
         }
       }
+    },
+    "linux": {
+      "eventArrived": true,
+      "topLevel": {
+        "utilization": false,
+        "resetsAt": true
+      },
+      "eventWindows": [
+        "five_hour",
+        "seven_day"
+      ],
+      "eventWindowFields": {
+        "five_hour": {
+          "utilization": true,
+          "resetsAt": true
+        },
+        "seven_day": {
+          "utilization": true,
+          "resetsAt": true
+        }
+      },
+      "usageQuery": {
+        "rateLimitsAvailable": true,
+        "windows": {
+          "five_hour": {
+            "utilization": true,
+            "resetsAt": true
+          },
+          "seven_day": {
+            "utilization": true,
+            "resetsAt": true
+          }
+        }
+      }
     }
   },
   "engine.resume-cache": {
@@ -225,10 +422,56 @@
       "cacheWriteLifetimes": [
         "1h"
       ]
+    },
+    "linux": {
+      "cacheReadAboveZero": true,
+      "readsEarlierConversationFromCache": true,
+      "cacheWriteLifetimes": [
+        "1h"
+      ]
     }
   },
   "permissions.file-tool-fence": {
     "win32": {
+      "fileTools": {
+        "withoutGrant": {
+          "worktree": {
+            "Read": "allowed",
+            "Grep": "allowed",
+            "Glob": "allowed"
+          },
+          "sessionSkillsFolder": {
+            "Read": "denied",
+            "Grep": "denied",
+            "Glob": "denied"
+          },
+          "officeData": {
+            "Read": "denied",
+            "Grep": "denied",
+            "Glob": "denied"
+          }
+        },
+        "officeOptions": {
+          "worktree": {
+            "Read": "allowed",
+            "Grep": "allowed",
+            "Glob": "allowed"
+          },
+          "sessionSkillsFolder": {
+            "Read": "allowed",
+            "Grep": "allowed",
+            "Glob": "allowed"
+          },
+          "officeData": {
+            "Read": "denied",
+            "Grep": "denied",
+            "Glob": "denied"
+          }
+        }
+      },
+      "shellReadOfOfficeData": "denied"
+    },
+    "linux": {
       "fileTools": {
         "withoutGrant": {
           "worktree": {
@@ -282,10 +525,34 @@
         "reasonReachedModel": true,
         "onDisk": false
       }
+    },
+    "linux": {
+      "beforeResume": {
+        "outcome": "allowed",
+        "onDisk": true
+      },
+      "afterResume": {
+        "outcome": "denied",
+        "preToolUseFirst": true,
+        "permissionDeniedMessage": null,
+        "permissionDeniedHook": false,
+        "reasonReachedModel": true,
+        "onDisk": false
+      }
     }
   },
   "permissions.hook-refusal": {
     "win32": {
+      "refusedRead": {
+        "outcome": "denied",
+        "preToolUseFirst": true,
+        "permissionDeniedMessage": null,
+        "permissionDeniedHook": false
+      },
+      "reasonReachedModel": true,
+      "readOfNamedFile": "allowed"
+    },
+    "linux": {
       "refusedRead": {
         "outcome": "denied",
         "preToolUseFirst": true,
@@ -333,30 +600,91 @@
       "toolsNotSeenFirst": [
         "Read"
       ]
+    },
+    "linux": {
+      "calls": {
+        "allowedRead": {
+          "outcome": "allowed",
+          "preToolUseFirst": true,
+          "permissionDeniedMessage": null,
+          "permissionDeniedHook": false
+        },
+        "readDeniedByRule": {
+          "outcome": "denied",
+          "preToolUseFirst": false,
+          "permissionDeniedMessage": null,
+          "permissionDeniedHook": false
+        },
+        "readOutsideWorkingDirectory": {
+          "outcome": "denied",
+          "preToolUseFirst": true,
+          "permissionDeniedMessage": "other",
+          "permissionDeniedHook": false
+        },
+        "writeWithoutApproval": {
+          "outcome": "denied",
+          "preToolUseFirst": true,
+          "permissionDeniedMessage": "asyncAgent",
+          "permissionDeniedHook": false
+        },
+        "subagentRead": {
+          "outcome": "allowed",
+          "preToolUseFirst": true,
+          "permissionDeniedMessage": null,
+          "permissionDeniedHook": false
+        }
+      },
+      "toolsNotSeenFirst": [
+        "Read"
+      ]
     }
   },
   "permissions.powershell-twin": {
     "win32": {
       "tools": {
-        "officeOptions": {
-          "bashTool": true,
-          "powerShellTool": true
+        "officeTools": {
+          "officeOptions": {
+            "bashTool": true,
+            "powerShellTool": true
+          },
+          "bashDenyRule": {
+            "bashTool": true,
+            "powerShellTool": true
+          },
+          "bashDenyRuleWithTwin": {
+            "bashTool": true,
+            "powerShellTool": true
+          },
+          "bashDenyRuleWithPowerShellAllowRule": {
+            "bashTool": true,
+            "powerShellTool": true
+          },
+          "bashAllowRule": {
+            "bashTool": true,
+            "powerShellTool": true
+          }
         },
-        "bashDenyRule": {
-          "bashTool": true,
-          "powerShellTool": false
-        },
-        "bashDenyRuleWithTwin": {
-          "bashTool": true,
-          "powerShellTool": true
-        },
-        "bashDenyRuleWithPowerShellAllowRule": {
-          "bashTool": true,
-          "powerShellTool": true
-        },
-        "bashAllowRule": {
-          "bashTool": true,
-          "powerShellTool": true
+        "engineDefaultTools": {
+          "officeOptions": {
+            "bashTool": true,
+            "powerShellTool": true
+          },
+          "bashDenyRule": {
+            "bashTool": true,
+            "powerShellTool": false
+          },
+          "bashDenyRuleWithTwin": {
+            "bashTool": true,
+            "powerShellTool": true
+          },
+          "bashDenyRuleWithPowerShellAllowRule": {
+            "bashTool": true,
+            "powerShellTool": true
+          },
+          "bashAllowRule": {
+            "bashTool": true,
+            "powerShellTool": true
+          }
         }
       },
       "twinRuleInForce": {
@@ -368,11 +696,85 @@
           "outcome": "denied",
           "permissionDeniedMessage": "rule"
         }
+      },
+      "bashRuleAlone": {
+        "gitPush": {
+          "outcome": "failed",
+          "permissionDeniedMessage": null
+        }
       }
     }
   },
   "permissions.protected-paths": {
     "win32": {
+      "acceptEditsMode": {
+        "control": {
+          "outcome": "allowed",
+          "permissionDeniedMessage": null,
+          "onDisk": true
+        },
+        "git": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        },
+        "claude": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        },
+        "mcpJson": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        }
+      },
+      "editAllowRule": {
+        "control": {
+          "outcome": "allowed",
+          "permissionDeniedMessage": null,
+          "onDisk": true
+        },
+        "git": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        },
+        "claude": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        },
+        "mcpJson": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        }
+      },
+      "hookAllow": {
+        "control": {
+          "outcome": "allowed",
+          "permissionDeniedMessage": null,
+          "onDisk": true
+        },
+        "git": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        },
+        "claude": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        },
+        "mcpJson": {
+          "outcome": "denied",
+          "permissionDeniedMessage": "asyncAgent",
+          "onDisk": false
+        }
+      }
+    },
+    "linux": {
       "acceptEditsMode": {
         "control": {
           "outcome": "allowed",
@@ -450,6 +852,15 @@
         "review",
         "vendor:review"
       ]
+    },
+    "linux": {
+      "listedSkills": [
+        "office:alpha",
+        "office:beta",
+        "office:review",
+        "review",
+        "vendor:review"
+      ]
     }
   },
   "skills.deny-rule": {
@@ -463,10 +874,48 @@
         "office:beta"
       ],
       "deniedSkillInvocation": "denied"
+    },
+    "linux": {
+      "listedSkills": [
+        "office:alpha",
+        "office:beta"
+      ],
+      "userInvocable": [
+        "office:alpha",
+        "office:beta"
+      ],
+      "deniedSkillInvocation": "denied"
     }
   },
   "skills.overrides-off": {
     "win32": {
+      "atStart": {
+        "listed": [
+          "lint",
+          "notes"
+        ],
+        "userInvocable": [
+          "lint",
+          "notes"
+        ]
+      },
+      "nestedFileRead": true,
+      "afterNestedFileRead": {
+        "listed": [
+          "audit",
+          "lint",
+          "notes",
+          "release"
+        ],
+        "userInvocable": [
+          "audit",
+          "lint",
+          "notes",
+          "release"
+        ]
+      }
+    },
+    "linux": {
       "atStart": {
         "listed": [
           "lint",
@@ -507,10 +956,41 @@
         "without-manifest:one"
       ],
       "pluginErrors": []
+    },
+    "linux": {
+      "plugins": [
+        "child at folder-of-plugins/with-manifest",
+        "skill-at-root at skill-at-root",
+        "without-manifest at without-manifest"
+      ],
+      "listedSkills": [
+        "child:three",
+        "skill-at-root:two",
+        "without-manifest:one"
+      ],
+      "pluginErrors": []
     }
   },
   "skills.plugin-folder-reads": {
     "win32": {
+      "withoutGrant": {
+        "skillFolder": "denied",
+        "outsideFile": "denied"
+      },
+      "readAllowRule": {
+        "skillFolder": "denied",
+        "outsideFile": "denied"
+      },
+      "officeOptions": {
+        "skillFolder": "allowed",
+        "outsideFile": "denied"
+      },
+      "additionalDirectoriesOption": {
+        "skillFolder": "allowed",
+        "outsideFile": "denied"
+      }
+    },
+    "linux": {
       "withoutGrant": {
         "skillFolder": "denied",
         "outsideFile": "denied"
@@ -548,10 +1028,43 @@
           "office:gamma"
         ]
       ]
+    },
+    "linux": {
+      "listedAtStart": [
+        "office:alpha",
+        "office:beta"
+      ],
+      "listedAfterResume": [
+        "office:beta",
+        "office:gamma"
+      ],
+      "listingsAttachedForModel": [
+        [
+          "office:alpha",
+          "office:beta"
+        ],
+        [
+          "office:gamma"
+        ]
+      ]
     }
   },
   "skills.start-check": {
     "win32": {
+      "sessionPluginAtItsFolder": true,
+      "pluginErrors": [],
+      "listedSkills": [
+        "office:alpha",
+        "office:beta"
+      ],
+      "listingEqualsSessionSkills": true,
+      "otherPlugins": [],
+      "initSkillsOutsideSession": [
+        "design",
+        "doctor"
+      ]
+    },
+    "linux": {
       "sessionPluginAtItsFolder": true,
       "pluginErrors": [],
       "listedSkills": [
@@ -586,6 +1099,28 @@
       },
       "syncedPlugins": {
         "present": true,
+        "loaded": []
+      }
+    },
+    "linux": {
+      "installedPlugins": {
+        "present": false,
+        "loaded": []
+      },
+      "skills": {
+        "present": false,
+        "loaded": []
+      },
+      "commands": {
+        "present": false,
+        "loaded": []
+      },
+      "syncedSkills": {
+        "present": false,
+        "loaded": []
+      },
+      "syncedPlugins": {
+        "present": false,
         "loaded": []
       }
     }

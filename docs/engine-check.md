@@ -24,10 +24,10 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 
 | Platform | Date | Result |
 |---|---|---|
-| Windows 11 (win32) | 2026-10-25 | 24 checks run and recorded; the slow `engine.decision-wait` recorded 2026-10-24 |
-| Linux | | Pending: task 01 step 8 |
+| Windows 11 (win32), the workstation | 2026-10-25 | 24 checks run and recorded; the slow `engine.decision-wait` recorded 2026-10-24 |
+| Ubuntu 24.04 x64 (linux), an LXC container signed in to Claude Code as root | 2026-10-25 | 23 checks run and recorded, and the slow `engine.decision-wait` (62 minutes) |
 
-PowerShell checks run on Windows only. Results differ between platforms only where an entry says so.
+`permissions.powershell-twin` runs on Windows only. Results differ between platforms only where an entry says so: `skills.user-scope`, `engine.priority-now` and `engine.lean-options`.
 
 ## How a check runs
 
@@ -35,6 +35,7 @@ Each check runs in a throwaway git repository in a temp folder, with an Office d
 
 - `settingSources: ['project']`, the session plugin folder in `plugins`, `skills` listing `office:<name>` for each session skill;
 - settings: `syncClaudeAiSkills` and `syncClaudeAiPlugins` false, `disableBundledSkills` true, `disableClaudeAiConnectors` true, `autoMemoryEnabled` and `autoDreamEnabled` false, the three built-in plugins false in `enabledPlugins`, `permissions.blockReadsOutsideWorkingDirectories` true, the session plugin folder in `permissions.additionalDirectories`;
+- `tools` naming the built-in tools explicitly, the same list on both platforms with PowerShell on Windows only (see `engine.lean-options`);
 - `permissionPrompts: 'none'`, the `claude_code` system prompt preset with `excludeDynamicSections`, an environment without inherited `CLAUDE*`, `ANTHROPIC*`, `MCP_*` and `OTEL_*` variables;
 - the hooks The Office registers (`PreToolUse`, `PostToolUse`, `PermissionDenied`), recorded on every call and allowing by default; a check decides calls where it needs to.
 
@@ -54,6 +55,8 @@ Results that contradicted or went beyond the spec, and how the spec reads now. E
 | `engine.office-tool` | §6 | Not covered | The Office allows its own tools by rule: `permissionPrompts: 'none'` refuses whatever would prompt |
 | `engine.priority-now` | §5.4 | `now` interrupts | `now` is not used; `interrupt()` is the only way to stop a running command |
 | `engine.auto-memory`, `engine.lean-options`, `skills.start-check` | §5.4 | Not covered | claude.ai connectors, built-in plugins and auto-memory are off |
+| `engine.lean-options`, `permissions.file-tool-fence` (Linux) | §5.4 | The engine's default tool set | An explicit `tools` list, the same on both platforms: the Linux default has no Grep or Glob |
+| `permissions.powershell-twin` | §6 | A Bash deny rule alone silently turns PowerShell off | Twins stay, because a Bash rule does not reach PowerShell; turning it off happens only with the default tool set |
 | `skills.resume`, `skills.overrides-off` | §5.6 | Rebuilt on resume; `skillOverrides` per Project skill | Never a changed set on resume; overrides keyed by the bare name |
 
 ## Skills
@@ -85,7 +88,7 @@ Results that contradicted or went beyond the spec, and how the spec reads now. E
 ### skills.user-scope
 
 - **Run:** a session under the Office's options on a workstation with user-scope installed plugins, user skills, synced skills and synced plugins.
-- **Observed:** none of them loads. `~/.claude/commands` is absent on the Windows workstation, so that part proves nothing there. No variant with sync on was run, since it could write into `~/.claude`.
+- **Observed:** none of them loads. `~/.claude/commands` is absent on the Windows workstation, so that part proves nothing there. On the Linux container none of them is present, so the Linux run proves nothing here; the Windows run is the evidence. No variant with sync on was run, since it could write into `~/.claude`.
 - **Meaning:** `settingSources: ['project']` with the sync settings off keeps the user's own Claude Code setup out of Office sessions; no per-session `CLAUDE_CONFIG_DIR` is needed.
 
 ### skills.plugin-folder-reads
@@ -110,7 +113,7 @@ Results that contradicted or went beyond the spec, and how the spec reads now. E
 
 ### permissions.hook-sees-every-call
 
-- **Run:** one session asked to Read a file in the worktree, Read a file refused by a path-scoped deny rule, Read a file outside the worktree and Write a file without an approval; a second session asked to start a subagent that reads a file.
+- **Run:** one session asked to Read a file in the worktree, Read a file refused by a path-scoped deny rule, Read a file outside the worktree and Write a file without an approval; a second session asked to start a subagent that reads a file. The engine may run the subagent in the background past its turn's result (seen on Linux), so the check waits for every started task to end.
 - **Observed:** the `PreToolUse` hook is called before the engine answers for the allowed call, the fence refusal (`permission_denied`, reason type `other`), the refusal for want of an approval surface (`asyncAgent`) and the subagent's own call (the subagent tool is `Agent` in `tool_use` though `init.tools` lists `Task`). A Read refused by a path-scoped deny rule never reaches the hook: it is refused at input validation ("File is in a directory that is denied by your permission settings."), sends no `permission_denied` message and shows only in `result.permission_denials`. The `PermissionDenied` hook was called for none of these refusals.
 - **Meaning:** contradicted §6, now amended: The Office sets no path-scoped deny rule and makes path decisions in the hook, and logs refusals from `result.permission_denials` and `permission_denied` messages, not from the `PermissionDenied` hook. The engine's own validation refuses some calls before any hook, which no option changes: a standalone `sleep N` in Bash is refused ("Blocked: standalone sleep") without a hook call (seen while writing `engine.priority-*`).
 
@@ -124,14 +127,15 @@ Results that contradicted or went beyond the spec, and how the spec reads now. E
 
 Windows only.
 
-- **Run:** five sets of rules, each read from `init.tools`, then a Bash deny rule on `git push` with its PowerShell twin and a PowerShell allow rule on `git *`.
-- **Observed:** a Bash deny rule alone removes `PowerShell` from the tools; any PowerShell rule beside it (the twin deny, or even an allow) keeps it; a Bash allow rule alone leaves it. With the twin, `git push` through PowerShell is refused by the rule and `git status` runs.
-- **Meaning:** §6's twin rule holds as written: every shell rule The Office writes on Windows has its PowerShell twin.
+- **Run:** five sets of rules, each read from `init.tools`, once with the Office's explicit tool list and once with the engine's default; then a PowerShell allow rule on `git *` beside a Bash deny rule on `git push`, with and without its PowerShell twin.
+- **Observed:** with the engine's default tools, a Bash deny rule alone removes `PowerShell` from the tools; any PowerShell rule beside it (the twin deny, or even an allow) keeps it; a Bash allow rule alone leaves it. With the Office's explicit list, PowerShell stays under every rule set. A Bash deny rule does not reach PowerShell: without the twin, `git push` through PowerShell runs (and fails only for want of a remote); with the twin it is refused by the rule, and `git status` runs.
+- **Meaning:** every shell rule The Office writes on Windows has its PowerShell twin, and with the explicit tool list the twin is the only thing that stops the command through PowerShell. §6 now gives that reason.
 
 ### permissions.file-tool-fence
 
 - **Run:** Read, Grep and Glob each pointed at the worktree, the session skills folder and elsewhere in the Office data directory, with the Office's options and without the skills-folder grant; a shell `cat` of the Office data file in a session of its own.
 - **Observed:** all three tools are fenced alike: the worktree is readable, the rest of the Office data directory is refused, and the skills folder is readable exactly when it is in `permissions.additionalDirectories`. The shell `cat` outside is refused for want of an approval, since no command allow rule covers it.
+- **Linux:** the same with the Office's explicit tool list. With the engine's default tool set Linux has no Grep or Glob at all (a call answers "No such tool available: Grep. Grep is not available in this session — search file contents with `grep` via the Bash tool instead."), which led §5.4 to name the tools explicitly.
 - **Meaning:** the fence covers every file tool, and the grant opens the skills folder for all three and nothing else. Contradicted §6's "shell reads outside are accepted", now amended: they work only for profiles that allow commands. Not tried: a `cat` inside the worktree, so whether read-only commands there need allow rules too is for task 06 to settle with its profiles.
 
 ### permissions.protected-paths
@@ -151,13 +155,13 @@ Windows only.
 ### engine.priority-next, engine.priority-later, engine.priority-now
 
 - **Run:** while a 30 s command allowed by the hook runs, a message is sent with priority `next`, `later` or `now` (`now` twice: without an origin, and with `origin: {kind: 'human'}`, which the SDK asks a host relaying typed input to stamp). The turn that took it is read from the result's `user_message_uuids`.
-- **Observed:** `next` lands in the running turn after the tool call ends. `later` waits for the turn to end and starts the next turn by itself. `now` ends the running turn early (`aborted_tools`) and lands in the next turn, but does not stop the command: without an origin it runs to its end first; with a human origin it moves to the background and keeps running.
+- **Observed:** `next` lands in the running turn after the tool call ends. `later` waits for the turn to end and starts the next turn by itself. `now` does not stop the command. Without an origin, the command runs to its end, then the turn ends early (`aborted_tools`) and the message starts the next. With a human origin, the command moves to the background and keeps running; on Windows the turn then ends early and the message lands in the next, while on Linux (every run alike) the message lands in the running turn, which goes on.
 - **Meaning:** barge-in is `next` (§2.4, §5.4). Contradicted §5.4's "`now` interrupts", now amended: `now` is not used, and Stop is `interrupt()`.
 
 ### engine.interrupt
 
 - **Run:** `interrupt()` while a 30 s command runs, then a next message in the same `query()`, then a resume by id after closing.
-- **Observed:** the running Bash call is rejected at once (`aborted_tools`, result `error_during_execution`) and the command itself ends on Windows (its end marker never appears). `interrupt()` returns a receipt listing what is `still_queued` (`interrupt_receipt_v1` in `init.capabilities`). The same `query()` takes the next turn, and a resume by id afterwards works.
+- **Observed:** the running Bash call is rejected at once (`aborted_tools`, result `error_during_execution`) and the command itself ends, on both platforms (its end marker never appears). `interrupt()` returns a receipt listing what is `still_queued` (`interrupt_receipt_v1` in `init.capabilities`). The same `query()` takes the next turn, and a resume by id afterwards works.
 - **Meaning:** Stop as §2.4 and §5.4 describe it; the Stage's uncommitted edits are then discarded by The Office (§5.5).
 
 ### engine.office-tool
@@ -168,7 +172,7 @@ Windows only.
 
 ### engine.decision-wait
 
-Slow: about an hour; runs only with `--include-slow`. Recorded 2026-10-24 under the options of task 01 step 5 (connectors, built-in plugins and auto-memory on), which do not touch what it observes; re-run with `--include-slow` before an SDK bump is merged.
+Slow: about an hour; runs only with `--include-slow`. Recorded on Windows 2026-10-24 under the options of task 01 step 5 (connectors, built-in plugins and auto-memory on, the default tool set), and on Linux 2026-10-25 under today's options, with the same result; re-run with `--include-slow` before an SDK bump is merged.
 
 - **Run:** an Office tool opens a Decision and its result tells the Agent to end its turn and wait; the answer is sent as the next message into the still-open `query()` 62 minutes later (`ENGINE_CHECK_DECISION_WAIT_MINUTES`).
 - **Observed:** the Agent made no further tool call and ended its turn; the answer continued the work in the same session (it read the chosen file). That turn read nothing from the cache: the hour had passed and the Office tool in the tool list gives the session a prefix no other session kept warm.
@@ -194,9 +198,9 @@ Slow: about an hour; runs only with `--include-slow`. Recorded 2026-10-24 under 
 
 ### engine.lean-options
 
-- **Run:** a first call in each of two worktrees of one repository under the Office's options; a session started without a model call with an explicit `tools` list (Bash, Edit, Glob, Grep, PowerShell, Read, Skill, Write) and `strictMcpConfig`.
-- **Observed:** the first call under the Office's options is about 30k tokens: the system prompt and 27 built-in tools (24.6k, cached and shared) plus the first message. The second worktree's first call reads the same prefix from the cache as the first's, so the cached prefix is identical across Tasks. No claude.ai connector loads. The explicit tool list brings the start to about 10k.
-- **Meaning:** §5.1's stable cached prefix holds across worktrees. A first call close to §2.5's 30k resume-or-brief threshold is the cost of the default tool set; trimming it per Role (which needs Task, WebSearch, ToolSearch) is open in §5.4.
+- **Run:** a first call in each of two worktrees of one repository under the Office's options; a session started without a model call with a short `tools` list (Bash, Edit, Glob, Grep, PowerShell on Windows, Read, Skill, Write) and `strictMcpConfig`.
+- **Observed:** the first call under the Office's options is about 28k tokens on Windows (the system prompt and 27 built-in tools, 24.6k, cached and shared, plus the first message) and about 23k on Linux (26 tools, no PowerShell). The engine's default set on Linux has no Grep or Glob; naming them in `tools` brings them back. The second worktree's first call reads the same prefix from the cache as the first's, so the cached prefix is identical across Tasks. No claude.ai connector loads. The short list brings the start to about 10k.
+- **Meaning:** §5.1's stable cached prefix holds across worktrees. §5.4 names the tools explicitly so both platforms get the same set. A first call close to §2.5's 30k resume-or-brief threshold is the cost of that set; trimming it per Role (which needs Task, WebSearch, ToolSearch) is open in §5.4.
 
 ### engine.auto-memory
 
@@ -212,6 +216,7 @@ Seen while running the checks, recorded so a bump can be compared against them.
 - The transcript holds a `session_context` attachment with the signed-in user's e-mail address, under `settingSources: ['project']`.
 - The engine leaves an empty `memory/` folder in the transcript folder of each working directory when auto-memory is on.
 - `apiKeySource` is `none`; no memory files and no user hooks reach a session.
+- On Linux, after a command moved to the background, the model read its output file under `/tmp/claude-0/…/tasks/`, outside the worktree, and the read fence let it: the engine allows reads of its own task output. Harmless, and one more engine-owned path past the fence.
 
 ## Not checked
 

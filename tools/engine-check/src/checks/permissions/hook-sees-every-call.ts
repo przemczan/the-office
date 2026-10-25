@@ -1,3 +1,4 @@
+import type { SDKTaskNotificationMessage, SDKTaskStartedMessage } from "@anthropic-ai/claude-agent-sdk";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Check } from "../../check.ts";
@@ -58,7 +59,21 @@ export const hookSeesEveryCallCheck: Check = {
 async function runTurn(session: ProbeSession, prompt: string): Promise<{ session: ProbeSession; calls: ToolCall[] }> {
   session.send(prompt);
   await session.nextResult();
+  await backgroundTasksEnded(session);
   return { session, calls: toolCalls(session.messages) };
+}
+
+/** The engine may run a subagent in the background past its turn's result; its calls count once it has ended. */
+async function backgroundTasksEnded(session: ProbeSession): Promise<void> {
+  const started = session.messages.filter((message): message is SDKTaskStartedMessage => message.type === "system" && message.subtype === "task_started");
+  await Promise.all(
+    started.map((task) =>
+      session.waitForMessage(
+        (message): message is SDKTaskNotificationMessage =>
+          message.type === "system" && message.subtype === "task_notification" && message.task_id === task.task_id,
+      ),
+    ),
+  );
 }
 
 function notSeenFirst(session: ProbeSession, calls: readonly ToolCall[]): string[] {
