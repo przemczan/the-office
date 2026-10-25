@@ -27,6 +27,11 @@ export class PostgresThreadRepository extends ThreadRepository {
     return row && toThread(row);
   }
 
+  async answering(): Promise<readonly Thread[]> {
+    const rows = await this.database.select().from(threads).where(eq(threads.state, "answering"));
+    return rows.map(toThread);
+  }
+
   async listIn(home: Home): Promise<readonly Thread[]> {
     const { kind, id } = homeColumns(home);
     const rows = await this.database

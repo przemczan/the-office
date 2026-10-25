@@ -15,6 +15,9 @@ export abstract class ThreadRepository {
 
   abstract find(id: string): Promise<Thread | undefined>;
 
+  /** Every Thread whose person is answering now, in any home. */
+  abstract answering(): Promise<readonly Thread[]>;
+
   /** The home's Threads, the newest started first. */
   abstract listIn(home: Home): Promise<readonly Thread[]>;
 

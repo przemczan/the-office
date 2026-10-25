@@ -20,6 +20,7 @@ import {
   failAnswer,
   logMessages,
   type ThreadChange,
+  type UnopenedSession,
 } from "../domain/thread-changes.js";
 import { ThreadNotFound } from "../domain/thread-not-found.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
@@ -45,6 +46,8 @@ interface LiveSession {
   /** The person writes their Handover note in the turn running now; the session ends after it. */
   handingOver: boolean;
   idle: NodeJS.Timeout | undefined;
+  /** The Office ends it: its events finishing then is no surprise. */
+  ending: boolean;
 }
 
 /**
@@ -57,6 +60,8 @@ interface LiveSession {
 export class ThreadRunner implements OnModuleDestroy {
   private readonly logger = new Logger(ThreadRunner.name);
   private readonly live = new Map<string, LiveSession>();
+  /** Sessions still ending, by Thread: a resume of one waits until its process is gone. */
+  private readonly endings = new Map<string, Promise<void>>();
 
   constructor(
     private readonly repository: ThreadRepository,
@@ -115,13 +120,14 @@ export class ThreadRunner implements OnModuleDestroy {
     const answering = await this.change(threadId, (latest) =>
       beginAnswer(latest, { said, personName: current.card.name, decision, newSession }),
     );
+    const unopened = newSession && { sessionId: newSession.id, previous: thread.session };
     void this.answer(answering, {
       said: { id: said.id, text },
       decision,
       role,
       replaced: newSession ? thread.session : undefined,
       briefText: brief.text,
-    }).catch((error: unknown) => this.fail(threadId, error));
+    }).catch((error: unknown) => this.fail(threadId, error, unopened));
     return answering;
   }
 
@@ -157,7 +163,7 @@ export class ThreadRunner implements OnModuleDestroy {
       return;
     }
     await this.endLive(thread.id);
-    if (replaced) await this.sessionSkills.forget(replaced.id);
+    await this.endings.get(thread.id);
     const projects = await this.bases.refresh();
     this.logger.log(`Thread ${thread.id} reads ${projects.length} Projects' base branches.`);
     if (decision.move === "resume") {
@@ -167,17 +173,25 @@ export class ThreadRunner implements OnModuleDestroy {
       opened.send(said, "later");
       return;
     }
-    const skills = await this.sessionSkills.prepare({
-      sessionId: session.id,
-      roleKey: role.roleKey,
-      project: undefined,
-    });
-    const opened = await this.engine.start({
-      id: session.id,
-      settings: this.settingsOf(thread, role, skills),
-      brief: { id: said.id, text: briefedMessage(briefText, said.text) },
-    });
+    let opened: EngineSession;
+    try {
+      const skills = await this.sessionSkills.prepare({
+        sessionId: session.id,
+        roleKey: role.roleKey,
+        project: undefined,
+      });
+      opened = await this.engine.start({
+        id: session.id,
+        settings: this.settingsOf(thread, role, skills),
+        brief: { id: said.id, text: briefedMessage(briefText, said.text) },
+      });
+    } catch (error) {
+      await this.forget(session.id);
+      throw error;
+    }
     this.watch(thread.id, role.roleKey, opened);
+    // Only once the new session runs: until then the Thread may go back to the one it replaces.
+    if (replaced) await this.forget(replaced.id);
   }
 
   private settingsOf(
@@ -187,8 +201,8 @@ export class ThreadRunner implements OnModuleDestroy {
   ): SessionSettings {
     return {
       folder: this.bases.folder,
-      // A chat runs no Project command, so it needs no Project's environment.
-      environment: {},
+      // The service's own: a chat runs no Project command, so no Project's changes to it.
+      environment: serviceEnvironment(),
       model: card.model,
       effort: card.effort,
       instructions: chatInstructions(card),
@@ -211,14 +225,31 @@ export class ThreadRunner implements OnModuleDestroy {
 
   /** Reads the session's events into the log until it ends. */
   private watch(threadId: string, roleKey: string, session: EngineSession): void {
-    const live: LiveSession = { session, roleKey, handingOver: false, idle: undefined };
+    const live: LiveSession = {
+      session,
+      roleKey,
+      handingOver: false,
+      idle: undefined,
+      ending: false,
+    };
     this.live.set(threadId, live);
     void this.read(threadId, live)
+      .then(() => (live.ending ? undefined : this.endedEarly(threadId, session.id)))
       .catch((error: unknown) => this.fail(threadId, error))
       .finally(() => {
         if (live.idle) clearTimeout(live.idle);
         if (this.live.get(threadId) === live) this.live.delete(threadId);
       });
+  }
+
+  /** The session stopped of its own accord: a Thread it was answering waits for the user again. */
+  private async endedEarly(threadId: string, sessionId: string): Promise<void> {
+    const thread = await this.threadOf(threadId);
+    if (thread.state === "answering" && thread.session?.id === sessionId) {
+      await this.change(threadId, (latest) =>
+        failAnswer(latest, "The session ended before the answer was finished.", new Date()),
+      );
+    }
   }
 
   private async read(threadId: string, live: LiveSession): Promise<void> {
@@ -302,21 +333,32 @@ export class ThreadRunner implements OnModuleDestroy {
     const live = this.live.get(threadId);
     if (!live) return;
     this.live.delete(threadId);
+    live.ending = true;
     if (live.idle) clearTimeout(live.idle);
-    await live.session.end().catch((error: unknown) => {
+    const ending = live.session.end().catch((error: unknown) => {
       this.logger.warn(`Thread ${threadId}'s session didn't end cleanly: ${messageOf(error)}`);
+    });
+    this.endings.set(threadId, ending);
+    await ending;
+    if (this.endings.get(threadId) === ending) this.endings.delete(threadId);
+  }
+
+  /** A session that won't be resumed: its skills folder goes, and a failure there only warns. */
+  private async forget(sessionId: string): Promise<void> {
+    await this.sessionSkills.forget(sessionId).catch((error: unknown) => {
+      this.logger.warn(`Session ${sessionId}'s skills stay: ${messageOf(error)}`);
     });
   }
 
   /** The person couldn't answer: why goes into the log, and the Thread waits for the user. */
-  private async fail(threadId: string, error: unknown): Promise<void> {
+  private async fail(threadId: string, error: unknown, unopened?: UnopenedSession): Promise<void> {
     this.logger.error(`Thread ${threadId} stopped answering: ${messageOf(error)}`);
     await this.endLive(threadId);
-    await this.change(threadId, (thread) => failAnswer(thread, messageOf(error), new Date())).catch(
-      (failure: unknown) => {
-        this.logger.error(`Thread ${threadId}'s failure wasn't logged: ${messageOf(failure)}`);
-      },
-    );
+    await this.change(threadId, (thread) =>
+      failAnswer(thread, messageOf(error), new Date(), unopened),
+    ).catch((failure: unknown) => {
+      this.logger.error(`Thread ${threadId}'s failure wasn't logged: ${messageOf(failure)}`);
+    });
   }
 
   private async log(threadId: string, drafts: readonly MessageDraft[]): Promise<void> {
@@ -339,6 +381,15 @@ export class ThreadRunner implements OnModuleDestroy {
     if (!thread) throw new ThreadNotFound(threadId);
     return thread;
   }
+}
+
+/** The variables the service runs with, which the engine filters The Office's own out of. */
+function serviceEnvironment(): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] => entry[1] !== undefined,
+    ),
+  );
 }
 
 function messageOf(error: unknown): string {

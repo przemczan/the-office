@@ -6,6 +6,7 @@ import { ThreadsController } from "./adapters/http/threads.controller.js";
 import { PostgresThreadRepository } from "./adapters/postgres/postgres-thread-repository.js";
 import { ThreadWebEvents } from "./adapters/websocket/thread-web-events.js";
 import { Briefs } from "./application/briefs.js";
+import { InterruptedAnswers } from "./application/interrupted-answers.js";
 import { CONTEXT_POLICY_SETTINGS, ThreadContexts } from "./application/thread-contexts.js";
 import { ThreadRunner } from "./application/thread-runner.js";
 import { ThreadService } from "./application/thread-service.js";
@@ -36,8 +37,10 @@ export class ConversationsModule {
         Briefs,
         ThreadContexts,
         ThreadRunner,
+        InterruptedAnswers,
         ThreadWebEvents,
       ],
+      exports: [InterruptedAnswers],
     };
   }
 }

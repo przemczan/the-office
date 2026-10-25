@@ -182,11 +182,22 @@ export function endTurn(
   return { thread: ended, logged: [], event: new TurnEnded(ended, endedAt) };
 }
 
-/** The person couldn't answer: why is logged, and the Thread waits for the user again. */
+/** A session the move started that never opened, and the one the Thread had before it. */
+export interface UnopenedSession {
+  readonly sessionId: string;
+  readonly previous: ThreadSession | undefined;
+}
+
+/**
+ * The person couldn't answer: why is logged, and the Thread waits for the user again. A session
+ * that never opened gives way to the one the Thread had before, so the next message isn't read
+ * as continuing a session that never ran.
+ */
 export function failAnswer(
   thread: Thread,
   reason: string,
   failedAt: Date,
+  unopened?: UnopenedSession,
 ): ThreadChange<MessagesLogged> {
   const failure: Message = {
     kind: "failure",
@@ -195,7 +206,9 @@ export function failAnswer(
     at: failedAt,
     reason,
   };
-  const waiting: Thread = { ...thread, state: "waiting" };
+  const session =
+    unopened && thread.session?.id === unopened.sessionId ? unopened.previous : thread.session;
+  const waiting: Thread = { ...thread, state: "waiting", session };
   return {
     thread: waiting,
     logged: [failure],

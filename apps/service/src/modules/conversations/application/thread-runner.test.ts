@@ -23,6 +23,7 @@ import { ThreadRefused } from "../domain/thread-refused.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
+import { InterruptedAnswers } from "./interrupted-answers.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { CONTEXT_POLICY_SETTINGS, ThreadContexts } from "./thread-contexts.js";
 import { ThreadRunner } from "./thread-runner.js";
@@ -104,6 +105,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       Briefs,
       ThreadContexts,
       ThreadRunner,
+      InterruptedAnswers,
     ],
   }));
   threads = app.get(ThreadService);
@@ -380,7 +382,7 @@ describe("continuing a Thread", () => {
   });
 
   it("refuses a message while the person is still answering", async () => {
-    await startWith(started());
+    await startWith(started(sent("never")));
     const thread = await threads.startInChat(roleKey);
     await runner.send(thread.id, "Hello.");
 
@@ -398,6 +400,70 @@ describe("continuing a Thread", () => {
 
     await expect(runner.send(thread.id, "Hello again.")).rejects.toThrow(ThreadRefused);
     await expect(threads.messages(thread.id)).resolves.toHaveLength(3);
+  });
+});
+
+/** Waits until the Thread waits for the user again, whatever happened. */
+async function waiting(threadId: string): Promise<Thread> {
+  return vi.waitFor(
+    async () => {
+      const thread = await threads.read(threadId);
+      if (thread.state !== "waiting") throw new Error("Still answering.");
+      return thread;
+    },
+    { timeout: 5_000, interval: 20 },
+  );
+}
+
+describe("when a session doesn't answer", () => {
+  it("puts back the session the Thread had when a new one fails to start", async () => {
+    // No script: the engine refuses to start the session.
+    await startWith();
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.");
+    const after = await waiting(thread.id);
+
+    expect(after.session).toBeUndefined();
+    expect(drafts(await threads.messages(thread.id)).at(-1)).toMatchObject({ kind: "failure" });
+    await expect(app.get(ThreadContexts).of(after)).resolves.toMatchObject({
+      move: "fresh",
+      reason: "new-thread",
+    });
+  });
+
+  it("waits for the user again when the session ends before the answer is finished", async () => {
+    await startWith(
+      started({
+        step: "event",
+        event: { kind: "text", text: "Let me", withinToolCall: undefined },
+      }),
+    );
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.");
+    await waiting(thread.id);
+
+    expect(drafts(await threads.messages(thread.id)).slice(2)).toEqual([
+      { kind: "person", roleKey, text: "Let me" },
+      { kind: "failure", reason: "The session ended before the answer was finished." },
+    ]);
+  });
+
+  it("recovers a Thread left answering when The Office stopped", async () => {
+    // The session waits for a message nobody sends: it is still answering.
+    await startWith(started(sent("never")));
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Hello.");
+
+    await app.get(InterruptedAnswers).recover();
+
+    const after = await threads.read(thread.id);
+    expect(after.state).toBe("waiting");
+    expect(drafts(await threads.messages(thread.id)).at(-1)).toEqual({
+      kind: "failure",
+      reason: "The Office stopped while this was being answered.",
+    });
   });
 });
 

@@ -2,6 +2,7 @@ import { fileURLToPath } from "node:url";
 import { Logger, type INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module.js";
+import { InterruptedAnswers } from "./modules/conversations/index.js";
 import { InvalidOfficeConfigError } from "./platform/config/invalid-office-config-error.js";
 import { readOfficeConfig, type OfficeConfig } from "./platform/config/office-config.js";
 import { configureHttp } from "./platform/http/configure-http.js";
@@ -26,9 +27,19 @@ function readConfig(): OfficeConfig {
   });
 }
 
-async function serve(app: INestApplication, port: number): Promise<void> {
+/**
+ * Serves once `prepare` has run on the started app: work the last run left half-done is put right
+ * before any request can reach it.
+ */
+async function serve(
+  app: INestApplication,
+  port: number,
+  prepare: (app: INestApplication) => Promise<void>,
+): Promise<void> {
   configureHttp(app);
   try {
+    await app.init();
+    await prepare(app);
     await app.listen(port, LOCALHOST);
   } catch (error) {
     // Closes what started before the failure, such as the database pool, so the process can end.
@@ -61,7 +72,7 @@ async function start(telemetry: StartedTelemetry, webApp: WebAppSource): Promise
     AppModule.register(config, { directory: WEB_APP_DIRECTORY, source: webApp }),
     { abortOnError: false },
   );
-  await serve(app, config.port);
+  await serve(app, config.port, (started) => started.get(InterruptedAnswers).recover());
   closeOnShutdownSignal(app, telemetry);
 }
 
