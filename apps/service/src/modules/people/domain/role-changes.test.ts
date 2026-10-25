@@ -47,7 +47,10 @@ describe("changeRoleCard", () => {
       cardSavedAt: at,
     });
     expect(change?.event).toEqual(
-      new RoleCardChanged(change!.role, role.card, ["name", "taskLimit"]),
+      new RoleCardChanged(change!.role, [
+        { field: "name", from: "Ada", to: "Adele" },
+        { field: "taskLimit", from: 3, to: 2 },
+      ]),
     );
     expect(change?.event.occurredAt).toEqual(at);
   });

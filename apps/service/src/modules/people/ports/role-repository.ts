@@ -1,0 +1,39 @@
+import type { Role, RoleCardVersion } from "../domain/role.js";
+import type { RoleChange } from "../domain/role-changes.js";
+import type { RoleCardChanged } from "../domain/role-events.js";
+
+/** The Role after a card change, with its event, or undefined when nothing changed. */
+export interface RoleUpdate {
+  readonly role: Role;
+  readonly event: RoleCardChanged | undefined;
+}
+
+/** Where Roles are kept, with every version of each card. */
+export abstract class RoleRepository {
+  /**
+   * Keeps a newly hired Role with its card as version 1. False when someone already fills the
+   * Role, which then stays as it was.
+   */
+  abstract add(role: Role): Promise<boolean>;
+
+  abstract find(key: string): Promise<Role | undefined>;
+
+  /** Every Role, in the order they were hired. */
+  abstract list(): Promise<readonly Role[]>;
+
+  /**
+   * Applies `change` to the Role as stored, holding it against other changes until the new card
+   * version is saved with its changes, so two changes at once never lose one. Saves nothing when
+   * `change` returns undefined; throws RoleNotFound when nobody fills the Role.
+   */
+  abstract update(
+    key: string,
+    change: (role: Role) => RoleChange<RoleCardChanged> | undefined,
+  ): Promise<RoleUpdate>;
+
+  /** Undefined when the Role has no such version. */
+  abstract version(key: string, version: number): Promise<RoleCardVersion | undefined>;
+
+  /** Every version of the Role's card, newest first. */
+  abstract versions(key: string): Promise<readonly RoleCardVersion[]>;
+}

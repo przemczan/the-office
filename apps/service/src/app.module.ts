@@ -1,5 +1,6 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { EngineModule } from "./modules/engine/index.js";
+import { PeopleModule } from "./modules/people/index.js";
 import { PipelineLibrary, PipelinesModule } from "./modules/pipelines/index.js";
 import { ProjectsModule } from "./modules/projects/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
@@ -24,6 +25,7 @@ export class AppModule {
         EventStreamModule,
         HealthModule,
         OfficeDataModule.forRoot(config.officeDataDirectory),
+        PeopleModule,
         PipelinesModule,
         ProjectsModule.register({ imports: [PipelinesModule], knownPipelines: PipelineLibrary }),
         SkillsModule,

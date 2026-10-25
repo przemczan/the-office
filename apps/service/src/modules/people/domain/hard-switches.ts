@@ -73,6 +73,17 @@ export function hardSwitchInEffect(
   return value.kind === "consult" && !hiredRoles.has(value.role) ? ASK_ME : value;
 }
 
+/** The switches that consult a Role nobody fills, and so ask the user until someone is hired. */
+export function switchesAskingYouUntilHired(
+  switches: HardSwitches,
+  hiredRoles: ReadonlySet<string>,
+): HardSwitchKey[] {
+  return HARD_SWITCH_KEYS.filter((key) => {
+    const value = switches[key];
+    return value.kind === "consult" && hardSwitchInEffect(value, hiredRoles) !== value;
+  });
+}
+
 export function sameHardSwitchValue(first: HardSwitchValue, second: HardSwitchValue): boolean {
   if (first.kind === "consult" && second.kind === "consult") return first.role === second.role;
   return first.kind === second.kind;

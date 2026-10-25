@@ -1,0 +1,133 @@
+import { Inject, Injectable } from "@nestjs/common";
+import { and, asc, desc, eq } from "drizzle-orm";
+import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import type { Role, RoleCardVersion } from "../../domain/role.js";
+import type { RoleChange } from "../../domain/role-changes.js";
+import type { RoleCardChanged } from "../../domain/role-events.js";
+import { RoleNotFound } from "../../domain/role-not-found.js";
+import { RoleRepository, type RoleUpdate } from "../../ports/role-repository.js";
+import { roleCardVersions, roles } from "./roles.schema.js";
+
+type RoleRow = typeof roles.$inferSelect;
+type RoleCardVersionRow = typeof roleCardVersions.$inferSelect;
+
+/** A Role's row joined with its current card version. */
+const currentCard = and(
+  eq(roleCardVersions.roleKey, roles.key),
+  eq(roleCardVersions.version, roles.cardVersion),
+);
+
+@Injectable()
+export class PostgresRoleRepository extends RoleRepository {
+  constructor(@Inject(DATABASE) private readonly database: Database) {
+    super();
+  }
+
+  async add(role: Role): Promise<boolean> {
+    return this.database.transaction(async (transaction) => {
+      const added = await transaction
+        .insert(roles)
+        .values(toRow(role))
+        .onConflictDoNothing()
+        .returning({ key: roles.key });
+      if (added.length === 0) return false;
+      await transaction
+        .insert(roleCardVersions)
+        .values({ ...currentVersionRow(role), changes: [] });
+      return true;
+    });
+  }
+
+  async find(key: string): Promise<Role | undefined> {
+    const [row] = await this.database
+      .select()
+      .from(roles)
+      .innerJoin(roleCardVersions, currentCard)
+      .where(eq(roles.key, key));
+    return row && toRole(row.roles, row.role_card_versions);
+  }
+
+  async list(): Promise<readonly Role[]> {
+    const rows = await this.database
+      .select()
+      .from(roles)
+      .innerJoin(roleCardVersions, currentCard)
+      .orderBy(asc(roles.hiredAt), asc(roles.key));
+    return rows.map((row) => toRole(row.roles, row.role_card_versions));
+  }
+
+  async update(
+    key: string,
+    change: (role: Role) => RoleChange<RoleCardChanged> | undefined,
+  ): Promise<RoleUpdate> {
+    return this.database.transaction(async (transaction) => {
+      // Locked on its own: Postgres re-checks a locked row against a join after waiting for the
+      // lock, and the version joined before the other change would no longer match.
+      const [locked] = await transaction
+        .select({ key: roles.key })
+        .from(roles)
+        .where(eq(roles.key, key))
+        .for("update");
+      const [row] = locked
+        ? await transaction
+            .select()
+            .from(roles)
+            .innerJoin(roleCardVersions, currentCard)
+            .where(eq(roles.key, key))
+        : [];
+      if (!row) throw new RoleNotFound(key);
+      const role = toRole(row.roles, row.role_card_versions);
+      const changed = change(role);
+      if (!changed) return { role, event: undefined };
+      await transaction.update(roles).set(toRow(changed.role)).where(eq(roles.key, key));
+      await transaction
+        .insert(roleCardVersions)
+        .values({ ...currentVersionRow(changed.role), changes: [...changed.event.changes] });
+      return changed;
+    });
+  }
+
+  async version(key: string, version: number): Promise<RoleCardVersion | undefined> {
+    const [row] = await this.database
+      .select()
+      .from(roleCardVersions)
+      .where(and(eq(roleCardVersions.roleKey, key), eq(roleCardVersions.version, version)));
+    return row && toVersion(row);
+  }
+
+  async versions(key: string): Promise<readonly RoleCardVersion[]> {
+    const rows = await this.database
+      .select()
+      .from(roleCardVersions)
+      .where(eq(roleCardVersions.roleKey, key))
+      .orderBy(desc(roleCardVersions.version));
+    return rows.map(toVersion);
+  }
+}
+
+function toRow(role: Role): RoleRow {
+  return { key: role.key, cardVersion: role.cardVersion, hiredAt: role.hiredAt };
+}
+
+function currentVersionRow(role: Role): Omit<RoleCardVersionRow, "changes"> {
+  return {
+    roleKey: role.key,
+    version: role.cardVersion,
+    card: role.card,
+    savedAt: role.cardSavedAt,
+  };
+}
+
+function toRole(row: RoleRow, version: RoleCardVersionRow): Role {
+  return {
+    key: row.key,
+    card: version.card,
+    cardVersion: row.cardVersion,
+    hiredAt: row.hiredAt,
+    cardSavedAt: version.savedAt,
+  };
+}
+
+function toVersion(row: RoleCardVersionRow): RoleCardVersion {
+  return { version: row.version, card: row.card, changes: row.changes, savedAt: row.savedAt };
+}

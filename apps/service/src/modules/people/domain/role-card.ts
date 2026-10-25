@@ -1,10 +1,4 @@
-import {
-  HARD_SWITCH_KEYS,
-  hardSwitchesProblems,
-  sameHardSwitchValue,
-  type HardSwitches,
-  type HardSwitchKey,
-} from "./hard-switches.js";
+import { hardSwitchesProblems, type HardSwitches } from "./hard-switches.js";
 import type { PermissionProfile } from "./permission-profile.js";
 import { taskLimitProblem, type TaskLimit } from "./task-limit.js";
 
@@ -115,51 +109,6 @@ export function roleCardProblems(roleKey: string, card: RoleCardEdit): string[] 
   if (limitProblem) problems.push(limitProblem);
   problems.push(...hardSwitchesProblems(roleKey, card.hardSwitches));
   return problems;
-}
-
-const CAPABILITY_KEYS = [
-  "sharedMemory",
-  "chat",
-  "consultant",
-] as const satisfies readonly (keyof Capabilities)[];
-const PLAIN_FIELDS = [
-  "name",
-  "title",
-  "responsibilities",
-  "instructions",
-  "engine",
-  "model",
-  "effort",
-  "taskLimit",
-  "sessionDefault",
-] as const;
-
-/** A part of a Role card as its change history names it, down to each capability and switch. */
-export type RoleCardField =
-  | (typeof PLAIN_FIELDS)[number]
-  | `capabilities.${(typeof CAPABILITY_KEYS)[number]}`
-  | "permissionProfile"
-  | `hardSwitches.${HardSwitchKey}`;
-
-/** What differs from `before` to `after`, in the card's order. */
-export function changedRoleCardFields(before: RoleCard, after: RoleCard): RoleCardField[] {
-  const changed: RoleCardField[] = PLAIN_FIELDS.filter((field) => before[field] !== after[field]);
-  for (const key of CAPABILITY_KEYS) {
-    if (before.capabilities[key] !== after.capabilities[key]) changed.push(`capabilities.${key}`);
-  }
-  if (!samePermissionProfile(before.permissionProfile, after.permissionProfile)) {
-    changed.push("permissionProfile");
-  }
-  for (const key of HARD_SWITCH_KEYS) {
-    if (!sameHardSwitchValue(before.hardSwitches[key], after.hardSwitches[key])) {
-      changed.push(`hardSwitches.${key}`);
-    }
-  }
-  return changed;
-}
-
-function samePermissionProfile(first: PermissionProfile, second: PermissionProfile): boolean {
-  return first.edit === second.edit && first.run === second.run && first.web === second.web;
 }
 
 /** Why a person can't be called `name`; empty when they can. */

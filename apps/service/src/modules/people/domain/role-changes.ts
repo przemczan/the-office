@@ -2,13 +2,13 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { presetFor } from "./presets.js";
 import type { Role } from "./role.js";
 import {
-  changedRoleCardFields,
   personNameProblems,
   roleCardProblems,
   trimmedRoleCard,
   type RoleCard,
   type RoleCardEdit,
 } from "./role-card.js";
+import { roleCardChanges } from "./role-card-changes.js";
 import { RoleCardChanged, RoleHired } from "./role-events.js";
 import { RoleRefused } from "./role-refused.js";
 
@@ -60,8 +60,8 @@ export function changeRoleCard(
   };
   const problems = roleCardProblems(role.key, card);
   if (problems.length > 0) throw new RoleRefused(problems);
-  const changedFields = changedRoleCardFields(role.card, card);
-  if (changedFields.length === 0) return undefined;
+  const changes = roleCardChanges(role.card, card);
+  if (changes.length === 0) return undefined;
   const changed: Role = { ...role, card, cardVersion: role.cardVersion + 1, cardSavedAt: savedAt };
-  return { role: changed, event: new RoleCardChanged(changed, role.card, changedFields) };
+  return { role: changed, event: new RoleCardChanged(changed, changes) };
 }

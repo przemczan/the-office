@@ -50,6 +50,13 @@
       "when": 1792942478153,
       "tag": "0006_project_skill_names",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792948556677,
+      "tag": "0007_roles",
+      "breakpoints": true
     }
   ]
 }

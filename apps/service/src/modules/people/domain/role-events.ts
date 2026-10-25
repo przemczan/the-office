@@ -1,6 +1,6 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Role } from "./role.js";
-import type { RoleCard, RoleCardField } from "./role-card.js";
+import type { RoleCardFieldChange } from "./role-card-changes.js";
 
 export class RoleHired extends DomainEvent {
   constructor(readonly role: Role) {
@@ -12,8 +12,7 @@ export class RoleHired extends DomainEvent {
 export class RoleCardChanged extends DomainEvent {
   constructor(
     readonly role: Role,
-    readonly previousCard: RoleCard,
-    readonly changedFields: readonly RoleCardField[],
+    readonly changes: readonly RoleCardFieldChange[],
   ) {
     super(role.cardSavedAt);
   }

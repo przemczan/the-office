@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { ALLOWED, consult } from "./hard-switches.js";
+import { consult } from "./hard-switches.js";
 import { aRoleCard } from "./role.fixtures.js";
-import { changedRoleCardFields, roleCardProblems, trimmedRoleCard } from "./role-card.js";
+import { roleCardProblems, trimmedRoleCard } from "./role-card.js";
 
 describe("trimmedRoleCard", () => {
   it("keeps the texts without their surrounding spaces", () => {
@@ -58,41 +58,5 @@ describe("roleCardProblems", () => {
 
   it("accepts a Task limit of none", () => {
     expect(roleCardProblems("developer", aRoleCard({ taskLimit: "none" }))).toEqual([]);
-  });
-});
-
-describe("changedRoleCardFields", () => {
-  it("names nothing for the same card", () => {
-    expect(changedRoleCardFields(aRoleCard(), aRoleCard())).toEqual([]);
-  });
-
-  it("names each changed field, capability and switch, in the card's order", () => {
-    const before = aRoleCard();
-    const after = aRoleCard({
-      instructions: "New instructions.",
-      taskLimit: 2,
-      capabilities: { ...before.capabilities, chat: true },
-      permissionProfile: { ...before.permissionProfile, web: false },
-      hardSwitches: { ...before.hardSwitches, runInstalls: ALLOWED },
-    });
-
-    expect(changedRoleCardFields(before, after)).toEqual([
-      "instructions",
-      "taskLimit",
-      "capabilities.chat",
-      "permissionProfile",
-      "hardSwitches.runInstalls",
-    ]);
-  });
-
-  it("tells one consulted Role from another", () => {
-    const before = aRoleCard();
-    const after = aRoleCard({
-      hardSwitches: { ...before.hardSwitches, publishOutsideThePipeline: consult("planner") },
-    });
-
-    expect(changedRoleCardFields(before, after)).toEqual([
-      "hardSwitches.publishOutsideThePipeline",
-    ]);
   });
 });

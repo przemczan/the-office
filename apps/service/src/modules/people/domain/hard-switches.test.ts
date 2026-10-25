@@ -6,6 +6,7 @@ import {
   hardSwitchesProblems,
   hardSwitchInEffect,
   NEVER,
+  switchesAskingYouUntilHired,
   type HardSwitches,
 } from "./hard-switches.js";
 
@@ -47,6 +48,17 @@ describe("hardSwitchesProblems", () => {
       ]);
     },
   );
+});
+
+describe("switchesAskingYouUntilHired", () => {
+  it("names the switches consulting a Role nobody fills", () => {
+    const asking = switchesAskingYouUntilHired(
+      switches({ publishOutsideThePipeline: consult("planner") }),
+      new Set(["developer", "planner"]),
+    );
+
+    expect(asking).toEqual(["runInstalls"]);
+  });
 });
 
 describe("hardSwitchInEffect", () => {
