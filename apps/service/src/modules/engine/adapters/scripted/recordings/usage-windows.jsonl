@@ -1,0 +1,6 @@
+{"step":"start","brief":{"id":"brief","text":"Reply with the single word: ok"}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T18:00:00.000Z"}}
+{"step":"event","event":{"kind":"text","text":"ok","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief"],"usage":{"input":4,"output":12,"cacheRead":0,"cacheCreation":24600},"costUsd":0.0312,"output":null,"errors":[]}}
+{"step":"read-usage-windows","windows":{"fiveHour":{"percentUsed":12,"resetsAt":"2026-10-25T18:00:00.000Z"},"sevenDay":{"percentUsed":31,"resetsAt":"2026-10-30T09:00:00.000Z"}}}
+{"step":"end"}

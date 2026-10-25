@@ -1,6 +1,6 @@
 # 06 · The Engine module: port, Agent SDK adapter and Office rules
 
-Status: todo
+Status: in progress
 
 ## Goal
 
@@ -25,7 +25,7 @@ The Engine module runs sessions behind an `AgentEngine` port that isn't Claude-s
 
 ## Steps
 
-- [ ] 1. The port in `modules/engine/ports/`: session options (cwd, model, effort, brief, skills folder, profile, Office tools, output schema), the stream types and the capability flags. The scripted adapter replays a recorded stream file and records new ones from the SDK adapter. Contract tests against the scripted adapter. Commit.
+- [x] 1. The port in `modules/engine/ports/`: session options (cwd, model, effort, brief, skills folder, profile, Office tools, output schema), the stream types and the capability flags. The scripted adapter replays a recorded stream file and records new ones from the SDK adapter. Contract tests against the scripted adapter. Commit.
 - [ ] 2. The Agent SDK adapter: one long-lived streaming `query()` per session, the Office's session options, priority on sent messages, `interrupt()`, resume by session id, and the stream mapped onto the port's types. Contract tests against it with the cheapest model. Commit.
 - [ ] 3. The Office rules hook: git read-only (`status`, `diff`, `log`, `show`), secrets refused by file tools and in command text, protected paths, reads fenced to the worktree and the session's folders, writes fenced to the worktree (the engine auto-allows some of its own paths outside it), each shell rule with its PowerShell twin, and the profile (read, edit, run, web) applied as data. Refusals carry a reason and are emitted as events for the Thread log, taken from the hook's own decisions, `permission_denied` messages and `result.permission_denials` (spec §6). Commit.
 - [ ] 4. Usage and the window: per-call usage on spans and metrics tagged with the prompt features used (skills, Office tools), the window state read from the usage query on each `rate_limit_event`, and its event, and an "engine down" event when the binary can't start or the stream dies. Commit.
@@ -35,3 +35,4 @@ The Engine module runs sessions behind an `AgentEngine` port that isn't Claude-s
 ## Progress
 
 <!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next; anything surprising. -->
+- 2026-10-25 · step 1: the port in `modules/engine/ports/` (`AgentEngine` with capability flags and `CapabilityMissing`, `EngineSession`, session options with the permission profile as data, Office tools as name + zod input + handler, the event stream), the contract suite `agent-engine.contract.ts` (scenarios by name, structural assertions only, refusals for missing capabilities; `*.contract.ts` left out of the build), `ScriptedEngine` replaying JSONL recordings of caller steps and events (waits at each caller step, runs Office tool handlers, maps message ids, `<folder>` placeholder) and `RecordingEngine` that records any engine; the recordings in `adapters/scripted/recordings/` are hand-written until step 2 records them live. Next: step 2, the Agent SDK adapter, its contract run opt-in (no login in verify) wrapped in `RecordingEngine` to replace the hand-written recordings. The contract uses an Office tool that blocks until released as the running tool for barge-in, later and interrupt, so no shell permission is needed before step 3; the SDK adapter therefore needs Office tools (`createSdkMcpServer`) already in step 2, step 5 adds the registry.

@@ -76,4 +76,5 @@ Projects (`src/modules/projects/`) is the first; later modules copy its shape.
 Tests sit beside their code as `*.test.ts`; the support they share is in `test/`.
 
 - **Postgres is needed:** `docker compose up -d` first. Each run creates a throwaway database on the server `DATABASE_URL` names (from the environment, else `.env`), migrates it and drops it at the end. Every test file in the run shares it, so a repository test makes its own rows and looks only at those.
+- **A port's contract** (`*.contract.ts`, beside the port) is the tests every adapter of the port runs against itself; it is left out of the build, like fixtures.
 - **`startTestApplication({ ...metadata, database })`** boots Nest providers, controllers and modules with HTTP configured as in production, on `127.0.0.1` and a free port; `database: true` adds `DatabaseModule` on the test database. Close its `app` in `afterEach`.

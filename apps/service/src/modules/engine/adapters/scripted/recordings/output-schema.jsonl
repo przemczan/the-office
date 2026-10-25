@@ -1,0 +1,4 @@
+{"step":"start","brief":{"id":"brief","text":"Answer with the word ready."}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T18:00:00.000Z"}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief"],"usage":{"input":4,"output":12,"cacheRead":0,"cacheCreation":24600},"costUsd":0.0312,"output":{"word":"ready"},"errors":[]}}
+{"step":"end"}

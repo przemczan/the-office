@@ -1,0 +1,10 @@
+{"step":"start","brief":{"id":"brief","text":"Call the hold tool once, then reply with the single word: done"}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T18:00:00.000Z"}}
+{"step":"event","event":{"kind":"tool-call","callId":"call-1","tool":"hold","officeTool":true,"input":{},"withinToolCall":null}}
+{"step":"interrupt"}
+{"step":"event","event":{"kind":"tool-result","callId":"call-1","text":"The user interrupted this tool call.","isError":true}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"interrupted","consumedMessageIds":["brief"],"usage":{"input":4,"output":12,"cacheRead":0,"cacheCreation":24600},"costUsd":0.0312,"output":null,"errors":[]}}
+{"step":"send","message":{"id":"after","text":"Reply with the single word: back"},"priority":"next"}
+{"step":"event","event":{"kind":"text","text":"back","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["after"],"usage":{"input":6,"output":20,"cacheRead":24600,"cacheCreation":180},"costUsd":0.0041,"output":null,"errors":[]}}
+{"step":"end"}

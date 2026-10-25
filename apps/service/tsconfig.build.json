@@ -9,7 +9,8 @@
     "sourceMap": true
   },
   "include": ["src"],
-  // Fixtures are test data kept beside the code they describe, shared by its tests.
-  "exclude": ["src/**/*.test.ts", "src/**/*.fixtures.ts"],
+  // Fixtures are test data kept beside the code they describe, shared by its tests; a contract is
+  // the tests every adapter of a port runs against itself.
+  "exclude": ["src/**/*.test.ts", "src/**/*.fixtures.ts", "src/**/*.contract.ts"],
   "references": [{ "path": "../../packages/contracts" }]
 }
