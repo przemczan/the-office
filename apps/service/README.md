@@ -51,6 +51,17 @@ oxlint's JS plugins are alpha and not under semver. oxlint is pinned, and the pl
 - **Telemetry:** spans and token counts go through `Telemetry` (`inSpan`, `recordTokens`), never `@opentelemetry/*` directly. HTTP requests and database queries are traced without it. Logs go through Nest's `Logger`, which also exports them.
 - **The operating system:** anything that differs between Windows and Linux comes from `src/platform/os/`: ask `currentOperatingSystem()` for it (the data directory default, path rules, the default shell), never which system it is. A lint rule refuses `process.platform`, `os.platform()` and `os.type()` anywhere else.
 
+### A business module
+
+Projects (`src/modules/projects/`) is the first; later modules copy its shape.
+
+- **The domain is data and functions.** Entities are readonly records. A rule returns every problem it finds, in the UI's words, so a form can show them all at once. A change is a function from the record to `{ project, event }`, or `undefined` when nothing would change, so every change carries its event and no event announces nothing.
+- **Refusals are domain errors carrying their reasons** (`ProjectRefused`, `ProjectNotFound`). The domain imports nothing from the platform but `DomainEvent`, so it can't share an error base class with other modules.
+- **Ports are abstract classes,** so each is its own injection token: `{ provide: Git, useClass: CommandLineGit }`.
+- **A repository's `update(id, change)`** applies the change inside a transaction that holds the row (`SELECT … FOR UPDATE`), so two changes at once never lose one.
+- **A rule that needs another module** goes through that module's application service, unless the other module will need this one: then this module declares a port of its own and the composition root binds it. Projects asks `KnownPipelines`, which `AppModule` binds to Pipelines' `PipelineLibrary`, because Pipelines' Stage interpreter will call Projects.
+- **Fixtures** (`*.fixtures.ts`) are test data beside the code they describe, shared by its tests and left out of the build.
+
 ### Adding a module
 
 1. Create `src/modules/<module>/` with the layers it needs, `<module>.module.ts`, and `index.ts` exporting that Nest module.

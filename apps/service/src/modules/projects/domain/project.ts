@@ -1,0 +1,109 @@
+/** The commands a Project runs, each a command line for the platform's shell. */
+export const PROJECT_COMMAND_KEYS = ["install", "build", "lint", "test"] as const;
+export type ProjectCommandKey = (typeof PROJECT_COMMAND_KEYS)[number];
+export type ProjectCommands = Readonly<Record<ProjectCommandKey, string>>;
+
+/** How Publish ships a Task's branch, run by The Office's own git code (spec §9). */
+export const PUBLISHING_MODES = ["push-and-pull-request", "merge"] as const;
+export type PublishingMode = (typeof PUBLISHING_MODES)[number];
+
+/** The design system's ramps a mark may take: never a status hue or the accent (spec §4). */
+export const PROJECT_MARK_COLOURS = ["teal", "violet", "gray", "ink"] as const;
+export type ProjectMarkColour = (typeof PROJECT_MARK_COLOURS)[number];
+
+/** A short label on a colour, shown wherever an item names its Project. */
+export interface ProjectMark {
+  readonly label: string;
+  readonly colour: ProjectMarkColour;
+}
+
+/** A repository The Office works on, with its own commands and settings. */
+export interface Project {
+  /** Taken from the name when the Project is added, and kept. */
+  readonly id: string;
+  readonly name: string;
+  /** The repository's top-level folder on the workstation. */
+  readonly path: string;
+  /** What every Task branches from and publishes to. */
+  readonly baseBranch: string;
+  readonly mark: ProjectMark;
+  readonly commands: ProjectCommands;
+  readonly publishingMode: PublishingMode;
+  /** The id of the Pipeline a new Task starts from. */
+  readonly defaultPipeline: string;
+  /** Whether sessions in this Project also get the repository's own skills (spec §2.6). */
+  readonly useProjectSkills: boolean;
+  readonly addedAt: Date;
+}
+
+/** What the user gives when adding a Project; the rest is set by The Office. */
+export type NewProject = Pick<
+  Project,
+  "name" | "path" | "baseBranch" | "mark" | "commands" | "publishingMode" | "defaultPipeline"
+>;
+
+const NAME_LENGTH = 60;
+const MARK_LABEL = /^[\p{L}\p{N}]{1,3}$/u;
+
+/** The new Project as it is kept: without the spaces around what the user typed. */
+export function trimmedNewProject(project: NewProject): NewProject {
+  return {
+    name: project.name.trim(),
+    path: project.path.trim(),
+    baseBranch: project.baseBranch.trim(),
+    mark: { label: project.mark.label.trim(), colour: project.mark.colour },
+    commands: {
+      install: project.commands.install.trim(),
+      build: project.commands.build.trim(),
+      lint: project.commands.lint.trim(),
+      test: project.commands.test.trim(),
+    },
+    publishingMode: project.publishingMode,
+    defaultPipeline: project.defaultPipeline,
+  };
+}
+
+/** Why a new Project's own fields can't be saved; what needs git or the Pipelines is checked apart. */
+export function newProjectProblems(project: NewProject): string[] {
+  const problems: string[] = [];
+  const name = project.name.trim();
+  if (name === "") problems.push("Give the Project a name.");
+  else if (name.length > NAME_LENGTH) {
+    problems.push(`A Project's name may be at most ${NAME_LENGTH} characters.`);
+  }
+  if (project.path.trim() === "") problems.push("Give the path to the repository.");
+  if (project.baseBranch.trim() === "") problems.push("Give the base branch.");
+  if (!MARK_LABEL.test(project.mark.label)) {
+    problems.push("The mark's label is 1 to 3 letters or digits.");
+  }
+  for (const key of PROJECT_COMMAND_KEYS) {
+    const problem = commandProblem(key, project.commands[key]);
+    if (problem) problems.push(problem);
+  }
+  return problems;
+}
+
+/** Why a command line can't be saved, or undefined when it can. */
+export function commandProblem(key: ProjectCommandKey, commandLine: string): string | undefined {
+  if (commandLine.trim() === "") return `The ${key} command can't be empty.`;
+  if (/[\r\n]/.test(commandLine)) return `The ${key} command must be one line.`;
+  return undefined;
+}
+
+/**
+ * An id for a Project named `name`, unlike every id in `taken`: the name in lowercase ASCII words
+ * joined by dashes, short enough to name a folder in a worktree path (Build defaults).
+ */
+export function projectIdFor(name: string, taken: ReadonlySet<string>): string {
+  const base =
+    name
+      .normalize("NFKD")
+      .replace(/\p{M}/gu, "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .slice(0, 24)
+      .replace(/^-+|-+$/g, "") || "project";
+  let id = base;
+  for (let suffix = 2; taken.has(id); suffix++) id = `${base}-${suffix}`;
+  return id;
+}

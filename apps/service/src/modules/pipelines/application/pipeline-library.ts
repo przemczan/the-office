@@ -15,4 +15,8 @@ export class PipelineLibrary {
   async find(id: string): Promise<Pipeline | undefined> {
     return builtInPipelines.find((pipeline) => pipeline.id === id);
   }
+
+  async has(id: string): Promise<boolean> {
+    return (await this.find(id)) !== undefined;
+  }
 }
