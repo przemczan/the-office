@@ -308,6 +308,8 @@ describe("a new Thread's first message", () => {
     });
     expect(session?.options.officeTools.map(({ name }) => name)).toEqual([...CHAT_OFFICE_TOOLS]);
     expect(session?.options.instructions).toContain("You are Jan, the Planner in The Office");
+    // A chat's session is on no Task, so the Office tools writing onto one refuse it.
+    await expect(threads.taskInSession(session?.id ?? "")).resolves.toBeUndefined();
     expect(session?.options.instructions).toContain("Plan in conversation: ask what is unclear.");
     expect(drafts(log)).toEqual([
       contextLine({ move: "fresh", reason: "new-thread", briefTokens: expect.any(Number) }),
@@ -516,6 +518,8 @@ describe("a Thread on a Task", () => {
       { kind: "person", roleKey, text: "What must be true when it is done?" },
     ]);
     expect((await threads.read(opened.id)).title).toBe("Planning");
+    await expect(threads.taskInSession(session?.id ?? "")).resolves.toBe(taskId);
+    await expect(threads.personInSession(session?.id ?? "")).resolves.toBe(roleKey);
   });
 
   it("answers the user on a Task whatever the person's Chat is", async () => {

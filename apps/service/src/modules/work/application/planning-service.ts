@@ -1,13 +1,23 @@
 import { Injectable } from "@nestjs/common";
+import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { Author } from "../domain/author.js";
 import { PLANNER, PLANNING_OPENING, PLANNING_THREAD_TITLE } from "../domain/planning.js";
-import type { Task } from "../domain/task.js";
-import { changeTaskState } from "../domain/task-changes.js";
+import {
+  confirmDefinitionOfDone,
+  confirmPipeline,
+  confirmPlan,
+  proposeDefinitionOfDone,
+  proposePipeline,
+  proposePlan,
+} from "../domain/planning-changes.js";
+import type { ProposedPipeline, Task } from "../domain/task.js";
+import { changeTaskState, type TaskChange } from "../domain/task-changes.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { TaskRefused } from "../domain/task-refused.js";
 import { stateChangeProblems } from "../domain/task-states.js";
 import { KnownPeople } from "../ports/known-people.js";
+import { KnownPipelines } from "../ports/known-pipelines.js";
 import { ProjectWorktrees } from "../ports/project-worktrees.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { TaskThreads } from "../ports/task-threads.js";
@@ -15,7 +25,9 @@ import { IdeaService } from "./idea-service.js";
 
 /**
  * Planning a Task as a conversation with the Planner (spec §2.1): its own worktree on the freshly
- * fetched base branch, and a planning Thread where the Planner starts at once.
+ * fetched base branch, and a planning Thread where the Planner starts at once. The Planner
+ * proposes the Plan, the Definition of Done and a Pipeline; the user confirms them and marks the
+ * Task Ready.
  */
 @Injectable()
 export class PlanningService {
@@ -23,6 +35,7 @@ export class PlanningService {
     private readonly tasks: TaskRepository,
     private readonly ideas: IdeaService,
     private readonly people: KnownPeople,
+    private readonly pipelines: KnownPipelines,
     private readonly worktrees: ProjectWorktrees,
     private readonly threads: TaskThreads,
     private readonly events: EventBus,
@@ -65,6 +78,58 @@ export class PlanningService {
     await this.refuseWithoutPlanner();
     const task = await this.ideas.shape(ideaId, projectId, shapedBy);
     return this.plan(task.id);
+  }
+
+  async proposePlan(taskId: string, plan: string): Promise<Task> {
+    return this.update(taskId, (task) => proposePlan(task, plan));
+  }
+
+  /** The user's Plan, confirmed: the proposed one as it is, or their edit of it. */
+  async confirmPlan(taskId: string, plan: string): Promise<Task> {
+    return this.update(taskId, (task) => confirmPlan(task, plan));
+  }
+
+  async proposeDefinitionOfDone(taskId: string, statements: readonly string[]): Promise<Task> {
+    return this.update(taskId, (task) => proposeDefinitionOfDone(task, statements));
+  }
+
+  /** The user's Definition of Done, confirmed: the proposed one as it is, or their edit of it. */
+  async confirmDefinitionOfDone(taskId: string, statements: readonly string[]): Promise<Task> {
+    return this.update(taskId, (task) => confirmDefinitionOfDone(task, statements));
+  }
+
+  async proposePipeline(taskId: string, proposal: ProposedPipeline): Promise<Task> {
+    await this.refuseUnknownPipeline(proposal.pipelineId);
+    return this.update(taskId, (task) => proposePipeline(task, proposal));
+  }
+
+  /**
+   * The user's Pipeline for the Task: the proposed one, or another from the library. The Task names
+   * it by id only; Pipelines keeps a Task's own Stages, made when it starts or is edited for itself.
+   */
+  async confirmPipeline(taskId: string, pipelineId: string): Promise<Task> {
+    await this.refuseUnknownPipeline(pipelineId);
+    return this.update(taskId, (task) => confirmPipeline(task, pipelineId));
+  }
+
+  /** Planning → Ready, refused with the reasons until the Plan and Definition of Done are confirmed. */
+  async markReady(taskId: string): Promise<Task> {
+    return this.update(taskId, (task) => changeTaskState(task, "ready"));
+  }
+
+  private async update<Event extends DomainEvent>(
+    taskId: string,
+    change: (task: Task) => TaskChange<Event> | undefined,
+  ): Promise<Task> {
+    const { task, event } = await this.tasks.update(taskId, change);
+    if (event) await this.events.publish(event);
+    return task;
+  }
+
+  private async refuseUnknownPipeline(pipelineId: string): Promise<void> {
+    if (await this.pipelines.find(pipelineId)) return;
+    const known = (await this.pipelines.list()).map(({ id }) => id).join(", ");
+    throw new TaskRefused([`There is no Pipeline "${pipelineId}". The library has ${known}.`]);
   }
 
   private async refuseWithoutPlanner(): Promise<void> {

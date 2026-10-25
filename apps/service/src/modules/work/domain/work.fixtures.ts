@@ -27,8 +27,11 @@ export function aTask(fields: Partial<Task> = {}): Task {
     priority: "normal",
     order: "a0",
     plan: "",
+    planConfirmed: false,
     definitionOfDone: [],
+    definitionOfDoneConfirmed: false,
     pipelineId: "full",
+    proposedPipeline: undefined,
     originIdeaId: undefined,
     createdBy: THE_USER,
     createdAt: new Date("2026-10-25T09:30:00.000Z"),
@@ -36,12 +39,14 @@ export function aTask(fields: Partial<Task> = {}): Task {
   };
 }
 
-/** A Task that may go to Ready: it has a Plan and a Definition of Done. */
+/** A Task that may go to Ready: the user confirmed its Plan and its Definition of Done. */
 export function aPlannedTask(fields: Partial<Task> = {}): Task {
   return aTask({
     state: "planning",
     plan: "Keep the requested path through the sign-in.",
+    planConfirmed: true,
     definitionOfDone: ["Signing in returns the user to the page they asked for."],
+    definitionOfDoneConfirmed: true,
     ...fields,
   });
 }

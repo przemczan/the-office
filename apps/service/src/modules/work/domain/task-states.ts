@@ -39,11 +39,15 @@ export function stateChangeProblems(task: Task, to: TaskState): string[] {
   return to === "ready" ? readyProblems(task) : [];
 }
 
+/** Ready requires a Plan and a Definition of Done, each confirmed by the user (spec §2.1). */
 function readyProblems(task: Task): string[] {
   const problems: string[] = [];
   if (task.plan.trim() === "") problems.push("A Task needs a Plan before it can be Ready.");
+  else if (!task.planConfirmed) problems.push("Confirm the Plan before the Task can be Ready.");
   if (task.definitionOfDone.length === 0) {
     problems.push("A Task needs a Definition of Done before it can be Ready.");
+  } else if (!task.definitionOfDoneConfirmed) {
+    problems.push("Confirm the Definition of Done before the Task can be Ready.");
   }
   return problems;
 }

@@ -5,6 +5,7 @@ import { KnownPeople } from "./known-people.js";
 import { KnownProjects, type KnownProject } from "./known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "./project-worktrees.js";
 import { SessionPeople } from "./session-people.js";
+import { SessionTasks } from "./session-tasks.js";
 import { TaskThreads, type TaskThreadOpening } from "./task-threads.js";
 
 /** The one Project id KnownProjectsForTests doesn't know. */
@@ -68,6 +69,16 @@ export class SessionPeopleForTests extends SessionPeople {
 
 export const UNKNOWN_SESSION = "no-such-session";
 
+/** Each session is on the Task a test puts it on, and on none otherwise, as a chat's is. */
+@Injectable()
+export class SessionTasksForTests extends SessionTasks {
+  readonly tasks = new Map<string, string>();
+
+  async taskInSession(sessionId: string): Promise<string | undefined> {
+    return this.tasks.get(sessionId);
+  }
+}
+
 /** Keeps each Thread opened on a Task, without a session. */
 @Injectable()
 export class TaskThreadsForTests extends TaskThreads {
@@ -84,6 +95,7 @@ const PORTS = [
   ProjectWorktreesForTests,
   KnownPeopleForTests,
   SessionPeopleForTests,
+  SessionTasksForTests,
   TaskThreadsForTests,
   TaskThreadSetups,
 ];

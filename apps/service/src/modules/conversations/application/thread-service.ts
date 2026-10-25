@@ -84,6 +84,15 @@ export class ThreadService {
     return (await this.repository.findBySession(sessionId))?.session?.roleKey;
   }
 
+  /**
+   * The Task whose Thread has the engine session `sessionId` now, for the Office tools that write
+   * onto a Task's record; undefined for a chat's session or one no Thread has.
+   */
+  async taskInSession(sessionId: string): Promise<string | undefined> {
+    const home = (await this.repository.findBySession(sessionId))?.home;
+    return home?.kind === "task" ? home.taskId : undefined;
+  }
+
   async read(id: string): Promise<Thread> {
     const thread = await this.repository.find(id);
     if (!thread) throw new ThreadNotFound(id);

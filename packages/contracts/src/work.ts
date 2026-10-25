@@ -60,13 +60,23 @@ export const newTaskSchema = z.object({
 });
 export type NewTask = z.infer<typeof newTaskSchema>;
 
+/** A Pipeline the Planner proposes for a Task, with why it fits the Definition of Done. */
+export const proposedPipelineSchema = z.object({ pipelineId: z.string(), reason: z.string() });
+export type ProposedPipeline = z.infer<typeof proposedPipelineSchema>;
+
 export const taskSchema = newTaskSchema.extend({
   id: z.uuid(),
   state: taskStateSchema,
   plan: z.string(),
+  /** False while the Plan is the Planner's proposal; true once the user confirmed or edited it. */
+  planConfirmed: z.boolean(),
   definitionOfDone: z.array(z.string()),
+  /** As `planConfirmed`, for the Definition of Done. */
+  definitionOfDoneConfirmed: z.boolean(),
   /** The Pipeline its work follows. */
   pipelineId: z.string(),
+  /** The Pipeline the Planner proposes, until the user confirms it or chooses another. */
+  proposedPipeline: proposedPipelineSchema.nullable(),
   originIdeaId: z.uuid().nullable(),
   createdBy: authorSchema,
   createdAt: z.iso.datetime(),
@@ -79,6 +89,24 @@ export const taskListSchema = z.array(taskSchema);
 /** PUT /tasks/:id/priority */
 export const priorityChangeSchema = z.object({ priority: prioritySchema });
 export type PriorityChange = z.infer<typeof priorityChangeSchema>;
+
+/**
+ * PUT /tasks/:id/plan: the user's Plan, confirmed. Confirming the proposed one sends it as shown,
+ * so what is confirmed is what the user read; an edit sends the edited words.
+ */
+export const planChangeSchema = z.object({ plan: z.string() });
+export type PlanChange = z.infer<typeof planChangeSchema>;
+
+/** PUT /tasks/:id/definition-of-done: the user's Definition of Done, confirmed, as with the Plan. */
+export const definitionOfDoneChangeSchema = z.object({ definitionOfDone: z.array(z.string()) });
+export type DefinitionOfDoneChange = z.infer<typeof definitionOfDoneChangeSchema>;
+
+/**
+ * PUT /tasks/:id/pipeline: the Pipeline the user sets for the Task, by id: the proposed one to
+ * confirm it, or another from the library. Either ends the proposal.
+ */
+export const pipelineChangeSchema = z.object({ pipelineId: z.string() });
+export type PipelineChange = z.infer<typeof pipelineChangeSchema>;
 
 /**
  * PUT /tasks/:id/place: the Tasks it lands between in its column of the board, null at either
@@ -157,6 +185,20 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   }),
   webEventSchema.extend({ type: z.literal("task.priority-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.reordered"), taskId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("task.plan-proposed"), taskId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("task.plan-confirmed"), taskId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("task.definition-of-done-proposed"), taskId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("task.definition-of-done-confirmed"), taskId: z.uuid() }),
+  webEventSchema.extend({
+    type: z.literal("task.pipeline-proposed"),
+    taskId: z.uuid(),
+    pipelineId: z.string(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("task.pipeline-confirmed"),
+    taskId: z.uuid(),
+    pipelineId: z.string(),
+  }),
   webEventSchema.extend({
     type: z.literal("attachment.added"),
     attachmentId: z.uuid(),

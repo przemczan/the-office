@@ -12,15 +12,15 @@ export const PLANNING_THREAD_TITLE = "Planning";
  * every planning session, so it stays in the cached prefix.
  */
 export const PLANNING_INSTRUCTIONS =
-  "In this Thread you plan a Task with the user. You read the Task's worktree, its own branch at the freshly fetched base branch; you change no file and run only read-only git. With The Office's tools you read its records of Projects, people, Tasks and Ideas. Ask the user what you need to know, then agree with them on the Plan (how it will be done) and the Definition of Done (what must be true when it is done), and on the Pipeline that fits. When a choice is the user's to make, open a Decision with open_decision, with the options and the one you recommend, and end your turn: their answer comes as your next message.";
+  "In this Thread you plan a Task with the user. You read the Task's worktree, its own branch at the freshly fetched base branch; you change no file and run only read-only git. With The Office's tools you read its records of Projects, people, Tasks and Ideas, and the Task's Attachments with read_attachment. Ask the user what you need to know, then agree with them on the Plan (how it will be done) and the Definition of Done (what must be true when it is done), and on the Pipeline that fits. Write each onto the Task as you agree on it, with write_plan, write_definition_of_done and propose_pipeline: each shows as proposed until the user confirms or edits it, and once the Plan and the Definition of Done are confirmed the user marks the Task Ready. The user may edit them on the Task, so read it with read_task before you rewrite one. When a choice is the user's to make, open a Decision with open_decision, with the options and the one you recommend, and end your turn: their answer comes as your next message.";
 
 /** The Office's first message in a new planning Thread, after the Brief. */
 export const PLANNING_OPENING =
   "Read what you need of the Task and its worktree, then ask the user what is unclear, starting with what must be true when it is done. Keep it short: the user answers in this Thread.";
 
 /**
- * The Office tools of a planning session: it reads records and opens Decisions. Writing the Plan,
- * the Definition of Done and a proposed Pipeline onto the record comes with their own tools.
+ * The Office tools of a planning session: it reads records and the Task's Attachments, writes the
+ * Plan and the Definition of Done, proposes a Pipeline and opens Decisions.
  */
 export const PLANNING_OFFICE_TOOLS = [
   "list_projects",
@@ -29,6 +29,10 @@ export const PLANNING_OFFICE_TOOLS = [
   "read_task",
   "list_ideas",
   "read_idea",
+  "read_attachment",
+  "write_plan",
+  "write_definition_of_done",
+  "propose_pipeline",
   "open_decision",
 ] as const;
 
@@ -39,6 +43,15 @@ export interface PlanningProject {
   readonly commands: Readonly<Record<string, string>>;
 }
 
+/** A Pipeline in the library, as the Planner chooses one: when it fits, and its Stages. */
+export interface PlanningPipeline {
+  readonly id: string;
+  readonly name: string;
+  /** When to choose it, in a sentence. */
+  readonly description: string;
+  readonly stages: readonly { readonly name: string }[];
+}
+
 /** What a planning Brief is assembled from: the Task's record, with no model call. */
 export interface PlanningRecord {
   readonly task: Task;
@@ -47,11 +60,14 @@ export interface PlanningRecord {
   /** The Idea the Task was shaped from, if it was. */
   readonly idea: Idea | undefined;
   readonly attachments: readonly Attachment[];
+  /** The library's Pipelines, which the Planner proposes one of. */
+  readonly pipelines: readonly PlanningPipeline[];
 }
 
 /**
  * A planning Thread's Brief (spec §2.5): the Task's title, where it came from, its Attachments, the
- * Project's commands, and the Plan and Definition of Done once written.
+ * Project's commands, the Pipelines to propose from, and the Plan and Definition of Done once
+ * written, each marked proposed or confirmed.
  */
 export function planningBrief({
   task,
@@ -59,21 +75,57 @@ export function planningBrief({
   worktree,
   idea,
   attachments,
+  pipelines,
 }: PlanningRecord): string {
   return [
     "You are planning a Task with the user, in the Task's planning Thread.",
-    `## The Task\n\n${task.title} (Task ${task.id}), in the Project ${project.name}, on the Pipeline ${task.pipelineId} for now.`,
+    `## The Task\n\n${task.title} (Task ${task.id}), in the Project ${project.name}.`,
     `## Where you work\n\nThe Task's worktree, at ${worktree.path} on the branch ${worktree.branch}, which started from the freshly fetched ${project.baseBranch}.`,
     originSection(idea),
-    `## Attachments\n\n${attachmentLines(attachments).join("\n")}`,
+    attachmentsSection(attachments),
     `## The Project's commands\n\n${commandLines(project.commands).join("\n")}`,
-    task.plan === "" ? undefined : `## The Plan\n\n${task.plan}`,
+    pipelinesSection(task, pipelines),
+    task.plan === ""
+      ? undefined
+      : `## The Plan, ${confirmationWords(task.planConfirmed)}\n\n${task.plan}`,
     task.definitionOfDone.length === 0
       ? undefined
-      : `## The Definition of Done\n\n${task.definitionOfDone.map((statement) => `- ${statement}`).join("\n")}`,
+      : `## The Definition of Done, ${confirmationWords(task.definitionOfDoneConfirmed)}\n\n${task.definitionOfDone.map((statement) => `- ${statement}`).join("\n")}`,
   ]
     .filter((section) => section !== undefined)
     .join("\n\n");
+}
+
+function attachmentsSection(attachments: readonly Attachment[]): string {
+  const lines = attachmentLines(attachments).join("\n");
+  if (attachments.length === 0) return `## Attachments\n\n${lines}`;
+  return `## Attachments\n\nRead one with read_attachment, by its id.\n\n${lines}`;
+}
+
+function pipelinesSection(task: Task, pipelines: readonly PlanningPipeline[]): string {
+  const nameOf = (id: string) => {
+    const pipeline = pipelines.find((candidate) => candidate.id === id);
+    return pipeline ? `${pipeline.name} (${id})` : id;
+  };
+  const choices = pipelines.map(
+    ({ id, name, description, stages }) =>
+      `- ${id}: ${name} (${stages.map((stage) => stage.name).join(" → ")}). ${description}`,
+  );
+  const proposal = task.proposedPipeline
+    ? `You proposed ${nameOf(task.proposedPipeline.pipelineId)}: ${task.proposedPipeline.reason} It waits for the user to confirm it.`
+    : undefined;
+  return [
+    `## The Pipelines\n\nThe Task follows ${nameOf(task.pipelineId)} until the user confirms another. Propose the one its Definition of Done needs with propose_pipeline:`,
+    choices.join("\n"),
+    proposal,
+  ]
+    .filter((part) => part !== undefined)
+    .join("\n\n");
+}
+
+/** Whether a part of the Task is the user's word yet, as an Agent reads it. */
+export function confirmationWords(confirmed: boolean): string {
+  return confirmed ? "confirmed by the user" : "proposed, not yet confirmed by the user";
 }
 
 function originSection(idea: Idea | undefined): string {

@@ -9,6 +9,12 @@ import {
 import { IdeaCaptured, IdeaDropped, IdeaRestored, IdeaShaped } from "../../domain/idea-events.js";
 import {
   TaskCreated,
+  TaskDefinitionOfDoneConfirmed,
+  TaskDefinitionOfDoneProposed,
+  TaskPipelineConfirmed,
+  TaskPipelineProposed,
+  TaskPlanConfirmed,
+  TaskPlanProposed,
   TaskPriorityChanged,
   TaskReordered,
   TaskStateChanged,
@@ -28,6 +34,7 @@ export class WorkWebEvents implements OnModuleInit {
   onModuleInit(): void {
     this.forwardIdeaEvents();
     this.forwardTaskEvents();
+    this.forwardPlanningEvents();
     this.forwardAttachmentEvents();
   }
 
@@ -70,6 +77,47 @@ export class WorkWebEvents implements OnModuleInit {
       type: "task.reordered",
       taskId: event.taskId,
     }));
+  }
+
+  private forwardPlanningEvents(): void {
+    this.forwarding.forward(TaskPlanProposed, (event): WebEventOf<"task.plan-proposed"> => ({
+      type: "task.plan-proposed",
+      taskId: event.taskId,
+    }));
+    this.forwarding.forward(TaskPlanConfirmed, (event): WebEventOf<"task.plan-confirmed"> => ({
+      type: "task.plan-confirmed",
+      taskId: event.taskId,
+    }));
+    this.forwarding.forward(
+      TaskDefinitionOfDoneProposed,
+      (event): WebEventOf<"task.definition-of-done-proposed"> => ({
+        type: "task.definition-of-done-proposed",
+        taskId: event.taskId,
+      }),
+    );
+    this.forwarding.forward(
+      TaskDefinitionOfDoneConfirmed,
+      (event): WebEventOf<"task.definition-of-done-confirmed"> => ({
+        type: "task.definition-of-done-confirmed",
+        taskId: event.taskId,
+      }),
+    );
+    this.forwarding.forward(
+      TaskPipelineProposed,
+      (event): WebEventOf<"task.pipeline-proposed"> => ({
+        type: "task.pipeline-proposed",
+        taskId: event.taskId,
+        pipelineId: event.pipelineId,
+      }),
+    );
+    this.forwarding.forward(
+      TaskPipelineConfirmed,
+      (event): WebEventOf<"task.pipeline-confirmed"> => ({
+        type: "task.pipeline-confirmed",
+        taskId: event.taskId,
+        pipelineId: event.pipelineId,
+      }),
+    );
   }
 
   private forwardAttachmentEvents(): void {

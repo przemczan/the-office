@@ -29,6 +29,12 @@ export interface OpenedFile {
   readonly content: Readable;
 }
 
+/** The start of a document's text, and whether the document goes on past it. */
+export interface DocumentText {
+  readonly text: string;
+  readonly cut: boolean;
+}
+
 /**
  * The Attachments use cases. A file's bytes are written before its record and removed after it,
  * so a record never names a file that isn't there.
@@ -90,6 +96,15 @@ export class AttachmentService {
     return { attachment, content: await this.files.open(id) };
   }
 
+  /** A document's text from its start, at most `byteLimit` bytes of it, read as UTF-8. */
+  async documentText(id: string, byteLimit: number): Promise<DocumentText> {
+    const attachment = await this.read(id);
+    if (attachment.kind !== "document") {
+      throw new AttachmentRefused(["Only a document is read as text."]);
+    }
+    return leadingText(await this.files.open(id), byteLimit);
+  }
+
   async remove(id: string): Promise<void> {
     const attachment = await this.read(id);
     await this.repository.remove(id);
@@ -115,4 +130,23 @@ export class AttachmentService {
     if (!idea) throw new IdeaNotFound(owner.ideaId);
     return idea;
   }
+}
+
+/** Reads no more of the file than it needs, and never ends on half a character. */
+async function leadingText(content: Readable, byteLimit: number): Promise<DocumentText> {
+  const decoder = new TextDecoder("utf-8");
+  let text = "";
+  let bytesRead = 0;
+  try {
+    for await (const chunk of content) {
+      const bytes = chunk as Uint8Array;
+      const room = byteLimit - bytesRead;
+      text += decoder.decode(bytes.subarray(0, room), { stream: true });
+      bytesRead += Math.min(bytes.byteLength, room);
+      if (bytes.byteLength > room) return { text, cut: true };
+    }
+  } finally {
+    content.destroy();
+  }
+  return { text: text + decoder.decode(), cut: false };
 }

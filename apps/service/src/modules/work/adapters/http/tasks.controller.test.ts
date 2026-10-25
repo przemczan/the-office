@@ -10,6 +10,7 @@ import {
   type Task,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { PlanningService } from "../../application/planning-service.js";
 import { PLANNING_OPENING } from "../../domain/planning.js";
 import {
   KnownPeopleForTests,
@@ -73,8 +74,11 @@ describe("POST /api/tasks", () => {
       state: "backlog",
       priority: "high",
       plan: "",
+      planConfirmed: false,
       definitionOfDone: [],
+      definitionOfDoneConfirmed: false,
       pipelineId: "quick-fix",
+      proposedPipeline: null,
       originIdeaId: null,
       createdBy: { kind: "user" },
     });
@@ -264,6 +268,126 @@ describe("POST /api/tasks/:id/planning", () => {
 
     expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
       "A Task in Dropped can't move to Planning.",
+    ]);
+  });
+});
+
+/** A Task in Planning, with what the Planner proposed onto it. */
+async function proposedTask(): Promise<Task> {
+  const task = await create();
+  await plan(task.id);
+  const planning = work.app.get(PlanningService);
+  await planning.proposePlan(task.id, "Keep the requested path through the sign-in.");
+  await planning.proposeDefinitionOfDone(task.id, ["Signing in returns to the page asked for."]);
+  await planning.proposePipeline(task.id, { pipelineId: "full", reason: "It changes code." });
+  return task;
+}
+
+async function readTask(taskId: string): Promise<Task> {
+  return taskSchema.parse(await (await sendJson(work, "GET", `/tasks/${taskId}`)).json());
+}
+
+describe("the Planner's proposals on the record", () => {
+  it("show as proposed, with the Pipeline beside the one the Task follows", async () => {
+    const task = await proposedTask();
+
+    expect(await readTask(task.id)).toMatchObject({
+      plan: "Keep the requested path through the sign-in.",
+      planConfirmed: false,
+      definitionOfDone: ["Signing in returns to the page asked for."],
+      definitionOfDoneConfirmed: false,
+      pipelineId: "quick-fix",
+      proposedPipeline: { pipelineId: "full", reason: "It changes code." },
+    });
+  });
+});
+
+describe("PUT /api/tasks/:id/plan, /definition-of-done and /pipeline", () => {
+  it("confirms the proposed Plan as shown, an edited Definition of Done and the proposed Pipeline", async () => {
+    const task = await proposedTask();
+    work.published.length = 0;
+
+    const confirmedPlan = await sendJson(work, "PUT", `/tasks/${task.id}/plan`, {
+      plan: "Keep the requested path through the sign-in.",
+    });
+    await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
+      definitionOfDone: ["Signing in returns to the page asked for.", "No redirect loop."],
+    });
+    const confirmedPipeline = await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, {
+      pipelineId: "full",
+    });
+
+    expect(confirmedPlan.status).toBe(200);
+    expect(taskSchema.parse(await confirmedPipeline.json())).toMatchObject({
+      planConfirmed: true,
+      definitionOfDone: ["Signing in returns to the page asked for.", "No redirect loop."],
+      definitionOfDoneConfirmed: true,
+      pipelineId: "full",
+      proposedPipeline: null,
+    });
+    expect(webEventsOf(work)).toEqual([
+      { type: "task.plan-confirmed", taskId: task.id },
+      { type: "task.definition-of-done-confirmed", taskId: task.id },
+      { type: "task.pipeline-confirmed", taskId: task.id, pipelineId: "full" },
+    ]);
+  });
+
+  it("refuses an empty Plan and a Pipeline the library doesn't have, with the reasons", async () => {
+    const task = await proposedTask();
+
+    const emptyPlan = await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: " " });
+    const unknownPipeline = await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, {
+      pipelineId: "nightly",
+    });
+    const malformed = await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
+      definitionOfDone: "One.",
+    });
+
+    expect(workRefusalSchema.parse(await emptyPlan.json()).reasons).toEqual([
+      "The Plan can't be empty.",
+    ]);
+    expect(workRefusalSchema.parse(await unknownPipeline.json()).reasons).toEqual([
+      'There is no Pipeline "nightly". The library has full, quick-fix, document.',
+    ]);
+    expect(malformed.status).toBe(400);
+    expect((await readTask(task.id)).planConfirmed).toBe(false);
+  });
+});
+
+describe("POST /api/tasks/:id/ready", () => {
+  it("is refused with the reasons until the Plan and the Definition of Done are confirmed", async () => {
+    const unplanned = await create();
+    await plan(unplanned.id);
+    const proposed = await proposedTask();
+
+    const early = await sendJson(work, "POST", `/tasks/${unplanned.id}/ready`);
+    const unconfirmed = await sendJson(work, "POST", `/tasks/${proposed.id}/ready`);
+
+    expect(early.status).toBe(422);
+    expect(workRefusalSchema.parse(await early.json()).reasons).toEqual([
+      "A Task needs a Plan before it can be Ready.",
+      "A Task needs a Definition of Done before it can be Ready.",
+    ]);
+    expect(workRefusalSchema.parse(await unconfirmed.json()).reasons).toEqual([
+      "Confirm the Plan before the Task can be Ready.",
+      "Confirm the Definition of Done before the Task can be Ready.",
+    ]);
+  });
+
+  it("marks a confirmed Task Ready, with a proposed Pipeline left for the user", async () => {
+    const task = await proposedTask();
+    await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Mine." });
+    await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
+      definitionOfDone: ["Mine."],
+    });
+    work.published.length = 0;
+
+    const response = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
+
+    expect(response.status).toBe(200);
+    expect(taskSchema.parse(await response.json()).state).toBe("ready");
+    expect(webEventsOf(work)).toEqual([
+      { type: "task.state-changed", taskId: task.id, from: "planning", to: "ready" },
     ]);
   });
 });

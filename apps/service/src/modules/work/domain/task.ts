@@ -32,14 +32,26 @@ export interface Task {
   readonly order: string;
   /** How it will be done; empty until planned. */
   readonly plan: string;
+  /** Whether the user confirmed the Plan as it stands; the Planner's writing leaves it proposed. */
+  readonly planConfirmed: boolean;
   /** What must be true when it is done, one plain-language statement each. */
   readonly definitionOfDone: readonly string[];
+  /** As `planConfirmed`, for the Definition of Done. */
+  readonly definitionOfDoneConfirmed: boolean;
   /** The Pipeline its work follows; its own Stages, once it has them, are kept by Pipelines. */
   readonly pipelineId: string;
+  /** The Pipeline the Planner proposes, until the user confirms it or chooses another. */
+  readonly proposedPipeline: ProposedPipeline | undefined;
   /** The Idea it was shaped from, if it was. */
   readonly originIdeaId: string | undefined;
   readonly createdBy: Author;
   readonly createdAt: Date;
+}
+
+/** A Pipeline the Planner chose from the Definition of Done, with why (spec §2.3). */
+export interface ProposedPipeline {
+  readonly pipelineId: string;
+  readonly reason: string;
 }
 
 /** What creating a Task takes from whoever asks; The Office sets the rest. */

@@ -16,6 +16,7 @@ import {
 } from "./adapters/http/attachments.controller.js";
 import { IdeasController } from "./adapters/http/ideas.controller.js";
 import { PlanningThreadSetup } from "./adapters/conversations/planning-thread-setup.js";
+import { PlanningOfficeTools } from "./adapters/office-tools/planning-office-tools.js";
 import { WorkOfficeTools } from "./adapters/office-tools/work-office-tools.js";
 import { TasksController } from "./adapters/http/tasks.controller.js";
 import { PostgresAttachmentRepository } from "./adapters/postgres/postgres-attachment-repository.js";
@@ -31,9 +32,11 @@ import { AttachmentFiles } from "./ports/attachment-files.js";
 import { AttachmentRepository } from "./ports/attachment-repository.js";
 import { IdeaRepository } from "./ports/idea-repository.js";
 import { KnownPeople } from "./ports/known-people.js";
+import { KnownPipelines } from "./ports/known-pipelines.js";
 import { KnownProjects } from "./ports/known-projects.js";
 import { ProjectWorktrees } from "./ports/project-worktrees.js";
 import { SessionPeople } from "./ports/session-people.js";
+import { SessionTasks } from "./ports/session-tasks.js";
 import { TaskRepository } from "./ports/task-repository.js";
 import { TaskThreads } from "./ports/task-threads.js";
 
@@ -46,7 +49,9 @@ export interface WorkModuleOptions {
   readonly knownProjects: Type<KnownProjects>;
   readonly projectWorktrees: Type<ProjectWorktrees>;
   readonly knownPeople: Type<KnownPeople>;
+  readonly knownPipelines: Type<KnownPipelines>;
   readonly sessionPeople: Type<SessionPeople>;
+  readonly sessionTasks: Type<SessionTasks>;
   readonly taskThreads: Type<TaskThreads>;
 }
 
@@ -57,7 +62,9 @@ export class WorkModule implements NestModule {
     knownProjects,
     projectWorktrees,
     knownPeople,
+    knownPipelines,
     sessionPeople,
+    sessionTasks,
     taskThreads,
   }: WorkModuleOptions): DynamicModule {
     return {
@@ -73,7 +80,9 @@ export class WorkModule implements NestModule {
         { provide: KnownProjects, useExisting: knownProjects },
         { provide: ProjectWorktrees, useExisting: projectWorktrees },
         { provide: KnownPeople, useExisting: knownPeople },
+        { provide: KnownPipelines, useExisting: knownPipelines },
         { provide: SessionPeople, useExisting: sessionPeople },
+        { provide: SessionTasks, useExisting: sessionTasks },
         { provide: TaskThreads, useExisting: taskThreads },
         IdeaService,
         TaskService,
@@ -81,6 +90,7 @@ export class WorkModule implements NestModule {
         PlanningService,
         WorkWebEvents,
         WorkOfficeTools,
+        PlanningOfficeTools,
         PlanningThreadSetup,
       ],
       exports: [IdeaService, TaskService],

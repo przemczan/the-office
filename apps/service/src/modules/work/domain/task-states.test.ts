@@ -71,6 +71,17 @@ describe("changeTaskState", () => {
     );
   });
 
+  it("refuses Ready while the Plan and the Definition of Done are only proposed", () => {
+    const proposed = aPlannedTask({ planConfirmed: false, definitionOfDoneConfirmed: false });
+
+    expect(() => changeTaskState(proposed, "ready")).toThrow(
+      new TaskRefused([
+        "Confirm the Plan before the Task can be Ready.",
+        "Confirm the Definition of Done before the Task can be Ready.",
+      ]),
+    );
+  });
+
   it("refuses Ready with a Plan of spaces only", () => {
     expect(() => changeTaskState(aPlannedTask({ plan: "  " }), "ready")).toThrow(
       new TaskRefused(["A Task needs a Plan before it can be Ready."]),

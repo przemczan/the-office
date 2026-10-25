@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   index,
   integer,
@@ -14,7 +15,7 @@ import {
 import type { AttachmentKind } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
 import type { IdeaState } from "../../domain/idea.js";
-import type { Priority, TaskState } from "../../domain/task.js";
+import type { Priority, ProposedPipeline, TaskState } from "../../domain/task.js";
 
 // The three tables are in one file because Ideas and Tasks name each other.
 
@@ -42,11 +43,15 @@ export const tasks = pgTable(
     /** Compared in code as plain strings; never sorted by Postgres, whose collation differs. */
     order: text("order_key").notNull(),
     plan: text("plan").notNull(),
+    planConfirmed: boolean("plan_confirmed").notNull().default(false),
     definitionOfDone: text("definition_of_done")
       .array()
       .notNull()
       .default(sql`'{}'`),
+    definitionOfDoneConfirmed: boolean("definition_of_done_confirmed").notNull().default(false),
     pipelineId: text("pipeline_id").notNull(),
+    /** Null while the Planner proposes none. */
+    proposedPipeline: jsonb("proposed_pipeline").$type<ProposedPipeline>(),
     originIdeaId: uuid("origin_idea_id").references((): AnyPgColumn => ideas.id),
     createdBy: jsonb("created_by").$type<Author>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),

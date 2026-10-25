@@ -4,6 +4,12 @@ export { AttachmentAdded, AttachmentMoved, AttachmentRemoved } from "./domain/at
 export { IdeaCaptured, IdeaDropped, IdeaRestored, IdeaShaped } from "./domain/idea-events.js";
 export {
   TaskCreated,
+  TaskDefinitionOfDoneConfirmed,
+  TaskDefinitionOfDoneProposed,
+  TaskPipelineConfirmed,
+  TaskPipelineProposed,
+  TaskPlanConfirmed,
+  TaskPlanProposed,
   TaskPriorityChanged,
   TaskReordered,
   TaskStateChanged,

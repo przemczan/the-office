@@ -5,19 +5,13 @@ import { AttachmentService } from "../../application/attachment-service.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { attachmentLines, type Attachment } from "../../domain/attachment.js";
-import { AttachmentNotFound } from "../../domain/attachment-not-found.js";
-import { AttachmentRefused } from "../../domain/attachment-refused.js";
 import type { Author } from "../../domain/author.js";
 import type { Idea } from "../../domain/idea.js";
-import { IdeaNotFound } from "../../domain/idea-not-found.js";
-import { IdeaRefused } from "../../domain/idea-refused.js";
+import { confirmationWords } from "../../domain/planning.js";
 import { PRIORITIES, type Task } from "../../domain/task.js";
-import { TaskNotFound } from "../../domain/task-not-found.js";
-import { TaskRefused } from "../../domain/task-refused.js";
 import { TASK_STATE_NAMES } from "../../domain/task-states.js";
 import { SessionPeople } from "../../ports/session-people.js";
-
-type OfficeToolResult = Awaited<ReturnType<Parameters<OfficeToolRegistry["register"]>[0]["run"]>>;
+import { answered, WorkToolRefused } from "./work-tool-answers.js";
 
 export const LIST_TASKS = "list_tasks";
 export const READ_TASK = "read_task";
@@ -167,31 +161,6 @@ export class WorkOfficeTools implements OnModuleInit {
   }
 }
 
-/** A tool call The Office can't act on, answered to the Agent as an error. */
-class WorkToolRefused extends Error {}
-
-/** Work's refusals answer the Agent in words it can act on; anything else fails the call. */
-async function answered(read: () => Promise<string>): Promise<OfficeToolResult> {
-  try {
-    return { text: await read(), isError: false };
-  } catch (error) {
-    if (isWorkRefusal(error)) return { text: error.message, isError: true };
-    throw error;
-  }
-}
-
-function isWorkRefusal(error: unknown): error is Error {
-  return [
-    IdeaRefused,
-    TaskRefused,
-    AttachmentRefused,
-    IdeaNotFound,
-    TaskNotFound,
-    AttachmentNotFound,
-    WorkToolRefused,
-  ].some((refusal) => error instanceof refusal);
-}
-
 function taskLine(task: Task): string {
   return `- ${task.title} (Task ${task.id}) · Project ${task.projectId} · ${TASK_STATE_NAMES[task.state]} · ${task.priority} priority`;
 }
@@ -202,11 +171,18 @@ function taskRecord(task: Task, attachments: readonly Attachment[]): string {
     `- Project ${task.projectId}; ${TASK_STATE_NAMES[task.state]}; ${task.priority} priority; Pipeline ${task.pipelineId}`,
     `- Created by ${authorWords(task.createdBy)} on ${task.createdAt.toISOString()}`,
     ...(task.originIdeaId ? [`- Shaped from the Idea ${task.originIdeaId}`] : []),
+    ...(task.proposedPipeline
+      ? [
+          `- Proposed Pipeline ${task.proposedPipeline.pipelineId}, not yet confirmed by the user: ${task.proposedPipeline.reason}`,
+        ]
+      : []),
     "",
-    "Plan:",
+    task.plan === "" ? "Plan:" : `Plan, ${confirmationWords(task.planConfirmed)}:`,
     task.plan === "" ? "No Plan yet." : task.plan,
     "",
-    "Definition of Done:",
+    task.definitionOfDone.length === 0
+      ? "Definition of Done:"
+      : `Definition of Done, ${confirmationWords(task.definitionOfDoneConfirmed)}:`,
     ...(task.definitionOfDone.length === 0
       ? ["Not written yet."]
       : task.definitionOfDone.map((statement) => `- ${statement}`)),

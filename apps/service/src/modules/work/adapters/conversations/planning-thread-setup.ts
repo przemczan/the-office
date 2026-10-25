@@ -13,6 +13,7 @@ import {
   PLANNING_OFFICE_TOOLS,
   planningBrief,
 } from "../../domain/planning.js";
+import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { KnownProjects } from "../../ports/known-projects.js";
 import { ProjectWorktrees } from "../../ports/project-worktrees.js";
 
@@ -28,6 +29,7 @@ export class PlanningThreadSetup implements TaskThreadSource, OnModuleInit {
     private readonly ideas: IdeaService,
     private readonly attachments: AttachmentService,
     private readonly projects: KnownProjects,
+    private readonly pipelines: KnownPipelines,
     private readonly worktrees: ProjectWorktrees,
   ) {}
 
@@ -39,10 +41,11 @@ export class PlanningThreadSetup implements TaskThreadSource, OnModuleInit {
     const task = await this.tasks.read(taskId);
     const project = await this.projects.find(task.projectId);
     if (!project) throw new Error(`The Task ${task.id}'s Project ${task.projectId} is gone.`);
-    const [worktree, idea, attachments] = await Promise.all([
+    const [worktree, idea, attachments, pipelines] = await Promise.all([
       this.worktrees.find(task.projectId, task.id),
       task.originIdeaId === undefined ? undefined : this.ideas.read(task.originIdeaId),
       this.attachments.listOf({ kind: "task", taskId: task.id }),
+      this.pipelines.list(),
     ]);
     return {
       folder: worktree.path,
@@ -50,7 +53,7 @@ export class PlanningThreadSetup implements TaskThreadSource, OnModuleInit {
       useProjectSkills: project.useProjectSkills,
       instructions: PLANNING_INSTRUCTIONS,
       officeTools: PLANNING_OFFICE_TOOLS,
-      brief: planningBrief({ task, project, worktree, idea, attachments }),
+      brief: planningBrief({ task, project, worktree, idea, attachments, pipelines }),
     };
   }
 }

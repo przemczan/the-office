@@ -67,14 +67,23 @@ export function storedFileKind(file: NewFile): StoredFile["kind"] {
   return "file";
 }
 
-/** Every Attachment on a line of its own, as an Agent reads a record; "None." for none. */
+/**
+ * Every Attachment on a line of its own, as an Agent reads a record, with the id it reads one by;
+ * "None." for none.
+ */
 export function attachmentLines(attachments: readonly Attachment[]): string[] {
   if (attachments.length === 0) return ["None."];
-  return attachments.map((attachment) =>
-    attachment.kind === "link"
-      ? `- ${attachment.name} (link to ${attachment.url})`
-      : `- ${attachment.name} (${attachment.kind}, ${attachment.size} bytes)`,
+  return attachments.map(
+    (attachment) =>
+      `- ${attachment.name} (${attachmentKindWords(attachment)}) · Attachment ${attachment.id}`,
   );
+}
+
+/** What an Attachment is, in a few words: a link with its address, a file with its kind and size. */
+export function attachmentKindWords(attachment: Attachment): string {
+  return attachment.kind === "link"
+    ? `link to ${attachment.url}`
+    : `${attachment.kind}, ${attachment.mediaType}, ${attachment.size} bytes`;
 }
 
 /** The link as it is kept: named by its URL when no name is given. */

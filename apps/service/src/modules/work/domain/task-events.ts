@@ -36,3 +36,48 @@ export class TaskReordered extends DomainEvent {
     super();
   }
 }
+
+/** The Planner wrote the Plan; it shows as proposed until the user confirms it. */
+export class TaskPlanProposed extends DomainEvent {
+  constructor(readonly taskId: string) {
+    super();
+  }
+}
+
+/** The user confirmed the Plan, as proposed or as they edited it. */
+export class TaskPlanConfirmed extends DomainEvent {
+  constructor(readonly taskId: string) {
+    super();
+  }
+}
+
+export class TaskDefinitionOfDoneProposed extends DomainEvent {
+  constructor(readonly taskId: string) {
+    super();
+  }
+}
+
+export class TaskDefinitionOfDoneConfirmed extends DomainEvent {
+  constructor(readonly taskId: string) {
+    super();
+  }
+}
+
+export class TaskPipelineProposed extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly pipelineId: string,
+  ) {
+    super();
+  }
+}
+
+/** The user set the Task's Pipeline: the one proposed, or another. */
+export class TaskPipelineConfirmed extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly pipelineId: string,
+  ) {
+    super();
+  }
+}

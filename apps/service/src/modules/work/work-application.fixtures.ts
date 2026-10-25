@@ -1,6 +1,7 @@
 import type { INestApplication } from "@nestjs/common";
 import { workWebEventSchema } from "@the-office/contracts";
 import { startTestApplication } from "../../../test/test-application.js";
+import { PipelineLibrary, PipelinesModule } from "../pipelines/index.js";
 import type { DomainEvent } from "../../platform/events/domain-event.js";
 import { EventBus } from "../../platform/events/event-bus.js";
 import { EventsModule } from "../../platform/events/events.module.js";
@@ -13,6 +14,7 @@ import {
   KnownProjectsForTests,
   ProjectWorktreesForTests,
   SessionPeopleForTests,
+  SessionTasksForTests,
   TaskThreadsForTests,
   WorkPortsForTestsModule,
 } from "./ports/work-ports.fixtures.js";
@@ -26,7 +28,10 @@ export interface WorkApplication {
   readonly published: DomainEvent[];
 }
 
-/** Every Project is known but UNKNOWN_PROJECT; files go into `officeDataFolder`. */
+/**
+ * Every Project is known but UNKNOWN_PROJECT, and the Pipelines are the library's; files go into
+ * `officeDataFolder`.
+ */
 export async function startWorkApplication(officeDataFolder: string): Promise<WorkApplication> {
   const { app, url } = await startTestApplication({
     database: true,
@@ -36,11 +41,13 @@ export async function startWorkApplication(officeDataFolder: string): Promise<Wo
       TelemetryModule,
       OfficeDataModule.forRoot(officeDataFolder),
       WorkModule.register({
-        imports: [WorkPortsForTestsModule],
+        imports: [WorkPortsForTestsModule, PipelinesModule],
         knownProjects: KnownProjectsForTests,
         projectWorktrees: ProjectWorktreesForTests,
         knownPeople: KnownPeopleForTests,
+        knownPipelines: PipelineLibrary,
         sessionPeople: SessionPeopleForTests,
+        sessionTasks: SessionTasksForTests,
         taskThreads: TaskThreadsForTests,
       }),
     ],
