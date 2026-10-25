@@ -174,6 +174,17 @@ test("Assign… in Settings › Skills gives a skill to the people chosen", asyn
   await expect(page.getByText(SKILL, { exact: true })).toBeVisible();
 });
 
+test.describe("dark", () => {
+  test.use({ colorScheme: "dark" });
+
+  test("the Role card form keeps its unsaved-changes bar readable", async ({ page }) => {
+    await page.goto("/people/planner/role/edit");
+    await page.locator("form.role-card-form").getByText("Chat", { exact: true }).click();
+    await expect(page.getByText("You have unsaved changes.")).toBeVisible();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-role-card-form.png") });
+  });
+});
+
 test("a Role nobody fills has no page", async ({ page }) => {
   await page.goto("/people/cto");
   await expect(page.getByRole("link", { name: "Back to People" })).toBeVisible();
