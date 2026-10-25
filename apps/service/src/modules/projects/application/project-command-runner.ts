@@ -12,6 +12,7 @@ export interface ProjectCommand {
   /** The Project's, or one the environment check tries before it is saved. */
   readonly environment: ProjectEnvironment;
   readonly timeoutMs: number;
+  readonly signal?: AbortSignal;
 }
 
 /** Runs every command The Office runs for a Project, with the Project's environment applied. */
@@ -21,12 +22,19 @@ export class ProjectCommandRunner {
 
   constructor(private readonly runner: CommandRunner) {}
 
-  async run({ commandLine, folder, environment, timeoutMs }: ProjectCommand): Promise<CommandRun> {
+  async run({
+    commandLine,
+    folder,
+    environment,
+    timeoutMs,
+    signal,
+  }: ProjectCommand): Promise<CommandRun> {
     const finished = await this.runner.run({
       commandLine,
       folder,
       environment: this.variablesFor(environment),
       timeoutMs,
+      signal,
     });
     return {
       commandLine,

@@ -3,7 +3,8 @@ export type CommandOutcome =
   | "passed"
   | /** It exited with a code other than 0. */ "failed"
   | /** The shell could not run it at all, as when its program isn't installed. */ "could-not-run"
-  | /** It ran out of time and was ended, with everything it started. */ "timed-out";
+  | /** It ran out of time and was ended, with everything it started. */ "timed-out"
+  | /** The Office stopped it, with everything it started. */ "stopped";
 
 /** A Project command The Office ran, as it is recorded. */
 export interface CommandRun {

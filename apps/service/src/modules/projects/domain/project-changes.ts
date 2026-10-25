@@ -14,10 +14,15 @@ import {
   ProjectAdded,
   ProjectCommandChanged,
   ProjectDefaultPipelineChanged,
+  ProjectEnvironmentChanged,
   ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
 } from "./project-events.js";
-import { UNCHANGED_ENVIRONMENT } from "./project-environment.js";
+import {
+  sameEnvironment,
+  UNCHANGED_ENVIRONMENT,
+  type ProjectEnvironment,
+} from "./project-environment.js";
 import { ProjectRefused } from "./project-refused.js";
 
 /** A Project after a change, with the event that announces it. */
@@ -76,6 +81,21 @@ export function changeInstallInputs(
   return {
     project: { ...project, installInputs },
     event: new ProjectInstallInputsChanged(project.id, installInputs),
+  };
+}
+
+/**
+ * Undefined when the Project already has that environment. That it passed the environment check,
+ * and follows the rules, is for the caller to know.
+ */
+export function changeEnvironment(
+  project: Project,
+  environment: ProjectEnvironment,
+): ProjectChange<ProjectEnvironmentChanged> | undefined {
+  if (sameEnvironment(project.environment, environment)) return undefined;
+  return {
+    project: { ...project, environment },
+    event: new ProjectEnvironmentChanged(project.id, environment),
   };
 }
 

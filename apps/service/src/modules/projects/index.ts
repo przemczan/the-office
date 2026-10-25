@@ -1,7 +1,13 @@
 export {
+  EnvironmentCheckFinished,
+  EnvironmentCheckProgressed,
+  EnvironmentCheckStarted,
+} from "./domain/environment-check-events.js";
+export {
   ProjectAdded,
   ProjectCommandChanged,
   ProjectDefaultPipelineChanged,
+  ProjectEnvironmentChanged,
   ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
 } from "./domain/project-events.js";

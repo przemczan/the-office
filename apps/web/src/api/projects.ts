@@ -67,6 +67,8 @@ export const projectEventInvalidations: Readonly<
 > = {
   "project.added": () => [PROJECTS],
   "project.command-changed": () => [PROJECTS],
+  "project.environment-changed": () => [PROJECTS],
+  "project.environment-check-changed": () => [PROJECTS],
   "project.install-inputs-changed": () => [PROJECTS],
   "project.publishing-mode-changed": () => [PROJECTS],
   "project.default-pipeline-changed": () => [PROJECTS],

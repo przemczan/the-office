@@ -1,6 +1,7 @@
 import { isAbsolute } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { newProjectProblems, trimmedNewProject, type NewProject } from "../domain/project.js";
+import { environmentProblems, type ProjectEnvironment } from "../domain/project-environment.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { Git, type FolderInspection } from "../ports/git.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
@@ -27,6 +28,19 @@ export class ProjectChecks {
   async checkDefaultPipeline(pipelineId: string): Promise<void> {
     const problems = await this.pipelineProblems(pipelineId);
     if (problems.length > 0) throw new ProjectRefused(problems);
+  }
+
+  /**
+   * Why an environment, as trimmedEnvironment keeps it, can't be tried: the domain's reasons,
+   * and folders for PATH that aren't full paths on this system.
+   */
+  environmentProblems(environment: ProjectEnvironment): string[] {
+    return [
+      ...environmentProblems(environment),
+      ...environment.prependPath
+        .filter((folder) => !isAbsolute(folder))
+        .map((folder) => `A folder put in front of PATH is a full path; "${folder}" is not.`),
+    ];
   }
 
   private async repositoryProblems(path: string, baseBranch: string): Promise<string[]> {

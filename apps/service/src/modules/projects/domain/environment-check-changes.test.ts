@@ -1,0 +1,127 @@
+import { describe, expect, it } from "vitest";
+import type { CommandRun } from "./command-run.js";
+import {
+  finishEnvironmentCheck,
+  progressEnvironmentCheck,
+  startEnvironmentCheck,
+} from "./environment-check-changes.js";
+import {
+  EnvironmentCheckFinished,
+  EnvironmentCheckProgressed,
+  EnvironmentCheckStarted,
+} from "./environment-check-events.js";
+import type { EnvironmentCheck } from "./environment-check.js";
+import { aProject } from "./project.fixtures.js";
+
+const startedAt = new Date("2026-10-25T10:00:00.000Z");
+const finishedAt = new Date("2026-10-25T10:03:00.000Z");
+const environment = {
+  set: [{ name: "JAVA_HOME", value: "/opt/java-21" }],
+  unset: [],
+  prependPath: [],
+};
+
+function aRun(commandLine: string, outcome: CommandRun["outcome"] = "passed"): CommandRun {
+  return { commandLine, outcome, exitCode: 0, durationMs: 1200, output: "" };
+}
+
+function started(): EnvironmentCheck {
+  return startEnvironmentCheck("admin-panel", aProject().commands, environment, startedAt).check;
+}
+
+/** The check with every step passed but `failed`, which failed. */
+function allRanBut(failed?: string): EnvironmentCheck {
+  return started().checks.reduce(
+    (check, each) =>
+      progressEnvironmentCheck(check, {
+        ...each,
+        state: each.step === failed ? "failed" : "passed",
+      }).check,
+    started(),
+  );
+}
+
+describe("startEnvironmentCheck", () => {
+  it("waits on the worktree and each command, as the commands are now", () => {
+    const { check, event } = startEnvironmentCheck(
+      "admin-panel",
+      aProject().commands,
+      environment,
+      startedAt,
+    );
+
+    expect(check).toEqual({
+      projectId: "admin-panel",
+      environment,
+      state: "running",
+      checks: [
+        { step: "worktree", state: "waiting" },
+        { step: "install", state: "waiting", commandLine: "npm ci" },
+        { step: "build", state: "waiting", commandLine: "npm run build" },
+        { step: "lint", state: "waiting", commandLine: "npm run lint" },
+        { step: "test", state: "waiting", commandLine: "npm test" },
+      ],
+      startedAt,
+      finishedAt: undefined,
+    });
+    expect(event).toEqual(new EnvironmentCheckStarted(check));
+  });
+});
+
+describe("progressEnvironmentCheck", () => {
+  it("puts one check in place and announces its state", () => {
+    const run = aRun("npm run build");
+
+    const { check, event } = progressEnvironmentCheck(started(), {
+      step: "build",
+      state: "passed",
+      commandLine: "npm run build",
+      run,
+    });
+
+    expect(check.checks[2]).toEqual({
+      step: "build",
+      state: "passed",
+      commandLine: "npm run build",
+      run,
+    });
+    expect(check.checks.filter((each) => each.state === "waiting")).toHaveLength(4);
+    expect(event).toBeInstanceOf(EnvironmentCheckProgressed);
+    expect(event).toMatchObject({ projectId: "admin-panel", step: "build", state: "passed" });
+  });
+});
+
+describe("finishEnvironmentCheck", () => {
+  it("passes when every check passed", () => {
+    const { check, event } = finishEnvironmentCheck(allRanBut(), finishedAt, false);
+
+    expect(check).toMatchObject({ state: "passed", finishedAt });
+    expect(event).toEqual(new EnvironmentCheckFinished(check));
+  });
+
+  it("fails when one check failed", () => {
+    expect(finishEnvironmentCheck(allRanBut("lint"), finishedAt, false).check.state).toBe("failed");
+  });
+
+  it("skips the checks that never ran", () => {
+    const installFailed = progressEnvironmentCheck(
+      progressEnvironmentCheck(started(), { step: "worktree", state: "passed" }).check,
+      { step: "install", state: "failed", commandLine: "npm ci", run: aRun("npm ci", "failed") },
+    ).check;
+
+    const { check } = finishEnvironmentCheck(installFailed, finishedAt, false);
+
+    expect(check.state).toBe("failed");
+    expect(check.checks.map((each) => each.state)).toEqual([
+      "passed",
+      "failed",
+      "skipped",
+      "skipped",
+      "skipped",
+    ]);
+  });
+
+  it("is stopped when The Office stopped it, whatever its checks", () => {
+    expect(finishEnvironmentCheck(allRanBut(), finishedAt, true).check.state).toBe("stopped");
+  });
+});

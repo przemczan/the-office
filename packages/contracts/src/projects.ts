@@ -71,6 +71,78 @@ export type PublishingModeChange = z.infer<typeof publishingModeChangeSchema>;
 export const defaultPipelineChangeSchema = z.object({ defaultPipeline: z.string() });
 export type DefaultPipelineChange = z.infer<typeof defaultPipelineChangeSchema>;
 
+/** How a Project command ended. */
+export const commandOutcomeSchema = z.enum([
+  "passed",
+  "failed",
+  "could-not-run",
+  "timed-out",
+  "stopped",
+]);
+export type CommandOutcome = z.infer<typeof commandOutcomeSchema>;
+
+/** A Project command The Office ran, with its output cut to what tells why it failed. */
+export const commandRunSchema = z.object({
+  commandLine: z.string(),
+  outcome: commandOutcomeSchema,
+  /** Absent when it never exited by itself. */
+  exitCode: z.number().int().optional(),
+  durationMs: z.number().int(),
+  output: z.string(),
+});
+export type CommandRun = z.infer<typeof commandRunSchema>;
+
+export const checkStateSchema = z.enum(["waiting", "running", "passed", "failed", "skipped"]);
+export type CheckState = z.infer<typeof checkStateSchema>;
+
+/** That a fresh worktree of the freshly fetched base branch opens. */
+export const worktreeCheckSchema = z.object({
+  step: z.literal("worktree"),
+  state: checkStateSchema,
+  base: z
+    .object({
+      commit: z.string(),
+      /** Such as `origin/main`; absent when the base branch tracks none and was used unfetched. */
+      fetchedFrom: z.string().optional(),
+    })
+    .optional(),
+  /** Why it failed, in git's words. */
+  problem: z.string().optional(),
+});
+export type WorktreeCheck = z.infer<typeof worktreeCheckSchema>;
+
+/** That one of the Project's commands passes in that worktree. */
+export const commandCheckSchema = z.object({
+  step: projectCommandKeySchema,
+  state: checkStateSchema,
+  commandLine: z.string(),
+  run: commandRunSchema.optional(),
+});
+export type CommandCheck = z.infer<typeof commandCheckSchema>;
+
+export const environmentCheckStateSchema = z.enum(["running", "passed", "failed", "stopped"]);
+export type EnvironmentCheckState = z.infer<typeof environmentCheckStateSchema>;
+
+/** A try of an environment in a fresh worktree; it is saved only when every check passes. */
+export const environmentCheckSchema = z.object({
+  projectId: z.string(),
+  environment: projectEnvironmentSchema,
+  state: environmentCheckStateSchema,
+  /** The worktree's check, then install, build, lint and test. */
+  checks: z.array(z.discriminatedUnion("step", [worktreeCheckSchema, commandCheckSchema])),
+  startedAt: z.iso.datetime(),
+  finishedAt: z.iso.datetime().optional(),
+});
+export type EnvironmentCheck = z.infer<typeof environmentCheckSchema>;
+
+/** GET /projects/:id/environment-check: the running check, or the last finished one. */
+export const latestEnvironmentCheckSchema = z.object({ check: environmentCheckSchema.nullable() });
+export type LatestEnvironmentCheck = z.infer<typeof latestEnvironmentCheckSchema>;
+
+/** POST /projects/:id/environment-check */
+export const environmentCheckStartSchema = z.object({ environment: projectEnvironmentSchema });
+export type EnvironmentCheckStart = z.infer<typeof environmentCheckStartSchema>;
+
 /** What a refused change answers: every reason, also joined into Nest's `message`. */
 export const projectRefusalSchema = z.object({
   statusCode: z.literal(422),
@@ -86,6 +158,15 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
     type: z.literal("project.command-changed"),
     projectId: z.string(),
     key: projectCommandKeySchema,
+  }),
+  webEventSchema.extend({
+    type: z.literal("project.environment-changed"),
+    projectId: z.string(),
+  }),
+  webEventSchema.extend({
+    /** A check started, one of its checks moved on, or it finished. */
+    type: z.literal("project.environment-check-changed"),
+    projectId: z.string(),
   }),
   webEventSchema.extend({
     type: z.literal("project.install-inputs-changed"),

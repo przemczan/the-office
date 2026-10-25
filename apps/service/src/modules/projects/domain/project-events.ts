@@ -1,5 +1,6 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Project, ProjectCommandKey, PublishingMode } from "./project.js";
+import type { ProjectEnvironment } from "./project-environment.js";
 
 export class ProjectAdded extends DomainEvent {
   constructor(readonly project: Project) {
@@ -23,6 +24,16 @@ export class ProjectInstallInputsChanged extends DomainEvent {
   constructor(
     readonly projectId: string,
     readonly installInputs: readonly string[],
+  ) {
+    super();
+  }
+}
+
+/** Saved by an environment check that passed with it. */
+export class ProjectEnvironmentChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly environment: ProjectEnvironment,
   ) {
     super();
   }

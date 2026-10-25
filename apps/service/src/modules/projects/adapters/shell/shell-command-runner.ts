@@ -16,12 +16,22 @@ const OUTPUT_LIMIT_BYTES = 16 * 1024 * 1024;
  */
 const OUTPUT_GRACE_MS = 500;
 
+/** Why The Office ended a command's tree before it exited by itself. */
+type EndedBy = "timeout" | "stop";
+
 /** How the shell's process ended. */
 type Ending =
-  | { readonly kind: "exited"; readonly exitCode: number | null; readonly timedOut: boolean }
+  | {
+      readonly kind: "exited";
+      readonly exitCode: number | null;
+      readonly endedBy: EndedBy | undefined;
+    }
   | { readonly kind: "not-started" };
 
-/** Runs a command line in the platform's default shell, ending its whole tree when time runs out. */
+/**
+ * Runs a command line in the platform's default shell, ending its whole tree when time runs out
+ * or it is stopped.
+ */
 @Injectable()
 export class ShellCommandRunner extends CommandRunner {
   private readonly operatingSystem = currentOperatingSystem();
@@ -34,7 +44,9 @@ export class ShellCommandRunner extends CommandRunner {
     return {
       outcome: await this.outcomeOf(command, ending),
       exitCode:
-        ending.kind === "exited" && !ending.timedOut ? (ending.exitCode ?? undefined) : undefined,
+        ending.kind === "exited" && ending.endedBy === undefined
+          ? (ending.exitCode ?? undefined)
+          : undefined,
       durationMs,
       output: output.text(),
     };
@@ -43,6 +55,9 @@ export class ShellCommandRunner extends CommandRunner {
   private runToEnd(command: CommandToRun, output: OutputEnd): Promise<Ending> {
     const { defaultShell, processTrees } = this.operatingSystem;
     const invocation = defaultShell.invocation(command.commandLine);
+    if (command.signal?.aborted) {
+      return Promise.resolve({ kind: "exited", exitCode: null, endedBy: "stop" });
+    }
     return new Promise((resolve) => {
       const child = spawn(invocation.file, invocation.arguments, {
         cwd: command.folder,
@@ -55,28 +70,36 @@ export class ShellCommandRunner extends CommandRunner {
       child.stdout.on("data", (chunk: Buffer) => output.add(chunk));
       child.stderr.on("data", (chunk: Buffer) => output.add(chunk));
 
-      let timedOut = false;
-      const timer = setTimeout(() => {
-        timedOut = true;
+      let endedBy: EndedBy | undefined;
+      const end = (reason: EndedBy): void => {
+        endedBy ??= reason;
         if (child.pid !== undefined) void processTrees.end(child.pid);
-      }, command.timeoutMs);
+      };
+      const timer = setTimeout(() => end("timeout"), command.timeoutMs);
+      const stop = (): void => end("stop");
+      command.signal?.addEventListener("abort", stop, { once: true });
+      const stopWatching = (): void => {
+        clearTimeout(timer);
+        command.signal?.removeEventListener("abort", stop);
+      };
 
       // No shell to start, or no folder to start it in.
       child.once("error", (error) => {
-        clearTimeout(timer);
+        stopWatching();
         output.add(Buffer.from(`\n${error.message}`));
         resolve({ kind: "not-started" });
       });
       child.once("exit", (exitCode) => {
-        clearTimeout(timer);
-        resolve(afterOutput(child).then(() => ({ kind: "exited", exitCode, timedOut })));
+        stopWatching();
+        resolve(afterOutput(child).then(() => ({ kind: "exited", exitCode, endedBy })));
       });
     });
   }
 
   private async outcomeOf(command: CommandToRun, ending: Ending): Promise<CommandOutcome> {
     if (ending.kind === "not-started") return "could-not-run";
-    if (ending.timedOut) return "timed-out";
+    if (ending.endedBy === "timeout") return "timed-out";
+    if (ending.endedBy === "stop") return "stopped";
     if (ending.exitCode === 0) return "passed";
     if (ending.exitCode === null) return "failed";
     const couldNotRun = await this.operatingSystem.defaultShell.couldNotRun({

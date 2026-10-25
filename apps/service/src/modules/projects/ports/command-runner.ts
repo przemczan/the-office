@@ -8,6 +8,8 @@ export interface CommandToRun {
   readonly environment: Readonly<Record<string, string>>;
   /** How long it may take before it is ended, with everything it started. */
   readonly timeoutMs: number;
+  /** Ends it, with everything it started, when aborted. */
+  readonly signal?: AbortSignal;
 }
 
 export interface FinishedCommand {

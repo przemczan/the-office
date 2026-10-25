@@ -2,9 +2,15 @@ import { Injectable, type OnModuleInit } from "@nestjs/common";
 import type { ProjectWebEvent } from "@the-office/contracts";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import {
+  EnvironmentCheckFinished,
+  EnvironmentCheckProgressed,
+  EnvironmentCheckStarted,
+} from "../../domain/environment-check-events.js";
+import {
   ProjectAdded,
   ProjectCommandChanged,
   ProjectDefaultPipelineChanged,
+  ProjectEnvironmentChanged,
   ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
 } from "../../domain/project-events.js";
@@ -33,6 +39,20 @@ export class ProjectWebEvents implements OnModuleInit {
       }),
     );
     this.forwarding.forward(
+      ProjectEnvironmentChanged,
+      (event): WebEventOf<"project.environment-changed"> => ({
+        type: "project.environment-changed",
+        projectId: event.projectId,
+      }),
+    );
+    this.forwarding.forward(EnvironmentCheckStarted, (event) =>
+      checkChanged(event.check.projectId),
+    );
+    this.forwarding.forward(EnvironmentCheckProgressed, (event) => checkChanged(event.projectId));
+    this.forwarding.forward(EnvironmentCheckFinished, (event) =>
+      checkChanged(event.check.projectId),
+    );
+    this.forwarding.forward(
       ProjectInstallInputsChanged,
       (event): WebEventOf<"project.install-inputs-changed"> => ({
         type: "project.install-inputs-changed",
@@ -54,4 +74,8 @@ export class ProjectWebEvents implements OnModuleInit {
       }),
     );
   }
+}
+
+function checkChanged(projectId: string): WebEventOf<"project.environment-check-changed"> {
+  return { type: "project.environment-check-changed", projectId };
 }

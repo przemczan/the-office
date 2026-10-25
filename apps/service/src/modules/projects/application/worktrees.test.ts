@@ -14,11 +14,11 @@ import { ShellCommandRunner } from "../adapters/shell/shell-command-runner.js";
 import type { Project } from "../domain/project.js";
 import { aProject } from "../domain/project.fixtures.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
-import { TaskWorktrees } from "./task-worktrees.js";
+import { Worktrees } from "./worktrees.js";
 
 // Real git and real commands on a temporary repository whose main tracks its origin's.
 let repository: TemporaryRepository;
-let worktrees: TaskWorktrees;
+let worktrees: Worktrees;
 let installLog: string;
 let project: Project;
 let taskCount = 0;
@@ -31,7 +31,7 @@ beforeAll(async () => {
   gitIn(repository.path, "fetch", "--quiet", "origin");
   gitIn(repository.path, "branch", "--quiet", "--set-upstream-to=origin/main", "main");
   installLog = join(repository.folder, "installs.log");
-  worktrees = new TaskWorktrees(
+  worktrees = new Worktrees(
     new CommandLineGit(new RepositoryLocks()),
     new ProjectCommandRunner(new ShellCommandRunner()),
     new OfficeDataDirectory(join(repository.folder, "office-data")),
@@ -57,7 +57,7 @@ async function installs(): Promise<number> {
   return (await readFile(installLog, "utf8").catch(() => "")).length;
 }
 
-describe("TaskWorktrees.prepare", () => {
+describe("Worktrees.prepare", () => {
   it("makes the Task's worktree at a stable path, on its branch at the freshly fetched base", async () => {
     const fetched = await commitOnOrigin(repository, "main", "fetched.txt");
     const taskId = aTaskId();
@@ -122,7 +122,7 @@ describe("TaskWorktrees.prepare", () => {
   });
 });
 
-describe("TaskWorktrees.install", () => {
+describe("Worktrees.install", () => {
   it("installs again only when the install command, an install input or the environment changes", async () => {
     const { worktree } = await worktrees.prepare(project, aTaskId());
     const count = await installs();
@@ -147,7 +147,7 @@ describe("TaskWorktrees.install", () => {
       ...project.environment,
       set: [...project.environment.set, { name: "EXTRA", value: "1" }],
     };
-    await worktrees.install(changedCommand, worktree.path, changedEnvironment);
+    await worktrees.install(changedCommand, worktree.path, { environment: changedEnvironment });
     expect(await installs()).toBe(count + 3);
   });
 
@@ -166,7 +166,7 @@ describe("TaskWorktrees.install", () => {
   });
 });
 
-describe("TaskWorktrees.remove", () => {
+describe("Worktrees.remove", () => {
   it("removes the worktree with its uncommitted changes and keeps the Task's branch", async () => {
     const taskId = aTaskId();
     const { worktree } = await worktrees.prepare(project, taskId);

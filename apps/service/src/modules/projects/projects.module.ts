@@ -1,15 +1,19 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
 import { CommandLineGit } from "./adapters/git/command-line-git.js";
 import { RepositoryLocks } from "./adapters/git/repository-locks.js";
+import { EnvironmentChecksController } from "./adapters/http/environment-checks.controller.js";
 import { ProjectsController } from "./adapters/http/projects.controller.js";
+import { PostgresEnvironmentCheckRepository } from "./adapters/postgres/postgres-environment-check-repository.js";
 import { PostgresProjectRepository } from "./adapters/postgres/postgres-project-repository.js";
 import { ShellCommandRunner } from "./adapters/shell/shell-command-runner.js";
 import { ProjectWebEvents } from "./adapters/websocket/project-web-events.js";
+import { EnvironmentChecks } from "./application/environment-checks.js";
 import { ProjectChecks } from "./application/project-checks.js";
 import { ProjectCommandRunner } from "./application/project-command-runner.js";
 import { ProjectService } from "./application/project-service.js";
-import { TaskWorktrees } from "./application/task-worktrees.js";
+import { Worktrees } from "./application/worktrees.js";
 import { CommandRunner } from "./ports/command-runner.js";
+import { EnvironmentCheckRepository } from "./ports/environment-check-repository.js";
 import { Git } from "./ports/git.js";
 import { KnownPipelines } from "./ports/known-pipelines.js";
 import { ProjectRepository } from "./ports/project-repository.js";
@@ -26,17 +30,19 @@ export class ProjectsModule {
     return {
       module: ProjectsModule,
       imports,
-      controllers: [ProjectsController],
+      controllers: [ProjectsController, EnvironmentChecksController],
       providers: [
         { provide: ProjectRepository, useClass: PostgresProjectRepository },
+        { provide: EnvironmentCheckRepository, useClass: PostgresEnvironmentCheckRepository },
         { provide: Git, useClass: CommandLineGit },
         RepositoryLocks,
         { provide: CommandRunner, useClass: ShellCommandRunner },
         ProjectCommandRunner,
         { provide: KnownPipelines, useExisting: knownPipelines },
+        EnvironmentChecks,
         ProjectChecks,
         ProjectService,
-        TaskWorktrees,
+        Worktrees,
         ProjectWebEvents,
       ],
     };

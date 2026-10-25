@@ -1,7 +1,7 @@
-import { createHash } from "node:crypto";
-import { mkdir, readFile, stat, writeFile } from "node:fs/promises";
+import { createHash, randomBytes } from "node:crypto";
+import { mkdir, readdir, readFile, stat, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../platform/os/current-operating-system.js";
 import type { CommandRun } from "../domain/command-run.js";
@@ -13,6 +13,8 @@ import { ProjectCommandRunner } from "./project-command-runner.js";
 /** Short, as worktree paths count against Windows' MAX_PATH; a UUID fits. */
 const TASK_ID = /^[A-Za-z0-9][A-Za-z0-9-]{0,39}$/;
 const TASK_BRANCH_PREFIX = "office/";
+/** A throwaway worktree's folder starts with it, which no Task id does. */
+const THROWAWAY_PREFIX = "_";
 const INSTALL_RECORD = "office-install";
 /** Changed when installs change how they run, so worktrees installed the old way install again. */
 const INSTALL_RECORD_VERSION = 1;
@@ -30,16 +32,31 @@ export interface TaskWorktree {
   readonly branch: string;
 }
 
+export interface InstallOptions {
+  /** The environment to install with, when not the Project's own. */
+  readonly environment?: ProjectEnvironment;
+  /** Stops the install when aborted. */
+  readonly signal?: AbortSignal;
+}
+
 /** Whether a worktree's install ran, and how it went. */
 export type Installation =
   { readonly kind: "up-to-date" } | { readonly kind: "ran"; readonly run: CommandRun };
 
+/** A throwaway worktree of the base branch, such as the environment check's. */
+export interface ThrowawayWorktree {
+  readonly path: string;
+  readonly base: BaseBranch;
+}
+
 /**
- * A worktree per Task at a stable path under the Office data directory (spec §5.5), so a resumed
- * session finds it where it left it, with the Project's dependencies installed in it.
+ * The Projects' worktrees under the Office data directory (spec §5.5): one per Task at a stable
+ * path, so a resumed session finds it where it left it, with the Project's dependencies installed
+ * in it; and throwaway ones, which never share a path with a Task's.
  */
 @Injectable()
-export class TaskWorktrees {
+export class Worktrees {
+  private readonly logger = new Logger(Worktrees.name);
   private readonly operatingSystem = currentOperatingSystem();
 
   constructor(
@@ -51,7 +68,7 @@ export class TaskWorktrees {
   /** `<office-data>/worktrees/<project>/<task>`. */
   pathOf(project: Project, taskId: string): string {
     if (!TASK_ID.test(taskId)) throw new Error(`"${taskId}" can't name a Task's worktree.`);
-    return join(this.officeData.folder("worktrees"), project.id, taskId);
+    return join(this.projectFolder(project), taskId);
   }
 
   branchOf(taskId: string): string {
@@ -96,7 +113,7 @@ export class TaskWorktrees {
   async install(
     project: Project,
     worktreePath: string,
-    environment: ProjectEnvironment = project.environment,
+    { environment = project.environment, signal }: InstallOptions = {},
   ): Promise<Installation> {
     const record = await this.git.worktreeRecordPath(worktreePath, INSTALL_RECORD);
     const fingerprint = await installFingerprint(project, worktreePath, environment);
@@ -108,6 +125,7 @@ export class TaskWorktrees {
       folder: worktreePath,
       environment,
       timeoutMs: INSTALL_TIMEOUT_MS,
+      signal,
     });
     if (run.outcome === "passed") await writeFile(record, fingerprint);
     return { kind: "ran", run };
@@ -122,9 +140,61 @@ export class TaskWorktrees {
     );
   }
 
+  /**
+   * A detached worktree of the freshly fetched base branch at a path of its own. The Project's
+   * earlier throwaway worktrees go first: one a running process kept from being removed would
+   * otherwise stay for good.
+   */
+  async addThrowaway(
+    project: Project,
+    environment: ProjectEnvironment,
+  ): Promise<ThrowawayWorktree> {
+    const variables = this.commands.variablesFor(environment);
+    await this.removeThrowaways(project, variables);
+    const path = join(
+      this.projectFolder(project),
+      `${THROWAWAY_PREFIX}${randomBytes(4).toString("hex")}`,
+    );
+    this.refuseTooLong(path);
+    const base = await this.freshBase(project, variables);
+    await mkdir(dirname(path), { recursive: true });
+    await this.git.addWorktree(
+      project.path,
+      { path, checkout: { kind: "detached", startPoint: base.commit } },
+      variables,
+    );
+    return { path, base };
+  }
+
+  async removeThrowaway(
+    project: Project,
+    path: string,
+    environment: ProjectEnvironment,
+  ): Promise<void> {
+    await this.git.removeWorktree(project.path, path, this.commands.variablesFor(environment));
+  }
+
+  private async removeThrowaways(project: Project, variables: GitVariables): Promise<void> {
+    const folder = this.projectFolder(project);
+    const names = await readdir(folder).catch(() => []);
+    for (const name of names.filter((each) => each.startsWith(THROWAWAY_PREFIX))) {
+      await this.git.removeWorktree(project.path, join(folder, name), variables).catch((error) => {
+        this.logger.warn(`A throwaway worktree stays at ${join(folder, name)}: ${String(error)}`);
+      });
+    }
+  }
+
+  private projectFolder(project: Project): string {
+    return join(this.officeData.folder("worktrees"), project.id);
+  }
+
+  private refuseTooLong(path: string): void {
+    const tooLong = this.operatingSystem.paths.lengthProblem(path, "directory");
+    if (tooLong) throw new Error(`The worktree can't be made at ${path}. ${tooLong}`);
+  }
+
   private async add(project: Project, worktree: TaskWorktree): Promise<void> {
-    const tooLong = this.operatingSystem.paths.lengthProblem(worktree.path, "directory");
-    if (tooLong) throw new Error(`The worktree can't be made at ${worktree.path}. ${tooLong}`);
+    this.refuseTooLong(worktree.path);
     const variables = this.commands.variablesFor(project.environment);
     // A branch left from a worktree removed earlier is checked out as it is.
     const checkout: WorktreeCheckout = (await this.git.hasBranch(project.path, worktree.branch))

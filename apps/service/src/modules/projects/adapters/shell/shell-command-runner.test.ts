@@ -132,6 +132,41 @@ describe("ProjectCommandRunner with ShellCommandRunner", () => {
     await expect(isRunning(left)).resolves.toBe(false);
   });
 
+  it("ends a command that is stopped, with every process it started", async () => {
+    const processIdFile = join(folder, "stopped.pid");
+    const stop = new AbortController();
+
+    const running = runner.run({
+      commandLine: `node leave-a-process.cjs "${processIdFile}"`,
+      folder,
+      environment: UNCHANGED_ENVIRONMENT,
+      timeoutMs: 20_000,
+      signal: stop.signal,
+    });
+    await expect.poll(() => readFile(processIdFile, "utf8").catch(() => "")).not.toBe("");
+    stop.abort();
+
+    await expect(running).resolves.toMatchObject({ outcome: "stopped", exitCode: undefined });
+    const left = Number(await readFile(processIdFile, "utf8"));
+    await expect(isRunning(left)).resolves.toBe(false);
+  });
+
+  it("runs nothing once stopped", async () => {
+    const stop = new AbortController();
+    stop.abort();
+
+    await expect(
+      runner.run({
+        commandLine: `node -e "require('fs').writeFileSync('ran.txt', '')"`,
+        folder,
+        environment: UNCHANGED_ENVIRONMENT,
+        timeoutMs: 20_000,
+        signal: stop.signal,
+      }),
+    ).resolves.toMatchObject({ outcome: "stopped" });
+    await expect(readFile(join(folder, "ran.txt")).catch(() => undefined)).resolves.toBeUndefined();
+  });
+
   it("finishes when the command exits, though a process it left holds its output open", async () => {
     const processIdFile = join(folder, "left.pid");
 

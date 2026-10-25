@@ -14,11 +14,13 @@ import {
   addProject,
   changeCommand,
   changeDefaultPipeline,
+  changeEnvironment,
   changeInstallInputs,
   changePublishingMode,
   type ProjectChange,
 } from "../domain/project-changes.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
+import type { ProjectEnvironment } from "../domain/project-environment.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { ProjectChecks } from "./project-checks.js";
 
@@ -66,6 +68,11 @@ export class ProjectService {
 
   async changeInstallInputs(id: string, installInputs: readonly string[]): Promise<Project> {
     return this.update(id, (project) => changeInstallInputs(project, installInputs));
+  }
+
+  /** For the environment check, once it passed with the environment. */
+  async changeEnvironment(id: string, environment: ProjectEnvironment): Promise<Project> {
+    return this.update(id, (project) => changeEnvironment(project, environment));
   }
 
   async changePublishingMode(id: string, publishingMode: PublishingMode): Promise<Project> {

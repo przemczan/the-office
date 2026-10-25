@@ -3,6 +3,7 @@ import {
   addProject,
   changeCommand,
   changeDefaultPipeline,
+  changeEnvironment,
   changeInstallInputs,
   changePublishingMode,
 } from "./project-changes.js";
@@ -10,6 +11,7 @@ import {
   ProjectAdded,
   ProjectCommandChanged,
   ProjectDefaultPipelineChanged,
+  ProjectEnvironmentChanged,
   ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
 } from "./project-events.js";
@@ -91,6 +93,21 @@ describe("changeInstallInputs", () => {
         'An install input is a path inside the repository; "../package-lock.json" is not.',
       ]),
     );
+  });
+});
+
+describe("changeEnvironment", () => {
+  const environment = { set: [{ name: "CI", value: "1" }], unset: [], prependPath: ["/opt/bin"] };
+
+  it("keeps the environment and announces it", () => {
+    const change = changeEnvironment(aProject(), environment);
+
+    expect(change?.project.environment).toEqual(environment);
+    expect(change?.event).toEqual(new ProjectEnvironmentChanged("admin-panel", environment));
+  });
+
+  it("changes nothing when the Project already has that environment", () => {
+    expect(changeEnvironment(aProject({ environment }), { ...environment })).toBeUndefined();
   });
 });
 
