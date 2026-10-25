@@ -74,6 +74,7 @@ Every tier 1 item of the spec and the task that builds it. A row with no task is
 | §6 | Chats only read; Office tools for chats | 09 (records), 10 (Ideas, Tasks) |
 | §2.1 | Ideas captured and shaped into Tasks; Task states; priority and manual order; the board | 10 |
 | §2.1 | Attachments by the user | 10 |
+| §2.1, §6 | Agents read a Task's Attachments through an Office tool | 11 |
 | §2.1, §2.3 | Plan and Definition of Done with the Planner; the Planner proposing a Pipeline; Ready | 11 |
 | §2.4 | Decisions with options, recommendation, follow-ups and free answers | 11 (planning), 13 (Stages) |
 | §2.3 | Agent and Script Stages; result envelope with one correction; loops; round and budget limits; optional Stages | 12 |

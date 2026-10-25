@@ -321,7 +321,7 @@ Gaps no ticket settled, filled with the simplest choice consistent with the tick
 - **Office kinds in tier 1 have no person:** until the Office Manager is hired (tier 2), they show in the status strip and as in-app toasts in the UI's own voice (sentence case, no "I"), and "service or engine down" also goes to the desktop. They never appear as a message from a person, and never as "System".
 - **Project commands in tier 1** are edited directly on the Project page; Devops' Proposals join them in tier 2 ([08](../.scratch/the-office/issues/08-pipelines.md) allows both).
 - **Skills the user writes or uploads** also arrive off and are turned on after review, as [23](../.scratch/the-office/issues/23-skills.md) says for every new skill; for one's own text the review is one click.
-- **Thread titles** come from the first message and can be renamed (tier 1).
+- **Thread titles** come from the first message and can be renamed (tier 1). A Thread The Office opens, which has no message of the user's first, is titled by The Office and shown with the person, as "Planning · Jan" (agreed with the user on 2026-10-25).
 - **Skills is its own module,** next to People and Engine, since it owns the library, versions and assignment, and builds each session's folder from them; the Engine takes the folder and the options from the session's owner and never reads Skills (agreed with the user on 2026-10-25) ([12](../.scratch/the-office/issues/12-architecture.md) predates [23](../.scratch/the-office/issues/23-skills.md)).
 - **The Office's own credentials for publishing** (git push, `gh`) are the user's, used by Office code only; Agents never see them.
 
