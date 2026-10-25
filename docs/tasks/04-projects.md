@@ -1,6 +1,6 @@
 # 04 · Projects: the record, commands and the Projects page
 
-Status: in progress
+Status: done
 
 ## Goal
 
@@ -8,12 +8,12 @@ The Projects module and its surface: the user adds a Project by hand (its path, 
 
 ## Definition of Done
 
-- [ ] The user adds the Test Project from the Projects page, and it survives a service restart. Check: add it, restart, reload.
-- [ ] A path that isn't a git repository, or a base branch that doesn't exist, is refused with a reason before saving. Check: try both.
-- [ ] The Project page shows commands, default Pipeline and publishing; editing a command saves it, and the toast says running Tasks keep the command they started with. Check: edit the test command.
-- [ ] Full, Quick fix and Document exist as Pipeline data (Stages, Roles or commands, on-failure loops, optional flags), readable through the API; the default Pipeline picker lists them. Check: API test and the picker.
-- [ ] Every state change emits a domain event, and the open page updates from it. Check: change a command in one tab, see it in another.
-- [ ] The Test Project is named in [README.md](README.md). Check: read it.
+- [x] The user adds the Test Project from the Projects page, and it survives a service restart. Check: add it, restart, reload.
+- [x] A path that isn't a git repository, or a base branch that doesn't exist, is refused with a reason before saving. Check: try both.
+- [x] The Project page shows commands, default Pipeline and publishing; editing a command saves it, and the toast says running Tasks keep the command they started with. Check: edit the test command.
+- [x] Full, Quick fix and Document exist as Pipeline data (Stages, Roles or commands, on-failure loops, optional flags), readable through the API; the default Pipeline picker lists them. Check: API test and the picker.
+- [x] Every state change emits a domain event, and the open page updates from it. Check: change a command in one tab, see it in another.
+- [x] The Test Project is named in [README.md](README.md). Check: read it.
 
 ## Read first
 
@@ -30,7 +30,7 @@ Build from the Projects surface: the list of Project cards, "Add a Project" as a
 - [x] 3. Projects module, domain and persistence: Project (name, path, base branch, mark label and colour, commands install, build, lint and test, publishing mode push + PR or merge (Publish is run by The Office's own git code, task 14, so it is a mode rather than a free command), default Pipeline, skills switch), its rules (path is a git repository, base branch exists, the default Pipeline exists), the Drizzle tables and repository, and domain events. Commit.
 - [x] 4. Use cases and API: add, list, read, edit commands, change publishing and default Pipeline; contracts in `packages/contracts`. Commit.
 - [x] 5. The Projects surface in `apps/web`: the list, the add form, the Project page with its blocks, live updates from events. Commit.
-- [ ] 6. Check on the Test Project: add it, edit a command, change the default Pipeline, restart the service; log what was seen. Commit.
+- [x] 6. Check on the Test Project: add it, edit a command, change the default Pipeline, restart the service; log what was seen. Commit.
 
 ## Progress
 
@@ -40,3 +40,4 @@ Build from the Projects surface: the list of Project cards, "Add a Project" as a
 - 2026-10-25 · step 3: `modules/projects` with the Project record (id from the name, mark label and colour, the four commands, publishing mode `push-and-pull-request` or `merge`, default Pipeline, `useProjectSkills` on by default), its rules and changes returning `{ project, event }`, four domain events, the `projects` table (migration `0000_projects`) with `update(id, change)` under a row lock, the `Git` port with `CommandLineGit` (`inspect`, `hasBranch`) and `ProjectChecks` for the rules that need git or the Pipelines; the pattern is written up in apps/service/README.md (A business module); next is step 4, the use cases, API and contracts. Decided: Projects never imports Pipelines (the Stage interpreter of task 12 will call Projects), so it asks its own `KnownPipelines` port, bound to `PipelineLibrary.has` in `AppModule`; the repository root is decided by `rev-parse --show-prefix`, never by comparing paths; no path-uniqueness rule (not asked for, and it needs case rules from the platform layer); the skills switch's use case and event wait for task 07.
 - 2026-10-25 · step 4: `ProjectService` (add, list, read, change a command, the publishing mode or the default Pipeline; saves, then publishes), `POST/GET /api/projects`, `GET /api/projects/:id`, `PUT /api/projects/:id/commands/:key`, `/publishing-mode` and `/default-pipeline`, with the contracts in `packages/contracts/src/projects.ts`; refusals answer 422 with `reasons` (`ProjectRefusalsFilter`), contract mismatches 400 (`ContractPipe` in the platform's HTTP); the four events reach the web as `project.added`, `project.command-changed`, `project.publishing-mode-changed` and `project.default-pipeline-changed`, each with the `projectId`; next is step 5, the Projects surface. The repository's `update` now returns the stored Project when nothing changes, so a no-op edit answers the Project without an event.
 - 2026-10-25 · step 5: the Projects surface: the cards with "Add a Project" (a dialog form; the service's reasons listed in it), `/projects/$projectId` with Commands (edited in place, Enter saves, Escape cancels, the toast) and Default Pipeline with Publishing (both selects), live from the four events; the shell gained a page heading with crumb (`usePageHeading`), toasts (`useToast`, the design system's Toast) and `ProjectMark`; refused queries (4xx) are no longer retried; `apps/web/e2e/projects.e2e.ts` covers adding, both refusals, the command edit and toast, the picker's three Pipelines, two tabs and a missing Project; next is step 6, the check on the Test Project. Surprising: the design system's Alert and Toast are `role="status"`, not `alert`, and its RadioGroup's radios have no accessible name.
+- 2026-10-25 · step 6: checked on the Test Project with the built service (`npm start`, port 4310, the real database) driven in a browser: `D:\Projects` was refused in 110 ms ("is not a git repository: fatal: not a git repository …"), branch `develop` in 136 ms ("The repository has no branch \"develop\"."), nothing saved; then NotNullSoft admin (id `notnullsoft-admin`, mark NA violet, push + PR, Full) was added in 82 ms with the toast "NotNullSoft admin added."; the test command changed to `npm run test` with the toast "Command saved. Running Tasks keep the one they started with." and a second open tab showed it 13 ms later; the picker listed Full, Quick fix and Document, and Quick fix was chosen. After stopping and starting the service, the card and page still showed `npm run test` and Quick fix. The test command and default were then set back to `npm test` and Full, which is the record the later tasks start from. Every Definition of Done box is checked; `npm run verify` and `npm run verify:linux` passed on step 5's code, and step 6 changed docs only. Task 04 is done; next is task 05. Surprising: stopping `npm start`'s background shell left the node service running, so it had to be stopped by its PID.
