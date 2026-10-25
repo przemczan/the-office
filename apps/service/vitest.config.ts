@@ -21,5 +21,7 @@ export default defineProject({
     environment: "node",
     // The cache keys miss tsconfig.json, so a changed decorator flag would keep stale transforms.
     fsModuleCache: false,
+    // A throwaway database for the run, on the Postgres DATABASE_URL names (test/test-database.ts).
+    globalSetup: ["./test/test-database.global-setup.ts"],
   },
 });

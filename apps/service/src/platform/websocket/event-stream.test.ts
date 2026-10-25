@@ -1,13 +1,12 @@
 import type { INestApplication } from "@nestjs/common";
-import { Test } from "@nestjs/testing";
 import { EVENTS_PATH, serverMessageSchema, webEventSchema } from "@the-office/contracts";
 import { WebSocket as WsClient } from "ws";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
+import { startTestApplication } from "../../../test/test-application.js";
 import { DomainEvent } from "../events/domain-event.js";
 import { EventBus } from "../events/event-bus.js";
 import { EventsModule } from "../events/events.module.js";
-import { configureHttp } from "../http/configure-http.js";
 import { EventStreamModule } from "./event-stream.module.js";
 import { WebEventForwarding } from "./web-event-forwarding.js";
 
@@ -33,13 +32,7 @@ let port: number;
 const clients: WebSocket[] = [];
 
 beforeEach(async () => {
-  const moduleRef = await Test.createTestingModule({
-    imports: [EventsModule, EventStreamModule],
-  }).compile();
-  app = moduleRef.createNestApplication({ logger: false });
-  configureHttp(app);
-  await app.listen(0, "127.0.0.1");
-  port = Number(new URL(await app.getUrl()).port);
+  ({ app, port } = await startTestApplication({ imports: [EventsModule, EventStreamModule] }));
   bus = app.get(EventBus);
   const forwarding = app.get(WebEventForwarding);
   forwarding.forward(LampLit, (event) => ({ type: "lamp.lit", room: event.room }));

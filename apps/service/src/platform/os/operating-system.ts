@@ -7,8 +7,8 @@ import type { Shell } from "./shell.js";
  * which system it is.
  */
 export interface OperatingSystem {
-  /** For messages and telemetry only. */
-  readonly name: "Windows" | "Linux";
+  /** For messages and telemetry only; a plain string, so nothing outside os/ can branch on it. */
+  readonly name: string;
   /** Where the Office data directory lives when OFFICE_DATA_DIR is not set (Build defaults in docs/tasks/README.md). */
   readonly defaultOfficeDataDirectory: string;
   readonly paths: PathRules;

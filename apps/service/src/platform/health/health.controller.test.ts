@@ -1,21 +1,18 @@
 import type { INestApplication } from "@nestjs/common";
-import { Test } from "@nestjs/testing";
 import { afterEach, describe, expect, it } from "vitest";
+import { startTestApplication } from "../../../test/test-application.js";
 import { DatabaseHealth, type DatabaseState } from "../database/database-health.js";
-import { configureHttp } from "../http/configure-http.js";
 import { HealthController } from "./health.controller.js";
 
 let app: INestApplication | undefined;
 
 async function serveHealth(databaseState: DatabaseState): Promise<string> {
-  const moduleRef = await Test.createTestingModule({
+  const started = await startTestApplication({
     controllers: [HealthController],
     providers: [{ provide: DatabaseHealth, useValue: { state: async () => databaseState } }],
-  }).compile();
-  app = moduleRef.createNestApplication({ logger: false });
-  configureHttp(app);
-  await app.listen(0, "127.0.0.1");
-  return app.getUrl();
+  });
+  app = started.app;
+  return started.url;
 }
 
 afterEach(async () => {

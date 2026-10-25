@@ -56,3 +56,10 @@ oxlint's JS plugins are alpha and not under semver. oxlint is pinned, and the pl
 1. Create `src/modules/<module>/` with the layers it needs, `<module>.module.ts`, and `index.ts` exporting that Nest module.
 2. Import the Nest module from `index.ts` into `AppModule`. A module that calls another's application service imports that module's Nest module the same way.
 3. Add its web events and HTTP shapes to `packages/contracts`.
+
+## Tests
+
+Tests sit beside their code as `*.test.ts`; the support they share is in `test/`.
+
+- **Postgres is needed:** `docker compose up -d` first. Each run creates a throwaway database on the server `DATABASE_URL` names (from the environment, else `.env`), migrates it and drops it at the end. Every test file in the run shares it, so a repository test makes its own rows and looks only at those.
+- **`startTestApplication({ ...metadata, database })`** boots Nest providers, controllers and modules with HTTP configured as in production, on `127.0.0.1` and a free port; `database: true` adds `DatabaseModule` on the test database. Close its `app` in `afterEach`.
