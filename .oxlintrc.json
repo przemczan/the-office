@@ -10,6 +10,12 @@
     "reportUnusedDisableDirectives": "error"
   },
   "ignorePatterns": ["design-system/**"],
+  // The layering rules of apps/service/README.md and the Build defaults; see tools/lint-rules/.
+  "jsPlugins": ["./tools/lint-rules/src/plugin.ts"],
+  "rules": {
+    "office/workspace-boundaries": "error",
+    "office/module-boundaries": "error"
+  },
   "overrides": [
     {
       // Nest declares modules as decorated classes, empty or with static factory methods.

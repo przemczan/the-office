@@ -14,8 +14,8 @@
     "lint": "oxlint",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,json,css,yaml,yml}\"",
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,json,css,yaml,yml}\"",
-    "test": "vitest run && npm run test:engine-check",
-    "test:engine-check": "npm run test --workspace @the-office/engine-check",
+    "test": "vitest run && npm run test:tools",
+    "test:tools": "npm run test --workspace tools",
     "engine-check": "npm run check --workspace @the-office/engine-check --"
   },
   "engines": {
