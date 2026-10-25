@@ -158,6 +158,21 @@ export class CommandLineGit extends Git {
     );
   }
 
+  async checkoutDetached(
+    worktreePath: string,
+    commit: string,
+    variables: GitVariables,
+  ): Promise<void> {
+    await this.locked(worktreePath, () =>
+      git({
+        folder: worktreePath,
+        gitArguments: ["checkout", "--quiet", "--force", "--detach", commit],
+        variables,
+        timeoutMs: LONG_TIMEOUT_MS,
+      }),
+    );
+  }
+
   async removeWorktree(
     repositoryPath: string,
     worktreePath: string,

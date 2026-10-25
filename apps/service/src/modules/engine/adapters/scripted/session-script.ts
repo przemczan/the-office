@@ -1,7 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { z } from "zod";
 import type { UsageWindows } from "../../domain/usage-windows.js";
-import type { MessagePriority, UserMessage } from "../../ports/engine-session.js";
+import type { ContextUsage, MessagePriority, UserMessage } from "../../ports/engine-session.js";
 import type { SessionEvent } from "../../ports/session-events.js";
 
 /**
@@ -14,6 +14,7 @@ export type ScriptStep =
   | { readonly step: "send"; readonly message: UserMessage; readonly priority: MessagePriority }
   | { readonly step: "interrupt" }
   | { readonly step: "read-usage-windows"; readonly windows: UsageWindows | undefined }
+  | { readonly step: "read-context-usage"; readonly usage: ContextUsage }
   | { readonly step: "end" }
   | { readonly step: "event"; readonly event: SessionEvent };
 
@@ -29,7 +30,15 @@ interface SkillListing {
 
 /** What a caller does, as a step without what the session answered. */
 export type CallerRequest =
-  Exclude<CallerStep, { step: "read-usage-windows" }> | { readonly step: "read-usage-windows" };
+  | Exclude<CallerStep, { step: ReadStep }>
+  | { readonly step: "read-usage-windows" }
+  | { readonly step: "read-context-usage" };
+
+/**
+ * The reads the replay answers whenever they come, from what the script recorded, since who reads
+ * and when is the Office's.
+ */
+export type ReadStep = "read-usage-windows" | "read-context-usage";
 
 /** One session from its start or resume on: the first step is either. */
 export type SessionScript = readonly ScriptStep[];
@@ -122,6 +131,10 @@ const scriptStep = z.discriminatedUnion("step", [
   z.object({
     step: z.literal("read-usage-windows"),
     windows: absent(z.object({ fiveHour: usageWindow, sevenDay: usageWindow })),
+  }),
+  z.object({
+    step: z.literal("read-context-usage"),
+    usage: z.object({ tokens: z.number(), window: z.number() }),
   }),
   z.object({ step: z.literal("end") }),
   z.object({ step: z.literal("event"), event: sessionEvent }),

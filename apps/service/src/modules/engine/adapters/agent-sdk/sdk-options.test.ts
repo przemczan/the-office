@@ -23,6 +23,7 @@ const OPTIONS: SessionOptions = {
   skills: undefined,
   profile: { edit: true, run: { kind: "anything" }, web: true },
   officeTools: [],
+  instructions: "",
   outputSchema: undefined,
 };
 
@@ -68,6 +69,8 @@ describe("sdkOptions", () => {
         disableBundledSkills: true,
         disableClaudeAiConnectors: true,
         autoMemoryEnabled: false,
+        autoCompactEnabled: false,
+        idleCompaction: false,
         autoDreamEnabled: false,
         enabledPlugins: {
           "cc-plugin-agents-md@builtin": false,
@@ -102,6 +105,19 @@ describe("sdkOptions", () => {
 
   it("runs the session with the given variables, without the engine's nor The Office's own", () => {
     expect(optionsFor().env).toEqual({ PATH: "/usr/bin", GREETING: "hello" });
+  });
+
+  it("adds the standing instructions to the system prompt, when there are any", () => {
+    const options = optionsFor({
+      options: { ...OPTIONS, instructions: "Plan in conversation." },
+    });
+
+    expect(options.systemPrompt).toEqual({
+      type: "preset",
+      preset: "claude_code",
+      excludeDynamicSections: true,
+      append: "Plan in conversation.",
+    });
   });
 
   it("resumes a session by its id", () => {

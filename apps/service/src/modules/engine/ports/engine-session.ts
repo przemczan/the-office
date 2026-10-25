@@ -14,6 +14,14 @@ export interface UserMessage {
  */
 export type MessagePriority = "next" | "later";
 
+/** How full a session's context is, read from the engine without a model call. */
+export interface ContextUsage {
+  /** What the context holds now. */
+  readonly tokens: number;
+  /** As much as the model's context window takes. */
+  readonly window: number;
+}
+
 /** A running session of an engine, behind one Thread. */
 export interface EngineSession {
   readonly id: string;
@@ -30,6 +38,8 @@ export interface EngineSession {
   interrupt(): Promise<void>;
   /** Undefined for an account without usage windows. Needs the `usageWindows` capability. */
   readUsageWindows(): Promise<UsageWindows | undefined>;
+  /** How full the context is, read between turns. Needs the `contextUsage` capability. */
+  readContextUsage(): Promise<ContextUsage>;
   /** Ends the session and every process it started; resolves once its events have finished. */
   end(): Promise<void>;
 }

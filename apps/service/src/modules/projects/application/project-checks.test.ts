@@ -30,6 +30,7 @@ class FakeGit extends Git {
   fetch = notUsed;
   push = notUsed;
   addWorktree = notUsed;
+  checkoutDetached = notUsed;
   removeWorktree = notUsed;
   commit = notUsed;
   head = notUsed;

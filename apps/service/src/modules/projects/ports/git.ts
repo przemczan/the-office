@@ -89,6 +89,16 @@ export abstract class Git {
     variables: GitVariables,
   ): Promise<void>;
 
+  /**
+   * Moves a detached worktree to `commit`, dropping whatever changed in it; untracked files stay,
+   * since nothing writes one in a checkout only read.
+   */
+  abstract checkoutDetached(
+    worktreePath: string,
+    commit: string,
+    variables: GitVariables,
+  ): Promise<void>;
+
   /** Removes the worktree with whatever it holds; its branch stays. */
   abstract removeWorktree(
     repositoryPath: string,

@@ -10,7 +10,12 @@ import {
   SessionSkillsDiffer,
   type EngineCapabilities,
 } from "../ports/agent-engine.js";
-import type { EngineSession, MessagePriority, UserMessage } from "../ports/engine-session.js";
+import type {
+  ContextUsage,
+  EngineSession,
+  MessagePriority,
+  UserMessage,
+} from "../ports/engine-session.js";
 import type { SessionEvent } from "../ports/session-events.js";
 import type { SessionOptions } from "../ports/session-options.js";
 import { EngineCallSpans, SessionCosts } from "./engine-call-spans.js";
@@ -154,6 +159,10 @@ class WatchedSession implements EngineSession {
 
   readUsageWindows(): Promise<UsageWindows | undefined> {
     return this.session.readUsageWindows();
+  }
+
+  readContextUsage(): Promise<ContextUsage> {
+    return this.session.readContextUsage();
   }
 
   async end(): Promise<void> {

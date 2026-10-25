@@ -7,7 +7,12 @@ import {
   type EngineCapabilities,
   type NewSession,
 } from "../../ports/agent-engine.js";
-import type { EngineSession, MessagePriority, UserMessage } from "../../ports/engine-session.js";
+import type {
+  ContextUsage,
+  EngineSession,
+  MessagePriority,
+  UserMessage,
+} from "../../ports/engine-session.js";
 import type { UsageWindows } from "../../domain/usage-windows.js";
 import type { OfficeToolResult } from "../../ports/office-tool.js";
 import type { SessionEvent } from "../../ports/session-events.js";
@@ -17,6 +22,7 @@ import {
   inPlaces,
   type CallerRequest,
   type CallerStep,
+  type ReadStep,
   type SessionScript,
 } from "./session-script.js";
 
@@ -26,6 +32,7 @@ const EVERY_CAPABILITY: EngineCapabilities = {
   interrupt: true,
   resume: true,
   usageWindows: true,
+  contextUsage: true,
   officeTools: true,
   outputSchema: true,
 };
@@ -93,8 +100,8 @@ function refuseWithoutItsSkills(id: string, options: SessionOptions, script: Ses
 }
 
 /** A step the replay waits at until the caller takes it. */
-type AwaitedStep = Exclude<CallerStep, { step: "read-usage-windows" }>;
-type AwaitedRequest = Exclude<CallerRequest, { step: "read-usage-windows" }>;
+type AwaitedStep = Exclude<CallerStep, { step: ReadStep }>;
+type AwaitedRequest = Exclude<CallerRequest, { step: ReadStep }>;
 
 interface PendingRequest {
   readonly request: AwaitedRequest;
@@ -106,8 +113,9 @@ interface PendingRequest {
  * One replayed session. It reports the script's events in order and waits at each of the
  * caller's steps until the caller takes it; doing anything else fails the session with
  * `ScriptMismatch`. Office tools the script calls run, and the Agent reads what they answer.
- * Reading the usage windows is answered whenever it comes, from the windows the script recorded
- * in order, the last again once all were read, since who reads them and when is the Office's.
+ * Reading the usage windows or the context usage is answered whenever it comes, from what the
+ * script recorded in order, the last again once all were read, since who reads them and when is
+ * the Office's.
  */
 export class ScriptedSession implements EngineSession {
   /** What the caller did, for a test to look at. */
@@ -119,6 +127,7 @@ export class ScriptedSession implements EngineSession {
   private readonly messageIds = new Map<string, string>();
   private readonly officeToolResults = new Map<string, Promise<OfficeToolResult>>();
   private readonly recordedWindows: (UsageWindows | undefined)[];
+  private readonly recordedContextUsage: ContextUsage[];
   private readonly played: Promise<void>;
 
   constructor(
@@ -130,6 +139,9 @@ export class ScriptedSession implements EngineSession {
     const steps = script.map((step) => inPlaces(step, { folder: options.folder, home: homedir() }));
     this.recordedWindows = steps.flatMap((step) =>
       step.step === "read-usage-windows" ? [step.windows] : [],
+    );
+    this.recordedContextUsage = steps.flatMap((step) =>
+      step.step === "read-context-usage" ? [step.usage] : [],
     );
     this.played = this.play(steps);
     // A failure reaches the reader of the events; end() returns it too.
@@ -160,6 +172,17 @@ export class ScriptedSession implements EngineSession {
     return this.recordedWindows.length > 1 ? this.recordedWindows.shift() : this.recordedWindows[0];
   }
 
+  async readContextUsage(): Promise<ContextUsage> {
+    if (!this.capabilities.contextUsage) throw new CapabilityMissing("contextUsage");
+    this.received.push({ step: "read-context-usage" });
+    const usage =
+      this.recordedContextUsage.length > 1
+        ? this.recordedContextUsage.shift()
+        : this.recordedContextUsage[0];
+    if (!usage) throw new ScriptMismatch(`Session ${this.id}'s script read no context usage.`);
+    return usage;
+  }
+
   async end(): Promise<void> {
     await this.request({ step: "end" });
     await this.played;
@@ -185,7 +208,7 @@ export class ScriptedSession implements EngineSession {
       for (const step of script) {
         if (step.step === "event") {
           this.reported.push(await this.replay(step.event));
-        } else if (step.step !== "read-usage-windows") {
+        } else if (!isRead(step)) {
           await this.takeRequest(step);
         }
       }
@@ -271,6 +294,10 @@ function mismatchOf(expected: AwaitedStep, actual: AwaitedRequest): string | und
   return matches
     ? undefined
     : `the script has its caller ${describe(expected)} next, but the caller asked to ${describe(actual)}.`;
+}
+
+function isRead(step: CallerStep): step is Extract<CallerStep, { step: ReadStep }> {
+  return step.step === "read-usage-windows" || step.step === "read-context-usage";
 }
 
 function describe(step: AwaitedRequest): string {

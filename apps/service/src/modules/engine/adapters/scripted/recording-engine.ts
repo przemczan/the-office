@@ -1,6 +1,11 @@
 import { homedir } from "node:os";
 import { AgentEngine, type EngineCapabilities, type NewSession } from "../../ports/agent-engine.js";
-import type { EngineSession, MessagePriority, UserMessage } from "../../ports/engine-session.js";
+import type {
+  ContextUsage,
+  EngineSession,
+  MessagePriority,
+  UserMessage,
+} from "../../ports/engine-session.js";
 import type { UsageWindows } from "../../domain/usage-windows.js";
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
@@ -90,6 +95,12 @@ class RecordingSession implements EngineSession {
     const windows = await this.session.readUsageWindows();
     this.steps.push({ step: "read-usage-windows", windows });
     return windows;
+  }
+
+  async readContextUsage(): Promise<ContextUsage> {
+    const usage = await this.session.readContextUsage();
+    this.steps.push({ step: "read-context-usage", usage });
+    return usage;
   }
 
   async end(): Promise<void> {

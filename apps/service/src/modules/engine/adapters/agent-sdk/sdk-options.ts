@@ -110,7 +110,12 @@ export function sdkOptions({
     skills: [...(options.skills?.names ?? [])],
     settings: sessionSettings(options),
     permissionPrompts: "none",
-    systemPrompt: { type: "preset", preset: "claude_code", excludeDynamicSections: true },
+    systemPrompt: {
+      type: "preset",
+      preset: "claude_code",
+      excludeDynamicSections: true,
+      ...(options.instructions !== "" && { append: options.instructions }),
+    },
     env: sessionEnvironment(options.environment),
     hooks: { PreToolUse: [{ hooks: [preToolUse] }] },
     ...(options.officeTools.length > 0 && {
@@ -134,6 +139,9 @@ function sessionSettings({ skills, officeTools }: SessionOptions): Settings {
     skillOverrides: { ...skills?.overrides },
     disableClaudeAiConnectors: true,
     autoMemoryEnabled: false,
+    // Near its context limit a session hands over and ends; nothing summarizes it (spec §2.5).
+    autoCompactEnabled: false,
+    idleCompaction: false,
     autoDreamEnabled: false,
     enabledPlugins: Object.fromEntries(
       BUILT_IN_PLUGINS.map((plugin) => [`${plugin}@builtin`, false]),

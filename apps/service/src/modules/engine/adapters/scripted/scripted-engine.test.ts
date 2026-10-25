@@ -19,6 +19,7 @@ const NO_CAPABILITY: EngineCapabilities = {
   interrupt: false,
   resume: false,
   usageWindows: false,
+  contextUsage: false,
   officeTools: false,
   outputSchema: false,
 };
@@ -58,6 +59,7 @@ function options(): SessionOptions {
     skills: undefined,
     profile: { edit: true, run: { kind: "anything" }, web: false },
     officeTools: [],
+    instructions: "",
     outputSchema: undefined,
   };
 }

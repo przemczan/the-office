@@ -8,6 +8,7 @@ import { PostgresEnvironmentCheckRepository } from "./adapters/postgres/postgres
 import { PostgresProjectRepository } from "./adapters/postgres/postgres-project-repository.js";
 import { ShellCommandRunner } from "./adapters/shell/shell-command-runner.js";
 import { ProjectWebEvents } from "./adapters/websocket/project-web-events.js";
+import { BaseCheckouts } from "./application/base-checkouts.js";
 import { EnvironmentChecks } from "./application/environment-checks.js";
 import { ProjectChecks } from "./application/project-checks.js";
 import { ProjectCommandRunner } from "./application/project-command-runner.js";
@@ -45,8 +46,10 @@ export class ProjectsModule {
         ProjectChecks,
         ProjectService,
         Worktrees,
+        BaseCheckouts,
         ProjectWebEvents,
       ],
+      exports: [BaseCheckouts],
     };
   }
 }

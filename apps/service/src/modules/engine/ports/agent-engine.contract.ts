@@ -31,6 +31,7 @@ export const CONTRACT_SCENARIOS = [
   "resume",
   "output-schema",
   "usage-windows",
+  "context-usage",
 ] as const;
 
 export type ContractScenario = (typeof CONTRACT_SCENARIOS)[number];
@@ -332,6 +333,30 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
       under.timeoutMs,
     );
 
+    it.runIf(can.contextUsage)(
+      "reads how full the context is between turns, within the model's window",
+      scenario("context-usage", async (engine, options) => {
+        await replyingSession(engine, options, async (session) => {
+          const usage = await session.readContextUsage();
+          expect(usage.tokens).toBeGreaterThan(0);
+          expect(usage.window).toBeGreaterThan(usage.tokens);
+        });
+      }),
+      under.timeoutMs,
+    );
+
+    it.skipIf(can.contextUsage)(
+      "refuses to read the context usage without the contextUsage capability",
+      scenario("reply", async (engine, options) => {
+        await replyingSession(engine, options, async (session) => {
+          await expect(session.readContextUsage()).rejects.toEqual(
+            new CapabilityMissing("contextUsage"),
+          );
+        });
+      }),
+      under.timeoutMs,
+    );
+
     it.skipIf(can.usageWindows)(
       "refuses to read the usage windows without the usageWindows capability",
       scenario("reply", async (engine, options) => {
@@ -369,6 +394,7 @@ function defaultOptions(folder: string, model: string): SessionOptions {
     skills: undefined,
     profile: READ_ONLY,
     officeTools: [],
+    instructions: "",
     outputSchema: undefined,
   };
 }

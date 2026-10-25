@@ -101,6 +101,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
             skills: undefined,
             profile: { edit: false, run: { kind: "read-only-git" }, web: false },
             officeTools: [],
+            instructions: "",
             outputSchema: undefined,
           },
           brief: { id: randomUUID(), text: BRIEF },

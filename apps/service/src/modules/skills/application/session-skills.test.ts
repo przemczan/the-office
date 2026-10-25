@@ -397,6 +397,7 @@ async function firstTurnTokens(
       },
       profile: { edit: false, run: { kind: "read-only-git" }, web: false },
       officeTools: [],
+      instructions: "",
       outputSchema: undefined,
     },
     brief: { id: randomUUID(), text: BRIEF },

@@ -19,7 +19,12 @@ import {
   type EngineCapabilities,
   type NewSession,
 } from "../../ports/agent-engine.js";
-import type { EngineSession, MessagePriority, UserMessage } from "../../ports/engine-session.js";
+import type {
+  ContextUsage,
+  EngineSession,
+  MessagePriority,
+  UserMessage,
+} from "../../ports/engine-session.js";
 import type { UsageWindows } from "../../domain/usage-windows.js";
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions, SessionSkills } from "../../ports/session-options.js";
@@ -43,6 +48,7 @@ export class AgentSdkEngine extends AgentEngine {
     interrupt: true,
     resume: true,
     usageWindows: true,
+    contextUsage: true,
     officeTools: true,
     outputSchema: true,
   };
@@ -187,6 +193,12 @@ class AgentSdkSession implements EngineSession {
         skipBehaviors: true,
       }),
     );
+  }
+
+  /** The summary answers from the last response's usage, with no model call. */
+  async readContextUsage(): Promise<ContextUsage> {
+    const usage = await this.engine.getContextUsage({ detail: "summary" });
+    return { tokens: usage.totalTokens, window: usage.rawMaxTokens };
   }
 
   async end(): Promise<void> {

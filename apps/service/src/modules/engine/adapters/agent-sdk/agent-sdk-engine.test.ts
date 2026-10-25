@@ -261,6 +261,7 @@ function options(folder: string): SessionOptions {
     skills: undefined,
     profile: { edit: false, run: { kind: "read-only-git" }, web: false },
     officeTools: [],
+    instructions: "",
     outputSchema: undefined,
   };
 }

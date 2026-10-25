@@ -33,6 +33,11 @@ export interface SessionOptions {
   readonly environment: Readonly<Record<string, string>>;
   readonly model: string;
   readonly effort: Effort;
+  /**
+   * The Agent's standing instructions, such as its Role card's, added to the engine's system
+   * prompt. The same for every session of a card version, so they stay in the cached prefix.
+   */
+  readonly instructions: string;
   /** Undefined for a session with no skill at all, not even the Project's. */
   readonly skills: SessionSkills | undefined;
   readonly profile: PermissionProfile;

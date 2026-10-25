@@ -11,6 +11,8 @@ export interface EngineCapabilities {
   readonly resume: boolean;
   /** A session reads the account's usage windows. */
   readonly usageWindows: boolean;
+  /** A session reads how full its context is. */
+  readonly contextUsage: boolean;
   /** Sessions run Office tools. */
   readonly officeTools: boolean;
   /** A turn's output can be held to a JSON Schema. */

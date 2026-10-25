@@ -174,6 +174,22 @@ describe("CommandLineGit.addWorktree", () => {
   });
 });
 
+describe("CommandLineGit.checkoutDetached", () => {
+  it("moves a detached worktree to the commit, dropping what changed in it", async () => {
+    const worktree = detachedAtMain();
+    await git.addWorktree(repository.path, worktree, variables);
+    const commit = await commitOnOrigin(repository, "moved", "moved.txt");
+    await git.fetch(repository.path, { remote: "origin", branch: "moved" }, variables);
+    await writeFile(join(worktree.path, "src", "index.ts"), "export const changed = true;\n");
+
+    await git.checkoutDetached(worktree.path, commit, variables);
+
+    await expect(git.head(worktree.path)).resolves.toEqual({ commit, branch: undefined });
+    await expect(git.restore(worktree.path, variables)).resolves.toEqual([]);
+    await expect(readFile(join(worktree.path, "moved.txt"), "utf8")).resolves.toBeDefined();
+  });
+});
+
 describe("CommandLineGit.removeWorktree", () => {
   it("removes the worktree with its uncommitted changes and keeps its branch", async () => {
     const worktree = await aWorktree();
