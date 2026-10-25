@@ -3,12 +3,14 @@ import {
   addProject,
   changeCommand,
   changeDefaultPipeline,
+  changeInstallInputs,
   changePublishingMode,
 } from "./project-changes.js";
 import {
   ProjectAdded,
   ProjectCommandChanged,
   ProjectDefaultPipelineChanged,
+  ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
 } from "./project-events.js";
 import { aNewProject, aProject } from "./project.fixtures.js";
@@ -56,6 +58,38 @@ describe("changeCommand", () => {
   it("refuses an empty command", () => {
     expect(() => changeCommand(aProject(), "build", "  ")).toThrow(
       new ProjectRefused(["The build command can't be empty."]),
+    );
+  });
+});
+
+describe("changeInstallInputs", () => {
+  it("keeps the install inputs as given, trimmed, and announces them", () => {
+    const change = changeInstallInputs(aProject(), [
+      " package-lock.json",
+      "apps\\web\\package.json",
+    ]);
+
+    expect(change?.project.installInputs).toEqual(["package-lock.json", "apps/web/package.json"]);
+    expect(change?.event).toBeInstanceOf(ProjectInstallInputsChanged);
+    expect(change?.event).toMatchObject({
+      projectId: "admin-panel",
+      installInputs: ["package-lock.json", "apps/web/package.json"],
+    });
+  });
+
+  it("changes nothing when the install inputs are already those", () => {
+    expect(changeInstallInputs(aProject(), ["./package-lock.json", ""])).toBeUndefined();
+  });
+
+  it("takes none", () => {
+    expect(changeInstallInputs(aProject(), [])?.project.installInputs).toEqual([]);
+  });
+
+  it("refuses a path outside the repository", () => {
+    expect(() => changeInstallInputs(aProject(), ["../package-lock.json"])).toThrow(
+      new ProjectRefused([
+        'An install input is a path inside the repository; "../package-lock.json" is not.',
+      ]),
     );
   });
 });

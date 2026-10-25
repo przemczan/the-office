@@ -28,6 +28,11 @@ export interface Project {
   readonly baseBranch: string;
   readonly mark: ProjectMark;
   readonly commands: ProjectCommands;
+  /**
+   * The files whose change makes a worktree install again, as paths inside the repository with
+   * `/` between folders (spec §9).
+   */
+  readonly installInputs: readonly string[];
   readonly publishingMode: PublishingMode;
   /** The id of the Pipeline a new Task starts from. */
   readonly defaultPipeline: string;
@@ -39,7 +44,14 @@ export interface Project {
 /** What the user gives when adding a Project; the rest is set by The Office. */
 export type NewProject = Pick<
   Project,
-  "name" | "path" | "baseBranch" | "mark" | "commands" | "publishingMode" | "defaultPipeline"
+  | "name"
+  | "path"
+  | "baseBranch"
+  | "mark"
+  | "commands"
+  | "installInputs"
+  | "publishingMode"
+  | "defaultPipeline"
 >;
 
 const NAME_LENGTH = 60;
@@ -58,6 +70,7 @@ export function trimmedNewProject(project: NewProject): NewProject {
       lint: project.commands.lint.trim(),
       test: project.commands.test.trim(),
     },
+    installInputs: trimmedInstallInputs(project.installInputs),
     publishingMode: project.publishingMode,
     defaultPipeline: project.defaultPipeline,
   };
@@ -80,6 +93,7 @@ export function newProjectProblems(project: NewProject): string[] {
     const problem = commandProblem(key, project.commands[key]);
     if (problem) problems.push(problem);
   }
+  problems.push(...installInputsProblems(project.installInputs));
   return problems;
 }
 
@@ -88,6 +102,35 @@ export function commandProblem(key: ProjectCommandKey, commandLine: string): str
   if (commandLine.trim() === "") return `The ${key} command can't be empty.`;
   if (/[\r\n]/.test(commandLine)) return `The ${key} command must be one line.`;
   return undefined;
+}
+
+/**
+ * The install inputs as they are kept: each one once, without blanks, with `/` between folders
+ * and without `.` folders, so `.\package-lock.json` and `package-lock.json` are one file.
+ */
+export function trimmedInstallInputs(installInputs: readonly string[]): string[] {
+  const kept = installInputs
+    .map((input) =>
+      input
+        .trim()
+        .split(/[\\/]+/)
+        .filter((folder) => folder !== ".")
+        .join("/"),
+    )
+    .filter((input) => input !== "");
+  return [...new Set(kept)];
+}
+
+/** Why install inputs can't be saved, naming each as it would be kept. */
+export function installInputsProblems(installInputs: readonly string[]): string[] {
+  return trimmedInstallInputs(installInputs)
+    .filter((input) => !isInsideTheRepository(input))
+    .map((input) => `An install input is a path inside the repository; "${input}" is not.`);
+}
+
+function isInsideTheRepository(input: string): boolean {
+  const absolute = input.startsWith("/") || /^[a-z]:/i.test(input);
+  return !absolute && !input.split("/").includes("..");
 }
 
 /**

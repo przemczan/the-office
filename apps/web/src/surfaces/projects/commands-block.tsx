@@ -1,15 +1,43 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Project, ProjectCommandKey } from "@the-office/contracts";
+import type { Project } from "@the-office/contracts";
 import { Button, Icon, IconButton, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { changeCommand, projectQueries } from "../../api/projects.ts";
+import { changeCommand, changeInstallInputs, projectQueries } from "../../api/projects.ts";
 import { useToast } from "../../shell/toasts.tsx";
-import { COMMAND_KEYS, COMMAND_LABELS } from "./project-labels.ts";
+import {
+  COMMAND_KEYS,
+  COMMAND_LABELS,
+  INSTALL_INPUTS_LABEL,
+  installInputsFrom,
+  installInputsLine,
+} from "./project-labels.ts";
 import { ProjectBlock } from "./project-block.tsx";
 
-/** The Project's commands, each changed in place (spec §9: edited directly in tier 1). */
+const COMMAND_SAVED = "Command saved. Running Tasks keep the one they started with.";
+
+/** One line of the block, shown as text and changed in place. */
+interface CommandsRow {
+  readonly id: string;
+  readonly label: string;
+  /** The row's pencil, as a screen reader names it. */
+  readonly changeLabel: string;
+  readonly inputLabel: string;
+  readonly placeholder?: string;
+  /** The line as the Project keeps it, which the editor starts from. */
+  readonly line: string;
+  /** What the row shows when `line` is empty. */
+  readonly emptyLine?: string;
+  readonly savedMessage: string;
+  isUnchanged(line: string): boolean;
+  save(line: string): Promise<Project>;
+}
+
+/**
+ * The Project's commands, each changed in place (spec §9: edited directly in tier 1), with the
+ * install inputs beside the install command.
+ */
 export function CommandsBlock({ project }: { readonly project: Project }): ReactNode {
-  const [editing, setEditing] = useState<ProjectCommandKey>();
+  const [editing, setEditing] = useState<string>();
   return (
     <ProjectBlock
       icon="terminal"
@@ -17,23 +45,22 @@ export function CommandsBlock({ project }: { readonly project: Project }): React
       note="Script Stages run these in the Task's worktree with no Agent. Running Tasks keep the command they started with."
     >
       <div className="commands">
-        {COMMAND_KEYS.map((key) =>
-          key === editing ? (
-            <CommandEditor
-              key={key}
-              project={project}
-              commandKey={key}
-              onDone={() => setEditing(undefined)}
-            />
+        {rowsOf(project).map((row) =>
+          row.id === editing ? (
+            <RowEditor key={row.id} row={row} onDone={() => setEditing(undefined)} />
           ) : (
-            <div key={key} className="command-row">
-              <span className="command-key">{COMMAND_LABELS[key]}</span>
-              <code className="command-line">{project.commands[key]}</code>
+            <div key={row.id} className="command-row">
+              <span className="command-key">{row.label}</span>
+              {row.line === "" ? (
+                <span className="command-empty">{row.emptyLine}</span>
+              ) : (
+                <code className="command-line">{row.line}</code>
+              )}
               <IconButton
                 icon={<Icon name="pencil" size={14} />}
-                label={`Change the ${COMMAND_LABELS[key].toLowerCase()} command`}
+                label={row.changeLabel}
                 size="sm"
-                onClick={() => setEditing(key)}
+                onClick={() => setEditing(row.id)}
               />
             </div>
           ),
@@ -43,31 +70,57 @@ export function CommandsBlock({ project }: { readonly project: Project }): React
   );
 }
 
-function CommandEditor({
-  project,
-  commandKey,
+function rowsOf(project: Project): CommandsRow[] {
+  return COMMAND_KEYS.flatMap((key): CommandsRow[] => {
+    const command: CommandsRow = {
+      id: key,
+      label: COMMAND_LABELS[key],
+      changeLabel: `Change the ${COMMAND_LABELS[key].toLowerCase()} command`,
+      inputLabel: `${COMMAND_LABELS[key]} command`,
+      line: project.commands[key],
+      savedMessage: COMMAND_SAVED,
+      isUnchanged: (line) => line.trim() === project.commands[key],
+      save: (line) => changeCommand(project.id, key, line),
+    };
+    if (key !== "install") return [command];
+    const installInputs: CommandsRow = {
+      id: "install-inputs",
+      label: INSTALL_INPUTS_LABEL,
+      changeLabel: "Change the install inputs",
+      inputLabel: INSTALL_INPUTS_LABEL,
+      placeholder: "package-lock.json, apps/web/package.json",
+      line: installInputsLine(project.installInputs),
+      emptyLine: "None: a worktree installs once.",
+      savedMessage: "Install inputs saved.",
+      isUnchanged: (line) => installInputsFrom(line).join() === project.installInputs.join(),
+      save: (line) => changeInstallInputs(project.id, installInputsFrom(line)),
+    };
+    return [command, installInputs];
+  });
+}
+
+function RowEditor({
+  row,
   onDone,
 }: {
-  readonly project: Project;
-  readonly commandKey: ProjectCommandKey;
+  readonly row: CommandsRow;
   readonly onDone: () => void;
 }): ReactNode {
-  const [commandLine, setCommandLine] = useState(project.commands[commandKey]);
+  const [line, setLine] = useState(row.line);
   const queryClient = useQueryClient();
   const showToast = useToast();
   const saving = useMutation({
-    mutationFn: (line: string) => changeCommand(project.id, commandKey, line),
+    mutationFn: (changed: string) => row.save(changed),
     onSuccess: (saved) => {
       queryClient.setQueryData(projectQueries.one(saved.id).queryKey, saved);
-      showToast("Command saved. Running Tasks keep the one they started with.");
+      showToast(row.savedMessage);
       onDone();
     },
   });
   const save = (): void => {
-    if (commandLine.trim() === project.commands[commandKey]) onDone();
-    else saving.mutate(commandLine);
+    if (row.isUnchanged(line)) onDone();
+    else saving.mutate(line);
   };
-  const label = COMMAND_LABELS[commandKey];
   return (
     <form
       className="command-row editing"
@@ -76,12 +129,13 @@ function CommandEditor({
         save();
       }}
     >
-      <span className="command-key">{label}</span>
+      <span className="command-key">{row.label}</span>
       <Input
-        aria-label={`${label} command`}
+        aria-label={row.inputLabel}
         aria-invalid={saving.isError}
-        value={commandLine}
-        onChange={(event) => setCommandLine(event.target.value)}
+        placeholder={row.placeholder}
+        value={line}
+        onChange={(event) => setLine(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === "Escape") onDone();
         }}

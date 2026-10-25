@@ -205,6 +205,7 @@
 
 /* ---- the commands */
 .commands {
+  --command-key-width: 88px;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -229,7 +230,7 @@
 
 .command-key {
   flex: none;
-  width: 60px;
+  width: var(--command-key-width);
   font: 500 12px/1 var(--font-sans);
   color: var(--fg-2);
 }
@@ -245,9 +246,16 @@
   text-overflow: ellipsis;
 }
 
+.command-empty {
+  flex: 1;
+  min-width: 0;
+  color: var(--fg-2);
+}
+
 .command-error {
   flex-basis: 100%;
-  margin: 0 0 0 70px;
+  /* Under the input, past the key and the row's gap. */
+  margin: 0 0 0 calc(var(--command-key-width) + 10px);
   color: var(--danger-fg);
 }
 

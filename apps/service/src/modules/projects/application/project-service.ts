@@ -14,6 +14,7 @@ import {
   addProject,
   changeCommand,
   changeDefaultPipeline,
+  changeInstallInputs,
   changePublishingMode,
   type ProjectChange,
 } from "../domain/project-changes.js";
@@ -61,6 +62,10 @@ export class ProjectService {
   /** Tasks already running keep the command line they started with. */
   async changeCommand(id: string, key: ProjectCommandKey, commandLine: string): Promise<Project> {
     return this.update(id, (project) => changeCommand(project, key, commandLine));
+  }
+
+  async changeInstallInputs(id: string, installInputs: readonly string[]): Promise<Project> {
+    return this.update(id, (project) => changeInstallInputs(project, installInputs));
   }
 
   async changePublishingMode(id: string, publishingMode: PublishingMode): Promise<Project> {

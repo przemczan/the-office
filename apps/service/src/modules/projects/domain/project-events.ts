@@ -18,6 +18,16 @@ export class ProjectCommandChanged extends DomainEvent {
   }
 }
 
+/** A worktree installs again when its install inputs no longer match its last install. */
+export class ProjectInstallInputsChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly installInputs: readonly string[],
+  ) {
+    super();
+  }
+}
+
 export class ProjectPublishingModeChanged extends DomainEvent {
   constructor(
     readonly projectId: string,

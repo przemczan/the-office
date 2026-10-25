@@ -1,7 +1,9 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import {
   commandProblem,
+  installInputsProblems,
   newProjectProblems,
+  trimmedInstallInputs,
   trimmedNewProject,
   type NewProject,
   type Project,
@@ -12,6 +14,7 @@ import {
   ProjectAdded,
   ProjectCommandChanged,
   ProjectDefaultPipelineChanged,
+  ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
 } from "./project-events.js";
 import { ProjectRefused } from "./project-refused.js";
@@ -48,6 +51,24 @@ export function changeCommand(
   return {
     project: { ...project, commands: { ...project.commands, [key]: trimmed } },
     event: new ProjectCommandChanged(project.id, key, trimmed),
+  };
+}
+
+/** Undefined when the Project already has those install inputs, in that order. */
+export function changeInstallInputs(
+  project: Project,
+  given: readonly string[],
+): ProjectChange<ProjectInstallInputsChanged> | undefined {
+  const problems = installInputsProblems(given);
+  if (problems.length > 0) throw new ProjectRefused(problems);
+  const installInputs = trimmedInstallInputs(given);
+  const unchanged =
+    installInputs.length === project.installInputs.length &&
+    installInputs.every((input, index) => input === project.installInputs[index]);
+  if (unchanged) return undefined;
+  return {
+    project: { ...project, installInputs },
+    event: new ProjectInstallInputsChanged(project.id, installInputs),
   };
 }
 

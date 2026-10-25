@@ -26,6 +26,8 @@ import { useToast } from "../../shell/toasts.tsx";
 import {
   COMMAND_KEYS,
   COMMAND_LABELS,
+  INSTALL_INPUTS_LABEL,
+  installInputsFrom,
   MARK_COLOUR_LABELS,
   markLabelFor,
   publishingLabel,
@@ -45,6 +47,7 @@ const EMPTY: NewProject = {
   baseBranch: "main",
   mark: { label: "", colour: "teal" },
   commands: { install: "", build: "", lint: "", test: "" },
+  installInputs: [],
   publishingMode: "push-and-pull-request",
   defaultPipeline: "full",
 };
@@ -55,6 +58,8 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
   const [draft, setDraft] = useState(EMPTY);
   // The label follows the name until the user writes one of their own.
   const [labelEdited, setLabelEdited] = useState(false);
+  // Kept as typed, so a comma just written isn't dropped before the next path.
+  const [installInputs, setInstallInputs] = useState("");
   const pipelines = useQuery(pipelineQueries.list());
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -94,7 +99,7 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
         className="add-project-form"
         onSubmit={(event) => {
           event.preventDefault();
-          adding.mutate({ ...draft, mark });
+          adding.mutate({ ...draft, mark, installInputs: installInputsFrom(installInputs) });
         }}
       >
         {adding.error && <Refusal error={adding.error} />}
@@ -170,6 +175,14 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
             />
           ))}
         </div>
+        <Input
+          label={INSTALL_INPUTS_LABEL}
+          hint="Files whose change makes a worktree install again, separated by commas. With none, a worktree installs once."
+          placeholder="package-lock.json"
+          value={installInputs}
+          onChange={(event) => setInstallInputs(event.target.value)}
+          inputStyle={{ fontFamily: "var(--font-mono)" }}
+        />
         <Field label="Publishing">
           <RadioGroup
             value={draft.publishingMode}

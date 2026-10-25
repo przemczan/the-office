@@ -5,6 +5,7 @@ import {
   ProjectAdded,
   ProjectCommandChanged,
   ProjectDefaultPipelineChanged,
+  ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
 } from "../../domain/project-events.js";
 
@@ -29,6 +30,13 @@ export class ProjectWebEvents implements OnModuleInit {
         type: "project.command-changed",
         projectId: event.projectId,
         key: event.key,
+      }),
+    );
+    this.forwarding.forward(
+      ProjectInstallInputsChanged,
+      (event): WebEventOf<"project.install-inputs-changed"> => ({
+        type: "project.install-inputs-changed",
+        projectId: event.projectId,
       }),
     );
     this.forwarding.forward(

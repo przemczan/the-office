@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "install_inputs" text[] DEFAULT '{}' NOT NULL;

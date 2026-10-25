@@ -60,6 +60,7 @@ function aNewProject(fields: Partial<NewProject> = {}): NewProject {
     baseBranch: "main",
     mark: { label: "AP", colour: "teal" },
     commands: { install: "npm ci", build: "npm run build", lint: "npm run lint", test: "npm test" },
+    installInputs: ["package-lock.json"],
     publishingMode: "push-and-pull-request",
     defaultPipeline: "full",
     ...fields,
@@ -227,6 +228,38 @@ describe("PUT /api/projects/:id/commands/:key", () => {
     expect(empty.status).toBe(422);
     expect(await empty.json()).toMatchObject({ reasons: ["The build command can't be empty."] });
     expect(unknown.status).toBe(400);
+  });
+});
+
+describe("PUT /api/projects/:id/install-inputs", () => {
+  it("changes the install inputs and announces it", async () => {
+    const project = await addProject();
+    published = [];
+
+    const response = await send("PUT", `/projects/${project.id}/install-inputs`, {
+      installInputs: ["package-lock.json", " apps/web/package.json "],
+    });
+
+    expect(projectSchema.parse(await response.json()).installInputs).toEqual([
+      "package-lock.json",
+      "apps/web/package.json",
+    ]);
+    expect(webEvents()).toEqual([
+      { type: "project.install-inputs-changed", projectId: project.id },
+    ]);
+  });
+
+  it("refuses a path outside the repository", async () => {
+    const project = await addProject();
+
+    const response = await send("PUT", `/projects/${project.id}/install-inputs`, {
+      installInputs: ["../package-lock.json"],
+    });
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({
+      reasons: ['An install input is a path inside the repository; "../package-lock.json" is not.'],
+    });
   });
 });
 

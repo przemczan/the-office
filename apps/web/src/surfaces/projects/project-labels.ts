@@ -16,6 +16,21 @@ export const COMMAND_LABELS: Readonly<Record<ProjectCommandKey, string>> = {
   test: "Test",
 };
 
+export const INSTALL_INPUTS_LABEL = "Install inputs";
+
+/** The install inputs as one line to read or edit: "package-lock.json, apps/web/package.json". */
+export function installInputsLine(installInputs: readonly string[]): string {
+  return installInputs.join(", ");
+}
+
+/** The install inputs the user typed as one line, separated by commas. */
+export function installInputsFrom(line: string): string[] {
+  return line
+    .split(",")
+    .map((input) => input.trim())
+    .filter((input) => input !== "");
+}
+
 export const MARK_COLOUR_LABELS: Readonly<Record<ProjectMarkColour, string>> = {
   teal: "Teal",
   violet: "Violet",

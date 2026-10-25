@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { commandProblem, newProjectProblems, projectIdFor } from "./project.js";
+import {
+  commandProblem,
+  installInputsProblems,
+  newProjectProblems,
+  projectIdFor,
+  trimmedInstallInputs,
+} from "./project.js";
 import { aNewProject } from "./project.fixtures.js";
 
 describe("newProjectProblems", () => {
@@ -52,6 +58,37 @@ describe("commandProblem", () => {
     expect(commandProblem("build", "npm ci\nnpm run build")).toBe(
       "The build command must be one line.",
     );
+  });
+});
+
+describe("trimmedInstallInputs", () => {
+  it("keeps each file once, without blanks, with / between folders", () => {
+    expect(
+      trimmedInstallInputs([
+        " package-lock.json ",
+        "",
+        ".\\package-lock.json",
+        "apps\\web//package.json",
+        "  ",
+      ]),
+    ).toEqual(["package-lock.json", "apps/web/package.json"]);
+  });
+});
+
+describe("installInputsProblems", () => {
+  it("takes paths inside the repository", () => {
+    expect(installInputsProblems(["package-lock.json", "apps/web/package.json"])).toEqual([]);
+  });
+
+  it.each([
+    ["/etc/npmrc", "/etc/npmrc"],
+    ["C:\\Users\\me\\.npmrc", "C:/Users/me/.npmrc"],
+    ["..\\shared\\package-lock.json", "../shared/package-lock.json"],
+    ["apps/../../package.json", "apps/../../package.json"],
+  ])("refuses %j, which is outside it", (input, kept) => {
+    expect(installInputsProblems([input])).toEqual([
+      `An install input is a path inside the repository; "${kept}" is not.`,
+    ]);
   });
 });
 

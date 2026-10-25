@@ -22,7 +22,7 @@ From [11](../.scratch/the-office/issues/11-surfaces.md), [16](../.scratch/the-of
 
 From [07](../.scratch/the-office/issues/07-work-model.md), with [08](../.scratch/the-office/issues/08-pipelines.md) and [19](../.scratch/the-office/issues/19-work-mockup.md).
 
-- **Project:** a repository The Office works on, with its own commands (install, build, lint, test), default Pipeline, publishing mode (push + PR, or merge, run by The Office's own code; see [9](#9-defaults-chosen-in-this-spec)), environment and skills setting.
+- **Project:** a repository The Office works on, with its own commands (install, build, lint, test), install inputs, default Pipeline, publishing mode (push + PR, or merge, run by The Office's own code; see [9](#9-defaults-chosen-in-this-spec)), environment and skills setting.
 - **Idea:** captured quickly, in a Project or Office-wide. States: new, shaped, dropped. Shaping makes an Initiative or a Task and keeps the Idea as the origin link; its Attachments move with it.
 - **Initiative** (tier 2): Office-level, spans Projects; each of its Tasks is in one Project. States: shaping (with the CTO), active, done (all Tasks done), dropped. Order inside it is dependencies plus manual order.
 - **Task:** one unit of work in one Project, done when its **Definition of Done** is met: a published change, an Attachment, or both.
@@ -137,7 +137,7 @@ From [13](../.scratch/the-office/issues/13-first-slice.md), with [16](../.scratc
 | Area | In tier 1 |
 |---|---|
 | Foundation | One Node service on `localhost`; Postgres in Docker; the AgentEngine port with the Agent SDK adapter; OpenTelemetry traces and metrics with token counts into `otel-lgtm` |
-| Projects | Added by hand: path, commands, publishing mode, default Pipeline; the environment check in a fresh worktree; the Project's skills listed with their switch |
+| Projects | Added by hand: path, commands, install inputs, publishing mode, default Pipeline; the environment check in a fresh worktree; the Project's skills listed with their switch |
 | Work | Ideas captured and shaped into Tasks; all Task states; Plan; Definition of Done; priority and manual order; the board; Attachments by the user and Agents |
 | People | Planner, Developer, Reviewer from presets; the Role card form (capabilities, Task limit, Skills, Hard switches); the People grid and a person's page; chat with the Planner (without memory) |
 | Conversations | Task Threads; Decisions with follow-ups; barge-in, Stop, Pause; Office tools for Agents (read records, open a Decision, consult, attach, handover note) |
@@ -334,3 +334,5 @@ Added while slicing tier 1 ([24](../.scratch/the-office/issues/24-slice-tier-1.m
 Added while building tier 1, accepted by the user on 2026-10-25:
 
 - **Only The Office's own pages reach the service:** the `Host` and `Origin` checks of [5.1](#51-shape), for HTTP and WebSocket alike. A request with no `Origin` (a local tool such as `curl`) passes the `Origin` check; the threat model leaves local processes out.
+- **Install inputs:** a Project lists the files whose change makes a worktree install again (a lockfile, say), given when it is added and edited on its page beside the install command. A worktree installs when it is created and again when the install command or one of those files changes; with none listed, once.
+- **The base branch's upstream** is where the freshly fetched base comes from: worktrees start at the remote branch it tracks, fetched first. A base branch that tracks nothing is used as it is, unfetched, and the environment check says so.

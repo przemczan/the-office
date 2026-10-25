@@ -2,11 +2,13 @@ import { Body, Controller, Get, Param, Post, Put, UseFilters } from "@nestjs/com
 import {
   commandChangeSchema,
   defaultPipelineChangeSchema,
+  installInputsChangeSchema,
   newProjectSchema,
   projectCommandKeySchema,
   publishingModeChangeSchema,
   type CommandChange,
   type DefaultPipelineChange,
+  type InstallInputsChange,
   type NewProject,
   type Project as ProjectResponse,
   type ProjectCommandKey,
@@ -48,6 +50,14 @@ export class ProjectsController {
     return toProjectResponse(await this.projects.changeCommand(id, key, commandLine));
   }
 
+  @Put(":id/install-inputs")
+  async changeInstallInputs(
+    @Param("id") id: string,
+    @Body(new ContractPipe(installInputsChangeSchema)) { installInputs }: InstallInputsChange,
+  ): Promise<ProjectResponse> {
+    return toProjectResponse(await this.projects.changeInstallInputs(id, installInputs));
+  }
+
   @Put(":id/publishing-mode")
   async changePublishingMode(
     @Param("id") id: string,
@@ -73,6 +83,7 @@ function toProjectResponse(project: Project): ProjectResponse {
     baseBranch: project.baseBranch,
     mark: { label: project.mark.label, colour: project.mark.colour },
     commands: { ...project.commands },
+    installInputs: [...project.installInputs],
     publishingMode: project.publishingMode,
     defaultPipeline: project.defaultPipeline,
     useProjectSkills: project.useProjectSkills,

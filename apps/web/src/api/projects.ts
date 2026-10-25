@@ -38,6 +38,13 @@ export function changeCommand(
   return sendToApi("PUT", `${projectPath(id)}/commands/${key}`, { commandLine }, projectSchema);
 }
 
+export function changeInstallInputs(
+  id: string,
+  installInputs: readonly string[],
+): Promise<Project> {
+  return sendToApi("PUT", `${projectPath(id)}/install-inputs`, { installInputs }, projectSchema);
+}
+
 export function changePublishingMode(id: string, publishingMode: PublishingMode): Promise<Project> {
   return sendToApi("PUT", `${projectPath(id)}/publishing-mode`, { publishingMode }, projectSchema);
 }
@@ -60,6 +67,7 @@ export const projectEventInvalidations: Readonly<
 > = {
   "project.added": () => [PROJECTS],
   "project.command-changed": () => [PROJECTS],
+  "project.install-inputs-changed": () => [PROJECTS],
   "project.publishing-mode-changed": () => [PROJECTS],
   "project.default-pipeline-changed": () => [PROJECTS],
 };

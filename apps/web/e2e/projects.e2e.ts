@@ -26,6 +26,7 @@ async function addedProject(page: Page, name: string): Promise<Project> {
     baseBranch: "main",
     mark: { label: "AP", colour: "violet" },
     commands: { install: "npm ci", build: "npm run build", lint: "npm run lint", test: "npm test" },
+    installInputs: [],
     publishingMode: "push-and-pull-request",
     defaultPipeline: "full",
   };
@@ -39,7 +40,7 @@ async function fillTheForm(page: Page, fields: { name: string; path: string; bra
   await form.getByLabel("Name").fill(fields.name);
   await form.getByLabel("Repository folder").fill(fields.path);
   await form.getByLabel("Base branch").fill(fields.branch);
-  await form.getByLabel("Install").fill("npm ci");
+  await form.getByLabel("Install", { exact: true }).fill("npm ci");
   await form.getByLabel("Build").fill("npm run build");
   await form.getByLabel("Lint").fill("npm run lint");
   await form.getByLabel("Test").fill("npm test");
@@ -49,6 +50,7 @@ test("the user adds a Project from the Projects page and lands on its page", asy
   await page.goto("/projects");
   await page.getByRole("button", { name: "Add by path" }).click();
   await fillTheForm(page, { name: "Billing service", path: repository.path, branch: "main" });
+  await page.getByRole("dialog").getByLabel("Install inputs").fill("package-lock.json,");
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-add.png") });
 
   await page.getByRole("button", { name: "Add the Project" }).click();
@@ -57,6 +59,7 @@ test("the user adds a Project from the Projects page and lands on its page", asy
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Billing service");
   await expect(page.getByText("Billing service added.")).toBeVisible();
   await expect(page.getByText(repository.path)).toBeVisible();
+  await expect(page.getByText("package-lock.json")).toBeVisible();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project.png") });
 
   await page.getByRole("link", { name: "Projects", exact: true }).first().click();
@@ -101,6 +104,27 @@ test("editing a command saves it, and the toast says running Tasks keep theirs",
   await expect(page.getByText("npm test -- --run")).toBeVisible();
   await page.reload();
   await expect(page.getByText("npm test -- --run")).toBeVisible();
+});
+
+test("the install inputs are changed beside the install command", async ({ page }) => {
+  const project = await addedProject(page, "Install inputs");
+  await page.goto(`/projects/${project.id}`);
+  await expect(page.getByText("None: a worktree installs once.")).toBeVisible();
+
+  await page.getByRole("button", { name: "Change the install inputs" }).click();
+  await page.getByLabel("Install inputs").fill("package-lock.json, apps/web/package.json");
+  await page.keyboard.press("Enter");
+
+  await expect(page.getByText("Install inputs saved.")).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("package-lock.json, apps/web/package.json")).toBeVisible();
+
+  await page.getByRole("button", { name: "Change the install inputs" }).click();
+  await page.getByLabel("Install inputs").fill("../package-lock.json");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("alert")).toHaveText(
+    'An install input is a path inside the repository; "../package-lock.json" is not.',
+  );
 });
 
 test("the default Pipeline picker lists Full, Quick fix and Document", async ({ page }) => {

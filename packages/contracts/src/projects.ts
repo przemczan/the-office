@@ -28,6 +28,8 @@ export const newProjectSchema = z.object({
   baseBranch: z.string(),
   mark: projectMarkSchema,
   commands: projectCommandsSchema,
+  /** Paths inside the repository whose change makes a worktree install again. */
+  installInputs: z.array(z.string()),
   publishingMode: publishingModeSchema,
   /** A Pipeline's id. */
   defaultPipeline: z.string(),
@@ -46,6 +48,10 @@ export const projectListSchema = z.array(projectSchema);
 /** PUT /projects/:id/commands/:key */
 export const commandChangeSchema = z.object({ commandLine: z.string() });
 export type CommandChange = z.infer<typeof commandChangeSchema>;
+
+/** PUT /projects/:id/install-inputs */
+export const installInputsChangeSchema = z.object({ installInputs: z.array(z.string()) });
+export type InstallInputsChange = z.infer<typeof installInputsChangeSchema>;
 
 /** PUT /projects/:id/publishing-mode */
 export const publishingModeChangeSchema = z.object({ publishingMode: publishingModeSchema });
@@ -70,6 +76,10 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
     type: z.literal("project.command-changed"),
     projectId: z.string(),
     key: projectCommandKeySchema,
+  }),
+  webEventSchema.extend({
+    type: z.literal("project.install-inputs-changed"),
+    projectId: z.string(),
   }),
   webEventSchema.extend({
     type: z.literal("project.publishing-mode-changed"),

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import type { ProjectMarkColour, PublishingMode } from "../../domain/project.js";
 
@@ -12,6 +13,10 @@ export const projects = pgTable("projects", {
   buildCommand: text("build_command").notNull(),
   lintCommand: text("lint_command").notNull(),
   testCommand: text("test_command").notNull(),
+  installInputs: text("install_inputs")
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
   publishingMode: text("publishing_mode").$type<PublishingMode>().notNull(),
   defaultPipeline: text("default_pipeline").notNull(),
   useProjectSkills: boolean("use_project_skills").notNull(),

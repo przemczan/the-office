@@ -7,6 +7,7 @@ export function aNewProject(fields: Partial<NewProject> = {}): NewProject {
     baseBranch: "main",
     mark: { label: "AP", colour: "teal" },
     commands: { install: "npm ci", build: "npm run build", lint: "npm run lint", test: "npm test" },
+    installInputs: ["package-lock.json"],
     publishingMode: "push-and-pull-request",
     defaultPipeline: "full",
     ...fields,
