@@ -1,6 +1,6 @@
 # 04 · Projects: the record, commands and the Projects page
 
-Status: todo
+Status: in progress
 
 ## Goal
 
@@ -25,7 +25,7 @@ Build from the Projects surface: the list of Project cards, "Add a Project" as a
 
 ## Steps
 
-- [ ] 1. Ask the user which real Project is the Test Project, and record it in [README.md](README.md). Commit.
+- [x] 1. Ask the user which real Project is the Test Project, and record it in [README.md](README.md). Commit.
 - [ ] 2. Pipelines module, domain only: Pipeline and Stage as data (kind Agent, Script or Gate; Role or command key; brief; limits; session; on failure "go back to Stage X at most N times"; optional), the three built-ins as seed data with tests that each is valid, and a read use case with its API. Commit.
 - [ ] 3. Projects module, domain and persistence: Project (name, path, base branch, mark label and colour, commands install, build, lint and test, publishing mode push + PR or merge (Publish is run by The Office's own git code, task 14, so it is a mode rather than a free command), default Pipeline, skills switch), its rules (path is a git repository, base branch exists, the default Pipeline exists), the Drizzle tables and repository, and domain events. Commit.
 - [ ] 4. Use cases and API: add, list, read, edit commands, change publishing and default Pipeline; contracts in `packages/contracts`. Commit.
@@ -35,3 +35,4 @@ Build from the Projects surface: the list of Project cards, "Add a Project" as a
 ## Progress
 
 <!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next; anything surprising. -->
+- 2026-10-25 · step 1: the user chose notnullsoft-admin (`D:\Projects\notnullsoft-admin`, base `main`) as the Test Project, recorded in README.md; next is step 2, the Pipelines domain. Surprising: a push to its `main` deploys production, so task 14's Publish check must use push + PR on a throwaway branch.

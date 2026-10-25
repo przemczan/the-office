@@ -2,14 +2,14 @@
 
 Tier 1 of [the spec](../spec.md#tier-1-the-base), sliced into tasks in build order. The current task is the first row that is not `done`. How a session works through a task is in [CLAUDE.md](../../CLAUDE.md).
 
-**Test Project:** not chosen yet. Task 04 asks the user which real Project the surfaces are checked on, and records it here. It is never this repository or `D:\Projects\software-factory`.
+**Test Project:** `notnullsoft-admin` at `D:\Projects\notnullsoft-admin`, chosen by the user in task 04. Base branch `main`, remote `https://github.com/przemczan/notnullsoft-admin.git`; an npm workspace on Node 22 with `npm install`, `npm run build`, `npm run lint` and `npm test`. A push to its `main` deploys production (`.github/workflows/deploy-production.yml`), so a Publish check uses push + PR on a throwaway branch, never merge. It is never this repository or `D:\Projects\software-factory`.
 
 | # | Task | Surface | Status |
 |---|---|---|---|
 | 01 | [Engine spike: pinned versions and the engine check](01-engine-spike.md) | Spike | done |
 | 02 | [Foundation: workspace, service, database, events, telemetry](02-foundation.md) | Projects | done |
 | 03 | [Web shell: design system, themes and A3 · Desk](03-web-shell.md) | Projects | done |
-| 04 | [Projects: the record, commands and the Projects page](04-projects.md) | Projects | todo |
+| 04 | [Projects: the record, commands and the Projects page](04-projects.md) | Projects | in progress |
 | 05 | [Git, worktrees and the environment check](05-git-worktrees.md) | Projects | todo |
 | 06 | [The Engine module: port, Agent SDK adapter and Office rules](06-engine.md) | People | todo |
 | 07 | [Skills: the library and each session's skills](07-skills.md) | People | todo |
