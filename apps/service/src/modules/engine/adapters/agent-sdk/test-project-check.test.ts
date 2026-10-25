@@ -98,7 +98,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
             ),
             model: "claude-haiku-5-5",
             effort: "low",
-            skillsFolder: undefined,
+            skills: undefined,
             profile: { edit: false, run: { kind: "read-only-git" }, web: false },
             officeTools: [],
             outputSchema: undefined,

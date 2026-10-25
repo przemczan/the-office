@@ -26,7 +26,7 @@ export class SessionCosts {
 /** The prompt features a session's calls use, so telemetry compares calls by them (spec §5.2). */
 export function promptFeatures(options: SessionOptions): string[] {
   return [
-    ...(options.skillsFolder === undefined ? [] : ["skills"]),
+    ...(options.skills === undefined ? [] : ["skills"]),
     ...options.officeTools.map((tool) => `office-tool:${tool.name}`),
   ].toSorted();
 }

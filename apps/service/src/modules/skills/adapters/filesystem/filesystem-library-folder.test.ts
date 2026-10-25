@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -90,6 +90,32 @@ describe("FilesystemLibraryFolder", () => {
       await expect(library.read("tdd", filesHash)).rejects.toThrow(
         new SkillVersionMissing("tdd", filesHash, `"elsewhere" is not a regular file.`),
       );
+    });
+  });
+
+  describe("prune", () => {
+    it("removes the versions it isn't told to keep, and what an interrupted keep left", async () => {
+      const kept = await library.keep("tdd", files);
+      const dropped = await library.keep("tdd", [aSkillFile("SKILL.md", "older")]);
+      await mkdir(join(officeData, "skills", "tdd", ".writing-left-by-a-crash"));
+
+      await library.prune((skillName, filesHash) => skillName === "tdd" && filesHash === kept);
+
+      expect(await readdir(join(officeData, "skills", "tdd"))).toEqual([kept]);
+      await expect(library.read("tdd", dropped)).rejects.toThrow(SkillVersionMissing);
+    });
+
+    it("removes the folder of a skill with no version left", async () => {
+      await library.keep("tdd", files);
+      await library.keep("notes", [aSkillFile("SKILL.md", "Notes.")]);
+
+      await library.prune((skillName) => skillName === "notes");
+
+      expect(await readdir(join(officeData, "skills"))).toEqual(["notes"]);
+    });
+
+    it("does nothing before the library has a skill", async () => {
+      await expect(library.prune(() => false)).resolves.toBeUndefined();
     });
   });
 });

@@ -1,17 +1,19 @@
-import { randomUUID } from "node:crypto";
-import { lstat, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { skillNameProblems } from "../../domain/skill.js";
-import {
-  skillFilePathProblem,
-  skillFilesHash,
-  sortedByPath,
-  type SkillFile,
-} from "../../domain/skill-files.js";
+import { skillFilesHash, sortedByPath, type SkillFile } from "../../domain/skill-files.js";
 import { SkillVersionMissing } from "../../domain/skill-version-missing.js";
 import { LibraryFolder } from "../../ports/library-folder.js";
+import {
+  exists,
+  namesIn,
+  readSkillFiles,
+  UNFINISHED,
+  writeSkillFiles,
+  writeWhole,
+} from "./skill-file-folders.js";
 
 const FILES_HASH = /^[0-9a-f]{64}$/;
 
@@ -27,24 +29,11 @@ export class FilesystemLibraryFolder extends LibraryFolder {
 
   async keep(skillName: string, files: readonly SkillFile[]): Promise<string> {
     const filesHash = skillFilesHash(files);
-    const folder = this.versionFolder(skillName, filesHash);
-    if (await exists(folder)) return filesHash;
-    // Written beside the version and renamed into place, so a version's folder is always whole.
-    const writing = join(dirname(folder), `.writing-${randomUUID()}`);
-    try {
-      await mkdir(writing, { recursive: true });
-      for (const file of files) {
-        const path = inside(writing, file.path);
-        await mkdir(dirname(path), { recursive: true });
-        await writeFile(path, file.content, { flag: "wx" });
-      }
-      await rename(writing, folder).catch(async (error: unknown) => {
-        // Another call kept the same files first.
-        if (!(await exists(folder))) throw error;
-      });
-    } finally {
-      await rm(writing, { recursive: true, force: true });
-    }
+    await writeWhole(
+      this.versionFolder(skillName, filesHash),
+      (writing) => writeSkillFiles(writing, files),
+      { replace: false },
+    );
     return filesHash;
   }
 
@@ -52,9 +41,27 @@ export class FilesystemLibraryFolder extends LibraryFolder {
     const folder = this.versionFolder(skillName, filesHash);
     const missing = (reason: string) => new SkillVersionMissing(skillName, filesHash, reason);
     if (!(await exists(folder))) throw missing("they were never kept, or were removed.");
-    const files = await filesIn(folder, "", missing);
+    const files = await readSkillFiles(folder, (path) =>
+      missing(`"${path}" is not a regular file.`),
+    );
     if (skillFilesHash(files) !== filesHash) throw missing("its files have changed since.");
     return sortedByPath(files);
+  }
+
+  async prune(keep: (skillName: string, filesHash: string) => boolean): Promise<void> {
+    for (const skillName of await namesIn(this.path)) {
+      const skillFolder = join(this.path, skillName);
+      const versions = await namesIn(skillFolder);
+      const discarded = versions.filter(
+        (version) => UNFINISHED.test(version) || !keep(skillName, version),
+      );
+      for (const version of discarded) {
+        await rm(join(skillFolder, version), { recursive: true, force: true });
+      }
+      if (discarded.length === versions.length) {
+        await rm(skillFolder, { recursive: true, force: true });
+      }
+    }
   }
 
   private versionFolder(skillName: string, filesHash: string): string {
@@ -64,39 +71,5 @@ export class FilesystemLibraryFolder extends LibraryFolder {
     }
     if (!FILES_HASH.test(filesHash)) throw new Error(`"${filesHash}" is no files hash.`);
     return join(this.path, skillName, filesHash);
-  }
-}
-
-function inside(folder: string, path: string): string {
-  const problem = skillFilePathProblem(path);
-  if (problem) throw new Error(problem);
-  return join(folder, ...path.split("/"));
-}
-
-/** Every regular file below `folder`, refusing links (junctions too, on Windows). */
-async function filesIn(
-  folder: string,
-  prefix: string,
-  missing: (reason: string) => Error,
-): Promise<SkillFile[]> {
-  const files: SkillFile[] = [];
-  for (const entry of await readdir(folder, { withFileTypes: true })) {
-    const path = prefix === "" ? entry.name : `${prefix}/${entry.name}`;
-    const absolute = join(folder, entry.name);
-    if (entry.isDirectory()) files.push(...(await filesIn(absolute, path, missing)));
-    else if (entry.isFile())
-      files.push({ path, content: new Uint8Array(await readFile(absolute)) });
-    else throw missing(`"${path}" is not a regular file.`);
-  }
-  return files;
-}
-
-async function exists(path: string): Promise<boolean> {
-  try {
-    await lstat(path);
-    return true;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return false;
-    throw error;
   }
 }

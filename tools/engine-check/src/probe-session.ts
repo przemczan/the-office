@@ -360,6 +360,7 @@ function sessionSettings(pluginFolder: string, overrides: Settings = {}): Settin
     syncClaudeAiSkills: false,
     syncClaudeAiPlugins: false,
     disableBundledSkills: true,
+    disableSkillShellExecution: true,
     disableClaudeAiConnectors: true,
     autoMemoryEnabled: false,
     autoDreamEnabled: false,

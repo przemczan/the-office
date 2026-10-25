@@ -210,7 +210,7 @@ function options(folder: string): SessionOptions {
     ),
     model: MODEL,
     effort: "low",
-    skillsFolder: undefined,
+    skills: undefined,
     profile: { edit: false, run: { kind: "read-only-git" }, web: false },
     officeTools: [],
     outputSchema: undefined,

@@ -74,7 +74,7 @@ export class AgentSdkEngine extends AgentEngine {
     return new OfficeRules({
       workingFolder: options.folder,
       readableFolders: [
-        ...(options.skillsFolder === undefined ? [] : [options.skillsFolder]),
+        ...(options.skills === undefined ? [] : [options.skills.folder]),
         engineTaskFolder(this.operatingSystem, options.folder, sessionId),
       ],
       profile: options.profile,

@@ -271,21 +271,25 @@ describe("a skill's versions", () => {
 });
 
 describe("turning a skill on, for everyone, and removing it", () => {
-  it("turns a skill on, marks it for everyone and removes it", async () => {
+  // Marked for everyone while off: a skill on and for everyone would reach the sessions other
+  // test files prepare on the shared database, with its files in this test's folder.
+  it("marks a skill for everyone, turns it on and removes it", async () => {
     const name = aName();
     await write(name);
 
-    const on = await send("PUT", `/skills/${name}/state`, { state: "on" });
-    expect(skillSchema.parse(await on.json()).state).toBe("on");
     const everyone = await send("PUT", `/skills/${name}/everyone`, { everyone: true });
     expect(skillSchema.parse(await everyone.json()).everyone).toBe(true);
+    await send("PUT", `/skills/${name}/everyone`, { everyone: false });
+    const on = await send("PUT", `/skills/${name}/state`, { state: "on" });
+    expect(skillSchema.parse(await on.json()).state).toBe("on");
     const removed = await send("DELETE", `/skills/${name}`);
     expect(removed.status).toBe(204);
 
     expect((await fetch(`${url}/api/skills/${name}`)).status).toBe(404);
     expect(published.slice(1)).toEqual([
-      expect.any(SkillTurnedOn),
       expect.any(SkillEveryoneChanged),
+      expect.any(SkillEveryoneChanged),
+      expect.any(SkillTurnedOn),
       expect.any(SkillRemoved),
     ]);
   });

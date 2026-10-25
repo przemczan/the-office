@@ -34,7 +34,7 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 Each check runs in a throwaway git repository in a temp folder, with an Office data directory beside it holding the session plugin folder (`office-data/sessions/<session-id>/skills/`) and Task worktrees. Sessions start with the options The Office ships, so a result holds for The Office:
 
 - `settingSources: ['project']`, the session plugin folder in `plugins`, `skills` listing `office:<name>` for each session skill;
-- settings: `syncClaudeAiSkills` and `syncClaudeAiPlugins` false, `disableBundledSkills` true, `disableClaudeAiConnectors` true, `autoMemoryEnabled` and `autoDreamEnabled` false, the three built-in plugins false in `enabledPlugins`, `permissions.blockReadsOutsideWorkingDirectories` true, the session plugin folder in `permissions.additionalDirectories`;
+- settings: `syncClaudeAiSkills` and `syncClaudeAiPlugins` false, `disableBundledSkills` and `disableSkillShellExecution` true, `disableClaudeAiConnectors` true, `autoMemoryEnabled` and `autoDreamEnabled` false, the three built-in plugins false in `enabledPlugins`, `permissions.blockReadsOutsideWorkingDirectories` true, the session plugin folder in `permissions.additionalDirectories`;
 - `tools` naming the built-in tools explicitly, the same list on both platforms with PowerShell on Windows only (see `engine.lean-options`);
 - `permissionPrompts: 'none'`, the `claude_code` system prompt preset with `excludeDynamicSections`, an environment without inherited `CLAUDE*`, `ANTHROPIC*`, `MCP_*` and `OTEL_*` variables;
 - the hooks The Office registers (`PreToolUse`, `PostToolUse`, `PermissionDenied`), recorded on every call and allowing by default; a check decides calls where it needs to.

@@ -366,7 +366,7 @@ function defaultOptions(folder: string, model: string): SessionOptions {
     environment: inheritedEnvironment(),
     model,
     effort: "low",
-    skillsFolder: undefined,
+    skills: undefined,
     profile: READ_ONLY,
     officeTools: [],
     outputSchema: undefined,

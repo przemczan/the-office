@@ -55,7 +55,7 @@ function options(): SessionOptions {
     environment: {},
     model: "scripted",
     effort: "low",
-    skillsFolder: undefined,
+    skills: undefined,
     profile: { edit: true, run: { kind: "anything" }, web: false },
     officeTools: [],
     outputSchema: undefined,

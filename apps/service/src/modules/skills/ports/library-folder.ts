@@ -16,4 +16,10 @@ export abstract class LibraryFolder {
    * when the library doesn't have them as they were kept.
    */
   abstract read(skillName: string, filesHash: string): Promise<readonly SkillFile[]>;
+
+  /**
+   * Removes every version `keep` refuses, what an interrupted `keep` left, and the folder of a
+   * skill with no version left. Not safe beside a `keep` of a version not yet in use.
+   */
+  abstract prune(keep: (skillName: string, filesHash: string) => boolean): Promise<void>;
 }

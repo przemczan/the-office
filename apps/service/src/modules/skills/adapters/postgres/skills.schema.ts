@@ -1,4 +1,6 @@
-import { boolean, integer, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { boolean, integer, jsonb, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
+import type { SessionSkill } from "../../domain/session-skills.js";
 import type { SkillSource, SkillState } from "../../domain/skill.js";
 
 /** Each skill in the library, at its current version. */
@@ -28,3 +30,18 @@ export const skillVersions = pgTable(
   },
   (table) => [primaryKey({ columns: [table.skillName, table.version] })],
 );
+
+/** What each session got, while it can be resumed. */
+export const sessionSkills = pgTable("session_skills", {
+  sessionId: text("session_id").primaryKey(),
+  skills: jsonb("skills").$type<SessionSkill[]>().notNull(),
+  projectSkills: text("project_skills")
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  projectSkillsOff: text("project_skills_off")
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
+  preparedAt: timestamp("prepared_at", { withTimezone: true }).notNull(),
+});

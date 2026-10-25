@@ -20,7 +20,7 @@ const OPTIONS: SessionOptions = {
   },
   model: "claude-haiku-5-5",
   effort: "medium",
-  skillsFolder: undefined,
+  skills: undefined,
   profile: { edit: true, run: { kind: "anything" }, web: true },
   officeTools: [],
   outputSchema: undefined,
@@ -111,17 +111,34 @@ describe("sdkOptions", () => {
     expect(options.sessionId).toBeUndefined();
   });
 
-  it("loads the skills folder as a plugin the file tools may read", () => {
+  it("loads the skills folder as a plugin the file tools may read, listing only its skills", () => {
     const options = optionsFor({
-      options: { ...OPTIONS, skillsFolder: "/office/sessions/s/skills" },
+      options: {
+        ...OPTIONS,
+        skills: {
+          folder: "/office/sessions/s/skills",
+          names: ["office:review", "deploy"],
+          overrides: { lint: "off" },
+        },
+      },
     });
 
     expect(options.plugins).toEqual([
       { type: "local", path: "/office/sessions/s/skills", skipMcpDiscovery: true },
     ]);
+    expect(options.skills).toEqual(["office:review", "deploy"]);
     expect(options.settings).toMatchObject({
+      disableSkillShellExecution: true,
+      skillOverrides: { lint: "off" },
       permissions: { additionalDirectories: ["/office/sessions/s/skills"] },
     });
+  });
+
+  it("lists no skill at all for a session without skills", () => {
+    const options = optionsFor({ options: { ...OPTIONS, skills: undefined } });
+
+    expect(options.plugins).toEqual([]);
+    expect(options.skills).toEqual([]);
   });
 
   it("serves the Office tools from an in-process server, allowed by rule", () => {

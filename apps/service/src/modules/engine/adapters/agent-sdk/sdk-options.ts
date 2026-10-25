@@ -103,9 +103,11 @@ export function sdkOptions({
     tools: [...BUILT_IN_TOOLS, ...agentShells.map((shell) => SHELL_TOOLS[shell])].toSorted(),
     settingSources: ["project"],
     plugins:
-      options.skillsFolder === undefined
+      options.skills === undefined
         ? []
-        : [{ type: "local", path: options.skillsFolder, skipMcpDiscovery: true }],
+        : [{ type: "local", path: options.skills.folder, skipMcpDiscovery: true }],
+    // The session folder holds only the session's skills; the allowlist keeps the rest unlisted.
+    skills: [...(options.skills?.names ?? [])],
     settings: sessionSettings(options),
     permissionPrompts: "none",
     systemPrompt: { type: "preset", preset: "claude_code", excludeDynamicSections: true },
@@ -122,11 +124,14 @@ export function sdkOptions({
   };
 }
 
-function sessionSettings({ skillsFolder, officeTools }: SessionOptions): Settings {
+function sessionSettings({ skills, officeTools }: SessionOptions): Settings {
   return {
     syncClaudeAiSkills: false,
     syncClaudeAiPlugins: false,
     disableBundledSkills: true,
+    // A skill's text runs no command as it loads; the Agent runs it, through the hook.
+    disableSkillShellExecution: true,
+    skillOverrides: { ...skills?.overrides },
     disableClaudeAiConnectors: true,
     autoMemoryEnabled: false,
     autoDreamEnabled: false,
@@ -136,7 +141,7 @@ function sessionSettings({ skillsFolder, officeTools }: SessionOptions): Setting
     permissions: {
       blockReadsOutsideWorkingDirectories: true,
       // Lets the file tools read the skills folder under the read fence, and nothing else (spec §5.6).
-      additionalDirectories: skillsFolder === undefined ? [] : [skillsFolder],
+      additionalDirectories: skills === undefined ? [] : [skills.folder],
       // permissionPrompts "none" refuses whatever would prompt, so the Office tools are allowed by rule.
       allow: officeTools.length > 0 ? [`mcp__${OFFICE_TOOL_SERVER}`] : [],
     },

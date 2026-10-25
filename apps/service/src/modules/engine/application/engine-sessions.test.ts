@@ -42,7 +42,7 @@ const SETTINGS: SessionSettings = {
   environment: {},
   model: "claude-haiku-5-5",
   effort: "low",
-  skillsFolder: "/office/sessions/s/skills",
+  skills: { folder: "/office/sessions/s/skills", names: ["office:review"], overrides: {} },
   profile: { edit: true, run: { kind: "anything" }, web: false },
   officeTools: ["note"],
   outputSchema: undefined,
