@@ -8,7 +8,7 @@ Settings gains the rest of its tier 1 sections, Office limits and Appearance, ne
 
 ## Definition of Done
 
-- [ ] Settings → Office limits edits the Office-wide limit on running Tasks (default 3) and the Context policy's size threshold (default 30k); a change applies to the next Start or continuation. Check: lower the limit to 1 and see Start refused with the reason.
+- [ ] Settings → Office limits edits the Office-wide limit on running Tasks (default 3) and the Context policy's size threshold (default 30k of what a session's conversation added, spec §9); a change applies to the next Start or continuation. Check: lower the limit to 1 and see Start refused with the reason.
 - [ ] Settings → Appearance switches Light, Dark and "Follow the system", kept across reloads. Check: Playwright in each.
 - [ ] The tier 1 test passes on the Test Project: a real Task is planned in a Thread with the Planner, runs a built-in Pipeline with a Gate added for this Task, passes the Gate on the Changes tab and publishes, and every Thread shows its Context policy label and token counts. Check: the run, logged below with its Task, tokens per Thread and the PR or merge.
 - [ ] The Office runs on Linux: the service starts there, adds the Test Project, and runs a Quick fix Task through to a Gate. Check: on the Linux system the user names (a WSL distribution or another machine), logged below.
