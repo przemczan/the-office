@@ -13,7 +13,7 @@ Tier 1 of [the spec](../spec.md#tier-1-the-base), sliced into tasks in build ord
 | 05 | [Git, worktrees and the environment check](05-git-worktrees.md) | Projects | done |
 | 06 | [The Engine module: port, Agent SDK adapter and Office rules](06-engine.md) | People | done |
 | 07 | [Skills: the library and each session's skills](07-skills.md) | People | done |
-| 08 | [People: Role cards, presets and a person's page](08-people.md) | People | todo |
+| 08 | [People: Role cards, presets and a person's page](08-people.md) | People | in progress |
 | 09 | [Conversations and the Context policy: chat with the Planner](09-conversations.md) | People | todo |
 | 10 | [Work: Ideas, Tasks, the board and Attachments](10-work.md) | Work and the Task page | todo |
 | 11 | [Planning a Task with the Planner](11-planning.md) | Work and the Task page | todo |

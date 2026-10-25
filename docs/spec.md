@@ -340,4 +340,5 @@ Added while building tier 1, accepted by the user on 2026-10-25:
 - **Editing a skill** is in its Review: Edit for a written skill (the Write form, filled in), Upload a new version for an uploaded one.
 - **A skill's frontmatter is read as the engine reads it:** a plain value holding `: `, which YAML refuses, is the text after the first `: `; only what the engine can't read either is refused.
 - **A skill's frontmatter is flagged, not refused:** Review warns of each key that changes a session (its own hooks, model or effort, tool rules, a subagent, `when_to_use`, `disable-model-invocation`), as it does of scripts.
+- **Change Roles stays Never in tier 1:** the Role card shows it, marked enforced by The Office, and refuses any other value with the reason, since holding an enforced call waits for tier 2. The followed switches take all four values.
 - **The base branch's upstream** is where the freshly fetched base comes from: worktrees start at the remote branch it tracks, fetched first. A base branch that tracks nothing is used as it is, unfetched, and the environment check says so.
