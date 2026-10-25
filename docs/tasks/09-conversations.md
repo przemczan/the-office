@@ -14,6 +14,7 @@ The Conversations module: homes holding Threads, each backed by one engine sessi
 - [ ] Every Thread shows the label with what and why ("Continuing · cache warm · 41k context"; "Fresh · cache expired, 48k context · brief ~3k") and its tokens; "Start fresh" and "Continue anyway" show their estimated cost, and the person's session default applies. Check: Playwright reads the label after each move.
 - [ ] Near the context limit The Office asks for a Handover note, ends the session and starts fresh with a Brief; there is no automatic compaction. Check: a scripted-adapter test that crosses the limit.
 - [ ] The Planner's person page lists their Threads under Conversations. Check: open it.
+- [ ] A session's options come from the Role card version it recorded: a Role card change reaches only sessions started after it, and a resumed session keeps its version's options (task 08 checks the versions). Check: a test that starts a session, edits the card, and reads both sessions' options.
 
 ## Read first
 

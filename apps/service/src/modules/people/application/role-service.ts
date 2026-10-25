@@ -45,6 +45,7 @@ export class RoleService {
     if (!(await this.repository.add(role))) {
       // Someone was hired into the Role meanwhile: refuse as if they had been there before.
       hire(roleKey, name, await this.repository.find(roleKey), hiredAt);
+      throw new Error(`The Role "${roleKey}" was filled and emptied again while hiring.`);
     }
     await this.events.publish(event);
     return role;
