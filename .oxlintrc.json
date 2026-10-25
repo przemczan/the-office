@@ -9,5 +9,12 @@
     "denyWarnings": true,
     "reportUnusedDisableDirectives": "error"
   },
-  "ignorePatterns": ["design-system/**"]
+  "ignorePatterns": ["design-system/**"],
+  "overrides": [
+    {
+      // Nest declares modules as decorated classes, empty or with static factory methods.
+      "files": ["apps/service/**"],
+      "rules": { "typescript/no-extraneous-class": ["error", { "allowWithDecorator": true }] }
+    }
+  ]
 }

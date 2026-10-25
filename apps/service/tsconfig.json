@@ -1,7 +1,10 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "noEmit": true
+    "noEmit": true,
+    // Nest resolves constructor dependencies from the emitted design:paramtypes metadata.
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
   },
-  "include": ["src", "vitest.config.ts"]
+  "include": ["src", "drizzle.config.ts", "vitest.config.ts"]
 }

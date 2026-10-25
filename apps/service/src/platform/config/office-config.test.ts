@@ -7,6 +7,7 @@ import {
   type OfficeConfigDefaults,
 } from "./office-config.js";
 
+const port = "4310";
 const databaseUrl = "postgres://office:secret-password@127.0.0.1:5432/the_office";
 const officeDataDirectory = resolve("office-data");
 const defaultOfficeDataDirectory = resolve("default-office-data");
@@ -26,19 +27,22 @@ function readProblems(environment: EnvironmentVariables): InvalidOfficeConfigErr
 }
 
 describe("readOfficeConfig", () => {
-  it("reads the database URL and the Office data directory", () => {
+  it("reads the port, the database URL and the Office data directory", () => {
     const config = readOfficeConfig(
-      { DATABASE_URL: databaseUrl, OFFICE_DATA_DIR: officeDataDirectory },
+      { OFFICE_PORT: port, DATABASE_URL: databaseUrl, OFFICE_DATA_DIR: officeDataDirectory },
       platformDefaults(),
     );
 
-    expect(config).toEqual({ databaseUrl, officeDataDirectory });
+    expect(config).toEqual({ port: 4310, databaseUrl, officeDataDirectory });
   });
 
   it("accepts the postgresql:// scheme", () => {
     const postgresqlUrl = "postgresql://office@localhost/the_office";
 
-    const config = readOfficeConfig({ DATABASE_URL: postgresqlUrl }, platformDefaults());
+    const config = readOfficeConfig(
+      { OFFICE_PORT: port, DATABASE_URL: postgresqlUrl },
+      platformDefaults(),
+    );
 
     expect(config.databaseUrl).toBe(postgresqlUrl);
   });
@@ -48,7 +52,7 @@ describe("readOfficeConfig", () => {
     ["blank", ""],
   ])("uses the platform default when OFFICE_DATA_DIR is %s", (_, value) => {
     const config = readOfficeConfig(
-      { DATABASE_URL: databaseUrl, OFFICE_DATA_DIR: value },
+      { OFFICE_PORT: port, DATABASE_URL: databaseUrl, OFFICE_DATA_DIR: value },
       platformDefaults(),
     );
 
@@ -58,7 +62,10 @@ describe("readOfficeConfig", () => {
   it("does not ask the platform for a default when OFFICE_DATA_DIR is set", () => {
     const defaults = platformDefaults();
 
-    readOfficeConfig({ DATABASE_URL: databaseUrl, OFFICE_DATA_DIR: officeDataDirectory }, defaults);
+    readOfficeConfig(
+      { OFFICE_PORT: port, DATABASE_URL: databaseUrl, OFFICE_DATA_DIR: officeDataDirectory },
+      defaults,
+    );
 
     expect(defaults.officeDataDirectory).not.toHaveBeenCalled();
   });
@@ -66,8 +73,28 @@ describe("readOfficeConfig", () => {
   it.each([
     ["unset", undefined],
     ["blank", ""],
+  ])("refuses an OFFICE_PORT that is %s", (_, value) => {
+    const error = readProblems({ OFFICE_PORT: value, DATABASE_URL: databaseUrl });
+
+    expect(error.problems).toEqual([{ variable: "OFFICE_PORT", problem: "is required" }]);
+  });
+
+  it.each(["0", "65536", "43.1", "-1", "4310abc", " 4310"])(
+    "refuses an OFFICE_PORT that is not a port number: %j",
+    (value) => {
+      const error = readProblems({ OFFICE_PORT: value, DATABASE_URL: databaseUrl });
+
+      expect(error.problems).toEqual([
+        { variable: "OFFICE_PORT", problem: "must be a port number from 1 to 65535" },
+      ]);
+    },
+  );
+
+  it.each([
+    ["unset", undefined],
+    ["blank", ""],
   ])("refuses a DATABASE_URL that is %s", (_, value) => {
-    const error = readProblems({ DATABASE_URL: value });
+    const error = readProblems({ OFFICE_PORT: port, DATABASE_URL: value });
 
     expect(error.problems).toEqual([{ variable: "DATABASE_URL", problem: "is required" }]);
   });
@@ -75,7 +102,7 @@ describe("readOfficeConfig", () => {
   it.each(["not a url", "mysql://office@127.0.0.1/the_office"])(
     "refuses a DATABASE_URL that is not a Postgres URL: %s",
     (value) => {
-      const error = readProblems({ DATABASE_URL: value });
+      const error = readProblems({ OFFICE_PORT: port, DATABASE_URL: value });
 
       expect(error.problems).toEqual([
         { variable: "DATABASE_URL", problem: "must be a postgres:// or postgresql:// URL" },
@@ -84,7 +111,11 @@ describe("readOfficeConfig", () => {
   );
 
   it("refuses a relative OFFICE_DATA_DIR", () => {
-    const error = readProblems({ DATABASE_URL: databaseUrl, OFFICE_DATA_DIR: "office-data" });
+    const error = readProblems({
+      OFFICE_PORT: port,
+      DATABASE_URL: databaseUrl,
+      OFFICE_DATA_DIR: "office-data",
+    });
 
     expect(error.problems).toEqual([
       { variable: "OFFICE_DATA_DIR", problem: "must be an absolute path" },
@@ -97,6 +128,7 @@ describe("readOfficeConfig", () => {
     expect(error.message).toBe(
       [
         "The Office cannot start: fix these environment variables (see .env.example).",
+        "  OFFICE_PORT: is required",
         "  DATABASE_URL: is required",
         "  OFFICE_DATA_DIR: must be an absolute path",
       ].join("\n"),
@@ -105,6 +137,7 @@ describe("readOfficeConfig", () => {
 
   it("keeps variable values, such as the database password, out of the error", () => {
     const error = readProblems({
+      OFFICE_PORT: port,
       DATABASE_URL: "https://office:secret-password@127.0.0.1/the_office",
     });
 

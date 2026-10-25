@@ -3,6 +3,7 @@ import { z } from "zod";
 import { InvalidOfficeConfigError, type ConfigProblem } from "./invalid-office-config-error.js";
 
 export interface OfficeConfig {
+  readonly port: number;
   readonly databaseUrl: string;
   readonly officeDataDirectory: string;
 }
@@ -15,6 +16,7 @@ export interface OfficeConfigDefaults {
 export type EnvironmentVariables = Readonly<Record<string, string | undefined>>;
 
 const REQUIRED = "is required";
+const PORT_RANGE = "must be a port number from 1 to 65535";
 
 // An env file copied with a value left blank yields "", which means "not set", not "invalid".
 function blankAsUnset(value: unknown): unknown {
@@ -22,6 +24,14 @@ function blankAsUnset(value: unknown): unknown {
 }
 
 const environmentSchema = z.object({
+  OFFICE_PORT: z.preprocess(
+    blankAsUnset,
+    z
+      .string({ error: REQUIRED })
+      .regex(/^\d+$/, PORT_RANGE)
+      .transform(Number)
+      .pipe(z.number().min(1, PORT_RANGE).max(65_535, PORT_RANGE)),
+  ),
   DATABASE_URL: z.preprocess(
     blankAsUnset,
     z.url({
@@ -49,6 +59,7 @@ export function readOfficeConfig(
     throw new InvalidOfficeConfigError(result.error.issues.map(toConfigProblem));
   }
   return {
+    port: result.data.OFFICE_PORT,
     databaseUrl: result.data.DATABASE_URL,
     officeDataDirectory: result.data.OFFICE_DATA_DIR ?? defaults.officeDataDirectory(),
   };
