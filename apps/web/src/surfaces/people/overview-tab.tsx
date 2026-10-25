@@ -27,7 +27,9 @@ export function OverviewTab(): ReactNode {
             {modelLabel(card.model)} · effort {EFFORT_LABELS[card.effort].toLowerCase()} ·{" "}
             {taskLimitLabel(card.taskLimit)}
           </p>
-          <p className="person-note">Sessions: {SESSION_DEFAULTS[card.sessionDefault].label}</p>
+          <p className="person-note">
+            Session default: {SESSION_DEFAULTS[card.sessionDefault].label}
+          </p>
         </PersonBlock>
       </div>
       <div className="person-column">

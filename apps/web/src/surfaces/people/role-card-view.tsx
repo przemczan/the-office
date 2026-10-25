@@ -47,7 +47,7 @@ export function RoleCardView({
           <span className="role-card-instructions">{card.instructions}</span>
         </RoleCardValue>
         <RoleCardValue label="Task limit">{taskLimitLabel(card.taskLimit)}</RoleCardValue>
-        <RoleCardValue label="Sessions">
+        <RoleCardValue label="Session default">
           {SESSION_DEFAULTS[card.sessionDefault].label}
           <span className="role-card-note">
             {SESSION_DEFAULTS[card.sessionDefault].description}

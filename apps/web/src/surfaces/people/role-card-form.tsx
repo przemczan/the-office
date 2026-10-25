@@ -202,7 +202,10 @@ function WorkFields({
         options={taskLimitOptions(options)}
         onChange={(value) => change({ taskLimit: taskLimitOf(value) })}
       />
-      <Field label="Sessions" hint="A Stage's own choice still wins at a Stage boundary.">
+      <Field
+        label="Session default"
+        hint="What a Thread does once its cache has cooled, an hour after the last call. A Stage's own choice still wins at a Stage boundary."
+      >
         <RadioGroup
           value={draft.sessionDefault}
           options={sessionDefaultSchema.options.map((choice) => ({

@@ -44,7 +44,7 @@ describe("the Role card's words", () => {
         { field: "sessionDefault", from: "context-policy", to: "always-start-fresh" },
         roleTitles,
       ),
-    ).toBe("Sessions Context policy → Always start fresh");
+    ).toBe("Session default Context policy → Always start fresh");
     expect(changeLine({ field: "capabilities.chat", from: false, to: true }, roleTitles)).toBe(
       "Chat off → on",
     );

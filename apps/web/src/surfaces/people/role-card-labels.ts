@@ -64,11 +64,11 @@ export const SESSION_DEFAULTS: Readonly<
   },
   "always-start-fresh": {
     label: "Always start fresh",
-    description: "Every new session starts from a Brief",
+    description: "Starts fresh with a Brief once the cache has cooled",
   },
   "prefer-to-continue": {
     label: "Prefer to continue",
-    description: "Continues the Thread's session whenever it can",
+    description: "Continues the Thread's session even once the cache has cooled",
   },
 };
 
@@ -101,7 +101,7 @@ const FIELD_LABELS: Readonly<Record<RoleCardField, string>> = {
   model: "Model",
   effort: "Effort",
   taskLimit: "Task limit",
-  sessionDefault: "Sessions",
+  sessionDefault: "Session default",
   "capabilities.sharedMemory": "Shared memory",
   "capabilities.chat": "Chat",
   "capabilities.consultant": "Consultant",
