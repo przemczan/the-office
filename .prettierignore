@@ -1,0 +1,10 @@
+# Prettier checks code and config only; Markdown is left as written.
+*.md
+
+# Kept exactly as exported, so it can be re-exported from claude.ai.
+design-system/
+
+# Out of the check until task 01 step 8 is committed; a formatting-only commit then brings it in.
+tools/engine-check/
+
+package-lock.json

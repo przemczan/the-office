@@ -8,6 +8,13 @@
     "tools/*"
   ],
   "scripts": {
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test",
+    "typecheck": "tsc -p . && npm run typecheck --workspaces --if-present",
+    "lint": "oxlint",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,json,css,yaml,yml}\"",
+    "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,json,css,yaml,yml}\"",
+    "test": "npm run test:engine-check",
+    "test:engine-check": "npm run test --workspace @the-office/engine-check",
     "engine-check": "npm run check --workspace @the-office/engine-check --"
   },
   "engines": {
@@ -15,6 +22,10 @@
   },
   "devDependencies": {
     "@types/node": "22.20.5",
-    "typescript": "7.0.2"
+    "oxlint": "1.89.0",
+    "prettier": "3.9.10",
+    "typescript": "7.0.2",
+    "vite": "8.3.5",
+    "vitest": "5.0.5"
   }
 }
