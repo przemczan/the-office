@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { Logger, type INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module.js";
@@ -7,9 +8,13 @@ import { configureHttp } from "./platform/http/configure-http.js";
 import { currentOperatingSystem } from "./platform/os/current-operating-system.js";
 import { OfficeLogger } from "./platform/telemetry/office-logger.js";
 import type { StartedTelemetry } from "./platform/telemetry/start-telemetry.js";
+import type { WebAppSource } from "./platform/web-app/web-app.module.js";
 
 // Tier 1 serves this machine alone (spec §5.1).
 const LOCALHOST = "127.0.0.1";
+
+// apps/web, from this file in src/ or dist/.
+const WEB_APP_DIRECTORY = fileURLToPath(new URL("../../web/", import.meta.url));
 
 const SHUTDOWN_SIGNALS = ["SIGINT", "SIGTERM"] as const;
 
@@ -50,9 +55,12 @@ function closeOnShutdownSignal(app: INestApplication, telemetry: StartedTelemetr
   for (const signal of SHUTDOWN_SIGNALS) process.on(signal, close);
 }
 
-async function start(telemetry: StartedTelemetry): Promise<void> {
+async function start(telemetry: StartedTelemetry, webApp: WebAppSource): Promise<void> {
   const config = readConfig();
-  const app = await NestFactory.create(AppModule.register(config), { abortOnError: false });
+  const app = await NestFactory.create(
+    AppModule.register(config, { directory: WEB_APP_DIRECTORY, source: webApp }),
+    { abortOnError: false },
+  );
   await serve(app, config.port);
   closeOnShutdownSignal(app, telemetry);
 }
@@ -63,11 +71,11 @@ function describeStartFailure(error: unknown): string {
 }
 
 /** Starts The Office; a failure to start is logged and ends the process with exit code 1. */
-export async function runOffice(telemetry: StartedTelemetry): Promise<void> {
+export async function runOffice(telemetry: StartedTelemetry, webApp: WebAppSource): Promise<void> {
   // Before anything logs, so a start failure is exported too; Nest and every Logger use it.
   Logger.overrideLogger(new OfficeLogger());
   try {
-    await start(telemetry);
+    await start(telemetry, webApp);
   } catch (error) {
     logger.fatal(describeStartFailure(error));
     process.exitCode = 1;

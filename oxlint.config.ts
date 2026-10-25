@@ -28,6 +28,8 @@ export default defineConfig({
     "office/module-boundaries": "error",
     "office/operating-system-branches": "error",
     "import/no-cycle": "error",
+    // A stylesheet is imported for what it adds to the page.
+    "import/no-unassigned-import": ["error", { allow: ["**/*.css"] }],
     // JSX compiles with the automatic runtime, which needs no React in scope.
     "react/react-in-jsx-scope": "off",
   },

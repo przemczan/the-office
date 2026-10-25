@@ -1,7 +1,8 @@
 import { z } from "zod";
+import { API_PATH } from "./api.js";
 
 /** Where the web opens its WebSocket to the service. */
-export const EVENTS_PATH = "/api/events";
+export const EVENTS_PATH = `${API_PATH}/events`;
 
 const eventTypesSchema = z.array(z.string().min(1)).min(1);
 

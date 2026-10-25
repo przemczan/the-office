@@ -1,7 +1,4 @@
-import { startTelemetry } from "./platform/telemetry/start-telemetry.js";
+import { launch } from "./launch.js";
 
-// Telemetry starts before the service is imported, so its instrumentations patch the modules the
-// service loads. Import nothing else here.
-const telemetry = await startTelemetry();
-const { runOffice } = await import("./office.js");
-await runOffice(telemetry);
+// The service with the web app as `npm run build` left it.
+await launch("built");

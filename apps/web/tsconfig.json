@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    // As vite.config.ts resolves them: workspace packages from their src/.
+    "customConditions": ["source"],
+    "jsx": "react-jsx",
+    "types": ["node", "vite/client"],
+    "noEmit": true,
+    // packages/ui imports its own files with .ts, for Node to load its vite.ts.
+    "allowImportingTsExtensions": true
+  },
+  "include": ["src", "vite.config.ts", "vitest.config.ts"]
+}
