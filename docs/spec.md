@@ -335,4 +335,5 @@ Added while building tier 1, accepted by the user on 2026-10-25:
 
 - **Only The Office's own pages reach the service:** the `Host` and `Origin` checks of [5.1](#51-shape), for HTTP and WebSocket alike. A request with no `Origin` (a local tool such as `curl`) passes the `Origin` check; the threat model leaves local processes out.
 - **Install inputs:** a Project lists the files whose change makes a worktree install again (a lockfile, say), given when it is added and edited on its page beside the install command. A worktree installs when it is created and again when the install command or one of those files changes; with none listed, once.
+- **A skill's new version waits for review too:** a saved change that changes its files turns it back to off, waiting for review, as a new skill arrives; turning it on again is one click. Running sessions keep the version they started with.
 - **The base branch's upstream** is where the freshly fetched base comes from: worktrees start at the remote branch it tracks, fetched first. A base branch that tracks nothing is used as it is, unfetched, and the environment check says so.

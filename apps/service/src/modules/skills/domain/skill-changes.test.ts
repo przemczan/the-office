@@ -1,0 +1,133 @@
+import { describe, expect, it } from "vitest";
+import { aNewSkill, aSkill } from "./skill.fixtures.js";
+import {
+  addSkill,
+  changeEveryone,
+  removeSkill,
+  saveVersion,
+  turnOff,
+  turnOn,
+} from "./skill-changes.js";
+import {
+  SkillAdded,
+  SkillEveryoneChanged,
+  SkillRemoved,
+  SkillTurnedOff,
+  SkillTurnedOn,
+  SkillVersionSaved,
+} from "./skill-events.js";
+import { SkillRefused } from "./skill-refused.js";
+
+const at = new Date("2026-10-25T10:00:00.000Z");
+const otherHash = "b".repeat(64);
+
+describe("addSkill", () => {
+  it("adds version 1, waiting for review and for nobody yet", () => {
+    const { skill, event } = addSkill(
+      aNewSkill({ name: " tdd ", description: " Test first. " }),
+      otherHash,
+      at,
+    );
+
+    expect(skill).toEqual({
+      name: "tdd",
+      description: "Test first.",
+      source: "written",
+      version: 1,
+      filesHash: otherHash,
+      state: "waiting-for-review",
+      everyone: false,
+      addedAt: at,
+      savedAt: at,
+    });
+    expect(event).toEqual(new SkillAdded(skill));
+  });
+
+  it("refuses with every reason", () => {
+    expect(() => addSkill(aNewSkill({ name: "", description: "" }), otherHash, at)).toThrow(
+      new SkillRefused([
+        "Give the skill a name.",
+        "Give the skill a description: when to use it, in one sentence.",
+      ]),
+    );
+  });
+});
+
+describe("saveVersion", () => {
+  it("makes the next version and sends an on skill back to review", () => {
+    const skill = aSkill({ state: "on", everyone: true });
+
+    const saved = saveVersion(skill, "Writes the release notes.", otherHash, at);
+
+    expect(saved?.skill).toEqual({
+      ...skill,
+      description: "Writes the release notes.",
+      version: 2,
+      filesHash: otherHash,
+      state: "waiting-for-review",
+      savedAt: at,
+    });
+    expect(saved?.event).toEqual(new SkillVersionSaved(saved!.skill));
+  });
+
+  it("changes nothing when the files are the current version's", () => {
+    const skill = aSkill({ state: "on" });
+
+    expect(saveVersion(skill, skill.description, skill.filesHash, at)).toBeUndefined();
+  });
+
+  it("refuses a description that breaks the rules", () => {
+    expect(() => saveVersion(aSkill(), "", otherHash, at)).toThrow(SkillRefused);
+  });
+});
+
+describe("turnOn", () => {
+  it.each(["waiting-for-review", "off"] as const)("turns on a skill that is %s", (state) => {
+    const skill = aSkill({ state, version: 3 });
+
+    expect(turnOn(skill)).toEqual({
+      skill: { ...skill, state: "on" },
+      event: new SkillTurnedOn(skill.name, 3),
+    });
+  });
+
+  it("changes nothing for a skill already on", () => {
+    expect(turnOn(aSkill({ state: "on" }))).toBeUndefined();
+  });
+});
+
+describe("turnOff", () => {
+  it("turns off a skill that is on", () => {
+    const skill = aSkill({ state: "on" });
+
+    expect(turnOff(skill)).toEqual({
+      skill: { ...skill, state: "off" },
+      event: new SkillTurnedOff(skill.name),
+    });
+  });
+
+  it.each(["waiting-for-review", "off"] as const)("changes nothing for a skill %s", (state) => {
+    expect(turnOff(aSkill({ state }))).toBeUndefined();
+  });
+});
+
+describe("changeEveryone", () => {
+  it("marks a skill for everyone", () => {
+    const skill = aSkill();
+
+    expect(changeEveryone(skill, true)).toEqual({
+      skill: { ...skill, everyone: true },
+      event: new SkillEveryoneChanged(skill.name, true),
+    });
+  });
+
+  it("changes nothing when it already is", () => {
+    expect(changeEveryone(aSkill({ everyone: true }), true)).toBeUndefined();
+  });
+});
+
+describe("removeSkill", () => {
+  it("announces the removal", () => {
+    expect(removeSkill(aSkill())).toEqual(new SkillRemoved("release-notes"));
+  });
+});

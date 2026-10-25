@@ -1,0 +1,89 @@
+/** How a skill came into the library; installing from a source is tier 2. */
+export const SKILL_SOURCES = ["written", "uploaded-file", "uploaded-folder"] as const;
+export type SkillSource = (typeof SKILL_SOURCES)[number];
+
+/**
+ * Whether sessions get the skill. Every new version waits for review, and only the user's
+ * review turns it on (spec §2.6, §9).
+ */
+export const SKILL_STATES = ["waiting-for-review", "on", "off"] as const;
+export type SkillState = (typeof SKILL_STATES)[number];
+
+/** A skill in The Office's library, at its current version. */
+export interface Skill {
+  /** The skill's folder in the library and in a session's plugin, so it is kept as given. */
+  readonly name: string;
+  /** What every session that has the skill lists, so it is short (spec §2.6). */
+  readonly description: string;
+  readonly source: SkillSource;
+  /** Counts the saved changes, from 1. */
+  readonly version: number;
+  /** The current version's files hash (`skillFilesHash`). */
+  readonly filesHash: string;
+  readonly state: SkillState;
+  /** Comes with every Role, besides the skills a Role card names. */
+  readonly everyone: boolean;
+  readonly addedAt: Date;
+  /** When the current version was saved. */
+  readonly savedAt: Date;
+}
+
+/** What makes a new skill; the rest is set by The Office. */
+export type NewSkill = Pick<Skill, "name" | "description" | "source">;
+
+/** The engine's own limit on a skill's name. */
+const NAME_LENGTH = 64;
+/**
+ * Well under the engine's 1,536 characters per entry, so a session's listing keeps every
+ * description within its budget of about 1% of the context window (8,000 characters at 200k).
+ */
+export const DESCRIPTION_LENGTH = 200;
+const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+/** Names Windows keeps for devices, which no folder can take. */
+const DEVICE_NAMES = /^(?:con|prn|aux|nul|com[0-9]|lpt[0-9])$/;
+
+/** The new skill as it is kept: without the spaces around what the user typed. */
+export function trimmedNewSkill(skill: NewSkill): NewSkill {
+  return { name: skill.name.trim(), description: skill.description.trim(), source: skill.source };
+}
+
+/** Why a skill can't be called `name`, in the UI's words; empty when it can. */
+export function skillNameProblems(name: string): string[] {
+  if (name === "") return ["Give the skill a name."];
+  const problems: string[] = [];
+  if (!NAME.test(name)) {
+    problems.push(
+      "A skill's name is lowercase letters and digits in words joined by dashes, such as release-notes.",
+    );
+  }
+  if (name.length > NAME_LENGTH) {
+    problems.push(`A skill's name may be at most ${NAME_LENGTH} characters.`);
+  }
+  if (DEVICE_NAMES.test(name)) {
+    problems.push(`"${name}" is a name Windows keeps for a device; choose another.`);
+  }
+  return problems;
+}
+
+/** Why a skill can't have `description`, in the UI's words; empty when it can. */
+export function skillDescriptionProblems(description: string): string[] {
+  if (description === "") return ["Give the skill a description: when to use it, in one sentence."];
+  const problems: string[] = [];
+  if (/[\r\n]/.test(description)) problems.push("A skill's description must be one line.");
+  if (description.length > DESCRIPTION_LENGTH) {
+    problems.push(
+      `A skill's description may be at most ${DESCRIPTION_LENGTH} characters: every session that has it lists it.`,
+    );
+  }
+  return problems;
+}
+
+/** Why a new skill can't be saved, with every reason. */
+export function newSkillProblems(skill: NewSkill): string[] {
+  return [...skillNameProblems(skill.name), ...skillDescriptionProblems(skill.description)];
+}
+
+/** Why a skill can't be added under a name the library already has. */
+export function skillNameTaken(name: string): string {
+  return `The library already has ${name}.`;
+}

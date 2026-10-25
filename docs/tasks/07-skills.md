@@ -1,6 +1,6 @@
 # 07 · Skills: the library and each session's skills
 
-Status: todo
+Status: in progress
 
 ## Goal
 
@@ -26,7 +26,7 @@ Build from Settings → Skills: the library table (skill, source, who has it, st
 
 ## Steps
 
-- [ ] 1. Skills module domain and persistence: skill record (name, description, source, version, enabled, files hash), versions, the "everyone" flag, the library folder under the Office data directory; rules for names and descriptions (short, since the listing gets about 1% of the context). Commit.
+- [x] 1. Skills module domain and persistence: skill record (name, description, source, version, enabled, files hash), versions, the "everyone" flag, the library folder under the Office data directory; rules for names and descriptions (short, since the listing gets about 1% of the context). Commit.
 - [ ] 2. Adding: upload (`.md`, zip) and write in place, with link and path checks; arrive off; review shows the files and flags scripts; turn on, turn off, remove. Commit.
 - [ ] 3. The session folder builder and the session options it returns (allowlist, settings, Project skill overrides, the suffix check), with cleanup and rebuild from recorded versions. Commit.
 - [ ] 4. The start check in the Engine adapter: compare `init` and `getContextUsage()` with the expected set, refuse with the difference. Commit.
@@ -36,3 +36,4 @@ Build from Settings → Skills: the library table (skill, source, who has it, st
 ## Progress
 
 <!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next; anything surprising. -->
+- 2026-10-25 · step 1: the Skills module: the skill record (name, description, source, version, files hash, state on/off/waiting for review, everyone) and every version in Postgres (`skills`, `skill_versions`), the name and description rules (the engine's 64-character name, lowercase words joined by dashes, no Windows device names; a one-line description of at most 200 characters, so a session's listing keeps every description in its budget), the files hash (sorted `/` paths with each file's SHA-256, pinned by a test so both systems agree) and the library folder `<office-data>/skills/<name>/<files hash>/`, each version written whole and never changed, links refused on reading. Removing a skill forgets its records but leaves its files for step 3's cleanup, since a resumable session may still need them. Asked the user: a new version goes back to waiting for review, as a new skill does (spec §9 amended). Next: step 2, adding by upload and writing, with the link and path checks, review, on, off and remove; the SKILL.md frontmatter must name the skill and hold its description (and no `when_to_use`, which the listing would add).
