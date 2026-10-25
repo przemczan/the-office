@@ -1,0 +1,49 @@
+import { parse, stringify } from "yaml";
+
+/** What a SKILL.md says: its frontmatter, and the instructions after it. */
+export interface SkillMd {
+  readonly frontmatter: Readonly<Record<string, unknown>>;
+  readonly instructions: string;
+}
+
+/** The frontmatter block as Claude Code 2.1.310 finds it: `---` lines around YAML, at the top. */
+const FRONTMATTER = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
+
+/**
+ * Reads a SKILL.md, or returns why it can't be read: the engine would drop frontmatter it can't
+ * parse, and the skill would be listed without its description.
+ */
+export function readSkillMd(text: string): SkillMd | string {
+  const withoutBom = text.replace(/^﻿/, "");
+  const match = FRONTMATTER.exec(withoutBom);
+  if (!match) {
+    return withoutBom.startsWith("---")
+      ? "SKILL.md opens its frontmatter with --- but never closes it."
+      : { frontmatter: {}, instructions: withoutBom.trim() };
+  }
+  let frontmatter: unknown;
+  try {
+    frontmatter = parse(match[1] ?? "", { maxAliasCount: 0 }) ?? {};
+  } catch (error) {
+    return `SKILL.md's frontmatter is not YAML: ${(error as Error).message.split("\n")[0]}`;
+  }
+  if (typeof frontmatter !== "object" || Array.isArray(frontmatter)) {
+    return "SKILL.md's frontmatter is a list or a single value, not keys and values.";
+  }
+  return {
+    frontmatter: frontmatter as Record<string, unknown>,
+    instructions: withoutBom.slice(match[0].length).trim(),
+  };
+}
+
+/** The SKILL.md of a skill written in The Office. */
+export function writtenSkillMd(name: string, description: string, instructions: string): string {
+  const frontmatter = stringify({ name, description }, { lineWidth: 0 });
+  return `---\n${frontmatter}---\n\n${instructions.trim()}\n`;
+}
+
+/** A frontmatter value as text, or undefined when it is missing or not text. */
+export function frontmatterText(skillMd: SkillMd, key: string): string | undefined {
+  const value = skillMd.frontmatter[key];
+  return typeof value === "string" ? value : undefined;
+}

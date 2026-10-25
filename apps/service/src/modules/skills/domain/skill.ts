@@ -1,3 +1,5 @@
+import { isWindowsDeviceName } from "./skill-files.js";
+
 /** How a skill came into the library; installing from a source is tier 2. */
 export const SKILL_SOURCES = ["written", "uploaded-file", "uploaded-folder"] as const;
 export type SkillSource = (typeof SKILL_SOURCES)[number];
@@ -39,8 +41,6 @@ const NAME_LENGTH = 64;
  */
 export const DESCRIPTION_LENGTH = 200;
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
-/** Names Windows keeps for devices, which no folder can take. */
-const DEVICE_NAMES = /^(?:con|prn|aux|nul|com[0-9]|lpt[0-9])$/;
 
 /** The new skill as it is kept: without the spaces around what the user typed. */
 export function trimmedNewSkill(skill: NewSkill): NewSkill {
@@ -59,7 +59,8 @@ export function skillNameProblems(name: string): string[] {
   if (name.length > NAME_LENGTH) {
     problems.push(`A skill's name may be at most ${NAME_LENGTH} characters.`);
   }
-  if (DEVICE_NAMES.test(name)) {
+  // The name is a folder in the library and in each session's plugin.
+  if (isWindowsDeviceName(name)) {
     problems.push(`"${name}" is a name Windows keeps for a device; choose another.`);
   }
   return problems;

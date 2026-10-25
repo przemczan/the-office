@@ -1,3 +1,4 @@
+export { SkillLibrary } from "./application/skill-library.js";
 export {
   SkillAdded,
   SkillEveryoneChanged,

@@ -12,6 +12,12 @@ export const SKILL_MD = "SKILL.md";
 
 /** Characters Windows refuses in a file name, besides `/` and `\`, which separate folders. */
 const UNPORTABLE = /[<>:"|?*\p{Cc}]/u;
+const DEVICE_NAMES = /^(?:con|prn|aux|nul|com[0-9]|lpt[0-9])$/i;
+
+/** Whether Windows keeps the name for a device, whatever its extension: `nul` and `NUL.txt` alike. */
+export function isWindowsDeviceName(name: string): boolean {
+  return DEVICE_NAMES.test(name.split(".")[0] ?? "");
+}
 
 /**
  * Identifies a version by its files alone, the same on every system: each path, sorted by its
@@ -43,7 +49,9 @@ export function skillFilePathProblem(path: string): string | undefined {
   }
   const names = path.split("/");
   if (names.some((name) => name === "" || name === "." || name === "..")) return outside;
-  if (names.some((name) => UNPORTABLE.test(name) || /[. ]$/.test(name))) {
+  if (
+    names.some((name) => UNPORTABLE.test(name) || /[. ]$/.test(name) || isWindowsDeviceName(name))
+  ) {
     return `"${path}" can't be a file name on Windows.`;
   }
   return undefined;

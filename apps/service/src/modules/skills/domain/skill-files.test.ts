@@ -47,7 +47,7 @@ describe("skillFilePathProblem", () => {
     },
   );
 
-  it.each(["notes:b.md", "what?.md", "notes.", "notes ", "tab\there"])(
+  it.each(["notes:b.md", "what?.md", "notes.", "notes ", "tab\there", "aux.md", "scripts/CON.sh"])(
     "refuses %j, which Windows can't name",
     (path) => {
       expect(skillFilePathProblem(path)).toBe(`"${path}" can't be a file name on Windows.`);
