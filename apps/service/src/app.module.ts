@@ -1,4 +1,5 @@
 import { Module, type DynamicModule } from "@nestjs/common";
+import { PipelinesModule } from "./modules/pipelines/index.js";
 import type { OfficeConfig } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
 import { EventsModule } from "./platform/events/events.module.js";
@@ -17,6 +18,7 @@ export class AppModule {
         EventsModule,
         EventStreamModule,
         HealthModule,
+        PipelinesModule,
         TelemetryModule,
         WebAppModule.register(webApp),
       ],
