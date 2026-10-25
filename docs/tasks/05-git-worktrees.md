@@ -1,6 +1,6 @@
 # 05 · Git, worktrees and the environment check
 
-Status: todo
+Status: in progress
 
 ## Goal
 
@@ -23,7 +23,7 @@ The Office owns git for every Project: worktrees at stable paths, branches, comm
 
 ## Steps
 
-- [ ] 1. A per-repository mutex keyed by the common git directory, and a git adapter behind a port in the Projects module: fetch, worktree add and remove, branch, commit, HEAD and branch read, restore, discard, with tests on a temp repository. Commit.
+- [x] 1. A per-repository mutex keyed by the common git directory, and a git adapter behind a port in the Projects module: fetch, worktree add and remove, branch, commit, HEAD and branch read, restore, discard, with tests on a temp repository. Commit.
 - [ ] 2. Task worktrees: the stable path under the Office data directory, created on the freshly fetched base branch; dependencies installed per worktree and skipped while the install command and its input files are unchanged. Commit.
 - [ ] 3. The environment as data on the Project (stored outside the checkout) and one command runner that applies it to every command, runs it in the platform's shell (`cmd.exe` or PowerShell on Windows, `sh` on Linux; `prependPath` with the platform's separator), filters output to failure markers with context plus the tail (capped), and detects commands that could not run. Commit.
 - [ ] 4. The environment check: a throwaway worktree of the base branch, install, build, lint and test in order, results as checks, the environment saved only on success, the worktree removed afterwards; events for each check. Commit.
@@ -33,3 +33,4 @@ The Office owns git for every Project: worktrees at stable paths, branches, comm
 ## Progress
 
 <!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next; anything surprising. -->
+- 2026-10-25 · step 1: `RepositoryLocks` and `CommandLineGit` behind the `Git` port: fetch (into `refs/remotes/<remote>/<branch>`), push (never forced), worktree add (new branch or detached) and remove (prune when the folder is gone), commit (everything, message on stdin, `--no-verify`: a Project's hooks are its own tooling, run as Stages), HEAD and branch, restore (tracked files only, so screenshots survive) and discard (tracked and untracked, ignored files such as dependencies stay). Push was added here because the DoD's concurrency check names it; commits take the lock too, since a branch's ref lives with the shared refs. The lock key is git's `--path-format=absolute --git-common-dir` through `realpath`, so the main checkout and a worktree name it alike. The remote is a parameter; step 2 decides which one. Next: step 2, Task worktrees. Surprising: the user's global `core.autocrlf=true` reached the temp repositories, so the fixture turns it off.

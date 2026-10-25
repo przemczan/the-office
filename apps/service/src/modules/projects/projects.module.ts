@@ -1,5 +1,6 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
 import { CommandLineGit } from "./adapters/git/command-line-git.js";
+import { RepositoryLocks } from "./adapters/git/repository-locks.js";
 import { ProjectsController } from "./adapters/http/projects.controller.js";
 import { PostgresProjectRepository } from "./adapters/postgres/postgres-project-repository.js";
 import { ProjectWebEvents } from "./adapters/websocket/project-web-events.js";
@@ -25,6 +26,7 @@ export class ProjectsModule {
       providers: [
         { provide: ProjectRepository, useClass: PostgresProjectRepository },
         { provide: Git, useClass: CommandLineGit },
+        RepositoryLocks,
         { provide: KnownPipelines, useExisting: knownPipelines },
         ProjectChecks,
         ProjectService,

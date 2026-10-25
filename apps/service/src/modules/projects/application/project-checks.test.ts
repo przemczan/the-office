@@ -22,6 +22,20 @@ class FakeGit extends Git {
   async hasBranch(_repositoryPath: string, branch: string): Promise<boolean> {
     return this.branches.includes(branch);
   }
+
+  // The checks only read the repository.
+  fetch = notUsed;
+  push = notUsed;
+  addWorktree = notUsed;
+  removeWorktree = notUsed;
+  commit = notUsed;
+  head = notUsed;
+  restore = notUsed;
+  discard = notUsed;
+}
+
+function notUsed(): never {
+  throw new Error("The checks change nothing in git.");
 }
 
 class FakePipelines extends KnownPipelines {
