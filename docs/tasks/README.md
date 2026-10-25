@@ -31,7 +31,7 @@ Choices the spec leaves open, made when tier 1 was sliced. Change one only with 
 - **Windows and Linux:** The Office runs on both ([spec §5.1](../spec.md#51-shape)). Operating-system differences live only in the service's `src/platform/os/`. `npm run verify` passes on both: on the Windows workstation, Linux is checked with `npm run verify:linux`, which runs the same checks in a `node:22` container. A task's check with real sessions runs on Linux too when a Linux system with the user signed in to Claude Code is available (a WSL distribution or another machine); the task asks the user.
 - **Workspace:** npm workspaces; Node 22 pinned in `.nvmrc` and `engines`. Layout:
   - `apps/service`: the NestJS service. Each module of [spec §5.3](../spec.md#53-modules) is `src/modules/<module>/` with `domain/`, `application/`, `ports/` and `adapters/`; shared plumbing (config, database, domain events, telemetry, WebSocket) is `src/platform/`.
-  - `apps/web`: React + Vite, `src/shell/` and `src/surfaces/<surface>/`.
+  - `apps/web`: React + Vite, `src/shell/`, `src/surfaces/<surface>/` and `src/api/` (the service's API and event stream).
   - `packages/contracts`: the HTTP and WebSocket contract (zod schemas and their types), the one thing the service and the web share.
   - `packages/ui`: the design system for React. A typed barrel over `design-system/components/**` (the `.jsx` files with their `.d.ts`), plus the theme layers. `design-system/` itself stays as exported, so it can be re-exported from claude.ai.
   - `tools/engine-check`: the engine check from task 01, re-run on every SDK bump.

@@ -12,7 +12,9 @@ const SERVICE_MAIN = fileURLToPath(new URL("../../service/dist/main.js", import.
 
 const environment = { ...readEnvFile(), ...process.env };
 const serverUrl = new URL(required("DATABASE_URL"));
-const databaseName = `${serverUrl.pathname.slice(1)}_e2e`;
+// One per address the server is reached at, so the workstation (127.0.0.1) and the verify-linux
+// container (postgres) can run at once on the same compose Postgres without dropping each other's.
+const databaseName = `${serverUrl.pathname.slice(1)}_e2e_${serverUrl.hostname.replace(/\W/g, "_")}`;
 
 await recreateDatabase(serverUrl, databaseName);
 const service = spawn(process.execPath, ["--enable-source-maps", SERVICE_MAIN], {

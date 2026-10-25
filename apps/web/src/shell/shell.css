@@ -267,25 +267,7 @@ body,
   }
 }
 
-/* ---- the palette menu's swatches, in the palettes' own surface colours */
-.palette-swatch {
-  display: block;
-  width: 14px;
-  height: 14px;
-  border: 1px solid;
-  border-radius: 4px;
-}
-
-.palette-swatch-light {
-  background: var(--white);
-  border-color: var(--gray-200);
-}
-
-.palette-swatch-dark {
-  background: var(--gray-900);
-  border-color: var(--gray-700);
-}
-
+/* ---- the palette menu */
 .palette-option {
   display: flex;
   align-items: center;

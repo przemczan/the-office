@@ -1,4 +1,12 @@
-import { Icon, Menu, PALETTES, Tooltip, useAppearance, type Palette } from "@the-office/ui";
+import {
+  Icon,
+  Menu,
+  PALETTES,
+  PaletteSwatch,
+  Tooltip,
+  useAppearance,
+  type Palette,
+} from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 
 const PALETTE_IDS = Object.keys(PALETTES) as Palette[];
@@ -25,7 +33,7 @@ export function PaletteMenu(): ReactNode {
         items={[
           { heading: "Palette" },
           ...PALETTE_IDS.map((id) => ({
-            icon: <span className={`palette-swatch palette-swatch-${id}`} />,
+            icon: <PaletteSwatch palette={id} />,
             label: (
               <span className="palette-option">
                 {PALETTES[id].name}

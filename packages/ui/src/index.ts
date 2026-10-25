@@ -23,6 +23,7 @@ if (typeof window !== "undefined") window.lucide = { icons };
 
 export { PALETTES, type Palette } from "./appearance/apply-appearance.ts";
 export type { Appearance } from "./appearance/appearance-store.ts";
+export { PaletteSwatch } from "./appearance/palette-swatch.tsx";
 export { useAppearance } from "./appearance/use-appearance.ts";
 
 export {
