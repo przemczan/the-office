@@ -5,7 +5,7 @@ The Office's one Node service ([spec §5.1](../../docs/spec.md#51-shape)): NestJ
 - `src/main.ts` (`npm start`) and `src/dev.ts` (`npm run dev`) call `launch.ts` with where the web app comes from; it starts telemetry and then loads `office.ts`, so the instrumentations patch what loads after, and imports nothing else.
 - `src/office.ts` reads the config, starts the app and stops it on a signal.
 - `src/app.module.ts` is the composition root: the platform and every module's Nest module.
-- `src/platform/` is shared plumbing: config, database, domain events, HTTP, the WebSocket push, telemetry, `web-app/` (the pages on every path outside `/api`, behind the same localhost and Origin checks), and `os/`, the only code that branches on the operating system.
+- `src/platform/` is shared plumbing: config, database, domain events, HTTP, `office-data/` (the Office data directory), the WebSocket push, telemetry, `web-app/` (the pages on every path outside `/api`, behind the same localhost and Origin checks), and `os/`, the only code that branches on the operating system.
 - `src/modules/<module>/` holds one module each, laid out as below.
 
 ## The module template
@@ -49,6 +49,7 @@ oxlint's JS plugins are alpha and not under semver. oxlint is pinned, and the pl
 - **The WebSocket push:** the module's WebSocket adapter calls `WebEventForwarding.forward(EventClass, toWebEvent)` for each event the web sees. The event's schema goes into `packages/contracts`, in the union the web parses. Events nobody forwards stay inside the service.
 - **The database:** Postgres adapters inject the Drizzle client with the `DATABASE` token; no other layer touches it. Tables live in `adapters/**/*.schema.ts`, the glob drizzle-kit reads. `npm run db:generate` writes the migration into `drizzle/`, and the service applies pending migrations at start.
 - **Telemetry:** spans and token counts go through `Telemetry` (`inSpan`, `recordTokens`), never `@opentelemetry/*` directly. HTTP requests and database queries are traced without it. Logs go through Nest's `Logger`, which also exports them.
+- **The Office data directory:** inject `OfficeDataDirectory` and ask it for its `folder("worktrees")`, `"sessions"`, `"skills"` or `"attachments"`.
 - **The operating system:** anything that differs between Windows and Linux comes from `src/platform/os/`: ask `currentOperatingSystem()` for it (the data directory default, path rules, the default shell), never which system it is. A lint rule refuses `process.platform`, `os.platform()` and `os.type()` anywhere else.
 
 ### A business module

@@ -8,6 +8,7 @@ import { ProjectWebEvents } from "./adapters/websocket/project-web-events.js";
 import { ProjectChecks } from "./application/project-checks.js";
 import { ProjectCommandRunner } from "./application/project-command-runner.js";
 import { ProjectService } from "./application/project-service.js";
+import { TaskWorktrees } from "./application/task-worktrees.js";
 import { CommandRunner } from "./ports/command-runner.js";
 import { Git } from "./ports/git.js";
 import { KnownPipelines } from "./ports/known-pipelines.js";
@@ -35,6 +36,7 @@ export class ProjectsModule {
         { provide: KnownPipelines, useExisting: knownPipelines },
         ProjectChecks,
         ProjectService,
+        TaskWorktrees,
         ProjectWebEvents,
       ],
     };

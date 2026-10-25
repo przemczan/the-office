@@ -37,3 +37,34 @@ export async function createTemporaryRepository(): Promise<TemporaryRepository> 
 export function gitIn(cwd: string, ...gitArguments: string[]): string {
   return execFileSync("git", gitArguments, { cwd, encoding: "utf8" }).trim();
 }
+
+/**
+ * Commits `file` on `branch` in the origin, through a clone of its own, as someone else would,
+ * and returns the commit.
+ */
+export async function commitOnOrigin(
+  repository: TemporaryRepository,
+  branch: string,
+  file: string,
+): Promise<string> {
+  const clonePath = join(repository.folder, `clone-${branch}`);
+  gitIn(
+    repository.folder,
+    "clone",
+    "--quiet",
+    "--config",
+    "core.autocrlf=false",
+    repository.originPath,
+    clonePath,
+  );
+  gitIn(clonePath, "config", "user.name", "Someone else");
+  gitIn(clonePath, "config", "user.email", "someone@localhost");
+  gitIn(clonePath, "checkout", "--quiet", "-B", branch);
+  await writeFile(join(clonePath, file), "from the origin\n");
+  gitIn(clonePath, "add", ".");
+  gitIn(clonePath, "commit", "--quiet", "--message", `Add ${file}`);
+  gitIn(clonePath, "push", "--quiet", "origin", branch);
+  const commit = gitIn(clonePath, "rev-parse", "HEAD");
+  await rm(clonePath, { recursive: true, force: true });
+  return commit;
+}

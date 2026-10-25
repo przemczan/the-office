@@ -1,16 +1,20 @@
 import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { GitCommandFailed } from "../../ports/git.js";
+import { GitCommandFailed, type GitVariables, type NewWorktree } from "../../ports/git.js";
 import { CommandLineGit } from "./command-line-git.js";
 import { RepositoryLocks } from "./repository-locks.js";
 import {
+  commitOnOrigin,
   createTemporaryRepository,
   gitIn,
   type TemporaryRepository,
 } from "./temporary-repository.fixtures.js";
 
 const git = new CommandLineGit(new RepositoryLocks());
+const variables: GitVariables = Object.fromEntries(
+  Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
+);
 let repository: TemporaryRepository;
 let firstCommit: string;
 let worktreeCount = 0;
@@ -30,40 +34,24 @@ function aWorktreePath(): string {
   return join(repository.folder, "worktrees", `worktree-${worktreeCount}`);
 }
 
+function detachedAtMain(): NewWorktree {
+  return { path: aWorktreePath(), checkout: { kind: "detached", startPoint: "main" } };
+}
+
 /** A worktree on a new branch at `main`. */
 async function aWorktree(): Promise<{ path: string; branch: string }> {
   const path = aWorktreePath();
   const branch = `office/task-${worktreeCount}`;
-  await git.addWorktree(repository.path, { path, startPoint: "main", branch });
+  await git.addWorktree(
+    repository.path,
+    { path, checkout: { kind: "new-branch", branch, startPoint: "main" } },
+    variables,
+  );
   return { path, branch };
 }
 
 async function exists(path: string): Promise<boolean> {
   return (await stat(path).catch(() => undefined)) !== undefined;
-}
-
-/** Commits `file` on `branch` in the origin, through a clone of its own, and returns the commit. */
-async function commitOnOrigin(branch: string, file: string): Promise<string> {
-  const clonePath = join(repository.folder, `clone-${branch}`);
-  gitIn(
-    repository.folder,
-    "clone",
-    "--quiet",
-    "--config",
-    "core.autocrlf=false",
-    repository.originPath,
-    clonePath,
-  );
-  gitIn(clonePath, "config", "user.name", "Someone else");
-  gitIn(clonePath, "config", "user.email", "someone@localhost");
-  gitIn(clonePath, "checkout", "--quiet", "-B", branch);
-  await writeFile(join(clonePath, file), "from the origin\n");
-  gitIn(clonePath, "add", ".");
-  gitIn(clonePath, "commit", "--quiet", "--message", `Add ${file}`);
-  gitIn(clonePath, "push", "--quiet", "origin", branch);
-  const commit = gitIn(clonePath, "rev-parse", "HEAD");
-  await rm(clonePath, { recursive: true, force: true });
-  return commit;
 }
 
 describe("CommandLineGit.inspect", () => {
@@ -108,14 +96,16 @@ describe("CommandLineGit.hasBranch", () => {
 
 describe("CommandLineGit.fetch", () => {
   it("updates the remote-tracking branch and returns its commit", async () => {
-    const commit = await commitOnOrigin("fetched", "fetched.txt");
+    const commit = await commitOnOrigin(repository, "fetched", "fetched.txt");
 
-    await expect(git.fetch(repository.path, "origin", "fetched")).resolves.toBe(commit);
+    await expect(
+      git.fetch(repository.path, { remote: "origin", branch: "fetched" }, variables),
+    ).resolves.toBe(commit);
     expect(gitIn(repository.path, "rev-parse", "refs/remotes/origin/fetched")).toBe(commit);
   });
 
   it("refuses a branch the remote doesn't have, in git's words", async () => {
-    const fetching = git.fetch(repository.path, "origin", "nowhere");
+    const fetching = git.fetch(repository.path, { remote: "origin", branch: "nowhere" }, variables);
 
     await expect(fetching).rejects.toBeInstanceOf(GitCommandFailed);
     await expect(fetching).rejects.toThrow(/couldn't find remote ref/i);
@@ -126,20 +116,22 @@ describe("CommandLineGit.push", () => {
   it("pushes a local branch to the remote's branch of the same name", async () => {
     const worktree = await aWorktree();
     await writeFile(join(worktree.path, "pushed.txt"), "pushed\n");
-    const commit = await git.commit(worktree.path, "Add pushed.txt");
+    const commit = await git.commit(worktree.path, "Add pushed.txt", variables);
 
-    await git.push(repository.path, "origin", worktree.branch);
+    await git.push(repository.path, "origin", worktree.branch, variables);
 
     expect(gitIn(repository.originPath, "rev-parse", worktree.branch)).toBe(commit);
   });
 
   it("refuses to overwrite commits the remote has and the branch doesn't", async () => {
     const worktree = await aWorktree();
-    await commitOnOrigin(worktree.branch, "theirs.txt");
+    await commitOnOrigin(repository, worktree.branch, "theirs.txt");
     await writeFile(join(worktree.path, "ours.txt"), "ours\n");
-    await git.commit(worktree.path, "Add ours.txt");
+    await git.commit(worktree.path, "Add ours.txt", variables);
 
-    await expect(git.push(repository.path, "origin", worktree.branch)).rejects.toThrow(/rejected/i);
+    await expect(git.push(repository.path, "origin", worktree.branch, variables)).rejects.toThrow(
+      /rejected/i,
+    );
   });
 });
 
@@ -159,17 +151,24 @@ describe("CommandLineGit.addWorktree", () => {
   it("detaches HEAD without a branch", async () => {
     const path = aWorktreePath();
 
-    await git.addWorktree(repository.path, { path, startPoint: "main" });
+    await git.addWorktree(
+      repository.path,
+      { path, checkout: { kind: "detached", startPoint: "main" } },
+      variables,
+    );
 
     await expect(git.head(path)).resolves.toEqual({ commit: firstCommit, branch: undefined });
   });
 
   it("refuses a branch that exists", async () => {
-    const adding = git.addWorktree(repository.path, {
-      path: aWorktreePath(),
-      startPoint: "main",
-      branch: "main",
-    });
+    const adding = git.addWorktree(
+      repository.path,
+      {
+        path: aWorktreePath(),
+        checkout: { kind: "new-branch", branch: "main", startPoint: "main" },
+      },
+      variables,
+    );
 
     await expect(adding).rejects.toThrow(/already exists/i);
   });
@@ -180,7 +179,7 @@ describe("CommandLineGit.removeWorktree", () => {
     const worktree = await aWorktree();
     await writeFile(join(worktree.path, "unsaved.txt"), "unsaved\n");
 
-    await git.removeWorktree(repository.path, worktree.path);
+    await git.removeWorktree(repository.path, worktree.path, variables);
 
     expect(await exists(worktree.path)).toBe(false);
     expect(gitIn(repository.path, "worktree", "list")).not.toContain(worktree.path);
@@ -191,7 +190,7 @@ describe("CommandLineGit.removeWorktree", () => {
     const worktree = await aWorktree();
     await rm(worktree.path, { recursive: true, force: true });
 
-    await git.removeWorktree(repository.path, worktree.path);
+    await git.removeWorktree(repository.path, worktree.path, variables);
 
     expect(gitIn(repository.path, "worktree", "list", "--porcelain")).not.toMatch(
       `worktree-${worktreeCount}`,
@@ -206,7 +205,7 @@ describe("CommandLineGit.commit", () => {
     await writeFile(join(worktree.path, "new.txt"), "new\n");
     const message = 'Implement: "quotes", $dollars and `ticks`\n\nA body on its own line.';
 
-    const commit = await git.commit(worktree.path, message);
+    const commit = await git.commit(worktree.path, message, variables);
 
     expect(commit).toMatch(/^[0-9a-f]{40}$/);
     await expect(git.head(worktree.path)).resolves.toEqual({ commit, branch: worktree.branch });
@@ -217,7 +216,7 @@ describe("CommandLineGit.commit", () => {
   it("commits nothing when nothing changed", async () => {
     const worktree = await aWorktree();
 
-    await expect(git.commit(worktree.path, "Nothing")).resolves.toBeUndefined();
+    await expect(git.commit(worktree.path, "Nothing", variables)).resolves.toBeUndefined();
     await expect(git.head(worktree.path)).resolves.toMatchObject({ commit: firstCommit });
   });
 
@@ -228,7 +227,7 @@ describe("CommandLineGit.commit", () => {
     await writeFile(join(worktree.path, "hooked.txt"), "hooked\n");
 
     try {
-      await expect(git.commit(worktree.path, "Despite the hook")).resolves.toBeDefined();
+      await expect(git.commit(worktree.path, "Despite the hook", variables)).resolves.toBeDefined();
     } finally {
       await rm(hook);
     }
@@ -241,7 +240,7 @@ describe("CommandLineGit.restore", () => {
     await writeFile(join(worktree.path, "src", "index.ts"), "export const broken = true;\n");
     await writeFile(join(worktree.path, "screenshot.png"), "a screenshot");
 
-    await expect(git.restore(worktree.path)).resolves.toEqual(["src/index.ts"]);
+    await expect(git.restore(worktree.path, variables)).resolves.toEqual(["src/index.ts"]);
 
     await expect(readFile(join(worktree.path, "src", "index.ts"), "utf8")).resolves.toBe(
       "export {};\n",
@@ -252,7 +251,7 @@ describe("CommandLineGit.restore", () => {
   it("changes nothing in a clean worktree", async () => {
     const worktree = await aWorktree();
 
-    await expect(git.restore(worktree.path)).resolves.toEqual([]);
+    await expect(git.restore(worktree.path, variables)).resolves.toEqual([]);
   });
 });
 
@@ -260,19 +259,90 @@ describe("CommandLineGit.discard", () => {
   it("drops tracked and untracked changes and keeps ignored files", async () => {
     const worktree = await aWorktree();
     await writeFile(join(worktree.path, ".gitignore"), "node_modules/\n");
-    await git.commit(worktree.path, "Ignore dependencies");
+    await git.commit(worktree.path, "Ignore dependencies", variables);
     await mkdir(join(worktree.path, "node_modules"));
     await writeFile(join(worktree.path, "node_modules", "dependency.js"), "");
     await writeFile(join(worktree.path, "src", "index.ts"), "export const half = true;\n");
     await mkdir(join(worktree.path, "src", "half-done"));
     await writeFile(join(worktree.path, "src", "half-done", "file name.ts"), "");
 
-    const dropped = await git.discard(worktree.path);
+    const dropped = await git.discard(worktree.path, variables);
 
     expect(dropped.toSorted()).toEqual(["src/half-done/file name.ts", "src/index.ts"]);
     expect(gitIn(worktree.path, "status", "--porcelain")).toBe("");
     expect(await exists(join(worktree.path, "src", "half-done"))).toBe(false);
     expect(await exists(join(worktree.path, "node_modules", "dependency.js"))).toBe(true);
+  });
+});
+
+describe("CommandLineGit.upstreamOf", () => {
+  it("names the remote branch a branch tracks", async () => {
+    gitIn(repository.path, "branch", "--quiet", "tracking", "main");
+    await expect(git.upstreamOf(repository.path, "tracking")).resolves.toBeUndefined();
+
+    gitIn(repository.path, "fetch", "--quiet", "origin");
+    gitIn(repository.path, "branch", "--quiet", "--set-upstream-to=origin/main", "tracking");
+
+    await expect(git.upstreamOf(repository.path, "tracking")).resolves.toEqual({
+      remote: "origin",
+      branch: "main",
+    });
+  });
+
+  it("finds none for a branch that tracks a local one", async () => {
+    gitIn(repository.path, "branch", "--quiet", "--track", "tracking-local", "main");
+
+    await expect(git.upstreamOf(repository.path, "tracking-local")).resolves.toBeUndefined();
+  });
+});
+
+describe("CommandLineGit.addWorktree with an existing branch", () => {
+  it("checks the branch out where it is", async () => {
+    const first = await aWorktree();
+    await writeFile(join(first.path, "kept.txt"), "kept\n");
+    const commit = await git.commit(first.path, "Add kept.txt", variables);
+    await git.removeWorktree(repository.path, first.path, variables);
+    const path = aWorktreePath();
+
+    await git.addWorktree(
+      repository.path,
+      { path, checkout: { kind: "branch", branch: first.branch } },
+      variables,
+    );
+
+    await expect(git.head(path)).resolves.toEqual({ commit, branch: first.branch });
+  });
+});
+
+describe("CommandLineGit with a Project's variables", () => {
+  it("runs the repository's hooks with them", async () => {
+    const hook = join(repository.path, ".git", "hooks", "post-checkout");
+    const written = join(repository.folder, "post-checkout.txt");
+    await writeFile(hook, `#!/bin/sh\necho "$GREETING" > "${written.replaceAll("\\", "/")}"\n`, {
+      mode: 0o755,
+    });
+
+    try {
+      await git.addWorktree(repository.path, detachedAtMain(), { ...variables, GREETING: "hello" });
+    } finally {
+      await rm(hook);
+    }
+
+    await expect(readFile(written, "utf8")).resolves.toBe("hello\n");
+  });
+});
+
+describe("CommandLineGit.worktreeRecordPath", () => {
+  it("names a file outside the worktree's files, which git leaves alone", async () => {
+    const worktree = await aWorktree();
+
+    const path = await git.worktreeRecordPath(worktree.path, "office-install");
+    await writeFile(path, "a stamp");
+
+    expect(path.startsWith(worktree.path)).toBe(false);
+    expect(gitIn(worktree.path, "status", "--porcelain")).toBe("");
+    await git.removeWorktree(repository.path, worktree.path, variables);
+    expect(await exists(path)).toBe(false);
   });
 });
 
@@ -298,19 +368,27 @@ describe("CommandLineGit on one repository", () => {
     const recordingGit = new CommandLineGit(locks);
     const worktree = await aWorktree();
     const removed = await aWorktree();
-    await commitOnOrigin("concurrent-one", "one.txt");
-    await commitOnOrigin("concurrent-other", "other.txt");
+    await commitOnOrigin(repository, "concurrent-one", "one.txt");
+    await commitOnOrigin(repository, "concurrent-other", "other.txt");
     await writeFile(join(worktree.path, "concurrent.txt"), "concurrent\n");
 
     // From the main checkout and from a worktree alike, which name the repository differently.
     await Promise.all([
-      recordingGit.fetch(repository.path, "origin", "concurrent-one"),
-      recordingGit.fetch(worktree.path, "origin", "concurrent-other"),
-      recordingGit.commit(worktree.path, "Add concurrent.txt"),
-      recordingGit.push(worktree.path, "origin", worktree.branch),
-      recordingGit.addWorktree(repository.path, { path: aWorktreePath(), startPoint: "main" }),
-      recordingGit.addWorktree(worktree.path, { path: aWorktreePath(), startPoint: "main" }),
-      recordingGit.removeWorktree(repository.path, removed.path),
+      recordingGit.fetch(
+        repository.path,
+        { remote: "origin", branch: "concurrent-one" },
+        variables,
+      ),
+      recordingGit.fetch(
+        worktree.path,
+        { remote: "origin", branch: "concurrent-other" },
+        variables,
+      ),
+      recordingGit.commit(worktree.path, "Add concurrent.txt", variables),
+      recordingGit.push(worktree.path, "origin", worktree.branch, variables),
+      recordingGit.addWorktree(repository.path, detachedAtMain(), variables),
+      recordingGit.addWorktree(worktree.path, detachedAtMain(), variables),
+      recordingGit.removeWorktree(repository.path, removed.path, variables),
     ]);
 
     expect(locks.held).toHaveLength(7);

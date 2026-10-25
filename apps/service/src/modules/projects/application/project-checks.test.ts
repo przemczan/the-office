@@ -23,7 +23,10 @@ class FakeGit extends Git {
     return this.branches.includes(branch);
   }
 
-  // The checks only read the repository.
+  // The checks only ask what a folder is and which branches it has.
+  upstreamOf = notUsed;
+  commitOf = notUsed;
+  worktreeRecordPath = notUsed;
   fetch = notUsed;
   push = notUsed;
   addWorktree = notUsed;
