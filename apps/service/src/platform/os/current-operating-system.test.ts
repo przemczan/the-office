@@ -1,8 +1,8 @@
-import { spawnSync } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { spawn, spawnSync } from "node:child_process";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { currentOperatingSystem } from "./current-operating-system.js";
 
 // Runs on whichever system the tests run on: Windows in npm run verify, Linux in verify:linux.
@@ -29,6 +29,36 @@ describe("currentOperatingSystem", () => {
 
   it("reports the command line's exit code", () => {
     expect(run("exit 3").status).toBe(3);
+  });
+
+  it("ends what a process left running after it ended", async () => {
+    const { processTrees } = currentOperatingSystem();
+    const folder = await mkdtemp(join(tmpdir(), "office-leftovers-"));
+    try {
+      const pidFile = join(folder, "left.pid");
+      // Starts a process that outlives it, writes its id, and exits. Node on Windows ends the
+      // processes it started with it unless they are detached; on Linux that would leave the group.
+      const leftDetached = process.platform === "win32";
+      const parent = spawn(
+        process.execPath,
+        [
+          "-e",
+          `const left = require("node:child_process").spawn(process.execPath, ["-e", "setTimeout(() => {}, 60000)"], { stdio: "ignore", detached: ${leftDetached} });
+           require("node:fs").writeFileSync(${JSON.stringify(pidFile)}, String(left.pid));
+           left.unref();`,
+        ],
+        { detached: processTrees.detached, stdio: "ignore", windowsHide: true },
+      );
+      await new Promise((resolve) => parent.once("exit", resolve));
+      const left = Number(await readFile(pidFile, "utf8"));
+      expect(isRunning(left)).toBe(true);
+
+      await processTrees.endLeftovers(parent.pid ?? 0);
+
+      await vi.waitFor(() => expect(isRunning(left)).toBe(false));
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
   });
 
   describe("defaultShell.couldNotRun", () => {
@@ -94,3 +124,12 @@ describe("currentOperatingSystem", () => {
     );
   });
 });
+
+function isRunning(processId: number): boolean {
+  try {
+    process.kill(processId, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}

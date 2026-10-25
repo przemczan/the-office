@@ -107,22 +107,58 @@ function commandPrompt(variables: UserEnvironment["variables"]): Shell {
 }
 
 function taskkill(variables: UserEnvironment["variables"]): ProcessTrees {
-  // A full path, for the same reason as cmd.exe's.
-  const file = win32.join(variables["SystemRoot"] || "C:\\Windows", "System32", "taskkill.exe");
+  // Full paths, for the same reason as cmd.exe's.
+  const systemRoot = variables["SystemRoot"] || "C:\\Windows";
+  const file = win32.join(systemRoot, "System32", "taskkill.exe");
+  const powerShell = win32.join(
+    systemRoot,
+    "System32",
+    "WindowsPowerShell",
+    "v1.0",
+    "powershell.exe",
+  );
+  const end = (processId: number): Promise<void> =>
+    new Promise((resolve, reject) => {
+      execFile(
+        file,
+        ["/pid", String(processId), "/t", "/f"],
+        { windowsHide: true },
+        // It exits with 128 for a process already gone, and that is no error.
+        (error) => (error && typeof error.code !== "number" ? reject(error) : resolve()),
+      );
+    });
   return {
     // A detached process would get a console window of its own; taskkill finds the tree without.
     detached: false,
-    end: (processId) =>
-      new Promise((resolve, reject) => {
-        execFile(
-          file,
-          ["/pid", String(processId), "/t", "/f"],
-          { windowsHide: true },
-          // It exits with 128 for a process already gone, and that is no error.
-          (error) => (error && typeof error.code !== "number" ? reject(error) : resolve()),
-        );
-      }),
+    end,
+    endLeftovers: async (processId) => {
+      for (const child of await childrenOf(powerShell, processId)) await end(child);
+    },
   };
+}
+
+/**
+ * The processes a process started that still run. Windows keeps a process's parent id after the
+ * parent ends, so its orphans are found by it; a process started later by another process
+ * holding the same id could be found too, which the short time between the end and this read
+ * makes unlikely.
+ */
+function childrenOf(powerShell: string, processId: number): Promise<number[]> {
+  const query = `Get-CimInstance Win32_Process -Filter 'ParentProcessId=${processId}' | ForEach-Object { $_.ProcessId }`;
+  return new Promise((resolve, reject) => {
+    execFile(
+      powerShell,
+      ["-NoProfile", "-NonInteractive", "-Command", query],
+      { windowsHide: true },
+      (error, stdout) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(stdout.split(/\s+/).filter(Boolean).map(Number));
+        }
+      },
+    );
+  });
 }
 
 /**

@@ -80,8 +80,8 @@ export interface SdkSession {
   readonly agentShells: readonly AgentShell[];
   /** Decides every tool call by the Office rules. */
   readonly preToolUse: HookCallback;
-  /** Takes what the engine writes to its standard error, which says why it stopped. */
-  readonly stderr: (chunk: string) => void;
+  /** Starts the engine's process. */
+  readonly spawnProcess: NonNullable<Options["spawnClaudeCodeProcess"]>;
 }
 
 /**
@@ -94,7 +94,7 @@ export function sdkOptions({
   options,
   agentShells,
   preToolUse,
-  stderr,
+  spawnProcess,
 }: SdkSession): Options {
   return {
     cwd: options.folder,
@@ -118,7 +118,7 @@ export function sdkOptions({
       outputFormat: { type: "json_schema", schema: { ...options.outputSchema } },
     }),
     ...(resumes ? { resume: id } : { sessionId: id }),
-    stderr,
+    spawnClaudeCodeProcess: spawnProcess,
   };
 }
 

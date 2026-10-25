@@ -4,12 +4,26 @@ import { AsyncChannel } from "../../../platform/streams/async-channel.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { EngineDown } from "../domain/engine-events.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
-import { AgentEngine, type EngineCapabilities, type NewSession } from "../ports/agent-engine.js";
+import { AgentEngine, type EngineCapabilities } from "../ports/agent-engine.js";
 import type { EngineSession, MessagePriority, UserMessage } from "../ports/engine-session.js";
 import type { SessionEvent } from "../ports/session-events.js";
 import type { SessionOptions } from "../ports/session-options.js";
 import { EngineCallSpans, SessionCosts } from "./engine-call-spans.js";
+import { OfficeToolRegistry } from "./office-tool-registry.js";
 import { UsageWindowState } from "./usage-window-state.js";
+
+/** What a caller runs a session with: the Office tools by name, from the registry. */
+export type SessionSettings = Omit<SessionOptions, "officeTools"> & {
+  readonly officeTools: readonly string[];
+};
+
+export interface SessionStart {
+  /** Chosen by the caller, as for the port: what is named after the session exists before it starts. */
+  readonly id: string;
+  readonly settings: SessionSettings;
+  /** The first message, which starts the first turn. */
+  readonly brief: UserMessage;
+}
 
 /**
  * Runs sessions on the engine for the other modules, and watches each: a span per engine call
@@ -26,23 +40,31 @@ export class EngineSessions {
     private readonly telemetry: Telemetry,
     private readonly events: EventBus,
     private readonly usageWindows: UsageWindowState,
+    private readonly officeTools: OfficeToolRegistry,
   ) {}
 
   get capabilities(): EngineCapabilities {
     return this.engine.capabilities;
   }
 
-  async start(session: NewSession): Promise<EngineSession> {
-    this.costs.started(session.id);
-    const spans = this.spansOf(session.id, session.options);
-    spans.messageSent(session.brief.id);
-    return this.watch(session.id, spans, () => this.engine.start(session));
+  async start({ id, settings, brief }: SessionStart): Promise<EngineSession> {
+    const options = this.optionsOf(settings);
+    this.costs.started(id);
+    const spans = this.spansOf(id, options);
+    spans.messageSent(brief.id);
+    return this.watch(id, spans, () => this.engine.start({ id, options, brief }));
   }
 
-  async resume(sessionId: string, options: SessionOptions): Promise<EngineSession> {
+  /** Give a session the settings it started with: a changed set breaks its cached prefix. */
+  async resume(sessionId: string, settings: SessionSettings): Promise<EngineSession> {
+    const options = this.optionsOf(settings);
     return this.watch(sessionId, this.spansOf(sessionId, options), () =>
       this.engine.resume(sessionId, options),
     );
+  }
+
+  private optionsOf(settings: SessionSettings): SessionOptions {
+    return { ...settings, officeTools: this.officeTools.named(settings.officeTools) };
   }
 
   private spansOf(sessionId: string, options: SessionOptions): EngineCallSpans {

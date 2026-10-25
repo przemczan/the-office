@@ -1,12 +1,19 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { describe, expect, it } from "vitest";
+import { metrics, trace } from "@opentelemetry/api";
+import { describe, expect, it, vi } from "vitest";
+import { z } from "zod";
+import { EventBus } from "../../../../platform/events/event-bus.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
+import { Telemetry } from "../../../../platform/telemetry/telemetry.js";
+import { EngineSessions } from "../../application/engine-sessions.js";
+import { OfficeToolRegistry } from "../../application/office-tool-registry.js";
+import { UsageWindowState } from "../../application/usage-window-state.js";
 import { describeAgentEngineContract } from "../../ports/agent-engine.contract.js";
 import type { AgentEngine } from "../../ports/agent-engine.js";
 import type { EngineSession } from "../../ports/engine-session.js";
@@ -57,7 +64,98 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
       await rm(folder, { recursive: true, force: true });
     }
   }, 180_000);
+
+  it("gives a session the Office tools its caller names from the registry", async () => {
+    const folder = await mkdtemp(join(tmpdir(), "office-tools-"));
+    try {
+      const words: string[] = [];
+      const registry = new OfficeToolRegistry();
+      registry.register({
+        name: "note",
+        description: "Notes down one word for The Office.",
+        input: z.object({ word: z.string() }),
+        run: ({ word }) => {
+          words.push(word);
+          return Promise.resolve({ text: "Noted.", isError: false });
+        },
+      });
+      const events = new EventBus();
+      const sessions = new EngineSessions(
+        liveEngine(),
+        new Telemetry(trace.getTracer("test"), metrics.getMeter("test")),
+        events,
+        new UsageWindowState(events),
+        registry,
+      );
+
+      const session = await sessions.start({
+        id: randomUUID(),
+        settings: { ...options(folder), officeTools: ["note"] },
+        brief: message(
+          'Call the note tool once with the word "tangerine", then reply with the single word: done',
+        ),
+      });
+      await turnEnded(session);
+      await session.end();
+
+      expect(words).toEqual(["tangerine"]);
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  }, 180_000);
+
+  it("ends what a session started when the session ends", async () => {
+    const folder = await mkdtemp(join(tmpdir(), "office-leftovers-"));
+    try {
+      const pidFile = join(folder, "keep-alive.pid");
+      // Stands for a dev server or a watcher: it runs until something ends it.
+      await writeFile(
+        join(folder, "keep-alive.mjs"),
+        [
+          'import { writeFileSync } from "node:fs";',
+          'writeFileSync("keep-alive.pid", String(process.pid));',
+          "setInterval(() => {}, 1000);",
+        ].join("\n"),
+      );
+      const session = await liveEngine().start({
+        id: randomUUID(),
+        options: {
+          ...options(folder),
+          profile: { edit: false, run: { kind: "anything" }, web: false },
+        },
+        brief: message(
+          "Use the Bash tool with run_in_background set to true to run: node keep-alive.mjs. " +
+            "Do not wait for it or check on it; reply with the single word: started",
+        ),
+      });
+      await turnEnded(session);
+      const keptAlive = await vi.waitFor(async () => Number(await readFile(pidFile, "utf8")), {
+        timeout: 20_000,
+        interval: 500,
+      });
+      expect(isRunning(keptAlive)).toBe(true);
+
+      await session.end();
+
+      await vi.waitFor(() => expect(isRunning(keptAlive)).toBe(false), { timeout: 10_000 });
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  }, 180_000);
 });
+
+function message(text: string) {
+  return { id: randomUUID(), text };
+}
+
+function isRunning(processId: number): boolean {
+  try {
+    process.kill(processId, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 /** A repository in `folder` with two worktrees beside it. */
 async function twoWorktrees(folder: string): Promise<[string, string]> {

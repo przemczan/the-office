@@ -16,13 +16,11 @@ import type { UsageWindows } from "../../domain/usage-windows.js";
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
+import { EngineProcess } from "./engine-process.js";
 import { officeRulesHook } from "./office-rules-hook.js";
 import { sessionEvents, usageWindows } from "./sdk-events.js";
 import { sdkOptions, sessionEnvironment, type SdkSession } from "./sdk-options.js";
 import { ToolRefusals } from "./tool-refusals.js";
-
-/** How much of the engine's standard error a failure keeps: its last lines say why it stopped. */
-const STDERR_KEPT = 4000;
 
 /**
  * Sessions on the TypeScript Claude Agent SDK, on the user's own login (spec §5.4): one long-lived
@@ -59,7 +57,8 @@ export class AgentSdkEngine extends AgentEngine {
   }
 
   private open(id: string, resumes: boolean, options: SessionOptions): AgentSdkSession {
-    return new AgentSdkSession(id, this.officeRules(options), (session) =>
+    const engineProcess = new EngineProcess(this.operatingSystem.processTrees);
+    return new AgentSdkSession(id, this.officeRules(options), engineProcess, (session) =>
       sdkOptions({
         id,
         resumes,
@@ -88,8 +87,6 @@ class AgentSdkSession implements EngineSession {
   private readonly input = new AsyncChannel<SDKUserMessage>();
   private readonly reported = new AsyncChannel<SessionEvent>();
   private readonly refusals = new ToolRefusals();
-  /** The end of what the engine wrote to its standard error. */
-  private stderr = "";
   private readonly engine: Query;
   private readonly read: Promise<void>;
   private ending = false;
@@ -97,13 +94,14 @@ class AgentSdkSession implements EngineSession {
   constructor(
     readonly id: string,
     rules: OfficeRules,
-    options: (session: Pick<SdkSession, "preToolUse" | "stderr">) => Options,
+    private readonly engineProcess: EngineProcess,
+    options: (session: Pick<SdkSession, "preToolUse" | "spawnProcess">) => Options,
   ) {
     this.engine = query({
       prompt: this.input,
       options: options({
         preToolUse: officeRulesHook(rules, this.refusals),
-        stderr: (chunk) => (this.stderr = (this.stderr + chunk).slice(-STDERR_KEPT)),
+        spawnProcess: engineProcess.spawn,
       }),
     });
     this.read = this.readMessages();
@@ -150,6 +148,7 @@ class AgentSdkSession implements EngineSession {
     this.input.close();
     this.engine.close();
     await this.read;
+    await this.engineProcess.endWithLeftovers();
   }
 
   private async readMessages(): Promise<void> {
@@ -172,7 +171,7 @@ class AgentSdkSession implements EngineSession {
   /** Why the engine stopped running the session, with the end of what it wrote to its standard error. */
   private stopped(error: unknown): Error {
     const message = error instanceof Error ? error.message : String(error);
-    const stderr = this.stderr.trim();
+    const stderr = this.engineProcess.stderr;
     const said = stderr === "" ? "" : `\n${stderr}`;
     return new Error(`The engine stopped running the session: ${message}${said}`, {
       cause: error,

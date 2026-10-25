@@ -83,15 +83,19 @@ const bourneShell: Shell = {
   couldNotRun: ({ exitCode }) => Promise.resolve(COULD_NOT_RUN_EXIT_CODES.has(exitCode)),
 };
 
-// A detached process leads a process group of its own, which a negative id signals as a whole.
+// A detached process leads a process group of its own, which a negative id signals as a whole;
+// the group outlives its leader while any of its processes runs.
 const processGroups: ProcessTrees = {
   detached: true,
-  end: (processId) => {
-    try {
-      process.kill(-processId, "SIGKILL");
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
-    }
-    return Promise.resolve();
-  },
+  end: (processId) => endGroup(processId),
+  endLeftovers: (processId) => endGroup(processId),
 };
+
+function endGroup(groupId: number): Promise<void> {
+  try {
+    process.kill(-groupId, "SIGKILL");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+  }
+  return Promise.resolve();
+}

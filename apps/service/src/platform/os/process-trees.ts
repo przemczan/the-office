@@ -7,4 +7,10 @@ export interface ProcessTrees {
   readonly detached: boolean;
   /** Ends the process and every process it started; a process already gone is no error. */
   end(processId: number): Promise<void>;
+  /**
+   * Ends what a process started with `detached` left running after it ended by itself: on Linux
+   * its process group, on Windows its children with every process they started. A process that
+   * left nothing is no error.
+   */
+  endLeftovers(processId: number): Promise<void>;
 }

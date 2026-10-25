@@ -14,8 +14,9 @@ import type { SessionScript } from "../adapters/scripted/session-script.js";
 import { EngineDown, UsageWindowsChanged } from "../domain/engine-events.js";
 import type { EngineSession } from "../ports/engine-session.js";
 import type { SessionEvent, TurnEndedEvent } from "../ports/session-events.js";
-import type { SessionOptions } from "../ports/session-options.js";
-import { EngineSessions } from "./engine-sessions.js";
+import type { OfficeTool } from "../ports/office-tool.js";
+import { EngineSessions, type SessionSettings } from "./engine-sessions.js";
+import { OfficeToolRegistry } from "./office-tool-registry.js";
 import { UsageWindowState } from "./usage-window-state.js";
 
 class CollectingMetricReader extends MetricReader {
@@ -28,21 +29,21 @@ class CollectingMetricReader extends MetricReader {
   }
 }
 
-const OPTIONS: SessionOptions = {
+const NOTE_TOOL: OfficeTool = {
+  name: "note",
+  description: "Notes a word.",
+  input: z.object({ word: z.string() }),
+  run: () => Promise.resolve({ text: "Noted.", isError: false }),
+};
+
+const SETTINGS: SessionSettings = {
   folder: "/work/task-1",
   environment: {},
   model: "claude-haiku-5-5",
   effort: "low",
   skillsFolder: "/office/sessions/s/skills",
   profile: { edit: true, run: { kind: "anything" }, web: false },
-  officeTools: [
-    {
-      name: "note",
-      description: "Notes a word.",
-      input: z.object({ word: z.string() }),
-      run: () => Promise.resolve({ text: "Noted.", isError: false }),
-    },
-  ],
+  officeTools: ["note"],
   outputSchema: undefined,
 };
 
@@ -93,7 +94,15 @@ function setUp(scripts: readonly SessionScript[]) {
     published.push(event);
   });
   const usageWindows = new UsageWindowState(events);
-  const sessions = new EngineSessions(new ScriptedEngine(scripts), telemetry, events, usageWindows);
+  const officeTools = new OfficeToolRegistry();
+  officeTools.register(NOTE_TOOL);
+  const sessions = new EngineSessions(
+    new ScriptedEngine(scripts),
+    telemetry,
+    events,
+    usageWindows,
+    officeTools,
+  );
   return { sessions, spans, published, usageWindows };
 }
 
@@ -115,7 +124,11 @@ const message = (text: string) => ({ id: randomUUID(), text });
 describe("EngineSessions", () => {
   it("records each engine call as a span with its tokens, cost and prompt features", async () => {
     const { sessions, spans } = setUp([TWO_TURNS]);
-    const session = await sessions.start({ id: "s-1", options: OPTIONS, brief: message("Begin.") });
+    const session = await sessions.start({
+      id: "s-1",
+      settings: SETTINGS,
+      brief: message("Begin."),
+    });
     await turns(session, 1);
     session.send(message("Go on."), "next");
     await turns(session, 1);
@@ -146,7 +159,7 @@ describe("EngineSessions", () => {
         { step: "end" },
       ],
     ]);
-    const session = await sessions.resume("s-1", OPTIONS);
+    const session = await sessions.resume("s-1", SETTINGS);
     session.send(message("Go on."), "next");
     await turns(session, 1);
     await session.end();
@@ -167,7 +180,11 @@ describe("EngineSessions", () => {
         { step: "end" },
       ],
     ]);
-    const session = await sessions.start({ id: "s-1", options: OPTIONS, brief: message("Begin.") });
+    const session = await sessions.start({
+      id: "s-1",
+      settings: SETTINGS,
+      brief: message("Begin."),
+    });
     await turns(session, 1);
     await session.end();
     await vi.waitFor(() => expect(usageWindows.current).toEqual(WINDOWS));
@@ -176,11 +193,24 @@ describe("EngineSessions", () => {
     expect(changes.map((change) => change.windows)).toEqual([WINDOWS]);
   });
 
+  it("refuses a session named an Office tool no module registered, before the engine starts it", async () => {
+    const { sessions, published } = setUp([TWO_TURNS]);
+
+    await expect(
+      sessions.start({
+        id: "s-1",
+        settings: { ...SETTINGS, officeTools: ["note", "open_decision"] },
+        brief: message("Begin."),
+      }),
+    ).rejects.toThrow("No Office tool is registered as open_decision.");
+    expect(published).toEqual([]);
+  });
+
   it("announces the engine down when it can't start a session", async () => {
     const { sessions, published } = setUp([]);
 
     await expect(
-      sessions.start({ id: "s-1", options: OPTIONS, brief: message("Begin.") }),
+      sessions.start({ id: "s-1", settings: SETTINGS, brief: message("Begin.") }),
     ).rejects.toThrow("No script is left");
     expect(published).toEqual([
       expect.objectContaining({ sessionId: "s-1", reason: expect.stringContaining("No script") }),
@@ -192,7 +222,11 @@ describe("EngineSessions", () => {
     const { sessions, published } = setUp([
       [{ step: "start", brief: { id: "brief", text: "Begin." } }, { step: "interrupt" }],
     ]);
-    const session = await sessions.start({ id: "s-1", options: OPTIONS, brief: message("Begin.") });
+    const session = await sessions.start({
+      id: "s-1",
+      settings: SETTINGS,
+      brief: message("Begin."),
+    });
     session.send(message("Go on."), "next");
 
     await expect(turns(session, 1)).rejects.toThrow("the caller asked to send");
