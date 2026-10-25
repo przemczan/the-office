@@ -1,0 +1,150 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Res,
+  StreamableFile,
+  UseFilters,
+} from "@nestjs/common";
+import {
+  attachmentUploadQuerySchema,
+  newLinkSchema,
+  type Attachment as AttachmentResponse,
+  type AttachmentUploadQuery,
+  type NewLink,
+} from "@the-office/contracts";
+import type { Response } from "express";
+import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { uploadedBytes } from "../../../../platform/http/upload-body.js";
+import { AttachmentService } from "../../application/attachment-service.js";
+import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
+import { THE_USER } from "../../domain/author.js";
+import { toAttachmentResponse } from "./work-responses.js";
+import { WorkRefusalsFilter } from "./work-refusals.filter.js";
+
+/** The routes the upload body is read on; WorkModule applies `uploadBody` to them. */
+export const ATTACHMENT_UPLOAD_ROUTES = [
+  "ideas/:id/attachments/files",
+  "tasks/:id/attachments/files",
+] as const;
+
+@Controller()
+@UseFilters(WorkRefusalsFilter)
+export class AttachmentsController {
+  constructor(private readonly attachments: AttachmentService) {}
+
+  @Get("ideas/:id/attachments")
+  async listOfIdea(@Param("id", ParseUUIDPipe) id: string): Promise<AttachmentResponse[]> {
+    return this.listOf({ kind: "idea", ideaId: id });
+  }
+
+  @Get("tasks/:id/attachments")
+  async listOfTask(@Param("id", ParseUUIDPipe) id: string): Promise<AttachmentResponse[]> {
+    return this.listOf({ kind: "task", taskId: id });
+  }
+
+  @Post("ideas/:id/attachments/links")
+  async addLinkToIdea(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(newLinkSchema)) link: NewLink,
+  ): Promise<AttachmentResponse> {
+    return this.addLink({ kind: "idea", ideaId: id }, link);
+  }
+
+  @Post("tasks/:id/attachments/links")
+  async addLinkToTask(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(newLinkSchema)) link: NewLink,
+  ): Promise<AttachmentResponse> {
+    return this.addLink({ kind: "task", taskId: id }, link);
+  }
+
+  @Post(ATTACHMENT_UPLOAD_ROUTES[0])
+  async addFileToIdea(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Query(new ContractPipe(attachmentUploadQuerySchema)) query: AttachmentUploadQuery,
+    @Body() body: unknown,
+  ): Promise<AttachmentResponse> {
+    return this.addFile({ kind: "idea", ideaId: id }, query, body);
+  }
+
+  @Post(ATTACHMENT_UPLOAD_ROUTES[1])
+  async addFileToTask(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Query(new ContractPipe(attachmentUploadQuerySchema)) query: AttachmentUploadQuery,
+    @Body() body: unknown,
+  ): Promise<AttachmentResponse> {
+    return this.addFile({ kind: "task", taskId: id }, query, body);
+  }
+
+  /**
+   * A file's bytes, typed by its kind rather than by the media type it was uploaded with, since it
+   * is opened on The Office's own origin: only images and Markdown show in the browser.
+   */
+  @Get("attachments/:id/content")
+  async content(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    const { attachment, content } = await this.attachments.open(id);
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    return new StreamableFile(content, servingOf(attachment));
+  }
+
+  @Delete("attachments/:id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@Param("id", ParseUUIDPipe) id: string): Promise<void> {
+    await this.attachments.remove(id);
+  }
+
+  private async listOf(owner: AttachmentOwner): Promise<AttachmentResponse[]> {
+    return (await this.attachments.listOf(owner)).map(toAttachmentResponse);
+  }
+
+  private async addLink(owner: AttachmentOwner, link: NewLink): Promise<AttachmentResponse> {
+    return toAttachmentResponse(await this.attachments.addLink(owner, link, THE_USER));
+  }
+
+  private async addFile(
+    owner: AttachmentOwner,
+    { name, mediaType }: AttachmentUploadQuery,
+    body: unknown,
+  ): Promise<AttachmentResponse> {
+    const file = { name, mediaType, content: uploadedBytes(body) };
+    return toAttachmentResponse(await this.attachments.addFile(owner, file, THE_USER));
+  }
+}
+
+function servingOf(attachment: Attachment): { type: string; disposition: string } {
+  switch (attachment.kind) {
+    case "image":
+      return { type: attachment.mediaType, disposition: dispositionOf("inline", attachment.name) };
+    case "document":
+      return {
+        type: "text/markdown; charset=utf-8",
+        disposition: dispositionOf("inline", attachment.name),
+      };
+    default:
+      return {
+        type: "application/octet-stream",
+        disposition: dispositionOf("attachment", attachment.name),
+      };
+  }
+}
+
+/** The file's name in ASCII for old clients, and in full as RFC 6266 and RFC 8187 write it. */
+function dispositionOf(kind: "inline" | "attachment", name: string): string {
+  const ascii = name.replace(/[^\x20-\x7e]|["\\]/g, "_");
+  const encoded = encodeURIComponent(name).replace(
+    /['()*]/g,
+    (character) => `%${character.charCodeAt(0).toString(16).toUpperCase()}`,
+  );
+  return `${kind}; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+}

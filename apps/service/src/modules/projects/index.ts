@@ -1,4 +1,5 @@
 export { BaseCheckouts, type BaseCheckout } from "./application/base-checkouts.js";
+export { ProjectService } from "./application/project-service.js";
 export {
   EnvironmentCheckFinished,
   EnvironmentCheckProgressed,

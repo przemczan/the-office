@@ -10,6 +10,7 @@ export function anIdea(fields: Partial<Idea> = {}): Idea {
     notes: "Monthly, per Project, for the accountant.",
     projectId: "admin-panel",
     state: "new",
+    taskId: undefined,
     capturedBy: THE_USER,
     capturedAt: new Date("2026-10-25T09:00:00.000Z"),
     droppedAt: undefined,

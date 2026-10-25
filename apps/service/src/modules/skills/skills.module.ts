@@ -6,11 +6,12 @@ import {
   type NestModule,
   type OnApplicationBootstrap,
 } from "@nestjs/common";
+import { SKILL_UPLOAD_BYTES } from "@the-office/contracts";
+import { uploadBody } from "../../platform/http/upload-body.js";
 import { FilesystemLibraryFolder } from "./adapters/filesystem/filesystem-library-folder.js";
 import { FilesystemSessionFolders } from "./adapters/filesystem/filesystem-session-folders.js";
 import { GitProjectSkillFiles } from "./adapters/git/git-project-skill-files.js";
 import { SkillsController } from "./adapters/http/skills.controller.js";
-import { uploadBody } from "./adapters/http/upload-body.js";
 import { PostgresRoleSkillRepository } from "./adapters/postgres/postgres-role-skill-repository.js";
 import { PostgresSessionSkillRepository } from "./adapters/postgres/postgres-session-skill-repository.js";
 import { PostgresSkillRepository } from "./adapters/postgres/postgres-skill-repository.js";
@@ -53,7 +54,7 @@ export class SkillsModule implements NestModule, OnApplicationBootstrap {
 
   configure(consumer: MiddlewareConsumer): void {
     consumer
-      .apply(uploadBody)
+      .apply(uploadBody(SKILL_UPLOAD_BYTES))
       .forRoutes(
         { path: "skills/uploads", method: RequestMethod.POST },
         { path: "skills/:name/versions", method: RequestMethod.POST },

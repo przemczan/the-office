@@ -53,7 +53,7 @@ export class ProjectsModule {
         ProjectWebEvents,
         ProjectOfficeTools,
       ],
-      exports: [BaseCheckouts],
+      exports: [BaseCheckouts, ProjectService],
     };
   }
 }

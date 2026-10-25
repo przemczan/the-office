@@ -3,8 +3,9 @@ import { ConversationsModule } from "./modules/conversations/index.js";
 import { EngineModule } from "./modules/engine/index.js";
 import { PeopleModule } from "./modules/people/index.js";
 import { PipelineLibrary, PipelinesModule } from "./modules/pipelines/index.js";
-import { BaseCheckouts, ProjectsModule } from "./modules/projects/index.js";
+import { BaseCheckouts, ProjectService, ProjectsModule } from "./modules/projects/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
+import { WorkModule } from "./modules/work/index.js";
 import type { OfficeConfig } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
 import { EventsModule } from "./platform/events/events.module.js";
@@ -38,6 +39,7 @@ export class AppModule {
         SkillsModule,
         TelemetryModule,
         WebAppModule.register(webApp),
+        WorkModule.register({ imports: [projects], knownProjects: ProjectService }),
       ],
     };
   }

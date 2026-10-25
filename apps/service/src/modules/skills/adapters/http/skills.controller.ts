@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -29,8 +28,9 @@ import {
   type WrittenSkill,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { uploadedBytes } from "../../../../platform/http/upload-body.js";
 import { RoleSkills } from "../../application/role-skills.js";
-import { SkillLibrary, type Upload } from "../../application/skill-library.js";
+import { SkillLibrary } from "../../application/skill-library.js";
 import type { Skill } from "../../domain/skill.js";
 import { SkillRefusalsFilter } from "./skill-refusals.filter.js";
 
@@ -62,7 +62,7 @@ export class SkillsController {
     @Query(new ContractPipe(skillUploadQuerySchema)) { fileName }: SkillUploadQuery,
     @Body() body: unknown,
   ): Promise<SkillResponse> {
-    return this.response(await this.library.upload(uploadOf(fileName, body)));
+    return this.response(await this.library.upload({ fileName, content: uploadedBytes(body) }));
   }
 
   @Get(":name")
@@ -99,7 +99,9 @@ export class SkillsController {
     @Query(new ContractPipe(skillUploadQuerySchema)) { fileName }: SkillUploadQuery,
     @Body() body: unknown,
   ): Promise<SkillResponse> {
-    return this.response(await this.library.uploadVersion(name, uploadOf(fileName, body)));
+    return this.response(
+      await this.library.uploadVersion(name, { fileName, content: uploadedBytes(body) }),
+    );
   }
 
   @Put(":name/state")
@@ -137,14 +139,6 @@ export class SkillsController {
   private async response(skill: Skill): Promise<SkillResponse> {
     return toSkillResponse(skill, (await this.roleSkills.bySkill()).get(skill.name) ?? []);
   }
-}
-
-/** The body `uploadBody` read, which is bytes only when it was sent as `application/octet-stream`. */
-function uploadOf(fileName: string, body: unknown): Upload {
-  if (!Buffer.isBuffer(body)) {
-    throw new BadRequestException("Send the file itself as application/octet-stream.");
-  }
-  return { fileName, content: new Uint8Array(body) };
 }
 
 function toSkillResponse(skill: Skill, roles: readonly string[]): SkillResponse {

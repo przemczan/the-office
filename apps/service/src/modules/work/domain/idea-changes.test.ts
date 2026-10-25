@@ -73,7 +73,9 @@ describe("shapeIdeaIntoTask", () => {
       }),
     );
     expect(taskCreated.event).toEqual(new TaskCreated(taskCreated.task));
-    expect(ideaShaped.idea).toEqual(anIdea({ state: "shaped", projectId: "admin-panel" }));
+    expect(ideaShaped.idea).toEqual(
+      anIdea({ state: "shaped", projectId: "admin-panel", taskId: "task-7" }),
+    );
     expect(ideaShaped.event).toEqual(new IdeaShaped("idea-1", "admin-panel", "task-7", at));
   });
 

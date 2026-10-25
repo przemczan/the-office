@@ -71,13 +71,14 @@ export function changePriority(
 }
 
 /**
- * Moves a Task that hasn't started between two neighbours in its column. Undefined when it
- * already stands there; a drop into another column is refused, since a state changes only
- * through the Task's actions.
+ * Moves a Task that hasn't started between two neighbours in its column, given every other
+ * Task's key on the board. Undefined when it already stands there; a drop into another column is
+ * refused, since a state changes only through the Task's actions.
  */
 export function reorderTask(
   task: Task,
   neighbours: Neighbours,
+  takenOrders: readonly string[],
 ): TaskChange<TaskReordered> | undefined {
   const problems = reorderProblems(task, neighbours);
   if (problems.length > 0) throw new TaskRefused(problems);
@@ -85,7 +86,7 @@ export function reorderTask(
   const alreadyThere =
     (!above || boardOrder(above, task) < 0) && (!below || boardOrder(task, below) < 0);
   if (alreadyThere) return undefined;
-  const placement = placementBetween(task, neighbours);
+  const placement = placementBetween(task, neighbours, takenOrders);
   return {
     task: { ...task, ...placement },
     event: new TaskReordered(task.id, placement.priority, placement.order),

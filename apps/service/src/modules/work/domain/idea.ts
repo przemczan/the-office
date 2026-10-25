@@ -12,6 +12,8 @@ export interface Idea {
   /** Undefined for an Idea captured Office-wide. */
   readonly projectId: string | undefined;
   readonly state: IdeaState;
+  /** The Task it was shaped into; undefined unless shaped. */
+  readonly taskId: string | undefined;
   readonly capturedBy: Author;
   readonly capturedAt: Date;
   /** When it was dropped, kept so a dropped Idea reads as one; undefined unless dropped. */

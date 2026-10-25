@@ -61,9 +61,20 @@ describe("changePriority", () => {
   });
 });
 
+const first = aTask({ id: "first", order: "a1" });
+const second = aTask({ id: "second", order: "a2" });
+const last = aTask({ id: "last", order: "a5" });
+
+/** Every key on a board of those three Tasks and `others`, but the moved Task's. */
+function takenBesides(task: Task, others: readonly Task[] = []): string[] {
+  return [first, second, last, ...others]
+    .filter((other) => other.id !== task.id)
+    .map((other) => other.order);
+}
+
 /** The Task once moved, failing the test when it didn't move. */
-function moved(task: Task, neighbours: Neighbours): Task {
-  const change = reorderTask(task, neighbours);
+function moved(task: Task, neighbours: Neighbours, others: readonly Task[] = []): Task {
+  const change = reorderTask(task, neighbours, takenBesides(task, others));
   if (!change) throw new Error(`${task.id} didn't move`);
   expect(change.event).toBeInstanceOf(TaskReordered);
   expect(change.event).toMatchObject({
@@ -75,15 +86,19 @@ function moved(task: Task, neighbours: Neighbours): Task {
 }
 
 describe("reorderTask", () => {
-  const first = aTask({ id: "first", order: "a1" });
-  const second = aTask({ id: "second", order: "a2" });
-  const last = aTask({ id: "last", order: "a5" });
-
   it("takes a key between its neighbours", () => {
     const { order, priority } = moved(last, { above: first, below: second });
 
     expect(order > "a1" && order < "a2").toBe(true);
     expect(priority).toBe("normal");
+  });
+
+  it("takes a key no Task in another column has, as Tasks keep their keys across columns", () => {
+    const planned = aTask({ id: "planned", state: "planning", order: "a1V" });
+
+    const { order } = moved(last, { above: first, below: second }, [planned]);
+
+    expect(order > "a1" && order < "a1V").toBe(true);
   });
 
   it("moves to the top and the bottom of its column", () => {
@@ -94,31 +109,39 @@ describe("reorderTask", () => {
   it("takes the priority of the Tasks it lands among", () => {
     const high = aTask({ id: "high", priority: "high", order: "a4" });
 
-    const { order, priority } = moved(last, { above: undefined, below: high });
+    const { order, priority } = moved(last, { above: undefined, below: high }, [high]);
 
     expect(priority).toBe("high");
-    expect(order < "a4").toBe(true);
+    expect(order > "a2" && order < "a4").toBe(true);
   });
 
   it("changes nothing when it already stands there", () => {
-    expect(reorderTask(second, { above: first, below: last })).toBeUndefined();
+    expect(
+      reorderTask(second, { above: first, below: last }, takenBesides(second)),
+    ).toBeUndefined();
   });
 
   it("refuses a drop into another column", () => {
+    const planned = aTask({ id: "planned", state: "planning", order: "a3" });
+
     expect(() =>
-      reorderTask(last, { above: aTask({ id: "planned", state: "planning" }), below: undefined }),
+      reorderTask(last, { above: planned, below: undefined }, takenBesides(last, [planned])),
     ).toThrow(
       new TaskRefused(["A Task changes state through its actions: Plan, Mark Ready, Start."]),
     );
   });
 
   it("refuses to move a Task that has started", () => {
+    const running = aTask({ id: "running", state: "in-progress", order: "a3" });
+
     expect(() =>
-      reorderTask(aTask({ state: "in-progress" }), { above: undefined, below: undefined }),
+      reorderTask(running, { above: undefined, below: undefined }, takenBesides(running)),
     ).toThrow(new TaskRefused(["A Task keeps its place on the board once it has started."]));
   });
 
   it("refuses neighbours that aren't next to each other in that order", () => {
-    expect(() => reorderTask(last, { above: second, below: first })).toThrow(TaskRefused);
+    expect(() => reorderTask(last, { above: second, below: first }, takenBesides(last))).toThrow(
+      TaskRefused,
+    );
   });
 });

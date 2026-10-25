@@ -26,6 +26,7 @@ export function captureIdea(
     id,
     ...newIdea,
     state: "new",
+    taskId: undefined,
     capturedBy,
     capturedAt,
     droppedAt: undefined,
@@ -61,7 +62,7 @@ export function shapeIdeaIntoTask(
   );
   return {
     ideaShaped: {
-      idea: { ...idea, state: "shaped", projectId: task.projectId },
+      idea: { ...idea, state: "shaped", projectId: task.projectId, taskId: task.id },
       event: new IdeaShaped(idea.id, task.projectId, task.id, at),
     },
     taskCreated,

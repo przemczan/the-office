@@ -57,9 +57,14 @@ export class ProjectService {
   }
 
   async read(id: string): Promise<Project> {
-    const project = await this.repository.find(id);
+    const project = await this.find(id);
     if (!project) throw new ProjectNotFound(id);
     return project;
+  }
+
+  /** Undefined when there is no such Project. */
+  async find(id: string): Promise<Project | undefined> {
+    return this.repository.find(id);
   }
 
   /** Tasks already running keep the command line they started with. */
