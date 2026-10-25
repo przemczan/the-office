@@ -18,7 +18,7 @@ const planner: Preset = {
   suggestedName: "Jan",
   card: {
     title: "Planner",
-    description:
+    responsibilities:
       "Writes each Task's Plan and Definition of Done with you, proposes its Pipeline and marks it Ready.",
     instructions: [
       "Plan in conversation: ask what is unclear, propose a Plan and a Definition of Done, and keep them short. Propose the smallest Pipeline that fits. A Task is Ready only when the user agrees.",
@@ -47,7 +47,7 @@ const developer: Preset = {
   suggestedName: "Ada",
   card: {
     title: "Developer",
-    description:
+    responsibilities:
       "Implements a Task's Plan in its own worktree and fixes what tests and review find.",
     instructions: [
       "Work from the Plan and the Definition of Done. Keep the change small and the tests green. End every Stage with a Handover note.",
@@ -75,7 +75,7 @@ const reviewer: Preset = {
   suggestedName: "Ola",
   card: {
     title: "Reviewer",
-    description:
+    responsibilities:
       "Reviews a Task's change against its Plan and Definition of Done in a fresh session and sends it back with notes.",
     instructions: [
       "Read the Plan, the Definition of Done and the diff, in that order. Run the tests. Pass the change, or send it back with concrete notes. Never fix the code yourself.",

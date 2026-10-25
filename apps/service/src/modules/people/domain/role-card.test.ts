@@ -20,7 +20,7 @@ describe("roleCardProblems", () => {
     const card = aRoleCard({
       name: " ",
       title: "",
-      description: "",
+      responsibilities: "",
       instructions: "",
       model: "claude-opus-4",
       capabilities: { sharedMemory: true, chat: false, consultant: false },
@@ -31,7 +31,7 @@ describe("roleCardProblems", () => {
     expect(roleCardProblems("developer", card)).toEqual([
       "Give the person a name.",
       "Give the Role a title.",
-      "Describe the Role in one paragraph.",
+      "Give the Role's responsibilities in one paragraph.",
       "Give the instructions the Agent works from.",
       "Choose a model the engine offers.",
       "Shared memory stays off until The Office can keep it.",
@@ -40,11 +40,11 @@ describe("roleCardProblems", () => {
     ]);
   });
 
-  it("refuses texts over their length, and a description of more than one paragraph", () => {
+  it("refuses texts over their length, and responsibilities of more than one paragraph", () => {
     const card = aRoleCard({
       name: "A".repeat(41),
       title: "T".repeat(41),
-      description: "One.\n\nTwo.",
+      responsibilities: "One.\n\nTwo.",
       instructions: "I".repeat(8_001),
     });
 
@@ -52,7 +52,7 @@ describe("roleCardProblems", () => {
       "A person's name may be at most 40 characters.",
       "A Role's title may be at most 40 characters.",
       "The instructions may be at most 8000 characters.",
-      "The description is one paragraph.",
+      "The responsibilities are one paragraph.",
     ]);
   });
 

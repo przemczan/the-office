@@ -51,7 +51,7 @@ export interface RoleCard {
   readonly name: string;
   readonly title: string;
   /** One paragraph, shown on People. */
-  readonly description: string;
+  readonly responsibilities: string;
   /** What the Agent works from. */
   readonly instructions: string;
   readonly engine: Engine;
@@ -70,7 +70,7 @@ export type RoleCardEdit = Omit<RoleCard, "permissionProfile">;
 
 export const NAME_LENGTH = 40;
 export const TITLE_LENGTH = 40;
-export const DESCRIPTION_LENGTH = 400;
+export const RESPONSIBILITIES_LENGTH = 400;
 /** Every session of the Role carries them in its cached prefix, so they stay short. */
 export const INSTRUCTIONS_LENGTH = 8_000;
 
@@ -80,7 +80,7 @@ export function trimmedRoleCard<Card extends RoleCardEdit>(card: Card): Card {
     ...card,
     name: card.name.trim(),
     title: card.title.trim(),
-    description: card.description.trim(),
+    responsibilities: card.responsibilities.trim(),
     instructions: card.instructions.trim(),
   };
 }
@@ -91,10 +91,10 @@ export function roleCardProblems(roleKey: string, card: RoleCardEdit): string[] 
     ...personNameProblems(card.name),
     ...textProblems(card.title, TITLE_LENGTH, "Give the Role a title.", "A Role's title"),
     ...textProblems(
-      card.description,
-      DESCRIPTION_LENGTH,
-      "Describe the Role in one paragraph.",
-      "The description",
+      card.responsibilities,
+      RESPONSIBILITIES_LENGTH,
+      "Give the Role's responsibilities in one paragraph.",
+      "The responsibilities",
     ),
     ...textProblems(
       card.instructions,
@@ -103,7 +103,8 @@ export function roleCardProblems(roleKey: string, card: RoleCardEdit): string[] 
       "The instructions",
     ),
   ];
-  if (/\n\s*\n/.test(card.description.trim())) problems.push("The description is one paragraph.");
+  if (/\n\s*\n/.test(card.responsibilities.trim()))
+    problems.push("The responsibilities are one paragraph.");
   if (!ENGINE_MODELS[card.engine].includes(card.model)) {
     problems.push("Choose a model the engine offers.");
   }
@@ -124,7 +125,7 @@ const CAPABILITY_KEYS = [
 const PLAIN_FIELDS = [
   "name",
   "title",
-  "description",
+  "responsibilities",
   "instructions",
   "engine",
   "model",
