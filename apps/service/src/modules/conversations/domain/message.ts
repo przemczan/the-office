@@ -1,3 +1,5 @@
+import type { ContextMove, ContextReason } from "./context-policy.js";
+
 /**
  * What The Office's log of a Thread holds, which is what the UI shows (spec §2.4): the engine's
  * transcript stays the engine's.
@@ -17,7 +19,23 @@ export type MessageDraft =
   /** A few lines the person wrote for whoever continues, when The Office asked for them. */
   | { readonly kind: "handover-note"; readonly roleKey: string; readonly text: string }
   | ToolActivity
-  | Refusal;
+  | Refusal
+  | ContextLine
+  /** Why the person couldn't answer, in the engine's or The Office's words. */
+  | { readonly kind: "failure"; readonly reason: string };
+
+/**
+ * The move the Context policy made as the person took a message, when it wasn't simply continuing
+ * a warm session: The Office's line, never a person's (spec §9).
+ */
+interface ContextLine {
+  readonly kind: "context";
+  readonly move: ContextMove;
+  readonly reason: ContextReason;
+  readonly contextTokens: number;
+  /** The Brief's estimate, when the move started a session with one. */
+  readonly briefTokens: number | undefined;
+}
 
 /** Something the person did with a tool, such as reading a file. */
 interface ToolActivity {

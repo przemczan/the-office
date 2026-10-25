@@ -1,7 +1,13 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import type { ThreadWebEvent } from "@the-office/contracts";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
-import { MessagesLogged, ThreadRenamed, ThreadStarted } from "../../domain/conversation-events.js";
+import {
+  ContextOverrideChosen,
+  MessagesLogged,
+  ThreadRenamed,
+  ThreadStarted,
+  TurnEnded,
+} from "../../domain/conversation-events.js";
 import type { Thread } from "../../domain/thread.js";
 
 type WebEventOf<Type extends ThreadWebEvent["type"]> = Omit<
@@ -27,6 +33,17 @@ export class ThreadWebEvents implements OnModuleInit {
       type: "thread.messages-logged",
       ...namesOf(event.thread),
     }));
+    this.forwarding.forward(TurnEnded, (event): WebEventOf<"thread.turn-ended"> => ({
+      type: "thread.turn-ended",
+      ...namesOf(event.thread),
+    }));
+    this.forwarding.forward(
+      ContextOverrideChosen,
+      (event): WebEventOf<"thread.override-chosen"> => ({
+        type: "thread.override-chosen",
+        ...namesOf(event.thread),
+      }),
+    );
   }
 }
 

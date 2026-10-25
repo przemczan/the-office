@@ -1,19 +1,43 @@
-import { Module } from "@nestjs/common";
+import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
+import { EngineModule } from "../engine/index.js";
 import { PeopleModule } from "../people/index.js";
+import { SkillsModule } from "../skills/index.js";
 import { ThreadsController } from "./adapters/http/threads.controller.js";
 import { PostgresThreadRepository } from "./adapters/postgres/postgres-thread-repository.js";
 import { ThreadWebEvents } from "./adapters/websocket/thread-web-events.js";
+import { Briefs } from "./application/briefs.js";
+import { CONTEXT_POLICY_SETTINGS, ThreadContexts } from "./application/thread-contexts.js";
+import { ThreadRunner } from "./application/thread-runner.js";
 import { ThreadService } from "./application/thread-service.js";
+import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "./domain/context-policy.js";
+import { ProjectBases } from "./ports/project-bases.js";
 import { ThreadRepository } from "./ports/thread-repository.js";
 
-@Module({
-  // A chat is with a person, whose Role card says whether Chat is on.
-  imports: [PeopleModule],
-  controllers: [ThreadsController],
-  providers: [
-    { provide: ThreadRepository, useClass: PostgresThreadRepository },
-    ThreadService,
-    ThreadWebEvents,
-  ],
-})
-export class ConversationsModule {}
+export interface ConversationsModuleOptions {
+  /** The modules that provide `projectBases`. */
+  readonly imports: NonNullable<ModuleMetadata["imports"]>;
+  readonly projectBases: Type<ProjectBases>;
+}
+
+@Module({})
+export class ConversationsModule {
+  static register({ imports, projectBases }: ConversationsModuleOptions): DynamicModule {
+    return {
+      module: ConversationsModule,
+      // A chat is with a person, whose Role card sets their session; the engine runs it with
+      // their skills.
+      imports: [...imports, PeopleModule, EngineModule, SkillsModule],
+      controllers: [ThreadsController],
+      providers: [
+        { provide: ThreadRepository, useClass: PostgresThreadRepository },
+        { provide: ProjectBases, useExisting: projectBases },
+        { provide: CONTEXT_POLICY_SETTINGS, useValue: DEFAULT_CONTEXT_POLICY_SETTINGS },
+        ThreadService,
+        Briefs,
+        ThreadContexts,
+        ThreadRunner,
+        ThreadWebEvents,
+      ],
+    };
+  }
+}

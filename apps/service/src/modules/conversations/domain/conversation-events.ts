@@ -27,3 +27,23 @@ export class MessagesLogged extends DomainEvent {
     super(loggedAt);
   }
 }
+
+/** A turn of the person's ended: the Thread's tokens, its session's context and its state changed. */
+export class TurnEnded extends DomainEvent {
+  constructor(
+    readonly thread: Thread,
+    endedAt: Date,
+  ) {
+    super(endedAt);
+  }
+}
+
+/** The user chose "Start fresh" or "Continue anyway" for the next message, or went back to the policy. */
+export class ContextOverrideChosen extends DomainEvent {
+  constructor(
+    readonly thread: Thread,
+    chosenAt: Date,
+  ) {
+    super(chosenAt);
+  }
+}

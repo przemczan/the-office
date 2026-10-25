@@ -18,13 +18,15 @@ import type {
 } from "../ports/engine-session.js";
 import type { SessionEvent } from "../ports/session-events.js";
 import type { SessionOptions } from "../ports/session-options.js";
-import { EngineCallSpans, SessionCosts } from "./engine-call-spans.js";
+import { EngineCallSpans, SessionCosts, type SessionTelemetry } from "./engine-call-spans.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
 import { UsageWindowState } from "./usage-window-state.js";
 
 /** What a caller runs a session with: the Office tools by name, from the registry. */
 export type SessionSettings = Omit<SessionOptions, "officeTools"> & {
   readonly officeTools: readonly string[];
+  /** What the caller tags the session's engine calls with, beside the engine's own attributes. */
+  readonly telemetry?: SessionTelemetry;
 };
 
 export interface SessionStart {
@@ -60,7 +62,7 @@ export class EngineSessions {
   async start({ id, settings, brief }: SessionStart): Promise<EngineSession> {
     const options = this.optionsOf(settings);
     this.costs.started(id);
-    const spans = this.spansOf(id, options);
+    const spans = this.spansOf(id, options, settings.telemetry);
     spans.messageSent(brief.id);
     return this.watch(id, spans, () => this.engine.start({ id, options, brief }));
   }
@@ -68,17 +70,21 @@ export class EngineSessions {
   /** Give a session the settings it started with: a changed set breaks its cached prefix. */
   async resume(sessionId: string, settings: SessionSettings): Promise<EngineSession> {
     const options = this.optionsOf(settings);
-    return this.watch(sessionId, this.spansOf(sessionId, options), () =>
+    return this.watch(sessionId, this.spansOf(sessionId, options, settings.telemetry), () =>
       this.engine.resume(sessionId, options),
     );
   }
 
-  private optionsOf(settings: SessionSettings): SessionOptions {
+  private optionsOf({ telemetry: _telemetry, ...settings }: SessionSettings): SessionOptions {
     return { ...settings, officeTools: this.officeTools.named(settings.officeTools) };
   }
 
-  private spansOf(sessionId: string, options: SessionOptions): EngineCallSpans {
-    return new EngineCallSpans(this.telemetry, this.costs, sessionId, options);
+  private spansOf(
+    sessionId: string,
+    options: SessionOptions,
+    telemetry: SessionTelemetry | undefined,
+  ): EngineCallSpans {
+    return new EngineCallSpans(this.telemetry, this.costs, sessionId, options, telemetry);
   }
 
   private async watch(

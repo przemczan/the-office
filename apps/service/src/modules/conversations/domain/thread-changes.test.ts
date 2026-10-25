@@ -21,6 +21,7 @@ describe("a chat Thread", () => {
       title: undefined,
       state: "waiting",
       session: undefined,
+      override: undefined,
       tokens: NO_TOKENS,
       startedAt: AT,
     });

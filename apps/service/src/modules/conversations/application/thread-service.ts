@@ -4,8 +4,13 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { RoleCards } from "../../people/index.js";
 import { ChatNotFound } from "../domain/chat-not-found.js";
 import type { Message, MessageDraft } from "../domain/message.js";
-import type { Thread } from "../domain/thread.js";
-import { logMessages, renameThread, startChatThread } from "../domain/thread-changes.js";
+import type { ContextOverride, Thread } from "../domain/thread.js";
+import {
+  chooseOverride,
+  logMessages,
+  renameThread,
+  startChatThread,
+} from "../domain/thread-changes.js";
 import { ThreadNotFound } from "../domain/thread-not-found.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 
@@ -49,6 +54,15 @@ export class ThreadService {
   async rename(id: string, title: string): Promise<Thread> {
     const { thread, event } = await this.repository.update(id, (current) =>
       renameThread(current, title, new Date()),
+    );
+    if (event) await this.events.publish(event);
+    return thread;
+  }
+
+  /** "Start fresh" or "Continue anyway" for the next message; undefined goes back to the policy. */
+  async chooseOverride(id: string, override: ContextOverride | undefined): Promise<Thread> {
+    const { thread, event } = await this.repository.update(id, (current) =>
+      chooseOverride(current, override, new Date()),
     );
     if (event) await this.events.publish(event);
     return thread;

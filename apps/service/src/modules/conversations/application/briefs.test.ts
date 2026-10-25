@@ -6,7 +6,7 @@ import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-r
 import { freshChatThreadBrief, newChatThreadBrief, type BriefProject } from "../domain/brief.js";
 import { logMessages } from "../domain/thread-changes.js";
 import { aThread, aUserMessage } from "../domain/thread.fixtures.js";
-import { BriefParts } from "../ports/brief-parts.js";
+import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
 
@@ -19,12 +19,16 @@ let briefs: Briefs;
 let repository: ThreadRepository;
 
 beforeAll(async () => {
-  const parts: BriefParts = { projects: () => Promise.resolve(PROJECTS) };
+  const bases: ProjectBases = {
+    folder: "/office/bases",
+    list: () => Promise.resolve(PROJECTS),
+    refresh: () => Promise.resolve(PROJECTS),
+  };
   ({ app } = await startTestApplication({
     database: true,
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
-      { provide: BriefParts, useValue: parts },
+      { provide: ProjectBases, useValue: bases },
       Briefs,
     ],
   }));
@@ -53,6 +57,7 @@ describe("Briefs", () => {
         startedAt: new Date("2026-10-25T09:00:00.000Z"),
         lastCallAt: new Date("2026-10-25T09:05:00.000Z"),
         contextTokens: 48_000,
+        full: false,
       },
     });
     await repository.add(thread);

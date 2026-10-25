@@ -132,7 +132,8 @@ export class ScriptedSession implements EngineSession {
 
   constructor(
     readonly id: string,
-    private readonly options: SessionOptions,
+    /** What it runs with, for a test to look at. */
+    readonly options: SessionOptions,
     script: SessionScript,
     private readonly capabilities: EngineCapabilities,
   ) {

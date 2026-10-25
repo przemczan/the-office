@@ -4,6 +4,14 @@ import type { SessionOptions } from "../ports/session-options.js";
 
 const ENGINE_CALL = "engine call";
 
+/** What a session's caller tags its engine calls with, beside the engine's own attributes. */
+export interface SessionTelemetry {
+  /** On each call's span, such as the Thread it answers. */
+  readonly span: TelemetryAttributes;
+  /** On its tokens and cost: few distinct values each, as metric attributes must have. */
+  readonly metric: TelemetryAttributes;
+}
+
 /**
  * Each session's cost so far as last reported, so a turn's cost is the difference, across a
  * resume too while The Office runs. The engine reports a session's cost only as a total.
@@ -47,15 +55,18 @@ export class EngineCallSpans {
     private readonly costs: SessionCosts,
     private readonly sessionId: string,
     options: SessionOptions,
+    caller: SessionTelemetry | undefined,
   ) {
     const features = promptFeatures(options);
     this.spanAttributes = {
+      ...caller?.span,
       "office.engine.session": sessionId,
       "office.engine.model": options.model,
       "office.prompt.features": features,
     };
     // Few distinct values each, as metric attributes must have.
     this.metricAttributes = {
+      ...caller?.metric,
       "office.engine.model": options.model,
       "office.prompt.features": features.join(","),
     };

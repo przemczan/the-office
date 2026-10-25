@@ -10,6 +10,7 @@ export function aThread(fields: Partial<Thread> = {}): Thread {
     title: undefined,
     state: "waiting",
     session: undefined,
+    override: undefined,
     tokens: NO_TOKENS,
     startedAt: new Date("2026-10-25T09:00:00.000Z"),
     ...fields,

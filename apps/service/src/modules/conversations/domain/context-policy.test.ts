@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { decideContext, type Continuation } from "./context-policy.js";
+import {
+  decideContext,
+  DEFAULT_CONTEXT_POLICY_SETTINGS,
+  type Continuation,
+} from "./context-policy.js";
 
 const NOW = new Date("2026-10-25T12:00:00.000Z");
 const MINUTE = 60 * 1000;
@@ -16,6 +20,7 @@ function aContinuation(
       roleKey: "planner",
       lastCallAt: new Date(NOW.getTime() - minutesSinceLastCall * MINUTE),
       contextTokens,
+      full: false,
     },
     roleKey: "planner",
     sessionDefault: "context-policy",
@@ -57,7 +62,7 @@ describe("the Context policy", () => {
   it("counts a session with no call yet as cooled", () => {
     const decision = decideContext(
       aContinuation(0, 48_000, {
-        session: { roleKey: "planner", lastCallAt: undefined, contextTokens: 48_000 },
+        session: { roleKey: "planner", lastCallAt: undefined, contextTokens: 48_000, full: false },
       }),
     );
 
@@ -65,7 +70,7 @@ describe("the Context policy", () => {
   });
 
   it("takes the threshold from the settings", () => {
-    const settings = { cacheLifetimeMs: 60 * MINUTE, freshAboveTokens: 10_000 };
+    const settings = { ...DEFAULT_CONTEXT_POLICY_SETTINGS, freshAboveTokens: 10_000 };
 
     expect(decideContext(aContinuation(90, 12_000), settings).move).toBe("fresh");
   });
@@ -87,6 +92,31 @@ describe("the Context policy", () => {
       reason: "another-person",
       cacheWarm: false,
       contextTokens: 0,
+      briefTokens: 3_000,
+      alternatives: [],
+    });
+  });
+});
+
+describe("a session whose context filled up", () => {
+  it("starts fresh with nothing to choose instead, even while the cache is warm", () => {
+    const decision = decideContext(
+      aContinuation(1, 820_000, {
+        session: {
+          roleKey: "planner",
+          lastCallAt: new Date(NOW.getTime() - MINUTE),
+          contextTokens: 820_000,
+          full: true,
+        },
+        override: "continue-anyway",
+      }),
+    );
+
+    expect(decision).toEqual({
+      move: "fresh",
+      reason: "context-full",
+      cacheWarm: false,
+      contextTokens: 820_000,
       briefTokens: 3_000,
       alternatives: [],
     });

@@ -1,6 +1,6 @@
 import { bigserial, index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import type { MessageDraft } from "../../domain/message.js";
-import type { ThreadState, TokenTotals } from "../../domain/thread.js";
+import type { ContextOverride, ThreadState, TokenTotals } from "../../domain/thread.js";
 
 /** The engine session behind a Thread now, as kept. */
 export interface ThreadSessionRow {
@@ -10,6 +10,7 @@ export interface ThreadSessionRow {
   readonly startedAt: string;
   readonly lastCallAt: string | null;
   readonly contextTokens: number;
+  readonly full: boolean;
 }
 
 /** Each Thread, keyed by its home: `chat` with the Role's key, or `task` with the Task's id. */
@@ -23,6 +24,7 @@ export const threads = pgTable(
     title: text("title"),
     state: text("state").$type<ThreadState>().notNull(),
     session: jsonb("session").$type<ThreadSessionRow>(),
+    override: text("override").$type<ContextOverride>(),
     tokens: jsonb("tokens").$type<TokenTotals>().notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
   },

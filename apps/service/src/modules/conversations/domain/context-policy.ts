@@ -1,10 +1,7 @@
-import type { ThreadSession } from "./thread.js";
+import type { ContextOverride, ThreadSession } from "./thread.js";
 
 /** A person's default for a Thread whose cache has cooled, from their Role card (spec §9). */
 export type SessionDefault = "context-policy" | "always-start-fresh" | "prefer-to-continue";
-
-/** What the user chose for this moment: "Start fresh" or "Continue anyway". */
-export type ContextOverride = "start-fresh" | "continue-anyway";
 
 /**
  * The three moves (spec §2.5): resume the session (its context stays), start a fresh one for the
@@ -27,26 +24,33 @@ export type ContextReason =
   /** The cache has cooled and the person's session default decided. */
   | "session-default"
   /** The user's override for this moment. */
-  | "your-choice";
+  | "your-choice"
+  /** The context neared its limit and the person wrote a Handover note: never resumed. */
+  | "context-full";
 
 export interface ContextPolicySettings {
   /** How long the prompt cache stays warm after a call. */
   readonly cacheLifetimeMs: number;
   /** Above this context, a cooled Thread starts fresh under the Context policy. */
   readonly freshAboveTokens: number;
+  /** The share of the model's window at which The Office asks for a Handover note. */
+  readonly handOverAtShare: number;
 }
 
 /** Spec §2.5: an hour's cache, and 30k tokens to start with, tuned from telemetry. */
 export const DEFAULT_CONTEXT_POLICY_SETTINGS: ContextPolicySettings = {
   cacheLifetimeMs: 60 * 60 * 1000,
   freshAboveTokens: 30_000,
+  // Leaves room for the turn that writes the Handover note.
+  handOverAtShare: 0.8,
 };
 
 /** A Thread about to take the next message. */
 export interface Continuation {
   readonly now: Date;
   /** The session behind the Thread now; undefined before anyone answered in it. */
-  readonly session: Pick<ThreadSession, "roleKey" | "lastCallAt" | "contextTokens"> | undefined;
+  readonly session:
+    Pick<ThreadSession, "roleKey" | "lastCallAt" | "contextTokens" | "full"> | undefined;
   /** Who answers next, by the key of the Role they fill. */
   readonly roleKey: string;
   /** Theirs, from the Role card version the next session would run with. */
@@ -73,7 +77,8 @@ export interface ContextDecision {
   readonly briefTokens: number | undefined;
   /**
    * "Start fresh" with what a Brief takes, or "Continue anyway" with the context to read back or
-   * re-cache; none for a new Thread or a hand-off, which have no session to choose between.
+   * re-cache; none for a new Thread, a hand-off or a full context, which have no session to choose
+   * between.
    */
   readonly alternatives: readonly ContextAlternative[];
 }
@@ -92,6 +97,14 @@ export function decideContext(
   }
   if (session.roleKey !== continuation.roleKey) {
     return { ...withoutSession(briefTokens), move: "hand-off", reason: "another-person" };
+  }
+  if (session.full) {
+    return {
+      ...withoutSession(briefTokens),
+      contextTokens: session.contextTokens,
+      move: "fresh",
+      reason: "context-full",
+    };
   }
   const cacheWarm = isWarm(session.lastCallAt, continuation.now, settings);
   const { move, reason } = choose(continuation, session.contextTokens, cacheWarm, settings);

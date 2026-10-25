@@ -3,7 +3,7 @@ import { ConversationsModule } from "./modules/conversations/index.js";
 import { EngineModule } from "./modules/engine/index.js";
 import { PeopleModule } from "./modules/people/index.js";
 import { PipelineLibrary, PipelinesModule } from "./modules/pipelines/index.js";
-import { ProjectsModule } from "./modules/projects/index.js";
+import { BaseCheckouts, ProjectsModule } from "./modules/projects/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
 import type { OfficeConfig } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
@@ -17,10 +17,15 @@ import { EventStreamModule } from "./platform/websocket/event-stream.module.js";
 @Module({})
 export class AppModule {
   static register(config: OfficeConfig, webApp: WebAppOptions): DynamicModule {
+    // One instance, so every git change on a repository goes through the same locks.
+    const projects = ProjectsModule.register({
+      imports: [PipelinesModule],
+      knownPipelines: PipelineLibrary,
+    });
     return {
       module: AppModule,
       imports: [
-        ConversationsModule,
+        ConversationsModule.register({ imports: [projects], projectBases: BaseCheckouts }),
         DatabaseModule.forRoot({ url: config.databaseUrl }),
         EngineModule,
         EventsModule,
@@ -29,7 +34,7 @@ export class AppModule {
         OfficeDataModule.forRoot(config.officeDataDirectory),
         PeopleModule,
         PipelinesModule,
-        ProjectsModule.register({ imports: [PipelinesModule], knownPipelines: PipelineLibrary }),
+        projects,
         SkillsModule,
         TelemetryModule,
         WebAppModule.register(webApp),

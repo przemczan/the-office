@@ -86,6 +86,7 @@ function toRow(thread: Thread): ThreadRow {
     title: thread.title ?? null,
     state: thread.state,
     session: thread.session ? toSessionRow(thread.session) : null,
+    override: thread.override ?? null,
     tokens: thread.tokens,
     startedAt: thread.startedAt,
   };
@@ -102,6 +103,7 @@ function toThread(row: ThreadRow): Thread {
     title: row.title ?? undefined,
     state: row.state,
     session: row.session ? toSession(row.session) : undefined,
+    override: row.override ?? undefined,
     tokens: row.tokens,
     startedAt: row.startedAt,
   };

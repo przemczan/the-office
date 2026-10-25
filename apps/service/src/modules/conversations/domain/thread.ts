@@ -35,7 +35,15 @@ export interface ThreadSession {
   readonly lastCallAt: Date | undefined;
   /** How large its context was after the last call. */
   readonly contextTokens: number;
+  /**
+   * The context neared its limit and The Office asked for a Handover note: the session is never
+   * resumed, and the Thread continues fresh (spec §2.5).
+   */
+  readonly full: boolean;
 }
+
+/** What the user chose for the Thread's next message: "Start fresh" or "Continue anyway". */
+export type ContextOverride = "start-fresh" | "continue-anyway";
 
 /** One continuous exchange in a home, one engine session underneath at a time. */
 export interface Thread {
@@ -48,6 +56,8 @@ export interface Thread {
   readonly state: ThreadState;
   /** Undefined until the person first answers in it. */
   readonly session: ThreadSession | undefined;
+  /** For the next message only; undefined lets the Context policy choose. */
+  readonly override: ContextOverride | undefined;
   readonly tokens: TokenTotals;
   readonly startedAt: Date;
 }
