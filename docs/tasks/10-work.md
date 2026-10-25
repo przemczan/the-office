@@ -1,6 +1,6 @@
 # 10 · Work: Ideas, Tasks, the board and Attachments
 
-Status: todo
+Status: in progress
 
 ## Goal
 
@@ -25,7 +25,7 @@ Build from Work: the board, the Ideas list with shaping into a Task, the Task pa
 
 ## Steps
 
-- [ ] 1. Work module domain: Idea, Task (title, Project, state, priority, manual order, Plan, Definition of Done as a list of statements, origin Idea, the Task's own copy of its Pipeline), Attachment, and the state machine with its rules and tests. Commit.
+- [x] 1. Work module domain: Idea, Task (title, Project, state, priority, manual order, Plan, Definition of Done as a list of statements, origin Idea, its Pipeline by id; the Task's own Stages, once it starts or is edited for itself, are kept by Pipelines), Attachment, and the state machine with its rules and tests. Commit.
 - [ ] 2. Persistence, use cases, events and API: capture and shape Ideas, create, reorder, change priority, drop Tasks, add and remove Attachments (files stored under `<office-data>/attachments/`). Commit.
 - [ ] 3. The Work surface: the board, Ideas, the capture dialog from the top bar, and the Work blocks on the Project page and a person's page. Commit.
 - [ ] 4. The Task page: header with state, Project, Pipeline, priority and tokens; the record; the conversation panel from task 09 bound to the Task's home. Commit.
@@ -35,3 +35,4 @@ Build from Work: the board, the Ideas list with shaping into a Task, the Task pa
 ## Progress
 
 <!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next; anything surprising. -->
+- 2026-10-25 · step 1: `modules/work/domain/`: Idea (new, shaped, dropped; restore from dropped, as in the click-through), Task with the state table in `task-states.ts` (forward only; Waiting on you and Paused move among themselves and In progress; Drop until Done; Ready needs a Plan and a Definition of Done), Attachment owned by an Idea or a Task (kind from the file: `.md` is a document, png/jpeg/gif/webp an image, SVG a file), shaping, and the manual order as fractional keys (`fractional-indexing` 4.0.0, compared as plain strings, so Postgres must sort them `COLLATE "C"`). Decided with the user: Pipelines keeps a Task's own Stages (the Task holds its Pipeline id); one manual order per board column, sorted by priority then key, a dropped card taking the nearest priority that keeps it where it was dropped; a person's Work tab lists Tasks whose Stages name their Role, plus Tasks with a Thread with them. Next: step 2, persistence, use cases, events and API; `projects/index.ts` needs a service that reads a Project (its default Pipeline).

@@ -28,6 +28,7 @@
     "@the-office/contracts": "*",
     "drizzle-orm": "0.45.4",
     "express": "5.3.0",
+    "fractional-indexing": "4.0.0",
     "import-in-the-middle": "3.5.2",
     "pg": "8.23.1",
     "reflect-metadata": "0.2.2",
