@@ -1,0 +1,210 @@
+/* A conversation (prototypes/app/conversation.js): a Thread's title, its context label, its log and
+   the composer. Shared by a person's chat and, later, a Task's Threads. Colours are aliases only. */
+
+.thread-view {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.thread-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.thread-title h3 {
+  overflow: hidden;
+  margin: 0;
+  font: var(--type-card-title);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.thread-title .refusal-reasons {
+  flex-basis: 100%;
+}
+
+/* ---- the context label */
+.context-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.context-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.context-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--info-border);
+  border-radius: 999px;
+  background: var(--info-subtle);
+  font: 500 11px/1 var(--font-sans);
+  color: var(--info-fg);
+}
+
+.context-pill.resume {
+  border-color: var(--success-border);
+  background: var(--success-subtle);
+  color: var(--success-fg);
+}
+
+.context-tokens {
+  color: var(--fg-3);
+}
+
+.context-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.context-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.context-dot.warm {
+  background: var(--success);
+}
+
+/* ---- the log */
+.message-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  padding: 14px 16px;
+  overflow: auto;
+}
+
+.message {
+  max-width: 92%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-sunken);
+  font: var(--type-body-sm);
+  line-height: 1.55;
+  color: var(--fg-1);
+}
+
+.message.mine {
+  margin-left: auto;
+  background: var(--accent-subtle);
+}
+
+.message.handover-note {
+  border: 1px solid var(--info-border);
+  background: var(--info-subtle);
+}
+
+.message-by {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font: var(--type-caption);
+  font-weight: 500;
+  color: var(--fg-3);
+}
+
+.message-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.message-line {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.message-line svg {
+  flex: none;
+  align-self: center;
+}
+
+.message-tool {
+  flex: none;
+  font-weight: 500;
+  color: var(--fg-2);
+}
+
+.message-summary {
+  min-width: 0;
+  overflow: hidden;
+  font: var(--type-mono);
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.message-line.refused,
+.message-line.refused .message-tool {
+  color: var(--warning-fg);
+}
+
+.message-line.failed {
+  color: var(--danger-fg);
+}
+
+.message-line.failed .message-summary {
+  font: var(--type-caption);
+  white-space: normal;
+}
+
+/* The Office's own line: never a person's, never "System" (spec §9). */
+.message-office {
+  padding: 6px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  font: var(--type-caption);
+  color: var(--fg-2);
+  text-align: center;
+}
+
+.message-answering {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+/* ---- the composer */
+.composer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.composer > :first-child {
+  flex: 1;
+}

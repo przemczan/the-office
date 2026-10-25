@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { shouldRetry } from "./api/api-client.ts";
+import { threadEventInvalidations } from "./api/conversations.ts";
 import { EventStreamProvider, type EventInvalidations } from "./api/event-stream-provider.tsx";
 import { roleEventInvalidations } from "./api/people.ts";
 import { projectEventInvalidations } from "./api/projects.ts";
@@ -15,6 +16,7 @@ const EVENT_INVALIDATIONS: EventInvalidations = {
   ...projectEventInvalidations,
   ...roleEventInvalidations,
   ...skillEventInvalidations,
+  ...threadEventInvalidations,
 };
 
 export function App(): ReactNode {

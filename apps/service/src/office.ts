@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { Logger, type INestApplication } from "@nestjs/common";
+import { Logger, type DynamicModule, type INestApplication } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module.js";
 import { InterruptedAnswers } from "./modules/conversations/index.js";
@@ -20,6 +20,11 @@ const WEB_APP_DIRECTORY = fileURLToPath(new URL("../../web/", import.meta.url));
 const SHUTDOWN_SIGNALS = ["SIGINT", "SIGTERM"] as const;
 
 const logger = new Logger("Office");
+
+/** Makes the Nest app of the composition root; the end-to-end tests make it on a scripted engine. */
+export type CreateApp = (appModule: DynamicModule) => Promise<INestApplication>;
+
+const createApp: CreateApp = (appModule) => NestFactory.create(appModule, { abortOnError: false });
 
 function readConfig(): OfficeConfig {
   return readOfficeConfig(process.env, {
@@ -66,11 +71,14 @@ function closeOnShutdownSignal(app: INestApplication, telemetry: StartedTelemetr
   for (const signal of SHUTDOWN_SIGNALS) process.on(signal, close);
 }
 
-async function start(telemetry: StartedTelemetry, webApp: WebAppSource): Promise<void> {
+async function start(
+  telemetry: StartedTelemetry,
+  webApp: WebAppSource,
+  create: CreateApp,
+): Promise<void> {
   const config = readConfig();
-  const app = await NestFactory.create(
+  const app = await create(
     AppModule.register(config, { directory: WEB_APP_DIRECTORY, source: webApp }),
-    { abortOnError: false },
   );
   await serve(app, config.port, (started) => started.get(InterruptedAnswers).recover());
   closeOnShutdownSignal(app, telemetry);
@@ -82,11 +90,15 @@ function describeStartFailure(error: unknown): string {
 }
 
 /** Starts The Office; a failure to start is logged and ends the process with exit code 1. */
-export async function runOffice(telemetry: StartedTelemetry, webApp: WebAppSource): Promise<void> {
+export async function runOffice(
+  telemetry: StartedTelemetry,
+  webApp: WebAppSource,
+  create: CreateApp = createApp,
+): Promise<void> {
   // Before anything logs, so a start failure is exported too; Nest and every Logger use it.
   Logger.overrideLogger(new OfficeLogger());
   try {
-    await start(telemetry, webApp);
+    await start(telemetry, webApp, create);
   } catch (error) {
     logger.fatal(describeStartFailure(error));
     process.exitCode = 1;

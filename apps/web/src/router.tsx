@@ -9,6 +9,7 @@ import { Shell } from "./shell/shell.tsx";
 import { NowPage } from "./surfaces/now/now-page.tsx";
 import { OverviewTab } from "./surfaces/people/overview-tab.tsx";
 import { PeoplePage } from "./surfaces/people/people-page.tsx";
+import { ConversationsTab } from "./surfaces/people/conversations-tab.tsx";
 import { PersonPage } from "./surfaces/people/person-page.tsx";
 import { RoleCardEditPage } from "./surfaces/people/role-card-form.tsx";
 import { RoleCardTab } from "./surfaces/people/role-card-tab.tsx";
@@ -28,8 +29,21 @@ declare module "@tanstack/react-router" {
   }
 }
 
+/**
+ * Over any page: the chat open with a person, by their Role's key, and the Thread shown in it
+ * (spec §4: chats open in a modal).
+ */
+export interface ChatSearch {
+  readonly chat?: string;
+  readonly thread?: string;
+}
+
 const rootRoute = createRootRoute({
   component: Shell,
+  validateSearch: (search: Record<string, unknown>): ChatSearch => ({
+    ...(typeof search["chat"] === "string" && { chat: search["chat"] }),
+    ...(typeof search["thread"] === "string" && { thread: search["thread"] }),
+  }),
   // Like the click-through, an address that names no page opens Now.
   notFoundComponent: () => <Navigate to="/now" replace />,
 });
@@ -77,6 +91,13 @@ const personOverviewRoute = createRoute({
   getParentRoute: () => personRoute,
   path: "/",
   component: OverviewTab,
+  staticData: { title: "People" },
+});
+
+const conversationsRoute = createRoute({
+  getParentRoute: () => personRoute,
+  path: "conversations",
+  component: ConversationsTab,
   staticData: { title: "People" },
 });
 
@@ -138,7 +159,12 @@ export const router = createRouter({
     nowRoute,
     workRoute,
     peopleRoute,
-    personRoute.addChildren([personOverviewRoute, roleCardRoute, roleCardEditRoute]),
+    personRoute.addChildren([
+      personOverviewRoute,
+      conversationsRoute,
+      roleCardRoute,
+      roleCardEditRoute,
+    ]),
     projectsRoute,
     projectRoute,
     settingsRoute.addChildren([settingsHomeRoute, settingsSkillsRoute]),

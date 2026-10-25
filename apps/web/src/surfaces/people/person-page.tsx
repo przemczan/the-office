@@ -5,13 +5,14 @@ import { Avatar, Button, EmptyState, Icon, Tabs } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { ApiError } from "../../api/api-client.ts";
 import { roleQueries } from "../../api/people.ts";
+import { useChat } from "../../shell/chat/use-chat.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { personName } from "../../shell/person-name.ts";
 import { dayOf } from "../../shell/time.ts";
 import { CAPABILITIES, taskLimitShort } from "./role-card-labels.ts";
 import "./people.css";
 
-/** A person's page: who they are and their Role card; Conversations and Work come with later tasks. */
+/** A person's page: who they are, their conversations and their Role card; Work comes with Tasks. */
 export function PersonPage(): ReactNode {
   const { roleKey } = useParams({ from: "/people/$roleKey" });
   const role = useQuery(roleQueries.one(roleKey));
@@ -38,6 +39,7 @@ function PersonHead({ role }: { readonly role: Role }): ReactNode {
     params: { roleKey: role.key },
   });
   const navigate = useNavigate();
+  const chat = useChat();
   return (
     <header className="person-head">
       <Avatar name={card.name} size="lg" />
@@ -57,40 +59,52 @@ function PersonHead({ role }: { readonly role: Role }): ReactNode {
           <span>· Hired {dayOf(role.hiredAt)}</span>
         </div>
       </div>
-      {editing === false && (
-        <Button
-          variant="secondary"
-          iconLeft={<Icon name="pencil" size={14} />}
-          onClick={() =>
-            void navigate({ to: "/people/$roleKey/role/edit", params: { roleKey: role.key } })
-          }
-        >
-          Edit Role
-        </Button>
-      )}
+      <div className="person-head-actions">
+        {card.capabilities.chat && (
+          <Button
+            iconLeft={<Icon name="message-circle" size={14} />}
+            onClick={() => chat.open(role.key)}
+          >
+            Open the chat
+          </Button>
+        )}
+        {editing === false && (
+          <Button
+            variant="secondary"
+            iconLeft={<Icon name="pencil" size={14} />}
+            onClick={() =>
+              void navigate({ to: "/people/$roleKey/role/edit", params: { roleKey: role.key } })
+            }
+          >
+            Edit Role
+          </Button>
+        )}
+      </div>
     </header>
   );
 }
 
 const TABS = [
-  { value: "overview", label: "Overview" },
-  { value: "role", label: "Role card" },
+  { value: "overview", label: "Overview", to: "/people/$roleKey" },
+  { value: "conversations", label: "Conversations", to: "/people/$roleKey/conversations" },
+  { value: "role", label: "Role card", to: "/people/$roleKey/role" },
 ] as const;
 
 function PersonTabs({ roleKey }: { readonly roleKey: string }): ReactNode {
   const matchRoute = useMatchRoute();
   const navigate = useNavigate();
-  const onRoleCard = matchRoute({ to: "/people/$roleKey/role", params: { roleKey }, fuzzy: true });
+  // The Role card's tab stays chosen while its form is open.
+  const shown =
+    TABS.findLast(({ to }) => matchRoute({ to, params: { roleKey }, fuzzy: to !== TABS[0].to })) ??
+    TABS[0];
   return (
     <Tabs
-      tabs={[...TABS]}
-      value={onRoleCard === false ? "overview" : "role"}
-      onChange={(tab) =>
-        void navigate({
-          to: tab === "role" ? "/people/$roleKey/role" : "/people/$roleKey",
-          params: { roleKey },
-        })
-      }
+      tabs={TABS.map(({ value, label }) => ({ value, label }))}
+      value={shown.value}
+      onChange={(value) => {
+        const tab = TABS.find((candidate) => candidate.value === value) ?? TABS[0];
+        void navigate({ to: tab.to, params: { roleKey } });
+      }}
     />
   );
 }

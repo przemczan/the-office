@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { Preset, Role } from "@the-office/contracts";
-import { Alert, Avatar, Button, Icon } from "@the-office/ui";
+import { Alert, Avatar, Button, Icon, IconButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { roleCardQueries, roleQueries } from "../../api/people.ts";
+import { useChat } from "../../shell/chat/use-chat.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { HireDialog } from "./hire-dialog.tsx";
 import { CAPABILITIES, taskLimitShort } from "./role-card-labels.ts";
@@ -53,14 +54,28 @@ export function PeoplePage(): ReactNode {
 
 function PersonCard({ role }: { readonly role: Role }): ReactNode {
   const { card } = role;
+  const chat = useChat();
   return (
-    <Link to="/people/$roleKey" params={{ roleKey: role.key }} className="person-tile person-card">
+    <article className="person-tile person-card">
       <div className="person-tile-head">
         <Avatar name={card.name} size="md" />
         <div className="person-tile-grow">
-          <h2 className="person-tile-name">{card.name}</h2>
+          <h2 className="person-tile-name">
+            {/* The whole card opens the page; the chat button sits above the link. */}
+            <Link to="/people/$roleKey" params={{ roleKey: role.key }} className="person-tile-link">
+              {card.name}
+            </Link>
+          </h2>
           <div className="person-tile-title">{card.title}</div>
         </div>
+        {card.capabilities.chat && (
+          <IconButton
+            icon={<Icon name="message-circle" size={16} />}
+            label={`Open the chat with ${card.name}`}
+            className="person-tile-chat"
+            onClick={() => chat.open(role.key)}
+          />
+        )}
       </div>
       <p className="person-tile-text">{card.responsibilities}</p>
       <div className="person-tile-foot">
@@ -72,7 +87,7 @@ function PersonCard({ role }: { readonly role: Role }): ReactNode {
         ))}
         <span className="person-tile-limit">{taskLimitShort(card.taskLimit)}</span>
       </div>
-    </Link>
+    </article>
   );
 }
 

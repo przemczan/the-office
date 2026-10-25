@@ -1,0 +1,16 @@
+{"step":"start","brief":{"id":"brief-1","text":"A new Thread with the Planner"}}
+{"step":"event","event":{"kind":"tool-call","callId":"call-1","tool":"Read","officeTool":false,"input":{"file_path":"<folder>/admin-panel/.github/workflows/deploy-production.yml"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-refused","callId":"call-2","tool":"Edit","reason":"This session only reads: changes happen on Tasks.","refusedBy":"office-rules"}}
+{"step":"event","event":{"kind":"text","text":"It deploys to production on every push to main.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-1"],"usage":{"input":3,"output":140,"cacheRead":0,"cacheCreation":31800},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":32000,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-2","text":"The same Thread, started fresh"}}
+{"step":"event","event":{"kind":"text","text":"The tests run with npm test.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-2"],"usage":{"input":3,"output":60,"cacheRead":0,"cacheCreation":20900},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":21000,"window":1000000}}
+{"step":"send","message":{"id":"message-3","text":"Thanks"},"priority":"later"}
+{"step":"event","event":{"kind":"text","text":"You're welcome.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["message-3"],"usage":{"input":2,"output":8,"cacheRead":21000,"cacheCreation":40},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":21100,"window":1000000}}
+{"step":"end"}

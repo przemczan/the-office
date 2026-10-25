@@ -276,7 +276,7 @@ export class ThreadRunner implements OnModuleDestroy {
                 kind: "tool-activity",
                 roleKey: live.roleKey,
                 tool: event.tool,
-                summary: toolActivitySummary(event.input),
+                summary: toolActivitySummary(event.input, this.bases.folder),
               },
             ]);
           }

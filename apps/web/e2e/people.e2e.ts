@@ -49,7 +49,7 @@ test("a person's page shows who they are and their Role card from the presets", 
   page,
 }) => {
   await page.goto("/people");
-  await page.getByRole("link", { name: /Jan\s*Planner/ }).click();
+  await page.getByRole("link", { name: "Jan", exact: true }).click();
   await expect(page).toHaveURL(/\/people\/planner$/);
   await expect(page.getByRole("heading", { name: "Who Jan is" })).toBeVisible();
   await expect(page.getByText("Up to 2 Tasks")).toBeVisible();
@@ -188,4 +188,85 @@ test.describe("dark", () => {
 test("a Role nobody fills has no page", async ({ page }) => {
   await page.goto("/people/cto");
   await expect(page.getByRole("link", { name: "Back to People" })).toBeVisible();
+});
+
+/** The chat open over the page. */
+function chatWith(page: Page, name: string) {
+  return page.getByRole("dialog", { name: `Chat with ${name}` });
+}
+
+function contextLabel(page: Page) {
+  return chatWith(page, "Jan").getByLabel("Context");
+}
+
+// The engine replays e2e/sessions.jsonl: the Planner's first session, then a fresh one.
+test("the user chats with the Planner, who reads but changes nothing", async ({ page }) => {
+  await page.goto("/people");
+  await page.getByRole("button", { name: "Open the chat with Jan" }).click();
+  const chat = chatWith(page, "Jan");
+  await expect(chat.getByText("No threads with Jan yet.")).toBeVisible();
+  await chat.getByRole("button", { name: "New thread" }).first().click();
+  await expect(contextLabel(page)).toContainText(/Fresh · new Thread · brief ~\d/);
+
+  await chat.getByLabel("Message").fill("Read the deploy workflow.");
+  await chat.getByLabel("Message").press("Enter");
+
+  await expect(chat.getByText("It deploys to production on every push to main.")).toBeVisible();
+  await expect(chat.getByText(/deploy-production\.yml$/)).toBeVisible();
+  await expect(chat.getByText("This session only reads: changes happen on Tasks.")).toBeVisible();
+  await expect(chat.getByRole("heading", { name: "Read the deploy workflow" })).toBeVisible();
+  await expect(contextLabel(page)).toHaveText("Continuing · cache warm · 32k context");
+  await expect(chat.getByText("32k tokens in this Thread")).toBeVisible();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-chat.png") });
+
+  await chat.getByRole("button", { name: /^Start fresh · ~\d/ }).click();
+  await expect(contextLabel(page)).toContainText(/Fresh · you chose it · brief ~\d/);
+  await expect(chat.getByRole("button", { name: "Auto" })).toBeVisible();
+  await expect(chat.getByRole("button", { name: "Continue anyway · ~32k" })).toBeVisible();
+  await chat.getByLabel("Message").fill("And the tests?");
+  await chat.getByLabel("Message").press("Enter");
+
+  await expect(chat.getByText("The tests run with npm test.")).toBeVisible();
+  await expect(chat.getByText(/^Fresh · you chose it · brief ~\d/)).toBeVisible();
+  await expect(contextLabel(page)).toHaveText("Continuing · cache warm · 21k context");
+});
+
+test("a Thread is renamed, and an old one stays readable and continues", async ({ page }) => {
+  await page.goto("/people?chat=planner");
+  const chat = chatWith(page, "Jan");
+  await chat.getByRole("button", { name: "Rename the Thread" }).click();
+  await chat.getByLabel("Thread title").fill("Deploys");
+  await chat.getByRole("button", { name: "Save" }).click();
+  await expect(chat.getByRole("heading", { name: "Deploys" })).toBeVisible();
+
+  await chat.getByRole("button", { name: "New thread" }).first().click();
+  await expect(chat.getByRole("heading", { name: "New thread" })).toBeVisible();
+  await chat.getByRole("button", { name: /^Deploys/ }).click();
+  await expect(chat.getByText("It deploys to production on every push to main.")).toBeVisible();
+  await chat.getByLabel("Message").fill("Thanks.");
+  await chat.getByLabel("Message").press("Enter");
+
+  await expect(chat.getByText("You're welcome.")).toBeVisible();
+  await expect(contextLabel(page)).toHaveText("Continuing · cache warm · 21k context");
+
+  await page.reload();
+  await expect(chatWith(page, "Jan").getByText("You're welcome.")).toBeVisible();
+});
+
+test("the Planner's page lists their Threads under Conversations", async ({ page }) => {
+  await page.goto("/people/planner");
+  await page.getByRole("tab", { name: "Conversations" }).click();
+  await expect(page).toHaveURL(/\/people\/planner\/conversations$/);
+  await expect(page.getByRole("tab", { name: "Conversations" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(page.getByText("Chat threads · 2")).toBeVisible();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-person-conversations.png") });
+
+  await page.getByRole("button", { name: /^Deploys/ }).click();
+
+  await expect(chatWith(page, "Jan").getByText("You're welcome.")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(chatWith(page, "Jan")).toHaveCount(0);
 });

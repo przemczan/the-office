@@ -1,23 +1,34 @@
 import { describe, expect, it } from "vitest";
 import { toolActivitySummary } from "./tool-activity.js";
 
+const FOLDER = "/office/bases";
+
 describe("a tool call's line in the log", () => {
-  it("names the file, pattern, command, address or query the call was about", () => {
-    expect(toolActivitySummary({ file_path: "/bases/admin/README.md" })).toBe(
-      "/bases/admin/README.md",
+  it("names a path inside the session's folder from there", () => {
+    expect(toolActivitySummary({ file_path: "/office/bases/admin-panel/README.md" }, FOLDER)).toBe(
+      "admin-panel/README.md",
     );
-    expect(toolActivitySummary({ pattern: "deploy", path: "/bases/admin" })).toBe("deploy");
-    expect(toolActivitySummary({ command: "git log\n  --oneline -5" })).toBe(
+    expect(
+      toolActivitySummary({ file_path: "C:\\office\\bases\\admin\\a.ts" }, "C:\\office\\bases"),
+    ).toBe("admin\\a.ts");
+  });
+
+  it("names the file, pattern, command, address or query the call was about", () => {
+    expect(toolActivitySummary({ file_path: "/elsewhere/README.md" }, FOLDER)).toBe(
+      "/elsewhere/README.md",
+    );
+    expect(toolActivitySummary({ pattern: "deploy", path: "/bases/admin" }, FOLDER)).toBe("deploy");
+    expect(toolActivitySummary({ command: "git log\n  --oneline -5" }, FOLDER)).toBe(
       "git log --oneline -5",
     );
-    expect(toolActivitySummary({ url: "https://example.com", prompt: "Summarize" })).toBe(
+    expect(toolActivitySummary({ url: "https://example.com", prompt: "Summarize" }, FOLDER)).toBe(
       "https://example.com",
     );
   });
 
   it("is empty for a call with nothing to name, and cut when long", () => {
-    expect(toolActivitySummary({ todos: [] })).toBe("");
-    expect(toolActivitySummary(undefined)).toBe("");
-    expect(toolActivitySummary({ command: "x".repeat(300) })).toHaveLength(200);
+    expect(toolActivitySummary({ todos: [] }, FOLDER)).toBe("");
+    expect(toolActivitySummary(undefined, FOLDER)).toBe("");
+    expect(toolActivitySummary({ command: "x".repeat(300) }, FOLDER)).toHaveLength(200);
   });
 });
