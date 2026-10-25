@@ -7,7 +7,11 @@ import {
 } from "@tanstack/react-router";
 import { Shell } from "./shell/shell.tsx";
 import { NowPage } from "./surfaces/now/now-page.tsx";
+import { OverviewTab } from "./surfaces/people/overview-tab.tsx";
 import { PeoplePage } from "./surfaces/people/people-page.tsx";
+import { PersonPage } from "./surfaces/people/person-page.tsx";
+import { RoleCardEditPage } from "./surfaces/people/role-card-form.tsx";
+import { RoleCardTab } from "./surfaces/people/role-card-tab.tsx";
 import { ProjectPage } from "./surfaces/projects/project-page.tsx";
 import { ProjectsPage } from "./surfaces/projects/projects-page.tsx";
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
@@ -60,6 +64,36 @@ const peopleRoute = createRoute({
   staticData: { title: "People" },
 });
 
+// A person's page, keyed by their Role's key: one person fills each Role.
+const personRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "people/$roleKey",
+  component: PersonPage,
+  // Until the person is read; the page then names them.
+  staticData: { title: "People" },
+});
+
+const personOverviewRoute = createRoute({
+  getParentRoute: () => personRoute,
+  path: "/",
+  component: OverviewTab,
+  staticData: { title: "People" },
+});
+
+const roleCardRoute = createRoute({
+  getParentRoute: () => personRoute,
+  path: "role",
+  component: RoleCardTab,
+  staticData: { title: "People" },
+});
+
+const roleCardEditRoute = createRoute({
+  getParentRoute: () => personRoute,
+  path: "role/edit",
+  component: RoleCardEditPage,
+  staticData: { title: "People" },
+});
+
 const projectsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "projects",
@@ -104,6 +138,7 @@ export const router = createRouter({
     nowRoute,
     workRoute,
     peopleRoute,
+    personRoute.addChildren([personOverviewRoute, roleCardRoute, roleCardEditRoute]),
     projectsRoute,
     projectRoute,
     settingsRoute.addChildren([settingsHomeRoute, settingsSkillsRoute]),
