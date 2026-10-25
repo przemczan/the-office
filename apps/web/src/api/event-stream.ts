@@ -7,8 +7,8 @@ import {
 } from "@the-office/contracts";
 
 /**
- * Connecting until the first connection opens; reconnecting after a connection was lost, such as
- * when the service restarts.
+ * Connecting while the first attempt is under way; reconnecting after an attempt failed or a
+ * connection was lost, such as when the service restarts.
  */
 export type EventStreamStatus = "connecting" | "connected" | "reconnecting";
 
@@ -91,7 +91,7 @@ export class EventStream {
   private closed(socket: WebSocket): void {
     if (socket !== this.socket || !this.running) return;
     this.socket = undefined;
-    this.setStatus(this.hasConnected ? "reconnecting" : "connecting");
+    this.setStatus("reconnecting");
     const delay =
       RECONNECT_DELAYS_MS[Math.min(this.failedAttempts, RECONNECT_DELAYS_MS.length - 1)];
     this.failedAttempts += 1;

@@ -1,0 +1,293 @@
+/* Shell A3 · Desk (spec §4, prototypes/shell-a3.html): a rail, a top bar and the status strip
+   around the page, whose panels fold from three to two to one. Colours are aliases only. */
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  grid-template-rows: 56px 48px minmax(0, 1fr);
+  height: 100vh;
+}
+
+/* ---- rail */
+.shell-rail {
+  grid-row: 1 / 4;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 0;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+}
+
+.shell-rail-mark {
+  display: block;
+  margin-bottom: 14px;
+}
+
+.shell-rail-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--sidebar-fg);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.shell-rail-item:hover {
+  background: var(--control-hover);
+  color: var(--fg-1);
+}
+
+.shell-rail-item.active {
+  background: var(--sidebar-active-bg);
+  color: var(--sidebar-active-fg);
+}
+
+.shell-rail-item.active::before {
+  content: "";
+  position: absolute;
+  left: -8px;
+  top: 12px;
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.shell-rail-spacer {
+  flex: 1;
+}
+
+/* The design system's Menu opens below its trigger; at the foot of the rail it opens to the
+   right, as in the click-through. */
+.shell-palette-menu [role="menu"] {
+  top: auto !important;
+  right: auto !important;
+  bottom: 0;
+  left: calc(100% + 8px) !important;
+}
+
+/* ---- top bar */
+.shell-top {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  padding: 0 24px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.shell-top-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+  flex: none;
+}
+
+.shell-top h1 {
+  margin: 0;
+  font: var(--type-section-title);
+  letter-spacing: var(--tracking-tight);
+  white-space: nowrap;
+}
+
+.shell-grow {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- status strip */
+.shell-strip {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 0 24px;
+  overflow: hidden;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.shell-strip-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.shell-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.shell-dot.reconnecting {
+  background: var(--warning);
+}
+
+/* ---- page */
+.shell-main {
+  grid-column: 2;
+  min-width: 0;
+  overflow: auto;
+}
+
+/* ---- panels: three filling the width, folding to two, then one */
+.desk {
+  display: grid;
+  grid-template-columns: minmax(440px, 1.25fr) minmax(360px, 1fr) 320px;
+  gap: var(--gap-panel);
+  align-content: start;
+  padding: var(--pad-page);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.panel > h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 2px;
+  font: 600 13px/1 var(--font-sans);
+  color: var(--fg-2);
+}
+
+.panel > h2 .panel-action {
+  margin-left: auto;
+  font: var(--type-caption);
+  color: var(--fg-3);
+  text-decoration: none;
+}
+
+.panel > h2 .panel-action:hover {
+  color: var(--fg-1);
+}
+
+/* A second heading in the same panel, as Since you left under Running. */
+.panel > .feed + h2 {
+  margin-top: 12px;
+}
+
+.feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-card);
+}
+
+/* ---- cards: every item a card with air around it, its left edge coloured by type or status */
+.item-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: var(--pad-card);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--edge, var(--border));
+  border-radius: var(--radius-card);
+}
+
+.item-card.edge-decision,
+.item-card.edge-paused {
+  --edge: var(--warning);
+}
+
+.item-card.edge-gate {
+  --edge: var(--info);
+}
+
+.item-card.edge-message {
+  --edge: var(--accent);
+}
+
+.item-card.edge-running,
+.item-card.edge-done {
+  --edge: var(--success);
+}
+
+.item-card.edge-failed {
+  --edge: var(--danger);
+}
+
+.empty-card {
+  padding: 40px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  text-align: center;
+  font: var(--type-body-sm);
+  color: var(--fg-3);
+}
+
+@media (max-width: 1280px) {
+  .desk {
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  }
+}
+
+/* One panel. The phone's own layout (bottom tabs, no rail) is tier 2. */
+@media (max-width: 720px) {
+  .desk {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding: 14px;
+  }
+
+  .shell-top,
+  .shell-strip {
+    padding: 0 14px;
+  }
+
+  .shell-top-lockup,
+  .shell-top-divider {
+    display: none;
+  }
+}
+
+/* ---- the palette menu's swatches, in the palettes' own surface colours */
+.palette-swatch {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border: 1px solid;
+  border-radius: 4px;
+}
+
+.palette-swatch-light {
+  background: var(--white);
+  border-color: var(--gray-200);
+}
+
+.palette-swatch-dark {
+  background: var(--gray-900);
+  border-color: var(--gray-700);
+}
+
+.palette-option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}

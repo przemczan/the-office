@@ -125,11 +125,12 @@ describe("the event stream", () => {
     }
   });
 
-  it("keeps connecting while the service has never answered", () => {
+  it("tries again while the service has never answered, without a refetch", () => {
     const onReconnected = vi.fn<() => void>();
     const eventStream = startStream({ onReconnected });
 
     latestSocket().serviceGone();
+    expect(eventStream.status()).toBe("reconnecting");
     vi.advanceTimersByTime(RECONNECT_DELAYS_MS[0]);
     latestSocket().open();
 
