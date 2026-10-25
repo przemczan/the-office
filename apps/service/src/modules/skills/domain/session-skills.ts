@@ -52,7 +52,8 @@ export function projectSkillsFrom(files: readonly ProjectSkillFile[]): ProjectSk
   return [...found.values()].toSorted((first, second) => (first.key < second.key ? -1 : 1));
 }
 
-function projectSkillOf({ path, text }: ProjectSkillFile): ProjectSkill | undefined {
+/** The Project skill or command a file is, or undefined for one that is neither. */
+export function projectSkillOf({ path, text }: ProjectSkillFile): ProjectSkill | undefined {
   const skill = SKILL_MD_PATH.exec(path);
   if (skill?.[2]) {
     const folder = skill[2];

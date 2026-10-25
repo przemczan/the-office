@@ -4,12 +4,16 @@ import type { ReactNode } from "react";
 import { shouldRetry } from "./api/api-client.ts";
 import { EventStreamProvider, type EventInvalidations } from "./api/event-stream-provider.tsx";
 import { projectEventInvalidations } from "./api/projects.ts";
+import { skillEventInvalidations } from "./api/skills.ts";
 import { router } from "./router.tsx";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: shouldRetry } } });
 
 // Each surface adds the event types it receives and the queries their events make stale.
-const EVENT_INVALIDATIONS: EventInvalidations = { ...projectEventInvalidations };
+const EVENT_INVALIDATIONS: EventInvalidations = {
+  ...projectEventInvalidations,
+  ...skillEventInvalidations,
+};
 
 export function App(): ReactNode {
   return (

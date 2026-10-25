@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
+import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import {
   createProjectCheckout,
   projectSkillMd,
@@ -27,7 +28,7 @@ let sessionSkills: SessionSkills;
 async function start(): Promise<void> {
   ({ app } = await startTestApplication({
     database: true,
-    imports: [EventsModule, OfficeDataModule.forRoot(officeData), SkillsModule],
+    imports: [EventsModule, EventStreamModule, OfficeDataModule.forRoot(officeData), SkillsModule],
   }));
   library = app.get(SkillLibrary);
   sessionSkills = app.get(SessionSkills);

@@ -341,6 +341,31 @@ body,
   gap: 8px;
 }
 
+/* Every reason the service gave for refusing a change. */
+.refusal-reasons {
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* A skill's name, wherever it shows. */
+.skill-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  font: var(--type-mono);
+  font-size: 11px;
+  color: var(--fg-1);
+}
+
+.skill-chip svg {
+  color: var(--fg-3);
+}
+
 /* For a control whose label the layout already shows: read by assistive technology only. */
 .visually-hidden {
   position: absolute;

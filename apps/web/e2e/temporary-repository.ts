@@ -33,7 +33,8 @@ export async function createTemporaryRepository(): Promise<TemporaryRepository> 
   return {
     folder,
     path: repository,
-    remove: () => rm(folder, { recursive: true, force: true }),
+    // Retries cover a git the service started in it that is still ending on Windows.
+    remove: () => rm(folder, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }),
   };
 }
 

@@ -1,4 +1,5 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
+import { SkillsModule } from "../skills/index.js";
 import { CommandLineGit } from "./adapters/git/command-line-git.js";
 import { RepositoryLocks } from "./adapters/git/repository-locks.js";
 import { EnvironmentChecksController } from "./adapters/http/environment-checks.controller.js";
@@ -29,7 +30,8 @@ export class ProjectsModule {
   static register({ imports, knownPipelines }: ProjectsModuleOptions): DynamicModule {
     return {
       module: ProjectsModule,
-      imports,
+      // The Project page lists the repository's own skills through the Skills module.
+      imports: [...imports, SkillsModule],
       controllers: [ProjectsController, EnvironmentChecksController],
       providers: [
         { provide: ProjectRepository, useClass: PostgresProjectRepository },

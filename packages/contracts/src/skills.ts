@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { webEventSchema } from "./events.js";
 
 /** How a skill came into the library. */
 export const skillSourceSchema = z.enum(["written", "uploaded-file", "uploaded-folder"]);
@@ -80,3 +81,30 @@ export const skillRefusalSchema = z.object({
   reasons: z.array(z.string()).min(1),
 });
 export type SkillRefusal = z.infer<typeof skillRefusalSchema>;
+
+/** GET /projects/:id/skills: a skill or command of the repository's own, read-only. */
+export const repositorySkillSchema = z.object({
+  /** As a session lists it. */
+  name: z.string(),
+  description: z.string(),
+  /** The skill's folder, or the command's file, inside the repository. */
+  path: z.string(),
+  /** False below the repository's top: a session lists it once a file below it is read. */
+  listedAtStart: z.boolean(),
+  /** The library has a skill of the same name, which a session with both also lists. */
+  alsoInLibrary: z.boolean(),
+});
+export type RepositorySkill = z.infer<typeof repositorySkillSchema>;
+
+export const repositorySkillListSchema = z.array(repositorySkillSchema);
+
+/** The library's events the web receives; each names the skill, so its queries refresh. */
+export const skillWebEventSchema = z.discriminatedUnion("type", [
+  webEventSchema.extend({ type: z.literal("skill.added"), skillName: z.string() }),
+  webEventSchema.extend({ type: z.literal("skill.version-saved"), skillName: z.string() }),
+  webEventSchema.extend({ type: z.literal("skill.turned-on"), skillName: z.string() }),
+  webEventSchema.extend({ type: z.literal("skill.turned-off"), skillName: z.string() }),
+  webEventSchema.extend({ type: z.literal("skill.everyone-changed"), skillName: z.string() }),
+  webEventSchema.extend({ type: z.literal("skill.removed"), skillName: z.string() }),
+]);
+export type SkillWebEvent = z.infer<typeof skillWebEventSchema>;

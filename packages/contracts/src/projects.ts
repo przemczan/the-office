@@ -71,6 +71,10 @@ export type PublishingModeChange = z.infer<typeof publishingModeChangeSchema>;
 export const defaultPipelineChangeSchema = z.object({ defaultPipeline: z.string() });
 export type DefaultPipelineChange = z.infer<typeof defaultPipelineChangeSchema>;
 
+/** PUT /projects/:id/use-project-skills */
+export const useProjectSkillsChangeSchema = z.object({ useProjectSkills: z.boolean() });
+export type UseProjectSkillsChange = z.infer<typeof useProjectSkillsChangeSchema>;
+
 /** How a Project command ended. */
 export const commandOutcomeSchema = z.enum([
   "passed",
@@ -178,6 +182,10 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
   }),
   webEventSchema.extend({
     type: z.literal("project.default-pipeline-changed"),
+    projectId: z.string(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("project.use-of-skills-changed"),
     projectId: z.string(),
   }),
 ]);

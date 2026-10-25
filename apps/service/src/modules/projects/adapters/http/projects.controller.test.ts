@@ -1,8 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import {
   projectListSchema,
+  repositorySkillListSchema,
   projectRefusalSchema,
   projectSchema,
   projectWebEventSchema,
@@ -295,5 +297,41 @@ describe("PUT /api/projects/:id/publishing-mode and /default-pipeline", () => {
 
     expect(response.status).toBe(422);
     expect(await response.json()).toMatchObject({ reasons: ['There is no Pipeline "nightly".'] });
+  });
+});
+
+describe("the repository's own skills", () => {
+  it("lists them from the repository, read-only, and switches their use", async () => {
+    const skillFolder = join(repository.path, ".claude", "skills", "deploy");
+    await mkdir(skillFolder, { recursive: true });
+    await writeFile(
+      join(skillFolder, "SKILL.md"),
+      "---\nname: deploy\ndescription: Deploys the panel.\n---\nDeploy it.\n",
+    );
+    try {
+      const project = await addProject();
+      published = [];
+
+      const listed = await fetch(`${url}/api/projects/${project.id}/skills`);
+      const switched = await send("PUT", `/projects/${project.id}/use-project-skills`, {
+        useProjectSkills: false,
+      });
+
+      expect(repositorySkillListSchema.parse(await listed.json())).toEqual([
+        {
+          name: "deploy",
+          description: "Deploys the panel.",
+          path: ".claude/skills/deploy",
+          listedAtStart: true,
+          alsoInLibrary: false,
+        },
+      ]);
+      expect(projectSchema.parse(await switched.json()).useProjectSkills).toBe(false);
+      expect(webEvents()).toEqual([
+        { type: "project.use-of-skills-changed", projectId: project.id },
+      ]);
+    } finally {
+      await rm(join(repository.path, ".claude"), { recursive: true, force: true });
+    }
   });
 });

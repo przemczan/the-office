@@ -59,6 +59,29 @@ export async function sendToApi<Schema extends z.ZodType>(
   return answerOf(response, schema);
 }
 
+/** Sends a file's bytes to `path` under /api, with its name in the query, and checks the answer. */
+export async function sendFileToApi<Schema extends z.ZodType>(
+  path: `/${string}`,
+  file: File,
+  schema: Schema,
+): Promise<z.infer<Schema>> {
+  const response = await fetch(`${API_PATH}${path}?fileName=${encodeURIComponent(file.name)}`, {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/octet-stream" },
+    body: file,
+  });
+  return answerOf(response, schema);
+}
+
+/** Deletes what `path` under /api names; the service answers with no body. */
+export async function deleteFromApi(path: `/${string}`): Promise<void> {
+  const response = await fetch(`${API_PATH}${path}`, {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) throw await refusalOf(response);
+}
+
 async function answerOf<Schema extends z.ZodType>(
   response: Response,
   schema: Schema,

@@ -17,6 +17,7 @@ import {
   ProjectEnvironmentChanged,
   ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
+  ProjectUseOfSkillsChanged,
 } from "./project-events.js";
 import {
   sameEnvironment,
@@ -123,5 +124,17 @@ export function changeDefaultPipeline(
   return {
     project: { ...project, defaultPipeline },
     event: new ProjectDefaultPipelineChanged(project.id, defaultPipeline),
+  };
+}
+
+/** Undefined when the Project already does, or doesn't, use its own skills. */
+export function changeUseOfSkills(
+  project: Project,
+  useProjectSkills: boolean,
+): ProjectChange<ProjectUseOfSkillsChanged> | undefined {
+  if (project.useProjectSkills === useProjectSkills) return undefined;
+  return {
+    project: { ...project, useProjectSkills },
+    event: new ProjectUseOfSkillsChanged(project.id, useProjectSkills),
   };
 }

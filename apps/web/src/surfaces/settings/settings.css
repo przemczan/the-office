@@ -1,0 +1,205 @@
+/* Settings (prototypes/app/settings.js): the sections' navigation and the skill library. Colours are
+   aliases only. */
+
+.settings-page {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: var(--gap-panel);
+  align-items: start;
+  padding: var(--pad-page);
+}
+
+.settings-nav {
+  position: sticky;
+  top: var(--pad-page);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-nav a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font: var(--type-label);
+  color: var(--fg-2);
+  text-decoration: none;
+}
+
+.settings-nav a:hover {
+  background: var(--control-hover);
+  color: var(--fg-1);
+}
+
+.settings-nav a.active {
+  background: var(--surface-selected);
+  color: var(--fg-1);
+}
+
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  max-width: 1100px;
+}
+
+.settings-block-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-count {
+  font-weight: 400;
+  color: var(--fg-3);
+}
+
+.settings-note {
+  margin: 0;
+  font: var(--type-caption);
+  line-height: 1.5;
+  color: var(--fg-3);
+}
+
+.settings-note + .settings-banner {
+  margin-top: 12px;
+}
+
+/* ---- the library */
+.skill-description {
+  max-width: 360px;
+  margin-top: 4px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+  white-space: normal;
+}
+
+.skill-source {
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.skill-version {
+  margin-top: 2px;
+  font: var(--type-mono);
+  font-size: 11px;
+  color: var(--fg-2);
+}
+
+.skill-holders {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.skill-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+/* ---- adding, reviewing, editing */
+.skill-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.skill-tabs {
+  margin: -6px 0 16px;
+}
+
+.skill-file-input {
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.skill-reasons {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.skill-review {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.skill-review-summary {
+  margin: 0;
+  font: var(--type-body-sm);
+  color: var(--fg-1);
+}
+
+.skill-review-summary span {
+  color: var(--fg-3);
+}
+
+.skill-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding-left: 18px;
+}
+
+.file-view {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.file-view-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+  font: var(--type-mono);
+  font-size: 11px;
+  color: var(--fg-2);
+}
+
+.file-view pre {
+  max-height: 320px;
+  margin: 0;
+  overflow: auto;
+  padding: 10px 12px;
+  background: var(--surface);
+  font: var(--type-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+  color: var(--fg-1);
+}
+
+.file-view-binary {
+  margin: 0;
+  padding: 10px 12px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.skill-dialog-spacer {
+  flex: 1;
+}
+
+@media (max-width: 980px) {
+  .settings-page {
+    grid-template-columns: 1fr;
+  }
+
+  .settings-nav {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .settings-nav a {
+    white-space: nowrap;
+  }
+}

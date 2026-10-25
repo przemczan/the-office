@@ -17,6 +17,7 @@ import {
   changeEnvironment,
   changeInstallInputs,
   changePublishingMode,
+  changeUseOfSkills,
   type ProjectChange,
 } from "../domain/project-changes.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
@@ -82,6 +83,11 @@ export class ProjectService {
   async changeDefaultPipeline(id: string, defaultPipeline: string): Promise<Project> {
     await this.checks.checkDefaultPipeline(defaultPipeline);
     return this.update(id, (project) => changeDefaultPipeline(project, defaultPipeline));
+  }
+
+  /** Sessions already running keep the skills they started with. */
+  async changeUseOfSkills(id: string, useProjectSkills: boolean): Promise<Project> {
+    return this.update(id, (project) => changeUseOfSkills(project, useProjectSkills));
   }
 
   private async update<Event extends DomainEvent>(

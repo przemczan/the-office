@@ -13,7 +13,9 @@ import { SkillsController } from "./adapters/http/skills.controller.js";
 import { uploadBody } from "./adapters/http/upload-body.js";
 import { PostgresSessionSkillRepository } from "./adapters/postgres/postgres-session-skill-repository.js";
 import { PostgresSkillRepository } from "./adapters/postgres/postgres-skill-repository.js";
+import { SkillWebEvents } from "./adapters/websocket/skill-web-events.js";
 import { YauzlZipReader } from "./adapters/zip/yauzl-zip-reader.js";
+import { RepositorySkills } from "./application/repository-skills.js";
 import { SessionSkills } from "./application/session-skills.js";
 import { SkillLibrary } from "./application/skill-library.js";
 import { LibraryFolder } from "./ports/library-folder.js";
@@ -34,8 +36,10 @@ import { ZipReader } from "./ports/zip-reader.js";
     { provide: ZipReader, useClass: YauzlZipReader },
     SkillLibrary,
     SessionSkills,
+    RepositorySkills,
+    SkillWebEvents,
   ],
-  exports: [SkillLibrary, SessionSkills],
+  exports: [SkillLibrary, SessionSkills, RepositorySkills],
 })
 export class SkillsModule implements NestModule, OnApplicationBootstrap {
   private readonly logger = new Logger(SkillsModule.name);

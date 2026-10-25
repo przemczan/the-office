@@ -11,6 +11,7 @@ import { PeoplePage } from "./surfaces/people/people-page.tsx";
 import { ProjectPage } from "./surfaces/projects/project-page.tsx";
 import { ProjectsPage } from "./surfaces/projects/projects-page.tsx";
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
+import { SkillsSection } from "./surfaces/settings/skills/skills-section.tsx";
 import { WorkPage } from "./surfaces/work/work-page.tsx";
 
 declare module "@tanstack/react-router" {
@@ -81,6 +82,22 @@ const settingsRoute = createRoute({
   staticData: { title: "Settings" },
 });
 
+// Settings opens at its first section.
+const settingsHomeRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "/",
+  beforeLoad: () => {
+    throw redirect({ to: "/settings/skills", replace: true });
+  },
+});
+
+const settingsSkillsRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "skills",
+  component: SkillsSection,
+  staticData: { title: "Settings" },
+});
+
 export const router = createRouter({
   routeTree: rootRoute.addChildren([
     homeRoute,
@@ -89,6 +106,6 @@ export const router = createRouter({
     peopleRoute,
     projectsRoute,
     projectRoute,
-    settingsRoute,
+    settingsRoute.addChildren([settingsHomeRoute, settingsSkillsRoute]),
   ]),
 });

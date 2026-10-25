@@ -8,6 +8,7 @@ import {
   skillRefusalSchema,
   skillReviewSchema,
   skillSchema,
+  skillWebEventSchema,
   type Skill,
 } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -16,6 +17,8 @@ import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../../platform/office-data/office-data.module.js";
+import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
+import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import {
   SkillAdded,
   SkillEveryoneChanged,
@@ -35,7 +38,7 @@ beforeEach(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-skills-"));
   ({ app, url } = await startTestApplication({
     database: true,
-    imports: [EventsModule, OfficeDataModule.forRoot(officeData), SkillsModule],
+    imports: [EventsModule, EventStreamModule, OfficeDataModule.forRoot(officeData), SkillsModule],
   }));
   published = [];
   app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));
@@ -45,6 +48,17 @@ afterEach(async () => {
   await app.close();
   await rm(officeData, { recursive: true, force: true });
 });
+
+/** The events published so far, as the web receives them. */
+function webEvents(): unknown[] {
+  const forwarding = app.get(WebEventForwarding);
+  return published.map((event) => {
+    const { occurredAt: _occurredAt, ...webEvent } = skillWebEventSchema.parse(
+      forwarding.toWebEvent(event),
+    );
+    return webEvent;
+  });
+}
 
 /** A name of the test's own, since every test file shares the database. */
 function aName(): string {
@@ -291,6 +305,13 @@ describe("turning a skill on, for everyone, and removing it", () => {
       expect.any(SkillEveryoneChanged),
       expect.any(SkillTurnedOn),
       expect.any(SkillRemoved),
+    ]);
+    expect(webEvents()).toEqual([
+      { type: "skill.added", skillName: name },
+      { type: "skill.everyone-changed", skillName: name },
+      { type: "skill.everyone-changed", skillName: name },
+      { type: "skill.turned-on", skillName: name },
+      { type: "skill.removed", skillName: name },
     ]);
   });
 

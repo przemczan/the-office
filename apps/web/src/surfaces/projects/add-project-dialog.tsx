@@ -7,21 +7,12 @@ import {
   type ProjectCommandKey,
   type ProjectMarkColour,
 } from "@the-office/contracts";
-import {
-  Alert,
-  Button,
-  Dialog,
-  Field,
-  Input,
-  RadioGroup,
-  SegmentedControl,
-  Select,
-} from "@the-office/ui";
+import { Button, Dialog, Field, Input, RadioGroup, SegmentedControl, Select } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
-import { ApiError } from "../../api/api-client.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { addProject, projectQueries } from "../../api/projects.ts";
 import { ProjectMark } from "../../shell/project-mark.tsx";
+import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import {
   COMMAND_KEYS,
@@ -102,7 +93,9 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
           adding.mutate({ ...draft, mark, installInputs: installInputsFrom(installInputs) });
         }}
       >
-        {adding.error && <Refusal error={adding.error} />}
+        {adding.error && (
+          <RefusalAlert title="The Project can't be added yet" error={adding.error} />
+        )}
         <div className="add-project-columns">
           <Input
             label="Name"
@@ -195,20 +188,6 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
         </Field>
       </form>
     </Dialog>
-  );
-}
-
-/** Every reason the service refused the Project, or what went wrong on the way. */
-function Refusal({ error }: { readonly error: Error }): ReactNode {
-  const reasons = error instanceof ApiError ? error.reasons : [error.message];
-  return (
-    <Alert tone="danger" title="The Project can't be added yet">
-      <ul className="add-project-reasons">
-        {reasons.map((reason) => (
-          <li key={reason}>{reason}</li>
-        ))}
-      </ul>
-    </Alert>
   );
 }
 

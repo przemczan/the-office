@@ -10,9 +10,13 @@ import { ProjectMark } from "../../shell/project-mark.tsx";
 import { CommandsBlock } from "./commands-block.tsx";
 import { DefaultPipelineBlock } from "./default-pipeline-block.tsx";
 import { EnvironmentBlock } from "./environment-block.tsx";
+import { SkillsBlock } from "./skills-block.tsx";
 import "./projects.css";
 
-/** A Project's own page: its commands, default Pipeline and publishing, and its environment. */
+/**
+ * A Project's own page: its commands, default Pipeline and publishing, its own skills, and its
+ * environment.
+ */
 export function ProjectPage(): ReactNode {
   const { projectId } = useParams({ from: "/projects/$projectId" });
   const project = useQuery(projectQueries.one(projectId));
@@ -30,6 +34,7 @@ export function ProjectPage(): ReactNode {
         <div className="project-column">
           <CommandsBlock project={project.data} />
           <DefaultPipelineBlock project={project.data} />
+          <SkillsBlock project={project.data} />
         </div>
         <div className="project-column">
           <EnvironmentBlock project={project.data} />

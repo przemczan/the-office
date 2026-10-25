@@ -116,11 +116,6 @@
   gap: 8px;
 }
 
-.add-project-reasons {
-  margin: 0;
-  padding-left: 18px;
-}
-
 /* ---- a Project's page */
 .project-head {
   display: flex;
@@ -201,6 +196,49 @@
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+/* ---- the repository's skills */
+.project-skills-switch {
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.project-skills {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.project-skills.off {
+  opacity: 0.5;
+}
+
+.project-skill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font: var(--type-caption);
+}
+
+.project-skill-description {
+  flex: 1;
+  min-width: 0;
+  color: var(--fg-3);
+}
+
+.project-skill-warning {
+  color: var(--warning-fg);
+}
+
+.project-skill-path {
+  font: var(--type-mono);
+  font-size: 11px;
+  color: var(--fg-3);
 }
 
 /* ---- the commands */
