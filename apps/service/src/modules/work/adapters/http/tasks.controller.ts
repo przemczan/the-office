@@ -20,6 +20,7 @@ import {
   type TaskPlacement,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { PlanningService } from "../../application/planning-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { THE_USER } from "../../domain/author.js";
 import { toTaskResponse } from "./work-responses.js";
@@ -28,7 +29,10 @@ import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 @Controller("tasks")
 @UseFilters(WorkRefusalsFilter)
 export class TasksController {
-  constructor(private readonly tasks: TaskService) {}
+  constructor(
+    private readonly tasks: TaskService,
+    private readonly planning: PlanningService,
+  ) {}
 
   @Post()
   async create(@Body(new ContractPipe(newTaskSchema)) given: NewTask): Promise<TaskResponse> {
@@ -64,6 +68,13 @@ export class TasksController {
       below: below ?? undefined,
     });
     return toTaskResponse(task);
+  }
+
+  /** Plan with the Planner: the Task moves to Planning, and its planning Thread opens. */
+  @Post(":id/planning")
+  @HttpCode(HttpStatus.OK)
+  async plan(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
+    return toTaskResponse(await this.planning.plan(id));
   }
 
   @Post(":id/drop")

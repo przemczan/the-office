@@ -15,6 +15,7 @@ import { EnvironmentChecks } from "./application/environment-checks.js";
 import { ProjectChecks } from "./application/project-checks.js";
 import { ProjectCommandRunner } from "./application/project-command-runner.js";
 import { ProjectService } from "./application/project-service.js";
+import { TaskWorktrees } from "./application/task-worktrees.js";
 import { Worktrees } from "./application/worktrees.js";
 import { CommandRunner } from "./ports/command-runner.js";
 import { EnvironmentCheckRepository } from "./ports/environment-check-repository.js";
@@ -49,11 +50,12 @@ export class ProjectsModule {
         ProjectChecks,
         ProjectService,
         Worktrees,
+        TaskWorktrees,
         BaseCheckouts,
         ProjectWebEvents,
         ProjectOfficeTools,
       ],
-      exports: [BaseCheckouts, ProjectService],
+      exports: [BaseCheckouts, ProjectService, TaskWorktrees],
     };
   }
 }

@@ -7,6 +7,8 @@ import { PostgresThreadRepository } from "./adapters/postgres/postgres-thread-re
 import { ThreadWebEvents } from "./adapters/websocket/thread-web-events.js";
 import { Briefs } from "./application/briefs.js";
 import { InterruptedAnswers } from "./application/interrupted-answers.js";
+import { SessionPlaces } from "./application/session-places.js";
+import { TaskThreadSetups } from "./application/task-thread-setups.js";
 import { CONTEXT_POLICY_SETTINGS, ThreadContexts } from "./application/thread-contexts.js";
 import { ThreadRunner } from "./application/thread-runner.js";
 import { ThreadService } from "./application/thread-service.js";
@@ -35,12 +37,14 @@ export class ConversationsModule {
         { provide: CONTEXT_POLICY_SETTINGS, useValue: DEFAULT_CONTEXT_POLICY_SETTINGS },
         ThreadService,
         Briefs,
+        TaskThreadSetups,
+        SessionPlaces,
         ThreadContexts,
         ThreadRunner,
         InterruptedAnswers,
         ThreadWebEvents,
       ],
-      exports: [InterruptedAnswers, ThreadService],
+      exports: [InterruptedAnswers, ThreadService, TaskThreadSetups],
     };
   }
 }

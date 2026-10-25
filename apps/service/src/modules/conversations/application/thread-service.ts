@@ -10,9 +10,18 @@ import {
   logMessages,
   renameThread,
   startChatThread,
+  startTaskThread,
+  type TaskThreadStart,
 } from "../domain/thread-changes.js";
 import { ThreadNotFound } from "../domain/thread-not-found.js";
+import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
+import { ThreadRunner } from "./thread-runner.js";
+
+/** A Thread The Office opens on a Task, and what it asks the person first. */
+export interface TaskThreadOpening extends TaskThreadStart {
+  readonly opening: string;
+}
 
 /**
  * The Conversations use cases: Threads in their homes, and The Office's log of each. Each change is
@@ -23,6 +32,7 @@ export class ThreadService {
   constructor(
     private readonly repository: ThreadRepository,
     private readonly roleCards: RoleCards,
+    private readonly runner: ThreadRunner,
     private readonly events: EventBus,
   ) {}
 
@@ -35,6 +45,22 @@ export class ThreadService {
     await this.repository.add(thread);
     await this.events.publish(event);
     return thread;
+  }
+
+  /**
+   * Opens a Thread on a Task, such as its planning Thread, where the person starts on `opening` at
+   * once, in a new session with the Task's Brief. Refused when nobody fills the Role.
+   */
+  async startOnTask({ opening, ...start }: TaskThreadOpening): Promise<Thread> {
+    if (!(await this.roleCards.find(start.roleKey))) {
+      throw new ThreadRefused([
+        `Nobody fills the Role "${start.roleKey}" yet: hire them on People.`,
+      ]);
+    }
+    const { thread, event } = startTaskThread(randomUUID(), start, new Date());
+    await this.repository.add(thread);
+    await this.events.publish(event);
+    return this.runner.open(thread.id, opening);
   }
 
   /**

@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { MessagesLogged, ThreadRenamed, ThreadStarted } from "./conversation-events.js";
 import type { Message } from "./message.js";
 import { NO_TOKENS } from "./thread.js";
-import { logMessages, renameThread, startChatThread } from "./thread-changes.js";
+import {
+  beginOpening,
+  logMessages,
+  renameThread,
+  startChatThread,
+  startTaskThread,
+} from "./thread-changes.js";
 import { aThread, aUserMessage } from "./thread.fixtures.js";
 import { ThreadRefused } from "./thread-refused.js";
 import { titleFrom } from "./thread-title.js";
@@ -36,6 +42,64 @@ describe("a chat Thread", () => {
         "Chat is off for Ada: talk to them on a Task, or turn Chat on on their Role card.",
       ]),
     );
+  });
+});
+
+describe("a Thread on a Task", () => {
+  const start = { taskId: "task-1", roleKey: "planner", title: " Planning " };
+
+  it("starts titled by The Office and waiting, with no session yet", () => {
+    const { thread, event } = startTaskThread("thread-1", start, AT);
+
+    expect(thread).toMatchObject({
+      home: { kind: "task", taskId: "task-1" },
+      roleKey: "planner",
+      title: "Planning",
+      state: "waiting",
+      session: undefined,
+    });
+    expect(event).toEqual(new ThreadStarted(thread));
+  });
+
+  it("opens answering, logging only its first session's move", () => {
+    const { thread } = startTaskThread("thread-1", start, AT);
+    const session = {
+      id: "session-1",
+      roleKey: "planner",
+      cardVersion: 1,
+      startedAt: AT,
+      lastCallAt: undefined,
+      contextTokens: 0,
+      startContextTokens: undefined,
+      full: false,
+    };
+    const decision = {
+      move: "fresh",
+      reason: "new-thread",
+      cacheWarm: false,
+      contextTokens: 0,
+      briefTokens: 900,
+      alternatives: [],
+    } as const;
+
+    const opened = beginOpening(thread, { personName: "Jan", decision, newSession: session }, AT);
+
+    expect(opened.thread).toMatchObject({ state: "answering", session, title: "Planning" });
+    expect(opened.logged).toEqual([
+      {
+        kind: "context",
+        id: expect.any(String),
+        threadId: "thread-1",
+        at: AT,
+        move: "fresh",
+        reason: "new-thread",
+        contextTokens: 0,
+        briefTokens: 900,
+      },
+    ]);
+    expect(() =>
+      beginOpening(opened.thread, { personName: "Jan", decision, newSession: session }, AT),
+    ).toThrow(/open already/);
   });
 });
 

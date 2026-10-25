@@ -4,7 +4,7 @@ import { OfficeToolRegistry } from "../../../engine/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { TaskService } from "../../application/task-service.js";
-import type { Attachment } from "../../domain/attachment.js";
+import { attachmentLines, type Attachment } from "../../domain/attachment.js";
 import { AttachmentNotFound } from "../../domain/attachment-not-found.js";
 import { AttachmentRefused } from "../../domain/attachment-refused.js";
 import type { Author } from "../../domain/author.js";
@@ -232,15 +232,6 @@ function ideaRecord(idea: Idea, attachments: readonly Attachment[]): string {
     "Attachments:",
     ...attachmentLines(attachments),
   ].join("\n");
-}
-
-function attachmentLines(attachments: readonly Attachment[]): string[] {
-  if (attachments.length === 0) return ["None."];
-  return attachments.map((attachment) =>
-    attachment.kind === "link"
-      ? `- ${attachment.name} (link to ${attachment.url})`
-      : `- ${attachment.name} (${attachment.kind}, ${attachment.size} bytes)`,
-  );
 }
 
 function whereOf(projectId: string | undefined): string {

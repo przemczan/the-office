@@ -61,6 +61,38 @@ export function startChatThread(
   return { thread, event: new ThreadStarted(thread) };
 }
 
+/** Where a Thread on a Task is, who answers in it, and what it is called. */
+export interface TaskThreadStart {
+  readonly taskId: string;
+  readonly roleKey: string;
+  readonly title: string;
+}
+
+/**
+ * A Thread on a Task, such as its planning Thread, titled by The Office: its first message is The
+ * Office's opening, not the user's.
+ */
+export function startTaskThread(
+  id: string,
+  { taskId, roleKey, title }: TaskThreadStart,
+  startedAt: Date,
+): { readonly thread: Thread; readonly event: ThreadStarted } {
+  const problems = titleProblems(title);
+  if (problems.length > 0) throw new ThreadRefused(problems);
+  const thread: Thread = {
+    id,
+    home: { kind: "task", taskId },
+    roleKey,
+    title: title.trim(),
+    state: "waiting",
+    session: undefined,
+    override: undefined,
+    tokens: NO_TOKENS,
+    startedAt,
+  };
+  return { thread, event: new ThreadStarted(thread) };
+}
+
 /** Refuses with every reason; undefined when the title is the Thread's already. */
 export function renameThread(
   thread: Thread,
@@ -102,9 +134,13 @@ function titleOf(messages: readonly Message[]): string | undefined {
 }
 
 /** The user's message, as the person takes it under the Context policy's move. */
-export interface Answering {
+export interface Answering extends Opening {
   /** The user's message, of kind `user`. */
   readonly said: Message;
+}
+
+/** The person starts on a Thread under the Context policy's move. */
+export interface Opening {
   readonly personName: string;
   readonly decision: ContextDecision;
   /** The session the move opens; undefined when it resumes the Thread's own. */
@@ -116,37 +152,57 @@ export interface Answering {
  * continuing a warm session, and the Thread is answering. The moment's override is spent. Refused
  * while the person is still answering: a chat has no barge-in.
  */
-export function beginAnswer(
+export function beginAnswer(thread: Thread, answering: Answering): ThreadChange<MessagesLogged> {
+  const { said, decision } = answering;
+  const contextLine =
+    decision.reason === "cache-warm" ? [] : [contextLineOf(thread, decision, said.at)];
+  return begin(thread, answering, [...contextLine, said], said.at);
+}
+
+/**
+ * The person starts on a Thread The Office opened, before the user says anything: its first
+ * session's move is logged, and the Thread is answering.
+ */
+export function beginOpening(
   thread: Thread,
-  { said, personName, decision, newSession }: Answering,
+  opening: Opening,
+  openedAt: Date,
+): ThreadChange<MessagesLogged> {
+  if (thread.session) throw new Error(`Thread ${thread.id} is open already.`);
+  return begin(thread, opening, [contextLineOf(thread, opening.decision, openedAt)], openedAt);
+}
+
+function begin(
+  thread: Thread,
+  { personName, newSession }: Opening,
+  messages: readonly Message[],
+  at: Date,
 ): ThreadChange<MessagesLogged> {
   if (thread.state === "answering") {
     throw new ThreadRefused([`${personName} is still answering. Send it once they finish.`]);
   }
-  const contextLine: Message[] =
-    decision.reason === "cache-warm"
-      ? []
-      : [
-          {
-            kind: "context",
-            id: crypto.randomUUID(),
-            threadId: thread.id,
-            at: said.at,
-            move: decision.move,
-            reason: decision.reason,
-            contextTokens: decision.contextTokens,
-            briefTokens: decision.briefTokens,
-          },
-        ];
   const answering: Thread = {
     ...thread,
     state: "answering",
     override: undefined,
     session: newSession ?? thread.session,
   };
-  const logged = logMessages(answering, [...contextLine, said], said.at);
-  if (!logged) throw new Error("The user's message is always logged.");
+  const logged = logMessages(answering, messages, at);
+  if (!logged) throw new Error("Starting an answer always logs a message.");
   return logged;
+}
+
+function contextLineOf(thread: Thread, decision: ContextDecision, at: Date): Message {
+  return {
+    kind: "context",
+    id: crypto.randomUUID(),
+    threadId: thread.id,
+    at,
+    move: decision.move,
+    reason: decision.reason,
+    contextTokens: decision.contextTokens,
+    briefTokens: decision.briefTokens,
+  };
 }
 
 /** How a turn of the person's ended, as the engine counted it. */

@@ -64,6 +64,7 @@ Projects (`src/modules/projects/`) is the first; later modules copy its shape.
 - **Ports are abstract classes,** so each is its own injection token: `{ provide: Git, useClass: CommandLineGit }`.
 - **A repository's `update(id, change)`** applies the change inside a transaction that holds the row (`SELECT … FOR UPDATE`), so two changes at once never lose one.
 - **A rule that needs another module** goes through that module's application service, unless the other module will need this one: then this module declares a port of its own and the composition root binds it. Projects asks `KnownPipelines`, which `AppModule` binds to Pipelines' `PipelineLibrary`, because Pipelines' Stage interpreter will call Projects.
+- **A module called back by one that calls it** offers a registry the caller fills as it starts: Work, which opens Threads through Conversations, gives Conversations what a Thread on a Task works with through `TaskThreadSetups`, as modules give the Engine their Office tools through `OfficeToolRegistry`. A port bound by the composition root would make the two Nest modules import each other.
 - **Fixtures** (`*.fixtures.ts`) are test data beside the code they describe, shared by its tests and left out of the build.
 
 ### Adding a module

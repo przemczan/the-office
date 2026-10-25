@@ -1,8 +1,14 @@
 import { Injectable } from "@nestjs/common";
-import { freshChatThreadBrief, newChatThreadBrief, type Brief } from "../domain/brief.js";
+import {
+  freshChatThreadBrief,
+  newChatThreadBrief,
+  taskThreadBrief,
+  type Brief,
+} from "../domain/brief.js";
 import type { Thread } from "../domain/thread.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
+import { TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js";
 
 /** Assembles each new session's Brief from the record, with no model call (spec §2.5). */
 @Injectable()
@@ -10,13 +16,27 @@ export class Briefs {
   constructor(
     private readonly repository: ThreadRepository,
     private readonly bases: ProjectBases,
+    private readonly taskThreads: TaskThreadSetups,
   ) {}
 
-  /**
-   * The Brief of a chat Thread's next session: a new Thread's, or the one it continues fresh with
-   * from its log so far. Read before the message it answers is logged.
-   */
-  async forChatThread(thread: Thread): Promise<Brief> {
+  /** The Brief of the Thread's next session. Read before the message it answers is logged. */
+  async forThread(thread: Thread): Promise<Brief> {
+    if (thread.home.kind === "chat") return this.forChatThread(thread);
+    const setup = await this.taskThreads.of({
+      threadId: thread.id,
+      taskId: thread.home.taskId,
+      roleKey: thread.roleKey,
+    });
+    return this.forTaskThread(thread, setup);
+  }
+
+  /** As `forThread`, from the setup the session is about to start with. */
+  forTaskThread(thread: Thread, setup: TaskThreadSetup): Brief {
+    return taskThreadBrief(setup.brief, thread.session !== undefined);
+  }
+
+  /** A new chat Thread's, or the one it continues fresh with from its log so far. */
+  private async forChatThread(thread: Thread): Promise<Brief> {
     const projects = await this.bases.list();
     if (thread.session === undefined) return newChatThreadBrief(projects);
     const log = await this.repository.messages(thread.id);

@@ -1,5 +1,6 @@
 export { BaseCheckouts, type BaseCheckout } from "./application/base-checkouts.js";
 export { ProjectService } from "./application/project-service.js";
+export { TaskWorktrees, type SessionWorktree } from "./application/task-worktrees.js";
 export {
   EnvironmentCheckFinished,
   EnvironmentCheckProgressed,

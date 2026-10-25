@@ -89,9 +89,18 @@ export class Worktrees {
     project: Project,
     taskId: string,
   ): Promise<{ readonly worktree: TaskWorktree; readonly installation: Installation }> {
+    const worktree = await this.open(project, taskId);
+    return { worktree, installation: await this.install(project, worktree.path) };
+  }
+
+  /**
+   * The Task's worktree on its branch, without installing: enough to read it, as planning does.
+   * The first time, the branch starts at the freshly fetched base branch.
+   */
+  async open(project: Project, taskId: string): Promise<TaskWorktree> {
     const worktree = { path: this.pathOf(project, taskId), branch: this.branchOf(taskId) };
     if (!(await exists(worktree.path))) await this.add(project, worktree);
-    return { worktree, installation: await this.install(project, worktree.path) };
+    return worktree;
   }
 
   /**

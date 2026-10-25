@@ -24,6 +24,8 @@ import { RoleCards, type SessionRole } from "../../../people/index.js";
 import { SkillsModule } from "../../../skills/index.js";
 import { Briefs } from "../../application/briefs.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
+import { SessionPlaces } from "../../application/session-places.js";
+import { TaskThreadSetups } from "../../application/task-thread-setups.js";
 import { CONTEXT_POLICY_SETTINGS, ThreadContexts } from "../../application/thread-contexts.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
 import { ThreadService } from "../../application/thread-service.js";
@@ -73,11 +75,24 @@ beforeEach(async () => {
       { provide: CONTEXT_POLICY_SETTINGS, useValue: DEFAULT_CONTEXT_POLICY_SETTINGS },
       ThreadService,
       Briefs,
+      TaskThreadSetups,
+      SessionPlaces,
       ThreadContexts,
       ThreadRunner,
       ThreadWebEvents,
     ],
   }));
+  app.get(TaskThreadSetups).provide({
+    setUp: ({ taskId }) =>
+      Promise.resolve({
+        folder: join(officeData, "worktrees", taskId),
+        environment: {},
+        useProjectSkills: false,
+        instructions: "On this Task you plan.",
+        officeTools: [],
+        brief: "The Task's record.",
+      }),
+  });
   published = [];
   app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));
 });

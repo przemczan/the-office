@@ -19,6 +19,7 @@ import {
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { IdeaService } from "../../application/idea-service.js";
+import { PlanningService } from "../../application/planning-service.js";
 import { THE_USER } from "../../domain/author.js";
 import { toIdeaResponse, toTaskResponse } from "./work-responses.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
@@ -26,7 +27,10 @@ import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 @Controller("ideas")
 @UseFilters(WorkRefusalsFilter)
 export class IdeasController {
-  constructor(private readonly ideas: IdeaService) {}
+  constructor(
+    private readonly ideas: IdeaService,
+    private readonly planning: PlanningService,
+  ) {}
 
   @Post()
   async capture(@Body(new ContractPipe(newIdeaSchema)) given: NewIdea): Promise<IdeaResponse> {
@@ -56,6 +60,16 @@ export class IdeasController {
     @Body(new ContractPipe(ideaShapingSchema)) { projectId }: IdeaShaping,
   ): Promise<TaskResponse> {
     return toTaskResponse(await this.ideas.shape(id, projectId, THE_USER));
+  }
+
+  /** Plan as a Task with the Planner: the Task the Idea became, in Planning with its Thread. */
+  @Post(":id/plan")
+  @HttpCode(HttpStatus.CREATED)
+  async shapeAndPlan(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(ideaShapingSchema)) { projectId }: IdeaShaping,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.planning.shapeAndPlan(id, projectId, THE_USER));
   }
 
   @Post(":id/drop")

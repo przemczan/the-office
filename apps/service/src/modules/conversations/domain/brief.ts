@@ -60,6 +60,20 @@ export function freshChatThreadBrief({
   ]);
 }
 
+/**
+ * A Brief for a Thread on a Task: the Task's record as the module keeping Tasks words it, and, when
+ * the Thread continues in a fresh session, that the earlier context is gone. Unlike a chat's, it
+ * carries none of the Thread's exchanges: a Task's record holds what was settled (spec §2.5).
+ */
+export function taskThreadBrief(record: string, continuing: boolean): Brief {
+  return briefOf([
+    continuing
+      ? "You are continuing a Thread on a Task in a fresh session: the earlier session's context is gone, and this Brief, from the Task's record, is what you pick up from."
+      : undefined,
+    record,
+  ]);
+}
+
 function briefOf(sections: readonly (string | undefined)[]): Brief {
   const text = sections.filter((section) => section !== undefined).join("\n\n");
   return { text, tokens: estimatedTokens(text) };

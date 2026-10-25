@@ -12,7 +12,11 @@ import {
   type NewIdea,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { UNKNOWN_PROJECT } from "../../ports/work-ports.fixtures.js";
+import {
+  KnownPeopleForTests,
+  TaskThreadsForTests,
+  UNKNOWN_PROJECT,
+} from "../../ports/work-ports.fixtures.js";
 import {
   sendJson,
   startWorkApplication,
@@ -172,6 +176,41 @@ describe("POST /api/ideas/:id/shape", () => {
       "This Idea is already shaped.",
     ]);
     expect(unknown.status).toBe(422);
+  });
+});
+
+describe("POST /api/ideas/:id/plan", () => {
+  it("shapes the Idea into a Task and plans it at once with the Planner", async () => {
+    const idea = await capture();
+    const projectId = aProjectId();
+    work.published.length = 0;
+
+    const response = await sendJson(work, "POST", `/ideas/${idea.id}/plan`, { projectId });
+
+    expect(response.status).toBe(201);
+    const task = taskSchema.parse(await response.json());
+    expect(task).toMatchObject({ projectId, state: "planning", originIdeaId: idea.id });
+    expect(work.app.get(TaskThreadsForTests).opened).toEqual([
+      expect.objectContaining({ taskId: task.id, roleKey: "planner" }),
+    ]);
+    expect(webEventsOf(work)).toEqual([
+      { type: "task.created", taskId: task.id },
+      { type: "idea.shaped", ideaId: idea.id, taskId: task.id },
+      { type: "task.state-changed", taskId: task.id, from: "backlog", to: "planning" },
+    ]);
+  });
+
+  it("leaves the Idea unshaped while nobody is the Planner", async () => {
+    const idea = await capture();
+    work.app.get(KnownPeopleForTests).vacant.add("planner");
+
+    const response = await sendJson(work, "POST", `/ideas/${idea.id}/plan`, {
+      projectId: aProjectId(),
+    });
+
+    expect(response.status).toBe(422);
+    const after = ideaSchema.parse(await (await sendJson(work, "GET", `/ideas/${idea.id}`)).json());
+    expect(after.state).toBe("new");
   });
 });
 

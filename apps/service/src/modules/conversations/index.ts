@@ -1,3 +1,9 @@
 export { InterruptedAnswers } from "./application/interrupted-answers.js";
-export { ThreadService } from "./application/thread-service.js";
+export {
+  TaskThreadSetups,
+  type TaskThreadRequest,
+  type TaskThreadSetup,
+  type TaskThreadSource,
+} from "./application/task-thread-setups.js";
+export { ThreadService, type TaskThreadOpening } from "./application/thread-service.js";
 export { ConversationsModule } from "./conversations.module.js";

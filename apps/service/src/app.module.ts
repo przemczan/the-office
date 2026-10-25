@@ -1,9 +1,14 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import { ConversationsModule, ThreadService } from "./modules/conversations/index.js";
 import { EngineModule } from "./modules/engine/index.js";
-import { PeopleModule } from "./modules/people/index.js";
+import { PeopleModule, RoleCards } from "./modules/people/index.js";
 import { PipelineLibrary, PipelinesModule } from "./modules/pipelines/index.js";
-import { BaseCheckouts, ProjectService, ProjectsModule } from "./modules/projects/index.js";
+import {
+  BaseCheckouts,
+  ProjectService,
+  ProjectsModule,
+  TaskWorktrees,
+} from "./modules/projects/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
 import { WorkModule } from "./modules/work/index.js";
 import type { OfficeConfig } from "./platform/config/office-config.js";
@@ -44,9 +49,12 @@ export class AppModule {
         TelemetryModule,
         WebAppModule.register(webApp),
         WorkModule.register({
-          imports: [projects, conversations],
+          imports: [projects, conversations, PeopleModule],
           knownProjects: ProjectService,
+          projectWorktrees: TaskWorktrees,
+          knownPeople: RoleCards,
           sessionPeople: ThreadService,
+          taskThreads: ThreadService,
         }),
       ],
     };

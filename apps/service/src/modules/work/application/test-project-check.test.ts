@@ -23,9 +23,14 @@ import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import { ConversationsModule, ThreadService } from "../../conversations/index.js";
 import { EngineModule } from "../../engine/index.js";
-import { PeopleModule } from "../../people/index.js";
+import { PeopleModule, RoleCards } from "../../people/index.js";
 import { PipelineLibrary, PipelinesModule } from "../../pipelines/index.js";
-import { BaseCheckouts, ProjectService, ProjectsModule } from "../../projects/index.js";
+import {
+  BaseCheckouts,
+  ProjectService,
+  ProjectsModule,
+  TaskWorktrees,
+} from "../../projects/index.js";
 import { SkillsModule } from "../../skills/index.js";
 import { WorkModule } from "../work.module.js";
 
@@ -84,9 +89,12 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
               projects,
               conversations,
               WorkModule.register({
-                imports: [projects, conversations],
+                imports: [projects, conversations, PeopleModule],
                 knownProjects: ProjectService,
+                projectWorktrees: TaskWorktrees,
+                knownPeople: RoleCards,
                 sessionPeople: ThreadService,
+                taskThreads: ThreadService,
               }),
             ],
           }));

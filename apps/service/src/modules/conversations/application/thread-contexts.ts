@@ -25,7 +25,7 @@ export class ThreadContexts {
 
   async of(thread: Thread, now: Date = new Date()): Promise<ContextDecision> {
     const role = await this.roleCards.find(thread.roleKey);
-    const brief = await this.briefs.forChatThread(thread);
+    const brief = await this.briefs.forThread(thread);
     return decideContext(
       {
         now,

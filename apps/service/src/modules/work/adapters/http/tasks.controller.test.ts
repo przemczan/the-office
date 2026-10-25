@@ -10,7 +10,13 @@ import {
   type Task,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { UNKNOWN_PROJECT } from "../../ports/work-ports.fixtures.js";
+import { PLANNING_OPENING } from "../../domain/planning.js";
+import {
+  KnownPeopleForTests,
+  ProjectWorktreesForTests,
+  TaskThreadsForTests,
+  UNKNOWN_PROJECT,
+} from "../../ports/work-ports.fixtures.js";
 import {
   sendJson,
   startWorkApplication,
@@ -186,6 +192,78 @@ describe("POST /api/tasks/:id/drop", () => {
     expect(again.status).toBe(200);
     expect(webEventsOf(work)).toEqual([
       { type: "task.state-changed", taskId: task.id, from: "backlog", to: "dropped" },
+    ]);
+  });
+});
+
+async function plan(taskId: string): Promise<Response> {
+  return sendJson(work, "POST", `/tasks/${taskId}/planning`);
+}
+
+describe("POST /api/tasks/:id/planning", () => {
+  it("makes the Task's worktree, moves it to Planning and opens its planning Thread with the Planner", async () => {
+    const task = await create();
+    work.published.length = 0;
+
+    const response = await plan(task.id);
+
+    expect(response.status).toBe(200);
+    expect(taskSchema.parse(await response.json()).state).toBe("planning");
+    expect(work.app.get(ProjectWorktreesForTests).opened).toContain(`${projectId}/${task.id}`);
+    expect(work.app.get(TaskThreadsForTests).opened).toContainEqual({
+      taskId: task.id,
+      roleKey: "planner",
+      title: "Planning",
+      opening: PLANNING_OPENING,
+    });
+    expect(webEventsOf(work)).toEqual([
+      { type: "task.state-changed", taskId: task.id, from: "backlog", to: "planning" },
+    ]);
+  });
+
+  it("leaves a Task in Planning as it is, with its one planning Thread", async () => {
+    const task = await create();
+    await plan(task.id);
+    work.published.length = 0;
+
+    const again = await plan(task.id);
+
+    expect(taskSchema.parse(await again.json()).state).toBe("planning");
+    const threads = work.app.get(TaskThreadsForTests).opened;
+    expect(threads.filter((opened) => opened.taskId === task.id)).toHaveLength(1);
+    expect(work.published).toEqual([]);
+  });
+
+  it("refuses while nobody is the Planner, and keeps the Task in Backlog when its worktree fails", async () => {
+    const task = await create();
+    const people = work.app.get(KnownPeopleForTests);
+    people.vacant.add("planner");
+
+    const noPlanner = await plan(task.id);
+    people.vacant.clear();
+    work.app.get(ProjectWorktreesForTests).failure = new Error("git fetch failed");
+    const noWorktree = await plan(task.id);
+
+    expect(noPlanner.status).toBe(422);
+    expect(workRefusalSchema.parse(await noPlanner.json()).reasons).toEqual([
+      "Hire a Planner on People first: planning is a conversation with them.",
+    ]);
+    expect(workRefusalSchema.parse(await noWorktree.json()).reasons).toEqual([
+      "The Task's worktree couldn't be made: git fetch failed",
+    ]);
+    const after = taskSchema.parse(await (await sendJson(work, "GET", `/tasks/${task.id}`)).json());
+    expect(after.state).toBe("backlog");
+    expect(work.app.get(TaskThreadsForTests).opened).toEqual([]);
+  });
+
+  it("refuses a Task past planning, naming why", async () => {
+    const task = await create();
+    await sendJson(work, "POST", `/tasks/${task.id}/drop`);
+
+    const response = await plan(task.id);
+
+    expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
+      "A Task in Dropped can't move to Planning.",
     ]);
   });
 });

@@ -19,7 +19,7 @@ import {
 import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
-import { CHAT_OFFICE_TOOLS, HANDOVER_REQUEST } from "../domain/chat-instructions.js";
+import { CHAT_OFFICE_TOOLS, HANDOVER_REQUEST } from "../domain/session-instructions.js";
 import { TurnEnded } from "../domain/conversation-events.js";
 import { DEFAULT_CONTEXT_POLICY_SETTINGS, type ContextDecision } from "../domain/context-policy.js";
 import type { BriefProject } from "../domain/brief.js";
@@ -31,6 +31,8 @@ import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
 import { InterruptedAnswers } from "./interrupted-answers.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
+import { SessionPlaces } from "./session-places.js";
+import { TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js";
 import { CONTEXT_POLICY_SETTINGS, ThreadContexts } from "./thread-contexts.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { ThreadService } from "./thread-service.js";
@@ -54,6 +56,8 @@ let runner: ThreadRunner;
 let repository: ThreadRepository;
 /** The sessions whose skills were forgotten, as each was replaced. */
 let forgotten: string[];
+/** What each new session's skills were prepared for. */
+let prepared: Parameters<SessionSkills["prepare"]>[0][];
 
 const PROJECTS: BriefProject[] = [
   { name: "Admin panel", baseBranch: "main", folder: "/office/bases/admin-panel" },
@@ -74,9 +78,13 @@ afterEach(async () => {
 async function startWith(...scripts: SessionScript[]): Promise<void> {
   engine = new ScriptedEngine(scripts);
   forgotten = [];
+  prepared = [];
   // The library is shared by every test file, so the sessions here get no skills of it.
   const sessionSkills: Pick<SessionSkills, "prepare" | "rebuild" | "forget"> = {
-    prepare: ({ sessionId }) => Promise.resolve(noSkills(sessionId)),
+    prepare: (request) => {
+      prepared.push(request);
+      return Promise.resolve(noSkills(request.sessionId));
+    },
     rebuild: (sessionId) => Promise.resolve(noSkills(sessionId)),
     forget: (sessionId) => {
       forgotten.push(sessionId);
@@ -109,6 +117,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       { provide: CONTEXT_POLICY_SETTINGS, useValue: DEFAULT_CONTEXT_POLICY_SETTINGS },
       ThreadService,
       Briefs,
+      TaskThreadSetups,
+      SessionPlaces,
       ThreadContexts,
       ThreadRunner,
       InterruptedAnswers,
@@ -123,9 +133,25 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       run: () => Promise.resolve({ text: "Nothing.", isError: false }),
     });
   }
+  // As the Work module sets up its Tasks' Threads.
+  app.get(TaskThreadSetups).provide({
+    setUp: ({ taskId }) => Promise.resolve(taskSetup(taskId)),
+  });
   threads = app.get(ThreadService);
   runner = app.get(ThreadRunner);
   repository = app.get(ThreadRepository);
+}
+
+/** What a session on the Task works with in these tests. */
+function taskSetup(taskId: string): TaskThreadSetup {
+  return {
+    folder: join(officeData, "worktrees", "admin-panel", taskId),
+    environment: { PROJECT_VARIABLE: "set" },
+    useProjectSkills: true,
+    instructions: "On this Task you plan.",
+    officeTools: ["read_task"],
+    brief: `You are planning the Task ${taskId}.`,
+  };
 }
 
 function noSkills(sessionId: string): Awaited<ReturnType<SessionSkills["prepare"]>> {
@@ -422,6 +448,98 @@ describe("continuing a Thread", () => {
 
     await expect(runner.send(thread.id, "Hello again.")).rejects.toThrow(ThreadRefused);
     await expect(threads.messages(thread.id)).resolves.toHaveLength(3);
+  });
+});
+
+describe("a Thread on a Task", () => {
+  it("opens on The Office's words in the Task's worktree, read-only, before the user says anything", async () => {
+    const taskId = randomUUID();
+    const worktree = taskSetup(taskId).folder;
+    await startWith(
+      started(
+        {
+          step: "event",
+          event: {
+            kind: "tool-call",
+            callId: "c-1",
+            tool: "Read",
+            officeTool: false,
+            input: { file_path: join(worktree, "README.md") },
+            withinToolCall: undefined,
+          },
+        },
+        ...aTurn("brief", "What must be true when it is done?"),
+      ),
+    );
+
+    const opened = await threads.startOnTask({
+      taskId,
+      roleKey,
+      title: "Planning",
+      opening: "Plan the Task with the user.",
+    });
+    const log = await answered(opened.id, 3);
+
+    expect(opened).toMatchObject({ home: { kind: "task", taskId }, title: "Planning" });
+    const [session] = engine.sessions;
+    const brief = session?.received[0];
+    expect(brief?.step === "start" && brief.brief.text).toBe(
+      `You are planning the Task ${taskId}.\n\n## What to do now\n\nPlan the Task with the user.`,
+    );
+    expect(session?.options).toMatchObject({
+      folder: worktree,
+      environment: { PROJECT_VARIABLE: "set" },
+      profile: { edit: false, run: { kind: "read-only-git" }, web: true },
+    });
+    expect(session?.options.officeTools.map(({ name }) => name)).toEqual(["read_task"]);
+    expect(session?.options.instructions).toMatch(
+      /^You are Jan, the Planner in The Office[\s\S]*\n\nOn this Task you plan\.$/,
+    );
+    expect(prepared).toEqual([
+      { sessionId: session?.id, roleKey, project: { folder: worktree, useProjectSkills: true } },
+    ]);
+    expect(drafts(log)).toEqual([
+      contextLine({ move: "fresh", reason: "new-thread", briefTokens: expect.any(Number) }),
+      { kind: "tool-activity", roleKey, tool: "Read", summary: "README.md" },
+      { kind: "person", roleKey, text: "What must be true when it is done?" },
+    ]);
+    expect((await threads.read(opened.id)).title).toBe("Planning");
+  });
+
+  it("answers the user on a Task whatever the person's Chat is", async () => {
+    await startWith(
+      started(...aTurn("brief", "What must be true?"), sent("m-2"), ...aTurn("m-2", "Noted.")),
+    );
+    versions.push({ ...PLANNER, capabilities: { ...PLANNER.capabilities, chat: false } });
+    const opened = await threads.startOnTask({
+      taskId: randomUUID(),
+      roleKey,
+      title: "Planning",
+      opening: "Plan the Task with the user.",
+    });
+    await answered(opened.id, 2);
+
+    await runner.send(opened.id, "The page loads under a second.");
+    const log = await answered(opened.id, 4);
+
+    expect(drafts(log).slice(2)).toEqual([
+      { kind: "user", text: "The page loads under a second." },
+      { kind: "person", roleKey, text: "Noted." },
+    ]);
+  });
+
+  it("refuses to open a Thread with a Role nobody fills", async () => {
+    await startWith();
+
+    await expect(
+      threads.startOnTask({
+        taskId: randomUUID(),
+        roleKey: "nobody",
+        title: "Planning",
+        opening: "Plan the Task with the user.",
+      }),
+    ).rejects.toThrow(ThreadRefused);
+    expect(engine.sessions).toHaveLength(0);
   });
 });
 

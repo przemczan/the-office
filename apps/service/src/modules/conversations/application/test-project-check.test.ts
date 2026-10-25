@@ -16,7 +16,7 @@ import { EngineModule, OfficeToolRegistry } from "../../engine/index.js";
 import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SkillsModule } from "../../skills/index.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
-import { CHAT_OFFICE_TOOLS } from "../domain/chat-instructions.js";
+import { CHAT_OFFICE_TOOLS } from "../domain/session-instructions.js";
 import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "../domain/context-policy.js";
 import type { BriefProject } from "../domain/brief.js";
 import type { Message } from "../domain/message.js";

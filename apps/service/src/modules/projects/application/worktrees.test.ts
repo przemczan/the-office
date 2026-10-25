@@ -122,6 +122,24 @@ describe("Worktrees.prepare", () => {
   });
 });
 
+describe("Worktrees.open", () => {
+  it("makes the Task's worktree at the freshly fetched base without installing, as planning reads it", async () => {
+    const fetched = await commitOnOrigin(repository, "main", "planned.txt");
+    const taskId = aTaskId();
+    const before = await installs();
+
+    const worktree = await worktrees.open(project, taskId);
+
+    expect(worktree).toEqual({
+      path: worktrees.pathOf(project, taskId),
+      branch: `office/${taskId}`,
+    });
+    expect(gitIn(worktree.path, "rev-parse", "HEAD")).toBe(fetched);
+    expect(await installs()).toBe(before);
+    expect((await worktrees.prepare(project, taskId)).installation).toMatchObject({ kind: "ran" });
+  });
+});
+
 describe("Worktrees.install", () => {
   it("installs again only when the install command, an install input or the environment changes", async () => {
     const { worktree } = await worktrees.prepare(project, aTaskId());

@@ -9,8 +9,11 @@ import { TelemetryModule } from "../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../platform/websocket/web-event-forwarding.js";
 import {
+  KnownPeopleForTests,
   KnownProjectsForTests,
+  ProjectWorktreesForTests,
   SessionPeopleForTests,
+  TaskThreadsForTests,
   WorkPortsForTestsModule,
 } from "./ports/work-ports.fixtures.js";
 import { WorkModule } from "./work.module.js";
@@ -35,7 +38,10 @@ export async function startWorkApplication(officeDataFolder: string): Promise<Wo
       WorkModule.register({
         imports: [WorkPortsForTestsModule],
         knownProjects: KnownProjectsForTests,
+        projectWorktrees: ProjectWorktreesForTests,
+        knownPeople: KnownPeopleForTests,
         sessionPeople: SessionPeopleForTests,
+        taskThreads: TaskThreadsForTests,
       }),
     ],
   });

@@ -1,6 +1,6 @@
 # 11 · Planning a Task with the Planner
 
-Status: todo
+Status: in progress
 
 ## Goal
 
@@ -21,18 +21,22 @@ Planning as a conversation: "Plan with *the Planner*" moves a Task to Planning a
 - Click-through: planning and Mark Ready in [app/task.js](../../.scratch/the-office/prototypes/app/task.js) and [app/work.js](../../.scratch/the-office/prototypes/app/work.js); Decision messages in [app/conversation.js](../../.scratch/the-office/prototypes/app/conversation.js).
 - Carried over from task 10:
   - Neither the board nor the Task page has "Plan with *the Planner*" yet; the Task page's conversation panel shows its empty state until the planning Thread exists, and its menu (`surfaces/work/task-menu.tsx`) holds only priority and Drop.
-  - In the click-through, "Plan as a Task with Jan" on an Idea shapes it and opens planning at once; task 10's "Shape into a Task" only makes the Backlog Task. Ask the user whether shaping goes on into planning here.
-  - A person's Work tab (`surfaces/people/person-tasks.ts`) lists the Tasks they created and those whose Stages their Role works; the user also chose "Tasks with a Thread with them", deferred until Task Threads exist: add it with the planning Thread.
+  - A person's Work tab (`surfaces/people/person-tasks.ts`) lists the Tasks they created and those whose Stages their Role works; the user also chose "Tasks with a Thread with them", deferred until Task Threads exist: step 4 adds it.
   - Moving a Task to Planning is `changeTaskState` in Work's domain (`task-states.ts`); Ready is refused there without a Plan and a Definition of Done.
+- Decided with the user on 2026-10-25 (spec §2.4 and §9):
+  - A Decision is a card in the asking Agent's Thread, not a Thread of its own; follow-ups are ordinary messages in that Thread, and the answer goes into the same session.
+  - A Task in Planning with an open Decision stays in Planning and shows a Waiting on you badge, derived from its open Decisions; the state machine is unchanged.
+  - "Plan as a Task with *the Planner*" on an Idea shapes it and opens planning at once, as the click-through does (`POST /api/ideas/:id/plan`); step 4 puts it on the Idea.
 
 ## Steps
 
-- [ ] 1. Decisions in the Conversations module: a Decision Thread on a home (question, options, recommendation, context), its answer (option, free text), follow-ups, and the Office tool "open a Decision". The tool returns at once, telling the Agent to end its turn and wait; the answer is sent into the asking session as its next message, continued through the Context policy. No tool call blocks while the user decides. Commit.
-- [ ] 2. Planning use case in Work: Backlog → Planning, the Task's branch and worktree through the Projects git service, the planning Thread with the Planner and its Brief parts from Work. Commit.
+- [x] 1. Planning use case in Work: Backlog → Planning, the Task's branch and worktree through the Projects git service, the planning Thread with the Planner and its Brief parts from Work. Commit.
+- [ ] 2. Decisions in the Conversations module: a Decision in the asking Agent's Thread (question, options, recommendation, context), its answer (option, free text), follow-ups as ordinary messages, and the Office tool "open a Decision" for Threads on a Task. The tool returns at once, telling the Agent to end its turn and wait; the answer is sent into the asking session as its next message, continued through the Context policy. No tool call blocks while the user decides. Answered Decisions join the planning Brief. Commit.
 - [ ] 3. Office tools for planning: write the Plan, write the Definition of Done, propose a Pipeline; each lands on the record as proposed, with confirm and edit for the user. Commit.
-- [ ] 4. The Task page: the planning Thread, proposed and confirmed states on Plan, Definition of Done and Pipeline, the Decision card with its options and free answer, Mark Ready with its reason. Commit.
+- [ ] 4. The Task page: "Plan with *the Planner*" on the board and the Task page, and "Plan as a Task with *the Planner*" on an Idea; the planning Thread, proposed and confirmed states on Plan, Definition of Done and Pipeline, the Decision card with its options and free answer, the Waiting on you badge, Mark Ready with its reason; "Tasks with a Thread with them" on a person's Work tab. Commit.
 - [ ] 5. Check on the Test Project: plan a small real change with the Planner to Ready, with at least one Decision; log the tokens and the context labels. Commit.
 
 ## Progress
 
 <!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next; anything surprising. -->
+- 2026-10-25 · step 1: steps 1 and 2 swapped, since a Decision is answered in a Task Thread that can run, which needs the Task's worktree first. `POST /api/tasks/:id/planning` opens the Task's worktree (Projects' `TaskWorktrees.open`, no install) at the freshly fetched base, moves it to Planning and opens the planning Thread with the Planner (refused with the reason while nobody is the Planner, or when the worktree fails, leaving it in Backlog); `POST /api/ideas/:id/plan` shapes and plans. The Planner starts at once on The Office's opening (`ThreadRunner.open`, logged as its context line only). `ThreadRunner` now runs per home through `SessionPlaces`: a Task Thread works in the worktree with the Project's environment and skills, read-only, whatever the person's Chat is; Work gives its folder, tools, instructions and Brief through Conversations' `TaskThreadSetups`, a registry like the Office tools', since Work already calls Conversations. The Brief of a Task Thread is the record only, never its exchanges. Next: step 2, Decisions. The planning Thread is titled "Planning" by The Office, as the click-through does, where spec §9 says titles come from the first message.

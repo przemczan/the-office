@@ -1,0 +1,19 @@
+/** A Task's worktree, as a session on the Task works in it. */
+export interface TaskWorktree {
+  readonly path: string;
+  readonly branch: string;
+  /** The Project's command environment. */
+  readonly environment: Readonly<Record<string, string>>;
+}
+
+/** The Tasks' worktrees, which the Projects module keeps; the composition root binds it. */
+export abstract class ProjectWorktrees {
+  /**
+   * The Task's worktree, made the first time on a branch of its own at the freshly fetched base
+   * branch (spec §5.5).
+   */
+  abstract open(projectId: string, taskId: string): Promise<TaskWorktree>;
+
+  /** Where the Task's worktree is, without running git. */
+  abstract find(projectId: string, taskId: string): Promise<TaskWorktree>;
+}

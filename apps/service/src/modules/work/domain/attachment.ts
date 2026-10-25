@@ -67,6 +67,16 @@ export function storedFileKind(file: NewFile): StoredFile["kind"] {
   return "file";
 }
 
+/** Every Attachment on a line of its own, as an Agent reads a record; "None." for none. */
+export function attachmentLines(attachments: readonly Attachment[]): string[] {
+  if (attachments.length === 0) return ["None."];
+  return attachments.map((attachment) =>
+    attachment.kind === "link"
+      ? `- ${attachment.name} (link to ${attachment.url})`
+      : `- ${attachment.name} (${attachment.kind}, ${attachment.size} bytes)`,
+  );
+}
+
 /** The link as it is kept: named by its URL when no name is given. */
 export function trimmedNewLink(link: NewLink): NewLink {
   const url = link.url.trim();
