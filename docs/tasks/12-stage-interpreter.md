@@ -24,6 +24,7 @@ The Pipelines module runs a Ready Task: the user starts it (or is told why not),
 - [research/factory-reference.md](../../.scratch/the-office/research/factory-reference.md) §6 (result envelope), §7 (budgets and loop limits), §11.3, §11.5, §11.6 (the prompt must name the allowed commands), §12.
 - Reference, behaviour only, in `D:\Projects\software-factory\`: `packages\shared\src\stage\stage-result.ts`, `apps\runner\src\stages\stage-executor.ts`, `apps\runner\src\pipeline\pipeline-gates.ts`, `apps\runner\src\telemetry\usage-ledger.ts`, `apps\runner\src\testing\test-runner.ts`, `apps\runner\src\stages\retry-guidance-injector.ts`. `apps\runner\src\pipeline\task-pipeline.ts` is what the interpreter must not become.
 - Click-through: Start and the Stages block in [app/task.js](../../.scratch/the-office/prototypes/app/task.js), [app/pipelines.js](../../.scratch/the-office/prototypes/app/pipelines.js).
+- Carried over from task 10, decided with the user: a Task (Work) holds only its Pipeline's id, taken from the Project's default; Pipelines keeps each Task's own Stages, made when it starts (or is edited for itself in task 15), with the Stage runs and the lock on started Stages. Pipelines calls Work's `TaskService` (In progress, Waiting on you, Paused, Done through `changeTaskState`), never the reverse. The Task page's Stages block (`surfaces/work/task-record.tsx`) shows the library Pipeline's Stages until then.
 
 ## Steps
 

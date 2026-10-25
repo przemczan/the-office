@@ -21,6 +21,7 @@ The user steers a running Task and its Agents reach the user only through the re
 - [engine-check.md](../engine-check.md): priority and interrupt.
 - [research/factory-reference.md](../../.scratch/the-office/research/factory-reference.md) §11.3 (discarding an interrupted Stage's edits), §11.7.
 - Click-through: Pause, Stop and Resume in [app/task.js](../../.scratch/the-office/prototypes/app/task.js); the running Thread and composer in [app/conversation.js](../../.scratch/the-office/prototypes/app/conversation.js).
+- Carried over from task 10: an Office tool knows only its session's id. Work's `SessionPeople` port (who is at work in a session) is bound in `AppModule` to Conversations' `ThreadService.personInSession`, which knows chat sessions only, so a Stage session calling `capture_idea` or `create_task` is answered "The Office doesn't know whose session this is." The Stage tools here (attach, Decisions, the Handover note) need a binding that also covers Stage sessions, and a way from the session to its Task and Stage.
 
 Leave out: Consultations with colleagues (the consult tool only asks the user in tier 1), the fire alarm, and the CTO's first look at failures.
 
