@@ -20,6 +20,7 @@ import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
 import { SkillsSection } from "./surfaces/settings/skills/skills-section.tsx";
 import { Board } from "./surfaces/work/board.tsx";
 import { IdeasPage } from "./surfaces/work/ideas-page.tsx";
+import { TaskPage } from "./surfaces/work/task-page.tsx";
 import { WorkPage } from "./surfaces/work/work-page.tsx";
 
 declare module "@tanstack/react-router" {
@@ -85,6 +86,15 @@ const ideasRoute = createRoute({
   getParentRoute: () => workRoute,
   path: "ideas",
   component: IdeasPage,
+  staticData: { title: "Work" },
+});
+
+// A Task's page, in Work; the rail marks Work while it is open.
+const taskRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "tasks/$taskId",
+  component: TaskPage,
+  // Until the Task is read; the page then names it.
   staticData: { title: "Work" },
 });
 
@@ -182,6 +192,7 @@ export const router = createRouter({
     homeRoute,
     nowRoute,
     workRoute.addChildren([boardRoute, ideasRoute]),
+    taskRoute,
     peopleRoute,
     personRoute.addChildren([
       personOverviewRoute,

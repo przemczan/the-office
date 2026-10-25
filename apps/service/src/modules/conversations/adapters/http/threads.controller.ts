@@ -50,6 +50,12 @@ export class ThreadsController {
     return this.toResponse(await this.threads.startInChat(roleKey));
   }
 
+  @Get("tasks/:taskId/threads")
+  async listOnTask(@Param("taskId", ParseUUIDPipe) taskId: string): Promise<ThreadResponse[]> {
+    const threads = await this.threads.listOnTask(taskId);
+    return Promise.all(threads.map((thread) => this.toResponse(thread)));
+  }
+
   @Get("threads/:id")
   async read(@Param("id", ParseUUIDPipe) id: string): Promise<ThreadResponse> {
     return this.toResponse(await this.threads.read(id));

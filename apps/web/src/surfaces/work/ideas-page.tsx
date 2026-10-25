@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Idea, Project, Role, Task } from "@the-office/contracts";
 import { Alert, Button, Icon, IconButton, Menu } from "@the-office/ui";
+import { Link } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
@@ -174,7 +175,11 @@ function ShapedIdea({
           <ProjectChip projectId={idea.projectId} projects={projects} />
           {task && (
             <span>
-              · became <Icon name="list-checks" size={12} /> {task.title}
+              · became{" "}
+              <Link to="/tasks/$taskId" params={{ taskId: task.id }} className="ideas-task-link">
+                <Icon name="list-checks" size={12} />
+                {task.title}
+              </Link>
             </span>
           )}
         </div>

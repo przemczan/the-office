@@ -1,6 +1,8 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
 import { Button, Icon, Logo } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
+import { taskQueries } from "../api/work.ts";
 import { useBrandTone } from "./brand-tone.ts";
 import type { PageHeading } from "./page-heading.tsx";
 import { CaptureIdeaDialog } from "./work/capture-idea-dialog.tsx";
@@ -8,8 +10,10 @@ import { CaptureIdeaDialog } from "./work/capture-idea-dialog.tsx";
 /** The lockup, the page's title with its crumb, and "Idea", which captures one from any page. */
 export function TopBar({ title, crumb, parent }: Partial<PageHeading>): ReactNode {
   const [capturing, setCapturing] = useState(false);
-  // On a Project's page an Idea is captured in that Project unless the user chooses otherwise.
-  const { projectId } = useParams({ strict: false });
+  // On a Project's or a Task's page an Idea is captured in that Project unless the user chooses
+  // otherwise.
+  const { projectId, taskId } = useParams({ strict: false });
+  const task = useQuery({ ...taskQueries.one(taskId ?? ""), enabled: taskId !== undefined });
   return (
     <header className="shell-top">
       <span className="shell-top-lockup">
@@ -37,7 +41,10 @@ export function TopBar({ title, crumb, parent }: Partial<PageHeading>): ReactNod
         Idea
       </Button>
       {capturing && (
-        <CaptureIdeaDialog projectId={projectId ?? null} onClose={() => setCapturing(false)} />
+        <CaptureIdeaDialog
+          projectId={projectId ?? task.data?.projectId ?? null}
+          onClose={() => setCapturing(false)}
+        />
       )}
     </header>
   );

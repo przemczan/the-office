@@ -28,6 +28,7 @@ import { CONTEXT_POLICY_SETTINGS, ThreadContexts } from "../../application/threa
 import { ThreadRunner } from "../../application/thread-runner.js";
 import { ThreadService } from "../../application/thread-service.js";
 import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "../../domain/context-policy.js";
+import { aThread } from "../../domain/thread.fixtures.js";
 import { ProjectBases } from "../../ports/project-bases.js";
 import { ThreadRepository } from "../../ports/thread-repository.js";
 import { PostgresThreadRepository } from "../postgres/postgres-thread-repository.js";
@@ -171,6 +172,35 @@ describe("a person's chat", () => {
     ]);
     expect(nobody.status).toBe(404);
     expect(published).toEqual([]);
+  });
+});
+
+describe("a Task's conversation", () => {
+  it("lists the Threads on the Task, the newest first, and none on another", async () => {
+    const taskId = randomUUID();
+    const repository = app.get(ThreadRepository);
+    const home = { kind: "task", taskId } as const;
+    const older = aThread({
+      id: randomUUID(),
+      home,
+      startedAt: new Date("2026-10-25T09:00:00.000Z"),
+    });
+    const newer = aThread({
+      id: randomUUID(),
+      home,
+      startedAt: new Date("2026-10-25T10:00:00.000Z"),
+    });
+    await repository.add(older);
+    await repository.add(newer);
+
+    const listed = await get(`/tasks/${taskId}/threads`);
+    const elsewhere = await get(`/tasks/${randomUUID()}/threads`);
+
+    expect(threadListSchema.parse(await listed.json()).map(({ id }) => id)).toEqual([
+      newer.id,
+      older.id,
+    ]);
+    expect(threadListSchema.parse(await elsewhere.json())).toEqual([]);
   });
 });
 

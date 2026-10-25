@@ -9,6 +9,7 @@ import {
   MOVE_WORDS,
   OVERRIDE_HINTS,
   OVERRIDE_WORDS,
+  threadTokens,
   tokensShort,
 } from "./context-words.ts";
 
@@ -28,8 +29,8 @@ export function ContextBar({
     mutationFn: (override: ContextOverride | null) => chooseContextOverride(thread.id, override),
     onSuccess: (chosen) => queryClient.setQueryData(threadQueries.one(chosen.id).queryKey, chosen),
   });
-  const { context, tokens } = thread;
-  const total = tokens.input + tokens.output + tokens.cacheRead + tokens.cacheCreation;
+  const { context } = thread;
+  const total = threadTokens(thread);
   return (
     <div className="context-bar">
       <div className="context-label" aria-label="Context">

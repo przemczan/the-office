@@ -178,3 +178,80 @@ test("a Task's priority and Drop are in its menu, and the Project page counts it
   const work = page.getByText("Not planned yet").locator("..");
   await expect(work).toContainText("1");
 });
+
+test("a Task's page shows its record, takes Attachments of every kind and opens them", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Task page", "TP");
+  const idea = await page.request.post("/api/ideas", {
+    data: {
+      title: "Sign-in keeps the page",
+      notes: "Users land on the home page.",
+      projectId: project.id,
+    },
+  });
+  const ideaId = ((await idea.json()) as { id: string }).id;
+  await page.request.post(`/api/ideas/${ideaId}/shape`, { data: { projectId: project.id } });
+  await page.goto("/work");
+  await page.getByRole("link", { name: "Sign-in keeps the page" }).click();
+
+  await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+$/);
+  await expect(
+    page.getByRole("heading", { name: "Sign-in keeps the page", level: 2 }),
+  ).toBeVisible();
+  const record = page.getByRole("region", { name: "Record" });
+  await expect(record.getByText(/Not written yet\./)).toBeVisible();
+  await expect(record.getByText("No Plan yet.")).toBeVisible();
+  for (const stage of ["Implement", "Tests", "Review & fix", "Publish"]) {
+    await expect(record.getByText(stage, { exact: true })).toBeVisible();
+  }
+  await expect(record.getByText("Started from the Idea")).toBeVisible();
+  await expect(record.getByText("Users land on the home page.")).toBeVisible();
+  await expect(page.getByRole("complementary", { name: "Conversation" })).toContainText(
+    "Planning opens one with",
+  );
+
+  const files = [
+    { name: "plan.md", mimeType: "text/markdown", buffer: Buffer.from("# Plan\n\nKeep the path.") },
+    { name: "screen.png", mimeType: "image/png", buffer: Buffer.from("not really a png") },
+    { name: "export.zip", mimeType: "application/zip", buffer: Buffer.from("zip bytes") },
+  ];
+  for (const file of files) {
+    await record.getByRole("button", { name: "Add" }).click();
+    await page.getByRole("dialog").getByLabel("File to attach").setInputFiles(file);
+    await expect(page.getByText(`${file.name} attached.`)).toBeVisible();
+  }
+  await record.getByRole("button", { name: "Add" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByText("Link", { exact: true }).click();
+  await dialog.getByLabel("Address").fill("https://example.com/sign-in");
+  await dialog.getByRole("button", { name: "Add the link" }).click();
+  await expect(page.getByText("https://example.com/sign-in attached.")).toBeVisible();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task.png") });
+
+  await record.getByRole("button", { name: "plan.md" }).click();
+  await expect(page.getByRole("dialog").filter({ hasText: "plan.md" })).toContainText(
+    "Keep the path.",
+  );
+  await page.getByRole("dialog").getByLabel("Close").click();
+  const image = await page.request.get(
+    (await record.getByRole("link", { name: "screen.png" }).getAttribute("href")) ?? "",
+  );
+  expect(image.headers()["content-type"]).toBe("image/png");
+  const download = page.waitForEvent("download");
+  await record.getByRole("link", { name: "export.zip" }).click();
+  expect((await download).suggestedFilename()).toBe("export.zip");
+  await expect(record.getByRole("link", { name: "https://example.com/sign-in" })).toHaveAttribute(
+    "target",
+    "_blank",
+  );
+
+  await page.getByRole("button", { name: "Idea", exact: true }).click();
+  await page.keyboard.type("Remember the page per tab");
+  await page.keyboard.press("Enter");
+  await expect(page.getByText("Idea captured: Remember the page per tab.")).toBeVisible();
+  await page.goto("/work/ideas");
+  await expect(
+    page.getByRole("article", { name: "Remember the page per tab" }).getByText("Task page"),
+  ).toBeVisible();
+});

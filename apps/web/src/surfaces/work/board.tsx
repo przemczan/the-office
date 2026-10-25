@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Project, Task, TaskPlacement, TaskState } from "@the-office/contracts";
 import { Alert, Icon } from "@the-office/ui";
+import { Link } from "@tanstack/react-router";
 import { useState, type DragEvent, type ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
@@ -177,7 +178,14 @@ function BoardCard({
     >
       <div className="board-card-head">
         <PriorityIcon priority={task.priority} />
-        <span className="board-card-title">{task.title}</span>
+        <Link
+          to="/tasks/$taskId"
+          params={{ taskId: task.id }}
+          className="board-card-title"
+          draggable={false}
+        >
+          {task.title}
+        </Link>
         <TaskMenu task={task} />
       </div>
       <div className="board-card-meta">

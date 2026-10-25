@@ -20,6 +20,13 @@ export const threadQueries = {
       queryFn: ({ signal }) =>
         getFromApi(`/chats/${encodeURIComponent(roleKey)}/threads`, threadListSchema, signal),
     }),
+  /** The Threads on a Task, the newest first. */
+  onTask: (taskId: string) =>
+    queryOptions({
+      queryKey: [...THREADS, "task", taskId],
+      queryFn: ({ signal }) =>
+        getFromApi(`/tasks/${encodeURIComponent(taskId)}/threads`, threadListSchema, signal),
+    }),
   one: (id: string) =>
     queryOptions({
       queryKey: [...THREADS, id],

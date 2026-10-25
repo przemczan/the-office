@@ -1,4 +1,4 @@
-import { Link, type LinkProps } from "@tanstack/react-router";
+import { Link, useRouterState, type LinkProps } from "@tanstack/react-router";
 import { Icon, Logo, Tooltip } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { useBrandTone } from "./brand-tone.ts";
@@ -8,11 +8,13 @@ interface Surface {
   readonly to: NonNullable<LinkProps["to"]>;
   readonly label: string;
   readonly icon: string;
+  /** Pages outside its path that belong to it, by the start of their path. */
+  readonly alsoOn?: readonly string[];
 }
 
 const SURFACES: readonly Surface[] = [
   { to: "/now", label: "Now", icon: "inbox" },
-  { to: "/work", label: "Work", icon: "kanban" },
+  { to: "/work", label: "Work", icon: "kanban", alsoOn: ["/tasks/"] },
   { to: "/people", label: "People", icon: "users" },
   { to: "/projects", label: "Projects", icon: "folder-git-2" },
 ];
@@ -37,11 +39,14 @@ export function Rail(): ReactNode {
 }
 
 function RailLink({ surface }: { readonly surface: Surface }): ReactNode {
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const alsoActive = surface.alsoOn?.some((start) => pathname.startsWith(start)) ?? false;
   return (
     <Tooltip content={surface.label} side="right">
       <Link
         to={surface.to}
-        className="shell-rail-item"
+        className={alsoActive ? "shell-rail-item active" : "shell-rail-item"}
+        aria-current={alsoActive ? "page" : undefined}
         activeProps={{ className: "active", "aria-current": "page" }}
         aria-label={surface.label}
       >

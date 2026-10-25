@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
+import { Link, useParams } from "@tanstack/react-router";
 import type { Project } from "@the-office/contracts";
 import { DataTable, type DataTableColumn } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
@@ -62,7 +62,9 @@ function columnsFor(projects: readonly Project[] | undefined): DataTableColumn<P
       wrap: true,
       render: ({ task }) => (
         <div>
-          <div className="person-work-title">{task.title}</div>
+          <Link to="/tasks/$taskId" params={{ taskId: task.id }} className="person-work-title">
+            {task.title}
+          </Link>
           <ProjectChip projectId={task.projectId} projects={projects} />
         </div>
       ),
