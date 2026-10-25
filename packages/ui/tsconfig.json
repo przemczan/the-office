@@ -6,7 +6,10 @@
     "moduleResolution": "Bundler",
     "jsx": "react-jsx",
     "types": ["node", "vite/client"],
-    "noEmit": true
+    "noEmit": true,
+    // vite.ts runs on Node type stripping when an app's Vite config loads it.
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true
   },
   "include": ["src", "vitest.config.ts"]
 }

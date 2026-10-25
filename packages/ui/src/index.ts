@@ -1,5 +1,6 @@
-// The design system for React: each component of design-system/components, typed by its .d.ts.
-// design-system/ stays as exported, so nothing outside this package imports it.
+// The design system for React: each component of design-system/components, typed by its .d.ts,
+// and the appearance over its aliases. design-system/ stays as exported, so nothing outside this
+// package imports it.
 import { icons } from "lucide";
 import type { JSX as ReactJSX } from "react";
 
@@ -19,6 +20,10 @@ declare global {
 // The Office serves itself on localhost, so the same pinned version is bundled and set here, before
 // any Icon renders. Icons are looked up by name, so the whole set is kept.
 if (typeof window !== "undefined") window.lucide = { icons };
+
+export { PALETTES, type Palette } from "./appearance/apply-appearance.ts";
+export type { Appearance } from "./appearance/appearance-store.ts";
+export { useAppearance } from "./appearance/use-appearance.ts";
 
 export {
   BarChart,

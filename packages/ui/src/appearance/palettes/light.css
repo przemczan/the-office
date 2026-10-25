@@ -1,0 +1,14 @@
+/* Light: the design system's light aliases with muted text, borders and surfaces. Status colours,
+   the accent, badges and icons keep the design system's values (prototypes/themes.md). */
+:root[data-palette="light"] {
+  --fg-1: var(--gray-800);
+  --fg-2: var(--gray-500);
+  --fg-3: var(--gray-400);
+  --border: var(--gray-100);
+  --border-subtle: #efefec;
+  --border-strong: var(--gray-150);
+  --surface-hover: var(--gray-25);
+  --neutral-subtle: var(--gray-50);
+  --neutral-fg: var(--gray-500);
+  --neutral-border: var(--gray-100);
+}

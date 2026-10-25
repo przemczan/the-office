@@ -1,0 +1,14 @@
+/* Comfortable: the air around cards, rows, panels and pages, and the size of item text. A density
+   remaps spacing and size aliases only, never the layout (prototypes/themes.md). */
+:root[data-density="comfortable"] {
+  --pad-card: 16px 18px;
+  --gap-card: 12px;
+  --pad-row: 14px 18px;
+  --pad-page: 24px;
+  --gap-panel: 20px;
+  --radius-card: 10px;
+  --text-item: 14px;
+  --text-body: 13px;
+  --control-h: 28px;
+  --line: 1.5;
+}

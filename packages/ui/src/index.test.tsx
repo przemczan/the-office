@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import * as ui from "./index.js";
+import * as ui from "./index.ts";
 
 const COMPONENTS_DIRECTORY = path.resolve(import.meta.dirname, "../../../design-system/components");
 
@@ -12,13 +12,12 @@ function declaredComponents(): string[] {
     .flatMap((file) => {
       const declarations = readFileSync(path.join(COMPONENTS_DIRECTORY, file), "utf8");
       return [...declarations.matchAll(/export declare function (\w+)/g)].map((match) => match[1]!);
-    })
-    .toSorted();
+    });
 }
 
 describe("@the-office/ui", () => {
   it("exports every component the design system declares", () => {
-    expect(Object.keys(ui).toSorted()).toEqual(declaredComponents());
+    expect(Object.keys(ui)).toEqual(expect.arrayContaining(declaredComponents()));
   });
 
   it("draws icons from the bundled Lucide set", () => {

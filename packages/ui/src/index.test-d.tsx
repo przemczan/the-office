@@ -1,7 +1,7 @@
 // Checked by tsc: the components carry the types of their .d.ts files, not `any`.
 import type { JSX } from "react";
 import { expectTypeOf } from "vitest";
-import { Button, Icon } from "./index.js";
+import { Button, Icon } from "./index.ts";
 
 expectTypeOf(Button).returns.toEqualTypeOf<JSX.Element>();
 

@@ -1,0 +1,30 @@
+/* Dark: dark gray, not black, on the design system's dark aliases, whose status colours it keeps
+   (prototypes/themes.md). */
+:root[data-palette="dark"] {
+  --bg: #161615;
+  --surface: #1d1d1b;
+  --surface-raised: #242422;
+  --surface-sunken: #131312;
+  --surface-hover: #222220;
+  --surface-selected: #2a2420;
+  --surface-inverse: #e6e6e2;
+  --sidebar-bg: #161615;
+  --sidebar-fg: var(--gray-300);
+  --sidebar-active-bg: #242422;
+  --sidebar-active-fg: #e6e6e2;
+  --fg-1: #d9d9d5;
+  --fg-2: #9a9a94;
+  --fg-3: #6f6f69;
+  --fg-inverse: #161615;
+  --border: #262624;
+  --border-subtle: #222220;
+  --border-strong: #33332f;
+  --primary: #d9d9d5;
+  --primary-fg: #161615;
+  --primary-hover: #e6e6e2;
+  --control-hover: #262624;
+  --control-press: #2e2e2b;
+  --neutral-subtle: #242422;
+  --neutral-fg: #9a9a94;
+  --neutral-border: #2e2e2b;
+}

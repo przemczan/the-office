@@ -1,2 +1,5 @@
-/* The design system's tokens, fonts and base styles. */
+/* The design system's tokens, fonts and base styles, then the appearance layers over its aliases. */
 @import "../../../design-system/styles.css";
+@import "./appearance/palettes/light.css";
+@import "./appearance/palettes/dark.css";
+@import "./appearance/densities/comfortable.css";

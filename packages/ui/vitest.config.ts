@@ -1,5 +1,5 @@
 import { defineConfig } from "vitest/config";
-import { designSystem } from "./src/vite.js";
+import { designSystem } from "./src/vite.ts";
 
 export default defineConfig({
   plugins: [designSystem()],
