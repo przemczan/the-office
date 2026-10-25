@@ -3,6 +3,7 @@ import type { OfficeConfig } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
 import { EventsModule } from "./platform/events/events.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
+import { TelemetryModule } from "./platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "./platform/websocket/event-stream.module.js";
 
 @Module({})
@@ -15,6 +16,7 @@ export class AppModule {
         EventsModule,
         EventStreamModule,
         HealthModule,
+        TelemetryModule,
       ],
     };
   }
