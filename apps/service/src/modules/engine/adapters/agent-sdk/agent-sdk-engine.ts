@@ -17,6 +17,7 @@ import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import { EngineProcess } from "./engine-process.js";
+import { engineTaskFolder } from "./engine-task-folder.js";
 import { officeRulesHook } from "./office-rules-hook.js";
 import { sessionEvents, usageWindows } from "./sdk-events.js";
 import { sdkOptions, sessionEnvironment, type SdkSession } from "./sdk-options.js";
@@ -58,7 +59,7 @@ export class AgentSdkEngine extends AgentEngine {
 
   private open(id: string, resumes: boolean, options: SessionOptions): AgentSdkSession {
     const engineProcess = new EngineProcess(this.operatingSystem.processTrees);
-    return new AgentSdkSession(id, this.officeRules(options), engineProcess, (session) =>
+    return new AgentSdkSession(id, this.officeRules(id, options), engineProcess, (session) =>
       sdkOptions({
         id,
         resumes,
@@ -69,10 +70,13 @@ export class AgentSdkEngine extends AgentEngine {
     );
   }
 
-  private officeRules(options: SessionOptions): OfficeRules {
+  private officeRules(sessionId: string, options: SessionOptions): OfficeRules {
     return new OfficeRules({
       workingFolder: options.folder,
-      readableFolders: options.skillsFolder === undefined ? [] : [options.skillsFolder],
+      readableFolders: [
+        ...(options.skillsFolder === undefined ? [] : [options.skillsFolder]),
+        engineTaskFolder(this.operatingSystem, options.folder, sessionId),
+      ],
       profile: options.profile,
       userSecrets: this.operatingSystem.secretPaths,
       officeFiles: [this.officeData.path, OFFICE_ENV_FILE],

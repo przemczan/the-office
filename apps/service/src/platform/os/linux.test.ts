@@ -109,6 +109,16 @@ describe("linux", () => {
     );
   });
 
+  it("has the engine keep its temporary files in claude-<user id> in $TMPDIR, or /tmp", () => {
+    expect(linux({ variables: {}, homeDirectory, userId: 0 }).engineTemporaryFolder).toBe(
+      "/tmp/claude-0",
+    );
+    expect(
+      linux({ variables: { TMPDIR: "/var/tmp" }, homeDirectory, userId: 1000 })
+        .engineTemporaryFolder,
+    ).toBe("/var/tmp/claude-1000");
+  });
+
   it("has Agents run commands in Bash alone", () => {
     expect(linux({ variables: {}, homeDirectory }).agentShells).toEqual(["bash"]);
   });

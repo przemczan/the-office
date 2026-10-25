@@ -16,7 +16,7 @@ const LINUX_PATH_LIMITS: PathLimits = {
   measure: (text) => Buffer.byteLength(text, "utf8"),
 };
 
-export function linux({ variables, homeDirectory }: UserEnvironment): OperatingSystem {
+export function linux({ variables, homeDirectory, userId }: UserEnvironment): OperatingSystem {
   const config = configHome(variables["XDG_CONFIG_HOME"], homeDirectory);
   return {
     name: "Linux",
@@ -28,6 +28,12 @@ export function linux({ variables, homeDirectory }: UserEnvironment): OperatingS
     defaultShell: bourneShell,
     agentShells: ["bash"],
     processTrees: processGroups,
+    // Named after the user, as the engine names it, in the temporary folder Node's os.tmpdir() gives.
+    get engineTemporaryFolder() {
+      if (userId === undefined)
+        throw new Error("The engine's temporary folder on Linux needs the user's id.");
+      return posix.join(variables["TMPDIR"] || "/tmp", `claude-${userId}`);
+    },
     secretPaths: [
       posix.join(homeDirectory, ".ssh"),
       posix.join(

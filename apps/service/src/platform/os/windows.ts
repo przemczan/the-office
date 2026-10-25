@@ -42,6 +42,11 @@ export function windows({ variables, homeDirectory }: UserEnvironment): Operatin
     defaultShell: commandPrompt(variables),
     agentShells: ["bash", "powershell"],
     processTrees: taskkill(variables),
+    // In the temporary folder Node's os.tmpdir() gives.
+    engineTemporaryFolder: win32.join(
+      variables["TEMP"] || variables["TMP"] || win32.join(localAppData, "Temp"),
+      "claude",
+    ),
     secretPaths: [
       win32.join(homeDirectory, ".ssh"),
       win32.join(

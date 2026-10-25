@@ -17,7 +17,7 @@ import { UsageWindowState } from "../../application/usage-window-state.js";
 import { describeAgentEngineContract } from "../../ports/agent-engine.contract.js";
 import type { AgentEngine } from "../../ports/agent-engine.js";
 import type { EngineSession } from "../../ports/engine-session.js";
-import type { TurnEndedEvent } from "../../ports/session-events.js";
+import type { SessionEvent, TurnEndedEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { RecordingEngine } from "../scripted/recording-engine.js";
 import { AgentSdkEngine } from "./agent-sdk-engine.js";
@@ -99,6 +99,36 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
       await session.end();
 
       expect(words).toEqual(["tangerine"]);
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  }, 180_000);
+
+  it("lets a session read the output of its own background command", async () => {
+    const folder = await mkdtemp(join(tmpdir(), "office-background-"));
+    try {
+      const session = await liveEngine().start({
+        id: randomUUID(),
+        options: {
+          ...options(folder),
+          profile: { edit: false, run: { kind: "anything" }, web: false },
+        },
+        brief: message(
+          "Use the Bash tool with run_in_background set to true to run: echo background-42 && sleep 30. " +
+            "Do not wait for it to finish: read its output file now with the Read tool, not with a command, " +
+            "and reply with what it printed so far.",
+        ),
+      });
+      const reported: SessionEvent[] = [];
+      for await (const event of session.events) {
+        reported.push(event);
+        if (event.kind === "turn-ended") break;
+      }
+      await session.end();
+
+      const reads = reported.filter((event) => event.kind === "tool-call" && event.tool === "Read");
+      expect(reads).not.toEqual([]);
+      expect(reported.filter((event) => event.kind === "tool-refused")).toEqual([]);
     } finally {
       await rm(folder, { recursive: true, force: true });
     }

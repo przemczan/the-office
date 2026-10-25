@@ -137,6 +137,16 @@ describe("windows", () => {
     );
   });
 
+  it("has the engine keep its temporary files in claude in %TEMP%", () => {
+    expect(
+      windows({ variables: { TEMP: raw`C:\Users\office\AppData\Local\Temp` }, homeDirectory })
+        .engineTemporaryFolder,
+    ).toBe(raw`C:\Users\office\AppData\Local\Temp\claude`);
+    expect(windows({ variables: {}, homeDirectory }).engineTemporaryFolder).toBe(
+      raw`C:\Users\office\AppData\Local\Temp\claude`,
+    );
+  });
+
   it("has Agents run commands in Bash and PowerShell", () => {
     expect(windows({ variables: {}, homeDirectory }).agentShells).toEqual(["bash", "powershell"]);
   });

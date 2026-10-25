@@ -23,6 +23,11 @@ export interface OperatingSystem {
    * the GitHub CLI's and AWS's config, browser profiles. Absolute, files or folders.
    */
   readonly secretPaths: readonly string[];
+  /**
+   * Where the engine (Claude Code) keeps its temporary files, a background command's output among
+   * them, which a session may read (spec §6).
+   */
+  readonly engineTemporaryFolder: string;
   /** Whether two environment variable names name one variable: Windows ignores their case. */
   sameVariableName(one: string, other: string): boolean;
 }
@@ -34,4 +39,6 @@ export interface OperatingSystem {
 export interface UserEnvironment {
   readonly variables: Readonly<Record<string, string | undefined>>;
   readonly homeDirectory: string;
+  /** The numeric user id on Linux; Windows has none. */
+  readonly userId?: number | undefined;
 }

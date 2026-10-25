@@ -216,7 +216,7 @@ Seen while running the checks, recorded so a bump can be compared against them.
 - The transcript holds a `session_context` attachment with the signed-in user's e-mail address, under `settingSources: ['project']`.
 - The engine leaves an empty `memory/` folder in the transcript folder of each working directory when auto-memory is on.
 - `apiKeySource` is `none`; no memory files and no user hooks reach a session.
-- On Linux, after a command moved to the background, the model read its output file under `/tmp/claude-0/…/tasks/`, outside the worktree, and the read fence let it: the engine allows reads of its own task output. Harmless, and one more engine-owned path past the fence.
+- On Linux, after a command moved to the background, the model read its output file under `/tmp/claude-0/…/tasks/`, outside the worktree, and the read fence let it: the engine allows reads of its own task output. Harmless, and one more engine-owned path past the fence. Task 06's hook fences reads itself and lets each session read that folder of its own, by its session id (agreed with the user on 2026-10-25); it is under `%TEMP%\claude\` on Windows.
 
 ## Not checked
 
