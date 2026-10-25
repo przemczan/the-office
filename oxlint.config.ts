@@ -27,6 +27,7 @@ export default defineConfig({
     "office/workspace-boundaries": "error",
     "office/module-boundaries": "error",
     "office/operating-system-branches": "error",
+    "office/web-layers": "error",
     "import/no-cycle": "error",
     // A stylesheet is imported for what it adds to the page.
     "import/no-unassigned-import": ["error", { allow: ["**/*.css"] }],

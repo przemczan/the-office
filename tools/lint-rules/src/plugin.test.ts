@@ -121,3 +121,23 @@ tester.run("restricted-syntax", plugin.rules["restricted-syntax"], {
     },
   ],
 });
+
+tester.run("web-layers", plugin.rules["web-layers"], {
+  valid: [
+    {
+      filename: inRepository("apps/web/src/router.tsx"),
+      code: `import { NowPage } from "./surfaces/now/now-page.tsx";`,
+    },
+    {
+      filename: inRepository("apps/service/src/office.ts"),
+      code: `import { AppModule } from "./app.module.js";`,
+    },
+  ],
+  invalid: [
+    {
+      filename: inRepository("apps/web/src/shell/shell.tsx"),
+      code: `import { NowPage } from "../surfaces/now/now-page.tsx";`,
+      errors: [{ message: /The shell frames the surfaces and never imports one/ }],
+    },
+  ],
+});

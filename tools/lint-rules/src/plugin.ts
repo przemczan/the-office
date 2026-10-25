@@ -3,6 +3,7 @@ import { moduleBoundaryViolation, modulePackageViolation } from "./module-bounda
 import { isTestFile, placeOf } from "./module-layout.ts";
 import { operatingSystemBranches } from "./operating-system-branches.ts";
 import { restrictedSyntax } from "./restricted-syntax.ts";
+import { WEB_APP_DIRECTORY, webLayerViolation, webPlaceAt } from "./web-layers.ts";
 import { workspaceBoundaryViolation } from "./workspace-boundaries.ts";
 
 /** Keeps workspaces apart: apps and tools are never imported, packages only by their name. */
@@ -40,6 +41,21 @@ function moduleViolation({ importerPath, importerWorkspace, target }: Import): s
     : undefined;
 }
 
+/** Keeps the web app's areas apart: api, shell and each surface (Build defaults). */
+const webLayers: Rule = {
+  meta: { type: "problem", docs: { description: "Keep the web app's areas apart." } },
+  create: (context) =>
+    checkImports(context, ({ importerPath, importerWorkspace, target }) => {
+      const withinWebApp =
+        importerWorkspace?.directory === WEB_APP_DIRECTORY &&
+        target.kind === "file" &&
+        target.workspace?.directory === WEB_APP_DIRECTORY;
+      return withinWebApp
+        ? webLayerViolation(webPlaceAt(importerPath), webPlaceAt(target.path))
+        : undefined;
+    }),
+};
+
 export default {
   meta: { name: "office" },
   rules: {
@@ -47,5 +63,6 @@ export default {
     "module-boundaries": moduleBoundaries,
     "operating-system-branches": operatingSystemBranches,
     "restricted-syntax": restrictedSyntax,
+    "web-layers": webLayers,
   },
 };
