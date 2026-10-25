@@ -4,8 +4,11 @@
     "noEmit": false,
     "rootDir": "src",
     "outDir": "dist",
+    // Inside dist/, so the build script's clean also clears what tsc -b remembers.
+    "tsBuildInfoFile": "dist/tsconfig.build.tsbuildinfo",
     "sourceMap": true
   },
   "include": ["src"],
-  "exclude": ["src/**/*.test.ts"]
+  "exclude": ["src/**/*.test.ts"],
+  "references": [{ "path": "../../packages/contracts" }]
 }

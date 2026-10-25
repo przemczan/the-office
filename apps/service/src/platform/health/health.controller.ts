@@ -1,9 +1,6 @@
 import { Controller, Get } from "@nestjs/common";
-import { DatabaseHealth, type DatabaseState } from "../database/database-health.js";
-
-export interface HealthReport {
-  readonly database: DatabaseState;
-}
+import type { HealthReport } from "@the-office/contracts";
+import { DatabaseHealth } from "../database/database-health.js";
 
 @Controller("health")
 export class HealthController {
