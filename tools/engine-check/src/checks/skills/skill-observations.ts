@@ -14,7 +14,9 @@ export async function listedSkillNames(session: ProbeSession): Promise<string[]>
 /** Names a `/name` prompt runs that are not Claude Code's own: skills, commands and plugin skills. */
 export async function userInvocableNames(session: ProbeSession): Promise<string[]> {
   const commands = await session.control.supportedCommands();
-  return sortedNames(commands.filter((command) => command.builtin !== true).map((command) => command.name));
+  return sortedNames(
+    commands.filter((command) => command.builtin !== true).map((command) => command.name),
+  );
 }
 
 export function pluginErrors(init: SDKSystemMessage): string[] {

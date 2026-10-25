@@ -10,7 +10,8 @@ import { listedSkillNames } from "./skill-observations.ts";
  */
 export const allowlistSuffixCheck: Check = {
   id: "skills.allowlist-suffix",
-  title: "the skills allowlist matches exact names and `:<name>` suffixes, across plugins and Project skills",
+  title:
+    "the skills allowlist matches exact names and `:<name>` suffixes, across plugins and Project skills",
   async run({ sandbox, startSession }) {
     const repository = await sandbox.createRepository();
     await writeProjectSkill(repository, skill("review"));

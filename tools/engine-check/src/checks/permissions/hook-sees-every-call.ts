@@ -1,4 +1,7 @@
-import type { SDKTaskNotificationMessage, SDKTaskStartedMessage } from "@anthropic-ai/claude-agent-sdk";
+import type {
+  SDKTaskNotificationMessage,
+  SDKTaskStartedMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { Check } from "../../check.ts";
@@ -16,7 +19,8 @@ import { observeCall, seenFirstByPreToolUse } from "./call-observations.ts";
  */
 export const hookSeesEveryCallCheck: Check = {
   id: "permissions.hook-sees-every-call",
-  title: "a PreToolUse hook sees every tool call first under permissionPrompts 'none', a subagent's included",
+  title:
+    "a PreToolUse hook sees every tool call first under permissionPrompts 'none', a subagent's included",
   async run({ sandbox, startSession }) {
     const repository = await sandbox.createRepository();
     const readme = join(repository, "README.md");
@@ -28,7 +32,10 @@ export const hookSeesEveryCallCheck: Check = {
     await writeFile(forSubagent, "Read by a subagent.\n");
     await writeFile(outside, "Outside the working directory.\n");
     const [main, subagent] = await Promise.all([
-      startSession({ repository, settings: { permissions: { deny: [`Read(${rulePath(secret)})`] } } }).then((session) =>
+      startSession({
+        repository,
+        settings: { permissions: { deny: [`Read(${rulePath(secret)})`] } },
+      }).then((session) =>
         runTurn(
           session,
           "Make these tool calls one at a time, in this order. Do not retry a refused call and do not use any other tool. Then reply with just OK.\n" +
@@ -47,16 +54,24 @@ export const hookSeesEveryCallCheck: Check = {
       calls: {
         allowedRead: observeCall(main.session, callsOn(main.calls, "Read", readme)),
         readDeniedByRule: observeCall(main.session, callsOn(main.calls, "Read", secret)),
-        readOutsideWorkingDirectory: observeCall(main.session, callsOn(main.calls, "Read", outside)),
+        readOutsideWorkingDirectory: observeCall(
+          main.session,
+          callsOn(main.calls, "Read", outside),
+        ),
         writeWithoutApproval: observeCall(main.session, callsOn(main.calls, "Write", written)),
         subagentRead: observeCall(subagent.session, callsOn(subagent.calls, "Read", forSubagent)),
       },
-      toolsNotSeenFirst: sortedNames([main, subagent].flatMap(({ session, calls }) => notSeenFirst(session, calls))),
+      toolsNotSeenFirst: sortedNames(
+        [main, subagent].flatMap(({ session, calls }) => notSeenFirst(session, calls)),
+      ),
     };
   },
 };
 
-async function runTurn(session: ProbeSession, prompt: string): Promise<{ session: ProbeSession; calls: ToolCall[] }> {
+async function runTurn(
+  session: ProbeSession,
+  prompt: string,
+): Promise<{ session: ProbeSession; calls: ToolCall[] }> {
   session.send(prompt);
   await session.nextResult();
   await backgroundTasksEnded(session);
@@ -65,12 +80,17 @@ async function runTurn(session: ProbeSession, prompt: string): Promise<{ session
 
 /** The engine may run a subagent in the background past its turn's result; its calls count once it has ended. */
 async function backgroundTasksEnded(session: ProbeSession): Promise<void> {
-  const started = session.messages.filter((message): message is SDKTaskStartedMessage => message.type === "system" && message.subtype === "task_started");
+  const started = session.messages.filter(
+    (message): message is SDKTaskStartedMessage =>
+      message.type === "system" && message.subtype === "task_started",
+  );
   await Promise.all(
     started.map((task) =>
       session.waitForMessage(
         (message): message is SDKTaskNotificationMessage =>
-          message.type === "system" && message.subtype === "task_notification" && message.task_id === task.task_id,
+          message.type === "system" &&
+          message.subtype === "task_notification" &&
+          message.task_id === task.task_id,
       ),
     ),
   );

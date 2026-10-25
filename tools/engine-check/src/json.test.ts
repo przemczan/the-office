@@ -7,7 +7,9 @@ test("equal values have no differences", () => {
 });
 
 test("a changed leaf is reported at its path", () => {
-  assert.deepEqual(diffJson({ a: { b: 1 } }, { a: { b: 2 } }), [{ path: "$.a.b", expected: 1, observed: 2 }]);
+  assert.deepEqual(diffJson({ a: { b: 1 } }, { a: { b: 2 } }), [
+    { path: "$.a.b", expected: 1, observed: 2 },
+  ]);
 });
 
 test("missing and extra keys are reported", () => {
@@ -24,5 +26,7 @@ test("arrays of different length are reported whole", () => {
 });
 
 test("a missing expectation differs from any observation", () => {
-  assert.deepEqual(diffJson(undefined, { a: 1 }), [{ path: "$", expected: undefined, observed: { a: 1 } }]);
+  assert.deepEqual(diffJson(undefined, { a: 1 }), [
+    { path: "$", expected: undefined, observed: { a: 1 } },
+  ]);
 });

@@ -3,7 +3,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import type { Check, Platform } from "./check.ts";
-import { DECISION_WAIT_VARIABLE, DEFAULT_DECISION_WAIT_MINUTES } from "./checks/engine/decision-wait.ts";
+import {
+  DECISION_WAIT_VARIABLE,
+  DEFAULT_DECISION_WAIT_MINUTES,
+} from "./checks/engine/decision-wait.ts";
 import { checks } from "./checks/index.ts";
 import { loadExpectations, recordObservations } from "./expectations.ts";
 import { runCheck, sumTokens, type CheckOutcome } from "./run-checks.ts";
@@ -56,7 +59,9 @@ async function main(): Promise<number> {
 
   const reportPath = await writeReport(platform, outcomes);
   if (values.record) {
-    const observations = outcomes.flatMap((outcome) => (outcome.observed === undefined ? [] : [[outcome.id, outcome.observed] as const]));
+    const observations = outcomes.flatMap((outcome) =>
+      outcome.observed === undefined ? [] : [[outcome.id, outcome.observed] as const],
+    );
     await recordObservations(expectationsPath, platform, Object.fromEntries(observations));
   }
   process.stdout.write(describeSummary(outcomes, reportPath, values.record));
@@ -73,7 +78,12 @@ function currentPlatform(): Platform {
   throw new Error(`The engine check runs on Windows and Linux, not ${process.platform}`);
 }
 
-function selectChecks(all: readonly Check[], platform: Platform, prefixes: readonly string[], includeSlow: boolean): Check[] {
+function selectChecks(
+  all: readonly Check[],
+  platform: Platform,
+  prefixes: readonly string[],
+  includeSlow: boolean,
+): Check[] {
   return all.filter(
     (check) =>
       (check.platforms?.includes(platform) ?? true) &&
@@ -92,7 +102,9 @@ function describeOutcome(outcome: CheckOutcome): string {
   }
   if (outcome.status === "differs") {
     for (const { path, expected, observed } of outcome.differences) {
-      lines.push(`  ${path}: expected ${JSON.stringify(expected)}, observed ${JSON.stringify(observed)}`);
+      lines.push(
+        `  ${path}: expected ${JSON.stringify(expected)}, observed ${JSON.stringify(observed)}`,
+      );
     }
   }
   if (outcome.error !== undefined) {
@@ -101,9 +113,16 @@ function describeOutcome(outcome: CheckOutcome): string {
   return `${lines.join("\n")}\n`;
 }
 
-function describeSummary(outcomes: readonly CheckOutcome[], reportPath: string, recorded: boolean): string {
-  const count = (status: CheckOutcome["status"]): number => outcomes.filter((outcome) => outcome.status === status).length;
-  const { input, output, cacheRead, cacheCreation } = sumTokens(outcomes.map((outcome) => outcome.tokens));
+function describeSummary(
+  outcomes: readonly CheckOutcome[],
+  reportPath: string,
+  recorded: boolean,
+): string {
+  const count = (status: CheckOutcome["status"]): number =>
+    outcomes.filter((outcome) => outcome.status === status).length;
+  const { input, output, cacheRead, cacheCreation } = sumTokens(
+    outcomes.map((outcome) => outcome.tokens),
+  );
   return [
     "",
     `${count("matches")} match, ${count("differs")} differ, ${count("unrecorded")} unrecorded, ${count("failed")} failed`,
@@ -117,7 +136,10 @@ function describeSummary(outcomes: readonly CheckOutcome[], reportPath: string, 
 async function writeReport(platform: Platform, outcomes: readonly CheckOutcome[]): Promise<string> {
   const reportPath = join(toolRoot, "out", `report-${platform}.json`);
   await mkdir(dirname(reportPath), { recursive: true });
-  await writeFile(reportPath, `${JSON.stringify({ platform, ranAt: new Date().toISOString(), outcomes }, null, 2)}\n`);
+  await writeFile(
+    reportPath,
+    `${JSON.stringify({ platform, ranAt: new Date().toISOString(), outcomes }, null, 2)}\n`,
+  );
   return reportPath;
 }
 

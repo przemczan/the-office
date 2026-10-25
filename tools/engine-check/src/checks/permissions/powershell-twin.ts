@@ -12,7 +12,10 @@ const RULE_SETS: Readonly<Record<string, NonNullable<Settings["permissions"]>>> 
   officeOptions: {},
   bashDenyRule: { deny: [BASH_DENY_RULE] },
   bashDenyRuleWithTwin: { deny: [BASH_DENY_RULE, POWERSHELL_TWIN] },
-  bashDenyRuleWithPowerShellAllowRule: { deny: [BASH_DENY_RULE], allow: ["PowerShell(git status)"] },
+  bashDenyRuleWithPowerShellAllowRule: {
+    deny: [BASH_DENY_RULE],
+    allow: ["PowerShell(git status)"],
+  },
   bashAllowRule: { allow: ["Bash(git status)"] },
 };
 
@@ -25,16 +28,27 @@ const RULE_SETS: Readonly<Record<string, NonNullable<Settings["permissions"]>>> 
  */
 export const powerShellTwinCheck: Check = {
   id: "permissions.powershell-twin",
-  title: "a Bash deny rule and the PowerShell tool, with the Office's tools and the engine's default; a twin rule in force",
+  title:
+    "a Bash deny rule and the PowerShell tool, with the Office's tools and the engine's default; a twin rule in force",
   platforms: ["win32"],
   async run({ sandbox, startSession }) {
     const repository = await sandbox.createRepository();
     const shellTools = (options: SessionSpec["options"]) =>
       Promise.all(
         Object.entries(RULE_SETS).map(async ([ruleSet, permissions]) => {
-          const session = await startSession({ repository, settings: { permissions }, ...(options === undefined ? {} : { options }) });
+          const session = await startSession({
+            repository,
+            settings: { permissions },
+            ...(options === undefined ? {} : { options }),
+          });
           const init = await session.initWithoutTurn();
-          return [ruleSet, { bashTool: init.tools.includes("Bash"), powerShellTool: init.tools.includes("PowerShell") }] as const;
+          return [
+            ruleSet,
+            {
+              bashTool: init.tools.includes("Bash"),
+              powerShellTool: init.tools.includes("PowerShell"),
+            },
+          ] as const;
         }),
       ).then(Object.fromEntries);
     const [officeTools, engineDefaultTools, twinRuleInForce, bashRuleAlone] = await Promise.all([
@@ -43,7 +57,11 @@ export const powerShellTwinCheck: Check = {
       pushThroughPowerShell(startSession, repository, [BASH_DENY_RULE, POWERSHELL_TWIN]),
       pushThroughPowerShell(startSession, repository, [BASH_DENY_RULE]),
     ]);
-    return { tools: { officeTools, engineDefaultTools }, twinRuleInForce, bashRuleAlone: { gitPush: bashRuleAlone.gitPush } };
+    return {
+      tools: { officeTools, engineDefaultTools },
+      twinRuleInForce,
+      bashRuleAlone: { gitPush: bashRuleAlone.gitPush },
+    };
   },
 };
 
@@ -51,18 +69,32 @@ async function pushThroughPowerShell(
   startSession: (spec: SessionSpec) => Promise<ProbeSession>,
   repository: string,
   deny: string[],
-): Promise<Record<"gitStatus" | "gitPush", Pick<CallObservation, "outcome" | "permissionDeniedMessage">>> {
-  const session = await startSession({ repository, settings: { permissions: { deny, allow: ["PowerShell(git *)"] } } });
+): Promise<
+  Record<"gitStatus" | "gitPush", Pick<CallObservation, "outcome" | "permissionDeniedMessage">>
+> {
+  const session = await startSession({
+    repository,
+    settings: { permissions: { deny, allow: ["PowerShell(git *)"] } },
+  });
   session.send(
     "Use the PowerShell tool to run `git status`, then the PowerShell tool to run `git push`. " +
       "Do not retry a refused command and do not use any other tool. Then reply with just OK.",
   );
   await session.nextResult();
-  return { gitStatus: powerShellOutcome(session, "git status"), gitPush: powerShellOutcome(session, "git push") };
+  return {
+    gitStatus: powerShellOutcome(session, "git status"),
+    gitPush: powerShellOutcome(session, "git push"),
+  };
 }
 
-function powerShellOutcome(session: ProbeSession, command: string): Pick<CallObservation, "outcome" | "permissionDeniedMessage"> {
-  const calls = toolCalls(session.messages).filter((call) => call.name === "PowerShell" && String(call.input["command"]).trim().startsWith(command));
+function powerShellOutcome(
+  session: ProbeSession,
+  command: string,
+): Pick<CallObservation, "outcome" | "permissionDeniedMessage"> {
+  const calls = toolCalls(session.messages).filter(
+    (call) =>
+      call.name === "PowerShell" && String(call.input["command"]).trim().startsWith(command),
+  );
   const { outcome, permissionDeniedMessage } = observeCall(session, calls);
   return { outcome, permissionDeniedMessage };
 }

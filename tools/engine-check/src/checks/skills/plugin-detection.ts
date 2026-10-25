@@ -12,7 +12,8 @@ import { pluginErrors } from "./skill-observations.ts";
  */
 export const pluginDetectionCheck: Check = {
   id: "skills.plugin-detection",
-  title: "how a plugin folder is read: one plugin, or a folder of plugins, and the name without a manifest",
+  title:
+    "how a plugin folder is read: one plugin, or a folder of plugins, and the name without a manifest",
   async run({ sandbox, startSession }) {
     const pluginsRoot = join(sandbox.root, "plugins");
     const withoutManifest = join(pluginsRoot, "without-manifest");
@@ -31,7 +32,9 @@ export const pluginDetectionCheck: Check = {
     const usage = await session.control.getContextUsage({ detail: "summary" });
     const underRoot = (path: string): string | undefined => {
       const relativePath = relative(pluginsRoot, path);
-      return relativePath.startsWith("..") || isAbsolute(relativePath) ? undefined : relativePath.split(sep).join("/");
+      return relativePath.startsWith("..") || isAbsolute(relativePath)
+        ? undefined
+        : relativePath.split(sep).join("/");
     };
     return {
       plugins: sortedNames(
@@ -41,7 +44,9 @@ export const pluginDetectionCheck: Check = {
         }),
       ),
       listedSkills: sortedNames(
-        (usage.skills?.skillFrontmatter ?? []).filter((entry) => entry.path !== undefined && underRoot(entry.path) !== undefined).map((entry) => entry.name),
+        (usage.skills?.skillFrontmatter ?? [])
+          .filter((entry) => entry.path !== undefined && underRoot(entry.path) !== undefined)
+          .map((entry) => entry.name),
       ),
       pluginErrors: pluginErrors(init),
     };

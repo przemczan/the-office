@@ -26,16 +26,25 @@ type UserScopePart = { readonly present: boolean; readonly loaded: string[] };
  */
 export const userScopeCheck: Check = {
   id: "skills.user-scope",
-  title: "user-scope installed plugins, skills and already-synced skills under settingSources ['project']",
+  title:
+    "user-scope installed plugins, skills and already-synced skills under settingSources ['project']",
   async run({ sandbox, startSession }) {
     const userScope = await readUserScope(join(homedir(), ".claude"));
-    const session = await startSession({ repository: await sandbox.createRepository(), skills: [skill("alpha")] });
+    const session = await startSession({
+      repository: await sandbox.createRepository(),
+      skills: [skill("alpha")],
+    });
     const init = await session.initWithoutTurn();
-    const skillNamesSeen = [...init.skills, ...(await userInvocableNames(session)), ...(await listedSkillNames(session))];
+    const skillNamesSeen = [
+      ...init.skills,
+      ...(await userInvocableNames(session)),
+      ...(await listedSkillNames(session)),
+    ];
     const loadedSkills = (names: readonly string[]): string[] =>
       sortedNames(names.filter((name) => skillNamesSeen.some((seen) => namesSkill(seen, name))));
     const pluginsLoaded = userPluginNames(init);
-    const loadedPlugins = (names: readonly string[]): string[] => sortedNames(names.filter((name) => pluginsLoaded.includes(name)));
+    const loadedPlugins = (names: readonly string[]): string[] =>
+      sortedNames(names.filter((name) => pluginsLoaded.includes(name)));
     return {
       installedPlugins: part(userScope.installedPlugins, loadedPlugins),
       skills: part(userScope.skills, loadedSkills),
@@ -46,25 +55,36 @@ export const userScopeCheck: Check = {
   },
 };
 
-function part(present: readonly string[], loaded: (names: readonly string[]) => string[]): UserScopePart {
+function part(
+  present: readonly string[],
+  loaded: (names: readonly string[]) => string[],
+): UserScopePart {
   return { present: present.length > 0, loaded: loaded(present) };
 }
 
 /** Loaded plugins other than the session plugin and Claude Code's built-in ones. */
 function userPluginNames(init: SDKSystemMessage): string[] {
-  return init.plugins.filter((plugin) => plugin.name !== SESSION_PLUGIN_NAME && plugin.path !== "builtin").map((plugin) => plugin.name);
+  return init.plugins
+    .filter((plugin) => plugin.name !== SESSION_PLUGIN_NAME && plugin.path !== "builtin")
+    .map((plugin) => plugin.name);
 }
 
 async function readUserScope(claudeFolder: string): Promise<UserScope> {
   const syncedSkillsFolder = join(claudeFolder, "skills", "synced");
   const syncedPluginsFolder = join(claudeFolder, "plugins", "synced");
   return {
-    installedPlugins: await installedPluginNames(join(claudeFolder, "plugins", "installed_plugins.json")),
+    installedPlugins: await installedPluginNames(
+      join(claudeFolder, "plugins", "installed_plugins.json"),
+    ),
     skills: (await entryNames(join(claudeFolder, "skills"))).filter((name) => name !== "synced"),
-    commands: (await entryNames(join(claudeFolder, "commands"))).filter((name) => name.endsWith(".md")).map((name) => name.slice(0, -3)),
+    commands: (await entryNames(join(claudeFolder, "commands")))
+      .filter((name) => name.endsWith(".md"))
+      .map((name) => name.slice(0, -3)),
     syncedSkills: await namesPerAccount(syncedSkillsFolder),
     // A synced plugin folder is named `<plugin>~<revision>`.
-    syncedPlugins: (await namesPerAccount(syncedPluginsFolder)).map((name) => name.split("~")[0] as string),
+    syncedPlugins: (await namesPerAccount(syncedPluginsFolder)).map(
+      (name) => name.split("~")[0] as string,
+    ),
   };
 }
 
@@ -78,7 +98,9 @@ async function installedPluginNames(path: string): Promise<string[]> {
 /** Synced skills and plugins sit in one folder per claude.ai account. */
 async function namesPerAccount(syncedFolder: string): Promise<string[]> {
   const accounts = await folderNames(syncedFolder);
-  return (await Promise.all(accounts.map((account) => folderNames(join(syncedFolder, account))))).flat();
+  return (
+    await Promise.all(accounts.map((account) => folderNames(join(syncedFolder, account))))
+  ).flat();
 }
 
 /** Every entry, links included: user skills are often links into another folder. */

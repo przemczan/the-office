@@ -16,7 +16,8 @@ const LEAN_TOOLS = ["Bash", "Edit", "Glob", "Grep", "PowerShell", "Read", "Skill
  */
 export const leanOptionsCheck: Check = {
   id: "engine.lean-options",
-  title: "the lean option set: context size of a first call, and an identical cached prefix in two worktrees of one repository",
+  title:
+    "the lean option set: context size of a first call, and an identical cached prefix in two worktrees of one repository",
   async run({ sandbox, startSession }) {
     const repository = await sandbox.createRepository();
     const firstWorktree = await sandbox.addWorktree(repository, "task-a");
@@ -36,7 +37,8 @@ export const leanOptionsCheck: Check = {
         builtInTools: sortedNames(first.tools.filter((name) => !name.startsWith("mcp__"))),
         claudeAiConnectorsLoaded: first.mcpServers.some((name) => name.startsWith("claude.ai ")),
       },
-      secondWorktreeReadsFirstWorktreesPrefix: second.request.cacheRead > 0 && second.request.cacheRead >= first.request.cacheRead,
+      secondWorktreeReadsFirstWorktreesPrefix:
+        second.request.cacheRead > 0 && second.request.cacheRead >= first.request.cacheRead,
       leanVariant: {
         context: roundedTokens(leanContext.totalTokens),
         tools: sortedNames(leanInit.tools),
@@ -46,7 +48,9 @@ export const leanOptionsCheck: Check = {
   },
 };
 
-async function firstCall(session: ProbeSession): Promise<{ request: RequestUsage; tools: string[]; mcpServers: string[] }> {
+async function firstCall(
+  session: ProbeSession,
+): Promise<{ request: RequestUsage; tools: string[]; mcpServers: string[] }> {
   session.send("Reply with just OK.");
   const init = await session.init();
   await session.nextResult();

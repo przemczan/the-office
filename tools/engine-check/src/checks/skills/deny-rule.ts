@@ -21,10 +21,14 @@ export const denyRuleCheck: Check = {
     });
     await session.initWithoutTurn();
     const listedSkills = await listedSkillNames(session);
-    const userInvocable = (await userInvocableNames(session)).filter((name) => name.startsWith(`${SESSION_PLUGIN_NAME}:`));
+    const userInvocable = (await userInvocableNames(session)).filter((name) =>
+      name.startsWith(`${SESSION_PLUGIN_NAME}:`),
+    );
     session.send(`Use the Skill tool to run the ${DENIED_SKILL} skill, then reply with just OK.`);
     await session.nextResult();
-    const invocations = toolCalls(session.messages).filter((call) => call.name === "Skill" && call.input["skill"] === DENIED_SKILL);
+    const invocations = toolCalls(session.messages).filter(
+      (call) => call.name === "Skill" && call.input["skill"] === DENIED_SKILL,
+    );
     return { listedSkills, userInvocable, deniedSkillInvocation: lastOutcome(invocations) };
   },
 };

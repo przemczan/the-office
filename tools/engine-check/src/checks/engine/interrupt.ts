@@ -1,6 +1,13 @@
 import type { SDKControlInterruptResponse } from "@anthropic-ai/claude-agent-sdk";
 import type { Check } from "../../check.ts";
-import { allowRunningCommandThen, commandRanToItsEnd, observeRunningCommand, prepareRunningCommand, RUN_COMMAND_PROMPT, turnEnding } from "./running-command.ts";
+import {
+  allowRunningCommandThen,
+  commandRanToItsEnd,
+  observeRunningCommand,
+  prepareRunningCommand,
+  RUN_COMMAND_PROMPT,
+  turnEnding,
+} from "./running-command.ts";
 
 const SMALL_TURN = "Reply with just OK.";
 
@@ -43,7 +50,10 @@ export const interruptCheck: Check = {
       interruptedTurnEnded: turnEnding(interrupted),
       command: observeRunningCommand(session),
       nextTurnInSameQuery: turnEnding(continued),
-      resumed: { turnEnded: turnEnding(afterResume), sameSession: afterResume.session_id === session.sessionId },
+      resumed: {
+        turnEnded: turnEnding(afterResume),
+        sameSession: afterResume.session_id === session.sessionId,
+      },
       // Ending a shell can leave its child running (spec §5.1 ends a process tree per platform); Stop must end the command.
       commandRanToItsEnd: await commandRanToItsEnd(repository, interruptedAt, signal),
     };

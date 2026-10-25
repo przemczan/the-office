@@ -22,15 +22,23 @@ export const hookRefusalCheck: Check = {
     const reason = `Not allowed: reading plan.txt. Read ${named} instead.`;
     const session = await startSession({
       repository,
-      hooks: { PreToolUse: decideCallsOf("Read", (path) => (path !== undefined && samePath(path, refused) ? toolDecision("deny", reason) : undefined)) },
+      hooks: {
+        PreToolUse: decideCallsOf("Read", (path) =>
+          path !== undefined && samePath(path, refused) ? toolDecision("deny", reason) : undefined,
+        ),
+      },
     });
-    session.send(`Use the Read tool on ${refused}. If a tool call is refused, do what the refusal says. Then reply with just OK.`);
+    session.send(
+      `Use the Read tool on ${refused}. If a tool call is refused, do what the refusal says. Then reply with just OK.`,
+    );
     await session.nextResult();
     const calls = toolCalls(session.messages);
     const refusedCalls = callsOn(calls, "Read", refused);
     return {
       refusedRead: observeCall(session, refusedCalls),
-      reasonReachedModel: refusedCalls.some((call) => toolResultText(session.messages, call.id).includes(reason)),
+      reasonReachedModel: refusedCalls.some((call) =>
+        toolResultText(session.messages, call.id).includes(reason),
+      ),
       readOfNamedFile: lastOutcome(callsOn(calls, "Read", named)),
     };
   },

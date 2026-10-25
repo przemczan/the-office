@@ -26,8 +26,13 @@ export const resumeCacheCheck: Check = {
     return {
       cacheReadAboveZero: (firstAfterResume?.cacheRead ?? 0) > 0,
       readsEarlierConversationFromCache:
-        lastBeforeResume !== undefined && firstAfterResume !== undefined && readsEarlierPromptFromCache(lastBeforeResume, firstAfterResume),
-      cacheWriteLifetimes: cacheWriteLifetimes([...requestUsages(first.messages), ...requestUsages(resumed.messages)]),
+        lastBeforeResume !== undefined &&
+        firstAfterResume !== undefined &&
+        readsEarlierPromptFromCache(lastBeforeResume, firstAfterResume),
+      cacheWriteLifetimes: cacheWriteLifetimes([
+        ...requestUsages(first.messages),
+        ...requestUsages(resumed.messages),
+      ]),
     };
   },
 };

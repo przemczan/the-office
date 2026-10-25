@@ -16,9 +16,13 @@ const TARGETS: Readonly<Record<string, { readonly path: string; readonly content
 };
 
 /** Ways the Office could let an Agent edit the worktree, each in its own session and repository. */
-const GRANTS: Readonly<Record<string, (repository: string, sandbox: Sandbox) => Partial<SessionSpec>>> = {
+const GRANTS: Readonly<
+  Record<string, (repository: string, sandbox: Sandbox) => Partial<SessionSpec>>
+> = {
   acceptEditsMode: () => ({ options: { permissionMode: "acceptEdits" } }),
-  editAllowRule: (repository) => ({ settings: { permissions: { allow: [`Edit(${rulePath(repository)}/**)`] } } }),
+  editAllowRule: (repository) => ({
+    settings: { permissions: { allow: [`Edit(${rulePath(repository)}/**)`] } },
+  }),
   hookAllow: (_, sandbox) => ({ hooks: { PreToolUse: allowCallsWithin("Write", sandbox.root) } }),
 };
 
@@ -29,7 +33,8 @@ const GRANTS: Readonly<Record<string, (repository: string, sandbox: Sandbox) => 
  */
 export const protectedPathsCheck: Check = {
   id: "permissions.protected-paths",
-  title: ".git, .claude and .mcp.json are never auto-approved, under a grant that approves other writes",
+  title:
+    ".git, .claude and .mcp.json are never auto-approved, under a grant that approves other writes",
   async run({ sandbox, startSession }) {
     const outcomes = await Promise.all(
       Object.entries(GRANTS).map(async ([grant, specFor]) => {
@@ -43,17 +48,26 @@ export const protectedPathsCheck: Check = {
 };
 
 async function writeEachTarget(session: ProbeSession): Promise<Observation> {
-  const targets = Object.entries(TARGETS).map(([role, { path, content }]) => ({ role, path: join(session.repository, path), content }));
+  const targets = Object.entries(TARGETS).map(([role, { path, content }]) => ({
+    role,
+    path: join(session.repository, path),
+    content,
+  }));
   session.send(
     "Use the Write tool to create each of these files with the content shown, one call per file, in this order. " +
       "Do not retry a refused call and do not use any other tool. Then reply with just OK.\n" +
-      targets.map(({ path, content }, index) => `${index + 1}. ${path} with the content: ${content}`).join("\n"),
+      targets
+        .map(({ path, content }, index) => `${index + 1}. ${path} with the content: ${content}`)
+        .join("\n"),
   );
   await session.nextResult();
   const calls = toolCalls(session.messages);
   const observed = await Promise.all(
     targets.map(async ({ role, path }) => {
-      const { outcome, permissionDeniedMessage } = observeCall(session, callsOn(calls, "Write", path));
+      const { outcome, permissionDeniedMessage } = observeCall(
+        session,
+        callsOn(calls, "Write", path),
+      );
       return [role, { outcome, permissionDeniedMessage, onDisk: await pathExists(path) }] as const;
     }),
   );

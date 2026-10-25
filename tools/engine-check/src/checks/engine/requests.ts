@@ -17,7 +17,11 @@ export interface RequestUsage {
 export function requestUsages(messages: readonly SDKMessage[]): RequestUsage[] {
   const requests = new Map<string, RequestUsage>();
   for (const message of messages) {
-    if (message.type !== "assistant" || message.parent_tool_use_id !== null || requests.has(message.message.id)) {
+    if (
+      message.type !== "assistant" ||
+      message.parent_tool_use_id !== null ||
+      requests.has(message.message.id)
+    ) {
       continue;
     }
     const { usage } = message.message;

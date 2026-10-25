@@ -23,9 +23,20 @@ export function textResult(text: string): ToolResult {
  * Session options that add the Office tools. They are always loaded, so no ToolSearch round comes
  * before a first call, and allowed by a rule unless `allowed` is false, as a Role's profile grants them.
  */
-export function withOfficeTools(tools: OfficeTools, allowed = true): Pick<SessionSpec, "options" | "settings"> {
+export function withOfficeTools(
+  tools: OfficeTools,
+  allowed = true,
+): Pick<SessionSpec, "options" | "settings"> {
   return {
-    options: { mcpServers: { [OFFICE_TOOL_SERVER]: createSdkMcpServer({ name: OFFICE_TOOL_SERVER, tools, alwaysLoad: true }) } },
+    options: {
+      mcpServers: {
+        [OFFICE_TOOL_SERVER]: createSdkMcpServer({
+          name: OFFICE_TOOL_SERVER,
+          tools,
+          alwaysLoad: true,
+        }),
+      },
+    },
     settings: allowed ? { permissions: { allow: [`mcp__${OFFICE_TOOL_SERVER}`] } } : {},
   };
 }

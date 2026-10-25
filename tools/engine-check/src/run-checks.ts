@@ -32,12 +32,19 @@ export interface CheckOutcome {
   readonly sessions: readonly SessionTranscript[];
 }
 
-export async function runCheck(check: Check, expectations: Expectations, platform: Platform): Promise<CheckOutcome> {
+export async function runCheck(
+  check: Check,
+  expectations: Expectations,
+  platform: Platform,
+): Promise<CheckOutcome> {
   const startedAt = Date.now();
   // A referenced timer, unlike AbortSignal.timeout(), keeps the process alive until a stuck check is aborted.
   const timeoutMs = check.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const timeout = new AbortController();
-  const timer = setTimeout(() => timeout.abort(new Error(`Timed out after ${timeoutMs} ms`)), timeoutMs);
+  const timer = setTimeout(
+    () => timeout.abort(new Error(`Timed out after ${timeoutMs} ms`)),
+    timeoutMs,
+  );
   const signal = timeout.signal;
   const sandbox = await Sandbox.create();
   const sessions: ProbeSession[] = [];
@@ -56,19 +63,32 @@ export async function runCheck(check: Check, expectations: Expectations, platfor
       signal,
     );
     const differences = diffJson(expected, observed);
-    const status = expected === undefined ? "unrecorded" : differences.length === 0 ? "matches" : "differs";
+    const status =
+      expected === undefined ? "unrecorded" : differences.length === 0 ? "matches" : "differs";
     return outcome({ status, observed, differences });
   } catch (error) {
-    return outcome({ status: "failed", differences: [], error: error instanceof Error ? (error.stack ?? error.message) : String(error) });
+    return outcome({
+      status: "failed",
+      differences: [],
+      error: error instanceof Error ? (error.stack ?? error.message) : String(error),
+    });
   } finally {
     clearTimeout(timer);
     await Promise.allSettled(sessions.map((session) => session.close()));
-    await Promise.allSettled(sessions.map((session) => deleteSession(session.sessionId, { dir: session.repository })));
-    await Promise.allSettled([...new Set([...sessions.map((session) => session.repository), ...sandbox.repositories])].map(removeTranscriptFolder));
+    await Promise.allSettled(
+      sessions.map((session) => deleteSession(session.sessionId, { dir: session.repository })),
+    );
+    await Promise.allSettled(
+      [...new Set([...sessions.map((session) => session.repository), ...sandbox.repositories])].map(
+        removeTranscriptFolder,
+      ),
+    );
     await sandbox.dispose();
   }
 
-  function outcome(result: Pick<CheckOutcome, "status" | "observed" | "differences" | "error">): CheckOutcome {
+  function outcome(
+    result: Pick<CheckOutcome, "status" | "observed" | "differences" | "error">,
+  ): CheckOutcome {
     return {
       id: check.id,
       title: check.title,

@@ -28,24 +28,39 @@ export const autoMemoryCheck: Check = {
   title: "auto-memory is off under the Office's options: no memory folder announced or written",
   async run({ sandbox, startSession }) {
     const [officeOptions, engineDefault] = await Promise.all([
-      sandbox.createRepository("office-options").then((repository) => tryToRemember(startSession, { repository })),
-      sandbox.createRepository("engine-default").then((repository) =>
-        tryToRemember(startSession, { repository, settings: { autoMemoryEnabled: true } }),
-      ),
+      sandbox
+        .createRepository("office-options")
+        .then((repository) => tryToRemember(startSession, { repository })),
+      sandbox
+        .createRepository("engine-default")
+        .then((repository) =>
+          tryToRemember(startSession, { repository, settings: { autoMemoryEnabled: true } }),
+        ),
     ]);
     return { officeOptions, engineDefault };
   },
 };
 
-async function tryToRemember(startSession: (spec: SessionSpec) => Promise<ProbeSession>, spec: SessionSpec): Promise<MemoryTrial> {
+async function tryToRemember(
+  startSession: (spec: SessionSpec) => Promise<ProbeSession>,
+  spec: SessionSpec,
+): Promise<MemoryTrial> {
   const memoryFolder = join(transcriptFolder(spec.repository), "memory");
   const session = await startSession(spec);
-  session.send("Save this to your auto-memory for future sessions: the build command of this project is `make all`. Then reply with just OK.");
+  session.send(
+    "Save this to your auto-memory for future sessions: the build command of this project is `make all`. Then reply with just OK.",
+  );
   const init = await session.init();
   await session.nextResult();
   const writes = toolCalls(session.messages).filter((call) => {
     const target = targetPath(call.input);
-    return target !== undefined && isWithin(target, memoryFolder) && call.name !== "Read" && call.name !== "Glob" && call.name !== "Grep";
+    return (
+      target !== undefined &&
+      isWithin(target, memoryFolder) &&
+      call.name !== "Read" &&
+      call.name !== "Glob" &&
+      call.name !== "Grep"
+    );
   });
   const trial: MemoryTrial = {
     memoryFolderAnnounced: memoryPaths(init) !== undefined,

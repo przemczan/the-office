@@ -13,14 +13,17 @@ type WindowFields = { utilization: boolean; resetsAt: boolean };
  */
 export const rateLimitEventCheck: Check = {
   id: "engine.rate-limit-event",
-  title: "rate_limit_event and the usage query carry utilization and reset time for five_hour and seven_day",
+  title:
+    "rate_limit_event and the usage query carry utilization and reset time for five_hour and seven_day",
   async run({ sandbox, startSession }) {
     const repository = await sandbox.createRepository();
     const session = await startSession({ repository });
     session.send("Reply with just OK.");
     await session.nextResult();
     const events = rateLimitEvents(session.messages);
-    const usage = await session.control.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET({ skipBehaviors: true });
+    const usage = await session.control.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET({
+      skipBehaviors: true,
+    });
     return {
       eventArrived: events.length > 0,
       topLevel: {
@@ -28,13 +31,21 @@ export const rateLimitEventCheck: Check = {
         resetsAt: events.some(({ rate_limit_info: info }) => info.resetsAt !== undefined),
       },
       eventWindows: sortedNames(events.flatMap((event) => Object.keys(unifiedWindows(event)))),
-      eventWindowFields: Object.fromEntries(WINDOWS.map((window) => [window, eventWindowFields(events, window)])),
+      eventWindowFields: Object.fromEntries(
+        WINDOWS.map((window) => [window, eventWindowFields(events, window)]),
+      ),
       usageQuery: {
         rateLimitsAvailable: usage.rate_limits_available,
         windows: Object.fromEntries(
           WINDOWS.map((window) => {
             const limit = usage.rate_limits?.[window];
-            return [window, { utilization: typeof limit?.utilization === "number", resetsAt: typeof limit?.resets_at === "string" }];
+            return [
+              window,
+              {
+                utilization: typeof limit?.utilization === "number",
+                resetsAt: typeof limit?.resets_at === "string",
+              },
+            ];
           }),
         ),
       },
@@ -43,13 +54,19 @@ export const rateLimitEventCheck: Check = {
 };
 
 function rateLimitEvents(messages: readonly SDKMessage[]): SDKRateLimitEvent[] {
-  return messages.filter((message): message is SDKRateLimitEvent => message.type === "rate_limit_event");
+  return messages.filter(
+    (message): message is SDKRateLimitEvent => message.type === "rate_limit_event",
+  );
 }
 
 /** Every window's state, which the engine sends in a field its typings do not declare. */
-function unifiedWindows(event: SDKRateLimitEvent): Record<string, { utilization?: unknown; resetsAt?: unknown }> {
+function unifiedWindows(
+  event: SDKRateLimitEvent,
+): Record<string, { utilization?: unknown; resetsAt?: unknown }> {
   const { unifiedWindows: windows } = event.rate_limit_info as { unifiedWindows?: unknown };
-  return typeof windows === "object" && windows !== null ? (windows as Record<string, { utilization?: unknown; resetsAt?: unknown }>) : {};
+  return typeof windows === "object" && windows !== null
+    ? (windows as Record<string, { utilization?: unknown; resetsAt?: unknown }>)
+    : {};
 }
 
 function eventWindowFields(events: readonly SDKRateLimitEvent[], window: string): WindowFields {

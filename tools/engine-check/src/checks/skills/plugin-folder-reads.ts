@@ -15,9 +15,16 @@ const SUPPORTING_FILE = "reference.md";
  */
 const GRANTS: Readonly<Record<string, (pluginFolder: string) => Partial<SessionSpec>>> = {
   withoutGrant: () => ({ settings: { permissions: { additionalDirectories: [] } } }),
-  readAllowRule: (pluginFolder) => ({ settings: { permissions: { additionalDirectories: [], allow: [`Read(${rulePath(pluginFolder)}/**)`] } } }),
+  readAllowRule: (pluginFolder) => ({
+    settings: {
+      permissions: { additionalDirectories: [], allow: [`Read(${rulePath(pluginFolder)}/**)`] },
+    },
+  }),
   officeOptions: () => ({}),
-  additionalDirectoriesOption: (pluginFolder) => ({ settings: { permissions: { additionalDirectories: [] } }, options: { additionalDirectories: [pluginFolder] } }),
+  additionalDirectoriesOption: (pluginFolder) => ({
+    settings: { permissions: { additionalDirectories: [] } },
+    options: { additionalDirectories: [pluginFolder] },
+  }),
 };
 
 /**
@@ -49,10 +56,18 @@ export const pluginFolderReadsCheck: Check = {
   },
 };
 
-async function readBoth(session: ProbeSession, outsideFile: string): Promise<{ skillFolder: AttemptOutcome; outsideFile: AttemptOutcome }> {
+async function readBoth(
+  session: ProbeSession,
+  outsideFile: string,
+): Promise<{ skillFolder: AttemptOutcome; outsideFile: AttemptOutcome }> {
   const skillFile = join(session.pluginFolder, "skills", "notes", SUPPORTING_FILE);
-  session.send(`Use the Read tool on each of these files, one call per file, then reply with just OK.\n${skillFile}\n${outsideFile}`);
+  session.send(
+    `Use the Read tool on each of these files, one call per file, then reply with just OK.\n${skillFile}\n${outsideFile}`,
+  );
   await session.nextResult();
   const calls = toolCalls(session.messages);
-  return { skillFolder: lastOutcome(callsOn(calls, "Read", skillFile)), outsideFile: lastOutcome(callsOn(calls, "Read", outsideFile)) };
+  return {
+    skillFolder: lastOutcome(callsOn(calls, "Read", skillFile)),
+    outsideFile: lastOutcome(callsOn(calls, "Read", outsideFile)),
+  };
 }

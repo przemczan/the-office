@@ -1,11 +1,21 @@
-import type { SDKMessage, SDKResultMessage, SDKTaskNotificationMessage } from "@anthropic-ai/claude-agent-sdk";
+import type {
+  SDKMessage,
+  SDKResultMessage,
+  SDKTaskNotificationMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import type { ProbeHook, ProbeSession } from "../../probe-session.ts";
 import { pathExists } from "../paths.ts";
 import { toolDecision } from "../permissions/hook-decisions.ts";
-import { lastOutcome, toolCalls, toolUseResult, type AttemptOutcome, type ToolCall } from "../tool-calls.ts";
+import {
+  lastOutcome,
+  toolCalls,
+  toolUseResult,
+  type AttemptOutcome,
+  type ToolCall,
+} from "../tool-calls.ts";
 
 const SCRIPT = "slow-step.mjs";
 /** Written by the script when it runs to its end, so a check can tell a stopped command from a finished one. */
@@ -28,14 +38,21 @@ export const RUN_COMMAND_PROMPT =
 /** Writes the script the running command runs into the repository. */
 export async function prepareRunningCommand(repository: string): Promise<void> {
   const finish = `writeFileSync(new URL("${DONE_MARKER}", import.meta.url), ""); console.log("Step done.");`;
-  await writeFile(join(repository, SCRIPT), `import { writeFileSync } from "node:fs";\nsetTimeout(() => { ${finish} }, ${RUN_MS});\n`);
+  await writeFile(
+    join(repository, SCRIPT),
+    `import { writeFileSync } from "node:fs";\nsetTimeout(() => { ${finish} }, ${RUN_MS});\n`,
+  );
 }
 
 /**
  * Whether the command ran to its end after a check stopped it at `stoppedAt`: by then it had started,
  * so its whole run time from that moment covers its end.
  */
-export async function commandRanToItsEnd(repository: string, stoppedAt: number, signal: AbortSignal): Promise<boolean> {
+export async function commandRanToItsEnd(
+  repository: string,
+  stoppedAt: number,
+  signal: AbortSignal,
+): Promise<boolean> {
   await delay(Math.max(0, stoppedAt + RUN_MS + MARGIN_MS - Date.now()), undefined, { signal });
   return pathExists(join(repository, DONE_MARKER));
 }
@@ -87,7 +104,9 @@ export async function stopBackgroundCommand(session: ProbeSession): Promise<void
   if (taskId === undefined) {
     return;
   }
-  const ended = session.waitForMessage((message): message is SDKTaskNotificationMessage => isTaskEnd(message, taskId));
+  const ended = session.waitForMessage((message): message is SDKTaskNotificationMessage =>
+    isTaskEnd(message, taskId),
+  );
   if (!session.messages.some((message) => isTaskEnd(message, taskId))) {
     await session.control.stopTask(taskId);
   }
@@ -95,16 +114,28 @@ export async function stopBackgroundCommand(session: ProbeSession): Promise<void
 }
 
 function runningCommandCalls(session: ProbeSession): ToolCall[] {
-  return toolCalls(session.messages).filter((call) => call.name === "Bash" && call.input["command"] === RUNNING_COMMAND);
+  return toolCalls(session.messages).filter(
+    (call) => call.name === "Bash" && call.input["command"] === RUNNING_COMMAND,
+  );
 }
 
-function commandOutput(session: ProbeSession, calls: readonly ToolCall[]): { interrupted?: boolean; backgroundTaskId?: string } | undefined {
+function commandOutput(
+  session: ProbeSession,
+  calls: readonly ToolCall[],
+): { interrupted?: boolean; backgroundTaskId?: string } | undefined {
   const call = calls.at(-1);
-  return call === undefined ? undefined : (toolUseResult(session.messages, call.id) as { interrupted?: boolean; backgroundTaskId?: string } | undefined);
+  return call === undefined
+    ? undefined
+    : (toolUseResult(session.messages, call.id) as
+        { interrupted?: boolean; backgroundTaskId?: string } | undefined);
 }
 
 function isTaskEnd(message: SDKMessage, taskId: string): boolean {
-  return message.type === "system" && message.subtype === "task_notification" && message.task_id === taskId;
+  return (
+    message.type === "system" &&
+    message.subtype === "task_notification" &&
+    message.task_id === taskId
+  );
 }
 
 /** How a turn ended: the engine's terminal reason, or the result subtype from an engine without one. */

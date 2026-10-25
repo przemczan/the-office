@@ -85,10 +85,17 @@ export class Sandbox {
 }
 
 /** A plugin folder with `skills/<name>/` for each skill; without a manifest the engine names it after the folder. */
-export async function writePlugin(folder: string, manifestName: string | undefined, skills: readonly SkillFixture[]): Promise<void> {
+export async function writePlugin(
+  folder: string,
+  manifestName: string | undefined,
+  skills: readonly SkillFixture[],
+): Promise<void> {
   await mkdir(folder, { recursive: true });
   if (manifestName !== undefined) {
-    await writeFileWithFolders(join(folder, ".claude-plugin", "plugin.json"), JSON.stringify({ name: manifestName }));
+    await writeFileWithFolders(
+      join(folder, ".claude-plugin", "plugin.json"),
+      JSON.stringify({ name: manifestName }),
+    );
   }
   for (const skill of skills) {
     await writeSkill(join(folder, "skills", skill.name), skill);
@@ -96,12 +103,19 @@ export async function writePlugin(folder: string, manifestName: string | undefin
 }
 
 /** A Project skill under `<repository>/<subfolder>/.claude/skills`, the repository root when `subfolder` is omitted. */
-export async function writeProjectSkill(repository: string, skill: SkillFixture, subfolder = ""): Promise<void> {
+export async function writeProjectSkill(
+  repository: string,
+  skill: SkillFixture,
+  subfolder = "",
+): Promise<void> {
   await writeSkill(join(repository, subfolder, ".claude", "skills", skill.name), skill);
 }
 
 /** A Project command, the older single-file form of a skill, under `<repository>/.claude/commands`. */
-export async function writeProjectCommand(repository: string, command: CommandFixture): Promise<void> {
+export async function writeProjectCommand(
+  repository: string,
+  command: CommandFixture,
+): Promise<void> {
   await writeFileWithFolders(
     join(repository, ".claude", "commands", `${command.name}.md`),
     `---\ndescription: ${command.description}\n---\n\n${command.body}\n`,
@@ -124,7 +138,15 @@ async function writeFileWithFolders(path: string, content: string): Promise<void
 async function git(repository: string, ...args: string[]): Promise<void> {
   await execFileAsync(
     "git",
-    ["-c", "user.name=Engine Check", "-c", "user.email=engine-check@localhost", "-c", "commit.gpgsign=false", ...args],
+    [
+      "-c",
+      "user.name=Engine Check",
+      "-c",
+      "user.email=engine-check@localhost",
+      "-c",
+      "commit.gpgsign=false",
+      ...args,
+    ],
     { cwd: repository },
   );
 }

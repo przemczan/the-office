@@ -3,7 +3,14 @@ import { setTimeout as delay } from "node:timers/promises";
 import type { Check, CheckContext, Observation } from "../../check.ts";
 import type { MessageDelivery, ProbeSession } from "../../probe-session.ts";
 import { consumedMessages } from "./requests.ts";
-import { allowRunningCommandThen, observeRunningCommand, prepareRunningCommand, RUN_COMMAND_PROMPT, stopBackgroundCommand, turnEnding } from "./running-command.ts";
+import {
+  allowRunningCommandThen,
+  observeRunningCommand,
+  prepareRunningCommand,
+  RUN_COMMAND_PROMPT,
+  stopBackgroundCommand,
+  turnEnding,
+} from "./running-command.ts";
 
 const BARGE_IN = "A note from the user: nothing changes, finish as planned.";
 /** How long a message still held after its turn ended gets to start a turn of its own. */
@@ -28,27 +35,44 @@ function priorityCheck(name: string, title: string, delivery: MessageDelivery): 
   };
 }
 
-export const priorityNextCheck = priorityCheck("next", "a message with priority 'next' lands between tool calls of the running turn", {
-  priority: "next",
-});
+export const priorityNextCheck = priorityCheck(
+  "next",
+  "a message with priority 'next' lands between tool calls of the running turn",
+  {
+    priority: "next",
+  },
+);
 
-export const priorityLaterCheck = priorityCheck("later", "a message with priority 'later' waits for the turn to end and starts the next", {
-  priority: "later",
-});
+export const priorityLaterCheck = priorityCheck(
+  "later",
+  "a message with priority 'later' waits for the turn to end and starts the next",
+  {
+    priority: "later",
+  },
+);
 
 /** Without an origin, and stamped as the user's own words, as a host relaying keyboard input must (SDK `SDKMessageOrigin`). */
 export const priorityNowCheck: Check = {
   id: "engine.priority-now",
-  title: "a message with priority 'now' interrupts the running turn, with and without a human origin",
+  title:
+    "a message with priority 'now' interrupts the running turn, with and without a human origin",
   async run(context) {
     return {
       withoutOrigin: await observeBargeIn(context, { priority: "now" }, "without-origin"),
-      humanOrigin: await observeBargeIn(context, { priority: "now", origin: { kind: "human" } }, "human-origin"),
+      humanOrigin: await observeBargeIn(
+        context,
+        { priority: "now", origin: { kind: "human" } },
+        "human-origin",
+      ),
     };
   },
 };
 
-async function observeBargeIn({ sandbox, startSession }: CheckContext, delivery: MessageDelivery, repositoryName?: string): Promise<Observation> {
+async function observeBargeIn(
+  { sandbox, startSession }: CheckContext,
+  delivery: MessageDelivery,
+  repositoryName?: string,
+): Promise<Observation> {
   const repository = await sandbox.createRepository(repositoryName);
   await prepareRunningCommand(repository);
   let bargeIn: string | undefined;
@@ -62,7 +86,8 @@ async function observeBargeIn({ sandbox, startSession }: CheckContext, delivery:
   });
   session.send(RUN_COMMAND_PROMPT);
   const firstTurn = await session.nextResult();
-  const landing = bargeIn === undefined ? "nowhere" : await followBargeIn(session, firstTurn, bargeIn);
+  const landing =
+    bargeIn === undefined ? "nowhere" : await followBargeIn(session, firstTurn, bargeIn);
   const command = observeRunningCommand(session);
   await stopBackgroundCommand(session);
   return {
@@ -73,14 +98,23 @@ async function observeBargeIn({ sandbox, startSession }: CheckContext, delivery:
   };
 }
 
-async function followBargeIn(session: ProbeSession, firstTurn: SDKResultMessage, bargeIn: string): Promise<Landing> {
+async function followBargeIn(
+  session: ProbeSession,
+  firstTurn: SDKResultMessage,
+  bargeIn: string,
+): Promise<Landing> {
   if (consumedMessages(firstTurn).includes(bargeIn)) {
     return "running turn";
   }
-  const started = session.waitForMessage((message): message is SDKMessage => isLifecycle(message, bargeIn, "started"));
+  const started = session.waitForMessage((message): message is SDKMessage =>
+    isLifecycle(message, bargeIn, "started"),
+  );
   if ((await Promise.race([started, delay(SETTLE_MS, undefined, { ref: false })])) !== undefined) {
     // Its turn runs to the end, so the session is idle when the check closes it.
-    await session.waitForMessage((message): message is SDKResultMessage => message.type === "result" && consumedMessages(message).includes(bargeIn));
+    await session.waitForMessage(
+      (message): message is SDKResultMessage =>
+        message.type === "result" && consumedMessages(message).includes(bargeIn),
+    );
     return "next turn";
   }
   const following = session.send("Reply with just OK.");
@@ -94,5 +128,9 @@ async function followBargeIn(session: ProbeSession, firstTurn: SDKResultMessage,
 
 function isLifecycle(message: SDKMessage, uuid: string, state: string): boolean {
   const lifecycle = message as unknown as Partial<CommandLifecycle>;
-  return lifecycle.type === "command_lifecycle" && lifecycle.command_uuid === uuid && lifecycle.state === state;
+  return (
+    lifecycle.type === "command_lifecycle" &&
+    lifecycle.command_uuid === uuid &&
+    lifecycle.state === state
+  );
 }

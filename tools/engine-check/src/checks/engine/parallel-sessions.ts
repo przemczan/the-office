@@ -18,13 +18,23 @@ export const parallelSessionsCheck: Check = {
   title: "three sessions run in parallel",
   async run({ sandbox, startSession }) {
     const repository = await sandbox.createRepository();
-    const worktrees = await Promise.all(Array.from({ length: SESSIONS }, (_, index) => sandbox.addWorktree(repository, `task-${index + 1}`)));
+    const worktrees = await Promise.all(
+      Array.from({ length: SESSIONS }, (_, index) =>
+        sandbox.addWorktree(repository, `task-${index + 1}`),
+      ),
+    );
     const barrier = new Barrier(SESSIONS);
     const allowRead = allowCallsWithin("Read", sandbox.root);
     const sessions = await Promise.all(
-      worktrees.map((worktree) => startSession({ repository: worktree, hooks: { PreToolUse: barrier.before(allowRead) } })),
+      worktrees.map((worktree) =>
+        startSession({ repository: worktree, hooks: { PreToolUse: barrier.before(allowRead) } }),
+      ),
     );
-    sessions.forEach((session, index) => session.send(`Use the Read tool on ${join(worktrees[index] as string, "README.md")}, then reply with just OK.`));
+    sessions.forEach((session, index) =>
+      session.send(
+        `Use the Read tool on ${join(worktrees[index] as string, "README.md")}, then reply with just OK.`,
+      ),
+    );
     const results = await Promise.all(sessions.map((session) => session.nextResult()));
     return {
       allInAToolCallAtOnce: barrier.opened,

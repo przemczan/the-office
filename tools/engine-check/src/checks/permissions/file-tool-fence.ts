@@ -27,10 +27,14 @@ interface Place {
  */
 export const fileToolFenceCheck: Check = {
   id: "permissions.file-tool-fence",
-  title: "blockReadsOutsideWorkingDirectories fences Read, Grep and Glob to the worktree and the session's folders",
+  title:
+    "blockReadsOutsideWorkingDirectories fences Read, Grep and Glob to the worktree and the session's folders",
   async run({ sandbox, startSession }) {
     const repository = await sandbox.createRepository();
-    const officeData: Place = { folder: join(sandbox.officeData, "elsewhere"), file: join(sandbox.officeData, "elsewhere", "elsewhere.txt") };
+    const officeData: Place = {
+      folder: join(sandbox.officeData, "elsewhere"),
+      file: join(sandbox.officeData, "elsewhere", "elsewhere.txt"),
+    };
     const worktree: Place = { folder: repository, file: join(repository, "inside.txt") };
     await mkdir(officeData.folder, { recursive: true });
     await writeFile(officeData.file, `${MARKER}\n`);
@@ -38,10 +42,20 @@ export const fileToolFenceCheck: Check = {
     const [fileTools, shellReadOfOfficeData] = await Promise.all([
       Promise.all(
         Object.entries(GRANTS).map(async ([grant, spec]) => {
-          const session = await startSession({ repository, skills: [skill("notes", { "reference.md": `${MARKER}\n` })], ...spec });
+          const session = await startSession({
+            repository,
+            skills: [skill("notes", { "reference.md": `${MARKER}\n` })],
+            ...spec,
+          });
           const skillFolder = join(session.pluginFolder, "skills", "notes");
-          const sessionSkillsFolder: Place = { folder: skillFolder, file: join(skillFolder, "reference.md") };
-          return [grant, await tryFileTools(session, { worktree, sessionSkillsFolder, officeData })] as const;
+          const sessionSkillsFolder: Place = {
+            folder: skillFolder,
+            file: join(skillFolder, "reference.md"),
+          };
+          return [
+            grant,
+            await tryFileTools(session, { worktree, sessionSkillsFolder, officeData }),
+          ] as const;
         }),
       ),
       startSession({ repository }).then((session) => tryShellRead(session, officeData.file)),
@@ -50,7 +64,10 @@ export const fileToolFenceCheck: Check = {
   },
 };
 
-async function tryFileTools(session: ProbeSession, places: Readonly<Record<string, Place>>): Promise<Observation> {
+async function tryFileTools(
+  session: ProbeSession,
+  places: Readonly<Record<string, Place>>,
+): Promise<Observation> {
   const list = Object.values(places);
   const steps = [
     ...list.map((place) => `Read ${place.file}`),
@@ -66,16 +83,27 @@ async function tryFileTools(session: ProbeSession, places: Readonly<Record<strin
   return Object.fromEntries(
     Object.entries(places).map(([name, place]) => [
       name,
-      Object.fromEntries(FILE_TOOLS.map((tool) => [tool, lastOutcome(callsOn(calls, tool, tool === "Read" ? place.file : place.folder))])),
+      Object.fromEntries(
+        FILE_TOOLS.map((tool) => [
+          tool,
+          lastOutcome(callsOn(calls, tool, tool === "Read" ? place.file : place.folder)),
+        ]),
+      ),
     ]),
   );
 }
 
 /** In a session of its own: after the fence had refused the same file, the model declined to read it by shell. */
 async function tryShellRead(session: ProbeSession, file: string): Promise<AttemptOutcome> {
-  session.send(`Use the Bash tool to run this command: cat "${shellPath(file)}". Do not use any other tool. Then reply with just OK.`);
+  session.send(
+    `Use the Bash tool to run this command: cat "${shellPath(file)}". Do not use any other tool. Then reply with just OK.`,
+  );
   await session.nextResult();
-  return lastOutcome(toolCalls(session.messages).filter((call) => call.name === "Bash" && String(call.input["command"]).includes(basename(file))));
+  return lastOutcome(
+    toolCalls(session.messages).filter(
+      (call) => call.name === "Bash" && String(call.input["command"]).includes(basename(file)),
+    ),
+  );
 }
 
 /** Git Bash takes a Windows path with forward slashes. */

@@ -17,8 +17,13 @@ export const hookAfterResumeCheck: Check = {
     const repository = await sandbox.createRepository();
     const before = join(repository, "before.txt");
     const after = join(repository, "after.txt");
-    const first = await startSession({ repository, hooks: { PreToolUse: allowCallsWithin("Write", sandbox.root) } });
-    first.send(`Use the Write tool to create ${before} with the content: check. Then reply with just OK.`);
+    const first = await startSession({
+      repository,
+      hooks: { PreToolUse: allowCallsWithin("Write", sandbox.root) },
+    });
+    first.send(
+      `Use the Write tool to create ${before} with the content: check. Then reply with just OK.`,
+    );
     await first.nextResult();
     await first.close();
 
@@ -28,14 +33,21 @@ export const hookAfterResumeCheck: Check = {
       resume: first.sessionId,
       hooks: { PreToolUse: decideCallsOf("Write", () => toolDecision("deny", reason)) },
     });
-    resumed.send(`Use the Write tool to create ${after} with the content: check. Do not retry a refused call. Then reply with just OK.`);
+    resumed.send(
+      `Use the Write tool to create ${after} with the content: check. Do not retry a refused call. Then reply with just OK.`,
+    );
     await resumed.nextResult();
     const afterCalls = callsOn(toolCalls(resumed.messages), "Write", after);
     return {
-      beforeResume: { outcome: observeCall(first, callsOn(toolCalls(first.messages), "Write", before)).outcome, onDisk: await pathExists(before) },
+      beforeResume: {
+        outcome: observeCall(first, callsOn(toolCalls(first.messages), "Write", before)).outcome,
+        onDisk: await pathExists(before),
+      },
       afterResume: {
         ...observeCall(resumed, afterCalls),
-        reasonReachedModel: afterCalls.some((call) => toolResultText(resumed.messages, call.id).includes(reason)),
+        reasonReachedModel: afterCalls.some((call) =>
+          toolResultText(resumed.messages, call.id).includes(reason),
+        ),
         onDisk: await pathExists(after),
       },
     };

@@ -16,14 +16,20 @@ export const resumeCheck: Check = {
     await first.initWithoutTurn();
     const listedAtStart = await listedSkillNames(first);
     await first.close();
-    const resumed = await startSession({ repository, skills: [skill("beta"), skill("gamma")], resume: first.sessionId });
+    const resumed = await startSession({
+      repository,
+      skills: [skill("beta"), skill("gamma")],
+      resume: first.sessionId,
+    });
     await resumed.initWithoutTurn();
     const listedAfterResume = await listedSkillNames(resumed);
     await resumed.close();
     return {
       listedAtStart,
       listedAfterResume,
-      listingsAttachedForModel: skillListings(await readTranscript(repository, first.sessionId)).map((names) => names.sort()),
+      listingsAttachedForModel: skillListings(
+        await readTranscript(repository, first.sessionId),
+      ).map((names) => names.toSorted()),
     };
   },
 };

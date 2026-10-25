@@ -10,9 +10,7 @@
       "engineDefault": {
         "memoryFolderAnnounced": true,
         "memoryFolderCreated": true,
-        "memoryWriteOutcomes": [
-          "allowed"
-        ],
+        "memoryWriteOutcomes": ["allowed"],
         "memoryWritesSeenFirstByPreToolUse": true
       }
     },
@@ -26,9 +24,7 @@
       "engineDefault": {
         "memoryFolderAnnounced": true,
         "memoryFolderCreated": true,
-        "memoryWriteOutcomes": [
-          "allowed"
-        ],
+        "memoryWriteOutcomes": ["allowed"],
         "memoryWritesSeenFirstByPreToolUse": true
       }
     }
@@ -127,16 +123,7 @@
       "secondWorktreeReadsFirstWorktreesPrefix": true,
       "leanVariant": {
         "context": "about 10k",
-        "tools": [
-          "Bash",
-          "Edit",
-          "Glob",
-          "Grep",
-          "PowerShell",
-          "Read",
-          "Skill",
-          "Write"
-        ],
+        "tools": ["Bash", "Edit", "Glob", "Grep", "PowerShell", "Read", "Skill", "Write"],
         "mcpServers": []
       }
     },
@@ -176,15 +163,7 @@
       "secondWorktreeReadsFirstWorktreesPrefix": true,
       "leanVariant": {
         "context": "about 10k",
-        "tools": [
-          "Bash",
-          "Edit",
-          "Glob",
-          "Grep",
-          "Read",
-          "Skill",
-          "Write"
-        ],
+        "tools": ["Bash", "Edit", "Glob", "Grep", "Read", "Skill", "Write"],
         "mcpServers": []
       }
     }
@@ -200,9 +179,7 @@
           "permissionDeniedMessage": null,
           "permissionDeniedHook": false
         },
-        "handlerReceived": [
-          "check"
-        ]
+        "handlerReceived": ["check"]
       },
       "withoutAllowRule": {
         "call": {
@@ -224,9 +201,7 @@
           "permissionDeniedMessage": null,
           "permissionDeniedHook": false
         },
-        "handlerReceived": [
-          "check"
-        ]
+        "handlerReceived": ["check"]
       },
       "withoutAllowRule": {
         "call": {
@@ -242,16 +217,12 @@
   "engine.parallel-sessions": {
     "win32": {
       "allInAToolCallAtOnce": true,
-      "turnsEnded": [
-        "completed"
-      ],
+      "turnsEnded": ["completed"],
       "distinctSessions": true
     },
     "linux": {
       "allInAToolCallAtOnce": true,
-      "turnsEnded": [
-        "completed"
-      ],
+      "turnsEnded": ["completed"],
       "distinctSessions": true
     }
   },
@@ -352,10 +323,7 @@
         "utilization": false,
         "resetsAt": true
       },
-      "eventWindows": [
-        "five_hour",
-        "seven_day"
-      ],
+      "eventWindows": ["five_hour", "seven_day"],
       "eventWindowFields": {
         "five_hour": {
           "utilization": true,
@@ -386,10 +354,7 @@
         "utilization": false,
         "resetsAt": true
       },
-      "eventWindows": [
-        "five_hour",
-        "seven_day"
-      ],
+      "eventWindows": ["five_hour", "seven_day"],
       "eventWindowFields": {
         "five_hour": {
           "utilization": true,
@@ -419,16 +384,12 @@
     "win32": {
       "cacheReadAboveZero": true,
       "readsEarlierConversationFromCache": true,
-      "cacheWriteLifetimes": [
-        "1h"
-      ]
+      "cacheWriteLifetimes": ["1h"]
     },
     "linux": {
       "cacheReadAboveZero": true,
       "readsEarlierConversationFromCache": true,
-      "cacheWriteLifetimes": [
-        "1h"
-      ]
+      "cacheWriteLifetimes": ["1h"]
     }
   },
   "permissions.file-tool-fence": {
@@ -597,9 +558,7 @@
           "permissionDeniedHook": false
         }
       },
-      "toolsNotSeenFirst": [
-        "Read"
-      ]
+      "toolsNotSeenFirst": ["Read"]
     },
     "linux": {
       "calls": {
@@ -634,9 +593,7 @@
           "permissionDeniedHook": false
         }
       },
-      "toolsNotSeenFirst": [
-        "Read"
-      ]
+      "toolsNotSeenFirst": ["Read"]
     }
   },
   "permissions.powershell-twin": {
@@ -845,101 +802,45 @@
   },
   "skills.allowlist-suffix": {
     "win32": {
-      "listedSkills": [
-        "office:alpha",
-        "office:beta",
-        "office:review",
-        "review",
-        "vendor:review"
-      ]
+      "listedSkills": ["office:alpha", "office:beta", "office:review", "review", "vendor:review"]
     },
     "linux": {
-      "listedSkills": [
-        "office:alpha",
-        "office:beta",
-        "office:review",
-        "review",
-        "vendor:review"
-      ]
+      "listedSkills": ["office:alpha", "office:beta", "office:review", "review", "vendor:review"]
     }
   },
   "skills.deny-rule": {
     "win32": {
-      "listedSkills": [
-        "office:alpha",
-        "office:beta"
-      ],
-      "userInvocable": [
-        "office:alpha",
-        "office:beta"
-      ],
+      "listedSkills": ["office:alpha", "office:beta"],
+      "userInvocable": ["office:alpha", "office:beta"],
       "deniedSkillInvocation": "denied"
     },
     "linux": {
-      "listedSkills": [
-        "office:alpha",
-        "office:beta"
-      ],
-      "userInvocable": [
-        "office:alpha",
-        "office:beta"
-      ],
+      "listedSkills": ["office:alpha", "office:beta"],
+      "userInvocable": ["office:alpha", "office:beta"],
       "deniedSkillInvocation": "denied"
     }
   },
   "skills.overrides-off": {
     "win32": {
       "atStart": {
-        "listed": [
-          "lint",
-          "notes"
-        ],
-        "userInvocable": [
-          "lint",
-          "notes"
-        ]
+        "listed": ["lint", "notes"],
+        "userInvocable": ["lint", "notes"]
       },
       "nestedFileRead": true,
       "afterNestedFileRead": {
-        "listed": [
-          "audit",
-          "lint",
-          "notes",
-          "release"
-        ],
-        "userInvocable": [
-          "audit",
-          "lint",
-          "notes",
-          "release"
-        ]
+        "listed": ["audit", "lint", "notes", "release"],
+        "userInvocable": ["audit", "lint", "notes", "release"]
       }
     },
     "linux": {
       "atStart": {
-        "listed": [
-          "lint",
-          "notes"
-        ],
-        "userInvocable": [
-          "lint",
-          "notes"
-        ]
+        "listed": ["lint", "notes"],
+        "userInvocable": ["lint", "notes"]
       },
       "nestedFileRead": true,
       "afterNestedFileRead": {
-        "listed": [
-          "audit",
-          "lint",
-          "notes",
-          "release"
-        ],
-        "userInvocable": [
-          "audit",
-          "lint",
-          "notes",
-          "release"
-        ]
+        "listed": ["audit", "lint", "notes", "release"],
+        "userInvocable": ["audit", "lint", "notes", "release"]
       }
     }
   },
@@ -950,11 +851,7 @@
         "skill-at-root at skill-at-root",
         "without-manifest at without-manifest"
       ],
-      "listedSkills": [
-        "child:three",
-        "skill-at-root:two",
-        "without-manifest:one"
-      ],
+      "listedSkills": ["child:three", "skill-at-root:two", "without-manifest:one"],
       "pluginErrors": []
     },
     "linux": {
@@ -963,11 +860,7 @@
         "skill-at-root at skill-at-root",
         "without-manifest at without-manifest"
       ],
-      "listedSkills": [
-        "child:three",
-        "skill-at-root:two",
-        "without-manifest:one"
-      ],
+      "listedSkills": ["child:three", "skill-at-root:two", "without-manifest:one"],
       "pluginErrors": []
     }
   },
@@ -1011,72 +904,32 @@
   },
   "skills.resume": {
     "win32": {
-      "listedAtStart": [
-        "office:alpha",
-        "office:beta"
-      ],
-      "listedAfterResume": [
-        "office:beta",
-        "office:gamma"
-      ],
-      "listingsAttachedForModel": [
-        [
-          "office:alpha",
-          "office:beta"
-        ],
-        [
-          "office:gamma"
-        ]
-      ]
+      "listedAtStart": ["office:alpha", "office:beta"],
+      "listedAfterResume": ["office:beta", "office:gamma"],
+      "listingsAttachedForModel": [["office:alpha", "office:beta"], ["office:gamma"]]
     },
     "linux": {
-      "listedAtStart": [
-        "office:alpha",
-        "office:beta"
-      ],
-      "listedAfterResume": [
-        "office:beta",
-        "office:gamma"
-      ],
-      "listingsAttachedForModel": [
-        [
-          "office:alpha",
-          "office:beta"
-        ],
-        [
-          "office:gamma"
-        ]
-      ]
+      "listedAtStart": ["office:alpha", "office:beta"],
+      "listedAfterResume": ["office:beta", "office:gamma"],
+      "listingsAttachedForModel": [["office:alpha", "office:beta"], ["office:gamma"]]
     }
   },
   "skills.start-check": {
     "win32": {
       "sessionPluginAtItsFolder": true,
       "pluginErrors": [],
-      "listedSkills": [
-        "office:alpha",
-        "office:beta"
-      ],
+      "listedSkills": ["office:alpha", "office:beta"],
       "listingEqualsSessionSkills": true,
       "otherPlugins": [],
-      "initSkillsOutsideSession": [
-        "design",
-        "doctor"
-      ]
+      "initSkillsOutsideSession": ["design", "doctor"]
     },
     "linux": {
       "sessionPluginAtItsFolder": true,
       "pluginErrors": [],
-      "listedSkills": [
-        "office:alpha",
-        "office:beta"
-      ],
+      "listedSkills": ["office:alpha", "office:beta"],
       "listingEqualsSessionSkills": true,
       "otherPlugins": [],
-      "initSkillsOutsideSession": [
-        "design",
-        "doctor"
-      ]
+      "initSkillsOutsideSession": ["design", "doctor"]
     }
   },
   "skills.user-scope": {

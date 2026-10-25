@@ -24,7 +24,11 @@ export const CHECK_MODEL = "claude-haiku-5-5";
  * The engine's built-in plugins, turned off by id (spec §5.6); a release that adds one shows in
  * `skills.start-check` as another plugin beside the session's.
  */
-const BUILT_IN_PLUGINS = ["cc-plugin-agents-md", "cc-plugin-telemetry", "cc-plugin-plugin-authoring"];
+const BUILT_IN_PLUGINS = [
+  "cc-plugin-agents-md",
+  "cc-plugin-telemetry",
+  "cc-plugin-plugin-authoring",
+];
 
 /**
  * The built-in tools, named explicitly so both platforms get the same set (spec §5.4): the engine's
@@ -134,7 +138,12 @@ export class ProbeSession {
   private readonly engine: Query;
   private readonly consumed: Promise<void>;
 
-  private constructor(sessionId: string, pluginFolder: string, spec: SessionSpec, signal: AbortSignal) {
+  private constructor(
+    sessionId: string,
+    pluginFolder: string,
+    spec: SessionSpec,
+    signal: AbortSignal,
+  ) {
     this.sessionId = sessionId;
     this.repository = spec.repository;
     this.pluginFolder = pluginFolder;
@@ -144,7 +153,11 @@ export class ProbeSession {
     signal.addEventListener("abort", () => this.rejectWaiters(signal.reason), { once: true });
   }
 
-  static async start(sandbox: Sandbox, spec: SessionSpec, signal: AbortSignal): Promise<ProbeSession> {
+  static async start(
+    sandbox: Sandbox,
+    spec: SessionSpec,
+    signal: AbortSignal,
+  ): Promise<ProbeSession> {
     const sessionId = spec.resume ?? spec.sessionId ?? randomUUID();
     const pluginFolder = await sandbox.writeSessionPlugin(sessionId, spec.skills ?? []);
     return new ProbeSession(sessionId, pluginFolder, spec, signal);
@@ -173,7 +186,10 @@ export class ProbeSession {
   }
 
   init(): Promise<SDKSystemMessage> {
-    return this.waitForMessage((message): message is SDKSystemMessage => message.type === "system" && message.subtype === "init");
+    return this.waitForMessage(
+      (message): message is SDKSystemMessage =>
+        message.type === "system" && message.subtype === "init",
+    );
   }
 
   /**
@@ -190,12 +206,18 @@ export class ProbeSession {
 
   /** The next turn's result not yet returned by an earlier call. */
   async nextResult(): Promise<SDKResultMessage> {
-    const index = await this.waitForIndex((message) => message.type === "result", this.resultCursor);
+    const index = await this.waitForIndex(
+      (message) => message.type === "result",
+      this.resultCursor,
+    );
     this.resultCursor = index + 1;
     return this.messages[index] as SDKResultMessage;
   }
 
-  async waitForMessage<T extends SDKMessage>(predicate: (message: SDKMessage) => message is T, from = 0): Promise<T> {
+  async waitForMessage<T extends SDKMessage>(
+    predicate: (message: SDKMessage) => message is T,
+    from = 0,
+  ): Promise<T> {
     const index = await this.waitForIndex(predicate, from);
     return this.messages[index] as T;
   }
@@ -223,15 +245,23 @@ export class ProbeSession {
 
   private buildOptions(spec: SessionSpec): Options {
     const abortController = new AbortController();
-    this.signal.addEventListener("abort", () => abortController.abort(this.signal.reason), { once: true });
+    this.signal.addEventListener("abort", () => abortController.abort(this.signal.reason), {
+      once: true,
+    });
     const skills = spec.skills ?? [];
     return {
       cwd: spec.repository,
       model: CHECK_MODEL,
       tools: OFFICE_TOOLS,
       settingSources: ["project"],
-      plugins: [this.pluginFolder, ...(spec.additionalPlugins ?? [])].map((path) => ({ type: "local", path, skipMcpDiscovery: true })),
-      skills: [...(spec.allowedSkills ?? skills.map((skill) => `${SESSION_PLUGIN_NAME}:${skill.name}`))],
+      plugins: [this.pluginFolder, ...(spec.additionalPlugins ?? [])].map((path) => ({
+        type: "local",
+        path,
+        skipMcpDiscovery: true,
+      })),
+      skills: [
+        ...(spec.allowedSkills ?? skills.map((skill) => `${SESSION_PLUGIN_NAME}:${skill.name}`)),
+      ],
       settings: sessionSettings(this.pluginFolder, spec.settings),
       permissionPrompts: "none",
       systemPrompt: { type: "preset", preset: "claude_code", excludeDynamicSections: true },
@@ -244,8 +274,13 @@ export class ProbeSession {
     };
   }
 
-  private hookMatchers(hooks: Partial<Record<HookEvent, ProbeHook>>): Partial<Record<HookEvent, HookCallbackMatcher[]>> {
-    const events = new Set<HookEvent>([...OFFICE_HOOK_EVENTS, ...(Object.keys(hooks) as HookEvent[])]);
+  private hookMatchers(
+    hooks: Partial<Record<HookEvent, ProbeHook>>,
+  ): Partial<Record<HookEvent, HookCallbackMatcher[]>> {
+    const events = new Set<HookEvent>([
+      ...OFFICE_HOOK_EVENTS,
+      ...(Object.keys(hooks) as HookEvent[]),
+    ]);
     return Object.fromEntries(
       [...events].map((event) => [
         event,
@@ -253,7 +288,12 @@ export class ProbeSession {
           {
             hooks: [
               async (input: HookInput, toolUseId: string | undefined): Promise<HookJSONOutput> => {
-                const call: HookCall = { event, toolUseId, input, messageIndex: this.messages.length };
+                const call: HookCall = {
+                  event,
+                  toolUseId,
+                  input,
+                  messageIndex: this.messages.length,
+                };
                 this.hookCalls.push(call);
                 call.output = (await hooks[event]?.(input, this)) ?? {};
                 return call.output;
@@ -300,7 +340,9 @@ export class ProbeSession {
       }
       if (this.ended && this.waiters.has(waiter)) {
         this.waiters.delete(waiter);
-        waiter.reject(this.failure ?? new Error(`Session ${this.sessionId} ended before the awaited message`));
+        waiter.reject(
+          this.failure ?? new Error(`Session ${this.sessionId} ended before the awaited message`),
+        );
       }
     }
   }
@@ -321,8 +363,14 @@ function sessionSettings(pluginFolder: string, overrides: Settings = {}): Settin
     disableClaudeAiConnectors: true,
     autoMemoryEnabled: false,
     autoDreamEnabled: false,
-    enabledPlugins: Object.fromEntries(BUILT_IN_PLUGINS.map((plugin) => [`${plugin}@builtin`, false])),
+    enabledPlugins: Object.fromEntries(
+      BUILT_IN_PLUGINS.map((plugin) => [`${plugin}@builtin`, false]),
+    ),
     ...overrides,
-    permissions: { blockReadsOutsideWorkingDirectories: true, additionalDirectories: [pluginFolder], ...overrides.permissions },
+    permissions: {
+      blockReadsOutsideWorkingDirectories: true,
+      additionalDirectories: [pluginFolder],
+      ...overrides.permissions,
+    },
   };
 }

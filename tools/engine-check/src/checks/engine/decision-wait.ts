@@ -26,7 +26,8 @@ const waitMs = decisionWaitMinutes() * 60 * 1000;
  */
 export const decisionWaitCheck: Check = {
   id: "engine.decision-wait",
-  title: "an Agent told by an Office tool to wait ends its turn, and an answer after the wait continues the work",
+  title:
+    "an Agent told by an Office tool to wait ends its turn, and an answer after the wait continues the work",
   slow: true,
   timeoutMs: waitMs + 10 * 60 * 1000,
   async run({ sandbox, startSession, signal }) {
@@ -35,7 +36,10 @@ export const decisionWaitCheck: Check = {
       await writeFile(join(repository, option), `The ${option} the user picked.\n`);
     }
     const questions: string[] = [];
-    const session = await startSession({ repository, ...withOfficeTools([openDecisionTool(questions)]) });
+    const session = await startSession({
+      repository,
+      ...withOfficeTools([openDecisionTool(questions)]),
+    });
     session.send(
       `You are working on a Task in ${repository}. First use the ${TOOL} tool to ask the user which of ${OPTIONS.join(" and ")} to read, ` +
         "and do what its result says. Once you have the user's answer, use the Read tool on the chosen file and reply with just DONE.",
@@ -50,13 +54,19 @@ export const decisionWaitCheck: Check = {
     const firstAnswerRequest = requestUsages(answerTurn)[0];
     return {
       decisionOpened: questions.length > 0,
-      toolCallsAfterDecisionInItsTurn: sortedNames(callsAfter(officeToolName(TOOL), toolCalls(decisionTurn)).map((call) => call.name)),
+      toolCallsAfterDecisionInItsTurn: sortedNames(
+        callsAfter(officeToolName(TOOL), toolCalls(decisionTurn)).map((call) => call.name),
+      ),
       waitedPastOneHour: waitMs > ONE_HOUR_MS,
       answerTurn: {
         sameSession: answerResult.session_id === session.sessionId,
-        readOfChosenFile: lastOutcome(callsOn(toolCalls(answerTurn), "Read", join(repository, CHOSEN))),
+        readOfChosenFile: lastOutcome(
+          callsOn(toolCalls(answerTurn), "Read", join(repository, CHOSEN)),
+        ),
         readsEarlierTurnsFromCache:
-          lastDecisionRequest !== undefined && firstAnswerRequest !== undefined && readsEarlierPromptFromCache(lastDecisionRequest, firstAnswerRequest),
+          lastDecisionRequest !== undefined &&
+          firstAnswerRequest !== undefined &&
+          readsEarlierPromptFromCache(lastDecisionRequest, firstAnswerRequest),
       },
     };
   },
@@ -69,7 +79,9 @@ function openDecisionTool(questions: string[]) {
     { question: z.string(), options: z.array(z.string()) },
     async ({ question }) => {
       questions.push(question);
-      return textResult("The Decision is open and waits for the user. End your turn now, with no further tool calls; the user's answer arrives as your next message.");
+      return textResult(
+        "The Decision is open and waits for the user. End your turn now, with no further tool calls; the user's answer arrives as your next message.",
+      );
     },
   );
 }

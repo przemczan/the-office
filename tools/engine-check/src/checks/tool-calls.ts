@@ -18,7 +18,11 @@ export interface ToolCall {
 export function toolCalls(messages: readonly SDKMessage[]): ToolCall[] {
   const answers = toolResults(messages);
   const denied = new Set(
-    messages.flatMap((message) => (message.type === "result" ? message.permission_denials.map((denial) => denial.tool_use_id) : [])),
+    messages.flatMap((message) =>
+      message.type === "result"
+        ? message.permission_denials.map((denial) => denial.tool_use_id)
+        : [],
+    ),
   );
   return messages.flatMap((message) =>
     message.type === "assistant"
@@ -29,7 +33,9 @@ export function toolCalls(messages: readonly SDKMessage[]): ToolCall[] {
                   id: block.id,
                   name: block.name,
                   input: block.input as Record<string, unknown>,
-                  outcome: denied.has(block.id) ? "denied" : (answers.get(block.id) ?? "unanswered"),
+                  outcome: denied.has(block.id)
+                    ? "denied"
+                    : (answers.get(block.id) ?? "unanswered"),
                 },
               ]
             : [],
@@ -67,7 +73,9 @@ export function toolResultIndex(messages: readonly SDKMessage[], toolUseId: stri
     (message) =>
       message.type === "user" &&
       typeof message.message.content !== "string" &&
-      message.message.content.some((block) => block.type === "tool_result" && block.tool_use_id === toolUseId),
+      message.message.content.some(
+        (block) => block.type === "tool_result" && block.tool_use_id === toolUseId,
+      ),
   );
 }
 
@@ -78,8 +86,14 @@ export function toolResultText(messages: readonly SDKMessage[], toolUseId: strin
     return "";
   }
   return message.message.content
-    .flatMap((block) => (block.type === "tool_result" && block.tool_use_id === toolUseId ? [block.content] : []))
-    .flatMap((content) => (typeof content === "string" ? [content] : (content ?? []).flatMap((part) => (part.type === "text" ? [part.text] : []))))
+    .flatMap((block) =>
+      block.type === "tool_result" && block.tool_use_id === toolUseId ? [block.content] : [],
+    )
+    .flatMap((content) =>
+      typeof content === "string"
+        ? [content]
+        : (content ?? []).flatMap((part) => (part.type === "text" ? [part.text] : [])),
+    )
     .join("\n");
 }
 
@@ -93,10 +107,15 @@ export function toolUseResult(messages: readonly SDKMessage[], toolUseId: string
  * The engine's `permission_denied` message for the call, which it sends only for some refusals:
  * by its docs, not for hook denies or path-scoped deny rules on file tools.
  */
-export function permissionDeniedMessage(messages: readonly SDKMessage[], toolUseId: string): SDKPermissionDeniedMessage | undefined {
+export function permissionDeniedMessage(
+  messages: readonly SDKMessage[],
+  toolUseId: string,
+): SDKPermissionDeniedMessage | undefined {
   return messages.find(
     (message): message is SDKPermissionDeniedMessage =>
-      message.type === "system" && message.subtype === "permission_denied" && message.tool_use_id === toolUseId,
+      message.type === "system" &&
+      message.subtype === "permission_denied" &&
+      message.tool_use_id === toolUseId,
   );
 }
 

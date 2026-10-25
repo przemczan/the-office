@@ -9,5 +9,5 @@
     "denyWarnings": true,
     "reportUnusedDisableDirectives": "error"
   },
-  "ignorePatterns": ["design-system/**", "tools/engine-check/**"]
+  "ignorePatterns": ["design-system/**"]
 }
