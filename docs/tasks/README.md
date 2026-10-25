@@ -8,7 +8,7 @@ Tier 1 of [the spec](../spec.md#tier-1-the-base), sliced into tasks in build ord
 |---|---|---|---|
 | 01 | [Engine spike: pinned versions and the engine check](01-engine-spike.md) | Spike | done |
 | 02 | [Foundation: workspace, service, database, events, telemetry](02-foundation.md) | Projects | done |
-| 03 | [Web shell: design system, themes and A3 · Desk](03-web-shell.md) | Projects | in progress |
+| 03 | [Web shell: design system, themes and A3 · Desk](03-web-shell.md) | Projects | done |
 | 04 | [Projects: the record, commands and the Projects page](04-projects.md) | Projects | todo |
 | 05 | [Git, worktrees and the environment check](05-git-worktrees.md) | Projects | todo |
 | 06 | [The Engine module: port, Agent SDK adapter and Office rules](06-engine.md) | People | todo |
