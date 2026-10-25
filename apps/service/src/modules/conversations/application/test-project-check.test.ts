@@ -23,7 +23,9 @@ import type { Message } from "../domain/message.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
+import { SessionPlaces } from "./session-places.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
+import { TaskThreadSetups } from "./task-thread-setups.js";
 import { CONTEXT_POLICY_SETTINGS, ThreadContexts } from "./thread-contexts.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { ThreadService } from "./thread-service.js";
@@ -108,6 +110,8 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
               { provide: CONTEXT_POLICY_SETTINGS, useValue: DEFAULT_CONTEXT_POLICY_SETTINGS },
               ThreadService,
               Briefs,
+              TaskThreadSetups,
+              SessionPlaces,
               ThreadContexts,
               ThreadRunner,
             ],
