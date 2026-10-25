@@ -456,3 +456,46 @@
   font: var(--type-caption);
   color: var(--fg-3);
 }
+
+/* ---- the Work tab: filter chips over the person's Tasks */
+.person-work {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.person-work-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.person-work-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+  cursor: pointer;
+}
+
+.person-work-filter[aria-pressed="true"] {
+  border-color: var(--fg-1);
+  color: var(--fg-1);
+}
+
+.person-work-count {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.person-work-title {
+  margin-bottom: 4px;
+  font: 500 13px/1.35 var(--font-sans);
+  color: var(--fg-1);
+}

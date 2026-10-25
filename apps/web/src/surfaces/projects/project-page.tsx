@@ -11,11 +11,12 @@ import { CommandsBlock } from "./commands-block.tsx";
 import { DefaultPipelineBlock } from "./default-pipeline-block.tsx";
 import { EnvironmentBlock } from "./environment-block.tsx";
 import { SkillsBlock } from "./skills-block.tsx";
+import { WorkBlock } from "./work-block.tsx";
 import "./projects.css";
 
 /**
- * A Project's own page: its commands, default Pipeline and publishing, its own skills, and its
- * environment.
+ * A Project's own page: its commands, default Pipeline and publishing, its own skills, its
+ * environment, and how its Tasks stand.
  */
 export function ProjectPage(): ReactNode {
   const { projectId } = useParams({ from: "/projects/$projectId" });
@@ -38,6 +39,7 @@ export function ProjectPage(): ReactNode {
         </div>
         <div className="project-column">
           <EnvironmentBlock project={project.data} />
+          <WorkBlock project={project.data} />
         </div>
       </div>
     </div>

@@ -59,13 +59,18 @@ export async function sendToApi<Schema extends z.ZodType>(
   return answerOf(response, schema);
 }
 
-/** Sends a file's bytes to `path` under /api, with its name in the query, and checks the answer. */
+/**
+ * Sends a file's bytes to `path` under /api, with its name and `query` in the query, and checks the
+ * answer.
+ */
 export async function sendFileToApi<Schema extends z.ZodType>(
   path: `/${string}`,
   file: File,
   schema: Schema,
+  query: Readonly<Record<string, string>> = {},
 ): Promise<z.infer<Schema>> {
-  const response = await fetch(`${API_PATH}${path}?fileName=${encodeURIComponent(file.name)}`, {
+  const search = new URLSearchParams({ ...query, fileName: file.name });
+  const response = await fetch(`${API_PATH}${path}?${search}`, {
     method: "POST",
     headers: { Accept: "application/json", "Content-Type": "application/octet-stream" },
     body: file,

@@ -12,7 +12,7 @@ import { dayOf } from "../../shell/time.ts";
 import { CAPABILITIES, taskLimitShort } from "./role-card-labels.ts";
 import "./people.css";
 
-/** A person's page: who they are, their conversations and their Role card; Work comes with Tasks. */
+/** A person's page: who they are, their Tasks, their conversations and their Role card. */
 export function PersonPage(): ReactNode {
   const { roleKey } = useParams({ from: "/people/$roleKey" });
   const role = useQuery(roleQueries.one(roleKey));
@@ -86,6 +86,7 @@ function PersonHead({ role }: { readonly role: Role }): ReactNode {
 
 const TABS = [
   { value: "overview", label: "Overview", to: "/people/$roleKey" },
+  { value: "work", label: "Work", to: "/people/$roleKey/work" },
   { value: "conversations", label: "Conversations", to: "/people/$roleKey/conversations" },
   { value: "role", label: "Role card", to: "/people/$roleKey/role" },
 ] as const;

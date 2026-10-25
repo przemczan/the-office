@@ -1,0 +1,165 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Idea, NewIdea } from "@the-office/contracts";
+import {
+  Button,
+  Dialog,
+  Field,
+  IconButton,
+  Icon,
+  Input,
+  RadioGroup,
+  Textarea,
+} from "@the-office/ui";
+import { useId, useState, type ReactNode } from "react";
+import { projectQueries } from "../../api/projects.ts";
+import { captureIdea, ideaQueries } from "../../api/work.ts";
+import { AttachmentPicker } from "../attachments/attachment-picker.tsx";
+import { attach, pendingName, type PendingAttachment } from "../attachments/pending-attachment.ts";
+import { ProjectChip } from "../project-chip.tsx";
+import { RefusalAlert } from "../refusal-alert.tsx";
+import { useToast } from "../toasts.tsx";
+
+/** The radio value for an Idea with no Project. */
+const OFFICE_WIDE = "";
+
+/**
+ * "Idea" in the top bar: a title, optional notes and Attachments, in a Project or Office-wide.
+ * Enter in the title captures it.
+ */
+export function CaptureIdeaDialog({
+  projectId,
+  onClose,
+}: {
+  /** Where the Idea is captured unless the user chooses otherwise; null for Office-wide. */
+  readonly projectId: string | null;
+  readonly onClose: () => void;
+}): ReactNode {
+  const formId = useId();
+  const [draft, setDraft] = useState<NewIdea>({ title: "", notes: "", projectId });
+  const [pending, setPending] = useState<readonly PendingAttachment[]>([]);
+  const [picking, setPicking] = useState(false);
+  const projects = useQuery(projectQueries.list());
+  const queryClient = useQueryClient();
+  const showToast = useToast();
+  // Once captured, a failed Attachment is tried again without capturing the Idea twice.
+  const [captured, setCaptured] = useState<Idea>();
+  const capturing = useMutation({
+    mutationFn: async (newIdea: NewIdea) => {
+      const idea = captured ?? (await captureIdea(newIdea));
+      setCaptured(idea);
+      // One at a time and in order, so they list as they were chosen, each leaving once added.
+      for (const attachment of pending) {
+        await attach({ kind: "idea", ideaId: idea.id }, attachment);
+        setPending((left) => left.slice(1));
+      }
+      return idea;
+    },
+    onSettled: () => queryClient.invalidateQueries(ideaQueries.list()),
+    onSuccess: (idea) => {
+      showToast(`Idea captured: ${idea.title}.`);
+      onClose();
+    },
+  });
+  return (
+    <Dialog
+      title="Capture an Idea"
+      width={560}
+      onClose={onClose}
+      actions={
+        <>
+          <span className="capture-idea-hint">Shape it into a Task later, in Work › Ideas.</span>
+          <Button variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form={formId} loading={capturing.isPending}>
+            Capture
+          </Button>
+        </>
+      }
+    >
+      <form
+        id={formId}
+        className="capture-idea-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          capturing.mutate(draft);
+        }}
+      >
+        {capturing.error && (
+          <RefusalAlert
+            title={
+              captured
+                ? "The Idea is captured, but not every Attachment yet"
+                : "The Idea can't be captured yet"
+            }
+            error={capturing.error}
+          />
+        )}
+        <Input
+          label="Idea"
+          placeholder="Show battery level on the device list"
+          value={draft.title}
+          onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+          autoFocus
+        />
+        <Textarea
+          label="Notes"
+          hint="Optional."
+          rows={3}
+          value={draft.notes}
+          onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
+        />
+        <Field label="Where">
+          <RadioGroup
+            options={[
+              {
+                value: OFFICE_WIDE,
+                label: <ProjectChip projectId={null} projects={projects.data} />,
+              },
+              ...(projects.data ?? []).map((project) => ({
+                value: project.id,
+                label: <ProjectChip projectId={project.id} projects={projects.data} />,
+              })),
+            ]}
+            value={draft.projectId ?? OFFICE_WIDE}
+            onChange={(value) =>
+              setDraft({ ...draft, projectId: value === OFFICE_WIDE ? null : value })
+            }
+          />
+        </Field>
+        <Field label="Attachments" hint="Optional.">
+          <div className="capture-idea-attachments">
+            {pending.map((attachment, index) => (
+              <span key={`${index}-${pendingName(attachment)}`} className="attachment-chip">
+                <span className="attachment-open">
+                  <Icon name={attachment.kind === "link" ? "link" : "file"} size={14} />
+                  {pendingName(attachment)}
+                </span>
+                <IconButton
+                  size="xs"
+                  icon={<Icon name="x" size={12} />}
+                  label={`Remove ${pendingName(attachment)}`}
+                  onClick={() => setPending(pending.filter((_, at) => at !== index))}
+                />
+              </span>
+            ))}
+            {picking ? (
+              <AttachmentPicker onPick={(attachment) => setPending([...pending, attachment])} />
+            ) : (
+              <div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  iconLeft={<Icon name="paperclip" size={14} />}
+                  onClick={() => setPicking(true)}
+                >
+                  Add a file, screenshot or link
+                </Button>
+              </div>
+            )}
+          </div>
+        </Field>
+      </form>
+    </Dialog>
+  );
+}

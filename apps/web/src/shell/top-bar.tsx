@@ -1,14 +1,15 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useParams } from "@tanstack/react-router";
 import { Button, Icon, Logo } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useBrandTone } from "./brand-tone.ts";
 import type { PageHeading } from "./page-heading.tsx";
+import { CaptureIdeaDialog } from "./work/capture-idea-dialog.tsx";
 
-/**
- * The lockup, the page's title with its crumb, and "Idea", which opens the Idea capture from task
- * 10 on.
- */
+/** The lockup, the page's title with its crumb, and "Idea", which captures one from any page. */
 export function TopBar({ title, crumb, parent }: Partial<PageHeading>): ReactNode {
+  const [capturing, setCapturing] = useState(false);
+  // On a Project's page an Idea is captured in that Project unless the user chooses otherwise.
+  const { projectId } = useParams({ strict: false });
   return (
     <header className="shell-top">
       <span className="shell-top-lockup">
@@ -28,9 +29,16 @@ export function TopBar({ title, crumb, parent }: Partial<PageHeading>): ReactNod
         </span>
       )}
       <span className="shell-grow" />
-      <Button variant="secondary" iconLeft={<Icon name="plus" size={14} />}>
+      <Button
+        variant="secondary"
+        iconLeft={<Icon name="plus" size={14} />}
+        onClick={() => setCapturing(true)}
+      >
         Idea
       </Button>
+      {capturing && (
+        <CaptureIdeaDialog projectId={projectId ?? null} onClose={() => setCapturing(false)} />
+      )}
     </header>
   );
 }

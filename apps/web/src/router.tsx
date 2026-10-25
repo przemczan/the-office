@@ -13,10 +13,13 @@ import { ConversationsTab } from "./surfaces/people/conversations-tab.tsx";
 import { PersonPage } from "./surfaces/people/person-page.tsx";
 import { RoleCardEditPage } from "./surfaces/people/role-card-form.tsx";
 import { RoleCardTab } from "./surfaces/people/role-card-tab.tsx";
+import { WorkTab } from "./surfaces/people/work-tab.tsx";
 import { ProjectPage } from "./surfaces/projects/project-page.tsx";
 import { ProjectsPage } from "./surfaces/projects/projects-page.tsx";
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
 import { SkillsSection } from "./surfaces/settings/skills/skills-section.tsx";
+import { Board } from "./surfaces/work/board.tsx";
+import { IdeasPage } from "./surfaces/work/ideas-page.tsx";
 import { WorkPage } from "./surfaces/work/work-page.tsx";
 
 declare module "@tanstack/react-router" {
@@ -71,6 +74,20 @@ const workRoute = createRoute({
   staticData: { title: "Work" },
 });
 
+const boardRoute = createRoute({
+  getParentRoute: () => workRoute,
+  path: "/",
+  component: Board,
+  staticData: { title: "Work" },
+});
+
+const ideasRoute = createRoute({
+  getParentRoute: () => workRoute,
+  path: "ideas",
+  component: IdeasPage,
+  staticData: { title: "Work" },
+});
+
 const peopleRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "people",
@@ -91,6 +108,13 @@ const personOverviewRoute = createRoute({
   getParentRoute: () => personRoute,
   path: "/",
   component: OverviewTab,
+  staticData: { title: "People" },
+});
+
+const personWorkRoute = createRoute({
+  getParentRoute: () => personRoute,
+  path: "work",
+  component: WorkTab,
   staticData: { title: "People" },
 });
 
@@ -157,10 +181,11 @@ export const router = createRouter({
   routeTree: rootRoute.addChildren([
     homeRoute,
     nowRoute,
-    workRoute,
+    workRoute.addChildren([boardRoute, ideasRoute]),
     peopleRoute,
     personRoute.addChildren([
       personOverviewRoute,
+      personWorkRoute,
       conversationsRoute,
       roleCardRoute,
       roleCardEditRoute,

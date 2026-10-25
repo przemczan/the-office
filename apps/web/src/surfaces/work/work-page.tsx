@@ -1,5 +1,51 @@
-import type { ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Outlet, useMatchRoute, useNavigate } from "@tanstack/react-router";
+import { Button, Icon, Tabs } from "@the-office/ui";
+import { useState, type ReactNode } from "react";
+import { ideaQueries } from "../../api/work.ts";
+import { usePageHeading } from "../../shell/page-heading.tsx";
+import { NewTaskDialog } from "./new-task-dialog.tsx";
+import "./work.css";
 
+const TABS = [
+  { value: "tasks", label: "Tasks", to: "/work", crumb: "Tasks by state" },
+  { value: "ideas", label: "Ideas", to: "/work/ideas", crumb: "Ideas" },
+] as const;
+
+/** Work (prototypes/app/work.js): the Tasks by state on one board for every Project, and Ideas. */
 export function WorkPage(): ReactNode {
-  return null;
+  const ideas = useQuery(ideaQueries.list());
+  const matchRoute = useMatchRoute();
+  const navigate = useNavigate();
+  const [adding, setAdding] = useState(false);
+  const shown = matchRoute({ to: "/work/ideas" }) === false ? TABS[0] : TABS[1];
+  usePageHeading({ title: "Work", crumb: shown.crumb });
+  const newIdeas = ideas.data?.filter((idea) => idea.state === "new").length;
+  return (
+    <div className="work-page">
+      <div className="work-tabs">
+        <Tabs
+          tabs={TABS.map(({ value, label }) => ({
+            value,
+            label,
+            ...(value === "ideas" && newIdeas ? { count: newIdeas } : {}),
+          }))}
+          value={shown.value}
+          onChange={(value) => {
+            const tab = TABS.find((candidate) => candidate.value === value) ?? TABS[0];
+            void navigate({ to: tab.to });
+          }}
+        />
+        <Button
+          variant="secondary"
+          iconLeft={<Icon name="plus" size={14} />}
+          onClick={() => setAdding(true)}
+        >
+          Task
+        </Button>
+      </div>
+      <Outlet />
+      {adding && <NewTaskDialog onClose={() => setAdding(false)} />}
+    </div>
+  );
 }

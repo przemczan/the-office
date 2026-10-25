@@ -105,7 +105,7 @@ export type NewLink = z.infer<typeof newLinkSchema>;
  * the file itself as `application/octet-stream`.
  */
 export const attachmentUploadQuerySchema = z.object({
-  name: z.string().min(1),
+  fileName: z.string().min(1),
   mediaType: z.string(),
 });
 export type AttachmentUploadQuery = z.infer<typeof attachmentUploadQuerySchema>;

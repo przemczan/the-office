@@ -382,3 +382,118 @@ body,
   align-items: center;
   justify-content: space-between;
 }
+
+/* ---- a menu item that shows the current choice with a check */
+.menu-choice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* ---- where an item belongs: its Project's mark and name, or Office-wide */
+.project-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.project-chip svg {
+  color: var(--fg-3);
+}
+
+/* ---- Work: priority, Attachments and the Idea capture, used across surfaces */
+.priority-icon {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+}
+
+.priority-icon.priority-high {
+  color: var(--danger-fg);
+}
+
+.priority-icon.priority-low {
+  color: var(--fg-3);
+}
+
+.attachment-chips,
+.capture-idea-attachments {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.capture-idea-attachments {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 28px;
+  padding: 0 4px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-sunken);
+}
+
+.attachment-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 6px 0 0;
+  border: 0;
+  background: none;
+  font: var(--type-body-sm);
+  color: var(--fg-1);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.attachment-open:hover {
+  text-decoration: underline;
+}
+
+.attachment-open svg {
+  color: var(--fg-3);
+}
+
+.attachment-picker,
+.attachment-link-fields,
+.attachment-dialog,
+.capture-idea-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.attachment-picker {
+  align-self: stretch;
+}
+
+.attachment-file-input {
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.attachment-document {
+  max-height: 60vh;
+  margin: 0;
+  overflow: auto;
+  font: var(--type-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+/* A quiet line at the start of a dialog's actions. */
+.capture-idea-hint,
+.dialog-hint {
+  margin-right: auto;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}

@@ -7,6 +7,7 @@ import { EventStreamProvider, type EventInvalidations } from "./api/event-stream
 import { roleEventInvalidations } from "./api/people.ts";
 import { projectEventInvalidations } from "./api/projects.ts";
 import { skillEventInvalidations } from "./api/skills.ts";
+import { workEventInvalidations } from "./api/work.ts";
 import { router } from "./router.tsx";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { retry: shouldRetry } } });
@@ -17,6 +18,7 @@ const EVENT_INVALIDATIONS: EventInvalidations = {
   ...roleEventInvalidations,
   ...skillEventInvalidations,
   ...threadEventInvalidations,
+  ...workEventInvalidations,
 };
 
 export function App(): ReactNode {

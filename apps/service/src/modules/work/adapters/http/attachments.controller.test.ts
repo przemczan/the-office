@@ -52,7 +52,7 @@ async function upload(
   mediaType: string,
   content: string | Uint8Array,
 ): Promise<Response> {
-  const query = new URLSearchParams({ name, mediaType });
+  const query = new URLSearchParams({ fileName: name, mediaType });
   return fetch(`${work.url}/api${path}?${query}`, {
     method: "POST",
     headers: { "Content-Type": "application/octet-stream" },
@@ -131,7 +131,7 @@ describe("adding Attachments", () => {
     const json = await sendJson(
       work,
       "POST",
-      `/tasks/${task.id}/attachments/files?name=a.md&mediaType=text/markdown`,
+      `/tasks/${task.id}/attachments/files?fileName=a.md&mediaType=text/markdown`,
       {
         content: "# Plan",
       },

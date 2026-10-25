@@ -114,10 +114,10 @@ export class AttachmentsController {
 
   private async addFile(
     owner: AttachmentOwner,
-    { name, mediaType }: AttachmentUploadQuery,
+    { fileName, mediaType }: AttachmentUploadQuery,
     body: unknown,
   ): Promise<AttachmentResponse> {
-    const file = { name, mediaType, content: uploadedBytes(body) };
+    const file = { name: fileName, mediaType, content: uploadedBytes(body) };
     return toAttachmentResponse(await this.attachments.addFile(owner, file, THE_USER));
   }
 }

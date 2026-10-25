@@ -1,5 +1,7 @@
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
+import { projectSchema, type NewProject } from "@the-office/contracts";
+import { createTemporaryRepository } from "./temporary-repository.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
@@ -269,4 +271,44 @@ test("the Planner's page lists their Threads under Conversations", async ({ page
   await expect(chatWith(page, "Jan").getByText("You're welcome.")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(chatWith(page, "Jan")).toHaveCount(0);
+});
+
+test("a person's Work tab lists the Tasks whose Stages they work", async ({ page }) => {
+  const repository = await createTemporaryRepository();
+  try {
+    const newProject: NewProject = {
+      name: "People work",
+      path: repository.path,
+      baseBranch: "main",
+      mark: { label: "PW", colour: "violet" },
+      commands: {
+        install: "npm ci",
+        build: "npm run build",
+        lint: "npm run lint",
+        test: "npm test",
+      },
+      installInputs: [],
+      publishingMode: "push-and-pull-request",
+      defaultPipeline: "full",
+    };
+    const added = await page.request.post("/api/projects", { data: newProject });
+    const project = projectSchema.parse(await added.json());
+    const created = await page.request.post("/api/tasks", {
+      data: { title: "Fix the login redirect", projectId: project.id, priority: "normal" },
+    });
+    expect(created.status()).toBe(201);
+
+    await page.goto("/people/developer");
+    await page.getByRole("tab", { name: "Work" }).click();
+
+    await expect(page).toHaveURL(/\/people\/developer\/work$/);
+    const row = page.getByRole("row", { name: /Fix the login redirect/ });
+    await expect(row).toContainText("Implement · Review & fix");
+    await expect(row).toContainText("Backlog");
+    await page.getByRole("button", { name: /^Done/ }).click();
+    await expect(page.getByText("No Tasks here. Try another filter.")).toBeVisible();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-person-work.png") });
+  } finally {
+    await repository.remove();
+  }
 });
