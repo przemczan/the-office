@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { boolean, integer, jsonb, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
-import type { SessionSkill } from "../../domain/session-skills.js";
+import type { ProjectSkill, SessionSkill } from "../../domain/session-skills.js";
 import type { SkillSource, SkillState } from "../../domain/skill.js";
 
 /** Each skill in the library, at its current version. */
@@ -35,10 +35,7 @@ export const skillVersions = pgTable(
 export const sessionSkills = pgTable("session_skills", {
   sessionId: text("session_id").primaryKey(),
   skills: jsonb("skills").$type<SessionSkill[]>().notNull(),
-  projectSkills: text("project_skills")
-    .array()
-    .notNull()
-    .default(sql`'{}'`),
+  projectSkills: jsonb("project_skills").$type<ProjectSkill[]>().notNull(),
   projectSkillsOff: text("project_skills_off")
     .array()
     .notNull()

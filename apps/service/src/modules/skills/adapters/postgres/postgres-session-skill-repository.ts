@@ -50,7 +50,7 @@ function toRow(record: SessionSkillRecord): SessionSkillRow {
   return {
     sessionId: record.sessionId,
     skills: record.skills.map(({ name, version, filesHash }) => ({ name, version, filesHash })),
-    projectSkills: [...record.projectSkills],
+    projectSkills: record.projectSkills.map(({ key, listedAs }) => ({ key, listedAs })),
     projectSkillsOff: [...record.projectSkillsOff],
     preparedAt: record.preparedAt,
   };

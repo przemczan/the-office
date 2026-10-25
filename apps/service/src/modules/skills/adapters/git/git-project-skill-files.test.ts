@@ -29,10 +29,18 @@ describe("GitProjectSkillFiles", () => {
       projectSkillMd("release", "R."),
     );
 
-    expect((await files.paths(checkout.path)).toSorted()).toEqual([
+    expect((await files.files(checkout.path)).map((file) => file.path).toSorted()).toEqual([
       ".claude/commands/ship.md",
       ".claude/skills/deploy/SKILL.md",
       "apps/web/.claude/skills/release/SKILL.md",
+    ]);
+  });
+
+  it("reads each file's text", async () => {
+    await checkout.write(".claude/skills/deploy/SKILL.md", projectSkillMd("deploy", "Deploys."));
+
+    await expect(files.files(checkout.path)).resolves.toEqual([
+      { path: ".claude/skills/deploy/SKILL.md", text: projectSkillMd("deploy", "Deploys.") },
     ]);
   });
 
@@ -40,6 +48,6 @@ describe("GitProjectSkillFiles", () => {
     await checkout.write(".gitignore", "node_modules/\n");
     await checkout.write("node_modules/x/.claude/skills/x/SKILL.md", projectSkillMd("x", "X."));
 
-    await expect(files.paths(checkout.path)).resolves.toEqual([]);
+    await expect(files.files(checkout.path)).resolves.toEqual([]);
   });
 });

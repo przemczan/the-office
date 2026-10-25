@@ -2,6 +2,8 @@ import {
   query,
   type Options,
   type Query,
+  type SDKMessage,
+  type SDKSystemMessage,
   type SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import { Injectable } from "@nestjs/common";
@@ -9,18 +11,25 @@ import { homedir } from "node:os";
 import { OFFICE_ENV_FILE } from "../../../../platform/config/office-env-file.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
+import type { PathRules } from "../../../../platform/os/path-rules.js";
 import { OfficeRules } from "../../domain/office-rules.js";
-import { AgentEngine, type EngineCapabilities, type NewSession } from "../../ports/agent-engine.js";
+import {
+  AgentEngine,
+  SessionSkillsDiffer,
+  type EngineCapabilities,
+  type NewSession,
+} from "../../ports/agent-engine.js";
 import type { EngineSession, MessagePriority, UserMessage } from "../../ports/engine-session.js";
 import type { UsageWindows } from "../../domain/usage-windows.js";
 import type { SessionEvent } from "../../ports/session-events.js";
-import type { SessionOptions } from "../../ports/session-options.js";
+import type { SessionOptions, SessionSkills } from "../../ports/session-options.js";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import { EngineProcess } from "./engine-process.js";
 import { engineTaskFolder } from "./engine-task-folder.js";
 import { officeRulesHook } from "./office-rules-hook.js";
 import { sessionEvents, usageWindows } from "./sdk-events.js";
 import { sdkOptions, sessionEnvironment, type SdkSession } from "./sdk-options.js";
+import { initProblems, startCheckProblems } from "./start-check.js";
 import { ToolRefusals } from "./tool-refusals.js";
 
 /**
@@ -46,7 +55,7 @@ export class AgentSdkEngine extends AgentEngine {
 
   async start({ id, options, brief }: NewSession): Promise<EngineSession> {
     this.requireFor(options);
-    const session = this.open(id, false, options);
+    const session = await this.open(id, false, options);
     session.sendBrief(brief);
     return session;
   }
@@ -57,17 +66,39 @@ export class AgentSdkEngine extends AgentEngine {
     return this.open(sessionId, true, options);
   }
 
-  private open(id: string, resumes: boolean, options: SessionOptions): AgentSdkSession {
+  /** Refuses, before any message reaches it, a session without exactly its skills (spec §5.6). */
+  private async open(
+    id: string,
+    resumes: boolean,
+    options: SessionOptions,
+  ): Promise<AgentSdkSession> {
     const engineProcess = new EngineProcess(this.operatingSystem.processTrees);
-    return new AgentSdkSession(id, this.officeRules(id, options), engineProcess, (session) =>
+    const held: HeldTo = {
+      rules: this.officeRules(id, options),
+      skills: options.skills,
+      paths: this.operatingSystem.paths,
+    };
+    const session = new AgentSdkSession(id, held, engineProcess, (hooks) =>
       sdkOptions({
         id,
         resumes,
         options,
         agentShells: this.operatingSystem.agentShells,
-        ...session,
+        ...hooks,
       }),
     );
+    let problems: string[];
+    try {
+      problems = await session.startCheckProblems();
+    } catch (error) {
+      await session.end();
+      throw error;
+    }
+    if (problems.length > 0) {
+      await session.end();
+      throw new SessionSkillsDiffer(id, problems);
+    }
+    return session;
   }
 
   private officeRules(sessionId: string, options: SessionOptions): OfficeRules {
@@ -87,6 +118,13 @@ export class AgentSdkEngine extends AgentEngine {
   }
 }
 
+/** What a session is held to as it runs. */
+interface HeldTo {
+  readonly rules: OfficeRules;
+  readonly skills: SessionSkills | undefined;
+  readonly paths: PathRules;
+}
+
 class AgentSdkSession implements EngineSession {
   private readonly input = new AsyncChannel<SDKUserMessage>();
   private readonly reported = new AsyncChannel<SessionEvent>();
@@ -97,14 +135,14 @@ class AgentSdkSession implements EngineSession {
 
   constructor(
     readonly id: string,
-    rules: OfficeRules,
+    private readonly held: HeldTo,
     private readonly engineProcess: EngineProcess,
     options: (session: Pick<SdkSession, "preToolUse" | "spawnProcess">) => Options,
   ) {
     this.engine = query({
       prompt: this.input,
       options: options({
-        preToolUse: officeRulesHook(rules, this.refusals),
+        preToolUse: officeRulesHook(held.rules, this.refusals),
         spawnProcess: engineProcess.spawn,
       }),
     });
@@ -113,6 +151,10 @@ class AgentSdkSession implements EngineSession {
 
   get events(): AsyncIterable<SessionEvent> {
     return this.reported;
+  }
+
+  startCheckProblems(): Promise<string[]> {
+    return startCheckProblems(this.engine, this.held.skills, this.held.paths);
   }
 
   send(message: UserMessage, priority: MessagePriority): void {
@@ -158,6 +200,7 @@ class AgentSdkSession implements EngineSession {
   private async readMessages(): Promise<void> {
     try {
       for await (const message of this.engine) {
+        if (isInit(message) && (await this.refusedAtInit(message))) return;
         for (const event of this.refusals.withRefusals(message, sessionEvents(message))) {
           this.reported.push(event);
         }
@@ -172,6 +215,20 @@ class AgentSdkSession implements EngineSession {
     }
   }
 
+  /**
+   * Ends a session whose `init` disagrees with what the start check read, as its first turn
+   * begins.
+   */
+  private async refusedAtInit(init: SDKSystemMessage): Promise<boolean> {
+    const problems = await initProblems(init, this.held.skills, this.held.paths);
+    if (problems.length === 0) return false;
+    this.ending = true;
+    this.reported.fail(new SessionSkillsDiffer(this.id, problems));
+    this.input.close();
+    this.engine.close();
+    return true;
+  }
+
   /** Why the engine stopped running the session, with the end of what it wrote to its standard error. */
   private stopped(error: unknown): Error {
     const message = error instanceof Error ? error.message : String(error);
@@ -181,4 +238,8 @@ class AgentSdkSession implements EngineSession {
       cause: error,
     });
   }
+}
+
+function isInit(message: SDKMessage): message is SDKSystemMessage {
+  return message.type === "system" && message.subtype === "init";
 }

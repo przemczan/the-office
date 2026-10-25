@@ -8,9 +8,11 @@ export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
 export interface SessionSkills {
   /** The session's own plugin folder outside the worktree, which the file tools may read. */
   readonly folder: string;
-  /** The skills the session may list, and must list at its start, by the names it lists them by. */
+  /** The engine's allowlist: the names the engine matches skills by. */
   readonly names: readonly string[];
-  /** The engine's per-skill listing overrides: each Project skill turned off, by bare name. */
+  /** What the session must list at its start, no more and no less, by the names it lists them by. */
+  readonly expected: readonly string[];
+  /** The engine's per-skill listing overrides: each Project skill turned off. */
   readonly overrides: Readonly<Record<string, "off">>;
 }
 

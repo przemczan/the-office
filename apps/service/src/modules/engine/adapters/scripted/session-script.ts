@@ -9,8 +9,8 @@ import type { SessionEvent } from "../../ports/session-events.js";
  * interrupt, read the usage windows, end) and what the session reported (an event).
  */
 export type ScriptStep =
-  | { readonly step: "start"; readonly brief: UserMessage }
-  | { readonly step: "resume" }
+  | ({ readonly step: "start"; readonly brief: UserMessage } & SkillListing)
+  | ({ readonly step: "resume" } & SkillListing)
   | { readonly step: "send"; readonly message: UserMessage; readonly priority: MessagePriority }
   | { readonly step: "interrupt" }
   | { readonly step: "read-usage-windows"; readonly windows: UsageWindows | undefined }
@@ -18,6 +18,14 @@ export type ScriptStep =
   | { readonly step: "event"; readonly event: SessionEvent };
 
 export type CallerStep = Exclude<ScriptStep, { step: "event" }>;
+
+/**
+ * What the engine listed as the session opened, for a script that tests the start check; a
+ * script without it opens whatever the session's skills.
+ */
+interface SkillListing {
+  readonly listedSkills?: readonly string[];
+}
 
 /** What a caller does, as a step without what the session answered. */
 export type CallerRequest =
@@ -99,8 +107,12 @@ const sessionEvent = z.discriminatedUnion("kind", [
 ]) satisfies z.ZodType<SessionEvent, unknown>;
 
 const scriptStep = z.discriminatedUnion("step", [
-  z.object({ step: z.literal("start"), brief: userMessage }),
-  z.object({ step: z.literal("resume") }),
+  z.object({
+    step: z.literal("start"),
+    brief: userMessage,
+    listedSkills: z.array(z.string()).optional(),
+  }),
+  z.object({ step: z.literal("resume"), listedSkills: z.array(z.string()).optional() }),
   z.object({
     step: z.literal("send"),
     message: userMessage,

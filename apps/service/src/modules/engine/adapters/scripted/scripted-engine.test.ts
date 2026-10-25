@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { describeAgentEngineContract } from "../../ports/agent-engine.contract.js";
-import type { EngineCapabilities } from "../../ports/agent-engine.js";
+import { SessionSkillsDiffer, type EngineCapabilities } from "../../ports/agent-engine.js";
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { RecordingEngine } from "./recording-engine.js";
@@ -156,7 +156,41 @@ describe("ScriptedEngine", () => {
       }),
     ).rejects.toThrow("No script is left");
   });
+
+  describe("the start check", () => {
+    const skills = {
+      folder: join(tmpdir(), "office-session", "skills"),
+      names: ["office:tdd"],
+      expected: ["office:tdd"],
+      overrides: {},
+    };
+    const start = (engine: ScriptedEngine) =>
+      engine.start({
+        id: "s-1",
+        options: { ...options(), skills },
+        brief: { id: randomUUID(), text: "Begin." },
+      });
+
+    it("starts a session whose script lists exactly its skills", async () => {
+      const session = await start(new ScriptedEngine([listing(["office:tdd"])]));
+
+      await expect(session.end()).resolves.toBeUndefined();
+    });
+
+    it("refuses a session whose script lists other skills, with the difference", async () => {
+      await expect(
+        start(new ScriptedEngine([listing(["office:tdd", "office:grilling"])])),
+      ).rejects.toThrow(
+        new SessionSkillsDiffer("s-1", ["It lists office:grilling, which it shouldn't have."]),
+      );
+    });
+  });
 });
+
+/** A session that lists `listedSkills` as it opens, and ends. */
+function listing(listedSkills: string[]): SessionScript {
+  return [{ step: "start", brief: { id: "brief", text: "Begin." }, listedSkills }, { step: "end" }];
+}
 
 describe("the Test Project check's recording", () => {
   it("replays a session refused a git commit and an ~/.ssh read by the Office rules", async () => {

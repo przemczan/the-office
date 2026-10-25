@@ -12,7 +12,11 @@ import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { ScriptedEngine } from "../adapters/scripted/scripted-engine.js";
 import type { SessionScript } from "../adapters/scripted/session-script.js";
 import { EngineDown, UsageWindowsChanged } from "../domain/engine-events.js";
-import { CapabilityMissing, type EngineCapabilities } from "../ports/agent-engine.js";
+import {
+  CapabilityMissing,
+  SessionSkillsDiffer,
+  type EngineCapabilities,
+} from "../ports/agent-engine.js";
 import type { EngineSession } from "../ports/engine-session.js";
 import type { SessionEvent, TurnEndedEvent } from "../ports/session-events.js";
 import type { OfficeTool } from "../ports/office-tool.js";
@@ -42,7 +46,12 @@ const SETTINGS: SessionSettings = {
   environment: {},
   model: "claude-haiku-5-5",
   effort: "low",
-  skills: { folder: "/office/sessions/s/skills", names: ["office:review"], overrides: {} },
+  skills: {
+    folder: "/office/sessions/s/skills",
+    names: ["office:review"],
+    expected: ["office:review"],
+    overrides: {},
+  },
   profile: { edit: true, run: { kind: "anything" }, web: false },
   officeTools: ["note"],
   outputSchema: undefined,
@@ -213,6 +222,23 @@ describe("EngineSessions", () => {
     await expect(
       sessions.start({ id: "s-1", settings: SETTINGS, brief: message("Begin.") }),
     ).rejects.toBeInstanceOf(CapabilityMissing);
+    expect(published).toEqual([]);
+  });
+
+  it("refuses a session without exactly its skills without announcing the engine down", async () => {
+    const { sessions, published } = setUp([
+      [
+        {
+          step: "start",
+          brief: { id: "brief", text: "Begin." },
+          listedSkills: ["office:review", "lint"],
+        },
+      ],
+    ]);
+
+    await expect(
+      sessions.start({ id: "s-1", settings: SETTINGS, brief: message("Begin.") }),
+    ).rejects.toThrow(new SessionSkillsDiffer("s-1", ["It lists lint, which it shouldn't have."]));
     expect(published).toEqual([]);
   });
 

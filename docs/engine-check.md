@@ -24,8 +24,8 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 
 | Platform | Date | Result |
 |---|---|---|
-| Windows 11 (win32), the workstation | 2026-10-25 | 24 checks run and recorded; the slow `engine.decision-wait` recorded 2026-10-24 |
-| Ubuntu 24.04 x64 (linux), an LXC container signed in to Claude Code as root | 2026-10-25 | 23 checks run and recorded, and the slow `engine.decision-wait` (62 minutes) |
+| Windows 11 (win32), the workstation | 2026-10-25 | 27 checks run and recorded; the slow `engine.decision-wait` recorded 2026-10-24 |
+| Ubuntu 24.04 x64 (linux), an LXC container signed in to Claude Code as root | 2026-10-25 | 26 checks run and recorded, and the slow `engine.decision-wait` (62 minutes) |
 
 `permissions.powershell-twin` runs on Windows only. Results differ between platforms only where an entry says so: `skills.user-scope`, `engine.priority-now` and `engine.lean-options`.
 
@@ -58,6 +58,9 @@ Results that contradicted or went beyond the spec, and how the spec reads now. E
 | `engine.lean-options`, `permissions.file-tool-fence` (Linux) | §5.4 | The engine's default tool set | An explicit `tools` list, the same on both platforms: the Linux default has no Grep or Glob |
 | `permissions.powershell-twin` | §6 | A Bash deny rule alone silently turns PowerShell off | Twins stay, because a Bash rule does not reach PowerShell; turning it off happens only with the default tool set |
 | `skills.resume`, `skills.overrides-off` | §5.6 | Rebuilt on resume; `skillOverrides` per Project skill | Never a changed set on resume; overrides keyed by the bare name |
+| `skills.start-before-brief` | §5.6 | At start, `init` lists the plugin with no errors | `init` comes only with the first message; the check reads `reloadPlugins` and the listing before it, and an `init` that disagrees ends the session |
+| `skills.project-names` | §5.6 | Project skills keyed by the bare name | Keyed by a skill's folder or a command's path under `commands/`; expected at start by their listed names, at the repository's top only |
+| `skills.shell-execution` | §5.6 | Not covered | `disableSkillShellExecution` true: a skill's commands bypass the hook when they run |
 
 ## Skills
 
@@ -66,6 +69,24 @@ Results that contradicted or went beyond the spec, and how the spec reads now. E
 - **Run:** a session with skills `alpha` and `beta`, started without a model call (a `shouldQuery: false` message still yields `init` and the turn-start attachments).
 - **Observed:** `init.plugins` lists `office` at the session folder with no errors, and no other plugin; the listing the model gets holds exactly `office:alpha`, `office:beta`. `init.skills` also names `design` and `doctor`, outside the allowlist, though the listing stays clean.
 - **Meaning:** the start check of §5.6 works as written: compare `init.plugins` and the listing, not `init.skills`. A release that adds a built-in plugin shows here as another plugin, and its id joins the `enabledPlugins` list.
+
+### skills.start-before-brief
+
+- **Run:** a session with skill `alpha`; before any message, a plugin reload held on any cache impact and the context usage; then one turn, reading the transcript.
+- **Observed:** no `init` arrives before the first message. The reload lists `office` at the session folder with no errors and is not held; the listing is exactly `office:alpha`. The turn's transcript has one user message and one skill listing, and the turn reads the shared prefix from the cache. A `shouldQuery: false` message with no text, tried while writing this check, also yields `init` without a model call, but stays in the conversation as a `(no content)` user message.
+- **Meaning:** the start check runs before the brief (§5.6, amended): the reload for the plugin and its errors, the listing for the skill names. It leaves nothing in the conversation and costs no model call.
+
+### skills.project-names
+
+- **Run:** a Project with a skill whose folder `deploy-folder` holds a frontmatter `name: deploy-named`, a skill `lint`, a nested skill under `apps/web`, a command `ship.md` and a command `frontend/notes.md`; the listing before any message under `skills: 'all'`, under allowlists of listed and of folder names, and with `skillOverrides` keyed each way. No model call.
+- **Observed:** the renamed skill is listed as `deploy-named`, but the allowlist and `skillOverrides` match it by its folder, `deploy-folder`. The command in a subfolder is listed as `frontend:notes`, allowed by the bare `notes` (the suffix rule) and turned off only by `frontend:notes`. Root commands are listed at start like skills; the nested skill is not (as `skills.overrides-off` found).
+- **Meaning:** The Office keys a Project skill by its folder and a command by its path under `commands/` with `:` between folders, for the allowlist and the overrides alike, and expects at start the names the listing gives the ones at the repository's top: a skill's frontmatter name, a command's key.
+
+### skills.shell-execution
+
+- **Run:** a session skill whose text holds ``!`git --version` ``, invoked through the Skill tool, once with the Office's options and once with `disableSkillShellExecution` false.
+- **Observed:** with the Office's options the skill loads with `[shell command execution disabled by policy]` in place of the command, which never runs. With the setting off, the engine checks the command against the permission rules itself: under `permissionPrompts: 'none'` it is refused ("This command requires approval") and the Skill call fails. The `PreToolUse` hook sees neither.
+- **Meaning:** a skill's load-time commands bypass the Office rules hook, which §6 relies on for every command, so §5.6 turns them off; the Agent runs what a skill asks for through its tools.
 
 ### skills.allowlist-suffix
 
@@ -216,6 +237,7 @@ Seen while running the checks, recorded so a bump can be compared against them.
 - The transcript holds a `session_context` attachment with the signed-in user's e-mail address, under `settingSources: ['project']`.
 - The engine leaves an empty `memory/` folder in the transcript folder of each working directory when auto-memory is on.
 - `apiKeySource` is `none`; no memory files and no user hooks reach a session.
+- `engine.priority-now` differed once on Windows on 2026-10-25 (the running command was interrupted instead of finishing, in about half the usual time) and matched on the two runs after it. The Office does not use `now`.
 - On Linux, after a command moved to the background, the model read its output file under `/tmp/claude-0/…/tasks/`, outside the worktree, and the read fence let it: the engine allows reads of its own task output. Harmless, and one more engine-owned path past the fence. Task 06's hook fences reads itself and lets each session read that folder of its own, by its session id (agreed with the user on 2026-10-25); it is under `%TEMP%\claude\` on Windows.
 
 ## Not checked

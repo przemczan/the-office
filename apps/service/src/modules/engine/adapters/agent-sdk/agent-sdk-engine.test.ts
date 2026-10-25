@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -104,6 +104,40 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
     }
   }, 180_000);
 
+  it("starts a session that lists exactly its skills, and refuses one that wouldn't", async () => {
+    const folder = await mkdtemp(join(tmpdir(), "office-start-check-"));
+    try {
+      const skillsFolder = await aSessionPlugin(join(folder, "skills"), ["alpha"]);
+      const skills = { folder: skillsFolder, names: ["office:alpha"], overrides: {} };
+      const engine = liveEngine();
+
+      await expect(
+        engine.start({
+          id: randomUUID(),
+          options: {
+            ...options(folder),
+            skills: { ...skills, expected: ["office:alpha", "office:beta"] },
+          },
+          brief: message("Reply with the single word: ok"),
+        }),
+      ).rejects.toThrow(
+        expect.objectContaining({
+          name: "SessionSkillsDiffer",
+          problems: ["It doesn't list office:beta."],
+        }),
+      );
+      const session = await engine.start({
+        id: randomUUID(),
+        options: { ...options(folder), skills: { ...skills, expected: ["office:alpha"] } },
+        brief: message("Reply with the single word: ok"),
+      });
+      await turnEnded(session);
+      await session.end();
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  }, 180_000);
+
   it("lets a session read the output of its own background command", async () => {
     const folder = await mkdtemp(join(tmpdir(), "office-background-"));
     try {
@@ -173,6 +207,20 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
     }
   }, 180_000);
 });
+
+/** A session's plugin folder as the Skills module writes one, with a skill of each name. */
+async function aSessionPlugin(folder: string, names: readonly string[]): Promise<string> {
+  await mkdir(join(folder, ".claude-plugin"), { recursive: true });
+  await writeFile(join(folder, ".claude-plugin", "plugin.json"), '{"name":"office"}\n');
+  for (const name of names) {
+    await mkdir(join(folder, "skills", name), { recursive: true });
+    await writeFile(
+      join(folder, "skills", name, "SKILL.md"),
+      `---\nname: ${name}\ndescription: The ${name} skill.\n---\n\nReply with the word ${name}.\n`,
+    );
+  }
+  return folder;
+}
 
 function message(text: string) {
   return { id: randomUUID(), text };

@@ -84,7 +84,9 @@ describe("SessionSkills", () => {
       .finally(() => library.remove(style));
 
     expect(prepared.folder).toBe(sessionFolder(sessionId));
-    expect(prepared.names).toEqual([...[`office:${style}`, `office:${tdd}`].toSorted(), "deploy"]);
+    const officeNames = [`office:${style}`, `office:${tdd}`].toSorted();
+    expect(prepared.names).toEqual([...officeNames, "deploy", "ship"]);
+    expect(prepared.expected).toEqual([...officeNames, "deploy", "ship"].toSorted());
     expect(prepared.overrides).toEqual({});
     expect((await readdir(join(prepared.folder, "skills"))).toSorted()).toEqual(
       [style, tdd].toSorted(),
@@ -99,6 +101,7 @@ describe("SessionSkills", () => {
     });
 
     expect(prepared.names).toEqual([]);
+    expect(prepared.expected).toEqual([]);
     expect(prepared.overrides).toEqual({ deploy: "off", ship: "off" });
   });
 

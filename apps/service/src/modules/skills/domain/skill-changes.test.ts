@@ -19,6 +19,18 @@ import {
 import { SkillRefused } from "./skill-refused.js";
 
 const at = new Date("2026-10-25T10:00:00.000Z");
+
+/** An event of `type` with `fields`, whenever it occurred. */
+function anEvent<Event extends object>(
+  type: new (...args: never[]) => Event,
+  fields: Partial<Event>,
+): Event {
+  return Object.assign(Object.create(type.prototype) as Event, {
+    ...fields,
+    occurredAt: expect.any(Date),
+  });
+}
+
 const otherHash = "b".repeat(64);
 
 describe("addSkill", () => {
@@ -87,7 +99,7 @@ describe("turnOn", () => {
 
     expect(turnOn(skill)).toEqual({
       skill: { ...skill, state: "on" },
-      event: new SkillTurnedOn(skill.name, 3),
+      event: anEvent(SkillTurnedOn, { skillName: skill.name, version: 3 }),
     });
   });
 
@@ -102,7 +114,7 @@ describe("turnOff", () => {
 
     expect(turnOff(skill)).toEqual({
       skill: { ...skill, state: "off" },
-      event: new SkillTurnedOff(skill.name),
+      event: anEvent(SkillTurnedOff, { skillName: skill.name }),
     });
   });
 
@@ -117,7 +129,7 @@ describe("changeEveryone", () => {
 
     expect(changeEveryone(skill, true)).toEqual({
       skill: { ...skill, everyone: true },
-      event: new SkillEveryoneChanged(skill.name, true),
+      event: anEvent(SkillEveryoneChanged, { skillName: skill.name, everyone: true }),
     });
   });
 
@@ -128,6 +140,6 @@ describe("changeEveryone", () => {
 
 describe("removeSkill", () => {
   it("announces the removal", () => {
-    expect(removeSkill(aSkill())).toEqual(new SkillRemoved("release-notes"));
+    expect(removeSkill(aSkill())).toEqual(anEvent(SkillRemoved, { skillName: "release-notes" }));
   });
 });

@@ -902,6 +902,22 @@
       }
     }
   },
+  "skills.project-names": {
+    "win32": {
+      "listedWithAll": ["deploy-named", "frontend:notes", "lint", "ship"],
+      "listedUnderBareNames": ["frontend:notes", "lint", "ship"],
+      "listedUnderFolderNames": ["deploy-named"],
+      "listedWithFolderNamesOff": ["frontend:notes", "lint", "ship"],
+      "listedWithListedNamesOff": ["deploy-named", "lint", "ship"]
+    },
+    "linux": {
+      "listedWithAll": ["deploy-named", "frontend:notes", "lint", "ship"],
+      "listedUnderBareNames": ["frontend:notes", "lint", "ship"],
+      "listedUnderFolderNames": ["deploy-named"],
+      "listedWithFolderNamesOff": ["frontend:notes", "lint", "ship"],
+      "listedWithListedNamesOff": ["deploy-named", "lint", "ship"]
+    }
+  },
   "skills.resume": {
     "win32": {
       "listedAtStart": ["office:alpha", "office:beta"],
@@ -912,6 +928,62 @@
       "listedAtStart": ["office:alpha", "office:beta"],
       "listedAfterResume": ["office:beta", "office:gamma"],
       "listingsAttachedForModel": [["office:alpha", "office:beta"], ["office:gamma"]]
+    }
+  },
+  "skills.shell-execution": {
+    "win32": {
+      "officeOptions": {
+        "skillInvocation": "allowed",
+        "commandRan": false,
+        "placeholderSeen": true,
+        "hookSawCommand": false
+      },
+      "settingOff": {
+        "skillInvocation": "failed",
+        "commandRan": false,
+        "placeholderSeen": false,
+        "hookSawCommand": false
+      }
+    },
+    "linux": {
+      "officeOptions": {
+        "skillInvocation": "allowed",
+        "commandRan": false,
+        "placeholderSeen": true,
+        "hookSawCommand": false
+      },
+      "settingOff": {
+        "skillInvocation": "failed",
+        "commandRan": false,
+        "placeholderSeen": false,
+        "hookSawCommand": false
+      }
+    }
+  },
+  "skills.start-before-brief": {
+    "win32": {
+      "initBeforeAnyMessage": false,
+      "reloadPlugins": ["office"],
+      "reloadSessionPluginAtItsFolder": true,
+      "reloadErrorCount": 0,
+      "reloadHeld": false,
+      "listedBeforeAnyMessage": ["office:alpha"],
+      "initPlugins": ["office"],
+      "initPluginErrors": [],
+      "userEntries": 1,
+      "skillListings": [["office:alpha"]]
+    },
+    "linux": {
+      "initBeforeAnyMessage": false,
+      "reloadPlugins": ["office"],
+      "reloadSessionPluginAtItsFolder": true,
+      "reloadErrorCount": 0,
+      "reloadHeld": false,
+      "listedBeforeAnyMessage": ["office:alpha"],
+      "initPlugins": ["office"],
+      "initPluginErrors": [],
+      "userEntries": 1,
+      "skillListings": [["office:alpha"]]
     }
   },
   "skills.start-check": {

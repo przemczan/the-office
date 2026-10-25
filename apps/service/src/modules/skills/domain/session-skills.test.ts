@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 import { aSkill } from "./skill.fixtures.js";
 import {
   allowedSkillNames,
+  expectedSkillNames,
   librarySkillsFor,
   projectSkillsFrom,
   sessionSkillRecord,
   skillOverridesOf,
   suffixMatches,
+  type ProjectSkill,
   type SessionSkill,
 } from "./session-skills.js";
 
@@ -30,36 +32,69 @@ describe("librarySkillsFor", () => {
   });
 });
 
+const file = (path: string, text = "") => ({ path, text });
+const deploy: ProjectSkill = { key: "deploy", listedAs: "deploy" };
+const reviewSkill: ProjectSkill = { key: "review", listedAs: "review" };
+const ship: ProjectSkill = { key: "ship", listedAs: "ship" };
+const release: ProjectSkill = { key: "release", listedAs: undefined };
+
 describe("projectSkillsFrom", () => {
-  it("finds skills and commands at any depth, by their bare names", () => {
+  it("names skills and commands as the engine lists them, nested ones only later", () => {
     expect(
       projectSkillsFrom([
-        ".claude/skills/deploy/SKILL.md",
-        "apps/web/.claude/skills/release/SKILL.md",
-        "apps/api/.claude/skills/deploy/SKILL.md",
-        ".claude/skills/deploy/scripts/run.md",
-        ".claude/commands/ship.md",
-        ".claude/commands/frontend/notes.md",
-        "docs/.claude/notes.md",
+        file(".claude/skills/deploy/SKILL.md", "---\nname: deploy\n---\n"),
+        file(".claude/skills/deploy-folder/SKILL.md", "---\nname: deploy-named\n---\n"),
+        file(".claude/skills/plain/SKILL.md", "No frontmatter."),
+        file("apps/web/.claude/skills/release/SKILL.md"),
+        file(".claude/skills/deploy/scripts/run.md"),
+        file(".claude/commands/ship.md"),
+        file(".claude/commands/frontend/notes.md"),
+        file("apps/web/.claude/commands/migrate.md"),
+        file("docs/.claude/notes.md"),
       ]),
-    ).toEqual({ skills: ["deploy", "release"], commands: ["notes", "ship"] });
+    ).toEqual([
+      { key: "deploy", listedAs: "deploy" },
+      { key: "deploy-folder", listedAs: "deploy-named" },
+      { key: "frontend:notes", listedAs: "frontend:notes" },
+      { key: "migrate", listedAs: undefined },
+      { key: "plain", listedAs: "plain" },
+      release,
+      ship,
+    ]);
+  });
+
+  it("takes a skill at the top over a nested one of the same name", () => {
+    expect(
+      projectSkillsFrom([
+        file("apps/web/.claude/skills/deploy/SKILL.md"),
+        file(".claude/skills/deploy/SKILL.md"),
+        file("apps/api/.claude/skills/deploy/SKILL.md"),
+      ]),
+    ).toEqual([{ key: "deploy", listedAs: "deploy" }]);
   });
 });
 
 describe("sessionSkillRecord", () => {
-  const projectSkills = { skills: ["deploy", "review"], commands: ["ship"] };
+  const projectSkills = [deploy, release, reviewSkill, ship];
 
-  it("allows the Project's skills when the Project uses them", () => {
+  it("allows the Project's skills when the Project uses them, expecting those at the top", () => {
     const record = sessionSkillRecord("s-1", [review], projectSkills, true, preparedAt);
 
     expect(record).toEqual({
       sessionId: "s-1",
       skills: [review],
-      projectSkills: ["deploy", "review"],
+      projectSkills,
       projectSkillsOff: [],
       preparedAt,
     });
-    expect(allowedSkillNames(record)).toEqual(["office:review", "deploy", "review"]);
+    expect(allowedSkillNames(record)).toEqual([
+      "office:review",
+      "deploy",
+      "release",
+      "review",
+      "ship",
+    ]);
+    expect(expectedSkillNames(record)).toEqual(["deploy", "office:review", "review", "ship"]);
     expect(skillOverridesOf(record)).toEqual({});
   });
 
@@ -67,11 +102,17 @@ describe("sessionSkillRecord", () => {
     const record = sessionSkillRecord("s-1", [review], projectSkills, false, preparedAt);
 
     expect(allowedSkillNames(record)).toEqual(["office:review"]);
-    expect(skillOverridesOf(record)).toEqual({ deploy: "off", review: "off", ship: "off" });
+    expect(expectedSkillNames(record)).toEqual(["office:review"]);
+    expect(skillOverridesOf(record)).toEqual({
+      deploy: "off",
+      release: "off",
+      review: "off",
+      ship: "off",
+    });
   });
 
   it("has no Project skills for a session outside a Project", () => {
-    const record = sessionSkillRecord("s-1", [review], undefined, true, preparedAt);
+    const record = sessionSkillRecord("s-1", [review], [], true, preparedAt);
 
     expect(allowedSkillNames(record)).toEqual(["office:review"]);
     expect(skillOverridesOf(record)).toEqual({});
@@ -80,20 +121,16 @@ describe("sessionSkillRecord", () => {
 
 describe("suffixMatches", () => {
   it("reports an allowed Project skill named as one of the session's library skills", () => {
-    const projectSkills = { skills: ["deploy", "review"], commands: [] };
-
     expect(
-      suffixMatches(sessionSkillRecord("s-1", [review], projectSkills, true, preparedAt)),
+      suffixMatches(sessionSkillRecord("s-1", [review], [deploy, reviewSkill], true, preparedAt)),
     ).toEqual([
       "The Project's skill review also allows the library's office:review, which this session has too.",
     ]);
   });
 
   it("reports nothing when the Project's skills are off", () => {
-    const projectSkills = { skills: ["review"], commands: [] };
-
     expect(
-      suffixMatches(sessionSkillRecord("s-1", [review], projectSkills, false, preparedAt)),
+      suffixMatches(sessionSkillRecord("s-1", [review], [reviewSkill], false, preparedAt)),
     ).toEqual([]);
   });
 });

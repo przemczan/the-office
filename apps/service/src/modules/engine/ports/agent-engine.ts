@@ -27,6 +27,20 @@ export class CapabilityMissing extends Error {
   }
 }
 
+/**
+ * A session that would not have exactly its skills (spec §5.6): refused before its first turn,
+ * or ended when the engine says so only as the turn begins.
+ */
+export class SessionSkillsDiffer extends Error {
+  constructor(
+    readonly sessionId: string,
+    readonly problems: readonly string[],
+  ) {
+    super(`Session ${sessionId} doesn't have exactly its skills. ${problems.join(" ")}`);
+    this.name = "SessionSkillsDiffer";
+  }
+}
+
 export interface NewSession {
   /** Chosen by the caller, so what is named after the session, such as its skills folder, exists before it starts. */
   readonly id: string;
@@ -42,12 +56,16 @@ export interface NewSession {
 export abstract class AgentEngine {
   abstract readonly capabilities: EngineCapabilities;
 
-  /** Office tools need the `officeTools` capability, an output schema the `outputSchema` one. */
+  /**
+   * Office tools need the `officeTools` capability, an output schema the `outputSchema` one.
+   * Throws `SessionSkillsDiffer`, before the brief starts a turn, when the session would not list
+   * exactly its skills.
+   */
   abstract start(session: NewSession): Promise<EngineSession>;
 
   /**
    * Continues an ended session with its conversation, under the options it started with. It waits
-   * for a message. Needs the `resume` capability.
+   * for a message. Needs the `resume` capability; throws `SessionSkillsDiffer` as `start` does.
    */
   abstract resume(sessionId: string, options: SessionOptions): Promise<EngineSession>;
 

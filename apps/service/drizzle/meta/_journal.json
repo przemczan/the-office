@@ -43,6 +43,13 @@
       "when": 1792941118510,
       "tag": "0005_session_skills",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792942478153,
+      "tag": "0006_project_skill_names",
+      "breakpoints": true
     }
   ]
 }

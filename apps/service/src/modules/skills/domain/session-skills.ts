@@ -1,4 +1,5 @@
 import type { Skill } from "./skill.js";
+import { frontmatterText, readSkillMd } from "./skill-md.js";
 
 /** The plugin a session's library skills are in, so the engine lists each as `office:<name>`. */
 export const SESSION_PLUGIN = "office";
@@ -11,29 +12,61 @@ export interface SessionSkill {
   readonly filesHash: string;
 }
 
-/** The repository's own skills, as found in a Task's worktree (spec §2.6). */
-export interface ProjectSkills {
-  /** The bare name of each skill under a `.claude/skills` folder anywhere in the repository. */
-  readonly skills: readonly string[];
-  /** The bare name of each `.claude/commands` file, which the engine lists among skills too. */
-  readonly commands: readonly string[];
+/**
+ * A skill or command of the repository's own (spec §2.6), named as Claude Code 2.1.310 names
+ * it (docs/engine-check.md, `skills.project-names` and `skills.overrides-off`).
+ */
+export interface ProjectSkill {
+  /**
+   * What the allowlist and `skillOverrides` match it by: a skill's folder name, whatever its
+   * frontmatter says; a command's path under `commands/`, with `:` between folders.
+   */
+  readonly key: string;
+  /**
+   * What the listing names it by at a session's start: a skill's frontmatter name, or else its
+   * folder's; a command's key. Undefined below the repository's top, where the engine lists it
+   * only once a file below it is read.
+   */
+  readonly listedAs: string | undefined;
 }
 
-/**
- * The Project's skills, from the paths of the repository's files with `/` between folders:
- * `<any folder>/.claude/skills/<name>/SKILL.md` and `<any folder>/.claude/commands/**\/<name>.md`.
- * The engine lists nested ones by their bare name too (docs/engine-check.md, `skills.overrides-off`).
- */
-export function projectSkillsFrom(paths: readonly string[]): ProjectSkills {
-  const skills: string[] = [];
-  const commands: string[] = [];
-  for (const path of paths) {
-    const skill = /(?:^|\/)\.claude\/skills\/([^/]+)\/SKILL\.md$/.exec(path);
-    if (skill?.[1]) skills.push(skill[1]);
-    const command = /(?:^|\/)\.claude\/commands\/(?:[^/]+\/)*([^/]+)\.md$/.exec(path);
-    if (command?.[1]) commands.push(command[1]);
+/** A file of the checkout that may be a Project skill or command. */
+export interface ProjectSkillFile {
+  /** Inside the checkout, with `/` between folders. */
+  readonly path: string;
+  readonly text: string;
+}
+
+const SKILL_MD_PATH = /^(?:(.+)\/)?\.claude\/skills\/([^/]+)\/SKILL\.md$/;
+const COMMAND_PATH = /^(?:(.+)\/)?\.claude\/commands\/(.+)\.md$/;
+
+/** The Project's skills and commands, each once by its key, in key order. */
+export function projectSkillsFrom(files: readonly ProjectSkillFile[]): ProjectSkill[] {
+  const found = new Map<string, ProjectSkill>();
+  for (const file of files) {
+    const skill = projectSkillOf(file);
+    const earlier = found.get(skill?.key ?? "");
+    // One listed at the top wins over a nested one of the same key, which lists only later.
+    if (skill && (!earlier || earlier.listedAs === undefined)) found.set(skill.key, skill);
   }
-  return { skills: sortedUnique(skills), commands: sortedUnique(commands) };
+  return [...found.values()].toSorted((first, second) => (first.key < second.key ? -1 : 1));
+}
+
+function projectSkillOf({ path, text }: ProjectSkillFile): ProjectSkill | undefined {
+  const skill = SKILL_MD_PATH.exec(path);
+  if (skill?.[2]) {
+    const folder = skill[2];
+    if (skill[1] !== undefined) return { key: folder, listedAs: undefined };
+    const skillMd = readSkillMd(text);
+    const named = typeof skillMd === "string" ? undefined : frontmatterText(skillMd, "name");
+    return { key: folder, listedAs: named?.trim() || folder };
+  }
+  const command = COMMAND_PATH.exec(path);
+  if (command?.[2]) {
+    const key = command[2].split("/").join(":");
+    return { key, listedAs: command[1] === undefined ? key : undefined };
+  }
+  return undefined;
 }
 
 /**
@@ -43,9 +76,9 @@ export function projectSkillsFrom(paths: readonly string[]): ProjectSkills {
 export interface SessionSkillRecord {
   readonly sessionId: string;
   readonly skills: readonly SessionSkill[];
-  /** The Project's skills it may use, when the Project allows them. */
-  readonly projectSkills: readonly string[];
-  /** The Project's skills and commands turned off, when the Project doesn't allow them. */
+  /** The Project's skills and commands it may use, when the Project allows them. */
+  readonly projectSkills: readonly ProjectSkill[];
+  /** The keys of the Project's skills and commands, when the Project doesn't allow them. */
   readonly projectSkillsOff: readonly string[];
   readonly preparedAt: Date;
 }
@@ -69,29 +102,37 @@ export function librarySkillsFor(
 export function sessionSkillRecord(
   sessionId: string,
   skills: readonly SessionSkill[],
-  projectSkills: ProjectSkills | undefined,
+  projectSkills: readonly ProjectSkill[],
   useProjectSkills: boolean,
   preparedAt: Date,
 ): SessionSkillRecord {
-  const found = projectSkills ?? { skills: [], commands: [] };
   return {
     sessionId,
     skills,
-    projectSkills: useProjectSkills ? sortedUnique(found.skills) : [],
-    projectSkillsOff: useProjectSkills ? [] : sortedUnique([...found.skills, ...found.commands]),
+    projectSkills: useProjectSkills ? projectSkills : [],
+    projectSkillsOff: useProjectSkills ? [] : projectSkills.map((skill) => skill.key),
     preparedAt,
   };
 }
 
-/**
- * The names the engine's allowlist gets, which are also what the session must list at its start:
- * the library's by full name, the Project's by the bare name the engine lists them by.
- */
+function libraryNames(record: SessionSkillRecord): string[] {
+  return record.skills.map((skill) => `${SESSION_PLUGIN}:${skill.name}`);
+}
+
+/** The engine's allowlist: the library's skills by full name, the Project's by their keys. */
 export function allowedSkillNames(record: SessionSkillRecord): string[] {
+  return [...libraryNames(record), ...record.projectSkills.map((skill) => skill.key)];
+}
+
+/**
+ * What the session must list at its start, no more and no less: the library's skills and the
+ * Project's at the repository's top, by the names the listing gives them.
+ */
+export function expectedSkillNames(record: SessionSkillRecord): string[] {
   return [
-    ...record.skills.map((skill) => `${SESSION_PLUGIN}:${skill.name}`),
-    ...record.projectSkills,
-  ];
+    ...libraryNames(record),
+    ...record.projectSkills.flatMap((skill) => skill.listedAs ?? []),
+  ].toSorted();
 }
 
 /**
@@ -101,18 +142,14 @@ export function allowedSkillNames(record: SessionSkillRecord): string[] {
 export function suffixMatches(record: SessionSkillRecord): string[] {
   const library = new Set(record.skills.map((skill) => skill.name));
   return record.projectSkills
-    .filter((name) => library.has(name))
+    .filter((skill) => library.has(skill.key))
     .map(
-      (name) =>
-        `The Project's skill ${name} also allows the library's ${SESSION_PLUGIN}:${name}, which this session has too.`,
+      ({ key }) =>
+        `The Project's skill ${key} also allows the library's ${SESSION_PLUGIN}:${key}, which this session has too.`,
     );
 }
 
-/** The engine's `skillOverrides` setting for the session: each Project skill off, by bare name. */
+/** The engine's `skillOverrides` setting for the session: each Project skill off, by its key. */
 export function skillOverridesOf(record: SessionSkillRecord): Record<string, "off"> {
-  return Object.fromEntries(record.projectSkillsOff.map((name) => [name, "off"]));
-}
-
-function sortedUnique(names: readonly string[]): string[] {
-  return [...new Set(names)].toSorted();
+  return Object.fromEntries(record.projectSkillsOff.map((key) => [key, "off"]));
 }

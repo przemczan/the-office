@@ -1,6 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import {
   allowedSkillNames,
+  expectedSkillNames,
   librarySkillsFor,
   projectSkillsFrom,
   sessionSkillRecord,
@@ -20,8 +21,10 @@ import { SkillRepository } from "../ports/skill-repository.js";
 export interface PreparedSkills {
   /** The session's own plugin folder, for `plugins` and `permissions.additionalDirectories`. */
   readonly folder: string;
-  /** The engine's allowlist, which is also exactly what the session must list. */
+  /** The engine's allowlist. */
   readonly names: readonly string[];
+  /** What the session must list at its start, no more and no less. */
+  readonly expected: readonly string[];
   /** The engine's `skillOverrides` setting. */
   readonly overrides: Readonly<Record<string, "off">>;
   /** The library skills it got, at their versions. */
@@ -63,8 +66,9 @@ export class SessionSkills {
   /** For a new session; its set is kept for each resume. */
   async prepare({ sessionId, roleSkills, project }: SessionSkillRequest): Promise<PreparedSkills> {
     const skills = librarySkillsFor(await this.skills.list(), roleSkills);
-    const projectSkills =
-      project && projectSkillsFrom(await this.projectFiles.paths(project.folder));
+    const projectSkills = project
+      ? projectSkillsFrom(await this.projectFiles.files(project.folder))
+      : [];
     const record = sessionSkillRecord(
       sessionId,
       skills,
@@ -132,6 +136,7 @@ export class SessionSkills {
     return {
       folder,
       names: allowedSkillNames(record),
+      expected: expectedSkillNames(record),
       overrides: skillOverridesOf(record),
       versions: record.skills,
       suffixMatches: suffixMatches(record),

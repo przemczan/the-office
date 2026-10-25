@@ -1,7 +1,9 @@
 import { homedir } from "node:os";
+import { listingProblems } from "../../domain/skill-listing.js";
 import {
   AgentEngine,
   CapabilityMissing,
+  SessionSkillsDiffer,
   type EngineCapabilities,
   type NewSession,
 } from "../../ports/agent-engine.js";
@@ -72,11 +74,22 @@ export class ScriptedEngine extends AgentEngine {
     if (script === undefined) {
       throw new ScriptMismatch(`No script is left for session ${id} to ${opening.step}.`);
     }
+    refuseWithoutItsSkills(id, options, script);
     const session = new ScriptedSession(id, options, script, this.capabilities);
     this.sessions.push(session);
     session.open(opening);
     return session;
   }
+}
+
+/** The start check of spec §5.6, against what the script says the engine listed. */
+function refuseWithoutItsSkills(id: string, options: SessionOptions, script: SessionScript): void {
+  const opening = script[0];
+  const listed =
+    opening?.step === "start" || opening?.step === "resume" ? opening.listedSkills : undefined;
+  if (listed === undefined) return;
+  const problems = listingProblems(options.skills?.expected ?? [], listed);
+  if (problems.length > 0) throw new SessionSkillsDiffer(id, problems);
 }
 
 /** A step the replay waits at until the caller takes it. */
