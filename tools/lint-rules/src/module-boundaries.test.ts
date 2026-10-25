@@ -122,6 +122,27 @@ describe("inside a module", () => {
   });
 });
 
+describe("the top-level files", () => {
+  test("neither the modules nor the platform import them", () => {
+    for (const importer of [
+      "src/modules/work/application/a.ts",
+      "src/modules/work/work.module.ts",
+      "src/platform/health/health.module.ts",
+    ]) {
+      assert.match(
+        violation(importer, "src/app.module.js") ?? "",
+        /src\/app\.module\.ts is above the modules and the platform/,
+        importer,
+      );
+    }
+  });
+
+  test("they import each other, and tests may import them", () => {
+    assert.equal(violation("src/main.ts", "src/office.js"), undefined);
+    assert.equal(violation("src/modules/work/adapters/a.test.ts", "src/app.module.js"), undefined);
+  });
+});
+
 describe("the platform from a module", () => {
   test("domain and ports use only the domain event base class", () => {
     for (const layer of ["domain", "ports"]) {

@@ -28,8 +28,13 @@ export function moduleBoundaryViolation({
       ? undefined
       : `Another module is reached only through its public entry, modules/${target.module}/${MODULE_ENTRY}.ts. ${TEMPLATE}`;
   }
-  // Tests may wire a module's layers together; the module boundary above still holds for them.
-  if (importer.kind !== "layer" || importerIsTest) return undefined;
+  // Tests may wire a module's layers together and boot the app; the module boundary above still
+  // holds for them.
+  if (importerIsTest) return undefined;
+  if (target.kind === "top level" && (isInModule(importer) || importer.kind === "platform")) {
+    return `src/${target.file}.ts is above the modules and the platform; neither imports it. ${TEMPLATE}`;
+  }
+  if (importer.kind !== "layer") return undefined;
   return target.kind === "platform"
     ? platformViolation(importer.layer, target.file)
     : sameModuleViolation(importer.layer, target);

@@ -10,7 +10,7 @@ The Office's one Node service ([spec §5.1](../../docs/spec.md#51-shape)): NestJ
 
 ## The module template
 
-A module is a bounded context of [spec §5.3](../../docs/spec.md#53-modules), named by its [glossary](../../GLOSSARY.md) term: `work`, `people`, `pipelines`, `conversations`, `projects`, `engine`, `skills`, `notifications`.
+A module is a bounded context of [spec §5.3](../../docs/spec.md#53-modules), named as there: `work`, `people`, `pipelines`, `conversations`, `projects`, `engine`, `skills`, `notifications`. Telemetry, the spec's last one, is shared plumbing and lives in `src/platform/telemetry/`.
 
 ```
 src/modules/work/
@@ -35,8 +35,10 @@ src/modules/work/
 - **Another module is reached only through its `index.ts`**, from other modules and the composition root alike. Modules talk through application services and domain events, and none reads another's tables.
 - **The platform is below the modules** and never imports one. The domain and ports layers take only `src/platform/events/domain-event.ts` from it; application and adapters use all of it.
 - **Only adapters import `@the-office/contracts`.** The contracts are the wire format; the inner layers never see it.
-- **A module holds only its four layers and its root files.** Any other folder is refused.
-- **Tests (`*.test.ts`) may wire a module's layers together.** The module boundary still holds for them.
+- **A module holds only its four layers and its root files.** A layer importing from any other folder in the module is refused.
+- **The top-level files of `src/` sit above everything.** Neither a module nor the platform imports them.
+- **Tests (`*.test.ts`) may wire a module's layers together and boot the app.** The module boundary still holds for them.
+- **No import cycles** (oxlint's `import/no-cycle`). Two modules that need each other would otherwise each import the other's `index.ts`, and one Nest module would be `undefined` in the other's `@Module({ imports })` at start. One module calls the other's application service, and the other reacts to the first's domain events instead.
 - **Workspaces stay apart:** apps and tools are never imported, and a package under `packages/` is imported by its name, never by a relative path. This keeps `apps/web` off the service.
 
 oxlint's JS plugins are alpha and not under semver. oxlint is pinned, and the plugin's tests run in `verify`, so an oxlint bump that breaks it fails there.

@@ -14,7 +14,8 @@
   "jsPlugins": ["./tools/lint-rules/src/plugin.ts"],
   "rules": {
     "office/workspace-boundaries": "error",
-    "office/module-boundaries": "error"
+    "office/module-boundaries": "error",
+    "import/no-cycle": "error"
   },
   "overrides": [
     {

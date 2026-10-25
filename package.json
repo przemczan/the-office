@@ -15,7 +15,7 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,mjs,cjs,json,css,yaml,yml}\"",
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,json,css,yaml,yml}\"",
     "test": "vitest run && npm run test:tools",
-    "test:tools": "npm run test --workspace tools",
+    "test:tools": "npm run test --workspace tools --if-present",
     "engine-check": "npm run check --workspace @the-office/engine-check --"
   },
   "engines": {

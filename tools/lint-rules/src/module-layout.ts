@@ -10,6 +10,8 @@ export type Place =
   | { readonly kind: "module root"; readonly module: string; readonly file: string }
   /** A folder in a module that is none of its layers. */
   | { readonly kind: "module folder"; readonly module: string; readonly folder: string }
+  /** A file directly in `src/`, such as the composition root, without the extension. */
+  | { readonly kind: "top level"; readonly file: string }
   /** Relative to `src/platform/`, without the extension, e.g. `events/domain-event`. */
   | { readonly kind: "platform"; readonly file: string }
   | { readonly kind: "elsewhere" };
@@ -23,9 +25,10 @@ export const MODULE_ENTRY = "index";
  */
 export function placeOf(workspacePath: string): Place {
   const [source, area, ...rest] = workspacePath.split("/");
-  if (source !== "src") return { kind: "elsewhere" };
+  if (source !== "src" || area === undefined) return { kind: "elsewhere" };
+  if (rest.length === 0) return { kind: "top level", file: withoutExtension(area) };
   if (area === "platform") return { kind: "platform", file: withoutExtension(rest.join("/")) };
-  if (area !== "modules" || rest.length === 0) return { kind: "elsewhere" };
+  if (area !== "modules") return { kind: "elsewhere" };
   const [module, folderOrFile, ...inside] = rest as [string, ...string[]];
   if (folderOrFile === undefined) return { kind: "module root", module, file: MODULE_ENTRY };
   if (inside.length === 0) {
