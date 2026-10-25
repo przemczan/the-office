@@ -7,8 +7,9 @@ export interface PersonTask {
 }
 
 /**
- * The Tasks whose Pipeline has a Stage the person's Role works, each with those Stages' names
- * (task 10). Threads, ownership and consultations add theirs in later tasks.
+ * The Tasks the person created, as from a chat, and those whose Pipeline has a Stage their Role
+ * works, with those Stages' names (task 10). Threads, ownership and consultations add theirs in
+ * later tasks.
  */
 export function personTasks(
   roleKey: string,
@@ -16,10 +17,14 @@ export function personTasks(
   pipelines: readonly Pipeline[],
 ): PersonTask[] {
   return tasks.flatMap((task) => {
-    const stages = pipelines
-      .find(({ id }) => id === task.pipelineId)
-      ?.stages.filter((stage) => stage.kind === "agent" && stage.role === roleKey);
-    return stages?.length ? [{ task, part: stages.map(({ name }) => name).join(" · ") }] : [];
+    const created = task.createdBy.kind === "person" && task.createdBy.roleKey === roleKey;
+    const stages =
+      pipelines
+        .find(({ id }) => id === task.pipelineId)
+        ?.stages.filter((stage) => stage.kind === "agent" && stage.role === roleKey)
+        .map(({ name }) => name) ?? [];
+    const parts = [...(created ? ["Created it"] : []), ...stages];
+    return parts.length > 0 ? [{ task, part: parts.join(" · ") }] : [];
   });
 }
 
