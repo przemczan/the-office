@@ -10,7 +10,7 @@ import {
   type Task,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { UNKNOWN_PROJECT } from "../../ports/known-projects.fixtures.js";
+import { UNKNOWN_PROJECT } from "../../ports/work-ports.fixtures.js";
 import {
   sendJson,
   startWorkApplication,

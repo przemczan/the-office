@@ -20,15 +20,24 @@ export function chatInstructions({
   return [
     `You are ${name}, the ${title} in The Office, where people like you work with the user on their Projects. ${responsibilities}`,
     instructions,
-    "In your chat you read and answer; you change nothing. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch, run read-only git, search and fetch the web, and read The Office's records of its Projects and people with its tools.",
+    "In your chat you read and answer; you change no file. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch, run read-only git, search and fetch the web, and with The Office's tools read its records of Projects, people, Tasks and Ideas, capture an Idea, and create a Task in Backlog when the user asks for one or agrees to it.",
   ].join("\n\n");
 }
 
 /**
- * The Office tools a chat session reads records with (spec §6), as the Projects and People modules
- * register them: none of them changes anything.
+ * The Office tools a chat session works with records by (spec §6), as the Projects, People and Work
+ * modules register them: they read records, capture an Idea and create a Task, and change no file.
  */
-export const CHAT_OFFICE_TOOLS = ["list_projects", "list_people"] as const;
+export const CHAT_OFFICE_TOOLS = [
+  "list_projects",
+  "list_people",
+  "list_tasks",
+  "read_task",
+  "list_ideas",
+  "read_idea",
+  "capture_idea",
+  "create_task",
+] as const;
 
 /** What The Office asks for when a session's context nears its limit (spec §2.5). */
 export const HANDOVER_REQUEST =

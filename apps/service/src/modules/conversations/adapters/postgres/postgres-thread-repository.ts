@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Message } from "../../domain/message.js";
@@ -24,6 +24,14 @@ export class PostgresThreadRepository extends ThreadRepository {
 
   async find(id: string): Promise<Thread | undefined> {
     const [row] = await this.database.select().from(threads).where(eq(threads.id, id));
+    return row && toThread(row);
+  }
+
+  async findBySession(sessionId: string): Promise<Thread | undefined> {
+    const [row] = await this.database
+      .select()
+      .from(threads)
+      .where(sql`${threads.session}->>'id' = ${sessionId}`);
     return row && toThread(row);
   }
 

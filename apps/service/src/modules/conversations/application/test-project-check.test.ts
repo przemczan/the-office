@@ -46,6 +46,12 @@ const REPORT = process.env["OFFICE_CHECK_REPORT"];
 const RECORDS: Readonly<Record<(typeof CHAT_OFFICE_TOOLS)[number], string>> = {
   list_projects: "notnullsoft-admin (id notnullsoft-admin)\n- Base branch: main",
   list_people: "Jan · Planner (Role planner)\nWrites each Task's Plan with you.",
+  list_tasks: "There is no Task yet.",
+  read_task: "There is no Task with that id.",
+  list_ideas: "There is no Idea yet.",
+  read_idea: "There is no Idea with that id.",
+  capture_idea: "Captured the Idea.",
+  create_task: "Created the Task in Backlog.",
 };
 
 describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(

@@ -271,10 +271,7 @@ describe("a new Thread's first message", () => {
       effort: "high",
       profile: { edit: false, run: { kind: "read-only-git" }, web: true },
     });
-    expect(session?.options.officeTools.map(({ name }) => name)).toEqual([
-      "list_projects",
-      "list_people",
-    ]);
+    expect(session?.options.officeTools.map(({ name }) => name)).toEqual([...CHAT_OFFICE_TOOLS]);
     expect(session?.options.instructions).toContain("You are Jan, the Planner in The Office");
     expect(session?.options.instructions).toContain("Plan in conversation: ask what is unclear.");
     expect(drafts(log)).toEqual([

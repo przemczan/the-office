@@ -15,6 +15,9 @@ export abstract class ThreadRepository {
 
   abstract find(id: string): Promise<Thread | undefined>;
 
+  /** The Thread whose engine session now is `sessionId`, if any. */
+  abstract findBySession(sessionId: string): Promise<Thread | undefined>;
+
   /** Every Thread whose person is answering now, in any home. */
   abstract answering(): Promise<readonly Thread[]>;
 

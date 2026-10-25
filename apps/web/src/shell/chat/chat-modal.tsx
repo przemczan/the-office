@@ -62,7 +62,7 @@ function ChatHead({
         <Link to="/people/$roleKey" params={{ roleKey: role.key }} search={{}}>
           {personName(role)}
         </Link>
-        <div className="chat-head-sub">Reads every Project and changes nothing</div>
+        <div className="chat-head-sub">Reads every Project and changes no file</div>
       </div>
       <IconButton icon={<Icon name="x" size={16} />} label="Close (Esc)" onClick={onClose} />
     </header>

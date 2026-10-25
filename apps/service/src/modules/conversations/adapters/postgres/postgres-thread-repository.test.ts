@@ -62,6 +62,25 @@ describe("PostgresThreadRepository", () => {
     ).resolves.toEqual([]);
   });
 
+  it("finds a Thread by the engine session it has now", async () => {
+    const roleKey = `role-${randomUUID()}`;
+    const session = {
+      id: randomUUID(),
+      roleKey,
+      cardVersion: 1,
+      startedAt: AT,
+      lastCallAt: undefined,
+      contextTokens: 0,
+      startContextTokens: undefined,
+      full: false,
+    };
+    const thread = aThreadOfItsOwn(roleKey, { session });
+    await repository.add(thread);
+
+    await expect(repository.findBySession(session.id)).resolves.toEqual(thread);
+    await expect(repository.findBySession(randomUUID())).resolves.toBeUndefined();
+  });
+
   it("saves a change with the messages it logged, in their order", async () => {
     const thread = aThreadOfItsOwn(`role-${randomUUID()}`);
     await repository.add(thread);

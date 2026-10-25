@@ -5,12 +5,14 @@ import type { DomainEvent } from "../../platform/events/domain-event.js";
 import { EventBus } from "../../platform/events/event-bus.js";
 import { EventsModule } from "../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../platform/office-data/office-data.module.js";
+import { TelemetryModule } from "../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../platform/websocket/web-event-forwarding.js";
 import {
   KnownProjectsForTests,
-  KnownProjectsForTestsModule,
-} from "./ports/known-projects.fixtures.js";
+  SessionPeopleForTests,
+  WorkPortsForTestsModule,
+} from "./ports/work-ports.fixtures.js";
 import { WorkModule } from "./work.module.js";
 
 /** The Work module served over HTTP on the test database, with every event it publishes. */
@@ -28,10 +30,12 @@ export async function startWorkApplication(officeDataFolder: string): Promise<Wo
     imports: [
       EventsModule,
       EventStreamModule,
+      TelemetryModule,
       OfficeDataModule.forRoot(officeDataFolder),
       WorkModule.register({
-        imports: [KnownProjectsForTestsModule],
+        imports: [WorkPortsForTestsModule],
         knownProjects: KnownProjectsForTests,
+        sessionPeople: SessionPeopleForTests,
       }),
     ],
   });

@@ -40,7 +40,7 @@ export class ConversationsModule {
         InterruptedAnswers,
         ThreadWebEvents,
       ],
-      exports: [InterruptedAnswers],
+      exports: [InterruptedAnswers, ThreadService],
     };
   }
 }
