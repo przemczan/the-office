@@ -14,6 +14,8 @@ interface MessageFields {
 export type MessageDraft =
   | { readonly kind: "user"; readonly text: string }
   | { readonly kind: "person"; readonly roleKey: string; readonly text: string }
+  /** A few lines the person wrote for whoever continues, when The Office asked for them. */
+  | { readonly kind: "handover-note"; readonly roleKey: string; readonly text: string }
   | ToolActivity
   | Refusal;
 

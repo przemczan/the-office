@@ -48,6 +48,13 @@ const messageFields = { id: z.uuid(), at: z.iso.datetime() };
 export const messageSchema = z.discriminatedUnion("kind", [
   z.object({ ...messageFields, kind: z.literal("user"), text: z.string() }),
   z.object({ ...messageFields, kind: z.literal("person"), roleKey: z.string(), text: z.string() }),
+  /** A few lines the person wrote for whoever continues, when The Office asked for them. */
+  z.object({
+    ...messageFields,
+    kind: z.literal("handover-note"),
+    roleKey: z.string(),
+    text: z.string(),
+  }),
   /** Something the person did with a tool, such as reading a file. */
   z.object({
     ...messageFields,
