@@ -15,7 +15,7 @@ import { PostgresSessionSkillRepository } from "./adapters/postgres/postgres-ses
 import { PostgresSkillRepository } from "./adapters/postgres/postgres-skill-repository.js";
 import { SkillWebEvents } from "./adapters/websocket/skill-web-events.js";
 import { YauzlZipReader } from "./adapters/zip/yauzl-zip-reader.js";
-import { RepositorySkills } from "./application/repository-skills.js";
+import { ProjectSkills } from "./application/project-skills.js";
 import { SessionSkills } from "./application/session-skills.js";
 import { SkillLibrary } from "./application/skill-library.js";
 import { LibraryFolder } from "./ports/library-folder.js";
@@ -36,10 +36,10 @@ import { ZipReader } from "./ports/zip-reader.js";
     { provide: ZipReader, useClass: YauzlZipReader },
     SkillLibrary,
     SessionSkills,
-    RepositorySkills,
+    ProjectSkills,
     SkillWebEvents,
   ],
-  exports: [SkillLibrary, SessionSkills, RepositorySkills],
+  exports: [SkillLibrary, SessionSkills, ProjectSkills],
 })
 export class SkillsModule implements NestModule, OnApplicationBootstrap {
   private readonly logger = new Logger(SkillsModule.name);

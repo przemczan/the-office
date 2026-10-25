@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { repositorySkillsFrom } from "./repository-skills.js";
+import { projectSkillsFrom } from "./project-skills.js";
 
 const file = (path: string, text = "") => ({ path, text });
 
-describe("repositorySkillsFrom", () => {
+describe("projectSkillsFrom", () => {
   it("lists the repository's skills and commands by path, as a session names them", () => {
     expect(
-      repositorySkillsFrom(
+      projectSkillsFrom(
         [
           file(
             ".claude/skills/deploy/SKILL.md",

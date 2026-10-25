@@ -6,7 +6,7 @@ import {
   newProjectSchema,
   projectCommandKeySchema,
   publishingModeChangeSchema,
-  repositorySkillListSchema,
+  projectSkillListSchema,
   useProjectSkillsChangeSchema,
   type CommandChange,
   type DefaultPipelineChange,
@@ -15,11 +15,11 @@ import {
   type Project as ProjectResponse,
   type ProjectCommandKey,
   type PublishingModeChange,
-  type RepositorySkill,
+  type ProjectSkill,
   type UseProjectSkillsChange,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
-import { RepositorySkills } from "../../../skills/index.js";
+import { ProjectSkills } from "../../../skills/index.js";
 import { ProjectService } from "../../application/project-service.js";
 import type { Project } from "../../domain/project.js";
 import { ProjectRefusalsFilter } from "./project-refusals.filter.js";
@@ -29,7 +29,7 @@ import { ProjectRefusalsFilter } from "./project-refusals.filter.js";
 export class ProjectsController {
   constructor(
     private readonly projects: ProjectService,
-    private readonly repositorySkills: RepositorySkills,
+    private readonly projectSkills: ProjectSkills,
   ) {}
 
   @Post()
@@ -76,18 +76,18 @@ export class ProjectsController {
 
   /** The repository's own skills and commands, read from its checkout; never stored. */
   @Get(":id/skills")
-  async skills(@Param("id") id: string): Promise<RepositorySkill[]> {
+  async skills(@Param("id") id: string): Promise<ProjectSkill[]> {
     const project = await this.projects.read(id);
-    return repositorySkillListSchema.parse(await this.repositorySkills.of(project.path));
+    return projectSkillListSchema.parse(await this.projectSkills.of(project.path));
   }
 
   @Put(":id/use-project-skills")
-  async changeUseOfSkills(
+  async changeUseProjectSkills(
     @Param("id") id: string,
     @Body(new ContractPipe(useProjectSkillsChangeSchema))
     { useProjectSkills }: UseProjectSkillsChange,
   ): Promise<ProjectResponse> {
-    return toProjectResponse(await this.projects.changeUseOfSkills(id, useProjectSkills));
+    return toProjectResponse(await this.projects.changeUseProjectSkills(id, useProjectSkills));
   }
 
   @Put(":id/default-pipeline")

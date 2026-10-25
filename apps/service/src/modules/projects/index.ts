@@ -10,6 +10,6 @@ export {
   ProjectEnvironmentChanged,
   ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
-  ProjectUseOfSkillsChanged,
+  ProjectUseProjectSkillsChanged,
 } from "./domain/project-events.js";
 export { ProjectsModule } from "./projects.module.js";

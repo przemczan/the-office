@@ -185,7 +185,7 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
     projectId: z.string(),
   }),
   webEventSchema.extend({
-    type: z.literal("project.use-of-skills-changed"),
+    type: z.literal("project.use-project-skills-changed"),
     projectId: z.string(),
   }),
 ]);

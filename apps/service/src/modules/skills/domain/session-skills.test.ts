@@ -4,11 +4,11 @@ import {
   allowedSkillNames,
   expectedSkillNames,
   librarySkillsFor,
-  projectSkillsFrom,
+  projectSkillNamesFrom,
   sessionSkillRecord,
   skillOverridesOf,
   suffixMatches,
-  type ProjectSkill,
+  type ProjectSkillName,
   type SessionSkill,
 } from "./session-skills.js";
 
@@ -33,15 +33,15 @@ describe("librarySkillsFor", () => {
 });
 
 const file = (path: string, text = "") => ({ path, text });
-const deploy: ProjectSkill = { key: "deploy", listedAs: "deploy" };
-const reviewSkill: ProjectSkill = { key: "review", listedAs: "review" };
-const ship: ProjectSkill = { key: "ship", listedAs: "ship" };
-const release: ProjectSkill = { key: "release", listedAs: undefined };
+const deploy: ProjectSkillName = { key: "deploy", listedAs: "deploy" };
+const reviewSkill: ProjectSkillName = { key: "review", listedAs: "review" };
+const ship: ProjectSkillName = { key: "ship", listedAs: "ship" };
+const release: ProjectSkillName = { key: "release", listedAs: undefined };
 
-describe("projectSkillsFrom", () => {
+describe("projectSkillNamesFrom", () => {
   it("names skills and commands as the engine lists them, nested ones only later", () => {
     expect(
-      projectSkillsFrom([
+      projectSkillNamesFrom([
         file(".claude/skills/deploy/SKILL.md", "---\nname: deploy\n---\n"),
         file(".claude/skills/deploy-folder/SKILL.md", "---\nname: deploy-named\n---\n"),
         file(".claude/skills/plain/SKILL.md", "No frontmatter."),
@@ -65,7 +65,7 @@ describe("projectSkillsFrom", () => {
 
   it("takes a skill at the top over a nested one of the same name", () => {
     expect(
-      projectSkillsFrom([
+      projectSkillNamesFrom([
         file("apps/web/.claude/skills/deploy/SKILL.md"),
         file(".claude/skills/deploy/SKILL.md"),
         file("apps/api/.claude/skills/deploy/SKILL.md"),

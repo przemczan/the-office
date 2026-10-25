@@ -24,8 +24,8 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 
 | Platform | Date | Result |
 |---|---|---|
-| Windows 11 (win32), the workstation | 2026-10-25 | 27 checks run and recorded; the slow `engine.decision-wait` recorded 2026-10-24 |
-| Ubuntu 24.04 x64 (linux), an LXC container signed in to Claude Code as root | 2026-10-25 | 26 checks run and recorded, and the slow `engine.decision-wait` (62 minutes) |
+| Windows 11 (win32), the workstation | 2026-10-25 | 28 checks run and recorded; the slow `engine.decision-wait` recorded 2026-10-24 |
+| Ubuntu 24.04 x64 (linux), an LXC container signed in to Claude Code as root | 2026-10-25 | 27 checks run and recorded, and the slow `engine.decision-wait` (62 minutes) |
 
 `permissions.powershell-twin` runs on Windows only. Results differ between platforms only where an entry says so: `skills.user-scope`, `engine.priority-now` and `engine.lean-options`.
 
@@ -60,6 +60,7 @@ Results that contradicted or went beyond the spec, and how the spec reads now. E
 | `skills.resume`, `skills.overrides-off` | §5.6 | Rebuilt on resume; `skillOverrides` per Project skill | Never a changed set on resume; overrides keyed by the bare name |
 | `skills.start-before-brief` | §5.6 | At start, `init` lists the plugin with no errors | `init` comes only with the first message; the check reads `reloadPlugins` and the listing before it, and an `init` that disagrees ends the session |
 | `skills.project-names` | §5.6 | Project skills keyed by the bare name | Keyed by a skill's folder or a command's path under `commands/`; expected at start by their listed names, at the repository's top only |
+| `skills.frontmatter-yaml` | §9 | Uploads need YAML frontmatter | A plain value holding `: ` is read as the engine reads it |
 | `skills.shell-execution` | §5.6 | Not covered | `disableSkillShellExecution` true: a skill's commands bypass the hook when they run |
 
 ## Skills
@@ -68,7 +69,13 @@ Results that contradicted or went beyond the spec, and how the spec reads now. E
 
 - **Run:** a session with skills `alpha` and `beta`, started without a model call (a `shouldQuery: false` message still yields `init` and the turn-start attachments).
 - **Observed:** `init.plugins` lists `office` at the session folder with no errors, and no other plugin; the listing the model gets holds exactly `office:alpha`, `office:beta`. `init.skills` also names `design` and `doctor`, outside the allowlist, though the listing stays clean.
-- **Meaning:** the start check of §5.6 works as written: compare `init.plugins` and the listing, not `init.skills`. A release that adds a built-in plugin shows here as another plugin, and its id joins the `enabledPlugins` list.
+- **Meaning:** compare the plugins and the listing, not `init.skills`. `init` comes only with the first message, so the start check of §5.6 reads the plugins from a held `reloadPlugins` and the listing from `getContextUsage()` before it (`skills.start-before-brief`). A release that adds a built-in plugin shows here as another plugin, and its id joins the `enabledPlugins` list.
+
+### skills.frontmatter-yaml
+
+- **Run:** a session skill whose frontmatter reads `description: Test first: red, green, refactor.`, unquoted, which no YAML parser reads; its listing read from the transcript after a message that doesn't query. No model call.
+- **Observed:** the skill is listed with that description as written, not with its body's first line.
+- **Meaning:** the engine reads such a value as the text after the first `: `, so the library reads it the same way (§9) instead of refusing what the engine takes.
 
 ### skills.start-before-brief
 

@@ -106,7 +106,7 @@ test("the user uploads a .md and a zipped folder; each arrives off", async ({ pa
   await dialog.getByLabel("A single .md file or a zipped folder").setInputFiles({
     name: "tdd.md",
     mimeType: "text/markdown",
-    buffer: Buffer.from(skillMd("tdd", "Test first, then red, green, refactor.")),
+    buffer: Buffer.from(skillMd("tdd", "Test first: red, green, refactor.")),
   });
   await dialog.getByRole("button", { name: "Upload" }).click();
   await expect(page.getByText("tdd uploaded. It is off until you review it.")).toBeVisible();

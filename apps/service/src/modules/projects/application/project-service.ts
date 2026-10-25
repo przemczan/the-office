@@ -17,7 +17,7 @@ import {
   changeEnvironment,
   changeInstallInputs,
   changePublishingMode,
-  changeUseOfSkills,
+  changeUseProjectSkills,
   type ProjectChange,
 } from "../domain/project-changes.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
@@ -86,8 +86,8 @@ export class ProjectService {
   }
 
   /** Sessions already running keep the skills they started with. */
-  async changeUseOfSkills(id: string, useProjectSkills: boolean): Promise<Project> {
-    return this.update(id, (project) => changeUseOfSkills(project, useProjectSkills));
+  async changeUseProjectSkills(id: string, useProjectSkills: boolean): Promise<Project> {
+    return this.update(id, (project) => changeUseProjectSkills(project, useProjectSkills));
   }
 
   private async update<Event extends DomainEvent>(

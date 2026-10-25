@@ -820,6 +820,18 @@
       "deniedSkillInvocation": "denied"
     }
   },
+  "skills.frontmatter-yaml": {
+    "win32": {
+      "listed": true,
+      "descriptionAsWritten": true,
+      "descriptionFromBody": false
+    },
+    "linux": {
+      "listed": true,
+      "descriptionAsWritten": true,
+      "descriptionFromBody": false
+    }
+  },
   "skills.overrides-off": {
     "win32": {
       "atStart": {

@@ -1,13 +1,17 @@
+import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import type { INestApplication } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
+import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
+import { EngineModule, EngineSessions } from "../../engine/index.js";
 import {
   createProjectCheckout,
   projectSkillMd,
@@ -16,7 +20,7 @@ import {
 import { SessionSkillsNotFound } from "../domain/session-skills-not-found.js";
 import { SkillVersionMissing } from "../domain/skill-version-missing.js";
 import { SkillsModule } from "../skills.module.js";
-import { SessionSkills } from "./session-skills.js";
+import { SessionSkills, type PreparedSkills } from "./session-skills.js";
 import { SkillLibrary } from "./skill-library.js";
 
 let officeData: string;
@@ -34,21 +38,6 @@ async function start(): Promise<void> {
   sessionSkills = app.get(SessionSkills);
 }
 
-beforeEach(async () => {
-  officeData = await mkdtemp(join(tmpdir(), "office-session-skills-"));
-  checkout = await createProjectCheckout();
-  await checkout.write(".claude/skills/deploy/SKILL.md", projectSkillMd("deploy", "Deploys."));
-  await checkout.write(".claude/commands/ship.md", "Ship it.");
-  checkout.commit();
-  await start();
-});
-
-afterEach(async () => {
-  await app.close();
-  await rm(officeData, { recursive: true, force: true });
-  await checkout.remove();
-});
-
 /** A name of the test's own, since every test file shares the database. */
 function aName(prefix: string): string {
   return `${prefix}-${randomUUID().slice(0, 8)}`;
@@ -64,6 +53,21 @@ function sessionFolder(sessionId: string): string {
 }
 
 describe("SessionSkills", () => {
+  beforeEach(async () => {
+    officeData = await mkdtemp(join(tmpdir(), "office-session-skills-"));
+    checkout = await createProjectCheckout();
+    await checkout.write(".claude/skills/deploy/SKILL.md", projectSkillMd("deploy", "Deploys."));
+    await checkout.write(".claude/commands/ship.md", "Ship it.");
+    checkout.commit();
+    await start();
+  });
+
+  afterEach(async () => {
+    await app.close();
+    await rm(officeData, { recursive: true, force: true });
+    await checkout.remove();
+  });
+
   it("gives a session its Role's skills and the skills for everyone, and the Project's", async () => {
     const tdd = aName("tdd");
     const style = aName("house-style");
@@ -218,3 +222,152 @@ describe("SessionSkills", () => {
     });
   });
 });
+
+/**
+ * Task 07's check on the Test Project (docs/tasks/07-skills.md): a skill written, reviewed, turned
+ * on and given to everyone; a session in a worktree of the Test Project, with a Project skill of
+ * its own, that lists exactly those two; the context the listing costs; and an edit that the next
+ * session gets while the first keeps its version. Live sessions, so it runs only when asked:
+ * OFFICE_ENGINE_TESTS=live and OFFICE_TEST_PROJECT=<the Test Project's folder>.
+ *
+ * A skill on and for everyone reaches every session prepared on the shared database, so this check
+ * sits in this file, whose tests run one at a time, and keeps its skill on only while a session
+ * of its own is prepared.
+ */
+const MODE = process.env["OFFICE_ENGINE_TESTS"];
+const TEST_PROJECT = process.env["OFFICE_TEST_PROJECT"];
+const run = promisify(execFile);
+
+const PROJECT_SKILL = "admin-notes";
+const BRIEF = "Reply with the single word: ready";
+
+describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
+  "Task 07's check on the Test Project",
+  () => {
+    it("gives a session exactly its skill for everyone and the Project's, and keeps its version", async () => {
+      const project = TEST_PROJECT ?? "";
+      const folder = await mkdtemp(join(tmpdir(), "office-skills-check-"));
+      const worktree = join(folder, "worktree");
+      const git = (...args: string[]) => run("git", args, { cwd: project });
+      await git("worktree", "add", "--detach", worktree, "HEAD");
+      // Untracked in the worktree only: the Test Project itself is left as it is.
+      await mkdir(join(worktree, ".claude", "skills", PROJECT_SKILL), { recursive: true });
+      await writeFile(
+        join(worktree, ".claude", "skills", PROJECT_SKILL, "SKILL.md"),
+        `---\nname: ${PROJECT_SKILL}\ndescription: Notes on the admin panel's layout.\n---\nRead the README first.\n`,
+      );
+      const { app: checkApp } = await startTestApplication({
+        database: true,
+        imports: [
+          EventsModule,
+          EventStreamModule,
+          TelemetryModule,
+          OfficeDataModule.forRoot(join(folder, "office-data")),
+          SkillsModule,
+          EngineModule,
+        ],
+      });
+      const checkLibrary = checkApp.get(SkillLibrary);
+      const skill = `release-notes-${randomUUID().slice(0, 8)}`;
+      try {
+        await checkLibrary.write({
+          name: skill,
+          description: "Writes the release notes from the merged pull requests.",
+          instructions: "Group them as Added, Changed and Fixed, one line each.",
+        });
+        const review = await checkLibrary.review(skill);
+        expect(review.files.map((file) => file.path)).toEqual(["SKILL.md"]);
+        expect(review.warnings).toEqual([]);
+        await checkLibrary.changeEveryone(skill, true);
+
+        const first = await preparedWhileOn(checkApp, skill, worktree);
+        expect(first.expected).toEqual([PROJECT_SKILL, `office:${skill}`]);
+        const withSkills = await firstTurnTokens(checkApp, first, worktree);
+        const without = await firstTurnTokens(checkApp, undefined, worktree);
+        console.info(
+          `Task 07 check: the first call took ${withSkills} tokens with office:${skill} and ${PROJECT_SKILL}, ${without} without skills; the listing costs ${withSkills - without}.`,
+        );
+        expect(withSkills).toBeGreaterThan(without);
+
+        await checkLibrary.edit(skill, {
+          description: "Writes the release notes from the merged pull requests.",
+          instructions: "Group them as Added, Changed and Fixed, in the past tense.",
+        });
+        const next = await preparedWhileOn(checkApp, skill, worktree);
+        expect(first.versions).toEqual([
+          { name: skill, version: 1, filesHash: expect.any(String) },
+        ]);
+        expect(next.versions).toEqual([{ name: skill, version: 2, filesHash: expect.any(String) }]);
+        console.info(
+          `Task 07 check: the first session recorded ${skill} v1, the session after the edit v2.`,
+        );
+      } finally {
+        await checkLibrary.remove(skill).catch(() => undefined);
+        await checkApp.close();
+        await git("worktree", "remove", "--force", worktree);
+        await rm(folder, { recursive: true, force: true });
+      }
+    }, 300_000);
+  },
+);
+
+/** A new session's skills, prepared while `skill` is on: turning it on is its review. */
+async function preparedWhileOn(
+  on: INestApplication,
+  skill: string,
+  worktree: string,
+): Promise<PreparedSkills> {
+  const skills = on.get(SkillLibrary);
+  await skills.turnOn(skill);
+  try {
+    return await on.get(SessionSkills).prepare({
+      sessionId: randomUUID(),
+      roleSkills: [],
+      project: { folder: worktree, useProjectSkills: true },
+    });
+  } finally {
+    await skills.turnOff(skill);
+  }
+}
+
+/** The tokens of a new session's first call, which the start check let start. */
+async function firstTurnTokens(
+  on: INestApplication,
+  skills: PreparedSkills | undefined,
+  worktree: string,
+): Promise<number> {
+  const session = await on.get(EngineSessions).start({
+    id: randomUUID(),
+    settings: {
+      folder: worktree,
+      environment: Object.fromEntries(
+        Object.entries(process.env).filter(
+          (entry): entry is [string, string] => entry[1] !== undefined,
+        ),
+      ),
+      model: "claude-haiku-5-5",
+      effort: "low",
+      skills: skills && {
+        folder: skills.folder,
+        names: skills.names,
+        expected: skills.expected,
+        overrides: skills.overrides,
+      },
+      profile: { edit: false, run: { kind: "read-only-git" }, web: false },
+      officeTools: [],
+      outputSchema: undefined,
+    },
+    brief: { id: randomUUID(), text: BRIEF },
+  });
+  try {
+    for await (const event of session.events) {
+      if (event.kind === "turn-ended") {
+        const { input, cacheRead, cacheCreation } = event.usage;
+        return input + cacheRead + cacheCreation;
+      }
+    }
+    throw new Error(`Session ${session.id} ended before its turn did.`);
+  } finally {
+    await session.end();
+  }
+}

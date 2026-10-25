@@ -58,7 +58,7 @@ export class ProjectDefaultPipelineChanged extends DomainEvent {
 }
 
 /** Sessions started from now on get the repository's own skills, or have them turned off. */
-export class ProjectUseOfSkillsChanged extends DomainEvent {
+export class ProjectUseProjectSkillsChanged extends DomainEvent {
   constructor(
     readonly projectId: string,
     readonly useProjectSkills: boolean,

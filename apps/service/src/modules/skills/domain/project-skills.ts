@@ -1,8 +1,8 @@
-import { projectSkillOf, type ProjectSkillFile } from "./session-skills.js";
+import { projectSkillNameOf, type ProjectSkillFile } from "./session-skills.js";
 import { frontmatterText, readSkillMd } from "./skill-md.js";
 
 /** A skill or command of the repository's own, as the Project page lists it, read-only. */
-export interface RepositorySkill {
+export interface ProjectSkill {
   /** As a session lists it. */
   readonly name: string;
   readonly description: string;
@@ -18,13 +18,13 @@ export interface RepositorySkill {
 }
 
 /** The repository's skills and commands, by path, with what the library also has. */
-export function repositorySkillsFrom(
+export function projectSkillsFrom(
   files: readonly ProjectSkillFile[],
   libraryNames: ReadonlySet<string>,
-): RepositorySkill[] {
+): ProjectSkill[] {
   return files
     .flatMap((file) => {
-      const skill = projectSkillOf(file);
+      const skill = projectSkillNameOf(file);
       if (!skill) return [];
       return [
         {

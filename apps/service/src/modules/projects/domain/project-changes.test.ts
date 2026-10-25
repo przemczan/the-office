@@ -6,7 +6,7 @@ import {
   changeEnvironment,
   changeInstallInputs,
   changePublishingMode,
-  changeUseOfSkills,
+  changeUseProjectSkills,
 } from "./project-changes.js";
 import {
   ProjectAdded,
@@ -15,7 +15,7 @@ import {
   ProjectEnvironmentChanged,
   ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
-  ProjectUseOfSkillsChanged,
+  ProjectUseProjectSkillsChanged,
 } from "./project-events.js";
 import { aNewProject, aProject } from "./project.fixtures.js";
 import { ProjectRefused } from "./project-refused.js";
@@ -136,13 +136,13 @@ describe("changeDefaultPipeline", () => {
   });
 });
 
-describe("changeUseOfSkills", () => {
+describe("changeUseProjectSkills", () => {
   it("switches the Project's own skills off and on, and changes nothing when it already is", () => {
-    const change = changeUseOfSkills(aProject(), false);
+    const change = changeUseProjectSkills(aProject(), false);
 
     expect(change?.project.useProjectSkills).toBe(false);
-    expect(change?.event).toBeInstanceOf(ProjectUseOfSkillsChanged);
+    expect(change?.event).toBeInstanceOf(ProjectUseProjectSkillsChanged);
     expect(change?.event).toMatchObject({ projectId: "admin-panel", useProjectSkills: false });
-    expect(changeUseOfSkills(aProject(), true)).toBeUndefined();
+    expect(changeUseProjectSkills(aProject(), true)).toBeUndefined();
   });
 });

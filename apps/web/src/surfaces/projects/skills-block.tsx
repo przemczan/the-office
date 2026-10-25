@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Project, RepositorySkill } from "@the-office/contracts";
+import type { Project, ProjectSkill } from "@the-office/contracts";
 import { Switch } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { changeUseOfSkills, projectQueries } from "../../api/projects.ts";
+import { changeUseProjectSkills, projectQueries } from "../../api/projects.ts";
 import { SkillChip } from "../../shell/skill-chip.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { ProjectBlock } from "./project-block.tsx";
@@ -16,7 +16,7 @@ export function SkillsBlock({ project }: { readonly project: Project }): ReactNo
   const queryClient = useQueryClient();
   const showToast = useToast();
   const switching = useMutation({
-    mutationFn: (use: boolean) => changeUseOfSkills(project.id, use),
+    mutationFn: (use: boolean) => changeUseProjectSkills(project.id, use),
     onSuccess: (saved) => {
       queryClient.setQueryData(projectQueries.one(saved.id).queryKey, saved);
       showToast(
@@ -70,7 +70,7 @@ export function SkillsBlock({ project }: { readonly project: Project }): ReactNo
   );
 }
 
-function SkillLine({ skill }: { readonly skill: RepositorySkill }): ReactNode {
+function SkillLine({ skill }: { readonly skill: ProjectSkill }): ReactNode {
   return (
     <li className="project-skill">
       <SkillChip name={skill.name} />

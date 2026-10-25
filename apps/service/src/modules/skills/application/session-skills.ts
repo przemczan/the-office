@@ -3,7 +3,7 @@ import {
   allowedSkillNames,
   expectedSkillNames,
   librarySkillsFor,
-  projectSkillsFrom,
+  projectSkillNamesFrom,
   sessionSkillRecord,
   skillOverridesOf,
   suffixMatches,
@@ -67,7 +67,7 @@ export class SessionSkills {
   async prepare({ sessionId, roleSkills, project }: SessionSkillRequest): Promise<PreparedSkills> {
     const skills = librarySkillsFor(await this.skills.list(), roleSkills);
     const projectSkills = project
-      ? projectSkillsFrom(await this.projectFiles.files(project.folder))
+      ? projectSkillNamesFrom(await this.projectFiles.files(project.folder))
       : [];
     const record = sessionSkillRecord(
       sessionId,

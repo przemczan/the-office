@@ -4,7 +4,7 @@ import {
   latestEnvironmentCheckSchema,
   projectListSchema,
   projectSchema,
-  repositorySkillListSchema,
+  projectSkillListSchema,
   type EnvironmentCheck,
   type NewProject,
   type Project,
@@ -42,7 +42,7 @@ export const projectQueries = {
     queryOptions({
       queryKey: [...PROJECTS, id, "skills"],
       queryFn: ({ signal }) =>
-        getFromApi(`${projectPath(id)}/skills`, repositorySkillListSchema, signal),
+        getFromApi(`${projectPath(id)}/skills`, projectSkillListSchema, signal),
     }),
 };
 
@@ -92,7 +92,7 @@ export function changeDefaultPipeline(id: string, defaultPipeline: string): Prom
 }
 
 /** Sessions started from now on get the repository's own skills, or don't. */
-export function changeUseOfSkills(id: string, useProjectSkills: boolean): Promise<Project> {
+export function changeUseProjectSkills(id: string, useProjectSkills: boolean): Promise<Project> {
   return sendToApi(
     "PUT",
     `${projectPath(id)}/use-project-skills`,
@@ -115,7 +115,7 @@ export const projectEventInvalidations: Readonly<
   "project.install-inputs-changed": () => [PROJECTS],
   "project.publishing-mode-changed": () => [PROJECTS],
   "project.default-pipeline-changed": () => [PROJECTS],
-  "project.use-of-skills-changed": () => [PROJECTS],
+  "project.use-project-skills-changed": () => [PROJECTS],
 };
 
 function projectPath(id: string): `/${string}` {

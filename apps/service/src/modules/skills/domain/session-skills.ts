@@ -16,7 +16,7 @@ export interface SessionSkill {
  * A skill or command of the repository's own (spec §2.6), named as Claude Code 2.1.310 names
  * it (docs/engine-check.md, `skills.project-names` and `skills.overrides-off`).
  */
-export interface ProjectSkill {
+export interface ProjectSkillName {
   /**
    * What the allowlist and `skillOverrides` match it by: a skill's folder name, whatever its
    * frontmatter says; a command's path under `commands/`, with `:` between folders.
@@ -41,10 +41,10 @@ const SKILL_MD_PATH = /^(?:(.+)\/)?\.claude\/skills\/([^/]+)\/SKILL\.md$/;
 const COMMAND_PATH = /^(?:(.+)\/)?\.claude\/commands\/(.+)\.md$/;
 
 /** The Project's skills and commands, each once by its key, in key order. */
-export function projectSkillsFrom(files: readonly ProjectSkillFile[]): ProjectSkill[] {
-  const found = new Map<string, ProjectSkill>();
+export function projectSkillNamesFrom(files: readonly ProjectSkillFile[]): ProjectSkillName[] {
+  const found = new Map<string, ProjectSkillName>();
   for (const file of files) {
-    const skill = projectSkillOf(file);
+    const skill = projectSkillNameOf(file);
     const earlier = found.get(skill?.key ?? "");
     // One listed at the top wins over a nested one of the same key, which lists only later.
     if (skill && (!earlier || earlier.listedAs === undefined)) found.set(skill.key, skill);
@@ -53,7 +53,7 @@ export function projectSkillsFrom(files: readonly ProjectSkillFile[]): ProjectSk
 }
 
 /** The Project skill or command a file is, or undefined for one that is neither. */
-export function projectSkillOf({ path, text }: ProjectSkillFile): ProjectSkill | undefined {
+export function projectSkillNameOf({ path, text }: ProjectSkillFile): ProjectSkillName | undefined {
   const skill = SKILL_MD_PATH.exec(path);
   if (skill?.[2]) {
     const folder = skill[2];
@@ -78,7 +78,7 @@ export interface SessionSkillRecord {
   readonly sessionId: string;
   readonly skills: readonly SessionSkill[];
   /** The Project's skills and commands it may use, when the Project allows them. */
-  readonly projectSkills: readonly ProjectSkill[];
+  readonly projectSkills: readonly ProjectSkillName[];
   /** The keys of the Project's skills and commands, when the Project doesn't allow them. */
   readonly projectSkillsOff: readonly string[];
   readonly preparedAt: Date;
@@ -103,7 +103,7 @@ export function librarySkillsFor(
 export function sessionSkillRecord(
   sessionId: string,
   skills: readonly SessionSkill[],
-  projectSkills: readonly ProjectSkill[],
+  projectSkills: readonly ProjectSkillName[],
   useProjectSkills: boolean,
   preparedAt: Date,
 ): SessionSkillRecord {

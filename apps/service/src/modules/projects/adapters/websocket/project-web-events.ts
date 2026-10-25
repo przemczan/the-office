@@ -13,7 +13,7 @@ import {
   ProjectEnvironmentChanged,
   ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
-  ProjectUseOfSkillsChanged,
+  ProjectUseProjectSkillsChanged,
 } from "../../domain/project-events.js";
 
 type WebEventOf<Type extends ProjectWebEvent["type"]> = Omit<
@@ -68,9 +68,9 @@ export class ProjectWebEvents implements OnModuleInit {
       }),
     );
     this.forwarding.forward(
-      ProjectUseOfSkillsChanged,
-      (event): WebEventOf<"project.use-of-skills-changed"> => ({
-        type: "project.use-of-skills-changed",
+      ProjectUseProjectSkillsChanged,
+      (event): WebEventOf<"project.use-project-skills-changed"> => ({
+        type: "project.use-project-skills-changed",
         projectId: event.projectId,
       }),
     );

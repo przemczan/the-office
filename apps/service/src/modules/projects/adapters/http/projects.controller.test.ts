@@ -4,7 +4,7 @@ import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import {
   projectListSchema,
-  repositorySkillListSchema,
+  projectSkillListSchema,
   projectRefusalSchema,
   projectSchema,
   projectWebEventSchema,
@@ -317,7 +317,7 @@ describe("the repository's own skills", () => {
         useProjectSkills: false,
       });
 
-      expect(repositorySkillListSchema.parse(await listed.json())).toEqual([
+      expect(projectSkillListSchema.parse(await listed.json())).toEqual([
         {
           name: "deploy",
           description: "Deploys the panel.",
@@ -328,7 +328,7 @@ describe("the repository's own skills", () => {
       ]);
       expect(projectSchema.parse(await switched.json()).useProjectSkills).toBe(false);
       expect(webEvents()).toEqual([
-        { type: "project.use-of-skills-changed", projectId: project.id },
+        { type: "project.use-project-skills-changed", projectId: project.id },
       ]);
     } finally {
       await rm(join(repository.path, ".claude"), { recursive: true, force: true });

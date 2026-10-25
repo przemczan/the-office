@@ -4,7 +4,7 @@ export {
   type SessionProject,
   type SessionSkillRequest,
 } from "./application/session-skills.js";
-export { RepositorySkills } from "./application/repository-skills.js";
+export { ProjectSkills } from "./application/project-skills.js";
 export { SkillLibrary } from "./application/skill-library.js";
 export {
   SkillAdded,

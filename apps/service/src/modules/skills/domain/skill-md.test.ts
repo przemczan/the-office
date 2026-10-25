@@ -26,6 +26,15 @@ describe("readSkillMd", () => {
     );
   });
 
+  it("reads a plain value holding ': ' as the engine does, as the text after the first ': '", () => {
+    expect(
+      readSkillMd("---\nname: tdd\ndescription: Test first: red, green.\nversion: 2\n---\nRed.\n"),
+    ).toEqual({
+      frontmatter: { name: "tdd", description: "Test first: red, green.", version: 2 },
+      instructions: "Red.",
+    });
+  });
+
   it("refuses frontmatter that is no YAML", () => {
     expect(readSkillMd("---\nname: [tdd\n---\n")).toMatch(/^SKILL\.md's frontmatter is not YAML: /);
   });

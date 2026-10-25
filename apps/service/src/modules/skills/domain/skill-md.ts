@@ -10,8 +10,14 @@ export interface SkillMd {
 const FRONTMATTER = /^---[ \t]*\r?\n([\s\S]*?)\r?\n---[ \t]*(?:\r?\n|$)/;
 
 /**
- * Reads a SKILL.md, or returns why it can't be read: the engine would drop frontmatter it can't
- * parse, and the skill would be listed without its description.
+ * A top-level `key: value` line whose plain value holds `: `, which YAML refuses but the engine
+ * reads as the text after the first `: ` (docs/engine-check.md, `skills.frontmatter-yaml`).
+ */
+const COLON_IN_VALUE = /^([A-Za-z0-9_-]+):[ \t]+(?!["'[{|>&*!%@`])(.*: .*?)[ \t]*$/;
+
+/**
+ * Reads a SKILL.md as the engine does, or returns why it can't be read: frontmatter the engine
+ * can't read either would leave the skill listed without its description.
  */
 export function readSkillMd(text: string): SkillMd | string {
   const withoutBom = text.replace(/^﻿/, "");
@@ -23,7 +29,7 @@ export function readSkillMd(text: string): SkillMd | string {
   }
   let frontmatter: unknown;
   try {
-    frontmatter = parse(match[1] ?? "", { maxAliasCount: 0 }) ?? {};
+    frontmatter = parseFrontmatter(match[1] ?? "");
   } catch (error) {
     return `SKILL.md's frontmatter is not YAML: ${(error as Error).message.split("\n")[0]}`;
   }
@@ -34,6 +40,26 @@ export function readSkillMd(text: string): SkillMd | string {
     frontmatter: frontmatter as Record<string, unknown>,
     instructions: withoutBom.slice(match[0].length).trim(),
   };
+}
+
+function parseFrontmatter(yaml: string): unknown {
+  try {
+    return parse(yaml, { maxAliasCount: 0 }) ?? {};
+  } catch (error) {
+    const quoted = yaml
+      .split(/\r?\n/)
+      .map((line) => {
+        const pair = COLON_IN_VALUE.exec(line);
+        return pair ? `${pair[1]}: ${JSON.stringify(pair[2])}` : line;
+      })
+      .join("\n");
+    if (quoted === yaml) throw error;
+    try {
+      return parse(quoted, { maxAliasCount: 0 }) ?? {};
+    } catch {
+      throw error;
+    }
+  }
 }
 
 /** The SKILL.md of a skill written in The Office. */

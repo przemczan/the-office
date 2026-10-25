@@ -83,7 +83,7 @@ export const skillRefusalSchema = z.object({
 export type SkillRefusal = z.infer<typeof skillRefusalSchema>;
 
 /** GET /projects/:id/skills: a skill or command of the repository's own, read-only. */
-export const repositorySkillSchema = z.object({
+export const projectSkillSchema = z.object({
   /** As a session lists it. */
   name: z.string(),
   description: z.string(),
@@ -94,9 +94,9 @@ export const repositorySkillSchema = z.object({
   /** The library has a skill of the same name, which a session with both also lists. */
   alsoInLibrary: z.boolean(),
 });
-export type RepositorySkill = z.infer<typeof repositorySkillSchema>;
+export type ProjectSkill = z.infer<typeof projectSkillSchema>;
 
-export const repositorySkillListSchema = z.array(repositorySkillSchema);
+export const projectSkillListSchema = z.array(projectSkillSchema);
 
 /** The library's events the web receives; each names the skill, so its queries refresh. */
 export const skillWebEventSchema = z.discriminatedUnion("type", [
