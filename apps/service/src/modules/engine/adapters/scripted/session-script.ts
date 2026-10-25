@@ -26,11 +26,20 @@ export type CallerRequest =
 /** One session from its start or resume on: the first step is either. */
 export type SessionScript = readonly ScriptStep[];
 
-/**
- * Stands for the session's working folder in a recording, so a recording made in one folder, on
- * one system, replays in any other.
- */
-export const FOLDER_PLACEHOLDER = "<folder>";
+/** The places a recording names by placeholder, so one made in one folder, on one system, replays in any other. */
+export interface RecordedPlaces {
+  /** The session's working folder. */
+  readonly folder: string;
+  /** The home folder of the user it ran as. */
+  readonly home: string;
+}
+
+const PLACES = ["folder", "home"] as const satisfies readonly (keyof RecordedPlaces)[];
+
+export const PLACEHOLDERS: Readonly<Record<keyof RecordedPlaces, string>> = {
+  folder: "<folder>",
+  home: "<home>",
+};
 
 /** A value the engine left out is written as null, which JSON keeps, and read back as undefined. */
 const absent = <Schema extends z.ZodType>(schema: Schema) =>
@@ -108,7 +117,7 @@ const scriptStep = z.discriminatedUnion("step", [
 
 /**
  * Reads a recording: one step per line, as JSON, each session beginning at its start or resume.
- * Its steps name the working folder by the placeholder, which `inFolder` resolves.
+ * Its steps name places by placeholder, which `inPlaces` resolves.
  */
 export async function readRecording(file: string): Promise<SessionScript[]> {
   const lines = (await readFile(file, "utf8")).split(/\r?\n/).filter((line) => line.trim() !== "");
@@ -124,14 +133,17 @@ export async function readRecording(file: string): Promise<SessionScript[]> {
   return splitIntoSessions(steps, file);
 }
 
-/** Writes sessions as `readRecording` reads them, each mention of their working folder replaced by the placeholder. */
+/**
+ * Writes sessions as `readRecording` reads them, each mention of their places replaced by its
+ * placeholder.
+ */
 export async function writeRecording(
   file: string,
-  sessions: readonly { readonly folder: string; readonly script: SessionScript }[],
+  sessions: readonly { readonly places: RecordedPlaces; readonly script: SessionScript }[],
 ): Promise<void> {
-  const lines = sessions.flatMap(({ folder, script }) =>
+  const lines = sessions.flatMap(({ places, script }) =>
     script.map((step) =>
-      JSON.stringify(withFolderPlaceholder(step, folder), (_key, value: unknown) =>
+      JSON.stringify(withPlaceholders(step, places), (_key, value: unknown) =>
         value === undefined ? null : value,
       ),
     ),
@@ -139,9 +151,12 @@ export async function writeRecording(
   await writeFile(file, lines.map((line) => `${line}\n`).join(""));
 }
 
-/** A step of a recording as it happens in `folder`. */
-export function inFolder<Step extends ScriptStep>(step: Step, folder: string): Step {
-  return replaceInStrings(step, FOLDER_PLACEHOLDER, folder) as Step;
+/** A step of a recording as it happens in these places. */
+export function inPlaces<Step extends ScriptStep>(step: Step, places: RecordedPlaces): Step {
+  return PLACES.reduce<unknown>(
+    (value, place) => replaceInStrings(value, PLACEHOLDERS[place], places[place]),
+    step,
+  ) as Step;
 }
 
 function splitIntoSessions(steps: readonly ScriptStep[], file: string): SessionScript[] {
@@ -160,11 +175,17 @@ function splitIntoSessions(steps: readonly ScriptStep[], file: string): SessionS
   return sessions;
 }
 
-/** Engines and models write a Windows path with either separator; both become the placeholder. */
-function withFolderPlaceholder(step: ScriptStep, folder: string): unknown {
-  const spellings = [...new Set([folder, folder.replaceAll("\\", "/")])];
-  return spellings.reduce<unknown>(
-    (value, spelling) => replaceInStrings(value, spelling, FOLDER_PLACEHOLDER),
+/**
+ * Engines and models write a Windows path with either separator; both become the placeholder.
+ * The working folder goes first, as it may lie in the home folder.
+ */
+function withPlaceholders(step: ScriptStep, places: RecordedPlaces): unknown {
+  return PLACES.flatMap((place) =>
+    [...new Set([places[place], places[place].replaceAll("\\", "/")])].map(
+      (spelling) => [spelling, PLACEHOLDERS[place]] as const,
+    ),
+  ).reduce<unknown>(
+    (value, [spelling, placeholder]) => replaceInStrings(value, spelling, placeholder),
     step,
   );
 }

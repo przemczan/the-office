@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import {
   AgentEngine,
   CapabilityMissing,
@@ -11,7 +12,7 @@ import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import {
-  inFolder,
+  inPlaces,
   type CallerRequest,
   type CallerStep,
   type SessionScript,
@@ -113,7 +114,7 @@ export class ScriptedSession implements EngineSession {
     script: SessionScript,
     private readonly capabilities: EngineCapabilities,
   ) {
-    const steps = script.map((step) => inFolder(step, options.folder));
+    const steps = script.map((step) => inPlaces(step, { folder: options.folder, home: homedir() }));
     this.recordedWindows = steps.flatMap((step) =>
       step.step === "read-usage-windows" ? [step.windows] : [],
     );

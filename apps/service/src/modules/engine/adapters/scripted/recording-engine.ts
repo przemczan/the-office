@@ -1,3 +1,4 @@
+import { homedir } from "node:os";
 import { AgentEngine, type EngineCapabilities, type NewSession } from "../../ports/agent-engine.js";
 import type { EngineSession, MessagePriority, UserMessage } from "../../ports/engine-session.js";
 import type { UsageWindows } from "../../domain/usage-windows.js";
@@ -34,7 +35,10 @@ export class RecordingEngine extends AgentEngine {
   async save(file: string): Promise<void> {
     await writeRecording(
       file,
-      this.recorded.map((session) => ({ folder: session.folder, script: session.steps })),
+      this.recorded.map((session) => ({
+        places: { folder: session.folder, home: homedir() },
+        script: session.steps,
+      })),
     );
   }
 

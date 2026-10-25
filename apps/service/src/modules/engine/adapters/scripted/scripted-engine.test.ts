@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -10,7 +10,7 @@ import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { RecordingEngine } from "./recording-engine.js";
 import { ScriptedEngine, ScriptMismatch } from "./scripted-engine.js";
-import { FOLDER_PLACEHOLDER, readRecording, type SessionScript } from "./session-script.js";
+import { PLACEHOLDERS, readRecording, type SessionScript } from "./session-script.js";
 
 const RECORDINGS = fileURLToPath(new URL("./recordings/", import.meta.url));
 
@@ -82,7 +82,7 @@ const READS_A_FILE: SessionScript = [
       callId: "call-1",
       tool: "Read",
       officeTool: false,
-      input: { file_path: `${FOLDER_PLACEHOLDER}/plan.md` },
+      input: { file_path: `${PLACEHOLDERS.folder}/plan.md`, home: `${PLACEHOLDERS.home}/.ssh` },
       withinToolCall: undefined,
     },
   },
@@ -97,7 +97,7 @@ async function readAll(events: AsyncIterable<SessionEvent>): Promise<SessionEven
 }
 
 describe("ScriptedEngine", () => {
-  it("names the session's own folder where the script names the working folder", async () => {
+  it("names the session's own folder and home where the script names them", async () => {
     const engine = new ScriptedEngine([READS_A_FILE]);
     const session = await engine.start({
       id: randomUUID(),
@@ -107,7 +107,9 @@ describe("ScriptedEngine", () => {
     const reading = readAll(session.events);
     await session.end();
 
-    expect((await reading)[0]).toMatchObject({ input: { file_path: `${folder}/plan.md` } });
+    expect((await reading)[0]).toMatchObject({
+      input: { file_path: `${folder}/plan.md`, home: `${homedir()}/.ssh` },
+    });
   });
 
   it("names the caller's message ids in the turns that took them, and keeps what the caller did", async () => {
@@ -156,6 +158,28 @@ describe("ScriptedEngine", () => {
   });
 });
 
+describe("the Test Project check's recording", () => {
+  it("replays a session refused a git commit and an ~/.ssh read by the Office rules", async () => {
+    const engine = new ScriptedEngine(await readRecording(join(RECORDINGS, "test-project.jsonl")));
+    const session = await engine.start({
+      id: randomUUID(),
+      options: {
+        ...options(),
+        profile: { edit: false, run: { kind: "read-only-git" }, web: false },
+      },
+      brief: { id: randomUUID(), text: "Read, commit, read a secret." },
+    });
+    const reading = readAll(session.events);
+    await session.end();
+
+    const refusals = (await reading).filter((event) => event.kind === "tool-refused");
+    expect(refusals.map(({ tool, refusedBy }) => [tool, refusedBy])).toEqual([
+      ["Bash", "office-rules"],
+      ["Read", "office-rules"],
+    ]);
+  });
+});
+
 describe("RecordingEngine", () => {
   it("records what a session's caller did and what it reported, for the scripted engine to replay", async () => {
     const recording = new RecordingEngine(new ScriptedEngine([READS_A_FILE]));
@@ -170,6 +194,8 @@ describe("RecordingEngine", () => {
     await recording.save(file);
 
     expect(await readRecording(file)).toEqual([READS_A_FILE]);
-    expect(await readFile(file, "utf8")).not.toContain(folder);
+    const written = await readFile(file, "utf8");
+    expect(written).not.toContain(folder);
+    expect(written).not.toContain(homedir());
   });
 });
