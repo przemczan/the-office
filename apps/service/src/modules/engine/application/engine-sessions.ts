@@ -4,7 +4,7 @@ import { AsyncChannel } from "../../../platform/streams/async-channel.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { EngineDown } from "../domain/engine-events.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
-import { AgentEngine, type EngineCapabilities } from "../ports/agent-engine.js";
+import { AgentEngine, CapabilityMissing, type EngineCapabilities } from "../ports/agent-engine.js";
 import type { EngineSession, MessagePriority, UserMessage } from "../ports/engine-session.js";
 import type { SessionEvent } from "../ports/session-events.js";
 import type { SessionOptions } from "../ports/session-options.js";
@@ -81,7 +81,8 @@ export class EngineSessions {
       session = await open();
     } catch (error) {
       spans.stopped(error);
-      await this.engineDown(sessionId, error);
+      // Refusing what the engine can't do is the caller's to handle; the engine is not down.
+      if (!(error instanceof CapabilityMissing)) await this.engineDown(sessionId, error);
       throw error;
     }
     return new WatchedSession(session, spans, {

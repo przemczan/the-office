@@ -12,6 +12,7 @@ import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { ScriptedEngine } from "../adapters/scripted/scripted-engine.js";
 import type { SessionScript } from "../adapters/scripted/session-script.js";
 import { EngineDown, UsageWindowsChanged } from "../domain/engine-events.js";
+import { CapabilityMissing, type EngineCapabilities } from "../ports/agent-engine.js";
 import type { EngineSession } from "../ports/engine-session.js";
 import type { SessionEvent, TurnEndedEvent } from "../ports/session-events.js";
 import type { OfficeTool } from "../ports/office-tool.js";
@@ -81,7 +82,7 @@ const TWO_TURNS: SessionScript = [
   { step: "end" },
 ];
 
-function setUp(scripts: readonly SessionScript[]) {
+function setUp(scripts: readonly SessionScript[], capabilities: Partial<EngineCapabilities> = {}) {
   const spans = new InMemorySpanExporter();
   const tracerProvider = new TracerProvider({
     spanProcessors: [new SimpleSpanProcessor({ exporter: spans })],
@@ -97,7 +98,7 @@ function setUp(scripts: readonly SessionScript[]) {
   const officeTools = new OfficeToolRegistry();
   officeTools.register(NOTE_TOOL);
   const sessions = new EngineSessions(
-    new ScriptedEngine(scripts),
+    new ScriptedEngine(scripts, capabilities),
     telemetry,
     events,
     usageWindows,
@@ -203,6 +204,15 @@ describe("EngineSessions", () => {
         brief: message("Begin."),
       }),
     ).rejects.toThrow("No Office tool is registered as open_decision.");
+    expect(published).toEqual([]);
+  });
+
+  it("refuses what the engine can't do without announcing it down", async () => {
+    const { sessions, published } = setUp([TWO_TURNS], { officeTools: false });
+
+    await expect(
+      sessions.start({ id: "s-1", settings: SETTINGS, brief: message("Begin.") }),
+    ).rejects.toBeInstanceOf(CapabilityMissing);
     expect(published).toEqual([]);
   });
 
