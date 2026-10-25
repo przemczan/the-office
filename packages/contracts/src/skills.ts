@@ -18,6 +18,8 @@ export const skillSchema = z.object({
   state: skillStateSchema,
   /** Comes with every Role. */
   everyone: z.boolean(),
+  /** The Roles it is assigned to, by key, besides everyone when it is for everyone. */
+  roles: z.array(z.string()),
   addedAt: z.iso.datetime(),
   /** When the current version was saved. */
   savedAt: z.iso.datetime(),
@@ -74,6 +76,10 @@ export type SkillStateChange = z.infer<typeof skillStateChangeSchema>;
 export const skillEveryoneChangeSchema = z.object({ everyone: z.boolean() });
 export type SkillEveryoneChange = z.infer<typeof skillEveryoneChangeSchema>;
 
+/** PUT /skills/:name/roles: exactly the Roles that have it, by key. */
+export const skillRolesChangeSchema = z.object({ roles: z.array(z.string().min(1)) });
+export type SkillRolesChange = z.infer<typeof skillRolesChangeSchema>;
+
 /** What a refused change answers: every reason, also joined into Nest's `message`. */
 export const skillRefusalSchema = z.object({
   statusCode: z.literal(422),
@@ -106,5 +112,7 @@ export const skillWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("skill.turned-off"), skillName: z.string() }),
   webEventSchema.extend({ type: z.literal("skill.everyone-changed"), skillName: z.string() }),
   webEventSchema.extend({ type: z.literal("skill.removed"), skillName: z.string() }),
+  /** The Role's skills changed, from its card or from Settings › Skills. */
+  webEventSchema.extend({ type: z.literal("skill.role-skills-changed"), roleKey: z.string() }),
 ]);
 export type SkillWebEvent = z.infer<typeof skillWebEventSchema>;

@@ -108,6 +108,14 @@
   gap: 14px;
 }
 
+.skill-people {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 0;
+  border-block: 1px solid var(--border-subtle);
+}
+
 .skill-tabs {
   margin: -6px 0 16px;
 }

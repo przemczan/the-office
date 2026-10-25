@@ -5,8 +5,10 @@ export {
   type SessionSkillRequest,
 } from "./application/session-skills.js";
 export { ProjectSkills } from "./application/project-skills.js";
+export { RoleSkills, type RoleSkillsChange } from "./application/role-skills.js";
 export { SkillLibrary } from "./application/skill-library.js";
 export {
+  RoleSkillsChanged,
   SkillAdded,
   SkillEveryoneChanged,
   SkillRemoved,

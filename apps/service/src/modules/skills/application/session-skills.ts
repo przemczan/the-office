@@ -10,9 +10,11 @@ import {
   type SessionSkill,
   type SessionSkillRecord,
 } from "../domain/session-skills.js";
+import { skillsOfRole } from "../domain/role-skills.js";
 import { SessionSkillsNotFound } from "../domain/session-skills-not-found.js";
 import { LibraryFolder } from "../ports/library-folder.js";
 import { ProjectSkillFiles } from "../ports/project-skill-files.js";
+import { RoleSkillRepository } from "../ports/role-skill-repository.js";
 import { SessionFolders } from "../ports/session-folders.js";
 import { SessionSkillRepository } from "../ports/session-skill-repository.js";
 import { SkillRepository } from "../ports/skill-repository.js";
@@ -42,8 +44,8 @@ export interface SessionProject {
 
 export interface SessionSkillRequest {
   readonly sessionId: string;
-  /** The skills its Role's card names; the skills for everyone come with them. */
-  readonly roleSkills: readonly string[];
+  /** The key of the Role the session works in: it gets the Role's skills and those for everyone. */
+  readonly roleKey: string;
   readonly project: SessionProject | undefined;
 }
 
@@ -61,10 +63,12 @@ export class SessionSkills {
     private readonly records: SessionSkillRepository,
     private readonly folders: SessionFolders,
     private readonly projectFiles: ProjectSkillFiles,
+    private readonly roleSkills: RoleSkillRepository,
   ) {}
 
   /** For a new session; its set is kept for each resume. */
-  async prepare({ sessionId, roleSkills, project }: SessionSkillRequest): Promise<PreparedSkills> {
+  async prepare({ sessionId, roleKey, project }: SessionSkillRequest): Promise<PreparedSkills> {
+    const roleSkills = skillsOfRole(await this.roleSkills.list(), roleKey);
     const skills = librarySkillsFor(await this.skills.list(), roleSkills);
     const projectSkills = project
       ? projectSkillNamesFrom(await this.projectFiles.files(project.folder))

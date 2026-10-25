@@ -328,3 +328,31 @@ describe("turning a skill on, for everyone, and removing it", () => {
     expect((await send("PUT", "/skills/nowhere/state", { state: "on" })).status).toBe(404);
   });
 });
+
+function roleSkillsChanged(roleKey: string): unknown {
+  return { type: "skill.role-skills-changed", roleKey };
+}
+
+describe("PUT /api/skills/:name/roles", () => {
+  it("gives the skill to exactly the Roles named, and lists them with it", async () => {
+    const name = aName();
+    await write(name);
+    const [first, second] = [`role-${randomUUID()}`, `role-${randomUUID()}`];
+    await send("PUT", `/skills/${name}/roles`, { roles: [first] });
+
+    const response = await send("PUT", `/skills/${name}/roles`, { roles: [second] });
+
+    expect(skillSchema.parse(await response.json()).roles).toEqual([second]);
+    const listed = skillListSchema.parse(await (await fetch(`${url}/api/skills`)).json());
+    expect(listed.find((skill) => skill.name === name)?.roles).toEqual([second]);
+    // One event per Role whose skills changed, in key order.
+    expect(webEvents().slice(1)).toEqual([
+      roleSkillsChanged(first),
+      ...[first, second].toSorted().map(roleSkillsChanged),
+    ]);
+  });
+
+  it("answers 404 for a skill the library doesn't have", async () => {
+    expect((await send("PUT", "/skills/nowhere/roles", { roles: [] })).status).toBe(404);
+  });
+});

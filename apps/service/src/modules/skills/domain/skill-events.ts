@@ -1,4 +1,5 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { RoleSkillsChange } from "./role-skills.js";
 import type { Skill } from "./skill.js";
 
 /** It arrives waiting for review. */
@@ -44,5 +45,12 @@ export class SkillEveryoneChanged extends DomainEvent {
 export class SkillRemoved extends DomainEvent {
   constructor(readonly skillName: string) {
     super();
+  }
+}
+
+/** A Role's next sessions get its new skills; running ones keep theirs. */
+export class RoleSkillsChanged extends DomainEvent {
+  constructor(readonly change: RoleSkillsChange) {
+    super(change.changedAt);
   }
 }

@@ -20,6 +20,7 @@ import {
 import { SessionSkillsNotFound } from "../domain/session-skills-not-found.js";
 import { SkillVersionMissing } from "../domain/skill-version-missing.js";
 import { SkillsModule } from "../skills.module.js";
+import { RoleSkills } from "./role-skills.js";
 import { SessionSkills, type PreparedSkills } from "./session-skills.js";
 import { SkillLibrary } from "./skill-library.js";
 
@@ -41,6 +42,13 @@ async function start(): Promise<void> {
 /** A name of the test's own, since every test file shares the database. */
 function aName(prefix: string): string {
   return `${prefix}-${randomUUID().slice(0, 8)}`;
+}
+
+/** A Role of the test's own, given the skills. */
+async function aRoleWith(...skillNames: string[]): Promise<string> {
+  const roleKey = aName("role");
+  await app.get(RoleSkills).assignToRole(roleKey, skillNames);
+  return roleKey;
 }
 
 async function anOnSkill(name: string, instructions = "Do it."): Promise<void> {
@@ -83,7 +91,7 @@ describe("SessionSkills", () => {
     const prepared = await sessionSkills
       .prepare({
         sessionId,
-        roleSkills: [tdd],
+        roleKey: await aRoleWith(tdd),
         project: { folder: checkout.path, useProjectSkills: true },
       })
       .finally(() => library.remove(style));
@@ -101,13 +109,31 @@ describe("SessionSkills", () => {
   it("turns the Project's skills off, by bare name, when the Project doesn't use them", async () => {
     const prepared = await sessionSkills.prepare({
       sessionId: randomUUID(),
-      roleSkills: [],
+      roleKey: aName("role"),
       project: { folder: checkout.path, useProjectSkills: false },
     });
 
     expect(prepared.names).toEqual([]);
     expect(prepared.expected).toEqual([]);
     expect(prepared.overrides).toEqual({ deploy: "off", ship: "off" });
+  });
+
+  it("gives a Role's next session a skill assigned from Settings, and none taken away", async () => {
+    const [kept, taken] = [aName("tdd"), aName("grilling")];
+    await anOnSkill(kept);
+    await anOnSkill(taken);
+    const roleKey = await aRoleWith(taken);
+    const roleSkills = app.get(RoleSkills);
+    await roleSkills.assignSkill(kept, [roleKey]);
+    await roleSkills.assignSkill(taken, []);
+
+    const prepared = await sessionSkills.prepare({
+      sessionId: randomUUID(),
+      roleKey,
+      project: undefined,
+    });
+
+    expect(prepared.versions.map((skill) => skill.name)).toEqual([kept]);
   });
 
   it("reports an allowed Project skill that also allows a library skill by its suffix", async () => {
@@ -117,7 +143,7 @@ describe("SessionSkills", () => {
 
     const prepared = await sessionSkills.prepare({
       sessionId: randomUUID(),
-      roleSkills: [name],
+      roleKey: await aRoleWith(name),
       project: { folder: checkout.path, useProjectSkills: true },
     });
 
@@ -132,7 +158,7 @@ describe("SessionSkills", () => {
     const sessionId = randomUUID();
     const prepared = await sessionSkills.prepare({
       sessionId,
-      roleSkills: [name],
+      roleKey: await aRoleWith(name),
       project: undefined,
     });
     await library.edit(name, { description: `Uses ${name}.`, instructions: "Refactor too." });
@@ -148,7 +174,7 @@ describe("SessionSkills", () => {
     );
     const next = await sessionSkills.prepare({
       sessionId: randomUUID(),
-      roleSkills: [name],
+      roleKey: await aRoleWith(name),
       project: undefined,
     });
     expect(next.versions).toEqual([{ name, version: 2, filesHash: expect.any(String) }]);
@@ -161,7 +187,7 @@ describe("SessionSkills", () => {
   describe("cleanup", () => {
     it("removes a session's folder and record once it can't be resumed", async () => {
       const sessionId = randomUUID();
-      await sessionSkills.prepare({ sessionId, roleSkills: [], project: undefined });
+      await sessionSkills.prepare({ sessionId, roleKey: aName("role"), project: undefined });
 
       await sessionSkills.forget(sessionId);
 
@@ -174,8 +200,16 @@ describe("SessionSkills", () => {
       await anOnSkill(name);
       const kept = randomUUID();
       const forgotten = randomUUID();
-      await sessionSkills.prepare({ sessionId: kept, roleSkills: [name], project: undefined });
-      await sessionSkills.prepare({ sessionId: forgotten, roleSkills: [name], project: undefined });
+      await sessionSkills.prepare({
+        sessionId: kept,
+        roleKey: await aRoleWith(name),
+        project: undefined,
+      });
+      await sessionSkills.prepare({
+        sessionId: forgotten,
+        roleKey: await aRoleWith(name),
+        project: undefined,
+      });
       await library.remove(name);
       await sessionSkills.forget(forgotten);
 
@@ -202,7 +236,11 @@ describe("SessionSkills", () => {
 
     it("removes, at the service's start, the folders of sessions with no record", async () => {
       const recorded = randomUUID();
-      await sessionSkills.prepare({ sessionId: recorded, roleSkills: [], project: undefined });
+      await sessionSkills.prepare({
+        sessionId: recorded,
+        roleKey: aName("role"),
+        project: undefined,
+      });
       await mkdir(join(officeData, "sessions", "orphan", "skills"), { recursive: true });
       await app.close();
 
@@ -215,7 +253,11 @@ describe("SessionSkills", () => {
       const name = aName("tdd");
       await anOnSkill(name);
       const sessionId = randomUUID();
-      await sessionSkills.prepare({ sessionId, roleSkills: [name], project: undefined });
+      await sessionSkills.prepare({
+        sessionId,
+        roleKey: await aRoleWith(name),
+        project: undefined,
+      });
       await rm(join(officeData, "skills", name), { recursive: true, force: true });
 
       await expect(sessionSkills.rebuild(sessionId)).rejects.toThrow(SkillVersionMissing);
@@ -322,7 +364,7 @@ async function preparedWhileOn(
   try {
     return await on.get(SessionSkills).prepare({
       sessionId: randomUUID(),
-      roleSkills: [],
+      roleKey: aName("role"),
       project: { folder: worktree, useProjectSkills: true },
     });
   } finally {

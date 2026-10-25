@@ -1,5 +1,14 @@
 import { sql } from "drizzle-orm";
-import { boolean, integer, jsonb, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+} from "drizzle-orm/pg-core";
 import type { ProjectSkillName, SessionSkill } from "../../domain/session-skills.js";
 import type { SkillSource, SkillState } from "../../domain/skill.js";
 
@@ -42,3 +51,28 @@ export const sessionSkills = pgTable("session_skills", {
     .default(sql`'{}'`),
   preparedAt: timestamp("prepared_at", { withTimezone: true }).notNull(),
 });
+
+/** Each library skill assigned to a Role, by the Role's key; a removed skill takes its own along. */
+export const roleSkills = pgTable(
+  "role_skills",
+  {
+    roleKey: text("role_key").notNull(),
+    skillName: text("skill_name")
+      .notNull()
+      .references(() => skills.name, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.roleKey, table.skillName] })],
+);
+
+/** What each Role gained and lost with each change of its skills, for its change history. */
+export const roleSkillChanges = pgTable(
+  "role_skill_changes",
+  {
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    roleKey: text("role_key").notNull(),
+    added: text("added").array().notNull(),
+    removed: text("removed").array().notNull(),
+    changedAt: timestamp("changed_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [index("role_skill_changes_role_key").on(table.roleKey)],
+);

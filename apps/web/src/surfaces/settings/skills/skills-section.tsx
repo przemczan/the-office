@@ -1,7 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Skill } from "@the-office/contracts";
+import type { Role, Skill } from "@the-office/contracts";
 import { Alert, Badge, Button, Card, DataTable, Icon, type DataTableColumn } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
+import { roleQueries } from "../../../api/people.ts";
 import { skillQueries } from "../../../api/skills.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { SkillChip } from "../../../shell/skill-chip.tsx";
@@ -27,6 +28,7 @@ export type SkillDialog =
 export function SkillsSection(): ReactNode {
   usePageHeading({ title: "Settings", crumb: "Skills" });
   const skills = useQuery(skillQueries.list());
+  const roles = useQuery(roleQueries.list());
   const [dialog, setDialog] = useState<SkillDialog>();
   const close = (): void => setDialog(undefined);
   const library = inReviewOrder(skills.data ?? []);
@@ -73,7 +75,7 @@ export function SkillsSection(): ReactNode {
           rowKey="name"
           density="relaxed"
           rows={library}
-          columns={columns(setDialog)}
+          columns={columns(setDialog, roles.data ?? [])}
           loading={skills.isPending}
           empty="The library is empty. Add a skill by uploading it or writing it here."
         />
@@ -93,7 +95,10 @@ export function SkillsSection(): ReactNode {
   );
 }
 
-function columns(open: (dialog: SkillDialog) => void): DataTableColumn<Skill>[] {
+function columns(
+  open: (dialog: SkillDialog) => void,
+  roles: readonly Role[],
+): DataTableColumn<Skill>[] {
   return [
     {
       key: "name",
@@ -119,7 +124,7 @@ function columns(open: (dialog: SkillDialog) => void): DataTableColumn<Skill>[] 
     {
       key: "everyone",
       header: "Who has it",
-      render: (skill) => <span className="skill-holders">{holdersLabel(skill)}</span>,
+      render: (skill) => <span className="skill-holders">{holdersLabel(skill, roles)}</span>,
     },
     {
       key: "state",
@@ -149,7 +154,7 @@ function columns(open: (dialog: SkillDialog) => void): DataTableColumn<Skill>[] 
               variant="secondary"
               onClick={() => open({ kind: "who-has-it", name: skill.name })}
             >
-              Who has it…
+              Assign…
             </Button>
           )}
         </div>

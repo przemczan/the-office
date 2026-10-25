@@ -2,6 +2,7 @@ import { Injectable, type OnModuleInit } from "@nestjs/common";
 import type { SkillWebEvent } from "@the-office/contracts";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import {
+  RoleSkillsChanged,
   SkillAdded,
   SkillEveryoneChanged,
   SkillRemoved,
@@ -48,5 +49,12 @@ export class SkillWebEvents implements OnModuleInit {
       type: "skill.removed",
       skillName: event.skillName,
     }));
+    this.forwarding.forward(
+      RoleSkillsChanged,
+      (event): WebEventOf<"skill.role-skills-changed"> => ({
+        type: "skill.role-skills-changed",
+        roleKey: event.change.roleKey,
+      }),
+    );
   }
 }

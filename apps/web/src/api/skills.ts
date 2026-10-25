@@ -54,13 +54,19 @@ export function changeSkillEveryone(name: string, everyone: boolean): Promise<Sk
   return sendToApi("PUT", `${skillPath(name)}/everyone`, { everyone }, skillSchema);
 }
 
+/** Gives the skill to exactly these Roles, by key. */
+export function assignSkill(name: string, roles: readonly string[]): Promise<Skill> {
+  return sendToApi("PUT", `${skillPath(name)}/roles`, { roles: [...roles] }, skillSchema);
+}
+
 export function removeSkill(name: string): Promise<void> {
   return deleteFromApi(skillPath(name));
 }
 
 /**
  * Every library event makes the library stale; ["skills"] also covers each skill's review. A
- * Project's own skills say whether the library has the same name, so they go stale too.
+ * Project's own skills say whether the library has the same name, so they go stale too, and a
+ * Role's skills are on its card.
  */
 export const skillEventInvalidations: Readonly<
   Record<SkillWebEvent["type"], EventInvalidations[string]>
@@ -70,7 +76,8 @@ export const skillEventInvalidations: Readonly<
   "skill.turned-on": () => [SKILLS],
   "skill.turned-off": () => [SKILLS],
   "skill.everyone-changed": () => [SKILLS],
-  "skill.removed": () => [SKILLS, ["projects"]],
+  "skill.removed": () => [SKILLS, ["projects"], ["roles"]],
+  "skill.role-skills-changed": () => [SKILLS, ["roles"]],
 };
 
 function skillPath(name: string): `/${string}` {

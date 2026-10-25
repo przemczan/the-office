@@ -1,4 +1,4 @@
-import type { Skill, SkillSource, SkillState } from "@the-office/contracts";
+import type { Role, Skill, SkillSource, SkillState } from "@the-office/contracts";
 import type { BadgeProps } from "@the-office/ui";
 
 export const SOURCE_LABELS: Readonly<Record<SkillSource, string>> = {
@@ -15,9 +15,13 @@ export const STATE_BADGES: Readonly<
   on: { label: "On", tone: "success" },
 };
 
-/** Until Role cards name skills (task 08), only a skill for everyone reaches anyone. */
-export function holdersLabel(skill: Skill): string {
-  return skill.everyone ? "Everyone" : "Nobody";
+/** Who has the skill: everyone, or the people whose Role it is assigned to, by first name. */
+export function holdersLabel(skill: Skill, roles: readonly Role[]): string {
+  if (skill.everyone) return "Everyone";
+  const names = roles
+    .filter((role) => skill.roles.includes(role.key))
+    .map((role) => role.card.name);
+  return names.length > 0 ? names.join(", ") : "Nobody";
 }
 
 /** The banner over the library, or undefined when nothing waits on the user. */

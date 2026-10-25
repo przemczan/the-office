@@ -1,12 +1,17 @@
+import { randomUUID } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import {
   presetListSchema,
   roleCardOptionsSchema,
-  roleCardVersionListSchema,
+  roleChangeListSchema,
   roleListSchema,
   roleRefusalSchema,
   roleSchema,
   roleWebEventSchema,
+  skillWebEventSchema,
   type Role,
   type RoleCardEdit,
 } from "@the-office/contracts";
@@ -17,41 +22,48 @@ import { DATABASE, type Database } from "../../../../platform/database/database.
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
+import { OfficeDataModule } from "../../../../platform/office-data/office-data.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
+import { RoleSkills, SkillLibrary } from "../../../skills/index.js";
 import { PRESETS } from "../../domain/presets.js";
 import { PeopleModule } from "../../people.module.js";
 import { roles } from "../postgres/roles.schema.js";
 
 // The only test file that hires from the presets: their Roles' keys are fixed, and every test
-// file shares the database, so it removes them before each test (apps/service/README.md).
+// file shares the database, so it removes them, and takes their skills away, before each test
+// (apps/service/README.md). A person's history starts at the hire, so that change isn't in it.
 const PRESET_KEYS = PRESETS.map((preset) => preset.roleKey);
 
+let officeData: string;
 let app: INestApplication;
 let url: string;
 let published: DomainEvent[];
 
 beforeEach(async () => {
+  officeData = await mkdtemp(join(tmpdir(), "office-roles-"));
   ({ app, url } = await startTestApplication({
     database: true,
-    imports: [EventsModule, EventStreamModule, PeopleModule],
+    imports: [EventsModule, EventStreamModule, OfficeDataModule.forRoot(officeData), PeopleModule],
   }));
   await app.get<Database>(DATABASE).delete(roles).where(inArray(roles.key, PRESET_KEYS));
+  for (const roleKey of PRESET_KEYS) await app.get(RoleSkills).assignToRole(roleKey, []);
   published = [];
   app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));
 });
 
 afterEach(async () => {
   await app.close();
+  await rm(officeData, { recursive: true, force: true });
 });
 
 /** The events published so far, as the web receives them. */
 function webEvents(): unknown[] {
   const forwarding = app.get(WebEventForwarding);
   return published.map((event) => {
-    const { occurredAt: _occurredAt, ...webEvent } = roleWebEventSchema.parse(
-      forwarding.toWebEvent(event),
-    );
+    const { occurredAt: _occurredAt, ...webEvent } = roleWebEventSchema
+      .or(skillWebEventSchema)
+      .parse(forwarding.toWebEvent(event));
     return webEvent;
   });
 }
@@ -79,6 +91,15 @@ async function hire(roleKey: string, name: string): Promise<Role> {
 async function reasonsOf(response: Response): Promise<string[]> {
   expect(response.status).toBe(422);
   return roleRefusalSchema.parse(await response.json()).reasons;
+}
+
+/** A skill of the test's own in the library, on. */
+async function anOnSkill(): Promise<string> {
+  const name = `tdd-${randomUUID().slice(0, 8)}`;
+  const library = app.get(SkillLibrary);
+  await library.write({ name, description: "Test first.", instructions: "Red, green, refactor." });
+  await library.turnOn(name);
+  return name;
 }
 
 function editOf({ card }: Role): RoleCardEdit {
@@ -219,6 +240,39 @@ describe("PUT /api/roles/:key/card", () => {
     ]);
   });
 
+  it("gives the Role exactly the skills the card names, for its next sessions", async () => {
+    const hired = await hire("planner", "Jan");
+    const [grilling, tdd] = [await anOnSkill(), await anOnSkill()];
+    await send("PUT", "/roles/planner/card", { ...editOf(hired), skills: [grilling, tdd] });
+    published = [];
+
+    const response = await send("PUT", "/roles/planner/card", {
+      ...editOf(hired),
+      skills: [tdd],
+    });
+
+    expect(response.status).toBe(200);
+    expect(roleSchema.parse(await response.json()).card.skills).toEqual([tdd]);
+    expect(roleSchema.parse(await get("/roles/planner")).card.skills).toEqual([tdd]);
+    expect(webEvents()).toEqual([{ type: "skill.role-skills-changed", roleKey: "planner" }]);
+  });
+
+  it("refuses a skill the library lacks together with the card's own reasons, saving neither", async () => {
+    const hired = await hire("developer", "Ada");
+
+    const response = await send("PUT", "/roles/developer/card", {
+      ...editOf(hired),
+      title: "",
+      skills: ["no-such-skill"],
+    });
+
+    expect(await reasonsOf(response)).toEqual([
+      "Give the Role a title.",
+      "The library has no skill no-such-skill.",
+    ]);
+    expect(roleSchema.parse(await get("/roles/developer")).cardVersion).toBe(1);
+  });
+
   it("answers 400 for a body that isn't a card", async () => {
     await hire("developer", "Ada");
 
@@ -228,20 +282,23 @@ describe("PUT /api/roles/:key/card", () => {
   });
 });
 
-describe("GET /api/roles/:key/card-versions", () => {
-  it("lists the change history, newest first, with what changed and when", async () => {
+describe("GET /api/roles/:key/changes", () => {
+  it("lists the change history, newest first, down to the hire", async () => {
     const hired = await hire("developer", "Ada");
-    await send("PUT", "/roles/developer/card", { ...editOf(hired), effort: "max" });
+    const tdd = await anOnSkill();
+    await send("PUT", "/roles/developer/card", { ...editOf(hired), effort: "max", skills: [tdd] });
 
-    const versions = roleCardVersionListSchema.parse(await get("/roles/developer/card-versions"));
+    const changes = roleChangeListSchema.parse(await get("/roles/developer/changes"));
 
-    expect(versions).toEqual([
+    expect(changes).toEqual([
+      { kind: "skills-changed", at: expect.any(String), added: [tdd], removed: [] },
       {
-        version: 2,
-        savedAt: expect.any(String),
+        kind: "card-changed",
+        at: expect.any(String),
+        cardVersion: 2,
         changes: [{ field: "effort", from: "high", to: "max" }],
       },
-      { version: 1, savedAt: hired.hiredAt, changes: [] },
+      { kind: "hired", at: hired.hiredAt },
     ]);
   });
 });

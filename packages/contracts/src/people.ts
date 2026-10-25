@@ -76,6 +76,8 @@ export const roleCardEditSchema = z.object({
   hardSwitches: hardSwitchesSchema,
   taskLimit: taskLimitSchema,
   sessionDefault: sessionDefaultSchema,
+  /** The library skills the Role has besides the skills for everyone, by name. */
+  skills: z.array(z.string()),
 });
 export type RoleCardEdit = z.infer<typeof roleCardEditSchema>;
 
@@ -104,11 +106,11 @@ export const roleListSchema = z.array(roleSchema);
 export const hireSchema = z.object({ roleKey: z.string(), name: z.string() });
 export type Hire = z.infer<typeof hireSchema>;
 
-/** GET /presets: what hiring starts from. */
+/** GET /presets: what hiring starts from; a hired Role starts with no skills of its own. */
 export const presetSchema = z.object({
   roleKey: z.string(),
   suggestedName: z.string(),
-  card: roleCardSchema.omit({ name: true }),
+  card: roleCardSchema.omit({ name: true, skills: true }),
 });
 export type Preset = z.infer<typeof presetSchema>;
 
@@ -155,18 +157,28 @@ const roleCardValueSchema = z.union([
   hardSwitchValueSchema,
 ]);
 
-/** GET /roles/:key/card-versions, newest first: the change history, the first being the hire. */
-export const roleCardVersionSchema = z.object({
-  version: z.number().int().positive(),
-  savedAt: z.iso.datetime(),
-  /** From the version before; empty for the first. */
-  changes: z.array(
-    z.object({ field: roleCardFieldSchema, from: roleCardValueSchema, to: roleCardValueSchema }),
-  ),
-});
-export type RoleCardVersion = z.infer<typeof roleCardVersionSchema>;
+/** GET /roles/:key/changes, newest first: the Role's change history, ending with the hire. */
+export const roleChangeSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("hired"), at: z.iso.datetime() }),
+  z.object({
+    kind: z.literal("card-changed"),
+    at: z.iso.datetime(),
+    /** The version the change saved. */
+    cardVersion: z.number().int().positive(),
+    changes: z.array(
+      z.object({ field: roleCardFieldSchema, from: roleCardValueSchema, to: roleCardValueSchema }),
+    ),
+  }),
+  z.object({
+    kind: z.literal("skills-changed"),
+    at: z.iso.datetime(),
+    added: z.array(z.string()),
+    removed: z.array(z.string()),
+  }),
+]);
+export type RoleChange = z.infer<typeof roleChangeSchema>;
 
-export const roleCardVersionListSchema = z.array(roleCardVersionSchema);
+export const roleChangeListSchema = z.array(roleChangeSchema);
 
 /** What a refused hire or card change answers: every reason, also joined into Nest's `message`. */
 export const roleRefusalSchema = z.object({

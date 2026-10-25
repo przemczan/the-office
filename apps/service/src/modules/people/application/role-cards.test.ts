@@ -1,8 +1,14 @@
 import { randomUUID } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
+import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
+import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
+import { SkillsModule } from "../../skills/index.js";
 import { PostgresRoleRepository } from "../adapters/postgres/postgres-role-repository.js";
 import { aRole, aRoleCard } from "../domain/role.fixtures.js";
 import { RoleCardVersionNotFound } from "../domain/role-card-version-not-found.js";
@@ -15,11 +21,13 @@ let app: INestApplication;
 let roleCards: RoleCards;
 let roles: RoleService;
 let repository: RoleRepository;
+let officeData: string;
 
 beforeAll(async () => {
+  officeData = await mkdtemp(join(tmpdir(), "office-role-cards-"));
   ({ app } = await startTestApplication({
     database: true,
-    imports: [EventsModule],
+    imports: [EventsModule, EventStreamModule, OfficeDataModule.forRoot(officeData), SkillsModule],
     providers: [
       { provide: RoleRepository, useClass: PostgresRoleRepository },
       RoleService,
@@ -33,6 +41,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await app.close();
+  await rm(officeData, { recursive: true, force: true });
 });
 
 describe("RoleCards", () => {
@@ -41,7 +50,7 @@ describe("RoleCards", () => {
     await repository.add(role);
 
     const before = await roleCards.forNewSession(role.key);
-    await roles.changeCard(role.key, aRoleCard({ model: "claude-sonnet-5-5", taskLimit: 2 }));
+    await roles.changeCard(role.key, aRoleCard({ model: "claude-sonnet-5-5", taskLimit: 2 }), []);
     const after = await roleCards.forNewSession(role.key);
 
     expect(before).toEqual({ roleKey: role.key, cardVersion: 1, card: role.card });
