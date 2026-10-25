@@ -166,6 +166,38 @@ describe("Worktrees.install", () => {
   });
 });
 
+describe("Worktrees with a Task's id", () => {
+  it("commits, reports, restores and discards in the Task's worktree, with the Project's variables", async () => {
+    const taskId = aTaskId();
+    const { worktree } = await worktrees.prepare(project, taskId);
+    const hook = join(repository.path, ".git", "hooks", "post-commit");
+    const hookLog = join(repository.folder, `post-commit-${taskId}.log`);
+    const hookScript = `#!/bin/sh\nprintf '%s\\n' "$INSTALL_LOG" > "${hookLog.replaceAll("\\", "/")}"\n`;
+    await writeFile(hook, hookScript, { mode: 0o755 });
+    await writeFile(join(worktree.path, "stage.txt"), "a Stage's work\n");
+
+    let commit: string | undefined;
+    try {
+      commit = await worktrees.commit(project, taskId, "Implement: a Stage's work");
+    } finally {
+      await rm(hook);
+    }
+
+    await expect(worktrees.head(project, taskId)).resolves.toEqual({
+      commit,
+      branch: worktree.branch,
+    });
+    await expect(readFile(hookLog, "utf8")).resolves.toBe(`${installLog}\n`);
+    await writeFile(join(worktree.path, "stage.txt"), "changed by a test run\n");
+    await writeFile(join(worktree.path, "screenshot.png"), "a screenshot");
+    await expect(worktrees.restore(project, taskId)).resolves.toEqual(["stage.txt"]);
+    await writeFile(join(worktree.path, "half-done.txt"), "interrupted\n");
+    await expect(worktrees.discard(project, taskId)).resolves.toEqual(
+      expect.arrayContaining(["half-done.txt", "screenshot.png"]),
+    );
+  });
+});
+
 describe("Worktrees.remove", () => {
   it("removes the worktree with its uncommitted changes and keeps the Task's branch", async () => {
     const taskId = aTaskId();

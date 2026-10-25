@@ -7,7 +7,13 @@ import { currentOperatingSystem } from "../../../platform/os/current-operating-s
 import type { CommandRun } from "../domain/command-run.js";
 import type { Project } from "../domain/project.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
-import { Git, type GitVariables, type Upstream, type WorktreeCheckout } from "../ports/git.js";
+import {
+  Git,
+  type GitVariables,
+  type Head,
+  type Upstream,
+  type WorktreeCheckout,
+} from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 
 /** Short, as worktree paths count against Windows' MAX_PATH; a UUID fits. */
@@ -131,12 +137,38 @@ export class Worktrees {
     return { kind: "ran", run };
   }
 
+  /**
+   * Commits every change in the Task's worktree to its branch, as a Stage ends. Returns the new
+   * commit, or undefined when the Stage changed nothing.
+   */
+  async commit(project: Project, taskId: string, message: string): Promise<string | undefined> {
+    return this.git.commit(this.pathOf(project, taskId), message, this.variablesOf(project));
+  }
+
+  /** Where the Task's worktree is: the after-Stage check compares it with where it was. */
+  async head(project: Project, taskId: string): Promise<Head> {
+    return this.git.head(this.pathOf(project, taskId));
+  }
+
+  /**
+   * Reverts what a test run changed in tracked files, keeping untracked ones such as
+   * screenshots. Returns the reverted paths.
+   */
+  async restore(project: Project, taskId: string): Promise<readonly string[]> {
+    return this.git.restore(this.pathOf(project, taskId), this.variablesOf(project));
+  }
+
+  /** Drops an interrupted Stage's uncommitted edits. Returns the dropped paths. */
+  async discard(project: Project, taskId: string): Promise<readonly string[]> {
+    return this.git.discard(this.pathOf(project, taskId), this.variablesOf(project));
+  }
+
   /** Removes the Task's worktree with whatever it holds; its branch stays. */
   async remove(project: Project, taskId: string): Promise<void> {
     await this.git.removeWorktree(
       project.path,
       this.pathOf(project, taskId),
-      this.commands.variablesFor(project.environment),
+      this.variablesOf(project),
     );
   }
 
@@ -184,6 +216,11 @@ export class Worktrees {
     }
   }
 
+  /** Git on a Project runs with the Project's variables, as its hooks and filters run its tools. */
+  private variablesOf(project: Project): GitVariables {
+    return this.commands.variablesFor(project.environment);
+  }
+
   private projectFolder(project: Project): string {
     return join(this.officeData.folder("worktrees"), project.id);
   }
@@ -195,7 +232,7 @@ export class Worktrees {
 
   private async add(project: Project, worktree: TaskWorktree): Promise<void> {
     this.refuseTooLong(worktree.path);
-    const variables = this.commands.variablesFor(project.environment);
+    const variables = this.variablesOf(project);
     // A branch left from a worktree removed earlier is checked out as it is.
     const checkout: WorktreeCheckout = (await this.git.hasBranch(project.path, worktree.branch))
       ? { kind: "branch", branch: worktree.branch }

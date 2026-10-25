@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { GitCommandFailed, type GitVariables, type NewWorktree } from "../../ports/git.js";
@@ -194,6 +194,21 @@ describe("CommandLineGit.removeWorktree", () => {
       /not in a worktree/,
     );
     expect(await exists(join(repository.path, "src", "index.ts"))).toBe(true);
+  });
+
+  it("removes a link in the worktree without following it", async () => {
+    const worktree = await aWorktree();
+    const outside = join(repository.folder, "shared-store");
+    await mkdir(outside, { recursive: true });
+    await writeFile(join(outside, "kept.txt"), "kept\n");
+    await mkdir(join(worktree.path, "node_modules"));
+    // A junction on Windows, which needs no privilege; a symbolic link on Linux.
+    await symlink(outside, join(worktree.path, "node_modules", "linked"), "junction");
+
+    await git.removeWorktree(repository.path, worktree.path, variables);
+
+    expect(await exists(worktree.path)).toBe(false);
+    await expect(readFile(join(outside, "kept.txt"), "utf8")).resolves.toBe("kept\n");
   });
 
   it("removes a folder git no longer knows as a worktree", async () => {
