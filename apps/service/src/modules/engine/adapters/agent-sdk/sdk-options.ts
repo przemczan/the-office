@@ -1,0 +1,156 @@
+import {
+  createSdkMcpServer,
+  tool,
+  type McpSdkServerConfigWithInstance,
+  type Options,
+  type Settings,
+} from "@anthropic-ai/claude-agent-sdk";
+import type { AgentShell } from "../../../../platform/os/shell.js";
+import type { OfficeTool } from "../../ports/office-tool.js";
+import type { SessionOptions } from "../../ports/session-options.js";
+
+/** The in-process MCP server that holds a session's Office tools. */
+export const OFFICE_TOOL_SERVER = "office";
+
+/** What the engine calls an Office tool by. */
+export const OFFICE_TOOL_PREFIX = `mcp__${OFFICE_TOOL_SERVER}__`;
+
+/**
+ * The engine's built-in tools besides the shells, named explicitly so both systems get the same
+ * set (spec §5.4): the Linux default drops Grep and Glob. The Windows default of Claude Code 2.1.310.
+ */
+const BUILT_IN_TOOLS = [
+  "CronCreate",
+  "CronDelete",
+  "CronList",
+  "DesignSync",
+  "Edit",
+  "EnterWorktree",
+  "ExitWorktree",
+  "Glob",
+  "Grep",
+  "ListAgents",
+  "Monitor",
+  "NotebookEdit",
+  "PushNotification",
+  "Read",
+  "RemoteTrigger",
+  "ReportFindings",
+  "ScheduleWakeup",
+  "SendMessage",
+  "Skill",
+  "Task",
+  "TaskStop",
+  "ToolSearch",
+  "WebSearch",
+  "Workflow",
+  "Write",
+];
+
+const SHELL_TOOLS: Readonly<Record<AgentShell, string>> = {
+  bash: "Bash",
+  powershell: "PowerShell",
+};
+
+/**
+ * The engine's built-in plugins, each turned off by id (spec §5.4). A release that adds one shows
+ * in the engine check's `skills.start-check` as another plugin.
+ */
+const BUILT_IN_PLUGINS = [
+  "cc-plugin-agents-md",
+  "cc-plugin-telemetry",
+  "cc-plugin-plugin-authoring",
+];
+
+/**
+ * Variables a session must not get: an API key would switch billing off the subscription,
+ * `CLAUDE_CONFIG_DIR` and `CLAUDE_CODE_PLUGIN_DIRS` change what loads, and a parent Claude Code
+ * session's own variables would make the session a nested one.
+ */
+const ENGINE_VARIABLE_PREFIXES = ["CLAUDE", "ANTHROPIC", "MCP_", "OTEL_"];
+
+export interface SdkSession {
+  readonly id: string;
+  /** Whether the session continues an ended one with its conversation. */
+  readonly resumes: boolean;
+  readonly options: SessionOptions;
+  /** The shells Agents run commands in on this system. */
+  readonly agentShells: readonly AgentShell[];
+}
+
+/**
+ * The Agent SDK's options for one Office session (spec §5.4, §5.6, §6), as the engine check
+ * measured them (docs/engine-check.md).
+ */
+export function sdkOptions({ id, resumes, options, agentShells }: SdkSession): Options {
+  return {
+    cwd: options.folder,
+    model: options.model,
+    effort: options.effort,
+    tools: [...BUILT_IN_TOOLS, ...agentShells.map((shell) => SHELL_TOOLS[shell])].toSorted(),
+    settingSources: ["project"],
+    plugins:
+      options.skillsFolder === undefined
+        ? []
+        : [{ type: "local", path: options.skillsFolder, skipMcpDiscovery: true }],
+    settings: sessionSettings(options),
+    permissionPrompts: "none",
+    systemPrompt: { type: "preset", preset: "claude_code", excludeDynamicSections: true },
+    env: sessionEnvironment(options.environment),
+    ...(options.officeTools.length > 0 && {
+      mcpServers: { [OFFICE_TOOL_SERVER]: officeToolServer(options.officeTools, id) },
+    }),
+    ...(options.outputSchema !== undefined && {
+      outputFormat: { type: "json_schema", schema: { ...options.outputSchema } },
+    }),
+    ...(resumes ? { resume: id } : { sessionId: id }),
+  };
+}
+
+function sessionSettings({ skillsFolder, officeTools }: SessionOptions): Settings {
+  return {
+    syncClaudeAiSkills: false,
+    syncClaudeAiPlugins: false,
+    disableBundledSkills: true,
+    disableClaudeAiConnectors: true,
+    autoMemoryEnabled: false,
+    autoDreamEnabled: false,
+    enabledPlugins: Object.fromEntries(
+      BUILT_IN_PLUGINS.map((plugin) => [`${plugin}@builtin`, false]),
+    ),
+    permissions: {
+      blockReadsOutsideWorkingDirectories: true,
+      // Lets the file tools read the skills folder under the read fence, and nothing else (spec §5.6).
+      additionalDirectories: skillsFolder === undefined ? [] : [skillsFolder],
+      // permissionPrompts "none" refuses whatever would prompt, so the Office tools are allowed by rule.
+      allow: officeTools.length > 0 ? [`mcp__${OFFICE_TOOL_SERVER}`] : [],
+    },
+  };
+}
+
+export function sessionEnvironment(
+  environment: Readonly<Record<string, string>>,
+): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(environment).filter(
+      ([name]) => !ENGINE_VARIABLE_PREFIXES.some((prefix) => name.toUpperCase().startsWith(prefix)),
+    ),
+  );
+}
+
+/** Always loaded, so the Agent calls an Office tool without looking it up first. */
+function officeToolServer(
+  officeTools: readonly OfficeTool[],
+  sessionId: string,
+): McpSdkServerConfigWithInstance {
+  return createSdkMcpServer({
+    name: OFFICE_TOOL_SERVER,
+    alwaysLoad: true,
+    tools: officeTools.map((officeTool) =>
+      tool(officeTool.name, officeTool.description, officeTool.input.shape, async (input) => {
+        const result = await officeTool.run(input, { sessionId });
+        return { content: [{ type: "text", text: result.text }], isError: result.isError };
+      }),
+    ),
+  });
+}

@@ -129,9 +129,9 @@ export class ScriptedSession implements EngineSession {
     await this.request({ step: "interrupt" });
   }
 
-  async readUsageWindows(): Promise<UsageWindows> {
+  async readUsageWindows(): Promise<UsageWindows | undefined> {
     if (!this.capabilities.usageWindows) throw new CapabilityMissing("usageWindows");
-    return (await this.request({ step: "read-usage-windows" })) as UsageWindows;
+    return this.request({ step: "read-usage-windows" });
   }
 
   async end(): Promise<void> {

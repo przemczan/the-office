@@ -25,6 +25,7 @@ export function linux({ variables, homeDirectory }: UserEnvironment): OperatingS
     ),
     paths: linuxPaths,
     defaultShell: bourneShell,
+    agentShells: ["bash"],
     processTrees: processGroups,
     sameVariableName: (one, other) => one === other,
   };

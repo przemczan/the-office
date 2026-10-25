@@ -72,6 +72,10 @@ describe("linux", () => {
     });
   });
 
+  it("has Agents run commands in Bash alone", () => {
+    expect(linux({ variables: {}, homeDirectory }).agentShells).toEqual(["bash"]);
+  });
+
   describe("defaultShell.couldNotRun", () => {
     const { defaultShell } = linux({ variables: {}, homeDirectory });
     const failed = { commandLine: "gradle build", folder: "/work", environment: {} };

@@ -51,8 +51,11 @@ export interface TurnEndedEvent {
   readonly consumedMessageIds: readonly string[];
   /** This turn's tokens, without earlier turns'. */
   readonly usage: TokenUsage;
-  /** This turn's cost in US dollars at list price, without earlier turns'; an estimate on a subscription. */
-  readonly costUsd: number;
+  /**
+   * The session's cost so far in US dollars at list price, an estimate on a subscription. It counts
+   * the turns before a resume too, which the engine keeps and a resumed session can't tell apart.
+   */
+  readonly sessionCostUsd: number;
   /** The output matching the session's output schema, or undefined without one or when the turn failed. */
   readonly output: unknown;
   /** Why a failed turn failed, in the engine's words. */

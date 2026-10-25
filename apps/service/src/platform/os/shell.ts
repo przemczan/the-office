@@ -1,3 +1,9 @@
+/**
+ * A shell an Agent runs commands in, as its own engine tool. Each needs its own rules: a rule for
+ * one does not reach the other (spec §6).
+ */
+export type AgentShell = "bash" | "powershell";
+
 export interface Shell {
   /** For messages, such as `cmd.exe` or `sh`. */
   readonly name: string;

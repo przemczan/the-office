@@ -1,10 +1,10 @@
-{"step":"start","brief":{"id":"brief","text":"Call the hold tool once, then reply with the single word: done"}}
-{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T18:00:00.000Z"}}
-{"step":"event","event":{"kind":"tool-call","callId":"call-1","tool":"hold","officeTool":true,"input":{},"withinToolCall":null}}
+{"step":"start","brief":{"id":"feaf55de-e606-47dd-a572-d18ff6d8ecdc","text":"Call the hold tool once, then reply with the single word: done"}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T13:10:00.000Z"}}
+{"step":"event","event":{"kind":"tool-call","callId":"toolu_01WvFzWidPiuJbuEffLqbRfs","tool":"hold","officeTool":true,"input":{},"withinToolCall":null}}
 {"step":"interrupt"}
-{"step":"event","event":{"kind":"tool-result","callId":"call-1","text":"The user interrupted this tool call.","isError":true}}
-{"step":"event","event":{"kind":"turn-ended","outcome":"interrupted","consumedMessageIds":["brief"],"usage":{"input":4,"output":12,"cacheRead":0,"cacheCreation":24600},"costUsd":0.0312,"output":null,"errors":[]}}
-{"step":"send","message":{"id":"after","text":"Reply with the single word: back"},"priority":"next"}
+{"step":"event","event":{"kind":"tool-result","callId":"toolu_01WvFzWidPiuJbuEffLqbRfs","text":"The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.","isError":true}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"interrupted","consumedMessageIds":["feaf55de-e606-47dd-a572-d18ff6d8ecdc"],"usage":{"input":0,"output":0,"cacheRead":0,"cacheCreation":0},"sessionCostUsd":0.00012570000000000002,"output":null,"errors":["[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=null"]}}
+{"step":"send","message":{"id":"742ae0a6-cb8f-47a1-bbb6-4433ccf8906e","text":"Reply with the single word: back"},"priority":"next"}
 {"step":"event","event":{"kind":"text","text":"back","withinToolCall":null}}
-{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["after"],"usage":{"input":6,"output":20,"cacheRead":24600,"cacheCreation":180},"costUsd":0.0041,"output":null,"errors":[]}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["742ae0a6-cb8f-47a1-bbb6-4433ccf8906e"],"usage":{"input":2,"output":3,"cacheRead":26307,"cacheCreation":163},"sessionCostUsd":0.00042307,"output":null,"errors":[]}}
 {"step":"end"}

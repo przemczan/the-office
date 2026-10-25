@@ -12,7 +12,7 @@ export type ScriptStep =
   | { readonly step: "resume" }
   | { readonly step: "send"; readonly message: UserMessage; readonly priority: MessagePriority }
   | { readonly step: "interrupt" }
-  | { readonly step: "read-usage-windows"; readonly windows: UsageWindows }
+  | { readonly step: "read-usage-windows"; readonly windows: UsageWindows | undefined }
   | { readonly step: "end" }
   | { readonly step: "event"; readonly event: SessionEvent };
 
@@ -70,7 +70,7 @@ const sessionEvent = z.discriminatedUnion("kind", [
     outcome: z.enum(["completed", "interrupted", "failed"]),
     consumedMessageIds: z.array(z.string()),
     usage: tokenUsage,
-    costUsd: z.number(),
+    sessionCostUsd: z.number(),
     output: absent(z.unknown()),
     errors: z.array(z.string()),
   }),
@@ -92,7 +92,7 @@ const scriptStep = z.discriminatedUnion("step", [
   z.object({ step: z.literal("interrupt") }),
   z.object({
     step: z.literal("read-usage-windows"),
-    windows: z.object({ fiveHour: usageWindow, sevenDay: usageWindow }),
+    windows: absent(z.object({ fiveHour: usageWindow, sevenDay: usageWindow })),
   }),
   z.object({ step: z.literal("end") }),
   z.object({ step: z.literal("event"), event: sessionEvent }),

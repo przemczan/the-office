@@ -1,8 +1,9 @@
-{"step":"start","brief":{"id":"brief","text":"Call the hold tool once, then reply with the single word: done"}}
-{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T18:00:00.000Z"}}
-{"step":"event","event":{"kind":"tool-call","callId":"call-1","tool":"hold","officeTool":true,"input":{},"withinToolCall":null}}
-{"step":"send","message":{"id":"barge-in","text":"Also reply with the single word: extra"},"priority":"next"}
-{"step":"event","event":{"kind":"tool-result","callId":"call-1","text":"Go on.","isError":false}}
+{"step":"start","brief":{"id":"ca2a5b61-f0f4-4988-ad3d-9b8bb1f553b9","text":"Call the hold tool once, then reply with the single word: done"}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T13:10:00.000Z"}}
+{"step":"event","event":{"kind":"tool-call","callId":"toolu_014spc8abWsZYfsKfABG19X3","tool":"hold","officeTool":true,"input":{},"withinToolCall":null}}
+{"step":"send","message":{"id":"9be23552-2b40-41f3-921b-18066792354e","text":"Also reply with the single word: extra"},"priority":"next"}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T13:10:00.000Z"}}
+{"step":"event","event":{"kind":"tool-result","callId":"toolu_014spc8abWsZYfsKfABG19X3","text":"Go on.","isError":false}}
 {"step":"event","event":{"kind":"text","text":"done\nextra","withinToolCall":null}}
-{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief","barge-in"],"usage":{"input":4,"output":12,"cacheRead":0,"cacheCreation":24600},"costUsd":0.0312,"output":null,"errors":[]}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["ca2a5b61-f0f4-4988-ad3d-9b8bb1f553b9","9be23552-2b40-41f3-921b-18066792354e"],"usage":{"input":4,"output":158,"cacheRead":51503,"cacheCreation":1267},"sessionCostUsd":0.00097353,"output":null,"errors":[]}}
 {"step":"end"}

@@ -86,7 +86,7 @@ class RecordingSession implements EngineSession {
     await this.session.interrupt();
   }
 
-  async readUsageWindows(): Promise<UsageWindows> {
+  async readUsageWindows(): Promise<UsageWindows | undefined> {
     const windows = await this.session.readUsageWindows();
     this.steps.push({ step: "read-usage-windows", windows });
     return windows;

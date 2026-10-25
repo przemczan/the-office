@@ -82,7 +82,7 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
         expect(turn.usage.input + turn.usage.cacheRead + turn.usage.cacheCreation).toBeGreaterThan(
           0,
         );
-        expect(turn.costUsd).toBeGreaterThanOrEqual(0);
+        expect(turn.sessionCostUsd).toBeGreaterThanOrEqual(0);
         await session.end();
         await log.finished;
       }),
@@ -289,9 +289,10 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
       scenario("usage-windows", async (engine, options) => {
         await replyingSession(engine, options, async (session) => {
           const windows = await session.readUsageWindows();
-          for (const window of [windows.fiveHour, windows.sevenDay]) {
-            expect(window.percentUsed).toBeGreaterThanOrEqual(0);
-            expect(window.percentUsed).toBeLessThanOrEqual(100);
+          expect(windows).toBeDefined();
+          for (const window of [windows?.fiveHour, windows?.sevenDay]) {
+            expect(window?.percentUsed).toBeGreaterThanOrEqual(0);
+            expect(window?.percentUsed).toBeLessThanOrEqual(100);
           }
         });
       }),
@@ -326,6 +327,7 @@ const WORD_SCHEMA = {
 function defaultOptions(folder: string, model: string): SessionOptions {
   return {
     folder,
+    environment: inheritedEnvironment(),
     model,
     effort: "low",
     skillsFolder: undefined,
@@ -333,6 +335,14 @@ function defaultOptions(folder: string, model: string): SessionOptions {
     officeTools: [],
     outputSchema: undefined,
   };
+}
+
+function inheritedEnvironment(): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] => entry[1] !== undefined,
+    ),
+  );
 }
 
 function message(text: string): UserMessage {

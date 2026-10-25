@@ -1,6 +1,6 @@
 import type { PathRules } from "./path-rules.js";
 import type { ProcessTrees } from "./process-trees.js";
-import type { Shell } from "./shell.js";
+import type { AgentShell, Shell } from "./shell.js";
 
 /**
  * Everything that differs between the operating systems The Office runs on (spec §5.1), with one
@@ -15,6 +15,8 @@ export interface OperatingSystem {
   readonly paths: PathRules;
   /** The shell a Project's commands run in. */
   readonly defaultShell: Shell;
+  /** The shells Agents run commands in: PowerShell beside Bash on Windows only (spec §5.4). */
+  readonly agentShells: readonly AgentShell[];
   readonly processTrees: ProcessTrees;
   /** Whether two environment variable names name one variable: Windows ignores their case. */
   sameVariableName(one: string, other: string): boolean;

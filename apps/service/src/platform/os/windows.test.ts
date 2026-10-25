@@ -93,6 +93,10 @@ describe("windows", () => {
     });
   });
 
+  it("has Agents run commands in Bash and PowerShell", () => {
+    expect(windows({ variables: {}, homeDirectory }).agentShells).toEqual(["bash", "powershell"]);
+  });
+
   describe("defaultShell.couldNotRun", () => {
     const { defaultShell } = windows({ variables: {}, homeDirectory });
 

@@ -41,6 +41,7 @@ export function windows({ variables, homeDirectory }: UserEnvironment): Operatin
     ),
     paths: windowsPaths,
     defaultShell: commandPrompt(variables),
+    agentShells: ["bash", "powershell"],
     processTrees: taskkill(variables),
     sameVariableName: (one, other) => one.toUpperCase() === other.toUpperCase(),
   };

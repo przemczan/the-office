@@ -35,6 +35,11 @@ export interface PermissionProfile {
 export interface SessionOptions {
   /** The folder the session works in, such as a Task's worktree. */
   readonly folder: string;
+  /**
+   * The variables the session and its commands run with, such as a Project's command environment
+   * (spec §5.5). The engine may drop those that would change how it runs itself.
+   */
+  readonly environment: Readonly<Record<string, string>>;
   readonly model: string;
   readonly effort: Effort;
   /** The session's own skills folder outside the worktree (spec §5.6), or undefined without skills. */

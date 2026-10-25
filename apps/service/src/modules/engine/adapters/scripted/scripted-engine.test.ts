@@ -52,6 +52,7 @@ afterEach(async () => {
 function options(): SessionOptions {
   return {
     folder,
+    environment: {},
     model: "scripted",
     effort: "low",
     skillsFolder: undefined,
@@ -66,7 +67,7 @@ const TURN_ENDED: SessionEvent = {
   outcome: "completed",
   consumedMessageIds: ["brief"],
   usage: { input: 1, output: 1, cacheRead: 0, cacheCreation: 0 },
-  costUsd: 0,
+  sessionCostUsd: 0,
   output: undefined,
   errors: [],
 };

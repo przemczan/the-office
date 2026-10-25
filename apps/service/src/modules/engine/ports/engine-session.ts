@@ -1,7 +1,8 @@
 import type { SessionEvent } from "./session-events.js";
 
-/** A message to the Agent, with an id the caller chooses, which the turn that takes it names. */
+/** A message to the Agent. */
 export interface UserMessage {
+  /** A UUID the caller chooses, which the turn that takes the message names. */
   readonly id: string;
   readonly text: string;
 }
@@ -16,6 +17,7 @@ export type MessagePriority = "next" | "later";
 export interface UsageWindow {
   /** How much of the window is used, from 0 to 100. */
   readonly percentUsed: number;
+  /** Undefined while the window has not begun. */
   readonly resetsAt: Date | undefined;
 }
 
@@ -38,8 +40,8 @@ export interface EngineSession {
    * `interrupted` and the session waits for a message. Needs the `interrupt` capability.
    */
   interrupt(): Promise<void>;
-  /** Needs the `usageWindows` capability. */
-  readUsageWindows(): Promise<UsageWindows>;
+  /** Undefined for an account without usage windows. Needs the `usageWindows` capability. */
+  readUsageWindows(): Promise<UsageWindows | undefined>;
   /** Ends the session and every process it started; resolves once its events have finished. */
   end(): Promise<void>;
 }
