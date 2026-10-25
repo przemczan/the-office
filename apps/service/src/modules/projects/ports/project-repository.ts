@@ -2,6 +2,12 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Project } from "../domain/project.js";
 import type { ProjectChange } from "../domain/project-changes.js";
 
+/** The Project after an update, with the change's event, or undefined when nothing changed. */
+export interface ProjectUpdate<Event extends DomainEvent> {
+  readonly project: Project;
+  readonly event: Event | undefined;
+}
+
 /** Where Projects are kept. */
 export abstract class ProjectRepository {
   abstract add(project: Project): Promise<void>;
@@ -19,5 +25,5 @@ export abstract class ProjectRepository {
   abstract update<Event extends DomainEvent>(
     id: string,
     change: (project: Project) => ProjectChange<Event> | undefined,
-  ): Promise<ProjectChange<Event> | undefined>;
+  ): Promise<ProjectUpdate<Event>>;
 }

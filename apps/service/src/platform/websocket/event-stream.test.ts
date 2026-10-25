@@ -10,7 +10,7 @@ import { EventsModule } from "../events/events.module.js";
 import { EventStreamModule } from "./event-stream.module.js";
 import { WebEventForwarding } from "./web-event-forwarding.js";
 
-// No module forwards events yet, so the test brings its own, through the same path a module uses.
+// The test brings its own events, through the same path a module uses.
 class LampLit extends DomainEvent {
   constructor(readonly room: string) {
     super(new Date("2026-10-25T09:00:00.000Z"));

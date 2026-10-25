@@ -63,8 +63,18 @@ describe("PostgresProjectRepository", () => {
         changeCommand(stored, "test", "npm test -- --run"),
       );
 
-      expect(change?.event.commandLine).toBe("npm test -- --run");
-      await expect(repository.find(project.id)).resolves.toEqual(change?.project);
+      expect(change.event?.commandLine).toBe("npm test -- --run");
+      await expect(repository.find(project.id)).resolves.toEqual(change.project);
+    });
+
+    it("returns the Project as stored when nothing changes", async () => {
+      const project = aProjectOfItsOwn();
+      await repository.add(project);
+
+      await expect(repository.update(project.id, () => undefined)).resolves.toEqual({
+        project,
+        event: undefined,
+      });
     });
 
     it("loses neither of two changes made at once", async () => {

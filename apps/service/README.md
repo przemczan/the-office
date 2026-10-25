@@ -57,6 +57,8 @@ Projects (`src/modules/projects/`) is the first; later modules copy its shape.
 
 - **The domain is data and functions.** Entities are readonly records. A rule returns every problem it finds, in the UI's words, so a form can show them all at once. A change is a function from the record to `{ project, event }`, or `undefined` when nothing would change, so every change carries its event and no event announces nothing.
 - **Refusals are domain errors carrying their reasons** (`ProjectRefused`, `ProjectNotFound`). The domain imports nothing from the platform but `DomainEvent`, so it can't share an error base class with other modules.
+- **The HTTP adapter maps refusals** with a filter of its own (`ProjectRefusalsFilter`): 422 with `reasons` and the reasons joined into `message`, which is what `api-client.ts` shows, and 404 for a record that isn't there. Bodies and parameters are parsed with their contract schema by `ContractPipe` (`src/platform/http/`), which answers 400.
+- **Application services save first and publish after,** never inside the transaction, so nothing hears of a change that wasn't kept.
 - **Ports are abstract classes,** so each is its own injection token: `{ provide: Git, useClass: CommandLineGit }`.
 - **A repository's `update(id, change)`** applies the change inside a transaction that holds the row (`SELECT … FOR UPDATE`), so two changes at once never lose one.
 - **A rule that needs another module** goes through that module's application service, unless the other module will need this one: then this module declares a port of its own and the composition root binds it. Projects asks `KnownPipelines`, which `AppModule` binds to Pipelines' `PipelineLibrary`, because Pipelines' Stage interpreter will call Projects.
