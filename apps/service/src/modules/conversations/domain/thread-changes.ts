@@ -176,6 +176,7 @@ export function endTurn(
       ...thread.session,
       lastCallAt: endedAt,
       contextTokens,
+      startContextTokens: thread.session.startContextTokens ?? contextTokens,
       full: thread.session.full || handingOver,
     },
   };

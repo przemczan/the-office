@@ -31,7 +31,10 @@ export type ContextReason =
 export interface ContextPolicySettings {
   /** How long the prompt cache stays warm after a call. */
   readonly cacheLifetimeMs: number;
-  /** Above this context, a cooled Thread starts fresh under the Context policy. */
+  /**
+   * Above this much context added since the session's first turn, a cooled Thread starts fresh
+   * under the Context policy: what the engine itself takes, a fresh session pays too (spec §9).
+   */
   readonly freshAboveTokens: number;
   /** The share of the model's window at which The Office asks for a Handover note. */
   readonly handOverAtShare: number;
@@ -50,7 +53,11 @@ export interface Continuation {
   readonly now: Date;
   /** The session behind the Thread now; undefined before anyone answered in it. */
   readonly session:
-    Pick<ThreadSession, "roleKey" | "lastCallAt" | "contextTokens" | "full"> | undefined;
+    | Pick<
+        ThreadSession,
+        "roleKey" | "lastCallAt" | "contextTokens" | "startContextTokens" | "full"
+      >
+    | undefined;
   /** Who answers next, by the key of the Role they fill. */
   readonly roleKey: string;
   /** Theirs, from the Role card version the next session would run with. */
@@ -107,7 +114,7 @@ export function decideContext(
     };
   }
   const cacheWarm = isWarm(session.lastCallAt, continuation.now, settings);
-  const { move, reason } = choose(continuation, session.contextTokens, cacheWarm, settings);
+  const { move, reason } = choose(continuation, addedTokens(session), cacheWarm, settings);
   return {
     move,
     reason,
@@ -124,7 +131,7 @@ export function decideContext(
 
 function choose(
   { override, sessionDefault }: Continuation,
-  contextTokens: number,
+  addedContextTokens: number,
   cacheWarm: boolean,
   settings: ContextPolicySettings,
 ): { readonly move: "resume" | "fresh"; readonly reason: ContextReason } {
@@ -138,10 +145,18 @@ function choose(
     case "prefer-to-continue":
       return { move: "resume", reason: "session-default" };
     case "context-policy":
-      return contextTokens > settings.freshAboveTokens
+      return addedContextTokens > settings.freshAboveTokens
         ? { move: "fresh", reason: "cache-expired" }
         : { move: "resume", reason: "small-context" };
   }
+}
+
+/** What the conversation added to the context since the session's first turn. */
+function addedTokens({
+  contextTokens,
+  startContextTokens,
+}: Pick<ThreadSession, "contextTokens" | "startContextTokens">): number {
+  return Math.max(0, contextTokens - (startContextTokens ?? contextTokens));
 }
 
 function isWarm(

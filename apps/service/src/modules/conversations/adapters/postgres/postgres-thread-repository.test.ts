@@ -46,6 +46,7 @@ describe("PostgresThreadRepository", () => {
         startedAt: new Date("2026-10-25T09:30:00.000Z"),
         lastCallAt: new Date("2026-10-25T09:31:00.000Z"),
         contextTokens: 41_000,
+        startContextTokens: 33_000,
         full: false,
       },
       override: "start-fresh",

@@ -10,6 +10,7 @@ export interface ThreadSessionRow {
   readonly startedAt: string;
   readonly lastCallAt: string | null;
   readonly contextTokens: number;
+  readonly startContextTokens: number | null;
   readonly full: boolean;
 }
 

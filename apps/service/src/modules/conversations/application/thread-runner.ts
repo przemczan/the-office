@@ -119,6 +119,7 @@ export class ThreadRunner implements OnModuleDestroy {
           startedAt: now,
           lastCallAt: undefined,
           contextTokens: 0,
+          startContextTokens: undefined,
           full: false,
         };
     const said: Message = { kind: "user", id: randomUUID(), threadId, text, at: now };

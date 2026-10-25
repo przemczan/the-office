@@ -119,6 +119,7 @@ function toSessionRow(session: ThreadSession): ThreadSessionRow {
     ...session,
     startedAt: session.startedAt.toISOString(),
     lastCallAt: session.lastCallAt?.toISOString() ?? null,
+    startContextTokens: session.startContextTokens ?? null,
   };
 }
 
@@ -127,6 +128,7 @@ function toSession(row: ThreadSessionRow): ThreadSession {
     ...row,
     startedAt: new Date(row.startedAt),
     lastCallAt: row.lastCallAt === null ? undefined : new Date(row.lastCallAt),
+    startContextTokens: row.startContextTokens ?? undefined,
   };
 }
 

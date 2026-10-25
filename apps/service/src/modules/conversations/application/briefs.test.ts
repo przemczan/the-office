@@ -57,6 +57,7 @@ describe("Briefs", () => {
         startedAt: new Date("2026-10-25T09:00:00.000Z"),
         lastCallAt: new Date("2026-10-25T09:05:00.000Z"),
         contextTokens: 48_000,
+        startContextTokens: 33_000,
         full: false,
       },
     });

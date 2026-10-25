@@ -20,6 +20,7 @@ function aContinuation(
       roleKey: "planner",
       lastCallAt: new Date(NOW.getTime() - minutesSinceLastCall * MINUTE),
       contextTokens,
+      startContextTokens: 0,
       full: false,
     },
     roleKey: "planner",
@@ -28,6 +29,19 @@ function aContinuation(
     briefTokens: 3_000,
     ...fields,
   };
+}
+
+/** A Thread cooled for 90 minutes whose session took 33k at its first turn. */
+function cooledFrom33k(contextTokens: number): Continuation {
+  return aContinuation(90, contextTokens, {
+    session: {
+      roleKey: "planner",
+      lastCallAt: new Date(NOW.getTime() - 90 * MINUTE),
+      contextTokens,
+      startContextTokens: 33_000,
+      full: false,
+    },
+  });
 }
 
 describe("the Context policy", () => {
@@ -62,11 +76,29 @@ describe("the Context policy", () => {
   it("counts a session with no call yet as cooled", () => {
     const decision = decideContext(
       aContinuation(0, 48_000, {
-        session: { roleKey: "planner", lastCallAt: undefined, contextTokens: 48_000, full: false },
+        session: {
+          roleKey: "planner",
+          lastCallAt: undefined,
+          contextTokens: 48_000,
+          startContextTokens: 0,
+          full: false,
+        },
       }),
     );
 
     expect(decision).toMatchObject({ move: "fresh", reason: "cache-expired", cacheWarm: false });
+  });
+
+  it("counts only what the conversation added since the session's first turn", () => {
+    expect(decideContext(cooledFrom33k(63_000))).toMatchObject({
+      move: "resume",
+      reason: "small-context",
+      contextTokens: 63_000,
+    });
+    expect(decideContext(cooledFrom33k(63_001))).toMatchObject({
+      move: "fresh",
+      reason: "cache-expired",
+    });
   });
 
   it("takes the threshold from the settings", () => {
@@ -106,6 +138,7 @@ describe("a session whose context filled up", () => {
           roleKey: "planner",
           lastCallAt: new Date(NOW.getTime() - MINUTE),
           contextTokens: 820_000,
+          startContextTokens: 33_000,
           full: true,
         },
         override: "continue-anyway",

@@ -36,6 +36,11 @@ export interface ThreadSession {
   /** How large its context was after the last call. */
   readonly contextTokens: number;
   /**
+   * Its context after its first turn: the engine's own prompt and tools, the Brief and the first
+   * exchange, which a fresh session takes too. Undefined until that turn ends.
+   */
+  readonly startContextTokens: number | undefined;
+  /**
    * The context neared its limit and The Office asked for a Handover note: the session is never
    * resumed, and the Thread continues fresh (spec §2.5).
    */

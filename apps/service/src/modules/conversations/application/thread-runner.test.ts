@@ -298,7 +298,14 @@ describe("a new Thread's first message", () => {
     expect(after).toMatchObject({
       title: "Read the deploy workflow",
       tokens: USAGE,
-      session: { id: session?.id, roleKey, cardVersion: 1, contextTokens: 32_000, full: false },
+      session: {
+        id: session?.id,
+        roleKey,
+        cardVersion: 1,
+        contextTokens: 32_000,
+        startContextTokens: 32_000,
+        full: false,
+      },
     });
   });
 });
@@ -356,7 +363,7 @@ describe("continuing a Thread", () => {
     const thread = await threads.startInChat(roleKey);
     await runner.send(thread.id, "Read the deploy workflow.");
     await answered(thread.id, 3);
-    await cooled(thread.id, 48_000);
+    await cooled(thread.id, 80_000);
     versions.push({ ...PLANNER, model: "claude-sonnet-5-5" });
 
     await runner.send(thread.id, "And the tests?");
@@ -374,7 +381,7 @@ describe("continuing a Thread", () => {
       contextLine({
         move: "fresh",
         reason: "cache-expired",
-        contextTokens: 48_000,
+        contextTokens: 80_000,
         briefTokens: expect.any(Number),
       }),
     );
