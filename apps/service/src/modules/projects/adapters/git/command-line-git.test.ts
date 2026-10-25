@@ -186,6 +186,26 @@ describe("CommandLineGit.removeWorktree", () => {
     await expect(git.hasBranch(repository.path, worktree.branch)).resolves.toBe(true);
   });
 
+  it.each([
+    ["the repository's own folder", () => repository.path],
+    ["a folder in it", () => join(repository.path, "src")],
+  ])("refuses to remove %s", async (_, path) => {
+    await expect(git.removeWorktree(repository.path, path(), variables)).rejects.toThrow(
+      /not in a worktree/,
+    );
+    expect(await exists(join(repository.path, "src", "index.ts"))).toBe(true);
+  });
+
+  it("removes a folder git no longer knows as a worktree", async () => {
+    const worktree = await aWorktree();
+    await git.removeWorktree(repository.path, worktree.path, variables);
+    await mkdir(join(worktree.path, "node_modules"), { recursive: true });
+
+    await git.removeWorktree(repository.path, worktree.path, variables);
+
+    expect(await exists(worktree.path)).toBe(false);
+  });
+
   it("forgets a worktree whose folder is already gone", async () => {
     const worktree = await aWorktree();
     await rm(worktree.path, { recursive: true, force: true });

@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { realpath, stat } from "node:fs/promises";
+import { realpath, rm, stat } from "node:fs/promises";
 import { normalize, resolve } from "node:path";
 import { Injectable } from "@nestjs/common";
 import {
@@ -18,6 +18,8 @@ const LOCAL_TIMEOUT_MS = 30_000;
 /** Fetches, pushes and checkouts of a large repository take longer than reading it. */
 const LONG_TIMEOUT_MS = 300_000;
 const OUTPUT_LIMIT_BYTES = 64 * 1024 * 1024;
+/** A file a process has only just let go of may still be held on Windows for a moment. */
+const REMOVE_RETRIES = 5;
 
 interface GitCall {
   readonly folder: string;
@@ -161,14 +163,16 @@ export class CommandLineGit extends Git {
     worktreePath: string,
     variables: GitVariables,
   ): Promise<void> {
-    const folderExists = (await stat(worktreePath).catch(() => undefined)) !== undefined;
+    if (await isInMainWorktree(worktreePath)) {
+      throw new Error(`${worktreePath} is in a repository's own folder, not in a worktree.`);
+    }
+    // Node deletes the folder, since git for Windows can't delete paths past MAX_PATH, which
+    // installed dependencies reach; git then forgets every worktree whose folder is gone.
+    await rm(worktreePath, { recursive: true, force: true, maxRetries: REMOVE_RETRIES });
     await this.locked(repositoryPath, () =>
       git({
         folder: repositoryPath,
-        // A worktree whose folder is gone can't be removed, only forgotten.
-        gitArguments: folderExists
-          ? ["worktree", "remove", "--force", "--", worktreePath]
-          : ["worktree", "prune"],
+        gitArguments: ["worktree", "prune"],
         variables,
         timeoutMs: LONG_TIMEOUT_MS,
       }),
@@ -276,6 +280,19 @@ function checkoutArguments(checkout: WorktreeCheckout): [readonly string[], stri
     case "detached":
       return [["--detach"], checkout.startPoint];
   }
+}
+
+/**
+ * Whether the folder is a repository's own working tree or inside it, where the git directory is
+ * the one every worktree shares. A leftover folder git no longer knows is in none.
+ */
+async function isInMainWorktree(folder: string): Promise<boolean> {
+  const result = await runGit({
+    folder,
+    gitArguments: ["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"],
+  });
+  const [ownDirectory, sharedDirectory] = lines(result.stdout.trim());
+  return result.exitCode === 0 && ownDirectory === sharedDirectory;
 }
 
 /**
