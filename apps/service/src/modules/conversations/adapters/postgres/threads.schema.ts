@@ -1,4 +1,15 @@
-import { bigserial, index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import {
+  bigserial,
+  index,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+  uuid,
+} from "drizzle-orm/pg-core";
+import type { DecisionAnswer, Recommendation } from "../../domain/decision.js";
 import type { MessageDraft } from "../../domain/message.js";
 import type { ContextOverride, ThreadState, TokenTotals } from "../../domain/thread.js";
 
@@ -46,4 +57,33 @@ export const threadMessages = pgTable(
     at: timestamp("at", { withTimezone: true }).notNull(),
   },
   (table) => [index("thread_messages_thread").on(table.threadId, table.position)],
+);
+
+/**
+ * The Decisions opened in each Thread on a Task; one per Thread waits on the user at a time. The
+ * Task's id is the Thread's home, kept here for the Task's Brief.
+ */
+export const decisions = pgTable(
+  "decisions",
+  {
+    id: uuid("id").primaryKey(),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => threads.id, { onDelete: "cascade" }),
+    taskId: text("task_id").notNull(),
+    roleKey: text("role_key").notNull(),
+    question: text("question").notNull(),
+    context: text("context").notNull(),
+    options: jsonb("options").$type<readonly string[]>().notNull(),
+    recommendation: jsonb("recommendation").$type<Recommendation>().notNull(),
+    askedAt: timestamp("asked_at", { withTimezone: true }).notNull(),
+    answer: jsonb("answer").$type<DecisionAnswer>(),
+    answeredAt: timestamp("answered_at", { withTimezone: true }),
+  },
+  (table) => [
+    uniqueIndex("decisions_open_in_thread")
+      .on(table.threadId)
+      .where(sql`${table.answeredAt} is null`),
+    index("decisions_task").on(table.taskId, table.answeredAt),
+  ],
 );

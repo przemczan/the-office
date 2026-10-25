@@ -18,6 +18,10 @@ import {
 } from "../../engine/index.js";
 import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
+import {
+  DecisionOfficeTools,
+  OPEN_DECISION,
+} from "../adapters/office-tools/decision-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import { CHAT_OFFICE_TOOLS, HANDOVER_REQUEST } from "../domain/session-instructions.js";
 import { TurnEnded } from "../domain/conversation-events.js";
@@ -29,6 +33,7 @@ import { ThreadRefused } from "../domain/thread-refused.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
+import { DecisionService } from "./decision-service.js";
 import { InterruptedAnswers } from "./interrupted-answers.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
@@ -54,6 +59,7 @@ let roleKey: string;
 let threads: ThreadService;
 let runner: ThreadRunner;
 let repository: ThreadRepository;
+let decisions: DecisionService;
 /** The sessions whose skills were forgotten, as each was replaced. */
 let forgotten: string[];
 /** What each new session's skills were prepared for. */
@@ -122,6 +128,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       ThreadContexts,
       ThreadRunner,
       InterruptedAnswers,
+      DecisionService,
+      DecisionOfficeTools,
     ],
   }));
   // As the Projects and People modules register theirs.
@@ -140,6 +148,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   threads = app.get(ThreadService);
   runner = app.get(ThreadRunner);
   repository = app.get(ThreadRepository);
+  decisions = app.get(DecisionService);
 }
 
 /** What a session on the Task works with in these tests. */
@@ -149,7 +158,7 @@ function taskSetup(taskId: string): TaskThreadSetup {
     environment: { PROJECT_VARIABLE: "set" },
     useProjectSkills: true,
     instructions: "On this Task you plan.",
-    officeTools: ["read_task"],
+    officeTools: ["read_task", OPEN_DECISION],
     brief: `You are planning the Task ${taskId}.`,
   };
 }
@@ -491,7 +500,10 @@ describe("a Thread on a Task", () => {
       environment: { PROJECT_VARIABLE: "set" },
       profile: { edit: false, run: { kind: "read-only-git" }, web: true },
     });
-    expect(session?.options.officeTools.map(({ name }) => name)).toEqual(["read_task"]);
+    expect(session?.options.officeTools.map(({ name }) => name)).toEqual([
+      "read_task",
+      OPEN_DECISION,
+    ]);
     expect(session?.options.instructions).toMatch(
       /^You are Jan, the Planner in The Office[\s\S]*\n\nOn this Task you plan\.$/,
     );
@@ -554,6 +566,201 @@ async function waiting(threadId: string): Promise<Thread> {
     { timeout: 5_000, interval: 20 },
   );
 }
+
+const EXPORT_QUESTION = "Should the export include archived Projects?";
+const COLUMNS_QUESTION = "Which columns go into the export?";
+
+/** The person opens a Decision with The Office's tool, which answers at once. */
+function opensDecision(callId: string, question: string, options: string[]): Step[] {
+  return [
+    {
+      step: "event",
+      event: {
+        kind: "tool-call",
+        callId,
+        tool: OPEN_DECISION,
+        officeTool: true,
+        input: {
+          question,
+          context: "Archived Projects have no worktree.",
+          options,
+          recommended: 1,
+          why: "It is what the export is for.",
+        },
+        withinToolCall: undefined,
+      },
+    },
+    { step: "event", event: { kind: "tool-result", callId, text: "", isError: false } },
+  ];
+}
+
+async function planningThread(): Promise<Thread> {
+  return threads.startOnTask({
+    taskId: randomUUID(),
+    roleKey,
+    title: "Planning",
+    opening: "Plan the Task with the user.",
+  });
+}
+
+/** The log without context lines and tool activity, whose order around a tool's own lines varies. */
+function exchanges(log: readonly Message[]): MessageDraft[] {
+  return drafts(log).filter(({ kind }) => kind !== "context" && kind !== "tool-activity");
+}
+
+describe("a Decision", () => {
+  it("is opened by the person's tool, which returns at once, and waits on the user as a card in the Thread", async () => {
+    await startWith(
+      started(
+        ...opensDecision("c-1", EXPORT_QUESTION, ["Only active Projects", "Every Project"]),
+        ...aTurn("brief", "I asked about archived Projects."),
+      ),
+    );
+    const opened = await planningThread();
+
+    const log = await answered(opened.id, 4);
+
+    const thread = await threads.read(opened.id);
+    const decision = {
+      id: expect.any(String),
+      threadId: opened.id,
+      taskId: opened.home.kind === "task" ? opened.home.taskId : "",
+      roleKey,
+      question: EXPORT_QUESTION,
+      context: "Archived Projects have no worktree.",
+      options: ["Only active Projects", "Every Project"],
+      recommendation: { option: 0, reason: "It is what the export is for." },
+      askedAt: expect.any(Date),
+      answer: undefined,
+    };
+    expect(thread.openDecision).toEqual(decision);
+    expect(exchanges(log)).toEqual([
+      { kind: "decision", roleKey, decisionId: thread.openDecision?.id },
+      { kind: "person", roleKey, text: "I asked about archived Projects." },
+    ]);
+    await expect(decisions.listOpen()).resolves.toContainEqual(decision);
+  });
+
+  it("answered with an option goes into the running session with its question, and closes", async () => {
+    await startWith(
+      started(
+        ...opensDecision("c-1", EXPORT_QUESTION, ["Only active Projects", "Every Project"]),
+        ...aTurn("brief", "I asked."),
+        sent("answer"),
+        ...aTurn("answer", "Only active ones, then."),
+      ),
+    );
+    const opened = await planningThread();
+    await answered(opened.id, 4);
+    const open = (await threads.read(opened.id)).openDecision;
+    if (!open) throw new Error("No Decision was opened.");
+
+    await decisions.answer(open.id, { kind: "option", option: 0 });
+    const log = await answered(opened.id, 6);
+
+    const [session] = engine.sessions;
+    expect(engine.sessions).toHaveLength(1);
+    const answer = session?.received.find((step) => step.step === "send");
+    expect(answer?.step === "send" && answer.message.text).toBe(
+      `The user answered your Decision "${EXPORT_QUESTION}" with the option "Only active Projects".`,
+    );
+    expect(drafts(log).slice(-2)).toEqual([
+      { kind: "decision-answer", decisionId: open.id },
+      { kind: "person", roleKey, text: "Only active ones, then." },
+    ]);
+    const thread = await threads.read(opened.id);
+    expect(thread.openDecision).toBeUndefined();
+    await expect(decisions.listInThread(opened.id)).resolves.toEqual([
+      { ...open, answer: { kind: "option", option: 0, answeredAt: expect.any(Date) } },
+    ]);
+    await expect(decisions.listOpen()).resolves.not.toContainEqual(
+      expect.objectContaining({ id: open.id }),
+    );
+    await expect(decisions.answer(open.id, { kind: "option", option: 1 })).rejects.toThrow(
+      "This Decision is answered already.",
+    );
+  });
+
+  it("takes a free answer after a follow-up, in a fresh session briefed with the Task's answered Decisions", async () => {
+    await startWith(
+      started(
+        ...opensDecision("c-1", EXPORT_QUESTION, ["Only active Projects", "Every Project"]),
+        ...aTurn("brief", "I asked."),
+        sent("answer-1"),
+        ...opensDecision("c-2", COLUMNS_QUESTION, ["Every column", "The visible ones"]),
+        ...aTurn("answer-1", "One more."),
+        sent("follow-up"),
+        ...aTurn("follow-up", "The ones the table shows now."),
+      ),
+      started(...aTurn("brief", "Visible ones plus the id.")),
+    );
+    const opened = await planningThread();
+    await answered(opened.id, 4);
+    const first = (await threads.read(opened.id)).openDecision;
+    if (!first) throw new Error("No Decision was opened.");
+    await decisions.answer(first.id, { kind: "option", option: 0 });
+    await answered(opened.id, 8);
+
+    // A follow-up is an ordinary message: the Decision stays open.
+    await runner.send(opened.id, "What does visible mean?");
+    await answered(opened.id, 10);
+    const second = (await threads.read(opened.id)).openDecision;
+    expect(second?.question).toBe(COLUMNS_QUESTION);
+    await cooled(opened.id, 80_000);
+
+    await runner.answerDecision(opened.id, second?.id ?? "", {
+      kind: "free-answer",
+      text: "The visible ones, plus the id.",
+    });
+    const log = await answered(opened.id, 13);
+
+    const fresh = engine.sessions[1];
+    const brief = fresh?.received[0];
+    const text = brief?.step === "start" ? brief.brief.text : "";
+    // The Decision answered now is the message's, not the Brief's.
+    expect(
+      text.endsWith(
+        `## Decisions the user answered\n\n- ${EXPORT_QUESTION}\n  Answer: Only active Projects\n\n## The user's message\n\nThe user answered your Decision "${COLUMNS_QUESTION}" in their own words:\n\nThe visible ones, plus the id.`,
+      ),
+    ).toBe(true);
+    expect(text).not.toContain("## Your open Decision");
+    expect(drafts(log).slice(-3)).toEqual([
+      contextLine({
+        move: "fresh",
+        reason: "cache-expired",
+        contextTokens: 80_000,
+        briefTokens: expect.any(Number),
+      }),
+      { kind: "decision-answer", decisionId: second?.id },
+      { kind: "person", roleKey, text: "Visible ones plus the id." },
+    ]);
+  });
+
+  it("is refused to a session no Thread on a Task has, with the reason the person reads", async () => {
+    await startWith(started(...aTurn("brief", "Hello.")));
+    const chat = await threads.startInChat(roleKey);
+    await runner.send(chat.id, "Hello.");
+    await answered(chat.id, 3);
+    const chatSession = (await threads.read(chat.id)).session?.id ?? "";
+    const [tool] = app.get(OfficeToolRegistry).named([OPEN_DECISION]);
+    const input = {
+      question: EXPORT_QUESTION,
+      context: "",
+      options: ["Only active Projects", "Every Project"],
+      recommended: 1,
+      why: "It is what the export is for.",
+    };
+
+    await expect(tool?.run(input, { sessionId: chatSession })).resolves.toEqual({
+      text: "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
+      isError: true,
+    });
+    await expect(tool?.run(input, { sessionId: randomUUID() })).resolves.toEqual({
+      text: "The Office doesn't know this session's Thread.",
+      isError: true,
+    });
+  });
+});
 
 describe("when a session doesn't answer", () => {
   it("puts back the session the Thread had when a new one fails to start", async () => {

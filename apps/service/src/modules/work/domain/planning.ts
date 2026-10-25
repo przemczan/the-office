@@ -12,15 +12,15 @@ export const PLANNING_THREAD_TITLE = "Planning";
  * every planning session, so it stays in the cached prefix.
  */
 export const PLANNING_INSTRUCTIONS =
-  "In this Thread you plan a Task with the user. You read the Task's worktree, its own branch at the freshly fetched base branch; you change no file and run only read-only git. With The Office's tools you read its records of Projects, people, Tasks and Ideas. Ask the user what you need to know, then agree with them on the Plan (how it will be done) and the Definition of Done (what must be true when it is done), and on the Pipeline that fits.";
+  "In this Thread you plan a Task with the user. You read the Task's worktree, its own branch at the freshly fetched base branch; you change no file and run only read-only git. With The Office's tools you read its records of Projects, people, Tasks and Ideas. Ask the user what you need to know, then agree with them on the Plan (how it will be done) and the Definition of Done (what must be true when it is done), and on the Pipeline that fits. When a choice is the user's to make, open a Decision with open_decision, with the options and the one you recommend, and end your turn: their answer comes as your next message.";
 
 /** The Office's first message in a new planning Thread, after the Brief. */
 export const PLANNING_OPENING =
   "Read what you need of the Task and its worktree, then ask the user what is unclear, starting with what must be true when it is done. Keep it short: the user answers in this Thread.";
 
 /**
- * The Office tools of a planning session: it reads records. Writing the Plan, the Definition of
- * Done and a proposed Pipeline onto the record comes with their own tools.
+ * The Office tools of a planning session: it reads records and opens Decisions. Writing the Plan,
+ * the Definition of Done and a proposed Pipeline onto the record comes with their own tools.
  */
 export const PLANNING_OFFICE_TOOLS = [
   "list_projects",
@@ -29,6 +29,7 @@ export const PLANNING_OFFICE_TOOLS = [
   "read_task",
   "list_ideas",
   "read_idea",
+  "open_decision",
 ] as const;
 
 /** The Project as a planning Brief names it. */

@@ -1,16 +1,20 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
+import type { Decision } from "../../domain/decision.js";
 import type { Message } from "../../domain/message.js";
 import type { Home, Thread, ThreadSession } from "../../domain/thread.js";
 import type { ThreadChange } from "../../domain/thread-changes.js";
 import { ThreadNotFound } from "../../domain/thread-not-found.js";
 import { ThreadRepository, type ThreadUpdate } from "../../ports/thread-repository.js";
-import { threadMessages, threads, type ThreadSessionRow } from "./threads.schema.js";
+import { decisions, threadMessages, threads, type ThreadSessionRow } from "./threads.schema.js";
 
 type ThreadRow = typeof threads.$inferSelect;
 type MessageRow = typeof threadMessages.$inferSelect;
+type DecisionRow = typeof decisions.$inferSelect;
+/** The client or a transaction on it: whichever reads the Threads' open Decisions. */
+type Reader = Pick<Database, "select">;
 
 @Injectable()
 export class PostgresThreadRepository extends ThreadRepository {
@@ -23,21 +27,23 @@ export class PostgresThreadRepository extends ThreadRepository {
   }
 
   async find(id: string): Promise<Thread | undefined> {
-    const [row] = await this.database.select().from(threads).where(eq(threads.id, id));
-    return row && toThread(row);
+    const rows = await this.database.select().from(threads).where(eq(threads.id, id));
+    const [thread] = await withOpenDecisions(this.database, rows);
+    return thread;
   }
 
   async findBySession(sessionId: string): Promise<Thread | undefined> {
-    const [row] = await this.database
+    const rows = await this.database
       .select()
       .from(threads)
       .where(sql`${threads.session}->>'id' = ${sessionId}`);
-    return row && toThread(row);
+    const [thread] = await withOpenDecisions(this.database, rows);
+    return thread;
   }
 
   async answering(): Promise<readonly Thread[]> {
     const rows = await this.database.select().from(threads).where(eq(threads.state, "answering"));
-    return rows.map(toThread);
+    return withOpenDecisions(this.database, rows);
   }
 
   async listIn(home: Home): Promise<readonly Thread[]> {
@@ -47,7 +53,7 @@ export class PostgresThreadRepository extends ThreadRepository {
       .from(threads)
       .where(and(eq(threads.homeKind, kind), eq(threads.homeId, id)))
       .orderBy(desc(threads.startedAt), desc(threads.id));
-    return rows.map(toThread);
+    return withOpenDecisions(this.database, rows);
   }
 
   async update<Event extends DomainEvent>(
@@ -61,10 +67,21 @@ export class PostgresThreadRepository extends ThreadRepository {
         .where(eq(threads.id, id))
         .for("update");
       if (!row) throw new ThreadNotFound(id);
-      const thread = toThread(row);
+      const [thread] = await withOpenDecisions(transaction, [row]);
+      if (!thread) throw new ThreadNotFound(id);
       const changed = change(thread);
       if (!changed) return { thread, event: undefined };
       await transaction.update(threads).set(toRow(changed.thread)).where(eq(threads.id, id));
+      if (changed.decision) {
+        const decisionRow = toDecisionRow(changed.decision);
+        await transaction
+          .insert(decisions)
+          .values(decisionRow)
+          .onConflictDoUpdate({
+            target: decisions.id,
+            set: { answer: decisionRow.answer, answeredAt: decisionRow.answeredAt },
+          });
+      }
       if (changed.logged.length > 0) {
         // One insert keeps the log in the messages' order: position follows the rows.
         await transaction.insert(threadMessages).values(changed.logged.map(toMessageRow));
@@ -81,6 +98,57 @@ export class PostgresThreadRepository extends ThreadRepository {
       .orderBy(asc(threadMessages.position));
     return rows.map(toMessage);
   }
+
+  async decision(id: string): Promise<Decision | undefined> {
+    const [row] = await this.database.select().from(decisions).where(eq(decisions.id, id));
+    return row && toDecision(row);
+  }
+
+  async decisionsIn(threadId: string): Promise<readonly Decision[]> {
+    const rows = await this.database
+      .select()
+      .from(decisions)
+      .where(eq(decisions.threadId, threadId))
+      .orderBy(asc(decisions.askedAt), asc(decisions.id));
+    return rows.map(toDecision);
+  }
+
+  async answeredOn(taskId: string): Promise<readonly Decision[]> {
+    const rows = await this.database
+      .select()
+      .from(decisions)
+      .where(and(eq(decisions.taskId, taskId), isNotNull(decisions.answeredAt)))
+      .orderBy(asc(decisions.answeredAt), asc(decisions.id));
+    return rows.map(toDecision);
+  }
+
+  async openDecisions(): Promise<readonly Decision[]> {
+    const rows = await this.database
+      .select()
+      .from(decisions)
+      .where(isNull(decisions.answeredAt))
+      .orderBy(asc(decisions.askedAt), asc(decisions.id));
+    return rows.map(toDecision);
+  }
+}
+
+/** The Threads of `rows`, in their order, each with the Decision it waits on, if any. */
+async function withOpenDecisions(reader: Reader, rows: readonly ThreadRow[]): Promise<Thread[]> {
+  if (rows.length === 0) return [];
+  const open = await reader
+    .select()
+    .from(decisions)
+    .where(
+      and(
+        inArray(
+          decisions.threadId,
+          rows.map((row) => row.id),
+        ),
+        isNull(decisions.answeredAt),
+      ),
+    );
+  const byThread = new Map(open.map((row) => [row.threadId, toDecision(row)]));
+  return rows.map((row) => toThread(row, byThread.get(row.id)));
 }
 
 function homeColumns(home: Home): { readonly kind: Home["kind"]; readonly id: string } {
@@ -105,7 +173,7 @@ function toRow(thread: Thread): ThreadRow {
   };
 }
 
-function toThread(row: ThreadRow): Thread {
+function toThread(row: ThreadRow, openDecision: Decision | undefined): Thread {
   return {
     id: row.id,
     home:
@@ -119,6 +187,7 @@ function toThread(row: ThreadRow): Thread {
     override: row.override ?? undefined,
     tokens: row.tokens,
     startedAt: row.startedAt,
+    openDecision,
   };
 }
 
@@ -146,4 +215,17 @@ function toMessageRow({ id, threadId, at, ...body }: Message): Omit<MessageRow, 
 
 function toMessage(row: MessageRow): Message {
   return { ...row.body, id: row.id, threadId: row.threadId, at: row.at };
+}
+
+function toDecisionRow({ answer, ...decision }: Decision): DecisionRow {
+  if (!answer) return { ...decision, answer: null, answeredAt: null };
+  const { answeredAt, ...given } = answer;
+  return { ...decision, answer: given, answeredAt };
+}
+
+function toDecision({ answer, answeredAt, ...row }: DecisionRow): Decision {
+  return {
+    ...row,
+    answer: answer === null || answeredAt === null ? undefined : { ...answer, answeredAt },
+  };
 }

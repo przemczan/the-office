@@ -1,4 +1,5 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { Decision } from "../domain/decision.js";
 import type { Message } from "../domain/message.js";
 import type { Home, Thread } from "../domain/thread.js";
 import type { ThreadChange } from "../domain/thread-changes.js";
@@ -9,7 +10,10 @@ export interface ThreadUpdate<Event extends DomainEvent> {
   readonly event: Event | undefined;
 }
 
-/** Where Threads are kept, each with The Office's log of its messages. */
+/**
+ * Where Threads are kept, each with The Office's log of its messages and the Decisions opened in
+ * it, which a change saves with the Thread.
+ */
 export abstract class ThreadRepository {
   abstract add(thread: Thread): Promise<void>;
 
@@ -36,4 +40,15 @@ export abstract class ThreadRepository {
 
   /** The Thread's log, in the order its messages were logged. */
   abstract messages(threadId: string): Promise<readonly Message[]>;
+
+  abstract decision(id: string): Promise<Decision | undefined>;
+
+  /** The Thread's Decisions, open and answered, the first asked first. */
+  abstract decisionsIn(threadId: string): Promise<readonly Decision[]>;
+
+  /** The Decisions on the Task the user answered, in any of its Threads, the first answered first. */
+  abstract answeredOn(taskId: string): Promise<readonly Decision[]>;
+
+  /** Every Decision waiting on the user, the first asked first. */
+  abstract openDecisions(): Promise<readonly Decision[]>;
 }

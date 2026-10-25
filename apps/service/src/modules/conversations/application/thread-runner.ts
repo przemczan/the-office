@@ -5,8 +5,10 @@ import { EngineSessions } from "../../engine/index.js";
 import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { ChatNotFound } from "../domain/chat-not-found.js";
+import { answerProblems, type DecisionAnswer } from "../domain/decision.js";
 import {
   briefedMessage,
+  decisionAnswerMessage,
   HANDOVER_REQUEST,
   openingMessage,
 } from "../domain/session-instructions.js";
@@ -19,11 +21,13 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Message, MessageDraft } from "../domain/message.js";
 import type { Thread, ThreadSession } from "../domain/thread.js";
 import {
+  answerDecision,
   beginAnswer,
   beginOpening,
   endTurn,
   failAnswer,
   logMessages,
+  type Opening,
   type ThreadChange,
   type UnopenedSession,
 } from "../domain/thread-changes.js";
@@ -98,25 +102,43 @@ export class ThreadRunner implements OnModuleDestroy {
    * or in a chat, when their Chat is off.
    */
   async send(threadId: string, text: string): Promise<Thread> {
-    const now = new Date();
     const thread = await this.threadOf(threadId);
     const current = await this.personOf(thread);
     if (text.trim() === "") throw new ThreadRefused(["Write a message first."]);
-    const place = await this.places.of(thread);
-    const { decision, role, newSession } = await this.moveFor(thread, current, place, now);
-    const said: Message = { kind: "user", id: randomUUID(), threadId, text, at: now };
-    const answering = await this.change(threadId, (latest) =>
-      beginAnswer(latest, { said, personName: current.card.name, decision, newSession }),
+    const said: Message = { kind: "user", id: randomUUID(), threadId, text, at: new Date() };
+    return this.take(thread, current, { id: said.id, text }, (latest, opening) =>
+      beginAnswer(latest, { ...opening, said }),
     );
-    this.answerInBackground(answering, {
-      said: { id: said.id, text },
-      briefed: briefedMessage(place.brief.text, text),
-      decision,
-      role,
-      replaced: newSession ? thread.session : undefined,
-      place,
-    });
-    return answering;
+  }
+
+  /**
+   * Answers the Thread's open Decision and has the person take the answer, with its question, as
+   * their next message, under the Context policy as any message is. Refused once it is answered,
+   * with an answer that isn't one, and while the person is still answering.
+   */
+  async answerDecision(
+    threadId: string,
+    decisionId: string,
+    answer: DecisionAnswer,
+  ): Promise<Thread> {
+    const thread = await this.threadOf(threadId);
+    const open = thread.openDecision;
+    if (open?.id !== decisionId) throw new ThreadRefused(["This Decision is answered already."]);
+    const problems = answerProblems(open, answer);
+    if (problems.length > 0) throw new ThreadRefused(problems);
+    const current = await this.personOf(thread);
+    const said = { id: randomUUID(), text: decisionAnswerMessage(open, answer) };
+    // Briefed as the Thread will be once answered: the message, not the Brief, carries this one.
+    const answered = { ...thread, openDecision: undefined };
+    return this.take(answered, current, said, (latest, opening) =>
+      answerDecision(latest, {
+        ...opening,
+        decisionId,
+        answer,
+        messageId: said.id,
+        answeredAt: new Date(),
+      }),
+    );
   }
 
   /**
@@ -138,6 +160,32 @@ export class ThreadRunner implements OnModuleDestroy {
       decision,
       role,
       replaced: undefined,
+      place,
+    });
+    return answering;
+  }
+
+  /**
+   * The person takes `said` under the Context policy's move: `begin` logs it and sets the Thread
+   * answering, and the session answers once the call that asked returns.
+   */
+  private async take<Event extends DomainEvent>(
+    thread: Thread,
+    current: SessionRole,
+    said: Answer["said"],
+    begin: (latest: Thread, opening: Opening) => ThreadChange<Event>,
+  ): Promise<Thread> {
+    const place = await this.places.of(thread);
+    const { decision, role, newSession } = await this.moveFor(thread, current, place, new Date());
+    const answering = await this.change(thread.id, (latest) =>
+      begin(latest, { personName: current.card.name, decision, newSession }),
+    );
+    this.answerInBackground(answering, {
+      said,
+      briefed: briefedMessage(place.brief.text, said.text),
+      decision,
+      role,
+      replaced: newSession ? thread.session : undefined,
       place,
     });
     return answering;

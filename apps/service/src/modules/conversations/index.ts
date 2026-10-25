@@ -7,3 +7,4 @@ export {
 } from "./application/task-thread-setups.js";
 export { ThreadService, type TaskThreadOpening } from "./application/thread-service.js";
 export { ConversationsModule } from "./conversations.module.js";
+export { DecisionAnswered, DecisionOpened } from "./domain/conversation-events.js";

@@ -53,7 +53,7 @@ export class SessionPlaces {
       environment: setup.environment,
       project: { folder: setup.folder, useProjectSkills: setup.useProjectSkills },
       officeTools: setup.officeTools,
-      brief: this.briefs.forTaskThread(thread, setup),
+      brief: await this.briefs.forTaskThread(thread, setup),
       span: { "office.task": taskId },
       instructions: (card) => taskThreadInstructions(card, setup.instructions),
       // The module keeping Tasks made the worktree before it opened the Thread.

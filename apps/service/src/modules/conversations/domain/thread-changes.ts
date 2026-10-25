@@ -1,7 +1,16 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { ContextDecision } from "./context-policy.js";
 import {
+  answerProblems,
+  decisionProblems,
+  type Decision,
+  type DecisionAnswer,
+  type DecisionDraft,
+} from "./decision.js";
+import {
   ContextOverrideChosen,
+  DecisionAnswered,
+  DecisionOpened,
   MessagesLogged,
   ThreadRenamed,
   ThreadStarted,
@@ -22,6 +31,8 @@ import { titleFrom, titleProblems } from "./thread-title.js";
 export interface ThreadChange<Event extends DomainEvent> {
   readonly thread: Thread;
   readonly logged: readonly Message[];
+  /** A Decision the change opened or answered, saved with the Thread. */
+  readonly decision?: Decision;
   readonly event: Event;
 }
 
@@ -57,6 +68,7 @@ export function startChatThread(
     override: undefined,
     tokens: NO_TOKENS,
     startedAt,
+    openDecision: undefined,
   };
   return { thread, event: new ThreadStarted(thread) };
 }
@@ -89,6 +101,7 @@ export function startTaskThread(
     override: undefined,
     tokens: NO_TOKENS,
     startedAt,
+    openDecision: undefined,
   };
   return { thread, event: new ThreadStarted(thread) };
 }
@@ -154,9 +167,117 @@ export interface Opening {
  */
 export function beginAnswer(thread: Thread, answering: Answering): ThreadChange<MessagesLogged> {
   const { said, decision } = answering;
-  const contextLine =
-    decision.reason === "cache-warm" ? [] : [contextLineOf(thread, decision, said.at)];
-  return begin(thread, answering, [...contextLine, said], said.at);
+  return begin(thread, answering, [...movedLines(thread, decision, said.at), said], said.at);
+}
+
+/** A Decision the person opens in the Thread they work in, and when. */
+export interface DecisionOpening extends DecisionDraft {
+  readonly id: string;
+  readonly askedAt: Date;
+}
+
+/**
+ * The person opens a Decision (spec §2.4): its card is logged, and the Thread waits on it until the
+ * user answers. Refused in a chat, which only talks, while another Decision waits, and with every
+ * problem of what is asked, in words the person acts on.
+ */
+export function openDecision(
+  thread: Thread,
+  { id, askedAt, ...draft }: DecisionOpening,
+): ThreadChange<DecisionOpened> {
+  if (thread.home.kind !== "task") {
+    throw new ThreadRefused([
+      "A Decision is opened on a Task. In your chat, ask the user in your answer instead.",
+    ]);
+  }
+  if (thread.openDecision) {
+    throw new ThreadRefused([
+      `Your Decision "${thread.openDecision.question}" still waits on the user. End your turn: their answer comes as your next message.`,
+    ]);
+  }
+  const problems = decisionProblems(draft);
+  if (problems.length > 0) throw new ThreadRefused(problems);
+  const decision: Decision = {
+    ...draft,
+    id,
+    threadId: thread.id,
+    taskId: thread.home.taskId,
+    roleKey: thread.session?.roleKey ?? thread.roleKey,
+    askedAt,
+    answer: undefined,
+  };
+  const card: Message = {
+    kind: "decision",
+    id: crypto.randomUUID(),
+    threadId: thread.id,
+    at: askedAt,
+    roleKey: decision.roleKey,
+    decisionId: id,
+  };
+  const waiting: Thread = { ...thread, openDecision: decision };
+  return {
+    thread: waiting,
+    logged: [card],
+    decision,
+    event: new DecisionOpened(waiting, decision),
+  };
+}
+
+/** The user's answer to the Thread's open Decision, as the person takes it under the move. */
+export interface DecisionAnswering extends Opening {
+  readonly decisionId: string;
+  readonly answer: DecisionAnswer;
+  /** The id of the answer's line in the log, which the session is sent it by. */
+  readonly messageId: string;
+  readonly answeredAt: Date;
+}
+
+/**
+ * The user answers the Thread's open Decision: the answer is logged, with the move when it wasn't
+ * simply continuing a warm session, the Decision is answered, and the person takes the answer as
+ * their next message. Refused once it is answered, with an answer that isn't one, and while the
+ * person is still answering.
+ */
+export function answerDecision(
+  thread: Thread,
+  answering: DecisionAnswering,
+): ThreadChange<DecisionAnswered> {
+  const { decisionId, answer, messageId, answeredAt } = answering;
+  const open = thread.openDecision;
+  if (open?.id !== decisionId) throw new ThreadRefused(["This Decision is answered already."]);
+  const problems = answerProblems(open, answer);
+  if (problems.length > 0) throw new ThreadRefused(problems);
+  if (thread.state === "answering") {
+    throw new ThreadRefused([
+      `${answering.personName} is still answering. Answer once they finish.`,
+    ]);
+  }
+  const decision: Decision = { ...open, answer: { ...answer, answeredAt } };
+  const line: Message = {
+    kind: "decision-answer",
+    id: messageId,
+    threadId: thread.id,
+    at: answeredAt,
+    decisionId,
+  };
+  const moved = movedLines(thread, answering.decision, answeredAt);
+  const begun = begin(
+    { ...thread, openDecision: undefined },
+    answering,
+    [...moved, line],
+    answeredAt,
+  );
+  return {
+    thread: begun.thread,
+    logged: begun.logged,
+    decision,
+    event: new DecisionAnswered(begun.thread, decision, answeredAt),
+  };
+}
+
+/** The move's line, unless it was simply continuing a warm session. */
+function movedLines(thread: Thread, decision: ContextDecision, at: Date): Message[] {
+  return decision.reason === "cache-warm" ? [] : [contextLineOf(thread, decision, at)];
 }
 
 /**

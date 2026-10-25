@@ -4,8 +4,10 @@ import {
   estimatedTokens,
   freshChatThreadBrief,
   newChatThreadBrief,
+  taskThreadBrief,
   type BriefProject,
 } from "./brief.js";
+import { aDecision } from "./decision.fixtures.js";
 import type { Message, MessageDraft } from "./message.js";
 
 const PROJECTS: BriefProject[] = [
@@ -84,5 +86,47 @@ describe("a chat Thread's Brief when it continues fresh", () => {
 
     expect(text).toContain("## The latest exchanges\n\n…");
     expect(text).toMatch(/x the end/);
+  });
+});
+
+describe("a Brief for a Thread on a Task", () => {
+  const answeredAt = new Date("2026-10-25T09:10:00.000Z");
+
+  it("is the Task's record alone when no Decision was opened", () => {
+    expect(
+      taskThreadBrief({ record: "## The Task", continuing: false, answered: [], open: undefined })
+        .text,
+    ).toBe("## The Task");
+  });
+
+  it("adds the answered Decisions and the one the Thread waits on, when it continues fresh", () => {
+    const { text } = taskThreadBrief({
+      record: "## The Task",
+      continuing: true,
+      answered: [
+        aDecision({ answer: { kind: "option", option: 1, answeredAt } }),
+        aDecision({
+          question: "Which format?",
+          answer: { kind: "free-answer", text: "CSV, like the old one.", answeredAt },
+        }),
+      ],
+      open: aDecision({ question: "Which columns?", options: ["All", "The visible ones"] }),
+    });
+
+    expect(text).toMatch(/^You are continuing a Thread on a Task in a fresh session/);
+    expect(text).toContain(
+      [
+        "## The Task",
+        "## Decisions the user answered",
+        "- Should the export include archived Projects?",
+      ].join(String.fromCharCode(10, 10)),
+    );
+    expect(text).toContain("  Answer: Every Project");
+    expect(text).toContain("- Which format?");
+    expect(text).toContain("  Answer: CSV, like the old one.");
+    expect(text).toContain("## Your open Decision");
+    expect(text).toContain('You asked the user "Which columns?", with the options:');
+    expect(text).toContain("- The visible ones");
+    expect(text).toMatch(/They haven't answered it yet/);
   });
 });

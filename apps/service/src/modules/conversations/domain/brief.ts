@@ -1,3 +1,4 @@
+import { answerWords, type Decision } from "./decision.js";
 import type { Message } from "./message.js";
 
 /**
@@ -60,18 +61,48 @@ export function freshChatThreadBrief({
   ]);
 }
 
+/** What a Brief for a Thread on a Task is assembled from. */
+export interface TaskThreadRecord {
+  /** The Task's record, as the module keeping Tasks words it. */
+  readonly record: string;
+  /** The Thread continues in a fresh session, after one before it. */
+  readonly continuing: boolean;
+  /** The Decisions on the Task the user answered, in any of its Threads, in the order answered. */
+  readonly answered: readonly Decision[];
+  /** The Decision this Thread waits on the user for, if any. */
+  readonly open: Decision | undefined;
+}
+
 /**
- * A Brief for a Thread on a Task: the Task's record as the module keeping Tasks words it, and, when
- * the Thread continues in a fresh session, that the earlier context is gone. Unlike a chat's, it
- * carries none of the Thread's exchanges: a Task's record holds what was settled (spec §2.5).
+ * A Brief for a Thread on a Task: the Task's record, its answered Decisions and the one the Thread
+ * waits on, and, when the Thread continues in a fresh session, that the earlier context is gone.
+ * Unlike a chat's, it carries none of the Thread's exchanges: a Task's record holds what was
+ * settled (spec §2.5).
  */
-export function taskThreadBrief(record: string, continuing: boolean): Brief {
+export function taskThreadBrief({ record, continuing, answered, open }: TaskThreadRecord): Brief {
   return briefOf([
     continuing
       ? "You are continuing a Thread on a Task in a fresh session: the earlier session's context is gone, and this Brief, from the Task's record, is what you pick up from."
       : undefined,
     record,
+    answeredSection(answered),
+    open && openSection(open),
   ]);
+}
+
+function answeredSection(decisions: readonly Decision[]): string | undefined {
+  const lines = decisions.flatMap((decision) =>
+    decision.answer
+      ? [`- ${decision.question}\n  Answer: ${answerWords(decision, decision.answer)}`]
+      : [],
+  );
+  if (lines.length === 0) return undefined;
+  return `## Decisions the user answered\n\n${lines.join("\n")}`;
+}
+
+function openSection({ question, options }: Decision): string {
+  const listed = options.map((option) => `- ${option}`).join("\n");
+  return `## Your open Decision\n\nYou asked the user "${question}", with the options:\n\n${listed}\n\nThey haven't answered it yet: their answer comes as a message in this Thread.`;
 }
 
 function briefOf(sections: readonly (string | undefined)[]): Brief {

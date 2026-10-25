@@ -30,9 +30,18 @@ export class Briefs {
     return this.forTaskThread(thread, setup);
   }
 
-  /** As `forThread`, from the setup the session is about to start with. */
-  forTaskThread(thread: Thread, setup: TaskThreadSetup): Brief {
-    return taskThreadBrief(setup.brief, thread.session !== undefined);
+  /**
+   * As `forThread`, from the setup the session is about to start with: the Task's record with the
+   * Decisions answered on the Task and the one the Thread waits on.
+   */
+  async forTaskThread(thread: Thread, setup: TaskThreadSetup): Promise<Brief> {
+    if (thread.home.kind !== "task") throw new Error(`Thread ${thread.id} is not on a Task.`);
+    return taskThreadBrief({
+      record: setup.brief,
+      continuing: thread.session !== undefined,
+      answered: await this.repository.answeredOn(thread.home.taskId),
+      open: thread.openDecision,
+    });
   }
 
   /** A new chat Thread's, or the one it continues fresh with from its log so far. */

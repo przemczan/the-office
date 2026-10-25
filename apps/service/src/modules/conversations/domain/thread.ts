@@ -1,3 +1,5 @@
+import type { Decision } from "./decision.js";
+
 /**
  * Where a conversation lives (spec §2.4): a person's chat, or a Task's conversation. The Task's
  * comes with the Work module; an Initiative's with tier 2.
@@ -65,4 +67,6 @@ export interface Thread {
   readonly override: ContextOverride | undefined;
   readonly tokens: TokenTotals;
   readonly startedAt: Date;
+  /** The Decision the Thread waits on the user for: at most one is open at a time. */
+  readonly openDecision: Decision | undefined;
 }

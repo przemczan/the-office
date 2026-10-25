@@ -3,6 +3,8 @@ import type { ThreadWebEvent } from "@the-office/contracts";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import {
   ContextOverrideChosen,
+  DecisionAnswered,
+  DecisionOpened,
   MessagesLogged,
   ThreadRenamed,
   ThreadStarted,
@@ -44,6 +46,16 @@ export class ThreadWebEvents implements OnModuleInit {
         ...namesOf(event.thread),
       }),
     );
+    this.forwarding.forward(DecisionOpened, (event): WebEventOf<"thread.decision-opened"> => ({
+      type: "thread.decision-opened",
+      ...namesOf(event.thread),
+      decisionId: event.decision.id,
+    }));
+    this.forwarding.forward(DecisionAnswered, (event): WebEventOf<"thread.decision-answered"> => ({
+      type: "thread.decision-answered",
+      ...namesOf(event.thread),
+      decisionId: event.decision.id,
+    }));
   }
 }
 

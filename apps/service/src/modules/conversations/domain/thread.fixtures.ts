@@ -13,6 +13,7 @@ export function aThread(fields: Partial<Thread> = {}): Thread {
     override: undefined,
     tokens: NO_TOKENS,
     startedAt: new Date("2026-10-25T09:00:00.000Z"),
+    openDecision: undefined,
     ...fields,
   };
 }

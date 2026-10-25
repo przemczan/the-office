@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import {
+  decisionListSchema,
   messageListSchema,
   threadListSchema,
   threadRefusalSchema,
@@ -23,6 +24,7 @@ import { ScriptedEngine, ScriptedEngineModule } from "../../../engine/index.js";
 import { RoleCards, type SessionRole } from "../../../people/index.js";
 import { SkillsModule } from "../../../skills/index.js";
 import { Briefs } from "../../application/briefs.js";
+import { DecisionService } from "../../application/decision-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { SessionPlaces } from "../../application/session-places.js";
 import { TaskThreadSetups } from "../../application/task-thread-setups.js";
@@ -30,11 +32,15 @@ import { CONTEXT_POLICY_SETTINGS, ThreadContexts } from "../../application/threa
 import { ThreadRunner } from "../../application/thread-runner.js";
 import { ThreadService } from "../../application/thread-service.js";
 import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "../../domain/context-policy.js";
+import { DecisionAnswered } from "../../domain/conversation-events.js";
+import type { Decision } from "../../domain/decision.js";
+import type { Thread } from "../../domain/thread.js";
 import { aThread } from "../../domain/thread.fixtures.js";
 import { ProjectBases } from "../../ports/project-bases.js";
 import { ThreadRepository } from "../../ports/thread-repository.js";
 import { PostgresThreadRepository } from "../postgres/postgres-thread-repository.js";
 import { ThreadWebEvents } from "../websocket/thread-web-events.js";
+import { DecisionsController } from "./decisions.controller.js";
 import { ThreadsController } from "./threads.controller.js";
 
 let app: INestApplication;
@@ -67,7 +73,7 @@ beforeEach(async () => {
       // The runner's own tests answer messages; these send only ones it refuses.
       ScriptedEngineModule.register(new ScriptedEngine([])),
     ],
-    controllers: [ThreadsController],
+    controllers: [ThreadsController, DecisionsController],
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       { provide: RoleCards, useValue: roleCards },
@@ -79,6 +85,7 @@ beforeEach(async () => {
       SessionPlaces,
       ThreadContexts,
       ThreadRunner,
+      DecisionService,
       ThreadWebEvents,
     ],
   }));
@@ -321,5 +328,133 @@ describe("a Thread", () => {
     const response = await get(`/threads/${randomUUID()}`);
 
     expect(response.status).toBe(404);
+  });
+});
+
+describe("a Decision", () => {
+  const draft = {
+    question: "Should the export include archived Projects?",
+    context: "Archived Projects have no worktree.",
+    options: ["Only active Projects", "Every Project"],
+    recommendation: { option: 0, reason: "Archived ones have nothing to export." },
+  };
+
+  /** A planning Thread on a Task of its own whose session opened a Decision. */
+  async function opened(): Promise<{ readonly thread: Thread; readonly decision: Decision }> {
+    const roleKey = aPerson("Jan", false);
+    const sessionId = randomUUID();
+    const thread = aThread({
+      id: randomUUID(),
+      home: { kind: "task", taskId: randomUUID() },
+      roleKey,
+      title: "Planning",
+      session: {
+        id: sessionId,
+        roleKey,
+        cardVersion: 1,
+        startedAt: new Date(),
+        lastCallAt: new Date(),
+        contextTokens: 34_000,
+        startContextTokens: 33_000,
+        full: false,
+      },
+    });
+    await app.get(ThreadRepository).add(thread);
+    const decision = await app.get(DecisionService).open(sessionId, draft);
+    return { thread, decision };
+  }
+
+  it("shows in the Thread's log as its card, and among the open Decisions, as the web reads them", async () => {
+    const { thread, decision } = await opened();
+
+    const open = decisionListSchema.parse(await (await get("/decisions/open")).json());
+    const messages = messageListSchema.parse(
+      await (await get(`/threads/${thread.id}/messages`)).json(),
+    );
+
+    const shown = {
+      ...draft,
+      id: decision.id,
+      threadId: thread.id,
+      taskId: decision.taskId,
+      roleKey: thread.roleKey,
+      askedAt: decision.askedAt.toISOString(),
+      answer: null,
+      answeredAt: null,
+    };
+    expect(open).toContainEqual(shown);
+    expect(messages.map(({ id: _id, at: _at, ...message }) => message)).toEqual([
+      { kind: "decision", roleKey: thread.roleKey, decision: shown },
+    ]);
+    expect(webEvents()).toContainEqual({
+      type: "thread.decision-opened",
+      threadId: thread.id,
+      home: thread.home,
+      decisionId: decision.id,
+    });
+  });
+
+  it("refuses an answer that isn't one of its options, or isn't an answer, and is not found when it isn't there", async () => {
+    const { decision } = await opened();
+
+    const wrongOption = await send("POST", `/decisions/${decision.id}/answer`, {
+      kind: "option",
+      option: 2,
+    });
+    const noAnswer = await send("POST", `/decisions/${decision.id}/answer`, { kind: "maybe" });
+    const nowhere = await send("POST", `/decisions/${randomUUID()}/answer`, {
+      kind: "free-answer",
+      text: "Yes.",
+    });
+
+    expect(wrongOption.status).toBe(422);
+    expect(threadRefusalSchema.parse(await wrongOption.json()).reasons).toEqual([
+      "Choose one of the Decision's options.",
+    ]);
+    expect(noAnswer.status).toBe(400);
+    expect(nowhere.status).toBe(404);
+  });
+
+  it("refuses a second answer, and shows the first in the log", async () => {
+    const { thread, decision } = await opened();
+    const answered: Decision = {
+      ...decision,
+      answer: { kind: "free-answer", text: "Only this year's.", answeredAt: new Date() },
+    };
+    await app.get(ThreadRepository).update(thread.id, (current) => {
+      const waiting = { ...current, openDecision: undefined };
+      const line = {
+        kind: "decision-answer",
+        id: randomUUID(),
+        threadId: thread.id,
+        at: new Date(),
+        decisionId: decision.id,
+      } as const;
+      return {
+        thread: waiting,
+        logged: [line],
+        decision: answered,
+        event: new DecisionAnswered(waiting, answered, new Date()),
+      };
+    });
+
+    const again = await send("POST", `/decisions/${decision.id}/answer`, {
+      kind: "option",
+      option: 0,
+    });
+    const messages = messageListSchema.parse(
+      await (await get(`/threads/${thread.id}/messages`)).json(),
+    );
+
+    expect(again.status).toBe(422);
+    expect(threadRefusalSchema.parse(await again.json()).reasons).toEqual([
+      "This Decision is answered already.",
+    ]);
+    expect(messages.map((message) => message.kind)).toEqual(["decision", "decision-answer"]);
+    expect(messages[1]).toMatchObject({
+      decision: { answer: { kind: "free-answer", text: "Only this year's." } },
+    });
+    const open = decisionListSchema.parse(await (await get("/decisions/open")).json());
+    expect(open.map(({ id }) => id)).not.toContain(decision.id);
   });
 });

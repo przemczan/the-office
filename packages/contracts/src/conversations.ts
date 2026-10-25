@@ -89,6 +89,39 @@ export type ContextOverrideChoice = z.infer<typeof contextOverrideChoiceSchema>;
 export const threadTitleSchema = z.object({ title: z.string() });
 export type ThreadTitle = z.infer<typeof threadTitleSchema>;
 
+/** How the user answers a Decision: one of its options, by its index, or a free answer. */
+export const decisionAnswerSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("option"), option: z.number().int().nonnegative() }),
+  z.object({ kind: z.literal("free-answer"), text: z.string() }),
+]);
+export type DecisionAnswer = z.infer<typeof decisionAnswerSchema>;
+
+/**
+ * A question an Agent puts to the user in the Thread it works in on a Task, shown there as a card.
+ * POST /decisions/:id/answer takes a `decisionAnswerSchema`.
+ */
+export const decisionSchema = z.object({
+  id: z.uuid(),
+  threadId: z.uuid(),
+  taskId: z.string(),
+  /** Who asked, by the key of the Role they fill. */
+  roleKey: z.string(),
+  question: z.string(),
+  /** What the user needs to know to decide, as the Agent found it. */
+  context: z.string(),
+  options: z.array(z.string()).min(2),
+  /** The option the Agent recommends, by its index in `options`, and why. */
+  recommendation: z.object({ option: z.number().int().nonnegative(), reason: z.string() }),
+  askedAt: z.iso.datetime(),
+  /** Null while it waits on the user. */
+  answer: decisionAnswerSchema.nullable(),
+  answeredAt: z.iso.datetime().nullable(),
+});
+export type Decision = z.infer<typeof decisionSchema>;
+
+/** GET /decisions/open: every Decision waiting on the user, the first asked first. */
+export const decisionListSchema = z.array(decisionSchema);
+
 const messageFields = { id: z.uuid(), at: z.iso.datetime() };
 
 /** A message of The Office's log of a Thread, which is what the UI shows. */
@@ -121,6 +154,15 @@ export const messageSchema = z.discriminatedUnion("kind", [
   }),
   /** Why the person couldn't answer. */
   z.object({ ...messageFields, kind: z.literal("failure"), reason: z.string() }),
+  /** A Decision the person opened, as its card shows it now, answered or not. */
+  z.object({
+    ...messageFields,
+    kind: z.literal("decision"),
+    roleKey: z.string(),
+    decision: decisionSchema,
+  }),
+  /** The user answered the Decision, which went into the asking session. */
+  z.object({ ...messageFields, kind: z.literal("decision-answer"), decision: decisionSchema }),
   /** A tool call that was refused, with the reason the person read. */
   z.object({
     ...messageFields,
@@ -144,6 +186,7 @@ export const threadRefusalSchema = z.object({
 export type ThreadRefusal = z.infer<typeof threadRefusalSchema>;
 
 const threadWebEventFields = { threadId: z.uuid(), home: homeSchema };
+const decisionWebEventFields = { ...threadWebEventFields, decisionId: z.uuid() };
 
 /** The Conversations events the web receives; each names the Thread and its home. */
 export const threadWebEventSchema = z.discriminatedUnion("type", [
@@ -152,5 +195,10 @@ export const threadWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("thread.messages-logged"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.turn-ended"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.override-chosen"), ...threadWebEventFields }),
+  webEventSchema.extend({ type: z.literal("thread.decision-opened"), ...decisionWebEventFields }),
+  webEventSchema.extend({
+    type: z.literal("thread.decision-answered"),
+    ...decisionWebEventFields,
+  }),
 ]);
 export type ThreadWebEvent = z.infer<typeof threadWebEventSchema>;

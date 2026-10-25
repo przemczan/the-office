@@ -20,6 +20,8 @@ export type MessageDraft =
   | { readonly kind: "handover-note"; readonly roleKey: string; readonly text: string }
   | ToolActivity
   | Refusal
+  | DecisionCard
+  | DecisionAnswerLine
   | ContextLine
   /** Why the person couldn't answer, in the engine's or The Office's words. */
   | { readonly kind: "failure"; readonly reason: string };
@@ -53,4 +55,17 @@ interface Refusal {
   readonly roleKey: string;
   readonly tool: string;
   readonly reason: string;
+}
+
+/** A Decision the person opened, shown as its card; the Decision holds its question and answer. */
+interface DecisionCard {
+  readonly kind: "decision";
+  readonly roleKey: string;
+  readonly decisionId: string;
+}
+
+/** The user answered a Decision, by an option or a free answer, which went into the session. */
+interface DecisionAnswerLine {
+  readonly kind: "decision-answer";
+  readonly decisionId: string;
 }

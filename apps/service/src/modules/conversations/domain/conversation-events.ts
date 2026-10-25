@@ -1,4 +1,5 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { Decision } from "./decision.js";
 import type { Message } from "./message.js";
 import type { Thread } from "./thread.js";
 
@@ -45,5 +46,26 @@ export class ContextOverrideChosen extends DomainEvent {
     chosenAt: Date,
   ) {
     super(chosenAt);
+  }
+}
+
+/** An Agent opened a Decision in the Thread it works in: it waits on the user. */
+export class DecisionOpened extends DomainEvent {
+  constructor(
+    readonly thread: Thread,
+    readonly decision: Decision,
+  ) {
+    super(decision.askedAt);
+  }
+}
+
+/** The user answered a Decision, and the asking person takes the answer as their next message. */
+export class DecisionAnswered extends DomainEvent {
+  constructor(
+    readonly thread: Thread,
+    readonly decision: Decision,
+    answeredAt: Date,
+  ) {
+    super(answeredAt);
   }
 }

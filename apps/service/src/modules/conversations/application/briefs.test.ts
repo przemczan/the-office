@@ -9,6 +9,10 @@ import {
   taskThreadBrief,
   type BriefProject,
 } from "../domain/brief.js";
+import { TurnEnded } from "../domain/conversation-events.js";
+import type { Decision } from "../domain/decision.js";
+import { aDecision } from "../domain/decision.fixtures.js";
+import type { Thread } from "../domain/thread.js";
 import { logMessages } from "../domain/thread-changes.js";
 import { aThread, aUserMessage } from "../domain/thread.fixtures.js";
 import { ProjectBases } from "../ports/project-bases.js";
@@ -96,14 +100,72 @@ describe("Briefs", () => {
     const taskId = randomUUID();
     const home = { kind: "task", taskId } as const;
 
+    const record = { record: recordOf(taskId), answered: [], open: undefined };
+
     await expect(briefs.forThread(aThread({ home }))).resolves.toEqual(
-      taskThreadBrief(recordOf(taskId), false),
+      taskThreadBrief({ ...record, continuing: false }),
     );
     await expect(briefs.forThread(aThread({ home, session: A_SESSION }))).resolves.toEqual(
-      taskThreadBrief(recordOf(taskId), true),
+      taskThreadBrief({ ...record, continuing: true }),
+    );
+  });
+
+  it("briefs a Thread on a Task with the Decisions answered in any of the Task's Threads, and the one it waits on", async () => {
+    const taskId = randomUUID();
+    const home = { kind: "task", taskId } as const;
+    const planning = aThread({ id: randomUUID(), home });
+    const another = aThread({ id: randomUUID(), home });
+    const answeredAt = new Date("2026-10-25T09:10:00.000Z");
+    const first = aDecision({
+      threadId: another.id,
+      taskId,
+      answer: { kind: "option", option: 1, answeredAt },
+    });
+    const second = aDecision({
+      threadId: planning.id,
+      taskId,
+      question: "Which format?",
+      answer: { kind: "free-answer", text: "CSV.", answeredAt: new Date(answeredAt.getTime() + 1) },
+    });
+    const open = aDecision({ threadId: planning.id, taskId, question: "Which columns?" });
+    const elsewhere = aDecision({
+      threadId: (
+        await added(aThread({ id: randomUUID(), home: { kind: "task", taskId: randomUUID() } }))
+      ).id,
+      answer: { kind: "option", option: 0, answeredAt },
+    });
+    await added(planning);
+    await added(another);
+    for (const decision of [first, second, open, elsewhere]) await saved(decision);
+
+    const thread = await repository.find(planning.id);
+
+    expect(thread?.openDecision).toEqual(open);
+    await expect(briefs.forThread(thread ?? planning)).resolves.toEqual(
+      taskThreadBrief({
+        record: recordOf(taskId),
+        continuing: false,
+        answered: [first, second],
+        open,
+      }),
     );
   });
 });
+
+async function added(thread: Thread): Promise<Thread> {
+  await repository.add(thread);
+  return thread;
+}
+
+/** Saves the Decision with its Thread, as opening or answering it does. */
+async function saved(decision: Decision): Promise<void> {
+  await repository.update(decision.threadId, (thread) => ({
+    thread,
+    logged: [],
+    decision,
+    event: new TurnEnded(thread, new Date()),
+  }));
+}
 
 /** The record the Task's module gives for a Task in these tests. */
 function recordOf(taskId: string): string {

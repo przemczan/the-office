@@ -1,4 +1,4 @@
-import type { Message } from "@the-office/contracts";
+import type { Decision, Message } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import { useEffect, useRef, type ReactNode } from "react";
 import { contextLabel } from "./context-words.ts";
@@ -96,5 +96,25 @@ function MessageItem({
           <span className="message-summary">{message.reason}</span>
         </div>
       );
+    case "decision":
+      return (
+        <div className="message">
+          <div className="message-by">Decision · {personName}</div>
+          <div className="message-text">{message.decision.question}</div>
+        </div>
+      );
+    case "decision-answer":
+      return (
+        <div className="message mine">
+          <div className="message-by">You</div>
+          <div className="message-text">{answerWords(message.decision)}</div>
+        </div>
+      );
   }
+}
+
+/** The user's answer to a Decision in words: the chosen option's, or their own. */
+function answerWords({ answer, options }: Decision): string {
+  if (answer === null) return "";
+  return answer.kind === "option" ? (options[answer.option] ?? "") : answer.text;
 }

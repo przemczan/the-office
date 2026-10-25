@@ -1,3 +1,5 @@
+import { answerWords, type Decision, type DecisionAnswer } from "./decision.js";
+
 /** The parts of a Role card a session's standing instructions come from. */
 export interface SessionPersonCard {
   readonly name: string;
@@ -68,4 +70,15 @@ export function briefedMessage(brief: string, said: string): string {
  */
 export function openingMessage(brief: string, opening: string): string {
   return `${brief}\n\n## What to do now\n\n${opening}`;
+}
+
+/**
+ * What the asking session is sent as its next message when the user answers its Decision: the
+ * question, with the chosen option or the user's own words, so a fresh session knows what was asked.
+ */
+export function decisionAnswerMessage(decision: Decision, answer: DecisionAnswer): string {
+  const words = answerWords(decision, answer);
+  return answer.kind === "option"
+    ? `The user answered your Decision "${decision.question}" with the option "${words}".`
+    : `The user answered your Decision "${decision.question}" in their own words:\n\n${words}`;
 }

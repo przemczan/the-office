@@ -74,6 +74,8 @@ export const threadEventInvalidations: Readonly<
   "thread.messages-logged": () => [THREADS],
   "thread.turn-ended": () => [THREADS],
   "thread.override-chosen": () => [THREADS],
+  "thread.decision-opened": () => [THREADS],
+  "thread.decision-answered": () => [THREADS],
 };
 
 function threadPath(id: string): `/${string}` {
