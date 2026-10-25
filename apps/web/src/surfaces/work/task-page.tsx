@@ -12,7 +12,9 @@ import { threadTokens, tokensShort } from "../../shell/conversation/context-word
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
+import { useWaitingOnYou } from "../../shell/work/waiting-on-you.ts";
 import { PRIORITY_NAMES } from "../../shell/work/work-words.ts";
+import { MarkReadyButton, PlanButton } from "./planning-actions.tsx";
 import { TaskConversation } from "./task-conversation.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 import { TaskRecord } from "./task-record.tsx";
@@ -59,19 +61,25 @@ function TaskHead({
   readonly threads: readonly Thread[] | undefined;
 }): ReactNode {
   const tokens = threads?.reduce((sum, thread) => sum + threadTokens(thread), 0) ?? 0;
+  const waitingOnYou = useWaitingOnYou();
   return (
     <header className="task-head">
       <div className="task-head-grow">
         <h2>{task.title}</h2>
         <div className="task-head-meta">
           <TaskStateBadge state={task.state} />
+          {waitingOnYou(task) && <TaskStateBadge state="waiting-on-you" />}
           <ProjectChip projectId={task.projectId} projects={projects} />
           <span>· Pipeline {pipeline?.name ?? task.pipelineId}</span>
           <span>· {PRIORITY_NAMES[task.priority]} priority</span>
           <span>· {tokensShort(tokens)} tokens</span>
         </div>
       </div>
-      <TaskMenu task={task} />
+      <div className="task-head-actions">
+        <PlanButton task={task} variant="primary" />
+        <MarkReadyButton task={task} />
+        <TaskMenu task={task} />
+      </div>
     </header>
   );
 }

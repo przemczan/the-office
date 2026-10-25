@@ -28,6 +28,9 @@ export abstract class ThreadRepository {
   /** The home's Threads, the newest started first. */
   abstract listIn(home: Home): Promise<readonly Thread[]>;
 
+  /** The Threads on any Task with the person, by their Role's key, the newest started first. */
+  abstract listOnTasksWith(roleKey: string): Promise<readonly Thread[]>;
+
   /**
    * Applies `change` to the Thread as stored, holding it against other changes until the Thread and
    * the messages it logged are saved, so two changes at once never lose one. Saves nothing when

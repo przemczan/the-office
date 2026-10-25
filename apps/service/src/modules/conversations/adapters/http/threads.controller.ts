@@ -57,6 +57,13 @@ export class ThreadsController {
     return Promise.all(threads.map((thread) => this.toResponse(thread)));
   }
 
+  /** The person's Threads on Tasks, the newest first: a person's Work tab lists those Tasks. */
+  @Get("roles/:roleKey/task-threads")
+  async listOnTasksWith(@Param("roleKey") roleKey: string): Promise<ThreadResponse[]> {
+    const threads = await this.threads.listOnTasksWith(roleKey);
+    return Promise.all(threads.map((thread) => this.toResponse(thread)));
+  }
+
   @Get("threads/:id")
   async read(@Param("id", ParseUUIDPipe) id: string): Promise<ThreadResponse> {
     return this.toResponse(await this.threads.read(id));

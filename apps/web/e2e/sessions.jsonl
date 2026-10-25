@@ -14,3 +14,20 @@
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["message-3"],"usage":{"input":2,"output":8,"cacheRead":21000,"cacheCreation":40},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":21100,"window":1000000}}
 {"step":"end"}
+{"step":"start","brief":{"id":"brief-planning","text":"Plan the Task with the user"}}
+{"step":"event","event":{"kind":"tool-call","callId":"plan-1","tool":"write_plan","officeTool":true,"input":{"plan":"Keep the path and the query string in the sign-in redirect, and return to them after signing in."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"plan-1","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"plan-2","tool":"write_definition_of_done","officeTool":true,"input":{"statements":["Signing in returns to the page it started from.","The tests pass."]},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"plan-2","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"plan-3","tool":"propose_pipeline","officeTool":true,"input":{"pipelineId":"quick-fix","why":"A small change with tests and no review needed."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"plan-3","text":"","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"plan-4","tool":"open_decision","officeTool":true,"input":{"question":"Should sign-in keep the query string on the way back?","context":"The redirect drops everything after the path today.","options":["Keep the query string","Drop the query string"],"recommended":1,"why":"Filters live in the query string."},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"plan-4","text":"","isError":false}}
+{"step":"event","event":{"kind":"text","text":"I wrote the Plan and the Definition of Done, and asked about the query string.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-planning"],"usage":{"input":3,"output":420,"cacheRead":0,"cacheCreation":33800},"sessionCostUsd":0.02,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":34000,"window":1000000}}
+{"step":"send","message":{"id":"answer-1","text":"The answer"},"priority":"later"}
+{"step":"event","event":{"kind":"text","text":"The query string stays, as the Plan says.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["answer-1"],"usage":{"input":2,"output":30,"cacheRead":34000,"cacheCreation":60},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":34100,"window":1000000}}
+{"step":"end"}

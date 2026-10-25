@@ -3,6 +3,7 @@ import { Link, useParams } from "@tanstack/react-router";
 import type { Project } from "@the-office/contracts";
 import { DataTable, type DataTableColumn } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
+import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { taskQueries } from "../../api/work.ts";
@@ -22,9 +23,10 @@ export function WorkTab(): ReactNode {
   const tasks = useQuery(taskQueries.list());
   const pipelines = useQuery(pipelineQueries.list());
   const projects = useQuery(projectQueries.list());
+  const threads = useQuery(threadQueries.onTasksWith(roleKey));
   const [filter, setFilter] = useState<WorkFilter>(WORK_FILTERS[0]);
-  if (!tasks.data || !pipelines.data) return null;
-  const theirs = personTasks(roleKey, tasks.data, pipelines.data);
+  if (!tasks.data || !pipelines.data || !threads.data) return null;
+  const theirs = personTasks(roleKey, tasks.data, pipelines.data, threads.data);
   return (
     <div className="person-work">
       <div className="person-work-filters" role="group" aria-label="Show">

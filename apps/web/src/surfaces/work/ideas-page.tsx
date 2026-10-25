@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+} from "@tanstack/react-query";
 import type { Idea, Project, Role, Task } from "@the-office/contracts";
 import { Alert, Button, Icon, IconButton, Menu } from "@the-office/ui";
 import { Link } from "@tanstack/react-router";
@@ -18,8 +23,10 @@ import { EmptyCard } from "../../shell/item-card.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { dayAndClockOf, dayOf } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
+import { usePlanner } from "../../shell/work/use-planner.ts";
 import { authorName } from "../../shell/work/work-words.ts";
 import { ShapeIdeaDialog } from "./shape-idea-dialog.tsx";
+import { useIdeaPlanning } from "./use-planning.ts";
 import { useShaping } from "./use-shaping.ts";
 
 /** Ideas (prototypes/app/work.js): the new ones to shape or drop, and those shaped or dropped. */
@@ -67,6 +74,16 @@ export function IdeasPage(): ReactNode {
   );
 }
 
+/** What a new Idea can become from its card: a Task in Backlog, or one planned at once. */
+type IdeaAction = "shape" | "plan";
+
+interface IdeaActionWords {
+  readonly label: string;
+  readonly icon: string;
+  /** Takes the Project's id. */
+  readonly mutation: UseMutationResult<Task, Error, string>;
+}
+
 function IdeaCard({
   idea,
   projects,
@@ -80,10 +97,22 @@ function IdeaCard({
   const attachments = useQuery(attachmentQueries.of(owner));
   const [menuOpen, setMenuOpen] = useState(false);
   const [attaching, setAttaching] = useState(false);
-  const [choosingProject, setChoosingProject] = useState(false);
+  /** The button whose Project the user is choosing, for an Office-wide Idea. */
+  const [choosingFor, setChoosingFor] = useState<IdeaAction>();
   const queryClient = useQueryClient();
   const showToast = useToast();
+  const planner = usePlanner();
   const shaping = useShaping(idea);
+  const planning = useIdeaPlanning(idea);
+  const actions: Readonly<Record<IdeaAction, IdeaActionWords>> = {
+    shape: { label: "Shape into a Task", icon: "list-checks", mutation: shaping },
+    plan: {
+      label: `Plan as a Task with ${planner?.card.name ?? "the Planner"}`,
+      icon: "map",
+      mutation: planning,
+    },
+  };
+  const offered: readonly IdeaAction[] = planner ? ["shape", "plan"] : ["shape"];
   const dropping = useMutation({
     mutationFn: () => dropIdea(idea.id),
     onSuccess: () => showToast(`Idea dropped: ${idea.title}.`),
@@ -132,18 +161,25 @@ function IdeaCard({
       {idea.notes !== "" && <p className="idea-card-notes">{idea.notes}</p>}
       <AttachmentChips attachments={attachments.data ?? []} />
       <div className="idea-card-options">
-        <Button
-          variant="secondary"
-          size="sm"
-          iconLeft={<Icon name="list-checks" size={14} />}
-          loading={shaping.isPending}
-          onClick={() => {
-            if (idea.projectId === null) setChoosingProject(true);
-            else shaping.mutate(idea.projectId, { onError: (error) => showToast(error.message) });
-          }}
-        >
-          Shape into a Task
-        </Button>
+        {offered.map((action) => {
+          const { label, icon, mutation } = actions[action];
+          return (
+            <Button
+              key={action}
+              variant="secondary"
+              size="sm"
+              iconLeft={<Icon name={icon} size={14} />}
+              loading={mutation.isPending}
+              onClick={() => {
+                if (idea.projectId === null) setChoosingFor(action);
+                else
+                  mutation.mutate(idea.projectId, { onError: (error) => showToast(error.message) });
+              }}
+            >
+              {label}
+            </Button>
+          );
+        })}
       </div>
       {attaching && (
         <AddAttachmentDialog
@@ -152,7 +188,14 @@ function IdeaCard({
           onClose={() => setAttaching(false)}
         />
       )}
-      {choosingProject && <ShapeIdeaDialog idea={idea} onClose={() => setChoosingProject(false)} />}
+      {choosingFor && (
+        <ShapeIdeaDialog
+          idea={idea}
+          shaping={actions[choosingFor].mutation}
+          actionLabel={actions[choosingFor].label}
+          onClose={() => setChoosingFor(undefined)}
+        />
+      )}
     </article>
   );
 }

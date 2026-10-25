@@ -62,6 +62,29 @@ describe("PostgresThreadRepository", () => {
     ).resolves.toEqual([]);
   });
 
+  it("lists the person's Threads on every Task, the newest first, and not their chat's", async () => {
+    const roleKey = `role-${randomUUID()}`;
+    const onTask = (taskId: string, startedAt: string): Thread =>
+      aThread({
+        id: randomUUID(),
+        home: { kind: "task", taskId },
+        roleKey,
+        startedAt: new Date(startedAt),
+      });
+    const older = onTask(randomUUID(), "2026-10-25T09:00:00.000Z");
+    const newer = onTask(randomUUID(), "2026-10-25T10:00:00.000Z");
+    const someoneElses = aThread({
+      id: randomUUID(),
+      home: { kind: "task", taskId: randomUUID() },
+      roleKey: `role-${randomUUID()}`,
+    });
+    for (const thread of [older, newer, someoneElses, aThreadOfItsOwn(roleKey)]) {
+      await repository.add(thread);
+    }
+
+    await expect(repository.listOnTasksWith(roleKey)).resolves.toEqual([newer, older]);
+  });
+
   it("finds a Thread by the engine session it has now", async () => {
     const roleKey = `role-${randomUUID()}`;
     const session = {

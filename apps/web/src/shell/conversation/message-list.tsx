@@ -2,6 +2,13 @@ import type { Decision, Message } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import { useEffect, useRef, type ReactNode } from "react";
 import { contextLabel } from "./context-words.ts";
+import { DecisionCard } from "./decision-card.tsx";
+
+/**
+ * The Office tool a person opens a Decision with (the service's `open_decision`): its card shows
+ * the call, so its tool activity line would only repeat it.
+ */
+const OPEN_DECISION_TOOL = "open_decision";
 
 /**
  * The Office's log of a Thread (spec §2.4): the user's messages and the person's, what the person
@@ -25,8 +32,13 @@ export function MessageList({
   }, [lines]);
   return (
     <div className="message-list" aria-live="polite">
-      {messages.map((message) => (
-        <MessageItem key={message.id} message={message} personName={personName} />
+      {messages.filter(shown).map((message) => (
+        <MessageItem
+          key={message.id}
+          message={message}
+          personName={personName}
+          answering={answering}
+        />
       ))}
       {answering && (
         <div className="message-answering">
@@ -39,12 +51,18 @@ export function MessageList({
   );
 }
 
+function shown(message: Message): boolean {
+  return message.kind !== "tool-activity" || message.tool !== OPEN_DECISION_TOOL;
+}
+
 function MessageItem({
   message,
   personName,
+  answering,
 }: {
   readonly message: Message;
   readonly personName: string;
+  readonly answering: boolean;
 }): ReactNode {
   switch (message.kind) {
     case "user":
@@ -98,15 +116,12 @@ function MessageItem({
       );
     case "decision":
       return (
-        <div className="message">
-          <div className="message-by">Decision · {personName}</div>
-          <div className="message-text">{message.decision.question}</div>
-        </div>
+        <DecisionCard decision={message.decision} personName={personName} answering={answering} />
       );
     case "decision-answer":
       return (
         <div className="message mine">
-          <div className="message-by">You</div>
+          <div className="message-by">You · answering the Decision</div>
           <div className="message-text">{answerWords(message.decision)}</div>
         </div>
       );

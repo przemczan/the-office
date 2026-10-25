@@ -491,3 +491,67 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+/* ---- planning: the head's actions, what the Planner proposes, and the user's own version */
+.task-head-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.board-card-note {
+  color: var(--fg-3);
+}
+
+.task-part-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.task-part-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.task-proposed-pipeline {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--warning-border);
+  border-radius: 8px;
+  background: var(--warning-subtle);
+}
+
+.task-proposed-pipeline p {
+  margin: 0;
+  font: var(--type-body-sm);
+  line-height: 1.55;
+}
+
+.task-conversation-start {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
+}
+
+.task-conversation-start:empty {
+  display: none;
+}
+
+.task-thread-waiting {
+  display: inline-grid;
+  place-items: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: var(--warning);
+  font: 600 10px/1 var(--font-sans);
+  color: var(--surface);
+}

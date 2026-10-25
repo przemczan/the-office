@@ -1,4 +1,4 @@
-import type { Pipeline, Task } from "@the-office/contracts";
+import type { Pipeline, Task, Thread } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import { personTasks } from "./person-tasks.ts";
 
@@ -51,9 +51,31 @@ function aTask(fields: Partial<Task>): Task {
   };
 }
 
+function aThreadOn(taskId: string, fields: Partial<Thread>): Thread {
+  return {
+    id: "0b4cbb0e-5a51-4a52-9a4e-7c0f3c1b9f10",
+    home: { kind: "task", taskId },
+    roleKey: "planner",
+    title: "Planning",
+    state: "waiting",
+    tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
+    context: {
+      move: "resume",
+      reason: "cache-warm",
+      cacheWarm: true,
+      contextTokens: 32_000,
+      briefTokens: null,
+      alternatives: [],
+      override: null,
+    },
+    startedAt: "2026-10-26T09:00:00.000Z",
+    ...fields,
+  };
+}
+
 describe("personTasks", () => {
   it("names the Stages the person's Role works", () => {
-    expect(personTasks("developer", [aTask({})], [FULL])).toEqual([
+    expect(personTasks("developer", [aTask({})], [FULL], [])).toEqual([
       { task: aTask({}), part: "Implement · Review & fix" },
     ]);
   });
@@ -61,12 +83,25 @@ describe("personTasks", () => {
   it("lists a Task the person created, with no Stage of theirs", () => {
     const created = aTask({ createdBy: { kind: "person", roleKey: "planner" } });
 
-    expect(personTasks("planner", [created], [FULL])).toEqual([
+    expect(personTasks("planner", [created], [FULL], [])).toEqual([
       { task: created, part: "Created it" },
     ]);
   });
 
+  it("names the Threads on the Task with the person, once each, beside their other parts", () => {
+    const task = aTask({ createdBy: { kind: "person", roleKey: "planner" } });
+    const threads = [
+      aThreadOn(task.id, {}),
+      aThreadOn(task.id, { id: "5d1f3c3a-9f62-4c2e-8a8f-2b7e6a7d0c11" }),
+      aThreadOn("another-task", { title: "Implement" }),
+    ];
+
+    expect(personTasks("planner", [task], [FULL], threads)).toEqual([
+      { task, part: "Created it · Planning" },
+    ]);
+  });
+
   it("leaves out the Tasks the person has no part in", () => {
-    expect(personTasks("reviewer", [aTask({})], [FULL])).toEqual([]);
+    expect(personTasks("reviewer", [aTask({})], [FULL], [])).toEqual([]);
   });
 });

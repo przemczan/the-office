@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import type { Thread } from "@the-office/contracts";
 import { Button, Icon, IconButton, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
@@ -7,6 +7,7 @@ import { RefusalAlert } from "../refusal-alert.tsx";
 import { Composer } from "./composer.tsx";
 import { ContextBar } from "./context-bar.tsx";
 import { MessageList } from "./message-list.tsx";
+import { threadTitle } from "./thread-title.ts";
 import "./conversation.css";
 
 /** A Thread as its home shows it: its title, its context label, its log and the composer. */
@@ -30,8 +31,8 @@ export function ThreadView({
   if (!thread.data) return null;
   const answering = thread.data.state === "answering";
   return (
-    <section className="thread-view" aria-label={thread.data.title ?? "New thread"}>
-      <ThreadTitle thread={thread.data} />
+    <section className="thread-view" aria-label={threadTitle(thread.data, personName)}>
+      <ThreadTitle thread={thread.data} personName={personName} />
       <ContextBar thread={thread.data} personName={personName} />
       <MessageList messages={messages.data ?? []} personName={personName} answering={answering} />
       {sending.error && <RefusalAlert title="The message wasn't sent" error={sending.error} />}
@@ -46,7 +47,13 @@ export function ThreadView({
 }
 
 /** The Thread's title, renamed in place. */
-function ThreadTitle({ thread }: { readonly thread: Thread }): ReactNode {
+function ThreadTitle({
+  thread,
+  personName,
+}: {
+  readonly thread: Thread;
+  readonly personName: string;
+}): ReactNode {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(thread.title ?? "");
   const queryClient = useQueryClient();
@@ -54,14 +61,14 @@ function ThreadTitle({ thread }: { readonly thread: Thread }): ReactNode {
     mutationFn: () => renameThread(thread.id, title),
     onSuccess: async (renamed) => {
       queryClient.setQueryData(threadQueries.one(renamed.id).queryKey, renamed);
-      await queryClient.invalidateQueries({ queryKey: ["threads", "chat"] });
+      await queryClient.invalidateQueries({ queryKey: homeThreadsKey(renamed) });
       setEditing(false);
     },
   });
   if (!editing) {
     return (
       <header className="thread-title">
-        <h3>{thread.title ?? "New thread"}</h3>
+        <h3>{threadTitle(thread, personName)}</h3>
         {thread.title !== null && (
           <IconButton
             icon={<Icon name="pencil" size={14} />}
@@ -100,4 +107,11 @@ function ThreadTitle({ thread }: { readonly thread: Thread }): ReactNode {
       {renaming.error && <RefusalAlert title="The title wasn't saved" error={renaming.error} />}
     </form>
   );
+}
+
+/** The list of the Thread's home, which shows its title too. */
+function homeThreadsKey({ home }: Thread): QueryKey {
+  return home.kind === "chat"
+    ? threadQueries.inChat(home.roleKey).queryKey
+    : threadQueries.onTask(home.taskId).queryKey;
 }

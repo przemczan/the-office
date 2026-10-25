@@ -78,6 +78,11 @@ export function shapeIdea(id: string, projectId: string): Promise<Task> {
   return sendToApi("POST", `${ideaPath(id)}/shape`, { projectId }, taskSchema);
 }
 
+/** Plan as a Task with the Planner: the Task the Idea became, in Planning with its Thread. */
+export function planIdea(id: string, projectId: string): Promise<Task> {
+  return sendToApi("POST", `${ideaPath(id)}/plan`, { projectId }, taskSchema);
+}
+
 export function dropIdea(id: string): Promise<Idea> {
   return sendToApi("POST", `${ideaPath(id)}/drop`, {}, ideaSchema);
 }
@@ -97,6 +102,34 @@ export function changePriority(id: string, priority: Priority): Promise<Task> {
 /** Moves a Task between two others in its column; it takes the priority that keeps it there. */
 export function placeTask(id: string, placement: TaskPlacement): Promise<Task> {
   return sendToApi("PUT", `${taskPath(id)}/place`, placement, taskSchema);
+}
+
+/** Plan with the Planner: the Task moves to Planning, and its planning Thread opens. */
+export function planTask(id: string): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/planning`, {}, taskSchema);
+}
+
+/** The user's Plan, confirmed: the proposed one exactly as shown, or their edit of it. */
+export function confirmPlan(id: string, plan: string): Promise<Task> {
+  return sendToApi("PUT", `${taskPath(id)}/plan`, { plan }, taskSchema);
+}
+
+/** The user's Definition of Done, confirmed, as with the Plan. */
+export function confirmDefinitionOfDone(
+  id: string,
+  definitionOfDone: readonly string[],
+): Promise<Task> {
+  return sendToApi("PUT", `${taskPath(id)}/definition-of-done`, { definitionOfDone }, taskSchema);
+}
+
+/** Sets the Task's Pipeline: the proposed one to confirm it, or another; either ends the proposal. */
+export function setPipeline(id: string, pipelineId: string): Promise<Task> {
+  return sendToApi("PUT", `${taskPath(id)}/pipeline`, { pipelineId }, taskSchema);
+}
+
+/** Refused with the reasons until the Plan and the Definition of Done are confirmed. */
+export function markReady(id: string): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/ready`, {}, taskSchema);
 }
 
 export function dropTask(id: string): Promise<Task> {

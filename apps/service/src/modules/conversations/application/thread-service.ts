@@ -76,6 +76,11 @@ export class ThreadService {
     return this.repository.listIn({ kind: "task", taskId });
   }
 
+  /** The Threads with the person on every Task, the newest first: their part in those Tasks. */
+  listOnTasksWith(roleKey: string): Promise<readonly Thread[]> {
+    return this.repository.listOnTasksWith(roleKey);
+  }
+
   /**
    * Whose engine session `sessionId` is, by the key of the Role they fill, for the Office tools a
    * chat calls; undefined when no Thread has that session now.

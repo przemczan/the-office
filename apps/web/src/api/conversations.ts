@@ -1,9 +1,11 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
+  decisionListSchema,
   messageListSchema,
   threadListSchema,
   threadSchema,
   type ContextOverride,
+  type DecisionAnswer,
   type Thread,
   type ThreadWebEvent,
 } from "@the-office/contracts";
@@ -11,6 +13,7 @@ import { getFromApi, sendToApi } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
 const THREADS = ["threads"] as const;
+const DECISIONS = ["decisions"] as const;
 
 export const threadQueries = {
   /** The person's chat, the newest Thread first. */
@@ -27,6 +30,13 @@ export const threadQueries = {
       queryFn: ({ signal }) =>
         getFromApi(`/tasks/${encodeURIComponent(taskId)}/threads`, threadListSchema, signal),
     }),
+  /** The person's Threads on every Task, the newest first. */
+  onTasksWith: (roleKey: string) =>
+    queryOptions({
+      queryKey: [...THREADS, "on-tasks", roleKey],
+      queryFn: ({ signal }) =>
+        getFromApi(`/roles/${encodeURIComponent(roleKey)}/task-threads`, threadListSchema, signal),
+    }),
   one: (id: string) =>
     queryOptions({
       queryKey: [...THREADS, id],
@@ -37,6 +47,15 @@ export const threadQueries = {
     queryOptions({
       queryKey: [...THREADS, id, "messages"],
       queryFn: ({ signal }) => getFromApi(`${threadPath(id)}/messages`, messageListSchema, signal),
+    }),
+};
+
+export const decisionQueries = {
+  /** Every Decision waiting on the user, the first asked first: what Waiting on you is made of. */
+  open: () =>
+    queryOptions({
+      queryKey: [...DECISIONS, "open"],
+      queryFn: ({ signal }) => getFromApi("/decisions/open", decisionListSchema, signal),
     }),
 };
 
@@ -62,9 +81,15 @@ export function chooseContextOverride(
   return sendToApi("PUT", `${threadPath(id)}/context-override`, { override }, threadSchema);
 }
 
+/** The person who asked takes the answer in their Thread, which this answers with. */
+export function answerDecision(id: string, answer: DecisionAnswer): Promise<Thread> {
+  return sendToApi("POST", `/decisions/${encodeURIComponent(id)}/answer`, answer, threadSchema);
+}
+
 /**
  * Every Conversations event makes the Threads stale: ["threads"] covers each home's list, each
- * Thread and its log.
+ * Thread and its log. A Decision's events also make ["decisions"] stale, kept apart so the many
+ * events of a turn don't refetch the open Decisions.
  */
 export const threadEventInvalidations: Readonly<
   Record<ThreadWebEvent["type"], EventInvalidations[string]>
@@ -74,8 +99,8 @@ export const threadEventInvalidations: Readonly<
   "thread.messages-logged": () => [THREADS],
   "thread.turn-ended": () => [THREADS],
   "thread.override-chosen": () => [THREADS],
-  "thread.decision-opened": () => [THREADS],
-  "thread.decision-answered": () => [THREADS],
+  "thread.decision-opened": () => [THREADS, DECISIONS],
+  "thread.decision-answered": () => [THREADS, DECISIONS],
 };
 
 function threadPath(id: string): `/${string}` {

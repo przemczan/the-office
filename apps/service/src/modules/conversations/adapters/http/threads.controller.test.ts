@@ -224,6 +224,26 @@ describe("a Task's conversation", () => {
     ]);
     expect(threadListSchema.parse(await elsewhere.json())).toEqual([]);
   });
+
+  it("lists a person's Threads on every Task, for their Work tab", async () => {
+    const roleKey = aPerson("Jan", false);
+    const repository = app.get(ThreadRepository);
+    const planning = aThread({
+      id: randomUUID(),
+      home: { kind: "task", taskId: randomUUID() },
+      roleKey,
+      title: "Planning",
+    });
+    await repository.add(planning);
+    await repository.add(aThread({ id: randomUUID(), home: { kind: "chat", roleKey }, roleKey }));
+
+    const listed = await get(`/roles/${roleKey}/task-threads`);
+
+    expect(listed.status).toBe(200);
+    expect(threadListSchema.parse(await listed.json())).toEqual([
+      expect.objectContaining({ id: planning.id, home: planning.home, title: "Planning" }),
+    ]);
+  });
 });
 
 describe("a Thread", () => {

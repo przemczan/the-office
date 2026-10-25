@@ -56,6 +56,15 @@ export class PostgresThreadRepository extends ThreadRepository {
     return withOpenDecisions(this.database, rows);
   }
 
+  async listOnTasksWith(roleKey: string): Promise<readonly Thread[]> {
+    const rows = await this.database
+      .select()
+      .from(threads)
+      .where(and(eq(threads.homeKind, "task"), eq(threads.roleKey, roleKey)))
+      .orderBy(desc(threads.startedAt), desc(threads.id));
+    return withOpenDecisions(this.database, rows);
+  }
+
   async update<Event extends DomainEvent>(
     id: string,
     change: (thread: Thread) => ThreadChange<Event> | undefined,

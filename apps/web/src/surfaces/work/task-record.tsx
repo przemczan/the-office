@@ -1,12 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Pipeline, Role, Stage, Task } from "@the-office/contracts";
-import { Button, Card, Icon } from "@the-office/ui";
+import { Button } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { attachmentQueries, ideaQueries } from "../../api/work.ts";
 import { AddAttachmentDialog } from "../../shell/attachments/add-attachment-dialog.tsx";
 import { AttachmentChips } from "../../shell/attachments/attachment-chips.tsx";
 import { dayAndClockOf } from "../../shell/time.ts";
+import { usePlanner } from "../../shell/work/use-planner.ts";
+import { DefinitionOfDoneBlock, PlanBlock, ProposedPipeline } from "./planning-parts.tsx";
+import { RecordBlock } from "./record-block.tsx";
 
 /** The Task's record: what must be true, how, its Stages, its Attachments and where it came from. */
 export function TaskRecord({
@@ -18,31 +21,13 @@ export function TaskRecord({
 }): ReactNode {
   const roles = useQuery(roleQueries.list());
   // It starts a sentence here.
-  const planner = roles.data?.find(({ key }) => key === "planner")?.card.name ?? "The Planner";
+  const planner = usePlanner()?.card.name ?? "The Planner";
   return (
     <section className="task-record" aria-label="Record">
-      <RecordBlock icon="list-checks" title="Definition of Done">
-        {task.definitionOfDone.length > 0 ? (
-          <ul className="task-dod">
-            {task.definitionOfDone.map((statement) => (
-              <li key={statement}>{statement}</li>
-            ))}
-          </ul>
-        ) : (
-          <p className="task-quiet">
-            Not written yet. {planner} proposes it during planning; a Task can't be Ready without
-            one.
-          </p>
-        )}
-      </RecordBlock>
-      <RecordBlock icon="map" title="Plan">
-        {task.plan === "" ? (
-          <p className="task-quiet">No Plan yet.</p>
-        ) : (
-          <p className="task-plan">{task.plan}</p>
-        )}
-      </RecordBlock>
+      <DefinitionOfDoneBlock task={task} planner={planner} />
+      <PlanBlock task={task} planner={planner} />
       <RecordBlock icon="route" title={`Stages · ${pipeline?.name ?? task.pipelineId}`}>
+        <ProposedPipeline task={task} pipeline={pipeline} planner={planner} />
         {pipeline ? (
           <StageList stages={pipeline.stages} roles={roles.data} />
         ) : (
@@ -52,32 +37,6 @@ export function TaskRecord({
       <AttachmentsBlock task={task} />
       {task.originIdeaId !== null && <OriginBlock ideaId={task.originIdeaId} />}
     </section>
-  );
-}
-
-function RecordBlock({
-  icon,
-  title,
-  actions,
-  children,
-}: {
-  readonly icon: string;
-  readonly title: string;
-  readonly actions?: ReactNode;
-  readonly children: ReactNode;
-}): ReactNode {
-  return (
-    <Card
-      title={
-        <span className="task-block-title">
-          <Icon name={icon} size={15} strokeWidth={1.6} />
-          {title}
-        </span>
-      }
-      actions={actions}
-    >
-      {children}
-    </Card>
   );
 }
 

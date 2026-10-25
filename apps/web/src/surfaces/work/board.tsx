@@ -3,13 +3,15 @@ import type { Project, Task, TaskPlacement, TaskState } from "@the-office/contra
 import { Alert, Icon } from "@the-office/ui";
 import { Link } from "@tanstack/react-router";
 import { useState, type DragEvent, type ReactNode } from "react";
-import { roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { placeTask, taskQueries } from "../../api/work.ts";
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { PriorityIcon, TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
+import { usePlanner } from "../../shell/work/use-planner.ts";
+import { useWaitingOnYou } from "../../shell/work/waiting-on-you.ts";
 import { NOT_STARTED, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
+import { PlanButton } from "./planning-actions.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 
 interface Column {
@@ -56,12 +58,12 @@ type DropTarget = { readonly before: string } | { readonly endOf: string };
 export function Board(): ReactNode {
   const tasks = useQuery(taskQueries.list());
   const projects = useQuery(projectQueries.list());
-  const roles = useQuery(roleQueries.list());
   const [dragged, setDragged] = useState<Task>();
   const [target, setTarget] = useState<DropTarget>();
   const placing = usePlacing();
   const showToast = useToast();
-  const planner = roles.data?.find((role) => role.key === "planner")?.card.name ?? "the Planner";
+  const waitingOnYou = useWaitingOnYou();
+  const planner = usePlanner()?.card.name;
 
   const drop = (column: Column, event: DragEvent): void => {
     event.preventDefault();
@@ -98,7 +100,7 @@ export function Board(): ReactNode {
               <h3>
                 {column.label} <span className="board-count">{cards.length}</span>
               </h3>
-              <div className="board-hint">{column.hint(planner)}</div>
+              <div className="board-hint">{column.hint(planner ?? "the Planner")}</div>
               <div
                 className="board-cards"
                 onDragOver={(event) => {
@@ -114,6 +116,8 @@ export function Board(): ReactNode {
                     key={task.id}
                     task={task}
                     projects={projects.data}
+                    planner={planner}
+                    waiting={waitingOnYou(task)}
                     dragging={dragged?.id === task.id}
                     dropBefore={
                       target !== undefined && "before" in target && target.before === task.id
@@ -143,6 +147,8 @@ export function Board(): ReactNode {
 function BoardCard({
   task,
   projects,
+  planner,
+  waiting,
   dragging,
   dropBefore,
   onDragStart,
@@ -150,6 +156,10 @@ function BoardCard({
 }: {
   readonly task: Task;
   readonly projects: readonly Project[] | undefined;
+  /** The Planner's name; undefined while nobody is the Planner. */
+  readonly planner: string | undefined;
+  /** In Planning with a Decision open. */
+  readonly waiting: boolean;
   readonly dragging: boolean;
   readonly dropBefore: boolean;
   readonly onDragStart: () => void;
@@ -157,9 +167,10 @@ function BoardCard({
 }): ReactNode {
   const project = projects?.find(({ id }) => id === task.projectId);
   const movable = NOT_STARTED.includes(task.state);
+  const foot = footOf(task, planner, waiting);
   const classes = [
     "board-card",
-    EDGES[task.state],
+    waiting ? "edge-decision" : EDGES[task.state],
     dragging && "dragging",
     dropBefore && "drop-before",
   ].filter(Boolean);
@@ -191,13 +202,32 @@ function BoardCard({
       <div className="board-card-meta">
         {project ? <ProjectMark project={project} /> : task.projectId}
       </div>
-      {!movable && task.state !== "in-progress" && task.state !== "done" && (
-        <div className="board-card-foot">
-          <TaskStateBadge state={task.state} />
-        </div>
-      )}
+      {foot && <div className="board-card-foot">{foot}</div>}
     </article>
   );
+}
+
+/**
+ * What a card says below its title: Plan in Backlog, how planning stands, or a state the column
+ * doesn't name already; undefined when there is nothing to say.
+ */
+function footOf(task: Task, planner: string | undefined, waiting: boolean): ReactNode {
+  switch (task.state) {
+    case "backlog":
+      return planner && <PlanButton task={task} label="Plan" size="sm" />;
+    case "planning":
+      return waiting ? (
+        <TaskStateBadge state="waiting-on-you" />
+      ) : (
+        <span className="board-card-note">Planning with {planner ?? "the Planner"}</span>
+      );
+    case "ready":
+    case "in-progress":
+    case "done":
+      return undefined;
+    default:
+      return <TaskStateBadge state={task.state} />;
+  }
 }
 
 /** Moves the card where it was dropped at once, and lets the service settle its priority. */

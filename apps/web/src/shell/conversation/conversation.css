@@ -208,3 +208,53 @@
 .composer > :first-child {
   flex: 1;
 }
+
+/* ---- a Decision: a card in the asking person's Thread (prototypes/app/conversation.js) */
+.message.decision-card {
+  max-width: 100%;
+  border: 1px solid var(--warning-border);
+  background: var(--warning-subtle);
+}
+
+.decision-question {
+  font-weight: 500;
+}
+
+.decision-context,
+.decision-recommendation,
+.decision-hint {
+  margin: 6px 0 0;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.decision-hint {
+  color: var(--fg-3);
+}
+
+.decision-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.decision-free-answer {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.decision-free-answer > :first-child {
+  flex: 1;
+}
+
+.decision-answered {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font: var(--type-caption);
+  color: var(--success-fg);
+}

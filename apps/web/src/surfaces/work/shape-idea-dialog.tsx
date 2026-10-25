@@ -1,24 +1,30 @@
-import { useQuery } from "@tanstack/react-query";
-import type { Idea } from "@the-office/contracts";
+import { useQuery, type UseMutationResult } from "@tanstack/react-query";
+import type { Idea, Task } from "@the-office/contracts";
 import { Button, Dialog, RadioGroup } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
-import { useShaping } from "./use-shaping.ts";
 
-/** An Office-wide Idea becomes a Task in one Project, chosen here. */
+/**
+ * An Office-wide Idea becomes a Task in one Project, chosen here: shaped into a Task, or planned
+ * as one at once, by `shaping` with the chosen Project's id.
+ */
 export function ShapeIdeaDialog({
   idea,
+  shaping,
+  actionLabel,
   onClose,
 }: {
   readonly idea: Idea;
+  readonly shaping: UseMutationResult<Task, Error, string>;
+  /** What the confirming button says, as the card's button said it. */
+  readonly actionLabel: string;
   readonly onClose: () => void;
 }): ReactNode {
   const projects = useQuery(projectQueries.list());
   const [chosen, setChosen] = useState<string>();
   const projectId = chosen ?? projects.data?.[0]?.id;
-  const shaping = useShaping(idea);
   return (
     <Dialog
       title="Which Project is the Task in?"
@@ -37,7 +43,7 @@ export function ShapeIdeaDialog({
               if (projectId !== undefined) shaping.mutate(projectId, { onSuccess: onClose });
             }}
           >
-            Shape into a Task
+            {actionLabel}
           </Button>
         </>
       }
