@@ -12,5 +12,5 @@
     // packages/ui imports its own files with .ts, for Node to load its vite.ts.
     "allowImportingTsExtensions": true
   },
-  "include": ["src", "vite.config.ts", "vitest.config.ts"]
+  "include": ["src", "e2e", "vite.config.ts", "vitest.config.ts", "playwright.config.ts"]
 }

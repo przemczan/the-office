@@ -61,5 +61,7 @@ check_service_starts() {
 copy_working_tree
 cd /work
 npm ci --no-audit --no-fund
+# The browser the web's Playwright tests drive, with the system libraries it needs.
+npx playwright install --with-deps chromium
 npm run verify
 check_service_starts

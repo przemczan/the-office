@@ -11,7 +11,7 @@
     "dev": "npm run dev --workspace @the-office/service",
     "build": "npm run build --workspaces --if-present",
     "start": "npm run start --workspace @the-office/service",
-    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test",
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm run test && npm run test:e2e",
     "verify:linux": "docker compose run --rm verify-linux",
     "typecheck": "tsc -p . && npm run typecheck --workspaces --if-present",
     "lint": "oxlint",
@@ -19,6 +19,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,mjs,cjs,json,css,yaml,yml}\"",
     "test": "vitest run && npm run test:tools",
     "test:tools": "npm run test --workspace tools --if-present",
+    "test:e2e": "npm run build && npm run test:e2e --workspace @the-office/web",
     "engine-check": "npm run check --workspace @the-office/engine-check --"
   },
   "engines": {

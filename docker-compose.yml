@@ -60,6 +60,8 @@ services:
         target: /source
         read_only: true
       - npm-cache:/root/.npm
+      # Chromium for the web's Playwright tests, downloaded once.
+      - playwright-browsers:/root/.cache/ms-playwright
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,3 +71,4 @@ services:
 volumes:
   postgres-data:
   npm-cache:
+  playwright-browsers:

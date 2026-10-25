@@ -4,3 +4,4 @@ dist/
 *.tsbuildinfo
 tools/engine-check/out/
 .env
+apps/web/e2e-results/

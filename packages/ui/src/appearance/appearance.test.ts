@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { appearanceScript } from "../vite.ts";
-import { APPEARANCE_RULES } from "./apply-appearance.ts";
+import { APPEARANCE_RULES, appearanceScript } from "./apply-appearance.ts";
 import { createAppearanceStore } from "./appearance-store.ts";
 
 /** The system's light or dark setting, which jsdom lacks; `set` changes it as the system would. */

@@ -45,3 +45,8 @@ export function applyAppearance(rules: AppearanceRules, chosenPalette?: string |
   root.dataset.palette = palette;
   root.dataset.density = rules.density;
 }
+
+/** applyAppearance as an inline script for the page's head, run before the first paint. */
+export function appearanceScript(): string {
+  return `(${applyAppearance.toString()})(${JSON.stringify(APPEARANCE_RULES)});`;
+}
