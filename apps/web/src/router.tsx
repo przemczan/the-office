@@ -8,6 +8,7 @@ import {
 import { Shell } from "./shell/shell.tsx";
 import { NowPage } from "./surfaces/now/now-page.tsx";
 import { PeoplePage } from "./surfaces/people/people-page.tsx";
+import { ProjectPage } from "./surfaces/projects/project-page.tsx";
 import { ProjectsPage } from "./surfaces/projects/projects-page.tsx";
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
 import { WorkPage } from "./surfaces/work/work-page.tsx";
@@ -65,6 +66,14 @@ const projectsRoute = createRoute({
   staticData: { title: "Projects" },
 });
 
+const projectRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "projects/$projectId",
+  component: ProjectPage,
+  // Until the Project is read; the page then names it.
+  staticData: { title: "Projects" },
+});
+
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "settings",
@@ -79,6 +88,7 @@ export const router = createRouter({
     workRoute,
     peopleRoute,
     projectsRoute,
+    projectRoute,
     settingsRoute,
   ]),
 });
