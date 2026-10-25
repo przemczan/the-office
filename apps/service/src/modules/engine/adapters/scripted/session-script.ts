@@ -66,6 +66,13 @@ const sessionEvent = z.discriminatedUnion("kind", [
     isError: z.boolean(),
   }),
   z.object({
+    kind: z.literal("tool-refused"),
+    callId: z.string(),
+    tool: z.string(),
+    reason: z.string(),
+    refusedBy: z.enum(["office-rules", "engine"]),
+  }),
+  z.object({
     kind: z.literal("turn-ended"),
     outcome: z.enum(["completed", "interrupted", "failed"]),
     consumedMessageIds: z.array(z.string()),

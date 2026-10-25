@@ -3,6 +3,9 @@ import { programCandidates, programOf, windows } from "./windows.js";
 
 const homeDirectory = "C:\\Users\\office";
 
+/** Windows paths as written, backslashes and all. */
+const raw = String.raw;
+
 /** A path of short names, exactly this many characters long. */
 const pathOfLength = (length: number): string => `C:\\${"a\\".repeat(length / 2)}`.slice(0, length);
 
@@ -91,6 +94,47 @@ describe("windows", () => {
         "C:\\Windows\\System32\\cmd.exe",
       );
     });
+  });
+
+  describe("paths.resolve, isWithin and names", () => {
+    const { paths } = windows({ variables: {}, homeDirectory });
+
+    it("reads a relative path from the base, and a Git Bash path as the drive path it names", () => {
+      expect(paths.resolve(raw`C:\work`, "src/../plan.md")).toBe(raw`C:\work\plan.md`);
+      expect(paths.resolve(raw`C:\work`, "/d/Projects/x")).toBe(raw`d:\Projects\x`);
+      expect(paths.resolve(raw`C:\work`, "/c")).toBe("c:\\");
+      expect(paths.resolve(raw`C:\work`, "/tmp/x")).toBe(raw`C:\tmp\x`);
+    });
+
+    it("finds a path inside a folder whatever its case, and never a sibling that shares a prefix", () => {
+      expect(paths.isWithin(raw`c:\users\OFFICE\.ssh\id`, raw`C:\Users\office\.ssh`)).toBe(true);
+      expect(paths.isWithin(raw`C:\Users\office`, raw`C:\Users\office`)).toBe(true);
+      expect(paths.isWithin(raw`C:\Users\office\.sshx`, raw`C:\Users\office\.ssh`)).toBe(false);
+      expect(paths.isWithin(raw`C:\Users\office\..foo`, raw`C:\Users\office`)).toBe(true);
+      expect(paths.isWithin(raw`D:\Users\office`, raw`C:\Users\office`)).toBe(false);
+    });
+
+    it("names a path's parts in lower case, split at either slash", () => {
+      expect(paths.names(raw`C:\Users/Office\.SSH`)).toEqual(["c:", "users", "office", ".ssh"]);
+    });
+  });
+
+  it("keeps secrets in the home directory and the AppData folders", () => {
+    const { secretPaths } = windows({
+      variables: { APPDATA: raw`D:\Roaming`, LOCALAPPDATA: raw`D:\Local` },
+      homeDirectory,
+    });
+
+    expect(secretPaths).toEqual(
+      expect.arrayContaining([
+        raw`C:\Users\office\.ssh`,
+        raw`C:\Users\office\.claude\.credentials.json`,
+        raw`D:\Roaming\GitHub CLI`,
+        raw`C:\Users\office\.aws`,
+        raw`D:\Local\Google\Chrome\User Data`,
+        raw`D:\Roaming\Mozilla\Firefox\Profiles`,
+      ]),
+    );
   });
 
   it("has Agents run commands in Bash and PowerShell", () => {

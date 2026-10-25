@@ -17,6 +17,7 @@ const LINUX_PATH_LIMITS: PathLimits = {
 };
 
 export function linux({ variables, homeDirectory }: UserEnvironment): OperatingSystem {
+  const config = configHome(variables["XDG_CONFIG_HOME"], homeDirectory);
   return {
     name: "Linux",
     defaultOfficeDataDirectory: posix.join(
@@ -27,6 +28,21 @@ export function linux({ variables, homeDirectory }: UserEnvironment): OperatingS
     defaultShell: bourneShell,
     agentShells: ["bash"],
     processTrees: processGroups,
+    secretPaths: [
+      posix.join(homeDirectory, ".ssh"),
+      posix.join(
+        variables["CLAUDE_CONFIG_DIR"] || posix.join(homeDirectory, ".claude"),
+        ".credentials.json",
+      ),
+      variables["GH_CONFIG_DIR"] || posix.join(config, "gh"),
+      posix.join(homeDirectory, ".aws"),
+      posix.join(config, "google-chrome"),
+      posix.join(config, "chromium"),
+      posix.join(config, "microsoft-edge"),
+      posix.join(config, "BraveSoftware"),
+      posix.join(homeDirectory, ".mozilla", "firefox"),
+      posix.join(homeDirectory, "snap", "firefox"),
+    ],
     sameVariableName: (one, other) => one === other,
   };
 }
@@ -38,10 +54,23 @@ function dataHome(xdgDataHome: string | undefined, homeDirectory: string): strin
     : posix.join(homeDirectory, ".local", "share");
 }
 
+// The same rule holds for XDG_CONFIG_HOME.
+function configHome(xdgConfigHome: string | undefined, homeDirectory: string): string {
+  return xdgConfigHome && posix.isAbsolute(xdgConfigHome)
+    ? xdgConfigHome
+    : posix.join(homeDirectory, ".config");
+}
+
 const linuxPaths: PathRules = {
   join: (...segments) => posix.join(...segments),
   pathListSeparator: posix.delimiter,
   lengthProblem: (path, entry) => pathLengthProblem(path, entry, LINUX_PATH_LIMITS),
+  resolve: (base, path) => posix.resolve(base, path),
+  isWithin: (path, folder) => {
+    const relative = posix.relative(folder, path);
+    return relative.split(posix.sep)[0] !== ".." && !posix.isAbsolute(relative);
+  },
+  names: (path) => path.split("/").filter(Boolean),
 };
 
 const bourneShell: Shell = {

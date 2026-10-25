@@ -1,10 +1,10 @@
-{"step":"start","brief":{"id":"feaf55de-e606-47dd-a572-d18ff6d8ecdc","text":"Call the hold tool once, then reply with the single word: done"}}
-{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T13:10:00.000Z"}}
-{"step":"event","event":{"kind":"tool-call","callId":"toolu_01WvFzWidPiuJbuEffLqbRfs","tool":"hold","officeTool":true,"input":{},"withinToolCall":null}}
+{"step":"start","brief":{"id":"8c01825c-8484-4b5a-94ae-79880581ed77","text":"Call the hold tool once, then reply with the single word: done"}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T18:10:00.000Z"}}
+{"step":"event","event":{"kind":"tool-call","callId":"toolu_01CCD6DcfKF9BByGJniiA1LP","tool":"hold","officeTool":true,"input":{},"withinToolCall":null}}
 {"step":"interrupt"}
-{"step":"event","event":{"kind":"tool-result","callId":"toolu_01WvFzWidPiuJbuEffLqbRfs","text":"The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.","isError":true}}
-{"step":"event","event":{"kind":"turn-ended","outcome":"interrupted","consumedMessageIds":["feaf55de-e606-47dd-a572-d18ff6d8ecdc"],"usage":{"input":0,"output":0,"cacheRead":0,"cacheCreation":0},"sessionCostUsd":0.00012570000000000002,"output":null,"errors":["[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=null"]}}
-{"step":"send","message":{"id":"742ae0a6-cb8f-47a1-bbb6-4433ccf8906e","text":"Reply with the single word: back"},"priority":"next"}
+{"step":"event","event":{"kind":"tool-result","callId":"toolu_01CCD6DcfKF9BByGJniiA1LP","text":"The user doesn't want to proceed with this tool use. The tool use was rejected (eg. if it was a file edit, the new_string was NOT written to the file). STOP what you are doing and wait for the user to tell you how to proceed.","isError":true}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"interrupted","consumedMessageIds":["8c01825c-8484-4b5a-94ae-79880581ed77"],"usage":{"input":0,"output":0,"cacheRead":0,"cacheCreation":0},"sessionCostUsd":0.00012570000000000002,"output":null,"errors":["[ede_diagnostic] result_type=user last_content_type=n/a stop_reason=null"]}}
+{"step":"send","message":{"id":"4a224f39-9945-44bb-b9bb-5e1bd3e1482c","text":"Reply with the single word: back"},"priority":"next"}
 {"step":"event","event":{"kind":"text","text":"back","withinToolCall":null}}
-{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["742ae0a6-cb8f-47a1-bbb6-4433ccf8906e"],"usage":{"input":2,"output":3,"cacheRead":26307,"cacheCreation":163},"sessionCostUsd":0.00042307,"output":null,"errors":[]}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["4a224f39-9945-44bb-b9bb-5e1bd3e1482c"],"usage":{"input":2,"output":3,"cacheRead":26308,"cacheCreation":163},"sessionCostUsd":0.00042308,"output":null,"errors":[]}}
 {"step":"end"}

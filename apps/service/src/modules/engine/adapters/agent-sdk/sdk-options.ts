@@ -1,10 +1,12 @@
 import {
   createSdkMcpServer,
   tool,
+  type HookCallback,
   type McpSdkServerConfigWithInstance,
   type Options,
   type Settings,
 } from "@anthropic-ai/claude-agent-sdk";
+import { isOfficeOwnVariable } from "../../../../platform/config/office-config.js";
 import type { AgentShell } from "../../../../platform/os/shell.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
 import type { SessionOptions } from "../../ports/session-options.js";
@@ -63,9 +65,9 @@ const BUILT_IN_PLUGINS = [
 ];
 
 /**
- * Variables a session must not get: an API key would switch billing off the subscription,
- * `CLAUDE_CONFIG_DIR` and `CLAUDE_CODE_PLUGIN_DIRS` change what loads, and a parent Claude Code
- * session's own variables would make the session a nested one.
+ * Variables of the engine's a session must not get: an API key would switch billing off the
+ * subscription, `CLAUDE_CONFIG_DIR` and `CLAUDE_CODE_PLUGIN_DIRS` change what loads, and a parent
+ * Claude Code session's own variables would make the session a nested one.
  */
 const ENGINE_VARIABLE_PREFIXES = ["CLAUDE", "ANTHROPIC", "MCP_", "OTEL_"];
 
@@ -76,13 +78,15 @@ export interface SdkSession {
   readonly options: SessionOptions;
   /** The shells Agents run commands in on this system. */
   readonly agentShells: readonly AgentShell[];
+  /** Decides every tool call by the Office rules. */
+  readonly preToolUse: HookCallback;
 }
 
 /**
  * The Agent SDK's options for one Office session (spec §5.4, §5.6, §6), as the engine check
  * measured them (docs/engine-check.md).
  */
-export function sdkOptions({ id, resumes, options, agentShells }: SdkSession): Options {
+export function sdkOptions({ id, resumes, options, agentShells, preToolUse }: SdkSession): Options {
   return {
     cwd: options.folder,
     model: options.model,
@@ -97,6 +101,7 @@ export function sdkOptions({ id, resumes, options, agentShells }: SdkSession): O
     permissionPrompts: "none",
     systemPrompt: { type: "preset", preset: "claude_code", excludeDynamicSections: true },
     env: sessionEnvironment(options.environment),
+    hooks: { PreToolUse: [{ hooks: [preToolUse] }] },
     ...(options.officeTools.length > 0 && {
       mcpServers: { [OFFICE_TOOL_SERVER]: officeToolServer(options.officeTools, id) },
     }),
@@ -128,12 +133,18 @@ function sessionSettings({ skillsFolder, officeTools }: SessionOptions): Setting
   };
 }
 
+/**
+ * The variables a session runs with: the given ones without the engine's, nor The Office's own,
+ * which hold its database credentials (spec §6), whoever passed them.
+ */
 export function sessionEnvironment(
   environment: Readonly<Record<string, string>>,
 ): Record<string, string> {
   return Object.fromEntries(
     Object.entries(environment).filter(
-      ([name]) => !ENGINE_VARIABLE_PREFIXES.some((prefix) => name.toUpperCase().startsWith(prefix)),
+      ([name]) =>
+        !isOfficeOwnVariable(name) &&
+        !ENGINE_VARIABLE_PREFIXES.some((prefix) => name.toUpperCase().startsWith(prefix)),
     ),
   );
 }

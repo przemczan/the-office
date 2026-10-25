@@ -18,6 +18,11 @@ export interface OperatingSystem {
   /** The shells Agents run commands in: PowerShell beside Bash on Windows only (spec §5.4). */
   readonly agentShells: readonly AgentShell[];
   readonly processTrees: ProcessTrees;
+  /**
+   * Where the user's secrets live that no Agent reads (spec §6): SSH keys, the Claude credentials,
+   * the GitHub CLI's and AWS's config, browser profiles. Absolute, files or folders.
+   */
+  readonly secretPaths: readonly string[];
   /** Whether two environment variable names name one variable: Windows ignores their case. */
   sameVariableName(one: string, other: string): boolean;
 }

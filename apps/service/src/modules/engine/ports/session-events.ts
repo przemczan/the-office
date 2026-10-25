@@ -40,6 +40,19 @@ export interface ToolResultEvent {
   readonly isError: boolean;
 }
 
+/** Who refused a tool call: the Office rules (spec §6), or the engine's own checks. */
+export type RefusedBy = "office-rules" | "engine";
+
+/** A tool call was refused; its result, which the Agent read, follows it or came before. */
+export interface ToolRefusedEvent {
+  readonly kind: "tool-refused";
+  readonly callId: string;
+  /** As its call names it. */
+  readonly tool: string;
+  readonly reason: string;
+  readonly refusedBy: RefusedBy;
+}
+
 /** How a turn ended. */
 export type TurnOutcome = "completed" | "interrupted" | "failed";
 
@@ -77,4 +90,4 @@ export interface RateLimitEvent {
 
 /** Everything a session reports, in the order it happened. */
 export type SessionEvent =
-  TextEvent | ToolCallEvent | ToolResultEvent | TurnEndedEvent | RateLimitEvent;
+  TextEvent | ToolCallEvent | ToolResultEvent | ToolRefusedEvent | TurnEndedEvent | RateLimitEvent;

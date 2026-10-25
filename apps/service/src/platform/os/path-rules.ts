@@ -8,6 +8,15 @@ export interface PathRules {
    * or undefined when it fits. A directory may be shorter than a file on Windows.
    */
   lengthProblem(path: string, entry: PathEntry): string | undefined;
+  /**
+   * `path` made absolute, read relative to `base` when it is relative, and normalized. On Windows
+   * a Git Bash path (`/c/Users`) is read as the drive path it names.
+   */
+  resolve(base: string, path: string): string;
+  /** Whether the absolute `path` is `folder` or inside it; Windows ignores case. */
+  isWithin(path: string, folder: string): boolean;
+  /** The names a path is made of, in the form this system compares them: Windows ignores case. */
+  names(path: string): string[];
 }
 
 export type PathEntry = "file" | "directory";

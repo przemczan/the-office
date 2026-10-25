@@ -72,6 +72,43 @@ describe("linux", () => {
     });
   });
 
+  describe("paths.resolve, isWithin and names", () => {
+    const { paths } = linux({ variables: {}, homeDirectory });
+
+    it("reads a relative path from the base", () => {
+      expect(paths.resolve("/work", "src/../plan.md")).toBe("/work/plan.md");
+      expect(paths.resolve("/work", "/home/office/.ssh")).toBe("/home/office/.ssh");
+    });
+
+    it("finds a path inside a folder by its exact case, and never a sibling that shares a prefix", () => {
+      expect(paths.isWithin("/home/office/.ssh/id", "/home/office/.ssh")).toBe(true);
+      expect(paths.isWithin("/home/office/.SSH/id", "/home/office/.ssh")).toBe(false);
+      expect(paths.isWithin("/home/office/.sshx", "/home/office/.ssh")).toBe(false);
+    });
+
+    it("names a path's parts as they are", () => {
+      expect(paths.names("/home/Office/.ssh")).toEqual(["home", "Office", ".ssh"]);
+    });
+  });
+
+  it("keeps secrets in the home directory and $XDG_CONFIG_HOME", () => {
+    const { secretPaths } = linux({
+      variables: { XDG_CONFIG_HOME: "/config" },
+      homeDirectory,
+    });
+
+    expect(secretPaths).toEqual(
+      expect.arrayContaining([
+        "/home/office/.ssh",
+        "/home/office/.claude/.credentials.json",
+        "/config/gh",
+        "/home/office/.aws",
+        "/config/google-chrome",
+        "/home/office/.mozilla/firefox",
+      ]),
+    );
+  });
+
   it("has Agents run commands in Bash alone", () => {
     expect(linux({ variables: {}, homeDirectory }).agentShells).toEqual(["bash"]);
   });

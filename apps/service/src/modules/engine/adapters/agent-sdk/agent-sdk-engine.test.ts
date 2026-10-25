@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import { describe, expect, it } from "vitest";
+import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { describeAgentEngineContract } from "../../ports/agent-engine.contract.js";
 import type { AgentEngine } from "../../ports/agent-engine.js";
 import type { EngineSession } from "../../ports/engine-session.js";
@@ -24,15 +25,17 @@ const MODEL = "claude-haiku-5-5";
 const RECORDINGS = fileURLToPath(new URL("../scripted/recordings/", import.meta.url));
 const run = promisify(execFile);
 
+/** No session here works inside it; the Office rules keep sessions out of it. */
+const OFFICE_DATA = new OfficeDataDirectory(join(tmpdir(), "office-engine-data"));
+const liveEngine = () => new AgentSdkEngine(OFFICE_DATA);
+
 describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live session", () => {
   describeAgentEngineContract("AgentSdkEngine", {
-    capabilities: new AgentSdkEngine().capabilities,
+    capabilities: liveEngine().capabilities,
     model: MODEL,
     timeoutMs: 180_000,
     engineFor: () =>
-      Promise.resolve(
-        MODE === "record" ? new RecordingEngine(new AgentSdkEngine()) : new AgentSdkEngine(),
-      ),
+      Promise.resolve(MODE === "record" ? new RecordingEngine(liveEngine()) : liveEngine()),
     afterScenario: async (scenario, engine) => {
       if (engine instanceof RecordingEngine) {
         await engine.save(join(RECORDINGS, `${scenario}.jsonl`));
@@ -44,7 +47,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
     const folder = await mkdtemp(join(tmpdir(), "office-cache-"));
     try {
       const worktrees = await twoWorktrees(folder);
-      const engine = new AgentSdkEngine();
+      const engine = liveEngine();
 
       await firstTurn(engine, options(worktrees[0]));
       const second = await firstTurn(engine, options(worktrees[1]));

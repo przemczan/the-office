@@ -1,6 +1,5 @@
-{"step":"start","brief":{"id":"a1d85871-767b-4e99-bacc-5c2751aca8cd","text":"Reply with the single word: ready"}}
-{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T13:10:00.000Z"}}
+{"step":"start","brief":{"id":"900c8c9f-23b8-42b1-a6ca-e52aa5d02da3","text":"Reply with the single word: ready"}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T18:10:00.000Z"}}
 {"step":"event","event":{"kind":"text","text":"ready","withinToolCall":null}}
-{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T13:10:00.000Z"}}
-{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["a1d85871-767b-4e99-bacc-5c2751aca8cd"],"usage":{"input":2,"output":4,"cacheRead":25103,"cacheCreation":1110},"sessionCostUsd":0.0005996300000000001,"output":null,"errors":[]}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["900c8c9f-23b8-42b1-a6ca-e52aa5d02da3"],"usage":{"input":2,"output":4,"cacheRead":25103,"cacheCreation":1111},"sessionCostUsd":0.00059983,"output":null,"errors":[]}}
 {"step":"end"}

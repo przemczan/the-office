@@ -33,16 +33,30 @@ const CMD_BUILT_INS: ReadonlySet<string> = new Set(
 const DEFAULT_PATHEXT = ".COM;.EXE;.BAT;.CMD";
 
 export function windows({ variables, homeDirectory }: UserEnvironment): OperatingSystem {
+  const localAppData = variables["LOCALAPPDATA"] || win32.join(homeDirectory, "AppData", "Local");
+  const appData = variables["APPDATA"] || win32.join(homeDirectory, "AppData", "Roaming");
   return {
     name: "Windows",
-    defaultOfficeDataDirectory: win32.join(
-      variables["LOCALAPPDATA"] || win32.join(homeDirectory, "AppData", "Local"),
-      "the-office",
-    ),
+    defaultOfficeDataDirectory: win32.join(localAppData, "the-office"),
     paths: windowsPaths,
     defaultShell: commandPrompt(variables),
     agentShells: ["bash", "powershell"],
     processTrees: taskkill(variables),
+    secretPaths: [
+      win32.join(homeDirectory, ".ssh"),
+      win32.join(
+        variables["CLAUDE_CONFIG_DIR"] || win32.join(homeDirectory, ".claude"),
+        ".credentials.json",
+      ),
+      variables["GH_CONFIG_DIR"] || win32.join(appData, "GitHub CLI"),
+      win32.join(homeDirectory, ".aws"),
+      win32.join(localAppData, "Google", "Chrome", "User Data"),
+      win32.join(localAppData, "Microsoft", "Edge", "User Data"),
+      win32.join(localAppData, "BraveSoftware", "Brave-Browser", "User Data"),
+      win32.join(localAppData, "Chromium", "User Data"),
+      win32.join(appData, "Mozilla", "Firefox", "Profiles"),
+      win32.join(appData, "Opera Software"),
+    ],
     sameVariableName: (one, other) => one.toUpperCase() === other.toUpperCase(),
   };
 }
@@ -51,7 +65,23 @@ const windowsPaths: PathRules = {
   join: (...segments) => win32.join(...segments),
   pathListSeparator: win32.delimiter,
   lengthProblem: (path, entry) => pathLengthProblem(path, entry, WINDOWS_PATH_LIMITS),
+  resolve: (base, path) => win32.resolve(base, fromGitBash(path)),
+  isWithin: (path, folder) => {
+    const relative = win32.relative(folder.toLowerCase(), path.toLowerCase());
+    return relative.split(win32.sep)[0] !== ".." && !win32.isAbsolute(relative);
+  },
+  names: (path) =>
+    path
+      .toLowerCase()
+      .split(/[\\/]+/)
+      .filter(Boolean),
 };
+
+/** Git Bash names drive C: `/c`; Agents' Bash commands on Windows run in it. */
+function fromGitBash(path: string): string {
+  const drive = /^\/([a-zA-Z])(?=\/|$)/.exec(path);
+  return drive === null ? path : `${drive[1]}:${path.slice(2) || "\\"}`;
+}
 
 function commandPrompt(variables: UserEnvironment["variables"]): Shell {
   // A full path, never a bare "cmd.exe": Windows looks for a bare name in the current directory

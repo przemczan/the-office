@@ -1,11 +1,16 @@
 import {
   query,
+  type HookCallback,
   type Options,
   type Query,
   type SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import { Injectable } from "@nestjs/common";
+import { homedir } from "node:os";
+import { OFFICE_ENV_FILE } from "../../../../platform/config/office-env-file.js";
+import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
+import { OfficeRules } from "../../domain/office-rules.js";
 import { AgentEngine, type EngineCapabilities, type NewSession } from "../../ports/agent-engine.js";
 import type {
   EngineSession,
@@ -16,8 +21,10 @@ import type {
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { AsyncChannel } from "../async-channel.js";
+import { officeRulesHook } from "./office-rules-hook.js";
 import { sessionEvents, usageWindows } from "./sdk-events.js";
-import { sdkOptions } from "./sdk-options.js";
+import { sdkOptions, sessionEnvironment } from "./sdk-options.js";
+import { ToolRefusals } from "./tool-refusals.js";
 
 /**
  * Sessions on the TypeScript Claude Agent SDK, on the user's own login (spec §5.4): one long-lived
@@ -34,7 +41,11 @@ export class AgentSdkEngine extends AgentEngine {
     outputSchema: true,
   };
 
-  private readonly agentShells = currentOperatingSystem().agentShells;
+  private readonly operatingSystem = currentOperatingSystem();
+
+  constructor(private readonly officeData: OfficeDataDirectory) {
+    super();
+  }
 
   async start({ id, options, brief }: NewSession): Promise<EngineSession> {
     this.requireFor(options);
@@ -50,25 +61,48 @@ export class AgentSdkEngine extends AgentEngine {
   }
 
   private open(id: string, resumes: boolean, options: SessionOptions): AgentSdkSession {
-    return new AgentSdkSession(
-      id,
-      sdkOptions({ id, resumes, options, agentShells: this.agentShells }),
+    return new AgentSdkSession(id, this.officeRules(options), (preToolUse) =>
+      sdkOptions({
+        id,
+        resumes,
+        options,
+        agentShells: this.operatingSystem.agentShells,
+        preToolUse,
+      }),
     );
+  }
+
+  private officeRules(options: SessionOptions): OfficeRules {
+    return new OfficeRules({
+      workingFolder: options.folder,
+      readableFolders: options.skillsFolder === undefined ? [] : [options.skillsFolder],
+      profile: options.profile,
+      userSecrets: this.operatingSystem.secretPaths,
+      officeFiles: [this.officeData.path, OFFICE_ENV_FILE],
+      homeFolder: homedir(),
+      environment: sessionEnvironment(options.environment),
+      paths: this.operatingSystem.paths,
+    });
   }
 }
 
 class AgentSdkSession implements EngineSession {
   private readonly input = new AsyncChannel<SDKUserMessage>();
   private readonly reported = new AsyncChannel<SessionEvent>();
+  private readonly refusals = new ToolRefusals();
   private readonly engine: Query;
   private readonly read: Promise<void>;
   private ending = false;
 
   constructor(
     readonly id: string,
-    options: Options,
+    rules: OfficeRules,
+    options: (preToolUse: HookCallback) => Options,
   ) {
-    this.engine = query({ prompt: this.input, options });
+    this.engine = query({
+      prompt: this.input,
+      options: options(officeRulesHook(rules, this.refusals)),
+    });
     this.read = this.readMessages();
   }
 
@@ -118,7 +152,9 @@ class AgentSdkSession implements EngineSession {
   private async readMessages(): Promise<void> {
     try {
       for await (const message of this.engine) {
-        for (const event of sessionEvents(message)) this.reported.push(event);
+        for (const event of this.refusals.withRefusals(message, sessionEvents(message))) {
+          this.reported.push(event);
+        }
       }
       this.reported.close();
     } catch (error) {

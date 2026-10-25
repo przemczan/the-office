@@ -1,14 +1,13 @@
-{"step":"start","brief":{"id":"13e9cba2-3efc-4536-9a3d-9426d827cd2b","text":"Remember the word \"tangerine\" for later. Do not call any tool now; reply with the single word: ok"}}
-{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T13:10:00.000Z"}}
+{"step":"start","brief":{"id":"417846fd-1401-4aed-a967-84b877a8c8eb","text":"Remember the word \"tangerine\" for later. Do not call any tool now; reply with the single word: ok"}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T18:10:00.000Z"}}
 {"step":"event","event":{"kind":"text","text":"ok","withinToolCall":null}}
-{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T13:10:00.000Z"}}
-{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["13e9cba2-3efc-4536-9a3d-9426d827cd2b"],"usage":{"input":2,"output":4,"cacheRead":25225,"cacheCreation":1111},"sessionCostUsd":0.00066175,"output":null,"errors":[]}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["417846fd-1401-4aed-a967-84b877a8c8eb"],"usage":{"input":2,"output":4,"cacheRead":25225,"cacheCreation":1110},"sessionCostUsd":0.00060455,"output":null,"errors":[]}}
 {"step":"end"}
 {"step":"resume"}
-{"step":"send","message":{"id":"fa6179c6-8d34-4b25-a3b7-9a93fcebfcef","text":"Call the note tool once with the word you were asked to remember, then reply with the single word: done"},"priority":"next"}
-{"step":"event","event":{"kind":"tool-call","callId":"toolu_01FL6wW1BuGKdKZpHb6wsY7W","tool":"note","officeTool":true,"input":{"word":"tangerine"},"withinToolCall":null}}
-{"step":"event","event":{"kind":"tool-result","callId":"toolu_01FL6wW1BuGKdKZpHb6wsY7W","text":"Noted.","isError":false}}
-{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T13:10:00.000Z"}}
+{"step":"send","message":{"id":"5ac7803e-2b50-4a36-927e-ab27eeb29144","text":"Call the note tool once with the word you were asked to remember, then reply with the single word: done"},"priority":"next"}
+{"step":"event","event":{"kind":"tool-call","callId":"toolu_01Mwz5aQQCLmeMj6q8KoQFu1","tool":"note","officeTool":true,"input":{"word":"tangerine"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"toolu_01Mwz5aQQCLmeMj6q8KoQFu1","text":"Noted.","isError":false}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T18:10:00.000Z"}}
 {"step":"event","event":{"kind":"text","text":"done","withinToolCall":null}}
-{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["fa6179c6-8d34-4b25-a3b7-9a93fcebfcef"],"usage":{"input":4,"output":57,"cacheRead":51618,"cacheCreation":1255},"sessionCostUsd":0.0014578300000000002,"output":null,"errors":[]}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["5ac7803e-2b50-4a36-927e-ab27eeb29144"],"usage":{"input":4,"output":57,"cacheRead":51617,"cacheCreation":1254},"sessionCostUsd":0.00140042,"output":null,"errors":[]}}
 {"step":"end"}

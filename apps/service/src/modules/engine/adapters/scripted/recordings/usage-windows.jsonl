@@ -1,7 +1,6 @@
-{"step":"start","brief":{"id":"12ed0cd4-0bf3-4a9c-8ba0-f7feec3a7fda","text":"Reply with the single word: ok"}}
-{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T13:10:00.000Z"}}
+{"step":"start","brief":{"id":"7bd9ba0f-b1d9-4ebd-a0ef-a99f6cc47f51","text":"Reply with the single word: ok"}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T18:10:00.000Z"}}
 {"step":"event","event":{"kind":"text","text":"ok","withinToolCall":null}}
-{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T13:10:00.000Z"}}
-{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["12ed0cd4-0bf3-4a9c-8ba0-f7feec3a7fda"],"usage":{"input":2,"output":4,"cacheRead":25103,"cacheCreation":1112},"sessionCostUsd":0.00060003,"output":null,"errors":[]}}
-{"step":"read-usage-windows","windows":{"fiveHour":{"percentUsed":67,"resetsAt":"2026-10-25T13:10:00.270Z"},"sevenDay":{"percentUsed":26,"resetsAt":"2026-10-31T08:00:00.270Z"}}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["7bd9ba0f-b1d9-4ebd-a0ef-a99f6cc47f51"],"usage":{"input":2,"output":4,"cacheRead":25103,"cacheCreation":1111},"sessionCostUsd":0.00059983,"output":null,"errors":[]}}
+{"step":"read-usage-windows","windows":{"fiveHour":{"percentUsed":6,"resetsAt":"2026-10-25T18:10:00.000Z"},"sevenDay":{"percentUsed":26,"resetsAt":"2026-10-31T08:00:00.000Z"}}}
 {"step":"end"}

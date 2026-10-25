@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,7 +8,12 @@ import { z } from "zod";
 import { AgentEngine, CapabilityMissing, type EngineCapabilities } from "./agent-engine.js";
 import type { EngineSession, UserMessage } from "./engine-session.js";
 import type { OfficeTool, OfficeToolCall } from "./office-tool.js";
-import type { SessionEvent, ToolCallEvent, TurnEndedEvent } from "./session-events.js";
+import type {
+  SessionEvent,
+  ToolCallEvent,
+  ToolRefusedEvent,
+  TurnEndedEvent,
+} from "./session-events.js";
 import type { SessionOptions } from "./session-options.js";
 
 /**
@@ -18,6 +24,7 @@ import type { SessionOptions } from "./session-options.js";
 export const CONTRACT_SCENARIOS = [
   "reply",
   "office-tool",
+  "refusal",
   "barge-in",
   "later",
   "interrupt",
@@ -121,6 +128,32 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
           brief: message("Reply with the single word: ready"),
         });
         await expect(start).rejects.toEqual(new CapabilityMissing("officeTools"));
+      }),
+      under.timeoutMs,
+    );
+
+    it(
+      "refuses a call the session's profile doesn't allow, and the Agent reads why",
+      scenario("refusal", async (engine, options) => {
+        const session = await engine.start({
+          id: randomUUID(),
+          options,
+          brief: message(
+            "Create the file notes.txt containing the word hi, with your tool for writing files. " +
+              "If that is refused, do not try again or another way; reply with the single word: refused",
+          ),
+        });
+        const log = new EventLog(session);
+
+        expect((await log.nextTurn()).outcome).toBe("completed");
+        const refusal = log.refusal();
+        expect(refusal).toMatchObject({ refusedBy: "office-rules", reason: EDIT_REFUSAL });
+        expect(log.resultOf(log.call(refusal.callId))).toMatchObject({
+          isError: true,
+          text: expect.stringContaining(EDIT_REFUSAL),
+        });
+        expect(existsSync(join(options.folder, "notes.txt"))).toBe(false);
+        await session.end();
       }),
       under.timeoutMs,
     );
@@ -317,6 +350,9 @@ const READ_ONLY = { edit: false, run: { kind: "read-only-git" }, web: false } as
 
 const NOTED = "Noted.";
 
+/** Why the Office rules refuse an edit to a session whose profile has none. */
+const EDIT_REFUSAL = "Not allowed in this session: editing files.";
+
 const WORD_SCHEMA = {
   type: "object",
   properties: { word: { type: "string" } },
@@ -435,6 +471,22 @@ class EventLog {
     );
     if (call === undefined) throw new Error(`No call of the Office tool ${tool} was reported.`);
     return call;
+  }
+
+  call(callId: string): ToolCallEvent {
+    const call = this.events.find(
+      (event): event is ToolCallEvent => event.kind === "tool-call" && event.callId === callId,
+    );
+    if (call === undefined) throw new Error(`No tool call ${callId} was reported.`);
+    return call;
+  }
+
+  refusal(): ToolRefusedEvent {
+    const refusal = this.events.find(
+      (event): event is ToolRefusedEvent => event.kind === "tool-refused",
+    );
+    if (refusal === undefined) throw new Error("No tool call was refused.");
+    return refusal;
   }
 
   resultOf(call: ToolCallEvent): SessionEvent | undefined {

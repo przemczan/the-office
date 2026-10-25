@@ -1,8 +1,9 @@
+import type { HookCallback } from "@anthropic-ai/claude-agent-sdk";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { OfficeTool } from "../../ports/office-tool.js";
 import type { SessionOptions } from "../../ports/session-options.js";
-import { sdkOptions } from "./sdk-options.js";
+import { sdkOptions, type SdkSession } from "./sdk-options.js";
 
 const OPTIONS: SessionOptions = {
   folder: "/office/worktrees/task-1",
@@ -14,6 +15,8 @@ const OPTIONS: SessionOptions = {
     claude_config_dir: "/elsewhere",
     MCP_TIMEOUT: "10",
     OTEL_EXPORTER_OTLP_ENDPOINT: "http://localhost:4318",
+    DATABASE_URL: "postgres://office:secret@localhost:5432/office",
+    OFFICE_PORT: "4100",
   },
   model: "claude-haiku-5-5",
   effort: "medium",
@@ -30,14 +33,22 @@ const NOTE_TOOL: OfficeTool = {
   run: () => Promise.resolve({ text: "Noted.", isError: false }),
 };
 
+const PRE_TOOL_USE: HookCallback = () => Promise.resolve({});
+
+function optionsFor(session: Partial<SdkSession> = {}) {
+  return sdkOptions({
+    id: "session-1",
+    resumes: false,
+    options: OPTIONS,
+    agentShells: ["bash"],
+    preToolUse: PRE_TOOL_USE,
+    ...session,
+  });
+}
+
 describe("sdkOptions", () => {
   it("starts a new session by its id, on the Office's lean and isolated settings", () => {
-    const options = sdkOptions({
-      id: "session-1",
-      resumes: false,
-      options: OPTIONS,
-      agentShells: ["bash"],
-    });
+    const options = optionsFor();
 
     expect(options).toMatchObject({
       cwd: OPTIONS.folder,
@@ -73,13 +84,8 @@ describe("sdkOptions", () => {
   });
 
   it("names the built-in tools, with the system's shells, the same list on every system otherwise", () => {
-    const linux = sdkOptions({ id: "s", resumes: false, options: OPTIONS, agentShells: ["bash"] });
-    const windows = sdkOptions({
-      id: "s",
-      resumes: false,
-      options: OPTIONS,
-      agentShells: ["bash", "powershell"],
-    });
+    const linux = optionsFor({ agentShells: ["bash"] });
+    const windows = optionsFor({ agentShells: ["bash", "powershell"] });
 
     expect(linux.tools).toContain("Bash");
     expect(linux.tools).not.toContain("PowerShell");
@@ -87,30 +93,24 @@ describe("sdkOptions", () => {
     expect(linux.tools).toEqual(expect.arrayContaining(["Read", "Grep", "Glob", "Edit", "Write"]));
   });
 
-  it("runs the session with the given variables, without those that change how the engine runs", () => {
-    const { env } = sdkOptions({ id: "s", resumes: false, options: OPTIONS, agentShells: [] });
+  it("decides every tool call by the one PreToolUse hook", () => {
+    expect(optionsFor().hooks).toEqual({ PreToolUse: [{ hooks: [PRE_TOOL_USE] }] });
+  });
 
-    expect(env).toEqual({ PATH: "/usr/bin", GREETING: "hello" });
+  it("runs the session with the given variables, without the engine's nor The Office's own", () => {
+    expect(optionsFor().env).toEqual({ PATH: "/usr/bin", GREETING: "hello" });
   });
 
   it("resumes a session by its id", () => {
-    const options = sdkOptions({
-      id: "session-1",
-      resumes: true,
-      options: OPTIONS,
-      agentShells: [],
-    });
+    const options = optionsFor({ resumes: true });
 
     expect(options.resume).toBe("session-1");
     expect(options.sessionId).toBeUndefined();
   });
 
   it("loads the skills folder as a plugin the file tools may read", () => {
-    const options = sdkOptions({
-      id: "s",
-      resumes: false,
+    const options = optionsFor({
       options: { ...OPTIONS, skillsFolder: "/office/sessions/s/skills" },
-      agentShells: [],
     });
 
     expect(options.plugins).toEqual([
@@ -122,12 +122,7 @@ describe("sdkOptions", () => {
   });
 
   it("serves the Office tools from an in-process server, allowed by rule", () => {
-    const options = sdkOptions({
-      id: "s",
-      resumes: false,
-      options: { ...OPTIONS, officeTools: [NOTE_TOOL] },
-      agentShells: [],
-    });
+    const options = optionsFor({ options: { ...OPTIONS, officeTools: [NOTE_TOOL] } });
 
     expect(Object.keys(options.mcpServers ?? {})).toEqual(["office"]);
     expect(options.mcpServers?.["office"]).toMatchObject({ type: "sdk", name: "office" });
@@ -136,12 +131,7 @@ describe("sdkOptions", () => {
 
   it("holds each turn's output to the output schema", () => {
     const schema = { type: "object", properties: { word: { type: "string" } } };
-    const options = sdkOptions({
-      id: "s",
-      resumes: false,
-      options: { ...OPTIONS, outputSchema: schema },
-      agentShells: [],
-    });
+    const options = optionsFor({ options: { ...OPTIONS, outputSchema: schema } });
 
     expect(options.outputFormat).toEqual({ type: "json_schema", schema });
   });

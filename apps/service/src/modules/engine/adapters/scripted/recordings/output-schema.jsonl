@@ -1,9 +1,7 @@
-{"step":"start","brief":{"id":"5d60cf9a-87ee-463c-b1c5-47c08b220529","text":"Answer with the word ready."}}
-{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T13:10:00.000Z"}}
+{"step":"start","brief":{"id":"e8c0d54b-f2ab-4eab-abd3-6b6ab6643ffb","text":"Answer with the word ready."}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T18:10:00.000Z"}}
 {"step":"event","event":{"kind":"text","text":"ready","withinToolCall":null}}
-{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T13:10:00.000Z"}}
-{"step":"event","event":{"kind":"tool-call","callId":"toolu_0183np1Pn5XUKCpCvwTRYCw3","tool":"StructuredOutput","officeTool":false,"input":{"word":"ready"},"withinToolCall":null}}
-{"step":"event","event":{"kind":"tool-result","callId":"toolu_0183np1Pn5XUKCpCvwTRYCw3","text":"Structured output provided successfully","isError":false}}
-{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T13:10:00.000Z"}}
-{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["5d60cf9a-87ee-463c-b1c5-47c08b220529"],"usage":{"input":6,"output":56,"cacheRead":50442,"cacheCreation":2265},"sessionCostUsd":0.00110932,"output":{"word":"ready"},"errors":[]}}
+{"step":"event","event":{"kind":"tool-call","callId":"toolu_01Lbq7oY87we7FcRg63UzWWQ","tool":"StructuredOutput","officeTool":false,"input":{"word":"ready"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"toolu_01Lbq7oY87we7FcRg63UzWWQ","text":"Structured output provided successfully","isError":false}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["e8c0d54b-f2ab-4eab-abd3-6b6ab6643ffb"],"usage":{"input":6,"output":110,"cacheRead":50442,"cacheCreation":2265},"sessionCostUsd":0.0011363200000000001,"output":{"word":"ready"},"errors":[]}}
 {"step":"end"}

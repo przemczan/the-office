@@ -40,25 +40,30 @@ export function sessionEvents(message: SDKMessage): SessionEvent[] {
   }
 }
 
+/** A tool's name as the port has it: an Office tool by its own name, any other as the engine names it. */
+export function portToolName(engineName: string): string {
+  return engineName.startsWith(OFFICE_TOOL_PREFIX)
+    ? engineName.slice(OFFICE_TOOL_PREFIX.length)
+    : engineName;
+}
+
 function assistantEvents({ message, parent_tool_use_id }: SDKAssistantMessage): SessionEvent[] {
   const withinToolCall = parent_tool_use_id ?? undefined;
   return message.content.flatMap((block): SessionEvent[] => {
     switch (block.type) {
       case "text":
         return [{ kind: "text", text: block.text, withinToolCall }];
-      case "tool_use": {
-        const officeTool = block.name.startsWith(OFFICE_TOOL_PREFIX);
+      case "tool_use":
         return [
           {
             kind: "tool-call",
             callId: block.id,
-            tool: officeTool ? block.name.slice(OFFICE_TOOL_PREFIX.length) : block.name,
-            officeTool,
+            tool: portToolName(block.name),
+            officeTool: block.name.startsWith(OFFICE_TOOL_PREFIX),
             input: block.input,
             withinToolCall,
           },
         ];
-      }
       default:
         return [];
     }

@@ -1,12 +1,10 @@
-{"step":"start","brief":{"id":"4bcc4dd5-aff0-452d-b13d-68d285a4bb4b","text":"Call the hold tool once, then reply with the single word: done"}}
-{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T13:10:00.000Z"}}
-{"step":"event","event":{"kind":"tool-call","callId":"toolu_01SgnbPA4QPfz6hEiyEodFYQ","tool":"hold","officeTool":true,"input":{},"withinToolCall":null}}
-{"step":"send","message":{"id":"a39a0089-36b5-42b0-b702-00ad0546f12c","text":"Reply with the single word: later"},"priority":"later"}
-{"step":"event","event":{"kind":"tool-result","callId":"toolu_01SgnbPA4QPfz6hEiyEodFYQ","text":"Go on.","isError":false}}
-{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T13:10:00.000Z"}}
+{"step":"start","brief":{"id":"5590b73e-55ed-4c1e-addc-11a34bbb4a7b","text":"Call the hold tool once, then reply with the single word: done"}}
+{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T18:10:00.000Z"}}
+{"step":"event","event":{"kind":"tool-call","callId":"toolu_01KZsVLp9fWAQuXAwSe9Bo2K","tool":"hold","officeTool":true,"input":{},"withinToolCall":null}}
+{"step":"send","message":{"id":"0670968c-b6a7-4cba-beec-fa67d5dc2bf5","text":"Reply with the single word: later"},"priority":"later"}
+{"step":"event","event":{"kind":"tool-result","callId":"toolu_01KZsVLp9fWAQuXAwSe9Bo2K","text":"Go on.","isError":false}}
 {"step":"event","event":{"kind":"text","text":"done","withinToolCall":null}}
-{"step":"event","event":{"kind":"rate-limit","status":"allowed","resetsAt":"2026-10-25T13:10:00.000Z"}}
-{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["4bcc4dd5-aff0-452d-b13d-68d285a4bb4b"],"usage":{"input":4,"output":34,"cacheRead":51502,"cacheCreation":1174},"sessionCostUsd":0.0008929200000000002,"output":null,"errors":[]}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["5590b73e-55ed-4c1e-addc-11a34bbb4a7b"],"usage":{"input":4,"output":34,"cacheRead":51505,"cacheCreation":1177},"sessionCostUsd":0.00089355,"output":null,"errors":[]}}
 {"step":"event","event":{"kind":"text","text":"later","withinToolCall":null}}
-{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["a39a0089-36b5-42b0-b702-00ad0546f12c"],"usage":{"input":2,"output":3,"cacheRead":26370,"cacheCreation":39},"sessionCostUsd":0.00116612,"output":null,"errors":[]}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["0670968c-b6a7-4cba-beec-fa67d5dc2bf5"],"usage":{"input":2,"output":3,"cacheRead":26373,"cacheCreation":39},"sessionCostUsd":0.00116678,"output":null,"errors":[]}}
 {"step":"end"}
