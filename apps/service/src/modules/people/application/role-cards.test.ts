@@ -68,6 +68,18 @@ describe("RoleCards", () => {
     await expect(roleCards.forNewSession(`role-${randomUUID()}`)).rejects.toThrow(RoleNotFound);
   });
 
+  it("finds the current card, or nothing for a Role nobody fills", async () => {
+    const role = aRole({ key: `role-${randomUUID()}` });
+    await repository.add(role);
+
+    await expect(roleCards.find(role.key)).resolves.toEqual({
+      roleKey: role.key,
+      cardVersion: 1,
+      card: role.card,
+    });
+    await expect(roleCards.find(`role-${randomUUID()}`)).resolves.toBeUndefined();
+  });
+
   it("refuses to resume with a card version the Role doesn't have", async () => {
     const role = aRole({ key: `role-${randomUUID()}` });
     await repository.add(role);

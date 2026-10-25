@@ -1,6 +1,6 @@
 # 09 · Conversations and the Context policy: chat with the Planner
 
-Status: todo
+Status: in progress
 
 ## Goal
 
@@ -27,7 +27,7 @@ Build from the chat modal and the conversation: the Thread list, the active Thre
 
 ## Steps
 
-- [ ] 1. Conversations module domain and persistence: home (a person's chat, a Task), Thread (title, person, engine session id, state, tokens), messages in The Office's log (by the user, by the person, tool activity, refusals), rename, a fresh Thread; events and API. Commit.
+- [x] 1. Conversations module domain and persistence: home (a person's chat, a Task), Thread (title, person, engine session id, state, tokens), messages in The Office's log (by the user, by the person, tool activity, refusals), rename, a fresh Thread; events and API. Commit.
 - [ ] 2. The Context policy as a pure domain service: inputs (time since the last call, context size, the person's default, the moment's override, whether the person changes), the move with its reason, and the estimated cost of each alternative. Commit.
 - [ ] 3. The Brief: assembled from the record with no model call, from parts other modules provide through a port (the person's card, the Project, later the Task's record and Handover notes). Before writing the chat case, settle with the user what a chat Thread's Brief holds when it continues fresh, since the spec only defines a Task's; propose the Thread's title, the Planner's latest Handover note asked for on near-limit, and the last few exchanges from The Office's log capped at about 3k tokens. Commit.
 - [ ] 4. Running a Thread: the session built from the Role card (model, effort, instructions, skills folder, chat profile, Office tools), a read-only base checkout per Project for chat sessions, messages sent and streamed into the log, near-limit handling, tokens per Thread on metrics. Commit.
@@ -38,3 +38,5 @@ Build from the chat modal and the conversation: the Thread list, the active Thre
 ## Progress
 
 <!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next; anything surprising. -->
+
+- 2026-10-25 · step 1: `ConversationsModule` (imports People): a `Thread` in a `Home` (`chat` by Role key; `task` by Task id, in the domain only until task 10) with the person's Role key, a title, a state, its four-part token totals and the engine session behind it now (`ThreadSession`: id, Role key, card version, started, last call, context tokens), kept as one jsonb on the Thread: only that session can be resumed, so starting fresh replaces it and step 4 calls Skills' `SessionSkills.forget` on the old one (its folder's cleanup needs no list of past sessions). The Office's log is `thread_messages` (append-only, a `position` to order it, the message's kind and fields as jsonb), with four kinds: `user`, `person`, `tool-activity` (tool and a one-line summary) and `refusal` (tool and reason); the engine's text arrives as whole blocks, so a message is written once. Rules: a chat Thread starts untitled and `waiting`, refused when the person's Chat is off (their Threads stay listed and readable); the title comes from the user's first message as the click-through cuts it (34 characters, cut at a word at 32 with …) and a rename (trimmed, 1–80 characters) survives it. Migration `0009_threads`. API: `GET`/`POST /chats/:roleKey/threads` (newest started first; a fresh Thread), `GET /threads/:id`, `PUT /threads/:id/title`, `GET /threads/:id/messages`; web events `thread.started`, `thread.renamed`, `thread.messages-logged`, each with the Thread and its home. `RoleCards.find` (People) answers the current card or nothing, as `RoleNotFound` stays inside People. To confirm with the user when step 6 shows them: the state words `waiting` and `answering`. For step 4: refuse continuing a Thread whose person's Chat is off. Surprise: `shell-command-runner.test.ts` failed twice under the fuller run with EBUSY removing its temp folder (Windows holds it a moment after the ended processes), so its cleanup retries as the git adapter does. Next: step 2, the Context policy.

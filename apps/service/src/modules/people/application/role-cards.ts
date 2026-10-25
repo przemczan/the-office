@@ -22,9 +22,15 @@ export class RoleCards {
 
   /** Throws RoleNotFound when nobody fills the Role. */
   async forNewSession(roleKey: string): Promise<SessionRole> {
-    const role = await this.repository.find(roleKey);
+    const role = await this.find(roleKey);
     if (!role) throw new RoleNotFound(roleKey);
-    return { roleKey, cardVersion: role.cardVersion, card: role.card };
+    return role;
+  }
+
+  /** The card a new session would start with, or undefined when nobody fills the Role. */
+  async find(roleKey: string): Promise<SessionRole | undefined> {
+    const role = await this.repository.find(roleKey);
+    return role && { roleKey, cardVersion: role.cardVersion, card: role.card };
   }
 
   /** Throws RoleCardVersionNotFound when the Role has no such version. */

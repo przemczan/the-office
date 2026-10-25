@@ -1,4 +1,5 @@
 import { Module, type DynamicModule } from "@nestjs/common";
+import { ConversationsModule } from "./modules/conversations/index.js";
 import { EngineModule } from "./modules/engine/index.js";
 import { PeopleModule } from "./modules/people/index.js";
 import { PipelineLibrary, PipelinesModule } from "./modules/pipelines/index.js";
@@ -19,6 +20,7 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [
+        ConversationsModule,
         DatabaseModule.forRoot({ url: config.databaseUrl }),
         EngineModule,
         EventsModule,

@@ -21,7 +21,8 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await rm(folder, { recursive: true, force: true });
+  // The processes the tests ended worked in it, and Windows may hold it a moment after they end.
+  await rm(folder, { recursive: true, force: true, maxRetries: 5 });
 });
 
 afterEach(() => {
