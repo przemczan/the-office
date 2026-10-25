@@ -23,6 +23,7 @@ import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../../platform/office-data/office-data.module.js";
+import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { RoleSkills, SkillLibrary } from "../../../skills/index.js";
@@ -44,7 +45,13 @@ beforeEach(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-roles-"));
   ({ app, url } = await startTestApplication({
     database: true,
-    imports: [EventsModule, EventStreamModule, OfficeDataModule.forRoot(officeData), PeopleModule],
+    imports: [
+      EventsModule,
+      EventStreamModule,
+      TelemetryModule,
+      OfficeDataModule.forRoot(officeData),
+      PeopleModule,
+    ],
   }));
   await app.get<Database>(DATABASE).delete(roles).where(inArray(roles.key, PRESET_KEYS));
   for (const roleKey of PRESET_KEYS) await app.get(RoleSkills).assignToRole(roleKey, []);

@@ -5,7 +5,12 @@ import { EngineSessions } from "../../engine/index.js";
 import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { ChatNotFound } from "../domain/chat-not-found.js";
-import { briefedMessage, chatInstructions, HANDOVER_REQUEST } from "../domain/chat-instructions.js";
+import {
+  briefedMessage,
+  CHAT_OFFICE_TOOLS,
+  chatInstructions,
+  HANDOVER_REQUEST,
+} from "../domain/chat-instructions.js";
 import {
   decideContext,
   type ContextDecision,
@@ -214,7 +219,7 @@ export class ThreadRunner implements OnModuleDestroy {
       },
       // A chat only reads (spec §6): the card's profile, narrowed.
       profile: { edit: false, run: { kind: "read-only-git" }, web: card.permissionProfile.web },
-      officeTools: [],
+      officeTools: [...CHAT_OFFICE_TOOLS],
       outputSchema: undefined,
       telemetry: {
         span: { "office.thread": thread.id, "office.role": roleKey },

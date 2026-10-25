@@ -1,5 +1,7 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
+import { EngineModule } from "../engine/index.js";
 import { SkillsModule } from "../skills/index.js";
+import { ProjectOfficeTools } from "./adapters/office-tools/project-office-tools.js";
 import { CommandLineGit } from "./adapters/git/command-line-git.js";
 import { RepositoryLocks } from "./adapters/git/repository-locks.js";
 import { EnvironmentChecksController } from "./adapters/http/environment-checks.controller.js";
@@ -31,8 +33,9 @@ export class ProjectsModule {
   static register({ imports, knownPipelines }: ProjectsModuleOptions): DynamicModule {
     return {
       module: ProjectsModule,
-      // The Project page lists the repository's own skills through the Skills module.
-      imports: [...imports, SkillsModule],
+      // The Project page lists the repository's own skills through the Skills module; chats read
+      // the Projects through an Office tool on the Engine's registry.
+      imports: [...imports, SkillsModule, EngineModule],
       controllers: [ProjectsController, EnvironmentChecksController],
       providers: [
         { provide: ProjectRepository, useClass: PostgresProjectRepository },
@@ -48,6 +51,7 @@ export class ProjectsModule {
         Worktrees,
         BaseCheckouts,
         ProjectWebEvents,
+        ProjectOfficeTools,
       ],
       exports: [BaseCheckouts],
     };

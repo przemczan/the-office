@@ -4,16 +4,22 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
-import { ScriptedEngine, ScriptedEngineModule, type SessionScript } from "../../engine/index.js";
+import {
+  OfficeToolRegistry,
+  ScriptedEngine,
+  ScriptedEngineModule,
+  type SessionScript,
+} from "../../engine/index.js";
 import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
-import { HANDOVER_REQUEST } from "../domain/chat-instructions.js";
+import { CHAT_OFFICE_TOOLS, HANDOVER_REQUEST } from "../domain/chat-instructions.js";
 import { TurnEnded } from "../domain/conversation-events.js";
 import { DEFAULT_CONTEXT_POLICY_SETTINGS, type ContextDecision } from "../domain/context-policy.js";
 import type { BriefProject } from "../domain/brief.js";
@@ -108,6 +114,15 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       InterruptedAnswers,
     ],
   }));
+  // As the Projects and People modules register theirs.
+  for (const name of CHAT_OFFICE_TOOLS) {
+    app.get(OfficeToolRegistry).register({
+      name,
+      description: `Reads ${name}.`,
+      input: z.object({}),
+      run: () => Promise.resolve({ text: "Nothing.", isError: false }),
+    });
+  }
   threads = app.get(ThreadService);
   runner = app.get(ThreadRunner);
   repository = app.get(ThreadRepository);
@@ -255,8 +270,11 @@ describe("a new Thread's first message", () => {
       model: "claude-opus-5-5",
       effort: "high",
       profile: { edit: false, run: { kind: "read-only-git" }, web: true },
-      officeTools: [],
     });
+    expect(session?.options.officeTools.map(({ name }) => name)).toEqual([
+      "list_projects",
+      "list_people",
+    ]);
     expect(session?.options.instructions).toContain("You are Jan, the Planner in The Office");
     expect(session?.options.instructions).toContain("Plan in conversation: ask what is unclear.");
     expect(drafts(log)).toEqual([

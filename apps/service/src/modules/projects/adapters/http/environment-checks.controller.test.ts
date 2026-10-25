@@ -19,6 +19,7 @@ import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../../platform/office-data/office-data.module.js";
+import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { PipelineLibrary, PipelinesModule } from "../../../pipelines/index.js";
@@ -73,6 +74,7 @@ async function startApplication(): Promise<void> {
     imports: [
       EventsModule,
       EventStreamModule,
+      TelemetryModule,
       OfficeDataModule.forRoot(officeData),
       ProjectsModule.register({ imports: [PipelinesModule], knownPipelines: PipelineLibrary }),
     ],

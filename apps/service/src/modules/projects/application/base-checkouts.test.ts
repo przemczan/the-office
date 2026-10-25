@@ -91,7 +91,8 @@ describe("BaseCheckouts", () => {
     await checkouts.refresh();
     expect(gitIn(folder, "rev-parse", "HEAD")).toBe(second);
     await expect(readFile(join(folder, "second.txt"), "utf8")).resolves.toBe("from the origin\n");
-  });
+    // Real git, two commits on the origin and two refreshes: slow under a full run.
+  }, 30_000);
 
   it("keeps the checkout it had when the fetch fails, and leaves out a Project with none", async () => {
     const [before] = await checkouts.refresh();
