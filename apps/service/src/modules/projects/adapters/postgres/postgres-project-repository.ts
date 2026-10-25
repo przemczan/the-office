@@ -68,6 +68,7 @@ function toRow(project: Project): ProjectRow {
     installInputs: [...project.installInputs],
     publishingMode: project.publishingMode,
     defaultPipeline: project.defaultPipeline,
+    environment: project.environment,
     useProjectSkills: project.useProjectSkills,
     addedAt: project.addedAt,
   };
@@ -89,6 +90,7 @@ function toProject(row: ProjectRow): Project {
     installInputs: row.installInputs,
     publishingMode: row.publishingMode,
     defaultPipeline: row.defaultPipeline,
+    environment: row.environment,
     useProjectSkills: row.useProjectSkills,
     addedAt: row.addedAt,
   };

@@ -1,0 +1,1 @@
+ALTER TABLE "projects" ADD COLUMN "environment" jsonb DEFAULT '{"set":[],"unset":[],"prependPath":[]}'::jsonb NOT NULL;

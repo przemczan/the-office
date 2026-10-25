@@ -1,0 +1,10 @@
+/** How to end a process together with every process it started, which differs by system. */
+export interface ProcessTrees {
+  /**
+   * Node's spawn option of the same name, for a process whose tree may have to be ended: on Linux
+   * it puts the process in a group of its own, which `end` signals as a whole.
+   */
+  readonly detached: boolean;
+  /** Ends the process and every process it started; a process already gone is no error. */
+  end(processId: number): Promise<void>;
+}

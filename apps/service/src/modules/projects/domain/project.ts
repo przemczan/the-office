@@ -1,3 +1,5 @@
+import type { ProjectEnvironment } from "./project-environment.js";
+
 /** The commands a Project runs, each a command line for the platform's shell. */
 export const PROJECT_COMMAND_KEYS = ["install", "build", "lint", "test"] as const;
 export type ProjectCommandKey = (typeof PROJECT_COMMAND_KEYS)[number];
@@ -36,6 +38,7 @@ export interface Project {
   readonly publishingMode: PublishingMode;
   /** The id of the Pipeline a new Task starts from. */
   readonly defaultPipeline: string;
+  readonly environment: ProjectEnvironment;
   /** Whether sessions in this Project also get the repository's own skills (spec §2.6). */
   readonly useProjectSkills: boolean;
   readonly addedAt: Date;

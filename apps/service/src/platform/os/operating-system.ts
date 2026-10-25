@@ -1,4 +1,5 @@
 import type { PathRules } from "./path-rules.js";
+import type { ProcessTrees } from "./process-trees.js";
 import type { Shell } from "./shell.js";
 
 /**
@@ -14,6 +15,9 @@ export interface OperatingSystem {
   readonly paths: PathRules;
   /** The shell a Project's commands run in. */
   readonly defaultShell: Shell;
+  readonly processTrees: ProcessTrees;
+  /** Whether two environment variable names name one variable: Windows ignores their case. */
+  sameVariableName(one: string, other: string): boolean;
 }
 
 /**

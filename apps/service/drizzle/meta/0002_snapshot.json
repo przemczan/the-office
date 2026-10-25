@@ -1,0 +1,130 @@
+{
+  "id": "7e280839-b4df-43a7-92ba-1de865580c7a",
+  "prevId": "44ca4ea9-efe2-43fe-b04e-5174b140ef16",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.projects": {
+      "name": "projects",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "path": {
+          "name": "path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "base_branch": {
+          "name": "base_branch",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mark_label": {
+          "name": "mark_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mark_colour": {
+          "name": "mark_colour",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "install_command": {
+          "name": "install_command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "build_command": {
+          "name": "build_command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "lint_command": {
+          "name": "lint_command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "test_command": {
+          "name": "test_command",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "install_inputs": {
+          "name": "install_inputs",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{}'"
+        },
+        "publishing_mode": {
+          "name": "publishing_mode",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "default_pipeline": {
+          "name": "default_pipeline",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "environment": {
+          "name": "environment",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{\"set\":[],\"unset\":[],\"prependPath\":[]}'::jsonb"
+        },
+        "use_project_skills": {
+          "name": "use_project_skills",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "added_at": {
+          "name": "added_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "views": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}

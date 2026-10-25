@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
-import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import type { ProjectMarkColour, PublishingMode } from "../../domain/project.js";
+import type { ProjectEnvironment } from "../../domain/project-environment.js";
 
 export const projects = pgTable("projects", {
   id: text("id").primaryKey(),
@@ -19,6 +20,10 @@ export const projects = pgTable("projects", {
     .default(sql`'{}'`),
   publishingMode: text("publishing_mode").$type<PublishingMode>().notNull(),
   defaultPipeline: text("default_pipeline").notNull(),
+  environment: jsonb("environment")
+    .$type<ProjectEnvironment>()
+    .notNull()
+    .default({ set: [], unset: [], prependPath: [] }),
   useProjectSkills: boolean("use_project_skills").notNull(),
   addedAt: timestamp("added_at", { withTimezone: true }).notNull(),
 });

@@ -15,6 +15,13 @@
       "when": 1792928796205,
       "tag": "0001_install_inputs",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792929321725,
+      "tag": "0002_project_environment",
+      "breakpoints": true
     }
   ]
 }

@@ -1,7 +1,11 @@
 import { posix } from "node:path";
 import type { OperatingSystem, UserEnvironment } from "./operating-system.js";
 import { pathLengthProblem, type PathLimits, type PathRules } from "./path-rules.js";
+import type { ProcessTrees } from "./process-trees.js";
 import type { Shell } from "./shell.js";
+
+/** What POSIX sh exits with when it can't run a command: 126 not executable, 127 not found. */
+const COULD_NOT_RUN_EXIT_CODES: ReadonlySet<number> = new Set([126, 127]);
 
 // PATH_MAX is 4096 bytes with the terminating NUL and NAME_MAX 255 bytes (linux/limits.h).
 const LINUX_PATH_LIMITS: PathLimits = {
@@ -21,6 +25,8 @@ export function linux({ variables, homeDirectory }: UserEnvironment): OperatingS
     ),
     paths: linuxPaths,
     defaultShell: bourneShell,
+    processTrees: processGroups,
+    sameVariableName: (one, other) => one === other,
   };
 }
 
@@ -44,4 +50,18 @@ const bourneShell: Shell = {
     arguments: ["-c", commandLine],
     windowsVerbatimArguments: false,
   }),
+  couldNotRun: ({ exitCode }) => Promise.resolve(COULD_NOT_RUN_EXIT_CODES.has(exitCode)),
+};
+
+// A detached process leads a process group of its own, which a negative id signals as a whole.
+const processGroups: ProcessTrees = {
+  detached: true,
+  end: (processId) => {
+    try {
+      process.kill(-processId, "SIGKILL");
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+    }
+    return Promise.resolve();
+  },
 };

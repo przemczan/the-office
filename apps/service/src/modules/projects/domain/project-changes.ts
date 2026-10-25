@@ -17,6 +17,7 @@ import {
   ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
 } from "./project-events.js";
+import { UNCHANGED_ENVIRONMENT } from "./project-environment.js";
 import { ProjectRefused } from "./project-refused.js";
 
 /** A Project after a change, with the event that announces it. */
@@ -34,7 +35,13 @@ export function addProject(
   const newProject = trimmedNewProject(given);
   const problems = newProjectProblems(newProject);
   if (problems.length > 0) throw new ProjectRefused(problems);
-  const project: Project = { id, ...newProject, useProjectSkills: true, addedAt };
+  const project: Project = {
+    id,
+    ...newProject,
+    environment: UNCHANGED_ENVIRONMENT,
+    useProjectSkills: true,
+    addedAt,
+  };
   return { project, event: new ProjectAdded(project) };
 }
 

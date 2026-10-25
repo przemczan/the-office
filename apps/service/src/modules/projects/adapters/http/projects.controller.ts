@@ -86,6 +86,11 @@ function toProjectResponse(project: Project): ProjectResponse {
     installInputs: [...project.installInputs],
     publishingMode: project.publishingMode,
     defaultPipeline: project.defaultPipeline,
+    environment: {
+      set: project.environment.set.map(({ name, value }) => ({ name, value })),
+      unset: [...project.environment.unset],
+      prependPath: [...project.environment.prependPath],
+    },
     useProjectSkills: project.useProjectSkills,
     addedAt: project.addedAt.toISOString(),
   };

@@ -1,5 +1,8 @@
 import { spawnSync } from "node:child_process";
-import { describe, expect, it } from "vitest";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { currentOperatingSystem } from "./current-operating-system.js";
 
 // Runs on whichever system the tests run on: Windows in npm run verify, Linux in verify:linux.
@@ -26,5 +29,68 @@ describe("currentOperatingSystem", () => {
 
   it("reports the command line's exit code", () => {
     expect(run("exit 3").status).toBe(3);
+  });
+
+  describe("defaultShell.couldNotRun", () => {
+    let folder: string;
+
+    beforeAll(async () => {
+      folder = await mkdtemp(join(tmpdir(), "office-shell-"));
+    });
+
+    afterAll(async () => {
+      await rm(folder, { recursive: true, force: true });
+    });
+
+    /** Runs the command line in the folder and asks the shell whether it could run it. */
+    const couldNotRun = (commandLine: string): Promise<boolean> => {
+      const environment = { ...process.env } as Record<string, string>;
+      const {
+        file,
+        arguments: shellArguments,
+        windowsVerbatimArguments,
+      } = defaultShell.invocation(commandLine);
+      const { status } = spawnSync(file, shellArguments, {
+        cwd: folder,
+        env: environment,
+        windowsVerbatimArguments,
+        stdio: "ignore",
+      });
+      expect(status).not.toBe(0);
+      return defaultShell.couldNotRun({
+        commandLine,
+        exitCode: status ?? -1,
+        folder,
+        environment,
+      });
+    };
+
+    it("knows a program that isn't installed could not run", async () => {
+      await expect(couldNotRun("office-no-such-program --version")).resolves.toBe(true);
+    });
+
+    it("knows a program that failed ran", async () => {
+      await expect(couldNotRun(`"${process.execPath}" -e "process.exit(3)"`)).resolves.toBe(false);
+    });
+
+    it.runIf(process.platform === "win32")("knows a built-in command that failed ran", async () => {
+      await expect(couldNotRun("dir office-no-such-folder")).resolves.toBe(false);
+    });
+
+    it.runIf(process.platform === "win32")(
+      "knows a program named by a path that leads nowhere could not run",
+      async () => {
+        await expect(couldNotRun('"C:\\office-nowhere\\tool.exe" --version')).resolves.toBe(true);
+      },
+    );
+
+    it.runIf(process.platform === "linux")(
+      "knows a file that isn't executable could not run",
+      async () => {
+        await writeFile(join(folder, "not-executable.sh"), "echo ran\n", { mode: 0o644 });
+
+        await expect(couldNotRun("./not-executable.sh")).resolves.toBe(true);
+      },
+    );
   });
 });

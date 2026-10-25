@@ -36,8 +36,18 @@ export const newProjectSchema = z.object({
 });
 export type NewProject = z.infer<typeof newProjectSchema>;
 
+/** How the Project's commands and Agents change the variables they inherit. */
+export const projectEnvironmentSchema = z.object({
+  set: z.array(z.object({ name: z.string(), value: z.string() })),
+  unset: z.array(z.string()),
+  /** Folders put in front of PATH, in this order. */
+  prependPath: z.array(z.string()),
+});
+export type ProjectEnvironment = z.infer<typeof projectEnvironmentSchema>;
+
 export const projectSchema = newProjectSchema.extend({
   id: z.string().min(1),
+  environment: projectEnvironmentSchema,
   useProjectSkills: z.boolean(),
   addedAt: z.iso.datetime(),
 });

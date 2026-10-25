@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { InvalidOfficeConfigError } from "./invalid-office-config-error.js";
 import {
+  isOfficeOwnVariable,
   readOfficeConfig,
   type EnvironmentVariables,
   type OfficeConfigDefaults,
@@ -143,4 +144,31 @@ describe("readOfficeConfig", () => {
 
     expect(error.message).not.toContain("secret-password");
   });
+});
+
+describe("isOfficeOwnVariable", () => {
+  it.each([
+    "OFFICE_PORT",
+    "DATABASE_URL",
+    "database_url",
+    "OFFICE_DATA_DIR",
+    "POSTGRES_PASSWORD",
+    "GRAFANA_PORT",
+    "OTEL_EXPORTER_OTLP_ENDPOINT",
+    "npm_config_local_prefix",
+    "npm_lifecycle_event",
+    "NPM_CLI_JS",
+    "INIT_CWD",
+    "NODE",
+    "NODE_ENV",
+  ])("knows %s as The Office's own", (name) => {
+    expect(isOfficeOwnVariable(name)).toBe(true);
+  });
+
+  it.each(["PATH", "Path", "HOME", "JAVA_HOME", "NODE_OPTIONS", "NODE_EXTRA_CA_CERTS", "CI"])(
+    "leaves %s to the Project",
+    (name) => {
+      expect(isOfficeOwnVariable(name)).toBe(false);
+    },
+  );
 });

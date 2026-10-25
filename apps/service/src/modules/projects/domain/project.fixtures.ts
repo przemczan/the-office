@@ -1,4 +1,5 @@
 import type { NewProject, Project } from "./project.js";
+import { UNCHANGED_ENVIRONMENT } from "./project-environment.js";
 
 export function aNewProject(fields: Partial<NewProject> = {}): NewProject {
   return {
@@ -18,6 +19,7 @@ export function aProject(fields: Partial<Project> = {}): Project {
   return {
     id: "admin-panel",
     ...aNewProject(),
+    environment: UNCHANGED_ENVIRONMENT,
     useProjectSkills: true,
     addedAt: new Date("2026-10-25T09:00:00.000Z"),
     ...fields,

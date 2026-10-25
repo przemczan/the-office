@@ -71,4 +71,24 @@ describe("linux", () => {
       });
     });
   });
+
+  describe("defaultShell.couldNotRun", () => {
+    const { defaultShell } = linux({ variables: {}, homeDirectory });
+    const failed = { commandLine: "gradle build", folder: "/work", environment: {} };
+
+    it.each([126, 127])("knows sh could not run a command that exits with %i", async (code) => {
+      await expect(defaultShell.couldNotRun({ ...failed, exitCode: code })).resolves.toBe(true);
+    });
+
+    it.each([1, 2, 128])("knows a command that exits with %i ran", async (code) => {
+      await expect(defaultShell.couldNotRun({ ...failed, exitCode: code })).resolves.toBe(false);
+    });
+  });
+
+  it("keeps variable names apart by case", () => {
+    const { sameVariableName } = linux({ variables: {}, homeDirectory });
+
+    expect(sameVariableName("PATH", "PATH")).toBe(true);
+    expect(sameVariableName("Path", "PATH")).toBe(false);
+  });
 });
