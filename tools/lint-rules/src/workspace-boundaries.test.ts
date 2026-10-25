@@ -3,16 +3,21 @@ import { test } from "node:test";
 import type { Workspace } from "./repository.ts";
 import { workspaceBoundaryViolation } from "./workspace-boundaries.ts";
 
-const web: Workspace = { name: "@the-office/web", directory: "apps/web", isLibrary: false };
+const web: Workspace = { name: "@the-office/web", directory: "apps/web", kind: "app" };
 const service: Workspace = {
   name: "@the-office/service",
   directory: "apps/service",
-  isLibrary: false,
+  kind: "app",
 };
 const contracts: Workspace = {
   name: "@the-office/contracts",
   directory: "packages/contracts",
-  isLibrary: true,
+  kind: "package",
+};
+const lintRules: Workspace = {
+  name: "@the-office/lint-rules",
+  directory: "tools/lint-rules",
+  kind: "tool",
 };
 
 test("a package is imported by its name", () => {
@@ -32,6 +37,15 @@ test("an app is never imported, by name or by path", () => {
   }
   assert.match(workspaceBoundaryViolation(contracts, service, true) ?? "", /never imported/);
   assert.match(workspaceBoundaryViolation(undefined, service, true) ?? "", /never imported/);
+});
+
+test("a tool is run by the root's config files alone", () => {
+  assert.equal(workspaceBoundaryViolation(undefined, lintRules, true), undefined);
+  assert.match(
+    workspaceBoundaryViolation(web, lintRules, true) ?? "",
+    /tools\/lint-rules is run, never imported/,
+  );
+  assert.match(workspaceBoundaryViolation(contracts, lintRules, false) ?? "", /never imported/);
 });
 
 test("a workspace imports itself freely", () => {

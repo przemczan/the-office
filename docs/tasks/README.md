@@ -8,7 +8,7 @@ Tier 1 of [the spec](../spec.md#tier-1-the-base), sliced into tasks in build ord
 |---|---|---|---|
 | 01 | [Engine spike: pinned versions and the engine check](01-engine-spike.md) | Spike | done |
 | 02 | [Foundation: workspace, service, database, events, telemetry](02-foundation.md) | Projects | done |
-| 03 | [Web shell: design system, themes and A3 · Desk](03-web-shell.md) | Projects | todo |
+| 03 | [Web shell: design system, themes and A3 · Desk](03-web-shell.md) | Projects | in progress |
 | 04 | [Projects: the record, commands and the Projects page](04-projects.md) | Projects | todo |
 | 05 | [Git, worktrees and the environment check](05-git-worktrees.md) | Projects | todo |
 | 06 | [The Engine module: port, Agent SDK adapter and Office rules](06-engine.md) | People | todo |
@@ -37,7 +37,7 @@ Choices the spec leaves open, made when tier 1 was sliced. Change one only with 
   - `tools/engine-check`: the engine check from task 01, re-run on every SDK bump.
   - `tools/lint-rules`: the oxlint plugin that enforces the module and workspace boundaries ([apps/service/README.md](../../apps/service/README.md)) and keeps `process.platform` in the platform layer.
   - `tools/verify-linux`: the script `npm run verify:linux` runs in compose's `verify-linux` container (a folder, not a workspace).
-- **Checks:** TypeScript strict everywhere; oxlint, with `design-system/_adherence.oxlintrc.json` applied to `apps/web`; Prettier; Vitest (with SWC for Nest's decorator metadata); Playwright for the web. `npm run verify` runs all of them.
+- **Checks:** TypeScript strict everywhere; oxlint, with `design-system/_adherence.oxlintrc.json` applied to `apps/web` except its prop-name lists, which reject the HTML attributes a component's `.d.ts` inherits (TypeScript checks every prop against the `.d.ts`); Prettier; Vitest (with SWC for Nest's decorator metadata); Playwright for the web. `npm run verify` runs all of them.
 - **Office data directory:** `OFFICE_DATA_DIR`, default `%LOCALAPPDATA%\the-office` on Windows and `$XDG_DATA_HOME/the-office` (or `~/.local/share/the-office`) on Linux, holding `worktrees/`, `sessions/`, `skills/` (the library) and `attachments/`. Kept short for Windows `MAX_PATH`.
 - **The scripted engine adapter** replays recorded engine output, so every test of Conversations and Pipelines runs without model calls ([research §11.9](../../.scratch/the-office/research/factory-reference.md#119-agentstagerunner-seam-and-scripted-end-to-end-tests)). Real model calls happen only in the engine check and in each task's check on the Test Project.
 - **Settings → Skills is built with People** (task 07), because the Planner's chat needs the skill library; task 17 adds limits and appearance to Settings.

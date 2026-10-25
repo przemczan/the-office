@@ -94,3 +94,30 @@ tester.run("operating-system-branches", plugin.rules["operating-system-branches"
     ],
   })),
 });
+
+const hexColour = {
+  selector: String.raw`Literal[value=/#[0-9a-fA-F]{3,8}\b/]`,
+  message: "Raw hex color.",
+};
+const pxValue = { selector: String.raw`Literal[value=/\b\d+px\b/]`, message: "Raw px value." };
+
+tester.run("restricted-syntax", plugin.rules["restricted-syntax"], {
+  valid: [{ code: `const colour = "var(--fg-1)";`, options: [hexColour, pxValue] }],
+  invalid: [
+    {
+      code: `const colour = "#fff";`,
+      options: [hexColour, pxValue],
+      errors: [{ message: "Raw hex color." }],
+    },
+    {
+      code: `const border = "1px solid #fff";`,
+      options: [hexColour, pxValue],
+      errors: [{ message: "Raw hex color." }, { message: "Raw px value." }],
+    },
+    {
+      code: `const colour = "#fff";`,
+      options: [hexColour, { ...hexColour, message: "Use a token." }],
+      errors: [{ message: "Raw hex color." }, { message: "Use a token." }],
+    },
+  ],
+});

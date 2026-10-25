@@ -2,6 +2,7 @@ import { checkImports, type Import, type Rule } from "./imports.ts";
 import { moduleBoundaryViolation, modulePackageViolation } from "./module-boundaries.ts";
 import { isTestFile, placeOf } from "./module-layout.ts";
 import { operatingSystemBranches } from "./operating-system-branches.ts";
+import { restrictedSyntax } from "./restricted-syntax.ts";
 import { workspaceBoundaryViolation } from "./workspace-boundaries.ts";
 
 /** Keeps workspaces apart: apps and tools are never imported, packages only by their name. */
@@ -45,5 +46,6 @@ export default {
     "workspace-boundaries": workspaceBoundaries,
     "module-boundaries": moduleBoundaries,
     "operating-system-branches": operatingSystemBranches,
+    "restricted-syntax": restrictedSyntax,
   },
 };

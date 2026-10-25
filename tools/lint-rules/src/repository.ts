@@ -1,12 +1,14 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
+export type WorkspaceKind = "app" | "package" | "tool";
+
 export interface Workspace {
   readonly name: string;
   /** Relative to the repository root, with forward slashes, e.g. `apps/service`. */
   readonly directory: string;
-  /** Only `packages/*` are libraries; apps and tools are run, never imported (Build defaults). */
-  readonly isLibrary: boolean;
+  /** Only packages are libraries; apps and tools are run, never imported (Build defaults). */
+  readonly kind: WorkspaceKind;
 }
 
 export interface Repository {
@@ -14,7 +16,12 @@ export interface Repository {
   readonly workspaces: readonly Workspace[];
 }
 
-const LIBRARIES_DIRECTORY = "packages";
+/** Each kind of workspace by the top directory it lives in. */
+const KINDS_BY_DIRECTORY: Readonly<Record<string, WorkspaceKind>> = {
+  apps: "app",
+  packages: "package",
+  tools: "tool",
+};
 
 const repositoriesByDirectory = new Map<string, Repository | undefined>();
 
@@ -60,11 +67,19 @@ function readWorkspaces(root: string, patterns: readonly string[]): Workspace[] 
       : [pattern];
     return directories.flatMap((directory) => {
       const name = readPackageJson(path.join(root, directory))?.name;
-      return name
-        ? [{ name, directory, isLibrary: directory.startsWith(`${LIBRARIES_DIRECTORY}/`) }]
-        : [];
+      return name ? [{ name, directory, kind: kindOf(directory) }] : [];
     });
   });
+}
+
+function kindOf(directory: string): WorkspaceKind {
+  const kind = KINDS_BY_DIRECTORY[directory.split("/")[0]!];
+  if (!kind) {
+    throw new Error(
+      `The workspace ${directory} is in none of apps/, packages/ and tools/, which the lint rules know.`,
+    );
+  }
+  return kind;
 }
 
 function childDirectories(root: string, parent: string): string[] {
