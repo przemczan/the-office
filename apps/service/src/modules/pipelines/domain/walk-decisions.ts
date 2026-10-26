@@ -86,7 +86,7 @@ function budgetDecision(stage: Stage, { used, budget }: BudgetReached): WalkDeci
     kind: "budget",
     draft: {
       question: `"${stage.name}" reached its budget: the Task has used ${tokensWords(used)} tokens of ${tokensWords(budget)}. Raise it?`,
-      context: `The budget counts every token of the Task's Threads so far, as each Thread shows them. Raising it to ${tokensWords(raised)} runs "${stage.name}" again; what it did so far is committed.`,
+      context: `The budget counts the input, output and cache-write tokens of the Task's Threads so far, leaving out cache reads. Raising it to ${tokensWords(raised)} runs "${stage.name}" again; what it did so far is committed.`,
       options: [`Raise it to ${tokensWords(raised)}`, DROP_THE_TASK],
       recommendation: {
         option: 0,

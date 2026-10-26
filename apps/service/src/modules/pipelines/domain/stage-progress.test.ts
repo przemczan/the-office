@@ -135,7 +135,7 @@ describe("stagesProgress", () => {
     ).toEqual(["done", "skipped"]);
   });
 
-  it("counts all four kinds of every run's tokens, as budgets do", () => {
+  it("counts every run's tokens as budgets do, without cache reads", () => {
     const tokens = { input: 10, output: 200, cacheRead: 30_000, cacheCreation: 4_000 };
     const progress = stagesProgress(
       [implement, tests],
@@ -146,6 +146,6 @@ describe("stagesProgress", () => {
       ),
     );
 
-    expect(progress.map((each) => each.tokens)).toEqual([68_420, 0]);
+    expect(progress.map((each) => each.tokens)).toEqual([8_420, 0]);
   });
 });

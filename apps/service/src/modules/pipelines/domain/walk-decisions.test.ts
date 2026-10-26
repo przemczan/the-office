@@ -206,6 +206,9 @@ describe("the budget Decision", () => {
       draft: {
         question:
           '"Implement" reached its budget: the Task has used 300k tokens of 250k. Raise it?',
+        context: expect.stringContaining(
+          "The budget counts the input, output and cache-write tokens of the Task's Threads so far, leaving out cache reads.",
+        ),
         options: ["Raise it to 400k", "Drop the Task"],
       },
       options: [{ kind: "raise-budget", tokens: 150_000 }, { kind: "drop" }],

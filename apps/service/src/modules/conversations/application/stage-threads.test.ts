@@ -37,7 +37,7 @@ type Step = SessionScript[number];
 
 const OUTPUT_SCHEMA = { type: "object" };
 const PROFILE = { edit: true, run: { kind: "anything" }, web: false } as const;
-const USAGE = { input: 3, output: 120, cacheRead: 0, cacheCreation: 26_000 };
+const USAGE = { input: 3, output: 120, cacheRead: 9_000, cacheCreation: 26_000 };
 
 let app: INestApplication;
 let engine: ScriptedEngine;
@@ -429,7 +429,8 @@ describe("StageThreads", () => {
     const { turn } = await aStageRun(request);
 
     expect(turn.tokens).toEqual(USAGE);
-    // Every Thread on the Task counts; the planning Thread here never had a turn, so adds none.
+    // Every Thread on the Task counts, without cache reads; the planning Thread here never had a
+    // turn, so adds none.
     expect(await app.get(TaskTokens).tokensSoFar(request.taskId)).toBe(3 + 120 + 26_000);
   });
 

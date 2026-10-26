@@ -100,7 +100,8 @@ const document: Pipeline = {
       role: DEVELOPER,
       brief: "Read the Attachment as its reader would and fix it.",
       session: "fresh",
-      budget: 40_000,
+      // Checked against the whole Task's tokens, so it sits above Produce's: 40k of its own.
+      budget: 120_000,
       optional: false,
     },
   ],

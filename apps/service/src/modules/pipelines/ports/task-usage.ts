@@ -3,6 +3,6 @@
  * The Stage interpreter checks every Stage's budget against it before each engine call.
  */
 export abstract class TaskUsage {
-  /** All of the Task's tokens so far, of all four kinds, as its Threads show them. */
+  /** All of the Task's tokens so far, input, output and cache writes: cache reads are left out. */
   abstract tokensSoFar(taskId: string): Promise<number>;
 }
