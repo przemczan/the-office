@@ -43,10 +43,11 @@ export type StageOutcome = (
 ) & { readonly handoverNote?: string };
 
 /**
- * Why The Office interrupted a run: the user's Stop (spec §2.4). The run's uncommitted edits are
- * discarded, and its Stage runs again once the user resumes the Task.
+ * Why The Office interrupted a run (spec §2.4): the user's Stop, which stops the Agent's turn now
+ * and discards the Stage's uncommitted edits, or their Pause, which holds the run once the turn
+ * ends and keeps them. Either way its Stage runs again once the user resumes the Task.
  */
-export type StageInterruption = "stop";
+export type StageInterruption = "stop" | "pause";
 
 /** The Task's tokens so far against the Stage's budget, when they reached it. */
 export interface BudgetReached {

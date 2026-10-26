@@ -29,12 +29,15 @@ export class MessagesLogged extends DomainEvent {
   }
 }
 
-/** Messages the user wrote into a running Stage Thread reached the person, or never will. */
+/**
+ * Messages the user wrote into a running Stage Thread reached the person, never will, or wait again
+ * as a Stage's next run carries them.
+ */
 export class DeliveryMarked extends DomainEvent {
   constructor(
     readonly thread: Thread,
     readonly messageIds: readonly string[],
-    readonly delivery: Exclude<MessageDelivery, "waiting">,
+    readonly delivery: MessageDelivery,
     markedAt: Date,
   ) {
     super(markedAt);

@@ -1,6 +1,6 @@
 import type { AllowedCommands } from "./allowed-commands.js";
 import { STAGE_KIND_NAMES, type AgentStage, type StageKind } from "./stage.js";
-import type { CarriedFailure, StageOutcome } from "./stage-run.js";
+import type { CarriedFailure, StageInterruption, StageOutcome } from "./stage-run.js";
 
 /**
  * What an Agent does in a Stage Thread, after their card's instructions: the same for every Stage
@@ -84,24 +84,24 @@ export interface StageWorkReasons {
   readonly answered?: AnsweredQuestion;
   /** Why the install before the Stage failed. */
   readonly installProblem?: string;
-  /** Set when the Stage runs again after the user stopped its last run and resumed the Task. */
-  readonly stopped?: boolean;
+  /** How the user held the Stage's last run, when it runs again as they resumed the Task. */
+  readonly held?: StageInterruption;
 }
 
 /**
  * What the Stage asks now (spec §2.3): its brief; the user's answer when the Stage runs again
  * after its Agent's question; when an on-failure loop went back to it, the failure it went back
- * with; when the user stopped its last run, that its edits are gone; and when the install before it
- * failed, why, as the Agent's commands may fail for it. A new session gets it after the Brief, a
- * continued one alone.
+ * with; when the user held its last run, how, and so where its edits stand; and when the install
+ * before it failed, why, as the Agent's commands may fail for it. A new session gets it after the
+ * Brief, a continued one alone.
  */
 export function agentStageWork(
   stage: Pick<AgentStage, "key" | "name" | "brief">,
-  { carried, answered, installProblem, stopped }: StageWorkReasons = {},
+  { carried, answered, installProblem, held }: StageWorkReasons = {},
 ): string {
   return sections([
     `## The Stage: ${stage.name}\n\n${stage.brief}`,
-    stopped ? STOPPED_SECTION : undefined,
+    held && HELD_SECTIONS[held],
     answered &&
       `## Your question, answered\n\nYou asked the user: ${answered.question}\n\nTheir answer: ${answered.answer}\n\nGo on with the Stage from there.`,
     carried && whyAgain(stage, carried),
@@ -114,9 +114,14 @@ Commands that need the dependencies may fail until it passes. If the Task's chan
   ]);
 }
 
-const STOPPED_SECTION = `## Stopped by the user
+const HELD_SECTIONS: Readonly<Record<StageInterruption, string>> = {
+  stop: `## Stopped by the user
 
-The user stopped this Stage while it ran, and has resumed it. The Office discarded the Stage's uncommitted edits, so the worktree is as the last Stage left it: do the Stage's work again from there.`;
+The user stopped this Stage while it ran, and has resumed it. The Office discarded the Stage's uncommitted edits, so the worktree is as the last Stage left it: do the Stage's work again from there.`,
+  pause: `## Paused by the user
+
+The user paused this Stage after your last turn, and has resumed it. Your edits are in the worktree as you left them: go on with the Stage's work from there, and end with its result.`,
+};
 
 /**
  * Why the Stage runs again: a later Stage's loop went back to it, or the user gave it one more

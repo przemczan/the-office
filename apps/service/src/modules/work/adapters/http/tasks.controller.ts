@@ -134,7 +134,7 @@ export class TasksController {
     return toTaskResponse(await this.starting.start(id));
   }
 
-  /** Pause: the Task is held once the Stage running now ends. */
+  /** Pause: the Task is held, its running Stage once the Agent's current turn ends. */
   @Post(":id/pause")
   @HttpCode(HttpStatus.OK)
   async pause(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {

@@ -24,6 +24,20 @@ export class StageRunEnded extends DomainEvent {
   }
 }
 
+/**
+ * The user stopped a run that could no longer be interrupted, such as a Script Stage's command: it
+ * ran to its end, and the Task is held after it, as a Pause holds it.
+ */
+export class StopHeldAsPause extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly runId: string,
+    readonly stageKey: string,
+  ) {
+    super();
+  }
+}
+
 /** An optional Stage was skipped, the Definition of Done being already reported met. */
 export class StageSkipped extends DomainEvent {
   constructor(

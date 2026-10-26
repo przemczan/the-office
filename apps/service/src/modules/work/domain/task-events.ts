@@ -82,7 +82,7 @@ export class TaskPipelineConfirmed extends DomainEvent {
   }
 }
 
-/** The user paused the Task: it is held once the Stage running now ends (spec §2.4). */
+/** The user paused the Task: its running Stage is held once the Agent's turn ends (spec §2.4). */
 export class TaskPaused extends DomainEvent {
   constructor(
     readonly taskId: string,

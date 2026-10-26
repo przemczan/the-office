@@ -41,10 +41,13 @@ export interface ThreadChange<Event extends DomainEvent> {
   readonly event: Event;
 }
 
-/** What became of user messages that waited for a safe point. */
+/**
+ * What became of user messages that waited for a safe point; ones never delivered wait again when
+ * a Stage's next run carries them.
+ */
 export interface DeliveryMarking {
   readonly messageIds: readonly string[];
-  readonly delivery: Exclude<MessageDelivery, "waiting">;
+  readonly delivery: MessageDelivery;
 }
 
 /** The person a chat is with, as their Role card has them. */
@@ -244,8 +247,9 @@ export function bargeIn(
 }
 
 /**
- * Marks the user's waiting messages as having reached the person, or as never going to, when the
- * Stage's work ended first. Undefined when there are none.
+ * Marks the user's messages as having reached the person, as never going to, when the Stage's
+ * work ended first, or as waiting again, when the Stage's next run carries them. Undefined when
+ * there are none.
  */
 export function markDelivery(
   thread: Thread,

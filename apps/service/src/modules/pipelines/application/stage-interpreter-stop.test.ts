@@ -13,7 +13,8 @@ import {
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
-import { PipelineCompleted } from "../domain/stage-run-events.js";
+import type { Stage } from "../domain/stage.js";
+import { PipelineCompleted, StopHeldAsPause } from "../domain/stage-run-events.js";
 import { PLANNED_COMMIT } from "../ports/pipelines-ports.fixtures.js";
 import { StageInterpreter } from "./stage-interpreter.js";
 
@@ -24,6 +25,13 @@ afterEach(async () => {
 });
 
 const implement = anAgentStage("implement", { name: "Implement" });
+const tests: Stage = {
+  kind: "script",
+  key: "tests",
+  name: "Tests",
+  optional: false,
+  command: "test",
+};
 const review = anAgentStage("review", { name: "Review & fix" });
 
 /** A session whose first turn runs until The Office interrupts it. */
@@ -162,6 +170,7 @@ describe("Stop", () => {
     const again = pipelines.stageThreads.requests[1];
     expect(again?.declared).toBeUndefined();
     expect(again?.previousThreadId).toBe(stopped?.threadId);
+    expect(again?.carryMessagesSince).toEqual(stopped?.startedAt);
     expect(again?.work).toContain("## Stopped by the user\n\nThe user stopped this Stage");
     expect(await statusesOf(taskId)).toEqual([
       ["implement", "failed"],
@@ -170,32 +179,79 @@ describe("Stop", () => {
     ]);
     expect((await pipelines.tasks.read(taskId)).state).toBe("done");
   });
+
+  it("lets a Script Stage's command run to its end, holding the Task after it as Pause does, and says so", async () => {
+    pipelines = await startPipelinesApplication([]);
+    const taskId = randomUUID();
+    pipelines.commands.observe = (call) => {
+      if (call === "runCommand") void stop(taskId);
+    };
+
+    await walkStages(pipelines, [tests, anAgentStage("review")], taskId);
+
+    expect(await statusesOf(taskId)).toEqual([["tests", "done"]]);
+    expect(pipelines.git.discarded).toEqual([]);
+    expect(pipelines.published.filter((event) => event instanceof StopHeldAsPause)).toEqual([
+      expect.objectContaining({ taskId, stageKey: "tests" }),
+    ]);
+    expect((await pipelines.tasks.read(taskId)).state).toBe("paused");
+  });
 });
 
 describe("Pause", () => {
-  it("holds the Task once the running Stage ends, its work committed, and Resume goes on from there", async () => {
+  it("holds the Stage once the Agent's turn ends, committing nothing, and Resume goes on with it through the Context policy", async () => {
     pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
       anAgentSession(aDoneResult()),
       anAgentSession(aDoneResult()),
     ]);
     const taskId = randomUUID();
+    pipelines.git.uncommitted.set(taskId, ["src/dialog.ts"]);
     whileTheFirstTurnRuns(taskId, pause);
 
     await walkStages(pipelines, [implement, review], taskId);
 
-    expect(await statusesOf(taskId)).toEqual([["implement", "done"]]);
-    expect(pipelines.git.commits).toHaveLength(1);
+    const [paused, ...more] = await runsOf(pipelines, taskId);
+    const error =
+      "Paused by the user. The Stage's uncommitted edits stay in the worktree for it to go on with.";
+    expect(paused?.outcome).toEqual({ status: "failed", error, interrupted: "pause" });
+    expect(paused?.headCommit).toBe(PLANNED_COMMIT);
+    expect(more).toEqual([]);
     expect(pipelines.stageThreads.interrupted).toEqual([]);
+    expect(pipelines.stageThreads.sessionsEnded).toEqual([paused?.threadId]);
+    expect(pipelines.git.commits).toEqual([]);
+    expect(pipelines.git.discarded).toEqual([]);
     expect((await pipelines.tasks.read(taskId)).state).toBe("paused");
 
     await resume(taskId);
 
+    const again = pipelines.stageThreads.requests[1];
+    expect(again?.declared).toBeUndefined();
+    expect(again?.previousThreadId).toBe(paused?.threadId);
+    expect(again?.carryMessagesSince).toEqual(paused?.startedAt);
+    expect(again?.work).toContain("## Paused by the user\n\nThe user paused this Stage");
     expect(await statusesOf(taskId)).toEqual([
+      ["implement", "failed"],
       ["implement", "done"],
       ["review", "done"],
     ]);
-    expect(pipelines.stageThreads.requests[1]?.declared).toBe("fresh");
+    expect(pipelines.git.commits).toHaveLength(2);
     expect((await pipelines.tasks.read(taskId)).state).toBe("done");
+  });
+
+  it("stops the turn now when the user stops a Stage they paused", async () => {
+    pipelines = await startPipelinesApplication([interrupted]);
+    const taskId = randomUUID();
+    whileTheFirstTurnRuns(taskId, async (id) => {
+      await pause(id);
+      await stop(id);
+    });
+
+    await walkStages(pipelines, [implement], taskId);
+
+    const [run] = await runsOf(pipelines, taskId);
+    expect(pipelines.stageThreads.interrupted).toEqual([run?.threadId]);
+    expect(run?.outcome).toMatchObject({ interrupted: "stop" });
   });
 
   it("keeps a Task paused while Waiting on you paused once its Decision is answered, until Resume runs the Stage again", async () => {

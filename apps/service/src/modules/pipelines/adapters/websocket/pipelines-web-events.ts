@@ -9,6 +9,7 @@ import {
   StageRunEnded,
   StageRunStarted,
   StageSkipped,
+  StopHeldAsPause,
   WentBackToStage,
 } from "../../domain/stage-run-events.js";
 import { TaskStagesMade } from "../../domain/task-stages-events.js";
@@ -43,6 +44,14 @@ export class PipelinesWebEvents implements OnModuleInit {
       stageKey: event.stageKey,
       status: event.status,
     }));
+    this.forwarding.forward(
+      StopHeldAsPause,
+      (event): WebEventOf<"stage-run.stop-held-as-pause"> => ({
+        type: "stage-run.stop-held-as-pause",
+        taskId: event.taskId,
+        stageKey: event.stageKey,
+      }),
+    );
     this.forwarding.forward(StageSkipped, (event): WebEventOf<"stage-run.skipped"> => ({
       type: "stage-run.skipped",
       taskId: event.taskId,

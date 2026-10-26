@@ -84,8 +84,8 @@ export const stageRunOutcomeSchema = z.discriminatedUnion("status", [
     budgetReached: z
       .object({ used: z.int().nonnegative(), budget: z.int().nonnegative() })
       .nullable(),
-    /** Set when The Office interrupted the run, as on the user's Stop; the Stage runs again. */
-    interrupted: z.enum(["stop"]).nullable(),
+    /** Set when the user stopped or paused the run; the Stage runs again once resumed. */
+    interrupted: z.enum(["stop", "pause"]).nullable(),
     ...handoverNoteField,
   }),
 ]);
@@ -153,6 +153,12 @@ export const pipelinesWebEventSchema = z.discriminatedUnion("type", [
     taskId: z.uuid(),
     stageKey: z.string(),
     status: z.enum(["done", "needs-decision", "failed"]),
+  }),
+  /** The user stopped a run that couldn't be interrupted, such as a command: held after it. */
+  webEventSchema.extend({
+    type: z.literal("stage-run.stop-held-as-pause"),
+    taskId: z.uuid(),
+    stageKey: z.string(),
   }),
   webEventSchema.extend({
     type: z.literal("stage-run.skipped"),

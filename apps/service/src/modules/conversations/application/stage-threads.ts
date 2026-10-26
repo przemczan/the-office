@@ -11,7 +11,7 @@ import {
   type ContextDecision,
   type ContextPolicySettings,
 } from "../domain/context-policy.js";
-import type { Message, MessageDraft } from "../domain/message.js";
+import type { Message, MessageDelivery, MessageDraft } from "../domain/message.js";
 import { openingMessage, taskThreadInstructions } from "../domain/session-instructions.js";
 import { addTokens, NO_TOKENS, type Thread, type TokenTotals } from "../domain/thread.js";
 import {
@@ -29,6 +29,7 @@ import {
 } from "../domain/thread-changes.js";
 import { ThreadNotFound } from "../domain/thread-not-found.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
+import { undeliveredSince, workWithUndelivered } from "../domain/undelivered-messages.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { BargeIns } from "./barge-ins.js";
 import { sessionLogLines, type SessionEvent } from "./session-log.js";
@@ -58,6 +59,11 @@ export interface StageThreadRequest {
   readonly declared: "fresh" | "continue" | undefined;
   /** The Stage Thread of the Task's previous Stage run, when an Agent worked it. */
   readonly previousThreadId: string | undefined;
+  /**
+   * When the Stage runs again after the user held its last run: its start. The user's messages
+   * into the previous Thread since then that never reached the person go with the work.
+   */
+  readonly carryMessagesSince: Date | undefined;
   /** The Task's record a new session's Brief starts with, as the Stage interpreter words it. */
   readonly record: string;
   /** What the Stage asks of the person now: after the Brief, or alone in a continued session. */
@@ -78,6 +84,16 @@ export interface StageTurn {
   readonly problem: string | undefined;
   /** The turn's tokens, as the Thread counts them. */
   readonly tokens: TokenTotals;
+}
+
+/**
+ * The user's messages a Stage's work carries into its session, from the Thread they were written
+ * in, by the id of The Office's message that carries them.
+ */
+interface CarriedMessages {
+  readonly threadId: string;
+  readonly messageIds: readonly string[];
+  readonly carrierId: string;
 }
 
 /** A Stage's session at work in its Stage Thread, until the Stage ends it. */
@@ -144,11 +160,22 @@ export class StageThreads {
       },
       this.settings,
     );
+    const undelivered =
+      previous && request.carryMessagesSince
+        ? undeliveredSince(await this.repository.messages(previous.id), request.carryMessagesSince)
+        : [];
+    const carrying = {
+      request: { ...request, work: workWithUndelivered(request.work, undelivered) },
+      carried: (carrierId: string): CarriedMessages | undefined =>
+        previous && undelivered.length > 0
+          ? { threadId: previous.id, messageIds: undelivered.map(({ id }) => id), carrierId }
+          : undefined,
+    };
     if (move.move === "resume" && previous?.session) {
-      return this.continueIn(previous, request, move, brief);
+      return this.continueIn(previous, carrying, move, brief);
     }
     if (previous?.session) await this.forget(previous.session.id);
-    return this.startIn(request, current, move, brief, now);
+    return this.startIn(carrying, current, move, brief, now);
   }
 
   /**
@@ -178,7 +205,7 @@ export class StageThreads {
   /** The previous Stage's session goes on in its Thread, given the Stage's work alone. */
   private async continueIn(
     previous: Thread,
-    request: StageThreadRequest,
+    { request, carried }: Carrying,
     move: ContextDecision,
     brief: Brief,
   ): Promise<StageThread> {
@@ -196,13 +223,14 @@ export class StageThreads {
       const skills = await this.sessionSkills.rebuild(session.id);
       return this.engine.resume(session.id, this.settingsOf(previous.id, request, role, skills));
     });
-    opened.send({ id: randomUUID(), text: request.work }, "later");
-    return this.live(previous.id, role.roleKey, request.folder, move, opened);
+    const work = { id: randomUUID(), text: request.work };
+    opened.send(work, "later");
+    return this.live(previous.id, role.roleKey, request.folder, move, opened, carried(work.id));
   }
 
   /** A new Stage Thread, whose new session starts with the Brief and the Stage's work. */
   private async startIn(
-    request: StageThreadRequest,
+    { request, carried }: Carrying,
     role: SessionRole,
     move: ContextDecision,
     brief: Brief,
@@ -228,6 +256,7 @@ export class StageThreads {
         now,
       ),
     );
+    const briefId = randomUUID();
     const opened = await this.opening(thread.id, session.id, async () => {
       const skills = await this.sessionSkills.prepare({
         sessionId: session.id,
@@ -237,10 +266,10 @@ export class StageThreads {
       return this.engine.start({
         id: session.id,
         settings: this.settingsOf(thread.id, request, role, skills),
-        brief: { id: randomUUID(), text: openingMessage(brief.text, request.work) },
+        brief: { id: briefId, text: openingMessage(brief.text, request.work) },
       });
     });
-    return this.live(thread.id, role.roleKey, request.folder, move, opened);
+    return this.live(thread.id, role.roleKey, request.folder, move, opened, carried(briefId));
   }
 
   /**
@@ -298,13 +327,20 @@ export class StageThreads {
     };
   }
 
-  private live(
+  /**
+   * The Stage's session at work in its Thread. The user's messages its work carries are waiting
+   * again, and delivered once a turn has taken the work, as a barge-in is.
+   */
+  private async live(
     threadId: string,
     roleKey: string,
     folder: string,
     move: ContextDecision,
     session: EngineSession,
-  ): StageThread {
+    carried: CarriedMessages | undefined,
+  ): Promise<StageThread> {
+    let carrying = carried;
+    if (carrying) await this.mark(carrying.threadId, carrying.messageIds, "waiting");
     const events = session.events[Symbol.asyncIterator]();
     const logger = { roleKey, folder, handingOver: false };
     const bargeIns = new BargeIns((message) => session.send(message, "next"));
@@ -324,6 +360,10 @@ export class StageThreads {
             next.value.outcome === "completed",
           );
           await this.mark(threadId, delivered, "delivered");
+          if (carrying && next.value.consumedMessageIds.includes(carrying.carrierId)) {
+            await this.mark(carrying.threadId, carrying.messageIds, "delivered");
+            carrying = undefined;
+          }
           if (!stillToLand) {
             turnRunning = false;
             return { ...turn, tokens: addTokens(earlierTokens, turn.tokens) };
@@ -341,6 +381,8 @@ export class StageThreads {
       sessionEnded ??= (async () => {
         this.bargeIns.delete(threadId);
         await this.mark(threadId, bargeIns.end(), "not-delivered");
+        if (carrying) await this.mark(carrying.threadId, carrying.messageIds, "not-delivered");
+        carrying = undefined;
         await session.end().catch((error: unknown) => {
           this.logger.warn(`Thread ${threadId}'s session didn't end cleanly: ${messageOf(error)}`);
         });
@@ -412,7 +454,7 @@ export class StageThreads {
   private async mark(
     threadId: string,
     messageIds: readonly string[],
-    delivery: "delivered" | "not-delivered",
+    delivery: MessageDelivery,
   ): Promise<void> {
     await this.change(threadId, (thread) =>
       markDelivery(thread, { messageIds, delivery }, new Date()),
@@ -433,6 +475,12 @@ export class StageThreads {
     if (event) await this.events.publish(event);
     return thread;
   }
+}
+
+/** A Stage's request with its work carrying the user's undelivered messages, if any. */
+interface Carrying {
+  readonly request: StageThreadRequest;
+  readonly carried: (carrierId: string) => CarriedMessages | undefined;
 }
 
 const STAGE_ENDING = "The Stage is ending. Send your message once it has ended.";

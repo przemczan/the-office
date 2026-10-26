@@ -1,5 +1,6 @@
 import type { Stage, StageKind } from "../domain/stage.js";
 import type { StageOutcome, StageRun } from "../domain/stage-run.js";
+import type { StageRunInterruption } from "./stage-run-interruption.js";
 
 export type StageOfKind<Kind extends StageKind> = Extract<Stage, { readonly kind: Kind }>;
 
@@ -13,10 +14,10 @@ export interface StageWork<Kind extends StageKind = StageKind> {
   /** The Task's runs before this one, oldest first. */
   readonly earlierRuns: readonly StageRun[];
   /**
-   * Aborted, with the StageInterruption as its reason, when The Office interrupts the run. A
-   * runner with nothing to interrupt, such as a Script Stage's command, ends as it would.
+   * The user's Stop or Pause of the run. A runner with nothing to interrupt or hold, such as a
+   * Script Stage's command, ends as it would, and the walk holds the Task after it.
    */
-  readonly interruption: AbortSignal;
+  readonly interruption: StageRunInterruption;
 }
 
 /**

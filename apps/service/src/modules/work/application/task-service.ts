@@ -80,7 +80,7 @@ export class TaskService {
     return this.update(id, (task) => changeTaskState(task, "dropped"));
   }
 
-  /** Holds the Task once its running Stage ends: Pipelines' walk finds it Paused and stops there. */
+  /** Holds the Task; TaskPaused tells Pipelines to hold its running Stage once the turn ends. */
   async pause(id: string): Promise<Task> {
     return this.update(id, pauseTask);
   }

@@ -144,6 +144,7 @@ function aStage(fields: Partial<StageThreadRequest>): StageThreadRequest {
     stageName: "Implement",
     declared: "fresh",
     previousThreadId: undefined,
+    carryMessagesSince: undefined,
     record: "## The Task\n\nRename a device.",
     work: "## The Stage: Implement\n\nBuild it.",
     folder: join(officeData, "worktrees", "task"),
@@ -631,6 +632,83 @@ describe("Stop", () => {
     await expect(turn).rejects.toThrow("The session ended before the Stage's turn did.");
     await stageThread.end({ handoverNote: undefined, failure: "Stopped by the user." });
     expect(receivedSteps()).toEqual(["start", "end"]);
+  });
+
+  it("carries the user's message the stopped session never took into the Stage's next run, delivered once a turn takes it", async () => {
+    const command = aCommand("npm-test");
+    await startWith(
+      started(command.call, aBargeIn("barge-in"), { step: "interrupt" }, anInterruptedTurn, {
+        step: "read-context-usage",
+        usage: { tokens: 30_000, window: 1_000_000 },
+      }),
+      resumed(...aTurn({ status: "done" }, "Renamed it on the list instead.", ["work"])),
+    );
+    const ada = aPerson("Ada");
+    const since = new Date();
+    const stopped = await stageThreads.open(aStage({ roleKey: ada }));
+    const turn = stopped.nextTurn();
+    await stageThreads.bargeIn(stopped.threadId, "Rename it on the list instead.");
+    await stopped.interrupt();
+    await turn;
+    await stopped.end({ handoverNote: undefined, failure: "Stopped by the user." });
+    expect(await userMessages(stopped.threadId)).toEqual([
+      { kind: "user", text: "Rename it on the list instead.", delivery: "not-delivered" },
+    ]);
+
+    const again = await stageThreads.open(
+      aStage({
+        roleKey: ada,
+        declared: undefined,
+        previousThreadId: stopped.threadId,
+        carryMessagesSince: since,
+      }),
+    );
+    const sent = engine.sessions[1]?.received.find(({ step }) => step === "send");
+    expect(sent).toMatchObject({
+      message: {
+        text: expect.stringContaining(
+          "## The user's messages\n\nThe user wrote these to you while the Stage ran; they hadn't reached you when it was held. Act on them:\n\n> Rename it on the list instead.",
+        ),
+      },
+    });
+    expect(await userMessages(stopped.threadId)).toEqual([
+      { kind: "user", text: "Rename it on the list instead.", delivery: "waiting" },
+    ]);
+
+    await again.nextTurn();
+
+    expect(again.threadId).toBe(stopped.threadId);
+    expect(await userMessages(stopped.threadId)).toEqual([
+      { kind: "user", text: "Rename it on the list instead.", delivery: "delivered" },
+    ]);
+    await again.end({ handoverNote: undefined, failure: undefined });
+  });
+
+  it("carries nothing written before the held run began", async () => {
+    await startWith(
+      started(...aTurn({ status: "done" })),
+      resumed(...aTurn({ status: "done" }, "Done.", ["work"])),
+    );
+    const ada = aPerson("Ada");
+    const earlier = await stageThreads.open(aStage({ roleKey: ada }));
+    await earlier.nextTurn();
+    await stageThreads.bargeIn(earlier.threadId, "An old message.");
+    await earlier.end({ handoverNote: undefined, failure: undefined });
+
+    await stageThreads.open(
+      aStage({
+        roleKey: ada,
+        declared: undefined,
+        previousThreadId: earlier.threadId,
+        carryMessagesSince: new Date(Date.now() + 60_000),
+      }),
+    );
+
+    const sent = engine.sessions[1]?.received.find(({ step }) => step === "send");
+    expect(sent).toMatchObject({ message: { text: "## The Stage: Implement\n\nBuild it." } });
+    expect(await userMessages(earlier.threadId)).toEqual([
+      { kind: "user", text: "An old message.", delivery: "not-delivered" },
+    ]);
   });
 });
 

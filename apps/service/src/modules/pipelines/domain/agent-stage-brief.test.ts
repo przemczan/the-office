@@ -127,10 +127,21 @@ describe("agentStageWork", () => {
     );
   });
 
+  it("tells a Stage the user paused and resumed to go on with its edits", () => {
+    const work = agentStageWork(
+      { key: "implement", name: "Implement", brief: "Build it." },
+      { held: "pause" },
+    );
+
+    expect(work).toBe(
+      "## The Stage: Implement\n\nBuild it.\n\n## Paused by the user\n\nThe user paused this Stage after your last turn, and has resumed it. Your edits are in the worktree as you left them: go on with the Stage's work from there, and end with its result.",
+    );
+  });
+
   it("tells a Stage the user stopped and resumed that its uncommitted edits are gone", () => {
     const work = agentStageWork(
       { key: "implement", name: "Implement", brief: "Build it." },
-      { stopped: true },
+      { held: "stop" },
     );
 
     expect(work).toBe(

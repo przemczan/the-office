@@ -29,6 +29,12 @@ export interface StageThreadRequest {
   readonly declared: StageSession | undefined;
   /** The Stage Thread of the Task's previous Stage run, when an Agent worked it. */
   readonly previousThreadId: string | undefined;
+  /**
+   * When the Stage runs again after the user held its last run: its start. The user's messages
+   * into the previous Thread since then that its session ended before taking go with the work,
+   * so a message and a Stop redirect the Agent (spec §2.4).
+   */
+  readonly carryMessagesSince: Date | undefined;
   /** The Task's record a new session's Brief starts with. */
   readonly record: string;
   /** What the Stage asks now: after the Brief, or alone in a continued session. */

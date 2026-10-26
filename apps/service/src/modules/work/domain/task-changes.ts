@@ -119,8 +119,8 @@ export function changeStartedTaskState(
 }
 
 /**
- * Pause (spec §2.4): a Task In progress or Waiting on you is held as Paused, once the Stage running
- * now ends. Undefined when it is Paused already.
+ * Pause (spec §2.4): a Task In progress or Waiting on you is held as Paused, its running Stage once
+ * the Agent's current turn ends. Undefined when it is Paused already.
  */
 export function pauseTask(task: Task): TaskChange<TaskPaused> | undefined {
   if (task.state === "paused") return undefined;
