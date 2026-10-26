@@ -1,4 +1,5 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
+import { OPEN_DECISION_TOOL } from "@the-office/contracts";
 import {
   TaskThreadSetups,
   type TaskThreadRequest,
@@ -8,14 +9,28 @@ import {
 import { AttachmentService } from "../../application/attachment-service.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { TaskService } from "../../application/task-service.js";
-import {
-  PLANNING_INSTRUCTIONS,
-  PLANNING_OFFICE_TOOLS,
-  planningBrief,
-} from "../../domain/planning.js";
+import { PLANNING_INSTRUCTIONS, planningBrief } from "../../domain/planning.js";
 import { KnownPipelines } from "../../ports/known-pipelines.js";
 import { KnownProjects } from "../../ports/known-projects.js";
 import { ProjectWorktrees } from "../../ports/project-worktrees.js";
+
+/**
+ * The Office tools of a planning session: it reads records and the Task's Attachments, writes the
+ * Plan and the Definition of Done, proposes a Pipeline and opens Decisions.
+ */
+export const PLANNING_OFFICE_TOOLS = [
+  "list_projects",
+  "list_people",
+  "list_tasks",
+  "read_task",
+  "list_ideas",
+  "read_idea",
+  "read_attachment",
+  "write_plan",
+  "write_definition_of_done",
+  "propose_pipeline",
+  OPEN_DECISION_TOOL,
+] as const;
 
 /**
  * Sets up the sessions of Threads on Tasks for Conversations, from the Task's record. Every Thread

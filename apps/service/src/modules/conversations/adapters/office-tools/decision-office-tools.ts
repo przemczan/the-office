@@ -1,10 +1,9 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
+import { OPEN_DECISION_TOOL } from "@the-office/contracts";
 import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { DecisionService } from "../../application/decision-service.js";
 import { ThreadRefused } from "../../domain/thread-refused.js";
-
-export const OPEN_DECISION = "open_decision";
 
 /**
  * The Office tool an Agent opens a Decision with, in a Thread on a Task (spec §2.4). It returns at
@@ -19,7 +18,7 @@ export class DecisionOfficeTools implements OnModuleInit {
 
   onModuleInit(): void {
     this.registry.register({
-      name: OPEN_DECISION,
+      name: OPEN_DECISION_TOOL,
       description:
         "Opens a Decision in this Thread when a choice is the user's to make: they see your question as a card with its options and the one you recommend, and answer with an option or in their own words, or ask you a follow-up first. It returns at once; then end your turn without asking the question again. Their answer comes as your next message.",
       input: z.object({

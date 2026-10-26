@@ -1,14 +1,13 @@
-import type { Decision, DecisionAnswer, Message } from "@the-office/contracts";
+import {
+  OPEN_DECISION_TOOL,
+  type Decision,
+  type DecisionAnswer,
+  type Message,
+} from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { contextLabel } from "./context-words.ts";
 import { DecisionCard } from "./decision-card.tsx";
-
-/**
- * The Office tool a person opens a Decision with (the service's `open_decision`): its card shows
- * the call, so its tool activity line would only repeat it.
- */
-const OPEN_DECISION_TOOL = "open_decision";
 
 /**
  * The Office's log of a Thread (spec §2.4): the user's messages and the person's, what the person

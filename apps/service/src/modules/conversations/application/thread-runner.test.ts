@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { OPEN_DECISION_TOOL } from "@the-office/contracts";
 import { z } from "zod";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
@@ -18,10 +19,7 @@ import {
 } from "../../engine/index.js";
 import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
-import {
-  DecisionOfficeTools,
-  OPEN_DECISION,
-} from "../adapters/office-tools/decision-office-tools.js";
+import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import { CHAT_OFFICE_TOOLS, HANDOVER_REQUEST } from "../domain/session-instructions.js";
 import { TurnEnded } from "../domain/conversation-events.js";
@@ -158,7 +156,7 @@ function taskSetup(taskId: string): TaskThreadSetup {
     environment: { PROJECT_VARIABLE: "set" },
     useProjectSkills: true,
     instructions: "On this Task you plan.",
-    officeTools: ["read_task", OPEN_DECISION],
+    officeTools: ["read_task", OPEN_DECISION_TOOL],
     brief: `You are planning the Task ${taskId}.`,
   };
 }
@@ -509,7 +507,7 @@ describe("a Thread on a Task", () => {
     });
     expect(session?.options.officeTools.map(({ name }) => name)).toEqual([
       "read_task",
-      OPEN_DECISION,
+      OPEN_DECISION_TOOL,
     ]);
     expect(session?.options.instructions).toMatch(
       /^You are Jan, the Planner in The Office[\s\S]*\n\nOn this Task you plan\.$/,
@@ -592,7 +590,7 @@ function opensDecision(callId: string, question: string, options: string[]): Ste
       event: {
         kind: "tool-call",
         callId,
-        tool: OPEN_DECISION,
+        tool: OPEN_DECISION_TOOL,
         officeTool: true,
         input: {
           question,
@@ -805,7 +803,7 @@ describe("a Decision", () => {
     await runner.send(chat.id, "Hello.");
     await answered(chat.id, 3);
     const chatSession = (await threads.read(chat.id)).session?.id ?? "";
-    const [tool] = app.get(OfficeToolRegistry).named([OPEN_DECISION]);
+    const [tool] = app.get(OfficeToolRegistry).named([OPEN_DECISION_TOOL]);
     const input = {
       question: EXPORT_QUESTION,
       context: "",

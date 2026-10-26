@@ -1,6 +1,11 @@
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { projectSchema, type NewProject, type Project } from "@the-office/contracts";
+import {
+  OPEN_DECISION_TOOL,
+  projectSchema,
+  type NewProject,
+  type Project,
+} from "@the-office/contracts";
 import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
@@ -354,7 +359,7 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
         "Jan recommends “Keep the query string”: Filters live in the query string.",
       ),
     ).toBeVisible();
-    await expect(conversation.getByText("open_decision")).toHaveCount(0);
+    await expect(conversation.getByText(OPEN_DECISION_TOOL)).toHaveCount(0);
     // The opening's context line opens to show the Brief the session started with.
     const brief = conversation.getByText(/^You are planning a Task with the user/);
     await expect(brief).toBeHidden();

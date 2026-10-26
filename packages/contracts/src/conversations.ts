@@ -89,6 +89,12 @@ export type ContextOverrideChoice = z.infer<typeof contextOverrideChoiceSchema>;
 export const threadTitleSchema = z.object({ title: z.string() });
 export type ThreadTitle = z.infer<typeof threadTitleSchema>;
 
+/**
+ * The Office tool an Agent opens a Decision with. Its tool activity line is hidden in the web,
+ * since the Decision's card shows the call.
+ */
+export const OPEN_DECISION_TOOL = "open_decision";
+
 /** How the user answers a Decision: one of its options, by its index, or a free answer. */
 export const decisionAnswerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("option"), option: z.number().int().nonnegative() }),

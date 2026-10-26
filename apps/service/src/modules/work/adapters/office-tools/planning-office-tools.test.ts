@@ -8,7 +8,7 @@ import { AttachmentService } from "../../application/attachment-service.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { THE_USER } from "../../domain/author.js";
-import { PLANNING_OFFICE_TOOLS } from "../../domain/planning.js";
+import { PLANNING_OFFICE_TOOLS } from "../conversations/planning-thread-setup.js";
 import type { Task } from "../../domain/task.js";
 import { SessionTasksForTests } from "../../ports/work-ports.fixtures.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";

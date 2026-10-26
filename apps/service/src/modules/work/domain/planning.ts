@@ -18,24 +18,6 @@ export const PLANNING_INSTRUCTIONS =
 export const PLANNING_OPENING =
   "Read what you need of the Task and its worktree, then ask the user what is unclear, starting with what must be true when it is done. Keep it short: the user answers in this Thread.";
 
-/**
- * The Office tools of a planning session: it reads records and the Task's Attachments, writes the
- * Plan and the Definition of Done, proposes a Pipeline and opens Decisions.
- */
-export const PLANNING_OFFICE_TOOLS = [
-  "list_projects",
-  "list_people",
-  "list_tasks",
-  "read_task",
-  "list_ideas",
-  "read_idea",
-  "read_attachment",
-  "write_plan",
-  "write_definition_of_done",
-  "propose_pipeline",
-  "open_decision",
-] as const;
-
 /** The Project as a planning Brief names it. */
 export interface PlanningProject {
   readonly name: string;

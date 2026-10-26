@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { taskSchema } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { TaskThreadSetups } from "../../../conversations/index.js";
-import { PLANNING_INSTRUCTIONS, PLANNING_OFFICE_TOOLS } from "../../domain/planning.js";
+import { PLANNING_INSTRUCTIONS } from "../../domain/planning.js";
+import { PLANNING_OFFICE_TOOLS } from "./planning-thread-setup.js";
 import {
   sendJson,
   startWorkApplication,
