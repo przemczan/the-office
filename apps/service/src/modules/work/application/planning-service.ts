@@ -12,7 +12,12 @@ import {
   proposePlan,
 } from "../domain/planning-changes.js";
 import type { ProposedPipeline, Task } from "../domain/task.js";
-import { changeTaskState, markTaskReady, type TaskChange } from "../domain/task-changes.js";
+import {
+  changeTaskState,
+  markTaskReady,
+  undoPlanningMove,
+  type TaskChange,
+} from "../domain/task-changes.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { TaskRefused } from "../domain/task-refused.js";
 import { stateChangeProblems } from "../domain/task-states.js";
@@ -66,13 +71,28 @@ export class PlanningService {
     // Another call moved it first, and opened its Thread.
     if (!event) return planning;
     await this.events.publish(event);
-    await this.threads.startOnTask({
-      taskId,
-      roleKey: PLANNER,
-      title: PLANNING_THREAD_TITLE,
-      opening: PLANNING_OPENING,
-    });
+    await this.openPlanningThread(taskId);
     return planning;
+  }
+
+  /**
+   * The Task's planning Thread with the Planner; when it can't be opened, the move to Planning is
+   * undone and refused with the reason, so a Task is never in Planning without its Thread.
+   */
+  private async openPlanningThread(taskId: string): Promise<void> {
+    try {
+      await this.threads.startOnTask({
+        taskId,
+        roleKey: PLANNER,
+        title: PLANNING_THREAD_TITLE,
+        opening: PLANNING_OPENING,
+      });
+    } catch (error) {
+      const { event } = await this.tasks.update(taskId, undoPlanningMove);
+      if (event) await this.events.publish(event);
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new TaskRefused([`The planning Thread couldn't be opened: ${reason}`]);
+    }
   }
 
   /** Shapes the Idea into a Task in the Project and plans it at once. */

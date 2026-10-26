@@ -263,6 +263,28 @@ describe("POST /api/tasks/:id/planning", () => {
     expect(work.app.get(TaskThreadsForTests).opened).toEqual([]);
   });
 
+  it("moves the Task back to Backlog, naming why, when its planning Thread can't be opened", async () => {
+    const task = await create();
+    work.published.length = 0;
+    // The Planner was let go after the check and before the Thread opened.
+    work.app.get(TaskThreadsForTests).failure = new Error(
+      'Nobody fills the Role "planner" yet: hire them on People.',
+    );
+
+    const response = await plan(task.id);
+
+    expect(response.status).toBe(422);
+    expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
+      'The planning Thread couldn\'t be opened: Nobody fills the Role "planner" yet: hire them on People.',
+    ]);
+    const after = taskSchema.parse(await (await sendJson(work, "GET", `/tasks/${task.id}`)).json());
+    expect(after.state).toBe("backlog");
+    expect(webEventsOf(work)).toEqual([
+      { type: "task.state-changed", taskId: task.id, from: "backlog", to: "planning" },
+      { type: "task.state-changed", taskId: task.id, from: "planning", to: "backlog" },
+    ]);
+  });
+
   it("refuses a Task past planning, naming why", async () => {
     const task = await create();
     await sendJson(work, "POST", `/tasks/${task.id}/drop`);

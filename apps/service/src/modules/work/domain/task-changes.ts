@@ -72,6 +72,18 @@ export function changeTaskState(
 }
 
 /**
+ * Planning → Backlog, when planning couldn't begin: a Task is never in Planning without its
+ * planning Thread. Undefined when the Task has already left Planning.
+ */
+export function undoPlanningMove(task: Task): TaskChange<TaskStateChanged> | undefined {
+  if (task.state !== "planning") return undefined;
+  return {
+    task: { ...task, state: "backlog" },
+    event: new TaskStateChanged(task.id, "planning", "backlog"),
+  };
+}
+
+/**
  * Mark Ready: Planning → Ready, refused with every reason, those of the Task's record and the
  * Decisions on it still open. Undefined when the Task is Ready already.
  */

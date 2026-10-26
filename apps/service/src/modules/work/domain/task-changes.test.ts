@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { THE_USER } from "./author.js";
-import { changePriority, changeStartedTaskState, createTask, reorderTask } from "./task-changes.js";
+import {
+  changePriority,
+  changeStartedTaskState,
+  createTask,
+  reorderTask,
+  undoPlanningMove,
+} from "./task-changes.js";
 import {
   TaskCreated,
   TaskPriorityChanged,
@@ -172,5 +178,18 @@ describe("reorderTask", () => {
     expect(() => reorderTask(last, { above: second, below: first }, takenBesides(last))).toThrow(
       TaskRefused,
     );
+  });
+});
+
+describe("undoPlanningMove", () => {
+  it("moves a Task in Planning back to Backlog and announces it", () => {
+    const change = undoPlanningMove(aTask({ state: "planning" }));
+
+    expect(change?.task.state).toBe("backlog");
+    expect(change?.event).toMatchObject({ taskId: "task-1", from: "planning", to: "backlog" });
+  });
+
+  it("changes nothing once the Task has left Planning", () => {
+    expect(undoPlanningMove(aTask({ state: "ready" }))).toBeUndefined();
   });
 });

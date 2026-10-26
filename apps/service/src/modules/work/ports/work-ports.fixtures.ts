@@ -89,12 +89,14 @@ export class SessionTasksForTests extends SessionTasks {
   }
 }
 
-/** Keeps each Thread opened on a Task, without a session. */
+/** Keeps each Thread opened on a Task, without a session; or fails, once `failure` is set. */
 @Injectable()
 export class TaskThreadsForTests extends TaskThreads {
   readonly opened: TaskThreadOpening[] = [];
+  failure: Error | undefined;
 
   async startOnTask(opening: TaskThreadOpening): Promise<{ readonly id: string }> {
+    if (this.failure) throw this.failure;
     this.opened.push(opening);
     return { id: crypto.randomUUID() };
   }
