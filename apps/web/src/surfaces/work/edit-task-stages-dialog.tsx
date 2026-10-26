@@ -124,7 +124,7 @@ function EditTaskStagesForm({
         </>
       }
     >
-      <div className="work-form">
+      <div className="work-form edit-task-stages">
         <Alert tone="info">
           Changes apply to <b>{task.title}</b> only. The library's{" "}
           {pipeline?.name ?? task.pipelineId} Pipeline stays as it is.

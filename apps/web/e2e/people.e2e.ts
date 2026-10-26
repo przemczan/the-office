@@ -469,6 +469,30 @@ test("Edit for this Task swaps the Pipeline and sets every field of its Stages, 
     await expect(editorRow(page, "Implement").getByLabel("Model")).toHaveValue("claude-haiku-5-5");
     await expect(editorRow(page, "Implement").getByLabel("Budget")).toHaveValue("120");
     await expect(editorRow(page, "Tests")).toContainText("on failure back to Review, at most 2×");
+    await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+
+    // From the board card's menu, selecting and typing in the editor leaves the card where it is.
+    await page.goto("/work");
+    await page
+      .getByRole("article", { name: "Keep the filters on reload" })
+      .getByRole("button", { name: "More for Keep the filters on reload" })
+      .click();
+    await page.getByRole("menu").getByRole("button", { name: "Edit Stages for this Task" }).click();
+    const fromBoard = editorRow(page, "Implement");
+    await fromBoard.getByRole("button", { name: "Edit Implement" }).click();
+    const brief = fromBoard.getByLabel("Brief");
+    const box = await brief.boundingBox();
+    if (!box) throw new Error("The Brief isn't shown.");
+    await page.mouse.move(box.x + 8, box.y + 10);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 120, box.y + 10, { steps: 5 });
+    await page.mouse.up();
+    await fromBoard.getByLabel("Name", { exact: true }).press("End");
+    await page.keyboard.type(" again");
+    await expect(page).toHaveURL(/\/work$/);
+    await expect(editorRow(page, "Implement again")).toBeVisible();
+    await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
   } finally {
     await repository.remove();
   }
@@ -770,6 +794,24 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
       [null, null],
       [{ gateKey: "ui-acceptance", feedback: GATE_FEEDBACK }, null],
     ]);
+
+    // Edit for this Task while it runs: the started Stages are locked, Build after them changes,
+    // and the library's Quick fix stays as it is.
+    const library = await (await page.request.get("/api/pipelines")).json();
+    await stages.getByRole("button", { name: "Edit for this Task" }).click();
+    for (const name of ["Implement", "Tests", "UI acceptance"]) {
+      await expect(editorRow(page, name)).toContainText("started, so it can't be changed");
+      await expect(editorRow(page, name).getByRole("button", { name: `Edit ${name}` })).toHaveCount(
+        0,
+      );
+    }
+    const build = editorRow(page, "Build");
+    await expect(build.getByRole("button", { name: "Move Build up" })).toBeDisabled();
+    await build.getByRole("button", { name: "Edit Build" }).click();
+    await build.getByLabel("Project command").selectOption("lint");
+    await page.getByRole("dialog").getByRole("button", { name: "Save for this Task" }).click();
+    await expect(page.getByText("Stages saved for Settings keep their changes.")).toBeVisible();
+    expect(await (await page.request.get("/api/pipelines")).json()).toEqual(library);
 
     await gate.getByRole("button", { name: "Continue to Build" }).click();
     await expect(gate).toHaveCount(0);

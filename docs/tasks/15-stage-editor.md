@@ -9,7 +9,7 @@ Status: in progress
 ## Definition of Done
 
 - [x] From the Task page, the user swaps the Pipeline for another built-in, or edits the Task's copy: add an Agent, Script or Gate Stage, drop, reorder, and set kind, Role or command, brief, model and effort, session (fresh, or continue the previous Stage's), budget, optional, and "on failure go back to Stage X at most N times" (N is the Stage's rounds). Check: Playwright edits each field and reloads.
-- [ ] Stages that have started are locked and can't be moved above; edits apply to that Task only. Check: edit a running Task's Pipeline, and read the library's copy afterwards.
+- [x] Stages that have started are locked and can't be moved above; edits apply to that Task only. Check: edit a running Task's Pipeline, and read the library's copy afterwards.
 - [ ] The editor flags, and saving refuses with the reason: a Role with Task limit none or nobody hired for it, "continue" without the same Role on the Stage before, and an on-failure target that isn't earlier. Check: domain tests of each flag.
 - [ ] The interpreter runs the edited copy, including a Gate added before Publish. Check: a scripted-adapter test of an edited Pipeline.
 
@@ -38,7 +38,8 @@ Steps 1–3 done; step 4, the check on the Test Project, is next.
 - Web: the Stage editor is `shell/pipelines/stage-editor.tsx` with its pure changes in `stage-edits.ts`; it knows no Task (props: stages, `lockedNotes`, problems, roles, options, optional `commandLines`), so the tier 2 library editor reuses it with no locked Stages. Its flags come from the check endpoint (`pipelineQueries.stagesCheck`), not a copy of the rules; the controls only offer what can work (Roles with a Task limit, "continue" after the same Role, earlier non-Gate targets).
 - `surfaces/work/edit-task-stages-dialog.tsx` opens from the Stages block's "Edit for this Task" and the Task menu's "Edit Stages for this Task"; before Start it swaps the Pipeline (`setPipeline`), which sets edited Stages aside. The Planner's proposal shows whenever the Task hasn't started.
 - `modelLabel`/`EFFORT_LABELS` moved to `shell/engine-words.ts`, `publishingLabel` to `shell/project-words.ts`.
-- The Playwright check is in `people.e2e.ts` (it needs the hired Developer and Reviewer); the Gate test now saves its Stages through `PUT /stages` instead of the database.
+- The Playwright checks are in `people.e2e.ts` (they need the hired Developer and Reviewer): every field and a reload, the editor opened from a board card, and in the Gate test the running Task's started Stages locked, Build edited after them and the library unchanged (DoD 2). The Gate test saves its Stages through `PUT /stages` instead of the database.
+- Open: the draft is taken as the dialog opens. If the walk starts a Stage the user has edited meanwhile, its row locks showing the edit and the check refuses it until Cancel.
 
 For step 4: no model is checked against the engine's list yet; a Stage's model comes from `roleCardOptions`, so it is one the engine offers.
 
@@ -48,3 +49,4 @@ For step 4: no model is checked against the engine's list yet; a Stage's model c
 - 2026-10-27 · step 1: Stage model and effort, the Task's copy made at Start or first edit (madeAt, editedForTask), lock on started Stages, edit flags incl. staffing; next step 2, use cases, events and API.
 - 2026-10-27 · step 2: PUT /tasks/:id/stages with refusals, swap sets edited Stages aside, walk re-reads Stages under a per-Task lock shared with edits, Stage model and effort reach the session, label edited for this Task; next step 3, the editor.
 - 2026-10-27 · step 3: the Stage editor in the shell, fed by POST /stages/check; Edit for this Task dialog with the Pipeline swap, from the Stages block and the Task menu; Playwright edits every field and reloads; next step 4, the Test Project check.
+- 2026-10-27 · step 3: a running Task's editor locks its started Stages (DoD 2 check in the Gate test), the board menu opens it, it scrolls inside its dialog, the header says edited for this Task; next step 4.

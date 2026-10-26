@@ -19,6 +19,17 @@
   gap: 14px;
 }
 
+/*
+ * The Stage editor grows with its open Stage; it scrolls inside the dialog, which keeps its title
+ * and Save in view (the dialog's overlay doesn't scroll).
+ */
+.edit-task-stages {
+  max-height: calc(100vh - 240px);
+  margin: 0 -20px;
+  padding: 0 20px 4px;
+  overflow-y: auto;
+}
+
 .dialog-text {
   margin: 0;
   font: var(--type-body-sm);

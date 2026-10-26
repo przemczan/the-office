@@ -9,7 +9,7 @@ import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { taskQueries } from "../../api/work.ts";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
-import { taskTokens } from "./stage-words.ts";
+import { pipelineLabel, taskTokens } from "./stage-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
@@ -75,6 +75,7 @@ function TaskHead({
   readonly threads: readonly Thread[] | undefined;
 }): ReactNode {
   const tokens = taskTokens(threads);
+  const editedForTask = useQuery(pipelineQueries.taskStages(task.id)).data?.editedForTask ?? false;
   const waitingOnYou = useWaitingOnYouInItsState();
   return (
     <header className="task-head">
@@ -84,7 +85,7 @@ function TaskHead({
           <TaskStateBadge state={task.state} />
           {waitingOnYou(task) && <TaskStateBadge state="waiting-on-you" />}
           <ProjectChip projectId={task.projectId} projects={projects} />
-          <span>· Pipeline {pipeline?.name ?? task.pipelineId}</span>
+          <span>· Pipeline {pipelineLabel(pipeline?.name ?? task.pipelineId, editedForTask)}</span>
           <span>· {PRIORITY_NAMES[task.priority]} priority</span>
           <span>· {tokensShort(tokens)} tokens</span>
         </div>
