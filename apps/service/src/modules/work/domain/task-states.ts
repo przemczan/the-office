@@ -41,7 +41,7 @@ export function stateChangeProblems(task: Task, to: TaskState): string[] {
 
 /**
  * Ready requires a Plan and a Definition of Done, each confirmed by the user, and no Pipeline
- * proposal left open: the user uses it or keeps the Pipeline the Task follows (spec §2.1).
+ * proposal left open: the user takes or declines it, keeping the Pipeline the Task follows (spec §2.1).
  */
 function readyProblems(task: Task): string[] {
   const problems: string[] = [];
@@ -53,9 +53,7 @@ function readyProblems(task: Task): string[] {
     problems.push("Confirm the Definition of Done before the Task can be Ready.");
   }
   if (task.proposedPipeline) {
-    problems.push(
-      "Use the proposed Pipeline or keep the current one before the Task can be Ready.",
-    );
+    problems.push("Take or decline the proposed Pipeline before the Task can be Ready.");
   }
   return problems;
 }

@@ -371,7 +371,7 @@ describe("POST /api/tasks/:id/ready", () => {
     expect(workRefusalSchema.parse(await unconfirmed.json()).reasons).toEqual([
       "Confirm the Plan before the Task can be Ready.",
       "Confirm the Definition of Done before the Task can be Ready.",
-      "Use the proposed Pipeline or keep the current one before the Task can be Ready.",
+      "Take or decline the proposed Pipeline before the Task can be Ready.",
     ]);
   });
 
@@ -385,7 +385,7 @@ describe("POST /api/tasks/:id/ready", () => {
     const proposed = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
     expect(proposed.status).toBe(422);
     expect(workRefusalSchema.parse(await proposed.json()).reasons).toEqual([
-      "Use the proposed Pipeline or keep the current one before the Task can be Ready.",
+      "Take or decline the proposed Pipeline before the Task can be Ready.",
     ]);
     // Keeping the Pipeline the Task follows declines the proposal.
     await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: task.pipelineId });

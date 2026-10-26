@@ -88,9 +88,7 @@ describe("changeTaskState", () => {
     });
 
     expect(() => changeTaskState(proposing, "ready")).toThrow(
-      new TaskRefused([
-        "Use the proposed Pipeline or keep the current one before the Task can be Ready.",
-      ]),
+      new TaskRefused(["Take or decline the proposed Pipeline before the Task can be Ready."]),
     );
     expect(changeTaskState(aPlannedTask(), "ready")?.task.state).toBe("ready");
   });
