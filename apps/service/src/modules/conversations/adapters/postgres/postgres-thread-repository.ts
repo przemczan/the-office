@@ -126,7 +126,13 @@ export class PostgresThreadRepository extends ThreadRepository {
     const rows = await this.database
       .select()
       .from(decisions)
-      .where(and(eq(decisions.taskId, taskId), isNotNull(decisions.answeredAt)))
+      .where(
+        and(
+          eq(decisions.taskId, taskId),
+          isNotNull(decisions.answeredAt),
+          isNotNull(decisions.roleKey),
+        ),
+      )
       .orderBy(asc(decisions.answeredAt), asc(decisions.id));
     return rows.map(toDecision);
   }
@@ -228,15 +234,17 @@ function toMessage(row: MessageRow): Message {
   return { ...row.body, id: row.id, threadId: row.threadId, at: row.at };
 }
 
-function toDecisionRow({ answer, ...decision }: Decision): DecisionRow {
+function toDecisionRow({ answer, roleKey, ...fields }: Decision): DecisionRow {
+  const decision = { ...fields, roleKey: roleKey ?? null };
   if (!answer) return { ...decision, answer: null, answeredAt: null };
   const { answeredAt, ...given } = answer;
   return { ...decision, answer: given, answeredAt };
 }
 
-function toDecision({ answer, answeredAt, ...row }: DecisionRow): Decision {
+function toDecision({ answer, answeredAt, roleKey, ...row }: DecisionRow): Decision {
   return {
     ...row,
+    roleKey: roleKey ?? undefined,
     answer: answer === null || answeredAt === null ? undefined : { ...answer, answeredAt },
   };
 }

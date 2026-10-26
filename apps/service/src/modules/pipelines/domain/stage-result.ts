@@ -31,6 +31,12 @@ const stageResult = z.object({
     .describe(
       "Required when status is done: a few lines for whoever continues: where you are, what is left, what to watch. Welcome with the other statuses too.",
     ),
+  definitionOfDoneMet: z
+    .array(z.int().min(1))
+    .optional()
+    .describe(
+      "Required when status is done: the numbers of the Definition of Done statements the work now meets, as the Brief numbers them; leave out any it doesn't meet yet.",
+    ),
   decision: decision.optional().describe("Required when status is needs_decision."),
   failureReason: z.string().min(1).optional().describe("Required when status is failed."),
 });
@@ -38,11 +44,12 @@ const stageResult = z.object({
 type StageResult = z.output<typeof stageResult>;
 
 /** What each status requires beside the fields every result has. */
-const REQUIRED_BY_STATUS: Readonly<Record<StageResult["status"], keyof StageResult>> = {
-  done: "handoverNote",
-  needs_decision: "decision",
-  failed: "failureReason",
-};
+const REQUIRED_BY_STATUS: Readonly<Record<StageResult["status"], readonly (keyof StageResult)[]>> =
+  {
+    done: ["handoverNote", "definitionOfDoneMet"],
+    needs_decision: ["decision"],
+    failed: ["failureReason"],
+  };
 
 /**
  * The result schema an Agent Stage's session answers in. A root `if status = done then required`
@@ -56,7 +63,7 @@ export const STAGE_RESULT_SCHEMA: Readonly<Record<string, unknown>> = (() => {
     ...schema,
     if: { properties: { status: { const: "done" } } },
     // oxlint-disable-next-line unicorn/no-thenable -- the JSON Schema keyword, never awaited
-    then: { required: [REQUIRED_BY_STATUS.done] },
+    then: { required: REQUIRED_BY_STATUS.done },
   };
 })();
 
@@ -69,8 +76,8 @@ export function readStageResult(output: unknown): StageResultReading {
   const parsed = stageResult.safeParse(output);
   if (!parsed.success) return { valid: false, problems: z.prettifyError(parsed.error) };
   const result = parsed.data;
-  const missing = REQUIRED_BY_STATUS[result.status];
-  if (result[missing] === undefined) {
+  const missing = REQUIRED_BY_STATUS[result.status].find((field) => result[field] === undefined);
+  if (missing) {
     return { valid: false, problems: `status "${result.status}" requires "${missing}".` };
   }
   return outcomeOf(result);
@@ -80,13 +87,22 @@ function outcomeOf({
   status,
   summary,
   handoverNote,
+  definitionOfDoneMet,
   decision: asked,
   failureReason,
 }: StageResult): StageResultReading {
   const note = handoverNote === undefined ? {} : { handoverNote };
   switch (status) {
     case "done":
-      return { valid: true, outcome: { status: "done", summary, ...note } };
+      return {
+        valid: true,
+        outcome: {
+          status: "done",
+          summary,
+          ...note,
+          definitionOfDoneMet: definitionOfDoneMet ?? [],
+        },
+      };
     case "needs_decision": {
       if (!asked) throw new Error("A needs_decision result without its decision was read.");
       if (asked.options[asked.recommendation.option] === undefined) {

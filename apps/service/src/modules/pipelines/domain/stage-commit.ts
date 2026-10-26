@@ -1,4 +1,5 @@
 import type { StageOutcome } from "./stage-run.js";
+import type { AcceptedIssue } from "./walk-decisions.js";
 
 /** git's own advice for a subject line; longer ones are cut where a log shows them. */
 const SUBJECT_LENGTH = 72;
@@ -12,9 +13,14 @@ export interface ExpectedHead {
 
 /**
  * The message The Office commits a Stage's work with (spec §5.5): a subject from the Stage's
- * result, the whole result below it, then the Handover note.
+ * result, the whole result below it, then the Handover note, then the issues the user chose to
+ * continue with so far (research §7), each by its first line.
  */
-export function stageCommitMessage(stageName: string, outcome: StageOutcome): string {
+export function stageCommitMessage(
+  stageName: string,
+  outcome: StageOutcome,
+  accepted: readonly AcceptedIssue[] = [],
+): string {
   const result = resultText(outcome);
   const subject = cut(`${stageName}: ${firstLine(result)}`, SUBJECT_LENGTH);
   const body = [
@@ -22,8 +28,14 @@ export function stageCommitMessage(stageName: string, outcome: StageOutcome): st
     outcome.handoverNote === undefined
       ? undefined
       : `Handover note:\n${outcome.handoverNote.trim()}`,
+    accepted.length === 0 ? undefined : acceptedIssuesText(accepted),
   ].filter((part) => part !== undefined && part !== "");
   return [subject, ...body].join("\n\n");
+}
+
+function acceptedIssuesText(accepted: readonly AcceptedIssue[]): string {
+  const lines = accepted.map(({ stageName, error }) => `- ${stageName}: ${firstLine(error)}`);
+  return `Issues the user accepted:\n${lines.join("\n")}`;
 }
 
 /**

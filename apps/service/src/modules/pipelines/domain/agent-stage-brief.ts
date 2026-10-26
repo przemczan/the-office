@@ -7,7 +7,7 @@ import type { CarriedFailure, StageOutcome } from "./stage-run.js";
  * of every Task, so it stays in the cached prefix.
  */
 export const AGENT_STAGE_INSTRUCTIONS =
-  "In this Thread you work Stages of a Task's Pipeline, in the Task's worktree. Each Stage comes as a message saying what it asks, after the Task's Brief when your session is new. Work it through, checking your work with the commands you may run, which the Brief names. The Office commits your work after each Stage: you never commit, push or switch branches. End the Stage with your result: done, with a summary and your Handover note (where you are, what is left, what to watch); needs_decision, when a choice is the user's to make, with the question, what they need to know, the options and the one you recommend; or failed, with the reason, when you can't finish it.";
+  "In this Thread you work Stages of a Task's Pipeline, in the Task's worktree. Each Stage comes as a message saying what it asks, after the Task's Brief when your session is new. Work it through, checking your work with the commands you may run, which the Brief names. The Office commits your work after each Stage: you never commit, push or switch branches. End the Stage with your result: done, with a summary, the numbers of the Definition of Done statements the work now meets, and your Handover note (where you are, what is left, what to watch); needs_decision, when a choice is the user's to make, with the question, what they need to know, the options and the one you recommend; or failed, with the reason, when you can't finish it.";
 
 /** The Task's record, as an Agent Stage's Brief has it. */
 export interface BriefTask {
@@ -56,7 +56,7 @@ export function agentStageRecord({
     task.plan === "" ? undefined : `## The Plan\n\n${task.plan}`,
     task.definitionOfDone.length === 0
       ? undefined
-      : `## The Definition of Done\n\n${task.definitionOfDone.map((statement) => `- ${statement}`).join("\n")}`,
+      : `## The Definition of Done\n\n${task.definitionOfDone.map((statement, index) => `${index + 1}. ${statement}`).join("\n")}`,
     earlier.length === 0
       ? undefined
       : `## Earlier Stages\n\n${earlier.map(earlierResultWords).join("\n")}`,
@@ -72,14 +72,13 @@ export function agentStageRecord({
  * may fail for it. A new session gets it after the Brief, a continued one alone.
  */
 export function agentStageWork(
-  stage: Pick<AgentStage, "name" | "brief">,
+  stage: Pick<AgentStage, "key" | "name" | "brief">,
   carried: (CarriedFailure & { readonly stageName: string }) | undefined,
   installProblem?: string,
 ): string {
   return sections([
     `## The Stage: ${stage.name}\n\n${stage.brief}`,
-    carried &&
-      `## Why this Stage runs again\n\n"${carried.stageName}" failed after it, so the Pipeline went back here (round ${carried.round} of ${carried.rounds}):\n\n${carried.error}`,
+    carried && whyAgain(stage, carried),
     installProblem &&
       `## The install before this Stage
 
@@ -87,6 +86,25 @@ ${installProblem}
 
 Commands that need the dependencies may fail until it passes. If the Task's changes broke it, fix that first; The Office installs again before the next Stage.`,
   ]);
+}
+
+/**
+ * Why the Stage runs again: a later Stage's loop went back to it, or the user gave it one more
+ * round itself; with what the user said to do differently, when they said it.
+ */
+function whyAgain(
+  stage: Pick<AgentStage, "key">,
+  carried: CarriedFailure & { readonly stageName: string },
+): string {
+  const why =
+    carried.stageKey === stage.key
+      ? `The user chose one more round of this Stage after:\n\n${carried.error}`
+      : `"${carried.stageName}" failed after it, so the Pipeline went back here (round ${carried.round} of ${carried.rounds}):\n\n${carried.error}`;
+  const guidance =
+    carried.guidance === undefined
+      ? ""
+      : `\n\nThe user's guidance for this round:\n\n${carried.guidance}`;
+  return `## Why this Stage runs again\n\n${why}${guidance}`;
 }
 
 function earlierResultWords({ stageName, kind, outcome }: EarlierResult): string {

@@ -50,7 +50,8 @@ describe("ScriptStageRunner", () => {
     expect(pipelines.stageThreads.requests).toEqual([]);
     expect(run?.outcome).toEqual({ status: "done", summary: "`npm test` passed." });
     expect(run?.commandRuns).toEqual([{ ...passing, purpose: "command" }]);
-    expect(pipelines.tasks.changes).toEqual([{ taskId, state: "done" }]);
+    // A Script Stage reports no Definition of Done met, so the user is asked at the end.
+    expect(pipelines.tasks.changes).toEqual([{ taskId, state: "waiting-on-you" }]);
   });
 
   it("is done when a flaky test command passes on its re-run, with the flake recorded", async () => {

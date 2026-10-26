@@ -31,8 +31,11 @@ export interface Decision extends DecisionDraft {
   readonly id: string;
   readonly threadId: string;
   readonly taskId: string;
-  /** Who asked, by the key of the Role they fill. */
-  readonly roleKey: string;
+  /**
+   * Who asked, by the key of the Role they fill; undefined when The Office asked, as when a Stage
+   * fails with no retries left (spec §2.3).
+   */
+  readonly roleKey: string | undefined;
   readonly askedAt: Date;
   /** Undefined while it waits on the user. */
   readonly answer: GivenAnswer | undefined;

@@ -49,7 +49,10 @@ export abstract class ThreadRepository {
   /** The Thread's Decisions, open and answered, the first asked first. */
   abstract decisionsIn(threadId: string): Promise<readonly Decision[]>;
 
-  /** The Decisions on the Task the user answered, in any of its Threads, the first answered first. */
+  /**
+   * The Decisions an Agent asked on the Task that the user answered, in any of its Threads, the
+   * first answered first. The Office's own, about limits, guide the next round through the walk.
+   */
   abstract answeredOn(taskId: string): Promise<readonly Decision[]>;
 
   /** Every Decision waiting on the user, the first asked first. */

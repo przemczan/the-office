@@ -104,15 +104,16 @@ export const decisionAnswerSchema = z.discriminatedUnion("kind", [
 export type DecisionAnswer = z.infer<typeof decisionAnswerSchema>;
 
 /**
- * A question an Agent puts to the user in the Thread it works in on a Task, shown there as a card.
- * POST /decisions/:id/answer takes a `decisionAnswerSchema`.
+ * A question an Agent puts to the user in the Thread it works in on a Task, or The Office does
+ * about a Task's Pipeline (a Stage that failed with no retries left, the Definition of Done not
+ * met), shown there as a card. POST /decisions/:id/answer takes a `decisionAnswerSchema`.
  */
 export const decisionSchema = z.object({
   id: z.uuid(),
   threadId: z.uuid(),
   taskId: z.string(),
-  /** Who asked, by the key of the Role they fill. */
-  roleKey: z.string(),
+  /** Who asked, by the key of the Role they fill; null when The Office asked. */
+  roleKey: z.string().nullable(),
   question: z.string(),
   /** What the user needs to know to decide, as the Agent found it. */
   context: z.string(),
@@ -163,16 +164,17 @@ export const messageSchema = z.discriminatedUnion("kind", [
   }),
   /** Why the person couldn't answer. */
   z.object({ ...messageFields, kind: z.literal("failure"), reason: z.string() }),
-  /** A Decision the person opened, as its card shows it now, answered or not. */
+  /** A Decision the person opened (The Office, when null), as its card shows it now, answered or not. */
   z.object({
     ...messageFields,
     kind: z.literal("decision"),
-    roleKey: z.string(),
+    roleKey: z.string().nullable(),
     decision: decisionSchema,
   }),
   /**
-   * The user answered the Decision, sending it into the asking session: the answer as given, and
-   * the Decision as it is now (open again when the answer never reached a session).
+   * The user answered the Decision, sending it into the asking session, or to the Task's Pipeline
+   * for The Office's and a Stage Thread's: the answer as given, and the Decision as it is now (open
+   * again when the answer never reached a session).
    */
   z.object({
     ...messageFields,

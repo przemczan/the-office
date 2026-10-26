@@ -15,6 +15,18 @@ describe("stageCommitMessage", () => {
     expect(body).toBe(summary);
   });
 
+  it("names the issues the user accepted, each by its first line", () => {
+    const message = stageCommitMessage(
+      "Review & fix",
+      { status: "done", summary: "Fixed the list.", handoverNote: "All set." },
+      [{ stageName: "Tests", error: "2 tests fail.\n\nThe output." }],
+    );
+
+    expect(message).toBe(
+      "Review & fix: Fixed the list.\n\nFixed the list.\n\nHandover note:\nAll set.\n\nIssues the user accepted:\n- Tests: 2 tests fail.",
+    );
+  });
+
   it("tells a Stage waiting on a Decision, or failed, by its result", () => {
     const waiting = stageCommitMessage("Implement", {
       status: "needs-decision",

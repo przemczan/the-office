@@ -1,5 +1,10 @@
 import { Module, type DynamicModule } from "@nestjs/common";
-import { ConversationsModule, StageThreads, ThreadService } from "./modules/conversations/index.js";
+import {
+  ConversationsModule,
+  StageDecisions,
+  StageThreads,
+  ThreadService,
+} from "./modules/conversations/index.js";
 import { EngineModule } from "./modules/engine/index.js";
 import { PeopleModule, RoleCards } from "./modules/people/index.js";
 import {
@@ -63,6 +68,7 @@ export class AppModule {
           taskRecords: TaskRecords,
           knownPeople: RoleCards,
           stageThreads: StageThreads,
+          stageDecisions: StageDecisions,
           taskGit: TaskWorktrees,
           taskCommands: TaskWorktrees,
         }),

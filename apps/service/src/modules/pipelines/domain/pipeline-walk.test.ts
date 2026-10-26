@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { nextMove } from "./pipeline-walk.js";
+import { nextMove, unmetStatements } from "./pipeline-walk.js";
 import type { OnFailure, Stage } from "./stage.js";
-import type { StageOutcome, StageRun } from "./stage-run.js";
+import type {
+  StageDecisionKind,
+  StageOutcome,
+  StageRun,
+  StageRunDecision,
+  WalkAnswer,
+} from "./stage-run.js";
 
 function agentStage(key: string, onFailure?: OnFailure): Stage {
   return {
@@ -28,7 +34,16 @@ function scriptStage(key: string, onFailure?: OnFailure): Stage {
   };
 }
 
+/** No statements, so no run needs to report any met. */
+const NO_DEFINITION_OF_DONE: readonly string[] = [];
+const DEFINITION_OF_DONE = ["The name shows", "The name persists"];
+
 const done: StageOutcome = { status: "done", summary: "Done." };
+const meeting = (...met: number[]): StageOutcome => ({
+  status: "done",
+  summary: "Done.",
+  definitionOfDoneMet: met,
+});
 const failed = (error: string): StageOutcome => ({ status: "failed", error });
 const asks: StageOutcome = {
   status: "needs-decision",
@@ -38,9 +53,11 @@ const asks: StageOutcome = {
   recommendation: { option: 0, reason: "It has the room." },
 };
 
+type Ran = readonly [string, StageOutcome | undefined, ...StageRunDecision[]];
+
 /** The Task's runs of these Stages, in order; an undefined outcome is still running. */
-function runs(...ran: readonly [string, StageOutcome | undefined][]): StageRun[] {
-  return ran.map(([stageKey, outcome], index) => ({
+function runs(...ran: readonly Ran[]): StageRun[] {
+  return ran.map(([stageKey, outcome, ...decisions], index) => ({
     id: `run-${index + 1}`,
     taskId: "task-1",
     stageKey,
@@ -49,10 +66,16 @@ function runs(...ran: readonly [string, StageOutcome | undefined][]): StageRun[]
     threadId: undefined,
     headCommit: undefined,
     commandRuns: [],
+    decisions,
     outcome,
     startedAt: new Date(0),
     endedAt: outcome && new Date(0),
   }));
+}
+
+/** A Decision the walk opened, answered `answer` (undefined: still open). */
+function decided(kind: StageDecisionKind, answer?: WalkAnswer): StageRunDecision {
+  return { id: `decision-${kind}`, kind, options: [], answer };
 }
 
 const stages = [
@@ -61,9 +84,33 @@ const stages = [
   agentStage("look", { goBackTo: "check", rounds: 1 }),
 ];
 
+/** The check's loop going back twice, as many times as it may, then failing again. */
+const checkUsedUp: readonly Ran[] = [
+  ["write", done],
+  ["check", failed("First.")],
+  ["write", done],
+  ["check", failed("Second.")],
+  ["write", done],
+  ["check", failed("Third.")],
+];
+
+/** The check's loop used up, with the user's answer to the Decision on its last run. */
+function answeredUsedUp(answer: WalkAnswer): StageRun[] {
+  const ran = runs(...checkUsedUp);
+  const last = ran[5];
+  if (!last) throw new Error("The check never failed a third time.");
+  ran[5] = { ...last, decisions: [decided("no-retries-left", answer)] };
+  return ran;
+}
+
+/** Every Stage ran, the first reporting the whole Definition of Done met, the look ending `last`. */
+function allRan(last: StageOutcome, ...decisions: StageRunDecision[]): StageRun[] {
+  return runs(["write", meeting(1, 2)], ["check", done], ["look", last, ...decisions]);
+}
+
 describe("nextMove", () => {
   it("runs the first Stage of a Task that hasn't run any", () => {
-    expect(nextMove(stages, [])).toEqual({
+    expect(nextMove(stages, [], NO_DEFINITION_OF_DONE)).toEqual({
       move: "run",
       stage: stages[0],
       carriedFailure: undefined,
@@ -71,7 +118,7 @@ describe("nextMove", () => {
   });
 
   it("runs the Stage after one that ended done", () => {
-    expect(nextMove(stages, runs(["write", done]))).toMatchObject({
+    expect(nextMove(stages, runs(["write", done]), NO_DEFINITION_OF_DONE)).toMatchObject({
       move: "run",
       stage: { key: "check" },
       carriedFailure: undefined,
@@ -79,7 +126,9 @@ describe("nextMove", () => {
   });
 
   it("goes back to the loop's Stage with the error and the round", () => {
-    expect(nextMove(stages, runs(["write", done], ["check", failed("2 tests fail.")]))).toEqual({
+    const ran = runs(["write", done], ["check", failed("2 tests fail.")]);
+
+    expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toEqual({
       move: "run",
       stage: stages[0],
       carriedFailure: { stageKey: "check", error: "2 tests fail.", round: 1, rounds: 2 },
@@ -89,27 +138,24 @@ describe("nextMove", () => {
   it("carries the error into the next run only", () => {
     const ran = runs(["write", done], ["check", failed("2 tests fail.")], ["write", done]);
 
-    expect(nextMove(stages, ran)).toMatchObject({
+    expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toMatchObject({
       stage: { key: "check" },
       carriedFailure: undefined,
     });
   });
 
-  it("stops once a loop has gone back as many times as it may", () => {
-    const ran = runs(
-      ["write", done],
-      ["check", failed("First.")],
-      ["write", done],
-      ["check", failed("Second.")],
-      ["write", done],
-      ["check", failed("Third.")],
-    );
+  it("asks the user once a loop has gone back as many times as it may", () => {
+    const ran = runs(...checkUsedUp);
 
-    expect(nextMove(stages, ran)).toEqual({ move: "stop", run: ran[5], error: "Third." });
+    expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toEqual({
+      move: "ask",
+      run: ran[5],
+      question: { kind: "no-retries-left", stage: stages[1], error: "Third." },
+    });
   });
 
   it("counts each loop's rounds apart, over the whole Task", () => {
-    const bothLoopsWentBack: [string, StageOutcome][] = [
+    const bothLoopsWentBack: Ran[] = [
       ["write", done],
       ["check", failed("First.")],
       ["write", done],
@@ -124,47 +170,201 @@ describe("nextMove", () => {
       ["look", failed("Another.")],
     );
 
-    expect(nextMove(stages, runs(...bothLoopsWentBack))).toMatchObject({
+    expect(nextMove(stages, runs(...bothLoopsWentBack), NO_DEFINITION_OF_DONE)).toMatchObject({
       stage: { key: "write" },
       carriedFailure: { stageKey: "check", error: "Second.", round: 2, rounds: 2 },
     });
-    expect(nextMove(stages, lookFailsAgain)).toMatchObject({
-      move: "stop",
+    expect(nextMove(stages, lookFailsAgain, NO_DEFINITION_OF_DONE)).toMatchObject({
+      move: "ask",
       run: { stageKey: "look" },
+      question: { kind: "no-retries-left" },
     });
   });
 
-  it("stops at a failed Stage that has no loop", () => {
+  it("asks the user at a failed Stage that has no loop", () => {
     const ran = runs(["write", failed("The session ended.")]);
 
-    expect(nextMove(stages, ran)).toEqual({
-      move: "stop",
+    expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toEqual({
+      move: "ask",
       run: ran[0],
-      error: "The session ended.",
+      question: { kind: "no-retries-left", stage: stages[0], error: "The session ended." },
     });
   });
 
-  it("waits while a run is running or needs a Decision", () => {
+  it("waits while a run is running, or its Decision waits on the user", () => {
     const running = runs(["write", undefined]);
-    const asking = runs(["write", asks]);
+    const asking = runs(["write", asks, decided("agent")]);
+    const noRetries = runs(["write", failed("Gone."), decided("no-retries-left")]);
 
-    expect(nextMove(stages, running)).toEqual({ move: "wait", run: running[0] });
-    expect(nextMove(stages, asking)).toEqual({ move: "wait", run: asking[0] });
+    expect(nextMove(stages, running, NO_DEFINITION_OF_DONE)).toEqual({
+      move: "wait",
+      run: running[0],
+    });
+    expect(nextMove(stages, asking, NO_DEFINITION_OF_DONE)).toEqual({
+      move: "wait",
+      run: asking[0],
+    });
+    expect(nextMove(stages, noRetries, NO_DEFINITION_OF_DONE)).toEqual({
+      move: "wait",
+      run: noRetries[0],
+    });
+  });
+
+  it("asks the Agent's question until the walk has opened it", () => {
+    const ran = runs(["write", asks]);
+
+    expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toEqual({
+      move: "ask",
+      run: ran[0],
+      question: { kind: "agent" },
+    });
   });
 
   it("runs the same Stage again once its Decision is answered", () => {
-    const ran = runs(["write", asks], ["write", done]);
+    const answered = runs(["write", asks, decided("agent", { kind: "answered" })]);
+    const ranAgain = runs(["write", asks, decided("agent", { kind: "answered" })], ["write", done]);
 
-    expect(nextMove(stages, ran)).toMatchObject({ move: "run", stage: { key: "check" } });
+    expect(nextMove(stages, answered, NO_DEFINITION_OF_DONE)).toMatchObject({
+      move: "run",
+      stage: { key: "write" },
+      carriedFailure: undefined,
+    });
+    expect(nextMove(stages, ranAgain, NO_DEFINITION_OF_DONE)).toMatchObject({
+      move: "run",
+      stage: { key: "check" },
+    });
   });
 
-  it("completes when every Stage ended done", () => {
-    expect(nextMove(stages, runs(["write", done], ["check", done], ["look", done]))).toEqual({
-      move: "complete",
+  describe("after a failure with no retries left", () => {
+    it("goes back for the rounds the user allowed, counting on from the loop's", () => {
+      const ran = answeredUsedUp({ kind: "more-rounds", rounds: 2 });
+
+      expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toEqual({
+        move: "run",
+        stage: stages[0],
+        carriedFailure: { stageKey: "check", error: "Third.", round: 3, rounds: 4 },
+      });
+    });
+
+    it("goes back once more with the user's guidance", () => {
+      const ran = answeredUsedUp({ kind: "one-more-round", guidance: "Mock the clock." });
+
+      expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toMatchObject({
+        stage: { key: "write" },
+        carriedFailure: { round: 3, rounds: 3, guidance: "Mock the clock." },
+      });
+    });
+
+    it("runs a Stage without a loop itself again for the round the user gave it", () => {
+      const ran = runs([
+        "write",
+        failed("The session ended."),
+        decided("no-retries-left", { kind: "one-more-round", guidance: undefined }),
+      ]);
+
+      expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toEqual({
+        move: "run",
+        stage: stages[0],
+        carriedFailure: { stageKey: "write", error: "The session ended.", round: 1, rounds: 1 },
+      });
+    });
+
+    it("goes on past the failed Stage when the user continues with its issues", () => {
+      const ran = answeredUsedUp({ kind: "accept-issues" });
+
+      expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: { key: "look" },
+        carriedFailure: undefined,
+      });
+    });
+
+    it("drops the Task when the user drops it", () => {
+      expect(nextMove(stages, answeredUsedUp({ kind: "drop" }), NO_DEFINITION_OF_DONE)).toEqual({
+        move: "drop",
+      });
+    });
+  });
+
+  describe("at the end of the Pipeline", () => {
+    it("completes when the last report has every statement of the Definition of Done met", () => {
+      expect(nextMove(stages, allRan(meeting(1, 2)), DEFINITION_OF_DONE)).toEqual({
+        move: "complete",
+      });
+    });
+
+    it("asks the user when the last report leaves a statement unmet", () => {
+      const ran = allRan(meeting(2));
+
+      expect(nextMove(stages, ran, DEFINITION_OF_DONE)).toEqual({
+        move: "ask",
+        run: ran[2],
+        question: { kind: "definition-of-done", unmet: ["The name shows"], again: stages[2] },
+      });
+    });
+
+    it("completes when the user marks the Task Done anyway", () => {
+      const ran = allRan(meeting(2), decided("definition-of-done", { kind: "mark-done" }));
+
+      expect(nextMove(stages, ran, DEFINITION_OF_DONE)).toEqual({ move: "complete" });
+    });
+
+    it("runs the last Agent Stage once more with what is left and the user's guidance", () => {
+      const answer = { kind: "one-more-round", guidance: "Show it bold." } as const;
+      const ran = allRan(meeting(2), decided("definition-of-done", answer));
+
+      expect(nextMove(stages, ran, DEFINITION_OF_DONE)).toEqual({
+        move: "run",
+        stage: stages[2],
+        carriedFailure: {
+          stageKey: "look",
+          error: "The Definition of Done isn't reported met:\n- The name shows",
+          round: 1,
+          rounds: 1,
+          guidance: "Show it bold.",
+        },
+      });
+    });
+
+    it("checks it after issues the user continued with at the last Stage too", () => {
+      const accepted = decided("no-retries-left", { kind: "accept-issues" });
+      const metEarlier = allRan(failed("A finding."), accepted);
+      const ran = runs(["write", meeting(1)], ["check", done], ["look", failed("A finding.")]);
+      const last = ran[2];
+      if (!last) throw new Error("The look never ran.");
+      ran[2] = { ...last, decisions: [accepted] };
+
+      // Without a loop of its own, the look fails with no retries left at once.
+      const lookLast = [agentStage("write"), scriptStage("check"), agentStage("look")];
+
+      expect(nextMove(lookLast, metEarlier, DEFINITION_OF_DONE)).toEqual({ move: "complete" });
+      expect(nextMove(lookLast, ran, DEFINITION_OF_DONE)).toMatchObject({
+        move: "ask",
+        run: { stageKey: "look" },
+        question: { kind: "definition-of-done", unmet: ["The name persists"] },
+      });
     });
   });
 
   it("refuses runs that don't follow the Task's Stages", () => {
-    expect(() => nextMove(stages, runs(["check", done]))).toThrow(/expected "write"/);
+    expect(() => nextMove(stages, runs(["check", done]), NO_DEFINITION_OF_DONE)).toThrow(
+      /expected "write"/,
+    );
+  });
+
+  it("refuses runs after one whose Decision is still open", () => {
+    const ran = runs(["write", asks, decided("agent")], ["write", done]);
+
+    expect(() => nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toThrow(/yet runs follow it/);
+  });
+});
+
+describe("unmetStatements", () => {
+  it("goes by the last report, which a Script Stage never gives", () => {
+    const ran = runs(["write", meeting(1)], ["look", meeting(1, 2)], ["check", done]);
+
+    expect(unmetStatements(DEFINITION_OF_DONE, ran)).toEqual([]);
+    expect(unmetStatements(DEFINITION_OF_DONE, ran.slice(0, 1))).toEqual(["The name persists"]);
+    expect(unmetStatements(DEFINITION_OF_DONE, [])).toEqual(DEFINITION_OF_DONE);
   });
 });

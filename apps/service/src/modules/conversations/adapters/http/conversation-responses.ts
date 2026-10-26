@@ -43,9 +43,10 @@ export function toMessageResponse(
     case "context":
       return { ...fields, briefTokens: fields.briefTokens ?? null, brief: fields.brief ?? null };
     case "decision": {
-      const { decisionId, ...card } = fields;
+      const { decisionId, roleKey, ...card } = fields;
       return {
         ...card,
+        roleKey: roleKey ?? null,
         decision: toDecisionResponse(decisionOf(message.id, decisionId, decisions)),
       };
     }
@@ -77,6 +78,7 @@ function decisionOf(
 export function toDecisionResponse({ answer, askedAt, ...decision }: Decision): DecisionResponse {
   return {
     ...decision,
+    roleKey: decision.roleKey ?? null,
     options: [...decision.options],
     recommendation: { ...decision.recommendation },
     askedAt: askedAt.toISOString(),

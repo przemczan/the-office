@@ -60,10 +60,13 @@ interface Refusal {
   readonly reason: string;
 }
 
-/** A Decision the person opened, shown as its card; the Decision holds its question and answer. */
+/**
+ * A Decision the person opened, or The Office did (no Role), shown as its card; the Decision holds
+ * its question and answer.
+ */
 interface DecisionCard {
   readonly kind: "decision";
-  readonly roleKey: string;
+  readonly roleKey: string | undefined;
   readonly decisionId: string;
 }
 

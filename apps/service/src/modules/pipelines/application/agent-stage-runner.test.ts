@@ -84,7 +84,7 @@ describe("AgentStageRunner", () => {
     expect(record).toContain("## The Task\n\nRename a device, in the Project Admin panel.");
     expect(record).toContain("## The Plan\n\nAdd a rename dialog to the device page.");
     expect(record).toContain(
-      "## The Definition of Done\n\n- The new name shows on the list\n- The rename persists",
+      "## The Definition of Done\n\n1. The new name shows on the list\n2. The rename persists",
     );
     expect(record).toContain("- mockup.png (image, image/png, 2048 bytes) · Attachment a-1");
     expect(record).toContain("- build: `npm run build`\n- test: `npm test`");
@@ -94,6 +94,7 @@ describe("AgentStageRunner", () => {
       status: "done",
       summary: "Added the dialog.",
       handoverNote: "Left: the list's refresh.",
+      definitionOfDoneMet: [1, 2],
     });
     expect(pipelines.stageThreads.ended).toEqual([
       { threadId: run?.threadId, handoverNote: "Left: the list's refresh.", failure: undefined },
@@ -160,7 +161,12 @@ describe("AgentStageRunner", () => {
     const taskId = await walkStages(pipelines, [implement]);
 
     expect(await outcomesOf(taskId)).toEqual([
-      { status: "done", summary: "Added the dialog.", handoverNote: "Nothing is left." },
+      {
+        status: "done",
+        summary: "Added the dialog.",
+        handoverNote: "Nothing is left.",
+        definitionOfDoneMet: [1, 2],
+      },
     ]);
     const [correction] = pipelines.stageThreads.sent;
     expect(correction?.text).toContain('status "done" requires "handoverNote".');

@@ -20,7 +20,15 @@ export interface StageDecision {
  * Stage's also carries its Handover note (spec §2.5), which the next Brief hands on.
  */
 export type StageOutcome = (
-  | { readonly status: "done"; readonly summary: string }
+  | {
+      readonly status: "done";
+      readonly summary: string;
+      /**
+       * The Definition of Done statements an Agent Stage reports its work now meets, by their
+       * numbers in its Brief, from 1. Undefined for a Script Stage, which reports none.
+       */
+      readonly definitionOfDoneMet?: readonly number[];
+    }
   | ({ readonly status: "needs-decision" } & StageDecision)
   | { readonly status: "failed"; readonly error: string }
 ) & { readonly handoverNote?: string };
@@ -39,6 +47,39 @@ export interface CarriedFailure {
   readonly round: number;
   /** How many times the loop may go back. */
   readonly rounds: number;
+  /** What the user said to do differently this round, when they gave it in a Decision. */
+  readonly guidance?: string;
+}
+
+/**
+ * Why the walk asks the user (spec §2.3): an Agent's own question, a Stage that failed with no
+ * retries left, or a Pipeline that ended with the Definition of Done not reported met.
+ */
+export type StageDecisionKind = "agent" | "no-retries-left" | "definition-of-done";
+
+/** What the user's answer to a Decision lets the walk do. */
+export type WalkAnswer =
+  /** The Agent's question is answered: its Stage runs again, with the answer in its Brief. */
+  | { readonly kind: "answered" }
+  /** The failed Stage's loop may go back this many more times. */
+  | { readonly kind: "more-rounds"; readonly rounds: number }
+  /** One more round, with what the user said to do differently, if anything. */
+  | { readonly kind: "one-more-round"; readonly guidance: string | undefined }
+  /** The walk goes on past the failed Stage; its failure is recorded as an accepted issue. */
+  | { readonly kind: "accept-issues" }
+  /** The Task is Done although the Definition of Done isn't reported met. */
+  | { readonly kind: "mark-done" }
+  | { readonly kind: "drop" };
+
+/** A Decision the walk opened on a run, kept as data so the walk can replay its answer. */
+export interface StageRunDecision {
+  /** The Decision's id, as Conversations keeps it. */
+  readonly id: string;
+  readonly kind: StageDecisionKind;
+  /** What each of the Decision's options does, in the order it lists them. */
+  readonly options: readonly WalkAnswer[];
+  /** Undefined while it waits on the user. */
+  readonly answer: WalkAnswer | undefined;
 }
 
 /**
@@ -62,6 +103,8 @@ export interface StageRun {
   readonly headCommit: string | undefined;
   /** The Project commands The Office ran for the run, in order; none when it ran none. */
   readonly commandRuns: readonly StageCommandRun[];
+  /** The Decisions the walk opened on the run, at most one of each kind. */
+  readonly decisions: readonly StageRunDecision[];
   /** Undefined while the Stage runs. */
   readonly outcome: StageOutcome | undefined;
   readonly startedAt: Date;

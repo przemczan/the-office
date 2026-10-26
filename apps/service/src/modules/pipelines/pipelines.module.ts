@@ -9,6 +9,7 @@ import { StageRunners } from "./application/stage-runners.js";
 import { TaskStagesService } from "./application/task-stages-service.js";
 import { PipelineLibraryModule } from "./pipeline-library.module.js";
 import { KnownPeople } from "./ports/known-people.js";
+import { StageDecisions } from "./ports/stage-decisions.js";
 import { StageRunRepository } from "./ports/stage-run-repository.js";
 import { StageThreads } from "./ports/stage-threads.js";
 import { StartedTasks } from "./ports/started-tasks.js";
@@ -24,6 +25,7 @@ export interface PipelinesModuleOptions {
   readonly taskRecords: Type<TaskRecords>;
   readonly knownPeople: Type<KnownPeople>;
   readonly stageThreads: Type<StageThreads>;
+  readonly stageDecisions: Type<StageDecisions>;
   readonly taskGit: Type<TaskGit>;
   readonly taskCommands: Type<TaskCommands>;
 }
@@ -37,6 +39,7 @@ export class PipelinesModule {
     taskRecords,
     knownPeople,
     stageThreads,
+    stageDecisions,
     taskGit,
     taskCommands,
   }: PipelinesModuleOptions): DynamicModule {
@@ -50,6 +53,7 @@ export class PipelinesModule {
         { provide: TaskRecords, useExisting: taskRecords },
         { provide: KnownPeople, useExisting: knownPeople },
         { provide: StageThreads, useExisting: stageThreads },
+        { provide: StageDecisions, useExisting: stageDecisions },
         { provide: TaskGit, useExisting: taskGit },
         { provide: TaskCommands, useExisting: taskCommands },
         TaskStagesService,

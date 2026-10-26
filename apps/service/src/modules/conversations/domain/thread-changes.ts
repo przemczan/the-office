@@ -214,10 +214,12 @@ export function beginAnswer(thread: Thread, answering: Answering): ThreadChange<
   return begin(thread, answering, [...movedLines(thread, answering, said.at), said], said.at);
 }
 
-/** A Decision the person opens in the Thread they work in, and when. */
+/** A Decision the person opens in the Thread they work in, or The Office does, and when. */
 export interface DecisionOpening extends DecisionDraft {
   readonly id: string;
   readonly askedAt: Date;
+  /** The Office asks, not the Thread's person (spec §9: it has no person in tier 1). */
+  readonly byTheOffice?: boolean;
 }
 
 /**
@@ -227,7 +229,7 @@ export interface DecisionOpening extends DecisionDraft {
  */
 export function openDecision(
   thread: Thread,
-  { id, askedAt, ...draft }: DecisionOpening,
+  { id, askedAt, byTheOffice = false, ...draft }: DecisionOpening,
 ): ThreadChange<DecisionOpened> {
   if (thread.home.kind !== "task") {
     throw new ThreadRefused([
@@ -246,7 +248,7 @@ export function openDecision(
     id,
     threadId: thread.id,
     taskId: thread.home.taskId,
-    roleKey: thread.session?.roleKey ?? thread.roleKey,
+    roleKey: byTheOffice ? undefined : (thread.session?.roleKey ?? thread.roleKey),
     askedAt,
     answer: undefined,
   };
@@ -287,10 +289,7 @@ export function answerDecision(
   answering: DecisionAnswering,
 ): ThreadChange<DecisionAnswered> {
   const { decisionId, answer, messageId, answeredAt } = answering;
-  const open = thread.openDecision;
-  if (open?.id !== decisionId) throw new ThreadRefused(["This Decision is answered already."]);
-  const problems = answerProblems(open, answer);
-  if (problems.length > 0) throw new ThreadRefused(problems);
+  const open = answerableDecision(thread, decisionId, answer);
   if (thread.state === "answering") {
     throw new ThreadRefused([
       `${answering.personName} is still answering. Answer once they finish.`,
@@ -318,6 +317,51 @@ export function answerDecision(
     decision,
     event: new DecisionAnswered(begun.thread, decision, answeredAt),
   };
+}
+
+/** The user's answer to a Decision that no session takes, and when. */
+export interface DecisionRecording {
+  readonly decisionId: string;
+  readonly answer: DecisionAnswer;
+  readonly messageId: string;
+  readonly answeredAt: Date;
+}
+
+/**
+ * The user answers a Decision whose answer goes to the Task's Pipeline, not into a session: The
+ * Office's own, and an Agent's in a Stage Thread, whose session ended with its Stage. The answer
+ * is logged and the Decision answered; the walk takes it from there.
+ */
+export function recordDecisionAnswer(
+  thread: Thread,
+  { decisionId, answer, messageId, answeredAt }: DecisionRecording,
+): ThreadChange<DecisionAnswered> {
+  const open = answerableDecision(thread, decisionId, answer);
+  const decision: Decision = { ...open, answer: { ...answer, answeredAt } };
+  const line: Message = {
+    kind: "decision-answer",
+    id: messageId,
+    threadId: thread.id,
+    at: answeredAt,
+    decisionId,
+    answer,
+  };
+  const answered: Thread = { ...thread, openDecision: undefined };
+  return {
+    thread: answered,
+    logged: [line],
+    decision,
+    event: new DecisionAnswered(answered, decision, answeredAt),
+  };
+}
+
+/** The Thread's open Decision, when it is the one answered and the answer is one. */
+function answerableDecision(thread: Thread, decisionId: string, answer: DecisionAnswer): Decision {
+  const open = thread.openDecision;
+  if (open?.id !== decisionId) throw new ThreadRefused(["This Decision is answered already."]);
+  const problems = answerProblems(open, answer);
+  if (problems.length > 0) throw new ThreadRefused(problems);
+  return open;
 }
 
 /** The move's line, unless it was simply continuing a warm session. */

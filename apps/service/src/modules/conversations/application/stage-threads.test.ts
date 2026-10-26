@@ -5,6 +5,8 @@ import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
+import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import { EventBus } from "../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
@@ -12,6 +14,7 @@ import { ScriptedEngine, ScriptedEngineModule, type SessionScript } from "../../
 import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
+import { DecisionAnswered } from "../domain/conversation-events.js";
 import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "../domain/context-policy.js";
 import type { Message, MessageDraft } from "../domain/message.js";
 import type { Thread } from "../domain/thread.js";
@@ -20,8 +23,10 @@ import { ThreadRefused } from "../domain/thread-refused.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
+import { DecisionService } from "./decision-service.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
+import { StageDecisions } from "./stage-decisions.js";
 import { StageThreads, type StageThreadRequest } from "./stage-threads.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
 import { CONTEXT_POLICY_SETTINGS } from "./thread-contexts.js";
@@ -108,6 +113,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       SessionPlaces,
       ThreadRunner,
       StageThreads,
+      StageDecisions,
+      DecisionService,
     ],
   }));
   stageThreads = app.get(StageThreads);
@@ -403,5 +410,73 @@ describe("StageThreads", () => {
     await expect(app.get(ThreadRunner).send(stageThread.threadId, "Hello?")).rejects.toThrow(
       ThreadRefused,
     );
+  });
+});
+
+/** Every DecisionAnswered published from now on. */
+function answeredEvents(): DecisionAnswered[] {
+  const answered: DecisionAnswered[] = [];
+  app.get(EventBus).subscribeToEveryEvent((event: DomainEvent) => {
+    if (event instanceof DecisionAnswered) answered.push(event);
+  });
+  return answered;
+}
+
+describe("StageDecisions", () => {
+  const draft = {
+    question: "Which page?",
+    context: "Both list devices.",
+    options: ["The device page", "The list"],
+    recommendation: { option: 0, reason: "It has the room." },
+  };
+
+  it("opens an Agent's question in its Stage Thread, and takes the answer for the Pipeline with no session", async () => {
+    await startWith(started(...aTurn({ status: "needs_decision" })));
+    const ada = aPerson("Ada");
+    const request = aStage({ roleKey: ada });
+    const { stageThread } = await aStageRun(request);
+    const answered = answeredEvents();
+
+    const id = await app.get(StageDecisions).open({
+      taskId: request.taskId,
+      threadId: stageThread.threadId,
+      byTheOffice: false,
+      draft,
+    });
+    const thread = await app.get(DecisionService).answer(id, { kind: "option", option: 1 });
+
+    expect(thread.openDecision).toBeUndefined();
+    const log = drafts(await repository.messages(stageThread.threadId));
+    expect(log.slice(-2)).toEqual([
+      { kind: "decision", roleKey: ada, decisionId: id },
+      { kind: "decision-answer", decisionId: id, answer: { kind: "option", option: 1 } },
+    ]);
+    expect(answered.map(({ decision }) => [decision.id, decision.answer?.kind])).toEqual([
+      [id, "option"],
+    ]);
+    // The session ended with the Stage; nothing started another.
+    expect(engine.sessions).toHaveLength(1);
+    expect(await repository.answeredOn(request.taskId)).toHaveLength(1);
+  });
+
+  it("opens The Office's own in the Task's newest Thread, asked by no person", async () => {
+    await startWith();
+    const taskId = randomUUID();
+    await anAnsweredDecision(taskId, aPerson("Jan"));
+    const [planning] = await repository.listIn({ kind: "task", taskId });
+
+    const id = await app.get(StageDecisions).open({
+      taskId,
+      threadId: undefined,
+      byTheOffice: true,
+      draft,
+    });
+    const opened = await repository.decision(id);
+    await app.get(DecisionService).answer(id, { kind: "free-answer", text: "Mock the clock." });
+
+    expect(opened).toMatchObject({ threadId: planning?.id, roleKey: undefined });
+    expect((await repository.decision(id))?.answer).toMatchObject({ kind: "free-answer" });
+    // The Office's answers guide the walk, not the next Brief.
+    expect(await repository.answeredOn(taskId)).toHaveLength(1);
   });
 });

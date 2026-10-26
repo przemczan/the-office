@@ -4,7 +4,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import type { Decision, DecisionAnswer, DecisionDraft } from "../domain/decision.js";
 import { DecisionNotFound } from "../domain/decision-not-found.js";
 import type { Thread } from "../domain/thread.js";
-import { openDecision } from "../domain/thread-changes.js";
+import { openDecision, recordDecisionAnswer } from "../domain/thread-changes.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { ThreadRunner } from "./thread-runner.js";
@@ -39,13 +39,29 @@ export class DecisionService {
 
   /**
    * Answers the Decision; the person who asked takes the answer in its Thread as their next message.
-   * Refused once it is answered, and while the person is still answering.
+   * The answer to The Office's Decision, or to one in a Stage Thread, goes to the Task's Pipeline
+   * instead, which runs on from it. Refused once it is answered, and while the person is still
+   * answering.
    */
   async answer(id: string, answer: DecisionAnswer): Promise<Thread> {
     const decision = await this.repository.decision(id);
     if (!decision) throw new DecisionNotFound(id);
     if (decision.answer) throw new ThreadRefused(["This Decision is answered already."]);
-    return this.runner.answerDecision(decision.threadId, id, answer);
+    const thread = await this.repository.find(decision.threadId);
+    if (!thread) throw new Error(`Decision ${id}'s Thread is gone.`);
+    if (decision.roleKey !== undefined && !thread.stageThread) {
+      return this.runner.answerDecision(decision.threadId, id, answer);
+    }
+    const { thread: answered, event } = await this.repository.update(thread.id, (latest) =>
+      recordDecisionAnswer(latest, {
+        decisionId: id,
+        answer,
+        messageId: randomUUID(),
+        answeredAt: new Date(),
+      }),
+    );
+    if (event) await this.events.publish(event);
+    return answered;
   }
 
   /** Every Decision waiting on the user, the first asked first: what Waiting on you shows. */

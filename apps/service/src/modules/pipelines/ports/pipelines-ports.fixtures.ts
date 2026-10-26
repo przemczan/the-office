@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable, Module, type DynamicModule, type ModuleMetadata } from "@nestjs/common";
 import { EngineSessions } from "../../engine/index.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
+import { StageDecisions, type StageDecisionRequest } from "./stage-decisions.js";
 import {
   StageThreads,
   type StageThread,
@@ -164,6 +165,25 @@ export class StageThreadsForTests extends StageThreads {
   }
 }
 
+/** Conversations' Decisions in memory: each one opened, by its id. */
+@Injectable()
+export class StageDecisionsForTests extends StageDecisions {
+  readonly opened = new Map<string, StageDecisionRequest>();
+
+  open(request: StageDecisionRequest): Promise<string> {
+    const id = randomUUID();
+    this.opened.set(id, request);
+    return Promise.resolve(id);
+  }
+
+  /** The Decisions opened on the Task, in order, each with its id. */
+  on(taskId: string): (StageDecisionRequest & { readonly id: string })[] {
+    return [...this.opened]
+      .filter(([, request]) => request.taskId === taskId)
+      .map(([id, request]) => ({ ...request, id }));
+  }
+}
+
 /** The commit every Task's worktree starts at, as planning left it. */
 export const PLANNED_COMMIT = "0123456789abcdef0123456789abcdef01234567";
 
@@ -280,6 +300,7 @@ export class PipelinesPortsForTestsModule {
       TaskRecordsForTests,
       KnownPeopleForTests,
       StageThreadsForTests,
+      StageDecisionsForTests,
       TaskGitForTests,
       TaskCommandsForTests,
     ];

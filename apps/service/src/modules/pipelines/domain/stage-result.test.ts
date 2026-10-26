@@ -9,18 +9,21 @@ const decision = {
 };
 
 describe("STAGE_RESULT_SCHEMA", () => {
-  it("is flat, and requires the Handover note only when the Stage is done", () => {
+  it("is flat, and requires the Handover note and the Definition of Done report only when done", () => {
     expect(STAGE_RESULT_SCHEMA).toMatchObject({
       type: "object",
       required: ["status", "summary"],
       if: { properties: { status: { const: "done" } } },
     });
-    expect(STAGE_RESULT_SCHEMA["then"]).toEqual({ required: ["handoverNote"] });
+    expect(STAGE_RESULT_SCHEMA["then"]).toEqual({
+      required: ["handoverNote", "definitionOfDoneMet"],
+    });
     expect(STAGE_RESULT_SCHEMA).not.toHaveProperty("allOf");
     expect(Object.keys(STAGE_RESULT_SCHEMA["properties"] as object)).toEqual([
       "status",
       "summary",
       "handoverNote",
+      "definitionOfDoneMet",
       "decision",
       "failureReason",
     ]);
@@ -31,10 +34,20 @@ describe("STAGE_RESULT_SCHEMA", () => {
 describe("readStageResult", () => {
   it("reads each status as the run's outcome, with the Handover note", () => {
     expect(
-      readStageResult({ status: "done", summary: "Built.", handoverNote: "All set." }),
+      readStageResult({
+        status: "done",
+        summary: "Built.",
+        handoverNote: "All set.",
+        definitionOfDoneMet: [1, 3],
+      }),
     ).toEqual({
       valid: true,
-      outcome: { status: "done", summary: "Built.", handoverNote: "All set." },
+      outcome: {
+        status: "done",
+        summary: "Built.",
+        handoverNote: "All set.",
+        definitionOfDoneMet: [1, 3],
+      },
     });
     expect(readStageResult({ status: "needs_decision", summary: "Asked.", decision })).toEqual({
       valid: true,
@@ -62,6 +75,9 @@ describe("readStageResult", () => {
       valid: false,
       problems: 'status "done" requires "handoverNote".',
     });
+    expect(
+      readStageResult({ status: "done", summary: "Built.", handoverNote: "All set." }),
+    ).toEqual({ valid: false, problems: 'status "done" requires "definitionOfDoneMet".' });
     expect(readStageResult({ data: { status: "done" } })).toMatchObject({ valid: false });
     expect(
       readStageResult({

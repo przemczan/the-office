@@ -14,10 +14,12 @@ import {
 import { StageInterpreter } from "./application/stage-interpreter.js";
 import type { Stage } from "./domain/stage.js";
 import type { StageRun } from "./domain/stage-run.js";
+import type { DecisionAnswer } from "./domain/walk-decisions.js";
 import { PipelinesModule } from "./pipelines.module.js";
 import {
   KnownPeopleForTests,
   PipelinesPortsForTestsModule,
+  StageDecisionsForTests,
   StageThreadsForTests,
   StartedTasksForTests,
   TaskCommandsForTests,
@@ -36,6 +38,7 @@ export interface PipelinesApplication {
   readonly records: TaskRecordsForTests;
   readonly people: KnownPeopleForTests;
   readonly stageThreads: StageThreadsForTests;
+  readonly decisions: StageDecisionsForTests;
   readonly git: TaskGitForTests;
   readonly commands: TaskCommandsForTests;
   readonly published: DomainEvent[];
@@ -63,6 +66,7 @@ export async function startPipelinesApplication(
         taskRecords: TaskRecordsForTests,
         knownPeople: KnownPeopleForTests,
         stageThreads: StageThreadsForTests,
+        stageDecisions: StageDecisionsForTests,
         taskGit: TaskGitForTests,
         taskCommands: TaskCommandsForTests,
       }),
@@ -77,6 +81,7 @@ export async function startPipelinesApplication(
     records: app.get(TaskRecordsForTests, { strict: false }),
     people: app.get(KnownPeopleForTests, { strict: false }),
     stageThreads: app.get(StageThreadsForTests, { strict: false }),
+    decisions: app.get(StageDecisionsForTests, { strict: false }),
     git: app.get(TaskGitForTests, { strict: false }),
     commands: app.get(TaskCommandsForTests, { strict: false }),
     published,
@@ -145,7 +150,27 @@ export function anAgentSession(output: unknown): SessionScript {
   return [{ step: "start", brief: { id: "brief", text: "" } }, aTurn(output), { step: "end" }];
 }
 
-/** A result that says the Stage is done, as an Agent Stage's session answers. */
-export function aDoneResult(summary = "Done.", handoverNote = "Nothing is left."): unknown {
-  return { status: "done", summary, handoverNote };
+/**
+ * A result that says the Stage is done, as an Agent Stage's session answers, reporting met the
+ * Definition of Done statements `met` numbers: by default both of `aTaskRecord`'s.
+ */
+export function aDoneResult(
+  summary = "Done.",
+  handoverNote = "Nothing is left.",
+  met: readonly number[] = [1, 2],
+): unknown {
+  return { status: "done", summary, handoverNote, definitionOfDoneMet: met };
+}
+
+/** Answers the walk's last Decision on the Task as the user would, and waits for the walk. */
+export async function answerLastDecision(
+  { app, decisions }: PipelinesApplication,
+  taskId: string,
+  answer: DecisionAnswer,
+): Promise<void> {
+  const decision = decisions.on(taskId).at(-1);
+  if (!decision) throw new Error(`Task ${taskId} has no Decision to answer.`);
+  const interpreter = app.get(StageInterpreter, { strict: false });
+  await interpreter.takeAnswer(taskId, decision.id, answer);
+  await interpreter.walked(taskId);
 }

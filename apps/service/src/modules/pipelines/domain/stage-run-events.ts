@@ -40,7 +40,7 @@ export class WentBackToStage extends DomainEvent {
 
 /**
  * A Stage failed with no retries left: it has no loop, or its loop went back as many times as it
- * may. The walk stops and the Task waits on the user.
+ * may. The Task waits on the user's answer to The Office's Decision.
  */
 export class NoRetriesLeft extends DomainEvent {
   constructor(
@@ -52,7 +52,20 @@ export class NoRetriesLeft extends DomainEvent {
   }
 }
 
-/** Every one of the Task's Stages ended done. */
+/**
+ * Every Stage ended, but the Definition of Done isn't reported met: the Task waits on the user's
+ * answer to The Office's Decision instead of being Done.
+ */
+export class DefinitionOfDoneNotMet extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly unmet: readonly string[],
+  ) {
+    super();
+  }
+}
+
+/** Every one of the Task's Stages ended, with the Definition of Done met or called met. */
 export class PipelineCompleted extends DomainEvent {
   constructor(readonly taskId: string) {
     super();

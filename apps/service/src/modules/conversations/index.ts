@@ -1,4 +1,5 @@
 export { InterruptedAnswers } from "./application/interrupted-answers.js";
+export { StageDecisions, type StageDecisionRequest } from "./application/stage-decisions.js";
 export {
   StageThreads,
   type StageSessionSettings,

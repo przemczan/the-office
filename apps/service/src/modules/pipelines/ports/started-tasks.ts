@@ -1,5 +1,5 @@
 /** The states the walk reads a Task in and moves it between. */
-export type WalkTaskState = "in-progress" | "waiting-on-you" | "done";
+export type WalkTaskState = "in-progress" | "waiting-on-you" | "done" | "dropped";
 
 /** What the walk reads of a Task. */
 export interface StartedTask {

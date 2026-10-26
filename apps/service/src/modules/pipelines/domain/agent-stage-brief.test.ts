@@ -78,11 +78,29 @@ describe("agentStageWork", () => {
   it("carries the failure a loop went back with", () => {
     expect(
       agentStageWork(
-        { name: "Implement", brief: "Build it." },
+        { key: "implement", name: "Implement", brief: "Build it." },
         { stageKey: "tests", stageName: "Tests", error: "1 fails.", round: 1, rounds: 2 },
       ),
     ).toBe(
       '## The Stage: Implement\n\nBuild it.\n\n## Why this Stage runs again\n\n"Tests" failed after it, so the Pipeline went back here (round 1 of 2):\n\n1 fails.',
+    );
+  });
+
+  it("carries the round the user gave the Stage itself, with their guidance", () => {
+    const work = agentStageWork(
+      { key: "implement", name: "Implement", brief: "Build it." },
+      {
+        stageKey: "implement",
+        stageName: "Implement",
+        error: "The session ended.",
+        round: 1,
+        rounds: 1,
+        guidance: "Keep the old dialog.",
+      },
+    );
+
+    expect(work).toContain(
+      "## Why this Stage runs again\n\nThe user chose one more round of this Stage after:\n\nThe session ended.\n\nThe user's guidance for this round:\n\nKeep the old dialog.",
     );
   });
 });

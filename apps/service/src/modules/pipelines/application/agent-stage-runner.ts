@@ -19,6 +19,7 @@ import {
   type StageResultReading,
 } from "../domain/stage-result.js";
 import { KnownPeople, type KnownPerson } from "../ports/known-people.js";
+import { acceptedIssues } from "../domain/walk-decisions.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StageThreads, type StageThread, type StageTurn } from "../ports/stage-threads.js";
 import { TaskCommands } from "../ports/task-commands.js";
@@ -96,7 +97,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
    * itself, which fails it with the reason and leaves its work uncommitted for the user to see.
    */
   private async commitWork(
-    { stage, run }: StageWork<"agent">,
+    { stage, run, stages, earlierRuns }: StageWork<"agent">,
     task: TaskRecord,
     expected: ExpectedHead,
     result: StageOutcome,
@@ -109,7 +110,12 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         handoverNote: result.handoverNote,
       };
     }
-    await this.stageGit.commit(run, task, expected, stageCommitMessage(stage.name, result));
+    await this.stageGit.commit(
+      run,
+      task,
+      expected,
+      stageCommitMessage(stage.name, result, acceptedIssues(stages, earlierRuns)),
+    );
     return result;
   }
 

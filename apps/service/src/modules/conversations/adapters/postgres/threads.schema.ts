@@ -73,7 +73,8 @@ export const decisions = pgTable(
       .notNull()
       .references(() => threads.id, { onDelete: "cascade" }),
     taskId: text("task_id").notNull(),
-    roleKey: text("role_key").notNull(),
+    /** Null when The Office asked. */
+    roleKey: text("role_key"),
     question: text("question").notNull(),
     context: text("context").notNull(),
     options: jsonb("options").$type<readonly string[]>().notNull(),

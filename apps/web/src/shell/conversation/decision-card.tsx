@@ -9,6 +9,7 @@ import { RefusalAlert } from "../refusal-alert.tsx";
  * A Decision as a card in the asking person's Thread (spec §2.4): the question, what they found,
  * the options with the one they recommend, and a free answer. Follow-ups are ordinary messages in
  * the composer below, and leave it open. Nothing is answered while the person is still answering.
+ * The Office's own Decisions about the Task's Pipeline show in the same Thread, as The Office's.
  */
 export function DecisionCard({
   decision,
@@ -19,11 +20,12 @@ export function DecisionCard({
   readonly personName: string;
   readonly answering: boolean;
 }): ReactNode {
+  const asker = askerName(decision, personName);
   return (
     <section className="message decision-card" aria-label={`Decision: ${decision.question}`}>
       <div className="message-by">
         <Badge tone="warning">Decision</Badge>
-        {personName}
+        {asker}
       </div>
       <div className="message-text decision-question">{decision.question}</div>
       {decision.context !== "" && <p className="decision-context">{decision.context}</p>}
@@ -52,6 +54,7 @@ function OpenDecision({
   const answeringDecision = useAnswering(decision);
   const busy = answering || answeringDecision.isPending;
   const recommended = decision.recommendation.option;
+  const byTheOffice = decision.roleKey === null;
   const waitHint = answering ? `${personName} is still answering` : undefined;
   return (
     <>
@@ -70,7 +73,8 @@ function OpenDecision({
         ))}
       </div>
       <p className="decision-recommendation">
-        {personName} recommends “{decision.options[recommended]}”: {decision.recommendation.reason}
+        {askerName(decision, personName)} recommends “{decision.options[recommended]}”:{" "}
+        {decision.recommendation.reason}
       </p>
       <form
         className="decision-free-answer"
@@ -99,14 +103,21 @@ function OpenDecision({
           Answer
         </Button>
       </form>
-      <p className="decision-hint">
-        A question first? Ask {personName} below; the Decision stays open.
-      </p>
+      {!byTheOffice && (
+        <p className="decision-hint">
+          A question first? Ask {personName} below; the Decision stays open.
+        </p>
+      )}
       {answeringDecision.error && (
         <RefusalAlert title="The answer wasn't sent" error={answeringDecision.error} />
       )}
     </>
   );
+}
+
+/** Who asked: the Thread's person, or The Office, which has no person (spec §9). */
+function askerName(decision: Decision, personName: string): string {
+  return decision.roleKey === null ? "The Office" : personName;
 }
 
 /** Answers the Decision; the asking person takes it in the Thread, which answers with its state. */

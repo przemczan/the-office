@@ -6,7 +6,8 @@ import { Test } from "@nestjs/testing";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { testDatabaseUrl } from "../test/test-database.js";
 import { AppModule } from "./app.module.js";
-import { TaskCommands, TaskGit } from "./modules/pipelines/index.js";
+import { StageDecisions as ConversationsStageDecisions } from "./modules/conversations/index.js";
+import { StageDecisions, TaskCommands, TaskGit } from "./modules/pipelines/index.js";
 import { TaskWorktrees } from "./modules/projects/index.js";
 
 // Compiled, not started: the composition root's bindings resolve without the engine or listening.
@@ -40,4 +41,11 @@ it.each([
 
   expect(bound).toBeInstanceOf(TaskWorktrees);
   expect(bound).toBe(app.get(TaskWorktrees, { strict: false }));
+});
+
+it("binds Pipelines' Stage Decisions to Conversations' one service", () => {
+  const bound: unknown = app.get(StageDecisions, { strict: false });
+
+  expect(bound).toBeInstanceOf(ConversationsStageDecisions);
+  expect(bound).toBe(app.get(ConversationsStageDecisions, { strict: false }));
 });

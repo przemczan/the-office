@@ -1,6 +1,7 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { installFailure, scriptStageOutcome } from "../domain/script-stage-outcome.js";
 import { stageCommitMessage } from "../domain/stage-commit.js";
+import { acceptedIssues } from "../domain/walk-decisions.js";
 import { commandRunsOf, failedInstall, installRuns } from "../domain/stage-command-run.js";
 import type { StageOutcome } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
@@ -67,7 +68,14 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
       };
     }
     if (command === "test") await this.stageGit.leaveAt(run, expected);
-    else await this.stageGit.commit(run, task, expected, stageCommitMessage(stage.name, outcome));
+    else {
+      const message = stageCommitMessage(
+        stage.name,
+        outcome,
+        acceptedIssues(work.stages, work.earlierRuns),
+      );
+      await this.stageGit.commit(run, task, expected, message);
+    }
     return outcome;
   }
 }
