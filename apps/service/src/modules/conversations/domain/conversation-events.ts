@@ -69,3 +69,17 @@ export class DecisionAnswered extends DomainEvent {
     super(answeredAt);
   }
 }
+
+/**
+ * The session a Decision's answer went to never started: the Decision waits on the user again,
+ * and the Thread logged why.
+ */
+export class DecisionReopened extends DomainEvent {
+  constructor(
+    readonly thread: Thread,
+    readonly decision: Decision,
+    reopenedAt: Date,
+  ) {
+    super(reopenedAt);
+  }
+}

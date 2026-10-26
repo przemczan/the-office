@@ -445,7 +445,7 @@ function lineOf(message: Message): string {
       return `decision: ${question} [${options.join(" | ")}], recommends ${recommendation.option + 1}: ${recommendation.reason}`;
     }
     case "decision-answer":
-      return `decision-answer: ${JSON.stringify(message.decision.answer)}`;
+      return `decision-answer: ${JSON.stringify(message.answer)}`;
     case "refusal":
       return `refusal ${message.tool}: ${message.reason}`;
   }

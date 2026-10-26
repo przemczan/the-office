@@ -161,8 +161,16 @@ export const messageSchema = z.discriminatedUnion("kind", [
     roleKey: z.string(),
     decision: decisionSchema,
   }),
-  /** The user answered the Decision, which went into the asking session. */
-  z.object({ ...messageFields, kind: z.literal("decision-answer"), decision: decisionSchema }),
+  /**
+   * The user answered the Decision, sending it into the asking session: the answer as given, and
+   * the Decision as it is now (open again when the answer never reached a session).
+   */
+  z.object({
+    ...messageFields,
+    kind: z.literal("decision-answer"),
+    answer: decisionAnswerSchema,
+    decision: decisionSchema,
+  }),
   /** A tool call that was refused, with the reason the person read. */
   z.object({
     ...messageFields,
@@ -198,6 +206,11 @@ export const threadWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("thread.decision-opened"), ...decisionWebEventFields }),
   webEventSchema.extend({
     type: z.literal("thread.decision-answered"),
+    ...decisionWebEventFields,
+  }),
+  /** The session the answer went to never started: the Decision waits on the user again. */
+  webEventSchema.extend({
+    type: z.literal("thread.decision-reopened"),
     ...decisionWebEventFields,
   }),
 ]);

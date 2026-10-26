@@ -5,7 +5,7 @@ import { EngineSessions } from "../../engine/index.js";
 import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { ChatNotFound } from "../domain/chat-not-found.js";
-import { answerProblems, type DecisionAnswer } from "../domain/decision.js";
+import { answerProblems, type Decision, type DecisionAnswer } from "../domain/decision.js";
 import {
   briefedMessage,
   decisionAnswerMessage,
@@ -18,6 +18,7 @@ import {
   type ContextPolicySettings,
 } from "../domain/context-policy.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { DecisionReopened, MessagesLogged } from "../domain/conversation-events.js";
 import type { Message, MessageDraft } from "../domain/message.js";
 import type { Thread, ThreadSession } from "../domain/thread.js";
 import {
@@ -26,6 +27,7 @@ import {
   beginOpening,
   endTurn,
   failAnswer,
+  failDecisionAnswer,
   logMessages,
   type Opening,
   type ThreadChange,
@@ -57,6 +59,8 @@ interface Answer {
   /** The session the move replaces, which can't be resumed any more. */
   readonly replaced: ThreadSession | undefined;
   readonly place: SessionPlace;
+  /** The Decision the message answers, which opens again if the answer never reaches a session. */
+  readonly answers: Decision | undefined;
 }
 
 /** A session running behind a Thread, read by one loop that logs what it reports. */
@@ -130,14 +134,19 @@ export class ThreadRunner implements OnModuleDestroy {
     const said = { id: randomUUID(), text: decisionAnswerMessage(open, answer) };
     // Briefed as the Thread will be once answered: the message, not the Brief, carries this one.
     const answered = { ...thread, openDecision: undefined };
-    return this.take(answered, current, said, (latest, opening) =>
-      answerDecision(latest, {
-        ...opening,
-        decisionId,
-        answer,
-        messageId: said.id,
-        answeredAt: new Date(),
-      }),
+    return this.take(
+      answered,
+      current,
+      said,
+      (latest, opening) =>
+        answerDecision(latest, {
+          ...opening,
+          decisionId,
+          answer,
+          messageId: said.id,
+          answeredAt: new Date(),
+        }),
+      open,
     );
   }
 
@@ -161,19 +170,22 @@ export class ThreadRunner implements OnModuleDestroy {
       role,
       replaced: undefined,
       place,
+      answers: undefined,
     });
     return answering;
   }
 
   /**
    * The person takes `said` under the Context policy's move: `begin` logs it and sets the Thread
-   * answering, and the session answers once the call that asked returns.
+   * answering, and the session answers once the call that asked returns. `said` may answer a
+   * Decision, which opens again when the session never starts.
    */
   private async take<Event extends DomainEvent>(
     thread: Thread,
     current: SessionRole,
     said: Answer["said"],
     begin: (latest: Thread, opening: Opening) => ThreadChange<Event>,
+    answers?: Decision,
   ): Promise<Thread> {
     const place = await this.places.of(thread);
     const { decision, role, newSession } = await this.moveFor(thread, current, place, new Date());
@@ -187,6 +199,7 @@ export class ThreadRunner implements OnModuleDestroy {
       role,
       replaced: newSession ? thread.session : undefined,
       place,
+      answers,
     });
     return answering;
   }
@@ -253,12 +266,15 @@ export class ThreadRunner implements OnModuleDestroy {
     return { decision, role, newSession };
   }
 
-  /** The person answers once the call that asked returns; a failure goes into the log. */
+  /**
+   * The person answers once the call that asked returns; a failure goes into the log. Failing here,
+   * the session never got the message: a Decision it answered waits on the user again.
+   */
   private answerInBackground(thread: Thread, answer: Answer): void {
     const opening = answer.decision.move === "resume" ? undefined : thread.session;
     const unopened = opening && { sessionId: opening.id, previous: answer.replaced };
     void this.answer(thread, answer).catch((error: unknown) =>
-      this.fail(thread.id, error, unopened),
+      this.fail(thread.id, error, { unopened, answers: answer.answers }),
     );
   }
 
@@ -465,12 +481,25 @@ export class ThreadRunner implements OnModuleDestroy {
     });
   }
 
-  /** The person couldn't answer: why goes into the log, and the Thread waits for the user. */
-  private async fail(threadId: string, error: unknown, unopened?: UnopenedSession): Promise<void> {
+  /**
+   * The person couldn't answer: why goes into the log, and the Thread waits for the user. A
+   * Decision whose answer never reached a session waits on the user again.
+   */
+  private async fail(
+    threadId: string,
+    error: unknown,
+    {
+      unopened,
+      answers,
+    }: { readonly unopened?: UnopenedSession; readonly answers?: Decision | undefined } = {},
+  ): Promise<void> {
     this.logger.error(`Thread ${threadId} stopped answering: ${messageOf(error)}`);
     await this.endLive(threadId);
-    await this.change(threadId, (thread) =>
-      failAnswer(thread, messageOf(error), new Date(), unopened),
+    const reason = messageOf(error);
+    await this.change<DecisionReopened | MessagesLogged>(threadId, (thread) =>
+      answers
+        ? failDecisionAnswer(thread, answers, reason, new Date(), unopened)
+        : failAnswer(thread, reason, new Date(), unopened),
     ).catch((failure: unknown) => {
       this.logger.error(`Thread ${threadId}'s failure wasn't logged: ${messageOf(failure)}`);
     });

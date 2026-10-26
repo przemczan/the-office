@@ -1,4 +1,5 @@
 import type { ContextMove, ContextReason } from "./context-policy.js";
+import type { DecisionAnswer } from "./decision.js";
 
 /**
  * What The Office's log of a Thread holds, which is what the UI shows (spec §2.4): the engine's
@@ -64,8 +65,12 @@ interface DecisionCard {
   readonly decisionId: string;
 }
 
-/** The user answered a Decision, by an option or a free answer, which went into the session. */
+/**
+ * The user answered a Decision, by an option or a free answer, which went into the session. The
+ * line keeps the answer as given: a Decision whose answer never reached a session opens again.
+ */
 interface DecisionAnswerLine {
   readonly kind: "decision-answer";
   readonly decisionId: string;
+  readonly answer: DecisionAnswer;
 }

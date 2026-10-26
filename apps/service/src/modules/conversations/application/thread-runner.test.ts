@@ -669,7 +669,7 @@ describe("a Decision", () => {
       `The user answered your Decision "${EXPORT_QUESTION}" with the option "Only active Projects".`,
     );
     expect(drafts(log).slice(-2)).toEqual([
-      { kind: "decision-answer", decisionId: open.id },
+      { kind: "decision-answer", decisionId: open.id, answer: { kind: "option", option: 0 } },
       { kind: "person", roleKey, text: "Only active ones, then." },
     ]);
     const thread = await threads.read(opened.id);
@@ -735,9 +735,58 @@ describe("a Decision", () => {
         contextTokens: 80_000,
         briefTokens: expect.any(Number),
       }),
-      { kind: "decision-answer", decisionId: second?.id },
+      {
+        kind: "decision-answer",
+        decisionId: second?.id,
+        answer: { kind: "free-answer", text: "The visible ones, plus the id." },
+      },
       { kind: "person", roleKey, text: "Visible ones plus the id." },
     ]);
+  });
+
+  it("waits on the user again when the session its answer goes to fails to start, and takes a new answer", async () => {
+    await startWith(
+      started(
+        ...opensDecision("c-1", EXPORT_QUESTION, ["Only active Projects", "Every Project"]),
+        ...aTurn("brief", "I asked."),
+      ),
+      // The engine lists a skill the session wasn't given, so the start check refuses it.
+      [{ step: "start", brief: { id: "brief", text: "" }, listedSkills: ["stray"] }],
+      started(...aTurn("brief", "Only active ones, then.")),
+    );
+    const opened = await planningThread();
+    await answered(opened.id, 4);
+    const open = (await threads.read(opened.id)).openDecision;
+    if (!open) throw new Error("No Decision was opened.");
+    const before = (await threads.read(opened.id)).session;
+    await cooled(opened.id, 80_000);
+
+    await decisions.answer(open.id, { kind: "option", option: 1 });
+    const failed = await waiting(opened.id);
+
+    expect(failed.openDecision).toEqual(open);
+    expect(failed.session?.id).toBe(before?.id);
+    await expect(decisions.listOpen()).resolves.toContainEqual(open);
+    const log = drafts(await threads.messages(opened.id));
+    expect(log.slice(-2)).toEqual([
+      { kind: "decision-answer", decisionId: open.id, answer: { kind: "option", option: 1 } },
+      { kind: "failure", reason: expect.stringContaining("stray") },
+    ]);
+
+    await decisions.answer(open.id, { kind: "option", option: 0 });
+    await vi.waitFor(async () => {
+      const thread = await threads.read(opened.id);
+      if (thread.state !== "waiting" || thread.openDecision) throw new Error("Still answering.");
+    });
+    const brief = engine.sessions.at(-1)?.received[0];
+    expect(brief?.step === "start" && brief.brief.text).toContain(
+      `The user answered your Decision "${EXPORT_QUESTION}" with the option "Only active Projects".`,
+    );
+    expect(drafts(await threads.messages(opened.id)).at(-1)).toEqual({
+      kind: "person",
+      roleKey,
+      text: "Only active ones, then.",
+    });
   });
 
   it("is refused to a session no Thread on a Task has, with the reason the person reads", async () => {

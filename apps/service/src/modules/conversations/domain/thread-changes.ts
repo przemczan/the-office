@@ -11,6 +11,7 @@ import {
   ContextOverrideChosen,
   DecisionAnswered,
   DecisionOpened,
+  DecisionReopened,
   MessagesLogged,
   ThreadRenamed,
   ThreadStarted,
@@ -259,6 +260,7 @@ export function answerDecision(
     threadId: thread.id,
     at: answeredAt,
     decisionId,
+    answer,
   };
   const moved = movedLines(thread, answering.decision, answeredAt);
   const begun = begin(
@@ -391,6 +393,32 @@ export function failAnswer(
     thread: waiting,
     logged: [failure],
     event: new MessagesLogged(waiting, [failure], failedAt),
+  };
+}
+
+/**
+ * The person couldn't take the user's answer to `decision`: the session it went to never started,
+ * so the answer reached nobody. As `failAnswer`, why is logged and the Thread waits; the Decision
+ * waits on the user again, its answer cleared, so it can be answered anew.
+ */
+export function failDecisionAnswer(
+  thread: Thread,
+  decision: Decision,
+  reason: string,
+  failedAt: Date,
+  unopened?: UnopenedSession,
+): ThreadChange<DecisionReopened> {
+  if (thread.openDecision) {
+    throw new Error(`Thread ${thread.id} has the Decision ${thread.openDecision.id} open already.`);
+  }
+  const failed = failAnswer(thread, reason, failedAt, unopened);
+  const reopened: Decision = { ...decision, answer: undefined };
+  const waiting: Thread = { ...failed.thread, openDecision: reopened };
+  return {
+    thread: waiting,
+    logged: failed.logged,
+    decision: reopened,
+    event: new DecisionReopened(waiting, reopened, failedAt),
   };
 }
 

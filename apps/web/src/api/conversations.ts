@@ -101,6 +101,7 @@ export const threadEventInvalidations: Readonly<
   "thread.override-chosen": () => [THREADS],
   "thread.decision-opened": () => [THREADS, DECISIONS],
   "thread.decision-answered": () => [THREADS, DECISIONS],
+  "thread.decision-reopened": () => [THREADS, DECISIONS],
 };
 
 function threadPath(id: string): `/${string}` {

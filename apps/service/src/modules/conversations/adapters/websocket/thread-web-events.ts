@@ -5,6 +5,7 @@ import {
   ContextOverrideChosen,
   DecisionAnswered,
   DecisionOpened,
+  DecisionReopened,
   MessagesLogged,
   ThreadRenamed,
   ThreadStarted,
@@ -53,6 +54,11 @@ export class ThreadWebEvents implements OnModuleInit {
     }));
     this.forwarding.forward(DecisionAnswered, (event): WebEventOf<"thread.decision-answered"> => ({
       type: "thread.decision-answered",
+      ...namesOf(event.thread),
+      decisionId: event.decision.id,
+    }));
+    this.forwarding.forward(DecisionReopened, (event): WebEventOf<"thread.decision-reopened"> => ({
+      type: "thread.decision-reopened",
       ...namesOf(event.thread),
       decisionId: event.decision.id,
     }));

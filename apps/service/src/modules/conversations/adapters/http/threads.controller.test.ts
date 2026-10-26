@@ -11,7 +11,7 @@ import {
   threadSchema,
   threadWebEventSchema,
 } from "@the-office/contracts";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
@@ -55,7 +55,10 @@ beforeEach(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-threads-http-"));
   const roleCards: Pick<RoleCards, "find" | "forResumedSession"> = {
     find: (roleKey) => Promise.resolve(people.get(roleKey)),
-    forResumedSession: (roleKey) => Promise.reject(new Error(`${roleKey} isn't resumed here.`)),
+    forResumedSession: (roleKey) => {
+      const person = people.get(roleKey);
+      return person ? Promise.resolve(person) : Promise.reject(new Error(`No ${roleKey} here.`));
+    },
   };
   const bases: ProjectBases = {
     folder: join(officeData, "bases"),
@@ -70,7 +73,7 @@ beforeEach(async () => {
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
       SkillsModule,
-      // The runner's own tests answer messages; these send only ones it refuses.
+      // The runner's own tests answer messages; these send ones it refuses, or no session takes.
       ScriptedEngineModule.register(new ScriptedEngine([])),
     ],
     controllers: [ThreadsController, DecisionsController],
@@ -435,6 +438,45 @@ describe("a Decision", () => {
     expect(nowhere.status).toBe(404);
   });
 
+  it("opens again when the session its answer goes to fails to start, keeping the answer in the log", async () => {
+    // The scripted engine has no script: resuming the Decision's session fails.
+    const { thread, decision } = await opened();
+
+    const response = await send("POST", `/decisions/${decision.id}/answer`, {
+      kind: "free-answer",
+      text: "Only this year's.",
+    });
+    const open = await vi.waitFor(
+      async () => {
+        const decisions = decisionListSchema.parse(await (await get("/decisions/open")).json());
+        if (!decisions.some(({ id }) => id === decision.id)) throw new Error("Still answered.");
+        return decisions;
+      },
+      { timeout: 5_000, interval: 20 },
+    );
+    const messages = messageListSchema.parse(
+      await (await get(`/threads/${thread.id}/messages`)).json(),
+    );
+
+    expect(response.status).toBe(202);
+    expect(open.find(({ id }) => id === decision.id)).toMatchObject({ answer: null });
+    expect(messages.map((message) => message.kind)).toEqual([
+      "decision",
+      "decision-answer",
+      "failure",
+    ]);
+    expect(messages[1]).toMatchObject({
+      answer: { kind: "free-answer", text: "Only this year's." },
+      decision: { answer: null },
+    });
+    expect(webEvents()).toContainEqual({
+      type: "thread.decision-reopened",
+      threadId: thread.id,
+      home: thread.home,
+      decisionId: decision.id,
+    });
+  });
+
   it("refuses a second answer, and shows the first in the log", async () => {
     const { thread, decision } = await opened();
     const answered: Decision = {
@@ -449,6 +491,7 @@ describe("a Decision", () => {
         threadId: thread.id,
         at: new Date(),
         decisionId: decision.id,
+        answer: { kind: "free-answer", text: "Only this year's." },
       } as const;
       return {
         thread: waiting,
@@ -472,6 +515,7 @@ describe("a Decision", () => {
     ]);
     expect(messages.map((message) => message.kind)).toEqual(["decision", "decision-answer"]);
     expect(messages[1]).toMatchObject({
+      answer: { kind: "free-answer", text: "Only this year's." },
       decision: { answer: { kind: "free-answer", text: "Only this year's." } },
     });
     const open = decisionListSchema.parse(await (await get("/decisions/open")).json());

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ContextDecision } from "./context-policy.js";
-import { DecisionAnswered, DecisionOpened } from "./conversation-events.js";
+import { DecisionAnswered, DecisionOpened, DecisionReopened } from "./conversation-events.js";
 import {
   answerProblems,
   answerWords,
@@ -11,7 +11,7 @@ import {
 import { aDecision } from "./decision.fixtures.js";
 import { decisionAnswerMessage } from "./session-instructions.js";
 import type { ThreadSession } from "./thread.js";
-import { answerDecision, openDecision } from "./thread-changes.js";
+import { answerDecision, failDecisionAnswer, openDecision } from "./thread-changes.js";
 import { aThread } from "./thread.fixtures.js";
 import { ThreadRefused } from "./thread-refused.js";
 
@@ -187,6 +187,7 @@ describe("answering a Decision", () => {
         threadId: waiting.id,
         at: AT,
         decisionId: "decision-1",
+        answer: { kind: "free-answer", text: "Only this year's." },
       },
     ]);
     expect(answered.event).toEqual(new DecisionAnswered(answered.thread, decision, AT));
@@ -212,5 +213,45 @@ describe("answering a Decision", () => {
     expect(refusalOf(() => answerDecision({ ...waiting, state: "answering" }, answering))).toEqual([
       "Jan is still answering. Answer once they finish.",
     ]);
+  });
+});
+
+describe("an answer that never reached a session", () => {
+  const answered = aDecision({
+    id: "decision-1",
+    answer: { kind: "option", option: 1, answeredAt: AT },
+  });
+  const failing = aThread({ home: TASK_HOME, state: "answering", session: SESSION });
+
+  it("opens the Decision again, unanswered, logging why the session didn't start", () => {
+    const reopened = failDecisionAnswer(failing, answered, "The engine is down.", AT);
+
+    const decision: Decision = { ...answered, answer: undefined };
+    expect(reopened.decision).toEqual(decision);
+    expect(reopened.thread).toMatchObject({ state: "waiting", openDecision: decision });
+    expect(reopened.logged).toEqual([
+      {
+        kind: "failure",
+        id: expect.any(String),
+        threadId: failing.id,
+        at: AT,
+        reason: "The engine is down.",
+      },
+    ]);
+    expect(reopened.event).toEqual(new DecisionReopened(reopened.thread, decision, AT));
+  });
+
+  it("puts back the session the Thread had when the new one never opened", () => {
+    const fresh = { ...SESSION, id: "session-2" };
+
+    const reopened = failDecisionAnswer(
+      { ...failing, session: fresh },
+      answered,
+      "The engine is down.",
+      AT,
+      { sessionId: "session-2", previous: SESSION },
+    );
+
+    expect(reopened.thread.session).toEqual(SESSION);
   });
 });

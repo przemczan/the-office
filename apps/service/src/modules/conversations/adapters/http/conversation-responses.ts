@@ -5,7 +5,7 @@ import type {
   Thread as ThreadResponse,
 } from "@the-office/contracts";
 import type { ContextDecision } from "../../domain/context-policy.js";
-import type { Decision, GivenAnswer } from "../../domain/decision.js";
+import type { Decision, DecisionAnswer } from "../../domain/decision.js";
 import type { Message } from "../../domain/message.js";
 import type { Thread } from "../../domain/thread.js";
 
@@ -30,7 +30,10 @@ export function toThreadResponse(thread: Thread, context: ContextDecision): Thre
   };
 }
 
-/** A message of the log; a Decision's card and answer show the Decision as it is now. */
+/**
+ * A message of the log; a Decision's card and answer show the Decision as it is now, and the
+ * answer's line also the answer it gave, which a Decision opened again no longer holds.
+ */
 export function toMessageResponse(
   { threadId: _threadId, at, ...message }: Message,
   decisions: ReadonlyMap<string, Decision>,
@@ -39,18 +42,36 @@ export function toMessageResponse(
   switch (fields.kind) {
     case "context":
       return { ...fields, briefTokens: fields.briefTokens ?? null };
-    case "decision":
-    case "decision-answer": {
+    case "decision": {
       const { decisionId, ...card } = fields;
-      const decision = decisions.get(decisionId);
-      if (!decision) {
-        throw new Error(`Message ${message.id} shows the Decision ${decisionId}, which is gone.`);
-      }
-      return { ...card, decision: toDecisionResponse(decision) };
+      return {
+        ...card,
+        decision: toDecisionResponse(decisionOf(message.id, decisionId, decisions)),
+      };
+    }
+    case "decision-answer": {
+      const { decisionId, answer, ...line } = fields;
+      return {
+        ...line,
+        answer: toAnswerResponse(answer),
+        decision: toDecisionResponse(decisionOf(message.id, decisionId, decisions)),
+      };
     }
     default:
       return fields;
   }
+}
+
+function decisionOf(
+  messageId: string,
+  decisionId: string,
+  decisions: ReadonlyMap<string, Decision>,
+): Decision {
+  const decision = decisions.get(decisionId);
+  if (!decision) {
+    throw new Error(`Message ${messageId} shows the Decision ${decisionId}, which is gone.`);
+  }
+  return decision;
 }
 
 export function toDecisionResponse({ answer, askedAt, ...decision }: Decision): DecisionResponse {
@@ -64,7 +85,7 @@ export function toDecisionResponse({ answer, askedAt, ...decision }: Decision): 
   };
 }
 
-function toAnswerResponse(answer: GivenAnswer): DecisionAnswerResponse {
+function toAnswerResponse(answer: DecisionAnswer): DecisionAnswerResponse {
   return answer.kind === "option"
     ? { kind: "option", option: answer.option }
     : { kind: "free-answer", text: answer.text };
