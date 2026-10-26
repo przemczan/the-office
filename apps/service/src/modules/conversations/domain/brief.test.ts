@@ -20,7 +20,7 @@ function logged(draft: MessageDraft): Message {
   return { ...draft, id: `m-${position}`, threadId: "t", at: new Date(2026, 9, 25, 10, position) };
 }
 
-const say = (text: string): Message => logged({ kind: "user", text });
+const say = (text: string): Message => logged({ kind: "user", text, delivery: "delivered" });
 const answer = (text: string): Message => logged({ kind: "person", roleKey: "planner", text });
 
 describe("a new chat Thread's Brief", () => {

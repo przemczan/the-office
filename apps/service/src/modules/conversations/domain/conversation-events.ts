@@ -1,6 +1,6 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Decision } from "./decision.js";
-import type { Message } from "./message.js";
+import type { Message, MessageDelivery } from "./message.js";
 import type { Thread } from "./thread.js";
 
 export class ThreadStarted extends DomainEvent {
@@ -29,7 +29,19 @@ export class MessagesLogged extends DomainEvent {
   }
 }
 
-/** A turn of the person's ended: the Thread's tokens, its session's context and its state changed. */
+/** Messages the user wrote into a running Stage Thread reached the person, or never will. */
+export class DeliveryMarked extends DomainEvent {
+  constructor(
+    readonly thread: Thread,
+    readonly messageIds: readonly string[],
+    readonly delivery: Exclude<MessageDelivery, "waiting">,
+    markedAt: Date,
+  ) {
+    super(markedAt);
+  }
+}
+
+/** A turn of the person's ended:the Thread's tokens, its session's context and its state changed. */
 export class TurnEnded extends DomainEvent {
   constructor(
     readonly thread: Thread,

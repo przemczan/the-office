@@ -29,6 +29,7 @@ import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { SessionPlaces } from "../../application/session-places.js";
 import { TaskThreadSetups } from "../../application/task-thread-setups.js";
 import { CONTEXT_POLICY_SETTINGS, ThreadContexts } from "../../application/thread-contexts.js";
+import { StageThreads } from "../../application/stage-threads.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
 import { ThreadService } from "../../application/thread-service.js";
 import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "../../domain/context-policy.js";
@@ -88,6 +89,7 @@ beforeEach(async () => {
       SessionPlaces,
       ThreadContexts,
       ThreadRunner,
+      StageThreads,
       DecisionService,
       ThreadWebEvents,
     ],
@@ -279,7 +281,7 @@ describe("a Thread", () => {
     const service = app.get(ThreadService);
 
     await service.log(thread.id, [
-      { kind: "user", text: "Read the deploy workflow." },
+      { kind: "user", text: "Read the deploy workflow.", delivery: "delivered" },
       { kind: "tool-activity", roleKey, tool: "Read", summary: "deploy-production.yml" },
       { kind: "refusal", roleKey, tool: "Edit", reason: "A chat only reads." },
       { kind: "person", roleKey, text: "It deploys on every push to main." },
@@ -289,7 +291,7 @@ describe("a Thread", () => {
       await (await get(`/threads/${thread.id}/messages`)).json(),
     );
     expect(messages.map(({ id: _id, at: _at, ...message }) => message)).toEqual([
-      { kind: "user", text: "Read the deploy workflow." },
+      { kind: "user", text: "Read the deploy workflow.", delivery: "delivered" },
       { kind: "tool-activity", roleKey, tool: "Read", summary: "deploy-production.yml" },
       { kind: "refusal", roleKey, tool: "Edit", reason: "A chat only reads." },
       { kind: "person", roleKey, text: "It deploys on every push to main." },

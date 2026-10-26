@@ -3,6 +3,7 @@ import {
   type Decision,
   type DecisionAnswer,
   type Message,
+  type MessageDelivery,
 } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -17,11 +18,14 @@ export function MessageList({
   messages,
   personName,
   answering,
+  stageThread,
 }: {
   readonly messages: readonly Message[];
   readonly personName: string;
   /** The person is writing an answer now. */
   readonly answering: boolean;
+  /** The user's messages say whether they reached the person, as one written while the Stage runs waits. */
+  readonly stageThread: boolean;
 }): ReactNode {
   const end = useRef<HTMLDivElement>(null);
   // What the list shows at its end: each new message, or the person starting to answer, scrolls to it.
@@ -37,6 +41,7 @@ export function MessageList({
           message={message}
           personName={personName}
           answering={answering}
+          stageThread={stageThread}
         />
       ))}
       {answering && (
@@ -58,10 +63,12 @@ function MessageItem({
   message,
   personName,
   answering,
+  stageThread,
 }: {
   readonly message: Message;
   readonly personName: string;
   readonly answering: boolean;
+  readonly stageThread: boolean;
 }): ReactNode {
   switch (message.kind) {
     case "user":
@@ -69,6 +76,7 @@ function MessageItem({
         <div className="message mine">
           <div className="message-by">You</div>
           <div className="message-text">{message.text}</div>
+          {stageThread && <DeliveryMark delivery={message.delivery} />}
         </div>
       );
     case "person":
@@ -125,6 +133,23 @@ function MessageItem({
         </div>
       );
   }
+}
+
+const DELIVERY_MARKS: Readonly<Record<MessageDelivery, { icon: string; words: string }>> = {
+  waiting: { icon: "clock", words: "Lands at the next safe point" },
+  delivered: { icon: "check", words: "Delivered" },
+  "not-delivered": { icon: "circle-x", words: "Not delivered: the Stage ended first" },
+};
+
+/** Whether the user's message reached the person, written while the Stage ran (barge-in). */
+function DeliveryMark({ delivery }: { readonly delivery: MessageDelivery }): ReactNode {
+  const { icon, words } = DELIVERY_MARKS[delivery];
+  return (
+    <div className={`message-delivery ${delivery}`}>
+      <Icon name={icon} size={12} />
+      {words}
+    </div>
+  );
 }
 
 /**

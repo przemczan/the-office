@@ -39,6 +39,7 @@ import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { sessionLogLines } from "./session-log.js";
 import { SessionPlaces, type SessionPlace } from "./session-places.js";
+import { StageThreads } from "./stage-threads.js";
 import { CONTEXT_POLICY_SETTINGS } from "./thread-contexts.js";
 
 type EngineSession = Awaited<ReturnType<EngineSessions["start"]>>;
@@ -97,20 +98,32 @@ export class ThreadRunner implements OnModuleDestroy {
     private readonly places: SessionPlaces,
     private readonly engine: EngineSessions,
     private readonly sessionSkills: SessionSkills,
+    private readonly stageThreads: StageThreads,
     private readonly events: EventBus,
     @Inject(CONTEXT_POLICY_SETTINGS) private readonly settings: ContextPolicySettings,
   ) {}
 
   /**
    * Logs the user's message and has the person answer it; the answer comes into the log as it is
-   * written. Refused while the person is still answering, when nobody fills their Role any more,
-   * or in a chat, when their Chat is off.
+   * written. Into a Stage Thread while its Stage runs, the message lands at the next safe point
+   * instead (barge-in). Refused while the person is still answering anywhere else, when nobody
+   * fills their Role any more, or in a chat, when their Chat is off.
    */
   async send(threadId: string, text: string): Promise<Thread> {
     const thread = await this.threadOf(threadId);
+    if (thread.stageThread && thread.state === "answering") {
+      return this.stageThreads.bargeIn(threadId, text);
+    }
     const current = await this.personOf(thread);
     if (text.trim() === "") throw new ThreadRefused(["Write a message first."]);
-    const said: Message = { kind: "user", id: randomUUID(), threadId, text, at: new Date() };
+    const said: Message = {
+      kind: "user",
+      id: randomUUID(),
+      threadId,
+      text,
+      delivery: "delivered",
+      at: new Date(),
+    };
     return this.take(thread, current, { id: said.id, text }, (latest, opening) =>
       beginAnswer(latest, { ...opening, said }),
     );

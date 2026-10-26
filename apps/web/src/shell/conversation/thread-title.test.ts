@@ -20,6 +20,7 @@ function aThread(fields: Partial<Thread>): Thread {
       override: null,
     },
     startedAt: "2026-10-26T09:00:00.000Z",
+    stageThread: false,
     ...fields,
   };
 }

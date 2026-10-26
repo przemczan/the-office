@@ -30,15 +30,26 @@ export function ThreadView({
   });
   if (!thread.data) return null;
   const answering = thread.data.state === "answering";
+  // While its Stage runs, a Stage Thread takes the user's message at the next safe point (barge-in).
+  const stageRunning = answering && thread.data.stageThread;
   return (
     <section className="thread-view" aria-label={threadTitle(thread.data, personName)}>
       <ThreadTitle thread={thread.data} personName={personName} />
       <ContextBar thread={thread.data} personName={personName} />
-      <MessageList messages={messages.data ?? []} personName={personName} answering={answering} />
+      <MessageList
+        messages={messages.data ?? []}
+        personName={personName}
+        answering={answering}
+        stageThread={thread.data.stageThread}
+      />
       {sending.error && <RefusalAlert title="The message wasn't sent" error={sending.error} />}
       <Composer
-        placeholder={`Message ${personName}…`}
-        busy={answering}
+        placeholder={
+          stageRunning
+            ? `Message ${personName}… (lands at the next safe point)`
+            : `Message ${personName}…`
+        }
+        busy={answering && !stageRunning}
         busyHint={`${personName} is still answering`}
         onSend={(text) => sending.mutateAsync(text)}
       />

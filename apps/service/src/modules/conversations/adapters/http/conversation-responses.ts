@@ -27,6 +27,7 @@ export function toThreadResponse(thread: Thread, context: ContextDecision): Thre
       override: thread.override ?? null,
     },
     startedAt: thread.startedAt.toISOString(),
+    stageThread: thread.stageThread,
   };
 }
 

@@ -9,6 +9,7 @@ import {
 } from "./decision.js";
 import {
   ContextOverrideChosen,
+  DeliveryMarked,
   DecisionAnswered,
   DecisionOpened,
   DecisionReopened,
@@ -17,8 +18,9 @@ import {
   ThreadStarted,
   TurnEnded,
 } from "./conversation-events.js";
-import type { Message, MessageDraft } from "./message.js";
+import type { Message, MessageDelivery, MessageDraft } from "./message.js";
 import {
+  addTokens,
   NO_TOKENS,
   type ContextOverride,
   type Thread,
@@ -34,7 +36,15 @@ export interface ThreadChange<Event extends DomainEvent> {
   readonly logged: readonly Message[];
   /** A Decision the change opened or answered, saved with the Thread. */
   readonly decision?: Decision;
+  /** The user's messages, logged earlier, whose delivery the change marks. */
+  readonly marked?: DeliveryMarking;
   readonly event: Event;
+}
+
+/** What became of user messages that waited for a safe point. */
+export interface DeliveryMarking {
+  readonly messageIds: readonly string[];
+  readonly delivery: Exclude<MessageDelivery, "waiting">;
 }
 
 /** The person a chat is with, as their Role card has them. */
@@ -212,6 +222,43 @@ export interface Opening {
 export function beginAnswer(thread: Thread, answering: Answering): ThreadChange<MessagesLogged> {
   const { said } = answering;
   return begin(thread, answering, [...movedLines(thread, answering, said.at), said], said.at);
+}
+
+/**
+ * The user writes into a Stage Thread while the Stage's work runs in it (barge-in, spec §2.4): the
+ * message is logged waiting for the next safe point, between tool calls, and the Thread goes on
+ * answering. Refused once the Stage's work there has ended.
+ */
+export function bargeIn(
+  thread: Thread,
+  { id, text, at }: Pick<Message, "id" | "at"> & { readonly text: string },
+): ThreadChange<MessagesLogged> {
+  if (!thread.stageThread) throw new Error(`Thread ${thread.id} is not a Stage Thread.`);
+  if (thread.state !== "answering") {
+    throw new ThreadRefused(["The Stage ended before your message went. Send it again."]);
+  }
+  const said: Message = { kind: "user", id, threadId: thread.id, text, delivery: "waiting", at };
+  const logged = logMessages(thread, [said], at);
+  if (!logged) throw new Error("A barge-in always logs its message.");
+  return logged;
+}
+
+/**
+ * Marks the user's waiting messages as having reached the person, or as never going to, when the
+ * Stage's work ended first. Undefined when there are none.
+ */
+export function markDelivery(
+  thread: Thread,
+  marking: DeliveryMarking,
+  markedAt: Date,
+): ThreadChange<DeliveryMarked> | undefined {
+  if (marking.messageIds.length === 0) return undefined;
+  return {
+    thread,
+    logged: [],
+    marked: marking,
+    event: new DeliveryMarked(thread, marking.messageIds, marking.delivery, markedAt),
+  };
 }
 
 /** A Decision the person opens in the Thread they work in, or The Office does, and when. */
@@ -574,13 +621,4 @@ export function chooseOverride(
   if (override === thread.override) return undefined;
   const chosen: Thread = { ...thread, override };
   return { thread: chosen, logged: [], event: new ContextOverrideChosen(chosen, chosenAt) };
-}
-
-function addTokens(total: TokenTotals, turn: TokenTotals): TokenTotals {
-  return {
-    input: total.input + turn.input,
-    output: total.output + turn.output,
-    cacheRead: total.cacheRead + turn.cacheRead,
-    cacheCreation: total.cacheCreation + turn.cacheCreation,
-  };
 }

@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { MessagesLogged, ThreadRenamed, ThreadStarted } from "./conversation-events.js";
+import {
+  DeliveryMarked,
+  MessagesLogged,
+  ThreadRenamed,
+  ThreadStarted,
+} from "./conversation-events.js";
 import type { Message } from "./message.js";
 import { NO_TOKENS } from "./thread.js";
 import {
+  bargeIn,
   beginOpening,
   logMessages,
+  markDelivery,
   renameThread,
   startChatThread,
   startTaskThread,
@@ -194,5 +201,49 @@ describe("the Thread's log", () => {
     expect(() =>
       logMessages(thread, [aUserMessage(aThread({ id: "other" }), "Hello.")], AT),
     ).toThrow("belongs to Thread other");
+  });
+});
+
+describe("barge-in", () => {
+  const running = aThread({
+    home: { kind: "task", taskId: "4d3c2b1a-0f9e-4d8c-8b7a-6f5e4d3c2b1a" },
+    state: "answering",
+    stageThread: true,
+  });
+
+  it("logs the user's message into a running Stage Thread waiting for the next safe point", () => {
+    const change = bargeIn(running, { id: "said", text: "Rename it on the list too.", at: AT });
+
+    expect(change.thread.state).toBe("answering");
+    expect(change.logged).toEqual([
+      {
+        kind: "user",
+        id: "said",
+        threadId: running.id,
+        text: "Rename it on the list too.",
+        delivery: "waiting",
+        at: AT,
+      },
+    ]);
+  });
+
+  it("is refused once the Stage's work in the Thread has ended", () => {
+    const waiting = { ...running, state: "waiting" as const };
+
+    expect(() => bargeIn(waiting, { id: "said", text: "Too late?", at: AT })).toThrow(
+      ThreadRefused,
+    );
+  });
+
+  it("marks the messages' delivery, and changes nothing with none to mark", () => {
+    const marking = { messageIds: ["said"], delivery: "delivered" as const };
+
+    expect(markDelivery(running, marking, AT)).toEqual({
+      thread: running,
+      logged: [],
+      marked: marking,
+      event: new DeliveryMarked(running, ["said"], "delivered", AT),
+    });
+    expect(markDelivery(running, { messageIds: [], delivery: "delivered" }, AT)).toBeUndefined();
   });
 });

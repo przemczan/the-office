@@ -15,7 +15,7 @@ interface MessageFields {
 
 /** A message by its kind and fields alone, before the log gives it its id, Thread and time. */
 export type MessageDraft =
-  | { readonly kind: "user"; readonly text: string }
+  | UserMessage
   | { readonly kind: "person"; readonly roleKey: string; readonly text: string }
   /** A few lines the person wrote for whoever continues, when The Office asked for them. */
   | { readonly kind: "handover-note"; readonly roleKey: string; readonly text: string }
@@ -26,6 +26,19 @@ export type MessageDraft =
   | ContextLine
   /** Why the person couldn't answer, in the engine's or The Office's words. */
   | { readonly kind: "failure"; readonly reason: string };
+
+/**
+ * Whether a message the user wrote reached the person: one written into a running Stage Thread
+ * waits for the next safe point (barge-in, spec §2.4), and is not delivered when the Stage's work
+ * ends first. Any other reaches them as it is sent.
+ */
+export type MessageDelivery = "waiting" | "delivered" | "not-delivered";
+
+interface UserMessage {
+  readonly kind: "user";
+  readonly text: string;
+  readonly delivery: MessageDelivery;
+}
 
 /**
  * The move the Context policy made as the person took a message, when it wasn't simply continuing

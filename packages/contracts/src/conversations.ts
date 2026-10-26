@@ -72,6 +72,11 @@ export const threadSchema = z.object({
   tokens: tokenTotalsSchema,
   context: threadContextSchema,
   startedAt: z.iso.datetime(),
+  /**
+   * An Agent works one of the Task's Stages in it: while it is answering, a message lands at the
+   * next safe point instead of waiting for the answer.
+   */
+  stageThread: z.boolean(),
 });
 export type Thread = z.infer<typeof threadSchema>;
 
@@ -132,9 +137,21 @@ export const decisionListSchema = z.array(decisionSchema);
 
 const messageFields = { id: z.uuid(), at: z.iso.datetime() };
 
+/**
+ * Whether the user's message reached the person: one written into a running Stage Thread waits for
+ * the next safe point, and is not delivered when the Stage's session ends first.
+ */
+export const messageDeliverySchema = z.enum(["waiting", "delivered", "not-delivered"]);
+export type MessageDelivery = z.infer<typeof messageDeliverySchema>;
+
 /** A message of The Office's log of a Thread, which is what the UI shows. */
 export const messageSchema = z.discriminatedUnion("kind", [
-  z.object({ ...messageFields, kind: z.literal("user"), text: z.string() }),
+  z.object({
+    ...messageFields,
+    kind: z.literal("user"),
+    text: z.string(),
+    delivery: messageDeliverySchema,
+  }),
   z.object({ ...messageFields, kind: z.literal("person"), roleKey: z.string(), text: z.string() }),
   /** A few lines the person wrote for whoever continues, when The Office asked for them. */
   z.object({
@@ -213,6 +230,7 @@ export const threadWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("thread.renamed"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.messages-logged"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.turn-ended"), ...threadWebEventFields }),
+  webEventSchema.extend({ type: z.literal("thread.delivery-marked"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.override-chosen"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.decision-opened"), ...decisionWebEventFields }),
   webEventSchema.extend({

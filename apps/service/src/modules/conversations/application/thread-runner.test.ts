@@ -37,6 +37,7 @@ import { aPlannerCard } from "./session-role.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
 import { TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js";
 import { CONTEXT_POLICY_SETTINGS, ThreadContexts } from "./thread-contexts.js";
+import { StageThreads } from "./stage-threads.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { ThreadService } from "./thread-service.js";
 
@@ -125,6 +126,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       SessionPlaces,
       ThreadContexts,
       ThreadRunner,
+      StageThreads,
       InterruptedAnswers,
       DecisionService,
       DecisionOfficeTools,
@@ -316,7 +318,7 @@ describe("a new Thread's first message", () => {
     expect(session?.options.instructions).toContain("Plan in conversation: ask what is unclear.");
     expect(drafts(log)).toEqual([
       contextLine({ move: "fresh", reason: "new-thread", briefTokens: expect.any(Number) }),
-      { kind: "user", text: "Read the deploy workflow." },
+      { kind: "user", text: "Read the deploy workflow.", delivery: "delivered" },
       {
         kind: "tool-activity",
         roleKey,
@@ -359,7 +361,7 @@ describe("continuing a Thread", () => {
 
     expect(engine.sessions).toHaveLength(1);
     expect(drafts(log).slice(3)).toEqual([
-      { kind: "user", text: "And the tests?" },
+      { kind: "user", text: "And the tests?", delivery: "delivered" },
       { kind: "person", roleKey, text: "Sure." },
     ]);
     expect((await threads.read(thread.id)).tokens.output).toBe(2 * USAGE.output);
@@ -387,7 +389,7 @@ describe("continuing a Thread", () => {
     expect(resumed?.options).toEqual(first?.options);
     expect(drafts(log).slice(3)).toEqual([
       contextLine({ move: "resume", reason: "small-context", contextTokens: 12_000 }),
-      { kind: "user", text: "Still there?" },
+      { kind: "user", text: "Still there?", delivery: "delivered" },
       { kind: "person", roleKey, text: "Back again." },
     ]);
   });
@@ -547,7 +549,7 @@ describe("a Thread on a Task", () => {
     const log = await answered(opened.id, 4);
 
     expect(drafts(log).slice(2)).toEqual([
-      { kind: "user", text: "The page loads under a second." },
+      { kind: "user", text: "The page loads under a second.", delivery: "delivered" },
       { kind: "person", roleKey, text: "Noted." },
     ]);
   });

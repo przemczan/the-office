@@ -5,6 +5,7 @@ import {
   ContextOverrideChosen,
   DecisionAnswered,
   DecisionOpened,
+  DeliveryMarked,
   DecisionReopened,
   MessagesLogged,
   ThreadRenamed,
@@ -34,6 +35,10 @@ export class ThreadWebEvents implements OnModuleInit {
     }));
     this.forwarding.forward(MessagesLogged, (event): WebEventOf<"thread.messages-logged"> => ({
       type: "thread.messages-logged",
+      ...namesOf(event.thread),
+    }));
+    this.forwarding.forward(DeliveryMarked, (event): WebEventOf<"thread.delivery-marked"> => ({
+      type: "thread.delivery-marked",
       ...namesOf(event.thread),
     }));
     this.forwarding.forward(TurnEnded, (event): WebEventOf<"thread.turn-ended"> => ({

@@ -1,6 +1,6 @@
 # 13 · A running Task: barge-in, Stop, Pause, Decisions, Office tools
 
-Status: todo
+Status: in progress
 
 ## Goal
 
@@ -28,7 +28,7 @@ Leave out: Consultations with colleagues (the consult tool only asks the user in
 
 ## Steps
 
-- [ ] 1. Barge-in: the composer on a running Stage Thread sends with `next` priority; the log marks the message delivered when it lands. Commit.
+- [x] 1. Barge-in: the composer on a running Stage Thread sends with `next` priority; the log marks the message delivered when it lands. Commit.
 - [ ] 2. Stop, Pause and Resume in Pipelines: interrupt and discard, hold after the current step, resume through the Context policy; the states and events on the Task. Commit.
 - [ ] 3. Interrupted runs: shutdown ends running sessions at once, the same way Stop does (today `StageInterpreter.onModuleDestroy` waits for a running Stage to end); at the next boot, a Stage run left running ends as failed "The Office restarted during this Stage" and opens a Decision (run it again / drop); never re-run silently. Stop and Pause share the same interrupted-run rule. Commit.
 - [ ] 4. Office tools for Stages: open a Decision and consult wait the way task 11 built (the tool returns at once, the answer arrives as the session's next message); consult opens a Decision for the user naming who would have been asked; attach; the Handover note. Commit.
@@ -39,3 +39,4 @@ Leave out: Consultations with colleagues (the consult tool only asks the user in
 ## Progress
 
 <!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next; anything surprising. -->
+- 2026-10-26 · step 1: barge-in. `POST /threads/:id/messages` into a Stage Thread whose Stage runs goes to Conversations' `StageThreads.bargeIn` (routed in `ThreadRunner.send`); a waiting Stage Thread still refuses. The message is logged with `delivery: "waiting"` and sent with priority `next`; a user message now always says its delivery (`waiting`, `delivered`, `not-delivered`; migration 0023 marks the old ones delivered), changed in place by `markDelivery` (`ThreadChange.marked`, event `DeliveryMarked`, web `thread.delivery-marked`). The live Stage keeps a `BargeIns` (`application/barge-ins.ts`): delivered when a turn's `consumedMessageIds` names it; a completed turn that ended before a sent message landed is followed by one the engine starts with it, and the Stage reads that one with both turns' tokens; between turns (the Stage interpreter reading the last one) a message is held and follows The Office's next message, since sent then it would start a turn the interpreter would read as the answer to something else; when the Stage's session ends first it is marked `not-delivered`, and later ones are refused "The Stage is ending…". Web: the Thread contract has `stageThread`; the composer of a running Stage Thread stays open with "Message Ada… (lands at the next safe point)", and each user message there shows "Lands at the next safe point", "Delivered" or "Not delivered: the Stage ended first". Tests: scripted-adapter cases in `stage-threads.test.ts` (`barge-in`), domain cases in `thread-changes.test.ts`. Next: step 2, Stop, Pause and Resume. Surprising: the engine tells a message landed only in the turn's result (`user_message_uuids`); an assistant frame lists it too, but by the SDK's own doc not reliably in a turn started by a typed prompt, so the mark comes when the turn that took it ends, which for a Stage of one long turn is the Stage's end. Step 7 checks this live.

@@ -98,6 +98,7 @@ export const threadEventInvalidations: Readonly<
   "thread.renamed": () => [THREADS],
   "thread.messages-logged": () => [THREADS],
   "thread.turn-ended": () => [THREADS],
+  "thread.delivery-marked": () => [THREADS],
   "thread.override-chosen": () => [THREADS],
   "thread.decision-opened": () => [THREADS, DECISIONS],
   "thread.decision-answered": () => [THREADS, DECISIONS],

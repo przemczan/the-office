@@ -95,6 +95,21 @@ export class PostgresThreadRepository extends ThreadRepository {
         // One insert keeps the log in the messages' order: position follows the rows.
         await transaction.insert(threadMessages).values(changed.logged.map(toMessageRow));
       }
+      if (changed.marked) {
+        const { messageIds, delivery } = changed.marked;
+        await transaction
+          .update(threadMessages)
+          .set({
+            body: sql`${threadMessages.body} || jsonb_build_object('delivery', ${delivery}::text)`,
+          })
+          .where(
+            and(
+              eq(threadMessages.threadId, id),
+              inArray(threadMessages.id, [...messageIds]),
+              sql`${threadMessages.body} ->> 'kind' = 'user'`,
+            ),
+          );
+      }
       return { thread: changed.thread, event: changed.event };
     });
   }

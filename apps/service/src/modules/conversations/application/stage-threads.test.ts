@@ -155,8 +155,8 @@ function aStage(fields: Partial<StageThreadRequest>): StageThreadRequest {
   };
 }
 
-/** A turn that writes `text` and ends with `output`. */
-function aTurn(output: unknown, text = "Working on it."): Step[] {
+/** A turn that writes `text` and ends with `output`, having taken the messages `consumed` names. */
+function aTurn(output: unknown, text = "Working on it.", consumed: string[] = []): Step[] {
   return [
     { step: "event", event: { kind: "text", text, withinToolCall: undefined } },
     {
@@ -164,7 +164,7 @@ function aTurn(output: unknown, text = "Working on it."): Step[] {
       event: {
         kind: "turn-ended",
         outcome: "completed",
-        consumedMessageIds: [],
+        consumedMessageIds: consumed,
         usage: USAGE,
         sessionCostUsd: 0.01,
         output,
@@ -434,13 +434,140 @@ describe("StageThreads", () => {
     expect(await app.get(TaskTokens).tokensSoFar(request.taskId)).toBe(3 + 120 + 26_000);
   });
 
-  it("refuses the user's messages in a Stage Thread", async () => {
+  it("refuses the user's messages in a Stage Thread once its Stage has ended", async () => {
     await startWith(started(...aTurn({ status: "done" })));
     const { stageThread } = await aStageRun(aStage({ roleKey: aPerson("Ada") }));
 
     await expect(app.get(ThreadRunner).send(stageThread.threadId, "Hello?")).rejects.toThrow(
       ThreadRefused,
     );
+  });
+});
+
+/** A Bash call the turn makes, whose result comes back once the step after the call is taken. */
+const aCommand = (callId: string): { call: Step; result: Step } => ({
+  call: {
+    step: "event",
+    event: {
+      kind: "tool-call",
+      callId,
+      tool: "Bash",
+      officeTool: false,
+      input: { command: "npm test" },
+      withinToolCall: undefined,
+    },
+  },
+  result: {
+    step: "event",
+    event: { kind: "tool-result", callId, text: "Tests pass.", isError: false },
+  },
+});
+const aBargeIn = (id: string): Step => ({
+  step: "send",
+  message: { id, text: "" },
+  priority: "next",
+});
+
+async function userMessages(threadId: string): Promise<MessageDraft[]> {
+  return drafts(await repository.messages(threadId)).filter(({ kind }) => kind === "user");
+}
+
+describe("barge-in", () => {
+  it("sends the user's message with priority next, and marks it delivered once the turn took it", async () => {
+    const command = aCommand("npm-test");
+    await startWith(
+      started(
+        command.call,
+        aBargeIn("barge-in"),
+        command.result,
+        ...aTurn({ status: "done" }, "Renamed it on the list too.", ["brief", "barge-in"]),
+      ),
+    );
+    const ada = aPerson("Ada");
+    const stageThread = await stageThreads.open(aStage({ roleKey: ada }));
+
+    const answering = await app
+      .get(ThreadRunner)
+      .send(stageThread.threadId, "Rename it on the list too.");
+
+    expect(answering.state).toBe("answering");
+    expect(await userMessages(stageThread.threadId)).toEqual([
+      { kind: "user", text: "Rename it on the list too.", delivery: "waiting" },
+    ]);
+    const turn = await stageThread.nextTurn();
+    expect(turn.output).toEqual({ status: "done" });
+    expect(await userMessages(stageThread.threadId)).toEqual([
+      { kind: "user", text: "Rename it on the list too.", delivery: "delivered" },
+    ]);
+    await stageThread.end({ handoverNote: undefined, failure: undefined });
+    // One session took it, and no other start or resume: the scripted engine refuses a send of
+    // any other priority.
+    const steps = engine.sessions.flatMap(({ received }) => received.map(({ step }) => step));
+    expect(steps.filter((step) => step !== "read-context-usage")).toEqual(["start", "send", "end"]);
+  });
+
+  it("reads the turn the engine starts with a message the running turn ended before taking", async () => {
+    const command = aCommand("npm-test");
+    await startWith(
+      started(
+        command.call,
+        aBargeIn("barge-in"),
+        command.result,
+        ...aTurn({ status: "done" }, "Done.", ["brief"]),
+        ...aTurn({ status: "done", list: true }, "Renamed it on the list too.", ["barge-in"]),
+      ),
+    );
+    const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
+    await stageThreads.bargeIn(stageThread.threadId, "Rename it on the list too.");
+
+    const turn = await stageThread.nextTurn();
+
+    expect(turn.output).toEqual({ status: "done", list: true });
+    expect(turn.tokens.output).toBe(USAGE.output * 2);
+    expect(await userMessages(stageThread.threadId)).toEqual([
+      { kind: "user", text: "Rename it on the list too.", delivery: "delivered" },
+    ]);
+    await stageThread.end({ handoverNote: undefined, failure: undefined });
+  });
+
+  it("holds a message written between turns until The Office sends its next one", async () => {
+    await startWith(
+      started(
+        ...aTurn({ status: "maybe" }),
+        { step: "send", message: { id: "correction", text: "" }, priority: "later" },
+        aBargeIn("barge-in"),
+        ...aTurn({ status: "done" }, "Corrected.", ["correction", "barge-in"]),
+      ),
+    );
+    const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
+    await stageThread.nextTurn();
+
+    // Sent now, it would start a turn the Stage would read as the correction's answer.
+    await stageThreads.bargeIn(stageThread.threadId, "Rename it on the list too.");
+    const corrected = await stageThread.send("Correct it.", "The result was invalid.");
+
+    expect(corrected.output).toEqual({ status: "done" });
+    expect(await userMessages(stageThread.threadId)).toEqual([
+      { kind: "user", text: "Rename it on the list too.", delivery: "delivered" },
+    ]);
+    await stageThread.end({ handoverNote: undefined, failure: undefined });
+  });
+
+  it("marks a message not delivered when the Stage's session ends first, and refuses any after", async () => {
+    await startWith(started(...aTurn({ status: "done" })));
+    const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
+    await stageThread.nextTurn();
+    await stageThreads.bargeIn(stageThread.threadId, "Rename it on the list too.");
+
+    await stageThread.endSession();
+
+    expect(await userMessages(stageThread.threadId)).toEqual([
+      { kind: "user", text: "Rename it on the list too.", delivery: "not-delivered" },
+    ]);
+    await expect(stageThreads.bargeIn(stageThread.threadId, "And the page?")).rejects.toThrow(
+      ThreadRefused,
+    );
+    await stageThread.end({ handoverNote: undefined, failure: undefined });
   });
 });
 

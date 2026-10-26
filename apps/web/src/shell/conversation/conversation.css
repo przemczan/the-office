@@ -135,6 +135,19 @@
   overflow-wrap: anywhere;
 }
 
+.message-delivery {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.message-delivery.not-delivered {
+  color: var(--danger-fg);
+}
+
 .message-line {
   display: flex;
   align-items: baseline;

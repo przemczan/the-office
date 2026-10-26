@@ -13,20 +13,24 @@ import {
 } from "../domain/context-policy.js";
 import type { Message, MessageDraft } from "../domain/message.js";
 import { openingMessage, taskThreadInstructions } from "../domain/session-instructions.js";
-import type { Thread, TokenTotals } from "../domain/thread.js";
+import { addTokens, NO_TOKENS, type Thread, type TokenTotals } from "../domain/thread.js";
 import {
+  bargeIn,
   beginStageWork,
   endStageWork,
   endTurn,
   failAnswer,
   freshSession,
   logMessages,
+  markDelivery,
   startStageThread,
   type StageWorkEnding,
   type ThreadChange,
 } from "../domain/thread-changes.js";
 import { ThreadNotFound } from "../domain/thread-not-found.js";
+import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
+import { BargeIns } from "./barge-ins.js";
 import { sessionLogLines, type SessionEvent } from "./session-log.js";
 import { CONTEXT_POLICY_SETTINGS } from "./thread-contexts.js";
 
@@ -99,6 +103,8 @@ export interface StageThread {
 @Injectable()
 export class StageThreads {
   private readonly logger = new Logger(StageThreads.name);
+  /** The user's messages into each Stage Thread whose Stage's session is at work. */
+  private readonly bargeIns = new Map<string, BargeIns>();
 
   constructor(
     private readonly repository: ThreadRepository,
@@ -137,6 +143,23 @@ export class StageThreads {
     }
     if (previous?.session) await this.forget(previous.session.id);
     return this.startIn(request, current, move, brief, now);
+  }
+
+  /**
+   * The user writes into a Stage Thread while its Stage runs (barge-in, spec §2.4): the message is
+   * logged waiting, and marked delivered once a turn of the person's has taken it. Refused once
+   * the Stage's session has ended.
+   */
+  async bargeIn(threadId: string, text: string): Promise<Thread> {
+    if (text.trim() === "") throw new ThreadRefused(["Write a message first."]);
+    const bargeIns = this.bargeIns.get(threadId);
+    if (!bargeIns) throw new ThreadRefused([STAGE_ENDING]);
+    const said = { id: randomUUID(), text };
+    const thread = await this.change(threadId, (latest) =>
+      bargeIn(latest, { ...said, at: new Date() }),
+    );
+    if (!bargeIns.take(said)) await this.mark(threadId, [said.id], "not-delivered");
+    return thread;
   }
 
   private async previousThread(id: string | undefined): Promise<Thread | undefined> {
@@ -278,11 +301,26 @@ export class StageThreads {
   ): StageThread {
     const events = session.events[Symbol.asyncIterator]();
     const logger = { roleKey, folder, handingOver: false };
+    const bargeIns = new BargeIns((message) => session.send(message, "next"));
+    this.bargeIns.set(threadId, bargeIns);
+    // A turn ended before the user's message landed is followed by one the engine starts with
+    // it: the Stage reads that one, with the tokens of both.
     const nextTurn = async (): Promise<StageTurn> => {
+      let earlierTokens = NO_TOKENS;
       for (;;) {
         const next = await events.next();
         if (next.done) throw new Error("The session ended before the Stage's turn did.");
-        if (next.value.kind === "turn-ended") return this.turnEnded(threadId, session, next.value);
+        if (next.value.kind === "turn-ended") {
+          const turn = await this.turnEnded(threadId, session, next.value);
+          const { delivered, stillToLand } = bargeIns.turnEnded(
+            next.value.consumedMessageIds,
+            next.value.outcome === "completed",
+          );
+          await this.mark(threadId, delivered, "delivered");
+          if (!stillToLand) return { ...turn, tokens: addTokens(earlierTokens, turn.tokens) };
+          earlierTokens = addTokens(earlierTokens, turn.tokens);
+          continue;
+        }
         const lines = sessionLogLines(next.value, logger);
         if (lines.length > 0) await this.log(threadId, lines);
       }
@@ -290,9 +328,13 @@ export class StageThreads {
     let sessionEnded: Promise<void> | undefined;
     // The engine ends what the session left running as the session ends.
     const endSession = (): Promise<void> => {
-      sessionEnded ??= session.end().catch((error: unknown) => {
-        this.logger.warn(`Thread ${threadId}'s session didn't end cleanly: ${messageOf(error)}`);
-      });
+      sessionEnded ??= (async () => {
+        this.bargeIns.delete(threadId);
+        await this.mark(threadId, bargeIns.end(), "not-delivered");
+        await session.end().catch((error: unknown) => {
+          this.logger.warn(`Thread ${threadId}'s session didn't end cleanly: ${messageOf(error)}`);
+        });
+      })();
       return sessionEnded;
     };
     return {
@@ -302,6 +344,7 @@ export class StageThreads {
       send: async (text, why) => {
         await this.log(threadId, [{ kind: "failure", reason: why }]);
         session.send({ id: randomUUID(), text }, "later");
+        bargeIns.turnStarted();
         return nextTurn();
       },
       endSession,
@@ -347,6 +390,16 @@ export class StageThreads {
     });
   }
 
+  private async mark(
+    threadId: string,
+    messageIds: readonly string[],
+    delivery: "delivered" | "not-delivered",
+  ): Promise<void> {
+    await this.change(threadId, (thread) =>
+      markDelivery(thread, { messageIds, delivery }, new Date()),
+    );
+  }
+
   private async log(threadId: string, drafts: readonly MessageDraft[]): Promise<void> {
     const at = new Date();
     const messages = drafts.map((draft): Message => ({ ...draft, id: randomUUID(), threadId, at }));
@@ -356,11 +409,14 @@ export class StageThreads {
   private async change<Event extends DomainEvent>(
     threadId: string,
     change: (thread: Thread) => ThreadChange<Event> | undefined,
-  ): Promise<void> {
-    const { event } = await this.repository.update(threadId, change);
+  ): Promise<Thread> {
+    const { thread, event } = await this.repository.update(threadId, change);
     if (event) await this.events.publish(event);
+    return thread;
   }
 }
+
+const STAGE_ENDING = "The Stage is ending. Send your message once it has ended.";
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

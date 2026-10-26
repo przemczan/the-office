@@ -21,6 +21,15 @@ export interface TokenTotals {
 
 export const NO_TOKENS: TokenTotals = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
 
+export function addTokens(total: TokenTotals, turn: TokenTotals): TokenTotals {
+  return {
+    input: total.input + turn.input,
+    output: total.output + turn.output,
+    cacheRead: total.cacheRead + turn.cacheRead,
+    cacheCreation: total.cacheCreation + turn.cacheCreation,
+  };
+}
+
 /**
  * The engine session behind a Thread now. Only it can be resumed; starting fresh or handing off
  * replaces it, and the one before can't be resumed any more.

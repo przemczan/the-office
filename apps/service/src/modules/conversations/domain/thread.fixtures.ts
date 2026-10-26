@@ -21,5 +21,12 @@ export function aThread(fields: Partial<Thread> = {}): Thread {
 
 /** What the user wrote in `thread`. */
 export function aUserMessage(thread: Thread, text: string, id = crypto.randomUUID()): Message {
-  return { kind: "user", id, threadId: thread.id, text, at: new Date("2026-10-25T09:01:00.000Z") };
+  return {
+    kind: "user",
+    id,
+    threadId: thread.id,
+    text,
+    delivery: "delivered",
+    at: new Date("2026-10-25T09:01:00.000Z"),
+  };
 }
