@@ -30,6 +30,11 @@ export function addTokens(total: TokenTotals, turn: TokenTotals): TokenTotals {
   };
 }
 
+/** The Thread's tokens as the user sees them: its ended turns and the running turn's so far. */
+export function tokensSoFar({ tokens, runningTurnTokens }: Thread): TokenTotals {
+  return addTokens(tokens, runningTurnTokens);
+}
+
 /**
  * The engine session behind a Thread now. Only it can be resumed; starting fresh or handing off
  * replaces it, and the one before can't be resumed any more.
@@ -74,7 +79,13 @@ export interface Thread {
   readonly session: ThreadSession | undefined;
   /** For the next message only; undefined lets the Context policy choose. */
   readonly override: ContextOverride | undefined;
+  /** The tokens of its ended turns, as the engine counted each turn. */
   readonly tokens: TokenTotals;
+  /**
+   * The running turn's tokens so far, counted from the person's messages as they come, so a long
+   * turn shows live; the turn's own count replaces them as it ends. Budgets count `tokens` only.
+   */
+  readonly runningTurnTokens: TokenTotals;
   readonly startedAt: Date;
   /** The Decision the Thread waits on the user for: at most one is open at a time. */
   readonly openDecision: Decision | undefined;

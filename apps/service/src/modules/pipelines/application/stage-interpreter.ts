@@ -108,16 +108,43 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   async takeAnswer(taskId: string, decisionId: string, answer: DecisionAnswer): Promise<void> {
     const runs = await this.runs.list(taskId);
     const run = runs.find(({ decisions }) => decisions.some(({ id }) => id === decisionId));
-    const decision = run?.decisions.find(({ id }) => id === decisionId);
-    if (!run || !decision || decision.answer) return;
-    const taken = { ...decision, answer: walkAnswerOf(decision, answer) };
-    await this.runs.saveDecisions(
-      run.id,
-      run.decisions.map((each) => (each.id === decisionId ? taken : each)),
-    );
+    if (!run || !(await this.keepAnswers(run, new Map([[decisionId, answer]])))) return;
     if ((await this.tasks.read(taskId)).state !== "waiting-on-you") return;
     await this.tasks.changeState(taskId, "in-progress");
     this.walkInBackground(taskId);
+  }
+
+  /**
+   * Keeps the given answers on the run's Decisions that are still open; false when none was.
+   * One taken already is left as it is.
+   */
+  private async keepAnswers(
+    run: StageRun,
+    answers: ReadonlyMap<string, DecisionAnswer>,
+  ): Promise<boolean> {
+    let kept = false;
+    const decisions = run.decisions.map((decision) => {
+      const answer = answers.get(decision.id);
+      if (decision.answer || !answer) return decision;
+      kept = true;
+      return { ...decision, answer: walkAnswerOf(decision, answer) };
+    });
+    if (kept) await this.runs.saveDecisions(run.id, decisions);
+    return kept;
+  }
+
+  /**
+   * Keeps the answers the user gave in Conversations to the run's open Decisions: an answer given
+   * before the run kept its Decision, such as one the Agent opened while its Stage still ran,
+   * found no run as it came. False when none is answered there.
+   */
+  private async takeRecordedAnswers(run: StageRun): Promise<boolean> {
+    const answers = new Map<string, DecisionAnswer>();
+    for (const { id, answer } of run.decisions) {
+      const recorded = answer ? undefined : await this.decisions.answerOf(id);
+      if (recorded) answers.set(id, recorded);
+    }
+    return answers.size > 0 && this.keepAnswers(run, answers);
   }
 
   /**
@@ -292,6 +319,9 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
         if (!(await this.skip(taskId, move, runs))) return;
         continue;
       }
+      if (move.move === "wait" && move.run.outcome && (await this.takeRecordedAnswers(move.run))) {
+        continue;
+      }
       if (move.move !== "run") {
         await this.halt(taskId, move, runs);
         if (!(await this.answeredMeanwhile(taskId, stages, definitionOfDone))) return;
@@ -436,7 +466,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
 
   /**
    * Whether the user answered while the walk was moving the Task to Waiting on you: the answer then
-   * found it In progress and left this walk to go on, which it does once the Task is In progress again.
+   * found it In progress, or found no run keeping the Decision yet, and left this walk to go on,
+   * which it does once the Task is In progress again.
    */
   private async answeredMeanwhile(
     taskId: string,
@@ -444,8 +475,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     definitionOfDone: readonly string[],
   ): Promise<boolean> {
     if ((await this.tasks.read(taskId)).state !== "waiting-on-you") return false;
-    const runs = await this.runs.list(taskId);
-    return nextMove(stages, runs, definitionOfDone).move !== "wait";
+    const move = nextMove(stages, await this.runs.list(taskId), definitionOfDone);
+    return move.move !== "wait" || this.takeRecordedAnswers(move.run);
   }
 
   /**

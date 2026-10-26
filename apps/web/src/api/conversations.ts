@@ -1,16 +1,19 @@
-import { queryOptions } from "@tanstack/react-query";
+import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
   decisionListSchema,
   messageListSchema,
   threadListSchema,
   threadSchema,
+  threadWebEventSchema,
   type ContextOverride,
   type DecisionAnswer,
+  type Home,
   type Thread,
   type ThreadWebEvent,
+  type TokenTotals,
 } from "@the-office/contracts";
 import { getFromApi, sendToApi } from "./api-client.ts";
-import type { EventInvalidations } from "./event-stream-provider.tsx";
+import type { EventCacheUpdates, EventInvalidations } from "./event-stream-provider.tsx";
 
 const THREADS = ["threads"] as const;
 const DECISIONS = ["decisions"] as const;
@@ -86,13 +89,16 @@ export function answerDecision(id: string, answer: DecisionAnswer): Promise<Thre
   return sendToApi("POST", `/decisions/${encodeURIComponent(id)}/answer`, answer, threadSchema);
 }
 
+/** The Conversations events that carry what changed, which `threadEventCacheUpdates` applies. */
+type CarryingEventType = "thread.tokens-counted";
+
 /**
- * Every Conversations event makes the Threads stale: ["threads"] covers each home's list, each
- * Thread and its log. A Decision's events also make ["decisions"] stale, kept apart so the many
- * events of a turn don't refetch the open Decisions.
+ * Every other Conversations event makes the Threads stale: ["threads"] covers each home's list,
+ * each Thread and its log. A Decision's events also make ["decisions"] stale, kept apart so the
+ * many events of a turn don't refetch the open Decisions.
  */
 export const threadEventInvalidations: Readonly<
-  Record<ThreadWebEvent["type"], EventInvalidations[string]>
+  Record<Exclude<ThreadWebEvent["type"], CarryingEventType>, EventInvalidations[string]>
 > = {
   "thread.started": () => [THREADS],
   "thread.renamed": () => [THREADS],
@@ -104,6 +110,42 @@ export const threadEventInvalidations: Readonly<
   "thread.decision-answered": () => [THREADS, DECISIONS],
   "thread.decision-reopened": () => [THREADS, DECISIONS],
 };
+
+/**
+ * A running turn's tokens change just that Thread, wherever it is cached, and with it its Task's
+ * total, refetching no log: a long turn counts many times.
+ */
+export const threadEventCacheUpdates: Readonly<
+  Record<CarryingEventType, EventCacheUpdates[string]>
+> = {
+  "thread.tokens-counted": (event, queryClient) => {
+    const counted = threadWebEventSchema.parse(event);
+    if (counted.type !== "thread.tokens-counted") return;
+    showTokens(queryClient, counted.threadId, counted.home, counted.tokens);
+  },
+};
+
+function showTokens(
+  queryClient: QueryClient,
+  threadId: string,
+  home: Home,
+  tokens: TokenTotals,
+): void {
+  queryClient.setQueryData(
+    threadQueries.one(threadId).queryKey,
+    (thread) => thread && { ...thread, tokens },
+  );
+  // A list without the Thread stays as it is, so nothing showing it renders again.
+  const inList = (threads: Thread[] | undefined): Thread[] | undefined =>
+    threads?.some(({ id }) => id === threadId)
+      ? threads.map((thread) => (thread.id === threadId ? { ...thread, tokens } : thread))
+      : threads;
+  const homeList =
+    home.kind === "chat" ? threadQueries.inChat(home.roleKey) : threadQueries.onTask(home.taskId);
+  queryClient.setQueryData(homeList.queryKey, inList);
+  // Every person's list of their Threads on Tasks, since the event doesn't name whose it is.
+  queryClient.setQueriesData<Thread[]>({ queryKey: [...THREADS, "on-tasks"] }, inList);
+}
 
 function threadPath(id: string): `/${string}` {
   return `/threads/${encodeURIComponent(id)}`;

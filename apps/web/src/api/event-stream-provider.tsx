@@ -13,21 +13,32 @@ import { EventStream, type EventStreamStatus } from "./event-stream.ts";
 /** For each event type the web receives, the queries an event of that type makes stale. */
 export type EventInvalidations = Readonly<Record<string, (event: WebEvent) => readonly QueryKey[]>>;
 
+/**
+ * For event types that carry what changed, how an event of that type changes the cached queries in
+ * place, refetching nothing.
+ */
+export type EventCacheUpdates = Readonly<
+  Record<string, (event: WebEvent, queryClient: QueryClient) => void>
+>;
+
 const EventStreamContext = createContext<EventStream | undefined>(undefined);
 
 /**
- * Keeps the queries fresh from the service's domain events while mounted. After a reconnect every
+ * Keeps the queries fresh from the service's domain events while mounted, refetching the ones an
+ * event makes stale or changing them in place. After a reconnect every
  * query is refetched, since the events sent while the connection was down are lost.
  */
 export function EventStreamProvider({
   invalidations,
+  cacheUpdates,
   children,
 }: {
   readonly invalidations: EventInvalidations;
+  readonly cacheUpdates: EventCacheUpdates;
   readonly children: ReactNode;
 }): ReactNode {
   const queryClient = useQueryClient();
-  const [eventStream] = useState(() => createEventStream(queryClient, invalidations));
+  const [eventStream] = useState(() => createEventStream(queryClient, invalidations, cacheUpdates));
   useEffect(() => {
     eventStream.start();
     return () => eventStream.stop();
@@ -47,11 +58,13 @@ export function useEventStreamStatus(): EventStreamStatus {
 function createEventStream(
   queryClient: QueryClient,
   invalidations: EventInvalidations,
+  cacheUpdates: EventCacheUpdates,
 ): EventStream {
   return new EventStream({
     url: eventsUrl(window.location),
-    eventTypes: Object.keys(invalidations),
+    eventTypes: [...Object.keys(invalidations), ...Object.keys(cacheUpdates)],
     onEvent: (event) => {
+      cacheUpdates[event.type]?.(event, queryClient);
       for (const queryKey of invalidations[event.type]?.(event) ?? []) {
         void queryClient.invalidateQueries({ queryKey });
       }

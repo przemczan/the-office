@@ -48,6 +48,7 @@ function aStageThread(taskId: string): ConstructorParameters<typeof DecisionAnsw
     session: undefined,
     override: undefined,
     tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
+    runningTurnTokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
     startedAt: new Date(),
     openDecision: undefined,
     stageThread: true,
@@ -164,6 +165,21 @@ describe("StageInterpreter's Decisions", () => {
         expect(statesOf(taskId)).toEqual(["waiting-on-you", "in-progress", "done"]);
       },
     );
+
+    it("goes on when the answer came before the run kept the Decision, so DecisionAnswered found no run", async () => {
+      await startWith(agentDone, agentDone, agentDone);
+      failing("2 tests fail.", "Still 2.");
+      onWaiting("before", (taskId) => {
+        const opened = pipelines.decisions.on(taskId).at(-1);
+        if (opened) pipelines.decisions.answers.set(opened.id, { kind: "option", option: 0 });
+        return Promise.resolve();
+      });
+
+      const taskId = await walkStages(pipelines, [draft, measure]);
+      await pipelines.app.get(StageInterpreter, { strict: false }).walked(taskId);
+
+      expect(statesOf(taskId)).toEqual(["waiting-on-you", "in-progress", "done"]);
+    });
 
     it("goes back for the rounds the user allows, and on to Done", async () => {
       await startWith(agentDone, agentDone, agentDone);
@@ -326,6 +342,23 @@ describe("StageInterpreter's Decisions", () => {
         ["draft", "needs-decision"],
         ["draft", "done"],
       ]);
+    });
+
+    it("takes an answer the user gave while the Stage still ran, before its run kept the Decision", async () => {
+      await startWith(waiting, agentDone);
+      const asked = anAskedDecision();
+      asksOnce(pipelines, asked);
+      // Given in Conversations as the Agent's turn ran: its DecisionAnswered found no run to take it.
+      pipelines.decisions.answers.set(asked.id, { kind: "free-answer", text: "Both pages." });
+
+      const taskId = await walkStages(pipelines, [draft]);
+
+      expect(await statusesOf(taskId)).toEqual([
+        ["draft", "needs-decision"],
+        ["draft", "done"],
+      ]);
+      expect(pipelines.stageThreads.requests.at(-1)?.work).toContain("Their answer: Both pages.");
+      expect(statesOf(taskId)).toEqual(["done"]);
     });
   });
 

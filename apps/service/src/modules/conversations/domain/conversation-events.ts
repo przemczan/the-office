@@ -44,13 +44,23 @@ export class DeliveryMarked extends DomainEvent {
   }
 }
 
-/** A turn of the person's ended:the Thread's tokens, its session's context and its state changed. */
+/** A turn of the person's ended: the Thread's tokens, its session's context and its state changed. */
 export class TurnEnded extends DomainEvent {
   constructor(
     readonly thread: Thread,
     endedAt: Date,
   ) {
     super(endedAt);
+  }
+}
+
+/** The person's running turn counted more tokens on the Thread, before the turn's own count. */
+export class TokensCounted extends DomainEvent {
+  constructor(
+    readonly thread: Thread,
+    countedAt: Date,
+  ) {
+    super(countedAt);
   }
 }
 

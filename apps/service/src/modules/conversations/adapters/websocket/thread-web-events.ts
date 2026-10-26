@@ -10,16 +10,20 @@ import {
   MessagesLogged,
   ThreadRenamed,
   ThreadStarted,
+  TokensCounted,
   TurnEnded,
 } from "../../domain/conversation-events.js";
-import type { Thread } from "../../domain/thread.js";
+import { tokensSoFar, type Thread } from "../../domain/thread.js";
 
 type WebEventOf<Type extends ThreadWebEvent["type"]> = Omit<
   Extract<ThreadWebEvent, { type: Type }>,
   "occurredAt"
 >;
 
-/** Every Conversations event reaches the web, naming the Thread and its home, so open pages refetch. */
+/**
+ * Every Conversations event reaches the web, naming the Thread and its home, so open pages refetch;
+ * a count of tokens carries them, for the pages to show without refetching.
+ */
 @Injectable()
 export class ThreadWebEvents implements OnModuleInit {
   constructor(private readonly forwarding: WebEventForwarding) {}
@@ -44,6 +48,11 @@ export class ThreadWebEvents implements OnModuleInit {
     this.forwarding.forward(TurnEnded, (event): WebEventOf<"thread.turn-ended"> => ({
       type: "thread.turn-ended",
       ...namesOf(event.thread),
+    }));
+    this.forwarding.forward(TokensCounted, (event): WebEventOf<"thread.tokens-counted"> => ({
+      type: "thread.tokens-counted",
+      ...namesOf(event.thread),
+      tokens: tokensSoFar(event.thread),
     }));
     this.forwarding.forward(
       ContextOverrideChosen,

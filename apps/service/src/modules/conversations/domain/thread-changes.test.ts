@@ -4,12 +4,17 @@ import {
   MessagesLogged,
   ThreadRenamed,
   ThreadStarted,
+  TokensCounted,
 } from "./conversation-events.js";
 import type { Message } from "./message.js";
-import { NO_TOKENS } from "./thread.js";
+import { NO_TOKENS, tokensSoFar, type ThreadSession } from "./thread.js";
 import {
   bargeIn,
   beginOpening,
+  countRunningTurn,
+  endStageWork,
+  endTurn,
+  failAnswer,
   logMessages,
   markDelivery,
   renameThread,
@@ -36,6 +41,7 @@ describe("a chat Thread", () => {
       session: undefined,
       override: undefined,
       tokens: NO_TOKENS,
+      runningTurnTokens: NO_TOKENS,
       startedAt: AT,
       openDecision: undefined,
       stageThread: false,
@@ -245,5 +251,70 @@ describe("barge-in", () => {
       event: new DeliveryMarked(running, ["said"], "delivered", AT),
     });
     expect(markDelivery(running, { messageIds: [], delivery: "delivered" }, AT)).toBeUndefined();
+  });
+});
+
+describe("a Thread's tokens", () => {
+  const session: ThreadSession = {
+    id: "session-1",
+    roleKey: "planner",
+    cardVersion: 1,
+    startedAt: AT,
+    lastCallAt: AT,
+    contextTokens: 30_000,
+    startContextTokens: 30_000,
+    full: false,
+  };
+  const earlier = { input: 10, output: 200, cacheRead: 5_000, cacheCreation: 1_000 };
+  const soFar = { input: 3, output: 90, cacheRead: 9_000, cacheCreation: 0 };
+  const running = aThread({ state: "answering", session, tokens: earlier });
+
+  it("count the running turn so far, apart from the ended turns, while the person answers", () => {
+    const counted = countRunningTurn(running, soFar, AT);
+
+    expect(counted?.thread).toMatchObject({ tokens: earlier, runningTurnTokens: soFar });
+    expect(counted?.event).toEqual(new TokensCounted(counted?.thread ?? running, AT));
+    expect(tokensSoFar(counted?.thread ?? running)).toEqual({
+      input: 13,
+      output: 290,
+      cacheRead: 14_000,
+      cacheCreation: 1_000,
+    });
+    expect(countRunningTurn(aThread({ tokens: earlier }), soFar, AT)).toBeUndefined();
+  });
+
+  it("take the turn's own count in place of the running one as it ends", () => {
+    const counting = { ...running, runningTurnTokens: soFar };
+    const usage = { input: 4, output: 100, cacheRead: 9_500, cacheCreation: 0 };
+
+    const { thread } = endTurn(counting, {
+      usage,
+      contextTokens: 31_000,
+      handingOver: false,
+      officeSendsNext: false,
+      endedAt: AT,
+    });
+
+    expect(thread).toMatchObject({
+      tokens: { input: 14, output: 300, cacheRead: 14_500, cacheCreation: 1_000 },
+      runningTurnTokens: NO_TOKENS,
+    });
+  });
+
+  it("keep the running count as spent when the session ends before its turn does", () => {
+    const counting = { ...running, runningTurnTokens: soFar };
+    const spent = { input: 13, output: 290, cacheRead: 14_000, cacheCreation: 1_000 };
+
+    expect(failAnswer(counting, "The session ended.", AT).thread).toMatchObject({
+      tokens: spent,
+      runningTurnTokens: NO_TOKENS,
+    });
+    expect(
+      endStageWork(
+        { ...counting, stageThread: true },
+        { roleKey: "planner", handoverNote: undefined, closing: undefined },
+        AT,
+      )?.thread,
+    ).toMatchObject({ tokens: spent, runningTurnTokens: NO_TOKENS });
   });
 });

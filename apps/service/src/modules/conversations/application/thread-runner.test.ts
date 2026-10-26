@@ -22,11 +22,13 @@ import { SessionSkills } from "../../skills/index.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import { CHAT_OFFICE_TOOLS, HANDOVER_REQUEST } from "../domain/session-instructions.js";
-import { TurnEnded } from "../domain/conversation-events.js";
+import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import { EventBus } from "../../../platform/events/event-bus.js";
+import { TokensCounted, TurnEnded } from "../domain/conversation-events.js";
 import { DEFAULT_CONTEXT_POLICY_SETTINGS, type ContextDecision } from "../domain/context-policy.js";
 import type { BriefProject } from "../domain/brief.js";
 import type { Message, MessageDraft } from "../domain/message.js";
-import type { Thread, ThreadSession } from "../domain/thread.js";
+import { NO_TOKENS, type Thread, type ThreadSession } from "../domain/thread.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
@@ -365,6 +367,29 @@ describe("continuing a Thread", () => {
       { kind: "person", roleKey, text: "Sure." },
     ]);
     expect((await threads.read(thread.id)).tokens.output).toBe(2 * USAGE.output);
+  });
+
+  it("counts the running turn's tokens as they come, then the turn's own", async () => {
+    const soFar = { input: 3, output: 40, cacheRead: 9_000, cacheCreation: 0 };
+    await startWith(
+      started({ step: "event", event: { kind: "turn-tokens", soFar } }, ...aTurn("brief", "Hi.")),
+    );
+    const counted: Thread[] = [];
+    app.get(EventBus).subscribeToEveryEvent((event: DomainEvent) => {
+      if (event instanceof TokensCounted) counted.push(event.thread);
+    });
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.");
+    await answered(thread.id, 3);
+
+    expect(counted.map(({ tokens, runningTurnTokens }) => [tokens, runningTurnTokens])).toEqual([
+      [NO_TOKENS, soFar],
+    ]);
+    expect(await threads.read(thread.id)).toMatchObject({
+      tokens: USAGE,
+      runningTurnTokens: NO_TOKENS,
+    });
   });
 
   it("resumes a cooled Thread with a small context, on the card version its session started with", async () => {

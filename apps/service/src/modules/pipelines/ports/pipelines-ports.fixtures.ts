@@ -13,6 +13,7 @@ import {
 import { StartedTasks, type StartedTask, type WalkTaskState } from "./started-tasks.js";
 import type { CommandRun, Installation, ScriptCommandRun } from "../domain/stage-command-run.js";
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
+import type { DecisionAnswer } from "../domain/walk-decisions.js";
 import { TaskCommands, type ScriptCommandKey } from "./task-commands.js";
 import { TaskGit, type WorktreeHead } from "./task-git.js";
 import { TaskRecords, type TaskRecord } from "./task-records.js";
@@ -232,11 +233,17 @@ export class StageThreadsForTests extends StageThreads {
 @Injectable()
 export class StageDecisionsForTests extends StageDecisions {
   readonly opened = new Map<string, StageDecisionRequest>();
+  /** Answers given in Conversations, by Decision id, as a test puts them. */
+  readonly answers = new Map<string, DecisionAnswer>();
 
   open(request: StageDecisionRequest): Promise<string> {
     const id = randomUUID();
     this.opened.set(id, request);
     return Promise.resolve(id);
+  }
+
+  answerOf(decisionId: string): Promise<DecisionAnswer | undefined> {
+    return Promise.resolve(this.answers.get(decisionId));
   }
 
   /** The Decisions opened on the Task, in order, each with its id. */

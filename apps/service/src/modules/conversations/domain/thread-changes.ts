@@ -16,12 +16,14 @@ import {
   MessagesLogged,
   ThreadRenamed,
   ThreadStarted,
+  TokensCounted,
   TurnEnded,
 } from "./conversation-events.js";
 import type { Message, MessageDelivery, MessageDraft, StageWorkClosing } from "./message.js";
 import {
   addTokens,
   NO_TOKENS,
+  tokensSoFar,
   type ContextOverride,
   type Thread,
   type ThreadSession,
@@ -81,6 +83,7 @@ export function startChatThread(
     session: undefined,
     override: undefined,
     tokens: NO_TOKENS,
+    runningTurnTokens: NO_TOKENS,
     startedAt,
     openDecision: undefined,
     stageThread: false,
@@ -136,6 +139,7 @@ function threadOnTask(
     session: undefined,
     override: undefined,
     tokens: NO_TOKENS,
+    runningTurnTokens: NO_TOKENS,
     startedAt,
     openDecision: undefined,
     stageThread,
@@ -477,7 +481,7 @@ export function endStageWork(
     threadId: thread.id,
     at: endedAt,
   }));
-  const waiting: Thread = { ...thread, state: "waiting" };
+  const waiting: Thread = { ...settleRunningTurn(thread), state: "waiting" };
   if (messages.length > 0) return logMessages(waiting, messages, endedAt);
   if (thread.state === "waiting") return undefined;
   return { thread: waiting, logged: [], event: new TurnEnded(waiting, endedAt) };
@@ -493,7 +497,7 @@ function begin(
     throw new ThreadRefused([`${personName} is still answering. Send it once they finish.`]);
   }
   const answering: Thread = {
-    ...thread,
+    ...settleRunningTurn(thread),
     state: "answering",
     override: undefined,
     session: newSession ?? thread.session,
@@ -533,7 +537,8 @@ export interface TurnCount {
 }
 
 /**
- * Counts the turn's tokens on the Thread and its session's context. The Thread waits for the
+ * Counts the turn's tokens on the Thread, in place of the running count made during it, and its
+ * session's context. The Thread waits for the
  * user again, unless the person writes a Handover note next.
  */
 export function endTurn(
@@ -545,6 +550,7 @@ export function endTurn(
     ...thread,
     state: handingOver || officeSendsNext ? "answering" : "waiting",
     tokens: addTokens(thread.tokens, usage),
+    runningTurnTokens: NO_TOKENS,
     session: {
       ...thread.session,
       lastCallAt: endedAt,
@@ -554,6 +560,28 @@ export function endTurn(
     },
   };
   return { thread: ended, logged: [], event: new TurnEnded(ended, endedAt) };
+}
+
+/**
+ * Counts the running turn's tokens so far on the Thread, until the turn's own count replaces
+ * them; none once the person no longer answers in it.
+ */
+export function countRunningTurn(
+  thread: Thread,
+  soFar: TokenTotals,
+  countedAt: Date,
+): ThreadChange<TokensCounted> | undefined {
+  if (thread.state !== "answering") return undefined;
+  const counted: Thread = { ...thread, runningTurnTokens: soFar };
+  return { thread: counted, logged: [], event: new TokensCounted(counted, countedAt) };
+}
+
+/**
+ * A turn whose session ended before the engine counted it keeps the count made so far, as the
+ * tokens it spent: the next turn, or the Stage's end, adds it to the ended turns'.
+ */
+function settleRunningTurn(thread: Thread): Thread {
+  return { ...thread, tokens: tokensSoFar(thread), runningTurnTokens: NO_TOKENS };
 }
 
 /** A session the move started that never opened, and the one the Thread had before it. */
@@ -582,7 +610,7 @@ export function failAnswer(
   };
   const session =
     unopened && thread.session?.id === unopened.sessionId ? unopened.previous : thread.session;
-  const waiting: Thread = { ...thread, state: "waiting", session };
+  const waiting: Thread = { ...settleRunningTurn(thread), state: "waiting", session };
   return {
     thread: waiting,
     logged: [failure],

@@ -53,6 +53,16 @@ export interface ToolRefusedEvent {
   readonly refusedBy: RefusedBy;
 }
 
+/**
+ * The running turn's tokens so far, counted from the Agent's messages as the engine reports them,
+ * each message once. An estimate for showing a long turn live: the turn's own `usage`, as it ends,
+ * replaces it.
+ */
+export interface TurnTokensEvent {
+  readonly kind: "turn-tokens";
+  readonly soFar: TokenUsage;
+}
+
 /** How a turn ended. */
 export type TurnOutcome = "completed" | "interrupted" | "failed";
 
@@ -90,4 +100,10 @@ export interface RateLimitEvent {
 
 /** Everything a session reports, in the order it happened. */
 export type SessionEvent =
-  TextEvent | ToolCallEvent | ToolResultEvent | ToolRefusedEvent | TurnEndedEvent | RateLimitEvent;
+  | TextEvent
+  | ToolCallEvent
+  | ToolResultEvent
+  | ToolRefusedEvent
+  | TurnTokensEvent
+  | TurnEndedEvent
+  | RateLimitEvent;

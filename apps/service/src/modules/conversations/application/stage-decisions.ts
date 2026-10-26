@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import type { DecisionDraft } from "../domain/decision.js";
+import type { DecisionAnswer, DecisionDraft } from "../domain/decision.js";
 import { openDecision } from "../domain/thread-changes.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 
@@ -35,6 +35,17 @@ export class StageDecisions {
     );
     if (event) await this.events.publish(event);
     return id;
+  }
+
+  /**
+   * The user's answer to the Decision, undefined while it waits. The Pipeline reads it as it would
+   * wait, for an answer given before its run kept the Decision.
+   */
+  async answerOf(id: string): Promise<DecisionAnswer | undefined> {
+    const answer = (await this.repository.decision(id))?.answer;
+    if (!answer) return undefined;
+    const { answeredAt: _answeredAt, ...given } = answer;
+    return given;
   }
 
   private async threadFor(taskId: string, threadId: string | undefined): Promise<string> {

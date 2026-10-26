@@ -7,7 +7,7 @@ import type {
 import type { ContextDecision } from "../../domain/context-policy.js";
 import type { Decision, DecisionAnswer } from "../../domain/decision.js";
 import type { Message } from "../../domain/message.js";
-import type { Thread } from "../../domain/thread.js";
+import { tokensSoFar, type Thread } from "../../domain/thread.js";
 
 export function toThreadResponse(thread: Thread, context: ContextDecision): ThreadResponse {
   return {
@@ -16,7 +16,7 @@ export function toThreadResponse(thread: Thread, context: ContextDecision): Thre
     roleKey: thread.roleKey,
     title: thread.title ?? null,
     state: thread.state,
-    tokens: { ...thread.tokens },
+    tokens: tokensSoFar(thread),
     context: {
       move: context.move,
       reason: context.reason,

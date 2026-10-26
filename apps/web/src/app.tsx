@@ -2,8 +2,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { shouldRetry } from "./api/api-client.ts";
-import { threadEventInvalidations } from "./api/conversations.ts";
-import { EventStreamProvider, type EventInvalidations } from "./api/event-stream-provider.tsx";
+import { threadEventCacheUpdates, threadEventInvalidations } from "./api/conversations.ts";
+import {
+  EventStreamProvider,
+  type EventCacheUpdates,
+  type EventInvalidations,
+} from "./api/event-stream-provider.tsx";
 import { roleEventInvalidations } from "./api/people.ts";
 import { pipelineEventInvalidations } from "./api/pipelines.ts";
 import { projectEventInvalidations } from "./api/projects.ts";
@@ -23,10 +27,13 @@ const EVENT_INVALIDATIONS: EventInvalidations = {
   ...workEventInvalidations,
 };
 
+// The event types that carry what changed, and how they change the cached queries in place.
+const EVENT_CACHE_UPDATES: EventCacheUpdates = { ...threadEventCacheUpdates };
+
 export function App(): ReactNode {
   return (
     <QueryClientProvider client={queryClient}>
-      <EventStreamProvider invalidations={EVENT_INVALIDATIONS}>
+      <EventStreamProvider invalidations={EVENT_INVALIDATIONS} cacheUpdates={EVENT_CACHE_UPDATES}>
         <RouterProvider router={router} />
       </EventStreamProvider>
     </QueryClientProvider>

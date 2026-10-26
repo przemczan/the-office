@@ -71,8 +71,9 @@ export interface StageThread {
   /** The person's turn running now, as it ends. */
   nextTurn(): Promise<StageTurn>;
   /**
-   * The Decision the person opened in the Thread since the Stage's work began, with an Office tool
-   * (`open_decision` or `consult`), while it waits on the user; undefined when they asked none.
+   * The latest Decision the person opened in the Thread since the Stage's work began, with an
+   * Office tool (`open_decision` or `consult`), answered or not: the user may answer it while the
+   * Stage still runs, which the walk reads as it would wait. Undefined when they asked none.
    */
   askedDecision(): Promise<AskedDecision | undefined>;
   /** Logs `why`, sends the person `text` in the same session, and returns the turn answering it. */
@@ -105,7 +106,7 @@ export abstract class StageThreads {
    * Ends the Stage's work in the Thread of a run The Office left running as it stopped, closing
    * with `closing`: the user's messages still waiting to land become not delivered, so they go with
    * the Stage's next run as after a Stop. Returns the Decision the person opened in the Thread
-   * since the run `began`, still waiting on the user, for the run to keep.
+   * since the run `began`, answered or not, for the run to keep.
    */
   abstract endLeftRunning(
     threadId: string,

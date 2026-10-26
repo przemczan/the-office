@@ -39,6 +39,10 @@ export const threads = pgTable(
     session: jsonb("session").$type<ThreadSessionRow>(),
     override: text("override").$type<ContextOverride>(),
     tokens: jsonb("tokens").$type<TokenTotals>().notNull(),
+    runningTurnTokens: jsonb("running_turn_tokens")
+      .$type<TokenTotals>()
+      .notNull()
+      .default({ input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     stageThread: boolean("stage_thread").notNull().default(false),
   },

@@ -1,6 +1,6 @@
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { describe, expect, it } from "vitest";
-import { sessionEvents, usageWindows } from "./sdk-events.js";
+import { sessionEvents, TurnTokens, usageWindows } from "./sdk-events.js";
 
 /** Stream messages as the engine sends them, with only the fields the mapping reads. */
 const message = (fields: Record<string, unknown>): SDKMessage => fields as unknown as SDKMessage;
@@ -194,6 +194,56 @@ describe("sessionEvents", () => {
   it("reports nothing for messages the Office has no use for, or doesn't know", () => {
     expect(sessionEvents(message({ type: "system", subtype: "init" }))).toEqual([]);
     expect(sessionEvents(message({ type: "command_lifecycle" }))).toEqual([]);
+  });
+});
+
+/** One frame of an assistant message: its id and its usage, as the engine repeats it. */
+const frame = (id: string, output: number, parent: string | null = null): SDKMessage =>
+  message({
+    type: "assistant",
+    parent_tool_use_id: parent,
+    message: {
+      id,
+      content: [],
+      usage: {
+        input_tokens: 3,
+        output_tokens: output,
+        cache_read_input_tokens: 1000,
+        cache_creation_input_tokens: null,
+      },
+    },
+  });
+
+describe("TurnTokens", () => {
+  it("counts each message once, at its latest frame's usage, a subagent's too", () => {
+    const turnTokens = new TurnTokens();
+
+    const first = turnTokens.eventsOf(frame("msg-1", 10));
+    const repeated = turnTokens.eventsOf(frame("msg-1", 10));
+    const grown = turnTokens.eventsOf(frame("msg-1", 40));
+    const subagent = turnTokens.eventsOf(frame("msg-2", 5, "call-1"));
+
+    expect(first).toEqual([
+      { kind: "turn-tokens", soFar: { input: 3, output: 10, cacheRead: 1000, cacheCreation: 0 } },
+    ]);
+    expect(repeated).toEqual([]);
+    expect(grown).toEqual([
+      { kind: "turn-tokens", soFar: { input: 3, output: 40, cacheRead: 1000, cacheCreation: 0 } },
+    ]);
+    expect(subagent).toEqual([
+      { kind: "turn-tokens", soFar: { input: 6, output: 45, cacheRead: 2000, cacheCreation: 0 } },
+    ]);
+  });
+
+  it("starts over once the turn ends, and reports nothing for other messages", () => {
+    const turnTokens = new TurnTokens();
+    turnTokens.eventsOf(frame("msg-1", 10));
+
+    expect(turnTokens.eventsOf(message({ ...RESULT, subtype: "success" }))).toEqual([]);
+    expect(turnTokens.eventsOf(message({ type: "system", subtype: "init" }))).toEqual([]);
+    expect(turnTokens.eventsOf(frame("msg-2", 7))).toEqual([
+      { kind: "turn-tokens", soFar: { input: 3, output: 7, cacheRead: 1000, cacheCreation: 0 } },
+    ]);
   });
 });
 

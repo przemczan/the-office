@@ -199,6 +199,7 @@ function toRow(thread: Thread): ThreadRow {
     session: thread.session ? toSessionRow(thread.session) : null,
     override: thread.override ?? null,
     tokens: thread.tokens,
+    runningTurnTokens: thread.runningTurnTokens,
     startedAt: thread.startedAt,
     stageThread: thread.stageThread,
   };
@@ -217,6 +218,7 @@ function toThread(row: ThreadRow, openDecision: Decision | undefined): Thread {
     session: row.session ? toSession(row.session) : undefined,
     override: row.override ?? undefined,
     tokens: row.tokens,
+    runningTurnTokens: row.runningTurnTokens,
     startedAt: row.startedAt,
     openDecision,
     stageThread: row.stageThread,

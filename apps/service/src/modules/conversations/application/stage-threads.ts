@@ -24,6 +24,7 @@ import {
   bargeIn,
   beginStageWork,
   chooseOverride,
+  countRunningTurn,
   endStageWork,
   endTurn,
   failAnswer,
@@ -120,8 +121,8 @@ export interface StageThread {
   /** The person's turn running now, as it ends. */
   nextTurn(): Promise<StageTurn>;
   /**
-   * The Decision the person opened in the Thread since the Stage's work began, by `open_decision`
-   * or `consult`, while it waits on the user; undefined when they asked none.
+   * The latest Decision the person opened in the Thread since the Stage's work began, by
+   * `open_decision` or `consult`, answered or not; undefined when they asked none.
    */
   askedDecision(): Promise<AskedDecision | undefined>;
   /** Logs `why`, sends the person The Office's `text`, and returns the turn that answers it. */
@@ -227,8 +228,8 @@ export class StageThreads {
    * Ends the Stage's work in a Thread whose session The Office lost as it stopped, found as it
    * starts again (spec §2.4): the user's messages still waiting to land never will, so they are
    * marked not delivered and go with the Stage's next run as after a Stop, and the Thread closes
-   * with why the Stage ended. Returns the Decision the person opened since the run `began`, still
-   * waiting on the user, for the run to keep.
+   * with why the Stage ended. Returns the Decision the person opened since the run `began`, answered
+   * or not, for the run to keep.
    */
   async endLeftRunning(
     threadId: string,
@@ -240,20 +241,28 @@ export class StageThreads {
       waitingMessageIds(await this.repository.messages(threadId)),
       "not-delivered",
     );
-    const ended = await this.change(threadId, (latest) =>
+    await this.change(threadId, (latest) =>
       endStageWork(
         latest,
         { roleKey: latest.roleKey, handoverNote: undefined, closing },
         new Date(),
       ),
     );
-    return askedSince(ended.openDecision, began);
+    return this.askedIn(threadId, began);
   }
 
-  /** The person's own Decision in the Thread, when they opened it since `began`. */
+  /**
+   * The person's own latest Decision in the Thread, when they opened it since `began`, answered or
+   * not: the user may answer it while the Stage still runs, and the Pipeline then reads the answer
+   * as the run keeps it.
+   */
   private async askedIn(threadId: string, began: Date): Promise<AskedDecision | undefined> {
-    const thread = await this.repository.find(threadId);
-    return askedSince(thread?.openDecision, began);
+    const asked = (await this.repository.decisionsIn(threadId)).findLast(
+      ({ roleKey, askedAt }) => roleKey !== undefined && askedAt >= began,
+    );
+    if (!asked) return undefined;
+    const { id, question, context, options, recommendation } = asked;
+    return { id, question, context, options, recommendation };
   }
 
   private async previousThread(id: string | undefined): Promise<Thread | undefined> {
@@ -441,6 +450,11 @@ export class StageThreads {
           earlierTokens = addTokens(earlierTokens, turn.tokens);
           continue;
         }
+        if (next.value.kind === "turn-tokens") {
+          const { soFar } = next.value;
+          await this.change(threadId, (thread) => countRunningTurn(thread, soFar, new Date()));
+          continue;
+        }
         const lines = sessionLogLines(next.value, logger);
         if (lines.length > 0) await this.log(threadId, lines);
       }
@@ -554,13 +568,6 @@ interface StageWorkPlace {
   readonly roleKey: string;
   readonly folder: string;
   readonly began: Date;
-}
-
-/** The person's own Decision, when they opened it since `began`; undefined for any other. */
-function askedSince(decision: Decision | undefined, began: Date): AskedDecision | undefined {
-  if (!decision || decision.roleKey === undefined || decision.askedAt < began) return undefined;
-  const { id, question, context, options, recommendation } = decision;
-  return { id, question, context, options, recommendation };
 }
 
 /** A Stage's request with its work carrying the user's undelivered messages, if any. */

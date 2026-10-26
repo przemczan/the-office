@@ -25,7 +25,8 @@ export interface EventStreamOptions {
 /** The waits before each attempt to connect again, the last one repeated. */
 export const RECONNECT_DELAYS_MS = [250, 500, 1000, 2000, 4000] as const;
 
-const serverMessage = serverMessageSchema(webEventSchema);
+// Loose, so each event keeps its own fields for the module that reads it.
+const serverMessage = serverMessageSchema(webEventSchema.loose());
 
 /** The service's domain events, received over the WebSocket at EVENTS_PATH. */
 export class EventStream {

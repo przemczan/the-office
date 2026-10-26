@@ -25,6 +25,7 @@ import {
   answerDecision,
   beginAnswer,
   beginOpening,
+  countRunningTurn,
   endTurn,
   failAnswer,
   failDecisionAnswer,
@@ -405,6 +406,10 @@ export class ThreadRunner implements OnModuleDestroy {
     for await (const event of live.session.events) {
       if (event.kind === "turn-ended") {
         await this.turnEnded(threadId, live, event);
+        continue;
+      }
+      if (event.kind === "turn-tokens") {
+        await this.change(threadId, (thread) => countRunningTurn(thread, event.soFar, new Date()));
         continue;
       }
       const lines = sessionLogLines(event, live);

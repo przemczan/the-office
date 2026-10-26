@@ -1,0 +1,1 @@
+ALTER TABLE "threads" ADD COLUMN "running_turn_tokens" jsonb DEFAULT '{"input":0,"output":0,"cacheRead":0,"cacheCreation":0}'::jsonb NOT NULL;

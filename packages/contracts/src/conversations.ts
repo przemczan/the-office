@@ -69,6 +69,7 @@ export const threadSchema = z.object({
   /** From its first message until the user renames it; null before any message. */
   title: z.string().nullable(),
   state: threadStateSchema,
+  /** Its ended turns' tokens and the running turn's so far, which its end replaces. */
   tokens: tokenTotalsSchema,
   context: threadContextSchema,
   startedAt: z.iso.datetime(),
@@ -246,6 +247,12 @@ export const threadWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("thread.renamed"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.messages-logged"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.turn-ended"), ...threadWebEventFields }),
+  /** The running turn counted more tokens: the Thread's tokens now, as GET /threads/:id has them. */
+  webEventSchema.extend({
+    type: z.literal("thread.tokens-counted"),
+    ...threadWebEventFields,
+    tokens: tokenTotalsSchema,
+  }),
   webEventSchema.extend({ type: z.literal("thread.delivery-marked"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.override-chosen"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.decision-opened"), ...decisionWebEventFields }),

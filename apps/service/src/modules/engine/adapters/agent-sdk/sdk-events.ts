@@ -7,7 +7,12 @@ import type {
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import type { UsageWindow, UsageWindows } from "../../domain/usage-windows.js";
-import type { RateLimitStatus, SessionEvent, TurnOutcome } from "../../ports/session-events.js";
+import type {
+  RateLimitStatus,
+  SessionEvent,
+  TokenUsage,
+  TurnOutcome,
+} from "../../ports/session-events.js";
 import { OFFICE_TOOL_PREFIX } from "./sdk-options.js";
 
 /** How the engine ends a turn that `interrupt()` stopped, by what was running then. */
@@ -38,6 +43,62 @@ export function sessionEvents(message: SDKMessage): SessionEvent[] {
     default:
       return [];
   }
+}
+
+/**
+ * The running turn's tokens, from the Agent's messages as they stream. The engine delivers a
+ * message as frames, one per content block, sharing the message's id and its usage, so each id
+ * counts once, at its latest frame's usage. A subagent's messages count too. Forgets them as the
+ * turn ends, when the turn's own usage takes over.
+ */
+export class TurnTokens {
+  private readonly byMessage = new Map<string, TokenUsage>();
+
+  /** A turn-tokens event when the message changed the running count; none otherwise. */
+  eventsOf(message: SDKMessage): SessionEvent[] {
+    if (message.type === "result") {
+      this.byMessage.clear();
+      return [];
+    }
+    if (message.type !== "assistant") return [];
+    const { id, usage } = message.message;
+    const counted = tokenUsageOf(usage);
+    const before = this.byMessage.get(id);
+    if (before && sameUsage(before, counted)) return [];
+    this.byMessage.set(id, counted);
+    return [{ kind: "turn-tokens", soFar: this.soFar() }];
+  }
+
+  private soFar(): TokenUsage {
+    let total: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+    for (const usage of this.byMessage.values()) {
+      total = {
+        input: total.input + usage.input,
+        output: total.output + usage.output,
+        cacheRead: total.cacheRead + usage.cacheRead,
+        cacheCreation: total.cacheCreation + usage.cacheCreation,
+      };
+    }
+    return total;
+  }
+}
+
+function tokenUsageOf(usage: SDKAssistantMessage["message"]["usage"]): TokenUsage {
+  return {
+    input: usage.input_tokens,
+    output: usage.output_tokens,
+    cacheRead: usage.cache_read_input_tokens ?? 0,
+    cacheCreation: usage.cache_creation_input_tokens ?? 0,
+  };
+}
+
+function sameUsage(one: TokenUsage, other: TokenUsage): boolean {
+  return (
+    one.input === other.input &&
+    one.output === other.output &&
+    one.cacheRead === other.cacheRead &&
+    one.cacheCreation === other.cacheCreation
+  );
 }
 
 /** A tool's name as the port has it: an Office tool by its own name, any other as the engine names it. */

@@ -21,10 +21,10 @@ import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
-import { DecisionAnswered } from "../domain/conversation-events.js";
+import { DecisionAnswered, TokensCounted } from "../domain/conversation-events.js";
 import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "../domain/context-policy.js";
 import type { Message, MessageDraft } from "../domain/message.js";
-import type { Thread } from "../domain/thread.js";
+import { NO_TOKENS, type Thread, type TokenTotals } from "../domain/thread.js";
 import {
   answerDecision,
   chooseOverride,
@@ -615,6 +615,36 @@ describe("barge-in", () => {
   });
 });
 
+/** The running turn's tokens so far, as the engine reports them mid-turn. */
+const soFar = (output: number): Step => ({
+  step: "event",
+  event: { kind: "turn-tokens", soFar: { input: 3, output, cacheRead: 9_000, cacheCreation: 0 } },
+});
+
+describe("a Stage Thread's tokens", () => {
+  it("count the running turn as it goes, and take the turn's own count as it ends", async () => {
+    await startWith(started(soFar(40), soFar(90), ...aTurn({ status: "done" })));
+    const counted: { readonly tokens: TokenTotals; readonly running: TokenTotals }[] = [];
+    app.get(EventBus).subscribeToEveryEvent((event: DomainEvent) => {
+      if (event instanceof TokensCounted) {
+        counted.push({ tokens: event.thread.tokens, running: event.thread.runningTurnTokens });
+      }
+    });
+
+    const { stageThread, turn } = await aStageRun(aStage({ roleKey: aPerson("Ada") }));
+
+    expect(counted).toEqual([
+      { tokens: NO_TOKENS, running: { input: 3, output: 40, cacheRead: 9_000, cacheCreation: 0 } },
+      { tokens: NO_TOKENS, running: { input: 3, output: 90, cacheRead: 9_000, cacheCreation: 0 } },
+    ]);
+    expect(await threadOf(stageThread.threadId)).toMatchObject({
+      tokens: USAGE,
+      runningTurnTokens: NO_TOKENS,
+    });
+    expect(turn.tokens).toEqual(USAGE);
+  });
+});
+
 const anInterruptedTurn: Step = {
   step: "event",
   event: {
@@ -956,10 +986,6 @@ describe("Office tools on a Stage", () => {
       recommendation: { option: 0, reason: "It has the room." },
     });
     const id = asked?.id ?? "";
-    // While the Stage runs, its walk hasn't taken the Decision up yet.
-    await expect(
-      app.get(DecisionService).answer(id, { kind: "option", option: 0 }),
-    ).rejects.toThrow(new ThreadRefused(["The Stage is still running. Answer once it has ended."]));
     await stageThread.end({ handoverNote: "Waiting.", closing: undefined });
     const answered = answeredEvents();
 
@@ -967,6 +993,30 @@ describe("Office tools on a Stage", () => {
 
     expect(answered.map((event) => event.decision.id)).toEqual([id]);
     expect(await repository.decision(id)).toMatchObject({ roleKey: ada, answer: { option: 0 } });
+  });
+
+  it("take the user's answer while the Stage still runs, and the Stage still reads the Decision", async () => {
+    await startWith(
+      started(
+        ...callsOfficeTool("c-1", OPEN_DECISION_TOOL, WHICH_PAGE),
+        ...aTurn({ status: "needs_decision", summary: "Asked." }),
+      ),
+    );
+    const stageThread = await stageThreads.open(anAskingStage(aPerson("Ada")));
+    await stageThread.nextTurn();
+    const id = (await threadOf(stageThread.threadId)).openDecision?.id ?? "";
+    const answered = answeredEvents();
+
+    await app.get(DecisionService).answer(id, { kind: "option", option: 1 });
+
+    expect(answered.map((event) => event.decision.id)).toEqual([id]);
+    // Answered before the Stage's run keeps it: the Pipeline reads the answer as it would wait.
+    await expect(stageThread.askedDecision()).resolves.toMatchObject({ id });
+    await expect(app.get(StageDecisions).answerOf(id)).resolves.toEqual({
+      kind: "option",
+      option: 1,
+    });
+    await stageThread.end({ handoverNote: undefined, closing: undefined });
   });
 
   it("let the Agent open another once the Stage runs again in its Thread after the answer", async () => {

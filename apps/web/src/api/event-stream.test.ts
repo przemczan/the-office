@@ -94,6 +94,17 @@ describe("the event stream", () => {
     expect(onEvent.mock.calls).toEqual([[TASK_STARTED]]);
   });
 
+  it("passes on each event with its own fields", () => {
+    const onEvent = vi.fn<(event: WebEvent) => void>();
+    startStream({ onEvent });
+    latestSocket().open();
+    const withFields = { ...TASK_STARTED, taskId: "f3c1b2a4-5d6e-4f70-8a9b-0c1d2e3f4a5b" };
+
+    latestSocket().receive({ type: "event", event: withFields });
+
+    expect(onEvent.mock.calls).toEqual([[withFields]]);
+  });
+
   it("reconnects after the service went away, subscribes again and says so", () => {
     const onReconnected = vi.fn<() => void>();
     const eventStream = startStream({ onReconnected });

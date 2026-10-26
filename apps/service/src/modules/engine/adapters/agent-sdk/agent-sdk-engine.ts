@@ -32,7 +32,7 @@ import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import { EngineProcess } from "./engine-process.js";
 import { engineTaskFolder } from "./engine-task-folder.js";
 import { officeRulesHook } from "./office-rules-hook.js";
-import { sessionEvents, usageWindows } from "./sdk-events.js";
+import { sessionEvents, TurnTokens, usageWindows } from "./sdk-events.js";
 import { sdkOptions, sessionEnvironment, type SdkSession } from "./sdk-options.js";
 import { initProblems, startCheckProblems } from "./start-check.js";
 import { ToolRefusals } from "./tool-refusals.js";
@@ -135,6 +135,7 @@ class AgentSdkSession implements EngineSession {
   private readonly input = new AsyncChannel<SDKUserMessage>();
   private readonly reported = new AsyncChannel<SessionEvent>();
   private readonly refusals = new ToolRefusals();
+  private readonly turnTokens = new TurnTokens();
   private readonly engine: Query;
   private readonly read: Promise<void>;
   private ending = false;
@@ -216,6 +217,7 @@ class AgentSdkSession implements EngineSession {
         for (const event of this.refusals.withRefusals(message, sessionEvents(message))) {
           this.reported.push(event);
         }
+        for (const event of this.turnTokens.eventsOf(message)) this.reported.push(event);
       }
       this.reported.close();
     } catch (error) {
