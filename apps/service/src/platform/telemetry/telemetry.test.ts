@@ -79,6 +79,27 @@ describe("Telemetry", () => {
     expect(child?.spanContext().traceId).toBe(parent?.spanContext().traceId);
   });
 
+  it("starts a trace of its own without a root, and joins the root's trace with one", async () => {
+    const { telemetry, spans } = setUp();
+
+    const root = await telemetry.inSpan("POST /start", {}, () =>
+      telemetry.inTrace("walk", {}, undefined, (_span, begun) => Promise.resolve(begun)),
+    );
+    await telemetry.inSpan("POST /answer", {}, () =>
+      telemetry.inTrace("walk", {}, root, async () => {
+        await telemetry.inSpan("stage", {}, () => Promise.resolve());
+      }),
+    );
+
+    const [first, , stage, again] = spans.getFinishedSpans();
+    expect(first?.parentSpanContext).toBeUndefined();
+    expect(first?.spanContext()).toMatchObject(root);
+    expect(again?.name).toBe("walk");
+    expect(again?.spanContext().traceId).toBe(root.traceId);
+    expect(again?.parentSpanContext?.spanId).toBe(root.spanId);
+    expect(stage?.parentSpanContext?.spanId).toBe(again?.spanContext().spanId);
+  });
+
   it("records a failure on the span and rethrows it", async () => {
     const { telemetry, spans } = setUp();
     const failure = new Error("The engine stopped");

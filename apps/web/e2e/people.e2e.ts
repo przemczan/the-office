@@ -3,8 +3,10 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   OPEN_DECISION_TOOL,
   projectSchema,
+  roleSchema,
   type NewProject,
   type Project,
+  type TaskLimit,
 } from "@the-office/contracts";
 import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
 
@@ -28,6 +30,18 @@ async function hireFromPreset(page: Page, preset: string, name: string): Promise
   await dialog.getByLabel("Name", { exact: true }).fill(name);
   await dialog.getByRole("button", { name: `Hire ${name}` }).click();
   await expect(page.getByRole("heading", { name: `${name} · ${preset}` })).toBeVisible();
+}
+
+/** Saves the Developer's card with this Task limit, returning the one it had. */
+async function setDevelopersTaskLimit(page: Page, taskLimit: TaskLimit): Promise<TaskLimit> {
+  const read = await page.request.get("/api/roles/developer");
+  const { card } = roleSchema.parse(await read.json());
+  const { permissionProfile: _permissionProfile, ...edit } = card;
+  const saved = await page.request.put("/api/roles/developer/card", {
+    data: { ...edit, taskLimit },
+  });
+  expect(saved.status()).toBe(200);
+  return card.taskLimit;
 }
 
 function roleCardGroup(page: Page, group: string) {
@@ -404,6 +418,23 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
     await expect(
       page.getByText("Sign-in returns to the page is Ready. Starting it is your call."),
     ).toBeVisible();
+
+    // Start says why the Task can't start, here while Implement's person only talks; it is never
+    // clicked, as the walk would open a session out of e2e/sessions.jsonl's order.
+    const start = page.getByRole("button", { name: "Start", exact: true });
+    await expect(start).toBeEnabled();
+    const taskLimit = await setDevelopersTaskLimit(page, "none");
+    try {
+      await page.reload();
+      await expect(
+        page.getByText("Adam only talks (Task limit none), so can't work Implement."),
+      ).toBeVisible();
+      await expect(start).toBeDisabled();
+    } finally {
+      await setDevelopersTaskLimit(page, taskLimit);
+    }
+    await page.reload();
+    await expect(start).toBeEnabled();
 
     const idea = await page.request.post("/api/ideas", {
       data: { title: "Keep the sign-in page per tab", notes: "", projectId: project.id },

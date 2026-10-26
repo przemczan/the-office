@@ -1,6 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { makeTaskStages, type TaskStages } from "../domain/task-stages.js";
+import { stagesProgress, type StageProgress } from "../domain/stage-progress.js";
+import { makeTaskStages, type TaskStages, type TaskTrace } from "../domain/task-stages.js";
+import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { PipelineLibrary } from "./pipeline-library.js";
 
@@ -12,6 +14,7 @@ import { PipelineLibrary } from "./pipeline-library.js";
 export class TaskStagesService {
   constructor(
     private readonly repository: TaskStagesRepository,
+    private readonly runs: StageRunRepository,
     private readonly library: PipelineLibrary,
     private readonly events: EventBus,
   ) {}
@@ -38,5 +41,16 @@ export class TaskStagesService {
 
   async find(taskId: string): Promise<TaskStages | undefined> {
     return this.repository.find(taskId);
+  }
+
+  /** Where each of the Task's own Stages stands; undefined before the Task has its own. */
+  async progress(taskId: string): Promise<StageProgress[] | undefined> {
+    const own = await this.repository.find(taskId);
+    return own && stagesProgress(own.stages, await this.runs.list(taskId));
+  }
+
+  /** Keeps the trace the Task's first walk began, for every later walk to join. */
+  async saveTrace(taskId: string, trace: TaskTrace): Promise<void> {
+    await this.repository.saveTrace(taskId, trace);
   }
 }

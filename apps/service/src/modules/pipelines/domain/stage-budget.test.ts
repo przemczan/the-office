@@ -22,6 +22,7 @@ function aRun(stageKey: string, decisions: StageRunDecision[]): StageRun {
     number: 1,
     carriedFailure: undefined,
     threadId: undefined,
+    session: undefined,
     headCommit: undefined,
     commandRuns: [],
     tokens: NO_STAGE_TOKENS,

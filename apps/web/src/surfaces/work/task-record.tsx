@@ -1,8 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Pipeline, Role, Stage, Task } from "@the-office/contracts";
-import { Button } from "@the-office/ui";
+import type { Pipeline, Role, Stage, Task, TaskStage } from "@the-office/contracts";
+import { Button, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
+import { pipelineQueries } from "../../api/pipelines.ts";
 import { attachmentQueries, ideaQueries } from "../../api/work.ts";
 import { AddAttachmentDialog } from "../../shell/attachments/add-attachment-dialog.tsx";
 import { AttachmentChips } from "../../shell/attachments/attachment-chips.tsx";
@@ -10,6 +11,13 @@ import { dayAndClockOf } from "../../shell/time.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { DefinitionOfDoneBlock, PlanBlock, ProposedPipeline } from "./planning-parts.tsx";
 import { RecordBlock } from "./record-block.tsx";
+import {
+  latestHandoverNote,
+  scriptCommandLine,
+  stageNamesOf,
+  stageProgressLine,
+  stageRule,
+} from "./stage-words.ts";
 
 /** The Task's record: what must be true, how, its Stages, its Attachments and where it came from. */
 export function TaskRecord({
@@ -26,21 +34,48 @@ export function TaskRecord({
     <section className="task-record" aria-label="Record">
       <DefinitionOfDoneBlock task={task} planner={planner} />
       <PlanBlock task={task} planner={planner} />
-      <RecordBlock icon="route" title={`Stages · ${pipeline?.name ?? task.pipelineId}`}>
-        <ProposedPipeline task={task} pipeline={pipeline} planner={planner} />
-        {pipeline ? (
-          <StageList stages={pipeline.stages} roles={roles.data} />
-        ) : (
-          <p className="task-quiet">The Pipeline {task.pipelineId} isn't in the library.</p>
-        )}
-      </RecordBlock>
+      <StagesBlock task={task} pipeline={pipeline} planner={planner} roles={roles.data} />
       <AttachmentsBlock task={task} />
       {task.originIdeaId !== null && <OriginBlock ideaId={task.originIdeaId} />}
     </section>
   );
 }
 
-/** Each Stage with who works it and how it goes on failure; they run from task 12 on. */
+/**
+ * The Task's Stages: its library Pipeline's until it starts, then its own copy with each Stage's
+ * runs, refreshed as the walk's events arrive.
+ */
+function StagesBlock({
+  task,
+  pipeline,
+  planner,
+  roles,
+}: {
+  readonly task: Task;
+  readonly pipeline: Pipeline | undefined;
+  readonly planner: string;
+  readonly roles: readonly Role[] | undefined;
+}): ReactNode {
+  const own = useQuery(pipelineQueries.taskStages(task.id)).data?.stages;
+  return (
+    <RecordBlock icon="route" title={`Stages · ${pipeline?.name ?? task.pipelineId}`}>
+      {own ? (
+        <TaskStageList taskStages={own} roles={roles} />
+      ) : (
+        <>
+          <ProposedPipeline task={task} pipeline={pipeline} planner={planner} />
+          {pipeline ? (
+            <StageList stages={pipeline.stages} roles={roles} />
+          ) : (
+            <p className="task-quiet">The Pipeline {task.pipelineId} isn't in the library.</p>
+          )}
+        </>
+      )}
+    </RecordBlock>
+  );
+}
+
+/** The library Pipeline's Stages, with who works each and how it goes on failure. */
 function StageList({
   stages,
   roles,
@@ -48,43 +83,98 @@ function StageList({
   readonly stages: readonly Stage[];
   readonly roles: readonly Role[] | undefined;
 }): ReactNode {
+  const names = stageNamesOf(stages);
   return (
     <ol className="task-stages">
       {stages.map((stage, index) => (
-        <li key={stage.key} className="task-stage">
-          <span className="task-stage-number">{index + 1}</span>
-          <div>
-            <div className="task-stage-name">
-              <span>{stage.name}</span>{" "}
-              <span className="task-stage-who">· {whoWorks(stage, roles)}</span>
-            </div>
-            <div className="task-stage-detail">{stageDetail(stage, stages)}</div>
-          </div>
-        </li>
+        <StageRow
+          key={stage.key}
+          number={index + 1}
+          state="pending"
+          name={stage.name}
+          who={whoWorks(stage, roles, undefined)}
+          detail={["Pending", ...stageRule(stage, names)].join(" · ")}
+          handoverNote={undefined}
+        />
       ))}
     </ol>
   );
 }
 
-function whoWorks(stage: Stage, roles: readonly Role[] | undefined): string {
-  if (stage.kind === "script") return "script, no Agent";
+/** A started Task's own Stages, each with its state, time, tokens, session and Handover note. */
+function TaskStageList({
+  taskStages,
+  roles,
+}: {
+  readonly taskStages: readonly TaskStage[];
+  readonly roles: readonly Role[] | undefined;
+}): ReactNode {
+  const names = stageNamesOf(taskStages.map(({ stage }) => stage));
+  return (
+    <ol className="task-stages">
+      {taskStages.map((taskStage, index) => (
+        <StageRow
+          key={taskStage.stage.key}
+          number={index + 1}
+          state={taskStage.state}
+          name={taskStage.stage.name}
+          who={whoWorks(taskStage.stage, roles, scriptCommandLine(taskStage))}
+          detail={stageProgressLine(taskStage, names)}
+          handoverNote={latestHandoverNote(taskStage)}
+        />
+      ))}
+    </ol>
+  );
+}
+
+function StageRow({
+  number,
+  state,
+  name,
+  who,
+  detail,
+  handoverNote,
+}: {
+  readonly number: number;
+  readonly state: TaskStage["state"];
+  readonly name: string;
+  readonly who: string;
+  readonly detail: string;
+  readonly handoverNote: string | undefined;
+}): ReactNode {
+  return (
+    <li className={`task-stage task-stage-${state}`}>
+      <span className="task-stage-number">
+        {state === "done" ? <Icon name="check" size={12} /> : number}
+      </span>
+      <div>
+        <div className="task-stage-name">
+          <span>{name}</span> <span className="task-stage-who">· {who}</span>
+        </div>
+        <div className="task-stage-detail">{detail}</div>
+        {handoverNote !== undefined && (
+          <div className="task-stage-note">
+            <Icon name="sticky-note" size={12} />
+            <span>Handover note: {handoverNote}</span>
+          </div>
+        )}
+      </div>
+    </li>
+  );
+}
+
+/** The person for an Agent Stage; for a Script Stage, its command once it has run it. */
+function whoWorks(
+  stage: Stage,
+  roles: readonly Role[] | undefined,
+  commandLine: string | undefined,
+): string {
+  if (stage.kind === "script") {
+    return commandLine === undefined ? "script, no Agent" : `script ${commandLine}, no Agent`;
+  }
   if (stage.kind === "gate") return "Gate";
   const role = roles?.find(({ key }) => key === stage.role);
   return role ? `${role.card.name} · ${role.card.title}` : "nobody yet";
-}
-
-/** "Pending · optional · on failure back to Implement, at most 3×". */
-function stageDetail(stage: Stage, stages: readonly Stage[]): string {
-  const onFailure = stage.kind !== "gate" ? stage.onFailure : undefined;
-  const target = stages.find(({ key }) => key === onFailure?.goBackTo);
-  return [
-    "Pending",
-    stage.optional && "optional",
-    onFailure &&
-      `on failure back to ${target?.name ?? onFailure.goBackTo}, at most ${onFailure.rounds}×`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
 }
 
 function AttachmentsBlock({ task }: { readonly task: Task }): ReactNode {

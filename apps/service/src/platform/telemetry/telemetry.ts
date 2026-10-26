@@ -1,5 +1,8 @@
 import {
+  ROOT_CONTEXT,
   SpanStatusCode,
+  TraceFlags,
+  trace,
   type Attributes,
   type Counter,
   type Meter,
@@ -22,6 +25,15 @@ export interface TokenUsage {
   readonly cacheRead: number;
   /** Input tokens written to the prompt cache. */
   readonly cacheCreation: number;
+}
+
+/**
+ * A trace's first span, kept by the module whose work it traces so work done later, in another
+ * request or after a restart, joins the same trace.
+ */
+export interface TraceRoot {
+  readonly traceId: string;
+  readonly spanId: string;
 }
 
 /** Office-namespaced: the GenAI conventions count cached tokens inside input tokens. */
@@ -62,16 +74,34 @@ export class Telemetry {
    * and its logs belong to it. A failure is recorded on the span and rethrown.
    */
   inSpan<T>(name: string, attributes: Attributes, work: (span: Span) => Promise<T>): Promise<T> {
-    return this.tracer.startActiveSpan(name, { attributes }, async (span) => {
-      try {
-        return await work(span);
-      } catch (error) {
-        recordFailure(span, error);
-        throw error;
-      } finally {
-        span.end();
-      }
+    return this.tracer.startActiveSpan(name, { attributes }, (span) => runIn(span, work));
+  }
+
+  /**
+   * Runs work inside a new span of the trace `root` names, as a child of its first span, whatever
+   * span is active; without a root, the span starts a trace of its own, and work gets its root to
+   * keep. One piece of work traced over several requests is one trace this way.
+   */
+  inTrace<T>(
+    name: string,
+    attributes: Attributes,
+    root: TraceRoot | undefined,
+    work: (span: Span, root: TraceRoot) => Promise<T>,
+  ): Promise<T> {
+    if (!root) {
+      return this.tracer.startActiveSpan(name, { attributes, root: true }, (span) => {
+        const { traceId, spanId } = span.spanContext();
+        return runIn(span, () => work(span, { traceId, spanId }));
+      });
+    }
+    const parent = trace.setSpanContext(ROOT_CONTEXT, {
+      ...root,
+      traceFlags: TraceFlags.SAMPLED,
+      isRemote: true,
     });
+    return this.tracer.startActiveSpan(name, { attributes }, parent, (span) =>
+      runIn(span, () => work(span, root)),
+    );
   }
 
   /**
@@ -90,6 +120,18 @@ export class Telemetry {
   recordCost(span: Span, usd: number, attributes: Attributes = {}): void {
     this.cost.add(usd, attributes);
     span.setAttribute(`${COST_METRIC}.usd`, usd);
+  }
+}
+
+/** A failure is recorded on the span and rethrown; the span ends either way. */
+async function runIn<T>(span: Span, work: (span: Span) => Promise<T>): Promise<T> {
+  try {
+    return await work(span);
+  } catch (error) {
+    recordFailure(span, error);
+    throw error;
+  } finally {
+    span.end();
   }
 }
 

@@ -90,7 +90,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     const thread = await this.open(work, person, task, failed && installFailure(failed));
     let ending: Ending = { handoverNote: undefined, failure: undefined };
     try {
-      await this.runs.saveThread(work.run.id, thread.threadId);
+      await this.runs.saveThread(work.run.id, thread.threadId, thread.move.move);
       const result = await this.resultOf(work, thread);
       // Before git is read, so a dev server or a watcher it started can't change the worktree.
       await thread.endSession();

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { DecisionAnswered } from "../../conversations/index.js";
 import { TaskStarted } from "../../work/index.js";
 import { nextMove, type NextMove } from "../domain/pipeline-walk.js";
@@ -48,6 +49,7 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
     private readonly records: TaskRecords,
     private readonly decisions: StageDecisions,
     private readonly events: EventBus,
+    private readonly telemetry: Telemetry,
   ) {}
 
   onModuleInit(): void {
@@ -104,12 +106,24 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
     await this.walks.get(taskId);
   }
 
+  /**
+   * One trace per Task: the first walk begins it, and every later walk, after an answer or a
+   * restart, joins it, so its Stages and their engine calls are traced together.
+   */
   private async walk(taskId: string): Promise<void> {
     // The Task's own Stages, made here too: the event bus only logs a copy that failed as it started.
-    const { stages } = await this.taskStages.make(
+    const { stages, pipelineId, trace } = await this.taskStages.make(
       taskId,
       (await this.tasks.read(taskId)).pipelineId,
     );
+    const attributes = { "office.task.id": taskId, "office.pipeline": pipelineId };
+    await this.telemetry.inTrace("walk", attributes, trace, async (_span, root) => {
+      if (!trace) await this.taskStages.saveTrace(taskId, root);
+      await this.walkStages(taskId, stages);
+    });
+  }
+
+  private async walkStages(taskId: string, stages: readonly Stage[]): Promise<void> {
     // Locked once the Task is Ready, so one read serves the whole walk.
     const { definitionOfDone } = await this.records.read(taskId);
     while (!this.stopping) {
@@ -141,13 +155,25 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
       earlierRuns.length,
       now,
     );
-    if (!(await this.runs.saveNew(started.run))) return false;
-    const summary =
-      "Skipped: every statement of the Definition of Done was already reported met, and the Stage is optional.";
-    const ended = endStageRun(started.run, { status: "done", summary }, now);
-    await this.runs.saveEnded(ended.run);
-    await this.events.publish(new StageSkipped(taskId, ended.run.id, stage.key));
-    return true;
+    return this.inStageSpan(started.run, stage, async () => {
+      if (!(await this.runs.saveNew(started.run))) return false;
+      const summary =
+        "Skipped: every statement of the Definition of Done was already reported met, and the Stage is optional.";
+      const ended = endStageRun(started.run, { status: "done", summary, skipped: true }, now);
+      await this.runs.saveEnded(ended.run);
+      await this.events.publish(new StageSkipped(taskId, ended.run.id, stage.key));
+      return true;
+    });
+  }
+
+  /** A span per Stage run, whose engine calls are its children. */
+  private inStageSpan(run: StageRun, stage: Stage, work: () => Promise<boolean>): Promise<boolean> {
+    const attributes = {
+      "office.stage": stage.name,
+      "office.stage.kind": stage.kind,
+      "office.stage.run": run.number,
+    };
+    return this.telemetry.inSpan("stage", attributes, work);
   }
 
   /** False when another walk of the Task started the run first. */
@@ -163,17 +189,19 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
       earlierRuns.length,
       new Date(),
     );
-    if (!(await this.runs.saveNew(started.run))) return false;
-    if (carriedFailure) {
-      const { stageKey, round, rounds } = carriedFailure;
-      await this.events.publish(new WentBackToStage(taskId, stageKey, stage.key, round, rounds));
-    }
-    await this.events.publish(started.event);
-    const work = { stage, run: started.run, stages, earlierRuns };
-    const ended = endStageRun(started.run, await this.outcomeOf(work), new Date());
-    await this.runs.saveEnded(ended.run);
-    await this.events.publish(ended.event);
-    return true;
+    return this.inStageSpan(started.run, stage, async () => {
+      if (!(await this.runs.saveNew(started.run))) return false;
+      if (carriedFailure) {
+        const { stageKey, round, rounds } = carriedFailure;
+        await this.events.publish(new WentBackToStage(taskId, stageKey, stage.key, round, rounds));
+      }
+      await this.events.publish(started.event);
+      const work = { stage, run: started.run, stages, earlierRuns };
+      const ended = endStageRun(started.run, await this.outcomeOf(work), new Date());
+      await this.runs.saveEnded(ended.run);
+      await this.events.publish(ended.event);
+      return true;
+    });
   }
 
   /** A runner that throws ends its run failed with the reason, so no run is left running. */

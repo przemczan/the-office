@@ -1,6 +1,6 @@
 import type { CommandPermission } from "../domain/allowed-commands.js";
 import type { StageSession } from "../domain/stage.js";
-import type { StageTokens } from "../domain/stage-run.js";
+import type { StageSessionMove, StageTokens } from "../domain/stage-run.js";
 
 /** What an Agent Stage gives its sessions, beside what the person's Role card does. */
 export interface StageSessionSettings {
@@ -54,6 +54,8 @@ export interface StageTurn {
 /** A Stage's session at work in its Stage Thread, until the Stage ends it. */
 export interface StageThread {
   readonly threadId: string;
+  /** The Context policy's move that began the Stage's session. */
+  readonly move: { readonly move: StageSessionMove };
   /** The person's turn running now, as it ends. */
   nextTurn(): Promise<StageTurn>;
   /** Logs `why`, sends the person `text` in the same session, and returns the turn answering it. */

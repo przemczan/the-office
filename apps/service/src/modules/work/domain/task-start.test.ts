@@ -55,7 +55,7 @@ describe("startTask", () => {
     expect(() => startTask(ready, conditions, others)).toThrow(
       new TaskRefused([
         'Admin panel already has a Task in progress: "Fix the login redirect".',
-        "The Office-wide limit is reached: 3 of 3 desks are in use.",
+        "The Office-wide limit is reached: all 3 desks are in use.",
         "Ada is at the Task limit (2).",
       ]),
     );
@@ -96,7 +96,7 @@ describe("startProblems", () => {
       const others = [started("a", { state }), started("b"), started("c")];
 
       expect(startProblems(ready, conditions, others)).toEqual([
-        "The Office-wide limit is reached: 3 of 3 desks are in use.",
+        "The Office-wide limit is reached: all 3 desks are in use.",
       ]);
     },
   );
@@ -105,7 +105,7 @@ describe("startProblems", () => {
     const lowered = { ...conditions, officeWideLimit: 1 };
 
     expect(startProblems(ready, lowered, [started("a"), started("b")])).toEqual([
-      "The Office-wide limit is reached: 2 of 1 desks are in use.",
+      "The Office-wide limit is reached: the only desk is in use.",
     ]);
   });
 
@@ -131,7 +131,7 @@ describe("startProblems", () => {
 
   it("refuses when nobody fills the first Agent Stage's Role", () => {
     expect(startProblems(ready, { ...conditions, person: undefined }, [])).toEqual([
-      "Hire a person for the developer Role on People first: Implement needs one.",
+      "Nobody fills the Role Implement needs: hire a person for it on People first.",
     ]);
   });
 

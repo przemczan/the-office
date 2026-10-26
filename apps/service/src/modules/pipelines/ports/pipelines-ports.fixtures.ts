@@ -151,6 +151,8 @@ export class StageThreadsForTests extends StageThreads {
     };
     return {
       threadId,
+      // A new session every Stage, as said above.
+      move: { move: "fresh" },
       nextTurn,
       send: (text, why) => {
         this.sent.push({ threadId, text, why });

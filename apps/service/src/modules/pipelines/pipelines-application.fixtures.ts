@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
-import type { INestApplication } from "@nestjs/common";
+import { Module, type DynamicModule, type INestApplication } from "@nestjs/common";
 import { startTestApplication } from "../../../test/test-application.js";
 import type { DomainEvent } from "../../platform/events/domain-event.js";
 import { EventBus } from "../../platform/events/event-bus.js";
 import { EventsModule } from "../../platform/events/events.module.js";
+import { Telemetry } from "../../platform/telemetry/telemetry.js";
 import { TelemetryModule } from "../../platform/telemetry/telemetry.module.js";
+import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
 import {
   ScriptedEngine,
   ScriptedEngineModule,
@@ -46,13 +48,27 @@ export interface PipelinesApplication {
   readonly published: DomainEvent[];
 }
 
+/** Telemetry a test reads its spans from, in place of the no-op one. */
+@Module({})
+class TelemetryForTestsModule {
+  static register(telemetry: Telemetry): DynamicModule {
+    return {
+      module: TelemetryForTestsModule,
+      global: true,
+      providers: [{ provide: Telemetry, useValue: telemetry }],
+      exports: [Telemetry],
+    };
+  }
+}
+
 /**
  * Agent Stages' sessions replay `scripts` in order, one per Stage, each with a real `standIn`
- * engine process when a test gives one.
+ * engine process when a test gives one; spans go to `telemetry` when a test gives one.
  */
 export async function startPipelinesApplication(
   scripts: readonly SessionScript[] = [],
   standIn?: StandInEngine,
+  telemetry?: Telemetry,
 ): Promise<PipelinesApplication> {
   const engine = new ScriptedEngine(scripts, {}, standIn);
   const engineModule = ScriptedEngineModule.register(engine);
@@ -60,7 +76,8 @@ export async function startPipelinesApplication(
     database: true,
     imports: [
       EventsModule,
-      TelemetryModule,
+      EventStreamModule,
+      telemetry ? TelemetryForTestsModule.register(telemetry) : TelemetryModule,
       engineModule,
       PipelinesModule.register({
         imports: [PipelinesPortsForTestsModule.register([engineModule])],
@@ -98,9 +115,13 @@ export async function walkStages(
   stages: readonly Stage[],
   taskId: string = randomUUID(),
 ): Promise<string> {
-  await app
-    .get(TaskStagesRepository, { strict: false })
-    .saveNew({ taskId, pipelineId: "for-tests", stages, startedAt: new Date() });
+  await app.get(TaskStagesRepository, { strict: false }).saveNew({
+    taskId,
+    pipelineId: "for-tests",
+    stages,
+    startedAt: new Date(),
+    trace: undefined,
+  });
   tasks.put(taskId, { state: "in-progress", pipelineId: "for-tests" });
   const interpreter = app.get(StageInterpreter, { strict: false });
   interpreter.walkInBackground(taskId);

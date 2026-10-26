@@ -1,5 +1,10 @@
 import type { StageCommandRun } from "../domain/stage-command-run.js";
-import type { StageRun, StageRunDecision, StageTokens } from "../domain/stage-run.js";
+import type {
+  StageRun,
+  StageRunDecision,
+  StageSessionMove,
+  StageTokens,
+} from "../domain/stage-run.js";
 
 /** Where each Task's Stage runs are kept. */
 export abstract class StageRunRepository {
@@ -9,8 +14,8 @@ export abstract class StageRunRepository {
    */
   abstract saveNew(run: StageRun): Promise<boolean>;
 
-  /** Saves the Stage Thread the run works in. */
-  abstract saveThread(runId: string, threadId: string): Promise<void>;
+  /** Saves the Stage Thread the run works in, and how its session began. */
+  abstract saveThread(runId: string, threadId: string, session: StageSessionMove): Promise<void>;
 
   /** Saves the commit The Office left the Task's branch at after the run. */
   abstract saveHeadCommit(runId: string, headCommit: string): Promise<void>;

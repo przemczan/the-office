@@ -39,6 +39,7 @@ function aRun(
     number: 1,
     carriedFailure: undefined,
     threadId: "thread-1",
+    session: "fresh",
     headCommit: undefined,
     commandRuns: [],
     tokens: NO_STAGE_TOKENS,

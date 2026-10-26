@@ -2,7 +2,12 @@ import { Inject, Injectable } from "@nestjs/common";
 import { asc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { StageCommandRun } from "../../domain/stage-command-run.js";
-import type { StageRun, StageRunDecision, StageTokens } from "../../domain/stage-run.js";
+import type {
+  StageRun,
+  StageRunDecision,
+  StageSessionMove,
+  StageTokens,
+} from "../../domain/stage-run.js";
 import { StageRunRepository } from "../../ports/stage-run-repository.js";
 import { stageRuns } from "./stage-runs.schema.js";
 
@@ -21,8 +26,8 @@ export class PostgresStageRunRepository extends StageRunRepository {
     return saved.length > 0;
   }
 
-  async saveThread(runId: string, threadId: string): Promise<void> {
-    await this.database.update(stageRuns).set({ threadId }).where(eq(stageRuns.id, runId));
+  async saveThread(runId: string, threadId: string, session: StageSessionMove): Promise<void> {
+    await this.database.update(stageRuns).set({ threadId, session }).where(eq(stageRuns.id, runId));
   }
 
   async saveHeadCommit(runId: string, headCommit: string): Promise<void> {
@@ -55,6 +60,7 @@ export class PostgresStageRunRepository extends StageRunRepository {
       ...row,
       carriedFailure: row.carriedFailure ?? undefined,
       threadId: row.threadId ?? undefined,
+      session: row.session ?? undefined,
       headCommit: row.headCommit ?? undefined,
       outcome: row.outcome ?? undefined,
       endedAt: row.endedAt ?? undefined,

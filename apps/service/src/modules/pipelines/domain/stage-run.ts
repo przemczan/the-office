@@ -28,6 +28,8 @@ export type StageOutcome = (
        * numbers in its Brief, from 1. Undefined for a Script Stage, which reports none.
        */
       readonly definitionOfDoneMet?: readonly number[];
+      /** Set on an optional Stage's run recorded as skipped, which ran nothing. */
+      readonly skipped?: true;
     }
   | ({ readonly status: "needs-decision" } & StageDecision)
   | {
@@ -43,6 +45,12 @@ export interface BudgetReached {
   readonly used: number;
   readonly budget: number;
 }
+
+/**
+ * How an Agent Stage's session began, as the Context policy decided (spec §2.5): the previous
+ * Stage's session resumed, a fresh one for the same person, or a hand-off to another Role.
+ */
+export type StageSessionMove = "resume" | "fresh" | "hand-off";
 
 /** A run's tokens over all its engine calls, split as the engine reports them. */
 export interface StageTokens {
@@ -133,6 +141,8 @@ export interface StageRun {
   readonly carriedFailure: CarriedFailure | undefined;
   /** The Stage Thread an Agent Stage's run works in, once it has one. */
   readonly threadId: string | undefined;
+  /** How the run's session began; undefined for a run that opened none. */
+  readonly session: StageSessionMove | undefined;
   /**
    * The commit The Office left the Task's branch at after the run: its commit of the Stage's work,
    * or where the branch was when the Stage changed nothing or changed git itself. The next Agent

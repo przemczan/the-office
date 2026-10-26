@@ -86,7 +86,8 @@ function projectProblems(task: Task, projectName: string, others: readonly Task[
 
 function officeWideLimitProblems(limit: number, others: readonly Task[]): string[] {
   if (others.length < limit) return [];
-  return [`The Office-wide limit is reached: ${others.length} of ${limit} desks are in use.`];
+  const desks = limit === 1 ? "the only desk is" : `all ${limit} desks are`;
+  return [`The Office-wide limit is reached: ${desks} in use.`];
 }
 
 function taskLimitProblems(
@@ -96,7 +97,7 @@ function taskLimitProblems(
 ): string[] {
   if (!stage) return [];
   if (!person) {
-    return [`Hire a person for the ${stage.role} Role on People first: ${stage.name} needs one.`];
+    return [`Nobody fills the Role ${stage.name} needs: hire a person for it on People first.`];
   }
   if (person.taskLimit === "none") {
     return [`${person.name} only talks (Task limit none), so can't work ${stage.name}.`];

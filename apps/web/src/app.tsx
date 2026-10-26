@@ -5,6 +5,7 @@ import { shouldRetry } from "./api/api-client.ts";
 import { threadEventInvalidations } from "./api/conversations.ts";
 import { EventStreamProvider, type EventInvalidations } from "./api/event-stream-provider.tsx";
 import { roleEventInvalidations } from "./api/people.ts";
+import { pipelineEventInvalidations } from "./api/pipelines.ts";
 import { projectEventInvalidations } from "./api/projects.ts";
 import { skillEventInvalidations } from "./api/skills.ts";
 import { workEventInvalidations } from "./api/work.ts";
@@ -15,6 +16,7 @@ const queryClient = new QueryClient({ defaultOptions: { queries: { retry: should
 // Each surface adds the event types it receives and the queries their events make stale.
 const EVENT_INVALIDATIONS: EventInvalidations = {
   ...projectEventInvalidations,
+  ...pipelineEventInvalidations,
   ...roleEventInvalidations,
   ...skillEventInvalidations,
   ...threadEventInvalidations,

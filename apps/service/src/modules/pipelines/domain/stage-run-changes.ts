@@ -23,6 +23,7 @@ export function startStageRun(
     ...given,
     number: earlierRuns + 1,
     threadId: undefined,
+    session: undefined,
     headCommit: undefined,
     commandRuns: [],
     tokens: NO_STAGE_TOKENS,

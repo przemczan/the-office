@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import type { TaskStages } from "../../domain/task-stages.js";
+import type { TaskStages, TaskTrace } from "../../domain/task-stages.js";
 import { TaskStagesRepository } from "../../ports/task-stages-repository.js";
 import { taskStages } from "./task-stages.schema.js";
 
@@ -25,6 +25,10 @@ export class PostgresTaskStagesRepository extends TaskStagesRepository {
       .select()
       .from(taskStages)
       .where(eq(taskStages.taskId, taskId));
-    return row;
+    return row && { ...row, trace: row.trace ?? undefined };
+  }
+
+  async saveTrace(taskId: string, trace: TaskTrace): Promise<void> {
+    await this.database.update(taskStages).set({ trace }).where(eq(taskStages.taskId, taskId));
   }
 }

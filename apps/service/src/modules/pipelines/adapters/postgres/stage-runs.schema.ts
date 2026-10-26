@@ -4,6 +4,7 @@ import type {
   CarriedFailure,
   StageOutcome,
   StageRunDecision,
+  StageSessionMove,
   StageTokens,
 } from "../../domain/stage-run.js";
 
@@ -18,6 +19,8 @@ export const stageRuns = pgTable(
     carriedFailure: jsonb("carried_failure").$type<CarriedFailure>(),
     /** The Stage Thread an Agent Stage's run works in. */
     threadId: uuid("thread_id"),
+    /** How the run's session began. */
+    session: text("session").$type<StageSessionMove>(),
     /** Where The Office left the Task's branch after the run. */
     headCommit: text("head_commit"),
     /** The Project commands The Office ran for the run. */

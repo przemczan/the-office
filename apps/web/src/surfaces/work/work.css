@@ -443,6 +443,43 @@
   color: var(--fg-3);
 }
 
+.task-stage-done .task-stage-number {
+  border-color: var(--success-border);
+  background: var(--success-subtle);
+  color: var(--success-fg);
+}
+
+.task-stage-running .task-stage-number {
+  border-color: var(--success);
+  background: var(--success);
+  color: var(--fg-on-accent);
+}
+
+.task-stage-waiting-on-you .task-stage-number {
+  border-color: var(--warning-border);
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
+}
+
+.task-stage-failed .task-stage-number {
+  border-color: var(--danger-border);
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+}
+
+.task-stage-note {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  margin-top: 6px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--surface-sunken);
+  font: var(--type-caption);
+  line-height: 1.5;
+  color: var(--fg-2);
+}
+
 .task-conversation {
   display: flex;
   flex-direction: column;

@@ -12,6 +12,14 @@ export interface TaskStages {
   readonly pipelineId: string;
   readonly stages: readonly Stage[];
   readonly startedAt: Date;
+  /** The trace every walk of the Task's Stages joins, once the first walk began it. */
+  readonly trace: TaskTrace | undefined;
+}
+
+/** The first span of a Task's trace, as telemetry names it. */
+export interface TaskTrace {
+  readonly traceId: string;
+  readonly spanId: string;
 }
 
 /** The Task's own copy of its Pipeline's Stages as it starts, with the event that announces it. */
@@ -25,6 +33,7 @@ export function makeTaskStages(
     pipelineId: pipeline.id,
     stages: pipeline.stages,
     startedAt,
+    trace: undefined,
   };
   return { taskStages, event: new TaskStagesMade(taskId, pipeline.id) };
 }

@@ -1,6 +1,8 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
+import { TaskStagesController } from "./adapters/http/task-stages.controller.js";
 import { PostgresStageRunRepository } from "./adapters/postgres/postgres-stage-run-repository.js";
 import { PostgresTaskStagesRepository } from "./adapters/postgres/postgres-task-stages-repository.js";
+import { PipelinesWebEvents } from "./adapters/websocket/pipelines-web-events.js";
 import { AgentStageRunner } from "./application/agent-stage-runner.js";
 import { ScriptStageRunner } from "./application/script-stage-runner.js";
 import { StageGit } from "./application/stage-git.js";
@@ -49,6 +51,7 @@ export class PipelinesModule {
     return {
       module: PipelinesModule,
       imports: [PipelineLibraryModule, ...imports],
+      controllers: [TaskStagesController],
       providers: [
         { provide: TaskStagesRepository, useClass: PostgresTaskStagesRepository },
         { provide: StageRunRepository, useClass: PostgresStageRunRepository },
@@ -66,6 +69,7 @@ export class PipelinesModule {
         StageGit,
         AgentStageRunner,
         ScriptStageRunner,
+        PipelinesWebEvents,
       ],
       exports: [PipelineLibraryModule, TaskStagesService],
     };
