@@ -1,5 +1,6 @@
 import type { CommandPermission } from "../domain/allowed-commands.js";
 import type { StageSession } from "../domain/stage.js";
+import type { StageTokens } from "../domain/stage-run.js";
 
 /** What an Agent Stage gives its sessions, beside what the person's Role card does. */
 export interface StageSessionSettings {
@@ -46,6 +47,8 @@ export interface StageTurn {
   readonly output: unknown;
   /** Why the engine ended the turn without finishing it. */
   readonly problem: string | undefined;
+  /** The turn's tokens. */
+  readonly tokens: StageTokens;
 }
 
 /** A Stage's session at work in its Stage Thread, until the Stage ends it. */

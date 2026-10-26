@@ -1,5 +1,5 @@
 import type { StageCommandRun } from "../domain/stage-command-run.js";
-import type { StageRun, StageRunDecision } from "../domain/stage-run.js";
+import type { StageRun, StageRunDecision, StageTokens } from "../domain/stage-run.js";
 
 /** Where each Task's Stage runs are kept. */
 export abstract class StageRunRepository {
@@ -17,6 +17,9 @@ export abstract class StageRunRepository {
 
   /** Saves the Project commands The Office ran for the run, replacing those saved before. */
   abstract saveCommandRuns(runId: string, commandRuns: readonly StageCommandRun[]): Promise<void>;
+
+  /** Saves the run's tokens so far, replacing those saved before. */
+  abstract saveTokens(runId: string, tokens: StageTokens): Promise<void>;
 
   /** Saves the Decisions the walk opened on the run, replacing those saved before. */
   abstract saveDecisions(runId: string, decisions: readonly StageRunDecision[]): Promise<void>;

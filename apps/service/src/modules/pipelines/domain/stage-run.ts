@@ -30,8 +30,43 @@ export type StageOutcome = (
       readonly definitionOfDoneMet?: readonly number[];
     }
   | ({ readonly status: "needs-decision" } & StageDecision)
-  | { readonly status: "failed"; readonly error: string }
+  | {
+      readonly status: "failed";
+      readonly error: string;
+      /** Set when the run stopped because the Task's tokens reached the Stage's budget. */
+      readonly budgetReached?: BudgetReached;
+    }
 ) & { readonly handoverNote?: string };
+
+/** The Task's tokens so far against the Stage's budget, when they reached it. */
+export interface BudgetReached {
+  readonly used: number;
+  readonly budget: number;
+}
+
+/** A run's tokens over all its engine calls, split as the engine reports them. */
+export interface StageTokens {
+  readonly input: number;
+  readonly output: number;
+  readonly cacheRead: number;
+  readonly cacheCreation: number;
+}
+
+export const NO_STAGE_TOKENS: StageTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+
+/** All of them, as "tokens in this Thread" counts them: what budgets are checked against. */
+export function totalTokens({ input, output, cacheRead, cacheCreation }: StageTokens): number {
+  return input + output + cacheRead + cacheCreation;
+}
+
+export function addTokens(total: StageTokens, more: StageTokens): StageTokens {
+  return {
+    input: total.input + more.input,
+    output: total.output + more.output,
+    cacheRead: total.cacheRead + more.cacheRead,
+    cacheCreation: total.cacheCreation + more.cacheCreation,
+  };
+}
 
 export type StageOutcomeStatus = StageOutcome["status"];
 
@@ -53,9 +88,10 @@ export interface CarriedFailure {
 
 /**
  * Why the walk asks the user (spec §2.3): an Agent's own question, a Stage that failed with no
- * retries left, or a Pipeline that ended with the Definition of Done not reported met.
+ * retries left, the Task's tokens reaching a Stage's budget, or a Pipeline that ended with the
+ * Definition of Done not reported met.
  */
-export type StageDecisionKind = "agent" | "no-retries-left" | "definition-of-done";
+export type StageDecisionKind = "agent" | "no-retries-left" | "budget" | "definition-of-done";
 
 /** What the user's answer to a Decision lets the walk do. */
 export type WalkAnswer =
@@ -69,6 +105,8 @@ export type WalkAnswer =
   | { readonly kind: "accept-issues" }
   /** The Task is Done although the Definition of Done isn't reported met. */
   | { readonly kind: "mark-done" }
+  /** The Stage's budget grows by this many tokens, and the Stage runs again. */
+  | { readonly kind: "raise-budget"; readonly tokens: number }
   | { readonly kind: "drop" };
 
 /** A Decision the walk opened on a run, kept as data so the walk can replay its answer. */
@@ -103,6 +141,8 @@ export interface StageRun {
   readonly headCommit: string | undefined;
   /** The Project commands The Office ran for the run, in order; none when it ran none. */
   readonly commandRuns: readonly StageCommandRun[];
+  /** Its engine calls' tokens; none for a run that made none. */
+  readonly tokens: StageTokens;
   /** The Decisions the walk opened on the run, at most one of each kind. */
   readonly decisions: readonly StageRunDecision[];
   /** Undefined while the Stage runs. */

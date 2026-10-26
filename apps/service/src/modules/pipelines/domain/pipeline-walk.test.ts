@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { nextMove, unmetStatements } from "./pipeline-walk.js";
 import type { OnFailure, Stage } from "./stage.js";
-import type {
-  StageDecisionKind,
-  StageOutcome,
-  StageRun,
-  StageRunDecision,
-  WalkAnswer,
+import {
+  NO_STAGE_TOKENS,
+  type StageDecisionKind,
+  type StageOutcome,
+  type StageRun,
+  type StageRunDecision,
+  type WalkAnswer,
 } from "./stage-run.js";
 
 function agentStage(key: string, onFailure?: OnFailure): Stage {
@@ -66,6 +67,7 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     threadId: undefined,
     headCommit: undefined,
     commandRuns: [],
+    tokens: NO_STAGE_TOKENS,
     decisions,
     outcome,
     startedAt: new Date(0),
@@ -344,6 +346,54 @@ describe("nextMove", () => {
         run: { stageKey: "look" },
         question: { kind: "definition-of-done", unmet: ["The name persists"] },
       });
+    });
+  });
+
+  describe("an optional Stage", () => {
+    const withOptional = [agentStage("write"), { ...agentStage("look"), optional: true }];
+
+    it("is skipped once every statement of the Definition of Done is reported met", () => {
+      expect(nextMove(withOptional, runs(["write", meeting(1, 2)]), DEFINITION_OF_DONE)).toEqual({
+        move: "skip",
+        stage: withOptional[1],
+      });
+    });
+
+    it("runs while a statement isn't reported met", () => {
+      expect(nextMove(withOptional, runs(["write", meeting(1)]), DEFINITION_OF_DONE)).toMatchObject(
+        { move: "run", stage: { key: "look" } },
+      );
+    });
+  });
+
+  describe("a budget reached", () => {
+    const reached = { used: 120_000, budget: 100_000 };
+    const overBudget: StageOutcome = { status: "failed", error: "Over.", budgetReached: reached };
+
+    it("asks the user, never going back through the Stage's loop", () => {
+      const ran = runs(["write", done], ["check", done], ["look", overBudget]);
+
+      expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toEqual({
+        move: "ask",
+        run: ran[2],
+        question: { kind: "budget", stage: stages[2], reached },
+      });
+    });
+
+    it("runs the Stage again once the user raises it, or drops the Task", () => {
+      const raised = runs([
+        "write",
+        overBudget,
+        decided("budget", { kind: "raise-budget", tokens: 120_000 }),
+      ]);
+      const dropped = runs(["write", overBudget, decided("budget", { kind: "drop" })]);
+
+      expect(nextMove(stages, raised, NO_DEFINITION_OF_DONE)).toEqual({
+        move: "run",
+        stage: stages[0],
+        carriedFailure: undefined,
+      });
+      expect(nextMove(stages, dropped, NO_DEFINITION_OF_DONE)).toEqual({ move: "drop" });
     });
   });
 

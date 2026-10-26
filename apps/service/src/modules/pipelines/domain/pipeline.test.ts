@@ -41,7 +41,7 @@ describe("stageProblems", () => {
       agentStage(),
       scriptStage({ onFailure: { goBackTo: "implement", rounds: 3 } }),
       gate(),
-      scriptStage({ key: "publish", name: "Publish", command: "publish", optional: true }),
+      scriptStage({ key: "publish", name: "Publish", command: "publish", optional: false }),
     ];
 
     expect(stageProblems(stages)).toEqual([]);

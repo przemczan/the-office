@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Stage } from "./stage.js";
-import type { StageOutcome, StageRun, StageRunDecision } from "./stage-run.js";
+import {
+  NO_STAGE_TOKENS,
+  type StageOutcome,
+  type StageRun,
+  type StageRunDecision,
+} from "./stage-run.js";
 import { acceptedIssues, walkAnswerOf, walkDecision } from "./walk-decisions.js";
 
 const implement: Stage = {
@@ -36,6 +41,7 @@ function aRun(
     threadId: "thread-1",
     headCommit: undefined,
     commandRuns: [],
+    tokens: NO_STAGE_TOKENS,
     decisions,
     outcome,
     startedAt: new Date(0),
@@ -180,5 +186,42 @@ describe("acceptedIssues", () => {
         [aRun("tests", failed, [accepted]), aRun("implement", failed, [dropped])],
       ),
     ).toEqual([{ stageName: "Tests", error: "2 tests fail.\n\nThe output." }]);
+  });
+});
+
+describe("the budget Decision", () => {
+  const reached = { used: 300_000, budget: 250_000 };
+
+  it("raises the budget from the tokens used, by the Stage's own budget", () => {
+    const decision = walkDecision(aRun("implement", failed), {
+      kind: "budget",
+      stage: implement,
+      reached,
+    });
+
+    expect(decision).toMatchObject({
+      kind: "budget",
+      byTheOffice: true,
+      draft: {
+        question:
+          '"Implement" reached its budget: the Task has used 300k tokens of 250k. Raise it?',
+        options: ["Raise it to 400k", "Drop the Task"],
+      },
+      options: [{ kind: "raise-budget", tokens: 150_000 }, { kind: "drop" }],
+    });
+  });
+
+  it("takes the user's own words as raising it", () => {
+    const decision: StageRunDecision = {
+      id: "decision-1",
+      kind: "budget",
+      options: [{ kind: "raise-budget", tokens: 150_000 }, { kind: "drop" }],
+      answer: undefined,
+    };
+
+    expect(walkAnswerOf(decision, { kind: "free-answer", text: "Go on." })).toEqual({
+      kind: "raise-budget",
+      tokens: 150_000,
+    });
   });
 });

@@ -13,6 +13,7 @@ import { InterruptedAnswers } from "./application/interrupted-answers.js";
 import { SessionPlaces } from "./application/session-places.js";
 import { StageDecisions } from "./application/stage-decisions.js";
 import { StageThreads } from "./application/stage-threads.js";
+import { TaskTokens } from "./application/task-tokens.js";
 import { TaskThreadSetups } from "./application/task-thread-setups.js";
 import { CONTEXT_POLICY_SETTINGS, ThreadContexts } from "./application/thread-contexts.js";
 import { ThreadRunner } from "./application/thread-runner.js";
@@ -50,10 +51,18 @@ export class ConversationsModule {
         DecisionService,
         StageThreads,
         StageDecisions,
+        TaskTokens,
         DecisionOfficeTools,
         ThreadWebEvents,
       ],
-      exports: [InterruptedAnswers, ThreadService, TaskThreadSetups, StageThreads, StageDecisions],
+      exports: [
+        InterruptedAnswers,
+        ThreadService,
+        TaskThreadSetups,
+        StageThreads,
+        StageDecisions,
+        TaskTokens,
+      ],
     };
   }
 }

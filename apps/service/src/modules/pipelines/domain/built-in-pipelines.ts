@@ -44,7 +44,7 @@ const full: Pipeline = {
       key: "publish",
       name: "Publish",
       command: "publish",
-      optional: true,
+      optional: false,
       onFailure: { goBackTo: "review-and-fix", rounds: 1 },
     },
   ],
@@ -73,7 +73,7 @@ const quickFix: Pipeline = {
       optional: false,
       onFailure: { goBackTo: "implement", rounds: 2 },
     },
-    { kind: "script", key: "publish", name: "Publish", command: "publish", optional: true },
+    { kind: "script", key: "publish", name: "Publish", command: "publish", optional: false },
   ],
 };
 

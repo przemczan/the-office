@@ -1,5 +1,10 @@
 import { StageRunEnded, StageRunStarted } from "./stage-run-events.js";
-import type { CarriedFailure, StageOutcome, StageRun } from "./stage-run.js";
+import {
+  NO_STAGE_TOKENS,
+  type CarriedFailure,
+  type StageOutcome,
+  type StageRun,
+} from "./stage-run.js";
 
 export interface NewStageRun {
   readonly id: string;
@@ -20,6 +25,7 @@ export function startStageRun(
     threadId: undefined,
     headCommit: undefined,
     commandRuns: [],
+    tokens: NO_STAGE_TOKENS,
     decisions: [],
     outcome: undefined,
     startedAt,

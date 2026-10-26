@@ -8,9 +8,11 @@ import { STAGE_KIND_NAMES, type Stage } from "../domain/stage.js";
 import type { StageOutcome, StageRun } from "../domain/stage-run.js";
 import { endStageRun, startStageRun } from "../domain/stage-run-changes.js";
 import {
+  BudgetReached,
   DefinitionOfDoneNotMet,
   NoRetriesLeft,
   PipelineCompleted,
+  StageSkipped,
   WentBackToStage,
 } from "../domain/stage-run-events.js";
 import { walkAnswerOf, walkDecision, type DecisionAnswer } from "../domain/walk-decisions.js";
@@ -23,6 +25,7 @@ import { StageRunners } from "./stage-runners.js";
 import { TaskStagesService } from "./task-stages-service.js";
 
 type RunMove = Extract<NextMove, { move: "run" }>;
+type SkipMove = Extract<NextMove, { move: "skip" }>;
 type AskMove = Extract<NextMove, { move: "ask" }>;
 
 /**
@@ -114,9 +117,37 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
       if ((await this.tasks.read(taskId)).state !== "in-progress") return;
       const runs = await this.runs.list(taskId);
       const move = nextMove(stages, runs, definitionOfDone);
+      if (move.move === "skip") {
+        if (!(await this.skip(taskId, move, runs))) return;
+        continue;
+      }
       if (move.move !== "run") return this.halt(taskId, move, runs);
       if (!(await this.runStage(taskId, move, stages, runs))) return;
     }
+  }
+
+  /**
+   * Records the optional Stage as skipped, a run done without running anything, so the walk goes
+   * on past it as it replays. False when another walk of the Task recorded a run first.
+   */
+  private async skip(
+    taskId: string,
+    { stage }: SkipMove,
+    earlierRuns: readonly StageRun[],
+  ): Promise<boolean> {
+    const now = new Date();
+    const started = startStageRun(
+      { id: randomUUID(), taskId, stageKey: stage.key, carriedFailure: undefined },
+      earlierRuns.length,
+      now,
+    );
+    if (!(await this.runs.saveNew(started.run))) return false;
+    const summary =
+      "Skipped: every statement of the Definition of Done was already reported met, and the Stage is optional.";
+    const ended = endStageRun(started.run, { status: "done", summary }, now);
+    await this.runs.saveEnded(ended.run);
+    await this.events.publish(new StageSkipped(taskId, ended.run.id, stage.key));
+    return true;
   }
 
   /** False when another walk of the Task started the run first. */
@@ -165,7 +196,7 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
 
   private async halt(
     taskId: string,
-    move: Exclude<NextMove, RunMove>,
+    move: Exclude<NextMove, RunMove | SkipMove>,
     runs: readonly StageRun[],
   ): Promise<void> {
     switch (move.move) {
@@ -214,6 +245,10 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
     ]);
     if (question.kind === "no-retries-left") {
       await this.events.publish(new NoRetriesLeft(taskId, run.stageKey, question.error));
+    }
+    if (question.kind === "budget") {
+      const { used, budget } = question.reached;
+      await this.events.publish(new BudgetReached(taskId, run.stageKey, used, budget));
     }
     if (question.kind === "definition-of-done") {
       await this.events.publish(new DefinitionOfDoneNotMet(taskId, question.unmet));

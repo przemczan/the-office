@@ -1,6 +1,11 @@
 import { integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "drizzle-orm/pg-core";
 import type { StageCommandRun } from "../../domain/stage-command-run.js";
-import type { CarriedFailure, StageOutcome, StageRunDecision } from "../../domain/stage-run.js";
+import type {
+  CarriedFailure,
+  StageOutcome,
+  StageRunDecision,
+  StageTokens,
+} from "../../domain/stage-run.js";
 
 /** Each run of a started Task's Stages; the number keeps one walk per Task. */
 export const stageRuns = pgTable(
@@ -17,6 +22,11 @@ export const stageRuns = pgTable(
     headCommit: text("head_commit"),
     /** The Project commands The Office ran for the run. */
     commandRuns: jsonb("command_runs").$type<readonly StageCommandRun[]>().notNull().default([]),
+    /** The run's engine calls' tokens. */
+    tokens: jsonb("tokens")
+      .$type<StageTokens>()
+      .notNull()
+      .default({ input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }),
     /** The Decisions the walk opened on the run, with the user's answers. */
     decisions: jsonb("decisions").$type<readonly StageRunDecision[]>().notNull().default([]),
     outcome: jsonb("outcome").$type<StageOutcome>(),

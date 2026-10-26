@@ -3,6 +3,7 @@ import {
   ConversationsModule,
   StageDecisions,
   StageThreads,
+  TaskTokens,
   ThreadService,
 } from "./modules/conversations/index.js";
 import { EngineModule } from "./modules/engine/index.js";
@@ -71,6 +72,7 @@ export class AppModule {
           stageDecisions: StageDecisions,
           taskGit: TaskWorktrees,
           taskCommands: TaskWorktrees,
+          taskUsage: TaskTokens,
         }),
         projects,
         SkillsModule,

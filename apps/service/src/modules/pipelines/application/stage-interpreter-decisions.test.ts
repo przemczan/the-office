@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { DecisionAnswered } from "../../conversations/index.js";
@@ -8,6 +9,7 @@ import {
   anAgentSession,
   anAgentStage,
   answerLastDecision,
+  aTurn,
   runsOf,
   startPipelinesApplication,
   walkStages,
@@ -302,6 +304,97 @@ describe("StageInterpreter's Decisions", () => {
       await answerLastDecision(pipelines, taskId, { kind: "option", option: 1 });
 
       expect(statesOf(taskId)).toEqual(["waiting-on-you", "in-progress", "done"]);
+    });
+  });
+
+  describe("a budget", () => {
+    it("asks to raise it when the Task's tokens reached it before the Stage's first engine call", async () => {
+      await startWith(agentDone);
+      const taskId = randomUUID();
+      pipelines.usage.tokens.set(taskId, 150_000);
+
+      await walkStages(pipelines, [draft], taskId);
+
+      const [run] = await runsOf(pipelines, taskId);
+      expect(run?.outcome).toMatchObject({
+        status: "failed",
+        budgetReached: { used: 150_000, budget: 100_000 },
+      });
+      expect(pipelines.stageThreads.requests).toEqual([]);
+      expect(pipelines.decisions.on(taskId)[0]?.draft.options).toEqual([
+        "Raise it to 250k",
+        "Drop the Task",
+      ]);
+      expect(pipelines.published).toContainEqual(
+        expect.objectContaining({ stageKey: "draft", used: 150_000, budget: 100_000 }),
+      );
+
+      await answerLastDecision(pipelines, taskId, { kind: "option", option: 0 });
+
+      expect(await statusesOf(taskId)).toEqual([
+        ["draft", "failed"],
+        ["draft", "done"],
+      ]);
+      expect(statesOf(taskId)).toEqual(["waiting-on-you", "in-progress", "done"]);
+    });
+
+    it("checks it again before the correction, which then isn't sent", async () => {
+      await startWith([
+        { step: "start", brief: { id: "brief", text: "" } },
+        aTurn({ status: "done", summary: "No note." }),
+        { step: "end" },
+      ]);
+      const taskId = randomUUID();
+      let reads = 0;
+      pipelines.usage.observe = () => {
+        reads += 1;
+        if (reads === 2) pipelines.usage.tokens.set(taskId, 120_000);
+      };
+
+      await walkStages(pipelines, [draft], taskId);
+
+      const [run] = await runsOf(pipelines, taskId);
+      expect(reads).toBe(2);
+      expect(run?.outcome).toMatchObject({ status: "failed", budgetReached: { used: 120_000 } });
+      expect(pipelines.stageThreads.sent).toEqual([]);
+      expect(pipelines.git.commits.at(-1)?.message).toContain("budget");
+    });
+
+    it("records each run's tokens, turn by turn", async () => {
+      await startWith(agentDone);
+
+      const taskId = await walkStages(pipelines, [draft]);
+
+      const [run] = await runsOf(pipelines, taskId);
+      expect(run?.tokens).toEqual({ input: 10, output: 10, cacheRead: 0, cacheCreation: 0 });
+    });
+  });
+
+  describe("an optional Stage", () => {
+    const review = anAgentStage("review", { optional: true });
+
+    it("is skipped when every statement of the Definition of Done is already reported met", async () => {
+      await startWith(agentDone);
+
+      const taskId = await walkStages(pipelines, [draft, review]);
+
+      const runs = await runsOf(pipelines, taskId);
+      expect(runs.map(({ stageKey, outcome }) => [stageKey, outcome?.status])).toEqual([
+        ["draft", "done"],
+        ["review", "done"],
+      ]);
+      expect(runs[1]?.outcome).toMatchObject({ summary: expect.stringContaining("Skipped") });
+      expect(pipelines.stageThreads.requests).toHaveLength(1);
+      expect(statesOf(taskId)).toEqual(["done"]);
+    });
+
+    it("runs while a statement isn't reported met", async () => {
+      await startWith(anAgentSession(aDoneResult("Half.", "The rest.", [2])), agentDone);
+
+      const taskId = await walkStages(pipelines, [draft, review]);
+
+      expect(pipelines.stageThreads.requests).toHaveLength(2);
+      expect(statesOf(taskId)).toEqual(["done"]);
     });
   });
 });

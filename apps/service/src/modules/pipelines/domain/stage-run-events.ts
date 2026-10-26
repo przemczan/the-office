@@ -24,6 +24,32 @@ export class StageRunEnded extends DomainEvent {
   }
 }
 
+/** An optional Stage was skipped, the Definition of Done being already reported met. */
+export class StageSkipped extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly runId: string,
+    readonly stageKey: string,
+  ) {
+    super();
+  }
+}
+
+/**
+ * The Task's tokens reached a Stage's budget before an engine call: the Task waits on the user's
+ * answer to The Office's Decision to raise it.
+ */
+export class BudgetReached extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly stageKey: string,
+    readonly used: number,
+    readonly budget: number,
+  ) {
+    super();
+  }
+}
+
 /** A failed Stage's loop went back to an earlier Stage, with the error for that Stage's Brief. */
 export class WentBackToStage extends DomainEvent {
   constructor(

@@ -48,7 +48,7 @@ describe("the built-in Pipelines", () => {
         command: "test",
         onFailure: { goBackTo: "implement" },
       });
-      expect(stages.at(-1)).toMatchObject({ kind: "script", command: "publish", optional: true });
+      expect(stages.at(-1)).toMatchObject({ kind: "script", command: "publish", optional: false });
     }
   });
 });

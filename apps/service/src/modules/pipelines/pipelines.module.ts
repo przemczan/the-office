@@ -16,6 +16,7 @@ import { StartedTasks } from "./ports/started-tasks.js";
 import { TaskCommands } from "./ports/task-commands.js";
 import { TaskGit } from "./ports/task-git.js";
 import { TaskRecords } from "./ports/task-records.js";
+import { TaskUsage } from "./ports/task-usage.js";
 import { TaskStagesRepository } from "./ports/task-stages-repository.js";
 
 export interface PipelinesModuleOptions {
@@ -28,6 +29,7 @@ export interface PipelinesModuleOptions {
   readonly stageDecisions: Type<StageDecisions>;
   readonly taskGit: Type<TaskGit>;
   readonly taskCommands: Type<TaskCommands>;
+  readonly taskUsage: Type<TaskUsage>;
 }
 
 /** Pipelines whole: the library, each started Task's own Stages, and the Stage interpreter. */
@@ -42,6 +44,7 @@ export class PipelinesModule {
     stageDecisions,
     taskGit,
     taskCommands,
+    taskUsage,
   }: PipelinesModuleOptions): DynamicModule {
     return {
       module: PipelinesModule,
@@ -56,6 +59,7 @@ export class PipelinesModule {
         { provide: StageDecisions, useExisting: stageDecisions },
         { provide: TaskGit, useExisting: taskGit },
         { provide: TaskCommands, useExisting: taskCommands },
+        { provide: TaskUsage, useExisting: taskUsage },
         TaskStagesService,
         StageRunners,
         StageInterpreter,

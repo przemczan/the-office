@@ -49,7 +49,7 @@ describe("GET /api/pipelines/:id", () => {
         command: "test",
         onFailure: { goBackTo: "implement", rounds: 2 },
       },
-      { kind: "script", key: "publish", name: "Publish", optional: true, command: "publish" },
+      { kind: "script", key: "publish", name: "Publish", optional: false, command: "publish" },
     ]);
   });
 

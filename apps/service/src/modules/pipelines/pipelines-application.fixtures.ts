@@ -22,6 +22,7 @@ import {
   StageDecisionsForTests,
   StageThreadsForTests,
   StartedTasksForTests,
+  TaskUsageForTests,
   TaskCommandsForTests,
   TaskGitForTests,
   TaskRecordsForTests,
@@ -41,6 +42,7 @@ export interface PipelinesApplication {
   readonly decisions: StageDecisionsForTests;
   readonly git: TaskGitForTests;
   readonly commands: TaskCommandsForTests;
+  readonly usage: TaskUsageForTests;
   readonly published: DomainEvent[];
 }
 
@@ -69,6 +71,7 @@ export async function startPipelinesApplication(
         stageDecisions: StageDecisionsForTests,
         taskGit: TaskGitForTests,
         taskCommands: TaskCommandsForTests,
+        taskUsage: TaskUsageForTests,
       }),
     ],
   });
@@ -84,6 +87,7 @@ export async function startPipelinesApplication(
     decisions: app.get(StageDecisionsForTests, { strict: false }),
     git: app.get(TaskGitForTests, { strict: false }),
     commands: app.get(TaskCommandsForTests, { strict: false }),
+    usage: app.get(TaskUsageForTests, { strict: false }),
     published,
   };
 }

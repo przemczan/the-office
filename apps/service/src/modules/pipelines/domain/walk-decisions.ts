@@ -1,6 +1,8 @@
 import type { WalkQuestion } from "./pipeline-walk.js";
 import type { Stage } from "./stage.js";
+import { tokensWords } from "./stage-budget.js";
 import type {
+  BudgetReached,
   StageDecision,
   StageDecisionKind,
   StageRun,
@@ -39,6 +41,8 @@ export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecisio
       return agentDecision(run);
     case "no-retries-left":
       return noRetriesLeft(question.stage, question.error);
+    case "budget":
+      return budgetDecision(question.stage, question.reached);
     case "definition-of-done":
       return definitionOfDoneNotMet(question.unmet, question.again);
   }
@@ -55,6 +59,8 @@ export function walkAnswerOf(decision: StageRunDecision, answer: DecisionAnswer)
     return chosen;
   }
   if (decision.kind === "agent") return { kind: "answered", answer: answer.text.trim() };
+  const raise = decision.options.find(({ kind }) => kind === "raise-budget");
+  if (decision.kind === "budget" && raise) return raise;
   return { kind: "one-more-round", guidance: answer.text.trim() };
 }
 
@@ -69,6 +75,29 @@ function agentDecision({ id, outcome }: StageRun): WalkDecision {
     options: options.map((option) => ({ kind: "answered", answer: option })),
     byTheOffice: false,
   };
+}
+
+/** Raising gives the Stage its declared budget again (research §7), counted from the tokens used. */
+function budgetDecision(stage: Stage, { used, budget }: BudgetReached): WalkDecision {
+  const declared = stage.kind === "agent" ? stage.budget : 0;
+  // From where the Task stands, so the raise always leaves the Stage its declared amount to use.
+  const raised = Math.max(used, budget) + declared;
+  const decision: WalkDecision = {
+    kind: "budget",
+    draft: {
+      question: `"${stage.name}" reached its budget: the Task has used ${tokensWords(used)} tokens of ${tokensWords(budget)}. Raise it?`,
+      context: `The budget counts every token of the Task's Threads so far, as each Thread shows them. Raising it to ${tokensWords(raised)} runs "${stage.name}" again; what it did so far is committed.`,
+      options: [`Raise it to ${tokensWords(raised)}`, DROP_THE_TASK],
+      recommendation: {
+        option: 0,
+        reason:
+          "The work goes on from where it stopped; drop it only if the Task isn't worth more.",
+      },
+    },
+    options: [{ kind: "raise-budget", tokens: raised - budget }, { kind: "drop" }],
+    byTheOffice: true,
+  };
+  return decision;
 }
 
 function noRetriesLeft(stage: Stage, error: string): WalkDecision {

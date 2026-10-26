@@ -1,5 +1,6 @@
 import type { Stage } from "./stage.js";
 import type {
+  BudgetReached,
   CarriedFailure,
   StageDecisionKind,
   StageRun,
@@ -13,6 +14,8 @@ export type WalkQuestion =
   | { readonly kind: "agent" }
   /** The Stage failed with no retries left: it has no loop, or its loop used up its rounds. */
   | { readonly kind: "no-retries-left"; readonly stage: Stage; readonly error: string }
+  /** The Task's tokens reached the Stage's budget before an engine call. */
+  | { readonly kind: "budget"; readonly stage: Stage; readonly reached: BudgetReached }
   /**
    * Every Stage ended, but the Definition of Done isn't reported met; one more round would run
    * `again`, the last Agent Stage (or the last Stage when there is none).
@@ -31,6 +34,11 @@ export type NextMove =
       readonly stage: Stage;
       readonly carriedFailure: CarriedFailure | undefined;
     }
+  /**
+   * Skip the optional Stage: every statement of the Definition of Done is already reported met
+   * (spec §2.3).
+   */
+  | { readonly move: "skip"; readonly stage: Stage }
   /** The last run is still running, or the Decision opened on it waits on the user. */
   | { readonly move: "wait"; readonly run: StageRun }
   /** Ask the user, with a Decision opened on the last run. */
@@ -40,7 +48,7 @@ export type NextMove =
   /** The user dropped the Task in a Decision. */
   | { readonly move: "drop" };
 
-type StoppingMove = Exclude<NextMove, { move: "run" }>;
+type StoppingMove = Exclude<NextMove, { move: "run" | "skip" }>;
 
 interface WalkPosition {
   readonly index: number;
@@ -94,8 +102,11 @@ export function nextMove(
     );
   }
   const stage = stages[walk.position.index];
-  if (stage) return { move: "run", stage, carriedFailure: walk.position.carriedFailure };
-  return { move: "complete" };
+  if (!stage) return { move: "complete" };
+  if (stage.optional && unmetStatements(definitionOfDone, runs).length === 0) {
+    return { move: "skip", stage };
+  }
+  return { move: "run", stage, carriedFailure: walk.position.carriedFailure };
 }
 
 /**
@@ -129,7 +140,9 @@ function replay(walk: Walk, run: StageRun): StoppingMove | undefined {
       return undefined;
     }
     case "failed":
-      return afterFailure(walk, run, stage, outcome.error);
+      return outcome.budgetReached
+        ? afterBudget(walk, run, stage, outcome.budgetReached)
+        : afterFailure(walk, run, stage, outcome.error);
   }
 }
 
@@ -165,7 +178,32 @@ function afterFailure(
       return { move: "drop" };
     case "answered":
     case "mark-done":
+    case "raise-budget":
       throw new Error(`Stage run ${run.id} was answered "${answer.kind}" after a failure.`);
+  }
+}
+
+/**
+ * The Task's tokens reached the Stage's budget, which always asks the user (spec §2.3), never a
+ * loop: a raise runs the Stage again; the raise itself is replayed by `stageBudget`.
+ */
+function afterBudget(
+  walk: Walk,
+  run: StageRun,
+  stage: Stage,
+  reached: BudgetReached,
+): StoppingMove | undefined {
+  const waiting = waitingOn(run, "budget", { kind: "budget", stage, reached });
+  if (waiting) return waiting;
+  const answer = answerOf(run, "budget");
+  switch (answer.kind) {
+    case "raise-budget":
+      walk.position = { index: walk.position.index, carriedFailure: undefined };
+      return undefined;
+    case "drop":
+      return { move: "drop" };
+    default:
+      throw new Error(`Stage run ${run.id} was answered "${answer.kind}" at its budget.`);
   }
 }
 
@@ -209,6 +247,7 @@ function advance(walk: Walk, run: StageRun): StoppingMove | undefined {
     case "answered":
     case "more-rounds":
     case "accept-issues":
+    case "raise-budget":
       throw new Error(
         `Stage run ${run.id} was answered "${answer.kind}" at the Definition of Done.`,
       );

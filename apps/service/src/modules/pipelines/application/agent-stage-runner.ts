@@ -12,7 +12,14 @@ import { installFailure } from "../domain/script-stage-outcome.js";
 import { stageCommitMessage, type ExpectedHead } from "../domain/stage-commit.js";
 import { failedInstall, installRuns } from "../domain/stage-command-run.js";
 import type { Stage } from "../domain/stage.js";
-import type { CarriedFailure, StageOutcome, StageRun } from "../domain/stage-run.js";
+import { budgetOutcome, budgetReached } from "../domain/stage-budget.js";
+import {
+  addTokens,
+  NO_STAGE_TOKENS,
+  type CarriedFailure,
+  type StageOutcome,
+  type StageRun,
+} from "../domain/stage-run.js";
 import {
   correctionMessage,
   readStageResult,
@@ -26,6 +33,7 @@ import { StageThreads, type StageThread, type StageTurn } from "../ports/stage-t
 import { TaskCommands } from "../ports/task-commands.js";
 import { TaskGit } from "../ports/task-git.js";
 import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
+import { TaskUsage } from "../ports/task-usage.js";
 import { StageGit } from "./stage-git.js";
 import type { StageRunner, StageWork } from "./stage-runner.js";
 import { StageRunners } from "./stage-runners.js";
@@ -54,6 +62,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     private readonly stageGit: StageGit,
     private readonly commands: TaskCommands,
     private readonly runs: StageRunRepository,
+    private readonly usage: TaskUsage,
   ) {}
 
   onModuleInit(): void {
@@ -69,6 +78,9 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         error: `Nobody fills the Role "${stage.role}" this Stage needs: hire them on People.`,
       };
     }
+    // Before the session's first engine call; a budget reached leaves git and the worktree alone.
+    const reached = await this.budgetCheck(work);
+    if (reached) return reached;
     const task = await this.records.read(work.run.taskId);
     const { expected, refusal } = await this.stageGit.start(work, task);
     if (refusal) return refusal;
@@ -79,7 +91,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     let ending: Ending = { handoverNote: undefined, failure: undefined };
     try {
       await this.runs.saveThread(work.run.id, thread.threadId);
-      const result = await this.resultOf(thread);
+      const result = await this.resultOf(work, thread);
       // Before git is read, so a dev server or a watcher it started can't change the worktree.
       await thread.endSession();
       const outcome = await this.commitWork(work, task, expected, result);
@@ -174,14 +186,39 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     });
   }
 
+  /**
+   * The run's outcome when the Task's tokens so far have reached the Stage's budget (spec §2.3),
+   * checked before every engine call; undefined while they haven't.
+   */
+  private async budgetCheck({
+    stage,
+    run,
+    earlierRuns,
+  }: StageWork<"agent">): Promise<StageOutcome | undefined> {
+    const used = await this.usage.tokensSoFar(run.taskId);
+    const reached = budgetReached(stage, earlierRuns, used);
+    return reached && budgetOutcome(stage.name, reached);
+  }
+
   /** The Stage's result, corrected once in the same session when it doesn't match the schema. */
-  private async resultOf(thread: StageThread): Promise<StageOutcome> {
-    const first = readingOf(await thread.nextTurn());
+  private async resultOf(work: StageWork<"agent">, thread: StageThread): Promise<StageOutcome> {
+    let tokens = NO_STAGE_TOKENS;
+    const counted = async (turn: StageTurn): Promise<StageTurn> => {
+      tokens = addTokens(tokens, turn.tokens);
+      await this.runs.saveTokens(work.run.id, tokens);
+      return turn;
+    };
+    const first = readingOf(await counted(await thread.nextTurn()));
     if (first.valid) return first.outcome;
+    // The correction is another engine call, so the budget is checked before it too.
+    const reached = await this.budgetCheck(work);
+    if (reached) return reached;
     const corrected = readingOf(
-      await thread.send(
-        correctionMessage(first.problems),
-        `The result didn't match the Stage's result schema, so The Office asked once to correct it: ${first.problems}`,
+      await counted(
+        await thread.send(
+          correctionMessage(first.problems),
+          `The result didn't match the Stage's result schema, so The Office asked once to correct it: ${first.problems}`,
+        ),
       ),
     );
     if (corrected.valid) return corrected.outcome;

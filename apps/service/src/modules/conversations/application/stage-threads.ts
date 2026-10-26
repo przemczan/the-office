@@ -13,7 +13,7 @@ import {
 } from "../domain/context-policy.js";
 import type { Message, MessageDraft } from "../domain/message.js";
 import { openingMessage, taskThreadInstructions } from "../domain/session-instructions.js";
-import type { Thread } from "../domain/thread.js";
+import type { Thread, TokenTotals } from "../domain/thread.js";
 import {
   beginStageWork,
   endStageWork,
@@ -72,6 +72,8 @@ export interface StageTurn {
   readonly output: unknown;
   /** Why the engine ended the turn without finishing it, in its words. */
   readonly problem: string | undefined;
+  /** The turn's tokens, as the Thread counts them. */
+  readonly tokens: TokenTotals;
 }
 
 /** A Stage's session at work in its Stage Thread, until the Stage ends it. */
@@ -334,7 +336,7 @@ export class StageThreads {
         endedAt: new Date(),
       }),
     );
-    return { output: turn.output, problem };
+    return { output: turn.output, problem, tokens: turn.usage };
   }
 
   /** A session that won't be resumed: its skills folder goes, and a failure there only warns. */

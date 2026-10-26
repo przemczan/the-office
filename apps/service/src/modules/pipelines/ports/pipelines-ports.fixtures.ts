@@ -14,6 +14,7 @@ import type { CommandRun, Installation, ScriptCommandRun } from "../domain/stage
 import { TaskCommands, type ScriptCommandKey } from "./task-commands.js";
 import { TaskGit, type WorktreeHead } from "./task-git.js";
 import { TaskRecords, type TaskRecord } from "./task-records.js";
+import { TaskUsage } from "./task-usage.js";
 
 /** Work's Tasks in memory: a test starts each one it walks. */
 @Injectable()
@@ -139,7 +140,7 @@ export class StageThreadsForTests extends StageThreads {
         if (event.kind === "turn-ended") {
           await this.whileWorking?.(request);
           const problem = event.outcome === "completed" ? undefined : event.errors.join(" ");
-          return { output: event.output, problem };
+          return { output: event.output, problem, tokens: event.usage };
         }
       }
     };
@@ -181,6 +182,19 @@ export class StageDecisionsForTests extends StageDecisions {
     return [...this.opened]
       .filter(([, request]) => request.taskId === taskId)
       .map(([id, request]) => ({ ...request, id }));
+  }
+}
+
+/** Conversations' count of each Task's tokens: none unless a test puts them. */
+@Injectable()
+export class TaskUsageForTests extends TaskUsage {
+  readonly tokens = new Map<string, number>();
+  /** Tells of each read, as the runner checks a budget before an engine call. */
+  observe: ((taskId: string) => void) | undefined = undefined;
+
+  tokensSoFar(taskId: string): Promise<number> {
+    this.observe?.(taskId);
+    return Promise.resolve(this.tokens.get(taskId) ?? 0);
   }
 }
 
@@ -303,6 +317,7 @@ export class PipelinesPortsForTestsModule {
       StageDecisionsForTests,
       TaskGitForTests,
       TaskCommandsForTests,
+      TaskUsageForTests,
     ];
     return { module: PipelinesPortsForTestsModule, imports, providers, exports: providers };
   }

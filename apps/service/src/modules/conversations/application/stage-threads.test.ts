@@ -28,6 +28,7 @@ import { aPlannerCard } from "./session-role.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
 import { StageDecisions } from "./stage-decisions.js";
 import { StageThreads, type StageThreadRequest } from "./stage-threads.js";
+import { TaskTokens } from "./task-tokens.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
 import { CONTEXT_POLICY_SETTINGS } from "./thread-contexts.js";
 import { ThreadRunner } from "./thread-runner.js";
@@ -115,6 +116,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       StageThreads,
       StageDecisions,
       DecisionService,
+      TaskTokens,
     ],
   }));
   stageThreads = app.get(StageThreads);
@@ -253,7 +255,7 @@ describe("StageThreads", () => {
 
     const { stageThread, turn } = await aStageRun(request);
 
-    expect(turn).toEqual({ output: { status: "done" }, problem: undefined });
+    expect(turn).toEqual({ output: { status: "done" }, problem: undefined, tokens: USAGE });
     expect(stageThread.move).toMatchObject({ move: "fresh", reason: "new-thread" });
     const thread = await threadOf(stageThread.threadId);
     expect(thread).toMatchObject({
@@ -417,6 +419,18 @@ describe("StageThreads", () => {
 
     expect(session?.received.filter(({ step }) => step === "end")).toHaveLength(1);
     expect((await threadOf(stageThread.threadId)).state).toBe("waiting");
+  });
+
+  it("tells each turn's tokens, which count toward all of the Task's", async () => {
+    await startWith(started(...aTurn({ status: "done" })));
+    const request = aStage({ roleKey: aPerson("Ada") });
+    await anAnsweredDecision(request.taskId, aPerson("Jan"));
+
+    const { turn } = await aStageRun(request);
+
+    expect(turn.tokens).toEqual(USAGE);
+    // Every Thread on the Task counts; the planning Thread here never had a turn, so adds none.
+    expect(await app.get(TaskTokens).tokensSoFar(request.taskId)).toBe(3 + 120 + 26_000);
   });
 
   it("refuses the user's messages in a Stage Thread", async () => {
