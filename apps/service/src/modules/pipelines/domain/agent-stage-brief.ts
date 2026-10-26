@@ -66,18 +66,36 @@ export function agentStageRecord({
   ]);
 }
 
+/** The question the Stage's Agent asked the user last time, with the user's answer in words. */
+export interface AnsweredQuestion {
+  readonly question: string;
+  readonly answer: string;
+}
+
+/** Why the Stage runs now, beside its brief; each is left out when it doesn't apply. */
+export interface StageWorkReasons {
+  /** The failure an on-failure loop, or a round the user gave, went back with. */
+  readonly carried?: CarriedFailure & { readonly stageName: string };
+  /** The Agent's question the user answered, when the Stage runs again for it. */
+  readonly answered?: AnsweredQuestion;
+  /** Why the install before the Stage failed. */
+  readonly installProblem?: string;
+}
+
 /**
- * What the Stage asks now (spec §2.3): its brief; when an on-failure loop went back to it, the
- * failure it went back with; and when the install before it failed, why, as the Agent's commands
- * may fail for it. A new session gets it after the Brief, a continued one alone.
+ * What the Stage asks now (spec §2.3): its brief; the user's answer when the Stage runs again
+ * after its Agent's question; when an on-failure loop went back to it, the failure it went back
+ * with; and when the install before it failed, why, as the Agent's commands may fail for it. A new
+ * session gets it after the Brief, a continued one alone.
  */
 export function agentStageWork(
   stage: Pick<AgentStage, "key" | "name" | "brief">,
-  carried: (CarriedFailure & { readonly stageName: string }) | undefined,
-  installProblem?: string,
+  { carried, answered, installProblem }: StageWorkReasons = {},
 ): string {
   return sections([
     `## The Stage: ${stage.name}\n\n${stage.brief}`,
+    answered &&
+      `## Your question, answered\n\nYou asked the user: ${answered.question}\n\nTheir answer: ${answered.answer}\n\nGo on with the Stage from there.`,
     carried && whyAgain(stage, carried),
     installProblem &&
       `## The install before this Stage

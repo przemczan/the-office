@@ -211,6 +211,21 @@ describe("StageInterpreter's Decisions", () => {
       expect(statesOf(taskId)).toEqual(["waiting-on-you", "in-progress", "done"]);
     });
 
+    it("sends the answer to the asking session through the Context policy, whatever the Stage declares", async () => {
+      await startWith(asking, agentDone);
+      const taskId = await walkStages(pipelines, [anAgentStage("draft", { session: "fresh" })]);
+      const [asked] = await runsOf(pipelines, taskId);
+
+      await answerLastDecision(pipelines, taskId, { kind: "free-answer", text: "Both pages." });
+
+      const again = pipelines.stageThreads.requests.at(-1);
+      expect(again?.declared).toBeUndefined();
+      expect(again?.previousThreadId).toBe(asked?.threadId);
+      expect(again?.work).toContain(
+        "## Your question, answered\n\nYou asked the user: Which page?\n\nTheir answer: Both pages.",
+      );
+    });
+
     it("takes the answer from Conversations' DecisionAnswered, once", async () => {
       await startWith(asking, agentDone);
       const taskId = await walkStages(pipelines, [draft]);

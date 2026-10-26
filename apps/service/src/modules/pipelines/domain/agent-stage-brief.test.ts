@@ -79,7 +79,15 @@ describe("agentStageWork", () => {
     expect(
       agentStageWork(
         { key: "implement", name: "Implement", brief: "Build it." },
-        { stageKey: "tests", stageName: "Tests", error: "1 fails.", round: 1, rounds: 2 },
+        {
+          carried: {
+            stageKey: "tests",
+            stageName: "Tests",
+            error: "1 fails.",
+            round: 1,
+            rounds: 2,
+          },
+        },
       ),
     ).toBe(
       '## The Stage: Implement\n\nBuild it.\n\n## Why this Stage runs again\n\n"Tests" failed after it, so the Pipeline went back here (round 1 of 2):\n\n1 fails.',
@@ -90,17 +98,30 @@ describe("agentStageWork", () => {
     const work = agentStageWork(
       { key: "implement", name: "Implement", brief: "Build it." },
       {
-        stageKey: "implement",
-        stageName: "Implement",
-        error: "The session ended.",
-        round: 1,
-        rounds: 1,
-        guidance: "Keep the old dialog.",
+        carried: {
+          stageKey: "implement",
+          stageName: "Implement",
+          error: "The session ended.",
+          round: 1,
+          rounds: 1,
+          guidance: "Keep the old dialog.",
+        },
       },
     );
 
     expect(work).toContain(
       "## Why this Stage runs again\n\nThe user chose one more round of this Stage after:\n\nThe session ended.\n\nThe user's guidance for this round:\n\nKeep the old dialog.",
+    );
+  });
+
+  it("gives the user's answer to the question the Stage's Agent asked", () => {
+    const work = agentStageWork(
+      { key: "implement", name: "Implement", brief: "Build it." },
+      { answered: { question: "Which page?", answer: "The list" } },
+    );
+
+    expect(work).toBe(
+      "## The Stage: Implement\n\nBuild it.\n\n## Your question, answered\n\nYou asked the user: Which page?\n\nTheir answer: The list\n\nGo on with the Stage from there.",
     );
   });
 });

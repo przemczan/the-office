@@ -221,8 +221,9 @@ describe("nextMove", () => {
   });
 
   it("runs the same Stage again once its Decision is answered", () => {
-    const answered = runs(["write", asks, decided("agent", { kind: "answered" })]);
-    const ranAgain = runs(["write", asks, decided("agent", { kind: "answered" })], ["write", done]);
+    const answer = { kind: "answered", answer: "The list" } as const;
+    const answered = runs(["write", asks, decided("agent", answer)]);
+    const ranAgain = runs(["write", asks, decided("agent", answer)], ["write", done]);
 
     expect(nextMove(stages, answered, NO_DEFINITION_OF_DONE)).toMatchObject({
       move: "run",

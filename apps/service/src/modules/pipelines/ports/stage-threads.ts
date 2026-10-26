@@ -21,7 +21,11 @@ export interface StageThreadRequest {
   /** The key of the Stage's Role, whose person works it. */
   readonly roleKey: string;
   readonly stageName: string;
-  readonly declared: StageSession;
+  /**
+   * The Stage's declared session; undefined lets the Context policy decide, as when the Stage runs
+   * again after its Agent's question was answered: the answer goes to the asking session (spec §9).
+   */
+  readonly declared: StageSession | undefined;
   /** The Stage Thread of the Task's previous Stage run, when an Agent worked it. */
   readonly previousThreadId: string | undefined;
   /** The Task's record a new session's Brief starts with. */

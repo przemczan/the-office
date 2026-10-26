@@ -54,7 +54,7 @@ export function walkAnswerOf(decision: StageRunDecision, answer: DecisionAnswer)
     if (!chosen) throw new Error(`Decision ${decision.id} has no option ${answer.option}.`);
     return chosen;
   }
-  if (decision.kind === "agent") return { kind: "answered" };
+  if (decision.kind === "agent") return { kind: "answered", answer: answer.text.trim() };
   return { kind: "one-more-round", guidance: answer.text.trim() };
 }
 
@@ -66,7 +66,7 @@ function agentDecision({ id, outcome }: StageRun): WalkDecision {
   return {
     kind: "agent",
     draft: { question, context, options, recommendation },
-    options: options.map(() => ({ kind: "answered" })),
+    options: options.map((option) => ({ kind: "answered", answer: option })),
     byTheOffice: false,
   };
 }

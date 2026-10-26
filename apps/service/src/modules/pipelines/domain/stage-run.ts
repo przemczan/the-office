@@ -59,8 +59,8 @@ export type StageDecisionKind = "agent" | "no-retries-left" | "definition-of-don
 
 /** What the user's answer to a Decision lets the walk do. */
 export type WalkAnswer =
-  /** The Agent's question is answered: its Stage runs again, with the answer in its Brief. */
-  | { readonly kind: "answered" }
+  /** The Agent's question is answered, in these words: its Stage runs again with them. */
+  | { readonly kind: "answered"; readonly answer: string }
   /** The failed Stage's loop may go back this many more times. */
   | { readonly kind: "more-rounds"; readonly rounds: number }
   /** One more round, with what the user said to do differently, if anything. */

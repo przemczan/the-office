@@ -63,7 +63,10 @@ describe("walkDecision", () => {
         options: ["The device page", "The list"],
         recommendation: { option: 1, reason: "It has the room." },
       },
-      options: [{ kind: "answered" }, { kind: "answered" }],
+      options: [
+        { kind: "answered", answer: "The device page" },
+        { kind: "answered", answer: "The list" },
+      ],
       byTheOffice: false,
     });
   });
@@ -152,6 +155,7 @@ describe("walkAnswerOf", () => {
 
     expect(walkAnswerOf(agent, { kind: "free-answer", text: "The list." })).toEqual({
       kind: "answered",
+      answer: "The list.",
     });
   });
 

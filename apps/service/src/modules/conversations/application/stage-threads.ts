@@ -50,7 +50,8 @@ export interface StageThreadRequest {
   readonly roleKey: string;
   readonly stageName: string;
   /** The session the Stage declares, which wins at a Stage boundary (spec §2.5). */
-  readonly declared: "fresh" | "continue";
+  /** Undefined lets the Context policy decide, as inside a Thread. */
+  readonly declared: "fresh" | "continue" | undefined;
   /** The Stage Thread of the Task's previous Stage run, when an Agent worked it. */
   readonly previousThreadId: string | undefined;
   /** The Task's record a new session's Brief starts with, as the Stage interpreter words it. */

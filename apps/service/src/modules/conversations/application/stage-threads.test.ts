@@ -323,6 +323,22 @@ describe("StageThreads", () => {
     expect(forgotten).toEqual([]);
   });
 
+  it("lets the Context policy decide when a Stage runs again after its question", async () => {
+    await startWith(
+      started(...aTurn({ status: "needs_decision" })),
+      resumed(...aTurn({ status: "done" }, "Going on.")),
+    );
+    const ada = aPerson("Ada");
+    const first = await aStageRun(aStage({ roleKey: ada }));
+
+    const again = await aStageRun(
+      aStage({ roleKey: ada, declared: undefined, previousThreadId: first.stageThread.threadId }),
+    );
+
+    expect(again.stageThread.threadId).toBe(first.stageThread.threadId);
+    expect(again.stageThread.move).toMatchObject({ move: "resume", reason: "cache-warm" });
+  });
+
   it("starts a Stage declared fresh in a new Thread, even for the same person", async () => {
     await startWith(started(...aTurn({ status: "done" })), started(...aTurn({ status: "done" })));
     const ada = aPerson("Ada");

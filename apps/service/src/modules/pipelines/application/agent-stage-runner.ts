@@ -4,6 +4,7 @@ import {
   AGENT_STAGE_INSTRUCTIONS,
   agentStageRecord,
   agentStageWork,
+  type AnsweredQuestion,
   type EarlierResult,
 } from "../domain/agent-stage-brief.js";
 import { allowedCommands } from "../domain/allowed-commands.js";
@@ -144,14 +145,19 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       diffSummary: await this.git.changesSoFar(task.project.id, run.taskId),
       commands,
     });
+    const answered = answeredQuestion(stage, earlierRuns);
     return this.threads.open({
       taskId: run.taskId,
       roleKey: stage.role,
       stageName: stage.name,
-      declared: stage.session,
+      declared: answered ? undefined : stage.session,
       previousThreadId: previousAgentThread(stages, earlierRuns),
       record,
-      work: agentStageWork(stage, carriedWithName(stages, run.carriedFailure), installProblem),
+      work: agentStageWork(stage, {
+        carried: carriedWithName(stages, run.carriedFailure),
+        answered,
+        installProblem,
+      }),
       folder: task.worktree.path,
       environment: task.worktree.environment,
       useProjectSkills: task.project.useProjectSkills,
@@ -223,6 +229,21 @@ function previousAgentThread(
   const previous = earlierRuns.at(-1);
   if (!previous || stageOf(stages, previous.stageKey)?.kind !== "agent") return undefined;
   return previous.threadId;
+}
+
+/**
+ * The question the Stage's Agent asked in the run before this one, with the user's answer, when
+ * the Stage runs again for it.
+ */
+function answeredQuestion(
+  stage: Stage,
+  earlierRuns: readonly StageRun[],
+): AnsweredQuestion | undefined {
+  const asked = earlierRuns.at(-1);
+  if (asked?.stageKey !== stage.key || asked.outcome?.status !== "needs-decision") return undefined;
+  const answer = asked.decisions.find(({ kind }) => kind === "agent")?.answer;
+  if (answer?.kind !== "answered") return undefined;
+  return { question: asked.outcome.question, answer: answer.answer };
 }
 
 function carriedWithName(
