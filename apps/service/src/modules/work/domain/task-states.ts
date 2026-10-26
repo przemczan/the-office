@@ -63,3 +63,13 @@ function readyProblems(task: Task): string[] {
   }
   return problems;
 }
+
+/** Ready also waits for every Decision on the Task to be answered (spec §2.1, the user's answer). */
+export function openDecisionProblems(openDecisions: number): string[] {
+  if (openDecisions === 0) return [];
+  return [
+    openDecisions === 1
+      ? "Answer the open Decision before the Task can be Ready."
+      : `Answer the ${openDecisions} open Decisions before the Task can be Ready.`,
+  ];
+}

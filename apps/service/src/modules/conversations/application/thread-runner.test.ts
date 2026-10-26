@@ -651,6 +651,7 @@ describe("a Decision", () => {
       { kind: "person", roleKey, text: "I asked about archived Projects." },
     ]);
     await expect(decisions.listOpen()).resolves.toContainEqual(decision);
+    await expect(decisions.openOn(thread.openDecision?.taskId ?? "")).resolves.toBe(1);
   });
 
   it("answered with an option goes into the running session with its question, and closes", async () => {
@@ -688,6 +689,7 @@ describe("a Decision", () => {
     await expect(decisions.listOpen()).resolves.not.toContainEqual(
       expect.objectContaining({ id: open.id }),
     );
+    await expect(decisions.openOn(open.taskId)).resolves.toBe(0);
     await expect(decisions.answer(open.id, { kind: "option", option: 1 })).rejects.toThrow(
       "This Decision is answered already.",
     );

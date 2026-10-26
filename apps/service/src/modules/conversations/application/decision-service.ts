@@ -69,6 +69,12 @@ export class DecisionService {
     return this.repository.openDecisions();
   }
 
+  /** How many Decisions on the Task wait on the user, in any of its Threads. */
+  async openOn(taskId: string): Promise<number> {
+    const open = await this.repository.openDecisions();
+    return open.filter((decision) => decision.taskId === taskId).length;
+  }
+
   /** The Thread's Decisions, open and answered, which its log's cards show. */
   listInThread(threadId: string): Promise<readonly Decision[]> {
     return this.repository.decisionsIn(threadId);

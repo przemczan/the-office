@@ -1,6 +1,7 @@
 import { Module, type DynamicModule } from "@nestjs/common";
 import {
   ConversationsModule,
+  DecisionService,
   StageDecisions,
   StageThreads,
   TaskTokens,
@@ -51,6 +52,7 @@ export class AppModule {
       sessionPeople: ThreadService,
       sessionTasks: ThreadService,
       taskThreads: ThreadService,
+      taskDecisions: DecisionService,
     });
     return {
       module: AppModule,

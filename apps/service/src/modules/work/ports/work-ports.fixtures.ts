@@ -7,6 +7,7 @@ import { KnownProjects, type KnownProject } from "./known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "./project-worktrees.js";
 import { SessionPeople } from "./session-people.js";
 import { SessionTasks } from "./session-tasks.js";
+import { TaskDecisions } from "./task-decisions.js";
 import { TaskThreads, type TaskThreadOpening } from "./task-threads.js";
 
 /** The one Project id KnownProjectsForTests doesn't know. */
@@ -99,6 +100,16 @@ export class TaskThreadsForTests extends TaskThreads {
   }
 }
 
+/** The Decisions open on each Task: none unless a test opens some. */
+@Injectable()
+export class TaskDecisionsForTests extends TaskDecisions {
+  readonly open = new Map<string, number>();
+
+  async openOn(taskId: string): Promise<number> {
+    return this.open.get(taskId) ?? 0;
+  }
+}
+
 const PORTS = [
   KnownProjectsForTests,
   ProjectWorktreesForTests,
@@ -106,6 +117,7 @@ const PORTS = [
   SessionPeopleForTests,
   SessionTasksForTests,
   TaskThreadsForTests,
+  TaskDecisionsForTests,
   TaskThreadSetups,
 ];
 

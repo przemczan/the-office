@@ -2,6 +2,7 @@ import type { Task } from "@the-office/contracts";
 import { Button, Icon, type ButtonProps } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { usePlanner } from "../../shell/work/use-planner.ts";
+import { useWaitingOnYouWhilePlanning } from "../../shell/work/waiting-on-you.ts";
 import { useMarkingReady, usePlanning } from "./use-planning.ts";
 
 /**
@@ -37,14 +38,18 @@ export function PlanButton({
 
 /**
  * Mark Ready on a Task in Planning. It is offered before the Plan and the Definition of Done are
- * confirmed and while a Pipeline proposal is open too, and refused then with the reasons, so the
- * user learns what is missing.
+ * confirmed, while a Pipeline proposal is open and while a Decision waits on the user too, and
+ * refused then with the reasons, so the user learns what is missing.
  */
 export function MarkReadyButton({ task }: { readonly task: Task }): ReactNode {
   const marking = useMarkingReady();
+  const waitingOnYou = useWaitingOnYouWhilePlanning();
   if (task.state !== "planning") return null;
   const confirmed =
-    task.planConfirmed && task.definitionOfDoneConfirmed && task.proposedPipeline === null;
+    task.planConfirmed &&
+    task.definitionOfDoneConfirmed &&
+    task.proposedPipeline === null &&
+    !waitingOnYou(task);
   return (
     <Button
       variant={confirmed ? "primary" : "secondary"}

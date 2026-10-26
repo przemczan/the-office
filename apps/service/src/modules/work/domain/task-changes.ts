@@ -13,6 +13,7 @@ import {
   NOT_STARTED_STATES,
   STARTED_STATES,
   TASK_STATE_NAMES,
+  openDecisionProblems,
   stateChangeProblems,
 } from "./task-states.js";
 
@@ -68,6 +69,20 @@ export function changeTaskState(
   if (problems.length > 0) throw new TaskRefused(problems);
   if (task.state === to) return undefined;
   return { task: { ...task, state: to }, event: new TaskStateChanged(task.id, task.state, to) };
+}
+
+/**
+ * Mark Ready: Planning → Ready, refused with every reason, those of the Task's record and the
+ * Decisions on it still open. Undefined when the Task is Ready already.
+ */
+export function markTaskReady(
+  task: Task,
+  openDecisions: number,
+): TaskChange<TaskStateChanged> | undefined {
+  if (task.state === "ready") return undefined;
+  const problems = [...stateChangeProblems(task, "ready"), ...openDecisionProblems(openDecisions)];
+  if (problems.length > 0) throw new TaskRefused(problems);
+  return changeTaskState(task, "ready");
 }
 
 /**

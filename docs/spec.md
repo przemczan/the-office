@@ -26,7 +26,7 @@ From [07](../.scratch/the-office/issues/07-work-model.md), with [08](../.scratch
 - **Idea:** captured quickly, in a Project or Office-wide. States: new, shaped, dropped. Shaping makes an Initiative or a Task and keeps the Idea as the origin link; its Attachments move with it.
 - **Initiative** (tier 2): Office-level, spans Projects; each of its Tasks is in one Project. States: shaping (with the CTO), active, done (all Tasks done), dropped. Order inside it is dependencies plus manual order.
 - **Task:** one unit of work in one Project, done when its **Definition of Done** is met: a published change, an Attachment, or both.
-  - States: **Backlog → Planning → Ready → In progress → Done**, side states **Waiting on you** and **Paused**, exit **Dropped**. Ready requires a Plan and a Definition of Done, both confirmed by the user, and no Pipeline proposal left open. In progress shows the current Stage.
+  - States: **Backlog → Planning → Ready → In progress → Done**, side states **Waiting on you** and **Paused**, exit **Dropped**. Ready requires a Plan and a Definition of Done, both confirmed by the user, no Pipeline proposal left open and no Decision on the Task left open (the user's answer of 2026-10-26). In progress shows the current Stage.
   - **Plan** (how) and **Definition of Done** (what must be true) are separate first-class parts of the Task, co-written with the Planner in a thread on the Task, confirmed by the user.
   - **Dependencies** (tier 2): on any Task in any Initiative or Project; a blocked Task cannot start.
   - **Organisation:** three priority levels plus manual order per Project (tier 1); tags, full-text search, saved views (tier 2); archive after a while (tier 3).

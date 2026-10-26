@@ -56,6 +56,7 @@ export class ConversationsModule {
         ThreadWebEvents,
       ],
       exports: [
+        DecisionService,
         InterruptedAnswers,
         ThreadService,
         TaskThreadSetups,

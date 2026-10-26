@@ -17,6 +17,7 @@ import { PLANNING_OPENING } from "../../domain/planning.js";
 import {
   KnownPeopleForTests,
   ProjectWorktreesForTests,
+  TaskDecisionsForTests,
   TaskThreadsForTests,
   UNKNOWN_PROJECT,
 } from "../../ports/work-ports.fixtures.js";
@@ -375,6 +376,24 @@ describe("POST /api/tasks/:id/ready", () => {
       "Confirm the Definition of Done before the Task can be Ready.",
       "Take or decline the proposed Pipeline before the Task can be Ready.",
     ]);
+  });
+
+  it("refuses a confirmed Task while a planning Decision is open", async () => {
+    const task = await proposedTask();
+    await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Mine." });
+    await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
+      definitionOfDone: ["Mine."],
+    });
+    await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: task.pipelineId });
+    work.app.get(TaskDecisionsForTests).open.set(task.id, 1);
+
+    const response = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
+
+    expect(response.status).toBe(422);
+    expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
+      "Answer the open Decision before the Task can be Ready.",
+    ]);
+    expect((await readTask(task.id)).state).toBe("planning");
   });
 
   it("refuses a confirmed Task while its Pipeline proposal is open, and marks it Ready once kept", async () => {

@@ -392,6 +392,9 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
 
     await page.getByRole("button", { name: "Mark Ready" }).click();
     await expect(page.getByText(/Confirm the Plan before the Task can be Ready\./)).toBeVisible();
+    await expect(
+      page.getByText(/Answer the open Decision before the Task can be Ready\./),
+    ).toBeVisible();
 
     await plan.getByRole("button", { name: "Confirm" }).click();
     await expect(plan.getByText("Confirmed")).toBeVisible();

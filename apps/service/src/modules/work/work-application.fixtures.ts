@@ -15,6 +15,7 @@ import {
   ProjectWorktreesForTests,
   SessionPeopleForTests,
   SessionTasksForTests,
+  TaskDecisionsForTests,
   TaskThreadsForTests,
   WorkPortsForTestsModule,
 } from "./ports/work-ports.fixtures.js";
@@ -49,6 +50,7 @@ export async function startWorkApplication(officeDataFolder: string): Promise<Wo
         sessionPeople: SessionPeopleForTests,
         sessionTasks: SessionTasksForTests,
         taskThreads: TaskThreadsForTests,
+        taskDecisions: TaskDecisionsForTests,
       }),
     ],
   });

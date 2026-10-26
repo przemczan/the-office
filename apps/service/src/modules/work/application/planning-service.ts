@@ -12,7 +12,7 @@ import {
   proposePlan,
 } from "../domain/planning-changes.js";
 import type { ProposedPipeline, Task } from "../domain/task.js";
-import { changeTaskState, type TaskChange } from "../domain/task-changes.js";
+import { changeTaskState, markTaskReady, type TaskChange } from "../domain/task-changes.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { TaskRefused } from "../domain/task-refused.js";
 import { stateChangeProblems } from "../domain/task-states.js";
@@ -20,6 +20,7 @@ import { KnownPeople } from "../ports/known-people.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
 import { ProjectWorktrees } from "../ports/project-worktrees.js";
 import { TaskRepository } from "../ports/task-repository.js";
+import { TaskDecisions } from "../ports/task-decisions.js";
 import { TaskThreads } from "../ports/task-threads.js";
 import { IdeaService } from "./idea-service.js";
 
@@ -38,6 +39,7 @@ export class PlanningService {
     private readonly pipelines: KnownPipelines,
     private readonly worktrees: ProjectWorktrees,
     private readonly threads: TaskThreads,
+    private readonly decisions: TaskDecisions,
     private readonly events: EventBus,
   ) {}
 
@@ -112,9 +114,13 @@ export class PlanningService {
     return this.update(taskId, (task) => confirmPipeline(task, pipelineId));
   }
 
-  /** Planning → Ready, refused with the reasons until the Plan and Definition of Done are confirmed. */
+  /**
+   * Planning → Ready, refused with the reasons until the Plan and Definition of Done are confirmed,
+   * the Pipeline proposal is answered and no Decision on the Task is open.
+   */
   async markReady(taskId: string): Promise<Task> {
-    return this.update(taskId, (task) => changeTaskState(task, "ready"));
+    const openDecisions = await this.decisions.openOn(taskId);
+    return this.update(taskId, (task) => markTaskReady(task, openDecisions));
   }
 
   private async update<Event extends DomainEvent>(

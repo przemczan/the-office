@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TASK_STATES, type TaskState } from "./task.js";
-import { changeTaskState } from "./task-changes.js";
+import { changeTaskState, markTaskReady } from "./task-changes.js";
 import { TaskStateChanged } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
 import { aPlannedTask, aTask } from "./work.fixtures.js";
@@ -91,6 +91,20 @@ describe("changeTaskState", () => {
       new TaskRefused(["Take or decline the proposed Pipeline before the Task can be Ready."]),
     );
     expect(changeTaskState(aPlannedTask(), "ready")?.task.state).toBe("ready");
+  });
+
+  it("refuses Mark Ready while a Decision on the Task waits on the user", () => {
+    expect(() => markTaskReady(aPlannedTask(), 1)).toThrow(
+      new TaskRefused(["Answer the open Decision before the Task can be Ready."]),
+    );
+    expect(() => markTaskReady(aPlannedTask({ planConfirmed: false }), 2)).toThrow(
+      new TaskRefused([
+        "Confirm the Plan before the Task can be Ready.",
+        "Answer the 2 open Decisions before the Task can be Ready.",
+      ]),
+    );
+    expect(markTaskReady(aPlannedTask(), 0)?.task.state).toBe("ready");
+    expect(markTaskReady(aPlannedTask({ state: "ready" }), 1)).toBeUndefined();
   });
 
   it("refuses Ready with a Plan of spaces only", () => {

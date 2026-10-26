@@ -41,6 +41,7 @@ import { ProjectWorktrees } from "./ports/project-worktrees.js";
 import { SessionPeople } from "./ports/session-people.js";
 import { SessionTasks } from "./ports/session-tasks.js";
 import { TaskRepository } from "./ports/task-repository.js";
+import { TaskDecisions } from "./ports/task-decisions.js";
 import { TaskThreads } from "./ports/task-threads.js";
 import { WorkSettings } from "./ports/work-settings.js";
 
@@ -57,6 +58,7 @@ export interface WorkModuleOptions {
   readonly sessionPeople: Type<SessionPeople>;
   readonly sessionTasks: Type<SessionTasks>;
   readonly taskThreads: Type<TaskThreads>;
+  readonly taskDecisions: Type<TaskDecisions>;
 }
 
 @Module({})
@@ -70,6 +72,7 @@ export class WorkModule implements NestModule {
     sessionPeople,
     sessionTasks,
     taskThreads,
+    taskDecisions,
   }: WorkModuleOptions): DynamicModule {
     return {
       module: WorkModule,
@@ -89,6 +92,7 @@ export class WorkModule implements NestModule {
         { provide: SessionPeople, useExisting: sessionPeople },
         { provide: SessionTasks, useExisting: sessionTasks },
         { provide: TaskThreads, useExisting: taskThreads },
+        { provide: TaskDecisions, useExisting: taskDecisions },
         IdeaService,
         TaskService,
         AttachmentService,
