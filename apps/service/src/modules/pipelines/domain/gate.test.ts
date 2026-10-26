@@ -19,7 +19,9 @@ function agentStage(key: string): Stage {
 const stages: readonly Stage[] = [
   agentStage("implement"),
   { kind: "script", key: "tests", name: "Tests", optional: false, command: "test" },
+  { kind: "gate", key: "first-look", name: "First look", optional: false },
   agentStage("review"),
+  { kind: "script", key: "publish", name: "Publish", optional: false, command: "publish" },
   { kind: "gate", key: "look", name: "Look", optional: false },
   agentStage("document"),
 ];
@@ -53,8 +55,12 @@ const sendBack = (stageKey: string, feedback = "Name it Save."): GateAction => (
 });
 
 describe("sendBackTargets", () => {
-  it("is the Agent Stages before the Gate", () => {
-    expect(sendBackTargets(stages, "look").map(({ key }) => key)).toEqual(["implement", "review"]);
+  it("is every Stage before the Gate but a Gate and a Publish", () => {
+    expect(sendBackTargets(stages, "look").map(({ key }) => key)).toEqual([
+      "implement",
+      "tests",
+      "review",
+    ]);
   });
 });
 
@@ -68,22 +74,24 @@ describe("waitingGateRun", () => {
 });
 
 describe("gateActionProblems", () => {
-  it("allows Continue, Drop, and Send back to an earlier Agent Stage with feedback", () => {
+  it("allows Continue, Drop, and Send back to an earlier Agent or Script Stage with feedback", () => {
     const waiting = [aRun("look")];
 
     expect(gateActionProblems(stages, waiting, { kind: "continue" })).toEqual([]);
     expect(gateActionProblems(stages, waiting, { kind: "drop" })).toEqual([]);
     expect(gateActionProblems(stages, waiting, sendBack("review"))).toEqual([]);
+    expect(gateActionProblems(stages, waiting, sendBack("tests"))).toEqual([]);
   });
 
-  it("refuses a Script Stage, a later Stage and no feedback, and any action where no Gate waits", () => {
+  it("refuses a Publish, a Gate, a later Stage and no feedback, and any action where no Gate waits", () => {
     const waiting = [aRun("look")];
-    const target = "Send the work back to an Agent Stage before the Gate.";
+    const target = "Send the work back to a Stage before the Gate, other than a Gate or a Publish.";
 
-    expect(gateActionProblems(stages, waiting, sendBack("tests", " "))).toEqual([
+    expect(gateActionProblems(stages, waiting, sendBack("publish", " "))).toEqual([
       target,
       "Say what should change before sending it back.",
     ]);
+    expect(gateActionProblems(stages, waiting, sendBack("first-look"))).toEqual([target]);
     expect(gateActionProblems(stages, waiting, sendBack("document"))).toEqual([target]);
     expect(gateActionProblems(stages, [aRun("implement")], { kind: "continue" })).toEqual([
       "The Task isn't waiting at a Gate.",

@@ -5,7 +5,10 @@ export interface WaitingGate {
   readonly gate: Stage;
   /** The Stage after the Gate; undefined when the Gate is the last. */
   readonly next: Stage | undefined;
-  /** The Agent Stages before the Gate, as only an Agent reads the feedback; the last is the default. */
+  /**
+   * The Stages before the Gate the work may go back to: none that is a Gate or a Publish (spec
+   * §2.3). An Agent reads the feedback; a Script Stage just runs again.
+   */
   readonly sendBackTargets: readonly Stage[];
   /** The Stages before the Gate that have run, whose results the Gate shows. */
   readonly earlier: readonly TaskStage[];
@@ -25,9 +28,34 @@ export function waitingGateOf(taskStages: readonly TaskStage[]): WaitingGate | u
   return {
     gate: waiting.stage,
     next: taskStages[index + 1]?.stage,
-    sendBackTargets: before.map(({ stage }) => stage).filter(({ kind }) => kind === "agent"),
+    sendBackTargets: before.map(({ stage }) => stage).filter(isSendBackTarget),
     earlier: before.filter(({ state }) => state !== "pending"),
   };
+}
+
+function isSendBackTarget(stage: Stage): boolean {
+  if (stage.kind === "gate") return false;
+  return stage.kind !== "script" || stage.command !== "publish";
+}
+
+/** The last Agent Stage before the Gate, as the click-through sends back; else the last Stage. */
+export function defaultSendBackTarget(targets: readonly Stage[]): Stage | undefined {
+  return targets.findLast(({ kind }) => kind === "agent") ?? targets.at(-1);
+}
+
+/** What the send-back form says for its target: who changes what, or that a script runs again. */
+export function sendBackWords(
+  target: Stage | undefined,
+  personName: string,
+): { readonly placeholder: string; readonly sent: string } {
+  if (target?.kind !== "agent") {
+    const name = target?.name ?? "The Stage";
+    return {
+      placeholder: `What should change? ${name} runs again; your feedback stays on its run.`,
+      sent: `Sent back to ${name}: it runs again.`,
+    };
+  }
+  return { placeholder: `What should ${personName} change?`, sent: `Sent back to ${personName}.` };
 }
 
 /** "Continue to Publish" (prototypes/app/now.js), or "Continue" at the last Stage. */

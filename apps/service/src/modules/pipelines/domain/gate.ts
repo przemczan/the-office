@@ -1,4 +1,4 @@
-import type { AgentStage, Stage } from "./stage.js";
+import type { Stage } from "./stage.js";
 import type { GateAction, StageOutcome, StageRun } from "./stage-run.js";
 
 /**
@@ -23,14 +23,19 @@ export function waitingGateRun(
 }
 
 /**
- * The Stages a Gate may send the work back to: the Agent Stages before it, as only an Agent reads
- * the feedback.
+ * The Stages a Gate may send the work back to (spec §2.3, the user's answer of 2026-10-26): any
+ * Stage before it but a Gate, which would only wait again, and a Publish, whose work has already
+ * left the workstation. An Agent Stage is briefed with the feedback; a Script Stage can't read it,
+ * so it runs again and the walk goes on from there, the feedback kept on its run.
  */
-export function sendBackTargets(stages: readonly Stage[], gateKey: string): AgentStage[] {
+export function sendBackTargets(stages: readonly Stage[], gateKey: string): Stage[] {
   const gateIndex = stages.findIndex(({ key }) => key === gateKey);
-  return stages
-    .slice(0, Math.max(gateIndex, 0))
-    .filter((stage): stage is AgentStage => stage.kind === "agent");
+  return stages.slice(0, Math.max(gateIndex, 0)).filter(isSendBackTarget);
+}
+
+function isSendBackTarget(stage: Stage): boolean {
+  if (stage.kind === "gate") return false;
+  return stage.kind !== "script" || stage.command !== "publish";
 }
 
 /** Every reason the user can't do this at the Task's Gate now; empty when they can. */
@@ -44,7 +49,7 @@ export function gateActionProblems(
   if (action.kind !== "send-back") return [];
   const problems: string[] = [];
   if (!sendBackTargets(stages, waiting.stageKey).some(({ key }) => key === action.stageKey)) {
-    problems.push("Send the work back to an Agent Stage before the Gate.");
+    problems.push("Send the work back to a Stage before the Gate, other than a Gate or a Publish.");
   }
   if (action.feedback.trim() === "") {
     problems.push("Say what should change before sending it back.");

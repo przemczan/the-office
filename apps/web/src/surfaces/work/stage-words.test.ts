@@ -212,3 +212,26 @@ describe("stageProgressLine at a Gate", () => {
     ).toBe("Running · 30 min · sent back from Look");
   });
 });
+
+describe("stageProgressLine of a Script Stage sent back from a Gate", () => {
+  it("tells it ran again for the Gate's feedback, which it can't read", () => {
+    const ran = aRun({
+      outcome: {
+        status: "done",
+        summary: "`npm test` passed.",
+        skipped: false,
+        handoverNote: null,
+      },
+      sentBack: { gateKey: "look", feedback: "Run them on the new data." },
+    });
+    const look: Stage = { kind: "gate", key: "look", name: "Look", optional: false };
+
+    expect(
+      stageProgressLine(
+        aTaskStage(tests, { state: "done", runs: [ran] }),
+        stageNamesOf([implement, tests, look]),
+        now,
+      ),
+    ).toBe("Done · 18 min · npm test passed. · sent back from Look");
+  });
+});

@@ -154,6 +154,28 @@ describe("A Gate", () => {
     expect(await stateOf(taskId, "look")).toBe("waiting-on-you");
   });
 
+  it("sends the work back to a Script Stage, which runs again with the feedback kept on its run", async () => {
+    pipelines = await startPipelinesApplication([agentDone]);
+    const taskId = await walkStages(pipelines, [draft, measure, look]);
+
+    await gates().sendBack(taskId, "measure", FEEDBACK);
+    await walked(taskId);
+
+    expect(await statusesOf(taskId)).toEqual([
+      ["draft", "done"],
+      ["measure", "done"],
+      ["look", "done"],
+      ["measure", "done"],
+      ["look", "done"],
+    ]);
+    expect((await runsOf(pipelines, taskId))[3]?.sentBack).toEqual({
+      gateKey: "look",
+      feedback: FEEDBACK,
+    });
+    expect(pipelines.stageThreads.requests).toHaveLength(1);
+    expect(await stateOf(taskId, "look")).toBe("waiting-on-you");
+  });
+
   it("drops the Task at the Gate", async () => {
     pipelines = await startPipelinesApplication([agentDone]);
     const taskId = await walkStages(pipelines, [draft, look, ship]);
@@ -203,13 +225,12 @@ describe("A Gate", () => {
     pipelines = await startPipelinesApplication([agentDone]);
     const taskId = await walkStages(pipelines, [draft, measure, look, ship]);
 
-    await expect(gates().sendBack(taskId, "measure", " ")).rejects.toThrow(
+    await expect(gates().sendBack(taskId, "ship", " ")).rejects.toThrow(
       new GateRefused([
-        "Send the work back to an Agent Stage before the Gate.",
+        "Send the work back to a Stage before the Gate, other than a Gate or a Publish.",
         "Say what should change before sending it back.",
       ]),
     );
-    await expect(gates().sendBack(taskId, "ship", FEEDBACK)).rejects.toThrow(GateRefused);
     await gates().continue(taskId);
     await walked(taskId);
     await expect(gates().drop(taskId)).rejects.toThrow(

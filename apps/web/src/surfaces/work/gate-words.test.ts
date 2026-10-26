@@ -1,6 +1,11 @@
 import type { Stage, StageRun, TaskStage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { continueLabel, waitingGateOf } from "./gate-words.ts";
+import {
+  continueLabel,
+  defaultSendBackTarget,
+  sendBackWords,
+  waitingGateOf,
+} from "./gate-words.ts";
 
 function agentStage(key: string, name: string): Stage {
   return {
@@ -60,10 +65,14 @@ function at(
 }
 
 describe("waitingGateOf", () => {
-  it("is the Gate the Task waits at, with the Stage after it and the Agent Stages before it", () => {
+  it("is the Gate the Task waits at, with the Stage after it and the Stages it may send back to", () => {
+    const firstLook: Stage = { ...look, key: "first-look", name: "First look" };
+    const earlyPublish: Stage = { ...publish, key: "early-publish" };
     const waiting = waitingGateOf([
       at(implement, "done"),
       at(tests, "done"),
+      at(firstLook, "done", { kind: "continue" }),
+      at(earlyPublish, "done"),
       at(review, "skipped"),
       at(look, "waiting-on-you"),
       at(publish, "pending"),
@@ -71,10 +80,13 @@ describe("waitingGateOf", () => {
 
     expect(waiting?.gate).toBe(look);
     expect(waiting?.next).toBe(publish);
-    expect(waiting?.sendBackTargets).toEqual([implement, review]);
+    // Neither a Gate, which would only wait again, nor a Publish, whose work has left.
+    expect(waiting?.sendBackTargets).toEqual([implement, tests, review]);
     expect(waiting?.earlier.map(({ stage }) => stage.key)).toEqual([
       "implement",
       "tests",
+      "first-look",
+      "early-publish",
       "review",
     ]);
     expect(waiting && continueLabel(waiting)).toBe("Continue to Publish");
@@ -90,5 +102,24 @@ describe("waitingGateOf", () => {
     expect(waitingGateOf([at(implement, "running"), at(look, "pending")])).toBeUndefined();
     const last = waitingGateOf([at(implement, "done"), at(look, "waiting-on-you")]);
     expect(last && continueLabel(last)).toBe("Continue");
+  });
+});
+
+describe("the send-back chooser", () => {
+  it("starts at the last Agent Stage, or the last Stage when no Agent works one", () => {
+    expect(defaultSendBackTarget([implement, review, tests])).toBe(review);
+    expect(defaultSendBackTarget([tests])).toBe(tests);
+    expect(defaultSendBackTarget([])).toBeUndefined();
+  });
+
+  it("asks the Agent what to change, and tells a Script Stage just runs again", () => {
+    expect(sendBackWords(implement, "Adam")).toEqual({
+      placeholder: "What should Adam change?",
+      sent: "Sent back to Adam.",
+    });
+    expect(sendBackWords(tests, "the Agent")).toEqual({
+      placeholder: "What should change? Tests runs again; your feedback stays on its run.",
+      sent: "Sent back to Tests: it runs again.",
+    });
   });
 });

@@ -116,7 +116,11 @@ function resultWords(
       if (stage.kind === "gate")
         return latest.gateAction ? gateActionWords(latest.gateAction, names) : undefined;
       // An Agent's summary is in its Handover note and Thread; a script's is its command's result.
-      return stage.kind === "script" ? plain(outcome.summary) : undefined;
+      if (stage.kind !== "script") return undefined;
+      // A Script Stage can't read a Gate's feedback: the row tells it ran again for it.
+      return sentBack
+        ? `${plain(outcome.summary)} · sent back from ${names(sentBack.gateKey)}`
+        : plain(outcome.summary);
     case "needs-decision":
       return outcome.question;
     case "failed": {

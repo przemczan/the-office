@@ -22,7 +22,13 @@ import { AttachmentChips } from "../../shell/attachments/attachment-chips.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { DropTaskDialog } from "./drop-task-dialog.tsx";
-import { continueLabel, waitingGateOf, type WaitingGate } from "./gate-words.ts";
+import {
+  continueLabel,
+  defaultSendBackTarget,
+  sendBackWords,
+  waitingGateOf,
+  type WaitingGate,
+} from "./gate-words.ts";
 import { RecordBlock } from "./record-block.tsx";
 import { stageNamesOf, stageProgressLine } from "./stage-words.ts";
 import { ChangesView } from "./task-changes.tsx";
@@ -208,7 +214,7 @@ function GateActions({
   );
 }
 
-/** The earlier Agent Stage to send the work back to, the last by default, and the feedback. */
+/** The earlier Stage to send the work back to, the last Agent Stage by default, and the feedback. */
 function SendBackForm({
   task,
   targets,
@@ -220,14 +226,14 @@ function SendBackForm({
   readonly roles: readonly Role[] | undefined;
   readonly onSent: () => void;
 }): ReactNode {
-  const [stageKey, setStageKey] = useState(targets.at(-1)?.key ?? "");
+  const [stageKey, setStageKey] = useState(defaultSendBackTarget(targets)?.key ?? "");
   const [feedback, setFeedback] = useState("");
   const target = targets.find(({ key }) => key === stageKey);
-  const person = personOf(target, roles);
+  const words = sendBackWords(target, personOf(target, roles));
   const sending = useGateAction(
     task,
     () => sendBackFromGate(task.id, { stageKey, feedback }),
-    `Sent back to ${person}.`,
+    words.sent,
   );
   return (
     <form
@@ -249,7 +255,7 @@ function SendBackForm({
       <Textarea
         aria-label="Your feedback"
         rows={3}
-        placeholder={`What should ${person} change?`}
+        placeholder={words.placeholder}
         value={feedback}
         onChange={(event) => setFeedback(event.target.value)}
       />
