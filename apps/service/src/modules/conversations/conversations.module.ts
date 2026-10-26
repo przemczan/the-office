@@ -11,6 +11,7 @@ import { Briefs } from "./application/briefs.js";
 import { DecisionService } from "./application/decision-service.js";
 import { InterruptedAnswers } from "./application/interrupted-answers.js";
 import { SessionPlaces } from "./application/session-places.js";
+import { StageThreads } from "./application/stage-threads.js";
 import { TaskThreadSetups } from "./application/task-thread-setups.js";
 import { CONTEXT_POLICY_SETTINGS, ThreadContexts } from "./application/thread-contexts.js";
 import { ThreadRunner } from "./application/thread-runner.js";
@@ -46,10 +47,11 @@ export class ConversationsModule {
         ThreadRunner,
         InterruptedAnswers,
         DecisionService,
+        StageThreads,
         DecisionOfficeTools,
         ThreadWebEvents,
       ],
-      exports: [InterruptedAnswers, ThreadService, TaskThreadSetups],
+      exports: [InterruptedAnswers, ThreadService, TaskThreadSetups, StageThreads],
     };
   }
 }

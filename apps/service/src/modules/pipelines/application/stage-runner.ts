@@ -8,6 +8,10 @@ export interface StageWork<Kind extends StageKind = StageKind> {
   readonly stage: StageOfKind<Kind>;
   /** The run, already started; its carried failure goes into the Brief. */
   readonly run: StageRun;
+  /** The Task's own Stages, whose earlier results a Brief names. */
+  readonly stages: readonly Stage[];
+  /** The Task's runs before this one, oldest first. */
+  readonly earlierRuns: readonly StageRun[];
 }
 
 /**

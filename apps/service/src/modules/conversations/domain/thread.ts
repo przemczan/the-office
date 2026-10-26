@@ -69,4 +69,9 @@ export interface Thread {
   readonly startedAt: Date;
   /** The Decision the Thread waits on the user for: at most one is open at a time. */
   readonly openDecision: Decision | undefined;
+  /**
+   * A Stage Thread: an Agent works one of the Task's Stages in it, and The Office, not the user,
+   * sends its messages.
+   */
+  readonly stageThread: boolean;
 }

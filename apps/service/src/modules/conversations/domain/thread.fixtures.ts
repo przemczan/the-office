@@ -14,6 +14,7 @@ export function aThread(fields: Partial<Thread> = {}): Thread {
     tokens: NO_TOKENS,
     startedAt: new Date("2026-10-25T09:00:00.000Z"),
     openDecision: undefined,
+    stageThread: false,
     ...fields,
   };
 }

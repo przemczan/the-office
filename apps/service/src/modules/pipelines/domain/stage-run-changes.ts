@@ -17,6 +17,7 @@ export function startStageRun(
   const run: StageRun = {
     ...given,
     number: earlierRuns + 1,
+    threadId: undefined,
     outcome: undefined,
     startedAt,
     endedAt: undefined,

@@ -1,5 +1,12 @@
 export { InterruptedAnswers } from "./application/interrupted-answers.js";
 export {
+  StageThreads,
+  type StageSessionSettings,
+  type StageThread,
+  type StageThreadRequest,
+  type StageTurn,
+} from "./application/stage-threads.js";
+export {
   TaskThreadSetups,
   type TaskThreadRequest,
   type TaskThreadSetup,

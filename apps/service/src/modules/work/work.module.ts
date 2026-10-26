@@ -28,6 +28,7 @@ import { AttachmentService } from "./application/attachment-service.js";
 import { IdeaService } from "./application/idea-service.js";
 import { PlanningService } from "./application/planning-service.js";
 import { StartService } from "./application/start-service.js";
+import { TaskRecords } from "./application/task-records.js";
 import { TaskService } from "./application/task-service.js";
 import { ATTACHMENT_SIZE_LIMIT } from "./domain/attachment.js";
 import { AttachmentFiles } from "./ports/attachment-files.js";
@@ -93,12 +94,13 @@ export class WorkModule implements NestModule {
         AttachmentService,
         PlanningService,
         StartService,
+        TaskRecords,
         WorkWebEvents,
         WorkOfficeTools,
         PlanningOfficeTools,
         PlanningThreadSetup,
       ],
-      exports: [IdeaService, TaskService],
+      exports: [IdeaService, TaskService, TaskRecords],
     };
   }
 

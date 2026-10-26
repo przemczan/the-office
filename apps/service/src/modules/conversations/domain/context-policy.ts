@@ -25,6 +25,8 @@ export type ContextReason =
   | "session-default"
   /** The user's override for this moment. */
   | "your-choice"
+  /** A Stage begins: the session it declares wins (spec §2.5). */
+  | "stage-declared"
   /** The context neared its limit and the person wrote a Handover note: never resumed. */
   | "context-full";
 
@@ -63,6 +65,11 @@ export interface Continuation {
   /** Theirs, from the Role card version the next session would run with. */
   readonly sessionDefault: SessionDefault;
   readonly override: ContextOverride | undefined;
+  /**
+   * At a Stage boundary, the session the Stage declares: fresh, or continuing the previous Stage's
+   * when the same person worked it. Undefined inside a Thread.
+   */
+  readonly declared?: "fresh" | "continue";
   /** What a Brief for a fresh session takes, estimated. */
   readonly briefTokens: number;
 }
@@ -130,11 +137,13 @@ export function decideContext(
 }
 
 function choose(
-  { override, sessionDefault }: Continuation,
+  { override, sessionDefault, declared }: Continuation,
   addedContextTokens: number,
   cacheWarm: boolean,
   settings: ContextPolicySettings,
 ): { readonly move: "resume" | "fresh"; readonly reason: ContextReason } {
+  if (declared)
+    return { move: declared === "continue" ? "resume" : "fresh", reason: "stage-declared" };
   if (override) {
     return { move: override === "start-fresh" ? "fresh" : "resume", reason: "your-choice" };
   }

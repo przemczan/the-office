@@ -9,6 +9,7 @@ import { endStageRun, startStageRun } from "../domain/stage-run-changes.js";
 import { NoRetriesLeft, PipelineCompleted, WentBackToStage } from "../domain/stage-run-events.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StartedTasks } from "../ports/started-tasks.js";
+import type { StageWork } from "./stage-runner.js";
 import { StageRunners } from "./stage-runners.js";
 import { TaskStagesService } from "./task-stages-service.js";
 
@@ -74,16 +75,21 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
       const runs = await this.runs.list(taskId);
       const move = nextMove(stages, runs);
       if (move.move !== "run") return this.halt(taskId, move);
-      if (!(await this.runStage(taskId, move, runs.length))) return;
+      if (!(await this.runStage(taskId, move, stages, runs))) return;
     }
   }
 
   /** False when another walk of the Task started the run first. */
-  private async runStage(taskId: string, move: RunMove, earlierRuns: number): Promise<boolean> {
+  private async runStage(
+    taskId: string,
+    move: RunMove,
+    stages: readonly Stage[],
+    earlierRuns: readonly StageRun[],
+  ): Promise<boolean> {
     const { stage, carriedFailure } = move;
     const started = startStageRun(
       { id: randomUUID(), taskId, stageKey: stage.key, carriedFailure },
-      earlierRuns,
+      earlierRuns.length,
       new Date(),
     );
     if (!(await this.runs.saveNew(started.run))) return false;
@@ -92,14 +98,16 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
       await this.events.publish(new WentBackToStage(taskId, stageKey, stage.key, round, rounds));
     }
     await this.events.publish(started.event);
-    const ended = endStageRun(started.run, await this.outcomeOf(stage, started.run), new Date());
+    const work = { stage, run: started.run, stages, earlierRuns };
+    const ended = endStageRun(started.run, await this.outcomeOf(work), new Date());
     await this.runs.saveEnded(ended.run);
     await this.events.publish(ended.event);
     return true;
   }
 
   /** A runner that throws ends its run failed with the reason, so no run is left running. */
-  private async outcomeOf(stage: Stage, run: StageRun): Promise<StageOutcome> {
+  private async outcomeOf(work: StageWork): Promise<StageOutcome> {
+    const { stage, run } = work;
     const runner = this.runners.runnerOf(stage.kind);
     if (!runner) {
       return {
@@ -108,7 +116,7 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
       };
     }
     try {
-      return await runner.run({ stage, run });
+      return await runner.run(work);
     } catch (error) {
       this.logger.error(`Stage run ${run.id} of Task ${run.taskId} failed`, stackOf(error));
       return { status: "failed", error: error instanceof Error ? error.message : String(error) };

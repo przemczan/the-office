@@ -45,6 +45,21 @@ function cooledFrom33k(contextTokens: number): Continuation {
 }
 
 describe("the Context policy", () => {
+  it("lets the Stage's declared session win at a Stage boundary, but never across a Role change", () => {
+    const warm = aContinuation(5, 40_000, { declared: "fresh" });
+    const cold = cooledFrom33k(120_000);
+
+    expect(decideContext(warm)).toMatchObject({ move: "fresh", reason: "stage-declared" });
+    expect(decideContext({ ...cold, declared: "continue" })).toMatchObject({
+      move: "resume",
+      reason: "stage-declared",
+    });
+    expect(decideContext({ ...cold, declared: "continue", roleKey: "developer" })).toMatchObject({
+      move: "hand-off",
+      reason: "another-person",
+    });
+  });
+
   it("resumes while the cache is warm, whatever the context, offering to start fresh", () => {
     expect(decideContext(aContinuation(59, 120_000))).toEqual({
       move: "resume",

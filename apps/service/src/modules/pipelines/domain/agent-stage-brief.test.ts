@@ -1,0 +1,88 @@
+import { describe, expect, it } from "vitest";
+import { agentStageRecord, agentStageWork, type BriefTask } from "./agent-stage-brief.js";
+import { allowedCommands } from "./allowed-commands.js";
+
+const GIT = ["status", "diff"];
+const COMMANDS = { install: "npm ci", build: "npm run build", lint: "", test: "npm test" };
+
+const task: BriefTask = {
+  title: "Rename a device",
+  plan: "",
+  definitionOfDone: [],
+  attachmentLines: [],
+  projectName: "Admin panel",
+  baseBranch: "main",
+  worktree: { path: "/worktrees/task", branch: "office/task" },
+};
+
+describe("allowedCommands", () => {
+  it("names exactly what the engine allows", () => {
+    expect(allowedCommands("read-only-git", COMMANDS, GIT)).toEqual({
+      permission: { kind: "read-only-git" },
+      words: "You may run read-only git (git status, git diff) only.",
+    });
+    expect(allowedCommands("project-commands", COMMANDS, GIT)).toEqual({
+      permission: { kind: "project-commands", commandLines: ["npm run build", "npm test"] },
+      words:
+        "You may run the Project's commands, exactly as written, and read-only git (git status, git diff):\n\n- build: `npm run build`\n- test: `npm test`",
+    });
+    expect(allowedCommands("project-commands", { install: "npm ci" }, GIT).words).toBe(
+      "The Project has no commands to run, so you may run read-only git (git status, git diff) only.",
+    );
+    expect(allowedCommands("anything", COMMANDS, GIT).permission).toEqual({ kind: "anything" });
+  });
+});
+
+describe("agentStageRecord", () => {
+  it("leaves out what the Task doesn't have yet", () => {
+    const record = agentStageRecord({
+      task,
+      earlier: [],
+      diffSummary: undefined,
+      commands: allowedCommands("read-only-git", {}, GIT),
+    });
+
+    expect(record).toBe(
+      [
+        "## The Task\n\nRename a device, in the Project Admin panel.",
+        "## Where you work\n\nThe Task's worktree, at /worktrees/task on the branch office/task, which started from main.",
+        "## Attachments\n\nNone.",
+        "## Commands you may run\n\nYou may run read-only git (git status, git diff) only.",
+      ].join("\n\n"),
+    );
+  });
+
+  it("names each earlier Stage's result, with its Handover note, and the diff so far", () => {
+    const record = agentStageRecord({
+      task,
+      earlier: [
+        {
+          stageName: "Implement",
+          kind: "agent",
+          outcome: { status: "done", summary: "Added it.", handoverNote: "Check the list." },
+        },
+        { stageName: "Tests", kind: "script", outcome: { status: "failed", error: "1 fails." } },
+      ],
+      diffSummary: "2 files changed",
+      commands: allowedCommands("anything", {}, GIT),
+    });
+
+    expect(record).toContain(
+      "## Earlier Stages\n\n- Implement (Agent Stage): done. Added it.\n  Handover note: Check the list.\n- Tests (Script Stage): failed. 1 fails.",
+    );
+    expect(record).toContain("## What changed so far\n\n2 files changed");
+  });
+});
+
+describe("agentStageWork", () => {
+  it("carries the failure a loop went back with", () => {
+    expect(
+      agentStageWork(
+        { name: "Implement", brief: "Build it." },
+        { stageKey: "tests", stageName: "Tests", error: "1 fails.", round: 1, rounds: 2 },
+      ),
+    ).toBe(
+      '## The Stage: Implement\n\nBuild it.\n\n## Why this Stage runs again\n\n"Tests" failed after it, so the Pipeline went back here (round 1 of 2):\n\n1 fails.',
+    );
+  });
+});

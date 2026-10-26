@@ -179,6 +179,7 @@ function toRow(thread: Thread): ThreadRow {
     override: thread.override ?? null,
     tokens: thread.tokens,
     startedAt: thread.startedAt,
+    stageThread: thread.stageThread,
   };
 }
 
@@ -197,6 +198,7 @@ function toThread(row: ThreadRow, openDecision: Decision | undefined): Thread {
     tokens: row.tokens,
     startedAt: row.startedAt,
     openDecision,
+    stageThread: row.stageThread,
   };
 }
 

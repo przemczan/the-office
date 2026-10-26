@@ -20,6 +20,10 @@ export class PostgresStageRunRepository extends StageRunRepository {
     return saved.length > 0;
   }
 
+  async saveThread(runId: string, threadId: string): Promise<void> {
+    await this.database.update(stageRuns).set({ threadId }).where(eq(stageRuns.id, runId));
+  }
+
   async saveEnded({ id, outcome, endedAt }: StageRun): Promise<void> {
     await this.database.update(stageRuns).set({ outcome, endedAt }).where(eq(stageRuns.id, id));
   }
@@ -33,6 +37,7 @@ export class PostgresStageRunRepository extends StageRunRepository {
     return rows.map((row) => ({
       ...row,
       carriedFailure: row.carriedFailure ?? undefined,
+      threadId: row.threadId ?? undefined,
       outcome: row.outcome ?? undefined,
       endedAt: row.endedAt ?? undefined,
     }));

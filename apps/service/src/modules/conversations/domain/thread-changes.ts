@@ -17,7 +17,7 @@ import {
   ThreadStarted,
   TurnEnded,
 } from "./conversation-events.js";
-import type { Message } from "./message.js";
+import type { Message, MessageDraft } from "./message.js";
 import {
   NO_TOKENS,
   type ContextOverride,
@@ -70,6 +70,7 @@ export function startChatThread(
     tokens: NO_TOKENS,
     startedAt,
     openDecision: undefined,
+    stageThread: false,
   };
   return { thread, event: new ThreadStarted(thread) };
 }
@@ -87,8 +88,29 @@ export interface TaskThreadStart {
  */
 export function startTaskThread(
   id: string,
+  start: TaskThreadStart,
+  startedAt: Date,
+): { readonly thread: Thread; readonly event: ThreadStarted } {
+  return threadOnTask(id, start, startedAt, false);
+}
+
+/**
+ * A Stage Thread on the Task (spec §2.4): an Agent works a Stage in it, titled by The Office with
+ * the Stage and the person, and The Office sends its messages.
+ */
+export function startStageThread(
+  id: string,
+  start: TaskThreadStart,
+  startedAt: Date,
+): { readonly thread: Thread; readonly event: ThreadStarted } {
+  return threadOnTask(id, start, startedAt, true);
+}
+
+function threadOnTask(
+  id: string,
   { taskId, roleKey, title }: TaskThreadStart,
   startedAt: Date,
+  stageThread: boolean,
 ): { readonly thread: Thread; readonly event: ThreadStarted } {
   const problems = titleProblems(title);
   if (problems.length > 0) throw new ThreadRefused(problems);
@@ -103,6 +125,7 @@ export function startTaskThread(
     tokens: NO_TOKENS,
     startedAt,
     openDecision: undefined,
+    stageThread,
   };
   return { thread, event: new ThreadStarted(thread) };
 }
@@ -145,6 +168,24 @@ function titleOf(messages: readonly Message[]): string | undefined {
   const first = messages.find((message) => message.kind === "user");
   const title = first && titleFrom(first.text);
   return title === "" ? undefined : title;
+}
+
+/** A session the Context policy's move starts for the person, before its first call. */
+export function freshSession(
+  id: string,
+  { roleKey, cardVersion }: Pick<ThreadSession, "roleKey" | "cardVersion">,
+  startedAt: Date,
+): ThreadSession {
+  return {
+    id,
+    roleKey,
+    cardVersion,
+    startedAt,
+    lastCallAt: undefined,
+    contextTokens: 0,
+    startContextTokens: undefined,
+    full: false,
+  };
 }
 
 /** The user's message, as the person takes it under the Context policy's move. */
@@ -297,6 +338,56 @@ export function beginOpening(
   return begin(thread, opening, [contextLineOf(thread, opening, openedAt)], openedAt);
 }
 
+/**
+ * The person starts on a Stage in its Stage Thread, a new one or the previous Stage's continued:
+ * the move at the Stage boundary is logged whatever it is, and the Thread is answering until the
+ * Stage ends.
+ */
+export function beginStageWork(
+  thread: Thread,
+  opening: Opening,
+  startedAt: Date,
+): ThreadChange<MessagesLogged> {
+  if (!thread.stageThread) throw new Error(`Thread ${thread.id} is not a Stage Thread.`);
+  return begin(thread, opening, [contextLineOf(thread, opening, startedAt)], startedAt);
+}
+
+/** How a Stage's work in its Stage Thread ended, in the lines its log closes with. */
+export interface StageWorkEnding {
+  readonly roleKey: string;
+  /** The person's Handover note in their result, if they wrote one. */
+  readonly handoverNote: string | undefined;
+  /** Why the Stage failed, when it did. */
+  readonly failure: string | undefined;
+}
+
+/**
+ * The Stage's work in its Stage Thread ends: its Handover note and its failure, if any, are logged,
+ * and the Thread waits.
+ */
+export function endStageWork(
+  thread: Thread,
+  { roleKey, handoverNote, failure }: StageWorkEnding,
+  endedAt: Date,
+): ThreadChange<MessagesLogged | TurnEnded> | undefined {
+  const lines: MessageDraft[] = [
+    ...(handoverNote === undefined
+      ? []
+      : [{ kind: "handover-note" as const, roleKey, text: handoverNote }]),
+    ...(failure === undefined ? [] : [{ kind: "failure" as const, reason: failure }]),
+  ];
+  const messages = lines.map((line): Message => ({
+    ...line,
+    id: crypto.randomUUID(),
+    threadId: thread.id,
+    at: endedAt,
+  }));
+  const waiting: Thread = { ...thread, state: "waiting" };
+  if (messages.length > 0) return logMessages(waiting, messages, endedAt);
+  if (thread.state === "waiting") return undefined;
+  return { thread: waiting, logged: [], event: new TurnEnded(waiting, endedAt) };
+}
+
 function begin(
   thread: Thread,
   { personName, newSession }: Opening,
@@ -338,6 +429,11 @@ export interface TurnCount {
   readonly contextTokens: number;
   /** The context neared its limit, so The Office asks for a Handover note next. */
   readonly handingOver: boolean;
+  /**
+   * The Office goes on sending the person messages itself, as it does in a Stage Thread until the
+   * Stage ends: the Thread stays answering.
+   */
+  readonly officeSendsNext: boolean;
   readonly endedAt: Date;
 }
 
@@ -347,12 +443,12 @@ export interface TurnCount {
  */
 export function endTurn(
   thread: Thread,
-  { usage, contextTokens, handingOver, endedAt }: TurnCount,
+  { usage, contextTokens, handingOver, officeSendsNext, endedAt }: TurnCount,
 ): ThreadChange<TurnEnded> {
   if (!thread.session) throw new Error(`Thread ${thread.id} has no session to end a turn of.`);
   const ended: Thread = {
     ...thread,
-    state: handingOver ? "answering" : "waiting",
+    state: handingOver || officeSendsNext ? "answering" : "waiting",
     tokens: addTokens(thread.tokens, usage),
     session: {
       ...thread.session,

@@ -28,6 +28,7 @@ import {
   endTurn,
   failAnswer,
   failDecisionAnswer,
+  freshSession,
   logMessages,
   type Opening,
   type ThreadChange,
@@ -35,8 +36,8 @@ import {
 } from "../domain/thread-changes.js";
 import { ThreadNotFound } from "../domain/thread-not-found.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
-import { toolActivitySummary } from "../domain/tool-activity.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
+import { sessionLogLines } from "./session-log.js";
 import { SessionPlaces, type SessionPlace } from "./session-places.js";
 import { CONTEXT_POLICY_SETTINGS } from "./thread-contexts.js";
 
@@ -220,6 +221,12 @@ export class ThreadRunner implements OnModuleDestroy {
 
   /** Who answers in the Thread now; refused when nobody may. */
   private async personOf(thread: Thread): Promise<SessionRole> {
+    // The Stage interpreter sends a Stage Thread's messages; the user's come with barge-in.
+    if (thread.stageThread) {
+      throw new ThreadRefused([
+        "An Agent works a Stage in this Thread: The Office sends its messages, so it takes none from you yet.",
+      ]);
+    }
     const current = await this.roleCards.find(thread.roleKey);
     if (thread.home.kind === "task") {
       if (!current) throw new ThreadRefused(["Nobody fills this Thread's Role any more."]);
@@ -260,18 +267,7 @@ export class ThreadRunner implements OnModuleDestroy {
     const role = resumed
       ? await this.roleCards.forResumedSession(resumed.roleKey, resumed.cardVersion)
       : current;
-    const newSession: ThreadSession | undefined = resumed
-      ? undefined
-      : {
-          id: randomUUID(),
-          roleKey: role.roleKey,
-          cardVersion: role.cardVersion,
-          startedAt: now,
-          lastCallAt: undefined,
-          contextTokens: 0,
-          startContextTokens: undefined,
-          full: false,
-        };
+    const newSession = resumed ? undefined : freshSession(randomUUID(), role, now);
     return { decision, role, newSession };
   }
 
@@ -394,44 +390,12 @@ export class ThreadRunner implements OnModuleDestroy {
 
   private async read(threadId: string, live: LiveSession): Promise<void> {
     for await (const event of live.session.events) {
-      switch (event.kind) {
-        case "text":
-          if (event.withinToolCall === undefined) {
-            await this.log(threadId, [
-              live.handingOver
-                ? { kind: "handover-note", roleKey: live.roleKey, text: event.text }
-                : { kind: "person", roleKey: live.roleKey, text: event.text },
-            ]);
-          }
-          break;
-        case "tool-call":
-          if (event.withinToolCall === undefined) {
-            await this.log(threadId, [
-              {
-                kind: "tool-activity",
-                roleKey: live.roleKey,
-                tool: event.tool,
-                summary: toolActivitySummary(event.input, live.folder),
-              },
-            ]);
-          }
-          break;
-        case "tool-refused":
-          await this.log(threadId, [
-            {
-              kind: "refusal",
-              roleKey: live.roleKey,
-              tool: event.tool,
-              reason: event.reason,
-            },
-          ]);
-          break;
-        case "turn-ended":
-          await this.turnEnded(threadId, live, event);
-          break;
-        default:
-          break;
+      if (event.kind === "turn-ended") {
+        await this.turnEnded(threadId, live, event);
+        continue;
       }
+      const lines = sessionLogLines(event, live);
+      if (lines.length > 0) await this.log(threadId, lines);
     }
   }
 
@@ -453,6 +417,7 @@ export class ThreadRunner implements OnModuleDestroy {
         usage: turn.usage,
         contextTokens: usage.tokens,
         handingOver,
+        officeSendsNext: false,
         endedAt: new Date(),
       }),
     );

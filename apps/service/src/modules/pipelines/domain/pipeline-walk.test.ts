@@ -30,6 +30,13 @@ function scriptStage(key: string, onFailure?: OnFailure): Stage {
 
 const done: StageOutcome = { status: "done", summary: "Done." };
 const failed = (error: string): StageOutcome => ({ status: "failed", error });
+const asks: StageOutcome = {
+  status: "needs-decision",
+  question: "Which page?",
+  context: "Both list devices.",
+  options: ["The device page", "The list"],
+  recommendation: { option: 0, reason: "It has the room." },
+};
 
 /** The Task's runs of these Stages, in order; an undefined outcome is still running. */
 function runs(...ran: readonly [string, StageOutcome | undefined][]): StageRun[] {
@@ -39,6 +46,7 @@ function runs(...ran: readonly [string, StageOutcome | undefined][]): StageRun[]
     stageKey,
     number: index + 1,
     carriedFailure: undefined,
+    threadId: undefined,
     outcome,
     startedAt: new Date(0),
     endedAt: outcome && new Date(0),
@@ -136,17 +144,14 @@ describe("nextMove", () => {
 
   it("waits while a run is running or needs a Decision", () => {
     const running = runs(["write", undefined]);
-    const asking = runs(["write", { status: "needs-decision", question: "Which page?" }]);
+    const asking = runs(["write", asks]);
 
     expect(nextMove(stages, running)).toEqual({ move: "wait", run: running[0] });
     expect(nextMove(stages, asking)).toEqual({ move: "wait", run: asking[0] });
   });
 
   it("runs the same Stage again once its Decision is answered", () => {
-    const ran = runs(
-      ["write", { status: "needs-decision", question: "Which page?" }],
-      ["write", done],
-    );
+    const ran = runs(["write", asks], ["write", done]);
 
     expect(nextMove(stages, ran)).toMatchObject({ move: "run", stage: { key: "check" } });
   });

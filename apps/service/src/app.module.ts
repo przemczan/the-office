@@ -1,5 +1,5 @@
 import { Module, type DynamicModule } from "@nestjs/common";
-import { ConversationsModule, ThreadService } from "./modules/conversations/index.js";
+import { ConversationsModule, StageThreads, ThreadService } from "./modules/conversations/index.js";
 import { EngineModule } from "./modules/engine/index.js";
 import { PeopleModule, RoleCards } from "./modules/people/index.js";
 import {
@@ -14,7 +14,7 @@ import {
   TaskWorktrees,
 } from "./modules/projects/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
-import { TaskService, WorkModule } from "./modules/work/index.js";
+import { TaskRecords, TaskService, WorkModule } from "./modules/work/index.js";
 import type { OfficeConfig } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
 import { EventsModule } from "./platform/events/events.module.js";
@@ -57,7 +57,13 @@ export class AppModule {
         HealthModule,
         OfficeDataModule.forRoot(config.officeDataDirectory),
         PeopleModule,
-        PipelinesModule.register({ imports: [work], startedTasks: TaskService }),
+        PipelinesModule.register({
+          imports: [work, PeopleModule, conversations],
+          startedTasks: TaskService,
+          taskRecords: TaskRecords,
+          knownPeople: RoleCards,
+          stageThreads: StageThreads,
+        }),
         projects,
         SkillsModule,
         TelemetryModule,

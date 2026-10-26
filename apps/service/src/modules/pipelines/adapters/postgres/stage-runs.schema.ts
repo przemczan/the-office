@@ -10,6 +10,8 @@ export const stageRuns = pgTable(
     stageKey: text("stage_key").notNull(),
     number: integer("number").notNull(),
     carriedFailure: jsonb("carried_failure").$type<CarriedFailure>(),
+    /** The Stage Thread an Agent Stage's run works in. */
+    threadId: uuid("thread_id"),
     outcome: jsonb("outcome").$type<StageOutcome>(),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     endedAt: timestamp("ended_at", { withTimezone: true }),

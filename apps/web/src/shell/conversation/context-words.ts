@@ -82,6 +82,8 @@ function reasonWords(reason: ContextReason, contextTokens: number, personName: s
       return `${personName}'s session default`;
     case "your-choice":
       return "you chose it";
+    case "stage-declared":
+      return "as the Stage declares";
     case "context-full":
       return "context full, Handover note written";
   }

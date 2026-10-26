@@ -34,6 +34,7 @@ export const contextReasonSchema = z.enum([
   "cache-expired",
   "session-default",
   "your-choice",
+  "stage-declared",
   "context-full",
 ]);
 export type ContextReason = z.infer<typeof contextReasonSchema>;

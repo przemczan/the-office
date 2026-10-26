@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigserial,
+  boolean,
   index,
   jsonb,
   pgTable,
@@ -39,6 +40,7 @@ export const threads = pgTable(
     override: text("override").$type<ContextOverride>(),
     tokens: jsonb("tokens").$type<TokenTotals>().notNull(),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    stageThread: boolean("stage_thread").notNull().default(false),
   },
   (table) => [index("threads_home").on(table.homeKind, table.homeId)],
 );

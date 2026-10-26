@@ -1,35 +1,17 @@
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { startTestApplication } from "../../../../test/test-application.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import { EventBus } from "../../../platform/events/event-bus.js";
-import { EventsModule } from "../../../platform/events/events.module.js";
 import { builtInPipelines } from "../domain/built-in-pipelines.js";
 import { TaskStagesMade } from "../domain/task-stages-events.js";
-import { PipelinesModule } from "../pipelines.module.js";
-import {
-  PipelinesPortsForTestsModule,
-  StartedTasksForTests,
-} from "../ports/pipelines-ports.fixtures.js";
+import { startPipelinesApplication } from "../pipelines-application.fixtures.js";
 import { TaskStagesService } from "./task-stages-service.js";
 
 let app: INestApplication;
 let published: DomainEvent[];
 
 beforeEach(async () => {
-  ({ app } = await startTestApplication({
-    database: true,
-    imports: [
-      EventsModule,
-      PipelinesModule.register({
-        imports: [PipelinesPortsForTestsModule],
-        startedTasks: StartedTasksForTests,
-      }),
-    ],
-  }));
-  published = [];
-  app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));
+  ({ app, published } = await startPipelinesApplication());
 });
 
 afterEach(async () => {

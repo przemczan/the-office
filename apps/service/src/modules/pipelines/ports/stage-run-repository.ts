@@ -8,6 +8,9 @@ export abstract class StageRunRepository {
    */
   abstract saveNew(run: StageRun): Promise<boolean>;
 
+  /** Saves the Stage Thread the run works in. */
+  abstract saveThread(runId: string, threadId: string): Promise<void>;
+
   /** Saves how the run ended. */
   abstract saveEnded(run: StageRun): Promise<void>;
 
