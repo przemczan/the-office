@@ -37,12 +37,14 @@ export function PlanButton({
 
 /**
  * Mark Ready on a Task in Planning. It is offered before the Plan and the Definition of Done are
- * confirmed too, and refused then with the reasons, so the user learns what is missing.
+ * confirmed and while a Pipeline proposal is open too, and refused then with the reasons, so the
+ * user learns what is missing.
  */
 export function MarkReadyButton({ task }: { readonly task: Task }): ReactNode {
   const marking = useMarkingReady();
   if (task.state !== "planning") return null;
-  const confirmed = task.planConfirmed && task.definitionOfDoneConfirmed;
+  const confirmed =
+    task.planConfirmed && task.definitionOfDoneConfirmed && task.proposedPipeline === null;
   return (
     <Button
       variant={confirmed ? "primary" : "secondary"}

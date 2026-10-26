@@ -82,6 +82,19 @@ describe("changeTaskState", () => {
     );
   });
 
+  it("refuses Ready while a Pipeline proposal waits on the user", () => {
+    const proposing = aPlannedTask({
+      proposedPipeline: { pipelineId: "quick-fix", reason: "One small change, tested." },
+    });
+
+    expect(() => changeTaskState(proposing, "ready")).toThrow(
+      new TaskRefused([
+        "Use the proposed Pipeline or keep the current one before the Task can be Ready.",
+      ]),
+    );
+    expect(changeTaskState(aPlannedTask(), "ready")?.task.state).toBe("ready");
+  });
+
   it("refuses Ready with a Plan of spaces only", () => {
     expect(() => changeTaskState(aPlannedTask({ plan: "  " }), "ready")).toThrow(
       new TaskRefused(["A Task needs a Plan before it can be Ready."]),

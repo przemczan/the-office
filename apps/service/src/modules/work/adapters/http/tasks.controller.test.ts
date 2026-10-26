@@ -355,7 +355,7 @@ describe("PUT /api/tasks/:id/plan, /definition-of-done and /pipeline", () => {
 });
 
 describe("POST /api/tasks/:id/ready", () => {
-  it("is refused with the reasons until the Plan and the Definition of Done are confirmed", async () => {
+  it("is refused with the reasons until the Plan and the Definition of Done are confirmed and the Pipeline proposal is answered", async () => {
     const unplanned = await create();
     await plan(unplanned.id);
     const proposed = await proposedTask();
@@ -371,15 +371,24 @@ describe("POST /api/tasks/:id/ready", () => {
     expect(workRefusalSchema.parse(await unconfirmed.json()).reasons).toEqual([
       "Confirm the Plan before the Task can be Ready.",
       "Confirm the Definition of Done before the Task can be Ready.",
+      "Use the proposed Pipeline or keep the current one before the Task can be Ready.",
     ]);
   });
 
-  it("marks a confirmed Task Ready, with a proposed Pipeline left for the user", async () => {
+  it("refuses a confirmed Task while its Pipeline proposal is open, and marks it Ready once kept", async () => {
     const task = await proposedTask();
     await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Mine." });
     await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
       definitionOfDone: ["Mine."],
     });
+
+    const proposed = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
+    expect(proposed.status).toBe(422);
+    expect(workRefusalSchema.parse(await proposed.json()).reasons).toEqual([
+      "Use the proposed Pipeline or keep the current one before the Task can be Ready.",
+    ]);
+    // Keeping the Pipeline the Task follows declines the proposal.
+    await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: task.pipelineId });
     work.published.length = 0;
 
     const response = await sendJson(work, "POST", `/tasks/${task.id}/ready`);
