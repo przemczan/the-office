@@ -5,7 +5,7 @@ import { AppModule } from "./app.module.js";
 import { InterruptedAnswers } from "./modules/conversations/index.js";
 import { InvalidOfficeConfigError } from "./platform/config/invalid-office-config-error.js";
 import { readOfficeConfig, type OfficeConfig } from "./platform/config/office-config.js";
-import { configureHttp } from "./platform/http/configure-http.js";
+import { configureHttp, HTTP_APPLICATION_OPTIONS } from "./platform/http/configure-http.js";
 import { currentOperatingSystem } from "./platform/os/current-operating-system.js";
 import { OfficeLogger } from "./platform/telemetry/office-logger.js";
 import type { StartedTelemetry } from "./platform/telemetry/start-telemetry.js";
@@ -24,7 +24,8 @@ const logger = new Logger("Office");
 /** Makes the Nest app of the composition root; the end-to-end tests make it on a scripted engine. */
 export type CreateApp = (appModule: DynamicModule) => Promise<INestApplication>;
 
-const createApp: CreateApp = (appModule) => NestFactory.create(appModule, { abortOnError: false });
+const createApp: CreateApp = (appModule) =>
+  NestFactory.create(appModule, { ...HTTP_APPLICATION_OPTIONS, abortOnError: false });
 
 function readConfig(): OfficeConfig {
   return readOfficeConfig(process.env, {

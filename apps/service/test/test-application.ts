@@ -1,7 +1,7 @@
 import type { INestApplication, ModuleMetadata } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { DatabaseModule } from "../src/platform/database/database.module.js";
-import { configureHttp } from "../src/platform/http/configure-http.js";
+import { configureHttp, HTTP_APPLICATION_OPTIONS } from "../src/platform/http/configure-http.js";
 import { testDatabaseUrl } from "./test-database.js";
 
 export interface TestApplicationOptions extends ModuleMetadata {
@@ -29,7 +29,7 @@ export async function startTestApplication({
     ...metadata,
     imports: database ? [DatabaseModule.forRoot({ url: testDatabaseUrl() }), ...imports] : imports,
   }).compile();
-  const app = moduleRef.createNestApplication({ logger: false });
+  const app = moduleRef.createNestApplication({ ...HTTP_APPLICATION_OPTIONS, logger: false });
   configureHttp(app);
   try {
     await app.listen(0, "127.0.0.1");

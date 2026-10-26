@@ -1,3 +1,4 @@
+import { connect as connectTcp } from "node:net";
 import type { INestApplication } from "@nestjs/common";
 import { EVENTS_PATH, serverMessageSchema, webEventSchema } from "@the-office/contracts";
 import { WebSocket as WsClient } from "ws";
@@ -156,6 +157,26 @@ describe("the event stream", () => {
     await app.close();
 
     expect(await closed).toBe(1001);
+  });
+
+  it("shuts down at once though a client never answers the close", async () => {
+    await connect();
+    await connect();
+    // A page that stopped answering, such as a frozen tab: upgraded, then silent.
+    const silent = connectTcp(port, "127.0.0.1").on("error", () => undefined);
+    silent.write(
+      `GET ${EVENTS_PATH} HTTP/1.1\r\nHost: localhost:${port}\r\nUpgrade: websocket\r\n` +
+        "Connection: Upgrade\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n" +
+        "Sec-WebSocket-Version: 13\r\n\r\n",
+    );
+    await new Promise((resolve) => silent.once("data", resolve));
+    const silentEnded = new Promise((resolve) => silent.once("close", resolve));
+
+    const started = Date.now();
+    await app.close();
+    await silentEnded;
+
+    expect(Date.now() - started).toBeLessThan(2_000);
   });
 
   it.each([

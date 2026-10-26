@@ -1,8 +1,9 @@
 import { request as httpRequest, type OutgoingHttpHeaders } from "node:http";
+import { connect, type Socket } from "node:net";
 import { Controller, Get, type INestApplication } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { configureHttp } from "./configure-http.js";
+import { configureHttp, HTTP_APPLICATION_OPTIONS } from "./configure-http.js";
 
 @Controller("probe")
 class ProbeController {
@@ -15,12 +16,16 @@ class ProbeController {
 let app: INestApplication;
 let port: number;
 
-beforeAll(async () => {
+async function serve(): Promise<{ app: INestApplication; port: number }> {
   const moduleRef = await Test.createTestingModule({ controllers: [ProbeController] }).compile();
-  app = moduleRef.createNestApplication({ logger: false });
-  configureHttp(app);
-  await app.listen(0, "127.0.0.1");
-  port = Number(new URL(await app.getUrl()).port);
+  const served = moduleRef.createNestApplication({ ...HTTP_APPLICATION_OPTIONS, logger: false });
+  configureHttp(served);
+  await served.listen(0, "127.0.0.1");
+  return { app: served, port: Number(new URL(await served.getUrl()).port) };
+}
+
+beforeAll(async () => {
+  ({ app, port } = await serve());
 });
 
 afterAll(async () => {
@@ -80,3 +85,34 @@ describe("configureHttp", () => {
     expect(reply.status).toBe(403);
   });
 });
+
+/** A connection as a browser leaves one: opened, with `sent` written and nothing after. */
+function leftOpen(to: number, sent: string): Promise<Socket> {
+  return new Promise((resolve, reject) => {
+    const socket = connect(to, "127.0.0.1", () => {
+      socket.write(sent);
+      resolve(socket);
+    });
+    socket.on("error", reject);
+  });
+}
+
+describe("closing the service", () => {
+  it("ends connections that never finished a request, rather than waiting on them", async () => {
+    const closing = await serve();
+    // A browser keeps a spare connection that never sends a request; another stopped mid-request.
+    const spare = await leftOpen(closing.port, "");
+    const halfSent = await leftOpen(closing.port, "GET /api/probe HTTP/1.1\r\nHost: localhost");
+    const ended = Promise.all([spare, halfSent].map((socket) => onceClosed(socket)));
+
+    const started = Date.now();
+    await closing.app.close();
+    await ended;
+
+    expect(Date.now() - started).toBeLessThan(2_000);
+  });
+});
+
+function onceClosed(socket: Socket): Promise<void> {
+  return new Promise((resolve) => socket.once("close", () => resolve()));
+}

@@ -1,4 +1,5 @@
 import { launch } from "./launch.js";
+import { HTTP_APPLICATION_OPTIONS } from "./platform/http/configure-http.js";
 
 // The service as `main.ts` runs it, on a scripted engine: the end-to-end tests' sessions replay the
 // scripts in OFFICE_ENGINE_SCRIPTS, one per session opened, so they make no model call.
@@ -15,5 +16,5 @@ await launch("built", async (appModule) => {
     .overrideModule(EngineModule)
     .useModule(ScriptedEngineModule.register(engine))
     .compile();
-  return moduleRef.createNestApplication({ abortOnError: false });
+  return moduleRef.createNestApplication({ ...HTTP_APPLICATION_OPTIONS, abortOnError: false });
 });
