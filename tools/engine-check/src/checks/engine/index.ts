@@ -8,6 +8,7 @@ import { officeToolCheck } from "./office-tool.ts";
 import { parallelSessionsCheck } from "./parallel-sessions.ts";
 import { rateLimitEventCheck } from "./rate-limit-event.ts";
 import { resumeCacheCheck } from "./resume-cache.ts";
+import { turnUsageCheck } from "./turn-usage.ts";
 
 /** The engine behaviours of spec §5.4 the Office builds on. */
 export const engineChecks: readonly Check[] = [
@@ -22,4 +23,5 @@ export const engineChecks: readonly Check[] = [
   parallelSessionsCheck,
   leanOptionsCheck,
   autoMemoryCheck,
+  turnUsageCheck,
 ];

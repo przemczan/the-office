@@ -214,7 +214,10 @@ class AgentSdkSession implements EngineSession {
     try {
       for await (const message of this.engine) {
         if (isInit(message) && (await this.refusedAtInit(message))) return;
-        for (const event of this.refusals.withRefusals(message, sessionEvents(message))) {
+        const events = sessionEvents(message).map((event) =>
+          event.kind === "turn-ended" ? this.turnTokens.settled(event) : event,
+        );
+        for (const event of this.refusals.withRefusals(message, events)) {
           this.reported.push(event);
         }
         for (const event of this.turnTokens.eventsOf(message)) this.reported.push(event);

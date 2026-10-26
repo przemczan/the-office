@@ -11,6 +11,7 @@ import type {
   RateLimitStatus,
   SessionEvent,
   TokenUsage,
+  TurnEndedEvent,
   TurnOutcome,
 } from "../../ports/session-events.js";
 import { OFFICE_TOOL_PREFIX } from "./sdk-options.js";
@@ -47,9 +48,12 @@ export function sessionEvents(message: SDKMessage): SessionEvent[] {
 
 /**
  * The running turn's tokens, from the Agent's messages as they stream. The engine delivers a
- * message as frames, one per content block, sharing the message's id and its usage, so each id
- * counts once, at its latest frame's usage. A subagent's messages count too. Forgets them as the
- * turn ends, when the turn's own usage takes over.
+ * message as frames, one per content block, sharing the message's id and repeating its usage, so
+ * each id counts once, at its latest frame's usage. A subagent's messages are left out, as the
+ * turn's own usage leaves them out, so the count doesn't drop when that usage takes over at the
+ * turn's end. A frame's output tokens are those known as its message began; the turn's usage
+ * brings the rest (docs/engine-check.md, engine.turn-usage). Call `settled` on the turn's end
+ * before passing its result to `eventsOf`, which forgets the turn.
  */
 export class TurnTokens {
   private readonly byMessage = new Map<string, TokenUsage>();
@@ -60,13 +64,32 @@ export class TurnTokens {
       this.byMessage.clear();
       return [];
     }
-    if (message.type !== "assistant") return [];
+    if (message.type !== "assistant" || message.parent_tool_use_id !== null) return [];
     const { id, usage } = message.message;
     const counted = tokenUsageOf(usage);
     const before = this.byMessage.get(id);
     if (before && sameUsage(before, counted)) return [];
     this.byMessage.set(id, counted);
     return [{ kind: "turn-tokens", soFar: this.soFar() }];
+  }
+
+  /**
+   * The turn's end with its usage at least what its messages streamed, part by part. A turn
+   * interrupted while a message streams reports usage without that message, though its input was
+   * spent; any other turn's usage already counts each message, and more output.
+   */
+  settled(ended: TurnEndedEvent): TurnEndedEvent {
+    const streamed = this.soFar();
+    const { usage } = ended;
+    return {
+      ...ended,
+      usage: {
+        input: Math.max(usage.input, streamed.input),
+        output: Math.max(usage.output, streamed.output),
+        cacheRead: Math.max(usage.cacheRead, streamed.cacheRead),
+        cacheCreation: Math.max(usage.cacheCreation, streamed.cacheCreation),
+      },
+    };
   }
 
   private soFar(): TokenUsage {

@@ -392,6 +392,32 @@
       "cacheWriteLifetimes": ["1h"]
     }
   },
+  "engine.turn-usage": {
+    "win32": {
+      "everyFrameHasUsage": true,
+      "subagentFramesStreamed": true,
+      "splitFrames": "same usage",
+      "resultWithSubagentCounts": "the main loop's messages",
+      "resultOutputExceedsFrames": true,
+      "interrupted": {
+        "turnEnded": "aborted_tools",
+        "resultCounts": "the main loop's messages",
+        "resultOutputExceedsFrames": true
+      }
+    },
+    "linux": {
+      "everyFrameHasUsage": true,
+      "subagentFramesStreamed": true,
+      "splitFrames": "same usage",
+      "resultWithSubagentCounts": "the main loop's messages",
+      "resultOutputExceedsFrames": true,
+      "interrupted": {
+        "turnEnded": "aborted_tools",
+        "resultCounts": "the main loop's messages",
+        "resultOutputExceedsFrames": true
+      }
+    }
+  },
   "permissions.file-tool-fence": {
     "win32": {
       "fileTools": {

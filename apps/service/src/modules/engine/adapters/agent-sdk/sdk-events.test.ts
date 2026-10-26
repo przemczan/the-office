@@ -1,5 +1,6 @@
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { describe, expect, it } from "vitest";
+import type { TokenUsage, TurnEndedEvent } from "../../ports/session-events.js";
 import { sessionEvents, TurnTokens, usageWindows } from "./sdk-events.js";
 
 /** Stream messages as the engine sends them, with only the fields the mapping reads. */
@@ -215,13 +216,13 @@ const frame = (id: string, output: number, parent: string | null = null): SDKMes
   });
 
 describe("TurnTokens", () => {
-  it("counts each message once, at its latest frame's usage, a subagent's too", () => {
+  it("counts each message once, at its latest frame's usage", () => {
     const turnTokens = new TurnTokens();
 
     const first = turnTokens.eventsOf(frame("msg-1", 10));
     const repeated = turnTokens.eventsOf(frame("msg-1", 10));
     const grown = turnTokens.eventsOf(frame("msg-1", 40));
-    const subagent = turnTokens.eventsOf(frame("msg-2", 5, "call-1"));
+    const next = turnTokens.eventsOf(frame("msg-2", 5));
 
     expect(first).toEqual([
       { kind: "turn-tokens", soFar: { input: 3, output: 10, cacheRead: 1000, cacheCreation: 0 } },
@@ -230,8 +231,18 @@ describe("TurnTokens", () => {
     expect(grown).toEqual([
       { kind: "turn-tokens", soFar: { input: 3, output: 40, cacheRead: 1000, cacheCreation: 0 } },
     ]);
-    expect(subagent).toEqual([
+    expect(next).toEqual([
       { kind: "turn-tokens", soFar: { input: 6, output: 45, cacheRead: 2000, cacheCreation: 0 } },
+    ]);
+  });
+
+  it("leaves out a subagent's messages, as the turn's own usage does", () => {
+    const turnTokens = new TurnTokens();
+    turnTokens.eventsOf(frame("msg-1", 10));
+
+    expect(turnTokens.eventsOf(frame("msg-2", 5, "call-1"))).toEqual([]);
+    expect(turnTokens.eventsOf(frame("msg-3", 7))).toEqual([
+      { kind: "turn-tokens", soFar: { input: 6, output: 17, cacheRead: 2000, cacheCreation: 0 } },
     ]);
   });
 
@@ -244,6 +255,43 @@ describe("TurnTokens", () => {
     expect(turnTokens.eventsOf(frame("msg-2", 7))).toEqual([
       { kind: "turn-tokens", soFar: { input: 3, output: 7, cacheRead: 1000, cacheCreation: 0 } },
     ]);
+  });
+});
+
+/** A turn's end as the result maps it, with the usage given. */
+const ended = (usage: TokenUsage): TurnEndedEvent => ({
+  kind: "turn-ended",
+  outcome: "interrupted",
+  consumedMessageIds: [],
+  usage,
+  sessionCostUsd: 0,
+  output: undefined,
+  errors: [],
+});
+
+describe("TurnTokens.settled", () => {
+  it("keeps the turn's own usage when it counts every message streamed", () => {
+    const turnTokens = new TurnTokens();
+    turnTokens.eventsOf(frame("msg-1", 10));
+
+    const settled = turnTokens.settled(
+      ended({ input: 3, output: 250, cacheRead: 1000, cacheCreation: 0 }),
+    );
+
+    expect(settled.usage).toEqual({ input: 3, output: 250, cacheRead: 1000, cacheCreation: 0 });
+  });
+
+  it("counts a message the turn's usage leaves out, as when it was interrupted mid-message", () => {
+    const turnTokens = new TurnTokens();
+    turnTokens.eventsOf(frame("msg-1", 10));
+    turnTokens.eventsOf(frame("msg-2", 8));
+
+    // The engine's result counted msg-1 alone, its output now final.
+    const settled = turnTokens.settled(
+      ended({ input: 3, output: 250, cacheRead: 1000, cacheCreation: 0 }),
+    );
+
+    expect(settled.usage).toEqual({ input: 6, output: 250, cacheRead: 2000, cacheCreation: 0 });
   });
 });
 
