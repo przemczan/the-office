@@ -1,4 +1,7 @@
 import { homedir } from "node:os";
+import type { Writable } from "node:stream";
+import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
+import { EngineProcess } from "../agent-sdk/engine-process.js";
 import { listingProblems } from "../../domain/skill-listing.js";
 import {
   AgentEngine,
@@ -46,6 +49,23 @@ export class ScriptMismatch extends Error {
 }
 
 /**
+ * A real process standing in for each scripted session's engine, started and ended as the Agent
+ * SDK adapter starts and ends the engine's, so a test can see what a session leaves running ended
+ * with it. It runs until its standard input closes, as the engine does once its session closes.
+ */
+export interface StandInEngine {
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly processTrees: ProcessTrees;
+}
+
+/** A session's stand-in engine at work. */
+interface RunningStandIn {
+  readonly process: EngineProcess;
+  readonly input: Writable;
+}
+
+/**
  * Replays sessions from scripts, written by hand or recorded by `RecordingEngine`, so tests run
  * without model calls. Each start or resume takes the next script.
  */
@@ -55,7 +75,11 @@ export class ScriptedEngine extends AgentEngine {
   readonly sessions: ScriptedSession[] = [];
   private readonly scripts: SessionScript[];
 
-  constructor(scripts: readonly SessionScript[], capabilities: Partial<EngineCapabilities> = {}) {
+  constructor(
+    scripts: readonly SessionScript[],
+    capabilities: Partial<EngineCapabilities> = {},
+    private readonly standIn?: StandInEngine,
+  ) {
     super();
     this.scripts = [...scripts];
     this.capabilities = { ...EVERY_CAPABILITY, ...capabilities };
@@ -82,11 +106,28 @@ export class ScriptedEngine extends AgentEngine {
       throw new ScriptMismatch(`No script is left for session ${id} to ${opening.step}.`);
     }
     refuseWithoutItsSkills(id, options, script);
-    const session = new ScriptedSession(id, options, script, this.capabilities);
+    const session = new ScriptedSession(
+      id,
+      options,
+      script,
+      this.capabilities,
+      this.standIn && startStandIn(this.standIn),
+    );
     this.sessions.push(session);
     session.open(opening);
     return session;
   }
+}
+
+function startStandIn({ command, args, processTrees }: StandInEngine): RunningStandIn {
+  const engineProcess = new EngineProcess(processTrees);
+  const { stdin } = engineProcess.spawn({
+    command,
+    args: [...args],
+    env: { ...process.env },
+    signal: new AbortController().signal,
+  });
+  return { process: engineProcess, input: stdin };
 }
 
 /** The start check of spec §5.6, against what the script says the engine listed. */
@@ -136,6 +177,7 @@ export class ScriptedSession implements EngineSession {
     readonly options: SessionOptions,
     script: SessionScript,
     private readonly capabilities: EngineCapabilities,
+    private readonly standIn?: RunningStandIn,
   ) {
     const steps = script.map((step) => inPlaces(step, { folder: options.folder, home: homedir() }));
     this.recordedWindows = steps.flatMap((step) =>
@@ -186,7 +228,14 @@ export class ScriptedSession implements EngineSession {
 
   async end(): Promise<void> {
     await this.request({ step: "end" });
-    await this.played;
+    try {
+      await this.played;
+    } finally {
+      if (this.standIn) {
+        this.standIn.input.end();
+        await this.standIn.process.endWithLeftovers();
+      }
+    }
   }
 
   private request(request: AwaitedRequest): Promise<void> {

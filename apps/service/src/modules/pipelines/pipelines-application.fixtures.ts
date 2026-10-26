@@ -5,7 +5,12 @@ import type { DomainEvent } from "../../platform/events/domain-event.js";
 import { EventBus } from "../../platform/events/event-bus.js";
 import { EventsModule } from "../../platform/events/events.module.js";
 import { TelemetryModule } from "../../platform/telemetry/telemetry.module.js";
-import { ScriptedEngine, ScriptedEngineModule, type SessionScript } from "../engine/index.js";
+import {
+  ScriptedEngine,
+  ScriptedEngineModule,
+  type SessionScript,
+  type StandInEngine,
+} from "../engine/index.js";
 import { StageInterpreter } from "./application/stage-interpreter.js";
 import type { Stage } from "./domain/stage.js";
 import type { StageRun } from "./domain/stage-run.js";
@@ -34,11 +39,15 @@ export interface PipelinesApplication {
   readonly published: DomainEvent[];
 }
 
-/** Agent Stages' sessions replay `scripts` in order, one per Stage. */
+/**
+ * Agent Stages' sessions replay `scripts` in order, one per Stage, each with a real `standIn`
+ * engine process when a test gives one.
+ */
 export async function startPipelinesApplication(
   scripts: readonly SessionScript[] = [],
+  standIn?: StandInEngine,
 ): Promise<PipelinesApplication> {
-  const engine = new ScriptedEngine(scripts);
+  const engine = new ScriptedEngine(scripts, {}, standIn);
   const engineModule = ScriptedEngineModule.register(engine);
   const { app } = await startTestApplication({
     database: true,

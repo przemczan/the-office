@@ -101,7 +101,7 @@ export class StageThreadsForTests extends StageThreads {
   /** The Threads whose sessions ended, in order: a session ends once. */
   readonly sessionsEnded: string[] = [];
   /** What the person does in the worktree as each turn of theirs ends, such as move HEAD. */
-  whileWorking: ((request: StageThreadRequest) => void) | undefined = undefined;
+  whileWorking: ((request: StageThreadRequest) => void | Promise<void>) | undefined = undefined;
   /** How each Stage's work in its Thread ended. */
   readonly ended: ({ readonly threadId: string } & Parameters<StageThread["end"]>[0])[] = [];
 
@@ -134,7 +134,7 @@ export class StageThreadsForTests extends StageThreads {
         if (next.done) throw new Error(`Session ${session.id} ended without a turn.`);
         const event = next.value;
         if (event.kind === "turn-ended") {
-          this.whileWorking?.(request);
+          await this.whileWorking?.(request);
           const problem = event.outcome === "completed" ? undefined : event.errors.join(" ");
           return { output: event.output, problem };
         }

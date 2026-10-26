@@ -1,5 +1,9 @@
 import { randomUUID } from "node:crypto";
-import { afterEach, describe, expect, it } from "vitest";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { currentOperatingSystem } from "../../../platform/os/current-operating-system.js";
 import type { SessionScript } from "../../engine/index.js";
 import type { Stage } from "../domain/stage.js";
 import type { StageOutcome } from "../domain/stage-run.js";
@@ -237,6 +241,46 @@ describe("AgentStageRunner after the session", () => {
     expect(run?.outcome?.status).toBe("done");
   });
 
+  it("ends what the session left running, such as a dev server, before git reads the worktree", async () => {
+    const folder = await mkdtemp(join(tmpdir(), "office-stage-leftovers-"));
+    const pidFile = join(folder, "dev-server.pid");
+    // The stand-in engine starts a dev server that outlives it, as a background Bash call does:
+    // detached on Windows, where Node ends its non-detached children with it; in its group on Linux.
+    const standInEngine = `
+      const devServer = require("node:child_process").spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore", detached: process.platform === "win32" });
+      devServer.unref();
+      require("node:fs").writeFileSync(${JSON.stringify(pidFile)}, String(devServer.pid));
+      process.stdin.resume();
+      process.stdin.on("end", () => process.exit(0));`;
+    try {
+      pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())], {
+        command: process.execPath,
+        args: ["-e", standInEngine],
+        processTrees: currentOperatingSystem().processTrees,
+      });
+      let devServer = 0;
+      pipelines.stageThreads.whileWorking = async () => {
+        devServer = await vi.waitFor(async () => Number(await readFile(pidFile, "utf8")), {
+          timeout: 10_000,
+        });
+        expect(isRunning(devServer)).toBe(true);
+      };
+      let runningAtCommit: boolean | undefined;
+      pipelines.git.observe = (call) => {
+        if (call === "commit") runningAtCommit = isRunning(devServer);
+      };
+
+      const taskId = await walkStages(pipelines, [implement]);
+
+      expect(devServer).toBeGreaterThan(0);
+      expect(runningAtCommit).toBe(false);
+      expect(isRunning(devServer)).toBe(false);
+      expect(await outcomesOf(taskId)).toMatchObject([{ status: "done" }]);
+    } finally {
+      await rm(folder, { recursive: true, force: true });
+    }
+  }, 30_000);
+
   it("briefs the next Stage with what the Task's commits changed so far", async () => {
     pipelines = await startPipelinesApplication([
       anAgentSession(aDoneResult()),
@@ -328,3 +372,12 @@ describe("AgentStageRunner after the session", () => {
     ]);
   });
 });
+
+function isRunning(processId: number): boolean {
+  try {
+    process.kill(processId, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
