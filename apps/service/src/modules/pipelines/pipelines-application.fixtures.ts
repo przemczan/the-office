@@ -31,6 +31,7 @@ import {
   TaskPublishingForTests,
   TaskRecordsForTests,
   TaskScreenshotsForTests,
+  TaskThreadSessionsForTests,
 } from "./ports/pipelines-ports.fixtures.js";
 import { StageRunRepository } from "./ports/stage-run-repository.js";
 import { TaskStagesRepository } from "./ports/task-stages-repository.js";
@@ -50,6 +51,7 @@ export interface PipelinesApplication {
   readonly publishing: TaskPublishingForTests;
   readonly screenshots: TaskScreenshotsForTests;
   readonly usage: TaskUsageForTests;
+  readonly threadSessions: TaskThreadSessionsForTests;
   readonly published: DomainEvent[];
 }
 
@@ -96,6 +98,7 @@ export async function startPipelinesApplication(
         taskPublishing: TaskPublishingForTests,
         taskScreenshots: TaskScreenshotsForTests,
         taskUsage: TaskUsageForTests,
+        taskThreadSessions: TaskThreadSessionsForTests,
       }),
     ],
   });
@@ -114,6 +117,7 @@ export async function startPipelinesApplication(
     publishing: app.get(TaskPublishingForTests, { strict: false }),
     screenshots: app.get(TaskScreenshotsForTests, { strict: false }),
     usage: app.get(TaskUsageForTests, { strict: false }),
+    threadSessions: app.get(TaskThreadSessionsForTests, { strict: false }),
     published,
   };
 }

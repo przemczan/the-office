@@ -20,6 +20,7 @@ import { TaskGit, type WorktreeHead } from "./task-git.js";
 import { TaskPublishing } from "./task-publishing.js";
 import { TaskRecords, type TaskRecord } from "./task-records.js";
 import { TaskScreenshots, type ScreenshotsAttaching } from "./task-screenshots.js";
+import { TaskThreadSessions } from "./task-thread-sessions.js";
 import { TaskUsage } from "./task-usage.js";
 
 /** Work's Tasks in memory: a test starts each one it walks. */
@@ -271,6 +272,18 @@ export class TaskUsageForTests extends TaskUsage {
   }
 }
 
+/** Conversations' sessions behind the Tasks' Threads: tells of each Task whose waiting ones end. */
+@Injectable()
+export class TaskThreadSessionsForTests extends TaskThreadSessions {
+  /** Told of every call, as it is made, so a test can see what happened before it. */
+  observe: ((taskId: string) => void) | undefined = undefined;
+
+  endWaiting(taskId: string): Promise<void> {
+    this.observe?.(taskId);
+    return Promise.resolve();
+  }
+}
+
 /**
  * Work's attaching of the screenshots an Agent lists: every list is attached, unless a test puts
  * the problems the next lists are refused with.
@@ -473,6 +486,7 @@ export class PipelinesPortsForTestsModule {
       TaskPublishingForTests,
       TaskScreenshotsForTests,
       TaskUsageForTests,
+      TaskThreadSessionsForTests,
     ];
     return { module: PipelinesPortsForTestsModule, imports, providers, exports: providers };
   }

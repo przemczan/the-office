@@ -5,6 +5,7 @@ import {
   StageDecisions,
   StageThreads,
   TaskTokens,
+  ThreadRunner,
   ThreadService,
 } from "./modules/conversations/index.js";
 import { EngineModule } from "./modules/engine/index.js";
@@ -77,6 +78,7 @@ export class AppModule {
           taskPublishing: TaskWorktrees,
           taskScreenshots: StageScreenshots,
           taskUsage: TaskTokens,
+          taskThreadSessions: ThreadRunner,
         }),
         projects,
         SkillsModule,

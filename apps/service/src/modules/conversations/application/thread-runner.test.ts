@@ -557,6 +557,34 @@ describe("a Thread on a Task", () => {
     await expect(threads.personInSession(session?.id ?? "")).resolves.toBe(roleKey);
   });
 
+  it("ends the Task's waiting sessions before its worktree is removed, and no other Task's", async () => {
+    const taskId = randomUUID();
+    await startWith(
+      started(...aTurn("brief", "What must be true when it is done?"), { step: "end" }),
+      started(...aTurn("brief", "Which page?")),
+    );
+    const planning = await threads.startOnTask({
+      taskId,
+      roleKey,
+      title: "Planning",
+      opening: "Plan the Task with the user.",
+    });
+    await answered(planning.id, 2);
+    const other = await threads.startOnTask({
+      taskId: randomUUID(),
+      roleKey,
+      title: "Planning",
+      opening: "Plan the Task with the user.",
+    });
+    await answered(other.id, 2);
+
+    await runner.endWaiting(taskId);
+
+    const [ended, kept] = engine.sessions;
+    expect(ended?.received.at(-1)).toEqual({ step: "end" });
+    expect(kept?.received.map(({ step }) => step)).not.toContain("end");
+  });
+
   it("answers the user on a Task whatever the person's Chat is", async () => {
     await startWith(
       started(...aTurn("brief", "What must be true?"), sent("m-2"), ...aTurn("m-2", "Noted.")),

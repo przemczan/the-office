@@ -4,6 +4,7 @@ import type { StageOutcome } from "../domain/stage-run.js";
 import { TaskGit } from "../ports/task-git.js";
 import { TaskPublishing } from "../ports/task-publishing.js";
 import { TaskRecords } from "../ports/task-records.js";
+import { TaskThreadSessions } from "../ports/task-thread-sessions.js";
 import { StageGit } from "./stage-git.js";
 import type { StageWork } from "./stage-runner.js";
 
@@ -23,6 +24,7 @@ export class PublishStage {
     private readonly publishing: TaskPublishing,
     private readonly git: TaskGit,
     private readonly stageGit: StageGit,
+    private readonly threadSessions: TaskThreadSessions,
   ) {}
 
   async run(work: StageWork<"script">): Promise<StageOutcome> {
@@ -43,9 +45,13 @@ export class PublishStage {
     };
   }
 
-  /** Removes the worktree; one that stays is no failure of what was published, only told of. */
+  /**
+   * Removes the worktree once no waiting session works in it, such as the Planner's; one that
+   * stays, as a session still answering keeps it, is no failure of what was published, only told of.
+   */
   private async removeWorktree(projectId: string, taskId: string): Promise<string> {
     try {
+      await this.threadSessions.endWaiting(taskId);
       await this.git.removeWorktree(projectId, taskId);
       return "";
     } catch (error) {

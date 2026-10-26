@@ -67,6 +67,19 @@ describe("A Publish Stage", () => {
     expect(pipelines.tasks.changes).toEqual([{ taskId, state: "done" }]);
   });
 
+  it("ends the waiting sessions of the Task's Threads before it removes the worktree they work in", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const calls: string[] = [];
+    pipelines.threadSessions.observe = (taskId) => void calls.push(`end sessions of ${taskId}`);
+    pipelines.git.observe = (call) => {
+      if (call === "removeWorktree") calls.push(call);
+    };
+
+    const taskId = await walkStages(pipelines, [implement, publish]);
+
+    expect(calls).toEqual([`end sessions of ${taskId}`, "removeWorktree"]);
+  });
+
   it("goes to its on-failure target with the error, keeping the worktree until it publishes", async () => {
     pipelines = await startPipelinesApplication([
       anAgentSession(aDoneResult()),

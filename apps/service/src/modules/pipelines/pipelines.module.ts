@@ -24,6 +24,7 @@ import { TaskGit } from "./ports/task-git.js";
 import { TaskPublishing } from "./ports/task-publishing.js";
 import { TaskRecords } from "./ports/task-records.js";
 import { TaskScreenshots } from "./ports/task-screenshots.js";
+import { TaskThreadSessions } from "./ports/task-thread-sessions.js";
 import { TaskUsage } from "./ports/task-usage.js";
 import { TaskStagesRepository } from "./ports/task-stages-repository.js";
 
@@ -40,6 +41,7 @@ export interface PipelinesModuleOptions {
   readonly taskPublishing: Type<TaskPublishing>;
   readonly taskScreenshots: Type<TaskScreenshots>;
   readonly taskUsage: Type<TaskUsage>;
+  readonly taskThreadSessions: Type<TaskThreadSessions>;
 }
 
 /** Pipelines whole: the library, each started Task's own Stages, and the Stage interpreter. */
@@ -57,6 +59,7 @@ export class PipelinesModule {
     taskPublishing,
     taskScreenshots,
     taskUsage,
+    taskThreadSessions,
   }: PipelinesModuleOptions): DynamicModule {
     return {
       module: PipelinesModule,
@@ -75,6 +78,7 @@ export class PipelinesModule {
         { provide: TaskPublishing, useExisting: taskPublishing },
         { provide: TaskScreenshots, useExisting: taskScreenshots },
         { provide: TaskUsage, useExisting: taskUsage },
+        { provide: TaskThreadSessions, useExisting: taskThreadSessions },
         TaskStagesService,
         StageRunners,
         StageInterpreter,

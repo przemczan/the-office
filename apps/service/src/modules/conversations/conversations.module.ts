@@ -63,6 +63,7 @@ export class ConversationsModule {
         StageThreads,
         StageDecisions,
         TaskTokens,
+        ThreadRunner,
       ],
     };
   }

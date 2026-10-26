@@ -229,6 +229,23 @@ export class ThreadRunner implements OnModuleDestroy {
   }
 
   /** Ends every running session with the service. */
+  /**
+   * Ends the sessions of the Task's Threads that wait for the user's next message, so none holds
+   * the Task's worktree as Publish removes it, as their idle time would have later. A session
+   * answering keeps going.
+   */
+  async endWaiting(taskId: string): Promise<void> {
+    const threads = await this.repository.listIn({ kind: "task", taskId });
+    await Promise.all(
+      threads
+        .filter(({ state }) => state === "waiting")
+        .map(async ({ id }) => {
+          await this.endLive(id);
+          await this.endings.get(id);
+        }),
+    );
+  }
+
   async onModuleDestroy(): Promise<void> {
     await Promise.all([...this.live.keys()].map((threadId) => this.endLive(threadId)));
   }
