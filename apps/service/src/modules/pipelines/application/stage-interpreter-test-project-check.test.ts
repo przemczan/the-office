@@ -201,12 +201,8 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           const startedAt = Date.now();
           let task = await untilWalkStops(api, taskId);
           for (let raises = 0; task.state === "waiting-on-you"; raises++) {
-            // The walk marks the Task Waiting on you just before it opens the Decision.
-            const open = await vi.waitFor(async () => {
-              const opened = await openDecisionsOn(api, taskId);
-              if (opened.length === 0) throw new Error("No Decision open yet.");
-              return opened;
-            });
+            // The walk opens the Decision before it marks the Task Waiting on you.
+            const open = await openDecisionsOn(api, taskId);
             await note(
               ...open.map(
                 ({ question, options }) => `Waiting on you: ${question} [${options.join(" | ")}]`,

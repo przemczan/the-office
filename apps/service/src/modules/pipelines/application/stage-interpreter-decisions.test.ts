@@ -81,6 +81,27 @@ async function statusesOf(taskId: string): Promise<[string, string | undefined][
   return runs.map(({ stageKey, outcome }) => [stageKey, outcome?.status]);
 }
 
+/** Runs `meanwhile` as the walk moves a Task to Waiting on you, before or after the move lands. */
+function onWaiting(when: "before" | "after", meanwhile: (taskId: string) => Promise<void>): void {
+  const { tasks } = pipelines;
+  const changeState = tasks.changeState.bind(tasks);
+  tasks.changeState = async (taskId, state) => {
+    const waiting = state === "waiting-on-you";
+    if (waiting && when === "before") await meanwhile(taskId);
+    await changeState(taskId, state);
+    if (waiting && when === "after") await meanwhile(taskId);
+  };
+}
+
+/** Takes the first option of the Task's latest Decision, as the user's click would. */
+async function answerFirstOption(taskId: string): Promise<void> {
+  const decision = pipelines.decisions.on(taskId).at(-1);
+  if (!decision) throw new Error("The Decision isn't open yet.");
+  await pipelines.app
+    .get(StageInterpreter, { strict: false })
+    .takeAnswer(taskId, decision.id, { kind: "option", option: 0 });
+}
+
 function statesOf(taskId: string): string[] {
   return pipelines.tasks.changes
     .filter((change) => change.taskId === taskId)
@@ -122,6 +143,34 @@ describe("StageInterpreter's Decisions", () => {
       ]);
       expect(statesOf(taskId)).toEqual(["waiting-on-you"]);
     });
+
+    it("opens the Decision before the Task waits on the user", async () => {
+      await startWith(agentDone, agentDone);
+      failing("2 tests fail.", "Still 2.");
+      const decisionsWhenWaiting: number[] = [];
+      onWaiting("before", (taskId) => {
+        decisionsWhenWaiting.push(pipelines.decisions.on(taskId).length);
+        return Promise.resolve();
+      });
+
+      await walkStages(pipelines, [draft, measure]);
+
+      expect(decisionsWhenWaiting).toEqual([1]);
+    });
+
+    it.each(["before", "after"] as const)(
+      "goes on when the answer came %s the Task was Waiting on you, while the walk was ending",
+      async (when) => {
+        await startWith(agentDone, agentDone, agentDone);
+        failing("2 tests fail.", "Still 2.");
+        onWaiting(when, answerFirstOption);
+
+        const taskId = await walkStages(pipelines, [draft, measure]);
+        await pipelines.app.get(StageInterpreter, { strict: false }).walked(taskId);
+
+        expect(statesOf(taskId)).toEqual(["waiting-on-you", "in-progress", "done"]);
+      },
+    );
 
     it("goes back for the rounds the user allows, and on to Done", async () => {
       await startWith(agentDone, agentDone, agentDone);

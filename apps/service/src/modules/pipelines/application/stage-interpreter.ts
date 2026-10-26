@@ -39,6 +39,8 @@ type AskMove = Extract<NextMove, { move: "ask" }>;
 export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(StageInterpreter.name);
   private readonly walks = new Map<string, Promise<void>>();
+  /** Tasks asked to walk while their walk was going on, walked again once it ends. */
+  private readonly walksAgain = new Set<string>();
   private stopping = false;
 
   constructor(
@@ -88,22 +90,29 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * Walks the Task's Stages while it is In progress, returning at once. A walk of the Task already
-   * going on is left to go on; a failure goes into the log.
+   * Walks the Task's Stages while it is In progress, returning at once; a failure goes into the log.
+   * A walk of the Task already going on is left to go on, and the Task is walked again once it
+   * ends, as an answer may have moved it back to In progress after that walk last looked.
    */
   walkInBackground(taskId: string): void {
-    if (this.walks.has(taskId)) return;
+    if (this.walks.has(taskId)) {
+      this.walksAgain.add(taskId);
+      return;
+    }
     const walk = this.walk(taskId)
       .catch((error: unknown) => {
         this.logger.error(`The walk of Task ${taskId}'s Stages failed`, stackOf(error));
       })
-      .finally(() => this.walks.delete(taskId));
+      .finally(() => {
+        this.walks.delete(taskId);
+        if (this.walksAgain.delete(taskId) && !this.stopping) this.walkInBackground(taskId);
+      });
     this.walks.set(taskId, walk);
   }
 
-  /** Resolves once the Task's walk, if one goes on, has stopped. */
+  /** Resolves once the Task's walks, if any go on, have stopped. */
   async walked(taskId: string): Promise<void> {
-    await this.walks.get(taskId);
+    for (let walk = this.walks.get(taskId); walk; walk = this.walks.get(taskId)) await walk;
   }
 
   /**
@@ -135,7 +144,12 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
         if (!(await this.skip(taskId, move, runs))) return;
         continue;
       }
-      if (move.move !== "run") return this.halt(taskId, move, runs);
+      if (move.move !== "run") {
+        await this.halt(taskId, move, runs);
+        if (!(await this.answeredMeanwhile(taskId, stages, definitionOfDone))) return;
+        await this.tasks.changeState(taskId, "in-progress");
+        continue;
+      }
       if (!(await this.runStage(taskId, move, stages, runs))) return;
     }
   }
@@ -236,8 +250,9 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
         await this.tasks.changeState(taskId, "waiting-on-you");
         return;
       case "ask":
-        await this.tasks.changeState(taskId, "waiting-on-you");
+        // The Decision first, so a Task Waiting on you always has the Decision it waits on.
         await this.ask(taskId, move, runs);
+        await this.tasks.changeState(taskId, "waiting-on-you");
         return;
       case "complete":
         await this.tasks.changeState(taskId, "done");
@@ -246,6 +261,20 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
       case "drop":
         await this.tasks.changeState(taskId, "dropped");
     }
+  }
+
+  /**
+   * Whether the user answered while the walk was moving the Task to Waiting on you: the answer then
+   * found it In progress and left this walk to go on, which it does once the Task is In progress again.
+   */
+  private async answeredMeanwhile(
+    taskId: string,
+    stages: readonly Stage[],
+    definitionOfDone: readonly string[],
+  ): Promise<boolean> {
+    if ((await this.tasks.read(taskId)).state !== "waiting-on-you") return false;
+    const runs = await this.runs.list(taskId);
+    return nextMove(stages, runs, definitionOfDone).move !== "wait";
   }
 
   /**

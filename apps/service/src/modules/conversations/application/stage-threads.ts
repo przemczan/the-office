@@ -184,7 +184,8 @@ export class StageThreads {
       {
         taskId: request.taskId,
         roleKey: request.roleKey,
-        title: `${request.stageName} · ${role.card.name}`,
+        // As the planning Thread's "Planning": the web adds the person, as "Implement · Ada".
+        title: request.stageName,
       },
       now,
     );

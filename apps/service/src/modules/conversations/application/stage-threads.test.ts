@@ -261,7 +261,7 @@ describe("StageThreads", () => {
     expect(thread).toMatchObject({
       home: { kind: "task", taskId: request.taskId },
       roleKey: ada,
-      title: "Implement · Ada",
+      title: "Implement",
       state: "waiting",
       stageThread: true,
       tokens: USAGE,
@@ -372,7 +372,7 @@ describe("StageThreads", () => {
 
     expect(second.stageThread.move).toMatchObject({ move: "hand-off", reason: "another-person" });
     const thread = await threadOf(second.stageThread.threadId);
-    expect(thread).toMatchObject({ roleKey: rui, title: "Review · Rui", stageThread: true });
+    expect(thread).toMatchObject({ roleKey: rui, title: "Review", stageThread: true });
     expect(thread.session?.id).not.toBe(engine.sessions[0]?.id);
     const opening = engine.sessions[1]?.received[0];
     expect(opening?.step === "start" && opening.brief.text).toContain("## The Task");
