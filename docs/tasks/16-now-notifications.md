@@ -11,26 +11,35 @@ Now is the home the user opens first: what needs them, what is running, what hap
 - [ ] Now shows Needs you (Decisions, Gates, messages from people), Running (Task · person · Stage · time in Stage), Since you left (Tasks done, failed or paused since the user was last active) and today's tokens, and nothing else; a Decision or Gate is answered in place. Check: Playwright with a waiting Decision, a running Task and a finished one.
 - [ ] The status strip shows needs you, desks in use (running Tasks against the Office-wide limit), tokens today, the 5-hour window with its meter and reset time from the window state of task 06, Tasks touched and done since you left, live. Check: watch it through a run.
 - [ ] The Needs you panel opens from the strip on any page and answers Decisions and Gates there. Check: answer one from the Projects page.
-- [ ] The kinds tree is in code (`needs-you.decision`, `needs-you.gate`, `needs-you.message`, `outcomes.task-done`, `outcomes.task-failed`, `outcomes.task-paused`, `office.window-nearly-used`, `office.window-reset`, `office.service-down`, `office.engine-down`) with routing resolved from the nearest level, and the defaults of [spec §2.7](../spec/2.7-notifications.md). Check: unit tests of the resolution, including a kind split below a level that has an override.
+- [ ] The kinds tree is in code (`needs-you.decision`, `needs-you.gate`, `needs-you.message`, `outcomes.task-done`, `outcomes.task-failed`, `outcomes.task-paused`, `office.window-nearly-used`, `office.window-reset`, `office.service-down`, `office.engine-down`) with routing resolved from the nearest level, and the defaults of [spec 2.7](../spec/2.7-notifications.md). Check: unit tests of the resolution, including a kind split below a level that has an override.
 - [ ] In-app: a toast, the unread count in the tab title and favicon, the strip. Desktop: the browser's notification, only while the tab isn't focused (otherwise the toast). Each opens what it points to, and handling that item clears it on every channel. Check: Playwright with the tab focused and blurred.
 - [ ] Content is the person's avatar and name, one first-person line, the Task and the Project, with no action buttons; Office kinds speak in the UI's own voice with no person, and "service down" is raised by the web app itself when it loses the service. Check: one of each kind, and stop the service.
 
 ## Read first
 
-- [Spec §1](../spec/1-the-users-day.md), [§2.7](../spec/2.7-notifications.md), [§4](../spec/4-ux-direction.md) (status strip, Needs you panel), [§9](../spec/README.md#defaults) (Office kinds without a person, desks in use).
-- Click-through: [app/now.js](../../.scratch/the-office/prototypes/app/now.js), the status strip and Needs you panel in [app/core.js](../../.scratch/the-office/prototypes/app/core.js).
+- [Spec 1](../spec/1-the-users-day.md) (what Now is for).
 
 Leave out: the kinds × channels grid, quiet hours, batching, the at-desk hold, phone push, the alarm state and the all clear, the Office Manager as the voice of Office kinds, and the Project filter.
 
 ## Steps
 
 - [ ] 1. A read model for Now and the strip, built from domain events (Needs you, Running, Since you left from the user's last activity, tokens today, desks in use, the window state), pushed over WebSocket. Commit.
+  Read: [spec 4](../spec/4-ux-direction.md) (Now, the status strip), [spec 2.2 Defaults](../spec/2.2-people.md#defaults) (desks in use); the Domain events of the [Work](../../apps/service/src/modules/work/MAP.md), [Pipelines](../../apps/service/src/modules/pipelines/MAP.md), [Conversations](../../apps/service/src/modules/conversations/MAP.md) and [Engine](../../apps/service/src/modules/engine/MAP.md) maps (`UsageWindowsChanged`); the [platform map](../../apps/service/src/platform/MAP.md) (the WebSocket push). A new module: the [module template](../../apps/service/docs/module-template.md).
 - [ ] 2. Now in `apps/web` with in-place answers, and the status strip's figures. Commit.
+  Read: [app/now.js](../../.scratch/the-office/prototypes/app/now.js), the [Now surface map](../../apps/web/src/surfaces/now/MAP.md), the [web app map](../../apps/web/src/MAP.md) (`shell/status-strip.tsx`); answering in place reuses the Decision card (`shell/conversation/decision-card.tsx`) and the [Work surface](../../apps/web/src/surfaces/work/MAP.md)'s `GateBlock`.
 - [ ] 3. The Needs you panel. Commit.
+  Read: the Needs you panel in [app/core.js](../../.scratch/the-office/prototypes/app/core.js), by range; the [web app map](../../apps/web/src/MAP.md).
 - [ ] 4. Notifications module: the kinds tree, routing with inheritance, the channels port, Notifications as pointers cleared when their item is handled. Choose "window nearly used" at 90% and tell the user it is a default. Commit.
+  Read: [spec 2.7](../spec/2.7-notifications.md) with its Defaults; the [module template](../../apps/service/docs/module-template.md).
 - [ ] 5. Channel adapters: in-app (toast, title, favicon, strip) and desktop (the browser Notification API, permission asked once, only when the tab isn't focused), and the web app's own "service down". Commit.
+  Read: [spec 2.7](../spec/2.7-notifications.md) (channels, content); the [web app map](../../apps/web/src/MAP.md) (`shell/toasts.tsx`, `api/event-stream.ts`).
 - [ ] 6. Check on the Test Project: a day's loop of planning, a Decision, a Gate and a finished Task, seen from Now and as Notifications; log what arrived where. Commit.
+  Read: [test-project.md](test-project.md), [testing](../../apps/service/docs/testing.md).
+
+## State
+
+Not started. Nothing on the service side is called Now or Notifications yet; `apps/web/src/surfaces/now/` holds only `now-page.tsx`, the page frame from task 03.
 
 ## Progress
 
-<!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next; anything surprising. -->
+<!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next. The detail goes in the commit body. -->

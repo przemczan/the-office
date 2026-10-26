@@ -15,19 +15,26 @@ Status: todo
 
 ## Read first
 
-- [Spec §2.3](../spec/2.3-pipelines.md) ("Edit for this Task", the editor's flags, started Stages locked).
+- [Spec 2.3](../spec/2.3-pipelines.md) ("Edit for this Task", the editor's flags, started Stages locked).
 - Decided with the user in task 10: the Task's own copy of its Pipeline lives in Pipelines, beside its Stage runs; the Task (Work) holds only its Pipeline's id. Swapping the Pipeline changes that id while the Task follows the library; editing it for this Task makes Pipelines' own copy.
-- Click-through: [app/pipelines.js](../../.scratch/the-office/prototypes/app/pipelines.js) (`stageForm`, `failureFields`, `taskPipelineDialog`), and "Edit for this Task" in [app/task.js](../../.scratch/the-office/prototypes/app/task.js).
 
 Leave out: the Pipeline library editor and Stage templates in Settings (tier 2); the component is written so that view can reuse it.
 
 ## Steps
 
 - [ ] 1. Pipelines domain: edit operations on a Task's copy with the lock on started Stages, the validation flags, and swapping the Pipeline before Start; tests. Commit.
+  Read: the [Pipelines map](../../apps/service/src/modules/pipelines/MAP.md) (`domain/stage.ts`, `domain/pipeline.ts` with `stageProblems`, `domain/task-stages.ts`).
 - [ ] 2. Use cases, events and API; the Task's Pipeline label shows when it was edited for the Task. Commit.
+  Read: the [Pipelines map](../../apps/service/src/modules/pipelines/MAP.md), the [Contracts map](../../packages/contracts/src/MAP.md).
 - [ ] 3. The Stage editor component and the "Edit for this Task" dialog. Commit.
+  Read: the [Work surface map](../../apps/web/src/surfaces/work/MAP.md); in the click-through, `stageForm`, `failureFields` and `taskPipelineDialog` in [app/pipelines.js](../../.scratch/the-office/prototypes/app/pipelines.js) and "Edit for this Task" in [app/task.js](../../.scratch/the-office/prototypes/app/task.js), each by range.
 - [ ] 4. Check on the Test Project: add a Gate to a Ready Task's Pipeline and change a Stage's model; log the result. Commit.
+  Read: [test-project.md](test-project.md), [testing](../../apps/service/docs/testing.md) (live checks run alone); task 14's check, `pipelines/application/gate-publish-test-project-check.test.ts`, is the pattern.
+
+## State
+
+Not started. Until now a Task's own Stages were seeded straight into `task_stages`: by `apps/web/e2e/office-database.ts` for the Playwright Gate test and by task 14's check script. The editor replaces that seeding for users; the tests may keep it.
 
 ## Progress
 
-<!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next; anything surprising. -->
+<!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next. The detail goes in the commit body. -->
