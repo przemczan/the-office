@@ -306,6 +306,23 @@ describe("CommandLineGit.restore", () => {
   });
 });
 
+describe("CommandLineGit.untracked", () => {
+  it("lists the untracked files that aren't ignored, in folders too", async () => {
+    const worktree = await aWorktree();
+    await writeFile(join(worktree.path, ".gitignore"), "node_modules/\n");
+    await mkdir(join(worktree.path, "node_modules"), { recursive: true });
+    await writeFile(join(worktree.path, "node_modules", "dependency.js"), "installed");
+    await mkdir(join(worktree.path, "screenshots", "dialog"), { recursive: true });
+    await writeFile(join(worktree.path, "screenshots", "dialog", "open.png"), "a screenshot");
+    await writeFile(join(worktree.path, "src", "index.ts"), "export const changed = true;\n");
+
+    await expect(git.untracked(worktree.path, variables)).resolves.toEqual([
+      ".gitignore",
+      "screenshots/dialog/open.png",
+    ]);
+  });
+});
+
 describe("CommandLineGit.discard", () => {
   it("drops tracked and untracked changes and keeps ignored files", async () => {
     const worktree = await aWorktree();

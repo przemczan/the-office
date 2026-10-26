@@ -1,4 +1,4 @@
-import type { CommandRun, Installation } from "../domain/stage-command-run.js";
+import type { Installation, ScriptCommandRun } from "../domain/stage-command-run.js";
 
 /** The Project commands a Script Stage runs; install runs before each Stage instead. */
 export type ScriptCommandKey = "build" | "lint" | "test";
@@ -15,12 +15,14 @@ export abstract class TaskCommands {
   abstract install(projectId: string, taskId: string): Promise<Installation>;
 
   /**
-   * Runs a Script Stage's Project command in the Task's worktree: a test command restores the
-   * worktree after each run and runs once more when it fails. Returns each run, in order.
+   * Runs a Script Stage's Project command in the Task's worktree: after each test run the
+   * worktree is restored and the files it wrote are moved out of it, to a folder named by the
+   * Stage run, and a failing test command runs once more. Returns each run, in order.
    */
   abstract runCommand(
     projectId: string,
     taskId: string,
     key: ScriptCommandKey,
-  ): Promise<readonly CommandRun[]>;
+    stageRunId: string,
+  ): Promise<readonly ScriptCommandRun[]>;
 }

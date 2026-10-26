@@ -36,6 +36,7 @@ class FakeGit extends Git {
   head = notUsed;
   diffSummary = notUsed;
   restore = notUsed;
+  untracked = notUsed;
   discard = notUsed;
 }
 

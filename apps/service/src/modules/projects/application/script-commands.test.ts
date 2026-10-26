@@ -20,6 +20,7 @@ import { Worktrees } from "./worktrees.js";
 let repository: TemporaryRepository;
 let worktrees: Worktrees;
 let scriptCommands: ScriptCommands;
+let officeData: OfficeDataDirectory;
 let taskCount = 0;
 
 /**
@@ -33,7 +34,8 @@ fs.appendFileSync(log + ".seen", fs.readFileSync("src/index.ts", "utf8"));
 fs.appendFileSync(log, "x");
 const runs = fs.readFileSync(log, "utf8").length;
 fs.writeFileSync("src/index.ts", "export const changedByRun = " + runs + ";\\n");
-fs.writeFileSync("screenshot-" + runs + ".txt", "a screenshot\\n");
+fs.mkdirSync("screenshots", { recursive: true });
+fs.writeFileSync("screenshots/run-" + runs + ".txt", "a screenshot\\n");
 if (runs >= Number(process.env.PASS_FROM_RUN)) {
   console.log("All 2 tests passed.");
   process.exit(0);
@@ -51,12 +53,9 @@ beforeAll(async () => {
   gitIn(repository.path, "branch", "--quiet", "--set-upstream-to=origin/main", "main");
   await writeFile(join(repository.folder, "test-suite.cjs"), TEST_SUITE);
   const commands = new ProjectCommandRunner(new ShellCommandRunner());
-  worktrees = new Worktrees(
-    new CommandLineGit(new RepositoryLocks()),
-    commands,
-    new OfficeDataDirectory(join(repository.folder, "office-data")),
-  );
-  scriptCommands = new ScriptCommands(worktrees, commands);
+  officeData = new OfficeDataDirectory(join(repository.folder, "office-data"));
+  worktrees = new Worktrees(new CommandLineGit(new RepositoryLocks()), commands, officeData);
+  scriptCommands = new ScriptCommands(worktrees, commands, officeData);
 });
 
 afterAll(async () => {
@@ -100,32 +99,50 @@ describe("ScriptCommands.run", () => {
   it("runs a passing test command once, then restores what it changed in tracked files", async () => {
     const { project, taskId, worktreePath } = await aTask(1);
 
-    const runs = await scriptCommands.run(project, taskId, "test");
+    const runs = await scriptCommands.run(project, taskId, "test", "stage-run");
 
     expect(runs).toEqual([
       expect.objectContaining({ commandLine: RUN_TEST_SUITE, outcome: "passed", exitCode: 0 }),
     ]);
     expect(runs[0]?.output).toContain("All 2 tests passed.");
     expect(await trackedIndex(worktreePath)).toBe(UNCHANGED_INDEX);
-    // Untracked files such as screenshots stay for the user to see.
-    expect(await exists(join(worktreePath, "screenshot-1.txt"))).toBe(true);
+  });
+
+  it("moves the files a test run wrote out of the worktree, so no commit holds them", async () => {
+    const { project, taskId, worktreePath } = await aTask(1);
+    await writeFile(join(worktreePath, "notes.txt"), "the Agent's, from before the run\n");
+
+    const [run] = await scriptCommands.run(project, taskId, "test", "stage-run-2");
+
+    const folder = join(officeData.folder("test-output"), "stage-run-2", "1");
+    expect(run?.movedFiles).toEqual({ folder, paths: ["screenshots/run-1.txt"] });
+    await expect(readFile(join(folder, "screenshots", "run-1.txt"), "utf8")).resolves.toBe(
+      "a screenshot\n",
+    );
+    expect(await exists(join(worktreePath, "screenshots", "run-1.txt"))).toBe(false);
+    await worktrees.commit(project, taskId, "The Agent's notes");
+    expect(gitIn(worktreePath, "show", "--name-only", "--format=", "HEAD")).toBe("notes.txt");
   });
 
   it("runs a flaky test command again from the restored worktree, and gives both runs", async () => {
     const { project, taskId, worktreePath, runLog } = await aTask(2);
 
-    const runs = await scriptCommands.run(project, taskId, "test");
+    const runs = await scriptCommands.run(project, taskId, "test", "stage-run");
 
     expect(runs.map(({ outcome }) => outcome)).toEqual(["failed", "passed"]);
     expect(runs[0]?.output).toContain("FAIL renames a device: expected 'Hall' to be 'Kitchen'");
     expect(await readFile(`${runLog}.seen`, "utf8")).toBe(UNCHANGED_INDEX.repeat(2));
     expect(await trackedIndex(worktreePath)).toBe(UNCHANGED_INDEX);
+    expect(runs.map(({ movedFiles }) => movedFiles?.paths)).toEqual([
+      ["screenshots/run-1.txt"],
+      ["screenshots/run-2.txt"],
+    ]);
   });
 
   it("gives a test command that fails twice both its failed runs, with the worktree restored", async () => {
     const { project, taskId, worktreePath } = await aTask(Number.MAX_SAFE_INTEGER);
 
-    const runs = await scriptCommands.run(project, taskId, "test");
+    const runs = await scriptCommands.run(project, taskId, "test", "stage-run");
 
     expect(runs).toEqual([
       expect.objectContaining({ outcome: "failed", exitCode: 1 }),
@@ -138,7 +155,7 @@ describe("ScriptCommands.run", () => {
   it("doesn't run a test command again that the shell couldn't run", async () => {
     const { project, taskId } = await aTask(1, { test: "office-no-such-program --run" });
 
-    const runs = await scriptCommands.run(project, taskId, "test");
+    const runs = await scriptCommands.run(project, taskId, "test", "stage-run");
 
     expect(runs.map(({ outcome }) => outcome)).toEqual(["could-not-run"]);
   });
@@ -146,9 +163,9 @@ describe("ScriptCommands.run", () => {
   it("runs a failing build once and leaves what it changed for the Stage's commit", async () => {
     const { project, taskId, worktreePath } = await aTask(Number.MAX_SAFE_INTEGER);
 
-    const runs = await scriptCommands.run(project, taskId, "build");
+    const runs = await scriptCommands.run(project, taskId, "build", "stage-run");
 
-    expect(runs.map(({ outcome }) => outcome)).toEqual(["failed"]);
+    expect(runs).toEqual([expect.objectContaining({ outcome: "failed", movedFiles: undefined })]);
     expect(await trackedIndex(worktreePath)).toBe("export const changedByRun = 1;\n");
   });
 });

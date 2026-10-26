@@ -51,7 +51,12 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
         error: `${installFailure(failed)}\n\nThe Stage's command didn't run.`,
       };
     }
-    const commandRuns = await this.commands.runCommand(task.project.id, run.taskId, command);
+    const commandRuns = await this.commands.runCommand(
+      task.project.id,
+      run.taskId,
+      command,
+      run.id,
+    );
     await this.runs.saveCommandRuns(run.id, [...installed, ...commandRunsOf(commandRuns)]);
     const outcome = scriptStageOutcome(commandRuns);
     const moved = await this.stageGit.checkHead(run, task, expected);

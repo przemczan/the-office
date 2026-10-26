@@ -9,7 +9,7 @@ import {
   type StageTurn,
 } from "./stage-threads.js";
 import { StartedTasks, type StartedTask, type WalkTaskState } from "./started-tasks.js";
-import type { CommandRun, Installation } from "../domain/stage-command-run.js";
+import type { CommandRun, Installation, ScriptCommandRun } from "../domain/stage-command-run.js";
 import { TaskCommands, type ScriptCommandKey } from "./task-commands.js";
 import { TaskGit, type WorktreeHead } from "./task-git.js";
 import { TaskRecords, type TaskRecord } from "./task-records.js";
@@ -223,8 +223,15 @@ export function aCommandRun(
   commandLine: string,
   outcome: CommandRun["outcome"],
   output = "",
-): CommandRun {
-  return { commandLine, outcome, exitCode: outcome === "passed" ? 0 : 1, durationMs: 1200, output };
+): ScriptCommandRun {
+  return {
+    commandLine,
+    outcome,
+    exitCode: outcome === "passed" ? 0 : 1,
+    durationMs: 1200,
+    output,
+    movedFiles: undefined,
+  };
 }
 
 /**
@@ -236,9 +243,13 @@ export class TaskCommandsForTests extends TaskCommands {
   /** What the next installs give, in order. */
   readonly installations: Installation[] = [];
   /** What the next commands give, in order: each its runs. */
-  readonly commandRuns: (readonly CommandRun[])[] = [];
+  readonly commandRuns: (readonly ScriptCommandRun[])[] = [];
   /** Every command run, in order. */
-  readonly ran: { readonly taskId: string; readonly key: ScriptCommandKey }[] = [];
+  readonly ran: {
+    readonly taskId: string;
+    readonly key: ScriptCommandKey;
+    readonly stageRunId: string;
+  }[] = [];
   /** Told of every call, as it is made, so a test can see what happened before it. */
   observe: ((call: "install" | "runCommand") => void) | undefined = undefined;
 
@@ -251,9 +262,10 @@ export class TaskCommandsForTests extends TaskCommands {
     _projectId: string,
     taskId: string,
     key: ScriptCommandKey,
-  ): Promise<readonly CommandRun[]> {
+    stageRunId: string,
+  ): Promise<readonly ScriptCommandRun[]> {
     this.observe?.("runCommand");
-    this.ran.push({ taskId, key });
+    this.ran.push({ taskId, key, stageRunId });
     const runs = this.commandRuns.shift();
     return Promise.resolve(runs ?? [aCommandRun(`npm run ${key}`, "passed")]);
   }

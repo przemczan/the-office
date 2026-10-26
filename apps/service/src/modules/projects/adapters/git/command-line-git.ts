@@ -277,6 +277,15 @@ export class CommandLineGit extends Git {
     return paths;
   }
 
+  async untracked(worktreePath: string, variables: GitVariables): Promise<readonly string[]> {
+    const listed = await git({
+      folder: worktreePath,
+      gitArguments: ["ls-files", "--others", "--exclude-standard", "-z"],
+      variables,
+    });
+    return nulSeparated(listed);
+  }
+
   async discard(worktreePath: string, variables: GitVariables): Promise<readonly string[]> {
     const status = await git({
       folder: worktreePath,

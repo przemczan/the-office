@@ -138,6 +138,12 @@ export abstract class Git {
   abstract restore(worktreePath: string, variables: GitVariables): Promise<readonly string[]>;
 
   /**
+   * The worktree's untracked files that aren't ignored, which a commit of every change would add,
+   * relative to it with "/" between folders.
+   */
+  abstract untracked(worktreePath: string, variables: GitVariables): Promise<readonly string[]>;
+
+  /**
    * Drops every uncommitted change, untracked files included; ignored ones, such as dependencies,
    * stay. Returns the dropped paths.
    */

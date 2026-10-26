@@ -1,9 +1,8 @@
 import { Injectable } from "@nestjs/common";
-import type { CommandRun } from "../domain/command-run.js";
 import type { Head } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectService } from "./project-service.js";
-import { ScriptCommands, type ScriptCommandKey } from "./script-commands.js";
+import { ScriptCommands, type ScriptCommandKey, type ScriptCommandRun } from "./script-commands.js";
 import { Worktrees, type Installation } from "./worktrees.js";
 
 /** A Task's worktree, as a session works in it. */
@@ -78,14 +77,16 @@ export class TaskWorktrees {
   }
 
   /**
-   * Runs a Script Stage's Project command in the Task's worktree: a test command restores the
-   * worktree after each run and runs once more when it fails. Returns each run, in order.
+   * Runs a Script Stage's Project command in the Task's worktree: after each test run the
+   * worktree is restored and the files it wrote are moved to a folder named by `stageRunId`, and
+   * a failing test command runs once more. Returns each run, in order.
    */
   async runCommand(
     projectId: string,
     taskId: string,
     key: ScriptCommandKey,
-  ): Promise<readonly CommandRun[]> {
-    return this.scriptCommands.run(await this.projects.read(projectId), taskId, key);
+    stageRunId: string,
+  ): Promise<readonly ScriptCommandRun[]> {
+    return this.scriptCommands.run(await this.projects.read(projectId), taskId, key, stageRunId);
   }
 }

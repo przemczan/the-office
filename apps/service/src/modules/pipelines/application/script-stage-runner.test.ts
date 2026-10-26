@@ -45,9 +45,9 @@ describe("ScriptStageRunner", () => {
     const taskId = await walkStages(pipelines, [tests]);
 
     expect(calls).toEqual(["install", "runCommand"]);
-    expect(pipelines.commands.ran).toEqual([{ taskId, key: "test" }]);
-    expect(pipelines.stageThreads.requests).toEqual([]);
     const [run] = await runsOf(pipelines, taskId);
+    expect(pipelines.commands.ran).toEqual([{ taskId, key: "test", stageRunId: run?.id }]);
+    expect(pipelines.stageThreads.requests).toEqual([]);
     expect(run?.outcome).toEqual({ status: "done", summary: "`npm test` passed." });
     expect(run?.commandRuns).toEqual([{ ...passing, purpose: "command" }]);
     expect(pipelines.tasks.changes).toEqual([{ taskId, state: "done" }]);
@@ -68,6 +68,17 @@ describe("ScriptStageRunner", () => {
       ["command", "failed"],
       ["re-run", "passed"],
     ]);
+  });
+
+  it("records the files each test run wrote, moved out of the worktree, for the user to see", async () => {
+    pipelines = await startPipelinesApplication();
+    const movedFiles = { folder: "/office/test-output/run/1", paths: ["screenshots/dialog.png"] };
+    pipelines.commands.commandRuns.push([{ ...passing, movedFiles }]);
+
+    const taskId = await walkStages(pipelines, [tests]);
+
+    const [run] = await runsOf(pipelines, taskId);
+    expect(run?.commandRuns).toEqual([{ ...passing, purpose: "command", movedFiles }]);
   });
 
   it("fails when the test command fails on its re-run too, handing what it printed to the Agent that fixes it", async () => {
@@ -152,7 +163,7 @@ describe("ScriptStageRunner", () => {
 
     await walkStages(pipelines, [aScriptStage("build", { name: "Build" }), tests], taskId);
 
-    expect(pipelines.commands.ran).toEqual([{ taskId, key: "build" }]);
+    expect(pipelines.commands.ran).toEqual([expect.objectContaining({ taskId, key: "build" })]);
     expect((await outcomesOf(taskId))[1]).toMatchObject({
       status: "failed",
       error: expect.stringContaining("The Task's worktree isn't where The Office left it"),

@@ -12,6 +12,20 @@ export interface CommandRun {
   readonly output: string;
 }
 
+/** The files a test run wrote into the worktree, moved out of it so no commit holds them. */
+export interface MovedFiles {
+  /** Where they are now, under the Office data directory, each at its path in the worktree. */
+  readonly folder: string;
+  /** Relative to the worktree, with "/" between folders. */
+  readonly paths: readonly string[];
+}
+
+/** A run of a Script Stage's command. */
+export interface ScriptCommandRun extends CommandRun {
+  /** Undefined when it wrote no file, and after a command that isn't the tests. */
+  readonly movedFiles: MovedFiles | undefined;
+}
+
 /**
  * Why The Office ran a command for a Stage: the dependencies' install before it, the Script
  * Stage's command, or a failing test command's one re-run.
@@ -21,6 +35,8 @@ export type StageCommandPurpose = "install" | "command" | "re-run";
 /** A command a Stage run ran, as the run records it. */
 export interface StageCommandRun extends CommandRun {
   readonly purpose: StageCommandPurpose;
+  /** The files a test run wrote, moved out of the worktree; undefined for none. */
+  readonly movedFiles?: MovedFiles;
 }
 
 /** Whether the install before a Stage ran, and how it went. */
@@ -40,8 +56,12 @@ export function failedInstall(installation: Installation): CommandRun | undefine
 }
 
 /** A Script Stage's command's runs, in order: the first, then a re-run when there was one. */
-export function commandRunsOf(runs: readonly CommandRun[]): StageCommandRun[] {
-  return runs.map((run, index) => ({ ...run, purpose: index === 0 ? "command" : "re-run" }));
+export function commandRunsOf(runs: readonly ScriptCommandRun[]): StageCommandRun[] {
+  return runs.map(({ movedFiles, ...run }, index) => ({
+    ...run,
+    purpose: index === 0 ? "command" : "re-run",
+    ...(movedFiles && { movedFiles }),
+  }));
 }
 
 /** How a command ended, in a sentence's words. */

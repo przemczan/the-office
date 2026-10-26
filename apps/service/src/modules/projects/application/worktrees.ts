@@ -176,6 +176,14 @@ export class Worktrees {
     return this.git.restore(this.pathOf(project, taskId), this.variablesOf(project));
   }
 
+  /**
+   * The Task's worktree's untracked files that aren't ignored, which the next commit would add,
+   * relative to it with "/" between folders.
+   */
+  async untracked(project: Project, taskId: string): Promise<readonly string[]> {
+    return this.git.untracked(this.pathOf(project, taskId), this.variablesOf(project));
+  }
+
   /** Drops an interrupted Stage's uncommitted edits. Returns the dropped paths. */
   async discard(project: Project, taskId: string): Promise<readonly string[]> {
     return this.git.discard(this.pathOf(project, taskId), this.variablesOf(project));
