@@ -22,6 +22,14 @@ describe("commandEnvironment", () => {
     });
   });
 
+  it("leaves out the credentials for publishing, which only The Office's own code uses", () => {
+    const inherited = { HOME: "/home/office", GH_TOKEN: "gho_secret", GITHUB_TOKEN: "ghp_secret" };
+
+    expect(commandEnvironment(inherited, UNCHANGED_ENVIRONMENT, onLinux)).toEqual({
+      HOME: "/home/office",
+    });
+  });
+
   it("removes, then sets, then puts folders in front of PATH with a colon on Linux", () => {
     const inherited = { PATH: "/usr/bin", JAVA_HOME: "/opt/java-17", GRADLE_OPTS: "-Xmx1g" };
 

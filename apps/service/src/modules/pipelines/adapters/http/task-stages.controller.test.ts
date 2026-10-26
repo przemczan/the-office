@@ -38,7 +38,7 @@ describe("GET /api/tasks/:id/stages", () => {
   it("is null for a Task without Stages of its own: one not started yet", async () => {
     pipelines = await startPipelinesApplication();
 
-    expect(await stagesOf(randomUUID())).toEqual({ stages: null });
+    expect(await stagesOf(randomUUID())).toEqual({ stages: null, testResults: [] });
   });
 
   it("gives each of the Task's own Stages with where it stands, its tokens and its runs", async () => {
@@ -48,7 +48,7 @@ describe("GET /api/tasks/:id/stages", () => {
     const taskId = await walkStages(pipelines, [anAgentStage("implement"), tests]);
     const [run] = await runsOf(pipelines, taskId);
 
-    const { stages } = await stagesOf(taskId);
+    const { stages, testResults } = await stagesOf(taskId);
 
     expect(stages?.map(({ stage, state, tokens }) => [stage.key, state, tokens])).toEqual([
       ["implement", "done", 20],
@@ -77,6 +77,9 @@ describe("GET /api/tasks/:id/stages", () => {
     ]);
     expect(stages?.[1]?.runs[0]?.commandRuns).toMatchObject([
       { purpose: "command", outcome: "passed" },
+    ]);
+    expect(testResults).toEqual([
+      { stageKey: tests.key, name: tests.name, state: "passed", detail: "`npm run test` passed." },
     ]);
   });
 });

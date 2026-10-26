@@ -1,20 +1,19 @@
 import { useQuery } from "@tanstack/react-query";
 import type { BadgeProps } from "@the-office/ui";
-import type { ChangedFile, Task, TaskChanges } from "@the-office/contracts";
+import type {
+  ChangedFile,
+  Task,
+  TaskChanges,
+  TestResult,
+  TestResultState,
+} from "@the-office/contracts";
 import { Badge } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
-import {
-  diffLines,
-  editorLink,
-  fileLineWords,
-  latestTestResults,
-  TEST_RESULT_WORDS,
-  type TestResult,
-  type TestResultState,
-} from "./changes-words.ts";
+import { diffLines, editorLink, fileLineWords, TEST_RESULT_WORDS } from "./changes-words.ts";
 import { RecordBlock } from "./record-block.tsx";
+import { firstLine } from "./stage-words.ts";
 
 const TEST_RESULT_TONES: Readonly<Record<TestResultState, NonNullable<BadgeProps["tone"]>>> = {
   passed: "success",
@@ -35,12 +34,7 @@ export function ChangesTab({ task }: { readonly task: Task }): ReactNode {
     );
   }
   if (!changes.data) return null;
-  return (
-    <ChangesView
-      changes={changes.data}
-      testResults={latestTestResults(stages.data?.stages ?? [])}
-    />
-  );
+  return <ChangesView changes={changes.data} testResults={stages.data?.testResults ?? []} />;
 }
 
 /**
@@ -143,7 +137,10 @@ function TestResults({ results }: { readonly results: readonly TestResult[] }): 
         <Badge tone="neutral">{TEST_RESULT_WORDS["not-run"]}</Badge>
       ) : (
         results.map((result) => (
-          <span key={result.stageKey} title={result.detail}>
+          <span
+            key={result.stageKey}
+            title={result.detail === null ? undefined : firstLine(result.detail)}
+          >
             <Badge tone={TEST_RESULT_TONES[result.state]}>
               {result.name} {TEST_RESULT_WORDS[result.state]}
             </Badge>

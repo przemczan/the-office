@@ -133,8 +133,8 @@ export class CommandLineGit extends Git {
 
   async push(
     repositoryPath: string,
-    remote: string,
     branch: string,
+    target: Upstream,
     variables: GitVariables,
   ): Promise<void> {
     // Pushing also updates the remote-tracking ref, a ref every worktree shares.
@@ -145,13 +145,52 @@ export class CommandLineGit extends Git {
           "push",
           "--quiet",
           "--",
-          remote,
-          `refs/heads/${branch}:refs/heads/${branch}`,
+          target.remote,
+          `refs/heads/${branch}:refs/heads/${target.branch}`,
         ],
         variables,
         timeoutMs: LONG_TIMEOUT_MS,
       }),
     );
+  }
+
+  async contains(repositoryPath: string, revision: string, ancestor: string): Promise<boolean> {
+    const gitArguments = ["merge-base", "--is-ancestor", ancestor, revision];
+    const result = await runGit({ folder: repositoryPath, gitArguments });
+    // 1 is git's "no"; anything else is a failure, such as a revision it doesn't know.
+    if (result.exitCode > 1) {
+      throw new GitCommandFailed(gitArguments, result.exitCode, result.stderr.trim());
+    }
+    return result.exitCode === 0;
+  }
+
+  async conflictsOf(
+    repositoryPath: string,
+    base: string,
+    branch: string,
+  ): Promise<readonly string[]> {
+    // `merge-tree --write-tree` (git 2.38) merges without a worktree: it writes the merged tree's
+    // objects only, which git collects as garbage when nothing names them.
+    const gitArguments = [
+      "merge-tree",
+      "--write-tree",
+      "--name-only",
+      "--no-messages",
+      "-z",
+      base,
+      branch,
+    ];
+    const result = await runGit({ folder: repositoryPath, gitArguments });
+    if (result.exitCode === 0) return [];
+    if (result.exitCode > 1) {
+      throw new GitCommandFailed(gitArguments, result.exitCode, result.stderr.trim());
+    }
+    // The merged tree's id, then each conflicted file.
+    return nulSeparated(result.stdout).slice(1);
+  }
+
+  async exclusively<Result>(repositoryPath: string, work: () => Promise<Result>): Promise<Result> {
+    return this.locked(repositoryPath, work);
   }
 
   async addWorktree(

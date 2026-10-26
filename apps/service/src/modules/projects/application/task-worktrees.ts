@@ -1,7 +1,9 @@
 import { Injectable } from "@nestjs/common";
+import type { Publication, PullRequestText } from "../domain/publication.js";
 import type { Head } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectService } from "./project-service.js";
+import { Publishing } from "./publishing.js";
 import { SCREENSHOTS_FOLDER } from "./screenshots-folder.js";
 import { ScriptCommands, type ScriptCommandKey, type ScriptCommandRun } from "./script-commands.js";
 import { Worktrees, type Installation, type TaskChanges } from "./worktrees.js";
@@ -27,6 +29,7 @@ export class TaskWorktrees {
     private readonly worktrees: Worktrees,
     private readonly commands: ProjectCommandRunner,
     private readonly scriptCommands: ScriptCommands,
+    private readonly publishing: Publishing,
   ) {}
 
   /**
@@ -88,6 +91,16 @@ export class TaskWorktrees {
    */
   async changes(projectId: string, taskId: string): Promise<TaskChanges> {
     return this.worktrees.changes(await this.projects.read(projectId), taskId);
+  }
+
+  /** Publishes the Task's committed branch by the Project's publishing mode (spec §9). */
+  async publish(projectId: string, taskId: string, text: PullRequestText): Promise<Publication> {
+    return this.publishing.publish(await this.projects.read(projectId), taskId, text);
+  }
+
+  /** Removes the Task's worktree with whatever it holds; its branch stays. */
+  async removeWorktree(projectId: string, taskId: string): Promise<void> {
+    await this.worktrees.remove(await this.projects.read(projectId), taskId);
   }
 
   /**

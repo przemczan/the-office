@@ -63,6 +63,28 @@ describe("RepositoryLocks", () => {
     await Promise.all(results);
   });
 
+  it("runs work inside work holding the lock at once, while others still wait for the outer work", async () => {
+    const locks = new RepositoryLocks();
+    const log: string[] = [];
+    const waiting = controlledWork("waiting", log);
+    let releaseOuter!: () => void;
+    const outerHeld = new Promise<void>((resolve) => (releaseOuter = resolve));
+
+    const outer = locks.run("/repository/.git", async () => {
+      await locks.run("/repository/.git", async () => void log.push("inner ran"));
+      await outerHeld;
+      log.push("outer finished");
+    });
+    const queued = locks.run("/repository/.git", waiting.work);
+    await settle();
+    expect(log).toEqual(["inner ran"]);
+
+    releaseOuter();
+    waiting.finish();
+    await Promise.all([outer, queued]);
+    expect(log).toEqual(["inner ran", "outer finished", "waiting started", "waiting finished"]);
+  });
+
   it("goes on with the next work after one fails", async () => {
     const locks = new RepositoryLocks();
     const failing = locks.run("/repository/.git", () => Promise.reject(new Error("refused")));

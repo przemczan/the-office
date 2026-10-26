@@ -1,5 +1,4 @@
-import type { ChangedFile, TaskStage } from "@the-office/contracts";
-import { firstLine } from "./stage-words.ts";
+import type { ChangedFile, TestResultState } from "@the-office/contracts";
 
 /**
  * What the Changes tab shows beside the diff (prototypes/app/task.js, `changesHtml`): each
@@ -42,50 +41,13 @@ export function fileLineWords({
   return lines ? { added: `+${lines.added}`, removed: `−${lines.removed}` } : "binary";
 }
 
-/** How a test Script Stage last ended by itself: a held or restarted run tells nothing of the code. */
-export type TestResultState = "passed" | "failed" | "skipped" | "not-run";
-
-export interface TestResult {
-  readonly stageKey: string;
-  readonly name: string;
-  readonly state: TestResultState;
-  /** Its command's result or its error, in a line; undefined before it ran. */
-  readonly detail: string | undefined;
-}
-
+/** Each test result as the Changes tab words it. */
 export const TEST_RESULT_WORDS: Readonly<Record<TestResultState, string>> = {
   passed: "passed",
   failed: "failed",
   skipped: "skipped",
   "not-run": "not run yet",
 };
-
-/**
- * The latest result of each Script Stage that checks the code (build, lint, tests), in the
- * Pipeline's order; Publish ships the code rather than checking it.
- */
-export function latestTestResults(taskStages: readonly TaskStage[]): TestResult[] {
-  return taskStages.flatMap(({ stage, runs }): TestResult[] => {
-    if (stage.kind !== "script" || stage.command === "publish") return [];
-    const outcome = runs.findLast(
-      ({ outcome: ended }) =>
-        ended?.status === "done" || (ended?.status === "failed" && ended.interrupted === null),
-    )?.outcome;
-    const base = { stageKey: stage.key, name: stage.name };
-    switch (outcome?.status) {
-      case "done":
-        return [
-          outcome.skipped
-            ? { ...base, state: "skipped", detail: undefined }
-            : { ...base, state: "passed", detail: firstLine(outcome.summary) },
-        ];
-      case "failed":
-        return [{ ...base, state: "failed", detail: firstLine(outcome.error) }];
-      default:
-        return [{ ...base, state: "not-run", detail: undefined }];
-    }
-  });
-}
 
 /**
  * A link that opens a folder or file of the Task's worktree in VS Code (the user's answer of

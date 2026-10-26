@@ -7,6 +7,7 @@ import { PipelinesWebEvents } from "./adapters/websocket/pipelines-web-events.js
 import { AgentStageRunner } from "./application/agent-stage-runner.js";
 import { GateService } from "./application/gate-service.js";
 import { GateStageRunner } from "./application/gate-stage-runner.js";
+import { PublishStage } from "./application/publish-stage.js";
 import { ScriptStageRunner } from "./application/script-stage-runner.js";
 import { StageGit } from "./application/stage-git.js";
 import { StageInterpreter } from "./application/stage-interpreter.js";
@@ -20,6 +21,7 @@ import { StageThreads } from "./ports/stage-threads.js";
 import { StartedTasks } from "./ports/started-tasks.js";
 import { TaskCommands } from "./ports/task-commands.js";
 import { TaskGit } from "./ports/task-git.js";
+import { TaskPublishing } from "./ports/task-publishing.js";
 import { TaskRecords } from "./ports/task-records.js";
 import { TaskScreenshots } from "./ports/task-screenshots.js";
 import { TaskUsage } from "./ports/task-usage.js";
@@ -35,6 +37,7 @@ export interface PipelinesModuleOptions {
   readonly stageDecisions: Type<StageDecisions>;
   readonly taskGit: Type<TaskGit>;
   readonly taskCommands: Type<TaskCommands>;
+  readonly taskPublishing: Type<TaskPublishing>;
   readonly taskScreenshots: Type<TaskScreenshots>;
   readonly taskUsage: Type<TaskUsage>;
 }
@@ -51,6 +54,7 @@ export class PipelinesModule {
     stageDecisions,
     taskGit,
     taskCommands,
+    taskPublishing,
     taskScreenshots,
     taskUsage,
   }: PipelinesModuleOptions): DynamicModule {
@@ -68,6 +72,7 @@ export class PipelinesModule {
         { provide: StageDecisions, useExisting: stageDecisions },
         { provide: TaskGit, useExisting: taskGit },
         { provide: TaskCommands, useExisting: taskCommands },
+        { provide: TaskPublishing, useExisting: taskPublishing },
         { provide: TaskScreenshots, useExisting: taskScreenshots },
         { provide: TaskUsage, useExisting: taskUsage },
         TaskStagesService,
@@ -76,6 +81,7 @@ export class PipelinesModule {
         StageGit,
         AgentStageRunner,
         ScriptStageRunner,
+        PublishStage,
         GateStageRunner,
         GateService,
         PipelinesWebEvents,

@@ -243,6 +243,46 @@ describe("nextMove", () => {
     ).toEqual({ move: "drop" });
   });
 
+  it("asks when Publish finds the base moved on, never going back, then runs it again, continues or drops", () => {
+    const publishing = [
+      agentStage("write"),
+      { ...scriptStage("publish", { goBackTo: "write", rounds: 2 }), command: "publish" } as const,
+      agentStage("after"),
+    ];
+    const error = "office/task-1 no longer applies cleanly on main on origin.";
+    const moved: StageOutcome = {
+      status: "failed",
+      error,
+      baseMoved: { conflictedFiles: ["a.ts"] },
+    };
+    const before: Ran = ["write", done];
+
+    expect(nextMove(publishing, runs(before, ["publish", moved]), NO_DEFINITION_OF_DONE)).toEqual({
+      move: "ask",
+      run: expect.objectContaining({ id: "run-2" }),
+      question: { kind: "base-moved", stage: publishing[1], error },
+    });
+    const waiting = runs(before, ["publish", moved, decided("base-moved")]);
+    expect(nextMove(publishing, waiting, NO_DEFINITION_OF_DONE)).toMatchObject({ move: "wait" });
+    const again = decided("base-moved", { kind: "one-more-round", guidance: undefined });
+    expect(
+      nextMove(publishing, runs(before, ["publish", moved, again]), NO_DEFINITION_OF_DONE),
+    ).toEqual({
+      move: "run",
+      stage: publishing[1],
+      carriedFailure: undefined,
+      sentBack: undefined,
+    });
+    const accepted = decided("base-moved", { kind: "accept-issues" });
+    expect(
+      nextMove(publishing, runs(before, ["publish", moved, accepted]), NO_DEFINITION_OF_DONE),
+    ).toMatchObject({ move: "run", stage: publishing[2] });
+    const drop = decided("base-moved", { kind: "drop" });
+    expect(
+      nextMove(publishing, runs(before, ["publish", moved, drop]), NO_DEFINITION_OF_DONE),
+    ).toEqual({ move: "drop" });
+  });
+
   it("carries the error into the next run only", () => {
     const ran = runs(["write", done], ["check", failed("2 tests fail.")], ["write", done]);
 

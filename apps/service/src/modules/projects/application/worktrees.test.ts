@@ -281,4 +281,18 @@ describe("Worktrees.remove", () => {
     expect(gitIn(repository.path, "branch", "--list", worktree.branch)).toContain(worktree.branch);
     await rm(installLog, { force: true });
   });
+
+  it("makes the worktree again from the Task's branch for the next Stage's HEAD check", async () => {
+    const taskId = aTaskId();
+    const worktree = await worktrees.open(project, taskId);
+    await writeFile(join(worktree.path, "published.txt"), "published\n");
+    const commit = await worktrees.commit(project, taskId, "Implement: a Stage's work");
+    await worktrees.remove(project, taskId);
+
+    await expect(worktrees.head(project, taskId)).resolves.toEqual({
+      commit,
+      branch: worktree.branch,
+    });
+    expect(await readFile(join(worktree.path, "published.txt"), "utf8")).toBe("published\n");
+  });
 });

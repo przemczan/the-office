@@ -26,4 +26,10 @@ export abstract class TaskGit {
 
   /** A few lines of what the Task's commits changed so far; undefined while nothing. */
   abstract changesSoFar(projectId: string, taskId: string): Promise<string | undefined>;
+
+  /**
+   * Removes the Task's worktree with whatever it holds, as after Publish; its branch stays, and a
+   * later Stage gets the worktree back from it.
+   */
+  abstract removeWorktree(projectId: string, taskId: string): Promise<void>;
 }

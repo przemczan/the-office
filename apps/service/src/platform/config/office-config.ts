@@ -71,20 +71,30 @@ const OFFICE_STACK_VARIABLES = /^(POSTGRES_\w+|GRAFANA_PORT|OTEL_\w+)$/;
 const NPM_SCRIPT_VARIABLES = /^(NPM_\w+|INIT_CWD|NODE)$/;
 /** A production switch makes a Project's install leave out its development dependencies. */
 const PRODUCTION_SWITCHES = /^NODE_ENV$/;
+/**
+ * GitHub tokens `gh` reads before its own sign-in: The Office's credentials for publishing, which
+ * only its own code uses and no Agent sees (spec §9).
+ */
+const PUBLISHING_CREDENTIALS =
+  /^(GH_TOKEN|GITHUB_TOKEN|GH_ENTERPRISE_TOKEN|GITHUB_ENTERPRISE_TOKEN)$/;
 
 /**
  * Whether a variable of the service's environment is The Office's own, which no Project command
  * inherits: its config (DATABASE_URL among it, a secret by spec §6), the compose stack's and
- * telemetry's settings, what npm set when it started the service, and production switches. Case
+ * telemetry's settings, what npm set when it started the service, production switches and the
+ * credentials for publishing, so neither Project commands nor Agents' sessions get them. Case
  * is ignored, as Windows ignores it and npm writes its variables in lowercase.
  */
 export function isOfficeOwnVariable(name: string): boolean {
   const upperCase = name.toUpperCase();
   return (
     Object.hasOwn(environmentSchema.shape, upperCase) ||
-    [OFFICE_STACK_VARIABLES, NPM_SCRIPT_VARIABLES, PRODUCTION_SWITCHES].some((variables) =>
-      variables.test(upperCase),
-    )
+    [
+      OFFICE_STACK_VARIABLES,
+      NPM_SCRIPT_VARIABLES,
+      PRODUCTION_SWITCHES,
+      PUBLISHING_CREDENTIALS,
+    ].some((variables) => variables.test(upperCase))
   );
 }
 

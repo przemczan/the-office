@@ -5,11 +5,13 @@ import type {
   StageRun as StageRunResponse,
   StageRunOutcome as StageRunOutcomeResponse,
   TaskStage as TaskStageResponse,
+  TaskStages as TaskStagesResponse,
 } from "@the-office/contracts";
 import type { Pipeline } from "../../domain/pipeline.js";
 import type { Stage } from "../../domain/stage.js";
 import type { StageProgress } from "../../domain/stage-progress.js";
 import type { GateAction, StageOutcome, StageRun } from "../../domain/stage-run.js";
+import { latestTestResults } from "../../domain/test-results.js";
 
 export function toPipelineResponse(pipeline: Pipeline): PipelineResponse {
   return {
@@ -20,7 +22,26 @@ export function toPipelineResponse(pipeline: Pipeline): PipelineResponse {
   };
 }
 
-export function toTaskStageResponse(progress: StageProgress): TaskStageResponse {
+/**
+ * A started Task's own Stages with where each stands, and the latest result of each Stage that
+ * checks the code; no Stages before the Task has its own.
+ */
+export function toTaskStagesResponse(
+  progress: readonly StageProgress[] | undefined,
+): TaskStagesResponse {
+  if (!progress) return { stages: null, testResults: [] };
+  // Each Stage's own runs in their order, which is all the latest results are read from.
+  const testResults = latestTestResults(
+    progress.map(({ stage }) => stage),
+    progress.flatMap(({ runs }) => runs),
+  );
+  return {
+    stages: progress.map(toTaskStageResponse),
+    testResults: testResults.map((result) => ({ ...result, detail: result.detail ?? null })),
+  };
+}
+
+function toTaskStageResponse(progress: StageProgress): TaskStageResponse {
   return {
     stage: toStageResponse(progress.stage),
     state: progress.state,

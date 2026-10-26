@@ -14,6 +14,7 @@ import type { StageOutcome } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskCommands } from "../ports/task-commands.js";
 import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
+import { PublishStage } from "./publish-stage.js";
 import { StageGit } from "./stage-git.js";
 import type { StageRunner, StageWork } from "./stage-runner.js";
 import { StageRunners } from "./stage-runners.js";
@@ -24,7 +25,7 @@ import { StageRunners } from "./stage-runners.js";
  * recorded on the Stage run, and the last one's result is its outcome. git is checked before and
  * after (spec §5.5); a test run leaves the worktree restored, so only a build or lint commits what
  * it changed. A command can't be stopped by the user (spec §2.4): only The Office shutting down
- * stops it, which ends the run interrupted.
+ * stops it, which ends the run interrupted. Publish is The Office's own git (PublishStage).
  */
 @Injectable()
 export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
@@ -34,6 +35,7 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
     private readonly commands: TaskCommands,
     private readonly stageGit: StageGit,
     private readonly runs: StageRunRepository,
+    private readonly publish: PublishStage,
   ) {}
 
   onModuleInit(): void {
@@ -43,9 +45,7 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
   async run(work: StageWork<"script">): Promise<StageOutcome> {
     const { stage, run } = work;
     const command = stage.command;
-    if (command === "publish") {
-      return { status: "failed", error: "The Office can't run a Publish Stage yet." };
-    }
+    if (command === "publish") return this.publish.run(work);
     const task = await this.records.read(run.taskId);
     const { expected, refusal } = await this.stageGit.start(work, task);
     if (refusal) return refusal;

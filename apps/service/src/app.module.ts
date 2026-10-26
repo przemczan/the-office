@@ -74,6 +74,7 @@ export class AppModule {
           stageDecisions: StageDecisions,
           taskGit: TaskWorktrees,
           taskCommands: TaskWorktrees,
+          taskPublishing: TaskWorktrees,
           taskScreenshots: StageScreenshots,
           taskUsage: TaskTokens,
         }),

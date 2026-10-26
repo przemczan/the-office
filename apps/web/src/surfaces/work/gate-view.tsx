@@ -1,5 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Attachment, Role, Stage, Task, TaskStage, TaskStages } from "@the-office/contracts";
+import type {
+  Attachment,
+  Role,
+  Stage,
+  Task,
+  TaskStage,
+  TaskStages,
+  TestResult,
+} from "@the-office/contracts";
 import { Button, Icon, Select, Textarea } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import {
@@ -13,7 +21,6 @@ import { attachmentContentUrl, attachmentQueries, taskQueries } from "../../api/
 import { AttachmentChips } from "../../shell/attachments/attachment-chips.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
-import { latestTestResults } from "./changes-words.ts";
 import { DropTaskDialog } from "./drop-task-dialog.tsx";
 import { continueLabel, waitingGateOf, type WaitingGate } from "./gate-words.ts";
 import { RecordBlock } from "./record-block.tsx";
@@ -32,20 +39,31 @@ export function GateBlock({
   readonly task: Task;
   readonly roles: readonly Role[] | undefined;
 }): ReactNode {
-  const taskStages = useQuery(pipelineQueries.taskStages(task.id)).data?.stages;
+  const data = useQuery(pipelineQueries.taskStages(task.id)).data;
+  const taskStages = data?.stages;
   const waiting = taskStages && waitingGateOf(taskStages);
-  if (!taskStages || !waiting) return null;
-  return <GateView task={task} taskStages={taskStages} waiting={waiting} roles={roles} />;
+  if (!data || !taskStages || !waiting) return null;
+  return (
+    <GateView
+      task={task}
+      taskStages={taskStages}
+      testResults={data.testResults}
+      waiting={waiting}
+      roles={roles}
+    />
+  );
 }
 
 function GateView({
   task,
   taskStages,
+  testResults,
   waiting,
   roles,
 }: {
   readonly task: Task;
   readonly taskStages: readonly TaskStage[];
+  readonly testResults: readonly TestResult[];
   readonly waiting: WaitingGate;
   readonly roles: readonly Role[] | undefined;
 }): ReactNode {
@@ -61,7 +79,7 @@ function GateView({
         <GateAttachments task={task} />
         <GateActions task={task} waiting={waiting} roles={roles} />
       </RecordBlock>
-      {changes && <ChangesView changes={changes} testResults={latestTestResults(taskStages)} />}
+      {changes && <ChangesView changes={changes} testResults={testResults} />}
     </div>
   );
 }

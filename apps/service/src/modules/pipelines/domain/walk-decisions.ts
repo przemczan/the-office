@@ -32,7 +32,8 @@ const GUIDANCE_HINT = "Or answer in your own words: your answer guides one more 
 /**
  * The Decision for what the walk asks (spec §2.3), The Office's: when a Stage fails with no
  * retries left or reaches its budget, the Pipeline ends with the Definition of Done not reported
- * met, or The Office restarted during a Stage. The Agent asks its own with an Office tool, never
+ * met, The Office restarted during a Stage, or Publish found the base branch moved on. The Agent
+ * asks its own with an Office tool, never
  * through the walk. The user always may answer in their own words (`walkAnswerOf`).
  */
 export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecision {
@@ -45,6 +46,8 @@ export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecisio
       return definitionOfDoneNotMet(question.unmet, question.again);
     case "restart":
       return restartDecision(question.stage, run);
+    case "base-moved":
+      return baseMovedDecision(question.stage, question.error);
   }
 }
 
@@ -164,6 +167,31 @@ function notStartedDecision(stage: Stage): WalkDecision {
   };
 }
 
+/**
+ * The Office resolves no conflicts between Tasks (spec §2.3 leaves them to tier 2), and no Agent
+ * can merge or rebase, so the user chooses: publish again once the base branch or the Project's
+ * publishing mode lets the branch through, finish without publishing, or drop the Task.
+ */
+function baseMovedDecision(stage: Stage, error: string): WalkDecision {
+  return {
+    kind: "base-moved",
+    draft: {
+      question: `"${stage.name}" can't publish: the base branch moved on. What now?`,
+      context: `${error}\n\nThe Office doesn't merge or rebase a Task's branch itself. "${stage.name}" can run again once the base branch lets the branch through, or after you change the Project's publishing mode: push + PR opens a pull request whenever the branch merges cleanly.`,
+      options: [`Run "${stage.name}" again`, "Continue without publishing", DROP_THE_TASK],
+      recommendation: {
+        option: 0,
+        reason: "The branch keeps the Task's work; it publishes once nothing stands in its way.",
+      },
+    },
+    options: [
+      { kind: "one-more-round", guidance: undefined },
+      { kind: "accept-issues" },
+      { kind: "drop" },
+    ],
+  };
+}
+
 function definitionOfDoneNotMet(unmet: readonly string[], again: Stage): WalkDecision {
   const statements = unmet.map((statement) => `- ${statement}`).join("\n");
   return {
@@ -202,7 +230,8 @@ export function acceptedIssues(
 ): AcceptedIssue[] {
   return runs.flatMap(({ stageKey, outcome, decisions }) => {
     const accepted = decisions.some(
-      ({ kind, answer }) => kind === "no-retries-left" && answer?.kind === "accept-issues",
+      ({ kind, answer }) =>
+        (kind === "no-retries-left" || kind === "base-moved") && answer?.kind === "accept-issues",
     );
     if (!accepted || outcome?.status !== "failed") return [];
     const stageName = stages.find(({ key }) => key === stageKey)?.name ?? stageKey;

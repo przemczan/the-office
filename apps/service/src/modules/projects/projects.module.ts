@@ -4,6 +4,7 @@ import { SkillsModule } from "../skills/index.js";
 import { ProjectOfficeTools } from "./adapters/office-tools/project-office-tools.js";
 import { CommandLineGit } from "./adapters/git/command-line-git.js";
 import { RepositoryLocks } from "./adapters/git/repository-locks.js";
+import { GitHubCliPullRequests } from "./adapters/github/github-cli-pull-requests.js";
 import { EnvironmentChecksController } from "./adapters/http/environment-checks.controller.js";
 import { ProjectsController } from "./adapters/http/projects.controller.js";
 import { TaskChangesController } from "./adapters/http/task-changes.controller.js";
@@ -16,6 +17,7 @@ import { EnvironmentChecks } from "./application/environment-checks.js";
 import { ProjectChecks } from "./application/project-checks.js";
 import { ProjectCommandRunner } from "./application/project-command-runner.js";
 import { ProjectService } from "./application/project-service.js";
+import { Publishing } from "./application/publishing.js";
 import { ScriptCommands } from "./application/script-commands.js";
 import { TaskWorktrees } from "./application/task-worktrees.js";
 import { Worktrees } from "./application/worktrees.js";
@@ -24,6 +26,7 @@ import { EnvironmentCheckRepository } from "./ports/environment-check-repository
 import { Git } from "./ports/git.js";
 import { KnownPipelines } from "./ports/known-pipelines.js";
 import { ProjectRepository } from "./ports/project-repository.js";
+import { PullRequests } from "./ports/pull-requests.js";
 
 export interface ProjectsModuleOptions {
   /** The modules that provide `knownPipelines`. */
@@ -45,6 +48,7 @@ export class ProjectsModule {
         { provide: EnvironmentCheckRepository, useClass: PostgresEnvironmentCheckRepository },
         { provide: Git, useClass: CommandLineGit },
         RepositoryLocks,
+        { provide: PullRequests, useClass: GitHubCliPullRequests },
         { provide: CommandRunner, useClass: ShellCommandRunner },
         ProjectCommandRunner,
         { provide: KnownPipelines, useExisting: knownPipelines },
@@ -53,6 +57,7 @@ export class ProjectsModule {
         ProjectService,
         Worktrees,
         ScriptCommands,
+        Publishing,
         TaskWorktrees,
         BaseCheckouts,
         ProjectWebEvents,

@@ -28,6 +28,7 @@ import {
   TaskUsageForTests,
   TaskCommandsForTests,
   TaskGitForTests,
+  TaskPublishingForTests,
   TaskRecordsForTests,
   TaskScreenshotsForTests,
 } from "./ports/pipelines-ports.fixtures.js";
@@ -46,6 +47,7 @@ export interface PipelinesApplication {
   readonly decisions: StageDecisionsForTests;
   readonly git: TaskGitForTests;
   readonly commands: TaskCommandsForTests;
+  readonly publishing: TaskPublishingForTests;
   readonly screenshots: TaskScreenshotsForTests;
   readonly usage: TaskUsageForTests;
   readonly published: DomainEvent[];
@@ -91,6 +93,7 @@ export async function startPipelinesApplication(
         stageDecisions: StageDecisionsForTests,
         taskGit: TaskGitForTests,
         taskCommands: TaskCommandsForTests,
+        taskPublishing: TaskPublishingForTests,
         taskScreenshots: TaskScreenshotsForTests,
         taskUsage: TaskUsageForTests,
       }),
@@ -108,6 +111,7 @@ export async function startPipelinesApplication(
     decisions: app.get(StageDecisionsForTests, { strict: false }),
     git: app.get(TaskGitForTests, { strict: false }),
     commands: app.get(TaskCommandsForTests, { strict: false }),
+    publishing: app.get(TaskPublishingForTests, { strict: false }),
     screenshots: app.get(TaskScreenshotsForTests, { strict: false }),
     usage: app.get(TaskUsageForTests, { strict: false }),
     published,

@@ -15,9 +15,8 @@ import {
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { GateService } from "../../application/gate-service.js";
-import type { StageProgress } from "../../domain/stage-progress.js";
 import { GateRefusalsFilter } from "./gate-refusals.filter.js";
-import { toTaskStageResponse } from "./pipeline-responses.js";
+import { toTaskStagesResponse } from "./pipeline-responses.js";
 
 /** The actions at the Gate a Task waits at; each answers the Task's Stages after it. */
 @Controller("tasks/:id/gate")
@@ -48,8 +47,4 @@ export class TaskGateController {
   async drop(@Param("id", ParseUUIDPipe) id: string): Promise<TaskStagesResponse> {
     return toTaskStagesResponse(await this.gates.drop(id));
   }
-}
-
-function toTaskStagesResponse(progress: readonly StageProgress[]): TaskStagesResponse {
-  return { stages: progress.map(toTaskStageResponse) };
 }

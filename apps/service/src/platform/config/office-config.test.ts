@@ -161,6 +161,10 @@ describe("isOfficeOwnVariable", () => {
     "INIT_CWD",
     "NODE",
     "NODE_ENV",
+    "GH_TOKEN",
+    "GITHUB_TOKEN",
+    "gh_enterprise_token",
+    "GITHUB_ENTERPRISE_TOKEN",
   ])("knows %s as The Office's own", (name) => {
     expect(isOfficeOwnVariable(name)).toBe(true);
   });

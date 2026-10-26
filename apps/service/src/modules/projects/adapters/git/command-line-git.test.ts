@@ -50,6 +50,19 @@ async function aWorktree(): Promise<{ path: string; branch: string }> {
   return { path, branch };
 }
 
+/** A worktree whose branch changes `src/index.ts`, and a commit beside it that moved on from main. */
+async function besideAMovedMain(mainContent: string): Promise<{ branch: string; main: string }> {
+  const worktree = await aWorktree();
+  await writeFile(join(worktree.path, "src", "index.ts"), "export const task = 1;\n");
+  await git.commit(worktree.path, "Change index.ts", variables);
+  const moved = await aWorktree();
+  await writeFile(join(moved.path, "src", "index.ts"), mainContent);
+  await writeFile(join(moved.path, `elsewhere-${worktreeCount}.txt`), "elsewhere\n");
+  const main = await git.commit(moved.path, "Move main on", variables);
+  if (!main) throw new Error("The moved branch committed nothing.");
+  return { branch: worktree.branch, main };
+}
+
 async function exists(path: string): Promise<boolean> {
   return (await stat(path).catch(() => undefined)) !== undefined;
 }
@@ -118,7 +131,12 @@ describe("CommandLineGit.push", () => {
     await writeFile(join(worktree.path, "pushed.txt"), "pushed\n");
     const commit = await git.commit(worktree.path, "Add pushed.txt", variables);
 
-    await git.push(repository.path, "origin", worktree.branch, variables);
+    await git.push(
+      repository.path,
+      worktree.branch,
+      { remote: "origin", branch: worktree.branch },
+      variables,
+    );
 
     expect(gitIn(repository.originPath, "rev-parse", worktree.branch)).toBe(commit);
   });
@@ -129,9 +147,117 @@ describe("CommandLineGit.push", () => {
     await writeFile(join(worktree.path, "ours.txt"), "ours\n");
     await git.commit(worktree.path, "Add ours.txt", variables);
 
-    await expect(git.push(repository.path, "origin", worktree.branch, variables)).rejects.toThrow(
-      /rejected/i,
+    await expect(
+      git.push(
+        repository.path,
+        worktree.branch,
+        { remote: "origin", branch: worktree.branch },
+        variables,
+      ),
+    ).rejects.toThrow(/rejected/i);
+  });
+
+  it("pushes a local branch into another branch of the remote when it adds to it", async () => {
+    const worktree = await aWorktree();
+    await writeFile(join(worktree.path, "merged.txt"), "merged\n");
+    const commit = await git.commit(worktree.path, "Add merged.txt", variables);
+    const target = `target-${worktreeCount}`;
+    gitIn(repository.path, "push", "--quiet", "origin", `main:refs/heads/${target}`);
+
+    await git.push(
+      repository.path,
+      worktree.branch,
+      { remote: "origin", branch: target },
+      variables,
     );
+
+    expect(gitIn(repository.originPath, "rev-parse", target)).toBe(commit);
+    expect(gitIn(repository.path, "rev-parse", `refs/remotes/origin/${target}`)).toBe(commit);
+  });
+
+  it("is refused in the remote's words when the remote refuses it", async () => {
+    const worktree = await aWorktree();
+    const hook = join(repository.originPath, "hooks", "pre-receive");
+    await writeFile(hook, "#!/bin/sh\necho 'refusing every push' >&2\nexit 1\n", { mode: 0o755 });
+    try {
+      const pushing = git.push(
+        repository.path,
+        worktree.branch,
+        { remote: "origin", branch: worktree.branch },
+        variables,
+      );
+
+      await expect(pushing).rejects.toBeInstanceOf(GitCommandFailed);
+      await expect(pushing).rejects.toThrow(/refusing every push/);
+    } finally {
+      await rm(hook);
+    }
+  });
+});
+
+describe("CommandLineGit.contains", () => {
+  it("knows whether a revision was made on another", async () => {
+    const worktree = await aWorktree();
+    await writeFile(join(worktree.path, "later.txt"), "later\n");
+    await git.commit(worktree.path, "Add later.txt", variables);
+
+    await expect(git.contains(repository.path, worktree.branch, "main")).resolves.toBe(true);
+    await expect(git.contains(repository.path, "main", worktree.branch)).resolves.toBe(false);
+  });
+
+  it("throws for a revision git doesn't know", async () => {
+    await expect(git.contains(repository.path, "main", "nowhere")).rejects.toBeInstanceOf(
+      GitCommandFailed,
+    );
+  });
+});
+
+describe("CommandLineGit.exclusively", { timeout: 30_000 }, () => {
+  it("keeps every other git change on the repository waiting while its work makes its own", async () => {
+    const worktree = await aWorktree();
+    await writeFile(join(worktree.path, "waited.txt"), "waited\n");
+    const log: string[] = [];
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => (release = resolve));
+    let fetched!: () => void;
+    const fetchedInside = new Promise<void>((resolve) => (fetched = resolve));
+
+    const holding = git.exclusively(repository.path, async () => {
+      await git.fetch(repository.path, { remote: "origin", branch: "main" }, variables);
+      log.push("fetched inside");
+      fetched();
+      await released;
+      log.push("released");
+    });
+    // Started once the work holds the repository, so it can only come after.
+    await fetchedInside;
+    const committing = git
+      .commit(worktree.path, "Add waited.txt", variables)
+      .then(() => void log.push("committed"));
+    // Long enough for the commit to finish, were it not waiting.
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    expect(log).toEqual(["fetched inside"]);
+    release();
+    await Promise.all([holding, committing]);
+
+    expect(log).toEqual(["fetched inside", "released", "committed"]);
+  });
+});
+
+describe("CommandLineGit.conflictsOf", () => {
+  it("names the files a merge would conflict on, changing no ref or worktree", async () => {
+    const { branch, main } = await besideAMovedMain("export const other = 2;\n");
+    const before = gitIn(repository.path, "rev-parse", branch);
+
+    await expect(git.conflictsOf(repository.path, main, branch)).resolves.toEqual(["src/index.ts"]);
+    expect(gitIn(repository.path, "rev-parse", branch)).toBe(before);
+    expect(gitIn(repository.path, "status", "--porcelain")).toBe("");
+  });
+
+  it("finds none when the branch merges cleanly", async () => {
+    const { branch, main } = await besideAMovedMain("export {};\n");
+
+    await expect(git.conflictsOf(repository.path, main, branch)).resolves.toEqual([]);
   });
 });
 
@@ -547,7 +673,12 @@ describe("CommandLineGit on one repository", () => {
         variables,
       ),
       recordingGit.commit(worktree.path, "Add concurrent.txt", variables),
-      recordingGit.push(worktree.path, "origin", worktree.branch, variables),
+      recordingGit.push(
+        worktree.path,
+        worktree.branch,
+        { remote: "origin", branch: worktree.branch },
+        variables,
+      ),
       recordingGit.addWorktree(repository.path, detachedAtMain(), variables),
       recordingGit.addWorktree(worktree.path, detachedAtMain(), variables),
       recordingGit.removeWorktree(repository.path, removed.path, variables),

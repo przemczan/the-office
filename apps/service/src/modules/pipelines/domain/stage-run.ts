@@ -49,6 +49,11 @@ export type StageOutcome = (
        * edits stay, maybe half-done (the user's answer of 2026-10-26).
        */
       readonly cutShort?: true;
+      /**
+       * Set on a Publish run that found the Task's branch no longer applies cleanly on the base
+       * branch, which asks the user rather than going back (spec §2.3).
+       */
+      readonly baseMoved?: BaseMoved;
     }
 ) & { readonly handoverNote?: string };
 
@@ -63,6 +68,12 @@ export type StageInterruption = "stop" | "pause" | "restart";
 
 /** What the user can ask of a running Stage run: hold it after the turn, or stop it now. */
 export type UserInterruption = Extract<StageInterruption, "stop" | "pause">;
+
+/** The base branch moved on since the Task's branch left it, so Publish can't take the branch. */
+export interface BaseMoved {
+  /** The files a merge would conflict in; none when only a fast-forward can't take it. */
+  readonly conflictedFiles: readonly string[];
+}
 
 /** The Task's tokens so far against the Stage's budget, when they reached it. */
 export interface BudgetReached {
@@ -143,10 +154,11 @@ export interface SentBack {
 /**
  * Why the walk asks the user (spec §2.3): an Agent's own question, a Stage that failed with no
  * retries left, the Task's tokens reaching a Stage's budget, a Pipeline that ended with the
- * Definition of Done not reported met, or a Stage The Office restarted during (spec §2.4).
+ * Definition of Done not reported met, a Stage The Office restarted during (spec §2.4), or a
+ * Publish that found the Task's branch no longer applies cleanly on the base branch.
  */
 export type StageDecisionKind =
-  "agent" | "no-retries-left" | "budget" | "definition-of-done" | "restart";
+  "agent" | "no-retries-left" | "budget" | "definition-of-done" | "restart" | "base-moved";
 
 /** What the user's answer to a Decision lets the walk do. */
 export type WalkAnswer =

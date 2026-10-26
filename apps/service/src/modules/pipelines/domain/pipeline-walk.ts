@@ -17,6 +17,8 @@ export type WalkQuestion =
   | { readonly kind: "budget"; readonly stage: Stage; readonly reached: BudgetReached }
   /** The Office restarted during the Stage: it never runs again unless the user says so. */
   | { readonly kind: "restart"; readonly stage: Stage }
+  /** Publish found the base branch moved on, so the Task's branch no longer applies cleanly. */
+  | { readonly kind: "base-moved"; readonly stage: Stage; readonly error: string }
   /**
    * Every Stage ended, but the Definition of Done isn't reported met; one more round would run
    * `again`, the last Agent Stage (or the last Stage when there is none).
@@ -156,6 +158,7 @@ function replay(walk: Walk, run: StageRun): StoppingMove | undefined {
       if (outcome.interrupted === "restart") return afterRestart(run, stage);
       // Held by the user: the walk stays at the Stage, with the failure it carried, using no round.
       if (outcome.interrupted) return undefined;
+      if (outcome.baseMoved) return afterBaseMoved(walk, run, stage, outcome.error);
       return outcome.budgetReached
         ? afterBudget(walk, run, stage, outcome.budgetReached)
         : afterFailure(walk, run, stage, outcome.error);
@@ -268,6 +271,32 @@ function afterRestart(run: StageRun, stage: Stage): StoppingMove | undefined {
       return { move: "drop" };
     default:
       throw new Error(`Stage run ${run.id} was answered "${answer.kind}" after a restart.`);
+  }
+}
+
+/**
+ * Publish found the Task's branch no longer applies cleanly on the base branch, which always asks
+ * the user (spec §2.3), never a loop: no Agent can merge or rebase, as git is The Office's. Run
+ * again, it stays at the Stage using no round; continuing records the failure as an accepted issue.
+ */
+function afterBaseMoved(
+  walk: Walk,
+  run: StageRun,
+  stage: Stage,
+  error: string,
+): StoppingMove | undefined {
+  const waiting = waitingOn(run, "base-moved", { kind: "base-moved", stage, error });
+  if (waiting) return waiting;
+  const answer = answerOf(run, "base-moved");
+  switch (answer.kind) {
+    case "one-more-round":
+      return undefined;
+    case "accept-issues":
+      return advance(walk, run);
+    case "drop":
+      return { move: "drop" };
+    default:
+      throw new Error(`Stage run ${run.id} was answered "${answer.kind}" after the base moved.`);
   }
 }
 

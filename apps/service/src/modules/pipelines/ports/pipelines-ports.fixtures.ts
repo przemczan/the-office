@@ -15,7 +15,9 @@ import type { CommandRun, Installation, ScriptCommandRun } from "../domain/stage
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
 import type { DecisionAnswer } from "../domain/walk-decisions.js";
 import { TaskCommands, type ScriptCommandKey } from "./task-commands.js";
+import type { Publication, PullRequestText } from "../domain/publish.js";
 import { TaskGit, type WorktreeHead } from "./task-git.js";
+import { TaskPublishing } from "./task-publishing.js";
 import { TaskRecords, type TaskRecord } from "./task-records.js";
 import { TaskScreenshots, type ScreenshotsAttaching } from "./task-screenshots.js";
 import { TaskUsage } from "./task-usage.js";
@@ -317,7 +319,13 @@ export class TaskGitForTests extends TaskGit {
   /** What git says each Task's commits changed so far; undefined when a test puts nothing. */
   readonly changes = new Map<string, string>();
   /** Told of every call, as it is made, so a test can see what happened before it. */
-  observe: ((call: "head" | "commit" | "discard" | "changesSoFar") => void) | undefined = undefined;
+  observe:
+    | ((call: "head" | "commit" | "discard" | "changesSoFar" | "removeWorktree") => void)
+    | undefined = undefined;
+  /** The Tasks whose worktrees The Office removed, in order. */
+  readonly removedWorktrees: string[] = [];
+  /** Set when removing a worktree fails, as a file a process holds on Windows makes it. */
+  removalFailure: string | undefined = undefined;
 
   /** Moves the Task's HEAD, as an Agent with git of its own would. */
   move(taskId: string, head: WorktreeHead): void {
@@ -349,6 +357,13 @@ export class TaskGitForTests extends TaskGit {
   changesSoFar(_projectId: string, taskId: string): Promise<string | undefined> {
     this.observe?.("changesSoFar");
     return Promise.resolve(this.changes.get(taskId));
+  }
+
+  removeWorktree(_projectId: string, taskId: string): Promise<void> {
+    this.observe?.("removeWorktree");
+    if (this.removalFailure) return Promise.reject(new Error(this.removalFailure));
+    this.removedWorktrees.push(taskId);
+    return Promise.resolve();
   }
 
   private headOf(taskId: string): WorktreeHead {
@@ -420,6 +435,29 @@ export class TaskCommandsForTests extends TaskCommands {
   }
 }
 
+/**
+ * Publishing in memory: each Publish opens a pull request, unless a test puts what the next
+ * Publishes give.
+ */
+@Injectable()
+export class TaskPublishingForTests extends TaskPublishing {
+  /** What the next Publishes give, in order. */
+  readonly publications: Publication[] = [];
+  /** Every Publish, in order, with the pull request's words. */
+  readonly published: { readonly taskId: string; readonly text: PullRequestText }[] = [];
+
+  publish(_projectId: string, taskId: string, text: PullRequestText): Promise<Publication> {
+    this.published.push({ taskId, text });
+    return Promise.resolve(
+      this.publications.shift() ?? {
+        kind: "pull-request-opened",
+        branch: aTaskRecord().worktree.branch,
+        url: "https://github.com/notnullsoft/admin/pull/7",
+      },
+    );
+  }
+}
+
 /** The ports' stand-ins, the Stage Threads' sessions on the engine `imports` give. */
 @Module({})
 export class PipelinesPortsForTestsModule {
@@ -432,6 +470,7 @@ export class PipelinesPortsForTestsModule {
       StageDecisionsForTests,
       TaskGitForTests,
       TaskCommandsForTests,
+      TaskPublishingForTests,
       TaskScreenshotsForTests,
       TaskUsageForTests,
     ];

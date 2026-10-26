@@ -168,11 +168,29 @@ export const taskStageSchema = z.object({
 });
 export type TaskStage = z.infer<typeof taskStageSchema>;
 
+/** How a checking Script Stage last ended by itself: a held or restarted run tells nothing of the code. */
+export const testResultStateSchema = z.enum(["passed", "failed", "skipped", "not-run"]);
+export type TestResultState = z.infer<typeof testResultStateSchema>;
+
+/** The latest result of a Script Stage that checks the code (build, lint, tests). */
+export const testResultSchema = z.object({
+  stageKey: z.string(),
+  name: z.string(),
+  state: testResultStateSchema,
+  /** The first line of its summary or error, in The Office's Markdown; null before it ran. */
+  detail: z.string().nullable(),
+});
+export type TestResult = z.infer<typeof testResultSchema>;
+
 /**
  * GET /tasks/:id/stages: the Task's own Stages, copied from its Pipeline as it starts; null before
- * then, while the library Pipeline's Stages are the Task's.
+ * then, while the library Pipeline's Stages are the Task's. With the latest result of each Stage
+ * that checks the code, in the Stages' order, as Changes shows them.
  */
-export const taskStagesSchema = z.object({ stages: z.array(taskStageSchema).nullable() });
+export const taskStagesSchema = z.object({
+  stages: z.array(taskStageSchema).nullable(),
+  testResults: z.array(testResultSchema),
+});
 export type TaskStages = z.infer<typeof taskStagesSchema>;
 
 /** Pipelines' events the web receives; each names the Task whose Stages changed. */

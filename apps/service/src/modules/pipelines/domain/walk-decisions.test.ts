@@ -193,6 +193,68 @@ describe("acceptedIssues", () => {
       ),
     ).toEqual([{ stageName: "Tests", error: "2 tests fail.\n\nThe output." }]);
   });
+
+  it("lists a Publish the user continued without, as the base had moved on", () => {
+    const publish: Stage = {
+      kind: "script",
+      key: "publish",
+      name: "Publish",
+      optional: false,
+      command: "publish",
+    };
+    const moved: StageOutcome = {
+      status: "failed",
+      error: "main on origin moved on.",
+      baseMoved: { conflictedFiles: [] },
+    };
+    const continued: StageRunDecision = {
+      id: "decision-1",
+      kind: "base-moved",
+      options: [],
+      answer: { kind: "accept-issues" },
+    };
+
+    expect(acceptedIssues([publish], [aRun("publish", moved, [continued])])).toEqual([
+      { stageName: "Publish", error: "main on origin moved on." },
+    ]);
+  });
+});
+
+describe("the base-moved Decision", () => {
+  it("offers to run Publish again, to continue without publishing, or to drop the Task", () => {
+    const publish: Stage = {
+      kind: "script",
+      key: "publish",
+      name: "Publish",
+      optional: false,
+      command: "publish",
+    };
+    const error =
+      "office/task-1 no longer applies cleanly on main on origin: merging it would conflict in\n- src/index.ts";
+    const run = aRun("publish", {
+      status: "failed",
+      error,
+      baseMoved: { conflictedFiles: ["src/index.ts"] },
+    });
+
+    expect(walkDecision(run, { kind: "base-moved", stage: publish, error })).toEqual({
+      kind: "base-moved",
+      draft: {
+        question: '"Publish" can\'t publish: the base branch moved on. What now?',
+        context: `${error}\n\nThe Office doesn't merge or rebase a Task's branch itself. "Publish" can run again once the base branch lets the branch through, or after you change the Project's publishing mode: push + PR opens a pull request whenever the branch merges cleanly.`,
+        options: ['Run "Publish" again', "Continue without publishing", "Drop the Task"],
+        recommendation: {
+          option: 0,
+          reason: "The branch keeps the Task's work; it publishes once nothing stands in its way.",
+        },
+      },
+      options: [
+        { kind: "one-more-round", guidance: undefined },
+        { kind: "accept-issues" },
+        { kind: "drop" },
+      ],
+    });
+  });
 });
 
 describe("the budget Decision", () => {

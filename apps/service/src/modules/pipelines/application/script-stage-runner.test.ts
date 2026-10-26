@@ -188,15 +188,4 @@ describe("ScriptStageRunner", () => {
     expect(pipelines.git.commits).toEqual([]);
     expect((await runsOf(pipelines, taskId))[0]?.headCommit).toBe(PLANNED_COMMIT);
   });
-
-  it("fails a Publish Stage with the reason, until The Office can publish", async () => {
-    pipelines = await startPipelinesApplication();
-
-    const taskId = await walkStages(pipelines, [aScriptStage("publish", { name: "Publish" })]);
-
-    expect(await outcomesOf(taskId)).toEqual([
-      { status: "failed", error: "The Office can't run a Publish Stage yet." },
-    ]);
-    expect(pipelines.commands.ran).toEqual([]);
-  });
 });

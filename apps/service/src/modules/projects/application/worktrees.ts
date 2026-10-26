@@ -172,9 +172,12 @@ export class Worktrees {
     return this.git.commit(path, message, this.variablesOf(project));
   }
 
-  /** Where the Task's worktree is: the after-Stage check compares it with where it was. */
+  /**
+   * Where the Task's worktree is: the after-Stage check compares it with where it was. A worktree
+   * Publish removed is made again from the Task's branch first, as for a Stage after Publish.
+   */
   async head(project: Project, taskId: string): Promise<Head> {
-    return this.git.head(this.pathOf(project, taskId));
+    return this.git.head((await this.open(project, taskId)).path);
   }
 
   /**

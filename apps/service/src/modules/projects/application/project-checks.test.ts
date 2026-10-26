@@ -29,6 +29,9 @@ class FakeGit extends Git {
   worktreeRecordPath = notUsed;
   fetch = notUsed;
   push = notUsed;
+  contains = notUsed;
+  conflictsOf = notUsed;
+  exclusively = notUsed;
   addWorktree = notUsed;
   checkoutDetached = notUsed;
   removeWorktree = notUsed;

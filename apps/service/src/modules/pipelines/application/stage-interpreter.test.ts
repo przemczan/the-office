@@ -223,12 +223,10 @@ describe("StageInterpreter", () => {
     expect(await statusesOf(taskId)).toEqual([
       ["implement", "done"],
       ["tests", "done"],
-      ["publish", "failed"],
+      ["publish", "done"],
     ]);
-    expect(walkEvents()).toContainEqual([
-      "no retries left",
-      "publish",
-      "The Office can't run a Publish Stage yet.",
+    expect(pipelines.publishing.published.map(({ taskId: published }) => published)).toEqual([
+      taskId,
     ]);
   });
 

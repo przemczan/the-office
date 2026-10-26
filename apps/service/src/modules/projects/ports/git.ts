@@ -98,13 +98,38 @@ export abstract class Git {
     variables: GitVariables,
   ): Promise<string>;
 
-  /** Pushes the local `branch` to the branch of the same name on the remote, never forcing. */
+  /**
+   * Pushes the local `branch` to `target.branch` on `target.remote`, never forcing, so the remote
+   * takes it only when it adds to what the remote has; the remote-tracking ref follows.
+   */
   abstract push(
     repositoryPath: string,
-    remote: string,
     branch: string,
+    target: Upstream,
     variables: GitVariables,
   ): Promise<void>;
+
+  /** Whether `ancestor` is `revision` or one of the commits it was made on. */
+  abstract contains(repositoryPath: string, revision: string, ancestor: string): Promise<boolean>;
+
+  /**
+   * The files a merge of `branch` into `base` would conflict on, none when it merges cleanly.
+   * Merges in git's records only: no worktree or ref changes.
+   */
+  abstract conflictsOf(
+    repositoryPath: string,
+    base: string,
+    branch: string,
+  ): Promise<readonly string[]>;
+
+  /**
+   * Runs `work` with the repository to itself: no other fetch, push, commit or worktree change on
+   * it starts until `work` ends, while those `work` makes itself run at once.
+   */
+  abstract exclusively<Result>(
+    repositoryPath: string,
+    work: () => Promise<Result>,
+  ): Promise<Result>;
 
   abstract addWorktree(
     repositoryPath: string,
