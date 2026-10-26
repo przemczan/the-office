@@ -207,6 +207,8 @@ export type ChangedFile = z.infer<typeof changedFileSchema>;
  * the base branch, for the Changes tab; no files before the Task has a branch.
  */
 export const taskChangesSchema = z.object({
+  /** The Task's worktree on the workstation, to open in the editor; null while it has none. */
+  worktreePath: z.string().min(1).nullable(),
   files: z.array(changedFileSchema),
   /** The unified diff, cut at a whole line when it is longer than the tab shows. */
   diff: z.string(),

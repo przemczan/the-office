@@ -393,6 +393,19 @@
   overflow-wrap: anywhere;
 }
 
+.changes-path a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.changes-path a:hover {
+  text-decoration: underline;
+}
+
+.changes-open {
+  font: var(--type-caption);
+}
+
 .changes-added,
 .changes-diff-added {
   color: var(--success-fg);

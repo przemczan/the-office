@@ -369,7 +369,12 @@ describe("GET /api/projects/:id/tasks/:taskId/changes", () => {
 
     const response = await fetch(`${url}/api/projects/${project.id}/tasks/${randomUUID()}/changes`);
 
-    expect(await response.json()).toEqual({ files: [], diff: "", diffCut: false });
+    expect(await response.json()).toEqual({
+      worktreePath: null,
+      files: [],
+      diff: "",
+      diffCut: false,
+    });
   });
 
   it("answers 404 for a Project that doesn't exist and 400 for a Task id that isn't one", async () => {

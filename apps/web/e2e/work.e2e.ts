@@ -7,7 +7,9 @@ import {
   type Project,
   type Task,
 } from "@the-office/contracts";
+import { taskWorktreePath } from "./office-data.ts";
 import {
+  addTaskWorktree,
   commitOnTaskBranch,
   createTemporaryRepository,
   type TemporaryRepository,
@@ -260,7 +262,7 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
   ).toBeVisible();
 });
 
-test("a Task's Changes tab lists the files its branch changed with their lines and the diff", async ({
+test("a Task's Changes tab lists the files its branch changed with their lines and the diff, and opens them in the editor while the Task has its worktree", async ({
   page,
 }) => {
   const project = await addedProject(page, "Changes", "CH");
@@ -284,6 +286,23 @@ test("a Task's Changes tab lists the files its branch changed with their lines a
   );
   await expect(changes.getByText("Tests:")).toBeVisible();
   await expect(changes.getByText("not run yet")).toBeVisible();
+  // The branch has no worktree yet, so there is nothing to open.
+  await expect(changes.getByRole("link", { name: "Open in editor" })).toHaveCount(0);
+  await expect(changes.getByRole("link", { name: "backoff.ts" })).toHaveCount(0);
+
+  addTaskWorktree(repository, task.id, taskWorktreePath(project.id, task.id));
+  await page.reload();
+
+  // Forward slashes only, a Windows drive letter included.
+  const worktreeUrl = `^vscode://file/[^\\\\]+/worktrees/${project.id}/${task.id}`;
+  await expect(changes.getByRole("link", { name: "Open in editor" })).toHaveAttribute(
+    "href",
+    new RegExp(`${worktreeUrl}$`),
+  );
+  await expect(changes.getByRole("link", { name: "backoff.ts" })).toHaveAttribute(
+    "href",
+    new RegExp(`${worktreeUrl}/backoff\\.ts$`),
+  );
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-changes.png") });
 
   await page.getByRole("tab", { name: "Overview" }).click();

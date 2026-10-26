@@ -237,10 +237,11 @@ describe("Worktrees.changes", () => {
       files: [],
       diff: "",
       diffCut: false,
+      worktreePath: undefined,
     });
   });
 
-  it("reads the Task's committed changes against the fetched base, without its later commits, after the worktree is gone too", async () => {
+  it("reads the Task's committed changes against the fetched base, without its later commits, with the worktree's path while it is there, and after it is gone too", async () => {
     const taskId = aTaskId();
     const { worktree } = await worktrees.prepare(project, taskId);
     await writeFile(join(worktree.path, "work.txt"), "a Stage's work\n");
@@ -251,9 +252,15 @@ describe("Worktrees.changes", () => {
       { path: "work.txt", previousPath: undefined, lines: { added: 1, removed: 0 } },
     ];
 
-    await expect(worktrees.changes(project, taskId)).resolves.toMatchObject({ files: expected });
+    await expect(worktrees.changes(project, taskId)).resolves.toMatchObject({
+      files: expected,
+      worktreePath: worktree.path,
+    });
     await worktrees.remove(project, taskId);
-    await expect(worktrees.changes(project, taskId)).resolves.toMatchObject({ files: expected });
+    await expect(worktrees.changes(project, taskId)).resolves.toMatchObject({
+      files: expected,
+      worktreePath: undefined,
+    });
   });
 });
 

@@ -3,12 +3,11 @@
 // replaying sessions.jsonl in order: only people.e2e.ts opens sessions. Run on Node type
 // stripping, from apps/web.
 import { spawn } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import { Client } from "pg";
+import { E2E_OFFICE_DATA } from "./office-data.ts";
 
 const ENV_FILE = fileURLToPath(new URL("../../../.env", import.meta.url));
 // The service on a scripted engine, which replays SESSIONS: the tests make no model call.
@@ -22,8 +21,9 @@ const serverUrl = new URL(required("DATABASE_URL"));
 const databaseName = `${serverUrl.pathname.slice(1)}_e2e_${serverUrl.hostname.replace(/\W/g, "_")}`;
 
 await recreateDatabase(serverUrl, databaseName);
-// An Office data directory of its own, so the environment checks' worktrees stay out of the user's.
-const officeData = mkdtempSync(path.join(tmpdir(), "office-e2e-data-"));
+const officeData = E2E_OFFICE_DATA;
+rmSync(officeData, { recursive: true, force: true });
+mkdirSync(officeData, { recursive: true });
 const service = spawn(process.execPath, ["--enable-source-maps", SERVICE_MAIN], {
   stdio: "inherit",
   env: {

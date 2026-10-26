@@ -1,6 +1,6 @@
 import type { Stage, StageRun, TaskStage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { diffLines, fileLineWords, latestTestResults } from "./changes-words.ts";
+import { diffLines, editorLink, fileLineWords, latestTestResults } from "./changes-words.ts";
 
 describe("diffLines", () => {
   it("tells the file header, hunks, added, removed and unchanged lines apart", () => {
@@ -148,5 +148,25 @@ describe("latestTestResults", () => {
       },
       { stageKey: "lint", name: "Lint", state: "not-run", detail: undefined },
     ]);
+  });
+});
+
+describe("editorLink", () => {
+  it("opens a Windows worktree with forward slashes and its drive letter", () => {
+    expect(editorLink("C:\\Users\\ada\\office-data\\worktrees\\admin\\task-1")).toBe(
+      "vscode://file/C:/Users/ada/office-data/worktrees/admin/task-1",
+    );
+  });
+
+  it("opens a file of a Linux worktree", () => {
+    expect(editorLink("/home/ada/.office/worktrees/admin/task-1/", "src/ble/link.ts")).toBe(
+      "vscode://file/home/ada/.office/worktrees/admin/task-1/src/ble/link.ts",
+    );
+  });
+
+  it("escapes what a URL can't hold in a path", () => {
+    expect(editorLink("D:\\My Projects\\wt", "notes #1?.md")).toBe(
+      "vscode://file/D:/My%20Projects/wt/notes%20%231%3F.md",
+    );
   });
 });

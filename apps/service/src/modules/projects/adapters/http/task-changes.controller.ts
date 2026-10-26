@@ -1,7 +1,7 @@
 import { Controller, Get, Param, ParseUUIDPipe, UseFilters } from "@nestjs/common";
 import type { TaskChanges as TaskChangesResponse } from "@the-office/contracts";
 import { TaskWorktrees } from "../../application/task-worktrees.js";
-import type { BranchChanges } from "../../ports/git.js";
+import type { TaskChanges } from "../../application/worktrees.js";
 import { ProjectRefusalsFilter } from "./project-refusals.filter.js";
 
 /** What a Task's commits changed in its Project, for the Changes tab and a Gate. */
@@ -19,8 +19,9 @@ export class TaskChangesController {
   }
 }
 
-function toTaskChangesResponse(changes: BranchChanges): TaskChangesResponse {
+function toTaskChangesResponse(changes: TaskChanges): TaskChangesResponse {
   return {
+    worktreePath: changes.worktreePath ?? null,
     files: changes.files.map(({ path, previousPath, lines }) => ({
       path,
       previousPath: previousPath ?? null,

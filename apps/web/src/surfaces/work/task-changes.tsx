@@ -7,6 +7,7 @@ import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import {
   diffLines,
+  editorLink,
   fileLineWords,
   latestTestResults,
   TEST_RESULT_WORDS,
@@ -61,10 +62,20 @@ export function ChangesView({
     );
   }
   return (
-    <RecordBlock icon="git-compare" title={`Files changed · ${changes.files.length}`}>
+    <RecordBlock
+      icon="git-compare"
+      title={`Files changed · ${changes.files.length}`}
+      actions={
+        changes.worktreePath !== null && (
+          <a className="changes-open" href={editorLink(changes.worktreePath)}>
+            Open in editor
+          </a>
+        )
+      }
+    >
       <ul className="changes-files">
         {changes.files.map((file) => (
-          <FileRow key={file.path} file={file} />
+          <FileRow key={file.path} file={file} worktreePath={changes.worktreePath} />
         ))}
       </ul>
       <Diff diff={changes.diff} />
@@ -76,13 +87,24 @@ export function ChangesView({
   );
 }
 
-function FileRow({ file }: { readonly file: ChangedFile }): ReactNode {
+/** A file of the list, which opens in the editor while the Task has its worktree. */
+function FileRow({
+  file,
+  worktreePath,
+}: {
+  readonly file: ChangedFile;
+  readonly worktreePath: string | null;
+}): ReactNode {
   const lines = fileLineWords(file);
   return (
     <li>
       <span className="changes-path">
         {file.previousPath !== null && `${file.previousPath} → `}
-        {file.path}
+        {worktreePath === null ? (
+          file.path
+        ) : (
+          <a href={editorLink(worktreePath, file.path)}>{file.path}</a>
+        )}
       </span>
       {lines === "binary" ? (
         <span className="task-quiet">binary</span>

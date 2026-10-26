@@ -66,6 +66,15 @@ export async function commitOnTaskBranch(
   runGit(repository.path, "worktree", "remove", "--force", worktree);
 }
 
+/** Checks the Task's branch out where The Office keeps its worktree, as Start would. */
+export function addTaskWorktree(
+  repository: TemporaryRepository,
+  taskId: string,
+  worktreePath: string,
+): void {
+  runGit(repository.path, "worktree", "add", "--quiet", worktreePath, `office/${taskId}`);
+}
+
 function runGit(cwd: string, ...gitArguments: string[]): void {
   execFileSync("git", gitArguments, { cwd, stdio: "ignore" });
 }

@@ -86,3 +86,17 @@ export function latestTestResults(taskStages: readonly TaskStage[]): TestResult[
     }
   });
 }
+
+/**
+ * A link that opens a folder or file of the Task's worktree in VS Code (the user's answer of
+ * 2026-10-26): `vscode://file/` and the path with "/" between folders, a Windows drive letter
+ * kept as it is, and what a URL can't hold escaped.
+ */
+export function editorLink(worktreePath: string, filePath?: string): string {
+  const path = [worktreePath.replace(/[/\\]+$/, ""), filePath]
+    .filter((part) => part !== undefined)
+    .join("/")
+    .replaceAll("\\", "/");
+  const rooted = path.startsWith("/") ? path : `/${path}`;
+  return `vscode://file${encodeURI(rooted).replaceAll("#", "%23").replaceAll("?", "%3F")}`;
+}

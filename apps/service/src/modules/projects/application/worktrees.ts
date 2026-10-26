@@ -51,6 +51,15 @@ export interface InstallOptions {
 export type Installation =
   { readonly kind: "up-to-date" } | { readonly kind: "ran"; readonly run: CommandRun };
 
+/**
+ * What a Task's commits changed, and where its worktree is while it has one, so the user can open
+ * it in their editor.
+ */
+export interface TaskChanges extends BranchChanges {
+  /** Undefined before the worktree is made and after Publish removes it. */
+  readonly worktreePath: string | undefined;
+}
+
 /** A throwaway worktree of the base branch, such as the environment check's. */
 export interface ThrowawayWorktree {
   readonly path: string;
@@ -174,11 +183,22 @@ export class Worktrees {
   /**
    * What the Task's commits changed since its branch left the base branch, read from the
    * repository, so it is there with or without the worktree; nothing before the Task has a branch.
+   * With where the worktree is, while it is there.
    */
-  async changes(project: Project, taskId: string): Promise<BranchChanges> {
+  async changes(project: Project, taskId: string): Promise<TaskChanges> {
+    const path = this.pathOf(project, taskId);
     const branch = this.branchOf(taskId);
-    if (!(await this.git.hasBranch(project.path, branch))) return NO_BRANCH_CHANGES;
-    return this.git.branchChanges(project.path, project.baseBranch, branch);
+    const [changes, worktreeExists] = await Promise.all([
+      this.git
+        .hasBranch(project.path, branch)
+        .then((has) =>
+          has
+            ? this.git.branchChanges(project.path, project.baseBranch, branch)
+            : NO_BRANCH_CHANGES,
+        ),
+      exists(path),
+    ]);
+    return { ...changes, worktreePath: worktreeExists ? path : undefined };
   }
 
   /**
