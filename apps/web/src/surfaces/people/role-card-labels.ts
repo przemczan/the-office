@@ -3,7 +3,6 @@ import {
   engineSchema,
   sessionDefaultSchema,
   type Capabilities,
-  type Effort,
   type Engine,
   type HardSwitchKey,
   type HardSwitchValue,
@@ -16,6 +15,7 @@ import {
   type TaskLimit,
 } from "@the-office/contracts";
 import type { z } from "zod";
+import { EFFORT_LABELS, modelLabel } from "../../shell/engine-words.ts";
 
 /** The words People shows a Role card in, the click-through's (prototypes/app/people.js). */
 
@@ -46,14 +46,6 @@ export const CAPABILITIES: readonly CapabilityInfo[] = [
 export const SHARED_MEMORY_OFF = "Off until The Office can keep a memory.";
 
 export const ENGINE_LABELS: Readonly<Record<Engine, string>> = { "agent-sdk": "Agent SDK" };
-
-export const EFFORT_LABELS: Readonly<Record<Effort, string>> = {
-  low: "Low",
-  medium: "Medium",
-  high: "High",
-  xhigh: "Extra high",
-  max: "Max",
-};
 
 export const SESSION_DEFAULTS: Readonly<
   Record<SessionDefault, { readonly label: string; readonly description: string }>
@@ -122,13 +114,6 @@ export function roleTitlesOf(options: RoleCardOptions): RoleTitles {
 }
 
 /** "Opus 5.5" for the engine's "claude-opus-5-5"; an id of another shape as it is. */
-export function modelLabel(model: string): string {
-  const match = /^claude-([a-z]+)-(\d+)-(\d+)$/.exec(model);
-  if (!match) return model;
-  const [, family = "", major, minor] = match;
-  return `${family.charAt(0).toUpperCase()}${family.slice(1)} ${major}.${minor}`;
-}
-
 export function taskLimitLabel(limit: TaskLimit): string {
   return limit === "none" ? "None: talks only and never works a Stage" : `${limit} at once`;
 }

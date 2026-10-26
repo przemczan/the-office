@@ -3,7 +3,6 @@ import {
   type Pipeline,
   type ProjectCommandKey,
   type ProjectMarkColour,
-  type PublishingMode,
 } from "@the-office/contracts";
 
 /** In the order a fresh worktree runs them. */
@@ -37,10 +36,6 @@ export const MARK_COLOUR_LABELS: Readonly<Record<ProjectMarkColour, string>> = {
   gray: "Gray",
   ink: "Ink",
 };
-
-export function publishingLabel(mode: PublishingMode, baseBranch: string): string {
-  return mode === "merge" ? `Merge into ${baseBranch}` : "Push and open a pull request";
-}
 
 /** "Implement → Tests → Publish" */
 export function stagesLine(pipeline: Pipeline): string {

@@ -2,7 +2,7 @@ import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import { TaskPipelineConfirmed } from "../../work/index.js";
-import type { Pipeline } from "../domain/pipeline.js";
+import type { Pipeline, StageProblem } from "../domain/pipeline.js";
 import type { Stage } from "../domain/stage.js";
 import { stagesProgress, type TaskProgress } from "../domain/stage-progress.js";
 import type { StageRun } from "../domain/stage-run.js";
@@ -12,6 +12,7 @@ import {
   editProblems,
   editTaskStages,
   followsPipeline,
+  lockedStageCount,
   makeTaskStages,
   type TaskStages,
   type TaskTrace,
@@ -86,19 +87,18 @@ export class TaskStagesService implements OnModuleInit {
    */
   async edit(taskId: string, edited: readonly Stage[]): Promise<TaskProgress> {
     return this.changes.run(taskId, async () => {
-      const { state, pipelineId } = await this.tasks.read(taskId);
-      if (FINISHED_STATES.includes(state)) {
-        throw new StagesEditRefused([{ text: "A Task that is done or dropped keeps its Stages." }]);
-      }
-      const own = await this.ownOrCopied(taskId, pipelineId);
-      const runs = await this.runs.list(taskId);
-      const problems = editProblems(own, edited, runs, await this.rolesOf(edited));
+      const { own, runs, problems } = await this.review(taskId, edited);
       if (problems.length > 0) throw new StagesEditRefused(problems);
       const { taskStages, event } = editTaskStages(own, edited);
       await this.repository.save(taskStages);
       await this.events.publish(event);
       return progressOf(taskStages, runs);
     });
+  }
+
+  /** Every reason `edit` would refuse the edited Stages now, for the editor to flag before Save. */
+  async check(taskId: string, edited: readonly Stage[]): Promise<readonly StageProblem[]> {
+    return (await this.review(taskId, edited)).problems;
   }
 
   /**
@@ -129,6 +129,16 @@ export class TaskStagesService implements OnModuleInit {
       await this.repository.remove(taskId);
       await this.events.publish(new TaskStagesReset(taskId, own.pipelineId));
     });
+  }
+
+  private async review(taskId: string, edited: readonly Stage[]): Promise<ReviewedEdit> {
+    const { state, pipelineId } = await this.tasks.read(taskId);
+    const own = await this.ownOrCopied(taskId, pipelineId);
+    const runs = await this.runs.list(taskId);
+    const problems = FINISHED_STATES.includes(state)
+      ? [{ text: "A Task that is done or dropped keeps its Stages." }]
+      : editProblems(own, edited, runs, await this.rolesOf(edited));
+    return { own, runs, problems };
   }
 
   private async ownOrCopied(taskId: string, pipelineId: string): Promise<TaskStages> {
@@ -164,6 +174,17 @@ export class TaskStagesService implements OnModuleInit {
   }
 }
 
+/** The user's edit weighed against the Task's own Stages and their runs. */
+interface ReviewedEdit {
+  readonly own: TaskStages;
+  readonly runs: readonly StageRun[];
+  readonly problems: readonly StageProblem[];
+}
+
 function progressOf(own: TaskStages, runs: readonly StageRun[]): TaskProgress {
-  return { stages: stagesProgress(own.stages, runs), editedForTask: own.editedForTask };
+  return {
+    stages: stagesProgress(own.stages, runs),
+    editedForTask: own.editedForTask,
+    lockedStages: lockedStageCount(own.stages, runs),
+  };
 }

@@ -2,17 +2,16 @@ import { Link } from "@tanstack/react-router";
 import type { Role, RoleCardOptions, Skill } from "@the-office/contracts";
 import { Badge, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
+import { EFFORT_LABELS, modelLabel } from "../../shell/engine-words.ts";
 import { SkillChip } from "../../shell/skill-chip.tsx";
 import { RoleCardGroup, RoleCardValue } from "./role-card-layout.tsx";
 import {
   ASKS_YOU_UNTIL_HIRED,
   CAPABILITIES,
-  EFFORT_LABELS,
   ENFORCEMENT_LABELS,
   ENGINE_LABELS,
   HARD_SWITCH_LABELS,
   hardSwitchValueLabel,
-  modelLabel,
   permissionProfileLines,
   roleTitlesOf,
   SESSION_DEFAULTS,

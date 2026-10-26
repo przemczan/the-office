@@ -32,6 +32,8 @@ export interface TaskProgress {
   readonly stages: readonly StageProgress[];
   /** Whether the user edited the Stages for the Task, which the Pipeline's label says. */
   readonly editedForTask: boolean;
+  /** How many Stages, from the first, have started and are locked (`lockedStageCount`). */
+  readonly lockedStages: number;
 }
 
 /** Each of the Task's Stages, in order, with where it stands from the Task's runs. */

@@ -12,6 +12,7 @@ import { useId, useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { addProject, projectQueries } from "../../api/projects.ts";
 import { ProjectMark } from "../../shell/project-mark.tsx";
+import { publishingLabel } from "../../shell/project-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import {
@@ -21,7 +22,6 @@ import {
   installInputsFrom,
   MARK_COLOUR_LABELS,
   markLabelFor,
-  publishingLabel,
   stagesLine,
 } from "./project-labels.ts";
 

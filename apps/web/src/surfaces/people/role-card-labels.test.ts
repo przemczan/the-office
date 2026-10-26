@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   changeLine,
   hardSwitchValueLabel,
-  modelLabel,
   skillsChangeLine,
   taskLimitShort,
 } from "./role-card-labels.ts";
@@ -13,12 +12,6 @@ const roleTitles = new Map([
 ]);
 
 describe("the Role card's words", () => {
-  it("names a model by its family and version, and any other id as it is", () => {
-    expect(modelLabel("claude-opus-5-5")).toBe("Opus 5.5");
-    expect(modelLabel("claude-haiku-5-5")).toBe("Haiku 5.5");
-    expect(modelLabel("some-other-model")).toBe("some-other-model");
-  });
-
   it("gives a Task limit in a few words", () => {
     expect(taskLimitShort("none")).toBe("Talks only");
     expect(taskLimitShort(1)).toBe("Up to 1 Task");

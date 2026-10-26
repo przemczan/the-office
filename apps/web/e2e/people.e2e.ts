@@ -11,7 +11,6 @@ import {
   type Project,
   type TaskLimit,
 } from "@the-office/contracts";
-import { queryOfficeDatabase } from "./office-database.ts";
 import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
@@ -347,6 +346,134 @@ test("a person's Work tab lists the Tasks whose Stages they work", async ({ page
   }
 });
 
+/** A Stage's row in the open Stage editor, which the user opens to change its fields. */
+function editorRow(page: Page, name: string) {
+  return page.getByRole("dialog").getByRole("list", { name: "Stages" }).getByRole("listitem", {
+    name,
+    exact: true,
+  });
+}
+
+test("Edit for this Task swaps the Pipeline and sets every field of its Stages, which hold after a reload", async ({
+  page,
+}) => {
+  const repository = await createTemporaryRepository();
+  try {
+    const project = await addedProject(page, repository, "Stage editor", "SE");
+    const created = await page.request.post("/api/tasks", {
+      data: { title: "Keep the filters on reload", projectId: project.id, priority: "normal" },
+    });
+    const { id: taskId } = taskSchema.parse(await created.json());
+    const library = pipelineListSchema.parse(
+      await (await page.request.get("/api/pipelines")).json(),
+    );
+    await page.goto(`/tasks/${taskId}`);
+
+    await page.getByRole("button", { name: "Edit for this Task" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText("Changes apply to Keep the filters on reload only.");
+    await dialog.getByLabel("Pipeline").selectOption("quick-fix");
+    await expect(editorRow(page, "Publish")).toBeVisible();
+    await expect(editorRow(page, "Review & fix")).toHaveCount(0);
+
+    // A Gate goes before Publish, opened to be named.
+    await dialog.getByRole("button", { name: "Gate", exact: true }).click();
+    await editorRow(page, "Gate").getByLabel("Name", { exact: true }).fill("UI acceptance");
+
+    const implement = editorRow(page, "Implement");
+    await implement.getByRole("button", { name: "Edit Implement" }).click();
+    await implement.getByLabel("Who works it").selectOption("reviewer");
+    await implement.getByLabel("Model").selectOption("claude-haiku-5-5");
+    await implement.getByLabel("Effort").selectOption("high");
+    await implement.getByLabel("Budget").fill("120");
+    await implement.getByLabel("Brief").fill("Keep the filters in the address.");
+
+    // An Agent Stage moved up behind Implement continues its session with the same Role.
+    await dialog.getByRole("button", { name: "Agent Stage", exact: true }).click();
+    const added = editorRow(page, "New Stage");
+    for (let move = 0; move < 3; move += 1) {
+      await added.getByRole("button", { name: "Move New Stage up" }).click();
+    }
+    await added.getByLabel("Who works it").selectOption("reviewer");
+    await added.getByLabel("Session").selectOption("continue");
+    await added.getByText("Optional: skipped when the Definition of Done is already met").click();
+    await added.getByLabel("Name", { exact: true }).fill("Review");
+
+    const tests = editorRow(page, "Tests");
+    await tests.getByRole("button", { name: "Edit Tests" }).click();
+    await tests.getByLabel("On failure").selectOption("new-stage");
+    await tests.getByLabel("Rounds").selectOption("2");
+    await tests.getByLabel("Project command").selectOption("lint");
+
+    // Tests can't go back to Review from above it: the editor flags it, and Save waits.
+    const save = dialog.getByRole("button", { name: "Save for this Task" });
+    await tests.getByRole("button", { name: "Move Tests up" }).click();
+    await expect(dialog.getByRole("list", { name: "Problems" })).toContainText(
+      "Stage 2 · Tests: on failure it can only go back to an earlier Stage.",
+    );
+    await expect(save).toBeDisabled();
+    await tests.getByRole("button", { name: "Move Tests down" }).click();
+    await expect(dialog.getByRole("list", { name: "Problems" })).toHaveCount(0);
+
+    // A Script Stage added and dropped again leaves nothing behind.
+    await dialog.getByRole("button", { name: "Script Stage", exact: true }).click();
+    await editorRow(page, "Script").getByRole("button", { name: "Remove Script" }).click();
+    await expect(editorRow(page, "Script")).toHaveCount(0);
+
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-stage-editor.png") });
+    await save.click();
+    await expect(page.getByText("Stages saved for Keep the filters on reload.")).toBeVisible();
+
+    await page.reload();
+    await expect(
+      page.getByRole("region", { name: "Stages · Quick fix · edited for this Task" }),
+    ).toBeVisible();
+    const own = taskStagesSchema.parse(
+      await (await page.request.get(`/api/tasks/${taskId}/stages`)).json(),
+    );
+    const quickFix = library.find(({ id }) => id === "quick-fix")?.stages ?? [];
+    const [libraryImplement, libraryTests, libraryPublish] = quickFix;
+    expect(own.stages?.map(({ stage }) => stage)).toEqual([
+      {
+        ...libraryImplement,
+        role: "reviewer",
+        model: "claude-haiku-5-5",
+        effort: "high",
+        budget: 120_000,
+        brief: "Keep the filters in the address.",
+      },
+      {
+        kind: "agent",
+        key: "new-stage",
+        name: "Review",
+        optional: true,
+        role: "reviewer",
+        brief: "",
+        session: "continue",
+        budget: 100_000,
+      },
+      { ...libraryTests, command: "lint", onFailure: { goBackTo: "new-stage", rounds: 2 } },
+      { kind: "gate", key: "gate", name: "UI acceptance", optional: false },
+      libraryPublish,
+    ]);
+    // The library's Quick fix stays as it was.
+    expect(
+      pipelineListSchema
+        .parse(await (await page.request.get("/api/pipelines")).json())
+        .find(({ id }) => id === "quick-fix")?.stages,
+    ).toEqual(quickFix);
+
+    // The editor opens on what was saved.
+    await page.getByRole("button", { name: "Edit for this Task" }).click();
+    await editorRow(page, "Implement").getByRole("button", { name: "Edit Implement" }).click();
+    await expect(editorRow(page, "Implement").getByLabel("Model")).toHaveValue("claude-haiku-5-5");
+    await expect(editorRow(page, "Implement").getByLabel("Budget")).toHaveValue("120");
+    await expect(editorRow(page, "Tests")).toContainText("on failure back to Review, at most 2×");
+  } finally {
+    await repository.remove();
+  }
+});
+
 const QUERY_QUESTION = "Should sign-in keep the query string on the way back?";
 
 /**
@@ -545,7 +672,7 @@ const A_SCREENSHOT = Buffer.from(
 );
 
 /**
- * Gives the Task its own Stages before it starts, as the Stage editor will (task 15): Quick fix's
+ * Edits the Task's Stages for it before it starts, as the Stage editor saves them: Quick fix's
  * Implement and Tests, then a Gate before a Build.
  */
 async function seedGatedStages(page: Page, taskId: string): Promise<void> {
@@ -556,10 +683,8 @@ async function seedGatedStages(page: Page, taskId: string): Promise<void> {
     { kind: "gate", key: "ui-acceptance", name: "UI acceptance", optional: false },
     { kind: "script", key: "build", name: "Build", optional: false, command: "build" },
   ];
-  await queryOfficeDatabase(
-    "insert into task_stages (task_id, pipeline_id, stages, made_at) values ($1, 'quick-fix', $2, now())",
-    [taskId, JSON.stringify(stages)],
-  );
+  const edited = await page.request.put(`/api/tasks/${taskId}/stages`, { data: { stages } });
+  expect(edited.status()).toBe(200);
 }
 
 /** A Task planned through the API, Ready to start; planning replays Jan's session for it. */

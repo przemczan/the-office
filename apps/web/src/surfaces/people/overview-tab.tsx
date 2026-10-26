@@ -3,9 +3,10 @@ import { Link, useParams } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { skillQueries } from "../../api/skills.ts";
+import { EFFORT_LABELS, modelLabel } from "../../shell/engine-words.ts";
 import { SkillChip } from "../../shell/skill-chip.tsx";
 import { PersonBlock } from "./role-card-layout.tsx";
-import { EFFORT_LABELS, modelLabel, SESSION_DEFAULTS, taskLimitLabel } from "./role-card-labels.ts";
+import { SESSION_DEFAULTS, taskLimitLabel } from "./role-card-labels.ts";
 import { sessionSkillsOf } from "./session-skills.ts";
 
 /** Who the person is, what they work with, and their skills. */

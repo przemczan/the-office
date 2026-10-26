@@ -7,17 +7,19 @@ import { useToast } from "../../shell/toasts.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { NOT_STARTED, PRIORITY_ICONS, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { DropTaskDialog } from "./drop-task-dialog.tsx";
+import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
 import { useMarkingReady, usePlanning } from "./use-planning.ts";
 
 const PRIORITIES: readonly Priority[] = ["high", "normal", "low"];
 
 /**
  * A Task's "More" menu: what moves it along (planning, Mark Ready), its priority while it hasn't
- * started, and Drop until it has ended.
+ * started, and its Stages to edit and Drop until it has ended.
  */
 export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
   const [open, setOpen] = useState(false);
   const [dropping, setDropping] = useState(false);
+  const [editingStages, setEditingStages] = useState(false);
   const queryClient = useQueryClient();
   const showToast = useToast();
   const planner = usePlanner();
@@ -70,6 +72,11 @@ export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
     ...(task.state === "done" || task.state === "dropped"
       ? []
       : [
+          {
+            icon: <Icon name="route" size={14} />,
+            label: "Edit Stages for this Task",
+            onSelect: () => setEditingStages(true),
+          },
           { divider: true },
           {
             icon: <Icon name="x" size={14} />,
@@ -86,7 +93,7 @@ export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
         open={open}
         onOpenChange={setOpen}
         align="end"
-        width={200}
+        width={220}
         trigger={
           <IconButton
             size="xs"
@@ -97,6 +104,9 @@ export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
         items={items}
       />
       {dropping && <DropTaskDialog task={task} onClose={() => setDropping(false)} />}
+      {editingStages && (
+        <EditTaskStagesDialog task={task} onClose={() => setEditingStages(false)} />
+      )}
     </>
   );
 }

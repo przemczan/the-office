@@ -7,8 +7,8 @@ import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectMark } from "../../shell/project-mark.tsx";
+import { publishingLabel } from "../../shell/project-words.ts";
 import { AddProjectDialog } from "./add-project-dialog.tsx";
-import { publishingLabel } from "./project-labels.ts";
 import "./projects.css";
 
 /** The Projects The Office works on, a card each, and adding one. */

@@ -31,6 +31,7 @@ PipelineLibrary, TaskStagesService, NoRetriesLeft, PipelineCompleted, StageRunEn
 - `POST /tasks/:id/gate/drop`: TaskGateController.drop
 - `GET /tasks/:id/stages`: TaskStagesController.read
 - `PUT /tasks/:id/stages`: TaskStagesController.edit
+- `POST /tasks/:id/stages/check`: TaskStagesController.check
 
 ## Tables
 
@@ -48,7 +49,7 @@ PipelineLibrary, TaskStagesService, NoRetriesLeft, PipelineCompleted, StageRunEn
 ### adapters/http/
 
 - `gate-refusals.filter.ts`: GateRefusalsFilter
-- `pipeline-responses.ts`: toPipelineResponse, toTaskStagesResponse
+- `pipeline-responses.ts`: toPipelineResponse, toStageProblemResponse, toTaskStagesResponse
 - `pipelines.controller.ts`: PipelinesController
 - `stages-edit-refusals.filter.ts`: StagesEditRefusalsFilter
 - `task-gate.controller.ts`: TaskGateController

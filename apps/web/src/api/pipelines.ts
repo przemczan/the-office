@@ -2,9 +2,11 @@ import { queryOptions } from "@tanstack/react-query";
 import {
   pipelineListSchema,
   pipelinesWebEventSchema,
+  stagesCheckSchema,
   taskStagesSchema,
   type PipelinesWebEvent,
   type SendBack,
+  type Stage,
   type TaskStages,
 } from "@the-office/contracts";
 import { getFromApi, sendToApi } from "./api-client.ts";
@@ -23,10 +25,24 @@ export const pipelineQueries = {
   taskStages: (taskId: string) =>
     queryOptions({
       queryKey: taskStagesKey(taskId),
-      queryFn: ({ signal }) =>
-        getFromApi(`/tasks/${encodeURIComponent(taskId)}/stages`, taskStagesSchema, signal),
+      queryFn: ({ signal }) => getFromApi(stagesPath(taskId), taskStagesSchema, signal),
+    }),
+  /**
+   * What saving the edited Stages would be refused for. Under the Task's Stages, so whatever makes
+   * those stale checks the edit again.
+   */
+  stagesCheck: (taskId: string, stages: readonly Stage[]) =>
+    queryOptions({
+      queryKey: [...taskStagesKey(taskId), "check", stages],
+      queryFn: () =>
+        sendToApi("POST", `${stagesPath(taskId)}/check`, { stages }, stagesCheckSchema),
     }),
 };
+
+/** Edit for this Task: the Task's Stages replaced, the library Pipeline left as it is. */
+export function editTaskStages(taskId: string, stages: readonly Stage[]): Promise<TaskStages> {
+  return sendToApi("PUT", stagesPath(taskId), { stages }, taskStagesSchema);
+}
 
 /** The Gate's actions; each answers the Task's Stages after it. */
 export function continueAtGate(taskId: string): Promise<TaskStages> {
@@ -39,6 +55,10 @@ export function sendBackFromGate(taskId: string, sendBack: SendBack): Promise<Ta
 
 export function dropAtGate(taskId: string): Promise<TaskStages> {
   return sendToApi("POST", `${gatePath(taskId)}/drop`, {}, taskStagesSchema);
+}
+
+function stagesPath(taskId: string): `/${string}` {
+  return `/tasks/${encodeURIComponent(taskId)}/stages`;
 }
 
 function gatePath(taskId: string): `/${string}` {

@@ -196,6 +196,8 @@ export const taskStagesSchema = z.object({
   stages: z.array(taskStageSchema).nullable(),
   /** Whether the user edited them for the Task: the Pipeline's label says so. */
   editedForTask: z.boolean(),
+  /** How many Stages, from the first, have started: an edit keeps them as they are, where they are. */
+  lockedStages: z.int().nonnegative(),
   testResults: z.array(testResultSchema),
 });
 export type TaskStages = z.infer<typeof taskStagesSchema>;
@@ -211,10 +213,21 @@ export const stageProblemSchema = z.object({
 });
 export type StageProblem = z.infer<typeof stageProblemSchema>;
 
-/** 422 from PUT /tasks/:id/stages: every reason the edit can't be saved. */
+/**
+ * POST /tasks/:id/stages/check: what saving the edited Stages would be refused for, so the editor
+ * flags it before Save; empty when they can be saved.
+ */
+export const stagesCheckSchema = z.object({ problems: z.array(stageProblemSchema) });
+export type StagesCheck = z.infer<typeof stagesCheckSchema>;
+
+/**
+ * 422 from PUT /tasks/:id/stages: every reason the edit can't be saved, as words like every refusal's
+ * and on the Stage each concerns.
+ */
 export const stagesEditRefusalSchema = z.object({
   statusCode: z.literal(422),
   message: z.string(),
+  reasons: z.array(z.string()).min(1),
   problems: z.array(stageProblemSchema).min(1),
 });
 export type StagesEditRefusal = z.infer<typeof stagesEditRefusalSchema>;

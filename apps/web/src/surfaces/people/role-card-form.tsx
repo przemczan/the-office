@@ -27,18 +27,17 @@ import {
 import { useId, useState, type ReactNode } from "react";
 import { changeRoleCard, roleCardQueries, roleQueries } from "../../api/people.ts";
 import { skillQueries } from "../../api/skills.ts";
+import { EFFORT_LABELS, modelLabel } from "../../shell/engine-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { RoleCardGroup, RoleCardValue } from "./role-card-layout.tsx";
 import {
   ASKS_YOU_UNTIL_HIRED,
   CAPABILITIES,
-  EFFORT_LABELS,
   ENFORCEMENT_LABELS,
   ENGINE_LABELS,
   HARD_SWITCH_LABELS,
   hardSwitchValueLabel,
-  modelLabel,
   permissionProfileLines,
   roleTitlesOf,
   SESSION_DEFAULTS,

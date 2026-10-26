@@ -1,0 +1,144 @@
+/* The Stage editor, as the click-through's (prototypes/app/app.css, .pl-*). */
+
+.stage-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stage-editor-stages {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.stage-editor-row {
+  display: grid;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--surface);
+}
+
+.stage-editor-row:last-child {
+  border-bottom: 0;
+}
+
+.stage-editor-row-open,
+.stage-editor-row-locked {
+  background: var(--surface-sunken);
+}
+
+.stage-editor-row-locked {
+  color: var(--fg-2);
+}
+
+.stage-editor-row-flagged {
+  box-shadow: inset 3px 0 0 var(--warning);
+}
+
+.stage-editor-kind {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--fg-2);
+}
+
+.stage-editor-head {
+  display: block;
+  width: 100%;
+  padding: 3px 0 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.stage-editor-head:disabled {
+  cursor: default;
+}
+
+.stage-editor-name {
+  font: 500 13px/1.4 var(--font-sans);
+}
+
+.stage-editor-who {
+  font-weight: 400;
+  color: var(--fg-3);
+}
+
+.stage-editor-detail {
+  margin-top: 2px;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.stage-editor-tools {
+  display: flex;
+  gap: 2px;
+}
+
+.stage-editor-lock {
+  padding: 4px;
+  color: var(--fg-3);
+}
+
+.stage-editor-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 16px;
+  margin-top: 12px;
+}
+
+.stage-editor-wide {
+  grid-column: 1 / -1;
+}
+
+.stage-editor-failure {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.stage-editor-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.stage-editor-rules {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0;
+  font: var(--type-caption);
+  line-height: 1.5;
+  color: var(--fg-3);
+}
+
+.stage-editor-rules svg {
+  flex: none;
+  margin-top: 1px;
+}
+
+@media (max-width: 720px) {
+  .stage-editor-form {
+    grid-template-columns: 1fr;
+  }
+}

@@ -4,9 +4,10 @@ import { Select } from "@the-office/ui";
 import { useId, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { changeDefaultPipeline, changePublishingMode, projectQueries } from "../../api/projects.ts";
+import { publishingLabel } from "../../shell/project-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { ProjectBlock } from "./project-block.tsx";
-import { publishingLabel, stagesLine } from "./project-labels.ts";
+import { stagesLine } from "./project-labels.ts";
 
 /** The Pipeline a new Task starts from, and how its work is published. */
 export function DefaultPipelineBlock({ project }: { readonly project: Project }): ReactNode {

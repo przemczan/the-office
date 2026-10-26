@@ -9,6 +9,8 @@ import { AddAttachmentDialog } from "../../shell/attachments/add-attachment-dial
 import { AttachmentChips } from "../../shell/attachments/attachment-chips.tsx";
 import { dayAndClockOf } from "../../shell/time.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
+import { NOT_STARTED } from "../../shell/work/work-words.ts";
+import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
 import { GateBlock } from "./gate-view.tsx";
 import { DefinitionOfDoneBlock, PlanBlock, ProposedPipeline } from "./planning-parts.tsx";
 import { RecordBlock } from "./record-block.tsx";
@@ -48,8 +50,9 @@ export function TaskRecord({
 }
 
 /**
- * The Task's Stages: its library Pipeline's until it starts, then its own copy with each Stage's
- * runs, refreshed as the walk's events arrive.
+ * The Task's Stages: its library Pipeline's until it has its own copy, made as it starts or as the
+ * user edits them for the Task, then that copy with each Stage's runs, refreshed as the walk's
+ * events arrive. The Planner's proposal shows until the Task starts.
  */
 function StagesBlock({
   task,
@@ -63,24 +66,32 @@ function StagesBlock({
   readonly roles: readonly Role[] | undefined;
 }): ReactNode {
   const taskStages = useQuery(pipelineQueries.taskStages(task.id)).data;
+  const [editing, setEditing] = useState(false);
   const own = taskStages?.stages;
+  const finished = task.state === "done" || task.state === "dropped";
   return (
     <RecordBlock
       icon="route"
       title={`Stages · ${pipelineLabel(pipeline?.name ?? task.pipelineId, taskStages?.editedForTask ?? false)}`}
+      actions={
+        !finished && (
+          <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
+            Edit for this Task
+          </Button>
+        )
+      }
     >
+      {NOT_STARTED.includes(task.state) && (
+        <ProposedPipeline task={task} pipeline={pipeline} planner={planner} />
+      )}
       {own ? (
         <TaskStageList taskStages={own} roles={roles} />
+      ) : pipeline ? (
+        <StageList stages={pipeline.stages} roles={roles} />
       ) : (
-        <>
-          <ProposedPipeline task={task} pipeline={pipeline} planner={planner} />
-          {pipeline ? (
-            <StageList stages={pipeline.stages} roles={roles} />
-          ) : (
-            <p className="task-quiet">The Pipeline {task.pipelineId} isn't in the library.</p>
-          )}
-        </>
+        <p className="task-quiet">The Pipeline {task.pipelineId} isn't in the library.</p>
       )}
+      {editing && <EditTaskStagesDialog task={task} onClose={() => setEditing(false)} />}
     </RecordBlock>
   );
 }

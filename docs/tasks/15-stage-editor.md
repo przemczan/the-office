@@ -8,7 +8,7 @@ Status: in progress
 
 ## Definition of Done
 
-- [ ] From the Task page, the user swaps the Pipeline for another built-in, or edits the Task's copy: add an Agent, Script or Gate Stage, drop, reorder, and set kind, Role or command, brief, model and effort, session (fresh, or continue the previous Stage's), budget, optional, and "on failure go back to Stage X at most N times" (N is the Stage's rounds). Check: Playwright edits each field and reloads.
+- [x] From the Task page, the user swaps the Pipeline for another built-in, or edits the Task's copy: add an Agent, Script or Gate Stage, drop, reorder, and set kind, Role or command, brief, model and effort, session (fresh, or continue the previous Stage's), budget, optional, and "on failure go back to Stage X at most N times" (N is the Stage's rounds). Check: Playwright edits each field and reloads.
 - [ ] Stages that have started are locked and can't be moved above; edits apply to that Task only. Check: edit a running Task's Pipeline, and read the library's copy afterwards.
 - [ ] The editor flags, and saving refuses with the reason: a Role with Task limit none or nobody hired for it, "continue" without the same Role on the Stage before, and an on-failure target that isn't earlier. Check: domain tests of each flag.
 - [ ] The interpreter runs the edited copy, including a Gate added before Publish. Check: a scripted-adapter test of an edited Pipeline.
@@ -26,24 +26,25 @@ Leave out: the Pipeline library editor and Stage templates in Settings (tier 2);
   Read: the [Pipelines map](../../apps/service/src/modules/pipelines/MAP.md) (`domain/stage.ts`, `domain/pipeline.ts` with `stageProblems`, `domain/task-stages.ts`).
 - [x] 2. Use cases, events and API; the Task's Pipeline label shows when it was edited for the Task. Commit.
   Read: the [Pipelines map](../../apps/service/src/modules/pipelines/MAP.md), the [Contracts map](../../packages/contracts/src/MAP.md).
-- [ ] 3. The Stage editor component and the "Edit for this Task" dialog. Commit.
+- [x] 3. The Stage editor component and the "Edit for this Task" dialog. Commit.
   Read: the [Work surface map](../../apps/web/src/surfaces/work/MAP.md); in the click-through, `stageForm`, `failureFields` and `taskPipelineDialog` in [app/pipelines.js](../../.scratch/the-office/prototypes/app/pipelines.js) and "Edit for this Task" in [app/task.js](../../.scratch/the-office/prototypes/app/task.js), each by range.
 - [ ] 4. Check on the Test Project: add a Gate to a Ready Task's Pipeline and change a Stage's model; log the result. Commit.
   Read: [test-project.md](test-project.md), [testing](../../apps/service/docs/testing.md) (live checks run alone); task 14's check, `pipelines/application/gate-publish-test-project-check.test.ts`, is the pattern.
 
 ## State
 
-Steps 1–2 done. Server side of "Edit for this Task" is complete:
-- `PUT /api/tasks/:id/stages` (`taskStagesEditSchema`) → `TaskStagesService.edit`: copies the library Pipeline when the Task has no copy yet (a Ready Task), refuses done/dropped Tasks, and answers 422 `stagesEditRefusalSchema` with `problems: [{ stageIndex, text }]` from the domain's `editProblems`. The response and GET carry `editedForTask`; the Task page title says "· edited for this Task" (`pipelineLabel` in `stage-words.ts`).
-- Swap before Start: `TaskPipelineConfirmed` sets aside a copy of another Pipeline (`TaskStagesReset`, web `task-stages.reset`); `find`/`make` also ignore one.
-- The walk reads the Stages afresh each move, and takes its move and saves the run under the per-Task lock it shares with edits (`TaskStagesService.holding`, platform `KeyedLocks`). `RepositoryLocks` in Projects has the same logic; the user turned down changing it to use `KeyedLocks` for now.
-- A Stage's `model`/`effort` reach the session: `StageThreadRequest` carries them, and Conversations prefers them over the Role card's. Nothing checks a model against the engine's list yet.
-- `stage-interpreter-edited.test.ts` covers DoD 4 (a Gate added mid-walk, an Agent Stage's own model).
+Steps 1–3 done; step 4, the check on the Test Project, is next.
+- Service: `PUT /api/tasks/:id/stages` (`TaskStagesService.edit`) and `POST /api/tasks/:id/stages/check` (`check`, the same review without saving) answer the domain's `editProblems`; the refusal now carries `reasons` like every other. GET/PUT answer `lockedStages` (`lockedStageCount`).
+- Web: the Stage editor is `shell/pipelines/stage-editor.tsx` with its pure changes in `stage-edits.ts`; it knows no Task (props: stages, `lockedNotes`, problems, roles, options, optional `commandLines`), so the tier 2 library editor reuses it with no locked Stages. Its flags come from the check endpoint (`pipelineQueries.stagesCheck`), not a copy of the rules; the controls only offer what can work (Roles with a Task limit, "continue" after the same Role, earlier non-Gate targets).
+- `surfaces/work/edit-task-stages-dialog.tsx` opens from the Stages block's "Edit for this Task" and the Task menu's "Edit Stages for this Task"; before Start it swaps the Pipeline (`setPipeline`), which sets edited Stages aside. The Planner's proposal shows whenever the Task hasn't started.
+- `modelLabel`/`EFFORT_LABELS` moved to `shell/engine-words.ts`, `publishingLabel` to `shell/project-words.ts`.
+- The Playwright check is in `people.e2e.ts` (it needs the hired Developer and Reviewer); the Gate test now saves its Stages through `PUT /stages` instead of the database.
 
-For step 3: a Ready Task with an edited copy now gets non-null `stages` from GET, so `StagesBlock` shows `TaskStageList` and hides `ProposedPipeline`; show the proposal whenever the Task hasn't started. The web needs an `editTaskStages` call in `api/pipelines.ts`; the model and effort choices are in `roleCardOptions` (contracts `people.ts`).
+For step 4: no model is checked against the engine's list yet; a Stage's model comes from `roleCardOptions`, so it is one the engine offers.
 
 ## Progress
 
 <!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next. The detail goes in the commit body. -->
 - 2026-10-27 · step 1: Stage model and effort, the Task's copy made at Start or first edit (madeAt, editedForTask), lock on started Stages, edit flags incl. staffing; next step 2, use cases, events and API.
 - 2026-10-27 · step 2: PUT /tasks/:id/stages with refusals, swap sets edited Stages aside, walk re-reads Stages under a per-Task lock shared with edits, Stage model and effort reach the session, label edited for this Task; next step 3, the editor.
+- 2026-10-27 · step 3: the Stage editor in the shell, fed by POST /stages/check; Edit for this Task dialog with the Pipeline swap, from the Stages block and the Task menu; Playwright edits every field and reloads; next step 4, the Test Project check.

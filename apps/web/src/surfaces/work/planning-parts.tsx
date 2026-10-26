@@ -273,7 +273,7 @@ function PartEditor({
 }
 
 /** A change to the Task's record from its page: the answer replaces the shown Task at once. */
-function useRecordChange<Value>(
+export function useRecordChange<Value>(
   task: Task,
   change: (value: Value) => Promise<Task>,
 ): UseMutationResult<Task, Error, Value> {

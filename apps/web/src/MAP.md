@@ -1,6 +1,6 @@
 # Web app: map
 
-**Owns:** the shell (A3 · Desk: rail, top bar, status strip, panels, toasts; `shell/`), the chat modal and conversation views, Attachments, and `api/`: one file per service module with its fetch functions and query keys, plus the event stream (`event-stream.ts`) that turns the service's web events into query refreshes. Each surface has its own map in `surfaces/<surface>/MAP.md`.
+**Owns:** the shell (A3 · Desk: rail, top bar, status strip, panels, toasts; `shell/`), the chat modal and conversation views, Attachments, the Stage editor (`shell/pipelines/`: one component for "Edit for this Task" and the tier 2 library, Task-free, fed the service's flags), and `api/`: one file per service module with its fetch functions and query keys, plus the event stream (`event-stream.ts`) that turns the service's web events into query refreshes. Each surface has its own map in `surfaces/<surface>/MAP.md`.
 
 **Talks to:** the service only through `api/` and `@the-office/contracts`; components come from `@the-office/ui` (the design system). The layout is enforced by `tools/lint-rules/src/web-layers.ts`.
 
@@ -21,7 +21,7 @@
 - `event-stream-provider.tsx`: EventInvalidations, EventCacheUpdates, EventStreamProvider, useEventStreamStatus
 - `event-stream.ts`: EventStreamStatus, EventStreamOptions, RECONNECT_DELAYS_MS, EventStream
 - `people.ts`: roleQueries, roleCardQueries, hire, changeRoleCard, roleEventInvalidations
-- `pipelines.ts`: pipelineQueries, continueAtGate, sendBackFromGate, dropAtGate, pipelineEventInvalidations
+- `pipelines.ts`: pipelineQueries, editTaskStages, continueAtGate, sendBackFromGate, dropAtGate, pipelineEventInvalidations
 - `projects.ts`: projectQueries, taskChangesKey, addProject, changeCommand, changeInstallInputs, startEnvironmentCheck, changePublishingMode, changeDefaultPipeline, changeUseProjectSkills, projectEventInvalidations
 - `skills.ts`: skillQueries, writeSkill, uploadSkill, editSkill, uploadSkillVersion, changeSkillState, changeSkillEveryone, assignSkill, removeSkill, skillEventInvalidations
 - `work.ts`: ideaQueries, taskQueries, attachmentQueries, captureIdea, shapeIdea, planIdea, dropIdea, restoreIdea, createTask, changePriority, placeTask, planTask, confirmPlan, confirmDefinitionOfDone, setPipeline, markReady, startTask, pauseTask, stopTask, resumeTask, dropTask, addLink, addFile, removeAttachment, attachmentContentUrl, workEventInvalidations
@@ -31,12 +31,14 @@
 
 - `brand-tone.ts`: useBrandTone
 - `desk.tsx`: Desk, PanelHeadingProps, Panel, PanelHeading, Feed
+- `engine-words.ts`: EFFORT_LABELS, modelLabel
 - `item-card.tsx`: CardEdge, ItemCard, EmptyCard
 - `page-heading.tsx`: PageHeading, usePageHeadingState, PageHeadingProvider, usePageHeading
 - `palette-menu.tsx`: PaletteMenu
 - `person-name.ts`: personName
 - `project-chip.tsx`: ProjectChip
 - `project-mark.tsx`: ProjectMark
+- `project-words.ts`: publishingLabel
 - `rail.tsx`: Rail
 - `refusal-alert.tsx`: RefusalAlert
 - `shell.tsx`: Shell
@@ -45,6 +47,7 @@
 - `time.ts`: dayOf, dayAndClockOf
 - `toasts.tsx`: ToastProvider, useToast
 - `top-bar.tsx`: TopBar
+- Tests: engine-words.test.ts
 
 ### shell/attachments/
 
@@ -68,6 +71,12 @@
 - `thread-title.ts`: threadTitle
 - `thread-view.tsx`: ThreadView
 - Tests: context-words.test.ts, thread-title.test.ts
+
+### shell/pipelines/
+
+- `stage-editor.tsx`: StageEditorProps, StageEditor
+- `stage-edits.ts`: StageKind, AgentStage, StageCommand, STAGE_KIND_NAMES, STAGE_COMMANDS, addStage, removeStage, canMove, moveStage, replaceStage, withRole, canContinue, failureTargets
+- Tests: stage-edits.test.ts
 
 ### shell/work/
 

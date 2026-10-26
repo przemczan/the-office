@@ -2,6 +2,7 @@ import { Catch, HttpStatus, type ArgumentsHost, type ExceptionFilter } from "@ne
 import type { StagesEditRefusal } from "@the-office/contracts";
 import type { Response } from "express";
 import { StagesEditRefused } from "../../domain/stages-edit-refused.js";
+import { toStageProblemResponse } from "./pipeline-responses.js";
 
 /** Answers a refused edit of a Task's Stages as Nest answers its errors, with every problem. */
 @Catch(StagesEditRefused)
@@ -10,10 +11,8 @@ export class StagesEditRefusalsFilter implements ExceptionFilter<StagesEditRefus
     const refusal: StagesEditRefusal = {
       statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
       message: error.message,
-      problems: error.problems.map(({ stageIndex, text }) => ({
-        stageIndex: stageIndex ?? null,
-        text,
-      })),
+      reasons: error.problems.map(({ text }) => text),
+      problems: error.problems.map(toStageProblemResponse),
     };
     host.switchToHttp().getResponse<Response>().status(refusal.statusCode).json(refusal);
   }
