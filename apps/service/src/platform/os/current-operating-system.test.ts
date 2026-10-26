@@ -104,16 +104,21 @@ describe("currentOperatingSystem", () => {
       await expect(couldNotRun(`"${process.execPath}" -e "process.exit(3)"`)).resolves.toBe(false);
     });
 
-    it.runIf(process.platform === "win32")("knows a built-in command that failed ran", async () => {
-      await expect(couldNotRun("dir office-no-such-folder")).resolves.toBe(false);
+    it("knows a built-in command that failed ran", async () => {
+      const builtIn =
+        process.platform === "win32" ? "dir office-no-such-folder" : "cd office-no-such-folder";
+
+      await expect(couldNotRun(builtIn)).resolves.toBe(false);
     });
 
-    it.runIf(process.platform === "win32")(
-      "knows a program named by a path that leads nowhere could not run",
-      async () => {
-        await expect(couldNotRun('"C:\\office-nowhere\\tool.exe" --version')).resolves.toBe(true);
-      },
-    );
+    it("knows a program named by a path that leads nowhere could not run", async () => {
+      const nowhere =
+        process.platform === "win32"
+          ? '"C:\\office-nowhere\\tool.exe" --version'
+          : "/office-nowhere/tool --version";
+
+      await expect(couldNotRun(nowhere)).resolves.toBe(true);
+    });
 
     it.runIf(process.platform === "linux")(
       "knows a file that isn't executable could not run",
