@@ -557,7 +557,7 @@ async function seedGatedStages(page: Page, taskId: string): Promise<void> {
     { kind: "script", key: "build", name: "Build", optional: false, command: "build" },
   ];
   await queryOfficeDatabase(
-    "insert into task_stages (task_id, pipeline_id, stages, started_at) values ($1, 'quick-fix', $2, now())",
+    "insert into task_stages (task_id, pipeline_id, stages, made_at) values ($1, 'quick-fix', $2, now())",
     [taskId, JSON.stringify(stages)],
   );
 }

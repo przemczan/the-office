@@ -1,35 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { stageProblems } from "./pipeline.js";
-import type { AgentStage, Gate, ScriptStage, Stage } from "./stage.js";
-
-function agentStage(fields: Partial<AgentStage> = {}): AgentStage {
-  return {
-    kind: "agent",
-    key: "implement",
-    name: "Implement",
-    role: "developer",
-    brief: "Implement the Plan.",
-    session: "fresh",
-    budget: 100_000,
-    optional: false,
-    ...fields,
-  };
-}
-
-function scriptStage(fields: Partial<ScriptStage> = {}): ScriptStage {
-  return {
-    kind: "script",
-    key: "tests",
-    name: "Tests",
-    command: "test",
-    optional: false,
-    ...fields,
-  };
-}
-
-function gate(fields: Partial<Gate> = {}): Gate {
-  return { kind: "gate", key: "gate", name: "Gate", optional: false, ...fields };
-}
+import type { Stage } from "./stage.js";
+import { agentStage, gate, scriptStage } from "./stage.fixtures.js";
 
 function problemTexts(stages: readonly Stage[]): string[] {
   return stageProblems(stages).map((problem) => problem.text);
@@ -49,6 +21,13 @@ describe("stageProblems", () => {
 
   it("refuses a Pipeline with no Stages", () => {
     expect(stageProblems([])).toEqual([{ text: "A Pipeline needs at least one Stage." }]);
+  });
+
+  it("takes a Stage's own model and effort, and refuses a blank model", () => {
+    expect(stageProblems([agentStage({ model: "claude-haiku-5-5", effort: "low" })])).toEqual([]);
+    expect(problemTexts([agentStage({ model: " " })])).toEqual([
+      "Stage 1 · Implement: choose a model, or keep the Role's.",
+    ]);
   });
 
   it("names the Stage each problem is on", () => {

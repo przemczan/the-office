@@ -1,6 +1,6 @@
 # 15 · Edit for this Task: the Stage editor
 
-Status: todo
+Status: in progress
 
 ## Goal
 
@@ -22,7 +22,7 @@ Leave out: the Pipeline library editor and Stage templates in Settings (tier 2);
 
 ## Steps
 
-- [ ] 1. Pipelines domain: edit operations on a Task's copy with the lock on started Stages, the validation flags, and swapping the Pipeline before Start; tests. Commit.
+- [x] 1. Pipelines domain: edit operations on a Task's copy with the lock on started Stages, the validation flags, and swapping the Pipeline before Start; tests. Commit.
   Read: the [Pipelines map](../../apps/service/src/modules/pipelines/MAP.md) (`domain/stage.ts`, `domain/pipeline.ts` with `stageProblems`, `domain/task-stages.ts`).
 - [ ] 2. Use cases, events and API; the Task's Pipeline label shows when it was edited for the Task. Commit.
   Read: the [Pipelines map](../../apps/service/src/modules/pipelines/MAP.md), the [Contracts map](../../packages/contracts/src/MAP.md).
@@ -33,8 +33,19 @@ Leave out: the Pipeline library editor and Stage templates in Settings (tier 2);
 
 ## State
 
-Not started. Until now a Task's own Stages were seeded straight into `task_stages`: by `apps/web/e2e/office-database.ts` for the Playwright Gate test and by task 14's check script. The editor replaces that seeding for users; the tests may keep it.
+Step 1 done, in `pipelines/domain`:
+- `AgentStage` has optional `model` and `effort` (absent keeps the Role's). Nothing passes them to the session yet: `StageThreadRequest` has neither, and Conversations reads both from the Role card (`stage-threads.ts` ~387). Step 2 or 4 must add them, or step 4's live check fails.
+- `task-stages.ts`: `TaskStages` has `madeAt` (was `startedAt`, migration 0028 renames the column) and `editedForTask`; `lockedStageCount` (every Stage up to the furthest with a run), `editProblems` (locked prefix unchanged, `stageProblems`, `staffingProblems`), `editTaskStages` (+ `TaskStagesEdited`), `followsPipeline`.
+- `stage-staffing.ts`: `RoleFilling`, `staffingProblems` checks only unlocked Stages (decided: a person let go after working a done Stage must not block every later edit). `KnownPerson.card` now has `taskLimit`; People's `RoleCards` already returns it. Titles come from `KnownPeople.roleTitle`.
+- Stage builders for domain tests are in `domain/stage.fixtures.ts`.
+
+For step 2:
+- A copy can now exist before Start. `TaskStagesService.make` still returns any existing copy: make it replace a copy that doesn't `followsPipeline` (the repository needs a save that replaces), and drop the edited copy on Work's `TaskPipelineConfirmed` (Work already refuses a swap once started).
+- The interpreter reads `stages` once per walk (`walk` → `walkStages`, `answeredMeanwhile`, `runStage`): re-read the copy each loop, and serialize an edit's save with a run's start per Task (one process; the interpreter already keeps one walk per Task), so no Stage starts under a definition the edit just replaced.
+- Editable while the Task isn't done or dropped (the click-through hides the link then); refuse those with a reason.
+- Seeding `task_stages` in `apps/web/e2e/people.e2e.ts` uses `made_at` now.
 
 ## Progress
 
 <!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next. The detail goes in the commit body. -->
+- 2026-10-27 · step 1: Stage model and effort, the Task's copy made at Start or first edit (madeAt, editedForTask), lock on started Stages, edit flags incl. staffing; next step 2, use cases, events and API.

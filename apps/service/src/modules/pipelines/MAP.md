@@ -1,6 +1,6 @@
 # Pipelines: module map
 
-**Owns:** Pipelines (the built-ins, `domain/built-in-pipelines.ts`, and the library), each Task's own copy of its Stages (`task_stages`), and the Stage interpreter that walks them: Agent, Script, Gate and Publish Stages, loops and rounds, budgets, Stage runs (`stage_runs`).
+**Owns:** Pipelines (the built-ins, `domain/built-in-pipelines.ts`, and the library), each Task's own copy of its Stages (`task_stages`, made at Start or at the user's first edit for the Task), and the Stage interpreter that walks them: Agent, Script, Gate and Publish Stages, loops and rounds, budgets, Stage runs (`stage_runs`).
 
 **Talks to:** reacts to Work's events (`TaskStarted`, `TaskResumed`, `TaskPaused`, `TaskStopped`) and Conversations' `DecisionAnswered`; everything else goes through its ports, bound in [app.module.ts](../../app.module.ts): `StartedTasks` and `TaskRecords` to Work, `KnownPeople` to People's `RoleCards`, `StageThreads`, `StageDecisions` and `TaskThreadSessions` to Conversations, `TaskGit`, `TaskCommands` and `TaskPublishing` to Projects' `TaskWorktrees`, `TaskScreenshots` to Work's `StageScreenshots`, `TaskUsage` to Conversations' `TaskTokens`. Other modules read the library through `PipelineLibraryModule`, never `PipelinesModule`.
 
@@ -19,7 +19,7 @@ PipelineLibrary, TaskStagesService, NoRetriesLeft, PipelineCompleted, StageRunEn
 ## Domain events
 
 - `domain/stage-run-events.ts`: StageRunStarted, StageRunEnded, StopHeldAsPause, StageSkipped, BudgetReached, WentBackToStage, NoRetriesLeft, DefinitionOfDoneNotMet, GateReached, GateContinued, SentBackFromGate, GateDropped, PipelineCompleted
-- `domain/task-stages-events.ts`: TaskStagesMade
+- `domain/task-stages-events.ts`: TaskStagesMade, TaskStagesEdited
 
 ## HTTP routes (under `/api`)
 
@@ -89,7 +89,7 @@ PipelineLibrary, TaskStagesService, NoRetriesLeft, PipelineCompleted, StageRunEn
 - `gate-refused.ts`: GateRefused
 - `gate.ts`: GATE_REACHED, waitingGateRun, sendBackTargets, gateActionProblems
 - `pipeline-walk.ts`: WalkQuestion, NextMove, nextMove, unmetStatements
-- `pipeline.ts`: Pipeline, StageProblem, stageProblems
+- `pipeline.ts`: Pipeline, StageProblem, stageProblems, problemOnStage
 - `publish.ts`: PullRequestText, RemoteBranch, Publication, PublishedTask, pullRequestText, publishOutcome
 - `script-stage-outcome.ts`: scriptStageOutcome, installFailure
 - `stage-budget.ts`: stageBudget, budgetReached, budgetOutcome, tokensWords
@@ -102,12 +102,14 @@ PipelineLibrary, TaskStagesService, NoRetriesLeft, PipelineCompleted, StageRunEn
 - `stage-run-events.ts`: StageRunStarted, StageRunEnded, StopHeldAsPause, StageSkipped, BudgetReached, WentBackToStage, NoRetriesLeft, DefinitionOfDoneNotMet, GateReached, GateContinued, SentBackFromGate, GateDropped, PipelineCompleted
 - `stage-run.fixtures.ts`: aStageRun
 - `stage-run.ts`: StageRecommendation, StageDecision, StageOutcome, StageInterruption, UserInterruption, BaseMoved, BudgetReached, StageSessionMove, StageTokens, NO_STAGE_TOKENS, budgetTokens, addTokens, StageOutcomeStatus, CarriedFailure, GateAction, SentBack, StageDecisionKind, WalkAnswer, StageRunDecision, AgentRunDecision, WalkRunDecision, WalkDecisionKind, StageRun
-- `stage.ts`: Stage, StageKind, STAGE_KIND_NAMES, ScriptStageCommand, StageSession, OnFailure, AgentStage, ScriptStage, Gate
-- `task-stages-events.ts`: TaskStagesMade
-- `task-stages.ts`: TaskStages, TaskTrace, makeTaskStages
+- `stage-staffing.ts`: RoleFilling, staffingProblems
+- `stage.fixtures.ts`: agentStage, scriptStage, gate
+- `stage.ts`: Stage, StageKind, STAGE_KIND_NAMES, ScriptStageCommand, StageSession, Effort, OnFailure, AgentStage, ScriptStage, Gate
+- `task-stages-events.ts`: TaskStagesMade, TaskStagesEdited
+- `task-stages.ts`: TaskStages, TaskTrace, makeTaskStages, followsPipeline, lockedStageCount, editProblems, editTaskStages
 - `test-results.ts`: TestResultState, TestResult, latestTestResults
 - `walk-decisions.ts`: DecisionAnswer, WalkDecision, walkDecision, walkAnswerOf, agentDecision, AcceptedIssue, acceptedIssues
-- Tests: agent-stage-brief.test.ts, built-in-pipelines.test.ts, followed-hard-switches.test.ts, gate.test.ts, pipeline-walk.test.ts, pipeline.test.ts, publish.test.ts, script-stage-outcome.test.ts, stage-budget.test.ts, stage-commit.test.ts, stage-progress.test.ts, stage-result.test.ts, test-results.test.ts, walk-decisions.test.ts
+- Tests: agent-stage-brief.test.ts, built-in-pipelines.test.ts, followed-hard-switches.test.ts, gate.test.ts, pipeline-walk.test.ts, pipeline.test.ts, publish.test.ts, script-stage-outcome.test.ts, stage-budget.test.ts, stage-commit.test.ts, stage-progress.test.ts, stage-result.test.ts, stage-staffing.test.ts, task-stages.test.ts, test-results.test.ts, walk-decisions.test.ts
 
 ### ports/
 

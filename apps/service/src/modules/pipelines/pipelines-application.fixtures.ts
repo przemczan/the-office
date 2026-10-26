@@ -132,7 +132,8 @@ export async function walkStages(
     taskId,
     pipelineId: "for-tests",
     stages,
-    startedAt: new Date(),
+    madeAt: new Date(),
+    editedForTask: false,
     trace: undefined,
   });
   tasks.put(taskId, { state: "in-progress", pipelineId: "for-tests" });

@@ -98,6 +98,7 @@ export function aPerson(name = "Ada"): KnownPerson {
   return {
     card: {
       name,
+      taskLimit: 2,
       permissionProfile: { edit: true, run: "project-commands", web: false },
       hardSwitches: {
         runInstalls: { kind: "consult", role: "devops" },

@@ -98,7 +98,8 @@ async function aRunLeftRunning(
     taskId,
     pipelineId: "for-tests",
     stages,
-    startedAt: new Date(),
+    madeAt: new Date(),
+    editedForTask: false,
     trace: undefined,
   });
   const { run } = startStageRun(

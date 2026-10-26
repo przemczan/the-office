@@ -19,6 +19,9 @@ export type ScriptStageCommand = "build" | "lint" | "test" | "publish";
 /** Fresh with a Brief, or continuing the previous Stage's session when the same Role worked it. */
 export type StageSession = "fresh" | "continue";
 
+/** How hard the model thinks, as the engine names it. */
+export type Effort = "low" | "medium" | "high" | "xhigh" | "max";
+
 /**
  * "On failure go back to Stage X, at most N times": a Pipeline's only control flow. Its rounds are
  * the Stage's round limit; once they are used up, the Task goes to the user.
@@ -46,6 +49,10 @@ export interface AgentStage extends StageFields {
   readonly session: StageSession;
   /** Tokens the Stage may use; reaching them asks the user. */
   readonly budget: number;
+  /** The engine's model for this Stage; absent keeps the Role's. */
+  readonly model?: string;
+  /** Absent keeps the Role's. */
+  readonly effort?: Effort;
   readonly onFailure?: OnFailure;
 }
 

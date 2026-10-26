@@ -23,11 +23,18 @@ export interface StageProblem {
 export function stageProblems(stages: readonly Stage[]): readonly StageProblem[] {
   if (stages.length === 0) return [{ text: "A Pipeline needs at least one Stage." }];
   return stages.flatMap((stage, stageIndex) =>
-    problemsOfStage(stage, stages.slice(0, stageIndex)).map((problem) => ({
-      stageIndex,
-      text: `Stage ${stageIndex + 1} · ${stage.name.trim() || stage.key}: ${problem}`,
-    })),
+    problemsOfStage(stage, stages.slice(0, stageIndex)).map((problem) =>
+      problemOnStage(stage, stageIndex, problem),
+    ),
   );
+}
+
+/** A problem with one Stage, worded so the editor's banner says which Stage it means. */
+export function problemOnStage(stage: Stage, stageIndex: number, problem: string): StageProblem {
+  return {
+    stageIndex,
+    text: `Stage ${stageIndex + 1} · ${stage.name.trim() || stage.key}: ${problem}`,
+  };
 }
 
 function problemsOfStage(stage: Stage, earlierStages: readonly Stage[]): string[] {
@@ -57,6 +64,7 @@ function agentStageProblems(stage: AgentStage, previous: Stage | undefined): str
   if (!isPositiveWholeNumber(stage.budget)) {
     problems.push("its budget must be a whole number of tokens above 0.");
   }
+  if (stage.model?.trim() === "") problems.push("choose a model, or keep the Role's.");
   if (
     stage.session === "continue" &&
     (previous?.kind !== "agent" || previous.role !== stage.role)

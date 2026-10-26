@@ -12,6 +12,8 @@ export type HardSwitchOnCard =
 export interface KnownPerson {
   readonly card: {
     readonly name: string;
+    /** "none" when the person only talks and no Pipeline may name the Role (spec §2.2). */
+    readonly taskLimit: number | "none";
     readonly permissionProfile: {
       readonly edit: boolean;
       readonly run: RunPermission;
