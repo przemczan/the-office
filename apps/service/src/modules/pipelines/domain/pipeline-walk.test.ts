@@ -70,6 +70,7 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     commandRuns: [],
     tokens: NO_STAGE_TOKENS,
     decisions,
+    heldBy: undefined,
     outcome,
     startedAt: new Date(0),
     endedAt: outcome && new Date(0),

@@ -27,6 +27,7 @@ function aRun(stageKey: string, decisions: StageRunDecision[]): StageRun {
     commandRuns: [],
     tokens: NO_STAGE_TOKENS,
     decisions,
+    heldBy: undefined,
     outcome: undefined,
     startedAt: new Date(0),
     endedAt: undefined,

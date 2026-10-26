@@ -7,6 +7,7 @@ import type {
   StageRunDecision,
   StageSessionMove,
   StageTokens,
+  UserInterruption,
 } from "../../domain/stage-run.js";
 import { StageRunRepository } from "../../ports/stage-run-repository.js";
 import { stageRuns } from "./stage-runs.schema.js";
@@ -46,6 +47,10 @@ export class PostgresStageRunRepository extends StageRunRepository {
     await this.database.update(stageRuns).set({ decisions }).where(eq(stageRuns.id, runId));
   }
 
+  async saveHeldBy(runId: string, heldBy: UserInterruption): Promise<void> {
+    await this.database.update(stageRuns).set({ heldBy }).where(eq(stageRuns.id, runId));
+  }
+
   async saveEnded({ id, outcome, endedAt }: StageRun): Promise<void> {
     await this.database.update(stageRuns).set({ outcome, endedAt }).where(eq(stageRuns.id, id));
   }
@@ -62,6 +67,7 @@ export class PostgresStageRunRepository extends StageRunRepository {
       threadId: row.threadId ?? undefined,
       session: row.session ?? undefined,
       headCommit: row.headCommit ?? undefined,
+      heldBy: row.heldBy ?? undefined,
       outcome: row.outcome ?? undefined,
       endedAt: row.endedAt ?? undefined,
     }));

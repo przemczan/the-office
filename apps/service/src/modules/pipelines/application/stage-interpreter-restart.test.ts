@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { SessionScript } from "../../engine/index.js";
-import { TaskPaused, TaskResumed } from "../../work/index.js";
+import { TaskPaused, TaskResumed, TaskStopped } from "../../work/index.js";
 import {
   AN_INTERRUPTED_SESSION,
   aDoneResult,
@@ -291,6 +291,37 @@ describe("Starting with a run left running", () => {
     expect(pipelines.decisions.on(taskId)).toEqual([]);
     expect(pipelines.stageThreads.requests[0]?.work).toContain(PAUSED_AND_CUT_SHORT);
     expect((await pipelines.tasks.read(taskId)).state).toBe("done");
+  });
+
+  it("honours the user's Stop recorded on a run a crash left running: its edits discarded, the Task Paused, nothing asked", async () => {
+    const before = await start();
+    const threadId = randomUUID();
+    const taskId = await aRunLeftRunning(before, [implement], threadId);
+    before.tasks.put(taskId, { state: "paused", pipelineId: "for-tests" });
+    await before.app.get(EventBus).publish(new TaskPaused(taskId, "in-progress"));
+    await before.app.get(EventBus).publish(new TaskStopped(taskId, "paused"));
+    expect((await runsOf(before, taskId))[0]?.heldBy).toBe("stop");
+    await close(before);
+
+    const after = await start([anAgentSession(aDoneResult())]);
+    after.git.uncommitted.set(taskId, ["src/dialog.ts"]);
+    await startUp(after, taskId, "paused");
+
+    const error =
+      "Stopped by the user. The Office discarded the Stage's uncommitted edits to 1 file.";
+    expect(await outcomesOf(after, taskId)).toEqual([
+      { status: "failed", error, interrupted: "stop" },
+    ]);
+    expect(after.git.discarded).toEqual([{ taskId, paths: ["src/dialog.ts"] }]);
+    expect(after.stageThreads.endedLeftRunning).toEqual([{ threadId, failure: error }]);
+    expect(after.decisions.on(taskId)).toEqual([]);
+    expect((await after.tasks.read(taskId)).state).toBe("paused");
+
+    await resume(after, taskId);
+
+    expect(after.decisions.on(taskId)).toEqual([]);
+    expect(after.stageThreads.requests[0]?.work).toContain("## Stopped by the user");
+    expect((await after.tasks.read(taskId)).state).toBe("done");
   });
 
   it("leaves a Stage the user paused before the shutdown as they held it", async () => {

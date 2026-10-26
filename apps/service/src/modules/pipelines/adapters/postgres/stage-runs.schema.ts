@@ -6,6 +6,7 @@ import type {
   StageRunDecision,
   StageSessionMove,
   StageTokens,
+  UserInterruption,
 } from "../../domain/stage-run.js";
 
 /** Each run of a started Task's Stages; the number keeps one walk per Task. */
@@ -32,6 +33,8 @@ export const stageRuns = pgTable(
       .default({ input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }),
     /** The Decisions the walk opened on the run, with the user's answers. */
     decisions: jsonb("decisions").$type<readonly StageRunDecision[]>().notNull().default([]),
+    /** What the user asked of the run while it ran: pause or stop. */
+    heldBy: text("held_by").$type<UserInterruption>(),
     outcome: jsonb("outcome").$type<StageOutcome>(),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     endedAt: timestamp("ended_at", { withTimezone: true }),

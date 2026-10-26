@@ -61,6 +61,9 @@ export type StageOutcome = (
  */
 export type StageInterruption = "stop" | "pause" | "restart";
 
+/** What the user can ask of a running Stage run: hold it after the turn, or stop it now. */
+export type UserInterruption = Extract<StageInterruption, "stop" | "pause">;
+
 /** The Task's tokens so far against the Stage's budget, when they reached it. */
 export interface BudgetReached {
   readonly used: number;
@@ -180,6 +183,11 @@ export interface StageRun {
   readonly tokens: StageTokens;
   /** The Decisions the walk opened on the run, at most one of each kind. */
   readonly decisions: readonly StageRunDecision[];
+  /**
+   * What the user asked of the run while it ran, the strongest kept, so a start after a crash
+   * honours it: a Stop discards the run's edits, a Pause keeps them. Undefined while nobody asked.
+   */
+  readonly heldBy: UserInterruption | undefined;
   /** Undefined while the Stage runs. */
   readonly outcome: StageOutcome | undefined;
   readonly startedAt: Date;

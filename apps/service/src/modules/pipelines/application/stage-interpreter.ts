@@ -12,8 +12,13 @@ import { DecisionAnswered } from "../../conversations/index.js";
 import { TaskPaused, TaskResumed, TaskStarted, TaskStopped } from "../../work/index.js";
 import { nextMove, type NextMove } from "../domain/pipeline-walk.js";
 import { STAGE_KIND_NAMES, type Stage } from "../domain/stage.js";
-import { interruptedOutcome, notStartedOutcome } from "../domain/stage-interruption.js";
-import type { StageInterruption, StageOutcome, StageRun } from "../domain/stage-run.js";
+import { interruptedOutcome, notStartedOutcome, outranks } from "../domain/stage-interruption.js";
+import type {
+  StageInterruption,
+  StageOutcome,
+  StageRun,
+  UserInterruption,
+} from "../domain/stage-run.js";
 import { endStageRun, startStageRun } from "../domain/stage-run-changes.js";
 import {
   BudgetReached,
@@ -108,10 +113,14 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   /**
    * Holds the Stage run of the Task's walk, if one goes on: its runner stops the Agent's turn now
    * (Stop) or once it ends (Pause), and ends the run as interrupted. A walk about to start one
-   * records it held without running it.
+   * records it held without running it. The run records what the user asked, so a start after a
+   * crash honours it.
    */
-  interrupt(taskId: string, interruption: StageInterruption): void {
+  async interrupt(taskId: string, interruption: UserInterruption): Promise<void> {
     this.interruptions.get(taskId)?.request(interruption);
+    const running = (await this.runs.list(taskId)).at(-1);
+    if (!running || running.outcome || !outranks(interruption, running.heldBy)) return;
+    await this.runs.saveHeldBy(running.id, interruption);
   }
 
   /**
@@ -183,15 +192,17 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
 
   /**
    * Ends the run as The Office restarted during it, its uncommitted edits discarded, and its Stage
-   * Thread's work with it. On a Task the user paused, the Pause was waiting for the Agent's turn
-   * to end, which the shutdown cut short: the run is held as paused, its edits kept.
+   * Thread's work with it; or as the user asked of it before the crash: a Stop ends it stopped,
+   * its edits discarded, and a Pause, waiting for the Agent's turn the crash cut short, holds it
+   * paused with its edits kept. A Paused Task with nothing recorded counts as paused.
    */
   private async endLeftRunning(
     run: StageRun,
     earlierRuns: readonly StageRun[],
     taskState: string,
   ): Promise<void> {
-    const interruption: StageInterruption = taskState === "paused" ? "pause" : "restart";
+    const interruption: StageInterruption =
+      run.heldBy ?? (taskState === "paused" ? "pause" : "restart");
     const task = await this.records.read(run.taskId);
     const discarded = await this.stageGit.settleLeftRunning(
       { run, earlierRuns },

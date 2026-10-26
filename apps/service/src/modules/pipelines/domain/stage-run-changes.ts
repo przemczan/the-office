@@ -28,6 +28,7 @@ export function startStageRun(
     commandRuns: [],
     tokens: NO_STAGE_TOKENS,
     decisions: [],
+    heldBy: undefined,
     outcome: undefined,
     startedAt,
     endedAt: undefined,

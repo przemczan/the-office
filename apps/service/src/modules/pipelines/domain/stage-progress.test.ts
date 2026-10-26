@@ -55,6 +55,7 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     ...each,
     tokens: each.tokens ?? NO_STAGE_TOKENS,
     decisions: each.decisions ?? [],
+    heldBy: undefined,
     carriedFailure: each.carriedFailure,
   }));
 }

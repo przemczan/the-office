@@ -4,6 +4,7 @@ import type {
   StageRunDecision,
   StageSessionMove,
   StageTokens,
+  UserInterruption,
 } from "../domain/stage-run.js";
 
 /** Where each Task's Stage runs are kept. */
@@ -28,6 +29,9 @@ export abstract class StageRunRepository {
 
   /** Saves the Decisions the walk opened on the run, replacing those saved before. */
   abstract saveDecisions(runId: string, decisions: readonly StageRunDecision[]): Promise<void>;
+
+  /** Saves what the user asked of the run while it runs, replacing what they asked before. */
+  abstract saveHeldBy(runId: string, heldBy: UserInterruption): Promise<void>;
 
   /** Saves how the run ended. */
   abstract saveEnded(run: StageRun): Promise<void>;
