@@ -8,17 +8,21 @@ import { RefusalAlert } from "../refusal-alert.tsx";
 /**
  * A Decision as a card in the asking person's Thread (spec §2.4): the question, what they found,
  * the options with the one they recommend, and a free answer. Follow-ups are ordinary messages in
- * the composer below, and leave it open. Nothing is answered while the person is still answering.
+ * the composer below, and leave it open, except in a Stage Thread, where The Office sends the
+ * messages once no Stage runs. Nothing is answered while the person is still answering.
  * The Office's own Decisions about the Task's Pipeline show in the same Thread, as The Office's.
  */
 export function DecisionCard({
   decision,
   personName,
   answering,
+  followUps,
 }: {
   readonly decision: Decision;
   readonly personName: string;
   readonly answering: boolean;
+  /** The user can ask the person something first in the composer below. */
+  readonly followUps: boolean;
 }): ReactNode {
   const asker = askerName(decision, personName);
   return (
@@ -30,7 +34,12 @@ export function DecisionCard({
       <div className="message-text decision-question">{decision.question}</div>
       {decision.context !== "" && <p className="decision-context">{decision.context}</p>}
       {decision.answer === null ? (
-        <OpenDecision decision={decision} personName={personName} answering={answering} />
+        <OpenDecision
+          decision={decision}
+          personName={personName}
+          answering={answering}
+          followUps={followUps}
+        />
       ) : (
         <div className="decision-answered">
           <Icon name="check" size={12} />
@@ -45,10 +54,12 @@ function OpenDecision({
   decision,
   personName,
   answering,
+  followUps,
 }: {
   readonly decision: Decision;
   readonly personName: string;
   readonly answering: boolean;
+  readonly followUps: boolean;
 }): ReactNode {
   const [freeAnswer, setFreeAnswer] = useState("");
   const answeringDecision = useAnswering(decision);
@@ -103,7 +114,7 @@ function OpenDecision({
           Answer
         </Button>
       </form>
-      {!byTheOffice && (
+      {followUps && !byTheOffice && (
         <p className="decision-hint">
           A question first? Ask {personName} below; the Decision stays open.
         </p>

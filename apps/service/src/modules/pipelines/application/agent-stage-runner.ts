@@ -16,7 +16,7 @@ import type {
 import { installFailure } from "../domain/script-stage-outcome.js";
 import { stageCommitMessage, type ExpectedHead } from "../domain/stage-commit.js";
 import { failedInstall, installRuns } from "../domain/stage-command-run.js";
-import { interruptedOutcome } from "../domain/stage-interruption.js";
+import { closingOf, interruptedOutcome } from "../domain/stage-interruption.js";
 import type { Stage } from "../domain/stage.js";
 import { budgetOutcome, budgetReached } from "../domain/stage-budget.js";
 import {
@@ -122,7 +122,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     if (work.interruption.requested) return this.holdWork(work, task, expected);
     const failed = failedInstall(installation);
     const thread = await this.open(work, person, task, failed && installFailure(failed));
-    let ending: Ending = { handoverNote: undefined, failure: undefined };
+    let ending: Ending = { handoverNote: undefined, closing: undefined };
     try {
       await this.runs.saveThread(work.run.id, thread.threadId, thread.move.move);
       const result = await this.resultOf(work, thread);
@@ -137,7 +137,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       ending = endingOf(outcome);
       return outcome;
     } catch (error) {
-      ending = { handoverNote: undefined, failure: messageOf(error) };
+      ending = { handoverNote: undefined, closing: { kind: "failure", reason: messageOf(error) } };
       throw error;
     } finally {
       await thread.end(ending);
@@ -363,10 +363,7 @@ function changedGitItself(problem: string, handoverNote: string | undefined): St
 }
 
 function endingOf(outcome: StageOutcome): Ending {
-  return {
-    handoverNote: outcome.handoverNote,
-    failure: outcome.status === "failed" ? outcome.error : undefined,
-  };
+  return { handoverNote: outcome.handoverNote, closing: closingOf(outcome) };
 }
 
 function stageOf(stages: readonly Stage[], key: string): Stage | undefined {

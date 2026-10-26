@@ -298,18 +298,19 @@ async function addedProject(
   repository: TemporaryRepository,
   name: string,
   label: string,
+  commands: NewProject["commands"] = {
+    install: "npm ci",
+    build: "npm run build",
+    lint: "npm run lint",
+    test: "npm test",
+  },
 ): Promise<Project> {
   const newProject: NewProject = {
     name,
     path: repository.path,
     baseBranch: "main",
     mark: { label, colour: "violet" },
-    commands: {
-      install: "npm ci",
-      build: "npm run build",
-      lint: "npm run lint",
-      test: "npm test",
-    },
+    commands,
     installInputs: [],
     publishingMode: "push-and-pull-request",
     defaultPipeline: "full",
@@ -344,127 +345,190 @@ test("a person's Work tab lists the Tasks whose Stages they work", async ({ page
 
 const QUERY_QUESTION = "Should sign-in keep the query string on the way back?";
 
-// The engine replays the planning session, the last in e2e/sessions.jsonl: Jan writes the Plan and
-// the Definition of Done, proposes Quick fix and opens a Decision, then takes its answer.
+/**
+ * The Task the user plans and then starts, with its repository, kept from one test to the next. Its
+ * Project's commands pass anywhere, so its Stages run without npm.
+ */
+const signIn: { repository?: TemporaryRepository; taskUrl?: string } = {};
+const PASSING_COMMANDS: NewProject["commands"] = {
+  install: "node --version",
+  build: "node --version",
+  lint: "node --version",
+  test: "node --version",
+};
+
+test.afterAll(async () => {
+  await signIn.repository?.remove();
+});
+
+// The engine replays the planning session from e2e/sessions.jsonl: Jan writes the Plan and the
+// Definition of Done, proposes Quick fix and opens a Decision, then takes its answer.
 test("the user plans a Task with the Planner to Ready, answering a Decision", async ({ page }) => {
   const repository = await createTemporaryRepository();
+  signIn.repository = repository;
+  const project = await addedProject(page, repository, "Sign-in", "SI", PASSING_COMMANDS);
+  const created = await page.request.post("/api/tasks", {
+    data: { title: "Sign-in returns to the page", projectId: project.id, priority: "normal" },
+  });
+  expect(created.status()).toBe(201);
+  await page.goto("/work");
+  await page
+    .getByRole("region", { name: "Backlog", exact: true })
+    .getByRole("article", { name: "Sign-in returns to the page" })
+    .getByRole("button", { name: "Plan", exact: true })
+    .click();
+
+  await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+$/);
+  signIn.taskUrl = page.url();
+  await expect(
+    page.getByText("Sign-in returns to the page is in Planning with Jan."),
+  ).toBeVisible();
+  const conversation = page.getByRole("complementary", { name: "Conversation" });
+  await expect(conversation.getByRole("button", { name: /^Planning · Jan/ })).toBeVisible();
+  const decision = conversation.getByRole("region", { name: `Decision: ${QUERY_QUESTION}` });
+  await expect(
+    decision.getByText("Jan recommends “Keep the query string”: Filters live in the query string."),
+  ).toBeVisible();
+  await expect(conversation.getByText(OPEN_DECISION_TOOL)).toHaveCount(0);
+  // The opening's context line opens to show the Brief the session started with.
+  const brief = conversation.getByText(/^You are planning a Task with the user/);
+  await expect(brief).toBeHidden();
+  await conversation.getByText("Brief", { exact: true }).click();
+  await expect(brief).toContainText("Sign-in returns to the page (Task ");
+  await expect(page.getByText("Waiting on you", { exact: true })).toBeVisible();
+
+  const record = page.getByRole("region", { name: "Record" });
+  const plan = record.getByRole("region", { name: "Plan", exact: true });
+  const definitionOfDone = record.getByRole("region", { name: "Definition of Done" });
+  const stages = record.getByRole("region", { name: /^Stages · / });
+  await expect(plan.getByText("Proposed by Jan")).toBeVisible();
+  await expect(definitionOfDone.getByText("The tests pass.")).toBeVisible();
+  await expect(stages.getByText(/A small change with tests/)).toBeVisible();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-planning.png") });
+
+  await page.getByRole("button", { name: "Mark Ready" }).click();
+  await expect(page.getByText(/Confirm the Plan before the Task can be Ready\./)).toBeVisible();
+  await expect(
+    page.getByText(/Answer the open Decision before the Task can be Ready\./),
+  ).toBeVisible();
+
+  await plan.getByRole("button", { name: "Confirm" }).click();
+  await expect(plan.getByText("Confirmed")).toBeVisible();
+  await definitionOfDone.getByRole("button", { name: "Edit" }).click();
+  await definitionOfDone
+    .getByRole("textbox")
+    .fill("Signing in returns to the page and its query string.\nThe tests pass.");
+  await definitionOfDone.getByRole("button", { name: "Save and confirm" }).click();
+  await expect(
+    definitionOfDone.getByText("Signing in returns to the page and its query string."),
+  ).toBeVisible();
+  await expect(definitionOfDone.getByText("Confirmed")).toBeVisible();
+  await expect(stages.getByLabel("Another Pipeline")).toContainText("Document");
+  await stages.getByRole("button", { name: "Use Quick fix" }).click();
+  await expect(record.getByRole("region", { name: "Stages · Quick fix" })).toBeVisible();
+  await expect(record.getByText(/A small change with tests/)).toHaveCount(0);
+
+  await decision.getByRole("button", { name: "Keep the query string" }).click();
+  await expect(conversation.getByText("The query string stays, as the Plan says.")).toBeVisible();
+  await expect(decision.getByText("Answered")).toBeVisible();
+  await expect(page.getByText("Waiting on you", { exact: true })).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Mark Ready" }).click();
+  await expect(
+    page.getByText("Sign-in returns to the page is Ready. Starting it is your call."),
+  ).toBeVisible();
+
+  // Start says why the Task can't start, here while Implement's person only talks; the next test
+  // starts it.
+  const start = page.getByRole("button", { name: "Start", exact: true });
+  await expect(start).toBeEnabled();
+  const taskLimit = await setDevelopersTaskLimit(page, "none");
   try {
-    const project = await addedProject(page, repository, "Sign-in", "SI");
-    const created = await page.request.post("/api/tasks", {
-      data: { title: "Sign-in returns to the page", projectId: project.id, priority: "normal" },
-    });
-    expect(created.status()).toBe(201);
-    await page.goto("/work");
-    await page
-      .getByRole("region", { name: "Backlog", exact: true })
-      .getByRole("article", { name: "Sign-in returns to the page" })
-      .getByRole("button", { name: "Plan", exact: true })
-      .click();
-
-    await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+$/);
-    await expect(
-      page.getByText("Sign-in returns to the page is in Planning with Jan."),
-    ).toBeVisible();
-    const conversation = page.getByRole("complementary", { name: "Conversation" });
-    await expect(conversation.getByRole("button", { name: /^Planning · Jan/ })).toBeVisible();
-    const decision = conversation.getByRole("region", { name: `Decision: ${QUERY_QUESTION}` });
-    await expect(
-      decision.getByText(
-        "Jan recommends “Keep the query string”: Filters live in the query string.",
-      ),
-    ).toBeVisible();
-    await expect(conversation.getByText(OPEN_DECISION_TOOL)).toHaveCount(0);
-    // The opening's context line opens to show the Brief the session started with.
-    const brief = conversation.getByText(/^You are planning a Task with the user/);
-    await expect(brief).toBeHidden();
-    await conversation.getByText("Brief", { exact: true }).click();
-    await expect(brief).toContainText("Sign-in returns to the page (Task ");
-    await expect(page.getByText("Waiting on you", { exact: true })).toBeVisible();
-
-    const record = page.getByRole("region", { name: "Record" });
-    const plan = record.getByRole("region", { name: "Plan", exact: true });
-    const definitionOfDone = record.getByRole("region", { name: "Definition of Done" });
-    const stages = record.getByRole("region", { name: /^Stages · / });
-    await expect(plan.getByText("Proposed by Jan")).toBeVisible();
-    await expect(definitionOfDone.getByText("The tests pass.")).toBeVisible();
-    await expect(stages.getByText(/A small change with tests/)).toBeVisible();
-    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-planning.png") });
-
-    await page.getByRole("button", { name: "Mark Ready" }).click();
-    await expect(page.getByText(/Confirm the Plan before the Task can be Ready\./)).toBeVisible();
-    await expect(
-      page.getByText(/Answer the open Decision before the Task can be Ready\./),
-    ).toBeVisible();
-
-    await plan.getByRole("button", { name: "Confirm" }).click();
-    await expect(plan.getByText("Confirmed")).toBeVisible();
-    await definitionOfDone.getByRole("button", { name: "Edit" }).click();
-    await definitionOfDone
-      .getByRole("textbox")
-      .fill("Signing in returns to the page and its query string.\nThe tests pass.");
-    await definitionOfDone.getByRole("button", { name: "Save and confirm" }).click();
-    await expect(
-      definitionOfDone.getByText("Signing in returns to the page and its query string."),
-    ).toBeVisible();
-    await expect(definitionOfDone.getByText("Confirmed")).toBeVisible();
-    await expect(stages.getByLabel("Another Pipeline")).toContainText("Document");
-    await stages.getByRole("button", { name: "Use Quick fix" }).click();
-    await expect(record.getByRole("region", { name: "Stages · Quick fix" })).toBeVisible();
-    await expect(record.getByText(/A small change with tests/)).toHaveCount(0);
-
-    await decision.getByRole("button", { name: "Keep the query string" }).click();
-    await expect(conversation.getByText("The query string stays, as the Plan says.")).toBeVisible();
-    await expect(decision.getByText("Answered")).toBeVisible();
-    await expect(page.getByText("Waiting on you", { exact: true })).toHaveCount(0);
-
-    await page.getByRole("button", { name: "Mark Ready" }).click();
-    await expect(
-      page.getByText("Sign-in returns to the page is Ready. Starting it is your call."),
-    ).toBeVisible();
-
-    // Start says why the Task can't start, here while Implement's person only talks; it is never
-    // clicked, as the walk would open a session out of e2e/sessions.jsonl's order.
-    const start = page.getByRole("button", { name: "Start", exact: true });
-    await expect(start).toBeEnabled();
-    const taskLimit = await setDevelopersTaskLimit(page, "none");
-    try {
-      await page.reload();
-      await expect(
-        page.getByText("Adam only talks (Task limit none), so can't work Implement."),
-      ).toBeVisible();
-      await expect(start).toBeDisabled();
-    } finally {
-      await setDevelopersTaskLimit(page, taskLimit);
-    }
     await page.reload();
-    await expect(start).toBeEnabled();
-
-    const idea = await page.request.post("/api/ideas", {
-      data: { title: "Keep the sign-in page per tab", notes: "", projectId: project.id },
-    });
-    expect(idea.status()).toBe(201);
-    await page.goto("/work/ideas");
     await expect(
-      page
-        .getByRole("article", { name: "Keep the sign-in page per tab" })
-        .getByRole("button", { name: "Plan as a Task with Jan" }),
+      page.getByText("Adam only talks (Task limit none), so can't work Implement."),
     ).toBeVisible();
-
-    await page.goto("/people/planner/work");
-    const row = page.getByRole("row", { name: /Sign-in returns to the page/ });
-    await expect(row).toContainText("Planning");
-    await expect(row).toContainText("Ready");
-
-    await page.goto("/people/planner/conversations");
-    await expect(page.getByText("Threads on Tasks · 1")).toBeVisible();
-    await page.getByRole("link", { name: /^Planning\s*Sign-in returns to the page$/ }).click();
-    await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+\?taskThread=[0-9a-f-]+$/);
-    await expect(
-      page
-        .getByRole("complementary", { name: "Conversation" })
-        .getByRole("button", { name: /^Planning · Jan/ }),
-    ).toHaveAttribute("aria-pressed", "true");
+    await expect(start).toBeDisabled();
   } finally {
-    await repository.remove();
+    await setDevelopersTaskLimit(page, taskLimit);
   }
+  await page.reload();
+  await expect(start).toBeEnabled();
+
+  const idea = await page.request.post("/api/ideas", {
+    data: { title: "Keep the sign-in page per tab", notes: "", projectId: project.id },
+  });
+  expect(idea.status()).toBe(201);
+  await page.goto("/work/ideas");
+  await expect(
+    page
+      .getByRole("article", { name: "Keep the sign-in page per tab" })
+      .getByRole("button", { name: "Plan as a Task with Jan" }),
+  ).toBeVisible();
+
+  await page.goto("/people/planner/work");
+  const row = page.getByRole("row", { name: /Sign-in returns to the page/ });
+  await expect(row).toContainText("Planning");
+  await expect(row).toContainText("Ready");
+
+  await page.goto("/people/planner/conversations");
+  await expect(page.getByText("Threads on Tasks · 1")).toBeVisible();
+  await page.getByRole("link", { name: /^Planning\s*Sign-in returns to the page$/ }).click();
+  await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+\?taskThread=[0-9a-f-]+$/);
+  await expect(
+    page
+      .getByRole("complementary", { name: "Conversation" })
+      .getByRole("button", { name: /^Planning · Jan/ }),
+  ).toHaveAttribute("aria-pressed", "true");
+});
+
+const PAGE_QUESTION = "Which page should sign-in return to when the session expired?";
+
+// The engine replays Implement's two sessions, the last in e2e/sessions.jsonl: the Developer opens
+// a Decision with the Office tool and ends the turn, then goes on in the same session with its
+// answer and ends the Stage done.
+test("the user starts the planned Task and answers its Developer's Decision, which resumes the Stage", async ({
+  page,
+}) => {
+  if (!signIn.taskUrl) throw new Error("The planning test didn't leave its Task.");
+  await page.goto(signIn.taskUrl);
+  await page.getByRole("button", { name: "Start", exact: true }).click();
+
+  const stages = page.getByRole("region", { name: "Stages · Quick fix" });
+  const conversation = page.getByRole("complementary", { name: "Conversation" });
+  const implement = stages
+    .getByRole("listitem")
+    .filter({ has: page.getByText("Implement", { exact: true }) });
+  await expect(page.getByText("Waiting on you", { exact: true })).toBeVisible();
+  await expect(implement).toContainText("Waiting on you");
+  await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Stop" })).toBeVisible();
+  await expect(conversation.getByRole("button", { name: /^Implement/ })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  const decision = conversation.getByRole("region", { name: `Decision: ${PAGE_QUESTION}` });
+  await expect(decision).toBeVisible();
+  // Between Stages The Office sends the Stage Thread's messages, so no follow-up is offered.
+  await expect(decision.getByText(/A question first\?/)).toHaveCount(0);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-waiting-on-you.png") });
+
+  await page.goto("/work");
+  const card = page
+    .getByRole("region", { name: "In progress", exact: true })
+    .getByRole("article", { name: "Sign-in returns to the page" });
+  await expect(card.getByText("Waiting on you", { exact: true })).toBeVisible();
+  await card.getByRole("link", { name: "Sign-in returns to the page" }).click();
+
+  await decision.getByRole("button", { name: "The page it started from" }).click();
+  await expect(decision.getByText("Answered")).toBeVisible();
+  await expect(
+    conversation.getByText("Signing in now returns to the page it started from."),
+  ).toBeVisible();
+  // The Stage ran again in the asking Thread, continuing its session.
+  await expect(implement).toContainText("continued session");
+  await expect(implement).toContainText("Done · ");
+  await expect(
+    stages.getByText("Handover note: The redirect keeps the path and the query string."),
+  ).toBeVisible();
 });

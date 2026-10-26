@@ -95,7 +95,11 @@ describe("Stop", () => {
     // No correction is asked of an interrupted turn, and nothing is committed or asked.
     expect(pipelines.stageThreads.sent).toEqual([]);
     expect(pipelines.stageThreads.ended).toEqual([
-      { threadId: run?.threadId, handoverNote: undefined, failure: error },
+      {
+        threadId: run?.threadId,
+        handoverNote: undefined,
+        closing: { kind: "held", heldBy: "stop", text: error },
+      },
     ]);
     expect(pipelines.git.discarded).toEqual([
       { taskId, paths: ["src/dialog.ts", "src/dialog.test.ts"] },

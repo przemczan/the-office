@@ -30,8 +30,10 @@ export function ThreadView({
   });
   if (!thread.data) return null;
   const answering = thread.data.state === "answering";
-  // While its Stage runs, a Stage Thread takes the user's message at the next safe point (barge-in).
+  // While its Stage runs, a Stage Thread takes the user's message at the next safe point (barge-in);
+  // between Stages The Office sends its messages, so it takes none from the user.
   const stageRunning = answering && thread.data.stageThread;
+  const closed = thread.data.stageThread && !answering;
   return (
     <section className="thread-view" aria-label={threadTitle(thread.data, personName)}>
       <ThreadTitle thread={thread.data} personName={personName} />
@@ -49,8 +51,8 @@ export function ThreadView({
             ? `Message ${personName}… (lands at the next safe point)`
             : `Message ${personName}…`
         }
-        busy={answering && !stageRunning}
-        busyHint={`${personName} is still answering`}
+        busy={(answering && !stageRunning) || closed}
+        busyHint={closed ? "You write here while a Stage runs" : `${personName} is still answering`}
         onSend={(text) => sending.mutateAsync(text)}
       />
     </section>

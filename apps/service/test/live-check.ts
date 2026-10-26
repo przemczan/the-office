@@ -37,6 +37,8 @@ export function messageLine(message: Message): string {
       return `context ${message.move} (${message.reason}), context ${message.contextTokens}, brief ${message.briefTokens}`;
     case "failure":
       return `failure: ${message.reason}`;
+    case "held":
+      return `held (${message.heldBy}): ${message.text}`;
     case "decision": {
       const { question, options, recommendation } = message.decision;
       return `decision: ${question} [${options.join(" | ")}], recommends ${recommendation.option + 1}: ${recommendation.reason}`;

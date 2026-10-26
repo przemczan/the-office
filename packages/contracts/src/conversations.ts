@@ -190,6 +190,13 @@ export const messageSchema = z.discriminatedUnion("kind", [
   }),
   /** Why the person couldn't answer. */
   z.object({ ...messageFields, kind: z.literal("failure"), reason: z.string() }),
+  /** The user held the Stage with Pause or Stop, which is no failure: The Office's line. */
+  z.object({
+    ...messageFields,
+    kind: z.literal("held"),
+    heldBy: z.enum(["pause", "stop"]),
+    text: z.string(),
+  }),
   /** A Decision the person opened (The Office, when null), as its card shows it now, answered or not. */
   z.object({
     ...messageFields,

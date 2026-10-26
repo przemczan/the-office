@@ -24,8 +24,19 @@ export type MessageDraft =
   | DecisionCard
   | DecisionAnswerLine
   | ContextLine
-  /** Why the person couldn't answer, in the engine's or The Office's words. */
-  | { readonly kind: "failure"; readonly reason: string };
+  | StageWorkClosing;
+
+/**
+ * The line a Stage's work in its Thread may close with: why the person couldn't answer, in the
+ * engine's or The Office's words, or that the user held the Stage with Pause or Stop, which is no
+ * failure (spec §2.4). A failure closes a chat's turn too.
+ */
+export type StageWorkClosing =
+  | { readonly kind: "failure"; readonly reason: string }
+  | { readonly kind: "held"; readonly heldBy: HeldBy; readonly text: string };
+
+/** How the user held a running Stage. */
+export type HeldBy = "pause" | "stop";
 
 /**
  * Whether a message the user wrote reached the person: one written into a running Stage Thread

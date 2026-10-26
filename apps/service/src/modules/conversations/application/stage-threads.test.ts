@@ -25,7 +25,12 @@ import { DecisionAnswered } from "../domain/conversation-events.js";
 import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "../domain/context-policy.js";
 import type { Message, MessageDraft } from "../domain/message.js";
 import type { Thread } from "../domain/thread.js";
-import { answerDecision, openDecision, startTaskThread } from "../domain/thread-changes.js";
+import {
+  answerDecision,
+  chooseOverride,
+  openDecision,
+  startTaskThread,
+} from "../domain/thread-changes.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
@@ -217,7 +222,7 @@ function drafts(log: readonly Message[]): MessageDraft[] {
 async function aStageRun(request: StageThreadRequest, handoverNote = "Left: nothing.") {
   const stageThread = await stageThreads.open(request);
   const turn = await stageThread.nextTurn();
-  await stageThread.end({ handoverNote, failure: undefined });
+  await stageThread.end({ handoverNote, closing: undefined });
   return { stageThread, turn };
 }
 
@@ -356,6 +361,27 @@ describe("StageThreads", () => {
     expect(again.stageThread.move).toMatchObject({ move: "resume", reason: "cache-warm" });
   });
 
+  it("takes the user's choice in the Thread's context label when the Stage goes on in it, and spends it", async () => {
+    await startWith(
+      started(...aTurn({ status: "needs_decision" })),
+      started(...aTurn({ status: "done" }, "Going on.")),
+    );
+    const ada = aPerson("Ada");
+    const first = await aStageRun(aStage({ roleKey: ada }));
+    const threadId = first.stageThread.threadId;
+    await repository.update(threadId, (latest) =>
+      chooseOverride(latest, "start-fresh", new Date()),
+    );
+
+    const again = await aStageRun(
+      aStage({ roleKey: ada, declared: undefined, previousThreadId: threadId }),
+    );
+
+    expect(again.stageThread.move).toMatchObject({ move: "fresh", reason: "your-choice" });
+    expect(again.stageThread.threadId).not.toBe(threadId);
+    expect((await threadOf(threadId)).override).toBeUndefined();
+  });
+
   it("starts a Stage declared fresh in a new Thread, even for the same person", async () => {
     await startWith(started(...aTurn({ status: "done" })), started(...aTurn({ status: "done" })));
     const ada = aPerson("Ada");
@@ -409,7 +435,10 @@ describe("StageThreads", () => {
     await stageThread.nextTurn();
 
     const corrected = await stageThread.send("Correct it.", "The result was invalid.");
-    await stageThread.end({ handoverNote: undefined, failure: "It failed anyway." });
+    await stageThread.end({
+      handoverNote: undefined,
+      closing: { kind: "failure", reason: "It failed anyway." },
+    });
 
     expect(corrected.output).toEqual({ status: "done" });
     const thread = await threadOf(stageThread.threadId);
@@ -430,7 +459,7 @@ describe("StageThreads", () => {
     const [session] = engine.sessions;
     expect(session?.received.filter(({ step }) => step === "end")).toHaveLength(1);
     expect((await threadOf(stageThread.threadId)).state).toBe("answering");
-    await stageThread.end({ handoverNote: "Left: nothing.", failure: undefined });
+    await stageThread.end({ handoverNote: "Left: nothing.", closing: undefined });
 
     expect(session?.received.filter(({ step }) => step === "end")).toHaveLength(1);
     expect((await threadOf(stageThread.threadId)).state).toBe("waiting");
@@ -514,7 +543,7 @@ describe("barge-in", () => {
     expect(await userMessages(stageThread.threadId)).toEqual([
       { kind: "user", text: "Rename it on the list too.", delivery: "delivered" },
     ]);
-    await stageThread.end({ handoverNote: undefined, failure: undefined });
+    await stageThread.end({ handoverNote: undefined, closing: undefined });
     // One session took it, and no other start or resume: the scripted engine refuses a send of
     // any other priority.
     const steps = engine.sessions.flatMap(({ received }) => received.map(({ step }) => step));
@@ -542,7 +571,7 @@ describe("barge-in", () => {
     expect(await userMessages(stageThread.threadId)).toEqual([
       { kind: "user", text: "Rename it on the list too.", delivery: "delivered" },
     ]);
-    await stageThread.end({ handoverNote: undefined, failure: undefined });
+    await stageThread.end({ handoverNote: undefined, closing: undefined });
   });
 
   it("holds a message written between turns until The Office sends its next one", async () => {
@@ -565,7 +594,7 @@ describe("barge-in", () => {
     expect(await userMessages(stageThread.threadId)).toEqual([
       { kind: "user", text: "Rename it on the list too.", delivery: "delivered" },
     ]);
-    await stageThread.end({ handoverNote: undefined, failure: undefined });
+    await stageThread.end({ handoverNote: undefined, closing: undefined });
   });
 
   it("marks a message not delivered when the Stage's session ends first, and refuses any after", async () => {
@@ -582,7 +611,7 @@ describe("barge-in", () => {
     await expect(stageThreads.bargeIn(stageThread.threadId, "And the page?")).rejects.toThrow(
       ThreadRefused,
     );
-    await stageThread.end({ handoverNote: undefined, failure: undefined });
+    await stageThread.end({ handoverNote: undefined, closing: undefined });
   });
 });
 
@@ -626,9 +655,18 @@ describe("Stop", () => {
     });
     // Between turns there is nothing to stop.
     await stageThread.interrupt();
-    await stageThread.end({ handoverNote: undefined, failure: "Stopped by the user." });
+    await stageThread.end({
+      handoverNote: undefined,
+      closing: { kind: "held", heldBy: "stop", text: "Stopped by the user." },
+    });
     expect(receivedSteps()).toEqual(["start", "interrupt", "end"]);
     expect((await threadOf(stageThread.threadId)).tokens.output).toBe(USAGE.output);
+    // The user held the Stage, which is no failure.
+    expect(drafts(await repository.messages(stageThread.threadId)).at(-1)).toEqual({
+      kind: "held",
+      heldBy: "stop",
+      text: "Stopped by the user.",
+    });
   });
 
   it("ends the session instead on an engine that can't interrupt", async () => {
@@ -640,7 +678,10 @@ describe("Stop", () => {
     await stageThread.interrupt();
 
     await expect(turn).rejects.toThrow("The session ended before the Stage's turn did.");
-    await stageThread.end({ handoverNote: undefined, failure: "Stopped by the user." });
+    await stageThread.end({
+      handoverNote: undefined,
+      closing: { kind: "held", heldBy: "stop", text: "Stopped by the user." },
+    });
     expect(receivedSteps()).toEqual(["start", "end"]);
   });
 
@@ -660,7 +701,10 @@ describe("Stop", () => {
     await stageThreads.bargeIn(stopped.threadId, "Rename it on the list instead.");
     await stopped.interrupt();
     await turn;
-    await stopped.end({ handoverNote: undefined, failure: "Stopped by the user." });
+    await stopped.end({
+      handoverNote: undefined,
+      closing: { kind: "held", heldBy: "stop", text: "Stopped by the user." },
+    });
     expect(await userMessages(stopped.threadId)).toEqual([
       { kind: "user", text: "Rename it on the list instead.", delivery: "not-delivered" },
     ]);
@@ -691,7 +735,7 @@ describe("Stop", () => {
     expect(await userMessages(stopped.threadId)).toEqual([
       { kind: "user", text: "Rename it on the list instead.", delivery: "delivered" },
     ]);
-    await again.end({ handoverNote: undefined, failure: undefined });
+    await again.end({ handoverNote: undefined, closing: undefined });
   });
 
   it("ends the work of a Stage left running as The Office stopped, so its waiting messages go with the next run", async () => {
@@ -707,7 +751,11 @@ describe("Stop", () => {
     const failure =
       "The Office restarted during this Stage. The Stage had left no uncommitted edits.";
 
-    const asked = await stageThreads.endLeftRunning(left.threadId, failure, since);
+    const asked = await stageThreads.endLeftRunning(
+      left.threadId,
+      { kind: "failure", reason: failure },
+      since,
+    );
 
     expect(await userMessages(left.threadId)).toEqual([
       { kind: "user", text: "Rename it on the list instead.", delivery: "not-delivered" },
@@ -734,7 +782,7 @@ describe("Stop", () => {
       brief: { text: expect.stringContaining("> Rename it on the list instead.") },
     });
     await again.nextTurn();
-    await again.end({ handoverNote: undefined, failure: undefined });
+    await again.end({ handoverNote: undefined, closing: undefined });
   });
 
   it("carries nothing written before the held run began", async () => {
@@ -746,7 +794,7 @@ describe("Stop", () => {
     const earlier = await stageThreads.open(aStage({ roleKey: ada }));
     await earlier.nextTurn();
     await stageThreads.bargeIn(earlier.threadId, "An old message.");
-    await earlier.end({ handoverNote: undefined, failure: undefined });
+    await earlier.end({ handoverNote: undefined, closing: undefined });
 
     await stageThreads.open(
       aStage({
@@ -912,7 +960,7 @@ describe("Office tools on a Stage", () => {
     await expect(
       app.get(DecisionService).answer(id, { kind: "option", option: 0 }),
     ).rejects.toThrow(new ThreadRefused(["The Stage is still running. Answer once it has ended."]));
-    await stageThread.end({ handoverNote: "Waiting.", failure: undefined });
+    await stageThread.end({ handoverNote: "Waiting.", closing: undefined });
     const answered = answeredEvents();
 
     await app.get(DecisionService).answer(id, { kind: "option", option: 0 });
@@ -936,7 +984,7 @@ describe("Office tools on a Stage", () => {
     const first = await stageThreads.open(request);
     await first.nextTurn();
     const earlier = await first.askedDecision();
-    await first.end({ handoverNote: undefined, failure: undefined });
+    await first.end({ handoverNote: undefined, closing: undefined });
     await app.get(DecisionService).answer(earlier?.id ?? "", { kind: "option", option: 1 });
 
     const again = await stageThreads.open({
@@ -946,7 +994,7 @@ describe("Office tools on a Stage", () => {
     });
     await again.nextTurn();
     const asked = await again.askedDecision();
-    await again.end({ handoverNote: undefined, failure: undefined });
+    await again.end({ handoverNote: undefined, closing: undefined });
 
     expect(again.threadId).toBe(first.threadId);
     expect(asked).toMatchObject({ question: "Which label?" });
@@ -966,14 +1014,18 @@ describe("Office tools on a Stage", () => {
 
     const asked = await stageThreads.endLeftRunning(
       left.threadId,
-      "The Office restarted during this Stage.",
+      { kind: "failure", reason: "The Office restarted during this Stage." },
       since,
     );
 
     expect(asked).toMatchObject({ question: "Which page shows the rename?" });
     expect((await threadOf(left.threadId)).openDecision?.id).toBe(asked?.id);
     await expect(
-      stageThreads.endLeftRunning(left.threadId, "Again.", new Date(Date.now() + 1_000)),
+      stageThreads.endLeftRunning(
+        left.threadId,
+        { kind: "failure", reason: "Again." },
+        new Date(Date.now() + 1_000),
+      ),
     ).resolves.toBeUndefined();
   });
 

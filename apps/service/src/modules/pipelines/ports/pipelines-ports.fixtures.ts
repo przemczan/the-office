@@ -12,6 +12,7 @@ import {
 } from "./stage-threads.js";
 import { StartedTasks, type StartedTask, type WalkTaskState } from "./started-tasks.js";
 import type { CommandRun, Installation, ScriptCommandRun } from "../domain/stage-command-run.js";
+import type { StageWorkClosing } from "../domain/stage-interruption.js";
 import { TaskCommands, type ScriptCommandKey } from "./task-commands.js";
 import { TaskGit, type WorktreeHead } from "./task-git.js";
 import { TaskRecords, type TaskRecord } from "./task-records.js";
@@ -143,7 +144,8 @@ export class StageThreadsForTests extends StageThreads {
    */
   asksInTurn: ((request: StageThreadRequest) => AskedDecision | undefined) | undefined = undefined;
   /** The Threads whose Stage The Office found left running as it started, with why it ended. */
-  readonly endedLeftRunning: { readonly threadId: string; readonly failure: string }[] = [];
+  readonly endedLeftRunning: { readonly threadId: string; readonly closing: StageWorkClosing }[] =
+    [];
   /** The Decision each Thread found left running had opened, by its Thread, as a test puts it. */
   readonly leftAsking = new Map<string, AskedDecision>();
 
@@ -217,8 +219,11 @@ export class StageThreadsForTests extends StageThreads {
     };
   }
 
-  async endLeftRunning(threadId: string, failure: string): Promise<AskedDecision | undefined> {
-    this.endedLeftRunning.push({ threadId, failure });
+  async endLeftRunning(
+    threadId: string,
+    closing: StageWorkClosing,
+  ): Promise<AskedDecision | undefined> {
+    this.endedLeftRunning.push({ threadId, closing });
     return this.leftAsking.get(threadId);
   }
 }

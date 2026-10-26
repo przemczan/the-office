@@ -1,11 +1,12 @@
 import type { Stage } from "./stage.js";
-import { budgetTokens, type StageRun } from "./stage-run.js";
+import { budgetTokens, type StageInterruption, type StageRun } from "./stage-run.js";
 
 /**
  * Where one of a started Task's Stages stands, as the Task page shows it: from its latest run, or
- * pending before its first.
+ * pending before its first. A run the user held with Pause or Stop is no failure (spec §2.4).
  */
-export type StageState = "pending" | "running" | "waiting-on-you" | "done" | "skipped" | "failed";
+export type StageState =
+  "pending" | "running" | "waiting-on-you" | "paused" | "stopped" | "done" | "skipped" | "failed";
 
 /** Where a failed run's on-failure loop went back to, and which time. */
 export interface WentBack {
@@ -54,8 +55,15 @@ function stateOf({ outcome, decisions }: StageRun): StageState {
     case "needs-decision":
       return decisions.length === 0 ? "waiting-on-you" : "done";
     case "failed":
-      return "failed";
+      return heldState(outcome.interrupted) ?? "failed";
   }
+}
+
+/** A restart stays a failure: The Office, not the user, ended the run. */
+function heldState(interrupted: StageInterruption | undefined): StageState | undefined {
+  if (interrupted === "pause") return "paused";
+  if (interrupted === "stop") return "stopped";
+  return undefined;
 }
 
 function wentBackFrom(run: StageRun, runs: readonly StageRun[]): WentBack | undefined {

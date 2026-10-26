@@ -12,7 +12,12 @@ import { DecisionAnswered } from "../../conversations/index.js";
 import { TaskPaused, TaskResumed, TaskStarted, TaskStopped } from "../../work/index.js";
 import { nextMove, type NextMove } from "../domain/pipeline-walk.js";
 import { STAGE_KIND_NAMES, type Stage } from "../domain/stage.js";
-import { interruptedOutcome, notStartedOutcome, outranks } from "../domain/stage-interruption.js";
+import {
+  closingOf,
+  interruptedOutcome,
+  notStartedOutcome,
+  outranks,
+} from "../domain/stage-interruption.js";
 import type {
   StageInterruption,
   StageOutcome,
@@ -217,8 +222,9 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     const outcome = interruptedOutcome(interruption, discarded, { cutShort: true });
     const ended = endStageRun(run, outcome, new Date());
     await this.runs.saveEnded(ended.run);
-    if (run.threadId && outcome.status === "failed") {
-      const asked = await this.threads.endLeftRunning(run.threadId, outcome.error, run.startedAt);
+    const closing = closingOf(outcome);
+    if (run.threadId && closing) {
+      const asked = await this.threads.endLeftRunning(run.threadId, closing, run.startedAt);
       // As a held run keeps it: nothing runs again until the user answers it.
       if (asked && !run.decisions.some(({ id }) => id === asked.id)) {
         await this.runs.saveDecisions(run.id, [...run.decisions, agentDecision(asked)]);

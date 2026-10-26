@@ -158,7 +158,7 @@ function BoardCard({
   readonly projects: readonly Project[] | undefined;
   /** The Planner's name; undefined while nobody is the Planner. */
   readonly planner: string | undefined;
-  /** In Planning with a Decision open. */
+  /** In Planning or Paused with a Decision open. */
   readonly waiting: boolean;
   readonly dragging: boolean;
   readonly dropBefore: boolean;
@@ -225,6 +225,14 @@ function footOf(task: Task, planner: string | undefined, waiting: boolean): Reac
     case "in-progress":
     case "done":
       return undefined;
+    // Held with a Decision its Agent opened before: Paused and Waiting on you at once (spec §2.4).
+    case "paused":
+      return (
+        <>
+          <TaskStateBadge state="paused" />
+          {waiting && <TaskStateBadge state="waiting-on-you" />}
+        </>
+      );
     default:
       return <TaskStateBadge state={task.state} />;
   }

@@ -186,9 +186,15 @@
   color: var(--danger-fg);
 }
 
-.message-line.failed .message-summary {
+.message-line.failed .message-summary,
+.message-line.held .message-summary {
   font: var(--type-caption);
   white-space: normal;
+}
+
+/* The user held the Stage: no failure, so it reads as plainly as the log's other lines. */
+.message-line.held {
+  color: var(--fg-2);
 }
 
 /* The Office's own line: never a person's, never "System" (spec §9). */

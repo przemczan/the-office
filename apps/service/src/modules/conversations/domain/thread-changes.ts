@@ -18,7 +18,7 @@ import {
   ThreadStarted,
   TurnEnded,
 } from "./conversation-events.js";
-import type { Message, MessageDelivery, MessageDraft } from "./message.js";
+import type { Message, MessageDelivery, MessageDraft, StageWorkClosing } from "./message.js";
 import {
   addTokens,
   NO_TOKENS,
@@ -452,24 +452,24 @@ export interface StageWorkEnding {
   readonly roleKey: string;
   /** The person's Handover note in their result, if they wrote one. */
   readonly handoverNote: string | undefined;
-  /** Why the Stage failed, when it did. */
-  readonly failure: string | undefined;
+  /** Why the Stage failed, or that the user held it, when either. */
+  readonly closing: StageWorkClosing | undefined;
 }
 
 /**
- * The Stage's work in its Stage Thread ends: its Handover note and its failure, if any, are logged,
- * and the Thread waits.
+ * The Stage's work in its Stage Thread ends: its Handover note and its closing line, if any, are
+ * logged, and the Thread waits.
  */
 export function endStageWork(
   thread: Thread,
-  { roleKey, handoverNote, failure }: StageWorkEnding,
+  { roleKey, handoverNote, closing }: StageWorkEnding,
   endedAt: Date,
 ): ThreadChange<MessagesLogged | TurnEnded> | undefined {
   const lines: MessageDraft[] = [
     ...(handoverNote === undefined
       ? []
       : [{ kind: "handover-note" as const, roleKey, text: handoverNote }]),
-    ...(failure === undefined ? [] : [{ kind: "failure" as const, reason: failure }]),
+    ...(closing === undefined ? [] : [closing]),
   ];
   const messages = lines.map((line): Message => ({
     ...line,

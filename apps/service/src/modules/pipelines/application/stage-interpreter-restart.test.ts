@@ -248,7 +248,9 @@ describe("Starting with a run left running", () => {
       "The Office restarted during this Stage. The Office discarded the Stage's uncommitted edits to 2 files.";
     expect(run?.outcome).toEqual({ status: "failed", error, interrupted: "restart" });
     expect(more).toEqual([]);
-    expect(pipelines.stageThreads.endedLeftRunning).toEqual([{ threadId, failure: error }]);
+    expect(pipelines.stageThreads.endedLeftRunning).toEqual([
+      { threadId, closing: { kind: "failure", reason: error } },
+    ]);
     expect(run?.headCommit).toBe(PLANNED_COMMIT);
     expect(pipelines.decisions.on(taskId).map(({ draft }) => draft.question)).toEqual([
       RESTART_QUESTION,
@@ -313,7 +315,7 @@ describe("Starting with a run left running", () => {
     expect(held?.headCommit).toBe(PLANNED_COMMIT);
     expect(pipelines.git.discarded).toEqual([]);
     expect(pipelines.stageThreads.endedLeftRunning).toEqual([
-      { threadId, failure: CUT_SHORT_PAUSE.error },
+      { threadId, closing: { kind: "held", heldBy: "pause", text: CUT_SHORT_PAUSE.error } },
     ]);
     expect(pipelines.decisions.on(taskId)).toEqual([]);
     expect((await pipelines.tasks.read(taskId)).state).toBe("paused");
@@ -345,7 +347,9 @@ describe("Starting with a run left running", () => {
       { status: "failed", error, interrupted: "stop" },
     ]);
     expect(after.git.discarded).toEqual([{ taskId, paths: ["src/dialog.ts"] }]);
-    expect(after.stageThreads.endedLeftRunning).toEqual([{ threadId, failure: error }]);
+    expect(after.stageThreads.endedLeftRunning).toEqual([
+      { threadId, closing: { kind: "held", heldBy: "stop", text: error } },
+    ]);
     expect(after.decisions.on(taskId)).toEqual([]);
     expect((await after.tasks.read(taskId)).state).toBe("paused");
 

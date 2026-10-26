@@ -46,11 +46,16 @@ export type Pipeline = z.infer<typeof pipelineSchema>;
 
 export const pipelineListSchema = z.array(pipelineSchema);
 
-/** Where one of a started Task's Stages stands, from its latest run. */
+/**
+ * Where one of a started Task's Stages stands, from its latest run: paused and stopped when the
+ * user held it, which is no failure.
+ */
 export const stageStateSchema = z.enum([
   "pending",
   "running",
   "waiting-on-you",
+  "paused",
+  "stopped",
   "done",
   "skipped",
   "failed",

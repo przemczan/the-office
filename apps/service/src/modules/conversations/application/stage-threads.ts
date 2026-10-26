@@ -12,12 +12,18 @@ import {
   type ContextPolicySettings,
 } from "../domain/context-policy.js";
 import type { Decision } from "../domain/decision.js";
-import type { Message, MessageDelivery, MessageDraft } from "../domain/message.js";
+import type {
+  Message,
+  MessageDelivery,
+  MessageDraft,
+  StageWorkClosing,
+} from "../domain/message.js";
 import { openingMessage, taskThreadInstructions } from "../domain/session-instructions.js";
 import { addTokens, NO_TOKENS, type Thread, type TokenTotals } from "../domain/thread.js";
 import {
   bargeIn,
   beginStageWork,
+  chooseOverride,
   endStageWork,
   endTurn,
   failAnswer,
@@ -170,7 +176,9 @@ export class StageThreads {
         session: previous?.session,
         roleKey: request.roleKey,
         sessionDefault: current.card.sessionDefault,
-        override: undefined,
+        // Going on in its Thread, the Stage takes the user's choice in that Thread's context label,
+        // which Resume's label shows; at a Stage boundary the declared session wins.
+        override: request.declared === undefined ? previous?.override : undefined,
         declared: request.declared,
         briefTokens: brief.tokens,
       },
@@ -191,6 +199,10 @@ export class StageThreads {
       return this.continueIn(previous, carrying, move, brief, now);
     }
     if (previous?.session) await this.forget(previous.session.id);
+    // The user's choice is spent on this run, as a message spends it (`beginStageWork`).
+    if (previous?.override) {
+      await this.change(previous.id, (latest) => chooseOverride(latest, undefined, now));
+    }
     return this.startIn(carrying, current, move, brief, now);
   }
 
@@ -214,13 +226,13 @@ export class StageThreads {
   /**
    * Ends the Stage's work in a Thread whose session The Office lost as it stopped, found as it
    * starts again (spec §2.4): the user's messages still waiting to land never will, so they are
-   * marked not delivered and go with the Stage's next run as after a Stop, and the Thread logs why
-   * the Stage ended. Returns the Decision the person opened since the run `began`, still waiting
-   * on the user, for the run to keep.
+   * marked not delivered and go with the Stage's next run as after a Stop, and the Thread closes
+   * with why the Stage ended. Returns the Decision the person opened since the run `began`, still
+   * waiting on the user, for the run to keep.
    */
   async endLeftRunning(
     threadId: string,
-    failure: string,
+    closing: StageWorkClosing,
     began: Date,
   ): Promise<AskedDecision | undefined> {
     await this.mark(
@@ -231,7 +243,7 @@ export class StageThreads {
     const ended = await this.change(threadId, (latest) =>
       endStageWork(
         latest,
-        { roleKey: latest.roleKey, handoverNote: undefined, failure },
+        { roleKey: latest.roleKey, handoverNote: undefined, closing },
         new Date(),
       ),
     );

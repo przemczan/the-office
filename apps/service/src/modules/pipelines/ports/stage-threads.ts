@@ -1,5 +1,6 @@
 import type { CommandPermission } from "../domain/allowed-commands.js";
 import type { StageSession } from "../domain/stage.js";
+import type { StageWorkClosing } from "../domain/stage-interruption.js";
 import type { StageDecision, StageSessionMove, StageTokens } from "../domain/stage-run.js";
 
 /** What an Agent Stage gives its sessions, beside what the person's Role card does. */
@@ -89,7 +90,7 @@ export interface StageThread {
   /** Ends the Stage's work in the Thread, and its session unless `endSession` has. */
   end(ending: {
     readonly handoverNote: string | undefined;
-    readonly failure: string | undefined;
+    readonly closing: StageWorkClosing | undefined;
   }): Promise<void>;
 }
 
@@ -101,14 +102,14 @@ export abstract class StageThreads {
   abstract open(request: StageThreadRequest): Promise<StageThread>;
 
   /**
-   * Ends the Stage's work in the Thread of a run The Office left running as it stopped, logging
-   * `failure`: the user's messages still waiting to land become not delivered, so they go with
+   * Ends the Stage's work in the Thread of a run The Office left running as it stopped, closing
+   * with `closing`: the user's messages still waiting to land become not delivered, so they go with
    * the Stage's next run as after a Stop. Returns the Decision the person opened in the Thread
    * since the run `began`, still waiting on the user, for the run to keep.
    */
   abstract endLeftRunning(
     threadId: string,
-    failure: string,
+    closing: StageWorkClosing,
     began: Date,
   ): Promise<AskedDecision | undefined>;
 }

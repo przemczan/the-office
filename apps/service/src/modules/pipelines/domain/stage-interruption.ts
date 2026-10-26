@@ -104,3 +104,20 @@ function discardedWords(count: number): string {
   const files = count === 1 ? "1 file" : `${count} files`;
   return `The Office discarded the Stage's uncommitted edits to ${files}.`;
 }
+
+/**
+ * The line a Stage's work in its Thread closes with: that the user held it with Pause or Stop,
+ * which is no failure (spec §2.4), or why it failed. A restart is a failure: The Office ended it.
+ */
+export type StageWorkClosing =
+  | { readonly kind: "failure"; readonly reason: string }
+  | { readonly kind: "held"; readonly heldBy: "pause" | "stop"; readonly text: string };
+
+/** The closing line of a run's outcome; undefined for a run that neither failed nor was held. */
+export function closingOf(outcome: StageOutcome): StageWorkClosing | undefined {
+  if (outcome.status !== "failed") return undefined;
+  const { interrupted, error } = outcome;
+  return interrupted === "pause" || interrupted === "stop"
+    ? { kind: "held", heldBy: interrupted, text: error }
+    : { kind: "failure", reason: error };
+}

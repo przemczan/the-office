@@ -106,7 +106,7 @@ describe("AgentStageRunner", () => {
       definitionOfDoneMet: [1, 2],
     });
     expect(pipelines.stageThreads.ended).toEqual([
-      { threadId: run?.threadId, handoverNote: "Left: the list's refresh.", failure: undefined },
+      { threadId: run?.threadId, handoverNote: "Left: the list's refresh.", closing: undefined },
     ]);
   });
 
@@ -194,7 +194,9 @@ describe("AgentStageRunner", () => {
       "The Stage's result still didn't match its schema after one correction: status \"needs_decision\" means you opened a Decision with open_decision or consult, and you opened none. Open it with one of them first, then end your turn with needs_decision again.";
     expect(await outcomesOf(taskId)).toEqual([{ status: "failed", error }]);
     expect(pipelines.stageThreads.sent).toHaveLength(1);
-    expect(pipelines.stageThreads.ended[0]).toMatchObject({ failure: error });
+    expect(pipelines.stageThreads.ended[0]).toMatchObject({
+      closing: { kind: "failure", reason: error },
+    });
   });
 
   it("ends needing the Decision the Agent opened with an Office tool, even after a correction", async () => {
@@ -383,7 +385,7 @@ describe("AgentStageRunner after the session", () => {
     const error = `The Stage changed git itself: HEAD moved from ${implemented?.commit.slice(0, 8)} to ffffffff. Only The Office commits a Stage's work, so it stopped here without committing.`;
     expect(moved?.outcome).toEqual({ status: "failed", error, handoverNote: "Nothing is left." });
     expect(moved?.headCommit).toBe(implemented?.commit);
-    expect(pipelines.stageThreads.ended[1]?.failure).toBe(error);
+    expect(pipelines.stageThreads.ended[1]?.closing).toEqual({ kind: "failure", reason: error });
     expect(again?.stageKey).toBe("implement");
     expect(again?.outcome).toEqual({
       status: "failed",

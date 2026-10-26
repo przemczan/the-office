@@ -121,9 +121,21 @@ function MessageItem({
           <span className="message-summary">{message.reason}</span>
         </div>
       );
+    case "held":
+      return (
+        <div className="message-line held">
+          <Icon name={message.heldBy === "pause" ? "pause" : "square"} size={12} />
+          <span className="message-summary">{message.text}</span>
+        </div>
+      );
     case "decision":
       return (
-        <DecisionCard decision={message.decision} personName={personName} answering={answering} />
+        <DecisionCard
+          decision={message.decision}
+          personName={personName}
+          answering={answering}
+          followUps={!stageThread}
+        />
       );
     case "decision-answer":
       return (

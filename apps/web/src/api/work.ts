@@ -146,6 +146,21 @@ export function startTask(id: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/start`, {}, taskSchema);
 }
 
+/** Pause: held once the Agent's current turn ends, its edits kept (spec §2.4). */
+export function pauseTask(id: string): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/pause`, {}, taskSchema);
+}
+
+/** Stop: the Agent's turn is interrupted now and the Stage's uncommitted edits discarded. */
+export function stopTask(id: string): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/stop`, {}, taskSchema);
+}
+
+/** Resume: a Paused Task goes on through the Context policy. */
+export function resumeTask(id: string): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/resume`, {}, taskSchema);
+}
+
 export function dropTask(id: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/drop`, {}, taskSchema);
 }

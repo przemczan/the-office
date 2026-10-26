@@ -17,6 +17,8 @@ export const STAGE_STATE_WORDS: Readonly<Record<StageState, string>> = {
   pending: "Pending",
   running: "Running",
   "waiting-on-you": "Waiting on you",
+  paused: "Paused",
+  stopped: "Stopped",
   done: "Done",
   skipped: "Skipped",
   failed: "Failed",

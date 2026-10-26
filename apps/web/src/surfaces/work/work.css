@@ -461,6 +461,12 @@
   color: var(--warning-fg);
 }
 
+.task-stage-paused .task-stage-number,
+.task-stage-stopped .task-stage-number {
+  border-color: var(--warning-border);
+  color: var(--warning-fg);
+}
+
 .task-stage-failed .task-stage-number {
   border-color: var(--danger-border);
   background: var(--danger-subtle);

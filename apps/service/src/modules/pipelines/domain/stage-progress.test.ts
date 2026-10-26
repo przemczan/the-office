@@ -33,6 +33,10 @@ const review: Stage = { ...implement, key: "review", name: "Review & fix", optio
 const done: StageOutcome = { status: "done", summary: "Done." };
 const failed: StageOutcome = { status: "failed", error: "2 failed." };
 
+function held(interrupted: "pause" | "stop" | "restart"): StageOutcome {
+  return { status: "failed", error: "Held.", interrupted };
+}
+
 interface Ran {
   readonly stageKey: string;
   readonly outcome: StageOutcome | undefined;
@@ -130,6 +134,14 @@ describe("stagesProgress", () => {
         }),
       ),
     ).toEqual(["done"]);
+  });
+
+  it("tells a run the user held from a failure, and keeps a restart a failure", () => {
+    expect(
+      [held("pause"), held("stop"), held("restart")].map((outcome) =>
+        statesOf([implement], runs({ stageKey: "implement", outcome })),
+      ),
+    ).toEqual([["paused"], ["stopped"], ["failed"]]);
   });
 
   it("tells a skipped optional Stage from a done one", () => {
