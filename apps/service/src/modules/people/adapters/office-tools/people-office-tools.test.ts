@@ -55,4 +55,18 @@ describe("list_people", () => {
 
     expect(registry.named([LIST_PEOPLE]).map(({ name }) => name)).toEqual([LIST_PEOPLE]);
   });
+
+  it("is People's only Office tool, so no session can change Roles (spec §9: Never in tier 1)", () => {
+    const registered: string[] = [];
+    class RecordingRegistry extends OfficeToolRegistry {
+      override register(tool: Parameters<OfficeToolRegistry["register"]>[0]): void {
+        registered.push(tool.name);
+        super.register(tool);
+      }
+    }
+
+    new PeopleOfficeTools(new RecordingRegistry(), {} as RoleService).onModuleInit();
+
+    expect(registered).toEqual([LIST_PEOPLE]);
+  });
 });

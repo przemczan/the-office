@@ -1,4 +1,5 @@
 import type { AllowedCommands } from "./allowed-commands.js";
+import { hardSwitchesSection, type FollowedHardSwitches } from "./followed-hard-switches.js";
 import { STAGE_KIND_NAMES, type AgentStage, type StageKind } from "./stage.js";
 import type { CarriedFailure, StageInterruption, StageOutcome } from "./stage-run.js";
 
@@ -36,12 +37,15 @@ export interface AgentStageRecord {
   /** What changed on the Task's branch so far; undefined when it isn't known. */
   readonly diffSummary: string | undefined;
   readonly commands: AllowedCommands;
+  /** The Agent's followed Hard switches, from its Role card. */
+  readonly hardSwitches: FollowedHardSwitches;
 }
 
 /**
  * The record a new session of an Agent Stage starts from (spec §2.5): the Task's title, Plan and
  * Definition of Done, where the session works, the earlier Stages' results with their Handover
- * notes, the diff so far, the Attachments and the commands the Agent may run. Conversations adds
+ * notes, the diff so far, the Attachments, the commands the Agent may run and the Hard switches it
+ * follows. Conversations adds
  * the answered Decisions; transcripts are never handed over.
  */
 export function agentStageRecord({
@@ -49,6 +53,7 @@ export function agentStageRecord({
   earlier,
   diffSummary,
   commands,
+  hardSwitches,
 }: AgentStageRecord): string {
   return sections([
     `## The Task\n\n${task.title}, in the Project ${task.projectName}.`,
@@ -67,6 +72,7 @@ export function agentStageRecord({
     // fails an unattended Stage (task 12's check on the Test Project).
     "Run them in the worktree, where your session starts, with paths relative to it; never `cd` to an absolute path, as that stops the Stage to ask for approval.",
     "The Office commits the Stage's work after it ends, so don't commit it yourself, and don't write in your Handover note that your changes are uncommitted.",
+    hardSwitchesSection(hardSwitches),
   ]);
 }
 

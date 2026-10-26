@@ -58,12 +58,13 @@ export class DecisionOfficeTools implements OnModuleInit {
   private registerConsult(): void {
     this.registry.register({
       name: CONSULT_TOOL,
-      description: `Consults a person when your brief or your authority says to consult them first: with a question, or to ask approval of a call past a Hard switch, whose answer is ${APPROVAL_OPTIONS.join(" or ")}, never "always". The Office has no Consultations yet, so the user answers in their place, on a Decision card in this Thread. It returns at once; then end your turn without asking again. The answer comes as your next message.`,
+      description: `Consults a person when your brief or your authority says to consult them first, or the user when your brief says to ask the user: with a question, or to ask approval of a call past a Hard switch, whose answer is ${APPROVAL_OPTIONS.join(" or ")}, never "always". The Office has no Consultations yet, so the user answers in a person's place, on a Decision card in this Thread. It returns at once; then end your turn without asking again. The answer comes as your next message.`,
       input: z.object({
         person: z
           .string()
+          .optional()
           .describe(
-            "Whom you consult, as your brief or your authority names them, such as Devops.",
+            "Whom you consult, as your brief or your authority names them, such as Devops; none when your brief says to ask the user.",
           ),
         approval: z
           .boolean()
@@ -110,10 +111,12 @@ export class DecisionOfficeTools implements OnModuleInit {
               recommended: (input.recommended ?? 0) - 1,
               why: input.why,
             };
+        const person = input.person?.trim();
+        const putTo = person ? `the user in place of ${person}` : "the user";
         return this.open(
           sessionId,
           consultDecision(consult),
-          `The Office put your consult to the user in place of ${input.person.trim()}, as a Decision in this Thread. ${END_YOUR_TURN}`,
+          `The Office put your consult to ${putTo}, as a Decision in this Thread. ${END_YOUR_TURN}`,
         );
       },
     });

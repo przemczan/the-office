@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { KNOWN_ROLES } from "../domain/known-roles.js";
 import type { RoleCard } from "../domain/role-card.js";
 import { RoleCardVersionNotFound } from "../domain/role-card-version-not-found.js";
 import { RoleNotFound } from "../domain/role-not-found.js";
@@ -31,6 +32,14 @@ export class RoleCards {
   async find(roleKey: string): Promise<SessionRole | undefined> {
     const role = await this.repository.find(roleKey);
     return role && { roleKey, cardVersion: role.cardVersion, card: role.card };
+  }
+
+  /**
+   * The Role's preset title, as the Role card names a Role to consult; the key itself for a Role
+   * The Office doesn't know, which no saved card names.
+   */
+  roleTitle(roleKey: string): string {
+    return KNOWN_ROLES.get(roleKey) ?? roleKey;
   }
 
   /** Throws RoleCardVersionNotFound when the Role has no such version. */

@@ -1022,6 +1022,28 @@ describe("Office tools on a Stage", () => {
     });
   });
 
+  it("consult the user directly for approval, as a Hard switch set to Ask me says, naming nobody", async () => {
+    await startWith(started(...aTurn({ status: "done" })));
+    const { stageThread } = await aStageRun(anAskingStage(aPerson("Ada")));
+
+    const result = await callInStage(stageThread.threadId, CONSULT_TOOL, {
+      approval: true,
+      question: "Push the branch to a fork.",
+      context: "The reviewer wants to try it.",
+      why: "They can't reach the workstation.",
+    });
+
+    expect(result).toEqual({
+      text: "The Office put your consult to the user, as a Decision in this Thread. End your turn now: their answer, or a follow-up question, comes as your next message.",
+      isError: false,
+    });
+    expect((await threadOf(stageThread.threadId)).openDecision).toMatchObject({
+      question: "Allow this call? Push the branch to a fork.",
+      context: "The reviewer wants to try it.",
+      options: ["Allow once", "Deny"],
+    });
+  });
+
   it("refuse a consult with a question but no options, in words the Agent can act on", async () => {
     await startWith(started(...aTurn({ status: "done" })));
     const { stageThread } = await aStageRun(anAskingStage(aPerson("Ada")));

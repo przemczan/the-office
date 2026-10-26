@@ -10,8 +10,11 @@ export const APPROVAL_OPTIONS = ["Allow once", "Deny"] as const;
 export type Consult =
   | {
       readonly kind: "question";
-      /** Whom the Agent would consult, as its brief names them, such as Devops. */
-      readonly person: string;
+      /**
+       * Whom the Agent would consult, as its brief names them, such as Devops; undefined when it
+       * asks the user, as a Hard switch set to Ask me says.
+       */
+      readonly person?: string;
       readonly question: string;
       readonly context: string;
       readonly options: readonly string[];
@@ -21,7 +24,7 @@ export type Consult =
     }
   | {
       readonly kind: "approval";
-      readonly person: string;
+      readonly person?: string;
       /** The call the Agent asks to make, as the user reads it. */
       readonly call: string;
       readonly context: string;
@@ -30,23 +33,27 @@ export type Consult =
     };
 
 /**
- * The Decision a consult opens for the user, naming whom the Agent would have consulted. Spec §6:
+ * The Decision a consult opens for the user, naming whom the Agent would have consulted, if anyone
+ * (the user is asked directly for a Hard switch set to Ask me). Spec §6:
  * a missing person falls back to the user, and in tier 1 nobody is consulted on a Task but the
  * user, so every consult is theirs to answer.
  */
 export function consultDecision(consult: Consult): DecisionDraft {
-  const inTheirPlace = `For ${consult.person.trim()}: The Office has no Consultations yet, so you answer in their place.`;
+  const person = consult.person?.trim();
+  const context = person
+    ? `For ${person}: The Office has no Consultations yet, so you answer in their place.\n\n${consult.context}`
+    : consult.context;
   if (consult.kind === "question") {
     return {
       question: consult.question,
-      context: `${inTheirPlace}\n\n${consult.context}`,
+      context,
       options: consult.options,
       recommendation: { option: consult.recommended, reason: consult.why },
     };
   }
   return {
     question: `Allow this call? ${consult.call}`,
-    context: `${inTheirPlace}\n\n${consult.context}`,
+    context,
     options: APPROVAL_OPTIONS,
     recommendation: { option: 0, reason: consult.why },
   };

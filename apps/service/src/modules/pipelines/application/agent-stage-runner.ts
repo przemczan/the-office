@@ -9,6 +9,10 @@ import {
   type HeldRun,
 } from "../domain/agent-stage-brief.js";
 import { allowedCommands } from "../domain/allowed-commands.js";
+import type {
+  FollowedHardSwitches,
+  FollowedHardSwitchValue,
+} from "../domain/followed-hard-switches.js";
 import { installFailure } from "../domain/script-stage-outcome.js";
 import { stageCommitMessage, type ExpectedHead } from "../domain/stage-commit.js";
 import { failedInstall, installRuns } from "../domain/stage-command-run.js";
@@ -28,7 +32,7 @@ import {
   STAGE_RESULT_SCHEMA,
   type StageResultReading,
 } from "../domain/stage-result.js";
-import { KnownPeople, type KnownPerson } from "../ports/known-people.js";
+import { KnownPeople, type HardSwitchOnCard, type KnownPerson } from "../ports/known-people.js";
 import { acceptedIssues, agentDecision } from "../domain/walk-decisions.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import {
@@ -204,6 +208,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       earlier: earlierResults(stages, earlierRuns),
       diffSummary: await this.git.changesSoFar(task.project.id, run.taskId),
       commands,
+      hardSwitches: this.followedHardSwitches(card.hardSwitches),
     });
     const answered = answeredQuestion(stage, earlierRuns);
     const held = heldRun(stage, earlierRuns);
@@ -242,6 +247,18 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         outputSchema: STAGE_RESULT_SCHEMA,
       },
     });
+  }
+
+  /** The card's followed Hard switches, with whom a Consult value names by its Role's title. */
+  private followedHardSwitches(onCard: KnownPerson["card"]["hardSwitches"]): FollowedHardSwitches {
+    const asTheAgentReadsIt = (value: HardSwitchOnCard): FollowedHardSwitchValue =>
+      value.kind === "consult"
+        ? { kind: "consult", person: this.people.roleTitle(value.role) }
+        : value;
+    return {
+      runInstalls: asTheAgentReadsIt(onCard.runInstalls),
+      publishOutsideThePipeline: asTheAgentReadsIt(onCard.publishOutsideThePipeline),
+    };
   }
 
   /**

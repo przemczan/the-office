@@ -1,9 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { agentStageRecord, agentStageWork, type BriefTask } from "./agent-stage-brief.js";
 import { allowedCommands } from "./allowed-commands.js";
+import { hardSwitchesSection, type FollowedHardSwitches } from "./followed-hard-switches.js";
 
 const GIT = ["status", "diff"];
 const COMMANDS = { install: "npm ci", build: "npm run build", lint: "", test: "npm test" };
+
+const HARD_SWITCHES: FollowedHardSwitches = {
+  runInstalls: { kind: "consult", person: "Devops" },
+  publishOutsideThePipeline: { kind: "never" },
+};
 
 const task: BriefTask = {
   title: "Rename a device",
@@ -40,6 +46,7 @@ describe("agentStageRecord", () => {
       earlier: [],
       diffSummary: undefined,
       commands: allowedCommands("read-only-git", {}, GIT),
+      hardSwitches: HARD_SWITCHES,
     });
 
     expect(record).toBe(
@@ -50,6 +57,7 @@ describe("agentStageRecord", () => {
         "## Commands you may run\n\nYou may run read-only git (git status, git diff) only.",
         "Run them in the worktree, where your session starts, with paths relative to it; never `cd` to an absolute path, as that stops the Stage to ask for approval.",
         "The Office commits the Stage's work after it ends, so don't commit it yourself, and don't write in your Handover note that your changes are uncommitted.",
+        hardSwitchesSection(HARD_SWITCHES),
       ].join("\n\n"),
     );
   });
@@ -67,6 +75,7 @@ describe("agentStageRecord", () => {
       ],
       diffSummary: "2 files changed",
       commands: allowedCommands("anything", {}, GIT),
+      hardSwitches: HARD_SWITCHES,
     });
 
     expect(record).toContain(

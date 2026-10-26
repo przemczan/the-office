@@ -329,6 +329,35 @@ describe("StageInterpreter's Decisions", () => {
     });
   });
 
+  describe("a Hard switch", () => {
+    it("has the Agent ask before an install, and go on without it once the user denies it", async () => {
+      await startWith(anAgentSession(A_WAITING_RESULT), agentDone);
+      const asked = anAskedDecision({
+        question: "Allow this call? Install ffmpeg on the machine.",
+        context:
+          "For Devops: The Office has no Consultations yet, so you answer in their place.\n\nThe thumbnails need it.",
+        options: ["Allow once", "Deny"],
+        recommendation: { option: 0, reason: "Nothing else makes the thumbnails." },
+      });
+      asksOnce(pipelines, asked);
+      const taskId = await walkStages(pipelines, [draft]);
+
+      await answerAsked(pipelines, taskId, asked, { kind: "option", option: 1 });
+
+      const [first, again] = pipelines.stageThreads.requests;
+      expect(first?.record).toContain(
+        "- Before you install anything that changes the machine outside the worktree, consult Devops first: ask approval of the call with consult, naming Devops, and make it only once the answer is Allow once.",
+      );
+      expect(again?.work).toContain(
+        "## Your question, answered\n\nYou asked the user: Allow this call? Install ffmpeg on the machine.\n\nTheir answer: Deny",
+      );
+      expect(await statusesOf(taskId)).toEqual([
+        ["draft", "needs-decision"],
+        ["draft", "done"],
+      ]);
+    });
+  });
+
   describe("the Definition of Done", () => {
     it("is Done when the Pipeline completes with it reported met", async () => {
       await startWith(agentDone);

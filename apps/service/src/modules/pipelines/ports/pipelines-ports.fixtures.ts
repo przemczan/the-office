@@ -88,7 +88,16 @@ export class TaskRecordsForTests extends TaskRecords {
 
 /** A Developer who edits and runs the Project's commands, named Ada. */
 export function aPerson(name = "Ada"): KnownPerson {
-  return { card: { name, permissionProfile: { edit: true, run: "project-commands", web: false } } };
+  return {
+    card: {
+      name,
+      permissionProfile: { edit: true, run: "project-commands", web: false },
+      hardSwitches: {
+        runInstalls: { kind: "consult", role: "devops" },
+        publishOutsideThePipeline: { kind: "never" },
+      },
+    },
+  };
 }
 
 /** People by the key of the Role they fill: Ada fills `developer` until a test changes it. */
@@ -98,6 +107,13 @@ export class KnownPeopleForTests extends KnownPeople {
 
   find(roleKey: string): Promise<KnownPerson | undefined> {
     return Promise.resolve(this.people.get(roleKey));
+  }
+
+  /** The titles of the Roles Ada's card consults, as People keeps them. */
+  readonly titles = new Map<string, string>([["devops", "Devops"]]);
+
+  roleTitle(roleKey: string): string {
+    return this.titles.get(roleKey) ?? roleKey;
   }
 }
 
