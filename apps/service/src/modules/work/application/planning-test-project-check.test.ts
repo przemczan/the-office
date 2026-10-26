@@ -17,6 +17,7 @@ import {
   type Task,
 } from "@the-office/contracts";
 import { describe, expect, it, vi } from "vitest";
+import { checkApi, messageLine, type Api, type ApiCall } from "../../../../test/live-check.js";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
@@ -52,8 +53,6 @@ const MOST_TURNS = 7;
 const EDITING_TOOLS = ["Edit", "Write", "MultiEdit", "NotebookEdit"];
 const PLAN_EDIT = 'The health check names the version under the key "version".';
 const run = promisify(execFile);
-
-type Api = (method: string, path: string, body?: unknown) => Promise<unknown>;
 
 describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
   "Task 11's check on the Test Project",
@@ -107,20 +106,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
               }),
             ],
           }));
-          const call = async (method: string, path: string, body?: unknown) =>
-            fetch(`${url}/api${path}`, {
-              method,
-              ...(body !== undefined && {
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(body),
-              }),
-            });
-          const api: Api = async (method, path, body) => {
-            const response = await call(method, path, body);
-            const text = await response.text();
-            if (!response.ok) throw new Error(`${method} ${path}: ${response.status} ${text}`);
-            return text === "" ? undefined : JSON.parse(text);
-          };
+          const { call, api } = checkApi(url);
 
           // The Planner from its preset, on Haiku at low effort: the cheapest that proves the point.
           const hired = roleSchema.parse(
@@ -304,7 +290,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           await note(
             "Context labels:",
             ...messages.flatMap((message) =>
-              message.kind === "context" ? [`  ${lineOf(message)}`] : [],
+              message.kind === "context" ? [`  ${messageLine(message)}`] : [],
             ),
             `Thread tokens ${tokens} ${JSON.stringify(answered.tokens)}, context ${answered.context.contextTokens}`,
             `Failures: ${messages.filter(({ kind }) => kind === "failure").length}, refusals: ${messages
@@ -370,10 +356,7 @@ async function untilWaiting(api: Api, threadId: string): Promise<void> {
 }
 
 /** Mark Ready, expected refused: its reasons. */
-async function refusedReady(
-  call: (method: string, path: string) => Promise<Response>,
-  taskId: string,
-): Promise<string> {
+async function refusedReady(call: ApiCall, taskId: string): Promise<string> {
   const response = await call("POST", `/tasks/${taskId}/ready`);
   expect(response.status).toBe(422);
   const { reasons } = (await response.json()) as { reasons: string[] };
@@ -421,34 +404,11 @@ function threadLog(api: Api, threadId: string, note: (...lines: string[]) => Pro
       await note(
         `## ${label}`,
         ...(said === undefined ? [] : [`> ${said}`]),
-        ...fresh.map((message) => `  ${lineOf(message)}`),
+        ...fresh.map((message) => `  ${messageLine(message)}`),
       );
       return fresh;
     },
   };
-}
-
-function lineOf(message: Message): string {
-  switch (message.kind) {
-    case "user":
-    case "person":
-    case "handover-note":
-      return `${message.kind}: ${message.text.replaceAll("\n", " / ")}`;
-    case "tool-activity":
-      return `tool ${message.tool}: ${message.summary}`;
-    case "context":
-      return `context ${message.move} (${message.reason}), context ${message.contextTokens}, brief ${message.briefTokens}`;
-    case "failure":
-      return `failure: ${message.reason}`;
-    case "decision": {
-      const { question, options, recommendation } = message.decision;
-      return `decision: ${question} [${options.join(" | ")}], recommends ${recommendation.option + 1}: ${recommendation.reason}`;
-    }
-    case "decision-answer":
-      return `decision-answer: ${JSON.stringify(message.answer)}`;
-    case "refusal":
-      return `refusal ${message.tool}: ${message.reason}`;
-  }
 }
 
 /**
