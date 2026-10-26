@@ -16,7 +16,7 @@ Settings gains the rest of its tier 1 sections, Office limits and Appearance, ne
 
 ## Read first
 
-- [Spec §3 tier 1](../spec.md#tier-1-the-base) (the test), [§9](../spec.md#9-defaults-chosen-in-this-spec).
+- [Spec §3 tier 1](../spec/3-capabilities-by-tier.md#tier-1-the-base) (the test), [§9](../spec/README.md#defaults).
 - Click-through: the Office limits and Appearance sections in [app/settings.js](../../.scratch/the-office/prototypes/app/settings.js).
 
 Leave out: the Pipeline library, the Notifications grid, the Graphite and Paper palettes and the densities, LAN access and the PIN.

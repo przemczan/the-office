@@ -15,7 +15,7 @@ Status: todo
 
 ## Read first
 
-- [Spec §2.3](../spec.md#23-pipelines) ("Edit for this Task", the editor's flags, started Stages locked).
+- [Spec §2.3](../spec/2.3-pipelines.md) ("Edit for this Task", the editor's flags, started Stages locked).
 - Decided with the user in task 10: the Task's own copy of its Pipeline lives in Pipelines, beside its Stage runs; the Task (Work) holds only its Pipeline's id. Swapping the Pipeline changes that id while the Task follows the library; editing it for this Task makes Pipelines' own copy.
 - Click-through: [app/pipelines.js](../../.scratch/the-office/prototypes/app/pipelines.js) (`stageForm`, `failureFields`, `taskPipelineDialog`), and "Edit for this Task" in [app/task.js](../../.scratch/the-office/prototypes/app/task.js).
 

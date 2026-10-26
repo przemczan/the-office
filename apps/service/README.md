@@ -1,6 +1,6 @@
 # @the-office/service
 
-The Office's one Node service ([spec §5.1](../../docs/spec.md#51-shape)): NestJS on `127.0.0.1`, Postgres through Drizzle, the web app and its API on one origin, domain events pushed to the web over a WebSocket, telemetry to `otel-lgtm`. `npm run dev` at the root starts it against the compose stack with the web app compiled from its source by Vite; `npm run build` then `npm start` serves the built web app.
+The Office's one Node service ([spec §5.1](../../docs/spec/5.1-shape.md)): NestJS on `127.0.0.1`, Postgres through Drizzle, the web app and its API on one origin, domain events pushed to the web over a WebSocket, telemetry to `otel-lgtm`. `npm run dev` at the root starts it against the compose stack with the web app compiled from its source by Vite; `npm run build` then `npm start` serves the built web app.
 
 - `src/main.ts` (`npm start`) and `src/dev.ts` (`npm run dev`) call `launch.ts` with where the web app comes from; it starts telemetry and then loads `office.ts`, so the instrumentations patch what loads after, and imports nothing else.
 - `src/office.ts` reads the config, starts the app and stops it on a signal.
@@ -10,7 +10,7 @@ The Office's one Node service ([spec §5.1](../../docs/spec.md#51-shape)): NestJ
 
 ## The module template
 
-A module is a bounded context of [spec §5.3](../../docs/spec.md#53-modules), named as there: `work`, `people`, `pipelines`, `conversations`, `projects`, `engine`, `skills`, `notifications`. Telemetry, the spec's last one, is shared plumbing and lives in `src/platform/telemetry/`.
+A module is a bounded context of [spec §5.3](../../docs/spec/5.3-modules.md), named as there: `work`, `people`, `pipelines`, `conversations`, `projects`, `engine`, `skills`, `notifications`. Telemetry, the spec's last one, is shared plumbing and lives in `src/platform/telemetry/`.
 
 ```
 src/modules/work/
@@ -45,7 +45,7 @@ oxlint's JS plugins are alpha and not under semver. oxlint is pinned, and the pl
 
 ### What the platform gives a module
 
-- **Domain events:** every state change emits one ([spec §5.3](../../docs/spec.md#53-modules)). Application services publish it on the global `EventBus`. A module that reacts to another's events subscribes to the event class it imports from that module's `index.ts`.
+- **Domain events:** every state change emits one ([spec §5.3](../../docs/spec/5.3-modules.md)). Application services publish it on the global `EventBus`. A module that reacts to another's events subscribes to the event class it imports from that module's `index.ts`.
 - **The WebSocket push:** the module's WebSocket adapter calls `WebEventForwarding.forward(EventClass, toWebEvent)` for each event the web sees. The event's schema goes into `packages/contracts`, in the union the web parses. Events nobody forwards stay inside the service.
 - **The database:** Postgres adapters inject the Drizzle client with the `DATABASE` token; no other layer touches it. Tables live in `adapters/**/*.schema.ts`, the glob drizzle-kit reads. `npm run db:generate` writes the migration into `drizzle/`, and the service applies pending migrations at start.
 - **Telemetry:** spans and token counts go through `Telemetry` (`inSpan`, `recordTokens`), never `@opentelemetry/*` directly. HTTP requests and database queries are traced without it. Logs go through Nest's `Logger`, which also exports them.

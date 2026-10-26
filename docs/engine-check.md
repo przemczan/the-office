@@ -1,6 +1,6 @@
 # Engine check
 
-What tier 1 takes on trust about the engine, checked against live sessions on the pinned versions: the skills mechanism of [spec §5.6](spec.md#56-skills-per-session), the permission build rules of [§6](spec.md#6-permissions-and-safety) and the engine behaviours of [§5.4](spec.md#54-the-engine). The check lives in [tools/engine-check](../tools/engine-check); each entry below names the check id it shares with `tools/engine-check/expectations.json`, where the observed facts are recorded per platform.
+What tier 1 takes on trust about the engine, checked against live sessions on the pinned versions: the skills mechanism of [spec §5.6](spec/5.6-skills-per-session.md), the permission build rules of [§6](spec/6-permissions-and-safety.md) and the engine behaviours of [§5.4](spec/5.4-the-engine.md). The check lives in [tools/engine-check](../tools/engine-check); each entry below names the check id it shares with `tools/engine-check/expectations.json`, where the observed facts are recorded per platform.
 
 ## When to run
 
@@ -60,7 +60,7 @@ Results that contradicted or went beyond the spec, and how the spec reads now. E
 | `skills.resume`, `skills.overrides-off` | §5.6 | Rebuilt on resume; `skillOverrides` per Project skill | Never a changed set on resume; overrides keyed by the bare name |
 | `skills.start-before-brief` | §5.6 | At start, `init` lists the plugin with no errors | `init` comes only with the first message; the check reads `reloadPlugins` and the listing before it, and an `init` that disagrees ends the session |
 | `skills.project-names` | §5.6 | Project skills keyed by the bare name | Keyed by a skill's folder or a command's path under `commands/`; expected at start by their listed names, at the repository's top only |
-| `skills.frontmatter-yaml` | §9 | Uploads need YAML frontmatter | A plain value holding `: ` is read as the engine reads it |
+| `skills.frontmatter-yaml` | §2.6 Defaults | Uploads need YAML frontmatter | A plain value holding `: ` is read as the engine reads it |
 | `skills.shell-execution` | §5.6 | Not covered | `disableSkillShellExecution` true: a skill's commands bypass the hook when they run |
 
 ## Skills
@@ -75,7 +75,7 @@ Results that contradicted or went beyond the spec, and how the spec reads now. E
 
 - **Run:** a session skill whose frontmatter reads `description: Test first: red, green, refactor.`, unquoted, which no YAML parser reads; its listing read from the transcript after a message that doesn't query. No model call.
 - **Observed:** the skill is listed with that description as written, not with its body's first line.
-- **Meaning:** the engine reads such a value as the text after the first `: `, so the library reads it the same way (§9) instead of refusing what the engine takes.
+- **Meaning:** the engine reads such a value as the text after the first `: `, so the library reads it the same way (§2.6 Defaults) instead of refusing what the engine takes.
 
 ### skills.start-before-brief
 
@@ -222,7 +222,7 @@ Slow: about an hour; runs only with `--include-slow`. Recorded on Windows 2026-1
 
 - **Run:** three sessions in three worktrees of one repository, each held inside a tool call by a hook barrier until all three arrive.
 - **Observed:** all three were inside a tool call at once and ended normally, as distinct sessions.
-- **Meaning:** the Office-wide limit of 3 running Tasks (§9) is within what the engine runs on one login.
+- **Meaning:** the Office-wide limit of 3 running Tasks (§2.2 Defaults) is within what the engine runs on one login.
 
 ### engine.lean-options
 

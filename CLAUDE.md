@@ -1,6 +1,6 @@
 # The Office
 
-A single-user workspace run like an office, built from [docs/spec.md](docs/spec.md) in tasks listed in [docs/tasks/README.md](docs/tasks/README.md).
+A single-user workspace run like an office, built from [docs/spec/README.md](docs/spec/README.md) in tasks listed in [docs/tasks/README.md](docs/tasks/README.md).
 
 ## Every session
 
@@ -16,6 +16,6 @@ A single-user workspace run like an office, built from [docs/spec.md](docs/spec.
 - **One language:** the [glossary](GLOSSARY.md)'s terms, exactly, in the UI, the API, the code and the database. "Session" means only the engine's session behind a Thread.
 - **The click-through is the UI spec:** `.scratch/the-office/prototypes/app/index.html`, opened in a browser. Build the parts the task names, re-implemented in React with `packages/ui`; the tier 2 and 3 parts of the same screens are left out entirely.
 - **Reference is behaviour, not code:** `D:\Projects\software-factory` shows how something worked and what went wrong; write fresh code. That repository stays untouched.
-- **Architecture:** modules as bounded contexts, layered and talking through application services and domain events ([spec §5.3](docs/spec.md#53-modules)); the template is `apps/service/README.md` once task 02 has written it.
+- **Architecture:** modules as bounded contexts, layered and talking through application services and domain events ([spec §5.3](docs/spec/5.3-modules.md)); the template is `apps/service/README.md` once task 02 has written it.
 - **Model calls cost quota:** tests use the scripted engine adapter; real sessions run only in the engine check and in a task's check on the Test Project, with the cheapest model that proves the point.
 - **Commit locally, never push.** Pushing, publishing and anything else that leaves the workstation waits for the user's go-ahead.
