@@ -4,8 +4,10 @@ import {
   pipelinesWebEventSchema,
   taskStagesSchema,
   type PipelinesWebEvent,
+  type SendBack,
+  type TaskStages,
 } from "@the-office/contracts";
-import { getFromApi } from "./api-client.ts";
+import { getFromApi, sendToApi } from "./api-client.ts";
 import { taskChangesKey } from "./projects.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
@@ -25,6 +27,23 @@ export const pipelineQueries = {
         getFromApi(`/tasks/${encodeURIComponent(taskId)}/stages`, taskStagesSchema, signal),
     }),
 };
+
+/** The Gate's actions; each answers the Task's Stages after it. */
+export function continueAtGate(taskId: string): Promise<TaskStages> {
+  return sendToApi("POST", `${gatePath(taskId)}/continue`, {}, taskStagesSchema);
+}
+
+export function sendBackFromGate(taskId: string, sendBack: SendBack): Promise<TaskStages> {
+  return sendToApi("POST", `${gatePath(taskId)}/send-back`, sendBack, taskStagesSchema);
+}
+
+export function dropAtGate(taskId: string): Promise<TaskStages> {
+  return sendToApi("POST", `${gatePath(taskId)}/drop`, {}, taskStagesSchema);
+}
+
+function gatePath(taskId: string): `/${string}` {
+  return `/tasks/${encodeURIComponent(taskId)}/gate`;
+}
 
 function taskStagesKey(taskId: string): readonly unknown[] {
   return ["tasks", taskId, "stages"];
@@ -54,4 +73,8 @@ export const pipelineEventInvalidations: Readonly<
   "stage-run.no-retries-left": staleTaskStages,
   "pipeline.definition-of-done-not-met": staleTaskStages,
   "pipeline.completed": staleTaskStages,
+  "gate.reached": staleTaskStages,
+  "gate.continued": staleTaskStages,
+  "gate.sent-back": staleTaskStages,
+  "gate.dropped": staleTaskStages,
 };

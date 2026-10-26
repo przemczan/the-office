@@ -2,12 +2,16 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import {
   OPEN_DECISION_TOOL,
+  pipelineListSchema,
   projectSchema,
   roleSchema,
+  taskSchema,
+  taskStagesSchema,
   type NewProject,
   type Project,
   type TaskLimit,
 } from "@the-office/contracts";
+import { queryOfficeDatabase } from "./office-database.ts";
 import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
@@ -531,4 +535,112 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(
     stages.getByText("Handover note: The redirect keeps the path and the query string."),
   ).toBeVisible();
+});
+
+const GATE_FEEDBACK = "Call the button Save, as the rest of the settings do.";
+
+/**
+ * Gives the Task its own Stages before it starts, as the Stage editor will (task 15): Quick fix's
+ * Implement and Tests, then a Gate before a Build.
+ */
+async function seedGatedStages(page: Page, taskId: string): Promise<void> {
+  const library = pipelineListSchema.parse(await (await page.request.get("/api/pipelines")).json());
+  const quickFix = library.find(({ id }) => id === "quick-fix")?.stages ?? [];
+  const stages = [
+    ...quickFix.filter(({ key }) => key === "implement" || key === "tests"),
+    { kind: "gate", key: "ui-acceptance", name: "UI acceptance", optional: false },
+    { kind: "script", key: "build", name: "Build", optional: false, command: "build" },
+  ];
+  await queryOfficeDatabase(
+    "insert into task_stages (task_id, pipeline_id, stages, started_at) values ($1, 'quick-fix', $2, now())",
+    [taskId, JSON.stringify(stages)],
+  );
+}
+
+/** A Task planned through the API, Ready to start; planning replays Jan's session for it. */
+async function readyTask(page: Page, projectId: string, title: string): Promise<string> {
+  const created = await page.request.post("/api/tasks", {
+    data: { title, projectId, priority: "normal" },
+  });
+  const { id } = taskSchema.parse(await created.json());
+  // One after another: each needs the one before it.
+  const steps = [
+    () => page.request.post(`/api/tasks/${id}/planning`),
+    () =>
+      page.request.put(`/api/tasks/${id}/plan`, {
+        data: { plan: "Add a button that keeps them." },
+      }),
+    () =>
+      page.request.put(`/api/tasks/${id}/definition-of-done`, {
+        data: { definitionOfDone: ["The settings page keeps its changes."] },
+      }),
+    () => page.request.put(`/api/tasks/${id}/pipeline`, { data: { pipelineId: "quick-fix" } }),
+    () => page.request.post(`/api/tasks/${id}/ready`),
+  ];
+  for (const step of steps) expect((await step()).status()).toBe(200);
+  return id;
+}
+
+// The engine replays the last sessions in e2e/sessions.jsonl: Jan's planning, then Implement's two,
+// the second after the Gate sent the work back.
+test("a Gate holds the Task for the user, sends the work back with feedback, then continues", async ({
+  page,
+}) => {
+  const repository = await createTemporaryRepository();
+  try {
+    const project = await addedProject(page, repository, "Settings", "ST", PASSING_COMMANDS);
+    const taskId = await readyTask(page, project.id, "Settings keep their changes");
+    await seedGatedStages(page, taskId);
+    await page.goto(`/tasks/${taskId}`);
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+
+    const gate = page.getByRole("region", { name: "Gate · UI acceptance" });
+    const stages = page.getByRole("region", { name: "Stages · Quick fix" });
+    const implement = stages
+      .getByRole("listitem")
+      .filter({ has: page.getByText("Implement", { exact: true }) });
+    await expect(gate).toBeVisible();
+    await expect(page.getByText("Waiting on you", { exact: true })).toBeVisible();
+    const results = gate.getByRole("region", { name: "Stage results" });
+    await expect(results).toContainText("Implement");
+    await expect(results).toContainText("Tests");
+    await expect(gate.getByRole("region", { name: "Gate attachments" })).toContainText("None");
+    await expect(page.getByRole("region", { name: "Files changed" })).toBeVisible();
+    await expect(stages.getByText(/^Waiting on you/)).toBeVisible();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-gate.png") });
+
+    await gate.getByRole("button", { name: "Send back with notes…" }).click();
+    const sendBack = gate.getByRole("form", { name: "Send back" });
+    await sendBack.getByPlaceholder("What should Adam change?").fill(GATE_FEEDBACK);
+    await sendBack.getByRole("button", { name: "Send back", exact: true }).click();
+    await expect(page.getByText("Sent back to Adam.")).toBeVisible();
+
+    // Implement ran again in a fresh session, briefed with the feedback, using no round.
+    const conversation = page.getByRole("complementary", { name: "Conversation" });
+    await expect(conversation.getByRole("button", { name: /^Implement/ })).toHaveCount(2);
+    await expect(gate).toBeVisible();
+    await expect(implement).toContainText("Done · ");
+    await expect(implement).not.toContainText("round");
+    // The Thread shows the Brief, not the Stage's work, which the run was briefed from.
+    const own = taskStagesSchema.parse(
+      await (await page.request.get(`/api/tasks/${taskId}/stages`)).json(),
+    );
+    const implementRuns = own.stages?.find(({ stage }) => stage.key === "implement")?.runs;
+    expect(
+      implementRuns?.map(({ sentBack, carriedFailure }) => [sentBack, carriedFailure]),
+    ).toEqual([
+      [null, null],
+      [{ gateKey: "ui-acceptance", feedback: GATE_FEEDBACK }, null],
+    ]);
+
+    await gate.getByRole("button", { name: "Continue to Build" }).click();
+    await expect(gate).toHaveCount(0);
+    const acceptance = stages
+      .getByRole("listitem")
+      .filter({ has: page.getByText("UI acceptance", { exact: true }) });
+    await expect(acceptance).toContainText("continued");
+    await expect(page.locator(".task-head-meta").getByText("Done", { exact: true })).toBeVisible();
+  } finally {
+    await repository.remove();
+  }
 });

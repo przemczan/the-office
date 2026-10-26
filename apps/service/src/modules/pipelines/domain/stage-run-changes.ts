@@ -2,6 +2,7 @@ import { StageRunEnded, StageRunStarted } from "./stage-run-events.js";
 import {
   NO_STAGE_TOKENS,
   type CarriedFailure,
+  type SentBack,
   type StageOutcome,
   type StageRun,
 } from "./stage-run.js";
@@ -11,6 +12,7 @@ export interface NewStageRun {
   readonly taskId: string;
   readonly stageKey: string;
   readonly carriedFailure: CarriedFailure | undefined;
+  readonly sentBack: SentBack | undefined;
 }
 
 /** The Task's next Stage run, after `earlierRuns` of them, with the event that announces it. */
@@ -29,6 +31,7 @@ export function startStageRun(
     tokens: NO_STAGE_TOKENS,
     decisions: [],
     heldBy: undefined,
+    gateAction: undefined,
     outcome: undefined,
     startedAt,
     endedAt: undefined,

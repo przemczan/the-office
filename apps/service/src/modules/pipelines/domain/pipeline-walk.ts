@@ -2,6 +2,7 @@ import type { Stage } from "./stage.js";
 import type {
   BudgetReached,
   CarriedFailure,
+  SentBack,
   StageRun,
   StageRunDecision,
   WalkAnswer,
@@ -28,24 +29,28 @@ export type WalkQuestion =
 
 /** What the walk over a Task's Stages does next. */
 export type NextMove =
-  /** Run the Stage; `carriedFailure` is set when a loop or a round the user allowed went back. */
+  /**
+   * Run the Stage; `carriedFailure` is set when a loop or a round the user allowed went back, and
+   * `sentBack` when the user sent the work back to it from a Gate.
+   */
   | {
       readonly move: "run";
       readonly stage: Stage;
       readonly carriedFailure: CarriedFailure | undefined;
+      readonly sentBack: SentBack | undefined;
     }
   /**
    * Skip the optional Stage: every statement of the Definition of Done is already reported met
    * (spec §2.3).
    */
   | { readonly move: "skip"; readonly stage: Stage }
-  /** The last run is still running, or the Decision opened on it waits on the user. */
+  /** The last run is still running, the Decision opened on it waits on the user, or its Gate does. */
   | { readonly move: "wait"; readonly run: StageRun }
   /** Ask the user, with a Decision opened on the last run. */
   | { readonly move: "ask"; readonly run: StageRun; readonly question: WalkQuestion }
   /** Every Stage ended, with the Definition of Done reported met or the user calling it Done. */
   | { readonly move: "complete" }
-  /** The user dropped the Task in a Decision. */
+  /** The user dropped the Task in a Decision or at a Gate. */
   | { readonly move: "drop" };
 
 type StoppingMove = Exclude<NextMove, { move: "run" | "skip" }>;
@@ -53,6 +58,12 @@ type StoppingMove = Exclude<NextMove, { move: "run" | "skip" }>;
 interface WalkPosition {
   readonly index: number;
   readonly carriedFailure: CarriedFailure | undefined;
+  readonly sentBack: SentBack | undefined;
+}
+
+/** The position at the Stage of `index`, with nothing carried to it. */
+function at(index: number): WalkPosition {
+  return { index, carriedFailure: undefined, sentBack: undefined };
 }
 
 /** What the walk replays as it goes over the runs. */
@@ -74,8 +85,9 @@ const DEFINITION_OF_DONE_ROUNDS = "definition of done";
 /**
  * The one walk over a Task's Stages (spec §2.3): a straight list whose only control flow is "on
  * failure go back to Stage X, at most N times", with the user asked when a Stage fails with no
- * retries left and when the Definition of Done isn't reported met at the end. The position, each
- * loop's rounds and the user's answers are replayed from the Task's Stage runs, oldest first, so
+ * retries left and when the Definition of Done isn't reported met at the end, and waiting at each
+ * Gate for the user, who may send the work back to an earlier Stage without using a round. The
+ * position, each loop's rounds, the user's answers and Gate actions are replayed from the Task's Stage runs, oldest first, so
  * they are kept nowhere else. A loop's rounds belong to the Stage that owns it and count over the
  * whole Task: going back again never resets them.
  */
@@ -87,7 +99,7 @@ export function nextMove(
   const walk: Walk = {
     stages,
     definitionOfDone,
-    position: { index: 0, carriedFailure: undefined },
+    position: at(0),
     replayed: [],
     roundsUsed: new Map(),
     roundsAdded: new Map(),
@@ -106,7 +118,8 @@ export function nextMove(
   if (stage.optional && unmetStatements(definitionOfDone, runs).length === 0) {
     return { move: "skip", stage };
   }
-  return { move: "run", stage, carriedFailure: walk.position.carriedFailure };
+  const { carriedFailure, sentBack } = walk.position;
+  return { move: "run", stage, carriedFailure, sentBack };
 }
 
 /**
@@ -131,11 +144,11 @@ function replay(walk: Walk, run: StageRun): StoppingMove | undefined {
   if (!outcome) return { move: "wait", run };
   switch (outcome.status) {
     case "done":
-      return advance(walk, run);
+      return stage.kind === "gate" ? afterGate(walk, run) : advance(walk, run);
     case "needs-decision":
       if (waitsOnItsAgent(run)) return { move: "wait", run };
       // Answered: the Stage runs again, with the answer in its Brief.
-      walk.position = { index: walk.position.index, carriedFailure: undefined };
+      walk.position = at(walk.position.index);
       return undefined;
     case "failed":
       // A held run keeps the Decision its Agent opened: nothing runs until the user answers it.
@@ -146,6 +159,36 @@ function replay(walk: Walk, run: StageRun): StoppingMove | undefined {
       return outcome.budgetReached
         ? afterBudget(walk, run, stage, outcome.budgetReached)
         : afterFailure(walk, run, stage, outcome.error);
+  }
+}
+
+/**
+ * The Task waits at the Gate until the user acts: Continue moves on, Drop drops the Task, and Send
+ * back goes to the earlier Stage they chose with their feedback, using no round (spec §2.3).
+ */
+function afterGate(walk: Walk, run: StageRun): StoppingMove | undefined {
+  const action = run.gateAction;
+  if (!action) return { move: "wait", run };
+  switch (action.kind) {
+    case "continue":
+      return advance(walk, run);
+    case "drop":
+      return { move: "drop" };
+    case "send-back": {
+      const index = walk.stages.findIndex(({ key }) => key === action.stageKey);
+      // The Gate refuses a Stage that isn't earlier (gateActionProblems), so this is a fault.
+      if (index < 0 || index >= walk.position.index) {
+        throw new Error(
+          `Gate "${run.stageKey}" sent the work back to "${action.stageKey}", which isn't earlier.`,
+        );
+      }
+      walk.position = {
+        index,
+        carriedFailure: undefined,
+        sentBack: { gateKey: run.stageKey, feedback: action.feedback },
+      };
+      return undefined;
+    }
   }
 }
 
@@ -201,7 +244,7 @@ function afterBudget(
   const answer = answerOf(run, "budget");
   switch (answer.kind) {
     case "raise-budget":
-      walk.position = { index: walk.position.index, carriedFailure: undefined };
+      walk.position = at(walk.position.index);
       return undefined;
     case "drop":
       return { move: "drop" };
@@ -234,7 +277,7 @@ function afterRestart(run: StageRun, stage: Stage): StoppingMove | undefined {
  */
 function advance(walk: Walk, run: StageRun): StoppingMove | undefined {
   const index = walk.position.index + 1;
-  walk.position = { index, carriedFailure: undefined };
+  walk.position = at(index);
   const last = walk.stages.at(-1);
   if (index < walk.stages.length || !last) return undefined;
   const unmet = unmetStatements(walk.definitionOfDone, walk.replayed);
@@ -262,6 +305,7 @@ function advance(walk: Walk, run: StageRun): StoppingMove | undefined {
           rounds: round,
           ...guidanceOf(answer.guidance),
         },
+        sentBack: undefined,
       };
       return undefined;
     }
@@ -349,6 +393,7 @@ function goBack(
   return {
     index,
     carriedFailure: { stageKey: failed.key, error, round, rounds, ...guidanceOf(guidance) },
+    sentBack: undefined,
   };
 }
 

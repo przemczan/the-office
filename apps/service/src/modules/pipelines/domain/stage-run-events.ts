@@ -105,6 +105,49 @@ export class DefinitionOfDoneNotMet extends DomainEvent {
   }
 }
 
+/** The Task reached a Gate: it waits for the user to look at the work so far. */
+export class GateReached extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly runId: string,
+    readonly stageKey: string,
+  ) {
+    super();
+  }
+}
+
+/** The user let the work continue past the Gate. */
+export class GateContinued extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly stageKey: string,
+  ) {
+    super();
+  }
+}
+
+/** The user sent the work back from the Gate to an earlier Stage, with their feedback. */
+export class SentBackFromGate extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    /** The Gate's key. */
+    readonly fromStageKey: string,
+    readonly toStageKey: string,
+  ) {
+    super();
+  }
+}
+
+/** The user dropped the Task at the Gate. */
+export class GateDropped extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly stageKey: string,
+  ) {
+    super();
+  }
+}
+
 /** Every one of the Task's Stages ended, with the Definition of Done met or called met. */
 export class PipelineCompleted extends DomainEvent {
   constructor(readonly taskId: string) {

@@ -198,18 +198,6 @@ describe("StageInterpreter", () => {
     expect(walkEvents()).not.toContainEqual(expect.arrayContaining(["no retries left"]));
   });
 
-  it("fails a Stage of a kind it can't run yet, with the reason", async () => {
-    await startWith();
-    const taskId = await walk([{ kind: "gate", key: "look", name: "look", optional: false }]);
-
-    expect(walkEvents()).toEqual([
-      ["started", "look"],
-      ["ended", "look", "failed"],
-      ["no retries left", "look", "The Office can't run this Gate yet."],
-    ]);
-    expect(pipelines.tasks.changes).toEqual([{ taskId, state: "waiting-on-you" }]);
-  });
-
   it("stops where the runs stand once the Task is no longer In progress", async () => {
     await startWith();
     const taskId = randomUUID();

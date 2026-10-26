@@ -1,8 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { StageCommandRun } from "../../domain/stage-command-run.js";
 import type {
+  GateAction,
   StageRun,
   StageRunDecision,
   StageSessionMove,
@@ -51,6 +52,15 @@ export class PostgresStageRunRepository extends StageRunRepository {
     await this.database.update(stageRuns).set({ heldBy }).where(eq(stageRuns.id, runId));
   }
 
+  async saveGateAction(runId: string, gateAction: GateAction): Promise<boolean> {
+    const saved = await this.database
+      .update(stageRuns)
+      .set({ gateAction })
+      .where(and(eq(stageRuns.id, runId), isNull(stageRuns.gateAction)))
+      .returning({ id: stageRuns.id });
+    return saved.length > 0;
+  }
+
   async saveEnded({ id, outcome, endedAt }: StageRun): Promise<void> {
     await this.database.update(stageRuns).set({ outcome, endedAt }).where(eq(stageRuns.id, id));
   }
@@ -64,10 +74,12 @@ export class PostgresStageRunRepository extends StageRunRepository {
     return rows.map((row) => ({
       ...row,
       carriedFailure: row.carriedFailure ?? undefined,
+      sentBack: row.sentBack ?? undefined,
       threadId: row.threadId ?? undefined,
       session: row.session ?? undefined,
       headCommit: row.headCommit ?? undefined,
       heldBy: row.heldBy ?? undefined,
+      gateAction: row.gateAction ?? undefined,
       outcome: row.outcome ?? undefined,
       endedAt: row.endedAt ?? undefined,
     }));

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { GATE_REACHED } from "./gate.js";
 import type { Stage } from "./stage.js";
 import { stagesProgress } from "./stage-progress.js";
 import {
   NO_STAGE_TOKENS,
   type CarriedFailure,
+  type GateAction,
   type StageOutcome,
   type StageRun,
   type StageRunDecision,
@@ -43,6 +45,7 @@ interface Ran {
   readonly decisions?: readonly StageRunDecision[];
   readonly tokens?: StageTokens;
   readonly carriedFailure?: CarriedFailure;
+  readonly gateAction?: GateAction;
 }
 
 function runs(...ran: readonly Ran[]): StageRun[] {
@@ -60,6 +63,8 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     tokens: each.tokens ?? NO_STAGE_TOKENS,
     decisions: each.decisions ?? [],
     heldBy: undefined,
+    sentBack: undefined,
+    gateAction: each.gateAction,
     carriedFailure: each.carriedFailure,
   }));
 }
@@ -69,6 +74,18 @@ function statesOf(stages: readonly Stage[], ran: readonly StageRun[]): string[] 
 }
 
 describe("stagesProgress", () => {
+  it("waits on you at a Gate until the user acts there", () => {
+    const look: Stage = { kind: "gate", key: "look", name: "Look", optional: false };
+    const reached = { stageKey: "look", outcome: GATE_REACHED };
+
+    expect(
+      statesOf([implement, look], runs({ stageKey: "implement", outcome: done }, reached)),
+    ).toEqual(["done", "waiting-on-you"]);
+    expect(statesOf([look], runs({ ...reached, gateAction: { kind: "continue" } }))).toEqual([
+      "done",
+    ]);
+  });
+
   it("has every Stage pending before its first run, and a run without an end running", () => {
     expect(statesOf([implement, tests], [])).toEqual(["pending", "pending"]);
     expect(

@@ -122,6 +122,25 @@ export interface CarriedFailure {
 }
 
 /**
+ * What the user did at a Gate (spec §2.3): let the work continue, send it back with feedback to an
+ * earlier Agent Stage, or drop the Task.
+ */
+export type GateAction =
+  | { readonly kind: "continue" }
+  | { readonly kind: "send-back"; readonly stageKey: string; readonly feedback: string }
+  | { readonly kind: "drop" };
+
+/**
+ * The feedback a Gate sent the work back with, which the run of the Stage it went back to carries
+ * into its Brief. It is no failure, and uses no round of any loop.
+ */
+export interface SentBack {
+  /** The key of the Gate the user sent the work back from. */
+  readonly gateKey: string;
+  readonly feedback: string;
+}
+
+/**
  * Why the walk asks the user (spec §2.3): an Agent's own question, a Stage that failed with no
  * retries left, the Task's tokens reaching a Stage's budget, a Pipeline that ended with the
  * Definition of Done not reported met, or a Stage The Office restarted during (spec §2.4).
@@ -185,6 +204,8 @@ export interface StageRun {
   /** Its place among the Task's Stage runs, from 1. */
   readonly number: number;
   readonly carriedFailure: CarriedFailure | undefined;
+  /** The feedback a Gate sent the work back to this Stage with, when it did. */
+  readonly sentBack: SentBack | undefined;
   /** The Stage Thread an Agent Stage's run works in, once it has one. */
   readonly threadId: string | undefined;
   /** How the run's session began; undefined for a run that opened none. */
@@ -206,6 +227,11 @@ export interface StageRun {
    * honours it: a Stop discards the run's edits, a Pause keeps them. Undefined while nobody asked.
    */
   readonly heldBy: UserInterruption | undefined;
+  /**
+   * What the user did at a Gate's run, which ends as the Task reaches the Gate and waits for it.
+   * Undefined while the Gate waits, and for every other kind's run.
+   */
+  readonly gateAction: GateAction | undefined;
   /** Undefined while the Stage runs. */
   readonly outcome: StageOutcome | undefined;
   readonly startedAt: Date;

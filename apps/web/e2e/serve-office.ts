@@ -3,32 +3,31 @@
 // replaying sessions.jsonl in order: only people.e2e.ts opens sessions. Run on Node type
 // stripping, from apps/web.
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { parseEnv } from "node:util";
 import { Client } from "pg";
 import { E2E_OFFICE_DATA } from "./office-data.ts";
+import {
+  E2E_DATABASE_NAME,
+  E2E_DATABASE_SERVER,
+  E2E_DATABASE_URL,
+  E2E_ENVIRONMENT,
+  required,
+} from "./office-database.ts";
 
-const ENV_FILE = fileURLToPath(new URL("../../../.env", import.meta.url));
 // The service on a scripted engine, which replays SESSIONS: the tests make no model call.
 const SERVICE_MAIN = fileURLToPath(new URL("../../service/dist/e2e.js", import.meta.url));
 const SESSIONS = fileURLToPath(new URL("./sessions.jsonl", import.meta.url));
 
-const environment = { ...readEnvFile(), ...process.env };
-const serverUrl = new URL(required("DATABASE_URL"));
-// One per address the server is reached at, so the workstation (127.0.0.1) and the verify-linux
-// container (postgres) can run at once on the same compose Postgres without dropping each other's.
-const databaseName = `${serverUrl.pathname.slice(1)}_e2e_${serverUrl.hostname.replace(/\W/g, "_")}`;
-
-await recreateDatabase(serverUrl, databaseName);
+await recreateDatabase(E2E_DATABASE_SERVER, E2E_DATABASE_NAME);
 const officeData = E2E_OFFICE_DATA;
 rmSync(officeData, { recursive: true, force: true });
 mkdirSync(officeData, { recursive: true });
 const service = spawn(process.execPath, ["--enable-source-maps", SERVICE_MAIN], {
   stdio: "inherit",
   env: {
-    ...environment,
-    DATABASE_URL: Object.assign(new URL(serverUrl), { pathname: `/${databaseName}` }).href,
+    ...E2E_ENVIRONMENT,
+    DATABASE_URL: E2E_DATABASE_URL,
     OFFICE_PORT: required("OFFICE_PORT"),
     OFFICE_DATA_DIR: officeData,
     OFFICE_ENGINE_SCRIPTS: SESSIONS,
@@ -39,18 +38,6 @@ service.on("exit", (code) => {
   process.exit(code ?? 1);
 });
 for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, () => service.kill(signal));
-
-function readEnvFile(): Record<string, string | undefined> {
-  return existsSync(ENV_FILE) ? parseEnv(readFileSync(ENV_FILE, "utf8")) : {};
-}
-
-function required(name: string): string {
-  const value = environment[name];
-  if (!value) {
-    throw new Error(`The end-to-end tests need ${name}: set it, or copy .env.example to .env.`);
-  }
-  return value;
-}
 
 async function recreateDatabase(server: URL, name: string): Promise<void> {
   const client = new Client({ connectionString: server.href, connectionTimeoutMillis: 5_000 });

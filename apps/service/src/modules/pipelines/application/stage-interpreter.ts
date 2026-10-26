@@ -109,6 +109,15 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     const runs = await this.runs.list(taskId);
     const run = runs.find(({ decisions }) => decisions.some(({ id }) => id === decisionId));
     if (!run || !(await this.keepAnswers(run, new Map([[decisionId, answer]])))) return;
+    await this.goOn(taskId);
+  }
+
+  /**
+   * Lets the walk go on from what the user did on a Task Waiting on you. A Task they paused stays
+   * Paused until they resume it; a walk moving the Task to Waiting on you meanwhile sees the change
+   * and goes on itself.
+   */
+  async goOn(taskId: string): Promise<void> {
     if ((await this.tasks.read(taskId)).state !== "waiting-on-you") return;
     await this.tasks.changeState(taskId, "in-progress");
     this.walkInBackground(taskId);
@@ -269,10 +278,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     { stage, ...move }: RunMove | SkipMove,
     earlierRuns: readonly StageRun[],
   ): Promise<void> {
-    const carriedFailure = move.move === "run" ? move.carriedFailure : undefined;
+    const { carriedFailure, sentBack } =
+      move.move === "run" ? move : { carriedFailure: undefined, sentBack: undefined };
     const now = new Date();
     const started = startStageRun(
-      { id: randomUUID(), taskId, stageKey: stage.key, carriedFailure },
+      { id: randomUUID(), taskId, stageKey: stage.key, carriedFailure, sentBack },
       earlierRuns.length,
       now,
     );
@@ -344,7 +354,13 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   ): Promise<boolean> {
     const now = new Date();
     const started = startStageRun(
-      { id: randomUUID(), taskId, stageKey: stage.key, carriedFailure: undefined },
+      {
+        id: randomUUID(),
+        taskId,
+        stageKey: stage.key,
+        carriedFailure: undefined,
+        sentBack: undefined,
+      },
       earlierRuns.length,
       now,
     );
@@ -377,9 +393,9 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     earlierRuns: readonly StageRun[],
     interruption: StageRunInterruption,
   ): Promise<boolean> {
-    const { stage, carriedFailure } = move;
+    const { stage, carriedFailure, sentBack } = move;
     const started = startStageRun(
-      { id: randomUUID(), taskId, stageKey: stage.key, carriedFailure },
+      { id: randomUUID(), taskId, stageKey: stage.key, carriedFailure, sentBack },
       earlierRuns.length,
       new Date(),
     );
@@ -404,14 +420,10 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     const { stage, run, interruption } = work;
     // Held before it began, so it did nothing to discard.
     if (interruption.requested) return interruptedOutcome(interruption.requested, []);
-    const runner = this.runners.runnerOf(stage.kind);
-    if (!runner) {
-      return {
-        status: "failed",
-        error: `The Office can't run this ${STAGE_KIND_NAMES[stage.kind]} yet.`,
-      };
-    }
     try {
+      const runner = this.runners.runnerOf(stage.kind);
+      // Each kind's runner registers as the module starts, so a missing one is a fault.
+      if (!runner) throw new Error(`No runner runs ${STAGE_KIND_NAMES[stage.kind]}s.`);
       return await runner.run(work);
     } catch (error) {
       this.logger.error(`Stage run ${run.id} of Task ${run.taskId} failed`, stackOf(error));

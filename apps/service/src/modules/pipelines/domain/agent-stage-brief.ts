@@ -1,7 +1,7 @@
 import type { AllowedCommands } from "./allowed-commands.js";
 import { hardSwitchesSection, type FollowedHardSwitches } from "./followed-hard-switches.js";
 import { STAGE_KIND_NAMES, type AgentStage, type StageKind } from "./stage.js";
-import type { CarriedFailure, StageInterruption, StageOutcome } from "./stage-run.js";
+import type { CarriedFailure, SentBack, StageInterruption, StageOutcome } from "./stage-run.js";
 
 /**
  * What an Agent does in a Stage Thread, after their card's instructions: the same for every Stage
@@ -86,6 +86,8 @@ export interface AnsweredQuestion {
 export interface StageWorkReasons {
   /** The failure an on-failure loop, or a round the user gave, went back with. */
   readonly carried?: CarriedFailure & { readonly stageName: string };
+  /** The user's feedback from a Gate, when they sent the work back to this Stage. */
+  readonly sentBack?: SentBack & { readonly gateName: string };
   /** The Agent's question the user answered, when the Stage runs again for it. */
   readonly answered?: AnsweredQuestion;
   /** Why the install before the Stage failed. */
@@ -111,13 +113,13 @@ export interface HeldRun {
 /**
  * What the Stage asks now (spec §2.3): its brief; the user's answer when the Stage runs again
  * after its Agent's question; when an on-failure loop went back to it, the failure it went back
- * with; when the user held its last run, how, and so where its edits stand; and when the install
+ * with; when the user sent the work back to it from a Gate, their feedback; when the user held its last run, how, and so where its edits stand; and when the install
  * before it failed, why, as the Agent's commands may fail for it. A new session gets it after the
  * Brief, a continued one alone.
  */
 export function agentStageWork(
   stage: Pick<AgentStage, "key" | "name" | "brief">,
-  { carried, answered, installProblem, held }: StageWorkReasons = {},
+  { carried, sentBack, answered, installProblem, held }: StageWorkReasons = {},
 ): string {
   return sections([
     `## The Stage: ${stage.name}\n\n${stage.brief}`,
@@ -125,6 +127,8 @@ export function agentStageWork(
     answered &&
       `## Your question, answered\n\nYou asked the user: ${answered.question}\n\nTheir answer: ${answered.answer}\n\nGo on with the Stage from there.`,
     carried && whyAgain(stage, carried),
+    sentBack &&
+      `## Sent back from ${sentBack.gateName}\n\nThe user looked at the work so far at the Gate and sent it back to this Stage with their feedback. It is no failure: act on it, then end the Stage with its result.\n\n${sentBack.feedback}`,
     installProblem &&
       `## The install before this Stage
 

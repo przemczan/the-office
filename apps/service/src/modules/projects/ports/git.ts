@@ -39,6 +39,8 @@ export interface ChangedFile {
   readonly previousPath: string | undefined;
   /** Undefined for a binary file, whose lines git doesn't count. */
   readonly lines: { readonly added: number; readonly removed: number } | undefined;
+  /** Whether the branch deleted it, so it is no longer in the worktree. */
+  readonly deleted: boolean;
 }
 
 /** What a branch's commits changed since it forked from the base branch. */

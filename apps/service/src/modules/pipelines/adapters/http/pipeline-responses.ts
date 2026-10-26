@@ -1,4 +1,5 @@
 import type {
+  GateAction as GateActionResponse,
   Pipeline as PipelineResponse,
   Stage as StageResponse,
   StageRun as StageRunResponse,
@@ -8,7 +9,7 @@ import type {
 import type { Pipeline } from "../../domain/pipeline.js";
 import type { Stage } from "../../domain/stage.js";
 import type { StageProgress } from "../../domain/stage-progress.js";
-import type { StageOutcome, StageRun } from "../../domain/stage-run.js";
+import type { GateAction, StageOutcome, StageRun } from "../../domain/stage-run.js";
 
 export function toPipelineResponse(pipeline: Pipeline): PipelineResponse {
   return {
@@ -62,14 +63,28 @@ function toStageRunResponse(run: StageRun): StageRunResponse {
     carriedFailure: carried
       ? { stageKey: carried.stageKey, round: carried.round, rounds: carried.rounds }
       : null,
+    sentBack: run.sentBack
+      ? { gateKey: run.sentBack.gateKey, feedback: run.sentBack.feedback }
+      : null,
     commandRuns: run.commandRuns.map(({ purpose, commandLine, outcome, durationMs }) => ({
       purpose,
       commandLine,
       outcome,
       durationMs,
     })),
+    gateAction: run.gateAction ? toGateActionResponse(run.gateAction) : null,
     outcome: run.outcome ? toOutcomeResponse(run.outcome) : null,
   };
+}
+
+function toGateActionResponse(action: GateAction): GateActionResponse {
+  switch (action.kind) {
+    case "continue":
+    case "drop":
+      return { kind: action.kind };
+    case "send-back":
+      return { kind: "send-back", stageKey: action.stageKey, feedback: action.feedback };
+  }
 }
 
 function toOutcomeResponse(outcome: StageOutcome): StageRunOutcomeResponse {

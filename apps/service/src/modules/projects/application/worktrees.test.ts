@@ -249,7 +249,12 @@ describe("Worktrees.changes", () => {
     await commitOnOrigin(repository, "main", `later-${taskId}.txt`);
     gitIn(repository.path, "fetch", "--quiet", "origin");
     const expected = [
-      { path: "work.txt", previousPath: undefined, lines: { added: 1, removed: 0 } },
+      {
+        path: "work.txt",
+        previousPath: undefined,
+        lines: { added: 1, removed: 0 },
+        deleted: false,
+      },
     ];
 
     await expect(worktrees.changes(project, taskId)).resolves.toMatchObject({

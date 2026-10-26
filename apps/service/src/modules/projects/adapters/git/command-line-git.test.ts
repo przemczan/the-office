@@ -299,9 +299,14 @@ describe("CommandLineGit.branchChanges", () => {
     const changes = await git.branchChanges(repository.path, "main", worktree.branch);
 
     expect(changes.files).toEqual([
-      { path: "docs.md", previousPath: undefined, lines: { added: 2, removed: 0 } },
-      { path: "logo.png", previousPath: undefined, lines: undefined },
-      { path: "src/index.ts", previousPath: undefined, lines: { added: 1, removed: 1 } },
+      { path: "docs.md", previousPath: undefined, lines: { added: 2, removed: 0 }, deleted: false },
+      { path: "logo.png", previousPath: undefined, lines: undefined, deleted: false },
+      {
+        path: "src/index.ts",
+        previousPath: undefined,
+        lines: { added: 1, removed: 1 },
+        deleted: false,
+      },
     ]);
     expect(changes.diff).toContain("-export {};\n+export const changed = true;\n");
     expect(changes.diff).not.toContain("uncommitted.txt");
@@ -316,7 +321,29 @@ describe("CommandLineGit.branchChanges", () => {
     const changes = await git.branchChanges(repository.path, "main", worktree.branch);
 
     expect(changes.files).toEqual([
-      { path: "src/main.ts", previousPath: "src/index.ts", lines: { added: 0, removed: 0 } },
+      {
+        path: "src/main.ts",
+        previousPath: "src/index.ts",
+        lines: { added: 0, removed: 0 },
+        deleted: false,
+      },
+    ]);
+  });
+
+  it("marks a file the branch deleted", async () => {
+    const worktree = await aWorktree();
+    gitIn(worktree.path, "rm", "--quiet", "src/index.ts");
+    await git.commit(worktree.path, "Implement: the deletion", variables);
+
+    const changes = await git.branchChanges(repository.path, "main", worktree.branch);
+
+    expect(changes.files).toEqual([
+      {
+        path: "src/index.ts",
+        previousPath: undefined,
+        lines: { added: 0, removed: 1 },
+        deleted: true,
+      },
     ]);
   });
 
@@ -329,7 +356,12 @@ describe("CommandLineGit.branchChanges", () => {
     const changes = await git.branchChanges(repository.path, "main", worktree.branch);
 
     expect(changes.files).toEqual([
-      { path: "large.txt", previousPath: undefined, lines: { added: 12_000, removed: 0 } },
+      {
+        path: "large.txt",
+        previousPath: undefined,
+        lines: { added: 12_000, removed: 0 },
+        deleted: false,
+      },
     ]);
     expect(changes.diffCut).toBe(true);
     expect(changes.diff.length).toBeLessThanOrEqual(1_000_000);

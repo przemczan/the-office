@@ -44,3 +44,18 @@
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["implement-again"],"usage":{"input":2,"output":240,"cacheRead":30400,"cacheCreation":90},"sessionCostUsd":0.01,"output":{"status":"done","summary":"Sign-in returns to the page it started from.","handoverNote":"The redirect keeps the path and the query string.","definitionOfDoneMet":[1,2]},"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30700,"window":1000000}}
 {"step":"end"}
+{"step":"start","brief":{"id":"brief-gate-planning","text":"Plan the gated Task with the user"}}
+{"step":"event","event":{"kind":"text","text":"Tell me when the Plan and the Definition of Done are yours.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-gate-planning"],"usage":{"input":3,"output":40,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-gate-implement","text":"Implement the gated Task"}}
+{"step":"event","event":{"kind":"text","text":"The settings page has a Keep button.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-gate-implement"],"usage":{"input":3,"output":120,"cacheRead":0,"cacheCreation":30200},"sessionCostUsd":0.02,"output":{"status":"done","summary":"Added the Keep button.","handoverNote":"The button reads Keep.","definitionOfDoneMet":[1]},"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30400,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-gate-sent-back","text":"Implement again with the Gate's feedback"}}
+{"step":"event","event":{"kind":"text","text":"The button reads Save now.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-gate-sent-back"],"usage":{"input":3,"output":90,"cacheRead":0,"cacheCreation":30300},"sessionCostUsd":0.02,"output":{"status":"done","summary":"Renamed the button Save.","handoverNote":"The button reads Save.","definitionOfDoneMet":[1]},"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30500,"window":1000000}}
+{"step":"end"}

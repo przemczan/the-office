@@ -37,7 +37,7 @@ export function stagesProgress(
     const latest = own.at(-1);
     return {
       stage,
-      state: latest ? stateOf(latest) : "pending",
+      state: latest ? stateOf(stage, latest) : "pending",
       runs: own,
       tokens: own.reduce((sum, run) => sum + budgetTokens(run.tokens), 0),
       wentBack: latest && wentBackFrom(latest, runs),
@@ -45,11 +45,12 @@ export function stagesProgress(
   });
 }
 
-function stateOf({ outcome, decisions }: StageRun): StageState {
+function stateOf(stage: Stage, { outcome, decisions, gateAction }: StageRun): StageState {
   if (!outcome) return "running";
   if (decisions.some(({ answer }) => answer === undefined)) return "waiting-on-you";
   switch (outcome.status) {
     case "done":
+      if (stage.kind === "gate" && !gateAction) return "waiting-on-you";
       return outcome.skipped ? "skipped" : "done";
     // Its Decision opens just after the run ends; once answered, the Stage runs again.
     case "needs-decision":

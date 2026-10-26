@@ -87,7 +87,7 @@ export function ChangesView({
   );
 }
 
-/** A file of the list, which opens in the editor while the Task has its worktree. */
+/** A file of the list, which opens in the editor while the Task has its worktree and the file. */
 function FileRow({
   file,
   worktreePath,
@@ -100,11 +100,12 @@ function FileRow({
     <li>
       <span className="changes-path">
         {file.previousPath !== null && `${file.previousPath} → `}
-        {worktreePath === null ? (
+        {worktreePath === null || file.deleted ? (
           file.path
         ) : (
           <a href={editorLink(worktreePath, file.path)}>{file.path}</a>
         )}
+        {file.deleted && <span className="task-quiet"> · deleted</span>}
       </span>
       {lines === "binary" ? (
         <span className="task-quiet">binary</span>

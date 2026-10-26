@@ -2,6 +2,8 @@ import { integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from "dri
 import type { StageCommandRun } from "../../domain/stage-command-run.js";
 import type {
   CarriedFailure,
+  GateAction,
+  SentBack,
   StageOutcome,
   StageRunDecision,
   StageSessionMove,
@@ -18,6 +20,8 @@ export const stageRuns = pgTable(
     stageKey: text("stage_key").notNull(),
     number: integer("number").notNull(),
     carriedFailure: jsonb("carried_failure").$type<CarriedFailure>(),
+    /** The feedback a Gate sent the work back to this Stage with. */
+    sentBack: jsonb("sent_back").$type<SentBack>(),
     /** The Stage Thread an Agent Stage's run works in. */
     threadId: uuid("thread_id"),
     /** How the run's session began. */
@@ -35,6 +39,8 @@ export const stageRuns = pgTable(
     decisions: jsonb("decisions").$type<readonly StageRunDecision[]>().notNull().default([]),
     /** What the user asked of the run while it ran: pause or stop. */
     heldBy: text("held_by").$type<UserInterruption>(),
+    /** What the user did at a Gate's run. */
+    gateAction: jsonb("gate_action").$type<GateAction>(),
     outcome: jsonb("outcome").$type<StageOutcome>(),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     endedAt: timestamp("ended_at", { withTimezone: true }),

@@ -125,6 +125,17 @@ describe("agentStageWork", () => {
     );
   });
 
+  it("gives the feedback the user sent the work back with from a Gate, as no failure", () => {
+    const work = agentStageWork(
+      { key: "implement", name: "Implement", brief: "Build it." },
+      { sentBack: { gateKey: "look", gateName: "UI acceptance", feedback: "Name it Save." } },
+    );
+
+    expect(work).toBe(
+      "## The Stage: Implement\n\nBuild it.\n\n## Sent back from UI acceptance\n\nThe user looked at the work so far at the Gate and sent it back to this Stage with their feedback. It is no failure: act on it, then end the Stage with its result.\n\nName it Save.",
+    );
+  });
+
   it("gives the user's answer to the question the Stage's Agent asked", () => {
     const work = agentStageWork(
       { key: "implement", name: "Implement", brief: "Build it." },

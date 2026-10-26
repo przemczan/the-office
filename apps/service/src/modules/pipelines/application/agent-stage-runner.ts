@@ -229,6 +229,10 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       record,
       work: agentStageWork(stage, {
         carried: carriedWithName(stages, run.carriedFailure),
+        sentBack: run.sentBack && {
+          ...run.sentBack,
+          gateName: stageOf(stages, run.sentBack.gateKey)?.name ?? run.sentBack.gateKey,
+        },
         answered,
         installProblem,
         held: held && heldRunOf(held),
@@ -370,14 +374,18 @@ function stageOf(stages: readonly Stage[], key: string): Stage | undefined {
   return stages.find((stage) => stage.key === key);
 }
 
-/** The ended runs before this one, with their Stages' names, in the order they ran. */
+/**
+ * The ended runs before this one, with their Stages' names, in the order they ran. A Gate's are
+ * left out: it did no work, and feedback it sent back has its own section.
+ */
 function earlierResults(
   stages: readonly Stage[],
   earlierRuns: readonly StageRun[],
 ): EarlierResult[] {
   return earlierRuns.flatMap(({ stageKey, outcome }) => {
     const stage = stageOf(stages, stageKey);
-    return stage && outcome ? [{ stageName: stage.name, kind: stage.kind, outcome }] : [];
+    if (!stage || stage.kind === "gate" || !outcome) return [];
+    return [{ stageName: stage.name, kind: stage.kind, outcome }];
   });
 }
 

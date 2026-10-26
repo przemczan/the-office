@@ -199,6 +199,8 @@ export const changedFileSchema = z.object({
   previousPath: z.string().min(1).nullable(),
   /** Null for a binary file, whose lines git doesn't count. */
   lines: z.object({ added: z.int().nonnegative(), removed: z.int().nonnegative() }).nullable(),
+  /** The Task deleted it, so the worktree no longer has it to open. */
+  deleted: z.boolean(),
 });
 export type ChangedFile = z.infer<typeof changedFileSchema>;
 

@@ -1,5 +1,6 @@
 import type { StageCommandRun } from "../domain/stage-command-run.js";
 import type {
+  GateAction,
   StageRun,
   StageRunDecision,
   StageSessionMove,
@@ -32,6 +33,12 @@ export abstract class StageRunRepository {
 
   /** Saves what the user asked of the run while it runs, replacing what they asked before. */
   abstract saveHeldBy(runId: string, heldBy: UserInterruption): Promise<void>;
+
+  /**
+   * Saves what the user did at a Gate's run; false when an action was saved first, as each Gate
+   * run takes one.
+   */
+  abstract saveGateAction(runId: string, gateAction: GateAction): Promise<boolean>;
 
   /** Saves how the run ended. */
   abstract saveEnded(run: StageRun): Promise<void>;

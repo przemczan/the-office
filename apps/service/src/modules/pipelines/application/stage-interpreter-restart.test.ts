@@ -102,7 +102,13 @@ async function aRunLeftRunning(
     trace: undefined,
   });
   const { run } = startStageRun(
-    { id: randomUUID(), taskId, stageKey: stages[0]?.key ?? "", carriedFailure: undefined },
+    {
+      id: randomUUID(),
+      taskId,
+      stageKey: stages[0]?.key ?? "",
+      carriedFailure: undefined,
+      sentBack: undefined,
+    },
     0,
     new Date(),
   );

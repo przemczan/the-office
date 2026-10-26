@@ -44,9 +44,16 @@ describe("diffLines", () => {
 describe("fileLineWords", () => {
   it("counts a text file's lines and calls a binary file binary", () => {
     expect(
-      fileLineWords({ path: "a.ts", previousPath: null, lines: { added: 14, removed: 6 } }),
+      fileLineWords({
+        path: "a.ts",
+        previousPath: null,
+        lines: { added: 14, removed: 6 },
+        deleted: false,
+      }),
     ).toEqual({ added: "+14", removed: "−6" });
-    expect(fileLineWords({ path: "logo.png", previousPath: null, lines: null })).toBe("binary");
+    expect(
+      fileLineWords({ path: "logo.png", previousPath: null, lines: null, deleted: false }),
+    ).toBe("binary");
   });
 });
 
@@ -60,6 +67,8 @@ function aRun(number: number, outcome: StageRun["outcome"]): StageRun {
     session: null,
     tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
     carriedFailure: null,
+    sentBack: null,
+    gateAction: null,
     commandRuns: [],
     outcome,
   };

@@ -64,7 +64,9 @@ describe("GET /api/tasks/:id/stages", () => {
         session: "fresh",
         tokens: { input: 10, output: 10, cacheRead: 0, cacheCreation: 0 },
         carriedFailure: null,
+        sentBack: null,
         commandRuns: [],
+        gateAction: null,
         outcome: {
           status: "done",
           summary: "Added the field.",

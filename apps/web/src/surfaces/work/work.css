@@ -369,6 +369,62 @@
   min-width: 0;
 }
 
+/* ---- the Gate inline on the record: its results, Attachments and actions, then the Changes */
+
+.task-gate {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gate-part {
+  margin-top: 14px;
+}
+
+.gate-heading {
+  margin: 0 0 6px;
+  font: var(--type-overline);
+  color: var(--fg-3);
+}
+
+.gate-results {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gate-results > li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font: var(--type-body-sm);
+}
+
+.gate-result-name {
+  font-weight: 600;
+}
+
+.gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.gate-send-back {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.gate-send-back .gate-actions {
+  margin-top: 0;
+}
+
 /* ---- the Changes tab: files with their lines, the diff, the latest test results */
 
 .changes-files {

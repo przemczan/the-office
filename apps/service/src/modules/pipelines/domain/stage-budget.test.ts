@@ -28,6 +28,8 @@ function aRun(stageKey: string, decisions: StageRunDecision[]): StageRun {
     tokens: NO_STAGE_TOKENS,
     decisions,
     heldBy: undefined,
+    sentBack: undefined,
+    gateAction: undefined,
     outcome: undefined,
     startedAt: new Date(0),
     endedAt: undefined,

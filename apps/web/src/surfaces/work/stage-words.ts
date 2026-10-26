@@ -1,5 +1,6 @@
 import type {
   ContextMove,
+  GateAction,
   Stage,
   StageRun,
   StageState,
@@ -102,15 +103,18 @@ function resultWords(
   latest: StageRun,
   names: StageNames,
 ): string | undefined {
-  const { outcome, carriedFailure } = latest;
+  const { outcome, carriedFailure, sentBack } = latest;
   if (!outcome) {
-    return carriedFailure
-      ? `round ${carriedFailure.round} of ${carriedFailure.rounds} after ${names(carriedFailure.stageKey)} failed`
-      : undefined;
+    if (carriedFailure) {
+      return `round ${carriedFailure.round} of ${carriedFailure.rounds} after ${names(carriedFailure.stageKey)} failed`;
+    }
+    return sentBack ? `sent back from ${names(sentBack.gateKey)}` : undefined;
   }
   switch (outcome.status) {
     case "done":
       if (outcome.skipped) return "the Definition of Done was already met";
+      if (stage.kind === "gate")
+        return latest.gateAction ? gateActionWords(latest.gateAction, names) : undefined;
       // An Agent's summary is in its Handover note and Thread; a script's is its command's result.
       return stage.kind === "script" ? plain(outcome.summary) : undefined;
     case "needs-decision":
@@ -123,6 +127,18 @@ function resultWords(
         ? `${why} · back to ${names(wentBack.stageKey)}, round ${wentBack.round} of ${wentBack.rounds}`
         : why;
     }
+  }
+}
+
+/** What the user did at a Gate, as its Stage row says it. */
+function gateActionWords(action: GateAction, names: StageNames): string {
+  switch (action.kind) {
+    case "continue":
+      return "continued";
+    case "send-back":
+      return `sent back to ${names(action.stageKey)}`;
+    case "drop":
+      return "dropped the Task";
   }
 }
 

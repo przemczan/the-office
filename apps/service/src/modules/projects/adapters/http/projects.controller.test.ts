@@ -358,7 +358,7 @@ describe("GET /api/projects/:id/tasks/:taskId/changes", () => {
     expect(response.status).toBe(200);
     const changes = taskChangesSchema.parse(await response.json());
     expect(changes.files).toEqual([
-      { path: "work.txt", previousPath: null, lines: { added: 1, removed: 0 } },
+      { path: "work.txt", previousPath: null, lines: { added: 1, removed: 0 }, deleted: false },
     ]);
     expect(changes.diff).toContain("+a Stage's work\n");
     expect(changes.diffCut).toBe(false);

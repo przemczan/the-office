@@ -40,6 +40,8 @@ function aRun(fields: Partial<StageRun>): StageRun {
     session: null,
     tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
     carriedFailure: null,
+    sentBack: null,
+    gateAction: null,
     commandRuns: [],
     outcome: null,
     ...fields,
@@ -164,5 +166,49 @@ describe("taskTokens", () => {
 
     expect(taskTokens([{ tokens }, { tokens }])).toBe(8_420);
     expect(taskTokens(undefined)).toBe(0);
+  });
+});
+
+describe("stageProgressLine at a Gate", () => {
+  const look: Stage = { kind: "gate", key: "look", name: "Look", optional: false };
+  const gateNames = stageNamesOf([implement, tests, look]);
+  const reached = {
+    status: "done",
+    summary: "The Task reached the Gate and waited for the user.",
+    skipped: false,
+    handoverNote: null,
+  } as const;
+
+  it("says what the user did there", () => {
+    const sentBack = aRun({
+      outcome: reached,
+      gateAction: { kind: "send-back", stageKey: "implement", feedback: "Name it Save." },
+    });
+
+    expect(
+      stageProgressLine(aTaskStage(look, { state: "done", runs: [sentBack] }), gateNames, now),
+    ).toBe("Done · 18 min · sent back to Implement");
+    expect(
+      stageProgressLine(
+        aTaskStage(look, { state: "waiting-on-you", runs: [aRun({ outcome: reached })] }),
+        gateNames,
+        now,
+      ),
+    ).toBe("Waiting on you · 18 min");
+  });
+
+  it("tells a Stage runs again for the Gate's feedback, with no round", () => {
+    const running = aRun({
+      endedAt: null,
+      sentBack: { gateKey: "look", feedback: "Name it Save." },
+    });
+
+    expect(
+      stageProgressLine(
+        aTaskStage(implement, { state: "running", runs: [running] }),
+        gateNames,
+        now,
+      ),
+    ).toBe("Running · 30 min · sent back from Look");
   });
 });

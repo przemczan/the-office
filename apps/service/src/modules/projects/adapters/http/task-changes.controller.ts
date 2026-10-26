@@ -22,10 +22,11 @@ export class TaskChangesController {
 function toTaskChangesResponse(changes: TaskChanges): TaskChangesResponse {
   return {
     worktreePath: changes.worktreePath ?? null,
-    files: changes.files.map(({ path, previousPath, lines }) => ({
+    files: changes.files.map(({ path, previousPath, lines, deleted }) => ({
       path,
       previousPath: previousPath ?? null,
       lines: lines ? { added: lines.added, removed: lines.removed } : null,
+      deleted,
     })),
     diff: changes.diff,
     diffCut: changes.diffCut,

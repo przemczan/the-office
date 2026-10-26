@@ -9,6 +9,7 @@ import { AddAttachmentDialog } from "../../shell/attachments/add-attachment-dial
 import { AttachmentChips } from "../../shell/attachments/attachment-chips.tsx";
 import { dayAndClockOf } from "../../shell/time.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
+import { GateBlock } from "./gate-view.tsx";
 import { DefinitionOfDoneBlock, PlanBlock, ProposedPipeline } from "./planning-parts.tsx";
 import { RecordBlock } from "./record-block.tsx";
 import {
@@ -19,7 +20,10 @@ import {
   stageRule,
 } from "./stage-words.ts";
 
-/** The Task's record: what must be true, how, its Stages, its Attachments and where it came from. */
+/**
+ * The Task's record: the Gate it waits at, if any; what must be true, how, its Stages, its
+ * Attachments and where it came from.
+ */
 export function TaskRecord({
   task,
   pipeline,
@@ -32,6 +36,7 @@ export function TaskRecord({
   const planner = usePlanner()?.card.name ?? "The Planner";
   return (
     <section className="task-record" aria-label="Record">
+      <GateBlock task={task} roles={roles.data} />
       <DefinitionOfDoneBlock task={task} planner={planner} />
       <PlanBlock task={task} planner={planner} />
       <StagesBlock task={task} pipeline={pipeline} planner={planner} roles={roles.data} />

@@ -45,6 +45,8 @@ function aRun(
     tokens: NO_STAGE_TOKENS,
     decisions,
     heldBy: undefined,
+    sentBack: undefined,
+    gateAction: undefined,
     outcome,
     startedAt: new Date(0),
     endedAt: new Date(0),

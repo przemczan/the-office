@@ -105,6 +105,32 @@ export const stageCommandRunSchema = z.object({
   durationMs: z.int().nonnegative(),
 });
 
+/**
+ * What the user did at a Gate: let the work continue, send it back to an earlier Agent Stage with
+ * their feedback, or drop the Task.
+ */
+export const gateActionSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("continue") }),
+  z.object({ kind: z.literal("send-back"), stageKey: z.string(), feedback: z.string() }),
+  z.object({ kind: z.literal("drop") }),
+]);
+export type GateAction = z.infer<typeof gateActionSchema>;
+
+/** POST /tasks/:id/gate/send-back: the earlier Agent Stage, and what should change. */
+export const sendBackSchema = z.object({
+  stageKey: z.string().min(1),
+  feedback: z.string().trim().min(1, "Say what should change before sending it back."),
+});
+export type SendBack = z.infer<typeof sendBackSchema>;
+
+/** What a refused Gate action answers: every reason, also joined into Nest's `message`. */
+export const gateRefusalSchema = z.object({
+  statusCode: z.literal(422),
+  message: z.string(),
+  reasons: z.array(z.string()).min(1),
+});
+export type GateRefusal = z.infer<typeof gateRefusalSchema>;
+
 /** One run of one of a Task's Stages. */
 export const stageRunSchema = z.object({
   id: z.uuid(),
@@ -119,7 +145,11 @@ export const stageRunSchema = z.object({
   tokens: tokenTotalsSchema,
   /** The failure a loop went back with, which the run was briefed with. */
   carriedFailure: wentBackSchema.nullable(),
+  /** The feedback a Gate sent the work back to this Stage with, which the run was briefed with. */
+  sentBack: z.object({ gateKey: z.string(), feedback: z.string() }).nullable(),
   commandRuns: z.array(stageCommandRunSchema),
+  /** What the user did at a Gate's run; null while the Gate waits, and for other kinds. */
+  gateAction: gateActionSchema.nullable(),
   /** Null while the run goes on. */
   outcome: stageRunOutcomeSchema.nullable(),
 });
@@ -195,5 +225,26 @@ export const pipelinesWebEventSchema = z.discriminatedUnion("type", [
     taskId: z.uuid(),
   }),
   webEventSchema.extend({ type: z.literal("pipeline.completed"), taskId: z.uuid() }),
+  webEventSchema.extend({
+    type: z.literal("gate.reached"),
+    taskId: z.uuid(),
+    stageKey: z.string(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("gate.continued"),
+    taskId: z.uuid(),
+    stageKey: z.string(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("gate.sent-back"),
+    taskId: z.uuid(),
+    fromStageKey: z.string(),
+    toStageKey: z.string(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("gate.dropped"),
+    taskId: z.uuid(),
+    stageKey: z.string(),
+  }),
 ]);
 export type PipelinesWebEvent = z.infer<typeof pipelinesWebEventSchema>;

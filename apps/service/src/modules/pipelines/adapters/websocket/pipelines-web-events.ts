@@ -4,10 +4,14 @@ import { WebEventForwarding } from "../../../../platform/websocket/web-event-for
 import {
   BudgetReached,
   DefinitionOfDoneNotMet,
+  GateContinued,
+  GateDropped,
+  GateReached,
   NoRetriesLeft,
   PipelineCompleted,
   StageRunEnded,
   StageRunStarted,
+  SentBackFromGate,
   StageSkipped,
   StopHeldAsPause,
   WentBackToStage,
@@ -30,6 +34,7 @@ export class PipelinesWebEvents implements OnModuleInit {
   onModuleInit(): void {
     this.forwardStageRunEvents();
     this.forwardWalkEvents();
+    this.forwardGateEvents();
   }
 
   private forwardStageRunEvents(): void {
@@ -94,6 +99,30 @@ export class PipelinesWebEvents implements OnModuleInit {
     this.forwarding.forward(PipelineCompleted, (event): WebEventOf<"pipeline.completed"> => ({
       type: "pipeline.completed",
       taskId: event.taskId,
+    }));
+  }
+
+  private forwardGateEvents(): void {
+    this.forwarding.forward(GateReached, (event): WebEventOf<"gate.reached"> => ({
+      type: "gate.reached",
+      taskId: event.taskId,
+      stageKey: event.stageKey,
+    }));
+    this.forwarding.forward(GateContinued, (event): WebEventOf<"gate.continued"> => ({
+      type: "gate.continued",
+      taskId: event.taskId,
+      stageKey: event.stageKey,
+    }));
+    this.forwarding.forward(SentBackFromGate, (event): WebEventOf<"gate.sent-back"> => ({
+      type: "gate.sent-back",
+      taskId: event.taskId,
+      fromStageKey: event.fromStageKey,
+      toStageKey: event.toStageKey,
+    }));
+    this.forwarding.forward(GateDropped, (event): WebEventOf<"gate.dropped"> => ({
+      type: "gate.dropped",
+      taskId: event.taskId,
+      stageKey: event.stageKey,
     }));
   }
 }

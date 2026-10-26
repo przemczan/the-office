@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { GATE_REACHED } from "./gate.js";
 import { nextMove, unmetStatements } from "./pipeline-walk.js";
 import type { OnFailure, Stage } from "./stage.js";
 import {
   NO_STAGE_TOKENS,
+  type GateAction,
   type StageDecisionKind,
   type StageOutcome,
   type StageRun,
@@ -71,6 +73,8 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     tokens: NO_STAGE_TOKENS,
     decisions,
     heldBy: undefined,
+    sentBack: undefined,
+    gateAction: undefined,
     outcome,
     startedAt: new Date(0),
     endedAt: outcome && new Date(0),
@@ -505,6 +509,87 @@ describe("nextMove", () => {
     const ran = runs(["write", asks, decided("agent")], ["write", done]);
 
     expect(() => nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toThrow(/yet runs follow it/);
+  });
+});
+
+/** The write and the check done, then the Gate reached, with what the user did there. */
+function atTheGate(action?: GateAction, ...after: readonly Ran[]): StageRun[] {
+  const ran = runs(["write", done], ["check", done], ["look", GATE_REACHED], ...after);
+  const gate = ran[2];
+  if (!gate) throw new Error("The Gate wasn't reached.");
+  ran[2] = { ...gate, gateAction: action };
+  return ran;
+}
+
+describe("nextMove at a Gate", () => {
+  const gated: Stage[] = [
+    agentStage("write"),
+    scriptStage("check", { goBackTo: "write", rounds: 1 }),
+    { kind: "gate", key: "look", name: "Look", optional: false },
+    scriptStage("ship"),
+  ];
+  const sendBack: GateAction = {
+    kind: "send-back",
+    stageKey: "write",
+    feedback: "The button is too small.",
+  };
+  const sentBack = { gateKey: "look", feedback: "The button is too small." };
+
+  it("waits for the user", () => {
+    const ran = atTheGate();
+
+    expect(nextMove(gated, ran, NO_DEFINITION_OF_DONE)).toEqual({ move: "wait", run: ran[2] });
+  });
+
+  it("goes on to the next Stage once the user continues, or drops the Task", () => {
+    expect(nextMove(gated, atTheGate({ kind: "continue" }), NO_DEFINITION_OF_DONE)).toMatchObject({
+      move: "run",
+      stage: { key: "ship" },
+    });
+    expect(nextMove(gated, atTheGate({ kind: "drop" }), NO_DEFINITION_OF_DONE)).toEqual({
+      move: "drop",
+    });
+  });
+
+  it("sends the work back to the chosen Stage with the feedback, using no round", () => {
+    expect(nextMove(gated, atTheGate(sendBack), NO_DEFINITION_OF_DONE)).toEqual({
+      move: "run",
+      stage: gated[0],
+      carriedFailure: undefined,
+      sentBack,
+    });
+    // The check's one round is still there for it.
+    const failedAfter = atTheGate(sendBack, ["write", done], ["check", failed("A test fails.")]);
+    expect(nextMove(gated, failedAfter, NO_DEFINITION_OF_DONE)).toEqual({
+      move: "run",
+      stage: gated[0],
+      carriedFailure: { stageKey: "check", error: "A test fails.", round: 1, rounds: 1 },
+      sentBack: undefined,
+    });
+    // Past the Stage it went back to, the feedback stays with it.
+    expect(
+      nextMove(gated, atTheGate(sendBack, ["write", done]), NO_DEFINITION_OF_DONE),
+    ).toMatchObject({ move: "run", stage: { key: "check" }, sentBack: undefined });
+  });
+
+  it("keeps the feedback for a sent-back Stage the user held", () => {
+    const stopped: StageOutcome = { status: "failed", error: "Stopped.", interrupted: "stop" };
+
+    expect(nextMove(gated, atTheGate(sendBack, ["write", stopped]), NO_DEFINITION_OF_DONE)).toEqual(
+      { move: "run", stage: gated[0], carriedFailure: undefined, sentBack },
+    );
+  });
+
+  it("waits at the Gate again after the work it sent back", () => {
+    const ran = atTheGate(sendBack, ["write", done], ["check", done], ["look", GATE_REACHED]);
+
+    expect(nextMove(gated, ran, NO_DEFINITION_OF_DONE)).toEqual({ move: "wait", run: ran[5] });
+  });
+
+  it("refuses work sent back to a Stage that isn't earlier", () => {
+    const ran = atTheGate({ ...sendBack, stageKey: "ship" });
+
+    expect(() => nextMove(gated, ran, NO_DEFINITION_OF_DONE)).toThrow(/isn't earlier/);
   });
 });
 

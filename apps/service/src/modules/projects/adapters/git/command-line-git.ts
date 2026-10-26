@@ -272,14 +272,27 @@ export class CommandLineGit extends Git {
     branch: string,
   ): Promise<BranchChanges> {
     const range = await this.sinceForked(repositoryPath, baseBranch, `refs/heads/${branch}`);
-    const [numbers, diff] = await Promise.all([
+    const [numbers, deleted, diff] = await Promise.all([
       git({
         folder: repositoryPath,
         gitArguments: ["diff", ...DIFF_OPTIONS, "--numstat", "-z", range, "--"],
       }),
+      // The numstat doesn't say a file was deleted.
+      git({
+        folder: repositoryPath,
+        gitArguments: [
+          "diff",
+          ...DIFF_OPTIONS,
+          "--diff-filter=D",
+          "--name-only",
+          "-z",
+          range,
+          "--",
+        ],
+      }),
       git({ folder: repositoryPath, gitArguments: ["diff", ...DIFF_OPTIONS, range, "--"] }),
     ]);
-    return { files: changedFiles(numbers), ...cutDiff(diff) };
+    return { files: changedFiles(numbers, new Set(nulSeparated(deleted))), ...cutDiff(diff) };
   }
 
   /**
@@ -389,7 +402,7 @@ async function commonDirectory(folder: string): Promise<string> {
  * The files of `git diff --numstat -z`: `<added>\t<removed>\t<path>` each, or for a rename
  * `<added>\t<removed>\t` followed by the old and the new path; a binary file counts `-` lines.
  */
-function changedFiles(numstat: string): ChangedFile[] {
+function changedFiles(numstat: string, deletedPaths: ReadonlySet<string>): ChangedFile[] {
   const fields = numstat.split("\0");
   const files: ChangedFile[] = [];
   for (let index = 0; index < fields.length; index += 1) {
@@ -398,13 +411,18 @@ function changedFiles(numstat: string): ChangedFile[] {
     const lineCounts =
       added === "-" ? undefined : { added: Number(added), removed: Number(removed) };
     if (path !== "") {
-      files.push({ path, previousPath: undefined, lines: lineCounts });
+      files.push({
+        path,
+        previousPath: undefined,
+        lines: lineCounts,
+        deleted: deletedPaths.has(path),
+      });
       continue;
     }
     const previousPath = fields[index + 1] ?? "";
     const renamedTo = fields[index + 2] ?? "";
     index += 2;
-    files.push({ path: renamedTo, previousPath, lines: lineCounts });
+    files.push({ path: renamedTo, previousPath, lines: lineCounts, deleted: false });
   }
   return files;
 }
