@@ -9,8 +9,10 @@ import type { Stage } from "../domain/stage.js";
 import type { StageOutcome } from "../domain/stage-run.js";
 import { STAGE_RESULT_SCHEMA } from "../domain/stage-result.js";
 import {
+  A_WAITING_RESULT,
   aDoneResult,
   anAgentSession,
+  anAskedDecision,
   anAgentStage,
   aTurn,
   runsOf,
@@ -189,26 +191,30 @@ describe("AgentStageRunner", () => {
     const taskId = await walkStages(pipelines, [implement]);
 
     const error =
-      'The Stage\'s result still didn\'t match its schema after one correction: status "needs_decision" requires "decision".';
+      "The Stage's result still didn't match its schema after one correction: status \"needs_decision\" means you opened a Decision with open_decision or consult, and you opened none. Open it with one of them first, then end your turn with needs_decision again.";
     expect(await outcomesOf(taskId)).toEqual([{ status: "failed", error }]);
     expect(pipelines.stageThreads.sent).toHaveLength(1);
     expect(pipelines.stageThreads.ended[0]).toMatchObject({ failure: error });
   });
 
-  it("ends needing a Decision with what the Agent asks", async () => {
-    const decision = {
-      question: "Which page shows the rename?",
-      context: "Both list devices.",
-      options: ["The device page", "The list"],
-      recommendation: { option: 0, reason: "It has the room." },
-    };
+  it("ends needing the Decision the Agent opened with an Office tool, even after a correction", async () => {
+    const asked = anAskedDecision();
     pipelines = await startPipelinesApplication([
-      anAgentSession({ status: "needs_decision", summary: "Asked.", decision }),
+      corrected({ status: "needs_decision", summary: "Which?" }, A_WAITING_RESULT),
     ]);
+    let turns = 0;
+    // The Agent opens it only once the correction asks it to.
+    pipelines.stageThreads.asksInTurn = () => (++turns === 2 ? asked : undefined);
 
     const taskId = await walkStages(pipelines, [implement]);
 
-    expect(await outcomesOf(taskId)).toEqual([{ status: "needs-decision", ...decision }]);
+    const { id: _id, ...draft } = asked;
+    expect(await outcomesOf(taskId)).toEqual([
+      { status: "needs-decision", ...draft, handoverNote: "Waiting on the user." },
+    ]);
+    expect(pipelines.stageThreads.sent[0]?.text).toContain(
+      'status "needs_decision" means you opened a Decision with open_decision or consult, and you opened none.',
+    );
   });
 
   it("installs the dependencies before the session, and tells the Agent when the install failed", async () => {

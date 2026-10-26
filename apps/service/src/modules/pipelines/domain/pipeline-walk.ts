@@ -2,16 +2,14 @@ import type { Stage } from "./stage.js";
 import type {
   BudgetReached,
   CarriedFailure,
-  StageDecisionKind,
   StageRun,
   StageRunDecision,
   WalkAnswer,
+  WalkDecisionKind,
 } from "./stage-run.js";
 
 /** What the walk stops to ask the user, before The Office words it as a Decision. */
 export type WalkQuestion =
-  /** The run's Agent asked it, in its needs-decision outcome. */
-  | { readonly kind: "agent" }
   /** The Stage failed with no retries left: it has no loop, or its loop used up its rounds. */
   | { readonly kind: "no-retries-left"; readonly stage: Stage; readonly error: string }
   /** The Task's tokens reached the Stage's budget before an engine call. */
@@ -134,14 +132,14 @@ function replay(walk: Walk, run: StageRun): StoppingMove | undefined {
   switch (outcome.status) {
     case "done":
       return advance(walk, run);
-    case "needs-decision": {
-      const waiting = waitingOn(run, "agent", { kind: "agent" });
-      if (waiting) return waiting;
+    case "needs-decision":
+      if (waitsOnItsAgent(run)) return { move: "wait", run };
       // Answered: the Stage runs again, with the answer in its Brief.
       walk.position = { index: walk.position.index, carriedFailure: undefined };
       return undefined;
-    }
     case "failed":
+      // A held run keeps the Decision its Agent opened: nothing runs until the user answers it.
+      if (outcome.interrupted && waitsOnItsAgent(run)) return { move: "wait", run };
       if (outcome.interrupted === "restart") return afterRestart(run, stage);
       // Held by the user: the walk stays at the Stage, with the failure it carried, using no round.
       if (outcome.interrupted) return undefined;
@@ -277,10 +275,22 @@ function advance(walk: Walk, run: StageRun): StoppingMove | undefined {
   }
 }
 
+/**
+ * Whether the Decision the run's Agent opened with an Office tool waits on the user. A
+ * needs-decision run always keeps one, as its runner does.
+ */
+function waitsOnItsAgent(run: StageRun): boolean {
+  const asked = run.decisions.find(({ kind }) => kind === "agent");
+  if (!asked && run.outcome?.status === "needs-decision") {
+    throw new Error(`Stage run ${run.id} needs a Decision its Agent didn't keep.`);
+  }
+  return asked !== undefined && asked.answer === undefined;
+}
+
 /** The move while the run's Decision of `kind` isn't answered: open it, or wait on it. */
 function waitingOn(
   run: StageRun,
-  kind: StageDecisionKind,
+  kind: WalkDecisionKind,
   question: WalkQuestion,
 ): StoppingMove | undefined {
   const decision = decisionOf(run, kind);
@@ -289,13 +299,13 @@ function waitingOn(
   return undefined;
 }
 
-function answerOf(run: StageRun, kind: StageDecisionKind): WalkAnswer {
+function answerOf(run: StageRun, kind: WalkDecisionKind): WalkAnswer {
   const answer = decisionOf(run, kind)?.answer;
   if (!answer) throw new Error(`Stage run ${run.id} has no answered ${kind} Decision.`);
   return answer;
 }
 
-function decisionOf(run: StageRun, kind: StageDecisionKind): StageRunDecision | undefined {
+function decisionOf(run: StageRun, kind: WalkDecisionKind): StageRunDecision | undefined {
   return run.decisions.find((decision) => decision.kind === kind);
 }
 

@@ -17,6 +17,7 @@ import { StageInterpreter } from "./application/stage-interpreter.js";
 import type { Stage } from "./domain/stage.js";
 import type { StageRun } from "./domain/stage-run.js";
 import type { DecisionAnswer } from "./domain/walk-decisions.js";
+import type { AskedDecision } from "./ports/stage-threads.js";
 import { PipelinesModule } from "./pipelines.module.js";
 import {
   KnownPeopleForTests,
@@ -208,6 +209,47 @@ export function aDoneResult(
   met: readonly number[] = [1, 2],
 ): unknown {
   return { status: "done", summary, handoverNote, definitionOfDoneMet: met };
+}
+
+/** The result of a turn in which the Agent opened a Decision with an Office tool. */
+export const A_WAITING_RESULT: unknown = {
+  status: "needs_decision",
+  summary: "Asked which page.",
+  handoverNote: "Waiting on the user.",
+};
+
+/** A Decision the Agent opens with an Office tool, as Conversations tells of it. */
+export function anAskedDecision(fields: Partial<AskedDecision> = {}): AskedDecision {
+  return {
+    id: randomUUID(),
+    question: "Which page?",
+    context: "Both list devices.",
+    options: ["The device page", "The list"],
+    recommendation: { option: 0, reason: "It has the room." },
+    ...fields,
+  };
+}
+
+/** The Agent opens `asked` with an Office tool in the next Stage's first turn, and nothing after. */
+export function asksOnce({ stageThreads }: PipelinesApplication, asked: AskedDecision): void {
+  let opened = false;
+  stageThreads.asksInTurn = () => {
+    if (opened) return undefined;
+    opened = true;
+    return asked;
+  };
+}
+
+/** Takes the user's answer to the Decision the Agent opened, and waits for the walk. */
+export async function answerAsked(
+  { app }: PipelinesApplication,
+  taskId: string,
+  asked: AskedDecision,
+  answer: DecisionAnswer,
+): Promise<void> {
+  const interpreter = app.get(StageInterpreter, { strict: false });
+  await interpreter.takeAnswer(taskId, asked.id, answer);
+  await interpreter.walked(taskId);
 }
 
 /** Answers the walk's last Decision on the Task as the user would, and waits for the walk. */

@@ -8,6 +8,8 @@ import {
   aDoneResult,
   anAgentSession,
   anAgentStage,
+  anAskedDecision,
+  answerAsked,
   answerLastDecision,
   runsOf,
   startPipelinesApplication,
@@ -145,7 +147,6 @@ describe("Shutting down during a Stage", () => {
     expect(after.decisions.on(taskId)).toEqual([
       expect.objectContaining({
         threadId: restarted?.threadId,
-        byTheOffice: true,
         draft: expect.objectContaining({
           question: RESTART_QUESTION,
           options: ['Run "Implement" again', "Drop the Task"],
@@ -254,6 +255,37 @@ describe("Starting with a run left running", () => {
     ]);
     expect(pipelines.engine.sessions).toEqual([]);
     expect((await pipelines.tasks.read(taskId)).state).toBe("waiting-on-you");
+  });
+
+  it("keeps the Decision its Agent had opened: the walk waits on it before asking to run the Stage again, whose next run takes its answer", async () => {
+    const pipelines = await start([anAgentSession(aDoneResult()), anAgentSession(aDoneResult())]);
+    const threadId = randomUUID();
+    const taskId = await aRunLeftRunning(pipelines, [implement, review], threadId);
+    const asked = anAskedDecision();
+    pipelines.stageThreads.leftAsking.set(threadId, asked);
+
+    await startUp(pipelines, taskId, "in-progress");
+
+    const [run] = await runsOf(pipelines, taskId);
+    expect(run?.outcome).toMatchObject({ interrupted: "restart" });
+    expect(run?.decisions).toEqual([
+      expect.objectContaining({ id: asked.id, kind: "agent", question: asked.question }),
+    ]);
+    expect(pipelines.decisions.on(taskId)).toEqual([]);
+    expect((await pipelines.tasks.read(taskId)).state).toBe("waiting-on-you");
+
+    await answerAsked(pipelines, taskId, asked, { kind: "option", option: 0 });
+
+    expect(pipelines.decisions.on(taskId).map(({ draft }) => draft.question)).toEqual([
+      RESTART_QUESTION,
+    ]);
+    expect(pipelines.engine.sessions).toEqual([]);
+
+    await answerLastDecision(pipelines, taskId, { kind: "option", option: 0 });
+
+    expect(pipelines.stageThreads.requests[0]?.work).toContain(
+      "You asked the user: Which page?\n\nTheir answer: The device page",
+    );
   });
 
   it("drops the Task when the user answers so", async () => {
@@ -366,7 +398,6 @@ describe("Shutting down between Stages", () => {
     ]);
     expect(after.decisions.on(taskId)).toEqual([
       expect.objectContaining({
-        byTheOffice: true,
         draft: expect.objectContaining({
           question: 'The Office restarted before "Review & fix". Start it?',
           options: ['Start "Review & fix"', "Drop the Task"],

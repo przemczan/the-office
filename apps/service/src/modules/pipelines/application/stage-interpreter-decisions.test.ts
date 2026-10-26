@@ -5,10 +5,14 @@ import { DecisionAnswered } from "../../conversations/index.js";
 import type { SessionScript } from "../../engine/index.js";
 import type { OnFailure, Stage } from "../domain/stage.js";
 import {
+  A_WAITING_RESULT,
   aDoneResult,
   anAgentSession,
+  anAskedDecision,
+  answerAsked,
   anAgentStage,
   answerLastDecision,
+  asksOnce,
   aTurn,
   runsOf,
   startPipelinesApplication,
@@ -31,17 +35,6 @@ function scriptStage(key: string, onFailure?: OnFailure): Stage {
 
 const draft = anAgentStage("draft");
 const agentDone = anAgentSession(aDoneResult());
-const asking = anAgentSession({
-  status: "needs_decision",
-  summary: "Asked which page.",
-  decision: {
-    question: "Which page?",
-    context: "Both list devices.",
-    options: ["The device page", "The list"],
-    recommendation: { option: 0, reason: "It has the room." },
-  },
-});
-
 let pipelines: PipelinesApplication;
 
 /** The Stage Thread a DecisionAnswered tells of, as Conversations keeps it. */
@@ -123,7 +116,6 @@ describe("StageInterpreter's Decisions", () => {
       const runs = await runsOf(pipelines, taskId);
       expect(decision).toMatchObject({
         threadId: runs[2]?.threadId,
-        byTheOffice: true,
         draft: {
           question: '"measure" failed, and its rounds are used up. What now?',
           options: ["Allow 1 more round", "Continue with the issues recorded", "Drop the Task"],
@@ -240,22 +232,67 @@ describe("StageInterpreter's Decisions", () => {
     });
   });
 
-  describe("an Agent's question", () => {
-    it("opens it in the Stage's Thread as the Agent's, and runs the Stage again once answered", async () => {
-      await startWith(asking, agentDone);
+  describe("a Decision the Agent opened with an Office tool", () => {
+    const waiting = anAgentSession(A_WAITING_RESULT);
+
+    it("is the walk's to wait on, opened once, with the Handover note kept", async () => {
+      await startWith(waiting, agentDone);
+      const asked = anAskedDecision({ options: ["Allow once", "Deny"] });
+      asksOnce(pipelines, asked);
+
       const taskId = await walkStages(pipelines, [draft]);
-      const [asked] = await runsOf(pipelines, taskId);
 
-      expect(pipelines.decisions.on(taskId)).toEqual([
-        expect.objectContaining({
-          threadId: asked?.threadId,
-          byTheOffice: false,
-          draft: expect.objectContaining({ question: "Which page?" }),
-        }),
+      const [run] = await runsOf(pipelines, taskId);
+      expect(run?.outcome).toEqual({
+        status: "needs-decision",
+        question: asked.question,
+        context: asked.context,
+        options: asked.options,
+        recommendation: asked.recommendation,
+        handoverNote: "Waiting on the user.",
+      });
+      expect(run?.decisions).toEqual([
+        {
+          id: asked.id,
+          kind: "agent",
+          question: asked.question,
+          options: [
+            { kind: "answered", answer: "Allow once" },
+            { kind: "answered", answer: "Deny" },
+          ],
+          answer: undefined,
+        },
       ]);
+      // Conversations opened it as the tool ran: the walk opens none.
+      expect(pipelines.decisions.on(taskId)).toEqual([]);
+      expect(statesOf(taskId)).toEqual(["waiting-on-you"]);
+    });
 
-      await answerLastDecision(pipelines, taskId, { kind: "option", option: 1 });
+    it("waits on it whatever status the result gives, with no correction asked", async () => {
+      await startWith(anAgentSession({ status: "done", summary: "Asked." }), agentDone);
+      asksOnce(pipelines, anAskedDecision());
 
+      const taskId = await walkStages(pipelines, [draft]);
+
+      expect(await statusesOf(taskId)).toEqual([["draft", "needs-decision"]]);
+      expect(pipelines.stageThreads.sent).toEqual([]);
+    });
+
+    it("runs the Stage again in the asking Thread through the Context policy with the answer, whatever the Stage declares", async () => {
+      await startWith(waiting, agentDone);
+      const asked = anAskedDecision();
+      asksOnce(pipelines, asked);
+      const taskId = await walkStages(pipelines, [anAgentStage("draft", { session: "fresh" })]);
+      const [run] = await runsOf(pipelines, taskId);
+
+      await answerAsked(pipelines, taskId, asked, { kind: "free-answer", text: "Both pages." });
+
+      const again = pipelines.stageThreads.requests.at(-1);
+      expect(again?.declared).toBeUndefined();
+      expect(again?.previousThreadId).toBe(run?.threadId);
+      expect(again?.work).toContain(
+        "## Your question, answered\n\nYou asked the user: Which page?\n\nTheir answer: Both pages.",
+      );
       expect(await statusesOf(taskId)).toEqual([
         ["draft", "needs-decision"],
         ["draft", "done"],
@@ -263,32 +300,16 @@ describe("StageInterpreter's Decisions", () => {
       expect(statesOf(taskId)).toEqual(["waiting-on-you", "in-progress", "done"]);
     });
 
-    it("sends the answer to the asking session through the Context policy, whatever the Stage declares", async () => {
-      await startWith(asking, agentDone);
-      const taskId = await walkStages(pipelines, [anAgentStage("draft", { session: "fresh" })]);
-      const [asked] = await runsOf(pipelines, taskId);
-
-      await answerLastDecision(pipelines, taskId, { kind: "free-answer", text: "Both pages." });
-
-      const again = pipelines.stageThreads.requests.at(-1);
-      expect(again?.declared).toBeUndefined();
-      expect(again?.previousThreadId).toBe(asked?.threadId);
-      expect(again?.work).toContain(
-        "## Your question, answered\n\nYou asked the user: Which page?\n\nTheir answer: Both pages.",
-      );
-    });
-
     it("takes the answer from Conversations' DecisionAnswered, once", async () => {
-      await startWith(asking, agentDone);
+      await startWith(waiting, agentDone);
+      const asked = anAskedDecision();
+      asksOnce(pipelines, asked);
       const taskId = await walkStages(pipelines, [draft]);
-      const [opened] = pipelines.decisions.on(taskId);
-      if (!opened) throw new Error("No Decision was opened.");
       const answered = new DecisionAnswered(
         aStageThread(taskId),
         {
-          ...opened.draft,
-          id: opened.id,
-          threadId: opened.threadId ?? "",
+          ...asked,
+          threadId: (await runsOf(pipelines, taskId))[0]?.threadId ?? "",
           taskId,
           roleKey: "developer",
           askedAt: new Date(),
@@ -305,95 +326,6 @@ describe("StageInterpreter's Decisions", () => {
         ["draft", "needs-decision"],
         ["draft", "done"],
       ]);
-    });
-  });
-
-  describe("a Decision the Agent opened with an Office tool", () => {
-    const opened = {
-      id: "c0a80121-7ac0-4e1c-9f00-000000000001",
-      question: "Which page?",
-      context: "For Devops: The Office has no Consultations yet, so you answer in their place.",
-      options: ["Allow once", "Deny"],
-      recommendation: { option: 0, reason: "Nothing else makes the thumbnails." },
-    };
-    const waiting = anAgentSession({
-      status: "needs_decision",
-      summary: "Asked.",
-      handoverNote: "Waiting on the install.",
-    });
-
-    /** The Agent opens `opened` in its first Stage's turn, and asks nothing after. */
-    function asksWithTheTool(): void {
-      let asked = false;
-      pipelines.stageThreads.asksInTurn = () => {
-        if (asked) return undefined;
-        asked = true;
-        return opened;
-      };
-    }
-
-    it("is the walk's to wait on, opened once, with the Handover note kept", async () => {
-      await startWith(waiting, agentDone);
-      asksWithTheTool();
-
-      const taskId = await walkStages(pipelines, [draft]);
-
-      const [asked] = await runsOf(pipelines, taskId);
-      expect(asked?.outcome).toEqual({
-        status: "needs-decision",
-        question: opened.question,
-        context: opened.context,
-        options: opened.options,
-        recommendation: opened.recommendation,
-        handoverNote: "Waiting on the install.",
-      });
-      expect(asked?.decisions).toEqual([
-        {
-          id: opened.id,
-          kind: "agent",
-          options: [
-            { kind: "answered", answer: "Allow once" },
-            { kind: "answered", answer: "Deny" },
-          ],
-          answer: undefined,
-        },
-      ]);
-      // Conversations opened it as the tool ran: the walk opens no other.
-      expect(pipelines.decisions.on(taskId)).toEqual([]);
-      expect(statesOf(taskId)).toEqual(["waiting-on-you"]);
-    });
-
-    it("waits on it whatever status the result gives, with no correction asked", async () => {
-      await startWith(anAgentSession({ status: "done", summary: "Asked." }), agentDone);
-      asksWithTheTool();
-
-      const taskId = await walkStages(pipelines, [draft]);
-
-      expect(await statusesOf(taskId)).toEqual([["draft", "needs-decision"]]);
-      expect(pipelines.stageThreads.sent).toEqual([]);
-    });
-
-    it("runs the Stage again in the asking Thread with the answer, once the user answers", async () => {
-      await startWith(waiting, agentDone);
-      asksWithTheTool();
-      const taskId = await walkStages(pipelines, [anAgentStage("draft", { session: "fresh" })]);
-      const [asked] = await runsOf(pipelines, taskId);
-      const interpreter = pipelines.app.get(StageInterpreter, { strict: false });
-
-      await interpreter.takeAnswer(taskId, opened.id, { kind: "option", option: 1 });
-      await interpreter.walked(taskId);
-
-      const again = pipelines.stageThreads.requests.at(-1);
-      expect(again?.declared).toBeUndefined();
-      expect(again?.previousThreadId).toBe(asked?.threadId);
-      expect(again?.work).toContain(
-        "## Your question, answered\n\nYou asked the user: Which page?\n\nTheir answer: Deny",
-      );
-      expect(await statusesOf(taskId)).toEqual([
-        ["draft", "needs-decision"],
-        ["draft", "done"],
-      ]);
-      expect(statesOf(taskId)).toEqual(["waiting-on-you", "in-progress", "done"]);
     });
   });
 

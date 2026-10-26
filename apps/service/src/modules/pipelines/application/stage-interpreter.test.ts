@@ -12,9 +12,12 @@ import {
   WentBackToStage,
 } from "../domain/stage-run-events.js";
 import {
+  A_WAITING_RESULT,
   aDoneResult,
   anAgentSession,
   anAgentStage,
+  anAskedDecision,
+  asksOnce,
   runsOf,
   startPipelinesApplication,
   walkStages,
@@ -185,18 +188,8 @@ describe("StageInterpreter", () => {
   });
 
   it("waits on the user when a Stage needs a Decision", async () => {
-    await startWith(
-      anAgentSession({
-        status: "needs_decision",
-        summary: "Asked which page.",
-        decision: {
-          question: "Which page?",
-          context: "Both list devices.",
-          options: ["The device page", "The list"],
-          recommendation: { option: 0, reason: "It has the room." },
-        },
-      }),
-    );
+    await startWith(anAgentSession(A_WAITING_RESULT));
+    asksOnce(pipelines, anAskedDecision());
 
     const taskId = await walk([agentStage("draft"), scriptStage("measure")]);
 

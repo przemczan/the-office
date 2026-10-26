@@ -77,9 +77,15 @@ function runs(...ran: readonly Ran[]): StageRun[] {
   }));
 }
 
-/** A Decision the walk opened, answered `answer` (undefined: still open). */
+/**
+ * A Decision kept on the run, answered `answer` (undefined: still open): the Agent's own, which it
+ * opened with an Office tool, or one the walk opened.
+ */
 function decided(kind: StageDecisionKind, answer?: WalkAnswer): StageRunDecision {
-  return { id: `decision-${kind}`, kind, options: [], answer };
+  const id = `decision-${kind}`;
+  return kind === "agent"
+    ? { id, kind, question: "Which page?", options: [], answer }
+    : { id, kind, options: [], answer };
 }
 
 const stages = [
@@ -163,6 +169,44 @@ describe("nextMove", () => {
       move: "run",
       stage: stages[0],
       carriedFailure: undefined,
+    });
+  });
+
+  it("waits on the Decision a held run's Agent opened, then runs the Stage again once answered", () => {
+    const answer = { kind: "answered", answer: "The list" } as const;
+    for (const interrupted of ["stop", "pause"] as const) {
+      const held: StageOutcome = { status: "failed", error: "Held.", interrupted };
+      const waiting = runs(["write", held, decided("agent")]);
+      const answered = runs(["write", held, decided("agent", answer)]);
+
+      expect(nextMove(stages, waiting, NO_DEFINITION_OF_DONE)).toEqual({
+        move: "wait",
+        run: waiting[0],
+      });
+      expect(nextMove(stages, answered, NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: { key: "write" },
+      });
+    }
+  });
+
+  it("waits on the Agent's Decision before asking to run again a Stage The Office restarted during", () => {
+    const restarted: StageOutcome = {
+      status: "failed",
+      error: "Restarted.",
+      interrupted: "restart",
+    };
+    const waiting = runs(["write", restarted, decided("agent")]);
+    const answered = runs([
+      "write",
+      restarted,
+      decided("agent", { kind: "answered", answer: "The list" }),
+    ]);
+
+    expect(nextMove(stages, waiting, NO_DEFINITION_OF_DONE)).toMatchObject({ move: "wait" });
+    expect(nextMove(stages, answered, NO_DEFINITION_OF_DONE)).toMatchObject({
+      move: "ask",
+      question: { kind: "restart" },
     });
   });
 
@@ -270,14 +314,10 @@ describe("nextMove", () => {
     });
   });
 
-  it("asks the Agent's question until the walk has opened it", () => {
-    const ran = runs(["write", asks]);
-
-    expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toEqual({
-      move: "ask",
-      run: ran[0],
-      question: { kind: "agent" },
-    });
+  it("never asks the Agent's question itself: its run keeps the Decision the Agent opened", () => {
+    expect(() => nextMove(stages, runs(["write", asks]), NO_DEFINITION_OF_DONE)).toThrow(
+      "needs a Decision its Agent didn't keep",
+    );
   });
 
   it("runs the same Stage again once its Decision is answered", () => {

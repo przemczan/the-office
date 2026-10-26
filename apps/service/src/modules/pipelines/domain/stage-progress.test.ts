@@ -119,7 +119,14 @@ describe("stagesProgress", () => {
         runs({
           stageKey: "implement",
           outcome: asks,
-          decisions: [{ ...open, kind: "agent", answer: { kind: "answered", answer: "One" } }],
+          decisions: [
+            {
+              ...open,
+              kind: "agent",
+              question: "Which one?",
+              answer: { kind: "answered", answer: "One" },
+            },
+          ],
         }),
       ),
     ).toEqual(["done"]);

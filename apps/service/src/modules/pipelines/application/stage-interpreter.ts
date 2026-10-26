@@ -29,7 +29,12 @@ import {
   StopHeldAsPause,
   WentBackToStage,
 } from "../domain/stage-run-events.js";
-import { walkAnswerOf, walkDecision, type DecisionAnswer } from "../domain/walk-decisions.js";
+import {
+  agentDecision,
+  walkAnswerOf,
+  walkDecision,
+  type DecisionAnswer,
+} from "../domain/walk-decisions.js";
 import { StageDecisions } from "../ports/stage-decisions.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StageThreads } from "../ports/stage-threads.js";
@@ -213,7 +218,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     const ended = endStageRun(run, outcome, new Date());
     await this.runs.saveEnded(ended.run);
     if (run.threadId && outcome.status === "failed") {
-      await this.threads.endLeftRunning(run.threadId, outcome.error);
+      const asked = await this.threads.endLeftRunning(run.threadId, outcome.error, run.startedAt);
+      // As a held run keeps it: nothing runs again until the user answers it.
+      if (asked && !run.decisions.some(({ id }) => id === asked.id)) {
+        await this.runs.saveDecisions(run.id, [...run.decisions, agentDecision(asked)]);
+      }
     }
     await this.events.publish(ended.event);
     this.logger.warn(
@@ -434,8 +443,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   }
 
   /**
-   * Opens the Decision on the run: the Agent's own in its Stage Thread, The Office's in the Thread
-   * of the Task's last Agent Stage run (spec §2.3: in tier 1 The Office asks the user directly).
+   * Opens The Office's Decision on the run, in the Thread of the Task's last Agent Stage run (spec
+   * §2.3: in tier 1 The Office asks the user directly).
    */
   private async ask(
     taskId: string,
@@ -443,15 +452,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     runs: readonly StageRun[],
   ): Promise<void> {
     const decision = walkDecision(run, question);
-    const threadId = decision.byTheOffice
-      ? runs.findLast((each) => each.threadId !== undefined)?.threadId
-      : run.threadId;
-    const id = await this.decisions.open({
-      taskId,
-      threadId,
-      byTheOffice: decision.byTheOffice,
-      draft: decision.draft,
-    });
+    const threadId = runs.findLast((each) => each.threadId !== undefined)?.threadId;
+    const id = await this.decisions.open({ taskId, threadId, draft: decision.draft });
     await this.runs.saveDecisions(run.id, [
       ...run.decisions,
       { id, kind: decision.kind, options: decision.options, answer: undefined },

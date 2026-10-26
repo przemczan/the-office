@@ -9,7 +9,7 @@ import { ProjectMark } from "../../shell/project-mark.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { PriorityIcon, TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
-import { useWaitingOnYouWhilePlanning } from "../../shell/work/waiting-on-you.ts";
+import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { NOT_STARTED, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { PlanButton } from "./planning-actions.tsx";
 import { TaskMenu } from "./task-menu.tsx";
@@ -62,7 +62,7 @@ export function Board(): ReactNode {
   const [target, setTarget] = useState<DropTarget>();
   const placing = usePlacing();
   const showToast = useToast();
-  const waitingOnYou = useWaitingOnYouWhilePlanning();
+  const waitingOnYou = useWaitingOnYouInItsState();
   const planner = usePlanner()?.card.name;
 
   const drop = (column: Column, event: DragEvent): void => {

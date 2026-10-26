@@ -13,7 +13,7 @@ import { taskTokens } from "./stage-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
-import { useWaitingOnYouWhilePlanning } from "../../shell/work/waiting-on-you.ts";
+import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { MarkReadyButton, PlanButton } from "./planning-actions.tsx";
 import { StartButton } from "./start-action.tsx";
@@ -64,7 +64,7 @@ function TaskHead({
   readonly threads: readonly Thread[] | undefined;
 }): ReactNode {
   const tokens = taskTokens(threads);
-  const waitingOnYou = useWaitingOnYouWhilePlanning();
+  const waitingOnYou = useWaitingOnYouInItsState();
   return (
     <header className="task-head">
       <div className="task-head-grow">

@@ -55,11 +55,6 @@ export interface StageTurn {
   readonly problem: string | undefined;
   /** The turn's tokens. */
   readonly tokens: StageTokens;
-  /**
-   * The Decision the person opened in the Stage Thread during the Stage's work, with an Office
-   * tool (`open_decision` or `consult`), while it waits on the user; undefined when they asked none.
-   */
-  readonly decision: AskedDecision | undefined;
 }
 
 /** A Decision the person opened in their Stage Thread, by the id it is answered by. */
@@ -74,6 +69,11 @@ export interface StageThread {
   readonly move: { readonly move: StageSessionMove };
   /** The person's turn running now, as it ends. */
   nextTurn(): Promise<StageTurn>;
+  /**
+   * The Decision the person opened in the Thread since the Stage's work began, with an Office tool
+   * (`open_decision` or `consult`), while it waits on the user; undefined when they asked none.
+   */
+  askedDecision(): Promise<AskedDecision | undefined>;
   /** Logs `why`, sends the person `text` in the same session, and returns the turn answering it. */
   send(text: string, why: string): Promise<StageTurn>;
   /**
@@ -103,7 +103,12 @@ export abstract class StageThreads {
   /**
    * Ends the Stage's work in the Thread of a run The Office left running as it stopped, logging
    * `failure`: the user's messages still waiting to land become not delivered, so they go with
-   * the Stage's next run as after a Stop.
+   * the Stage's next run as after a Stop. Returns the Decision the person opened in the Thread
+   * since the run `began`, still waiting on the user, for the run to keep.
    */
-  abstract endLeftRunning(threadId: string, failure: string): Promise<void>;
+  abstract endLeftRunning(
+    threadId: string,
+    failure: string,
+    began: Date,
+  ): Promise<AskedDecision | undefined>;
 }

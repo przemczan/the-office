@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { readStageResult, STAGE_RESULT_SCHEMA } from "./stage-result.js";
 
-const decision = {
+/** A Decision the Agent opened with an Office tool. */
+const asked = {
   question: "Which page?",
   context: "Both list devices.",
   options: ["The device page", "The list"],
@@ -24,7 +25,6 @@ describe("STAGE_RESULT_SCHEMA", () => {
       "summary",
       "handoverNote",
       "definitionOfDoneMet",
-      "decision",
       "failureReason",
     ]);
     expect(STAGE_RESULT_SCHEMA).not.toHaveProperty("$schema");
@@ -34,12 +34,15 @@ describe("STAGE_RESULT_SCHEMA", () => {
 describe("readStageResult", () => {
   it("reads each status as the run's outcome, with the Handover note", () => {
     expect(
-      readStageResult({
-        status: "done",
-        summary: "Built.",
-        handoverNote: "All set.",
-        definitionOfDoneMet: [1, 3],
-      }),
+      readStageResult(
+        {
+          status: "done",
+          summary: "Built.",
+          handoverNote: "All set.",
+          definitionOfDoneMet: [1, 3],
+        },
+        undefined,
+      ),
     ).toEqual({
       valid: true,
       outcome: {
@@ -49,17 +52,16 @@ describe("readStageResult", () => {
         definitionOfDoneMet: [1, 3],
       },
     });
-    expect(readStageResult({ status: "needs_decision", summary: "Asked.", decision })).toEqual({
-      valid: true,
-      outcome: { status: "needs-decision", ...decision },
-    });
     expect(
-      readStageResult({
-        status: "failed",
-        summary: "Stopped.",
-        failureReason: "The page is gone.",
-        handoverNote: "Look at the router.",
-      }),
+      readStageResult(
+        {
+          status: "failed",
+          summary: "Stopped.",
+          failureReason: "The page is gone.",
+          handoverNote: "Look at the router.",
+        },
+        undefined,
+      ),
     ).toEqual({
       valid: true,
       outcome: {
@@ -70,24 +72,42 @@ describe("readStageResult", () => {
     });
   });
 
+  it("needs the Decision the Agent opened with a tool, keeping the Handover note, whatever the status", () => {
+    const outcome = { status: "needs-decision", ...asked, handoverNote: "Waiting." };
+
+    expect(
+      readStageResult(
+        { status: "needs_decision", summary: "Asked.", handoverNote: "Waiting." },
+        asked,
+      ),
+    ).toEqual({ valid: true, outcome });
+    expect(
+      readStageResult(
+        { status: "done", summary: "Built.", handoverNote: "Waiting.", definitionOfDoneMet: [] },
+        asked,
+      ),
+    ).toEqual({ valid: true, outcome });
+    expect(readStageResult(undefined, asked)).toEqual({
+      valid: true,
+      outcome: { status: "needs-decision", ...asked },
+    });
+  });
+
   it("says what is wrong, for the Agent to correct", () => {
-    expect(readStageResult({ status: "done", summary: "Built." })).toEqual({
+    expect(readStageResult({ status: "done", summary: "Built." }, undefined)).toEqual({
       valid: false,
       problems: 'status "done" requires "handoverNote".',
     });
     expect(
-      readStageResult({ status: "done", summary: "Built.", handoverNote: "All set." }),
+      readStageResult({ status: "done", summary: "Built.", handoverNote: "All set." }, undefined),
     ).toEqual({ valid: false, problems: 'status "done" requires "definitionOfDoneMet".' });
-    expect(readStageResult({ data: { status: "done" } })).toMatchObject({ valid: false });
-    expect(
-      readStageResult({
-        status: "needs_decision",
-        summary: "Asked.",
-        decision: { ...decision, recommendation: { option: 2, reason: "None." } },
-      }),
-    ).toEqual({
+    expect(readStageResult({ data: { status: "done" } }, undefined)).toMatchObject({
       valid: false,
-      problems: "decision.recommendation.option is not one of the options.",
+    });
+    expect(readStageResult({ status: "needs_decision", summary: "Asked." }, undefined)).toEqual({
+      valid: false,
+      problems:
+        'status "needs_decision" means you opened a Decision with open_decision or consult, and you opened none. Open it with one of them first, then end your turn with needs_decision again.',
     });
   });
 });

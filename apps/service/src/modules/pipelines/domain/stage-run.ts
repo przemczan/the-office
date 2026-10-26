@@ -145,16 +145,34 @@ export type WalkAnswer =
   | { readonly kind: "raise-budget"; readonly tokens: number }
   | { readonly kind: "drop" };
 
-/** A Decision the walk opened on a run, kept as data so the walk can replay its answer. */
-export interface StageRunDecision {
+/**
+ * A Decision on a run, kept as data so the walk can replay its answer: the Agent's own, which it
+ * opened with an Office tool, or one the walk opened.
+ */
+export type StageRunDecision = AgentRunDecision | WalkRunDecision;
+
+interface RunDecisionFields {
   /** The Decision's id, as Conversations keeps it. */
   readonly id: string;
-  readonly kind: StageDecisionKind;
   /** What each of the Decision's options does, in the order it lists them. */
   readonly options: readonly WalkAnswer[];
   /** Undefined while it waits on the user. */
   readonly answer: WalkAnswer | undefined;
 }
+
+/** The Agent's own question, whose answer goes with its Stage's next run. */
+export interface AgentRunDecision extends RunDecisionFields {
+  readonly kind: "agent";
+  readonly question: string;
+}
+
+/** A Decision the walk opened (spec §2.3): The Office asks. */
+export interface WalkRunDecision extends RunDecisionFields {
+  readonly kind: WalkDecisionKind;
+}
+
+/** What the walk itself asks about: every Decision kind but the Agent's own. */
+export type WalkDecisionKind = Exclude<StageDecisionKind, "agent">;
 
 /**
  * One run of one of a Task's Stages. It owns that run's state, so nothing about a Stage's work

@@ -23,14 +23,13 @@ import {
   type StageRun,
 } from "../domain/stage-run.js";
 import {
-  askedOutcome,
   correctionMessage,
   readStageResult,
   STAGE_RESULT_SCHEMA,
   type StageResultReading,
 } from "../domain/stage-result.js";
 import { KnownPeople, type KnownPerson } from "../ports/known-people.js";
-import { acceptedIssues, agentAnswers } from "../domain/walk-decisions.js";
+import { acceptedIssues, agentDecision } from "../domain/walk-decisions.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import {
   StageThreads,
@@ -123,6 +122,9 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     try {
       await this.runs.saveThread(work.run.id, thread.threadId, thread.move.move);
       const result = await this.resultOf(work, thread);
+      // A held run keeps it too, so its answer waits for the user's Resume.
+      const asked = await thread.askedDecision();
+      if (asked) await this.keep(work, asked);
       // Before git is read, so a dev server or a watcher it started can't change the worktree.
       await thread.endSession();
       const outcome = result
@@ -296,8 +298,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     if (work.interruption.now) return undefined;
     const firstTurn = await counted(await thread.nextTurn());
     if (work.interruption.requested) return undefined;
-    if (firstTurn.decision) return this.waitOn(work, firstTurn.decision, firstTurn.output);
-    const first = readingOf(firstTurn);
+    const first = readingOf(firstTurn, await thread.askedDecision());
     if (first.valid) return first.outcome;
     // The correction is another engine call, so the budget is checked before it too.
     const reached = await this.budgetCheck(work);
@@ -309,10 +310,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       ),
     );
     if (work.interruption.requested) return undefined;
-    if (correctedTurn.decision) {
-      return this.waitOn(work, correctedTurn.decision, correctedTurn.output);
-    }
-    const corrected = readingOf(correctedTurn);
+    const corrected = readingOf(correctedTurn, await thread.askedDecision());
     if (corrected.valid) return corrected.outcome;
     return {
       status: "failed",
@@ -321,33 +319,22 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   }
 
   /**
-   * The run waits on the Decision its Agent opened with an Office tool: kept on the run as the
-   * walk's own, so the walk waits on it rather than asking again and takes its answer, and the
-   * Stage runs again with the answer as its next message (spec §9).
+   * Keeps the Decision the Agent opened with an Office tool on its run, so the walk waits on it and
+   * takes its answer, and the Stage runs again with the answer (spec §9).
    */
-  private async waitOn(
-    { run }: StageWork<"agent">,
-    decision: AskedDecision,
-    output: unknown,
-  ): Promise<StageOutcome> {
-    await this.runs.saveDecisions(run.id, [
-      ...run.decisions,
-      {
-        id: decision.id,
-        kind: "agent",
-        options: agentAnswers(decision.options),
-        answer: undefined,
-      },
-    ]);
-    return askedOutcome(decision, output);
+  private async keep({ run }: StageWork<"agent">, asked: AskedDecision): Promise<void> {
+    await this.runs.saveDecisions(run.id, [...run.decisions, agentDecision(asked)]);
   }
 }
 
-function readingOf({ output, problem }: StageTurn): StageResultReading {
-  if (output === undefined) {
+function readingOf(
+  { output, problem }: StageTurn,
+  asked: AskedDecision | undefined,
+): StageResultReading {
+  if (output === undefined && !asked) {
     return { valid: false, problems: problem ?? "The turn ended without a result." };
   }
-  return readStageResult(output);
+  return readStageResult(output, asked);
 }
 
 function changedGitItself(problem: string, handoverNote: string | undefined): StageOutcome {
@@ -417,11 +404,12 @@ function answeredQuestion(
   stage: Stage,
   earlierRuns: readonly StageRun[],
 ): AnsweredQuestion | undefined {
-  const asked = earlierRuns.at(-1);
-  if (asked?.stageKey !== stage.key || asked.outcome?.status !== "needs-decision") return undefined;
-  const answer = asked.decisions.find(({ kind }) => kind === "agent")?.answer;
-  if (answer?.kind !== "answered") return undefined;
-  return { question: asked.outcome.question, answer: answer.answer };
+  const last = earlierRuns.at(-1);
+  if (last?.stageKey !== stage.key) return undefined;
+  // The run that asked ended needing the Decision, or was held with it.
+  const asked = last.decisions.find((decision) => decision.kind === "agent");
+  if (asked?.answer?.kind !== "answered") return undefined;
+  return { question: asked.question, answer: asked.answer.answer };
 }
 
 function carriedWithName(

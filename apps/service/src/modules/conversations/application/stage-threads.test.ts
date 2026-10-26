@@ -707,7 +707,7 @@ describe("Stop", () => {
     const failure =
       "The Office restarted during this Stage. The Stage had left no uncommitted edits.";
 
-    await stageThreads.endLeftRunning(left.threadId, failure);
+    const asked = await stageThreads.endLeftRunning(left.threadId, failure, since);
 
     expect(await userMessages(left.threadId)).toEqual([
       { kind: "user", text: "Rename it on the list instead.", delivery: "not-delivered" },
@@ -717,6 +717,7 @@ describe("Stop", () => {
       reason: failure,
     });
     expect((await threadOf(left.threadId)).state).toBe("waiting");
+    expect(asked).toBeUndefined();
     // In this process the lost session still runs; a restarted Office would have none.
     await left.endSession();
 
@@ -781,7 +782,7 @@ describe("StageDecisions", () => {
     recommendation: { option: 0, reason: "It has the room." },
   };
 
-  it("opens an Agent's question in its Stage Thread, and takes the answer for the Pipeline with no session", async () => {
+  it("opens The Office's in a Stage Thread, and takes the answer for the Pipeline with no session", async () => {
     await startWith(started(...aTurn({ status: "needs_decision" })));
     const ada = aPerson("Ada");
     const request = aStage({ roleKey: ada });
@@ -791,7 +792,6 @@ describe("StageDecisions", () => {
     const id = await app.get(StageDecisions).open({
       taskId: request.taskId,
       threadId: stageThread.threadId,
-      byTheOffice: false,
       draft,
     });
     const thread = await app.get(DecisionService).answer(id, { kind: "option", option: 1 });
@@ -799,7 +799,7 @@ describe("StageDecisions", () => {
     expect(thread.openDecision).toBeUndefined();
     const log = drafts(await repository.messages(stageThread.threadId));
     expect(log.slice(-2)).toEqual([
-      { kind: "decision", roleKey: ada, decisionId: id },
+      { kind: "decision", roleKey: undefined, decisionId: id },
       { kind: "decision-answer", decisionId: id, answer: { kind: "option", option: 1 } },
     ]);
     expect(answered.map(({ decision }) => [decision.id, decision.answer?.kind])).toEqual([
@@ -807,7 +807,6 @@ describe("StageDecisions", () => {
     ]);
     // The session ended with the Stage; nothing started another.
     expect(engine.sessions).toHaveLength(1);
-    expect(await repository.answeredOn(request.taskId)).toHaveLength(1);
   });
 
   it("opens The Office's own in the Task's newest Thread, asked by no person", async () => {
@@ -819,7 +818,6 @@ describe("StageDecisions", () => {
     const id = await app.get(StageDecisions).open({
       taskId,
       threadId: undefined,
-      byTheOffice: true,
       draft,
     });
     const opened = await repository.decision(id);
@@ -889,7 +887,7 @@ describe("Office tools on a Stage", () => {
     await expect(threads.taskInSession(sessionId)).resolves.toBe(request.taskId);
   });
 
-  it("open a Decision in the Stage Thread at once, which the turn tells of and the user answers once the Stage ends", async () => {
+  it("open a Decision in the Stage Thread at once, which the Stage reads and the user answers once it ends", async () => {
     await startWith(
       started(
         ...callsOfficeTool("c-1", OPEN_DECISION_TOOL, WHICH_PAGE),
@@ -899,16 +897,17 @@ describe("Office tools on a Stage", () => {
     const ada = aPerson("Ada");
     const stageThread = await stageThreads.open(anAskingStage(ada));
 
-    const turn = await stageThread.nextTurn();
+    await stageThread.nextTurn();
+    const asked = await stageThread.askedDecision();
 
-    expect(turn.decision).toEqual({
+    expect(asked).toEqual({
       id: expect.any(String),
       question: "Which page shows the rename?",
       context: "Both pages list devices.",
       options: ["The device page", "The list"],
       recommendation: { option: 0, reason: "It has the room." },
     });
-    const id = turn.decision?.id ?? "";
+    const id = asked?.id ?? "";
     // While the Stage runs, its walk hasn't taken the Decision up yet.
     await expect(
       app.get(DecisionService).answer(id, { kind: "option", option: 0 }),
@@ -922,29 +921,60 @@ describe("Office tools on a Stage", () => {
     expect(await repository.decision(id)).toMatchObject({ roleKey: ada, answer: { option: 0 } });
   });
 
-  it("tell of no Decision opened before the Stage's work began", async () => {
+  it("let the Agent open another once the Stage runs again in its Thread after the answer", async () => {
     await startWith(
       started(
         ...callsOfficeTool("c-1", OPEN_DECISION_TOOL, WHICH_PAGE),
         ...aTurn({ status: "needs_decision", summary: "Asked." }),
       ),
-      resumed(...aTurn({ status: "done" }, "Going on.")),
+      resumed(
+        ...callsOfficeTool("c-2", OPEN_DECISION_TOOL, { ...WHICH_PAGE, question: "Which label?" }),
+        ...aTurn({ status: "needs_decision", summary: "Asked again." }, "Going on."),
+      ),
     );
-    const ada = aPerson("Ada");
-    const first = await stageThreads.open(anAskingStage(ada));
+    const request = anAskingStage(aPerson("Ada"));
+    const first = await stageThreads.open(request);
     await first.nextTurn();
+    const earlier = await first.askedDecision();
     await first.end({ handoverNote: undefined, failure: undefined });
+    await app.get(DecisionService).answer(earlier?.id ?? "", { kind: "option", option: 1 });
 
     const again = await stageThreads.open({
-      ...anAskingStage(ada),
+      ...request,
       declared: undefined,
       previousThreadId: first.threadId,
     });
-    const turn = await again.nextTurn();
+    await again.nextTurn();
+    const asked = await again.askedDecision();
     await again.end({ handoverNote: undefined, failure: undefined });
 
     expect(again.threadId).toBe(first.threadId);
-    expect(turn.decision).toBeUndefined();
+    expect(asked).toMatchObject({ question: "Which label?" });
+    expect(asked?.id).not.toBe(earlier?.id);
+  });
+
+  it("keep a Decision open when the Stage's work ends held, and tell of it for a run left running", async () => {
+    await startWith(
+      started(
+        ...callsOfficeTool("c-1", OPEN_DECISION_TOOL, WHICH_PAGE),
+        ...aTurn({ status: "needs_decision", summary: "Asked." }),
+      ),
+    );
+    const since = new Date();
+    const left = await stageThreads.open(anAskingStage(aPerson("Ada")));
+    await left.nextTurn();
+
+    const asked = await stageThreads.endLeftRunning(
+      left.threadId,
+      "The Office restarted during this Stage.",
+      since,
+    );
+
+    expect(asked).toMatchObject({ question: "Which page shows the rename?" });
+    expect((await threadOf(left.threadId)).openDecision?.id).toBe(asked?.id);
+    await expect(
+      stageThreads.endLeftRunning(left.threadId, "Again.", new Date(Date.now() + 1_000)),
+    ).resolves.toBeUndefined();
   });
 
   it("consult a person with a question: the user answers in their place, on a Decision naming them", async () => {

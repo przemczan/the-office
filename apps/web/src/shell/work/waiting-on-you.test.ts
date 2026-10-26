@@ -1,6 +1,6 @@
 import type { Decision, Task } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { waitsOnYou, waitsOnYouWhilePlanning } from "./waiting-on-you.ts";
+import { waitsOnYou, waitsOnYouInItsState } from "./waiting-on-you.ts";
 
 const TASK_ID = "6f1c2c0e-2f0a-4f39-9a49-5d8b0c1e2a33";
 
@@ -40,18 +40,22 @@ function aDecisionOn(taskId: string): Decision {
   };
 }
 
-describe("waitsOnYouWhilePlanning", () => {
+describe("waitsOnYouInItsState", () => {
   it("is true for a Task in Planning with a Decision open on it", () => {
-    expect(waitsOnYouWhilePlanning(aTask({}), [aDecisionOn(TASK_ID)])).toBe(true);
+    expect(waitsOnYouInItsState(aTask({}), [aDecisionOn(TASK_ID)])).toBe(true);
+  });
+
+  it("is true for a Paused Task whose Agent's Decision waits", () => {
+    expect(waitsOnYouInItsState(aTask({ state: "paused" }), [aDecisionOn(TASK_ID)])).toBe(true);
   });
 
   it("is false with no Decision open on the Task", () => {
-    expect(waitsOnYouWhilePlanning(aTask({}), [aDecisionOn("another-task")])).toBe(false);
-    expect(waitsOnYouWhilePlanning(aTask({}), [])).toBe(false);
+    expect(waitsOnYouInItsState(aTask({}), [aDecisionOn("another-task")])).toBe(false);
+    expect(waitsOnYouInItsState(aTask({}), [])).toBe(false);
   });
 
   it("leaves In progress to its own Waiting on you state", () => {
-    expect(waitsOnYouWhilePlanning(aTask({ state: "in-progress" }), [aDecisionOn(TASK_ID)])).toBe(
+    expect(waitsOnYouInItsState(aTask({ state: "in-progress" }), [aDecisionOn(TASK_ID)])).toBe(
       false,
     );
   });

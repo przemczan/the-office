@@ -13,22 +13,16 @@ import {
   aDoneResult,
   anAgentSession,
   anAgentStage,
-  answerLastDecision,
+  anAskedDecision,
+  answerAsked,
+  asksOnce,
+  A_WAITING_RESULT,
   startPipelinesApplication,
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
 
-const asking = anAgentSession({
-  status: "needs_decision",
-  summary: "Asked which page.",
-  decision: {
-    question: "Which page?",
-    context: "Both list devices.",
-    options: ["The device page", "The list"],
-    recommendation: { option: 0, reason: "It has the room." },
-  },
-});
+const asking = anAgentSession(A_WAITING_RESULT);
 
 let pipelines: PipelinesApplication | undefined;
 const spans = new InMemorySpanExporter();
@@ -68,8 +62,10 @@ describe("the Stage interpreter's telemetry", () => {
       undefined,
       telemetry,
     );
+    const asked = anAskedDecision();
+    asksOnce(pipelines, asked);
     const taskId = await walkStages(pipelines, [anAgentStage("draft")]);
-    await answerLastDecision(pipelines, taskId, { kind: "option", option: 0 });
+    await answerAsked(pipelines, taskId, asked, { kind: "option", option: 0 });
 
     const [first, again] = named("walk");
     const stages = named("stage");

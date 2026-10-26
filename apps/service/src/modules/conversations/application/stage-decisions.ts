@@ -5,19 +5,17 @@ import type { DecisionDraft } from "../domain/decision.js";
 import { openDecision } from "../domain/thread-changes.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 
-/** A Decision a Task's Pipeline puts to the user. */
+/** A Decision a Task's Pipeline puts to the user, as The Office. */
 export interface StageDecisionRequest {
   readonly taskId: string;
   /** The Stage Thread it is asked in; undefined puts it in the Task's newest Thread. */
   readonly threadId: string | undefined;
-  /** The Office asks, rather than the Thread's person. */
-  readonly byTheOffice: boolean;
   readonly draft: DecisionDraft;
 }
 
 /**
- * The Decisions a Task's Pipeline opens (spec §2.3): an Agent Stage's question, once its session
- * has ended, and The Office's own about limits and the Definition of Done. Each is a card in a
+ * The Decisions a Task's Pipeline opens (spec §2.3), The Office's own: about limits, the
+ * Definition of Done and a restart. An Agent asks its own with an Office tool. Each is a card in a
  * Thread on the Task, as every Decision is (spec §9); its answer goes back to the Pipeline through
  * DecisionAnswered.
  */
@@ -29,11 +27,11 @@ export class StageDecisions {
   ) {}
 
   /** Opens the Decision and returns its id. */
-  async open({ taskId, threadId, byTheOffice, draft }: StageDecisionRequest): Promise<string> {
+  async open({ taskId, threadId, draft }: StageDecisionRequest): Promise<string> {
     const thread = await this.threadFor(taskId, threadId);
     const id = randomUUID();
     const { event } = await this.repository.update(thread, (latest) =>
-      openDecision(latest, { ...draft, id, askedAt: new Date(), byTheOffice }),
+      openDecision(latest, { ...draft, id, askedAt: new Date(), byTheOffice: true }),
     );
     if (event) await this.events.publish(event);
     return id;

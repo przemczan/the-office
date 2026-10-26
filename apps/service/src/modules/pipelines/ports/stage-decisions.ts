@@ -5,8 +5,6 @@ export interface StageDecisionRequest {
   readonly taskId: string;
   /** The Stage Thread it is asked in; undefined puts it in the Task's newest Thread. */
   readonly threadId: string | undefined;
-  /** The Office asks, rather than the Agent who works in the Thread. */
-  readonly byTheOffice: boolean;
   readonly draft: StageDecision;
 }
 

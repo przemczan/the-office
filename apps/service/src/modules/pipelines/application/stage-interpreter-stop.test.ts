@@ -7,7 +7,10 @@ import {
   aDoneResult,
   anAgentSession,
   anAgentStage,
-  answerLastDecision,
+  anAskedDecision,
+  answerAsked,
+  asksOnce,
+  A_WAITING_RESULT,
   runsOf,
   startPipelinesApplication,
   walkStages,
@@ -34,16 +37,7 @@ const tests: Stage = {
 };
 const review = anAgentStage("review", { name: "Review & fix" });
 
-const asking = anAgentSession({
-  status: "needs_decision",
-  summary: "Asked which page.",
-  decision: {
-    question: "Which page?",
-    context: "Both list devices.",
-    options: ["The device page", "The list"],
-    recommendation: { option: 0, reason: "It has the room." },
-  },
-});
+const asking = anAgentSession(A_WAITING_RESULT);
 
 /** The user's Stop, as Work announces it once the Task is Paused. */
 async function stop(taskId: string): Promise<void> {
@@ -233,10 +227,12 @@ describe("Pause", () => {
 
   it("keeps a Task paused while Waiting on you paused once its Decision is answered, until Resume runs the Stage again", async () => {
     pipelines = await startPipelinesApplication([asking, anAgentSession(aDoneResult())]);
+    const asked = anAskedDecision();
+    asksOnce(pipelines, asked);
     const taskId = await walkStages(pipelines, [implement]);
     await pause(taskId);
 
-    await answerLastDecision(pipelines, taskId, { kind: "option", option: 1 });
+    await answerAsked(pipelines, taskId, asked, { kind: "option", option: 1 });
 
     expect(await statusesOf(taskId)).toEqual([["implement", "needs-decision"]]);
     expect((await pipelines.tasks.read(taskId)).state).toBe("paused");
@@ -274,5 +270,75 @@ describe("Pause", () => {
 
     expect((await tasks.read(taskId)).state).toBe("done");
     expect(completions()).toHaveLength(1);
+  });
+});
+
+describe("A Decision the Agent opened before the user held its run", () => {
+  it("stays the run's after a Stop: answering it keeps the Task Paused, and Resume runs the Stage again with the answer", async () => {
+    pipelines = await startPipelinesApplication([
+      AN_INTERRUPTED_SESSION,
+      anAgentSession(aDoneResult()),
+    ]);
+    const asked = anAskedDecision();
+    asksOnce(pipelines, asked);
+    const taskId = randomUUID();
+    whileTheFirstTurnRuns(taskId, stop);
+
+    await walkStages(pipelines, [implement], taskId);
+
+    const [held] = await runsOf(pipelines, taskId);
+    expect(held?.outcome).toMatchObject({ status: "failed", interrupted: "stop" });
+    expect(held?.decisions).toEqual([
+      expect.objectContaining({ id: asked.id, kind: "agent", question: asked.question }),
+    ]);
+    expect(pipelines.decisions.on(taskId)).toEqual([]);
+
+    await answerAsked(pipelines, taskId, asked, { kind: "option", option: 1 });
+
+    expect((await pipelines.tasks.read(taskId)).state).toBe("paused");
+    expect(await statusesOf(taskId)).toEqual([["implement", "failed"]]);
+
+    await resume(taskId);
+
+    const again = pipelines.stageThreads.requests.at(-1);
+    expect(again?.previousThreadId).toBe(held?.threadId);
+    expect(again?.work).toContain("## Stopped by the user");
+    expect(again?.work).toContain(
+      "## Your question, answered\n\nYou asked the user: Which page?\n\nTheir answer: The list",
+    );
+    expect(await statusesOf(taskId)).toEqual([
+      ["implement", "failed"],
+      ["implement", "done"],
+    ]);
+    expect((await pipelines.tasks.read(taskId)).state).toBe("done");
+  });
+
+  it("stays the run's after a Pause: Resume before the answer waits on it, and the answer runs the Stage again", async () => {
+    pipelines = await startPipelinesApplication([asking, anAgentSession(aDoneResult())]);
+    const asked = anAskedDecision();
+    asksOnce(pipelines, asked);
+    const taskId = randomUUID();
+    whileTheFirstTurnRuns(taskId, pause);
+
+    await walkStages(pipelines, [implement], taskId);
+
+    const [held] = await runsOf(pipelines, taskId);
+    expect(held?.outcome).toMatchObject({ status: "failed", interrupted: "pause" });
+    expect(held?.decisions).toEqual([expect.objectContaining({ id: asked.id, kind: "agent" })]);
+
+    await resume(taskId);
+
+    expect(await statusesOf(taskId)).toEqual([["implement", "failed"]]);
+    expect((await pipelines.tasks.read(taskId)).state).toBe("waiting-on-you");
+
+    await answerAsked(pipelines, taskId, asked, { kind: "free-answer", text: "Both pages." });
+
+    expect(pipelines.stageThreads.requests.at(-1)?.work).toContain(
+      "You asked the user: Which page?\n\nTheir answer: Both pages.",
+    );
+    expect(await statusesOf(taskId)).toEqual([
+      ["implement", "failed"],
+      ["implement", "done"],
+    ]);
   });
 });

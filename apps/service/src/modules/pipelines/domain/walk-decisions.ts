@@ -2,12 +2,13 @@ import type { WalkQuestion } from "./pipeline-walk.js";
 import type { Stage } from "./stage.js";
 import { tokensWords } from "./stage-budget.js";
 import type {
+  AgentRunDecision,
   BudgetReached,
   StageDecision,
-  StageDecisionKind,
   StageRun,
   StageRunDecision,
   WalkAnswer,
+  WalkDecisionKind,
 } from "./stage-run.js";
 
 /** How the user answers a Decision: one of its options, by its index, or in their own words. */
@@ -17,12 +18,10 @@ export type DecisionAnswer =
 
 /** A Decision the walk opens, worded for the user, with what each of its options does. */
 export interface WalkDecision {
-  readonly kind: StageDecisionKind;
+  readonly kind: WalkDecisionKind;
   readonly draft: StageDecision;
   /** What each of the draft's options does, in its order. */
   readonly options: readonly WalkAnswer[];
-  /** The Office asks it, rather than the run's Agent (spec §9: The Office has no person). */
-  readonly byTheOffice: boolean;
 }
 
 const CONTINUE_WITH_ISSUES = "Continue with the issues recorded";
@@ -31,14 +30,13 @@ const MARK_DONE = "Mark the Task Done";
 const GUIDANCE_HINT = "Or answer in your own words: your answer guides one more round.";
 
 /**
- * The Decision for what the walk asks (spec §2.3): the Agent's own question as it asked it, or The
- * Office's, when a Stage fails with no retries left or the Pipeline ends with the Definition of
- * Done not reported met. The user always may answer in their own words (`walkAnswerOf`).
+ * The Decision for what the walk asks (spec §2.3), The Office's: when a Stage fails with no
+ * retries left or reaches its budget, the Pipeline ends with the Definition of Done not reported
+ * met, or The Office restarted during a Stage. The Agent asks its own with an Office tool, never
+ * through the walk. The user always may answer in their own words (`walkAnswerOf`).
  */
 export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecision {
   switch (question.kind) {
-    case "agent":
-      return agentDecision(run);
     case "no-retries-left":
       return noRetriesLeft(question.stage, question.error);
     case "budget":
@@ -66,22 +64,18 @@ export function walkAnswerOf(decision: StageRunDecision, answer: DecisionAnswer)
   return { kind: "one-more-round", guidance: answer.text.trim() };
 }
 
-function agentDecision({ id, outcome }: StageRun): WalkDecision {
-  if (outcome?.status !== "needs-decision") {
-    throw new Error(`Stage run ${id} didn't end needing a Decision.`);
-  }
-  const { question, context, options, recommendation } = outcome;
+/**
+ * The Decision the Agent opened with an Office tool, as its run keeps it: each option answers its
+ * question in the option's words.
+ */
+export function agentDecision(asked: StageDecision & { readonly id: string }): AgentRunDecision {
   return {
+    id: asked.id,
     kind: "agent",
-    draft: { question, context, options, recommendation },
-    options: agentAnswers(options),
-    byTheOffice: false,
+    question: asked.question,
+    options: asked.options.map((option) => ({ kind: "answered", answer: option })),
+    answer: undefined,
   };
-}
-
-/** What each option of the Agent's own question does: answers it, in the option's words. */
-export function agentAnswers(options: readonly string[]): WalkAnswer[] {
-  return options.map((option) => ({ kind: "answered", answer: option }));
 }
 
 /** Raising gives the Stage its declared budget again (research §7), counted from the tokens used. */
@@ -102,7 +96,6 @@ function budgetDecision(stage: Stage, { used, budget }: BudgetReached): WalkDeci
       },
     },
     options: [{ kind: "raise-budget", tokens: raised - budget }, { kind: "drop" }],
-    byTheOffice: true,
   };
   return decision;
 }
@@ -133,7 +126,6 @@ function noRetriesLeft(stage: Stage, error: string): WalkDecision {
       },
     },
     options: [again.answer, { kind: "accept-issues" }, { kind: "drop" }],
-    byTheOffice: true,
   };
 }
 
@@ -155,7 +147,6 @@ function restartDecision(stage: Stage, { id, outcome }: StageRun): WalkDecision 
       },
     },
     options: [{ kind: "one-more-round", guidance: undefined }, { kind: "drop" }],
-    byTheOffice: true,
   };
 }
 
@@ -170,7 +161,6 @@ function notStartedDecision(stage: Stage): WalkDecision {
       recommendation: { option: 0, reason: "The work goes on from where the last Stage left it." },
     },
     options: [{ kind: "one-more-round", guidance: undefined }, { kind: "drop" }],
-    byTheOffice: true,
   };
 }
 
@@ -192,7 +182,6 @@ function definitionOfDoneNotMet(unmet: readonly string[], again: Stage): WalkDec
       { kind: "mark-done" },
       { kind: "drop" },
     ],
-    byTheOffice: true,
   };
 }
 

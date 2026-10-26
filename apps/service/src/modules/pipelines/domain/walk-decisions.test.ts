@@ -54,31 +54,6 @@ function aRun(
 const failed: StageOutcome = { status: "failed", error: "2 tests fail.\n\nThe output." };
 
 describe("walkDecision", () => {
-  it("puts the Agent's own question as it asked it", () => {
-    const asks: StageOutcome = {
-      status: "needs-decision",
-      question: "Which page?",
-      context: "Both list devices.",
-      options: ["The device page", "The list"],
-      recommendation: { option: 1, reason: "It has the room." },
-    };
-
-    expect(walkDecision(aRun("implement", asks), { kind: "agent" })).toEqual({
-      kind: "agent",
-      draft: {
-        question: "Which page?",
-        context: "Both list devices.",
-        options: ["The device page", "The list"],
-        recommendation: { option: 1, reason: "It has the room." },
-      },
-      options: [
-        { kind: "answered", answer: "The device page" },
-        { kind: "answered", answer: "The list" },
-      ],
-      byTheOffice: false,
-    });
-  });
-
   it("offers a failed loop more rounds, its issues recorded, or dropping the Task", () => {
     const decision = walkDecision(aRun("tests", failed), {
       kind: "no-retries-left",
@@ -88,7 +63,6 @@ describe("walkDecision", () => {
 
     expect(decision).toMatchObject({
       kind: "no-retries-left",
-      byTheOffice: true,
       draft: {
         question: '"Tests" failed, and its rounds are used up. What now?',
         options: ["Allow 3 more rounds", "Continue with the issues recorded", "Drop the Task"],
@@ -123,7 +97,6 @@ describe("walkDecision", () => {
 
     expect(decision).toMatchObject({
       kind: "definition-of-done",
-      byTheOffice: true,
       draft: {
         options: ['Run "Implement" once more', "Mark the Task Done", "Drop the Task"],
       },
@@ -145,7 +118,6 @@ describe("walkDecision", () => {
 
     expect(decision).toMatchObject({
       kind: "restart",
-      byTheOffice: true,
       draft: {
         question: 'The Office restarted during "Implement". Run it again?',
         options: ['Run "Implement" again', "Drop the Task"],
@@ -184,7 +156,12 @@ describe("walkAnswerOf", () => {
   });
 
   it("takes any answer to the Agent's question as its answer", () => {
-    const agent: StageRunDecision = { ...noRetries, kind: "agent", options: [] };
+    const agent: StageRunDecision = {
+      ...noRetries,
+      kind: "agent",
+      question: "Which page?",
+      options: [],
+    };
 
     expect(walkAnswerOf(agent, { kind: "free-answer", text: "The list." })).toEqual({
       kind: "answered",
@@ -228,7 +205,6 @@ describe("the budget Decision", () => {
 
     expect(decision).toMatchObject({
       kind: "budget",
-      byTheOffice: true,
       draft: {
         question:
           '"Implement" reached its budget: the Task has used 300k tokens of 250k. Raise it?',

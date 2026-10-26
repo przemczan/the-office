@@ -89,11 +89,6 @@ export interface StageTurn {
   readonly problem: string | undefined;
   /** The turn's tokens, as the Thread counts them. */
   readonly tokens: TokenTotals;
-  /**
-   * The Decision the person opened in the Thread during the Stage's work, by `open_decision` or
-   * `consult`, while it waits on the user; undefined when they asked none.
-   */
-  readonly decision: AskedDecision | undefined;
 }
 
 /** A Decision the person asked in a Stage Thread, with the id it is answered by. */
@@ -118,6 +113,11 @@ export interface StageThread {
   readonly move: ContextDecision;
   /** The person's turn running now, as it ends. */
   nextTurn(): Promise<StageTurn>;
+  /**
+   * The Decision the person opened in the Thread since the Stage's work began, by `open_decision`
+   * or `consult`, while it waits on the user; undefined when they asked none.
+   */
+  askedDecision(): Promise<AskedDecision | undefined>;
   /** Logs `why`, sends the person The Office's `text`, and returns the turn that answers it. */
   send(text: string, why: string): Promise<StageTurn>;
   /**
@@ -215,21 +215,33 @@ export class StageThreads {
    * Ends the Stage's work in a Thread whose session The Office lost as it stopped, found as it
    * starts again (spec §2.4): the user's messages still waiting to land never will, so they are
    * marked not delivered and go with the Stage's next run as after a Stop, and the Thread logs why
-   * the Stage ended.
+   * the Stage ended. Returns the Decision the person opened since the run `began`, still waiting
+   * on the user, for the run to keep.
    */
-  async endLeftRunning(threadId: string, failure: string): Promise<void> {
+  async endLeftRunning(
+    threadId: string,
+    failure: string,
+    began: Date,
+  ): Promise<AskedDecision | undefined> {
     await this.mark(
       threadId,
       waitingMessageIds(await this.repository.messages(threadId)),
       "not-delivered",
     );
-    await this.change(threadId, (latest) =>
+    const ended = await this.change(threadId, (latest) =>
       endStageWork(
         latest,
         { roleKey: latest.roleKey, handoverNote: undefined, failure },
         new Date(),
       ),
     );
+    return askedSince(ended.openDecision, began);
+  }
+
+  /** The person's own Decision in the Thread, when they opened it since `began`. */
+  private async askedIn(threadId: string, began: Date): Promise<AskedDecision | undefined> {
+    const thread = await this.repository.find(threadId);
+    return askedSince(thread?.openDecision, began);
   }
 
   private async previousThread(id: string | undefined): Promise<Thread | undefined> {
@@ -400,7 +412,7 @@ export class StageThreads {
         const next = await events.next();
         if (next.done) throw new Error("The session ended before the Stage's turn did.");
         if (next.value.kind === "turn-ended") {
-          const turn = await this.turnEnded(threadId, began, session, next.value);
+          const turn = await this.turnEnded(threadId, session, next.value);
           const { delivered, stillToLand } = bargeIns.turnEnded(
             next.value.consumedMessageIds,
             next.value.outcome === "completed",
@@ -439,6 +451,7 @@ export class StageThreads {
       threadId,
       move,
       nextTurn,
+      askedDecision: () => this.askedIn(threadId, began),
       send: async (text, why) => {
         await this.log(threadId, [{ kind: "failure", reason: why }]);
         session.send({ id: randomUUID(), text }, "later");
@@ -464,13 +477,9 @@ export class StageThreads {
     };
   }
 
-  /**
-   * Counts the turn on the Thread, which stays answering until the Stage ends, and tells of the
-   * Decision the person opened in it since the Stage's work began.
-   */
+  /** Counts the turn on the Thread, which stays answering until the Stage ends. */
   private async turnEnded(
     threadId: string,
-    began: Date,
     session: EngineSession,
     turn: Extract<SessionEvent, { kind: "turn-ended" }>,
   ): Promise<StageTurn> {
@@ -482,8 +491,8 @@ export class StageThreads {
             ? "The turn was interrupted."
             : "The engine ended the turn.");
     const usage = await session.readContextUsage();
-    const thread = await this.change(threadId, (latest) =>
-      endTurn(latest, {
+    await this.change(threadId, (thread) =>
+      endTurn(thread, {
         usage: turn.usage,
         contextTokens: usage.tokens,
         handingOver: false,
@@ -491,12 +500,7 @@ export class StageThreads {
         endedAt: new Date(),
       }),
     );
-    return {
-      output: turn.output,
-      problem,
-      tokens: turn.usage,
-      decision: askedSince(thread.openDecision, began),
-    };
+    return { output: turn.output, problem, tokens: turn.usage };
   }
 
   /** A session that won't be resumed: its skills folder goes, and a failure there only warns. */

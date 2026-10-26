@@ -2,7 +2,7 @@ import type { Task } from "@the-office/contracts";
 import { Button, Icon, type ButtonProps } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { usePlanner } from "../../shell/work/use-planner.ts";
-import { useWaitingOnYouWhilePlanning } from "../../shell/work/waiting-on-you.ts";
+import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { useMarkingReady, usePlanning } from "./use-planning.ts";
 
 /**
@@ -43,7 +43,7 @@ export function PlanButton({
  */
 export function MarkReadyButton({ task }: { readonly task: Task }): ReactNode {
   const marking = useMarkingReady();
-  const waitingOnYou = useWaitingOnYouWhilePlanning();
+  const waitingOnYou = useWaitingOnYouInItsState();
   if (task.state !== "planning") return null;
   const confirmed =
     task.planConfirmed &&

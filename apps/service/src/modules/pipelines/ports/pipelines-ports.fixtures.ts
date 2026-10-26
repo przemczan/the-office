@@ -122,12 +122,14 @@ export class StageThreadsForTests extends StageThreads {
   /** Told as The Office waits on each turn, while it runs, such as for the user to stop it. */
   whileTurnRuns: ((threadId: string) => void) | undefined = undefined;
   /**
-   * The Decision the person opens with an Office tool in each turn, as a test has them ask; none
-   * unless one is set.
+   * The Decision the person opens with an Office tool as each turn runs, as a test has them ask;
+   * none unless one is set. It waits until the Stage's work ends.
    */
   asksInTurn: ((request: StageThreadRequest) => AskedDecision | undefined) | undefined = undefined;
   /** The Threads whose Stage The Office found left running as it started, with why it ended. */
   readonly endedLeftRunning: { readonly threadId: string; readonly failure: string }[] = [];
+  /** The Decision each Thread found left running had opened, by its Thread, as a test puts it. */
+  readonly leftAsking = new Map<string, AskedDecision>();
 
   constructor(private readonly sessions: EngineSessions) {
     super();
@@ -153,7 +155,9 @@ export class StageThreadsForTests extends StageThreads {
     });
     const events = session.events[Symbol.asyncIterator]();
     let turnRunning = true;
+    let asked: AskedDecision | undefined;
     const nextTurn = async (): Promise<StageTurn> => {
+      asked ??= this.asksInTurn?.(request);
       this.whileTurnRuns?.(threadId);
       for (;;) {
         const next = await events.next();
@@ -163,12 +167,7 @@ export class StageThreadsForTests extends StageThreads {
           turnRunning = false;
           await this.whileWorking?.(request);
           const problem = event.outcome === "completed" ? undefined : event.errors.join(" ");
-          return {
-            output: event.output,
-            problem,
-            tokens: event.usage,
-            decision: this.asksInTurn?.(request),
-          };
+          return { output: event.output, problem, tokens: event.usage };
         }
       }
     };
@@ -182,6 +181,7 @@ export class StageThreadsForTests extends StageThreads {
       // A new session every Stage, as said above.
       move: { move: "fresh" },
       nextTurn,
+      askedDecision: async () => asked,
       send: (text, why) => {
         this.sent.push({ threadId, text, why });
         session.send({ id: randomUUID(), text }, "later");
@@ -201,8 +201,9 @@ export class StageThreadsForTests extends StageThreads {
     };
   }
 
-  async endLeftRunning(threadId: string, failure: string): Promise<void> {
+  async endLeftRunning(threadId: string, failure: string): Promise<AskedDecision | undefined> {
     this.endedLeftRunning.push({ threadId, failure });
+    return this.leftAsking.get(threadId);
   }
 }
 

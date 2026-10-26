@@ -1,28 +1,17 @@
 import { z } from "zod";
 import type { StageDecision, StageOutcome } from "./stage-run.js";
 
-const recommendation = z.object({
-  option: z
-    .int()
-    .min(0)
-    .describe("The recommended option, by its place among the options, from 0."),
-  reason: z.string().min(1).describe("Why you recommend it."),
-});
-
-const decision = z.object({
-  question: z.string().min(1),
-  context: z.string().describe("What the user needs to know to decide, as you found it."),
-  options: z.array(z.string().min(1)).min(2),
-  recommendation,
-});
-
 /**
  * An Agent Stage's result (research §6): flat, every field at the root beside `status`, since a
  * nested one made models wrap their whole answer in it. It is the same for every Stage and Task, so
  * it stays in the session's cached prefix.
  */
 const stageResult = z.object({
-  status: z.enum(["done", "needs_decision", "failed"]),
+  status: z
+    .enum(["done", "needs_decision", "failed"])
+    .describe(
+      "done when the Stage's work is finished; needs_decision once you opened a Decision with open_decision or consult and wait for the answer; failed when you can't finish it.",
+    ),
   summary: z.string().min(1).describe("One or two sentences: what you did, or why you stopped."),
   handoverNote: z
     .string()
@@ -37,11 +26,6 @@ const stageResult = z.object({
     .describe(
       "Required when status is done: the numbers of the Definition of Done statements the work now meets, as the Brief numbers them; leave out any it doesn't meet yet.",
     ),
-  decision: decision
-    .optional()
-    .describe(
-      "Leave it out when you asked with the open_decision or consult tool. Otherwise required when status is needs_decision.",
-    ),
   failureReason: z.string().min(1).optional().describe("Required when status is failed."),
 });
 
@@ -51,7 +35,7 @@ type StageResult = z.output<typeof stageResult>;
 const REQUIRED_BY_STATUS: Readonly<Record<StageResult["status"], readonly (keyof StageResult)[]>> =
   {
     done: ["handoverNote", "definitionOfDoneMet"],
-    needs_decision: ["decision"],
+    needs_decision: [],
     failed: ["failureReason"],
   };
 
@@ -76,7 +60,17 @@ export type StageResultReading =
   | { readonly valid: true; readonly outcome: StageOutcome }
   | { readonly valid: false; readonly problems: string };
 
-export function readStageResult(output: unknown): StageResultReading {
+/**
+ * Reads a turn's result, with the Decision its Agent opened with an Office tool since the Stage
+ * began, if any (spec §9): the Stage then waits on that Decision whatever status the result gives,
+ * as the tool told the Agent to end its turn, keeping the result's Handover note. Without one,
+ * needs_decision asks nothing, so it is corrected like any other mismatch.
+ */
+export function readStageResult(
+  output: unknown,
+  asked: StageDecision | undefined,
+): StageResultReading {
+  if (asked) return { valid: true, outcome: askedOutcome(asked, output) };
   const parsed = stageResult.safeParse(output);
   if (!parsed.success) return { valid: false, problems: z.prettifyError(parsed.error) };
   const result = parsed.data;
@@ -92,7 +86,6 @@ function outcomeOf({
   summary,
   handoverNote,
   definitionOfDoneMet,
-  decision: asked,
   failureReason,
 }: StageResult): StageResultReading {
   const note = handoverNote === undefined ? {} : { handoverNote };
@@ -107,16 +100,8 @@ function outcomeOf({
           definitionOfDoneMet: definitionOfDoneMet ?? [],
         },
       };
-    case "needs_decision": {
-      if (!asked) throw new Error("A needs_decision result without its decision was read.");
-      if (asked.options[asked.recommendation.option] === undefined) {
-        return {
-          valid: false,
-          problems: "decision.recommendation.option is not one of the options.",
-        };
-      }
-      return { valid: true, outcome: { status: "needs-decision", ...asked, ...note } };
-    }
+    case "needs_decision":
+      return { valid: false, problems: NO_DECISION_OPENED };
     case "failed":
       return {
         valid: true,
@@ -125,12 +110,10 @@ function outcomeOf({
   }
 }
 
-/**
- * The outcome of a turn in which the Agent opened a Decision with an Office tool (spec §9): the
- * Stage waits on it whatever status the result gives, as the tool told the Agent to end its turn,
- * and keeps the result's Handover note when it has one.
- */
-export function askedOutcome(asked: StageDecision, output: unknown): StageOutcome {
+const NO_DECISION_OPENED =
+  'status "needs_decision" means you opened a Decision with open_decision or consult, and you opened none. Open it with one of them first, then end your turn with needs_decision again.';
+
+function askedOutcome(asked: StageDecision, output: unknown): StageOutcome {
   const handoverNote = stageResult.safeParse(output).data?.handoverNote;
   return {
     status: "needs-decision",
