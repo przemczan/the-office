@@ -10,6 +10,7 @@ import {
   type Decision,
   type Message,
   type Project,
+  type PublishingMode,
   type TaskStage,
 } from "@the-office/contracts";
 import { vi } from "vitest";
@@ -92,13 +93,23 @@ export async function hireOnHaiku(
   }
 }
 
+/** Where the Test Project's Tasks branch from and how they publish; `main` and push + PR unless said. */
+export interface TestProjectPublishing {
+  readonly baseBranch?: string;
+  readonly publishingMode?: PublishingMode;
+}
+
 /** The Test Project as a Project, with its own commands, on Quick fix. */
-export async function addTestProject(api: Api, path: string): Promise<Project> {
+export async function addTestProject(
+  api: Api,
+  path: string,
+  { baseBranch = "main", publishingMode = "push-and-pull-request" }: TestProjectPublishing = {},
+): Promise<Project> {
   return projectSchema.parse(
     await api("POST", "/projects", {
       name: "notnullsoft-admin",
       path,
-      baseBranch: "main",
+      baseBranch,
       mark: { label: "NA", colour: "teal" },
       commands: {
         install: "npm install",
@@ -107,7 +118,7 @@ export async function addTestProject(api: Api, path: string): Promise<Project> {
         test: "npm test",
       },
       installInputs: ["package-lock.json"],
-      publishingMode: "push-and-pull-request",
+      publishingMode,
       defaultPipeline: "quick-fix",
     }),
   );
