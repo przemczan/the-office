@@ -10,13 +10,8 @@ import { AsyncLocalStorageContextManager } from "@opentelemetry/context-async-ho
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
 import { BatchSpanProcessor, TracerProvider } from "@opentelemetry/sdk-trace";
 import {
-  decisionListSchema,
   ideaSchema,
-  messageListSchema,
-  projectSchema,
-  roleSchema,
   taskSchema,
-  taskStagesSchema,
   threadListSchema,
   threadSchema,
   type Decision,
@@ -24,7 +19,18 @@ import {
   type TaskStage,
 } from "@the-office/contracts";
 import { describe, expect, it, vi } from "vitest";
-import { checkApi, messageLine, type Api } from "../../../../test/live-check.js";
+import {
+  addTestProject,
+  checkApi,
+  git,
+  hireOnHaiku,
+  openDecisionsOn,
+  stageLines,
+  stagesOf,
+  tokensOf,
+  untilThreadWaits,
+  type Api,
+} from "../../../../test/live-check.js";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../../test/test-database.js";
 import { AppModule } from "../../../app.module.js";
@@ -109,36 +115,11 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           }));
           const { api } = checkApi(url);
 
-          // The Planner and the Developer from their presets, on Haiku at low effort.
-          for (const [roleKey, name] of [
+          await hireOnHaiku(api, [
             ["planner", "Jan"],
             ["developer", "Ada"],
-          ] as const) {
-            const hired = roleSchema.parse(await api("POST", "/roles", { roleKey, name }));
-            await api("PUT", `/roles/${roleKey}/card`, {
-              ...hired.card,
-              model: "claude-haiku-5-5",
-              effort: "low",
-              skills: [],
-            });
-          }
-          const project = projectSchema.parse(
-            await api("POST", "/projects", {
-              name: "notnullsoft-admin",
-              path: testProject,
-              baseBranch: "main",
-              mark: { label: "NA", colour: "teal" },
-              commands: {
-                install: "npm install",
-                build: "npm run build",
-                lint: "npm run lint",
-                test: "npm test",
-              },
-              installInputs: ["package-lock.json"],
-              publishingMode: "push-and-pull-request",
-              defaultPipeline: "quick-fix",
-            }),
-          );
+          ]);
+          const project = await addTestProject(api, testProject);
 
           // Task 11's Task, planned again: the Planner's opening, then the user writes the parts.
           const idea = ideaSchema.parse(
@@ -163,7 +144,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             await api("GET", `/tasks/${taskId}/threads`),
           )[0];
           if (!planningThread) throw new Error("Planning opened no Thread.");
-          await untilThreadWaits(api, planningThread.id);
+          await untilThreadWaits(api, planningThread.id, PLANNER_OPENING_MS);
           // The opening may already ask where the version comes from: the Plan's answer.
           const asked = (await openDecisionsOn(api, taskId))[0];
           if (asked) {
@@ -171,7 +152,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             const option = chosen >= 0 ? chosen : asked.recommendation.option;
             await note(`Planning asked: ${asked.question}; answered: ${asked.options[option]}`);
             await api("POST", `/decisions/${asked.id}/answer`, { kind: "option", option });
-            await untilThreadWaits(api, planningThread.id);
+            await untilThreadWaits(api, planningThread.id, PLANNER_OPENING_MS);
           }
           await api("PUT", `/tasks/${taskId}/plan`, { plan: PLAN });
           await api("PUT", `/tasks/${taskId}/definition-of-done`, {
@@ -299,24 +280,6 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
   },
 );
 
-async function git(folder: string, ...args: string[]): Promise<string> {
-  return (await run("git", args, { cwd: folder })).stdout.trim();
-}
-
-function tokensOf(tokens: Readonly<Record<string, number>>): number {
-  return Object.values(tokens).reduce((sum, part) => sum + part, 0);
-}
-
-async function untilThreadWaits(api: Api, threadId: string): Promise<void> {
-  await vi.waitFor(
-    async () => {
-      const current = threadSchema.parse(await api("GET", `/threads/${threadId}`));
-      if (current.state !== "waiting") throw new Error("Still answering.");
-    },
-    { timeout: PLANNER_OPENING_MS, interval: 1_000 },
-  );
-}
-
 /** Waits until the Task leaves In progress: Done, Waiting on you, or stopped otherwise. */
 async function untilWalkStops(api: Api, taskId: string): Promise<Task> {
   return vi.waitFor(
@@ -351,49 +314,6 @@ function endProblems(
       ? undefined
       : `The walk stopped with the Task ${task.state}.`,
   ].filter((problem) => problem !== undefined);
-}
-
-async function openDecisionsOn(api: Api, taskId: string): Promise<Decision[]> {
-  const open = decisionListSchema.parse(await api("GET", "/decisions/open"));
-  return open.filter((decision) => decision.taskId === taskId);
-}
-
-async function stagesOf(api: Api, taskId: string): Promise<TaskStage[]> {
-  const { stages } = taskStagesSchema.parse(await api("GET", `/tasks/${taskId}/stages`));
-  if (!stages) throw new Error(`Task ${taskId} has no Stages of its own.`);
-  return stages;
-}
-
-/** A Stage's report: its state and tokens, then each run with its session, result and Thread. */
-async function stageLines(api: Api, { stage, state, tokens, runs }: TaskStage): Promise<string[]> {
-  const lines = [`## ${stage.name} (${stage.kind}): ${state}, ${tokens} tokens`];
-  for (const stageRun of runs) {
-    const { outcome } = stageRun;
-    const seconds =
-      stageRun.endedAt === null
-        ? "running"
-        : `${Math.round((Date.parse(stageRun.endedAt) - Date.parse(stageRun.startedAt)) / 1000)} s`;
-    lines.push(
-      `  run ${stageRun.number}: ${seconds}, session ${stageRun.session ?? "none"}, tokens ${tokensOf(stageRun.tokens)} ${JSON.stringify(stageRun.tokens)}`,
-      ...(stageRun.carriedFailure
-        ? [
-            `    carried failure from ${stageRun.carriedFailure.stageKey}, round ${stageRun.carriedFailure.round}`,
-          ]
-        : []),
-      ...stageRun.commandRuns.map(
-        ({ purpose, commandLine, outcome: ran, durationMs }) =>
-          `    ${purpose} \`${commandLine}\`: ${ran} in ${Math.round(durationMs / 1000)} s`,
-      ),
-      `    outcome: ${outcome === null ? "none" : JSON.stringify(outcome)}`,
-    );
-    if (stageRun.threadId !== null) {
-      const messages = messageListSchema.parse(
-        await api("GET", `/threads/${stageRun.threadId}/messages`),
-      );
-      lines.push(...messages.map((message) => `    | ${messageLine(message)}`));
-    }
-  }
-  return lines;
 }
 
 interface TraceSpan {

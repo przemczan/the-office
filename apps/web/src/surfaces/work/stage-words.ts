@@ -136,8 +136,9 @@ function plain(text: string): string {
 }
 
 /**
- * The Task's tokens as its budgets count them: input, output and cache writes of every Thread on
- * it, leaving out cache reads, so they compare with the Stages' tokens and budgets.
+ * The Task's tokens: input, output and cache writes of every Thread on it, leaving out cache
+ * reads, as budgets count them. Unlike budgets, they include a running turn's tokens so far, so
+ * they move mid-turn; once the turn ends they compare with the Stages' tokens and budgets.
  */
 export function taskTokens(threads: readonly Pick<Thread, "tokens">[] | undefined): number {
   return (threads ?? []).reduce(

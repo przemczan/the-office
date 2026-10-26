@@ -1,4 +1,18 @@
-import type { Message } from "@the-office/contracts";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import {
+  decisionListSchema,
+  messageListSchema,
+  projectSchema,
+  roleSchema,
+  taskStagesSchema,
+  threadSchema,
+  type Decision,
+  type Message,
+  type Project,
+  type TaskStage,
+} from "@the-office/contracts";
+import { vi } from "vitest";
 
 /** A call to the service's API, as the web makes it. */
 export type ApiCall = (method: string, path: string, body?: unknown) => Promise<Response>;
@@ -48,4 +62,113 @@ export function messageLine(message: Message): string {
     case "refusal":
       return `refusal ${message.tool}: ${message.reason}`;
   }
+}
+
+const run = promisify(execFile);
+
+/** A git command's output in `folder`, trimmed. */
+export async function git(folder: string, ...args: string[]): Promise<string> {
+  return (await run("git", args, { cwd: folder })).stdout.trim();
+}
+
+/** All four kinds of a Thread's or a run's tokens, summed. */
+export function tokensOf(tokens: Readonly<Record<string, number>>): number {
+  return Object.values(tokens).reduce((sum, part) => sum + part, 0);
+}
+
+/** Hires each Role from its preset on Haiku at low effort, the cheapest that proves a check. */
+export async function hireOnHaiku(
+  api: Api,
+  hires: readonly (readonly [roleKey: string, name: string])[],
+): Promise<void> {
+  for (const [roleKey, name] of hires) {
+    const hired = roleSchema.parse(await api("POST", "/roles", { roleKey, name }));
+    await api("PUT", `/roles/${roleKey}/card`, {
+      ...hired.card,
+      model: "claude-haiku-5-5",
+      effort: "low",
+      skills: [],
+    });
+  }
+}
+
+/** The Test Project as a Project, with its own commands, on Quick fix. */
+export async function addTestProject(api: Api, path: string): Promise<Project> {
+  return projectSchema.parse(
+    await api("POST", "/projects", {
+      name: "notnullsoft-admin",
+      path,
+      baseBranch: "main",
+      mark: { label: "NA", colour: "teal" },
+      commands: {
+        install: "npm install",
+        build: "npm run build",
+        lint: "npm run lint",
+        test: "npm test",
+      },
+      installInputs: ["package-lock.json"],
+      publishingMode: "push-and-pull-request",
+      defaultPipeline: "quick-fix",
+    }),
+  );
+}
+
+export async function untilThreadWaits(
+  api: Api,
+  threadId: string,
+  timeoutMs: number,
+): Promise<void> {
+  await vi.waitFor(
+    async () => {
+      const current = threadSchema.parse(await api("GET", `/threads/${threadId}`));
+      if (current.state !== "waiting") throw new Error("Still answering.");
+    },
+    { timeout: timeoutMs, interval: 1_000 },
+  );
+}
+
+export async function openDecisionsOn(api: Api, taskId: string): Promise<Decision[]> {
+  const open = decisionListSchema.parse(await api("GET", "/decisions/open"));
+  return open.filter((decision) => decision.taskId === taskId);
+}
+
+export async function stagesOf(api: Api, taskId: string): Promise<TaskStage[]> {
+  const { stages } = taskStagesSchema.parse(await api("GET", `/tasks/${taskId}/stages`));
+  if (!stages) throw new Error(`Task ${taskId} has no Stages of its own.`);
+  return stages;
+}
+
+/** A Stage's report: its state and tokens, then each run with its session, result and Thread. */
+export async function stageLines(
+  api: Api,
+  { stage, state, tokens, runs }: TaskStage,
+): Promise<string[]> {
+  const lines = [`## ${stage.name} (${stage.kind}): ${state}, ${tokens} tokens`];
+  for (const stageRun of runs) {
+    const { outcome } = stageRun;
+    const seconds =
+      stageRun.endedAt === null
+        ? "running"
+        : `${Math.round((Date.parse(stageRun.endedAt) - Date.parse(stageRun.startedAt)) / 1000)} s`;
+    lines.push(
+      `  run ${stageRun.number}: ${seconds}, session ${stageRun.session ?? "none"}, tokens ${tokensOf(stageRun.tokens)} ${JSON.stringify(stageRun.tokens)}`,
+      ...(stageRun.carriedFailure
+        ? [
+            `    carried failure from ${stageRun.carriedFailure.stageKey}, round ${stageRun.carriedFailure.round}`,
+          ]
+        : []),
+      ...stageRun.commandRuns.map(
+        ({ purpose, commandLine, outcome: ran, durationMs }) =>
+          `    ${purpose} \`${commandLine}\`: ${ran} in ${Math.round(durationMs / 1000)} s`,
+      ),
+      `    outcome: ${outcome === null ? "none" : JSON.stringify(outcome)}`,
+    );
+    if (stageRun.threadId !== null) {
+      const messages = messageListSchema.parse(
+        await api("GET", `/threads/${stageRun.threadId}/messages`),
+      );
+      lines.push(...messages.map((message) => `    | ${messageLine(message)}`));
+    }
+  }
+  return lines;
 }
