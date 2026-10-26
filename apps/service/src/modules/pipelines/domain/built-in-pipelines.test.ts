@@ -48,7 +48,7 @@ describe("the built-in Pipelines", () => {
 
     expect(budgets).toEqual([
       ["Full", [250_000, 370_000]],
-      ["Quick fix", [100_000]],
+      ["Quick fix", [200_000]],
       ["Document", [80_000, 120_000]],
     ]);
   });

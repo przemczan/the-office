@@ -65,7 +65,7 @@ const quickFix: Pipeline = {
       role: DEVELOPER,
       brief: "Make the smallest change that meets the Definition of Done.",
       session: "fresh",
-      budget: 100_000,
+      budget: 200_000,
       optional: false,
     },
     {

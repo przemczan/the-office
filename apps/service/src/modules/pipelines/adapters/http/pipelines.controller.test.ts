@@ -39,7 +39,7 @@ describe("GET /api/pipelines/:id", () => {
         role: "developer",
         brief: "Make the smallest change that meets the Definition of Done.",
         session: "fresh",
-        budget: 100_000,
+        budget: 200_000,
       },
       {
         kind: "script",
