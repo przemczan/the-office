@@ -355,6 +355,11 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
       ),
     ).toBeVisible();
     await expect(conversation.getByText("open_decision")).toHaveCount(0);
+    // The opening's context line opens to show the Brief the session started with.
+    const brief = conversation.getByText(/^You are planning a Task with the user/);
+    await expect(brief).toBeHidden();
+    await conversation.getByText("Brief", { exact: true }).click();
+    await expect(brief).toContainText("Sign-in returns to the page (Task ");
     await expect(page.getByText("Waiting on you", { exact: true })).toBeVisible();
 
     const record = page.getByRole("region", { name: "Record" });

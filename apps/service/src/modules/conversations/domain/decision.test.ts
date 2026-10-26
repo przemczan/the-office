@@ -165,6 +165,7 @@ describe("answering a Decision", () => {
     personName: "Jan",
     decision: WARM,
     newSession: undefined,
+    brief: "The record.",
     decisionId: "decision-1",
     answer: { kind: "free-answer", text: "Only this year's." },
     messageId: "message-1",

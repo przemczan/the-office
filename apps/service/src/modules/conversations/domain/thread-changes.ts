@@ -159,6 +159,8 @@ export interface Opening {
   readonly decision: ContextDecision;
   /** The session the move opens; undefined when it resumes the Thread's own. */
   readonly newSession: ThreadSession | undefined;
+  /** The Brief a new session starts with, kept on the move's line when the move starts one. */
+  readonly brief: string;
 }
 
 /**
@@ -167,8 +169,8 @@ export interface Opening {
  * while the person is still answering: a chat has no barge-in.
  */
 export function beginAnswer(thread: Thread, answering: Answering): ThreadChange<MessagesLogged> {
-  const { said, decision } = answering;
-  return begin(thread, answering, [...movedLines(thread, decision, said.at), said], said.at);
+  const { said } = answering;
+  return begin(thread, answering, [...movedLines(thread, answering, said.at), said], said.at);
 }
 
 /** A Decision the person opens in the Thread they work in, and when. */
@@ -262,7 +264,7 @@ export function answerDecision(
     decisionId,
     answer,
   };
-  const moved = movedLines(thread, answering.decision, answeredAt);
+  const moved = movedLines(thread, answering, answeredAt);
   const begun = begin(
     { ...thread, openDecision: undefined },
     answering,
@@ -278,8 +280,8 @@ export function answerDecision(
 }
 
 /** The move's line, unless it was simply continuing a warm session. */
-function movedLines(thread: Thread, decision: ContextDecision, at: Date): Message[] {
-  return decision.reason === "cache-warm" ? [] : [contextLineOf(thread, decision, at)];
+function movedLines(thread: Thread, opening: Opening, at: Date): Message[] {
+  return opening.decision.reason === "cache-warm" ? [] : [contextLineOf(thread, opening, at)];
 }
 
 /**
@@ -292,7 +294,7 @@ export function beginOpening(
   openedAt: Date,
 ): ThreadChange<MessagesLogged> {
   if (thread.session) throw new Error(`Thread ${thread.id} is open already.`);
-  return begin(thread, opening, [contextLineOf(thread, opening.decision, openedAt)], openedAt);
+  return begin(thread, opening, [contextLineOf(thread, opening, openedAt)], openedAt);
 }
 
 function begin(
@@ -315,7 +317,7 @@ function begin(
   return logged;
 }
 
-function contextLineOf(thread: Thread, decision: ContextDecision, at: Date): Message {
+function contextLineOf(thread: Thread, { decision, brief }: Opening, at: Date): Message {
   return {
     kind: "context",
     id: crypto.randomUUID(),
@@ -325,6 +327,7 @@ function contextLineOf(thread: Thread, decision: ContextDecision, at: Date): Mes
     reason: decision.reason,
     contextTokens: decision.contextTokens,
     briefTokens: decision.briefTokens,
+    brief: decision.briefTokens === undefined ? undefined : brief,
   };
 }
 

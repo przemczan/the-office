@@ -161,7 +161,11 @@ export class ThreadRunner implements OnModuleDestroy {
     const place = await this.places.of(thread);
     const { decision, role, newSession } = await this.moveFor(thread, current, place, now);
     const answering = await this.change(threadId, (latest) =>
-      beginOpening(latest, { personName: current.card.name, decision, newSession }, now),
+      beginOpening(
+        latest,
+        { personName: current.card.name, decision, newSession, brief: place.brief.text },
+        now,
+      ),
     );
     this.answerInBackground(answering, {
       said: { id: randomUUID(), text: opening },
@@ -190,7 +194,12 @@ export class ThreadRunner implements OnModuleDestroy {
     const place = await this.places.of(thread);
     const { decision, role, newSession } = await this.moveFor(thread, current, place, new Date());
     const answering = await this.change(thread.id, (latest) =>
-      begin(latest, { personName: current.card.name, decision, newSession }),
+      begin(latest, {
+        personName: current.card.name,
+        decision,
+        newSession,
+        brief: place.brief.text,
+      }),
     );
     this.answerInBackground(answering, {
       said,

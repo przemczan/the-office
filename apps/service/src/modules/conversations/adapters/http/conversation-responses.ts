@@ -41,7 +41,7 @@ export function toMessageResponse(
   const fields = { ...message, at: at.toISOString() };
   switch (fields.kind) {
     case "context":
-      return { ...fields, briefTokens: fields.briefTokens ?? null };
+      return { ...fields, briefTokens: fields.briefTokens ?? null, brief: fields.brief ?? null };
     case "decision": {
       const { decisionId, ...card } = fields;
       return {

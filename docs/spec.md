@@ -93,7 +93,7 @@ From [10](../.scratch/the-office/issues/10-context-policy.md), with [02](../.scr
 - **At a Stage boundary** the Stage's declared session wins. **Inside a Thread**, continuing resumes when the cache is warm (under 1 hour since the last call) or the context is small; when the cache is cold and the context large, The Office starts fresh with a brief. The size threshold starts at 30k tokens and is tuned from telemetry.
 - **The Brief** is assembled from the record with no model call: Task title, Plan, Definition of Done, the Stage's brief, earlier Stage results, answered Decisions, the diff summary from git, the Attachment list, and the person's memory when they keep one. Transcripts are never handed over.
 - **Handover note:** every Agent Stage ends with a few lines (where I am, what is left, what to watch) inside its result.
-- **Shown** on every Thread as a label with what and why ("Continuing · cache warm · 41k context"; "Fresh · cache expired, 48k context · brief ~3k"), with tokens per Thread and per Task.
+- **Shown** on every Thread as a label with what and why ("Continuing · cache warm · 41k context"; "Fresh · cache expired, 48k context · brief ~3k"), with tokens per Thread and per Task. The line of a move that starts a session with a Brief expands to show the Brief as it was sent.
 - **Overrides:** a per-Role default, per Stage, and per moment with "Start fresh" and "Continue anyway", each with its estimated cost.
 - **No automatic compaction:** near the context limit The Office asks for the handover note, ends the session and starts fresh with a brief.
 

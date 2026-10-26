@@ -83,7 +83,9 @@ describe("a Thread on a Task", () => {
       alternatives: [],
     } as const;
 
-    const opened = beginOpening(thread, { personName: "Jan", decision, newSession: session }, AT);
+    const opening = { personName: "Jan", decision, newSession: session, brief: "The record." };
+
+    const opened = beginOpening(thread, opening, AT);
 
     expect(opened.thread).toMatchObject({ state: "answering", session, title: "Planning" });
     expect(opened.logged).toEqual([
@@ -96,11 +98,10 @@ describe("a Thread on a Task", () => {
         reason: "new-thread",
         contextTokens: 0,
         briefTokens: 900,
+        brief: "The record.",
       },
     ]);
-    expect(() =>
-      beginOpening(opened.thread, { personName: "Jan", decision, newSession: session }, AT),
-    ).toThrow(/open already/);
+    expect(() => beginOpening(opened.thread, opening, AT)).toThrow(/open already/);
   });
 });
 

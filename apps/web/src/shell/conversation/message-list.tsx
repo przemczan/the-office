@@ -1,6 +1,6 @@
 import type { Decision, DecisionAnswer, Message } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { contextLabel } from "./context-words.ts";
 import { DecisionCard } from "./decision-card.tsx";
 
@@ -106,7 +106,7 @@ function MessageItem({
         </div>
       );
     case "context":
-      return <div className="message-office">{contextLabel(message, personName)}</div>;
+      return <ContextLine line={message} personName={personName} />;
     case "failure":
       return (
         <div className="message-line failed">
@@ -126,6 +126,37 @@ function MessageItem({
         </div>
       );
   }
+}
+
+/**
+ * The Context policy's move; one that started a session with a Brief opens to show it, read only
+ * once opened so a closed line holds nothing but its label.
+ */
+function ContextLine({
+  line,
+  personName,
+}: {
+  readonly line: Extract<Message, { kind: "context" }>;
+  readonly personName: string;
+}): ReactNode {
+  const [open, setOpen] = useState(false);
+  const label = contextLabel(line, personName);
+  if (line.brief === null) return <div className="message-office">{label}</div>;
+  return (
+    <details
+      className="message-office message-brief"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary>
+        {label}
+        <span className="message-brief-toggle">
+          <Icon name="chevron-down" size={12} />
+          Brief
+        </span>
+      </summary>
+      {open && <div className="message-brief-text">{line.brief}</div>}
+    </details>
+  );
 }
 
 /** The user's answer to a Decision in words: the chosen option's, or their own. */

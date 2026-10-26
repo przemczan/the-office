@@ -38,6 +38,8 @@ interface ContextLine {
   readonly contextTokens: number;
   /** The Brief's estimate, when the move started a session with one. */
   readonly briefTokens: number | undefined;
+  /** The Brief the session started with, for the user to read; undefined when there was none. */
+  readonly brief: string | undefined;
 }
 
 /** Something the person did with a tool, such as reading a file. */

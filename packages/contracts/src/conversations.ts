@@ -151,6 +151,8 @@ export const messageSchema = z.discriminatedUnion("kind", [
     reason: contextReasonSchema,
     contextTokens: z.number().int().nonnegative(),
     briefTokens: z.number().int().nonnegative().nullable(),
+    /** The Brief the session started with, for the user to read; null when it had none. */
+    brief: z.string().nullable(),
   }),
   /** Why the person couldn't answer. */
   z.object({ ...messageFields, kind: z.literal("failure"), reason: z.string() }),

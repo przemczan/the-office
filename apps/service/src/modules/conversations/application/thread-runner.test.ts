@@ -250,6 +250,10 @@ async function cooled(threadId: string, contextTokens: number): Promise<void> {
   });
 }
 
+/** Any Brief's text, as a line keeps it. */
+const A_BRIEF: unknown = expect.any(String);
+
+/** The move's line; a move that starts a session with a Brief keeps the Brief's text. */
 function contextLine(decision: Partial<ContextDecision>): MessageDraft {
   return {
     kind: "context",
@@ -257,6 +261,7 @@ function contextLine(decision: Partial<ContextDecision>): MessageDraft {
     reason: decision.reason ?? "new-thread",
     contextTokens: decision.contextTokens ?? 0,
     briefTokens: decision.briefTokens,
+    brief: decision.briefTokens === undefined ? undefined : (A_BRIEF as string),
   };
 }
 
@@ -517,6 +522,11 @@ describe("a Thread on a Task", () => {
       { kind: "tool-activity", roleKey, tool: "Read", summary: "README.md" },
       { kind: "person", roleKey, text: "What must be true when it is done?" },
     ]);
+    // The line keeps the Brief as it was sent, for the user to read.
+    expect(log[0]).toMatchObject({
+      kind: "context",
+      brief: `You are planning the Task ${taskId}.`,
+    });
     expect((await threads.read(opened.id)).title).toBe("Planning");
     await expect(threads.taskInSession(session?.id ?? "")).resolves.toBe(taskId);
     await expect(threads.personInSession(session?.id ?? "")).resolves.toBe(roleKey);
