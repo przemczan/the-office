@@ -59,6 +59,14 @@ export class TaskWorktrees {
     return this.worktrees.commit(await this.projects.read(projectId), taskId, message);
   }
 
+  /**
+   * Drops every uncommitted change in the Task's worktree, untracked files included and ignored
+   * ones kept, as for a Stage the user stopped. Returns the dropped paths.
+   */
+  async discard(projectId: string, taskId: string): Promise<readonly string[]> {
+    return this.worktrees.discard(await this.projects.read(projectId), taskId);
+  }
+
   /** A few lines of what the Task's commits changed so far; undefined while nothing. */
   async changesSoFar(projectId: string, taskId: string): Promise<string | undefined> {
     return this.worktrees.changesSoFar(await this.projects.read(projectId), taskId);

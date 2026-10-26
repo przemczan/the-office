@@ -11,14 +11,17 @@ import {
   TaskCreated,
   TaskDefinitionOfDoneConfirmed,
   TaskDefinitionOfDoneProposed,
+  TaskPaused,
   TaskPipelineConfirmed,
   TaskPipelineProposed,
   TaskPlanConfirmed,
   TaskPlanProposed,
   TaskPriorityChanged,
   TaskReordered,
+  TaskResumed,
   TaskStarted,
   TaskStateChanged,
+  TaskStopped,
 } from "../../domain/task-events.js";
 import { toOwnerResponse } from "../http/work-responses.js";
 
@@ -72,6 +75,18 @@ export class WorkWebEvents implements OnModuleInit {
     }));
     this.forwarding.forward(TaskStarted, (event): WebEventOf<"task.started"> => ({
       type: "task.started",
+      taskId: event.taskId,
+    }));
+    this.forwarding.forward(TaskPaused, (event): WebEventOf<"task.paused"> => ({
+      type: "task.paused",
+      taskId: event.taskId,
+    }));
+    this.forwarding.forward(TaskStopped, (event): WebEventOf<"task.stopped"> => ({
+      type: "task.stopped",
+      taskId: event.taskId,
+    }));
+    this.forwarding.forward(TaskResumed, (event): WebEventOf<"task.resumed"> => ({
+      type: "task.resumed",
       taskId: event.taskId,
     }));
     this.forwarding.forward(TaskPriorityChanged, (event): WebEventOf<"task.priority-changed"> => ({

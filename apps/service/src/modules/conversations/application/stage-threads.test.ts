@@ -66,7 +66,11 @@ function personIn(roleKey: string): Promise<SessionRole> {
 }
 
 async function startWith(...scripts: SessionScript[]): Promise<void> {
-  engine = new ScriptedEngine(scripts);
+  await startOn(new ScriptedEngine(scripts));
+}
+
+async function startOn(scripted: ScriptedEngine): Promise<void> {
+  engine = scripted;
   forgotten = [];
   const noSkills = (sessionId: string) =>
     Promise.resolve({
@@ -568,6 +572,65 @@ describe("barge-in", () => {
       ThreadRefused,
     );
     await stageThread.end({ handoverNote: undefined, failure: undefined });
+  });
+});
+
+const anInterruptedTurn: Step = {
+  step: "event",
+  event: {
+    kind: "turn-ended",
+    outcome: "interrupted",
+    consumedMessageIds: [],
+    usage: USAGE,
+    sessionCostUsd: 0.01,
+    output: undefined,
+    errors: [],
+  },
+};
+
+function receivedSteps(): string[] {
+  return engine.sessions
+    .flatMap(({ received }) => received.map(({ step }) => step))
+    .filter((step) => step !== "read-context-usage");
+}
+
+describe("Stop", () => {
+  it("interrupts the running turn now, which ends interrupted with its tokens counted", async () => {
+    const command = aCommand("npm-test");
+    await startWith(
+      started(command.call, { step: "interrupt" }, anInterruptedTurn, {
+        step: "read-context-usage",
+        usage: { tokens: 30_000, window: 1_000_000 },
+      }),
+    );
+    const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
+    const turn = stageThread.nextTurn();
+
+    await stageThread.interrupt();
+
+    await expect(turn).resolves.toEqual({
+      output: undefined,
+      problem: "The turn was interrupted.",
+      tokens: USAGE,
+    });
+    // Between turns there is nothing to stop.
+    await stageThread.interrupt();
+    await stageThread.end({ handoverNote: undefined, failure: "Stopped by the user." });
+    expect(receivedSteps()).toEqual(["start", "interrupt", "end"]);
+    expect((await threadOf(stageThread.threadId)).tokens.output).toBe(USAGE.output);
+  });
+
+  it("ends the session instead on an engine that can't interrupt", async () => {
+    const command = aCommand("npm-test");
+    await startOn(new ScriptedEngine([started(command.call)], { interrupt: false }));
+    const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
+    const turn = stageThread.nextTurn();
+
+    await stageThread.interrupt();
+
+    await expect(turn).rejects.toThrow("The session ended before the Stage's turn did.");
+    await stageThread.end({ handoverNote: undefined, failure: "Stopped by the user." });
+    expect(receivedSteps()).toEqual(["start", "end"]);
   });
 });
 

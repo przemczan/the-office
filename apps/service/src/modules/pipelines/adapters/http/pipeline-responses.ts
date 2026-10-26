@@ -89,6 +89,7 @@ function toOutcomeResponse(outcome: StageOutcome): StageRunOutcomeResponse {
         status: "failed",
         error: outcome.error,
         budgetReached: outcome.budgetReached ?? null,
+        interrupted: outcome.interrupted ?? null,
         handoverNote,
       };
   }

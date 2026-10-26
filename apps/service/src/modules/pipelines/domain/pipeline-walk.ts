@@ -140,6 +140,8 @@ function replay(walk: Walk, run: StageRun): StoppingMove | undefined {
       return undefined;
     }
     case "failed":
+      // Interrupted: the walk stays at the Stage, with the failure it carried, using no round.
+      if (outcome.interrupted) return undefined;
       return outcome.budgetReached
         ? afterBudget(walk, run, stage, outcome.budgetReached)
         : afterFailure(walk, run, stage, outcome.error);

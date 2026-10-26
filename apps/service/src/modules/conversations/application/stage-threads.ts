@@ -88,6 +88,12 @@ export interface StageThread {
   nextTurn(): Promise<StageTurn>;
   /** Logs `why`, sends the person The Office's `text`, and returns the turn that answers it. */
   send(text: string, why: string): Promise<StageTurn>;
+  /**
+   * Stops the person's running turn now (Stop, spec §2.4), a running command with it: the turn
+   * ends interrupted. On an engine that can't interrupt, the session ends instead. Does nothing
+   * between turns or once the session has ended.
+   */
+  interrupt(): Promise<void>;
   /** Ends the session, and with it every process the session left running; once. */
   endSession(): Promise<void>;
   /** Ends the Stage's work in the Thread, which then waits, and the session unless it has ended. */
@@ -303,6 +309,7 @@ export class StageThreads {
     const logger = { roleKey, folder, handingOver: false };
     const bargeIns = new BargeIns((message) => session.send(message, "next"));
     this.bargeIns.set(threadId, bargeIns);
+    let turnRunning = true;
     // A turn ended before the user's message landed is followed by one the engine starts with
     // it: the Stage reads that one, with the tokens of both.
     const nextTurn = async (): Promise<StageTurn> => {
@@ -317,7 +324,10 @@ export class StageThreads {
             next.value.outcome === "completed",
           );
           await this.mark(threadId, delivered, "delivered");
-          if (!stillToLand) return { ...turn, tokens: addTokens(earlierTokens, turn.tokens) };
+          if (!stillToLand) {
+            turnRunning = false;
+            return { ...turn, tokens: addTokens(earlierTokens, turn.tokens) };
+          }
           earlierTokens = addTokens(earlierTokens, turn.tokens);
           continue;
         }
@@ -344,8 +354,17 @@ export class StageThreads {
       send: async (text, why) => {
         await this.log(threadId, [{ kind: "failure", reason: why }]);
         session.send({ id: randomUUID(), text }, "later");
+        turnRunning = true;
         bargeIns.turnStarted();
         return nextTurn();
+      },
+      interrupt: async () => {
+        if (!turnRunning || sessionEnded) return;
+        if (!this.engine.capabilities.interrupt) return endSession();
+        await session.interrupt().catch(async (error: unknown) => {
+          this.logger.warn(`Thread ${threadId}'s turn wasn't interrupted: ${messageOf(error)}`);
+          await endSession();
+        });
       },
       endSession,
       end: async (ending) => {

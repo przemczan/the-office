@@ -37,8 +37,16 @@ export type StageOutcome = (
       readonly error: string;
       /** Set when the run stopped because the Task's tokens reached the Stage's budget. */
       readonly budgetReached?: BudgetReached;
+      /** Set when The Office interrupted the run: its Stage runs again, never counted as a failure. */
+      readonly interrupted?: StageInterruption;
     }
 ) & { readonly handoverNote?: string };
+
+/**
+ * Why The Office interrupted a run: the user's Stop (spec §2.4). The run's uncommitted edits are
+ * discarded, and its Stage runs again once the user resumes the Task.
+ */
+export type StageInterruption = "stop";
 
 /** The Task's tokens so far against the Stage's budget, when they reached it. */
 export interface BudgetReached {

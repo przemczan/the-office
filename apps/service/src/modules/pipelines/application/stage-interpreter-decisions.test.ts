@@ -88,8 +88,9 @@ function onWaiting(when: "before" | "after", meanwhile: (taskId: string) => Prom
   tasks.changeState = async (taskId, state) => {
     const waiting = state === "waiting-on-you";
     if (waiting && when === "before") await meanwhile(taskId);
-    await changeState(taskId, state);
+    const task = await changeState(taskId, state);
     if (waiting && when === "after") await meanwhile(taskId);
+    return task;
   };
 }
 

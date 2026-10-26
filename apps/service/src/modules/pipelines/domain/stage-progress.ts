@@ -59,7 +59,7 @@ function stateOf({ outcome, decisions }: StageRun): StageState {
 }
 
 function wentBackFrom(run: StageRun, runs: readonly StageRun[]): WentBack | undefined {
-  if (run.outcome?.status !== "failed") return undefined;
+  if (run.outcome?.status !== "failed" || run.outcome.interrupted) return undefined;
   const next = runs.find(({ number }) => number === run.number + 1);
   const carried = next?.carriedFailure;
   if (!next || carried?.stageKey !== run.stageKey) return undefined;

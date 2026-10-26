@@ -7,13 +7,16 @@ export {
   TaskCreated,
   TaskDefinitionOfDoneConfirmed,
   TaskDefinitionOfDoneProposed,
+  TaskPaused,
   TaskPipelineConfirmed,
   TaskPipelineProposed,
   TaskPlanConfirmed,
   TaskPlanProposed,
   TaskPriorityChanged,
   TaskReordered,
+  TaskResumed,
   TaskStarted,
   TaskStateChanged,
+  TaskStopped,
 } from "./domain/task-events.js";
 export { WorkModule } from "./work.module.js";

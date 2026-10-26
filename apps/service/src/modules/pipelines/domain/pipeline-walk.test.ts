@@ -138,6 +138,33 @@ describe("nextMove", () => {
     });
   });
 
+  it("runs a stopped Stage again with the failure it carried, using no round and asking nothing", () => {
+    const stopped: StageOutcome = { status: "failed", error: "Stopped.", interrupted: "stop" };
+    const carried = { stageKey: "check", error: "2 tests fail.", round: 1, rounds: 2 };
+    const ran = runs(["write", done], ["check", failed("2 tests fail.")], ["write", stopped]);
+
+    expect(nextMove(stages, ran, NO_DEFINITION_OF_DONE)).toEqual({
+      move: "run",
+      stage: stages[0],
+      carriedFailure: carried,
+    });
+    const after = runs(
+      ["write", done],
+      ["check", failed("2 tests fail.")],
+      ["write", stopped],
+      ["write", done],
+      ["check", failed("1 test fails.")],
+    );
+    expect(nextMove(stages, after, NO_DEFINITION_OF_DONE)).toMatchObject({
+      carriedFailure: { round: 2, rounds: 2 },
+    });
+    expect(nextMove(stages, runs(["write", stopped]), NO_DEFINITION_OF_DONE)).toEqual({
+      move: "run",
+      stage: stages[0],
+      carriedFailure: undefined,
+    });
+  });
+
   it("carries the error into the next run only", () => {
     const ran = runs(["write", done], ["check", failed("2 tests fail.")], ["write", done]);
 

@@ -1,4 +1,4 @@
-import { Injectable, type OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { READ_ONLY_GIT_COMMANDS } from "../../engine/index.js";
 import {
   AGENT_STAGE_INSTRUCTIONS,
@@ -11,6 +11,7 @@ import { allowedCommands } from "../domain/allowed-commands.js";
 import { installFailure } from "../domain/script-stage-outcome.js";
 import { stageCommitMessage, type ExpectedHead } from "../domain/stage-commit.js";
 import { failedInstall, installRuns } from "../domain/stage-command-run.js";
+import { interruptedOutcome, interruptionOf } from "../domain/stage-interruption.js";
 import type { Stage } from "../domain/stage.js";
 import { budgetOutcome, budgetReached } from "../domain/stage-budget.js";
 import {
@@ -49,10 +50,13 @@ type Ending = Parameters<StageThread["end"]>[0];
  * record, with the Project's dependencies installed first. Its result is read against the result schema, corrected once in the same session when it
  * doesn't match (research §6), and becomes the run's outcome with its Handover note. Then The Office
  * ends the session with what it left running, checks git is where it left it, and commits the
- * Stage's work (spec §5.5).
+ * Stage's work (spec §5.5). A run The Office interrupts (Stop, spec §2.4) has its running turn
+ * stopped, its session ended and its uncommitted edits discarded instead.
  */
 @Injectable()
 export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
+  private readonly logger = new Logger(AgentStageRunner.name);
+
   constructor(
     private readonly runners: StageRunners,
     private readonly records: TaskRecords,
@@ -84,8 +88,10 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     const task = await this.records.read(work.run.taskId);
     const { expected, refusal } = await this.stageGit.start(work, task);
     if (refusal) return refusal;
+    if (work.interruption.aborted) return this.discardWork(work, task, expected);
     const installation = await this.commands.install(task.project.id, work.run.taskId);
     await this.runs.saveCommandRuns(work.run.id, installRuns(installation));
+    if (work.interruption.aborted) return this.discardWork(work, task, expected);
     const failed = failedInstall(installation);
     const thread = await this.open(work, person, task, failed && installFailure(failed));
     let ending: Ending = { handoverNote: undefined, failure: undefined };
@@ -94,7 +100,9 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       const result = await this.resultOf(work, thread);
       // Before git is read, so a dev server or a watcher it started can't change the worktree.
       await thread.endSession();
-      const outcome = await this.commitWork(work, task, expected, result);
+      const outcome = result
+        ? await this.commitWork(work, task, expected, result)
+        : await this.discardWork(work, task, expected);
       ending = endingOf(outcome);
       return outcome;
     } catch (error) {
@@ -116,13 +124,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     result: StageOutcome,
   ): Promise<StageOutcome> {
     const after = await this.stageGit.checkHead(run, task, expected);
-    if (after) {
-      return {
-        status: "failed",
-        error: `The Stage changed git itself: ${after}. Only The Office commits a Stage's work, so it stopped here without committing.`,
-        handoverNote: result.handoverNote,
-      };
-    }
+    if (after) return changedGitItself(after, result.handoverNote);
     await this.stageGit.commit(
       run,
       task,
@@ -130,6 +132,22 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       stageCommitMessage(stage.name, result, acceptedIssues(stages, earlierRuns)),
     );
     return result;
+  }
+
+  /**
+   * Ends an interrupted run: what it left uncommitted is discarded, so the Stage runs again from
+   * where it began; a Stage that changed git itself fails as it would have, its work left for the
+   * user to see.
+   */
+  private async discardWork(
+    { run, interruption }: StageWork<"agent">,
+    task: TaskRecord,
+    expected: ExpectedHead,
+  ): Promise<StageOutcome> {
+    const after = await this.stageGit.checkHead(run, task, expected);
+    if (after) return changedGitItself(after, undefined);
+    const discarded = await this.stageGit.discard(run, task, expected);
+    return interruptedOutcome(interruptionOf(interruption.reason), discarded);
   }
 
   private async open(
@@ -158,17 +176,25 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       commands,
     });
     const answered = answeredQuestion(stage, earlierRuns);
+    const stopped = stoppedRun(stage, earlierRuns);
+    // A Stage that runs again in its own Thread continues there as the Context policy decides.
+    const inItsThread = answered !== undefined || stopped?.threadId !== undefined;
     return this.threads.open({
       taskId: run.taskId,
       roleKey: stage.role,
       stageName: stage.name,
-      declared: answered ? undefined : stage.session,
-      previousThreadId: previousAgentThread(stages, earlierRuns),
+      declared: inItsThread ? undefined : stage.session,
+      previousThreadId: previousAgentThread(
+        stages,
+        // A run stopped before its session began left no Thread: the one before it is the last.
+        stopped && stopped.threadId === undefined ? earlierRuns.slice(0, -1) : earlierRuns,
+      ),
       record,
       work: agentStageWork(stage, {
         carried: carriedWithName(stages, run.carriedFailure),
         answered,
         installProblem,
+        stopped: stopped !== undefined,
       }),
       folder: task.worktree.path,
       environment: task.worktree.environment,
@@ -200,15 +226,46 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     return reached && budgetOutcome(stage.name, reached);
   }
 
-  /** The Stage's result, corrected once in the same session when it doesn't match the schema. */
-  private async resultOf(work: StageWork<"agent">, thread: StageThread): Promise<StageOutcome> {
+  /**
+   * The Stage's result, corrected once in the same session when it doesn't match the schema;
+   * undefined once The Office interrupts the run, whose running turn is stopped then.
+   */
+  private async resultOf(
+    work: StageWork<"agent">,
+    thread: StageThread,
+  ): Promise<StageOutcome | undefined> {
+    const { interruption } = work;
+    const stop = (): void => {
+      thread.interrupt().catch((error: unknown) => {
+        this.logger.warn(`Stage run ${work.run.id}'s turn wasn't interrupted: ${messageOf(error)}`);
+      });
+    };
+    interruption.addEventListener("abort", stop, { once: true });
+    try {
+      return await this.readResult(work, thread);
+    } catch (error) {
+      // An engine that can't interrupt ends the session instead, so the turn read fails.
+      if (interruption.aborted) return undefined;
+      throw error;
+    } finally {
+      interruption.removeEventListener("abort", stop);
+    }
+  }
+
+  private async readResult(
+    work: StageWork<"agent">,
+    thread: StageThread,
+  ): Promise<StageOutcome | undefined> {
     let tokens = NO_STAGE_TOKENS;
     const counted = async (turn: StageTurn): Promise<StageTurn> => {
       tokens = addTokens(tokens, turn.tokens);
       await this.runs.saveTokens(work.run.id, tokens);
       return turn;
     };
+    // Interrupted while the session opened, before there was a turn to stop.
+    if (work.interruption.aborted) return undefined;
     const first = readingOf(await counted(await thread.nextTurn()));
+    if (work.interruption.aborted) return undefined;
     if (first.valid) return first.outcome;
     // The correction is another engine call, so the budget is checked before it too.
     const reached = await this.budgetCheck(work);
@@ -221,6 +278,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         ),
       ),
     );
+    if (work.interruption.aborted) return undefined;
     if (corrected.valid) return corrected.outcome;
     return {
       status: "failed",
@@ -234,6 +292,14 @@ function readingOf({ output, problem }: StageTurn): StageResultReading {
     return { valid: false, problems: problem ?? "The turn ended without a result." };
   }
   return readStageResult(output);
+}
+
+function changedGitItself(problem: string, handoverNote: string | undefined): StageOutcome {
+  return {
+    status: "failed",
+    error: `The Stage changed git itself: ${problem}. Only The Office commits a Stage's work, so it stopped here without committing.`,
+    handoverNote,
+  };
 }
 
 function endingOf(outcome: StageOutcome): Ending {
@@ -266,6 +332,13 @@ function previousAgentThread(
   const previous = earlierRuns.at(-1);
   if (!previous || stageOf(stages, previous.stageKey)?.kind !== "agent") return undefined;
   return previous.threadId;
+}
+
+/** The run before this one, when it was this Stage's and the user stopped it. */
+function stoppedRun(stage: Stage, earlierRuns: readonly StageRun[]): StageRun | undefined {
+  const last = earlierRuns.at(-1);
+  if (last?.stageKey !== stage.key || last.outcome?.status !== "failed") return undefined;
+  return last.outcome.interrupted === "stop" ? last : undefined;
 }
 
 /**

@@ -84,20 +84,24 @@ export interface StageWorkReasons {
   readonly answered?: AnsweredQuestion;
   /** Why the install before the Stage failed. */
   readonly installProblem?: string;
+  /** Set when the Stage runs again after the user stopped its last run and resumed the Task. */
+  readonly stopped?: boolean;
 }
 
 /**
  * What the Stage asks now (spec §2.3): its brief; the user's answer when the Stage runs again
  * after its Agent's question; when an on-failure loop went back to it, the failure it went back
- * with; and when the install before it failed, why, as the Agent's commands may fail for it. A new
- * session gets it after the Brief, a continued one alone.
+ * with; when the user stopped its last run, that its edits are gone; and when the install before it
+ * failed, why, as the Agent's commands may fail for it. A new session gets it after the Brief, a
+ * continued one alone.
  */
 export function agentStageWork(
   stage: Pick<AgentStage, "key" | "name" | "brief">,
-  { carried, answered, installProblem }: StageWorkReasons = {},
+  { carried, answered, installProblem, stopped }: StageWorkReasons = {},
 ): string {
   return sections([
     `## The Stage: ${stage.name}\n\n${stage.brief}`,
+    stopped ? STOPPED_SECTION : undefined,
     answered &&
       `## Your question, answered\n\nYou asked the user: ${answered.question}\n\nTheir answer: ${answered.answer}\n\nGo on with the Stage from there.`,
     carried && whyAgain(stage, carried),
@@ -109,6 +113,10 @@ ${installProblem}
 Commands that need the dependencies may fail until it passes. If the Task's changes broke it, fix that first; The Office installs again before the next Stage.`,
   ]);
 }
+
+const STOPPED_SECTION = `## Stopped by the user
+
+The user stopped this Stage while it ran, and has resumed it. The Office discarded the Stage's uncommitted edits, so the worktree is as the last Stage left it: do the Stage's work again from there.`;
 
 /**
  * Why the Stage runs again: a later Stage's loop went back to it, or the user gave it one more

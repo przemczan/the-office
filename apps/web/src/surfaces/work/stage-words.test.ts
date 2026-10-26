@@ -91,6 +91,7 @@ describe("stageProgressLine", () => {
         status: "failed",
         error: "`npm test` failed with exit code 1.\n```\n2 failed\n```",
         budgetReached: null,
+        interrupted: null,
         handoverNote: null,
       },
     });
@@ -107,6 +108,7 @@ describe("stageProgressLine", () => {
         status: "failed",
         error: "The Task reached the budget.",
         budgetReached: { used: 130_000, budget: 120_000 },
+        interrupted: null,
         handoverNote: null,
       },
     });

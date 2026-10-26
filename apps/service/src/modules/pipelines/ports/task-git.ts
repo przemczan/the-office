@@ -18,6 +18,12 @@ export abstract class TaskGit {
    */
   abstract commit(projectId: string, taskId: string, message: string): Promise<string | undefined>;
 
+  /**
+   * Drops every uncommitted change in the Task's worktree, untracked files included and ignored
+   * ones, such as dependencies, kept. Returns the dropped paths.
+   */
+  abstract discard(projectId: string, taskId: string): Promise<readonly string[]>;
+
   /** A few lines of what the Task's commits changed so far; undefined while nothing. */
   abstract changesSoFar(projectId: string, taskId: string): Promise<string | undefined>;
 }

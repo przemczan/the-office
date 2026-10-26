@@ -84,6 +84,8 @@ export const stageRunOutcomeSchema = z.discriminatedUnion("status", [
     budgetReached: z
       .object({ used: z.int().nonnegative(), budget: z.int().nonnegative() })
       .nullable(),
+    /** Set when The Office interrupted the run, as on the user's Stop; the Stage runs again. */
+    interrupted: z.enum(["stop"]).nullable(),
     ...handoverNoteField,
   }),
 ]);

@@ -134,6 +134,27 @@ export class TasksController {
     return toTaskResponse(await this.starting.start(id));
   }
 
+  /** Pause: the Task is held once the Stage running now ends. */
+  @Post(":id/pause")
+  @HttpCode(HttpStatus.OK)
+  async pause(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.pause(id));
+  }
+
+  /** Stop: the Stage running now is interrupted, its uncommitted edits discarded, the Task held. */
+  @Post(":id/stop")
+  @HttpCode(HttpStatus.OK)
+  async stop(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.stop(id));
+  }
+
+  /** Resume: a Paused Task goes on through the Context policy. */
+  @Post(":id/resume")
+  @HttpCode(HttpStatus.OK)
+  async resume(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.resume(id));
+  }
+
   @Post(":id/drop")
   @HttpCode(HttpStatus.OK)
   async drop(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {

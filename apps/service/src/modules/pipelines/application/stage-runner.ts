@@ -12,6 +12,11 @@ export interface StageWork<Kind extends StageKind = StageKind> {
   readonly stages: readonly Stage[];
   /** The Task's runs before this one, oldest first. */
   readonly earlierRuns: readonly StageRun[];
+  /**
+   * Aborted, with the StageInterruption as its reason, when The Office interrupts the run. A
+   * runner with nothing to interrupt, such as a Script Stage's command, ends as it would.
+   */
+  readonly interruption: AbortSignal;
 }
 
 /**

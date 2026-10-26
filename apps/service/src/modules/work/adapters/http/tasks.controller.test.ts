@@ -511,4 +511,42 @@ describe("Start", () => {
       "Only a Ready Task can start; this one is in Backlog.",
     ]);
   });
+
+  it("pauses, stops and resumes a started Task, announcing each", async () => {
+    const task = await readyTask();
+    await start(task.id);
+    work.published.length = 0;
+
+    const paused = await sendJson(work, "POST", `/tasks/${task.id}/pause`);
+    const stopped = await sendJson(work, "POST", `/tasks/${task.id}/stop`);
+    const resumed = await sendJson(work, "POST", `/tasks/${task.id}/resume`);
+
+    expect(paused.status).toBe(200);
+    expect(taskSchema.parse(await paused.json()).state).toBe("paused");
+    expect(taskSchema.parse(await stopped.json()).state).toBe("paused");
+    expect(taskSchema.parse(await resumed.json()).state).toBe("in-progress");
+    expect(webEventsOf(work)).toEqual([
+      { type: "task.paused", taskId: task.id },
+      { type: "task.stopped", taskId: task.id },
+      { type: "task.resumed", taskId: task.id },
+    ]);
+  });
+
+  it("refuses to pause, stop or resume a Task that isn't running, naming why", async () => {
+    const task = await create();
+
+    const refusals = await Promise.all(
+      ["pause", "stop", "resume"].map(async (action) => {
+        const response = await sendJson(work, "POST", `/tasks/${task.id}/${action}`);
+        return workRefusalSchema.parse(await response.json()).reasons;
+      }),
+    );
+
+    expect(refusals).toEqual([
+      ["Only a Task in progress can be paused; this one is in Backlog."],
+      ["Only a Task in progress can be stopped; this one is in Backlog."],
+      ["Only a Paused Task can be resumed; this one is in Backlog."],
+    ]);
+    expect((await readTask(task.id)).state).toBe("backlog");
+  });
 });

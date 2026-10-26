@@ -3,10 +3,11 @@ import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@ne
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { DecisionAnswered } from "../../conversations/index.js";
-import { TaskStarted } from "../../work/index.js";
+import { TaskResumed, TaskStarted, TaskStopped } from "../../work/index.js";
 import { nextMove, type NextMove } from "../domain/pipeline-walk.js";
 import { STAGE_KIND_NAMES, type Stage } from "../domain/stage.js";
-import type { StageOutcome, StageRun } from "../domain/stage-run.js";
+import { interruptedOutcome, interruptionOf } from "../domain/stage-interruption.js";
+import type { StageInterruption, StageOutcome, StageRun } from "../domain/stage-run.js";
 import { endStageRun, startStageRun } from "../domain/stage-run-changes.js";
 import {
   BudgetReached,
@@ -33,7 +34,9 @@ type AskMove = Extract<NextMove, { move: "ask" }>;
  * The Stage interpreter (spec §5.3): one walk over a started Task's own Stages, as data. Each Stage's
  * work is its kind's runner's; the walk keeps the runs, follows the loops, asks the user where the
  * Pipeline says to, and moves the Task. A walk goes on in the background, one per Task, from where
- * the Task's runs left it, and goes on again once the user answers what it asked.
+ * the Task's runs left it, and goes on again once the user answers what it asked or resumes the
+ * Task. A Task the user pauses is held once its running Stage ends; one they stop has that Stage
+ * interrupted (spec §2.4).
  */
 @Injectable()
 export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
@@ -41,6 +44,8 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
   private readonly walks = new Map<string, Promise<void>>();
   /** Tasks asked to walk while their walk was going on, walked again once it ends. */
   private readonly walksAgain = new Set<string>();
+  /** What interrupts each walk's Stage run, from before the walk reads the Task's state for it. */
+  private readonly interruptions = new Map<string, AbortController>();
   private stopping = false;
 
   constructor(
@@ -56,6 +61,8 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     this.events.subscribe(TaskStarted, ({ taskId }) => this.walkInBackground(taskId));
+    this.events.subscribe(TaskResumed, ({ taskId }) => this.walkInBackground(taskId));
+    this.events.subscribe(TaskStopped, ({ taskId }) => this.interrupt(taskId, "stop"));
     this.events.subscribe(DecisionAnswered, ({ decision }) => {
       if (!decision.answer) return;
       const { answeredAt: _answeredAt, ...answer } = decision.answer;
@@ -83,6 +90,14 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
     this.walkInBackground(taskId);
   }
 
+  /**
+   * Interrupts the Stage run of the Task's walk, if one goes on: its runner stops what runs now and
+   * ends the run as interrupted. A walk about to start one starts it interrupted.
+   */
+  interrupt(taskId: string, interruption: StageInterruption): void {
+    this.interruptions.get(taskId)?.abort(interruption);
+  }
+
   /** The service stops once every walk has ended the Stage it runs; none starts another. */
   async onModuleDestroy(): Promise<void> {
     this.stopping = true;
@@ -105,6 +120,7 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
       })
       .finally(() => {
         this.walks.delete(taskId);
+        this.interruptions.delete(taskId);
         if (this.walksAgain.delete(taskId) && !this.stopping) this.walkInBackground(taskId);
       });
     this.walks.set(taskId, walk);
@@ -136,6 +152,9 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
     // Locked once the Task is Ready, so one read serves the whole walk.
     const { definitionOfDone } = await this.records.read(taskId);
     while (!this.stopping) {
+      // Before the state is read, so a Stop after the read interrupts the run it leads to.
+      const interruption = new AbortController();
+      this.interruptions.set(taskId, interruption);
       // Dropped, Paused or Waiting on you meanwhile: the walk stops where the runs stand.
       if ((await this.tasks.read(taskId)).state !== "in-progress") return;
       const runs = await this.runs.list(taskId);
@@ -150,7 +169,7 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
         await this.tasks.changeState(taskId, "in-progress");
         continue;
       }
-      if (!(await this.runStage(taskId, move, stages, runs))) return;
+      if (!(await this.runStage(taskId, move, stages, runs, interruption.signal))) return;
     }
   }
 
@@ -196,6 +215,7 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
     move: RunMove,
     stages: readonly Stage[],
     earlierRuns: readonly StageRun[],
+    interruption: AbortSignal,
   ): Promise<boolean> {
     const { stage, carriedFailure } = move;
     const started = startStageRun(
@@ -210,7 +230,7 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
         await this.events.publish(new WentBackToStage(taskId, stageKey, stage.key, round, rounds));
       }
       await this.events.publish(started.event);
-      const work = { stage, run: started.run, stages, earlierRuns };
+      const work = { stage, run: started.run, stages, earlierRuns, interruption };
       const ended = endStageRun(started.run, await this.outcomeOf(work), new Date());
       await this.runs.saveEnded(ended.run);
       await this.events.publish(ended.event);
@@ -220,7 +240,9 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
 
   /** A runner that throws ends its run failed with the reason, so no run is left running. */
   private async outcomeOf(work: StageWork): Promise<StageOutcome> {
-    const { stage, run } = work;
+    const { stage, run, interruption } = work;
+    // Interrupted before it began, so it did nothing to discard.
+    if (interruption.aborted) return interruptedOutcome(interruptionOf(interruption.reason), []);
     const runner = this.runners.runnerOf(stage.kind);
     if (!runner) {
       return {
@@ -255,7 +277,8 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
         await this.tasks.changeState(taskId, "waiting-on-you");
         return;
       case "complete":
-        await this.tasks.changeState(taskId, "done");
+        // A Task paused meanwhile stays Paused, and completes once resumed.
+        if ((await this.tasks.changeState(taskId, "done")).state !== "done") return;
         await this.events.publish(new PipelineCompleted(taskId));
         return;
       case "drop":

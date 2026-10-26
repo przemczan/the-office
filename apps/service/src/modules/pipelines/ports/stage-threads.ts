@@ -61,6 +61,11 @@ export interface StageThread {
   /** Logs `why`, sends the person `text` in the same session, and returns the turn answering it. */
   send(text: string, why: string): Promise<StageTurn>;
   /**
+   * Stops the person's running turn now (Stop, spec §2.4): it ends as an interrupted turn, or, on
+   * an engine that can't interrupt, the session ends. Does nothing between turns.
+   */
+  interrupt(): Promise<void>;
+  /**
    * Ends the session and every process it left running, such as a dev server or a watcher, so
    * nothing changes the worktree after it.
    */

@@ -15,5 +15,9 @@ export interface StartedTask {
 export abstract class StartedTasks {
   abstract read(taskId: string): Promise<StartedTask>;
 
-  abstract changeState(taskId: string, state: WalkTaskState): Promise<unknown>;
+  /**
+   * The Task as it is after the move. A Paused Task stays Paused: the user holds it, and only
+   * Resume moves it on.
+   */
+  abstract changeState(taskId: string, state: WalkTaskState): Promise<StartedTask>;
 }

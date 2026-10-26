@@ -126,4 +126,15 @@ describe("agentStageWork", () => {
       "## The Stage: Implement\n\nBuild it.\n\n## Your question, answered\n\nYou asked the user: Which page?\n\nTheir answer: The list\n\nGo on with the Stage from there.",
     );
   });
+
+  it("tells a Stage the user stopped and resumed that its uncommitted edits are gone", () => {
+    const work = agentStageWork(
+      { key: "implement", name: "Implement", brief: "Build it." },
+      { stopped: true },
+    );
+
+    expect(work).toBe(
+      "## The Stage: Implement\n\nBuild it.\n\n## Stopped by the user\n\nThe user stopped this Stage while it ran, and has resumed it. The Office discarded the Stage's uncommitted edits, so the worktree is as the last Stage left it: do the Stage's work again from there.",
+    );
+  });
 });

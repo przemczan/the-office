@@ -69,6 +69,20 @@ export class StageGit {
     await this.runs.saveHeadCommit(run.id, commit ?? expected.commit);
   }
 
+  /**
+   * Drops what the run left uncommitted, as for a Stage the user stopped, and records that it left
+   * the branch where it found it. Returns the dropped paths.
+   */
+  async discard(
+    run: StageRun,
+    task: TaskRecord,
+    expected: ExpectedHead,
+  ): Promise<readonly string[]> {
+    const discarded = await this.git.discard(task.project.id, run.taskId);
+    await this.leaveAt(run, expected);
+    return discarded;
+  }
+
   /** Records that the run left the branch where it found it, committing nothing. */
   async leaveAt(run: StageRun, expected: ExpectedHead): Promise<void> {
     await this.runs.saveHeadCommit(run.id, expected.commit);

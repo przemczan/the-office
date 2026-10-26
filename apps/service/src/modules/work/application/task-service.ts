@@ -10,7 +10,10 @@ import {
   changeStartedTaskState,
   changeTaskState,
   createTask,
+  pauseTask,
   reorderTask,
+  resumeTask,
+  stopTask,
   type TaskChange,
 } from "../domain/task-changes.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
@@ -75,6 +78,21 @@ export class TaskService {
 
   async drop(id: string): Promise<Task> {
     return this.update(id, (task) => changeTaskState(task, "dropped"));
+  }
+
+  /** Holds the Task once its running Stage ends: Pipelines' walk finds it Paused and stops there. */
+  async pause(id: string): Promise<Task> {
+    return this.update(id, pauseTask);
+  }
+
+  /** Holds the Task now; TaskStopped tells Pipelines to interrupt the Stage running. */
+  async stop(id: string): Promise<Task> {
+    return this.update(id, stopTask);
+  }
+
+  /** TaskResumed tells Pipelines to walk the Task's Stages on from where they were held. */
+  async resume(id: string): Promise<Task> {
+    return this.update(id, resumeTask);
   }
 
   /** Moves a started Task along its Pipeline: Pipelines' interpreter calls it, Start never does. */

@@ -4,9 +4,12 @@ import { boardOrder, placementBetween, type Neighbours } from "./manual-order.js
 import { newTaskProblems, trimmedNewTask, type NewTask, type Priority, type Task } from "./task.js";
 import {
   TaskCreated,
+  TaskPaused,
   TaskPriorityChanged,
   TaskReordered,
+  TaskResumed,
   TaskStateChanged,
+  TaskStopped,
 } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
 import {
@@ -99,7 +102,8 @@ export function markTaskReady(
 
 /**
  * A started Task moved along its Pipeline by the Stage interpreter. Only Start moves a Ready Task
- * to In progress, so a Task that hasn't started, or has ended, is refused.
+ * to In progress, so a Task that hasn't started, or has ended, is refused. A Paused Task is held by
+ * the user and only Resume moves it on, so the move is undefined: the walk finds it Paused.
  */
 export function changeStartedTaskState(
   task: Task,
@@ -110,7 +114,44 @@ export function changeStartedTaskState(
       `Only a started Task moves along its Pipeline; this one is in ${TASK_STATE_NAMES[task.state]}.`,
     ]);
   }
+  if (task.state === "paused") return undefined;
   return changeTaskState(task, to);
+}
+
+/**
+ * Pause (spec §2.4): a Task In progress or Waiting on you is held as Paused, once the Stage running
+ * now ends. Undefined when it is Paused already.
+ */
+export function pauseTask(task: Task): TaskChange<TaskPaused> | undefined {
+  if (task.state === "paused") return undefined;
+  refuseUnlessRunning(task, "paused");
+  return { task: { ...task, state: "paused" }, event: new TaskPaused(task.id, task.state) };
+}
+
+/**
+ * Stop (spec §2.4): as Pause, but the Stage running now is interrupted; a Task paused already can
+ * still be stopped, so its Stage doesn't run to its end.
+ */
+export function stopTask(task: Task): TaskChange<TaskStopped> {
+  if (task.state !== "paused") refuseUnlessRunning(task, "stopped");
+  return { task: { ...task, state: "paused" }, event: new TaskStopped(task.id, task.state) };
+}
+
+/** Resume: a Paused Task goes on In progress, where its Pipeline was held. */
+export function resumeTask(task: Task): TaskChange<TaskResumed> {
+  if (task.state !== "paused") {
+    throw new TaskRefused([
+      `Only a Paused Task can be resumed; this one is in ${TASK_STATE_NAMES[task.state]}.`,
+    ]);
+  }
+  return { task: { ...task, state: "in-progress" }, event: new TaskResumed(task.id) };
+}
+
+function refuseUnlessRunning(task: Task, verb: "paused" | "stopped"): void {
+  if (task.state === "in-progress" || task.state === "waiting-on-you") return;
+  throw new TaskRefused([
+    `Only a Task in progress can be ${verb}; this one is in ${TASK_STATE_NAMES[task.state]}.`,
+  ]);
 }
 
 /** Undefined when the Task already has that priority. */

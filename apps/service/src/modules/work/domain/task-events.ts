@@ -82,6 +82,36 @@ export class TaskPipelineConfirmed extends DomainEvent {
   }
 }
 
+/** The user paused the Task: it is held once the Stage running now ends (spec §2.4). */
+export class TaskPaused extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly from: TaskState,
+  ) {
+    super();
+  }
+}
+
+/**
+ * The user stopped the Task: the Stage running now is interrupted, and the Task held (spec §2.4).
+ * `from` is Paused when the user paused it first.
+ */
+export class TaskStopped extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly from: TaskState,
+  ) {
+    super();
+  }
+}
+
+/** Paused → In progress: the user resumed the Task, whose Pipeline goes on where it was held. */
+export class TaskResumed extends DomainEvent {
+  constructor(readonly taskId: string) {
+    super();
+  }
+}
+
 /** Ready → In progress: the user started the Task, following its Pipeline. */
 export class TaskStarted extends DomainEvent {
   constructor(

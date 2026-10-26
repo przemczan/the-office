@@ -4,14 +4,20 @@ import {
   changePriority,
   changeStartedTaskState,
   createTask,
+  pauseTask,
   reorderTask,
+  resumeTask,
+  stopTask,
   undoPlanningMove,
 } from "./task-changes.js";
 import {
   TaskCreated,
+  TaskPaused,
   TaskPriorityChanged,
   TaskReordered,
+  TaskResumed,
   TaskStateChanged,
+  TaskStopped,
 } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
 import type { Neighbours } from "./manual-order.js";
@@ -117,6 +123,52 @@ describe("changeStartedTaskState", () => {
 
   it("refuses a Task that has ended", () => {
     expect(() => changeStartedTaskState(aTask({ state: "dropped" }), "done")).toThrow(TaskRefused);
+  });
+
+  it("leaves a Paused Task Paused: only Resume moves it on", () => {
+    expect(changeStartedTaskState(aTask({ state: "paused" }), "waiting-on-you")).toBeUndefined();
+    expect(changeStartedTaskState(aTask({ state: "paused" }), "done")).toBeUndefined();
+  });
+});
+
+describe("Pause, Stop and Resume", () => {
+  it("holds a Task In progress or Waiting on you as Paused, and announces how", () => {
+    for (const state of ["in-progress", "waiting-on-you"] as const) {
+      const paused = pauseTask(aTask({ state }));
+      const stopped = stopTask(aTask({ state }));
+
+      expect(paused?.task).toEqual(aTask({ state: "paused" }));
+      expect(paused?.event).toBeInstanceOf(TaskPaused);
+      expect(paused?.event).toMatchObject({ taskId: "task-1", from: state });
+      expect(stopped.task).toEqual(aTask({ state: "paused" }));
+      expect(stopped.event).toBeInstanceOf(TaskStopped);
+      expect(stopped.event).toMatchObject({ taskId: "task-1", from: state });
+    }
+  });
+
+  it("changes nothing on a Pause of a Paused Task, while a Stop still stops its running Stage", () => {
+    expect(pauseTask(aTask({ state: "paused" }))).toBeUndefined();
+    expect(stopTask(aTask({ state: "paused" })).event).toMatchObject({ from: "paused" });
+  });
+
+  it("resumes a Paused Task In progress", () => {
+    const resumed = resumeTask(aTask({ state: "paused" }));
+
+    expect(resumed.task).toEqual(aTask({ state: "in-progress" }));
+    expect(resumed.event).toBeInstanceOf(TaskResumed);
+    expect(resumed.event).toMatchObject({ taskId: "task-1" });
+  });
+
+  it("refuses a Task that isn't running, and a Resume of one that isn't Paused", () => {
+    expect(() => pauseTask(aTask({ state: "ready" }))).toThrow(
+      new TaskRefused(["Only a Task in progress can be paused; this one is in Ready."]),
+    );
+    expect(() => stopTask(aTask({ state: "done" }))).toThrow(
+      new TaskRefused(["Only a Task in progress can be stopped; this one is in Done."]),
+    );
+    expect(() => resumeTask(aTask({ state: "waiting-on-you" }))).toThrow(
+      new TaskRefused(["Only a Paused Task can be resumed; this one is in Waiting on you."]),
+    );
   });
 });
 

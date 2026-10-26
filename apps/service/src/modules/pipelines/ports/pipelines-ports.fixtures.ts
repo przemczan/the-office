@@ -34,9 +34,13 @@ export class StartedTasksForTests extends StartedTasks {
     return task;
   }
 
-  async changeState(taskId: string, state: WalkTaskState): Promise<void> {
-    this.put(taskId, { ...(await this.read(taskId)), state });
+  /** As Work moves it: a Paused Task stays Paused, held by the user. */
+  async changeState(taskId: string, state: WalkTaskState): Promise<StartedTask> {
+    const task = await this.read(taskId);
+    if (task.state === "paused") return task;
+    this.put(taskId, { ...task, state });
     this.changes.push({ taskId, state });
+    return this.read(taskId);
   }
 }
 
@@ -108,6 +112,10 @@ export class StageThreadsForTests extends StageThreads {
   whileWorking: ((request: StageThreadRequest) => void | Promise<void>) | undefined = undefined;
   /** How each Stage's work in its Thread ended. */
   readonly ended: ({ readonly threadId: string } & Parameters<StageThread["end"]>[0])[] = [];
+  /** The Threads whose running turn The Office interrupted, in order. */
+  readonly interrupted: string[] = [];
+  /** Told as The Office waits on each turn, while it runs, such as for the user to stop it. */
+  whileTurnRuns: ((threadId: string) => void) | undefined = undefined;
 
   constructor(private readonly sessions: EngineSessions) {
     super();
@@ -132,12 +140,15 @@ export class StageThreadsForTests extends StageThreads {
       brief: { id: randomUUID(), text: `${request.record}\n\n${request.work}` },
     });
     const events = session.events[Symbol.asyncIterator]();
+    let turnRunning = true;
     const nextTurn = async (): Promise<StageTurn> => {
+      this.whileTurnRuns?.(threadId);
       for (;;) {
         const next = await events.next();
         if (next.done) throw new Error(`Session ${session.id} ended without a turn.`);
         const event = next.value;
         if (event.kind === "turn-ended") {
+          turnRunning = false;
           await this.whileWorking?.(request);
           const problem = event.outcome === "completed" ? undefined : event.errors.join(" ");
           return { output: event.output, problem, tokens: event.usage };
@@ -157,7 +168,13 @@ export class StageThreadsForTests extends StageThreads {
       send: (text, why) => {
         this.sent.push({ threadId, text, why });
         session.send({ id: randomUUID(), text }, "later");
+        turnRunning = true;
         return nextTurn();
+      },
+      interrupt: async () => {
+        if (!turnRunning) return;
+        this.interrupted.push(threadId);
+        await session.interrupt();
       },
       end: async (ending) => {
         this.ended.push({ threadId, ...ending });
@@ -210,6 +227,10 @@ export const PLANNED_COMMIT = "0123456789abcdef0123456789abcdef01234567";
 @Injectable()
 export class TaskGitForTests extends TaskGit {
   private readonly heads = new Map<string, WorktreeHead>();
+  /** What each Task's worktree holds uncommitted, as an Agent's edits leave it. */
+  readonly uncommitted = new Map<string, readonly string[]>();
+  /** Every discard The Office made, in order, with the paths it dropped. */
+  readonly discarded: { readonly taskId: string; readonly paths: readonly string[] }[] = [];
   /** Every commit The Office made, in order. */
   readonly commits: {
     readonly taskId: string;
@@ -221,7 +242,7 @@ export class TaskGitForTests extends TaskGit {
   /** What git says each Task's commits changed so far; undefined when a test puts nothing. */
   readonly changes = new Map<string, string>();
   /** Told of every call, as it is made, so a test can see what happened before it. */
-  observe: ((call: "head" | "commit" | "changesSoFar") => void) | undefined = undefined;
+  observe: ((call: "head" | "commit" | "discard" | "changesSoFar") => void) | undefined = undefined;
 
   /** Moves the Task's HEAD, as an Agent with git of its own would. */
   move(taskId: string, head: WorktreeHead): void {
@@ -240,6 +261,14 @@ export class TaskGitForTests extends TaskGit {
     this.commits.push({ taskId, message, commit });
     this.move(taskId, { commit, branch: this.headOf(taskId).branch });
     return Promise.resolve(commit);
+  }
+
+  discard(_projectId: string, taskId: string): Promise<readonly string[]> {
+    this.observe?.("discard");
+    const paths = this.uncommitted.get(taskId) ?? [];
+    this.uncommitted.delete(taskId);
+    this.discarded.push({ taskId, paths });
+    return Promise.resolve(paths);
   }
 
   changesSoFar(_projectId: string, taskId: string): Promise<string | undefined> {
