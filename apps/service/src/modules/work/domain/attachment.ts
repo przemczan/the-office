@@ -47,6 +47,8 @@ export interface NewFile {
 }
 
 export const ATTACHMENT_SIZE_LIMIT = 50 * 1024 * 1024;
+/** A screenshot an Agent lists in its Stage's result may be at most this (research §8). */
+export const SCREENSHOT_SIZE_LIMIT = 2 * 1024 * 1024;
 const NAME_LENGTH = 200;
 
 /**

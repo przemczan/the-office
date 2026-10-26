@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Role, Stage, Task, TaskStage, TaskStages } from "@the-office/contracts";
+import type { Attachment, Role, Stage, Task, TaskStage, TaskStages } from "@the-office/contracts";
 import { Button, Icon, Select, Textarea } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import {
@@ -9,7 +9,7 @@ import {
   sendBackFromGate,
 } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
-import { attachmentQueries, taskQueries } from "../../api/work.ts";
+import { attachmentContentUrl, attachmentQueries, taskQueries } from "../../api/work.ts";
 import { AttachmentChips } from "../../shell/attachments/attachment-chips.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
@@ -96,15 +96,36 @@ function StageResults({
 /** The Task's Attachments, where the screenshots an Agent attached for the Gate are. */
 function GateAttachments({ task }: { readonly task: Task }): ReactNode {
   const attachments = useQuery(attachmentQueries.of({ kind: "task", taskId: task.id })).data;
+  const images = (attachments ?? []).filter(({ kind }) => kind === "image");
   return (
     <section className="gate-part" aria-label="Gate attachments">
       <h4 className="gate-heading">Attachments</h4>
+      {images.length > 0 && <GateScreenshots images={images} />}
       {attachments?.length === 0 ? (
         <p className="task-quiet">None</p>
       ) : (
         <AttachmentChips attachments={attachments ?? []} />
       )}
     </section>
+  );
+}
+
+/** The image Attachments as thumbnails, each opening the full picture, for a look without the diff. */
+function GateScreenshots({ images }: { readonly images: readonly Attachment[] }): ReactNode {
+  return (
+    <div className="gate-screenshots">
+      {images.map((image) => (
+        <a
+          key={image.id}
+          className="gate-screenshot"
+          href={attachmentContentUrl(image.id)}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <img src={attachmentContentUrl(image.id)} alt={image.name} loading="lazy" />
+        </a>
+      ))}
+    </div>
   );
 }
 

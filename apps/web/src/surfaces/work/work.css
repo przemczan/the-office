@@ -387,6 +387,30 @@
   color: var(--fg-3);
 }
 
+.gate-screenshots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.gate-screenshot {
+  display: block;
+  width: 160px;
+  height: 100px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface-sunken);
+}
+
+.gate-screenshot > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top left;
+}
+
 .gate-results {
   display: flex;
   flex-direction: column;

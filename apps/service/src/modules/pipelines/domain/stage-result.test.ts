@@ -26,6 +26,7 @@ describe("STAGE_RESULT_SCHEMA", () => {
       "handoverNote",
       "definitionOfDoneMet",
       "failureReason",
+      "screenshots",
     ]);
     expect(STAGE_RESULT_SCHEMA).not.toHaveProperty("$schema");
   });
@@ -51,6 +52,7 @@ describe("readStageResult", () => {
         handoverNote: "All set.",
         definitionOfDoneMet: [1, 3],
       },
+      screenshots: [],
     });
     expect(
       readStageResult(
@@ -69,10 +71,26 @@ describe("readStageResult", () => {
         error: "The page is gone.",
         handoverNote: "Look at the router.",
       },
+      screenshots: [],
     });
   });
 
-  it("needs the Decision the Agent opened with a tool, keeping the Handover note, whatever the status", () => {
+  it("reads the screenshots a result lists", () => {
+    expect(
+      readStageResult(
+        {
+          status: "done",
+          summary: "Built.",
+          handoverNote: "All set.",
+          definitionOfDoneMet: [1],
+          screenshots: ["dialog/open.png", "home.png"],
+        },
+        undefined,
+      ),
+    ).toMatchObject({ valid: true, screenshots: ["dialog/open.png", "home.png"] });
+  });
+
+  it("needs the Decision the Agent opened with a tool, keeping the Handover note and no screenshots, whatever the status", () => {
     const outcome = { status: "needs-decision", ...asked, handoverNote: "Waiting." };
 
     expect(
@@ -80,16 +98,23 @@ describe("readStageResult", () => {
         { status: "needs_decision", summary: "Asked.", handoverNote: "Waiting." },
         asked,
       ),
-    ).toEqual({ valid: true, outcome });
+    ).toEqual({ valid: true, outcome, screenshots: [] });
     expect(
       readStageResult(
-        { status: "done", summary: "Built.", handoverNote: "Waiting.", definitionOfDoneMet: [] },
+        {
+          status: "done",
+          summary: "Built.",
+          handoverNote: "Waiting.",
+          definitionOfDoneMet: [],
+          screenshots: ["home.png"],
+        },
         asked,
       ),
-    ).toEqual({ valid: true, outcome });
+    ).toEqual({ valid: true, outcome, screenshots: [] });
     expect(readStageResult(undefined, asked)).toEqual({
       valid: true,
       outcome: { status: "needs-decision", ...asked },
+      screenshots: [],
     });
   });
 

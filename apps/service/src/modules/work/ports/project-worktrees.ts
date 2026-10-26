@@ -4,6 +4,8 @@ export interface TaskWorktree {
   readonly branch: string;
   /** The Project's command environment. */
   readonly environment: Readonly<Record<string, string>>;
+  /** Where an Agent writes its screenshots, relative to the worktree with "/" between folders. */
+  readonly screenshotsFolder: string;
 }
 
 /** The Tasks' worktrees, which the Projects module keeps; the composition root binds it. */

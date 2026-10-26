@@ -1,4 +1,4 @@
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
@@ -36,6 +36,9 @@ const runs = fs.readFileSync(log, "utf8").length;
 fs.writeFileSync("src/index.ts", "export const changedByRun = " + runs + ";\\n");
 fs.mkdirSync("screenshots", { recursive: true });
 fs.writeFileSync("screenshots/run-" + runs + ".txt", "a screenshot\\n");
+fs.mkdirSync(".office/screenshots", { recursive: true });
+fs.writeFileSync(".office/screenshots/by-run-" + runs + ".png", "the run's\\n");
+fs.writeFileSync(".office/screenshots/dialog.png", "the run's\\n");
 if (runs >= Number(process.env.PASS_FROM_RUN)) {
   console.log("All 2 tests passed.");
   process.exit(0);
@@ -137,6 +140,40 @@ describe("ScriptCommands.run", () => {
       ["screenshots/run-1.txt"],
       ["screenshots/run-2.txt"],
     ]);
+  });
+
+  it("keeps the screenshots folder as the Agent left it across test runs, out of every commit", async () => {
+    const { project, taskId, worktreePath } = await aTask(2);
+    const screenshots = join(worktreePath, ".office", "screenshots");
+    await writeFile(join(screenshots, "dialog.png"), "the Agent's\n");
+    await writeFile(join(worktreePath, "notes.txt"), "the Agent's notes\n");
+
+    const runs = await scriptCommands.run(project, taskId, "test", "stage-run-3");
+
+    expect(runs.map(({ outcome }) => outcome)).toEqual(["failed", "passed"]);
+    expect(await readdir(screenshots)).toEqual(["dialog.png"]);
+    await expect(readFile(join(screenshots, "dialog.png"), "utf8")).resolves.toBe("the Agent's\n");
+    await worktrees.commit(project, taskId, "The Agent's notes");
+    expect(gitIn(worktreePath, "show", "--name-only", "--format=", "HEAD")).toBe("notes.txt");
+  });
+
+  it("commits no screenshot when the Agent removed the folder's .gitignore", async () => {
+    const { project, taskId, worktreePath } = await aTask(1);
+    await rm(join(worktreePath, ".office", ".gitignore"));
+    await writeFile(join(worktreePath, ".office", "screenshots", "home.png"), "the Agent's\n");
+    await writeFile(join(worktreePath, "notes.txt"), "the Agent's notes\n");
+
+    await worktrees.commit(project, taskId, "The Agent's notes");
+
+    expect(gitIn(worktreePath, "show", "--name-only", "--format=", "HEAD")).toBe("notes.txt");
+  });
+
+  it("leaves no screenshots folder's files a test run wrote when the Agent left it empty", async () => {
+    const { project, taskId, worktreePath } = await aTask(1);
+
+    await scriptCommands.run(project, taskId, "test", "stage-run-4");
+
+    expect(await readdir(join(worktreePath, ".office", "screenshots"))).toEqual([]);
   });
 
   it("gives a test command that fails twice both its failed runs, with the worktree restored", async () => {

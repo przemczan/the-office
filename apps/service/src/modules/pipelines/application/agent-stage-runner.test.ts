@@ -199,6 +199,41 @@ describe("AgentStageRunner", () => {
     });
   });
 
+  it("attaches exactly the screenshots the result lists, in the person's name", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession({ ...aDoneResult("Added the dialog."), screenshots: ["dialog/open.png"] }),
+    ]);
+
+    const taskId = await walkStages(pipelines, [implement]);
+
+    expect(pipelines.screenshots.attached).toEqual([
+      { taskId, roleKey: "developer", paths: ["dialog/open.png"] },
+    ]);
+    expect(await outcomesOf(taskId)).toEqual([expect.objectContaining({ status: "done" })]);
+    expect(pipelines.stageThreads.sent).toHaveLength(0);
+  });
+
+  it("asks once to correct a list of screenshots that can't be attached", async () => {
+    pipelines = await startPipelinesApplication([
+      corrected(
+        { ...aDoneResult("Added the dialog."), screenshots: ["dialog/open.png", "huge.png"] },
+        { ...aDoneResult("Added the dialog."), screenshots: ["dialog/open.png"] },
+      ),
+    ]);
+    pipelines.screenshots.refusals.push(["huge.png is over 2 MB."]);
+
+    const taskId = await walkStages(pipelines, [implement]);
+
+    const [correction] = pipelines.stageThreads.sent;
+    expect(correction?.text).toContain(
+      "None of the screenshots you listed was attached, as The Office attaches all or none:\n- huge.png is over 2 MB.",
+    );
+    expect(pipelines.screenshots.attached).toEqual([
+      { taskId, roleKey: "developer", paths: ["dialog/open.png"] },
+    ]);
+    expect(await outcomesOf(taskId)).toEqual([expect.objectContaining({ status: "done" })]);
+  });
+
   it("ends needing the Decision the Agent opened with an Office tool, even after a correction", async () => {
     const asked = anAskedDecision();
     pipelines = await startPipelinesApplication([

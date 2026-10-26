@@ -10,6 +10,7 @@ import {
 import { uploadBody } from "../../platform/http/upload-body.js";
 import { EngineModule } from "../engine/index.js";
 import { FilesystemAttachmentFiles } from "./adapters/filesystem/filesystem-attachment-files.js";
+import { FilesystemWorktreeFiles } from "./adapters/filesystem/worktree-files.js";
 import {
   ATTACHMENT_UPLOAD_ROUTES,
   AttachmentsController,
@@ -28,6 +29,7 @@ import { WorkWebEvents } from "./adapters/websocket/work-web-events.js";
 import { AttachmentService } from "./application/attachment-service.js";
 import { IdeaService } from "./application/idea-service.js";
 import { PlanningService } from "./application/planning-service.js";
+import { StageScreenshots } from "./application/stage-screenshots.js";
 import { StartService } from "./application/start-service.js";
 import { TaskRecords } from "./application/task-records.js";
 import { TaskService } from "./application/task-service.js";
@@ -45,6 +47,7 @@ import { TaskRepository } from "./ports/task-repository.js";
 import { TaskDecisions } from "./ports/task-decisions.js";
 import { TaskThreads } from "./ports/task-threads.js";
 import { WorkSettings } from "./ports/work-settings.js";
+import { WorktreeFiles } from "./ports/worktree-files.js";
 
 export interface WorkModuleOptions {
   /**
@@ -85,6 +88,7 @@ export class WorkModule implements NestModule {
         { provide: TaskRepository, useClass: PostgresTaskRepository },
         { provide: AttachmentRepository, useClass: PostgresAttachmentRepository },
         { provide: AttachmentFiles, useClass: FilesystemAttachmentFiles },
+        { provide: WorktreeFiles, useClass: FilesystemWorktreeFiles },
         { provide: WorkSettings, useClass: PostgresWorkSettings },
         { provide: KnownProjects, useExisting: knownProjects },
         { provide: ProjectWorktrees, useExisting: projectWorktrees },
@@ -100,13 +104,14 @@ export class WorkModule implements NestModule {
         PlanningService,
         StartService,
         TaskRecords,
+        StageScreenshots,
         WorkWebEvents,
         WorkOfficeTools,
         PlanningOfficeTools,
         AttachmentOfficeTools,
         PlanningThreadSetup,
       ],
-      exports: [IdeaService, TaskService, TaskRecords],
+      exports: [IdeaService, TaskService, TaskRecords, StageScreenshots],
     };
   }
 

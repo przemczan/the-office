@@ -29,6 +29,7 @@ import {
   TaskCommandsForTests,
   TaskGitForTests,
   TaskRecordsForTests,
+  TaskScreenshotsForTests,
 } from "./ports/pipelines-ports.fixtures.js";
 import { StageRunRepository } from "./ports/stage-run-repository.js";
 import { TaskStagesRepository } from "./ports/task-stages-repository.js";
@@ -45,6 +46,7 @@ export interface PipelinesApplication {
   readonly decisions: StageDecisionsForTests;
   readonly git: TaskGitForTests;
   readonly commands: TaskCommandsForTests;
+  readonly screenshots: TaskScreenshotsForTests;
   readonly usage: TaskUsageForTests;
   readonly published: DomainEvent[];
 }
@@ -89,6 +91,7 @@ export async function startPipelinesApplication(
         stageDecisions: StageDecisionsForTests,
         taskGit: TaskGitForTests,
         taskCommands: TaskCommandsForTests,
+        taskScreenshots: TaskScreenshotsForTests,
         taskUsage: TaskUsageForTests,
       }),
     ],
@@ -105,6 +108,7 @@ export async function startPipelinesApplication(
     decisions: app.get(StageDecisionsForTests, { strict: false }),
     git: app.get(TaskGitForTests, { strict: false }),
     commands: app.get(TaskCommandsForTests, { strict: false }),
+    screenshots: app.get(TaskScreenshotsForTests, { strict: false }),
     usage: app.get(TaskUsageForTests, { strict: false }),
     published,
   };
@@ -207,7 +211,7 @@ export function aDoneResult(
   summary = "Done.",
   handoverNote = "Nothing is left.",
   met: readonly number[] = [1, 2],
-): unknown {
+): Readonly<Record<string, unknown>> {
   return { status: "done", summary, handoverNote, definitionOfDoneMet: met };
 }
 

@@ -17,6 +17,7 @@ import type { DecisionAnswer } from "../domain/walk-decisions.js";
 import { TaskCommands, type ScriptCommandKey } from "./task-commands.js";
 import { TaskGit, type WorktreeHead } from "./task-git.js";
 import { TaskRecords, type TaskRecord } from "./task-records.js";
+import { TaskScreenshots, type ScreenshotsAttaching } from "./task-screenshots.js";
 import { TaskUsage } from "./task-usage.js";
 
 /** Work's Tasks in memory: a test starts each one it walks. */
@@ -69,6 +70,7 @@ export function aTaskRecord(fields: Partial<TaskRecord> = {}): TaskRecord {
       path: "/office/worktrees/admin-panel/task",
       branch: "office/task",
       environment: { PROJECT_VARIABLE: "set" },
+      screenshotsFolder: ".office/screenshots",
     },
     ...fields,
   };
@@ -267,6 +269,29 @@ export class TaskUsageForTests extends TaskUsage {
   }
 }
 
+/**
+ * Work's attaching of the screenshots an Agent lists: every list is attached, unless a test puts
+ * the problems the next lists are refused with.
+ */
+@Injectable()
+export class TaskScreenshotsForTests extends TaskScreenshots {
+  /** Every list attached, in order. */
+  readonly attached: {
+    readonly taskId: string;
+    readonly roleKey: string;
+    readonly paths: readonly string[];
+  }[] = [];
+  /** The problems the next lists are refused with, in order. */
+  readonly refusals: (readonly string[])[] = [];
+
+  attach(taskId: string, roleKey: string, paths: readonly string[]): Promise<ScreenshotsAttaching> {
+    const problems = this.refusals.shift();
+    if (problems) return Promise.resolve({ kind: "refused", problems });
+    this.attached.push({ taskId, roleKey, paths });
+    return Promise.resolve({ kind: "attached", names: paths });
+  }
+}
+
 /** The commit every Task's worktree starts at, as planning left it. */
 export const PLANNED_COMMIT = "0123456789abcdef0123456789abcdef01234567";
 
@@ -407,6 +432,7 @@ export class PipelinesPortsForTestsModule {
       StageDecisionsForTests,
       TaskGitForTests,
       TaskCommandsForTests,
+      TaskScreenshotsForTests,
       TaskUsageForTests,
     ];
     return { module: PipelinesPortsForTestsModule, imports, providers, exports: providers };

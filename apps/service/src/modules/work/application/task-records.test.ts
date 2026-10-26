@@ -61,6 +61,7 @@ describe("TaskRecords", () => {
         path: join("/worktrees", projectId, taskId),
         branch: `office/${taskId}`,
         environment: { PROJECT: projectId },
+        screenshotsFolder: ".office/screenshots",
       },
     });
   });

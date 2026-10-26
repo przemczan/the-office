@@ -5,6 +5,7 @@ import { OfficeDataDirectory } from "../../../platform/office-data/office-data-d
 import type { CommandRun } from "../domain/command-run.js";
 import type { Project, ProjectCommandKey } from "../domain/project.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
+import { keepingScreenshots } from "./screenshots-folder.js";
 import { Worktrees } from "./worktrees.js";
 
 /** The Project commands a Script Stage runs; install runs before a Stage that needs it. */
@@ -28,8 +29,9 @@ const SCRIPT_COMMAND_TIMEOUT_MS = 30 * 60_000;
 
 /**
  * Runs a Script Stage's Project command in a Task's worktree with the Project's environment. What
- * a test run changed never reaches the work (spec §5.5): tracked files are restored after it, and
- * the files it wrote are moved out of the worktree for the user to see. A failing test command
+ * a test run changed never reaches the work (spec §5.5): tracked files are restored after it, the
+ * files it wrote are moved out of the worktree for the user to see, and the screenshots folder is
+ * put back as the Agent left it, so only the Agent's screenshots are attached. A failing test command
  * runs once more before it counts as failed (research §11.5).
  */
 @Injectable()
@@ -68,7 +70,11 @@ export class ScriptCommands {
     signal: AbortSignal | undefined,
   ): Promise<ScriptCommandRun> {
     const before = new Set(await this.worktrees.untracked(project, taskId));
-    const run = await this.runOnce(project, taskId, "test", signal);
+    const run = await keepingScreenshots(
+      this.worktrees.pathOf(project, taskId),
+      `${this.outputFolder(outputFolder)}.screenshots`,
+      () => this.runOnce(project, taskId, "test", signal),
+    );
     await this.worktrees.restore(project, taskId);
     const written = (await this.worktrees.untracked(project, taskId)).filter(
       (path) => !before.has(path),
@@ -99,7 +105,7 @@ export class ScriptCommands {
   ): Promise<MovedFiles | undefined> {
     if (paths.length === 0) return undefined;
     const worktree = this.worktrees.pathOf(project, taskId);
-    const folder = join(this.officeData.folder("test-output"), outputFolder);
+    const folder = this.outputFolder(outputFolder);
     for (const path of paths) {
       const target = join(folder, path);
       await mkdir(dirname(target), { recursive: true });
@@ -107,5 +113,9 @@ export class ScriptCommands {
       await rename(join(worktree, path), target);
     }
     return { folder, paths };
+  }
+
+  private outputFolder(name: string): string {
+    return join(this.officeData.folder("test-output"), name);
   }
 }

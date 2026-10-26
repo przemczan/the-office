@@ -49,6 +49,7 @@ export class ProjectWorktreesForTests extends ProjectWorktrees {
       path: join(this.folder, projectId, taskId),
       branch: `office/${taskId}`,
       environment: { PROJECT: projectId },
+      screenshotsFolder: ".office/screenshots",
     };
   }
 }

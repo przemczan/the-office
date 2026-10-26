@@ -538,6 +538,11 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
 });
 
 const GATE_FEEDBACK = "Call the button Save, as the rest of the settings do.";
+/** A 1×1 PNG. */
+const A_SCREENSHOT = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+  "base64",
+);
 
 /**
  * Gives the Task its own Stages before it starts, as the Stage editor will (task 15): Quick fix's
@@ -604,7 +609,15 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     const results = gate.getByRole("region", { name: "Stage results" });
     await expect(results).toContainText("Implement");
     await expect(results).toContainText("Tests");
-    await expect(gate.getByRole("region", { name: "Gate attachments" })).toContainText("None");
+    const attachments = gate.getByRole("region", { name: "Gate attachments" });
+    await expect(attachments).toContainText("None");
+    // A screenshot, as Work attaches the ones an Agent lists, shows as a picture.
+    const uploaded = await page.request.post(
+      `/api/tasks/${taskId}/attachments/files?${new URLSearchParams({ fileName: "settings.png", mediaType: "image/png" })}`,
+      { headers: { "content-type": "application/octet-stream" }, data: A_SCREENSHOT },
+    );
+    expect(uploaded.status()).toBe(201);
+    await expect(attachments.getByRole("img", { name: "settings.png" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Files changed" })).toBeVisible();
     await expect(stages.getByText(/^Waiting on you/)).toBeVisible();
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-gate.png") });

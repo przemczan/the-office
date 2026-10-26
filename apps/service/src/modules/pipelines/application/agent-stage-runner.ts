@@ -29,6 +29,7 @@ import {
 import {
   correctionMessage,
   readStageResult,
+  screenshotsRefused,
   STAGE_RESULT_SCHEMA,
   type StageResultReading,
 } from "../domain/stage-result.js";
@@ -44,6 +45,7 @@ import {
 import { TaskCommands } from "../ports/task-commands.js";
 import { TaskGit } from "../ports/task-git.js";
 import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
+import { TaskScreenshots } from "../ports/task-screenshots.js";
 import { TaskUsage } from "../ports/task-usage.js";
 import { StageGit } from "./stage-git.js";
 import type { StageRunner, StageWork } from "./stage-runner.js";
@@ -69,8 +71,10 @@ type Ending = Parameters<StageThread["end"]>[0];
 /**
  * Runs Agent Stages (spec §2.3): the person who fills the Stage's Role works it in its Stage Thread,
  * in the session the Context policy gives it with the Stage's declared session, briefed from the
- * record, with the Project's dependencies installed first. Its result is read against the result schema, corrected once in the same session when it
- * doesn't match (research §6), and becomes the run's outcome with its Handover note. Then The Office
+ * record, with the Project's dependencies installed first. Its result is read against the result
+ * schema, corrected once in the same session when it doesn't match (research §6) or lists
+ * screenshots that can't be attached, and becomes the run's outcome with its Handover note; the
+ * screenshots it lists are attached to the Task (research §8). Then The Office
  * ends the session with what it left running, checks git is where it left it, and commits the
  * Stage's work (spec §5.5). An interrupted run (spec §2.4) ends its session uncommitted instead:
  * a Stop, or The Office shutting down, stops the running turn now and discards the Stage's
@@ -90,6 +94,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     private readonly commands: TaskCommands,
     private readonly runs: StageRunRepository,
     private readonly usage: TaskUsage,
+    private readonly screenshots: TaskScreenshots,
   ) {}
 
   onModuleInit(): void {
@@ -319,7 +324,10 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     if (work.interruption.now) return undefined;
     const firstTurn = await counted(await thread.nextTurn());
     if (work.interruption.requested) return undefined;
-    const first = readingOf(firstTurn, await thread.askedDecision());
+    const first = await this.withScreenshots(
+      work,
+      readingOf(firstTurn, await thread.askedDecision()),
+    );
     if (first.valid) return first.outcome;
     // The correction is another engine call, so the budget is checked before it too.
     const reached = await this.budgetCheck(work);
@@ -331,12 +339,29 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       ),
     );
     if (work.interruption.requested) return undefined;
-    const corrected = readingOf(correctedTurn, await thread.askedDecision());
+    const corrected = await this.withScreenshots(
+      work,
+      readingOf(correctedTurn, await thread.askedDecision()),
+    );
     if (corrected.valid) return corrected.outcome;
     return {
       status: "failed",
       error: `The Stage's result still didn't match its schema after one correction: ${corrected.problems}`,
     };
+  }
+
+  /**
+   * Attaches the screenshots a valid result lists, exactly those (research §8); a list Work refuses
+   * makes the result one to correct, so the Agent can fix it in the same session.
+   */
+  private async withScreenshots(
+    { run, stage }: StageWork<"agent">,
+    reading: StageResultReading,
+  ): Promise<StageResultReading> {
+    if (!reading.valid || reading.screenshots.length === 0) return reading;
+    const attaching = await this.screenshots.attach(run.taskId, stage.role, reading.screenshots);
+    if (attaching.kind === "attached") return reading;
+    return { valid: false, problems: screenshotsRefused(attaching.problems) };
   }
 
   /**

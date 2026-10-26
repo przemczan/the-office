@@ -19,6 +19,8 @@ export interface TaskRecord {
     readonly branch: string;
     /** The Project's command environment. */
     readonly environment: Readonly<Record<string, string>>;
+    /** Where the Agent writes its screenshots, relative to the worktree. */
+    readonly screenshotsFolder: string;
   };
 }
 

@@ -17,6 +17,7 @@ import {
   type WorktreeCheckout,
 } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
+import { ensureScreenshotsFolder } from "./screenshots-folder.js";
 
 /** Short, as worktree paths count against Windows' MAX_PATH; a UUID fits. */
 const TASK_ID = /^[A-Za-z0-9][A-Za-z0-9-]{0,39}$/;
@@ -107,11 +108,13 @@ export class Worktrees {
 
   /**
    * The Task's worktree on its branch, without installing: enough to read it, as planning does.
-   * The first time, the branch starts at the freshly fetched base branch.
+   * The first time, the branch starts at the freshly fetched base branch. Its screenshots folder
+   * is made each time, so a worktree made before it, or one whose folder was removed, has it too.
    */
   async open(project: Project, taskId: string): Promise<TaskWorktree> {
     const worktree = { path: this.pathOf(project, taskId), branch: this.branchOf(taskId) };
     if (!(await exists(worktree.path))) await this.add(project, worktree);
+    await ensureScreenshotsFolder(worktree.path);
     return worktree;
   }
 
@@ -163,7 +166,10 @@ export class Worktrees {
    * commit, or undefined when the Stage changed nothing.
    */
   async commit(project: Project, taskId: string, message: string): Promise<string | undefined> {
-    return this.git.commit(this.pathOf(project, taskId), message, this.variablesOf(project));
+    const path = this.pathOf(project, taskId);
+    // An Agent may have removed the folder's own `.gitignore`; no commit may hold its screenshots.
+    await ensureScreenshotsFolder(path);
+    return this.git.commit(path, message, this.variablesOf(project));
   }
 
   /** Where the Task's worktree is: the after-Stage check compares it with where it was. */
@@ -202,8 +208,8 @@ export class Worktrees {
   }
 
   /**
-   * Reverts what a test run changed in tracked files, keeping untracked ones such as
-   * screenshots. Returns the reverted paths.
+   * Reverts what a test run changed in tracked files, keeping untracked and ignored ones. Returns
+   * the reverted paths.
    */
   async restore(project: Project, taskId: string): Promise<readonly string[]> {
     return this.git.restore(this.pathOf(project, taskId), this.variablesOf(project));

@@ -8,7 +8,7 @@ import type { CarriedFailure, SentBack, StageInterruption, StageOutcome } from "
  * of every Task, so it stays in the cached prefix.
  */
 export const AGENT_STAGE_INSTRUCTIONS =
-  "In this Thread you work Stages of a Task's Pipeline, in the Task's worktree. Each Stage comes as a message saying what it asks, after the Task's Brief when your session is new. Work it through, checking your work with the commands you may run, which the Brief names. The Office commits your work after each Stage: you never commit, push or switch branches. End the Stage with your result: done, with a summary, the numbers of the Definition of Done statements the work now meets, and your Handover note (where you are, what is left, what to watch); needs_decision, once you asked and wait for the answer; or failed, with the reason, when you can't finish it. When a choice is the user's to make, open a Decision with open_decision; when your brief or your authority says to consult someone first, use consult. Either returns at once: then end the Stage with needs_decision and your Handover note, and the answer comes as your next message. Attach what the user should see with the Task, such as a screenshot or a report, with attach_file or attach_link.";
+  "In this Thread you work Stages of a Task's Pipeline, in the Task's worktree. Each Stage comes as a message saying what it asks, after the Task's Brief when your session is new. Work it through, checking your work with the commands you may run, which the Brief names. The Office commits your work after each Stage: you never commit, push or switch branches. End the Stage with your result: done, with a summary, the numbers of the Definition of Done statements the work now meets, and your Handover note (where you are, what is left, what to watch); needs_decision, once you asked and wait for the answer; or failed, with the reason, when you can't finish it. When a choice is the user's to make, open a Decision with open_decision; when your brief or your authority says to consult someone first, use consult. Either returns at once: then end the Stage with needs_decision and your Handover note, and the answer comes as your next message. Write a screenshot of each screen you changed into the screenshots folder the Brief names and list it in your result's screenshots: The Office attaches exactly those. Attach anything else the user should see with the Task, such as a report, with attach_file or attach_link.";
 
 /** The Task's record, as an Agent Stage's Brief has it. */
 export interface BriefTask {
@@ -19,7 +19,12 @@ export interface BriefTask {
   readonly attachmentLines: readonly string[];
   readonly projectName: string;
   readonly baseBranch: string;
-  readonly worktree: { readonly path: string; readonly branch: string };
+  readonly worktree: {
+    readonly path: string;
+    readonly branch: string;
+    /** Relative to the worktree. */
+    readonly screenshotsFolder: string;
+  };
 }
 
 /** A Stage run before this one, with how it ended. */
@@ -57,7 +62,7 @@ export function agentStageRecord({
 }: AgentStageRecord): string {
   return sections([
     `## The Task\n\n${task.title}, in the Project ${task.projectName}.`,
-    `## Where you work\n\nThe Task's worktree, at ${task.worktree.path} on the branch ${task.worktree.branch}, which started from ${task.baseBranch}.`,
+    `## Where you work\n\nThe Task's worktree, at ${task.worktree.path} on the branch ${task.worktree.branch}, which started from ${task.baseBranch}.\n\nScreenshots go in ${task.worktree.screenshotsFolder}/ there: git ignores it, and The Office keeps it as you leave it across test runs.`,
     task.plan === "" ? undefined : `## The Plan\n\n${task.plan}`,
     task.definitionOfDone.length === 0
       ? undefined

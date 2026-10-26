@@ -1,4 +1,5 @@
 export { IdeaService } from "./application/idea-service.js";
+export { StageScreenshots } from "./application/stage-screenshots.js";
 export { TaskRecords } from "./application/task-records.js";
 export { TaskService } from "./application/task-service.js";
 export { AttachmentAdded, AttachmentMoved, AttachmentRemoved } from "./domain/attachment-events.js";

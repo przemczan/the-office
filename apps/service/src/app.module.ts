@@ -21,7 +21,7 @@ import {
   TaskWorktrees,
 } from "./modules/projects/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
-import { TaskRecords, TaskService, WorkModule } from "./modules/work/index.js";
+import { StageScreenshots, TaskRecords, TaskService, WorkModule } from "./modules/work/index.js";
 import type { OfficeConfig } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
 import { EventsModule } from "./platform/events/events.module.js";
@@ -74,6 +74,7 @@ export class AppModule {
           stageDecisions: StageDecisions,
           taskGit: TaskWorktrees,
           taskCommands: TaskWorktrees,
+          taskScreenshots: StageScreenshots,
           taskUsage: TaskTokens,
         }),
         projects,

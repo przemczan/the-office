@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { Head } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectService } from "./project-service.js";
+import { SCREENSHOTS_FOLDER } from "./screenshots-folder.js";
 import { ScriptCommands, type ScriptCommandKey, type ScriptCommandRun } from "./script-commands.js";
 import { Worktrees, type Installation, type TaskChanges } from "./worktrees.js";
 
@@ -11,6 +12,8 @@ export interface SessionWorktree {
   readonly branch: string;
   /** The Project's command environment, which the session and its commands run with. */
   readonly environment: Readonly<Record<string, string>>;
+  /** Where the Agent writes its screenshots, relative to the worktree with "/" between folders. */
+  readonly screenshotsFolder: string;
 }
 
 /**
@@ -33,7 +36,12 @@ export class TaskWorktrees {
   async open(projectId: string, taskId: string): Promise<SessionWorktree> {
     const project = await this.projects.read(projectId);
     const { path, branch } = await this.worktrees.open(project, taskId);
-    return { path, branch, environment: this.commands.variablesFor(project.environment) };
+    return {
+      path,
+      branch,
+      environment: this.commands.variablesFor(project.environment),
+      screenshotsFolder: SCREENSHOTS_FOLDER,
+    };
   }
 
   /** Where the Task's worktree is, without running git. */
@@ -43,6 +51,7 @@ export class TaskWorktrees {
       path: this.worktrees.pathOf(project, taskId),
       branch: this.worktrees.branchOf(taskId),
       environment: this.commands.variablesFor(project.environment),
+      screenshotsFolder: SCREENSHOTS_FOLDER,
     };
   }
 

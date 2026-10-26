@@ -27,6 +27,12 @@ const stageResult = z.object({
       "Required when status is done: the numbers of the Definition of Done statements the work now meets, as the Brief numbers them; leave out any it doesn't meet yet.",
     ),
   failureReason: z.string().min(1).optional().describe("Required when status is failed."),
+  screenshots: z
+    .array(z.string().min(1))
+    .optional()
+    .describe(
+      "The screenshots you took in this Stage for the user to look at, by their paths inside the screenshots folder the Brief names. The Office attaches exactly these; leave out any you didn't take for this Task.",
+    ),
 });
 
 type StageResult = z.output<typeof stageResult>;
@@ -55,22 +61,32 @@ export const STAGE_RESULT_SCHEMA: Readonly<Record<string, unknown>> = (() => {
   };
 })();
 
-/** A session's result as an outcome, or what is wrong with it, in words the Agent can correct. */
+/**
+ * A session's result as an outcome with the screenshots it lists, or what is wrong with it, in
+ * words the Agent can correct.
+ */
 export type StageResultReading =
-  | { readonly valid: true; readonly outcome: StageOutcome }
+  | {
+      readonly valid: true;
+      readonly outcome: StageOutcome;
+      /** Relative to the screenshots folder; none when it lists none. */
+      readonly screenshots: readonly string[];
+    }
   | { readonly valid: false; readonly problems: string };
 
 /**
  * Reads a turn's result, with the Decision its Agent opened with an Office tool since the Stage
  * began, if any (spec §9): the Stage then waits on that Decision whatever status the result gives,
- * as the tool told the Agent to end its turn, keeping the result's Handover note. Without one,
+ * as the tool told the Agent to end its turn, keeping the result's Handover note and none of its
+ * screenshots. Without one,
  * needs_decision asks nothing, so it is corrected like any other mismatch.
  */
 export function readStageResult(
   output: unknown,
   asked: StageDecision | undefined,
 ): StageResultReading {
-  if (asked) return { valid: true, outcome: askedOutcome(asked, output) };
+  // The Stage runs again once the Decision is answered, and lists its screenshots as it ends then.
+  if (asked) return { valid: true, outcome: askedOutcome(asked, output), screenshots: [] };
   const parsed = stageResult.safeParse(output);
   if (!parsed.success) return { valid: false, problems: z.prettifyError(parsed.error) };
   const result = parsed.data;
@@ -78,35 +94,27 @@ export function readStageResult(
   if (missing) {
     return { valid: false, problems: `status "${result.status}" requires "${missing}".` };
   }
-  return outcomeOf(result);
+  const outcome = outcomeOf(result);
+  if (!outcome) return { valid: false, problems: NO_DECISION_OPENED };
+  return { valid: true, outcome, screenshots: result.screenshots ?? [] };
 }
 
+/** Undefined for needs_decision, which asks nothing without a Decision opened. */
 function outcomeOf({
   status,
   summary,
   handoverNote,
   definitionOfDoneMet,
   failureReason,
-}: StageResult): StageResultReading {
+}: StageResult): StageOutcome | undefined {
   const note = handoverNote === undefined ? {} : { handoverNote };
   switch (status) {
     case "done":
-      return {
-        valid: true,
-        outcome: {
-          status: "done",
-          summary,
-          ...note,
-          definitionOfDoneMet: definitionOfDoneMet ?? [],
-        },
-      };
+      return { status: "done", summary, ...note, definitionOfDoneMet: definitionOfDoneMet ?? [] };
     case "needs_decision":
-      return { valid: false, problems: NO_DECISION_OPENED };
+      return undefined;
     case "failed":
-      return {
-        valid: true,
-        outcome: { status: "failed", error: failureReason ?? summary, ...note },
-      };
+      return { status: "failed", error: failureReason ?? summary, ...note };
   }
 }
 
@@ -123,6 +131,12 @@ function askedOutcome(asked: StageDecision, output: unknown): StageOutcome {
     recommendation: asked.recommendation,
     ...(handoverNote === undefined ? {} : { handoverNote }),
   };
+}
+
+/** Why the screenshots a result lists weren't attached, as a problem the Agent corrects. */
+export function screenshotsRefused(problems: readonly string[]): string {
+  const lines = problems.map((problem) => `- ${problem}`).join("\n");
+  return `None of the screenshots you listed was attached, as The Office attaches all or none:\n${lines}\nList only images you wrote in the screenshots folder, each at most 2 MiB.`;
 }
 
 /**
