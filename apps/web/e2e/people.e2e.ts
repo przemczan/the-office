@@ -420,6 +420,16 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
     const row = page.getByRole("row", { name: /Sign-in returns to the page/ });
     await expect(row).toContainText("Planning");
     await expect(row).toContainText("Ready");
+
+    await page.goto("/people/planner/conversations");
+    await expect(page.getByText("Threads on Tasks · 1")).toBeVisible();
+    await page.getByRole("link", { name: /^Planning\s*Sign-in returns to the page$/ }).click();
+    await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+\?taskThread=[0-9a-f-]+$/);
+    await expect(
+      page
+        .getByRole("complementary", { name: "Conversation" })
+        .getByRole("button", { name: /^Planning · Jan/ }),
+    ).toHaveAttribute("aria-pressed", "true");
   } finally {
     await repository.remove();
   }

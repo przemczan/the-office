@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "@tanstack/react-router";
+import { Link, useParams, useSearch } from "@tanstack/react-router";
 import type { Pipeline, Project, Task, Thread } from "@the-office/contracts";
 import { EmptyState } from "@the-office/ui";
 import type { ReactNode } from "react";
@@ -25,6 +25,7 @@ import { TaskRecord } from "./task-record.tsx";
  */
 export function TaskPage(): ReactNode {
   const { taskId } = useParams({ from: "/tasks/$taskId" });
+  const { taskThread } = useSearch({ from: "/tasks/$taskId" });
   const task = useQuery(taskQueries.one(taskId));
   const projects = useQuery(projectQueries.list());
   const pipelines = useQuery(pipelineQueries.list());
@@ -43,7 +44,7 @@ export function TaskPage(): ReactNode {
       <TaskHead task={record} projects={projects.data} pipeline={pipeline} threads={threads.data} />
       <div className="task-columns">
         <TaskRecord task={record} pipeline={pipeline} />
-        <TaskConversation task={record} threads={threads.data} />
+        <TaskConversation task={record} threads={threads.data} shownFirst={taskThread} />
       </div>
     </div>
   );

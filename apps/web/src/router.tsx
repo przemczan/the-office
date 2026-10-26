@@ -89,11 +89,19 @@ const ideasRoute = createRoute({
   staticData: { title: "Work" },
 });
 
+/** A Task's page, showing one of its Threads first, as one opened from a person's page. */
+export interface TaskSearch {
+  readonly taskThread?: string;
+}
+
 // A Task's page, in Work; the rail marks Work while it is open.
 const taskRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "tasks/$taskId",
   component: TaskPage,
+  validateSearch: (search: Record<string, unknown>): TaskSearch => ({
+    ...(typeof search["taskThread"] === "string" && { taskThread: search["taskThread"] }),
+  }),
   // Until the Task is read; the page then names it.
   staticData: { title: "Work" },
 });

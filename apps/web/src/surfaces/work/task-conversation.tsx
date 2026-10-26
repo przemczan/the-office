@@ -11,20 +11,23 @@ import { usePlanner } from "../../shell/work/use-planner.ts";
 import { PlanButton } from "./planning-actions.tsx";
 
 /**
- * The Threads on the Task, the newest first, and the one shown. Planning opens the first, with the
- * Planner (task 11); Stages open theirs as they run (task 12).
+ * The Threads on the Task, the newest first, and the one shown: `shownFirst` when it is one of
+ * them, else the newest. Planning opens the first, with the Planner (task 11); Stages open theirs
+ * as they run (task 12).
  */
 export function TaskConversation({
   task,
   threads,
+  shownFirst,
 }: {
   readonly task: Task;
   readonly threads: readonly Thread[] | undefined;
+  readonly shownFirst: string | undefined;
 }): ReactNode {
   const roles = useQuery(roleQueries.list());
   const openDecisions = useQuery(decisionQueries.open()).data ?? [];
   const planner = usePlanner();
-  const [shownId, setShownId] = useState<string>();
+  const [shownId, setShownId] = useState(shownFirst);
   if (!threads) return null;
   const shown = threads.find(({ id }) => id === shownId) ?? threads[0];
   if (!shown) {

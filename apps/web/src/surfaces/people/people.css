@@ -430,6 +430,7 @@
   background: transparent;
   color: var(--fg-1);
   text-align: left;
+  text-decoration: none;
   cursor: pointer;
 }
 
@@ -455,6 +456,11 @@
   grid-column: 3;
   font: var(--type-caption);
   color: var(--fg-3);
+}
+
+.person-thread-mark {
+  grid-row: 1;
+  grid-column: 3;
 }
 
 /* ---- the Work tab: filter chips over the person's Tasks */
