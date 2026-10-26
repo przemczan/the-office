@@ -175,6 +175,29 @@ export function anAgentSession(output: unknown): SessionScript {
   return [{ step: "start", brief: { id: "brief", text: "" } }, aTurn(output), { step: "end" }];
 }
 
+/** An Agent Stage's session whose first turn runs until The Office interrupts it. */
+export const AN_INTERRUPTED_SESSION: SessionScript = [
+  { step: "start", brief: { id: "brief", text: "" } },
+  {
+    step: "event",
+    event: { kind: "text", text: "Editing the dialog.", withinToolCall: undefined },
+  },
+  { step: "interrupt" },
+  {
+    step: "event",
+    event: {
+      kind: "turn-ended",
+      outcome: "interrupted",
+      consumedMessageIds: [],
+      usage: { input: 5, output: 40, cacheRead: 0, cacheCreation: 0 },
+      sessionCostUsd: 0.01,
+      output: undefined,
+      errors: [],
+    },
+  },
+  { step: "end" },
+];
+
 /**
  * A result that says the Stage is done, as an Agent Stage's session answers, reporting met the
  * Definition of Done statements `met` numbers: by default both of `aTaskRecord`'s.

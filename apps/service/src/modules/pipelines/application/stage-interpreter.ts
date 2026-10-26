@@ -1,5 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
+import {
+  Injectable,
+  Logger,
+  type OnApplicationBootstrap,
+  type OnModuleDestroy,
+  type OnModuleInit,
+} from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { DecisionAnswered } from "../../conversations/index.js";
@@ -21,8 +27,9 @@ import {
 import { walkAnswerOf, walkDecision, type DecisionAnswer } from "../domain/walk-decisions.js";
 import { StageDecisions } from "../ports/stage-decisions.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
-import { StartedTasks } from "../ports/started-tasks.js";
+import { StartedTasks, type StartedTask } from "../ports/started-tasks.js";
 import { TaskRecords } from "../ports/task-records.js";
+import { StageGit } from "./stage-git.js";
 import { StageRunInterruption } from "./stage-run-interruption.js";
 import type { StageWork } from "./stage-runner.js";
 import { StageRunners } from "./stage-runners.js";
@@ -38,10 +45,12 @@ type AskMove = Extract<NextMove, { move: "ask" }>;
  * Pipeline says to, and moves the Task. A walk goes on in the background, one per Task, from where
  * the Task's runs left it, and goes on again once the user answers what it asked or resumes the
  * Task. A Task the user pauses is held once its Agent's running turn ends, mid-Stage; one they
- * stop has that turn stopped now (spec §2.4). Either way the Stage runs again once resumed.
+ * stop has that turn stopped now (spec §2.4). Either way the Stage runs again once resumed. The
+ * Office shutting down stops every running turn and command now; a Stage it restarted during runs
+ * again only once the user says so.
  */
 @Injectable()
-export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
+export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, OnModuleDestroy {
   private readonly logger = new Logger(StageInterpreter.name);
   private readonly walks = new Map<string, Promise<void>>();
   /** Tasks asked to walk while their walk was going on, walked again once it ends. */
@@ -57,6 +66,7 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
     private readonly tasks: StartedTasks,
     private readonly records: TaskRecords,
     private readonly decisions: StageDecisions,
+    private readonly stageGit: StageGit,
     private readonly events: EventBus,
     private readonly telemetry: Telemetry,
   ) {}
@@ -102,9 +112,28 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
     this.interruptions.get(taskId)?.request(interruption);
   }
 
-  /** The service stops once every walk has ended the Stage it runs; none starts another. */
+  /**
+   * Takes up what the service left as it last stopped (spec §2.4): a run left running ends as The
+   * Office restarted during it, and an In progress Task whose last run that is gets walked, so the
+   * walk asks the user whether to run it again. A Paused Task stays as the user holds it.
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    for (const task of await this.tasks.list()) {
+      if (task.state !== "in-progress" && task.state !== "paused") continue;
+      await this.takeUpAfterRestart(task).catch((error: unknown) => {
+        this.logger.error(`Task ${task.id}'s Stage runs weren't taken up`, stackOf(error));
+      });
+    }
+  }
+
+  /**
+   * The service stops once every walk has ended the Stage it runs, interrupted as a Stop would but
+   * with its Project commands stopped too, so none waits for a turn or a command to end; none
+   * starts another.
+   */
   async onModuleDestroy(): Promise<void> {
     this.stopping = true;
+    for (const interruption of this.interruptions.values()) interruption.request("restart");
     await Promise.all(this.walks.values());
   }
 
@@ -128,6 +157,28 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
         if (this.walksAgain.delete(taskId) && !this.stopping) this.walkInBackground(taskId);
       });
     this.walks.set(taskId, walk);
+  }
+
+  private async takeUpAfterRestart({ id, state }: StartedTask): Promise<void> {
+    const runs = await this.runs.list(id);
+    const last = runs.at(-1);
+    if (!last) return;
+    const ended = last.outcome ? last : await this.endLeftRunning(last, runs.slice(0, -1));
+    const restarted = ended.outcome?.status === "failed" && ended.outcome.interrupted === "restart";
+    if (restarted && state === "in-progress") this.walkInBackground(id);
+  }
+
+  /** Ends the run as The Office restarted during it, its uncommitted edits discarded. */
+  private async endLeftRunning(run: StageRun, earlierRuns: readonly StageRun[]): Promise<StageRun> {
+    const task = await this.records.read(run.taskId);
+    const discarded = await this.stageGit.settleLeftRunning({ run, earlierRuns }, task);
+    const ended = endStageRun(run, interruptedOutcome("restart", discarded), new Date());
+    await this.runs.saveEnded(ended.run);
+    await this.events.publish(ended.event);
+    this.logger.warn(
+      `Stage run ${run.id} of Task ${run.taskId} was left running as The Office stopped.`,
+    );
+    return ended.run;
   }
 
   /** Resolves once the Task's walks, if any go on, have stopped. */
@@ -173,6 +224,7 @@ export class StageInterpreter implements OnModuleInit, OnModuleDestroy {
         await this.tasks.changeState(taskId, "in-progress");
         continue;
       }
+      if (this.stopping) return;
       if (!(await this.runStage(taskId, move, stages, runs, interruption))) return;
     }
   }

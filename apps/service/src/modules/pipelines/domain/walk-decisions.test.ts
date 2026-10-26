@@ -134,6 +134,31 @@ describe("walkDecision", () => {
     });
     expect(decision.draft.context).toContain("Not reported met:\n- The name persists");
   });
+
+  it("asks whether to run again a Stage The Office restarted during, or drop the Task", () => {
+    const error =
+      "The Office restarted during this Stage. The Office discarded the Stage's uncommitted edits to 1 file.";
+    const restarted = aRun("implement", { status: "failed", error, interrupted: "restart" });
+
+    const decision = walkDecision(restarted, { kind: "restart", stage: implement });
+
+    expect(decision).toMatchObject({
+      kind: "restart",
+      byTheOffice: true,
+      draft: {
+        question: 'The Office restarted during "Implement". Run it again?',
+        options: ['Run "Implement" again', "Drop the Task"],
+        recommendation: { option: 0 },
+      },
+      options: [{ kind: "one-more-round", guidance: undefined }, { kind: "drop" }],
+    });
+    expect(decision.draft.context).toContain(error);
+    const ownWords = { kind: "free-answer", text: " Keep the dialog small. " } as const;
+    expect(walkAnswerOf({ id: "d-1", ...decision, answer: undefined }, ownWords)).toEqual({
+      kind: "one-more-round",
+      guidance: "Keep the dialog small.",
+    });
+  });
 });
 
 describe("walkAnswerOf", () => {

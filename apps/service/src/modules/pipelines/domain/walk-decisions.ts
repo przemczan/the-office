@@ -45,6 +45,8 @@ export function walkDecision(run: StageRun, question: WalkQuestion): WalkDecisio
       return budgetDecision(question.stage, question.reached);
     case "definition-of-done":
       return definitionOfDoneNotMet(question.unmet, question.again);
+    case "restart":
+      return restartDecision(question.stage, run);
   }
 }
 
@@ -126,6 +128,27 @@ function noRetriesLeft(stage: Stage, error: string): WalkDecision {
       },
     },
     options: [again.answer, { kind: "accept-issues" }, { kind: "drop" }],
+    byTheOffice: true,
+  };
+}
+
+/** The run's error says what The Office discarded; words of the user's own go into the next run. */
+function restartDecision(stage: Stage, { id, outcome }: StageRun): WalkDecision {
+  if (outcome?.status !== "failed" || outcome.interrupted !== "restart") {
+    throw new Error(`Stage run ${id} didn't end as The Office restarted.`);
+  }
+  return {
+    kind: "restart",
+    draft: {
+      question: `The Office restarted during "${stage.name}". Run it again?`,
+      context: `${outcome.error}\n\nThe Office never runs a Stage again by itself after a restart. Or answer in your own words: your answer goes with the Stage as it runs again.`,
+      options: [`Run "${stage.name}" again`, DROP_THE_TASK],
+      recommendation: {
+        option: 0,
+        reason: "The Stage starts again from where the last Stage left the work.",
+      },
+    },
+    options: [{ kind: "one-more-round", guidance: undefined }, { kind: "drop" }],
     byTheOffice: true,
   };
 }

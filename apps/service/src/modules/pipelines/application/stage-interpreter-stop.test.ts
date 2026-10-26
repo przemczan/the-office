@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import type { SessionScript } from "../../engine/index.js";
 import { TaskPaused, TaskResumed, TaskStopped } from "../../work/index.js";
 import {
+  AN_INTERRUPTED_SESSION,
   aDoneResult,
   anAgentSession,
   anAgentStage,
@@ -33,29 +33,6 @@ const tests: Stage = {
   command: "test",
 };
 const review = anAgentStage("review", { name: "Review & fix" });
-
-/** A session whose first turn runs until The Office interrupts it. */
-const interrupted: SessionScript = [
-  { step: "start", brief: { id: "brief", text: "" } },
-  {
-    step: "event",
-    event: { kind: "text", text: "Editing the dialog.", withinToolCall: undefined },
-  },
-  { step: "interrupt" },
-  {
-    step: "event",
-    event: {
-      kind: "turn-ended",
-      outcome: "interrupted",
-      consumedMessageIds: [],
-      usage: { input: 5, output: 40, cacheRead: 0, cacheCreation: 0 },
-      sessionCostUsd: 0.01,
-      output: undefined,
-      errors: [],
-    },
-  },
-  { step: "end" },
-];
 
 const asking = anAgentSession({
   status: "needs_decision",
@@ -106,7 +83,7 @@ async function statusesOf(taskId: string): Promise<[string, string | undefined][
 
 describe("Stop", () => {
   it("interrupts the running turn now, discards the Stage's uncommitted edits and holds the Task", async () => {
-    pipelines = await startPipelinesApplication([interrupted]);
+    pipelines = await startPipelinesApplication([AN_INTERRUPTED_SESSION]);
     const taskId = randomUUID();
     pipelines.git.uncommitted.set(taskId, ["src/dialog.ts", "src/dialog.test.ts"]);
     whileTheFirstTurnRuns(taskId, stop);
@@ -156,7 +133,7 @@ describe("Stop", () => {
 
   it("runs the stopped Stage again on Resume, in its Thread as the Context policy decides, told its edits are gone", async () => {
     pipelines = await startPipelinesApplication([
-      interrupted,
+      AN_INTERRUPTED_SESSION,
       anAgentSession(aDoneResult()),
       anAgentSession(aDoneResult()),
     ]);
@@ -240,7 +217,7 @@ describe("Pause", () => {
   });
 
   it("stops the turn now when the user stops a Stage they paused", async () => {
-    pipelines = await startPipelinesApplication([interrupted]);
+    pipelines = await startPipelinesApplication([AN_INTERRUPTED_SESSION]);
     const taskId = randomUUID();
     whileTheFirstTurnRuns(taskId, async (id) => {
       await pause(id);

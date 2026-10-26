@@ -16,6 +16,8 @@ export type WalkQuestion =
   | { readonly kind: "no-retries-left"; readonly stage: Stage; readonly error: string }
   /** The Task's tokens reached the Stage's budget before an engine call. */
   | { readonly kind: "budget"; readonly stage: Stage; readonly reached: BudgetReached }
+  /** The Office restarted during the Stage: it never runs again unless the user says so. */
+  | { readonly kind: "restart"; readonly stage: Stage }
   /**
    * Every Stage ended, but the Definition of Done isn't reported met; one more round would run
    * `again`, the last Agent Stage (or the last Stage when there is none).
@@ -140,7 +142,8 @@ function replay(walk: Walk, run: StageRun): StoppingMove | undefined {
       return undefined;
     }
     case "failed":
-      // Interrupted: the walk stays at the Stage, with the failure it carried, using no round.
+      if (outcome.interrupted === "restart") return afterRestart(run, stage);
+      // Held by the user: the walk stays at the Stage, with the failure it carried, using no round.
       if (outcome.interrupted) return undefined;
       return outcome.budgetReached
         ? afterBudget(walk, run, stage, outcome.budgetReached)
@@ -206,6 +209,24 @@ function afterBudget(
       return { move: "drop" };
     default:
       throw new Error(`Stage run ${run.id} was answered "${answer.kind}" at its budget.`);
+  }
+}
+
+/**
+ * The Office restarted during the run, which always asks the user (spec §2.4): run again, it stays
+ * at the Stage as a run the user held does, with the failure it carried and using no round.
+ */
+function afterRestart(run: StageRun, stage: Stage): StoppingMove | undefined {
+  const waiting = waitingOn(run, "restart", { kind: "restart", stage });
+  if (waiting) return waiting;
+  const answer = answerOf(run, "restart");
+  switch (answer.kind) {
+    case "one-more-round":
+      return undefined;
+    case "drop":
+      return { move: "drop" };
+    default:
+      throw new Error(`Stage run ${run.id} was answered "${answer.kind}" after a restart.`);
   }
 }
 

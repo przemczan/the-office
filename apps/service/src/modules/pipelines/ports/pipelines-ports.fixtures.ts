@@ -24,8 +24,12 @@ export class StartedTasksForTests extends StartedTasks {
   readonly changes: { readonly taskId: string; readonly state: WalkTaskState }[] = [];
 
   /** Puts the Task as Work would, such as In progress as it starts. */
-  put(taskId: string, task: StartedTask): void {
-    this.tasks.set(taskId, task);
+  put(taskId: string, task: Omit<StartedTask, "id">): void {
+    this.tasks.set(taskId, { ...task, id: taskId });
+  }
+
+  async list(): Promise<readonly StartedTask[]> {
+    return [...this.tasks.values()];
   }
 
   async read(taskId: string): Promise<StartedTask> {
@@ -317,22 +321,31 @@ export class TaskCommandsForTests extends TaskCommands {
   }[] = [];
   /** Told of every call, as it is made, so a test can see what happened before it. */
   observe: ((call: "install" | "runCommand") => void) | undefined = undefined;
+  /** Set while the next command runs until its signal stops it, as a hung test run would. */
+  runsUntilStopped = false;
 
   install(): Promise<Installation> {
     this.observe?.("install");
     return Promise.resolve(this.installations.shift() ?? { kind: "up-to-date" });
   }
 
-  runCommand(
+  async runCommand(
     _projectId: string,
     taskId: string,
     key: ScriptCommandKey,
     stageRunId: string,
+    signal: AbortSignal,
   ): Promise<readonly ScriptCommandRun[]> {
     this.observe?.("runCommand");
     this.ran.push({ taskId, key, stageRunId });
-    const runs = this.commandRuns.shift();
-    return Promise.resolve(runs ?? [aCommandRun(`npm run ${key}`, "passed")]);
+    if (this.runsUntilStopped) {
+      this.runsUntilStopped = false;
+      if (!signal.aborted) {
+        await new Promise((resolve) => signal.addEventListener("abort", resolve, { once: true }));
+      }
+      return [aCommandRun(`npm run ${key}`, "stopped")];
+    }
+    return this.commandRuns.shift() ?? [aCommandRun(`npm run ${key}`, "passed")];
   }
 }
 

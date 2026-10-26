@@ -88,9 +88,10 @@ export class Worktrees {
   async prepare(
     project: Project,
     taskId: string,
+    signal?: AbortSignal,
   ): Promise<{ readonly worktree: TaskWorktree; readonly installation: Installation }> {
     const worktree = await this.open(project, taskId);
-    return { worktree, installation: await this.install(project, worktree.path) };
+    return { worktree, installation: await this.install(project, worktree.path, { signal }) };
   }
 
   /**

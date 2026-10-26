@@ -74,12 +74,14 @@ export class TaskWorktrees {
 
   /**
    * Installs the Project's dependencies in the Task's worktree, unless the install command, its
-   * inputs and the environment are as they were at its last install there that passed.
+   * inputs and the environment are as they were at its last install there that passed. `signal`
+   * stops it, with everything it started.
    */
-  async install(projectId: string, taskId: string): Promise<Installation> {
+  async install(projectId: string, taskId: string, signal: AbortSignal): Promise<Installation> {
     const { installation } = await this.worktrees.prepare(
       await this.projects.read(projectId),
       taskId,
+      signal,
     );
     return installation;
   }
@@ -87,14 +89,17 @@ export class TaskWorktrees {
   /**
    * Runs a Script Stage's Project command in the Task's worktree: after each test run the
    * worktree is restored and the files it wrote are moved to a folder named by `stageRunId`, and
-   * a failing test command runs once more. Returns each run, in order.
+   * a failing test command runs once more. Returns each run, in order. `signal` stops the command
+   * running, with everything it started, and runs no other.
    */
   async runCommand(
     projectId: string,
     taskId: string,
     key: ScriptCommandKey,
     stageRunId: string,
+    signal: AbortSignal,
   ): Promise<readonly ScriptCommandRun[]> {
-    return this.scriptCommands.run(await this.projects.read(projectId), taskId, key, stageRunId);
+    const project = await this.projects.read(projectId);
+    return this.scriptCommands.run(project, taskId, key, stageRunId, signal);
   }
 }

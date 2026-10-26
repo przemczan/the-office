@@ -165,6 +165,35 @@ describe("nextMove", () => {
     });
   });
 
+  it("asks before running again a Stage The Office restarted during, then runs it using no round, or drops the Task", () => {
+    const restarted: StageOutcome = {
+      status: "failed",
+      error: "The Office restarted during this Stage.",
+      interrupted: "restart",
+    };
+    const carried = { stageKey: "check", error: "2 tests fail.", round: 1, rounds: 2 };
+    const before: Ran[] = [
+      ["write", done],
+      ["check", failed("2 tests fail.")],
+    ];
+
+    expect(nextMove(stages, runs(...before, ["write", restarted]), NO_DEFINITION_OF_DONE)).toEqual({
+      move: "ask",
+      run: expect.objectContaining({ id: "run-3" }),
+      question: { kind: "restart", stage: stages[0] },
+    });
+    const waiting = runs(...before, ["write", restarted, decided("restart")]);
+    expect(nextMove(stages, waiting, NO_DEFINITION_OF_DONE)).toMatchObject({ move: "wait" });
+    const again = decided("restart", { kind: "one-more-round", guidance: "Smaller." });
+    expect(
+      nextMove(stages, runs(...before, ["write", restarted, again]), NO_DEFINITION_OF_DONE),
+    ).toEqual({ move: "run", stage: stages[0], carriedFailure: carried });
+    const drop = decided("restart", { kind: "drop" });
+    expect(
+      nextMove(stages, runs(...before, ["write", restarted, drop]), NO_DEFINITION_OF_DONE),
+    ).toEqual({ move: "drop" });
+  });
+
   it("carries the error into the next run only", () => {
     const ran = runs(["write", done], ["check", failed("2 tests fail.")], ["write", done]);
 

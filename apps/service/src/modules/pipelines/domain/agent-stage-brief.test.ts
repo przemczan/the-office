@@ -130,7 +130,7 @@ describe("agentStageWork", () => {
   it("tells a Stage the user paused and resumed to go on with its edits", () => {
     const work = agentStageWork(
       { key: "implement", name: "Implement", brief: "Build it." },
-      { held: "pause" },
+      { held: { by: "pause" } },
     );
 
     expect(work).toBe(
@@ -141,11 +141,22 @@ describe("agentStageWork", () => {
   it("tells a Stage the user stopped and resumed that its uncommitted edits are gone", () => {
     const work = agentStageWork(
       { key: "implement", name: "Implement", brief: "Build it." },
-      { held: "stop" },
+      { held: { by: "stop" } },
     );
 
     expect(work).toBe(
       "## The Stage: Implement\n\nBuild it.\n\n## Stopped by the user\n\nThe user stopped this Stage while it ran, and has resumed it. The Office discarded the Stage's uncommitted edits, so the worktree is as the last Stage left it: do the Stage's work again from there.",
+    );
+  });
+
+  it("tells a Stage run again after a restart that its edits are gone, with the user's words", () => {
+    const work = agentStageWork(
+      { key: "implement", name: "Implement", brief: "Build it." },
+      { held: { by: "restart", guidance: "Skip the dialog's tests." } },
+    );
+
+    expect(work).toBe(
+      "## The Stage: Implement\n\nBuild it.\n\n## The Office restarted\n\nThe Office restarted while this Stage ran, which ended your session at once, and the user chose to run the Stage again. The Office discarded the Stage's uncommitted edits, so the worktree is as the last Stage left it: do the Stage's work again from there.\n\nThe user's words for it:\n\nSkip the dialog's tests.",
     );
   });
 });

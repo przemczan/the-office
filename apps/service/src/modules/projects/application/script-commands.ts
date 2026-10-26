@@ -42,30 +42,33 @@ export class ScriptCommands {
 
   /**
    * Each run of the command, in order: a failing test command's re-run follows it. A test run's
-   * files go to a folder named by `stageRunId` and the run's number.
+   * files go to a folder named by `stageRunId` and the run's number. `signal` stops the command
+   * running, with everything it started; a stopped run is never run again.
    */
   async run(
     project: Project,
     taskId: string,
     key: ScriptCommandKey,
     stageRunId: string,
+    signal?: AbortSignal,
   ): Promise<readonly ScriptCommandRun[]> {
     if (key !== "test")
-      return [{ ...(await this.runOnce(project, taskId, key)), movedFiles: undefined }];
-    const first = await this.runTests(project, taskId, join(stageRunId, "1"));
+      return [{ ...(await this.runOnce(project, taskId, key, signal)), movedFiles: undefined }];
+    const first = await this.runTests(project, taskId, join(stageRunId, "1"), signal);
     // Only a command that ran and failed may be a flake: one the shell couldn't start won't start
     // the second time either, and one that ran out of time would take as long again.
     if (first.outcome !== "failed") return [first];
-    return [first, await this.runTests(project, taskId, join(stageRunId, "2"))];
+    return [first, await this.runTests(project, taskId, join(stageRunId, "2"), signal)];
   }
 
   private async runTests(
     project: Project,
     taskId: string,
     outputFolder: string,
+    signal: AbortSignal | undefined,
   ): Promise<ScriptCommandRun> {
     const before = new Set(await this.worktrees.untracked(project, taskId));
-    const run = await this.runOnce(project, taskId, "test");
+    const run = await this.runOnce(project, taskId, "test", signal);
     await this.worktrees.restore(project, taskId);
     const written = (await this.worktrees.untracked(project, taskId)).filter(
       (path) => !before.has(path),
@@ -73,12 +76,18 @@ export class ScriptCommands {
     return { ...run, movedFiles: await this.moveOut(project, taskId, written, outputFolder) };
   }
 
-  private runOnce(project: Project, taskId: string, key: ScriptCommandKey): Promise<CommandRun> {
+  private runOnce(
+    project: Project,
+    taskId: string,
+    key: ScriptCommandKey,
+    signal: AbortSignal | undefined,
+  ): Promise<CommandRun> {
     return this.commands.run({
       commandLine: project.commands[key],
       folder: this.worktrees.pathOf(project, taskId),
       environment: project.environment,
       timeoutMs: SCRIPT_COMMAND_TIMEOUT_MS,
+      signal,
     });
   }
 

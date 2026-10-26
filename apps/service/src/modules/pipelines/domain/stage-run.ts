@@ -45,9 +45,11 @@ export type StageOutcome = (
 /**
  * Why The Office interrupted a run (spec §2.4): the user's Stop, which stops the Agent's turn now
  * and discards the Stage's uncommitted edits, or their Pause, which holds the run once the turn
- * ends and keeps them. Either way its Stage runs again once the user resumes the Task.
+ * ends and keeps them; either way its Stage runs again once the user resumes the Task. Or The
+ * Office restarting during the Stage, which ends it as Stop does, and stops its Project commands
+ * too; its Stage runs again only once the user says so in a Decision.
  */
-export type StageInterruption = "stop" | "pause";
+export type StageInterruption = "stop" | "pause" | "restart";
 
 /** The Task's tokens so far against the Stage's budget, when they reached it. */
 export interface BudgetReached {
@@ -108,10 +110,11 @@ export interface CarriedFailure {
 
 /**
  * Why the walk asks the user (spec §2.3): an Agent's own question, a Stage that failed with no
- * retries left, the Task's tokens reaching a Stage's budget, or a Pipeline that ended with the
- * Definition of Done not reported met.
+ * retries left, the Task's tokens reaching a Stage's budget, a Pipeline that ended with the
+ * Definition of Done not reported met, or a Stage The Office restarted during (spec §2.4).
  */
-export type StageDecisionKind = "agent" | "no-retries-left" | "budget" | "definition-of-done";
+export type StageDecisionKind =
+  "agent" | "no-retries-left" | "budget" | "definition-of-done" | "restart";
 
 /** What the user's answer to a Decision lets the walk do. */
 export type WalkAnswer =

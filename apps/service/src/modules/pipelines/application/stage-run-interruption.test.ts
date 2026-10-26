@@ -24,4 +24,21 @@ describe("StageRunInterruption", () => {
 
     expect([interruption.requested, stopped]).toEqual(["stop", []]);
   });
+
+  it("stops the Project commands only on a restart, which outranks a Stop without a second interrupt", () => {
+    const interruption = new StageRunInterruption();
+    const stopped: string[] = [];
+    interruption.onNow(() => stopped.push("now"));
+
+    interruption.request("stop");
+    expect(interruption.commandsSignal.aborted).toBe(false);
+
+    interruption.request("restart");
+    interruption.request("stop");
+    expect([interruption.requested, interruption.commandsSignal.aborted, stopped]).toEqual([
+      "restart",
+      true,
+      ["now"],
+    ]);
+  });
 });

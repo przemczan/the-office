@@ -84,8 +84,18 @@ export interface StageWorkReasons {
   readonly answered?: AnsweredQuestion;
   /** Why the install before the Stage failed. */
   readonly installProblem?: string;
-  /** How the user held the Stage's last run, when it runs again as they resumed the Task. */
-  readonly held?: StageInterruption;
+  /** How the Stage's last run was interrupted, when it runs again after it. */
+  readonly held?: HeldRun;
+}
+
+/**
+ * The Stage's last run, interrupted: held by the user, who resumed the Task, or ended by The Office
+ * restarting, which the user answered by running it again, maybe in their own words.
+ */
+export interface HeldRun {
+  readonly by: StageInterruption;
+  /** The user's own words in their answer to run it again after a restart. */
+  readonly guidance?: string;
 }
 
 /**
@@ -101,7 +111,7 @@ export function agentStageWork(
 ): string {
   return sections([
     `## The Stage: ${stage.name}\n\n${stage.brief}`,
-    held && HELD_SECTIONS[held],
+    held && heldSection(held),
     answered &&
       `## Your question, answered\n\nYou asked the user: ${answered.question}\n\nTheir answer: ${answered.answer}\n\nGo on with the Stage from there.`,
     carried && whyAgain(stage, carried),
@@ -121,7 +131,15 @@ The user stopped this Stage while it ran, and has resumed it. The Office discard
   pause: `## Paused by the user
 
 The user paused this Stage after your last turn, and has resumed it. Your edits are in the worktree as you left them: go on with the Stage's work from there, and end with its result.`,
+  restart: `## The Office restarted
+
+The Office restarted while this Stage ran, which ended your session at once, and the user chose to run the Stage again. The Office discarded the Stage's uncommitted edits, so the worktree is as the last Stage left it: do the Stage's work again from there.`,
 };
+
+function heldSection({ by, guidance }: HeldRun): string {
+  const words = guidance === undefined ? "" : `\n\nThe user's words for it:\n\n${guidance}`;
+  return `${HELD_SECTIONS[by]}${words}`;
+}
 
 /**
  * Why the Stage runs again: a later Stage's loop went back to it, or the user gave it one more

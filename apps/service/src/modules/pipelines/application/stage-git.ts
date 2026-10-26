@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { headProblem, type ExpectedHead } from "../domain/stage-commit.js";
-import type { StageOutcome, StageRun } from "../domain/stage-run.js";
+import { actsNow } from "../domain/stage-interruption.js";
+import type { StageInterruption, StageOutcome, StageRun } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskGit } from "../ports/task-git.js";
 import type { TaskRecord } from "../ports/task-records.js";
@@ -81,6 +82,30 @@ export class StageGit {
     const discarded = await this.git.discard(task.project.id, run.taskId);
     await this.leaveAt(run, expected);
     return discarded;
+  }
+
+  /**
+   * Ends an interrupted run's edits as the interruption says, committing nothing: discarded after
+   * one that acts now, kept after a Pause. Returns the discarded paths.
+   */
+  async settleInterrupted(
+    run: StageRun,
+    task: TaskRecord,
+    expected: ExpectedHead,
+    interruption: StageInterruption,
+  ): Promise<readonly string[]> {
+    if (actsNow(interruption)) return this.discard(run, task, expected);
+    await this.leaveAt(run, expected);
+    return [];
+  }
+
+  /**
+   * Ends the edits of a run The Office left running as it stopped, found as it starts again:
+   * discarded as a restart says, from where the run expected HEAD.
+   */
+  async settleLeftRunning(work: StageAt, task: TaskRecord): Promise<readonly string[]> {
+    const expected = await this.expectedHead(work, task);
+    return this.settleInterrupted(work.run, task, expected, "restart");
   }
 
   /** Records that the run left the branch where it found it, committing nothing. */
