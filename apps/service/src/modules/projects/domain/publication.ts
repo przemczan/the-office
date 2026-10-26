@@ -14,7 +14,7 @@ export interface RemoteBranch {
 /**
  * How a Publish ended, by the Project's publishing mode (spec §9): the Task's branch pushed with a
  * pull request open, or merged into the base branch on its remote; nothing to publish; the base
- * moved on so the branch no longer applies cleanly, which the user decides about; or a failure,
+ * moved on so the branch would conflict with it, which the user decides about; or a failure,
  * such as a refused push, in words for the Agent who repairs it or the user.
  */
 export type Publication =
@@ -24,12 +24,14 @@ export type Publication =
       readonly branch: string;
       readonly into: RemoteBranch;
       readonly commit: string;
+      /** Whether The Office rebased the branch onto the base first, as the base had moved on. */
+      readonly rebased: boolean;
     }
   | { readonly kind: "nothing-to-publish"; readonly branch: string; readonly base: RemoteBranch }
   | {
       readonly kind: "base-moved";
       readonly error: string;
-      /** Empty when it would merge cleanly, yet merging only by fast-forward can't take it. */
+      /** The files it would conflict in. */
       readonly conflictedFiles: readonly string[];
     }
   | { readonly kind: "failed"; readonly error: string };
@@ -59,9 +61,9 @@ export function baseMovedError(
   const where = `${base.branch} on ${base.remote}`;
   if (conflictedFiles.length > 0) {
     const files = conflictedFiles.map((file) => `- ${file}`).join("\n");
-    return `${branch} no longer applies cleanly on ${where}: merging it would conflict in\n${files}`;
+    return `${branch} no longer applies cleanly on ${where}: it would conflict in\n${files}`;
   }
-  return `${where} moved on since ${branch} left it. The Project publishes by merging, which takes the branch only as a fast-forward, so its commits would have to be merged or rebased first.`;
+  return `${branch} no longer applies cleanly on ${where}.`;
 }
 
 /** Publish pushes to the remote the base branch tracks, so a base tracking none can't publish. */

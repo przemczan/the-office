@@ -169,19 +169,19 @@ function notStartedDecision(stage: Stage): WalkDecision {
 
 /**
  * The Office resolves no conflicts between Tasks (spec §2.3 leaves them to tier 2), and no Agent
- * can merge or rebase, so the user chooses: publish again once the base branch or the Project's
- * publishing mode lets the branch through, finish without publishing, or drop the Task.
+ * can merge or rebase, so the user chooses: publish again once the base branch no longer conflicts
+ * with the branch, finish without publishing, or drop the Task.
  */
 function baseMovedDecision(stage: Stage, error: string): WalkDecision {
   return {
     kind: "base-moved",
     draft: {
-      question: `"${stage.name}" can't publish: the base branch moved on. What now?`,
-      context: `${error}\n\nThe Office doesn't merge or rebase a Task's branch itself. "${stage.name}" can run again once the base branch lets the branch through, or after you change the Project's publishing mode: push + PR opens a pull request whenever the branch merges cleanly.`,
+      question: `"${stage.name}" can't publish: the Task's branch conflicts with the base branch. What now?`,
+      context: `${error}\n\nThe Office resolves no conflicts between Tasks, and no Agent can merge or rebase. "${stage.name}" can run again once the base branch no longer conflicts with the branch.`,
       options: [`Run "${stage.name}" again`, "Continue without publishing", DROP_THE_TASK],
       recommendation: {
         option: 0,
-        reason: "The branch keeps the Task's work; it publishes once nothing stands in its way.",
+        reason: "The branch keeps the Task's work; it publishes once the conflict is gone.",
       },
     },
     options: [

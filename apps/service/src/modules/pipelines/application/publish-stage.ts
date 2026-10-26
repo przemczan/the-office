@@ -31,10 +31,11 @@ export class PublishStage {
     const { expected, refusal } = await this.stageGit.start(work, task);
     if (refusal) return refusal;
     const text = pullRequestText(task, stages, earlierRuns, stage.key);
-    const outcome = publishOutcome(
-      await this.publishing.publish(task.project.id, run.taskId, text),
-    );
-    await this.stageGit.leaveAt(run, expected);
+    const publication = await this.publishing.publish(task.project.id, run.taskId, text);
+    const outcome = publishOutcome(publication);
+    // A merge may have rebased the branch: the next Stage expects HEAD where Publish left it.
+    const left = publication.kind === "merged" ? publication.commit : expected.commit;
+    await this.stageGit.leaveAt(run, { ...expected, commit: left });
     if (outcome.status !== "done") return outcome;
     return {
       ...outcome,

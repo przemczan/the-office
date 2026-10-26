@@ -51,7 +51,9 @@ async function aWorktree(): Promise<{ path: string; branch: string }> {
 }
 
 /** A worktree whose branch changes `src/index.ts`, and a commit beside it that moved on from main. */
-async function besideAMovedMain(mainContent: string): Promise<{ branch: string; main: string }> {
+async function besideAMovedMain(
+  mainContent: string,
+): Promise<{ path: string; branch: string; main: string }> {
   const worktree = await aWorktree();
   await writeFile(join(worktree.path, "src", "index.ts"), "export const task = 1;\n");
   await git.commit(worktree.path, "Change index.ts", variables);
@@ -60,7 +62,7 @@ async function besideAMovedMain(mainContent: string): Promise<{ branch: string; 
   await writeFile(join(moved.path, `elsewhere-${worktreeCount}.txt`), "elsewhere\n");
   const main = await git.commit(moved.path, "Move main on", variables);
   if (!main) throw new Error("The moved branch committed nothing.");
-  return { branch: worktree.branch, main };
+  return { path: worktree.path, branch: worktree.branch, main };
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -258,6 +260,56 @@ describe("CommandLineGit.conflictsOf", () => {
     const { branch, main } = await besideAMovedMain("export {};\n");
 
     await expect(git.conflictsOf(repository.path, main, branch)).resolves.toEqual([]);
+  });
+});
+
+describe("CommandLineGit.rebase", () => {
+  it("rebases the worktree's branch onto a moved base", async () => {
+    const { path, branch, main } = await besideAMovedMain("export {};\n");
+
+    await expect(git.rebase(path, main, variables)).resolves.toEqual([]);
+
+    expect(gitIn(path, "rev-parse", "HEAD^")).toBe(main);
+    expect(gitIn(path, "symbolic-ref", "--short", "HEAD")).toBe(branch);
+    expect(await readFile(join(path, "src", "index.ts"), "utf8")).toBe("export const task = 1;\n");
+  });
+
+  it("names the conflicted files and puts the branch back as it was", async () => {
+    const { path, branch, main } = await besideAMovedMain("export const other = 2;\n");
+    const before = gitIn(path, "rev-parse", "HEAD");
+
+    await expect(git.rebase(path, main, variables)).resolves.toEqual(["src/index.ts"]);
+
+    expect(gitIn(path, "rev-parse", "HEAD")).toBe(before);
+    expect(gitIn(path, "symbolic-ref", "--short", "HEAD")).toBe(branch);
+    expect(gitIn(path, "status", "--porcelain")).toBe("");
+  });
+});
+
+describe("CommandLineGit refs", () => {
+  it("points a ref of The Office's own at a commit, finds it, and finds none for a missing one", async () => {
+    const { branch, main } = await besideAMovedMain("export {};\n");
+    const forkPoint = await git.mergeBase(repository.path, main, `refs/heads/${branch}`);
+    const ref = `refs/office/published-from/task-${worktreeCount}`;
+
+    await git.setRef(repository.path, ref, forkPoint);
+
+    await expect(git.findCommit(repository.path, ref)).resolves.toBe(forkPoint);
+    expect(forkPoint).toBe(firstCommit);
+    await expect(git.findCommit(repository.path, "refs/office/nowhere")).resolves.toBeUndefined();
+  });
+
+  it("reads a branch's changes since a fork point it is given", async () => {
+    const worktree = await aWorktree();
+    await writeFile(join(worktree.path, "first.txt"), "first\n");
+    const first = await git.commit(worktree.path, "Add first.txt", variables);
+    await writeFile(join(worktree.path, "second.txt"), "second\n");
+    await git.commit(worktree.path, "Add second.txt", variables);
+    if (!first) throw new Error("The first commit committed nothing.");
+
+    const changes = await git.branchChanges(repository.path, "main", worktree.branch, first);
+
+    expect(changes.files.map(({ path }) => path)).toEqual(["second.txt"]);
   });
 });
 

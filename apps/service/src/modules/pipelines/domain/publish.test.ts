@@ -141,10 +141,27 @@ describe("publishOutcome", () => {
         branch: "office/task-1",
         into: { remote: "origin", branch: "main" },
         commit: "0123456789abcdef0123456789abcdef01234567",
+        rebased: false,
       }),
     ).toEqual({
       status: "done",
       summary: "Merged office/task-1 into main on origin, which is now at 01234567.",
+    });
+  });
+
+  it("says it rebased the branch first when the base had moved on", () => {
+    expect(
+      publishOutcome({
+        kind: "merged",
+        branch: "office/task-1",
+        into: { remote: "origin", branch: "main" },
+        commit: "0123456789abcdef0123456789abcdef01234567",
+        rebased: true,
+      }),
+    ).toEqual({
+      status: "done",
+      summary:
+        "Rebased office/task-1 onto main, which had moved on, then merged it into main on origin, which is now at 01234567.",
     });
   });
 

@@ -131,6 +131,9 @@ describe("Publishing in push + PR mode", GIT_TIMEOUT, () => {
     expect(pullRequests.requests).toEqual([
       { repositoryPath: repository.path, baseBranch: "main", branch: task.branch, ...text },
     ]);
+    expect(gitIn(repository.path, "rev-parse", `refs/office/published-from/${task.taskId}`)).toBe(
+      gitIn(repository.path, "rev-parse", `${task.commit}^`),
+    );
   });
 
   it("holds the repository from the fetch to the pull request, so no git change lands between", async () => {
@@ -206,7 +209,7 @@ describe("Publishing in push + PR mode", GIT_TIMEOUT, () => {
 
     await expect(publishing.publish(pullRequestProject(), task.taskId, text)).resolves.toEqual({
       kind: "base-moved",
-      error: `${task.branch} no longer applies cleanly on main on origin: merging it would conflict in\n- ${file}`,
+      error: `${task.branch} no longer applies cleanly on main on origin: it would conflict in\n- ${file}`,
       conflictedFiles: [file],
     });
     expect(originCommitOf(task.branch)).toBeUndefined();
@@ -226,6 +229,7 @@ describe("Publishing in merge mode", GIT_TIMEOUT, () => {
       branch: task.branch,
       into: { remote: "origin", branch: "main" },
       commit: task.commit,
+      rebased: false,
     });
     expect(originCommitOf("main")).toBe(task.commit);
     expect(gitIn(repository.path, "rev-parse", "refs/remotes/origin/main")).toBe(task.commit);
@@ -245,18 +249,39 @@ describe("Publishing in merge mode", GIT_TIMEOUT, () => {
     });
   });
 
-  it("asks when the base moved on, as it merges only by fast-forward, pushing nothing", async () => {
+  it("rebases the branch onto a base that moved on, then moves the base to it", async () => {
     const task = await aTaskWithACommit(mergingProject());
     const moved = await commitOnOrigin(repository, "main", `beside-${task.taskId}.txt`);
 
     const publication = await publishing.publish(mergingProject(), task.taskId, text);
 
+    const rebased = gitIn(repository.path, "rev-parse", `refs/heads/${task.branch}`);
     expect(publication).toEqual({
-      kind: "base-moved",
-      error: `main on origin moved on since ${task.branch} left it. The Project publishes by merging, which takes the branch only as a fast-forward, so its commits would have to be merged or rebased first.`,
-      conflictedFiles: [],
+      kind: "merged",
+      branch: task.branch,
+      into: { remote: "origin", branch: "main" },
+      commit: rebased,
+      rebased: true,
     });
-    expect(originCommitOf("main")).toBe(moved);
+    expect(rebased).not.toBe(task.commit);
+    expect(gitIn(repository.path, "rev-parse", `${rebased}^`)).toBe(moved);
+    expect(originCommitOf("main")).toBe(rebased);
+    const worktreePath = worktrees.pathOf(mergingProject(), task.taskId);
+    expect(gitIn(worktreePath, "rev-parse", "HEAD")).toBe(rebased);
+    expect(gitIn(worktreePath, "status", "--porcelain")).toBe("");
+  });
+
+  it("keeps what it shipped in the Task's changes after the base took the branch", async () => {
+    const task = await aTaskWithACommit(mergingProject());
+    const forkedFrom = await commitOnOrigin(repository, "main", `beside-${task.taskId}.txt`);
+
+    await publishing.publish(mergingProject(), task.taskId, text);
+
+    expect(gitIn(repository.path, "rev-parse", `refs/office/published-from/${task.taskId}`)).toBe(
+      forkedFrom,
+    );
+    const changes = await worktrees.changes(mergingProject(), task.taskId);
+    expect(changes.files.map(({ path }) => path)).toEqual([`${task.taskId}.txt`]);
   });
 
   it("names the conflicting files when the branch would conflict with the base", async () => {

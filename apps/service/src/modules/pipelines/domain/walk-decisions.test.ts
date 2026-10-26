@@ -240,12 +240,13 @@ describe("the base-moved Decision", () => {
     expect(walkDecision(run, { kind: "base-moved", stage: publish, error })).toEqual({
       kind: "base-moved",
       draft: {
-        question: '"Publish" can\'t publish: the base branch moved on. What now?',
-        context: `${error}\n\nThe Office doesn't merge or rebase a Task's branch itself. "Publish" can run again once the base branch lets the branch through, or after you change the Project's publishing mode: push + PR opens a pull request whenever the branch merges cleanly.`,
+        question:
+          "\"Publish\" can't publish: the Task's branch conflicts with the base branch. What now?",
+        context: `${error}\n\nThe Office resolves no conflicts between Tasks, and no Agent can merge or rebase. "Publish" can run again once the base branch no longer conflicts with the branch.`,
         options: ['Run "Publish" again', "Continue without publishing", "Drop the Task"],
         recommendation: {
           option: 0,
-          reason: "The branch keeps the Task's work; it publishes once nothing stands in its way.",
+          reason: "The branch keeps the Task's work; it publishes once the conflict is gone.",
         },
       },
       options: [

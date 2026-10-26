@@ -114,7 +114,8 @@ describe("A Publish Stage", () => {
       baseMoved: { conflictedFiles: ["src/index.ts"] },
     });
     expect(pipelines.decisions.on(taskId).at(-1)?.draft).toMatchObject({
-      question: '"Publish" can\'t publish: the base branch moved on. What now?',
+      question:
+        "\"Publish\" can't publish: the Task's branch conflicts with the base branch. What now?",
       options: ['Run "Publish" again', "Continue without publishing", "Drop the Task"],
     });
     expect(pipelines.tasks.changes).toEqual([{ taskId, state: "waiting-on-you" }]);
@@ -130,6 +131,28 @@ describe("A Publish Stage", () => {
     ]);
     expect(runs[2]?.carriedFailure).toBeUndefined();
     expect(pipelines.git.removedWorktrees).toEqual([taskId]);
+  });
+
+  it("leaves the branch where a rebasing merge left it, for any Stage after it to expect", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const rebased = "r".repeat(40);
+    pipelines.publishing.publications.push({
+      kind: "merged",
+      branch: "office/task",
+      into: { remote: "origin", branch: "main" },
+      commit: rebased,
+      rebased: true,
+    });
+
+    const taskId = await walkStages(pipelines, [implement, publish]);
+
+    const published = (await runsOf(pipelines, taskId)).at(-1);
+    expect(published?.headCommit).toBe(rebased);
+    expect(published?.outcome).toEqual({
+      status: "done",
+      summary:
+        "Rebased office/task onto main, which had moved on, then merged it into main on origin, which is now at rrrrrrrr.",
+    });
   });
 
   it("tells of a worktree it couldn't remove, its publishing done all the same", async () => {

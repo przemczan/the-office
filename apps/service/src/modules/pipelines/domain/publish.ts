@@ -32,11 +32,14 @@ export type Publication =
       readonly branch: string;
       readonly into: RemoteBranch;
       readonly commit: string;
+      /** Whether The Office rebased the branch onto the base first, as the base had moved on. */
+      readonly rebased: boolean;
     }
   | { readonly kind: "nothing-to-publish"; readonly branch: string; readonly base: RemoteBranch }
   | {
       readonly kind: "base-moved";
       readonly error: string;
+      /** The files it would conflict in. */
       readonly conflictedFiles: readonly string[];
     }
   | { readonly kind: "failed"; readonly error: string };
@@ -90,10 +93,13 @@ export function publishOutcome(publication: Publication): StageOutcome {
         summary: `Pushed ${publication.branch} and opened the pull request ${publication.url}`,
       };
     case "merged": {
-      const { branch, into, commit } = publication;
+      const { branch, into, commit, rebased } = publication;
+      const rebasing = rebased
+        ? `Rebased ${branch} onto ${into.branch}, which had moved on, then merged it`
+        : `Merged ${branch}`;
       return {
         status: "done",
-        summary: `Merged ${branch} into ${into.branch} on ${into.remote}, which is now at ${commit.slice(0, SHORT_COMMIT_LENGTH)}.`,
+        summary: `${rebasing} into ${into.branch} on ${into.remote}, which is now at ${commit.slice(0, SHORT_COMMIT_LENGTH)}.`,
       };
     }
     case "nothing-to-publish":

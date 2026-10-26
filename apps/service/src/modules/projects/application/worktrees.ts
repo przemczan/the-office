@@ -22,6 +22,7 @@ import { ensureScreenshotsFolder } from "./screenshots-folder.js";
 /** Short, as worktree paths count against Windows' MAX_PATH; a UUID fits. */
 const TASK_ID = /^[A-Za-z0-9][A-Za-z0-9-]{0,39}$/;
 const TASK_BRANCH_PREFIX = "office/";
+const PUBLISHED_FROM_PREFIX = "refs/office/published-from/";
 /** A throwaway worktree's folder starts with it, which no Task id does. */
 const THROWAWAY_PREFIX = "_";
 const INSTALL_RECORD = "office-install";
@@ -91,6 +92,14 @@ export class Worktrees {
 
   branchOf(taskId: string): string {
     return `${TASK_BRANCH_PREFIX}${taskId}`;
+  }
+
+  /**
+   * The Office's own ref of where the Task's branch forked from the base when it was published,
+   * which its changes are read from after that (the user's answer of 2026-10-26).
+   */
+  publishedFromRefOf(taskId: string): string {
+    return `${PUBLISHED_FROM_PREFIX}${taskId}`;
   }
 
   /**
@@ -185,13 +194,18 @@ export class Worktrees {
    * Brief; undefined while they change nothing.
    */
   async changesSoFar(project: Project, taskId: string): Promise<string | undefined> {
-    const summary = await this.git.diffSummary(this.pathOf(project, taskId), project.baseBranch);
+    const summary = await this.git.diffSummary(
+      this.pathOf(project, taskId),
+      project.baseBranch,
+      await this.publishedFrom(project, taskId),
+    );
     return summary === "" ? undefined : summary;
   }
 
   /**
    * What the Task's commits changed since its branch left the base branch, read from the
    * repository, so it is there with or without the worktree; nothing before the Task has a branch.
+   * Once published, since where the published branch forked, so it stays after the base takes it.
    * With where the worktree is, while it is there.
    */
   async changes(project: Project, taskId: string): Promise<TaskChanges> {
@@ -200,14 +214,24 @@ export class Worktrees {
     const [changes, worktreeExists] = await Promise.all([
       this.git
         .hasBranch(project.path, branch)
-        .then((has) =>
+        .then(async (has) =>
           has
-            ? this.git.branchChanges(project.path, project.baseBranch, branch)
+            ? this.git.branchChanges(
+                project.path,
+                project.baseBranch,
+                branch,
+                await this.publishedFrom(project, taskId),
+              )
             : NO_BRANCH_CHANGES,
         ),
       exists(path),
     ]);
     return { ...changes, worktreePath: worktreeExists ? path : undefined };
+  }
+
+  /** Where the Task's branch forked from the base when it was published; undefined before. */
+  private async publishedFrom(project: Project, taskId: string): Promise<string | undefined> {
+    return this.git.findCommit(project.path, this.publishedFromRefOf(taskId));
   }
 
   /**

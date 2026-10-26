@@ -109,6 +109,26 @@ export abstract class Git {
     variables: GitVariables,
   ): Promise<void>;
 
+  /** The commit `revision` names, or undefined when it names none. */
+  abstract findCommit(repositoryPath: string, revision: string): Promise<string | undefined>;
+
+  /** Points `ref` at `commit`, making it when it isn't there. */
+  abstract setRef(repositoryPath: string, ref: string, commit: string): Promise<void>;
+
+  /** The best common ancestor of two revisions: where one forked from the other. */
+  abstract mergeBase(repositoryPath: string, one: string, other: string): Promise<string>;
+
+  /**
+   * Rebases the branch the worktree has checked out onto `onto`, without the repository's hooks.
+   * Returns the files a commit of it conflicted in, after putting the branch back as it was;
+   * none when it rebased.
+   */
+  abstract rebase(
+    worktreePath: string,
+    onto: string,
+    variables: GitVariables,
+  ): Promise<readonly string[]>;
+
   /** Whether `ancestor` is `revision` or one of the commits it was made on. */
   abstract contains(repositoryPath: string, revision: string, ancestor: string): Promise<boolean>;
 
@@ -176,18 +196,25 @@ export abstract class Git {
    * git's summary of what the worktree's commits changed since they forked from the base branch,
    * as its upstream has it when it tracks one, else as it is locally (spec §9), without fetching:
    * a line per file, the first ones only when there are many, and a total. Empty when nothing did.
+   * Since `forkPoint` instead, when given.
    */
-  abstract diffSummary(worktreePath: string, baseBranch: string): Promise<string>;
+  abstract diffSummary(
+    worktreePath: string,
+    baseBranch: string,
+    forkPoint?: string,
+  ): Promise<string>;
 
   /**
    * The files, line counts and diff of what `branch`'s commits changed since it forked from the
-   * base branch, which is taken as diffSummary takes it. Read from the repository's records, so it
-   * needs no worktree of the branch; uncommitted changes in one aren't in it.
+   * base branch, which is taken as diffSummary takes it, or since `forkPoint` when given. Read from
+   * the repository's records, so it needs no worktree of the branch; uncommitted changes in one
+   * aren't in it.
    */
   abstract branchChanges(
     repositoryPath: string,
     baseBranch: string,
     branch: string,
+    forkPoint?: string,
   ): Promise<BranchChanges>;
 
   /**

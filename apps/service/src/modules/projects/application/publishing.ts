@@ -15,6 +15,7 @@ import { Worktrees } from "./worktrees.js";
 
 /** Where a Publish takes the Task's branch: the base branch as its remote has it, freshly fetched. */
 interface PublishTarget {
+  readonly taskId: string;
   readonly branch: string;
   readonly base: RemoteBranch;
   readonly baseCommit: string;
@@ -23,11 +24,12 @@ interface PublishTarget {
 
 /**
  * Publish (spec §2.3, §9): The Office's own git takes a Task's committed branch to the remote its
- * base branch tracks, by the Project's publishing mode. Push + PR pushes the branch and opens a
- * pull request; merge moves the base branch on the remote to the branch, as a fast-forward only,
- * as the click-through's `git merge --ff-only` does. Both check first that the branch still applies
- * cleanly on the freshly fetched base, and run with the repository to themselves, so nothing moves
- * a ref between the check and the push. Pushes run with the Project's variables, which hold no
+ * base branch tracks, by the Project's publishing mode (spec §9). Push + PR pushes the branch and
+ * opens a pull request; merge fast-forwards the base branch on the remote to the branch, as the
+ * click-through's `git merge --ff-only` does, rebasing the branch onto the fetched base first when
+ * the base moved on. A branch that would conflict with the freshly fetched base asks the user in
+ * both. Both run with the repository to themselves, so nothing moves a ref between the check and
+ * the push, and record where the published branch forked from the base. Pushes run with the Project's variables, which hold no
  * publishing token; git's own credential helper signs them in. The user's checkout and local
  * base branch are left as they are.
  */
@@ -55,7 +57,7 @@ export class Publishing {
               (said) => `Fetching ${base.branch} from ${base.remote} failed. git said: ${said}`,
             );
           });
-        const target: PublishTarget = { branch, base, baseCommit, variables };
+        const target: PublishTarget = { taskId, branch, base, baseCommit, variables };
         if (await this.git.contains(project.path, baseCommit, branchRef(branch))) {
           return { kind: "nothing-to-publish", branch, base } as const;
         }
@@ -75,10 +77,11 @@ export class Publishing {
     target: PublishTarget,
     { title, body }: PullRequestText,
   ): Promise<Publication> {
-    const moved = await this.baseMoved(project, target, { onlyOnConflicts: true });
-    if (moved) return moved;
-    const { branch, base } = target;
+    const { branch, base, baseCommit } = target;
+    const conflictedFiles = await this.git.conflictsOf(project.path, baseCommit, branchRef(branch));
+    if (conflictedFiles.length > 0) return conflicting(target, conflictedFiles);
     await this.push(project, target, { remote: base.remote, branch });
+    await this.recordPublished(project, target);
     const pullRequest = await this.pullRequests
       .open({ repositoryPath: project.path, baseBranch: base.branch, branch, title, body })
       .catch((error: unknown) => {
@@ -88,35 +91,45 @@ export class Publishing {
     return { kind: "pull-request-opened", branch, url: pullRequest.url };
   }
 
+  /**
+   * Fast-forwards the remote's base to the Task's branch, rebasing the branch onto the fetched
+   * base first when the base moved on (the user's answer of 2026-10-26); a rebase that would
+   * conflict leaves the branch as it was.
+   */
   private async merge(project: Project, target: PublishTarget): Promise<Publication> {
-    const moved = await this.baseMoved(project, target, { onlyOnConflicts: false });
-    if (moved) return moved;
+    const { branch, baseCommit } = target;
+    const ref = branchRef(branch);
+    const moved = !(await this.git.contains(project.path, ref, baseCommit));
+    if (moved) {
+      const conflictedFiles = await this.git.conflictsOf(project.path, baseCommit, ref);
+      if (conflictedFiles.length > 0) return conflicting(target, conflictedFiles);
+      const worktreePath = this.worktrees.pathOf(project, target.taskId);
+      const rebaseConflicts = await this.git
+        .rebase(worktreePath, baseCommit, target.variables)
+        .catch((error: unknown) => {
+          throw failure(
+            error,
+            (said) => `Rebasing ${branch} onto ${target.base.branch} failed. git said: ${said}`,
+          );
+        });
+      if (rebaseConflicts.length > 0) return conflicting(target, rebaseConflicts);
+    }
     await this.push(project, target, target.base);
-    const commit = await this.git.commitOf(project.path, branchRef(target.branch));
-    return { kind: "merged", branch: target.branch, into: target.base, commit };
+    await this.recordPublished(project, target);
+    const commit = await this.git.commitOf(project.path, ref);
+    return { kind: "merged", branch, into: target.base, commit, rebased: moved };
   }
 
   /**
-   * The branch no longer applying cleanly on the fetched base: it would conflict, or, unless
-   * `onlyOnConflicts`, it isn't a fast-forward of the base any more. Undefined when it applies.
+   * Keeps where the published branch forked from the base, so Changes shows what Publish shipped
+   * after the base takes it (the user's answer of 2026-10-26).
    */
-  private async baseMoved(
+  private async recordPublished(
     project: Project,
-    { branch, base, baseCommit }: PublishTarget,
-    { onlyOnConflicts }: { readonly onlyOnConflicts: boolean },
-  ): Promise<Publication | undefined> {
-    const ref = branchRef(branch);
-    const conflictedFiles = await this.git.conflictsOf(project.path, baseCommit, ref);
-    if (conflictedFiles.length === 0) {
-      if (onlyOnConflicts || (await this.git.contains(project.path, ref, baseCommit))) {
-        return undefined;
-      }
-    }
-    return {
-      kind: "base-moved",
-      error: baseMovedError(branch, base, conflictedFiles),
-      conflictedFiles,
-    };
+    { taskId, branch, baseCommit }: PublishTarget,
+  ): Promise<void> {
+    const forkPoint = await this.git.mergeBase(project.path, baseCommit, branchRef(branch));
+    await this.git.setRef(project.path, this.worktrees.publishedFromRefOf(taskId), forkPoint);
   }
 
   private async push(
@@ -136,6 +149,18 @@ class PublishFailed extends Error {}
 /** git's refusal as a PublishFailed in `words`; anything else is a fault and stays as it is. */
 function failure(error: unknown, words: (said: string) => string): unknown {
   return error instanceof GitCommandFailed ? new PublishFailed(words(error.detail)) : error;
+}
+
+/** The branch would conflict with the base: the user decides, as no Agent can merge or rebase. */
+function conflicting(
+  { branch, base }: PublishTarget,
+  conflictedFiles: readonly string[],
+): Publication {
+  return {
+    kind: "base-moved",
+    error: baseMovedError(branch, base, conflictedFiles),
+    conflictedFiles,
+  };
 }
 
 function branchRef(branch: string): string {

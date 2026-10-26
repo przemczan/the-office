@@ -193,6 +193,62 @@ export class CommandLineGit extends Git {
     return this.locked(repositoryPath, work);
   }
 
+  async findCommit(repositoryPath: string, revision: string): Promise<string | undefined> {
+    const result = await runGit({
+      folder: repositoryPath,
+      gitArguments: ["rev-parse", "--verify", "--quiet", `${revision}^{commit}`],
+    });
+    return result.exitCode === 0 ? result.stdout.trim() : undefined;
+  }
+
+  async setRef(repositoryPath: string, ref: string, commit: string): Promise<void> {
+    // Refs are shared by every worktree.
+    await this.locked(repositoryPath, () =>
+      git({ folder: repositoryPath, gitArguments: ["update-ref", ref, commit] }),
+    );
+  }
+
+  async mergeBase(repositoryPath: string, one: string, other: string): Promise<string> {
+    const output = await git({ folder: repositoryPath, gitArguments: ["merge-base", one, other] });
+    return output.trim();
+  }
+
+  async rebase(
+    worktreePath: string,
+    onto: string,
+    variables: GitVariables,
+  ): Promise<readonly string[]> {
+    // A rebase moves the branch's ref, which lives with the refs every worktree shares.
+    return this.locked(worktreePath, async () => {
+      // The same rebase whatever the user's git config says: no stash, no other branches moved,
+      // no pre-rebase hook, as The Office's commits run none either.
+      const gitArguments = [
+        "rebase",
+        "--quiet",
+        "--no-verify",
+        "--no-autostash",
+        "--no-update-refs",
+        onto,
+      ];
+      const result = await runGit({ folder: worktreePath, gitArguments, variables });
+      if (result.exitCode === 0) return [];
+      const conflicted = await git({
+        folder: worktreePath,
+        gitArguments: ["diff", "--name-only", "--diff-filter=U", "-z"],
+        variables,
+      }).catch(() => "");
+      // Put the branch back as it was, conflicted or failed for another reason.
+      await runGit({ folder: worktreePath, gitArguments: ["rebase", "--abort"], variables });
+      const files = nulSeparated(conflicted);
+      if (files.length > 0) return files;
+      throw new GitCommandFailed(
+        gitArguments,
+        result.exitCode,
+        `${result.stderr}\n${result.stdout}`.trim(),
+      );
+    });
+  }
+
   async addWorktree(
     repositoryPath: string,
     worktree: NewWorktree,
@@ -290,7 +346,7 @@ export class CommandLineGit extends Git {
     return { commit, branch: symbolicRef.exitCode === 0 ? symbolicRef.stdout.trim() : undefined };
   }
 
-  async diffSummary(worktreePath: string, baseBranch: string): Promise<string> {
+  async diffSummary(worktreePath: string, baseBranch: string, forkPoint?: string): Promise<string> {
     const output = await git({
       folder: worktreePath,
       gitArguments: [
@@ -298,7 +354,7 @@ export class CommandLineGit extends Git {
         ...DIFF_OPTIONS,
         `--stat=${DIFF_SUMMARY_WIDTH}`,
         `--stat-count=${DIFF_SUMMARY_FILES}`,
-        await this.sinceForked(worktreePath, baseBranch, "HEAD"),
+        await this.sinceForked(worktreePath, baseBranch, "HEAD", forkPoint),
         "--",
       ],
     });
@@ -309,8 +365,14 @@ export class CommandLineGit extends Git {
     repositoryPath: string,
     baseBranch: string,
     branch: string,
+    forkPoint?: string,
   ): Promise<BranchChanges> {
-    const range = await this.sinceForked(repositoryPath, baseBranch, `refs/heads/${branch}`);
+    const range = await this.sinceForked(
+      repositoryPath,
+      baseBranch,
+      `refs/heads/${branch}`,
+      forkPoint,
+    );
     const [numbers, deleted, diff] = await Promise.all([
       git({
         folder: repositoryPath,
@@ -336,9 +398,16 @@ export class CommandLineGit extends Git {
 
   /**
    * `base...revision`, which diffs from where the revision forked from the base branch, so the
-   * base's own later commits stay out. The base is its upstream when it tracks one (spec §9).
+   * base's own later commits stay out. The base is its upstream when it tracks one (spec §9), or
+   * `forkPoint` when given.
    */
-  private async sinceForked(folder: string, baseBranch: string, revision: string): Promise<string> {
+  private async sinceForked(
+    folder: string,
+    baseBranch: string,
+    revision: string,
+    forkPoint: string | undefined,
+  ): Promise<string> {
+    if (forkPoint) return `${forkPoint}...${revision}`;
     const upstream = await this.upstreamOf(folder, baseBranch);
     const base = upstream ? trackingRefOf(upstream) : `refs/heads/${baseBranch}`;
     return `${base}...${revision}`;
