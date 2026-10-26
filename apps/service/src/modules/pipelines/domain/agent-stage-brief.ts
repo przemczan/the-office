@@ -67,17 +67,25 @@ export function agentStageRecord({
 }
 
 /**
- * What the Stage asks now (spec §2.3): its brief, and, when an on-failure loop went back to it, the
- * failure it went back with. A new session gets it after the Brief, a continued one alone.
+ * What the Stage asks now (spec §2.3): its brief; when an on-failure loop went back to it, the
+ * failure it went back with; and when the install before it failed, why, as the Agent's commands
+ * may fail for it. A new session gets it after the Brief, a continued one alone.
  */
 export function agentStageWork(
   stage: Pick<AgentStage, "name" | "brief">,
   carried: (CarriedFailure & { readonly stageName: string }) | undefined,
+  installProblem?: string,
 ): string {
   return sections([
     `## The Stage: ${stage.name}\n\n${stage.brief}`,
     carried &&
       `## Why this Stage runs again\n\n"${carried.stageName}" failed after it, so the Pipeline went back here (round ${carried.round} of ${carried.rounds}):\n\n${carried.error}`,
+    installProblem &&
+      `## The install before this Stage
+
+${installProblem}
+
+Commands that need the dependencies may fail until it passes. If the Task's changes broke it, fix that first; The Office installs again before the next Stage.`,
   ]);
 }
 

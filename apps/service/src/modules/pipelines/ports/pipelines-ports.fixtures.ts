@@ -9,6 +9,8 @@ import {
   type StageTurn,
 } from "./stage-threads.js";
 import { StartedTasks, type StartedTask, type WalkTaskState } from "./started-tasks.js";
+import type { CommandRun, Installation } from "../domain/stage-command-run.js";
+import { TaskCommands, type ScriptCommandKey } from "./task-commands.js";
 import { TaskGit, type WorktreeHead } from "./task-git.js";
 import { TaskRecords, type TaskRecord } from "./task-records.js";
 
@@ -216,6 +218,47 @@ export class TaskGitForTests extends TaskGit {
   }
 }
 
+/** A run of `commandLine` that ended `outcome`, printing `output`. */
+export function aCommandRun(
+  commandLine: string,
+  outcome: CommandRun["outcome"],
+  output = "",
+): CommandRun {
+  return { commandLine, outcome, exitCode: outcome === "passed" ? 0 : 1, durationMs: 1200, output };
+}
+
+/**
+ * The Projects' commands in memory: installs are up to date and each command passes once, unless
+ * a test puts what the next installs or commands give.
+ */
+@Injectable()
+export class TaskCommandsForTests extends TaskCommands {
+  /** What the next installs give, in order. */
+  readonly installations: Installation[] = [];
+  /** What the next commands give, in order: each its runs. */
+  readonly commandRuns: (readonly CommandRun[])[] = [];
+  /** Every command run, in order. */
+  readonly ran: { readonly taskId: string; readonly key: ScriptCommandKey }[] = [];
+  /** Told of every call, as it is made, so a test can see what happened before it. */
+  observe: ((call: "install" | "runCommand") => void) | undefined = undefined;
+
+  install(): Promise<Installation> {
+    this.observe?.("install");
+    return Promise.resolve(this.installations.shift() ?? { kind: "up-to-date" });
+  }
+
+  runCommand(
+    _projectId: string,
+    taskId: string,
+    key: ScriptCommandKey,
+  ): Promise<readonly CommandRun[]> {
+    this.observe?.("runCommand");
+    this.ran.push({ taskId, key });
+    const runs = this.commandRuns.shift();
+    return Promise.resolve(runs ?? [aCommandRun(`npm run ${key}`, "passed")]);
+  }
+}
+
 /** The ports' stand-ins, the Stage Threads' sessions on the engine `imports` give. */
 @Module({})
 export class PipelinesPortsForTestsModule {
@@ -226,6 +269,7 @@ export class PipelinesPortsForTestsModule {
       KnownPeopleForTests,
       StageThreadsForTests,
       TaskGitForTests,
+      TaskCommandsForTests,
     ];
     return { module: PipelinesPortsForTestsModule, imports, providers, exports: providers };
   }

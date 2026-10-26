@@ -6,7 +6,7 @@ import { Test } from "@nestjs/testing";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { testDatabaseUrl } from "../test/test-database.js";
 import { AppModule } from "./app.module.js";
-import { TaskGit } from "./modules/pipelines/index.js";
+import { TaskCommands, TaskGit } from "./modules/pipelines/index.js";
 import { TaskWorktrees } from "./modules/projects/index.js";
 
 // Compiled, not started: the composition root's bindings resolve without the engine or listening.
@@ -32,9 +32,12 @@ afterAll(async () => {
   await rm(folder, { recursive: true, force: true });
 });
 
-it("binds Pipelines' git to the Tasks' worktrees of the one Projects module", () => {
-  const taskGit = app.get(TaskGit, { strict: false });
+it.each([
+  ["git", TaskGit],
+  ["commands", TaskCommands],
+])("binds Pipelines' Task %s to the Tasks' worktrees of the one Projects module", (_, port) => {
+  const bound: unknown = app.get(port, { strict: false });
 
-  expect(taskGit).toBeInstanceOf(TaskWorktrees);
-  expect(taskGit).toBe(app.get(TaskWorktrees, { strict: false }));
+  expect(bound).toBeInstanceOf(TaskWorktrees);
+  expect(bound).toBe(app.get(TaskWorktrees, { strict: false }));
 });

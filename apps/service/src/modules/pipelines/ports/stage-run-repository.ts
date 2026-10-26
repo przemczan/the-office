@@ -1,3 +1,4 @@
+import type { StageCommandRun } from "../domain/stage-command-run.js";
 import type { StageRun } from "../domain/stage-run.js";
 
 /** Where each Task's Stage runs are kept. */
@@ -13,6 +14,9 @@ export abstract class StageRunRepository {
 
   /** Saves the commit The Office left the Task's branch at after the run. */
   abstract saveHeadCommit(runId: string, headCommit: string): Promise<void>;
+
+  /** Saves the Project commands The Office ran for the run, replacing those saved before. */
+  abstract saveCommandRuns(runId: string, commandRuns: readonly StageCommandRun[]): Promise<void>;
 
   /** Saves how the run ended. */
   abstract saveEnded(run: StageRun): Promise<void>;

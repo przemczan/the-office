@@ -1,3 +1,5 @@
+import type { StageCommandRun } from "./stage-command-run.js";
+
 /** The option an Agent recommends to the user, by its place among the options, and why. */
 export interface StageRecommendation {
   readonly option: number;
@@ -58,6 +60,8 @@ export interface StageRun {
    * Stage expects HEAD there. Undefined for a run that leaves git as it was.
    */
   readonly headCommit: string | undefined;
+  /** The Project commands The Office ran for the run, in order; none when it ran none. */
+  readonly commandRuns: readonly StageCommandRun[];
   /** Undefined while the Stage runs. */
   readonly outcome: StageOutcome | undefined;
   readonly startedAt: Date;

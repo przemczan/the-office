@@ -64,6 +64,7 @@ export class AppModule {
           knownPeople: RoleCards,
           stageThreads: StageThreads,
           taskGit: TaskWorktrees,
+          taskCommands: TaskWorktrees,
         }),
         projects,
         SkillsModule,

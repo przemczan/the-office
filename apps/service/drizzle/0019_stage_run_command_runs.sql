@@ -1,0 +1,1 @@
+ALTER TABLE "stage_runs" ADD COLUMN "command_runs" jsonb DEFAULT '[]'::jsonb NOT NULL;

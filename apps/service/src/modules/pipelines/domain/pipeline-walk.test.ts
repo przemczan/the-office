@@ -48,6 +48,7 @@ function runs(...ran: readonly [string, StageOutcome | undefined][]): StageRun[]
     carriedFailure: undefined,
     threadId: undefined,
     headCommit: undefined,
+    commandRuns: [],
     outcome,
     startedAt: new Date(0),
     endedAt: outcome && new Date(0),

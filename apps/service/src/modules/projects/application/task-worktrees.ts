@@ -1,8 +1,10 @@
 import { Injectable } from "@nestjs/common";
+import type { CommandRun } from "../domain/command-run.js";
 import type { Head } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectService } from "./project-service.js";
-import { Worktrees } from "./worktrees.js";
+import { ScriptCommands, type ScriptCommandKey } from "./script-commands.js";
+import { Worktrees, type Installation } from "./worktrees.js";
 
 /** A Task's worktree, as a session works in it. */
 export interface SessionWorktree {
@@ -22,6 +24,7 @@ export class TaskWorktrees {
     private readonly projects: ProjectService,
     private readonly worktrees: Worktrees,
     private readonly commands: ProjectCommandRunner,
+    private readonly scriptCommands: ScriptCommands,
   ) {}
 
   /**
@@ -60,5 +63,29 @@ export class TaskWorktrees {
   /** A few lines of what the Task's commits changed so far; undefined while nothing. */
   async changesSoFar(projectId: string, taskId: string): Promise<string | undefined> {
     return this.worktrees.changesSoFar(await this.projects.read(projectId), taskId);
+  }
+
+  /**
+   * Installs the Project's dependencies in the Task's worktree, unless the install command, its
+   * inputs and the environment are as they were at its last install there that passed.
+   */
+  async install(projectId: string, taskId: string): Promise<Installation> {
+    const { installation } = await this.worktrees.prepare(
+      await this.projects.read(projectId),
+      taskId,
+    );
+    return installation;
+  }
+
+  /**
+   * Runs a Script Stage's Project command in the Task's worktree: a test command restores the
+   * worktree after each run and runs once more when it fails. Returns each run, in order.
+   */
+  async runCommand(
+    projectId: string,
+    taskId: string,
+    key: ScriptCommandKey,
+  ): Promise<readonly CommandRun[]> {
+    return this.scriptCommands.run(await this.projects.read(projectId), taskId, key);
   }
 }

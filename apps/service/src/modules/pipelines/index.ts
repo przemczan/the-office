@@ -10,4 +10,5 @@ export {
 export { TaskStagesMade } from "./domain/task-stages-events.js";
 export { PipelineLibraryModule } from "./pipeline-library.module.js";
 export { PipelinesModule } from "./pipelines.module.js";
+export { TaskCommands } from "./ports/task-commands.js";
 export { TaskGit } from "./ports/task-git.js";

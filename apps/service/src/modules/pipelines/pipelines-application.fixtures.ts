@@ -20,6 +20,7 @@ import {
   PipelinesPortsForTestsModule,
   StageThreadsForTests,
   StartedTasksForTests,
+  TaskCommandsForTests,
   TaskGitForTests,
   TaskRecordsForTests,
 } from "./ports/pipelines-ports.fixtures.js";
@@ -36,6 +37,7 @@ export interface PipelinesApplication {
   readonly people: KnownPeopleForTests;
   readonly stageThreads: StageThreadsForTests;
   readonly git: TaskGitForTests;
+  readonly commands: TaskCommandsForTests;
   readonly published: DomainEvent[];
 }
 
@@ -62,6 +64,7 @@ export async function startPipelinesApplication(
         knownPeople: KnownPeopleForTests,
         stageThreads: StageThreadsForTests,
         taskGit: TaskGitForTests,
+        taskCommands: TaskCommandsForTests,
       }),
     ],
   });
@@ -75,6 +78,7 @@ export async function startPipelinesApplication(
     people: app.get(KnownPeopleForTests, { strict: false }),
     stageThreads: app.get(StageThreadsForTests, { strict: false }),
     git: app.get(TaskGitForTests, { strict: false }),
+    commands: app.get(TaskCommandsForTests, { strict: false }),
     published,
   };
 }

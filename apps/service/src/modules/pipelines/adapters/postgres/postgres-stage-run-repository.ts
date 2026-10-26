@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { asc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import type { StageCommandRun } from "../../domain/stage-command-run.js";
 import type { StageRun } from "../../domain/stage-run.js";
 import { StageRunRepository } from "../../ports/stage-run-repository.js";
 import { stageRuns } from "./stage-runs.schema.js";
@@ -26,6 +27,10 @@ export class PostgresStageRunRepository extends StageRunRepository {
 
   async saveHeadCommit(runId: string, headCommit: string): Promise<void> {
     await this.database.update(stageRuns).set({ headCommit }).where(eq(stageRuns.id, runId));
+  }
+
+  async saveCommandRuns(runId: string, commandRuns: readonly StageCommandRun[]): Promise<void> {
+    await this.database.update(stageRuns).set({ commandRuns }).where(eq(stageRuns.id, runId));
   }
 
   async saveEnded({ id, outcome, endedAt }: StageRun): Promise<void> {

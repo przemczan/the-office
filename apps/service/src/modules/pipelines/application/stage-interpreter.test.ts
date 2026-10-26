@@ -4,7 +4,6 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import type { SessionScript } from "../../engine/index.js";
 import { TaskStarted } from "../../work/index.js";
 import type { OnFailure, Stage } from "../domain/stage.js";
-import type { StageOutcome } from "../domain/stage-run.js";
 import {
   NoRetriesLeft,
   PipelineCompleted,
@@ -21,24 +20,9 @@ import {
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
+import { aCommandRun } from "../ports/pipelines-ports.fixtures.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { StageInterpreter } from "./stage-interpreter.js";
-import type { StageRunner, StageWork } from "./stage-runner.js";
-import { StageRunners } from "./stage-runners.js";
-
-/** A Script Stage that ends as the test says, in order. */
-class ScriptStageRunnerForTests implements StageRunner<"script"> {
-  readonly outcomes: StageOutcome[] = [];
-  /** Runs while the Stage runs, such as dropping the Task meanwhile. */
-  meanwhile: () => void = () => undefined;
-
-  async run({ stage }: StageWork<"script">): Promise<StageOutcome> {
-    this.meanwhile();
-    const outcome = this.outcomes.shift();
-    if (!outcome) throw new Error(`No outcome is left for Script Stage "${stage.key}".`);
-    return outcome;
-  }
-}
 
 function agentStage(key: string, onFailure?: OnFailure): Stage {
   return anAgentStage(key, onFailure && { onFailure });
@@ -55,26 +39,34 @@ function scriptStage(key: string, onFailure?: OnFailure): Stage {
   };
 }
 
-const done: StageOutcome = { status: "done", summary: "Done." };
 const agentDone = anAgentSession(aDoneResult());
 
 let pipelines: PipelinesApplication;
-let scriptRunner: ScriptStageRunnerForTests;
 
 afterEach(async () => {
   await pipelines.app.close();
 });
 
-/** The Pipelines module, its Agent Stages' sessions replaying `scripts` in order. */
+/**
+ * The Pipelines module, its Agent Stages' sessions replaying `scripts` in order; its Script
+ * Stages' commands pass unless a test puts what they print as they fail.
+ */
 async function startWith(...scripts: SessionScript[]): Promise<void> {
-  await startWithoutScriptStages(scripts);
-  scriptRunner = new ScriptStageRunnerForTests();
-  pipelines.app.get(StageRunners).register("script", scriptRunner);
+  pipelines = await startPipelinesApplication(scripts);
 }
 
-/** The Pipelines module as production has it until Script Stages come. */
-async function startWithoutScriptStages(scripts: readonly SessionScript[] = []): Promise<void> {
-  pipelines = await startPipelinesApplication(scripts);
+/** The next Script Stages' commands fail, printing these, in order. */
+function failing(...printed: string[]): void {
+  pipelines.commands.commandRuns.push(
+    ...printed.map((output) => [aCommandRun("npm test", "failed", output)]),
+  );
+}
+
+/** Runs while the next Script Stage's command runs, such as dropping the Task meanwhile. */
+function meanwhile(act: () => void): void {
+  pipelines.commands.observe = (call) => {
+    if (call === "runCommand") act();
+  };
 }
 
 function walk(stages: readonly Stage[], taskId?: string): Promise<string> {
@@ -103,7 +95,6 @@ function walkEvents(): unknown[] {
 describe("StageInterpreter", () => {
   it("walks a Pipeline of arbitrary Stages to the end and the Task to Done", async () => {
     await startWith(agentDone, agentDone);
-    scriptRunner.outcomes.push(done);
 
     const taskId = await walk([agentStage("draft"), scriptStage("measure"), agentStage("proof")]);
 
@@ -126,11 +117,7 @@ describe("StageInterpreter", () => {
 
   it("goes back on failure, with the error in the next Brief, as many times as the loop may", async () => {
     await startWith(agentDone, agentDone, agentDone);
-    scriptRunner.outcomes.push(
-      { status: "failed", error: "2 tests fail." },
-      { status: "failed", error: "1 test fails." },
-      done,
-    );
+    failing("2 tests fail.", "1 test fails.");
 
     const taskId = await walk([
       agentStage("draft"),
@@ -145,13 +132,19 @@ describe("StageInterpreter", () => {
       ["draft", "done"],
       ["measure", "done"],
     ]);
-    const carried = pipelines.stageThreads.requests.map(({ work }) => work.split("\n\n").at(-1));
-    expect(carried).toEqual(["Do draft.", "2 tests fail.", "1 test fails."]);
+    const works = pipelines.stageThreads.requests.map(({ work }) => work);
+    expect(works.map((work) => work.includes("Why this Stage runs again"))).toEqual([
+      false,
+      true,
+      true,
+    ]);
+    expect(works[1]).toContain("2 tests fail.");
+    expect(works[2]).toContain("1 test fails.");
     expect(walkEvents()).toContainEqual(["went back", "measure", "draft", 2, 2]);
     const runs = await runsOf(pipelines, taskId);
     expect(runs[2]?.carriedFailure).toEqual({
       stageKey: "measure",
-      error: "2 tests fail.",
+      error: expect.stringContaining("2 tests fail."),
       round: 1,
       rounds: 2,
     });
@@ -160,10 +153,7 @@ describe("StageInterpreter", () => {
 
   it("stops with no retries left and the Task waits on the user", async () => {
     await startWith(agentDone, agentDone);
-    scriptRunner.outcomes.push(
-      { status: "failed", error: "2 tests fail." },
-      { status: "failed", error: "Still 2." },
-    );
+    failing("2 tests fail.", "Still 2.");
 
     const taskId = await walk([
       agentStage("draft"),
@@ -173,7 +163,7 @@ describe("StageInterpreter", () => {
     expect(await statusesOf(taskId)).toHaveLength(4);
     expect(walkEvents().slice(-2)).toEqual([
       ["ended", "measure", "failed"],
-      ["no retries left", "measure", "Still 2."],
+      ["no retries left", "measure", expect.stringContaining("Still 2.")],
     ]);
     expect(pipelines.tasks.changes).toEqual([{ taskId, state: "waiting-on-you" }]);
   });
@@ -216,13 +206,13 @@ describe("StageInterpreter", () => {
   });
 
   it("fails a Stage of a kind it can't run yet, with the reason", async () => {
-    await startWithoutScriptStages();
-    const taskId = await walk([scriptStage("measure")]);
+    await startWith();
+    const taskId = await walk([{ kind: "gate", key: "look", name: "look", optional: false }]);
 
     expect(walkEvents()).toEqual([
-      ["started", "measure"],
-      ["ended", "measure", "failed"],
-      ["no retries left", "measure", "The Office can't run this Script Stage yet."],
+      ["started", "look"],
+      ["ended", "look", "failed"],
+      ["no retries left", "look", "The Office can't run this Gate yet."],
     ]);
     expect(pipelines.tasks.changes).toEqual([{ taskId, state: "waiting-on-you" }]);
   });
@@ -230,9 +220,7 @@ describe("StageInterpreter", () => {
   it("stops where the runs stand once the Task is no longer In progress", async () => {
     await startWith();
     const taskId = randomUUID();
-    scriptRunner.outcomes.push(done);
-    scriptRunner.meanwhile = () =>
-      pipelines.tasks.put(taskId, { state: "dropped", pipelineId: "for-tests" });
+    meanwhile(() => pipelines.tasks.put(taskId, { state: "dropped", pipelineId: "for-tests" }));
 
     await walk([scriptStage("measure"), agentStage("draft")], taskId);
 
@@ -242,7 +230,6 @@ describe("StageInterpreter", () => {
 
   it("walks a Task as it starts, on its own copy of its Pipeline's Stages", async () => {
     await startWith(agentDone);
-    scriptRunner.outcomes.push(done, done);
     const taskId = randomUUID();
     pipelines.tasks.put(taskId, { state: "in-progress", pipelineId: "quick-fix" });
 
@@ -255,9 +242,13 @@ describe("StageInterpreter", () => {
     expect(await statusesOf(taskId)).toEqual([
       ["implement", "done"],
       ["tests", "done"],
-      ["publish", "done"],
+      ["publish", "failed"],
     ]);
-    expect(pipelines.tasks.changes).toEqual([{ taskId, state: "done" }]);
+    expect(walkEvents()).toContainEqual([
+      "no retries left",
+      "publish",
+      "The Office can't run a Publish Stage yet.",
+    ]);
   });
 
   it("makes the Task's own Stages when the copy made as it started is missing", async () => {
@@ -278,9 +269,8 @@ describe("StageInterpreter", () => {
 
   it("starts no other Stage once the service stops", async () => {
     await startWith();
-    scriptRunner.outcomes.push(done);
     const interpreter = pipelines.app.get(StageInterpreter);
-    scriptRunner.meanwhile = () => void interpreter.onModuleDestroy();
+    meanwhile(() => void interpreter.onModuleDestroy());
 
     const taskId = await walk([scriptStage("measure"), scriptStage("lint")]);
 

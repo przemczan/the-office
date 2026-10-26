@@ -18,8 +18,12 @@ import {
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
-import { aPerson, aTaskRecord, PLANNED_COMMIT } from "../ports/pipelines-ports.fixtures.js";
-import { StageRunners } from "./stage-runners.js";
+import {
+  aCommandRun,
+  aPerson,
+  aTaskRecord,
+  PLANNED_COMMIT,
+} from "../ports/pipelines-ports.fixtures.js";
 
 let pipelines: PipelinesApplication;
 
@@ -127,9 +131,6 @@ describe("AgentStageRunner", () => {
       anAgentSession(aDoneResult()),
       anAgentSession(aDoneResult()),
     ]);
-    pipelines.app.get(StageRunners).register("script", {
-      run: () => Promise.resolve({ status: "done", summary: "Tests pass." }),
-    });
     const tests: Stage = {
       kind: "script",
       key: "tests",
@@ -146,7 +147,7 @@ describe("AgentStageRunner", () => {
 
     expect(pipelines.stageThreads.requests[1]?.previousThreadId).toBeUndefined();
     expect(pipelines.stageThreads.requests[1]?.record).toContain(
-      "- Tests (Script Stage): done. Tests pass.",
+      "- Tests (Script Stage): done. `npm run test` passed.",
     );
   });
 
@@ -194,6 +195,25 @@ describe("AgentStageRunner", () => {
     const taskId = await walkStages(pipelines, [implement]);
 
     expect(await outcomesOf(taskId)).toEqual([{ status: "needs-decision", ...decision }]);
+  });
+
+  it("installs the dependencies before the session, and tells the Agent when the install failed", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const install = aCommandRun("npm ci", "failed", "npm ERR! Missing: left-pad");
+    pipelines.commands.installations.push({ kind: "ran", run: install });
+    const calls: string[] = [];
+    pipelines.commands.observe = (call) => void calls.push(call);
+    pipelines.stageThreads.whileWorking = () => void calls.push("session");
+
+    const taskId = await walkStages(pipelines, [implement]);
+
+    expect(calls).toEqual(["install", "session"]);
+    expect(pipelines.stageThreads.requests[0]?.work).toContain(
+      "## The install before this Stage\n\nInstalling the Project's dependencies failed: `npm ci` failed with exit code 1.\n\nWhat it printed:\n\n```\nnpm ERR! Missing: left-pad\n```",
+    );
+    const [run] = await runsOf(pipelines, taskId);
+    expect(run?.commandRuns).toEqual([{ ...install, purpose: "install" }]);
+    expect(run?.outcome?.status).toBe("done");
   });
 
   it("fails the Stage, with no session, when nobody fills its Role", async () => {
