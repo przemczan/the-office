@@ -22,7 +22,7 @@ import { OfficeDataModule } from "../../../../platform/office-data/office-data.m
 import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
-import { PipelineLibrary, PipelinesModule } from "../../../pipelines/index.js";
+import { PipelineLibrary, PipelineLibraryModule } from "../../../pipelines/index.js";
 import { EnvironmentCheckFinished } from "../../domain/environment-check-events.js";
 import { ProjectsModule } from "../../projects.module.js";
 import {
@@ -76,7 +76,10 @@ async function startApplication(): Promise<void> {
       EventStreamModule,
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
-      ProjectsModule.register({ imports: [PipelinesModule], knownPipelines: PipelineLibrary }),
+      ProjectsModule.register({
+        imports: [PipelineLibraryModule],
+        knownPipelines: PipelineLibrary,
+      }),
     ],
   }));
   published = [];

@@ -2,13 +2,13 @@ import type { INestApplication } from "@nestjs/common";
 import { pipelineListSchema, pipelineSchema } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
-import { PipelinesModule } from "../../pipelines.module.js";
+import { PipelineLibraryModule } from "../../pipeline-library.module.js";
 
 let app: INestApplication;
 let url: string;
 
 beforeEach(async () => {
-  ({ app, url } = await startTestApplication({ imports: [PipelinesModule] }));
+  ({ app, url } = await startTestApplication({ imports: [PipelineLibraryModule] }));
 });
 
 afterEach(async () => {

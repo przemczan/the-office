@@ -25,7 +25,7 @@ import { EventStreamModule } from "../../../platform/websocket/event-stream.modu
 import { ConversationsModule, ThreadService } from "../../conversations/index.js";
 import { EngineModule } from "../../engine/index.js";
 import { PeopleModule, RoleCards } from "../../people/index.js";
-import { PipelineLibrary, PipelinesModule } from "../../pipelines/index.js";
+import { PipelineLibrary, PipelineLibraryModule } from "../../pipelines/index.js";
 import {
   BaseCheckouts,
   ProjectService,
@@ -74,7 +74,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
         let worktree: { path: string; branch: string } | undefined;
         try {
           const projects = ProjectsModule.register({
-            imports: [PipelinesModule],
+            imports: [PipelineLibraryModule],
             knownPipelines: PipelineLibrary,
           });
           const conversations = ConversationsModule.register({
@@ -92,11 +92,11 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
               EngineModule,
               SkillsModule,
               PeopleModule,
-              PipelinesModule,
+              PipelineLibraryModule,
               projects,
               conversations,
               WorkModule.register({
-                imports: [projects, conversations, PeopleModule, PipelinesModule],
+                imports: [projects, conversations, PeopleModule, PipelineLibraryModule],
                 knownProjects: ProjectService,
                 projectWorktrees: TaskWorktrees,
                 knownPeople: RoleCards,

@@ -1,7 +1,7 @@
 import type { INestApplication } from "@nestjs/common";
 import { workWebEventSchema } from "@the-office/contracts";
 import { startTestApplication } from "../../../test/test-application.js";
-import { PipelineLibrary, PipelinesModule } from "../pipelines/index.js";
+import { PipelineLibrary, PipelineLibraryModule } from "../pipelines/index.js";
 import type { DomainEvent } from "../../platform/events/domain-event.js";
 import { EventBus } from "../../platform/events/event-bus.js";
 import { EventsModule } from "../../platform/events/events.module.js";
@@ -41,7 +41,7 @@ export async function startWorkApplication(officeDataFolder: string): Promise<Wo
       TelemetryModule,
       OfficeDataModule.forRoot(officeDataFolder),
       WorkModule.register({
-        imports: [WorkPortsForTestsModule, PipelinesModule],
+        imports: [WorkPortsForTestsModule, PipelineLibraryModule],
         knownProjects: KnownProjectsForTests,
         projectWorktrees: ProjectWorktreesForTests,
         knownPeople: KnownPeopleForTests,

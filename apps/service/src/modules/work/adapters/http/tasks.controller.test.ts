@@ -3,10 +3,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  startCheckSchema,
   taskListSchema,
   taskSchema,
   workRefusalSchema,
   type NewTask,
+  type StartCheck,
   type Task,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -397,6 +399,75 @@ describe("POST /api/tasks/:id/ready", () => {
     expect(taskSchema.parse(await response.json()).state).toBe("ready");
     expect(webEventsOf(work)).toEqual([
       { type: "task.state-changed", taskId: task.id, from: "planning", to: "ready" },
+    ]);
+  });
+});
+
+async function readyTask(): Promise<Task> {
+  const task = await proposedTask();
+  await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Mine." });
+  await sendJson(work, "PUT", `/tasks/${task.id}/definition-of-done`, {
+    definitionOfDone: ["Mine."],
+  });
+  await sendJson(work, "PUT", `/tasks/${task.id}/pipeline`, { pipelineId: task.pipelineId });
+  await sendJson(work, "POST", `/tasks/${task.id}/ready`);
+  return task;
+}
+
+async function startCheck(taskId: string): Promise<StartCheck> {
+  return startCheckSchema.parse(
+    await (await sendJson(work, "GET", `/tasks/${taskId}/start`)).json(),
+  );
+}
+
+describe("Start", () => {
+  /** Started Tasks count against the Office-wide limit for every test file, so each is dropped. */
+  const startedIds: string[] = [];
+
+  afterEach(async () => {
+    for (const id of startedIds.splice(0)) await sendJson(work, "POST", `/tasks/${id}/drop`);
+  });
+
+  async function start(taskId: string): Promise<Response> {
+    const response = await sendJson(work, "POST", `/tasks/${taskId}/start`);
+    if (response.ok) startedIds.push(taskId);
+    return response;
+  }
+
+  it("moves a Ready Task to In progress and announces it", async () => {
+    const task = await readyTask();
+    expect(await startCheck(task.id)).toEqual({ reasons: [] });
+    work.published.length = 0;
+
+    const response = await start(task.id);
+
+    expect(response.status).toBe(200);
+    expect(taskSchema.parse(await response.json()).state).toBe("in-progress");
+    expect(webEventsOf(work)).toEqual([{ type: "task.started", taskId: task.id }]);
+  });
+
+  it("refuses with the reason while the Project has a Task in progress, before and on Start", async () => {
+    const first = await readyTask();
+    const second = await readyTask();
+    await start(first.id);
+    const reason = `The ${projectId} already has a Task in progress: "Fix the login redirect".`;
+
+    const check = await startCheck(second.id);
+    const refused = await start(second.id);
+
+    expect(check).toEqual({ reasons: [reason] });
+    expect(refused.status).toBe(422);
+    expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([reason]);
+    expect((await readTask(second.id)).state).toBe("ready");
+  });
+
+  it("refuses a Task that isn't Ready", async () => {
+    const task = await create();
+
+    const refused = await start(task.id);
+
+    expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      "Only a Ready Task can start; this one is in Backlog.",
     ]);
   });
 });

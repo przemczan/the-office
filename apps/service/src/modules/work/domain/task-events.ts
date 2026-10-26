@@ -81,3 +81,13 @@ export class TaskPipelineConfirmed extends DomainEvent {
     super();
   }
 }
+
+/** Ready → In progress: the user started the Task, following its Pipeline. */
+export class TaskStarted extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly pipelineId: string,
+  ) {
+    super();
+  }
+}

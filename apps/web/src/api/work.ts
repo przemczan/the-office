@@ -4,6 +4,7 @@ import {
   attachmentSchema,
   ideaListSchema,
   ideaSchema,
+  startCheckSchema,
   taskListSchema,
   taskSchema,
   type Attachment,
@@ -13,6 +14,7 @@ import {
   type NewLink,
   type NewTask,
   type Priority,
+  type StartCheck,
   type Task,
   type TaskPlacement,
   type WorkWebEvent,
@@ -49,6 +51,13 @@ export const taskQueries = {
     queryOptions({
       queryKey: [...TASKS, id],
       queryFn: ({ signal }) => getFromApi(taskPath(id), taskSchema, signal),
+    }),
+  /** Why Start would be refused now; under the Task's key, so any Task event refreshes it. */
+  startCheck: (id: string) =>
+    queryOptions({
+      queryKey: [...TASKS, id, "start"],
+      queryFn: ({ signal }): Promise<StartCheck> =>
+        getFromApi(`${taskPath(id)}/start`, startCheckSchema, signal),
     }),
 };
 
@@ -132,6 +141,11 @@ export function markReady(id: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/ready`, {}, taskSchema);
 }
 
+/** Start: Ready → In progress, refused with the reasons while a limit is reached. */
+export function startTask(id: string): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/start`, {}, taskSchema);
+}
+
 export function dropTask(id: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/drop`, {}, taskSchema);
 }
@@ -175,6 +189,7 @@ export const workEventInvalidations: Readonly<
   "idea.restored": () => [IDEAS],
   "task.created": () => [TASKS],
   "task.state-changed": () => [TASKS],
+  "task.started": () => [TASKS],
   "task.priority-changed": () => [TASKS],
   "task.reordered": () => [TASKS],
   "task.plan-proposed": () => [TASKS],

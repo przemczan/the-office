@@ -1,6 +1,6 @@
 # 12 · The Stage interpreter: Start, Agent and Script Stages, loops
 
-Status: todo
+Status: in progress
 
 ## Goal
 
@@ -28,7 +28,7 @@ The Pipelines module runs a Ready Task: the user starts it (or is told why not),
 
 ## Steps
 
-- [ ] 1. Start in Work: the refusals and their reasons, the Office-wide limit as an Office setting (default 3, editable in task 17), Ready → In progress, the Task's Pipeline copy locked as it starts. Commit.
+- [x] 1. Start in Work: the refusals and their reasons, the Office-wide limit as an Office setting (default 3, editable in task 17), Ready → In progress, the Task's Pipeline copy locked as it starts. Commit.
 - [ ] 2. The interpreter in Pipelines: Stage run records, the walk, outcomes, on-failure loops with per-loop counters, the events each transition emits, all against the scripted adapter. Commit.
 - [ ] 3. Agent Stages: the person for the Role, the Stage's session through the Context policy, the Brief, the result envelope schema (flat, `if status = done then required`), one correction, the Handover note, the Stage Thread on the Task's conversation. The brief names the commands the Agent may run. Commit.
 - [ ] 4. After an Agent Stage: commit, HEAD and branch check, process cleanup; a Stage that moved HEAD fails with the reason. Commit.
@@ -40,3 +40,4 @@ The Pipelines module runs a Ready Task: the user starts it (or is told why not),
 ## Progress
 
 <!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next; anything surprising. -->
+- 2026-10-26 · step 1: Start in Work: `StartService` (`POST /api/tasks/:id/start`, and `GET` the same path for `{ reasons }` before the click) refuses with every reason, from `domain/task-start.ts`: not Ready, Pipeline not in the library, the Project already has a Task started, the Office-wide limit (Office setting `WorkSettings.officeWideLimit`, table `work_settings`, no row yet so default 3; task 17 adds the row's edit), and the person of the Pipeline's first Agent Stage (vacant, Task limit none, or at it), counting In progress, Waiting on you and Paused; Ready → In progress stores that Role as `personRole` and emits `TaskStarted` (web `task.started`), under an advisory lock so two Starts can't both pass. Pipelines' `TaskStagesService` reacts to `TaskStarted` by copying the library Pipeline's Stages into `task_stages` once (`TaskStagesMade`); the Task page has a Start button, disabled with the reason. Pipelines is split: `PipelineLibraryModule` (library + controller) is what Work, Projects and Conversations import, so `PipelinesModule` can import `WorkModule` in step 2 without a Nest cycle. Next: step 2, the interpreter on `TaskStagesService.find(taskId)` (make the copy on demand if the event's handler failed: EventBus swallows handler errors); `changeTaskState` still allows ready → in-progress, so the `TaskService` method step 2 adds for Pipelines must not bypass Start. Surprising: the click-through counts only the first Agent Stage's Role against a person's Task limit; kept as the UI spec.

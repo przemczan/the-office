@@ -46,6 +46,7 @@ export function createTask(
     definitionOfDoneConfirmed: false,
     pipelineId: setting.pipelineId,
     proposedPipeline: undefined,
+    personRole: undefined,
     originIdeaId: setting.originIdeaId,
     createdBy: setting.createdBy,
     createdAt,

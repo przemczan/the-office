@@ -42,6 +42,11 @@ export interface Task {
   readonly pipelineId: string;
   /** The Pipeline the Planner proposes, until the user confirms it or chooses another. */
   readonly proposedPipeline: ProposedPipeline | undefined;
+  /**
+   * The Role whose person's Task limit it counts against from Start on: the Role of its Pipeline's
+   * first Agent Stage, as the click-through counts; undefined before Start or without one.
+   */
+  readonly personRole: string | undefined;
   /** The Idea it was shaped from, if it was. */
   readonly originIdeaId: string | undefined;
   readonly createdBy: Author;

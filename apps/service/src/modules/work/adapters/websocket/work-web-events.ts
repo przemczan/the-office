@@ -17,6 +17,7 @@ import {
   TaskPlanProposed,
   TaskPriorityChanged,
   TaskReordered,
+  TaskStarted,
   TaskStateChanged,
 } from "../../domain/task-events.js";
 import { toOwnerResponse } from "../http/work-responses.js";
@@ -68,6 +69,10 @@ export class WorkWebEvents implements OnModuleInit {
       taskId: event.taskId,
       from: event.from,
       to: event.to,
+    }));
+    this.forwarding.forward(TaskStarted, (event): WebEventOf<"task.started"> => ({
+      type: "task.started",
+      taskId: event.taskId,
     }));
     this.forwarding.forward(TaskPriorityChanged, (event): WebEventOf<"task.priority-changed"> => ({
       type: "task.priority-changed",

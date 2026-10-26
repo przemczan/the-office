@@ -19,6 +19,14 @@ export async function holdManualOrder(transaction: Transaction): Promise<void> {
   await transaction.execute(sql`select pg_advisory_xact_lock(hashtext('work.manual-order'))`);
 }
 
+/**
+ * Holds Starts until the transaction ends: each counts the started Tasks against the limits, so a
+ * second must wait for the first to be saved.
+ */
+export async function holdStarts(transaction: Transaction): Promise<void> {
+  await transaction.execute(sql`select pg_advisory_xact_lock(hashtext('work.start'))`);
+}
+
 /** Every Task's order key, but `besidesTaskId`'s. */
 export async function takenOrders(
   transaction: Transaction,
@@ -70,6 +78,7 @@ export function toTaskRow(task: Task): TaskRow {
     definitionOfDoneConfirmed: task.definitionOfDoneConfirmed,
     pipelineId: task.pipelineId,
     proposedPipeline: task.proposedPipeline ?? null,
+    personRole: task.personRole ?? null,
     originIdeaId: task.originIdeaId ?? null,
     createdBy: task.createdBy,
     createdAt: task.createdAt,
@@ -90,6 +99,7 @@ export function toTask(row: TaskRow): Task {
     definitionOfDoneConfirmed: row.definitionOfDoneConfirmed,
     pipelineId: row.pipelineId,
     proposedPipeline: row.proposedPipeline ?? undefined,
+    personRole: row.personRole ?? undefined,
     originIdeaId: row.originIdeaId ?? undefined,
     createdBy: row.createdBy,
     createdAt: row.createdAt,

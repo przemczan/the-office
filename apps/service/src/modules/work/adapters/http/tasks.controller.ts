@@ -22,11 +22,13 @@ import {
   type PipelineChange,
   type PlanChange,
   type PriorityChange,
+  type StartCheck,
   type Task as TaskResponse,
   type TaskPlacement,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { PlanningService } from "../../application/planning-service.js";
+import { StartService } from "../../application/start-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { THE_USER } from "../../domain/author.js";
 import { toTaskResponse } from "./work-responses.js";
@@ -38,6 +40,7 @@ export class TasksController {
   constructor(
     private readonly tasks: TaskService,
     private readonly planning: PlanningService,
+    private readonly starting: StartService,
   ) {}
 
   @Post()
@@ -116,6 +119,19 @@ export class TasksController {
   @HttpCode(HttpStatus.OK)
   async markReady(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
     return toTaskResponse(await this.planning.markReady(id));
+  }
+
+  /** Why Start would be refused now, for the Task page to show beside the button. */
+  @Get(":id/start")
+  async startCheck(@Param("id", ParseUUIDPipe) id: string): Promise<StartCheck> {
+    return { reasons: [...(await this.starting.startProblems(id))] };
+  }
+
+  /** Start: Ready → In progress, refused with the reasons while the limits are reached. */
+  @Post(":id/start")
+  @HttpCode(HttpStatus.OK)
+  async start(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
+    return toTaskResponse(await this.starting.start(id));
   }
 
   @Post(":id/drop")

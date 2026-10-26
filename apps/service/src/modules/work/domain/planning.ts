@@ -31,7 +31,8 @@ export interface PlanningPipeline {
   readonly name: string;
   /** When to choose it, in a sentence. */
   readonly description: string;
-  readonly stages: readonly { readonly name: string }[];
+  /** In order; an Agent Stage names the Role that works it. */
+  readonly stages: readonly { readonly name: string; readonly role?: string }[];
 }
 
 /** What a planning Brief is assembled from: the Task's record, with no model call. */

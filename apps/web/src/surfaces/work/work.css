@@ -500,6 +500,13 @@
   gap: 8px;
 }
 
+.task-head-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-3);
+}
+
 .board-card-note {
   color: var(--fg-3);
 }

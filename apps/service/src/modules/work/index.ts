@@ -12,6 +12,7 @@ export {
   TaskPlanProposed,
   TaskPriorityChanged,
   TaskReordered,
+  TaskStarted,
   TaskStateChanged,
 } from "./domain/task-events.js";
 export { WorkModule } from "./work.module.js";

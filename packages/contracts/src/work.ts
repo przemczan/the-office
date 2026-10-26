@@ -118,6 +118,10 @@ export const taskPlacementSchema = z.object({
 });
 export type TaskPlacement = z.infer<typeof taskPlacementSchema>;
 
+/** GET /tasks/:id/start: why POST /tasks/:id/start would be refused now; empty when it can start. */
+export const startCheckSchema = z.object({ reasons: z.array(z.string()) });
+export type StartCheck = z.infer<typeof startCheckSchema>;
+
 export const attachmentOwnerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("idea"), ideaId: z.uuid() }),
   z.object({ kind: z.literal("task"), taskId: z.uuid() }),
@@ -183,6 +187,7 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
     from: taskStateSchema,
     to: taskStateSchema,
   }),
+  webEventSchema.extend({ type: z.literal("task.started"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.priority-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.reordered"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.plan-proposed"), taskId: z.uuid() }),

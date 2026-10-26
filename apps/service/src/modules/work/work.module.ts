@@ -22,10 +22,12 @@ import { TasksController } from "./adapters/http/tasks.controller.js";
 import { PostgresAttachmentRepository } from "./adapters/postgres/postgres-attachment-repository.js";
 import { PostgresIdeaRepository } from "./adapters/postgres/postgres-idea-repository.js";
 import { PostgresTaskRepository } from "./adapters/postgres/postgres-task-repository.js";
+import { PostgresWorkSettings } from "./adapters/postgres/postgres-work-settings.js";
 import { WorkWebEvents } from "./adapters/websocket/work-web-events.js";
 import { AttachmentService } from "./application/attachment-service.js";
 import { IdeaService } from "./application/idea-service.js";
 import { PlanningService } from "./application/planning-service.js";
+import { StartService } from "./application/start-service.js";
 import { TaskService } from "./application/task-service.js";
 import { ATTACHMENT_SIZE_LIMIT } from "./domain/attachment.js";
 import { AttachmentFiles } from "./ports/attachment-files.js";
@@ -39,6 +41,7 @@ import { SessionPeople } from "./ports/session-people.js";
 import { SessionTasks } from "./ports/session-tasks.js";
 import { TaskRepository } from "./ports/task-repository.js";
 import { TaskThreads } from "./ports/task-threads.js";
+import { WorkSettings } from "./ports/work-settings.js";
 
 export interface WorkModuleOptions {
   /**
@@ -77,6 +80,7 @@ export class WorkModule implements NestModule {
         { provide: TaskRepository, useClass: PostgresTaskRepository },
         { provide: AttachmentRepository, useClass: PostgresAttachmentRepository },
         { provide: AttachmentFiles, useClass: FilesystemAttachmentFiles },
+        { provide: WorkSettings, useClass: PostgresWorkSettings },
         { provide: KnownProjects, useExisting: knownProjects },
         { provide: ProjectWorktrees, useExisting: projectWorktrees },
         { provide: KnownPeople, useExisting: knownPeople },
@@ -88,6 +92,7 @@ export class WorkModule implements NestModule {
         TaskService,
         AttachmentService,
         PlanningService,
+        StartService,
         WorkWebEvents,
         WorkOfficeTools,
         PlanningOfficeTools,

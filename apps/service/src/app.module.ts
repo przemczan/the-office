@@ -2,7 +2,11 @@ import { Module, type DynamicModule } from "@nestjs/common";
 import { ConversationsModule, ThreadService } from "./modules/conversations/index.js";
 import { EngineModule } from "./modules/engine/index.js";
 import { PeopleModule, RoleCards } from "./modules/people/index.js";
-import { PipelineLibrary, PipelinesModule } from "./modules/pipelines/index.js";
+import {
+  PipelineLibrary,
+  PipelineLibraryModule,
+  PipelinesModule,
+} from "./modules/pipelines/index.js";
 import {
   BaseCheckouts,
   ProjectService,
@@ -25,7 +29,7 @@ export class AppModule {
   static register(config: OfficeConfig, webApp: WebAppOptions): DynamicModule {
     // One instance, so every git change on a repository goes through the same locks.
     const projects = ProjectsModule.register({
-      imports: [PipelinesModule],
+      imports: [PipelineLibraryModule],
       knownPipelines: PipelineLibrary,
     });
     const conversations = ConversationsModule.register({
@@ -49,7 +53,7 @@ export class AppModule {
         TelemetryModule,
         WebAppModule.register(webApp),
         WorkModule.register({
-          imports: [projects, conversations, PeopleModule, PipelinesModule],
+          imports: [projects, conversations, PeopleModule, PipelineLibraryModule],
           knownProjects: ProjectService,
           projectWorktrees: TaskWorktrees,
           knownPeople: RoleCards,

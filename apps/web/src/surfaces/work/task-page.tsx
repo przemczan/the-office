@@ -15,6 +15,7 @@ import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import { useWaitingOnYouWhilePlanning } from "../../shell/work/waiting-on-you.ts";
 import { PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { MarkReadyButton, PlanButton } from "./planning-actions.tsx";
+import { StartButton } from "./start-action.tsx";
 import { TaskConversation } from "./task-conversation.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 import { TaskRecord } from "./task-record.tsx";
@@ -79,6 +80,7 @@ function TaskHead({
       <div className="task-head-actions">
         <PlanButton task={task} variant="primary" />
         <MarkReadyButton task={task} />
+        <StartButton task={task} />
         <TaskMenu task={task} />
       </div>
     </header>

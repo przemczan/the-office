@@ -30,6 +30,12 @@ const NEXT_STATES: Readonly<Record<TaskState, readonly TaskState[]>> = {
 /** States from which the user may still reorder a Task on the board: it hasn't started. */
 export const NOT_STARTED_STATES: readonly TaskState[] = ["backlog", "planning", "ready"];
 
+/**
+ * States of a started Task: Waiting on you and Paused keep its worktree and session, so they count
+ * against the Task limits as In progress does (spec §9).
+ */
+export const STARTED_STATES: readonly TaskState[] = ["in-progress", "waiting-on-you", "paused"];
+
 /** Every reason the Task can't move to `to`; empty when it can or is already there. */
 export function stateChangeProblems(task: Task, to: TaskState): string[] {
   if (task.state === to) return [];

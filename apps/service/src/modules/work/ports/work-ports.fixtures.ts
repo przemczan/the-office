@@ -1,7 +1,8 @@
 import { join } from "node:path";
 import { Injectable, Module } from "@nestjs/common";
 import { TaskThreadSetups } from "../../conversations/index.js";
-import { KnownPeople } from "./known-people.js";
+import type { TaskLimit } from "../domain/task-start.js";
+import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { KnownProjects, type KnownProject } from "./known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "./project-worktrees.js";
 import { SessionPeople } from "./session-people.js";
@@ -49,13 +50,21 @@ export class ProjectWorktreesForTests extends ProjectWorktrees {
   }
 }
 
-/** Every Role is filled but those in `vacant`. */
+/**
+ * Every Role is filled but those in `vacant`, by a person named after it ("The developer") whose
+ * Task limit is in `taskLimits`, else 3.
+ */
 @Injectable()
 export class KnownPeopleForTests extends KnownPeople {
   readonly vacant = new Set<string>();
+  readonly taskLimits = new Map<string, TaskLimit>();
 
-  async find(roleKey: string): Promise<{ readonly roleKey: string } | undefined> {
-    return this.vacant.has(roleKey) ? undefined : { roleKey };
+  async find(roleKey: string): Promise<KnownPerson | undefined> {
+    if (this.vacant.has(roleKey)) return undefined;
+    return {
+      roleKey,
+      card: { name: `The ${roleKey}`, taskLimit: this.taskLimits.get(roleKey) ?? 3 },
+    };
   }
 }
 
