@@ -25,6 +25,23 @@ describe("StageRunInterruption", () => {
     expect([interruption.requested, stopped]).toEqual(["stop", []]);
   });
 
+  it("cuts a paused run's turn short on a restart, keeping it paused", () => {
+    const interruption = new StageRunInterruption();
+    const stopped: string[] = [];
+    interruption.onNow(() => stopped.push("now"));
+
+    interruption.request("pause");
+    interruption.request("restart");
+
+    expect([
+      interruption.requested,
+      interruption.cutShort,
+      interruption.now,
+      interruption.commandsSignal.aborted,
+      stopped,
+    ]).toEqual(["pause", true, true, true, ["now"]]);
+  });
+
   it("stops the Project commands only on a restart, which outranks a Stop without a second interrupt", () => {
     const interruption = new StageRunInterruption();
     const stopped: string[] = [];

@@ -29,7 +29,11 @@ import {
 } from "../domain/thread-changes.js";
 import { ThreadNotFound } from "../domain/thread-not-found.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
-import { undeliveredSince, workWithUndelivered } from "../domain/undelivered-messages.js";
+import {
+  undeliveredSince,
+  waitingMessageIds,
+  workWithUndelivered,
+} from "../domain/undelivered-messages.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { BargeIns } from "./barge-ins.js";
 import { sessionLogLines, type SessionEvent } from "./session-log.js";
@@ -193,6 +197,27 @@ export class StageThreads {
     );
     if (!bargeIns.take(said)) await this.mark(threadId, [said.id], "not-delivered");
     return thread;
+  }
+
+  /**
+   * Ends the Stage's work in a Thread whose session The Office lost as it stopped, found as it
+   * starts again (spec §2.4): the user's messages still waiting to land never will, so they are
+   * marked not delivered and go with the Stage's next run as after a Stop, and the Thread logs why
+   * the Stage ended.
+   */
+  async endLeftRunning(threadId: string, failure: string): Promise<void> {
+    await this.mark(
+      threadId,
+      waitingMessageIds(await this.repository.messages(threadId)),
+      "not-delivered",
+    );
+    await this.change(threadId, (latest) =>
+      endStageWork(
+        latest,
+        { roleKey: latest.roleKey, handoverNote: undefined, failure },
+        new Date(),
+      ),
+    );
   }
 
   private async previousThread(id: string | undefined): Promise<Thread | undefined> {

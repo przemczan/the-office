@@ -39,6 +39,16 @@ export type StageOutcome = (
       readonly budgetReached?: BudgetReached;
       /** Set when The Office interrupted the run: its Stage runs again, never counted as a failure. */
       readonly interrupted?: StageInterruption;
+      /**
+       * Set on a run The Office recorded without starting it, as it found it had restarted
+       * between Stages: the Stage starts only once the user says so.
+       */
+      readonly notStarted?: true;
+      /**
+       * Set on a run the user paused whose Agent's turn The Office cut short as it shut down: its
+       * edits stay, maybe half-done (the user's answer of 2026-10-26).
+       */
+      readonly cutShort?: true;
     }
 ) & { readonly handoverNote?: string };
 

@@ -100,12 +100,16 @@ export class StageGit {
   }
 
   /**
-   * Ends the edits of a run The Office left running as it stopped, found as it starts again:
-   * discarded as a restart says, from where the run expected HEAD.
+   * Ends the edits of a run The Office left running as it stopped, found as it starts again, as
+   * `interruption` says, from where the run expected HEAD.
    */
-  async settleLeftRunning(work: StageAt, task: TaskRecord): Promise<readonly string[]> {
+  async settleLeftRunning(
+    work: StageAt,
+    task: TaskRecord,
+    interruption: StageInterruption,
+  ): Promise<readonly string[]> {
     const expected = await this.expectedHead(work, task);
-    return this.settleInterrupted(work.run, task, expected, "restart");
+    return this.settleInterrupted(work.run, task, expected, interruption);
   }
 
   /** Records that the run left the branch where it found it, committing nothing. */

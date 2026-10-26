@@ -120,6 +120,8 @@ export class StageThreadsForTests extends StageThreads {
   readonly interrupted: string[] = [];
   /** Told as The Office waits on each turn, while it runs, such as for the user to stop it. */
   whileTurnRuns: ((threadId: string) => void) | undefined = undefined;
+  /** The Threads whose Stage The Office found left running as it started, with why it ended. */
+  readonly endedLeftRunning: { readonly threadId: string; readonly failure: string }[] = [];
 
   constructor(private readonly sessions: EngineSessions) {
     super();
@@ -186,6 +188,10 @@ export class StageThreadsForTests extends StageThreads {
       },
       endSession,
     };
+  }
+
+  async endLeftRunning(threadId: string, failure: string): Promise<void> {
+    this.endedLeftRunning.push({ threadId, failure });
   }
 }
 

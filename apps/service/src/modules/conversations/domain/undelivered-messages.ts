@@ -14,6 +14,13 @@ export function undeliveredSince(log: readonly Message[], since: Date): UserMess
   );
 }
 
+/** The user's messages sent into a Stage's session that haven't landed yet, by their ids. */
+export function waitingMessageIds(log: readonly Message[]): string[] {
+  return log.flatMap((message) =>
+    message.kind === "user" && message.delivery === "waiting" ? [message.id] : [],
+  );
+}
+
 /** The Stage's work with the user's undelivered messages after it, each quoted as written. */
 export function workWithUndelivered(work: string, messages: readonly UserMessage[]): string {
   if (messages.length === 0) return work;

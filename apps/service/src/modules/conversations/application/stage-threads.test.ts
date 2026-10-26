@@ -684,6 +684,48 @@ describe("Stop", () => {
     await again.end({ handoverNote: undefined, failure: undefined });
   });
 
+  it("ends the work of a Stage left running as The Office stopped, so its waiting messages go with the next run", async () => {
+    await startWith(
+      started(aBargeIn("barge-in")),
+      // Its session took no turn to its end, so the Context policy starts the next run afresh.
+      started(...aTurn({ status: "done" }, "Renamed it on the list instead.", ["brief"])),
+    );
+    const ada = aPerson("Ada");
+    const since = new Date();
+    const left = await stageThreads.open(aStage({ roleKey: ada }));
+    await stageThreads.bargeIn(left.threadId, "Rename it on the list instead.");
+    const failure =
+      "The Office restarted during this Stage. The Stage had left no uncommitted edits.";
+
+    await stageThreads.endLeftRunning(left.threadId, failure);
+
+    expect(await userMessages(left.threadId)).toEqual([
+      { kind: "user", text: "Rename it on the list instead.", delivery: "not-delivered" },
+    ]);
+    expect(drafts(await repository.messages(left.threadId)).at(-1)).toEqual({
+      kind: "failure",
+      reason: failure,
+    });
+    expect((await threadOf(left.threadId)).state).toBe("waiting");
+    // In this process the lost session still runs; a restarted Office would have none.
+    await left.endSession();
+
+    const again = await stageThreads.open(
+      aStage({
+        roleKey: ada,
+        declared: undefined,
+        previousThreadId: left.threadId,
+        carryMessagesSince: since,
+      }),
+    );
+    const begun = engine.sessions[1]?.received.find(({ step }) => step === "start");
+    expect(begun).toMatchObject({
+      brief: { text: expect.stringContaining("> Rename it on the list instead.") },
+    });
+    await again.nextTurn();
+    await again.end({ handoverNote: undefined, failure: undefined });
+  });
+
   it("carries nothing written before the held run began", async () => {
     await startWith(
       started(...aTurn({ status: "done" })),

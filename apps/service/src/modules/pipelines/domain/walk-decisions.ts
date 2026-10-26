@@ -137,6 +137,7 @@ function restartDecision(stage: Stage, { id, outcome }: StageRun): WalkDecision 
   if (outcome?.status !== "failed" || outcome.interrupted !== "restart") {
     throw new Error(`Stage run ${id} didn't end as The Office restarted.`);
   }
+  if (outcome.notStarted) return notStartedDecision(stage);
   return {
     kind: "restart",
     draft: {
@@ -147,6 +148,21 @@ function restartDecision(stage: Stage, { id, outcome }: StageRun): WalkDecision 
         option: 0,
         reason: "The Stage starts again from where the last Stage left the work.",
       },
+    },
+    options: [{ kind: "one-more-round", guidance: undefined }, { kind: "drop" }],
+    byTheOffice: true,
+  };
+}
+
+function notStartedDecision(stage: Stage): WalkDecision {
+  return {
+    kind: "restart",
+    draft: {
+      question: `The Office restarted before "${stage.name}". Start it?`,
+      context:
+        "The Office stopped between Stages, so nothing of this one ran. It never starts a Stage by itself after a restart. Or answer in your own words: your answer goes with the Stage as it starts.",
+      options: [`Start "${stage.name}"`, DROP_THE_TASK],
+      recommendation: { option: 0, reason: "The work goes on from where the last Stage left it." },
     },
     options: [{ kind: "one-more-round", guidance: undefined }, { kind: "drop" }],
     byTheOffice: true,

@@ -12,7 +12,7 @@ import { DecisionAnswered } from "../../conversations/index.js";
 import { TaskPaused, TaskResumed, TaskStarted, TaskStopped } from "../../work/index.js";
 import { nextMove, type NextMove } from "../domain/pipeline-walk.js";
 import { STAGE_KIND_NAMES, type Stage } from "../domain/stage.js";
-import { interruptedOutcome } from "../domain/stage-interruption.js";
+import { interruptedOutcome, notStartedOutcome } from "../domain/stage-interruption.js";
 import type { StageInterruption, StageOutcome, StageRun } from "../domain/stage-run.js";
 import { endStageRun, startStageRun } from "../domain/stage-run-changes.js";
 import {
@@ -27,6 +27,7 @@ import {
 import { walkAnswerOf, walkDecision, type DecisionAnswer } from "../domain/walk-decisions.js";
 import { StageDecisions } from "../ports/stage-decisions.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
+import { StageThreads } from "../ports/stage-threads.js";
 import { StartedTasks, type StartedTask } from "../ports/started-tasks.js";
 import { TaskRecords } from "../ports/task-records.js";
 import { StageGit } from "./stage-git.js";
@@ -67,6 +68,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     private readonly records: TaskRecords,
     private readonly decisions: StageDecisions,
     private readonly stageGit: StageGit,
+    private readonly threads: StageThreads,
     private readonly events: EventBus,
     private readonly telemetry: Telemetry,
   ) {}
@@ -114,8 +116,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
 
   /**
    * Takes up what the service left as it last stopped (spec §2.4): a run left running ends as The
-   * Office restarted during it, and an In progress Task whose last run that is gets walked, so the
-   * walk asks the user whether to run it again. A Paused Task stays as the user holds it.
+   * Office restarted during it, or as paused with its edits on a Task the user paused, its Stage
+   * Thread with it. An In progress Task is walked on, but a
+   * Stage it would start, after one The Office restarted between, is first recorded as not
+   * started, so the walk asks the user before any Stage runs again or starts. A Paused Task stays
+   * as the user holds it.
    */
   async onApplicationBootstrap(): Promise<void> {
     for (const task of await this.tasks.list()) {
@@ -160,25 +165,68 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   }
 
   private async takeUpAfterRestart({ id, state }: StartedTask): Promise<void> {
+    // A Task whose walk never began has no Stages of its own yet, and nothing to take up.
+    const own = await this.taskStages.find(id);
+    if (!own) return;
     const runs = await this.runs.list(id);
     const last = runs.at(-1);
-    if (!last) return;
-    const ended = last.outcome ? last : await this.endLeftRunning(last, runs.slice(0, -1));
-    const restarted = ended.outcome?.status === "failed" && ended.outcome.interrupted === "restart";
-    if (restarted && state === "in-progress") this.walkInBackground(id);
+    if (last && !last.outcome) await this.endLeftRunning(last, runs.slice(0, -1), state);
+    if (state !== "in-progress") return;
+    const { definitionOfDone } = await this.records.read(id);
+    const ended = await this.runs.list(id);
+    const move = nextMove(own.stages, ended, definitionOfDone);
+    if (move.move === "run" || move.move === "skip") {
+      await this.recordNotStarted(id, move, ended);
+    }
+    this.walkInBackground(id);
   }
 
-  /** Ends the run as The Office restarted during it, its uncommitted edits discarded. */
-  private async endLeftRunning(run: StageRun, earlierRuns: readonly StageRun[]): Promise<StageRun> {
+  /**
+   * Ends the run as The Office restarted during it, its uncommitted edits discarded, and its Stage
+   * Thread's work with it. On a Task the user paused, the Pause was waiting for the Agent's turn
+   * to end, which the shutdown cut short: the run is held as paused, its edits kept.
+   */
+  private async endLeftRunning(
+    run: StageRun,
+    earlierRuns: readonly StageRun[],
+    taskState: string,
+  ): Promise<void> {
+    const interruption: StageInterruption = taskState === "paused" ? "pause" : "restart";
     const task = await this.records.read(run.taskId);
-    const discarded = await this.stageGit.settleLeftRunning({ run, earlierRuns }, task);
-    const ended = endStageRun(run, interruptedOutcome("restart", discarded), new Date());
+    const discarded = await this.stageGit.settleLeftRunning(
+      { run, earlierRuns },
+      task,
+      interruption,
+    );
+    const outcome = interruptedOutcome(interruption, discarded, { cutShort: true });
+    const ended = endStageRun(run, outcome, new Date());
     await this.runs.saveEnded(ended.run);
+    if (run.threadId && outcome.status === "failed") {
+      await this.threads.endLeftRunning(run.threadId, outcome.error);
+    }
     await this.events.publish(ended.event);
     this.logger.warn(
       `Stage run ${run.id} of Task ${run.taskId} was left running as The Office stopped.`,
     );
-    return ended.run;
+  }
+
+  /** Records the Stage the walk would start next as not started, which the walk then asks about. */
+  private async recordNotStarted(
+    taskId: string,
+    { stage, ...move }: RunMove | SkipMove,
+    earlierRuns: readonly StageRun[],
+  ): Promise<void> {
+    const carriedFailure = move.move === "run" ? move.carriedFailure : undefined;
+    const now = new Date();
+    const started = startStageRun(
+      { id: randomUUID(), taskId, stageKey: stage.key, carriedFailure },
+      earlierRuns.length,
+      now,
+    );
+    if (!(await this.runs.saveNew(started.run))) return;
+    const ended = endStageRun(started.run, notStartedOutcome(), now);
+    await this.runs.saveEnded(ended.run);
+    await this.events.publish(ended.event);
   }
 
   /** Resolves once the Task's walks, if any go on, have stopped. */

@@ -89,4 +89,11 @@ export interface StageThread {
  */
 export abstract class StageThreads {
   abstract open(request: StageThreadRequest): Promise<StageThread>;
+
+  /**
+   * Ends the Stage's work in the Thread of a run The Office left running as it stopped, logging
+   * `failure`: the user's messages still waiting to land become not delivered, so they go with
+   * the Stage's next run as after a Stop.
+   */
+  abstract endLeftRunning(threadId: string, failure: string): Promise<void>;
 }

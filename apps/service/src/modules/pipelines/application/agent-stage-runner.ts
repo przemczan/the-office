@@ -144,8 +144,8 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
   /**
    * Ends an interrupted run, committing nothing: after a Stop or a restart what it left
    * uncommitted is discarded, so the Stage runs again from where it began; after a Pause it stays,
-   * for the Stage to go on with. A Stage that changed git itself fails as it would have, its work left for the
-   * user to see.
+   * for the Stage to go on with, even when a shutdown cut its turn short. A Stage that changed git
+   * itself fails as it would have, its work left for the user to see.
    */
   private async holdWork(
     { run, interruption }: StageWork<"agent">,
@@ -156,10 +156,8 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     if (!held) throw new Error(`Stage run ${run.id} was held, yet nothing interrupted it.`);
     const after = await this.stageGit.checkHead(run, task, expected);
     if (after) return changedGitItself(after, undefined);
-    return interruptedOutcome(
-      held,
-      await this.stageGit.settleInterrupted(run, task, expected, held),
-    );
+    const discarded = await this.stageGit.settleInterrupted(run, task, expected, held);
+    return interruptedOutcome(held, discarded, { cutShort: interruption.cutShort });
   }
 
   private async open(
@@ -355,12 +353,16 @@ function heldRun(stage: Stage, earlierRuns: readonly StageRun[]): StageRun | und
   return last.outcome.interrupted ? last : undefined;
 }
 
-function heldRunOf(run: StageRun): HeldRun | undefined {
-  const by = run.outcome?.status === "failed" ? run.outcome.interrupted : undefined;
-  if (!by) return undefined;
-  const answer = run.decisions.find(({ kind }) => kind === "restart")?.answer;
+function heldRunOf({ outcome, decisions }: StageRun): HeldRun | undefined {
+  if (outcome?.status !== "failed" || !outcome.interrupted) return undefined;
+  const answer = decisions.find(({ kind }) => kind === "restart")?.answer;
   const guidance = answer?.kind === "one-more-round" ? answer.guidance : undefined;
-  return guidance === undefined ? { by } : { by, guidance };
+  return {
+    by: outcome.interrupted,
+    ...(outcome.notStarted && { notStarted: true }),
+    ...(outcome.cutShort && { cutShort: true }),
+    ...(guidance !== undefined && { guidance }),
+  };
 }
 
 /**

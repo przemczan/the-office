@@ -43,6 +43,19 @@ export function outranks(
 export const RESTARTED = "The Office restarted during this Stage.";
 
 /**
+ * The run The Office records for the Stage it would start next, having restarted between Stages
+ * (spec §2.4): never started, so nothing to discard, and asked about as a restart is.
+ */
+export function notStartedOutcome(): StageOutcome {
+  return {
+    status: "failed",
+    error: "The Office restarted before this Stage started.",
+    interrupted: "restart",
+    notStarted: true,
+  };
+}
+
+/**
  * How an interrupted run ends: failed, marked so the walk doesn't count a failure (spec §2.4,
  * §5.5). A Stop or a restart names what The Office discarded; a Pause keeps the worktree as the
  * Agent left it.
@@ -50,11 +63,28 @@ export const RESTARTED = "The Office restarted during this Stage.";
 export function interruptedOutcome(
   interruption: StageInterruption,
   discardedPaths: readonly string[],
+  { cutShort = false }: { readonly cutShort?: boolean } = {},
 ): StageOutcome {
+  if (cutShort && interruption === "pause") return cutShortPauseOutcome();
   return {
     status: "failed",
     error: errorOf(interruption, discardedPaths),
     interrupted: interruption,
+  };
+}
+
+/**
+ * How a run the user paused ends when The Office shuts down before the Agent's turn does: the
+ * turn is cut short, but the run is held as the Pause asked, its edits kept (the user's answer of
+ * 2026-10-26), so no Decision opens and Resume goes on with it.
+ */
+function cutShortPauseOutcome(): StageOutcome {
+  return {
+    status: "failed",
+    error:
+      "Paused by the user. The Office restarted during the Agent's last turn and cut it short: the Stage's uncommitted edits stay in the worktree, maybe half-done, for it to go on with.",
+    interrupted: "pause",
+    cutShort: true,
   };
 }
 

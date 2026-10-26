@@ -94,6 +94,10 @@ export interface StageWorkReasons {
  */
 export interface HeldRun {
   readonly by: StageInterruption;
+  /** Set when The Office recorded it without starting it, having restarted between Stages. */
+  readonly notStarted?: true;
+  /** Set when The Office cut the Agent's last turn of a paused run short as it shut down. */
+  readonly cutShort?: true;
   /** The user's own words in their answer to run it again after a restart. */
   readonly guidance?: string;
 }
@@ -136,9 +140,17 @@ The user paused this Stage after your last turn, and has resumed it. Your edits 
 The Office restarted while this Stage ran, which ended your session at once, and the user chose to run the Stage again. The Office discarded the Stage's uncommitted edits, so the worktree is as the last Stage left it: do the Stage's work again from there.`,
 };
 
-function heldSection({ by, guidance }: HeldRun): string {
+/** Nothing ran of a Stage The Office restarted before, so only the user's words, if any, say more. */
+const CUT_SHORT =
+  "The Office restarted during your last turn, which it cut short, so some of your edits may be half-done: check them before you go on.";
+
+function heldSection({ by, notStarted, cutShort, guidance }: HeldRun): string | undefined {
+  if (notStarted) {
+    return guidance === undefined ? undefined : `## The user's words for this Stage\n\n${guidance}`;
+  }
   const words = guidance === undefined ? "" : `\n\nThe user's words for it:\n\n${guidance}`;
-  return `${HELD_SECTIONS[by]}${words}`;
+  const cut = cutShort ? `\n\n${CUT_SHORT}` : "";
+  return `${HELD_SECTIONS[by]}${cut}${words}`;
 }
 
 /**
