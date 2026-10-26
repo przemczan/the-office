@@ -24,6 +24,7 @@ import {
   aTaskRecord,
   PLANNED_COMMIT,
 } from "../ports/pipelines-ports.fixtures.js";
+import { isRunning } from "../../../platform/os/process-trees.fixtures.js";
 
 let pipelines: PipelinesApplication;
 
@@ -392,12 +393,3 @@ describe("AgentStageRunner after the session", () => {
     ]);
   });
 });
-
-function isRunning(processId: number): boolean {
-  try {
-    process.kill(processId, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}

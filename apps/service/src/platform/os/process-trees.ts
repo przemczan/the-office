@@ -5,12 +5,15 @@ export interface ProcessTrees {
    * it puts the process in a group of its own, which `end` signals as a whole.
    */
   readonly detached: boolean;
-  /** Ends the process and every process it started; a process already gone is no error. */
+  /**
+   * Ends the process and every process it started, returning once they have ended (an ended
+   * process its parent hasn't collected yet counts); a process already gone is no error.
+   */
   end(processId: number): Promise<void>;
   /**
    * Ends what a process started with `detached` left running after it ended by itself: on Linux
    * its process group, on Windows its children with every process they started. A process that
-   * left nothing is no error.
+   * left nothing is no error. Returns once they have ended, as `end` does.
    */
   endLeftovers(processId: number): Promise<void>;
 }

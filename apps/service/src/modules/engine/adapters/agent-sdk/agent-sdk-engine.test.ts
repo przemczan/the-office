@@ -21,6 +21,7 @@ import type { SessionEvent, TurnEndedEvent } from "../../ports/session-events.js
 import type { SessionOptions } from "../../ports/session-options.js";
 import { RecordingEngine } from "../scripted/recording-engine.js";
 import { AgentSdkEngine } from "./agent-sdk-engine.js";
+import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
 
 /**
  * These tests run real sessions on the user's login, which cost quota, so they run only when asked:
@@ -224,15 +225,6 @@ async function aSessionPlugin(folder: string, names: readonly string[]): Promise
 
 function message(text: string) {
   return { id: randomUUID(), text };
-}
-
-function isRunning(processId: number): boolean {
-  try {
-    process.kill(processId, 0);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 /** A repository in `folder` with two worktrees beside it. */

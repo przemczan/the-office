@@ -1,4 +1,6 @@
 import { posix } from "node:path";
+import { setTimeout } from "node:timers/promises";
+import { runningInGroup } from "./linux-processes.js";
 import type { OperatingSystem, UserEnvironment } from "./operating-system.js";
 import { pathLengthProblem, type PathLimits, type PathRules } from "./path-rules.js";
 import type { ProcessTrees } from "./process-trees.js";
@@ -97,11 +99,34 @@ const processGroups: ProcessTrees = {
   endLeftovers: (processId) => endGroup(processId),
 };
 
-function endGroup(groupId: number): Promise<void> {
+async function endGroup(groupId: number): Promise<void> {
   try {
     process.kill(-groupId, "SIGKILL");
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+    return;
   }
-  return Promise.resolve();
+  await groupEnded(groupId);
+}
+
+const GROUP_END_POLL_MS = 10;
+const GROUP_END_TIMEOUT_MS = 5000;
+
+/**
+ * Waits until every process of the group has ended. SIGKILL takes effect as each process is next
+ * scheduled, not as kill returns, and a killed process stays a zombie until reaped, which counts
+ * as ended: it holds no files and runs no code.
+ */
+async function groupEnded(groupId: number): Promise<void> {
+  const deadline = Date.now() + GROUP_END_TIMEOUT_MS;
+  for (;;) {
+    const running = await runningInGroup(groupId);
+    if (running.length === 0) return;
+    if (Date.now() > deadline) {
+      throw new Error(
+        `Process group ${groupId} still runs ${GROUP_END_TIMEOUT_MS} ms after it was killed: ${running.join(", ")}.`,
+      );
+    }
+    await setTimeout(GROUP_END_POLL_MS);
+  }
 }

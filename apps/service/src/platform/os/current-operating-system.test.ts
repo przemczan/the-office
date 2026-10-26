@@ -2,8 +2,9 @@ import { spawn, spawnSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { currentOperatingSystem } from "./current-operating-system.js";
+import { isRunning } from "./process-trees.fixtures.js";
 
 // Runs on whichever system the tests run on: Windows in npm run verify, Linux in verify:linux.
 describe("currentOperatingSystem", () => {
@@ -55,7 +56,7 @@ describe("currentOperatingSystem", () => {
 
       await processTrees.endLeftovers(parent.pid ?? 0);
 
-      await vi.waitFor(() => expect(isRunning(left)).toBe(false));
+      expect(isRunning(left)).toBe(false);
     } finally {
       await rm(folder, { recursive: true, force: true });
     }
@@ -124,12 +125,3 @@ describe("currentOperatingSystem", () => {
     );
   });
 });
-
-function isRunning(processId: number): boolean {
-  try {
-    process.kill(processId, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
