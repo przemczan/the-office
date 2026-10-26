@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { THE_USER } from "./author.js";
-import { changePriority, createTask, reorderTask } from "./task-changes.js";
-import { TaskCreated, TaskPriorityChanged, TaskReordered } from "./task-events.js";
+import { changePriority, changeStartedTaskState, createTask, reorderTask } from "./task-changes.js";
+import {
+  TaskCreated,
+  TaskPriorityChanged,
+  TaskReordered,
+  TaskStateChanged,
+} from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
 import type { Neighbours } from "./manual-order.js";
 import type { Task } from "./task.js";
@@ -84,6 +89,30 @@ function moved(task: Task, neighbours: Neighbours, others: readonly Task[] = [])
   });
   return change.task;
 }
+
+describe("changeStartedTaskState", () => {
+  it("moves a started Task along its Pipeline and announces it", () => {
+    const change = changeStartedTaskState(aTask({ state: "in-progress" }), "waiting-on-you");
+
+    expect(change?.task.state).toBe("waiting-on-you");
+    expect(change?.event).toBeInstanceOf(TaskStateChanged);
+    expect(change?.event).toMatchObject({
+      taskId: "task-1",
+      from: "in-progress",
+      to: "waiting-on-you",
+    });
+  });
+
+  it("refuses to start a Ready Task, which only Start does", () => {
+    expect(() => changeStartedTaskState(aTask({ state: "ready" }), "in-progress")).toThrow(
+      new TaskRefused(["Only a started Task moves along its Pipeline; this one is in Ready."]),
+    );
+  });
+
+  it("refuses a Task that has ended", () => {
+    expect(() => changeStartedTaskState(aTask({ state: "dropped" }), "done")).toThrow(TaskRefused);
+  });
+});
 
 describe("reorderTask", () => {
   it("takes a key between its neighbours", () => {

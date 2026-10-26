@@ -1,27 +1,20 @@
-import { Injectable, type OnModuleInit } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { TaskStarted } from "../../work/index.js";
 import { makeTaskStages, type TaskStages } from "../domain/task-stages.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { PipelineLibrary } from "./pipeline-library.js";
 
 /**
- * Each started Task's own Stages: copied from its library Pipeline as Work announces the Start, so
- * saving the library later reaches only Tasks that haven't started (spec §2.3).
+ * Each started Task's own Stages: copied from its library Pipeline as the Task starts, so saving
+ * the library later reaches only Tasks that haven't started (spec §2.3).
  */
 @Injectable()
-export class TaskStagesService implements OnModuleInit {
+export class TaskStagesService {
   constructor(
     private readonly repository: TaskStagesRepository,
     private readonly library: PipelineLibrary,
     private readonly events: EventBus,
   ) {}
-
-  onModuleInit(): void {
-    this.events.subscribe(TaskStarted, async (started) => {
-      await this.make(started.taskId, started.pipelineId);
-    });
-  }
 
   /**
    * Copies the Pipeline's Stages for the Task, once: a Task that already has its own keeps them.

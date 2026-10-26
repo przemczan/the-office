@@ -3,6 +3,13 @@ export type Stage = AgentStage | ScriptStage | Gate;
 
 export type StageKind = Stage["kind"];
 
+/** Each kind as the UI names it. */
+export const STAGE_KIND_NAMES: Readonly<Record<StageKind, string>> = {
+  agent: "Agent Stage",
+  script: "Script Stage",
+  gate: "Gate",
+};
+
 /**
  * The Project command a Script Stage runs. `publish` is the Project's publishing mode, run by The
  * Office's own git code rather than a command string (spec §9).

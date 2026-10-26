@@ -14,7 +14,7 @@ import {
   TaskWorktrees,
 } from "./modules/projects/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
-import { WorkModule } from "./modules/work/index.js";
+import { TaskService, WorkModule } from "./modules/work/index.js";
 import type { OfficeConfig } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
 import { EventsModule } from "./platform/events/events.module.js";
@@ -36,6 +36,16 @@ export class AppModule {
       imports: [projects],
       projectBases: BaseCheckouts,
     });
+    const work = WorkModule.register({
+      imports: [projects, conversations, PeopleModule, PipelineLibraryModule],
+      knownProjects: ProjectService,
+      projectWorktrees: TaskWorktrees,
+      knownPeople: RoleCards,
+      knownPipelines: PipelineLibrary,
+      sessionPeople: ThreadService,
+      sessionTasks: ThreadService,
+      taskThreads: ThreadService,
+    });
     return {
       module: AppModule,
       imports: [
@@ -47,21 +57,12 @@ export class AppModule {
         HealthModule,
         OfficeDataModule.forRoot(config.officeDataDirectory),
         PeopleModule,
-        PipelinesModule,
+        PipelinesModule.register({ imports: [work], startedTasks: TaskService }),
         projects,
         SkillsModule,
         TelemetryModule,
         WebAppModule.register(webApp),
-        WorkModule.register({
-          imports: [projects, conversations, PeopleModule, PipelineLibraryModule],
-          knownProjects: ProjectService,
-          projectWorktrees: TaskWorktrees,
-          knownPeople: RoleCards,
-          knownPipelines: PipelineLibrary,
-          sessionPeople: ThreadService,
-          sessionTasks: ThreadService,
-          taskThreads: ThreadService,
-        }),
+        work,
       ],
     };
   }

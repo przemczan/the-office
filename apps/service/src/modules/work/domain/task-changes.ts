@@ -9,7 +9,12 @@ import {
   TaskStateChanged,
 } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
-import { NOT_STARTED_STATES, stateChangeProblems } from "./task-states.js";
+import {
+  NOT_STARTED_STATES,
+  STARTED_STATES,
+  TASK_STATE_NAMES,
+  stateChangeProblems,
+} from "./task-states.js";
 
 /** A Task after a change, with the event that announces it. */
 export interface TaskChange<Event extends DomainEvent> {
@@ -63,6 +68,22 @@ export function changeTaskState(
   if (problems.length > 0) throw new TaskRefused(problems);
   if (task.state === to) return undefined;
   return { task: { ...task, state: to }, event: new TaskStateChanged(task.id, task.state, to) };
+}
+
+/**
+ * A started Task moved along its Pipeline by the Stage interpreter. Only Start moves a Ready Task
+ * to In progress, so a Task that hasn't started, or has ended, is refused.
+ */
+export function changeStartedTaskState(
+  task: Task,
+  to: Task["state"],
+): TaskChange<TaskStateChanged> | undefined {
+  if (!STARTED_STATES.includes(task.state)) {
+    throw new TaskRefused([
+      `Only a started Task moves along its Pipeline; this one is in ${TASK_STATE_NAMES[task.state]}.`,
+    ]);
+  }
+  return changeTaskState(task, to);
 }
 
 /** Undefined when the Task already has that priority. */

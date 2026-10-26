@@ -5,10 +5,13 @@ import { startTestApplication } from "../../../../test/test-application.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
-import { TaskStarted } from "../../work/index.js";
 import { builtInPipelines } from "../domain/built-in-pipelines.js";
 import { TaskStagesMade } from "../domain/task-stages-events.js";
 import { PipelinesModule } from "../pipelines.module.js";
+import {
+  PipelinesPortsForTestsModule,
+  StartedTasksForTests,
+} from "../ports/pipelines-ports.fixtures.js";
 import { TaskStagesService } from "./task-stages-service.js";
 
 let app: INestApplication;
@@ -17,7 +20,13 @@ let published: DomainEvent[];
 beforeEach(async () => {
   ({ app } = await startTestApplication({
     database: true,
-    imports: [EventsModule, PipelinesModule],
+    imports: [
+      EventsModule,
+      PipelinesModule.register({
+        imports: [PipelinesPortsForTestsModule],
+        startedTasks: StartedTasksForTests,
+      }),
+    ],
   }));
   published = [];
   app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));
@@ -30,10 +39,10 @@ afterEach(async () => {
 const quickFix = builtInPipelines.find(({ id }) => id === "quick-fix");
 
 describe("TaskStagesService", () => {
-  it("copies the Pipeline's Stages for a Task as it starts", async () => {
+  it("copies the Pipeline's Stages for a Task", async () => {
     const taskId = randomUUID();
 
-    await app.get(EventBus).publish(new TaskStarted(taskId, "quick-fix"));
+    await app.get(TaskStagesService).make(taskId, "quick-fix");
 
     const made = await app.get(TaskStagesService).find(taskId);
     expect(made).toMatchObject({ taskId, pipelineId: "quick-fix", stages: quickFix?.stages });

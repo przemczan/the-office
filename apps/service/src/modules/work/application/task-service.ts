@@ -7,6 +7,7 @@ import { boardOrder, orderAfter } from "../domain/manual-order.js";
 import { newTaskProblems, type NewTask, type Priority, type Task } from "../domain/task.js";
 import {
   changePriority,
+  changeStartedTaskState,
   changeTaskState,
   createTask,
   reorderTask,
@@ -74,6 +75,11 @@ export class TaskService {
 
   async drop(id: string): Promise<Task> {
     return this.update(id, (task) => changeTaskState(task, "dropped"));
+  }
+
+  /** Moves a started Task along its Pipeline: Pipelines' interpreter calls it, Start never does. */
+  async changeState(id: string, state: Task["state"]): Promise<Task> {
+    return this.update(id, (task) => changeStartedTaskState(task, state));
   }
 
   private async update<Event extends DomainEvent>(
