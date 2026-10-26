@@ -43,7 +43,7 @@ services:
       start_interval: 2s
     restart: unless-stopped
 
-  # npm run verify:linux (Build defaults in docs/tasks/README.md): tools/verify-linux/verify-linux.sh
+  # npm run verify:linux (docs/tasks/build-defaults.md): tools/verify-linux/verify-linux.sh
   # on the working tree, mounted read-only. Started only by `docker compose run`.
   verify-linux:
     profiles: [verify-linux]

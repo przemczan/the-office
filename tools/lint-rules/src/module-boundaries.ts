@@ -6,7 +6,7 @@ const DOMAIN_EVENT_FILE = "events/domain-event";
 /** The wire format of the HTTP API and the WebSocket push, mapped to and from in adapters only. */
 const CONTRACTS_PACKAGE = "@the-office/contracts";
 
-const TEMPLATE = "See the module template in apps/service/README.md.";
+const TEMPLATE = "See the module template in apps/service/docs/module-template.md.";
 
 export interface ImportInWorkspace {
   readonly importer: Place;

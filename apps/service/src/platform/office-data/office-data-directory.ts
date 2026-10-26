@@ -1,6 +1,6 @@
 import { join } from "node:path";
 
-/** The folders of the Office data directory (Build defaults in docs/tasks/README.md). */
+/** The folders of the Office data directory (docs/tasks/build-defaults.md). */
 export type OfficeDataFolder =
   "worktrees" | "bases" | "sessions" | "skills" | "attachments" | "test-output";
 

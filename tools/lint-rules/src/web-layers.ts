@@ -1,4 +1,4 @@
-/** The web app, laid out as the Build defaults name it (docs/tasks/README.md). */
+/** The web app, laid out as the Build defaults name it (docs/tasks/build-defaults.md). */
 export const WEB_APP_DIRECTORY = "apps/web";
 
 /** Where a file lies in apps/web. */
@@ -15,7 +15,7 @@ export type WebPlace =
   /** Outside `src/`, such as the configs and the end-to-end tests. */
   | { readonly kind: "elsewhere" };
 
-const LAYOUT = "See the web's layout in the Build defaults (docs/tasks/README.md).";
+const LAYOUT = "See the web's layout in the Build defaults (docs/tasks/build-defaults.md).";
 
 /**
  * @param workspacePath - the file's path inside apps/web, with forward slashes, e.g.

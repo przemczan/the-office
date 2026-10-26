@@ -17,7 +17,7 @@ const workspaceBoundaries: Rule = {
     ),
 };
 
-/** Keeps each module's internals private and its layers pointing inward (apps/service/README.md). */
+/** Keeps each module's internals private and its layers pointing inward (apps/service/docs/module-template.md). */
 const moduleBoundaries: Rule = {
   meta: { type: "problem", docs: { description: "Keep modules apart and their layers inward." } },
   create: (context) => checkImports(context, moduleViolation),

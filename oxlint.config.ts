@@ -21,7 +21,7 @@ export default defineConfig({
   categories: { correctness: "error", suspicious: "error" },
   options: { denyWarnings: true, reportUnusedDisableDirectives: "error" },
   ignorePatterns: ["design-system/**"],
-  // The layering rules of apps/service/README.md and the Build defaults; see tools/lint-rules/.
+  // The layering rules of apps/service/docs/module-template.md and the Build defaults; see tools/lint-rules/.
   jsPlugins: [inRepository("./tools/lint-rules/src/plugin.ts")],
   rules: {
     "office/workspace-boundaries": "error",

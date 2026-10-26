@@ -10,7 +10,7 @@ import type { AgentShell, Shell } from "./shell.js";
 export interface OperatingSystem {
   /** For messages and telemetry only; a plain string, so nothing outside os/ can branch on it. */
   readonly name: string;
-  /** Where the Office data directory lives when OFFICE_DATA_DIR is not set (Build defaults in docs/tasks/README.md). */
+  /** Where the Office data directory lives when OFFICE_DATA_DIR is not set (docs/tasks/build-defaults.md). */
   readonly defaultOfficeDataDirectory: string;
   readonly paths: PathRules;
   /** The shell a Project's commands run in. */

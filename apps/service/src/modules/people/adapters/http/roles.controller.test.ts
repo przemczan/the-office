@@ -33,7 +33,7 @@ import { roles } from "../postgres/roles.schema.js";
 
 // The only test file that hires from the presets: their Roles' keys are fixed, and every test
 // file shares the database, so it removes them, and takes their skills away, before each test
-// (apps/service/README.md). A person's history starts at the hire, so that change isn't in it.
+// (apps/service/docs/testing.md). A person's history starts at the hire, so that change isn't in it.
 const PRESET_KEYS = PRESETS.map((preset) => preset.roleKey);
 
 let officeData: string;

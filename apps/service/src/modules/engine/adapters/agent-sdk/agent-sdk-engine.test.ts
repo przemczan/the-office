@@ -26,7 +26,7 @@ import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
 /**
  * These tests run real sessions on the user's login, which cost quota, so they run only when asked:
  * OFFICE_ENGINE_TESTS=live runs them, and OFFICE_ENGINE_TESTS=record also writes each contract
- * scenario's recording for the scripted engine (apps/service/README.md).
+ * scenario's recording for the scripted engine (apps/service/docs/testing.md).
  */
 const MODE = process.env["OFFICE_ENGINE_TESTS"];
 const MODEL = "claude-haiku-5-5";

@@ -34,7 +34,7 @@ export interface TaskThreadSource {
 /**
  * Where the module keeping Tasks gives Conversations what a Thread on a Task works with. That
  * module calls Conversations to open its Threads, so it registers here instead of being called
- * through a port: a module import each way would be a cycle (apps/service/README.md).
+ * through a port: a module import each way would be a cycle (apps/service/docs/module-template.md).
  */
 @Injectable()
 export class TaskThreadSetups {
