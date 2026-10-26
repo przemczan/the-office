@@ -40,6 +40,19 @@ describe("the built-in Pipelines", () => {
     );
   });
 
+  it("give each Agent Stage the budgets before it plus its own, as budgets count the whole Task", () => {
+    const budgets = builtInPipelines.map((pipeline) => [
+      pipeline.name,
+      pipeline.stages.flatMap((stage) => (stage.kind === "agent" ? [stage.budget] : [])),
+    ]);
+
+    expect(budgets).toEqual([
+      ["Full", [250_000, 370_000]],
+      ["Quick fix", [100_000]],
+      ["Document", [80_000, 120_000]],
+    ]);
+  });
+
   it("send failed tests back to Implement and make Publish optional", () => {
     for (const name of ["Full", "Quick fix"]) {
       const stages = builtInPipelines.find((pipeline) => pipeline.name === name)!.stages;

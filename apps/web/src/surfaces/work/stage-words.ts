@@ -1,4 +1,11 @@
-import type { ContextMove, Stage, StageRun, StageState, TaskStage } from "@the-office/contracts";
+import type {
+  ContextMove,
+  Stage,
+  StageRun,
+  StageState,
+  TaskStage,
+  Thread,
+} from "@the-office/contracts";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
 
 /**
@@ -124,4 +131,15 @@ function firstLine(text: string): string {
 /** The Office writes commands in Markdown code spans; the line shows them as plain words. */
 function plain(text: string): string {
   return text.replaceAll("`", "");
+}
+
+/**
+ * The Task's tokens as its budgets count them: input, output and cache writes of every Thread on
+ * it, leaving out cache reads, so they compare with the Stages' tokens and budgets.
+ */
+export function taskTokens(threads: readonly Pick<Thread, "tokens">[] | undefined): number {
+  return (threads ?? []).reduce(
+    (sum, { tokens }) => sum + tokens.input + tokens.output + tokens.cacheCreation,
+    0,
+  );
 }

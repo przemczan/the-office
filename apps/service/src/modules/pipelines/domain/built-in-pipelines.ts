@@ -3,6 +3,9 @@ import type { Pipeline } from "./pipeline.js";
 /** The Role the Developer preset is hired into; People (task 08) keys it the same way. */
 const DEVELOPER = "developer";
 
+// A budget is checked against the whole Task's tokens (spec §2.3), so each Agent Stage's is the
+// budgets of the Stages before it plus its own, written as that sum.
+
 const full: Pipeline = {
   id: "full",
   name: "Full",
@@ -35,7 +38,7 @@ const full: Pipeline = {
       brief:
         "Review the diff against the Plan and the Definition of Done as if someone else wrote it, then fix what you find.",
       session: "fresh",
-      budget: 120_000,
+      budget: 250_000 + 120_000,
       optional: false,
       onFailure: { goBackTo: "implement", rounds: 1 },
     },
@@ -100,8 +103,7 @@ const document: Pipeline = {
       role: DEVELOPER,
       brief: "Read the Attachment as its reader would and fix it.",
       session: "fresh",
-      // Checked against the whole Task's tokens, so it sits above Produce's: 40k of its own.
-      budget: 120_000,
+      budget: 80_000 + 40_000,
       optional: false,
     },
   ],

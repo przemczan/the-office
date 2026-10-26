@@ -8,7 +8,8 @@ import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { taskQueries } from "../../api/work.ts";
-import { threadTokens, tokensShort } from "../../shell/conversation/context-words.ts";
+import { tokensShort } from "../../shell/conversation/context-words.ts";
+import { taskTokens } from "./stage-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
@@ -62,7 +63,7 @@ function TaskHead({
   readonly pipeline: Pipeline | undefined;
   readonly threads: readonly Thread[] | undefined;
 }): ReactNode {
-  const tokens = threads?.reduce((sum, thread) => sum + threadTokens(thread), 0) ?? 0;
+  const tokens = taskTokens(threads);
   const waitingOnYou = useWaitingOnYouWhilePlanning();
   return (
     <header className="task-head">

@@ -6,6 +6,7 @@ import {
   scriptCommandLine,
   stageNamesOf,
   stageProgressLine,
+  taskTokens,
 } from "./stage-words.ts";
 
 const implement: Stage = {
@@ -152,5 +153,14 @@ describe("durationWords", () => {
       "1h 10 min",
       "2h",
     ]);
+  });
+});
+
+describe("taskTokens", () => {
+  it("counts the Task's Threads as budgets do, without cache reads", () => {
+    const tokens = { input: 10, output: 200, cacheRead: 30_000, cacheCreation: 4_000 };
+
+    expect(taskTokens([{ tokens }, { tokens }])).toBe(8_420);
+    expect(taskTokens(undefined)).toBe(0);
   });
 });
