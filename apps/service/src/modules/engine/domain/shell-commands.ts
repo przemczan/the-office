@@ -12,6 +12,11 @@ export interface SimpleCommand {
   /** As the shell passes them on: quotes removed, escapes applied, variables not expanded. */
   readonly words: readonly string[];
   readonly redirects: readonly Redirect[];
+  /**
+   * Whether it runs in the command line's own shell, so a `cd` there moves the commands after it;
+   * false in a subshell, a substitution, a pipeline, the background or a script handed to a shell.
+   */
+  readonly inMainShell: boolean;
 }
 
 /** A command line The Office can't read well enough to judge, such as an encoded PowerShell command. */
@@ -41,7 +46,7 @@ export function simpleCommands(commandLine: string, dialect: ShellDialect): Simp
 function readCommands(text: string, dialect: ShellDialect, depth: number): SimpleCommand[] {
   if (depth > MAXIMUM_NESTING) throw new UnreadableCommand("it nests scripts too deeply");
   const reader = new CommandReader(text, dialect);
-  reader.readList(undefined);
+  reader.readList(undefined, depth === 0);
   return reader.commands.flatMap((command) => [
     command,
     ...nestedScript(command, dialect).flatMap((script) =>
@@ -79,6 +84,9 @@ export function programName(word: string): string {
       .replace(/\.(exe|cmd|bat|com)$/, "") ?? ""
   );
 }
+
+/** Operators that run the command before them in a subshell: a pipe, or `&` for the background. */
+const SUBSHELL_SEPARATORS: ReadonlySet<string> = new Set(["|", "|&", "&"]);
 
 const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*\+?=/;
 
@@ -286,12 +294,22 @@ class CommandReader {
     private readonly dialect: ShellDialect,
   ) {}
 
-  /** Reads commands up to `closing`, which it consumes, or to the end. */
-  readList(closing: string | undefined): void {
+  /**
+   * Reads commands up to `closing`, which it consumes, or to the end; `mainShell` tells whether they
+   * run in the command line's own shell.
+   */
+  readList(closing: string | undefined, mainShell: boolean): void {
     let words: string[] = [];
     let redirects: Redirect[] = [];
-    const finish = (): void => {
-      if (words.length > 0 || redirects.length > 0) this.commands.push({ words, redirects });
+    let pipedInto = false;
+    /** Ends the command; `separator` is the operator after it, which may put it in a subshell. */
+    const finish = (separator = ""): void => {
+      const leavesShell = SUBSHELL_SEPARATORS.has(separator);
+      if (words.length > 0 || redirects.length > 0) {
+        const inMainShell = mainShell && !pipedInto && !leavesShell;
+        this.commands.push({ words, redirects, inMainShell });
+      }
+      pipedInto = separator === "|" || separator === "|&";
       words = [];
       redirects = [];
     };
@@ -306,8 +324,8 @@ class CommandReader {
       const separator = this.separatorLength();
       if (separator > 0) {
         const newline = this.text[this.position] === "\n";
+        finish(this.text.slice(this.position, this.position + separator));
         this.position += separator;
-        finish();
         if (newline) this.skipHereDocuments();
         continue;
       }
@@ -319,7 +337,7 @@ class CommandReader {
         finish();
         const nestedClosing = this.text[this.position] === "(" ? ")" : "}";
         this.position++;
-        this.readList(nestedClosing);
+        this.readList(nestedClosing, false);
         continue;
       }
       if (this.startsWith(")") || this.startsWith("}")) {
@@ -573,7 +591,7 @@ class CommandReader {
   private readSubstitution(opening: number, closing: string): string {
     const start = this.position;
     this.position += opening;
-    this.readList(closing);
+    this.readList(closing, false);
     return this.text.slice(start, this.position);
   }
 
@@ -599,7 +617,7 @@ class CommandReader {
 /** The commands of a script inside a word, such as backticks, read in the same dialect. */
 function readCommandsWithin(script: string, dialect: ShellDialect): SimpleCommand[] {
   const reader = new CommandReader(script, dialect);
-  reader.readList(undefined);
+  reader.readList(undefined, false);
   return reader.commands;
 }
 

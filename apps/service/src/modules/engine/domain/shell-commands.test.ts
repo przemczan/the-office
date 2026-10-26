@@ -84,6 +84,7 @@ describe("simpleCommands in Bash", () => {
           { target: "in.txt", writes: false },
           { target: "all.log", writes: true },
         ],
+        inMainShell: true,
       },
     ]);
   });
@@ -139,8 +140,36 @@ describe("simpleCommands in PowerShell", () => {
 
   it("names where a command's streams go", () => {
     expect(simpleCommands("npm test *> $null; git log > log.txt 2>&1", "powershell")).toEqual([
-      { words: ["npm", "test"], redirects: [{ target: "$null", writes: true }] },
-      { words: ["git", "log"], redirects: [{ target: "log.txt", writes: true }] },
+      { words: ["npm", "test"], redirects: [{ target: "$null", writes: true }], inMainShell: true },
+      {
+        words: ["git", "log"],
+        redirects: [{ target: "log.txt", writes: true }],
+        inMainShell: true,
+      },
+    ]);
+  });
+
+  it("tells which commands run in the command line's own shell", () => {
+    expect(mainShellOf("cd a && ls; pwd || true")).toEqual([
+      ["cd", true],
+      ["ls", true],
+      ["pwd", true],
+      ["true", true],
+    ]);
+    expect(mainShellOf("cd a | cat & sleep 1")).toEqual([
+      ["cd", false],
+      ["cat", false],
+      ["sleep", true],
+    ]);
+    expect(mainShellOf("(cd a) && echo $(cd b) `cd c`")).toEqual([
+      ["cd", false],
+      ["cd", false],
+      ["cd", false],
+      ["echo", true],
+    ]);
+    expect(mainShellOf(`bash -c "cd a"`)).toEqual([
+      ["bash", true],
+      ["cd", false],
     ]);
   });
 });
@@ -152,3 +181,11 @@ describe("programName", () => {
     expect(programName("git")).toBe("git");
   });
 });
+
+/** Each command's program, with whether it runs in the line's own shell. */
+function mainShellOf(commandLine: string): (string | boolean | undefined)[][] {
+  return simpleCommands(commandLine, "bash").map((command) => [
+    command.words[0],
+    command.inMainShell,
+  ]);
+}

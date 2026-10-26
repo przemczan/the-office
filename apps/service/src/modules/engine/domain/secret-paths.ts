@@ -32,14 +32,14 @@ export class SecretPaths {
 
   /**
    * The secret a path or a command's word names, or undefined. A word is read with the session's
-   * variables expanded and relative to the working folder, and so is what follows each `=` in it,
-   * as in `--key-file=~/.ssh/id`.
+   * variables expanded and relative to `directory`, the working folder unless a `cd` moved the
+   * command elsewhere, and so is what follows each `=` in it, as in `--key-file=~/.ssh/id`.
    */
-  namedBy(word: string): string | undefined {
+  namedBy(word: string, directory: string = this.rules.workingFolder): string | undefined {
     const expanded = this.expand(word);
     const candidates = [expanded, ...expanded.split("=").slice(1)];
     for (const candidate of candidates) {
-      const secret = this.byHomeTail(candidate) ?? this.byPath(candidate);
+      const secret = this.byHomeTail(candidate) ?? this.byPath(candidate, directory);
       if (secret !== undefined) return secret;
     }
     return undefined;
@@ -50,16 +50,17 @@ export class SecretPaths {
     return this.homeTails.find((tail) => containsInOrder(names, tail.names))?.secret;
   }
 
-  private byPath(candidate: string): string | undefined {
+  private byPath(candidate: string, directory: string): string | undefined {
     const { paths, workingFolder, readableFolders, userSecrets, officeFiles } = this.rules;
-    const path = paths.resolve(workingFolder, candidate);
+    const path = paths.resolve(directory, candidate);
     if ([workingFolder, ...readableFolders].some((folder) => paths.isWithin(path, folder))) {
       return undefined;
     }
     return [...userSecrets, ...officeFiles].find((secret) => paths.isWithin(path, secret));
   }
 
-  private expand(word: string): string {
+  /** The word with `~` and the session's variables replaced by what they hold. */
+  expand(word: string): string {
     return word
       .replace(HOME, this.rules.homeFolder)
       .replaceAll(VARIABLE, (whole, ...names: (string | undefined)[]) => {

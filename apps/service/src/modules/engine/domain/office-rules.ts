@@ -1,4 +1,5 @@
 import type { AgentAction } from "./agent-action.js";
+import { directoryChange } from "./directory-change.js";
 import { gitChange, isGit, READ_ONLY_GIT_COMMANDS } from "./git-commands.js";
 import type { CommandPermission } from "./permission-profile.js";
 import { SecretPaths } from "./secret-paths.js";
@@ -21,6 +22,9 @@ const PROTECTED_NAMES: ReadonlySet<string> = new Set([".git", ".claude", ".mcp.j
 
 /** Where output written to it goes nowhere: Bash's and cmd.exe's null device, PowerShell's $null. */
 const NULL_DEVICES: ReadonlySet<string> = new Set(["/dev/null", "nul", "$null"]);
+
+/** What is left of a variable or a substitution in a word once the session's variables are expanded. */
+const UNREAD_PARTS = /[$`%]/;
 
 const ALLOWED: ToolDecision = { allowed: true };
 
@@ -81,8 +85,8 @@ export class OfficeRules {
       : undefined;
   }
 
-  private secretRefusal(word: string): string | undefined {
-    const secret = this.secrets.namedBy(word);
+  private secretRefusal(word: string, directory?: string): string | undefined {
+    const secret = this.secrets.namedBy(word, directory);
     return secret === undefined
       ? undefined
       : `Refused by The Office: ${secret} holds the user's secrets or The Office's own files, which Agents never read or change.`;
@@ -97,9 +101,7 @@ export class OfficeRules {
       return refused(`Refused by The Office: ${error.reason}; write the command out plainly.`);
     }
     const refusal =
-      this.firstCommandRefusal(commands, (command) =>
-        this.officeCommandRefusal(command, dialect),
-      ) ??
+      this.officeRefusalAlong(commands, dialect) ??
       this.firstCommandRefusal(commands, (command) =>
         this.profileCommandRefusal(command, dialect, this.rules.profile.run),
       );
@@ -117,11 +119,50 @@ export class OfficeRules {
     return undefined;
   }
 
-  /** Secrets and git, which hold under every profile. */
-  private officeCommandRefusal(command: SimpleCommand, dialect: ShellDialect): string | undefined {
+  /** The Office's refusal of the first command that has one, following the line's `cd`s. */
+  private officeRefusalAlong(
+    commands: readonly SimpleCommand[],
+    dialect: ShellDialect,
+  ): string | undefined {
+    let directories: readonly string[] = [this.rules.workingFolder];
+    for (const command of commands) {
+      const refusal = this.officeCommandRefusal(command, dialect, directories);
+      if (refusal !== undefined) return refusal;
+      directories = this.directoriesAfter(command, dialect, directories);
+    }
+    return undefined;
+  }
+
+  /**
+   * Where the commands after this one may run. A `cd` in the line's own shell moves them; one in a
+   * subshell or a pipeline may not last, so they may run in either place, and both are judged.
+   */
+  private directoriesAfter(
+    command: SimpleCommand,
+    dialect: ShellDialect,
+    directories: readonly string[],
+  ): readonly string[] {
+    const change = directoryChange(command, dialect);
+    if (change.kind === "none" || change.kind === "unknown") return directories;
+    const target =
+      change.kind === "home" ? this.rules.homeFolder : this.secrets.expand(change.path);
+    // A variable the session doesn't set, or a substitution: where it goes is not read.
+    if (UNREAD_PARTS.test(target)) return directories;
+    const moved = directories.map((directory) => this.rules.paths.resolve(directory, target));
+    return [...new Set(command.inMainShell ? moved : [...directories, ...moved])];
+  }
+
+  /** Secrets and git, which hold under every profile, for a command run in any of `directories`. */
+  private officeCommandRefusal(
+    command: SimpleCommand,
+    dialect: ShellDialect,
+    directories: readonly string[],
+  ): string | undefined {
     for (const word of [...command.words, ...command.redirects.map(({ target }) => target)]) {
-      const secret = this.secretRefusal(word);
-      if (secret !== undefined) return secret;
+      for (const directory of directories) {
+        const secret = this.secretRefusal(word, directory);
+        if (secret !== undefined) return secret;
+      }
     }
     const program = programWords(command, dialect);
     const change = isGit(program) ? gitChange(program) : undefined;

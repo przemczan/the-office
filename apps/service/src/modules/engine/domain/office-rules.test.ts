@@ -146,6 +146,39 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
     });
   });
 
+  describe.each(platform.dialects)("paths after a cd, in %s", (dialect) => {
+    /** The data directory as a path from the home folder, which a `cd ~` makes relative. */
+    const dataFromHome =
+      platform === WINDOWS ? "AppData/Local/the-office" : ".local/share/the-office";
+
+    it.each([
+      "cd apps/web/src && cat ../../../README.md",
+      "cd apps/web/src && cd ../../.. && cat README.md",
+      "cd apps/web; cat ../../package.json",
+      `cd '${join(platform.worktree, "apps", "web")}' && cat ../../README.md`,
+      ...(dialect === "powershell"
+        ? ["Set-Location apps/web/src; Get-Content ../../../README.md"]
+        : ["pushd apps/web/src && cat ../../../README.md"]),
+    ])("reads relative paths from where the cd went: allows %s", (commandLine) => {
+      expect(decide(command(dialect, commandLine))).toEqual({ allowed: true });
+    });
+
+    it.each([
+      "cd apps/web/src && cat ../../../../settings.json",
+      `cd ~ && cat ${dataFromHome}/settings.json`,
+      "cd .. && cat task-2/src/app.ts",
+      // A cd that may not last, in a subshell or a pipeline, leaves the worktree a place to read from.
+      "(cd apps/web/src) && cat ../../../settings.json",
+      "cd apps/web/src | cat ../../../settings.json",
+      "cat $(cd apps/web/src) ../../../settings.json",
+    ])("refuses %s", (commandLine) => {
+      expect(decide(command(dialect, commandLine))).toMatchObject({
+        allowed: false,
+        reason: expect.stringContaining("holds the user's secrets or The Office's own files"),
+      });
+    });
+  });
+
   it.runIf(platform === WINDOWS)(
     "refuses secrets named by PowerShell's and cmd.exe's variables",
     () => {

@@ -63,6 +63,10 @@ export function agentStageRecord({
     diffSummary === undefined ? undefined : `## What changed so far\n\n${diffSummary}`,
     attachmentsSection(task.attachmentLines),
     `## Commands you may run\n\n${commands.words}`,
+    // Claude Code asks approval for `cd <absolute path> && …` whatever the hook allows, which
+    // fails an unattended Stage (task 12's check on the Test Project).
+    "Run them in the worktree, where your session starts, with paths relative to it; never `cd` to an absolute path, as that stops the Stage to ask for approval.",
+    "The Office commits the Stage's work after it ends, so don't commit it yourself, and don't write in your Handover note that your changes are uncommitted.",
   ]);
 }
 

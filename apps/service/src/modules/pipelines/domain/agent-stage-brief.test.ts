@@ -48,6 +48,8 @@ describe("agentStageRecord", () => {
         "## Where you work\n\nThe Task's worktree, at /worktrees/task on the branch office/task, which started from main.",
         "## Attachments\n\nNone.",
         "## Commands you may run\n\nYou may run read-only git (git status, git diff) only.",
+        "Run them in the worktree, where your session starts, with paths relative to it; never `cd` to an absolute path, as that stops the Stage to ask for approval.",
+        "The Office commits the Stage's work after it ends, so don't commit it yourself, and don't write in your Handover note that your changes are uncommitted.",
       ].join("\n\n"),
     );
   });
