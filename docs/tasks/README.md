@@ -19,7 +19,7 @@ Tier 1 of [the spec](../spec.md#tier-1-the-base), sliced into tasks in build ord
 | 11 | [Planning a Task with the Planner](11-planning.md) | Work and the Task page | done |
 | 12 | [The Stage interpreter: Start, Agent and Script Stages, loops](12-stage-interpreter.md) | Work and the Task page | done |
 | 13 | [A running Task: barge-in, Stop, Pause, Decisions, Office tools](13-running-task.md) | Work and the Task page | done |
-| 14 | [Gates, the Changes tab and Publish](14-gates-publish.md) | Work and the Task page | in progress |
+| 14 | [Gates, the Changes tab and Publish](14-gates-publish.md) | Work and the Task page | done |
 | 15 | [Edit for this Task: the Stage editor](15-stage-editor.md) | Work and the Task page | todo |
 | 16 | [Now, the status strip and Notifications](16-now-notifications.md) | Now | todo |
 | 17 | [Settings, and the tier 1 acceptance run](17-settings-acceptance.md) | Settings | todo |
