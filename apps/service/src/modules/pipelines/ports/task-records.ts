@@ -6,6 +6,7 @@ export interface TaskRecord {
   /** Each of the Task's Attachments, as a line of a Brief; none when it has none. */
   readonly attachmentLines: readonly string[];
   readonly project: {
+    readonly id: string;
     readonly name: string;
     readonly baseBranch: string;
     /** Its commands by their key (install, build, lint, test); empty for one it doesn't run. */

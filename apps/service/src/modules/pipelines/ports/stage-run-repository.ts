@@ -11,6 +11,9 @@ export abstract class StageRunRepository {
   /** Saves the Stage Thread the run works in. */
   abstract saveThread(runId: string, threadId: string): Promise<void>;
 
+  /** Saves the commit The Office left the Task's branch at after the run. */
+  abstract saveHeadCommit(runId: string, headCommit: string): Promise<void>;
+
   /** Saves how the run ended. */
   abstract saveEnded(run: StageRun): Promise<void>;
 

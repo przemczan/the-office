@@ -125,6 +125,13 @@ export abstract class Git {
   abstract head(worktreePath: string): Promise<Head>;
 
   /**
+   * git's summary of what the worktree's commits changed since they forked from the base branch,
+   * as its upstream has it when it tracks one, else as it is locally (spec §9), without fetching:
+   * a line per file, the first ones only when there are many, and a total. Empty when nothing did.
+   */
+  abstract diffSummary(worktreePath: string, baseBranch: string): Promise<string>;
+
+  /**
    * Reverts tracked files to the last commit, keeping untracked and ignored ones, such as
    * screenshots and dependencies. Returns the reverted paths.
    */

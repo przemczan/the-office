@@ -7,6 +7,7 @@ import {
   type EarlierResult,
 } from "../domain/agent-stage-brief.js";
 import { allowedCommands } from "../domain/allowed-commands.js";
+import { headProblem, stageCommitMessage, type ExpectedHead } from "../domain/stage-commit.js";
 import type { Stage } from "../domain/stage.js";
 import type { CarriedFailure, StageOutcome, StageRun } from "../domain/stage-run.js";
 import {
@@ -18,7 +19,7 @@ import {
 import { KnownPeople, type KnownPerson } from "../ports/known-people.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StageThreads, type StageThread, type StageTurn } from "../ports/stage-threads.js";
-import { TaskDiffs } from "../ports/task-diffs.js";
+import { TaskGit } from "../ports/task-git.js";
 import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
 import type { StageRunner, StageWork } from "./stage-runner.js";
 import { StageRunners } from "./stage-runners.js";
@@ -32,7 +33,9 @@ type Ending = Parameters<StageThread["end"]>[0];
  * Runs Agent Stages (spec §2.3): the person who fills the Stage's Role works it in its Stage Thread,
  * in the session the Context policy gives it with the Stage's declared session, briefed from the
  * record. Its result is read against the result schema, corrected once in the same session when it
- * doesn't match (research §6), and becomes the run's outcome with its Handover note.
+ * doesn't match (research §6), and becomes the run's outcome with its Handover note. Then The Office
+ * ends the session with what it left running, checks git is where it left it, and commits the
+ * Stage's work (spec §5.5).
  */
 @Injectable()
 export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
@@ -41,7 +44,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     private readonly records: TaskRecords,
     private readonly people: KnownPeople,
     private readonly threads: StageThreads,
-    private readonly diffs: TaskDiffs,
+    private readonly git: TaskGit,
     private readonly runs: StageRunRepository,
   ) {}
 
@@ -58,11 +61,24 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         error: `Nobody fills the Role "${stage.role}" this Stage needs: hire them on People.`,
       };
     }
-    const thread = await this.open(work, person, await this.records.read(work.run.taskId));
+    const task = await this.records.read(work.run.taskId);
+    const expected = await this.expectedHead(work, task);
+    const before = headProblem(expected, await this.git.head(task.project.id, work.run.taskId));
+    if (before) {
+      await this.runs.saveHeadCommit(work.run.id, expected.commit);
+      return {
+        status: "failed",
+        error: `The Task's worktree isn't where The Office left it: ${before}. The Stage didn't start; put the branch back to go on.`,
+      };
+    }
+    const thread = await this.open(work, person, task);
     let ending: Ending = { handoverNote: undefined, failure: undefined };
     try {
       await this.runs.saveThread(work.run.id, thread.threadId);
-      const outcome = await this.resultOf(thread);
+      const result = await this.resultOf(thread);
+      // Before git is read, so a dev server or a watcher it started can't change the worktree.
+      await thread.endSession();
+      const outcome = await this.commitWork(work, task, expected, result);
       ending = endingOf(outcome);
       return outcome;
     } catch (error) {
@@ -71,6 +87,44 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     } finally {
       await thread.end(ending);
     }
+  }
+
+  /**
+   * The Task's branch at the commit The Office last left it at; at the Task's first Stage, where
+   * planning left it.
+   */
+  private async expectedHead(
+    { run, earlierRuns }: StageWork<"agent">,
+    task: TaskRecord,
+  ): Promise<ExpectedHead> {
+    const left = earlierRuns.findLast(({ headCommit }) => headCommit !== undefined)?.headCommit;
+    const commit = left ?? (await this.git.head(task.project.id, run.taskId)).commit;
+    return { commit, branch: task.worktree.branch };
+  }
+
+  /**
+   * Commits what the Stage changed, with a message from its result, unless the Stage changed git
+   * itself, which fails it with the reason and leaves its work uncommitted for the user to see.
+   */
+  private async commitWork(
+    { stage, run }: StageWork<"agent">,
+    task: TaskRecord,
+    expected: ExpectedHead,
+    result: StageOutcome,
+  ): Promise<StageOutcome> {
+    const after = headProblem(expected, await this.git.head(task.project.id, run.taskId));
+    if (after) {
+      await this.runs.saveHeadCommit(run.id, expected.commit);
+      return {
+        status: "failed",
+        error: `The Stage changed git itself: ${after}. Only The Office commits a Stage's work, so it stopped here without committing.`,
+        handoverNote: result.handoverNote,
+      };
+    }
+    const message = stageCommitMessage(stage.name, result);
+    const commit = await this.git.commit(task.project.id, run.taskId, message);
+    await this.runs.saveHeadCommit(run.id, commit ?? expected.commit);
+    return result;
   }
 
   private async open(
@@ -94,7 +148,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         worktree: task.worktree,
       },
       earlier: earlierResults(stages, earlierRuns),
-      diffSummary: await this.diffs.summaryOf(run.taskId),
+      diffSummary: await this.git.changesSoFar(task.project.id, run.taskId),
       commands,
     });
     return this.threads.open({

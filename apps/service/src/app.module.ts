@@ -58,11 +58,12 @@ export class AppModule {
         OfficeDataModule.forRoot(config.officeDataDirectory),
         PeopleModule,
         PipelinesModule.register({
-          imports: [work, PeopleModule, conversations],
+          imports: [work, PeopleModule, conversations, projects],
           startedTasks: TaskService,
           taskRecords: TaskRecords,
           knownPeople: RoleCards,
           stageThreads: StageThreads,
+          taskGit: TaskWorktrees,
         }),
         projects,
         SkillsModule,

@@ -20,6 +20,9 @@ const LONG_TIMEOUT_MS = 300_000;
 const OUTPUT_LIMIT_BYTES = 64 * 1024 * 1024;
 /** A file a process has only just let go of may still be held on Windows for a moment. */
 const REMOVE_RETRIES = 5;
+/** Enough files for a Brief to show the shape of a change; git counts the rest on one line. */
+const DIFF_SUMMARY_FILES = 40;
+const DIFF_SUMMARY_WIDTH = 120;
 
 interface GitCall {
   readonly folder: string;
@@ -99,7 +102,7 @@ export class CommandLineGit extends Git {
     upstream: Upstream,
     variables: GitVariables,
   ): Promise<string> {
-    const trackingRef = `refs/remotes/${upstream.remote}/${upstream.branch}`;
+    const trackingRef = trackingRefOf(upstream);
     await this.locked(repositoryPath, () =>
       git({
         folder: repositoryPath,
@@ -239,6 +242,24 @@ export class CommandLineGit extends Git {
     return { commit, branch: symbolicRef.exitCode === 0 ? symbolicRef.stdout.trim() : undefined };
   }
 
+  async diffSummary(worktreePath: string, baseBranch: string): Promise<string> {
+    const upstream = await this.upstreamOf(worktreePath, baseBranch);
+    const base = upstream ? trackingRefOf(upstream) : `refs/heads/${baseBranch}`;
+    // `base...HEAD` diffs from where HEAD forked from base, so the base's own later commits stay out.
+    const output = await git({
+      folder: worktreePath,
+      gitArguments: [
+        "diff",
+        "--no-color",
+        `--stat=${DIFF_SUMMARY_WIDTH}`,
+        `--stat-count=${DIFF_SUMMARY_FILES}`,
+        `${base}...HEAD`,
+        "--",
+      ],
+    });
+    return output.trimEnd();
+  }
+
   async restore(worktreePath: string, variables: GitVariables): Promise<readonly string[]> {
     const changed = await git({
       folder: worktreePath,
@@ -321,6 +342,10 @@ async function commonDirectory(folder: string): Promise<string> {
     gitArguments: ["rev-parse", "--path-format=absolute", "--git-common-dir"],
   });
   return realpath(output.trim());
+}
+
+function trackingRefOf(upstream: Upstream): string {
+  return `refs/remotes/${upstream.remote}/${upstream.branch}`;
 }
 
 async function commitOf(folder: string, revision: string): Promise<string> {

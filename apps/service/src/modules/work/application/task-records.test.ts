@@ -51,6 +51,7 @@ describe("TaskRecords", () => {
       definitionOfDone: [],
       attachmentLines: [`- Mockup (link to https://example.com/mockup) · Attachment ${link.id}`],
       project: {
+        id: projectId,
         name: `The ${projectId}`,
         baseBranch: "main",
         commands: { install: "npm install", build: "", lint: "npm run lint", test: "npm test" },

@@ -18,6 +18,7 @@ export function startStageRun(
     ...given,
     number: earlierRuns + 1,
     threadId: undefined,
+    headCommit: undefined,
     outcome: undefined,
     startedAt,
     endedAt: undefined,

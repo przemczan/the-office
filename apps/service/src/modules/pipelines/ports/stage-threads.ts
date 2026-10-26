@@ -51,7 +51,12 @@ export interface StageThread {
   nextTurn(): Promise<StageTurn>;
   /** Logs `why`, sends the person `text` in the same session, and returns the turn answering it. */
   send(text: string, why: string): Promise<StageTurn>;
-  /** Ends the session and the Stage's work in the Thread. */
+  /**
+   * Ends the session and every process it left running, such as a dev server or a watcher, so
+   * nothing changes the worktree after it.
+   */
+  endSession(): Promise<void>;
+  /** Ends the Stage's work in the Thread, and its session unless `endSession` has. */
   end(ending: {
     readonly handoverNote: string | undefined;
     readonly failure: string | undefined;

@@ -1,0 +1,68 @@
+import type { StageOutcome } from "./stage-run.js";
+
+/** git's own advice for a subject line; longer ones are cut where a log shows them. */
+const SUBJECT_LENGTH = 72;
+const SHORT_COMMIT_LENGTH = 8;
+
+/** Where The Office left the Task's worktree: on the Task's branch, at the commit it last left. */
+export interface ExpectedHead {
+  readonly commit: string;
+  readonly branch: string;
+}
+
+/**
+ * The message The Office commits a Stage's work with (spec §5.5): a subject from the Stage's
+ * result, the whole result below it, then the Handover note.
+ */
+export function stageCommitMessage(stageName: string, outcome: StageOutcome): string {
+  const result = resultText(outcome);
+  const subject = cut(`${stageName}: ${firstLine(result)}`, SUBJECT_LENGTH);
+  const body = [
+    result.trim(),
+    outcome.handoverNote === undefined
+      ? undefined
+      : `Handover note:\n${outcome.handoverNote.trim()}`,
+  ].filter((part) => part !== undefined && part !== "");
+  return [subject, ...body].join("\n\n");
+}
+
+/**
+ * How the worktree's HEAD differs from where The Office left it, in a sentence's words; undefined
+ * when it is there. A switched branch is told before a moved commit, as it explains it.
+ */
+export function headProblem(
+  expected: ExpectedHead,
+  actual: { readonly commit: string; readonly branch: string | undefined },
+): string | undefined {
+  if (actual.branch !== expected.branch) {
+    const now = actual.branch === undefined ? "a detached HEAD" : `the branch ${actual.branch}`;
+    return `the worktree is on ${now}, not the Task's branch ${expected.branch}`;
+  }
+  if (actual.commit !== expected.commit) {
+    return `HEAD moved from ${short(expected.commit)} to ${short(actual.commit)}`;
+  }
+  return undefined;
+}
+
+function resultText(outcome: StageOutcome): string {
+  switch (outcome.status) {
+    case "done":
+      return outcome.summary;
+    case "needs-decision":
+      return `Waiting on a Decision: ${outcome.question}`;
+    case "failed":
+      return `Failed: ${outcome.error}`;
+  }
+}
+
+function firstLine(text: string): string {
+  return text.trim().split("\n", 1)[0]?.trim() ?? "";
+}
+
+function cut(text: string, length: number): string {
+  return text.length <= length ? text : `${text.slice(0, length - 1).trimEnd()}…`;
+}
+
+function short(commit: string): string {
+  return commit.slice(0, SHORT_COMMIT_LENGTH);
+}

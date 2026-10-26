@@ -24,6 +24,10 @@ export class PostgresStageRunRepository extends StageRunRepository {
     await this.database.update(stageRuns).set({ threadId }).where(eq(stageRuns.id, runId));
   }
 
+  async saveHeadCommit(runId: string, headCommit: string): Promise<void> {
+    await this.database.update(stageRuns).set({ headCommit }).where(eq(stageRuns.id, runId));
+  }
+
   async saveEnded({ id, outcome, endedAt }: StageRun): Promise<void> {
     await this.database.update(stageRuns).set({ outcome, endedAt }).where(eq(stageRuns.id, id));
   }
@@ -38,6 +42,7 @@ export class PostgresStageRunRepository extends StageRunRepository {
       ...row,
       carriedFailure: row.carriedFailure ?? undefined,
       threadId: row.threadId ?? undefined,
+      headCommit: row.headCommit ?? undefined,
       outcome: row.outcome ?? undefined,
       endedAt: row.endedAt ?? undefined,
     }));

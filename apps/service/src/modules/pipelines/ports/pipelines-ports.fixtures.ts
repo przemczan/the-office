@@ -9,6 +9,7 @@ import {
   type StageTurn,
 } from "./stage-threads.js";
 import { StartedTasks, type StartedTask, type WalkTaskState } from "./started-tasks.js";
+import { TaskGit, type WorktreeHead } from "./task-git.js";
 import { TaskRecords, type TaskRecord } from "./task-records.js";
 
 /** Work's Tasks in memory: a test starts each one it walks. */
@@ -43,6 +44,7 @@ export function aTaskRecord(fields: Partial<TaskRecord> = {}): TaskRecord {
     definitionOfDone: ["The new name shows on the list", "The rename persists"],
     attachmentLines: ["- mockup.png (image, image/png, 2048 bytes) · Attachment a-1"],
     project: {
+      id: "11111111-1111-4111-8111-111111111111",
       name: "Admin panel",
       baseBranch: "main",
       commands: { install: "npm ci", build: "npm run build", lint: "", test: "npm test" },
@@ -96,6 +98,10 @@ export class StageThreadsForTests extends StageThreads {
   readonly requests: StageThreadRequest[] = [];
   /** What The Office sent into a Stage's session after its first turn, with why. */
   readonly sent: { readonly threadId: string; readonly text: string; readonly why: string }[] = [];
+  /** The Threads whose sessions ended, in order: a session ends once. */
+  readonly sessionsEnded: string[] = [];
+  /** What the person does in the worktree as each turn of theirs ends, such as move HEAD. */
+  whileWorking: ((request: StageThreadRequest) => void) | undefined = undefined;
   /** How each Stage's work in its Thread ended. */
   readonly ended: ({ readonly threadId: string } & Parameters<StageThread["end"]>[0])[] = [];
 
@@ -128,10 +134,16 @@ export class StageThreadsForTests extends StageThreads {
         if (next.done) throw new Error(`Session ${session.id} ended without a turn.`);
         const event = next.value;
         if (event.kind === "turn-ended") {
+          this.whileWorking?.(request);
           const problem = event.outcome === "completed" ? undefined : event.errors.join(" ");
           return { output: event.output, problem };
         }
       }
+    };
+    let sessionEnded: Promise<void> | undefined;
+    const endSession = (): Promise<void> => {
+      sessionEnded ??= session.end().then(() => void this.sessionsEnded.push(threadId));
+      return sessionEnded;
     };
     return {
       threadId,
@@ -143,9 +155,64 @@ export class StageThreadsForTests extends StageThreads {
       },
       end: async (ending) => {
         this.ended.push({ threadId, ...ending });
-        await session.end();
+        await endSession();
       },
+      endSession,
     };
+  }
+}
+
+/** The commit every Task's worktree starts at, as planning left it. */
+export const PLANNED_COMMIT = "0123456789abcdef0123456789abcdef01234567";
+
+/**
+ * The Tasks' worktrees' git in memory: each starts on its branch from `aTaskRecord` at
+ * PLANNED_COMMIT, and every commit The Office makes moves it, unless a test says nothing changed.
+ */
+@Injectable()
+export class TaskGitForTests extends TaskGit {
+  private readonly heads = new Map<string, WorktreeHead>();
+  /** Every commit The Office made, in order. */
+  readonly commits: {
+    readonly taskId: string;
+    readonly message: string;
+    readonly commit: string;
+  }[] = [];
+  /** The Tasks whose worktrees hold nothing to commit. */
+  readonly unchanged = new Set<string>();
+  /** What git says each Task's commits changed so far; undefined when a test puts nothing. */
+  readonly changes = new Map<string, string>();
+  /** Told of every call, as it is made, so a test can see what happened before it. */
+  observe: ((call: "head" | "commit" | "changesSoFar") => void) | undefined = undefined;
+
+  /** Moves the Task's HEAD, as an Agent with git of its own would. */
+  move(taskId: string, head: WorktreeHead): void {
+    this.heads.set(taskId, head);
+  }
+
+  head(_projectId: string, taskId: string): Promise<WorktreeHead> {
+    this.observe?.("head");
+    return Promise.resolve(this.headOf(taskId));
+  }
+
+  commit(_projectId: string, taskId: string, message: string): Promise<string | undefined> {
+    this.observe?.("commit");
+    if (this.unchanged.has(taskId)) return Promise.resolve(undefined);
+    const commit = `${this.commits.length + 1}`.padStart(40, "c");
+    this.commits.push({ taskId, message, commit });
+    this.move(taskId, { commit, branch: this.headOf(taskId).branch });
+    return Promise.resolve(commit);
+  }
+
+  changesSoFar(_projectId: string, taskId: string): Promise<string | undefined> {
+    this.observe?.("changesSoFar");
+    return Promise.resolve(this.changes.get(taskId));
+  }
+
+  private headOf(taskId: string): WorktreeHead {
+    return (
+      this.heads.get(taskId) ?? { commit: PLANNED_COMMIT, branch: aTaskRecord().worktree.branch }
+    );
   }
 }
 
@@ -158,6 +225,7 @@ export class PipelinesPortsForTestsModule {
       TaskRecordsForTests,
       KnownPeopleForTests,
       StageThreadsForTests,
+      TaskGitForTests,
     ];
     return { module: PipelinesPortsForTestsModule, imports, providers, exports: providers };
   }

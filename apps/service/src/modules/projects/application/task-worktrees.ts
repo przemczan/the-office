@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import type { Head } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectService } from "./project-service.js";
 import { Worktrees } from "./worktrees.js";
@@ -11,7 +12,10 @@ export interface SessionWorktree {
   readonly environment: Readonly<Record<string, string>>;
 }
 
-/** The Tasks' worktrees for the modules that run sessions on a Task (spec §5.5). */
+/**
+ * The Tasks' worktrees for the modules that run sessions on a Task, and the git changes The Office
+ * makes in them (spec §5.5). Each method throws ProjectNotFound when there is no such Project.
+ */
 @Injectable()
 export class TaskWorktrees {
   constructor(
@@ -22,7 +26,7 @@ export class TaskWorktrees {
 
   /**
    * The Task's worktree, made the first time on a branch of its own at the freshly fetched base
-   * branch, without installing. Throws ProjectNotFound when there is no such Project.
+   * branch, without installing.
    */
   async open(projectId: string, taskId: string): Promise<SessionWorktree> {
     const project = await this.projects.read(projectId);
@@ -30,7 +34,7 @@ export class TaskWorktrees {
     return { path, branch, environment: this.commands.variablesFor(project.environment) };
   }
 
-  /** Where the Task's worktree is, without running git. Throws ProjectNotFound likewise. */
+  /** Where the Task's worktree is, without running git. */
   async find(projectId: string, taskId: string): Promise<SessionWorktree> {
     const project = await this.projects.read(projectId);
     return {
@@ -38,5 +42,23 @@ export class TaskWorktrees {
       branch: this.worktrees.branchOf(taskId),
       environment: this.commands.variablesFor(project.environment),
     };
+  }
+
+  /** The commit and branch the Task's worktree has checked out. */
+  async head(projectId: string, taskId: string): Promise<Head> {
+    return this.worktrees.head(await this.projects.read(projectId), taskId);
+  }
+
+  /**
+   * Commits every change in the Task's worktree to its branch. Returns the new commit, or
+   * undefined when nothing changed.
+   */
+  async commit(projectId: string, taskId: string, message: string): Promise<string | undefined> {
+    return this.worktrees.commit(await this.projects.read(projectId), taskId, message);
+  }
+
+  /** A few lines of what the Task's commits changed so far; undefined while nothing. */
+  async changesSoFar(projectId: string, taskId: string): Promise<string | undefined> {
+    return this.worktrees.changesSoFar(await this.projects.read(projectId), taskId);
   }
 }

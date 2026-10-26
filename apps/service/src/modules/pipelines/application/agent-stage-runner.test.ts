@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import type { SessionScript } from "../../engine/index.js";
 import type { Stage } from "../domain/stage.js";
@@ -13,7 +14,7 @@ import {
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
-import { aPerson } from "../ports/pipelines-ports.fixtures.js";
+import { aPerson, aTaskRecord, PLANNED_COMMIT } from "../ports/pipelines-ports.fixtures.js";
 import { StageRunners } from "./stage-runners.js";
 
 let pipelines: PipelinesApplication;
@@ -204,5 +205,126 @@ describe("AgentStageRunner", () => {
       },
     ]);
     expect(pipelines.stageThreads.requests).toEqual([]);
+  });
+});
+
+describe("AgentStageRunner after the session", () => {
+  it("ends the session, then commits the Stage's work with a message from its result and Handover note", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(
+        aDoneResult("Added the rename dialog.\n\nIt saves on Enter.", "Left: the list's refresh."),
+      ),
+    ]);
+    const sessionEndedAt: Record<string, boolean> = {};
+    pipelines.git.observe = (call) => {
+      const ended = pipelines.engine.sessions[0]?.received.some(({ step }) => step === "end");
+      sessionEndedAt[call] = ended ?? false;
+    };
+
+    const taskId = await walkStages(pipelines, [implement]);
+
+    expect(sessionEndedAt).toEqual({ head: true, commit: true, changesSoFar: false });
+    expect(pipelines.stageThreads.sessionsEnded).toHaveLength(1);
+    const [commit] = pipelines.git.commits;
+    expect(commit).toEqual({
+      taskId,
+      message:
+        "Implement: Added the rename dialog.\n\nAdded the rename dialog.\n\nIt saves on Enter.\n\nHandover note:\nLeft: the list's refresh.",
+      commit: expect.any(String),
+    });
+    const [run] = await runsOf(pipelines, taskId);
+    expect(run?.headCommit).toBe(commit?.commit);
+    expect(run?.outcome?.status).toBe("done");
+  });
+
+  it("briefs the next Stage with what the Task's commits changed so far", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult()),
+    ]);
+    const taskId = randomUUID();
+    pipelines.stageThreads.whileWorking = () => {
+      pipelines.git.changes.set(
+        taskId,
+        " src/rename.ts | 12 +++\n 1 file changed, 12 insertions(+)",
+      );
+    };
+
+    await walkStages(pipelines, [implement, anAgentStage("polish")], taskId);
+
+    const [first, second] = pipelines.stageThreads.requests;
+    expect(first?.record).not.toContain("## What changed so far");
+    expect(second?.record).toContain(
+      "## What changed so far\n\n src/rename.ts | 12 +++\n 1 file changed, 12 insertions(+)",
+    );
+  });
+
+  it("expects HEAD where the last Stage left it when the next one changed nothing", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult()),
+    ]);
+    const taskId = randomUUID();
+    pipelines.git.unchanged.add(taskId);
+
+    await walkStages(pipelines, [implement, anAgentStage("polish")], taskId);
+
+    expect(pipelines.git.commits).toEqual([]);
+    expect((await runsOf(pipelines, taskId)).map(({ headCommit }) => headCommit)).toEqual([
+      PLANNED_COMMIT,
+      PLANNED_COMMIT,
+    ]);
+  });
+
+  it("fails a Stage that moved HEAD with the reason, commits nothing, and starts no session on it after", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult("Committed it myself.", "Nothing is left.")),
+    ]);
+    const taskId = randomUUID();
+    const branch = aTaskRecord().worktree.branch;
+    pipelines.stageThreads.whileWorking = ({ stageName }) => {
+      if (stageName === "Review") pipelines.git.move(taskId, { commit: "f".repeat(40), branch });
+    };
+    const review = anAgentStage("review", {
+      name: "Review",
+      onFailure: { goBackTo: "implement", rounds: 1 },
+    });
+
+    await walkStages(pipelines, [implement, review], taskId);
+
+    const [implemented] = pipelines.git.commits;
+    expect(pipelines.git.commits).toHaveLength(1);
+    const [, moved, again] = await runsOf(pipelines, taskId);
+    const error = `The Stage changed git itself: HEAD moved from ${implemented?.commit.slice(0, 8)} to ffffffff. Only The Office commits a Stage's work, so it stopped here without committing.`;
+    expect(moved?.outcome).toEqual({ status: "failed", error, handoverNote: "Nothing is left." });
+    expect(moved?.headCommit).toBe(implemented?.commit);
+    expect(pipelines.stageThreads.ended[1]?.failure).toBe(error);
+    expect(again?.stageKey).toBe("implement");
+    expect(again?.outcome).toEqual({
+      status: "failed",
+      error: `The Task's worktree isn't where The Office left it: HEAD moved from ${implemented?.commit.slice(0, 8)} to ffffffff. The Stage didn't start; put the branch back to go on.`,
+    });
+    expect(pipelines.stageThreads.requests).toHaveLength(2);
+  });
+
+  it("fails a Stage that switched the worktree's branch", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const taskId = randomUUID();
+    pipelines.stageThreads.whileWorking = () => {
+      pipelines.git.move(taskId, { commit: PLANNED_COMMIT, branch: undefined });
+    };
+
+    await walkStages(pipelines, [implement], taskId);
+
+    expect(pipelines.git.commits).toEqual([]);
+    expect(await outcomesOf(taskId)).toEqual([
+      {
+        status: "failed",
+        error:
+          "The Stage changed git itself: the worktree is on a detached HEAD, not the Task's branch office/task. Only The Office commits a Stage's work, so it stopped here without committing.",
+        handoverNote: "Nothing is left.",
+      },
+    ]);
   });
 });

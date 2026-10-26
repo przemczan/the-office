@@ -15,6 +15,7 @@ import {
   PipelinesPortsForTestsModule,
   StageThreadsForTests,
   StartedTasksForTests,
+  TaskGitForTests,
   TaskRecordsForTests,
 } from "./ports/pipelines-ports.fixtures.js";
 import { StageRunRepository } from "./ports/stage-run-repository.js";
@@ -29,6 +30,7 @@ export interface PipelinesApplication {
   readonly records: TaskRecordsForTests;
   readonly people: KnownPeopleForTests;
   readonly stageThreads: StageThreadsForTests;
+  readonly git: TaskGitForTests;
   readonly published: DomainEvent[];
 }
 
@@ -50,6 +52,7 @@ export async function startPipelinesApplication(
         taskRecords: TaskRecordsForTests,
         knownPeople: KnownPeopleForTests,
         stageThreads: StageThreadsForTests,
+        taskGit: TaskGitForTests,
       }),
     ],
   });
@@ -62,6 +65,7 @@ export async function startPipelinesApplication(
     records: app.get(TaskRecordsForTests, { strict: false }),
     people: app.get(KnownPeopleForTests, { strict: false }),
     stageThreads: app.get(StageThreadsForTests, { strict: false }),
+    git: app.get(TaskGitForTests, { strict: false }),
     published,
   };
 }

@@ -52,6 +52,12 @@ export interface StageRun {
   readonly carriedFailure: CarriedFailure | undefined;
   /** The Stage Thread an Agent Stage's run works in, once it has one. */
   readonly threadId: string | undefined;
+  /**
+   * The commit The Office left the Task's branch at after the run: its commit of the Stage's work,
+   * or where the branch was when the Stage changed nothing or changed git itself. The next Agent
+   * Stage expects HEAD there. Undefined for a run that leaves git as it was.
+   */
+  readonly headCommit: string | undefined;
   /** Undefined while the Stage runs. */
   readonly outcome: StageOutcome | undefined;
   readonly startedAt: Date;

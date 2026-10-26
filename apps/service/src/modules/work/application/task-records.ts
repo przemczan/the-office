@@ -10,7 +10,10 @@ import { TaskService } from "./task-service.js";
 export interface TaskRecord extends Pick<Task, "title" | "plan" | "definitionOfDone"> {
   /** Each of its Attachments, as a line of a Brief; none when it has none. */
   readonly attachmentLines: readonly string[];
-  readonly project: Pick<KnownProject, "name" | "baseBranch" | "commands" | "useProjectSkills">;
+  readonly project: Pick<
+    KnownProject,
+    "id" | "name" | "baseBranch" | "commands" | "useProjectSkills"
+  >;
   readonly worktree: TaskWorktree;
 }
 
@@ -39,6 +42,7 @@ export class TaskRecords {
       definitionOfDone: task.definitionOfDone,
       attachmentLines: attachments.length === 0 ? [] : attachmentLines(attachments),
       project: {
+        id: project.id,
         name: project.name,
         baseBranch: project.baseBranch,
         commands: project.commands,

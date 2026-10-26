@@ -381,6 +381,21 @@ describe("StageThreads", () => {
     ]);
   });
 
+  it("ends the session once, before the Stage's work ends in the Thread", async () => {
+    await startWith(started(...aTurn({ status: "done" })));
+    const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
+    await stageThread.nextTurn();
+
+    await stageThread.endSession();
+    const [session] = engine.sessions;
+    expect(session?.received.filter(({ step }) => step === "end")).toHaveLength(1);
+    expect((await threadOf(stageThread.threadId)).state).toBe("answering");
+    await stageThread.end({ handoverNote: "Left: nothing.", failure: undefined });
+
+    expect(session?.received.filter(({ step }) => step === "end")).toHaveLength(1);
+    expect((await threadOf(stageThread.threadId)).state).toBe("waiting");
+  });
+
   it("refuses the user's messages in a Stage Thread", async () => {
     await startWith(started(...aTurn({ status: "done" })));
     const { stageThread } = await aStageRun(aStage({ roleKey: aPerson("Ada") }));

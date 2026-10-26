@@ -34,6 +34,7 @@ class FakeGit extends Git {
   removeWorktree = notUsed;
   commit = notUsed;
   head = notUsed;
+  diffSummary = notUsed;
   restore = notUsed;
   discard = notUsed;
 }

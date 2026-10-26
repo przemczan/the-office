@@ -81,7 +81,9 @@ export interface StageThread {
   nextTurn(): Promise<StageTurn>;
   /** Logs `why`, sends the person The Office's `text`, and returns the turn that answers it. */
   send(text: string, why: string): Promise<StageTurn>;
-  /** Ends the session and the Stage's work in the Thread, which then waits. */
+  /** Ends the session, and with it every process the session left running; once. */
+  endSession(): Promise<void>;
+  /** Ends the Stage's work in the Thread, which then waits, and the session unless it has ended. */
   end(ending: Omit<StageWorkEnding, "roleKey">): Promise<void>;
 }
 
@@ -281,6 +283,14 @@ export class StageThreads {
         if (lines.length > 0) await this.log(threadId, lines);
       }
     };
+    let sessionEnded: Promise<void> | undefined;
+    // The engine ends what the session left running as the session ends.
+    const endSession = (): Promise<void> => {
+      sessionEnded ??= session.end().catch((error: unknown) => {
+        this.logger.warn(`Thread ${threadId}'s session didn't end cleanly: ${messageOf(error)}`);
+      });
+      return sessionEnded;
+    };
     return {
       threadId,
       move,
@@ -290,10 +300,9 @@ export class StageThreads {
         session.send({ id: randomUUID(), text }, "later");
         return nextTurn();
       },
+      endSession,
       end: async (ending) => {
-        await session.end().catch((error: unknown) => {
-          this.logger.warn(`Thread ${threadId}'s session didn't end cleanly: ${messageOf(error)}`);
-        });
+        await endSession();
         await this.change(threadId, (latest) =>
           endStageWork(latest, { ...ending, roleKey }, new Date()),
         );

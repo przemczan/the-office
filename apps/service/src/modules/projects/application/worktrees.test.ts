@@ -214,6 +214,21 @@ describe("Worktrees with a Task's id", () => {
       expect.arrayContaining(["half-done.txt", "screenshot.png"]),
     );
   });
+
+  it("summarises what the Task's commits changed since its branch left the base, without the base's later commits", async () => {
+    const taskId = aTaskId();
+    const { worktree } = await worktrees.prepare(project, taskId);
+    await expect(worktrees.changesSoFar(project, taskId)).resolves.toBeUndefined();
+
+    await writeFile(join(worktree.path, "renamed.txt"), "a Stage's work\n");
+    await worktrees.commit(project, taskId, "Implement: a Stage's work");
+    await commitOnOrigin(repository, "main", `later-${taskId}.txt`);
+    gitIn(repository.path, "fetch", "--quiet", "origin");
+    await writeFile(join(worktree.path, "uncommitted.txt"), "not yet a Stage's work\n");
+
+    const summary = await worktrees.changesSoFar(project, taskId);
+    expect(summary).toMatch(/^ renamed\.txt \| 1 \+\n 1 file changed, 1 insertion\(\+\)$/);
+  });
 });
 
 describe("Worktrees.remove", () => {

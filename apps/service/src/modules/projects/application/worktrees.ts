@@ -160,6 +160,15 @@ export class Worktrees {
   }
 
   /**
+   * A few lines of what the Task's commits changed since its branch left the base branch, for a
+   * Brief; undefined while they change nothing.
+   */
+  async changesSoFar(project: Project, taskId: string): Promise<string | undefined> {
+    const summary = await this.git.diffSummary(this.pathOf(project, taskId), project.baseBranch);
+    return summary === "" ? undefined : summary;
+  }
+
+  /**
    * Reverts what a test run changed in tracked files, keeping untracked ones such as
    * screenshots. Returns the reverted paths.
    */
