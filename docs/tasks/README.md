@@ -16,7 +16,7 @@ Tier 1 of [the spec](../spec.md#tier-1-the-base), sliced into tasks in build ord
 | 08 | [People: Role cards, presets and a person's page](08-people.md) | People | done |
 | 09 | [Conversations and the Context policy: chat with the Planner](09-conversations.md) | People | done |
 | 10 | [Work: Ideas, Tasks, the board and Attachments](10-work.md) | Work and the Task page | done |
-| 11 | [Planning a Task with the Planner](11-planning.md) | Work and the Task page | in progress |
+| 11 | [Planning a Task with the Planner](11-planning.md) | Work and the Task page | done |
 | 12 | [The Stage interpreter: Start, Agent and Script Stages, loops](12-stage-interpreter.md) | Work and the Task page | todo |
 | 13 | [A running Task: barge-in, Stop, Pause, Decisions, Office tools](13-running-task.md) | Work and the Task page | todo |
 | 14 | [Gates, the Changes tab and Publish](14-gates-publish.md) | Work and the Task page | todo |
