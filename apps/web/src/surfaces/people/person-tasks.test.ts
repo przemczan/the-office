@@ -1,6 +1,6 @@
-import type { Pipeline, Task, Thread } from "@the-office/contracts";
+import type { Decision, Pipeline, Task, Thread } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { personTasks } from "./person-tasks.ts";
+import { inFilter, personTasks, WORK_FILTERS, type WorkFilter } from "./person-tasks.ts";
 
 const FULL: Pipeline = {
   id: "full",
@@ -103,5 +103,38 @@ describe("personTasks", () => {
 
   it("leaves out the Tasks the person has no part in", () => {
     expect(personTasks("reviewer", [aTask({})], [FULL], [])).toEqual([]);
+  });
+});
+
+describe("the Work tab's filters", () => {
+  const waitingFilter = WORK_FILTERS.find(({ key }) => key === "waiting-on-you") as WorkFilter;
+  const notStarted = WORK_FILTERS.find(({ key }) => key === "not-started") as WorkFilter;
+  const planning = aTask({ state: "planning" });
+  const decision: Decision = {
+    id: "2a9e1f4c-7d3b-4c8e-9f1a-6b5d4c3e2f10",
+    threadId: "0b4cbb0e-5a51-4a52-9a4e-7c0f3c1b9f10",
+    taskId: planning.id,
+    roleKey: "planner",
+    question: "Keep the query string on the way back?",
+    context: "",
+    options: ["Keep it", "Drop it"],
+    recommendation: { option: 0, reason: "Filters live there." },
+    askedAt: "2026-10-26T09:00:00.000Z",
+    answer: null,
+    answeredAt: null,
+  };
+
+  it("count a Task planning with a Decision open as Waiting on you, and still not started", () => {
+    const personTask = { task: planning, part: "Planning" };
+
+    expect(inFilter(waitingFilter, personTask, [decision])).toBe(true);
+    expect(inFilter(notStarted, personTask, [decision])).toBe(true);
+    expect(inFilter(waitingFilter, personTask, [])).toBe(false);
+  });
+
+  it("count a Task in the Waiting on you state as Waiting on you", () => {
+    const waiting = { task: aTask({ state: "waiting-on-you" }), part: "Implement" };
+
+    expect(inFilter(waitingFilter, waiting, [])).toBe(true);
   });
 });

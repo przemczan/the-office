@@ -1,20 +1,30 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { Project, Task, TaskState } from "@the-office/contracts";
+import type { Project, Task } from "@the-office/contracts";
 import type { ReactNode } from "react";
 import { taskQueries } from "../../api/work.ts";
+import { useWaitingOnYou } from "../../shell/work/waiting-on-you.ts";
 import { ProjectBlock } from "./project-block.tsx";
 
-const TILES: readonly { readonly label: string; readonly states: readonly TaskState[] }[] = [
-  { label: "Running", states: ["in-progress", "paused"] },
-  { label: "Waiting on you", states: ["waiting-on-you"] },
-  { label: "Ready to start", states: ["ready"] },
-  { label: "Not planned yet", states: ["backlog", "planning"] },
+interface Tile {
+  readonly label: string;
+  readonly includes: (task: Task, waitsOnYou: (task: Task) => boolean) => boolean;
+}
+
+const TILES: readonly Tile[] = [
+  { label: "Running", includes: ({ state }) => state === "in-progress" || state === "paused" },
+  { label: "Waiting on you", includes: (task, waitsOnYou) => waitsOnYou(task) },
+  { label: "Ready to start", includes: ({ state }) => state === "ready" },
+  {
+    label: "Not planned yet",
+    includes: ({ state }) => state === "backlog" || state === "planning",
+  },
 ];
 
 /** How many of the Project's Tasks are where, with the board one click away. */
 export function WorkBlock({ project }: { readonly project: Project }): ReactNode {
   const tasks = useQuery(taskQueries.list());
+  const waitsOnYou = useWaitingOnYou();
   const ofProject = tasks.data?.filter((task) => task.projectId === project.id) ?? [];
   return (
     <ProjectBlock
@@ -27,17 +37,15 @@ export function WorkBlock({ project }: { readonly project: Project }): ReactNode
       }
     >
       <div className="work-tiles">
-        {TILES.map(({ label, states }) => (
+        {TILES.map(({ label, includes }) => (
           <div key={label} className="work-tile">
             <div className="work-tile-label">{label}</div>
-            <div className="work-tile-value">{countIn(ofProject, states)}</div>
+            <div className="work-tile-value">
+              {ofProject.filter((task) => includes(task, waitsOnYou)).length}
+            </div>
           </div>
         ))}
       </div>
     </ProjectBlock>
   );
-}
-
-function countIn(tasks: readonly Task[], states: readonly TaskState[]): number {
-  return tasks.filter((task) => states.includes(task.state)).length;
 }

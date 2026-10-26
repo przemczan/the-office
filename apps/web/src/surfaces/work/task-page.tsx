@@ -12,7 +12,7 @@ import { threadTokens, tokensShort } from "../../shell/conversation/context-word
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
-import { useWaitingOnYou } from "../../shell/work/waiting-on-you.ts";
+import { useWaitingOnYouWhilePlanning } from "../../shell/work/waiting-on-you.ts";
 import { PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { MarkReadyButton, PlanButton } from "./planning-actions.tsx";
 import { TaskConversation } from "./task-conversation.tsx";
@@ -61,7 +61,7 @@ function TaskHead({
   readonly threads: readonly Thread[] | undefined;
 }): ReactNode {
   const tokens = threads?.reduce((sum, thread) => sum + threadTokens(thread), 0) ?? 0;
-  const waitingOnYou = useWaitingOnYou();
+  const waitingOnYou = useWaitingOnYouWhilePlanning();
   return (
     <header className="task-head">
       <div className="task-head-grow">

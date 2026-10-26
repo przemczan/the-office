@@ -3,7 +3,7 @@ import { Link, useParams } from "@tanstack/react-router";
 import type { Project } from "@the-office/contracts";
 import { DataTable, type DataTableColumn } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { threadQueries } from "../../api/conversations.ts";
+import { decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { taskQueries } from "../../api/work.ts";
@@ -24,8 +24,9 @@ export function WorkTab(): ReactNode {
   const pipelines = useQuery(pipelineQueries.list());
   const projects = useQuery(projectQueries.list());
   const threads = useQuery(threadQueries.onTasksWith(roleKey));
+  const openDecisions = useQuery(decisionQueries.open());
   const [filter, setFilter] = useState<WorkFilter>(WORK_FILTERS[0]);
-  if (!tasks.data || !pipelines.data || !threads.data) return null;
+  if (!tasks.data || !pipelines.data || !threads.data || !openDecisions.data) return null;
   const theirs = personTasks(roleKey, tasks.data, pipelines.data, threads.data);
   return (
     <div className="person-work">
@@ -40,7 +41,10 @@ export function WorkTab(): ReactNode {
           >
             {candidate.label}{" "}
             <span className="person-work-count">
-              {theirs.filter((personTask) => inFilter(candidate, personTask)).length}
+              {
+                theirs.filter((personTask) => inFilter(candidate, personTask, openDecisions.data))
+                  .length
+              }
             </span>
           </button>
         ))}
@@ -48,7 +52,7 @@ export function WorkTab(): ReactNode {
       <DataTable
         columns={columnsFor(projects.data)}
         rows={theirs
-          .filter((personTask) => inFilter(filter, personTask))
+          .filter((personTask) => inFilter(filter, personTask, openDecisions.data))
           .map((personTask) => ({ id: personTask.task.id, ...personTask }))}
         empty="No Tasks here. Try another filter."
       />
