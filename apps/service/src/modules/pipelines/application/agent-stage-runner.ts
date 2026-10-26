@@ -223,6 +223,8 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       taskId: run.taskId,
       roleKey: stage.role,
       stageName: stage.name,
+      model: stage.model,
+      effort: stage.effort,
       declared: inItsThread ? undefined : stage.session,
       previousThreadId: previousAgentThread(
         stages,

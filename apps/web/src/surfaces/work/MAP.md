@@ -22,7 +22,7 @@
 - `resume-words.ts`: ResumeWords, HeldWork, resumeWords, latestRunOf
 - `run-controls.tsx`: RunControls
 - `shape-idea-dialog.tsx`: ShapeIdeaDialog
-- `stage-words.ts`: STAGE_STATE_WORDS, StageNames, stageNamesOf, stageRule, stageProgressLine, latestHandoverNote, scriptCommandLine, durationWords, firstLine, taskTokens
+- `stage-words.ts`: STAGE_STATE_WORDS, StageNames, pipelineLabel, stageNamesOf, stageRule, stageProgressLine, latestHandoverNote, scriptCommandLine, durationWords, firstLine, taskTokens
 - `start-action.tsx`: StartButton
 - `task-changes.tsx`: ChangesTab, ChangesView
 - `task-conversation.tsx`: TaskConversation

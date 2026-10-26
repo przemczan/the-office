@@ -24,7 +24,7 @@ Leave out: the Pipeline library editor and Stage templates in Settings (tier 2);
 
 - [x] 1. Pipelines domain: edit operations on a Task's copy with the lock on started Stages, the validation flags, and swapping the Pipeline before Start; tests. Commit.
   Read: the [Pipelines map](../../apps/service/src/modules/pipelines/MAP.md) (`domain/stage.ts`, `domain/pipeline.ts` with `stageProblems`, `domain/task-stages.ts`).
-- [ ] 2. Use cases, events and API; the Task's Pipeline label shows when it was edited for the Task. Commit.
+- [x] 2. Use cases, events and API; the Task's Pipeline label shows when it was edited for the Task. Commit.
   Read: the [Pipelines map](../../apps/service/src/modules/pipelines/MAP.md), the [Contracts map](../../packages/contracts/src/MAP.md).
 - [ ] 3. The Stage editor component and the "Edit for this Task" dialog. Commit.
   Read: the [Work surface map](../../apps/web/src/surfaces/work/MAP.md); in the click-through, `stageForm`, `failureFields` and `taskPipelineDialog` in [app/pipelines.js](../../.scratch/the-office/prototypes/app/pipelines.js) and "Edit for this Task" in [app/task.js](../../.scratch/the-office/prototypes/app/task.js), each by range.
@@ -33,19 +33,17 @@ Leave out: the Pipeline library editor and Stage templates in Settings (tier 2);
 
 ## State
 
-Step 1 done, in `pipelines/domain`:
-- `AgentStage` has optional `model` and `effort` (absent keeps the Role's). Nothing passes them to the session yet: `StageThreadRequest` has neither, and Conversations reads both from the Role card (`stage-threads.ts` ~387). Step 2 or 4 must add them, or step 4's live check fails.
-- `task-stages.ts`: `TaskStages` has `madeAt` (was `startedAt`, migration 0028 renames the column) and `editedForTask`; `lockedStageCount` (every Stage up to the furthest with a run), `editProblems` (locked prefix unchanged, `stageProblems`, `staffingProblems`), `editTaskStages` (+ `TaskStagesEdited`), `followsPipeline`.
-- `stage-staffing.ts`: `RoleFilling`, `staffingProblems` checks only unlocked Stages (decided: a person let go after working a done Stage must not block every later edit). `KnownPerson.card` now has `taskLimit`; People's `RoleCards` already returns it. Titles come from `KnownPeople.roleTitle`.
-- Stage builders for domain tests are in `domain/stage.fixtures.ts`.
+Steps 1–2 done. Server side of "Edit for this Task" is complete:
+- `PUT /api/tasks/:id/stages` (`taskStagesEditSchema`) → `TaskStagesService.edit`: copies the library Pipeline when the Task has no copy yet (a Ready Task), refuses done/dropped Tasks, and answers 422 `stagesEditRefusalSchema` with `problems: [{ stageIndex, text }]` from the domain's `editProblems`. The response and GET carry `editedForTask`; the Task page title says "· edited for this Task" (`pipelineLabel` in `stage-words.ts`).
+- Swap before Start: `TaskPipelineConfirmed` sets aside a copy of another Pipeline (`TaskStagesReset`, web `task-stages.reset`); `find`/`make` also ignore one.
+- The walk reads the Stages afresh each move, and takes its move and saves the run under the per-Task lock it shares with edits (`TaskStagesService.holding`, platform `KeyedLocks`). `RepositoryLocks` in Projects has the same logic; the user turned down changing it to use `KeyedLocks` for now.
+- A Stage's `model`/`effort` reach the session: `StageThreadRequest` carries them, and Conversations prefers them over the Role card's. Nothing checks a model against the engine's list yet.
+- `stage-interpreter-edited.test.ts` covers DoD 4 (a Gate added mid-walk, an Agent Stage's own model).
 
-For step 2:
-- A copy can now exist before Start. `TaskStagesService.make` still returns any existing copy: make it replace a copy that doesn't `followsPipeline` (the repository needs a save that replaces), and drop the edited copy on Work's `TaskPipelineConfirmed` (Work already refuses a swap once started).
-- The interpreter reads `stages` once per walk (`walk` → `walkStages`, `answeredMeanwhile`, `runStage`): re-read the copy each loop, and serialize an edit's save with a run's start per Task (one process; the interpreter already keeps one walk per Task), so no Stage starts under a definition the edit just replaced.
-- Editable while the Task isn't done or dropped (the click-through hides the link then); refuse those with a reason.
-- Seeding `task_stages` in `apps/web/e2e/people.e2e.ts` uses `made_at` now.
+For step 3: a Ready Task with an edited copy now gets non-null `stages` from GET, so `StagesBlock` shows `TaskStageList` and hides `ProposedPipeline`; show the proposal whenever the Task hasn't started. The web needs an `editTaskStages` call in `api/pipelines.ts`; the model and effort choices are in `roleCardOptions` (contracts `people.ts`).
 
 ## Progress
 
 <!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next. The detail goes in the commit body. -->
 - 2026-10-27 · step 1: Stage model and effort, the Task's copy made at Start or first edit (madeAt, editedForTask), lock on started Stages, edit flags incl. staffing; next step 2, use cases, events and API.
+- 2026-10-27 · step 2: PUT /tasks/:id/stages with refusals, swap sets edited Stages aside, walk re-reads Stages under a per-Task lock shared with edits, Stage model and effort reach the session, label edited for this Task; next step 3, the editor.

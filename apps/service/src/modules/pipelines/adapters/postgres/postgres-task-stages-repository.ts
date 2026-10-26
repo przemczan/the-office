@@ -11,13 +11,12 @@ export class PostgresTaskStagesRepository extends TaskStagesRepository {
     super();
   }
 
-  async saveNew(given: TaskStages): Promise<boolean> {
-    const saved = await this.database
+  async save(given: TaskStages): Promise<void> {
+    const row = { ...given, stages: [...given.stages], trace: given.trace ?? null };
+    await this.database
       .insert(taskStages)
-      .values({ ...given, stages: [...given.stages] })
-      .onConflictDoNothing()
-      .returning({ taskId: taskStages.taskId });
-    return saved.length > 0;
+      .values(row)
+      .onConflictDoUpdate({ target: taskStages.taskId, set: row });
   }
 
   async find(taskId: string): Promise<TaskStages | undefined> {
@@ -30,5 +29,9 @@ export class PostgresTaskStagesRepository extends TaskStagesRepository {
 
   async saveTrace(taskId: string, trace: TaskTrace): Promise<void> {
     await this.database.update(taskStages).set({ trace }).where(eq(taskStages.taskId, taskId));
+  }
+
+  async remove(taskId: string): Promise<void> {
+    await this.database.delete(taskStages).where(eq(taskStages.taskId, taskId));
   }
 }

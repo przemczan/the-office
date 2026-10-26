@@ -66,6 +66,10 @@ export interface StageThreadRequest {
   /** The key of the Stage's Role, whose person works it. */
   readonly roleKey: string;
   readonly stageName: string;
+  /** The Stage's own model; undefined keeps the Role card's. */
+  readonly model: string | undefined;
+  /** The Stage's own effort; undefined keeps the Role card's. */
+  readonly effort: SessionSettings["effort"] | undefined;
   /** The session the Stage declares, which wins at a Stage boundary (spec §2.5). */
   /** Undefined lets the Context policy decide, as inside a Thread. */
   readonly declared: "fresh" | "continue" | undefined;
@@ -384,8 +388,8 @@ export class StageThreads {
     return {
       folder: request.folder,
       environment: request.environment,
-      model: card.model,
-      effort: card.effort,
+      model: request.model ?? card.model,
+      effort: request.effort ?? card.effort,
       instructions: taskThreadInstructions(card, request.session.instructions),
       skills: {
         folder: skills.folder,

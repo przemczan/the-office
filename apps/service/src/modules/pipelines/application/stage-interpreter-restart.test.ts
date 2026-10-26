@@ -94,7 +94,7 @@ async function aRunLeftRunning(
   threadId?: string,
 ): Promise<string> {
   const taskId = randomUUID();
-  await app.get(TaskStagesRepository, { strict: false }).saveNew({
+  await app.get(TaskStagesRepository, { strict: false }).save({
     taskId,
     pipelineId: "for-tests",
     stages,

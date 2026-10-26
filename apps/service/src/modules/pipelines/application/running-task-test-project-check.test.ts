@@ -168,7 +168,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           const stages = quickFix.stages.filter((stage) => stage.key !== "publish");
           const { taskStages } = makeTaskStages(taskId, { ...quickFix, stages }, new Date());
           const repository = app.get(TaskStagesRepository, { strict: false });
-          expect(await repository.saveNew(taskStages)).toBe(true);
+          await repository.save(taskStages);
 
           // The work each run's session is given: its sections show what the Stage was told.
           const works: { readonly declared: string; readonly sections: string[] }[] = [];

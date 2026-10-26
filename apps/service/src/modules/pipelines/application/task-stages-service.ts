@@ -1,56 +1,169 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { stagesProgress, type StageProgress } from "../domain/stage-progress.js";
-import { makeTaskStages, type TaskStages, type TaskTrace } from "../domain/task-stages.js";
+import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
+import { TaskPipelineConfirmed } from "../../work/index.js";
+import type { Pipeline } from "../domain/pipeline.js";
+import type { Stage } from "../domain/stage.js";
+import { stagesProgress, type TaskProgress } from "../domain/stage-progress.js";
+import type { StageRun } from "../domain/stage-run.js";
+import type { RoleFilling } from "../domain/stage-staffing.js";
+import { StagesEditRefused } from "../domain/stages-edit-refused.js";
+import {
+  editProblems,
+  editTaskStages,
+  followsPipeline,
+  makeTaskStages,
+  type TaskStages,
+  type TaskTrace,
+} from "../domain/task-stages.js";
+import { TaskStagesReset } from "../domain/task-stages-events.js";
+import { KnownPeople } from "../ports/known-people.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
+import { StartedTasks } from "../ports/started-tasks.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { PipelineLibrary } from "./pipeline-library.js";
 
+/** States in which a Task keeps the Stages it has: its work is over. */
+const FINISHED_STATES: readonly string[] = ["done", "dropped"];
+
 /**
- * Each started Task's own Stages: copied from its library Pipeline as the Task starts, so saving
- * the library later reaches only Tasks that haven't started (spec §2.3).
+ * Each Task's own Stages: copied from its library Pipeline as the Task starts, or as the user first
+ * edits them for the Task, so saving the library later reaches only Tasks that follow it (spec
+ * §2.3). Changes to a Task's Stages, and the walk's start of each run, go one at a time per Task,
+ * so no Stage starts under a definition an edit has just replaced.
  */
 @Injectable()
-export class TaskStagesService {
+export class TaskStagesService implements OnModuleInit {
+  private readonly changes = new KeyedLocks();
+
   constructor(
     private readonly repository: TaskStagesRepository,
     private readonly runs: StageRunRepository,
     private readonly library: PipelineLibrary,
+    private readonly tasks: StartedTasks,
+    private readonly people: KnownPeople,
     private readonly events: EventBus,
   ) {}
 
+  onModuleInit(): void {
+    this.events.subscribe(TaskPipelineConfirmed, ({ taskId, pipelineId }) =>
+      this.reset(taskId, pipelineId),
+    );
+  }
+
   /**
-   * Copies the Pipeline's Stages for the Task, once: a Task that already has its own keeps them.
+   * The Task's own Stages as it starts: those it has for its Pipeline, or a copy of the Pipeline's.
    * Work refuses Start for a Pipeline the library doesn't have, so a missing one is a fault.
    */
   async make(taskId: string, pipelineId: string): Promise<TaskStages> {
-    const existing = await this.repository.find(taskId);
-    if (existing) return existing;
-    const pipeline = await this.library.find(pipelineId);
-    if (!pipeline) throw new Error(`There is no Pipeline "${pipelineId}" for Task ${taskId}.`);
-    const { taskStages, event } = makeTaskStages(taskId, pipeline, new Date());
-    if (await this.repository.saveNew(taskStages)) {
+    return this.changes.run(taskId, async () => {
+      const existing = await this.repository.find(taskId);
+      if (existing && followsPipeline(existing, pipelineId)) return existing;
+      const pipeline = await this.pipeline(taskId, pipelineId);
+      const { taskStages, event } = makeTaskStages(taskId, pipeline, new Date());
+      await this.repository.save(taskStages);
       await this.events.publish(event);
       return taskStages;
-    }
-    // Made meanwhile by another call: the first copy is the Task's.
-    const made = await this.repository.find(taskId);
-    if (!made) throw new Error(`Task ${taskId}'s own Stages were neither saved nor found.`);
-    return made;
+    });
   }
 
+  /** The Task's own Stages, when it has them for the Pipeline it has now. */
   async find(taskId: string): Promise<TaskStages | undefined> {
-    return this.repository.find(taskId);
+    const own = await this.repository.find(taskId);
+    if (!own) return undefined;
+    return followsPipeline(own, (await this.tasks.read(taskId)).pipelineId) ? own : undefined;
   }
 
-  /** Where each of the Task's own Stages stands; undefined before the Task has its own. */
-  async progress(taskId: string): Promise<StageProgress[] | undefined> {
-    const own = await this.repository.find(taskId);
-    return own && stagesProgress(own.stages, await this.runs.list(taskId));
+  /** Where each of the Task's own Stages stands; undefined while the Task follows its Pipeline. */
+  async progress(taskId: string): Promise<TaskProgress | undefined> {
+    const own = await this.find(taskId);
+    return own && progressOf(own, await this.runs.list(taskId));
+  }
+
+  /**
+   * The user's edit of the Task's Stages for that Task, which leaves the library Pipeline as it is;
+   * refused with every reason the edited Stages can't run, or change a Stage that has started.
+   */
+  async edit(taskId: string, edited: readonly Stage[]): Promise<TaskProgress> {
+    return this.changes.run(taskId, async () => {
+      const { state, pipelineId } = await this.tasks.read(taskId);
+      if (FINISHED_STATES.includes(state)) {
+        throw new StagesEditRefused([{ text: "A Task that is done or dropped keeps its Stages." }]);
+      }
+      const own = await this.ownOrCopied(taskId, pipelineId);
+      const runs = await this.runs.list(taskId);
+      const problems = editProblems(own, edited, runs, await this.rolesOf(edited));
+      if (problems.length > 0) throw new StagesEditRefused(problems);
+      const { taskStages, event } = editTaskStages(own, edited);
+      await this.repository.save(taskStages);
+      await this.events.publish(event);
+      return progressOf(taskStages, runs);
+    });
+  }
+
+  /**
+   * Runs `work` with the Task's own Stages while no edit can change them, as the walk reads its next
+   * move and starts the run it leads to.
+   */
+  async holding<Result>(
+    taskId: string,
+    work: (own: TaskStages) => Promise<Result>,
+  ): Promise<Result> {
+    return this.changes.run(taskId, async () => {
+      const own = await this.find(taskId);
+      if (!own) throw new Error(`Task ${taskId} has no Stages of its own to walk.`);
+      return work(own);
+    });
   }
 
   /** Keeps the trace the Task's first walk began, for every later walk to join. */
   async saveTrace(taskId: string, trace: TaskTrace): Promise<void> {
     await this.repository.saveTrace(taskId, trace);
   }
+
+  /** A swap before Start sets aside Stages edited for the old Pipeline: the Task follows the new. */
+  private async reset(taskId: string, pipelineId: string): Promise<void> {
+    await this.changes.run(taskId, async () => {
+      const own = await this.repository.find(taskId);
+      if (!own || followsPipeline(own, pipelineId)) return;
+      await this.repository.remove(taskId);
+      await this.events.publish(new TaskStagesReset(taskId, own.pipelineId));
+    });
+  }
+
+  private async ownOrCopied(taskId: string, pipelineId: string): Promise<TaskStages> {
+    const own = await this.repository.find(taskId);
+    if (own && followsPipeline(own, pipelineId)) return own;
+    return makeTaskStages(taskId, await this.pipeline(taskId, pipelineId), new Date()).taskStages;
+  }
+
+  private async pipeline(taskId: string, pipelineId: string): Promise<Pipeline> {
+    const pipeline = await this.library.find(pipelineId);
+    if (!pipeline) throw new Error(`There is no Pipeline "${pipelineId}" for Task ${taskId}.`);
+    return pipeline;
+  }
+
+  /** Who fills each Role the Agent Stages name, for the editor's flags. */
+  private async rolesOf(stages: readonly Stage[]): Promise<ReadonlyMap<string, RoleFilling>> {
+    const roleKeys = new Set(
+      stages.flatMap((stage) => (stage.kind === "agent" ? [stage.role] : [])),
+    );
+    const fillings = await Promise.all(
+      [...roleKeys].map(async (roleKey): Promise<[string, RoleFilling]> => {
+        const person = await this.people.find(roleKey);
+        return [
+          roleKey,
+          {
+            title: this.people.roleTitle(roleKey),
+            person: person && { name: person.card.name, taskLimit: person.card.taskLimit },
+          },
+        ];
+      }),
+    );
+    return new Map(fillings);
+  }
+}
+
+function progressOf(own: TaskStages, runs: readonly StageRun[]): TaskProgress {
+  return { stages: stagesProgress(own.stages, runs), editedForTask: own.editedForTask };
 }

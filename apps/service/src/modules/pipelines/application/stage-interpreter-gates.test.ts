@@ -68,7 +68,7 @@ async function statusesOf(taskId: string): Promise<[string, string | undefined][
 
 async function stateOf(taskId: string, stageKey: string): Promise<string | undefined> {
   const progress = await pipelines.app.get(TaskStagesService).progress(taskId);
-  return progress?.find(({ stage }) => stage.key === stageKey)?.state;
+  return progress?.stages.find(({ stage }) => stage.key === stageKey)?.state;
 }
 
 function eventsOf(taskId: string): unknown[] {
@@ -103,7 +103,7 @@ describe("A Gate", () => {
     const after = await gates().continue(taskId);
     await walked(taskId);
 
-    expect(after.find(({ stage }) => stage.key === "look")?.state).toBe("done");
+    expect(after?.stages.find(({ stage }) => stage.key === "look")?.state).toBe("done");
     expect(await statusesOf(taskId)).toEqual([
       ["draft", "done"],
       ["look", "done"],

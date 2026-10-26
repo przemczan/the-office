@@ -9,7 +9,7 @@ import type {
 } from "@the-office/contracts";
 import type { Pipeline } from "../../domain/pipeline.js";
 import type { Stage } from "../../domain/stage.js";
-import type { StageProgress } from "../../domain/stage-progress.js";
+import type { StageProgress, TaskProgress } from "../../domain/stage-progress.js";
 import type { GateAction, StageOutcome, StageRun } from "../../domain/stage-run.js";
 import { latestTestResults } from "../../domain/test-results.js";
 
@@ -23,20 +23,20 @@ export function toPipelineResponse(pipeline: Pipeline): PipelineResponse {
 }
 
 /**
- * A started Task's own Stages with where each stands, and the latest result of each Stage that
- * checks the code; no Stages before the Task has its own.
+ * A Task's own Stages with where each stands, and the latest result of each Stage that checks the
+ * code; no Stages while the Task follows its library Pipeline.
  */
-export function toTaskStagesResponse(
-  progress: readonly StageProgress[] | undefined,
-): TaskStagesResponse {
-  if (!progress) return { stages: null, testResults: [] };
+export function toTaskStagesResponse(progress: TaskProgress | undefined): TaskStagesResponse {
+  if (!progress) return { stages: null, editedForTask: false, testResults: [] };
+  const { stages, editedForTask } = progress;
   // Each Stage's own runs in their order, which is all the latest results are read from.
   const testResults = latestTestResults(
-    progress.map(({ stage }) => stage),
-    progress.flatMap(({ runs }) => runs),
+    stages.map(({ stage }) => stage),
+    stages.flatMap(({ runs }) => runs),
   );
   return {
-    stages: progress.map(toTaskStageResponse),
+    stages: stages.map(toTaskStageResponse),
+    editedForTask,
     testResults: testResults.map((result) => ({ ...result, detail: result.detail ?? null })),
   };
 }
@@ -62,6 +62,8 @@ function toStageResponse(stage: Stage): StageResponse {
         brief: stage.brief,
         session: stage.session,
         budget: stage.budget,
+        model: stage.model,
+        effort: stage.effort,
         onFailure: stage.onFailure,
       };
     case "script":

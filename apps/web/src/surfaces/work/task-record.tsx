@@ -14,6 +14,7 @@ import { DefinitionOfDoneBlock, PlanBlock, ProposedPipeline } from "./planning-p
 import { RecordBlock } from "./record-block.tsx";
 import {
   latestHandoverNote,
+  pipelineLabel,
   scriptCommandLine,
   stageNamesOf,
   stageProgressLine,
@@ -61,9 +62,13 @@ function StagesBlock({
   readonly planner: string;
   readonly roles: readonly Role[] | undefined;
 }): ReactNode {
-  const own = useQuery(pipelineQueries.taskStages(task.id)).data?.stages;
+  const taskStages = useQuery(pipelineQueries.taskStages(task.id)).data;
+  const own = taskStages?.stages;
   return (
-    <RecordBlock icon="route" title={`Stages · ${pipeline?.name ?? task.pipelineId}`}>
+    <RecordBlock
+      icon="route"
+      title={`Stages · ${pipelineLabel(pipeline?.name ?? task.pipelineId, taskStages?.editedForTask ?? false)}`}
+    >
       {own ? (
         <TaskStageList taskStages={own} roles={roles} />
       ) : (

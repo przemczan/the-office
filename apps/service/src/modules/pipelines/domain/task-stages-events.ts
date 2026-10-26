@@ -19,3 +19,14 @@ export class TaskStagesEdited extends DomainEvent {
     super();
   }
 }
+
+/** The Pipeline was swapped before Start: the Task's own Stages are set aside, and it follows the library again. */
+export class TaskStagesReset extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    /** The Pipeline the set-aside Stages were copied from. */
+    readonly pipelineId: string,
+  ) {
+    super();
+  }
+}

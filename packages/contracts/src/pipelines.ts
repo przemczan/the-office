@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { contextMoveSchema, tokenTotalsSchema } from "./conversations.js";
 import { webEventSchema } from "./events.js";
+import { effortSchema } from "./people.js";
 
 /** "On failure go back to Stage X, at most N times": the Stage's key and its rounds. */
 export const onFailureSchema = z.object({
@@ -24,6 +25,10 @@ export const stageSchema = z.discriminatedUnion("kind", [
     session: z.enum(["fresh", "continue"]),
     /** Tokens. */
     budget: z.int().positive(),
+    /** One of the engine's models; absent keeps the Role's. */
+    model: z.string().min(1).optional(),
+    /** Absent keeps the Role's. */
+    effort: effortSchema.optional(),
     onFailure: onFailureSchema.optional(),
   }),
   z.object({
@@ -183,19 +188,43 @@ export const testResultSchema = z.object({
 export type TestResult = z.infer<typeof testResultSchema>;
 
 /**
- * GET /tasks/:id/stages: the Task's own Stages, copied from its Pipeline as it starts; null before
- * then, while the library Pipeline's Stages are the Task's. With the latest result of each Stage
- * that checks the code, in the Stages' order, as Changes shows them.
+ * GET /tasks/:id/stages: the Task's own Stages, copied from its Pipeline as it starts or as the user
+ * first edits them for the Task; null while the Task follows its library Pipeline. With the latest
+ * result of each Stage that checks the code, in the Stages' order, as Changes shows them.
  */
 export const taskStagesSchema = z.object({
   stages: z.array(taskStageSchema).nullable(),
+  /** Whether the user edited them for the Task: the Pipeline's label says so. */
+  editedForTask: z.boolean(),
   testResults: z.array(testResultSchema),
 });
 export type TaskStages = z.infer<typeof taskStagesSchema>;
 
+/** PUT /tasks/:id/stages: the Task's Stages as the user edited them for the Task, in order. */
+export const taskStagesEditSchema = z.object({ stages: z.array(stageSchema) });
+export type TaskStagesEdit = z.infer<typeof taskStagesEditSchema>;
+
+/** Why a list of Stages can't be saved, on the Stage it concerns when there is one. */
+export const stageProblemSchema = z.object({
+  stageIndex: z.int().nonnegative().nullable(),
+  text: z.string(),
+});
+export type StageProblem = z.infer<typeof stageProblemSchema>;
+
+/** 422 from PUT /tasks/:id/stages: every reason the edit can't be saved. */
+export const stagesEditRefusalSchema = z.object({
+  statusCode: z.literal(422),
+  message: z.string(),
+  problems: z.array(stageProblemSchema).min(1),
+});
+export type StagesEditRefusal = z.infer<typeof stagesEditRefusalSchema>;
+
 /** Pipelines' events the web receives; each names the Task whose Stages changed. */
 export const pipelinesWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("task-stages.made"), taskId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("task-stages.edited"), taskId: z.uuid() }),
+  /** The Pipeline was swapped before Start: the Task follows the library again. */
+  webEventSchema.extend({ type: z.literal("task-stages.reset"), taskId: z.uuid() }),
   webEventSchema.extend({
     type: z.literal("stage-run.started"),
     taskId: z.uuid(),

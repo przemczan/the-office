@@ -157,6 +157,8 @@ function aStage(fields: Partial<StageThreadRequest>): StageThreadRequest {
     taskId: randomUUID(),
     roleKey: "unset",
     stageName: "Implement",
+    model: undefined,
+    effort: undefined,
     declared: "fresh",
     previousThreadId: undefined,
     carryMessagesSince: undefined,
@@ -307,6 +309,15 @@ describe("StageThreads", () => {
       { kind: "person", roleKey: ada, text: "Working on it." },
       { kind: "handover-note", roleKey: ada, text: "Left: nothing." },
     ]);
+  });
+
+  it("opens the session with the Stage's own model and effort over the Role card's", async () => {
+    await startWith(started(...aTurn({ status: "done" })));
+    const ada = aPerson("Ada");
+
+    await aStageRun(aStage({ roleKey: ada, model: "claude-haiku-5-5", effort: "low" }));
+
+    expect(engine.sessions[0]?.options).toMatchObject({ model: "claude-haiku-5-5", effort: "low" });
   });
 
   it("continues the previous Stage's session in its Thread when the same person works the next", async () => {

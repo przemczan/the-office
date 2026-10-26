@@ -27,6 +27,13 @@ export interface StageProgress {
   readonly wentBack: WentBack | undefined;
 }
 
+/** A Task's own Stages with where each stands, as the Task page shows them. */
+export interface TaskProgress {
+  readonly stages: readonly StageProgress[];
+  /** Whether the user edited the Stages for the Task, which the Pipeline's label says. */
+  readonly editedForTask: boolean;
+}
+
 /** Each of the Task's Stages, in order, with where it stands from the Task's runs. */
 export function stagesProgress(
   stages: readonly Stage[],

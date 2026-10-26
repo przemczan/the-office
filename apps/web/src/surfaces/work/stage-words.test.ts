@@ -1,6 +1,7 @@
 import type { Stage, StageRun, TaskStage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
+  pipelineLabel,
   durationWords,
   latestHandoverNote,
   scriptCommandLine,
@@ -233,5 +234,12 @@ describe("stageProgressLine of a Script Stage sent back from a Gate", () => {
         now,
       ),
     ).toBe("Done · 18 min · npm test passed. · sent back from Look");
+  });
+});
+
+describe("pipelineLabel", () => {
+  it("names the Pipeline, and says when its Stages were edited for the Task", () => {
+    expect(pipelineLabel("Quick fix", false)).toBe("Quick fix");
+    expect(pipelineLabel("Quick fix", true)).toBe("Quick fix · edited for this Task");
   });
 });

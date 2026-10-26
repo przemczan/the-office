@@ -143,7 +143,7 @@ describe.runIf(
         const publishAt = quickFix.stages.findIndex(({ key }) => key === "publish");
         const stages = quickFix.stages.toSpliced(publishAt, 0, GATE);
         const { taskStages } = makeTaskStages(taskId, { ...quickFix, stages }, new Date());
-        expect(await repository.saveNew(taskStages)).toBe(true);
+        await repository.save(taskStages);
         await note(`Seeded Stages: ${stages.map(({ name }) => name).join(" → ")}`);
 
         await api("POST", `/tasks/${taskId}/start`);

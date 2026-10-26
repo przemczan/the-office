@@ -16,7 +16,11 @@ import {
   StopHeldAsPause,
   WentBackToStage,
 } from "../../domain/stage-run-events.js";
-import { TaskStagesMade } from "../../domain/task-stages-events.js";
+import {
+  TaskStagesEdited,
+  TaskStagesMade,
+  TaskStagesReset,
+} from "../../domain/task-stages-events.js";
 
 type WebEventOf<Type extends PipelinesWebEvent["type"]> = Omit<
   Extract<PipelinesWebEvent, { type: Type }>,
@@ -87,6 +91,14 @@ export class PipelinesWebEvents implements OnModuleInit {
   private forwardWalkEvents(): void {
     this.forwarding.forward(TaskStagesMade, (event): WebEventOf<"task-stages.made"> => ({
       type: "task-stages.made",
+      taskId: event.taskId,
+    }));
+    this.forwarding.forward(TaskStagesEdited, (event): WebEventOf<"task-stages.edited"> => ({
+      type: "task-stages.edited",
+      taskId: event.taskId,
+    }));
+    this.forwarding.forward(TaskStagesReset, (event): WebEventOf<"task-stages.reset"> => ({
+      type: "task-stages.reset",
       taskId: event.taskId,
     }));
     this.forwarding.forward(

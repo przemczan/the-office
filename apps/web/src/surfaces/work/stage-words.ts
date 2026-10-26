@@ -34,6 +34,11 @@ const SESSION_WORDS: Readonly<Record<ContextMove, string>> = {
 /** Names a Stage by its key, as the Stages it is among call it. */
 export type StageNames = (key: string) => string;
 
+/** The Task's Pipeline as its Stages block names it, saying when it was edited for the Task. */
+export function pipelineLabel(pipelineName: string, editedForTask: boolean): string {
+  return editedForTask ? `${pipelineName} · edited for this Task` : pipelineName;
+}
+
 export function stageNamesOf(stages: readonly Stage[]): StageNames {
   return (key) => stages.find((stage) => stage.key === key)?.name ?? key;
 }

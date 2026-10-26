@@ -64,6 +64,8 @@ export const pipelineEventInvalidations: Readonly<
   Record<PipelinesWebEvent["type"], EventInvalidations[string]>
 > = {
   "task-stages.made": staleTaskStages,
+  "task-stages.edited": staleTaskStages,
+  "task-stages.reset": staleTaskStages,
   "stage-run.started": staleTaskStages,
   "stage-run.ended": staleTaskStagesAndChanges,
   "stage-run.skipped": staleTaskStages,

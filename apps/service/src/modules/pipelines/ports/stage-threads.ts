@@ -1,5 +1,5 @@
 import type { CommandPermission } from "../domain/allowed-commands.js";
-import type { StageSession } from "../domain/stage.js";
+import type { Effort, StageSession } from "../domain/stage.js";
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
 import type { StageDecision, StageSessionMove, StageTokens } from "../domain/stage-run.js";
 
@@ -23,6 +23,10 @@ export interface StageThreadRequest {
   /** The key of the Stage's Role, whose person works it. */
   readonly roleKey: string;
   readonly stageName: string;
+  /** The Stage's own model; undefined keeps the Role card's. */
+  readonly model: string | undefined;
+  /** The Stage's own effort; undefined keeps the Role card's. */
+  readonly effort: Effort | undefined;
   /**
    * The Stage's declared session; undefined lets the Context policy decide, as when the Stage runs
    * again after its Agent's question was answered: the answer goes to the asking session (spec §9).

@@ -53,6 +53,28 @@ import { TaskStagesService } from "./task-stages-service.js";
 
 type RunMove = Extract<NextMove, { move: "run" }>;
 type SkipMove = Extract<NextMove, { move: "skip" }>;
+type HaltMove = Exclude<NextMove, RunMove | SkipMove>;
+
+/** A run the walk started, with the Stages and runs it was started from. */
+interface StartedStep {
+  readonly step: "started";
+  readonly stage: Stage;
+  readonly started: ReturnType<typeof startStageRun>;
+  readonly stages: readonly Stage[];
+  readonly earlierRuns: readonly StageRun[];
+}
+
+/** What the walk did at its next move, or why it waits there. */
+type WalkStep =
+  | { readonly step: "over" }
+  | { readonly step: "skipped" }
+  | StartedStep
+  | {
+      readonly step: "halt";
+      readonly move: HaltMove;
+      readonly stages: readonly Stage[];
+      readonly runs: readonly StageRun[];
+    };
 type AskMove = Extract<NextMove, { move: "ask" }>;
 
 /**
@@ -303,18 +325,18 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
    */
   private async walk(taskId: string): Promise<void> {
     // The Task's own Stages, made here too: the event bus only logs a copy that failed as it started.
-    const { stages, pipelineId, trace } = await this.taskStages.make(
+    const { pipelineId, trace } = await this.taskStages.make(
       taskId,
       (await this.tasks.read(taskId)).pipelineId,
     );
     const attributes = { "office.task.id": taskId, "office.pipeline": pipelineId };
     await this.telemetry.inTrace("walk", attributes, trace, async (_span, root) => {
       if (!trace) await this.taskStages.saveTrace(taskId, root);
-      await this.walkStages(taskId, stages);
+      await this.walkStages(taskId);
     });
   }
 
-  private async walkStages(taskId: string, stages: readonly Stage[]): Promise<void> {
+  private async walkStages(taskId: string): Promise<void> {
     // Locked once the Task is Ready, so one read serves the whole walk.
     const { definitionOfDone } = await this.records.read(taskId);
     while (!this.stopping) {
@@ -323,24 +345,51 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       this.interruptions.set(taskId, interruption);
       // Dropped, Paused or Waiting on you meanwhile: the walk stops where the runs stand.
       if ((await this.tasks.read(taskId)).state !== "in-progress") return;
-      const runs = await this.runs.list(taskId);
-      const move = nextMove(stages, runs, definitionOfDone);
-      if (move.move === "skip") {
-        if (!(await this.skip(taskId, move, runs))) return;
+      // Read afresh each move, so an edit of the Task's Stages for the Task applies to the next one.
+      const step = await this.taskStages.holding(taskId, ({ stages }) =>
+        this.takeNextMove(taskId, stages, definitionOfDone),
+      );
+      if (step.step === "over") return;
+      if (step.step === "skipped") continue;
+      if (step.step === "started") {
+        await this.runStage(step, interruption);
         continue;
       }
+      const { move, runs, stages } = step;
       if (move.move === "wait" && move.run.outcome && (await this.takeRecordedAnswers(move.run))) {
         continue;
       }
-      if (move.move !== "run") {
-        await this.halt(taskId, move, runs);
-        if (!(await this.answeredMeanwhile(taskId, stages, definitionOfDone))) return;
-        await this.tasks.changeState(taskId, "in-progress");
-        continue;
-      }
-      if (this.stopping) return;
-      if (!(await this.runStage(taskId, move, stages, runs, interruption))) return;
+      await this.halt(taskId, move, runs);
+      if (!(await this.answeredMeanwhile(taskId, stages, definitionOfDone))) return;
+      await this.tasks.changeState(taskId, "in-progress");
     }
+  }
+
+  /**
+   * The walk's next move, taken while no edit can change the Task's Stages: an optional Stage
+   * skipped, or a run started and saved. Over when another walk of the Task moved first, or The
+   * Office is stopping.
+   */
+  private async takeNextMove(
+    taskId: string,
+    stages: readonly Stage[],
+    definitionOfDone: readonly string[],
+  ): Promise<WalkStep> {
+    const runs = await this.runs.list(taskId);
+    const move = nextMove(stages, runs, definitionOfDone);
+    if (move.move === "skip") {
+      return (await this.skip(taskId, move, runs)) ? { step: "skipped" } : { step: "over" };
+    }
+    if (move.move !== "run") return { step: "halt", move, stages, runs };
+    if (this.stopping) return { step: "over" };
+    const { stage, carriedFailure, sentBack } = move;
+    const started = startStageRun(
+      { id: randomUUID(), taskId, stageKey: stage.key, carriedFailure, sentBack },
+      runs.length,
+      new Date(),
+    );
+    if (!(await this.runs.saveNew(started.run))) return { step: "over" };
+    return { step: "started", stage, started, stages, earlierRuns: runs };
   }
 
   /**
@@ -385,22 +434,13 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     return this.telemetry.inSpan("stage", attributes, work);
   }
 
-  /** False when another walk of the Task started the run first. */
+  /** Runs the Stage of the run the walk started, to its end. */
   private async runStage(
-    taskId: string,
-    move: RunMove,
-    stages: readonly Stage[],
-    earlierRuns: readonly StageRun[],
+    { stage, started, stages, earlierRuns }: StartedStep,
     interruption: StageRunInterruption,
-  ): Promise<boolean> {
-    const { stage, carriedFailure, sentBack } = move;
-    const started = startStageRun(
-      { id: randomUUID(), taskId, stageKey: stage.key, carriedFailure, sentBack },
-      earlierRuns.length,
-      new Date(),
-    );
-    return this.inStageSpan(started.run, stage, async () => {
-      if (!(await this.runs.saveNew(started.run))) return false;
+  ): Promise<void> {
+    const { taskId, carriedFailure } = started.run;
+    await this.inStageSpan(started.run, stage, async () => {
       if (carriedFailure) {
         const { stageKey, round, rounds } = carriedFailure;
         await this.events.publish(new WentBackToStage(taskId, stageKey, stage.key, round, rounds));
@@ -448,11 +488,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     await this.events.publish(new StopHeldAsPause(run.taskId, run.id, run.stageKey));
   }
 
-  private async halt(
-    taskId: string,
-    move: Exclude<NextMove, RunMove | SkipMove>,
-    runs: readonly StageRun[],
-  ): Promise<void> {
+  private async halt(taskId: string, move: HaltMove, runs: readonly StageRun[]): Promise<void> {
     switch (move.move) {
       case "wait":
         if (!move.run.outcome) {

@@ -128,7 +128,7 @@ export async function walkStages(
   stages: readonly Stage[],
   taskId: string = randomUUID(),
 ): Promise<string> {
-  await app.get(TaskStagesRepository, { strict: false }).saveNew({
+  await app.get(TaskStagesRepository, { strict: false }).save({
     taskId,
     pipelineId: "for-tests",
     stages,

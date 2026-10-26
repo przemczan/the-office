@@ -1,6 +1,6 @@
 # Service platform: map
 
-**Owns:** the shared plumbing below every module: config, database, domain events, HTTP, the Office data directory, the WebSocket push, telemetry, the web app's pages, and `os/`, the only code that branches on the operating system. What a module may use is in the [module template](../../docs/module-template.md).
+**Owns:** the shared plumbing below every module: config, database, domain events, HTTP, the Office data directory, per-key locks within the process, the WebSocket push, telemetry, the web app's pages, and `os/`, the only code that branches on the operating system. What a module may use is in the [module template](../../docs/module-template.md).
 
 **Traps:** `EventBus.publish` waits for asynchronous handlers (a failing one stops neither the others nor the publisher), so a long reaction must run in the background.
 
@@ -50,6 +50,10 @@
 - `local-requests.ts`: RequestAddressing, localRequestRefusal, refuseNonLocalRequests, addressingOf
 - `upload-body.ts`: uploadBody, uploadedBytes
 - Tests: configure-http.test.ts, contract-pipe.test.ts, local-requests.test.ts
+
+### locks/
+
+- `keyed-locks.ts`: KeyedLocks
 
 ### office-data/
 

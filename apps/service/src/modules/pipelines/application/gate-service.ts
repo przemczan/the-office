@@ -3,7 +3,7 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { gateActionProblems, waitingGateRun } from "../domain/gate.js";
 import { GateRefused } from "../domain/gate-refused.js";
-import type { StageProgress } from "../domain/stage-progress.js";
+import type { TaskProgress } from "../domain/stage-progress.js";
 import type { GateAction } from "../domain/stage-run.js";
 import { GateContinued, GateDropped, SentBackFromGate } from "../domain/stage-run-events.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
@@ -24,20 +24,20 @@ export class GateService {
     private readonly events: EventBus,
   ) {}
 
-  continue(taskId: string): Promise<StageProgress[]> {
+  continue(taskId: string): Promise<TaskProgress | undefined> {
     return this.act(taskId, { kind: "continue" });
   }
 
-  sendBack(taskId: string, stageKey: string, feedback: string): Promise<StageProgress[]> {
+  sendBack(taskId: string, stageKey: string, feedback: string): Promise<TaskProgress | undefined> {
     return this.act(taskId, { kind: "send-back", stageKey, feedback: feedback.trim() });
   }
 
-  drop(taskId: string): Promise<StageProgress[]> {
+  drop(taskId: string): Promise<TaskProgress | undefined> {
     return this.act(taskId, { kind: "drop" });
   }
 
   /** The Task's Stages after the action; refused with the reasons when the Gate doesn't allow it. */
-  private async act(taskId: string, action: GateAction): Promise<StageProgress[]> {
+  private async act(taskId: string, action: GateAction): Promise<TaskProgress | undefined> {
     const stages = (await this.taskStages.find(taskId))?.stages ?? [];
     const runs = await this.runs.list(taskId);
     const problems = gateActionProblems(stages, runs, action);
@@ -48,7 +48,7 @@ export class GateService {
     }
     await this.events.publish(gateEvent(taskId, gate.stageKey, action));
     await this.interpreter.goOn(taskId);
-    return (await this.taskStages.progress(taskId)) ?? [];
+    return this.taskStages.progress(taskId);
   }
 }
 
