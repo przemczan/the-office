@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { Head } from "../ports/git.js";
+import type { BranchChanges, Head } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectService } from "./project-service.js";
 import { ScriptCommands, type ScriptCommandKey, type ScriptCommandRun } from "./script-commands.js";
@@ -70,6 +70,14 @@ export class TaskWorktrees {
   /** A few lines of what the Task's commits changed so far; undefined while nothing. */
   async changesSoFar(projectId: string, taskId: string): Promise<string | undefined> {
     return this.worktrees.changesSoFar(await this.projects.read(projectId), taskId);
+  }
+
+  /**
+   * The files, line counts and diff of what the Task's commits changed since its branch left the
+   * base branch, as the Changes tab shows them; none before the Task has a branch.
+   */
+  async changes(projectId: string, taskId: string): Promise<BranchChanges> {
+    return this.worktrees.changes(await this.projects.read(projectId), taskId);
   }
 
   /**

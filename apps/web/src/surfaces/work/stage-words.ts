@@ -126,7 +126,8 @@ function resultWords(
   }
 }
 
-function firstLine(text: string): string {
+/** A result's first line, its Markdown code spans as plain words. */
+export function firstLine(text: string): string {
   return plain(text.split("\n", 1)[0] ?? "");
 }
 

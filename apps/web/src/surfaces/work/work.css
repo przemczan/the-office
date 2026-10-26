@@ -355,11 +355,82 @@
   align-items: start;
 }
 
+.task-record-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
 .task-record {
   display: flex;
   flex-direction: column;
   gap: 16px;
   min-width: 0;
+}
+
+/* ---- the Changes tab: files with their lines, the diff, the latest test results */
+
+.changes-files {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: var(--type-mono);
+  font-size: 12px;
+}
+
+.changes-files > li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.changes-path {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.changes-added,
+.changes-diff-added {
+  color: var(--success-fg);
+}
+
+.changes-removed,
+.changes-diff-removed {
+  color: var(--danger-fg);
+}
+
+.changes-diff {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  max-height: 560px;
+  overflow: auto;
+  border-radius: 6px;
+  background: var(--surface-sunken);
+  font: var(--type-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+.changes-diff-hunk,
+.changes-diff-file {
+  color: var(--fg-3);
+}
+
+.changes-cut {
+  margin-top: 6px;
+}
+
+.changes-tests {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
 }
 
 .task-block-title {

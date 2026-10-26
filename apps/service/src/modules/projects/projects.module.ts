@@ -6,6 +6,7 @@ import { CommandLineGit } from "./adapters/git/command-line-git.js";
 import { RepositoryLocks } from "./adapters/git/repository-locks.js";
 import { EnvironmentChecksController } from "./adapters/http/environment-checks.controller.js";
 import { ProjectsController } from "./adapters/http/projects.controller.js";
+import { TaskChangesController } from "./adapters/http/task-changes.controller.js";
 import { PostgresEnvironmentCheckRepository } from "./adapters/postgres/postgres-environment-check-repository.js";
 import { PostgresProjectRepository } from "./adapters/postgres/postgres-project-repository.js";
 import { ShellCommandRunner } from "./adapters/shell/shell-command-runner.js";
@@ -38,7 +39,7 @@ export class ProjectsModule {
       // The Project page lists the repository's own skills through the Skills module; chats read
       // the Projects through an Office tool on the Engine's registry.
       imports: [...imports, SkillsModule, EngineModule],
-      controllers: [ProjectsController, EnvironmentChecksController],
+      controllers: [ProjectsController, EnvironmentChecksController, TaskChangesController],
       providers: [
         { provide: ProjectRepository, useClass: PostgresProjectRepository },
         { provide: EnvironmentCheckRepository, useClass: PostgresEnvironmentCheckRepository },

@@ -231,6 +231,32 @@ describe("Worktrees with a Task's id", () => {
   });
 });
 
+describe("Worktrees.changes", () => {
+  it("has none before the Task has a branch", async () => {
+    await expect(worktrees.changes(project, aTaskId())).resolves.toEqual({
+      files: [],
+      diff: "",
+      diffCut: false,
+    });
+  });
+
+  it("reads the Task's committed changes against the fetched base, without its later commits, after the worktree is gone too", async () => {
+    const taskId = aTaskId();
+    const { worktree } = await worktrees.prepare(project, taskId);
+    await writeFile(join(worktree.path, "work.txt"), "a Stage's work\n");
+    await worktrees.commit(project, taskId, "Implement: a Stage's work");
+    await commitOnOrigin(repository, "main", `later-${taskId}.txt`);
+    gitIn(repository.path, "fetch", "--quiet", "origin");
+    const expected = [
+      { path: "work.txt", previousPath: undefined, lines: { added: 1, removed: 0 } },
+    ];
+
+    await expect(worktrees.changes(project, taskId)).resolves.toMatchObject({ files: expected });
+    await worktrees.remove(project, taskId);
+    await expect(worktrees.changes(project, taskId)).resolves.toMatchObject({ files: expected });
+  });
+});
+
 describe("Worktrees.remove", () => {
   it("removes the worktree with its uncommitted changes and keeps the Task's branch", async () => {
     const taskId = aTaskId();

@@ -1,0 +1,88 @@
+import type { ChangedFile, TaskStage } from "@the-office/contracts";
+import { firstLine } from "./stage-words.ts";
+
+/**
+ * What the Changes tab shows beside the diff (prototypes/app/task.js, `changesHtml`): each
+ * file's lines, how each diff line reads, and the latest results of the Task's test Script Stages.
+ */
+
+/** A line of a unified diff, by what it is. */
+export type DiffLineKind = "file" | "hunk" | "added" | "removed" | "context";
+
+export interface DiffLine {
+  readonly kind: DiffLineKind;
+  readonly text: string;
+}
+
+/** Each line of a unified diff with its kind, as the tab colours it. */
+export function diffLines(diff: string): DiffLine[] {
+  if (diff === "") return [];
+  const lines = diff.endsWith("\n") ? diff.slice(0, -1).split("\n") : diff.split("\n");
+  let inHunk = false;
+  return lines.map((text) => {
+    if (text.startsWith("diff --git ")) inHunk = false;
+    else if (text.startsWith("@@")) inHunk = true;
+    return { kind: diffLineKind(text, inHunk), text };
+  });
+}
+
+/** Inside a hunk "+++" and "---" are a line's content; before one they name the file. */
+function diffLineKind(text: string, inHunk: boolean): DiffLineKind {
+  if (text.startsWith("@@")) return "hunk";
+  if (!inHunk) return "file";
+  if (text.startsWith("+")) return "added";
+  if (text.startsWith("-")) return "removed";
+  return "context";
+}
+
+/** "+14 −6", or "binary" for a file whose lines git doesn't count. */
+export function fileLineWords({
+  lines,
+}: ChangedFile): { added: string; removed: string } | "binary" {
+  return lines ? { added: `+${lines.added}`, removed: `−${lines.removed}` } : "binary";
+}
+
+/** How a test Script Stage last ended by itself: a held or restarted run tells nothing of the code. */
+export type TestResultState = "passed" | "failed" | "skipped" | "not-run";
+
+export interface TestResult {
+  readonly stageKey: string;
+  readonly name: string;
+  readonly state: TestResultState;
+  /** Its command's result or its error, in a line; undefined before it ran. */
+  readonly detail: string | undefined;
+}
+
+export const TEST_RESULT_WORDS: Readonly<Record<TestResultState, string>> = {
+  passed: "passed",
+  failed: "failed",
+  skipped: "skipped",
+  "not-run": "not run yet",
+};
+
+/**
+ * The latest result of each Script Stage that checks the code (build, lint, tests), in the
+ * Pipeline's order; Publish ships the code rather than checking it.
+ */
+export function latestTestResults(taskStages: readonly TaskStage[]): TestResult[] {
+  return taskStages.flatMap(({ stage, runs }): TestResult[] => {
+    if (stage.kind !== "script" || stage.command === "publish") return [];
+    const outcome = runs.findLast(
+      ({ outcome: ended }) =>
+        ended?.status === "done" || (ended?.status === "failed" && ended.interrupted === null),
+    )?.outcome;
+    const base = { stageKey: stage.key, name: stage.name };
+    switch (outcome?.status) {
+      case "done":
+        return [
+          outcome.skipped
+            ? { ...base, state: "skipped", detail: undefined }
+            : { ...base, state: "passed", detail: firstLine(outcome.summary) },
+        ];
+      case "failed":
+        return [{ ...base, state: "failed", detail: firstLine(outcome.error) }];
+      default:
+        return [{ ...base, state: "not-run", detail: undefined }];
+    }
+  });
+}

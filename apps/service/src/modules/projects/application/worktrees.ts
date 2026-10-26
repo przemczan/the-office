@@ -9,6 +9,8 @@ import type { Project } from "../domain/project.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
 import {
   Git,
+  NO_BRANCH_CHANGES,
+  type BranchChanges,
   type GitVariables,
   type Head,
   type Upstream,
@@ -167,6 +169,16 @@ export class Worktrees {
   async changesSoFar(project: Project, taskId: string): Promise<string | undefined> {
     const summary = await this.git.diffSummary(this.pathOf(project, taskId), project.baseBranch);
     return summary === "" ? undefined : summary;
+  }
+
+  /**
+   * What the Task's commits changed since its branch left the base branch, read from the
+   * repository, so it is there with or without the worktree; nothing before the Task has a branch.
+   */
+  async changes(project: Project, taskId: string): Promise<BranchChanges> {
+    const branch = this.branchOf(taskId);
+    if (!(await this.git.hasBranch(project.path, branch))) return NO_BRANCH_CHANGES;
+    return this.git.branchChanges(project.path, project.baseBranch, branch);
   }
 
   /**

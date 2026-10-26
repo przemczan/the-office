@@ -190,3 +190,26 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
   }),
 ]);
 export type ProjectWebEvent = z.infer<typeof projectWebEventSchema>;
+
+/** A file a Task's commits changed since its branch left the base branch. */
+export const changedFileSchema = z.object({
+  /** Relative to the repository, with "/" between folders: where it is now, or was if deleted. */
+  path: z.string().min(1),
+  /** Where it was before the Task renamed it. */
+  previousPath: z.string().min(1).nullable(),
+  /** Null for a binary file, whose lines git doesn't count. */
+  lines: z.object({ added: z.int().nonnegative(), removed: z.int().nonnegative() }).nullable(),
+});
+export type ChangedFile = z.infer<typeof changedFileSchema>;
+
+/**
+ * GET /projects/:id/tasks/:taskId/changes: what the Task's commits changed since its branch left
+ * the base branch, for the Changes tab; no files before the Task has a branch.
+ */
+export const taskChangesSchema = z.object({
+  files: z.array(changedFileSchema),
+  /** The unified diff, cut at a whole line when it is longer than the tab shows. */
+  diff: z.string(),
+  diffCut: z.boolean(),
+});
+export type TaskChanges = z.infer<typeof taskChangesSchema>;

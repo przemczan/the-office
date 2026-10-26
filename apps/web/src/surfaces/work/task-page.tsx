@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams, useSearch } from "@tanstack/react-router";
+import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import type { Pipeline, Project, Task, Thread } from "@the-office/contracts";
-import { EmptyState } from "@the-office/ui";
+import { EmptyState, Tabs } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { ApiError } from "../../api/api-client.ts";
 import { threadQueries } from "../../api/conversations.ts";
@@ -18,17 +18,18 @@ import { PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { MarkReadyButton, PlanButton } from "./planning-actions.tsx";
 import { RunControls } from "./run-controls.tsx";
 import { StartButton } from "./start-action.tsx";
+import { ChangesTab } from "./task-changes.tsx";
 import { TaskConversation } from "./task-conversation.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 import { TaskRecord } from "./task-record.tsx";
 
 /**
- * The Task page (prototypes/app/task.js): its record on the left, its conversation on the right.
- * The Changes tab comes with Gates and Publish (task 14).
+ * The Task page (prototypes/app/task.js): its record on the left, as an overview or its Changes,
+ * and its conversation on the right.
  */
 export function TaskPage(): ReactNode {
   const { taskId } = useParams({ from: "/tasks/$taskId" });
-  const { taskThread } = useSearch({ from: "/tasks/$taskId" });
+  const { taskThread, recordTab } = useSearch({ from: "/tasks/$taskId" });
   const task = useQuery(taskQueries.one(taskId));
   const projects = useQuery(projectQueries.list());
   const pipelines = useQuery(pipelineQueries.list());
@@ -46,7 +47,16 @@ export function TaskPage(): ReactNode {
     <div className="task-page">
       <TaskHead task={record} projects={projects.data} pipeline={pipeline} threads={threads.data} />
       <div className="task-columns">
-        <TaskRecord task={record} pipeline={pipeline} />
+        <div className="task-record-column">
+          <RecordTabs task={record} shown={recordTab} />
+          {recordTab === "changes" ? (
+            <section className="task-record" aria-label="Changes">
+              <ChangesTab task={record} />
+            </section>
+          ) : (
+            <TaskRecord task={record} pipeline={pipeline} />
+          )}
+        </div>
         <TaskConversation task={record} threads={threads.data} shownFirst={taskThread} />
       </div>
     </div>
@@ -87,6 +97,39 @@ function TaskHead({
         <TaskMenu task={task} />
       </div>
     </header>
+  );
+}
+
+/** Overview and Changes, with how many files the Task changed. */
+function RecordTabs({
+  task,
+  shown,
+}: {
+  readonly task: Task;
+  readonly shown: "changes" | undefined;
+}): ReactNode {
+  const navigate = useNavigate({ from: "/tasks/$taskId" });
+  const changedFiles = useQuery(projectQueries.taskChanges(task.projectId, task.id)).data?.files;
+  return (
+    <Tabs
+      tabs={[
+        { value: "overview", label: "Overview" },
+        {
+          value: "changes",
+          label: "Changes",
+          ...(changedFiles && changedFiles.length > 0 && { count: changedFiles.length }),
+        },
+      ]}
+      value={shown ?? "overview"}
+      onChange={(value) =>
+        void navigate({
+          search: (search) => ({
+            ...search,
+            recordTab: value === "changes" ? "changes" : undefined,
+          }),
+        })
+      }
+    />
   );
 }
 

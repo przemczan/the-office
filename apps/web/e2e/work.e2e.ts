@@ -7,7 +7,11 @@ import {
   type Project,
   type Task,
 } from "@the-office/contracts";
-import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
+import {
+  commitOnTaskBranch,
+  createTemporaryRepository,
+  type TemporaryRepository,
+} from "./temporary-repository.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
@@ -254,4 +258,34 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
   await expect(
     page.getByRole("article", { name: "Remember the page per tab" }).getByText("Task page"),
   ).toBeVisible();
+});
+
+test("a Task's Changes tab lists the files its branch changed with their lines and the diff", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Changes", "CH");
+  const task = await createdTask(page, project, "Back off on reconnect");
+  await commitOnTaskBranch(
+    repository,
+    task.id,
+    "backoff.ts",
+    "export const BACKOFF_MS = 30_000;\nexport const RETRIES = 5;\n",
+  );
+  await page.goto(`/tasks/${task.id}`);
+
+  await page.getByRole("tab", { name: /Changes/ }).click();
+
+  await expect(page).toHaveURL(/recordTab=changes/);
+  const changes = page.getByRole("region", { name: "Changes" });
+  await expect(changes.getByText("Files changed · 1")).toBeVisible();
+  await expect(changes.getByRole("listitem")).toContainText(["backoff.ts+2−0"]);
+  await expect(changes.getByLabel("Diff against the base branch")).toContainText(
+    "+export const BACKOFF_MS = 30_000;",
+  );
+  await expect(changes.getByText("Tests:")).toBeVisible();
+  await expect(changes.getByText("not run yet")).toBeVisible();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-changes.png") });
+
+  await page.getByRole("tab", { name: "Overview" }).click();
+  await expect(page.getByRole("region", { name: "Record" })).toBeVisible();
 });

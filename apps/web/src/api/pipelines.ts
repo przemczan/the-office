@@ -6,6 +6,7 @@ import {
   type PipelinesWebEvent,
 } from "@the-office/contracts";
 import { getFromApi } from "./api-client.ts";
+import { taskChangesKey } from "./projects.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
 export const pipelineQueries = {
@@ -34,12 +35,18 @@ function staleTaskStages(event: unknown): readonly (readonly unknown[])[] {
   return [taskStagesKey(pipelinesWebEventSchema.parse(event).taskId)];
 }
 
+/** A run's end also makes the Task's Changes stale, as The Office commits the Stage's work then. */
+function staleTaskStagesAndChanges(event: unknown): readonly (readonly unknown[])[] {
+  const { taskId } = pipelinesWebEventSchema.parse(event);
+  return [taskStagesKey(taskId), taskChangesKey(taskId)];
+}
+
 export const pipelineEventInvalidations: Readonly<
   Record<PipelinesWebEvent["type"], EventInvalidations[string]>
 > = {
   "task-stages.made": staleTaskStages,
   "stage-run.started": staleTaskStages,
-  "stage-run.ended": staleTaskStages,
+  "stage-run.ended": staleTaskStagesAndChanges,
   "stage-run.skipped": staleTaskStages,
   "stage-run.stop-held-as-pause": staleTaskStages,
   "stage-run.went-back": staleTaskStages,

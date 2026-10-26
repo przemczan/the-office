@@ -31,6 +31,27 @@ export interface Head {
   readonly branch: string | undefined;
 }
 
+/** A file a branch's commits changed since it forked from the base branch. */
+export interface ChangedFile {
+  /** Relative to the repository, with "/" between folders: where it is now, or was if deleted. */
+  readonly path: string;
+  /** Where it was before the branch renamed it; undefined when it wasn't renamed. */
+  readonly previousPath: string | undefined;
+  /** Undefined for a binary file, whose lines git doesn't count. */
+  readonly lines: { readonly added: number; readonly removed: number } | undefined;
+}
+
+/** What a branch's commits changed since it forked from the base branch. */
+export interface BranchChanges {
+  readonly files: readonly ChangedFile[];
+  /** The unified diff, cut at a whole line when it is longer than the UI can show. */
+  readonly diff: string;
+  /** Whether `diff` was cut. */
+  readonly diffCut: boolean;
+}
+
+export const NO_BRANCH_CHANGES: BranchChanges = { files: [], diff: "", diffCut: false };
+
 /**
  * The variables git runs with on a Project: its command environment, since git runs the
  * Project's tooling, its hooks (Git LFS's pre-push among them) and filters.
@@ -130,6 +151,17 @@ export abstract class Git {
    * a line per file, the first ones only when there are many, and a total. Empty when nothing did.
    */
   abstract diffSummary(worktreePath: string, baseBranch: string): Promise<string>;
+
+  /**
+   * The files, line counts and diff of what `branch`'s commits changed since it forked from the
+   * base branch, which is taken as diffSummary takes it. Read from the repository's records, so it
+   * needs no worktree of the branch; uncommitted changes in one aren't in it.
+   */
+  abstract branchChanges(
+    repositoryPath: string,
+    baseBranch: string,
+    branch: string,
+  ): Promise<BranchChanges>;
 
   /**
    * Reverts tracked files to the last commit, keeping untracked and ignored ones, such as

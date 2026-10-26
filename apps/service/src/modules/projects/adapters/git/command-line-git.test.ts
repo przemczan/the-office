@@ -285,6 +285,68 @@ describe("CommandLineGit.commit", () => {
   });
 });
 
+describe("CommandLineGit.branchChanges", () => {
+  it("lists each committed file with its lines, renames and binary files included, and the diff", async () => {
+    const worktree = await aWorktree();
+    await writeFile(join(worktree.path, "src", "index.ts"), "export const changed = true;\n");
+    await writeFile(join(worktree.path, "notes.md"), "one\ntwo\n");
+    await writeFile(join(worktree.path, "logo.png"), Buffer.from([0x89, 0x50, 0x00, 0x01, 0x00]));
+    await git.commit(worktree.path, "Implement: the first Stage", variables);
+    gitIn(worktree.path, "mv", "notes.md", "docs.md");
+    await git.commit(worktree.path, "Implement: the rename", variables);
+    await writeFile(join(worktree.path, "uncommitted.txt"), "not a Stage's work yet\n");
+
+    const changes = await git.branchChanges(repository.path, "main", worktree.branch);
+
+    expect(changes.files).toEqual([
+      { path: "docs.md", previousPath: undefined, lines: { added: 2, removed: 0 } },
+      { path: "logo.png", previousPath: undefined, lines: undefined },
+      { path: "src/index.ts", previousPath: undefined, lines: { added: 1, removed: 1 } },
+    ]);
+    expect(changes.diff).toContain("-export {};\n+export const changed = true;\n");
+    expect(changes.diff).not.toContain("uncommitted.txt");
+    expect(changes.diffCut).toBe(false);
+  });
+
+  it("tells a file the branch renamed from where it was", async () => {
+    const worktree = await aWorktree();
+    gitIn(worktree.path, "mv", "src/index.ts", "src/main.ts");
+    await git.commit(worktree.path, "Implement: the rename", variables);
+
+    const changes = await git.branchChanges(repository.path, "main", worktree.branch);
+
+    expect(changes.files).toEqual([
+      { path: "src/main.ts", previousPath: "src/index.ts", lines: { added: 0, removed: 0 } },
+    ]);
+  });
+
+  it("cuts a long diff after a whole line", async () => {
+    const worktree = await aWorktree();
+    const line = `${"x".repeat(99)}\n`;
+    await writeFile(join(worktree.path, "large.txt"), line.repeat(12_000));
+    await git.commit(worktree.path, "Implement: a large file", variables);
+
+    const changes = await git.branchChanges(repository.path, "main", worktree.branch);
+
+    expect(changes.files).toEqual([
+      { path: "large.txt", previousPath: undefined, lines: { added: 12_000, removed: 0 } },
+    ]);
+    expect(changes.diffCut).toBe(true);
+    expect(changes.diff.length).toBeLessThanOrEqual(1_000_000);
+    expect(changes.diff.endsWith(`+${line}`)).toBe(true);
+  });
+
+  it("is empty for a branch with no commits of its own", async () => {
+    const worktree = await aWorktree();
+
+    await expect(git.branchChanges(repository.path, "main", worktree.branch)).resolves.toEqual({
+      files: [],
+      diff: "",
+      diffCut: false,
+    });
+  });
+});
+
 describe("CommandLineGit.restore", () => {
   it("reverts tracked files and keeps untracked ones", async () => {
     const worktree = await aWorktree();

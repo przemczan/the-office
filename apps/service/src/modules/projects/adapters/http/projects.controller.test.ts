@@ -8,6 +8,7 @@ import {
   projectRefusalSchema,
   projectSchema,
   projectWebEventSchema,
+  taskChangesSchema,
   type NewProject,
   type Project,
 } from "@the-office/contracts";
@@ -24,6 +25,7 @@ import { PipelineLibrary, PipelineLibraryModule } from "../../../pipelines/index
 import { ProjectsModule } from "../../projects.module.js";
 import {
   createTemporaryRepository,
+  gitIn,
   type TemporaryRepository,
 } from "../git/temporary-repository.fixtures.js";
 
@@ -338,5 +340,45 @@ describe("the repository's own skills", () => {
     } finally {
       await rm(join(repository.path, ".claude"), { recursive: true, force: true });
     }
+  });
+});
+
+describe("GET /api/projects/:id/tasks/:taskId/changes", () => {
+  it("answers the Task branch's committed files with their lines and the diff", async () => {
+    const project = await addProject();
+    const taskId = randomUUID();
+    const worktreePath = join(repository.folder, "task-changes", taskId);
+    gitIn(repository.path, "worktree", "add", "--quiet", "-b", `office/${taskId}`, worktreePath);
+    await writeFile(join(worktreePath, "work.txt"), "a Stage's work\n");
+    gitIn(worktreePath, "add", ".");
+    gitIn(worktreePath, "commit", "--quiet", "--message", "Implement: a Stage's work");
+
+    const response = await fetch(`${url}/api/projects/${project.id}/tasks/${taskId}/changes`);
+
+    expect(response.status).toBe(200);
+    const changes = taskChangesSchema.parse(await response.json());
+    expect(changes.files).toEqual([
+      { path: "work.txt", previousPath: null, lines: { added: 1, removed: 0 } },
+    ]);
+    expect(changes.diff).toContain("+a Stage's work\n");
+    expect(changes.diffCut).toBe(false);
+  });
+
+  it("answers no changes for a Task without a branch yet", async () => {
+    const project = await addProject();
+
+    const response = await fetch(`${url}/api/projects/${project.id}/tasks/${randomUUID()}/changes`);
+
+    expect(await response.json()).toEqual({ files: [], diff: "", diffCut: false });
+  });
+
+  it("answers 404 for a Project that doesn't exist and 400 for a Task id that isn't one", async () => {
+    const project = await addProject();
+
+    const missing = await fetch(`${url}/api/projects/nowhere/tasks/${randomUUID()}/changes`);
+    const malformed = await fetch(`${url}/api/projects/${project.id}/tasks/not-a-task/changes`);
+
+    expect(missing.status).toBe(404);
+    expect(malformed.status).toBe(400);
   });
 });

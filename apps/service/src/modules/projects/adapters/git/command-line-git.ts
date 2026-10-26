@@ -5,6 +5,8 @@ import { Injectable } from "@nestjs/common";
 import {
   Git,
   GitCommandFailed,
+  type BranchChanges,
+  type ChangedFile,
   type FolderInspection,
   type GitVariables,
   type Head,
@@ -23,6 +25,13 @@ const REMOVE_RETRIES = 5;
 /** Enough files for a Brief to show the shape of a change; git counts the rest on one line. */
 const DIFF_SUMMARY_FILES = 40;
 const DIFF_SUMMARY_WIDTH = 120;
+/**
+ * The same diff whatever the user's git config says: no colours or external diff tools to parse
+ * around, and renames found.
+ */
+const DIFF_OPTIONS = ["--no-color", "--no-ext-diff", "--find-renames"] as const;
+/** More than anyone reads in the Changes tab; a lockfile's change alone can be megabytes. */
+const DIFF_LIMIT_CHARACTERS = 1_000_000;
 
 interface GitCall {
   readonly folder: string;
@@ -243,21 +252,44 @@ export class CommandLineGit extends Git {
   }
 
   async diffSummary(worktreePath: string, baseBranch: string): Promise<string> {
-    const upstream = await this.upstreamOf(worktreePath, baseBranch);
-    const base = upstream ? trackingRefOf(upstream) : `refs/heads/${baseBranch}`;
-    // `base...HEAD` diffs from where HEAD forked from base, so the base's own later commits stay out.
     const output = await git({
       folder: worktreePath,
       gitArguments: [
         "diff",
-        "--no-color",
+        ...DIFF_OPTIONS,
         `--stat=${DIFF_SUMMARY_WIDTH}`,
         `--stat-count=${DIFF_SUMMARY_FILES}`,
-        `${base}...HEAD`,
+        await this.sinceForked(worktreePath, baseBranch, "HEAD"),
         "--",
       ],
     });
     return output.trimEnd();
+  }
+
+  async branchChanges(
+    repositoryPath: string,
+    baseBranch: string,
+    branch: string,
+  ): Promise<BranchChanges> {
+    const range = await this.sinceForked(repositoryPath, baseBranch, `refs/heads/${branch}`);
+    const [numbers, diff] = await Promise.all([
+      git({
+        folder: repositoryPath,
+        gitArguments: ["diff", ...DIFF_OPTIONS, "--numstat", "-z", range, "--"],
+      }),
+      git({ folder: repositoryPath, gitArguments: ["diff", ...DIFF_OPTIONS, range, "--"] }),
+    ]);
+    return { files: changedFiles(numbers), ...cutDiff(diff) };
+  }
+
+  /**
+   * `base...revision`, which diffs from where the revision forked from the base branch, so the
+   * base's own later commits stay out. The base is its upstream when it tracks one (spec §9).
+   */
+  private async sinceForked(folder: string, baseBranch: string, revision: string): Promise<string> {
+    const upstream = await this.upstreamOf(folder, baseBranch);
+    const base = upstream ? trackingRefOf(upstream) : `refs/heads/${baseBranch}`;
+    return `${base}...${revision}`;
   }
 
   async restore(worktreePath: string, variables: GitVariables): Promise<readonly string[]> {
@@ -351,6 +383,37 @@ async function commonDirectory(folder: string): Promise<string> {
     gitArguments: ["rev-parse", "--path-format=absolute", "--git-common-dir"],
   });
   return realpath(output.trim());
+}
+
+/**
+ * The files of `git diff --numstat -z`: `<added>\t<removed>\t<path>` each, or for a rename
+ * `<added>\t<removed>\t` followed by the old and the new path; a binary file counts `-` lines.
+ */
+function changedFiles(numstat: string): ChangedFile[] {
+  const fields = numstat.split("\0");
+  const files: ChangedFile[] = [];
+  for (let index = 0; index < fields.length; index += 1) {
+    const [added, removed, path] = (fields[index] ?? "").split("\t");
+    if (added === undefined || removed === undefined || path === undefined) continue;
+    const lineCounts =
+      added === "-" ? undefined : { added: Number(added), removed: Number(removed) };
+    if (path !== "") {
+      files.push({ path, previousPath: undefined, lines: lineCounts });
+      continue;
+    }
+    const previousPath = fields[index + 1] ?? "";
+    const renamedTo = fields[index + 2] ?? "";
+    index += 2;
+    files.push({ path: renamedTo, previousPath, lines: lineCounts });
+  }
+  return files;
+}
+
+/** The diff, cut after its last whole line within the limit when it is longer. */
+function cutDiff(diff: string): Pick<BranchChanges, "diff" | "diffCut"> {
+  if (diff.length <= DIFF_LIMIT_CHARACTERS) return { diff, diffCut: false };
+  const lastLineEnd = diff.lastIndexOf("\n", DIFF_LIMIT_CHARACTERS - 1);
+  return { diff: diff.slice(0, lastLineEnd + 1), diffCut: true };
 }
 
 function trackingRefOf(upstream: Upstream): string {

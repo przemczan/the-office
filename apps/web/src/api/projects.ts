@@ -5,6 +5,7 @@ import {
   projectListSchema,
   projectSchema,
   projectSkillListSchema,
+  taskChangesSchema,
   type EnvironmentCheck,
   type NewProject,
   type Project,
@@ -44,7 +45,26 @@ export const projectQueries = {
       queryFn: ({ signal }) =>
         getFromApi(`${projectPath(id)}/skills`, projectSkillListSchema, signal),
     }),
+  /** What the Task's commits changed in its Project, for the Changes tab. */
+  taskChanges: (projectId: string, taskId: string) =>
+    queryOptions({
+      queryKey: taskChangesKey(taskId),
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `${projectPath(projectId)}/tasks/${encodeURIComponent(taskId)}/changes`,
+          taskChangesSchema,
+          signal,
+        ),
+    }),
 };
+
+/**
+ * Under the Task's key, so Work's events about the Task refresh it too, and so does a Stage run's
+ * end, after which The Office commits the Stage's work.
+ */
+export function taskChangesKey(taskId: string): readonly unknown[] {
+  return ["tasks", taskId, "changes"];
+}
 
 export function addProject(newProject: NewProject): Promise<Project> {
   return sendToApi("POST", "/projects", newProject, projectSchema);

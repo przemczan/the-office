@@ -1,6 +1,6 @@
 # 14 · Gates, the Changes tab and Publish
 
-Status: todo
+Status: in progress
 
 ## Goal
 
@@ -25,7 +25,7 @@ Leave out: the proof-of-concept publish target and conflict resolution between p
 
 ## Steps
 
-- [ ] 1. Changes: a use case in Projects that reads files, line counts and the diff of a worktree against its base; the latest Script Stage results from Pipelines; the Changes tab. Commit.
+- [x] 1. Changes: a use case in Projects that reads files, line counts and the diff of a worktree against its base; the latest Script Stage results from Pipelines; the Changes tab. Commit.
 - [ ] 2. Gate Stages in the interpreter: Waiting on you, the actions and what each does, events; the Gate view inline on the Task page. Commit.
 - [ ] 3. Screenshots: the excluded folder, keeping it across test runs, attaching exactly the listed files; the brief tells Agents where to write them. Commit.
 - [ ] 4. Publish Stages: push + PR and merge, the PR body from the record, failures to the on-failure target, the clean-apply check, worktree removal. Commit.
@@ -34,3 +34,5 @@ Leave out: the proof-of-concept publish target and conflict resolution between p
 ## Progress
 
 <!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next; anything surprising. -->
+
+- 2026-10-26 · step 1: Changes. Projects reads what a Task's commits changed since its branch left the base branch (the base's upstream when it tracks one, as `diffSummary`): `Git.branchChanges(repositoryPath, baseBranch, branch)` (`CommandLineGit`: `git diff --numstat -z` and the patch over `base...refs/heads/office/<task>`, with `--no-color --no-ext-diff --find-renames` now shared with `diffSummary` through `sinceForked`; renames keep `previousPath`, binary files have no `lines`, the patch is cut after a whole line past 1,000,000 characters, `diffCut`), `Worktrees.changes` (no changes before the Task has a branch) and the use case `TaskWorktrees.changes(projectId, taskId)`. It reads the repository, not the worktree, so it holds after Publish removes the worktree (step 4); uncommitted edits of a running Stage are left out, so it is what Publish would ship. `GET /projects/:id/tasks/:taskId/changes` (`TaskChangesController`, contract `taskChangesSchema`/`changedFileSchema`). Web: the Task page's record has the tabs Overview and Changes (with the file count; `?recordTab=changes`); `ChangesTab` fetches, `ChangesView` (`surfaces/work/task-changes.tsx`) shows files with +/− lines, the coloured diff and "Tests:" badges, for a Gate to embed in step 2; `changes-words.ts`: `diffLines`, `fileLineWords`, `latestTestResults` (each build, lint and test Script Stage's latest run that ended by itself, from `GET /tasks/:id/stages`; Publish and held or restarted runs left out). `stage-run.ended` now also refreshes the Changes query. Tests: `CommandLineGit.branchChanges`, `Worktrees.changes` (base's later commits out, still there after the worktree is removed), the endpoint, the words, and a Playwright test with a committed Task branch (screenshot `light-1600-task-changes.png`). "Opens a file in the editor" is not built: nothing in the spec, the click-through (a header-level "Open in editor" only) or the code says which editor or how, so it waits on the user's answer and that Definition of Done box stays open. Next: step 2, Gate Stages. Surprising: after a merge-mode Publish `base...branch` is empty, which step 4 must keep in mind.

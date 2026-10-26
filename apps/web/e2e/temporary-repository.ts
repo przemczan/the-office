@@ -38,6 +38,34 @@ export async function createTemporaryRepository(): Promise<TemporaryRepository> 
   };
 }
 
+/**
+ * Commits a file on a Task's branch, as a Stage's work would be, through a worktree removed
+ * afterwards, so only the branch stays.
+ */
+export async function commitOnTaskBranch(
+  repository: TemporaryRepository,
+  taskId: string,
+  file: string,
+  content: string,
+): Promise<void> {
+  const worktree = path.join(repository.folder, `task-${taskId}`);
+  runGit(repository.path, "worktree", "add", "--quiet", "-b", `office/${taskId}`, worktree, "main");
+  await writeFile(path.join(worktree, file), content);
+  runGit(worktree, "add", ".");
+  runGit(
+    worktree,
+    "-c",
+    "user.name=The Office",
+    "-c",
+    "user.email=office@localhost",
+    "commit",
+    "--quiet",
+    "--message",
+    `Implement: ${file}`,
+  );
+  runGit(repository.path, "worktree", "remove", "--force", worktree);
+}
+
 function runGit(cwd: string, ...gitArguments: string[]): void {
   execFileSync("git", gitArguments, { cwd, stdio: "ignore" });
 }
