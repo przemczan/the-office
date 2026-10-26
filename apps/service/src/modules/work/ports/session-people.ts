@@ -1,6 +1,7 @@
 /**
- * Who is at work in an engine session, for the Office tools that capture Ideas and create Tasks in
- * their name. Conversations keeps the chats' sessions; the composition root binds it.
+ * Who is at work in an engine session, for the Office tools that act in their name, such as
+ * capturing an Idea or attaching a file. Conversations keeps every Thread's session, a chat's or a
+ * Stage's; the composition root binds it.
  */
 export abstract class SessionPeople {
   /** The key of the Role the session's person fills; undefined for a session nobody keeps. */

@@ -83,7 +83,8 @@ export class ThreadService {
 
   /**
    * Whose engine session `sessionId` is, by the key of the Role they fill, for the Office tools a
-   * chat calls; undefined when no Thread has that session now.
+   * session calls, in a chat or on a Task, a Stage Thread's too; undefined when no Thread has
+   * that session now.
    */
   async personInSession(sessionId: string): Promise<string | undefined> {
     return (await this.repository.findBySession(sessionId))?.session?.roleKey;

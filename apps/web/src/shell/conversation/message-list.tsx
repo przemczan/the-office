@@ -1,5 +1,5 @@
 import {
-  OPEN_DECISION_TOOL,
+  DECISION_TOOLS,
   type Decision,
   type DecisionAnswer,
   type Message,
@@ -56,7 +56,7 @@ export function MessageList({
 }
 
 function shown(message: Message): boolean {
-  return message.kind !== "tool-activity" || message.tool !== OPEN_DECISION_TOOL;
+  return message.kind !== "tool-activity" || !DECISION_TOOLS.includes(message.tool);
 }
 
 function MessageItem({

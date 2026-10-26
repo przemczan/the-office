@@ -5,6 +5,7 @@ import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { StageDecisions, type StageDecisionRequest } from "./stage-decisions.js";
 import {
   StageThreads,
+  type AskedDecision,
   type StageThread,
   type StageThreadRequest,
   type StageTurn,
@@ -120,6 +121,11 @@ export class StageThreadsForTests extends StageThreads {
   readonly interrupted: string[] = [];
   /** Told as The Office waits on each turn, while it runs, such as for the user to stop it. */
   whileTurnRuns: ((threadId: string) => void) | undefined = undefined;
+  /**
+   * The Decision the person opens with an Office tool in each turn, as a test has them ask; none
+   * unless one is set.
+   */
+  asksInTurn: ((request: StageThreadRequest) => AskedDecision | undefined) | undefined = undefined;
   /** The Threads whose Stage The Office found left running as it started, with why it ended. */
   readonly endedLeftRunning: { readonly threadId: string; readonly failure: string }[] = [];
 
@@ -157,7 +163,12 @@ export class StageThreadsForTests extends StageThreads {
           turnRunning = false;
           await this.whileWorking?.(request);
           const problem = event.outcome === "completed" ? undefined : event.errors.join(" ");
-          return { output: event.output, problem, tokens: event.usage };
+          return {
+            output: event.output,
+            problem,
+            tokens: event.usage,
+            decision: this.asksInTurn?.(request),
+          };
         }
       }
     };

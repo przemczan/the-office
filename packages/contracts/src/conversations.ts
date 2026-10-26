@@ -101,6 +101,15 @@ export type ThreadTitle = z.infer<typeof threadTitleSchema>;
  */
 export const OPEN_DECISION_TOOL = "open_decision";
 
+/**
+ * The Office tool an Agent consults a person with. It opens a Decision as `open_decision` does, so
+ * its tool activity line is hidden in the web too.
+ */
+export const CONSULT_TOOL = "consult";
+
+/** The Office tools whose calls the Decision card shows, so the web hides their activity lines. */
+export const DECISION_TOOLS: readonly string[] = [OPEN_DECISION_TOOL, CONSULT_TOOL];
+
 /** How the user answers a Decision: one of its options, by its index, or a free answer. */
 export const decisionAnswerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("option"), option: z.number().int().nonnegative() }),

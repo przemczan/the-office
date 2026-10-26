@@ -1,5 +1,6 @@
 export { EngineSessions } from "./application/engine-sessions.js";
 export { OfficeToolRegistry } from "./application/office-tool-registry.js";
+export type { OfficeToolResult } from "./ports/office-tool.js";
 export { UsageWindowState } from "./application/usage-window-state.js";
 export { EngineDown, UsageWindowsChanged } from "./domain/engine-events.js";
 export { READ_ONLY_GIT_COMMANDS } from "./domain/git-commands.js";

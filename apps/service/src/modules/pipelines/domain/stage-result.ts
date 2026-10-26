@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { StageOutcome } from "./stage-run.js";
+import type { StageDecision, StageOutcome } from "./stage-run.js";
 
 const recommendation = z.object({
   option: z
@@ -37,7 +37,11 @@ const stageResult = z.object({
     .describe(
       "Required when status is done: the numbers of the Definition of Done statements the work now meets, as the Brief numbers them; leave out any it doesn't meet yet.",
     ),
-  decision: decision.optional().describe("Required when status is needs_decision."),
+  decision: decision
+    .optional()
+    .describe(
+      "Leave it out when you asked with the open_decision or consult tool. Otherwise required when status is needs_decision.",
+    ),
   failureReason: z.string().min(1).optional().describe("Required when status is failed."),
 });
 
@@ -119,6 +123,23 @@ function outcomeOf({
         outcome: { status: "failed", error: failureReason ?? summary, ...note },
       };
   }
+}
+
+/**
+ * The outcome of a turn in which the Agent opened a Decision with an Office tool (spec §9): the
+ * Stage waits on it whatever status the result gives, as the tool told the Agent to end its turn,
+ * and keeps the result's Handover note when it has one.
+ */
+export function askedOutcome(asked: StageDecision, output: unknown): StageOutcome {
+  const handoverNote = stageResult.safeParse(output).data?.handoverNote;
+  return {
+    status: "needs-decision",
+    question: asked.question,
+    context: asked.context,
+    options: asked.options,
+    recommendation: asked.recommendation,
+    ...(handoverNote === undefined ? {} : { handoverNote }),
+  };
 }
 
 /**

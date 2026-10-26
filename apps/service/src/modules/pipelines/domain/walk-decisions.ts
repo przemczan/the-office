@@ -74,9 +74,14 @@ function agentDecision({ id, outcome }: StageRun): WalkDecision {
   return {
     kind: "agent",
     draft: { question, context, options, recommendation },
-    options: options.map((option) => ({ kind: "answered", answer: option })),
+    options: agentAnswers(options),
     byTheOffice: false,
   };
+}
+
+/** What each option of the Agent's own question does: answers it, in the option's words. */
+export function agentAnswers(options: readonly string[]): WalkAnswer[] {
+  return options.map((option) => ({ kind: "answered", answer: option }));
 }
 
 /** Raising gives the Stage its declared budget again (research §7), counted from the tokens used. */

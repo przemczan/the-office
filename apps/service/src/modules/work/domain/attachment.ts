@@ -60,6 +60,31 @@ const IMAGE_MEDIA_TYPES: ReadonlySet<string> = new Set([
   "image/webp",
 ]);
 
+/** Media types by file extension, for a file an Agent attaches from its worktree. */
+const MEDIA_TYPES_BY_EXTENSION: Readonly<Record<string, string>> = {
+  md: "text/markdown",
+  markdown: "text/markdown",
+  txt: "text/plain",
+  log: "text/plain",
+  csv: "text/csv",
+  json: "application/json",
+  html: "text/html",
+  pdf: "application/pdf",
+  zip: "application/zip",
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  gif: "image/gif",
+  webp: "image/webp",
+  svg: "image/svg+xml",
+};
+
+/** A file's media type by its extension; a file of any other kind is plain bytes. */
+export function mediaTypeOf(fileName: string): string {
+  const extension = /\.([^.]+)$/.exec(fileName.trim())?.[1]?.toLowerCase();
+  return (extension && MEDIA_TYPES_BY_EXTENSION[extension]) ?? "application/octet-stream";
+}
+
 /** A file's kind, by its name for Markdown and by its media type for images. */
 export function storedFileKind(file: NewFile): StoredFile["kind"] {
   if (/\.(md|markdown)$/i.test(file.name.trim())) return "document";

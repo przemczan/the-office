@@ -35,6 +35,8 @@ export class ProjectWorktreesForTests extends ProjectWorktrees {
   readonly opened: string[] = [];
   /** Set to make opening a worktree fail with it. */
   failure: Error | undefined;
+  /** Where every Project's worktrees are; a test sets a real folder to put files in them. */
+  folder = "/worktrees";
 
   async open(projectId: string, taskId: string): Promise<TaskWorktree> {
     if (this.failure) throw this.failure;
@@ -44,7 +46,7 @@ export class ProjectWorktreesForTests extends ProjectWorktrees {
 
   async find(projectId: string, taskId: string): Promise<TaskWorktree> {
     return {
-      path: join("/worktrees", projectId, taskId),
+      path: join(this.folder, projectId, taskId),
       branch: `office/${taskId}`,
       environment: { PROJECT: projectId },
     };

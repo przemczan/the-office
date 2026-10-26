@@ -23,15 +23,21 @@ import {
   type StageRun,
 } from "../domain/stage-run.js";
 import {
+  askedOutcome,
   correctionMessage,
   readStageResult,
   STAGE_RESULT_SCHEMA,
   type StageResultReading,
 } from "../domain/stage-result.js";
 import { KnownPeople, type KnownPerson } from "../ports/known-people.js";
-import { acceptedIssues } from "../domain/walk-decisions.js";
+import { acceptedIssues, agentAnswers } from "../domain/walk-decisions.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
-import { StageThreads, type StageThread, type StageTurn } from "../ports/stage-threads.js";
+import {
+  StageThreads,
+  type AskedDecision,
+  type StageThread,
+  type StageTurn,
+} from "../ports/stage-threads.js";
 import { TaskCommands } from "../ports/task-commands.js";
 import { TaskGit } from "../ports/task-git.js";
 import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
@@ -40,8 +46,20 @@ import { StageGit } from "./stage-git.js";
 import type { StageRunner, StageWork } from "./stage-runner.js";
 import { StageRunners } from "./stage-runners.js";
 
-/** The Office tools of an Agent Stage's session: it reads its Task and the Task's Attachments. */
-export const AGENT_STAGE_OFFICE_TOOLS = ["read_task", "read_attachment"] as const;
+/**
+ * The Office tools of an Agent Stage's session (spec §6): it reads its Task and the Task's
+ * Attachments, asks the user with a Decision, consults a person (in tier 1 the user answers in
+ * their place), and attaches a file or a link to the Task. The names are the tools' own, which
+ * Conversations and Work register.
+ */
+export const AGENT_STAGE_OFFICE_TOOLS = [
+  "read_task",
+  "read_attachment",
+  "open_decision",
+  "consult",
+  "attach_file",
+  "attach_link",
+] as const;
 
 type Ending = Parameters<StageThread["end"]>[0];
 
@@ -276,26 +294,52 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     };
     // Stopped while the session opened, before there was a turn to stop.
     if (work.interruption.now) return undefined;
-    const first = readingOf(await counted(await thread.nextTurn()));
+    const firstTurn = await counted(await thread.nextTurn());
     if (work.interruption.requested) return undefined;
+    if (firstTurn.decision) return this.waitOn(work, firstTurn.decision, firstTurn.output);
+    const first = readingOf(firstTurn);
     if (first.valid) return first.outcome;
     // The correction is another engine call, so the budget is checked before it too.
     const reached = await this.budgetCheck(work);
     if (reached) return reached;
-    const corrected = readingOf(
-      await counted(
-        await thread.send(
-          correctionMessage(first.problems),
-          `The result didn't match the Stage's result schema, so The Office asked once to correct it: ${first.problems}`,
-        ),
+    const correctedTurn = await counted(
+      await thread.send(
+        correctionMessage(first.problems),
+        `The result didn't match the Stage's result schema, so The Office asked once to correct it: ${first.problems}`,
       ),
     );
     if (work.interruption.requested) return undefined;
+    if (correctedTurn.decision) {
+      return this.waitOn(work, correctedTurn.decision, correctedTurn.output);
+    }
+    const corrected = readingOf(correctedTurn);
     if (corrected.valid) return corrected.outcome;
     return {
       status: "failed",
       error: `The Stage's result still didn't match its schema after one correction: ${corrected.problems}`,
     };
+  }
+
+  /**
+   * The run waits on the Decision its Agent opened with an Office tool: kept on the run as the
+   * walk's own, so the walk waits on it rather than asking again and takes its answer, and the
+   * Stage runs again with the answer as its next message (spec §9).
+   */
+  private async waitOn(
+    { run }: StageWork<"agent">,
+    decision: AskedDecision,
+    output: unknown,
+  ): Promise<StageOutcome> {
+    await this.runs.saveDecisions(run.id, [
+      ...run.decisions,
+      {
+        id: decision.id,
+        kind: "agent",
+        options: agentAnswers(decision.options),
+        answer: undefined,
+      },
+    ]);
+    return askedOutcome(decision, output);
   }
 }
 

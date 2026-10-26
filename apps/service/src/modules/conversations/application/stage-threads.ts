@@ -11,6 +11,7 @@ import {
   type ContextDecision,
   type ContextPolicySettings,
 } from "../domain/context-policy.js";
+import type { Decision } from "../domain/decision.js";
 import type { Message, MessageDelivery, MessageDraft } from "../domain/message.js";
 import { openingMessage, taskThreadInstructions } from "../domain/session-instructions.js";
 import { addTokens, NO_TOKENS, type Thread, type TokenTotals } from "../domain/thread.js";
@@ -88,7 +89,18 @@ export interface StageTurn {
   readonly problem: string | undefined;
   /** The turn's tokens, as the Thread counts them. */
   readonly tokens: TokenTotals;
+  /**
+   * The Decision the person opened in the Thread during the Stage's work, by `open_decision` or
+   * `consult`, while it waits on the user; undefined when they asked none.
+   */
+  readonly decision: AskedDecision | undefined;
 }
+
+/** A Decision the person asked in a Stage Thread, with the id it is answered by. */
+export type AskedDecision = Pick<
+  Decision,
+  "id" | "question" | "context" | "options" | "recommendation"
+>;
 
 /**
  * The user's messages a Stage's work carries into its session, from the Thread they were written
@@ -176,7 +188,7 @@ export class StageThreads {
           : undefined,
     };
     if (move.move === "resume" && previous?.session) {
-      return this.continueIn(previous, carrying, move, brief);
+      return this.continueIn(previous, carrying, move, brief, now);
     }
     if (previous?.session) await this.forget(previous.session.id);
     return this.startIn(carrying, current, move, brief, now);
@@ -233,6 +245,7 @@ export class StageThreads {
     { request, carried }: Carrying,
     move: ContextDecision,
     brief: Brief,
+    now: Date,
   ): Promise<StageThread> {
     const session = previous.session;
     if (!session) throw new Error(`Thread ${previous.id} has no session to continue.`);
@@ -241,7 +254,7 @@ export class StageThreads {
       beginStageWork(
         latest,
         { personName: role.card.name, decision: move, newSession: undefined, brief: brief.text },
-        new Date(),
+        now,
       ),
     );
     const opened = await this.opening(previous.id, undefined, async () => {
@@ -250,7 +263,12 @@ export class StageThreads {
     });
     const work = { id: randomUUID(), text: request.work };
     opened.send(work, "later");
-    return this.live(previous.id, role.roleKey, request.folder, move, opened, carried(work.id));
+    return this.live(
+      { threadId: previous.id, roleKey: role.roleKey, folder: request.folder, began: now },
+      move,
+      opened,
+      carried(work.id),
+    );
   }
 
   /** A new Stage Thread, whose new session starts with the Brief and the Stage's work. */
@@ -294,7 +312,12 @@ export class StageThreads {
         brief: { id: briefId, text: openingMessage(brief.text, request.work) },
       });
     });
-    return this.live(thread.id, role.roleKey, request.folder, move, opened, carried(briefId));
+    return this.live(
+      { threadId: thread.id, roleKey: role.roleKey, folder: request.folder, began: now },
+      move,
+      opened,
+      carried(briefId),
+    );
   }
 
   /**
@@ -357,9 +380,7 @@ export class StageThreads {
    * again, and delivered once a turn has taken the work, as a barge-in is.
    */
   private async live(
-    threadId: string,
-    roleKey: string,
-    folder: string,
+    { threadId, roleKey, folder, began }: StageWorkPlace,
     move: ContextDecision,
     session: EngineSession,
     carried: CarriedMessages | undefined,
@@ -379,7 +400,7 @@ export class StageThreads {
         const next = await events.next();
         if (next.done) throw new Error("The session ended before the Stage's turn did.");
         if (next.value.kind === "turn-ended") {
-          const turn = await this.turnEnded(threadId, session, next.value);
+          const turn = await this.turnEnded(threadId, began, session, next.value);
           const { delivered, stillToLand } = bargeIns.turnEnded(
             next.value.consumedMessageIds,
             next.value.outcome === "completed",
@@ -443,9 +464,13 @@ export class StageThreads {
     };
   }
 
-  /** Counts the turn on the Thread, which stays answering until the Stage ends. */
+  /**
+   * Counts the turn on the Thread, which stays answering until the Stage ends, and tells of the
+   * Decision the person opened in it since the Stage's work began.
+   */
   private async turnEnded(
     threadId: string,
+    began: Date,
     session: EngineSession,
     turn: Extract<SessionEvent, { kind: "turn-ended" }>,
   ): Promise<StageTurn> {
@@ -457,8 +482,8 @@ export class StageThreads {
             ? "The turn was interrupted."
             : "The engine ended the turn.");
     const usage = await session.readContextUsage();
-    await this.change(threadId, (thread) =>
-      endTurn(thread, {
+    const thread = await this.change(threadId, (latest) =>
+      endTurn(latest, {
         usage: turn.usage,
         contextTokens: usage.tokens,
         handingOver: false,
@@ -466,7 +491,12 @@ export class StageThreads {
         endedAt: new Date(),
       }),
     );
-    return { output: turn.output, problem, tokens: turn.usage };
+    return {
+      output: turn.output,
+      problem,
+      tokens: turn.usage,
+      decision: askedSince(thread.openDecision, began),
+    };
   }
 
   /** A session that won't be resumed: its skills folder goes, and a failure there only warns. */
@@ -500,6 +530,21 @@ export class StageThreads {
     if (event) await this.events.publish(event);
     return thread;
   }
+}
+
+/** Where a Stage's work goes on: its Thread, its person and their folder, since `began`. */
+interface StageWorkPlace {
+  readonly threadId: string;
+  readonly roleKey: string;
+  readonly folder: string;
+  readonly began: Date;
+}
+
+/** The person's own Decision, when they opened it since `began`; undefined for any other. */
+function askedSince(decision: Decision | undefined, began: Date): AskedDecision | undefined {
+  if (!decision || decision.roleKey === undefined || decision.askedAt < began) return undefined;
+  const { id, question, context, options, recommendation } = decision;
+  return { id, question, context, options, recommendation };
 }
 
 /** A Stage's request with its work carrying the user's undelivered messages, if any. */

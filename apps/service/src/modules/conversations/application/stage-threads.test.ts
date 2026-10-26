@@ -10,9 +10,16 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
-import { ScriptedEngine, ScriptedEngineModule, type SessionScript } from "../../engine/index.js";
+import { CONSULT_TOOL, OPEN_DECISION_TOOL } from "@the-office/contracts";
+import {
+  OfficeToolRegistry,
+  ScriptedEngine,
+  ScriptedEngineModule,
+  type SessionScript,
+} from "../../engine/index.js";
 import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
+import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import { DecisionAnswered } from "../domain/conversation-events.js";
 import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "../domain/context-policy.js";
@@ -32,6 +39,7 @@ import { TaskTokens } from "./task-tokens.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
 import { CONTEXT_POLICY_SETTINGS } from "./thread-contexts.js";
 import { ThreadRunner } from "./thread-runner.js";
+import { ThreadService } from "./thread-service.js";
 
 type Step = SessionScript[number];
 
@@ -120,6 +128,8 @@ async function startOn(scripted: ScriptedEngine): Promise<void> {
       StageThreads,
       StageDecisions,
       DecisionService,
+      DecisionOfficeTools,
+      ThreadService,
       TaskTokens,
     ],
   }));
@@ -819,5 +829,184 @@ describe("StageDecisions", () => {
     expect((await repository.decision(id))?.answer).toMatchObject({ kind: "free-answer" });
     // The Office's answers guide the walk, not the next Brief.
     expect(await repository.answeredOn(taskId)).toHaveLength(1);
+  });
+});
+
+/** The person calls The Office's tool `tool` with `input`, which answers at once. */
+function callsOfficeTool(callId: string, tool: string, input: Record<string, unknown>): Step[] {
+  return [
+    {
+      step: "event",
+      event: {
+        kind: "tool-call",
+        callId,
+        tool,
+        officeTool: true,
+        input,
+        withinToolCall: undefined,
+      },
+    },
+    { step: "event", event: { kind: "tool-result", callId, text: "", isError: false } },
+  ];
+}
+
+/** A Stage whose session is given the Office tools an Agent asks with. */
+function anAskingStage(roleKey: string): StageThreadRequest {
+  const request = aStage({ roleKey });
+  return {
+    ...request,
+    session: { ...request.session, officeTools: [OPEN_DECISION_TOOL, CONSULT_TOOL] },
+  };
+}
+
+/** Calls the Office tool as the Stage Thread's session would, outside a scripted turn. */
+async function callInStage(threadId: string, name: string, input: Record<string, unknown>) {
+  const sessionId = (await threadOf(threadId)).session?.id ?? "";
+  const [tool] = app.get(OfficeToolRegistry).named([name]);
+  if (!tool) throw new Error(`No Office tool ${name}.`);
+  return tool.run(tool.input.parse(input), { sessionId });
+}
+
+const WHICH_PAGE = {
+  question: "Which page shows the rename?",
+  context: "Both pages list devices.",
+  options: ["The device page", "The list"],
+  recommended: 1,
+  why: "It has the room.",
+};
+
+describe("Office tools on a Stage", () => {
+  it("know the person and the Task of a Stage's session, as they know a chat's", async () => {
+    await startWith(started(...aTurn({ status: "done" })));
+    const ada = aPerson("Ada");
+    const request = aStage({ roleKey: ada });
+    const { stageThread } = await aStageRun(request);
+    const sessionId = (await threadOf(stageThread.threadId)).session?.id ?? "";
+
+    const threads = app.get(ThreadService);
+
+    await expect(threads.personInSession(sessionId)).resolves.toBe(ada);
+    await expect(threads.taskInSession(sessionId)).resolves.toBe(request.taskId);
+  });
+
+  it("open a Decision in the Stage Thread at once, which the turn tells of and the user answers once the Stage ends", async () => {
+    await startWith(
+      started(
+        ...callsOfficeTool("c-1", OPEN_DECISION_TOOL, WHICH_PAGE),
+        ...aTurn({ status: "needs_decision", summary: "Asked.", handoverNote: "Waiting." }),
+      ),
+    );
+    const ada = aPerson("Ada");
+    const stageThread = await stageThreads.open(anAskingStage(ada));
+
+    const turn = await stageThread.nextTurn();
+
+    expect(turn.decision).toEqual({
+      id: expect.any(String),
+      question: "Which page shows the rename?",
+      context: "Both pages list devices.",
+      options: ["The device page", "The list"],
+      recommendation: { option: 0, reason: "It has the room." },
+    });
+    const id = turn.decision?.id ?? "";
+    // While the Stage runs, its walk hasn't taken the Decision up yet.
+    await expect(
+      app.get(DecisionService).answer(id, { kind: "option", option: 0 }),
+    ).rejects.toThrow(new ThreadRefused(["The Stage is still running. Answer once it has ended."]));
+    await stageThread.end({ handoverNote: "Waiting.", failure: undefined });
+    const answered = answeredEvents();
+
+    await app.get(DecisionService).answer(id, { kind: "option", option: 0 });
+
+    expect(answered.map((event) => event.decision.id)).toEqual([id]);
+    expect(await repository.decision(id)).toMatchObject({ roleKey: ada, answer: { option: 0 } });
+  });
+
+  it("tell of no Decision opened before the Stage's work began", async () => {
+    await startWith(
+      started(
+        ...callsOfficeTool("c-1", OPEN_DECISION_TOOL, WHICH_PAGE),
+        ...aTurn({ status: "needs_decision", summary: "Asked." }),
+      ),
+      resumed(...aTurn({ status: "done" }, "Going on.")),
+    );
+    const ada = aPerson("Ada");
+    const first = await stageThreads.open(anAskingStage(ada));
+    await first.nextTurn();
+    await first.end({ handoverNote: undefined, failure: undefined });
+
+    const again = await stageThreads.open({
+      ...anAskingStage(ada),
+      declared: undefined,
+      previousThreadId: first.threadId,
+    });
+    const turn = await again.nextTurn();
+    await again.end({ handoverNote: undefined, failure: undefined });
+
+    expect(again.threadId).toBe(first.threadId);
+    expect(turn.decision).toBeUndefined();
+  });
+
+  it("consult a person with a question: the user answers in their place, on a Decision naming them", async () => {
+    await startWith(started(...aTurn({ status: "done" })));
+    const { stageThread } = await aStageRun(anAskingStage(aPerson("Ada")));
+
+    const result = await callInStage(stageThread.threadId, CONSULT_TOOL, {
+      person: "Devops",
+      question: "May the build cache live in the Project's folder?",
+      context: "It speeds the build up by a minute.",
+      options: ["Yes", "No"],
+      recommended: 1,
+      why: "It stays inside the worktree.",
+    });
+
+    expect(result).toEqual({
+      text: "The Office put your consult to the user in place of Devops, as a Decision in this Thread. End your turn now: their answer, or a follow-up question, comes as your next message.",
+      isError: false,
+    });
+    expect((await threadOf(stageThread.threadId)).openDecision).toMatchObject({
+      question: "May the build cache live in the Project's folder?",
+      context:
+        "For Devops: The Office has no Consultations yet, so you answer in their place.\n\nIt speeds the build up by a minute.",
+      options: ["Yes", "No"],
+      recommendation: { option: 0, reason: "It stays inside the worktree." },
+    });
+  });
+
+  it("consult a person for approval of a call, answered Allow once or Deny, never always", async () => {
+    await startWith(started(...aTurn({ status: "done" })));
+    const { stageThread } = await aStageRun(anAskingStage(aPerson("Ada")));
+
+    await callInStage(stageThread.threadId, CONSULT_TOOL, {
+      person: "Devops",
+      approval: true,
+      question: "Install ffmpeg on the machine.",
+      context: "The thumbnails need it; the Project has no copy.",
+      why: "Nothing else makes the thumbnails.",
+    });
+
+    expect((await threadOf(stageThread.threadId)).openDecision).toMatchObject({
+      question: "Allow this call? Install ffmpeg on the machine.",
+      options: ["Allow once", "Deny"],
+      recommendation: { option: 0, reason: "Nothing else makes the thumbnails." },
+    });
+  });
+
+  it("refuse a consult with a question but no options, in words the Agent can act on", async () => {
+    await startWith(started(...aTurn({ status: "done" })));
+    const { stageThread } = await aStageRun(anAskingStage(aPerson("Ada")));
+
+    const result = await callInStage(stageThread.threadId, CONSULT_TOOL, {
+      person: "the CTO",
+      question: "Which queue?",
+      context: "Two would do.",
+      why: "Either works.",
+    });
+
+    expect(result).toEqual({
+      text: "Give the user at least two options. Recommend one of the options.",
+      isError: true,
+    });
+    expect((await threadOf(stageThread.threadId)).openDecision).toBeUndefined();
   });
 });

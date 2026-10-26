@@ -1,6 +1,6 @@
 import type { CommandPermission } from "../domain/allowed-commands.js";
 import type { StageSession } from "../domain/stage.js";
-import type { StageSessionMove, StageTokens } from "../domain/stage-run.js";
+import type { StageDecision, StageSessionMove, StageTokens } from "../domain/stage-run.js";
 
 /** What an Agent Stage gives its sessions, beside what the person's Role card does. */
 export interface StageSessionSettings {
@@ -55,6 +55,16 @@ export interface StageTurn {
   readonly problem: string | undefined;
   /** The turn's tokens. */
   readonly tokens: StageTokens;
+  /**
+   * The Decision the person opened in the Stage Thread during the Stage's work, with an Office
+   * tool (`open_decision` or `consult`), while it waits on the user; undefined when they asked none.
+   */
+  readonly decision: AskedDecision | undefined;
+}
+
+/** A Decision the person opened in their Stage Thread, by the id it is answered by. */
+export interface AskedDecision extends StageDecision {
+  readonly id: string;
 }
 
 /** A Stage's session at work in its Stage Thread, until the Stage ends it. */

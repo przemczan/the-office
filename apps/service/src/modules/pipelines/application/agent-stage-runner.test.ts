@@ -76,7 +76,14 @@ describe("AgentStageRunner", () => {
           run: { kind: "project-commands", commandLines: ["npm run build", "npm test"] },
           web: false,
         },
-        officeTools: ["read_task", "read_attachment"],
+        officeTools: [
+          "read_task",
+          "read_attachment",
+          "open_decision",
+          "consult",
+          "attach_file",
+          "attach_link",
+        ],
         outputSchema: STAGE_RESULT_SCHEMA,
       },
     });

@@ -16,6 +16,7 @@ import {
 } from "./adapters/http/attachments.controller.js";
 import { IdeasController } from "./adapters/http/ideas.controller.js";
 import { PlanningThreadSetup } from "./adapters/conversations/planning-thread-setup.js";
+import { AttachmentOfficeTools } from "./adapters/office-tools/attachment-office-tools.js";
 import { PlanningOfficeTools } from "./adapters/office-tools/planning-office-tools.js";
 import { WorkOfficeTools } from "./adapters/office-tools/work-office-tools.js";
 import { TasksController } from "./adapters/http/tasks.controller.js";
@@ -102,6 +103,7 @@ export class WorkModule implements NestModule {
         WorkWebEvents,
         WorkOfficeTools,
         PlanningOfficeTools,
+        AttachmentOfficeTools,
         PlanningThreadSetup,
       ],
       exports: [IdeaService, TaskService, TaskRecords],

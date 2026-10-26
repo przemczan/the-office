@@ -9,6 +9,8 @@ import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { ThreadRunner } from "./thread-runner.js";
 
+const STAGE_STILL_RUNNING = "The Stage is still running. Answer once it has ended.";
+
 /**
  * The Decisions use cases (spec §2.4): an Agent opens one in the Thread it works in on a Task, and
  * the user answers it there. Nothing waits in a tool call meanwhile: opening returns at once, and
@@ -41,7 +43,7 @@ export class DecisionService {
    * Answers the Decision; the person who asked takes the answer in its Thread as their next message.
    * The answer to The Office's Decision, or to one in a Stage Thread, goes to the Task's Pipeline
    * instead, which runs on from it. Refused once it is answered, and while the person is still
-   * answering.
+   * answering or the Stage asking it still runs.
    */
   async answer(id: string, answer: DecisionAnswer): Promise<Thread> {
     const decision = await this.repository.decision(id);
@@ -51,6 +53,10 @@ export class DecisionService {
     if (!thread) throw new Error(`Decision ${id}'s Thread is gone.`);
     if (decision.roleKey !== undefined && !thread.stageThread) {
       return this.runner.answerDecision(decision.threadId, id, answer);
+    }
+    // The Stage takes up its Agent's Decision as the Stage ends, so the walk keeps the answer.
+    if (thread.stageThread && thread.state === "answering") {
+      throw new ThreadRefused([STAGE_STILL_RUNNING]);
     }
     const { thread: answered, event } = await this.repository.update(thread.id, (latest) =>
       recordDecisionAnswer(latest, {
