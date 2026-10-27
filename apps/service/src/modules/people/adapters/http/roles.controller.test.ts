@@ -114,13 +114,14 @@ function editOf({ card }: Role): RoleCard {
 }
 
 describe("GET /api/presets", () => {
-  it("lists the Planner, the Developer, the Reviewer and the Office Manager with their cards", async () => {
+  it("lists the Planner, the Developer, the Reviewer, the CTO and the Office Manager with their cards", async () => {
     const presets = presetListSchema.parse(await get("/presets"));
 
     expect(presets.map(({ roleKey, suggestedName }) => ({ roleKey, suggestedName }))).toEqual([
       { roleKey: "planner", suggestedName: "Jan" },
       { roleKey: "developer", suggestedName: "Ada" },
       { roleKey: "reviewer", suggestedName: "Ola" },
+      { roleKey: "cto", suggestedName: "Bob" },
       { roleKey: "office-manager", suggestedName: "Marta" },
     ]);
     expect(presets[1]?.card).toMatchObject({ title: "Developer", taskLimit: 3 });
@@ -179,6 +180,26 @@ describe("POST /api/roles", () => {
         hardSwitches: { changeRoles: { kind: "ask-me" } },
       },
       askingYouUntilHired: [],
+    });
+  });
+
+  it("hires the CTO, a Consultant who publishes outside the Pipeline only by asking the user", async () => {
+    const role = await hire("cto", "Bob");
+
+    expect(role).toMatchObject({
+      key: "cto",
+      card: {
+        name: "Bob",
+        title: "CTO",
+        capabilities: { sharedMemory: true, chat: true, consultant: true },
+        taskLimit: 2,
+        hardSwitches: {
+          runInstalls: { kind: "consult", role: "devops" },
+          publishOutsideThePipeline: { kind: "ask-me" },
+          changeRoles: { kind: "never" },
+        },
+      },
+      askingYouUntilHired: ["runInstalls"],
     });
   });
 

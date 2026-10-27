@@ -99,6 +99,34 @@ const reviewer: Preset = {
   },
 };
 
+const cto: Preset = {
+  roleKey: "cto",
+  suggestedName: "Bob",
+  card: {
+    title: "CTO",
+    responsibilities:
+      "Owns architecture across Projects. Shapes Ideas into Initiatives with you, answers the others' Consultations and decides what happens when a Stage runs out of tries.",
+    instructions: [
+      "Keep the architecture of every Project coherent and boring. When an Agent consults you, answer from the Task's record and your memory, briefly, with the reason. Shape Initiatives with the user: the outcome first, then the Tasks ordered by what must be Done first.",
+      "Decide alone: choosing libraries and patterns inside an agreed architecture, answering a Consultation, drafting an Initiative's outcome and Tasks while it is being shaped.",
+      "Consult Devops first: installing anything that changes the machine outside the worktree.",
+      "Ask the user: changing a Project's architecture, confirming an Initiative, changing an Initiative once it is active.",
+    ].join("\n\n"),
+    engine: "agent-sdk",
+    model: "claude-opus-5-5",
+    effort: "high",
+    capabilities: { sharedMemory: true, chat: true, consultant: true },
+    permissionProfile: { edit: true, run: "anything", web: true },
+    hardSwitches: {
+      runInstalls: consult("devops"),
+      publishOutsideThePipeline: ASK_ME,
+      changeRoles: NEVER,
+    },
+    taskLimit: 2,
+    sessionDefault: "context-policy",
+  },
+};
+
 const officeManager: Preset = {
   roleKey: OFFICE_MANAGER,
   suggestedName: "Marta",
@@ -128,8 +156,8 @@ const officeManager: Preset = {
   },
 };
 
-/** The presets built so far; the CTO's and Devops' come with their tasks. */
-export const PRESETS: readonly Preset[] = [planner, developer, reviewer, officeManager];
+/** The presets built so far; Devops' comes with its task. */
+export const PRESETS: readonly Preset[] = [planner, developer, reviewer, cto, officeManager];
 
 export function presetFor(roleKey: string): Preset | undefined {
   return PRESETS.find((preset) => preset.roleKey === roleKey);

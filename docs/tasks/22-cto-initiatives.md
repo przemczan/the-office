@@ -8,7 +8,7 @@ The user can hire the CTO, shape an Idea into an Initiative with them across Pro
 
 ## Definition of Done
 
-- [ ] The CTO preset: hired from its preset with Memory, Chat and Consultant on, Task limit 2, Hard switches Consult Devops / Ask me / Never (Devops not hired falls back to the user). Check: a service test of the preset; Playwright hiring one.
+- [x] The CTO preset: hired from its preset with Memory, Chat and Consultant on, Task limit 2, Hard switches Consult Devops / Ask me / Never (Devops not hired falls back to the user). Check: a service test of the preset; Playwright hiring one.
 - [ ] Dependencies: the user adds and removes a Task's blockers, in any Project or Initiative; a Task can't wait for itself or close a cycle; a blocked Task can't start and says which Task it waits for, and a Dropped blocker no longer blocks; the Task page shows "Must be Done first" and "Waiting for this Task", the board marks a blocked Task. Check: a service test of the rules and of Start; Playwright adding one and seeing Start refused.
 - [ ] Initiatives: an Idea is shaped into an Initiative (the Idea kept as its origin, its Attachments moving with it); states shaping, active (on "Confirm the Initiative"), done (when all its Tasks are Done) and dropped; it spans the Projects of its Tasks; "Initiative done" is a Notification. Check: a service test of each state change.
 - [ ] Shaping with the CTO: the Initiative's conversation is a Thread with the CTO given its record; while shaping, the CTO writes the outcome and adds Tasks and their dependencies straight onto the page; once active, each change the CTO wants is a Proposal the user applies. An Initiative can be mentioned in any chat. Check: a service test through the scripted engine; Playwright confirming an Initiative and applying a Proposal.
@@ -26,7 +26,7 @@ Leave out: tags, search, saved views and the Project filter (task 23); moving a 
 
 ## Steps
 
-- [ ] 1. The CTO preset: the preset, its Hard switches and authority, lifting "hire from its preset" for it. Commit.
+- [x] 1. The CTO preset: the preset, its Hard switches and authority, lifting "hire from its preset" for it. Commit.
   Read: `presets.ts` (the Office Manager's, as the latest), `known-roles.ts`; spec 6's Hard switch table; the hire e2e in `people.e2e.ts`.
 - [ ] 2a. Dependencies, the service side: a Task's blockers (table, events, routes, WebSocket events), the rules (not itself, no cycle), Start refused while a blocker isn't Done, and the blockers in the Task's record words. Commit.
   Read: `task-start.ts`, `start-service.ts`, `task-changes.ts`, `record-words.ts`; `work.schema.ts`.
@@ -47,11 +47,12 @@ Leave out: tags, search, saved views and the Project filter (task 23); moving a 
 
 ## State
 
-- Nothing built yet.
-- Decided with the user (2026-10-28): Tasks of an Initiative still being shaped are planned and started like any Task (spec 8's open question; spec 2.1 Defaults); while shaping the CTO writes the draft straight onto the page and the user confirms it once, and once active the CTO's changes are Proposals; the CTO-first escalation of spec 2.3 is built here.
-- Decided with the user (2026-10-28): a Dropped blocker no longer blocks; the Task page still lists it, marked as dropped.
-- The CTO is already named in other presets' authority as `consult("cto")`, which falls back to the user while no CTO is hired; hiring one makes those Consultations real.
+- Step 1 done: the CTO preset (`cto`, suggested name Bob) in `presets.ts`, between the Reviewer and the Office Manager as in spec 2.2's table: Memory, Chat and Consultant on, Task limit 2, the Developer's permission profile (the click-through's "Developer default"), Opus 5.5 at high effort, Hard switches Consult Devops / Ask me / Never. Its instructions already say it drafts a shaping Initiative alone and asks the user to confirm it or change it once active; steps 3b and 5 add the tools.
+- The e2e now hires the CTO in its first test (five people), so the others' `consult("cto")` (the Developer's publish outside the Pipeline, the presets' "Consult the CTO first") reach a real Consultant in later e2e tests; "a Role nobody fills" uses Devops.
+- Decided with the user (2026-10-28): Tasks of an Initiative still being shaped are planned and started like any Task; while shaping the CTO writes the draft straight onto the page and the user confirms it once, and once active the CTO's changes are Proposals; a Dropped blocker no longer blocks, the Task page listing it as dropped; the CTO-first escalation of spec 2.3 is built here. All in spec 2.1's Defaults.
+- Watch: the Memory e2e test ("adds a note to the Planner's Memory…") timed out once more in a full run and passed on rerun (also seen in task 21).
 
 ## Progress
 
 - 2026-10-28 · task file: sliced into nine steps with the user, its open questions answered; step 1, the CTO preset, is next.
+- 2026-10-28 · step 1: the CTO preset, hired in the presets e2e; dependencies, the service side, are next.

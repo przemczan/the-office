@@ -1,6 +1,6 @@
 # People: module map
 
-**Owns:** Roles hired from presets (Planner, Developer, Reviewer, Office Manager) or from scratch (keyed from the card's title by `roleKeyFor`, never a preset's key), Role cards and their versions (`roles`, `role_card_versions`), each version with who proposed it when the user applied a Proposal (`proposed_by`, "proposed by" in `GET /roles/:key/changes`), authority and Hard switches, Task limits; each person's Memory (`memory_notes`, append-only notes, deleted one at a time or all).
+**Owns:** Roles hired from presets (Planner, Developer, Reviewer, CTO, Office Manager) or from scratch (keyed from the card's title by `roleKeyFor`, never a preset's key), Role cards and their versions (`roles`, `role_card_versions`), each version with who proposed it when the user applied a Proposal (`proposed_by`, "proposed by" in `GET /roles/:key/changes`), authority and Hard switches, Task limits; each person's Memory (`memory_notes`, append-only notes, deleted one at a time or all).
 
 **Talks to:** calls Engine (profiles) and Skills (a Role's skills). Work and Pipelines read cards through their `KnownPeople` ports, bound to `RoleCards` in [app.module.ts](../../app.module.ts); Conversations reads them through the index, and applies Proposals of Roles through `RoleService` (`hireFromScratch`/`hire`/`changeCard` with `proposedBy`; `hiringProblems`/`presetHiringProblems`/`cardChangeProblems` judge one as it is drafted, saving nothing).
 

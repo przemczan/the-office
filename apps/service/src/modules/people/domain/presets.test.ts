@@ -4,11 +4,12 @@ import { PRESETS, presetFor } from "./presets.js";
 import { roleCardProblems } from "./role-card.js";
 
 describe("PRESETS", () => {
-  it("are the Planner, Developer, Reviewer and Office Manager", () => {
+  it("are the Planner, Developer, Reviewer, CTO and Office Manager", () => {
     expect(PRESETS.map((preset) => preset.roleKey)).toEqual([
       "planner",
       "developer",
       "reviewer",
+      "cto",
       "office-manager",
     ]);
   });
@@ -18,6 +19,7 @@ describe("PRESETS", () => {
     ["planner", { sharedMemory: true, chat: true, consultant: true }, 2],
     ["developer", { sharedMemory: false, chat: false, consultant: false }, 3],
     ["reviewer", { sharedMemory: false, chat: false, consultant: false }, 3],
+    ["cto", { sharedMemory: true, chat: true, consultant: true }, 2],
     ["office-manager", { sharedMemory: true, chat: true, consultant: false }, "none"],
   ])(
     "give the %s the capabilities %o and a Task limit of %s",
@@ -31,6 +33,7 @@ describe("PRESETS", () => {
     ["planner", { runInstalls: consult("devops"), publishOutsideThePipeline: NEVER }],
     ["developer", { runInstalls: consult("devops"), publishOutsideThePipeline: consult("cto") }],
     ["reviewer", { runInstalls: consult("devops"), publishOutsideThePipeline: NEVER }],
+    ["cto", { runInstalls: consult("devops"), publishOutsideThePipeline: ASK_ME }],
   ])("give the %s the Hard switches %o, and Change Roles Never", (roleKey, switches) => {
     expect(presetFor(roleKey)?.card.hardSwitches).toEqual({ ...switches, changeRoles: NEVER });
   });
@@ -48,6 +51,7 @@ describe("PRESETS", () => {
     ["planner", { edit: false, run: "read-only-git", web: true }],
     ["office-manager", { edit: false, run: "read-only-git", web: true }],
     ["developer", { edit: true, run: "anything", web: true }],
+    ["cto", { edit: true, run: "anything", web: true }],
     ["reviewer", { edit: false, run: "project-commands", web: true }],
   ])("give the %s the permission profile %o", (roleKey, permissionProfile) => {
     expect(presetFor(roleKey)?.card.permissionProfile).toEqual(permissionProfile);
