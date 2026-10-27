@@ -55,6 +55,12 @@ export abstract class ThreadRepository {
    */
   abstract answeredOn(taskId: string): Promise<readonly Decision[]>;
 
+  /**
+   * Uses up the approval an answered Decision gave a held call, so it lets one call through. False
+   * when it was used already or is no such Decision.
+   */
+  abstract spendApproval(decisionId: string): Promise<boolean>;
+
   /** Every Decision waiting on the user, the first asked first. */
   abstract openDecisions(): Promise<readonly Decision[]>;
 }

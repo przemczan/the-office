@@ -325,12 +325,15 @@ describe("PUT /api/roles/:key/card", () => {
     const response = await send("PUT", "/roles/developer/card", {
       ...editOf(hired),
       taskLimit: 7,
-      hardSwitches: { ...hired.card.hardSwitches, changeRoles: { kind: "ask-me" } },
+      hardSwitches: {
+        ...hired.card.hardSwitches,
+        changeRoles: { kind: "consult", role: "janitor" },
+      },
     });
 
     expect(await reasonsOf(response)).toEqual([
       "A Task limit is 1 to 6 Tasks at once, or none.",
-      "Change Roles stays Never until The Office can hold a call for it.",
+      "Change Roles consults a Role The Office doesn't know.",
     ]);
   });
 

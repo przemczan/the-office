@@ -55,10 +55,6 @@ export function hardSwitchesProblems(roleKey: string, switches: HardSwitches): s
       problems.push(`${label} can't consult the Role itself.`);
     }
   }
-  // Holding an enforced call waits for tier 2, so no Role may hold this one yet (spec §9).
-  if (switches.changeRoles.kind !== "never") {
-    problems.push("Change Roles stays Never until The Office can hold a call for it.");
-  }
   return problems;
 }
 

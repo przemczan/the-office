@@ -6,6 +6,7 @@ import { DecisionsController } from "./adapters/http/decisions.controller.js";
 import { SizeThresholdController } from "./adapters/http/size-threshold.controller.js";
 import { ThreadsController } from "./adapters/http/threads.controller.js";
 import { DecisionOfficeTools } from "./adapters/office-tools/decision-office-tools.js";
+import { RoleOfficeTools } from "./adapters/office-tools/role-office-tools.js";
 import { MemoryOfficeTools } from "./adapters/office-tools/memory-office-tools.js";
 import { PostgresConversationsSettings } from "./adapters/postgres/postgres-conversations-settings.js";
 import { PostgresThreadRepository } from "./adapters/postgres/postgres-thread-repository.js";
@@ -13,6 +14,7 @@ import { ThreadWebEvents } from "./adapters/websocket/thread-web-events.js";
 import { Briefs } from "./application/briefs.js";
 import { ContextPolicySettingsService } from "./application/context-policy-settings.js";
 import { DecisionService } from "./application/decision-service.js";
+import { HeldCalls } from "./application/held-calls.js";
 import { InterruptedAnswers } from "./application/interrupted-answers.js";
 import { SessionMemory } from "./application/session-memory.js";
 import { SessionPlaces } from "./application/session-places.js";
@@ -60,6 +62,8 @@ export class ConversationsModule {
         StageDecisions,
         TaskTokens,
         DecisionOfficeTools,
+        RoleOfficeTools,
+        HeldCalls,
         MemoryOfficeTools,
         ThreadWebEvents,
       ],

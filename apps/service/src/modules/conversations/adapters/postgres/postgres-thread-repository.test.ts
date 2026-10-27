@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import type { Message } from "../../domain/message.js";
 import type { Thread } from "../../domain/thread.js";
-import { logMessages, renameThread } from "../../domain/thread-changes.js";
+import { logMessages, openDecision, renameThread } from "../../domain/thread-changes.js";
 import { aThread, aUserMessage } from "../../domain/thread.fixtures.js";
 import { ThreadNotFound } from "../../domain/thread-not-found.js";
 import { PostgresThreadRepository } from "./postgres-thread-repository.js";
@@ -173,5 +173,27 @@ describe("PostgresThreadRepository", () => {
     await expect(
       repository.update(id, (current) => renameThread(current, "Deploys", AT)),
     ).rejects.toThrow(new ThreadNotFound(id));
+  });
+
+  it("lets an answered Decision's approval through once", async () => {
+    const taskId = randomUUID();
+    const thread = aThreadOfItsOwn(`role-${randomUUID()}`, { home: { kind: "task", taskId } });
+    await repository.add(thread);
+    const { thread: waiting } = await repository.update(thread.id, (current) =>
+      openDecision(current, {
+        id: randomUUID(),
+        askedAt: AT,
+        question: "Allow this call? Change the Developer.",
+        context: "Why.",
+        options: ["Allow once", "Deny"],
+        recommendation: { option: 0, reason: "Needed." },
+      }),
+    );
+    const decisionId = waiting.openDecision?.id ?? "";
+
+    await expect(repository.spendApproval(decisionId)).resolves.toBe(true);
+    await expect(repository.spendApproval(decisionId)).resolves.toBe(false);
+    await expect(repository.spendApproval(randomUUID())).resolves.toBe(false);
+    await expect(repository.decision(decisionId)).resolves.not.toHaveProperty("approvalSpentAt");
   });
 });

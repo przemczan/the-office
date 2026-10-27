@@ -58,12 +58,30 @@ export const CHAT_OFFICE_TOOLS = [
 /** The Office tool an Agent writes a Memory note with; offered only while its Shared memory is on. */
 export const REMEMBER_TOOL = "remember";
 
-/** The Office tools a session gets: its place's, and `remember` when its card has Shared memory. */
+/** The Office tool an Agent rewords a Role with; it sits behind the Change Roles Hard switch. */
+export const CHANGE_ROLE_TOOL = "change_role";
+
+/**
+ * The Office tools a session gets: its place's; `remember` when its card has Shared memory; and
+ * `change_role` on a Task, where a held call has a Thread to wait in, unless its Change Roles is
+ * Never.
+ */
 export function sessionOfficeTools(
   placeTools: readonly string[],
-  { capabilities }: { readonly capabilities: { readonly sharedMemory: boolean } },
+  {
+    capabilities,
+    hardSwitches,
+  }: {
+    readonly capabilities: { readonly sharedMemory: boolean };
+    readonly hardSwitches: { readonly changeRoles: { readonly kind: string } };
+  },
+  onTask: boolean,
 ): string[] {
-  return capabilities.sharedMemory ? [...placeTools, REMEMBER_TOOL] : [...placeTools];
+  return [
+    ...placeTools,
+    ...(capabilities.sharedMemory ? [REMEMBER_TOOL] : []),
+    ...(onTask && hardSwitches.changeRoles.kind !== "never" ? [CHANGE_ROLE_TOOL] : []),
+  ];
 }
 
 /** What The Office asks for when a session's context nears its limit (spec §2.5). */

@@ -86,6 +86,8 @@ export const decisions = pgTable(
     askedAt: timestamp("asked_at", { withTimezone: true }).notNull(),
     answer: jsonb("answer").$type<DecisionAnswer>(),
     answeredAt: timestamp("answered_at", { withTimezone: true }),
+    /** When an approval this answer gave a held call let it through; null while it is unused. */
+    approvalSpentAt: timestamp("approval_spent_at", { withTimezone: true }),
   },
   (table) => [
     uniqueIndex("decisions_open_in_thread")

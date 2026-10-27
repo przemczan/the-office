@@ -25,6 +25,13 @@ describe("hardSwitchesProblems", () => {
     },
   );
 
+  it.each([ALLOWED, ASK_ME, NEVER, consult("cto")])(
+    "accepts %o for Change Roles, an enforced switch",
+    (value) => {
+      expect(hardSwitchesProblems("developer", switches({ changeRoles: value }))).toEqual([]);
+    },
+  );
+
   it("refuses a Consult value naming a Role The Office doesn't know, or the Role itself", () => {
     const problems = hardSwitchesProblems(
       "developer",
@@ -39,15 +46,6 @@ describe("hardSwitchesProblems", () => {
       "Publish outside the Pipeline can't consult the Role itself.",
     ]);
   });
-
-  it.each([ALLOWED, ASK_ME, consult("cto")])(
-    "keeps Change Roles at Never, refusing %o",
-    (value) => {
-      expect(hardSwitchesProblems("developer", switches({ changeRoles: value }))).toEqual([
-        "Change Roles stays Never until The Office can hold a call for it.",
-      ]);
-    },
-  );
 });
 
 describe("switchesAskingYouUntilHired", () => {

@@ -6,6 +6,11 @@ import type { DecisionDraft } from "./decision.js";
  */
 export const APPROVAL_OPTIONS = ["Allow once", "Deny"] as const;
 
+/** The question an approval of `call` is asked with, which a granted approval is found by. */
+export function approvalQuestion(call: string): string {
+  return `Allow this call? ${call}`;
+}
+
 /** What an Agent asks the person it consults: a question, or approval of a call. */
 export type Consult =
   | {
@@ -52,7 +57,7 @@ export function consultDecision(consult: Consult): DecisionDraft {
     };
   }
   return {
-    question: `Allow this call? ${consult.call}`,
+    question: approvalQuestion(consult.call),
     context,
     options: APPROVAL_OPTIONS,
     recommendation: { option: 0, reason: consult.why },

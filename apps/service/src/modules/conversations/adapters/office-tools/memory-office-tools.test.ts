@@ -1,14 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { OfficeToolRegistry } from "../../../engine/index.js";
-import { MemoryService, RoleRefused } from "../../../people/index.js";
+import { MemoryService, RoleRefused, type HardSwitchValue } from "../../../people/index.js";
+import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { aThread } from "../../domain/thread.fixtures.js";
-import { REMEMBER_TOOL, sessionOfficeTools } from "../../domain/session-instructions.js";
+import {
+  CHANGE_ROLE_TOOL,
+  REMEMBER_TOOL,
+  sessionOfficeTools,
+} from "../../domain/session-instructions.js";
 import type { Thread } from "../../domain/thread.js";
 import { ThreadRepository } from "../../ports/thread-repository.js";
 import { MemoryOfficeTools } from "./memory-office-tools.js";
 
 type Draft = Parameters<MemoryService["write"]>[0];
 
+const NEVER: HardSwitchValue = { kind: "never" };
 const SESSION = "session-1";
 const TASK = "task-1";
 
@@ -87,13 +93,33 @@ describe("the remember tool", () => {
   });
 });
 
+const card = (sharedMemory: boolean, changeRoles: HardSwitchValue) =>
+  aPlannerCard({
+    capabilities: { sharedMemory, chat: true, consultant: true },
+    hardSwitches: { ...aPlannerCard().hardSwitches, changeRoles },
+  });
+
 describe("the Office tools of a session", () => {
   it("offer remember only while the card's Shared memory is on", () => {
-    expect(sessionOfficeTools(["read_task"], { capabilities: { sharedMemory: true } })).toEqual([
+    expect(sessionOfficeTools(["read_task"], card(true, NEVER), true)).toEqual([
       "read_task",
       REMEMBER_TOOL,
     ]);
-    expect(sessionOfficeTools(["read_task"], { capabilities: { sharedMemory: false } })).toEqual([
+    expect(sessionOfficeTools(["read_task"], card(false, NEVER), true)).toEqual(["read_task"]);
+  });
+
+  it.each([{ kind: "allowed" }, { kind: "ask-me" }, { kind: "consult", role: "cto" }] as const)(
+    "offer change_role on a Task when Change Roles is %o",
+    (changeRoles) => {
+      expect(sessionOfficeTools(["read_task"], card(false, changeRoles), true)).toEqual([
+        "read_task",
+        CHANGE_ROLE_TOOL,
+      ]);
+    },
+  );
+
+  it("keep change_role from a chat, which has no Task Thread to hold a call in", () => {
+    expect(sessionOfficeTools(["read_task"], card(false, { kind: "ask-me" }), false)).toEqual([
       "read_task",
     ]);
   });

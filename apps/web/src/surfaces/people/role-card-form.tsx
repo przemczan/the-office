@@ -40,18 +40,15 @@ import { personName } from "../../shell/person-name.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { blankRoleCard } from "./blank-role-card.ts";
-import { RoleCardGroup, RoleCardValue } from "./role-card-layout.tsx";
+import { RoleCardGroup } from "./role-card-layout.tsx";
 import {
   ASKS_YOU_UNTIL_HIRED,
   CAPABILITIES,
   ENFORCEMENT_LABELS,
   ENGINE_LABELS,
   HARD_SWITCH_LABELS,
-  hardSwitchValueLabel,
-  roleTitlesOf,
   RUN_LABELS,
   SESSION_DEFAULTS,
-  type RoleTitles,
 } from "./role-card-labels.ts";
 
 /** "Edit Role": the person's whole Role card as a form, saved as its next version. */
@@ -133,7 +130,6 @@ function RoleCardForm({
   });
   const change = (fields: Partial<RoleCard>): void => setDraft({ ...draft, ...fields });
   const unsaved = JSON.stringify(draft) !== JSON.stringify(saved);
-  const roleTitles = roleTitlesOf(options);
   return (
     <form
       id={formId}
@@ -159,7 +155,6 @@ function RoleCardForm({
             ownRoleKey={role?.key}
             draft={draft}
             options={options}
-            roleTitles={roleTitles}
             hiredRoles={hiredRoles}
             change={change}
           />
@@ -326,14 +321,12 @@ function PermissionFields({
   ownRoleKey,
   draft,
   options,
-  roleTitles,
   hiredRoles,
   change,
 }: FieldsProps & {
   /** Undefined while the Role is yet to be hired. */
   readonly ownRoleKey: string | undefined;
   readonly options: RoleCardOptions;
-  readonly roleTitles: RoleTitles;
   readonly hiredRoles: ReadonlySet<string>;
 }): ReactNode {
   const consultable = options.knownRoles.filter(({ key }) => key !== ownRoleKey);
@@ -375,13 +368,7 @@ function PermissionFields({
         const hint = asksYou
           ? `${ENFORCEMENT_LABELS[enforcement]}. ${ASKS_YOU_UNTIL_HIRED}.`
           : `${ENFORCEMENT_LABELS[enforcement]}.`;
-        // An enforced call can't be held for anyone's say yet, so it stays as the preset set it.
-        return enforcement === "enforced" ? (
-          <RoleCardValue key={key} label={HARD_SWITCH_LABELS[key]}>
-            {hardSwitchValueLabel(value, roleTitles)}
-            <span className="role-card-note">{hint}</span>
-          </RoleCardValue>
-        ) : (
+        return (
           <Select
             key={key}
             label={HARD_SWITCH_LABELS[key]}

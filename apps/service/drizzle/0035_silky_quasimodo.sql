@@ -1,0 +1,1 @@
+ALTER TABLE "decisions" ADD COLUMN "approval_spent_at" timestamp with time zone;

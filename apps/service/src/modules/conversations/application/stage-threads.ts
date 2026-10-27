@@ -403,7 +403,7 @@ export class StageThreads {
         overrides: skills.overrides,
       },
       profile: request.session.profile,
-      officeTools: sessionOfficeTools(request.session.officeTools, card),
+      officeTools: sessionOfficeTools(request.session.officeTools, card, true),
       outputSchema: request.session.outputSchema,
       telemetry: {
         span: {

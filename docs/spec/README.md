@@ -67,7 +67,6 @@ Where each default lives (the old §9):
 - Editing a skill: [2.6 Skills](2.6-skills.md#defaults)
 - A skill's frontmatter is read as the engine reads it: [2.6 Skills](2.6-skills.md#defaults)
 - A skill's frontmatter is flagged, not refused: [2.6 Skills](2.6-skills.md#defaults)
-- Change Roles stays Never in tier 1: [2.2 People](2.2-people.md#defaults)
 - The base branch's upstream: [5.5 Git and isolation](5.5-git-and-isolation.md#defaults)
 - A person's session default decides only the cold case: [2.5 Context policy](2.5-context-policy.md#defaults)
 - The Context policy's size threshold counts what the conversation added: [2.5 Context policy](2.5-context-policy.md#defaults)

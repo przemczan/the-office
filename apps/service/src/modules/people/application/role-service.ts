@@ -153,6 +153,15 @@ export class RoleService {
     return { role, skills: await this.roleSkills.assignToRole(key, skills) };
   }
 
+  /** Saves the card with these words changed and nothing else, as `changeCard` does. */
+  async reword(
+    key: string,
+    words: Partial<Pick<RoleCard, "responsibilities" | "instructions">>,
+  ): Promise<RoleWithSkills> {
+    const { role, skills } = await this.read(key);
+    return this.changeCard(key, { ...role.card, ...words }, skills);
+  }
+
   /**
    * Lets the person go: nobody fills the Role from now on, and their card, Memory and chats stay,
    * unused and readable. Refused when they were let go already.

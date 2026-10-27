@@ -381,7 +381,7 @@ export class ThreadRunner implements OnModuleDestroy {
       },
       // Only reads (spec §6): the card's profile, narrowed.
       profile: { edit: false, run: { kind: "read-only-git" }, web: card.permissionProfile.web },
-      officeTools: sessionOfficeTools(place.officeTools, card),
+      officeTools: sessionOfficeTools(place.officeTools, card, thread.home.kind === "task"),
       outputSchema: undefined,
       telemetry: {
         span: { ...place.span, "office.thread": thread.id, "office.role": roleKey },

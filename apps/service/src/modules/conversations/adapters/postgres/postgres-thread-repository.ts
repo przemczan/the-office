@@ -152,6 +152,15 @@ export class PostgresThreadRepository extends ThreadRepository {
     return rows.map(toDecision);
   }
 
+  async spendApproval(decisionId: string): Promise<boolean> {
+    const spent = await this.database
+      .update(decisions)
+      .set({ approvalSpentAt: new Date() })
+      .where(and(eq(decisions.id, decisionId), isNull(decisions.approvalSpentAt)))
+      .returning({ id: decisions.id });
+    return spent.length > 0;
+  }
+
   async openDecisions(): Promise<readonly Decision[]> {
     const rows = await this.database
       .select()
@@ -251,14 +260,23 @@ function toMessage(row: MessageRow): Message {
   return { ...row.body, id: row.id, threadId: row.threadId, at: row.at };
 }
 
-function toDecisionRow({ answer, roleKey, ...fields }: Decision): DecisionRow {
+/** What a Decision is saved as; the approval it gave a held call is spent apart from it. */
+type SavedDecision = Omit<DecisionRow, "approvalSpentAt">;
+
+function toDecisionRow({ answer, roleKey, ...fields }: Decision): SavedDecision {
   const decision = { ...fields, roleKey: roleKey ?? null };
   if (!answer) return { ...decision, answer: null, answeredAt: null };
   const { answeredAt, ...given } = answer;
   return { ...decision, answer: given, answeredAt };
 }
 
-function toDecision({ answer, answeredAt, roleKey, ...row }: DecisionRow): Decision {
+function toDecision({
+  answer,
+  answeredAt,
+  roleKey,
+  approvalSpentAt: _approvalSpentAt,
+  ...row
+}: DecisionRow): Decision {
   return {
     ...row,
     roleKey: roleKey ?? undefined,

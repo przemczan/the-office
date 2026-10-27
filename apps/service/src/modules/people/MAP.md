@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-RoleCards, SessionRole, MemoryService, RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo, RoleRefused, PeopleModule
+RoleCards, SessionRole, RoleService, MemoryService, RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo, hardSwitchInEffect, HARD_SWITCH_LABELS, HardSwitchKey, HardSwitchValue, RoleNotFound, RoleRefused, PeopleModule
 
 ## Domain events
 

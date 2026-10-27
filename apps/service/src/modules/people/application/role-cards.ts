@@ -36,6 +36,12 @@ export class RoleCards {
       : undefined;
   }
 
+  /** The keys of the Roles someone fills now. */
+  async hiredKeys(): Promise<ReadonlySet<string>> {
+    const roles = await this.repository.list();
+    return new Set(roles.filter((role) => !role.letGoAt).map((role) => role.key));
+  }
+
   /** The person who filled the Role before they were let go; undefined when nobody ever did. */
   async findLetGo(roleKey: string): Promise<{ readonly name: string } | undefined> {
     const role = await this.repository.find(roleKey);
