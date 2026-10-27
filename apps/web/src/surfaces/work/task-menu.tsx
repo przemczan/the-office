@@ -8,7 +8,7 @@ import { usePlanner } from "../../shell/work/use-planner.ts";
 import { NOT_STARTED, PRIORITY_ICONS, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { DropTaskDialog } from "../../shell/work/drop-task-dialog.tsx";
 import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
-import { useMarkingReady, usePlanning } from "./use-planning.ts";
+import { useMarkingReady, usePlanning, useReadyConditionsMet } from "./use-planning.ts";
 
 const PRIORITIES: readonly Priority[] = ["high", "normal", "low"];
 
@@ -25,6 +25,7 @@ export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
   const planner = usePlanner();
   const planning = usePlanning();
   const marking = useMarkingReady();
+  const readyConditionsMet = useReadyConditionsMet(task);
   const prioritising = useMutation({
     mutationFn: (priority: Priority) => changePriority(task.id, priority),
     onSuccess: (changed) => {
@@ -50,6 +51,7 @@ export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
           {
             icon: <Icon name="check" size={14} />,
             label: "Mark Ready",
+            disabled: !readyConditionsMet,
             onSelect: () => marking.mutate(task),
           },
         ]

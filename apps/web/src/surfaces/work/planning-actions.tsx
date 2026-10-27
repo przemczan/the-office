@@ -2,8 +2,7 @@ import type { Task } from "@the-office/contracts";
 import { Button, Icon, type ButtonProps } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { usePlanner } from "../../shell/work/use-planner.ts";
-import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
-import { useMarkingReady, usePlanning } from "./use-planning.ts";
+import { useMarkingReady, usePlanning, useReadyConditionsMet } from "./use-planning.ts";
 
 /**
  * "Plan with Jan" on a Task in Backlog, or `label` where the place says less; nothing while nobody
@@ -37,22 +36,17 @@ export function PlanButton({
 }
 
 /**
- * Mark Ready on a Task in Planning. It is offered before the Plan and the Definition of Done are
- * confirmed, while a Pipeline proposal is open and while a Decision waits on the user too, and
- * refused then with the reasons, so the user learns what is missing.
+ * Mark Ready on a Task in Planning, disabled until every line of its "Before Ready" checklist is
+ * met (the Task page's record says which are not).
  */
 export function MarkReadyButton({ task }: { readonly task: Task }): ReactNode {
   const marking = useMarkingReady();
-  const waitingOnYou = useWaitingOnYouInItsState();
+  const conditionsMet = useReadyConditionsMet(task);
   if (task.state !== "planning") return null;
-  const confirmed =
-    task.planConfirmed &&
-    task.definitionOfDoneConfirmed &&
-    task.proposedPipeline === null &&
-    !waitingOnYou(task);
   return (
     <Button
-      variant={confirmed ? "primary" : "secondary"}
+      variant="primary"
+      disabled={!conditionsMet}
       iconLeft={<Icon name="check" size={14} />}
       loading={marking.isPending}
       onClick={() => marking.mutate(task)}

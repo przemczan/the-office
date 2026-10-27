@@ -1,5 +1,5 @@
 import path from "node:path";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   OPEN_DECISION_TOOL,
   pipelineListSchema,
@@ -562,14 +562,23 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await expect(stages.getByText(/A small change with tests/)).toBeVisible();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-planning.png") });
 
-  await page.getByRole("button", { name: "Mark Ready" }).click();
-  await expect(page.getByText(/Confirm the Plan before the Task can be Ready\./)).toBeVisible();
-  await expect(
-    page.getByText(/Answer the open Decision before the Task can be Ready\./),
-  ).toBeVisible();
+  // Mark Ready waits for every line of "Before Ready", and each line ticks as it is met.
+  const markReady = page.getByRole("button", { name: "Mark Ready" });
+  const beforeReady = record.getByRole("region", { name: "Before Ready" });
+  const readinessLine = (label: string): Locator =>
+    beforeReady.getByRole("listitem").filter({ hasText: label });
+  await expect(markReady).toBeDisabled();
+  await expect(readinessLine("Plan confirmed")).toContainText(
+    "Confirm the Plan before the Task can be Ready.",
+  );
+  await expect(readinessLine("No Decision waiting")).toContainText(
+    "Answer the open Decision before the Task can be Ready.",
+  );
+  await expect(beforeReady.locator(".task-checklist-met")).toHaveCount(0);
 
   await plan.getByRole("button", { name: "Confirm" }).click();
   await expect(plan.getByText("Confirmed")).toBeVisible();
+  await expect(readinessLine("Plan confirmed")).toHaveClass(/task-checklist-met/);
   await definitionOfDone.getByRole("button", { name: "Edit" }).click();
   await definitionOfDone
     .getByRole("textbox")
@@ -579,19 +588,30 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
     definitionOfDone.getByText("Signing in returns to the page and its query string."),
   ).toBeVisible();
   await expect(definitionOfDone.getByText("Confirmed")).toBeVisible();
+  await expect(readinessLine("Definition of Done confirmed")).toHaveClass(/task-checklist-met/);
+  await expect(readinessLine("Pipeline taken or declined")).not.toHaveClass(/task-checklist-met/);
   await expect(stages.getByLabel("Another Pipeline")).toContainText("Document");
   await stages.getByRole("button", { name: "Use Quick fix" }).click();
   await expect(record.getByRole("region", { name: "Stages · Quick fix" })).toBeVisible();
   await expect(record.getByText(/A small change with tests/)).toHaveCount(0);
+  await expect(readinessLine("Pipeline taken or declined")).toHaveClass(/task-checklist-met/);
+  await expect(markReady).toBeDisabled();
 
   await decision.getByRole("button", { name: "Keep the query string" }).click();
   await expect(conversation.getByText("The query string stays, as the Plan says.")).toBeVisible();
   await expect(decision.getByText("Answered")).toBeVisible();
   await expect(page.getByText("Waiting on you", { exact: true })).toHaveCount(0);
+  await expect(readinessLine("No Decision waiting")).toHaveClass(/task-checklist-met/);
 
-  await page.getByRole("button", { name: "Mark Ready" }).click();
+  await expect(markReady).toBeEnabled();
+  await markReady.click();
   await expect(
     page.getByText("Sign-in returns to the page is Ready. Starting it is your call."),
+  ).toBeVisible();
+  await expect(
+    record
+      .getByRole("region", { name: "Ready", exact: true })
+      .getByText("Ready: start it when you want; nothing starts by itself."),
   ).toBeVisible();
 
   // Start says why the Task can't start, here while Implement's person only talks; the next test

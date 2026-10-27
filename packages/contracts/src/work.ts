@@ -122,6 +122,15 @@ export type TaskPlacement = z.infer<typeof taskPlacementSchema>;
 export const startCheckSchema = z.object({ reasons: z.array(z.string()) });
 export type StartCheck = z.infer<typeof startCheckSchema>;
 
+/**
+ * GET /tasks/:id/readiness: the "Before Ready" checklist, each condition of Mark Ready with the
+ * reasons it isn't met yet, built from the same rules that refuse Mark Ready.
+ */
+export const readinessSchema = z.object({
+  lines: z.array(z.object({ label: z.string(), met: z.boolean(), problems: z.array(z.string()) })),
+});
+export type Readiness = z.infer<typeof readinessSchema>;
+
 export const attachmentOwnerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("idea"), ideaId: z.uuid() }),
   z.object({ kind: z.literal("task"), taskId: z.uuid() }),

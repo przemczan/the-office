@@ -5,6 +5,7 @@ import {
   ideaListSchema,
   ideaSchema,
   officeWideLimitSchema,
+  readinessSchema,
   startCheckSchema,
   taskListSchema,
   taskSchema,
@@ -16,6 +17,7 @@ import {
   type NewTask,
   type OfficeWideLimit,
   type Priority,
+  type Readiness,
   type StartCheck,
   type Task,
   type TaskPlacement,
@@ -25,7 +27,7 @@ import { deleteFromApi, getFromApi, sendFileToApi, sendToApi } from "./api-clien
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
 const IDEAS = ["ideas"] as const;
-const TASKS = ["tasks"] as const;
+export const TASKS = ["tasks"] as const;
 const ATTACHMENTS = ["attachments"] as const;
 const OFFICE_WIDE_LIMIT = ["settings", "office-wide-limit"] as const;
 
@@ -78,6 +80,13 @@ export const taskQueries = {
       queryKey: [...TASKS, id, "start"],
       queryFn: ({ signal }): Promise<StartCheck> =>
         getFromApi(`${taskPath(id)}/start`, startCheckSchema, signal),
+    }),
+  /** The "Before Ready" checklist; under the Task's key, and a Decision's events refresh it too. */
+  readiness: (id: string) =>
+    queryOptions({
+      queryKey: [...TASKS, id, "readiness"],
+      queryFn: ({ signal }): Promise<Readiness> =>
+        getFromApi(`${taskPath(id)}/readiness`, readinessSchema, signal),
     }),
 };
 

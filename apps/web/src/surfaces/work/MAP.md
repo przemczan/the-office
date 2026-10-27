@@ -17,6 +17,7 @@
 - `planning-actions.tsx`: PlanButton, MarkReadyButton
 - `planning-parts.tsx`: DefinitionOfDoneBlock, PlanBlock, ProposedPipeline, useRecordChange
 - `planning-words.ts`: statementsOf
+- `ready-block.tsx`: ReadyBlock
 - `record-block.tsx`: RecordBlock
 - `resume-words.ts`: ResumeWords, HeldWork, resumeWords, latestRunOf
 - `run-controls.tsx`: RunControls
@@ -28,7 +29,7 @@
 - `task-menu.tsx`: TaskMenu
 - `task-page.tsx`: TaskPage
 - `task-record.tsx`: TaskRecord
-- `use-planning.ts`: usePlanning, useIdeaPlanning, useMarkingReady
+- `use-planning.ts`: usePlanning, useIdeaPlanning, useReadyConditionsMet, useMarkingReady
 - `use-shaping.ts`: useShaping
 - `work-page.tsx`: WorkPage
 - Tests: changes-words.test.ts, planning-words.test.ts, resume-words.test.ts, stage-words.test.ts

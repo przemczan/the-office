@@ -45,23 +45,49 @@ export function stateChangeProblems(task: Task, to: TaskState): string[] {
   return to === "ready" ? readyProblems(task) : [];
 }
 
+/** One condition of Ready, as the "Before Ready" checklist names it; `problems` is empty once met. */
+export interface ReadinessLine {
+  readonly label: string;
+  readonly problems: readonly string[];
+}
+
 /**
- * Ready requires a Plan and a Definition of Done, each confirmed by the user, and no Pipeline
- * proposal left open: the user takes or declines it, keeping the Pipeline the Task follows (spec §2.1).
+ * Ready requires a Plan and a Definition of Done, each confirmed by the user, no Pipeline proposal
+ * left open (the user takes or declines it, keeping the Pipeline the Task follows) and no Decision
+ * on the Task waiting (spec §2.1). The one list of conditions: the refusals and the checklist
+ * both come from it.
  */
-function readyProblems(task: Task): string[] {
-  const problems: string[] = [];
-  if (task.plan.trim() === "") problems.push("A Task needs a Plan before it can be Ready.");
-  else if (!task.planConfirmed) problems.push("Confirm the Plan before the Task can be Ready.");
+export function readinessLines(task: Task, openDecisions: number): ReadinessLine[] {
+  return [
+    { label: "Plan confirmed", problems: planProblems(task) },
+    { label: "Definition of Done confirmed", problems: definitionOfDoneProblems(task) },
+    {
+      label: "Pipeline taken or declined",
+      problems: task.proposedPipeline
+        ? ["Take or decline the proposed Pipeline before the Task can be Ready."]
+        : [],
+    },
+    { label: "No Decision waiting", problems: openDecisionProblems(openDecisions) },
+  ];
+}
+
+function planProblems(task: Task): string[] {
+  if (task.plan.trim() === "") return ["A Task needs a Plan before it can be Ready."];
+  return task.planConfirmed ? [] : ["Confirm the Plan before the Task can be Ready."];
+}
+
+function definitionOfDoneProblems(task: Task): string[] {
   if (task.definitionOfDone.length === 0) {
-    problems.push("A Task needs a Definition of Done before it can be Ready.");
-  } else if (!task.definitionOfDoneConfirmed) {
-    problems.push("Confirm the Definition of Done before the Task can be Ready.");
+    return ["A Task needs a Definition of Done before it can be Ready."];
   }
-  if (task.proposedPipeline) {
-    problems.push("Take or decline the proposed Pipeline before the Task can be Ready.");
-  }
-  return problems;
+  return task.definitionOfDoneConfirmed
+    ? []
+    : ["Confirm the Definition of Done before the Task can be Ready."];
+}
+
+/** Every reason the Task's own record keeps it from Ready; Decisions are asked of Work's ports. */
+function readyProblems(task: Task): string[] {
+  return readinessLines(task, 0).flatMap(({ problems }) => problems);
 }
 
 /** Ready also waits for every Decision on the Task to be answered (spec §2.1, the user's answer). */

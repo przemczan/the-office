@@ -14,6 +14,7 @@ import { NOT_STARTED } from "../../shell/work/work-words.ts";
 import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
 import { GateBlock } from "./gate-view.tsx";
 import { DefinitionOfDoneBlock, PlanBlock, ProposedPipeline } from "./planning-parts.tsx";
+import { ReadyBlock } from "./ready-block.tsx";
 import { RecordBlock } from "./record-block.tsx";
 import {
   latestHandoverNote,
@@ -41,6 +42,7 @@ export function TaskRecord({
   return (
     <section className="task-record" aria-label="Record">
       <GateBlock task={task} roles={roles.data} />
+      <ReadyBlock task={task} />
       <DefinitionOfDoneBlock task={task} planner={planner} />
       <PlanBlock task={task} planner={planner} />
       <StagesBlock task={task} pipeline={pipeline} planner={planner} roles={roles.data} />

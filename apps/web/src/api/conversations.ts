@@ -16,6 +16,7 @@ import {
 } from "@the-office/contracts";
 import { getFromApi, sendToApi } from "./api-client.ts";
 import type { EventCacheUpdates, EventInvalidations } from "./event-stream-provider.tsx";
+import { TASKS } from "./work.ts";
 
 const THREADS = ["threads"] as const;
 const DECISIONS = ["decisions"] as const;
@@ -109,7 +110,8 @@ type CarryingEventType = "thread.tokens-counted";
 /**
  * Every other Conversations event makes the Threads stale: ["threads"] covers each home's list,
  * each Thread and its log. A Decision's events also make ["decisions"] stale, kept apart so the
- * many events of a turn don't refetch the open Decisions.
+ * many events of a turn don't refetch the open Decisions, and ["tasks"], as a waiting Decision is
+ * one line of a Task's "Before Ready" checklist.
  */
 export const threadEventInvalidations: Readonly<
   Record<Exclude<ThreadWebEvent["type"], CarryingEventType>, EventInvalidations[string]>
@@ -120,9 +122,9 @@ export const threadEventInvalidations: Readonly<
   "thread.turn-ended": () => [THREADS],
   "thread.delivery-marked": () => [THREADS],
   "thread.override-chosen": () => [THREADS],
-  "thread.decision-opened": () => [THREADS, DECISIONS],
-  "thread.decision-answered": () => [THREADS, DECISIONS],
-  "thread.decision-reopened": () => [THREADS, DECISIONS],
+  "thread.decision-opened": () => [THREADS, DECISIONS, TASKS],
+  "thread.decision-answered": () => [THREADS, DECISIONS, TASKS],
+  "thread.decision-reopened": () => [THREADS, DECISIONS, TASKS],
   "context-policy.size-threshold-changed": () => [SIZE_THRESHOLD, THREADS],
 };
 

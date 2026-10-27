@@ -22,6 +22,7 @@ import {
   type PipelineChange,
   type PlanChange,
   type PriorityChange,
+  type Readiness,
   type StartCheck,
   type Task as TaskResponse,
   type TaskPlacement,
@@ -119,6 +120,19 @@ export class TasksController {
   @HttpCode(HttpStatus.OK)
   async markReady(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
     return toTaskResponse(await this.planning.markReady(id));
+  }
+
+  /** The "Before Ready" checklist: what Mark Ready waits for, and what is met already. */
+  @Get(":id/readiness")
+  async readiness(@Param("id", ParseUUIDPipe) id: string): Promise<Readiness> {
+    const lines = await this.planning.readiness(id);
+    return {
+      lines: lines.map(({ label, problems }) => ({
+        label,
+        met: problems.length === 0,
+        problems: [...problems],
+      })),
+    };
   }
 
   /** Why Start would be refused now, for the Task page to show beside the button. */

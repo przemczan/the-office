@@ -46,6 +46,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `PUT /tasks/:id/definition-of-done`: TasksController.confirmDefinitionOfDone
 - `PUT /tasks/:id/pipeline`: TasksController.confirmPipeline
 - `POST /tasks/:id/ready`: TasksController.markReady
+- `GET /tasks/:id/readiness`: TasksController.readiness
 - `GET /tasks/:id/start`: TasksController.startCheck
 - `POST /tasks/:id/start`: TasksController.start
 - `POST /tasks/:id/pause`: TasksController.pause
@@ -142,7 +143,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `task-not-found.ts`: TaskNotFound
 - `task-refused.ts`: TaskRefused
 - `task-start.ts`: StartingStage, DEFAULT_OFFICE_WIDE_LIMIT, TaskLimit, StartingPerson, StartConditions, firstAgentStage, startProblems, startTask
-- `task-states.ts`: TASK_STATE_NAMES, NOT_STARTED_STATES, STARTED_STATES, stateChangeProblems, openDecisionProblems
+- `task-states.ts`: TASK_STATE_NAMES, NOT_STARTED_STATES, STARTED_STATES, stateChangeProblems, ReadinessLine, readinessLines, openDecisionProblems
 - `task.ts`: TASK_STATES, TaskState, PRIORITIES, Priority, Task, ProposedPipeline, NewTask, trimmedNewTask, newTaskProblems
 - `title.ts`: titleProblem
 - `work.fixtures.ts`: anIdea, aTask, aPlannedTask, aLink

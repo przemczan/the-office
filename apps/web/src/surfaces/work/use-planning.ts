@@ -1,4 +1,9 @@
-import { useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+} from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import type { Idea, Task } from "@the-office/contracts";
 import { ideaQueries, markReady, planIdea, planTask, taskQueries } from "../../api/work.ts";
@@ -36,7 +41,16 @@ export function useIdeaPlanning(idea: Idea): UseMutationResult<Task, Error, stri
   });
 }
 
-/** Mark Ready, or the reasons it can't be Ready yet. */
+/** Whether every line of the Task's "Before Ready" checklist is met; false until it is known. */
+export function useReadyConditionsMet(task: Task): boolean {
+  const readiness = useQuery({
+    ...taskQueries.readiness(task.id),
+    enabled: task.state === "planning",
+  });
+  return readiness.data?.lines.every(({ met }) => met) ?? false;
+}
+
+/** Mark Ready, which the checklist keeps from being offered before every line is met. */
 export function useMarkingReady(): UseMutationResult<Task, Error, Task> {
   const queryClient = useQueryClient();
   const showToast = useToast();

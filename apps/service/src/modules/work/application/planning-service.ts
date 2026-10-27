@@ -20,7 +20,7 @@ import {
 } from "../domain/task-changes.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { TaskRefused } from "../domain/task-refused.js";
-import { stateChangeProblems } from "../domain/task-states.js";
+import { readinessLines, stateChangeProblems, type ReadinessLine } from "../domain/task-states.js";
 import { KnownPeople } from "../ports/known-people.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
 import { ProjectWorktrees } from "../ports/project-worktrees.js";
@@ -141,6 +141,13 @@ export class PlanningService {
   async markReady(taskId: string): Promise<Task> {
     const openDecisions = await this.decisions.openOn(taskId);
     return this.update(taskId, (task) => markTaskReady(task, openDecisions));
+  }
+
+  /** The conditions of Mark Ready and which are met, for the checklist beside the button. */
+  async readiness(taskId: string): Promise<ReadinessLine[]> {
+    const task = await this.tasks.find(taskId);
+    if (!task) throw new TaskNotFound(taskId);
+    return readinessLines(task, await this.decisions.openOn(taskId));
   }
 
   private async update<Event extends DomainEvent>(

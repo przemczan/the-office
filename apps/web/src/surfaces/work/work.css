@@ -551,6 +551,37 @@
   line-height: 1.5;
 }
 
+.task-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: var(--type-body-sm);
+  line-height: 1.5;
+}
+
+.task-checklist li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--fg-2);
+}
+
+.task-checklist svg {
+  flex: none;
+  margin-top: 3px;
+}
+
+.task-checklist-met {
+  color: var(--fg-1);
+}
+
+.task-checklist-met svg {
+  color: var(--success-fg);
+}
+
 .task-stages {
   display: flex;
   flex-direction: column;
