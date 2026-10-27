@@ -70,6 +70,21 @@ export function changeRoleCard(key: string, card: RoleCard): Promise<Role> {
   return sendToApi("PUT", `${rolePath(key)}/card`, card, roleSchema);
 }
 
+/** The keys of the Roles someone fills: a person let go fills none. */
+export function filledRoleKeys(roles: readonly Role[]): ReadonlySet<string> {
+  return new Set(roles.filter(({ letGoAt }) => letGoAt === null).map(({ key }) => key));
+}
+
+/** Nobody fills the Role from now on; the person's card, Memory and chats stay readable. */
+export function letGoOfPerson(key: string): Promise<Role> {
+  return sendToApi("POST", `${rolePath(key)}/let-go`, {}, roleSchema);
+}
+
+/** The person let go fills their Role again, as they were. */
+export function hirePersonBack(key: string): Promise<Role> {
+  return sendToApi("POST", `${rolePath(key)}/hire-back`, {}, roleSchema);
+}
+
 export function addMemoryNote(key: string, note: MemoryNoteDraft): Promise<MemoryNote> {
   return sendToApi("POST", memoryPath(key), note, memoryNoteSchema);
 }
@@ -91,6 +106,8 @@ export const roleEventInvalidations: Readonly<
   Record<RoleWebEvent["type"], EventInvalidations[string]>
 > = {
   "role.hired": () => [ROLES],
+  "role.let-go": () => [ROLES],
+  "role.hired-back": () => [ROLES],
   "role.card-changed": () => [ROLES],
   "role.memory-changed": () => [ROLES],
 };

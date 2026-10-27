@@ -8,6 +8,26 @@ export class RoleHired extends DomainEvent {
   }
 }
 
+/** The person no longer fills the Role: Pipelines that name it need someone else. */
+export class RoleLetGo extends DomainEvent {
+  constructor(
+    readonly role: Role,
+    letGoAt: Date,
+  ) {
+    super(letGoAt);
+  }
+}
+
+/** The person let go fills their Role again, with their card, Memory and chats as they were. */
+export class RoleHiredBack extends DomainEvent {
+  constructor(
+    readonly role: Role,
+    hiredBackAt: Date,
+  ) {
+    super(hiredBackAt);
+  }
+}
+
 /** A Memory note was added or deleted, or the whole Memory was. */
 export class RoleMemoryChanged extends DomainEvent {
   constructor(

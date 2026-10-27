@@ -3,7 +3,7 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { Role, RoleCardVersion } from "../../domain/role.js";
 import type { RoleChange } from "../../domain/role-changes.js";
-import type { RoleCardChanged } from "../../domain/role-events.js";
+import type { RoleCardChanged, RoleHiredBack, RoleLetGo } from "../../domain/role-events.js";
 import { RoleNotFound } from "../../domain/role-not-found.js";
 import { RoleRepository, type RoleUpdate } from "../../ports/role-repository.js";
 import { roleCardVersions, roles } from "./roles.schema.js";
@@ -87,6 +87,32 @@ export class PostgresRoleRepository extends RoleRepository {
     });
   }
 
+  async changeStanding<Event extends RoleLetGo | RoleHiredBack>(
+    key: string,
+    change: (role: Role) => RoleChange<Event>,
+  ): Promise<RoleChange<Event>> {
+    return this.database.transaction(async (transaction) => {
+      const [locked] = await transaction
+        .select({ key: roles.key })
+        .from(roles)
+        .where(eq(roles.key, key))
+        .for("update");
+      if (!locked) throw new RoleNotFound(key);
+      const [row] = await transaction
+        .select()
+        .from(roles)
+        .innerJoin(roleCardVersions, currentCard)
+        .where(eq(roles.key, key));
+      if (!row) throw new RoleNotFound(key);
+      const changed = change(toRole(row.roles, row.role_card_versions));
+      await transaction
+        .update(roles)
+        .set({ letGoAt: changed.role.letGoAt ?? null })
+        .where(eq(roles.key, key));
+      return changed;
+    });
+  }
+
   async version(key: string, version: number): Promise<RoleCardVersion | undefined> {
     const [row] = await this.database
       .select()
@@ -106,7 +132,12 @@ export class PostgresRoleRepository extends RoleRepository {
 }
 
 function toRow(role: Role): RoleRow {
-  return { key: role.key, cardVersion: role.cardVersion, hiredAt: role.hiredAt };
+  return {
+    key: role.key,
+    cardVersion: role.cardVersion,
+    hiredAt: role.hiredAt,
+    letGoAt: role.letGoAt ?? null,
+  };
 }
 
 function currentVersionRow(role: Role): Omit<RoleCardVersionRow, "changes"> {
@@ -125,6 +156,7 @@ function toRole(row: RoleRow, version: RoleCardVersionRow): Role {
     cardVersion: row.cardVersion,
     hiredAt: row.hiredAt,
     cardSavedAt: version.savedAt,
+    letGoAt: row.letGoAt ?? undefined,
   };
 }
 

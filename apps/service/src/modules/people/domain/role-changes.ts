@@ -9,7 +9,7 @@ import {
   type RoleCard,
 } from "./role-card.js";
 import { roleCardChanges } from "./role-card-changes.js";
-import { RoleCardChanged, RoleHired } from "./role-events.js";
+import { RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo } from "./role-events.js";
 import { RoleRefused } from "./role-refused.js";
 
 /** A Role after a change, with the event that announces it. */
@@ -31,9 +31,7 @@ export function hire(
   const preset = presetFor(roleKey);
   if (!preset) throw new RoleRefused([`There is no preset to hire a "${roleKey}" from.`]);
   const problems = personNameProblems(name);
-  if (filledBy) {
-    problems.push(`${filledBy.card.name} already fills the ${filledBy.card.title} Role.`);
-  }
+  if (filledBy) problems.push(roleTakenProblem(filledBy));
   if (problems.length > 0) throw new RoleRefused(problems);
   const role: Role = {
     key: preset.roleKey,
@@ -41,6 +39,7 @@ export function hire(
     cardVersion: 1,
     hiredAt,
     cardSavedAt: hiredAt,
+    letGoAt: undefined,
   };
   return { role, event: new RoleHired(role) };
 }
@@ -64,11 +63,47 @@ export function hireFromScratch(
   } else if (presetTitle) {
     problems.push(`Hire the ${presetTitle} Role from its preset.`);
   } else if (filledBy) {
-    problems.push(`${filledBy.card.name} already fills the ${filledBy.card.title} Role.`);
+    problems.push(roleTakenProblem(filledBy));
   }
   if (problems.length > 0) throw new RoleRefused(problems);
-  const role: Role = { key: roleKey, card, cardVersion: 1, hiredAt, cardSavedAt: hiredAt };
+  const role: Role = {
+    key: roleKey,
+    card,
+    cardVersion: 1,
+    hiredAt,
+    cardSavedAt: hiredAt,
+    letGoAt: undefined,
+  };
   return { role, event: new RoleHired(role) };
+}
+
+/** A person let go still holds their Role's key, with their Memory and chats under it. */
+function roleTakenProblem({ card, letGoAt }: Role): string {
+  return letGoAt
+    ? `${card.name} was let go from the ${card.title} Role; hire ${card.name} back.`
+    : `${card.name} already fills the ${card.title} Role.`;
+}
+
+/** Lets the person go: refused when they were let go already. */
+export function letGo(role: Role, letGoAt: Date): RoleChange<RoleLetGo> {
+  if (role.letGoAt) {
+    throw new RoleRefused([
+      `${role.card.name} was let go from the ${role.card.title} Role already.`,
+    ]);
+  }
+  const changed: Role = { ...role, letGoAt };
+  return { role: changed, event: new RoleLetGo(changed, letGoAt) };
+}
+
+/** Hires the person let go back into their Role, as they were. */
+export function hireBack(role: Role, hiredBackAt: Date): RoleChange<RoleHiredBack> {
+  if (!role.letGoAt) {
+    throw new RoleRefused([
+      `${role.card.name} fills the ${role.card.title} Role; nobody was let go.`,
+    ]);
+  }
+  const changed: Role = { ...role, letGoAt: undefined };
+  return { role: changed, event: new RoleHiredBack(changed, hiredBackAt) };
 }
 
 /**
@@ -80,6 +115,11 @@ export function changeRoleCard(
   edit: RoleCard,
   savedAt: Date,
 ): RoleChange<RoleCardChanged> | undefined {
+  if (role.letGoAt) {
+    throw new RoleRefused([
+      `${role.card.name} was let go from the ${role.card.title} Role; hire ${role.card.name} back to change the Role card.`,
+    ]);
+  }
   const card = trimmedRoleCard(edit);
   const problems = roleCardProblems(role.key, card);
   if (problems.length > 0) throw new RoleRefused(problems);

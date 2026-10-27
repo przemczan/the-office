@@ -7,6 +7,8 @@ export const roles = pgTable("roles", {
   key: text("key").primaryKey(),
   cardVersion: integer("card_version").notNull(),
   hiredAt: timestamp("hired_at", { withTimezone: true }).notNull(),
+  /** Null while the person fills the Role. */
+  letGoAt: timestamp("let_go_at", { withTimezone: true }),
 });
 
 /** Every version of each Role's card, kept for the sessions that started with it. */

@@ -31,7 +31,9 @@ export class RoleCards {
   /** The card a new session would start with, or undefined when nobody fills the Role. */
   async find(roleKey: string): Promise<SessionRole | undefined> {
     const role = await this.repository.find(roleKey);
-    return role && { roleKey, cardVersion: role.cardVersion, card: role.card };
+    return role && !role.letGoAt
+      ? { roleKey, cardVersion: role.cardVersion, card: role.card }
+      : undefined;
   }
 
   /**
@@ -42,8 +44,12 @@ export class RoleCards {
     return KNOWN_ROLES.get(roleKey) ?? roleKey;
   }
 
-  /** Throws RoleCardVersionNotFound when the Role has no such version. */
+  /**
+   * Throws RoleNotFound when nobody fills the Role, so a person let go never resumes a session, and
+   * RoleCardVersionNotFound when the Role has no such version.
+   */
   async forResumedSession(roleKey: string, cardVersion: number): Promise<SessionRole> {
+    if (!(await this.find(roleKey))) throw new RoleNotFound(roleKey);
     const version = await this.repository.version(roleKey, cardVersion);
     if (!version) throw new RoleCardVersionNotFound(roleKey, cardVersion);
     return { roleKey, cardVersion, card: version.card };

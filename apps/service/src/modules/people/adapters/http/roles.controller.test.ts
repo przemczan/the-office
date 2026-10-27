@@ -245,6 +245,50 @@ describe("GET /api/roles", () => {
   });
 });
 
+describe("POST /api/roles/:key/let-go and /hire-back", () => {
+  it("lets the person go, keeping their card, and hires them back as they were", async () => {
+    const hired = await hire("developer", "Ada");
+    published = [];
+
+    const letGo = roleSchema.parse(
+      await (await send("POST", "/roles/developer/let-go", {})).json(),
+    );
+
+    expect(letGo).toMatchObject({ key: "developer", card: hired.card });
+    expect(letGo.letGoAt).not.toBeNull();
+    expect(roleSchema.parse(await get("/roles/developer")).letGoAt).toBe(letGo.letGoAt);
+
+    const back = roleSchema.parse(
+      await (await send("POST", "/roles/developer/hire-back", {})).json(),
+    );
+
+    expect(back).toMatchObject({ key: "developer", card: hired.card, letGoAt: null });
+    expect(webEvents()).toEqual([
+      { type: "role.let-go", roleKey: "developer" },
+      { type: "role.hired-back", roleKey: "developer" },
+    ]);
+  });
+
+  it("refuses to let go twice, to hire back a person who fills the Role, and to hire another in", async () => {
+    await hire("developer", "Ada");
+    expect(await reasonsOf(await send("POST", "/roles/developer/hire-back", {}))).toEqual([
+      "Ada fills the Developer Role; nobody was let go.",
+    ]);
+    await send("POST", "/roles/developer/let-go", {});
+
+    expect(await reasonsOf(await send("POST", "/roles/developer/let-go", {}))).toEqual([
+      "Ada was let go from the Developer Role already.",
+    ]);
+    expect(
+      await reasonsOf(await send("POST", "/roles", { roleKey: "developer", name: "Bob" })),
+    ).toEqual(["Ada was let go from the Developer Role; hire Ada back."]);
+  });
+
+  it("answers 404 for a Role nobody was hired into", async () => {
+    expect((await send("POST", "/roles/developer/let-go", {})).status).toBe(404);
+  });
+});
+
 describe("PUT /api/roles/:key/card", () => {
   it("saves the card as its next version, with its permission profile", async () => {
     const hired = await hire("developer", "Ada");

@@ -11,5 +11,5 @@ const PLANNER = "planner";
  */
 export function usePlanner(): Role | undefined {
   const roles = useQuery(roleQueries.list());
-  return roles.data?.find(({ key }) => key === PLANNER);
+  return roles.data?.find(({ key, letGoAt }) => key === PLANNER && letGoAt === null);
 }

@@ -80,6 +80,22 @@ describe("RoleCards", () => {
     await expect(roleCards.find(`role-${randomUUID()}`)).resolves.toBeUndefined();
   });
 
+  it("gives no session to a person let go, new or resumed, until they are hired back", async () => {
+    const role = aRole({ key: `role-${randomUUID()}` });
+    await repository.add(role);
+    const session = await roleCards.forNewSession(role.key);
+
+    await roles.letGo(role.key);
+
+    await expect(roleCards.find(role.key)).resolves.toBeUndefined();
+    await expect(roleCards.forNewSession(role.key)).rejects.toThrow(RoleNotFound);
+    await expect(roleCards.forResumedSession(role.key, 1)).rejects.toThrow(RoleNotFound);
+
+    await roles.hireBack(role.key);
+
+    await expect(roleCards.forResumedSession(role.key, 1)).resolves.toEqual(session);
+  });
+
   it("refuses to resume with a card version the Role doesn't have", async () => {
     const role = aRole({ key: `role-${randomUUID()}` });
     await repository.add(role);

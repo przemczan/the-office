@@ -18,7 +18,7 @@ import {
   type Engine,
   type RoleCard,
 } from "../domain/role-card.js";
-import { changeRoleCard, hire, hireFromScratch } from "../domain/role-changes.js";
+import { changeRoleCard, hire, hireBack, hireFromScratch, letGo } from "../domain/role-changes.js";
 import { roleKeyFor } from "../domain/role-key.js";
 import { RoleNotFound } from "../domain/role-not-found.js";
 import { RoleRefused } from "../domain/role-refused.js";
@@ -151,6 +151,27 @@ export class RoleService {
     );
     if (event) await this.events.publish(event);
     return { role, skills: await this.roleSkills.assignToRole(key, skills) };
+  }
+
+  /**
+   * Lets the person go: nobody fills the Role from now on, and their card, Memory and chats stay,
+   * unused and readable. Refused when they were let go already.
+   */
+  async letGo(key: string): Promise<RoleWithSkills> {
+    const { role, event } = await this.repository.changeStanding(key, (stored) =>
+      letGo(stored, new Date()),
+    );
+    await this.events.publish(event);
+    return { role, skills: await this.roleSkills.of(key) };
+  }
+
+  /** Hires the person let go back into their Role, with their card, Memory and chats as they were. */
+  async hireBack(key: string): Promise<RoleWithSkills> {
+    const { role, event } = await this.repository.changeStanding(key, (stored) =>
+      hireBack(stored, new Date()),
+    );
+    await this.events.publish(event);
+    return { role, skills: await this.roleSkills.of(key) };
   }
 
   /** The person's change history, newest first, ending with the hire. */

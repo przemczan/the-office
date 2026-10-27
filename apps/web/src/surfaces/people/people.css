@@ -102,6 +102,11 @@
   display: inline-flex;
 }
 
+.person-tile-let-go {
+  color: var(--fg-3);
+  font: var(--type-caption);
+}
+
 .person-tile-limit {
   margin-left: auto;
   color: var(--fg-3);

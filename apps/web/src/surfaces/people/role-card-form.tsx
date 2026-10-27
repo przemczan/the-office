@@ -26,7 +26,13 @@ import {
   Textarea,
 } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
-import { changeRoleCard, hire, roleCardQueries, roleQueries } from "../../api/people.ts";
+import {
+  changeRoleCard,
+  filledRoleKeys,
+  hire,
+  roleCardQueries,
+  roleQueries,
+} from "../../api/people.ts";
 import { skillQueries } from "../../api/skills.ts";
 import { EFFORT_LABELS, modelLabel } from "../../shell/engine-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
@@ -61,7 +67,7 @@ export function RoleCardEditPage(): ReactNode {
       // A card saved elsewhere meanwhile starts the form again from it.
       key={role.data.cardVersion}
       role={role.data}
-      hiredRoles={new Set(roles.data.map(({ key }) => key))}
+      hiredRoles={filledRoleKeys(roles.data)}
       options={options.data}
       library={library.data}
     />
@@ -82,7 +88,7 @@ export function HireFromScratchPage(): ReactNode {
   return (
     <RoleCardForm
       role={undefined}
-      hiredRoles={new Set(roles.data.map(({ key }) => key))}
+      hiredRoles={filledRoleKeys(roles.data)}
       options={options.data}
       library={library.data}
     />

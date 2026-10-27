@@ -1,14 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useMatchRoute, useNavigate, useParams } from "@tanstack/react-router";
 import type { Role } from "@the-office/contracts";
-import { Avatar, Button, EmptyState, Icon, Tabs } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { Alert, Avatar, Button, EmptyState, Icon, Tabs } from "@the-office/ui";
+import { useState, type ReactNode } from "react";
 import { ApiError } from "../../api/api-client.ts";
-import { roleQueries } from "../../api/people.ts";
+import { hirePersonBack, roleQueries } from "../../api/people.ts";
 import { useChat } from "../../shell/chat/use-chat.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { personName } from "../../shell/person-name.ts";
 import { dayOf } from "../../shell/time.ts";
+import { useToast } from "../../shell/toasts.tsx";
+import { LetGoDialog } from "./let-go-dialog.tsx";
 import { CAPABILITIES, taskLimitShort } from "./role-card-labels.ts";
 import "./people.css";
 
@@ -26,6 +28,12 @@ export function PersonPage(): ReactNode {
   return (
     <div className="person-page">
       <PersonHead role={role.data} />
+      {role.data.letGoAt && (
+        <Alert tone="neutral" title={`${role.data.card.name} was let go`}>
+          Nobody fills the {role.data.card.title} Role. {role.data.card.name}'s Role card, Memory
+          and chats are kept, unused and readable.
+        </Alert>
+      )}
       <PersonTabs roleKey={role.data.key} />
       <Outlet />
     </div>
@@ -40,6 +48,18 @@ function PersonHead({ role }: { readonly role: Role }): ReactNode {
   });
   const navigate = useNavigate();
   const chat = useChat();
+  const [letting, setLetting] = useState(false);
+  const letGo = role.letGoAt !== null;
+  const queryClient = useQueryClient();
+  const showToast = useToast();
+  const hiringBack = useMutation({
+    mutationFn: () => hirePersonBack(role.key),
+    onSuccess: async (hiredBack) => {
+      queryClient.setQueryData(roleQueries.one(hiredBack.key).queryKey, hiredBack);
+      await queryClient.invalidateQueries(roleQueries.list());
+      showToast(`${card.name} hired back.`);
+    },
+  });
   return (
     <header className="person-head">
       <Avatar name={card.name} size="lg" />
@@ -57,29 +77,53 @@ function PersonHead({ role }: { readonly role: Role }): ReactNode {
             {taskLimitShort(card.taskLimit)}
           </span>
           <span>· Hired {dayOf(role.hiredAt)}</span>
+          {role.letGoAt && <span>· Let go {dayOf(role.letGoAt)}</span>}
         </div>
       </div>
       <div className="person-head-actions">
-        {card.capabilities.chat && (
+        {letGo ? (
           <Button
-            iconLeft={<Icon name="message-circle" size={14} />}
-            onClick={() => chat.open(role.key)}
+            iconLeft={<Icon name="user-plus" size={14} />}
+            loading={hiringBack.isPending}
+            onClick={() => hiringBack.mutate()}
           >
-            Open the chat
+            Hire {card.name} back
           </Button>
-        )}
-        {editing === false && (
-          <Button
-            variant="secondary"
-            iconLeft={<Icon name="pencil" size={14} />}
-            onClick={() =>
-              void navigate({ to: "/people/$roleKey/role/edit", params: { roleKey: role.key } })
-            }
-          >
-            Edit Role
-          </Button>
+        ) : (
+          <>
+            {card.capabilities.chat && (
+              <Button
+                iconLeft={<Icon name="message-circle" size={14} />}
+                onClick={() => chat.open(role.key)}
+              >
+                Open the chat
+              </Button>
+            )}
+            {editing === false && (
+              <Button
+                variant="secondary"
+                iconLeft={<Icon name="pencil" size={14} />}
+                onClick={() =>
+                  void navigate({
+                    to: "/people/$roleKey/role/edit",
+                    params: { roleKey: role.key },
+                  })
+                }
+              >
+                Edit Role
+              </Button>
+            )}
+            <Button
+              variant="secondary"
+              iconLeft={<Icon name="user-minus" size={14} />}
+              onClick={() => setLetting(true)}
+            >
+              Let go
+            </Button>
+          </>
         )}
       </div>
+      {letting && <LetGoDialog role={role} onClose={() => setLetting(false)} />}
     </header>
   );
 }

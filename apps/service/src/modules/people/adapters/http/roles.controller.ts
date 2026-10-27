@@ -43,19 +43,19 @@ export class RolesController {
       "card" in hiring
         ? await this.roles.hireFromScratch(...cardAndSkills(hiring.card))
         : await this.roles.hire(hiring.roleKey, hiring.name);
-    return toRoleResponse(role, await this.hiredRoleKeys());
+    return toRoleResponse(role, await this.filledRoleKeys());
   }
 
   @Get("roles")
   async list(): Promise<RoleResponse[]> {
     const roles = await this.roles.list();
-    const hired = new Set(roles.map(({ role }) => role.key));
-    return roles.map((role) => toRoleResponse(role, hired));
+    const filled = filledKeys(roles);
+    return roles.map((role) => toRoleResponse(role, filled));
   }
 
   @Get("roles/:key")
   async read(@Param("key") key: string): Promise<RoleResponse> {
-    return toRoleResponse(await this.roles.read(key), await this.hiredRoleKeys());
+    return toRoleResponse(await this.roles.read(key), await this.filledRoleKeys());
   }
 
   @Put("roles/:key/card")
@@ -64,7 +64,19 @@ export class RolesController {
     @Body(new ContractPipe(roleCardSchema)) card: RoleCard,
   ): Promise<RoleResponse> {
     const role = await this.roles.changeCard(key, ...cardAndSkills(card));
-    return toRoleResponse(role, await this.hiredRoleKeys());
+    return toRoleResponse(role, await this.filledRoleKeys());
+  }
+
+  @Post("roles/:key/let-go")
+  async letGo(@Param("key") key: string): Promise<RoleResponse> {
+    const role = await this.roles.letGo(key);
+    return toRoleResponse(role, await this.filledRoleKeys());
+  }
+
+  @Post("roles/:key/hire-back")
+  async hireBack(@Param("key") key: string): Promise<RoleResponse> {
+    const role = await this.roles.hireBack(key);
+    return toRoleResponse(role, await this.filledRoleKeys());
   }
 
   @Get("roles/:key/changes")
@@ -72,9 +84,14 @@ export class RolesController {
     return (await this.roles.history(key)).map(toChangeResponse);
   }
 
-  private async hiredRoleKeys(): Promise<ReadonlySet<string>> {
-    return new Set((await this.roles.list()).map(({ role }) => role.key));
+  /** The Roles someone fills: a person let go fills none. */
+  private async filledRoleKeys(): Promise<ReadonlySet<string>> {
+    return filledKeys(await this.roles.list());
   }
+}
+
+function filledKeys(roles: readonly RoleWithSkills[]): ReadonlySet<string> {
+  return new Set(roles.filter(({ role }) => !role.letGoAt).map(({ role }) => role.key));
 }
 
 /** Splits the card the user sent into the Role card and the skills the Skills module keeps. */
@@ -92,6 +109,7 @@ function toRoleResponse(
     cardVersion: role.cardVersion,
     hiredAt: role.hiredAt.toISOString(),
     cardSavedAt: role.cardSavedAt.toISOString(),
+    letGoAt: role.letGoAt?.toISOString() ?? null,
     askingYouUntilHired: switchesAskingYouUntilHired(role.card.hardSwitches, hiredRoles),
   };
 }

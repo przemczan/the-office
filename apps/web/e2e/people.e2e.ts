@@ -210,6 +210,30 @@ test("the user hires a person from scratch, filling the whole Role card", async 
   await expect(roleCardGroup(page, "Work")).toContainText("1 at once");
 });
 
+test("the user lets a person go, finds their page kept and read-only, and hires them back", async ({
+  page,
+}) => {
+  await page.goto("/people/data-analyst");
+  await page.getByRole("button", { name: "Let go", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Let Mia go?");
+  await expect(dialog).toContainText("Role card, Memory and chats are kept");
+  await dialog.getByRole("button", { name: "Let Mia go" }).click();
+
+  await expect(page.getByText("Mia was let go", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit Role" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Let go", exact: true })).toHaveCount(0);
+  await page.getByRole("tab", { name: "Memory" }).click();
+  await expect(page.getByRole("button", { name: "Add note" })).toHaveCount(0);
+  await page.goto("/people");
+  await expect(page.locator(".person-card", { hasText: "Mia" })).toContainText("Let go");
+
+  await page.goto("/people/data-analyst");
+  await page.getByRole("button", { name: "Hire Mia back" }).click();
+  await expect(page.getByText("Mia was let go", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Edit Role" })).toBeVisible();
+});
+
 test("Assign… in Settings › Skills gives a skill to the people chosen", async ({ page }) => {
   await page.goto("/settings/skills");
   await page

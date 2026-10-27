@@ -28,8 +28,9 @@ Leave out: the Office Manager and Proposals (task 21); Initiatives and the CTO's
 
 - [x] 1. Hire from scratch and edit permission profiles: a hire without a preset, the Role card form for it, and an editable profile. Commit.
   Read: `role-changes.ts` (`hire`), `RolesController.hire`, the Role card form and `role-card-labels.ts` in the People surface, by symbol; [permissions spec 6](../spec/6-permissions-and-safety.md) for the profile.
-- [ ] 2. Let a person go: pause its running Tasks behind a Decision, flag Pipelines naming it, keep Memory and chats. Commit.
-  Read: the Work and Pipelines module maps for how a Task is paused and how a Pipeline names a Role; the Decision code in Conversations, by symbol.
+- [x] 2. Let a person go (People side): `letGoAt` on the Role, the Let go / Hire back actions, no session for them, Memory and chats kept unused. Commit.
+- [ ] 2b. Let a person go (Work side): on `RoleLetGo`, pause the started Tasks whose Stages from the first unrun one name the Role, each behind a Decision (Resume once someone fills it, or Drop); refuse a Resume while nobody fills the Role; tell "let go" from "never hired" in the Stage editor's flags; the Let go dialog says so. Commit.
+  Read: Pipelines MAP trap on replay (`walk-decisions.ts`, `WalkDecisionKind`); `StartedTasks` and `StageDecisions` ports; `staffingProblems`/`RoleFilling`; `TaskService.pause`.
 - [ ] 3. Hold an enforced Hard switch's call, and lift the "change Roles stays Never" refusal. Commit.
   Read: `hard-switches.ts` (`HARD_SWITCH_ENFORCEMENT`, `hardSwitchesProblems`), the Engine's `office-rules-hook`, by range.
 - [ ] 4. Consultants and the Consultation sub-thread on the Task: open, label, read live, join or take over. Commit.
@@ -46,9 +47,13 @@ Leave out: the Office Manager and Proposals (task 21); Initiatives and the CTO's
 - Sliced with the user (2026-10-27): one task with these 7 steps, not two.
 - Built (step 1): `POST /roles` takes `{ roleKey, name }` (preset) or `{ card }` (scratch; `hireFromScratch` in `role-changes.ts`, key from `roleKeyFor(title)`, refused when a preset keeps the key or someone fills it). One `roleCardSchema` now serves hire, `PUT /roles/:key/card` and the form, permission profile included. Web: `/hire` page (`HireFromScratchPage`, same `RoleCardForm` as Edit Role, blank card in `blank-role-card.ts`), "Start from scratch" tile button, editable profile fields.
 - Trap for steps 3–5: Consult values and `hardSwitchesProblems` accept only `KNOWN_ROLES` keys, so a scratch Role can't be named as a Consultant yet; `RoleCardOptions.knownRoles` needs the hired scratch Roles when step 4 makes Consultants.
+- Decided with the user (2026-10-27, step 2): a person let go keeps the Role's key, card, Memory and chats, unused and readable; **hiring them back** (`POST /roles/:key/hire-back`) restores them as they were. Hiring anyone else into that Role is refused until then. A fresh hire with the old person archived was weighed and left out: it renames the key across People, Skills, Conversations and Notifications. The Decision on a Task paused by a let-go offers "Resume" (after hiring) or "Drop the Task"; resuming while nobody fills the Role is refused with the reason.
+- Built (step 2): `Role.letGoAt` (column `roles.let_go_at`), `letGo`/`hireBack` in `role-changes.ts`, events `RoleLetGo`/`RoleHiredBack`, `RoleRepository.changeStanding`. `RoleCards.find` is undefined for them and `forResumedSession` refuses, so no new or resumed session; Memory refuses writes and reads as not in use; card edits are refused. Web: Let go (confirm dialog) and Hire back on the person's page, "Let go" on the grid card, a notice on the page.
+- Open: nothing deletes a person let go, so a preset Role can only be filled again by hiring them back. A confirmed delete would go with the Memory and chats; ask when it comes up.
 - Tier 1 behaviour to build on: every consult goes to the user; "change Roles" is Never and refused otherwise; the Role card marks it enforced by The Office.
 
 ## Progress
 
 - 2026-10-27 · slicing: task file written with the user's choice of one task; next, step 1.
 - 2026-10-27 · step 1: hiring from scratch (`/hire`, `hireFromScratch`) and an editable permission profile, with service, controller and Playwright checks; next, step 2 (letting a person go).
+- 2026-10-27 · step 2: letting a person go on the People side (`letGoAt`, Let go / Hire back, no sessions, Memory kept unused) after settling re-hiring with the user; next, step 2b (pause their Tasks behind a Decision, flags).

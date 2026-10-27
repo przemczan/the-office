@@ -12,7 +12,10 @@ import { RoleRepository } from "../ports/role-repository.js";
 
 /** A person's Memory, and whether sessions use it now. */
 export interface Memory {
-  /** False while Shared memory is off: kept, but not read at session start and not added to. */
+  /**
+   * False while Shared memory is off or after the person was let go: kept, but not read at session
+   * start and not added to.
+   */
   readonly inUse: boolean;
   readonly notes: readonly MemoryNote[];
 }
@@ -28,12 +31,21 @@ export class MemoryService {
 
   async read(roleKey: string): Promise<Memory> {
     const role = await this.role(roleKey);
-    return { inUse: role.card.capabilities.sharedMemory, notes: await this.notes.list(roleKey) };
+    return {
+      inUse: role.card.capabilities.sharedMemory && !role.letGoAt,
+      notes: await this.notes.list(roleKey),
+    };
   }
 
-  /** Refused while the person's Shared memory is off, so nothing new is written to it. */
+  /**
+   * Refused while the person's Shared memory is off or after they were let go, so nothing new is
+   * written to it.
+   */
   async write(draft: MemoryNoteDraft): Promise<MemoryNote> {
     const role = await this.role(draft.roleKey);
+    if (role.letGoAt) {
+      throw new RoleRefused([`${role.card.name} was let go; their Memory is kept as it was.`]);
+    }
     if (!role.card.capabilities.sharedMemory) {
       throw new RoleRefused([
         `${role.card.name}'s shared memory is off. Switch it on in their Role card first.`,

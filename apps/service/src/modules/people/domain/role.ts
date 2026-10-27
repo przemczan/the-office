@@ -14,6 +14,11 @@ export interface Role {
   readonly hiredAt: Date;
   /** When the current version was saved. */
   readonly cardSavedAt: Date;
+  /**
+   * When the user let the person go; undefined while they fill the Role. A person let go keeps
+   * their card, Memory and chats, unused and readable, until hired back (spec §2.2).
+   */
+  readonly letGoAt: Date | undefined;
 }
 
 /** A saved version of a Role card, with what changed from the version before: nothing for the first. */

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { presetFor } from "./presets.js";
 import { aRole, aRoleCard } from "./role.fixtures.js";
-import { changeRoleCard, hire, hireFromScratch } from "./role-changes.js";
-import { RoleCardChanged, RoleHired } from "./role-events.js";
+import { changeRoleCard, hire, hireBack, hireFromScratch, letGo } from "./role-changes.js";
+import { RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo } from "./role-events.js";
 import { RoleRefused } from "./role-refused.js";
 
 const at = new Date("2026-10-25T10:00:00.000Z");
@@ -123,6 +123,59 @@ describe("changeRoleCard", () => {
   it("refuses with every reason", () => {
     expect(() => changeRoleCard(aRole(), aRoleCard({ title: "", taskLimit: 0 }), at)).toThrow(
       new RoleRefused(["Give the Role a title.", "A Task limit is 1 to 6 Tasks at once, or none."]),
+    );
+  });
+});
+
+describe("letGo", () => {
+  it("marks the person let go and keeps their card", () => {
+    const { role, event } = letGo(aRole(), at);
+
+    expect(role).toEqual({ ...aRole(), letGoAt: at });
+    expect(event).toEqual(new RoleLetGo(role, at));
+    expect(event.occurredAt).toEqual(at);
+  });
+
+  it("refuses a person let go already", () => {
+    expect(() => letGo(aRole({ letGoAt: at }), at)).toThrow(
+      new RoleRefused(["Ada was let go from the Developer Role already."]),
+    );
+  });
+});
+
+describe("hireBack", () => {
+  it("fills the Role again with the person as they were", () => {
+    const { role, event } = hireBack(aRole({ letGoAt: at }), at);
+
+    expect(role.letGoAt).toBeUndefined();
+    expect(role.card).toEqual(aRole().card);
+    expect(event).toEqual(new RoleHiredBack(role, at));
+  });
+
+  it("refuses a person who fills the Role", () => {
+    expect(() => hireBack(aRole(), at)).toThrow(
+      new RoleRefused(["Ada fills the Developer Role; nobody was let go."]),
+    );
+  });
+});
+
+describe("a Role whose person was let go", () => {
+  const letGoRole = aRole({ letGoAt: at });
+
+  it("refuses another hire into it, pointing to hiring the person back", () => {
+    const reason = "Ada was let go from the Developer Role; hire Ada back.";
+
+    expect(() => hire("developer", "Bob", letGoRole, at)).toThrow(new RoleRefused([reason]));
+    expect(() =>
+      hireFromScratch("developer-2", aRoleCard({ title: "Developer 2" }), letGoRole, at),
+    ).toThrow(new RoleRefused([reason]));
+  });
+
+  it("refuses a change to its card", () => {
+    expect(() => changeRoleCard(letGoRole, aRoleCard({ name: "Adele" }), at)).toThrow(
+      new RoleRefused([
+        "Ada was let go from the Developer Role; hire Ada back to change the Role card.",
+      ]),
     );
   });
 });

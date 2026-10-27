@@ -1,6 +1,6 @@
 import type { Role, RoleCardVersion } from "../domain/role.js";
 import type { RoleChange } from "../domain/role-changes.js";
-import type { RoleCardChanged } from "../domain/role-events.js";
+import type { RoleCardChanged, RoleHiredBack, RoleLetGo } from "../domain/role-events.js";
 
 /** The Role after a card change, with its event, or undefined when nothing changed. */
 export interface RoleUpdate {
@@ -30,6 +30,15 @@ export abstract class RoleRepository {
     key: string,
     change: (role: Role) => RoleChange<RoleCardChanged> | undefined,
   ): Promise<RoleUpdate>;
+
+  /**
+   * Applies `change`, which lets the person go or hires them back, to the Role as stored, holding
+   * it against other changes. Throws RoleNotFound when the Role was never hired.
+   */
+  abstract changeStanding<Event extends RoleLetGo | RoleHiredBack>(
+    key: string,
+    change: (role: Role) => RoleChange<Event>,
+  ): Promise<RoleChange<Event>>;
 
   /** Undefined when the Role has no such version. */
   abstract version(key: string, version: number): Promise<RoleCardVersion | undefined>;

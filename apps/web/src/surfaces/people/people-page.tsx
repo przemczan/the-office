@@ -74,7 +74,7 @@ function PersonCard({ role }: { readonly role: Role }): ReactNode {
           </h2>
           <div className="person-tile-title">{card.title}</div>
         </div>
-        {card.capabilities.chat && (
+        {card.capabilities.chat && !role.letGoAt && (
           <IconButton
             icon={<Icon name="message-circle" size={16} />}
             label={`Open the chat with ${card.name}`}
@@ -91,6 +91,7 @@ function PersonCard({ role }: { readonly role: Role }): ReactNode {
             <span className="visually-hidden">{label}</span>
           </span>
         ))}
+        {role.letGoAt && <span className="person-tile-let-go">Let go</span>}
         <span className="person-tile-limit">{taskLimitShort(card.taskLimit)}</span>
       </div>
     </article>

@@ -11,6 +11,7 @@
 - `blank-role-card.ts`: blankRoleCard
 - `conversations-tab.tsx`: ConversationsTab
 - `hire-dialog.tsx`: HireDialog
+- `let-go-dialog.tsx`: LetGoDialog
 - `memory-groups.ts`: MemoryGroup, ALL_PROJECTS, memoryGroups
 - `memory-tab.tsx`: MemoryTab
 - `overview-tab.tsx`: OverviewTab

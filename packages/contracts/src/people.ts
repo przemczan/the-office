@@ -90,6 +90,8 @@ export const roleSchema = z.object({
   cardVersion: z.number().int().positive(),
   hiredAt: z.iso.datetime(),
   cardSavedAt: z.iso.datetime(),
+  /** When the person was let go; null while they fill the Role. */
+  letGoAt: z.iso.datetime().nullable(),
   /** The switches whose Consult value names a Role nobody fills, so they ask the user for now. */
   askingYouUntilHired: z.array(hardSwitchKeySchema),
 });
@@ -227,6 +229,8 @@ export type MemoryNoteDraft = z.infer<typeof memoryNoteDraftSchema>;
 /** The People events the web receives; each names the Role, so its queries refresh. */
 export const roleWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("role.hired"), roleKey: z.string() }),
+  webEventSchema.extend({ type: z.literal("role.let-go"), roleKey: z.string() }),
+  webEventSchema.extend({ type: z.literal("role.hired-back"), roleKey: z.string() }),
   webEventSchema.extend({ type: z.literal("role.card-changed"), roleKey: z.string() }),
   webEventSchema.extend({ type: z.literal("role.memory-changed"), roleKey: z.string() }),
 ]);

@@ -31,7 +31,8 @@ export function ConversationsTab(): ReactNode {
           icon="message-circle"
           title={`Chat threads · ${threads.data.length}`}
           actions={
-            capabilities.chat && (
+            capabilities.chat &&
+            !role.data.letGoAt && (
               <Button size="sm" variant="secondary" onClick={() => chat.open(roleKey)}>
                 Open the chat
               </Button>

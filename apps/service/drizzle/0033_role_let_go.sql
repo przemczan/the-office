@@ -1,0 +1,1 @@
+ALTER TABLE "roles" ADD COLUMN "let_go_at" timestamp with time zone;

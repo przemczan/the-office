@@ -9,7 +9,7 @@ import { PostgresRoleRepository } from "../adapters/postgres/postgres-role-repos
 import type { MemoryNoteDraft } from "../domain/memory-note.js";
 import { MemoryNoteNotFound } from "../domain/memory-note-not-found.js";
 import { aRole, aRoleCard } from "../domain/role.fixtures.js";
-import { changeRoleCard } from "../domain/role-changes.js";
+import { changeRoleCard, letGo } from "../domain/role-changes.js";
 import { RoleMemoryChanged } from "../domain/role-events.js";
 import { RoleNotFound } from "../domain/role-not-found.js";
 import { RoleRefused } from "../domain/role-refused.js";
@@ -84,6 +84,16 @@ describe("MemoryService", () => {
           new Date(),
         ),
       );
+
+    await expect(memory.write(aDraft(roleKey))).rejects.toThrow(RoleRefused);
+
+    await expect(memory.read(roleKey)).resolves.toEqual({ inUse: false, notes: [note] });
+  });
+
+  it("keeps a let-go person's Memory readable and unused, and writes nothing to it", async () => {
+    const roleKey = await aPerson(true);
+    const note = await memory.write(aDraft(roleKey));
+    await app.get(RoleRepository).changeStanding(roleKey, (role) => letGo(role, new Date()));
 
     await expect(memory.write(aDraft(roleKey))).rejects.toThrow(RoleRefused);
 
