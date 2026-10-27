@@ -1,0 +1,39 @@
+/* ---- Needs you's items, on Now and in the Needs you panel */
+.needs-you-item {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.needs-you-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.needs-you-title {
+  font: 600 14px/1.3 var(--font-sans);
+  color: var(--fg-1);
+  text-decoration: none;
+}
+
+.needs-you-title:hover {
+  text-decoration: underline;
+}
+
+.needs-you-sub {
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+/* A Decision's own card sits in the item without the Thread's frame. */
+.needs-you-item .decision-card {
+  margin: 0;
+}
+
+.needs-you-item .gate-actions {
+  margin-top: 0;
+}

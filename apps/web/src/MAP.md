@@ -1,6 +1,6 @@
 # Web app: map
 
-**Owns:** the shell (A3 · Desk: rail, top bar, status strip, panels, toasts; `shell/`), the chat modal and conversation views, Attachments, the Stage editor (`shell/pipelines/`: one component for "Edit for this Task" and the tier 2 library, Task-free, fed the service's flags), and `api/`: one file per service module with its fetch functions and query keys, plus the event stream (`event-stream.ts`) that turns the service's web events into query refreshes. Each surface has its own map in `surfaces/<surface>/MAP.md`.
+**Owns:** the shell (A3 · Desk: rail, top bar, status strip, panels, toasts; `shell/`), the chat modal and conversation views, Attachments, the Stage editor (`shell/pipelines/`: one component for "Edit for this Task" and the tier 2 library, Task-free, fed the service's flags), what Now shares with the shell (`shell/notifications/`: Needs you's items, answered in place, and Now's words; the strip reads the same `now` query), the Gate's actions (`shell/work/gate-actions.tsx`, on a Task's record and in Needs you), and `api/`: one file per service module with its fetch functions and query keys, plus the event stream (`event-stream.ts`) that turns the service's web events into query refreshes. Each surface has its own map in `surfaces/<surface>/MAP.md`.
 
 **Talks to:** the service only through `api/` and `@the-office/contracts`; components come from `@the-office/ui` (the design system). The layout is enforced by `tools/lint-rules/src/web-layers.ts`.
 
@@ -16,10 +16,11 @@
 
 ### api/
 
-- `api-client.ts`: ApiError, shouldRetry, getFromApi, sendToApi, sendFileToApi, deleteFromApi
+- `api-client.ts`: ApiError, shouldRetry, getFromApi, sendToApi, sendFileToApi, postToApi, deleteFromApi
 - `conversations.ts`: threadQueries, decisionQueries, startChatThread, sendMessage, renameThread, chooseContextOverride, answerDecision, threadEventInvalidations, threadEventCacheUpdates
 - `event-stream-provider.tsx`: EventInvalidations, EventCacheUpdates, EventStreamProvider, useEventStreamStatus
 - `event-stream.ts`: EventStreamStatus, EventStreamOptions, RECONNECT_DELAYS_MS, EventStream
+- `notifications.ts`: nowQueries, reportActivity, nowEventCacheUpdates
 - `people.ts`: roleQueries, roleCardQueries, hire, changeRoleCard, roleEventInvalidations
 - `pipelines.ts`: pipelineQueries, editTaskStages, continueAtGate, sendBackFromGate, dropAtGate, pipelineEventInvalidations
 - `projects.ts`: projectQueries, taskChangesKey, addProject, changeCommand, changeInstallInputs, startEnvironmentCheck, changePublishingMode, changeDefaultPipeline, changeUseProjectSkills, projectEventInvalidations
@@ -44,10 +45,12 @@
 - `shell.tsx`: Shell
 - `skill-chip.tsx`: SkillChip
 - `status-strip.tsx`: StatusStrip
-- `time.ts`: dayOf, dayAndClockOf
+- `time.ts`: dayOf, dayAndClockOf, clockOf, momentWords, durationWords
 - `toasts.tsx`: ToastProvider, useToast
 - `top-bar.tsx`: TopBar
-- Tests: engine-words.test.ts
+- `use-clock.ts`: useClock
+- `user-activity.ts`: useReportingActivity
+- Tests: engine-words.test.ts, time.test.ts
 
 ### shell/attachments/
 
@@ -72,6 +75,12 @@
 - `thread-view.tsx`: ThreadView
 - Tests: context-words.test.ts, thread-title.test.ts
 
+### shell/notifications/
+
+- `needs-you-feed.tsx`: NeedsYouFeed
+- `now-words.ts`: OUTCOME_NAMES, OUTCOME_TONES, OUTCOME_EDGES, needsYouWords, desksWords, sinceWords, inStageWords, resetWords, doneSinceYouLeft
+- Tests: now-words.test.ts
+
 ### shell/pipelines/
 
 - `stage-editor.tsx`: StageEditorProps, StageEditor
@@ -81,8 +90,11 @@
 ### shell/work/
 
 - `capture-idea-dialog.tsx`: CaptureIdeaDialog
+- `drop-task-dialog.tsx`: DropTaskDialog
+- `gate-actions.tsx`: GateActions
+- `gate-words.ts`: WaitingGate, waitingGateOf, defaultSendBackTarget, sendBackWords, continueLabel
 - `task-state-badge.tsx`: TaskStateBadge, PriorityIcon
 - `use-planner.ts`: usePlanner
 - `waiting-on-you.ts`: waitsOnYou, waitsOnYouInItsState, useWaitingOnYou, useWaitingOnYouInItsState
 - `work-words.ts`: TASK_STATE_NAMES, NOT_STARTED, TASK_STATE_TONES, PRIORITY_NAMES, PRIORITY_ICONS, authorName
-- Tests: waiting-on-you.test.ts
+- Tests: gate-words.test.ts, waiting-on-you.test.ts

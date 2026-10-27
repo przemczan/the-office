@@ -442,24 +442,6 @@
   font-weight: 600;
 }
 
-.gate-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 16px;
-}
-
-.gate-send-back {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-top: 12px;
-}
-
-.gate-send-back .gate-actions {
-  margin-top: 0;
-}
-
 /* ---- the Changes tab: files with their lines, the diff, the latest test results */
 
 .changes-files {

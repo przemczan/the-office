@@ -37,8 +37,10 @@ for (const palette of PALETTES) {
 
         await expect(page).toHaveURL(/\/now$/);
         await expect(page.locator("html")).toHaveAttribute("data-palette", palette);
-        // Connected to the service, the strip has nothing to say until task 16 fills it.
-        await expect(page.getByRole("status")).toBeEmpty();
+        // Connected to the service, the strip shows the Office's figures and no reconnecting note.
+        const strip = page.getByRole("status", { name: "Status strip" });
+        await expect(strip).toContainText("tokens today");
+        await expect(strip).not.toContainText("Reconnecting");
         const rail = page.getByRole("navigation", { name: "Surfaces" });
         for (const surface of SURFACES) {
           await rail.getByRole("link", { name: surface.name, exact: true }).click();

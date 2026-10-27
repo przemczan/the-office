@@ -673,9 +673,24 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
     .getByRole("region", { name: "In progress", exact: true })
     .getByRole("article", { name: "Sign-in returns to the page" });
   await expect(card.getByText("Waiting on you", { exact: true })).toBeVisible();
-  await card.getByRole("link", { name: "Sign-in returns to the page" }).click();
 
-  await decision.getByRole("button", { name: "The page it started from" }).click();
+  // Now holds the Decision, answered in place, and the Task at its desk.
+  await page.goto("/");
+  const needsYou = page.getByRole("region", { name: "Needs you" });
+  const onNow = needsYou.getByRole("region", { name: `Decision: ${PAGE_QUESTION}` });
+  const running = page.getByRole("article", { name: "Running: Sign-in returns to the page" });
+  await expect(onNow).toBeVisible();
+  await expect(running).toContainText("Waiting on you");
+  await expect(running).toContainText("Implement");
+  await expect(running).toContainText(/in Stage$/);
+  const strip = page.getByRole("status", { name: "Status strip" });
+  await expect(strip).toContainText(/\d+ needs? you/);
+  await expect(strip).toContainText("desks in use");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-now.png") });
+  await onNow.getByRole("button", { name: "The page it started from" }).click();
+  await expect(onNow).toHaveCount(0);
+
+  await page.goto(signIn.taskUrl);
   await expect(decision.getByText("Answered")).toBeVisible();
   await expect(
     conversation.getByText("Signing in now returns to the page it started from."),
@@ -771,6 +786,13 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await expect(stages.getByText(/^Waiting on you/)).toBeVisible();
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-gate.png") });
 
+    // The Gate waits on Now too, with its actions.
+    await page.goto("/");
+    const onNow = page.getByRole("article", { name: "Gate: Settings keep their changes" });
+    await expect(onNow.getByRole("button", { name: "Continue to Build" })).toBeVisible();
+    await expect(onNow.getByRole("link", { name: "Open Changes" })).toBeVisible();
+    await page.goto(`/tasks/${taskId}`);
+
     await gate.getByRole("button", { name: "Send back with notes…" }).click();
     const sendBack = gate.getByRole("form", { name: "Send back" });
     await sendBack.getByPlaceholder("What should Adam change?").fill(GATE_FEEDBACK);
@@ -820,6 +842,15 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
       .filter({ has: page.getByText("UI acceptance", { exact: true }) });
     await expect(acceptance).toContainText("continued");
     await expect(page.locator(".task-head-meta").getByText("Done", { exact: true })).toBeVisible();
+
+    // Now lists it Done since the user left, and the strip counts it.
+    await page.goto("/");
+    await expect(
+      page.getByRole("article", { name: "Done: Settings keep their changes" }),
+    ).toBeVisible();
+    await expect(page.getByRole("status", { name: "Status strip" })).toContainText(
+      "done since you left",
+    );
   } finally {
     await repository.remove();
   }

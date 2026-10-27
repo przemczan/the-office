@@ -8,6 +8,7 @@ import {
   type EventCacheUpdates,
   type EventInvalidations,
 } from "./api/event-stream-provider.tsx";
+import { nowEventCacheUpdates } from "./api/notifications.ts";
 import { roleEventInvalidations } from "./api/people.ts";
 import { pipelineEventInvalidations } from "./api/pipelines.ts";
 import { projectEventInvalidations } from "./api/projects.ts";
@@ -28,7 +29,10 @@ const EVENT_INVALIDATIONS: EventInvalidations = {
 };
 
 // The event types that carry what changed, and how they change the cached queries in place.
-const EVENT_CACHE_UPDATES: EventCacheUpdates = { ...threadEventCacheUpdates };
+const EVENT_CACHE_UPDATES: EventCacheUpdates = {
+  ...threadEventCacheUpdates,
+  ...nowEventCacheUpdates,
+};
 
 export function App(): ReactNode {
   return (

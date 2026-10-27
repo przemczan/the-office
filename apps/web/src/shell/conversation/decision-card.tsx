@@ -4,6 +4,7 @@ import { Badge, Button, Icon, Textarea } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { answerDecision, decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
+import "./conversation.css";
 
 /**
  * A Decision as a card in the asking person's Thread (spec §2.4): the question, what they found,

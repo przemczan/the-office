@@ -2,7 +2,6 @@ import type { Stage, StageRun, TaskStage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   pipelineLabel,
-  durationWords,
   latestHandoverNote,
   scriptCommandLine,
   stageNamesOf,
@@ -147,17 +146,6 @@ describe("the Stage's Handover note and command", () => {
       ),
     ).toBe("Backoff capped at 30 s.");
     expect(scriptCommandLine(aTaskStage(tests, { runs: [ran] }))).toBe("npm test");
-  });
-});
-
-describe("durationWords", () => {
-  it("rounds to minutes, and hours past an hour", () => {
-    expect([20_000, 120_000, 4_200_000, 7_200_000].map(durationWords)).toEqual([
-      "<1 min",
-      "2 min",
-      "1h 10 min",
-      "2h",
-    ]);
   });
 });
 

@@ -7,11 +7,13 @@ import "./shell.css";
 import { StatusStrip } from "./status-strip.tsx";
 import { ToastProvider } from "./toasts.tsx";
 import { TopBar } from "./top-bar.tsx";
+import { useReportingActivity } from "./user-activity.ts";
 
 /** Shell A3 · Desk: the frame every surface opens in. */
 export function Shell(): ReactNode {
   const routeTitle = useMatches({ select: (matches) => matches.at(-1)?.staticData.title });
   const [pageHeading, setPageHeading] = usePageHeadingState();
+  useReportingActivity();
   return (
     <ToastProvider>
       <div className="shell">

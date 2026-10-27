@@ -78,6 +78,15 @@ export async function sendFileToApi<Schema extends z.ZodType>(
   return answerOf(response, schema);
 }
 
+/** Posts to `path` under /api with no body; the service answers with none. */
+export async function postToApi(path: `/${string}`): Promise<void> {
+  const response = await fetch(`${API_PATH}${path}`, {
+    method: "POST",
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) throw await refusalOf(response);
+}
+
 /** Deletes what `path` under /api names; the service answers with no body. */
 export async function deleteFromApi(path: `/${string}`): Promise<void> {
   const response = await fetch(`${API_PATH}${path}`, {

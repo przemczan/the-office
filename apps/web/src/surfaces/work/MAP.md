@@ -10,10 +10,8 @@
 
 - `board.tsx`: Board
 - `changes-words.ts`: DiffLineKind, DiffLine, diffLines, fileLineWords, TEST_RESULT_WORDS, editorLink
-- `drop-task-dialog.tsx`: DropTaskDialog
 - `edit-task-stages-dialog.tsx`: EditTaskStagesDialog
 - `gate-view.tsx`: GateBlock
-- `gate-words.ts`: WaitingGate, waitingGateOf, defaultSendBackTarget, sendBackWords, continueLabel
 - `ideas-page.tsx`: IdeasPage
 - `new-task-dialog.tsx`: NewTaskDialog
 - `planning-actions.tsx`: PlanButton, MarkReadyButton
@@ -23,7 +21,7 @@
 - `resume-words.ts`: ResumeWords, HeldWork, resumeWords, latestRunOf
 - `run-controls.tsx`: RunControls
 - `shape-idea-dialog.tsx`: ShapeIdeaDialog
-- `stage-words.ts`: STAGE_STATE_WORDS, StageNames, pipelineLabel, stageNamesOf, stageRule, stageProgressLine, latestHandoverNote, scriptCommandLine, durationWords, firstLine, taskTokens
+- `stage-words.ts`: STAGE_STATE_WORDS, StageNames, pipelineLabel, stageNamesOf, stageRule, stageProgressLine, latestHandoverNote, scriptCommandLine, firstLine, taskTokens
 - `start-action.tsx`: StartButton
 - `task-changes.tsx`: ChangesTab, ChangesView
 - `task-conversation.tsx`: TaskConversation
@@ -33,4 +31,4 @@
 - `use-planning.ts`: usePlanning, useIdeaPlanning, useMarkingReady
 - `use-shaping.ts`: useShaping
 - `work-page.tsx`: WorkPage
-- Tests: changes-words.test.ts, gate-words.test.ts, planning-words.test.ts, resume-words.test.ts, stage-words.test.ts
+- Tests: changes-words.test.ts, planning-words.test.ts, resume-words.test.ts, stage-words.test.ts

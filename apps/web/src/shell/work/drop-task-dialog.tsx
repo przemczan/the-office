@@ -3,8 +3,8 @@ import type { Task } from "@the-office/contracts";
 import { Button, Dialog } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { dropTask, taskQueries } from "../../api/work.ts";
-import { RefusalAlert } from "../../shell/refusal-alert.tsx";
-import { useToast } from "../../shell/toasts.tsx";
+import { RefusalAlert } from "../refusal-alert.tsx";
+import { useToast } from "../toasts.tsx";
 
 /**
  * Dropping is the Task's exit: it can't come back. `drop` is how, such as at a Gate; by default

@@ -6,7 +6,7 @@ import { changePriority, taskQueries } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { NOT_STARTED, PRIORITY_ICONS, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
-import { DropTaskDialog } from "./drop-task-dialog.tsx";
+import { DropTaskDialog } from "../../shell/work/drop-task-dialog.tsx";
 import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
 import { useMarkingReady, usePlanning } from "./use-planning.ts";
 

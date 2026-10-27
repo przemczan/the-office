@@ -42,5 +42,6 @@ describe("a Thread's context label", () => {
     expect(tokensShort(999)).toBe("999");
     expect(tokensShort(1_000)).toBe("1k");
     expect(tokensShort(12_600)).toBe("13k");
+    expect(tokensShort(1_240_000)).toBe("1.2M");
   });
 });

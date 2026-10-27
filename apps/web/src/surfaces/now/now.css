@@ -1,0 +1,49 @@
+/* ---- Now's Running and Since you left items, and today's tokens */
+.now-item {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.now-item-heading,
+.now-item-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.now-item-title {
+  font: 600 14px/1.3 var(--font-sans);
+  color: var(--fg-1);
+  text-decoration: none;
+}
+
+.now-item-title:hover {
+  text-decoration: underline;
+}
+
+.now-item-sub {
+  gap: 6px;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.now-item-time {
+  flex: none;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.now-tokens {
+  margin: 4px 2px;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.now-tokens b {
+  color: var(--fg-1);
+  font-variant-numeric: tabular-nums;
+}

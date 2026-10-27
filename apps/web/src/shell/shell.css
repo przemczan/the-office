@@ -162,6 +162,46 @@ body,
   background: var(--warning);
 }
 
+.shell-dot.running {
+  background: var(--success);
+}
+
+.shell-dot.idle {
+  background: var(--border-strong);
+}
+
+.shell-strip-stat b {
+  font: 600 15px/1 var(--font-sans);
+  color: var(--fg-1);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: var(--tracking-tight);
+}
+
+.shell-strip-faint {
+  color: var(--fg-3);
+}
+
+.shell-strip-separator {
+  flex: none;
+  width: 1px;
+  height: 20px;
+  background: var(--border);
+}
+
+.shell-strip-meter {
+  width: 120px;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 2px;
+  background: var(--surface-sunken);
+}
+
+.shell-strip-meter i {
+  display: block;
+  height: 100%;
+  background: var(--fg-3);
+}
+
 /* ---- page */
 .shell-main {
   grid-column: 2;
@@ -192,6 +232,11 @@ body,
   margin: 4px 2px;
   font: 600 13px/1 var(--font-sans);
   color: var(--fg-2);
+}
+
+.panel > h2 .panel-count {
+  font: var(--type-caption);
+  color: var(--fg-3);
 }
 
 .panel > h2 .panel-action {
@@ -280,7 +325,10 @@ body,
   }
 
   .shell-top-lockup,
-  .shell-top-divider {
+  .shell-top-divider,
+  .shell-strip-meter,
+  .shell-strip-separator,
+  .shell-strip-stat.wide {
     display: none;
   }
 }

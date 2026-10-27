@@ -34,11 +34,16 @@ export function threadTokens({ tokens }: Pick<Thread, "tokens">): number {
   return tokens.input + tokens.output + tokens.cacheRead + tokens.cacheCreation;
 }
 
-/** "41k" for 41,234 tokens; small counts as they are. */
+/** "41k" for 41,234 tokens and "1.2M" past a million; small counts as they are. */
 export function tokensShort(tokens: number): string {
   if (tokens < 1_000) return String(tokens);
-  if (tokens < 10_000) return `${(tokens / 1_000).toFixed(1).replace(/\.0$/, "")}k`;
-  return `${Math.round(tokens / 1_000)}k`;
+  if (tokens < 10_000) return `${oneDecimal(tokens / 1_000)}k`;
+  if (tokens < 1_000_000) return `${Math.round(tokens / 1_000)}k`;
+  return `${oneDecimal(tokens / 1_000_000)}M`;
+}
+
+function oneDecimal(value: number): string {
+  return value.toFixed(1).replace(/\.0$/, "");
 }
 
 /** What a move and its reason read as, after the move's own word. */

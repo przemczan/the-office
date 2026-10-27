@@ -1,0 +1,18 @@
+/* ---- the actions at a Gate, on a Task's record, on Now and in the Needs you panel */
+.gate-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.gate-send-back {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.gate-send-back .gate-actions {
+  margin-top: 0;
+}

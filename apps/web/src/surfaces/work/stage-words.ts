@@ -8,6 +8,7 @@ import type {
   Thread,
 } from "@the-office/contracts";
 import { threadTokens, tokensShort } from "../../shell/conversation/context-words.ts";
+import { durationWords } from "../../shell/time.ts";
 
 /**
  * The words of the Task page's Stages block (prototypes/app/task.js): "Done · 18 min · 41k tokens ·
@@ -84,15 +85,6 @@ export function scriptCommandLine({ runs }: TaskStage): string | undefined {
   return runs
     .flatMap(({ commandRuns }) => commandRuns)
     .findLast(({ purpose }) => purpose === "command")?.commandLine;
-}
-
-/** "18 min", "1h 10 min"; under a minute as "<1 min". */
-export function durationWords(milliseconds: number): string {
-  const minutes = Math.round(milliseconds / 60_000);
-  if (minutes < 1) return "<1 min";
-  if (minutes < 60) return `${minutes} min`;
-  const rest = minutes % 60;
-  return rest === 0 ? `${Math.floor(minutes / 60)}h` : `${Math.floor(minutes / 60)}h ${rest} min`;
 }
 
 /** Every run's time, a running one's until now. */

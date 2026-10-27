@@ -25,7 +25,7 @@ Leave out: the kinds × channels grid, quiet hours, batching, the at-desk hold, 
 
 - [x] 1. A read model for Now and the strip, built from domain events (Needs you, Running, Since you left from the user's last activity, tokens today, desks in use, the window state), pushed over WebSocket. Commit.
   Read: [spec 4](../spec/4-ux-direction.md) (Now, the status strip), [spec 2.2 Defaults](../spec/2.2-people.md#defaults) (desks in use); the Domain events of the [Work](../../apps/service/src/modules/work/MAP.md), [Pipelines](../../apps/service/src/modules/pipelines/MAP.md), [Conversations](../../apps/service/src/modules/conversations/MAP.md) and [Engine](../../apps/service/src/modules/engine/MAP.md) maps (`UsageWindowsChanged`); the [platform map](../../apps/service/src/platform/MAP.md) (the WebSocket push). A new module: the [module template](../../apps/service/docs/module-template.md).
-- [ ] 2. Now in `apps/web` with in-place answers, and the status strip's figures. Commit.
+- [x] 2. Now in `apps/web` with in-place answers, and the status strip's figures. Commit.
   Read: [app/now.js](../../.scratch/the-office/prototypes/app/now.js), the [Now surface map](../../apps/web/src/surfaces/now/MAP.md), the [web app map](../../apps/web/src/MAP.md) (`shell/status-strip.tsx`); answering in place reuses the Decision card (`shell/conversation/decision-card.tsx`) and the [Work surface](../../apps/web/src/surfaces/work/MAP.md)'s `GateBlock`.
 - [ ] 3. The Needs you panel. Commit.
   Read: the Needs you panel in [app/core.js](../../.scratch/the-office/prototypes/app/core.js), by range; the [web app map](../../apps/web/src/MAP.md).
@@ -38,14 +38,16 @@ Leave out: the kinds × channels grid, quiet hours, batching, the at-desk hold, 
 
 ## State
 
-- Step 1 built `apps/service/src/modules/notifications/` (see its MAP): `NowService` is Now and the strip as one read model, answered by `GET /api/now` and pushed whole as `now.changed` (contract in `packages/contracts/src/notifications.ts`). `POST /api/activity` records the user active; the web does not call it yet.
-- It reads Work (`TaskService.list`/`listStarted`, new `OfficeLimits`), Conversations (`DecisionService.listOpen`), Pipelines (`TaskStagesService.progress`) and the Engine (`UsageWindowState`) through ports bound in `app.module.ts`. It keeps outcomes, the user's activity, tokens by day and Tasks touched in its own tables (migration 0029).
-- Decided with the user on 2026-10-27, now spec 2.7 and 5.3 Defaults: Now lives in Notifications; no message from a person in tier 1 (the kind exists, nothing sends one); failed means `NoRetriesLeft` or `DefinitionOfDoneNotMet`; Since you left begins after 5 idle minutes; today is local midnight, all four token kinds, Tasks touched = a Stage run today. Step 4 sets "window nearly used" at 90%.
-- Running and desks in use cover every started state (In progress, Waiting on you, Paused), as Start counts them.
-- Next, step 2: `api/notifications.ts` (a `now` query, and `now.changed` as an `EventCacheUpdates` entry), the Now page, the strip's figures, and the web reporting activity (throttled, while the tab is visible and used). Trap: `GateBlock` and `gate-words` are in `surfaces/work/`; check `tools/lint-rules/src/web-layers.ts` before Now uses them, and move them to `shell/` if a surface may not import another.
+- Service (step 1): `apps/service/src/modules/notifications/` (see its MAP). `NowService` is Now and the strip as one read model: `GET /api/now`, pushed whole as `now.changed` (contract `packages/contracts/src/notifications.ts`); `POST /api/activity` records the user active. Ports bound in `app.module.ts` read Work, Conversations, Pipelines and the Engine; own tables keep outcomes, activity, tokens by day and Tasks touched.
+- Web (step 2): `api/notifications.ts` (`nowQueries.now`, `now.changed` as an `EventCacheUpdates` entry, `reportActivity`); `shell/user-activity.ts` reports activity once a minute at most while the tab is visible and used. Now (`surfaces/now/now-page.tsx`) and the strip (`shell/status-strip.tsx`) read the one `now` query. Needs you's items are `shell/notifications/needs-you-feed.tsx` (the Decision card and the Gate's actions, answered in place), ready for the panel.
+- The Gate's actions moved to `shell/work/gate-actions.tsx` (with `gate-words.ts` and `drop-task-dialog.tsx`), since a surface may not import another; Work's `GateBlock` uses them. Needs you shows a compact Gate card (name, next Stage, Open Changes, the actions), as the click-through does, not the whole block.
+- Decided with the user on 2026-10-27 (spec 2.7 and 5.3 Defaults): Now lives in Notifications; no message from a person in tier 1; failed = `NoRetriesLeft` or `DefinitionOfDoneNotMet`; Since you left after 5 idle minutes; today from local midnight, all four token kinds, Tasks touched = a Stage run today. Step 4 sets "window nearly used" at 90%.
+- Checks so far: `people.e2e.ts` answers the Developer's Decision on Now, sees the Task in Running, the Gate on Now and the Done Task in Since you left; the strip in `shell.e2e.ts`.
+- Next, step 3: the Needs you panel, opened from the strip's "need you" figure on any page, holding `NeedsYouFeed`; its check answers one from the Projects page (in `people.e2e.ts`, which alone opens sessions).
 
 ## Progress
 
 <!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next. The detail goes in the commit body. -->
 
 - 2026-10-27 · step 1: the Notifications module with Now's read model (GET /now, POST /activity, `now.changed`), its tables and the user's answers as spec Defaults; next, Now and the strip in the web.
+- 2026-10-27 · step 2: Now and the strip in the web from the `now` query, answering Decisions and Gates in place, activity reported; the Gate's actions moved to the shell; next, the Needs you panel.
