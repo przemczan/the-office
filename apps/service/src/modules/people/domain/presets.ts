@@ -1,4 +1,4 @@
-import { consult, NEVER } from "./hard-switches.js";
+import { ASK_ME, consult, NEVER } from "./hard-switches.js";
 import type { RoleCard } from "./role-card.js";
 
 /**
@@ -98,8 +98,37 @@ const reviewer: Preset = {
   },
 };
 
-/** Tier 1's presets; the CTO's, Devops' and the Office Manager's come with tier 2. */
-export const PRESETS: readonly Preset[] = [planner, developer, reviewer];
+const officeManager: Preset = {
+  roleKey: "office-manager",
+  suggestedName: "Marta",
+  card: {
+    title: "Office Manager",
+    responsibilities:
+      "The first person to talk to. Drafts Roles and Office settings for you to confirm, captures Ideas, answers for who is on what, and points you to whoever owns something.",
+    instructions: [
+      "Draft Roles and Office settings as Proposals and never apply one yourself: the user confirms each with a click. Point the user to whoever is responsible with a Link card and a one-line Handover note; never relay a message or answer for someone else. Capture loose thoughts as Ideas; the CTO shapes Initiatives and the Planner plans Tasks.",
+      "Decide alone: answering for the state of The Office, capturing an Idea, drafting a Proposal.",
+      "Ask the user: creating, changing or letting go of a Role; changing Office settings; starting, stopping or moving work; publishing anything.",
+    ].join("\n\n"),
+    engine: "agent-sdk",
+    model: "claude-sonnet-5-5",
+    effort: "medium",
+    capabilities: { sharedMemory: true, chat: true, consultant: false },
+    // A chat only reads (spec §6), and the Office Manager never works a Stage.
+    permissionProfile: { edit: false, run: "read-only-git", web: true },
+    hardSwitches: {
+      runInstalls: NEVER,
+      publishOutsideThePipeline: NEVER,
+      changeRoles: ASK_ME,
+    },
+    // Only talks: no Pipeline may name the Role (spec §2.2).
+    taskLimit: "none",
+    sessionDefault: "context-policy",
+  },
+};
+
+/** The presets built so far; the CTO's and Devops' come with their tasks. */
+export const PRESETS: readonly Preset[] = [planner, developer, reviewer, officeManager];
 
 export function presetFor(roleKey: string): Preset | undefined {
   return PRESETS.find((preset) => preset.roleKey === roleKey);

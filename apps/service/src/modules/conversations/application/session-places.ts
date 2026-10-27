@@ -1,7 +1,7 @@
 import { Injectable, Logger } from "@nestjs/common";
 import type { Brief } from "../domain/brief.js";
 import {
-  CHAT_OFFICE_TOOLS,
+  chatOfficeTools,
   CONSULTATION_OFFICE_TOOLS,
   chatInstructions,
   consultationInstructions,
@@ -74,7 +74,7 @@ export class SessionPlaces {
       // The service's own: a chat runs no Project command, so no Project's changes to it.
       environment: serviceEnvironment(),
       project: undefined,
-      officeTools: CHAT_OFFICE_TOOLS,
+      officeTools: chatOfficeTools(thread.roleKey),
       brief: await this.briefs.forThread(thread),
       span: {},
       instructions: chatInstructions,

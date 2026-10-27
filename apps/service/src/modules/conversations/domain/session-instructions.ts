@@ -55,6 +55,18 @@ export const CHAT_OFFICE_TOOLS = [
   "create_task",
 ] as const;
 
+export const OFFICE_MANAGER = "office-manager";
+
+/**
+ * A chat's Office tools for the Role's person: the Office Manager doesn't turn work into Tasks but
+ * points to the Planner, so it never creates one (ticket 06).
+ */
+export function chatOfficeTools(roleKey: string): readonly string[] {
+  return roleKey === OFFICE_MANAGER
+    ? CHAT_OFFICE_TOOLS.filter((name) => name !== "create_task")
+    : CHAT_OFFICE_TOOLS;
+}
+
 /**
  * The Office tool a Consultant answers with; the contracts name it too, for the web to hide its
  * activity line, and a test keeps the two the same.

@@ -1,18 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { consult, NEVER } from "./hard-switches.js";
+import { ASK_ME, consult, NEVER } from "./hard-switches.js";
 import { PRESETS, presetFor } from "./presets.js";
 import { roleCardProblems } from "./role-card.js";
 
 describe("PRESETS", () => {
-  it("are tier 1's Planner, Developer and Reviewer", () => {
-    expect(PRESETS.map((preset) => preset.roleKey)).toEqual(["planner", "developer", "reviewer"]);
+  it("are the Planner, Developer, Reviewer and Office Manager", () => {
+    expect(PRESETS.map((preset) => preset.roleKey)).toEqual([
+      "planner",
+      "developer",
+      "reviewer",
+      "office-manager",
+    ]);
   });
 
-  // Spec §2.2's preset table, with shared memory off until tier 2, and §9's Task limits.
+  // Spec §2.2's preset table and §9's Task limits.
   it.each([
     ["planner", { sharedMemory: true, chat: true, consultant: true }, 2],
     ["developer", { sharedMemory: false, chat: false, consultant: false }, 3],
     ["reviewer", { sharedMemory: false, chat: false, consultant: false }, 3],
+    ["office-manager", { sharedMemory: true, chat: true, consultant: false }, "none"],
   ])(
     "give the %s the capabilities %o and a Task limit of %s",
     (roleKey, capabilities, taskLimit) => {
@@ -29,9 +35,18 @@ describe("PRESETS", () => {
     expect(presetFor(roleKey)?.card.hardSwitches).toEqual({ ...switches, changeRoles: NEVER });
   });
 
-  // Spec §6's default profiles.
+  it("let the Office Manager change Roles only by asking the user", () => {
+    expect(presetFor("office-manager")?.card.hardSwitches).toEqual({
+      runInstalls: NEVER,
+      publishOutsideThePipeline: NEVER,
+      changeRoles: ASK_ME,
+    });
+  });
+
+  // Spec §6's default profiles; a chat only reads.
   it.each([
     ["planner", { edit: false, run: "read-only-git", web: true }],
+    ["office-manager", { edit: false, run: "read-only-git", web: true }],
     ["developer", { edit: true, run: "anything", web: true }],
     ["reviewer", { edit: false, run: "project-commands", web: true }],
   ])("give the %s the permission profile %o", (roleKey, permissionProfile) => {

@@ -54,20 +54,21 @@ function roleCardGroup(page: Page, group: string) {
   return page.getByRole("region", { name: group });
 }
 
-test("the user hires the Planner, a Developer and a Reviewer from the presets", async ({
+test("the user hires the Planner, a Developer, a Reviewer and the Office Manager from the presets", async ({
   page,
 }) => {
   await hireFromPreset(page, "Planner", "Jan");
   await expect(page).toHaveURL(/\/people\/planner$/);
   await hireFromPreset(page, "Developer", "Ada");
   await hireFromPreset(page, "Reviewer", "Ola");
+  await hireFromPreset(page, "Office Manager", "Marta");
 
   await page.goto("/people");
-  await expect(page.getByText("3 people")).toBeVisible();
-  for (const name of ["Jan", "Ada", "Ola"]) {
+  await expect(page.getByText("4 people")).toBeVisible();
+  for (const name of ["Jan", "Ada", "Ola", "Marta"]) {
     await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
   }
-  // Every preset is filled, and hiring from scratch comes later.
+  // Every preset is filled, so only hiring from scratch is left.
   await expect(page.getByRole("button", { name: "Hire a Role" })).toHaveCount(0);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-people.png") });
 });
@@ -97,6 +98,11 @@ test("a person's page shows who they are and their Role card from the presets", 
     path: path.join(SCREENSHOTS, "light-1600-person-role-card.png"),
     fullPage: true,
   });
+
+  // The Office Manager only talks, and changes a Role only when the user says so.
+  await page.goto("/people/office-manager/role");
+  await expect(roleCardGroup(page, "Work")).toContainText("talks only and never works a Stage");
+  await expect(roleCardGroup(page, "Permissions")).toContainText("Change RolesAsk me");
 });
 
 test("the user edits every field of a Role card, and it holds after a reload", async ({ page }) => {

@@ -26,7 +26,7 @@ Leave out: the CTO, Devops and Initiatives (tasks 22, 24); Proposals drafted by 
 
 ## Steps
 
-- [ ] 1. The Office Manager preset: the preset, lifting the "hire from its preset" refusal, no Pipeline naming them (Task limit none), and their Office tools scoped. Commit.
+- [x] 1. The Office Manager preset: the preset, lifting the "hire from its preset" refusal, no Pipeline naming them (Task limit none), and their Office tools scoped. Commit.
   Read: `presets.ts`, `known-roles.ts`, `hireFromScratch` in `role-changes.ts`; `staffingProblems`; `OfficeToolRegistry` and how tools are offered per Role; spec 6's Hard switch table.
 - [ ] 2. Proposals for Roles: the Proposal record (generic over what it changes, who drafted it), its events and routes, the Office Manager's tool, the card in the chat (Hire, Edit before hiring, Apply change, Decline), applied through `RoleService`, and "proposed by" in the Role's changes. Commit.
   Read: `RoleService.hire`/`changeCard`, the Role changes history; the chat's message rendering in `shell/conversation/`; click-through `people.js` from line 236.
@@ -43,7 +43,8 @@ Leave out: the CTO, Devops and Initiatives (tasks 22, 24); Proposals drafted by 
 
 ## State
 
-- Sliced (2026-10-27): one task, 7 steps; step 1 is next.
+- Sliced (2026-10-27): one task, 7 steps. Step 1 built; step 2 (Proposals for Roles) is next.
+- The preset (`presets.ts`, key `office-manager`, "Marta"): Memory and Chat on, Consultant off, Task limit none, Hard switches Never / Never / Ask me, Sonnet at medium effort. Their chat tools are `chatOfficeTools(roleKey)` in Conversations' `session-instructions.ts`: every chat tool but `create_task`. Steps 2, 4 and 5 add the Office Manager's own tools there. They never get `change_role`, which only a Task Thread offers.
 - Decided with the user (2026-10-27): Office kinds from the Office Manager are built here (minimal: name, first-person line, opens their chat), the grid stays in 27; new glossary terms **Link card** and **Office status**.
 - Decided while slicing: a Proposal is its own record, not the held call of task 20 step 3. "Allow once" replays the identical call, so it can't carry a card the user edited before hiring; the Office Manager gets a `propose_…` tool, not `change_role`, and their change Roles = Ask me is met by the user's click on the Proposal. Applying goes through the same `RoleService` commands.
 - Proposals are generic over what they change and record who drafted them, since tasks 24 and 25 reuse them; the glossary's "drafted by the Office Manager" widens then. Work already has a Pipeline "proposal" at planning (`planning-changes.ts`, `contracts/src/work.ts`): keep the names apart.
@@ -52,3 +53,4 @@ Leave out: the CTO, Devops and Initiatives (tasks 22, 24); Proposals drafted by 
 ## Progress
 
 - 2026-10-27 · slicing: task file written, one task of 7 steps; Office kinds from the Office Manager kept here; Link card and Office status added to the glossary; next, step 1 (the preset).
+- 2026-10-27 · step 1: the Office Manager preset (Ask me on Change Roles, talks only) and their chat tools without `create_task`, with preset, controller and Playwright checks; next, step 2 (Proposals for Roles).

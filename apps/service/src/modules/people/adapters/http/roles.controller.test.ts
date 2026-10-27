@@ -114,13 +114,14 @@ function editOf({ card }: Role): RoleCard {
 }
 
 describe("GET /api/presets", () => {
-  it("lists the Planner, the Developer and the Reviewer with their cards", async () => {
+  it("lists the Planner, the Developer, the Reviewer and the Office Manager with their cards", async () => {
     const presets = presetListSchema.parse(await get("/presets"));
 
     expect(presets.map(({ roleKey, suggestedName }) => ({ roleKey, suggestedName }))).toEqual([
       { roleKey: "planner", suggestedName: "Jan" },
       { roleKey: "developer", suggestedName: "Ada" },
       { roleKey: "reviewer", suggestedName: "Ola" },
+      { roleKey: "office-manager", suggestedName: "Marta" },
     ]);
     expect(presets[1]?.card).toMatchObject({ title: "Developer", taskLimit: 3 });
   });
@@ -163,6 +164,22 @@ describe("POST /api/roles", () => {
       askingYouUntilHired: ["runInstalls", "publishOutsideThePipeline"],
     });
     expect(webEvents()).toEqual([{ type: "role.hired", roleKey: "developer" }]);
+  });
+
+  it("hires the Office Manager, who only talks and changes Roles by asking the user", async () => {
+    const role = await hire("office-manager", "Marta");
+
+    expect(role).toMatchObject({
+      key: "office-manager",
+      card: {
+        name: "Marta",
+        title: "Office Manager",
+        capabilities: { sharedMemory: true, chat: true, consultant: false },
+        taskLimit: "none",
+        hardSwitches: { changeRoles: { kind: "ask-me" } },
+      },
+      askingYouUntilHired: [],
+    });
   });
 
   it("refuses a Role someone already fills, with every reason", async () => {

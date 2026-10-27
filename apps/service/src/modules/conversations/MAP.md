@@ -110,7 +110,7 @@ DecisionService, InterruptedAnswers, StageDecisions, StageDecisionRequest, Stage
 - `held-call.ts`: HeldCallRuling, heldCallRuling
 - `mention.ts`: Mention, MentionedRecord, briefWithMentionedRecords, withMentionedRecords, decisionRecordText
 - `message.ts`: Message, MessageDraft, StageWorkClosing, HeldBy, MessageDelivery
-- `session-instructions.ts`: SessionPersonCard, chatInstructions, taskThreadInstructions, CHAT_OFFICE_TOOLS, ANSWER_CONSULTATION_TOOL, CONSULTATION_OFFICE_TOOLS, consultationInstructions, REMEMBER_TOOL, CHANGE_ROLE_TOOL, sessionOfficeTools, HANDOVER_REQUEST, briefedMessage, openingMessage, decisionAnswerMessage
+- `session-instructions.ts`: SessionPersonCard, chatInstructions, taskThreadInstructions, CHAT_OFFICE_TOOLS, OFFICE_MANAGER, chatOfficeTools, ANSWER_CONSULTATION_TOOL, CONSULTATION_OFFICE_TOOLS, consultationInstructions, REMEMBER_TOOL, CHANGE_ROLE_TOOL, sessionOfficeTools, HANDOVER_REQUEST, briefedMessage, openingMessage, decisionAnswerMessage
 - `thread-changes.ts`: ThreadChange, DeliveryMarking, ChatPerson, startChatThread, TaskThreadStart, startTaskThread, startStageThread, startConsultationThread, renameThread, logMessages, freshSession, Answering, Opening, beginAnswer, bargeIn, markDelivery, DecisionOpening, openDecision, DecisionAnswering, answerDecision, DecisionRecording, recordDecisionAnswer, beginOpening, beginStageWork, StageWorkEnding, endStageWork, TurnCount, endTurn, countRunningTurn, UnopenedSession, failAnswer, failDecisionAnswer, putDecisionToUser, PassingOn, passDecisionOn, chooseOverride
 - `thread-not-found.ts`: ThreadNotFound
 - `thread-refused.ts`: ThreadRefused
@@ -119,7 +119,7 @@ DecisionService, InterruptedAnswers, StageDecisions, StageDecisionRequest, Stage
 - `thread.ts`: Home, ThreadState, TokenTotals, NO_TOKENS, addTokens, tokensSoFar, ThreadSession, ContextOverride, Consultation, Thread
 - `tool-activity.ts`: toolActivitySummary
 - `undelivered-messages.ts`: undeliveredSince, waitingMessageIds, workWithUndelivered
-- Tests: brief.test.ts, consult.test.ts, context-policy.test.ts, decision.test.ts, held-call.test.ts, mention.test.ts, thread-changes.test.ts, tool-activity.test.ts
+- Tests: brief.test.ts, consult.test.ts, context-policy.test.ts, decision.test.ts, held-call.test.ts, mention.test.ts, session-instructions.test.ts, thread-changes.test.ts, tool-activity.test.ts
 
 ### ports/
 
