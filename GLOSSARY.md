@@ -55,7 +55,7 @@ A Task, Initiative, Idea or Decision named in a chat message, picked with `@` or
 _Avoid_: Reference, tag, attachment (an Attachment is added to a record, not named in a message)
 
 **Brief**:
-What a new session is given to pick up work: the record of the Task or Initiative, the person's memory when they keep one, the records the user's first message mentions, and the previous Stage's Handover note.
+What a new session is given to pick up work: the record of the Task or Initiative, the person's memory when they keep one, the records mentioned in the message it starts on, and the previous Stage's Handover note.
 _Avoid_: Prompt, context dump, summary
 
 **Handover note**:

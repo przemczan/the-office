@@ -4,6 +4,7 @@ import {
   OPEN_DECISION_TOOL,
   pipelineListSchema,
   projectSchema,
+  recordPath,
   roleSchema,
   taskSchema,
   taskStagesSchema,
@@ -1100,7 +1101,7 @@ const CONSULTATION_QUESTION = "Is the migration safe to run on the live data?";
  * answers it in with a first note, as the Consultations service leaves them: a Consultation starts
  * when an Agent's session consults, and no screen can make one.
  */
-async function seedConsultation(taskId: string, plannerThreadId: string): Promise<void> {
+async function seedConsultation(taskId: string, plannerThreadId: string): Promise<string> {
   const decisionId = crypto.randomUUID();
   const consultationId = crypto.randomUUID();
   await queryOfficeDatabase(
@@ -1130,6 +1131,7 @@ async function seedConsultation(taskId: string, plannerThreadId: string): Promis
       { kind: "person", roleKey: "developer", text: "I read the migration: it is reversible." },
     ],
   );
+  return decisionId;
 }
 
 // The engine replays the last two sessions in e2e/sessions.jsonl: Jan's planning, then Adam's reply
@@ -1145,7 +1147,7 @@ test("the user reads a Consultation on the Task, sees its Decision wait on the C
       await (await page.request.get(`/api/tasks/${taskId}/threads`)).json(),
     );
     if (!planning) throw new Error("Planning opened no Thread.");
-    await seedConsultation(taskId, planning.id);
+    const decisionId = await seedConsultation(taskId, planning.id);
 
     await page.goto(`/tasks/${taskId}`);
     const conversation = page.getByRole("complementary", { name: "Conversation" });
@@ -1171,6 +1173,13 @@ test("the user reads a Consultation on the Task, sees its Decision wait on the C
     await conversation.getByLabel("Message").fill("Is the rollback tested?");
     await conversation.getByLabel("Message").press("Enter");
     await expect(conversation.getByText("Yes: the rollback runs in the tests.")).toBeVisible();
+
+    // The Decision's link, as Copy link gives it, opens the Task at its card, marked.
+    await page.goto(recordPath({ kind: "decision", taskId, threadId: planning.id, decisionId }));
+    await expect(
+      conversation.getByRole("region", { name: `Decision: ${CONSULTATION_QUESTION}` }),
+    ).toHaveAttribute("aria-current", "true");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-decision-link.png") });
   } finally {
     await repository.remove();
   }

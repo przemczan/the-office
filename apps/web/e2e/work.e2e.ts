@@ -1,7 +1,9 @@
 import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  ideaSchema,
   projectSchema,
+  recordPath,
   taskSchema,
   type NewProject,
   type Project,
@@ -79,6 +81,20 @@ test("the user captures an Idea from Now in a few keystrokes", async ({ page }) 
   const card = page.getByRole("article", { name: "Nightly dependency updates" });
   await expect(card.getByText("Office-wide")).toBeVisible();
   await expect(card.getByText(/You captured it/)).toBeVisible();
+});
+
+test("an Idea's link opens Ideas at its card, marked", async ({ page }) => {
+  const captured = await page.request.post("/api/ideas", {
+    data: { title: "Linked Idea for the night shift", notes: "", projectId: null },
+  });
+  expect(captured.status()).toBe(201);
+  const { id: ideaId } = ideaSchema.parse(await captured.json());
+
+  await page.goto(recordPath({ kind: "idea", ideaId }));
+
+  await expect(
+    page.getByRole("article", { name: "Linked Idea for the night shift" }),
+  ).toHaveAttribute("aria-current", "true");
 });
 
 test("an Idea with Attachments is shaped into a Task in Backlog, and another is dropped", async ({
