@@ -60,7 +60,7 @@ Every tier 2 item of [spec 3](../spec/3-capabilities-by-tier.md#tier-2-the-all-d
 | §2.2, §8 | Shared memory, its Memory tab and delete actions; Memory on for the Planner | 19 |
 | §2.2, §6 | Hiring from scratch; letting go; editable permission profiles; holding an enforced Hard switch's call | 20 |
 | §2.2, §2.4 | Consultants and Consultations, escalation up to two steps; mentions | 20 |
-| §2.2 | The Office Manager: Proposals, redirects, capturing Ideas, the status view | 21 |
+| §2.2, §2.7, §6 | The Office Manager: Proposals for Roles and Office settings, Link cards, capturing Ideas, the Office status; Office kinds of Notifications from them | 21 |
 | §2.1, §2.2 | The CTO; Initiatives and their Task graph; dependencies; mentioning an Initiative in a chat | 22 |
 | §2.1 | Tags, full-text search, saved views; the Project filter | 23 |
 | §2.3, §2.2 | The Pipeline library editor; Devops owning the library and Project commands by Proposal; the proof-of-concept publish target | 24 |

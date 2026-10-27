@@ -124,6 +124,14 @@ _Avoid_: Plugin, tool, ability
 The person the user goes to by default: it drafts Roles for the user to confirm, captures Ideas, answers for the state of The Office and redirects the user to whoever is responsible.
 _Avoid_: Receptionist, HR, router
 
+**Link card**:
+What the Office Manager posts in a chat to point the user to whoever is responsible: that person (or the Task) with a Handover note the user can edit or drop before opening the thread. It never relays.
+_Avoid_: Redirect message, referral, forward
+
+**Office status**:
+The Office Manager's read-only, Office-wide view in a chat: who is on what, what waits on the user and what is paused.
+_Avoid_: Dashboard, report, overview
+
 **Proposal**:
 A new or changed Role card or Office setting drafted by the Office Manager, which takes effect only when the user confirms it.
 _Avoid_: Suggestion, draft, request
