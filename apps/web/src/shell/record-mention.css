@@ -1,0 +1,24 @@
+/* A record mentioned in a message (prototypes/app/app.css, .mention). Colours are aliases only. */
+.record-mention {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--fg-1);
+  font-weight: 500;
+  line-height: 1.5;
+  text-decoration: none;
+  vertical-align: baseline;
+}
+
+.record-mention svg {
+  flex: none;
+  color: var(--fg-3);
+}
+
+.record-mention:hover {
+  border-color: var(--border-strong);
+}

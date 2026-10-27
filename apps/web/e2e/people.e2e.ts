@@ -8,6 +8,7 @@ import {
   taskSchema,
   taskStagesSchema,
   threadListSchema,
+  threadSchema,
   type NewProject,
   type Project,
   type TaskLimit,
@@ -1170,6 +1171,59 @@ test("the user reads a Consultation on the Task, sees its Decision wait on the C
     await conversation.getByLabel("Message").fill("Is the rollback tested?");
     await conversation.getByLabel("Message").press("Enter");
     await expect(conversation.getByText("Yes: the rollback runs in the tests.")).toBeVisible();
+  } finally {
+    await repository.remove();
+  }
+});
+
+// The engine replays the last session in e2e/sessions.jsonl: Jan's answer in a new chat Thread.
+test("the user mentions a Task with @ in a chat, and the person is briefed with its record", async ({
+  page,
+}) => {
+  const repository = await createTemporaryRepository();
+  try {
+    const project = await addedProject(page, repository, "Mentioned", "MN");
+    const created = await page.request.post("/api/tasks", {
+      data: { title: "Export the invoices as CSV", projectId: project.id, priority: "normal" },
+    });
+    expect(created.status()).toBe(201);
+    const task = taskSchema.parse(await created.json());
+
+    await page.goto("/people?chat=planner");
+    const chat = chatWith(page, "Jan");
+    const starting = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().endsWith("/api/chats/planner/threads"),
+    );
+    await chat.getByRole("button", { name: "New thread" }).first().click();
+    const { id: threadId } = threadSchema.parse(await (await starting).json());
+    // Typed only once the new Thread shows: its composer starts with an empty draft.
+    await expect(page).toHaveURL(new RegExp(`thread=${threadId}`));
+    const message = chat.getByLabel("Message");
+    await message.fill("Is ");
+    await message.pressSequentially("@invoices");
+    await expect(chat.getByRole("option", { name: /Export the invoices as CSV/ })).toBeVisible();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-mention-picker.png") });
+    await message.press("Enter");
+    await expect(message).toHaveValue("Is @Export the invoices as CSV ");
+    await message.pressSequentially("done?");
+    await message.press("Enter");
+
+    await expect(
+      chat.getByText("I read the Task: it has no Plan yet, so nothing is done."),
+    ).toBeVisible();
+    await expect(
+      chat.getByRole("heading", { name: "Is @Export the invoices as CSV…" }),
+    ).toBeVisible();
+    // The session started with the Task's record in its Brief.
+    await chat.locator("summary", { hasText: "Brief" }).click();
+    await expect(chat.getByText("Records the user mentioned")).toBeVisible();
+    await expect(chat.getByText(`Export the invoices as CSV (Task ${task.id})`)).toBeVisible();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-mention.png") });
+
+    await chat.getByRole("link", { name: "Export the invoices as CSV" }).click();
+    await expect(page).toHaveURL(new RegExp(`/tasks/${task.id}$`));
   } finally {
     await repository.remove();
   }

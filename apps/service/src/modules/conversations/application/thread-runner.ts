@@ -20,6 +20,12 @@ import {
 } from "../domain/context-policy.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { DecisionReopened, MessagesLogged } from "../domain/conversation-events.js";
+import {
+  briefWithMentionedRecords,
+  withMentionedRecords,
+  type Mention,
+  type MentionedRecord,
+} from "../domain/mention.js";
 import type { Message, MessageDraft } from "../domain/message.js";
 import type { Thread, ThreadSession } from "../domain/thread.js";
 import {
@@ -39,6 +45,7 @@ import {
 import { ThreadNotFound } from "../domain/thread-not-found.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
+import { MentionedRecords } from "./mentioned-records.js";
 import { sessionLogLines } from "./session-log.js";
 import { SessionPlaces, type SessionPlace } from "./session-places.js";
 import { StageThreads } from "./stage-threads.js";
@@ -109,15 +116,18 @@ export class ThreadRunner implements OnModuleDestroy {
     private readonly stageThreads: StageThreads,
     private readonly events: EventBus,
     private readonly settings: ContextPolicySettingsService,
+    private readonly mentionedRecords: MentionedRecords,
   ) {}
 
   /**
    * Logs the user's message and has the person answer it; the answer comes into the log as it is
    * written. Into a Stage Thread while its Stage runs, the message lands at the next safe point
    * instead (barge-in). Refused while the person is still answering anywhere else, when nobody
-   * fills their Role any more, or in a chat, when their Chat is off.
+   * fills their Role any more, or in a chat, when their Chat is off. The session gets the record
+   * of each Task, Idea or Decision the message mentions with it; the log keeps the message as
+   * written.
    */
-  async send(threadId: string, text: string): Promise<Thread> {
+  async send(threadId: string, text: string, mentions: readonly Mention[] = []): Promise<Thread> {
     const thread = await this.threadOf(threadId);
     if (thread.stageThread && thread.state === "answering") {
       return this.stageThreads.bargeIn(threadId, text);
@@ -132,8 +142,14 @@ export class ThreadRunner implements OnModuleDestroy {
       delivery: "delivered",
       at: new Date(),
     };
-    return this.take(thread, current, { id: said.id, text }, (latest, opening) =>
-      beginAnswer(latest, { ...opening, said }),
+    const records = await this.mentionedRecords.read(mentions);
+    return this.take(
+      thread,
+      current,
+      { id: said.id, text },
+      (latest, opening) => beginAnswer(latest, { ...opening, said }),
+      undefined,
+      records,
     );
   }
 
@@ -206,7 +222,8 @@ export class ThreadRunner implements OnModuleDestroy {
   /**
    * The person takes `said` under the Context policy's move: `begin` logs it and sets the Thread
    * answering, and the session answers once the call that asked returns. `said` may answer a
-   * Decision, which opens again when the session never starts.
+   * Decision, which opens again when the session never starts. The records it mentions brief a new
+   * session, or come with it into a running or resumed one.
    */
   private async take<Event extends DomainEvent>(
     thread: Thread,
@@ -214,8 +231,10 @@ export class ThreadRunner implements OnModuleDestroy {
     said: Answer["said"],
     begin: (latest: Thread, opening: Opening) => ThreadChange<Event>,
     answers?: Decision,
+    mentioned: readonly MentionedRecord[] = [],
   ): Promise<Thread> {
-    const place = await this.places.of(thread);
+    const opened = await this.places.of(thread);
+    const place = { ...opened, brief: briefWithMentionedRecords(opened.brief, mentioned) };
     const { decision, role, newSession } = await this.moveFor(thread, current, place, new Date());
     const answering = await this.change(thread.id, (latest) =>
       begin(latest, {
@@ -226,7 +245,7 @@ export class ThreadRunner implements OnModuleDestroy {
       }),
     );
     this.answerInBackground(answering, {
-      said,
+      said: newSession ? said : { ...said, text: withMentionedRecords(said.text, mentioned) },
       briefed: briefedMessage(place.brief.text, said.text),
       decision,
       role,

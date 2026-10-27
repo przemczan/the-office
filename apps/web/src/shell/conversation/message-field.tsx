@@ -17,6 +17,8 @@ export function MessageField({
   busyReason,
   onSend,
   autoFocus,
+  onKeyDownFirst,
+  onCaret,
 }: {
   readonly label: string;
   readonly placeholder: string;
@@ -29,11 +31,16 @@ export function MessageField({
   readonly busyReason: string | undefined;
   readonly onSend: () => void;
   readonly autoFocus?: boolean;
+  /** Takes a key before the field does, as a picker open over it; true when it was handled. */
+  readonly onKeyDownFirst?: (event: KeyboardEvent<HTMLTextAreaElement>) => boolean;
+  /** The field, each time its text or caret changes. */
+  readonly onCaret?: (field: HTMLTextAreaElement) => void;
 }): ReactNode {
   const [triedWhileBusy, setTriedWhileBusy] = useState(false);
   // Once it can send again the explanation has done its job; the next busy spell starts quiet.
   if (busyReason === undefined && triedWhileBusy) setTriedWhileBusy(false);
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (onKeyDownFirst?.(event)) return;
     // Enter that confirms a word in an input method editor is not a send.
     if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
     event.preventDefault();
@@ -47,7 +54,11 @@ export function MessageField({
         rows={rows}
         placeholder={placeholder}
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => {
+          onChange(event.target.value);
+          onCaret?.(event.target);
+        }}
+        onSelect={(event) => onCaret?.(event.currentTarget)}
         onKeyDown={onKeyDown}
         autoFocus={autoFocus}
       />

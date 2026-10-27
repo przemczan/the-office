@@ -17,6 +17,7 @@ import { ContextPolicySettingsService } from "./application/context-policy-setti
 import { DecisionService } from "./application/decision-service.js";
 import { HeldCalls } from "./application/held-calls.js";
 import { InterruptedAnswers } from "./application/interrupted-answers.js";
+import { MentionedRecords } from "./application/mentioned-records.js";
 import { SessionMemory } from "./application/session-memory.js";
 import { SessionPlaces } from "./application/session-places.js";
 import { StageDecisions } from "./application/stage-decisions.js";
@@ -26,6 +27,7 @@ import { TaskThreadSetups } from "./application/task-thread-setups.js";
 import { ThreadContexts } from "./application/thread-contexts.js";
 import { ThreadRunner } from "./application/thread-runner.js";
 import { ThreadService } from "./application/thread-service.js";
+import { WorkRecords } from "./application/work-records.js";
 import { ConversationsSettings } from "./ports/conversations-settings.js";
 import { ProjectBases } from "./ports/project-bases.js";
 import { ThreadRepository } from "./ports/thread-repository.js";
@@ -53,6 +55,8 @@ export class ConversationsModule {
         ThreadService,
         Briefs,
         TaskThreadSetups,
+        WorkRecords,
+        MentionedRecords,
         SessionMemory,
         SessionPlaces,
         ThreadContexts,
@@ -74,6 +78,7 @@ export class ConversationsModule {
         InterruptedAnswers,
         ThreadService,
         TaskThreadSetups,
+        WorkRecords,
         StageThreads,
         StageDecisions,
         TaskTokens,

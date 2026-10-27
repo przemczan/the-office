@@ -126,6 +126,10 @@ describe("a Thread's title", () => {
     );
   });
 
+  it("reads a link by its words, as a mentioned record shows", () => {
+    expect(titleFrom("Is [@Export \\[beta\\]](/tasks/a) done?")).toBe("Is @Export [beta] done");
+  });
+
   it("is cut at a word when the message is long", () => {
     expect(titleFrom("Plan the export of every invoice to the accounting system")).toBe(
       "Plan the export of every…",

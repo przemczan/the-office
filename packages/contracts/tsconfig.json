@@ -7,5 +7,7 @@
     // Inside dist/, so removing dist/ makes tsc -b build again instead of trusting stale build info.
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Vitest runs the tests from source; dist/ holds the contract alone.
+  "exclude": ["src/**/*.test.ts"]
 }

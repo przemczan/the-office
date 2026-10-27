@@ -4,10 +4,9 @@ import { OfficeToolRegistry } from "../../../engine/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { TaskService } from "../../application/task-service.js";
-import { attachmentLines, type Attachment } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
 import type { Idea } from "../../domain/idea.js";
-import { confirmationWords } from "../../domain/planning.js";
+import { ideaRecordText, taskRecordText, whereOf } from "../../domain/record-words.js";
 import { PRIORITIES, type Task } from "../../domain/task.js";
 import { TASK_STATE_NAMES } from "../../domain/task-states.js";
 import { SessionPeople } from "../../ports/session-people.js";
@@ -72,7 +71,7 @@ export class WorkOfficeTools implements OnModuleInit {
         answered(async () => {
           const task = await this.tasks.read(taskId);
           const attachments = await this.attachments.listOf({ kind: "task", taskId: task.id });
-          return taskRecord(task, attachments);
+          return taskRecordText(task, attachments);
         }),
     });
   }
@@ -102,7 +101,7 @@ export class WorkOfficeTools implements OnModuleInit {
         answered(async () => {
           const idea = await this.ideas.read(ideaId);
           const attachments = await this.attachments.listOf({ kind: "idea", ideaId: idea.id });
-          return ideaRecord(idea, attachments);
+          return ideaRecordText(idea, attachments);
         }),
     });
   }
@@ -165,55 +164,6 @@ function taskLine(task: Task): string {
   return `- ${task.title} (Task ${task.id}) · Project ${task.projectId} · ${TASK_STATE_NAMES[task.state]} · ${task.priority} priority`;
 }
 
-function taskRecord(task: Task, attachments: readonly Attachment[]): string {
-  return [
-    `${task.title} (Task ${task.id})`,
-    `- Project ${task.projectId}; ${TASK_STATE_NAMES[task.state]}; ${task.priority} priority; Pipeline ${task.pipelineId}`,
-    `- Created by ${authorWords(task.createdBy)} on ${task.createdAt.toISOString()}`,
-    ...(task.originIdeaId ? [`- Shaped from the Idea ${task.originIdeaId}`] : []),
-    ...(task.proposedPipeline
-      ? [
-          `- Proposed Pipeline ${task.proposedPipeline.pipelineId}, not yet confirmed by the user: ${task.proposedPipeline.reason}`,
-        ]
-      : []),
-    "",
-    task.plan === "" ? "Plan:" : `Plan, ${confirmationWords(task.planConfirmed)}:`,
-    task.plan === "" ? "No Plan yet." : task.plan,
-    "",
-    task.definitionOfDone.length === 0
-      ? "Definition of Done:"
-      : `Definition of Done, ${confirmationWords(task.definitionOfDoneConfirmed)}:`,
-    ...(task.definitionOfDone.length === 0
-      ? ["Not written yet."]
-      : task.definitionOfDone.map((statement) => `- ${statement}`)),
-    "",
-    "Attachments:",
-    ...attachmentLines(attachments),
-  ].join("\n");
-}
-
 function ideaLine(idea: Idea): string {
   return `- ${idea.title} (Idea ${idea.id}) · ${whereOf(idea.projectId)} · ${idea.state}`;
-}
-
-function ideaRecord(idea: Idea, attachments: readonly Attachment[]): string {
-  return [
-    `${idea.title} (Idea ${idea.id})`,
-    `- ${whereOf(idea.projectId)}; ${idea.state}${idea.taskId ? ` into the Task ${idea.taskId}` : ""}`,
-    `- Captured by ${authorWords(idea.capturedBy)} on ${idea.capturedAt.toISOString()}`,
-    "",
-    "Notes:",
-    idea.notes === "" ? "None." : idea.notes,
-    "",
-    "Attachments:",
-    ...attachmentLines(attachments),
-  ].join("\n");
-}
-
-function whereOf(projectId: string | undefined): string {
-  return projectId === undefined ? "Office-wide" : `in the Project ${projectId}`;
-}
-
-function authorWords(author: Author): string {
-  return author.kind === "user" ? "the user" : `the person in the Role ${author.roleKey}`;
 }

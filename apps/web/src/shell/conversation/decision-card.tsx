@@ -4,11 +4,13 @@ import {
   useQueryClient,
   type UseMutationResult,
 } from "@tanstack/react-query";
+import { useSearch } from "@tanstack/react-router";
 import type { Decision, DecisionAnswer, Role, Thread } from "@the-office/contracts";
-import { Badge, Button, Icon } from "@the-office/ui";
+import { Badge, Button, Icon, IconButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { answerDecision, decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
+import { useCopyRecordLink } from "../copy-record-link.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { MessageField } from "./message-field.tsx";
@@ -20,6 +22,7 @@ import "./conversation.css";
  * the composer below, and leave it open, except in a Stage Thread, where The Office sends the
  * messages once no Stage runs. Nothing is answered while the person is still answering.
  * The Office's own Decisions about the Task's Pipeline show in the same Thread, as The Office's.
+ * Its link mentions it in a chat, and opens the Task's page at this card, marked.
  */
 export function DecisionCard({
   decision,
@@ -35,11 +38,31 @@ export function DecisionCard({
 }): ReactNode {
   const asker = askerName(decision, personName);
   const roles = useQuery(roleQueries.list()).data;
+  const copyLink = useCopyRecordLink();
+  const linkedTo = useSearch({ strict: false }).decision === decision.id;
   return (
-    <section className="message decision-card" aria-label={`Decision: ${decision.question}`}>
+    <section
+      className={`message decision-card${linkedTo ? " linked-to" : ""}`}
+      aria-label={`Decision: ${decision.question}`}
+      aria-current={linkedTo || undefined}
+    >
       <div className="message-by">
         <Badge tone="warning">Decision</Badge>
         {asker}
+        <IconButton
+          className="decision-copy-link"
+          icon={<Icon name="link" size={12} />}
+          label="Copy link"
+          size="xs"
+          onClick={() =>
+            copyLink({
+              kind: "decision",
+              taskId: decision.taskId,
+              threadId: decision.threadId,
+              decisionId: decision.id,
+            })
+          }
+        />
       </div>
       <div className="message-text decision-question">
         <MarkdownText text={decision.question} />

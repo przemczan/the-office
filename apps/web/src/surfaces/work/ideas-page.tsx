@@ -6,8 +6,8 @@ import {
 } from "@tanstack/react-query";
 import type { Idea, Project, Role, Task } from "@the-office/contracts";
 import { Alert, Button, Icon, IconButton, Menu } from "@the-office/ui";
-import { Link } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { Link, useSearch } from "@tanstack/react-router";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
 import {
@@ -19,6 +19,7 @@ import {
 } from "../../api/work.ts";
 import { AddAttachmentDialog } from "../../shell/attachments/add-attachment-dialog.tsx";
 import { AttachmentChips } from "../../shell/attachments/attachment-chips.tsx";
+import { useCopyRecordLink } from "../../shell/copy-record-link.ts";
 import { EmptyCard } from "../../shell/item-card.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { dayAndClockOf, dayOf } from "../../shell/time.ts";
@@ -29,19 +30,24 @@ import { ShapeIdeaDialog } from "./shape-idea-dialog.tsx";
 import { useIdeaPlanning } from "./use-planning.ts";
 import { useShaping } from "./use-shaping.ts";
 
-/** Ideas (prototypes/app/work.js): the new ones to shape or drop, and those shaped or dropped. */
+/**
+ * Ideas (prototypes/app/work.js): the new ones to shape or drop, and those shaped or dropped. An
+ * Idea's link, as one mentioned in a chat, opens the page at it, marked.
+ */
 export function IdeasPage(): ReactNode {
   const ideas = useQuery(ideaQueries.list());
   const projects = useQuery(projectQueries.list());
   const roles = useQuery(roleQueries.list());
   const tasks = useQuery(taskQueries.list());
+  const linkedTo = useSearch({ from: "/work/ideas" }).idea;
+  const page = useScrolledToLinked(linkedTo, ideas.data !== undefined);
   const inState = (state: Idea["state"]): Idea[] =>
     ideas.data?.filter((idea) => idea.state === state) ?? [];
   const fresh = inState("new");
   const shaped = inState("shaped");
   const dropped = inState("dropped");
   return (
-    <div className="ideas-page">
+    <div className="ideas-page" ref={page}>
       <section className="panel">
         <h2>
           <Icon name="lightbulb" size={15} strokeWidth={1.6} />
@@ -50,7 +56,13 @@ export function IdeasPage(): ReactNode {
         {ideas.error && <Alert tone="danger" title={ideas.error.message} />}
         <div className="feed">
           {fresh.map((idea) => (
-            <IdeaCard key={idea.id} idea={idea} projects={projects.data} roles={roles.data} />
+            <IdeaCard
+              key={idea.id}
+              idea={idea}
+              projects={projects.data}
+              roles={roles.data}
+              linkedTo={idea.id === linkedTo}
+            />
           ))}
           {ideas.data && fresh.length === 0 && (
             <EmptyCard>No new Ideas. Capture one with "Idea" in the top bar.</EmptyCard>
@@ -64,14 +76,33 @@ export function IdeasPage(): ReactNode {
         </h2>
         <div className="ideas-shaped">
           {shaped.map((idea) => (
-            <ShapedIdea key={idea.id} idea={idea} projects={projects.data} tasks={tasks.data} />
+            <ShapedIdea
+              key={idea.id}
+              idea={idea}
+              projects={projects.data}
+              tasks={tasks.data}
+              linkedTo={idea.id === linkedTo}
+            />
           ))}
           {shaped.length === 0 && <p className="ideas-none">None yet</p>}
         </div>
-        <DroppedIdeas ideas={dropped} />
+        <DroppedIdeas ideas={dropped} linkedTo={linkedTo} />
       </section>
     </div>
   );
+}
+
+/** Scrolls the page to the Idea its link points to, once the Ideas are read. */
+function useScrolledToLinked(
+  linkedTo: string | undefined,
+  read: boolean,
+): RefObject<HTMLDivElement | null> {
+  const page = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (linkedTo === undefined || !read) return;
+    page.current?.querySelector(".linked-to")?.scrollIntoView({ block: "center" });
+  }, [linkedTo, read]);
+  return page;
 }
 
 /** What a new Idea can become from its card: a Task in Backlog, or one planned at once. */
@@ -88,10 +119,13 @@ function IdeaCard({
   idea,
   projects,
   roles,
+  linkedTo,
 }: {
   readonly idea: Idea;
   readonly projects: readonly Project[] | undefined;
   readonly roles: readonly Role[] | undefined;
+  /** The page was opened at this Idea, by its link. */
+  readonly linkedTo: boolean;
 }): ReactNode {
   const owner = { kind: "idea", ideaId: idea.id } as const;
   const attachments = useQuery(attachmentQueries.of(owner));
@@ -102,6 +136,7 @@ function IdeaCard({
   const queryClient = useQueryClient();
   const showToast = useToast();
   const planner = usePlanner();
+  const copyLink = useCopyRecordLink();
   const shaping = useShaping(idea);
   const planning = useIdeaPlanning(idea);
   const actions: Readonly<Record<IdeaAction, IdeaActionWords>> = {
@@ -120,7 +155,11 @@ function IdeaCard({
     onSettled: () => queryClient.invalidateQueries(ideaQueries.list()),
   });
   return (
-    <article className="idea-card" aria-label={idea.title}>
+    <article
+      className={`idea-card${linkedTo ? " linked-to" : ""}`}
+      aria-label={idea.title}
+      aria-current={linkedTo || undefined}
+    >
       <div className="idea-card-head">
         <Icon name="lightbulb" size={15} />
         <span className="idea-card-title">{idea.title}</span>
@@ -141,6 +180,11 @@ function IdeaCard({
               icon: <Icon name="paperclip" size={14} />,
               label: "Attach…",
               onSelect: () => setAttaching(true),
+            },
+            {
+              icon: <Icon name="link" size={14} />,
+              label: "Copy link",
+              onSelect: () => copyLink({ kind: "idea", ideaId: idea.id }),
             },
             { divider: true },
             {
@@ -204,14 +248,19 @@ function ShapedIdea({
   idea,
   projects,
   tasks,
+  linkedTo,
 }: {
   readonly idea: Idea;
   readonly projects: readonly Project[] | undefined;
   readonly tasks: readonly Task[] | undefined;
+  readonly linkedTo: boolean;
 }): ReactNode {
   const task = tasks?.find(({ id }) => id === idea.taskId);
   return (
-    <div className="ideas-row">
+    <div
+      className={`ideas-row${linkedTo ? " linked-to" : ""}`}
+      aria-current={linkedTo || undefined}
+    >
       <div className="ideas-row-grow">
         <div className="ideas-row-title">{idea.title}</div>
         <div className="ideas-row-sub">
@@ -232,7 +281,13 @@ function ShapedIdea({
   );
 }
 
-function DroppedIdeas({ ideas }: { readonly ideas: readonly Idea[] }): ReactNode {
+function DroppedIdeas({
+  ideas,
+  linkedTo,
+}: {
+  readonly ideas: readonly Idea[];
+  readonly linkedTo: string | undefined;
+}): ReactNode {
   const queryClient = useQueryClient();
   const showToast = useToast();
   const restoring = useMutation({
@@ -242,13 +297,17 @@ function DroppedIdeas({ ideas }: { readonly ideas: readonly Idea[] }): ReactNode
     onSettled: () => queryClient.invalidateQueries(ideaQueries.list()),
   });
   return (
-    <details className="ideas-dropped">
+    <details className="ideas-dropped" open={ideas.some(({ id }) => id === linkedTo) || undefined}>
       <summary>
         <Icon name="archive" size={14} />
         Dropped · {ideas.length}
       </summary>
       {ideas.map((idea) => (
-        <div key={idea.id} className="ideas-dropped-row">
+        <div
+          key={idea.id}
+          className={`ideas-dropped-row${idea.id === linkedTo ? " linked-to" : ""}`}
+          aria-current={idea.id === linkedTo || undefined}
+        >
           <span className="ideas-row-grow">{idea.title}</span>
           {idea.droppedAt !== null && (
             <span className="ideas-row-time">dropped {dayOf(idea.droppedAt)}</span>

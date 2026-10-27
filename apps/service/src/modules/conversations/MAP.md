@@ -2,15 +2,15 @@
 
 **Owns:** Threads, each one engine session (`threads`, `thread_messages`), and The Office's message log; Decisions as cards in the asking Thread (`decisions`); the Context policy (resume, fresh, hand off, the Brief, Handover notes) and its size threshold in one row (`conversations_settings`), which Settings › Office limits changes; the sessions behind Stage Threads (`ThreadRunner`); tokens per Thread and per Task (`TaskTokens`).
 
-**Talks to:** calls Engine, People (`RoleCards`) and Skills (session skills). Reads Project bases through its `ProjectBases` port, bound to Projects' `BaseCheckouts` in [app.module.ts](../../app.module.ts). Work fills `TaskThreadSetups` as it starts, with what a Thread on a Task works with, since Work calls Conversations. Pipelines and Work reach it through ports bound to `StageThreads`, `StageDecisions`, `ThreadRunner`, `ThreadService` and `DecisionService`.
+**Talks to:** calls Engine, People (`RoleCards`) and Skills (session skills). Reads Project bases through its `ProjectBases` port, bound to Projects' `BaseCheckouts` in [app.module.ts](../../app.module.ts). Work fills `TaskThreadSetups` as it starts, with what a Thread on a Task works with, and `WorkRecords`, with the records of Tasks and Ideas a message mentions, since Work calls Conversations. Pipelines and Work reach it through ports bound to `StageThreads`, `StageDecisions`, `ThreadRunner`, `ThreadService` and `DecisionService`.
 
-**Traps:** a call behind an enforced Hard switch (`HeldCalls`, the `change_role` tool, Task Threads only: a chat has no Decision to wait in) never waits in the tool call: it opens an approval Decision, and the Agent's repeat of the identical call runs once after "Allow once" (`decisions.approval_spent_at`); only `application/thread-runner.test.ts` leaves Threads answering, and it alone recovers interrupted answers ([testing](../../../docs/testing.md)). A consult of a hired Consultant (`Consultations`, `Decision.putTo`) is the same Decision the Agent waits on, put to them instead of the user: the Consultation Thread (`Thread.consultation`) opens when the Agent's turn ends (`TurnEnded`), the Consultant answers with `answer_consultation` through `DecisionService.answer`, and the user answering first is the take-over. A Consultant asked to approve may pass it on (`passOn` on `answer_consultation`, `passDecisionOn`): the same Decision is put to the one they name, in a Consultation of its own, or to the user on the second step (`PASS_ON_STEPS`) or for someone not hired or already asked; `Decision.passedOn` keeps who and why, and only the Consultant it waits on now may answer. A Decision with `putTo` is left out of `openDecisions()` and raises no Notification (spec 6); `putDecisionToUser` is the way back when the Consultant can't answer. A Consultation's session gets only `CONSULTATION_OFFICE_TOOLS`, so it opens no Decision and consults no one. Every test file shares the `conversations_settings` row each Context policy decision reads: tests bind `ConversationsSettingsForTests`, and only the default is ever saved to the row.
+**Traps:** a call behind an enforced Hard switch (`HeldCalls`, the `change_role` tool, Task Threads only: a chat has no Decision to wait in) never waits in the tool call: it opens an approval Decision, and the Agent's repeat of the identical call runs once after "Allow once" (`decisions.approval_spent_at`); only `application/thread-runner.test.ts` leaves Threads answering, and it alone recovers interrupted answers ([testing](../../../docs/testing.md)). A consult of a hired Consultant (`Consultations`, `Decision.putTo`) is the same Decision the Agent waits on, put to them instead of the user: the Consultation Thread (`Thread.consultation`) opens when the Agent's turn ends (`TurnEnded`), the Consultant answers with `answer_consultation` through `DecisionService.answer`, and the user answering first is the take-over. A Consultant asked to approve may pass it on (`passOn` on `answer_consultation`, `passDecisionOn`): the same Decision is put to the one they name, in a Consultation of its own, or to the user on the second step (`PASS_ON_STEPS`) or for someone not hired or already asked; `Decision.passedOn` keeps who and why, and only the Consultant it waits on now may answer. A Decision with `putTo` is left out of `openDecisions()` and raises no Notification (spec 6); `putDecisionToUser` is the way back when the Consultant can't answer. A Consultation's session gets only `CONSULTATION_OFFICE_TOOLS`, so it opens no Decision and consults no one. A message's mentions are the record links in it (`recordLinksIn` from the contracts, read in `ThreadsController.send`); `ThreadRunner.send` reads each record then (`MentionedRecords`) and puts them in the Brief of a session that starts on the message, or after the message into a running or resumed one: the log keeps the message as written, and a barge-in into a running Stage Thread gets no records. Every test file shares the `conversations_settings` row each Context policy decision reads: tests bind `ConversationsSettingsForTests`, and only the default is ever saved to the row.
 
 <!-- Generated by `npm run maps` from the code; edit only above this line. -->
 
 ## Public entry (`index.ts`)
 
-DecisionService, InterruptedAnswers, StageDecisions, StageDecisionRequest, StageThreads, StageSessionSettings, StageThread, StageThreadRequest, StageTurn, TaskTokens, TaskThreadSetups, TaskThreadRequest, TaskThreadSetup, TaskThreadSource, ThreadRunner, ThreadService, TaskThreadOpening, ConversationsModule, DecisionAnswered, DecisionOpened, DecisionReopened, TokensCounted, TurnEnded
+DecisionService, InterruptedAnswers, StageDecisions, StageDecisionRequest, StageThreads, StageSessionSettings, StageThread, StageThreadRequest, StageTurn, TaskTokens, TaskThreadSetups, TaskThreadRequest, TaskThreadSetup, TaskThreadSource, ThreadRunner, ThreadService, TaskThreadOpening, WorkRecords, WorkRecordSource, ConversationsModule, DecisionAnswered, DecisionOpened, DecisionReopened, TokensCounted, TurnEnded
 
 ## Domain events
 
@@ -81,6 +81,7 @@ DecisionService, InterruptedAnswers, StageDecisions, StageDecisionRequest, Stage
 - `decision-service.ts`: DecisionService
 - `held-calls.ts`: HeldCallOutcome, HeldCallRequest, HeldCalls
 - `interrupted-answers.ts`: InterruptedAnswers
+- `mentioned-records.ts`: MentionedRecords
 - `session-log.ts`: SessionEvent, SessionLogger, sessionLogLines
 - `session-memory.fixtures.ts`: MemoryAsk, sessionMemoryProvider
 - `session-memory.ts`: SessionMemory
@@ -93,6 +94,7 @@ DecisionService, InterruptedAnswers, StageDecisions, StageDecisionRequest, Stage
 - `thread-contexts.ts`: ThreadContexts
 - `thread-runner.ts`: Answerer, ThreadRunner
 - `thread-service.ts`: TaskThreadOpening, ThreadService
+- `work-records.ts`: WorkRecordSource, WorkRecords
 - Tests: briefs.test.ts, consultations.test.ts, held-calls.test.ts, session-memory.test.ts, stage-threads.test.ts, test-project-check.test.ts, thread-runner.test.ts
 
 ### domain/
@@ -106,6 +108,7 @@ DecisionService, InterruptedAnswers, StageDecisions, StageDecisionRequest, Stage
 - `decision.fixtures.ts`: aDecision
 - `decision.ts`: Recommendation, DecisionDraft, DecisionAnswer, GivenAnswer, PassedOn, Decision, decisionProblems, answerProblems, answerWords
 - `held-call.ts`: HeldCallRuling, heldCallRuling
+- `mention.ts`: Mention, MentionedRecord, briefWithMentionedRecords, withMentionedRecords, decisionRecordText
 - `message.ts`: Message, MessageDraft, StageWorkClosing, HeldBy, MessageDelivery
 - `session-instructions.ts`: SessionPersonCard, chatInstructions, taskThreadInstructions, CHAT_OFFICE_TOOLS, ANSWER_CONSULTATION_TOOL, CONSULTATION_OFFICE_TOOLS, consultationInstructions, REMEMBER_TOOL, CHANGE_ROLE_TOOL, sessionOfficeTools, HANDOVER_REQUEST, briefedMessage, openingMessage, decisionAnswerMessage
 - `thread-changes.ts`: ThreadChange, DeliveryMarking, ChatPerson, startChatThread, TaskThreadStart, startTaskThread, startStageThread, startConsultationThread, renameThread, logMessages, freshSession, Answering, Opening, beginAnswer, bargeIn, markDelivery, DecisionOpening, openDecision, DecisionAnswering, answerDecision, DecisionRecording, recordDecisionAnswer, beginOpening, beginStageWork, StageWorkEnding, endStageWork, TurnCount, endTurn, countRunningTurn, UnopenedSession, failAnswer, failDecisionAnswer, putDecisionToUser, PassingOn, passDecisionOn, chooseOverride
@@ -116,7 +119,7 @@ DecisionService, InterruptedAnswers, StageDecisions, StageDecisionRequest, Stage
 - `thread.ts`: Home, ThreadState, TokenTotals, NO_TOKENS, addTokens, tokensSoFar, ThreadSession, ContextOverride, Consultation, Thread
 - `tool-activity.ts`: toolActivitySummary
 - `undelivered-messages.ts`: undeliveredSince, waitingMessageIds, workWithUndelivered
-- Tests: brief.test.ts, consult.test.ts, context-policy.test.ts, decision.test.ts, held-call.test.ts, thread-changes.test.ts, tool-activity.test.ts
+- Tests: brief.test.ts, consult.test.ts, context-policy.test.ts, decision.test.ts, held-call.test.ts, mention.test.ts, thread-changes.test.ts, tool-activity.test.ts
 
 ### ports/
 

@@ -13,7 +13,9 @@ import {
 import {
   contextOverrideChoiceSchema,
   newMessageSchema,
+  recordLinksIn,
   threadTitleSchema,
+  type RecordLink,
   type ContextOverrideChoice,
   type Message as MessageResponse,
   type NewMessage,
@@ -25,6 +27,7 @@ import { DecisionService } from "../../application/decision-service.js";
 import { ThreadContexts } from "../../application/thread-contexts.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
 import { ThreadService } from "../../application/thread-service.js";
+import type { Mention } from "../../domain/mention.js";
 import type { Thread } from "../../domain/thread.js";
 import { toMessageResponse, toThreadResponse } from "./conversation-responses.js";
 import { ThreadRefusalsFilter } from "./thread-refusals.filter.js";
@@ -94,17 +97,31 @@ export class ThreadsController {
     return messages.map((message) => toMessageResponse(message, byId));
   }
 
-  /** The user's message; the person's answer comes into the log as it is written. */
+  /**
+   * The user's message, mentioning a record by linking to its page; the person's answer comes into
+   * the log as it is written.
+   */
   @Post("threads/:id/messages")
   @HttpCode(HttpStatus.ACCEPTED)
   async send(
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(newMessageSchema)) { text }: NewMessage,
   ): Promise<ThreadResponse> {
-    return this.toResponse(await this.runner.send(id, text));
+    return this.toResponse(await this.runner.send(id, text, recordLinksIn(text).map(toMention)));
   }
 
   private async toResponse(thread: Thread): Promise<ThreadResponse> {
     return toThreadResponse(thread, await this.contexts.of(thread));
+  }
+}
+
+function toMention(link: RecordLink): Mention {
+  switch (link.kind) {
+    case "task":
+      return { kind: "task", taskId: link.taskId };
+    case "idea":
+      return { kind: "idea", ideaId: link.ideaId };
+    case "decision":
+      return { kind: "decision", decisionId: link.decisionId };
   }
 }

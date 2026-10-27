@@ -17,6 +17,7 @@ export {
 } from "./application/task-thread-setups.js";
 export { ThreadRunner } from "./application/thread-runner.js";
 export { ThreadService, type TaskThreadOpening } from "./application/thread-service.js";
+export { WorkRecords, type WorkRecordSource } from "./application/work-records.js";
 export { ConversationsModule } from "./conversations.module.js";
 export {
   DecisionAnswered,

@@ -1,6 +1,6 @@
 # Web app: map
 
-**Owns:** the shell (A3 · Desk: rail, top bar, status strip, panels, toasts; `shell/`), the Markdown view for what people and The Office write (`shell/markdown-text.tsx`: sanitised, raw HTML shown as text, headings kept out of the page's outline), the chat modal and conversation views, Attachments, the Stage editor (`shell/pipelines/`: one component for "Edit for this Task" and the tier 2 library, Task-free, fed the service's flags), Notifications' channels and what Now shares with the shell (`shell/notifications/`: the channel port with the in-app and desktop adapters, the tab's title and favicon, the web's own "service down"; the Needs you panel and its items, answered in place; Now's words; the strip reads the same `now` and `notifications` queries), the Gate's actions (`shell/work/gate-actions.tsx`, on a Task's record and in Needs you), and `api/`: one file per service module with its fetch functions and query keys, plus the event stream (`event-stream.ts`) that turns the service's web events into query refreshes. Each surface has its own map in `surfaces/<surface>/MAP.md`.
+**Owns:** the shell (A3 · Desk: rail, top bar, status strip, panels, toasts; `shell/`), the Markdown view for what people and The Office write (`shell/markdown-text.tsx`: sanitised, raw HTML shown as text, headings kept out of the page's outline, a link to a Task, Decision or Idea shown as its chip, `shell/record-mention.tsx`), the chat modal and conversation views (the composer's `@` picker, `shell/conversation/mention-picker.tsx`; Copy link on a Decision or an Idea, `shell/copy-record-link.ts`), Attachments, the Stage editor (`shell/pipelines/`: one component for "Edit for this Task" and the tier 2 library, Task-free, fed the service's flags), Notifications' channels and what Now shares with the shell (`shell/notifications/`: the channel port with the in-app and desktop adapters, the tab's title and favicon, the web's own "service down"; the Needs you panel and its items, answered in place; Now's words; the strip reads the same `now` and `notifications` queries), the Gate's actions (`shell/work/gate-actions.tsx`, on a Task's record and in Needs you), and `api/`: one file per service module with its fetch functions and query keys, plus the event stream (`event-stream.ts`) that turns the service's web events into query refreshes. Each surface has its own map in `surfaces/<surface>/MAP.md`.
 
 **Talks to:** the service only through `api/` and `@the-office/contracts`; components come from `@the-office/ui` (the design system). The layout is enforced by `tools/lint-rules/src/web-layers.ts`.
 
@@ -12,7 +12,7 @@
 
 - `app.tsx`: App
 - `main.tsx`
-- `router.tsx`: OverPageSearch, TaskSearch, router
+- `router.tsx`: OverPageSearch, IdeasSearch, TaskSearch, router
 
 ### api/
 
@@ -31,6 +31,7 @@
 ### shell/
 
 - `brand-tone.ts`: useBrandTone
+- `copy-record-link.ts`: useCopyRecordLink
 - `desk.tsx`: Desk, PanelHeadingProps, Panel, PanelHeading, Feed
 - `engine-words.ts`: EFFORT_LABELS, modelLabel
 - `item-card.tsx`: CardEdge, ItemCard, EmptyCard
@@ -42,6 +43,7 @@
 - `project-mark.tsx`: ProjectMark
 - `project-words.ts`: publishingLabel
 - `rail.tsx`: Rail
+- `record-mention.tsx`: RecordMention
 - `refusal-alert.tsx`: RefusalAlert
 - `shell.tsx`: Shell
 - `skill-chip.tsx`: SkillChip
@@ -71,11 +73,13 @@
 - `context-bar.tsx`: ContextBar
 - `context-words.ts`: MOVE_WORDS, OVERRIDE_WORDS, OVERRIDE_HINTS, threadTokens, tokensShort, contextDetail, contextLabel
 - `decision-card.tsx`: DecisionCard
+- `mention-picker.tsx`: Mentions, useMentions
+- `mention-words.ts`: MENTION_KINDS, MentionKind, Mentionable, MentionQuery, MENTIONS_SHOWN, mentionQueryAt, mentionables, matchingMentionables, withMentionLinks
 - `message-field.tsx`: MessageField
 - `message-list.tsx`: MessageList
 - `thread-title.ts`: threadTitle
 - `thread-view.tsx`: ThreadView
-- Tests: context-words.test.ts, message-field.test.tsx, message-list.test.tsx, thread-title.test.ts
+- Tests: context-words.test.ts, mention-words.test.ts, message-field.test.tsx, message-list.test.tsx, thread-title.test.ts
 
 ### shell/notifications/
 

@@ -1,8 +1,12 @@
 import { Icon, IconButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
+import { useMentions } from "./mention-picker.tsx";
 import { MessageField } from "./message-field.tsx";
 
-/** Writes the next message, with the keys every message field has. */
+/**
+ * Writes the next message, with the keys every message field has; `@` mentions a Task, an open
+ * Decision or an Idea, which the person then reads.
+ */
 export function Composer({
   placeholder,
   busy,
@@ -19,13 +23,15 @@ export function Composer({
 }): ReactNode {
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const mentions = useMentions(draft, setDraft);
   const canSend = !busy && !sending && draft.trim() !== "";
   const send = async (): Promise<void> => {
     if (!canSend) return;
     setSending(true);
     try {
-      await onSend(draft);
+      await onSend(mentions.linked(draft));
       setDraft("");
+      mentions.clear();
     } catch {
       // The caller shows why; the draft stays to send again.
     } finally {
@@ -34,6 +40,7 @@ export function Composer({
   };
   return (
     <div className="composer">
+      {mentions.picker}
       <MessageField
         label="Message"
         rows={2}
@@ -44,6 +51,14 @@ export function Composer({
         busyReason={busy ? busyHint : undefined}
         onSend={() => void send()}
         autoFocus
+        onKeyDownFirst={mentions.onKeyDownFirst}
+        onCaret={mentions.onCaret}
+      />
+      <IconButton
+        icon={<Icon name="at-sign" size={16} />}
+        label="Mention a Task, Decision or Idea"
+        variant="ghost"
+        onClick={mentions.start}
       />
       <IconButton
         icon={<Icon name="arrow-up" size={16} />}

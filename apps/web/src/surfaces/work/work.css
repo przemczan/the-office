@@ -187,6 +187,13 @@
   background: var(--surface);
 }
 
+/* The Idea its link opened the page at. */
+.idea-card.linked-to,
+.ideas-row.linked-to,
+.ideas-dropped-row.linked-to {
+  box-shadow: var(--focus-ring);
+}
+
 .idea-card-head {
   display: flex;
   align-items: center;

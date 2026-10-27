@@ -28,14 +28,26 @@ export function MessageList({
   /** The user's messages say whether they reached the person, as one written while the Stage runs waits. */
   readonly stageThread: boolean;
 }): ReactNode {
+  const list = useRef<HTMLDivElement>(null);
   const end = useRef<HTMLDivElement>(null);
+  const shownLinkedTo = useRef(false);
   // What the list shows at its end: each new message, or the person starting to answer, scrolls to it.
+  // A Decision's link opens the list at its card instead, once.
   const lines = messages.length + (answering ? 1 : 0);
   useEffect(() => {
-    if (lines > 0) end.current?.scrollIntoView({ block: "end" });
+    if (lines === 0) return;
+    const linkedTo = shownLinkedTo.current
+      ? null
+      : list.current?.querySelector(".decision-card.linked-to");
+    if (linkedTo) {
+      shownLinkedTo.current = true;
+      linkedTo.scrollIntoView({ block: "center" });
+    } else {
+      end.current?.scrollIntoView({ block: "end" });
+    }
   }, [lines]);
   return (
-    <div className="message-list" aria-live="polite">
+    <div className="message-list" aria-live="polite" ref={list}>
       {messages.filter(shown).map((message) => (
         <MessageItem
           key={message.id}

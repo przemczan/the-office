@@ -43,6 +43,8 @@ import { TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js"
 import { ThreadContexts } from "./thread-contexts.js";
 import { StageThreads } from "./stage-threads.js";
 import { ThreadRunner } from "./thread-runner.js";
+import { MentionedRecords } from "./mentioned-records.js";
+import { WorkRecords } from "./work-records.js";
 import { ThreadService } from "./thread-service.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
@@ -65,6 +67,8 @@ let roleKey: string;
 const NO_SESSION_REASON = "This Task is Done, so its conversation can't go on.";
 /** Tasks whose setup says no session can work on them (Done: Publish removed the worktree). */
 const tasksWithoutSessions = new Set<string>();
+/** The records of Tasks and Ideas as the Work module words them, by id. */
+const workRecords = new Map<string, string>();
 
 let threads: ThreadService;
 let runner: ThreadRunner;
@@ -139,6 +143,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       SessionPlaces,
       ThreadContexts,
       ThreadRunner,
+      MentionedRecords,
+      WorkRecords,
       StageThreads,
       InterruptedAnswers,
       DecisionService,
@@ -162,6 +168,11 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         ...taskSetup(taskId),
         sessionRefusal: tasksWithoutSessions.has(taskId) ? NO_SESSION_REASON : undefined,
       }),
+  });
+  // As the Work module gives its records.
+  app.get(WorkRecords).provide({
+    taskRecord: (taskId) => Promise.resolve(workRecords.get(taskId)),
+    ideaRecord: (ideaId) => Promise.resolve(workRecords.get(ideaId)),
   });
   threads = app.get(ThreadService);
   runner = app.get(ThreadRunner);
@@ -934,6 +945,85 @@ describe("a Decision", () => {
     await expect(tool?.run(input, { sessionId: randomUUID() })).resolves.toEqual({
       text: "The Office doesn't know this session's Thread.",
       isError: true,
+    });
+  });
+});
+
+describe("a message mentioning records", () => {
+  it("briefs a new session with each record, read now, and logs the message as written", async () => {
+    await startWith(
+      started(
+        ...opensDecision("c-1", EXPORT_QUESTION, ["Only active Projects", "Every Project"]),
+        ...aTurn("brief", "I asked."),
+      ),
+      started(...aTurn("brief", "I read them.")),
+    );
+    const planning = await planningThread();
+    await answered(planning.id, 4);
+    const decision = (await threads.read(planning.id)).openDecision;
+    if (!decision) throw new Error("No Decision was opened.");
+    const taskId = randomUUID();
+    const ideaId = randomUUID();
+    const missingTaskId = randomUUID();
+    workRecords.set(taskId, "Export CSV (Task) · Plan: write the exporter.");
+    workRecords.set(ideaId, "Dark mode (Idea) · Notes: for the night shift.");
+    workRecords.set(decision.taskId, "Admin export (Task) · Plan: ask about archived Projects.");
+    const chat = await threads.startInChat(roleKey);
+    const said = "Compare [@Export CSV](/tasks/x) with [@Dark mode](/work/ideas?idea=y).";
+
+    await runner.send(chat.id, said, [
+      { kind: "task", taskId },
+      { kind: "idea", ideaId },
+      { kind: "decision", decisionId: decision.id },
+      { kind: "task", taskId: missingTaskId },
+    ]);
+    const log = await answered(chat.id, 3);
+
+    const brief = engine.sessions[1]?.received[0];
+    const text = brief?.step === "start" ? brief.brief.text : "";
+    expect(text).toMatch(
+      /\n\n## Records the user mentioned\n\n[\s\S]+\n\n## The user's message\n\n/,
+    );
+    expect(text.endsWith(`## The user's message\n\n${said}`)).toBe(true);
+    const records = text
+      .slice(
+        text.indexOf("## Records the user mentioned\n\n") + 31,
+        text.indexOf("\n\n## The user's message"),
+      )
+      .split("\n\n---\n\n");
+    expect(records).toHaveLength(4);
+    expect(records[0]).toBe("Export CSV (Task) · Plan: write the exporter.");
+    expect(records[1]).toBe("Dark mode (Idea) · Notes: for the night shift.");
+    expect(records[2]).toContain(`Question: ${EXPORT_QUESTION}`);
+    expect(records[2]).toContain("Not answered yet: it waits on the user.");
+    expect(records[2]).toContain("Admin export (Task) · Plan: ask about archived Projects.");
+    expect(records[3]).toBe(`The Office has no Task ${missingTaskId}.`);
+    // The Thread's context line shows the Brief with the records, as the session got it.
+    const [context, message] = drafts(log);
+    expect(context?.kind === "context" && context.brief).toContain("## Records the user mentioned");
+    expect(message).toEqual({ kind: "user", text: said, delivery: "delivered" });
+  });
+
+  it("gives a running session the records with the next message", async () => {
+    await startWith(started(...aTurn("brief", "Hello."), sent("m-2"), ...aTurn("m-2", "Read it.")));
+    const taskId = randomUUID();
+    workRecords.set(taskId, "Export CSV (Task) · Plan: write the exporter.");
+    const chat = await threads.startInChat(roleKey);
+    await runner.send(chat.id, "Hello.");
+    await answered(chat.id, 3);
+
+    await runner.send(chat.id, "Look at [@Export CSV](/tasks/x).", [{ kind: "task", taskId }]);
+    const log = await answered(chat.id, 5);
+
+    expect(engine.sessions).toHaveLength(1);
+    const next = engine.sessions[0]?.received.find((step) => step.step === "send");
+    expect(next?.step === "send" && next.message.text).toBe(
+      "Look at [@Export CSV](/tasks/x).\n\n## Records the user mentioned\n\nExport CSV (Task) · Plan: write the exporter.",
+    );
+    expect(drafts(log)[3]).toEqual({
+      kind: "user",
+      text: "Look at [@Export CSV](/tasks/x).",
+      delivery: "delivered",
     });
   });
 });

@@ -33,6 +33,8 @@ import { TaskThreadSetups } from "../../application/task-thread-setups.js";
 import { ThreadContexts } from "../../application/thread-contexts.js";
 import { StageThreads } from "../../application/stage-threads.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
+import { MentionedRecords } from "../../application/mentioned-records.js";
+import { WorkRecords } from "../../application/work-records.js";
 import { ThreadService } from "../../application/thread-service.js";
 import { DecisionAnswered } from "../../domain/conversation-events.js";
 import type { Decision } from "../../domain/decision.js";
@@ -96,6 +98,8 @@ beforeEach(async () => {
       SessionPlaces,
       ThreadContexts,
       ThreadRunner,
+      MentionedRecords,
+      WorkRecords,
       StageThreads,
       DecisionService,
       ThreadWebEvents,

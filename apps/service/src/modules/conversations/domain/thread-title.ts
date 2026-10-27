@@ -6,11 +6,14 @@ const TAKEN_TITLE_CUT = 32;
 export const TITLE_LENGTH = 80;
 
 /**
- * A Thread's title from its first message: one line, without its closing punctuation, cut at a
- * word when it is long.
+ * A Thread's title from its first message: one line, its Markdown links by their words (a mentioned
+ * record by its name), without its closing punctuation, cut at a word when it is long.
  */
 export function titleFrom(text: string): string {
   const line = text
+    .replace(/\[((?:\\.|[^\]\\])*)\]\([^)]*\)/g, (_, words: string) =>
+      words.replace(/\\(.)/g, "$1"),
+    )
     .replace(/\s+/g, " ")
     .trim()
     .replace(/[.?!]+$/, "");

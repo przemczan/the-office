@@ -87,20 +87,29 @@ const boardRoute = createRoute({
   staticData: { title: "Work" },
 });
 
+/** Ideas, scrolled to the one a link points to, such as one mentioned in a chat. */
+export interface IdeasSearch {
+  readonly idea?: string;
+}
+
 const ideasRoute = createRoute({
   getParentRoute: () => workRoute,
   path: "ideas",
   component: IdeasPage,
+  validateSearch: (search: Record<string, unknown>): IdeasSearch => ({
+    ...(typeof search["idea"] === "string" && { idea: search["idea"] }),
+  }),
   staticData: { title: "Work" },
 });
 
 /**
  * A Task's page, showing one of its Threads first, as one opened from a person's page, and its
- * Changes tab instead of the record's overview.
+ * Changes tab instead of the record's overview; a Decision's link also scrolls to its card.
  */
 export interface TaskSearch {
   readonly taskThread?: string;
   readonly recordTab?: "changes";
+  readonly decision?: string;
 }
 
 // A Task's page, in Work; the rail marks Work while it is open.
@@ -111,6 +120,7 @@ const taskRoute = createRoute({
   validateSearch: (search: Record<string, unknown>): TaskSearch => ({
     ...(typeof search["taskThread"] === "string" && { taskThread: search["taskThread"] }),
     ...(search["recordTab"] === "changes" && { recordTab: "changes" as const }),
+    ...(typeof search["decision"] === "string" && { decision: search["decision"] }),
   }),
   // Until the Task is read; the page then names it.
   staticData: { title: "Work" },

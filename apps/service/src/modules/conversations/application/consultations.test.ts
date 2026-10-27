@@ -43,6 +43,8 @@ import { StageThreads } from "./stage-threads.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
 import { ThreadContexts } from "./thread-contexts.js";
 import { ThreadRunner } from "./thread-runner.js";
+import { MentionedRecords } from "./mentioned-records.js";
+import { WorkRecords } from "./work-records.js";
 import { ThreadService } from "./thread-service.js";
 
 type Step = SessionScript[number];
@@ -148,6 +150,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       SessionPlaces,
       ThreadContexts,
       ThreadRunner,
+      MentionedRecords,
+      WorkRecords,
       StageThreads,
       InterruptedAnswers,
       DecisionService,

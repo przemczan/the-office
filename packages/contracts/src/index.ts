@@ -6,5 +6,6 @@ export * from "./notifications.js";
 export * from "./people.js";
 export * from "./pipelines.js";
 export * from "./projects.js";
+export * from "./record-links.js";
 export * from "./skills.js";
 export * from "./work.js";

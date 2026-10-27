@@ -1,6 +1,6 @@
 # Work: module map
 
-**Owns:** Ideas, Tasks (states, priority, manual order, Plan, Definition of Done, the Task's Pipeline id) and Attachments (`ideas`, `tasks`, `attachments`); Office settings in one row (`work_settings`, the Office-wide limit, which Settings › Office limits changes; the repository answers the default until it is saved); screenshots attached from Stages (`StageScreenshots`); the Office tools for Ideas and Tasks.
+**Owns:** Ideas, Tasks (states, priority, manual order, Plan, Definition of Done, the Task's Pipeline id) and Attachments (`ideas`, `tasks`, `attachments`); Office settings in one row (`work_settings`, the Office-wide limit, which Settings › Office limits changes; the repository answers the default until it is saved); screenshots attached from Stages (`StageScreenshots`); the Office tools for Ideas and Tasks, whose records (`domain/record-words.ts`) are also what a mention in a chat gives the Agent, through Conversations' `WorkRecords`.
 
 **Talks to:** through ports bound in [app.module.ts](../../app.module.ts): `KnownProjects` to `ProjectService`, `ProjectWorktrees` to `TaskWorktrees`, `KnownPeople` to `RoleCards`, `KnownPipelines` to `PipelineLibrary`, `SessionPeople`, `SessionTasks` and `TaskThreads` to `ThreadService`, `TaskDecisions` to `DecisionService`. Pipelines reacts to its events and moves started Tasks through `TaskService`.
 
@@ -68,8 +68,9 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 
 ### adapters/conversations/
 
+- `mentioned-work-records.ts`: MentionedWorkRecords
 - `planning-thread-setup.ts`: PLANNING_OFFICE_TOOLS, PlanningThreadSetup
-- Tests: planning-thread-setup.test.ts
+- Tests: mentioned-work-records.test.ts, planning-thread-setup.test.ts
 
 ### adapters/filesystem/
 
@@ -138,6 +139,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `office-limit-events.ts`: OfficeWideLimitChanged
 - `planning-changes.ts`: proposePlan, confirmPlan, proposeDefinitionOfDone, confirmDefinitionOfDone, proposePipeline, confirmPipeline
 - `planning.ts`: PLANNER, PLANNING_THREAD_TITLE, PLANNING_INSTRUCTIONS, PLANNING_OPENING, PlanningProject, PlanningPipeline, PlanningRecord, planningBrief, confirmationWords
+- `record-words.ts`: taskRecordText, ideaRecordText, whereOf
 - `task-changes.ts`: TaskChange, NewTaskSetting, createTask, changeTaskState, undoPlanningMove, markTaskReady, changeStartedTaskState, pauseTask, stopTask, resumeTask, changePriority, reorderTask
 - `task-events.ts`: TaskCreated, TaskStateChanged, TaskPriorityChanged, TaskReordered, TaskPlanProposed, TaskPlanConfirmed, TaskDefinitionOfDoneProposed, TaskDefinitionOfDoneConfirmed, TaskPipelineProposed, TaskPipelineConfirmed, TaskPaused, TaskStopped, TaskResumed, TaskStarted
 - `task-not-found.ts`: TaskNotFound

@@ -28,6 +28,8 @@ import { aPlannerCard } from "./session-role.fixtures.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
 import { ThreadContexts } from "./thread-contexts.js";
 import { ThreadRunner } from "./thread-runner.js";
+import { MentionedRecords } from "./mentioned-records.js";
+import { WorkRecords } from "./work-records.js";
 import { ThreadService } from "./thread-service.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
@@ -119,6 +121,8 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
               SessionPlaces,
               ThreadContexts,
               ThreadRunner,
+              MentionedRecords,
+              WorkRecords,
             ],
           }));
           const started = app;

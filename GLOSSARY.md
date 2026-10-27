@@ -50,8 +50,12 @@ _Avoid_: Session, chat (for the record), channel
 A Thread on a Task in which an Agent asks a Consultant for an answer, or for approval of a call past a Hard switch; the user can read, join or take it over.
 _Avoid_: Delegation, escalation (for this), handoff
 
+**Mention**:
+A Task, Initiative, Idea or Decision named in a chat message, picked with `@` or pasted as the link to its page; the Agent there is given its record with the message.
+_Avoid_: Reference, tag, attachment (an Attachment is added to a record, not named in a message)
+
 **Brief**:
-What a new session is given to pick up work: the record of the Task or Initiative, the person's memory when they keep one, and the previous Stage's Handover note.
+What a new session is given to pick up work: the record of the Task or Initiative, the person's memory when they keep one, the records the user's first message mentions, and the previous Stage's Handover note.
 _Avoid_: Prompt, context dump, summary
 
 **Handover note**:

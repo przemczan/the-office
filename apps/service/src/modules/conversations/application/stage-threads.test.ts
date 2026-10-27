@@ -44,6 +44,8 @@ import { StageThreads, type StageThreadRequest } from "./stage-threads.js";
 import { TaskTokens } from "./task-tokens.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
 import { ThreadRunner } from "./thread-runner.js";
+import { MentionedRecords } from "./mentioned-records.js";
+import { WorkRecords } from "./work-records.js";
 import { ThreadService } from "./thread-service.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
@@ -137,6 +139,8 @@ async function startOn(scripted: ScriptedEngine): Promise<void> {
       TaskThreadSetups,
       SessionPlaces,
       ThreadRunner,
+      MentionedRecords,
+      WorkRecords,
       StageThreads,
       StageDecisions,
       DecisionService,

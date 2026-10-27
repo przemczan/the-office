@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { Injectable, Module } from "@nestjs/common";
-import { TaskThreadSetups } from "../../conversations/index.js";
+import { TaskThreadSetups, WorkRecords } from "../../conversations/index.js";
 import { DEFAULT_OFFICE_WIDE_LIMIT, type TaskLimit } from "../domain/task-start.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { KnownProjects, type KnownProject } from "./known-projects.js";
@@ -141,6 +141,7 @@ const PORTS = [
   TaskThreadsForTests,
   TaskDecisionsForTests,
   TaskThreadSetups,
+  WorkRecords,
 ];
 
 /** Provides them all, for `WorkModule.register({ imports: [this module] })`. */
