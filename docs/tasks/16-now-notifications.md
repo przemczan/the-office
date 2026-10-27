@@ -1,6 +1,6 @@
 # 16 · Now, the status strip and Notifications
 
-Status: in progress
+Status: done
 
 ## Goal
 
@@ -50,15 +50,8 @@ Leave out: the kinds × channels grid, quiet hours, batching, the at-desk hold, 
 - `npx playwright test` serves the last build: run `npm run test:e2e`, which builds first.
 - Step 6's check (`modules/notifications/application/test-project-check.test.ts`, run alone with the live variables) passed on 2026-10-27 in 53 s: planning, The Office's budget Decision (Implement's budget set to what planning used, as budgets count it), the Gate in place of Publish, Done, then the user opening the Task; each Notification went in-app and to the desktop and cleared once handled, and Now showed each stop. The Planner opened no Decision of its own. `cleanUpTestProject` is now shared in `test/live-check.ts`.
 - `shell.e2e.ts` cuts the event stream with `page.routeWebSocket` for "service down".
-- Next: close the task (every DoD box is ticked): `npm run verify:linux`, then archive the Progress log.
+- Done on 2026-10-27: every Definition of Done box ticked, `npm run verify` and `npm run verify:linux` pass.
 
 ## Progress
 
-<!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next. The detail goes in the commit body. -->
-
-- 2026-10-27 · step 1: the Notifications module with Now's read model (GET /now, POST /activity, `now.changed`), its tables and the user's answers as spec Defaults; next, Now and the strip in the web.
-- 2026-10-27 · step 2: Now and the strip in the web from the `now` query, answering Decisions and Gates in place, activity reported; the Gate's actions moved to the shell; next, the Needs you panel.
-- 2026-10-27 · step 3: the Needs you panel, a Drawer over any page opened from the strip, answering Decisions and Gates there; next, the kinds tree and routing.
-- 2026-10-27 · step 4: Notifications raised from the other modules' events with the kinds tree's routing, kept until their item is handled, and sent to the web; next, the channel adapters in the web.
-- 2026-10-27 · step 5: the web's channels behind one port (toast, title and favicon, strip; desktop while the tab isn't focused) and the web's own "service down"; next, the check on the Test Project.
-- 2026-10-27 · step 6: the Test Project check passed (a budget Decision, a Gate and a Done Task, seen on Now and as Notifications, each cleared once handled); "service down" checked by cutting the event stream; next, close the task.
+The log is archived in [archive/16-now-notifications.md](archive/16-now-notifications.md).
