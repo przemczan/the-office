@@ -39,7 +39,9 @@ Leave out: the Pipeline library, the Notifications grid, the Graphite and Paper 
 - Settings › Appearance (step 2, `apps/web/src/surfaces/settings/appearance/`): Light, Dark and "Follow the system" as cards with a `PalettePreview` (`packages/ui`); "Follow the system" is the new `followSystem()` of the appearance store, which forgets the kept palette. It stays in the browser, as the rail's Theme menu does; the rail menu still offers only the palettes.
 - Left out, as the Definition of Done names neither: the prototype's per-person Task limits, the 5-hour window card, Graphite, Paper and the densities.
 - Trap: every test file shares both settings rows. Tests bind `WorkSettingsForTests` / `ConversationsSettingsForTests`; the e2e raises each limit and puts it back.
-- Next: step 3, the acceptance run on the Test Project with the user. It needs the user at the keyboard: agree a real piece of work first, then log each step, its tokens per Thread and what got in the way.
+- Step 3, first run (2026-10-27): "Test task" (`7b8dd556…`, rename the Sync buttons to "Synchronise") planned with the Planner, Quick fix, Implement → Tests → Publish, PR #2 on `office/7b8dd556…`, left open. Threads: Planning 315k shown (input 22, output 2.9k, cache writes 38k, cache reads 274k); Implement 428k shown (input 24, output 3.1k, cache writes 41k, cache reads 384k). No Gate was added, so the Definition of Done's run is still owed: a second Task with a Gate added before Start.
+- Found by the user, for step 5: a Task card opens only from its title, not from anywhere on the card; the card's "…" menu is clipped when the board is short; a Stage session that starts opens its chat tab and switches to it, where it should add the tab after the current one without switching; the chat input should send on Enter and break the line on Shift+Enter; "+ Task" asks for a title only, with no hint that the Task is described in planning; a Thread's token count adds cache reads, about 90% of it, so it reads far higher than what the Stage budget counts (which leaves cache reads out).
+- Next: the second run with a Gate, then the user's verdict.
 
 ## Progress
 
