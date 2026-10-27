@@ -6,29 +6,23 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 import type { INestApplication } from "@nestjs/common";
-import {
-  ideaSchema,
-  taskChangesSchema,
-  taskSchema,
-  threadListSchema,
-  threadSchema,
-  type Project,
-  type Task,
-  type TaskChanges,
-  type Thread,
-} from "@the-office/contracts";
-import { describe, expect, it, vi } from "vitest";
+import { taskChangesSchema, type Project, type TaskChanges } from "@the-office/contracts";
+import { describe, expect, it } from "vitest";
 import {
   addTestProject,
   checkApi,
+  comparable,
   git,
   hireOnHaiku,
   openDecisionsOn,
+  planOnQuickFix,
+  quietly,
   stageLines,
   stagesOf,
   tokensOf,
-  untilThreadWaits,
+  untilWalkStops,
   type Api,
+  type CheckTask,
 } from "../../../../test/live-check.js";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../../test/test-database.js";
@@ -63,18 +57,22 @@ const REMOTE = "origin";
 /** The only base branches this check may publish into: never one the Test Project deploys from. */
 const THROWAWAY_BRANCH = /^office-check-14-[0-9a-f]{8}$/;
 const TASK_BRANCH = /^office\/[0-9a-f-]{36}$/;
-const STOPPED_STATES: readonly Task["state"][] = ["done", "waiting-on-you", "dropped", "paused"];
 const run = promisify(execFile);
 
 const README_LINE = "Published by The Office's check of task 14.";
-const PLAN = [
-  `Add one line at the very end of README.md, at the repository's root: ${README_LINE}`,
-  "Change nothing else.",
-].join("\n\n");
 const DEFINITION_OF_DONE = [
   `README.md ends with the line "${README_LINE}"`,
   "No other file is changed, and npm test passes.",
 ];
+const TASK: CheckTask = {
+  title: "Say on the README that The Office published it",
+  notes: "A one-line change to check publishing.",
+  plan: [
+    `Add one line at the very end of README.md, at the repository's root: ${README_LINE}`,
+    "Change nothing else.",
+  ].join("\n\n"),
+  definitionOfDone: DEFINITION_OF_DONE,
+};
 
 /** A Gate before Publish in Quick fix: Implement → Tests → Gate → Publish. */
 const GATE: Stage = { kind: "gate", key: "look", name: "Look", optional: false };
@@ -131,7 +129,7 @@ describe.runIf(
         await refuseUnlessThrowaway(project, testProject);
         await note(`Project on ${project.baseBranch} (${project.publishingMode})`);
 
-        const planned = await planOnQuickFix(api, project);
+        const planned = await planOnQuickFix(api, project, TASK, PLANNER_OPENING_MS);
         taskId = planned.taskId;
         await note(
           `Task ${taskId} Ready; Planning Thread tokens ${tokensOf(planned.tokens)} ${JSON.stringify(planned.tokens)}`,
@@ -147,7 +145,7 @@ describe.runIf(
         await note(`Seeded Stages: ${stages.map(({ name }) => name).join(" → ")}`);
 
         await api("POST", `/tasks/${taskId}/start`);
-        let task = await untilWalkStops(api, taskId);
+        let task = await untilWalkStops(api, taskId, WALK_MS);
         const atGate = await stagesOf(api, taskId);
         const gate = atGate.find(({ stage }) => stage.key === GATE.key);
         const waitingAtGate =
@@ -169,14 +167,14 @@ describe.runIf(
         await refuseUnlessThrowaway(project, testProject);
         await note(`Continue: Publish opens a pull request into ${REMOTE}/${throwaway}`);
         await api("POST", `/tasks/${taskId}/gate/continue`);
-        task = await untilWalkStops(api, taskId);
+        task = await untilWalkStops(api, taskId, WALK_MS);
         for (const asked of await openDecisionsOn(api, taskId)) {
           // The Definition of Done is checked after the last Stage, here after Publish.
           await note(`Asked after Publish: ${asked.question} [${asked.options.join(" | ")}]`);
           const markDone = asked.options.indexOf("Mark the Task Done");
           if (!asked.question.includes("Definition of Done") || markDone < 0) break;
           await api("POST", `/decisions/${asked.id}/answer`, { kind: "option", option: markDone });
-          task = await untilWalkStops(api, taskId);
+          task = await untilWalkStops(api, taskId, WALK_MS);
         }
         await app.get(StageInterpreter, { strict: false }).walked(taskId);
         for (const stage of await stagesOf(api, taskId)) {
@@ -260,58 +258,6 @@ async function remoteHead(repositoryPath: string, branch: string): Promise<strin
   return line.split("\t")[0] ?? "";
 }
 
-/** Planned as in tasks 12 and 13's checks: the Planner's opening, then the user writes the parts. */
-async function planOnQuickFix(
-  api: Api,
-  project: Project,
-): Promise<{ readonly taskId: string; readonly tokens: Thread["tokens"] }> {
-  const idea = ideaSchema.parse(
-    await api("POST", "/ideas", {
-      title: "Say on the README that The Office published it",
-      notes: "A one-line change to check publishing.",
-      projectId: project.id,
-    }),
-  );
-  const taskId = taskSchema.parse(
-    await api("POST", `/ideas/${idea.id}/shape`, { projectId: project.id }),
-  ).id;
-  await api("POST", `/tasks/${taskId}/planning`);
-  const planningThread = threadListSchema.parse(await api("GET", `/tasks/${taskId}/threads`))[0];
-  if (!planningThread) throw new Error("Planning opened no Thread.");
-  await untilThreadWaits(api, planningThread.id, PLANNER_OPENING_MS);
-  for (const asked of await openDecisionsOn(api, taskId)) {
-    await api("POST", `/decisions/${asked.id}/answer`, {
-      kind: "option",
-      option: asked.recommendation.option,
-    });
-  }
-  await untilThreadWaits(api, planningThread.id, PLANNER_OPENING_MS);
-  await api("PUT", `/tasks/${taskId}/plan`, { plan: PLAN });
-  await api("PUT", `/tasks/${taskId}/definition-of-done`, {
-    definitionOfDone: DEFINITION_OF_DONE,
-  });
-  await api("PUT", `/tasks/${taskId}/pipeline`, { pipelineId: "quick-fix" });
-  expect(taskSchema.parse(await api("POST", `/tasks/${taskId}/ready`)).state).toBe("ready");
-  const { tokens } = threadSchema.parse(await api("GET", `/threads/${planningThread.id}`));
-  return { taskId, tokens };
-}
-
-async function untilWalkStops(api: Api, taskId: string): Promise<Task> {
-  return vi.waitFor(
-    async () => {
-      const task = taskSchema.parse(await api("GET", `/tasks/${taskId}`));
-      if (!STOPPED_STATES.includes(task.state)) throw new Error(task.state);
-      return task;
-    },
-    { timeout: WALK_MS, interval: 5_000 },
-  );
-}
-
-/** A path as git and Windows both write it, to compare the two. */
-function comparable(path: string): string {
-  return path.replaceAll("\\", "/").toLowerCase();
-}
-
 async function changesOf(api: Api, projectId: string, taskId: string): Promise<TaskChanges> {
   return taskChangesSchema.parse(
     await api("GET", `/projects/${projectId}/tasks/${taskId}/changes`),
@@ -358,13 +304,6 @@ async function pullRequestView(repositoryPath: string, url: string): Promise<Pul
   return JSON.parse(
     await gh(repositoryPath, "pr", "view", url, "--json", "url,state,baseRefName,headRefName,body"),
   ) as PullRequestView;
-}
-
-/** One part of the clean-up: what fails is said, and the rest goes on. */
-async function quietly(work: () => Promise<unknown>): Promise<void> {
-  await work().catch((error: unknown) => {
-    console.warn(`Clean-up: ${String(error)}`);
-  });
 }
 
 /**

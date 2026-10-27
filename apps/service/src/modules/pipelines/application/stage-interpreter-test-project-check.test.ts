@@ -29,7 +29,7 @@ import {
   stagesOf,
   tokensOf,
   untilThreadWaits,
-  type Api,
+  untilWalkStops,
 } from "../../../../test/live-check.js";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../../test/test-database.js";
@@ -62,7 +62,6 @@ const PLANNER_OPENING_MS = 240_000;
 const WALK_MS = 60 * 60_000;
 /** A budget Decision is answered by raising it, this many times at most; any other one ends the check. */
 const MOST_RAISES = 2;
-const STOPPED_STATES: readonly Task["state"][] = ["done", "waiting-on-you", "dropped", "paused"];
 const run = promisify(execFile);
 
 const PLAN = [
@@ -180,7 +179,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
 
           await api("POST", `/tasks/${taskId}/start`);
           const startedAt = Date.now();
-          let task = await untilWalkStops(api, taskId);
+          let task = await untilWalkStops(api, taskId, WALK_MS);
           for (let raises = 0; task.state === "waiting-on-you"; raises++) {
             // The walk opens the Decision before it marks the Task Waiting on you.
             const open = await openDecisionsOn(api, taskId);
@@ -197,7 +196,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             if (!raise || raises >= MOST_RAISES) break;
             await note(`Answered: ${raise.options[0]}`);
             await api("POST", `/decisions/${raise.id}/answer`, { kind: "option", option: 0 });
-            task = await untilWalkStops(api, taskId);
+            task = await untilWalkStops(api, taskId, WALK_MS);
           }
           await app.get(StageInterpreter, { strict: false }).walked(taskId);
           await note(
@@ -279,18 +278,6 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
     );
   },
 );
-
-/** Waits until the Task leaves In progress: Done, Waiting on you, or stopped otherwise. */
-async function untilWalkStops(api: Api, taskId: string): Promise<Task> {
-  return vi.waitFor(
-    async () => {
-      const task = taskSchema.parse(await api("GET", `/tasks/${taskId}`));
-      if (!STOPPED_STATES.includes(task.state)) throw new Error(`Still ${task.state}.`);
-      return task;
-    },
-    { timeout: WALK_MS, interval: 5_000 },
-  );
-}
 
 /**
  * What the walk's end lacks: every run ended; Done with every Stage done, or Waiting on you with a

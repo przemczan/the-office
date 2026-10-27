@@ -82,7 +82,7 @@ PipelineLibrary, TaskStagesService, NoRetriesLeft, PipelineCompleted, StageRunEn
 - `stage-runner.ts`: StageOfKind, StageWork, StageRunner
 - `stage-runners.ts`: StageRunners
 - `task-stages-service.ts`: TaskStagesService
-- Tests: agent-stage-runner.test.ts, gate-publish-test-project-check.test.ts, pipeline-library.test.ts, publish-stage.test.ts, running-task-test-project-check.test.ts, script-stage-runner.test.ts, stage-interpreter-decisions.test.ts, stage-interpreter-edited.test.ts, stage-interpreter-gates.test.ts, stage-interpreter-restart.test.ts, stage-interpreter-stop.test.ts, stage-interpreter-telemetry.test.ts, stage-interpreter-test-project-check.test.ts, stage-interpreter.test.ts, stage-run-interruption.test.ts, task-stages-service.test.ts
+- Tests: agent-stage-runner.test.ts, gate-publish-test-project-check.test.ts, pipeline-library.test.ts, publish-stage.test.ts, running-task-test-project-check.test.ts, script-stage-runner.test.ts, stage-editor-test-project-check.test.ts, stage-interpreter-decisions.test.ts, stage-interpreter-edited.test.ts, stage-interpreter-gates.test.ts, stage-interpreter-restart.test.ts, stage-interpreter-stop.test.ts, stage-interpreter-telemetry.test.ts, stage-interpreter-test-project-check.test.ts, stage-interpreter.test.ts, stage-run-interruption.test.ts, task-stages-service.test.ts
 
 ### domain/
 

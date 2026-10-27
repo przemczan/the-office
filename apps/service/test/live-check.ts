@@ -2,18 +2,23 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import {
   decisionListSchema,
+  ideaSchema,
   messageListSchema,
   projectSchema,
   roleSchema,
+  taskSchema,
   taskStagesSchema,
+  threadListSchema,
   threadSchema,
   type Decision,
   type Message,
   type Project,
   type PublishingMode,
+  type Task,
   type TaskStage,
+  type Thread,
 } from "@the-office/contracts";
-import { vi } from "vitest";
+import { expect, vi } from "vitest";
 
 /** A call to the service's API, as the web makes it. */
 export type ApiCall = (method: string, path: string, body?: unknown) => Promise<Response>;
@@ -73,6 +78,18 @@ export async function git(folder: string, ...args: string[]): Promise<string> {
 }
 
 /** All four kinds of a Thread's or a run's tokens, summed. */
+/** A path as git and Windows both write it, to compare the two. */
+export function comparable(path: string): string {
+  return path.replaceAll("\\", "/").toLowerCase();
+}
+
+/** One part of a check's clean-up: what fails is said, and the rest goes on. */
+export async function quietly(work: () => Promise<unknown>): Promise<void> {
+  await work().catch((error: unknown) => {
+    console.warn(`Clean-up: ${String(error)}`);
+  });
+}
+
 export function tokensOf(tokens: Readonly<Record<string, number>>): number {
   return Object.values(tokens).reduce((sum, part) => sum + part, 0);
 }
@@ -135,6 +152,65 @@ export async function untilThreadWaits(
       if (current.state !== "waiting") throw new Error("Still answering.");
     },
     { timeout: timeoutMs, interval: 1_000 },
+  );
+}
+
+/** The Task a check plans: its Idea, then the plan and Definition of Done the user writes. */
+export interface CheckTask {
+  readonly title: string;
+  readonly notes: string;
+  readonly plan: string;
+  readonly definitionOfDone: readonly string[];
+}
+
+/**
+ * Plans `task` on Quick fix as tasks 12 to 15's checks do: the Planner's opening, its Decisions
+ * answered with their recommendations, then the user writes the parts and marks the Task Ready.
+ */
+export async function planOnQuickFix(
+  api: Api,
+  project: Project,
+  task: CheckTask,
+  openingMs: number,
+): Promise<{ readonly taskId: string; readonly tokens: Thread["tokens"] }> {
+  const idea = ideaSchema.parse(
+    await api("POST", "/ideas", { title: task.title, notes: task.notes, projectId: project.id }),
+  );
+  const taskId = taskSchema.parse(
+    await api("POST", `/ideas/${idea.id}/shape`, { projectId: project.id }),
+  ).id;
+  await api("POST", `/tasks/${taskId}/planning`);
+  const planningThread = threadListSchema.parse(await api("GET", `/tasks/${taskId}/threads`))[0];
+  if (!planningThread) throw new Error("Planning opened no Thread.");
+  await untilThreadWaits(api, planningThread.id, openingMs);
+  for (const asked of await openDecisionsOn(api, taskId)) {
+    await api("POST", `/decisions/${asked.id}/answer`, {
+      kind: "option",
+      option: asked.recommendation.option,
+    });
+  }
+  await untilThreadWaits(api, planningThread.id, openingMs);
+  await api("PUT", `/tasks/${taskId}/plan`, { plan: task.plan });
+  await api("PUT", `/tasks/${taskId}/definition-of-done`, {
+    definitionOfDone: task.definitionOfDone,
+  });
+  await api("PUT", `/tasks/${taskId}/pipeline`, { pipelineId: "quick-fix" });
+  expect(taskSchema.parse(await api("POST", `/tasks/${taskId}/ready`)).state).toBe("ready");
+  const { tokens } = threadSchema.parse(await api("GET", `/threads/${planningThread.id}`));
+  return { taskId, tokens };
+}
+
+const STOPPED_STATES: readonly Task["state"][] = ["done", "waiting-on-you", "dropped", "paused"];
+
+/** Waits until the Task leaves In progress: Done, Waiting on you, or stopped otherwise. */
+export async function untilWalkStops(api: Api, taskId: string, timeoutMs: number): Promise<Task> {
+  return vi.waitFor(
+    async () => {
+      const task = taskSchema.parse(await api("GET", `/tasks/${taskId}`));
+      if (!STOPPED_STATES.includes(task.state)) throw new Error(`Still ${task.state}.`);
+      return task;
+    },
+    { timeout: timeoutMs, interval: 5_000 },
   );
 }
 
