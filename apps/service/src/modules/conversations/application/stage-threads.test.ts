@@ -34,6 +34,7 @@ import { ThreadRefused } from "../domain/thread-refused.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
+import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 import { DecisionService } from "./decision-service.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
@@ -129,6 +130,7 @@ async function startOn(scripted: ScriptedEngine): Promise<void> {
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
       ContextPolicySettingsService,
       Briefs,
+      sessionMemoryProvider(),
       TaskThreadSetups,
       SessionPlaces,
       ThreadRunner,
@@ -157,6 +159,7 @@ function aPerson(name: string): string {
 function aStage(fields: Partial<StageThreadRequest>): StageThreadRequest {
   return {
     taskId: randomUUID(),
+    projectId: "admin-panel",
     roleKey: "unset",
     stageName: "Implement",
     model: undefined,

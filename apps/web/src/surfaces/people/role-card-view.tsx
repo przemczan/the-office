@@ -15,7 +15,6 @@ import {
   permissionProfileLines,
   roleTitlesOf,
   SESSION_DEFAULTS,
-  SHARED_MEMORY_OFF,
   taskLimitLabel,
 } from "./role-card-labels.ts";
 import { sessionSkillsOf } from "./session-skills.ts";
@@ -65,9 +64,7 @@ export function RoleCardView({
             <li key={key} className={card.capabilities[key] ? "on" : undefined}>
               <Icon name={card.capabilities[key] ? "check" : "minus"} size={14} />
               <span className="role-card-capability-label">{label}</span>
-              <span className="role-card-note">
-                {key === "sharedMemory" ? SHARED_MEMORY_OFF : hint}
-              </span>
+              <span className="role-card-note">{hint}</span>
             </li>
           ))}
         </ul>

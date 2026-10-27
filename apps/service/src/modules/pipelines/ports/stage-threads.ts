@@ -20,6 +20,8 @@ export interface StageSessionSettings {
 /** An Agent Stage beginning in its Stage Thread. */
 export interface StageThreadRequest {
   readonly taskId: string;
+  /** The Task's Project, whose Memory notes the person's session reads. */
+  readonly projectId: string;
   /** The key of the Stage's Role, whose person works it. */
   readonly roleKey: string;
   readonly stageName: string;

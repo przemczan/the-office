@@ -25,6 +25,7 @@ import { ScriptedEngine, ScriptedEngineModule } from "../../../engine/index.js";
 import { RoleCards, type SessionRole } from "../../../people/index.js";
 import { SkillsModule } from "../../../skills/index.js";
 import { Briefs } from "../../application/briefs.js";
+import { sessionMemoryProvider } from "../../application/session-memory.fixtures.js";
 import { DecisionService } from "../../application/decision-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { SessionPlaces } from "../../application/session-places.js";
@@ -90,6 +91,7 @@ beforeEach(async () => {
       ContextPolicySettingsService,
       ThreadService,
       Briefs,
+      sessionMemoryProvider(),
       TaskThreadSetups,
       SessionPlaces,
       ThreadContexts,
@@ -105,6 +107,7 @@ beforeEach(async () => {
         folder: join(officeData, "worktrees", taskId),
         environment: {},
         useProjectSkills: false,
+        projectId: "admin-panel",
         instructions: "On this Task you plan.",
         officeTools: [],
         brief: "The Task's record.",

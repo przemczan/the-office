@@ -29,8 +29,7 @@ const planner: Preset = {
     engine: "agent-sdk",
     model: "claude-opus-5-5",
     effort: "high",
-    // The preset keeps shared memory, which stays off until tier 2 gives it a form.
-    capabilities: { sharedMemory: false, chat: true, consultant: true },
+    capabilities: { sharedMemory: true, chat: true, consultant: true },
     permissionProfile: { edit: false, run: "read-only-git", web: true },
     hardSwitches: {
       runInstalls: consult("devops"),

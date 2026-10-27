@@ -43,6 +43,7 @@ describe("a planning Thread's session", () => {
       .of({ threadId: randomUUID(), taskId: task.id, roleKey: "planner" });
 
     expect(setup).toEqual({
+      projectId,
       folder: join("/worktrees", projectId, task.id),
       environment: { PROJECT: projectId },
       useProjectSkills: true,

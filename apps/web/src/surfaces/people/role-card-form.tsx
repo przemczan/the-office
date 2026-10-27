@@ -41,7 +41,6 @@ import {
   permissionProfileLines,
   roleTitlesOf,
   SESSION_DEFAULTS,
-  SHARED_MEMORY_OFF,
   type RoleTitles,
 } from "./role-card-labels.ts";
 
@@ -268,21 +267,15 @@ function EngineFields({
 function CapabilityFields({ draft, change }: FieldsProps): ReactNode {
   return (
     <RoleCardGroup group="capabilities">
-      {CAPABILITIES.map(({ key, label, hint }) =>
-        key === "sharedMemory" ? (
-          <RoleCardValue key={key} label={label}>
-            {SHARED_MEMORY_OFF}
-          </RoleCardValue>
-        ) : (
-          <Switch
-            key={key}
-            checked={draft.capabilities[key]}
-            onChange={(on) => change({ capabilities: { ...draft.capabilities, [key]: on } })}
-            label={label}
-            description={hint}
-          />
-        ),
-      )}
+      {CAPABILITIES.map(({ key, label, hint }) => (
+        <Switch
+          key={key}
+          checked={draft.capabilities[key]}
+          onChange={(on) => change({ capabilities: { ...draft.capabilities, [key]: on } })}
+          label={label}
+          description={hint}
+        />
+      ))}
     </RoleCardGroup>
   );
 }

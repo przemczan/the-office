@@ -14,6 +14,7 @@ import type {
   MessageDraft,
   StageWorkClosing,
 } from "../domain/message.js";
+import { SessionMemory } from "./session-memory.js";
 import {
   openingMessage,
   sessionOfficeTools,
@@ -63,6 +64,8 @@ export interface StageSessionSettings {
 /** An Agent Stage beginning, as the Stage interpreter asks for its Stage Thread. */
 export interface StageThreadRequest {
   readonly taskId: string;
+  /** The Task's Project, whose Memory notes the person's session reads. */
+  readonly projectId: string;
   /** The key of the Stage's Role, whose person works it. */
   readonly roleKey: string;
   readonly stageName: string;
@@ -162,6 +165,7 @@ export class StageThreads {
     private readonly sessionSkills: SessionSkills,
     private readonly events: EventBus,
     private readonly settings: ContextPolicySettingsService,
+    private readonly memory: SessionMemory,
   ) {}
 
   /** Throws RoleNotFound when nobody fills the Stage's Role. */
@@ -174,6 +178,7 @@ export class StageThreads {
       continuing: false,
       answered: await this.repository.answeredOn(request.taskId),
       open: undefined,
+      memory: await this.memory.forBrief(request.roleKey, request.projectId),
     });
     const move = decideContext(
       {

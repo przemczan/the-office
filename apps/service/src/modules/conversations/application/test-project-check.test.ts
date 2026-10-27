@@ -22,6 +22,7 @@ import type { Message } from "../domain/message.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
+import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
@@ -113,6 +114,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
               ContextPolicySettingsService,
               ThreadService,
               Briefs,
+              sessionMemoryProvider(),
               TaskThreadSetups,
               SessionPlaces,
               ThreadContexts,

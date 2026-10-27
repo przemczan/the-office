@@ -14,6 +14,7 @@ import { Briefs } from "./application/briefs.js";
 import { ContextPolicySettingsService } from "./application/context-policy-settings.js";
 import { DecisionService } from "./application/decision-service.js";
 import { InterruptedAnswers } from "./application/interrupted-answers.js";
+import { SessionMemory } from "./application/session-memory.js";
 import { SessionPlaces } from "./application/session-places.js";
 import { StageDecisions } from "./application/stage-decisions.js";
 import { StageThreads } from "./application/stage-threads.js";
@@ -49,6 +50,7 @@ export class ConversationsModule {
         ThreadService,
         Briefs,
         TaskThreadSetups,
+        SessionMemory,
         SessionPlaces,
         ThreadContexts,
         ThreadRunner,

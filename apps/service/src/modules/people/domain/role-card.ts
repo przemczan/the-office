@@ -102,9 +102,6 @@ export function roleCardProblems(roleKey: string, card: RoleCardEdit): string[] 
   if (!ENGINE_MODELS[card.engine].includes(card.model)) {
     problems.push("Choose a model the engine offers.");
   }
-  if (card.capabilities.sharedMemory) {
-    problems.push("Shared memory stays off until The Office can keep it.");
-  }
   const limitProblem = taskLimitProblem(card.taskLimit);
   if (limitProblem) problems.push(limitProblem);
   problems.push(...hardSwitchesProblems(roleKey, card.hardSwitches));

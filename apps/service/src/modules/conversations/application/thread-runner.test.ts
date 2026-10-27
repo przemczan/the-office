@@ -33,6 +33,7 @@ import { ThreadRefused } from "../domain/thread-refused.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
+import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 import { DecisionService } from "./decision-service.js";
 import { InterruptedAnswers } from "./interrupted-answers.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
@@ -132,6 +133,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       ContextPolicySettingsService,
       ThreadService,
       Briefs,
+      sessionMemoryProvider(),
       TaskThreadSetups,
       SessionPlaces,
       ThreadContexts,
@@ -171,6 +173,7 @@ function taskSetup(taskId: string): TaskThreadSetup {
     folder: join(officeData, "worktrees", "admin-panel", taskId),
     environment: { PROJECT_VARIABLE: "set" },
     useProjectSkills: true,
+    projectId: "admin-panel",
     instructions: "On this Task you plan.",
     officeTools: ["read_task", OPEN_DECISION_TOOL],
     brief: `You are planning the Task ${taskId}.`,

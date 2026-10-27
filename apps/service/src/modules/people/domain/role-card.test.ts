@@ -34,7 +34,6 @@ describe("roleCardProblems", () => {
       "Give the Role's responsibilities in one paragraph.",
       "Give the instructions the Agent works from.",
       "Choose a model the engine offers.",
-      "Shared memory stays off until The Office can keep it.",
       "A Task limit is 1 to 6 Tasks at once, or none.",
       "Run installs can't consult the Role itself.",
     ]);

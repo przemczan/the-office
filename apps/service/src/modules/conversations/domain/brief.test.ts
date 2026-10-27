@@ -3,8 +3,12 @@ import {
   CHAT_EXCHANGES_TOKENS,
   estimatedTokens,
   freshChatThreadBrief,
+  MEMORY_TOKENS,
   newChatThreadBrief,
+  NO_MEMORY,
+  selectMemory,
   taskThreadBrief,
+  type BriefMemoryNote,
   type BriefProject,
 } from "./brief.js";
 import { aDecision } from "./decision.fixtures.js";
@@ -25,7 +29,7 @@ const answer = (text: string): Message => logged({ kind: "person", roleKey: "pla
 
 describe("a new chat Thread's Brief", () => {
   it("says where each Project's base branch is, and nothing carries over", () => {
-    const brief = newChatThreadBrief(PROJECTS);
+    const brief = newChatThreadBrief(PROJECTS, NO_MEMORY);
 
     expect(brief.text).toContain("in a new Thread: nothing from your earlier Threads carries over");
     expect(brief.text).toContain(
@@ -35,7 +39,7 @@ describe("a new chat Thread's Brief", () => {
   });
 
   it("says so when there is no Project", () => {
-    expect(newChatThreadBrief([]).text).toContain("The Office works on no Project yet.");
+    expect(newChatThreadBrief([], NO_MEMORY).text).toContain("The Office works on no Project yet.");
   });
 });
 
@@ -54,7 +58,12 @@ describe("a chat Thread's Brief when it continues fresh", () => {
       say("And the tests?"),
     ];
 
-    const { text } = freshChatThreadBrief({ title: "Deploys", log, projects: PROJECTS });
+    const { text } = freshChatThreadBrief({
+      title: "Deploys",
+      log,
+      projects: PROJECTS,
+      memory: NO_MEMORY,
+    });
 
     expect(text).toContain("## The Thread\n\nDeploys");
     expect(text).toContain("## Your Handover note\n\nDeploys explained; next: tests.");
@@ -70,7 +79,12 @@ describe("a chat Thread's Brief when it continues fresh", () => {
     const long = "x".repeat(CHAT_EXCHANGES_TOKENS * 2);
     const log = [say(`first ${long}`), answer(`second ${long}`), say("third")];
 
-    const { text, tokens } = freshChatThreadBrief({ title: undefined, log, projects: [] });
+    const { text, tokens } = freshChatThreadBrief({
+      title: undefined,
+      log,
+      projects: [],
+      memory: NO_MEMORY,
+    });
 
     expect(text).toContain("The user: third");
     expect(text).toContain("You: second");
@@ -82,7 +96,7 @@ describe("a chat Thread's Brief when it continues fresh", () => {
   it("keeps the end of a newest message that alone is over the cap", () => {
     const log = [say(`${"x".repeat(CHAT_EXCHANGES_TOKENS * 5)} the end`)];
 
-    const { text } = freshChatThreadBrief({ title: "Long", log, projects: [] });
+    const { text } = freshChatThreadBrief({ title: "Long", log, projects: [], memory: NO_MEMORY });
 
     expect(text).toContain("## The latest exchanges\n\n…");
     expect(text).toMatch(/x the end/);
@@ -94,8 +108,13 @@ describe("a Brief for a Thread on a Task", () => {
 
   it("is the Task's record alone when no Decision was opened", () => {
     expect(
-      taskThreadBrief({ record: "## The Task", continuing: false, answered: [], open: undefined })
-        .text,
+      taskThreadBrief({
+        record: "## The Task",
+        continuing: false,
+        answered: [],
+        open: undefined,
+        memory: NO_MEMORY,
+      }).text,
     ).toBe("## The Task");
   });
 
@@ -111,6 +130,7 @@ describe("a Brief for a Thread on a Task", () => {
         }),
       ],
       open: aDecision({ question: "Which columns?", options: ["All", "The visible ones"] }),
+      memory: NO_MEMORY,
     });
 
     expect(text).toMatch(/^You are continuing a Thread on a Task in a fresh session/);
@@ -128,5 +148,67 @@ describe("a Brief for a Thread on a Task", () => {
     expect(text).toContain('You asked the user "Which columns?", with the options:');
     expect(text).toContain("- The visible ones");
     expect(text).toMatch(/They haven't answered it yet/);
+  });
+});
+
+const note = (text: string, day: number, projectId?: string): BriefMemoryNote => ({
+  text,
+  projectId,
+  writtenAt: new Date(Date.UTC(2026, 9, day)),
+});
+
+const section = (leftOut: number): string =>
+  newChatThreadBrief([], { lines: ["- 2026-10-10: A note."], leftOut }).text;
+
+describe("a person's Memory in a Brief", () => {
+  it("takes the notes for all Projects and those of the Task's, oldest first", () => {
+    const memory = selectMemory(
+      [
+        note("Newest, for all.", 20),
+        note("Of the Admin panel.", 15, "admin-panel"),
+        note("Of another Project.", 12, "billing"),
+        note("Oldest, for all.", 10),
+      ],
+      "admin-panel",
+    );
+
+    expect(memory).toEqual({
+      lines: [
+        "- 2026-10-10: Oldest, for all.",
+        "- 2026-10-15: Of the Admin panel.",
+        "- 2026-10-20: Newest, for all.",
+      ],
+      leftOut: 0,
+    });
+  });
+
+  it("takes only the notes for all Projects in a chat, which is on none", () => {
+    const memory = selectMemory(
+      [note("For all.", 10), note("Of one.", 11, "admin-panel")],
+      undefined,
+    );
+
+    expect(memory.lines).toEqual(["- 2026-10-10: For all."]);
+  });
+
+  it("keeps the newest notes that fit under the cap and counts the older ones left out", () => {
+    const text = "x".repeat(500);
+    const fitting = Math.floor((MEMORY_TOKENS * 4) / `- 2026-10-01: ${text}`.length);
+    const notes = Array.from({ length: fitting + 3 }, (_, index) => note(text, index + 1));
+
+    const memory = selectMemory(notes, undefined);
+
+    expect(memory.lines).toHaveLength(fitting);
+    expect(memory.leftOut).toBe(3);
+    expect(memory.lines.at(-1)).toContain(`2026-10-${fitting + 3}`);
+  });
+
+  it("says in the Brief how many older notes were left out", () => {
+    expect(section(2)).toContain(
+      "## Your Memory\n\nNotes you wrote in earlier sessions, oldest first:\n\n- 2026-10-10: A note.\n\n2 older notes left out.",
+    );
+    expect(section(1)).toContain("1 older note left out.");
+    expect(section(0)).not.toContain("left out");
+    expect(newChatThreadBrief([], NO_MEMORY).text).not.toContain("Your Memory");
   });
 });

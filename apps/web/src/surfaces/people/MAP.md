@@ -15,7 +15,7 @@
 - `person-page.tsx`: PersonPage
 - `person-tasks.ts`: PersonTask, personTasks, WorkFilter, WORK_FILTERS, inFilter
 - `role-card-form.tsx`: RoleCardEditPage
-- `role-card-labels.ts`: CapabilityInfo, CAPABILITIES, SHARED_MEMORY_OFF, ENGINE_LABELS, SESSION_DEFAULTS, HARD_SWITCH_LABELS, ENFORCEMENT_LABELS, ASKS_YOU_UNTIL_HIRED, RoleTitles, roleTitlesOf, taskLimitLabel, taskLimitShort, hardSwitchValueLabel, permissionProfileLines, changeLine, skillsChangeLine
+- `role-card-labels.ts`: CapabilityInfo, CAPABILITIES, ENGINE_LABELS, SESSION_DEFAULTS, HARD_SWITCH_LABELS, ENFORCEMENT_LABELS, ASKS_YOU_UNTIL_HIRED, RoleTitles, roleTitlesOf, taskLimitLabel, taskLimitShort, hardSwitchValueLabel, permissionProfileLines, changeLine, skillsChangeLine
 - `role-card-layout.tsx`: ROLE_CARD_GROUPS, RoleCardGroup, RoleCardValue, PersonBlock
 - `role-card-tab.tsx`: RoleCardTab
 - `role-card-view.tsx`: RoleCardView

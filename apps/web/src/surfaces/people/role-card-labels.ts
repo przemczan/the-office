@@ -42,9 +42,6 @@ export const CAPABILITIES: readonly CapabilityInfo[] = [
   },
 ];
 
-/** The service refuses Shared memory on until The Office can keep one. */
-export const SHARED_MEMORY_OFF = "Off until The Office can keep a memory.";
-
 export const ENGINE_LABELS: Readonly<Record<Engine, string>> = { "agent-sdk": "Agent SDK" };
 
 export const SESSION_DEFAULTS: Readonly<

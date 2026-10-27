@@ -22,6 +22,9 @@ export interface BriefProject {
 /** About as much of a chat Thread's log as a Brief carries (spec §9). */
 export const CHAT_EXCHANGES_TOKENS = 3_000;
 
+/** About as much of a person's Memory as a Brief carries (spec 2.2). */
+export const MEMORY_TOKENS = 2_000;
+
 /** Characters per token, the usual estimate for English text and code. */
 const CHARACTERS_PER_TOKEN = 4;
 
@@ -29,10 +32,53 @@ export function estimatedTokens(text: string): number {
   return Math.ceil(text.length / CHARACTERS_PER_TOKEN);
 }
 
-/** A new chat Thread's Brief: where the Projects are, before the user's first message. */
-export function newChatThreadBrief(projects: readonly BriefProject[]): Brief {
+/** A Memory note as a Brief reads it. */
+export interface BriefMemoryNote {
+  readonly text: string;
+  /** The Project the note is about; undefined when it holds for all of them. */
+  readonly projectId: string | undefined;
+  readonly writtenAt: Date;
+}
+
+/** The part of a person's Memory a Brief carries: the notes that fit, oldest first. */
+export interface BriefMemory {
+  readonly lines: readonly string[];
+  /** How many older notes the cap left out. */
+  readonly leftOut: number;
+}
+
+export const NO_MEMORY: BriefMemory = { lines: [], leftOut: 0 };
+
+/**
+ * The notes that hold for all Projects and those about `projectId`, the newest that fit under the
+ * cap: older ones are dropped, never summarised, since no model call builds a Brief.
+ */
+export function selectMemory(
+  notes: readonly BriefMemoryNote[],
+  projectId: string | undefined,
+): BriefMemory {
+  const relevant = notes
+    .filter((note) => note.projectId === undefined || note.projectId === projectId)
+    .toSorted((first, second) => second.writtenAt.getTime() - first.writtenAt.getTime());
+  const lines: string[] = [];
+  let room = MEMORY_TOKENS * CHARACTERS_PER_TOKEN;
+  for (const note of relevant) {
+    const line = `- ${note.writtenAt.toISOString().slice(0, 10)}: ${note.text}`;
+    if (line.length > room) break;
+    lines.push(line);
+    room -= line.length;
+  }
+  return { lines: lines.toReversed(), leftOut: relevant.length - lines.length };
+}
+
+/**
+ * A new chat Thread's Brief: your Memory and where the Projects are, before the user's first
+ * message.
+ */
+export function newChatThreadBrief(projects: readonly BriefProject[], memory: BriefMemory): Brief {
   return briefOf([
     "You are talking with the user in your chat, in a new Thread: nothing from your earlier Threads carries over.",
+    memorySection(memory),
     projectsSection(projects),
   ]);
 }
@@ -45,11 +91,13 @@ export function freshChatThreadBrief({
   title,
   log,
   projects,
+  memory,
 }: {
   readonly title: string | undefined;
   /** The Thread's log so far, oldest first. */
   readonly log: readonly Message[];
   readonly projects: readonly BriefProject[];
+  readonly memory: BriefMemory;
 }): Brief {
   const note = log.findLast((message) => message.kind === "handover-note");
   return briefOf([
@@ -57,6 +105,7 @@ export function freshChatThreadBrief({
     title === undefined ? undefined : `## The Thread\n\n${title}`,
     note && `## Your Handover note\n\n${note.text}`,
     exchangesSection(log),
+    memorySection(memory),
     projectsSection(projects),
   ]);
 }
@@ -71,6 +120,8 @@ export interface TaskThreadRecord {
   readonly answered: readonly Decision[];
   /** The Decision this Thread waits on the user for, if any. */
   readonly open: Decision | undefined;
+  /** The person's Memory notes for the Task's Project. */
+  readonly memory: BriefMemory;
 }
 
 /**
@@ -79,15 +130,29 @@ export interface TaskThreadRecord {
  * Unlike a chat's, it carries none of the Thread's exchanges: a Task's record holds what was
  * settled (spec §2.5).
  */
-export function taskThreadBrief({ record, continuing, answered, open }: TaskThreadRecord): Brief {
+export function taskThreadBrief({
+  record,
+  continuing,
+  answered,
+  open,
+  memory,
+}: TaskThreadRecord): Brief {
   return briefOf([
     continuing
       ? "You are continuing a Thread on a Task in a fresh session: the earlier session's context is gone, and this Brief, from the Task's record, is what you pick up from."
       : undefined,
     record,
+    memorySection(memory),
     answeredSection(answered),
     open && openSection(open),
   ]);
+}
+
+function memorySection({ lines, leftOut }: BriefMemory): string | undefined {
+  if (lines.length === 0 && leftOut === 0) return undefined;
+  const omitted =
+    leftOut === 0 ? "" : `\n\n${leftOut} older ${leftOut === 1 ? "note" : "notes"} left out.`;
+  return `## Your Memory\n\nNotes you wrote in earlier sessions, oldest first:\n\n${lines.join("\n")}${omitted}`;
 }
 
 function answeredSection(decisions: readonly Decision[]): string | undefined {

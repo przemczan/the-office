@@ -8,6 +8,7 @@ import {
 import type { Thread } from "../domain/thread.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
+import { SessionMemory } from "./session-memory.js";
 import { TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js";
 
 /** Assembles each new session's Brief from the record, with no model call (spec §2.5). */
@@ -17,6 +18,7 @@ export class Briefs {
     private readonly repository: ThreadRepository,
     private readonly bases: ProjectBases,
     private readonly taskThreads: TaskThreadSetups,
+    private readonly memory: SessionMemory,
   ) {}
 
   /** The Brief of the Thread's next session. Read before the message it answers is logged. */
@@ -41,14 +43,17 @@ export class Briefs {
       continuing: thread.session !== undefined,
       answered: await this.repository.answeredOn(thread.home.taskId),
       open: thread.openDecision,
+      memory: await this.memory.forBrief(thread.roleKey, setup.projectId),
     });
   }
 
   /** A new chat Thread's, or the one it continues fresh with from its log so far. */
   private async forChatThread(thread: Thread): Promise<Brief> {
     const projects = await this.bases.list();
-    if (thread.session === undefined) return newChatThreadBrief(projects);
+    // A chat is on no Project, so it reads the notes that hold for all of them.
+    const memory = await this.memory.forBrief(thread.roleKey, undefined);
+    if (thread.session === undefined) return newChatThreadBrief(projects, memory);
     const log = await this.repository.messages(thread.id);
-    return freshChatThreadBrief({ title: thread.title, log, projects });
+    return freshChatThreadBrief({ title: thread.title, log, projects, memory });
   }
 }

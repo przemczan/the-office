@@ -63,6 +63,7 @@ export class PlanningThreadSetup implements TaskThreadSource, OnModuleInit {
       this.pipelines.list(),
     ]);
     return {
+      projectId: task.projectId,
       folder: worktree.path,
       environment: worktree.environment,
       useProjectSkills: project.useProjectSkills,

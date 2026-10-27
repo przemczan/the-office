@@ -27,7 +27,7 @@ export class MemoryOfficeTools implements OnModuleInit {
         project: z
           .string()
           .optional()
-          .describe("The Project the note is about, as list_projects names it; none for all."),
+          .describe("The Project the note is about, by the id list_projects gives; none for all."),
       }),
       run: async ({ note, project }, { sessionId }) => {
         const thread = await this.threads.findBySession(sessionId);

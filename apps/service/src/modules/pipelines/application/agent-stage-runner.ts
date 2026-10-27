@@ -221,6 +221,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     const inItsThread = answered !== undefined || held?.threadId !== undefined;
     return this.threads.open({
       taskId: run.taskId,
+      projectId: task.project.id,
       roleKey: stage.role,
       stageName: stage.name,
       model: stage.model,

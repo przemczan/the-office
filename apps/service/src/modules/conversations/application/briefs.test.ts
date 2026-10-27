@@ -7,6 +7,7 @@ import {
   freshChatThreadBrief,
   newChatThreadBrief,
   taskThreadBrief,
+  type BriefMemory,
   type BriefProject,
 } from "../domain/brief.js";
 import { TurnEnded } from "../domain/conversation-events.js";
@@ -18,6 +19,7 @@ import { aThread, aUserMessage } from "../domain/thread.fixtures.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
+import { sessionMemoryProvider, type MemoryAsk } from "./session-memory.fixtures.js";
 import { TaskThreadSetups, type TaskThreadRequest } from "./task-thread-setups.js";
 
 const PROJECTS: BriefProject[] = [
@@ -27,6 +29,9 @@ const PROJECTS: BriefProject[] = [
 let app: INestApplication;
 let briefs: Briefs;
 let repository: ThreadRepository;
+
+const MEMORY: BriefMemory = { lines: ["- 2026-10-10: Prefers short answers."], leftOut: 1 };
+const asked: MemoryAsk[] = [];
 
 beforeAll(async () => {
   const bases: ProjectBases = {
@@ -40,12 +45,14 @@ beforeAll(async () => {
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       { provide: ProjectBases, useValue: bases },
       TaskThreadSetups,
+      sessionMemoryProvider(MEMORY, asked),
       Briefs,
     ],
   }));
   app.get(TaskThreadSetups).provide({
     setUp: ({ taskId }: TaskThreadRequest) =>
       Promise.resolve({
+        projectId: "admin-panel",
         folder: `/office/worktrees/admin-panel/${taskId}`,
         environment: {},
         useProjectSkills: true,
@@ -77,7 +84,7 @@ const A_SESSION = {
 describe("Briefs", () => {
   it("briefs a Thread nobody answered in yet as a new one", async () => {
     await expect(briefs.forThread(aThread({ id: randomUUID() }))).resolves.toEqual(
-      newChatThreadBrief(PROJECTS),
+      newChatThreadBrief(PROJECTS, MEMORY),
     );
   });
 
@@ -93,15 +100,33 @@ describe("Briefs", () => {
     );
 
     await expect(briefs.forThread(titled)).resolves.toEqual(
-      freshChatThreadBrief({ title: "Read the deploy workflow", log: [said], projects: PROJECTS }),
+      freshChatThreadBrief({
+        title: "Read the deploy workflow",
+        log: [said],
+        projects: PROJECTS,
+        memory: MEMORY,
+      }),
     );
+  });
+
+  it("reads the person's Memory for no Project in a chat, and for the Task's Project on a Task", async () => {
+    asked.length = 0;
+    const roleKey = "planner";
+
+    await briefs.forThread(aThread({ id: randomUUID(), roleKey }));
+    await briefs.forThread(aThread({ roleKey, home: { kind: "task", taskId: randomUUID() } }));
+
+    expect(asked).toEqual([
+      { roleKey, projectId: undefined },
+      { roleKey, projectId: "admin-panel" },
+    ]);
   });
 
   it("briefs a Thread on a Task from the Task's record, with none of its exchanges", async () => {
     const taskId = randomUUID();
     const home = { kind: "task", taskId } as const;
 
-    const record = { record: recordOf(taskId), answered: [], open: undefined };
+    const record = { record: recordOf(taskId), answered: [], open: undefined, memory: MEMORY };
 
     await expect(briefs.forThread(aThread({ home }))).resolves.toEqual(
       taskThreadBrief({ ...record, continuing: false }),
@@ -148,6 +173,7 @@ describe("Briefs", () => {
         continuing: false,
         answered: [first, second],
         open,
+        memory: MEMORY,
       }),
     );
   });

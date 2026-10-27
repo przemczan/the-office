@@ -79,6 +79,8 @@ DecisionService, InterruptedAnswers, StageDecisions, StageDecisionRequest, Stage
 - `decision-service.ts`: DecisionService
 - `interrupted-answers.ts`: InterruptedAnswers
 - `session-log.ts`: SessionEvent, SessionLogger, sessionLogLines
+- `session-memory.fixtures.ts`: MemoryAsk, sessionMemoryProvider
+- `session-memory.ts`: SessionMemory
 - `session-places.ts`: SessionPlace, SessionPlaces
 - `session-role.fixtures.ts`: aPlannerCard
 - `stage-decisions.ts`: StageDecisionRequest, StageDecisions
@@ -92,7 +94,7 @@ DecisionService, InterruptedAnswers, StageDecisions, StageDecisionRequest, Stage
 
 ### domain/
 
-- `brief.ts`: Brief, BriefProject, CHAT_EXCHANGES_TOKENS, estimatedTokens, newChatThreadBrief, freshChatThreadBrief, TaskThreadRecord, taskThreadBrief
+- `brief.ts`: Brief, BriefProject, CHAT_EXCHANGES_TOKENS, MEMORY_TOKENS, estimatedTokens, BriefMemoryNote, BriefMemory, NO_MEMORY, selectMemory, newChatThreadBrief, freshChatThreadBrief, TaskThreadRecord, taskThreadBrief
 - `chat-not-found.ts`: ChatNotFound
 - `consult.ts`: APPROVAL_OPTIONS, Consult, consultDecision
 - `context-policy.ts`: SessionDefault, ContextMove, ContextReason, ContextPolicySettings, DEFAULT_CONTEXT_POLICY_SETTINGS, Continuation, ContextAlternative, ContextDecision, decideContext

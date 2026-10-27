@@ -10,6 +10,8 @@ export interface TaskThreadRequest {
 
 /** What a session of a Thread on a Task works with, from the Task's record. */
 export interface TaskThreadSetup {
+  /** The Task's Project, whose Memory notes the person's sessions read. */
+  readonly projectId: string;
   /** The Task's worktree, which the session reads. */
   readonly folder: string;
   /** The Project's command environment. */

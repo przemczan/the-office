@@ -10,7 +10,7 @@ describe("PRESETS", () => {
 
   // Spec §2.2's preset table, with shared memory off until tier 2, and §9's Task limits.
   it.each([
-    ["planner", { sharedMemory: false, chat: true, consultant: true }, 2],
+    ["planner", { sharedMemory: true, chat: true, consultant: true }, 2],
     ["developer", { sharedMemory: false, chat: false, consultant: false }, 3],
     ["reviewer", { sharedMemory: false, chat: false, consultant: false }, 3],
   ])(
