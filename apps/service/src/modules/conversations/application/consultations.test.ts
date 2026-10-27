@@ -57,6 +57,7 @@ let officeData: string;
 let askerKey: string;
 let consultantKey: string;
 let devopsKey: string;
+let architectKey: string;
 
 let threads: ThreadService;
 let decisions: DecisionService;
@@ -67,6 +68,7 @@ beforeEach(async () => {
   askerKey = `asker-${randomUUID()}`;
   consultantKey = `consultant-${randomUUID()}`;
   devopsKey = `devops-${randomUUID()}`;
+  architectKey = `architect-${randomUUID()}`;
 });
 
 afterEach(async () => {
@@ -81,11 +83,13 @@ function roleOf(roleKey: string): SessionRole {
       ? { name: "Casey", title: "CTO", capabilities: consultant }
       : roleKey === devopsKey
         ? { name: "Riley", title: "Devops", capabilities: consultant }
-        : {
-            name: "Dana",
-            title: "Developer",
-            capabilities: { sharedMemory: false, chat: true, consultant: false },
-          },
+        : roleKey === architectKey
+          ? { name: "Ari", title: "Architect", capabilities: consultant }
+          : {
+              name: "Dana",
+              title: "Developer",
+              capabilities: { sharedMemory: false, chat: true, consultant: false },
+            },
   );
   return { roleKey, cardVersion: 1, card };
 }
@@ -103,14 +107,17 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     "find" | "forResumedSession" | "consultants" | "hiredKeys" | "roleTitle"
   > = {
     find: (key) =>
-      Promise.resolve([askerKey, consultantKey, devopsKey].includes(key) ? roleOf(key) : undefined),
+      Promise.resolve(
+        [askerKey, consultantKey, devopsKey, architectKey].includes(key) ? roleOf(key) : undefined,
+      ),
     forResumedSession: (key) => Promise.resolve(roleOf(key)),
     consultants: () =>
       Promise.resolve([
         { roleKey: consultantKey, name: "Casey", title: "CTO" },
         { roleKey: devopsKey, name: "Riley", title: "Devops" },
+        { roleKey: architectKey, name: "Ari", title: "Architect" },
       ]),
-    hiredKeys: () => Promise.resolve(new Set([askerKey, consultantKey, devopsKey])),
+    hiredKeys: () => Promise.resolve(new Set([askerKey, consultantKey, devopsKey, architectKey])),
     roleTitle: (key) => key,
   };
   const bases: ProjectBases = {
@@ -430,7 +437,7 @@ describe("an approval passed on", () => {
     await startWith(
       started(...ASKS_DEVOPS_TO_APPROVE),
       started(...passesOnTo("CTO", "It changes the machine every Project builds on.")),
-      started(...passesOnTo("Devops", "Only the user decides what the machine runs.")),
+      started(...passesOnTo("Architect", "Only the user decides what the machine runs.")),
     );
     const asker = await developerOnATask();
 
