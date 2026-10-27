@@ -75,7 +75,7 @@ export const ENFORCEMENT_LABELS = {
 /** What a Consult value naming a Role nobody fills does for now. */
 export const ASKS_YOU_UNTIL_HIRED = "Asks you until someone is hired";
 
-const RUN_LABELS: Readonly<Record<RunPermission, string>> = {
+export const RUN_LABELS: Readonly<Record<RunPermission, string>> = {
   "read-only-git": "Runs read-only git only",
   "project-commands": "Runs the Project's commands and read-only git",
   anything: "Runs any command; git read-only",

@@ -59,9 +59,6 @@ export interface RoleCard {
   readonly sessionDefault: SessionDefault;
 }
 
-/** What the user edits on a Role card: all but the permission profile, editable in tier 2. */
-export type RoleCardEdit = Omit<RoleCard, "permissionProfile">;
-
 export const NAME_LENGTH = 40;
 export const TITLE_LENGTH = 40;
 export const RESPONSIBILITIES_LENGTH = 400;
@@ -69,7 +66,7 @@ export const RESPONSIBILITIES_LENGTH = 400;
 export const INSTRUCTIONS_LENGTH = 8_000;
 
 /** The card as it is kept: without the spaces around what the user typed. */
-export function trimmedRoleCard<Card extends RoleCardEdit>(card: Card): Card {
+export function trimmedRoleCard<Card extends RoleCard>(card: Card): Card {
   return {
     ...card,
     name: card.name.trim(),
@@ -80,7 +77,7 @@ export function trimmedRoleCard<Card extends RoleCardEdit>(card: Card): Card {
 }
 
 /** Why the card of the Role `roleKey` can't be saved, in the UI's words; empty when it can. */
-export function roleCardProblems(roleKey: string, card: RoleCardEdit): string[] {
+export function roleCardProblems(roleKey: string, card: RoleCard): string[] {
   const problems = [
     ...personNameProblems(card.name),
     ...textProblems(card.title, TITLE_LENGTH, "Give the Role a title.", "A Role's title"),

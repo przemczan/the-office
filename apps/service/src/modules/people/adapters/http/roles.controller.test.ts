@@ -13,7 +13,7 @@ import {
   roleWebEventSchema,
   skillWebEventSchema,
   type Role,
-  type RoleCardEdit,
+  type RoleCard,
 } from "@the-office/contracts";
 import { inArray } from "drizzle-orm";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -109,9 +109,8 @@ async function anOnSkill(): Promise<string> {
   return name;
 }
 
-function editOf({ card }: Role): RoleCardEdit {
-  const { permissionProfile: _permissionProfile, ...edit } = card;
-  return edit;
+function editOf({ card }: Role): RoleCard {
+  return card;
 }
 
 describe("GET /api/presets", () => {
@@ -177,6 +176,43 @@ describe("POST /api/roles", () => {
     ]);
   });
 
+  it("hires a person from scratch into a new Role keyed from its title, with its skills", async () => {
+    const title = `Analyst ${randomUUID().slice(0, 8)}`;
+    const roleKey = title.toLowerCase().replace(" ", "-");
+    const skill = await anOnSkill();
+    const { card: presetCard } = roleSchema.parse(await hire("developer", "Ada"));
+    const card = { ...presetCard, name: "Mia", title, skills: [skill] };
+
+    try {
+      const response = await send("POST", "/roles", { card });
+
+      expect(response.status).toBe(201);
+      const role = roleSchema.parse(await response.json());
+      expect(role).toMatchObject({ key: roleKey, cardVersion: 1, card });
+      expect(roleSchema.parse(await get(`/roles/${roleKey}`)).card.skills).toEqual([skill]);
+      expect(webEvents()).toContainEqual({ type: "role.hired", roleKey });
+    } finally {
+      await app
+        .get<Database>(DATABASE)
+        .delete(roles)
+        .where(inArray(roles.key, [roleKey]));
+      await app.get(RoleSkills).assignToRole(roleKey, []);
+    }
+  });
+
+  it("refuses to hire from scratch into a Role the presets keep, or with a skill the library lacks", async () => {
+    const { card } = roleSchema.parse(await hire("developer", "Ada"));
+
+    const response = await send("POST", "/roles", {
+      card: { ...card, title: "Office Manager", skills: ["no-such-skill"] },
+    });
+
+    expect(await reasonsOf(response)).toEqual([
+      "Hire the Office Manager Role from its preset.",
+      "The library has no skill no-such-skill.",
+    ]);
+  });
+
   it("refuses one of two hires into a Role at once", async () => {
     const responses = await Promise.all([
       send("POST", "/roles", { roleKey: "reviewer", name: "Ola" }),
@@ -210,13 +246,14 @@ describe("GET /api/roles", () => {
 });
 
 describe("PUT /api/roles/:key/card", () => {
-  it("saves the card as its next version, keeping the permission profile", async () => {
+  it("saves the card as its next version, with its permission profile", async () => {
     const hired = await hire("developer", "Ada");
+    const permissionProfile = { edit: false, run: "read-only-git", web: true };
     const edit = {
       ...editOf(hired),
       taskLimit: 2,
       capabilities: { ...hired.card.capabilities, chat: true },
-      permissionProfile: { edit: false, run: "read-only-git", web: false },
+      permissionProfile,
     };
 
     const response = await send("PUT", "/roles/developer/card", edit);
@@ -224,8 +261,14 @@ describe("PUT /api/roles/:key/card", () => {
     expect(response.status).toBe(200);
     const role = roleSchema.parse(await response.json());
     expect(role.cardVersion).toBe(2);
-    expect(role.card).toMatchObject({ taskLimit: 2, capabilities: { chat: true } });
-    expect(role.card.permissionProfile).toEqual(hired.card.permissionProfile);
+    expect(role.card).toMatchObject({
+      taskLimit: 2,
+      capabilities: { chat: true },
+      permissionProfile,
+    });
+    expect(roleSchema.parse(await get("/roles/developer")).card.permissionProfile).toEqual(
+      permissionProfile,
+    );
     expect(webEvents()).toEqual([
       { type: "role.hired", roleKey: "developer" },
       { type: "role.card-changed", roleKey: "developer" },

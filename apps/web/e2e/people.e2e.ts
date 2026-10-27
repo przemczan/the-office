@@ -39,9 +39,8 @@ async function hireFromPreset(page: Page, preset: string, name: string): Promise
 async function setDevelopersTaskLimit(page: Page, taskLimit: TaskLimit): Promise<TaskLimit> {
   const read = await page.request.get("/api/roles/developer");
   const { card } = roleSchema.parse(await read.json());
-  const { permissionProfile: _permissionProfile, ...edit } = card;
   const saved = await page.request.put("/api/roles/developer/card", {
-    data: { ...edit, taskLimit },
+    data: { ...card, taskLimit },
   });
   expect(saved.status()).toBe(200);
   return card.taskLimit;
@@ -119,6 +118,8 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   await form.getByText("Consultant", { exact: true }).click();
   await form.getByLabel("Run installs").selectOption("ask-me");
   await form.getByLabel("Publish outside the Pipeline").selectOption("never");
+  await form.getByLabel("Runs").selectOption("project-commands");
+  await form.getByText("Searches and fetches the web", { exact: true }).click();
   await form.getByText(SKILL, { exact: true }).click();
   await expect(
     form.locator("label").filter({ hasText: SKILL }).getByRole("checkbox"),
@@ -150,6 +151,9 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   await expect(permissions).toContainText("Run installsAsk me");
   await expect(permissions).toContainText("Publish outside the PipelineNever");
   await expect(permissions).not.toContainText("Asks you until someone is hired");
+  await expect(permissions).toContainText("Edits files in its worktree");
+  await expect(permissions).toContainText("Runs the Project's commands and read-only git");
+  await expect(permissions).toContainText("No web");
   await expect(roleCardGroup(page, "Skills")).toContainText(SKILL);
 
   const changes = page.getByRole("listitem").filter({ hasText: "Role card version 2" });
@@ -177,6 +181,33 @@ test("a Role card the service refuses names every reason, and keeps what was typ
   await expect(form.getByLabel("Responsibilities")).toHaveValue(
     "First paragraph.\n\nSecond paragraph.",
   );
+});
+
+test("the user hires a person from scratch, filling the whole Role card", async ({ page }) => {
+  await page.goto("/people");
+  await page.getByRole("button", { name: "Start from scratch" }).click();
+  await expect(page).toHaveURL(/\/hire$/);
+  const form = page.locator("form.role-card-form");
+  await form.getByLabel("Name", { exact: true }).fill("Mia");
+  await form.getByLabel("Title", { exact: true }).fill("Data Analyst");
+  await page.getByRole("button", { name: "Hire Mia" }).click();
+  // Responsibilities and instructions are still empty.
+  await expect(page.getByText("The person can't be hired yet")).toBeVisible();
+  await expect(page.getByText("Give the Role's responsibilities in one paragraph.")).toBeVisible();
+  await expect(form.getByLabel("Name", { exact: true })).toHaveValue("Mia");
+
+  await form.getByLabel("Responsibilities").fill("Answers questions with the Project's data.");
+  await form.getByLabel("Instructions").fill("Query read-only; report what the numbers show.");
+  await form.getByLabel("Runs").selectOption("project-commands");
+  await page.getByRole("button", { name: "Hire Mia" }).click();
+
+  await expect(page.getByRole("heading", { name: "Mia · Data Analyst" })).toBeVisible();
+  await expect(page).toHaveURL(/\/people\/data-analyst$/);
+  await page.goto("/people/data-analyst/role");
+  await expect(roleCardGroup(page, "Permissions")).toContainText(
+    "Runs the Project's commands and read-only git",
+  );
+  await expect(roleCardGroup(page, "Work")).toContainText("1 at once");
 });
 
 test("Assign… in Settings › Skills gives a skill to the people chosen", async ({ page }) => {

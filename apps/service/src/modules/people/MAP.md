@@ -1,6 +1,6 @@
 # People: module map
 
-**Owns:** Roles hired from presets (Planner, Developer, Reviewer), Role cards and their versions (`roles`, `role_card_versions`), authority and Hard switches, Task limits; each person's Memory (`memory_notes`, append-only notes, deleted one at a time or all).
+**Owns:** Roles hired from presets (Planner, Developer, Reviewer) or from scratch (keyed from the card's title by `roleKeyFor`, never a preset's key), Role cards and their versions (`roles`, `role_card_versions`), authority and Hard switches, Task limits; each person's Memory (`memory_notes`, append-only notes, deleted one at a time or all).
 
 **Talks to:** calls Engine (profiles) and Skills (a Role's skills). Work and Pipelines read cards through their `KnownPeople` ports, bound to `RoleCards` in [app.module.ts](../../app.module.ts); Conversations reads them through the index.
 
@@ -83,15 +83,16 @@ RoleCards, SessionRole, MemoryService, RoleCardChanged, RoleHired, RoleRefused, 
 - `presets.ts`: Preset, PRESETS, presetFor
 - `role-card-changes.ts`: RoleCardField, RoleCardValue, RoleCardFieldChange, roleCardChanges
 - `role-card-version-not-found.ts`: RoleCardVersionNotFound
-- `role-card.ts`: ENGINES, Engine, ENGINE_MODELS, EFFORTS, Effort, SESSION_DEFAULTS, SessionDefault, Capabilities, RoleCard, RoleCardEdit, NAME_LENGTH, TITLE_LENGTH, RESPONSIBILITIES_LENGTH, INSTRUCTIONS_LENGTH, trimmedRoleCard, roleCardProblems, personNameProblems
-- `role-changes.ts`: RoleChange, hire, changeRoleCard
+- `role-card.ts`: ENGINES, Engine, ENGINE_MODELS, EFFORTS, Effort, SESSION_DEFAULTS, SessionDefault, Capabilities, RoleCard, NAME_LENGTH, TITLE_LENGTH, RESPONSIBILITIES_LENGTH, INSTRUCTIONS_LENGTH, trimmedRoleCard, roleCardProblems, personNameProblems
+- `role-changes.ts`: RoleChange, hire, hireFromScratch, changeRoleCard
 - `role-events.ts`: RoleHired, RoleMemoryChanged, RoleCardChanged
+- `role-key.ts`: roleKeyFor
 - `role-not-found.ts`: RoleNotFound
 - `role-refused.ts`: RoleRefused
 - `role.fixtures.ts`: aRoleCard, aRole
 - `role.ts`: Role, RoleCardVersion
 - `task-limit.ts`: TaskLimit, LOWEST_TASK_LIMIT, HIGHEST_TASK_LIMIT, taskLimitProblem
-- Tests: hard-switches.test.ts, memory-note.test.ts, presets.test.ts, role-card-changes.test.ts, role-card.test.ts, role-changes.test.ts, task-limit.test.ts
+- Tests: hard-switches.test.ts, memory-note.test.ts, presets.test.ts, role-card-changes.test.ts, role-card.test.ts, role-changes.test.ts, role-key.test.ts, task-limit.test.ts
 
 ### ports/
 

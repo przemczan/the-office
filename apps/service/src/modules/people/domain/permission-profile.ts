@@ -9,7 +9,7 @@ export type RunPermission = (typeof RUN_PERMISSIONS)[number];
 /**
  * What a Role's Agents may do, as data on its Role card; a Stage may narrow it, never widen it. Every
  * Agent reads its worktree and its skills folder, and a chat only reads, whatever the profile says
- * (spec §6). Shown read-only until tier 2.
+ * (spec §6). Sessions started after an edit get it.
  */
 export interface PermissionProfile {
   /** Whether it edits files in its worktree. */

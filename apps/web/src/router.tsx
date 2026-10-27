@@ -12,7 +12,7 @@ import { PeoplePage } from "./surfaces/people/people-page.tsx";
 import { ConversationsTab } from "./surfaces/people/conversations-tab.tsx";
 import { MemoryTab } from "./surfaces/people/memory-tab.tsx";
 import { PersonPage } from "./surfaces/people/person-page.tsx";
-import { RoleCardEditPage } from "./surfaces/people/role-card-form.tsx";
+import { HireFromScratchPage, RoleCardEditPage } from "./surfaces/people/role-card-form.tsx";
 import { RoleCardTab } from "./surfaces/people/role-card-tab.tsx";
 import { WorkTab } from "./surfaces/people/work-tab.tsx";
 import { ProjectPage } from "./surfaces/projects/project-page.tsx";
@@ -174,6 +174,14 @@ const roleCardEditRoute = createRoute({
   staticData: { title: "People" },
 });
 
+// Outside "people/", where a Role's key could be any word.
+const hireFromScratchRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "hire",
+  component: HireFromScratchPage,
+  staticData: { title: "People" },
+});
+
 const projectsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "projects",
@@ -241,6 +249,7 @@ export const router = createRouter({
       roleCardRoute,
       roleCardEditRoute,
     ]),
+    hireFromScratchRoute,
     projectsRoute,
     projectRoute,
     settingsRoute.addChildren([

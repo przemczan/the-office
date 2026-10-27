@@ -1,11 +1,11 @@
 import { Body, Controller, Get, Param, Post, Put, UseFilters } from "@nestjs/common";
 import {
   hireSchema,
-  roleCardEditSchema,
+  roleCardSchema,
   type Hire,
   type Preset as PresetResponse,
   type Role as RoleResponse,
-  type RoleCardEdit,
+  type RoleCard,
   type RoleCardOptions,
   type RoleChange as RoleChangeResponse,
 } from "@the-office/contracts";
@@ -38,8 +38,11 @@ export class RolesController {
   }
 
   @Post("roles")
-  async hire(@Body(new ContractPipe(hireSchema)) { roleKey, name }: Hire): Promise<RoleResponse> {
-    const role = await this.roles.hire(roleKey, name);
+  async hire(@Body(new ContractPipe(hireSchema)) hiring: Hire): Promise<RoleResponse> {
+    const role =
+      "card" in hiring
+        ? await this.roles.hireFromScratch(...cardAndSkills(hiring.card))
+        : await this.roles.hire(hiring.roleKey, hiring.name);
     return toRoleResponse(role, await this.hiredRoleKeys());
   }
 
@@ -58,9 +61,9 @@ export class RolesController {
   @Put("roles/:key/card")
   async changeCard(
     @Param("key") key: string,
-    @Body(new ContractPipe(roleCardEditSchema)) { skills, ...edit }: RoleCardEdit,
+    @Body(new ContractPipe(roleCardSchema)) card: RoleCard,
   ): Promise<RoleResponse> {
-    const role = await this.roles.changeCard(key, edit, skills);
+    const role = await this.roles.changeCard(key, ...cardAndSkills(card));
     return toRoleResponse(role, await this.hiredRoleKeys());
   }
 
@@ -72,6 +75,11 @@ export class RolesController {
   private async hiredRoleKeys(): Promise<ReadonlySet<string>> {
     return new Set((await this.roles.list()).map(({ role }) => role.key));
   }
+}
+
+/** Splits the card the user sent into the Role card and the skills the Skills module keeps. */
+function cardAndSkills({ skills, ...card }: RoleCard): [Omit<RoleCard, "skills">, string[]] {
+  return [card, skills];
 }
 
 function toRoleResponse(

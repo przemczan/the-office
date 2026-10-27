@@ -72,7 +72,6 @@ export function RoleCardView({
       <RoleCardGroup group="permissions">
         <RoleCardValue label="Permission profile">
           {permissionProfileLines(card.permissionProfile).join(" · ")}
-          <span className="role-card-note">Set by the preset; read-only for now.</span>
         </RoleCardValue>
         <RoleCardValue label="Hard switches">
           <ul className="role-card-switches">

@@ -2,12 +2,13 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "@tanstack/react-router";
 import {
   effortSchema,
+  runPermissionSchema,
   sessionDefaultSchema,
   type HardSwitchKey,
   type HardSwitchValue,
+  type PermissionProfile,
   type Role,
   type RoleCard,
-  type RoleCardEdit,
   type RoleCardOptions,
   type Skill,
   type TaskLimit,
@@ -25,11 +26,14 @@ import {
   Textarea,
 } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
-import { changeRoleCard, roleCardQueries, roleQueries } from "../../api/people.ts";
+import { changeRoleCard, hire, roleCardQueries, roleQueries } from "../../api/people.ts";
 import { skillQueries } from "../../api/skills.ts";
 import { EFFORT_LABELS, modelLabel } from "../../shell/engine-words.ts";
+import { usePageHeading } from "../../shell/page-heading.tsx";
+import { personName } from "../../shell/person-name.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
+import { blankRoleCard } from "./blank-role-card.ts";
 import { RoleCardGroup, RoleCardValue } from "./role-card-layout.tsx";
 import {
   ASKS_YOU_UNTIL_HIRED,
@@ -38,8 +42,8 @@ import {
   ENGINE_LABELS,
   HARD_SWITCH_LABELS,
   hardSwitchValueLabel,
-  permissionProfileLines,
   roleTitlesOf,
+  RUN_LABELS,
   SESSION_DEFAULTS,
   type RoleTitles,
 } from "./role-card-labels.ts";
@@ -64,35 +68,64 @@ export function RoleCardEditPage(): ReactNode {
   );
 }
 
+/** "Hire a Role from scratch": a blank Role card as a form; saving hires the person it names. */
+export function HireFromScratchPage(): ReactNode {
+  usePageHeading({
+    title: "People",
+    parent: { label: "People", to: "/people" },
+    crumb: "Hire a Role from scratch",
+  });
+  const roles = useQuery(roleQueries.list());
+  const options = useQuery(roleCardQueries.options());
+  const library = useQuery(skillQueries.list());
+  if (!roles.data || !options.data || !library.data) return null;
+  return (
+    <RoleCardForm
+      role={undefined}
+      hiredRoles={new Set(roles.data.map(({ key }) => key))}
+      options={options.data}
+      library={library.data}
+    />
+  );
+}
+
+/** Editing the card of `role`, or filling a blank one to hire a person from scratch. */
 function RoleCardForm({
   role,
   hiredRoles,
   options,
   library,
 }: {
-  readonly role: Role;
+  readonly role: Role | undefined;
   readonly hiredRoles: ReadonlySet<string>;
   readonly options: RoleCardOptions;
   readonly library: readonly Skill[];
 }): ReactNode {
   const formId = useId();
-  const saved = editOf(role.card);
+  const saved = role ? editOf(role.card) : blankRoleCard(options);
   const [draft, setDraft] = useState(saved);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const showToast = useToast();
-  const backToTheCard = (): Promise<void> =>
-    navigate({ to: "/people/$roleKey/role", params: { roleKey: role.key } });
+  const cancel = (): Promise<void> =>
+    role
+      ? navigate({ to: "/people/$roleKey/role", params: { roleKey: role.key } })
+      : navigate({ to: "/people" });
   const saving = useMutation({
-    mutationFn: () => changeRoleCard(role.key, draft),
+    mutationFn: () => (role ? changeRoleCard(role.key, draft) : hire({ card: draft })),
     onSuccess: async (changed) => {
       queryClient.setQueryData(roleQueries.one(changed.key).queryKey, changed);
       await queryClient.invalidateQueries(roleQueries.list());
-      showToast(`Role card saved. ${changed.card.name} works with it from the next session.`);
-      await backToTheCard();
+      if (role) {
+        showToast(`Role card saved. ${changed.card.name} works with it from the next session.`);
+        await cancel();
+      } else {
+        showToast(`${personName(changed)} hired.`);
+        await navigate({ to: "/people/$roleKey", params: { roleKey: changed.key } });
+      }
     },
   });
-  const change = (fields: Partial<RoleCardEdit>): void => setDraft({ ...draft, ...fields });
+  const change = (fields: Partial<RoleCard>): void => setDraft({ ...draft, ...fields });
   const unsaved = JSON.stringify(draft) !== JSON.stringify(saved);
   const roleTitles = roleTitlesOf(options);
   return (
@@ -105,7 +138,10 @@ function RoleCardForm({
       }}
     >
       {saving.error && (
-        <RefusalAlert title="The Role card can't be saved yet" error={saving.error} />
+        <RefusalAlert
+          title={role ? "The Role card can't be saved yet" : "The person can't be hired yet"}
+          error={saving.error}
+        />
       )}
       <Card>
         <div className="role-card">
@@ -114,7 +150,7 @@ function RoleCardForm({
           <EngineFields draft={draft} options={options} change={change} />
           <CapabilityFields draft={draft} change={change} />
           <PermissionFields
-            role={role}
+            ownRoleKey={role?.key}
             draft={draft}
             options={options}
             roleTitles={roleTitles}
@@ -136,12 +172,12 @@ function RoleCardForm({
           size="sm"
           variant="ghost"
           style={{ color: "var(--fg-inverse)" }}
-          onClick={() => void backToTheCard()}
+          onClick={() => void cancel()}
         >
           Cancel
         </Button>
         <Button type="submit" size="sm" variant="accent" form={formId} loading={saving.isPending}>
-          Save changes
+          {role ? "Save changes" : hireLabel(draft.name)}
         </Button>
       </div>
     </form>
@@ -149,8 +185,8 @@ function RoleCardForm({
 }
 
 interface FieldsProps {
-  readonly draft: RoleCardEdit;
-  change(fields: Partial<RoleCardEdit>): void;
+  readonly draft: RoleCard;
+  change(fields: Partial<RoleCard>): void;
 }
 
 function IdentityFields({ draft, change }: FieldsProps): ReactNode {
@@ -281,27 +317,52 @@ function CapabilityFields({ draft, change }: FieldsProps): ReactNode {
 }
 
 function PermissionFields({
-  role,
+  ownRoleKey,
   draft,
   options,
   roleTitles,
   hiredRoles,
   change,
 }: FieldsProps & {
-  readonly role: Role;
+  /** Undefined while the Role is yet to be hired. */
+  readonly ownRoleKey: string | undefined;
   readonly options: RoleCardOptions;
   readonly roleTitles: RoleTitles;
   readonly hiredRoles: ReadonlySet<string>;
 }): ReactNode {
-  const consultable = options.knownRoles.filter(({ key }) => key !== role.key);
+  const consultable = options.knownRoles.filter(({ key }) => key !== ownRoleKey);
   const changeSwitch = (key: HardSwitchKey, value: HardSwitchValue): void =>
     change({ hardSwitches: { ...draft.hardSwitches, [key]: value } });
+  const changeProfile = (fields: Partial<PermissionProfile>): void =>
+    change({ permissionProfile: { ...draft.permissionProfile, ...fields } });
   return (
     <RoleCardGroup group="permissions">
-      <RoleCardValue label="Permission profile">
-        {permissionProfileLines(role.card.permissionProfile).join(" · ")}
-        <span className="role-card-note">Set by the preset; read-only for now.</span>
-      </RoleCardValue>
+      <Field
+        label="Permission profile"
+        hint="What the Agent may do in a Stage. A Stage may narrow it, never widen it. Read-only git is always allowed."
+      >
+        <div className="role-card-profile">
+          <Switch
+            checked={draft.permissionProfile.edit}
+            onChange={(edit) => changeProfile({ edit })}
+            label="Edits files in its worktree"
+          />
+          <Select
+            label="Runs"
+            value={draft.permissionProfile.run}
+            options={runPermissionSchema.options.map((run) => ({
+              value: run,
+              label: RUN_LABELS[run],
+            }))}
+            onChange={(run) => changeProfile({ run: runPermissionSchema.parse(run) })}
+          />
+          <Switch
+            checked={draft.permissionProfile.web}
+            onChange={(web) => changeProfile({ web })}
+            label="Searches and fetches the web"
+          />
+        </div>
+      </Field>
       {options.hardSwitches.map(({ key, enforcement }) => {
         const value = draft.hardSwitches[key];
         const asksYou = value.kind === "consult" && !hiredRoles.has(value.role);
@@ -381,10 +442,13 @@ function skillNote(skill: Skill): string {
   return skill.description;
 }
 
-/** The card as the user edits it: all but the permission profile, the skills in name order. */
-function editOf({ permissionProfile: _readOnly, ...card }: RoleCard): RoleCardEdit {
+/** The card as the user edits it, with the skills in name order. */
+function editOf(card: RoleCard): RoleCard {
   return { ...card, skills: card.skills.toSorted() };
 }
+
+const hireLabel = (name: string): string =>
+  name.trim() === "" ? "Hire the Role" : `Hire ${name.trim()}`;
 
 function taskLimitOptions({ taskLimits }: RoleCardOptions): { value: string; label: string }[] {
   const numbers = Array.from(

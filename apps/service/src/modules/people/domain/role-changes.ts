@@ -1,4 +1,5 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import { KNOWN_ROLES } from "./known-roles.js";
 import { presetFor } from "./presets.js";
 import type { Role } from "./role.js";
 import {
@@ -6,7 +7,6 @@ import {
   roleCardProblems,
   trimmedRoleCard,
   type RoleCard,
-  type RoleCardEdit,
 } from "./role-card.js";
 import { roleCardChanges } from "./role-card-changes.js";
 import { RoleCardChanged, RoleHired } from "./role-events.js";
@@ -46,18 +46,41 @@ export function hire(
 }
 
 /**
+ * Hires the person on `card` into a new Role keyed `roleKey`, which the card's title makes. Refuses
+ * with every reason: a card that breaks a rule, a key the presets keep, or a Role `filledBy`
+ * someone already.
+ */
+export function hireFromScratch(
+  roleKey: string,
+  edit: RoleCard,
+  filledBy: Role | undefined,
+  hiredAt: Date,
+): RoleChange<RoleHired> {
+  const card = trimmedRoleCard(edit);
+  const problems = roleCardProblems(roleKey, card);
+  const presetTitle = KNOWN_ROLES.get(roleKey);
+  if (roleKey === "" && card.title !== "") {
+    problems.push("Give the Role a title with letters or digits.");
+  } else if (presetTitle) {
+    problems.push(`Hire the ${presetTitle} Role from its preset.`);
+  } else if (filledBy) {
+    problems.push(`${filledBy.card.name} already fills the ${filledBy.card.title} Role.`);
+  }
+  if (problems.length > 0) throw new RoleRefused(problems);
+  const role: Role = { key: roleKey, card, cardVersion: 1, hiredAt, cardSavedAt: hiredAt };
+  return { role, event: new RoleHired(role) };
+}
+
+/**
  * Saves the edit as the card's next version. Undefined when nothing would change; refuses with
  * every reason when the card would break a rule.
  */
 export function changeRoleCard(
   role: Role,
-  edit: RoleCardEdit,
+  edit: RoleCard,
   savedAt: Date,
 ): RoleChange<RoleCardChanged> | undefined {
-  const card: RoleCard = {
-    ...trimmedRoleCard(edit),
-    permissionProfile: role.card.permissionProfile,
-  };
+  const card = trimmedRoleCard(edit);
   const problems = roleCardProblems(role.key, card);
   if (problems.length > 0) throw new RoleRefused(problems);
   const changes = roleCardChanges(role.card, card);

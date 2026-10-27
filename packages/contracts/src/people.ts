@@ -62,8 +62,8 @@ export type HardSwitches = z.infer<typeof hardSwitchesSchema>;
 export const taskLimitSchema = z.union([z.number(), z.literal("none")]);
 export type TaskLimit = z.infer<typeof taskLimitSchema>;
 
-/** PUT /roles/:key/card: everything the user edits on a Role card. */
-export const roleCardEditSchema = z.object({
+/** A Role card, as PUT /roles/:key/card saves it and POST /roles hires from scratch with it. */
+export const roleCardSchema = z.object({
   name: z.string(),
   title: z.string(),
   responsibilities: z.string(),
@@ -73,17 +73,12 @@ export const roleCardEditSchema = z.object({
   model: z.string(),
   effort: effortSchema,
   capabilities: capabilitiesSchema,
+  permissionProfile: permissionProfileSchema,
   hardSwitches: hardSwitchesSchema,
   taskLimit: taskLimitSchema,
   sessionDefault: sessionDefaultSchema,
   /** The library skills the Role has besides the skills for everyone, by name. */
   skills: z.array(z.string()),
-});
-export type RoleCardEdit = z.infer<typeof roleCardEditSchema>;
-
-/** The permission profile is read-only until tier 2. */
-export const roleCardSchema = roleCardEditSchema.extend({
-  permissionProfile: permissionProfileSchema,
 });
 export type RoleCard = z.infer<typeof roleCardSchema>;
 
@@ -103,7 +98,14 @@ export type Role = z.infer<typeof roleSchema>;
 export const roleListSchema = z.array(roleSchema);
 
 /** POST /roles: hires a person into the Role of the preset keyed `roleKey`. */
-export const hireSchema = z.object({ roleKey: z.string(), name: z.string() });
+export const hireFromPresetSchema = z.object({ roleKey: z.string(), name: z.string() });
+export type HireFromPreset = z.infer<typeof hireFromPresetSchema>;
+
+/** POST /roles: hires a person into a new Role, keyed from the card's title, with the whole card. */
+export const hireFromScratchSchema = z.object({ card: roleCardSchema });
+export type HireFromScratch = z.infer<typeof hireFromScratchSchema>;
+
+export const hireSchema = z.union([hireFromPresetSchema, hireFromScratchSchema]);
 export type Hire = z.infer<typeof hireSchema>;
 
 /** GET /presets: what hiring starts from; a hired Role starts with no skills of its own. */

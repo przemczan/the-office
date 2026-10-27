@@ -16,9 +16,10 @@ import {
   roleCardProblems,
   trimmedRoleCard,
   type Engine,
-  type RoleCardEdit,
+  type RoleCard,
 } from "../domain/role-card.js";
-import { changeRoleCard, hire } from "../domain/role-changes.js";
+import { changeRoleCard, hire, hireFromScratch } from "../domain/role-changes.js";
+import { roleKeyFor } from "../domain/role-key.js";
 import { RoleNotFound } from "../domain/role-not-found.js";
 import { RoleRefused } from "../domain/role-refused.js";
 import { HIGHEST_TASK_LIMIT, LOWEST_TASK_LIMIT } from "../domain/task-limit.js";
@@ -41,6 +42,18 @@ export interface RoleCardOptions {
     readonly enforcement: HardSwitchEnforcement;
   }[];
   readonly taskLimits: { readonly lowest: number; readonly highest: number };
+}
+
+/** Runs `change`, refusing with its reasons followed by `problems`, which also refuse alone. */
+function refusingAlso<Change>(problems: readonly string[], change: () => Change): Change {
+  try {
+    const changed = change();
+    if (problems.length > 0) throw new RoleRefused(problems);
+    return changed;
+  } catch (refusal) {
+    if (!(refusal instanceof RoleRefused) || problems.length === 0) throw refusal;
+    throw new RoleRefused([...new Set([...refusal.reasons, ...problems])]);
+  }
 }
 
 /**
@@ -66,6 +79,27 @@ export class RoleService {
     }
     await this.events.publish(event);
     return { role, skills: await this.roleSkills.of(role.key) };
+  }
+
+  /**
+   * Hires the person on `card` into a new Role keyed from its title, with exactly `skills`. Refuses
+   * with every reason before saving either, also when someone already fills that Role.
+   */
+  async hireFromScratch(card: RoleCard, skills: readonly string[]): Promise<RoleWithSkills> {
+    const hiredAt = new Date();
+    const roleKey = roleKeyFor(card.title);
+    const skillProblems = await this.roleSkills.problemsWith(skills);
+    const filledBy = await this.repository.find(roleKey);
+    const { role, event } = refusingAlso(skillProblems, () =>
+      hireFromScratch(roleKey, card, filledBy, hiredAt),
+    );
+    if (!(await this.repository.add(role))) {
+      // Someone was hired into the Role meanwhile: refuse as if they had been there before.
+      hireFromScratch(roleKey, card, await this.repository.find(roleKey), hiredAt);
+      throw new Error(`The Role "${roleKey}" was filled and emptied again while hiring.`);
+    }
+    await this.events.publish(event);
+    return { role, skills: await this.roleSkills.assignToRole(role.key, skills) };
   }
 
   presets(): readonly Preset[] {
@@ -104,7 +138,7 @@ export class RoleService {
    */
   async changeCard(
     key: string,
-    edit: RoleCardEdit,
+    edit: RoleCard,
     skills: readonly string[],
   ): Promise<RoleWithSkills> {
     const problems = [

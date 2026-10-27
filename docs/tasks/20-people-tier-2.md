@@ -26,7 +26,7 @@ Leave out: the Office Manager and Proposals (task 21); Initiatives and the CTO's
 
 ## Steps
 
-- [ ] 1. Hire from scratch and edit permission profiles: a hire without a preset, the Role card form for it, and an editable profile. Commit.
+- [x] 1. Hire from scratch and edit permission profiles: a hire without a preset, the Role card form for it, and an editable profile. Commit.
   Read: `role-changes.ts` (`hire`), `RolesController.hire`, the Role card form and `role-card-labels.ts` in the People surface, by symbol; [permissions spec 6](../spec/6-permissions-and-safety.md) for the profile.
 - [ ] 2. Let a person go: pause its running Tasks behind a Decision, flag Pipelines naming it, keep Memory and chats. Commit.
   Read: the Work and Pipelines module maps for how a Task is paused and how a Pipeline names a Role; the Decision code in Conversations, by symbol.
@@ -44,8 +44,11 @@ Leave out: the Office Manager and Proposals (task 21); Initiatives and the CTO's
 ## State
 
 - Sliced with the user (2026-10-27): one task with these 7 steps, not two.
+- Built (step 1): `POST /roles` takes `{ roleKey, name }` (preset) or `{ card }` (scratch; `hireFromScratch` in `role-changes.ts`, key from `roleKeyFor(title)`, refused when a preset keeps the key or someone fills it). One `roleCardSchema` now serves hire, `PUT /roles/:key/card` and the form, permission profile included. Web: `/hire` page (`HireFromScratchPage`, same `RoleCardForm` as Edit Role, blank card in `blank-role-card.ts`), "Start from scratch" tile button, editable profile fields.
+- Trap for steps 3–5: Consult values and `hardSwitchesProblems` accept only `KNOWN_ROLES` keys, so a scratch Role can't be named as a Consultant yet; `RoleCardOptions.knownRoles` needs the hired scratch Roles when step 4 makes Consultants.
 - Tier 1 behaviour to build on: every consult goes to the user; "change Roles" is Never and refused otherwise; the Role card marks it enforced by The Office.
 
 ## Progress
 
 - 2026-10-27 · slicing: task file written with the user's choice of one task; next, step 1.
+- 2026-10-27 · step 1: hiring from scratch (`/hire`, `hireFromScratch`) and an editable permission profile, with service, controller and Playwright checks; next, step 2 (letting a person go).

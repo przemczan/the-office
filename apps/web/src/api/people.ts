@@ -11,7 +11,7 @@ import {
   type MemoryNote,
   type MemoryNoteDraft,
   type Role,
-  type RoleCardEdit,
+  type RoleCard,
   type RoleWebEvent,
 } from "@the-office/contracts";
 import { deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
@@ -66,7 +66,7 @@ export function hire(hiring: Hire): Promise<Role> {
 }
 
 /** Saves the card's next version; sessions started from now on get it. */
-export function changeRoleCard(key: string, card: RoleCardEdit): Promise<Role> {
+export function changeRoleCard(key: string, card: RoleCard): Promise<Role> {
   return sendToApi("PUT", `${rolePath(key)}/card`, card, roleSchema);
 }
 

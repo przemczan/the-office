@@ -113,6 +113,17 @@
   background: transparent;
 }
 
+.hire-tile-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.role-card-profile {
+  display: grid;
+  gap: 12px;
+}
+
 .hire-icon {
   display: grid;
   place-items: center;
