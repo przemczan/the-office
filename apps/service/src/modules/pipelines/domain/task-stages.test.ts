@@ -123,7 +123,9 @@ describe("editTaskStages", () => {
     const { taskStages, event } = editTaskStages(own, edited);
 
     expect(taskStages).toEqual({ ...own, stages: edited, editedForTask: true });
-    expect(event).toEqual(new TaskStagesEdited("task-1", "full"));
+    // The event's time is its own, so only what it says is compared.
+    expect(event).toBeInstanceOf(TaskStagesEdited);
+    expect(event).toMatchObject({ taskId: "task-1", pipelineId: "full" });
   });
 });
 

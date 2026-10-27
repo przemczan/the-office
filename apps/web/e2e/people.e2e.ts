@@ -835,7 +835,26 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await expect(page.getByText("Stages saved for Settings keep their changes.")).toBeVisible();
     expect(await (await page.request.get("/api/pipelines")).json()).toEqual(library);
 
-    await gate.getByRole("button", { name: "Continue to Build" }).click();
+    // Continue from the Needs you panel, over the Projects page.
+    await page.goto("/projects");
+    await page
+      .getByRole("status", { name: "Status strip" })
+      .getByRole("button", { name: /needs? you/ })
+      .click();
+    const panel = page.getByRole("dialog").filter({ hasText: "Needs you" });
+    const waiting = panel.getByRole("article", { name: "Gate: Settings keep their changes" });
+    await expect(waiting.getByRole("button", { name: "Continue to Build" })).toBeVisible();
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-needs-you-panel.png"),
+      animations: "disabled",
+    });
+    await waiting.getByRole("button", { name: "Continue to Build" }).click();
+    await expect(page.getByText("Continuing to Build.")).toBeVisible();
+    await expect(waiting).toHaveCount(0);
+    await panel.getByRole("button", { name: "Close" }).click();
+    await expect(panel).toHaveCount(0);
+
+    await page.goto(`/tasks/${taskId}`);
     await expect(gate).toHaveCount(0);
     const acceptance = stages
       .getByRole("listitem")

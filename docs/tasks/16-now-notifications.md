@@ -27,7 +27,7 @@ Leave out: the kinds × channels grid, quiet hours, batching, the at-desk hold, 
   Read: [spec 4](../spec/4-ux-direction.md) (Now, the status strip), [spec 2.2 Defaults](../spec/2.2-people.md#defaults) (desks in use); the Domain events of the [Work](../../apps/service/src/modules/work/MAP.md), [Pipelines](../../apps/service/src/modules/pipelines/MAP.md), [Conversations](../../apps/service/src/modules/conversations/MAP.md) and [Engine](../../apps/service/src/modules/engine/MAP.md) maps (`UsageWindowsChanged`); the [platform map](../../apps/service/src/platform/MAP.md) (the WebSocket push). A new module: the [module template](../../apps/service/docs/module-template.md).
 - [x] 2. Now in `apps/web` with in-place answers, and the status strip's figures. Commit.
   Read: [app/now.js](../../.scratch/the-office/prototypes/app/now.js), the [Now surface map](../../apps/web/src/surfaces/now/MAP.md), the [web app map](../../apps/web/src/MAP.md) (`shell/status-strip.tsx`); answering in place reuses the Decision card (`shell/conversation/decision-card.tsx`) and the [Work surface](../../apps/web/src/surfaces/work/MAP.md)'s `GateBlock`.
-- [ ] 3. The Needs you panel. Commit.
+- [x] 3. The Needs you panel. Commit.
   Read: the Needs you panel in [app/core.js](../../.scratch/the-office/prototypes/app/core.js), by range; the [web app map](../../apps/web/src/MAP.md).
 - [ ] 4. Notifications module: the kinds tree, routing with inheritance, the channels port, Notifications as pointers cleared when their item is handled. Choose "window nearly used" at 90% and tell the user it is a default. Commit.
   Read: [spec 2.7](../spec/2.7-notifications.md) with its Defaults; the [module template](../../apps/service/docs/module-template.md).
@@ -42,8 +42,9 @@ Leave out: the kinds × channels grid, quiet hours, batching, the at-desk hold, 
 - Web (step 2): `api/notifications.ts` (`nowQueries.now`, `now.changed` as an `EventCacheUpdates` entry, `reportActivity`); `shell/user-activity.ts` reports activity once a minute at most while the tab is visible and used. Now (`surfaces/now/now-page.tsx`) and the strip (`shell/status-strip.tsx`) read the one `now` query. Needs you's items are `shell/notifications/needs-you-feed.tsx` (the Decision card and the Gate's actions, answered in place), ready for the panel.
 - The Gate's actions moved to `shell/work/gate-actions.tsx` (with `gate-words.ts` and `drop-task-dialog.tsx`), since a surface may not import another; Work's `GateBlock` uses them. Needs you shows a compact Gate card (name, next Stage, Open Changes, the actions), as the click-through does, not the whole block.
 - Decided with the user on 2026-10-27 (spec 2.7 and 5.3 Defaults): Now lives in Notifications; no message from a person in tier 1; failed = `NoRetriesLeft` or `DefinitionOfDoneNotMet`; Since you left after 5 idle minutes; today from local midnight, all four token kinds, Tasks touched = a Stage run today. Step 4 sets "window nearly used" at 90%.
-- Checks so far: `people.e2e.ts` answers the Developer's Decision on Now, sees the Task in Running, the Gate on Now and the Done Task in Since you left; the strip in `shell.e2e.ts`.
-- Next, step 3: the Needs you panel, opened from the strip's "need you" figure on any page, holding `NeedsYouFeed`; its check answers one from the Projects page (in `people.e2e.ts`, which alone opens sessions).
+- Checks so far: `people.e2e.ts` answers the Developer's Decision on Now, sees the Task in Running, the Gate on Now, continues it from the Needs you panel over the Projects page, and sees the Done Task in Since you left; the strip in `shell.e2e.ts`.
+- The Needs you panel (step 3) is the design system's Drawer over any page (`shell/notifications/needs-you-panel.tsx`), opened by the strip's "need you" button and kept in the address as `?needsYou=true` (`OverPageSearch` in `router.tsx`), as a chat is; it holds the same `NeedsYouFeed`. The click-through has no panel of its own, so it follows the Drawer.
+- Next, step 4: the kinds tree and routing in the Notifications module, Notifications as pointers cleared when their item is handled; "window nearly used" at 90%.
 
 ## Progress
 
@@ -51,3 +52,4 @@ Leave out: the kinds × channels grid, quiet hours, batching, the at-desk hold, 
 
 - 2026-10-27 · step 1: the Notifications module with Now's read model (GET /now, POST /activity, `now.changed`), its tables and the user's answers as spec Defaults; next, Now and the strip in the web.
 - 2026-10-27 · step 2: Now and the strip in the web from the `now` query, answering Decisions and Gates in place, activity reported; the Gate's actions moved to the shell; next, the Needs you panel.
+- 2026-10-27 · step 3: the Needs you panel, a Drawer over any page opened from the strip, answering Decisions and Gates there; next, the kinds tree and routing.

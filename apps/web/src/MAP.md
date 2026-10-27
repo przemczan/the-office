@@ -12,7 +12,7 @@
 
 - `app.tsx`: App
 - `main.tsx`
-- `router.tsx`: ChatSearch, TaskSearch, router
+- `router.tsx`: OverPageSearch, TaskSearch, router
 
 ### api/
 
@@ -78,7 +78,9 @@
 ### shell/notifications/
 
 - `needs-you-feed.tsx`: NeedsYouFeed
+- `needs-you-panel.tsx`: NeedsYouPanel
 - `now-words.ts`: OUTCOME_NAMES, OUTCOME_TONES, OUTCOME_EDGES, needsYouWords, desksWords, sinceWords, inStageWords, resetWords, doneSinceYouLeft
+- `use-needs-you-panel.ts`: NeedsYouPanelControls, useNeedsYouPanel
 - Tests: now-words.test.ts
 
 ### shell/pipelines/

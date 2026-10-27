@@ -5,11 +5,12 @@ import { nowQueries } from "../api/notifications.ts";
 import { useEventStreamStatus } from "../api/event-stream-provider.tsx";
 import { tokensShort } from "./conversation/context-words.ts";
 import { doneSinceYouLeft, needsYouWords, resetWords } from "./notifications/now-words.ts";
+import { useNeedsYouPanel } from "./notifications/use-needs-you-panel.ts";
 
 /**
  * The Office-wide figures under the top bar (spec §4), live from `now.changed`: what needs the
- * user, desks in use, tokens today, the 5-hour window, Tasks touched and done since the user left.
- * While the web has lost the service it says so first.
+ * user, which opens the Needs you panel, desks in use, tokens today, the 5-hour window, Tasks
+ * touched and done since the user left. While the web has lost the service it says so first.
  */
 export function StatusStrip(): ReactNode {
   const reconnecting = useEventStreamStatus() === "reconnecting";
@@ -28,13 +29,19 @@ export function StatusStrip(): ReactNode {
 }
 
 function Figures({ now }: { readonly now: Now }): ReactNode {
+  const needsYouPanel = useNeedsYouPanel();
   const fiveHour = now.fiveHourWindow;
   const resets = fiveHour && resetWords(fiveHour.resetsAt);
   return (
     <>
-      <span className="shell-strip-stat">
+      <button
+        type="button"
+        className="shell-strip-stat shell-strip-needs-you"
+        aria-haspopup="dialog"
+        onClick={needsYouPanel.open}
+      >
         <b>{now.needsYou.length}</b> {needsYouWords(now.needsYou.length)}
-      </span>
+      </button>
       <span className="shell-strip-stat">
         <span className={`shell-dot ${now.desks.inUse > 0 ? "running" : "idle"}`} />
         <b>{now.desks.inUse}</b>

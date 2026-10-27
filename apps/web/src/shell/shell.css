@@ -177,6 +177,21 @@ body,
   letter-spacing: var(--tracking-tight);
 }
 
+.shell-strip-needs-you {
+  padding: 4px 8px;
+  margin: 0 -8px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.shell-strip-needs-you:hover {
+  background: var(--surface-sunken);
+}
+
 .shell-strip-faint {
   color: var(--fg-3);
 }

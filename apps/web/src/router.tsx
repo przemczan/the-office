@@ -34,19 +34,21 @@ declare module "@tanstack/react-router" {
 }
 
 /**
- * Over any page: the chat open with a person, by their Role's key, and the Thread shown in it
- * (spec §4: chats open in a modal).
+ * What opens over any page (spec §4): the chat with a person, by their Role's key, and the Thread
+ * shown in it; or the Needs you panel.
  */
-export interface ChatSearch {
+export interface OverPageSearch {
   readonly chat?: string;
   readonly thread?: string;
+  readonly needsYou?: true;
 }
 
 const rootRoute = createRootRoute({
   component: Shell,
-  validateSearch: (search: Record<string, unknown>): ChatSearch => ({
+  validateSearch: (search: Record<string, unknown>): OverPageSearch => ({
     ...(typeof search["chat"] === "string" && { chat: search["chat"] }),
     ...(typeof search["thread"] === "string" && { thread: search["thread"] }),
+    ...(search["needsYou"] === true && { needsYou: true as const }),
   }),
   // Like the click-through, an address that names no page opens Now.
   notFoundComponent: () => <Navigate to="/now" replace />,
