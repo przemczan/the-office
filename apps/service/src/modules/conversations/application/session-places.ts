@@ -7,6 +7,7 @@ import {
   type SessionPersonCard,
 } from "../domain/session-instructions.js";
 import type { Thread } from "../domain/thread.js";
+import { ThreadRefused } from "../domain/thread-refused.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { Briefs } from "./briefs.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
@@ -48,6 +49,7 @@ export class SessionPlaces {
       taskId,
       roleKey: thread.roleKey,
     });
+    if (setup.sessionRefusal !== undefined) throw new ThreadRefused([setup.sessionRefusal]);
     return {
       folder: setup.folder,
       environment: setup.environment,

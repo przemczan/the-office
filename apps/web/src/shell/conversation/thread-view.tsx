@@ -14,9 +14,12 @@ import "./conversation.css";
 export function ThreadView({
   threadId,
   personName,
+  readOnlyReason,
 }: {
   readonly threadId: string;
   readonly personName: string;
+  /** Why nothing more can be written here; the Thread stays readable and has no composer. */
+  readonly readOnlyReason?: string;
 }): ReactNode {
   const thread = useQuery(threadQueries.one(threadId));
   const messages = useQuery(threadQueries.messages(threadId));
@@ -45,20 +48,27 @@ export function ThreadView({
         stageThread={thread.data.stageThread}
       />
       {sending.error && <RefusalAlert title="The message wasn't sent" error={sending.error} />}
-      <Composer
-        placeholder={
-          stageRunning
-            ? `Message ${personName}… (lands at the next safe point)`
-            : `Message ${personName}…`
-        }
-        busy={(answering && !stageRunning) || closed}
-        busyHint={
-          closed
-            ? "You write here while a Stage runs"
-            : `${personName} is still answering. Send it once they finish.`
-        }
-        onSend={(text) => sending.mutateAsync(text)}
-      />
+      {readOnlyReason === undefined ? (
+        <Composer
+          placeholder={
+            stageRunning
+              ? `Message ${personName}… (lands at the next safe point)`
+              : `Message ${personName}…`
+          }
+          busy={(answering && !stageRunning) || closed}
+          busyHint={
+            closed
+              ? "You write here while a Stage runs"
+              : `${personName} is still answering. Send it once they finish.`
+          }
+          onSend={(text) => sending.mutateAsync(text)}
+        />
+      ) : (
+        <p className="thread-read-only" role="note">
+          <Icon name="lock" size={14} />
+          {readOnlyReason}
+        </p>
+      )}
     </section>
   );
 }

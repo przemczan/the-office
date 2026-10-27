@@ -24,6 +24,11 @@ export interface TaskThreadSetup {
   readonly officeTools: readonly string[];
   /** The Task's record as a new session picks it up (spec §2.5): never a transcript. */
   readonly brief: string;
+  /**
+   * Why no session can work on the Task any more, such as once its worktree is removed, in the
+   * UI's words. The Thread stays readable; a session is refused.
+   */
+  readonly sessionRefusal: string | undefined;
 }
 
 /** Sets up the sessions of Threads on Tasks. */

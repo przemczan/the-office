@@ -52,6 +52,7 @@ beforeAll(async () => {
         instructions: "You plan the Task.",
         officeTools: [],
         brief: recordOf(taskId),
+        sessionRefusal: undefined,
       }),
   });
   briefs = app.get(Briefs);

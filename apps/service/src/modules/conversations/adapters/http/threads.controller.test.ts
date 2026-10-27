@@ -108,6 +108,7 @@ beforeEach(async () => {
         instructions: "On this Task you plan.",
         officeTools: [],
         brief: "The Task's record.",
+        sessionRefusal: undefined,
       }),
   });
   published = [];

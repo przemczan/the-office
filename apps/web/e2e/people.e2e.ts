@@ -972,6 +972,12 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
       .filter({ has: page.getByText("UI acceptance", { exact: true }) });
     await expect(acceptance).toContainText("continued");
     await expect(page.locator(".task-head-meta").getByText("Done", { exact: true })).toBeVisible();
+    // Publish removed the worktree, so its conversations are read-only, with the reason.
+    const finishedConversation = page.getByRole("complementary", { name: "Conversation" });
+    await expect(finishedConversation.getByRole("note")).toContainText(
+      "This Task is Done and its working copy has been removed",
+    );
+    await expect(finishedConversation.getByRole("textbox", { name: "Message" })).toHaveCount(0);
 
     // Now lists it Done since the user left, and the strip counts it.
     await page.goto("/");

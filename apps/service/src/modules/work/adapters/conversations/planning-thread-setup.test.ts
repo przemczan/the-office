@@ -6,6 +6,8 @@ import { taskSchema } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { TaskThreadSetups } from "../../../conversations/index.js";
 import { PLANNING_INSTRUCTIONS } from "../../domain/planning.js";
+import { TaskStateChanged } from "../../domain/task-events.js";
+import { TaskRepository } from "../../ports/task-repository.js";
 import { PLANNING_OFFICE_TOOLS } from "./planning-thread-setup.js";
 import {
   sendJson,
@@ -47,7 +49,29 @@ describe("a planning Thread's session", () => {
       instructions: PLANNING_INSTRUCTIONS,
       officeTools: PLANNING_OFFICE_TOOLS,
       brief: expect.stringContaining(`Fix the login redirect (Task ${task.id})`),
+      sessionRefusal: undefined,
     });
     expect(setup.brief).toContain("- install: `npm install`");
+  });
+
+  it("refuses a session once the Task is Done, as Publish removed its worktree", async () => {
+    const created = await sendJson(work, "POST", "/tasks", {
+      title: "Ship the redirect",
+      projectId: `project-${randomUUID()}`,
+      priority: "normal",
+    });
+    const task = taskSchema.parse(await created.json());
+    await work.app.get(TaskRepository).update(task.id, (latest) => ({
+      task: { ...latest, state: "done" },
+      event: new TaskStateChanged(latest.id, latest.state, "done"),
+    }));
+
+    const setup = await work.app
+      .get(TaskThreadSetups)
+      .of({ threadId: randomUUID(), taskId: task.id, roleKey: "planner" });
+
+    // The Thread's label and Brief still read the setup, so only a session is refused.
+    expect(setup.sessionRefusal).toContain("This Task is Done");
+    expect(setup.brief).toContain("Ship the redirect");
   });
 });

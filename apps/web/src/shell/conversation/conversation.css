@@ -295,6 +295,23 @@
   flex: 1;
 }
 
+.thread-read-only {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border-subtle);
+  color: var(--fg-3);
+  font: var(--type-body-sm);
+  line-height: 1.5;
+}
+
+.thread-read-only svg {
+  flex: none;
+  margin-top: 3px;
+}
+
 /* ---- a Decision: a card in the asking person's Thread (prototypes/app/conversation.js) */
 .message.decision-card {
   max-width: 100%;

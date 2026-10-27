@@ -68,10 +68,19 @@ export function TaskConversation({
           );
         })}
       </div>
-      <ThreadView key={shown.id} threadId={shown.id} personName={personName(shown)} />
+      <ThreadView
+        key={shown.id}
+        threadId={shown.id}
+        personName={personName(shown)}
+        readOnlyReason={task.state === "done" ? DONE_TASK_READ_ONLY : undefined}
+      />
     </aside>
   );
 }
+
+// Publish removes the Task's worktree, which a session works in, so nothing more can be asked of it.
+const DONE_TASK_READ_ONLY =
+  "This Task is Done and its working copy has been removed, so you can read this conversation but not continue it. To keep working, start a new Task.";
 
 function nameOf(roleKey: string, roles: readonly Role[] | undefined): string {
   return roles?.find(({ key }) => key === roleKey)?.card.name ?? roleKey;

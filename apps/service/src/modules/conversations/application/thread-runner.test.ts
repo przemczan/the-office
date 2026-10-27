@@ -60,6 +60,10 @@ let officeData: string;
 /** Each card version of the Planner's Role, from 1, under a key of this test's own. */
 let versions: Card[];
 let roleKey: string;
+const NO_SESSION_REASON = "This Task is Done, so its conversation can't go on.";
+/** Tasks whose setup says no session can work on them (Done: Publish removed the worktree). */
+const tasksWithoutSessions = new Set<string>();
+
 let threads: ThreadService;
 let runner: ThreadRunner;
 let repository: ThreadRepository;
@@ -149,7 +153,11 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   }
   // As the Work module sets up its Tasks' Threads.
   app.get(TaskThreadSetups).provide({
-    setUp: ({ taskId }) => Promise.resolve(taskSetup(taskId)),
+    setUp: ({ taskId }) =>
+      Promise.resolve({
+        ...taskSetup(taskId),
+        sessionRefusal: tasksWithoutSessions.has(taskId) ? NO_SESSION_REASON : undefined,
+      }),
   });
   threads = app.get(ThreadService);
   runner = app.get(ThreadRunner);
@@ -166,6 +174,7 @@ function taskSetup(taskId: string): TaskThreadSetup {
     instructions: "On this Task you plan.",
     officeTools: ["read_task", OPEN_DECISION_TOOL],
     brief: `You are planning the Task ${taskId}.`,
+    sessionRefusal: undefined,
   };
 }
 
@@ -514,6 +523,28 @@ describe("continuing a Thread", () => {
 });
 
 describe("a Thread on a Task", () => {
+  it("stays readable but takes no message once no session can work on its Task", async () => {
+    const taskId = randomUUID();
+    await startWith(started(...aTurn("brief", "What must be true when it is done?")));
+    const opened = await threads.startOnTask({
+      taskId,
+      roleKey,
+      title: "Planning",
+      opening: "Plan the Task with the user.",
+    });
+    await answered(opened.id, 2);
+    const before = await threads.messages(opened.id);
+    const stateBefore = (await threads.read(opened.id)).state;
+
+    tasksWithoutSessions.add(taskId);
+
+    await expect(runner.send(opened.id, "One more thing.")).rejects.toThrow(
+      new ThreadRefused([NO_SESSION_REASON]),
+    );
+    expect(await threads.messages(opened.id)).toEqual(before);
+    expect((await threads.read(opened.id)).state).toBe(stateBefore);
+  });
+
   it("opens on The Office's words in the Task's worktree, read-only, before the user says anything", async () => {
     const taskId = randomUUID();
     const worktree = taskSetup(taskId).folder;
