@@ -51,6 +51,19 @@ describe("hireFromScratch", () => {
     expect(event).toEqual(new RoleHired(role));
   });
 
+  it("keeps who proposed the card, when the user hires from a Proposal", () => {
+    const { role } = hireFromScratch("data-analyst", card, undefined, at, "office-manager");
+
+    expect(role.cardProposedBy).toBe("office-manager");
+    expect(changeRoleCard(role, { ...role.card, effort: "low" }, at)?.role.cardProposedBy).toBe(
+      undefined,
+    );
+    expect(
+      changeRoleCard(role, { ...role.card, effort: "low" }, at, "office-manager")?.role
+        .cardProposedBy,
+    ).toBe("office-manager");
+  });
+
   it("refuses a card that breaks a rule, with every reason", () => {
     expect(() =>
       hireFromScratch(

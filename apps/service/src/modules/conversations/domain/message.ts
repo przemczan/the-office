@@ -23,6 +23,7 @@ export type MessageDraft =
   | Refusal
   | DecisionCard
   | DecisionAnswerLine
+  | ProposalCard
   | ContextLine
   | StageWorkClosing;
 
@@ -102,4 +103,11 @@ interface DecisionAnswerLine {
   readonly kind: "decision-answer";
   readonly decisionId: string;
   readonly answer: DecisionAnswer;
+}
+
+/** A Proposal the person drafted, shown as its card; the Proposal holds what it changes and its status. */
+interface ProposalCard {
+  readonly kind: "proposal";
+  readonly roleKey: string;
+  readonly proposalId: string;
 }

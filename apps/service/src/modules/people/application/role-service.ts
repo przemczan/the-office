@@ -18,7 +18,15 @@ import {
   type Engine,
   type RoleCard,
 } from "../domain/role-card.js";
-import { changeRoleCard, hire, hireBack, hireFromScratch, letGo } from "../domain/role-changes.js";
+import {
+  changeRoleCard,
+  hire,
+  hireBack,
+  hireFromScratch,
+  letGo,
+  type RoleChange,
+} from "../domain/role-changes.js";
+import type { RoleHired } from "../domain/role-events.js";
 import { roleKeyFor } from "../domain/role-key.js";
 import { RoleNotFound } from "../domain/role-not-found.js";
 import { RoleRefused } from "../domain/role-refused.js";
@@ -56,6 +64,17 @@ function refusingAlso<Change>(problems: readonly string[], change: () => Change)
   }
 }
 
+/** The reasons `change` is refused with; empty when it isn't. */
+async function refusalReasons(change: () => Promise<unknown>): Promise<readonly string[]> {
+  try {
+    await change();
+    return [];
+  } catch (refusal) {
+    if (refusal instanceof RoleRefused) return refusal.reasons;
+    throw refusal;
+  }
+}
+
 /**
  * The People use cases. Each change is saved first and its event published after, so nothing
  * hears of a change that wasn't kept.
@@ -82,24 +101,43 @@ export class RoleService {
   }
 
   /**
-   * Hires the person on `card` into a new Role keyed from its title, with exactly `skills`. Refuses
-   * with every reason before saving either, also when someone already fills that Role.
+   * Hires the person on `card` into a new Role keyed from its title, with exactly `skills`, as the
+   * user wrote the card or applied a Proposal of it by the person `proposedBy`. Refuses with every
+   * reason before saving either, also when someone already fills that Role.
    */
-  async hireFromScratch(card: RoleCard, skills: readonly string[]): Promise<RoleWithSkills> {
+  async hireFromScratch(
+    card: RoleCard,
+    skills: readonly string[],
+    proposedBy?: string,
+  ): Promise<RoleWithSkills> {
     const hiredAt = new Date();
-    const roleKey = roleKeyFor(card.title);
-    const skillProblems = await this.roleSkills.problemsWith(skills);
-    const filledBy = await this.repository.find(roleKey);
-    const { role, event } = refusingAlso(skillProblems, () =>
-      hireFromScratch(roleKey, card, filledBy, hiredAt),
-    );
+    const { role, event } = await this.hiringFromScratch(card, skills, hiredAt, proposedBy);
     if (!(await this.repository.add(role))) {
       // Someone was hired into the Role meanwhile: refuse as if they had been there before.
-      hireFromScratch(roleKey, card, await this.repository.find(roleKey), hiredAt);
-      throw new Error(`The Role "${roleKey}" was filled and emptied again while hiring.`);
+      hireFromScratch(role.key, card, await this.repository.find(role.key), hiredAt);
+      throw new Error(`The Role "${role.key}" was filled and emptied again while hiring.`);
     }
     await this.events.publish(event);
     return { role, skills: await this.roleSkills.assignToRole(role.key, skills) };
+  }
+
+  /** Every reason hiring from scratch would be refused now, saving nothing; empty when it wouldn't. */
+  async hiringProblems(card: RoleCard, skills: readonly string[]): Promise<readonly string[]> {
+    return refusalReasons(() => this.hiringFromScratch(card, skills, new Date()));
+  }
+
+  private async hiringFromScratch(
+    card: RoleCard,
+    skills: readonly string[],
+    hiredAt: Date,
+    proposedBy?: string,
+  ): Promise<RoleChange<RoleHired>> {
+    const roleKey = roleKeyFor(card.title);
+    const skillProblems = await this.roleSkills.problemsWith(skills);
+    const filledBy = await this.repository.find(roleKey);
+    return refusingAlso(skillProblems, () =>
+      hireFromScratch(roleKey, card, filledBy, hiredAt, proposedBy),
+    );
   }
 
   presets(): readonly Preset[] {
@@ -134,12 +172,14 @@ export class RoleService {
 
   /**
    * Saves the card as its next version and gives the Role exactly `skills`, refusing with every
-   * reason before saving either. Sessions started from now on get both; running ones keep theirs.
+   * reason before saving either. The user wrote the card, or applied a Proposal of it by the person
+   * `proposedBy`. Sessions started from now on get both; running ones keep theirs.
    */
   async changeCard(
     key: string,
     edit: RoleCard,
     skills: readonly string[],
+    proposedBy?: string,
   ): Promise<RoleWithSkills> {
     const problems = [
       ...roleCardProblems(key, trimmedRoleCard(edit)),
@@ -147,10 +187,19 @@ export class RoleService {
     ];
     if (problems.length > 0) throw new RoleRefused(problems);
     const { role, event } = await this.repository.update(key, (stored) =>
-      changeRoleCard(stored, edit, new Date()),
+      changeRoleCard(stored, edit, new Date(), proposedBy),
     );
     if (event) await this.events.publish(event);
     return { role, skills: await this.roleSkills.assignToRole(key, skills) };
+  }
+
+  /**
+   * Every reason saving `edit` as the Role's card would be refused now, saving nothing; empty when
+   * it wouldn't. Throws RoleNotFound when there is no such Role.
+   */
+  async cardChangeProblems(key: string, edit: RoleCard): Promise<readonly string[]> {
+    const { role } = await this.read(key);
+    return refusalReasons(() => Promise.resolve(changeRoleCard(role, edit, new Date())));
   }
 
   /** Saves the card with these words changed and nothing else, as `changeCard` does. */

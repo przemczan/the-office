@@ -15,12 +15,15 @@ import {
   DecisionOpened,
   DecisionReopened,
   MessagesLogged,
+  ProposalDrafted,
   ThreadRenamed,
   ThreadStarted,
   TokensCounted,
   TurnEnded,
 } from "./conversation-events.js";
 import type { Message, MessageDelivery, MessageDraft, StageWorkClosing } from "./message.js";
+import { proposedChangeProblems, type Proposal, type ProposedChange } from "./proposal.js";
+import { ProposalRefused } from "./proposal-refused.js";
 import {
   addTokens,
   NO_TOKENS,
@@ -40,6 +43,8 @@ export interface ThreadChange<Event extends DomainEvent> {
   readonly logged: readonly Message[];
   /** A Decision the change opened or answered, saved with the Thread. */
   readonly decision?: Decision;
+  /** A Proposal the change drafted, saved with the Thread. */
+  readonly proposal?: Proposal;
   /** The user's messages, logged earlier, whose delivery the change marks. */
   readonly marked?: DeliveryMarking;
   readonly event: Event;
@@ -342,6 +347,49 @@ export function openDecision(
     logged: [card],
     decision,
     event: new DecisionOpened(waiting, decision),
+  };
+}
+
+/** A Proposal the Thread's person drafts, and when. */
+export interface ProposalDrafting {
+  readonly id: string;
+  readonly draftedAt: Date;
+  readonly change: ProposedChange;
+}
+
+/**
+ * The person drafts a Proposal (spec §2.2): its card is logged, and it waits on the user, who
+ * applies or declines it, while the person goes on. Refused with every problem of what is
+ * proposed, in words the person acts on.
+ */
+export function draftProposal(
+  thread: Thread,
+  { id, draftedAt, change }: ProposalDrafting,
+): ThreadChange<ProposalDrafted> {
+  const problems = proposedChangeProblems(change);
+  if (problems.length > 0) throw new ProposalRefused(problems);
+  const draftedBy = thread.session?.roleKey ?? thread.roleKey;
+  const proposal: Proposal = {
+    id,
+    threadId: thread.id,
+    draftedBy,
+    draftedAt,
+    change,
+    status: { kind: "open" },
+  };
+  const card: Message = {
+    kind: "proposal",
+    id: crypto.randomUUID(),
+    threadId: thread.id,
+    at: draftedAt,
+    roleKey: draftedBy,
+    proposalId: id,
+  };
+  return {
+    thread,
+    logged: [card],
+    proposal,
+    event: new ProposalDrafted(thread, proposal),
   };
 }
 

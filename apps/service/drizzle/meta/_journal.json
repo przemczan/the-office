@@ -267,6 +267,13 @@
       "when": 1793125891655,
       "tag": "0037_decision_passed_on",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1793133598394,
+      "tag": "0038_proposals",
+      "breakpoints": true
     }
   ]
 }

@@ -15,6 +15,11 @@ export interface Role {
   /** When the current version was saved. */
   readonly cardSavedAt: Date;
   /**
+   * Who proposed the current version, by the key of their Role, when the user applied a Proposal;
+   * undefined when the user wrote it themselves.
+   */
+  readonly cardProposedBy: string | undefined;
+  /**
    * When the user let the person go; undefined while they fill the Role. A person let go keeps
    * their card, Memory and chats, unused and readable, until hired back (spec §2.2).
    */
@@ -27,4 +32,6 @@ export interface RoleCardVersion {
   readonly card: RoleCard;
   readonly changes: readonly RoleCardFieldChange[];
   readonly savedAt: Date;
+  /** Who proposed it, by the key of their Role; undefined when the user wrote it themselves. */
+  readonly proposedBy: string | undefined;
 }

@@ -8,6 +8,7 @@ export {
   type HardSwitchKey,
   type HardSwitchValue,
 } from "./domain/hard-switches.js";
+export type { RoleCard } from "./domain/role-card.js";
 export { RoleNotFound } from "./domain/role-not-found.js";
 export { RoleRefused } from "./domain/role-refused.js";
 export { PeopleModule } from "./people.module.js";

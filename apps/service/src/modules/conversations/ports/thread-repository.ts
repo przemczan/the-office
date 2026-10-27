@@ -1,6 +1,8 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Decision } from "../domain/decision.js";
 import type { Message } from "../domain/message.js";
+import type { Proposal } from "../domain/proposal.js";
+import type { ProposalChange } from "../domain/proposal-changes.js";
 import type { Home, Thread } from "../domain/thread.js";
 import type { ThreadChange } from "../domain/thread-changes.js";
 
@@ -11,8 +13,8 @@ export interface ThreadUpdate<Event extends DomainEvent> {
 }
 
 /**
- * Where Threads are kept, each with The Office's log of its messages and the Decisions opened in
- * it, which a change saves with the Thread.
+ * Where Threads are kept, each with The Office's log of its messages and the Decisions opened and
+ * Proposals drafted in it, which a change saves with the Thread.
  */
 export abstract class ThreadRepository {
   abstract add(thread: Thread): Promise<void>;
@@ -63,4 +65,19 @@ export abstract class ThreadRepository {
 
   /** Every Decision waiting on the user, the first asked first. */
   abstract openDecisions(): Promise<readonly Decision[]>;
+
+  abstract proposal(id: string): Promise<Proposal | undefined>;
+
+  /** The Thread's Proposals, open, applied and declined, the first drafted first. */
+  abstract proposalsIn(threadId: string): Promise<readonly Proposal[]>;
+
+  /**
+   * Applies `change` to the Proposal as stored, holding it against other changes until the change
+   * is carried out and saved, so the user's two clicks at once never apply it twice. Saves nothing
+   * when `change` throws; throws ProposalNotFound when there is no such Proposal.
+   */
+  abstract updateProposal<Event extends DomainEvent>(
+    id: string,
+    change: (proposal: Proposal) => Promise<ProposalChange<Event>>,
+  ): Promise<ProposalChange<Event>>;
 }

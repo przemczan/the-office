@@ -24,6 +24,7 @@ import {
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { DecisionService } from "../../application/decision-service.js";
+import { ProposalService } from "../../application/proposal-service.js";
 import { ThreadContexts } from "../../application/thread-contexts.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
 import { ThreadService } from "../../application/thread-service.js";
@@ -40,6 +41,7 @@ export class ThreadsController {
     private readonly contexts: ThreadContexts,
     private readonly runner: ThreadRunner,
     private readonly decisions: DecisionService,
+    private readonly proposals: ProposalService,
   ) {}
 
   @Get("chats/:roleKey/threads")
@@ -88,13 +90,22 @@ export class ThreadsController {
     return this.toResponse(await this.threads.chooseOverride(id, override ?? undefined));
   }
 
-  /** The log, with each Decision's card and answer showing the Decision as it is now. */
+  /**
+   * The log, with each Decision's card and answer showing the Decision as it is now, and each
+   * Proposal's card the Proposal.
+   */
   @Get("threads/:id/messages")
   async messages(@Param("id", ParseUUIDPipe) id: string): Promise<MessageResponse[]> {
-    const messages = await this.threads.messages(id);
-    const decisions = await this.decisions.listInThread(id);
-    const byId = new Map(decisions.map((decision) => [decision.id, decision]));
-    return messages.map((message) => toMessageResponse(message, byId));
+    const [messages, decisions, proposals] = await Promise.all([
+      this.threads.messages(id),
+      this.decisions.listInThread(id),
+      this.proposals.listInThread(id),
+    ]);
+    const records = {
+      decisions: new Map(decisions.map((decision) => [decision.id, decision])),
+      proposals: new Map(proposals.map((proposal) => [proposal.id, proposal])),
+    };
+    return messages.map((message) => toMessageResponse(message, records));
   }
 
   /**

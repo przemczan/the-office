@@ -122,13 +122,14 @@ function toChangeResponse(entry: RoleHistoryEntry): RoleChangeResponse {
   const at = entry.at.toISOString();
   switch (entry.kind) {
     case "hired":
-      return { kind: "hired", at };
+      return { kind: "hired", at, proposedBy: entry.proposedBy ?? null };
     case "card-changed":
       return {
         kind: "card-changed",
         at,
         cardVersion: entry.cardVersion,
         changes: entry.changes.map(({ field, from, to }) => ({ field, from, to })),
+        proposedBy: entry.proposedBy ?? null,
       };
     case "skills-changed":
       return { kind: "skills-changed", at, added: [...entry.added], removed: [...entry.removed] };

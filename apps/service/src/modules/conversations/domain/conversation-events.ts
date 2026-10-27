@@ -1,6 +1,7 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Decision } from "./decision.js";
 import type { Message, MessageDelivery } from "./message.js";
+import type { Proposal } from "./proposal.js";
 import type { Thread } from "./thread.js";
 
 export class ThreadStarted extends DomainEvent {
@@ -106,6 +107,38 @@ export class DecisionReopened extends DomainEvent {
     reopenedAt: Date,
   ) {
     super(reopenedAt);
+  }
+}
+
+/** A person drafted a Proposal in the Thread, shown there as a card; it waits on the user. */
+export class ProposalDrafted extends DomainEvent {
+  constructor(
+    readonly thread: Thread,
+    readonly proposal: Proposal,
+  ) {
+    super(proposal.draftedAt);
+  }
+}
+
+/** The user applied a Proposal: the module that owns what it changes carried it out. */
+export class ProposalApplied extends DomainEvent {
+  constructor(
+    readonly thread: Thread,
+    readonly proposal: Proposal,
+    appliedAt: Date,
+  ) {
+    super(appliedAt);
+  }
+}
+
+/** The user declined a Proposal: nothing changed. */
+export class ProposalDeclined extends DomainEvent {
+  constructor(
+    readonly thread: Thread,
+    readonly proposal: Proposal,
+    declinedAt: Date,
+  ) {
+    super(declinedAt);
   }
 }
 

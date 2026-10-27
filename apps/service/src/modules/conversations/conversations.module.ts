@@ -3,9 +3,11 @@ import { EngineModule } from "../engine/index.js";
 import { PeopleModule } from "../people/index.js";
 import { SkillsModule } from "../skills/index.js";
 import { DecisionsController } from "./adapters/http/decisions.controller.js";
+import { ProposalsController } from "./adapters/http/proposals.controller.js";
 import { SizeThresholdController } from "./adapters/http/size-threshold.controller.js";
 import { ThreadsController } from "./adapters/http/threads.controller.js";
 import { DecisionOfficeTools } from "./adapters/office-tools/decision-office-tools.js";
+import { ProposalOfficeTools } from "./adapters/office-tools/proposal-office-tools.js";
 import { RoleOfficeTools } from "./adapters/office-tools/role-office-tools.js";
 import { MemoryOfficeTools } from "./adapters/office-tools/memory-office-tools.js";
 import { PostgresConversationsSettings } from "./adapters/postgres/postgres-conversations-settings.js";
@@ -18,6 +20,9 @@ import { DecisionService } from "./application/decision-service.js";
 import { HeldCalls } from "./application/held-calls.js";
 import { InterruptedAnswers } from "./application/interrupted-answers.js";
 import { MentionedRecords } from "./application/mentioned-records.js";
+import { ProposalAppliers } from "./application/proposal-appliers.js";
+import { ProposalService } from "./application/proposal-service.js";
+import { RoleProposals } from "./application/role-proposals.js";
 import { SessionMemory } from "./application/session-memory.js";
 import { SessionPlaces } from "./application/session-places.js";
 import { StageDecisions } from "./application/stage-decisions.js";
@@ -46,7 +51,12 @@ export class ConversationsModule {
       // A chat is with a person, whose Role card sets their session; the engine runs it with
       // their skills.
       imports: [...imports, PeopleModule, EngineModule, SkillsModule],
-      controllers: [ThreadsController, DecisionsController, SizeThresholdController],
+      controllers: [
+        ThreadsController,
+        DecisionsController,
+        ProposalsController,
+        SizeThresholdController,
+      ],
       providers: [
         { provide: ThreadRepository, useClass: PostgresThreadRepository },
         { provide: ProjectBases, useExisting: projectBases },
@@ -67,8 +77,12 @@ export class ConversationsModule {
         StageThreads,
         StageDecisions,
         TaskTokens,
+        ProposalAppliers,
+        ProposalService,
+        RoleProposals,
         DecisionOfficeTools,
         RoleOfficeTools,
+        ProposalOfficeTools,
         HeldCalls,
         MemoryOfficeTools,
         ThreadWebEvents,

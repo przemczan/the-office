@@ -125,6 +125,9 @@ export const threadEventInvalidations: Readonly<
   "thread.decision-opened": () => [THREADS, DECISIONS, TASKS],
   "thread.decision-answered": () => [THREADS, DECISIONS, TASKS],
   "thread.decision-reopened": () => [THREADS, DECISIONS, TASKS],
+  "thread.proposal-drafted": () => [THREADS],
+  "thread.proposal-applied": () => [THREADS],
+  "thread.proposal-declined": () => [THREADS],
   "context-policy.size-threshold-changed": () => [SIZE_THRESHOLD, THREADS],
 };
 

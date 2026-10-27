@@ -4,15 +4,25 @@ import { DATABASE, type Database } from "../../../../platform/database/database.
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Decision } from "../../domain/decision.js";
 import type { Message } from "../../domain/message.js";
+import type { Proposal, ProposalStatus } from "../../domain/proposal.js";
+import type { ProposalChange } from "../../domain/proposal-changes.js";
+import { ProposalNotFound } from "../../domain/proposal-not-found.js";
 import type { Home, Thread, ThreadSession } from "../../domain/thread.js";
 import type { ThreadChange } from "../../domain/thread-changes.js";
 import { ThreadNotFound } from "../../domain/thread-not-found.js";
 import { ThreadRepository, type ThreadUpdate } from "../../ports/thread-repository.js";
-import { decisions, threadMessages, threads, type ThreadSessionRow } from "./threads.schema.js";
+import {
+  decisions,
+  proposals,
+  threadMessages,
+  threads,
+  type ThreadSessionRow,
+} from "./threads.schema.js";
 
 type ThreadRow = typeof threads.$inferSelect;
 type MessageRow = typeof threadMessages.$inferSelect;
 type DecisionRow = typeof decisions.$inferSelect;
+type ProposalRow = typeof proposals.$inferSelect;
 /** The client or a transaction on it: whichever reads the Threads' open Decisions. */
 type Reader = Pick<Database, "select">;
 
@@ -96,6 +106,9 @@ export class PostgresThreadRepository extends ThreadRepository {
             },
           });
       }
+      if (changed.proposal) {
+        await transaction.insert(proposals).values(toProposalRow(changed.proposal));
+      }
       if (changed.logged.length > 0) {
         // One insert keeps the log in the messages' order: position follows the rows.
         await transaction.insert(threadMessages).values(changed.logged.map(toMessageRow));
@@ -173,6 +186,41 @@ export class PostgresThreadRepository extends ThreadRepository {
       .where(and(isNull(decisions.answeredAt), isNull(decisions.putTo)))
       .orderBy(asc(decisions.askedAt), asc(decisions.id));
     return rows.map(toDecision);
+  }
+
+  async proposal(id: string): Promise<Proposal | undefined> {
+    const [row] = await this.database.select().from(proposals).where(eq(proposals.id, id));
+    return row && toProposal(row);
+  }
+
+  async proposalsIn(threadId: string): Promise<readonly Proposal[]> {
+    const rows = await this.database
+      .select()
+      .from(proposals)
+      .where(eq(proposals.threadId, threadId))
+      .orderBy(asc(proposals.draftedAt), asc(proposals.id));
+    return rows.map(toProposal);
+  }
+
+  async updateProposal<Event extends DomainEvent>(
+    id: string,
+    change: (proposal: Proposal) => Promise<ProposalChange<Event>>,
+  ): Promise<ProposalChange<Event>> {
+    return this.database.transaction(async (transaction) => {
+      const [row] = await transaction
+        .select()
+        .from(proposals)
+        .where(eq(proposals.id, id))
+        .for("update");
+      if (!row) throw new ProposalNotFound(id);
+      const changed = await change(toProposal(row));
+      const { change: proposed, status, statusAt } = toProposalRow(changed.proposal);
+      await transaction
+        .update(proposals)
+        .set({ change: proposed, status, statusAt })
+        .where(eq(proposals.id, id));
+      return changed;
+    });
   }
 }
 
@@ -304,4 +352,27 @@ function toDecision({
     })),
     answer: answer === null || answeredAt === null ? undefined : { ...answer, answeredAt },
   };
+}
+
+function toProposalRow({ status, ...proposal }: Proposal): ProposalRow {
+  return {
+    ...proposal,
+    status: status.kind,
+    statusAt: status.kind === "open" ? null : status.at,
+  };
+}
+
+function toProposal({ status, statusAt, change, ...row }: ProposalRow): Proposal {
+  return {
+    ...row,
+    // A hire not applied yet has no Role key, which its JSON leaves out.
+    change: change.kind === "hire" ? { ...change, roleKey: change.roleKey ?? undefined } : change,
+    status: toProposalStatus(status, statusAt),
+  };
+}
+
+function toProposalStatus(kind: ProposalStatus["kind"], at: Date | null): ProposalStatus {
+  if (kind === "open") return { kind };
+  if (!at) throw new Error(`A ${kind} Proposal has no time it was ${kind}.`);
+  return { kind, at };
 }

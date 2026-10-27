@@ -12,6 +12,7 @@ import {
 } from "drizzle-orm/pg-core";
 import type { DecisionAnswer, PassedOn, Recommendation } from "../../domain/decision.js";
 import type { MessageDraft } from "../../domain/message.js";
+import type { ProposalStatus, ProposedChange } from "../../domain/proposal.js";
 import type {
   Consultation,
   ContextOverride,
@@ -109,4 +110,24 @@ export const decisions = pgTable(
       .where(sql`${table.answeredAt} is null`),
     index("decisions_task").on(table.taskId, table.answeredAt),
   ],
+);
+
+/** The Proposals drafted in each Thread, open until the user applies or declines them. */
+export const proposals = pgTable(
+  "proposals",
+  {
+    id: uuid("id").primaryKey(),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => threads.id, { onDelete: "cascade" }),
+    /** The key of the drafter's Role. */
+    draftedBy: text("drafted_by").notNull(),
+    draftedAt: timestamp("drafted_at", { withTimezone: true }).notNull(),
+    /** What it changes, by kind: as drafted while open, as applied once applied. */
+    change: jsonb("change").$type<ProposedChange>().notNull(),
+    status: text("status").$type<ProposalStatus["kind"]>().notNull(),
+    /** When the user applied or declined it; null while it is open. */
+    statusAt: timestamp("status_at", { withTimezone: true }),
+  },
+  (table) => [index("proposals_thread").on(table.threadId, table.draftedAt)],
 );

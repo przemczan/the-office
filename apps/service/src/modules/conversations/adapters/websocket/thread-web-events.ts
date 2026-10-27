@@ -8,6 +8,9 @@ import {
   DeliveryMarked,
   DecisionReopened,
   MessagesLogged,
+  ProposalApplied,
+  ProposalDeclined,
+  ProposalDrafted,
   SizeThresholdChanged,
   ThreadRenamed,
   ThreadStarted,
@@ -77,6 +80,21 @@ export class ThreadWebEvents implements OnModuleInit {
       type: "thread.decision-reopened",
       ...namesOf(event.thread),
       decisionId: event.decision.id,
+    }));
+    this.forwarding.forward(ProposalDrafted, (event): WebEventOf<"thread.proposal-drafted"> => ({
+      type: "thread.proposal-drafted",
+      ...namesOf(event.thread),
+      proposalId: event.proposal.id,
+    }));
+    this.forwarding.forward(ProposalApplied, (event): WebEventOf<"thread.proposal-applied"> => ({
+      type: "thread.proposal-applied",
+      ...namesOf(event.thread),
+      proposalId: event.proposal.id,
+    }));
+    this.forwarding.forward(ProposalDeclined, (event): WebEventOf<"thread.proposal-declined"> => ({
+      type: "thread.proposal-declined",
+      ...namesOf(event.thread),
+      proposalId: event.proposal.id,
     }));
     this.forwarding.forward(
       SizeThresholdChanged,

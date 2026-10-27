@@ -39,21 +39,23 @@ export function hire(
     cardVersion: 1,
     hiredAt,
     cardSavedAt: hiredAt,
+    cardProposedBy: undefined,
     letGoAt: undefined,
   };
   return { role, event: new RoleHired(role) };
 }
 
 /**
- * Hires the person on `card` into a new Role keyed `roleKey`, which the card's title makes. Refuses
- * with every reason: a card that breaks a rule, a key the presets keep, or a Role `filledBy`
- * someone already.
+ * Hires the person on `card` into a new Role keyed `roleKey`, which the card's title makes, as the
+ * user wrote the card or applied a Proposal of it by the person `proposedBy`. Refuses with every
+ * reason: a card that breaks a rule, a key the presets keep, or a Role `filledBy` someone already.
  */
 export function hireFromScratch(
   roleKey: string,
   edit: RoleCard,
   filledBy: Role | undefined,
   hiredAt: Date,
+  proposedBy?: string,
 ): RoleChange<RoleHired> {
   const card = trimmedRoleCard(edit);
   const problems = roleCardProblems(roleKey, card);
@@ -72,6 +74,7 @@ export function hireFromScratch(
     cardVersion: 1,
     hiredAt,
     cardSavedAt: hiredAt,
+    cardProposedBy: proposedBy,
     letGoAt: undefined,
   };
   return { role, event: new RoleHired(role) };
@@ -107,13 +110,15 @@ export function hireBack(role: Role, hiredBackAt: Date): RoleChange<RoleHiredBac
 }
 
 /**
- * Saves the edit as the card's next version. Undefined when nothing would change; refuses with
- * every reason when the card would break a rule.
+ * Saves the edit as the card's next version, as the user wrote it or applied a Proposal of it by
+ * the person `proposedBy`. Undefined when nothing would change; refuses with every reason when the
+ * card would break a rule.
  */
 export function changeRoleCard(
   role: Role,
   edit: RoleCard,
   savedAt: Date,
+  proposedBy?: string,
 ): RoleChange<RoleCardChanged> | undefined {
   if (role.letGoAt) {
     throw new RoleRefused([
@@ -125,6 +130,12 @@ export function changeRoleCard(
   if (problems.length > 0) throw new RoleRefused(problems);
   const changes = roleCardChanges(role.card, card);
   if (changes.length === 0) return undefined;
-  const changed: Role = { ...role, card, cardVersion: role.cardVersion + 1, cardSavedAt: savedAt };
+  const changed: Role = {
+    ...role,
+    card,
+    cardVersion: role.cardVersion + 1,
+    cardSavedAt: savedAt,
+    cardProposedBy: proposedBy,
+  };
   return { role: changed, event: new RoleCardChanged(changed, changes) };
 }

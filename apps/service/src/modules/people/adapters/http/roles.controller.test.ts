@@ -411,8 +411,9 @@ describe("GET /api/roles/:key/changes", () => {
         at: expect.any(String),
         cardVersion: 2,
         changes: [{ field: "effort", from: "high", to: "max" }],
+        proposedBy: null,
       },
-      { kind: "hired", at: hired.hiredAt },
+      { kind: "hired", at: hired.hiredAt, proposedBy: null },
     ]);
   });
 });

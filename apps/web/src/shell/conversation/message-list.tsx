@@ -165,6 +165,9 @@ function MessageItem({
           </div>
         </div>
       );
+    case "proposal":
+      // Step 2b of task 21 renders the Proposal's card.
+      return null;
   }
 }
 

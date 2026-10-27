@@ -2,11 +2,14 @@ import type {
   DecisionAnswer as DecisionAnswerResponse,
   Decision as DecisionResponse,
   Message as MessageResponse,
+  Proposal as ProposalResponse,
+  ProposedChange as ProposedChangeResponse,
   Thread as ThreadResponse,
 } from "@the-office/contracts";
 import type { ContextDecision } from "../../domain/context-policy.js";
 import type { Decision, DecisionAnswer } from "../../domain/decision.js";
 import type { Message } from "../../domain/message.js";
+import type { Proposal, ProposedChange } from "../../domain/proposal.js";
 import { tokensSoFar, type Thread } from "../../domain/thread.js";
 
 export function toThreadResponse(thread: Thread, context: ContextDecision): ThreadResponse {
@@ -32,13 +35,20 @@ export function toThreadResponse(thread: Thread, context: ContextDecision): Thre
   };
 }
 
+/** The Thread's Decisions and Proposals by id, which its log's cards show. */
+export interface CardRecords {
+  readonly decisions: ReadonlyMap<string, Decision>;
+  readonly proposals: ReadonlyMap<string, Proposal>;
+}
+
 /**
  * A message of the log; a Decision's card and answer show the Decision as it is now, and the
- * answer's line also the answer it gave, which a Decision opened again no longer holds.
+ * answer's line also the answer it gave, which a Decision opened again no longer holds. A
+ * Proposal's card shows the Proposal as it is now.
  */
 export function toMessageResponse(
   { threadId: _threadId, at, ...message }: Message,
-  decisions: ReadonlyMap<string, Decision>,
+  { decisions, proposals }: CardRecords,
 ): MessageResponse {
   const fields = { ...message, at: at.toISOString() };
   switch (fields.kind) {
@@ -60,8 +70,43 @@ export function toMessageResponse(
         decision: toDecisionResponse(decisionOf(message.id, decisionId, decisions)),
       };
     }
+    case "proposal": {
+      const { proposalId, ...card } = fields;
+      const proposal = proposals.get(proposalId);
+      if (!proposal) {
+        throw new Error(`Message ${message.id} shows the Proposal ${proposalId}, which is gone.`);
+      }
+      return { ...card, proposal: toProposalResponse(proposal) };
+    }
     default:
       return fields;
+  }
+}
+
+export function toProposalResponse({
+  draftedAt,
+  change,
+  status,
+  ...proposal
+}: Proposal): ProposalResponse {
+  return {
+    ...proposal,
+    draftedAt: draftedAt.toISOString(),
+    change: toProposedChangeResponse(change),
+    status: status.kind === "open" ? status : { kind: status.kind, at: status.at.toISOString() },
+  };
+}
+
+function toProposedChangeResponse(change: ProposedChange): ProposedChangeResponse {
+  switch (change.kind) {
+    case "hire":
+      return {
+        kind: "hire",
+        card: { ...change.card, skills: [...change.skills] },
+        roleKey: change.roleKey ?? null,
+      };
+    case "change":
+      return { kind: "change", roleKey: change.roleKey, from: change.from, to: change.to };
   }
 }
 

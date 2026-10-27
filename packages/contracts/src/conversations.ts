@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
+import { roleCardSchema } from "./people.js";
 
 /** Where a conversation lives: a person's chat, by the Role's key, or a Task's. */
 export const homeSchema = z.discriminatedUnion("kind", [
@@ -173,6 +174,70 @@ export type Decision = z.infer<typeof decisionSchema>;
 /** GET /decisions/open: every Decision waiting on the user, the first asked first. */
 export const decisionListSchema = z.array(decisionSchema);
 
+/**
+ * The Office tool the Office Manager drafts a Proposal of a Role with. Its tool activity line is
+ * hidden in the web, since the Proposal's card shows the call.
+ */
+export const PROPOSE_ROLE_TOOL = "propose_role";
+
+/** The fields of a Role card a change rewrites, each one whole; skills aren't among them. */
+const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).partial();
+
+/** What a Proposal changes, by kind; the module that owns each kind applies it. */
+export const proposedChangeSchema = z.discriminatedUnion("kind", [
+  /** A new Role, hired from scratch on this card (with its skills) when the user applies it. */
+  z.object({
+    kind: z.literal("hire"),
+    card: roleCardSchema,
+    /** The Role the person was hired into; null until the user applied it. */
+    roleKey: z.string().nullable(),
+  }),
+  /**
+   * A change to a hired Role's card: the fields it rewrites as the card had them when drafted, and
+   * as proposed. Applying rewrites only those fields on the card as it is then.
+   */
+  z.object({
+    kind: z.literal("change"),
+    roleKey: z.string(),
+    from: roleCardFieldsSchema,
+    to: roleCardFieldsSchema,
+  }),
+]);
+export type ProposedChange = z.infer<typeof proposedChangeSchema>;
+
+/** Open until the user applies or declines it; nothing changes before they apply it. */
+export const proposalStatusSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("open") }),
+  z.object({ kind: z.literal("applied"), at: z.iso.datetime() }),
+  z.object({ kind: z.literal("declined"), at: z.iso.datetime() }),
+]);
+export type ProposalStatus = z.infer<typeof proposalStatusSchema>;
+
+/**
+ * A change a person drafted for the user to confirm with a click, shown as a card in the Thread it
+ * was drafted in. GET /proposals/:id reads one; POST /proposals/:id/apply applies it, taking a
+ * `proposalApplicationSchema`, and POST /proposals/:id/decline declines it ("Not now"); both answer
+ * with the Proposal as it is then, or a `threadRefusalSchema` that leaves it open.
+ */
+export const proposalSchema = z.object({
+  id: z.uuid(),
+  threadId: z.uuid(),
+  /** Who drafted it, by the key of their Role. */
+  draftedBy: z.string(),
+  draftedAt: z.iso.datetime(),
+  /** As drafted while open; as applied, with the user's edits, once applied. */
+  change: proposedChangeSchema,
+  status: proposalStatusSchema,
+});
+export type Proposal = z.infer<typeof proposalSchema>;
+
+/**
+ * POST /proposals/:id/apply: for a new Role, the card (with its skills) as the user edited it before
+ * hiring; none to apply the Proposal as drafted.
+ */
+export const proposalApplicationSchema = z.object({ card: roleCardSchema.optional() });
+export type ProposalApplication = z.infer<typeof proposalApplicationSchema>;
+
 const messageFields = { id: z.uuid(), at: z.iso.datetime() };
 
 /**
@@ -244,6 +309,13 @@ export const messageSchema = z.discriminatedUnion("kind", [
     answer: decisionAnswerSchema,
     decision: decisionSchema,
   }),
+  /** A Proposal the person drafted, as its card shows it now: open, applied or declined. */
+  z.object({
+    ...messageFields,
+    kind: z.literal("proposal"),
+    roleKey: z.string(),
+    proposal: proposalSchema,
+  }),
   /** A tool call that was refused, with the reason the person read. */
   z.object({
     ...messageFields,
@@ -284,6 +356,7 @@ export type SizeThreshold = z.infer<typeof sizeThresholdSchema>;
 
 const threadWebEventFields = { threadId: z.uuid(), home: homeSchema };
 const decisionWebEventFields = { ...threadWebEventFields, decisionId: z.uuid() };
+const proposalWebEventFields = { ...threadWebEventFields, proposalId: z.uuid() };
 
 /**
  * The Conversations events the web receives; each names the Thread and its home, but the size
@@ -311,6 +384,18 @@ export const threadWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({
     type: z.literal("thread.decision-reopened"),
     ...decisionWebEventFields,
+  }),
+  webEventSchema.extend({
+    type: z.literal("thread.proposal-drafted"),
+    ...proposalWebEventFields,
+  }),
+  webEventSchema.extend({
+    type: z.literal("thread.proposal-applied"),
+    ...proposalWebEventFields,
+  }),
+  webEventSchema.extend({
+    type: z.literal("thread.proposal-declined"),
+    ...proposalWebEventFields,
   }),
   webEventSchema.extend({ type: z.literal("context-policy.size-threshold-changed") }),
 ]);

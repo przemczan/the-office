@@ -1,0 +1,78 @@
+import { Injectable, type OnModuleInit } from "@nestjs/common";
+import { RoleNotFound, RoleRefused, RoleService } from "../../people/index.js";
+import type { ProposedHire, ProposedRoleChange } from "../domain/proposal.js";
+import { ProposalRefused } from "../domain/proposal-refused.js";
+import { ProposalAppliers } from "./proposal-appliers.js";
+
+/**
+ * Proposals of Roles, which People applies: a new Role is hired from scratch, and a change rewrites
+ * the fields it names on the card as it is when applied, keeping the Role's skills. People's hiring
+ * and card rules judge both, so a refused one changes nothing and gives People's reasons.
+ */
+@Injectable()
+export class RoleProposals implements OnModuleInit {
+  constructor(
+    private readonly appliers: ProposalAppliers,
+    private readonly roles: RoleService,
+  ) {}
+
+  onModuleInit(): void {
+    this.appliers.register("hire", {
+      problemsWith: ({ card, skills }) => this.roles.hiringProblems(card, skills),
+      apply: (hire, proposedBy) => this.hire(hire, proposedBy),
+    });
+    this.appliers.register("change", {
+      problemsWith: (change) => this.changeProblems(change),
+      apply: (change, proposedBy) => this.change(change, proposedBy),
+    });
+  }
+
+  private async hire(hire: ProposedHire, proposedBy: string): Promise<ProposedHire> {
+    const { role } = await refusedAsProposal(() =>
+      this.roles.hireFromScratch(hire.card, hire.skills, proposedBy),
+    );
+    return { ...hire, roleKey: role.key };
+  }
+
+  private async changeProblems({ roleKey, to }: ProposedRoleChange): Promise<readonly string[]> {
+    try {
+      const { role } = await this.roles.read(roleKey);
+      return await this.roles.cardChangeProblems(roleKey, { ...role.card, ...to });
+    } catch (error) {
+      if (error instanceof RoleNotFound) return [noSuchRole(roleKey)];
+      throw error;
+    }
+  }
+
+  /** A card that reads as proposed already is left as it is: the Proposal holds, so it applies. */
+  private async change(
+    change: ProposedRoleChange,
+    proposedBy: string,
+  ): Promise<ProposedRoleChange> {
+    await refusedAsProposal(async () => {
+      const { role, skills } = await this.roles.read(change.roleKey);
+      return this.roles.changeCard(
+        change.roleKey,
+        { ...role.card, ...change.to },
+        skills,
+        proposedBy,
+      );
+    });
+    return change;
+  }
+}
+
+/** Runs People's command, giving its refusal, or a Role that isn't there, as the Proposal's. */
+async function refusedAsProposal<Result>(command: () => Promise<Result>): Promise<Result> {
+  try {
+    return await command();
+  } catch (error) {
+    if (error instanceof RoleRefused) throw new ProposalRefused(error.reasons);
+    if (error instanceof RoleNotFound) throw new ProposalRefused([noSuchRole(error.roleKey)]);
+    throw error;
+  }
+}
+
+function noSuchRole(roleKey: string): string {
+  return `The Office has no Role "${roleKey}".`;
+}

@@ -6,6 +6,7 @@ import type { INestApplication } from "@nestjs/common";
 import {
   decisionListSchema,
   messageListSchema,
+  proposalSchema,
   sizeThresholdSchema,
   threadListSchema,
   threadRefusalSchema,
@@ -27,6 +28,8 @@ import { SkillsModule } from "../../../skills/index.js";
 import { Briefs } from "../../application/briefs.js";
 import { sessionMemoryProvider } from "../../application/session-memory.fixtures.js";
 import { DecisionService } from "../../application/decision-service.js";
+import { ProposalAppliers } from "../../application/proposal-appliers.js";
+import { ProposalService } from "../../application/proposal-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { SessionPlaces } from "../../application/session-places.js";
 import { TaskThreadSetups } from "../../application/task-thread-setups.js";
@@ -38,6 +41,7 @@ import { WorkRecords } from "../../application/work-records.js";
 import { ThreadService } from "../../application/thread-service.js";
 import { DecisionAnswered } from "../../domain/conversation-events.js";
 import type { Decision } from "../../domain/decision.js";
+import { aProposedCard } from "../../domain/proposal.fixtures.js";
 import type { Thread } from "../../domain/thread.js";
 import { aThread } from "../../domain/thread.fixtures.js";
 import { ProjectBases } from "../../ports/project-bases.js";
@@ -45,6 +49,7 @@ import { ThreadRepository } from "../../ports/thread-repository.js";
 import { PostgresThreadRepository } from "../postgres/postgres-thread-repository.js";
 import { ThreadWebEvents } from "../websocket/thread-web-events.js";
 import { DecisionsController } from "./decisions.controller.js";
+import { ProposalsController } from "./proposals.controller.js";
 import { SizeThresholdController } from "./size-threshold.controller.js";
 import { ThreadsController } from "./threads.controller.js";
 import { ContextPolicySettingsService } from "../../application/context-policy-settings.js";
@@ -84,7 +89,12 @@ beforeEach(async () => {
       // The runner's own tests answer messages; these send ones it refuses, or no session takes.
       ScriptedEngineModule.register(new ScriptedEngine([])),
     ],
-    controllers: [ThreadsController, DecisionsController, SizeThresholdController],
+    controllers: [
+      ThreadsController,
+      DecisionsController,
+      ProposalsController,
+      SizeThresholdController,
+    ],
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       { provide: RoleCards, useValue: roleCards },
@@ -102,6 +112,8 @@ beforeEach(async () => {
       WorkRecords,
       StageThreads,
       DecisionService,
+      ProposalAppliers,
+      ProposalService,
       ThreadWebEvents,
     ],
   }));
@@ -538,6 +550,98 @@ describe("a Decision", () => {
     });
     const open = decisionListSchema.parse(await (await get("/decisions/open")).json());
     expect(open.map(({ id }) => id)).not.toContain(decision.id);
+  });
+});
+
+/** A chat Thread whose session drafted a Proposal of a new Role, which People would hire. */
+async function drafted(): Promise<{ readonly thread: Thread; readonly proposalId: string }> {
+  app.get(ProposalAppliers).register("hire", {
+    problemsWith: () => Promise.resolve([]),
+    apply: (hire) => Promise.resolve({ ...hire, roleKey: "tester" }),
+  });
+  const roleKey = aPerson("Marta", true);
+  const sessionId = randomUUID();
+  const thread = aThread({
+    id: randomUUID(),
+    home: { kind: "chat", roleKey },
+    roleKey,
+    session: {
+      id: sessionId,
+      roleKey,
+      cardVersion: 1,
+      startedAt: new Date(),
+      lastCallAt: new Date(),
+      contextTokens: 34_000,
+      startContextTokens: 33_000,
+      full: false,
+    },
+  });
+  await app.get(ThreadRepository).add(thread);
+  const { id } = await app.get(ProposalService).draft(sessionId, {
+    kind: "hire",
+    card: aProposedCard(),
+    skills: [],
+    roleKey: undefined,
+  });
+  return { thread, proposalId: id };
+}
+
+describe("a Proposal", () => {
+  it("shows in the Thread's log as its card, and applies as the user edited it", async () => {
+    const { thread, proposalId } = await drafted();
+
+    const messages = messageListSchema.parse(
+      await (await get(`/threads/${thread.id}/messages`)).json(),
+    );
+    const read = proposalSchema.parse(await (await get(`/proposals/${proposalId}`)).json());
+    const applying = await send("POST", `/proposals/${proposalId}/apply`, {
+      card: { ...aProposedCard(), name: "Tom", skills: [] },
+    });
+
+    expect(messages).toEqual([
+      {
+        kind: "proposal",
+        id: expect.any(String),
+        at: expect.any(String),
+        roleKey: thread.roleKey,
+        proposal: read,
+      },
+    ]);
+    expect(read).toMatchObject({
+      draftedBy: thread.roleKey,
+      change: { kind: "hire", card: { ...aProposedCard(), skills: [] }, roleKey: null },
+      status: { kind: "open" },
+    });
+    expect(applying.status).toBe(200);
+    expect(proposalSchema.parse(await applying.json())).toMatchObject({
+      change: { kind: "hire", card: { name: "Tom" }, roleKey: "tester" },
+      status: { kind: "applied", at: expect.any(String) },
+    });
+    const names = { threadId: thread.id, home: thread.home, proposalId };
+    expect(webEvents()).toEqual([
+      { type: "thread.proposal-drafted", ...names },
+      { type: "thread.proposal-applied", ...names },
+    ]);
+  });
+
+  it("declines, and refuses a change once declined", async () => {
+    const { thread, proposalId } = await drafted();
+
+    const declining = await send("POST", `/proposals/${proposalId}/decline`);
+    const applying = await send("POST", `/proposals/${proposalId}/apply`, {});
+
+    expect(proposalSchema.parse(await declining.json()).status).toMatchObject({ kind: "declined" });
+    expect(applying.status).toBe(422);
+    expect(threadRefusalSchema.parse(await applying.json()).reasons).toEqual([
+      "This Proposal was declined.",
+    ]);
+    expect(webEvents()).toContainEqual({
+      type: "thread.proposal-declined",
+      threadId: thread.id,
+      home: thread.home,
+      proposalId,
+    });
+    expect((await get(`/proposals/${randomUUID()}`)).status).toBe(404);
   });
 });
 

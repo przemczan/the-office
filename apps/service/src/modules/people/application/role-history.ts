@@ -2,14 +2,18 @@ import type { RoleSkillsChange } from "../../skills/index.js";
 import type { RoleCardVersion } from "../domain/role.js";
 import type { RoleCardFieldChange } from "../domain/role-card-changes.js";
 
-/** One line of a person's change history: the hire, a card change or a change of skills. */
+/**
+ * One line of a person's change history: the hire, a card change or a change of skills. A hire or
+ * card change the user applied from a Proposal names who proposed it, by the key of their Role.
+ */
 export type RoleHistoryEntry =
-  | { readonly kind: "hired"; readonly at: Date }
+  | { readonly kind: "hired"; readonly at: Date; readonly proposedBy: string | undefined }
   | {
       readonly kind: "card-changed";
       readonly at: Date;
       readonly cardVersion: number;
       readonly changes: readonly RoleCardFieldChange[];
+      readonly proposedBy: string | undefined;
     }
   | {
       readonly kind: "skills-changed";
@@ -30,12 +34,13 @@ export function roleHistory(
   const entries: RoleHistoryEntry[] = [
     ...versions.map((version): RoleHistoryEntry =>
       version.version === 1
-        ? { kind: "hired", at: version.savedAt }
+        ? { kind: "hired", at: version.savedAt, proposedBy: version.proposedBy }
         : {
             kind: "card-changed",
             at: version.savedAt,
             cardVersion: version.version,
             changes: version.changes,
+            proposedBy: version.proposedBy,
           },
     ),
     ...skillChanges

@@ -146,6 +146,7 @@ function currentVersionRow(role: Role): Omit<RoleCardVersionRow, "changes"> {
     version: role.cardVersion,
     card: role.card,
     savedAt: role.cardSavedAt,
+    proposedBy: role.cardProposedBy ?? null,
   };
 }
 
@@ -156,10 +157,17 @@ function toRole(row: RoleRow, version: RoleCardVersionRow): Role {
     cardVersion: row.cardVersion,
     hiredAt: row.hiredAt,
     cardSavedAt: version.savedAt,
+    cardProposedBy: version.proposedBy ?? undefined,
     letGoAt: row.letGoAt ?? undefined,
   };
 }
 
 function toVersion(row: RoleCardVersionRow): RoleCardVersion {
-  return { version: row.version, card: row.card, changes: row.changes, savedAt: row.savedAt };
+  return {
+    version: row.version,
+    card: row.card,
+    changes: row.changes,
+    savedAt: row.savedAt,
+    proposedBy: row.proposedBy ?? undefined,
+  };
 }

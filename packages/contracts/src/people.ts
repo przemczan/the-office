@@ -161,9 +161,15 @@ const roleCardValueSchema = z.union([
   hardSwitchValueSchema,
 ]);
 
+/**
+ * Who proposed a hire or a card change the user applied from a Proposal, by the key of their Role;
+ * null when the user wrote it themselves.
+ */
+const proposedBySchema = z.string().nullable();
+
 /** GET /roles/:key/changes, newest first: the Role's change history, ending with the hire. */
 export const roleChangeSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("hired"), at: z.iso.datetime() }),
+  z.object({ kind: z.literal("hired"), at: z.iso.datetime(), proposedBy: proposedBySchema }),
   z.object({
     kind: z.literal("card-changed"),
     at: z.iso.datetime(),
@@ -172,6 +178,7 @@ export const roleChangeSchema = z.discriminatedUnion("kind", [
     changes: z.array(
       z.object({ field: roleCardFieldSchema, from: roleCardValueSchema, to: roleCardValueSchema }),
     ),
+    proposedBy: proposedBySchema,
   }),
   z.object({
     kind: z.literal("skills-changed"),

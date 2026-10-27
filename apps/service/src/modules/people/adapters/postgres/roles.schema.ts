@@ -23,6 +23,8 @@ export const roleCardVersions = pgTable(
     /** From the version before; empty for the first. */
     changes: jsonb("changes").$type<RoleCardFieldChange[]>().notNull(),
     savedAt: timestamp("saved_at", { withTimezone: true }).notNull(),
+    /** Who proposed the version, by the key of their Role; null when the user wrote it. */
+    proposedBy: text("proposed_by"),
   },
   (table) => [primaryKey({ columns: [table.roleKey, table.version] })],
 );
