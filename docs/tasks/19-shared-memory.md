@@ -1,6 +1,6 @@
 # 19 · Shared memory and the Memory tab
 
-Status: in progress
+Status: done
 
 ## Goal
 
@@ -8,13 +8,13 @@ A person with the Shared memory capability keeps one append-only memory: small n
 
 ## Definition of Done
 
-- [ ] Writing: an Agent whose Role has Shared memory on can call an Office tool `remember` with a note and an optional Project; The Office appends it with its date and where it came from (Thread, Task). With the capability off the tool is not offered and nothing is written. Check: a service test through the scripted engine that a note lands, carries its source, and that nothing lands with the capability off.
-- [ ] Append-only: notes are never edited; two sessions writing at once both keep their notes. Check: a test of concurrent appends; no update path exists in the repository.
-- [ ] Reading: a new session's Brief holds the person's notes with no Project plus those of the Task's Project (or the chat's Project), newest kept within a size cap of about 2k tokens; when older notes are left out the Brief says how many. A note reaches sessions started afterwards, not running ones. Check: `brief.test.ts` for the selection, the cap and the "N older notes left out" line.
-- [ ] Capability off: the memory is kept, not read and not written; the Memory tab shows it as not in use; switching back on restores it. Check: a service test and a Playwright check on the tab.
-- [ ] Memory tab on a person's page: notes newest first, grouped by Project, each with its date and source; the user adds a note and deletes a single note (confirmed); "Delete memory" removes all of them (confirmed, with the warning that it can't be undone). Check: Playwright through add, delete one, delete all.
-- [ ] The Planner is hired with Memory on. Check: the preset test.
-- [ ] `npm run verify` and `npm run verify:linux` pass, and the user has looked at the Memory tab and a note written in a real chat. Check: the commands; the user's word, logged.
+- [x] Writing: an Agent whose Role has Shared memory on can call an Office tool `remember` with a note and an optional Project; The Office appends it with its date and where it came from (Thread, Task). With the capability off the tool is not offered and nothing is written. Check: a service test through the scripted engine that a note lands, carries its source, and that nothing lands with the capability off.
+- [x] Append-only: notes are never edited; two sessions writing at once both keep their notes. Check: a test of concurrent appends; no update path exists in the repository.
+- [x] Reading: a new session's Brief holds the person's notes with no Project plus those of the Task's Project (or the chat's Project), newest kept within a size cap of about 2k tokens; when older notes are left out the Brief says how many. A note reaches sessions started afterwards, not running ones. Check: `brief.test.ts` for the selection, the cap and the "N older notes left out" line.
+- [x] Capability off: the memory is kept, not read and not written; the Memory tab shows it as not in use; switching back on restores it. Check: a service test and a Playwright check on the tab.
+- [x] Memory tab on a person's page: notes newest first, grouped by Project, each with its date and source; the user adds a note and deletes a single note (confirmed); "Delete memory" removes all of them (confirmed, with the warning that it can't be undone). Check: Playwright through add, delete one, delete all.
+- [x] The Planner is hired with Memory on. Check: the preset test.
+- [x] `npm run verify` and `npm run verify:linux` pass, and the user has looked at the Memory tab and a note written in a real chat. Check: the commands; the user's word, logged.
 
 ## Read first
 
@@ -34,7 +34,7 @@ Leave out: Consultants and mentions (task 20); the Office Manager's use of memor
   Read: `briefs.ts` and `brief.ts` (`newChatThreadBrief`, `freshChatThreadBrief`, `taskThreadBrief`), by range; the Planner preset.
 - [x] 4. The Memory tab: notes by Project, add a note, delete one, delete all, the not-in-use state. Commit.
   Read: the People surface map; the person's page tabs by grep; the click-through's Memory tab in `.scratch/the-office/prototypes/app/` by grep.
-- [ ] 5. The user looks at the tab and a note written in a real chat; `npm run verify:linux`; close the task. Commit.
+- [x] 5. The user looks at the tab and a note written in a real chat; `npm run verify:linux`; close the task. Commit.
   Read: [testing](../../apps/service/docs/testing.md) for the live check; [test-project.md](test-project.md).
 
 ## State
@@ -50,8 +50,4 @@ Leave out: Consultants and mentions (task 20); the Office Manager's use of memor
 
 ## Progress
 
-- 2026-10-27 · step 0: the form of shared memory settled with the user; task file written; next is step 1.
-- 2026-10-27 · step 1: the Memory in People (table, domain, service, routes, contracts, web event); next is the `remember` tool (step 2).
-- 2026-10-27 · step 2: the `remember` Office tool, offered only with Shared memory on; next is reading notes into the Brief (step 3), which also lifts the card refusal.
-- 2026-10-27 · step 3: notes read into chat and Task Briefs with the cap and the left-out line; the Planner hired with Memory on; the card refusal lifted; next is the Memory tab (step 4).
-- 2026-10-27 · step 4: the Memory tab with add, delete one, delete all and the not-in-use state, and its Playwright check; next is the user's look, `verify:linux` and closing (step 5).
+The log is archived in [archive/19-shared-memory.md](archive/19-shared-memory.md).
