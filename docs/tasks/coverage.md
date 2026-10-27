@@ -55,8 +55,8 @@ Every tier 2 item of [spec 3](../spec/3-capabilities-by-tier.md#tier-2-the-all-d
 
 | Spec | Item | Task |
 |---|---|---|
-| §3 (tier 1 run) | The problems the tier 1 acceptance run surfaced, but 13 | 18 |
-| §2.7 | Problem 13: tokens without cache reads (amends the spec) | after tier 2, [README](README.md#after-tier-2-fixes-that-amend-the-spec) |
+| §3 (tier 1 run) | The tier 1 run's cheap fixes: 1, 3, 4, 6, 7, 9, 10, 11, 12 | 18 |
+| §3 (tier 1 run), §2.7 | The rest: 2, 5, 8, and 13 (amends the spec) | after tier 2, [README](README.md#after-tier-2-the-remaining-fixes) |
 | §2.2, §8 | Shared memory, its Memory tab and delete actions; Memory on for the Planner | 19 |
 | §2.2, §6 | Hiring from scratch; letting go; editable permission profiles; holding an enforced Hard switch's call | 20 |
 | §2.2, §2.4 | Consultants and Consultations, escalation up to two steps; mentions | 20 |

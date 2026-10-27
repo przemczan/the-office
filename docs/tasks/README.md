@@ -46,11 +46,14 @@ Order accepted by the user on 2026-10-27. A task's file is written when it becom
 | 29 | Running: start at login, the `-p` fallback adapter | Foundation | todo |
 | 30 | The tier 2 acceptance run | All | todo |
 
-## After tier 2: fixes that amend the spec
+## After tier 2: the remaining fixes
 
-Decided with the user on 2026-10-27: a fix that needs the spec changed is not built where it is found. It is listed here, and they are done together, each amendment agreed with the user, once tier 2 is done and before tier 3.
+Decided with the user on 2026-10-27: a fix is built where it is found only when it is cheap to make. Any other, and any that needs the spec changed, is listed here, and they are done together once tier 2 is done and before tier 3, each spec amendment agreed with the user then. The numbers are the tier 1 run's problems in [archive/17-settings-acceptance.md](archive/17-settings-acceptance.md).
 
-- Problem 13 of the tier 1 run ([archive/17-settings-acceptance.md](archive/17-settings-acceptance.md)): count tokens without cache reads everywhere (Threads, Stages, Now, the strip), with an info icon giving input, output, cache writes and cache reads and what each costs. Amends [spec 2.7 Defaults](../spec/2.7-notifications.md#defaults), "Today's figures", which counts all four kinds.
+- Problem 2: the board card's "…" menu is clipped when the board is short. Render it outside the column's overflow, flipping up when there is no room below.
+- Problem 5: Mark Ready is clickable while it can't succeed. Disable it beside a "Before Ready" checklist in the planning panel (decided with the user), built from the same Work rules that refuse Mark Ready, each line ticking as it is met.
+- Problem 8: on the Changes tab, every file starts folded to its header with its +/- counts, unfolds on a click, with "Unfold all" and "Fold all".
+- Problem 13: count tokens without cache reads everywhere (Threads, Stages, Now, the strip), with an info icon giving input, output, cache writes and cache reads and what each costs. Amends [spec 2.7 Defaults](../spec/2.7-notifications.md#defaults), "Today's figures", which counts all four kinds.
 
 Read these only when a step needs them:
 
