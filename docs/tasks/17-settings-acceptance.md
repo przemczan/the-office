@@ -42,10 +42,11 @@ Leave out: the Pipeline library, the Notifications grid, the Graphite and Paper 
   - Work: a Task card should open from anywhere on it but its buttons; its "…" menu is clipped on a short board; "+ Task" asks for a title only with no hint that planning describes it, and doesn't open the new Task.
   - Planning: "Plan with …" shows nothing until the Planner's first words; Mark Ready should be disabled while it can't succeed, with a checklist of what is missing; marking Ready should be confirmed, as the Task can then be started.
   - Task page: a Stage session that starts switches the chat to its new tab (it should add the tab after the current one, unswitched); the Changes tab opens a file's diff by default and diffs can't be folded.
-  - Gate: what the user does at it isn't said; its name read as a requirement for the agents; sending back to a Script Stage does nothing with the feedback. (Devops isn't hired in tier 1, as spec 2.2 has it.)
+  - Gate: what the user does at it isn't said; its name read as a requirement for the agents; choosing a Script Stage to send the work back to should say it is a script that can't read the feedback, it only runs again. (Devops isn't hired in tier 1, as spec 2.2 has it.)
   - Chat: Enter should send, Shift+Enter break the line; messages and handover notes need Markdown.
   - Tokens: a Thread's count includes cache reads (~90%); show it without them, with the breakdown and what it means behind an info icon.
-- Next: the user's verdict (would they pick The Office over a Claude Code session for this?), then step 4 on the LXC.
+- The user's verdict (2026-10-27): they would pick The Office over a regular Claude Code session for this piece of work. PRs #2 and #3 closed and their branches deleted.
+- Next: step 4, the Linux run on the LXC (10.1.1.66): start the service, add the Test Project, run a Quick fix Task to a Gate.
 
 ## Progress
 
