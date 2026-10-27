@@ -8,7 +8,7 @@ Fix the thirteen problems the tier 1 acceptance run surfaced ([archive/17-settin
 
 ## Definition of Done
 
-- [ ] Markdown (12): messages, handover notes, Stage outcomes and Decision text render Markdown, sanitised, with no raw HTML. Check: a unit test that a `<script>` and an `onerror` attribute come out as text; Playwright sees a handover note's list and heading.
+- [x] Markdown (12): messages, handover notes, Stage outcomes and Decision text render Markdown, sanitised, with no raw HTML. Check: a unit test that a `<script>` and an `onerror` attribute come out as text; Playwright sees a handover note's list and heading. (`markdown-text.test.tsx`; `people.e2e.ts`, the Decision test's Handover note.)
 - [ ] Message fields (11): the Composer, a Decision's free answer and a Gate's feedback send on Enter and break on Shift+Enter; while the Agent is answering, Enter says why it can't send. Check: Playwright in each field.
 - [ ] Working indicator (4): a Thread shows "<name> is working…" from the moment a turn starts until its first output, in every Thread. Check: Playwright on a scripted session that holds before its first output.
 - [ ] Work board and "+ Task" (1, 2, 3): the whole card opens the Task, its menu and buttons stop the click; the card's menu is never clipped, flipping up when there is no room below; the "+ Task" dialog says where the work is described and opens the new Task's page. Check: Playwright on a board with one Task.
@@ -28,7 +28,7 @@ Leave out: everything tier 2 (spec 3), including a queue for Start and a confirm
 
 ## Steps
 
-- [ ] 1. Markdown (12): one sanitised Markdown view in the shell, used for messages, handover notes, Stage outcomes and Decision text. Adding the renderer is a new dependency: name it and why in the commit. Commit.
+- [x] 1. Markdown (12): one sanitised Markdown view in the shell, used for messages, handover notes, Stage outcomes and Decision text. Adding the renderer is a new dependency: name it and why in the commit. Commit.
   Read: `shell/conversation/message-list.tsx`, `decision-card.tsx`, `surfaces/work/stage-words.ts` (`latestHandoverNote`) and where Stage outcomes show, by range; the Message styles in [app/conversation.js](../../.scratch/the-office/prototypes/app/conversation.js), by grep.
 - [ ] 2. Message fields and the working indicator (11, 4): one keyboard rule shared by the Composer, the Decision's free answer and the Gate's feedback; while busy, Enter explains; the Thread's working line from turn start to first output, read from the Thread's `answering` state and its messages. Commit.
   Read: `shell/conversation/composer.tsx`, `thread-view.tsx`, `decision-card.tsx`, `shell/work/gate-actions.tsx`; `threadStateSchema` in `packages/contracts/src/conversations.ts`; the Conversations module map if the service needs to say when a turn started.
@@ -50,9 +50,12 @@ Leave out: everything tier 2 (spec 3), including a queue for Start and a confirm
 - Tier 2's order was accepted by the user on 2026-10-27 ([README](README.md)); this task fixes tier 1's problems first. Tasks 19–30 get their files when they become current, after their open questions (spec 8) are settled with the user.
 - Decided with the user (2026-10-27): the "Before Ready" checklist sits in the planning panel.
 - Open: problem 13 changes spec 2.7's "Today's figures" default (all four kinds); step 7 confirms the amendment with the user before any code.
-- Known while slicing: the Thread state `answering` already exists in the contracts (step 2); there is no Markdown renderer in `apps/web` yet (step 1); the Ready refusal reasons come from one domain function (step 4).
-- Next: step 1.
+- Built (step 1): `apps/web/src/shell/markdown-text.tsx`, `MarkdownText` on `react-markdown` with `remark-gfm` and `remark-breaks` (a single line break stays a break); `inline` for a line inside a row. Used for user and person messages, Handover notes (message list and Stage row), the Brief, a Decision's question, context and recommendation reason, a free answer, and a Stage row's detail line (inline, so a script's summary shows its code spans). Tooltips and `aria-label`s stay plain (`firstLine` in `stage-words.ts`).
+- Trap: a Stage row's detail joins The Office's words and Stage names with the outcome; a Stage name with Markdown characters renders as Markdown there.
+- Known for step 2: the Thread state `answering` exists in the contracts and `MessageList` already shows "<name> is answering…" while it is set; find why it doesn't show before the first output.
+- Next: step 2.
 
 ## Progress
 
 - 2026-10-27 · slicing: tier 2 ordered into tasks 18–30 with the user, this task's file written; next, step 1, Markdown.
+- 2026-10-27 · step 1: Markdown in messages, Handover notes, the Brief, Decisions and Stage rows through one sanitised `MarkdownText`; next, step 2, message fields and the working indicator.

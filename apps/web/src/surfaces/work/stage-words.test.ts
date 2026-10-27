@@ -101,7 +101,9 @@ describe("stageProgressLine", () => {
 
     expect(
       stageProgressLine(aTaskStage(tests, { state: "failed", runs: [run], wentBack }), names, now),
-    ).toBe("Failed · 18 min · npm test failed with exit code 1. · back to Implement, round 1 of 3");
+    ).toBe(
+      "Failed · 18 min · `npm test` failed with exit code 1. · back to Implement, round 1 of 3",
+    );
   });
 
   it("tells a budget reached, and a skipped optional Stage", () => {
@@ -221,7 +223,7 @@ describe("stageProgressLine of a Script Stage sent back from a Gate", () => {
         stageNamesOf([implement, tests, look]),
         now,
       ),
-    ).toBe("Done · 18 min · npm test passed. · sent back from Look");
+    ).toBe("Done · 18 min · `npm test` passed. · sent back from Look");
   });
 });
 

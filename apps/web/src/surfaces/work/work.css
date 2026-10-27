@@ -643,6 +643,10 @@
   color: var(--fg-2);
 }
 
+.task-stage-note-label {
+  font-weight: 600;
+}
+
 .task-conversation {
   display: flex;
   flex-direction: column;

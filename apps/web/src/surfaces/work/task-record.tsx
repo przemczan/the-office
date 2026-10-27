@@ -7,6 +7,7 @@ import { pipelineQueries } from "../../api/pipelines.ts";
 import { attachmentQueries, ideaQueries } from "../../api/work.ts";
 import { AddAttachmentDialog } from "../../shell/attachments/add-attachment-dialog.tsx";
 import { AttachmentChips } from "../../shell/attachments/attachment-chips.tsx";
+import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { dayAndClockOf } from "../../shell/time.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
@@ -172,11 +173,16 @@ function StageRow({
         <div className="task-stage-name">
           <span>{name}</span> <span className="task-stage-who">· {who}</span>
         </div>
-        <div className="task-stage-detail">{detail}</div>
+        <div className="task-stage-detail">
+          <MarkdownText text={detail} inline />
+        </div>
         {handoverNote !== undefined && (
           <div className="task-stage-note">
             <Icon name="sticky-note" size={12} />
-            <span>Handover note: {handoverNote}</span>
+            <div>
+              <div className="task-stage-note-label">Handover note</div>
+              <MarkdownText text={handoverNote} />
+            </div>
           </div>
         )}
       </div>

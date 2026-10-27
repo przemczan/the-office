@@ -8,6 +8,7 @@ import {
 import { Icon } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { contextLabel } from "./context-words.ts";
+import { MarkdownText } from "../markdown-text.tsx";
 import { DecisionCard } from "./decision-card.tsx";
 
 /**
@@ -75,7 +76,9 @@ function MessageItem({
       return (
         <div className="message mine">
           <div className="message-by">You</div>
-          <div className="message-text">{message.text}</div>
+          <div className="message-text">
+            <MarkdownText text={message.text} />
+          </div>
           {stageThread && <DeliveryMark delivery={message.delivery} />}
         </div>
       );
@@ -83,7 +86,9 @@ function MessageItem({
       return (
         <div className="message">
           <div className="message-by">{personName}</div>
-          <div className="message-text">{message.text}</div>
+          <div className="message-text">
+            <MarkdownText text={message.text} />
+          </div>
         </div>
       );
     case "handover-note":
@@ -93,7 +98,9 @@ function MessageItem({
             <Icon name="sticky-note" size={12} />
             Handover note from {personName}
           </div>
-          <div className="message-text">{message.text}</div>
+          <div className="message-text">
+            <MarkdownText text={message.text} />
+          </div>
         </div>
       );
     case "tool-activity":
@@ -141,7 +148,9 @@ function MessageItem({
       return (
         <div className="message mine">
           <div className="message-by">You · answering the Decision</div>
-          <div className="message-text">{answerWords(message.answer, message.decision)}</div>
+          <div className="message-text">
+            <MarkdownText text={answerWords(message.answer, message.decision)} />
+          </div>
         </div>
       );
   }
@@ -190,7 +199,11 @@ function ContextLine({
           Brief
         </span>
       </summary>
-      {open && <div className="message-brief-text">{line.brief}</div>}
+      {open && (
+        <div className="message-brief-text">
+          <MarkdownText text={line.brief} />
+        </div>
+      )}
     </details>
   );
 }

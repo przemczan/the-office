@@ -546,9 +546,10 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   ).toBeVisible();
   await expect(conversation.getByText(OPEN_DECISION_TOOL)).toHaveCount(0);
   // The opening's context line opens to show the Brief the session started with.
-  const brief = conversation.getByText(/^You are planning a Task with the user/);
+  const brief = conversation.locator(".message-brief-text");
   await expect(brief).toBeHidden();
   await conversation.getByText("Brief", { exact: true }).click();
+  await expect(brief).toContainText("You are planning a Task with the user");
   await expect(brief).toContainText("Sign-in returns to the page (Task ");
   await expect(page.getByText("Waiting on you", { exact: true })).toBeVisible();
 
@@ -698,9 +699,14 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   // The Stage ran again in the asking Thread, continuing its session.
   await expect(implement).toContainText("continued session");
   await expect(implement).toContainText("Done · ");
-  await expect(
-    stages.getByText("Handover note: The redirect keeps the path and the query string."),
-  ).toBeVisible();
+  // The Handover note is Markdown: its heading and list show as such, not as one long line.
+  const handoverNote = stages.locator(".task-stage-note");
+  await expect(handoverNote.getByText("Redirect", { exact: true })).toBeVisible();
+  await expect(handoverNote.getByRole("listitem")).toHaveText([
+    "The redirect keeps the path and the query string.",
+    "next is checked against the Office's own pages.",
+  ]);
+  await expect(handoverNote.locator("code")).toHaveText("next");
 });
 
 const GATE_FEEDBACK = "Call the button Save, as the rest of the settings do.";

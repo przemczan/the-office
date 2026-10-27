@@ -3,6 +3,7 @@ import type { Decision, DecisionAnswer, Thread } from "@the-office/contracts";
 import { Badge, Button, Icon, Textarea } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { answerDecision, decisionQueries, threadQueries } from "../../api/conversations.ts";
+import { MarkdownText } from "../markdown-text.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import "./conversation.css";
 
@@ -32,8 +33,14 @@ export function DecisionCard({
         <Badge tone="warning">Decision</Badge>
         {asker}
       </div>
-      <div className="message-text decision-question">{decision.question}</div>
-      {decision.context !== "" && <p className="decision-context">{decision.context}</p>}
+      <div className="message-text decision-question">
+        <MarkdownText text={decision.question} />
+      </div>
+      {decision.context !== "" && (
+        <div className="decision-context">
+          <MarkdownText text={decision.context} />
+        </div>
+      )}
       {decision.answer === null ? (
         <OpenDecision
           decision={decision}
@@ -86,7 +93,7 @@ function OpenDecision({
       </div>
       <p className="decision-recommendation">
         {askerName(decision, personName)} recommends “{decision.options[recommended]}”:{" "}
-        {decision.recommendation.reason}
+        <MarkdownText text={decision.recommendation.reason} inline />
       </p>
       <form
         className="decision-free-answer"

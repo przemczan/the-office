@@ -1,6 +1,6 @@
 # Web app: map
 
-**Owns:** the shell (A3 · Desk: rail, top bar, status strip, panels, toasts; `shell/`), the chat modal and conversation views, Attachments, the Stage editor (`shell/pipelines/`: one component for "Edit for this Task" and the tier 2 library, Task-free, fed the service's flags), Notifications' channels and what Now shares with the shell (`shell/notifications/`: the channel port with the in-app and desktop adapters, the tab's title and favicon, the web's own "service down"; the Needs you panel and its items, answered in place; Now's words; the strip reads the same `now` and `notifications` queries), the Gate's actions (`shell/work/gate-actions.tsx`, on a Task's record and in Needs you), and `api/`: one file per service module with its fetch functions and query keys, plus the event stream (`event-stream.ts`) that turns the service's web events into query refreshes. Each surface has its own map in `surfaces/<surface>/MAP.md`.
+**Owns:** the shell (A3 · Desk: rail, top bar, status strip, panels, toasts; `shell/`), the Markdown view for what people and The Office write (`shell/markdown-text.tsx`: sanitised, raw HTML shown as text, headings kept out of the page's outline), the chat modal and conversation views, Attachments, the Stage editor (`shell/pipelines/`: one component for "Edit for this Task" and the tier 2 library, Task-free, fed the service's flags), Notifications' channels and what Now shares with the shell (`shell/notifications/`: the channel port with the in-app and desktop adapters, the tab's title and favicon, the web's own "service down"; the Needs you panel and its items, answered in place; Now's words; the strip reads the same `now` and `notifications` queries), the Gate's actions (`shell/work/gate-actions.tsx`, on a Task's record and in Needs you), and `api/`: one file per service module with its fetch functions and query keys, plus the event stream (`event-stream.ts`) that turns the service's web events into query refreshes. Each surface has its own map in `surfaces/<surface>/MAP.md`.
 
 **Talks to:** the service only through `api/` and `@the-office/contracts`; components come from `@the-office/ui` (the design system). The layout is enforced by `tools/lint-rules/src/web-layers.ts`.
 
@@ -34,6 +34,7 @@
 - `desk.tsx`: Desk, PanelHeadingProps, Panel, PanelHeading, Feed
 - `engine-words.ts`: EFFORT_LABELS, modelLabel
 - `item-card.tsx`: CardEdge, ItemCard, EmptyCard
+- `markdown-text.tsx`: MarkdownText
 - `page-heading.tsx`: PageHeading, usePageHeadingState, PageHeadingProvider, usePageHeading
 - `palette-menu.tsx`: PaletteMenu
 - `person-name.ts`: personName
@@ -50,7 +51,7 @@
 - `top-bar.tsx`: TopBar
 - `use-clock.ts`: useClock
 - `user-activity.ts`: pageAt, useReportingActivity
-- Tests: engine-words.test.ts, time.test.ts, user-activity.test.ts
+- Tests: engine-words.test.ts, markdown-text.test.tsx, time.test.ts, user-activity.test.ts
 
 ### shell/attachments/
 

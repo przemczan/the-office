@@ -116,14 +116,14 @@ function resultWords(
       if (stage.kind !== "script") return undefined;
       // A Script Stage can't read a Gate's feedback: the row tells it ran again for it.
       return sentBack
-        ? `${plain(outcome.summary)} · sent back from ${names(sentBack.gateKey)}`
-        : plain(outcome.summary);
+        ? `${outcome.summary} · sent back from ${names(sentBack.gateKey)}`
+        : outcome.summary;
     case "needs-decision":
       return outcome.question;
     case "failed": {
       const why = outcome.budgetReached
         ? `reached its budget: ${tokensShort(outcome.budgetReached.used)} of ${tokensShort(outcome.budgetReached.budget)} tokens`
-        : firstLine(outcome.error);
+        : headLine(outcome.error);
       return wentBack
         ? `${why} · back to ${names(wentBack.stageKey)}, round ${wentBack.round} of ${wentBack.rounds}`
         : why;
@@ -143,9 +143,14 @@ function gateActionWords(action: GateAction, names: StageNames): string {
   }
 }
 
-/** A result's first line, its Markdown code spans as plain words. */
+/** A result's first line, its Markdown code spans as plain words, for a plain-text tooltip. */
 export function firstLine(text: string): string {
-  return plain(text.split("\n", 1)[0] ?? "");
+  return plain(headLine(text));
+}
+
+/** A result's first line, still in Markdown. */
+function headLine(text: string): string {
+  return text.split("\n", 1)[0] ?? "";
 }
 
 /** The Office writes commands in Markdown code spans; the line shows them as plain words. */

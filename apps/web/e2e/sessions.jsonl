@@ -41,7 +41,7 @@
 {"step":"resume"}
 {"step":"send","message":{"id":"implement-again","text":"The Stage's work with the answer"},"priority":"later"}
 {"step":"event","event":{"kind":"text","text":"Signing in now returns to the page it started from.","withinToolCall":null}}
-{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["implement-again"],"usage":{"input":2,"output":240,"cacheRead":30400,"cacheCreation":90},"sessionCostUsd":0.01,"output":{"status":"done","summary":"Sign-in returns to the page it started from.","handoverNote":"The redirect keeps the path and the query string.","definitionOfDoneMet":[1,2]},"errors":[]}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["implement-again"],"usage":{"input":2,"output":240,"cacheRead":30400,"cacheCreation":90},"sessionCostUsd":0.01,"output":{"status":"done","summary":"Sign-in returns to the page it started from.","handoverNote":"## Redirect\n\n- The redirect keeps the path and the query string.\n- `next` is checked against the Office's own pages.","definitionOfDoneMet":[1,2]},"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30700,"window":1000000}}
 {"step":"end"}
 {"step":"start","brief":{"id":"brief-gate-planning","text":"Plan the gated Task with the user"}}
