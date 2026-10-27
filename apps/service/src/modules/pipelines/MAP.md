@@ -2,12 +2,13 @@
 
 **Owns:** Pipelines (the built-ins, `domain/built-in-pipelines.ts`, and the library), each Task's own copy of its Stages (`task_stages`, made at Start or at the user's first edit for the Task), and the Stage interpreter that walks them: Agent, Script, Gate and Publish Stages, loops and rounds, budgets, Stage runs (`stage_runs`).
 
-**Talks to:** reacts to Work's events (`TaskStarted`, `TaskResumed`, `TaskPaused`, `TaskStopped`, and `TaskPipelineConfirmed`, which sets aside Stages edited for the old Pipeline) and Conversations' `DecisionAnswered`; everything else goes through its ports, bound in [app.module.ts](../../app.module.ts): `StartedTasks` and `TaskRecords` to Work, `KnownPeople` to People's `RoleCards`, `StageThreads`, `StageDecisions` and `TaskThreadSessions` to Conversations, `TaskGit`, `TaskCommands` and `TaskPublishing` to Projects' `TaskWorktrees`, `TaskScreenshots` to Work's `StageScreenshots`, `TaskUsage` to Conversations' `TaskTokens`. Other modules read the library through `PipelineLibraryModule`, never `PipelinesModule`.
+**Talks to:** reacts to Work's events (`TaskStarted`, `TaskResumed`, `TaskPaused`, `TaskStopped`, and `TaskPipelineConfirmed`, which sets aside Stages edited for the old Pipeline) Conversations' `DecisionAnswered` and People's `RoleLetGo`; everything else goes through its ports, bound in [app.module.ts](../../app.module.ts): `StartedTasks` and `TaskRecords` to Work, `KnownPeople` to People's `RoleCards`, `StageThreads`, `StageDecisions` and `TaskThreadSessions` to Conversations, `TaskGit`, `TaskCommands` and `TaskPublishing` to Projects' `TaskWorktrees`, `TaskScreenshots` to Work's `StageScreenshots`, `TaskUsage` to Conversations' `TaskTokens`. Other modules read the library through `PipelineLibraryModule`, never `PipelinesModule`.
 
 **Traps:**
 - `EventBus.publish` waits for its handlers, so the interpreter walks in the background (`walkInBackground`); awaiting the walk would hold Start's request for the whole Pipeline.
 - An edit of a Task's Stages and the walk's start of each run take one per-Task lock (`TaskStagesService.holding`), and the walk reads the Stages afresh each move: start a run anywhere else and an edit can change the Stage under it.
 - The walk is worked out from the Stage runs (`nextMove` in `domain/pipeline-walk.ts`): a Gate action, an answer or a send-back is data on a run, replayed, not a call.
+- `StaffingHolds` pauses a Task whose next Stages nobody can work, behind a Decision kept in `staffing_holds`; the interpreter asks it on every `TaskResumed` before walking, so a Resume while the lack stands pauses the Task again.
 
 **Open:** after Publish removes the worktree, a message to the Task's Planning Thread opens a session in a folder that no longer exists (task 14).
 
@@ -35,6 +36,7 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 
 ## Tables
 
+- `adapters/postgres/staffing-holds.schema.ts`: staffing_holds
 - `adapters/postgres/stage-runs.schema.ts`: stage_runs
 - `adapters/postgres/task-stages.schema.ts`: task_stages
 
@@ -58,8 +60,10 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 
 ### adapters/postgres/
 
+- `postgres-staffing-hold-repository.ts`: PostgresStaffingHoldRepository
 - `postgres-stage-run-repository.ts`: PostgresStageRunRepository
 - `postgres-task-stages-repository.ts`: PostgresTaskStagesRepository
+- `staffing-holds.schema.ts`: staffingHolds
 - `stage-runs.schema.ts`: stageRuns
 - `task-stages.schema.ts`: taskStages
 
@@ -76,13 +80,14 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 - `pipeline-library.ts`: PipelineLibrary
 - `publish-stage.ts`: PublishStage
 - `script-stage-runner.ts`: ScriptStageRunner
+- `staffing-holds.ts`: StaffingHolds
 - `stage-git.ts`: StageStart, StageGit
 - `stage-interpreter.ts`: StageInterpreter
 - `stage-run-interruption.ts`: StageRunInterruption
 - `stage-runner.ts`: StageOfKind, StageWork, StageRunner
 - `stage-runners.ts`: StageRunners
 - `task-stages-service.ts`: TaskStagesService
-- Tests: agent-stage-runner.test.ts, gate-publish-test-project-check.test.ts, pipeline-library.test.ts, publish-stage.test.ts, running-task-test-project-check.test.ts, script-stage-runner.test.ts, stage-editor-test-project-check.test.ts, stage-interpreter-decisions.test.ts, stage-interpreter-edited.test.ts, stage-interpreter-gates.test.ts, stage-interpreter-restart.test.ts, stage-interpreter-stop.test.ts, stage-interpreter-telemetry.test.ts, stage-interpreter-test-project-check.test.ts, stage-interpreter.test.ts, stage-run-interruption.test.ts, task-stages-service.test.ts
+- Tests: agent-stage-runner.test.ts, gate-publish-test-project-check.test.ts, pipeline-library.test.ts, publish-stage.test.ts, running-task-test-project-check.test.ts, script-stage-runner.test.ts, staffing-holds.test.ts, stage-editor-test-project-check.test.ts, stage-interpreter-decisions.test.ts, stage-interpreter-edited.test.ts, stage-interpreter-gates.test.ts, stage-interpreter-restart.test.ts, stage-interpreter-stop.test.ts, stage-interpreter-telemetry.test.ts, stage-interpreter-test-project-check.test.ts, stage-interpreter.test.ts, stage-run-interruption.test.ts, task-stages-service.test.ts
 
 ### domain/
 
@@ -96,6 +101,7 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 - `pipeline.ts`: Pipeline, StageProblem, stageProblems, problemOnStage
 - `publish.ts`: PullRequestText, RemoteBranch, Publication, PublishedTask, pullRequestText, publishOutcome
 - `script-stage-outcome.ts`: scriptStageOutcome, installFailure
+- `staffing-decision.ts`: STAFFING_OPTIONS, staffingDecision
 - `stage-budget.ts`: stageBudget, budgetReached, budgetOutcome, tokensWords
 - `stage-command-run.ts`: CommandOutcome, CommandRun, MovedFiles, ScriptCommandRun, StageCommandPurpose, StageCommandRun, Installation, installRuns, failedInstall, commandRunsOf, howItEnded
 - `stage-commit.ts`: ExpectedHead, stageCommitMessage, headProblem
@@ -111,7 +117,7 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 - `stage.ts`: Stage, StageKind, STAGE_KIND_NAMES, ScriptStageCommand, StageSession, Effort, OnFailure, AgentStage, ScriptStage, Gate
 - `stages-edit-refused.ts`: StagesEditRefused
 - `task-stages-events.ts`: TaskStagesMade, TaskStagesEdited, TaskStagesReset
-- `task-stages.ts`: TaskStages, TaskTrace, makeTaskStages, followsPipeline, lockedStageCount, editProblems, editTaskStages
+- `task-stages.ts`: TaskStages, TaskTrace, makeTaskStages, followsPipeline, lockedStageCount, firstStageToWork, editProblems, editTaskStages
 - `test-results.ts`: TestResultState, TestResult, latestTestResults
 - `walk-decisions.ts`: DecisionAnswer, WalkDecision, walkDecision, walkAnswerOf, agentDecision, AcceptedIssue, acceptedIssues
 - Tests: agent-stage-brief.test.ts, built-in-pipelines.test.ts, followed-hard-switches.test.ts, gate.test.ts, pipeline-walk.test.ts, pipeline.test.ts, publish.test.ts, script-stage-outcome.test.ts, stage-budget.test.ts, stage-commit.test.ts, stage-progress.test.ts, stage-result.test.ts, stage-staffing.test.ts, task-stages.test.ts, test-results.test.ts, walk-decisions.test.ts
@@ -120,6 +126,7 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 
 - `known-people.ts`: HardSwitchOnCard, KnownPerson, KnownPeople
 - `pipelines-ports.fixtures.ts`: StartedTasksForTests, aTaskRecord, TaskRecordsForTests, aPerson, KnownPeopleForTests, StageThreadsForTests, StageDecisionsForTests, TaskUsageForTests, TaskThreadSessionsForTests, TaskScreenshotsForTests, PLANNED_COMMIT, TaskGitForTests, aCommandRun, TaskCommandsForTests, TaskPublishingForTests, PipelinesPortsForTestsModule
+- `staffing-hold-repository.ts`: StaffingHoldRepository
 - `stage-decisions.ts`: StageDecisionRequest, StageDecisions
 - `stage-run-repository.ts`: StageRunRepository
 - `stage-threads.ts`: StageSessionSettings, StageThreadRequest, StageTurn, AskedDecision, StageThread, StageThreads

@@ -7,6 +7,7 @@ import { TaskStagesEdited } from "./task-stages-events.js";
 import {
   editProblems,
   editTaskStages,
+  firstStageToWork,
   followsPipeline,
   lockedStageCount,
   makeTaskStages,
@@ -43,6 +44,26 @@ describe("lockedStageCount", () => {
     const runs = [ranOnce("implement", 1), ranOnce("tests", 2), ranOnce("implement", 3)];
 
     expect(lockedStageCount(stages, runs)).toBe(2);
+  });
+});
+
+describe("firstStageToWork", () => {
+  it("is the Stage after the last one that finished", () => {
+    expect(firstStageToWork(stages, [ranOnce("implement", 1), ranOnce("tests", 2)])).toBe(2);
+  });
+
+  it("is the Stage the last run left unfinished, which runs again", () => {
+    const paused = aStageRun({
+      stageKey: "tests",
+      number: 2,
+      outcome: { status: "failed", error: "Paused.", interrupted: "pause" },
+    });
+
+    expect(firstStageToWork(stages, [ranOnce("implement", 1), paused])).toBe(1);
+  });
+
+  it("is the first Stage before any run", () => {
+    expect(firstStageToWork(stages, [])).toBe(0);
   });
 });
 

@@ -6,11 +6,12 @@ import type { Pipeline, StageProblem } from "../domain/pipeline.js";
 import type { Stage } from "../domain/stage.js";
 import { stagesProgress, type TaskProgress } from "../domain/stage-progress.js";
 import type { StageRun } from "../domain/stage-run.js";
-import type { RoleFilling } from "../domain/stage-staffing.js";
+import { staffingProblems, type RoleFilling } from "../domain/stage-staffing.js";
 import { StagesEditRefused } from "../domain/stages-edit-refused.js";
 import {
   editProblems,
   editTaskStages,
+  firstStageToWork,
   followsPipeline,
   lockedStageCount,
   makeTaskStages,
@@ -102,6 +103,17 @@ export class TaskStagesService implements OnModuleInit {
   }
 
   /**
+   * Why nobody can work the Task's Stages from where it goes on: a Role nobody fills, or whose
+   * person only talks. Empty for a Task without Stages of its own yet.
+   */
+  async staffingProblems(taskId: string): Promise<readonly StageProblem[]> {
+    const own = await this.find(taskId);
+    if (!own) return [];
+    const fromIndex = firstStageToWork(own.stages, await this.runs.list(taskId));
+    return staffingProblems(own.stages, fromIndex, await this.rolesOf(own.stages));
+  }
+
+  /**
    * Runs `work` with the Task's own Stages while no edit can change them, as the walk reads its next
    * move and starts the run it leads to.
    */
@@ -161,11 +173,13 @@ export class TaskStagesService implements OnModuleInit {
     const fillings = await Promise.all(
       [...roleKeys].map(async (roleKey): Promise<[string, RoleFilling]> => {
         const person = await this.people.find(roleKey);
+        const letGo = person ? undefined : await this.people.findLetGo(roleKey);
         return [
           roleKey,
           {
             title: this.people.roleTitle(roleKey),
             person: person && { name: person.card.name, taskLimit: person.card.taskLimit },
+            letGoPerson: letGo?.name,
           },
         ];
       }),

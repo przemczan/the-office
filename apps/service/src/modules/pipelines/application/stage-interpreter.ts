@@ -10,6 +10,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { DecisionAnswered } from "../../conversations/index.js";
 import { TaskPaused, TaskResumed, TaskStarted, TaskStopped } from "../../work/index.js";
+import { StaffingHolds } from "./staffing-holds.js";
 import { nextMove, type NextMove } from "../domain/pipeline-walk.js";
 import { STAGE_KIND_NAMES, type Stage } from "../domain/stage.js";
 import {
@@ -108,11 +109,14 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     private readonly threads: StageThreads,
     private readonly events: EventBus,
     private readonly telemetry: Telemetry,
+    private readonly staffingHolds: StaffingHolds,
   ) {}
 
   onModuleInit(): void {
     this.events.subscribe(TaskStarted, ({ taskId }) => this.walkInBackground(taskId));
-    this.events.subscribe(TaskResumed, ({ taskId }) => this.walkInBackground(taskId));
+    this.events.subscribe(TaskResumed, async ({ taskId }) => {
+      if (!(await this.staffingHolds.holdIfLackingPeople(taskId))) this.walkInBackground(taskId);
+    });
     this.events.subscribe(TaskPaused, ({ taskId }) => this.interrupt(taskId, "pause"));
     this.events.subscribe(TaskStopped, ({ taskId }) => this.interrupt(taskId, "stop"));
     this.events.subscribe(DecisionAnswered, ({ decision }) => {

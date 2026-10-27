@@ -36,6 +36,12 @@ export class RoleCards {
       : undefined;
   }
 
+  /** The person who filled the Role before they were let go; undefined when nobody ever did. */
+  async findLetGo(roleKey: string): Promise<{ readonly name: string } | undefined> {
+    const role = await this.repository.find(roleKey);
+    return role?.letGoAt ? { name: role.card.name } : undefined;
+  }
+
   /**
    * The Role's preset title, as the Role card names a Role to consult; the key itself for a Role
    * The Office doesn't know, which no saved card names.

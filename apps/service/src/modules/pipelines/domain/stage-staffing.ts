@@ -1,6 +1,5 @@
 import { problemOnStage, type StageProblem } from "./pipeline.js";
 import type { Stage } from "./stage.js";
-
 /** Who fills a Role named on an Agent Stage, as the Stage editor's flags need it. */
 export interface RoleFilling {
   /** The Role's title, such as Devops. */
@@ -13,6 +12,8 @@ export interface RoleFilling {
         readonly taskLimit: number | "none";
       }
     | undefined;
+  /** The name of the person who filled the Role before they were let go, if anyone did. */
+  readonly letGoPerson?: string;
 }
 
 /**
@@ -33,7 +34,10 @@ export function staffingProblems(
   });
 }
 
-function fillingProblem({ title, person }: RoleFilling): string | undefined {
+function fillingProblem({ title, person, letGoPerson }: RoleFilling): string | undefined {
+  if (!person && letGoPerson) {
+    return `${letGoPerson} was let go from ${title}; hire ${letGoPerson} back, hire someone else, or choose who works it.`;
+  }
   if (!person) return `nobody fills ${title}; hire someone or choose who works it.`;
   if (person.taskLimit === "none") {
     return `${person.name}'s Task limit is none, so ${title} only talks and can't work a Stage.`;

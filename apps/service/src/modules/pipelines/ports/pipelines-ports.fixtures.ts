@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, Module, type DynamicModule, type ModuleMetadata } from "@nestjs/common";
+import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EngineSessions } from "../../engine/index.js";
+import { TaskPaused, TaskResumed } from "../../work/index.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { StageDecisions, type StageDecisionRequest } from "./stage-decisions.js";
 import {
@@ -30,6 +32,9 @@ export class StartedTasksForTests extends StartedTasks {
   /** Every state the walk moved a Task to, in order. */
   readonly changes: { readonly taskId: string; readonly state: WalkTaskState }[] = [];
 
+  /** Tells the application of an event Work publishes, once the test application is up. */
+  announce: (event: DomainEvent) => Promise<void> = () => Promise.resolve();
+
   /** Puts the Task as Work would, such as In progress as it starts. */
   put(taskId: string, task: Omit<StartedTask, "id">): void {
     this.tasks.set(taskId, { ...task, id: taskId });
@@ -51,6 +56,27 @@ export class StartedTasksForTests extends StartedTasks {
     if (task.state === "paused") return task;
     this.put(taskId, { ...task, state });
     this.changes.push({ taskId, state });
+    return this.read(taskId);
+  }
+
+  /** As Work does: the state changes, then TaskPaused tells Pipelines. */
+  async pause(taskId: string): Promise<StartedTask> {
+    const task = await this.read(taskId);
+    this.put(taskId, { ...task, state: "paused" });
+    await this.announce(new TaskPaused(taskId, task.state as "in-progress"));
+    return this.read(taskId);
+  }
+
+  async resume(taskId: string): Promise<StartedTask> {
+    const task = await this.read(taskId);
+    this.put(taskId, { ...task, state: "in-progress" });
+    await this.announce(new TaskResumed(taskId));
+    return this.read(taskId);
+  }
+
+  async drop(taskId: string): Promise<StartedTask> {
+    const task = await this.read(taskId);
+    this.put(taskId, { ...task, state: "dropped" });
     return this.read(taskId);
   }
 }
@@ -115,6 +141,14 @@ export class KnownPeopleForTests extends KnownPeople {
 
   find(roleKey: string): Promise<KnownPerson | undefined> {
     return Promise.resolve(this.people.get(roleKey));
+  }
+
+  /** The names of the people let go, by the key of the Role they filled. */
+  readonly letGo = new Map<string, string>();
+
+  findLetGo(roleKey: string): Promise<{ readonly name: string } | undefined> {
+    const name = this.letGo.get(roleKey);
+    return Promise.resolve(name === undefined ? undefined : { name });
   }
 
   /** The titles of the Roles Ada's card consults, as People keeps them. */

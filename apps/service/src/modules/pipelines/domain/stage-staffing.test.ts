@@ -22,7 +22,20 @@ describe("staffingProblems", () => {
     ]);
   });
 
-  it("flags a Role nobody fills, hired never or let go, by its title", () => {
+  it("names the person let go from a Role, which a Role never filled doesn't have", () => {
+    const letGo = new Map<string, RoleFilling>([
+      ["devops", { title: "Devops", person: undefined, letGoPerson: "Dana" }],
+    ]);
+
+    expect(staffingProblems([agentStage({ role: "devops" })], 0, letGo)).toEqual([
+      {
+        stageIndex: 0,
+        text: "Stage 1 · Implement: Dana was let go from Devops; hire Dana back, hire someone else, or choose who works it.",
+      },
+    ]);
+  });
+
+  it("flags a Role nobody has filled by its title", () => {
     expect(staffingProblems([agentStage({ role: "devops" })], 0, roles)).toEqual([
       {
         stageIndex: 0,

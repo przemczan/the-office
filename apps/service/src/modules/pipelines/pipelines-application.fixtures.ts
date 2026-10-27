@@ -104,10 +104,12 @@ export async function startPipelinesApplication(
   });
   const published: DomainEvent[] = [];
   app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));
+  const tasks = app.get(StartedTasksForTests, { strict: false });
+  tasks.announce = (event) => app.get(EventBus).publish(event);
   return {
     app,
     engine,
-    tasks: app.get(StartedTasksForTests, { strict: false }),
+    tasks,
     records: app.get(TaskRecordsForTests, { strict: false }),
     people: app.get(KnownPeopleForTests, { strict: false }),
     stageThreads: app.get(StageThreadsForTests, { strict: false }),

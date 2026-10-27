@@ -24,4 +24,13 @@ export abstract class StartedTasks {
    * Resume moves it on.
    */
   abstract changeState(taskId: string, state: WalkTaskState): Promise<StartedTask>;
+
+  /** Holds the Task as the user's Pause does, for a reason the walk can't go on with. */
+  abstract pause(taskId: string): Promise<StartedTask>;
+
+  /** Resumes a Paused Task, as the user's Resume does. */
+  abstract resume(taskId: string): Promise<StartedTask>;
+
+  /** Drops the Task, as the user does. */
+  abstract drop(taskId: string): Promise<StartedTask>;
 }

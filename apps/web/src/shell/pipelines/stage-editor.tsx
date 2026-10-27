@@ -326,19 +326,14 @@ function RoleSelect({
   options,
   onChange,
 }: StageEditorRowProps & { readonly stage: AgentStage }): ReactNode {
-  const working = roles.filter(({ card }) => card.taskLimit !== "none");
+  const working = roles.filter(({ card, letGoAt }) => card.taskLimit !== "none" && !letGoAt);
   const current = roles.find(({ key }) => key === stage.role);
   const choices = working.map(({ key, card }) => ({
     value: key,
     label: `${card.name} · ${card.title}`,
   }));
   if (stage.role !== "" && !working.some(({ key }) => key === stage.role)) {
-    choices.push({
-      value: stage.role,
-      label: current
-        ? `${current.card.name} · ${current.card.title} (talks only)`
-        : `${roleTitle(stage.role, options)} (nobody fills it)`,
-    });
+    choices.push({ value: stage.role, label: unavailableLabel(stage.role, current, options) });
   }
   return (
     <Select
@@ -511,6 +506,17 @@ function commandChoice(
 
 function roleTitle(roleKey: string, options: RoleCardOptions): string {
   return options.knownRoles.find(({ key }) => key === roleKey)?.title ?? roleKey;
+}
+
+/** Why the Role a Stage names, though nobody can work it, still shows in the "Who works it" list. */
+function unavailableLabel(
+  roleKey: string,
+  current: Role | undefined,
+  options: RoleCardOptions,
+): string {
+  if (!current) return `${roleTitle(roleKey, options)} (nobody fills it)`;
+  const { name, title } = current.card;
+  return `${name} · ${title} (${current.letGoAt ? "let go" : "talks only"})`;
 }
 
 function thousands(tokens: number): number {

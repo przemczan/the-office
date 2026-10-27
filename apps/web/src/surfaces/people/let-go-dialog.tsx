@@ -50,6 +50,10 @@ export function LetGoDialog({
         Nobody fills the {card.title} Role from then on. {card.name}'s Role card, Memory and chats
         are kept, unused and readable, and you can hire {card.name} back.
       </p>
+      <p className="dialog-text">
+        Tasks that still need {card.title} for a Stage are paused, each with a Decision to resume it
+        once someone fills the Role, or to drop it.
+      </p>
     </Dialog>
   );
 }

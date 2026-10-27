@@ -62,6 +62,17 @@ export function lockedStageCount(stages: readonly Stage[], runs: readonly StageR
 }
 
 /**
+ * Where the Task's Stages next need people: the Stage its last run left unfinished, which runs
+ * again once the Task goes on, or else the first one that hasn't run.
+ */
+export function firstStageToWork(stages: readonly Stage[], runs: readonly StageRun[]): number {
+  const last = runs.at(-1);
+  const lastIndex = last ? stages.findIndex(({ key }) => key === last.stageKey) : -1;
+  if (last && last.outcome?.status !== "done" && lastIndex >= 0) return lastIndex;
+  return lockedStageCount(stages, runs);
+}
+
+/**
  * Every reason the edited Stages can't replace the Task's own, so the editor flags them all at
  * once; empty when they can.
  */

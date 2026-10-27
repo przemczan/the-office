@@ -28,6 +28,9 @@ export abstract class KnownPeople {
   /** Undefined when nobody fills the Role. */
   abstract find(roleKey: string): Promise<KnownPerson | undefined>;
 
+  /** The person let go from the Role, so a flag can tell that from a Role nobody was ever hired for. */
+  abstract findLetGo(roleKey: string): Promise<{ readonly name: string } | undefined>;
+
   /** The Role's title, such as Devops, whether or not anyone fills it. */
   abstract roleTitle(roleKey: string): string;
 }
