@@ -1,11 +1,16 @@
-import { Controller, Get, HttpCode, HttpStatus, Post } from "@nestjs/common";
-import type { Now as NowResponse } from "@the-office/contracts";
+import { Body, Controller, Get, HttpCode, HttpStatus, Post } from "@nestjs/common";
+import { activitySchema, type Activity, type Now as NowResponse } from "@the-office/contracts";
+import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { NotificationService } from "../../application/notification-service.js";
 import { NowService } from "../../application/now-service.js";
 import { toNowResponse } from "./now-responses.js";
 
 @Controller()
 export class NowController {
-  constructor(private readonly now: NowService) {}
+  constructor(
+    private readonly now: NowService,
+    private readonly notifications: NotificationService,
+  ) {}
 
   /** Now and the status strip as they stand; `now.changed` brings each change after. */
   @Get("now")
@@ -13,10 +18,14 @@ export class NowController {
     return toNowResponse(await this.now.now());
   }
 
-  /** The web reports the user active while they use it, which tells Since you left where to begin. */
+  /**
+   * The web reports the user active, and on which page: activity tells Since you left where to
+   * begin, and opening what a Notification points to handles it.
+   */
   @Post("activity")
   @HttpCode(HttpStatus.NO_CONTENT)
-  async recordActivity(): Promise<void> {
+  async recordActivity(@Body(new ContractPipe(activitySchema)) { page }: Activity): Promise<void> {
     await this.now.recordActivity();
+    await this.notifications.opened(page);
   }
 }

@@ -1,4 +1,6 @@
-import { useEffect } from "react";
+import { useLocation } from "@tanstack/react-router";
+import type { Activity } from "@the-office/contracts";
+import { useEffect, useRef } from "react";
 import { reportActivity } from "../api/notifications.ts";
 
 /** Often enough against the five idle minutes that mean the user left (spec §2.7 Defaults). */
@@ -7,29 +9,47 @@ const REPORT_EVERY_MS = 60_000;
 /** What the user does that counts as being at The Office, while its tab is visible. */
 const ACTIVITY_EVENTS = ["pointermove", "pointerdown", "keydown", "wheel", "focus"] as const;
 
+const TASK_PAGE = /^\/tasks\/([^/]+)/;
+
+/** The page at a path, as far as Notifications care: Now, a Task's page, or another. */
+export function pageAt(pathname: string): Activity["page"] {
+  if (pathname === "/now") return { kind: "now" };
+  const taskId = TASK_PAGE.exec(pathname)?.[1];
+  return taskId ? { kind: "task", taskId } : { kind: "elsewhere" };
+}
+
 /**
- * Reports the user active while the tab is visible and used, at most once a minute, so the service
- * knows when they left and where Since you left begins.
+ * Reports the user active while the tab is visible and used, at most once a minute, and at once
+ * on opening another page: the service learns when they left, and what they opened.
  */
 export function useReportingActivity(): void {
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const page = useRef(pageAt(pathname));
+  const lastReported = useRef(Number.NEGATIVE_INFINITY);
+  const report = useRef((force: boolean): void => {
+    if (document.visibilityState !== "visible") return;
+    const now = Date.now();
+    if (!force && now - lastReported.current < REPORT_EVERY_MS) return;
+    lastReported.current = now;
+    reportActivity({ page: page.current }).catch(() => {
+      // The service is unreachable: the next activity tries again.
+      lastReported.current = Number.NEGATIVE_INFINITY;
+    });
+  });
+
   useEffect(() => {
-    let lastReported = Number.NEGATIVE_INFINITY;
-    const report = (): void => {
-      if (document.visibilityState !== "visible") return;
-      const now = Date.now();
-      if (now - lastReported < REPORT_EVERY_MS) return;
-      lastReported = now;
-      reportActivity().catch(() => {
-        // The service is unreachable: the next activity tries again.
-        lastReported = Number.NEGATIVE_INFINITY;
-      });
-    };
-    report();
-    for (const type of ACTIVITY_EVENTS) window.addEventListener(type, report, { passive: true });
-    document.addEventListener("visibilitychange", report);
+    page.current = pageAt(pathname);
+    report.current(true);
+  }, [pathname]);
+
+  useEffect(() => {
+    const onActivity = (): void => report.current(false);
+    for (const type of ACTIVITY_EVENTS)
+      window.addEventListener(type, onActivity, { passive: true });
+    document.addEventListener("visibilitychange", onActivity);
     return () => {
-      for (const type of ACTIVITY_EVENTS) window.removeEventListener(type, report);
-      document.removeEventListener("visibilitychange", report);
+      for (const type of ACTIVITY_EVENTS) window.removeEventListener(type, onActivity);
+      document.removeEventListener("visibilitychange", onActivity);
     };
   }, []);
 }

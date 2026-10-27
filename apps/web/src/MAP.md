@@ -49,8 +49,8 @@
 - `toasts.tsx`: ToastProvider, useToast
 - `top-bar.tsx`: TopBar
 - `use-clock.ts`: useClock
-- `user-activity.ts`: useReportingActivity
-- Tests: engine-words.test.ts, time.test.ts
+- `user-activity.ts`: pageAt, useReportingActivity
+- Tests: engine-words.test.ts, time.test.ts, user-activity.test.ts
 
 ### shell/attachments/
 

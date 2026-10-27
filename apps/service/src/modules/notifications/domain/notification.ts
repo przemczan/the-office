@@ -1,0 +1,221 @@
+import {
+  channelsOf,
+  WINDOW_NEARLY_USED_PERCENT,
+  type Channel,
+  type NotificationKind,
+} from "./notification-kinds.js";
+
+/** What a Notification opens: the thing that waits or happened (spec §2.7). */
+export type Pointer =
+  | { readonly kind: "decision"; readonly decisionId: string; readonly taskId: string }
+  | { readonly kind: "gate"; readonly taskId: string; readonly stageKey: string }
+  | { readonly kind: "task"; readonly taskId: string }
+  /** The Office's own state, as Now and the status strip show it. */
+  | { readonly kind: "office" };
+
+/**
+ * A pointer to something that waits on the user or happened, sent to the channels its kind routes
+ * to and cleared on every channel once the user handles that thing, never by reading it.
+ */
+export interface Notification {
+  readonly id: string;
+  readonly kind: NotificationKind;
+  /**
+   * Who speaks, by their Role's key; undefined when The Office does, which has no person in tier 1
+   * (spec §2.7 Defaults).
+   */
+  readonly roleKey: string | undefined;
+  /** In the person's first person, or the UI's own voice when nobody speaks. */
+  readonly line: string;
+  readonly pointsTo: Pointer;
+  readonly channels: readonly Channel[];
+  readonly raisedAt: Date;
+}
+
+/** What a Notification says, before it has an id and a time. */
+export interface NotificationDraft {
+  readonly kind: NotificationKind;
+  readonly roleKey: string | undefined;
+  readonly line: string;
+  readonly pointsTo: Pointer;
+}
+
+export function notificationOf(draft: NotificationDraft, id: string, raisedAt: Date): Notification {
+  return { ...draft, id, channels: channelsOf(draft.kind), raisedAt };
+}
+
+/** A Decision waits on the user: its asker's question, or The Office's. */
+export function decisionWaiting(decision: {
+  readonly id: string;
+  readonly taskId: string;
+  readonly roleKey: string | undefined;
+  readonly question: string;
+}): NotificationDraft {
+  return {
+    kind: "needs-you.decision",
+    roleKey: decision.roleKey,
+    line: decision.roleKey ? `I need your answer: ${decision.question}` : decision.question,
+    pointsTo: { kind: "decision", decisionId: decision.id, taskId: decision.taskId },
+  };
+}
+
+/** The Task's person brought the work to a Gate. */
+export function gateWaiting(
+  taskId: string,
+  gate: { readonly key: string; readonly name: string },
+  personRole: string | undefined,
+): NotificationDraft {
+  return {
+    kind: "needs-you.gate",
+    roleKey: personRole,
+    line: personRole
+      ? `My work is ready for your look at ${gate.name}.`
+      : `${gate.name} waits for your look.`,
+    pointsTo: { kind: "gate", taskId, stageKey: gate.key },
+  };
+}
+
+export function taskDone(taskId: string, personRole: string | undefined): NotificationDraft {
+  return taskOutcome("outcomes.task-done", taskId, personRole, "I finished the Task.", "Done.");
+}
+
+/** Why a Stage failed for good (spec §2.7 Defaults: a failed Task). */
+export type Failure =
+  | { readonly kind: "no-retries-left"; readonly stageName: string }
+  | { readonly kind: "definition-of-done" };
+
+export function taskFailed(
+  taskId: string,
+  personRole: string | undefined,
+  failure: Failure,
+): NotificationDraft {
+  const [firstPerson, officeVoice] =
+    failure.kind === "no-retries-left"
+      ? [
+          `${failure.stageName} failed and I have no retries left.`,
+          `${failure.stageName} failed with no retries left.`,
+        ]
+      : [
+          "I ran every Stage, but the Definition of Done isn't met.",
+          "Every Stage ran, but the Definition of Done isn't met.",
+        ];
+  return taskOutcome("outcomes.task-failed", taskId, personRole, firstPerson, officeVoice);
+}
+
+/** Held by Pause, or by Stop, which keeps the work as Pause does but ends the running step. */
+export function taskPaused(
+  taskId: string,
+  personRole: string | undefined,
+  how: "pause" | "stop",
+): NotificationDraft {
+  return how === "pause"
+    ? taskOutcome(
+        "outcomes.task-paused",
+        taskId,
+        personRole,
+        "I paused at a safe point.",
+        "Paused.",
+      )
+    : taskOutcome("outcomes.task-paused", taskId, personRole, "I stopped where I was.", "Stopped.");
+}
+
+function taskOutcome(
+  kind: NotificationKind,
+  taskId: string,
+  personRole: string | undefined,
+  firstPerson: string,
+  officeVoice: string,
+): NotificationDraft {
+  return {
+    kind,
+    roleKey: personRole,
+    line: personRole ? firstPerson : officeVoice,
+    pointsTo: { kind: "task", taskId },
+  };
+}
+
+export function windowNearlyUsed(percentUsed: number): NotificationDraft {
+  return officeKind(
+    "office.window-nearly-used",
+    `${Math.round(percentUsed)}% of the 5-hour window is used.`,
+  );
+}
+
+export function windowReset(): NotificationDraft {
+  return officeKind("office.window-reset", "The 5-hour window reset.");
+}
+
+export function engineDown(reason: string): NotificationDraft {
+  return officeKind("office.engine-down", `The engine is down: ${reason}`);
+}
+
+/** Office kinds speak in the UI's own voice, with no person (spec §2.7 Defaults). */
+function officeKind(kind: NotificationKind, line: string): NotificationDraft {
+  return { kind, roleKey: undefined, line, pointsTo: { kind: "office" } };
+}
+
+/** How the 5-hour window moved between two readings, as Notifications tell it. */
+export function windowMove(
+  previousPercent: number,
+  currentPercent: number,
+): "nearly-used" | "reset" | undefined {
+  if (currentPercent < previousPercent) return "reset";
+  if (
+    previousPercent < WINDOW_NEARLY_USED_PERCENT &&
+    currentPercent >= WINDOW_NEARLY_USED_PERCENT
+  ) {
+    return "nearly-used";
+  }
+  return undefined;
+}
+
+/** What the user did, or what came about, that handles what some Notifications point to. */
+export type Handling =
+  /** Answering a Decision also handles the failure it was opened about. */
+  | { readonly kind: "decision-answered"; readonly decisionId: string; readonly taskId: string }
+  | { readonly kind: "gate-acted"; readonly taskId: string }
+  | { readonly kind: "task-resumed"; readonly taskId: string }
+  /** The user opened the Task, which is where its outcome is looked at. */
+  | { readonly kind: "task-opened"; readonly taskId: string }
+  /** The user opened Now, where the 5-hour window shows. */
+  | { readonly kind: "now-opened" }
+  | { readonly kind: "window-reset" }
+  | { readonly kind: "engine-answered" };
+
+export function handles(handling: Handling, { kind, pointsTo }: Notification): boolean {
+  switch (handling.kind) {
+    case "decision-answered":
+      return (
+        (pointsTo.kind === "decision" && pointsTo.decisionId === handling.decisionId) ||
+        (kind === "outcomes.task-failed" && pointsAt(pointsTo, handling.taskId))
+      );
+    case "gate-acted":
+      return pointsTo.kind === "gate" && pointsTo.taskId === handling.taskId;
+    case "task-resumed":
+      return kind === "outcomes.task-paused" && pointsAt(pointsTo, handling.taskId);
+    case "task-opened":
+      return pointsTo.kind === "task" && pointsTo.taskId === handling.taskId;
+    case "now-opened":
+      return kind === "office.window-nearly-used" || kind === "office.window-reset";
+    case "window-reset":
+      return kind === "office.window-nearly-used";
+    case "engine-answered":
+      return kind === "office.engine-down";
+  }
+}
+
+/** Whether a later Notification would point at what an open one does, so only one is kept. */
+export function samePointer(one: NotificationDraft, other: NotificationDraft): boolean {
+  // Compared field by field: a pointer read back from storage may list its fields in another order.
+  const fields = Object.entries(one.pointsTo);
+  const otherFields = new Map(Object.entries(other.pointsTo));
+  return (
+    one.kind === other.kind &&
+    fields.length === otherFields.size &&
+    fields.every(([field, value]) => otherFields.get(field) === value)
+  );
+}
+
+function pointsAt(pointsTo: Pointer, taskId: string): boolean {
+  return pointsTo.kind === "task" && pointsTo.taskId === taskId;
+}

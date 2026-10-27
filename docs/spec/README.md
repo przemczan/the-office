@@ -81,6 +81,8 @@ Where each default lives (the old §9):
 - No message from a person in tier 1: [2.7 Notifications](2.7-notifications.md#defaults)
 - A failed Task: [2.7 Notifications](2.7-notifications.md#defaults)
 - Since you left begins after five idle minutes: [2.7 Notifications](2.7-notifications.md#defaults)
+- Window nearly used at 90%: [2.7 Notifications](2.7-notifications.md#defaults)
+- Opening what a Notification points to handles it: [2.7 Notifications](2.7-notifications.md#defaults)
 - Today's figures: [2.7 Notifications](2.7-notifications.md#defaults)
 - Now lives in the Notifications module: [5.3 Modules](5.3-modules.md#defaults)
 

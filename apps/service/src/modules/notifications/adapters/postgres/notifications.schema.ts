@@ -4,6 +4,7 @@ import {
   check,
   date,
   index,
+  jsonb,
   pgTable,
   primaryKey,
   smallint,
@@ -11,6 +12,8 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { Pointer } from "../../domain/notification.js";
+import type { Channel, NotificationKind } from "../../domain/notification-kinds.js";
 import type { TaskOutcomeKind } from "../../domain/task-outcome.js";
 
 /** Each outcome of a started Task, as it happened. */
@@ -56,4 +59,21 @@ export const tasksTouched = pgTable(
     taskId: uuid("task_id").notNull(),
   },
   (table) => [primaryKey({ columns: [table.day, table.taskId] })],
+);
+
+/** Each Notification raised; cleared once the user handled what it points to. */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: uuid("id").primaryKey(),
+    kind: text("kind").$type<NotificationKind>().notNull(),
+    /** Who speaks; null when The Office does. */
+    roleKey: text("role_key"),
+    line: text("line").notNull(),
+    pointsTo: jsonb("points_to").$type<Pointer>().notNull(),
+    channels: jsonb("channels").$type<readonly Channel[]>().notNull(),
+    raisedAt: timestamp("raised_at", { withTimezone: true }).notNull(),
+    clearedAt: timestamp("cleared_at", { withTimezone: true }),
+  },
+  (table) => [index("notifications_cleared_at").on(table.clearedAt)],
 );

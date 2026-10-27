@@ -74,7 +74,69 @@ export const nowSchema = z.object({
 });
 export type Now = z.infer<typeof nowSchema>;
 
+/** The kinds of Notification, a tree of hierarchical keys (spec §2.7). */
+export const notificationKindSchema = z.enum([
+  "needs-you.decision",
+  "needs-you.gate",
+  "needs-you.message",
+  "outcomes.task-done",
+  "outcomes.task-failed",
+  "outcomes.task-paused",
+  "office.window-nearly-used",
+  "office.window-reset",
+  "office.service-down",
+  "office.engine-down",
+]);
+export type NotificationKind = z.infer<typeof notificationKindSchema>;
+
+export const channelSchema = z.enum(["in-app", "desktop"]);
+export type Channel = z.infer<typeof channelSchema>;
+
+/** What a Notification opens. */
+export const pointerSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("decision"), decisionId: z.uuid(), taskId: z.uuid() }),
+  z.object({ kind: z.literal("gate"), taskId: z.uuid(), stageKey: z.string().min(1) }),
+  z.object({ kind: z.literal("task"), taskId: z.uuid() }),
+  /** The Office's own state, on Now and the status strip. */
+  z.object({ kind: z.literal("office") }),
+]);
+export type Pointer = z.infer<typeof pointerSchema>;
+
+/** A pointer to something that waits on the user or happened, cleared once they handle it. */
+export const notificationSchema = z.object({
+  id: z.uuid(),
+  kind: notificationKindSchema,
+  /** Who speaks, by their Role's key; null when The Office does. */
+  roleKey: z.string().min(1).nullable(),
+  /** In the person's first person, or the UI's own voice. */
+  line: z.string().min(1),
+  pointsTo: pointerSchema,
+  channels: z.array(channelSchema),
+  raisedAt: z.iso.datetime(),
+});
+export type Notification = z.infer<typeof notificationSchema>;
+
+export const notificationListSchema = z.array(notificationSchema);
+
+/** The user is active on this page; opening what a Notification points to handles it. */
+export const activitySchema = z.object({
+  page: z.discriminatedUnion("kind", [
+    z.object({ kind: z.literal("now") }),
+    z.object({ kind: z.literal("task"), taskId: z.uuid() }),
+    z.object({ kind: z.literal("elsewhere") }),
+  ]),
+});
+export type Activity = z.infer<typeof activitySchema>;
+
 export const notificationsWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("now.changed"), now: nowSchema }),
+  webEventSchema.extend({
+    type: z.literal("notification.raised"),
+    notification: notificationSchema,
+  }),
+  webEventSchema.extend({
+    type: z.literal("notifications.cleared"),
+    notificationIds: z.array(z.uuid()),
+  }),
 ]);
 export type NotificationsWebEvent = z.infer<typeof notificationsWebEventSchema>;

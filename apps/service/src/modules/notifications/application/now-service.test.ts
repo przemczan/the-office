@@ -119,7 +119,11 @@ describe("NowService", () => {
   });
 
   it("keeps a Task done after the user was seen, and announces it in Since you left", async () => {
-    const activity = await fetch(`${url}/api/activity`, { method: "POST" });
+    const activity = await fetch(`${url}/api/activity`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ page: { kind: "elsewhere" } }),
+    });
     expect(activity.status).toBe(204);
     const taskId = randomUUID();
     tasks.tasks = [{ id: taskId, title: "Add a filter", projectId: "p1", state: "done" }];

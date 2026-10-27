@@ -18,6 +18,13 @@ export class OfficeTasksForTests extends OfficeTasks {
   async listStarted(): Promise<readonly OfficeTask[]> {
     return this.tasks.filter(({ state }) => STARTED_STATES.includes(state));
   }
+
+  /** Every Task's person, by the Task's id. */
+  readonly people = new Map<string, string>();
+
+  async read(taskId: string): Promise<{ readonly personRole: string | undefined }> {
+    return { personRole: this.people.get(taskId) };
+  }
 }
 
 export class OpenDecisionsForTests extends OpenDecisions {
