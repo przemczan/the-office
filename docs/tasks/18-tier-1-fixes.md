@@ -4,7 +4,7 @@ Status: in progress
 
 ## Goal
 
-Fix the thirteen problems the tier 1 acceptance run surfaced ([archive/17-settings-acceptance.md](archive/17-settings-acceptance.md), Progress, step 5), so the base reads clearly before tier 2 builds on it. Each problem's proposed fix there is the requirement; the numbers below are its numbers.
+Fix the problems the tier 1 acceptance run surfaced ([archive/17-settings-acceptance.md](archive/17-settings-acceptance.md), Progress, step 5), so the base reads clearly before tier 2 builds on it. Each problem's proposed fix there is the requirement; the numbers below are its numbers.
 
 ## Definition of Done
 
@@ -15,7 +15,6 @@ Fix the thirteen problems the tier 1 acceptance run surfaced ([archive/17-settin
 - [ ] Before Ready (5, 6): the planning panel shows a "Before Ready" checklist (Plan confirmed, Definition of Done confirmed, Pipeline taken or declined, no Decision waiting), each line ticking as it is met, built from the same rules that refuse Mark Ready; Mark Ready is disabled until every line is met; a Ready Task says "Ready: start it when you want; nothing starts by itself". Check: a domain test that the checklist and the refusal reasons agree; Playwright ticking the lines one by one.
 - [ ] Task page (7, 8): a Stage session that starts adds its tab right after the current one, marked new, and leaves the user where they are; on the Changes tab every file starts folded to its header with its +/- counts, unfolds on a click, with "Unfold all" and "Fold all". Check: Playwright.
 - [ ] Gate (9, 10): the Gate view says "Look at the work so far, then Continue, Send back with feedback, or Drop"; the Stage editor says under a Gate's name that it is a label for the user; send back defaults to the latest Agent Stage, and a Script Stage chosen there says it can't read the feedback and only runs again. Check: a unit test for the default; Playwright for the words.
-- [ ] Tokens (13): Threads, Stages, Now and the status strip count tokens without cache reads, each with an info icon whose tooltip gives input, output, cache writes and cache reads and what each costs; spec 2.7's "Today's figures" default amended with the user. Check: unit tests of the sums; Playwright reads a tooltip.
 - [ ] `npm run verify` and `npm run verify:linux` pass, and the user has looked at each fix in the running app. Check: the commands; the user's word, logged below.
 
 ## Read first
@@ -24,7 +23,7 @@ Fix the thirteen problems the tier 1 acceptance run surfaced ([archive/17-settin
 - The [Work surface map](../../apps/web/src/surfaces/work/MAP.md) and the [web app map](../../apps/web/src/MAP.md) (`shell/conversation/`, `shell/work/`, `shell/pipelines/`).
 - The [e2e map](../../apps/web/e2e/MAP.md): its traps decide which file a new test goes in.
 
-Leave out: everything tier 2 (spec 3), including a queue for Start and a confirmation when a Task is Ready (problem 6 only says that nothing starts by itself).
+Leave out: everything tier 2 (spec 3), including a queue for Start and a confirmation when a Task is Ready (problem 6 only says that nothing starts by itself). Problem 13 (tokens without cache reads) amends spec 2.7, so it waits for the spec-amending fixes after tier 2 ([README](README.md#after-tier-2-fixes-that-amend-the-spec)); a later fix found to need a spec change goes there too.
 
 ## Steps
 
@@ -40,16 +39,14 @@ Leave out: everything tier 2 (spec 3), including a queue for Start and a confirm
   Read: `surfaces/work/task-conversation.tsx`, `task-page.tsx`, `task-changes.tsx`, `changes-words.ts`.
 - [ ] 6. The Gate (9, 10): the Gate view's instruction, the Stage editor's note under a Gate's name, the send-back default and the Script Stage note. Commit.
   Read: `surfaces/work/gate-view.tsx`, `shell/work/gate-actions.tsx`, `gate-words.ts` (`defaultSendBackTarget`), `shell/pipelines/stage-editor.tsx`.
-- [ ] 7. Tokens (13): first agree the amendment to [spec 2.7 Defaults](../spec/2.7-notifications.md#defaults) ("tokens today count all four kinds") with the user. Then one token count without cache reads for Threads, Stages, Now and the strip, and the shared tooltip with the four kinds and their costs. Commit.
-  Read: `TokenTotals` in `apps/service/src/modules/conversations/domain/thread.ts`, `totalTokens` in `pipelines/domain/stage-run.ts`, the token sum in `notifications/application/now-service.ts`; `shell/conversation/context-words.ts` (`threadTokens`, `tokensShort`), `surfaces/work/stage-words.ts` (`taskTokens`), `shell/status-strip.tsx`.
-- [ ] 8. The user looks at each fix in the running app; `npm run verify:linux`; close the task. Commit.
+- [ ] 7. The user looks at each fix in the running app; `npm run verify:linux`; close the task. Commit.
   Read: [test-project.md](test-project.md) if the user wants it on the Test Project.
 
 ## State
 
 - Tier 2's order was accepted by the user on 2026-10-27 ([README](README.md)); this task fixes tier 1's problems first. Tasks 19–30 get their files when they become current, after their open questions (spec 8) are settled with the user.
 - Decided with the user (2026-10-27): the "Before Ready" checklist sits in the planning panel.
-- Open: problem 13 changes spec 2.7's "Today's figures" default (all four kinds); step 7 confirms the amendment with the user before any code.
+- Decided with the user (2026-10-27): fixes that need a spec amendment wait until tier 2 is done and are done together then; problem 13 (tokens) moved there from this task.
 - Built (step 1): `apps/web/src/shell/markdown-text.tsx`, `MarkdownText` on `react-markdown` with `remark-gfm` and `remark-breaks` (a single line break stays a break); `inline` for a line inside a row. Used for user and person messages, Handover notes (message list and Stage row), the Brief, a Decision's question, context and recommendation reason, a free answer, and a Stage row's detail line (inline, so a script's summary shows its code spans). Tooltips and `aria-label`s stay plain (`firstLine` in `stage-words.ts`).
 - Trap: a Stage row's detail joins The Office's words and Stage names with the outcome; a Stage name with Markdown characters renders as Markdown there.
 - Built (step 2): `shell/conversation/message-field.tsx`, `MessageField`, the one keyboard rule (Enter sends, Shift+Enter breaks, Enter while busy shows the reason under the field) for the Composer, the Decision's free answer and the Gate's feedback. The Thread's working line was already there from turn start (the Thread is `answering` as soon as the turn begins, and tool lines stream live), but as a static grey caption; it is now a spinning, body-size "<name> is working…" with `role="status"`.
@@ -60,3 +57,4 @@ Leave out: everything tier 2 (spec 3), including a queue for Start and a confirm
 - 2026-10-27 · slicing: tier 2 ordered into tasks 18–30 with the user, this task's file written; next, step 1, Markdown.
 - 2026-10-27 · step 1: Markdown in messages, Handover notes, the Brief, Decisions and Stage rows through one sanitised `MarkdownText`; next, step 2, message fields and the working indicator.
 - 2026-10-27 · step 2: one message field for the Composer, Decision answers and Gate feedback (Enter sends, Shift+Enter breaks, busy Enter explains); the working line made visible; next, step 3, the board and "+ Task".
+- 2026-10-27 · replanned with the user: problem 13 (tokens) moves to the spec-amending fixes after tier 2; the user's look becomes step 7. Next, step 3.

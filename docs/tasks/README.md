@@ -46,6 +46,12 @@ Order accepted by the user on 2026-10-27. A task's file is written when it becom
 | 29 | Running: start at login, the `-p` fallback adapter | Foundation | todo |
 | 30 | The tier 2 acceptance run | All | todo |
 
+## After tier 2: fixes that amend the spec
+
+Decided with the user on 2026-10-27: a fix that needs the spec changed is not built where it is found. It is listed here, and they are done together, each amendment agreed with the user, once tier 2 is done and before tier 3.
+
+- Problem 13 of the tier 1 run ([archive/17-settings-acceptance.md](archive/17-settings-acceptance.md)): count tokens without cache reads everywhere (Threads, Stages, Now, the strip), with an info icon giving input, output, cache writes and cache reads and what each costs. Amends [spec 2.7 Defaults](../spec/2.7-notifications.md#defaults), "Today's figures", which counts all four kinds.
+
 Read these only when a step needs them:
 
 - [build-defaults.md](build-defaults.md): choices the spec leaves open (Windows and Linux, the workspace layout, the checks, the Office data directory, the scripted engine adapter). Change one only with the user.
