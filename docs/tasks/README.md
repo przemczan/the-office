@@ -35,7 +35,7 @@ Order accepted by the user on 2026-10-27. A task's file is written when it becom
 | 18 | [Tier 1 fixes: the acceptance run's problems](18-tier-1-fixes.md) | Work and the Task page | done |
 | 19 | [Shared memory and the Memory tab](19-shared-memory.md) | People | done |
 | 20 | [People: hiring from scratch, letting go, editable profiles, Consultants, mentions](20-people-tier-2.md) | People | done |
-| 21 | [The Office Manager and Proposals](21-office-manager.md) | People | in progress |
+| 21 | [The Office Manager and Proposals](21-office-manager.md) | People | done |
 | 22 | The CTO, Initiatives and dependencies | Work | todo |
 | 23 | Tags, search, saved views and the Project filter | Work | todo |
 | 24 | Devops: the Pipeline library, Project commands by Proposal, onboarding | Projects | todo |
