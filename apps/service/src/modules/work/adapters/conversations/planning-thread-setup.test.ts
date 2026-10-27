@@ -54,7 +54,10 @@ describe("a planning Thread's session", () => {
     expect(setup.brief).toContain("- install: `npm install`");
   });
 
-  it("refuses a session once the Task is Done, as Publish removed its worktree", async () => {
+  it.each([
+    ["done", "This Task is Done"],
+    ["dropped", "This Task was dropped"],
+  ] as const)("refuses a session once the Task is %s", async (state, words) => {
     const created = await sendJson(work, "POST", "/tasks", {
       title: "Ship the redirect",
       projectId: `project-${randomUUID()}`,
@@ -62,8 +65,8 @@ describe("a planning Thread's session", () => {
     });
     const task = taskSchema.parse(await created.json());
     await work.app.get(TaskRepository).update(task.id, (latest) => ({
-      task: { ...latest, state: "done" },
-      event: new TaskStateChanged(latest.id, latest.state, "done"),
+      task: { ...latest, state },
+      event: new TaskStateChanged(latest.id, latest.state, state),
     }));
 
     const setup = await work.app
@@ -71,7 +74,7 @@ describe("a planning Thread's session", () => {
       .of({ threadId: randomUUID(), taskId: task.id, roleKey: "planner" });
 
     // The Thread's label and Brief still read the setup, so only a session is refused.
-    expect(setup.sessionRefusal).toContain("This Task is Done");
+    expect(setup.sessionRefusal).toContain(words);
     expect(setup.brief).toContain("Ship the redirect");
   });
 });

@@ -1,5 +1,5 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import { OPEN_DECISION_TOOL } from "@the-office/contracts";
+import { ENDED_TASK_CONVERSATION_WORDS, OPEN_DECISION_TOOL } from "@the-office/contracts";
 import {
   TaskThreadSetups,
   type TaskThreadRequest,
@@ -31,9 +31,6 @@ export const PLANNING_OFFICE_TOOLS = [
   "propose_pipeline",
   OPEN_DECISION_TOOL,
 ] as const;
-
-const DONE_TASK_REFUSAL =
-  "This Task is Done and its working copy has been removed, so you can read this conversation but not continue it. To keep working, start a new Task.";
 
 /**
  * Sets up the sessions of Threads on Tasks for Conversations, from the Task's record. Every Thread
@@ -72,8 +69,7 @@ export class PlanningThreadSetup implements TaskThreadSource, OnModuleInit {
       instructions: PLANNING_INSTRUCTIONS,
       officeTools: PLANNING_OFFICE_TOOLS,
       brief: planningBrief({ task, project, worktree, idea, attachments, pipelines }),
-      // Publish removed the worktree a session works in.
-      sessionRefusal: task.state === "done" ? DONE_TASK_REFUSAL : undefined,
+      sessionRefusal: ENDED_TASK_CONVERSATION_WORDS[task.state],
     };
   }
 }

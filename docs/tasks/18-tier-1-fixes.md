@@ -1,6 +1,6 @@
 # 18 · Tier 1 fixes: the acceptance run's problems
 
-Status: in progress
+Status: done
 
 ## Goal
 
@@ -12,7 +12,7 @@ Fix the problems the tier 1 acceptance run surfaced ([archive/17-settings-accept
 - [x] Message fields (11): the Composer, a Decision's free answer and a Gate's feedback send on Enter and break on Shift+Enter; while the Agent is answering, Enter says why it can't send. Check: the shared field's unit test; Playwright in the Composer and the Gate's feedback. (`message-field.test.tsx`; `people.e2e.ts`, the chat tests and the Gate test.)
 - [x] Working indicator (4): a Thread shows "<name> is working…" from the moment a turn starts until it ends, in every Thread. Check: a unit test of the Thread's log while answering with no output yet. (`message-list.test.tsx`.)
 - [x] Before Ready (5, 6): the planning panel shows a "Before Ready" checklist (Plan confirmed, Definition of Done confirmed, Pipeline taken or declined, no Decision waiting), each line ticking as it is met, built from the same Work rules that refuse Mark Ready; Mark Ready is disabled until every line is met; a Ready Task says "Ready: start it when you want; nothing starts by itself". Check: a domain test that the checklist and the refusal reasons agree; Playwright ticking the lines one by one. (`task-states.test.ts`, "the Before Ready checklist"; `people.e2e.ts`, the planning test.)
-- [ ] `npm run verify` and `npm run verify:linux` pass, and the user has looked at each fix in the running app. Check: the commands; the user's word, logged below.
+- [x] `npm run verify` and `npm run verify:linux` pass, and the user has looked at each fix in the running app. Check: the commands; the user's word, logged in the archive. (The user approved on 2026-10-27.)
 
 ## Read first
 
@@ -30,7 +30,7 @@ Leave out: everything tier 2 (spec 3), including a queue for Start and a confirm
   Read: `shell/conversation/composer.tsx`, `thread-view.tsx`, `decision-card.tsx`, `shell/work/gate-actions.tsx`; `threadStateSchema` in `packages/contracts/src/conversations.ts`; the Conversations module map if the service needs to say when a turn started.
 - [x] 3. Before Ready (5, 6): the readiness lines from the Work domain's Ready rules (`markTaskReady` and `stateChangeProblems` in `apps/service/src/modules/work/domain/task-changes.ts`) on the Task's view, the checklist in the planning panel, Mark Ready disabled until met, the Ready words. Commit.
   Read: the [Work module map](../../apps/service/src/modules/work/MAP.md); `surfaces/work/planning-actions.tsx`, `planning-parts.tsx`, `use-planning.ts`; the Task contract in `packages/contracts/src/`.
-- [ ] 4. The user looks at each fix in the running app; `npm run verify:linux`; close the task. Commit.
+- [x] 4. The user looks at each fix in the running app; `npm run verify:linux`; close the task. Commit.
   Read: [test-project.md](test-project.md) if the user wants it on the Test Project.
 
 ## State
@@ -42,15 +42,9 @@ Leave out: everything tier 2 (spec 3), including a queue for Start and a confirm
 - Trap: a Stage row's detail joins The Office's words and Stage names with the outcome; a Stage name with Markdown characters renders as Markdown there.
 - Built (step 2): `shell/conversation/message-field.tsx`, `MessageField`, the one keyboard rule (Enter sends, Shift+Enter breaks, Enter while busy shows the reason under the field) for the Composer, the Decision's free answer and the Gate's feedback. The Thread's working line was already there from turn start (the Thread is `answering` as soon as the turn begins, and tool lines stream live), but as a static grey caption; it is now a spinning, body-size "<name> is working…" with `role="status"`.
 - Built (step 3): `readinessLines` in `task-states.ts` is the one list of Ready's conditions (refusals and checklist both come from it); `GET /tasks/:id/readiness` (`Readiness` contract); `surfaces/work/ready-block.tsx` ("Before Ready" in the record, "Ready" words once Ready); `useReadyConditionsMet` disables Mark Ready in the head and the menu. A Decision's events now also refresh `["tasks"]`, since a waiting Decision is one line.
-- Found by the user (2026-10-27): talking to the Planner on a Done Task failed with a misleading "binary failed to launch" (its worktree is gone after Publish). Decided with the user: a Done Task's Threads are read-only with a plain reason. Built: `TaskThreadSetup.sessionRefusal` (Work fills it for Done; `SessionPlaces` refuses a session with it, while labels and Briefs still read the setup), and `ThreadView`'s `readOnlyReason` swaps the Composer for the reason. Trap: `ThreadContexts` and `Briefs` call the setup for every Thread read, so the setup must never throw for a Done Task.
-- Next: step 4, the user looks at each fix in the running app; `npm run verify:linux`; close the task.
+- Found by the user (2026-10-27): talking to the Planner on a Done Task failed with a misleading "binary failed to launch" (its worktree is gone after Publish). Decided with the user: a Done or Dropped Task's Threads are read-only with a plain reason (`ENDED_TASK_CONVERSATION_WORDS` in the contracts). Built: `TaskThreadSetup.sessionRefusal` (Work fills it for Done; `SessionPlaces` refuses a session with it, while labels and Briefs still read the setup), and `ThreadView`'s `readOnlyReason` swaps the Composer for the reason. Trap: `ThreadContexts` and `Briefs` call the setup for every Thread read, so the setup must never throw for a Done Task.
+- Next: task 19, shared memory and the Memory tab; its file is written first, after its open questions (spec 8) are settled with the user.
 
 ## Progress
 
-- 2026-10-27 · slicing: tier 2 ordered into tasks 18–30 with the user, this task's file written; next, step 1, Markdown.
-- 2026-10-27 · step 1: Markdown in messages, Handover notes, the Brief, Decisions and Stage rows through one sanitised `MarkdownText`; next, step 2, message fields and the working indicator.
-- 2026-10-27 · step 2: one message field for the Composer, Decision answers and Gate feedback (Enter sends, Shift+Enter breaks, busy Enter explains); the working line made visible; next, step 3, the board and "+ Task".
-- 2026-10-27 · replanned with the user: only the cheap fixes stay here; 2, 5, 8 and 13 move to the fixes after tier 2, and the user's look becomes step 6. Next, step 3.
-- 2026-10-27 · replanned with the user: only fixes that get harder after tier 2 stay (5, 6); 1, 2, 3, 7, 8, 9, 10 and 13 wait. Next, step 3, Before Ready.
-- 2026-10-27 · step 3: the "Before Ready" checklist from one list of Ready's conditions, Mark Ready disabled until met, the Ready words; next, step 4, the user's look and closing.
-- 2026-10-27 · found by the user: a Done Task's Threads are read-only with a plain reason, and the service refuses a session on them; next, step 4, the user's look and closing.
+The log is archived in [archive/18-tier-1-fixes.md](archive/18-tier-1-fixes.md).

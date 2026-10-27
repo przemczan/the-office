@@ -1,5 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Role, Task, Thread } from "@the-office/contracts";
+import {
+  ENDED_TASK_CONVERSATION_WORDS,
+  type Role,
+  type Task,
+  type Thread,
+} from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { decisionQueries } from "../../api/conversations.ts";
@@ -72,15 +77,11 @@ export function TaskConversation({
         key={shown.id}
         threadId={shown.id}
         personName={personName(shown)}
-        readOnlyReason={task.state === "done" ? DONE_TASK_READ_ONLY : undefined}
+        readOnlyReason={ENDED_TASK_CONVERSATION_WORDS[task.state]}
       />
     </aside>
   );
 }
-
-// Publish removes the Task's worktree, which a session works in, so nothing more can be asked of it.
-const DONE_TASK_READ_ONLY =
-  "This Task is Done and its working copy has been removed, so you can read this conversation but not continue it. To keep working, start a new Task.";
 
 function nameOf(roleKey: string, roles: readonly Role[] | undefined): string {
   return roles?.find(({ key }) => key === roleKey)?.card.name ?? roleKey;

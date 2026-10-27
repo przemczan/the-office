@@ -60,6 +60,16 @@ export const newTaskSchema = z.object({
 });
 export type NewTask = z.infer<typeof newTaskSchema>;
 
+/**
+ * Why a Task's conversations can be read but not continued, for the states that end the Task: no
+ * session works on it any more (Done: Publish removed its worktree; Dropped: the user ended it).
+ */
+export const ENDED_TASK_CONVERSATION_WORDS: Readonly<Partial<Record<TaskState, string>>> = {
+  done: "This Task is Done and its working copy has been removed, so you can read this conversation but not continue it. To keep working, start a new Task.",
+  dropped:
+    "This Task was dropped, so you can read this conversation but not continue it. To work on it again, start a new Task.",
+};
+
 /** A Pipeline the Planner proposes for a Task, with why it fits the Definition of Done. */
 export const proposedPipelineSchema = z.object({ pipelineId: z.string(), reason: z.string() });
 export type ProposedPipeline = z.infer<typeof proposedPipelineSchema>;

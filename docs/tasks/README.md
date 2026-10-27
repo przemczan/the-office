@@ -32,7 +32,7 @@ Order accepted by the user on 2026-10-27. A task's file is written when it becom
 
 | # | Task | Surface | Status |
 |---|---|---|---|
-| 18 | [Tier 1 fixes: the acceptance run's problems](18-tier-1-fixes.md) | Work and the Task page | in progress |
+| 18 | [Tier 1 fixes: the acceptance run's problems](18-tier-1-fixes.md) | Work and the Task page | done |
 | 19 | Shared memory and the Memory tab | People | todo |
 | 20 | People: hiring from scratch, letting go, editable profiles, Consultants, mentions | People | todo |
 | 21 | The Office Manager and Proposals | People | todo |
