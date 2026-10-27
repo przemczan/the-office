@@ -37,6 +37,8 @@ function aDecisionOn(taskId: string): Decision {
     askedAt: "2026-10-26T09:00:00.000Z",
     answer: null,
     answeredAt: null,
+    putTo: null,
+    answeredBy: null,
   };
 }
 

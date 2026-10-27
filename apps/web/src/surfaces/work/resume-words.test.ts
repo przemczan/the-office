@@ -54,6 +54,7 @@ function aThread(context: Partial<ThreadContext>): Thread {
     },
     startedAt: "2026-10-26T10:00:00.000Z",
     stageThread: true,
+    consultation: null,
   };
 }
 

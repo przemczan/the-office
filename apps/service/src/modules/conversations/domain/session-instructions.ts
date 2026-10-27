@@ -55,6 +55,37 @@ export const CHAT_OFFICE_TOOLS = [
   "create_task",
 ] as const;
 
+/**
+ * The Office tool a Consultant answers with; the contracts name it too, for the web to hide its
+ * activity line, and a test keeps the two the same.
+ */
+export const ANSWER_CONSULTATION_TOOL = "answer_consultation";
+
+/**
+ * The Office tools a Consultant works a Consultation with: they read the records the Task rests on
+ * and give their answer. They open no Decision and consult no one, so a Consultation never nests.
+ */
+export const CONSULTATION_OFFICE_TOOLS = [
+  "list_projects",
+  "list_people",
+  "list_tasks",
+  "read_task",
+  "list_ideas",
+  "read_idea",
+  ANSWER_CONSULTATION_TOOL,
+] as const;
+
+/**
+ * The standing instructions of a Consultant in a Consultation: who they are, their card's
+ * instructions, and that they answer one Agent's question on a Task, reading and changing nothing.
+ */
+export function consultationInstructions(card: SessionPersonCard): string {
+  return [
+    ...personInstructions(card),
+    "You are in a Consultation: another person of The Office, working a Task, asked for your answer, and the user may read along or join. You change no file. Read what you need, using the Task's record, then give your answer with the answer_consultation tool: one of their options, or your own words. Say plainly why when you decline a call. Your answer reaches them as their next message; the user may answer first, in which case there is nothing left to do.",
+  ].join("\n\n");
+}
+
 /** The Office tool an Agent writes a Memory note with; offered only while its Shared memory is on. */
 export const REMEMBER_TOOL = "remember";
 
@@ -102,12 +133,17 @@ export function openingMessage(brief: string, opening: string): string {
 }
 
 /**
- * What the asking session is sent as its next message when the user answers its Decision: the
- * question, with the chosen option or the user's own words, so a fresh session knows what was asked.
+ * What the asking session is sent as its next message when its Decision is answered: the question,
+ * with the chosen option or the answerer's own words, so a fresh session knows what was asked.
+ * `answerer` names the Consultant who answered; undefined when the user did.
  */
-export function decisionAnswerMessage(decision: Decision, answer: DecisionAnswer): string {
+export function decisionAnswerMessage(
+  decision: Decision,
+  answer: DecisionAnswer,
+  answerer = "The user",
+): string {
   const words = answerWords(decision, answer);
   return answer.kind === "option"
-    ? `The user answered your Decision "${decision.question}" with the option "${words}".`
-    : `The user answered your Decision "${decision.question}" in their own words:\n\n${words}`;
+    ? `${answerer} answered your Decision "${decision.question}" with the option "${words}".`
+    : `${answerer} answered your Decision "${decision.question}" in their own words:\n\n${words}`;
 }

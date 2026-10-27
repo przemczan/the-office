@@ -66,6 +66,17 @@ export interface ThreadSession {
 /** What the user chose for the Thread's next message: "Start fresh" or "Continue anyway". */
 export type ContextOverride = "start-fresh" | "continue-anyway";
 
+/**
+ * What makes a Thread a Consultation (spec §2.4): a sub-thread on a Task where a Consultant, whose
+ * Role the Thread's `roleKey` is, answers the Decision an Agent put to them.
+ */
+export interface Consultation {
+  readonly decisionId: string;
+  /** The Thread the Agent asked in, which waits on the Decision. */
+  readonly askerThreadId: string;
+  readonly askerRoleKey: string;
+}
+
 /** One continuous exchange in a home, one engine session underneath at a time. */
 export interface Thread {
   readonly id: string;
@@ -94,4 +105,6 @@ export interface Thread {
    * sends its messages.
    */
   readonly stageThread: boolean;
+  /** Undefined unless this is a Consultation. */
+  readonly consultation?: Consultation | undefined;
 }

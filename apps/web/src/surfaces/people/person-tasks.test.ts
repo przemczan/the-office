@@ -70,6 +70,7 @@ function aThreadOn(taskId: string, fields: Partial<Thread>): Thread {
     },
     startedAt: "2026-10-26T09:00:00.000Z",
     stageThread: false,
+    consultation: null,
     ...fields,
   };
 }
@@ -123,6 +124,8 @@ describe("the Work tab's filters", () => {
     askedAt: "2026-10-26T09:00:00.000Z",
     answer: null,
     answeredAt: null,
+    putTo: null,
+    answeredBy: null,
   };
 
   it("count a Task planning with a Decision open as Waiting on you, and still not started", () => {

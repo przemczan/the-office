@@ -5,11 +5,11 @@ import {
   RoleCards,
   type HardSwitchKey,
 } from "../../people/index.js";
-import { APPROVAL_OPTIONS, approvalQuestion, consultDecision } from "../domain/consult.js";
+import { APPROVAL_OPTIONS, approvalQuestion } from "../domain/consult.js";
 import { heldCallRuling } from "../domain/held-call.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
-import { DecisionService } from "./decision-service.js";
+import { Consultations } from "./consultations.js";
 
 /** What becomes of a call behind a Hard switch: it runs now, is refused, or waits on approval. */
 export type HeldCallOutcome =
@@ -29,7 +29,7 @@ export interface HeldCallRequest {
 
 /**
  * Holds the calls behind the enforced Hard switches (spec §6). The switch on the calling person's
- * card decides: Allowed runs, Never refuses, Ask me and Consult open an approval for the call.
+ * card decides: Allowed runs, Never refuses, Ask me and Consult open an approval for the call, of the Consultant a Consult names, or of the user.
  * Nothing waits in the tool call: the answer comes as the Agent's next message, and its repeat of
  * the call then runs once if the answer was "Allow once".
  */
@@ -38,7 +38,7 @@ export class HeldCalls {
   constructor(
     private readonly roleCards: RoleCards,
     private readonly threads: ThreadRepository,
-    private readonly decisions: DecisionService,
+    private readonly consultations: Consultations,
   ) {}
 
   async hold(request: HeldCallRequest): Promise<HeldCallOutcome> {
@@ -57,22 +57,23 @@ export class HeldCalls {
     if (ruling.kind === "refuse") return refused(ruling.reason);
     if (await this.spentApprovalIn(thread.id, request.call)) return { kind: "proceed" };
     try {
-      await this.decisions.open(
-        request.sessionId,
-        consultDecision({
-          kind: "approval",
-          person: ruling.person,
-          call: request.call,
-          context: request.context,
-          why: request.why,
-        }),
-      );
+      const consultant = await this.consultations.put(request.sessionId, {
+        kind: "approval",
+        person: ruling.person,
+        call: request.call,
+        context: request.context,
+        why: request.why,
+      });
+      const waitingOn = consultant
+        ? `${consultant.name}, in a Consultation on this Task`
+        : ruling.person
+          ? `the user in place of ${ruling.person}`
+          : "the user";
+      return { kind: "held", waitingOn };
     } catch (error) {
       if (error instanceof ThreadRefused) return refused(error.message);
       throw error;
     }
-    const waitingOn = ruling.person ? `the user in place of ${ruling.person}` : "the user";
-    return { kind: "held", waitingOn };
   }
 
   /** Uses up the first approval of this call that was granted and not used yet. */

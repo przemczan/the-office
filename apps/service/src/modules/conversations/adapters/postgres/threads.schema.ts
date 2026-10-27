@@ -12,7 +12,12 @@ import {
 } from "drizzle-orm/pg-core";
 import type { DecisionAnswer, Recommendation } from "../../domain/decision.js";
 import type { MessageDraft } from "../../domain/message.js";
-import type { ContextOverride, ThreadState, TokenTotals } from "../../domain/thread.js";
+import type {
+  Consultation,
+  ContextOverride,
+  ThreadState,
+  TokenTotals,
+} from "../../domain/thread.js";
 
 /** The engine session behind a Thread now, as kept. */
 export interface ThreadSessionRow {
@@ -45,6 +50,8 @@ export const threads = pgTable(
       .default({ input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
     stageThread: boolean("stage_thread").notNull().default(false),
+    /** Set for a Consultation: the Decision it answers and the Agent who asked it. */
+    consultation: jsonb("consultation").$type<Consultation>(),
   },
   (table) => [index("threads_home").on(table.homeKind, table.homeId)],
 );
@@ -84,7 +91,9 @@ export const decisions = pgTable(
     options: jsonb("options").$type<readonly string[]>().notNull(),
     recommendation: jsonb("recommendation").$type<Recommendation>().notNull(),
     askedAt: timestamp("asked_at", { withTimezone: true }).notNull(),
-    answer: jsonb("answer").$type<DecisionAnswer>(),
+    /** The Consultant's Role key while the Decision waits on them; null when it waits on the user. */
+    putTo: text("put_to"),
+    answer: jsonb("answer").$type<DecisionAnswer & { answeredBy?: string }>(),
     answeredAt: timestamp("answered_at", { withTimezone: true }),
     /** When an approval this answer gave a held call let it through; null while it is unused. */
     approvalSpentAt: timestamp("approval_spent_at", { withTimezone: true }),

@@ -1,9 +1,10 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import { CONSULT_TOOL, OPEN_DECISION_TOOL } from "@the-office/contracts";
+import { ANSWER_CONSULTATION_TOOL, CONSULT_TOOL, OPEN_DECISION_TOOL } from "@the-office/contracts";
 import { z } from "zod";
 import { OfficeToolRegistry, type OfficeToolResult } from "../../../engine/index.js";
+import { Consultations } from "../../application/consultations.js";
 import { DecisionService } from "../../application/decision-service.js";
-import { APPROVAL_OPTIONS, consultDecision, type Consult } from "../../domain/consult.js";
+import { APPROVAL_OPTIONS, type Consult } from "../../domain/consult.js";
 import type { DecisionDraft } from "../../domain/decision.js";
 import { ThreadRefused } from "../../domain/thread-refused.js";
 
@@ -12,19 +13,22 @@ const END_YOUR_TURN =
 
 /**
  * The Office tools an Agent asks with, in a Thread on a Task (spec §2.4, §6): it opens a Decision,
- * or consults a person, which in tier 1 opens a Decision for the user in their place. Each returns
- * at once: the Agent ends its turn, and the user's answer comes as its next message (spec §9).
+ * or consults a person, whose Consultation answers a Decision put to them; a Consultant gives their
+ * answer with the third. Asking returns at once: the Agent ends its turn, and the answer comes as
+ * its next message (spec §9).
  */
 @Injectable()
 export class DecisionOfficeTools implements OnModuleInit {
   constructor(
     private readonly registry: OfficeToolRegistry,
     private readonly decisions: DecisionService,
+    private readonly consultations: Consultations,
   ) {}
 
   onModuleInit(): void {
     this.registerOpenDecision();
     this.registerConsult();
+    this.registerAnswerConsultation();
   }
 
   private registerOpenDecision(): void {
@@ -58,7 +62,7 @@ export class DecisionOfficeTools implements OnModuleInit {
   private registerConsult(): void {
     this.registry.register({
       name: CONSULT_TOOL,
-      description: `Consults a person when your brief or your authority says to consult them first, or the user when your brief says to ask the user: with a question, or to ask approval of a call past a Hard switch, whose answer is ${APPROVAL_OPTIONS.join(" or ")}, never "always". The Office has no Consultations yet, so the user answers in a person's place, on a Decision card in this Thread. It returns at once; then end your turn without asking again. The answer comes as your next message.`,
+      description: `Consults a person when your brief or your authority says to consult them first, or the user when your brief says to ask the user: with a question, or to ask approval of a call past a Hard switch, whose answer is ${APPROVAL_OPTIONS.join(" or ")}, never "always". A hired Consultant answers in a Consultation on the Task; if nobody who can be consulted fills that Role, the user answers in their place. Either way the question shows as a Decision card in this Thread. It returns at once; then end your turn without asking again. The answer comes as your next message.`,
       input: z.object({
         person: z
           .string()
@@ -93,7 +97,7 @@ export class DecisionOfficeTools implements OnModuleInit {
             "For a question, why you recommend it; for an approval, why you need the call.",
           ),
       }),
-      run: (input, { sessionId }) => {
+      run: async (input, { sessionId }) => {
         const consult: Consult = input.approval
           ? {
               kind: "approval",
@@ -111,13 +115,54 @@ export class DecisionOfficeTools implements OnModuleInit {
               recommended: (input.recommended ?? 0) - 1,
               why: input.why,
             };
-        const person = input.person?.trim();
-        const putTo = person ? `the user in place of ${person}` : "the user";
-        return this.open(
-          sessionId,
-          consultDecision(consult),
-          `The Office put your consult to ${putTo}, as a Decision in this Thread. ${END_YOUR_TURN}`,
-        );
+        try {
+          const consultant = await this.consultations.put(sessionId, consult);
+          const person = input.person?.trim();
+          const putTo = consultant
+            ? `${consultant.name}, in a Consultation on this Task`
+            : person
+              ? `the user in place of ${person}`
+              : "the user";
+          return {
+            text: `The Office put your consult to ${putTo}, as a Decision in this Thread. ${END_YOUR_TURN}`,
+            isError: false,
+          };
+        } catch (error) {
+          if (error instanceof ThreadRefused) return { text: error.message, isError: true };
+          throw error;
+        }
+      },
+    });
+  }
+
+  private registerAnswerConsultation(): void {
+    this.registry.register({
+      name: ANSWER_CONSULTATION_TOOL,
+      description: `Gives your answer in this Consultation: it answers the Decision the person who asked is waiting on, and reaches them as their next message. For a question, choose one of their options by its number, or answer in your own words. To approve a call, choose ${APPROVAL_OPTIONS.map((option, index) => `${index + 1} for "${option}"`).join(" or ")}.`,
+      input: z.object({
+        option: z
+          .number()
+          .int()
+          .optional()
+          .describe("The option you choose, by its number in their list, counting from 1."),
+        answer: z
+          .string()
+          .optional()
+          .describe("Your answer in your own words, when no option fits."),
+      }),
+      run: async ({ option, answer }, { sessionId }) => {
+        try {
+          await this.consultations.answer(
+            sessionId,
+            option !== undefined
+              ? { kind: "option", option: option - 1 }
+              : { kind: "free-answer", text: answer ?? "" },
+          );
+          return { text: "Your answer reached them. End your turn.", isError: false };
+        } catch (error) {
+          if (error instanceof ThreadRefused) return { text: error.message, isError: true };
+          throw error;
+        }
       },
     });
   }

@@ -33,6 +33,7 @@ import { ThreadRefused } from "../domain/thread-refused.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
+import { Consultations } from "./consultations.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 import { DecisionService } from "./decision-service.js";
 import { InterruptedAnswers } from "./interrupted-answers.js";
@@ -141,6 +142,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       StageThreads,
       InterruptedAnswers,
       DecisionService,
+      Consultations,
       DecisionOfficeTools,
     ],
   }));

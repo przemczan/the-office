@@ -5,6 +5,8 @@ import type { Thread } from "@the-office/contracts";
  * several, so each shows with its person, as "Planning · Jan" (spec §9).
  */
 export function threadTitle(thread: Thread, personName: string): string {
+  // A Consultation's title already names both people.
+  if (thread.consultation !== null && thread.title !== null) return thread.title;
   if (thread.home.kind === "chat") return thread.title ?? "New thread";
   return thread.title === null ? `With ${personName}` : `${thread.title} · ${personName}`;
 }

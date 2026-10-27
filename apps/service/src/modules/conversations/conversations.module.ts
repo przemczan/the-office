@@ -12,6 +12,7 @@ import { PostgresConversationsSettings } from "./adapters/postgres/postgres-conv
 import { PostgresThreadRepository } from "./adapters/postgres/postgres-thread-repository.js";
 import { ThreadWebEvents } from "./adapters/websocket/thread-web-events.js";
 import { Briefs } from "./application/briefs.js";
+import { Consultations } from "./application/consultations.js";
 import { ContextPolicySettingsService } from "./application/context-policy-settings.js";
 import { DecisionService } from "./application/decision-service.js";
 import { HeldCalls } from "./application/held-calls.js";
@@ -58,6 +59,7 @@ export class ConversationsModule {
         ThreadRunner,
         InterruptedAnswers,
         DecisionService,
+        Consultations,
         StageThreads,
         StageDecisions,
         TaskTokens,

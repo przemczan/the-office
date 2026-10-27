@@ -2,7 +2,9 @@ import { Injectable, Logger } from "@nestjs/common";
 import type { Brief } from "../domain/brief.js";
 import {
   CHAT_OFFICE_TOOLS,
+  CONSULTATION_OFFICE_TOOLS,
   chatInstructions,
+  consultationInstructions,
   taskThreadInstructions,
   type SessionPersonCard,
 } from "../domain/session-instructions.js";
@@ -54,10 +56,13 @@ export class SessionPlaces {
       folder: setup.folder,
       environment: setup.environment,
       project: { folder: setup.folder, useProjectSkills: setup.useProjectSkills },
-      officeTools: setup.officeTools,
+      officeTools: thread.consultation ? CONSULTATION_OFFICE_TOOLS : setup.officeTools,
       brief: await this.briefs.forTaskThread(thread, setup),
       span: { "office.task": taskId },
-      instructions: (card) => taskThreadInstructions(card, setup.instructions),
+      instructions: (card) =>
+        thread.consultation
+          ? consultationInstructions(card)
+          : taskThreadInstructions(card, setup.instructions),
       // The module keeping Tasks made the worktree before it opened the Thread.
       ready: () => Promise.resolve(),
     };

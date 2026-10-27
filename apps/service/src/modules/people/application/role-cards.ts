@@ -12,6 +12,13 @@ export interface SessionRole {
   readonly card: RoleCard;
 }
 
+/** A hired person other people may consult (spec §2.2): their Consultant capability is on. */
+export interface Consultant {
+  readonly roleKey: string;
+  readonly name: string;
+  readonly title: string;
+}
+
 /**
  * The Role cards for the modules that start sessions (spec §2.2): a new session gets the current
  * version and records it; a resumed one is given the version it recorded, so a change reaches only
@@ -40,6 +47,14 @@ export class RoleCards {
   async hiredKeys(): Promise<ReadonlySet<string>> {
     const roles = await this.repository.list();
     return new Set(roles.filter((role) => !role.letGoAt).map((role) => role.key));
+  }
+
+  /** The people hired now whose Consultant capability is on. */
+  async consultants(): Promise<readonly Consultant[]> {
+    const roles = await this.repository.list();
+    return roles
+      .filter((role) => !role.letGoAt && role.card.capabilities.consultant)
+      .map(({ key, card }) => ({ roleKey: key, name: card.name, title: card.title }));
   }
 
   /** The person who filled the Role before they were let go; undefined when nobody ever did. */

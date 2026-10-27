@@ -82,7 +82,10 @@ export class NotificationService implements OnModuleInit {
 
   private subscribeToNeedsYou(): void {
     for (const eventClass of [DecisionOpened, DecisionReopened]) {
-      this.events.subscribe(eventClass, ({ decision }) => this.raise(decisionWaiting(decision)));
+      // A Decision put to a Consultant waits on them, not on the user (spec §6): no Notification.
+      this.events.subscribe(eventClass, ({ decision }) =>
+        decision.putTo ? undefined : this.raise(decisionWaiting(decision)),
+      );
     }
     this.events.subscribe(DecisionAnswered, ({ decision }) =>
       this.handle({ kind: "decision-answered", decisionId: decision.id, taskId: decision.taskId }),

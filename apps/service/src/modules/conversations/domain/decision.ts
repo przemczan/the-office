@@ -19,8 +19,14 @@ export type DecisionAnswer =
   | { readonly kind: "option"; readonly option: number }
   | { readonly kind: "free-answer"; readonly text: string };
 
-/** An answer given, and when. */
-export type GivenAnswer = DecisionAnswer & { readonly answeredAt: Date };
+/**
+ * An answer given, and when. `answeredBy` is the Consultant who gave it, by the key of their Role;
+ * undefined when the user did.
+ */
+export type GivenAnswer = DecisionAnswer & {
+  readonly answeredAt: Date;
+  readonly answeredBy?: string;
+};
 
 /**
  * A question an Agent puts to the user and waits on (spec §2.4), shown as a card in the Thread it
@@ -37,7 +43,12 @@ export interface Decision extends DecisionDraft {
    */
   readonly roleKey: string | undefined;
   readonly askedAt: Date;
-  /** Undefined while it waits on the user. */
+  /**
+   * The Consultant it waits on, by the key of their Role: they answer it in a Consultation, and
+   * the user may answer it in their place. Undefined while it waits on the user.
+   */
+  readonly putTo?: string | undefined;
+  /** Undefined while it waits on the user or the Consultant. */
   readonly answer: GivenAnswer | undefined;
 }
 

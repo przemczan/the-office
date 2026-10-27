@@ -88,7 +88,11 @@ export class PostgresThreadRepository extends ThreadRepository {
           .values(decisionRow)
           .onConflictDoUpdate({
             target: decisions.id,
-            set: { answer: decisionRow.answer, answeredAt: decisionRow.answeredAt },
+            set: {
+              putTo: decisionRow.putTo,
+              answer: decisionRow.answer,
+              answeredAt: decisionRow.answeredAt,
+            },
           });
       }
       if (changed.logged.length > 0) {
@@ -165,7 +169,7 @@ export class PostgresThreadRepository extends ThreadRepository {
     const rows = await this.database
       .select()
       .from(decisions)
-      .where(isNull(decisions.answeredAt))
+      .where(and(isNull(decisions.answeredAt), isNull(decisions.putTo)))
       .orderBy(asc(decisions.askedAt), asc(decisions.id));
     return rows.map(toDecision);
   }
@@ -211,6 +215,7 @@ function toRow(thread: Thread): ThreadRow {
     runningTurnTokens: thread.runningTurnTokens,
     startedAt: thread.startedAt,
     stageThread: thread.stageThread,
+    consultation: thread.consultation ?? null,
   };
 }
 
@@ -231,6 +236,7 @@ function toThread(row: ThreadRow, openDecision: Decision | undefined): Thread {
     startedAt: row.startedAt,
     openDecision,
     stageThread: row.stageThread,
+    consultation: row.consultation ?? undefined,
   };
 }
 
@@ -263,8 +269,8 @@ function toMessage(row: MessageRow): Message {
 /** What a Decision is saved as; the approval it gave a held call is spent apart from it. */
 type SavedDecision = Omit<DecisionRow, "approvalSpentAt">;
 
-function toDecisionRow({ answer, roleKey, ...fields }: Decision): SavedDecision {
-  const decision = { ...fields, roleKey: roleKey ?? null };
+function toDecisionRow({ answer, roleKey, putTo, ...fields }: Decision): SavedDecision {
+  const decision = { ...fields, roleKey: roleKey ?? null, putTo: putTo ?? null };
   if (!answer) return { ...decision, answer: null, answeredAt: null };
   const { answeredAt, ...given } = answer;
   return { ...decision, answer: given, answeredAt };
@@ -274,12 +280,14 @@ function toDecision({
   answer,
   answeredAt,
   roleKey,
+  putTo,
   approvalSpentAt: _approvalSpentAt,
   ...row
 }: DecisionRow): Decision {
   return {
     ...row,
     roleKey: roleKey ?? undefined,
+    putTo: putTo ?? undefined,
     answer: answer === null || answeredAt === null ? undefined : { ...answer, answeredAt },
   };
 }

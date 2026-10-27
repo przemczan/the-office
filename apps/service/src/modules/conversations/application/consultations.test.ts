@@ -1,0 +1,382 @@
+import { randomUUID } from "node:crypto";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { INestApplication } from "@nestjs/common";
+import { ANSWER_CONSULTATION_TOOL, CONSULT_TOOL } from "@the-office/contracts";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
+import { startTestApplication } from "../../../../test/test-application.js";
+import { EventsModule } from "../../../platform/events/events.module.js";
+import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
+import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
+import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
+import {
+  OfficeToolRegistry,
+  ScriptedEngine,
+  ScriptedEngineModule,
+  type SessionScript,
+} from "../../engine/index.js";
+import { RoleCards, type SessionRole } from "../../people/index.js";
+import { SessionSkills } from "../../skills/index.js";
+import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
+import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
+import {
+  ANSWER_CONSULTATION_TOOL as SESSION_ANSWER_TOOL,
+  CONSULTATION_OFFICE_TOOLS,
+} from "../domain/session-instructions.js";
+import type { Thread } from "../domain/thread.js";
+import { ConversationsSettings } from "../ports/conversations-settings.js";
+import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
+import { ProjectBases } from "../ports/project-bases.js";
+import { ThreadRepository } from "../ports/thread-repository.js";
+import { Briefs } from "./briefs.js";
+import { Consultations } from "./consultations.js";
+import { ContextPolicySettingsService } from "./context-policy-settings.js";
+import { DecisionService } from "./decision-service.js";
+import { InterruptedAnswers } from "./interrupted-answers.js";
+import { aPlannerCard } from "./session-role.fixtures.js";
+import { sessionMemoryProvider } from "./session-memory.fixtures.js";
+import { SessionPlaces } from "./session-places.js";
+import { StageThreads } from "./stage-threads.js";
+import { TaskThreadSetups } from "./task-thread-setups.js";
+import { ThreadContexts } from "./thread-contexts.js";
+import { ThreadRunner } from "./thread-runner.js";
+import { ThreadService } from "./thread-service.js";
+
+type Step = SessionScript[number];
+
+const USAGE = { input: 3, output: 120, cacheRead: 0, cacheCreation: 26_000 };
+const QUESTION = "Which database does the export use?";
+const OPTIONS = ["SQLite", "Postgres"];
+
+let app: INestApplication;
+let engine: ScriptedEngine;
+let officeData: string;
+let askerKey: string;
+let consultantKey: string;
+
+let threads: ThreadService;
+let decisions: DecisionService;
+let consultations: Consultations;
+
+beforeEach(async () => {
+  officeData = await mkdtemp(join(tmpdir(), "office-consultations-"));
+  askerKey = `asker-${randomUUID()}`;
+  consultantKey = `consultant-${randomUUID()}`;
+});
+
+afterEach(async () => {
+  await app.close();
+  await rm(officeData, { recursive: true, force: true });
+});
+
+function roleOf(roleKey: string): SessionRole {
+  const consultant = roleKey === consultantKey;
+  const card = aPlannerCard(
+    consultant
+      ? {
+          name: "Casey",
+          title: "CTO",
+          capabilities: { sharedMemory: false, chat: true, consultant: true },
+        }
+      : {
+          name: "Dana",
+          title: "Developer",
+          capabilities: { sharedMemory: false, chat: true, consultant: false },
+        },
+  );
+  return { roleKey, cardVersion: 1, card };
+}
+
+/** Boots the conversations on a scripted engine that replays `scripts`, one per session opened. */
+async function startWith(...scripts: SessionScript[]): Promise<void> {
+  engine = new ScriptedEngine(scripts);
+  const sessionSkills: Pick<SessionSkills, "prepare" | "rebuild" | "forget"> = {
+    prepare: ({ sessionId }) => Promise.resolve(noSkills(sessionId)),
+    rebuild: (sessionId) => Promise.resolve(noSkills(sessionId)),
+    forget: () => Promise.resolve(),
+  };
+  const roleCards: Pick<
+    RoleCards,
+    "find" | "forResumedSession" | "consultants" | "hiredKeys" | "roleTitle"
+  > = {
+    find: (key) =>
+      Promise.resolve(key === askerKey || key === consultantKey ? roleOf(key) : undefined),
+    forResumedSession: (key) => Promise.resolve(roleOf(key)),
+    consultants: () => Promise.resolve([{ roleKey: consultantKey, name: "Casey", title: "CTO" }]),
+    hiredKeys: () => Promise.resolve(new Set([askerKey, consultantKey])),
+    roleTitle: (key) => key,
+  };
+  const bases: ProjectBases = {
+    folder: join(officeData, "bases"),
+    list: () => Promise.resolve([]),
+    refresh: () => Promise.resolve([]),
+  };
+  ({ app } = await startTestApplication({
+    database: true,
+    imports: [
+      EventsModule,
+      EventStreamModule,
+      TelemetryModule,
+      OfficeDataModule.forRoot(officeData),
+      ScriptedEngineModule.register(engine),
+    ],
+    providers: [
+      { provide: ThreadRepository, useClass: PostgresThreadRepository },
+      { provide: RoleCards, useValue: roleCards },
+      { provide: ProjectBases, useValue: bases },
+      { provide: SessionSkills, useValue: sessionSkills },
+      { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
+      ContextPolicySettingsService,
+      ThreadService,
+      Briefs,
+      sessionMemoryProvider(),
+      TaskThreadSetups,
+      SessionPlaces,
+      ThreadContexts,
+      ThreadRunner,
+      StageThreads,
+      InterruptedAnswers,
+      DecisionService,
+      Consultations,
+      DecisionOfficeTools,
+    ],
+  }));
+  // As the Work and People modules register the tools the Consultation reads records with.
+  for (const name of CONSULTATION_OFFICE_TOOLS.filter(
+    (tool) => tool !== ANSWER_CONSULTATION_TOOL,
+  )) {
+    app.get(OfficeToolRegistry).register({
+      name,
+      description: `Reads ${name}.`,
+      input: z.object({}),
+      run: () => Promise.resolve({ text: "Nothing.", isError: false }),
+    });
+  }
+  app.get(TaskThreadSetups).provide({
+    setUp: ({ taskId }) =>
+      Promise.resolve({
+        folder: join(officeData, "worktrees", taskId),
+        environment: {},
+        useProjectSkills: false,
+        projectId: "admin-panel",
+        instructions: "On this Task you build.",
+        officeTools: ["read_task", CONSULT_TOOL],
+        brief: `You work on the Task ${taskId}.`,
+        sessionRefusal: undefined,
+      }),
+  });
+  threads = app.get(ThreadService);
+  decisions = app.get(DecisionService);
+  consultations = app.get(Consultations);
+}
+
+function noSkills(sessionId: string): Awaited<ReturnType<SessionSkills["prepare"]>> {
+  return {
+    folder: join(officeData, "sessions", sessionId, "skills"),
+    names: [],
+    expected: [],
+    overrides: {},
+    versions: [],
+    suffixMatches: [],
+  };
+}
+
+function aTurn(consumed: string, text: string): Step[] {
+  return [
+    { step: "event", event: { kind: "text", text, withinToolCall: undefined } },
+    {
+      step: "event",
+      event: {
+        kind: "turn-ended",
+        outcome: "completed",
+        consumedMessageIds: [consumed],
+        usage: USAGE,
+        sessionCostUsd: 0.01,
+        output: undefined,
+        errors: [],
+      },
+    },
+    { step: "read-context-usage", usage: { tokens: 32_000, window: 1_000_000 } },
+  ];
+}
+
+function started(...steps: Step[]): SessionScript {
+  return [{ step: "start", brief: { id: "brief", text: "" } }, ...steps];
+}
+
+function usesTool(callId: string, tool: string, input: Record<string, unknown>): Step[] {
+  return [
+    {
+      step: "event",
+      event: {
+        kind: "tool-call",
+        callId,
+        tool,
+        officeTool: true,
+        input,
+        withinToolCall: undefined,
+      },
+    },
+    { step: "event", event: { kind: "tool-result", callId, text: "", isError: false } },
+  ];
+}
+
+/** The developer consults `person` with a question, then ends their turn. */
+function consults(person: string): Step[] {
+  return [
+    ...usesTool("c-1", CONSULT_TOOL, {
+      person,
+      question: QUESTION,
+      context: "The export reads every Project.",
+      options: OPTIONS,
+      recommended: 2,
+      why: "It is what the Projects use.",
+    }),
+    ...aTurn("brief", "I asked."),
+  ];
+}
+
+const ASKER_TAKES_THE_ANSWER: Step[] = [
+  { step: "send", message: { id: "answer", text: "" }, priority: "later" },
+  ...aTurn("answer", "Then Postgres."),
+];
+
+async function developerOnATask(): Promise<Thread> {
+  return threads.startOnTask({
+    taskId: randomUUID(),
+    roleKey: askerKey,
+    title: "Build the export",
+    opening: "Build the export.",
+  });
+}
+
+/** The Consultation on the Task, once it has started. */
+async function consultationOn(asker: Thread): Promise<Thread> {
+  return vi.waitFor(
+    async () => {
+      const found = (
+        await threads.listOnTask(asker.home.kind === "task" ? asker.home.taskId : "")
+      ).find(({ consultation }) => consultation !== undefined);
+      if (!found) throw new Error("No Consultation yet.");
+      return found;
+    },
+    { timeout: 5_000, interval: 20 },
+  );
+}
+
+async function settled(threadId: string): Promise<Thread> {
+  return vi.waitFor(
+    async () => {
+      const thread = await threads.read(threadId);
+      if (thread.state !== "waiting") throw new Error("Still answering.");
+      return thread;
+    },
+    { timeout: 5_000, interval: 20 },
+  );
+}
+
+describe("a consult of a hired Consultant", () => {
+  it("opens a Consultation labelled with both, which the Consultant answers for the Agent", async () => {
+    await startWith(
+      started(...consults("CTO"), ...ASKER_TAKES_THE_ANSWER),
+      started(
+        ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, { option: 2 }),
+        ...aTurn("brief", "Done."),
+      ),
+    );
+    const asker = await developerOnATask();
+
+    const consultation = await consultationOn(asker);
+    await settled(consultation.id);
+    const answeredAsker = await vi.waitFor(
+      async () => {
+        const [decision] = await decisions.listInThread(asker.id);
+        if (!decision?.answer) throw new Error("Not answered yet.");
+        return decision;
+      },
+      { timeout: 5_000, interval: 20 },
+    );
+    await settled(asker.id);
+
+    expect(SESSION_ANSWER_TOOL).toBe(ANSWER_CONSULTATION_TOOL);
+    expect(consultation).toMatchObject({
+      roleKey: consultantKey,
+      title: "Consultation · Dana and Casey",
+      consultation: { askerThreadId: asker.id, askerRoleKey: askerKey },
+    });
+    expect(answeredAsker).toMatchObject({
+      putTo: consultantKey,
+      answer: { kind: "option", option: 1, answeredBy: consultantKey },
+    });
+    const [askerSession, consultantSession] = engine.sessions;
+    const opening = consultantSession?.received[0];
+    expect(opening?.step === "start" && opening.brief.text).toContain(QUESTION);
+    expect(consultantSession?.options.officeTools.map(({ name }) => name)).toEqual([
+      ...CONSULTATION_OFFICE_TOOLS,
+    ]);
+    const answer = askerSession?.received.find((step) => step.step === "send");
+    expect(answer?.step === "send" && answer.message.text).toBe(
+      `Casey answered your Decision "${QUESTION}" with the option "Postgres".`,
+    );
+  });
+
+  it("does not wait on the user while the Consultant has it", async () => {
+    await startWith(started(...consults("CTO")), started());
+    const asker = await developerOnATask();
+
+    await consultationOn(asker);
+    await settled(asker.id);
+
+    expect((await decisions.listOpen()).filter(({ threadId }) => threadId === asker.id)).toEqual(
+      [],
+    );
+    await expect(decisions.openOn((asker.home as { taskId: string }).taskId)).resolves.toBe(0);
+    expect((await threads.read(asker.id)).openDecision).toMatchObject({ putTo: consultantKey });
+  });
+
+  it("is taken over by the user answering, after which the Consultant's answer is refused", async () => {
+    await startWith(started(...consults("CTO"), ...ASKER_TAKES_THE_ANSWER), started());
+    const asker = await developerOnATask();
+    const consultation = await consultationOn(asker);
+    await settled(asker.id);
+    const open = (await threads.read(asker.id)).openDecision;
+    if (!open) throw new Error("No Decision was put.");
+
+    await decisions.answer(open.id, { kind: "option", option: 0 });
+    await settled(asker.id);
+
+    const [askerSession] = engine.sessions;
+    const answer = askerSession?.received.find((step) => step.step === "send");
+    expect(answer?.step === "send" && answer.message.text).toBe(
+      `The user answered your Decision "${QUESTION}" with the option "SQLite".`,
+    );
+    const consultantSessionId = await vi.waitFor(async () => {
+      const session = (await threads.read(consultation.id)).session;
+      if (!session) throw new Error("The Consultant has no session yet.");
+      return session.id;
+    });
+    await expect(
+      consultations.answer(consultantSessionId, { kind: "option", option: 1 }),
+    ).rejects.toThrow(/answered already/);
+  });
+});
+
+describe("a consult of someone who can't be consulted", () => {
+  it("falls back to the user, who is asked in the Consultant's place", async () => {
+    await startWith(started(...consults("Nobody Hired"), ...ASKER_TAKES_THE_ANSWER));
+    const asker = await developerOnATask();
+    await settled(asker.id);
+    await vi.waitFor(async () => {
+      if (!(await decisions.listOpen()).some(({ threadId }) => threadId === asker.id))
+        throw new Error("Not asked yet.");
+    });
+
+    const open = (await decisions.listOpen()).find(({ threadId }) => threadId === asker.id);
+    expect(open).toMatchObject({ threadId: asker.id, putTo: undefined });
+    expect(open?.context).toContain("For Nobody Hired:");
+    const onTask = await threads.listOnTask((asker.home as { taskId: string }).taskId);
+    expect(onTask.filter(({ consultation }) => consultation)).toEqual([]);
+  });
+});

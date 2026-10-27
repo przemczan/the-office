@@ -1,4 +1,4 @@
-export { RoleCards, type SessionRole } from "./application/role-cards.js";
+export { RoleCards, type Consultant, type SessionRole } from "./application/role-cards.js";
 export { RoleService } from "./application/role-service.js";
 export { MemoryService } from "./application/memory-service.js";
 export { RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo } from "./domain/role-events.js";

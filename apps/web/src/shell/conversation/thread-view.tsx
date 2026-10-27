@@ -3,6 +3,7 @@ import type { Thread } from "@the-office/contracts";
 import { Button, Icon, IconButton, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { renameThread, sendMessage, threadQueries } from "../../api/conversations.ts";
+import { roleQueries } from "../../api/people.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { Composer } from "./composer.tsx";
 import { ContextBar } from "./context-bar.tsx";
@@ -41,6 +42,9 @@ export function ThreadView({
     <section className="thread-view" aria-label={threadTitle(thread.data, personName)}>
       <ThreadTitle thread={thread.data} personName={personName} />
       <ContextBar thread={thread.data} personName={personName} />
+      {thread.data.consultation !== null && (
+        <ConsultationNote askerRoleKey={thread.data.consultation.askerRoleKey} />
+      )}
       <MessageList
         messages={messages.data ?? []}
         personName={personName}
@@ -70,6 +74,22 @@ export function ThreadView({
         </p>
       )}
     </section>
+  );
+}
+
+/**
+ * What a Consultation is, for the user reading it live: they may write in it, or answer the
+ * Decision in the asking person's Thread to take it over.
+ */
+function ConsultationNote({ askerRoleKey }: { readonly askerRoleKey: string }): ReactNode {
+  const roles = useQuery(roleQueries.list()).data;
+  const asker = roles?.find(({ key }) => key === askerRoleKey)?.card.name ?? askerRoleKey;
+  return (
+    <p className="thread-consultation" role="note">
+      <Icon name="users" size={12} />
+      {asker} waits on this answer. Write here to join; answer the Decision in {asker}&apos;s Thread
+      to take it over.
+    </p>
   );
 }
 

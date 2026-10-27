@@ -6,8 +6,11 @@ import { aDecision } from "../domain/decision.fixtures.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { aThread } from "../domain/thread.fixtures.js";
 import type { ThreadRepository } from "../ports/thread-repository.js";
-import { HeldCalls, type HeldCallRequest } from "./held-calls.js";
+import { Consultations } from "./consultations.js";
 import type { DecisionService } from "./decision-service.js";
+import { HeldCalls, type HeldCallRequest } from "./held-calls.js";
+import type { ThreadRunner } from "./thread-runner.js";
+import type { EventBus } from "../../../platform/events/event-bus.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 
 const SESSION = "session-1";
@@ -25,13 +28,22 @@ interface Setup {
   readonly changeRoles: HardSwitchValue;
   /** The Roles someone fills besides the caller's. */
   readonly hired?: readonly string[];
+  /** The hired people who may be consulted, by the key of their Role. */
+  readonly consultants?: readonly string[];
   readonly answered?: readonly Decision[];
   readonly openRefusal?: string;
 }
 
 /** The held calls with a Planner whose Change Roles is as given, and the Decisions it opened. */
-function heldCallsWith({ changeRoles, hired = [], answered = [], openRefusal }: Setup) {
+function heldCallsWith({
+  changeRoles,
+  hired = [],
+  consultants = [],
+  answered = [],
+  openRefusal,
+}: Setup) {
   const opened: DecisionDraft[] = [];
+  const putTo: (string | undefined)[] = [];
   const spent = new Set<string>();
   const card = aPlannerCard({
     hardSwitches: { ...aPlannerCard().hardSwitches, changeRoles },
@@ -40,6 +52,10 @@ function heldCallsWith({ changeRoles, hired = [], answered = [], openRefusal }: 
     find: () => Promise.resolve({ roleKey: "planner", cardVersion: 1, card }),
     hiredKeys: () => Promise.resolve(new Set(["planner", ...hired])),
     roleTitle: (roleKey: string) => (roleKey === "cto" ? "CTO" : roleKey),
+    consultants: () =>
+      Promise.resolve(
+        consultants.map((roleKey) => ({ roleKey, name: "Casey", title: roleKey.toUpperCase() })),
+      ),
   } as unknown as RoleCards;
   const threads = {
     findBySession: () => Promise.resolve(aThread()),
@@ -51,13 +67,21 @@ function heldCallsWith({ changeRoles, hired = [], answered = [], openRefusal }: 
     },
   } as unknown as ThreadRepository;
   const decisions = {
-    open: (_sessionId: string, draft: DecisionDraft) => {
+    open: (_sessionId: string, draft: DecisionDraft, to?: string) => {
       if (openRefusal) throw new ThreadRefused([openRefusal]);
       opened.push(draft);
+      putTo.push(to);
       return Promise.resolve(aDecision());
     },
   } as unknown as DecisionService;
-  return { heldCalls: new HeldCalls(roleCards, threads, decisions), opened };
+  const consultations = new Consultations(
+    roleCards,
+    threads,
+    decisions,
+    {} as ThreadRunner,
+    {} as EventBus,
+  );
+  return { heldCalls: new HeldCalls(roleCards, threads, consultations), opened, putTo };
 }
 
 /** An approval of the call, answered with the option at `option`. */
@@ -98,8 +122,23 @@ describe("a call behind Change Roles", () => {
     });
   });
 
-  it("waits on the user in place of the person to consult when the switch is Consult", async () => {
-    const { heldCalls, opened } = heldCallsWith({
+  it("waits on the Consultant in a Consultation when the switch is Consult", async () => {
+    const { heldCalls, opened, putTo } = heldCallsWith({
+      changeRoles: { kind: "consult", role: "cto" },
+      hired: ["cto"],
+      consultants: ["cto"],
+    });
+
+    await expect(heldCalls.hold(request)).resolves.toEqual({
+      kind: "held",
+      waitingOn: "Casey, in a Consultation on this Task",
+    });
+    expect(putTo).toEqual(["cto"]);
+    expect(opened[0]?.context).not.toContain("For CTO:");
+  });
+
+  it("waits on the user in place of a hired person who is not a Consultant", async () => {
+    const { heldCalls, opened, putTo } = heldCallsWith({
       changeRoles: { kind: "consult", role: "cto" },
       hired: ["cto"],
     });
@@ -108,6 +147,7 @@ describe("a call behind Change Roles", () => {
       kind: "held",
       waitingOn: "the user in place of CTO",
     });
+    expect(putTo).toEqual([undefined]);
     expect(opened[0]?.context).toContain("For CTO:");
   });
 

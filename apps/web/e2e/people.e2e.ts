@@ -7,10 +7,12 @@ import {
   roleSchema,
   taskSchema,
   taskStagesSchema,
+  threadListSchema,
   type NewProject,
   type Project,
   type TaskLimit,
 } from "@the-office/contracts";
+import { queryOfficeDatabase } from "./office-database.ts";
 import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
@@ -1085,6 +1087,89 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await expect(page.getByRole("status", { name: "Status strip" })).toContainText(
       "done since you left",
     );
+  } finally {
+    await repository.remove();
+  }
+});
+
+const CONSULTATION_QUESTION = "Is the migration safe to run on the live data?";
+
+/**
+ * Puts to Adam, the Developer, the Decision Jan asked on the Task, and opens the Consultation he
+ * answers it in with a first note, as the Consultations service leaves them: a Consultation starts
+ * when an Agent's session consults, and no screen can make one.
+ */
+async function seedConsultation(taskId: string, plannerThreadId: string): Promise<void> {
+  const decisionId = crypto.randomUUID();
+  const consultationId = crypto.randomUUID();
+  await queryOfficeDatabase(
+    `insert into decisions (id, thread_id, task_id, role_key, question, context, options, recommendation, asked_at, put_to)
+     values ($1, $2, $3, 'planner', $4, 'The migration rewrites every row.', '["Yes", "No"]', '{"option":0,"reason":"It ran on the copy."}', now(), 'developer')`,
+    [decisionId, plannerThreadId, taskId, CONSULTATION_QUESTION],
+  );
+  await queryOfficeDatabase(
+    `insert into thread_messages (id, thread_id, body, at) values ($1, $2, $3, now())`,
+    [crypto.randomUUID(), plannerThreadId, { kind: "decision", roleKey: "planner", decisionId }],
+  );
+  await queryOfficeDatabase(
+    `insert into threads (id, home_kind, home_id, role_key, title, state, tokens, started_at, consultation)
+     values ($1, 'task', $2, 'developer', 'Consultation · Jan and Adam', 'waiting', $3, now(), $4)`,
+    [
+      consultationId,
+      taskId,
+      { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
+      { decisionId, askerThreadId: plannerThreadId, askerRoleKey: "planner" },
+    ],
+  );
+  await queryOfficeDatabase(
+    `insert into thread_messages (id, thread_id, body, at) values ($1, $2, $3, now())`,
+    [
+      crypto.randomUUID(),
+      consultationId,
+      { kind: "person", roleKey: "developer", text: "I read the migration: it is reversible." },
+    ],
+  );
+}
+
+// The engine replays the last two sessions in e2e/sessions.jsonl: Jan's planning, then Adam's reply
+// once the user joins the Consultation.
+test("the user reads a Consultation on the Task, sees its Decision wait on the Consultant, and joins it", async ({
+  page,
+}) => {
+  const repository = await createTemporaryRepository();
+  try {
+    const project = await addedProject(page, repository, "Consulted", "CO", PASSING_COMMANDS);
+    const taskId = await readyTask(page, project.id, "Migration waits on Adam");
+    const [planning] = threadListSchema.parse(
+      await (await page.request.get(`/api/tasks/${taskId}/threads`)).json(),
+    );
+    if (!planning) throw new Error("Planning opened no Thread.");
+    await seedConsultation(taskId, planning.id);
+
+    await page.goto(`/tasks/${taskId}`);
+    const conversation = page.getByRole("complementary", { name: "Conversation" });
+    await conversation.getByRole("button", { name: /^Planning/ }).click();
+    // The Decision waits on Adam, not on the user: no count on the Thread, and nothing in Needs you.
+    const decision = conversation.getByRole("region", {
+      name: `Decision: ${CONSULTATION_QUESTION}`,
+    });
+    await expect(decision).toContainText("Waiting on Adam in a Consultation");
+    await expect(conversation.getByText("Decision waiting on you")).toHaveCount(0);
+    await page.goto("/");
+    await expect(
+      page.getByRole("region", { name: `Decision: ${CONSULTATION_QUESTION}` }),
+    ).toHaveCount(0);
+
+    await page.goto(`/tasks/${taskId}`);
+    await conversation.getByRole("button", { name: /^Consultation · Jan and Adam/ }).click();
+    await expect(conversation.getByRole("note")).toContainText("Jan waits on this answer");
+    await expect(conversation.getByText("I read the migration: it is reversible.")).toBeVisible();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-consultation.png") });
+
+    // Joining: the user writes in the Consultation, and Adam answers them there.
+    await conversation.getByLabel("Message").fill("Is the rollback tested?");
+    await conversation.getByLabel("Message").press("Enter");
+    await expect(conversation.getByText("Yes: the rollback runs in the tests.")).toBeVisible();
   } finally {
     await repository.remove();
   }

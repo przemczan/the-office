@@ -413,8 +413,10 @@ describe("a Decision", () => {
       taskId: decision.taskId,
       roleKey: thread.roleKey,
       askedAt: decision.askedAt.toISOString(),
+      putTo: null,
       answer: null,
       answeredAt: null,
+      answeredBy: null,
     };
     expect(open).toContainEqual(shown);
     expect(messages.map(({ id: _id, at: _at, ...message }) => message)).toEqual([

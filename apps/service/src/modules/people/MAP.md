@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-RoleCards, SessionRole, RoleService, MemoryService, RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo, hardSwitchInEffect, HARD_SWITCH_LABELS, HardSwitchKey, HardSwitchValue, RoleNotFound, RoleRefused, PeopleModule
+RoleCards, Consultant, SessionRole, RoleService, MemoryService, RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo, hardSwitchInEffect, HARD_SWITCH_LABELS, HardSwitchKey, HardSwitchValue, RoleNotFound, RoleRefused, PeopleModule
 
 ## Domain events
 
@@ -70,7 +70,7 @@ RoleCards, SessionRole, RoleService, MemoryService, RoleCardChanged, RoleHired, 
 ### application/
 
 - `memory-service.ts`: Memory, MemoryService
-- `role-cards.ts`: SessionRole, RoleCards
+- `role-cards.ts`: SessionRole, Consultant, RoleCards
 - `role-history.ts`: RoleHistoryEntry, roleHistory
 - `role-service.ts`: RoleWithSkills, RoleCardOptions, RoleService
 - Tests: memory-service.test.ts, role-cards.test.ts

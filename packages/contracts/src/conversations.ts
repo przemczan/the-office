@@ -78,6 +78,13 @@ export const threadSchema = z.object({
    * next safe point instead of waiting for the answer.
    */
   stageThread: z.boolean(),
+  /**
+   * Set for a Consultation: the sub-thread where a Consultant answers the Decision an Agent put to
+   * them. The Thread's `roleKey` is the Consultant; the asker is named here.
+   */
+  consultation: z
+    .object({ decisionId: z.uuid(), askerThreadId: z.uuid(), askerRoleKey: z.string() })
+    .nullable(),
 });
 export type Thread = z.infer<typeof threadSchema>;
 
@@ -108,8 +115,18 @@ export const OPEN_DECISION_TOOL = "open_decision";
  */
 export const CONSULT_TOOL = "consult";
 
+/**
+ * The Office tool a Consultant gives their answer with in a Consultation. It answers the Decision
+ * the asking Agent waits on, which the Decision's card shows.
+ */
+export const ANSWER_CONSULTATION_TOOL = "answer_consultation";
+
 /** The Office tools whose calls the Decision card shows, so the web hides their activity lines. */
-export const DECISION_TOOLS: readonly string[] = [OPEN_DECISION_TOOL, CONSULT_TOOL];
+export const DECISION_TOOLS: readonly string[] = [
+  OPEN_DECISION_TOOL,
+  CONSULT_TOOL,
+  ANSWER_CONSULTATION_TOOL,
+];
 
 /** How the user answers a Decision: one of its options, by its index, or a free answer. */
 export const decisionAnswerSchema = z.discriminatedUnion("kind", [
@@ -136,9 +153,16 @@ export const decisionSchema = z.object({
   /** The option the Agent recommends, by its index in `options`, and why. */
   recommendation: z.object({ option: z.number().int().nonnegative(), reason: z.string() }),
   askedAt: z.iso.datetime(),
-  /** Null while it waits on the user. */
+  /**
+   * The Consultant it waits on, by the key of their Role, in a Consultation; null while it waits on
+   * the user.
+   */
+  putTo: z.string().nullable(),
+  /** Null while it waits on the user or the Consultant. */
   answer: decisionAnswerSchema.nullable(),
   answeredAt: z.iso.datetime().nullable(),
+  /** The Consultant who answered, by the key of their Role; null when the user did. */
+  answeredBy: z.string().nullable(),
 });
 export type Decision = z.infer<typeof decisionSchema>;
 

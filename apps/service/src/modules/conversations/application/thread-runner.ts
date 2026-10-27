@@ -67,6 +67,12 @@ interface Answer {
   readonly answers: Decision | undefined;
 }
 
+/** The Consultant who answers a Decision in the user's place. */
+export interface Answerer {
+  readonly roleKey: string;
+  readonly name: string;
+}
+
 /** A session running behind a Thread, read by one loop that logs what it reports. */
 interface LiveSession {
   readonly session: EngineSession;
@@ -140,6 +146,7 @@ export class ThreadRunner implements OnModuleDestroy {
     threadId: string,
     decisionId: string,
     answer: DecisionAnswer,
+    answerer?: Answerer,
   ): Promise<Thread> {
     const thread = await this.threadOf(threadId);
     const open = thread.openDecision;
@@ -147,7 +154,7 @@ export class ThreadRunner implements OnModuleDestroy {
     const problems = answerProblems(open, answer);
     if (problems.length > 0) throw new ThreadRefused(problems);
     const current = await this.personOf(thread);
-    const said = { id: randomUUID(), text: decisionAnswerMessage(open, answer) };
+    const said = { id: randomUUID(), text: decisionAnswerMessage(open, answer, answerer?.name) };
     // Briefed as the Thread will be once answered: the message, not the Brief, carries this one.
     const answered = { ...thread, openDecision: undefined };
     return this.take(
@@ -161,6 +168,7 @@ export class ThreadRunner implements OnModuleDestroy {
           answer,
           messageId: said.id,
           answeredAt: new Date(),
+          answeredBy: answerer?.roleKey,
         }),
       open,
     );
@@ -381,7 +389,11 @@ export class ThreadRunner implements OnModuleDestroy {
       },
       // Only reads (spec §6): the card's profile, narrowed.
       profile: { edit: false, run: { kind: "read-only-git" }, web: card.permissionProfile.web },
-      officeTools: sessionOfficeTools(place.officeTools, card, thread.home.kind === "task"),
+      officeTools: sessionOfficeTools(
+        place.officeTools,
+        card,
+        thread.home.kind === "task" && !thread.consultation,
+      ),
       outputSchema: undefined,
       telemetry: {
         span: { ...place.span, "office.thread": thread.id, "office.role": roleKey },

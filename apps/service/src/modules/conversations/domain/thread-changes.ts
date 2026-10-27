@@ -24,6 +24,7 @@ import {
   addTokens,
   NO_TOKENS,
   tokensSoFar,
+  type Consultation,
   type ContextOverride,
   type Thread,
   type ThreadSession,
@@ -87,6 +88,7 @@ export function startChatThread(
     startedAt,
     openDecision: undefined,
     stageThread: false,
+    consultation: undefined,
   };
   return { thread, event: new ThreadStarted(thread) };
 }
@@ -107,7 +109,7 @@ export function startTaskThread(
   start: TaskThreadStart,
   startedAt: Date,
 ): { readonly thread: Thread; readonly event: ThreadStarted } {
-  return threadOnTask(id, start, startedAt, false);
+  return threadOnTask(id, start, startedAt, { stageThread: false, consultation: undefined });
 }
 
 /**
@@ -119,14 +121,27 @@ export function startStageThread(
   start: TaskThreadStart,
   startedAt: Date,
 ): { readonly thread: Thread; readonly event: ThreadStarted } {
-  return threadOnTask(id, start, startedAt, true);
+  return threadOnTask(id, start, startedAt, { stageThread: true, consultation: undefined });
+}
+
+/**
+ * A Consultation on the Task (spec §2.4): the Consultant, whose Role `start` names, answers the
+ * Decision the Agent put to them, in a sub-thread titled with both people.
+ */
+export function startConsultationThread(
+  id: string,
+  start: TaskThreadStart,
+  consultation: Consultation,
+  startedAt: Date,
+): { readonly thread: Thread; readonly event: ThreadStarted } {
+  return threadOnTask(id, start, startedAt, { stageThread: false, consultation });
 }
 
 function threadOnTask(
   id: string,
   { taskId, roleKey, title }: TaskThreadStart,
   startedAt: Date,
-  stageThread: boolean,
+  { stageThread, consultation }: Pick<Thread, "stageThread" | "consultation">,
 ): { readonly thread: Thread; readonly event: ThreadStarted } {
   const problems = titleProblems(title);
   if (problems.length > 0) throw new ThreadRefused(problems);
@@ -143,6 +158,7 @@ function threadOnTask(
     startedAt,
     openDecision: undefined,
     stageThread,
+    consultation,
   };
   return { thread, event: new ThreadStarted(thread) };
 }
@@ -275,6 +291,8 @@ export interface DecisionOpening extends DecisionDraft {
   readonly askedAt: Date;
   /** The Office asks, not the Thread's person (spec §9: it has no person in tier 1). */
   readonly byTheOffice?: boolean;
+  /** The Consultant, by the key of their Role, the Agent's question is put to instead of the user. */
+  readonly putTo?: string;
 }
 
 /**
@@ -284,7 +302,7 @@ export interface DecisionOpening extends DecisionDraft {
  */
 export function openDecision(
   thread: Thread,
-  { id, askedAt, byTheOffice = false, ...draft }: DecisionOpening,
+  { id, askedAt, byTheOffice = false, putTo, ...draft }: DecisionOpening,
 ): ThreadChange<DecisionOpened> {
   if (thread.home.kind !== "task") {
     throw new ThreadRefused([
@@ -305,6 +323,7 @@ export function openDecision(
     taskId: thread.home.taskId,
     roleKey: byTheOffice ? undefined : (thread.session?.roleKey ?? thread.roleKey),
     askedAt,
+    putTo,
     answer: undefined,
   };
   const card: Message = {
@@ -331,6 +350,8 @@ export interface DecisionAnswering extends Opening {
   /** The id of the answer's line in the log, which the session is sent it by. */
   readonly messageId: string;
   readonly answeredAt: Date;
+  /** The Consultant who answered, by the key of their Role; undefined when the user did. */
+  readonly answeredBy?: string;
 }
 
 /**
@@ -343,14 +364,14 @@ export function answerDecision(
   thread: Thread,
   answering: DecisionAnswering,
 ): ThreadChange<DecisionAnswered> {
-  const { decisionId, answer, messageId, answeredAt } = answering;
+  const { decisionId, answer, messageId, answeredAt, answeredBy } = answering;
   const open = answerableDecision(thread, decisionId, answer);
   if (thread.state === "answering") {
     throw new ThreadRefused([
       `${answering.personName} is still answering. Answer once they finish.`,
     ]);
   }
-  const decision: Decision = { ...open, answer: { ...answer, answeredAt } };
+  const decision: Decision = { ...open, answer: { ...answer, answeredAt, answeredBy } };
   const line: Message = {
     kind: "decision-answer",
     id: messageId,
@@ -380,6 +401,7 @@ export interface DecisionRecording {
   readonly answer: DecisionAnswer;
   readonly messageId: string;
   readonly answeredAt: Date;
+  readonly answeredBy?: string;
 }
 
 /**
@@ -389,10 +411,10 @@ export interface DecisionRecording {
  */
 export function recordDecisionAnswer(
   thread: Thread,
-  { decisionId, answer, messageId, answeredAt }: DecisionRecording,
+  { decisionId, answer, messageId, answeredAt, answeredBy }: DecisionRecording,
 ): ThreadChange<DecisionAnswered> {
   const open = answerableDecision(thread, decisionId, answer);
-  const decision: Decision = { ...open, answer: { ...answer, answeredAt } };
+  const decision: Decision = { ...open, answer: { ...answer, answeredAt, answeredBy } };
   const line: Message = {
     kind: "decision-answer",
     id: messageId,
@@ -641,6 +663,28 @@ export function failDecisionAnswer(
     logged: failed.logged,
     decision: reopened,
     event: new DecisionReopened(waiting, reopened, failedAt),
+  };
+}
+
+/**
+ * The Consultant can't answer the Decision put to them, such as when nobody fills their Role any
+ * more: it waits on the user instead, as a missing person falls back to the user (spec §2.2). The
+ * event is the one that tells the user a Decision waits.
+ */
+export function putDecisionToUser(
+  thread: Thread,
+  decisionId: string,
+  reopenedAt: Date,
+): ThreadChange<DecisionReopened> | undefined {
+  const open = thread.openDecision;
+  if (open?.id !== decisionId || open.putTo === undefined) return undefined;
+  const decision: Decision = { ...open, putTo: undefined };
+  const waiting: Thread = { ...thread, openDecision: decision };
+  return {
+    thread: waiting,
+    logged: [],
+    decision,
+    event: new DecisionReopened(waiting, decision, reopenedAt),
   };
 }
 

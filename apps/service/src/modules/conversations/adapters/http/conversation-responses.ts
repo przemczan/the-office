@@ -28,6 +28,7 @@ export function toThreadResponse(thread: Thread, context: ContextDecision): Thre
     },
     startedAt: thread.startedAt.toISOString(),
     stageThread: thread.stageThread,
+    consultation: thread.consultation ?? null,
   };
 }
 
@@ -80,11 +81,13 @@ export function toDecisionResponse({ answer, askedAt, ...decision }: Decision): 
   return {
     ...decision,
     roleKey: decision.roleKey ?? null,
+    putTo: decision.putTo ?? null,
     options: [...decision.options],
     recommendation: { ...decision.recommendation },
     askedAt: askedAt.toISOString(),
     answer: answer ? toAnswerResponse(answer) : null,
     answeredAt: answer?.answeredAt.toISOString() ?? null,
+    answeredBy: answer?.answeredBy ?? null,
   };
 }
 

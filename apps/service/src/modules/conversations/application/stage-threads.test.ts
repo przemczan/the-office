@@ -20,6 +20,7 @@ import {
 import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
+import { Consultations } from "./consultations.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import { DecisionAnswered, TokensCounted } from "../domain/conversation-events.js";
 import type { Message, MessageDraft } from "../domain/message.js";
@@ -104,11 +105,13 @@ async function startOn(scripted: ScriptedEngine): Promise<void> {
       return Promise.resolve();
     },
   };
-  const roleCards: Pick<RoleCards, "find" | "forNewSession" | "forResumedSession"> = {
-    find: (roleKey) => Promise.resolve(people.get(roleKey)),
-    forNewSession: personIn,
-    forResumedSession: personIn,
-  };
+  const roleCards: Pick<RoleCards, "find" | "forNewSession" | "forResumedSession" | "consultants"> =
+    {
+      find: (roleKey) => Promise.resolve(people.get(roleKey)),
+      consultants: () => Promise.resolve([]),
+      forNewSession: personIn,
+      forResumedSession: personIn,
+    };
   const bases: ProjectBases = {
     folder: join(officeData, "bases"),
     list: () => Promise.resolve([]),
@@ -137,6 +140,7 @@ async function startOn(scripted: ScriptedEngine): Promise<void> {
       StageThreads,
       StageDecisions,
       DecisionService,
+      Consultations,
       DecisionOfficeTools,
       ThreadService,
       TaskTokens,
@@ -1115,7 +1119,7 @@ describe("Office tools on a Stage", () => {
     expect((await threadOf(stageThread.threadId)).openDecision).toMatchObject({
       question: "May the build cache live in the Project's folder?",
       context:
-        "For Devops: The Office has no Consultations yet, so you answer in their place.\n\nIt speeds the build up by a minute.",
+        "For Devops: nobody who can be consulted fills that Role, so you answer in their place.\n\nIt speeds the build up by a minute.",
       options: ["Yes", "No"],
       recommendation: { option: 0, reason: "It stays inside the worktree." },
     });

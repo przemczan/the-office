@@ -16,6 +16,7 @@ export function aThread(fields: Partial<Thread> = {}): Thread {
     startedAt: new Date("2026-10-25T09:00:00.000Z"),
     openDecision: undefined,
     stageThread: false,
+    consultation: undefined,
     ...fields,
   };
 }

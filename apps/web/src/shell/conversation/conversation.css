@@ -335,6 +335,28 @@
   color: var(--fg-3);
 }
 
+.decision-consultation,
+.thread-consultation {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 8px 0 0;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.thread-consultation {
+  margin: 0;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.decision-consultation svg,
+.thread-consultation svg {
+  flex: none;
+  margin-top: 2px;
+}
+
 .decision-options {
   display: flex;
   flex-wrap: wrap;

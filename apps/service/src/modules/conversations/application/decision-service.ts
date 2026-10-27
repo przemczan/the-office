@@ -7,7 +7,7 @@ import type { Thread } from "../domain/thread.js";
 import { openDecision, recordDecisionAnswer } from "../domain/thread-changes.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
-import { ThreadRunner } from "./thread-runner.js";
+import { ThreadRunner, type Answerer } from "./thread-runner.js";
 
 /**
  * The Decisions use cases (spec §2.4): an Agent opens one in the Thread it works in on a Task, and
@@ -26,11 +26,11 @@ export class DecisionService {
    * Opens a Decision in the Thread whose engine session is `sessionId`. Refused for a session no
    * Thread has now, in a chat, while the Thread waits on another, and with what is asked wrong.
    */
-  async open(sessionId: string, draft: DecisionDraft): Promise<Decision> {
+  async open(sessionId: string, draft: DecisionDraft, putTo?: string): Promise<Decision> {
     const thread = await this.repository.findBySession(sessionId);
     if (!thread) throw new ThreadRefused(["The Office doesn't know this session's Thread."]);
     const { thread: waiting, event } = await this.repository.update(thread.id, (latest) =>
-      openDecision(latest, { ...draft, id: randomUUID(), askedAt: new Date() }),
+      openDecision(latest, { ...draft, putTo, id: randomUUID(), askedAt: new Date() }),
     );
     if (event) await this.events.publish(event);
     if (!waiting.openDecision) throw new Error(`Thread ${thread.id} opened no Decision.`);
@@ -38,20 +38,21 @@ export class DecisionService {
   }
 
   /**
-   * Answers the Decision; the person who asked takes the answer in its Thread as their next message.
+   * Answers the Decision, as the user or as `answerer`, the Consultant it was put to; the person who
+   * asked takes the answer in its Thread as their next message.
    * The answer to The Office's Decision, or to one in a Stage Thread, goes to the Task's Pipeline
    * instead, which runs on from it, even when given while the asking Stage still runs: the
    * Pipeline reads it as the Stage ends. Refused once it is answered, and while the person is
    * still answering.
    */
-  async answer(id: string, answer: DecisionAnswer): Promise<Thread> {
+  async answer(id: string, answer: DecisionAnswer, answerer?: Answerer): Promise<Thread> {
     const decision = await this.repository.decision(id);
     if (!decision) throw new DecisionNotFound(id);
     if (decision.answer) throw new ThreadRefused(["This Decision is answered already."]);
     const thread = await this.repository.find(decision.threadId);
     if (!thread) throw new Error(`Decision ${id}'s Thread is gone.`);
     if (decision.roleKey !== undefined && !thread.stageThread) {
-      return this.runner.answerDecision(decision.threadId, id, answer);
+      return this.runner.answerDecision(decision.threadId, id, answer, answerer);
     }
     const { thread: answered, event } = await this.repository.update(thread.id, (latest) =>
       recordDecisionAnswer(latest, {
@@ -59,6 +60,7 @@ export class DecisionService {
         answer,
         messageId: randomUUID(),
         answeredAt: new Date(),
+        answeredBy: answerer?.roleKey,
       }),
     );
     if (event) await this.events.publish(event);

@@ -1,8 +1,14 @@
-import { useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
-import type { Decision, DecisionAnswer, Thread } from "@the-office/contracts";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type UseMutationResult,
+} from "@tanstack/react-query";
+import type { Decision, DecisionAnswer, Role, Thread } from "@the-office/contracts";
 import { Badge, Button, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { answerDecision, decisionQueries, threadQueries } from "../../api/conversations.ts";
+import { roleQueries } from "../../api/people.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { MessageField } from "./message-field.tsx";
@@ -28,6 +34,7 @@ export function DecisionCard({
   readonly followUps: boolean;
 }): ReactNode {
   const asker = askerName(decision, personName);
+  const roles = useQuery(roleQueries.list()).data;
   return (
     <section className="message decision-card" aria-label={`Decision: ${decision.question}`}>
       <div className="message-by">
@@ -48,11 +55,16 @@ export function DecisionCard({
           personName={personName}
           answering={answering}
           followUps={followUps}
+          consultantName={
+            decision.putTo === null ? undefined : consultantName(decision.putTo, roles)
+          }
         />
       ) : (
         <div className="decision-answered">
           <Icon name="check" size={12} />
-          Answered
+          {decision.answeredBy === null
+            ? "Answered"
+            : `Answered by ${consultantName(decision.answeredBy, roles)}`}
         </div>
       )}
     </section>
@@ -64,11 +76,14 @@ function OpenDecision({
   personName,
   answering,
   followUps,
+  consultantName: consulted,
 }: {
   readonly decision: Decision;
   readonly personName: string;
   readonly answering: boolean;
   readonly followUps: boolean;
+  /** The Consultant the Decision waits on, in a Consultation; undefined when it waits on the user. */
+  readonly consultantName: string | undefined;
 }): ReactNode {
   const [freeAnswer, setFreeAnswer] = useState("");
   const answeringDecision = useAnswering(decision);
@@ -86,6 +101,12 @@ function OpenDecision({
     );
   return (
     <>
+      {consulted !== undefined && (
+        <p className="decision-consultation" role="note">
+          <Icon name="users" size={12} />
+          Waiting on {consulted} in a Consultation. Answer here to take it over.
+        </p>
+      )}
       <div className="decision-options" role="group" aria-label="Options">
         {decision.options.map((option, index) => (
           <Button
@@ -141,6 +162,11 @@ function OpenDecision({
       )}
     </>
   );
+}
+
+/** A Consultant's name from the Role they fill; the key itself when the Role is gone. */
+function consultantName(roleKey: string, roles: readonly Role[] | undefined): string {
+  return roles?.find(({ key }) => key === roleKey)?.card.name ?? roleKey;
 }
 
 /** Who asked: the Thread's person, or The Office, which has no person (spec §9). */
