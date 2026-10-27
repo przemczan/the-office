@@ -1,7 +1,7 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { expect, test } from "@playwright/test";
+import { expect, test, type WebSocketRoute } from "@playwright/test";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
@@ -90,5 +90,43 @@ test.describe("the palette", () => {
     await expect(html).toHaveAttribute("data-theme", "dark");
     await page.reload();
     await expect(html).toHaveAttribute("data-palette", "dark");
+  });
+});
+
+test.describe("losing the service", () => {
+  test.use({ colorScheme: "light" });
+
+  test('the web raises "service down" itself, in the strip and as a toast, and clears it once back', async ({
+    page,
+  }) => {
+    // The event stream stands for the service: closed and refused, the web has lost it.
+    let reachable = true;
+    const streams: WebSocketRoute[] = [];
+    await page.routeWebSocket(/\/api\/events$/, (stream) => {
+      if (!reachable) return void stream.close();
+      stream.connectToServer();
+      streams.push(stream);
+    });
+    await page.goto("/now");
+    const strip = page.getByRole("status", { name: "Status strip" });
+    await expect(strip).toContainText("tokens today");
+    const unread = async (): Promise<number> =>
+      Number(/^\((\d+)\)/.exec(await page.title())?.[1] ?? 0);
+    const before = await unread();
+
+    reachable = false;
+    for (const stream of streams) await stream.close();
+
+    const notice = page
+      .locator(".toasts")
+      .getByRole("button", { name: "The Office lost its service and is reconnecting." });
+    await expect(strip).toContainText("Reconnecting to The Office…");
+    await expect(notice).toBeVisible();
+    // No event arrives while the service is lost, so only "service down" was added.
+    await expect.poll(unread).toBe(before + 1);
+
+    reachable = true;
+    await expect(strip).not.toContainText("Reconnecting");
+    await expect(notice).toHaveCount(0);
   });
 });

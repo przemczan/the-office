@@ -61,7 +61,7 @@ NotificationsModule
 
 - `notification-service.ts`: Page, NotificationService
 - `now-service.ts`: NowService
-- Tests: notification-service.test.ts, now-service.test.ts
+- Tests: notification-service.test.ts, now-service.test.ts, test-project-check.test.ts
 
 ### domain/
 

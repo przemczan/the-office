@@ -259,3 +259,24 @@ export async function stageLines(
   }
   return lines;
 }
+
+/** Leaves the Test Project as it was: the check's worktrees, the Task's branch and the base branch removed. */
+export async function cleanUpTestProject(
+  repositoryPath: string,
+  left: { readonly base: string; readonly taskId: string | undefined; readonly officeData: string },
+): Promise<void> {
+  const officeWorktrees = comparable(left.officeData);
+  await quietly(async () => {
+    for (const line of (await git(repositoryPath, "worktree", "list", "--porcelain")).split("\n")) {
+      const path = line.startsWith("worktree ") ? line.slice("worktree ".length) : "";
+      if (path !== "" && comparable(path).startsWith(officeWorktrees))
+        await git(repositoryPath, "worktree", "remove", "--force", path);
+    }
+  });
+  await quietly(() => git(repositoryPath, "worktree", "prune"));
+  if (left.taskId !== undefined) {
+    const taskId = left.taskId;
+    await quietly(() => git(repositoryPath, "branch", "-D", `office/${taskId}`));
+  }
+  await quietly(() => git(repositoryPath, "branch", "-D", left.base));
+}

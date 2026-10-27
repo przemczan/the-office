@@ -1,14 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
   decisionWaiting,
+  engineDown,
   gateWaiting,
   handles,
   notificationOf,
   samePointer,
+  taskDone,
   taskFailed,
   taskPaused,
   windowMove,
   windowNearlyUsed,
+  windowReset,
   type NotificationDraft,
 } from "./notification.js";
 
@@ -18,7 +21,51 @@ function raised(draft: NotificationDraft) {
   return notificationOf(draft, "n1", AT);
 }
 
+/** What a Notification says: its kind, who speaks (null for The Office), and its line. */
+function content(draft: NotificationDraft): (string | null)[] {
+  return [draft.kind, draft.roleKey ?? null, draft.line];
+}
+
 describe("the Notifications' content", () => {
+  it("gives each kind the person who speaks and one line, and The Office's kinds the UI's voice", () => {
+    const question = { id: "d1", taskId: "t1", question: "Keep the query string?" };
+
+    expect(
+      [
+        decisionWaiting({ ...question, roleKey: "developer" }),
+        gateWaiting("t1", { key: "look", name: "Look" }, "developer"),
+        taskDone("t1", "developer"),
+        taskFailed("t1", "developer", { kind: "definition-of-done" }),
+        taskPaused("t1", "developer", "pause"),
+        taskPaused("t1", "developer", "stop"),
+        windowNearlyUsed(90),
+        windowReset(),
+        engineDown("Claude Code didn't start."),
+      ].map(content),
+    ).toEqual([
+      ["needs-you.decision", "developer", "I need your answer: Keep the query string?"],
+      ["needs-you.gate", "developer", "My work is ready for your look at Look."],
+      ["outcomes.task-done", "developer", "I finished the Task."],
+      [
+        "outcomes.task-failed",
+        "developer",
+        "I ran every Stage, but the Definition of Done isn't met.",
+      ],
+      ["outcomes.task-paused", "developer", "I paused at a safe point."],
+      ["outcomes.task-paused", "developer", "I stopped where I was."],
+      ["office.window-nearly-used", null, "90% of the 5-hour window is used."],
+      ["office.window-reset", null, "The 5-hour window reset."],
+      ["office.engine-down", null, "The engine is down: Claude Code didn't start."],
+    ]);
+  });
+
+  it("speaks in the UI's voice when the Task has no person yet", () => {
+    expect([taskDone("t1", undefined).line, taskPaused("t1", undefined, "stop").line]).toEqual([
+      "Done.",
+      "Stopped.",
+    ]);
+  });
+
   it("lets the asker speak in the first person, and The Office in the UI's voice", () => {
     const question = { id: "d1", taskId: "t1", question: "Keep the query string?" };
 

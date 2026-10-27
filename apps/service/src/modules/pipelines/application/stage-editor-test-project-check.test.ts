@@ -15,12 +15,11 @@ import { describe, expect, it, vi } from "vitest";
 import {
   addTestProject,
   checkApi,
-  comparable,
+  cleanUpTestProject,
   git,
   hireOnHaiku,
   openDecisionsOn,
   planOnQuickFix,
-  quietly,
   stageLines,
   stagesOf,
   tokensOf,
@@ -186,7 +185,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           expect(await git(testProject, "rev-parse", "main")).toBe(mainBefore);
         } finally {
           await app?.close();
-          await cleanUp(testProject, { base, taskId, officeData });
+          await cleanUpTestProject(testProject, { base, taskId, officeData });
           await note("Cleaned up the Task's worktree and branch, and the base branch");
           await rm(scratch, { recursive: true, force: true });
         }
@@ -214,25 +213,4 @@ async function refuseIfTracked(repositoryPath: string, branch: string): Promise<
     () => undefined,
   );
   if (upstream !== undefined) throw new Error(`Refusing: ${branch} tracks ${upstream}.`);
-}
-
-/** Leaves the Test Project as it was: the check's worktrees, the Task's branch and the base branch removed. */
-async function cleanUp(
-  repositoryPath: string,
-  left: { readonly base: string; readonly taskId: string | undefined; readonly officeData: string },
-): Promise<void> {
-  const officeWorktrees = comparable(left.officeData);
-  await quietly(async () => {
-    for (const line of (await git(repositoryPath, "worktree", "list", "--porcelain")).split("\n")) {
-      const path = line.startsWith("worktree ") ? line.slice("worktree ".length) : "";
-      if (path !== "" && comparable(path).startsWith(officeWorktrees))
-        await git(repositoryPath, "worktree", "remove", "--force", path);
-    }
-  });
-  await quietly(() => git(repositoryPath, "worktree", "prune"));
-  if (left.taskId !== undefined) {
-    const taskId = left.taskId;
-    await quietly(() => git(repositoryPath, "branch", "-D", `office/${taskId}`));
-  }
-  await quietly(() => git(repositoryPath, "branch", "-D", left.base));
 }

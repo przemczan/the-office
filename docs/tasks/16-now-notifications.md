@@ -8,12 +8,12 @@ Now is the home the user opens first: what needs them, what is running, what hap
 
 ## Definition of Done
 
-- [ ] Now shows Needs you (Decisions, Gates, messages from people), Running (Task · person · Stage · time in Stage), Since you left (Tasks done, failed or paused since the user was last active) and today's tokens, and nothing else; a Decision or Gate is answered in place. Check: Playwright with a waiting Decision, a running Task and a finished one.
-- [ ] The status strip shows needs you, desks in use (running Tasks against the Office-wide limit), tokens today, the 5-hour window with its meter and reset time from the window state of task 06, Tasks touched and done since you left, live. Check: watch it through a run.
-- [ ] The Needs you panel opens from the strip on any page and answers Decisions and Gates there. Check: answer one from the Projects page.
-- [ ] The kinds tree is in code (`needs-you.decision`, `needs-you.gate`, `needs-you.message`, `outcomes.task-done`, `outcomes.task-failed`, `outcomes.task-paused`, `office.window-nearly-used`, `office.window-reset`, `office.service-down`, `office.engine-down`) with routing resolved from the nearest level, and the defaults of [spec 2.7](../spec/2.7-notifications.md). Check: unit tests of the resolution, including a kind split below a level that has an override.
-- [ ] In-app: a toast, the unread count in the tab title and favicon, the strip. Desktop: the browser's notification, only while the tab isn't focused (otherwise the toast). Each opens what it points to, and handling that item clears it on every channel. Check: Playwright with the tab focused and blurred.
-- [ ] Content is the person's avatar and name, one first-person line, the Task and the Project, with no action buttons; Office kinds speak in the UI's own voice with no person, and "service down" is raised by the web app itself when it loses the service. Check: one of each kind, and stop the service.
+- [x] Now shows Needs you (Decisions, Gates, messages from people), Running (Task · person · Stage · time in Stage), Since you left (Tasks done, failed or paused since the user was last active) and today's tokens, and nothing else; a Decision or Gate is answered in place. Check: Playwright with a waiting Decision, a running Task and a finished one. (`people.e2e.ts`; no message from a person exists in tier 1, spec 2.7 Defaults.)
+- [x] The status strip shows needs you, desks in use (running Tasks against the Office-wide limit), tokens today, the 5-hour window with its meter and reset time from the window state of task 06, Tasks touched and done since you left, live. Check: watch it through a run. (Step 6's check logs the strip at each stop; `shell.e2e.ts` and `people.e2e.ts` read it.)
+- [x] The Needs you panel opens from the strip on any page and answers Decisions and Gates there. Check: answer one from the Projects page. (`people.e2e.ts` continues a Gate there.)
+- [x] The kinds tree is in code (`needs-you.decision`, `needs-you.gate`, `needs-you.message`, `outcomes.task-done`, `outcomes.task-failed`, `outcomes.task-paused`, `office.window-nearly-used`, `office.window-reset`, `office.service-down`, `office.engine-down`) with routing resolved from the nearest level, and the defaults of [spec 2.7](../spec/2.7-notifications.md). Check: unit tests of the resolution, including a kind split below a level that has an override. (`notification-kinds.test.ts`)
+- [x] In-app: a toast, the unread count in the tab title and favicon, the strip. Desktop: the browser's notification, only while the tab isn't focused (otherwise the toast). Each opens what it points to, and handling that item clears it on every channel. Check: Playwright with the tab focused and blurred. (`people.e2e.ts`)
+- [x] Content is the person's avatar and name, one first-person line, the Task and the Project, with no action buttons; Office kinds speak in the UI's own voice with no person, and "service down" is raised by the web app itself when it loses the service. Check: one of each kind, and stop the service. (`notification.test.ts` for each kind's content, `shell.e2e.ts` cuts the event stream.)
 
 ## Read first
 
@@ -33,7 +33,7 @@ Leave out: the kinds × channels grid, quiet hours, batching, the at-desk hold, 
   Read: [spec 2.7](../spec/2.7-notifications.md) with its Defaults; the [module template](../../apps/service/docs/module-template.md).
 - [x] 5. Channel adapters: in-app (toast, title, favicon, strip) and desktop (the browser Notification API, permission asked once, only when the tab isn't focused), and the web app's own "service down". Commit.
   Read: [spec 2.7](../spec/2.7-notifications.md) (channels, content); the [web app map](../../apps/web/src/MAP.md) (`shell/toasts.tsx`, `api/event-stream.ts`).
-- [ ] 6. Check on the Test Project: a day's loop of planning, a Decision, a Gate and a finished Task, seen from Now and as Notifications; log what arrived where. Commit.
+- [x] 6. Check on the Test Project: a day's loop of planning, a Decision, a Gate and a finished Task, seen from Now and as Notifications; log what arrived where. Commit.
   Read: [test-project.md](test-project.md), [testing](../../apps/service/docs/testing.md).
 
 ## State
@@ -48,7 +48,9 @@ Leave out: the kinds × channels grid, quiet hours, batching, the at-desk hold, 
 - The channels port: both tier 1 channels live in the browser, so the service routes and the web's adapters (step 5) show; a service-side port comes with phone push (tier 2). "Window nearly used" is 90%, a default to tell the user.
 - Channels (step 5): `shell/notifications/notification-channel.ts` is the port; `in-app-channel.tsx` (a notice in `ToastProvider`: the person with their avatar, the line and the Task · Project, which open what it points to) and `desktop-channel.ts` (the browser's Notification, only while the tab isn't focused and the user allowed it; the strip offers "Turn on desktop notifications" until they answer) are its adapters. `notification-channels.ts` brings each raised Notification to one of them, clears it from both, counts the open ones in the title and favicon (`unread-badge.ts`), and raises "service down" itself while the event stream reconnects. The strip shows open Office Notifications.
 - `npx playwright test` serves the last build: run `npm run test:e2e`, which builds first.
-- Next, step 6: the check on the Test Project (a day's loop seen from Now and as Notifications, logging what arrived where), including stopping the service for "service down" and one of each kind.
+- Step 6's check (`modules/notifications/application/test-project-check.test.ts`, run alone with the live variables) passed on 2026-10-27 in 53 s: planning, The Office's budget Decision (Implement's budget set to what planning used, as budgets count it), the Gate in place of Publish, Done, then the user opening the Task; each Notification went in-app and to the desktop and cleared once handled, and Now showed each stop. The Planner opened no Decision of its own. `cleanUpTestProject` is now shared in `test/live-check.ts`.
+- `shell.e2e.ts` cuts the event stream with `page.routeWebSocket` for "service down".
+- Next: close the task (every DoD box is ticked): `npm run verify:linux`, then archive the Progress log.
 
 ## Progress
 
@@ -59,3 +61,4 @@ Leave out: the kinds × channels grid, quiet hours, batching, the at-desk hold, 
 - 2026-10-27 · step 3: the Needs you panel, a Drawer over any page opened from the strip, answering Decisions and Gates there; next, the kinds tree and routing.
 - 2026-10-27 · step 4: Notifications raised from the other modules' events with the kinds tree's routing, kept until their item is handled, and sent to the web; next, the channel adapters in the web.
 - 2026-10-27 · step 5: the web's channels behind one port (toast, title and favicon, strip; desktop while the tab isn't focused) and the web's own "service down"; next, the check on the Test Project.
+- 2026-10-27 · step 6: the Test Project check passed (a budget Decision, a Gate and a Done Task, seen on Now and as Notifications, each cleared once handled); "service down" checked by cutting the event stream; next, close the task.
