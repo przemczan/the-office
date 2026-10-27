@@ -10,6 +10,7 @@ import { TelemetryModule } from "../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../platform/websocket/web-event-forwarding.js";
 import {
+  IdeaCardsForTests,
   KnownPeopleForTests,
   KnownProjectsForTests,
   ProjectWorktreesForTests,
@@ -52,6 +53,7 @@ export async function startWorkApplication(
         knownPeople: KnownPeopleForTests,
         knownPipelines: PipelineLibrary,
         sessionPeople: SessionPeopleForTests,
+        ideaCards: IdeaCardsForTests,
         sessionTasks: SessionTasksForTests,
         taskThreads: TaskThreadsForTests,
         taskDecisions: TaskDecisionsForTests,

@@ -101,6 +101,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                 knownPeople: RoleCards,
                 knownPipelines: PipelineLibrary,
                 sessionPeople: ThreadService,
+                ideaCards: ThreadService,
                 sessionTasks: ThreadService,
                 taskThreads: ThreadService,
                 taskDecisions: DecisionService,

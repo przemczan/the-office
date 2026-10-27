@@ -1,9 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import {
+  CAPTURE_IDEA_TOOL,
   DECISION_TOOLS,
   POST_LINK_CARD_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_ROLE_TOOL,
+  SHOW_OFFICE_STATUS_TOOL,
   type Decision,
   type DecisionAnswer,
   type Message,
@@ -16,7 +18,9 @@ import { roleName } from "../person-name.ts";
 import { contextLabel } from "./context-words.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { DecisionCard } from "./decision-card.tsx";
+import { IdeaCard } from "./idea-card.tsx";
 import { LinkCard } from "./link-card.tsx";
+import { OfficeStatusCard } from "./office-status-card.tsx";
 import { ProposalCard } from "./proposal-card.tsx";
 
 /**
@@ -82,6 +86,8 @@ const TOOLS_SHOWN_AS_CARDS: readonly string[] = [
   PROPOSE_ROLE_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
   POST_LINK_CARD_TOOL,
+  CAPTURE_IDEA_TOOL,
+  SHOW_OFFICE_STATUS_TOOL,
 ];
 
 function shown(message: Message): boolean {
@@ -191,6 +197,10 @@ function MessageItem({
       return <ProposalCard proposal={message.proposal} />;
     case "link-card":
       return <LinkCard card={message} />;
+    case "idea":
+      return <IdeaCard card={message} />;
+    case "office-status":
+      return <OfficeStatusCard card={message} />;
   }
 }
 

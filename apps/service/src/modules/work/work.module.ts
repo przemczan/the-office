@@ -40,6 +40,7 @@ import { TaskService } from "./application/task-service.js";
 import { ATTACHMENT_SIZE_LIMIT } from "./domain/attachment.js";
 import { AttachmentFiles } from "./ports/attachment-files.js";
 import { AttachmentRepository } from "./ports/attachment-repository.js";
+import { IdeaCards } from "./ports/idea-cards.js";
 import { IdeaRepository } from "./ports/idea-repository.js";
 import { KnownPeople } from "./ports/known-people.js";
 import { KnownPipelines } from "./ports/known-pipelines.js";
@@ -65,6 +66,7 @@ export interface WorkModuleOptions {
   readonly knownPeople: Type<KnownPeople>;
   readonly knownPipelines: Type<KnownPipelines>;
   readonly sessionPeople: Type<SessionPeople>;
+  readonly ideaCards: Type<IdeaCards>;
   readonly sessionTasks: Type<SessionTasks>;
   readonly taskThreads: Type<TaskThreads>;
   readonly taskDecisions: Type<TaskDecisions>;
@@ -79,6 +81,7 @@ export class WorkModule implements NestModule {
     knownPeople,
     knownPipelines,
     sessionPeople,
+    ideaCards,
     sessionTasks,
     taskThreads,
     taskDecisions,
@@ -105,6 +108,7 @@ export class WorkModule implements NestModule {
         { provide: KnownPeople, useExisting: knownPeople },
         { provide: KnownPipelines, useExisting: knownPipelines },
         { provide: SessionPeople, useExisting: sessionPeople },
+        { provide: IdeaCards, useExisting: ideaCards },
         { provide: SessionTasks, useExisting: sessionTasks },
         { provide: TaskThreads, useExisting: taskThreads },
         { provide: TaskDecisions, useExisting: taskDecisions },

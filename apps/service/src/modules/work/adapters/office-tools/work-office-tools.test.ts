@@ -2,22 +2,20 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { CAPTURE_IDEA_TOOL } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { THE_USER } from "../../domain/author.js";
-import { UNKNOWN_PROJECT, UNKNOWN_SESSION } from "../../ports/work-ports.fixtures.js";
-import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
 import {
-  CAPTURE_IDEA,
-  CREATE_TASK,
-  LIST_IDEAS,
-  LIST_TASKS,
-  READ_IDEA,
-  READ_TASK,
-} from "./work-office-tools.js";
+  IdeaCardsForTests,
+  UNKNOWN_PROJECT,
+  UNKNOWN_SESSION,
+} from "../../ports/work-ports.fixtures.js";
+import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
+import { CREATE_TASK, LIST_IDEAS, LIST_TASKS, READ_IDEA, READ_TASK } from "./work-office-tools.js";
 
 let officeData: string;
 let work: WorkApplication;
@@ -50,7 +48,7 @@ function call(name: string, input: Record<string, unknown>, sessionId = "planner
 
 describe("capture_idea", () => {
   it("captures an Idea in the name of the person in the session", async () => {
-    const result = await call(CAPTURE_IDEA, {
+    const result = await call(CAPTURE_IDEA_TOOL, {
       title: "Export usage as CSV",
       notes: "For the accountant.",
       projectId,
@@ -67,27 +65,39 @@ describe("capture_idea", () => {
       capturedBy: { kind: "person", roleKey: "planner" },
     });
     expect(result.text).toBe(
-      `Captured the Idea "Export usage as CSV" (Idea ${idea?.id}), in the Project ${projectId}.`,
+      `Captured the Idea "Export usage as CSV" (Idea ${idea?.id}), in the Project ${projectId}. Its card is in this chat, for the user to plan it from.`,
     );
   });
 
+  it("posts the Idea's card in the chat it was captured in", async () => {
+    await call(CAPTURE_IDEA_TOOL, { title: "Weekly usage summary", projectId });
+
+    const [idea] = (await work.app.get(IdeaService).list()).filter(
+      (candidate) => candidate.projectId === projectId,
+    );
+    expect(work.app.get(IdeaCardsForTests).posted).toEqual([
+      { sessionId: "planner-session", ideaId: idea?.id },
+    ]);
+  });
+
   it("captures one Office-wide, and refuses one without a title with the reason", async () => {
-    const officeWide = await call(CAPTURE_IDEA, { title: "Nightly updates" });
-    const blank = await call(CAPTURE_IDEA, { title: " " });
+    const officeWide = await call(CAPTURE_IDEA_TOOL, { title: "Nightly updates" });
+    const blank = await call(CAPTURE_IDEA_TOOL, { title: " " });
 
     expect(officeWide.text).toMatch(
-      /^Captured the Idea "Nightly updates" \(Idea .+\), Office-wide\.$/,
+      /^Captured the Idea "Nightly updates" \(Idea .+\), Office-wide\. Its card/,
     );
     expect(blank).toEqual({ text: "Give the Idea a title.", isError: true });
   });
 
-  it("refuses a session nobody keeps", async () => {
-    const result = await call(CAPTURE_IDEA, { title: "Anything" }, UNKNOWN_SESSION);
+  it("refuses a session nobody keeps, with no card", async () => {
+    const result = await call(CAPTURE_IDEA_TOOL, { title: "Anything" }, UNKNOWN_SESSION);
 
     expect(result).toEqual({
       text: "The Office doesn't know whose session this is.",
       isError: true,
     });
+    expect(work.app.get(IdeaCardsForTests).posted).toEqual([]);
   });
 });
 

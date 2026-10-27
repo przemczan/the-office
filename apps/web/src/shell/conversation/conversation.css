@@ -655,6 +655,93 @@
   color: var(--fg-3);
 }
 
+/* ---- an Idea captured in the chat, and the Office status: cards read live from Work and Now */
+.message.chat-card {
+  flex: none;
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.chat-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.chat-card-head > svg {
+  flex: none;
+  color: var(--fg-3);
+}
+
+.chat-card-text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.chat-card-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.chat-card-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.office-status-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.office-status-line > svg {
+  flex: none;
+  color: var(--fg-3);
+}
+
+.office-status-words {
+  flex: 1;
+  min-width: 0;
+}
+
+.office-status-people {
+  margin: 0;
+  padding: 4px 12px;
+  list-style: none;
+}
+
+.office-status-person {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+}
+
+.office-status-name {
+  font-weight: 600;
+}
+
+.office-status-doing {
+  flex: 1;
+  min-width: 0;
+  font: var(--type-caption);
+  color: var(--fg-3);
+  text-align: right;
+}
+
 /* ---- the Handover note a Link card prefilled, above the composer */
 .composer-note {
   display: flex;

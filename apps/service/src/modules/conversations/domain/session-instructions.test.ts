@@ -1,3 +1,7 @@
+import {
+  CAPTURE_IDEA_TOOL,
+  SHOW_OFFICE_STATUS_TOOL as CONTRACT_SHOW_OFFICE_STATUS_TOOL,
+} from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   CHANGE_ROLE_TOOL,
@@ -7,6 +11,7 @@ import {
   POST_LINK_CARD_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_ROLE_TOOL,
+  SHOW_OFFICE_STATUS_TOOL,
 } from "./session-instructions.js";
 
 describe("chatOfficeTools", () => {
@@ -34,5 +39,15 @@ describe("chatOfficeTools", () => {
   it("gives only the Office Manager posting Link cards", () => {
     expect(chatOfficeTools(OFFICE_MANAGER)).toContain(POST_LINK_CARD_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(POST_LINK_CARD_TOOL);
+  });
+
+  it("gives only the Office Manager showing the Office status", () => {
+    expect(chatOfficeTools(OFFICE_MANAGER)).toContain(SHOW_OFFICE_STATUS_TOOL);
+    expect(chatOfficeTools("planner")).not.toContain(SHOW_OFFICE_STATUS_TOOL);
+  });
+
+  it("names the tools whose calls the web shows as cards as the contracts name them", () => {
+    expect(SHOW_OFFICE_STATUS_TOOL).toBe(CONTRACT_SHOW_OFFICE_STATUS_TOOL);
+    expect(CHAT_OFFICE_TOOLS).toContain(CAPTURE_IDEA_TOOL);
   });
 });

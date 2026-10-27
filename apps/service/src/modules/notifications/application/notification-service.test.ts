@@ -16,6 +16,7 @@ import {
   AccountUsageForTests,
   DeskLimitForTests,
   NotificationsPortsForTestsModule,
+  OfficeStatusCardsForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
   TaskStageProgressForTests,
@@ -63,6 +64,7 @@ describe("NotificationService", () => {
           taskStageProgress: TaskStageProgressForTests,
           deskLimit: DeskLimitForTests,
           accountUsage: AccountUsageForTests,
+          officeStatusCards: OfficeStatusCardsForTests,
         }),
       ],
     }));

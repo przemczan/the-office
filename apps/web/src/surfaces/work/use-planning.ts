@@ -4,11 +4,10 @@ import {
   useQueryClient,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
-import type { Idea, Task } from "@the-office/contracts";
-import { ideaQueries, markReady, planIdea, planTask, taskQueries } from "../../api/work.ts";
+import type { Task } from "@the-office/contracts";
+import { markReady, planTask, taskQueries } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
-import { usePlanner } from "../../shell/work/use-planner.ts";
+import { useOnPlanned } from "../../shell/work/use-idea-planning.ts";
 
 /**
  * Plan with the Planner: the Task moves to Planning with its planning Thread, and its page opens
@@ -23,21 +22,6 @@ export function usePlanning(): UseMutationResult<Task, Error, Task> {
     onSuccess: onPlanned,
     onError: (error) => showToast(error.message),
     onSettled: () => queryClient.invalidateQueries(taskQueries.list()),
-  });
-}
-
-/** Plan as a Task with the Planner: the Idea becomes a Task in the Project, planned at once. */
-export function useIdeaPlanning(idea: Idea): UseMutationResult<Task, Error, string> {
-  const queryClient = useQueryClient();
-  const onPlanned = useOnPlanned();
-  return useMutation({
-    mutationFn: (projectId: string) => planIdea(idea.id, projectId),
-    onSuccess: onPlanned,
-    onSettled: () =>
-      Promise.all([
-        queryClient.invalidateQueries(ideaQueries.list()),
-        queryClient.invalidateQueries(taskQueries.list()),
-      ]),
   });
 }
 
@@ -60,14 +44,4 @@ export function useMarkingReady(): UseMutationResult<Task, Error, Task> {
     onError: (error) => showToast(error.message),
     onSettled: () => queryClient.invalidateQueries(taskQueries.list()),
   });
-}
-
-function useOnPlanned(): (task: Task) => Promise<void> {
-  const showToast = useToast();
-  const navigate = useNavigate();
-  const planner = usePlanner()?.card.name ?? "the Planner";
-  return async (task) => {
-    showToast(`${task.title} is in Planning with ${planner}.`);
-    await navigate({ to: "/tasks/$taskId", params: { taskId: task.id } });
-  };
 }

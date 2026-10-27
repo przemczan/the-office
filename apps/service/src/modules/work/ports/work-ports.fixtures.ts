@@ -2,6 +2,7 @@ import { join } from "node:path";
 import { Injectable, Module } from "@nestjs/common";
 import { ProposalAppliers, TaskThreadSetups, WorkRecords } from "../../conversations/index.js";
 import { DEFAULT_OFFICE_WIDE_LIMIT, type TaskLimit } from "../domain/task-start.js";
+import { IdeaCards } from "./idea-cards.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { KnownProjects, type KnownProject } from "./known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "./project-worktrees.js";
@@ -99,6 +100,16 @@ export class SessionPeopleForTests extends SessionPeople {
 
 export const UNKNOWN_SESSION = "no-such-session";
 
+/** Keeps each Idea card posted, by the session it was posted in. */
+@Injectable()
+export class IdeaCardsForTests extends IdeaCards {
+  readonly posted: { readonly sessionId: string; readonly ideaId: string }[] = [];
+
+  async postIdeaCard(sessionId: string, ideaId: string): Promise<void> {
+    this.posted.push({ sessionId, ideaId });
+  }
+}
+
 /** Each session is on the Task a test puts it on, and on none otherwise, as a chat's is. */
 @Injectable()
 export class SessionTasksForTests extends SessionTasks {
@@ -137,6 +148,7 @@ const PORTS = [
   ProjectWorktreesForTests,
   KnownPeopleForTests,
   SessionPeopleForTests,
+  IdeaCardsForTests,
   SessionTasksForTests,
   TaskThreadsForTests,
   TaskDecisionsForTests,

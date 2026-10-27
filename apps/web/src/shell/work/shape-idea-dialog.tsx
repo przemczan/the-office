@@ -3,8 +3,8 @@ import type { Idea, Task } from "@the-office/contracts";
 import { Button, Dialog, RadioGroup } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
-import { ProjectChip } from "../../shell/project-chip.tsx";
-import { RefusalAlert } from "../../shell/refusal-alert.tsx";
+import { ProjectChip } from "../project-chip.tsx";
+import { RefusalAlert } from "../refusal-alert.tsx";
 
 /**
  * An Office-wide Idea becomes a Task in one Project, chosen here: shaped into a Task, or planned

@@ -1,6 +1,6 @@
 # Web app: map
 
-**Owns:** the shell (A3 · Desk: rail, top bar, status strip, panels, toasts; `shell/`), the Markdown view for what people and The Office write (`shell/markdown-text.tsx`: sanitised, raw HTML shown as text, headings kept out of the page's outline, a link to a Task, Decision or Idea shown as its chip, `shell/record-mention.tsx`), the chat modal and conversation views (the composer's `@` picker, `shell/conversation/mention-picker.tsx`; Copy link on a Decision or an Idea, `shell/copy-record-link.ts`; a Proposal's card, `shell/conversation/proposal-card.tsx`, one body and foot per kind: a new Role's "Edit before hiring" opens People's `/hire?proposal=…`, a preset's Role edits the name in place, and an Office setting shows its value then and proposed, refreshing the setting's query once applied; a Link card, `shell/conversation/link-card.tsx`, with the person's status from Now's running Tasks, `link-card-words.ts`, opening a new chat Thread whose composer takes the Handover note left in the shell's `HandoverNotes`, `handover-notes.tsx`, for the user to edit or leave out), the words a Role card is shown in, shared by People and the Proposal card (`shell/role-card-words.ts`), Attachments, the Stage editor (`shell/pipelines/`: one component for "Edit for this Task" and the tier 2 library, Task-free, fed the service's flags), Notifications' channels and what Now shares with the shell (`shell/notifications/`: the channel port with the in-app and desktop adapters, the tab's title and favicon, the web's own "service down"; the Needs you panel and its items, answered in place; Now's words; the strip reads the same `now` and `notifications` queries), the Gate's actions (`shell/work/gate-actions.tsx`, on a Task's record and in Needs you), and `api/`: one file per service module with its fetch functions and query keys, plus the event stream (`event-stream.ts`) that turns the service's web events into query refreshes. Each surface has its own map in `surfaces/<surface>/MAP.md`.
+**Owns:** the shell (A3 · Desk: rail, top bar, status strip, panels, toasts; `shell/`), the Markdown view for what people and The Office write (`shell/markdown-text.tsx`: sanitised, raw HTML shown as text, headings kept out of the page's outline, a link to a Task, Decision or Idea shown as its chip, `shell/record-mention.tsx`), the chat modal and conversation views (the composer's `@` picker, `shell/conversation/mention-picker.tsx`; Copy link on a Decision or an Idea, `shell/copy-record-link.ts`; a Proposal's card, `shell/conversation/proposal-card.tsx`, one body and foot per kind: a new Role's "Edit before hiring" opens People's `/hire?proposal=…`, a preset's Role edits the name in place, and an Office setting shows its value then and proposed, refreshing the setting's query once applied; a Link card, `shell/conversation/link-card.tsx`, with the person's status from Now's running Tasks, `link-card-words.ts`, opening a new chat Thread whose composer takes the Handover note left in the shell's `HandoverNotes`, `handover-notes.tsx`, for the user to edit or leave out; an Idea captured in the chat, `shell/conversation/idea-card.tsx`, read live from Work and planned from there with the Planner through `shell/work/use-idea-planning.ts` and `shape-idea-dialog.tsx`, which the Ideas page shares; the Office status, `office-status-card.tsx`, read live from Now), the words a Role card is shown in, shared by People and the Proposal card (`shell/role-card-words.ts`), Attachments, the Stage editor (`shell/pipelines/`: one component for "Edit for this Task" and the tier 2 library, Task-free, fed the service's flags), Notifications' channels and what Now shares with the shell (`shell/notifications/`: the channel port with the in-app and desktop adapters, the tab's title and favicon, the web's own "service down"; the Needs you panel and its items, answered in place; Now's words; the strip reads the same `now` and `notifications` queries), the Gate's actions (`shell/work/gate-actions.tsx`, on a Task's record and in Needs you), and `api/`: one file per service module with its fetch functions and query keys, plus the event stream (`event-stream.ts`) that turns the service's web events into query refreshes. Each surface has its own map in `surfaces/<surface>/MAP.md`.
 
 **Talks to:** the service only through `api/` and `@the-office/contracts`; components come from `@the-office/ui` (the design system). The layout is enforced by `tools/lint-rules/src/web-layers.ts`.
 
@@ -75,16 +75,19 @@
 - `context-words.ts`: MOVE_WORDS, OVERRIDE_WORDS, OVERRIDE_HINTS, threadTokens, tokensShort, contextDetail, contextLabel
 - `decision-card.tsx`: DecisionCard
 - `handover-notes.tsx`: HandoverNote, HandoverNotes, HandoverNotesProvider, useHandoverNotes
+- `idea-card.tsx`: IdeaCard
 - `link-card-words.ts`: personStatus
 - `link-card.tsx`: LinkCard
 - `mention-picker.tsx`: Mentions, useMentions
 - `mention-words.ts`: MENTION_KINDS, MentionKind, Mentionable, MentionQuery, MENTIONS_SHOWN, mentionQueryAt, mentionables, matchingMentionables, withMentionLinks
 - `message-field.tsx`: MessageField
 - `message-list.tsx`: MessageList
+- `office-status-card.tsx`: OfficeStatusCard
+- `office-status-words.ts`: waitingWords, pausedWords
 - `proposal-card.tsx`: ProposalCard
 - `thread-title.ts`: threadTitle
 - `thread-view.tsx`: ThreadView
-- Tests: context-words.test.ts, link-card-words.test.ts, mention-words.test.ts, message-field.test.tsx, message-list.test.tsx, thread-title.test.ts
+- Tests: context-words.test.ts, link-card-words.test.ts, mention-words.test.ts, message-field.test.tsx, message-list.test.tsx, office-status-words.test.ts, thread-title.test.ts
 
 ### shell/notifications/
 
@@ -112,7 +115,9 @@
 - `drop-task-dialog.tsx`: DropTaskDialog
 - `gate-actions.tsx`: GateActions
 - `gate-words.ts`: WaitingGate, waitingGateOf, defaultSendBackTarget, sendBackWords, continueLabel
+- `shape-idea-dialog.tsx`: ShapeIdeaDialog
 - `task-state-badge.tsx`: TaskStateBadge, PriorityIcon
+- `use-idea-planning.ts`: useIdeaPlanning, useOnPlanned
 - `use-planner.ts`: usePlanner
 - `waiting-on-you.ts`: waitsOnYou, waitsOnYouInItsState, useWaitingOnYou, useWaitingOnYouInItsState
 - `work-words.ts`: TASK_STATE_NAMES, NOT_STARTED, TASK_STATE_TONES, PRIORITY_NAMES, PRIORITY_ICONS, authorName

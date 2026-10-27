@@ -1,6 +1,7 @@
 import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  ideaSchema,
   OPEN_DECISION_TOOL,
   pipelineListSchema,
   projectSchema,
@@ -1466,4 +1467,83 @@ test("the user opens a Thread from Marta's Link card, edits the Handover note an
   await expect(chat.getByText("You · Handover note from Marta · Office Manager")).toBeVisible();
   await expect(chat.getByText("Two Tasks, then: the CSV export first.")).toBeVisible();
   await expect(prefilled).toHaveCount(0);
+});
+
+/**
+ * A card Marta posted in her chat, as the Conversations service leaves it: only her session's
+ * Office tools, capturing an Idea or showing the Office status, post one.
+ */
+async function seedChatCard(threadId: string, card: Record<string, unknown>): Promise<void> {
+  await queryOfficeDatabase(
+    `insert into thread_messages (id, thread_id, body, at) values ($1, $2, $3, now())`,
+    [crypto.randomUUID(), threadId, { roleKey: "office-manager", ...card }],
+  );
+}
+
+test("Marta's chat shows the Ideas she captured, planned from their cards, and the Office status", async ({
+  page,
+}) => {
+  const repository = await createTemporaryRepository();
+  try {
+    const project = await addedProject(page, repository, "Usage reports", "UR");
+    const started = await page.request.post("/api/chats/office-manager/threads");
+    const { id: threadId } = threadSchema.parse(await started.json());
+    const officeWide = ideaSchema.parse(
+      await (
+        await page.request.post("/api/ideas", {
+          data: { title: "A weekly usage summary on Monday mornings", notes: "", projectId: null },
+        })
+      ).json(),
+    );
+    const shaped = ideaSchema.parse(
+      await (
+        await page.request.post("/api/ideas", {
+          data: { title: "Archive old Threads", notes: "", projectId: project.id },
+        })
+      ).json(),
+    );
+    const task = taskSchema.parse(
+      await (
+        await page.request.post(`/api/ideas/${shaped.id}/shape`, {
+          data: { projectId: project.id },
+        })
+      ).json(),
+    );
+    await seedChatCard(threadId, { kind: "idea", ideaId: officeWide.id });
+    await seedChatCard(threadId, { kind: "idea", ideaId: shaped.id });
+    await seedChatCard(threadId, { kind: "office-status" });
+    const { card: planner } = roleSchema.parse(
+      await (await page.request.get("/api/roles/planner")).json(),
+    );
+
+    await page.goto(`/people?chat=office-manager&thread=${threadId}`);
+
+    const marta = chatWith(page, "Marta");
+    const newIdea = marta.getByRole("region", { name: `Idea: ${officeWide.title}` });
+    await expect(newIdea).toContainText("Office-wide");
+    const shapedIdea = marta.getByRole("region", { name: `Idea: ${shaped.title}` });
+    await expect(shapedIdea).toContainText("Shaped");
+    await expect(shapedIdea.getByRole("link", { name: task.title })).toBeVisible();
+    const status = marta.getByRole("region", { name: "Office status" });
+    await expect(status).toContainText(/Waiting on you|Nothing waits on you/);
+    await expect(status).toContainText(`${planner.name} · Planner`);
+    await expect(status).not.toContainText("Office Manager");
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-idea-and-office-status.png"),
+    });
+
+    await newIdea.getByRole("button", { name: `Plan as a Task with ${planner.name}` }).click();
+
+    // The Project picker opens over the chat, which is a dialog itself.
+    const choosing = marta.getByRole("dialog");
+    await expect(choosing).toContainText("Which Project is the Task in?");
+    await expect(choosing).toContainText("Usage reports");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-idea-card-project.png") });
+    await choosing.getByRole("button", { name: "Cancel" }).click();
+    await expect(choosing).toHaveCount(0);
+    await newIdea.getByRole("link", { name: "Open in Ideas" }).click();
+    await expect(page).toHaveURL(new RegExp(`/work/ideas\\?idea=${officeWide.id}`));
+  } finally {
+    await repository.remove();
+  }
 });

@@ -1,7 +1,9 @@
 import { Module } from "@nestjs/common";
+import { OfficeToolRegistry } from "../../engine/index.js";
 import type { FiveHourWindow, OfficeTask, OpenDecision, StageOfTask } from "../domain/now.js";
 import { AccountUsage } from "./account-usage.js";
 import { DeskLimit } from "./desk-limit.js";
+import { OfficeStatusCards } from "./office-status-cards.js";
 import { OfficeTasks } from "./office-tasks.js";
 import { OpenDecisions } from "./open-decisions.js";
 import { TaskStageProgress } from "./task-stage-progress.js";
@@ -56,14 +58,28 @@ export class AccountUsageForTests extends AccountUsage {
   current: { readonly fiveHour: FiveHourWindow } | undefined = undefined;
 }
 
+/** Keeps the sessions an Office status card was posted in. */
+export class OfficeStatusCardsForTests extends OfficeStatusCards {
+  readonly postedIn: string[] = [];
+
+  async postOfficeStatus(sessionId: string): Promise<void> {
+    this.postedIn.push(sessionId);
+  }
+}
+
 const PORTS = [
   OfficeTasksForTests,
   OpenDecisionsForTests,
   TaskStageProgressForTests,
   DeskLimitForTests,
   AccountUsageForTests,
+  OfficeStatusCardsForTests,
+  OfficeToolRegistry,
 ];
 
-/** Provides them all, for `NotificationsModule.register({ imports: [this module] })`. */
+/**
+ * Provides them all, and an Office tool registry of the test's own, for
+ * `NotificationsModule.register({ imports: [this module] })`.
+ */
 @Module({ providers: PORTS, exports: PORTS })
 export class NotificationsPortsForTestsModule {}

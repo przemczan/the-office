@@ -21,7 +21,6 @@
 - `record-block.tsx`: RecordBlock
 - `resume-words.ts`: ResumeWords, HeldWork, resumeWords, latestRunOf
 - `run-controls.tsx`: RunControls
-- `shape-idea-dialog.tsx`: ShapeIdeaDialog
 - `stage-words.ts`: STAGE_STATE_WORDS, StageNames, pipelineLabel, stageNamesOf, stageRule, stageProgressLine, latestHandoverNote, scriptCommandLine, firstLine, taskTokens
 - `start-action.tsx`: StartButton
 - `task-changes.tsx`: ChangesTab, ChangesView
@@ -29,7 +28,7 @@
 - `task-menu.tsx`: TaskMenu
 - `task-page.tsx`: TaskPage
 - `task-record.tsx`: TaskRecord
-- `use-planning.ts`: usePlanning, useIdeaPlanning, useReadyConditionsMet, useMarkingReady
+- `use-planning.ts`: usePlanning, useReadyConditionsMet, useMarkingReady
 - `use-shaping.ts`: useShaping
 - `work-page.tsx`: WorkPage
 - Tests: changes-words.test.ts, planning-words.test.ts, resume-words.test.ts, stage-words.test.ts

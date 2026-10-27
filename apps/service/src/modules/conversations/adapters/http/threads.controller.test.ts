@@ -592,17 +592,16 @@ describe("a Decision", () => {
   });
 });
 
-/** A chat Thread whose session drafted a Proposal of a new Role, which People would hire. */
-async function drafted(): Promise<{ readonly thread: Thread; readonly proposalId: string }> {
-  app.get(ProposalAppliers).register("hire", {
-    problemsWith: () => Promise.resolve([]),
-    apply: (hire) => Promise.resolve({ ...hire, roleKey: "tester" }),
-  });
+/** A Thread at `home` with a session of its own person, by the session's id. */
+async function withSession(home: (roleKey: string) => Thread["home"]): Promise<{
+  readonly thread: Thread;
+  readonly sessionId: string;
+}> {
   const roleKey = aPerson("Marta", true);
   const sessionId = randomUUID();
   const thread = aThread({
     id: randomUUID(),
-    home: { kind: "chat", roleKey },
+    home: home(roleKey),
     roleKey,
     session: {
       id: sessionId,
@@ -616,6 +615,16 @@ async function drafted(): Promise<{ readonly thread: Thread; readonly proposalId
     },
   });
   await app.get(ThreadRepository).add(thread);
+  return { thread, sessionId };
+}
+
+/** A chat Thread whose session drafted a Proposal of a new Role, which People would hire. */
+async function drafted(): Promise<{ readonly thread: Thread; readonly proposalId: string }> {
+  app.get(ProposalAppliers).register("hire", {
+    problemsWith: () => Promise.resolve([]),
+    apply: (hire) => Promise.resolve({ ...hire, roleKey: "tester" }),
+  });
+  const { thread, sessionId } = await withSession((roleKey) => ({ kind: "chat", roleKey }));
   const { id } = await app.get(ProposalService).draft(sessionId, {
     kind: "hire",
     card: aProposedCard(),
@@ -681,6 +690,36 @@ describe("a Proposal", () => {
       proposalId,
     });
     expect((await get(`/proposals/${randomUUID()}`)).status).toBe(404);
+  });
+});
+
+describe("an Idea's card and the Office status", () => {
+  it("show in the chat's log as their cards, as the web reads them", async () => {
+    const { thread, sessionId } = await withSession((roleKey) => ({ kind: "chat", roleKey }));
+    const ideaId = randomUUID();
+
+    await app.get(ThreadService).postIdeaCard(sessionId, ideaId);
+    await app.get(ThreadService).postOfficeStatus(sessionId);
+    const messages = messageListSchema.parse(
+      await (await get(`/threads/${thread.id}/messages`)).json(),
+    );
+
+    expect(messages.map(({ id: _id, at: _at, ...message }) => message)).toEqual([
+      { kind: "idea", roleKey: thread.roleKey, ideaId },
+      { kind: "office-status", roleKey: thread.roleKey },
+    ]);
+  });
+
+  it("are left out of a Thread on a Task, and of a session no Thread has", async () => {
+    const { thread, sessionId } = await withSession(() => ({
+      kind: "task",
+      taskId: randomUUID(),
+    }));
+
+    await app.get(ThreadService).postIdeaCard(sessionId, randomUUID());
+    await app.get(ThreadService).postOfficeStatus(randomUUID());
+
+    expect(await app.get(ThreadService).messages(thread.id)).toEqual([]);
   });
 });
 

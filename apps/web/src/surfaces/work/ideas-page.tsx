@@ -24,10 +24,10 @@ import { EmptyCard } from "../../shell/item-card.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { dayAndClockOf, dayOf } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
+import { ShapeIdeaDialog } from "../../shell/work/shape-idea-dialog.tsx";
+import { useIdeaPlanning } from "../../shell/work/use-idea-planning.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { authorName } from "../../shell/work/work-words.ts";
-import { ShapeIdeaDialog } from "./shape-idea-dialog.tsx";
-import { useIdeaPlanning } from "./use-planning.ts";
 import { useShaping } from "./use-shaping.ts";
 
 /**

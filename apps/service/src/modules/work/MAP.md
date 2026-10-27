@@ -2,7 +2,7 @@
 
 **Owns:** Ideas, Tasks (states, priority, manual order, Plan, Definition of Done, the Task's Pipeline id) and Attachments (`ideas`, `tasks`, `attachments`); Office settings in one row (`work_settings`, the Office-wide limit, which Settings › Office limits changes; the repository answers the default until it is saved); screenshots attached from Stages (`StageScreenshots`); the Office tools for Ideas and Tasks, whose records (`domain/record-words.ts`) are also what a mention in a chat gives the Agent, through Conversations' `WorkRecords` (which also gives a Link card its Task's title).
 
-**Talks to:** through ports bound in [app.module.ts](../../app.module.ts): `KnownProjects` to `ProjectService`, `ProjectWorktrees` to `TaskWorktrees`, `KnownPeople` to `RoleCards`, `KnownPipelines` to `PipelineLibrary`, `SessionPeople`, `SessionTasks` and `TaskThreads` to `ThreadService`, `TaskDecisions` to `DecisionService`. Pipelines reacts to its events and moves started Tasks through `TaskService`. Work applies Proposals of the Office-wide limit with `OfficeLimitProposals` (`adapters/conversations/`), which fills Conversations' `ProposalAppliers` as Work starts and judges one by the contracts' rule Settings saves by; `WorkPortsForTestsModule` provides the registry.
+**Talks to:** through ports bound in [app.module.ts](../../app.module.ts): `KnownProjects` to `ProjectService`, `ProjectWorktrees` to `TaskWorktrees`, `KnownPeople` to `RoleCards`, `KnownPipelines` to `PipelineLibrary`, `SessionPeople`, `SessionTasks`, `TaskThreads` and `IdeaCards` (the card `capture_idea` posts in the chat) to `ThreadService`, `TaskDecisions` to `DecisionService`. Pipelines reacts to its events and moves started Tasks through `TaskService`. Work applies Proposals of the Office-wide limit with `OfficeLimitProposals` (`adapters/conversations/`), which fills Conversations' `ProposalAppliers` as Work starts and judges one by the contracts' rule Settings saves by; `WorkPortsForTestsModule` provides the registry.
 
 **Traps:** the Task holds only its Pipeline's id; the Task's own copy of its Stages lives in Pipelines (`task_stages`), as decided with the user in task 10. Every test file shares the `work_settings` row each Start reads: a test that lowers the limit overrides `WorkSettings` with `WorkSettingsForTests`.
 
@@ -92,7 +92,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 
 - `attachment-office-tools.ts`: ATTACH_FILE, ATTACH_LINK, AttachmentOfficeTools
 - `planning-office-tools.ts`: WRITE_PLAN, WRITE_DEFINITION_OF_DONE, PROPOSE_PIPELINE, READ_ATTACHMENT, DOCUMENT_READ_LIMIT, PlanningOfficeTools
-- `work-office-tools.ts`: LIST_TASKS, READ_TASK, LIST_IDEAS, READ_IDEA, CAPTURE_IDEA, CREATE_TASK, WorkOfficeTools
+- `work-office-tools.ts`: LIST_TASKS, READ_TASK, LIST_IDEAS, READ_IDEA, CREATE_TASK, WorkOfficeTools
 - `work-tool-answers.ts`: OfficeToolResult, WorkToolRefused, answered
 - Tests: attachment-office-tools.test.ts, planning-office-tools.test.ts, work-office-tools.test.ts
 
@@ -156,6 +156,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 
 - `attachment-files.ts`: AttachmentFiles
 - `attachment-repository.ts`: AttachmentRepository
+- `idea-cards.ts`: IdeaCards
 - `idea-repository.ts`: IdeaUpdate, ShapedIdea, IdeaRepository
 - `known-people.ts`: KnownPeople, KnownPerson
 - `known-pipelines.ts`: KnownPipelines
@@ -166,6 +167,6 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `task-decisions.ts`: TaskDecisions
 - `task-repository.ts`: TaskUpdate, NeighbourIds, TaskRepository
 - `task-threads.ts`: TaskThreadOpening, TaskThreads
-- `work-ports.fixtures.ts`: UNKNOWN_PROJECT, KnownProjectsForTests, ProjectWorktreesForTests, KnownPeopleForTests, WorkSettingsForTests, SessionPeopleForTests, UNKNOWN_SESSION, SessionTasksForTests, TaskThreadsForTests, TaskDecisionsForTests, WorkPortsForTestsModule
+- `work-ports.fixtures.ts`: UNKNOWN_PROJECT, KnownProjectsForTests, ProjectWorktreesForTests, KnownPeopleForTests, WorkSettingsForTests, SessionPeopleForTests, UNKNOWN_SESSION, IdeaCardsForTests, SessionTasksForTests, TaskThreadsForTests, TaskDecisionsForTests, WorkPortsForTestsModule
 - `work-settings.ts`: WorkSettings
 - `worktree-files.ts`: WorktreeFile, WorktreeFileLimits, WorktreeFiles

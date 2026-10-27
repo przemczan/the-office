@@ -1,4 +1,5 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
+import { CAPTURE_IDEA_TOOL } from "@the-office/contracts";
 import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
@@ -9,6 +10,7 @@ import type { Idea } from "../../domain/idea.js";
 import { ideaRecordText, taskRecordText, whereOf } from "../../domain/record-words.js";
 import { PRIORITIES, type Task } from "../../domain/task.js";
 import { TASK_STATE_NAMES } from "../../domain/task-states.js";
+import { IdeaCards } from "../../ports/idea-cards.js";
 import { SessionPeople } from "../../ports/session-people.js";
 import { answered, WorkToolRefused } from "./work-tool-answers.js";
 
@@ -16,7 +18,6 @@ export const LIST_TASKS = "list_tasks";
 export const READ_TASK = "read_task";
 export const LIST_IDEAS = "list_ideas";
 export const READ_IDEA = "read_idea";
-export const CAPTURE_IDEA = "capture_idea";
 export const CREATE_TASK = "create_task";
 
 /**
@@ -31,6 +32,7 @@ export class WorkOfficeTools implements OnModuleInit {
     private readonly ideas: IdeaService,
     private readonly attachments: AttachmentService,
     private readonly sessionPeople: SessionPeople,
+    private readonly ideaCards: IdeaCards,
   ) {}
 
   onModuleInit(): void {
@@ -108,7 +110,7 @@ export class WorkOfficeTools implements OnModuleInit {
 
   private registerCaptureIdea(): void {
     this.registry.register({
-      name: CAPTURE_IDEA,
+      name: CAPTURE_IDEA_TOOL,
       description:
         "Captures an Idea in your name, in a Project or Office-wide, when the user asks for one or agrees to it. The user shapes it into a Task later.",
       input: z.object({
@@ -125,7 +127,8 @@ export class WorkOfficeTools implements OnModuleInit {
             { title, notes: notes ?? "", projectId },
             await this.personIn(sessionId),
           );
-          return `Captured the Idea "${idea.title}" (Idea ${idea.id}), ${whereOf(idea.projectId)}.`;
+          await this.ideaCards.postIdeaCard(sessionId, idea.id);
+          return `Captured the Idea "${idea.title}" (Idea ${idea.id}), ${whereOf(idea.projectId)}. Its card is in this chat, for the user to plan it from.`;
         }),
     });
   }

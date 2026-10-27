@@ -25,6 +25,8 @@ export type MessageDraft =
   | DecisionAnswerLine
   | ProposalCard
   | LinkCard
+  | IdeaCard
+  | OfficeStatusCard
   | ContextLine
   | StageWorkClosing;
 
@@ -132,4 +134,20 @@ interface LinkCard {
   /** The Task they are pointed to about, if any; the note links to it. */
   readonly taskId: string | undefined;
   readonly note: string;
+}
+
+/** An Idea the person captured in a chat, shown as its card; Work holds the Idea and its state. */
+export interface IdeaCard {
+  readonly kind: "idea";
+  readonly roleKey: string;
+  readonly ideaId: string;
+}
+
+/**
+ * The Office Manager shows the Office status (spec §2.2): who is on what and what waits on the
+ * user, Office-wide, read from Now whenever the card is shown, never kept on it.
+ */
+export interface OfficeStatusCard {
+  readonly kind: "office-status";
+  readonly roleKey: string;
 }

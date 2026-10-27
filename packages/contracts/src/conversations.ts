@@ -192,6 +192,12 @@ export const PROPOSE_OFFICE_SETTING_TOOL = "propose_office_setting";
 /** The Office tool the Office Manager posts a Link card with, hidden alike behind the card. */
 export const POST_LINK_CARD_TOOL = "post_link_card";
 
+/** The Office tool a chat captures an Idea with, hidden alike behind the Idea's card. */
+export const CAPTURE_IDEA_TOOL = "capture_idea";
+
+/** The Office tool the Office Manager shows the Office status with, hidden alike behind its card. */
+export const SHOW_OFFICE_STATUS_TOOL = "show_office_status";
+
 /** The fields of a Role card a change rewrites, each one whole; skills aren't among them. */
 const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).partial();
 
@@ -353,6 +359,13 @@ export const messageSchema = z.discriminatedUnion("kind", [
     taskId: z.uuid().nullable(),
     note: z.string(),
   }),
+  /** An Idea the person captured in the chat (`roleKey`), shown as its card: GET /ideas/:id reads it. */
+  z.object({ ...messageFields, kind: z.literal("idea"), roleKey: z.string(), ideaId: z.uuid() }),
+  /**
+   * The Office Manager (`roleKey`) shows the Office status: Office-wide, who is on what and what
+   * waits on the user, read from GET /now whenever the card is shown.
+   */
+  z.object({ ...messageFields, kind: z.literal("office-status"), roleKey: z.string() }),
   /** A tool call that was refused, with the reason the person read. */
   z.object({
     ...messageFields,

@@ -69,10 +69,14 @@ export const PROPOSE_OFFICE_SETTING_TOOL = "propose_office_setting";
 /** The Office tool the Office Manager points the user to someone with, a Link card; named as above. */
 export const POST_LINK_CARD_TOOL = "post_link_card";
 
+/** The Office tool the Office Manager shows the Office status with, which Notifications registers. */
+export const SHOW_OFFICE_STATUS_TOOL = "show_office_status";
+
 /**
  * A chat's Office tools for the Role's person: the Office Manager doesn't turn work into Tasks but
  * points to the Planner, so it never creates one; it drafts Roles and Office settings as Proposals
- * the user applies, and points the user to whoever is responsible with a Link card (ticket 06).
+ * the user applies, points the user to whoever is responsible with a Link card, and shows the
+ * Office status (ticket 06).
  */
 export function chatOfficeTools(roleKey: string): readonly string[] {
   return roleKey === OFFICE_MANAGER
@@ -81,6 +85,7 @@ export function chatOfficeTools(roleKey: string): readonly string[] {
         PROPOSE_ROLE_TOOL,
         PROPOSE_OFFICE_SETTING_TOOL,
         POST_LINK_CARD_TOOL,
+        SHOW_OFFICE_STATUS_TOOL,
       ]
     : CHAT_OFFICE_TOOLS;
 }
