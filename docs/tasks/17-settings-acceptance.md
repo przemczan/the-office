@@ -1,6 +1,6 @@
 # 17 · Settings, and the tier 1 acceptance run
 
-Status: in progress
+Status: done
 
 ## Goal
 
@@ -12,7 +12,7 @@ Settings gains the rest of its tier 1 sections, Office limits and Appearance, ne
 - [x] Settings → Appearance switches Light, Dark and "Follow the system", kept across reloads. Check: Playwright in each. (`settings.e2e.ts`: "switches Light, Dark and Follow the system, each kept across reloads".)
 - [x] The tier 1 test passes on the Test Project: a real Task is planned in a Thread with the Planner, runs a built-in Pipeline with a Gate added for this Task, passes the Gate on the Changes tab and publishes, and every Thread shows its Context policy label and token counts. Check: the run, logged below with its Task, tokens per Thread and the PR or merge. ("Test task #2", 2026-10-27, PR #3; see State.)
 - [x] The Office runs on Linux: the service starts there, adds the Test Project, and runs a Quick fix Task through to a Gate. Check: on the Linux system the user names (a WSL distribution or another machine), logged below. (The LXC at 10.1.1.66, 2026-10-27; see State.)
-- [ ] The user has said whether they would pick The Office over a regular Claude Code session for that piece of work, and every problem the run surfaced is written down for them with a proposed fix. Check: the Progress log.
+- [x] The user has said whether they would pick The Office over a regular Claude Code session for that piece of work, and every problem the run surfaced is written down for them with a proposed fix. Check: the Progress log.
 
 ## Read first
 
@@ -30,7 +30,7 @@ Leave out: the Pipeline library, the Notifications grid, the Graphite and Paper 
   Read: [spec 3, tier 1](../spec/3-capabilities-by-tier.md#tier-1-the-base) (the test), [test-project.md](test-project.md).
 - [x] 4. The Linux run on the system the user names; log what differed from Windows. Commit.
   Read: [build-defaults.md](build-defaults.md) (Windows and Linux).
-- [ ] 5. Write the problems found, each with a proposed fix, and the user's verdict into Progress, mark tier 1 done in [README.md](README.md) and tell the user that tier 2 is sliced next. Commit.
+- [x] 5. Write the problems found, each with a proposed fix, and the user's verdict into Progress, mark tier 1 done in [README.md](README.md) and tell the user that tier 2 is sliced next. Commit.
   Read: [coverage.md](coverage.md).
 
 ## State
@@ -47,13 +47,8 @@ Leave out: the Pipeline library, the Notifications grid, the Graphite and Paper 
   - Tokens: a Thread's count includes cache reads (~90%); show it without them, with the breakdown and what it means behind an info icon.
 - The user's verdict (2026-10-27): they would pick The Office over a regular Claude Code session for this piece of work. PRs #2 and #3 closed and their branches deleted.
 - Step 4, Linux (the user named the LXC, 10.1.1.66; Ubuntu 24.04, Node 22.23.3): `git archive HEAD` of 3769f60 to `/root/the-office-17`, `npm ci`, `npm run build`, `npm start` on port 4320 with its own Postgres (`docker compose -p office17 up -d postgres`, port 5442), `OFFICE_DATA_DIR=/root/office-data-17`, telemetry off. Driven through the API (`linux-run.mjs`, kept out of the repo): the Test Project (a clone at `/root/notnullsoft-admin-17`) added, Planner and Developer hired on Haiku at low effort, the Idea shaped and planned, Quick fix with a Gate added before Publish. Implement changed both labels in one commit, Tests passed, the Task waits at the Gate. Planning 59k shown (output 1.3k, writes 31k, reads 27k); Implement 89k (output 1.2k, writes 34k, reads 55k). Nothing differed from Windows: no error in the service's log, paths and the worktree under the data directory as on Windows. The service is left running there for the user to look at through `ssh -L 4320:127.0.0.1:4320`.
-- Next: step 5, the problems above each with a proposed fix, tier 1 marked done, then tell the user tier 2 is sliced next.
+- Done: tier 1 is closed. The LXC service (`/root/the-office-17`, port 4320, compose project `office17`) is still running for the user. Next: slicing tier 2, with the archived problems as input.
 
 ## Progress
 
-<!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next. The detail goes in the commit body. -->
-
-- 2026-10-27 · step 1: Settings › Office limits edits the Office-wide limit (Work) and the Context policy's size threshold (Conversations), each read at the next Start or continuation; next, step 2, Appearance.
-- 2026-10-27 · step 2: Settings › Appearance switches Light, Dark and Follow the system, kept in the browser; next, step 3, the acceptance run on the Test Project with the user.
-- 2026-10-27 · step 3: two runs on the Test Project; the second, Full with a Gate added, passed the Gate and published PR #3; the user's findings logged in State. Next, the user's verdict and step 4 on Linux.
-- 2026-10-27 · step 4: on the LXC the service starts, adds the Test Project and walks a Quick fix Task with an added Gate to that Gate; nothing differed from Windows. Next, step 5, the problems with their fixes.
+The log is archived in [archive/17-settings-acceptance.md](archive/17-settings-acceptance.md), with the user's verdict and the problems the acceptance runs surfaced, each with a proposed fix.
