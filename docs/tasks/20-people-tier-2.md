@@ -1,0 +1,51 @@
+# 20 · People: hiring from scratch, letting go, editable profiles, Consultants, mentions
+
+Status: in progress
+
+## Goal
+
+The user can hire a person from scratch, let a person go, edit permission profiles, and have an enforced Hard switch's call held. Agents consult Consultants in a Consultation sub-thread on the Task, with escalation up to two steps, and any Task, Initiative, Idea or Decision can be mentioned in a chat. Spec [2.2](../spec/2.2-people.md), [2.4](../spec/2.4-conversations.md), [6](../spec/6-permissions-and-safety.md); coverage rows in [coverage.md](coverage.md) (§2.2/§6 and §2.2/§2.4, task 20).
+
+## Definition of Done
+
+- [ ] Hiring from scratch: the user hires a person without a preset, filling the whole Role card; a Role hired this way works like a preset one. Check: a service test of `hire` with no preset; Playwright hiring one.
+- [ ] Editable profiles: the permission profile can be edited on the Role card and applies at the next session start. Check: a service test; Playwright editing a profile.
+- [ ] Letting go: letting a Role go pauses its running Tasks behind a Decision and flags Pipelines that name it; its Memory and chats are kept, unused and readable. Check: a service test through the scripted engine; Playwright letting a person go.
+- [ ] Held calls: a Role that holds "change Roles" (or another enforced Hard switch) has the call held until the Hard switch's value allows it (Allowed, Consult, Ask me, Never); "change Roles" is no longer refused as Never on the Role card. Check: a service test per value.
+- [ ] Consultations: an Agent consulting a hired Consultant opens a Consultation sub-thread on the Task, labelled with both; the Consultant answers in a fresh session with its memory and the Task's brief; the user can read it live, join or take it over. Check: a service test through the scripted engine; Playwright reading and joining one.
+- [ ] Escalation: a Consultant asked to approve answers Allow once, Deny or Pass on, at most two steps up (e.g. Devops → CTO → the user); a person not hired falls back to the user. Check: a service test of a two-step chain and of the fallback.
+- [ ] Mentions: a Task, Initiative, Idea or Decision can be mentioned in a chat by link or `@`, and the Agent there can read its record. Check: a service test that the mentioned record reaches the Brief; Playwright with `@`.
+- [ ] `npm run verify` and `npm run verify:linux` pass, and the user has looked at hiring, letting go, a Consultation and a mention in the running app. Check: the commands; the user's word, logged.
+
+## Read first
+
+- [People module map](../../apps/service/src/modules/people/MAP.md) (`role-changes.ts`, `hard-switches.ts`, `RolesController.hire`) and the [People surface map](../../apps/web/src/surfaces/people/MAP.md).
+- [Conversations module map](../../apps/service/src/modules/conversations/MAP.md) (`consult.ts`: `Consult`, `consultDecision`).
+
+Leave out: the Office Manager and Proposals (task 21); Initiatives and the CTO's shaping (task 22); searching mentions (task 23); a Consultant whose Role is a Crew Role beyond what the capability already allows.
+
+## Steps
+
+- [ ] 1. Hire from scratch and edit permission profiles: a hire without a preset, the Role card form for it, and an editable profile. Commit.
+  Read: `role-changes.ts` (`hire`), `RolesController.hire`, the Role card form and `role-card-labels.ts` in the People surface, by symbol; [permissions spec 6](../spec/6-permissions-and-safety.md) for the profile.
+- [ ] 2. Let a person go: pause its running Tasks behind a Decision, flag Pipelines naming it, keep Memory and chats. Commit.
+  Read: the Work and Pipelines module maps for how a Task is paused and how a Pipeline names a Role; the Decision code in Conversations, by symbol.
+- [ ] 3. Hold an enforced Hard switch's call, and lift the "change Roles stays Never" refusal. Commit.
+  Read: `hard-switches.ts` (`HARD_SWITCH_ENFORCEMENT`, `hardSwitchesProblems`), the Engine's `office-rules-hook`, by range.
+- [ ] 4. Consultants and the Consultation sub-thread on the Task: open, label, read live, join or take over. Commit.
+  Read: `consult.ts`, the Thread kinds in Conversations, `OfficeToolRegistry`; the click-through's Consultation parts by grep.
+- [ ] 5. Escalation up to two steps and the fall back to the user for a missing person. Commit.
+  Read: `consult.ts` and the Consultation code from step 4; the Hard switch values.
+- [ ] 6. Mentions: link and `@` in a chat, the record reaching the Brief. Commit.
+  Read: `briefs.ts`, `brief.ts` by range; the Composer in `shell/conversation/composer.tsx`.
+- [ ] 7. The user looks at hiring, letting go, a Consultation and a mention; `npm run verify:linux`; close the task. Commit.
+  Read: [testing](../../apps/service/docs/testing.md) for the live check; [test-project.md](test-project.md).
+
+## State
+
+- Sliced with the user (2026-10-27): one task with these 7 steps, not two.
+- Tier 1 behaviour to build on: every consult goes to the user; "change Roles" is Never and refused otherwise; the Role card marks it enforced by The Office.
+
+## Progress
+
+- 2026-10-27 · slicing: task file written with the user's choice of one task; next, step 1.
