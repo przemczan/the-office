@@ -1,4 +1,6 @@
-# Coverage: tier 1
+# Coverage
+
+## Tier 1
 
 Every tier 1 item of the spec and the task that builds it. A row with no task is a gap; a tier 2 item in a task is scope creep.
 
@@ -46,3 +48,26 @@ Every tier 1 item of the spec and the task that builds it. A row with no task is
 | §2.7 | Notifications in-app and desktop; the kinds tree; desktop only when the tab is not focused; Office kinds without a person | 16 |
 | §3 | Settings: Office limits, appearance | 17 |
 | §3 | The tier 1 test, end to end on the Test Project | 17 |
+
+## Tier 2
+
+Every tier 2 item of [spec 3](../spec/3-capabilities-by-tier.md#tier-2-the-all-day-workspace) and the task that builds it. Rows are refined, with spec sections, as each task's file is written.
+
+| Spec | Item | Task |
+|---|---|---|
+| §3 (tier 1 run) | The thirteen problems the tier 1 acceptance run surfaced | 18 |
+| §2.2, §8 | Shared memory, its Memory tab and delete actions; Memory on for the Planner | 19 |
+| §2.2, §6 | Hiring from scratch; letting go; editable permission profiles; holding an enforced Hard switch's call | 20 |
+| §2.2, §2.4 | Consultants and Consultations, escalation up to two steps; mentions | 20 |
+| §2.2 | The Office Manager: Proposals, redirects, capturing Ideas, the status view | 21 |
+| §2.1, §2.2 | The CTO; Initiatives and their Task graph; dependencies | 22 |
+| §2.1 | Tags, full-text search, saved views; the Project filter | 23 |
+| §2.3, §2.2 | The Pipeline library editor; Devops owning the library and Project commands by Proposal; the proof-of-concept publish target | 24 |
+| §2.1, §8 | Onboarding a Project through Devops | 24 |
+| §2.6 | Installing skills from a source; update Proposals | 25 |
+| §2.1, §8 | Several Tasks in progress per Project, with conflicts handled; a queue for Start | 26 |
+| §2.7 | The kinds × channels grid; quiet hours; batching; the at-desk hold | 27 |
+| §2.8 | The fire alarm and the all clear | 27 |
+| §4, §2.7 | The phone: HTTPS on the LAN with a local certificate authority, the PIN, the installed app, phone views, phone push | 28 |
+| §5.1, §5.4 | Start at login (a Windows service or scheduled task; a systemd user service); the `-p` fallback adapter | 29 |
+| §3 | The tier 2 test, all day from the desk and the phone | 30 |

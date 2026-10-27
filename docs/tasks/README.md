@@ -1,6 +1,10 @@
-# Build tasks: tier 1
+# Build tasks
 
-Tier 1 of [the spec](../spec/3-capabilities-by-tier.md#tier-1-the-base), sliced into tasks in build order. The current task is the first row that is not `done`. How a session works through a task is in [CLAUDE.md](../../CLAUDE.md).
+[The spec](../spec/3-capabilities-by-tier.md)'s tiers, sliced into tasks in build order. The current task is the first row that is not `done`. How a session works through a task is in [CLAUDE.md](../../CLAUDE.md).
+
+## Tier 1: the base
+
+Done 2026-10-27. The problems its acceptance run surfaced are in [archive/17-settings-acceptance.md](archive/17-settings-acceptance.md); task 18 fixes them.
 
 | # | Task | Surface | Status |
 |---|---|---|---|
@@ -22,11 +26,29 @@ Tier 1 of [the spec](../spec/3-capabilities-by-tier.md#tier-1-the-base), sliced 
 | 16 | [Now, the status strip and Notifications](16-now-notifications.md) | Now | done |
 | 17 | [Settings, and the tier 1 acceptance run](17-settings-acceptance.md) | Settings | done |
 
-Tier 1 is done (2026-10-27). The problems its acceptance run surfaced, each with a proposed fix, are in [archive/17-settings-acceptance.md](archive/17-settings-acceptance.md), for slicing tier 2.
+## Tier 2: the all-day workspace
+
+Order accepted by the user on 2026-10-27. A task's file is written when it becomes current, after the [open questions](../spec/8-open-questions-and-risks.md) it needs are settled with the user; a row without a link has no file yet.
+
+| # | Task | Surface | Status |
+|---|---|---|---|
+| 18 | [Tier 1 fixes: the acceptance run's problems](18-tier-1-fixes.md) | Work and the Task page | in progress |
+| 19 | Shared memory and the Memory tab | People | todo |
+| 20 | People: hiring from scratch, letting go, editable profiles, Consultants, mentions | People | todo |
+| 21 | The Office Manager and Proposals | People | todo |
+| 22 | The CTO, Initiatives and dependencies | Work | todo |
+| 23 | Tags, search, saved views and the Project filter | Work | todo |
+| 24 | Devops: the Pipeline library, Project commands by Proposal, onboarding | Projects | todo |
+| 25 | Skills from a source, and update Proposals | Settings | todo |
+| 26 | Parallel work in a Project, and a queue for Start | Work and the Task page | todo |
+| 27 | Notifications: the kinds × channels grid, quiet hours, batching; the fire alarm | Now | todo |
+| 28 | The phone: HTTPS on the LAN, the PIN, the installed app, phone views and push | Phone | todo |
+| 29 | Running: start at login, the `-p` fallback adapter | Foundation | todo |
+| 30 | The tier 2 acceptance run | All | todo |
 
 Read these only when a step needs them:
 
 - [build-defaults.md](build-defaults.md): choices the spec leaves open (Windows and Linux, the workspace layout, the checks, the Office data directory, the scripted engine adapter). Change one only with the user.
 - [test-project.md](test-project.md): the Project a task's check runs on.
-- [coverage.md](coverage.md): every tier 1 spec item and the task that builds it, for slicing a tier and closing one.
+- [coverage.md](coverage.md): every spec item of a tier and the task that builds it, for slicing a tier and closing one.
 - [archive/](archive/): the full Progress logs of finished tasks. A session reads one only to trace why something was done; the module maps hold what was built.
