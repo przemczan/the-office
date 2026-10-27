@@ -820,6 +820,7 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     const READY = "My work is ready for your look at UI acceptance.";
     await expect(page.locator(".toasts").getByText(READY)).toBeVisible();
     await expect(page).toHaveTitle(/^\(\d+\) The Office$/);
+    await expect(page.locator("link[rel='icon']")).toHaveAttribute("href", /^data:image\/png/);
     expect(await desktopShown(page)).toEqual([]);
 
     const gate = page.getByRole("region", { name: "Gate · UI acceptance" });

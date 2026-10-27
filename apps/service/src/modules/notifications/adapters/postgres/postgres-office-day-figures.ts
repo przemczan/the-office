@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { count, eq, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import { OfficeDayFigures } from "../../ports/office-day-figures.js";
+import { OfficeDayFigures, type ThreadTokens } from "../../ports/office-day-figures.js";
 import { dayTokens, tasksTouched, threadTokenCounts } from "./notifications.schema.js";
 
 @Injectable()
@@ -10,19 +10,23 @@ export class PostgresOfficeDayFigures extends OfficeDayFigures {
     super();
   }
 
-  async countThreadTokens(threadId: string, tokensSoFar: number, day: string): Promise<void> {
+  async countThreadTokens(
+    threadId: string,
+    { endedTurns, soFar }: ThreadTokens,
+    day: string,
+  ): Promise<void> {
     await this.database.transaction(async (transaction) => {
       const [previous] = await transaction
         .select({ tokens: threadTokenCounts.tokens })
         .from(threadTokenCounts)
         .where(eq(threadTokenCounts.threadId, threadId))
         .for("update");
-      const grown = tokensSoFar - (previous?.tokens ?? 0);
+      const grown = soFar - (previous?.tokens ?? endedTurns);
       if (grown === 0) return;
       await transaction
         .insert(threadTokenCounts)
-        .values({ threadId, tokens: tokensSoFar })
-        .onConflictDoUpdate({ target: threadTokenCounts.threadId, set: { tokens: tokensSoFar } });
+        .values({ threadId, tokens: soFar })
+        .onConflictDoUpdate({ target: threadTokenCounts.threadId, set: { tokens: soFar } });
       await transaction
         .insert(dayTokens)
         .values({ day, tokens: grown })

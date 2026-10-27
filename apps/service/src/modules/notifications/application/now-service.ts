@@ -153,10 +153,10 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     });
     for (const eventClass of [TokensCounted, TurnEnded]) {
       this.events.subscribe(eventClass, async ({ thread, occurredAt }) => {
-        const { tokens, runningTurnTokens } = thread;
+        const endedTurns = allKinds(thread.tokens);
         await this.figures.countThreadTokens(
           thread.id,
-          allKinds(tokens) + allKinds(runningTurnTokens),
+          { endedTurns, soFar: endedTurns + allKinds(thread.runningTurnTokens) },
           officeDayOf(occurredAt),
         );
         this.announceInBackground();

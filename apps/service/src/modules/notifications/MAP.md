@@ -81,7 +81,7 @@ NotificationsModule
 - `desk-limit.ts`: DeskLimit
 - `notification-repository.ts`: NotificationRepository
 - `notifications-ports.fixtures.ts`: OfficeTasksForTests, OpenDecisionsForTests, TaskStageProgressForTests, DeskLimitForTests, AccountUsageForTests, NotificationsPortsForTestsModule
-- `office-day-figures.ts`: OfficeDayFigures
+- `office-day-figures.ts`: ThreadTokens, OfficeDayFigures
 - `office-tasks.ts`: OfficeTasks
 - `open-decisions.ts`: OpenDecisions
 - `task-outcome-repository.ts`: TaskOutcomeRepository

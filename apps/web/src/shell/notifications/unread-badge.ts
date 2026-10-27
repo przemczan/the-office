@@ -1,8 +1,6 @@
 import { useEffect } from "react";
 import { titleWithUnread } from "./notification-words.ts";
 
-/** The favicon as index.html links it, which the badge is drawn over. */
-const FAVICON = "/favicon.svg";
 const SIZE = 64;
 
 /**
@@ -13,9 +11,10 @@ export function useUnreadBadge(unread: number): void {
   useEffect(() => {
     document.title = titleWithUnread(unread);
     let current = true;
+    const link = iconLink();
     const showBadge = async (): Promise<void> => {
-      const href = await faviconWith(unread);
-      if (current) iconLink().href = href;
+      const href = await faviconWith(link.dataset["favicon"] ?? link.href, unread);
+      if (current) link.href = href;
     };
     void showBadge();
     return () => {
@@ -24,26 +23,37 @@ export function useUnreadBadge(unread: number): void {
   }, [unread]);
 }
 
+/**
+ * The favicon the design system's Vite plugin links, keeping its own address beside the one shown,
+ * so each badge is drawn over the plain favicon.
+ */
 function iconLink(): HTMLLinkElement {
-  const existing = document.querySelector<HTMLLinkElement>("link[rel='icon']");
-  if (existing) return existing;
-  const link = document.createElement("link");
-  link.rel = "icon";
-  document.head.append(link);
+  const link =
+    document.querySelector<HTMLLinkElement>("link[rel='icon']") ?? document.createElement("link");
+  if (!link.isConnected) {
+    link.rel = "icon";
+    document.head.append(link);
+  }
+  link.dataset["favicon"] ??= link.href;
   return link;
 }
 
 /** The favicon itself while nothing is unread; drawn with the count in a dot otherwise. */
-async function faviconWith(unread: number): Promise<string> {
-  if (unread === 0) return FAVICON;
+async function faviconWith(favicon: string, unread: number): Promise<string> {
+  if (unread === 0) return favicon;
   const image = new Image();
-  image.src = FAVICON;
-  await image.decode();
+  image.src = favicon;
+  // A favicon that can't be drawn stays as it is; the title still counts.
+  const decoded = await image.decode().then(
+    () => true,
+    () => false,
+  );
+  if (!decoded) return favicon;
   const canvas = document.createElement("canvas");
   canvas.width = SIZE;
   canvas.height = SIZE;
   const context = canvas.getContext("2d");
-  if (!context) return FAVICON;
+  if (!context) return favicon;
   context.drawImage(image, 0, 0, SIZE, SIZE);
   const radius = SIZE * 0.3;
   context.beginPath();

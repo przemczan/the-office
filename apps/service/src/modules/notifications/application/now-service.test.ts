@@ -145,7 +145,7 @@ describe("NowService", () => {
     const threadId = randomUUID();
     const taskId = randomUUID();
 
-    await events.publish(new TokensCounted(threadWith(threadId, 100, 50), new Date()));
+    await events.publish(new TokensCounted(threadWith(threadId, 0, 150), new Date()));
     // The turn's own count replaces the running one: 140 in all, not 290.
     await events.publish(new TurnEnded(threadWith(threadId, 140, 0), new Date()));
     await events.publish(new StageRunStarted(taskId, randomUUID(), "build"));
@@ -154,6 +154,14 @@ describe("NowService", () => {
     const now = await readNow();
     expect(now.tokensToday - before.tokensToday).toBe(140);
     expect(now.tasksTouched - before.tasksTouched).toBe(1);
+  });
+
+  it("counts a Thread first seen with earlier turns from those turns, not from nothing", async () => {
+    const before = await readNow();
+
+    await events.publish(new TokensCounted(threadWith(randomUUID(), 5_000, 30), new Date()));
+
+    expect((await readNow()).tokensToday - before.tokensToday).toBe(30);
   });
 
   it("sends Now to the web whole", async () => {
