@@ -1,16 +1,20 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
+  memoryNoteSchema,
+  memorySchema,
   presetListSchema,
   roleCardOptionsSchema,
   roleChangeListSchema,
   roleListSchema,
   roleSchema,
   type Hire,
+  type MemoryNote,
+  type MemoryNoteDraft,
   type Role,
   type RoleCardEdit,
   type RoleWebEvent,
 } from "@the-office/contracts";
-import { getFromApi, sendToApi } from "./api-client.ts";
+import { deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
 const ROLES = ["roles"] as const;
@@ -32,6 +36,12 @@ export const roleQueries = {
     queryOptions({
       queryKey: [...ROLES, key, "changes"],
       queryFn: ({ signal }) => getFromApi(`${rolePath(key)}/changes`, roleChangeListSchema, signal),
+    }),
+  /** The person's Memory, newest note first. */
+  memory: (key: string) =>
+    queryOptions({
+      queryKey: [...ROLES, key, "memory"],
+      queryFn: ({ signal }) => getFromApi(memoryPath(key), memorySchema, signal),
     }),
 };
 
@@ -60,6 +70,19 @@ export function changeRoleCard(key: string, card: RoleCardEdit): Promise<Role> {
   return sendToApi("PUT", `${rolePath(key)}/card`, card, roleSchema);
 }
 
+export function addMemoryNote(key: string, note: MemoryNoteDraft): Promise<MemoryNote> {
+  return sendToApi("POST", memoryPath(key), note, memoryNoteSchema);
+}
+
+export function deleteMemoryNote(key: string, noteId: string): Promise<void> {
+  return deleteFromApi(`${memoryPath(key)}/${encodeURIComponent(noteId)}`);
+}
+
+/** Deletes every note: the memory starts over. */
+export function clearMemory(key: string): Promise<void> {
+  return deleteFromApi(memoryPath(key));
+}
+
 /**
  * Every People event makes the Roles stale; ["roles"] also covers each Role's own queries. A hire
  * also changes who the other Roles' Consult values reach.
@@ -74,4 +97,8 @@ export const roleEventInvalidations: Readonly<
 
 function rolePath(key: string): `/${string}` {
   return `/roles/${encodeURIComponent(key)}`;
+}
+
+function memoryPath(key: string): `/${string}` {
+  return `${rolePath(key)}/memory`;
 }

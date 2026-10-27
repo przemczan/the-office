@@ -10,6 +10,7 @@ import { NowPage } from "./surfaces/now/now-page.tsx";
 import { OverviewTab } from "./surfaces/people/overview-tab.tsx";
 import { PeoplePage } from "./surfaces/people/people-page.tsx";
 import { ConversationsTab } from "./surfaces/people/conversations-tab.tsx";
+import { MemoryTab } from "./surfaces/people/memory-tab.tsx";
 import { PersonPage } from "./surfaces/people/person-page.tsx";
 import { RoleCardEditPage } from "./surfaces/people/role-card-form.tsx";
 import { RoleCardTab } from "./surfaces/people/role-card-tab.tsx";
@@ -152,6 +153,13 @@ const conversationsRoute = createRoute({
   staticData: { title: "People" },
 });
 
+const memoryRoute = createRoute({
+  getParentRoute: () => personRoute,
+  path: "memory",
+  component: MemoryTab,
+  staticData: { title: "People" },
+});
+
 const roleCardRoute = createRoute({
   getParentRoute: () => personRoute,
   path: "role",
@@ -229,6 +237,7 @@ export const router = createRouter({
       personOverviewRoute,
       personWorkRoute,
       conversationsRoute,
+      memoryRoute,
       roleCardRoute,
       roleCardEditRoute,
     ]),

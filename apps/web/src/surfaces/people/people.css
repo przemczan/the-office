@@ -505,3 +505,66 @@
   font: 500 13px/1.35 var(--font-sans);
   color: var(--fg-1);
 }
+
+/* ---- the Memory tab: notes under the Project they are about */
+.memory-group {
+  margin-top: 14px;
+}
+
+.memory-group-title {
+  margin: 0 0 4px;
+  font: var(--type-caption);
+  font-weight: 600;
+  color: var(--fg-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.memory-notes {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.memory-note {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.memory-note-text {
+  margin: 0;
+  font: var(--type-body-sm);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.memory-note-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  align-items: center;
+  margin-top: 6px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.memory-note-meta .button {
+  margin-left: auto;
+}
+
+.memory-note-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+}
+
+.memory-add {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}

@@ -32,7 +32,7 @@ Leave out: Consultants and mentions (task 20); the Office Manager's use of memor
   Read: `decision-office-tools.ts`, `people-office-tools.ts` and `OfficeToolRegistry`, by range; `CHAT_OFFICE_TOOLS` in `session-instructions.ts`.
 - [x] 3. Reading into the Brief: the selection by Project, the cap, the "N older notes left out" line; the Planner's Memory on. Commit.
   Read: `briefs.ts` and `brief.ts` (`newChatThreadBrief`, `freshChatThreadBrief`, `taskThreadBrief`), by range; the Planner preset.
-- [ ] 4. The Memory tab: notes by Project, add a note, delete one, delete all, the not-in-use state. Commit.
+- [x] 4. The Memory tab: notes by Project, add a note, delete one, delete all, the not-in-use state. Commit.
   Read: the People surface map; the person's page tabs by grep; the click-through's Memory tab in `.scratch/the-office/prototypes/app/` by grep.
 - [ ] 5. The user looks at the tab and a note written in a real chat; `npm run verify:linux`; close the task. Commit.
   Read: [testing](../../apps/service/docs/testing.md) for the live check; [test-project.md](test-project.md).
@@ -45,7 +45,8 @@ Leave out: Consultants and mentions (task 20); the Office Manager's use of memor
 - Built (step 1): `memory_notes` (migration 0032), `domain/memory-note.ts` (`writeMemoryNote`, 600-character limit), `MemoryRepository` port with `PostgresMemoryRepository`, `MemoryService` (`read`, `write`, `remove`, `clear`; `write` is refused while Shared memory is off, deletes are not), `MemoryController` at `/roles/:key/memory` (GET, POST, DELETE one, DELETE all), one `RoleMemoryChanged` event → web event `role.memory-changed`. Glossary: Memory, Memory note. A note's `projectId` is plain text (no foreign key across modules).
 - Built (step 2): `remember` (`REMEMBER_TOOL`) is registered by `conversations/adapters/office-tools/memory-office-tools.ts`, which looks the Thread up by session and writes through `MemoryService` (exported from People); `sessionOfficeTools` (`session-instructions.ts`) adds it to a chat's, a Task Thread's and a Stage's tools only when the session's card has Shared memory on. The Agent names the Project (as `list_projects` does) or none.
 - Built (step 3): `selectMemory` (`brief.ts`: notes with no Project plus the session's Project, newest kept within `MEMORY_TOKENS`, `leftOut` counted) and a "Your Memory" section in the chat, fresh-chat and Task Briefs; `SessionMemory.forBrief` reads it (none while Shared memory is off). A Task's Project reaches it as `TaskThreadSetup.projectId` and `StageThreadRequest.projectId`; a chat reads the notes for all Projects only. Notes name a Project by its id (`list_projects`). The Planner preset has Shared memory on; the Role card refusal and the web's "off" text are gone.
-- Open for step 4: the Memory tab must pick a Project by id, with its name shown.
+- Built (step 4): the Memory tab (`memory-tab.tsx`, `memory-groups.ts`) at `/people/$roleKey/memory`, always shown: notes grouped by Project (name from the Projects list, the id for a gone one), add with a Project choice, delete one and delete all through confirm dialogs; while Shared memory is off it says "Not in use", keeps deletes and hides adding. The prototype only has a stub, so the layout follows the Conversations tab.
+- Trap: `worktrees.test.ts` (Projects) times out now and then under the full run's load; it passes alone and on a re-run.
 
 ## Progress
 
@@ -53,3 +54,4 @@ Leave out: Consultants and mentions (task 20); the Office Manager's use of memor
 - 2026-10-27 · step 1: the Memory in People (table, domain, service, routes, contracts, web event); next is the `remember` tool (step 2).
 - 2026-10-27 · step 2: the `remember` Office tool, offered only with Shared memory on; next is reading notes into the Brief (step 3), which also lifts the card refusal.
 - 2026-10-27 · step 3: notes read into chat and Task Briefs with the cap and the left-out line; the Planner hired with Memory on; the card refusal lifted; next is the Memory tab (step 4).
+- 2026-10-27 · step 4: the Memory tab with add, delete one, delete all and the not-in-use state, and its Playwright check; next is the user's look, `verify:linux` and closing (step 5).

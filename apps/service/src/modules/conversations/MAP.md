@@ -90,7 +90,7 @@ DecisionService, InterruptedAnswers, StageDecisions, StageDecisionRequest, Stage
 - `thread-contexts.ts`: ThreadContexts
 - `thread-runner.ts`: ThreadRunner
 - `thread-service.ts`: TaskThreadOpening, ThreadService
-- Tests: briefs.test.ts, stage-threads.test.ts, test-project-check.test.ts, thread-runner.test.ts
+- Tests: briefs.test.ts, session-memory.test.ts, stage-threads.test.ts, test-project-check.test.ts, thread-runner.test.ts
 
 ### domain/
 

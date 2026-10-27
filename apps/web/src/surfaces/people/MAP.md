@@ -10,6 +10,8 @@
 
 - `conversations-tab.tsx`: ConversationsTab
 - `hire-dialog.tsx`: HireDialog
+- `memory-groups.ts`: MemoryGroup, ALL_PROJECTS, memoryGroups
+- `memory-tab.tsx`: MemoryTab
 - `overview-tab.tsx`: OverviewTab
 - `people-page.tsx`: PeoplePage
 - `person-page.tsx`: PersonPage
@@ -21,4 +23,4 @@
 - `role-card-view.tsx`: RoleCardView
 - `session-skills.ts`: sessionSkillsOf
 - `work-tab.tsx`: WorkTab
-- Tests: person-tasks.test.ts, role-card-labels.test.ts
+- Tests: memory-groups.test.ts, person-tasks.test.ts, role-card-labels.test.ts

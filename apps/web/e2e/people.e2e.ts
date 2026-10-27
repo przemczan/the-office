@@ -295,6 +295,49 @@ test("the Planner's page lists their Threads under Conversations", async ({ page
   await expect(chatWith(page, "Jan")).toHaveCount(0);
 });
 
+test("the user adds a note to the Planner's Memory, deletes one, then deletes the whole memory", async ({
+  page,
+}) => {
+  await page.goto("/people/planner");
+  await page.getByRole("tab", { name: "Memory" }).click();
+  await expect(page).toHaveURL(/\/people\/planner\/memory$/);
+  await expect(page.getByText("Memory · 0")).toBeVisible();
+  await expect(page.getByText("No notes yet.")).toBeVisible();
+
+  for (const note of ["Prefers short answers.", "Release notes go in CHANGELOG.md."]) {
+    await page.getByLabel("Note", { exact: true }).fill(note);
+    await page.getByRole("button", { name: "Add note" }).click();
+    await expect(page.getByText(note)).toBeVisible();
+  }
+  await expect(page.getByText("Memory · 2")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "All Projects" })).toBeVisible();
+  await expect(page.getByText("Added by you")).toHaveCount(2);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-person-memory.png") });
+
+  await page
+    .getByRole("listitem")
+    .filter({ hasText: "Prefers short answers." })
+    .getByRole("button", { name: "Delete" })
+    .click();
+  await page.getByRole("dialog").getByRole("button", { name: "Delete the note" }).click();
+  await expect(page.getByText("Prefers short answers.")).toHaveCount(0);
+  await expect(page.getByText("Memory · 1")).toBeVisible();
+
+  await page.getByRole("button", { name: "Delete memory" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("This can't be undone.");
+  await dialog.getByRole("button", { name: "Delete memory" }).click();
+  await expect(page.getByText("No notes yet.")).toBeVisible();
+  await expect(page.getByText("Memory · 0")).toBeVisible();
+});
+
+test("a person whose Shared memory is off shows their Memory as not in use", async ({ page }) => {
+  await page.goto("/people/developer/memory");
+
+  await expect(page.getByText("Not in use")).toBeVisible();
+  await expect(page.getByText("Add a note")).toHaveCount(0);
+});
+
 /** Adds a Project on a repository of its own through the API. */
 async function addedProject(
   page: Page,

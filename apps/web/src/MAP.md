@@ -21,7 +21,7 @@
 - `event-stream-provider.tsx`: EventInvalidations, EventCacheUpdates, EventStreamProvider, useEventStreamStatus
 - `event-stream.ts`: EventStreamStatus, EventStreamOptions, RECONNECT_DELAYS_MS, EventStream
 - `notifications.ts`: nowQueries, notificationQueries, reportActivity, notificationEventCacheUpdates
-- `people.ts`: roleQueries, roleCardQueries, hire, changeRoleCard, roleEventInvalidations
+- `people.ts`: roleQueries, roleCardQueries, hire, changeRoleCard, addMemoryNote, deleteMemoryNote, clearMemory, roleEventInvalidations
 - `pipelines.ts`: pipelineQueries, editTaskStages, continueAtGate, sendBackFromGate, dropAtGate, pipelineEventInvalidations
 - `projects.ts`: projectQueries, taskChangesKey, addProject, changeCommand, changeInstallInputs, startEnvironmentCheck, changePublishingMode, changeDefaultPipeline, changeUseProjectSkills, projectEventInvalidations
 - `skills.ts`: skillQueries, writeSkill, uploadSkill, editSkill, uploadSkillVersion, changeSkillState, changeSkillEveryone, assignSkill, removeSkill, skillEventInvalidations

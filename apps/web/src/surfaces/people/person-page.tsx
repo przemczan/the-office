@@ -88,6 +88,7 @@ const TABS = [
   { value: "overview", label: "Overview", to: "/people/$roleKey" },
   { value: "work", label: "Work", to: "/people/$roleKey/work" },
   { value: "conversations", label: "Conversations", to: "/people/$roleKey/conversations" },
+  { value: "memory", label: "Memory", to: "/people/$roleKey/memory" },
   { value: "role", label: "Role card", to: "/people/$roleKey/role" },
 ] as const;
 
