@@ -158,6 +158,10 @@ export const decisionSchema = z.object({
    * the user.
    */
   putTo: z.string().nullable(),
+  /** The Consultants who passed an approval on, by the key of their Role, the first one first. */
+  passedOn: z.array(
+    z.object({ roleKey: z.string(), reason: z.string(), passedOnAt: z.iso.datetime() }),
+  ),
   /** Null while it waits on the user or the Consultant. */
   answer: decisionAnswerSchema.nullable(),
   answeredAt: z.iso.datetime().nullable(),

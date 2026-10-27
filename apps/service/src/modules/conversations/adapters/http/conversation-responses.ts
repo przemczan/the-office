@@ -82,6 +82,10 @@ export function toDecisionResponse({ answer, askedAt, ...decision }: Decision): 
     ...decision,
     roleKey: decision.roleKey ?? null,
     putTo: decision.putTo ?? null,
+    passedOn: decision.passedOn.map(({ passedOnAt, ...passing }) => ({
+      ...passing,
+      passedOnAt: passedOnAt.toISOString(),
+    })),
     options: [...decision.options],
     recommendation: { ...decision.recommendation },
     askedAt: askedAt.toISOString(),

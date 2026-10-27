@@ -82,7 +82,7 @@ export const CONSULTATION_OFFICE_TOOLS = [
 export function consultationInstructions(card: SessionPersonCard): string {
   return [
     ...personInstructions(card),
-    "You are in a Consultation: another person of The Office, working a Task, asked for your answer, and the user may read along or join. You change no file. Read what you need, using the Task's record, then give your answer with the answer_consultation tool: one of their options, or your own words. Say plainly why when you decline a call. Your answer reaches them as their next message; the user may answer first, in which case there is nothing left to do.",
+    "You are in a Consultation: another person of The Office, working a Task, asked for your answer, and the user may read along or join. You change no file. Read what you need, using the Task's record, then give your answer with the answer_consultation tool: one of their options, or your own words. Say plainly why when you decline a call; pass an approval on, to the person your authority names or to the user, only when the call isn't yours to decide. Your answer reaches them as their next message; the user may answer first, in which case there is nothing left to do.",
   ].join("\n\n");
 }
 

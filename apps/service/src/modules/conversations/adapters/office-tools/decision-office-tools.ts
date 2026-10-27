@@ -4,7 +4,7 @@ import { z } from "zod";
 import { OfficeToolRegistry, type OfficeToolResult } from "../../../engine/index.js";
 import { Consultations } from "../../application/consultations.js";
 import { DecisionService } from "../../application/decision-service.js";
-import { APPROVAL_OPTIONS, type Consult } from "../../domain/consult.js";
+import { APPROVAL_OPTIONS, PASS_ON_STEPS, type Consult } from "../../domain/consult.js";
 import type { DecisionDraft } from "../../domain/decision.js";
 import { ThreadRefused } from "../../domain/thread-refused.js";
 
@@ -138,7 +138,7 @@ export class DecisionOfficeTools implements OnModuleInit {
   private registerAnswerConsultation(): void {
     this.registry.register({
       name: ANSWER_CONSULTATION_TOOL,
-      description: `Gives your answer in this Consultation: it answers the Decision the person who asked is waiting on, and reaches them as their next message. For a question, choose one of their options by its number, or answer in your own words. To approve a call, choose ${APPROVAL_OPTIONS.map((option, index) => `${index + 1} for "${option}"`).join(" or ")}.`,
+      description: `Gives your answer in this Consultation: it answers the Decision the person who asked is waiting on, and reaches them as their next message. For a question, choose one of their options by its number, or answer in your own words. To approve a call, choose ${APPROVAL_OPTIONS.map((option, index) => `${index + 1} for "${option}"`).join(" or ")}, or pass it on when the call isn't yours to decide: to the person your authority names, or to the user. An approval goes up at most ${PASS_ON_STEPS} steps, then it is the user's.`,
       input: z.object({
         option: z
           .number()
@@ -149,9 +149,24 @@ export class DecisionOfficeTools implements OnModuleInit {
           .string()
           .optional()
           .describe("Your answer in your own words, when no option fits."),
+        passOn: z
+          .object({
+            person: z
+              .string()
+              .optional()
+              .describe("Whom you pass it on to, such as CTO; none to pass it on to the user."),
+            why: z.string().describe("Why the call isn't yours to decide, in a sentence."),
+          })
+          .optional()
+          .describe("To pass an approval on instead of answering it."),
       }),
-      run: async ({ option, answer }, { sessionId }) => {
+      run: async ({ option, answer, passOn }, { sessionId }) => {
         try {
+          if (passOn) {
+            const next = await this.consultations.passOn(sessionId, passOn.person, passOn.why);
+            const to = next ? `${next.name}, in a Consultation of their own` : "the user";
+            return { text: `You passed it on to ${to}. End your turn.`, isError: false };
+          }
           await this.consultations.answer(
             sessionId,
             option !== undefined

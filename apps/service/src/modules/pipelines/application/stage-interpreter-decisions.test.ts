@@ -329,6 +329,7 @@ describe("StageInterpreter's Decisions", () => {
           taskId,
           roleKey: "developer",
           askedAt: new Date(),
+          passedOn: [],
           answer: { kind: "option", option: 0, answeredAt: new Date() },
         },
         new Date(),

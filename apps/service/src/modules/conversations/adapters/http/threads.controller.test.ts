@@ -414,6 +414,7 @@ describe("a Decision", () => {
       roleKey: thread.roleKey,
       askedAt: decision.askedAt.toISOString(),
       putTo: null,
+      passedOn: [],
       answer: null,
       answeredAt: null,
       answeredBy: null,

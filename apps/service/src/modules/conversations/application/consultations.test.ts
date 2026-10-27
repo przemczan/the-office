@@ -25,6 +25,7 @@ import {
   ANSWER_CONSULTATION_TOOL as SESSION_ANSWER_TOOL,
   CONSULTATION_OFFICE_TOOLS,
 } from "../domain/session-instructions.js";
+import type { Decision } from "../domain/decision.js";
 import type { Thread } from "../domain/thread.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
@@ -55,6 +56,7 @@ let engine: ScriptedEngine;
 let officeData: string;
 let askerKey: string;
 let consultantKey: string;
+let devopsKey: string;
 
 let threads: ThreadService;
 let decisions: DecisionService;
@@ -64,6 +66,7 @@ beforeEach(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-consultations-"));
   askerKey = `asker-${randomUUID()}`;
   consultantKey = `consultant-${randomUUID()}`;
+  devopsKey = `devops-${randomUUID()}`;
 });
 
 afterEach(async () => {
@@ -72,19 +75,17 @@ afterEach(async () => {
 });
 
 function roleOf(roleKey: string): SessionRole {
-  const consultant = roleKey === consultantKey;
+  const consultant = { sharedMemory: false, chat: true, consultant: true };
   const card = aPlannerCard(
-    consultant
-      ? {
-          name: "Casey",
-          title: "CTO",
-          capabilities: { sharedMemory: false, chat: true, consultant: true },
-        }
-      : {
-          name: "Dana",
-          title: "Developer",
-          capabilities: { sharedMemory: false, chat: true, consultant: false },
-        },
+    roleKey === consultantKey
+      ? { name: "Casey", title: "CTO", capabilities: consultant }
+      : roleKey === devopsKey
+        ? { name: "Riley", title: "Devops", capabilities: consultant }
+        : {
+            name: "Dana",
+            title: "Developer",
+            capabilities: { sharedMemory: false, chat: true, consultant: false },
+          },
   );
   return { roleKey, cardVersion: 1, card };
 }
@@ -102,10 +103,14 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     "find" | "forResumedSession" | "consultants" | "hiredKeys" | "roleTitle"
   > = {
     find: (key) =>
-      Promise.resolve(key === askerKey || key === consultantKey ? roleOf(key) : undefined),
+      Promise.resolve([askerKey, consultantKey, devopsKey].includes(key) ? roleOf(key) : undefined),
     forResumedSession: (key) => Promise.resolve(roleOf(key)),
-    consultants: () => Promise.resolve([{ roleKey: consultantKey, name: "Casey", title: "CTO" }]),
-    hiredKeys: () => Promise.resolve(new Set([askerKey, consultantKey])),
+    consultants: () =>
+      Promise.resolve([
+        { roleKey: consultantKey, name: "Casey", title: "CTO" },
+        { roleKey: devopsKey, name: "Riley", title: "Devops" },
+      ]),
+    hiredKeys: () => Promise.resolve(new Set([askerKey, consultantKey, devopsKey])),
     roleTitle: (key) => key,
   };
   const bases: ProjectBases = {
@@ -236,6 +241,45 @@ function consults(person: string): Step[] {
     }),
     ...aTurn("brief", "I asked."),
   ];
+}
+
+const CALL = "Install ffmpeg on the machine.";
+
+/** The developer asks Devops to approve a call, then ends their turn. */
+const ASKS_DEVOPS_TO_APPROVE: Step[] = [
+  ...usesTool("c-1", CONSULT_TOOL, {
+    person: "Devops",
+    approval: true,
+    question: CALL,
+    context: "The export renders video.",
+    why: "The export needs ffmpeg.",
+  }),
+  ...aTurn("brief", "I asked."),
+];
+
+/** A Consultant passes the approval on to `person`, then ends their turn. */
+function passesOnTo(person: string, why: string): Step[] {
+  return [
+    ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, { passOn: { person, why } }),
+    ...aTurn("brief", "Passed on."),
+  ];
+}
+
+/** The asker's Decision once it waits on the user. */
+async function putToTheUser(asker: Thread): Promise<Decision> {
+  return vi.waitFor(
+    async () => {
+      const open = (await decisions.listOpen()).find(({ threadId }) => threadId === asker.id);
+      if (!open) throw new Error("Not the user's yet.");
+      return open;
+    },
+    { timeout: 5_000, interval: 20 },
+  );
+}
+
+async function consultationsOn(asker: Thread): Promise<readonly Thread[]> {
+  const onTask = await threads.listOnTask((asker.home as { taskId: string }).taskId);
+  return onTask.filter(({ consultation }) => consultation);
 }
 
 const ASKER_TAKES_THE_ANSWER: Step[] = [
@@ -378,5 +422,54 @@ describe("a consult of someone who can't be consulted", () => {
     expect(open?.context).toContain("For Nobody Hired:");
     const onTask = await threads.listOnTask((asker.home as { taskId: string }).taskId);
     expect(onTask.filter(({ consultation }) => consultation)).toEqual([]);
+  });
+});
+
+describe("an approval passed on", () => {
+  it("goes up at most two steps: Devops passes it to the CTO, whose Pass on makes it the user's", async () => {
+    await startWith(
+      started(...ASKS_DEVOPS_TO_APPROVE),
+      started(...passesOnTo("CTO", "It changes the machine every Project builds on.")),
+      started(...passesOnTo("Devops", "Only the user decides what the machine runs.")),
+    );
+    const asker = await developerOnATask();
+
+    const open = await putToTheUser(asker);
+
+    expect(open.putTo).toBeUndefined();
+    expect(open.passedOn.map(({ roleKey, reason }) => ({ roleKey, reason }))).toEqual([
+      { roleKey: devopsKey, reason: "It changes the machine every Project builds on." },
+      { roleKey: consultantKey, reason: "Only the user decides what the machine runs." },
+    ]);
+    const asked = await consultationsOn(asker);
+    expect(asked.map(({ title }) => title).toSorted()).toEqual([
+      "Consultation · Dana and Casey",
+      "Consultation · Dana and Riley",
+    ]);
+    const ctoOpening = engine.sessions[2]?.received[0];
+    expect(ctoOpening?.step === "start" && ctoOpening.brief.text).toContain(
+      "Riley passed it on to you: It changes the machine every Project builds on.",
+    );
+    const devopsSession = asked.find(({ roleKey }) => roleKey === devopsKey)?.session;
+    if (!devopsSession) throw new Error("Devops had no session.");
+    await expect(
+      consultations.answer(devopsSession.id, { kind: "option", option: 0 }),
+    ).rejects.toThrow(/answered already|passed this Decision on/);
+  });
+
+  it("falls back to the user when passed on to someone who isn't hired", async () => {
+    await startWith(
+      started(...ASKS_DEVOPS_TO_APPROVE),
+      started(...passesOnTo("Nobody Hired", "Security decides installs.")),
+    );
+    const asker = await developerOnATask();
+
+    const open = await putToTheUser(asker);
+
+    expect(open).toMatchObject({ putTo: undefined, question: `Allow this call? ${CALL}` });
+    expect(open.passedOn).toEqual([
+      { roleKey: devopsKey, reason: "Security decides installs.", passedOnAt: expect.any(Date) },
+    ]);
+    expect(await consultationsOn(asker)).toHaveLength(1);
   });
 });

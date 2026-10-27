@@ -1,4 +1,5 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import { isApproval } from "./consult.js";
 import type { ContextDecision } from "./context-policy.js";
 import {
   answerProblems,
@@ -324,6 +325,7 @@ export function openDecision(
     roleKey: byTheOffice ? undefined : (thread.session?.roleKey ?? thread.roleKey),
     askedAt,
     putTo,
+    passedOn: [],
     answer: undefined,
   };
   const card: Message = {
@@ -685,6 +687,51 @@ export function putDecisionToUser(
     logged: [],
     decision,
     event: new DecisionReopened(waiting, decision, reopenedAt),
+  };
+}
+
+/** A Consultant passing on the approval put to them: to whom (undefined for the user), and why. */
+export interface PassingOn {
+  readonly decisionId: string;
+  /** The Consultant passing it on, by the key of their Role. */
+  readonly by: string;
+  readonly to: string | undefined;
+  readonly reason: string;
+  readonly passedOnAt: Date;
+}
+
+/**
+ * The Consultant an approval is put to passes it on (spec §2.2), and it waits on the next one up or
+ * the user. Refused for a question, which they answer, and once it no longer waits on them. The
+ * event is the one that tells the user when it waits on them.
+ */
+export function passDecisionOn(
+  thread: Thread,
+  { decisionId, by, to, reason, passedOnAt }: PassingOn,
+): ThreadChange<DecisionReopened> {
+  const open = thread.openDecision;
+  if (open?.id !== decisionId || open.putTo !== by) {
+    throw new ThreadRefused([
+      "This Decision no longer waits on you: it was answered or passed on. There is nothing left to answer.",
+    ]);
+  }
+  if (!isApproval(open)) {
+    throw new ThreadRefused([
+      "Only an approval is passed on. Answer the question with one of its options or in your own words.",
+    ]);
+  }
+  if (reason.trim() === "") throw new ThreadRefused(["Say why you pass it on."]);
+  const decision: Decision = {
+    ...open,
+    putTo: to,
+    passedOn: [...open.passedOn, { roleKey: by, reason: reason.trim(), passedOnAt }],
+  };
+  const waiting: Thread = { ...thread, openDecision: decision };
+  return {
+    thread: waiting,
+    logged: [],
+    decision,
+    event: new DecisionReopened(waiting, decision, passedOnAt),
   };
 }
 

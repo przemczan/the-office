@@ -96,8 +96,8 @@ export class DecisionAnswered extends DomainEvent {
 }
 
 /**
- * The session a Decision's answer went to never started: the Decision waits on the user again,
- * and the Thread logged why.
+ * A Decision waits anew: on the user again, as when the session its answer went to never started
+ * or its Consultant can't answer it, or on the Consultant it was passed on to.
  */
 export class DecisionReopened extends DomainEvent {
   constructor(

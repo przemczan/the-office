@@ -12,6 +12,7 @@ export function aDecision(fields: Partial<Decision> = {}): Decision {
     options: ["Only active Projects", "Every Project"],
     recommendation: { option: 0, reason: "Archived Projects have nothing to export." },
     askedAt: new Date("2026-10-25T09:02:00.000Z"),
+    passedOn: [],
     answer: undefined,
     ...fields,
   };

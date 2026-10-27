@@ -10,7 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
-import type { DecisionAnswer, Recommendation } from "../../domain/decision.js";
+import type { DecisionAnswer, PassedOn, Recommendation } from "../../domain/decision.js";
 import type { MessageDraft } from "../../domain/message.js";
 import type {
   Consultation,
@@ -18,6 +18,9 @@ import type {
   ThreadState,
   TokenTotals,
 } from "../../domain/thread.js";
+
+/** A Consultant's passing a Decision on, as kept. */
+export type SavedPassedOn = Omit<PassedOn, "passedOnAt"> & { readonly passedOnAt: string };
 
 /** The engine session behind a Thread now, as kept. */
 export interface ThreadSessionRow {
@@ -93,6 +96,8 @@ export const decisions = pgTable(
     askedAt: timestamp("asked_at", { withTimezone: true }).notNull(),
     /** The Consultant's Role key while the Decision waits on them; null when it waits on the user. */
     putTo: text("put_to"),
+    /** The Consultants who passed it on, the first one first; `passedOnAt` as an ISO time. */
+    passedOn: jsonb("passed_on").$type<readonly SavedPassedOn[]>().notNull().default([]),
     answer: jsonb("answer").$type<DecisionAnswer & { answeredBy?: string }>(),
     answeredAt: timestamp("answered_at", { withTimezone: true }),
     /** When an approval this answer gave a held call let it through; null while it is unused. */

@@ -49,6 +49,14 @@ export function DecisionCard({
           <MarkdownText text={decision.context} />
         </div>
       )}
+      {decision.passedOn.map(({ roleKey, reason, passedOnAt }) => (
+        <p key={passedOnAt} className="decision-passed-on">
+          <Icon name="users" size={12} />
+          <span>
+            {consultantName(roleKey, roles)} passed it on: <MarkdownText text={reason} inline />
+          </span>
+        </p>
+      ))}
       {decision.answer === null ? (
         <OpenDecision
           decision={decision}

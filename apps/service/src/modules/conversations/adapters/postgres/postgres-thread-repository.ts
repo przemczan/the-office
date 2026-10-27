@@ -90,6 +90,7 @@ export class PostgresThreadRepository extends ThreadRepository {
             target: decisions.id,
             set: {
               putTo: decisionRow.putTo,
+              passedOn: decisionRow.passedOn,
               answer: decisionRow.answer,
               answeredAt: decisionRow.answeredAt,
             },
@@ -269,8 +270,16 @@ function toMessage(row: MessageRow): Message {
 /** What a Decision is saved as; the approval it gave a held call is spent apart from it. */
 type SavedDecision = Omit<DecisionRow, "approvalSpentAt">;
 
-function toDecisionRow({ answer, roleKey, putTo, ...fields }: Decision): SavedDecision {
-  const decision = { ...fields, roleKey: roleKey ?? null, putTo: putTo ?? null };
+function toDecisionRow({ answer, roleKey, putTo, passedOn, ...fields }: Decision): SavedDecision {
+  const decision = {
+    ...fields,
+    roleKey: roleKey ?? null,
+    putTo: putTo ?? null,
+    passedOn: passedOn.map(({ passedOnAt, ...passing }) => ({
+      ...passing,
+      passedOnAt: passedOnAt.toISOString(),
+    })),
+  };
   if (!answer) return { ...decision, answer: null, answeredAt: null };
   const { answeredAt, ...given } = answer;
   return { ...decision, answer: given, answeredAt };
@@ -281,6 +290,7 @@ function toDecision({
   answeredAt,
   roleKey,
   putTo,
+  passedOn,
   approvalSpentAt: _approvalSpentAt,
   ...row
 }: DecisionRow): Decision {
@@ -288,6 +298,10 @@ function toDecision({
     ...row,
     roleKey: roleKey ?? undefined,
     putTo: putTo ?? undefined,
+    passedOn: passedOn.map(({ passedOnAt, ...passing }) => ({
+      ...passing,
+      passedOnAt: new Date(passedOnAt),
+    })),
     answer: answer === null || answeredAt === null ? undefined : { ...answer, answeredAt },
   };
 }

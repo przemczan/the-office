@@ -336,6 +336,7 @@
 }
 
 .decision-consultation,
+.decision-passed-on,
 .thread-consultation {
   display: flex;
   align-items: flex-start;
@@ -352,6 +353,7 @@
 }
 
 .decision-consultation svg,
+.decision-passed-on svg,
 .thread-consultation svg {
   flex: none;
   margin-top: 2px;

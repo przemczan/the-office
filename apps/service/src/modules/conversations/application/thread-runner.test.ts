@@ -755,6 +755,7 @@ describe("a Decision", () => {
       options: ["Only active Projects", "Every Project"],
       recommendation: { option: 0, reason: "It is what the export is for." },
       askedAt: expect.any(Date),
+      passedOn: [],
       answer: undefined,
     };
     expect(thread.openDecision).toEqual(decision);

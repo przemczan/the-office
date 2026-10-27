@@ -28,6 +28,13 @@ export type GivenAnswer = DecisionAnswer & {
   readonly answeredBy?: string;
 };
 
+/** A Consultant asked to approve who passed the Decision on, by the key of their Role, and why. */
+export interface PassedOn {
+  readonly roleKey: string;
+  readonly reason: string;
+  readonly passedOnAt: Date;
+}
+
 /**
  * A question an Agent puts to the user and waits on (spec §2.4), shown as a card in the Thread it
  * works in on a Task. Follow-ups are ordinary messages in that Thread; the answer goes into the
@@ -48,6 +55,8 @@ export interface Decision extends DecisionDraft {
    * the user may answer it in their place. Undefined while it waits on the user.
    */
   readonly putTo?: string | undefined;
+  /** The Consultants who passed it on, the first one first (spec §2.2). */
+  readonly passedOn: readonly PassedOn[];
   /** Undefined while it waits on the user or the Consultant. */
   readonly answer: GivenAnswer | undefined;
 }

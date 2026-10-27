@@ -1,0 +1,1 @@
+ALTER TABLE "decisions" ADD COLUMN "passed_on" jsonb DEFAULT '[]'::jsonb NOT NULL;

@@ -11,6 +11,18 @@ export function approvalQuestion(call: string): string {
   return `Allow this call? ${call}`;
 }
 
+/** Whether the Decision asks approval of a call, which a Consultant may pass on. */
+export function isApproval({ question, options }: DecisionDraft): boolean {
+  return (
+    question.startsWith(approvalQuestion("")) &&
+    options.length === APPROVAL_OPTIONS.length &&
+    APPROVAL_OPTIONS.every((option, index) => options[index] === option)
+  );
+}
+
+/** How many times an approval may be passed on before it is the user's Decision (spec §2.2). */
+export const PASS_ON_STEPS = 2;
+
 /** What an Agent asks the person it consults: a question, or approval of a call. */
 export type Consult =
   | {
@@ -68,6 +80,29 @@ export function consultantNamed(
 }
 
 /**
+ * The Consultant a Decision passed on goes to: the one the passing Consultant names, unless that
+ * is the last step up, or they name nobody who can be consulted or someone already asked on it,
+ * the asker included. Then it is the user's (spec §2.2: nothing is passed back down).
+ */
+export function passedOnTo(
+  decision: Decision,
+  person: string | undefined,
+  consultants: readonly ConsultantPerson[],
+): ConsultantPerson | undefined {
+  if (decision.passedOn.length + 1 >= PASS_ON_STEPS) return undefined;
+  const asked = new Set([
+    decision.roleKey,
+    decision.putTo,
+    ...decision.passedOn.map(({ roleKey }) => roleKey),
+  ]);
+  return consultantNamed(
+    person,
+    consultants.filter(({ roleKey }) => !asked.has(roleKey)),
+    decision.putTo ?? "",
+  );
+}
+
+/**
  * The Decision a consult opens, naming whom the Agent would have consulted when the user answers in
  * their place (spec §6: a missing person falls back to the user). The Consultant is asked the same
  * question without that line.
@@ -101,21 +136,30 @@ export function consultationTitle(askerName: string, consultantName: string): st
 
 /**
  * What The Office asks the Consultant when their Consultation opens: the Decision as the Agent put
- * it, and how to answer.
+ * it, who passed it on to them and why, and how to answer.
  */
-export function consultationOpening(decision: Decision, askerName: string): string {
+export function consultationOpening(
+  decision: Decision,
+  askerName: string,
+  passers: readonly { readonly name: string; readonly reason: string }[] = [],
+): string {
   const options = decision.options
     .map(
       (option, index) =>
         `${index + 1}. ${option}${index === decision.recommendation.option ? " (recommended)" : ""}`,
     )
     .join("\n");
+  const passedOn = passers.map(({ name, reason }) => `${name} passed it on to you: ${reason}`);
+  const howToAnswer = isApproval(decision)
+    ? "Answer with the answer_consultation tool: choose Allow once or Deny by its number, or pass it on when the call isn't yours to decide. It reaches them as their next message."
+    : "Answer with the answer_consultation tool: choose one of the options by its number, or give an answer in your own words. It reaches them as their next message.";
   return [
     `${askerName} asks for your answer on this Task.`,
+    ...passedOn,
     `Question: ${decision.question}`,
     `What they found: ${decision.context}`,
     `Their options:\n${options}`,
     `Why they recommend the option they do: ${decision.recommendation.reason}`,
-    "Answer with the answer_consultation tool: choose one of the options by its number, or give an answer in your own words. It reaches them as their next message.",
+    howToAnswer,
   ].join("\n\n");
 }

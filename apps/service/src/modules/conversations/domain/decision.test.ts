@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { APPROVAL_OPTIONS, approvalQuestion } from "./consult.js";
 import type { ContextDecision } from "./context-policy.js";
 import { DecisionAnswered, DecisionOpened, DecisionReopened } from "./conversation-events.js";
 import {
@@ -11,7 +12,12 @@ import {
 import { aDecision } from "./decision.fixtures.js";
 import { decisionAnswerMessage } from "./session-instructions.js";
 import type { ThreadSession } from "./thread.js";
-import { answerDecision, failDecisionAnswer, openDecision } from "./thread-changes.js";
+import {
+  answerDecision,
+  failDecisionAnswer,
+  openDecision,
+  passDecisionOn,
+} from "./thread-changes.js";
 import { aThread } from "./thread.fixtures.js";
 import { ThreadRefused } from "./thread-refused.js";
 
@@ -125,6 +131,7 @@ describe("opening a Decision", () => {
       taskId: "task-1",
       roleKey: "planner",
       askedAt: AT,
+      passedOn: [],
       answer: undefined,
     };
     expect(opened.decision).toEqual(decision);
@@ -254,5 +261,55 @@ describe("an answer that never reached a session", () => {
     );
 
     expect(reopened.thread.session).toEqual(SESSION);
+  });
+});
+
+describe("passing an approval on", () => {
+  const approval = aDecision({
+    id: "decision-1",
+    question: approvalQuestion("Install ffmpeg."),
+    options: [...APPROVAL_OPTIONS],
+    putTo: "devops",
+  });
+  const waiting = aThread({ home: TASK_HOME, openDecision: approval });
+  const passing = {
+    decisionId: "decision-1",
+    by: "devops",
+    to: "cto",
+    reason: " It changes every Project's build. ",
+    passedOnAt: AT,
+  };
+
+  it("puts it to the next one up, keeping who passed it on and why", () => {
+    const passed = passDecisionOn(waiting, passing);
+
+    const decision: Decision = {
+      ...approval,
+      putTo: "cto",
+      passedOn: [
+        { roleKey: "devops", reason: "It changes every Project's build.", passedOnAt: AT },
+      ],
+    };
+    expect(passed.decision).toEqual(decision);
+    expect(passed.thread.openDecision).toEqual(decision);
+    expect(passed.event).toEqual(new DecisionReopened(passed.thread, decision, AT));
+  });
+
+  it("puts it to the user when nobody is next", () => {
+    expect(passDecisionOn(waiting, { ...passing, to: undefined }).decision?.putTo).toBeUndefined();
+  });
+
+  it("is refused for a question, without a reason, and by someone it no longer waits on", () => {
+    const question = aThread({
+      home: TASK_HOME,
+      openDecision: aDecision({ id: "decision-1", putTo: "devops" }),
+    });
+    expect(refusalOf(() => passDecisionOn(question, passing))[0]).toMatch(/Only an approval/);
+    expect(refusalOf(() => passDecisionOn(waiting, { ...passing, reason: " " }))).toEqual([
+      "Say why you pass it on.",
+    ]);
+    expect(refusalOf(() => passDecisionOn(waiting, { ...passing, by: "cto" }))[0]).toMatch(
+      /no longer waits on you/,
+    );
   });
 });
