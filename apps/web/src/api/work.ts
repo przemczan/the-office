@@ -239,6 +239,8 @@ export const workEventInvalidations: Readonly<
   "task.resumed": () => [TASKS],
   "task.priority-changed": () => [TASKS],
   "task.reordered": () => [TASKS],
+  "task.dependency-added": () => [TASKS],
+  "task.dependency-removed": () => [TASKS],
   "task.plan-proposed": () => [TASKS],
   "task.plan-confirmed": () => [TASKS],
   "task.definition-of-done-proposed": () => [TASKS],

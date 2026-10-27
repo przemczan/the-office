@@ -56,6 +56,7 @@ export function createTask(
     pipelineId: setting.pipelineId,
     proposedPipeline: undefined,
     personRole: undefined,
+    blockedBy: [],
     originIdeaId: setting.originIdeaId,
     createdBy: setting.createdBy,
     createdAt,

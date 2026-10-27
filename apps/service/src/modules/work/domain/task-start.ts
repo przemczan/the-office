@@ -1,5 +1,6 @@
 import type { Task } from "./task.js";
 import type { TaskChange } from "./task-changes.js";
+import { blockedProblems } from "./task-dependencies.js";
 import { TaskStarted } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
 import { STARTED_STATES, TASK_STATE_NAMES } from "./task-states.js";
@@ -35,20 +36,30 @@ export interface StartConditions {
   readonly officeWideLimit: number;
 }
 
+/**
+ * What Start reads in the same hold as the Task, so a second Start or a new blocker can't slip in
+ * between the check and the save: every started Task (In progress, Waiting on you or Paused) and
+ * the Tasks it waits for.
+ */
+export interface HeldAtStart {
+  readonly startedTasks: readonly Task[];
+  readonly blockers: readonly Task[];
+}
+
 /** The Agent Stage whose Role's person the Task counts against, as the click-through counts. */
 export function firstAgentStage(stages: readonly StartingStage[]): AgentStartingStage | undefined {
   return stages.find((stage): stage is AgentStartingStage => stage.role !== undefined);
 }
 
 /**
- * Every reason the Task can't start now (spec §9): the Project already has a Task started, the
- * Office-wide limit is reached, or the person of its first Agent Stage is at their Task limit.
- * Started Tasks are those In progress, Waiting on you or Paused. Empty when it can start.
+ * Every reason the Task can't start now (spec §2.1, §9): a Task it waits for isn't Done, the
+ * Project already has a Task started, the Office-wide limit is reached, or the person of its first
+ * Agent Stage is at their Task limit. Empty when it can start.
  */
 export function startProblems(
   task: Task,
   conditions: StartConditions,
-  startedTasks: readonly Task[],
+  { startedTasks, blockers }: HeldAtStart,
 ): string[] {
   if (task.state !== "ready") {
     return [`Only a Ready Task can start; this one is in ${TASK_STATE_NAMES[task.state]}.`];
@@ -58,6 +69,7 @@ export function startProblems(
     (other) => other.id !== task.id && STARTED_STATES.includes(other.state),
   );
   return [
+    ...blockedProblems(blockers),
     ...projectProblems(task, conditions.projectName, others),
     ...officeWideLimitProblems(conditions.officeWideLimit, others),
     ...taskLimitProblems(firstAgentStage(conditions.stages), conditions.person, others),
@@ -68,9 +80,9 @@ export function startProblems(
 export function startTask(
   task: Task,
   conditions: StartConditions,
-  startedTasks: readonly Task[],
+  held: HeldAtStart,
 ): TaskChange<TaskStarted> {
-  const problems = startProblems(task, conditions, startedTasks);
+  const problems = startProblems(task, conditions, held);
   if (problems.length > 0) throw new TaskRefused(problems);
   const personRole = conditions.stages && firstAgentStage(conditions.stages)?.role;
   return {

@@ -67,13 +67,13 @@ export class WorkOfficeTools implements OnModuleInit {
     this.registry.register({
       name: READ_TASK,
       description:
-        "Reads one Task's record: its state, priority and Pipeline, its Plan, its Definition of Done, its Attachments and the Idea it came from.",
+        "Reads one Task's record: its state, priority and Pipeline, its Plan, its Definition of Done, its Attachments, the Idea it came from and the Tasks that must be Done before it can start.",
       input: z.object({ taskId: z.string().describe("The Task's id, as list_tasks gives it.") }),
       run: ({ taskId }) =>
         answered(async () => {
           const task = await this.tasks.read(taskId);
           const attachments = await this.attachments.listOf({ kind: "task", taskId: task.id });
-          return taskRecordText(task, attachments);
+          return taskRecordText(task, attachments, await this.tasks.blockersOf(task));
         }),
     });
   }

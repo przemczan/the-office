@@ -208,6 +208,58 @@ describe("POST /api/tasks/:id/drop", () => {
   });
 });
 
+async function addDependency(taskId: string, blockerId: string): Promise<Response> {
+  return sendJson(work, "POST", `/tasks/${taskId}/dependencies`, { blockerId });
+}
+
+describe("POST and DELETE /api/tasks/:id/dependencies", () => {
+  it("makes a Task wait for one in another Project, kept across a read, and announces it", async () => {
+    const schema = await create({ title: "Queue schema" });
+    projectId = `project-${randomUUID()}`;
+    const client = await create({ title: "Mobile sync client" });
+    work.published.length = 0;
+
+    const response = await addDependency(client.id, schema.id);
+
+    expect(response.status).toBe(200);
+    expect(taskSchema.parse(await response.json()).blockedBy).toEqual([schema.id]);
+    expect((await readTask(client.id)).blockedBy).toEqual([schema.id]);
+    expect(webEventsOf(work)).toEqual([
+      { type: "task.dependency-added", taskId: client.id, blockerId: schema.id },
+    ]);
+  });
+
+  it("refuses one that would close a cycle, with the reason", async () => {
+    const schema = await create({ title: "Queue schema" });
+    const flash = await create({ title: "Store the queue on flash" });
+    await addDependency(flash.id, schema.id);
+
+    const refused = await addDependency(schema.id, flash.id);
+
+    expect(refused.status).toBe(422);
+    expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      `"Store the queue on flash" already waits for "Queue schema", so "Queue schema" can't wait for it.`,
+    ]);
+    expect((await readTask(schema.id)).blockedBy).toEqual([]);
+  });
+
+  it("lets a Task go without a blocker, and announces it", async () => {
+    const schema = await create({ title: "Queue schema" });
+    const flash = await create({ title: "Store the queue on flash" });
+    await addDependency(flash.id, schema.id);
+    work.published.length = 0;
+
+    const response = await sendJson(work, "DELETE", `/tasks/${flash.id}/dependencies/${schema.id}`);
+    const again = await sendJson(work, "DELETE", `/tasks/${flash.id}/dependencies/${schema.id}`);
+
+    expect(taskSchema.parse(await response.json()).blockedBy).toEqual([]);
+    expect(again.status).toBe(200);
+    expect(webEventsOf(work)).toEqual([
+      { type: "task.dependency-removed", taskId: flash.id, blockerId: schema.id },
+    ]);
+  });
+});
+
 async function plan(taskId: string): Promise<Response> {
   return sendJson(work, "POST", `/tasks/${taskId}/planning`);
 }
@@ -532,6 +584,22 @@ describe("Start", () => {
     expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([
       "Only a Ready Task can start; this one is in Backlog.",
     ]);
+  });
+
+  it("refuses while a Task it waits for isn't Done, before and on Start, until that one is dropped", async () => {
+    const blocker = await create({ title: "Queue schema" });
+    const task = await readyTask();
+    await addDependency(task.id, blocker.id);
+    const reason = 'Blocked by "Queue schema", which must be Done first.';
+
+    const check = await startCheck(task.id);
+    const refused = await start(task.id);
+    await sendJson(work, "POST", `/tasks/${blocker.id}/drop`);
+
+    expect(check).toEqual({ reasons: [reason] });
+    expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([reason]);
+    expect(await startCheck(task.id)).toEqual({ reasons: [] });
+    expect((await start(task.id)).status).toBe(200);
   });
 
   it("pauses, stops and resumes a started Task, announcing each", async () => {

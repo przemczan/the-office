@@ -58,6 +58,33 @@ describe("the records of mentioned Tasks and Ideas", () => {
     expect(ideaRecord).toContain("For the night shift.");
   });
 
+  it("name the Tasks a Task waits for, and one dropped as no longer blocking", async () => {
+    const projectId = `project-${randomUUID()}`;
+    const create = async (title: string) =>
+      taskSchema.parse(
+        await (
+          await sendJson(work, "POST", "/tasks", { title, projectId, priority: "normal" })
+        ).json(),
+      );
+    const [schema, protocol, client] = await Promise.all(
+      ["Queue schema", "Sync protocol messages", "Mobile sync client"].map(create),
+    );
+    for (const blocker of [schema, protocol]) {
+      await sendJson(work, "POST", `/tasks/${client?.id}/dependencies`, { blockerId: blocker?.id });
+    }
+    await sendJson(work, "POST", `/tasks/${protocol?.id}/drop`);
+
+    const record = await work.app.get(WorkRecords).taskRecord(client?.id ?? "");
+
+    expect(record).toContain(
+      [
+        "Must be Done before it can start:",
+        `- Queue schema (Task ${schema?.id}), Backlog`,
+        `- Sync protocol messages (Task ${protocol?.id}), Dropped, so it no longer blocks`,
+      ].join("\n"),
+    );
+  });
+
   it("are undefined for a Task or an Idea The Office doesn't have", async () => {
     const records = work.app.get(WorkRecords);
 

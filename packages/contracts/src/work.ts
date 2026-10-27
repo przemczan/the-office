@@ -87,6 +87,8 @@ export const taskSchema = newTaskSchema.extend({
   pipelineId: z.string(),
   /** The Pipeline the Planner proposes, until the user confirms it or chooses another. */
   proposedPipeline: proposedPipelineSchema.nullable(),
+  /** The Tasks that must be Done before it can start, in the order added; a Dropped one no longer blocks. */
+  blockedBy: z.array(z.uuid()),
   originIdeaId: z.uuid().nullable(),
   createdBy: authorSchema,
   createdAt: z.iso.datetime(),
@@ -127,6 +129,10 @@ export const taskPlacementSchema = z.object({
   below: z.uuid().nullable(),
 });
 export type TaskPlacement = z.infer<typeof taskPlacementSchema>;
+
+/** POST /tasks/:id/dependencies: the Task waits for this one; DELETE /tasks/:id/dependencies/:blockerId ends it. */
+export const newDependencySchema = z.object({ blockerId: z.uuid() });
+export type NewDependency = z.infer<typeof newDependencySchema>;
 
 /** GET /tasks/:id/start: why POST /tasks/:id/start would be refused now; empty when it can start. */
 export const startCheckSchema = z.object({ reasons: z.array(z.string()) });
@@ -221,6 +227,16 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("task.resumed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.priority-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.reordered"), taskId: z.uuid() }),
+  webEventSchema.extend({
+    type: z.literal("task.dependency-added"),
+    taskId: z.uuid(),
+    blockerId: z.uuid(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("task.dependency-removed"),
+    taskId: z.uuid(),
+    blockerId: z.uuid(),
+  }),
   webEventSchema.extend({ type: z.literal("task.plan-proposed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.plan-confirmed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.definition-of-done-proposed"), taskId: z.uuid() }),

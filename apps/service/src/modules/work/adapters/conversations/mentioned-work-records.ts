@@ -27,7 +27,8 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
   async taskRecord(taskId: string): Promise<string | undefined> {
     try {
       const task = await this.tasks.read(taskId);
-      return taskRecordText(task, await this.attachments.listOf({ kind: "task", taskId }));
+      const attachments = await this.attachments.listOf({ kind: "task", taskId });
+      return taskRecordText(task, attachments, await this.tasks.blockersOf(task));
     } catch (error) {
       if (error instanceof TaskNotFound) return undefined;
       throw error;

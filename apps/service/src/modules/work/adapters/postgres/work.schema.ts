@@ -54,6 +54,11 @@ export const tasks = pgTable(
     proposedPipeline: jsonb("proposed_pipeline").$type<ProposedPipeline>(),
     /** Null until the Task starts, and for a Pipeline without an Agent Stage. */
     personRole: text("person_role"),
+    /** The Tasks it waits for, in the order added; a Task is dropped, never deleted, so ids hold. */
+    blockedBy: uuid("blocked_by")
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
     originIdeaId: uuid("origin_idea_id").references((): AnyPgColumn => ideas.id),
     createdBy: jsonb("created_by").$type<Author>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),

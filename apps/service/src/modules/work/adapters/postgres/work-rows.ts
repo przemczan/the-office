@@ -27,6 +27,11 @@ export async function holdStarts(transaction: Transaction): Promise<void> {
   await transaction.execute(sql`select pg_advisory_xact_lock(hashtext('work.start'))`);
 }
 
+/** Holds changes of dependencies until the transaction ends, so two can't close a cycle at once. */
+export async function holdDependencies(transaction: Transaction): Promise<void> {
+  await transaction.execute(sql`select pg_advisory_xact_lock(hashtext('work.dependencies'))`);
+}
+
 /** Every Task's order key, but `besidesTaskId`'s. */
 export async function takenOrders(
   transaction: Transaction,
@@ -79,6 +84,7 @@ export function toTaskRow(task: Task): TaskRow {
     pipelineId: task.pipelineId,
     proposedPipeline: task.proposedPipeline ?? null,
     personRole: task.personRole ?? null,
+    blockedBy: [...task.blockedBy],
     originIdeaId: task.originIdeaId ?? null,
     createdBy: task.createdBy,
     createdAt: task.createdAt,
@@ -100,6 +106,7 @@ export function toTask(row: TaskRow): Task {
     pipelineId: row.pipelineId,
     proposedPipeline: row.proposedPipeline ?? undefined,
     personRole: row.personRole ?? undefined,
+    blockedBy: row.blockedBy,
     originIdeaId: row.originIdeaId ?? undefined,
     createdBy: row.createdBy,
     createdAt: row.createdAt,

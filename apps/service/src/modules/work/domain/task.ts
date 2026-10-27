@@ -47,6 +47,11 @@ export interface Task {
    * first Agent Stage, as the click-through counts; undefined before Start or without one.
    */
   readonly personRole: string | undefined;
+  /**
+   * The Tasks that must be Done before it can start, in any Project, in the order they were added
+   * (task-dependencies.ts); a Dropped one stays listed but no longer blocks.
+   */
+  readonly blockedBy: readonly string[];
   /** The Idea it was shaped from, if it was. */
   readonly originIdeaId: string | undefined;
   readonly createdBy: Author;

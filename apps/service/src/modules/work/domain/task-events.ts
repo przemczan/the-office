@@ -112,6 +112,26 @@ export class TaskResumed extends DomainEvent {
   }
 }
 
+/** The Task must now wait for `blockerId` to be Done before it can start. */
+export class TaskDependencyAdded extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly blockerId: string,
+  ) {
+    super();
+  }
+}
+
+/** The Task no longer waits for `blockerId`. */
+export class TaskDependencyRemoved extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly blockerId: string,
+  ) {
+    super();
+  }
+}
+
 /** Ready → In progress: the user started the Task, following its Pipeline. */
 export class TaskStarted extends DomainEvent {
   constructor(

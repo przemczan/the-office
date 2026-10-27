@@ -6,11 +6,13 @@ import type { Neighbours } from "../../domain/manual-order.js";
 import type { Task } from "../../domain/task.js";
 import type { TaskChange } from "../../domain/task-changes.js";
 import type { TaskCreated, TaskReordered, TaskStarted } from "../../domain/task-events.js";
+import type { HeldAtStart } from "../../domain/task-start.js";
 import { STARTED_STATES } from "../../domain/task-states.js";
 import { TaskNotFound } from "../../domain/task-not-found.js";
 import { TaskRepository, type NeighbourIds, type TaskUpdate } from "../../ports/task-repository.js";
 import { tasks } from "./work.schema.js";
 import {
+  holdDependencies,
   holdManualOrder,
   holdStarts,
   takenOrders,
@@ -57,7 +59,7 @@ export class PostgresTaskRepository extends TaskRepository {
 
   async start(
     id: string,
-    change: (task: Task, startedTasks: readonly Task[]) => TaskChange<TaskStarted>,
+    change: (task: Task, held: HeldAtStart) => TaskChange<TaskStarted>,
   ): Promise<TaskChange<TaskStarted>> {
     return this.database.transaction(async (transaction) => {
       await holdStarts(transaction);
@@ -66,9 +68,30 @@ export class PostgresTaskRepository extends TaskRepository {
         .select()
         .from(tasks)
         .where(inArray(tasks.state, [...STARTED_STATES]));
-      const started = change(task, startedRows.map(toTask));
+      const blockerRows = task.blockedBy.length
+        ? await transaction
+            .select()
+            .from(tasks)
+            .where(inArray(tasks.id, [...task.blockedBy]))
+        : [];
+      const started = change(task, {
+        startedTasks: startedRows.map(toTask),
+        blockers: blockerRows.map(toTask),
+      });
       await transaction.update(tasks).set(toTaskRow(started.task)).where(eq(tasks.id, id));
       return started;
+    });
+  }
+
+  async changeDependencies<Event extends DomainEvent>(
+    id: string,
+    change: (task: Task, tasks: readonly Task[]) => TaskChange<Event> | undefined,
+  ): Promise<TaskUpdate<Event>> {
+    return this.database.transaction(async (transaction) => {
+      await holdDependencies(transaction);
+      const task = await heldTask(transaction, id);
+      const everyTask = (await transaction.select().from(tasks)).map(toTask);
+      return save(transaction, task, change(task, everyTask));
     });
   }
 

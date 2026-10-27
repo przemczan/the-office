@@ -31,8 +31,8 @@ export class StartService {
 
   async start(id: string): Promise<Task> {
     const conditions = await this.conditionsOf(await this.read(id));
-    const { task, event } = await this.repository.start(id, (held, startedTasks) =>
-      startTask(held, conditions, startedTasks),
+    const { task, event } = await this.repository.start(id, (held, heldAtStart) =>
+      startTask(held, conditions, heldAtStart),
     );
     await this.events.publish(event);
     return task;
@@ -41,8 +41,9 @@ export class StartService {
   /** Why the Task can't start now, for the Task page to show beside Start; empty when it can. */
   async startProblems(id: string): Promise<readonly string[]> {
     const task = await this.read(id);
-    const startedTasks = await this.repository.list();
-    return startProblems(task, await this.conditionsOf(task), startedTasks);
+    const tasks = await this.repository.list();
+    const blockers = tasks.filter(({ id: other }) => task.blockedBy.includes(other));
+    return startProblems(task, await this.conditionsOf(task), { startedTasks: tasks, blockers });
   }
 
   private async read(id: string): Promise<Task> {

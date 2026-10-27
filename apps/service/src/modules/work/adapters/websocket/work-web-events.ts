@@ -11,6 +11,8 @@ import { OfficeWideLimitChanged } from "../../domain/office-limit-events.js";
 import {
   TaskCreated,
   TaskDefinitionOfDoneConfirmed,
+  TaskDependencyAdded,
+  TaskDependencyRemoved,
   TaskDefinitionOfDoneProposed,
   TaskPaused,
   TaskPipelineConfirmed,
@@ -102,6 +104,19 @@ export class WorkWebEvents implements OnModuleInit {
       type: "task.reordered",
       taskId: event.taskId,
     }));
+    this.forwarding.forward(TaskDependencyAdded, (event): WebEventOf<"task.dependency-added"> => ({
+      type: "task.dependency-added",
+      taskId: event.taskId,
+      blockerId: event.blockerId,
+    }));
+    this.forwarding.forward(
+      TaskDependencyRemoved,
+      (event): WebEventOf<"task.dependency-removed"> => ({
+        type: "task.dependency-removed",
+        taskId: event.taskId,
+        blockerId: event.blockerId,
+      }),
+    );
   }
 
   private forwardPlanningEvents(): void {

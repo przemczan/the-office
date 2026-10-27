@@ -16,6 +16,7 @@ import {
   stopTask,
   type TaskChange,
 } from "../domain/task-changes.js";
+import { addDependency, removeDependency } from "../domain/task-dependencies.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { TaskRefused } from "../domain/task-refused.js";
 import { STARTED_STATES } from "../domain/task-states.js";
@@ -71,6 +72,12 @@ export class TaskService {
     return task;
   }
 
+  /** The Tasks it waits for, in the order they were added. */
+  async blockersOf(task: Task): Promise<Task[]> {
+    const tasks = new Map((await this.repository.list()).map((each) => [each.id, each]));
+    return task.blockedBy.flatMap((id) => tasks.get(id) ?? []);
+  }
+
   async changePriority(id: string, priority: Priority): Promise<Task> {
     return this.update(id, (task) => changePriority(task, priority));
   }
@@ -78,6 +85,23 @@ export class TaskService {
   /** Places a Task that hasn't started between its neighbours in its column of the board. */
   async reorder(id: string, neighbourIds: NeighbourIds): Promise<Task> {
     const { task, event } = await this.repository.reorder(id, neighbourIds, reorderTask);
+    if (event) await this.events.publish(event);
+    return task;
+  }
+
+  /** The Task waits for `blockerId` to be Done before it can start; any Task, in any Project. */
+  async addDependency(id: string, blockerId: string): Promise<Task> {
+    const { task, event } = await this.repository.changeDependencies(id, (held, tasks) =>
+      addDependency(held, blockerId, tasks),
+    );
+    if (event) await this.events.publish(event);
+    return task;
+  }
+
+  async removeDependency(id: string, blockerId: string): Promise<Task> {
+    const { task, event } = await this.repository.changeDependencies(id, (held) =>
+      removeDependency(held, blockerId),
+    );
     if (event) await this.events.publish(event);
     return task;
   }

@@ -33,6 +33,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     pipelineId: "full",
     proposedPipeline: undefined,
     personRole: undefined,
+    blockedBy: [],
     originIdeaId: undefined,
     createdBy: THE_USER,
     createdAt: new Date("2026-10-25T09:30:00.000Z"),

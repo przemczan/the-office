@@ -1,0 +1,1 @@
+ALTER TABLE "tasks" ADD COLUMN "blocked_by" uuid[] DEFAULT '{}' NOT NULL;

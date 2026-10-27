@@ -28,7 +28,7 @@ Leave out: tags, search, saved views and the Project filter (task 23); moving a 
 
 - [x] 1. The CTO preset: the preset, its Hard switches and authority, lifting "hire from its preset" for it. Commit.
   Read: `presets.ts` (the Office Manager's, as the latest), `known-roles.ts`; spec 6's Hard switch table; the hire e2e in `people.e2e.ts`.
-- [ ] 2a. Dependencies, the service side: a Task's blockers (table, events, routes, WebSocket events), the rules (not itself, no cycle), Start refused while a blocker isn't Done, and the blockers in the Task's record words. Commit.
+- [x] 2a. Dependencies, the service side: a Task's blockers (table, events, routes, WebSocket events), the rules (not itself, no cycle), Start refused while a blocker isn't Done, and the blockers in the Task's record words. Commit.
   Read: `task-start.ts`, `start-service.ts`, `task-changes.ts`, `record-words.ts`; `work.schema.ts`.
 - [ ] 2b. Dependencies, the web side: the Task page's Dependencies card with adding and removing, the board's blocked mark, Start's reason. Commit.
   Read: the State's file map; click-through `task.js` (`dependencies`) and `work.js` (the board card); the Task page in the Work surface.
@@ -47,12 +47,14 @@ Leave out: tags, search, saved views and the Project filter (task 23); moving a 
 
 ## State
 
-- Step 1 done: the CTO preset (`cto`, suggested name Bob) in `presets.ts`, between the Reviewer and the Office Manager as in spec 2.2's table: Memory, Chat and Consultant on, Task limit 2, the Developer's permission profile (the click-through's "Developer default"), Opus 5.5 at high effort, Hard switches Consult Devops / Ask me / Never. Its instructions already say it drafts a shaping Initiative alone and asks the user to confirm it or change it once active; steps 3b and 5 add the tools.
-- The e2e now hires the CTO in its first test (five people), so the others' `consult("cto")` (the Developer's publish outside the Pipeline, the presets' "Consult the CTO first") reach a real Consultant in later e2e tests; "a Role nobody fills" uses Devops.
+- The CTO preset (step 1): `cto`, suggested name Bob, in `presets.ts` between the Reviewer and the Office Manager: Memory, Chat and Consultant on, Task limit 2, the Developer's permission profile, Opus 5.5 high, Hard switches Consult Devops / Ask me / Never. Its instructions already say it drafts a shaping Initiative alone and asks the user to confirm or change an active one; steps 3b and 5 add the tools. The e2e hires the CTO in its first test (five people), so the others' `consult("cto")` reach a real Consultant later on; "a Role nobody fills" uses Devops.
+- Dependencies, service (step 2a): `Task.blockedBy` (ids in the order added; a `blocked_by uuid[]` column, migration `0039_task_dependencies`), rules in `domain/task-dependencies.ts` (`addDependency` refuses itself, a missing or Dropped blocker, a started Task, a cycle; `removeDependency`; `blockingTasks`/`blockedProblems`: neither Done nor Dropped). `TaskService.addDependency`/`removeDependency`/`blockersOf` go through `TaskRepository.changeDependencies` (one advisory lock, every Task read). Start's reasons lead with `Blocked by "X", which must be Done first.`; `HeldAtStart` carries the blockers read in Start's hold. Routes `POST /tasks/:id/dependencies {blockerId}`, `DELETE /tasks/:id/dependencies/:blockerId`; web events `task.dependency-added`/`-removed` (the web refetches Tasks); the Task response has `blockedBy`. The Task's record names its blockers under "Must be Done before it can start:".
+- For step 2b: "Waiting for this Task" is worked out on the web from the Task list's `blockedBy`; the web's `api/work.ts` maps the two events already. Only the user changes dependencies so far; the CTO's tool comes in 3b through `TaskService.addDependency` (no author is kept on a dependency).
 - Decided with the user (2026-10-28): Tasks of an Initiative still being shaped are planned and started like any Task; while shaping the CTO writes the draft straight onto the page and the user confirms it once, and once active the CTO's changes are Proposals; a Dropped blocker no longer blocks, the Task page listing it as dropped; the CTO-first escalation of spec 2.3 is built here. All in spec 2.1's Defaults.
-- Watch: the Memory e2e test ("adds a note to the Planner's Memory…") timed out once more in a full run and passed on rerun (also seen in task 21).
+- Watch: the Memory e2e test timed out once in a full run (as in task 21), and `projects/application/worktrees.test.ts` once at 5 s under a full run; both passed on rerun.
 
 ## Progress
 
 - 2026-10-28 · task file: sliced into nine steps with the user, its open questions answered; step 1, the CTO preset, is next.
 - 2026-10-28 · step 1: the CTO preset, hired in the presets e2e; dependencies, the service side, are next.
+- 2026-10-28 · step 2a: dependencies on the service side (rules, Start refused while blocked, routes, events, the record); the web side is next.

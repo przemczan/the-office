@@ -37,6 +37,7 @@ export function toTaskResponse(task: Task): TaskResponse {
     definitionOfDoneConfirmed: task.definitionOfDoneConfirmed,
     pipelineId: task.pipelineId,
     proposedPipeline: task.proposedPipeline ? { ...task.proposedPipeline } : null,
+    blockedBy: [...task.blockedBy],
     originIdeaId: task.originIdeaId ?? null,
     createdBy: toAuthorResponse(task.createdBy),
     createdAt: task.createdAt.toISOString(),
