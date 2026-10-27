@@ -12,6 +12,7 @@ import { RoleOfficeTools } from "./adapters/office-tools/role-office-tools.js";
 import { MemoryOfficeTools } from "./adapters/office-tools/memory-office-tools.js";
 import { PostgresConversationsSettings } from "./adapters/postgres/postgres-conversations-settings.js";
 import { PostgresThreadRepository } from "./adapters/postgres/postgres-thread-repository.js";
+import { SizeThresholdProposals } from "./adapters/proposals/size-threshold-proposals.js";
 import { ThreadWebEvents } from "./adapters/websocket/thread-web-events.js";
 import { Briefs } from "./application/briefs.js";
 import { Consultations } from "./application/consultations.js";
@@ -80,6 +81,7 @@ export class ConversationsModule {
         ProposalAppliers,
         ProposalService,
         RoleProposals,
+        SizeThresholdProposals,
         DecisionOfficeTools,
         RoleOfficeTools,
         ProposalOfficeTools,
@@ -93,6 +95,7 @@ export class ConversationsModule {
         ThreadService,
         TaskThreadSetups,
         WorkRecords,
+        ProposalAppliers,
         StageThreads,
         StageDecisions,
         TaskTokens,

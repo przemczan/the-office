@@ -5,6 +5,7 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import {
   changeToApply,
   type EditedHire,
+  type OfficeSetting,
   type Proposal,
   type ProposedChange,
 } from "../domain/proposal.js";
@@ -47,6 +48,12 @@ export class ProposalService {
     return this.read(id);
   }
 
+  /** As `draft`, a new value for the Office setting, from the value its owner keeps now. */
+  async draftSetting(sessionId: string, setting: OfficeSetting, value: number): Promise<Proposal> {
+    const from = await this.appliers.settingNow(setting);
+    return this.draft(sessionId, { kind: setting, from, to: value });
+  }
+
   async read(id: string): Promise<Proposal> {
     const proposal = await this.repository.proposal(id);
     if (!proposal) throw new ProposalNotFound(id);
@@ -59,8 +66,8 @@ export class ProposalService {
   }
 
   /**
-   * The user applies the Proposal: a new Role's card as they edited it before hiring, when they
-   * did, or the change as drafted. Its owner's refusal leaves it open and is the answer; so is a
+   * The user applies the Proposal: a new Role as they edited it before hiring, when they did, or
+   * the change as drafted. Its owner's refusal leaves it open and is the answer; so is a
    * Proposal applied or declined already.
    */
   async apply(id: string, edited?: EditedHire): Promise<Proposal> {

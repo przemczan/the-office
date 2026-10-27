@@ -22,6 +22,12 @@ describe("hire", () => {
     expect(event.occurredAt).toEqual(at);
   });
 
+  it("keeps who proposed it, when the user hires from a Proposal", () => {
+    expect(hire("planner", "Jan", undefined, at, "office-manager").role.cardProposedBy).toBe(
+      "office-manager",
+    );
+  });
+
   it("refuses a Role someone already fills, with every reason", () => {
     expect(() => hire("developer", "", aRole(), at)).toThrow(
       new RoleRefused(["Give the person a name.", "Ada already fills the Developer Role."]),

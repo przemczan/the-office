@@ -161,6 +161,8 @@ interface PendingRequest {
 export class ScriptedSession implements EngineSession {
   /** What the caller did, for a test to look at. */
   readonly received: CallerRequest[] = [];
+  /** What it reported, as the Agent's side read it (an Office tool's result as the tool answered). */
+  readonly reportedEvents: SessionEvent[] = [];
   private readonly reported = new AsyncChannel<SessionEvent>();
   private readonly requests = new AsyncChannel<PendingRequest>();
   private readonly nextRequests = this.requests[Symbol.asyncIterator]();
@@ -257,7 +259,9 @@ export class ScriptedSession implements EngineSession {
     try {
       for (const step of script) {
         if (step.step === "event") {
-          this.reported.push(await this.replay(step.event));
+          const event = await this.replay(step.event);
+          this.reportedEvents.push(event);
+          this.reported.push(event);
         } else if (!isRead(step)) {
           await this.takeRequest(step);
         }

@@ -1,5 +1,10 @@
 export { DecisionService } from "./application/decision-service.js";
 export { InterruptedAnswers } from "./application/interrupted-answers.js";
+export {
+  ProposalAppliers,
+  type ProposalApplier,
+  type SettingProposalApplier,
+} from "./application/proposal-appliers.js";
 export { StageDecisions, type StageDecisionRequest } from "./application/stage-decisions.js";
 export {
   StageThreads,
@@ -26,3 +31,5 @@ export {
   TokensCounted,
   TurnEnded,
 } from "./domain/conversation-events.js";
+export type { ProposedSettingChange } from "./domain/proposal.js";
+export { ProposalRefused } from "./domain/proposal-refused.js";

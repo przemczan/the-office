@@ -2,7 +2,7 @@
 
 **Owns:** Ideas, Tasks (states, priority, manual order, Plan, Definition of Done, the Task's Pipeline id) and Attachments (`ideas`, `tasks`, `attachments`); Office settings in one row (`work_settings`, the Office-wide limit, which Settings › Office limits changes; the repository answers the default until it is saved); screenshots attached from Stages (`StageScreenshots`); the Office tools for Ideas and Tasks, whose records (`domain/record-words.ts`) are also what a mention in a chat gives the Agent, through Conversations' `WorkRecords`.
 
-**Talks to:** through ports bound in [app.module.ts](../../app.module.ts): `KnownProjects` to `ProjectService`, `ProjectWorktrees` to `TaskWorktrees`, `KnownPeople` to `RoleCards`, `KnownPipelines` to `PipelineLibrary`, `SessionPeople`, `SessionTasks` and `TaskThreads` to `ThreadService`, `TaskDecisions` to `DecisionService`. Pipelines reacts to its events and moves started Tasks through `TaskService`.
+**Talks to:** through ports bound in [app.module.ts](../../app.module.ts): `KnownProjects` to `ProjectService`, `ProjectWorktrees` to `TaskWorktrees`, `KnownPeople` to `RoleCards`, `KnownPipelines` to `PipelineLibrary`, `SessionPeople`, `SessionTasks` and `TaskThreads` to `ThreadService`, `TaskDecisions` to `DecisionService`. Pipelines reacts to its events and moves started Tasks through `TaskService`. Work applies Proposals of the Office-wide limit with `OfficeLimitProposals` (`adapters/conversations/`), which fills Conversations' `ProposalAppliers` as Work starts and judges one by the contracts' rule Settings saves by; `WorkPortsForTestsModule` provides the registry.
 
 **Traps:** the Task holds only its Pipeline's id; the Task's own copy of its Stages lives in Pipelines (`task_stages`), as decided with the user in task 10. Every test file shares the `work_settings` row each Start reads: a test that lowers the limit overrides `WorkSettings` with `WorkSettingsForTests`.
 
@@ -69,8 +69,9 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 ### adapters/conversations/
 
 - `mentioned-work-records.ts`: MentionedWorkRecords
+- `office-limit-proposals.ts`: OfficeLimitProposals
 - `planning-thread-setup.ts`: PLANNING_OFFICE_TOOLS, PlanningThreadSetup
-- Tests: mentioned-work-records.test.ts, planning-thread-setup.test.ts
+- Tests: mentioned-work-records.test.ts, office-limit-proposals.test.ts, planning-thread-setup.test.ts
 
 ### adapters/filesystem/
 

@@ -8,7 +8,10 @@ import { ProposalRefused } from "./proposal-refused.js";
  */
 export interface ProposedChanges {
   readonly hire: ProposedHire;
+  readonly "hire-from-preset": ProposedPresetHire;
   readonly change: ProposedRoleChange;
+  readonly "office-wide-limit": ProposedSettingChange<"office-wide-limit">;
+  readonly "size-threshold": ProposedSettingChange<"size-threshold">;
 }
 
 /** The kinds of change a Proposal can carry. */
@@ -29,6 +32,14 @@ export interface ProposedHire {
   readonly roleKey: string | undefined;
 }
 
+/** A person hired into a preset's Role, on the preset's card under the name given. */
+export interface ProposedPresetHire {
+  readonly kind: "hire-from-preset";
+  /** The preset's key, which the Role keeps. */
+  readonly roleKey: string;
+  readonly name: string;
+}
+
 /**
  * A change to a hired Role's card: the fields it rewrites as the card had them when the Proposal
  * was drafted (`from`), and as proposed (`to`). Applying rewrites only those fields on the card as
@@ -39,6 +50,18 @@ export interface ProposedRoleChange {
   readonly roleKey: string;
   readonly from: RoleCardFields;
   readonly to: RoleCardFields;
+}
+
+/** The Office settings a Proposal can change, each applied by the module that owns it. */
+export const OFFICE_SETTINGS = ["office-wide-limit", "size-threshold"] as const;
+
+export type OfficeSetting = (typeof OFFICE_SETTINGS)[number];
+
+/** A new value for an Office setting (`to`), and its value when the Proposal was drafted (`from`). */
+export interface ProposedSettingChange<Setting extends OfficeSetting = OfficeSetting> {
+  readonly kind: Setting;
+  readonly from: number;
+  readonly to: number;
 }
 
 /** Open until the user applies it or declines it; nothing changes before they apply it. */
@@ -62,11 +85,13 @@ export interface Proposal {
   readonly status: ProposalStatus;
 }
 
-/** The new Role's card and skills as the user edited them before hiring. */
-export interface EditedHire {
-  readonly card: RoleCard;
-  readonly skills: readonly string[];
-}
+/**
+ * A new Role as the user edited it before hiring: from scratch, its card and skills; from a preset,
+ * the person's name.
+ */
+export type EditedHire =
+  | { readonly kind: "hire"; readonly card: RoleCard; readonly skills: readonly string[] }
+  | { readonly kind: "hire-from-preset"; readonly name: string };
 
 /**
  * A change to the Role keyed `roleKey`, whose card is `card` now: the fields of `fields` that differ
@@ -90,23 +115,27 @@ function fieldsOf(source: RoleCardFields, fields: readonly (keyof RoleCard)[]): 
 
 /** Every problem with what is proposed that its owner doesn't judge, in words the drafter acts on. */
 export function proposedChangeProblems(change: ProposedChange): string[] {
-  if (change.kind === "hire") return [];
+  if (change.kind !== "change") return [];
   return Object.keys(change.to).length === 0
     ? ["Nothing changes: give the fields of the Role card that change, each one whole."]
     : [];
 }
 
 /**
- * The change to apply: as drafted, or, for a new Role, with the card the user edited before
- * hiring. Refused once the Proposal is applied or declined, and for an edit of anything else.
+ * The change to apply: as drafted, or, for a new Role, as the user edited it before hiring. Refused
+ * once the Proposal is applied or declined, and for an edit of anything else.
  */
 export function changeToApply(proposal: Proposal, edited: EditedHire | undefined): ProposedChange {
   refuseUnlessOpen(proposal);
-  if (!edited) return proposal.change;
-  if (proposal.change.kind !== "hire") {
-    throw new ProposalRefused(["Only a new Role's card is edited before hiring."]);
+  const { change } = proposal;
+  if (!edited) return change;
+  if (change.kind === "hire" && edited.kind === "hire") {
+    return { ...change, card: edited.card, skills: edited.skills };
   }
-  return { ...proposal.change, card: edited.card, skills: edited.skills };
+  if (change.kind === "hire-from-preset" && edited.kind === "hire-from-preset") {
+    return { ...change, name: edited.name };
+  }
+  throw new ProposalRefused(["Only a new Role is edited before hiring, as it was proposed."]);
 }
 
 /** Refuses a change of a Proposal the user applied or declined already. */

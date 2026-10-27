@@ -87,10 +87,15 @@ export class RoleService {
     private readonly events: EventBus,
   ) {}
 
-  /** Refuses with every reason, before saving, also when someone already fills the Role. */
-  async hire(roleKey: string, name: string): Promise<RoleWithSkills> {
+  /**
+   * Hires `name` into the preset's Role, as the user chose it or applied a Proposal of it by the
+   * person `proposedBy`. Refuses with every reason, before saving, also when someone already fills
+   * the Role.
+   */
+  async hire(roleKey: string, name: string, proposedBy?: string): Promise<RoleWithSkills> {
     const hiredAt = new Date();
-    const { role, event } = hire(roleKey, name, await this.repository.find(roleKey), hiredAt);
+    const filledBy = await this.repository.find(roleKey);
+    const { role, event } = hire(roleKey, name, filledBy, hiredAt, proposedBy);
     if (!(await this.repository.add(role))) {
       // Someone was hired into the Role meanwhile: refuse as if they had been there before.
       hire(roleKey, name, await this.repository.find(roleKey), hiredAt);
@@ -98,6 +103,12 @@ export class RoleService {
     }
     await this.events.publish(event);
     return { role, skills: await this.roleSkills.of(role.key) };
+  }
+
+  /** Every reason hiring `name` from the preset would be refused now, saving nothing. */
+  async presetHiringProblems(roleKey: string, name: string): Promise<readonly string[]> {
+    const filledBy = await this.repository.find(roleKey);
+    return refusalReasons(async () => hire(roleKey, name, filledBy, new Date()));
   }
 
   /**

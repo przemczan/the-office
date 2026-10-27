@@ -1,5 +1,6 @@
 import {
   DECISION_TOOLS,
+  PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_ROLE_TOOL,
   type Decision,
   type DecisionAnswer,
@@ -71,7 +72,11 @@ export function MessageList({
 }
 
 /** A card shows its tool's call, so the call's activity line is left out. */
-const TOOLS_SHOWN_AS_CARDS: readonly string[] = [...DECISION_TOOLS, PROPOSE_ROLE_TOOL];
+const TOOLS_SHOWN_AS_CARDS: readonly string[] = [
+  ...DECISION_TOOLS,
+  PROPOSE_ROLE_TOOL,
+  PROPOSE_OFFICE_SETTING_TOOL,
+];
 
 function shown(message: Message): boolean {
   return message.kind !== "tool-activity" || !TOOLS_SHOWN_AS_CARDS.includes(message.tool);

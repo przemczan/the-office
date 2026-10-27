@@ -18,6 +18,7 @@ import {
 import { IdeasController } from "./adapters/http/ideas.controller.js";
 import { OfficeLimitsController } from "./adapters/http/office-limits.controller.js";
 import { MentionedWorkRecords } from "./adapters/conversations/mentioned-work-records.js";
+import { OfficeLimitProposals } from "./adapters/conversations/office-limit-proposals.js";
 import { PlanningThreadSetup } from "./adapters/conversations/planning-thread-setup.js";
 import { AttachmentOfficeTools } from "./adapters/office-tools/attachment-office-tools.js";
 import { PlanningOfficeTools } from "./adapters/office-tools/planning-office-tools.js";
@@ -54,9 +55,9 @@ import { WorktreeFiles } from "./ports/worktree-files.js";
 
 export interface WorkModuleOptions {
   /**
-   * The modules that provide the ports below, and Conversations' TaskThreadSetups and
-   * WorkRecords, where Work sets up the sessions of Threads on its Tasks and gives the records
-   * mentioned in a chat.
+   * The modules that provide the ports below, and Conversations' TaskThreadSetups, WorkRecords and
+   * ProposalAppliers, where Work sets up the sessions of Threads on its Tasks, gives the records
+   * mentioned in a chat and applies Proposals of the Office-wide limit.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly knownProjects: Type<KnownProjects>;
@@ -121,6 +122,7 @@ export class WorkModule implements NestModule {
         AttachmentOfficeTools,
         PlanningThreadSetup,
         MentionedWorkRecords,
+        OfficeLimitProposals,
       ],
       exports: [IdeaService, TaskService, OfficeLimits, TaskRecords, StageScreenshots],
     };

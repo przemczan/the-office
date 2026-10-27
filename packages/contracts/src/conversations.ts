@@ -180,6 +180,9 @@ export const decisionListSchema = z.array(decisionSchema);
  */
 export const PROPOSE_ROLE_TOOL = "propose_role";
 
+/** The Office tool the Office Manager drafts a Proposal of an Office setting with, hidden alike. */
+export const PROPOSE_OFFICE_SETTING_TOOL = "propose_office_setting";
+
 /** The fields of a Role card a change rewrites, each one whole; skills aren't among them. */
 const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).partial();
 
@@ -192,6 +195,8 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     /** The Role the person was hired into; null until the user applied it. */
     roleKey: z.string().nullable(),
   }),
+  /** A person hired into a preset's Role (`roleKey`, the preset's key) under `name`. */
+  z.object({ kind: z.literal("hire-from-preset"), roleKey: z.string(), name: z.string() }),
   /**
    * A change to a hired Role's card: the fields it rewrites as the card had them when drafted, and
    * as proposed. Applying rewrites only those fields on the card as it is then.
@@ -202,6 +207,10 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     from: roleCardFieldsSchema,
     to: roleCardFieldsSchema,
   }),
+  /** A new Office-wide limit (`to`), and the limit when drafted (`from`); Work applies it. */
+  z.object({ kind: z.literal("office-wide-limit"), from: z.number(), to: z.number() }),
+  /** A new size threshold, in tokens, and the threshold when drafted. */
+  z.object({ kind: z.literal("size-threshold"), from: z.number(), to: z.number() }),
 ]);
 export type ProposedChange = z.infer<typeof proposedChangeSchema>;
 
@@ -232,10 +241,14 @@ export const proposalSchema = z.object({
 export type Proposal = z.infer<typeof proposalSchema>;
 
 /**
- * POST /proposals/:id/apply: for a new Role, the card (with its skills) as the user edited it before
- * hiring; none to apply the Proposal as drafted.
+ * POST /proposals/:id/apply: a new Role as the user edited it before hiring, from scratch its card
+ * (with its skills), from a preset the person's name; neither to apply the Proposal as drafted.
  */
-export const proposalApplicationSchema = z.object({ card: roleCardSchema.optional() });
+export const proposalApplicationSchema = z
+  .object({ card: roleCardSchema.optional(), name: z.string().optional() })
+  .refine(({ card, name }) => card === undefined || name === undefined, {
+    message: "Give the edited card or the name, not both.",
+  });
 export type ProposalApplication = z.infer<typeof proposalApplicationSchema>;
 
 const messageFields = { id: z.uuid(), at: z.iso.datetime() };

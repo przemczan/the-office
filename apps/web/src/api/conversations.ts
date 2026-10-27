@@ -90,8 +90,8 @@ export const proposalQueries = {
 };
 
 /**
- * Applies the Proposal: as drafted, or a new Role on the card the user edited before hiring. A
- * refusal leaves it open.
+ * Applies the Proposal: as drafted, or a new Role as the user edited it before hiring (a card from
+ * scratch, a name for a preset's Role). A refusal leaves it open.
  */
 export function applyProposal(id: string, application: ProposalApplication): Promise<Proposal> {
   return sendToApi("POST", `${proposalPath(id)}/apply`, application, proposalSchema);

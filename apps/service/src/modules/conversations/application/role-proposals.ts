@@ -1,13 +1,14 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { RoleNotFound, RoleRefused, RoleService } from "../../people/index.js";
-import type { ProposedHire, ProposedRoleChange } from "../domain/proposal.js";
+import type { ProposedHire, ProposedPresetHire, ProposedRoleChange } from "../domain/proposal.js";
 import { ProposalRefused } from "../domain/proposal-refused.js";
 import { ProposalAppliers } from "./proposal-appliers.js";
 
 /**
- * Proposals of Roles, which People applies: a new Role is hired from scratch, and a change rewrites
- * the fields it names on the card as it is when applied, keeping the Role's skills. People's hiring
- * and card rules judge both, so a refused one changes nothing and gives People's reasons.
+ * Proposals of Roles, which People applies: a new Role is hired from scratch or from a preset, and
+ * a change rewrites the fields it names on the card as it is when applied, keeping the Role's
+ * skills. People's hiring and card rules judge each, so a refused one changes nothing and gives
+ * People's reasons.
  */
 @Injectable()
 export class RoleProposals implements OnModuleInit {
@@ -21,6 +22,10 @@ export class RoleProposals implements OnModuleInit {
       problemsWith: ({ card, skills }) => this.roles.hiringProblems(card, skills),
       apply: (hire, proposedBy) => this.hire(hire, proposedBy),
     });
+    this.appliers.register("hire-from-preset", {
+      problemsWith: ({ roleKey, name }) => this.roles.presetHiringProblems(roleKey, name),
+      apply: (hire, proposedBy) => this.hireFromPreset(hire, proposedBy),
+    });
     this.appliers.register("change", {
       problemsWith: (change) => this.changeProblems(change),
       apply: (change, proposedBy) => this.change(change, proposedBy),
@@ -32,6 +37,16 @@ export class RoleProposals implements OnModuleInit {
       this.roles.hireFromScratch(hire.card, hire.skills, proposedBy),
     );
     return { ...hire, roleKey: role.key };
+  }
+
+  private async hireFromPreset(
+    hire: ProposedPresetHire,
+    proposedBy: string,
+  ): Promise<ProposedPresetHire> {
+    const { role } = await refusedAsProposal(() =>
+      this.roles.hire(hire.roleKey, hire.name, proposedBy),
+    );
+    return { ...hire, name: role.card.name };
   }
 
   private async changeProblems({ roleKey, to }: ProposedRoleChange): Promise<readonly string[]> {

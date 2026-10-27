@@ -30,14 +30,14 @@ export class ProposalsController {
     return toProposalResponse(await this.proposals.read(id));
   }
 
-  /** The user applies it, a new Role's card as they edited it before hiring when they did. */
+  /** The user applies it, a new Role as they edited it before hiring when they did. */
   @Post(":id/apply")
   @HttpCode(HttpStatus.OK)
   async apply(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(proposalApplicationSchema)) { card }: ProposalApplication,
+    @Body(new ContractPipe(proposalApplicationSchema)) application: ProposalApplication,
   ): Promise<ProposalResponse> {
-    return toProposalResponse(await this.proposals.apply(id, card && editedHire(card)));
+    return toProposalResponse(await this.proposals.apply(id, editedHire(application)));
   }
 
   /** The user declines it ("Not now"): nothing changes. */
@@ -48,7 +48,14 @@ export class ProposalsController {
   }
 }
 
-/** Splits the card the user sent into the Role card and the skills, as hiring takes them. */
-function editedHire({ skills, ...card }: NonNullable<ProposalApplication["card"]>): EditedHire {
-  return { card, skills };
+/**
+ * The new Role as the user edited it: a card, split into the Role card and the skills as hiring
+ * takes them, or a name for a preset's Role; undefined when they edited nothing.
+ */
+function editedHire({ card, name }: ProposalApplication): EditedHire | undefined {
+  if (card) {
+    const { skills, ...roleCard } = card;
+    return { kind: "hire", card: roleCard, skills };
+  }
+  return name === undefined ? undefined : { kind: "hire-from-preset", name };
 }

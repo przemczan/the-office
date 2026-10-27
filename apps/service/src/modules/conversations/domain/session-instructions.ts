@@ -63,14 +63,21 @@ export const OFFICE_MANAGER = "office-manager";
  */
 export const PROPOSE_ROLE_TOOL = "propose_role";
 
+/** The Office tool the Office Manager drafts a Proposal of an Office setting with, named as above. */
+export const PROPOSE_OFFICE_SETTING_TOOL = "propose_office_setting";
+
 /**
  * A chat's Office tools for the Role's person: the Office Manager doesn't turn work into Tasks but
- * points to the Planner, so it never creates one, and drafts Roles as Proposals the user applies
- * (ticket 06).
+ * points to the Planner, so it never creates one, and drafts Roles and Office settings as Proposals
+ * the user applies (ticket 06).
  */
 export function chatOfficeTools(roleKey: string): readonly string[] {
   return roleKey === OFFICE_MANAGER
-    ? [...CHAT_OFFICE_TOOLS.filter((name) => name !== "create_task"), PROPOSE_ROLE_TOOL]
+    ? [
+        ...CHAT_OFFICE_TOOLS.filter((name) => name !== "create_task"),
+        PROPOSE_ROLE_TOOL,
+        PROPOSE_OFFICE_SETTING_TOOL,
+      ]
     : CHAT_OFFICE_TOOLS;
 }
 

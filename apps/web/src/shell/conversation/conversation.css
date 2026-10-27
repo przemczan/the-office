@@ -590,6 +590,12 @@
   color: var(--fg-3);
 }
 
+/* The name of a preset's person, edited before hiring, on a line of its own above the buttons. */
+.proposal-name {
+  flex-basis: 100%;
+  max-width: 320px;
+}
+
 .proposal-field .proposal-note {
   display: block;
 }

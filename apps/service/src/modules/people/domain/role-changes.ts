@@ -19,14 +19,16 @@ export interface RoleChange<Event extends DomainEvent> {
 }
 
 /**
- * Hires `name` into the Role of the preset keyed `roleKey`, with the preset's card. Refuses with
- * every reason, also when `filledBy` already fills the Role: one person fills each.
+ * Hires `name` into the Role of the preset keyed `roleKey`, with the preset's card, as the user
+ * chose it or applied a Proposal of it by the person `proposedBy`. Refuses with every reason, also
+ * when `filledBy` already fills the Role: one person fills each.
  */
 export function hire(
   roleKey: string,
   name: string,
   filledBy: Role | undefined,
   hiredAt: Date,
+  proposedBy?: string,
 ): RoleChange<RoleHired> {
   const preset = presetFor(roleKey);
   if (!preset) throw new RoleRefused([`There is no preset to hire a "${roleKey}" from.`]);
@@ -39,7 +41,7 @@ export function hire(
     cardVersion: 1,
     hiredAt,
     cardSavedAt: hiredAt,
-    cardProposedBy: undefined,
+    cardProposedBy: proposedBy,
     letGoAt: undefined,
   };
   return { role, event: new RoleHired(role) };

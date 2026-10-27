@@ -1,5 +1,10 @@
 import { Injectable } from "@nestjs/common";
-import type { ProposedChange, ProposedChangeKind, ProposedChanges } from "../domain/proposal.js";
+import type {
+  OfficeSetting,
+  ProposedChange,
+  ProposedChangeKind,
+  ProposedChanges,
+} from "../domain/proposal.js";
 
 /**
  * How the module that owns a kind of change sees to Proposals of it: what is wrong with one as it
@@ -15,7 +20,15 @@ export interface ProposalApplier<Kind extends ProposedChangeKind> {
   apply(change: ProposedChanges[Kind], proposedBy: string): Promise<ProposedChanges[Kind]>;
 }
 
+/** How the module that owns an Office setting sees to Proposals of it, and the value it has now. */
+export interface SettingProposalApplier<
+  Setting extends OfficeSetting,
+> extends ProposalApplier<Setting> {
+  valueNow(): Promise<number>;
+}
+
 type Appliers = { [Kind in ProposedChangeKind]?: ProposalApplier<Kind> };
+type SettingAppliers = { [Setting in OfficeSetting]?: SettingProposalApplier<Setting> };
 
 /**
  * Who applies each kind of Proposal: the module that owns what it changes registers as it starts,
@@ -25,6 +38,7 @@ type Appliers = { [Kind in ProposedChangeKind]?: ProposalApplier<Kind> };
 @Injectable()
 export class ProposalAppliers {
   private readonly appliers: Appliers = {};
+  private readonly settings: SettingAppliers = {};
 
   register<Kind extends ProposedChangeKind>(kind: Kind, applier: ProposalApplier<Kind>): void {
     if (this.appliers[kind]) throw new Error(`Proposals of "${kind}" have an applier already.`);
@@ -32,12 +46,34 @@ export class ProposalAppliers {
     this.appliers[kind] = applier as Appliers[Kind];
   }
 
+  /** As `register`, for an Office setting, whose value now a Proposal of it starts from. */
+  registerSetting<Setting extends OfficeSetting>(
+    setting: Setting,
+    applier: SettingProposalApplier<Setting>,
+  ): void {
+    this.register(setting, applier);
+    this.settings[setting] = applier as SettingAppliers[Setting];
+  }
+
+  /** The Office setting's value now, as the module that owns it keeps it. */
+  settingNow(setting: OfficeSetting): Promise<number> {
+    const applier = this.settings[setting];
+    if (!applier) throw new Error(`Nothing applies Proposals of "${setting}".`);
+    return applier.valueNow();
+  }
+
   problemsWith(change: ProposedChange): Promise<readonly string[]> {
     switch (change.kind) {
       case "hire":
         return this.applierOf("hire").problemsWith(change);
+      case "hire-from-preset":
+        return this.applierOf("hire-from-preset").problemsWith(change);
       case "change":
         return this.applierOf("change").problemsWith(change);
+      case "office-wide-limit":
+        return this.applierOf("office-wide-limit").problemsWith(change);
+      case "size-threshold":
+        return this.applierOf("size-threshold").problemsWith(change);
     }
   }
 
@@ -45,8 +81,14 @@ export class ProposalAppliers {
     switch (change.kind) {
       case "hire":
         return this.applierOf("hire").apply(change, proposedBy);
+      case "hire-from-preset":
+        return this.applierOf("hire-from-preset").apply(change, proposedBy);
       case "change":
         return this.applierOf("change").apply(change, proposedBy);
+      case "office-wide-limit":
+        return this.applierOf("office-wide-limit").apply(change, proposedBy);
+      case "size-threshold":
+        return this.applierOf("size-threshold").apply(change, proposedBy);
     }
   }
 

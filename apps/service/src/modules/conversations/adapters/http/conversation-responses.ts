@@ -105,8 +105,13 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         card: { ...change.card, skills: [...change.skills] },
         roleKey: change.roleKey ?? null,
       };
+    case "hire-from-preset":
+      return { kind: "hire-from-preset", roleKey: change.roleKey, name: change.name };
     case "change":
       return { kind: "change", roleKey: change.roleKey, from: change.from, to: change.to };
+    case "office-wide-limit":
+    case "size-threshold":
+      return { kind: change.kind, from: change.from, to: change.to };
   }
 }
 

@@ -7,6 +7,8 @@ import {
   recordPath,
   roleCardSchema,
   roleSchema,
+  sizeThresholdSchema,
+  SIZE_THRESHOLD_TOKENS,
   taskSchema,
   taskStagesSchema,
   threadListSchema,
@@ -1362,4 +1364,46 @@ test("the user hires from Marta's Proposals, as drafted and edited first, applie
 
   await page.goto(`/people?chat=office-manager&thread=${threadId}`);
   await expect(proposalCard(page, "New Role · Iga · Designer")).toContainText("Hired");
+});
+
+test("the user hires into a preset's Role from Marta's Proposal under another name, and applies a new size threshold", async ({
+  page,
+}) => {
+  const started = await page.request.post("/api/chats/office-manager/threads");
+  const { id: threadId } = threadSchema.parse(await started.json());
+  const readThreshold = async () =>
+    sizeThresholdSchema.parse(await (await page.request.get("/api/settings/size-threshold")).json())
+      .sizeThreshold;
+  const threshold = await readThreshold();
+  const proposed =
+    threshold < SIZE_THRESHOLD_TOKENS.max
+      ? threshold + SIZE_THRESHOLD_TOKENS.step
+      : threshold - SIZE_THRESHOLD_TOKENS.step;
+  // Every preset's Role is filled by now, so hiring into one is refused, and shown on the card.
+  await seedProposal(threadId, { kind: "hire-from-preset", roleKey: "developer", name: "Grace" });
+  await seedProposal(threadId, { kind: "size-threshold", from: threshold, to: proposed });
+
+  try {
+    await page.goto(`/people?chat=office-manager&thread=${threadId}`);
+
+    const preset = proposalCard(page, "New Role · Grace · Developer");
+    await expect(preset).toContainText("Permission profile");
+    await preset.getByRole("button", { name: "Edit before hiring" }).click();
+    await preset.getByLabel("Name", { exact: true }).fill("Hedy");
+    await preset.getByRole("button", { name: "Hire Hedy" }).click();
+    // An earlier test renamed the Developer's person and title.
+    await expect(preset).toContainText("Hedy can't be hired yet");
+    await expect(preset).toContainText("already fills the");
+    await preset.getByRole("button", { name: "Not now" }).click();
+    await expect(preset).toContainText("Not hired");
+
+    const sizeThreshold = proposalCard(page, "Change the size threshold");
+    await expect(sizeThreshold.getByRole("listitem")).toContainText("Size threshold");
+    await expect(sizeThreshold).toContainText("Applies from each Thread's next message");
+    await sizeThreshold.getByRole("button", { name: "Apply change" }).click();
+    await expect(sizeThreshold).toContainText("Applied");
+    expect(await readThreshold()).toBe(proposed);
+  } finally {
+    await page.request.put("/api/settings/size-threshold", { data: { sizeThreshold: threshold } });
+  }
 });

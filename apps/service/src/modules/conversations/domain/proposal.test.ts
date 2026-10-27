@@ -97,7 +97,11 @@ describe("a change to a Role", () => {
 
 describe("applying a Proposal", () => {
   it("applies it as drafted, or a new Role as the user edited it", () => {
-    const edited = { card: aProposedCard({ name: "Tom" }), skills: ["playwright"] };
+    const edited = {
+      kind: "hire",
+      card: aProposedCard({ name: "Tom" }),
+      skills: ["playwright"],
+    } as const;
 
     expect(changeToApply(aProposal(), undefined)).toEqual(aProposal().change);
     expect(changeToApply(aProposal(), edited)).toEqual({
@@ -108,12 +112,22 @@ describe("applying a Proposal", () => {
     });
   });
 
-  it("refuses an edited card for a change to a Role", () => {
-    const change = proposedRoleChange("tester", aProposedCard(), { effort: "high" });
-    const edited = { card: aProposedCard(), skills: [] };
+  it("applies a preset's Role under the name the user gave", () => {
+    const change: ProposedChange = { kind: "hire-from-preset", roleKey: "developer", name: "Ada" };
 
-    expect(() => changeToApply(aProposal({ change }), edited)).toThrow(
-      "Only a new Role's card is edited before hiring.",
+    expect(
+      changeToApply(aProposal({ change }), { kind: "hire-from-preset", name: "Grace" }),
+    ).toEqual({ kind: "hire-from-preset", roleKey: "developer", name: "Grace" });
+  });
+
+  it("refuses an edit of anything but a new Role, or of another kind of hire", () => {
+    const change = proposedRoleChange("tester", aProposedCard(), { effort: "high" });
+    const edited = { kind: "hire", card: aProposedCard(), skills: [] } as const;
+    const refusal = "Only a new Role is edited before hiring, as it was proposed.";
+
+    expect(() => changeToApply(aProposal({ change }), edited)).toThrow(refusal);
+    expect(() => changeToApply(aProposal(), { kind: "hire-from-preset", name: "Grace" })).toThrow(
+      refusal,
     );
   });
 
