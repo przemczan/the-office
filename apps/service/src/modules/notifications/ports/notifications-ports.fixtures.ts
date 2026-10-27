@@ -3,6 +3,7 @@ import { OfficeToolRegistry } from "../../engine/index.js";
 import type { FiveHourWindow, OfficeTask, OpenDecision, StageOfTask } from "../domain/now.js";
 import { AccountUsage } from "./account-usage.js";
 import { DeskLimit } from "./desk-limit.js";
+import { KnownPeople } from "./known-people.js";
 import { OfficeStatusCards } from "./office-status-cards.js";
 import { OfficeTasks } from "./office-tasks.js";
 import { OpenDecisions } from "./open-decisions.js";
@@ -54,6 +55,14 @@ export class DeskLimitForTests extends DeskLimit {
   }
 }
 
+export class KnownPeopleForTests extends KnownPeople {
+  readonly hired = new Set<string>();
+
+  async hiredKeys(): Promise<ReadonlySet<string>> {
+    return this.hired;
+  }
+}
+
 export class AccountUsageForTests extends AccountUsage {
   current: { readonly fiveHour: FiveHourWindow } | undefined = undefined;
 }
@@ -72,6 +81,7 @@ const PORTS = [
   OpenDecisionsForTests,
   TaskStageProgressForTests,
   DeskLimitForTests,
+  KnownPeopleForTests,
   AccountUsageForTests,
   OfficeStatusCardsForTests,
   OfficeToolRegistry,

@@ -17,16 +17,12 @@ import {
   ScriptedEngineModule,
   type SessionScript,
 } from "../../engine/index.js";
-import { RoleCards, type SessionRole } from "../../people/index.js";
+import { OFFICE_MANAGER, RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { LinkCardOfficeTools } from "../adapters/office-tools/link-card-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import type { Message } from "../domain/message.js";
-import {
-  chatOfficeTools,
-  OFFICE_MANAGER,
-  POST_LINK_CARD_TOOL,
-} from "../domain/session-instructions.js";
+import { chatOfficeTools, POST_LINK_CARD_TOOL } from "../domain/session-instructions.js";
 import { startStageThread } from "../domain/thread-changes.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";

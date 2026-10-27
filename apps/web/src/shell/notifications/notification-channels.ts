@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import type { Channel, Notification } from "@the-office/contracts";
+import type { Notification } from "@the-office/contracts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { notificationQueries } from "../../api/notifications.ts";
 import { roleQueries } from "../../api/people.ts";
@@ -10,24 +10,8 @@ import { useEventStreamStatus } from "../../api/event-stream-provider.tsx";
 import { DesktopChannel } from "./desktop-channel.ts";
 import { useInAppChannel } from "./in-app-channel.tsx";
 import type { NotificationChannel, ShownNotification } from "./notification-channel.ts";
-import { aboutLine, personOf, targetOf, unreadCount } from "./notification-words.ts";
+import { aboutLine, personOf, serviceDown, targetOf, unreadCount } from "./notification-words.ts";
 import { useUnreadBadge } from "./unread-badge.ts";
-
-/**
- * "Service down" goes where spec 2.7's routing sends it, in-app and to the desktop: the web raises
- * it itself, since the service can't while the web has lost it.
- */
-const SERVICE_DOWN_CHANNELS: readonly Channel[] = ["in-app", "desktop"];
-
-export const SERVICE_DOWN: Notification = {
-  id: "service-down",
-  kind: "office.service-down",
-  roleKey: null,
-  line: "The Office lost its service and is reconnecting.",
-  pointsTo: { kind: "office" },
-  channels: [...SERVICE_DOWN_CHANNELS],
-  raisedAt: new Date(0).toISOString(),
-};
 
 /**
  * Brings each Notification to its channels as it is raised, and takes it off them as it clears
@@ -37,14 +21,15 @@ export const SERVICE_DOWN: Notification = {
  */
 export function useNotificationChannels(): void {
   const open = useQuery(notificationQueries.open()).data;
-  const serviceDown = useEventStreamStatus() === "reconnecting";
+  const roles = useQuery(roleQueries.list()).data;
+  const reconnecting = useEventStreamStatus() === "reconnecting";
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const inApp = useInAppChannel();
   const [desktop] = useState(() => new DesktopChannel());
   const all = useMemo(
-    () => (open === undefined ? undefined : serviceDown ? [...open, SERVICE_DOWN] : open),
-    [open, serviceDown],
+    () => (open === undefined ? undefined : reconnecting ? [...open, serviceDown(roles)] : open),
+    [open, reconnecting, roles],
   );
   const shown = useRef<ReadonlySet<string> | undefined>(undefined);
 
@@ -98,7 +83,7 @@ async function shownNotification(
     person: personOf(notification, roles),
     line: notification.line,
     about: aboutLine(task, projects),
-    open: () => open(targetOf(pointsTo)),
+    open: () => open(targetOf(notification)),
   };
 }
 

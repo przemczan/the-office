@@ -38,9 +38,9 @@ describe("the Notifications' content", () => {
         taskFailed("t1", "developer", { kind: "definition-of-done" }),
         taskPaused("t1", "developer", "pause"),
         taskPaused("t1", "developer", "stop"),
-        windowNearlyUsed(90),
-        windowReset(),
-        engineDown("Claude Code didn't start."),
+        windowNearlyUsed(90, undefined),
+        windowReset(undefined),
+        engineDown("Claude Code didn't start.", undefined),
       ].map(content),
     ).toEqual([
       ["needs-you.decision", "developer", "I need your answer: Keep the query string?"],
@@ -88,13 +88,36 @@ describe("the Notifications' content", () => {
     });
   });
 
-  it("speaks of the 5-hour window with no person", () => {
-    expect(raised(windowNearlyUsed(91.6))).toMatchObject({
+  it("speaks of the 5-hour window with no person while no Office Manager is hired", () => {
+    expect(raised(windowNearlyUsed(91.6, undefined))).toMatchObject({
       roleKey: undefined,
       line: "92% of the 5-hour window is used.",
       pointsTo: { kind: "office" },
       channels: ["in-app"],
     });
+  });
+
+  it("gives the Office kinds the Office Manager's first person once one is hired", () => {
+    expect(
+      [
+        windowNearlyUsed(91.6, "office-manager"),
+        windowReset("office-manager"),
+        engineDown("Claude Code didn't start.", "office-manager"),
+      ].map(content),
+    ).toEqual([
+      ["office.window-nearly-used", "office-manager", "We've used 92% of the 5-hour window."],
+      [
+        "office.window-reset",
+        "office-manager",
+        "The 5-hour window reset, so we have all of it again.",
+      ],
+      [
+        "office.engine-down",
+        "office-manager",
+        "I can't reach the engine: Claude Code didn't start.",
+      ],
+    ]);
+    expect(windowReset("office-manager").pointsTo).toEqual({ kind: "office" });
   });
 
   it("goes to the channels its kind routes to", () => {

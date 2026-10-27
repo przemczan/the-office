@@ -89,11 +89,12 @@ export class AppModule {
         HealthModule,
         OfficeDataModule.forRoot(config.officeDataDirectory),
         NotificationsModule.register({
-          imports: [work, conversations, pipelines, EngineModule],
+          imports: [work, conversations, pipelines, PeopleModule, EngineModule],
           officeTasks: TaskService,
           openDecisions: DecisionService,
           taskStageProgress: TaskStagesService,
           deskLimit: OfficeLimits,
+          knownPeople: RoleCards,
           accountUsage: UsageWindowState,
           officeStatusCards: ThreadService,
         }),

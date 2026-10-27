@@ -13,7 +13,7 @@ The user can hire the Office Manager, the person they go to by default. In a cha
 - [ ] Proposals for Office settings: the Office-wide limit and the size threshold, applied by the module that owns each. Check: a service test per setting.
 - [ ] Link card: the Office Manager points the user to a person or a Task with a Handover note; opening the thread prefills the note, editable or dropped; a person let go shows as such. Check: a service test; Playwright opening a thread from one.
 - [ ] Capturing an Idea and the Office status: a thought becomes an Idea in Work with a card in the chat; the Office status shows, Office-wide, who is on what and what waits on the user. Check: a service test of each; Playwright seeing both.
-- [ ] Office kinds of Notifications: with an Office Manager hired they carry the Office Manager's name and a first-person line and open their chat; without one they stay in the UI's own voice. Check: a service test of both.
+- [x] Office kinds of Notifications: with an Office Manager hired they carry the Office Manager's name and a first-person line and open their chat; without one they stay in the UI's own voice. Check: a service test of both.
 - [ ] `npm run verify` and `npm run verify:linux` pass, and the user has looked at hiring the Office Manager, a Proposal, a Link card and the Office status in the running app. Check: the commands; the user's word, logged.
 
 ## Read first
@@ -38,14 +38,16 @@ Leave out: the CTO, Devops and Initiatives (tasks 22, 24); Proposals drafted by 
   Read: click-through `chat.js` (`redirect`) and `conversation.js` (the composer note); `shell/conversation/composer.tsx`.
 - [x] 5. Capturing an Idea and the Office status: the tools, the Idea card ("Plan as a Task with …" through the existing route) and the Office status card built from Now's data, Office-wide. Commit.
   Read: click-through `chat.js` (`idea`, `status`); Work's Idea creation and `IdeasController.plan`; Notifications' Now service.
-- [ ] 6. Office kinds of Notifications from the Office Manager when one is hired. Commit.
+- [x] 6. Office kinds of Notifications from the Office Manager when one is hired. Commit.
   Read: `notification-kinds.ts`, `notification.ts`; spec 2.7.
 - [ ] 7. The user looks at hiring the Office Manager, a Proposal, a Link card and the Office status; `npm run verify:linux`; close the task. Commit.
   Read: [testing](../../apps/service/docs/testing.md) for the live check.
 
 ## State
 
-- Steps 1 to 5 built (2026-10-27); step 6 (Office kinds of Notifications from the Office Manager) is next.
+- Steps 1 to 6 built (2026-10-27); step 7 (the user's look in the running app, `verify:linux`, closing the task) is next.
+- Office kinds of Notifications: `windowNearlyUsed`, `windowReset` and `engineDown` (`notification.ts`) take the Office Manager's key, read at each raise through Notifications' `KnownPeople` port (bound to `RoleCards`), and speak in their first person then. The web's own "service down" (`serviceDown` in `notification-words.ts`) does the same from the Roles list; the status strip puts the person's name before the line. People owns `OFFICE_MANAGER` (`known-roles.ts`, exported); Conversations imports it.
+- Opening an Office kind from the Office Manager goes to Now with their chat over it (`targetOf`), so opening it still handles the window's kinds (my reading of spec 2.7's "opens the Office Manager's chat" with its Defaults' "by opening Now"); tell the user at step 7.
 - The Office Manager's chat tools are `chatOfficeTools(roleKey)` in Conversations' `session-instructions.ts`: every chat tool but `create_task`, plus `propose_role`, `propose_office_setting`, `post_link_card` and `show_office_status`.
 - Idea and Office status cards: `idea` and `office-status` messages, pointers only, logged in chat Threads only by `ThreadService.postIdeaCard`/`postOfficeStatus`, reached through Work's `IdeaCards` (after `capture_idea`, any person's chat) and Notifications' `OfficeStatusCards` (from `show_office_status`, `OfficeStatusOfficeTools`, which also gives the Agent Now in words, `officeStatusText`). The web reads both live: `idea-card.tsx` (Plan as a Task with the Planner through `shell/work/use-idea-planning.ts`, moved from Work's surface with `shape-idea-dialog.tsx`) and `office-status-card.tsx` (Now's counts and each person's `personStatus`). Waiting messages and the fire alarm stay out (task 27). A new one is named there and in the contracts (a test keeps the two equal), and goes in `TOOLS_SHOWN_AS_CARDS` (`message-list.tsx`) when a card shows the call. `capture_idea` is already among the chat tools (Work's `registerCaptureIdea`).
 - Proposals: `domain/proposal.ts`, `ProposalService`, and `ProposalAppliers`, a registry each owner fills (`RoleProposals`, `SizeThresholdProposals`, Work's `OfficeLimitProposals`). Web: `shell/conversation/proposal-card.tsx` (`ProposalFrame`, `useAnswering`).
@@ -65,3 +67,4 @@ Leave out: the CTO, Devops and Initiatives (tasks 22, 24); Proposals drafted by 
 - 2026-10-27 · step 3: Proposals for the Office-wide limit (applied by Work) and the size threshold (by Conversations), judged by Settings' rule at drafting and applying, and the preset kind of Proposal through `propose_role`, with their cards; next, step 4 (the Link card).
 - 2026-10-27 · step 4: the Link card: `post_link_card` (to a person, or a Task's latest Stage person, with the Task linked in the note), let go read live, opening a new chat Thread with the Handover note prefilled, editable or left out, sent with "Handover note from …"; next, step 5 (capturing an Idea and the Office status).
 - 2026-10-27 · step 5: the Idea card after `capture_idea` (plan it as a Task with the Planner from the chat) and the Office Manager's `show_office_status`, its card read live from Now and its words for the Agent; next, step 6 (Office kinds of Notifications from the Office Manager).
+- 2026-10-27 · step 6: Office kinds (the window, the engine, the web's service down) come from the Office Manager while one is hired, in their first person, opening their chat over Now; without one they keep the UI's voice; next, step 7 (the user's look, `verify:linux`, closing).

@@ -11,6 +11,7 @@ import { NotificationService } from "./application/notification-service.js";
 import { NowService } from "./application/now-service.js";
 import { AccountUsage } from "./ports/account-usage.js";
 import { DeskLimit } from "./ports/desk-limit.js";
+import { KnownPeople } from "./ports/known-people.js";
 import { NotificationRepository } from "./ports/notification-repository.js";
 import { OfficeDayFigures } from "./ports/office-day-figures.js";
 import { OfficeStatusCards } from "./ports/office-status-cards.js";
@@ -22,14 +23,15 @@ import { UserActivityRepository } from "./ports/user-activity-repository.js";
 
 export interface NotificationsModuleOptions {
   /**
-   * The modules that provide the ports below: Work, Conversations, Pipelines and the Engine, whose
-   * Office tool registry takes the Office Manager's Office status.
+   * The modules that provide the ports below: Work, Conversations, Pipelines, People and the
+   * Engine, whose Office tool registry takes the Office Manager's Office status.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly officeTasks: Type<OfficeTasks>;
   readonly openDecisions: Type<OpenDecisions>;
   readonly taskStageProgress: Type<TaskStageProgress>;
   readonly deskLimit: Type<DeskLimit>;
+  readonly knownPeople: Type<KnownPeople>;
   readonly accountUsage: Type<AccountUsage>;
   readonly officeStatusCards: Type<OfficeStatusCards>;
 }
@@ -47,6 +49,7 @@ export class NotificationsModule {
     openDecisions,
     taskStageProgress,
     deskLimit,
+    knownPeople,
     accountUsage,
     officeStatusCards,
   }: NotificationsModuleOptions): DynamicModule {
@@ -63,6 +66,7 @@ export class NotificationsModule {
         { provide: OpenDecisions, useExisting: openDecisions },
         { provide: TaskStageProgress, useExisting: taskStageProgress },
         { provide: DeskLimit, useExisting: deskLimit },
+        { provide: KnownPeople, useExisting: knownPeople },
         { provide: AccountUsage, useExisting: accountUsage },
         { provide: OfficeStatusCards, useExisting: officeStatusCards },
         NowService,

@@ -8,6 +8,7 @@ import {
   TurnEnded,
 } from "../../conversations/index.js";
 import { EngineDown, UsageWindowsChanged } from "../../engine/index.js";
+import { OFFICE_MANAGER } from "../../people/index.js";
 import {
   DefinitionOfDoneNotMet,
   GateContinued,
@@ -36,6 +37,7 @@ import {
   type NotificationDraft,
 } from "../domain/notification.js";
 import { NotificationRaised, NotificationsCleared } from "../domain/notification-events.js";
+import { KnownPeople } from "../ports/known-people.js";
 import { NotificationRepository } from "../ports/notification-repository.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
 import { TaskStageProgress } from "../ports/task-stage-progress.js";
@@ -61,6 +63,7 @@ export class NotificationService implements OnModuleInit {
     private readonly repository: NotificationRepository,
     private readonly tasks: OfficeTasks,
     private readonly stages: TaskStageProgress,
+    private readonly people: KnownPeople,
     private readonly events: EventBus,
   ) {}
 
@@ -132,15 +135,24 @@ export class NotificationService implements OnModuleInit {
       const percent = windows.fiveHour.percentUsed;
       const move = windowMove(this.windowPercent, percent);
       this.windowPercent = percent;
-      if (move === "nearly-used") await this.raise(windowNearlyUsed(percent));
+      if (move === "nearly-used") {
+        await this.raise(windowNearlyUsed(percent, await this.officeManager()));
+      }
       if (move === "reset") {
         await this.handle({ kind: "window-reset" });
-        await this.raise(windowReset());
+        await this.raise(windowReset(await this.officeManager()));
       }
     });
-    this.events.subscribe(EngineDown, ({ reason }) => this.raise(engineDown(reason)));
+    this.events.subscribe(EngineDown, async ({ reason }) =>
+      this.raise(engineDown(reason, await this.officeManager())),
+    );
     // A turn that ended came back from the engine, which therefore answers again.
     this.events.subscribe(TurnEnded, () => this.handle({ kind: "engine-answered" }));
+  }
+
+  /** Who the Office kinds come from: the Office Manager while one is hired. */
+  private async officeManager(): Promise<string | undefined> {
+    return (await this.people.hiredKeys()).has(OFFICE_MANAGER) ? OFFICE_MANAGER : undefined;
   }
 
   private async raiseFailure(taskId: string, failure: Failure): Promise<void> {

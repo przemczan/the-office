@@ -1,3 +1,6 @@
+/** The person the user goes to by default, whom other modules treat apart (spec §2.2). */
+export const OFFICE_MANAGER = "office-manager";
+
 /**
  * The Roles of spec §2.2's presets, by the key a Role keeps once hired, with their preset titles.
  * Pipelines and Consult values name a Role by its key, also before anyone fills it, so tier 2's
@@ -9,5 +12,5 @@ export const KNOWN_ROLES: ReadonlyMap<string, string> = new Map([
   ["reviewer", "Reviewer"],
   ["cto", "CTO"],
   ["devops", "Devops"],
-  ["office-manager", "Office Manager"],
+  [OFFICE_MANAGER, "Office Manager"],
 ]);

@@ -3,11 +3,11 @@ import {
   SHOW_OFFICE_STATUS_TOOL as CONTRACT_SHOW_OFFICE_STATUS_TOOL,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
+import { OFFICE_MANAGER } from "../../people/index.js";
 import {
   CHANGE_ROLE_TOOL,
   CHAT_OFFICE_TOOLS,
   chatOfficeTools,
-  OFFICE_MANAGER,
   POST_LINK_CARD_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_ROLE_TOOL,

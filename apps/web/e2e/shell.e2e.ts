@@ -107,6 +107,11 @@ test.describe("losing the service", () => {
       stream.connectToServer();
       streams.push(stream);
     });
+    // Without an Office Manager, whom other tests may have hired, it speaks in the UI's own voice.
+    await page.route(/\/api\/roles$/, async (route) => {
+      const roles = (await (await route.fetch()).json()) as { readonly key: string }[];
+      await route.fulfill({ json: roles.filter(({ key }) => key !== "office-manager") });
+    });
     await page.goto("/now");
     const strip = page.getByRole("status", { name: "Status strip" });
     await expect(strip).toContainText("tokens today");

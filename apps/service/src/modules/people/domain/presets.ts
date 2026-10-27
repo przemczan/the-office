@@ -1,4 +1,5 @@
 import { ASK_ME, consult, NEVER } from "./hard-switches.js";
+import { OFFICE_MANAGER } from "./known-roles.js";
 import type { RoleCard } from "./role-card.js";
 
 /**
@@ -99,7 +100,7 @@ const reviewer: Preset = {
 };
 
 const officeManager: Preset = {
-  roleKey: "office-manager",
+  roleKey: OFFICE_MANAGER,
   suggestedName: "Marta",
   card: {
     title: "Office Manager",

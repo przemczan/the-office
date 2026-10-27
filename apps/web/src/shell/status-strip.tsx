@@ -3,12 +3,14 @@ import type { Now } from "@the-office/contracts";
 import { useState, type ReactNode } from "react";
 import { notificationQueries, nowQueries } from "../api/notifications.ts";
 import { useEventStreamStatus } from "../api/event-stream-provider.tsx";
+import { roleQueries } from "../api/people.ts";
 import { tokensShort } from "./conversation/context-words.ts";
 import {
   askForDesktopPermission,
   desktopPermission,
   type DesktopPermission as Permission,
 } from "./notifications/desktop-channel.ts";
+import { personOf } from "./notifications/notification-words.ts";
 import { doneSinceYouLeft, needsYouWords, resetWords } from "./notifications/now-words.ts";
 import { useNeedsYouPanel } from "./notifications/use-needs-you-panel.ts";
 
@@ -16,7 +18,8 @@ import { useNeedsYouPanel } from "./notifications/use-needs-you-panel.ts";
  * The Office-wide figures under the top bar (spec §4), live from `now.changed`: what needs the
  * user, which opens the Needs you panel, desks in use, tokens today, the 5-hour window, Tasks
  * touched and done since the user left. While the web has lost the service it says so first,
- * and the Office's own Notifications (the window, the engine) show here until they clear.
+ * and the Office's own Notifications (the window, the engine) show here until they clear, by the
+ * Office Manager's name once one speaks them.
  */
 export function StatusStrip(): ReactNode {
   const reconnecting = useEventStreamStatus() === "reconnecting";
@@ -24,6 +27,7 @@ export function StatusStrip(): ReactNode {
   const officeNotifications = (useQuery(notificationQueries.open()).data ?? []).filter(({ kind }) =>
     kind.startsWith("office."),
   );
+  const roles = useQuery(roleQueries.list()).data;
   return (
     <div className="shell-strip" role="status" aria-label="Status strip">
       {reconnecting && (
@@ -32,12 +36,15 @@ export function StatusStrip(): ReactNode {
           Reconnecting to The Office…
         </span>
       )}
-      {officeNotifications.map(({ id, line }) => (
-        <span key={id} className="shell-strip-stat shell-strip-office">
-          <span className="shell-dot reconnecting" />
-          {line}
-        </span>
-      ))}
+      {officeNotifications.map((notification) => {
+        const person = personOf(notification, roles);
+        return (
+          <span key={notification.id} className="shell-strip-stat shell-strip-office">
+            <span className="shell-dot reconnecting" />
+            {person ? `${person}: ${notification.line}` : notification.line}
+          </span>
+        );
+      })}
       {now && <Figures now={now} />}
       <span className="shell-grow" />
       <DesktopPermission />

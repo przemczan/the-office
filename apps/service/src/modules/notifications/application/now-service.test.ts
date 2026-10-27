@@ -15,6 +15,7 @@ import { NotificationsModule } from "../notifications.module.js";
 import {
   AccountUsageForTests,
   DeskLimitForTests,
+  KnownPeopleForTests,
   NotificationsPortsForTestsModule,
   OfficeStatusCardsForTests,
   OfficeTasksForTests,
@@ -53,6 +54,7 @@ describe("NowService", () => {
           openDecisions: OpenDecisionsForTests,
           taskStageProgress: TaskStageProgressForTests,
           deskLimit: DeskLimitForTests,
+          knownPeople: KnownPeopleForTests,
           accountUsage: AccountUsageForTests,
           officeStatusCards: OfficeStatusCardsForTests,
         }),

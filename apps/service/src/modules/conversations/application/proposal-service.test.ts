@@ -17,6 +17,7 @@ import {
   type SessionScript,
 } from "../../engine/index.js";
 import {
+  OFFICE_MANAGER,
   PeopleModule,
   RoleCards,
   RoleNotFound,
@@ -32,7 +33,6 @@ import type { Proposal, ProposedSettingChange } from "../domain/proposal.js";
 import { aProposedCard } from "../domain/proposal.fixtures.js";
 import {
   chatOfficeTools,
-  OFFICE_MANAGER,
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_ROLE_TOOL,
 } from "../domain/session-instructions.js";

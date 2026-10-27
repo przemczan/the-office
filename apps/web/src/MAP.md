@@ -96,8 +96,8 @@
 - `needs-you-feed.tsx`: NeedsYouFeed
 - `needs-you-panel.tsx`: NeedsYouPanel
 - `notification-channel.ts`: ShownNotification, NotificationChannel
-- `notification-channels.ts`: SERVICE_DOWN, useNotificationChannels, NotificationChannels
-- `notification-words.ts`: OFFICE_TITLE, NotificationTarget, targetOf, titleWithUnread, personOf, aboutLine, unreadCount
+- `notification-channels.ts`: useNotificationChannels, NotificationChannels
+- `notification-words.ts`: OFFICE_TITLE, NotificationTarget, targetOf, serviceDown, titleWithUnread, personOf, aboutLine, unreadCount
 - `now-words.ts`: OUTCOME_NAMES, OUTCOME_TONES, OUTCOME_EDGES, needsYouWords, desksWords, sinceWords, inStageWords, resetWords, doneSinceYouLeft
 - `unread-badge.ts`: useUnreadBadge
 - `use-needs-you-panel.ts`: NeedsYouPanelControls, useNeedsYouPanel

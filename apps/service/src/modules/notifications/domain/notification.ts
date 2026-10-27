@@ -21,8 +21,8 @@ export interface Notification {
   readonly id: string;
   readonly kind: NotificationKind;
   /**
-   * Who speaks, by their Role's key; undefined when The Office does, which has no person in tier 1
-   * (spec §2.7 Defaults).
+   * Who speaks, by their Role's key; undefined when The Office does, in the UI's own voice: a Task
+   * with nobody on it, or an Office kind while no Office Manager is hired (spec §2.7 Defaults).
    */
   readonly roleKey: string | undefined;
   /** In the person's first person, or the UI's own voice when nobody speaks. */
@@ -134,24 +134,53 @@ function taskOutcome(
   };
 }
 
-export function windowNearlyUsed(percentUsed: number): NotificationDraft {
+/**
+ * Office kinds come from the Office Manager, by their Role's key, or in the UI's own voice while
+ * nobody fills the Role (spec §2.7 and its Defaults).
+ */
+export function windowNearlyUsed(
+  percentUsed: number,
+  officeManager: string | undefined,
+): NotificationDraft {
+  const percent = Math.round(percentUsed);
   return officeKind(
     "office.window-nearly-used",
-    `${Math.round(percentUsed)}% of the 5-hour window is used.`,
+    officeManager,
+    `We've used ${percent}% of the 5-hour window.`,
+    `${percent}% of the 5-hour window is used.`,
   );
 }
 
-export function windowReset(): NotificationDraft {
-  return officeKind("office.window-reset", "The 5-hour window reset.");
+export function windowReset(officeManager: string | undefined): NotificationDraft {
+  return officeKind(
+    "office.window-reset",
+    officeManager,
+    "The 5-hour window reset, so we have all of it again.",
+    "The 5-hour window reset.",
+  );
 }
 
-export function engineDown(reason: string): NotificationDraft {
-  return officeKind("office.engine-down", `The engine is down: ${reason}`);
+export function engineDown(reason: string, officeManager: string | undefined): NotificationDraft {
+  return officeKind(
+    "office.engine-down",
+    officeManager,
+    `I can't reach the engine: ${reason}`,
+    `The engine is down: ${reason}`,
+  );
 }
 
-/** Office kinds speak in the UI's own voice, with no person (spec §2.7 Defaults). */
-function officeKind(kind: NotificationKind, line: string): NotificationDraft {
-  return { kind, roleKey: undefined, line, pointsTo: { kind: "office" } };
+function officeKind(
+  kind: NotificationKind,
+  officeManager: string | undefined,
+  firstPerson: string,
+  officeVoice: string,
+): NotificationDraft {
+  return {
+    kind,
+    roleKey: officeManager,
+    line: officeManager ? firstPerson : officeVoice,
+    pointsTo: { kind: "office" },
+  };
 }
 
 /** How the 5-hour window moved between two readings, as Notifications tell it. */

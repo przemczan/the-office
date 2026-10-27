@@ -6,8 +6,8 @@ import { startTestApplication } from "../../../../test/test-application.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
-import { DecisionAnswered, DecisionOpened } from "../../conversations/index.js";
-import { UsageWindowsChanged } from "../../engine/index.js";
+import { DecisionAnswered, DecisionOpened, TurnEnded } from "../../conversations/index.js";
+import { EngineDown, UsageWindowsChanged } from "../../engine/index.js";
 import { GateContinued, GateReached } from "../../pipelines/index.js";
 import { TaskStateChanged } from "../../work/index.js";
 import { NotificationRaised, NotificationsCleared } from "../domain/notification-events.js";
@@ -15,6 +15,7 @@ import { NotificationsModule } from "../notifications.module.js";
 import {
   AccountUsageForTests,
   DeskLimitForTests,
+  KnownPeopleForTests,
   NotificationsPortsForTestsModule,
   OfficeStatusCardsForTests,
   OfficeTasksForTests,
@@ -63,6 +64,7 @@ describe("NotificationService", () => {
           openDecisions: OpenDecisionsForTests,
           taskStageProgress: TaskStageProgressForTests,
           deskLimit: DeskLimitForTests,
+          knownPeople: KnownPeopleForTests,
           accountUsage: AccountUsageForTests,
           officeStatusCards: OfficeStatusCardsForTests,
         }),
@@ -172,5 +174,32 @@ describe("NotificationService", () => {
       ["office.window-reset", ["in-app"]],
     ]);
     expect(cleared).toContain(raised[0]?.notification.id);
+  });
+
+  it("keeps the Office kinds in the UI's voice until an Office Manager is hired, then has them speak", async () => {
+    const people = app.get(KnownPeopleForTests);
+    people.hired.add("developer");
+    await events.publish(reading(91));
+    await events.publish(new EngineDown("s1", "Claude Code didn't start."));
+    // The engine answers again and the user opens Now, which handles both.
+    await events.publish(new TurnEnded({} as TurnEnded["thread"], new Date()));
+    await reportActivity({ kind: "now" });
+
+    people.hired.add("office-manager");
+    await events.publish(reading(4));
+    await events.publish(reading(93));
+    await events.publish(new EngineDown("s1", "Claude Code didn't start."));
+
+    expect(raised.map(({ notification }) => [notification.roleKey, notification.line])).toEqual([
+      [undefined, "91% of the 5-hour window is used."],
+      [undefined, "The engine is down: Claude Code didn't start."],
+      ["office-manager", "The 5-hour window reset, so we have all of it again."],
+      ["office-manager", "We've used 93% of the 5-hour window."],
+      ["office-manager", "I can't reach the engine: Claude Code didn't start."],
+    ]);
+    const open = await openNotifications();
+    expect(open.find(({ id }) => id === raised[4]?.notification.id)?.roleKey).toBe(
+      "office-manager",
+    );
   });
 });

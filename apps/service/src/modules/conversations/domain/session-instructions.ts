@@ -1,3 +1,4 @@
+import { OFFICE_MANAGER } from "../../people/index.js";
 import { answerWords, type Decision, type DecisionAnswer } from "./decision.js";
 
 /** The parts of a Role card a session's standing instructions come from. */
@@ -54,8 +55,6 @@ export const CHAT_OFFICE_TOOLS = [
   "capture_idea",
   "create_task",
 ] as const;
-
-export const OFFICE_MANAGER = "office-manager";
 
 /**
  * The Office tool the Office Manager drafts a Proposal of a Role with; the contracts name it too,
