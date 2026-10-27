@@ -48,10 +48,13 @@ Order accepted by the user on 2026-10-27. A task's file is written when it becom
 
 ## After tier 2: the remaining fixes
 
-Decided with the user on 2026-10-27: a fix is built where it is found only when it is cheap to make. Any other, and any that needs the spec changed, is listed here, and they are done together once tier 2 is done and before tier 3, each spec amendment agreed with the user then. The numbers are the tier 1 run's problems in [archive/17-settings-acceptance.md](archive/17-settings-acceptance.md).
+Decided with the user on 2026-10-27: a fix is built where it is found only when it would be harder to make after the changes that come next. Every other fix is listed here, and they are done together once tier 2 is done and before tier 3, each spec amendment agreed with the user then. The numbers are the tier 1 run's problems in [archive/17-settings-acceptance.md](archive/17-settings-acceptance.md), each with its proposed fix there.
 
+- Problem 1: make the whole Task card on the board the link, its menu and buttons stopping the click.
+- Problem 3: the "+ Task" dialog says the work is described when planning with the Planner, and opens the new Task's page.
+- Problem 7: a Stage session that starts adds its tab right after the current one, marked new, without switching to it.
+- Problems 9 and 10: the Gate view says what the user does there; the Stage editor says a Gate's name is a label for the user; a Script Stage chosen to send back to says it can't read the feedback.
 - Problem 2: the board card's "…" menu is clipped when the board is short. Render it outside the column's overflow, flipping up when there is no room below.
-- Problem 5: Mark Ready is clickable while it can't succeed. Disable it beside a "Before Ready" checklist in the planning panel (decided with the user), built from the same Work rules that refuse Mark Ready, each line ticking as it is met.
 - Problem 8: on the Changes tab, every file starts folded to its header with its +/- counts, unfolds on a click, with "Unfold all" and "Fold all".
 - Problem 13: count tokens without cache reads everywhere (Threads, Stages, Now, the strip), with an info icon giving input, output, cache writes and cache reads and what each costs. Amends [spec 2.7 Defaults](../spec/2.7-notifications.md#defaults), "Today's figures", which counts all four kinds.
 
