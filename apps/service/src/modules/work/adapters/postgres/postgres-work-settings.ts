@@ -14,4 +14,11 @@ export class PostgresWorkSettings extends WorkSettings {
     const [row] = await this.database.select().from(workSettings).limit(1);
     return row?.officeWideLimit ?? DEFAULT_OFFICE_WIDE_LIMIT;
   }
+
+  async changeOfficeWideLimit(officeWideLimit: number): Promise<void> {
+    await this.database
+      .insert(workSettings)
+      .values({ officeWideLimit })
+      .onConflictDoUpdate({ target: workSettings.id, set: { officeWideLimit } });
+  }
 }

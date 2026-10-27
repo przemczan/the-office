@@ -7,6 +7,7 @@ import {
   AttachmentRemoved,
 } from "../../domain/attachment-events.js";
 import { IdeaCaptured, IdeaDropped, IdeaRestored, IdeaShaped } from "../../domain/idea-events.js";
+import { OfficeWideLimitChanged } from "../../domain/office-limit-events.js";
 import {
   TaskCreated,
   TaskDefinitionOfDoneConfirmed,
@@ -40,6 +41,10 @@ export class WorkWebEvents implements OnModuleInit {
     this.forwardTaskEvents();
     this.forwardPlanningEvents();
     this.forwardAttachmentEvents();
+    this.forwarding.forward(
+      OfficeWideLimitChanged,
+      (): WebEventOf<"office-wide-limit.changed"> => ({ type: "office-wide-limit.changed" }),
+    );
   }
 
   private forwardIdeaEvents(): void {

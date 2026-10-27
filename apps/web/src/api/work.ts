@@ -4,6 +4,7 @@ import {
   attachmentSchema,
   ideaListSchema,
   ideaSchema,
+  officeWideLimitSchema,
   startCheckSchema,
   taskListSchema,
   taskSchema,
@@ -13,6 +14,7 @@ import {
   type NewIdea,
   type NewLink,
   type NewTask,
+  type OfficeWideLimit,
   type Priority,
   type StartCheck,
   type Task,
@@ -25,6 +27,7 @@ import type { EventInvalidations } from "./event-stream-provider.tsx";
 const IDEAS = ["ideas"] as const;
 const TASKS = ["tasks"] as const;
 const ATTACHMENTS = ["attachments"] as const;
+const OFFICE_WIDE_LIMIT = ["settings", "office-wide-limit"] as const;
 
 export const ideaQueries = {
   /** Every Idea, the newest captured first. */
@@ -39,6 +42,23 @@ export const ideaQueries = {
       queryFn: ({ signal }) => getFromApi(ideaPath(id), ideaSchema, signal),
     }),
 };
+
+/** Settings › Office limits: how many Tasks may be started at once across The Office. */
+export const officeWideLimitQuery = () =>
+  queryOptions({
+    queryKey: OFFICE_WIDE_LIMIT,
+    queryFn: ({ signal }) =>
+      getFromApi("/settings/office-wide-limit", officeWideLimitSchema, signal),
+  });
+
+export function changeOfficeWideLimit(officeWideLimit: number): Promise<OfficeWideLimit> {
+  return sendToApi(
+    "PUT",
+    "/settings/office-wide-limit",
+    { officeWideLimit },
+    officeWideLimitSchema,
+  );
+}
 
 export const taskQueries = {
   /** Every Task, in the board's order: by priority, then by manual order. */
@@ -219,6 +239,8 @@ export const workEventInvalidations: Readonly<
   "attachment.added": () => [ATTACHMENTS],
   "attachment.moved": () => [ATTACHMENTS],
   "attachment.removed": () => [ATTACHMENTS],
+  // Each Task's start check reads the limit too.
+  "office-wide-limit.changed": () => [OFFICE_WIDE_LIMIT, TASKS],
 };
 
 function ownerId(owner: AttachmentOwner): string {

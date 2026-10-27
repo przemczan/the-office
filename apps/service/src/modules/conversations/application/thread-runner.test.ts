@@ -25,7 +25,7 @@ import { CHAT_OFFICE_TOOLS, HANDOVER_REQUEST } from "../domain/session-instructi
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { TokensCounted, TurnEnded } from "../domain/conversation-events.js";
-import { DEFAULT_CONTEXT_POLICY_SETTINGS, type ContextDecision } from "../domain/context-policy.js";
+import type { ContextDecision } from "../domain/context-policy.js";
 import type { BriefProject } from "../domain/brief.js";
 import type { Message, MessageDraft } from "../domain/message.js";
 import { NO_TOKENS, type Thread, type ThreadSession } from "../domain/thread.js";
@@ -38,10 +38,13 @@ import { InterruptedAnswers } from "./interrupted-answers.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
 import { TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js";
-import { CONTEXT_POLICY_SETTINGS, ThreadContexts } from "./thread-contexts.js";
+import { ThreadContexts } from "./thread-contexts.js";
 import { StageThreads } from "./stage-threads.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { ThreadService } from "./thread-service.js";
+import { ContextPolicySettingsService } from "./context-policy-settings.js";
+import { ConversationsSettings } from "../ports/conversations-settings.js";
+import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
 
 type Card = SessionRole["card"];
 type Step = SessionScript[number];
@@ -121,7 +124,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       { provide: RoleCards, useValue: roleCards },
       { provide: ProjectBases, useValue: bases },
       { provide: SessionSkills, useValue: sessionSkills },
-      { provide: CONTEXT_POLICY_SETTINGS, useValue: DEFAULT_CONTEXT_POLICY_SETTINGS },
+      { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
+      ContextPolicySettingsService,
       ThreadService,
       Briefs,
       TaskThreadSetups,
@@ -453,6 +457,23 @@ describe("continuing a Thread", () => {
       id: fresh?.id,
       cardVersion: 2,
     });
+  });
+
+  it("starts a cooled Thread fresh once Settings lowers the size threshold below its context", async () => {
+    await startWith(started(...aTurn("brief", "Hello.")));
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Hello.");
+    await answered(thread.id, 3);
+    // 8k more than the session's first turn took.
+    await cooled(thread.id, 40_000);
+    const contexts = app.get(ThreadContexts);
+    const before = await contexts.of(await threads.read(thread.id));
+
+    await app.get(ContextPolicySettingsService).changeSizeThreshold(5_000);
+    const after = await contexts.of(await threads.read(thread.id));
+
+    expect(before).toMatchObject({ move: "resume", reason: "small-context" });
+    expect(after).toMatchObject({ move: "fresh", reason: "cache-expired" });
   });
 
   it("starts fresh while the cache is warm when the user chose Start fresh, once", async () => {

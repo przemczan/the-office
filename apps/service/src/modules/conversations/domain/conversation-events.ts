@@ -108,3 +108,10 @@ export class DecisionReopened extends DomainEvent {
     super(reopenedAt);
   }
 }
+
+/** Settings saved a new size threshold; the next continuation of every Thread reads it. */
+export class SizeThresholdChanged extends DomainEvent {
+  constructor(readonly sizeThreshold: number) {
+    super();
+  }
+}

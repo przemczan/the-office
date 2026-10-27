@@ -3,11 +3,14 @@ import { EngineModule } from "../engine/index.js";
 import { PeopleModule } from "../people/index.js";
 import { SkillsModule } from "../skills/index.js";
 import { DecisionsController } from "./adapters/http/decisions.controller.js";
+import { SizeThresholdController } from "./adapters/http/size-threshold.controller.js";
 import { ThreadsController } from "./adapters/http/threads.controller.js";
 import { DecisionOfficeTools } from "./adapters/office-tools/decision-office-tools.js";
+import { PostgresConversationsSettings } from "./adapters/postgres/postgres-conversations-settings.js";
 import { PostgresThreadRepository } from "./adapters/postgres/postgres-thread-repository.js";
 import { ThreadWebEvents } from "./adapters/websocket/thread-web-events.js";
 import { Briefs } from "./application/briefs.js";
+import { ContextPolicySettingsService } from "./application/context-policy-settings.js";
 import { DecisionService } from "./application/decision-service.js";
 import { InterruptedAnswers } from "./application/interrupted-answers.js";
 import { SessionPlaces } from "./application/session-places.js";
@@ -15,10 +18,10 @@ import { StageDecisions } from "./application/stage-decisions.js";
 import { StageThreads } from "./application/stage-threads.js";
 import { TaskTokens } from "./application/task-tokens.js";
 import { TaskThreadSetups } from "./application/task-thread-setups.js";
-import { CONTEXT_POLICY_SETTINGS, ThreadContexts } from "./application/thread-contexts.js";
+import { ThreadContexts } from "./application/thread-contexts.js";
 import { ThreadRunner } from "./application/thread-runner.js";
 import { ThreadService } from "./application/thread-service.js";
-import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "./domain/context-policy.js";
+import { ConversationsSettings } from "./ports/conversations-settings.js";
 import { ProjectBases } from "./ports/project-bases.js";
 import { ThreadRepository } from "./ports/thread-repository.js";
 
@@ -36,11 +39,12 @@ export class ConversationsModule {
       // A chat is with a person, whose Role card sets their session; the engine runs it with
       // their skills.
       imports: [...imports, PeopleModule, EngineModule, SkillsModule],
-      controllers: [ThreadsController, DecisionsController],
+      controllers: [ThreadsController, DecisionsController, SizeThresholdController],
       providers: [
         { provide: ThreadRepository, useClass: PostgresThreadRepository },
         { provide: ProjectBases, useExisting: projectBases },
-        { provide: CONTEXT_POLICY_SETTINGS, useValue: DEFAULT_CONTEXT_POLICY_SETTINGS },
+        { provide: ConversationsSettings, useClass: PostgresConversationsSettings },
+        ContextPolicySettingsService,
         ThreadService,
         Briefs,
         TaskThreadSetups,

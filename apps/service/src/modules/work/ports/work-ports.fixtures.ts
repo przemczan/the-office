@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { Injectable, Module } from "@nestjs/common";
 import { TaskThreadSetups } from "../../conversations/index.js";
-import type { TaskLimit } from "../domain/task-start.js";
+import { DEFAULT_OFFICE_WIDE_LIMIT, type TaskLimit } from "../domain/task-start.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { KnownProjects, type KnownProject } from "./known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "./project-worktrees.js";
@@ -9,6 +9,7 @@ import { SessionPeople } from "./session-people.js";
 import { SessionTasks } from "./session-tasks.js";
 import { TaskDecisions } from "./task-decisions.js";
 import { TaskThreads, type TaskThreadOpening } from "./task-threads.js";
+import { WorkSettings } from "./work-settings.js";
 
 /** The one Project id KnownProjectsForTests doesn't know. */
 export const UNKNOWN_PROJECT = "no-such-project";
@@ -69,6 +70,22 @@ export class KnownPeopleForTests extends KnownPeople {
       roleKey,
       card: { name: `The ${roleKey}`, taskLimit: this.taskLimits.get(roleKey) ?? 3 },
     };
+  }
+}
+
+/**
+ * Office settings of the test's own, for a test that changes them: every test file shares the
+ * database, whose row each Start reads.
+ */
+export class WorkSettingsForTests extends WorkSettings {
+  private limit = DEFAULT_OFFICE_WIDE_LIMIT;
+
+  async officeWideLimit(): Promise<number> {
+    return this.limit;
+  }
+
+  async changeOfficeWideLimit(officeWideLimit: number): Promise<void> {
+    this.limit = officeWideLimit;
   }
 }
 

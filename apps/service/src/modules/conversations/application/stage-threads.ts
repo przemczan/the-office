@@ -1,16 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { Inject, Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { EngineSessions } from "../../engine/index.js";
 import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { taskThreadBrief, type Brief } from "../domain/brief.js";
-import {
-  decideContext,
-  type ContextDecision,
-  type ContextPolicySettings,
-} from "../domain/context-policy.js";
+import { decideContext, type ContextDecision } from "../domain/context-policy.js";
 import type { Decision } from "../domain/decision.js";
 import type {
   Message,
@@ -45,7 +41,7 @@ import {
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { BargeIns } from "./barge-ins.js";
 import { sessionLogLines, type SessionEvent } from "./session-log.js";
-import { CONTEXT_POLICY_SETTINGS } from "./thread-contexts.js";
+import { ContextPolicySettingsService } from "./context-policy-settings.js";
 
 type EngineSession = Awaited<ReturnType<EngineSessions["start"]>>;
 type SessionSettings = Parameters<EngineSessions["start"]>[0]["settings"];
@@ -161,7 +157,7 @@ export class StageThreads {
     private readonly engine: EngineSessions,
     private readonly sessionSkills: SessionSkills,
     private readonly events: EventBus,
-    @Inject(CONTEXT_POLICY_SETTINGS) private readonly settings: ContextPolicySettings,
+    private readonly settings: ContextPolicySettingsService,
   ) {}
 
   /** Throws RoleNotFound when nobody fills the Stage's Role. */
@@ -187,7 +183,7 @@ export class StageThreads {
         declared: request.declared,
         briefTokens: brief.tokens,
       },
-      this.settings,
+      await this.settings.current(),
     );
     const undelivered =
       previous && request.carryMessagesSince

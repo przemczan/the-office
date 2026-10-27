@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { check, integer, pgTable, smallint } from "drizzle-orm/pg-core";
 
 /**
- * The Office settings Work reads, in one row once Settings saves them (task 17); until then the
+ * The Office settings Work reads, in one row once Settings saves them; until then the
  * repository answers each default.
  */
 export const workSettings = pgTable(

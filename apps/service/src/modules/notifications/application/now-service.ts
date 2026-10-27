@@ -22,6 +22,7 @@ import {
   TaskStagesEdited,
 } from "../../pipelines/index.js";
 import {
+  OfficeWideLimitChanged,
   TaskPaused,
   TaskResumed,
   TaskStarted,
@@ -56,6 +57,7 @@ const NOW_CHANGES: readonly DomainEventClass[] = [
   DecisionAnswered,
   DecisionReopened,
   UsageWindowsChanged,
+  OfficeWideLimitChanged,
 ];
 
 /**

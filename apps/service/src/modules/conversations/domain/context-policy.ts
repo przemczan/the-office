@@ -37,15 +37,18 @@ export interface ContextPolicySettings {
    * Above this much context added since the session's first turn, a cooled Thread starts fresh
    * under the Context policy: what the engine itself takes, a fresh session pays too (spec §9).
    */
-  readonly freshAboveTokens: number;
+  readonly sizeThreshold: number;
   /** The share of the model's window at which The Office asks for a Handover note. */
   readonly handOverAtShare: number;
 }
 
-/** Spec §2.5: an hour's cache, and 30k tokens to start with, tuned from telemetry. */
+/**
+ * Spec §2.5: an hour's cache, and 30k tokens to start with, tuned from telemetry; Settings › Office
+ * limits changes the size threshold.
+ */
 export const DEFAULT_CONTEXT_POLICY_SETTINGS: ContextPolicySettings = {
   cacheLifetimeMs: 60 * 60 * 1000,
-  freshAboveTokens: 30_000,
+  sizeThreshold: 30_000,
   // Leaves room for the turn that writes the Handover note.
   handOverAtShare: 0.8,
 };
@@ -154,7 +157,7 @@ function choose(
     case "prefer-to-continue":
       return { move: "resume", reason: "session-default" };
     case "context-policy":
-      return addedContextTokens > settings.freshAboveTokens
+      return addedContextTokens > settings.sizeThreshold
         ? { move: "fresh", reason: "cache-expired" }
         : { move: "resume", reason: "small-context" };
   }

@@ -2,12 +2,14 @@ import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
   decisionListSchema,
   messageListSchema,
+  sizeThresholdSchema,
   threadListSchema,
   threadSchema,
   threadWebEventSchema,
   type ContextOverride,
   type DecisionAnswer,
   type Home,
+  type SizeThreshold,
   type Thread,
   type ThreadWebEvent,
   type TokenTotals,
@@ -17,6 +19,7 @@ import type { EventCacheUpdates, EventInvalidations } from "./event-stream-provi
 
 const THREADS = ["threads"] as const;
 const DECISIONS = ["decisions"] as const;
+const SIZE_THRESHOLD = ["settings", "size-threshold"] as const;
 
 export const threadQueries = {
   /** The person's chat, the newest Thread first. */
@@ -52,6 +55,17 @@ export const threadQueries = {
       queryFn: ({ signal }) => getFromApi(`${threadPath(id)}/messages`, messageListSchema, signal),
     }),
 };
+
+/** Settings › Office limits: the Context policy's size threshold, in tokens. */
+export const sizeThresholdQuery = () =>
+  queryOptions({
+    queryKey: SIZE_THRESHOLD,
+    queryFn: ({ signal }) => getFromApi("/settings/size-threshold", sizeThresholdSchema, signal),
+  });
+
+export function changeSizeThreshold(sizeThreshold: number): Promise<SizeThreshold> {
+  return sendToApi("PUT", "/settings/size-threshold", { sizeThreshold }, sizeThresholdSchema);
+}
 
 export const decisionQueries = {
   /** Every Decision waiting on the user, the first asked first: what Waiting on you is made of. */
@@ -109,6 +123,7 @@ export const threadEventInvalidations: Readonly<
   "thread.decision-opened": () => [THREADS, DECISIONS],
   "thread.decision-answered": () => [THREADS, DECISIONS],
   "thread.decision-reopened": () => [THREADS, DECISIONS],
+  "context-policy.size-threshold-changed": () => [SIZE_THRESHOLD, THREADS],
 };
 
 /**

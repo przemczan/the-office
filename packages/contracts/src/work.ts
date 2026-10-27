@@ -166,6 +166,15 @@ export type Attachment = z.infer<typeof attachmentSchema>;
 
 export const attachmentListSchema = z.array(attachmentSchema);
 
+/** Settings › Office limits: the most desks the stepper offers (prototypes/app/settings.js). */
+export const OFFICE_WIDE_LIMIT_MAX = 12;
+
+/** How many Tasks may be started at once across The Office (spec §2.2). */
+export const officeWideLimitSchema = z.object({
+  officeWideLimit: z.int().min(1).max(OFFICE_WIDE_LIMIT_MAX),
+});
+export type OfficeWideLimit = z.infer<typeof officeWideLimitSchema>;
+
 /** What a refused change answers: every reason, also joined into Nest's `message`. */
 export const workRefusalSchema = z.object({
   statusCode: z.literal(422),
@@ -223,5 +232,6 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
     attachmentId: z.uuid(),
     owner: attachmentOwnerSchema,
   }),
+  webEventSchema.extend({ type: z.literal("office-wide-limit.changed") }),
 ]);
 export type WorkWebEvent = z.infer<typeof workWebEventSchema>;

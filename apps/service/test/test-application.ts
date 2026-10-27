@@ -1,4 +1,4 @@
-import type { INestApplication, ModuleMetadata } from "@nestjs/common";
+import type { INestApplication, InjectionToken, ModuleMetadata } from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { DatabaseModule } from "../src/platform/database/database.module.js";
 import { configureHttp, HTTP_APPLICATION_OPTIONS } from "../src/platform/http/configure-http.js";
@@ -7,6 +7,13 @@ import { testDatabaseUrl } from "./test-database.js";
 export interface TestApplicationOptions extends ModuleMetadata {
   /** Adds the DatabaseModule, on this run's test database. */
   readonly database?: boolean;
+  /** Replaces these providers wherever they are bound, such as a port a module binds itself. */
+  readonly overrides?: readonly ProviderOverride[];
+}
+
+export interface ProviderOverride {
+  readonly provide: InjectionToken;
+  readonly useValue: unknown;
 }
 
 export interface TestApplication {
@@ -23,12 +30,16 @@ export interface TestApplication {
 export async function startTestApplication({
   database = false,
   imports = [],
+  overrides = [],
   ...metadata
 }: TestApplicationOptions): Promise<TestApplication> {
-  const moduleRef = await Test.createTestingModule({
+  const builder = Test.createTestingModule({
     ...metadata,
     imports: database ? [DatabaseModule.forRoot({ url: testDatabaseUrl() }), ...imports] : imports,
-  }).compile();
+  });
+  for (const { provide, useValue } of overrides)
+    builder.overrideProvider(provide).useValue(useValue);
+  const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication({ ...HTTP_APPLICATION_OPTIONS, logger: false });
   configureHttp(app);
   try {

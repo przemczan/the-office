@@ -20,7 +20,9 @@ import {
   TaskDecisionsForTests,
   TaskThreadsForTests,
   UNKNOWN_PROJECT,
+  WorkSettingsForTests,
 } from "../../ports/work-ports.fixtures.js";
+import { WorkSettings } from "../../ports/work-settings.js";
 import {
   sendJson,
   startWorkApplication,
@@ -42,7 +44,10 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
-  work = await startWorkApplication(officeData);
+  // Its own Office-wide limit, so lowering it refuses no other file's Start.
+  work = await startWorkApplication(officeData, [
+    { provide: WorkSettings, useValue: new WorkSettingsForTests() },
+  ]);
   projectId = `project-${randomUUID()}`;
 });
 
@@ -500,6 +505,23 @@ describe("Start", () => {
     expect(refused.status).toBe(422);
     expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([reason]);
     expect((await readTask(second.id)).state).toBe("ready");
+  });
+
+  it("refuses with the reason once Settings lowers the Office-wide limit to 1", async () => {
+    await start((await readyTask()).id);
+    projectId = `project-${randomUUID()}`;
+    const second = await readyTask();
+
+    const lowered = await sendJson(work, "PUT", "/settings/office-wide-limit", {
+      officeWideLimit: 1,
+    });
+    const refused = await start(second.id);
+
+    expect(lowered.status).toBe(200);
+    expect(refused.status).toBe(422);
+    expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      "The Office-wide limit is reached: the only desk is in use.",
+    ]);
   });
 
   it("refuses a Task that isn't Ready", async () => {

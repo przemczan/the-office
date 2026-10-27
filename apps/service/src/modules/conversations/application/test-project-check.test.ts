@@ -17,7 +17,6 @@ import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SkillsModule } from "../../skills/index.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import { CHAT_OFFICE_TOOLS } from "../domain/session-instructions.js";
-import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "../domain/context-policy.js";
 import type { BriefProject } from "../domain/brief.js";
 import type { Message } from "../domain/message.js";
 import { ProjectBases } from "../ports/project-bases.js";
@@ -26,9 +25,12 @@ import { Briefs } from "./briefs.js";
 import { SessionPlaces } from "./session-places.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
-import { CONTEXT_POLICY_SETTINGS, ThreadContexts } from "./thread-contexts.js";
+import { ThreadContexts } from "./thread-contexts.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { ThreadService } from "./thread-service.js";
+import { ContextPolicySettingsService } from "./context-policy-settings.js";
+import { ConversationsSettings } from "../ports/conversations-settings.js";
+import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
 
 /**
  * Task 09's check on the Test Project (docs/tasks/09-conversations.md): the Planner, on Haiku, chats
@@ -107,7 +109,8 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
               { provide: ThreadRepository, useClass: PostgresThreadRepository },
               { provide: RoleCards, useValue: roleCards },
               { provide: ProjectBases, useValue: projectBases },
-              { provide: CONTEXT_POLICY_SETTINGS, useValue: DEFAULT_CONTEXT_POLICY_SETTINGS },
+              { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
+              ContextPolicySettingsService,
               ThreadService,
               Briefs,
               TaskThreadSetups,

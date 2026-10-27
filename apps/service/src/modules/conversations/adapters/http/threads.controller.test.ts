@@ -6,6 +6,7 @@ import type { INestApplication } from "@nestjs/common";
 import {
   decisionListSchema,
   messageListSchema,
+  sizeThresholdSchema,
   threadListSchema,
   threadRefusalSchema,
   threadSchema,
@@ -28,11 +29,10 @@ import { DecisionService } from "../../application/decision-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { SessionPlaces } from "../../application/session-places.js";
 import { TaskThreadSetups } from "../../application/task-thread-setups.js";
-import { CONTEXT_POLICY_SETTINGS, ThreadContexts } from "../../application/thread-contexts.js";
+import { ThreadContexts } from "../../application/thread-contexts.js";
 import { StageThreads } from "../../application/stage-threads.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
 import { ThreadService } from "../../application/thread-service.js";
-import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "../../domain/context-policy.js";
 import { DecisionAnswered } from "../../domain/conversation-events.js";
 import type { Decision } from "../../domain/decision.js";
 import type { Thread } from "../../domain/thread.js";
@@ -42,7 +42,11 @@ import { ThreadRepository } from "../../ports/thread-repository.js";
 import { PostgresThreadRepository } from "../postgres/postgres-thread-repository.js";
 import { ThreadWebEvents } from "../websocket/thread-web-events.js";
 import { DecisionsController } from "./decisions.controller.js";
+import { SizeThresholdController } from "./size-threshold.controller.js";
 import { ThreadsController } from "./threads.controller.js";
+import { ContextPolicySettingsService } from "../../application/context-policy-settings.js";
+import { ConversationsSettings } from "../../ports/conversations-settings.js";
+import { ConversationsSettingsForTests } from "../../ports/conversations-settings.fixtures.js";
 
 let app: INestApplication;
 let url: string;
@@ -77,12 +81,13 @@ beforeEach(async () => {
       // The runner's own tests answer messages; these send ones it refuses, or no session takes.
       ScriptedEngineModule.register(new ScriptedEngine([])),
     ],
-    controllers: [ThreadsController, DecisionsController],
+    controllers: [ThreadsController, DecisionsController, SizeThresholdController],
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       { provide: RoleCards, useValue: roleCards },
       { provide: ProjectBases, useValue: bases },
-      { provide: CONTEXT_POLICY_SETTINGS, useValue: DEFAULT_CONTEXT_POLICY_SETTINGS },
+      { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
+      ContextPolicySettingsService,
       ThreadService,
       Briefs,
       TaskThreadSetups,
@@ -522,5 +527,27 @@ describe("a Decision", () => {
     });
     const open = decisionListSchema.parse(await (await get("/decisions/open")).json());
     expect(open.map(({ id }) => id)).not.toContain(decision.id);
+  });
+});
+
+describe("/api/settings/size-threshold", () => {
+  it("keeps a new size threshold for the next continuation and announces it", async () => {
+    const changed = await send("PUT", "/settings/size-threshold", { sizeThreshold: 50_000 });
+
+    expect(changed.status).toBe(200);
+    expect(sizeThresholdSchema.parse(await (await get("/settings/size-threshold")).json())).toEqual(
+      { sizeThreshold: 50_000 },
+    );
+    await expect(app.get(ContextPolicySettingsService).current()).resolves.toMatchObject({
+      sizeThreshold: 50_000,
+    });
+    expect(webEvents()).toEqual([{ type: "context-policy.size-threshold-changed" }]);
+  });
+
+  it.each([0, 12_345, 1_000_000])("refuses %s tokens", async (sizeThreshold) => {
+    const refused = await send("PUT", "/settings/size-threshold", { sizeThreshold });
+
+    expect(refused.status).toBe(400);
+    expect(published).toEqual([]);
   });
 });

@@ -211,3 +211,41 @@
     white-space: nowrap;
   }
 }
+
+/* ---- Office limits */
+.stepper-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.stepper-row-words {
+  flex: 1;
+  min-width: 0;
+}
+
+.stepper-row-words .settings-note {
+  margin-top: 4px;
+}
+
+.stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stepper output {
+  min-width: 36px;
+  font: 600 20px/1 var(--font-sans);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--fg-1);
+}
+
+.stepper-note {
+  margin-top: 12px;
+}
+
+.stepper-note + .settings-banner {
+  margin-top: 12px;
+}

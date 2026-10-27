@@ -15,6 +15,7 @@
 - `people.e2e.ts`
 - `projects.e2e.ts`
 - `serve-office.ts`
+- `settings.e2e.ts`
 - `shell.e2e.ts`
 - `skills.e2e.ts`
 - `temporary-repository.ts`: TemporaryRepository, createTemporaryRepository, commitOnTaskBranch, addTaskWorktree

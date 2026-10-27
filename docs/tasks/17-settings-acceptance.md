@@ -1,6 +1,6 @@
 # 17 · Settings, and the tier 1 acceptance run
 
-Status: todo
+Status: in progress
 
 ## Goal
 
@@ -8,7 +8,7 @@ Settings gains the rest of its tier 1 sections, Office limits and Appearance, ne
 
 ## Definition of Done
 
-- [ ] Settings → Office limits edits the Office-wide limit on running Tasks (default 3) and the Context policy's size threshold (default 30k of what a session's conversation added, [spec 2.5 Defaults](../spec/2.5-context-policy.md#defaults)); a change applies to the next Start or continuation. Check: lower the limit to 1 and see Start refused with the reason.
+- [x] Settings → Office limits edits the Office-wide limit on running Tasks (default 3) and the Context policy's size threshold (default 30k of what a session's conversation added, [spec 2.5 Defaults](../spec/2.5-context-policy.md#defaults)); a change applies to the next Start or continuation. Check: lower the limit to 1 and see Start refused with the reason. (Run in `tasks.controller.test.ts`: "refuses with the reason once Settings lowers the Office-wide limit to 1"; the threshold in `thread-runner.test.ts`.)
 - [ ] Settings → Appearance switches Light, Dark and "Follow the system", kept across reloads. Check: Playwright in each.
 - [ ] The tier 1 test passes on the Test Project: a real Task is planned in a Thread with the Planner, runs a built-in Pipeline with a Gate added for this Task, passes the Gate on the Changes tab and publishes, and every Thread shows its Context policy label and token counts. Check: the run, logged below with its Task, tokens per Thread and the PR or merge.
 - [ ] The Office runs on Linux: the service starts there, adds the Test Project, and runs a Quick fix Task through to a Gate. Check: on the Linux system the user names (a WSL distribution or another machine), logged below.
@@ -22,7 +22,7 @@ Leave out: the Pipeline library, the Notifications grid, the Graphite and Paper 
 
 ## Steps
 
-- [ ] 1. Office settings use cases and API for the two limits, read by Start and the Context policy; the Office limits section. Commit.
+- [x] 1. Office settings use cases and API for the two limits, read by Start and the Context policy; the Office limits section. Commit.
   Read: [spec 2.2 Defaults](../spec/2.2-people.md#defaults) (the Office-wide limit), [spec 2.5 Defaults](../spec/2.5-context-policy.md#defaults) (the size threshold); the [Work map](../../apps/service/src/modules/work/MAP.md) (`work_settings` already holds the limit), the [Conversations map](../../apps/service/src/modules/conversations/MAP.md) (`domain/context-policy.ts`, `application/thread-contexts.ts`), the [Settings surface map](../../apps/web/src/surfaces/settings/MAP.md); the Office limits section of [app/settings.js](../../.scratch/the-office/prototypes/app/settings.js), by range.
 - [ ] 2. The Appearance section on the theme layers from task 03. Commit.
   Read: the Appearance section of [app/settings.js](../../.scratch/the-office/prototypes/app/settings.js), by range; `packages/ui/src/appearance/` and `shell/palette-menu.tsx` in the [web app map](../../apps/web/src/MAP.md).
@@ -35,8 +35,15 @@ Leave out: the Pipeline library, the Notifications grid, the Graphite and Paper 
 
 ## State
 
-Not started. The Office-wide limit is already read from `work_settings` (the repository answers 3 until a row is saved), and the size threshold is `freshAboveTokens` in Conversations' `domain/context-policy.ts`.
+- Step 1 built Settings › Office limits (`apps/web/src/surfaces/settings/office-limits/`): a Desks card and a Context policy card, each a stepper that saves on click. Desks 1–12 (`OFFICE_WIDE_LIMIT_MAX`); size threshold 5k–200k in 5k steps (`SIZE_THRESHOLD_TOKENS`), both in contracts.
+- Each module owns its setting, since modules read no other's tables and Conversations can't call Work: Work's `OfficeLimits` and `PUT /api/settings/office-wide-limit` on `work_settings`; Conversations' `ContextPolicySettingsService` and `PUT /api/settings/size-threshold` on `conversations_settings` (migration 0031). `ThreadContexts`, `StageThreads` and `ThreadRunner` read the settings at each decision; `freshAboveTokens` is now `sizeThreshold`, the spec's word.
+- Events `OfficeWideLimitChanged` (Now re-announces the desks; the web refreshes Tasks' start checks) and `SizeThresholdChanged` (the web refreshes Threads' labels).
+- Left out, as the Definition of Done names only the two limits: the prototype's per-person Task limits table and the 5-hour window card.
+- Trap: every test file shares both settings rows. Tests bind `WorkSettingsForTests` / `ConversationsSettingsForTests` (`startTestApplication`'s new `overrides`); the Postgres tests only raise the limit or save the default threshold. The e2e raises each and puts it back.
+- Next: step 2, Appearance; `settings.e2e.ts` is where its Playwright check goes.
 
 ## Progress
 
 <!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next. The detail goes in the commit body. -->
+
+- 2026-10-27 · step 1: Settings › Office limits edits the Office-wide limit (Work) and the Context policy's size threshold (Conversations), each read at the next Start or continuation; next, step 2, Appearance.

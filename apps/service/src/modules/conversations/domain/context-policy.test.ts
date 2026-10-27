@@ -117,7 +117,7 @@ describe("the Context policy", () => {
   });
 
   it("takes the threshold from the settings", () => {
-    const settings = { ...DEFAULT_CONTEXT_POLICY_SETTINGS, freshAboveTokens: 10_000 };
+    const settings = { ...DEFAULT_CONTEXT_POLICY_SETTINGS, sizeThreshold: 10_000 };
 
     expect(decideContext(aContinuation(90, 12_000), settings).move).toBe("fresh");
   });

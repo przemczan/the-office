@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Inject, Injectable, Logger, type OnModuleDestroy } from "@nestjs/common";
+import { Injectable, Logger, type OnModuleDestroy } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { EngineSessions } from "../../engine/index.js";
 import { RoleCards, type SessionRole } from "../../people/index.js";
@@ -13,9 +13,9 @@ import {
   openingMessage,
 } from "../domain/session-instructions.js";
 import {
+  DEFAULT_CONTEXT_POLICY_SETTINGS,
   decideContext,
   type ContextDecision,
-  type ContextPolicySettings,
 } from "../domain/context-policy.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { DecisionReopened, MessagesLogged } from "../domain/conversation-events.js";
@@ -41,7 +41,7 @@ import { ThreadRepository } from "../ports/thread-repository.js";
 import { sessionLogLines } from "./session-log.js";
 import { SessionPlaces, type SessionPlace } from "./session-places.js";
 import { StageThreads } from "./stage-threads.js";
-import { CONTEXT_POLICY_SETTINGS } from "./thread-contexts.js";
+import { ContextPolicySettingsService } from "./context-policy-settings.js";
 
 type EngineSession = Awaited<ReturnType<EngineSessions["start"]>>;
 type SessionSettings = Parameters<EngineSessions["start"]>[0]["settings"];
@@ -101,7 +101,7 @@ export class ThreadRunner implements OnModuleDestroy {
     private readonly sessionSkills: SessionSkills,
     private readonly stageThreads: StageThreads,
     private readonly events: EventBus,
-    @Inject(CONTEXT_POLICY_SETTINGS) private readonly settings: ContextPolicySettings,
+    private readonly settings: ContextPolicySettingsService,
   ) {}
 
   /**
@@ -292,7 +292,7 @@ export class ThreadRunner implements OnModuleDestroy {
         override: thread.override,
         briefTokens: place.brief.tokens,
       },
-      this.settings,
+      await this.settings.current(),
     );
     const resumed = decision.move === "resume" ? thread.session : undefined;
     const role = resumed
@@ -446,7 +446,8 @@ export class ThreadRunner implements OnModuleDestroy {
     }
     const usage = await live.session.readContextUsage();
     const wroteNote = live.handingOver;
-    const handingOver = !wroteNote && usage.tokens >= usage.window * this.settings.handOverAtShare;
+    const handingOver =
+      !wroteNote && usage.tokens >= usage.window * DEFAULT_CONTEXT_POLICY_SETTINGS.handOverAtShare;
     await this.change(threadId, (thread) =>
       endTurn(thread, {
         usage: turn.usage,

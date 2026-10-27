@@ -16,6 +16,7 @@ import {
   AttachmentsController,
 } from "./adapters/http/attachments.controller.js";
 import { IdeasController } from "./adapters/http/ideas.controller.js";
+import { OfficeLimitsController } from "./adapters/http/office-limits.controller.js";
 import { PlanningThreadSetup } from "./adapters/conversations/planning-thread-setup.js";
 import { AttachmentOfficeTools } from "./adapters/office-tools/attachment-office-tools.js";
 import { PlanningOfficeTools } from "./adapters/office-tools/planning-office-tools.js";
@@ -83,7 +84,12 @@ export class WorkModule implements NestModule {
       module: WorkModule,
       // Chats read Work and capture Ideas through Office tools on the Engine's registry.
       imports: [...imports, EngineModule],
-      controllers: [IdeasController, TasksController, AttachmentsController],
+      controllers: [
+        IdeasController,
+        TasksController,
+        AttachmentsController,
+        OfficeLimitsController,
+      ],
       providers: [
         { provide: IdeaRepository, useClass: PostgresIdeaRepository },
         { provide: TaskRepository, useClass: PostgresTaskRepository },

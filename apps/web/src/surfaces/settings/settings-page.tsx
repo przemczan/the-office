@@ -4,7 +4,10 @@ import type { ReactNode } from "react";
 import "./settings.css";
 
 /** Settings' sections, each a page of its own; later tasks add theirs here. */
-const SECTIONS = [{ to: "/settings/skills", icon: "sparkles", label: "Skills" }] as const;
+const SECTIONS = [
+  { to: "/settings/skills", icon: "sparkles", label: "Skills" },
+  { to: "/settings/office-limits", icon: "gauge", label: "Office limits" },
+] as const;
 
 /** Settings (prototypes/app/settings.js): its sections beside the open one. */
 export function SettingsPage(): ReactNode {

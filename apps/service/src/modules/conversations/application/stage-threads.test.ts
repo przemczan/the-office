@@ -22,7 +22,6 @@ import { SessionSkills } from "../../skills/index.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import { DecisionAnswered, TokensCounted } from "../domain/conversation-events.js";
-import { DEFAULT_CONTEXT_POLICY_SETTINGS } from "../domain/context-policy.js";
 import type { Message, MessageDraft } from "../domain/message.js";
 import { NO_TOKENS, type Thread, type TokenTotals } from "../domain/thread.js";
 import {
@@ -42,9 +41,11 @@ import { StageDecisions } from "./stage-decisions.js";
 import { StageThreads, type StageThreadRequest } from "./stage-threads.js";
 import { TaskTokens } from "./task-tokens.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
-import { CONTEXT_POLICY_SETTINGS } from "./thread-contexts.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { ThreadService } from "./thread-service.js";
+import { ContextPolicySettingsService } from "./context-policy-settings.js";
+import { ConversationsSettings } from "../ports/conversations-settings.js";
+import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
 
 type Step = SessionScript[number];
 
@@ -125,7 +126,8 @@ async function startOn(scripted: ScriptedEngine): Promise<void> {
       { provide: RoleCards, useValue: roleCards },
       { provide: ProjectBases, useValue: bases },
       { provide: SessionSkills, useValue: sessionSkills },
-      { provide: CONTEXT_POLICY_SETTINGS, useValue: DEFAULT_CONTEXT_POLICY_SETTINGS },
+      { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
+      ContextPolicySettingsService,
       Briefs,
       TaskThreadSetups,
       SessionPlaces,

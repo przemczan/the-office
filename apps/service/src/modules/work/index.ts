@@ -5,6 +5,7 @@ export { TaskRecords } from "./application/task-records.js";
 export { TaskService } from "./application/task-service.js";
 export { AttachmentAdded, AttachmentMoved, AttachmentRemoved } from "./domain/attachment-events.js";
 export { IdeaCaptured, IdeaDropped, IdeaRestored, IdeaShaped } from "./domain/idea-events.js";
+export { OfficeWideLimitChanged } from "./domain/office-limit-events.js";
 export {
   TaskCreated,
   TaskDefinitionOfDoneConfirmed,

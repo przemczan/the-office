@@ -238,10 +238,29 @@ export const threadRefusalSchema = z.object({
 });
 export type ThreadRefusal = z.infer<typeof threadRefusalSchema>;
 
+/** The Context policy's size threshold, in tokens, as Settings › Office limits steps it. */
+export const SIZE_THRESHOLD_TOKENS = { min: 5_000, max: 200_000, step: 5_000 } as const;
+
+/**
+ * Above this much context added since a session's first turn, a cooled Thread starts fresh
+ * (spec §2.5).
+ */
+export const sizeThresholdSchema = z.object({
+  sizeThreshold: z
+    .int()
+    .min(SIZE_THRESHOLD_TOKENS.min)
+    .max(SIZE_THRESHOLD_TOKENS.max)
+    .multipleOf(SIZE_THRESHOLD_TOKENS.step),
+});
+export type SizeThreshold = z.infer<typeof sizeThresholdSchema>;
+
 const threadWebEventFields = { threadId: z.uuid(), home: homeSchema };
 const decisionWebEventFields = { ...threadWebEventFields, decisionId: z.uuid() };
 
-/** The Conversations events the web receives; each names the Thread and its home. */
+/**
+ * The Conversations events the web receives; each names the Thread and its home, but the size
+ * threshold's change, which touches every Thread's label.
+ */
 export const threadWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("thread.started"), ...threadWebEventFields }),
   webEventSchema.extend({ type: z.literal("thread.renamed"), ...threadWebEventFields }),
@@ -265,5 +284,6 @@ export const threadWebEventSchema = z.discriminatedUnion("type", [
     type: z.literal("thread.decision-reopened"),
     ...decisionWebEventFields,
   }),
+  webEventSchema.extend({ type: z.literal("context-policy.size-threshold-changed") }),
 ]);
 export type ThreadWebEvent = z.infer<typeof threadWebEventSchema>;

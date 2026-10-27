@@ -8,6 +8,7 @@ import {
   DeliveryMarked,
   DecisionReopened,
   MessagesLogged,
+  SizeThresholdChanged,
   ThreadRenamed,
   ThreadStarted,
   TokensCounted,
@@ -22,7 +23,8 @@ type WebEventOf<Type extends ThreadWebEvent["type"]> = Omit<
 
 /**
  * Every Conversations event reaches the web, naming the Thread and its home, so open pages refetch;
- * a count of tokens carries them, for the pages to show without refetching.
+ * a count of tokens carries them, for the pages to show without refetching. A new size threshold
+ * names no Thread: every label may change.
  */
 @Injectable()
 export class ThreadWebEvents implements OnModuleInit {
@@ -76,9 +78,15 @@ export class ThreadWebEvents implements OnModuleInit {
       ...namesOf(event.thread),
       decisionId: event.decision.id,
     }));
+    this.forwarding.forward(
+      SizeThresholdChanged,
+      (): WebEventOf<"context-policy.size-threshold-changed"> => ({
+        type: "context-policy.size-threshold-changed",
+      }),
+    );
   }
 }
 
-function namesOf(thread: Thread): Pick<ThreadWebEvent, "threadId" | "home"> {
+function namesOf(thread: Thread): Pick<WebEventOf<"thread.started">, "threadId" | "home"> {
   return { threadId: thread.id, home: thread.home };
 }
