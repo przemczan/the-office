@@ -6,6 +6,7 @@ import { DecisionsController } from "./adapters/http/decisions.controller.js";
 import { SizeThresholdController } from "./adapters/http/size-threshold.controller.js";
 import { ThreadsController } from "./adapters/http/threads.controller.js";
 import { DecisionOfficeTools } from "./adapters/office-tools/decision-office-tools.js";
+import { MemoryOfficeTools } from "./adapters/office-tools/memory-office-tools.js";
 import { PostgresConversationsSettings } from "./adapters/postgres/postgres-conversations-settings.js";
 import { PostgresThreadRepository } from "./adapters/postgres/postgres-thread-repository.js";
 import { ThreadWebEvents } from "./adapters/websocket/thread-web-events.js";
@@ -57,6 +58,7 @@ export class ConversationsModule {
         StageDecisions,
         TaskTokens,
         DecisionOfficeTools,
+        MemoryOfficeTools,
         ThreadWebEvents,
       ],
       exports: [

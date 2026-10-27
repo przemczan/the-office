@@ -11,6 +11,7 @@ import {
   decisionAnswerMessage,
   HANDOVER_REQUEST,
   openingMessage,
+  sessionOfficeTools,
 } from "../domain/session-instructions.js";
 import {
   DEFAULT_CONTEXT_POLICY_SETTINGS,
@@ -380,7 +381,7 @@ export class ThreadRunner implements OnModuleDestroy {
       },
       // Only reads (spec §6): the card's profile, narrowed.
       profile: { edit: false, run: { kind: "read-only-git" }, web: card.permissionProfile.web },
-      officeTools: [...place.officeTools],
+      officeTools: sessionOfficeTools(place.officeTools, card),
       outputSchema: undefined,
       telemetry: {
         span: { ...place.span, "office.thread": thread.id, "office.role": roleKey },

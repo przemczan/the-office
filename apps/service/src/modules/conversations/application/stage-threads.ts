@@ -14,7 +14,11 @@ import type {
   MessageDraft,
   StageWorkClosing,
 } from "../domain/message.js";
-import { openingMessage, taskThreadInstructions } from "../domain/session-instructions.js";
+import {
+  openingMessage,
+  sessionOfficeTools,
+  taskThreadInstructions,
+} from "../domain/session-instructions.js";
 import { addTokens, NO_TOKENS, type Thread, type TokenTotals } from "../domain/thread.js";
 import {
   bargeIn,
@@ -394,7 +398,7 @@ export class StageThreads {
         overrides: skills.overrides,
       },
       profile: request.session.profile,
-      officeTools: [...request.session.officeTools],
+      officeTools: sessionOfficeTools(request.session.officeTools, card),
       outputSchema: request.session.outputSchema,
       telemetry: {
         span: {

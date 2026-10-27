@@ -56,6 +56,8 @@ DecisionService, InterruptedAnswers, StageDecisions, StageDecisionRequest, Stage
 ### adapters/office-tools/
 
 - `decision-office-tools.ts`: DecisionOfficeTools
+- `memory-office-tools.ts`: MemoryOfficeTools
+- Tests: memory-office-tools.test.ts
 
 ### adapters/postgres/
 
@@ -99,7 +101,7 @@ DecisionService, InterruptedAnswers, StageDecisions, StageDecisionRequest, Stage
 - `decision.fixtures.ts`: aDecision
 - `decision.ts`: Recommendation, DecisionDraft, DecisionAnswer, GivenAnswer, Decision, decisionProblems, answerProblems, answerWords
 - `message.ts`: Message, MessageDraft, StageWorkClosing, HeldBy, MessageDelivery
-- `session-instructions.ts`: SessionPersonCard, chatInstructions, taskThreadInstructions, CHAT_OFFICE_TOOLS, HANDOVER_REQUEST, briefedMessage, openingMessage, decisionAnswerMessage
+- `session-instructions.ts`: SessionPersonCard, chatInstructions, taskThreadInstructions, CHAT_OFFICE_TOOLS, REMEMBER_TOOL, sessionOfficeTools, HANDOVER_REQUEST, briefedMessage, openingMessage, decisionAnswerMessage
 - `thread-changes.ts`: ThreadChange, DeliveryMarking, ChatPerson, startChatThread, TaskThreadStart, startTaskThread, startStageThread, renameThread, logMessages, freshSession, Answering, Opening, beginAnswer, bargeIn, markDelivery, DecisionOpening, openDecision, DecisionAnswering, answerDecision, DecisionRecording, recordDecisionAnswer, beginOpening, beginStageWork, StageWorkEnding, endStageWork, TurnCount, endTurn, countRunningTurn, UnopenedSession, failAnswer, failDecisionAnswer, chooseOverride
 - `thread-not-found.ts`: ThreadNotFound
 - `thread-refused.ts`: ThreadRefused

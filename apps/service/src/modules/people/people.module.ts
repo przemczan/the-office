@@ -27,6 +27,6 @@ import { RoleRepository } from "./ports/role-repository.js";
     RoleWebEvents,
     PeopleOfficeTools,
   ],
-  exports: [RoleCards],
+  exports: [RoleCards, MemoryService],
 })
 export class PeopleModule {}

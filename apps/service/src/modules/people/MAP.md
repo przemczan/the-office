@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-RoleCards, SessionRole, RoleCardChanged, RoleHired, PeopleModule
+RoleCards, SessionRole, MemoryService, RoleCardChanged, RoleHired, RoleRefused, PeopleModule
 
 ## Domain events
 

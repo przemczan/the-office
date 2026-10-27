@@ -55,6 +55,17 @@ export const CHAT_OFFICE_TOOLS = [
   "create_task",
 ] as const;
 
+/** The Office tool an Agent writes a Memory note with; offered only while its Shared memory is on. */
+export const REMEMBER_TOOL = "remember";
+
+/** The Office tools a session gets: its place's, and `remember` when its card has Shared memory. */
+export function sessionOfficeTools(
+  placeTools: readonly string[],
+  { capabilities }: { readonly capabilities: { readonly sharedMemory: boolean } },
+): string[] {
+  return capabilities.sharedMemory ? [...placeTools, REMEMBER_TOOL] : [...placeTools];
+}
+
 /** What The Office asks for when a session's context nears its limit (spec §2.5). */
 export const HANDOVER_REQUEST =
   "Your context is nearly full, so this session ends after your next answer and the Thread continues in a fresh one. Write your Handover note for it now, in a few lines: where you are, what is left, and what to watch. Reply with the note alone.";
