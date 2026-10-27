@@ -46,9 +46,9 @@ export function MessageList({
         />
       ))}
       {answering && (
-        <div className="message-answering">
+        <div className="message-answering" role="status">
           <Icon name="loader" size={14} />
-          {personName} is answering…
+          {personName} is working…
         </div>
       )}
       <div ref={end} />

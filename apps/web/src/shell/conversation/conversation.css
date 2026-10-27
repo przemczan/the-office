@@ -242,12 +242,44 @@
   text-align: left;
 }
 
+/* From the moment a turn starts, so the user sees the person is at it before their first words. */
 .message-answering {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+.message-answering svg {
+  color: var(--accent);
+  animation: message-answering-spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-answering svg {
+    animation: none;
+  }
+}
+
+@keyframes message-answering-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---- a message field: the composer, a Decision's free answer, a Gate's feedback */
+.message-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.message-field-busy {
+  margin: 0;
   font: var(--type-caption);
-  color: var(--fg-3);
+  color: var(--warning-fg);
 }
 
 /* ---- the composer */

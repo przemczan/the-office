@@ -71,10 +71,11 @@
 - `context-bar.tsx`: ContextBar
 - `context-words.ts`: MOVE_WORDS, OVERRIDE_WORDS, OVERRIDE_HINTS, threadTokens, tokensShort, contextDetail, contextLabel
 - `decision-card.tsx`: DecisionCard
+- `message-field.tsx`: MessageField
 - `message-list.tsx`: MessageList
 - `thread-title.ts`: threadTitle
 - `thread-view.tsx`: ThreadView
-- Tests: context-words.test.ts, thread-title.test.ts
+- Tests: context-words.test.ts, message-field.test.tsx, message-list.test.tsx, thread-title.test.ts
 
 ### shell/notifications/
 

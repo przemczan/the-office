@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Role, Stage, Task, TaskStages } from "@the-office/contracts";
-import { Button, Icon, Select, Textarea } from "@the-office/ui";
+import { Button, Icon, Select } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import {
   continueAtGate,
@@ -9,6 +9,7 @@ import {
   sendBackFromGate,
 } from "../../api/pipelines.ts";
 import { taskQueries } from "../../api/work.ts";
+import { MessageField } from "../conversation/message-field.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { useToast } from "../toasts.tsx";
 import "./gate-actions.css";
@@ -106,13 +107,15 @@ function SendBackForm({
     () => sendBackFromGate(task.id, { stageKey, feedback }),
     words.sent,
   );
+  const canSend = !sending.isPending && feedback.trim() !== "";
+  const send = (): void => sending.mutate(undefined, { onSuccess: onSent });
   return (
     <form
       className="gate-send-back"
       aria-label="Send back"
       onSubmit={(event) => {
         event.preventDefault();
-        sending.mutate(undefined, { onSuccess: onSent });
+        send();
       }}
     >
       {targets.length > 1 && (
@@ -123,12 +126,15 @@ function SendBackForm({
           onChange={setStageKey}
         />
       )}
-      <Textarea
-        aria-label="Your feedback"
+      <MessageField
+        label="Your feedback"
         rows={3}
         placeholder={words.placeholder}
         value={feedback}
-        onChange={(event) => setFeedback(event.target.value)}
+        onChange={setFeedback}
+        canSend={canSend}
+        busyReason={undefined}
+        onSend={send}
       />
       <div className="gate-actions">
         <Button

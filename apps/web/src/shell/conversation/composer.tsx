@@ -1,7 +1,8 @@
-import { Icon, IconButton, Textarea } from "@the-office/ui";
+import { Icon, IconButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
+import { MessageField } from "./message-field.tsx";
 
-/** Writes the next message: Enter sends it, Shift+Enter starts a new line. */
+/** Writes the next message, with the keys every message field has. */
 export function Composer({
   placeholder,
   busy,
@@ -11,7 +12,7 @@ export function Composer({
   readonly placeholder: string;
   /** A message can't be sent now; a draft can still be written. */
   readonly busy: boolean;
-  /** Why it can't be sent, for the send button. */
+  /** Why it can't be sent, for the send button and an Enter pressed meanwhile. */
   readonly busyHint: string;
   /** Resolves once the message is taken; the draft is kept when it rejects. */
   readonly onSend: (text: string) => Promise<unknown>;
@@ -33,18 +34,15 @@ export function Composer({
   };
   return (
     <div className="composer">
-      <Textarea
-        aria-label="Message"
+      <MessageField
+        label="Message"
         rows={2}
         placeholder={placeholder}
         value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault();
-            void send();
-          }
-        }}
+        onChange={setDraft}
+        canSend={canSend}
+        busyReason={busy ? busyHint : undefined}
+        onSend={() => void send()}
         autoFocus
       />
       <IconButton

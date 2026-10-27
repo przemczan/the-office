@@ -1,10 +1,11 @@
 import { useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
 import type { Decision, DecisionAnswer, Thread } from "@the-office/contracts";
-import { Badge, Button, Icon, Textarea } from "@the-office/ui";
+import { Badge, Button, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { answerDecision, decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
+import { MessageField } from "./message-field.tsx";
 import "./conversation.css";
 
 /**
@@ -74,7 +75,15 @@ function OpenDecision({
   const busy = answering || answeringDecision.isPending;
   const recommended = decision.recommendation.option;
   const byTheOffice = decision.roleKey === null;
-  const waitHint = answering ? `${personName} is still answering` : undefined;
+  const waitHint = answering
+    ? `${personName} is still answering. Answer once they finish.`
+    : undefined;
+  const canSendFreeAnswer = !busy && freeAnswer.trim() !== "";
+  const sendFreeAnswer = (): void =>
+    answeringDecision.mutate(
+      { kind: "free-answer", text: freeAnswer },
+      { onSuccess: () => setFreeAnswer("") },
+    );
   return (
     <>
       <div className="decision-options" role="group" aria-label="Options">
@@ -99,24 +108,24 @@ function OpenDecision({
         className="decision-free-answer"
         onSubmit={(event) => {
           event.preventDefault();
-          answeringDecision.mutate(
-            { kind: "free-answer", text: freeAnswer },
-            { onSuccess: () => setFreeAnswer("") },
-          );
+          sendFreeAnswer();
         }}
       >
-        <Textarea
-          aria-label="Your answer"
+        <MessageField
+          label="Your answer"
           rows={2}
           placeholder="Or answer in your own words…"
           value={freeAnswer}
-          onChange={(event) => setFreeAnswer(event.target.value)}
+          onChange={setFreeAnswer}
+          canSend={canSendFreeAnswer}
+          busyReason={waitHint}
+          onSend={sendFreeAnswer}
         />
         <Button
           size="sm"
           variant="secondary"
           type="submit"
-          disabled={busy || freeAnswer.trim() === ""}
+          disabled={!canSendFreeAnswer}
           title={waitHint}
         >
           Answer

@@ -52,7 +52,11 @@ export function ThreadView({
             : `Message ${personName}…`
         }
         busy={(answering && !stageRunning) || closed}
-        busyHint={closed ? "You write here while a Stage runs" : `${personName} is still answering`}
+        busyHint={
+          closed
+            ? "You write here while a Stage runs"
+            : `${personName} is still answering. Send it once they finish.`
+        }
         onSend={(text) => sending.mutateAsync(text)}
       />
     </section>

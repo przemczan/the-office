@@ -861,10 +861,15 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
 
     await gate.getByRole("button", { name: "Send back with notes…" }).click();
     const sendBack = gate.getByRole("form", { name: "Send back" });
-    await sendBack.getByPlaceholder("What should Adam change?").fill(GATE_FEEDBACK);
+    const feedback = sendBack.getByLabel("Your feedback");
+    // Shift+Enter breaks the line, as in every message field; Enter sends.
+    await feedback.fill("Call it Save.");
+    await feedback.press("Shift+Enter");
+    await expect(feedback).toHaveValue("Call it Save.\n");
+    await feedback.fill(GATE_FEEDBACK);
     // In the background, the next Gate's Notification goes to the desktop instead.
     await focusTab(page, false);
-    await sendBack.getByRole("button", { name: "Send back", exact: true }).click();
+    await feedback.press("Enter");
     await expect(page.getByText("Sent back to Adam.")).toBeVisible();
     await expect
       .poll(() => desktopShown(page))
