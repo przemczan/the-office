@@ -7,7 +7,7 @@ import type {
   TaskStage,
   Thread,
 } from "@the-office/contracts";
-import { tokensShort } from "../../shell/conversation/context-words.ts";
+import { threadTokens, tokensShort } from "../../shell/conversation/context-words.ts";
 
 /**
  * The words of the Task page's Stages block (prototypes/app/task.js): "Done · 18 min · 41k tokens ·
@@ -162,13 +162,9 @@ function plain(text: string): string {
 }
 
 /**
- * The Task's tokens: input, output and cache writes of every Thread on it, leaving out cache
- * reads, as budgets count them. Unlike budgets, they include a running turn's tokens so far, so
- * they move mid-turn; once the turn ends they compare with the Stages' tokens and budgets.
+ * The Task's tokens: every token of every Thread on it, as the Stages' tokens count them. They
+ * include a running turn's tokens so far, so they move mid-turn.
  */
 export function taskTokens(threads: readonly Pick<Thread, "tokens">[] | undefined): number {
-  return (threads ?? []).reduce(
-    (sum, { tokens }) => sum + tokens.input + tokens.output + tokens.cacheCreation,
-    0,
-  );
+  return (threads ?? []).reduce((sum, thread) => sum + threadTokens(thread), 0);
 }

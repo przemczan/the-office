@@ -162,10 +162,10 @@ describe("durationWords", () => {
 });
 
 describe("taskTokens", () => {
-  it("counts the Task's Threads as budgets do, without cache reads", () => {
+  it("counts every token of the Task's Threads, cache reads too", () => {
     const tokens = { input: 10, output: 200, cacheRead: 30_000, cacheCreation: 4_000 };
 
-    expect(taskTokens([{ tokens }, { tokens }])).toBe(8_420);
+    expect(taskTokens([{ tokens }, { tokens }])).toBe(68_420);
     expect(taskTokens(undefined)).toBe(0);
   });
 });

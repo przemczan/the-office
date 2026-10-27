@@ -97,12 +97,9 @@ export interface StageTokens {
 
 export const NO_STAGE_TOKENS: StageTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
 
-/**
- * The count budgets are checked against: input, output and cache writes, leaving out cache reads,
- * which are cheap and grow with every turn of a long session (the user's answer of 2026-10-26).
- */
-export function budgetTokens({ input, output, cacheCreation }: StageTokens): number {
-  return input + output + cacheCreation;
+/** Every token of a run, all four kinds, as "tokens in this Thread" counts them. */
+export function totalTokens({ input, output, cacheRead, cacheCreation }: StageTokens): number {
+  return input + output + cacheRead + cacheCreation;
 }
 
 export function addTokens(total: StageTokens, more: StageTokens): StageTokens {

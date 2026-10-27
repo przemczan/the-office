@@ -1,5 +1,5 @@
 import type { Stage } from "./stage.js";
-import { budgetTokens, type StageInterruption, type StageRun } from "./stage-run.js";
+import { totalTokens, type StageInterruption, type StageRun } from "./stage-run.js";
 
 /**
  * Where one of a started Task's Stages stands, as the Task page shows it: from its latest run, or
@@ -21,7 +21,7 @@ export interface StageProgress {
   readonly state: StageState;
   /** The Stage's runs, oldest first. */
   readonly runs: readonly StageRun[];
-  /** Every token its runs' engine calls used, counted as budgets count them. */
+  /** Every token its runs' engine calls used, all four kinds; budgets leave cache reads out. */
   readonly tokens: number;
   /** Set when its latest run failed and its loop went back to an earlier Stage. */
   readonly wentBack: WentBack | undefined;
@@ -48,7 +48,7 @@ export function stagesProgress(
       stage,
       state: latest ? stateOf(stage, latest) : "pending",
       runs: own,
-      tokens: own.reduce((sum, run) => sum + budgetTokens(run.tokens), 0),
+      tokens: own.reduce((sum, run) => sum + totalTokens(run.tokens), 0),
       wentBack: latest && wentBackFrom(latest, runs),
     };
   });
