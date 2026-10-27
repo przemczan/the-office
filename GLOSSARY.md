@@ -58,6 +58,14 @@ _Avoid_: Prompt, context dump, summary
 A few lines written for whoever continues: by an Agent at the end of a Stage (where it is, what is left, what to watch), or by the Office Manager when it points the user to someone else.
 _Avoid_: Summary, transcript, report
 
+**Memory**:
+What a person with the Shared memory capability keeps across Tasks and conversations: a list of Memory notes, only ever added to, read into the Brief of each new session. Shown on the Memory tab of the person's page.
+_Avoid_: Knowledge base, history, context
+
+**Memory note**:
+One short entry in a Memory, with its date and where it came from (an Agent's Thread, or the user). Written by an Agent with the `remember` tool or by the user; deleted one at a time or all together, never edited.
+_Avoid_: Fact, memo, entry (note alone means nothing: an Idea is not a note)
+
 **Fire alarm**:
 The one Office-wide switch that pauses all automated work until the user gives the all clear; talking to Agents stays possible while it is on.
 _Avoid_: Emergency stop, kill switch, global pause

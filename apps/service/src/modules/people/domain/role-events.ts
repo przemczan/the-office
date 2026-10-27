@@ -8,6 +8,16 @@ export class RoleHired extends DomainEvent {
   }
 }
 
+/** A Memory note was added or deleted, or the whole Memory was. */
+export class RoleMemoryChanged extends DomainEvent {
+  constructor(
+    readonly roleKey: string,
+    occurredAt: Date,
+  ) {
+    super(occurredAt);
+  }
+}
+
 /** Sessions started from now on run with the new version; running ones keep theirs. */
 export class RoleCardChanged extends DomainEvent {
   constructor(

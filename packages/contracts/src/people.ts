@@ -188,9 +188,44 @@ export const roleRefusalSchema = z.object({
 });
 export type RoleRefusal = z.infer<typeof roleRefusalSchema>;
 
+/** Who wrote a Memory note: the user on the Memory tab, or an Agent in one of its Threads. */
+export const memoryNoteSourceSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("user") }),
+  z.object({
+    kind: z.literal("agent"),
+    threadId: z.string(),
+    taskId: z.string().optional(),
+  }),
+]);
+
+/** One entry in a person's Memory, with the Project it is about when there is one. */
+export const memoryNoteSchema = z.object({
+  id: z.string(),
+  projectId: z.string().optional(),
+  text: z.string(),
+  source: memoryNoteSourceSchema,
+  writtenAt: z.string(),
+});
+export type MemoryNote = z.infer<typeof memoryNoteSchema>;
+
+/** A person's Memory, newest note first; `inUse` is false while Shared memory is off. */
+export const memorySchema = z.object({
+  inUse: z.boolean(),
+  notes: z.array(memoryNoteSchema),
+});
+export type Memory = z.infer<typeof memorySchema>;
+
+/** What the user writes on the Memory tab. */
+export const memoryNoteDraftSchema = z.object({
+  text: z.string(),
+  projectId: z.string().optional(),
+});
+export type MemoryNoteDraft = z.infer<typeof memoryNoteDraftSchema>;
+
 /** The People events the web receives; each names the Role, so its queries refresh. */
 export const roleWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("role.hired"), roleKey: z.string() }),
   webEventSchema.extend({ type: z.literal("role.card-changed"), roleKey: z.string() }),
+  webEventSchema.extend({ type: z.literal("role.memory-changed"), roleKey: z.string() }),
 ]);
 export type RoleWebEvent = z.infer<typeof roleWebEventSchema>;

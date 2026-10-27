@@ -1,6 +1,6 @@
 # People: module map
 
-**Owns:** Roles hired from presets (Planner, Developer, Reviewer), Role cards and their versions (`roles`, `role_card_versions`), authority and Hard switches, Task limits.
+**Owns:** Roles hired from presets (Planner, Developer, Reviewer), Role cards and their versions (`roles`, `role_card_versions`), authority and Hard switches, Task limits; each person's Memory (`memory_notes`, append-only notes, deleted one at a time or all).
 
 **Talks to:** calls Engine (profiles) and Skills (a Role's skills). Work and Pipelines read cards through their `KnownPeople` ports, bound to `RoleCards` in [app.module.ts](../../app.module.ts); Conversations reads them through the index.
 
@@ -14,10 +14,14 @@ RoleCards, SessionRole, RoleCardChanged, RoleHired, PeopleModule
 
 ## Domain events
 
-- `domain/role-events.ts`: RoleHired, RoleCardChanged
+- `domain/role-events.ts`: RoleHired, RoleMemoryChanged, RoleCardChanged
 
 ## HTTP routes (under `/api`)
 
+- `GET /roles/:key/memory`: MemoryController.read
+- `POST /roles/:key/memory`: MemoryController.write
+- `DELETE /roles/:key/memory/:noteId`: MemoryController.remove
+- `DELETE /roles/:key/memory`: MemoryController.clear
 - `GET /presets`: RolesController.presets
 - `GET /role-card-options`: RolesController.cardOptions
 - `POST /roles`: RolesController.hire
@@ -28,6 +32,7 @@ RoleCards, SessionRole, RoleCardChanged, RoleHired, PeopleModule
 
 ## Tables
 
+- `adapters/postgres/memory.schema.ts`: memory_notes
 - `adapters/postgres/roles.schema.ts`: roles, role_card_versions
 
 ## Files
@@ -38,6 +43,7 @@ RoleCards, SessionRole, RoleCardChanged, RoleHired, PeopleModule
 
 ### adapters/http/
 
+- `memory.controller.ts`: MemoryController
 - `role-refusals.filter.ts`: RoleRefusalsFilter
 - `roles.controller.ts`: RolesController
 - Tests: roles.controller.test.ts
@@ -49,9 +55,11 @@ RoleCards, SessionRole, RoleCardChanged, RoleHired, PeopleModule
 
 ### adapters/postgres/
 
+- `memory.schema.ts`: memoryNotes
+- `postgres-memory-repository.ts`: PostgresMemoryRepository
 - `postgres-role-repository.ts`: PostgresRoleRepository
 - `roles.schema.ts`: roles, roleCardVersions
-- Tests: postgres-role-repository.test.ts
+- Tests: postgres-memory-repository.test.ts, postgres-role-repository.test.ts
 
 ### adapters/websocket/
 
@@ -59,29 +67,33 @@ RoleCards, SessionRole, RoleCardChanged, RoleHired, PeopleModule
 
 ### application/
 
+- `memory-service.ts`: Memory, MemoryService
 - `role-cards.ts`: SessionRole, RoleCards
 - `role-history.ts`: RoleHistoryEntry, roleHistory
 - `role-service.ts`: RoleWithSkills, RoleCardOptions, RoleService
-- Tests: role-cards.test.ts
+- Tests: memory-service.test.ts, role-cards.test.ts
 
 ### domain/
 
 - `hard-switches.ts`: HARD_SWITCH_KEYS, HardSwitchKey, HARD_SWITCH_LABELS, HardSwitchEnforcement, HARD_SWITCH_ENFORCEMENT, HardSwitchValue, HardSwitches, ALLOWED, ASK_ME, NEVER, consult, hardSwitchesProblems, hardSwitchInEffect, switchesAskingYouUntilHired, sameHardSwitchValue
 - `known-roles.ts`: KNOWN_ROLES
+- `memory-note-not-found.ts`: MemoryNoteNotFound
+- `memory-note.ts`: MEMORY_NOTE_LENGTH, MemoryNoteSource, MemoryNote, MemoryNoteDraft, writeMemoryNote
 - `permission-profile.ts`: RUN_PERMISSIONS, RunPermission, PermissionProfile
 - `presets.ts`: Preset, PRESETS, presetFor
 - `role-card-changes.ts`: RoleCardField, RoleCardValue, RoleCardFieldChange, roleCardChanges
 - `role-card-version-not-found.ts`: RoleCardVersionNotFound
 - `role-card.ts`: ENGINES, Engine, ENGINE_MODELS, EFFORTS, Effort, SESSION_DEFAULTS, SessionDefault, Capabilities, RoleCard, RoleCardEdit, NAME_LENGTH, TITLE_LENGTH, RESPONSIBILITIES_LENGTH, INSTRUCTIONS_LENGTH, trimmedRoleCard, roleCardProblems, personNameProblems
 - `role-changes.ts`: RoleChange, hire, changeRoleCard
-- `role-events.ts`: RoleHired, RoleCardChanged
+- `role-events.ts`: RoleHired, RoleMemoryChanged, RoleCardChanged
 - `role-not-found.ts`: RoleNotFound
 - `role-refused.ts`: RoleRefused
 - `role.fixtures.ts`: aRoleCard, aRole
 - `role.ts`: Role, RoleCardVersion
 - `task-limit.ts`: TaskLimit, LOWEST_TASK_LIMIT, HIGHEST_TASK_LIMIT, taskLimitProblem
-- Tests: hard-switches.test.ts, presets.test.ts, role-card-changes.test.ts, role-card.test.ts, role-changes.test.ts, task-limit.test.ts
+- Tests: hard-switches.test.ts, memory-note.test.ts, presets.test.ts, role-card-changes.test.ts, role-card.test.ts, role-changes.test.ts, task-limit.test.ts
 
 ### ports/
 
+- `memory-repository.ts`: MemoryRepository
 - `role-repository.ts`: RoleUpdate, RoleRepository

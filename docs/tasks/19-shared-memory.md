@@ -26,7 +26,7 @@ Leave out: Consultants and mentions (task 20); the Office Manager's use of memor
 
 ## Steps
 
-- [ ] 1. The memory in the People module: a `memory_notes` table (person, Project or none, text, date, source), a domain type with an append and no update, the application service (append, list for a Brief, delete one, delete all), events, routes and contracts. Commit.
+- [x] 1. The memory in the People module: a `memory_notes` table (person, Project or none, text, date, source), a domain type with an append and no update, the application service (append, list for a Brief, delete one, delete all), events, routes and contracts. Commit.
   Read: People module map; how Role cards are stored and how the capability reaches the service (`apps/service/src/modules/people/`, by symbol); [module template](../../apps/service/docs/module-template.md) for a new kind of file.
 - [ ] 2. The `remember` Office tool, offered only while Shared memory is on, with the session's Thread and Task as the source. Commit.
   Read: `decision-office-tools.ts`, `people-office-tools.ts` and `OfficeToolRegistry`, by range; `CHAT_OFFICE_TOOLS` in `session-instructions.ts`.
@@ -42,8 +42,10 @@ Leave out: Consultants and mentions (task 20); the Office Manager's use of memor
 - Settled with the user (2026-10-27), the open question "the form of shared memory": notes are written by Agents through an Office tool `remember` (not extracted from handover notes); the user reads, adds and deletes single notes on the Memory tab but never edits one, which keeps the memory append-only; a Brief takes the notes with no Project plus those of the session's Project, newest first within a size cap, and says how many were left out.
 - Memory is per person, organised per Project inside ([roles](../../.scratch/the-office/issues/05-roles.md)); a Crew Role with Shared memory on is allowed too, the capability is the same.
 - Trap: tier 1's Brief rule says no model call builds a Brief, so the cap drops the oldest notes; it never summarises.
-- Nothing built yet.
+- Built (step 1): `memory_notes` (migration 0032), `domain/memory-note.ts` (`writeMemoryNote`, 600-character limit), `MemoryRepository` port with `PostgresMemoryRepository`, `MemoryService` (`read`, `write`, `remove`, `clear`; `write` is refused while Shared memory is off, deletes are not), `MemoryController` at `/roles/:key/memory` (GET, POST, DELETE one, DELETE all), one `RoleMemoryChanged` event → web event `role.memory-changed`. Glossary: Memory, Memory note. A note's `projectId` is plain text (no foreign key across modules).
+- Trap: `roleCardProblems` (`domain/role-card.ts`) still refuses Shared memory on; lift it in step 3, when a session reads the notes. Step 3 adds `MemoryService.forBrief` (selection and cap). The web has only the event invalidation so far; the memory query and the delete calls come with step 4.
 
 ## Progress
 
 - 2026-10-27 · step 0: the form of shared memory settled with the user; task file written; next is step 1.
+- 2026-10-27 · step 1: the Memory in People (table, domain, service, routes, contracts, web event); next is the `remember` tool (step 2).

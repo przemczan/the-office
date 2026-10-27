@@ -69,6 +69,7 @@ export const roleEventInvalidations: Readonly<
 > = {
   "role.hired": () => [ROLES],
   "role.card-changed": () => [ROLES],
+  "role.memory-changed": () => [ROLES],
 };
 
 function rolePath(key: string): `/${string}` {
