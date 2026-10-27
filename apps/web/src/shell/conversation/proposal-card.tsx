@@ -25,7 +25,7 @@ import {
 import { roleCardQueries, roleQueries } from "../../api/people.ts";
 import { officeWideLimitQuery } from "../../api/work.ts";
 import { EFFORT_LABELS, modelLabel } from "../engine-words.ts";
-import { personName } from "../person-name.ts";
+import { personName, roleName } from "../person-name.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import {
   CAPABILITIES,
@@ -569,12 +569,6 @@ function useAnswering(
     busy: applying.isPending || declining.isPending,
     error: applying.error ?? declining.error,
   };
-}
-
-/** The person in a Role, "Ada · Developer"; the key itself when the Role is unknown. */
-function roleName(roleKey: string, roles: readonly Role[] | undefined): string {
-  const role = roles?.find(({ key }) => key === roleKey);
-  return role ? personName(role) : roleKey;
 }
 
 function firstName(roleKey: string, roles: readonly Role[] | undefined): string {

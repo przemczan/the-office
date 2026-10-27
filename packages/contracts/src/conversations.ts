@@ -92,8 +92,14 @@ export type Thread = z.infer<typeof threadSchema>;
 /** GET /chats/:roleKey/threads: the newest started first. */
 export const threadListSchema = z.array(threadSchema);
 
-/** POST /threads/:id/messages: the user's message, which the person answers. */
-export const newMessageSchema = z.object({ text: z.string() });
+/**
+ * POST /threads/:id/messages: the user's message, which the person answers; `handoverNoteFrom`
+ * when it is the Handover note a Link card gave them, by its writer's Role key.
+ */
+export const newMessageSchema = z.object({
+  text: z.string(),
+  handoverNoteFrom: z.string().min(1).optional(),
+});
 export type NewMessage = z.infer<typeof newMessageSchema>;
 
 /** PUT /threads/:id/context-override: null goes back to the policy's choice. */
@@ -183,6 +189,9 @@ export const PROPOSE_ROLE_TOOL = "propose_role";
 /** The Office tool the Office Manager drafts a Proposal of an Office setting with, hidden alike. */
 export const PROPOSE_OFFICE_SETTING_TOOL = "propose_office_setting";
 
+/** The Office tool the Office Manager posts a Link card with, hidden alike behind the card. */
+export const POST_LINK_CARD_TOOL = "post_link_card";
+
 /** The fields of a Role card a change rewrites, each one whole; skills aren't among them. */
 const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).partial();
 
@@ -267,6 +276,8 @@ export const messageSchema = z.discriminatedUnion("kind", [
     kind: z.literal("user"),
     text: z.string(),
     delivery: messageDeliverySchema,
+    /** Who wrote the Handover note the user sent from a Link card, by their Role's key. */
+    handoverNoteFrom: z.string().nullable(),
   }),
   z.object({ ...messageFields, kind: z.literal("person"), roleKey: z.string(), text: z.string() }),
   /** A few lines the person wrote for whoever continues, when The Office asked for them. */
@@ -328,6 +339,19 @@ export const messageSchema = z.discriminatedUnion("kind", [
     kind: z.literal("proposal"),
     roleKey: z.string(),
     proposal: proposalSchema,
+  }),
+  /**
+   * The Office Manager points the user to a person (`roleKey` posted it), about a Task when it
+   * names one, with a Handover note the user may edit or leave out before sending it themselves in
+   * a new chat Thread with them. `letGo` is read as the log is.
+   */
+  z.object({
+    ...messageFields,
+    kind: z.literal("link-card"),
+    roleKey: z.string(),
+    to: z.object({ roleKey: z.string(), letGo: z.boolean() }),
+    taskId: z.uuid().nullable(),
+    note: z.string(),
   }),
   /** A tool call that was refused, with the reason the person read. */
   z.object({

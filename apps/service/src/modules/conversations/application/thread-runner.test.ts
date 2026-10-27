@@ -172,6 +172,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   // As the Work module gives its records.
   app.get(WorkRecords).provide({
     taskRecord: (taskId) => Promise.resolve(workRecords.get(taskId)),
+    taskTitle: () => Promise.resolve(undefined),
     ideaRecord: (ideaId) => Promise.resolve(workRecords.get(ideaId)),
   });
   threads = app.get(ThreadService);

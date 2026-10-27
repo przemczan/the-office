@@ -125,9 +125,14 @@ export class ThreadRunner implements OnModuleDestroy {
    * instead (barge-in). Refused while the person is still answering anywhere else, when nobody
    * fills their Role any more, or in a chat, when their Chat is off. The session gets the record
    * of each Task, Idea or Decision the message mentions with it; the log keeps the message as
-   * written.
+   * written, with whose Handover note it started from (`handoverNoteFrom`) when a Link card gave it.
    */
-  async send(threadId: string, text: string, mentions: readonly Mention[] = []): Promise<Thread> {
+  async send(
+    threadId: string,
+    text: string,
+    mentions: readonly Mention[] = [],
+    handoverNoteFrom?: string,
+  ): Promise<Thread> {
     const thread = await this.threadOf(threadId);
     if (thread.stageThread && thread.state === "answering") {
       return this.stageThreads.bargeIn(threadId, text);
@@ -141,6 +146,7 @@ export class ThreadRunner implements OnModuleDestroy {
       text,
       delivery: "delivered",
       at: new Date(),
+      handoverNoteFrom,
     };
     const records = await this.mentionedRecords.read(mentions);
     return this.take(

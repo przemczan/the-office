@@ -9,7 +9,7 @@ import { TaskNotFound } from "../../domain/task-not-found.js";
 
 /**
  * Gives Conversations the records of the Tasks and Ideas the user mentions in a chat, worded as
- * `read_task` and `read_idea` word them.
+ * `read_task` and `read_idea` word them, and the titles of the Tasks a Link card is about.
  */
 @Injectable()
 export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
@@ -28,6 +28,15 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
     try {
       const task = await this.tasks.read(taskId);
       return taskRecordText(task, await this.attachments.listOf({ kind: "task", taskId }));
+    } catch (error) {
+      if (error instanceof TaskNotFound) return undefined;
+      throw error;
+    }
+  }
+
+  async taskTitle(taskId: string): Promise<string | undefined> {
+    try {
+      return (await this.tasks.read(taskId)).title;
     } catch (error) {
       if (error instanceof TaskNotFound) return undefined;
       throw error;

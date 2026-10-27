@@ -24,6 +24,7 @@ import {
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { DecisionService } from "../../application/decision-service.js";
+import { LinkCards } from "../../application/link-cards.js";
 import { ProposalService } from "../../application/proposal-service.js";
 import { ThreadContexts } from "../../application/thread-contexts.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
@@ -42,6 +43,7 @@ export class ThreadsController {
     private readonly runner: ThreadRunner,
     private readonly decisions: DecisionService,
     private readonly proposals: ProposalService,
+    private readonly linkCards: LinkCards,
   ) {}
 
   @Get("chats/:roleKey/threads")
@@ -91,8 +93,8 @@ export class ThreadsController {
   }
 
   /**
-   * The log, with each Decision's card and answer showing the Decision as it is now, and each
-   * Proposal's card the Proposal.
+   * The log, with each Decision's card and answer showing the Decision as it is now, each
+   * Proposal's card the Proposal, and each Link card whether its person was let go.
    */
   @Get("threads/:id/messages")
   async messages(@Param("id", ParseUUIDPipe) id: string): Promise<MessageResponse[]> {
@@ -104,21 +106,24 @@ export class ThreadsController {
     const records = {
       decisions: new Map(decisions.map((decision) => [decision.id, decision])),
       proposals: new Map(proposals.map((proposal) => [proposal.id, proposal])),
+      letGo: await this.linkCards.letGoIn(messages),
     };
     return messages.map((message) => toMessageResponse(message, records));
   }
 
   /**
-   * The user's message, mentioning a record by linking to its page; the person's answer comes into
-   * the log as it is written.
+   * The user's message, mentioning a record by linking to its page, and saying whose Handover note
+   * it started from when a Link card gave it; the person's answer comes into the log as it is
+   * written.
    */
   @Post("threads/:id/messages")
   @HttpCode(HttpStatus.ACCEPTED)
   async send(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(newMessageSchema)) { text }: NewMessage,
+    @Body(new ContractPipe(newMessageSchema)) { text, handoverNoteFrom }: NewMessage,
   ): Promise<ThreadResponse> {
-    return this.toResponse(await this.runner.send(id, text, recordLinksIn(text).map(toMention)));
+    const mentions = recordLinksIn(text).map(toMention);
+    return this.toResponse(await this.runner.send(id, text, mentions, handoverNoteFrom));
   }
 
   private async toResponse(thread: Thread): Promise<ThreadResponse> {

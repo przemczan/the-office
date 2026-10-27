@@ -603,3 +603,71 @@
 .proposal-link {
   margin-left: auto;
 }
+
+/* ---- a Link card: the person pointed to, their Handover note, and opening a Thread with them */
+.message.link-card {
+  flex: none;
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.link-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+}
+
+.link-card-person {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.link-card-name {
+  font-weight: 600;
+}
+
+.link-card-status,
+.link-card-task {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.link-card-note {
+  padding: 8px 12px 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.link-card-note-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+  font: var(--type-overline);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+/* ---- the Handover note a Link card prefilled, above the composer */
+.composer-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 16px;
+  border-top: 1px solid var(--info-border);
+  background: var(--info-subtle);
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.composer-note-text {
+  flex: 1;
+}

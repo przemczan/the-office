@@ -1,5 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import {
   DECISION_TOOLS,
+  POST_LINK_CARD_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_ROLE_TOOL,
   type Decision,
@@ -9,9 +11,12 @@ import {
 } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { roleQueries } from "../../api/people.ts";
+import { roleName } from "../person-name.ts";
 import { contextLabel } from "./context-words.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { DecisionCard } from "./decision-card.tsx";
+import { LinkCard } from "./link-card.tsx";
 import { ProposalCard } from "./proposal-card.tsx";
 
 /**
@@ -76,6 +81,7 @@ const TOOLS_SHOWN_AS_CARDS: readonly string[] = [
   ...DECISION_TOOLS,
   PROPOSE_ROLE_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
+  POST_LINK_CARD_TOOL,
 ];
 
 function shown(message: Message): boolean {
@@ -97,7 +103,13 @@ function MessageItem({
     case "user":
       return (
         <div className="message mine">
-          <div className="message-by">You</div>
+          <div className="message-by">
+            {message.handoverNoteFrom === null ? (
+              "You"
+            ) : (
+              <HandoverNoteFrom roleKey={message.handoverNoteFrom} />
+            )}
+          </div>
           <div className="message-text">
             <MarkdownText text={message.text} />
           </div>
@@ -177,7 +189,20 @@ function MessageItem({
       );
     case "proposal":
       return <ProposalCard proposal={message.proposal} />;
+    case "link-card":
+      return <LinkCard card={message} />;
   }
+}
+
+/** The user sent the Handover note a Link card gave them, edited or not: its writer, named. */
+function HandoverNoteFrom({ roleKey }: { readonly roleKey: string }): ReactNode {
+  const roles = useQuery(roleQueries.list()).data;
+  return (
+    <>
+      <Icon name="sticky-note" size={12} />
+      You · Handover note from {roleName(roleKey, roles)}
+    </>
+  );
 }
 
 const DELIVERY_MARKS: Readonly<Record<MessageDelivery, { icon: string; words: string }>> = {

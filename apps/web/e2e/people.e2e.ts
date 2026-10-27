@@ -1407,3 +1407,63 @@ test("the user hires into a preset's Role from Marta's Proposal under another na
     await page.request.put("/api/settings/size-threshold", { data: { sizeThreshold: threshold } });
   }
 });
+
+/**
+ * A Link card Marta posted in her chat, as the Conversations service leaves one: only an Agent's
+ * session posts one. `to` is the person's Role key.
+ */
+async function seedLinkCard(threadId: string, to: string, note: string): Promise<void> {
+  await queryOfficeDatabase(
+    `insert into thread_messages (id, thread_id, body, at) values ($1, $2, $3, now())`,
+    [crypto.randomUUID(), threadId, { kind: "link-card", roleKey: "office-manager", to, note }],
+  );
+}
+
+test("the user opens a Thread from Marta's Link card, edits the Handover note and sends it; a person let go shows as such", async ({
+  page,
+}) => {
+  const started = await page.request.post("/api/chats/office-manager/threads");
+  const { id: threadId } = threadSchema.parse(await started.json());
+  const { card: planner } = roleSchema.parse(
+    await (await page.request.get("/api/roles/planner")).json(),
+  );
+  // Someone hired and let go since, whom an earlier card still points to.
+  const { card: developer } = roleSchema.parse(
+    await (await page.request.get("/api/roles/developer")).json(),
+  );
+  const hired = await page.request.post("/api/roles", {
+    data: { card: { ...developer, name: "Rhea", title: "Archivist", skills: [] } },
+  });
+  const { key: archivist } = roleSchema.parse(await hired.json());
+  await seedLinkCard(threadId, archivist, "Where are last year's release notes kept?");
+  expect((await page.request.post(`/api/roles/${archivist}/let-go`)).status()).toBe(201);
+  const note = "Can you split the invoice export into two Tasks?";
+  await seedLinkCard(threadId, "planner", note);
+
+  await page.goto(`/people?chat=office-manager&thread=${threadId}`);
+  const marta = chatWith(page, "Marta");
+  const gone = marta.getByRole("region", { name: "Link card: Rhea · Archivist" });
+  await expect(gone).toContainText("Rhea · Archivist was let go");
+  await expect(gone.getByRole("button")).toHaveCount(0);
+  const link = marta.getByRole("region", { name: `Link card: ${planner.name} · Planner` });
+  await expect(link).toContainText(note);
+  await expect(link).toContainText("Available");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-link-card.png") });
+
+  await link.getByRole("button", { name: `Open a thread with ${planner.name}` }).click();
+
+  const chat = chatWith(page, planner.name);
+  await expect(chat.getByRole("heading", { name: "New thread" })).toBeVisible();
+  const prefilled = chat.getByRole("note").filter({ hasText: "Handover note from" });
+  await expect(prefilled).toContainText("Handover note from Marta · Office Manager, prefilled");
+  const message = chat.getByLabel("Message");
+  await expect(message).toHaveValue(note);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-handover-note-prefilled.png") });
+  await message.fill(`${note} Marta thinks the CSV part can ship first.`);
+  await message.press("Enter");
+
+  await expect(chat.getByText("Marta thinks the CSV part can ship first.")).toBeVisible();
+  await expect(chat.getByText("You · Handover note from Marta · Office Manager")).toBeVisible();
+  await expect(chat.getByText("Two Tasks, then: the CSV export first.")).toBeVisible();
+  await expect(prefilled).toHaveCount(0);
+});

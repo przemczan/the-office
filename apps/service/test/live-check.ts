@@ -67,6 +67,8 @@ export function messageLine(message: Message): string {
       return `decision-answer: ${JSON.stringify(message.answer)}`;
     case "proposal":
       return `proposal ${message.proposal.change.kind} (${message.proposal.status.kind}): ${JSON.stringify(message.proposal.change)}`;
+    case "link-card":
+      return `link-card to ${message.to.roleKey}${message.to.letGo ? " (let go)" : ""}: ${message.note.replaceAll("\n", " / ")}`;
     case "refusal":
       return `refusal ${message.tool}: ${message.reason}`;
   }

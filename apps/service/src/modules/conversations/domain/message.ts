@@ -24,6 +24,7 @@ export type MessageDraft =
   | DecisionCard
   | DecisionAnswerLine
   | ProposalCard
+  | LinkCard
   | ContextLine
   | StageWorkClosing;
 
@@ -50,6 +51,11 @@ interface UserMessage {
   readonly kind: "user";
   readonly text: string;
   readonly delivery: MessageDelivery;
+  /**
+   * Who wrote the Handover note the message started from, by their Role's key, when the user sent
+   * the one a Link card gave them: the message is the user's own, edited or not.
+   */
+  readonly handoverNoteFrom?: string;
 }
 
 /**
@@ -110,4 +116,20 @@ interface ProposalCard {
   readonly kind: "proposal";
   readonly roleKey: string;
   readonly proposalId: string;
+}
+
+/**
+ * The Office Manager points the user to whoever is responsible (spec §2.2): a person to open a
+ * chat Thread with, about a Task when it names one, with a Handover note the user sends themselves.
+ * The person's state is read when the card is shown, never kept on it.
+ */
+interface LinkCard {
+  readonly kind: "link-card";
+  /** Who posted it. */
+  readonly roleKey: string;
+  /** The person pointed to, by their Role's key. */
+  readonly to: string;
+  /** The Task they are pointed to about, if any; the note links to it. */
+  readonly taskId: string | undefined;
+  readonly note: string;
 }

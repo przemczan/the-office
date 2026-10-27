@@ -10,6 +10,7 @@ import {
   type ContextOverride,
   type DecisionAnswer,
   type Home,
+  type NewMessage,
   type Proposal,
   type ProposalApplication,
   type SizeThreshold,
@@ -107,9 +108,12 @@ export function startChatThread(roleKey: string): Promise<Thread> {
   return sendToApi("POST", `/chats/${encodeURIComponent(roleKey)}/threads`, {}, threadSchema);
 }
 
-/** The person answers in the background; the answer comes into the log as it is written. */
-export function sendMessage(id: string, text: string): Promise<Thread> {
-  return sendToApi("POST", `${threadPath(id)}/messages`, { text }, threadSchema);
+/**
+ * The person answers in the background; the answer comes into the log as it is written. The
+ * message says whose Handover note it started from when a Link card gave it.
+ */
+export function sendMessage(id: string, message: NewMessage): Promise<Thread> {
+  return sendToApi("POST", `${threadPath(id)}/messages`, message, threadSchema);
 }
 
 export function renameThread(id: string, title: string): Promise<Thread> {

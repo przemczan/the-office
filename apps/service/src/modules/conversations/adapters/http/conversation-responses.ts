@@ -35,23 +35,33 @@ export function toThreadResponse(thread: Thread, context: ContextDecision): Thre
   };
 }
 
-/** The Thread's Decisions and Proposals by id, which its log's cards show. */
+/**
+ * The Thread's Decisions and Proposals by id, which its log's cards show, and the people its Link
+ * cards point to who have been let go since.
+ */
 export interface CardRecords {
   readonly decisions: ReadonlyMap<string, Decision>;
   readonly proposals: ReadonlyMap<string, Proposal>;
+  readonly letGo: ReadonlySet<string>;
 }
 
 /**
  * A message of the log; a Decision's card and answer show the Decision as it is now, and the
  * answer's line also the answer it gave, which a Decision opened again no longer holds. A
- * Proposal's card shows the Proposal as it is now.
+ * Proposal's card shows the Proposal as it is now, and a Link card whether its person was let go.
  */
 export function toMessageResponse(
   { threadId: _threadId, at, ...message }: Message,
-  { decisions, proposals }: CardRecords,
+  { decisions, proposals, letGo }: CardRecords,
 ): MessageResponse {
   const fields = { ...message, at: at.toISOString() };
   switch (fields.kind) {
+    case "user":
+      return { ...fields, handoverNoteFrom: fields.handoverNoteFrom ?? null };
+    case "link-card": {
+      const { to, taskId, ...card } = fields;
+      return { ...card, to: { roleKey: to, letGo: letGo.has(to) }, taskId: taskId ?? null };
+    }
     case "context":
       return { ...fields, briefTokens: fields.briefTokens ?? null, brief: fields.brief ?? null };
     case "decision": {

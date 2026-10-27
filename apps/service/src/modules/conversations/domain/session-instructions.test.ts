@@ -4,6 +4,7 @@ import {
   CHAT_OFFICE_TOOLS,
   chatOfficeTools,
   OFFICE_MANAGER,
+  POST_LINK_CARD_TOOL,
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_ROLE_TOOL,
 } from "./session-instructions.js";
@@ -28,5 +29,10 @@ describe("chatOfficeTools", () => {
     expect(tools).not.toContain(CHANGE_ROLE_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_ROLE_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_OFFICE_SETTING_TOOL);
+  });
+
+  it("gives only the Office Manager posting Link cards", () => {
+    expect(chatOfficeTools(OFFICE_MANAGER)).toContain(POST_LINK_CARD_TOOL);
+    expect(chatOfficeTools("planner")).not.toContain(POST_LINK_CARD_TOOL);
   });
 });

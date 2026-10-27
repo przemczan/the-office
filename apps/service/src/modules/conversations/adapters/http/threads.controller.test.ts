@@ -29,6 +29,7 @@ import { Briefs } from "../../application/briefs.js";
 import { sessionMemoryProvider } from "../../application/session-memory.fixtures.js";
 import { DecisionService } from "../../application/decision-service.js";
 import { ProposalAppliers } from "../../application/proposal-appliers.js";
+import { LinkCards } from "../../application/link-cards.js";
 import { ProposalService } from "../../application/proposal-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { SessionPlaces } from "../../application/session-places.js";
@@ -66,8 +67,9 @@ let people: Map<string, SessionRole>;
 beforeEach(async () => {
   people = new Map();
   officeData = await mkdtemp(join(tmpdir(), "office-threads-http-"));
-  const roleCards: Pick<RoleCards, "find" | "forResumedSession"> = {
+  const roleCards: Pick<RoleCards, "find" | "forResumedSession" | "hiredKeys"> = {
     find: (roleKey) => Promise.resolve(people.get(roleKey)),
+    hiredKeys: () => Promise.resolve(new Set(people.keys())),
     forResumedSession: (roleKey) => {
       const person = people.get(roleKey);
       return person ? Promise.resolve(person) : Promise.reject(new Error(`No ${roleKey} here.`));
@@ -114,6 +116,7 @@ beforeEach(async () => {
       DecisionService,
       ProposalAppliers,
       ProposalService,
+      LinkCards,
       ThreadWebEvents,
     ],
   }));
@@ -305,21 +308,57 @@ describe("a Thread", () => {
     );
     const service = app.get(ThreadService);
 
+    const devops = aPerson("Nina", true);
+    const taskId = randomUUID();
+
     await service.log(thread.id, [
       { kind: "user", text: "Read the deploy workflow.", delivery: "delivered" },
       { kind: "tool-activity", roleKey, tool: "Read", summary: "deploy-production.yml" },
       { kind: "refusal", roleKey, tool: "Edit", reason: "A chat only reads." },
       { kind: "person", roleKey, text: "It deploys on every push to main." },
+      { kind: "link-card", roleKey, to: devops, taskId: undefined, note: "Check the cache." },
+      { kind: "link-card", roleKey, to: "gone", taskId, note: "Ask about the Task." },
+      {
+        kind: "user",
+        text: "Check the cache, please.",
+        delivery: "delivered",
+        handoverNoteFrom: roleKey,
+      },
     ]);
 
     const messages = messageListSchema.parse(
       await (await get(`/threads/${thread.id}/messages`)).json(),
     );
     expect(messages.map(({ id: _id, at: _at, ...message }) => message)).toEqual([
-      { kind: "user", text: "Read the deploy workflow.", delivery: "delivered" },
+      {
+        kind: "user",
+        text: "Read the deploy workflow.",
+        delivery: "delivered",
+        handoverNoteFrom: null,
+      },
       { kind: "tool-activity", roleKey, tool: "Read", summary: "deploy-production.yml" },
       { kind: "refusal", roleKey, tool: "Edit", reason: "A chat only reads." },
       { kind: "person", roleKey, text: "It deploys on every push to main." },
+      {
+        kind: "link-card",
+        roleKey,
+        to: { roleKey: devops, letGo: false },
+        taskId: null,
+        note: "Check the cache.",
+      },
+      {
+        kind: "link-card",
+        roleKey,
+        to: { roleKey: "gone", letGo: true },
+        taskId,
+        note: "Ask about the Task.",
+      },
+      {
+        kind: "user",
+        text: "Check the cache, please.",
+        delivery: "delivered",
+        handoverNoteFrom: roleKey,
+      },
     ]);
     const titled = threadSchema.parse(await (await get(`/threads/${thread.id}`)).json());
     expect(titled.title).toBe("Read the deploy workflow");

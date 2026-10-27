@@ -1,12 +1,14 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
-import type { Thread } from "@the-office/contracts";
+import type { NewMessage, Thread } from "@the-office/contracts";
 import { Button, Icon, IconButton, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { renameThread, sendMessage, threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
+import { roleName } from "../person-name.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { Composer } from "./composer.tsx";
 import { ContextBar } from "./context-bar.tsx";
+import { useHandoverNotes } from "./handover-notes.tsx";
 import { MessageList } from "./message-list.tsx";
 import { threadTitle } from "./thread-title.ts";
 import "./conversation.css";
@@ -24,10 +26,15 @@ export function ThreadView({
 }): ReactNode {
   const thread = useQuery(threadQueries.one(threadId));
   const messages = useQuery(threadQueries.messages(threadId));
+  const roles = useQuery(roleQueries.list()).data;
+  const handoverNotes = useHandoverNotes();
+  // Read once: the Thread's view is keyed by its id, and the composer owns the draft from then on.
+  const [handoverNote] = useState(() => handoverNotes.waitingIn(threadId));
   const queryClient = useQueryClient();
   const sending = useMutation({
-    mutationFn: (text: string) => sendMessage(threadId, text),
-    onSuccess: async (answering) => {
+    mutationFn: (message: NewMessage) => sendMessage(threadId, message),
+    onSuccess: async (answering, { handoverNoteFrom }) => {
+      if (handoverNoteFrom !== undefined) handoverNotes.clear(threadId);
       queryClient.setQueryData(threadQueries.one(answering.id).queryKey, answering);
       await queryClient.invalidateQueries(threadQueries.messages(answering.id));
     },
@@ -65,7 +72,16 @@ export function ThreadView({
               ? "You write here while a Stage runs"
               : `${personName} is still answering. Send it once they finish.`
           }
-          onSend={(text) => sending.mutateAsync(text)}
+          prefilledNote={
+            handoverNote && { text: handoverNote.text, writer: roleName(handoverNote.from, roles) }
+          }
+          onSend={(text, fromNote) =>
+            sending.mutateAsync({
+              text,
+              ...(fromNote && handoverNote ? { handoverNoteFrom: handoverNote.from } : {}),
+            })
+          }
+          onLeaveNoteOut={() => handoverNotes.clear(threadId)}
         />
       ) : (
         <p className="thread-read-only" role="note">
