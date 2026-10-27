@@ -1,6 +1,6 @@
 # 15 · Edit for this Task: the Stage editor
 
-Status: in progress
+Status: done
 
 ## Goal
 
@@ -31,20 +31,6 @@ Leave out: the Pipeline library editor and Stage templates in Settings (tier 2);
 - [x] 4. Check on the Test Project: add a Gate to a Ready Task's Pipeline and change a Stage's model; log the result. Commit.
   Read: [test-project.md](test-project.md), [testing](../../apps/service/docs/testing.md) (live checks run alone); task 14's check, `pipelines/application/gate-publish-test-project-check.test.ts`, is the pattern.
 
-## State
-
-Steps 1–4 done; every Definition of Done box is ticked. Left: `npm run verify:linux`, then archive the log and set the task `done`.
-- Service: `PUT /api/tasks/:id/stages` (`TaskStagesService.edit`) and `POST /api/tasks/:id/stages/check` answer the domain's `editProblems` (flag tests in `domain/task-stages.test.ts` and `stage-staffing.test.ts`); GET/PUT answer `lockedStages`. The walk of an edited copy, a Gate before Publish included, is `application/stage-interpreter-edited.test.ts`.
-- Web: the Stage editor is `shell/pipelines/stage-editor.tsx` (pure changes in `stage-edits.ts`), knowing no Task, so the tier 2 library editor reuses it; its flags come from the check endpoint. `surfaces/work/edit-task-stages-dialog.tsx` opens from the Stages block, the Task menu and the board card. Playwright checks are in `people.e2e.ts`.
-- The Test Project check is `pipelines/application/stage-editor-test-project-check.test.ts` (run alone): it edits a Ready Task through the API, spies `EngineSessions.start` and picks Implement's session by its `office.stage` span attribute, drops at the Gate, and bases the Task on a local branch with no upstream, so Publish can't leave the workstation. The checks' shared steps (`planOnQuickFix`, `untilWalkStops`, `comparable`, `quietly`) moved to `test/live-check.ts`.
-- Open: the draft is taken as the dialog opens. If the walk starts a Stage the user has edited meanwhile, its row locks showing the edit and the check refuses it until Cancel.
-- Seen in the check, not changed: a Stage's `tokens` (5,425) leave out cache reads while its run's tokens (95,968) count them; the contract says "all four kinds". To raise with the user.
-
 ## Progress
 
-<!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next. The detail goes in the commit body. -->
-- 2026-10-27 · step 1: Stage model and effort, the Task's copy made at Start or first edit (madeAt, editedForTask), lock on started Stages, edit flags incl. staffing; next step 2, use cases, events and API.
-- 2026-10-27 · step 2: PUT /tasks/:id/stages with refusals, swap sets edited Stages aside, walk re-reads Stages under a per-Task lock shared with edits, Stage model and effort reach the session, label edited for this Task; next step 3, the editor.
-- 2026-10-27 · step 3: the Stage editor in the shell, fed by POST /stages/check; Edit for this Task dialog with the Pipeline swap, from the Stages block and the Task menu; Playwright edits every field and reloads; next step 4, the Test Project check.
-- 2026-10-27 · step 3: a running Task's editor locks its started Stages (DoD 2 check in the Gate test), the board menu opens it, it scrolls inside its dialog, the header says edited for this Task; next step 4.
-- 2026-10-27 · step 4: Test Project check passed: a Ready Task's Quick fix edited through the API with a Gate before Publish and Implement on Haiku over the Developer's Sonnet; Implement ran on Haiku, the walk waited at the Gate, library unchanged, dropped there; next close-out.
+The log is archived in [archive/15-stage-editor.md](archive/15-stage-editor.md).
