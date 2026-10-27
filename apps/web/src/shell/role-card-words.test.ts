@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   changeLine,
   hardSwitchValueLabel,
+  proposedFieldChanges,
   skillsChangeLine,
   taskLimitShort,
-} from "./role-card-labels.ts";
+} from "./role-card-words.ts";
 
 const roleTitles = new Map([
   ["devops", "Devops"],
@@ -54,6 +55,34 @@ describe("the Role card's words", () => {
     expect(changeLine({ field: "instructions", from: "Old.", to: "New." }, roleTitles)).toBe(
       "Instructions edited",
     );
+  });
+
+  it("splits a Proposal's whole fields into the parts that change", () => {
+    const capabilities = { sharedMemory: true, chat: true, consultant: false };
+    const hardSwitches = {
+      runInstalls: { kind: "consult", role: "devops" },
+      publishOutsideThePipeline: { kind: "never" },
+      changeRoles: { kind: "never" },
+    } as const;
+    expect(
+      proposedFieldChanges(
+        { taskLimit: 2, model: "claude-opus-5-5", capabilities, hardSwitches },
+        {
+          taskLimit: 3,
+          model: "claude-opus-5-5",
+          capabilities: { ...capabilities, consultant: true },
+          hardSwitches: { ...hardSwitches, runInstalls: { kind: "ask-me" } },
+        },
+      ),
+    ).toEqual([
+      { field: "taskLimit", from: 2, to: 3 },
+      { field: "capabilities.consultant", from: false, to: true },
+      {
+        field: "hardSwitches.runInstalls",
+        from: { kind: "consult", role: "devops" },
+        to: { kind: "ask-me" },
+      },
+    ]);
   });
 
   it("says what a skills change gave and took", () => {

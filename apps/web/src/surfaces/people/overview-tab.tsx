@@ -6,7 +6,7 @@ import { skillQueries } from "../../api/skills.ts";
 import { EFFORT_LABELS, modelLabel } from "../../shell/engine-words.ts";
 import { SkillChip } from "../../shell/skill-chip.tsx";
 import { PersonBlock } from "./role-card-layout.tsx";
-import { SESSION_DEFAULTS, taskLimitLabel } from "./role-card-labels.ts";
+import { SESSION_DEFAULTS, taskLimitLabel } from "../../shell/role-card-words.ts";
 import { sessionSkillsOf } from "./session-skills.ts";
 
 /** Who the person is, what they work with, and their skills. */

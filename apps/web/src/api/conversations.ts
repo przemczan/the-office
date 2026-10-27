@@ -2,6 +2,7 @@ import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
   decisionListSchema,
   messageListSchema,
+  proposalSchema,
   sizeThresholdSchema,
   threadListSchema,
   threadSchema,
@@ -9,6 +10,8 @@ import {
   type ContextOverride,
   type DecisionAnswer,
   type Home,
+  type Proposal,
+  type ProposalApplication,
   type SizeThreshold,
   type Thread,
   type ThreadWebEvent,
@@ -20,6 +23,7 @@ import { TASKS } from "./work.ts";
 
 const THREADS = ["threads"] as const;
 const DECISIONS = ["decisions"] as const;
+const PROPOSALS = ["proposals"] as const;
 const SIZE_THRESHOLD = ["settings", "size-threshold"] as const;
 
 export const threadQueries = {
@@ -77,6 +81,27 @@ export const decisionQueries = {
     }),
 };
 
+export const proposalQueries = {
+  one: (id: string) =>
+    queryOptions({
+      queryKey: [...PROPOSALS, id],
+      queryFn: ({ signal }) => getFromApi(proposalPath(id), proposalSchema, signal),
+    }),
+};
+
+/**
+ * Applies the Proposal: as drafted, or a new Role on the card the user edited before hiring. A
+ * refusal leaves it open.
+ */
+export function applyProposal(id: string, application: ProposalApplication): Promise<Proposal> {
+  return sendToApi("POST", `${proposalPath(id)}/apply`, application, proposalSchema);
+}
+
+/** "Not now": the Proposal is declined, and nothing changes. */
+export function declineProposal(id: string): Promise<Proposal> {
+  return sendToApi("POST", `${proposalPath(id)}/decline`, {}, proposalSchema);
+}
+
 /** A fresh Thread in the person's chat. */
 export function startChatThread(roleKey: string): Promise<Thread> {
   return sendToApi("POST", `/chats/${encodeURIComponent(roleKey)}/threads`, {}, threadSchema);
@@ -111,7 +136,8 @@ type CarryingEventType = "thread.tokens-counted";
  * Every other Conversations event makes the Threads stale: ["threads"] covers each home's list,
  * each Thread and its log. A Decision's events also make ["decisions"] stale, kept apart so the
  * many events of a turn don't refetch the open Decisions, and ["tasks"], as a waiting Decision is
- * one line of a Task's "Before Ready" checklist.
+ * one line of a Task's "Before Ready" checklist. A Proposal applied or declined makes ["proposals"]
+ * stale, read by the hire page that edits one.
  */
 export const threadEventInvalidations: Readonly<
   Record<Exclude<ThreadWebEvent["type"], CarryingEventType>, EventInvalidations[string]>
@@ -126,8 +152,8 @@ export const threadEventInvalidations: Readonly<
   "thread.decision-answered": () => [THREADS, DECISIONS, TASKS],
   "thread.decision-reopened": () => [THREADS, DECISIONS, TASKS],
   "thread.proposal-drafted": () => [THREADS],
-  "thread.proposal-applied": () => [THREADS],
-  "thread.proposal-declined": () => [THREADS],
+  "thread.proposal-applied": () => [THREADS, PROPOSALS],
+  "thread.proposal-declined": () => [THREADS, PROPOSALS],
   "context-policy.size-threshold-changed": () => [SIZE_THRESHOLD, THREADS],
 };
 
@@ -169,4 +195,8 @@ function showTokens(
 
 function threadPath(id: string): `/${string}` {
   return `/threads/${encodeURIComponent(id)}`;
+}
+
+function proposalPath(id: string): `/${string}` {
+  return `/proposals/${encodeURIComponent(id)}`;
 }

@@ -5,6 +5,7 @@ import {
   pipelineListSchema,
   projectSchema,
   recordPath,
+  roleCardSchema,
   roleSchema,
   taskSchema,
   taskStagesSchema,
@@ -1242,4 +1243,123 @@ test("the user mentions a Task with @ in a chat, and the person is briefed with 
   } finally {
     await repository.remove();
   }
+});
+
+/**
+ * A Proposal Marta, the Office Manager, drafted in her chat, as the Conversations service leaves
+ * one: only an Agent's session drafts a Proposal, and no screen can make one. `change` is in the
+ * service's own shape, where a new Role's skills sit beside its card.
+ */
+async function seedProposal(threadId: string, change: Record<string, unknown>): Promise<void> {
+  const proposalId = crypto.randomUUID();
+  await queryOfficeDatabase(
+    `insert into proposals (id, thread_id, drafted_by, drafted_at, change, status)
+     values ($1, $2, 'office-manager', now(), $3, 'open')`,
+    [proposalId, threadId, change],
+  );
+  await queryOfficeDatabase(
+    `insert into thread_messages (id, thread_id, body, at) values ($1, $2, $3, now())`,
+    [crypto.randomUUID(), threadId, { kind: "proposal", roleKey: "office-manager", proposalId }],
+  );
+}
+
+/** A new Role on the Developer's card under another title: a preset's title can't be proposed. */
+async function proposedHire(page: Page, name: string, title: string) {
+  const { card } = roleSchema.parse(await (await page.request.get("/api/roles/developer")).json());
+  return {
+    kind: "hire",
+    card: roleCardSchema.omit({ skills: true }).parse({ ...card, name, title }),
+    skills: [],
+  };
+}
+
+/** A capability's value as the Role card's words give it. */
+function onOrOff(on: boolean): string {
+  return on ? "on" : "off";
+}
+
+function proposalCard(page: Page, title: string) {
+  return chatWith(page, "Marta").getByRole("region", { name: `Proposal: ${title}` });
+}
+
+test("the user hires from Marta's Proposals, as drafted and edited first, applies a change and declines one", async ({
+  page,
+}) => {
+  const started = await page.request.post("/api/chats/office-manager/threads");
+  expect(started.status()).toBe(201);
+  const { id: threadId } = threadSchema.parse(await started.json());
+  const { card: reviewer } = roleSchema.parse(
+    await (await page.request.get("/api/roles/reviewer")).json(),
+  );
+  const consultantNow = { ...reviewer.capabilities, consultant: !reviewer.capabilities.consultant };
+  await seedProposal(threadId, await proposedHire(page, "Teo", "Translator"));
+  await seedProposal(threadId, await proposedHire(page, "Ida", "Designer"));
+  await seedProposal(threadId, {
+    kind: "change",
+    roleKey: "reviewer",
+    from: { capabilities: reviewer.capabilities },
+    to: { capabilities: consultantNow },
+  });
+  await seedProposal(threadId, {
+    kind: "change",
+    roleKey: "reviewer",
+    from: { effort: reviewer.effort },
+    to: { effort: reviewer.effort === "low" ? "medium" : "low" },
+  });
+  const consultantLine = `Consultant ${onOrOff(reviewer.capabilities.consultant)} → ${onOrOff(consultantNow.consultant)}`;
+
+  await page.goto(`/people?chat=office-manager&thread=${threadId}`);
+  const chat = chatWith(page, "Marta");
+  // The card shows the call, so its tool line doesn't.
+  await expect(chat.getByText("propose_role")).toHaveCount(0);
+
+  // As drafted.
+  const translator = proposalCard(page, "New Role · Teo · Translator");
+  await expect(translator).toContainText("Permission profile");
+  await translator.getByRole("button", { name: "Hire Teo" }).click();
+  await expect(page.getByText("Teo · Translator hired.")).toBeVisible();
+  await expect(translator).toContainText("Hired");
+  await expect(translator).toContainText("by you");
+  await expect(translator.getByRole("link", { name: "Open Teo's page" })).toBeVisible();
+
+  // A change, applied from the next session.
+  const changes = chat.getByRole("region", { name: "Proposal: Change Ola · Reviewer" });
+  const change = changes.filter({ hasText: "Consultant" });
+  await expect(change.getByRole("listitem")).toHaveText(
+    `Consultant${onOrOff(reviewer.capabilities.consultant)}${onOrOff(consultantNow.consultant)}`,
+  );
+  await expect(change).toContainText("Applies at Ola's next session start");
+  await change.getByRole("button", { name: "Apply change" }).click();
+  await expect(change).toContainText("Applied");
+  await expect(change).toContainText("Ola works with it from the next session");
+
+  // "Not now": nothing changes.
+  const effort = changes.filter({ hasText: "Effort" });
+  await effort.getByRole("button", { name: "Not now" }).click();
+  await expect(effort).toContainText("Not applied");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-proposals.png") });
+
+  // Edited before hiring, on the hire page.
+  const designer = proposalCard(page, "New Role · Ida · Designer");
+  await designer.getByRole("button", { name: "Edit before hiring" }).click();
+  await expect(page).toHaveURL(/\/hire\?proposal=/);
+  await expect(page.getByText("Edit the proposed Role")).toBeVisible();
+  const form = page.locator("form.role-card-form");
+  await expect(form.getByLabel("Title", { exact: true })).toHaveValue("Designer");
+  await form.getByLabel("Name", { exact: true }).fill("Iga");
+  await page.getByRole("button", { name: "Hire Iga" }).click();
+  await expect(page.getByRole("heading", { name: "Iga · Designer" })).toBeVisible();
+  await expect(page).toHaveURL(/\/people\/designer$/);
+
+  await page.getByRole("tab", { name: "Role card" }).click();
+  await expect(page.getByText("proposed by Marta, applied by you")).toBeVisible();
+  await page.goto("/people/reviewer/role");
+  await expect(
+    page.getByText(`${consultantLine} · proposed by Marta, applied by you`),
+  ).toBeVisible();
+  // The declined change saved no version of its own.
+  await expect(page.getByText(/Effort .* proposed by Marta/)).toHaveCount(0);
+
+  await page.goto(`/people?chat=office-manager&thread=${threadId}`);
+  await expect(proposalCard(page, "New Role · Iga · Designer")).toContainText("Hired");
 });

@@ -16,7 +16,7 @@ import {
   roleTitlesOf,
   SESSION_DEFAULTS,
   taskLimitLabel,
-} from "./role-card-labels.ts";
+} from "../../shell/role-card-words.ts";
 import { sessionSkillsOf } from "./session-skills.ts";
 
 /** Every setting of a Role card, read-only, grouped as its form groups them. */

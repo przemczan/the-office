@@ -7,7 +7,7 @@ import { hire, roleQueries } from "../../api/people.ts";
 import { personName } from "../../shell/person-name.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
-import { taskLimitShort } from "./role-card-labels.ts";
+import { taskLimitShort } from "../../shell/role-card-words.ts";
 
 /** Hiring: a preset, and the person's name; the preset sets the rest of the Role card. */
 export function HireDialog({

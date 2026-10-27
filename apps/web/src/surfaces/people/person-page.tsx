@@ -11,7 +11,7 @@ import { personName } from "../../shell/person-name.ts";
 import { dayOf } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { LetGoDialog } from "./let-go-dialog.tsx";
-import { CAPABILITIES, taskLimitShort } from "./role-card-labels.ts";
+import { CAPABILITIES, taskLimitShort } from "../../shell/role-card-words.ts";
 import "./people.css";
 
 /** A person's page: who they are, their Tasks, their conversations and their Role card. */

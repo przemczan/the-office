@@ -7,6 +7,7 @@ import {
   type HardSwitchKey,
   type HardSwitchValue,
   type PermissionProfile,
+  type ProposedChange,
   type RoleCardField,
   type RoleCardOptions,
   type RoleChange,
@@ -15,9 +16,12 @@ import {
   type TaskLimit,
 } from "@the-office/contracts";
 import type { z } from "zod";
-import { EFFORT_LABELS, modelLabel } from "../../shell/engine-words.ts";
+import { EFFORT_LABELS, modelLabel } from "./engine-words.ts";
 
-/** The words People shows a Role card in, the click-through's (prototypes/app/people.js). */
+/**
+ * The words a Role card is shown in, the click-through's (prototypes/app/people.js): on People, and
+ * in a chat's Proposal card.
+ */
 
 export interface CapabilityInfo {
   readonly key: keyof Capabilities;
@@ -143,13 +147,61 @@ export function permissionProfileLines(profile: PermissionProfile): string[] {
   ];
 }
 
-type FieldChange = Extract<RoleChange, { kind: "card-changed" }>["changes"][number];
+/** A part of a Role card from one value to another, down to each capability and switch. */
+export type RoleCardFieldChange = Extract<RoleChange, { kind: "card-changed" }>["changes"][number];
+
+type ProposedFields = Extract<ProposedChange, { kind: "change" }>["to"];
+
+export function fieldLabel(field: RoleCardField): string {
+  return FIELD_LABELS[field];
+}
 
 /** One line of the change history, such as "Model Opus 5.5 → Sonnet 5.5". */
-export function changeLine(change: FieldChange, roleTitles: RoleTitles): string {
+export function changeLine(change: RoleCardFieldChange, roleTitles: RoleTitles): string {
   const label = FIELD_LABELS[change.field];
   if (LONG_TEXT_FIELDS.has(change.field)) return `${label} edited`;
-  return `${label} ${valueText(change.field, change.from, roleTitles)} → ${valueText(change.field, change.to, roleTitles)}`;
+  return `${label} ${fieldValueText(change.field, change.from, roleTitles)} → ${fieldValueText(change.field, change.to, roleTitles)}`;
+}
+
+/**
+ * What a Proposal's change rewrites, as the change history names it: a Proposal holds whole
+ * top-level fields, so its capabilities and switches are split into the ones that differ.
+ */
+export function proposedFieldChanges(
+  from: ProposedFields,
+  to: ProposedFields,
+): RoleCardFieldChange[] {
+  const changes: RoleCardFieldChange[] = [];
+  for (const key of Object.keys(to) as (keyof ProposedFields)[]) {
+    if (key === "capabilities") {
+      for (const capability of CAPABILITIES.map(({ key: name }) => name)) {
+        const before = from.capabilities?.[capability];
+        const after = to.capabilities?.[capability];
+        if (before !== undefined && after !== undefined && before !== after) {
+          changes.push({ field: `capabilities.${capability}`, from: before, to: after });
+        }
+      }
+    } else if (key === "hardSwitches") {
+      for (const hardSwitch of Object.keys(HARD_SWITCH_LABELS) as HardSwitchKey[]) {
+        const before = from.hardSwitches?.[hardSwitch];
+        const after = to.hardSwitches?.[hardSwitch];
+        if (before !== undefined && after !== undefined && !sameValue(before, after)) {
+          changes.push({ field: `hardSwitches.${hardSwitch}`, from: before, to: after });
+        }
+      }
+    } else {
+      const before = from[key];
+      const after = to[key];
+      if (before !== undefined && after !== undefined && !sameValue(before, after)) {
+        changes.push({ field: key, from: before, to: after });
+      }
+    }
+  }
+  return changes;
+}
+
+function sameValue(first: RoleCardFieldChange["to"], second: RoleCardFieldChange["to"]): boolean {
+  return JSON.stringify(first) === JSON.stringify(second);
 }
 
 /** What a skills change gave and took, such as "Skills gained release-notes; lost tdd". */
@@ -164,7 +216,12 @@ export function skillsChangeLine({
   return `Skills ${parts.join("; ")}`;
 }
 
-function valueText(field: RoleCardField, value: FieldChange["to"], roleTitles: RoleTitles): string {
+/** A field's value in words, such as "on", "Opus 5.5" or "Consult Devops". */
+export function fieldValueText(
+  field: RoleCardField,
+  value: RoleCardFieldChange["to"],
+  roleTitles: RoleTitles,
+): string {
   if (typeof value === "boolean") return value ? "on" : "off";
   if (typeof value === "number") return String(value);
   if (typeof value === "object") {

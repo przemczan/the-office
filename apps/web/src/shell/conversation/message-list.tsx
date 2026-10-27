@@ -1,5 +1,6 @@
 import {
   DECISION_TOOLS,
+  PROPOSE_ROLE_TOOL,
   type Decision,
   type DecisionAnswer,
   type Message,
@@ -10,6 +11,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { contextLabel } from "./context-words.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { DecisionCard } from "./decision-card.tsx";
+import { ProposalCard } from "./proposal-card.tsx";
 
 /**
  * The Office's log of a Thread (spec §2.4): the user's messages and the person's, what the person
@@ -68,8 +70,11 @@ export function MessageList({
   );
 }
 
+/** A card shows its tool's call, so the call's activity line is left out. */
+const TOOLS_SHOWN_AS_CARDS: readonly string[] = [...DECISION_TOOLS, PROPOSE_ROLE_TOOL];
+
 function shown(message: Message): boolean {
-  return message.kind !== "tool-activity" || !DECISION_TOOLS.includes(message.tool);
+  return message.kind !== "tool-activity" || !TOOLS_SHOWN_AS_CARDS.includes(message.tool);
 }
 
 function MessageItem({
@@ -166,8 +171,7 @@ function MessageItem({
         </div>
       );
     case "proposal":
-      // Step 2b of task 21 renders the Proposal's card.
-      return null;
+      return <ProposalCard proposal={message.proposal} />;
   }
 }
 

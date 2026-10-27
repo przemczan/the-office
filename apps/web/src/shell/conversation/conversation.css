@@ -466,3 +466,134 @@
   font: var(--type-caption);
   color: var(--success-fg);
 }
+
+/* ---- a Proposal: a card in the drafting person's chat (prototypes/app/people.js) */
+.message.proposal-card {
+  /* Its overflow is hidden for the rounded corners, which would let the list shrink it. */
+  flex: none;
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.proposal-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.proposal-title {
+  font-weight: 600;
+}
+
+.proposal-fields {
+  margin: 0;
+  padding: 4px 12px;
+}
+
+.proposal-field {
+  padding: 8px 0;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.proposal-field:first-child {
+  border-top: 0;
+}
+
+.proposal-field dt {
+  margin-bottom: 4px;
+  font: var(--type-overline);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.proposal-field dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.proposal-clamp {
+  display: -webkit-box;
+  overflow: hidden;
+  white-space: pre-wrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.proposal-skills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.proposal-changes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 8px 12px;
+  list-style: none;
+}
+
+.proposal-changes li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.proposal-changes svg {
+  flex: none;
+  color: var(--fg-3);
+}
+
+.proposal-change-label {
+  width: 140px;
+  font: var(--type-overline);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+  color: var(--fg-3);
+}
+
+.proposal-change-from {
+  color: var(--fg-3);
+  text-decoration: line-through;
+}
+
+.proposal-change-to {
+  font-weight: 600;
+}
+
+.proposal-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+  font: var(--type-caption);
+}
+
+/* A refusal (the design system's Alert) takes the foot's whole width, under the buttons. */
+.proposal-foot > [role="status"] {
+  flex-basis: 100%;
+}
+
+.proposal-note {
+  color: var(--fg-3);
+}
+
+.proposal-field .proposal-note {
+  display: block;
+}
+
+.proposal-link {
+  margin-left: auto;
+}

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useParams } from "@tanstack/react-router";
+import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import {
   effortSchema,
   runPermissionSchema,
@@ -7,6 +7,7 @@ import {
   type HardSwitchKey,
   type HardSwitchValue,
   type PermissionProfile,
+  type Proposal,
   type Role,
   type RoleCard,
   type RoleCardOptions,
@@ -14,6 +15,7 @@ import {
   type TaskLimit,
 } from "@the-office/contracts";
 import {
+  Alert,
   Button,
   Card,
   Checkbox,
@@ -26,6 +28,7 @@ import {
   Textarea,
 } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
+import { applyProposal, proposalQueries } from "../../api/conversations.ts";
 import {
   changeRoleCard,
   filledRoleKeys,
@@ -49,7 +52,7 @@ import {
   HARD_SWITCH_LABELS,
   RUN_LABELS,
   SESSION_DEFAULTS,
-} from "./role-card-labels.ts";
+} from "../../shell/role-card-words.ts";
 
 /** "Edit Role": the person's whole Role card as a form, saved as its next version. */
 export function RoleCardEditPage(): ReactNode {
@@ -63,7 +66,7 @@ export function RoleCardEditPage(): ReactNode {
     <RoleCardForm
       // A card saved elsewhere meanwhile starts the form again from it.
       key={role.data.cardVersion}
-      role={role.data}
+      subject={{ kind: "role", role: role.data }}
       hiredRoles={filledRoleKeys(roles.data)}
       options={options.data}
       library={library.data}
@@ -71,65 +74,125 @@ export function RoleCardEditPage(): ReactNode {
   );
 }
 
-/** "Hire a Role from scratch": a blank Role card as a form; saving hires the person it names. */
+/**
+ * "Hire a Role from scratch": a blank Role card as a form; saving hires the person it names. From a
+ * Proposal, "Edit the proposed Role": its card as drafted, and saving applies the Proposal with it.
+ */
 export function HireFromScratchPage(): ReactNode {
+  const { proposal: proposalId } = useSearch({ from: "/hire" });
   usePageHeading({
     title: "People",
     parent: { label: "People", to: "/people" },
-    crumb: "Hire a Role from scratch",
+    crumb: proposalId === undefined ? "Hire a Role from scratch" : "Edit the proposed Role",
   });
   const roles = useQuery(roleQueries.list());
   const options = useQuery(roleCardQueries.options());
   const library = useQuery(skillQueries.list());
+  const proposal = useQuery({
+    ...proposalQueries.one(proposalId ?? ""),
+    enabled: proposalId !== undefined,
+  });
   if (!roles.data || !options.data || !library.data) return null;
+  const formProps = {
+    hiredRoles: filledRoleKeys(roles.data),
+    options: options.data,
+    library: library.data,
+  };
+  if (proposalId === undefined)
+    return <RoleCardForm subject={{ kind: "new-role" }} {...formProps} />;
+  if (proposal.error) {
+    return <RefusalAlert title="The Proposal can't be read" error={proposal.error} />;
+  }
+  if (!proposal.data) return null;
+  const { change, status } = proposal.data;
+  if (change.kind !== "hire" || status.kind !== "open") {
+    return (
+      <Alert tone="info" title="This Proposal is no longer open">
+        It was applied or declined already; its card in the chat says which.
+      </Alert>
+    );
+  }
   return (
     <RoleCardForm
-      role={undefined}
-      hiredRoles={filledRoleKeys(roles.data)}
-      options={options.data}
-      library={library.data}
+      subject={{ kind: "proposal", proposal: proposal.data, card: change.card }}
+      {...formProps}
     />
   );
 }
 
-/** Editing the card of `role`, or filling a blank one to hire a person from scratch. */
+/** What the form saves: a hired Role's card, a new Role, or the new Role a Proposal drafted. */
+type FormSubject =
+  | { readonly kind: "role"; readonly role: Role }
+  | { readonly kind: "new-role" }
+  | { readonly kind: "proposal"; readonly proposal: Proposal; readonly card: RoleCard };
+
+/** Editing the card of a hired Role, or filling one to hire a person: blank, or as proposed. */
 function RoleCardForm({
-  role,
+  subject,
   hiredRoles,
   options,
   library,
 }: {
-  readonly role: Role | undefined;
+  readonly subject: FormSubject;
   readonly hiredRoles: ReadonlySet<string>;
   readonly options: RoleCardOptions;
   readonly library: readonly Skill[];
 }): ReactNode {
   const formId = useId();
-  const saved = role ? editOf(role.card) : blankRoleCard(options);
+  const saved = startingCard(subject, options);
   const [draft, setDraft] = useState(saved);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const showToast = useToast();
-  const cancel = (): Promise<void> =>
-    role
-      ? navigate({ to: "/people/$roleKey/role", params: { roleKey: role.key } })
-      : navigate({ to: "/people" });
+  const cancel = (): Promise<void> => {
+    switch (subject.kind) {
+      case "role":
+        return navigate({ to: "/people/$roleKey/role", params: { roleKey: subject.role.key } });
+      case "new-role":
+        return navigate({ to: "/people" });
+      case "proposal":
+        // Back to the chat the Proposal was drafted in.
+        return navigate({
+          to: "/people",
+          search: { chat: subject.proposal.draftedBy, thread: subject.proposal.threadId },
+        });
+    }
+  };
+  const showHired = async (roleKey: string): Promise<void> => {
+    showToast(`${personName({ card: draft })} hired.`);
+    await Promise.all([
+      navigate({ to: "/people/$roleKey", params: { roleKey } }),
+      queryClient.invalidateQueries(roleQueries.list()),
+    ]);
+  };
   const saving = useMutation({
-    mutationFn: () => (role ? changeRoleCard(role.key, draft) : hire({ card: draft })),
-    onSuccess: async (changed) => {
-      queryClient.setQueryData(roleQueries.one(changed.key).queryKey, changed);
-      await queryClient.invalidateQueries(roleQueries.list());
-      if (role) {
-        showToast(`Role card saved. ${changed.card.name} works with it from the next session.`);
-        await cancel();
-      } else {
-        showToast(`${personName(changed)} hired.`);
-        await navigate({ to: "/people/$roleKey", params: { roleKey: changed.key } });
+    mutationFn: async (): Promise<void> => {
+      switch (subject.kind) {
+        case "role": {
+          const changed = await changeRoleCard(subject.role.key, draft);
+          queryClient.setQueryData(roleQueries.one(changed.key).queryKey, changed);
+          showToast(`Role card saved. ${changed.card.name} works with it from the next session.`);
+          await queryClient.invalidateQueries(roleQueries.list());
+          await cancel();
+          return;
+        }
+        case "new-role": {
+          const hired = await hire({ card: draft });
+          queryClient.setQueryData(roleQueries.one(hired.key).queryKey, hired);
+          await showHired(hired.key);
+          return;
+        }
+        case "proposal": {
+          const { change } = await applyProposal(subject.proposal.id, { card: draft });
+          if (change.kind === "hire" && change.roleKey !== null) await showHired(change.roleKey);
+          return;
+        }
       }
     },
   });
   const change = (fields: Partial<RoleCard>): void => setDraft({ ...draft, ...fields });
   const unsaved = JSON.stringify(draft) !== JSON.stringify(saved);
+  const editing = subject.kind === "role";
   return (
     <form
       id={formId}
@@ -141,7 +204,7 @@ function RoleCardForm({
     >
       {saving.error && (
         <RefusalAlert
-          title={role ? "The Role card can't be saved yet" : "The person can't be hired yet"}
+          title={editing ? "The Role card can't be saved yet" : "The person can't be hired yet"}
           error={saving.error}
         />
       )}
@@ -152,7 +215,7 @@ function RoleCardForm({
           <EngineFields draft={draft} options={options} change={change} />
           <CapabilityFields draft={draft} change={change} />
           <PermissionFields
-            ownRoleKey={role?.key}
+            ownRoleKey={editing ? subject.role.key : undefined}
             draft={draft}
             options={options}
             hiredRoles={hiredRoles}
@@ -178,11 +241,22 @@ function RoleCardForm({
           Cancel
         </Button>
         <Button type="submit" size="sm" variant="accent" form={formId} loading={saving.isPending}>
-          {role ? "Save changes" : hireLabel(draft.name)}
+          {editing ? "Save changes" : hireLabel(draft.name)}
         </Button>
       </div>
     </form>
   );
+}
+
+function startingCard(subject: FormSubject, options: RoleCardOptions): RoleCard {
+  switch (subject.kind) {
+    case "role":
+      return editOf(subject.role.card);
+    case "new-role":
+      return blankRoleCard(options);
+    case "proposal":
+      return subject.card;
+  }
 }
 
 interface FieldsProps {

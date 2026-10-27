@@ -184,11 +184,19 @@ const roleCardEditRoute = createRoute({
   staticData: { title: "People" },
 });
 
+/** Hiring from scratch, or from a Proposal's card the user edits before hiring. */
+export interface HireSearch {
+  readonly proposal?: string;
+}
+
 // Outside "people/", where a Role's key could be any word.
 const hireFromScratchRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "hire",
   component: HireFromScratchPage,
+  validateSearch: (search: Record<string, unknown>): HireSearch => ({
+    ...(typeof search["proposal"] === "string" && { proposal: search["proposal"] }),
+  }),
   staticData: { title: "People" },
 });
 

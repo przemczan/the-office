@@ -7,7 +7,7 @@ import { roleCardQueries, roleQueries } from "../../api/people.ts";
 import { useChat } from "../../shell/chat/use-chat.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { HireDialog } from "./hire-dialog.tsx";
-import { CAPABILITIES, taskLimitShort } from "./role-card-labels.ts";
+import { CAPABILITIES, taskLimitShort } from "../../shell/role-card-words.ts";
 import "./people.css";
 
 /** People (prototypes/app/people.js): a same-size card per person, and hiring. */
