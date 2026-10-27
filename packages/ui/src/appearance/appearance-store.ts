@@ -12,6 +12,8 @@ export interface AppearanceStore {
   /** The same object until the appearance changes. */
   current(): Appearance;
   choosePalette(palette: Palette): void;
+  /** Forgets the chosen palette, so the system's light or dark is shown again. */
+  followSystem(): void;
   subscribe(onChange: () => void): () => void;
 }
 
@@ -42,6 +44,15 @@ export function createAppearanceStore(): AppearanceStore {
         localStorage.setItem(APPEARANCE_RULES.storageKey, palette);
       } catch {
         // Storage is blocked: the choice lasts until the page is closed.
+      }
+      update();
+    },
+    followSystem: () => {
+      chosenPalette = undefined;
+      try {
+        localStorage.removeItem(APPEARANCE_RULES.storageKey);
+      } catch {
+        // Storage is blocked: nothing was kept.
       }
       update();
     },

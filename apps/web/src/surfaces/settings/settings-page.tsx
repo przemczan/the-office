@@ -7,6 +7,7 @@ import "./settings.css";
 const SECTIONS = [
   { to: "/settings/skills", icon: "sparkles", label: "Skills" },
   { to: "/settings/office-limits", icon: "gauge", label: "Office limits" },
+  { to: "/settings/appearance", icon: "palette", label: "Appearance" },
 ] as const;
 
 /** Settings (prototypes/app/settings.js): its sections beside the open one. */

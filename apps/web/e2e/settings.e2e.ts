@@ -32,3 +32,43 @@ test("Office limits keeps the desks and the size threshold across reloads", asyn
   await expect(desks).toHaveText("3");
   await expect(threshold).toHaveText("30k");
 });
+
+test.describe("Appearance", () => {
+  // A system in dark, so each choice shows as a change from what the system gives.
+  test.use({ colorScheme: "dark" });
+
+  test("switches Light, Dark and Follow the system, each kept across reloads", async ({ page }) => {
+    await page.goto("/settings/appearance");
+    const html = page.locator("html");
+    const palette = page.getByRole("group", { name: "Palette" });
+    await expect(palette.getByRole("button", { name: "Follow the system" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(html).toHaveAttribute("data-palette", "dark");
+
+    for (const [name, shown] of [
+      ["Light", "light"],
+      ["Dark", "dark"],
+    ] as const) {
+      await palette.getByRole("button", { name }).click();
+      await expect(html).toHaveAttribute("data-palette", shown);
+      await page.reload();
+      await expect(html).toHaveAttribute("data-palette", shown);
+      await expect(palette.getByRole("button", { name })).toHaveAttribute("aria-pressed", "true");
+      await page.screenshot({
+        path: path.join(SCREENSHOTS, `${shown}-1600-settings-appearance.png`),
+      });
+    }
+
+    await palette.getByRole("button", { name: "Follow the system" }).click();
+    await page.reload();
+    await expect(palette.getByRole("button", { name: "Follow the system" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    await expect(html).toHaveAttribute("data-palette", "dark");
+    await page.emulateMedia({ colorScheme: "light" });
+    await expect(html).toHaveAttribute("data-palette", "light");
+  });
+});

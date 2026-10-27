@@ -16,6 +16,7 @@ import { RoleCardTab } from "./surfaces/people/role-card-tab.tsx";
 import { WorkTab } from "./surfaces/people/work-tab.tsx";
 import { ProjectPage } from "./surfaces/projects/project-page.tsx";
 import { ProjectsPage } from "./surfaces/projects/projects-page.tsx";
+import { AppearanceSection } from "./surfaces/settings/appearance/appearance-section.tsx";
 import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-limits-section.tsx";
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
 import { SkillsSection } from "./surfaces/settings/skills/skills-section.tsx";
@@ -210,6 +211,13 @@ const settingsOfficeLimitsRoute = createRoute({
   staticData: { title: "Settings" },
 });
 
+const settingsAppearanceRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "appearance",
+  component: AppearanceSection,
+  staticData: { title: "Settings" },
+});
+
 export const router = createRouter({
   routeTree: rootRoute.addChildren([
     homeRoute,
@@ -226,6 +234,11 @@ export const router = createRouter({
     ]),
     projectsRoute,
     projectRoute,
-    settingsRoute.addChildren([settingsHomeRoute, settingsSkillsRoute, settingsOfficeLimitsRoute]),
+    settingsRoute.addChildren([
+      settingsHomeRoute,
+      settingsSkillsRoute,
+      settingsOfficeLimitsRoute,
+      settingsAppearanceRoute,
+    ]),
   ]),
 });

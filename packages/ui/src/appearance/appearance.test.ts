@@ -73,6 +73,20 @@ describe("the appearance", () => {
     expect(shownAppearance()).toEqual({ theme: "light", palette: "light", density: "comfortable" });
   });
 
+  it("follows the system again once asked to, across page loads", () => {
+    const system = stubSystem(false);
+    const appearance = createAppearanceStore();
+    appearance.choosePalette("dark");
+
+    appearance.followSystem();
+
+    expect(appearance.current()).toEqual({ palette: "light", chosenPalette: undefined });
+    const reloaded = createAppearanceStore();
+    reloaded.subscribe(() => undefined);
+    system.set(true);
+    expect(reloaded.current()).toEqual({ palette: "dark", chosenPalette: undefined });
+  });
+
   it("shows the palette another tab chose", () => {
     stubSystem(false);
     const appearance = createAppearanceStore();
