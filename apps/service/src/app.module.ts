@@ -8,12 +8,14 @@ import {
   ThreadRunner,
   ThreadService,
 } from "./modules/conversations/index.js";
-import { EngineModule } from "./modules/engine/index.js";
+import { EngineModule, UsageWindowState } from "./modules/engine/index.js";
+import { NotificationsModule } from "./modules/notifications/index.js";
 import { PeopleModule, RoleCards } from "./modules/people/index.js";
 import {
   PipelineLibrary,
   PipelineLibraryModule,
   PipelinesModule,
+  TaskStagesService,
 } from "./modules/pipelines/index.js";
 import {
   BaseCheckouts,
@@ -22,7 +24,13 @@ import {
   TaskWorktrees,
 } from "./modules/projects/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
-import { StageScreenshots, TaskRecords, TaskService, WorkModule } from "./modules/work/index.js";
+import {
+  OfficeLimits,
+  StageScreenshots,
+  TaskRecords,
+  TaskService,
+  WorkModule,
+} from "./modules/work/index.js";
 import type { OfficeConfig } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
 import { EventsModule } from "./platform/events/events.module.js";
@@ -55,6 +63,20 @@ export class AppModule {
       taskThreads: ThreadService,
       taskDecisions: DecisionService,
     });
+    const pipelines = PipelinesModule.register({
+      imports: [work, PeopleModule, conversations, projects],
+      startedTasks: TaskService,
+      taskRecords: TaskRecords,
+      knownPeople: RoleCards,
+      stageThreads: StageThreads,
+      stageDecisions: StageDecisions,
+      taskGit: TaskWorktrees,
+      taskCommands: TaskWorktrees,
+      taskPublishing: TaskWorktrees,
+      taskScreenshots: StageScreenshots,
+      taskUsage: TaskTokens,
+      taskThreadSessions: ThreadRunner,
+    });
     return {
       module: AppModule,
       imports: [
@@ -65,21 +87,16 @@ export class AppModule {
         EventStreamModule,
         HealthModule,
         OfficeDataModule.forRoot(config.officeDataDirectory),
-        PeopleModule,
-        PipelinesModule.register({
-          imports: [work, PeopleModule, conversations, projects],
-          startedTasks: TaskService,
-          taskRecords: TaskRecords,
-          knownPeople: RoleCards,
-          stageThreads: StageThreads,
-          stageDecisions: StageDecisions,
-          taskGit: TaskWorktrees,
-          taskCommands: TaskWorktrees,
-          taskPublishing: TaskWorktrees,
-          taskScreenshots: StageScreenshots,
-          taskUsage: TaskTokens,
-          taskThreadSessions: ThreadRunner,
+        NotificationsModule.register({
+          imports: [work, conversations, pipelines, EngineModule],
+          officeTasks: TaskService,
+          openDecisions: DecisionService,
+          taskStageProgress: TaskStagesService,
+          deskLimit: OfficeLimits,
+          accountUsage: UsageWindowState,
         }),
+        PeopleModule,
+        pipelines,
         projects,
         SkillsModule,
         TelemetryModule,

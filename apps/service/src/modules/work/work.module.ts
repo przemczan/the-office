@@ -28,6 +28,7 @@ import { PostgresWorkSettings } from "./adapters/postgres/postgres-work-settings
 import { WorkWebEvents } from "./adapters/websocket/work-web-events.js";
 import { AttachmentService } from "./application/attachment-service.js";
 import { IdeaService } from "./application/idea-service.js";
+import { OfficeLimits } from "./application/office-limits.js";
 import { PlanningService } from "./application/planning-service.js";
 import { StageScreenshots } from "./application/stage-screenshots.js";
 import { StartService } from "./application/start-service.js";
@@ -100,6 +101,7 @@ export class WorkModule implements NestModule {
         { provide: TaskDecisions, useExisting: taskDecisions },
         IdeaService,
         TaskService,
+        OfficeLimits,
         AttachmentService,
         PlanningService,
         StartService,
@@ -111,7 +113,7 @@ export class WorkModule implements NestModule {
         AttachmentOfficeTools,
         PlanningThreadSetup,
       ],
-      exports: [IdeaService, TaskService, TaskRecords, StageScreenshots],
+      exports: [IdeaService, TaskService, OfficeLimits, TaskRecords, StageScreenshots],
     };
   }
 

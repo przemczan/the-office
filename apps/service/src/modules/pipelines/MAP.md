@@ -15,7 +15,7 @@
 
 ## Public entry (`index.ts`)
 
-PipelineLibrary, TaskStagesService, NoRetriesLeft, PipelineCompleted, StageRunEnded, StageRunStarted, WentBackToStage, TaskStagesMade, PipelineLibraryModule, PipelinesModule, StageDecisions, TaskCommands, TaskUsage, TaskGit
+PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateDropped, GateReached, NoRetriesLeft, PipelineCompleted, SentBackFromGate, StageRunEnded, StageRunStarted, WentBackToStage, TaskStagesEdited, TaskStagesMade, PipelineLibraryModule, PipelinesModule, StageDecisions, TaskCommands, TaskUsage, TaskGit
 
 ## Domain events
 

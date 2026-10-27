@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-DecisionService, InterruptedAnswers, StageDecisions, StageDecisionRequest, StageThreads, StageSessionSettings, StageThread, StageThreadRequest, StageTurn, TaskTokens, TaskThreadSetups, TaskThreadRequest, TaskThreadSetup, TaskThreadSource, ThreadRunner, ThreadService, TaskThreadOpening, ConversationsModule, DecisionAnswered, DecisionOpened, DecisionReopened
+DecisionService, InterruptedAnswers, StageDecisions, StageDecisionRequest, StageThreads, StageSessionSettings, StageThread, StageThreadRequest, StageTurn, TaskTokens, TaskThreadSetups, TaskThreadRequest, TaskThreadSetup, TaskThreadSource, ThreadRunner, ThreadService, TaskThreadOpening, ConversationsModule, DecisionAnswered, DecisionOpened, DecisionReopened, TokensCounted, TurnEnded
 
 ## Domain events
 

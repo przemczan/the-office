@@ -78,5 +78,10 @@ Where each default lives (the old §9):
 - Open in editor: [4. UX direction](4-ux-direction.md#defaults)
 - Merge mode when the base moved: [2.3 Pipelines](2.3-pipelines.md#defaults)
 - The Changes tab after Publish shows what Publish shipped: [2.3 Pipelines](2.3-pipelines.md#defaults)
+- No message from a person in tier 1: [2.7 Notifications](2.7-notifications.md#defaults)
+- A failed Task: [2.7 Notifications](2.7-notifications.md#defaults)
+- Since you left begins after five idle minutes: [2.7 Notifications](2.7-notifications.md#defaults)
+- Today's figures: [2.7 Notifications](2.7-notifications.md#defaults)
+- Now lives in the Notifications module: [5.3 Modules](5.3-modules.md#defaults)
 
 A new default goes into the Defaults of the section it belongs to, with the date the user accepted it, and gets a line here.

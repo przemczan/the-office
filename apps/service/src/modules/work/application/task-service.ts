@@ -18,6 +18,7 @@ import {
 } from "../domain/task-changes.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { TaskRefused } from "../domain/task-refused.js";
+import { STARTED_STATES } from "../domain/task-states.js";
 import { KnownProjects } from "../ports/known-projects.js";
 import { TaskRepository, type NeighbourIds } from "../ports/task-repository.js";
 
@@ -57,6 +58,11 @@ export class TaskService {
   /** Every Task, in the board's order: by priority, then by manual order. */
   async list(): Promise<readonly Task[]> {
     return (await this.repository.list()).toSorted(boardOrder);
+  }
+
+  /** The Tasks at a desk: started and not yet Done or Dropped, each counting against the limits. */
+  async listStarted(): Promise<readonly Task[]> {
+    return (await this.list()).filter(({ state }) => STARTED_STATES.includes(state));
   }
 
   async read(id: string): Promise<Task> {

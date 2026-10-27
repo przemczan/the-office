@@ -19,7 +19,7 @@ Tier 1 of [the spec](../spec/3-capabilities-by-tier.md#tier-1-the-base), sliced 
 | 13 | [A running Task: barge-in, Stop, Pause, Decisions, Office tools](13-running-task.md) | Work and the Task page | done |
 | 14 | [Gates, the Changes tab and Publish](14-gates-publish.md) | Work and the Task page | done |
 | 15 | [Edit for this Task: the Stage editor](15-stage-editor.md) | Work and the Task page | done |
-| 16 | [Now, the status strip and Notifications](16-now-notifications.md) | Now | todo |
+| 16 | [Now, the status strip and Notifications](16-now-notifications.md) | Now | in progress |
 | 17 | [Settings, and the tier 1 acceptance run](17-settings-acceptance.md) | Settings | todo |
 
 Read these only when a step needs them:

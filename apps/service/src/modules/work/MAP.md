@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-IdeaService, StageScreenshots, TaskRecords, TaskService, AttachmentAdded, AttachmentMoved, AttachmentRemoved, IdeaCaptured, IdeaDropped, IdeaRestored, IdeaShaped, TaskCreated, TaskDefinitionOfDoneConfirmed, TaskDefinitionOfDoneProposed, TaskPaused, TaskPipelineConfirmed, TaskPipelineProposed, TaskPlanConfirmed, TaskPlanProposed, TaskPriorityChanged, TaskReordered, TaskResumed, TaskStarted, TaskStateChanged, TaskStopped, WorkModule
+IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, AttachmentAdded, AttachmentMoved, AttachmentRemoved, IdeaCaptured, IdeaDropped, IdeaRestored, IdeaShaped, TaskCreated, TaskDefinitionOfDoneConfirmed, TaskDefinitionOfDoneProposed, TaskPaused, TaskPipelineConfirmed, TaskPipelineProposed, TaskPlanConfirmed, TaskPlanProposed, TaskPriorityChanged, TaskReordered, TaskResumed, TaskStarted, TaskStateChanged, TaskStopped, WorkModule
 
 ## Domain events
 
@@ -108,6 +108,7 @@ IdeaService, StageScreenshots, TaskRecords, TaskService, AttachmentAdded, Attach
 
 - `attachment-service.ts`: UploadedFile, OpenedFile, DocumentText, AttachmentService
 - `idea-service.ts`: IdeaService
+- `office-limits.ts`: OfficeLimits
 - `planning-service.ts`: PlanningService
 - `stage-screenshots.ts`: ScreenshotsAttaching, StageScreenshots
 - `start-service.ts`: StartService

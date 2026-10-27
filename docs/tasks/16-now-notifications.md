@@ -1,6 +1,6 @@
 # 16 · Now, the status strip and Notifications
 
-Status: todo
+Status: in progress
 
 ## Goal
 
@@ -23,7 +23,7 @@ Leave out: the kinds × channels grid, quiet hours, batching, the at-desk hold, 
 
 ## Steps
 
-- [ ] 1. A read model for Now and the strip, built from domain events (Needs you, Running, Since you left from the user's last activity, tokens today, desks in use, the window state), pushed over WebSocket. Commit.
+- [x] 1. A read model for Now and the strip, built from domain events (Needs you, Running, Since you left from the user's last activity, tokens today, desks in use, the window state), pushed over WebSocket. Commit.
   Read: [spec 4](../spec/4-ux-direction.md) (Now, the status strip), [spec 2.2 Defaults](../spec/2.2-people.md#defaults) (desks in use); the Domain events of the [Work](../../apps/service/src/modules/work/MAP.md), [Pipelines](../../apps/service/src/modules/pipelines/MAP.md), [Conversations](../../apps/service/src/modules/conversations/MAP.md) and [Engine](../../apps/service/src/modules/engine/MAP.md) maps (`UsageWindowsChanged`); the [platform map](../../apps/service/src/platform/MAP.md) (the WebSocket push). A new module: the [module template](../../apps/service/docs/module-template.md).
 - [ ] 2. Now in `apps/web` with in-place answers, and the status strip's figures. Commit.
   Read: [app/now.js](../../.scratch/the-office/prototypes/app/now.js), the [Now surface map](../../apps/web/src/surfaces/now/MAP.md), the [web app map](../../apps/web/src/MAP.md) (`shell/status-strip.tsx`); answering in place reuses the Decision card (`shell/conversation/decision-card.tsx`) and the [Work surface](../../apps/web/src/surfaces/work/MAP.md)'s `GateBlock`.
@@ -38,8 +38,14 @@ Leave out: the kinds × channels grid, quiet hours, batching, the at-desk hold, 
 
 ## State
 
-Not started. Nothing on the service side is called Now or Notifications yet; `apps/web/src/surfaces/now/` holds only `now-page.tsx`, the page frame from task 03.
+- Step 1 built `apps/service/src/modules/notifications/` (see its MAP): `NowService` is Now and the strip as one read model, answered by `GET /api/now` and pushed whole as `now.changed` (contract in `packages/contracts/src/notifications.ts`). `POST /api/activity` records the user active; the web does not call it yet.
+- It reads Work (`TaskService.list`/`listStarted`, new `OfficeLimits`), Conversations (`DecisionService.listOpen`), Pipelines (`TaskStagesService.progress`) and the Engine (`UsageWindowState`) through ports bound in `app.module.ts`. It keeps outcomes, the user's activity, tokens by day and Tasks touched in its own tables (migration 0029).
+- Decided with the user on 2026-10-27, now spec 2.7 and 5.3 Defaults: Now lives in Notifications; no message from a person in tier 1 (the kind exists, nothing sends one); failed means `NoRetriesLeft` or `DefinitionOfDoneNotMet`; Since you left begins after 5 idle minutes; today is local midnight, all four token kinds, Tasks touched = a Stage run today. Step 4 sets "window nearly used" at 90%.
+- Running and desks in use cover every started state (In progress, Waiting on you, Paused), as Start counts them.
+- Next, step 2: `api/notifications.ts` (a `now` query, and `now.changed` as an `EventCacheUpdates` entry), the Now page, the strip's figures, and the web reporting activity (throttled, while the tab is visible and used). Trap: `GateBlock` and `gate-words` are in `surfaces/work/`; check `tools/lint-rules/src/web-layers.ts` before Now uses them, and move them to `shell/` if a surface may not import another.
 
 ## Progress
 
 <!-- One line per commit, newest last: - YYYY-MM-DD · step N: what changed; what is next. The detail goes in the commit body. -->
+
+- 2026-10-27 · step 1: the Notifications module with Now's read model (GET /now, POST /activity, `now.changed`), its tables and the user's answers as spec Defaults; next, Now and the strip in the web.
