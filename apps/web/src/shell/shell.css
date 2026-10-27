@@ -177,7 +177,8 @@ body,
   letter-spacing: var(--tracking-tight);
 }
 
-.shell-strip-needs-you {
+.shell-strip-needs-you,
+.shell-strip-action {
   padding: 4px 8px;
   margin: 0 -8px;
   border: 0;
@@ -188,7 +189,16 @@ body,
   cursor: pointer;
 }
 
-.shell-strip-needs-you:hover {
+.shell-strip-action {
+  color: var(--fg-3);
+}
+
+.shell-strip-office {
+  color: var(--fg-1);
+}
+
+.shell-strip-needs-you:hover,
+.shell-strip-action:hover {
   background: var(--surface-sunken);
 }
 
@@ -393,7 +403,7 @@ body,
   --mark-fg: var(--bg);
 }
 
-/* ---- toasts: the in-app confirmations, stacked in the corner */
+/* ---- toasts: the in-app confirmations and Notifications, stacked in the corner */
 .toasts {
   position: fixed;
   right: 20px;
@@ -558,5 +568,33 @@ body,
 .dialog-hint {
   margin-right: auto;
   font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+/* A Notification's toast: the person, then the line and what it is about, which open it. */
+.notice-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.notice-open {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.notice-open:hover .notice-line {
+  text-decoration: underline;
+}
+
+.notice-about {
   color: var(--fg-3);
 }

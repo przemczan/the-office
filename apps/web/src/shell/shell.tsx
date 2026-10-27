@@ -2,6 +2,7 @@ import { Outlet, useMatches } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { ChatModal } from "./chat/chat-modal.tsx";
 import { NeedsYouPanel } from "./notifications/needs-you-panel.tsx";
+import { NotificationChannels } from "./notifications/notification-channels.ts";
 import { PageHeadingProvider, usePageHeadingState } from "./page-heading.tsx";
 import { Rail } from "./rail.tsx";
 import "./shell.css";
@@ -33,6 +34,7 @@ export function Shell(): ReactNode {
       </div>
       <ChatModal />
       <NeedsYouPanel />
+      <NotificationChannels />
     </ToastProvider>
   );
 }

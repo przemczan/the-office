@@ -1,6 +1,6 @@
 # Web app: map
 
-**Owns:** the shell (A3 · Desk: rail, top bar, status strip, panels, toasts; `shell/`), the chat modal and conversation views, Attachments, the Stage editor (`shell/pipelines/`: one component for "Edit for this Task" and the tier 2 library, Task-free, fed the service's flags), what Now shares with the shell (`shell/notifications/`: Needs you's items, answered in place, and Now's words; the strip reads the same `now` query), the Gate's actions (`shell/work/gate-actions.tsx`, on a Task's record and in Needs you), and `api/`: one file per service module with its fetch functions and query keys, plus the event stream (`event-stream.ts`) that turns the service's web events into query refreshes. Each surface has its own map in `surfaces/<surface>/MAP.md`.
+**Owns:** the shell (A3 · Desk: rail, top bar, status strip, panels, toasts; `shell/`), the chat modal and conversation views, Attachments, the Stage editor (`shell/pipelines/`: one component for "Edit for this Task" and the tier 2 library, Task-free, fed the service's flags), Notifications' channels and what Now shares with the shell (`shell/notifications/`: the channel port with the in-app and desktop adapters, the tab's title and favicon, the web's own "service down"; the Needs you panel and its items, answered in place; Now's words; the strip reads the same `now` and `notifications` queries), the Gate's actions (`shell/work/gate-actions.tsx`, on a Task's record and in Needs you), and `api/`: one file per service module with its fetch functions and query keys, plus the event stream (`event-stream.ts`) that turns the service's web events into query refreshes. Each surface has its own map in `surfaces/<surface>/MAP.md`.
 
 **Talks to:** the service only through `api/` and `@the-office/contracts`; components come from `@the-office/ui` (the design system). The layout is enforced by `tools/lint-rules/src/web-layers.ts`.
 
@@ -20,7 +20,7 @@
 - `conversations.ts`: threadQueries, decisionQueries, startChatThread, sendMessage, renameThread, chooseContextOverride, answerDecision, threadEventInvalidations, threadEventCacheUpdates
 - `event-stream-provider.tsx`: EventInvalidations, EventCacheUpdates, EventStreamProvider, useEventStreamStatus
 - `event-stream.ts`: EventStreamStatus, EventStreamOptions, RECONNECT_DELAYS_MS, EventStream
-- `notifications.ts`: nowQueries, reportActivity, nowEventCacheUpdates
+- `notifications.ts`: nowQueries, notificationQueries, reportActivity, notificationEventCacheUpdates
 - `people.ts`: roleQueries, roleCardQueries, hire, changeRoleCard, roleEventInvalidations
 - `pipelines.ts`: pipelineQueries, editTaskStages, continueAtGate, sendBackFromGate, dropAtGate, pipelineEventInvalidations
 - `projects.ts`: projectQueries, taskChangesKey, addProject, changeCommand, changeInstallInputs, startEnvironmentCheck, changePublishingMode, changeDefaultPipeline, changeUseProjectSkills, projectEventInvalidations
@@ -46,7 +46,7 @@
 - `skill-chip.tsx`: SkillChip
 - `status-strip.tsx`: StatusStrip
 - `time.ts`: dayOf, dayAndClockOf, clockOf, momentWords, durationWords
-- `toasts.tsx`: ToastProvider, useToast
+- `toasts.tsx`: Notice, Notices, ToastProvider, useToast, useNotices
 - `top-bar.tsx`: TopBar
 - `use-clock.ts`: useClock
 - `user-activity.ts`: pageAt, useReportingActivity
@@ -77,11 +77,17 @@
 
 ### shell/notifications/
 
+- `desktop-channel.ts`: DesktopPermission, desktopPermission, askForDesktopPermission, DesktopChannel
+- `in-app-channel.tsx`: useInAppChannel
 - `needs-you-feed.tsx`: NeedsYouFeed
 - `needs-you-panel.tsx`: NeedsYouPanel
+- `notification-channel.ts`: ShownNotification, NotificationChannel
+- `notification-channels.ts`: SERVICE_DOWN, useNotificationChannels, NotificationChannels
+- `notification-words.ts`: OFFICE_TITLE, NotificationTarget, targetOf, titleWithUnread, personOf, aboutLine, unreadCount
 - `now-words.ts`: OUTCOME_NAMES, OUTCOME_TONES, OUTCOME_EDGES, needsYouWords, desksWords, sinceWords, inStageWords, resetWords, doneSinceYouLeft
+- `unread-badge.ts`: useUnreadBadge
 - `use-needs-you-panel.ts`: NeedsYouPanelControls, useNeedsYouPanel
-- Tests: now-words.test.ts
+- Tests: notification-words.test.ts, now-words.test.ts
 
 ### shell/pipelines/
 

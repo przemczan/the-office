@@ -726,6 +726,58 @@ async function seedGatedStages(page: Page, taskId: string): Promise<void> {
   expect(edited.status()).toBe(200);
 }
 
+/** What the desktop channel showed, as the recording stand-in for the browser's Notification keeps it. */
+interface DesktopRecord {
+  readonly title: string;
+  readonly body: string;
+  readonly closed: boolean;
+}
+
+interface RecordingWindow {
+  desktopShown: DesktopRecord[];
+  tabFocused: boolean;
+}
+
+/**
+ * The browser's Notification as a recording, allowed, and the tab's focus as the test sets it: a
+ * headless browser shows no desktop Notifications and keeps the page focused.
+ */
+async function recordDesktopNotifications(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const recording = window as unknown as RecordingWindow;
+    recording.desktopShown = [];
+    recording.tabFocused = true;
+    document.hasFocus = () => recording.tabFocused;
+    class RecordedNotification extends EventTarget {
+      static readonly permission = "granted";
+      static requestPermission(): Promise<string> {
+        return Promise.resolve("granted");
+      }
+      private readonly record: { title: string; body: string; closed: boolean };
+      constructor(title: string, options?: { body?: string }) {
+        super();
+        this.record = { title, body: options?.body ?? "", closed: false };
+        recording.desktopShown.push(this.record);
+      }
+      close(): void {
+        this.record.closed = true;
+        this.dispatchEvent(new Event("close"));
+      }
+    }
+    Object.defineProperty(window, "Notification", { value: RecordedNotification });
+  });
+}
+
+function desktopShown(page: Page): Promise<DesktopRecord[]> {
+  return page.evaluate(() => (window as unknown as RecordingWindow).desktopShown);
+}
+
+function focusTab(page: Page, focused: boolean): Promise<void> {
+  return page.evaluate((value) => {
+    (window as unknown as RecordingWindow).tabFocused = value;
+  }, focused);
+}
+
 /** A Task planned through the API, Ready to start; planning replays Jan's session for it. */
 async function readyTask(page: Page, projectId: string, title: string): Promise<string> {
   const created = await page.request.post("/api/tasks", {
@@ -755,6 +807,7 @@ async function readyTask(page: Page, projectId: string, title: string): Promise<
 test("a Gate holds the Task for the user, sends the work back with feedback, then continues", async ({
   page,
 }) => {
+  await recordDesktopNotifications(page);
   const repository = await createTemporaryRepository();
   try {
     const project = await addedProject(page, repository, "Settings", "ST", PASSING_COMMANDS);
@@ -762,6 +815,12 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await seedGatedStages(page, taskId);
     await page.goto(`/tasks/${taskId}`);
     await page.getByRole("button", { name: "Start", exact: true }).click();
+
+    // The tab is focused, so the Gate's Notification comes as a toast, in Adam's words.
+    const READY = "My work is ready for your look at UI acceptance.";
+    await expect(page.locator(".toasts").getByText(READY)).toBeVisible();
+    await expect(page).toHaveTitle(/^\(\d+\) The Office$/);
+    expect(await desktopShown(page)).toEqual([]);
 
     const gate = page.getByRole("region", { name: "Gate · UI acceptance" });
     const stages = page.getByRole("region", { name: "Stages · Quick fix" });
@@ -796,8 +855,18 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await gate.getByRole("button", { name: "Send back with notes…" }).click();
     const sendBack = gate.getByRole("form", { name: "Send back" });
     await sendBack.getByPlaceholder("What should Adam change?").fill(GATE_FEEDBACK);
+    // In the background, the next Gate's Notification goes to the desktop instead.
+    await focusTab(page, false);
     await sendBack.getByRole("button", { name: "Send back", exact: true }).click();
     await expect(page.getByText("Sent back to Adam.")).toBeVisible();
+    await expect
+      .poll(() => desktopShown(page))
+      .toContainEqual({
+        title: "Adam",
+        body: `${READY}\nSettings keep their changes · Settings`,
+        closed: false,
+      });
+    await focusTab(page, true);
 
     // Implement ran again in a fresh session, briefed with the feedback, using no round.
     const conversation = page.getByRole("complementary", { name: "Conversation" });
@@ -853,8 +922,18 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await expect(waiting).toHaveCount(0);
     await panel.getByRole("button", { name: "Close" }).click();
     await expect(panel).toHaveCount(0);
+    // Acting at the Gate cleared its Notification on the desktop too.
+    expect((await desktopShown(page)).every(({ closed }) => closed)).toBe(true);
 
-    await page.goto(`/tasks/${taskId}`);
+    // Done comes as a toast over the Projects page, and opens the Task, which handles it.
+    const done = page.locator(".toasts").getByRole("button", { name: /I finished the Task\./ });
+    await expect(done).toContainText("Settings keep their changes · Settings");
+    const unreadBefore = Number(/^\((\d+)\)/.exec(await page.title())?.[1] ?? 0);
+    await done.click();
+    await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
+    await expect
+      .poll(async () => Number(/^\((\d+)\)/.exec(await page.title())?.[1] ?? 0))
+      .toBeLessThan(unreadBefore);
     await expect(gate).toHaveCount(0);
     const acceptance = stages
       .getByRole("listitem")
