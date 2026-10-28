@@ -244,7 +244,7 @@ function StartShaping({
         loading={starting.isPending}
         onClick={() => starting.mutate()}
       >
-        Talk it over with {cto.card.name}
+        Shape it with {cto.card.name}
       </Button>
     </div>
   );
