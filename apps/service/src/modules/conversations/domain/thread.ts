@@ -69,13 +69,14 @@ export type ContextOverride = "start-fresh" | "continue-anyway";
 
 /**
  * What makes a Thread a Consultation (spec §2.4): a sub-thread on a Task where a Consultant, whose
- * Role the Thread's `roleKey` is, answers the Decision an Agent put to them.
+ * Role the Thread's `roleKey` is, answers the Decision an Agent, or The Office, put to them.
  */
 export interface Consultation {
   readonly decisionId: string;
-  /** The Thread the Agent asked in, which waits on the Decision. */
+  /** The Thread the Decision was asked in, which waits on it. */
   readonly askerThreadId: string;
-  readonly askerRoleKey: string;
+  /** The Agent who asked, by the key of their Role; undefined when The Office did (spec §2.3). */
+  readonly askerRoleKey: string | undefined;
 }
 
 /** One continuous exchange in a home, one engine session underneath at a time. */

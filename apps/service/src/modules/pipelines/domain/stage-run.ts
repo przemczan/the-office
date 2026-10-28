@@ -127,6 +127,8 @@ export interface CarriedFailure {
   readonly rounds: number;
   /** What the user said to do differently this round, when they gave it in a Decision. */
   readonly guidance?: string;
+  /** The Consultant whose words the guidance is, by the key of their Role; undefined for the user. */
+  readonly guidedBy?: string;
 }
 
 /**
@@ -163,8 +165,15 @@ export type WalkAnswer =
   | { readonly kind: "answered"; readonly answer: string }
   /** The failed Stage's loop may go back this many more times. */
   | { readonly kind: "more-rounds"; readonly rounds: number }
-  /** One more round, with what the user said to do differently, if anything. */
-  | { readonly kind: "one-more-round"; readonly guidance: string | undefined }
+  /**
+   * One more round, with what the user said to do differently, if anything, or the Consultant The
+   * Office put the Decision to first (`guidedBy`, by the key of their Role).
+   */
+  | {
+      readonly kind: "one-more-round";
+      readonly guidance: string | undefined;
+      readonly guidedBy?: string;
+    }
   /** The walk goes on past the failed Stage; its failure is recorded as an accepted issue. */
   | { readonly kind: "accept-issues" }
   /** The Task is Done although the Definition of Done isn't reported met. */

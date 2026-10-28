@@ -100,16 +100,18 @@ export function ThreadView({
 
 /**
  * What a Consultation is, for the user reading it live: they may write in it, or answer the
- * Decision in the asking person's Thread to take it over.
+ * Decision in the asking person's Thread to take it over. The Office's own Decision, put to the CTO
+ * first, holds the Task's Pipeline instead.
  */
-function ConsultationNote({ askerRoleKey }: { readonly askerRoleKey: string }): ReactNode {
+function ConsultationNote({ askerRoleKey }: { readonly askerRoleKey: string | null }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
   const asker = roles?.find(({ key }) => key === askerRoleKey)?.card.name ?? askerRoleKey;
   return (
     <p className="thread-consultation" role="note">
       <Icon name="users" size={12} />
-      {asker} waits on this answer. Write here to join; answer the Decision in {asker}&apos;s Thread
-      to take it over.
+      {asker === null
+        ? "The Office asks first here; the Task's Pipeline waits on this answer. Write here to join; answer the Decision on the Task to take it over."
+        : `${asker} waits on this answer. Write here to join; answer the Decision in ${asker}'s Thread to take it over.`}
     </p>
   );
 }

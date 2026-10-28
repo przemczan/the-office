@@ -136,7 +136,9 @@ export class NotificationService implements OnModuleInit {
       if (to !== "done") return;
       await this.raise(initiativeDone(initiativeId, await this.hired(CTO)));
     });
-    this.events.subscribe(NoRetriesLeft, async ({ taskId, stageKey }) => {
+    this.events.subscribe(NoRetriesLeft, async ({ taskId, stageKey, putTo }) => {
+      // Put to the CTO first, it reaches the user only if passed on, as a Decision waiting.
+      if (putTo !== undefined) return;
       const stage = await this.stageOf(taskId, stageKey);
       await this.raiseFailure(taskId, { kind: "no-retries-left", stageName: stage.name });
     });

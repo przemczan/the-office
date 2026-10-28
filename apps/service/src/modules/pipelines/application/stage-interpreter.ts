@@ -9,6 +9,7 @@ import {
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { DecisionAnswered } from "../../conversations/index.js";
+import { CTO } from "../../people/index.js";
 import { TaskPaused, TaskResumed, TaskStarted, TaskStopped } from "../../work/index.js";
 import { StaffingHolds } from "./staffing-holds.js";
 import { nextMove, type NextMove } from "../domain/pipeline-walk.js";
@@ -37,6 +38,7 @@ import {
 } from "../domain/stage-run-events.js";
 import {
   agentDecision,
+  asksTheCtoFirst,
   walkAnswerOf,
   walkDecision,
   type DecisionAnswer,
@@ -532,8 +534,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   }
 
   /**
-   * Opens The Office's Decision on the run, in the Thread of the Task's last Agent Stage run (spec
-   * §2.3: in tier 1 The Office asks the user directly).
+   * Opens The Office's Decision on the run, in the Thread of the Task's last Agent Stage run: put
+   * to the CTO first when the question is theirs (spec §2.3), otherwise to the user.
    */
   private async ask(
     taskId: string,
@@ -542,13 +544,18 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   ): Promise<void> {
     const decision = walkDecision(run, question);
     const threadId = runs.findLast((each) => each.threadId !== undefined)?.threadId;
-    const id = await this.decisions.open({ taskId, threadId, draft: decision.draft });
+    const { id, putTo } = await this.decisions.open({
+      taskId,
+      threadId,
+      draft: decision.draft,
+      ...(asksTheCtoFirst(question, runs) && { putTo: CTO }),
+    });
     await this.runs.saveDecisions(run.id, [
       ...run.decisions,
       { id, kind: decision.kind, options: decision.options, answer: undefined },
     ]);
     if (question.kind === "no-retries-left") {
-      await this.events.publish(new NoRetriesLeft(taskId, run.stageKey, question.error));
+      await this.events.publish(new NoRetriesLeft(taskId, run.stageKey, question.error, putTo));
     }
     if (question.kind === "budget") {
       const { used, budget } = question.reached;

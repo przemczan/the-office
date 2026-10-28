@@ -893,7 +893,7 @@ describe("StageDecisions", () => {
     const { stageThread } = await aStageRun(request);
     const answered = answeredEvents();
 
-    const id = await app.get(StageDecisions).open({
+    const { id } = await app.get(StageDecisions).open({
       taskId: request.taskId,
       threadId: stageThread.threadId,
       draft,
@@ -919,7 +919,7 @@ describe("StageDecisions", () => {
     await anAnsweredDecision(taskId, aPerson("Jan"));
     const [planning] = await repository.listIn({ kind: "task", taskId });
 
-    const id = await app.get(StageDecisions).open({
+    const { id } = await app.get(StageDecisions).open({
       taskId,
       threadId: undefined,
       draft,

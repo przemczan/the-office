@@ -80,13 +80,15 @@ export class WentBackToStage extends DomainEvent {
 
 /**
  * A Stage failed with no retries left: it has no loop, or its loop went back as many times as it
- * may. The Task waits on the user's answer to The Office's Decision.
+ * may. The Task waits on the answer to The Office's Decision: the user's, or first that of the
+ * Consultant it is put to (`putTo`, by the key of their Role), such as the CTO (spec §2.3).
  */
 export class NoRetriesLeft extends DomainEvent {
   constructor(
     readonly taskId: string,
     readonly stageKey: string,
     readonly error: string,
+    readonly putTo: string | undefined,
   ) {
     super();
   }

@@ -782,9 +782,10 @@ export interface PassingOn {
 }
 
 /**
- * The Consultant an approval is put to passes it on (spec §2.2), and it waits on the next one up or
- * the user. Refused for a question, which they answer, and once it no longer waits on them. The
- * event is the one that tells the user when it waits on them.
+ * The Consultant an approval, or The Office's Decision, is put to passes it on (spec §2.2, §2.3),
+ * and it waits on the next one up or the user. Refused for an Agent's question, which they answer,
+ * and once it no longer waits on them. The event is the one that tells the user when it waits on
+ * them.
  */
 export function passDecisionOn(
   thread: Thread,
@@ -796,7 +797,8 @@ export function passDecisionOn(
       "This Decision no longer waits on you: it was answered or passed on. There is nothing left to answer.",
     ]);
   }
-  if (!isApproval(open)) {
+  // The Office's own Decision is put to the CTO first and passed on to the user (spec §2.3).
+  if (!isApproval(open) && open.roleKey !== undefined) {
     throw new ThreadRefused([
       "Only an approval is passed on. Answer the question with one of its options or in your own words.",
     ]);

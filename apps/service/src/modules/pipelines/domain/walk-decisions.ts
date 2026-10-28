@@ -11,10 +11,14 @@ import type {
   WalkDecisionKind,
 } from "./stage-run.js";
 
-/** How the user answers a Decision: one of its options, by its index, or in their own words. */
-export type DecisionAnswer =
+/**
+ * How the user answers a Decision: one of its options, by its index, or in their own words.
+ * `answeredBy` is the Consultant who answered in their place, by the key of their Role.
+ */
+export type DecisionAnswer = (
   | { readonly kind: "option"; readonly option: number }
-  | { readonly kind: "free-answer"; readonly text: string };
+  | { readonly kind: "free-answer"; readonly text: string }
+) & { readonly answeredBy?: string };
 
 /** A Decision the walk opens, worded for the user, with what each of its options does. */
 export interface WalkDecision {
@@ -64,7 +68,30 @@ export function walkAnswerOf(decision: StageRunDecision, answer: DecisionAnswer)
   if (decision.kind === "agent") return { kind: "answered", answer: answer.text.trim() };
   const raise = decision.options.find(({ kind }) => kind === "raise-budget");
   if (decision.kind === "budget" && raise) return raise;
-  return { kind: "one-more-round", guidance: answer.text.trim() };
+  return {
+    kind: "one-more-round",
+    guidance: answer.text.trim(),
+    ...(answer.answeredBy !== undefined && { guidedBy: answer.answeredBy }),
+  };
+}
+
+/**
+ * Whether The Office puts what the walk asks to the CTO before the user (spec §2.3): a Stage
+ * failing with no retries left, unless the CTO already sent that Stage back once in this walk.
+ * Every other question, budget limits included, is the user's.
+ */
+export function asksTheCtoFirst(question: WalkQuestion, runs: readonly StageRun[]): boolean {
+  if (question.kind !== "no-retries-left") return false;
+  return !runs.some(
+    ({ stageKey, decisions }) =>
+      stageKey === question.stage.key &&
+      decisions.some(
+        ({ kind, answer }) =>
+          kind === "no-retries-left" &&
+          answer?.kind === "one-more-round" &&
+          answer.guidedBy !== undefined,
+      ),
+  );
 }
 
 /**

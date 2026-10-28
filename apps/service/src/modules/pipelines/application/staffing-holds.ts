@@ -46,12 +46,12 @@ export class StaffingHolds implements OnModuleInit {
       if (problems.length === 0) return false;
       if ((await this.tasks.read(taskId)).state !== "paused") await this.tasks.pause(taskId);
       if (await this.holds.isHeld(taskId)) return true;
-      const decisionId = await this.decisions.open({
+      const { id } = await this.decisions.open({
         taskId,
         threadId: undefined,
         draft: staffingDecision(problems),
       });
-      await this.holds.hold(taskId, decisionId);
+      await this.holds.hold(taskId, id);
       return true;
     });
   }

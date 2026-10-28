@@ -86,7 +86,12 @@ export const threadSchema = z.object({
    * them. The Thread's `roleKey` is the Consultant; the asker is named here.
    */
   consultation: z
-    .object({ decisionId: z.uuid(), askerThreadId: z.uuid(), askerRoleKey: z.string() })
+    .object({
+      decisionId: z.uuid(),
+      askerThreadId: z.uuid(),
+      /** Null when The Office asked, as when a Stage failed (spec §2.3). */
+      askerRoleKey: z.string().nullable(),
+    })
     .nullable(),
 });
 export type Thread = z.infer<typeof threadSchema>;

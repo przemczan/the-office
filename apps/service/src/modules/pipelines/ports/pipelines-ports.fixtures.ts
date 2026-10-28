@@ -4,7 +4,11 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EngineSessions } from "../../engine/index.js";
 import { TaskPaused, TaskResumed } from "../../work/index.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
-import { StageDecisions, type StageDecisionRequest } from "./stage-decisions.js";
+import {
+  StageDecisions,
+  type OpenedStageDecision,
+  type StageDecisionRequest,
+} from "./stage-decisions.js";
 import {
   StageThreads,
   type AskedDecision,
@@ -276,10 +280,17 @@ export class StageDecisionsForTests extends StageDecisions {
   /** Answers given in Conversations, by Decision id, as a test puts them. */
   readonly answers = new Map<string, DecisionAnswer>();
 
-  open(request: StageDecisionRequest): Promise<string> {
+  /** Who can be consulted, by the key of their Role: a Decision put to anyone else waits on the user. */
+  readonly consultants = new Set<string>();
+
+  open(request: StageDecisionRequest): Promise<OpenedStageDecision> {
     const id = randomUUID();
     this.opened.set(id, request);
-    return Promise.resolve(id);
+    const putTo =
+      request.putTo !== undefined && this.consultants.has(request.putTo)
+        ? request.putTo
+        : undefined;
+    return Promise.resolve({ id, putTo });
   }
 
   answerOf(decisionId: string): Promise<DecisionAnswer | undefined> {

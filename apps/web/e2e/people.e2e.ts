@@ -903,6 +903,24 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
     "next is checked against the Office's own pages.",
   ]);
   await expect(handoverNote.locator("code")).toHaveText("next");
+
+  // Publish fails, as the repository has no remote: The Office asks Bob, the CTO, first, who passes
+  // it on to the user. Waiting for that keeps the next test's sessions after Bob's.
+  await expect
+    .poll(async () => {
+      const open = await page.request.get("/api/decisions/open");
+      return JSON.stringify(await open.json());
+    })
+    .toContain('\\"Publish\\" failed, with no round to go back to.');
+  await conversation.getByRole("button", { name: /^Consultation · The Office and Bob/ }).click();
+  await expect(
+    conversation
+      .getByRole("note")
+      .filter({ hasText: "The Office asks first here; the Task's Pipeline waits on this answer." }),
+  ).toBeVisible();
+  await expect(
+    conversation.getByText("I passed it on to the user: the remote is theirs to set up."),
+  ).toBeVisible();
 });
 
 const GATE_FEEDBACK = "Call the button Save, as the rest of the settings do.";

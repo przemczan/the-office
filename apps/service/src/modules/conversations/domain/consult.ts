@@ -1,4 +1,7 @@
-import type { Decision, DecisionDraft } from "./decision.js";
+import type { Decision, DecisionAnswer, DecisionDraft } from "./decision.js";
+
+/** Who asks a Decision no person opened, such as a Pipeline's (spec §2.3). */
+export const THE_OFFICE = "The Office";
 
 /**
  * The answers to a request for approval of a call past a Hard switch (spec §6). There is never an
@@ -89,6 +92,8 @@ export function passedOnTo(
   person: string | undefined,
   consultants: readonly ConsultantPerson[],
 ): ConsultantPerson | undefined {
+  // The Office puts its own Decision to the CTO, the top of the steps, before the user (spec §2.3).
+  if (decision.roleKey === undefined) return undefined;
   if (decision.passedOn.length + 1 >= PASS_ON_STEPS) return undefined;
   const asked = new Set([
     decision.roleKey,
@@ -129,6 +134,18 @@ export function consultDecision(consult: Consult, party: ConsultedParty): Decisi
   };
 }
 
+/**
+ * Every problem with a Consultant's answer. The Office's Decision, put to the CTO first, they
+ * answer only in their own words, which send the Task back for one more round: its options stay
+ * the user's (spec §2.3).
+ */
+export function consultantAnswerProblems(decision: Decision, answer: DecisionAnswer): string[] {
+  if (decision.roleKey !== undefined || answer.kind !== "option") return [];
+  return [
+    "Its options are the user's. Answer in your own words to send the Task back for one more round with them as its guidance, or pass it on to the user.",
+  ];
+}
+
 /** The title of a Consultation, labelled with both people (spec §2.4). */
 export function consultationTitle(askerName: string, consultantName: string): string {
   return `Consultation · ${askerName} and ${consultantName}`;
@@ -143,6 +160,7 @@ export function consultationOpening(
   askerName: string,
   passers: readonly { readonly name: string; readonly reason: string }[] = [],
 ): string {
+  if (decision.roleKey === undefined) return officeConsultationOpening(decision);
   const options = decision.options
     .map(
       (option, index) =>
@@ -161,5 +179,20 @@ export function consultationOpening(
     `Their options:\n${options}`,
     `Why they recommend the option they do: ${decision.recommendation.reason}`,
     howToAnswer,
+  ].join("\n\n");
+}
+
+/**
+ * What The Office asks the Consultant it puts its own Decision to first (spec §2.3): what happened,
+ * the user's options for them to know, and their two answers.
+ */
+function officeConsultationOpening(decision: Decision): string {
+  const options = decision.options.map((option, index) => `${index + 1}. ${option}`).join("\n");
+  return [
+    `${THE_OFFICE} asks for your answer on this Task before the user's.`,
+    `Question: ${decision.question}`,
+    `What happened: ${decision.context}`,
+    `The user's options, which stay theirs:\n${options}`,
+    "Answer with the answer_consultation tool in your own words: they send the Task back for one more round, as its guidance. Or pass it on to the user when it isn't yours to decide, saying why.",
   ].join("\n\n");
 }

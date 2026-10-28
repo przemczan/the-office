@@ -39,6 +39,7 @@ import { InterruptedAnswers } from "./interrupted-answers.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
+import { StageDecisions } from "./stage-decisions.js";
 import { StageThreads } from "./stage-threads.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
@@ -155,6 +156,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       MentionedRecords,
       WorkRecords,
       StageThreads,
+      StageDecisions,
       InterruptedAnswers,
       DecisionService,
       Consultations,
@@ -484,5 +486,101 @@ describe("an approval passed on", () => {
       { roleKey: devopsKey, reason: "Security decides installs.", passedOnAt: expect.any(Date) },
     ]);
     expect(await consultationsOn(asker)).toHaveLength(1);
+  });
+});
+
+async function answeredOn(asker: Thread): Promise<Decision> {
+  return vi.waitFor(
+    async () => {
+      const [decision] = await decisions.listInThread(asker.id);
+      if (!decision?.answer) throw new Error("Not answered yet.");
+      return decision;
+    },
+    { timeout: 5_000, interval: 20 },
+  );
+}
+
+describe("The Office's Decision put to the CTO first", () => {
+  const FAILED = {
+    question: '"measure" failed, and its rounds are used up. What now?',
+    context: "2 tests fail.",
+    options: ["Allow 1 more round", "Continue with the issues recorded", "Drop the Task"],
+    recommendation: { option: 0, reason: "Another round may fix it." },
+  };
+  const WORKING: SessionScript = started(...aTurn("brief", "Working."));
+
+  async function failureOn(asker: Thread, putTo: string): Promise<string | undefined> {
+    await settled(asker.id);
+    const opened = await app.get(StageDecisions).open({
+      taskId: (asker.home as { taskId: string }).taskId,
+      threadId: asker.id,
+      draft: FAILED,
+      putTo,
+    });
+    return opened.putTo;
+  }
+
+  it("opens the CTO's Consultation at once, who answers in their own words, never with the user's options", async () => {
+    await startWith(
+      WORKING,
+      started(
+        ...usesTool("c-2", ANSWER_CONSULTATION_TOOL, { option: 3 }),
+        ...usesTool("c-3", ANSWER_CONSULTATION_TOOL, { answer: "Mock the clock." }),
+        ...aTurn("brief", "Sent back."),
+      ),
+    );
+    const asker = await developerOnATask();
+
+    const putTo = await failureOn(asker, consultantKey);
+    const consultation = await consultationOn(asker);
+    const answered = await answeredOn(asker);
+
+    expect(putTo).toBe(consultantKey);
+    expect(consultation).toMatchObject({
+      title: "Consultation · The Office and Casey",
+      consultation: { askerThreadId: asker.id },
+    });
+    expect(consultation.consultation?.askerRoleKey).toBeUndefined();
+    const opening = engine.sessions[1]?.received[0];
+    const brief = opening?.step === "start" ? opening.brief.text : "";
+    expect(brief).toContain("The Office asks for your answer on this Task before the user's.");
+    expect(brief).toContain("2 tests fail.");
+    const [refused] =
+      engine.sessions[1]?.reportedEvents.filter((event) => event.kind === "tool-result") ?? [];
+    expect(refused).toMatchObject({ isError: true });
+    expect(refused?.kind === "tool-result" && refused.text).toContain(
+      "Its options are the user's.",
+    );
+    expect(answered).toMatchObject({
+      roleKey: undefined,
+      putTo: consultantKey,
+      answer: { kind: "free-answer", text: "Mock the clock.", answeredBy: consultantKey },
+    });
+  });
+
+  it("waits on the user once the CTO passes it on, with every option theirs", async () => {
+    await startWith(
+      WORKING,
+      started(...passesOnTo("Devops", "Whether to drop the Task is the user's call.")),
+    );
+    const asker = await developerOnATask();
+    await failureOn(asker, consultantKey);
+
+    const open = await putToTheUser(asker);
+
+    expect(open).toMatchObject({ putTo: undefined, options: FAILED.options });
+    expect(open.passedOn.map(({ roleKey }) => roleKey)).toEqual([consultantKey]);
+    expect(await consultationsOn(asker)).toHaveLength(1);
+  });
+
+  it("goes to the user when nobody who can be consulted fills the Role", async () => {
+    await startWith(WORKING);
+    const asker = await developerOnATask();
+
+    const putTo = await failureOn(asker, `cto-${randomUUID()}`);
+
+    expect(putTo).toBeUndefined();
+    expect(await putToTheUser(asker)).toMatchObject({ question: FAILED.question });
+    expect(await consultationsOn(asker)).toEqual([]);
   });
 });

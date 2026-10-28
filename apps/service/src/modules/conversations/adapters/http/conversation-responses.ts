@@ -31,7 +31,9 @@ export function toThreadResponse(thread: Thread, context: ContextDecision): Thre
     },
     startedAt: thread.startedAt.toISOString(),
     stageThread: thread.stageThread,
-    consultation: thread.consultation ?? null,
+    consultation: thread.consultation
+      ? { ...thread.consultation, askerRoleKey: thread.consultation.askerRoleKey ?? null }
+      : null,
   };
 }
 

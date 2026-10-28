@@ -87,10 +87,19 @@ export interface AnsweredQuestion {
   readonly answer: string;
 }
 
+/**
+ * A carried failure as the Brief words it: with the failed Stage's name, and who gave the guidance,
+ * such as "Bob (CTO)", when a Consultant did.
+ */
+export type CarriedRound = CarriedFailure & {
+  readonly stageName: string;
+  readonly guide?: string;
+};
+
 /** Why the Stage runs now, beside its brief; each is left out when it doesn't apply. */
 export interface StageWorkReasons {
-  /** The failure an on-failure loop, or a round the user gave, went back with. */
-  readonly carried?: CarriedFailure & { readonly stageName: string };
+  /** The failure an on-failure loop, or a round the user or the CTO gave, went back with. */
+  readonly carried?: CarriedRound;
   /** The user's feedback from a Gate, when they sent the work back to this Stage. */
   readonly sentBack?: SentBack & { readonly gateName: string };
   /** The Agent's question the user answered, when the Stage runs again for it. */
@@ -169,21 +178,23 @@ function heldSection({ by, notStarted, cutShort, guidance }: HeldRun): string | 
 }
 
 /**
- * Why the Stage runs again: a later Stage's loop went back to it, or the user gave it one more
- * round itself; with what the user said to do differently, when they said it.
+ * Why the Stage runs again: a later Stage's loop went back to it, or the user, or the CTO asked
+ * first, gave it one more round itself; with what they said to do differently, when they said it.
  */
-function whyAgain(
-  stage: Pick<AgentStage, "key">,
-  carried: CarriedFailure & { readonly stageName: string },
-): string {
+function whyAgain(stage: Pick<AgentStage, "key">, carried: CarriedRound): string {
+  const chosen =
+    carried.guide === undefined
+      ? "The user chose one more round of this Stage"
+      : `One more round of this Stage was chosen by ${carried.guide}`;
   const why =
     carried.stageKey === stage.key
-      ? `The user chose one more round of this Stage after:\n\n${carried.error}`
+      ? `${chosen} after:\n\n${carried.error}`
       : `"${carried.stageName}" failed after it, so the Pipeline went back here (round ${carried.round} of ${carried.rounds}):\n\n${carried.error}`;
-  const guidance =
-    carried.guidance === undefined
-      ? ""
-      : `\n\nThe user's guidance for this round:\n\n${carried.guidance}`;
+  const heading =
+    carried.guide === undefined
+      ? "The user's guidance for this round"
+      : `Guidance for this round from ${carried.guide}`;
+  const guidance = carried.guidance === undefined ? "" : `\n\n${heading}:\n\n${carried.guidance}`;
   return `## Why this Stage runs again\n\n${why}${guidance}`;
 }
 

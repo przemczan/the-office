@@ -3,7 +3,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { DecisionAnswered } from "../../conversations/index.js";
 import type { SessionScript } from "../../engine/index.js";
+import { CTO } from "../../people/index.js";
 import type { OnFailure, Stage } from "../domain/stage.js";
+import { NoRetriesLeft } from "../domain/stage-run-events.js";
 import {
   A_WAITING_RESULT,
   aDoneResult,
@@ -19,7 +21,7 @@ import {
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
-import { aCommandRun } from "../ports/pipelines-ports.fixtures.js";
+import { aCommandRun, aPerson } from "../ports/pipelines-ports.fixtures.js";
 import { StageInterpreter } from "./stage-interpreter.js";
 
 function scriptStage(key: string, onFailure?: OnFailure): Stage {
@@ -101,6 +103,20 @@ function statesOf(taskId: string): string[] {
   return pipelines.tasks.changes
     .filter((change) => change.taskId === taskId)
     .map(({ state }) => state);
+}
+
+function hireTheCto(): void {
+  pipelines.decisions.consultants.add(CTO);
+  pipelines.people.people.set(CTO, aPerson("Bob"));
+  pipelines.people.titles.set(CTO, "CTO");
+}
+
+function failuresPutTo(): (string | undefined)[] {
+  const failures: (string | undefined)[] = [];
+  pipelines.app.get(EventBus).subscribe(NoRetriesLeft, ({ putTo }) => {
+    failures.push(putTo);
+  });
+  return failures;
 }
 
 describe("StageInterpreter's Decisions", () => {
@@ -245,6 +261,62 @@ describe("StageInterpreter's Decisions", () => {
 
       expect(await statusesOf(taskId)).toHaveLength(2);
       expect(statesOf(taskId)).toEqual(["waiting-on-you", "in-progress", "dropped"]);
+    });
+  });
+
+  describe("the CTO first", () => {
+    const measure = scriptStage("measure", { goBackTo: "draft", rounds: 1 });
+
+    it("puts a round limit to the CTO, whose own words send the work back one more round", async () => {
+      await startWith(agentDone, agentDone, agentDone);
+      hireTheCto();
+      const failures = failuresPutTo();
+      failing("2 tests fail.", "Still 2.");
+      const taskId = await walkStages(pipelines, [draft, measure]);
+
+      await answerLastDecision(pipelines, taskId, {
+        kind: "free-answer",
+        text: "Mock the clock.",
+        answeredBy: CTO,
+      });
+
+      expect(pipelines.decisions.on(taskId)).toMatchObject([{ putTo: CTO }]);
+      expect(failures).toEqual([CTO]);
+      const runs = await runsOf(pipelines, taskId);
+      expect(runs[4]?.carriedFailure).toMatchObject({ round: 2, rounds: 2, guidedBy: CTO });
+      const work = pipelines.stageThreads.requests.at(-1)?.work;
+      expect(work).toContain("Guidance for this round from Bob (CTO):\n\nMock the clock.");
+      expect(statesOf(taskId)).toEqual(["waiting-on-you", "in-progress", "done"]);
+    });
+
+    it("asks the user when the Stage the CTO sent back fails again", async () => {
+      await startWith(agentDone, agentDone, agentDone);
+      hireTheCto();
+      const failures = failuresPutTo();
+      failing("2 tests fail.", "Still 2.", "Still 2 after the clock.");
+      const taskId = await walkStages(pipelines, [draft, measure]);
+
+      await answerLastDecision(pipelines, taskId, {
+        kind: "free-answer",
+        text: "Mock the clock.",
+        answeredBy: CTO,
+      });
+
+      const [toTheCto, toTheUser] = pipelines.decisions.on(taskId);
+      expect(toTheCto?.putTo).toBe(CTO);
+      expect(toTheUser?.putTo).toBeUndefined();
+      expect(failures).toEqual([CTO, undefined]);
+      expect(statesOf(taskId).at(-1)).toBe("waiting-on-you");
+    });
+
+    it("asks the user when no CTO who can be consulted is hired", async () => {
+      await startWith(agentDone, agentDone);
+      const failures = failuresPutTo();
+      failing("2 tests fail.", "Still 2.");
+
+      await walkStages(pipelines, [draft, measure]);
+
+      expect(failures).toEqual([undefined]);
     });
   });
 

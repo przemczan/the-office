@@ -201,7 +201,7 @@ function afterFailure(
   stage: Stage,
   error: string,
 ): StoppingMove | undefined {
-  const back = goBack(walk, stage, error, undefined);
+  const back = goBack(walk, stage, error, {});
   if (back) {
     walk.position = back;
     return undefined;
@@ -215,8 +215,8 @@ function afterFailure(
     case "one-more-round": {
       const rounds = answer.kind === "more-rounds" ? answer.rounds : 1;
       walk.roundsAdded.set(stage.key, (walk.roundsAdded.get(stage.key) ?? 0) + rounds);
-      const guidance = answer.kind === "one-more-round" ? answer.guidance : undefined;
-      const allowed = goBack(walk, stage, error, guidance);
+      const guided = answer.kind === "one-more-round" ? guidanceOf(answer) : {};
+      const allowed = goBack(walk, stage, error, guided);
       if (!allowed) throw new Error(`Stage "${stage.key}" got more rounds, yet can't go back.`);
       walk.position = allowed;
       return undefined;
@@ -332,7 +332,7 @@ function advance(walk: Walk, run: StageRun): StoppingMove | undefined {
           error,
           round,
           rounds: round,
-          ...guidanceOf(answer.guidance),
+          ...guidanceOf(answer),
         },
         sentBack: undefined,
       };
@@ -402,7 +402,7 @@ function goBack(
   walk: Walk,
   failed: Stage,
   error: string,
-  guidance: string | undefined,
+  guided: Guided,
 ): (WalkPosition & { readonly carriedFailure: CarriedFailure }) | undefined {
   const onFailure = failed.kind === "gate" ? undefined : failed.onFailure;
   const rounds = (onFailure?.rounds ?? 0) + (walk.roundsAdded.get(failed.key) ?? 0);
@@ -421,11 +421,19 @@ function goBack(
   walk.roundsUsed.set(failed.key, round);
   return {
     index,
-    carriedFailure: { stageKey: failed.key, error, round, rounds, ...guidanceOf(guidance) },
+    carriedFailure: { stageKey: failed.key, error, round, rounds, ...guided },
     sentBack: undefined,
   };
 }
 
-function guidanceOf(guidance: string | undefined): { readonly guidance?: string } {
-  return guidance === undefined ? {} : { guidance };
+/** What to do differently in a round, and whose words they are, as its carried failure keeps them. */
+type Guided = Pick<CarriedFailure, "guidance" | "guidedBy">;
+
+type OneMoreRound = Extract<WalkAnswer, { readonly kind: "one-more-round" }>;
+
+function guidanceOf({ guidance, guidedBy }: OneMoreRound): Guided {
+  return {
+    ...(guidance !== undefined && { guidance }),
+    ...(guidance !== undefined && guidedBy !== undefined && { guidedBy }),
+  };
 }

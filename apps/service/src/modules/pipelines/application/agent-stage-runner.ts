@@ -5,6 +5,7 @@ import {
   agentStageRecord,
   agentStageWork,
   type AnsweredQuestion,
+  type CarriedRound,
   type EarlierResult,
   type HeldRun,
 } from "../domain/agent-stage-brief.js";
@@ -236,7 +237,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       carryMessagesSince: held?.startedAt,
       record,
       work: agentStageWork(stage, {
-        carried: carriedWithName(stages, run.carriedFailure),
+        carried: await this.carriedRound(stages, run.carriedFailure),
         sentBack: run.sentBack && {
           ...run.sentBack,
           gateName: stageOf(stages, run.sentBack.gateKey)?.name ?? run.sentBack.gateKey,
@@ -259,6 +260,22 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         outputSchema: STAGE_RESULT_SCHEMA,
       },
     });
+  }
+
+  /**
+   * The failure the run carries, with its Stage's name and, for guidance a Consultant gave, who
+   * they are: by name and title, or the Role's title alone once nobody fills it.
+   */
+  private async carriedRound(
+    stages: readonly Stage[],
+    carried: CarriedFailure | undefined,
+  ): Promise<CarriedRound | undefined> {
+    if (!carried) return undefined;
+    const stageName = stageOf(stages, carried.stageKey)?.name ?? carried.stageKey;
+    if (carried.guidedBy === undefined) return { ...carried, stageName };
+    const title = this.people.roleTitle(carried.guidedBy);
+    const name = (await this.people.find(carried.guidedBy))?.card.name;
+    return { ...carried, stageName, guide: name ? `${name} (${title})` : `the ${title}` };
   }
 
   /** The card's followed Hard switches, with whom a Consult value names by its Role's title. */
@@ -460,14 +477,6 @@ function answeredQuestion(
   const asked = last.decisions.find((decision) => decision.kind === "agent");
   if (asked?.answer?.kind !== "answered") return undefined;
   return { question: asked.question, answer: asked.answer.answer };
-}
-
-function carriedWithName(
-  stages: readonly Stage[],
-  carried: CarriedFailure | undefined,
-): (CarriedFailure & { readonly stageName: string }) | undefined {
-  if (!carried) return undefined;
-  return { ...carried, stageName: stageOf(stages, carried.stageKey)?.name ?? carried.stageKey };
 }
 
 function messageOf(error: unknown): string {

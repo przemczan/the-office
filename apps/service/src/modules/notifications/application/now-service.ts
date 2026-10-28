@@ -140,8 +140,9 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
         this.keepOutcome(taskId, "paused", occurredAt),
       );
     }
-    this.events.subscribe(NoRetriesLeft, ({ taskId, occurredAt }) =>
-      this.keepOutcome(taskId, "failed", occurredAt),
+    // A failure put to the CTO first isn't the user's outcome unless the CTO passes it on.
+    this.events.subscribe(NoRetriesLeft, ({ taskId, occurredAt, putTo }) =>
+      putTo === undefined ? this.keepOutcome(taskId, "failed", occurredAt) : undefined,
     );
     this.events.subscribe(DefinitionOfDoneNotMet, ({ taskId, occurredAt }) =>
       this.keepOutcome(taskId, "failed", occurredAt),

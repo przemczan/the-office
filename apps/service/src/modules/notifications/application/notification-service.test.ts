@@ -8,7 +8,8 @@ import { EventsModule } from "../../../platform/events/events.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import { DecisionAnswered, DecisionOpened, TurnEnded } from "../../conversations/index.js";
 import { EngineDown, UsageWindowsChanged } from "../../engine/index.js";
-import { GateContinued, GateReached } from "../../pipelines/index.js";
+import { CTO } from "../../people/index.js";
+import { GateContinued, GateReached, NoRetriesLeft } from "../../pipelines/index.js";
 import { InitiativeStateChanged, TaskStateChanged } from "../../work/index.js";
 import { NotificationRaised, NotificationsCleared } from "../domain/notification-events.js";
 import { NotificationsModule } from "../notifications.module.js";
@@ -141,6 +142,27 @@ describe("NotificationService", () => {
     await events.publish(new GateContinued(taskId, "look"));
 
     expect(cleared).toEqual([raised[0]?.notification.id]);
+  });
+
+  it("tells a Stage failing with no retries left, unless it was put to the CTO first", async () => {
+    const [toTheCto, toTheUser] = [randomUUID(), randomUUID()];
+    for (const taskId of [toTheCto, toTheUser]) {
+      app.get(OfficeTasksForTests).people.set(taskId, "developer");
+      app.get(TaskStageProgressForTests).stages.set(taskId, [
+        {
+          stage: { key: "measure", name: "Measure", kind: "script" },
+          state: "waiting-on-you",
+          runs: [],
+        },
+      ]);
+    }
+
+    await events.publish(new NoRetriesLeft(toTheCto, "measure", "2 tests fail.", CTO));
+    await events.publish(new NoRetriesLeft(toTheUser, "measure", "2 tests fail.", undefined));
+
+    expect(raised.map(({ notification }) => notification.pointsTo)).toEqual([
+      { kind: "task", taskId: toTheUser },
+    ]);
   });
 
   it("clears a Task's outcome once the user opens the Task", async () => {

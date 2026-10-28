@@ -6,7 +6,7 @@ import {
   type StageRun,
   type StageRunDecision,
 } from "./stage-run.js";
-import { acceptedIssues, walkAnswerOf, walkDecision } from "./walk-decisions.js";
+import { acceptedIssues, asksTheCtoFirst, walkAnswerOf, walkDecision } from "./walk-decisions.js";
 
 const implement: Stage = {
   kind: "agent",
@@ -157,6 +157,12 @@ describe("walkAnswerOf", () => {
     });
   });
 
+  it("keeps whose words the guidance is when the CTO answered in the user's place", () => {
+    expect(
+      walkAnswerOf(noRetries, { kind: "free-answer", text: "Mock the clock.", answeredBy: "cto" }),
+    ).toEqual({ kind: "one-more-round", guidance: "Mock the clock.", guidedBy: "cto" });
+  });
+
   it("takes any answer to the Agent's question as its answer", () => {
     const agent: StageRunDecision = {
       ...noRetries,
@@ -294,5 +300,54 @@ describe("the budget Decision", () => {
       kind: "raise-budget",
       tokens: 150_000,
     });
+  });
+});
+
+function sentBack(guidedBy?: string): StageRunDecision {
+  return {
+    id: "decision-1",
+    kind: "no-retries-left",
+    options: [{ kind: "more-rounds", rounds: 3 }, { kind: "accept-issues" }, { kind: "drop" }],
+    answer: {
+      kind: "one-more-round",
+      guidance: "Mock the clock.",
+      ...(guidedBy !== undefined && { guidedBy }),
+    },
+  };
+}
+
+describe("asksTheCtoFirst", () => {
+  const noRetriesLeft = { kind: "no-retries-left", stage: tests, error: "2 tests fail." } as const;
+
+  it("puts a Stage failing with no retries left to the CTO", () => {
+    expect(asksTheCtoFirst(noRetriesLeft, [aRun("tests", failed)])).toBe(true);
+  });
+
+  it("asks the user once the CTO sent that Stage back in this walk", () => {
+    const runs = [aRun("tests", failed, [sentBack("cto")]), aRun("tests", failed)];
+
+    expect(asksTheCtoFirst(noRetriesLeft, runs)).toBe(false);
+  });
+
+  it("asks the CTO again after a round the user gave", () => {
+    const runs = [aRun("tests", failed, [sentBack()]), aRun("tests", failed)];
+
+    expect(asksTheCtoFirst(noRetriesLeft, runs)).toBe(true);
+  });
+
+  it("leaves budget limits and the Definition of Done to the user", () => {
+    const run = aRun("implement", failed);
+
+    expect(
+      asksTheCtoFirst(
+        { kind: "budget", stage: implement, reached: { used: 120_000, budget: 100_000 } },
+        [run],
+      ),
+    ).toBe(false);
+    expect(
+      asksTheCtoFirst({ kind: "definition-of-done", unmet: ["It exports."], again: implement }, [
+        run,
+      ]),
+    ).toBe(false);
   });
 });

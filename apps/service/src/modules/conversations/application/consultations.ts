@@ -3,11 +3,13 @@ import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { RoleCards } from "../../people/index.js";
 import {
+  consultantAnswerProblems,
   consultantNamed,
   consultationOpening,
   consultationTitle,
   consultDecision,
   passedOnTo,
+  THE_OFFICE,
   type Consult,
   type ConsultantPerson,
 } from "../domain/consult.js";
@@ -84,6 +86,8 @@ export class Consultations implements OnModuleInit {
    */
   async answer(sessionId: string, answer: DecisionAnswer): Promise<void> {
     const { consultantKey, decision } = await this.waitingIn(sessionId);
+    const problems = consultantAnswerProblems(decision, answer);
+    if (problems.length > 0) throw new ThreadRefused(problems);
     await this.decisions.answer(decision.id, answer, {
       roleKey: consultantKey,
       name: await this.nameOf(consultantKey),
@@ -93,8 +97,9 @@ export class Consultations implements OnModuleInit {
   /**
    * The Consultant passes the approval put to them on (spec §2.2), from the Consultation's session:
    * to the Consultant they name, who answers it in a Consultation of their own, or to the user
-   * once it is the last step up or they name nobody who can be consulted. Returns the next
-   * Consultant, undefined when the user is asked.
+   * once it is the last step up or they name nobody who can be consulted. The Office's Decision
+   * put to them goes on to the user (spec §2.3). Returns the next Consultant, undefined when the
+   * user is asked.
    */
   async passOn(
     sessionId: string,
@@ -139,10 +144,10 @@ export class Consultations implements OnModuleInit {
   }
 
   /**
-   * Opens the Consultation for the Decision the Thread's Agent put to a Consultant, once for each
-   * Consultant it is put to.
+   * Opens the Consultation for the Decision the Thread's Agent, or The Office, put to a Consultant,
+   * once for each Consultant it is put to.
    */
-  private async openFor(asker: Thread): Promise<void> {
+  async openFor(asker: Thread): Promise<void> {
     const decision = asker.openDecision;
     if (!decision?.putTo || asker.consultation) return;
     const consultantKey = decision.putTo;
@@ -164,9 +169,8 @@ export class Consultations implements OnModuleInit {
 
   private async start(asker: Thread, decision: Decision, consultantKey: string): Promise<void> {
     if (asker.home.kind !== "task") return;
-    const askerKey = decision.roleKey ?? asker.roleKey;
     const [askerName, consultant, passers] = await Promise.all([
-      this.nameOf(askerKey),
+      decision.roleKey === undefined ? THE_OFFICE : this.nameOf(decision.roleKey),
       this.roleCards.find(consultantKey),
       Promise.all(
         decision.passedOn.map(async ({ roleKey, reason }) => ({
@@ -183,7 +187,7 @@ export class Consultations implements OnModuleInit {
         roleKey: consultantKey,
         title: consultationTitle(askerName, consultant.card.name),
       },
-      { decisionId: decision.id, askerThreadId: asker.id, askerRoleKey: askerKey },
+      { decisionId: decision.id, askerThreadId: asker.id, askerRoleKey: decision.roleKey },
       new Date(),
     );
     await this.repository.add(thread);
