@@ -35,6 +35,7 @@ import { uploadedBytes } from "../../../../platform/http/upload-body.js";
 import { RoleSkills } from "../../application/role-skills.js";
 import { SkillLibrary } from "../../application/skill-library.js";
 import { SkillUpdates } from "../../application/skill-updates.js";
+import type { PinnedVersion } from "../../domain/installed-source.js";
 import type { Skill } from "../../domain/skill.js";
 import { SkillRefusalsFilter } from "./skill-refusals.filter.js";
 
@@ -79,10 +80,12 @@ export class SkillsController {
   @Get(":name/update-diff")
   async updateDiff(
     @Param("name") name: string,
-    @Query(new ContractPipe(skillUpdateDiffQuerySchema)) to: SkillUpdateDiffQuery,
+    @Query(new ContractPipe(skillUpdateDiffQuerySchema)) query: SkillUpdateDiffQuery,
   ): Promise<SkillUpdateDiff> {
-    const { from, diff, diffCut } = await this.updates.diff(name, to);
-    return { from: { ...from }, to: { ...to }, diff, diffCut };
+    const from = pinnedVersion(query.fromTag, query.fromCommit);
+    const to = pinnedVersion(query.toTag, query.toCommit);
+    const { diff, diffCut } = await this.updates.diff(name, from, to);
+    return { from, to, diff, diffCut };
   }
 
   @Get(":name/review")
@@ -154,6 +157,10 @@ export class SkillsController {
   private async response(skill: Skill): Promise<SkillResponse> {
     return toSkillResponse(skill, (await this.roleSkills.bySkill()).get(skill.name) ?? []);
   }
+}
+
+function pinnedVersion(tag: string | undefined, commit: string): PinnedVersion {
+  return tag === undefined ? { commit } : { tag, commit };
 }
 
 function toSkillResponse(skill: Skill, roles: readonly string[]): SkillResponse {

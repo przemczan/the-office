@@ -40,20 +40,38 @@ export function holdersLabel(skill: Skill, roles: readonly Role[]): string {
   return names.length > 0 ? names.join(", ") : "Nobody";
 }
 
+/** The newer pinned version an installed skill's Source has, as "→ v1.1.0" beside its own. */
+export function updateLabel(skill: Skill): string | undefined {
+  return skill.update && `→ ${pinnedVersionLabel(skill.update)}`;
+}
+
+/** Whether the row offers "Review the update": an update found, and the skill already reviewed. */
+export function offersUpdate(skill: Skill): boolean {
+  return skill.update !== undefined && skill.state !== "waiting-for-review";
+}
+
 /** The banner over the library, or undefined when nothing waits on the user. */
 export function waitingLine(skills: readonly Skill[]): string | undefined {
   const waiting = skills.filter((skill) => skill.state === "waiting-for-review").length;
-  if (waiting === 0) return undefined;
-  return waiting === 1
-    ? "1 skill waits for your review before anyone can use it."
-    : `${waiting} skills wait for your review before anyone can use them.`;
+  const updates = skills.filter(offersUpdate).length;
+  const parts = [
+    waiting === 1 && "1 new skill waits for your review before anyone can use it",
+    waiting > 1 && `${waiting} new skills wait for your review before anyone can use them`,
+    updates === 1 && "1 pinned skill has an update available",
+    updates > 1 && `${updates} pinned skills have an update available`,
+  ].filter((part) => typeof part === "string");
+  return parts.length > 0 ? `${parts.join(" · ")}.` : undefined;
 }
 
-/** What waits on the user comes first, then the library in the order it was filled. */
+/**
+ * What waits on the user comes first: new skills to review, then updates; then the library in the
+ * order it was filled.
+ */
 export function inReviewOrder(skills: readonly Skill[]): Skill[] {
   return skills.toSorted((first, second) => reviewRank(first) - reviewRank(second));
 }
 
 function reviewRank(skill: Skill): number {
-  return skill.state === "waiting-for-review" ? 0 : 1;
+  if (skill.state === "waiting-for-review") return 0;
+  return offersUpdate(skill) ? 1 : 2;
 }

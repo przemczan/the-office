@@ -93,10 +93,14 @@ export const skillReviewSchema = z.object({
 });
 export type SkillReview = z.infer<typeof skillReviewSchema>;
 
-/** GET /skills/:name/update-diff: the pinned version to compare the skill's with, in the query. */
+const COMMIT = z.string().regex(/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/, "must be a commit id");
+
+/** GET /skills/:name/update-diff: the update's pinned versions, from and to, in the query. */
 export const skillUpdateDiffQuerySchema = z.object({
-  tag: z.string().min(1).optional(),
-  commit: z.string().regex(/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/, "must be a commit id"),
+  fromTag: z.string().min(1).optional(),
+  fromCommit: COMMIT,
+  toTag: z.string().min(1).optional(),
+  toCommit: COMMIT,
 });
 export type SkillUpdateDiffQuery = z.infer<typeof skillUpdateDiffQuerySchema>;
 

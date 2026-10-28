@@ -361,6 +361,9 @@ export const proposalSchema = z.object({
 });
 export type Proposal = z.infer<typeof proposalSchema>;
 
+/** GET /proposals/open: every open Proposal, in any Thread, the newest first. */
+export const proposalListSchema = z.array(proposalSchema);
+
 /**
  * POST /proposals/:id/apply: a new Role as the user edited it before hiring, from scratch its card
  * (with its skills), from a preset the person's name; neither to apply the Proposal as drafted.

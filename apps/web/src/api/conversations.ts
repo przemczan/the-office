@@ -2,6 +2,7 @@ import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
   decisionListSchema,
   messageListSchema,
+  proposalListSchema,
   proposalSchema,
   sizeThresholdSchema,
   threadListSchema,
@@ -98,6 +99,12 @@ export const proposalQueries = {
       queryKey: [...PROPOSALS, id],
       queryFn: ({ signal }) => getFromApi(proposalPath(id), proposalSchema, signal),
     }),
+  /** Every open Proposal, the newest first: what a page offers to apply besides its card. */
+  open: () =>
+    queryOptions({
+      queryKey: [...PROPOSALS, "open"],
+      queryFn: ({ signal }) => getFromApi("/proposals/open", proposalListSchema, signal),
+    }),
 };
 
 /**
@@ -165,7 +172,7 @@ export const threadEventInvalidations: Readonly<
   "thread.decision-opened": () => [THREADS, DECISIONS, TASKS],
   "thread.decision-answered": () => [THREADS, DECISIONS, TASKS],
   "thread.decision-reopened": () => [THREADS, DECISIONS, TASKS],
-  "thread.proposal-drafted": () => [THREADS],
+  "thread.proposal-drafted": () => [THREADS, [...PROPOSALS, "open"]],
   "thread.proposal-applied": () => [THREADS, PROPOSALS],
   "thread.proposal-declined": () => [THREADS, PROPOSALS],
   "context-policy.size-threshold-changed": () => [SIZE_THRESHOLD, THREADS],

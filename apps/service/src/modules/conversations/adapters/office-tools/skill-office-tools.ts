@@ -53,7 +53,7 @@ export class SkillOfficeTools implements OnModuleInit {
       run: ({ skill }) =>
         skillsRefusedToTheAgent(async () => {
           const draft = await this.updates.draft(skill.trim());
-          const { diff, diffCut } = await this.updates.diff(draft.name, draft.to);
+          const { diff, diffCut } = await this.updates.diff(draft.name, draft.from, draft.to);
           const read = { name: draft.name, repository: draft.repository, folder: draft.folder };
           return JSON.stringify(
             { ...read, from: draft.from, to: draft.to, files: draft.files, diff, diffCut },

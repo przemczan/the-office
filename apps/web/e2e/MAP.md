@@ -17,7 +17,7 @@
 - `serve-office.ts`
 - `settings.e2e.ts`
 - `shell.e2e.ts`
-- `skill-source.ts`: SkillSource, createSkillSource
+- `skill-source.ts`: SkillSource, SkillRelease, createSkillSource
 - `skills.e2e.ts`
 - `temporary-repository.ts`: TemporaryRepository, createTemporaryRepository, commitOnTaskBranch, addTaskWorktree
 - `work.e2e.ts`

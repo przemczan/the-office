@@ -3,6 +3,8 @@ import {
   skillListSchema,
   skillReviewSchema,
   skillSchema,
+  skillUpdateDiffSchema,
+  type PinnedVersion,
   type Skill,
   type SkillEdit,
   type SkillWebEvent,
@@ -24,6 +26,19 @@ export const skillQueries = {
     queryOptions({
       queryKey: [...SKILLS, name, "review"],
       queryFn: ({ signal }) => getFromApi(`${skillPath(name)}/review`, skillReviewSchema, signal),
+    }),
+  /** What an update of the skill from `from` to `to` changes in its files; it reads the Source. */
+  updateDiff: (name: string, from: PinnedVersion, to: PinnedVersion) =>
+    queryOptions({
+      queryKey: [...SKILLS, name, "update-diff", from.commit, to.commit],
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `${skillPath(name)}/update-diff?${updateDiffQuery(from, to)}`,
+          skillUpdateDiffSchema,
+          signal,
+        ),
+      // Two pinned versions' files never change, so neither does their diff.
+      staleTime: Infinity,
     }),
 };
 
@@ -82,6 +97,15 @@ export const skillEventInvalidations: Readonly<
   "skill.removed": () => [SKILLS, ["projects"], ["roles"]],
   "skill.role-skills-changed": () => [SKILLS, ["roles"]],
 };
+
+function updateDiffQuery(from: PinnedVersion, to: PinnedVersion): URLSearchParams {
+  return new URLSearchParams({
+    ...(from.tag !== undefined && { fromTag: from.tag }),
+    fromCommit: from.commit,
+    ...(to.tag !== undefined && { toTag: to.tag }),
+    toCommit: to.commit,
+  });
+}
 
 function skillPath(name: string): `/${string}` {
   return `/skills/${encodeURIComponent(name)}`;

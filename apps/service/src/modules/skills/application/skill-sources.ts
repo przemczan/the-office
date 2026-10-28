@@ -102,7 +102,7 @@ export class SkillSources {
     return draft;
   }
 
-  /** The unified diff of the skill's folder from its pinned version to `to`, paths inside the folder. */
+  /** The unified diff of the skill's folder from `source`'s pinned version to `to`, paths inside it. */
   async diff(source: InstalledSource, to: PinnedVersion): Promise<string> {
     return this.reading(source.repository, () =>
       this.fetcher.diff({

@@ -1,6 +1,6 @@
 # Settings surface: map
 
-**Owns:** Settings: Pipelines (the library beside the open Pipeline: New Pipeline, Duplicate, its name, description and Stages in the shared Stage editor with Save and Discard, Remove with the service's reasons, and who uses it; Settings opens here), Skills (the library, with an installed skill's Source and pinned version, Review, and Add a skill: "Install from a source", which asks Devops in their chat with the source drafted or says installing needs someone with the Devops Role, Upload and Write) and Office limits (the desks, from Work, and the Context policy's size threshold, from Conversations) and Appearance (the palette, or following the system, kept in this browser by `useAppearance` from `packages/ui`). It reads the service through `src/api/` (see [the web app's map](../../MAP.md)).
+**Owns:** Settings: Pipelines (the library beside the open Pipeline: New Pipeline, Duplicate, its name, description and Stages in the shared Stage editor with Save and Discard, Remove with the service's reasons, and who uses it; Settings opens here), Skills (the library, with an installed skill's Source and pinned version, Review, and Add a skill: "Install from a source", which asks Devops in their chat with the source drafted or says installing needs someone with the Devops Role, Upload and Write; an update found at an installed skill's Source shows as "→ version" on its row and in the banner, and "Review the update" asks Devops for the update Proposal or shows their open one, with its notes and diff, to apply) and Office limits (the desks, from Work, and the Context policy's size threshold, from Conversations) and Appearance (the palette, or following the system, kept in this browser by `useAppearance` from `packages/ui`). It reads the service through `src/api/` (see [the web app's map](../../MAP.md)).
 
 **Traps:** the library's check (`POST /pipelines/check`) gives problems, which hold Save, and flags (a Role nobody fills), which don't; each list item runs its own check for its warning mark.
 
@@ -34,7 +34,8 @@
 - `edit-skill-dialog.tsx`: EditSkillDialog
 - `review-skill-dialog.tsx`: ReviewSkillDialog
 - `skill-fields.tsx`: SkillFields, SkillFileInput, useSkillSaved
-- `skill-labels.ts`: skillSourceLabel, skillVersionLabel, STATE_BADGES, holdersLabel, waitingLine, inReviewOrder
+- `skill-labels.ts`: skillSourceLabel, skillVersionLabel, STATE_BADGES, holdersLabel, updateLabel, offersUpdate, waitingLine, inReviewOrder
 - `skills-section.tsx`: SkillDialog, SkillsSection
+- `update-skill-dialog.tsx`: UpdateSkillDialog
 - `upload-version-dialog.tsx`: UploadVersionDialog
 - `who-has-it-dialog.tsx`: WhoHasItDialog

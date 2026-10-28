@@ -94,11 +94,14 @@ export class SkillUpdates {
     };
   }
 
-  /** What updating the skill from its pinned version to `to` changes in its files. */
-  async diff(name: string, to: PinnedVersion): Promise<SkillUpdateDiff> {
+  /**
+   * What an update of the skill from `from` to `to` changes in its files, at its Source; the same
+   * once applied, so an applied update's card still shows it.
+   */
+  async diff(name: string, from: PinnedVersion, to: PinnedVersion): Promise<SkillUpdateDiff> {
     const installedFrom = installedSourceOf(await this.read(name));
-    const diff = await this.sources.diff(installedFrom, to);
-    return { from: installedFrom.pinnedVersion, to, ...cutDiff(diff, UPDATE_DIFF_BYTES) };
+    const diff = await this.sources.diff({ ...installedFrom, pinnedVersion: from }, to);
+    return { from, to, ...cutDiff(diff, UPDATE_DIFF_BYTES) };
   }
 
   /** Why the update can't be applied now, which needs no Source read; empty when it can. */

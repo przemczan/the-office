@@ -71,6 +71,9 @@ export abstract class ThreadRepository {
   /** The Thread's Proposals, open, applied and declined, the first drafted first. */
   abstract proposalsIn(threadId: string): Promise<readonly Proposal[]>;
 
+  /** Every open Proposal, in any Thread, the newest first. */
+  abstract openProposals(): Promise<readonly Proposal[]>;
+
   /**
    * Applies `change` to the Proposal as stored, holding it against other changes until the change
    * is carried out and saved, so the user's two clicks at once never apply it twice. Saves nothing

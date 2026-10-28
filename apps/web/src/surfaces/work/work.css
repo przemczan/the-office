@@ -666,32 +666,16 @@
   font: var(--type-caption);
 }
 
-.changes-added,
-.changes-diff-added {
+.changes-added {
   color: var(--success-fg);
 }
 
-.changes-removed,
-.changes-diff-removed {
+.changes-removed {
   color: var(--danger-fg);
 }
 
 .changes-diff {
-  margin: 10px 0 0;
-  padding: 10px 12px;
-  max-height: 560px;
-  overflow: auto;
-  border-radius: 6px;
-  background: var(--surface-sunken);
-  font: var(--type-mono);
-  font-size: 12px;
-  line-height: 1.6;
-  white-space: pre;
-}
-
-.changes-diff-hunk,
-.changes-diff-file {
-  color: var(--fg-3);
+  margin-top: 10px;
 }
 
 .changes-cut {

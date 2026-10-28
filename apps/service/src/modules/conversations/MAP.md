@@ -20,6 +20,7 @@ DecisionService, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThre
 
 - `GET /decisions/open`: DecisionsController.listOpen
 - `POST /decisions/:id/answer`: DecisionsController.answer
+- `GET /proposals/open`: ProposalsController.listOpen
 - `GET /proposals/:id`: ProposalsController.read
 - `POST /proposals/:id/apply`: ProposalsController.apply
 - `POST /proposals/:id/decline`: ProposalsController.decline

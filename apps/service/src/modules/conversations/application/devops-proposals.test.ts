@@ -16,6 +16,7 @@ import {
   pipelineSchema,
   projectOnboardingListSchema,
   projectSchema,
+  proposalListSchema,
   proposalSchema,
   skillSchema,
   skillUpdateDiffSchema,
@@ -470,7 +471,9 @@ describe("Devops updating an installed skill, through the scripted engine", () =
         filesHash: expect.any(String),
       });
       const diff = skillUpdateDiffSchema.parse(
-        await read(`/skills/${name}/update-diff?tag=v1.1.0&commit=${commit}`),
+        await read(
+          `/skills/${name}/update-diff?fromTag=v1.0.0&fromCommit=${source.commit}&toTag=v1.1.0&toCommit=${commit}`,
+        ),
       );
       expect(diff.diff).toContain("--- a/SKILL.md");
       expect(diff.diff).toContain("-Do it.\n+Do it twice.");
@@ -485,6 +488,9 @@ describe("Devops updating an installed skill, through the scripted engine", () =
         `${name} is pinned at v1.1.0 now, not at v1.0.0 as this update was proposed from.`,
       ]);
       expect((await readProposal(stale?.id ?? "")).status.kind).toBe("open");
+      const open = proposalListSchema.parse(await read("/proposals/open")).map(({ id }) => id);
+      expect(open).toContain(stale?.id);
+      expect(open).not.toContain(proposal?.id);
       expect(await ninaCalls(PROPOSE_SKILL_UPDATE_TOOL, { skill: name, notes: "More." })).toEqual({
         text: `${name} is pinned at v1.1.0, the newest version of ${source.url}.`,
         isError: true,

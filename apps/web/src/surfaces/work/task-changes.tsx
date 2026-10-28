@@ -11,7 +11,8 @@ import { Badge } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
-import { diffLines, editorLink, fileLineWords, TEST_RESULT_WORDS } from "./changes-words.ts";
+import { UnifiedDiffView } from "../../shell/unified-diff-view.tsx";
+import { editorLink, fileLineWords, TEST_RESULT_WORDS } from "./changes-words.ts";
 import { RecordBlock } from "./record-block.tsx";
 import { firstLine } from "./stage-words.ts";
 
@@ -72,7 +73,9 @@ export function ChangesView({
           <FileRow key={file.path} file={file} worktreePath={changes.worktreePath} />
         ))}
       </ul>
-      <Diff diff={changes.diff} />
+      <div className="changes-diff">
+        <UnifiedDiffView diff={changes.diff} label="Diff against the base branch" />
+      </div>
       {changes.diffCut && (
         <p className="task-quiet changes-cut">The diff stops here: the rest is too long to show.</p>
       )}
@@ -110,22 +113,6 @@ function FileRow({
         </>
       )}
     </li>
-  );
-}
-
-function Diff({ diff }: { readonly diff: string }): ReactNode {
-  const lines = diffLines(diff);
-  if (lines.length === 0) return null;
-  return (
-    <pre className="changes-diff" aria-label="Diff against the base branch">
-      {lines.map((line, index) => (
-        // A diff's lines repeat and never move, so their place is their identity.
-        <span key={index} className={`changes-diff-${line.kind}`}>
-          {line.text}
-          {"\n"}
-        </span>
-      ))}
-    </pre>
   );
 }
 

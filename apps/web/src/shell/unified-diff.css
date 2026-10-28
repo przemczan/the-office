@@ -1,0 +1,25 @@
+.unified-diff {
+  margin: 0;
+  padding: 10px 12px;
+  max-height: 560px;
+  overflow: auto;
+  border-radius: 6px;
+  background: var(--surface-sunken);
+  font: var(--type-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+.unified-diff-added {
+  color: var(--success-fg);
+}
+
+.unified-diff-removed {
+  color: var(--danger-fg);
+}
+
+.unified-diff-hunk,
+.unified-diff-file {
+  color: var(--fg-3);
+}

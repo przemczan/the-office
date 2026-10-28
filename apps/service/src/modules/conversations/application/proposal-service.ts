@@ -65,6 +65,11 @@ export class ProposalService {
     return this.repository.proposalsIn(threadId);
   }
 
+  /** Every open Proposal, the newest first, for a page that offers what waits on the user. */
+  listOpen(): Promise<readonly Proposal[]> {
+    return this.repository.openProposals();
+  }
+
   /**
    * The user applies the Proposal: a new Role as they edited it before hiring, when they did, or
    * the change as drafted. Its owner's refusal leaves it open and is the answer; so is a

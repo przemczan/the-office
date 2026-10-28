@@ -12,18 +12,24 @@ import { ReviewSkillDialog } from "./review-skill-dialog.tsx";
 import {
   holdersLabel,
   inReviewOrder,
+  offersUpdate,
   skillSourceLabel,
   skillVersionLabel,
   STATE_BADGES,
+  updateLabel,
   waitingLine,
 } from "./skill-labels.ts";
+import { UpdateSkillDialog } from "./update-skill-dialog.tsx";
 import { UploadVersionDialog } from "./upload-version-dialog.tsx";
 import { WhoHasItDialog } from "./who-has-it-dialog.tsx";
 
 /** Which dialog is open over the library, and for which skill. */
 export type SkillDialog =
   | { readonly kind: "add" }
-  | { readonly kind: "review" | "edit" | "upload-version" | "who-has-it"; readonly name: string };
+  | {
+      readonly kind: "review" | "edit" | "upload-version" | "who-has-it" | "update";
+      readonly name: string;
+    };
 
 /** Settings › Skills: the library, what waits for review, and adding a skill. */
 export function SkillsSection(): ReactNode {
@@ -92,6 +98,7 @@ export function SkillsSection(): ReactNode {
         <UploadVersionDialog name={dialog.name} onClose={close} onOpen={setDialog} />
       )}
       {dialog?.kind === "who-has-it" && <WhoHasItDialog name={dialog.name} onClose={close} />}
+      {dialog?.kind === "update" && <UpdateSkillDialog name={dialog.name} onClose={close} />}
     </>
   );
 }
@@ -118,7 +125,10 @@ function columns(
       render: (skill) => (
         <>
           <div className="skill-source">{skillSourceLabel(skill)}</div>
-          <div className="skill-version">{skillVersionLabel(skill)}</div>
+          <div className="skill-version">
+            {skillVersionLabel(skill)}
+            {skill.update && <span className="skill-update-version"> {updateLabel(skill)}</span>}
+          </div>
         </>
       ),
     },
@@ -142,13 +152,23 @@ function columns(
       align: "right",
       render: (skill) => (
         <div className="skill-actions">
-          <Button
-            size="sm"
-            variant={skill.state === "waiting-for-review" ? "primary" : "ghost"}
-            onClick={() => open({ kind: "review", name: skill.name })}
-          >
-            Review
-          </Button>
+          {offersUpdate(skill) ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => open({ kind: "update", name: skill.name })}
+            >
+              Review the update
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              variant={skill.state === "waiting-for-review" ? "primary" : "ghost"}
+              onClick={() => open({ kind: "review", name: skill.name })}
+            >
+              Review
+            </Button>
+          )}
           {skill.state !== "waiting-for-review" && (
             <Button
               size="sm"

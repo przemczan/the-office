@@ -202,6 +202,15 @@ export class PostgresThreadRepository extends ThreadRepository {
     return rows.map(toProposal);
   }
 
+  async openProposals(): Promise<readonly Proposal[]> {
+    const rows = await this.database
+      .select()
+      .from(proposals)
+      .where(eq(proposals.status, "open"))
+      .orderBy(desc(proposals.draftedAt), desc(proposals.id));
+    return rows.map(toProposal);
+  }
+
   async updateProposal<Event extends DomainEvent>(
     id: string,
     change: (proposal: Proposal) => Promise<ProposalChange<Event>>,

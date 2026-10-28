@@ -1398,7 +1398,7 @@ async function seedProposal(
   threadId: string,
   change: Record<string, unknown>,
   draftedBy = "office-manager",
-): Promise<void> {
+): Promise<string> {
   const proposalId = crypto.randomUUID();
   await queryOfficeDatabase(
     `insert into proposals (id, thread_id, drafted_by, drafted_at, change, status)
@@ -1409,6 +1409,7 @@ async function seedProposal(
     `insert into thread_messages (id, thread_id, body, at) values ($1, $2, $3, now())`,
     [crypto.randomUUID(), threadId, { kind: "proposal", roleKey: draftedBy, proposalId }],
   );
+  return proposalId;
 }
 
 /** A new Role on the Developer's card under another title: a preset's title can't be proposed. */
@@ -1786,6 +1787,93 @@ test("the user asks Nina to install a skill from a source, applies her Proposal 
     // An installed skill changes by an update Proposal, not by hand.
     await expect(review.getByRole("button", { name: "Upload a new version" })).toHaveCount(0);
     await expect(review.getByRole("button", { name: "Edit" })).toHaveCount(0);
+  } finally {
+    await source.remove();
+  }
+});
+
+test("the user sees a skill's update, asks Nina, reads her Proposal's diff and applies it; the skill stays on", async ({
+  page,
+}) => {
+  const name = `updated-notes-${Date.now()}`;
+  const description = "Writes release notes from a source.";
+  const source = await createSkillSource(name, description);
+  try {
+    const nina = chatWith(page, "Nina");
+    const installed = await page.request.post("/api/chats/devops/threads", { data: {} });
+    const installThread = threadSchema.parse(await installed.json()).id;
+    const install = await seedProposal(
+      installThread,
+      {
+        kind: "skill-install",
+        repository: source.url,
+        folder: source.folder,
+        pinnedVersion: { tag: source.tag, commit: source.commit },
+        name,
+        description,
+        files: Object.keys(source.files),
+        filesHash: source.filesHash,
+      },
+      "devops",
+    );
+    expect((await page.request.post(`/api/proposals/${install}/apply`, { data: {} })).ok()).toBe(
+      true,
+    );
+    const turnedOn = await page.request.put(`/api/skills/${name}/state`, { data: { state: "on" } });
+    expect(turnedOn.ok()).toBe(true);
+    const release = await source.release("v1.1.0", {
+      "SKILL.md": `---\ndescription: ${description}\n---\nGroup them as Added, Changed, Fixed and Removed.\n`,
+    });
+
+    await page.goto("/settings/skills");
+    const skillRow = page.getByRole("row").filter({ hasText: name });
+    // The end-to-end service's daily check runs every two seconds.
+    await expect(skillRow).toContainText("→ v1.1.0", { timeout: 15_000 });
+    await expect(page.getByText(/pinned skills? ha(s|ve) an update available/)).toBeVisible();
+    await skillRow.getByRole("button", { name: "Review the update" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText("Version v1.0.0");
+    await dialog.getByRole("button", { name: "Ask Nina to propose it" }).click();
+    await expect(nina.getByLabel("Message")).toHaveValue(
+      `Can you propose the update of ${name} to v1.1.0?`,
+    );
+    const threadId = new URL(page.url()).searchParams.get("thread") ?? "";
+    await seedProposal(
+      threadId,
+      {
+        kind: "skill-update",
+        name,
+        repository: source.url,
+        folder: source.folder,
+        from: { tag: source.tag, commit: source.commit },
+        to: { tag: release.tag, commit: release.commit },
+        notes: "Adds a Removed section.",
+        files: Object.keys(release.files),
+        filesHash: release.filesHash,
+      },
+      "devops",
+    );
+    await page.goto(`/settings/skills?chat=devops&thread=${threadId}`);
+
+    const card = nina.getByRole("region", { name: `Proposal: Update ${name}` });
+    await expect(card).toContainText("Adds a Removed section.");
+    await expect(card.getByLabel("Changes from v1.0.0 to v1.1.0")).toContainText(
+      "+Group them as Added, Changed, Fixed and Removed.",
+    );
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-skill-update-proposal.png") });
+
+    await page.goto("/settings/skills");
+    await skillRow.getByRole("button", { name: "Review the update" }).click();
+    await expect(dialog).toContainText("Adds a Removed section.");
+    await expect(dialog.getByLabel("Changes from v1.0.0 to v1.1.0")).toContainText(
+      "-Group them as Added, Changed and Fixed.",
+    );
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-skill-update-review.png") });
+    await dialog.getByRole("button", { name: "Apply the update" }).click();
+    await expect(page.getByText(`${name} pinned at v1.1.0.`)).toBeVisible();
+    await expect(skillRow).toContainText("v2 · pinned at v1.1.0");
+    await expect(skillRow).not.toContainText("→");
+    await expect(skillRow).toContainText("On");
   } finally {
     await source.remove();
   }

@@ -8,6 +8,7 @@ import {
   INSTALL_INPUTS_LABEL,
   installInputsLine,
 } from "../project-words.ts";
+import { SkillUpdateDiff } from "../skill-update-diff.tsx";
 import { pinnedVersionLabel, sourceLabel } from "../skill-words.ts";
 
 type ProposedSkillInstall = Extract<ProposedChange, { kind: "skill-install" }>;
@@ -117,7 +118,7 @@ export function ProposedSkillInstallFields({
   );
 }
 
-/** An installed skill's update: its Source, the version from and to, and Devops' notes. */
+/** An installed skill's update: the version from and to, Devops' notes, its Source and its diff. */
 export function ProposedSkillUpdateFields({
   change,
 }: {
@@ -137,6 +138,12 @@ export function ProposedSkillUpdateFields({
         <div className="proposal-field">
           <dt>Source</dt>
           <dd>{sourceLabel(change)}</dd>
+        </div>
+        <div className="proposal-field">
+          <dt>Files</dt>
+          <dd>
+            <SkillUpdateDiff name={change.name} from={change.from} to={change.to} />
+          </dd>
         </div>
       </dl>
     </>

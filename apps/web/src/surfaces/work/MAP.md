@@ -11,7 +11,7 @@
 - `attachments-block.tsx`: AttachmentsBlock
 - `board-filters.ts`: boardFiltersOf, withoutBoardFilters, hasBoardFilters, sameBoardFilters, withBoardFilter, withTagToggled, tagsOffered, boardFilter
 - `board.tsx`: Board
-- `changes-words.ts`: DiffLineKind, DiffLine, diffLines, fileLineWords, TEST_RESULT_WORDS, editorLink
+- `changes-words.ts`: fileLineWords, TEST_RESULT_WORDS, editorLink
 - `dependencies-block.tsx`: DependenciesBlock
 - `dependency-words.ts`: blockersOf, blockingTasksOf, canHoldBack, waitingFor, blockerCandidates
 - `edit-task-stages-dialog.tsx`: EditTaskStagesDialog

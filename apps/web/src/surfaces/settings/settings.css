@@ -90,6 +90,22 @@
   color: var(--fg-2);
 }
 
+.skill-update-version {
+  color: var(--warning-fg);
+}
+
+.skill-update-versions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font: var(--type-mono);
+}
+
+.skill-update-notes {
+  margin: 0;
+}
+
 .skill-holders {
   font: var(--type-caption);
   color: var(--fg-3);

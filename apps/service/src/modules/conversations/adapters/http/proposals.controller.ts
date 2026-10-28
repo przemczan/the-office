@@ -25,6 +25,12 @@ import { ThreadRefusalsFilter } from "./thread-refusals.filter.js";
 export class ProposalsController {
   constructor(private readonly proposals: ProposalService) {}
 
+  /** Before `:id`, which would take "open" for an id. */
+  @Get("open")
+  async listOpen(): Promise<ProposalResponse[]> {
+    return (await this.proposals.listOpen()).map(toProposalResponse);
+  }
+
   @Get(":id")
   async read(@Param("id", ParseUUIDPipe) id: string): Promise<ProposalResponse> {
     return toProposalResponse(await this.proposals.read(id));
