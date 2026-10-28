@@ -4,6 +4,7 @@ import {
   ideaSchema,
   OPEN_DECISION_TOOL,
   pipelineListSchema,
+  pipelineSchema,
   projectSchema,
   recordPath,
   roleCardSchema,
@@ -16,6 +17,7 @@ import {
   threadSchema,
   type NewProject,
   type Project,
+  type Stage,
   type TaskLimit,
 } from "@the-office/contracts";
 import { queryOfficeDatabase } from "./office-database.ts";
@@ -1374,20 +1376,25 @@ test("the user mentions a Task with @ in a chat, and the person is briefed with 
 });
 
 /**
- * A Proposal Marta, the Office Manager, drafted in her chat, as the Conversations service leaves
- * one: only an Agent's session drafts a Proposal, and no screen can make one. `change` is in the
- * service's own shape, where a new Role's skills sit beside its card.
+ * A Proposal Marta, the Office Manager, drafted in her chat (or the person `draftedBy` names, by
+ * Role key, in theirs), as the Conversations service leaves one: only an Agent's session drafts a
+ * Proposal, and no screen can make one. `change` is in the service's own shape, where a new Role's
+ * skills sit beside its card.
  */
-async function seedProposal(threadId: string, change: Record<string, unknown>): Promise<void> {
+async function seedProposal(
+  threadId: string,
+  change: Record<string, unknown>,
+  draftedBy = "office-manager",
+): Promise<void> {
   const proposalId = crypto.randomUUID();
   await queryOfficeDatabase(
     `insert into proposals (id, thread_id, drafted_by, drafted_at, change, status)
-     values ($1, $2, 'office-manager', now(), $3, 'open')`,
-    [proposalId, threadId, change],
+     values ($1, $2, $3, now(), $4, 'open')`,
+    [proposalId, threadId, draftedBy, change],
   );
   await queryOfficeDatabase(
     `insert into thread_messages (id, thread_id, body, at) values ($1, $2, $3, now())`,
-    [crypto.randomUUID(), threadId, { kind: "proposal", roleKey: "office-manager", proposalId }],
+    [crypto.randomUUID(), threadId, { kind: "proposal", roleKey: draftedBy, proposalId }],
   );
 }
 
@@ -1531,6 +1538,116 @@ test("the user hires into a preset's Role from Marta's Proposal under another na
     expect(await readThreshold()).toBe(proposed);
   } finally {
     await page.request.put("/api/settings/size-threshold", { data: { sizeThreshold: threshold } });
+  }
+});
+
+test("the user asks Nina from a Project's Commands and a library Pipeline, and applies her Proposals; a stale one is refused", async ({
+  page,
+}) => {
+  const repository = await createTemporaryRepository();
+  try {
+    const stamp = Date.now();
+    const project = await addedProject(page, repository, `Proposed ${stamp}`, "PR");
+    const quickFix = pipelineSchema.parse(
+      await (await page.request.get("/api/pipelines/quick-fix")).json(),
+    );
+    const pipeline = pipelineSchema.parse(
+      await (
+        await page.request.post("/api/pipelines", {
+          data: { name: `Nightly ${stamp}`, description: "", stages: quickFix.stages },
+        })
+      ).json(),
+    );
+    const nina = chatWith(page, "Nina");
+
+    // Asked from the Commands or the Pipeline, Nina's chat opens on a new Thread with the question.
+    await page.goto(`/projects/${project.id}`);
+    await page.getByRole("button", { name: "Ask Nina to propose a change" }).click();
+    await expect(nina.getByLabel("Message")).toHaveValue(
+      `Can you propose a change to the commands of ${project.name}? `,
+    );
+    await page.goto(`/settings/pipelines/${pipeline.id}`);
+    await page.getByRole("button", { name: "Ask Nina", exact: true }).click();
+    await expect(nina.getByLabel("Message")).toHaveValue(
+      `Can you propose a change to the ${pipeline.name} Pipeline? `,
+    );
+    const threadId = new URL(page.url()).searchParams.get("thread") ?? "";
+
+    const lint: Stage = {
+      kind: "script",
+      key: "lint",
+      name: "Lint",
+      optional: false,
+      command: "lint",
+    };
+    const proposedStages = [...pipeline.stages.slice(0, -1), lint, ...pipeline.stages.slice(-1)];
+    await seedProposal(
+      threadId,
+      {
+        kind: "project-commands",
+        projectId: project.id,
+        from: { test: "npm test", installInputs: [] },
+        to: { test: "npm run test:all", installInputs: ["package-lock.json"] },
+      },
+      "devops",
+    );
+    await seedProposal(
+      threadId,
+      { kind: "pipeline", pipelineId: pipeline.id, from: pipeline.stages, to: proposedStages },
+      "devops",
+    );
+    // Drafted from a build command the user has changed since.
+    await seedProposal(
+      threadId,
+      {
+        kind: "project-commands",
+        projectId: project.id,
+        from: { build: "make" },
+        to: { build: "make all" },
+      },
+      "devops",
+    );
+    await page.goto(`/projects/${project.id}?chat=devops&thread=${threadId}`);
+
+    const commandCards = nina.getByRole("region", {
+      name: `Proposal: Change ${project.name}'s commands`,
+    });
+    const commands = commandCards.filter({ hasText: "npm run test:all" });
+    await expect(commands.getByRole("listitem")).toHaveText([
+      "Test commandnpm testnpm run test:all",
+      "Install inputsNonepackage-lock.json",
+    ]);
+    await commands.getByRole("button", { name: "Apply change" }).click();
+    await expect(commands).toContainText("Applied");
+    await expect(page.getByText(`${project.name}'s commands changed.`)).toBeVisible();
+    const applied = projectSchema.parse(
+      await (await page.request.get(`/api/projects/${project.id}`)).json(),
+    );
+    expect(applied.commands.test).toBe("npm run test:all");
+    expect(applied.installInputs).toEqual(["package-lock.json"]);
+
+    const stages = nina.getByRole("region", {
+      name: `Proposal: Change the ${pipeline.name} Pipeline`,
+    });
+    await expect(stages.getByRole("listitem")).toHaveText(
+      "StagesImplement → Tests → PublishImplement → Tests → Lint → Publish",
+    );
+    await expect(stages).toContainText("AddedLint");
+    await stages.getByRole("button", { name: "Apply change" }).click();
+    await expect(stages).toContainText("Applied");
+    const saved = pipelineSchema.parse(
+      await (await page.request.get(`/api/pipelines/${pipeline.id}`)).json(),
+    );
+    expect(saved.stages.map(({ key }) => key)).toEqual(proposedStages.map(({ key }) => key));
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-devops-proposals.png") });
+
+    const stale = commandCards.filter({ hasText: "make all" });
+    await stale.getByRole("button", { name: "Apply change" }).click();
+    await expect(stale).toContainText("The change can't be applied yet");
+    await expect(stale).toContainText("The build command changed since this was proposed.");
+    await expect(stale.getByRole("button", { name: "Apply change" })).toBeVisible();
+  } finally {
+    await repository.remove();
   }
 });
 

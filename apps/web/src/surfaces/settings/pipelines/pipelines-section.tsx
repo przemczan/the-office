@@ -8,6 +8,7 @@ import { duplicatePipeline, pipelineQueries } from "../../../api/pipelines.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { LibraryPipelineForm } from "./library-pipeline-form.tsx";
+import { AskDevopsButton } from "../../../shell/ask-devops.tsx";
 import { stagesLine } from "../../../shell/pipelines/pipeline-words.ts";
 import { pipelineUseLine } from "./pipeline-use-words.ts";
 
@@ -162,6 +163,12 @@ function PipelineHead({ pipeline }: { readonly pipeline: Pipeline }): ReactNode 
           <Icon name="route" size={15} strokeWidth={1.6} />
           {pipeline.name}
         </span>
+      }
+      actions={
+        <AskDevopsButton
+          label={(name) => `Ask ${name}`}
+          draft={`Can you propose a change to the ${pipeline.name} Pipeline? `}
+        />
       }
     >
       {pipeline.description !== "" && <p>{pipeline.description}</p>}

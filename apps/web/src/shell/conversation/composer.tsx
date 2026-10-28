@@ -19,6 +19,7 @@ export function Composer({
   busy,
   busyHint,
   prefilledNote,
+  startingDraft,
   onSend,
   onLeaveNoteOut,
 }: {
@@ -28,6 +29,8 @@ export function Composer({
   /** Why it can't be sent, for the send button and an Enter pressed meanwhile. */
   readonly busyHint: string;
   readonly prefilledNote?: PrefilledNote;
+  /** A draft the user starts from, such as a question a page asks for them. */
+  readonly startingDraft?: string;
   /**
    * Resolves once the message is taken; the draft is kept when it rejects. `fromNote` says the
    * message started from the prefilled Handover note.
@@ -35,7 +38,7 @@ export function Composer({
   readonly onSend: (text: string, fromNote: boolean) => Promise<unknown>;
   readonly onLeaveNoteOut?: () => void;
 }): ReactNode {
-  const [draft, setDraft] = useState(prefilledNote?.text ?? "");
+  const [draft, setDraft] = useState(prefilledNote?.text ?? startingDraft ?? "");
   const [noteKept, setNoteKept] = useState(prefilledNote !== undefined);
   const note = noteKept ? prefilledNote : undefined;
   const [sending, setSending] = useState(false);

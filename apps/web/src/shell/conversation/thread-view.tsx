@@ -15,6 +15,7 @@ import { Composer } from "./composer.tsx";
 import { ContextBar } from "./context-bar.tsx";
 import { useHandoverNotes } from "./handover-notes.tsx";
 import { MessageList } from "./message-list.tsx";
+import { useThreadDrafts } from "./thread-drafts.tsx";
 import { threadTitle } from "./thread-title.ts";
 import "./conversation.css";
 
@@ -35,11 +36,14 @@ export function ThreadView({
   const handoverNotes = useHandoverNotes();
   // Read once: the Thread's view is keyed by its id, and the composer owns the draft from then on.
   const [handoverNote] = useState(() => handoverNotes.waitingIn(threadId));
+  const threadDrafts = useThreadDrafts();
+  const [startingDraft] = useState(() => threadDrafts.waitingIn(threadId));
   const queryClient = useQueryClient();
   const sending = useMutation({
     mutationFn: (message: NewMessage) => sendMessage(threadId, message),
     onSuccess: async (answering, { handoverNoteFrom }) => {
       if (handoverNoteFrom !== undefined) handoverNotes.clear(threadId);
+      threadDrafts.clear(threadId);
       queryClient.setQueryData(threadQueries.one(answering.id).queryKey, answering);
       await queryClient.invalidateQueries(threadQueries.messages(answering.id));
     },
@@ -80,6 +84,7 @@ export function ThreadView({
           prefilledNote={
             handoverNote && { text: handoverNote.text, writer: roleName(handoverNote.from, roles) }
           }
+          startingDraft={startingDraft}
           onSend={(text, fromNote) =>
             sending.mutateAsync({
               text,

@@ -3,6 +3,7 @@ import type { Project } from "@the-office/contracts";
 import { Button, Icon, IconButton, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { changeCommand, changeInstallInputs, projectQueries } from "../../api/projects.ts";
+import { AskDevopsButton } from "../../shell/ask-devops.tsx";
 import {
   COMMAND_KEYS,
   COMMAND_LABELS,
@@ -42,6 +43,12 @@ export function CommandsBlock({ project }: { readonly project: Project }): React
     <ProjectBlock
       icon="terminal"
       title="Commands"
+      actions={
+        <AskDevopsButton
+          label={(name) => `Ask ${name} to propose a change`}
+          draft={`Can you propose a change to the commands of ${project.name}? `}
+        />
+      }
       note="Script Stages run these in the Task's worktree with no Agent. Running Tasks keep the command they started with."
     >
       <div className="commands">
