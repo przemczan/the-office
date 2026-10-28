@@ -4,7 +4,7 @@
 
 None blocks tier 1. Each becomes a ticket when its tier starts.
 
-- **Tier 2:** the form of shared memory and how the user reads and edits it; onboarding a Project through Devops; conflicts between parallel Tasks in one Project (overlap, merge order, rebase; Software Factory's Resolve agent never met a real conflict); a queue for Start; whether Tasks of an Initiative still being shaped can be planned and started; whether direct edits of Project commands stay once Devops proposes them; whether the Office Manager can be let go; folding a Proposal's Role card in chat.
+- **Tier 2:** the form of shared memory and how the user reads and edits it; conflicts between parallel Tasks in one Project (overlap, merge order, rebase; Software Factory's Resolve agent never met a real conflict); a queue for Start; whether Tasks of an Initiative still being shaped can be planned and started; whether the Office Manager can be let go; folding a Proposal's Role card in chat.
 - **Tier 3:** quota and usage estimates; integrations; reaching The Office away from home (a push arrives anywhere but opens only on the LAN).
 
 ## Risks

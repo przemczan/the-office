@@ -84,5 +84,10 @@ Where each default lives (the old §9):
 - Opening what a Notification points to handles it: [2.7 Notifications](2.7-notifications.md#defaults)
 - Today's figures: [2.7 Notifications](2.7-notifications.md#defaults)
 - Now lives in the Notifications module: [5.3 Modules](5.3-modules.md#defaults)
+- Onboarding a Project: [2.1 Work](2.1-work.md#defaults)
+- Project commands by Proposal and by hand: [2.3 Pipelines](2.3-pipelines.md#defaults)
+- The library editor: [2.3 Pipelines](2.3-pipelines.md#defaults)
+- Stage templates wait for tier 3: [2.3 Pipelines](2.3-pipelines.md#defaults)
+- The proof-of-concept publish target: [2.3 Pipelines](2.3-pipelines.md#defaults)
 
 A new default goes into the Defaults of the section it belongs to, with the date the user accepted it, and gets a line here.

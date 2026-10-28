@@ -94,6 +94,14 @@ _Avoid_: Alert, inbox item, notice
 A named, ordered set of Stages that a Task's work follows.
 _Avoid_: Workflow, flow, process
 
+**Pipeline library**:
+The Office-wide set of Pipelines that Projects and Tasks choose from, edited in Settings or changed by Devops' Proposals.
+_Avoid_: Pipeline catalog, templates
+
+**Onboarding**:
+Making a Project build and test in a fresh worktree on the workstation, done by Devops in the Project's Onboard Task.
+_Avoid_: Setup, initialization, provisioning
+
 **Stage**:
 One step of a Pipeline: work by an Agent in a Role, a Project command run without an Agent, or a Gate.
 _Avoid_: Phase, step (as a noun for the record)

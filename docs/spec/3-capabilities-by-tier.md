@@ -37,4 +37,4 @@ From [13](../../.scratch/the-office/issues/13-first-slice.md), with [16](../../.
 
 ## Tier 3: on need
 
-Archive; Attachment versions; moving Tasks between Projects; the Graphite and Paper palettes and the densities; skill usage counts; Grafana dashboards; usage estimates; other engines (Codex, API-based); integrations (webhooks, MCP servers for Agents, issue trackers, chat apps); email and chat-app Notifications; access away from home; stronger containment (WSL2 sandbox or a separate Windows user); stack-specific checks for installs and publishing.
+Archive; Attachment versions; Stage templates in the Pipeline library; moving Tasks between Projects; the Graphite and Paper palettes and the densities; skill usage counts; Grafana dashboards; usage estimates; other engines (Codex, API-based); integrations (webhooks, MCP servers for Agents, issue trackers, chat apps); email and chat-app Notifications; access away from home; stronger containment (WSL2 sandbox or a separate Windows user); stack-specific checks for installs and publishing.
