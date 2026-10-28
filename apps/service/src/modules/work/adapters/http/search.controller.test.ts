@@ -230,8 +230,48 @@ describe("GET /search", () => {
 
     await work.app.get(AttachmentService).fillDocumentTexts();
 
-    const unfilled = await work.app.get(AttachmentRepository).documentsWithoutText();
-    expect(unfilled.map(({ id }) => id)).toContain(documentId);
+    const repository = work.app.get(AttachmentRepository);
+    expect((await repository.documentsWithoutText()).map(({ id }) => id)).toContain(documentId);
+    // Left in place, every later start in the run would warn about it.
+    await repository.remove(documentId);
+  });
+
+  it("finds an Idea by its notes and an Initiative by its name", async () => {
+    const idea = ideaSchema.parse(
+      await (
+        await sendJson(work, "POST", "/ideas", {
+          title: "An Idea",
+          notes: `Try ${word}.`,
+          projectId: null,
+        })
+      ).json(),
+    );
+    const shaped = ideaSchema.parse(
+      await (
+        await sendJson(work, "POST", "/ideas", {
+          title: `The ${word} Initiative`,
+          notes: "",
+          projectId: null,
+        })
+      ).json(),
+    );
+    const initiative = initiativeSchema.parse(
+      await (await sendJson(work, "POST", `/ideas/${shaped.id}/initiative`)).json(),
+    );
+
+    const { ideas, initiatives } = await searched(word);
+    // The shaped Idea is found by its title, as its Initiative is by its name.
+    expect(ideas.map(({ id }) => id).toSorted()).toEqual([idea.id, shaped.id].toSorted());
+    expect(initiatives.map(({ id }) => id)).toEqual([initiative.id]);
+  });
+
+  it("no longer finds a document once it is removed", async () => {
+    const task = await createdTask("A Task");
+    const document = await uploaded(`/tasks/${task.id}`, "notes.md", `The ${word} path.`);
+
+    await sendJson(work, "DELETE", `/attachments/${document.id}`);
+
+    expect((await searched(word)).attachments).toEqual([]);
   });
 });
 

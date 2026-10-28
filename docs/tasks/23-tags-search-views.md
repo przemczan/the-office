@@ -52,7 +52,7 @@ Leave out: archive and "Show archived" (tier 3; the board keeps showing Done and
 - Next (step 4): the board's filter bar; its search calls `GET /tasks?query=`.
 - Decided with the user (2026-10-28), in spec 2.1's Defaults: both searches (the board's over Tasks, ⌘K over Tasks, Initiatives, Ideas, people and document Attachments); Tags on Tasks only, set by the user and the Planner; Saved views stored by The Office, the Project filter per browser; ⌘K follows the Project filter with a note; the glossary's Tag, Saved view and Project filter.
 - Decided here: one matcher, the service's full-text search, so a Saved view's search means the same everywhere. Work owns the search route (every record searched but people is Work's); people are matched in the web from those hired, so no new port.
-- Traps: the 50-a-kind cap means step 7's "more in other Projects" counts within those 50. Glossary: "tag" stays avoided for a Mention. Tests share the database, so Tags in use include other files' Tags.
+- Traps: `GET /search` caps each kind at 50 before the web narrows by Project, so with a narrow Project filter ⌘K could show nothing while matches exist; step 6a puts the scope rule in contracts (as the Office-wide limit's rule is), so step 7 passes the chosen Projects to `GET /search` and gets matches in scope plus per-kind counts of the others. Glossary: "tag" stays avoided for a Mention. Tests share the database, so Tags in use include other files' Tags.
 
 ## Progress
 
