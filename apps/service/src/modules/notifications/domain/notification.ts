@@ -140,7 +140,9 @@ export function initiativeDone(initiativeId: string, cto: string | undefined): N
   return {
     kind: "outcomes.initiative-done",
     roleKey: cto,
-    line: cto ? "Every Task of the Initiative is Done." : "The Initiative is done.",
+    line: cto
+      ? "Our Initiative is done: every one of its Tasks is Done."
+      : "The Initiative is done.",
     pointsTo: { kind: "initiative", initiativeId },
   };
 }

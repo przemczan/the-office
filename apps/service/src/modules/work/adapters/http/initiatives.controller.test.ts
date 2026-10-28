@@ -181,7 +181,7 @@ describe("POST /api/initiatives/:id/tasks", () => {
       initiativeId: initiative.id,
       originIdeaId: null,
     });
-    expect((await read(initiative)).projectIds.toSorted()).toEqual([api, web].toSorted());
+    expect((await read(initiative)).projectIds).toEqual([api, web]);
   });
 
   it("refuses a Project that isn't there, and a dropped Initiative", async () => {

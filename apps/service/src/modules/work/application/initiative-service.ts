@@ -75,10 +75,17 @@ export class InitiativeService implements OnModuleInit {
     return initiative;
   }
 
-  /** Every Initiative's Tasks, by the Initiative's id, from one read of the board. */
+  /**
+   * Every Initiative's Tasks, by the Initiative's id, from one read of the board, in the order they
+   * were added, so the Projects it spans keep their order.
+   */
   async tasksByInitiative(): Promise<ReadonlyMap<string, readonly Task[]>> {
     const byInitiative = new Map<string, Task[]>();
-    for (const task of await this.tasks.list()) {
+    const added = (await this.tasks.list()).toSorted(
+      (one, other) =>
+        one.createdAt.getTime() - other.createdAt.getTime() || one.id.localeCompare(other.id),
+    );
+    for (const task of added) {
       if (!task.initiativeId) continue;
       const tasks = byInitiative.get(task.initiativeId) ?? [];
       tasks.push(task);

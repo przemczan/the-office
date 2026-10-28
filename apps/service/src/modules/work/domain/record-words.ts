@@ -56,12 +56,12 @@ function blockerLines(blockers: readonly Task[]): string[] {
 
 /**
  * An Idea's record as an Agent reads it, through `read_idea` or mentioned in a chat: its notes,
- * who captured it and when, its Attachments, and the Task it was shaped into.
+ * who captured it and when, its Attachments, and the Task or Initiative it was shaped into.
  */
 export function ideaRecordText(idea: Idea, attachments: readonly Attachment[]): string {
   return [
     `${idea.title} (Idea ${idea.id})`,
-    `- ${whereOf(idea.projectId)}; ${idea.state}${idea.taskId ? ` into the Task ${idea.taskId}` : ""}`,
+    `- ${whereOf(idea.projectId)}; ${idea.state}${shapedIntoWords(idea)}`,
     `- Captured by ${authorWords(idea.capturedBy)} on ${idea.capturedAt.toISOString()}`,
     "",
     "Notes:",
@@ -70,6 +70,11 @@ export function ideaRecordText(idea: Idea, attachments: readonly Attachment[]): 
     "Attachments:",
     ...attachmentLines(attachments),
   ].join("\n");
+}
+
+function shapedIntoWords({ taskId, initiativeId }: Idea): string {
+  if (taskId) return ` into the Task ${taskId}`;
+  return initiativeId ? ` into the Initiative ${initiativeId}` : "";
 }
 
 /** In a Project or Office-wide, as an Agent reads an Idea's place. */

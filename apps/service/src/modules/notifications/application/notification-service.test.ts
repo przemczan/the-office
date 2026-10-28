@@ -182,7 +182,7 @@ describe("NotificationService", () => {
       }),
       expect.objectContaining({
         roleKey: "cto",
-        line: "Every Task of the Initiative is Done.",
+        line: "Our Initiative is done: every one of its Tasks is Done.",
         pointsTo: { kind: "initiative", initiativeId: second },
       }),
     ]);
