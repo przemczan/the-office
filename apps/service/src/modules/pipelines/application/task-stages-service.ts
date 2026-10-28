@@ -6,7 +6,7 @@ import type { Pipeline, StageProblem } from "../domain/pipeline.js";
 import type { Stage } from "../domain/stage.js";
 import { stagesProgress, type TaskProgress } from "../domain/stage-progress.js";
 import type { StageRun } from "../domain/stage-run.js";
-import { staffingProblems, type RoleFilling } from "../domain/stage-staffing.js";
+import { staffingProblems } from "../domain/stage-staffing.js";
 import { StagesEditRefused } from "../domain/stages-edit-refused.js";
 import {
   editProblems,
@@ -19,11 +19,11 @@ import {
   type TaskTrace,
 } from "../domain/task-stages.js";
 import { TaskStagesReset } from "../domain/task-stages-events.js";
-import { KnownPeople } from "../ports/known-people.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StartedTasks } from "../ports/started-tasks.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { PipelineLibrary } from "./pipeline-library.js";
+import { RoleFillings } from "./role-fillings.js";
 
 /** States in which a Task keeps the Stages it has: its work is over. */
 const FINISHED_STATES: readonly string[] = ["done", "dropped"];
@@ -43,7 +43,7 @@ export class TaskStagesService implements OnModuleInit {
     private readonly runs: StageRunRepository,
     private readonly library: PipelineLibrary,
     private readonly tasks: StartedTasks,
-    private readonly people: KnownPeople,
+    private readonly roleFillings: RoleFillings,
     private readonly events: EventBus,
   ) {}
 
@@ -110,7 +110,7 @@ export class TaskStagesService implements OnModuleInit {
     const own = await this.find(taskId);
     if (!own) return [];
     const fromIndex = firstStageToWork(own.stages, await this.runs.list(taskId));
-    return staffingProblems(own.stages, fromIndex, await this.rolesOf(own.stages));
+    return staffingProblems(own.stages, fromIndex, await this.roleFillings.of(own.stages));
   }
 
   /**
@@ -149,7 +149,7 @@ export class TaskStagesService implements OnModuleInit {
     const runs = await this.runs.list(taskId);
     const problems = FINISHED_STATES.includes(state)
       ? [{ text: "A Task that is done or dropped keeps its Stages." }]
-      : editProblems(own, edited, runs, await this.rolesOf(edited));
+      : editProblems(own, edited, runs, await this.roleFillings.of(edited));
     return { own, runs, problems };
   }
 
@@ -163,28 +163,6 @@ export class TaskStagesService implements OnModuleInit {
     const pipeline = await this.library.find(pipelineId);
     if (!pipeline) throw new Error(`There is no Pipeline "${pipelineId}" for Task ${taskId}.`);
     return pipeline;
-  }
-
-  /** Who fills each Role the Agent Stages name, for the editor's flags. */
-  private async rolesOf(stages: readonly Stage[]): Promise<ReadonlyMap<string, RoleFilling>> {
-    const roleKeys = new Set(
-      stages.flatMap((stage) => (stage.kind === "agent" ? [stage.role] : [])),
-    );
-    const fillings = await Promise.all(
-      [...roleKeys].map(async (roleKey): Promise<[string, RoleFilling]> => {
-        const person = await this.people.find(roleKey);
-        const letGo = person ? undefined : await this.people.findLetGo(roleKey);
-        return [
-          roleKey,
-          {
-            title: this.people.roleTitle(roleKey),
-            person: person && { name: person.card.name, taskLimit: person.card.taskLimit },
-            letGoPerson: letGo?.name,
-          },
-        ];
-      }),
-    );
-    return new Map(fillings);
   }
 }
 

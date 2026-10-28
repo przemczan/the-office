@@ -1,0 +1,65 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  Put,
+  UseFilters,
+} from "@nestjs/common";
+import {
+  newPipelineSchema,
+  pipelineEditSchema,
+  type NewPipeline,
+  type Pipeline as PipelineResponse,
+  type PipelineEdit,
+  type PipelineUse,
+} from "@the-office/contracts";
+import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { PipelineLibraryEditor } from "../../application/pipeline-library-editor.js";
+import { PipelineLibraryRefusalsFilter } from "./pipeline-library-refusals.filter.js";
+import { toPipelineResponse } from "./pipeline-responses.js";
+import { StagesEditRefusalsFilter } from "./stages-edit-refusals.filter.js";
+
+/**
+ * The library editor's changes. Reading the library is `PipelinesController`'s, in the library's own
+ * module; these ask Projects and Work who uses a Pipeline, so they live with the rest of Pipelines.
+ */
+@Controller("pipelines")
+@UseFilters(StagesEditRefusalsFilter, PipelineLibraryRefusalsFilter)
+export class PipelineLibraryController {
+  constructor(private readonly editor: PipelineLibraryEditor) {}
+
+  /** A Pipeline made from scratch, or a copy of one under a name of its own. */
+  @Post()
+  async add(
+    @Body(new ContractPipe(newPipelineSchema)) given: NewPipeline,
+  ): Promise<PipelineResponse> {
+    const pipeline =
+      "copyOf" in given ? await this.editor.copy(given.copyOf) : await this.editor.add(given);
+    return toPipelineResponse(pipeline);
+  }
+
+  @Put(":id")
+  async save(
+    @Param("id") id: string,
+    @Body(new ContractPipe(pipelineEditSchema)) edit: PipelineEdit,
+  ): Promise<PipelineResponse> {
+    return toPipelineResponse(await this.editor.save(id, edit));
+  }
+
+  @Delete(":id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@Param("id") id: string): Promise<void> {
+    await this.editor.remove(id);
+  }
+
+  @Get(":id/use")
+  async use(@Param("id") id: string): Promise<PipelineUse> {
+    const { defaultFor, notStarted, running } = await this.editor.use(id);
+    return { defaultFor: [...defaultFor], notStarted, running };
+  }
+}

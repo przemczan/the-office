@@ -2,6 +2,11 @@ import { Injectable, type OnModuleInit } from "@nestjs/common";
 import type { PipelinesWebEvent } from "@the-office/contracts";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import {
+  PipelineAdded,
+  PipelineRemoved,
+  PipelineSaved,
+} from "../../domain/pipeline-library-events.js";
+import {
   BudgetReached,
   DefinitionOfDoneNotMet,
   GateContinued,
@@ -29,7 +34,7 @@ type WebEventOf<Type extends PipelinesWebEvent["type"]> = Omit<
 
 /**
  * The walk's events reach the web, naming the Task whose Stages changed, so an open Task page
- * refetches its Stages block.
+ * refetches its Stages block; the library's name the Pipeline, so every list of it refetches.
  */
 @Injectable()
 export class PipelinesWebEvents implements OnModuleInit {
@@ -39,6 +44,22 @@ export class PipelinesWebEvents implements OnModuleInit {
     this.forwardStageRunEvents();
     this.forwardWalkEvents();
     this.forwardGateEvents();
+    this.forwardLibraryEvents();
+  }
+
+  private forwardLibraryEvents(): void {
+    this.forwarding.forward(PipelineAdded, (event): WebEventOf<"pipeline.added"> => ({
+      type: "pipeline.added",
+      pipelineId: event.pipelineId,
+    }));
+    this.forwarding.forward(PipelineSaved, (event): WebEventOf<"pipeline.saved"> => ({
+      type: "pipeline.saved",
+      pipelineId: event.pipelineId,
+    }));
+    this.forwarding.forward(PipelineRemoved, (event): WebEventOf<"pipeline.removed"> => ({
+      type: "pipeline.removed",
+      pipelineId: event.pipelineId,
+    }));
   }
 
   private forwardStageRunEvents(): void {

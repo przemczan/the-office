@@ -141,7 +141,13 @@ test("the default Pipeline picker lists Full, Quick fix and Document", async ({ 
   await page.goto(`/projects/${project.id}`);
   const picker = page.getByLabel("Default Pipeline");
 
-  await expect(picker.locator("option")).toHaveText(["Full", "Quick fix", "Document"]);
+  await expect(picker.locator("option")).toHaveText([
+    "Full",
+    "Quick fix",
+    "Document",
+    "Onboard",
+    "Proof of concept",
+  ]);
   await picker.selectOption({ label: "Quick fix" });
 
   await expect(page.getByText(`New Tasks in ${project.name} start from Quick fix.`)).toBeVisible();

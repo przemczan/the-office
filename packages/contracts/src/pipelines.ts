@@ -51,6 +51,40 @@ export type Pipeline = z.infer<typeof pipelineSchema>;
 
 export const pipelineListSchema = z.array(pipelineSchema);
 
+/** PUT /pipelines/:id: a library Pipeline as the user edited it; its id stays. */
+export const pipelineEditSchema = z.strictObject({
+  name: z.string(),
+  description: z.string(),
+  stages: z.array(stageSchema),
+});
+export type PipelineEdit = z.infer<typeof pipelineEditSchema>;
+
+/** POST /pipelines: a Pipeline made from scratch, or a copy of a library Pipeline by its id. */
+export const newPipelineSchema = z.union([
+  pipelineEditSchema,
+  z.strictObject({ copyOf: z.string().min(1) }),
+]);
+export type NewPipeline = z.infer<typeof newPipelineSchema>;
+
+/** GET /pipelines/:id/use: who uses a library Pipeline, which removing it would leave without one. */
+export const pipelineUseSchema = z.object({
+  /** The Projects that name it as their default, by name. */
+  defaultFor: z.array(z.object({ projectId: z.string(), name: z.string() })),
+  /** Tasks that haven't started: saving the Pipeline changes those that follow it. */
+  notStarted: z.int().nonnegative(),
+  /** Started Tasks still at work, which keep the copy they started with. */
+  running: z.int().nonnegative(),
+});
+export type PipelineUse = z.infer<typeof pipelineUseSchema>;
+
+/** 422 from DELETE /pipelines/:id: every reason the Pipeline can't be removed now. */
+export const pipelineRemovalRefusalSchema = z.object({
+  statusCode: z.literal(422),
+  message: z.string(),
+  reasons: z.array(z.string()).min(1),
+});
+export type PipelineRemovalRefusal = z.infer<typeof pipelineRemovalRefusalSchema>;
+
 /**
  * Where one of a started Task's Stages stands, from its latest run: paused and stopped when the
  * user held it, which is no failure.
@@ -232,8 +266,14 @@ export const stagesEditRefusalSchema = z.object({
 });
 export type StagesEditRefusal = z.infer<typeof stagesEditRefusalSchema>;
 
-/** Pipelines' events the web receives; each names the Task whose Stages changed. */
+/**
+ * Pipelines' events the web receives: the library's name the Pipeline, the others the Task whose
+ * Stages changed.
+ */
 export const pipelinesWebEventSchema = z.discriminatedUnion("type", [
+  webEventSchema.extend({ type: z.literal("pipeline.added"), pipelineId: z.string() }),
+  webEventSchema.extend({ type: z.literal("pipeline.saved"), pipelineId: z.string() }),
+  webEventSchema.extend({ type: z.literal("pipeline.removed"), pipelineId: z.string() }),
   webEventSchema.extend({ type: z.literal("task-stages.made"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task-stages.edited"), taskId: z.uuid() }),
   /** The Pipeline was swapped before Start: the Task follows the library again. */

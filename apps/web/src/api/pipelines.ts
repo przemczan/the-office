@@ -13,13 +13,13 @@ import { getFromApi, sendToApi } from "./api-client.ts";
 import { taskChangesKey } from "./projects.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
+const PIPELINES_KEY: readonly unknown[] = ["pipelines"];
+
 export const pipelineQueries = {
-  // The library holds only the built-ins in tier 1, so it never changes while the service runs.
   list: () =>
     queryOptions({
-      queryKey: ["pipelines"],
+      queryKey: PIPELINES_KEY,
       queryFn: ({ signal }) => getFromApi("/pipelines", pipelineListSchema, signal),
-      staleTime: Number.POSITIVE_INFINITY,
     }),
   /** Under the Task's key, so Work's events about the Task refresh it too. */
   taskStages: (taskId: string) =>
@@ -69,20 +69,34 @@ function taskStagesKey(taskId: string): readonly unknown[] {
   return ["tasks", taskId, "stages"];
 }
 
-/** Each Pipelines event makes the Stages of the Task it names stale. */
+/** A change to the library makes every list of it stale. */
+function staleLibrary(): readonly (readonly unknown[])[] {
+  return [PIPELINES_KEY];
+}
+
+/** Each of the walk's events makes the Stages of the Task it names stale. */
 function staleTaskStages(event: unknown): readonly (readonly unknown[])[] {
-  return [taskStagesKey(pipelinesWebEventSchema.parse(event).taskId)];
+  return [taskStagesKey(taskIdOf(event))];
 }
 
 /** A run's end also makes the Task's Changes stale, as The Office commits the Stage's work then. */
 function staleTaskStagesAndChanges(event: unknown): readonly (readonly unknown[])[] {
-  const { taskId } = pipelinesWebEventSchema.parse(event);
+  const taskId = taskIdOf(event);
   return [taskStagesKey(taskId), taskChangesKey(taskId)];
+}
+
+function taskIdOf(event: unknown): string {
+  const parsed = pipelinesWebEventSchema.parse(event);
+  if (!("taskId" in parsed)) throw new Error(`A ${parsed.type} event names no Task.`);
+  return parsed.taskId;
 }
 
 export const pipelineEventInvalidations: Readonly<
   Record<PipelinesWebEvent["type"], EventInvalidations[string]>
 > = {
+  "pipeline.added": staleLibrary,
+  "pipeline.saved": staleLibrary,
+  "pipeline.removed": staleLibrary,
   "task-stages.made": staleTaskStages,
   "task-stages.edited": staleTaskStages,
   "task-stages.reset": staleTaskStages,

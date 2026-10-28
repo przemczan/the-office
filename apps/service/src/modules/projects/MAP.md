@@ -2,7 +2,7 @@
 
 **Owns:** Projects (`projects`): path, commands, install inputs, publishing mode, default Pipeline; the environment check (`environment_checks`); The Office's own git (`ports/git.ts`, `CommandLineGit`) under per-repository locks; a worktree per Task, the base checkouts, Changes, and the git work of Publish (`TaskWorktrees`).
 
-**Talks to:** checks a default Pipeline through its `KnownPipelines` port, bound to Pipelines' `PipelineLibrary` in [app.module.ts](../../app.module.ts); calls Engine and Skills. Serves Work (`ProjectService`, `TaskWorktrees`), Pipelines (`TaskWorktrees` as `TaskGit`, `TaskCommands` and `TaskPublishing`) and Conversations (`BaseCheckouts`).
+**Talks to:** checks a default Pipeline through its `KnownPipelines` port, bound to Pipelines' `PipelineLibrary` in [app.module.ts](../../app.module.ts); calls Engine and Skills. Serves Work (`ProjectService`, `TaskWorktrees`), Pipelines (`TaskWorktrees` as `TaskGit`, `TaskCommands` and `TaskPublishing`; `ProjectService` as `ProjectDefaults`, which the library asks before removing a Pipeline) and Conversations (`BaseCheckouts`).
 
 **Traps:**
 - The module is registered once in `AppModule`, so every git change on a repository goes through the same locks.

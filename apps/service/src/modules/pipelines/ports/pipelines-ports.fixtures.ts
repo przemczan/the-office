@@ -4,6 +4,7 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EngineSessions } from "../../engine/index.js";
 import { TaskPaused, TaskResumed } from "../../work/index.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
+import { ProjectDefaults, type ProjectDefault } from "./project-defaults.js";
 import {
   StageDecisions,
   type OpenedStageDecision,
@@ -28,6 +29,16 @@ import { TaskRecords, type TaskRecord } from "./task-records.js";
 import { TaskScreenshots, type ScreenshotsAttaching } from "./task-screenshots.js";
 import { TaskThreadSessions } from "./task-thread-sessions.js";
 import { TaskUsage } from "./task-usage.js";
+
+/** Projects' defaults in memory: a test puts the Projects it needs. */
+@Injectable()
+export class ProjectDefaultsForTests extends ProjectDefaults {
+  readonly projects: ProjectDefault[] = [];
+
+  async list(): Promise<readonly ProjectDefault[]> {
+    return [...this.projects];
+  }
+}
 
 /** Work's Tasks in memory: a test starts each one it walks. */
 @Injectable()
@@ -522,6 +533,7 @@ export class TaskPublishingForTests extends TaskPublishing {
 export class PipelinesPortsForTestsModule {
   static register(imports: NonNullable<ModuleMetadata["imports"]>): DynamicModule {
     const providers = [
+      ProjectDefaultsForTests,
       StartedTasksForTests,
       TaskRecordsForTests,
       KnownPeopleForTests,

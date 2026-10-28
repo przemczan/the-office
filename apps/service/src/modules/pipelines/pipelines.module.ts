@@ -1,4 +1,5 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
+import { PipelineLibraryController } from "./adapters/http/pipeline-library.controller.js";
 import { TaskGateController } from "./adapters/http/task-gate.controller.js";
 import { TaskStagesController } from "./adapters/http/task-stages.controller.js";
 import { PostgresStageRunRepository } from "./adapters/postgres/postgres-stage-run-repository.js";
@@ -8,7 +9,9 @@ import { PipelinesWebEvents } from "./adapters/websocket/pipelines-web-events.js
 import { AgentStageRunner } from "./application/agent-stage-runner.js";
 import { GateService } from "./application/gate-service.js";
 import { GateStageRunner } from "./application/gate-stage-runner.js";
+import { PipelineLibraryEditor } from "./application/pipeline-library-editor.js";
 import { PublishStage } from "./application/publish-stage.js";
+import { RoleFillings } from "./application/role-fillings.js";
 import { ScriptStageRunner } from "./application/script-stage-runner.js";
 import { StageGit } from "./application/stage-git.js";
 import { StaffingHolds } from "./application/staffing-holds.js";
@@ -17,6 +20,7 @@ import { StageRunners } from "./application/stage-runners.js";
 import { TaskStagesService } from "./application/task-stages-service.js";
 import { PipelineLibraryModule } from "./pipeline-library.module.js";
 import { KnownPeople } from "./ports/known-people.js";
+import { ProjectDefaults } from "./ports/project-defaults.js";
 import { StageDecisions } from "./ports/stage-decisions.js";
 import { StageRunRepository } from "./ports/stage-run-repository.js";
 import { StageThreads } from "./ports/stage-threads.js";
@@ -37,6 +41,7 @@ export interface PipelinesModuleOptions {
   readonly startedTasks: Type<StartedTasks>;
   readonly taskRecords: Type<TaskRecords>;
   readonly knownPeople: Type<KnownPeople>;
+  readonly projectDefaults: Type<ProjectDefaults>;
   readonly stageThreads: Type<StageThreads>;
   readonly stageDecisions: Type<StageDecisions>;
   readonly taskGit: Type<TaskGit>;
@@ -47,7 +52,10 @@ export interface PipelinesModuleOptions {
   readonly taskThreadSessions: Type<TaskThreadSessions>;
 }
 
-/** Pipelines whole: the library, each started Task's own Stages, and the Stage interpreter. */
+/**
+ * Pipelines whole: the library and its editor, each started Task's own Stages, and the Stage
+ * interpreter.
+ */
 @Module({})
 export class PipelinesModule {
   static register({
@@ -55,6 +63,7 @@ export class PipelinesModule {
     startedTasks,
     taskRecords,
     knownPeople,
+    projectDefaults,
     stageThreads,
     stageDecisions,
     taskGit,
@@ -67,13 +76,14 @@ export class PipelinesModule {
     return {
       module: PipelinesModule,
       imports: [PipelineLibraryModule, ...imports],
-      controllers: [TaskStagesController, TaskGateController],
+      controllers: [TaskStagesController, TaskGateController, PipelineLibraryController],
       providers: [
         { provide: TaskStagesRepository, useClass: PostgresTaskStagesRepository },
         { provide: StageRunRepository, useClass: PostgresStageRunRepository },
         { provide: StartedTasks, useExisting: startedTasks },
         { provide: TaskRecords, useExisting: taskRecords },
         { provide: KnownPeople, useExisting: knownPeople },
+        { provide: ProjectDefaults, useExisting: projectDefaults },
         { provide: StageThreads, useExisting: stageThreads },
         { provide: StageDecisions, useExisting: stageDecisions },
         { provide: TaskGit, useExisting: taskGit },
@@ -83,7 +93,9 @@ export class PipelinesModule {
         { provide: TaskUsage, useExisting: taskUsage },
         { provide: TaskThreadSessions, useExisting: taskThreadSessions },
         { provide: StaffingHoldRepository, useClass: PostgresStaffingHoldRepository },
+        RoleFillings,
         TaskStagesService,
+        PipelineLibraryEditor,
         StaffingHolds,
         StageRunners,
         StageInterpreter,

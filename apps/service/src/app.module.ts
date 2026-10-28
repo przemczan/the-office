@@ -73,6 +73,7 @@ export class AppModule {
       startedTasks: TaskService,
       taskRecords: TaskRecords,
       knownPeople: RoleCards,
+      projectDefaults: ProjectService,
       stageThreads: StageThreads,
       stageDecisions: StageDecisions,
       taskGit: TaskWorktrees,

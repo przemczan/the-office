@@ -1,19 +1,21 @@
 import { Injectable } from "@nestjs/common";
-import { builtInPipelines } from "../domain/built-in-pipelines.js";
 import type { Pipeline } from "../domain/pipeline.js";
+import { PipelineRepository } from "../ports/pipeline-repository.js";
 
 /**
- * The Office-wide library of Pipelines. In tier 1 it holds the built-ins only; the library editor
- * of tier 2 stores the rest behind this same service.
+ * The Office-wide library of Pipelines, as other modules read it. The library editor in
+ * `PipelineLibraryEditor` changes it.
  */
 @Injectable()
 export class PipelineLibrary {
+  constructor(private readonly repository: PipelineRepository) {}
+
   async list(): Promise<readonly Pipeline[]> {
-    return builtInPipelines;
+    return this.repository.list();
   }
 
   async find(id: string): Promise<Pipeline | undefined> {
-    return builtInPipelines.find((pipeline) => pipeline.id === id);
+    return this.repository.find(id);
   }
 
   async has(id: string): Promise<boolean> {

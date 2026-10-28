@@ -1,7 +1,11 @@
 import type { Pipeline } from "./pipeline.js";
 
-/** The Role the Developer preset is hired into; People (task 08) keys it the same way. */
+/** The Roles the Developer and Devops presets are hired into, keyed as People keys them. */
 const DEVELOPER = "developer";
+const DEVOPS = "devops";
+
+/** Onboarding's Pipeline, which onboarding uses and so can't be removed (spec §2.3). */
+export const ONBOARD_PIPELINE = "onboard";
 
 // A budget is checked against the whole Task's tokens (spec §2.3), so each Agent Stage's is the
 // budgets of the Stages before it plus its own, written as that sum.
@@ -109,5 +113,72 @@ const document: Pipeline = {
   ],
 };
 
-/** Full, Quick fix and Document (spec §2.3), the library until its editor arrives in tier 2. */
-export const builtInPipelines: readonly Pipeline[] = [full, quickFix, document];
+const onboard: Pipeline = {
+  id: ONBOARD_PIPELINE,
+  name: "Onboard",
+  description:
+    "Prepares a Project on the workstation until it builds and tests in a fresh worktree.",
+  stages: [
+    {
+      kind: "agent",
+      key: "onboard",
+      name: "Onboard",
+      role: DEVOPS,
+      brief:
+        "Make the Project build and test in a fresh worktree. Propose its commands when they are missing or wrong.",
+      session: "fresh",
+      budget: 150_000,
+      optional: false,
+    },
+    {
+      kind: "script",
+      key: "verify",
+      name: "Verify",
+      command: "test",
+      optional: false,
+      onFailure: { goBackTo: "onboard", rounds: 2 },
+    },
+  ],
+};
+
+// Its Publish pushes the branch only from task 24's step 3, which adds a Publish Stage's target;
+// until then it publishes by the Project's publishing mode like the others.
+const proofOfConcept: Pipeline = {
+  id: "proof-of-concept",
+  name: "Proof of concept",
+  description:
+    "For trying an idea out: implement, test, push the branch only, with no pull request and no merge.",
+  stages: [
+    {
+      kind: "agent",
+      key: "implement",
+      name: "Implement",
+      role: DEVELOPER,
+      brief: "Make the smallest change that shows the idea works and meets the Definition of Done.",
+      session: "fresh",
+      budget: 200_000,
+      optional: false,
+    },
+    {
+      kind: "script",
+      key: "tests",
+      name: "Tests",
+      command: "test",
+      optional: false,
+      onFailure: { goBackTo: "implement", rounds: 2 },
+    },
+    { kind: "script", key: "publish", name: "Publish", command: "publish", optional: false },
+  ],
+};
+
+/**
+ * Spec §2.3's built-ins, in the library's order. The `pipelines` table's migration seeds them once;
+ * from then on the library holds them and the user edits them like any.
+ */
+export const builtInPipelines: readonly Pipeline[] = [
+  full,
+  quickFix,
+  document,
+  onboard,
+  proofOfConcept,
+];

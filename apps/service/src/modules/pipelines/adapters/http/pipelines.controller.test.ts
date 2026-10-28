@@ -8,7 +8,7 @@ let app: INestApplication;
 let url: string;
 
 beforeEach(async () => {
-  ({ app, url } = await startTestApplication({ imports: [PipelineLibraryModule] }));
+  ({ app, url } = await startTestApplication({ database: true, imports: [PipelineLibraryModule] }));
 });
 
 afterEach(async () => {
@@ -16,12 +16,19 @@ afterEach(async () => {
 });
 
 describe("GET /api/pipelines", () => {
-  it("lists the built-in Pipelines as the contract describes them", async () => {
+  // Other test files add Pipelines to the shared test database; the built-ins come first.
+  it("lists the library, the built-ins first, as the contract describes it", async () => {
     const response = await fetch(`${url}/api/pipelines`);
 
     expect(response.status).toBe(200);
     const pipelines = pipelineListSchema.parse(await response.json());
-    expect(pipelines.map((pipeline) => pipeline.name)).toEqual(["Full", "Quick fix", "Document"]);
+    expect(pipelines.slice(0, 5).map((pipeline) => pipeline.name)).toEqual([
+      "Full",
+      "Quick fix",
+      "Document",
+      "Onboard",
+      "Proof of concept",
+    ]);
   });
 });
 

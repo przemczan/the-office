@@ -1,6 +1,7 @@
 import { pipelinesWebEventSchema } from "@the-office/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
+import { PipelineLibraryEditor } from "../../application/pipeline-library-editor.js";
 import type { Stage } from "../../domain/stage.js";
 import {
   aDoneResult,
@@ -62,6 +63,32 @@ describe("Pipelines' web events", () => {
       { type: "stage-run.started", taskId, stageKey: "tests" },
       { type: "stage-run.ended", taskId, stageKey: "tests", status: "done" },
       { type: "pipeline.completed", taskId },
+    ]);
+  });
+
+  it("tell the web of each Pipeline the library editor adds, saves and removes", async () => {
+    pipelines = await startPipelinesApplication();
+    const editor = pipelines.app.get(PipelineLibraryEditor);
+
+    const added = await editor.add({
+      name: `Web events ${crypto.randomUUID()}`,
+      description: "",
+      stages: [{ kind: "script", key: "build", name: "Build", optional: false, command: "build" }],
+    });
+    await editor.save(added.id, { ...added, description: "Builds the Project." });
+    await editor.remove(added.id);
+
+    const forwarding = pipelines.app.get(WebEventForwarding);
+    const webEvents = pipelines.published.flatMap((event) => {
+      const webEvent = forwarding.toWebEvent(event);
+      if (!webEvent) return [];
+      const { occurredAt: _occurredAt, ...rest } = pipelinesWebEventSchema.parse(webEvent);
+      return [rest];
+    });
+    expect(webEvents).toEqual([
+      { type: "pipeline.added", pipelineId: added.id },
+      { type: "pipeline.saved", pipelineId: added.id },
+      { type: "pipeline.removed", pipelineId: added.id },
     ]);
   });
 });

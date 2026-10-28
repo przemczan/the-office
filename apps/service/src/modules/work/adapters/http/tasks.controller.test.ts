@@ -464,8 +464,11 @@ describe("PUT /api/tasks/:id/plan, /definition-of-done and /pipeline", () => {
     expect(workRefusalSchema.parse(await emptyPlan.json()).reasons).toEqual([
       "The Plan can't be empty.",
     ]);
+    // The library also holds Pipelines other test files add to the shared database.
     expect(workRefusalSchema.parse(await unknownPipeline.json()).reasons).toEqual([
-      'There is no Pipeline "nightly". The library has full, quick-fix, document.',
+      expect.stringMatching(
+        /^There is no Pipeline "nightly"\. The library has full, quick-fix, document, onboard, proof-of-concept/,
+      ),
     ]);
     expect(malformed.status).toBe(400);
     expect((await readTask(task.id)).planConfirmed).toBe(false);

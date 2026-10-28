@@ -21,6 +21,7 @@ import type { AskedDecision } from "./ports/stage-threads.js";
 import { PipelinesModule } from "./pipelines.module.js";
 import {
   KnownPeopleForTests,
+  ProjectDefaultsForTests,
   PipelinesPortsForTestsModule,
   StageDecisionsForTests,
   StageThreadsForTests,
@@ -44,6 +45,7 @@ export interface PipelinesApplication {
   readonly tasks: StartedTasksForTests;
   readonly records: TaskRecordsForTests;
   readonly people: KnownPeopleForTests;
+  readonly projects: ProjectDefaultsForTests;
   readonly stageThreads: StageThreadsForTests;
   readonly decisions: StageDecisionsForTests;
   readonly git: TaskGitForTests;
@@ -91,6 +93,7 @@ export async function startPipelinesApplication(
         startedTasks: StartedTasksForTests,
         taskRecords: TaskRecordsForTests,
         knownPeople: KnownPeopleForTests,
+        projectDefaults: ProjectDefaultsForTests,
         stageThreads: StageThreadsForTests,
         stageDecisions: StageDecisionsForTests,
         taskGit: TaskGitForTests,
@@ -112,6 +115,7 @@ export async function startPipelinesApplication(
     tasks,
     records: app.get(TaskRecordsForTests, { strict: false }),
     people: app.get(KnownPeopleForTests, { strict: false }),
+    projects: app.get(ProjectDefaultsForTests, { strict: false }),
     stageThreads: app.get(StageThreadsForTests, { strict: false }),
     decisions: app.get(StageDecisionsForTests, { strict: false }),
     git: app.get(TaskGitForTests, { strict: false }),

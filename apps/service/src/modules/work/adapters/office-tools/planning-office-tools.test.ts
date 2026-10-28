@@ -146,8 +146,11 @@ describe("propose_pipeline", () => {
   });
 
   it("refuses a Pipeline the library doesn't have, naming those it has", async () => {
+    // The library also holds Pipelines other test files add to the shared database.
     await expect(call(PROPOSE_PIPELINE, { pipelineId: "nightly", why: "No." })).resolves.toEqual({
-      text: 'There is no Pipeline "nightly". The library has full, quick-fix, document.',
+      text: expect.stringMatching(
+        /^There is no Pipeline "nightly"\. The library has full, quick-fix, document, onboard, proof-of-concept/,
+      ),
       isError: true,
     });
   });
