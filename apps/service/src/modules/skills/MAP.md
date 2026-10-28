@@ -1,8 +1,8 @@
 # Skills: module map
 
-**Owns:** the skill library (`skills`, `skill_versions`): uploads, skills written in place and skills installed from a Source at a pinned version (`SkillLibrary.install`), off until reviewed, "everyone"; Role skills (`role_skills`, `role_skill_changes`); Project skills; each session's plugin folder (`SessionSkills`, `session_skills`).
+**Owns:** the skill library (`skills`, `skill_versions`): uploads, skills written in place and skills installed from a Source at a pinned version (`SkillLibrary.install`; `SkillSources` reads what a Source holds), off until reviewed, "everyone"; Role skills (`role_skills`, `role_skill_changes`); Project skills; each session's plugin folder (`SessionSkills`, `session_skills`).
 
-**Talks to:** no module; People, Projects and Conversations call it. The Engine takes the folder it builds and never reads Skills. Sources' git repositories, over the network, through `SourceFetcher` (`git ls-remote`, a one-commit fetch into a temp bare repository, read from git's objects without a checkout).
+**Talks to:** no module; People, Projects and Conversations call it (Conversations' `SkillInstallProposals` and `SkillOfficeTools` install from a Source). The Engine takes the folder it builds and never reads Skills. Sources' git repositories, over the network, through `SourceFetcher` (`git ls-remote`, a one-commit fetch into a temp bare repository, read from git's objects without a checkout).
 
 **Traps:** a skill on and for everyone reaches every session prepared on the shared test database, so only `application/session-skills.test.ts` turns one on ([testing](../../../docs/testing.md)). Tests never reach a real Source: they use local bare repositories (`adapters/git/source-repository.fixtures.ts`). A Source's repository comes from a model's Proposal, so `sourceRepositoryProblems` admits only https, ssh, `git@` and file URLs and `GitSourceFetcher` pins git's transports and never lets it prompt.
 
@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-SessionSkills, PreparedSkills, SessionProject, SessionSkillRequest, ProjectSkills, RoleSkills, RoleSkillsChange, SkillLibrary, RoleSkillsChanged, SkillAdded, SkillEveryoneChanged, SkillRemoved, SkillTurnedOff, SkillTurnedOn, SkillVersionSaved, SkillsModule
+SessionSkills, PreparedSkills, SessionProject, SessionSkillRequest, ProjectSkills, RoleSkills, RoleSkillsChange, SkillLibrary, SkillSources, SkillInstall, SourceSkill, SourceSkills, PinnedVersion, SkillRefused, RoleSkillsChanged, SkillAdded, SkillEveryoneChanged, SkillRemoved, SkillTurnedOff, SkillTurnedOn, SkillVersionSaved, SkillsModule
 
 ## Domain events
 
@@ -84,7 +84,8 @@ SessionSkills, PreparedSkills, SessionProject, SessionSkillRequest, ProjectSkill
 - `project-skills.ts`: ProjectSkills
 - `role-skills.ts`: RoleSkillsChange, RoleSkills
 - `session-skills.ts`: PreparedSkills, SessionProject, SessionSkillRequest, SessionSkills
-- `skill-library.ts`: Upload, SkillInstall, ReviewedSkill, SkillLibrary
+- `skill-library.ts`: Upload, ReviewedSkill, SkillLibrary
+- `skill-sources.ts`: SkillInstall, SourceSkill, SourceSkills, SkillSources
 - Tests: session-skills.test.ts, skill-library.test.ts
 
 ### domain/

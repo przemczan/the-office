@@ -1,8 +1,9 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { promisify } from "node:util";
 import type { INestApplication } from "@nestjs/common";
 import {
@@ -10,11 +11,14 @@ import {
   PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_PROJECT_COMMANDS_TOOL,
   PROPOSE_PROJECT_TOOL,
+  PROPOSE_SKILL_INSTALL_TOOL,
   pipelineSchema,
   projectOnboardingListSchema,
   projectSchema,
   proposalSchema,
+  skillSchema,
   taskSchema,
+  threadRefusalSchema,
   type Pipeline,
   type Project,
   type Proposal,
@@ -31,6 +35,7 @@ import {
   type SessionScript,
 } from "../../engine/index.js";
 import { DEVOPS, RoleCards, type SessionRole } from "../../people/index.js";
+import { LIST_SOURCE_SKILLS_TOOL } from "../domain/session-instructions.js";
 import { ProposalService } from "./proposal-service.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { ThreadService } from "./thread-service.js";
@@ -257,6 +262,137 @@ describe("Devops' Proposals, through the scripted engine", () => {
   }, 30_000);
 });
 
+describe("Devops installing a skill from a source, through the scripted engine", () => {
+  it("lists a source's skills and drafts installing one; applied, it is in the library at its pinned tag, off until reviewed", async () => {
+    const name = aSkillName();
+    const source = await aSource([name, aSkillName()]);
+
+    const listed = await ninaCalls(LIST_SOURCE_SKILLS_TOOL, { source: source.url });
+
+    expect(listed.isError).toBe(false);
+    expect(JSON.parse(listed.text)).toMatchObject({
+      repository: source.url,
+      pinnedVersion: { tag: "v1.0.0", commit: source.commit },
+      skills: expect.arrayContaining([
+        {
+          folder: `skills/${name}`,
+          name,
+          description: `Writes ${name}.`,
+          files: ["SKILL.md", "scripts/run.sh"],
+          filesHash: expect.any(String),
+        },
+      ]),
+    });
+
+    const [proposal] = await ninaProposes([
+      PROPOSE_SKILL_INSTALL_TOOL,
+      { source: source.url, folder: `skills/${name}` },
+    ]);
+
+    expect(proposal?.change).toEqual({
+      kind: "skill-install",
+      repository: source.url,
+      folder: `skills/${name}`,
+      pinnedVersion: { tag: "v1.0.0", commit: source.commit },
+      name,
+      description: `Writes ${name}.`,
+      files: ["SKILL.md", "scripts/run.sh"],
+      filesHash: expect.any(String),
+    });
+    const response = await api("POST", `/proposals/${proposal?.id}/apply`, {});
+    expect(response.status).toBe(200);
+    expect(skillSchema.parse(await read(`/skills/${name}`))).toMatchObject({
+      name,
+      source: "installed",
+      installedFrom: {
+        repository: source.url,
+        folder: `skills/${name}`,
+        pinnedVersion: { tag: "v1.0.0", commit: source.commit },
+      },
+      state: "waiting-for-review",
+      everyone: false,
+    });
+  }, 30_000);
+
+  it("refuses drafting a skill the library has, or one the source doesn't hold", async () => {
+    const name = aSkillName();
+    const source = await aSource([name]);
+    const written = await api("POST", "/skills", {
+      name,
+      description: "Mine.",
+      instructions: "Do it.",
+    });
+    expect(written.status).toBe(201);
+
+    const taken = await ninaCalls(PROPOSE_SKILL_INSTALL_TOOL, {
+      source: source.url,
+      folder: `skills/${name}`,
+    });
+    const missing = await ninaCalls(PROPOSE_SKILL_INSTALL_TOOL, {
+      source: source.url,
+      folder: "skills/other",
+    });
+
+    expect(taken).toEqual({ text: `The library already has ${name}.`, isError: true });
+    expect(missing).toEqual({
+      text: `${source.url} has no skill in "skills/other"; list_source_skills shows its folders.`,
+      isError: true,
+    });
+  }, 30_000);
+
+  it("refuses installing once the name is taken or the source can't be read; the Proposal stays open", async () => {
+    const taken = aSkillName();
+    const gone = aSkillName();
+    const source = await aSource([taken, gone]);
+    const [first] = await ninaProposes([
+      PROPOSE_SKILL_INSTALL_TOOL,
+      { source: source.url, folder: `skills/${taken}` },
+    ]);
+    const [second] = await ninaProposes([
+      PROPOSE_SKILL_INSTALL_TOOL,
+      { source: source.url, folder: `skills/${gone}` },
+    ]);
+    await api("POST", "/skills", { name: taken, description: "Mine.", instructions: "Do it." });
+    const refusedTaken = await api("POST", `/proposals/${first?.id}/apply`, {});
+    await rm(source.folder, { recursive: true, force: true, maxRetries: 5 });
+    const refusedGone = await api("POST", `/proposals/${second?.id}/apply`, {});
+
+    expect(await reasonsOf(refusedTaken)).toEqual([`The library already has ${taken}.`]);
+    const [goneReason] = await reasonsOf(refusedGone);
+    expect(goneReason?.startsWith(`Could not read ${source.url}: `)).toBe(true);
+    expect((await readProposal(first?.id ?? "")).status.kind).toBe("open");
+    expect((await readProposal(second?.id ?? "")).status.kind).toBe("open");
+    expect((await fetch(`${url}/api/skills/${gone}`)).status).toBe(404);
+  }, 30_000);
+});
+
+/** What Nina read back from one Office tool she called in her chat. */
+async function ninaCalls(
+  tool: string,
+  input: Record<string, unknown>,
+): Promise<{ readonly text: string; readonly isError: boolean }> {
+  const sessionsBefore = engine.sessions.length;
+  engine.queue([
+    { step: "start", brief: { id: "brief", text: "" } },
+    ...toolCall("c-0", tool, input),
+    ...endsTurn("Done."),
+  ]);
+  const started = await app.get(ThreadService, { strict: false }).startInChat(DEVOPS);
+  await app.get(ThreadRunner, { strict: false }).send(started.id, "Look at this source, please.");
+  return vi.waitFor(
+    () => {
+      const result = engine.sessions
+        .slice(sessionsBefore)
+        .flatMap((session) => session.reportedEvents)
+        .find((event) => event.kind === "tool-result");
+      if (!result) throw new Error("No Office tool answered yet.");
+      return { text: result.text, isError: result.isError };
+    },
+    // The tools read the Source with several git calls, slow under a full run.
+    { timeout: 25_000, interval: 20 },
+  );
+}
+
 /** Nina, asked in her chat, calls each Office tool with its input in one turn. */
 async function ninaProposes(
   ...calls: readonly (readonly [string, Record<string, unknown>])[]
@@ -277,7 +413,8 @@ async function ninaProposes(
       if (inThread.length < calls.length) throw new Error("Still drafting.");
       return inThread;
     },
-    { timeout: 10_000, interval: 20 },
+    // Installing a skill reads its Source with several git calls, slow under a full run.
+    { timeout: 25_000, interval: 20 },
   );
   const stored = await Promise.all(drafted.map(({ id }) => readProposal(id)));
   // In the order of the calls, whatever order the tools finished in.
@@ -292,6 +429,7 @@ const KIND_OF_TOOL: Readonly<Record<string, Proposal["change"]["kind"]>> = {
   [PROPOSE_PROJECT_COMMANDS_TOOL]: "project-commands",
   [PROPOSE_LIBRARY_PIPELINE_TOOL]: "pipeline",
   [PROPOSE_PROJECT_TOOL]: "project",
+  [PROPOSE_SKILL_INSTALL_TOOL]: "skill-install",
 };
 
 async function readProposal(id: string): Promise<Proposal> {
@@ -346,6 +484,46 @@ async function aRepository(): Promise<string> {
     { cwd: repository },
   );
   return repository;
+}
+
+/** A skill name of the test's own, since every test file shares the database. */
+function aSkillName(): string {
+  return `installed-${randomUUID().slice(0, 8)}`;
+}
+
+/**
+ * A Source of the test's own: a bare repository with a skill in `skills/<name>` for each name,
+ * tagged v1.0.0, reached by a file URL so the test never uses the network.
+ */
+async function aSource(
+  names: readonly string[],
+): Promise<{ readonly url: string; readonly folder: string; readonly commit: string }> {
+  const checkout = await mkdtemp(join(folder, "source-"));
+  const git = (...gitArguments: string[]) =>
+    run("git", ["-c", "user.name=Test", "-c", "user.email=test@example.com", ...gitArguments], {
+      cwd: checkout,
+    });
+  await git("init", "--initial-branch=main");
+  for (const name of names) {
+    await mkdir(join(checkout, "skills", name, "scripts"), { recursive: true });
+    await writeFile(
+      join(checkout, "skills", name, "SKILL.md"),
+      `---\ndescription: Writes ${name}.\n---\nDo it.\n`,
+    );
+    await writeFile(join(checkout, "skills", name, "scripts", "run.sh"), "#!/bin/sh\n");
+  }
+  await git("add", ".");
+  await git("commit", "-m", "Skills");
+  await git("tag", "--annotate", "--message", "First", "v1.0.0");
+  const bare = `${checkout}.git`;
+  await run("git", ["clone", "--bare", "--quiet", checkout, bare]);
+  const { stdout } = await run("git", ["rev-parse", "HEAD"], { cwd: checkout });
+  return { url: pathToFileURL(bare).href, folder: bare, commit: stdout.trim() };
+}
+
+async function reasonsOf(response: Response): Promise<readonly string[]> {
+  expect(response.status).toBe(422);
+  return threadRefusalSchema.parse(await response.json()).reasons;
 }
 
 /** A Project of the test's own, on a repository of its own. */

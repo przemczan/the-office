@@ -1,4 +1,4 @@
-import type { ProjectCommandFields, Stage } from "@the-office/contracts";
+import type { ProjectCommandFields, ProposedChange, Stage } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { stageChanges, stagesLine, type StageChange } from "../pipelines/pipeline-words.ts";
@@ -8,6 +8,9 @@ import {
   INSTALL_INPUTS_LABEL,
   installInputsLine,
 } from "../project-words.ts";
+import { pinnedVersionLabel, sourceLabel } from "../skill-words.ts";
+
+type ProposedSkillInstall = Extract<ProposedChange, { kind: "skill-install" }>;
 
 const STAGE_CHANGE_WORDS: Readonly<Record<StageChange["change"], string>> = {
   added: "Added",
@@ -74,6 +77,42 @@ export function ProposedStageChanges({
         ))}
       </dl>
     </>
+  );
+}
+
+/** A skill to install: its Source, what it is, its pinned version and its files. */
+export function ProposedSkillInstallFields({
+  change,
+}: {
+  readonly change: ProposedSkillInstall;
+}): ReactNode {
+  return (
+    <dl className="proposal-fields">
+      <div className="proposal-field">
+        <dt>Source</dt>
+        <dd>{sourceLabel(change)}</dd>
+      </div>
+      <div className="proposal-field">
+        <dt>Skill</dt>
+        <dd>
+          {change.name} · {change.description}
+        </dd>
+      </div>
+      <div className="proposal-field">
+        <dt>Pinned version</dt>
+        <dd title={change.pinnedVersion.commit}>{pinnedVersionLabel(change.pinnedVersion)}</dd>
+      </div>
+      <div className="proposal-field">
+        <dt>Files</dt>
+        <dd>
+          <ul className="proposal-files">
+            {change.files.map((path) => (
+              <li key={path}>{path}</li>
+            ))}
+          </ul>
+        </dd>
+      </div>
+    </dl>
   );
 }
 

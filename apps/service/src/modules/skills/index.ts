@@ -8,6 +8,14 @@ export { ProjectSkills } from "./application/project-skills.js";
 export { RoleSkills, type RoleSkillsChange } from "./application/role-skills.js";
 export { SkillLibrary } from "./application/skill-library.js";
 export {
+  SkillSources,
+  type SkillInstall,
+  type SourceSkill,
+  type SourceSkills,
+} from "./application/skill-sources.js";
+export type { PinnedVersion } from "./domain/installed-source.js";
+export { SkillRefused } from "./domain/skill-refused.js";
+export {
   RoleSkillsChanged,
   SkillAdded,
   SkillEveryoneChanged,

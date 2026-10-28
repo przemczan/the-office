@@ -1,13 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import {
-  pinnedVersionLabel,
-  sourceFolderProblem,
-  sourceRepositoryProblems,
-  sourceUrl,
-  type InstalledSource,
-} from "../domain/installed-source.js";
 import { skillNameTaken, type Skill } from "../domain/skill.js";
 import {
   addSkill,
@@ -24,7 +17,6 @@ import {
   type SkillDraft,
   type WrittenSkill,
 } from "../domain/skill-draft.js";
-import { skillFilesHash } from "../domain/skill-files.js";
 import { SkillNotFound } from "../domain/skill-not-found.js";
 import { SkillRefused } from "../domain/skill-refused.js";
 import { reviewOf, type SkillReview } from "../domain/skill-review.js";
@@ -34,26 +26,15 @@ import {
   uploadKind,
   uploadKindProblem,
 } from "../domain/skill-upload.js";
-import {
-  installedDraft,
-  SOURCE_FOLDER_LIMITS,
-  type SourceFolder,
-} from "../domain/source-skills.js";
 import { LibraryFolder } from "../ports/library-folder.js";
 import { SkillRepository } from "../ports/skill-repository.js";
-import { SourceFetcher, SourceNotFetched } from "../ports/source-fetcher.js";
 import { ZipReader } from "../ports/zip-reader.js";
+import { SkillSources, type SkillInstall } from "./skill-sources.js";
 
 /** An uploaded file, as the user picked it. */
 export interface Upload {
   readonly fileName: string;
   readonly content: Uint8Array;
-}
-
-/** A skill to install: its Source and pinned version, and the files hash it was proposed with. */
-export interface SkillInstall extends InstalledSource {
-  /** When given, the Source's files must still have it. */
-  readonly filesHash?: string;
 }
 
 /** What Review shows of a skill: the skill, and what its files hold. */
@@ -72,7 +53,7 @@ export class SkillLibrary {
     private readonly repository: SkillRepository,
     private readonly folder: LibraryFolder,
     private readonly zips: ZipReader,
-    private readonly sources: SourceFetcher,
+    private readonly sources: SkillSources,
     private readonly events: EventBus,
   ) {}
 
@@ -106,30 +87,12 @@ export class SkillLibrary {
    * Refuses when the Source can't be read or its files no longer have the expected hash.
    */
   async install(install: SkillInstall): Promise<Skill> {
-    const source: InstalledSource = {
-      repository: install.repository.trim(),
-      folder: install.folder,
-      pinnedVersion: install.pinnedVersion,
-    };
-    const problems = [
-      ...sourceRepositoryProblems(source.repository),
-      ...(sourceFolderProblem(source.folder) ?? []),
-    ];
-    if (problems.length > 0) throw new SkillRefused(problems);
-    const [fetched] = await this.fetch(source);
-    if (!fetched) {
-      const where = source.folder === "" ? "at its top" : `in "${source.folder}"`;
-      throw new SkillRefused([
-        `${source.repository} has no skill ${where} at ${pinnedVersionLabel(source.pinnedVersion)}.`,
-      ]);
-    }
-    const draft = installedDraft(source, fetched);
-    if (install.filesHash !== undefined && skillFilesHash(draft.files) !== install.filesHash) {
-      throw new SkillRefused([
-        `${draft.skill.name}'s files at ${source.repository} are not the ones proposed.`,
-      ]);
-    }
-    return this.add(draft);
+    return this.add(await this.sources.draft(install));
+  }
+
+  /** Why a skill can't be installed under `name` now, which needs no Source read. */
+  async installProblems(name: string): Promise<readonly string[]> {
+    return (await this.repository.find(name)) ? [skillNameTaken(name)] : [];
   }
 
   /** The next version of a written skill, from the Write form. */
@@ -166,20 +129,6 @@ export class SkillLibrary {
   async remove(name: string): Promise<void> {
     const skill = await this.repository.remove(name);
     await this.events.publish(removeSkill(skill));
-  }
-
-  private async fetch(source: InstalledSource): Promise<readonly SourceFolder[]> {
-    try {
-      return await this.sources.skillFolders({
-        url: sourceUrl(source.repository),
-        pinnedVersion: source.pinnedVersion,
-        folder: source.folder,
-        limits: SOURCE_FOLDER_LIMITS,
-      });
-    } catch (error) {
-      if (!(error instanceof SourceNotFetched)) throw error;
-      throw new SkillRefused([`Could not read ${source.repository}: ${error.detail}`]);
-    }
   }
 
   private async draftOf({ fileName, content }: Upload): Promise<SkillDraft> {

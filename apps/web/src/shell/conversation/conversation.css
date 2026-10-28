@@ -518,6 +518,13 @@
   overflow-wrap: anywhere;
 }
 
+.proposal-files {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: var(--type-mono);
+}
+
 .proposal-clamp {
   display: -webkit-box;
   overflow: hidden;

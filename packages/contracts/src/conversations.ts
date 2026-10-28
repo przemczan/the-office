@@ -2,6 +2,7 @@ import { z } from "zod";
 import { webEventSchema } from "./events.js";
 import { roleCardSchema } from "./people.js";
 import { newProjectSchema, projectCommandFieldsSchema } from "./projects.js";
+import { pinnedVersionSchema } from "./skills.js";
 import { stageSchema } from "./stages.js";
 import { prioritySchema } from "./work.js";
 
@@ -216,6 +217,9 @@ export const PROPOSE_LIBRARY_PIPELINE_TOOL = "propose_library_pipeline";
 /** The Office tool Devops drafts a Project to onboard with, hidden alike behind its card. */
 export const PROPOSE_PROJECT_TOOL = "propose_project";
 
+/** The Office tool Devops drafts installing a skill from a Source with, hidden alike. */
+export const PROPOSE_SKILL_INSTALL_TOOL = "propose_skill_install";
+
 /** The fields of a Role card a change rewrites, each one whole; skills aren't among them. */
 const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).partial();
 
@@ -293,6 +297,21 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     project: newProjectSchema,
     projectId: z.string().nullable(),
     taskId: z.uuid().nullable(),
+  }),
+  /**
+   * A skill Devops drafted to install from a Source: the one in `folder` (empty for the top) of
+   * `repository` at its pinned version, with its name, description and files' paths as read when
+   * drafted. Applying fetches it into the library, off until reviewed.
+   */
+  z.object({
+    kind: z.literal("skill-install"),
+    repository: z.string(),
+    folder: z.string(),
+    pinnedVersion: pinnedVersionSchema,
+    name: z.string(),
+    description: z.string(),
+    files: z.array(z.string()),
+    filesHash: z.string(),
   }),
 ]);
 export type ProposedChange = z.infer<typeof proposedChangeSchema>;

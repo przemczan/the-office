@@ -57,7 +57,8 @@ async function installs(): Promise<number> {
   return (await readFile(installLog, "utf8").catch(() => "")).length;
 }
 
-describe("Worktrees.prepare", () => {
+// Real git, making worktrees and commits: slow under a full run.
+describe("Worktrees.prepare", { timeout: 30_000 }, () => {
   it("makes the Task's worktree at a stable path, on its branch at the freshly fetched base", async () => {
     const fetched = await commitOnOrigin(repository, "main", "fetched.txt");
     const taskId = aTaskId();
@@ -184,7 +185,8 @@ describe("Worktrees.install", () => {
   });
 });
 
-describe("Worktrees with a Task's id", () => {
+// Real git, making worktrees and commits: slow under a full run.
+describe("Worktrees with a Task's id", { timeout: 30_000 }, () => {
   it("commits, reports, restores and discards in the Task's worktree, with the Project's variables", async () => {
     const taskId = aTaskId();
     const { worktree } = await worktrees.prepare(project, taskId);

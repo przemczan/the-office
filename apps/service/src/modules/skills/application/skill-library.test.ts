@@ -20,7 +20,8 @@ import { SkillAdded } from "../domain/skill-events.js";
 import { skillFilesHash } from "../domain/skill-files.js";
 import { SkillRefused } from "../domain/skill-refused.js";
 import { SkillsModule } from "../skills.module.js";
-import { SkillLibrary, type SkillInstall } from "./skill-library.js";
+import { SkillLibrary } from "./skill-library.js";
+import { SkillSources, type SkillInstall } from "./skill-sources.js";
 
 /** git on Windows is slow while every test file runs at once. */
 const GIT_TEST_TIMEOUT_MS = 30_000;
@@ -191,5 +192,42 @@ describe("install", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
         }),
       ),
     ).toEqual([refusal]);
+  });
+});
+
+describe("the skills a source holds", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
+  it("lists each at the newest tag, with every reason one can't be installed", async () => {
+    const name = aName();
+    await source.write(`skills/${name}/SKILL.md`, sourceSkillMd("Notes."));
+    await source.write("skills/broken/SKILL.md", "No frontmatter.");
+    const old = source.commit();
+    source.tag("v1.9");
+    await source.write("README.md", "Skills.");
+    const commit = source.commit();
+    source.tag("v1.10", "annotated");
+
+    const listed = await app.get(SkillSources).skills(source.url);
+
+    expect(old).not.toBe(commit);
+    expect(listed).toEqual({
+      repository: source.url,
+      pinnedVersion: { tag: "v1.10", commit },
+      skills: [
+        { folder: "skills/broken", problems: [expect.stringContaining("SKILL.md")] },
+        {
+          folder: `skills/${name}`,
+          name,
+          description: "Notes.",
+          files: ["SKILL.md"],
+          filesHash: expect.any(String),
+        },
+      ],
+    });
+  });
+
+  it("refuses a source with no commits", async () => {
+    expect(await reasonsOf(app.get(SkillSources).skills(source.url))).toEqual([
+      `${source.url} has no commits yet.`,
+    ]);
   });
 });

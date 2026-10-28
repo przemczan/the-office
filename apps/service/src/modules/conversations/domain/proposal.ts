@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import type { RoleCard } from "../../people/index.js";
 import type { NewProject, ProjectCommandFields } from "../../projects/index.js";
+import type { PinnedVersion } from "../../skills/index.js";
 import { ProposalRefused } from "./proposal-refused.js";
 
 /**
@@ -17,6 +18,7 @@ export interface ProposedChanges {
   readonly "project-commands": ProposedProjectCommands;
   readonly pipeline: ProposedPipelineChange;
   readonly project: ProposedProject;
+  readonly "skill-install": ProposedSkillInstall;
 }
 
 /** The kinds of change a Proposal can carry. */
@@ -128,6 +130,25 @@ export interface ProposedProject {
   readonly projectId: string | undefined;
   /** Its Onboard Task, once the user applied it; undefined before. */
   readonly taskId: string | undefined;
+}
+
+/**
+ * A skill Devops drafted to install from a Source (spec §2.6): the one in `folder` of `repository`
+ * at its pinned version, as it was read when drafted. Applying fetches it into the library, off
+ * until reviewed, refused once the name is taken or the Source's files changed.
+ */
+export interface ProposedSkillInstall {
+  readonly kind: "skill-install";
+  /** As given: `owner/repo` on GitHub, or a git URL. */
+  readonly repository: string;
+  /** The skill's folder in the repository; empty for its top folder. */
+  readonly folder: string;
+  readonly pinnedVersion: PinnedVersion;
+  readonly name: string;
+  readonly description: string;
+  /** Its files' paths, in its folder. */
+  readonly files: readonly string[];
+  readonly filesHash: string;
 }
 
 /** A Stage of a Pipeline, as Pipelines' library keeps it; Conversations doesn't read it. */

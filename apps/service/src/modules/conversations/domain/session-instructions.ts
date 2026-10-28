@@ -83,6 +83,12 @@ export const PROPOSE_PROJECT_TOOL = "propose_project";
 /** The Office tool Devops reads the Pipeline library with, which Pipelines registers. */
 export const LIST_PIPELINES_TOOL = "list_pipelines";
 
+/** The Office tool Devops reads the skills a Source holds with. */
+export const LIST_SOURCE_SKILLS_TOOL = "list_source_skills";
+
+/** The Office tool Devops drafts installing a skill from a Source with; named as above. */
+export const PROPOSE_SKILL_INSTALL_TOOL = "propose_skill_install";
+
 /**
  * A chat's Office tools for the Role's person: the Office Manager doesn't turn work into Tasks but
  * points to the Planner, so it never creates one; it drafts Roles and Office settings as Proposals
@@ -104,7 +110,8 @@ export function chatOfficeTools(roleKey: string): readonly string[] {
 /**
  * The Office tools a Role's person has in their chat and their Stage Threads alike, for what the
  * Role looks after: Devops reads the Pipeline library, proposes Project commands and library
- * Pipelines, and drafts a Project to onboard (spec §2.1, §2.2, §2.3).
+ * Pipelines, drafts a Project to onboard, and installs skills from a Source (spec §2.1, §2.2,
+ * §2.3, §2.6).
  */
 export function roleOfficeTools(roleKey: string): readonly string[] {
   return roleKey === DEVOPS
@@ -113,6 +120,8 @@ export function roleOfficeTools(roleKey: string): readonly string[] {
         PROPOSE_PROJECT_COMMANDS_TOOL,
         PROPOSE_LIBRARY_PIPELINE_TOOL,
         PROPOSE_PROJECT_TOOL,
+        LIST_SOURCE_SKILLS_TOOL,
+        PROPOSE_SKILL_INSTALL_TOOL,
       ]
     : [];
 }

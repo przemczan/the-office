@@ -25,6 +25,7 @@ import {
 import { roleCardQueries, roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
+import { skillQueries } from "../../api/skills.ts";
 import { initiativeQueries, officeWideLimitQuery, taskQueries } from "../../api/work.ts";
 import { EFFORT_LABELS, modelLabel } from "../engine-words.ts";
 import { personName, roleName } from "../person-name.ts";
@@ -54,7 +55,11 @@ import { momentWords } from "../time.ts";
 import { PRIORITY_NAMES } from "../work/work-words.ts";
 import { useToast } from "../toasts.tsx";
 import { tokensShort } from "./context-words.ts";
-import { ProposedCommandChanges, ProposedStageChanges } from "./devops-proposal-changes.tsx";
+import {
+  ProposedCommandChanges,
+  ProposedSkillInstallFields,
+  ProposedStageChanges,
+} from "./devops-proposal-changes.tsx";
 import "./conversation.css";
 
 type ProposedHire = Extract<ProposedChange, { kind: "hire" }>;
@@ -95,9 +100,9 @@ const OFFICE_SETTINGS: Record<
  * A Proposal as a card in the drafting person's chat (spec §2.4): a new Role to hire, from scratch
  * (as proposed or edited first on the hire page) or from a preset (under the proposed name or one
  * the user gives), a change to a Role's card, a new value for an Office setting, the CTO's change to
- * an Initiative, or Devops' change to a Project's commands or a library Pipeline's Stages, or a
- * Project to onboard. Nothing
- * changes until the user applies it; "Not now" declines it.
+ * an Initiative, or Devops' change to a Project's commands or a library Pipeline's Stages, a
+ * Project to onboard or a skill to install from a Source. Nothing changes until the user applies
+ * it; "Not now" declines it.
  */
 export function ProposalCard({ proposal }: { readonly proposal: Proposal }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
@@ -232,6 +237,18 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
         </ProposalFrame>
       );
     }
+    case "skill-install":
+      return (
+        <ProposalFrame title={`Install ${change.name}`}>
+          <ProposedSkillInstallFields change={change} />
+          <AnswerFoot
+            proposal={proposal}
+            changes={[skillQueries.list().queryKey]}
+            appliedToast={`${change.name} installed. It is off until you review it.`}
+            openNote="Fetched into the library once applied, off until you review it"
+          />
+        </ProposalFrame>
+      );
   }
 }
 

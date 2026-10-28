@@ -11,6 +11,7 @@ import { LinkCardOfficeTools } from "./adapters/office-tools/link-card-office-to
 import { ProjectCommandOfficeTools } from "./adapters/office-tools/project-command-office-tools.js";
 import { ProposalOfficeTools } from "./adapters/office-tools/proposal-office-tools.js";
 import { RoleOfficeTools } from "./adapters/office-tools/role-office-tools.js";
+import { SkillOfficeTools } from "./adapters/office-tools/skill-office-tools.js";
 import { MemoryOfficeTools } from "./adapters/office-tools/memory-office-tools.js";
 import { PostgresConversationsSettings } from "./adapters/postgres/postgres-conversations-settings.js";
 import { PostgresThreadRepository } from "./adapters/postgres/postgres-thread-repository.js";
@@ -29,6 +30,7 @@ import { ProposalAppliers } from "./application/proposal-appliers.js";
 import { ProposalService } from "./application/proposal-service.js";
 import { ProjectCommandProposals } from "./application/project-command-proposals.js";
 import { RoleProposals } from "./application/role-proposals.js";
+import { SkillInstallProposals } from "./application/skill-install-proposals.js";
 import { SessionMemory } from "./application/session-memory.js";
 import { SessionPlaces } from "./application/session-places.js";
 import { StageDecisions } from "./application/stage-decisions.js";
@@ -88,11 +90,13 @@ export class ConversationsModule {
         ProposalService,
         RoleProposals,
         ProjectCommandProposals,
+        SkillInstallProposals,
         SizeThresholdProposals,
         DecisionOfficeTools,
         RoleOfficeTools,
         ProposalOfficeTools,
         ProjectCommandOfficeTools,
+        SkillOfficeTools,
         LinkCards,
         LinkCardOfficeTools,
         HeldCalls,

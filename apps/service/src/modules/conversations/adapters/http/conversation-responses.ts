@@ -159,6 +159,17 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         projectId: change.projectId ?? null,
         taskId: change.taskId ?? null,
       };
+    case "skill-install":
+      return {
+        kind: "skill-install",
+        repository: change.repository,
+        folder: change.folder,
+        pinnedVersion: { ...change.pinnedVersion },
+        name: change.name,
+        description: change.description,
+        files: [...change.files],
+        filesHash: change.filesHash,
+      };
   }
 }
 

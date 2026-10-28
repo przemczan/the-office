@@ -49,6 +49,7 @@
 - `role-card-words.ts`: CapabilityInfo, CAPABILITIES, ENGINE_LABELS, SESSION_DEFAULTS, HARD_SWITCH_LABELS, ENFORCEMENT_LABELS, ASKS_YOU_UNTIL_HIRED, RUN_LABELS, RoleTitles, roleTitlesOf, taskLimitLabel, taskLimitShort, hardSwitchValueLabel, permissionProfileLines, RoleCardFieldChange, fieldLabel, changeLine, proposedFieldChanges, skillsChangeLine, fieldValueText
 - `shell.tsx`: Shell
 - `skill-chip.tsx`: SkillChip
+- `skill-words.ts`: pinnedVersionLabel, sourceLabel
 - `status-strip.tsx`: StatusStrip
 - `time.ts`: dayOf, dayAndClockOf, clockOf, momentWords, durationWords
 - `toasts.tsx`: Notice, Notices, ToastProvider, useToast, useNotices
@@ -78,7 +79,7 @@
 - `context-bar.tsx`: ContextBar
 - `context-words.ts`: MOVE_WORDS, OVERRIDE_WORDS, OVERRIDE_HINTS, threadTokens, tokensShort, contextDetail, contextLabel
 - `decision-card.tsx`: DecisionCard
-- `devops-proposal-changes.tsx`: ProposedCommandChanges, ProposedStageChanges
+- `devops-proposal-changes.tsx`: ProposedCommandChanges, ProposedStageChanges, ProposedSkillInstallFields
 - `handover-notes.tsx`: HandoverNote, HandoverNotes, HandoverNotesProvider, useHandoverNotes
 - `idea-card.tsx`: IdeaCard
 - `link-card-words.ts`: personStatus
