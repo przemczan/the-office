@@ -1,7 +1,10 @@
 /** A search reads at most this many words of what the user typed; the rest are left out. */
 export const MAX_SEARCH_WORDS = 12;
 
-/** How many records of each kind a search across The Office answers, the best matches first. */
+/**
+ * How many records of each kind a search across The Office answers, the best matches first, of
+ * those the Project filter shows.
+ */
 export const SEARCH_RESULT_LIMIT = 50;
 
 /**

@@ -3,19 +3,22 @@ import { Link, useParams } from "@tanstack/react-router";
 import { Button, Icon, Logo } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { taskQueries } from "../api/work.ts";
+import { DocumentDialog } from "./attachments/attachment-chips.tsx";
 import { useBrandTone } from "./brand-tone.ts";
 import type { PageHeading } from "./page-heading.tsx";
 import { onlyProjectShown } from "./project-filter/project-filter-choices.ts";
 import { ProjectFilterMenu } from "./project-filter/project-filter-menu.tsx";
 import { useProjectFilter } from "./project-filter/use-project-filter.ts";
+import { TopBarSearch } from "./search/top-bar-search.tsx";
 import { CaptureIdeaDialog } from "./work/capture-idea-dialog.tsx";
 
 /**
- * The lockup, the page's title with its crumb, the Project filter, and "Idea", which captures one
- * from any page.
+ * The lockup, the page's title with its crumb, the Project filter, the search, and "Idea", which
+ * captures one from any page.
  */
 export function TopBar({ title, crumb, parent }: Partial<PageHeading>): ReactNode {
   const [capturing, setCapturing] = useState(false);
+  const [reading, setReading] = useState<{ readonly id: string; readonly name: string }>();
   // On a Project's or a Task's page an Idea is captured in that Project, and elsewhere in the one
   // Project the filter shows, unless the user chooses otherwise.
   const { projectId, taskId } = useParams({ strict: false });
@@ -41,6 +44,7 @@ export function TopBar({ title, crumb, parent }: Partial<PageHeading>): ReactNod
       )}
       <span className="shell-grow" />
       <ProjectFilterMenu />
+      <TopBarSearch onOpenDocument={setReading} />
       <Button
         variant="secondary"
         iconLeft={<Icon name="plus" size={14} />}
@@ -54,6 +58,7 @@ export function TopBar({ title, crumb, parent }: Partial<PageHeading>): ReactNod
           onClose={() => setCapturing(false)}
         />
       )}
+      {reading && <DocumentDialog document={reading} onClose={() => setReading(undefined)} />}
     </header>
   );
 }

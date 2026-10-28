@@ -110,6 +110,12 @@ export function toSearchResultsResponse(results: SearchResults): SearchResultsRe
       owner: toOwnerResponse(record.owner),
       projectIds: [...projectIds],
     })),
+    inOtherProjects: {
+      tasks: results.inOtherProjects.tasks,
+      ideas: results.inOtherProjects.ideas,
+      initiatives: results.inOtherProjects.initiatives,
+      attachments: results.inOtherProjects.documents,
+    },
   };
 }
 

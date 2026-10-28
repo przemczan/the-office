@@ -9,7 +9,8 @@ import { toAttachment, toIdea, toInitiative, toTask } from "./work-rows.js";
 /*
  * Each record's searched text is parsed as it is searched: The Office holds one user's records, so
  * reading every row is quick. A document's text, the one long field, is parsed once as it is
- * stored. A title or name weighs most, so it ranks first.
+ * stored. A title or name weighs most, so it ranks first. Every match is answered: the search
+ * narrows them by the Project filter before it keeps the best.
  */
 
 const taskVector = sql`setweight(${searchVectorOf(tasks.title)}, 'A')
@@ -40,33 +41,29 @@ export class PostgresWorkSearch extends WorkSearch {
     return new Set(rows.map(({ id }) => id));
   }
 
-  async matches(words: readonly string[], limit: number): Promise<SearchMatches> {
+  async matches(words: readonly string[]): Promise<SearchMatches> {
     const [taskRows, ideaRows, initiativeRows, documentRows] = await Promise.all([
       this.database
         .select()
         .from(tasks)
         .where(matching(taskVector, words))
-        .orderBy(bestFirst(taskVector, words), asc(tasks.id))
-        .limit(limit),
+        .orderBy(bestFirst(taskVector, words), asc(tasks.id)),
       this.database
         .select()
         .from(ideas)
         .where(matching(ideaVector, words))
-        .orderBy(bestFirst(ideaVector, words), asc(ideas.id))
-        .limit(limit),
+        .orderBy(bestFirst(ideaVector, words), asc(ideas.id)),
       this.database
         .select()
         .from(initiatives)
         .where(matching(initiativeVector, words))
-        .orderBy(bestFirst(initiativeVector, words), asc(initiatives.id))
-        .limit(limit),
+        .orderBy(bestFirst(initiativeVector, words), asc(initiatives.id)),
       this.database
         .select({ attachment: attachments })
         .from(attachments)
         .leftJoin(attachmentTexts, eq(attachmentTexts.attachmentId, attachments.id))
         .where(and(eq(attachments.kind, "document"), matching(documentVector, words)))
-        .orderBy(bestFirst(documentVector, words), asc(attachments.id))
-        .limit(limit),
+        .orderBy(bestFirst(documentVector, words), asc(attachments.id)),
     ]);
     return {
       tasks: taskRows.map(toTask),

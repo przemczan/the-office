@@ -1,0 +1,131 @@
+.top-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 260px;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--fg-3);
+}
+
+/* The box, not the field inside it, shows the focus ring. */
+.top-search:focus-within {
+  border-color: var(--border-focus);
+  box-shadow: var(--focus-ring);
+}
+
+.top-search > svg {
+  flex: none;
+}
+
+.top-search-field {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--fg-1);
+  font: var(--type-body-sm);
+}
+
+.top-search-field:focus-visible {
+  box-shadow: none;
+}
+
+.top-search-field::-webkit-search-cancel-button {
+  appearance: none;
+}
+
+.top-search-field::placeholder {
+  color: var(--fg-3);
+}
+
+.top-search-shortcut {
+  flex: none;
+  padding: 2px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg-3);
+  font: var(--type-overline);
+}
+
+.top-search-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: var(--z-dropdown);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 420px;
+  max-height: min(480px, 70vh);
+  overflow: auto;
+  padding: 6px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-3);
+}
+
+.top-search-heading {
+  margin: 0;
+  padding: 6px 8px 4px;
+  font: var(--type-overline);
+  color: var(--fg-3);
+  text-transform: uppercase;
+}
+
+.top-search-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px;
+  border-radius: var(--radius-control);
+  font: var(--type-body-sm);
+  color: var(--fg-1);
+  cursor: pointer;
+}
+
+.top-search-option.on,
+.top-search-option:hover {
+  background: var(--surface-selected);
+}
+
+.top-search-option > svg {
+  flex: none;
+  color: var(--fg-3);
+}
+
+.top-search-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.top-search-marks {
+  display: inline-flex;
+  flex: none;
+  gap: 4px;
+}
+
+.top-search-none {
+  margin: 0;
+  padding: 8px;
+  font: var(--type-body-sm);
+  color: var(--fg-3);
+}
+
+/* As in the click-through, the phone's top bar has no room for the search. */
+@media (max-width: 720px) {
+  .top-search {
+    display: none;
+  }
+}

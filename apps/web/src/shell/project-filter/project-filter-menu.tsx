@@ -1,9 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Project } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { ProjectMark } from "../project-mark.tsx";
+import { useClosedFromOutside } from "../use-closed-from-outside.ts";
 import {
   onlyProject,
   projectFilterLabel,
@@ -118,28 +119,4 @@ function ProjectRow({
 
 function Check({ on }: { readonly on: boolean }): ReactNode {
   return <span className="project-filter-check">{on && <Icon name="check" size={14} />}</span>;
-}
-
-/** Closes the open menu on a press outside it or on Escape, as the design system's Menu does. */
-function useClosedFromOutside(
-  open: boolean,
-  setOpen: (open: boolean) => void,
-): RefObject<HTMLDivElement | null> {
-  const menu = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (!open) return;
-    const onPress = (event: MouseEvent): void => {
-      if (!menu.current?.contains(event.target as Node)) setOpen(false);
-    };
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") setOpen(false);
-    };
-    document.addEventListener("mousedown", onPress);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("mousedown", onPress);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, [open, setOpen]);
-  return menu;
 }

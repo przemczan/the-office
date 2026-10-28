@@ -4,6 +4,7 @@ import type { Idea } from "../domain/idea.js";
 import type { Initiative } from "../domain/initiative.js";
 import { initiativeProjectIds, tasksByInitiative } from "../domain/initiative-changes.js";
 import { boardOrder } from "../domain/manual-order.js";
+import { isInProjectFilter, type ProjectFilter } from "../domain/project-filter.js";
 import { SEARCH_RESULT_LIMIT, searchWords } from "../domain/search.js";
 import type { Task } from "../domain/task.js";
 import { IdeaRepository } from "../ports/idea-repository.js";
@@ -16,16 +17,34 @@ export interface Found<Record> {
   readonly projectIds: readonly string[];
 }
 
-/** What a search across The Office found, by kind, the best matches first. */
+/** How many more matches of each kind the Project filter leaves out. */
+export interface InOtherProjects {
+  readonly tasks: number;
+  readonly ideas: number;
+  readonly initiatives: number;
+  readonly documents: number;
+}
+
+/**
+ * What a search across The Office found in the Projects the Project filter shows, by kind, the
+ * best matches first; and how many more match in other Projects.
+ */
 export interface SearchResults {
   readonly tasks: readonly Found<Task>[];
   readonly ideas: readonly Found<Idea>[];
   readonly initiatives: readonly Found<Initiative>[];
   /** Document Attachments, in their owner's Projects. */
   readonly documents: readonly Found<Attachment>[];
+  readonly inOtherProjects: InOtherProjects;
 }
 
-const NOTHING_FOUND: SearchResults = { tasks: [], ideas: [], initiatives: [], documents: [] };
+const NOTHING_FOUND: SearchResults = {
+  tasks: [],
+  ideas: [],
+  initiatives: [],
+  documents: [],
+  inOtherProjects: { tasks: 0, ideas: 0, initiatives: 0, documents: 0 },
+};
 
 /** Both searches, the board's and the top bar's, over the one full-text search (spec §2.1). */
 @Injectable()
@@ -46,28 +65,65 @@ export class SearchService {
   }
 
   /** Nothing for no words. */
-  async everything(query: string): Promise<SearchResults> {
+  async everything(query: string, filter: ProjectFilter): Promise<SearchResults> {
     const words = searchWords(query);
     if (words.length === 0) return NOTHING_FOUND;
     const [matches, board, ideas] = await Promise.all([
-      this.search.matches(words, SEARCH_RESULT_LIMIT),
+      this.search.matches(words),
       this.tasks.list(),
       this.ideas.list(),
     ]);
     const projects = new ProjectsOf(board, ideas);
-    return {
-      tasks: matches.tasks.map((task) => ({ record: task, projectIds: [task.projectId] })),
-      ideas: matches.ideas.map((idea) => ({ record: idea, projectIds: projects.ofIdea(idea.id) })),
-      initiatives: matches.initiatives.map((initiative) => ({
+    const tasks = narrowed(
+      matches.tasks.map((task) => ({ record: task, projectIds: [task.projectId] })),
+      filter,
+    );
+    const foundIdeas = narrowed(
+      matches.ideas.map((idea) => ({ record: idea, projectIds: projects.ofIdea(idea.id) })),
+      filter,
+    );
+    const initiatives = narrowed(
+      matches.initiatives.map((initiative) => ({
         record: initiative,
         projectIds: projects.ofInitiative(initiative.id),
       })),
-      documents: matches.documents.map((document) => ({
+      filter,
+    );
+    const documents = narrowed(
+      matches.documents.map((document) => ({
         record: document,
         projectIds: projects.ofOwner(document.owner),
       })),
+      filter,
+    );
+    return {
+      tasks: tasks.shown,
+      ideas: foundIdeas.shown,
+      initiatives: initiatives.shown,
+      documents: documents.shown,
+      inOtherProjects: {
+        tasks: tasks.inOtherProjects,
+        ideas: foundIdeas.inOtherProjects,
+        initiatives: initiatives.inOtherProjects,
+        documents: documents.inOtherProjects,
+      },
     };
   }
+}
+
+/**
+ * The best matches the Project filter shows, at most `SEARCH_RESULT_LIMIT`, and how many it
+ * leaves out. The filter narrows before the limit, so a narrow filter still finds its matches.
+ */
+function narrowed<Record>(
+  found: readonly Found<Record>[],
+  filter: ProjectFilter,
+): { readonly shown: readonly Found<Record>[]; readonly inOtherProjects: number } {
+  const shown = found.filter(({ projectIds }) => isInProjectFilter(projectIds, filter));
+  return {
+    shown: shown.slice(0, SEARCH_RESULT_LIMIT),
+    inOtherProjects: found.length - shown.length,
+  };
 }
 
 /** The Projects of each record, from the board and the Ideas as read once for a search. */

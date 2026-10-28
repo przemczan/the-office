@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
+import type { ProjectFilter } from "./project-filter.js";
 
 /** Who captured, created or attached something: the user, or a person by their Role's key. */
 export const authorSchema = z.discriminatedUnion("kind", [
@@ -246,10 +247,30 @@ export const attachmentListSchema = z.array(attachmentSchema);
 export const searchQuerySchema = z.object({ query: z.string().default("") });
 export type SearchQuery = z.infer<typeof searchQuerySchema>;
 
+/**
+ * The query of GET /search: the words, and the Projects the Project filter shows as one `project`
+ * each, every Project when none is named.
+ */
+export const searchEverythingQuerySchema = searchQuerySchema.extend({
+  project: z
+    .union([z.string(), z.array(z.string())])
+    .optional()
+    .transform((project): ProjectFilter => {
+      const projectIds = typeof project === "string" ? [project] : (project ?? []);
+      return projectIds.length === 0 ? "all" : projectIds;
+    }),
+});
+export type SearchEverythingQuery = z.infer<typeof searchEverythingQuerySchema>;
+
 /** The Projects a found record is in; none for one Office-wide. */
 const foundFields = { id: z.uuid(), projectIds: z.array(z.string()) };
 
-/** GET /search: what the top bar's search found, by kind, the best matches first. */
+const countOfKind = z.number().int().nonnegative();
+
+/**
+ * GET /search: what the top bar's search found in the Projects the Project filter shows, by kind,
+ * the best matches first; and how many more of each kind match in other Projects.
+ */
 export const searchResultsSchema = z.object({
   tasks: z.array(z.object({ ...foundFields, title: z.string(), state: taskStateSchema })),
   ideas: z.array(z.object({ ...foundFields, title: z.string(), state: ideaStateSchema })),
@@ -260,6 +281,12 @@ export const searchResultsSchema = z.object({
   attachments: z.array(
     z.object({ ...foundFields, name: z.string(), owner: attachmentOwnerSchema }),
   ),
+  inOtherProjects: z.object({
+    tasks: countOfKind,
+    ideas: countOfKind,
+    initiatives: countOfKind,
+    attachments: countOfKind,
+  }),
 });
 export type SearchResults = z.infer<typeof searchResultsSchema>;
 

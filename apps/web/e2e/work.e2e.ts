@@ -3,7 +3,9 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   ideaSchema,
   projectSchema,
+  presetListSchema,
   recordPath,
+  roleSchema,
   taskSchema,
   type NewProject,
   type Project,
@@ -474,6 +476,80 @@ test("the user saves the board's filters as a view, applies it and removes it", 
   await views.getByRole("button", { name: `Remove the view ${name}` }).click();
   await expect(view).toBeHidden();
   await expect.poll(shown).toEqual(["Viewed radio driver"]);
+});
+
+test("the top bar's search finds records and people, follows the Project filter, and opens the pick", async ({
+  page,
+}) => {
+  const alpha = await addedProject(page, "Searched alpha", "SA");
+  const beta = await addedProject(page, "Searched beta", "SB");
+  // So that alpha is never every Project, whichever other files have run.
+  await addedProject(page, "Searched gamma", "SG");
+  await createdTask(page, alpha, "Quokka redirect");
+  const telemetry = await createdTask(page, beta, "Quokka telemetry");
+  const idea = await page.request.post("/api/ideas", {
+    data: { title: "Quokka office-wide idea", notes: "", projectId: null },
+  });
+  expect(idea.status()).toBe(201);
+  const document = await page.request.post(
+    `/api/tasks/${telemetry.id}/attachments/files?${new URLSearchParams({ fileName: "quokka-notes.md", mediaType: "text/markdown" })}`,
+    {
+      headers: { "content-type": "application/octet-stream" },
+      data: Buffer.from("# Quokka notes\n\nCount the hops."),
+    },
+  );
+  expect(document.status()).toBe(201);
+  const [preset] = presetListSchema.parse(await (await page.request.get("/api/presets")).json());
+  if (!preset) throw new Error("The Office offers its presets.");
+  const hired = await page.request.post("/api/roles", {
+    data: { card: { ...preset.card, name: "Quinta", title: "Quokka Keeper", skills: [] } },
+  });
+  expect(hired.status()).toBe(201);
+  const { key: keeper } = roleSchema.parse(await hired.json());
+
+  const search = page.getByRole("combobox", { name: "Search The Office" });
+  const found = page.getByRole("listbox", { name: "Found" });
+  const showAll = page.getByRole("button", {
+    name: /matches in other Projects.*Show all projects/,
+  });
+  await page.goto("/work");
+  await page.getByRole("button", { name: /^Project filter:/ }).click();
+  await page.getByRole("button", { name: "Show only Searched alpha" }).click();
+
+  await page.keyboard.press("ControlOrMeta+K");
+  await expect(search).toBeFocused();
+  await page.keyboard.type("quok");
+  await expect(found.getByRole("option", { name: "Quokka redirect" })).toBeVisible();
+  await expect(found.getByRole("option", { name: "Quokka office-wide idea" })).toBeVisible();
+  await expect(found.getByRole("option", { name: "Quokka telemetry" })).toHaveCount(0);
+  await expect(showAll).toHaveText(/2 more matches in other Projects/);
+  await page.keyboard.press("ArrowDown");
+  await expect(found.getByRole("option", { name: "Quokka office-wide idea" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-top-bar-search.png") });
+
+  await showAll.click();
+  await expect(showAll).toHaveCount(0);
+  await expect(found.getByRole("option", { name: "quokka-notes.md" })).toBeVisible();
+  await search.fill("quokka tele");
+  await expect(found.getByRole("option")).toHaveCount(1);
+  await expect(found.getByRole("option", { name: "Quokka telemetry" })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(new RegExp(`/tasks/${telemetry.id}$`));
+  await expect(search).toHaveValue("");
+
+  await page.keyboard.press("ControlOrMeta+K");
+  await page.keyboard.type("quokka notes");
+  await found.getByRole("option", { name: "quokka-notes.md" }).click();
+  await expect(page.getByRole("dialog")).toContainText("Count the hops.");
+  await page.keyboard.press("Escape");
+
+  await page.keyboard.press("ControlOrMeta+K");
+  await page.keyboard.type("quinta keep");
+  await found.getByRole("option", { name: "Quinta · Quokka Keeper" }).click();
+  await expect(page).toHaveURL(new RegExp(`/people/${keeper}$`));
 });
 
 test("a Task's page shows its record, takes Attachments of every kind and opens them", async ({

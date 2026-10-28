@@ -21,6 +21,6 @@ export abstract class WorkSearch {
   /** The ids of every Task matching all `words`. */
   abstract matchingTaskIds(words: readonly string[]): Promise<ReadonlySet<string>>;
 
-  /** At most `limit` records of each kind matching all `words`. */
-  abstract matches(words: readonly string[], limit: number): Promise<SearchMatches>;
+  /** Every record of each kind matching all `words`. */
+  abstract matches(words: readonly string[]): Promise<SearchMatches>;
 }

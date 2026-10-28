@@ -17,6 +17,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { AttachmentService } from "../../application/attachment-service.js";
 import type { Attachment as DomainAttachment } from "../../domain/attachment.js";
 import { THE_USER } from "../../domain/author.js";
+import { SEARCH_RESULT_LIMIT } from "../../domain/search.js";
 import { AttachmentFiles } from "../../ports/attachment-files.js";
 import { AttachmentRepository } from "../../ports/attachment-repository.js";
 import {
@@ -65,8 +66,13 @@ async function boardTasks(query: string): Promise<string[]> {
   return taskListSchema.parse(await response.json()).map(({ title }) => title);
 }
 
-async function searched(query: string): Promise<SearchResults> {
-  const response = await fetch(`${work.url}/api/search?${new URLSearchParams({ query })}`);
+/** The Project filter shows the `projects` named, every Project when none is. */
+async function searched(query: string, projects: readonly string[] = []): Promise<SearchResults> {
+  const params = new URLSearchParams([
+    ["query", query],
+    ...projects.map((id): [string, string] => ["project", id]),
+  ]);
+  const response = await fetch(`${work.url}/api/search?${params}`);
   expect(response.status).toBe(200);
   return searchResultsSchema.parse(await response.json());
 }
@@ -119,6 +125,8 @@ describe("GET /tasks with a query", () => {
   });
 });
 
+const NONE_IN_OTHER_PROJECTS = { tasks: 0, ideas: 0, initiatives: 0, attachments: 0 };
+
 describe("GET /search", () => {
   it("finds each kind of record with the Projects it is in", async () => {
     const task = await createdTask(`Fix the ${word} redirect`);
@@ -167,6 +175,7 @@ describe("GET /search", () => {
       attachments: [
         { id: document.id, name: "notes.md", owner: document.owner, projectIds: [projectId] },
       ],
+      inOtherProjects: NONE_IN_OTHER_PROJECTS,
     });
   });
 
@@ -204,7 +213,13 @@ describe("GET /search", () => {
   it("finds nothing for no words, and reads query syntax as separators", async () => {
     await createdTask(`A ${word}`);
 
-    const nothing = { tasks: [], ideas: [], initiatives: [], attachments: [] };
+    const nothing = {
+      tasks: [],
+      ideas: [],
+      initiatives: [],
+      attachments: [],
+      inOtherProjects: NONE_IN_OTHER_PROJECTS,
+    };
     expect(await searched("")).toEqual(nothing);
     expect((await searched(`!(${word}):* | &`)).tasks).toHaveLength(1);
   });
@@ -272,6 +287,52 @@ describe("GET /search", () => {
     await sendJson(work, "DELETE", `/attachments/${document.id}`);
 
     expect((await searched(word)).attachments).toEqual([]);
+  });
+});
+
+describe("GET /search with the Project filter", () => {
+  it("finds the matches in the Projects named and those with no Project, counting the rest", async () => {
+    const shown = await createdTask(`Shown ${word}`);
+    const otherProjectId = `project-${randomUUID()}`;
+    await createdTask(`Elsewhere ${word}`, { projectId: otherProjectId });
+    const officeWide = ideaSchema.parse(
+      await (
+        await sendJson(work, "POST", "/ideas", {
+          title: `${word} idea`,
+          notes: "",
+          projectId: null,
+        })
+      ).json(),
+    );
+    await sendJson(work, "POST", "/ideas", {
+      title: `${word} elsewhere`,
+      notes: "",
+      projectId: otherProjectId,
+    });
+
+    const found = await searched(word, [projectId]);
+
+    expect(found.tasks.map(({ id }) => id)).toEqual([shown.id]);
+    expect(found.ideas.map(({ id }) => id)).toEqual([officeWide.id]);
+    expect(found.inOtherProjects).toEqual({ ...NONE_IN_OTHER_PROJECTS, tasks: 1, ideas: 1 });
+    expect((await searched(word, [projectId, otherProjectId])).tasks).toHaveLength(2);
+  });
+
+  it("keeps the best matches after narrowing, so a narrow filter finds what ranks below others", async () => {
+    const otherProjectId = `project-${randomUUID()}`;
+    const elsewhere = SEARCH_RESULT_LIMIT + 1;
+    for (let index = 0; index < elsewhere; index++) {
+      await createdTask(`${word} elsewhere ${index}`, { projectId: otherProjectId });
+    }
+    // Matched only in its Plan, it ranks below every title match.
+    const planned = await createdTask("Planned");
+    await sendJson(work, "PUT", `/tasks/${planned.id}/plan`, { plan: `Keep ${word}.` });
+
+    const found = await searched(word, [projectId]);
+
+    expect(found.tasks.map(({ id }) => id)).toEqual([planned.id]);
+    expect(found.inOtherProjects.tasks).toBe(elsewhere);
+    expect((await searched(word)).tasks).toHaveLength(SEARCH_RESULT_LIMIT);
   });
 });
 

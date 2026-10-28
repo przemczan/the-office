@@ -78,11 +78,11 @@ function AttachmentOpener({
 }
 
 /** A document's Markdown, as written. */
-function DocumentDialog({
+export function DocumentDialog({
   document,
   onClose,
 }: {
-  readonly document: Attachment;
+  readonly document: Pick<Attachment, "id" | "name">;
   readonly onClose: () => void;
 }): ReactNode {
   const text = useQuery(attachmentQueries.document(document.id));

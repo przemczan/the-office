@@ -1,7 +1,7 @@
 import { Controller, Get, Query } from "@nestjs/common";
 import {
-  searchQuerySchema,
-  type SearchQuery,
+  searchEverythingQuerySchema,
+  type SearchEverythingQuery,
   type SearchResults as SearchResultsResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
@@ -15,8 +15,8 @@ export class SearchController {
 
   @Get()
   async everything(
-    @Query(new ContractPipe(searchQuerySchema)) { query }: SearchQuery,
+    @Query(new ContractPipe(searchEverythingQuerySchema)) { query, project }: SearchEverythingQuery,
   ): Promise<SearchResultsResponse> {
-    return toSearchResultsResponse(await this.search.everything(query));
+    return toSearchResultsResponse(await this.search.everything(query, project));
   }
 }

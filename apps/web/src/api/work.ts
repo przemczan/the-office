@@ -10,6 +10,7 @@ import {
   readinessSchema,
   savedViewListSchema,
   savedViewSchema,
+  searchResultsSchema,
   startCheckSchema,
   taskListSchema,
   taskSchema,
@@ -25,6 +26,7 @@ import {
   type OfficeWideLimit,
   type OutcomeChange,
   type Priority,
+  type ProjectFilter,
   type Readiness,
   type SavedView,
   type StartCheck,
@@ -108,6 +110,21 @@ export function saveView(newSavedView: NewSavedView): Promise<SavedView> {
 export function removeView(id: string): Promise<void> {
   return deleteFromApi(`/saved-views/${encodeURIComponent(id)}`);
 }
+
+/**
+ * What the top bar's search finds in the Projects the Project filter shows, each named as a
+ * `project`; nothing for no words.
+ */
+export const searchQuery = (query: string, filter: ProjectFilter) =>
+  queryOptions({
+    queryKey: ["search", query, filter],
+    queryFn: ({ signal }) => {
+      const projects =
+        filter === "all" ? [] : filter.map((id): [string, string] => ["project", id]);
+      const params = new URLSearchParams([["query", query], ...projects]);
+      return getFromApi(`/search?${params}`, searchResultsSchema, signal);
+    },
+  });
 
 export const taskQueries = {
   /** Every Task, in the board's order: by priority, then by manual order. */
