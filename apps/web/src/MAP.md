@@ -50,7 +50,7 @@
 - `shell.tsx`: Shell
 - `skill-chip.tsx`: SkillChip
 - `skill-update-diff.tsx`: SkillUpdateDiff
-- `skill-words.ts`: pinnedVersionLabel, sourceLabel
+- `skill-words.ts`: pinnedVersionLabel, samePinnedVersion, sourceLabel
 - `status-strip.tsx`: StatusStrip
 - `time.ts`: dayOf, dayAndClockOf, clockOf, momentWords, durationWords
 - `toasts.tsx`: Notice, Notices, ToastProvider, useToast, useNotices

@@ -5,6 +5,10 @@ export function pinnedVersionLabel(pinnedVersion: PinnedVersion): string {
   return pinnedVersion.tag ?? pinnedVersion.commit.slice(0, 7);
 }
 
+export function samePinnedVersion(first: PinnedVersion, second: PinnedVersion): boolean {
+  return first.tag === second.tag && first.commit === second.commit;
+}
+
 /** Where an installed skill comes from: the repository, and its folder there unless the top. */
 export function sourceLabel({
   repository,

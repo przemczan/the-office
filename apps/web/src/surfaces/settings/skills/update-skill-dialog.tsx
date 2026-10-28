@@ -10,7 +10,7 @@ import { useAskDevops } from "../../../shell/ask-devops.tsx";
 import { roleName } from "../../../shell/person-name.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { SkillUpdateDiff } from "../../../shell/skill-update-diff.tsx";
-import { pinnedVersionLabel } from "../../../shell/skill-words.ts";
+import { pinnedVersionLabel, samePinnedVersion } from "../../../shell/skill-words.ts";
 import { useToast } from "../../../shell/toasts.tsx";
 
 type ProposedSkillUpdate = Extract<ProposedChange, { kind: "skill-update" }>;
@@ -33,9 +33,14 @@ export function UpdateSkillDialog({
   const queryClient = useQueryClient();
   const showToast = useToast();
   const skill = skills.data?.find((candidate) => candidate.name === name);
+  const pinned = skill?.installedFrom?.pinnedVersion;
+  // One proposed from another pinned version is stale and would be refused, so it isn't offered.
   const proposal = open.data?.find(
     (candidate): candidate is Proposal & { change: ProposedSkillUpdate } =>
-      candidate.change.kind === "skill-update" && candidate.change.name === name,
+      candidate.change.kind === "skill-update" &&
+      candidate.change.name === name &&
+      pinned !== undefined &&
+      samePinnedVersion(candidate.change.from, pinned),
   );
   const applying = useMutation({
     mutationFn: (id: string) => applyProposal(id, {}),
