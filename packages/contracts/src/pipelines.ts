@@ -255,6 +255,25 @@ export const stagesCheckSchema = z.object({ problems: z.array(stageProblemSchema
 export type StagesCheck = z.infer<typeof stagesCheckSchema>;
 
 /**
+ * POST /pipelines/check: a library Pipeline as the editor holds it; `pipelineId` names the one being
+ * saved, so its own name isn't taken, and is absent for a new one.
+ */
+export const pipelineCheckRequestSchema = pipelineEditSchema.extend({
+  pipelineId: z.string().min(1).optional(),
+});
+export type PipelineCheckRequest = z.infer<typeof pipelineCheckRequestSchema>;
+
+/**
+ * What saving a library Pipeline would be refused for, and what the editor flags but saves: an
+ * Agent Stage whose Role nobody fills, which pauses a Task that reaches it.
+ */
+export const pipelineCheckSchema = z.object({
+  problems: z.array(stageProblemSchema),
+  flags: z.array(stageProblemSchema),
+});
+export type PipelineCheck = z.infer<typeof pipelineCheckSchema>;
+
+/**
  * 422 from PUT /tasks/:id/stages: every reason the edit can't be saved, as words like every refusal's
  * and on the Stage each concerns.
  */

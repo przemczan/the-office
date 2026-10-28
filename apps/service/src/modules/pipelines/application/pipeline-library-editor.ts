@@ -5,6 +5,7 @@ import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import {
   addedPipeline,
   copiedPipeline,
+  pipelineEditFlags,
   pipelineEditProblems,
   pipelineUse,
   removalProblems,
@@ -12,7 +13,7 @@ import {
   type PipelineEdit,
   type PipelineUse,
 } from "../domain/library-pipeline.js";
-import type { Pipeline } from "../domain/pipeline.js";
+import type { Pipeline, StageProblem } from "../domain/pipeline.js";
 import { PipelineRemoved } from "../domain/pipeline-library-events.js";
 import { PipelineRemovalRefused, UnknownPipeline } from "../domain/pipeline-library-refusals.js";
 import { StagesEditRefused } from "../domain/stages-edit-refused.js";
@@ -93,6 +94,22 @@ export class PipelineLibraryEditor {
     if (!(await this.repository.find(id))) throw new UnknownPipeline(id);
     const [projects, tasks] = await Promise.all([this.projects.list(), this.tasks.list()]);
     return pipelineUse(id, projects, tasks);
+  }
+
+  /**
+   * What saving the edit would be refused for and what it would only flag; it saves nothing.
+   * `pipelineId` is the Pipeline being saved, undefined for a new one.
+   */
+  async check(
+    edit: PipelineEdit,
+    pipelineId: string | undefined,
+  ): Promise<{ readonly problems: StageProblem[]; readonly flags: StageProblem[] }> {
+    const others = (await this.repository.list()).filter(({ id }) => id !== pipelineId);
+    const roles = await this.roleFillings.of(edit.stages);
+    return {
+      problems: pipelineEditProblems(edit, others, roles),
+      flags: pipelineEditFlags(edit, roles),
+    };
   }
 
   private async refuseProblems(edit: PipelineEdit, others: readonly Pipeline[]): Promise<void> {

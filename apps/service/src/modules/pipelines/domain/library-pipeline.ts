@@ -2,7 +2,7 @@ import { ONBOARD_PIPELINE } from "./built-in-pipelines.js";
 import { stageProblems, type Pipeline, type StageProblem } from "./pipeline.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
 import type { Stage } from "./stage.js";
-import { staffingProblems, type RoleFilling } from "./stage-staffing.js";
+import { talkOnlyRoleProblems, vacantRoleFlags, type RoleFilling } from "./stage-staffing.js";
 
 /** What the user writes of a library Pipeline in the library editor; its id stays. */
 export interface PipelineEdit {
@@ -38,8 +38,9 @@ const NOT_STARTED_STATES: readonly string[] = ["backlog", "planning", "ready"];
 const RUNNING_STATES: readonly string[] = ["in-progress", "waiting-on-you", "paused"];
 
 /**
- * Every reason the edited Pipeline can't be saved, as the Stage editor checks a Task's Stages: the
- * Stages can run and someone can work each Agent Stage, and the name is its own.
+ * Every reason the edited Pipeline can't be saved: the name is its own, the Stages can run, and no
+ * Agent Stage names a Role whose person only talks. A Role nobody fills is only flagged
+ * (`pipelineEditFlags`), unlike in a Task's editor: the library outlives who is hired.
  */
 export function pipelineEditProblems(
   edit: PipelineEdit,
@@ -49,8 +50,19 @@ export function pipelineEditProblems(
   return [
     ...nameProblems(edit.name, otherPipelines),
     ...stageProblems(edit.stages),
-    ...staffingProblems(edit.stages, 0, roles),
+    ...talkOnlyRoleProblems(edit.stages, roles),
   ];
+}
+
+/**
+ * What the editor flags but saves: Agent Stages whose Role nobody fills. A Task reaching one is
+ * paused at Start's staffing hold until someone fills the Role.
+ */
+export function pipelineEditFlags(
+  edit: PipelineEdit,
+  roles: ReadonlyMap<string, RoleFilling>,
+): StageProblem[] {
+  return vacantRoleFlags(edit.stages, roles);
 }
 
 /** A Pipeline made from scratch, which `pipelineEditProblems` allowed. */

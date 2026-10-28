@@ -25,22 +25,59 @@ export function staffingProblems(
   fromIndex: number,
   roles: ReadonlyMap<string, RoleFilling>,
 ): StageProblem[] {
+  return problemsOnAgentStages(
+    stages,
+    fromIndex,
+    roles,
+    (filling) => vacancyProblem(filling) ?? talkOnlyProblem(filling),
+  );
+}
+
+/**
+ * Agent Stages whose Role is filled by someone who only talks: no Pipeline may name the Role while
+ * that stands (spec §2.2), so the library refuses it as a Task's editor does.
+ */
+export function talkOnlyRoleProblems(
+  stages: readonly Stage[],
+  roles: ReadonlyMap<string, RoleFilling>,
+): StageProblem[] {
+  return problemsOnAgentStages(stages, 0, roles, talkOnlyProblem);
+}
+
+/**
+ * Agent Stages whose Role nobody fills, never hired or let go. The library flags them and saves
+ * anyway: a Task reaching such a Stage is paused until someone fills the Role.
+ */
+export function vacantRoleFlags(
+  stages: readonly Stage[],
+  roles: ReadonlyMap<string, RoleFilling>,
+): StageProblem[] {
+  return problemsOnAgentStages(stages, 0, roles, vacancyProblem);
+}
+
+function problemsOnAgentStages(
+  stages: readonly Stage[],
+  fromIndex: number,
+  roles: ReadonlyMap<string, RoleFilling>,
+  problemOf: (filling: RoleFilling) => string | undefined,
+): StageProblem[] {
   return stages.flatMap((stage, stageIndex) => {
     if (stageIndex < fromIndex || stage.kind !== "agent" || stage.role.trim() === "") return [];
-    const problem = fillingProblem(
-      roles.get(stage.role) ?? { title: stage.role, person: undefined },
-    );
+    const problem = problemOf(roles.get(stage.role) ?? { title: stage.role, person: undefined });
     return problem ? [problemOnStage(stage, stageIndex, problem)] : [];
   });
 }
 
-function fillingProblem({ title, person, letGoPerson }: RoleFilling): string | undefined {
-  if (!person && letGoPerson) {
+function vacancyProblem({ title, person, letGoPerson }: RoleFilling): string | undefined {
+  if (person) return undefined;
+  if (letGoPerson) {
     return `${letGoPerson} was let go from ${title}; hire ${letGoPerson} back, hire someone else, or choose who works it.`;
   }
-  if (!person) return `nobody fills ${title}; hire someone or choose who works it.`;
-  if (person.taskLimit === "none") {
-    return `${person.name}'s Task limit is none, so ${title} only talks and can't work a Stage.`;
-  }
-  return undefined;
+  return `nobody fills ${title}; hire someone or choose who works it.`;
+}
+
+function talkOnlyProblem({ title, person }: RoleFilling): string | undefined {
+  return person?.taskLimit === "none"
+    ? `${person.name}'s Task limit is none, so ${title} only talks and can't work a Stage.`
+    : undefined;
 }

@@ -30,6 +30,7 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 ## HTTP routes (under `/api`)
 
 - `POST /pipelines`: PipelineLibraryController.add
+- `POST /pipelines/check`: PipelineLibraryController.check
 - `PUT /pipelines/:id`: PipelineLibraryController.save
 - `DELETE /pipelines/:id`: PipelineLibraryController.remove
 - `GET /pipelines/:id/use`: PipelineLibraryController.use
@@ -112,7 +113,7 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 - `followed-hard-switches.ts`: FollowedHardSwitchValue, FollowedHardSwitches, hardSwitchesSection
 - `gate-refused.ts`: GateRefused
 - `gate.ts`: GATE_REACHED, waitingGateRun, sendBackTargets, gateActionProblems
-- `library-pipeline.ts`: PipelineEdit, TaskOnPipeline, ProjectOnPipeline, PipelineUse, pipelineEditProblems, addedPipeline, savedPipeline, copiedPipeline, pipelineUse, removalProblems
+- `library-pipeline.ts`: PipelineEdit, TaskOnPipeline, ProjectOnPipeline, PipelineUse, pipelineEditProblems, pipelineEditFlags, addedPipeline, savedPipeline, copiedPipeline, pipelineUse, removalProblems
 - `pipeline-library-events.ts`: PipelineAdded, PipelineSaved, PipelineRemoved
 - `pipeline-library-refusals.ts`: PipelineRemovalRefused, UnknownPipeline
 - `pipeline-walk.ts`: WalkQuestion, NextMove, nextMove, unmetStatements
@@ -130,7 +131,7 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 - `stage-run-events.ts`: StageRunStarted, StageRunEnded, StopHeldAsPause, StageSkipped, BudgetReached, WentBackToStage, NoRetriesLeft, DefinitionOfDoneNotMet, GateReached, GateContinued, SentBackFromGate, GateDropped, PipelineCompleted
 - `stage-run.fixtures.ts`: aStageRun
 - `stage-run.ts`: StageRecommendation, StageDecision, StageOutcome, StageInterruption, UserInterruption, BaseMoved, BudgetReached, StageSessionMove, StageTokens, NO_STAGE_TOKENS, totalTokens, addTokens, StageOutcomeStatus, CarriedFailure, GateAction, SentBack, StageDecisionKind, WalkAnswer, StageRunDecision, AgentRunDecision, WalkRunDecision, WalkDecisionKind, StageRun
-- `stage-staffing.ts`: RoleFilling, staffingProblems
+- `stage-staffing.ts`: RoleFilling, staffingProblems, talkOnlyRoleProblems, vacantRoleFlags
 - `stage.fixtures.ts`: agentStage, scriptStage, gate
 - `stage.ts`: Stage, StageKind, STAGE_KIND_NAMES, ScriptStageCommand, StageSession, Effort, OnFailure, AgentStage, ScriptStage, Gate
 - `stages-edit-refused.ts`: StagesEditRefused

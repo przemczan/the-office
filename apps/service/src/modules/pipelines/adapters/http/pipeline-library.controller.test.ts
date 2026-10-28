@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+  pipelineCheckSchema,
   pipelineRemovalRefusalSchema,
   pipelineSchema,
   pipelineUseSchema,
@@ -97,11 +98,11 @@ describe("POST /api/pipelines", () => {
     expect(await response.json()).toMatchObject({ message: 'There is no Pipeline "nowhere".' });
   });
 
-  it("refuses a Pipeline the Stage editor would flag, naming every problem", async () => {
+  it("refuses a Pipeline the Stage editor would refuse, naming every problem", async () => {
     const response = await send(
       "POST",
       "/pipelines",
-      anEdit({ name: "Full", stages: [agentStage({ role: "devops" })] }),
+      anEdit({ name: "Full", stages: [agentStage({ key: "review", session: "continue" })] }),
     );
 
     expect(response.status).toBe(422);
@@ -110,9 +111,52 @@ describe("POST /api/pipelines", () => {
       { stageIndex: null, text: 'Another Pipeline is named "Full".' },
       {
         stageIndex: 0,
-        text: "Stage 1 · Implement: nobody fills Devops; hire someone or choose who works it.",
+        text: "Stage 1 · Implement: continuing a session needs the same Role in the Stage before.",
       },
     ]);
+  });
+
+  it("adds a Pipeline with an Agent Stage for a Role nobody fills", async () => {
+    const edit = anEdit({ stages: [agentStage({ role: "devops" })] });
+
+    const pipeline = await added(edit);
+
+    expect(pipeline.stages).toEqual(edit.stages);
+  });
+});
+
+describe("POST /api/pipelines/check", () => {
+  it("flags a Role nobody fills, which Save allows, apart from what it refuses", async () => {
+    const pipeline = await added();
+
+    const response = await send("POST", "/pipelines/check", {
+      ...anEdit({ name: "Full", stages: [agentStage({ role: "devops" })] }),
+      pipelineId: pipeline.id,
+    });
+
+    expect(response.status).toBe(200);
+    expect(pipelineCheckSchema.parse(await response.json())).toEqual({
+      problems: [{ stageIndex: null, text: 'Another Pipeline is named "Full".' }],
+      flags: [
+        {
+          stageIndex: 0,
+          text: "Stage 1 · Implement: nobody fills Devops; hire someone or choose who works it.",
+        },
+      ],
+    });
+  });
+
+  it("doesn't count the Pipeline being saved as taking its own name", async () => {
+    const pipeline = await added();
+
+    const response = await send("POST", "/pipelines/check", {
+      name: pipeline.name,
+      description: pipeline.description,
+      stages: pipeline.stages,
+      pipelineId: pipeline.id,
+    });
+
+    expect(pipelineCheckSchema.parse(await response.json())).toEqual({ problems: [], flags: [] });
   });
 });
 

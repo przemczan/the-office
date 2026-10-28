@@ -12,8 +12,11 @@ import {
 } from "@nestjs/common";
 import {
   newPipelineSchema,
+  pipelineCheckRequestSchema,
   pipelineEditSchema,
   type NewPipeline,
+  type PipelineCheck,
+  type PipelineCheckRequest,
   type Pipeline as PipelineResponse,
   type PipelineEdit,
   type PipelineUse,
@@ -21,7 +24,7 @@ import {
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { PipelineLibraryEditor } from "../../application/pipeline-library-editor.js";
 import { PipelineLibraryRefusalsFilter } from "./pipeline-library-refusals.filter.js";
-import { toPipelineResponse } from "./pipeline-responses.js";
+import { toPipelineResponse, toStageProblemResponse } from "./pipeline-responses.js";
 import { StagesEditRefusalsFilter } from "./stages-edit-refusals.filter.js";
 
 /**
@@ -41,6 +44,20 @@ export class PipelineLibraryController {
     const pipeline =
       "copyOf" in given ? await this.editor.copy(given.copyOf) : await this.editor.add(given);
     return toPipelineResponse(pipeline);
+  }
+
+  /** What saving the edit would be refused for, and what it would only flag; it saves nothing. */
+  @Post("check")
+  @HttpCode(HttpStatus.OK)
+  async check(
+    @Body(new ContractPipe(pipelineCheckRequestSchema))
+    { pipelineId, ...edit }: PipelineCheckRequest,
+  ): Promise<PipelineCheck> {
+    const { problems, flags } = await this.editor.check(edit, pipelineId);
+    return {
+      problems: problems.map(toStageProblemResponse),
+      flags: flags.map(toStageProblemResponse),
+    };
   }
 
   @Put(":id")

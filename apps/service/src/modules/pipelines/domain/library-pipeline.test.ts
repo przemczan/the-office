@@ -3,6 +3,7 @@ import { builtInPipelines } from "./built-in-pipelines.js";
 import {
   addedPipeline,
   copiedPipeline,
+  pipelineEditFlags,
   pipelineEditProblems,
   pipelineUse,
   removalProblems,
@@ -43,23 +44,42 @@ describe("pipelineEditProblems", () => {
     ).toEqual([{ text: 'Another Pipeline is named "full".' }]);
   });
 
-  it("checks the Stages as the Stage editor does, with who works them", () => {
+  it("checks the Stages as the Stage editor does, and refuses a Role whose person only talks", () => {
     const stages = [
-      agentStage({ role: "devops" }),
+      agentStage({ role: "consultant" }),
       agentStage({ key: "review", name: "Review", session: "continue" }),
       scriptStage({ onFailure: { goBackTo: "publish", rounds: 1 } }),
     ];
+    const roles = new Map<string, RoleFilling>([
+      ...DEVELOPER_HIRED,
+      ["consultant", { title: "Consultant", person: { name: "Kai", taskLimit: "none" } }],
+    ]);
 
-    expect(
-      pipelineEditProblems(anEdit({ stages }), [], DEVELOPER_HIRED).map(({ text }) => text),
-    ).toEqual([
+    expect(pipelineEditProblems(anEdit({ stages }), [], roles).map(({ text }) => text)).toEqual([
       "Stage 2 · Review: continuing a session needs the same Role in the Stage before.",
       "Stage 3 · Tests: on failure it can only go back to an earlier Stage.",
-      "Stage 1 · Implement: nobody fills devops; hire someone or choose who works it.",
+      "Stage 1 · Implement: Kai's Task limit is none, so Consultant only talks and can't work a Stage.",
     ]);
     expect(pipelineEditProblems(anEdit({ stages: [] }), [], DEVELOPER_HIRED)).toEqual([
       { text: "A Pipeline needs at least one Stage." },
     ]);
+  });
+
+  it("allows a Role nobody fills, never hired or let go, which it only flags", () => {
+    const stages = [
+      agentStage({ role: "devops" }),
+      agentStage({ key: "ship", name: "Ship", role: "designer" }),
+    ];
+    const roles = new Map<string, RoleFilling>([
+      ["devops", { title: "Devops", person: undefined, letGoPerson: "Dana" }],
+    ]);
+
+    expect(pipelineEditProblems(anEdit({ stages }), [], roles)).toEqual([]);
+    expect(pipelineEditFlags(anEdit({ stages }), roles).map(({ text }) => text)).toEqual([
+      "Stage 1 · Implement: Dana was let go from Devops; hire Dana back, hire someone else, or choose who works it.",
+      "Stage 2 · Ship: nobody fills designer; hire someone or choose who works it.",
+    ]);
+    expect(pipelineEditFlags(anEdit(), DEVELOPER_HIRED)).toEqual([]);
   });
 });
 
