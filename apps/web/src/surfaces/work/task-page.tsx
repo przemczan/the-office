@@ -8,7 +8,7 @@ import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, taskQueries } from "../../api/work.ts";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
-import { pipelineLabel, taskTokens } from "./stage-words.ts";
+import { pipelineLabel, REMOVED_PIPELINE, taskTokens } from "./stage-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
@@ -42,8 +42,9 @@ export function TaskPage(): ReactNode {
   });
   if (task.error) return <MissingRecord error={task.error} kind="Task" />;
   const record = task.data;
-  if (!record) return null;
-  const pipeline = pipelines.data?.find(({ id }) => id === record.pipelineId);
+  // Without the library a Pipeline it doesn't have would read as removed.
+  if (!record || !pipelines.data) return null;
+  const pipeline = pipelines.data.find(({ id }) => id === record.pipelineId);
   return (
     <div className="task-page">
       <TaskHead task={record} projects={projects.data} pipeline={pipeline} threads={threads.data} />
@@ -86,7 +87,7 @@ function TaskHead({
           <TaskStateBadge state={task.state} />
           {waitingOnYou(task) && <TaskStateBadge state="waiting-on-you" />}
           <ProjectChip projectId={task.projectId} projects={projects} />
-          <span>· Pipeline {pipelineLabel(pipeline?.name ?? task.pipelineId, editedForTask)}</span>
+          <span>· Pipeline {pipelineLabel(pipeline?.name ?? REMOVED_PIPELINE, editedForTask)}</span>
           <span>· {PRIORITY_NAMES[task.priority]} priority</span>
           {task.initiativeId !== null && <InitiativeLink initiativeId={task.initiativeId} />}
           <span>· {tokensShort(tokens)} tokens</span>

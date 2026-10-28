@@ -136,12 +136,15 @@ test("the install inputs are changed beside the install command", async ({ page 
   );
 });
 
-test("the default Pipeline picker lists Full, Quick fix and Document", async ({ page }) => {
+test("the default Pipeline picker lists the library, the built-ins first", async ({ page }) => {
   const project = await addedProject(page, "Pipeline choice");
   await page.goto(`/projects/${project.id}`);
   const picker = page.getByLabel("Default Pipeline");
 
-  await expect(picker.locator("option")).toHaveText([
+  // Other tests add Pipelines of their own after the built-ins.
+  await expect(picker.locator("option").first()).toHaveText("Full");
+  const options = await picker.locator("option").allTextContents();
+  expect(options.slice(0, 5)).toEqual([
     "Full",
     "Quick fix",
     "Document",

@@ -37,7 +37,7 @@
 - `resume-words.ts`: ResumeWords, HeldWork, resumeWords, latestRunOf
 - `run-controls.tsx`: RunControls
 - `saved-views.tsx`: SavedViewsRow
-- `stage-words.ts`: STAGE_STATE_WORDS, StageNames, pipelineLabel, stageNamesOf, stageRule, stageProgressLine, latestHandoverNote, scriptCommandLine, firstLine, taskTokens
+- `stage-words.ts`: STAGE_STATE_WORDS, StageNames, REMOVED_PIPELINE, pipelineLabel, stageNamesOf, stageRule, stageProgressLine, latestHandoverNote, scriptCommandLine, firstLine, taskTokens
 - `start-action.tsx`: StartButton
 - `tag-words.ts`: tagOf, withTag, tagsInUse
 - `tags-input.tsx`: TagsInput

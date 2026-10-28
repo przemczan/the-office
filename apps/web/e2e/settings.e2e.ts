@@ -33,6 +33,71 @@ test("Office limits keeps the desks and the size threshold across reloads", asyn
   await expect(threshold).toHaveText("30k");
 });
 
+// The e2e files share one database, and work.e2e.ts walks Full and Quick fix: this test makes
+// Pipelines of its own, with Script Stages and Gates only, as nobody may fill the Developer yet.
+test("the user makes a Pipeline, edits it, duplicates it and removes the copy; Onboard stays", async ({
+  page,
+}) => {
+  const name = `Nightly ${Date.now()}`;
+  await page.goto("/settings");
+  await expect(page).toHaveURL(/\/settings\/pipelines$/);
+  const library = page.getByRole("navigation", { name: "Pipelines" });
+  await expect(library.getByRole("link").first()).toContainText("Full");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-settings-pipelines.png") });
+
+  await page.getByRole("button", { name: "New Pipeline" }).click();
+  await expect(page.getByText("Give the Pipeline a name.")).toBeVisible();
+  await page.getByLabel("Name", { exact: true }).first().fill(name);
+  await page.getByRole("button", { name: "Script Stage" }).click();
+  await page
+    .getByLabel("Project command")
+    .selectOption({ label: "Publish (each Project's own command)" });
+  await page
+    .getByLabel("Publishes")
+    .selectOption({ label: "Push the branch only (proof of concept)" });
+  await page.getByRole("button", { name: "Gate", exact: true }).click();
+  await expect(page.getByText("pushes the branch only")).toBeVisible();
+  await page.getByRole("button", { name: "Add the Pipeline" }).click();
+
+  await expect(page.getByText(`${name} added to the library.`)).toBeVisible();
+  await expect(page).toHaveURL(/\/settings\/pipelines\/[\da-f-]{36}$/);
+  const item = library.getByRole("link", { name: new RegExp(`^${name}`) });
+  await expect(item).toContainText("Gate → Script");
+  await expect(
+    page.getByText(
+      "Default for no Project · 0 not started Tasks use it · 0 running Tasks keep the copy they started with",
+    ),
+  ).toBeVisible();
+
+  await page.getByLabel("Description").fill("Tried out at night.");
+  await expect(page.getByText("Unsaved changes")).toBeVisible();
+  await page.getByRole("button", { name: "Save the Pipeline" }).click();
+  await expect(
+    page.getByText(
+      "Pipeline saved. Tasks not started yet follow it; running ones keep their copy.",
+    ),
+  ).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("Description")).toHaveValue("Tried out at night.");
+
+  await page.getByRole("button", { name: `Duplicate ${name}` }).click();
+  await expect(page.getByLabel("Name", { exact: true }).first()).toHaveValue(`${name} (copy)`);
+  await page.getByRole("button", { name: "Remove", exact: true }).click();
+  await page.getByRole("button", { name: "Remove the Pipeline" }).click();
+  await expect(page.getByText(`${name} (copy) removed from the library.`)).toBeVisible();
+  await expect(library.getByRole("link", { name: new RegExp(`^${name} \\(copy\\)`) })).toHaveCount(
+    0,
+  );
+  await expect(item).toBeVisible();
+
+  await library.getByRole("link", { name: /^Onboard/ }).click();
+  await page.getByRole("button", { name: "Remove", exact: true }).click();
+  await page.getByRole("button", { name: "Remove the Pipeline" }).click();
+  await expect(
+    page.getByText("Onboarding uses the Onboard Pipeline, so it stays in the library."),
+  ).toBeVisible();
+});
+
 test.describe("Appearance", () => {
   // A system in dark, so each choice shows as a change from what the system gives.
   test.use({ colorScheme: "dark" });

@@ -36,6 +36,12 @@ const SESSION_WORDS: Readonly<Record<ContextMove, string>> = {
 export type StageNames = (key: string) => string;
 
 /** The Task's Pipeline as its Stages block names it, saying when it was edited for the Task. */
+/**
+ * A Task's Pipeline once the library no longer has it: a running or done Task keeps the copy of
+ * the Stages it started with, so it may name a Pipeline removed since.
+ */
+export const REMOVED_PIPELINE = "removed from the library";
+
 export function pipelineLabel(pipelineName: string, editedForTask: boolean): string {
   return editedForTask ? `${pipelineName} · edited for this Task` : pipelineName;
 }

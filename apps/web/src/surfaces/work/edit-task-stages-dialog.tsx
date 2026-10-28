@@ -126,8 +126,10 @@ function EditTaskStagesForm({
     >
       <div className="work-form edit-task-stages">
         <Alert tone="info">
-          Changes apply to <b>{task.title}</b> only. The library's{" "}
-          {pipeline?.name ?? task.pipelineId} Pipeline stays as it is.
+          Changes apply to <b>{task.title}</b> only.{" "}
+          {pipeline
+            ? `The library's ${pipeline.name} Pipeline stays as it is.`
+            : "Its Pipeline was removed from the library."}
           {lockedNotes.length > 0 && " Stages already started are locked."}
         </Alert>
         {notStarted && (

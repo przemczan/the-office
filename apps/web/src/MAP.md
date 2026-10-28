@@ -22,7 +22,7 @@
 - `event-stream.ts`: EventStreamStatus, EventStreamOptions, RECONNECT_DELAYS_MS, EventStream
 - `notifications.ts`: nowQueries, notificationQueries, reportActivity, notificationEventCacheUpdates
 - `people.ts`: roleQueries, roleCardQueries, hire, changeRoleCard, filledRoleKeys, letGoOfPerson, hirePersonBack, addMemoryNote, deleteMemoryNote, clearMemory, roleEventInvalidations
-- `pipelines.ts`: pipelineQueries, editTaskStages, continueAtGate, sendBackFromGate, dropAtGate, pipelineEventInvalidations
+- `pipelines.ts`: pipelineQueries, addPipeline, duplicatePipeline, savePipeline, removePipeline, editTaskStages, continueAtGate, sendBackFromGate, dropAtGate, pipelineEventInvalidations
 - `projects.ts`: projectQueries, taskChangesKey, addProject, changeCommand, changeInstallInputs, startEnvironmentCheck, changePublishingMode, changeDefaultPipeline, changeUseProjectSkills, projectEventInvalidations
 - `skills.ts`: skillQueries, writeSkill, uploadSkill, editSkill, uploadSkillVersion, changeSkillState, changeSkillEveryone, assignSkill, removeSkill, skillEventInvalidations
 - `work.ts`: TASKS, ideaQueries, initiativeQueries, officeWideLimitQuery, changeOfficeWideLimit, savedViewsQuery, saveView, removeView, searchQuery, taskQueries, attachmentQueries, captureIdea, shapeIdea, planIdea, shapeIntoInitiative, startShapingThread, confirmInitiative, dropInitiative, writeInitiativeOutcome, addTaskToInitiative, dropIdea, restoreIdea, createTask, changePriority, changeTags, placeTask, planTask, confirmPlan, confirmDefinitionOfDone, setPipeline, addDependency, removeDependency, markReady, startTask, pauseTask, stopTask, resumeTask, dropTask, addLink, addFile, removeAttachment, attachmentContentUrl, workEventInvalidations

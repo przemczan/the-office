@@ -1,15 +1,21 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
+  pipelineCheckSchema,
   pipelineListSchema,
+  pipelineSchema,
   pipelinesWebEventSchema,
+  pipelineUseSchema,
   stagesCheckSchema,
   taskStagesSchema,
+  type Pipeline,
+  type PipelineCheckRequest,
+  type PipelineEdit,
   type PipelinesWebEvent,
   type SendBack,
   type Stage,
   type TaskStages,
 } from "@the-office/contracts";
-import { getFromApi, sendToApi } from "./api-client.ts";
+import { deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
 import { taskChangesKey } from "./projects.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
@@ -20,6 +26,19 @@ export const pipelineQueries = {
     queryOptions({
       queryKey: PIPELINES_KEY,
       queryFn: ({ signal }) => getFromApi("/pipelines", pipelineListSchema, signal),
+    }),
+  /** Who uses a library Pipeline; under the library, so any change to it reads this again. */
+  use: (pipelineId: string) =>
+    queryOptions({
+      queryKey: [...PIPELINES_KEY, pipelineId, "use"],
+      queryFn: ({ signal }) =>
+        getFromApi(`${pipelinePath(pipelineId)}/use`, pipelineUseSchema, signal),
+    }),
+  /** What saving a library Pipeline would be refused for and what it only flags. */
+  libraryCheck: (request: PipelineCheckRequest) =>
+    queryOptions({
+      queryKey: [...PIPELINES_KEY, "check", request],
+      queryFn: () => sendToApi("POST", "/pipelines/check", request, pipelineCheckSchema),
     }),
   /** Under the Task's key, so Work's events about the Task refresh it too. */
   taskStages: (taskId: string) =>
@@ -39,6 +58,25 @@ export const pipelineQueries = {
     }),
 };
 
+/** A Pipeline made from scratch in the library. */
+export function addPipeline(edit: PipelineEdit): Promise<Pipeline> {
+  return sendToApi("POST", "/pipelines", edit, pipelineSchema);
+}
+
+/** A copy of a library Pipeline, named "… (copy)". */
+export function duplicatePipeline(pipelineId: string): Promise<Pipeline> {
+  return sendToApi("POST", "/pipelines", { copyOf: pipelineId }, pipelineSchema);
+}
+
+/** The library Pipeline saved: Tasks that haven't started follow it; running ones keep their copy. */
+export function savePipeline(pipelineId: string, edit: PipelineEdit): Promise<Pipeline> {
+  return sendToApi("PUT", pipelinePath(pipelineId), edit, pipelineSchema);
+}
+
+export function removePipeline(pipelineId: string): Promise<void> {
+  return deleteFromApi(pipelinePath(pipelineId));
+}
+
 /** Edit for this Task: the Task's Stages replaced, the library Pipeline left as it is. */
 export function editTaskStages(taskId: string, stages: readonly Stage[]): Promise<TaskStages> {
   return sendToApi("PUT", stagesPath(taskId), { stages }, taskStagesSchema);
@@ -55,6 +93,10 @@ export function sendBackFromGate(taskId: string, sendBack: SendBack): Promise<Ta
 
 export function dropAtGate(taskId: string): Promise<TaskStages> {
   return sendToApi("POST", `${gatePath(taskId)}/drop`, {}, taskStagesSchema);
+}
+
+function pipelinePath(pipelineId: string): `/${string}` {
+  return `/pipelines/${encodeURIComponent(pipelineId)}`;
 }
 
 function stagesPath(taskId: string): `/${string}` {

@@ -40,8 +40,7 @@ function skillMd(name: string, description: string): string {
 }
 
 async function openAddASkill(page: Page): Promise<void> {
-  await page.goto("/settings");
-  await expect(page).toHaveURL(/\/settings\/skills$/);
+  await page.goto("/settings/skills");
   await page.getByRole("button", { name: "Add a skill" }).click();
 }
 

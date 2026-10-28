@@ -24,7 +24,7 @@ const SURFACES = [
   { name: "People", path: "/people" },
   { name: "Projects", path: "/projects" },
   // Settings opens at its first section.
-  { name: "Settings", path: "/settings/skills" },
+  { name: "Settings", path: "/settings/pipelines" },
 ] as const;
 
 for (const palette of PALETTES) {

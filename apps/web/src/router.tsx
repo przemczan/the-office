@@ -20,6 +20,7 @@ import { ProjectsPage } from "./surfaces/projects/projects-page.tsx";
 import { AppearanceSection } from "./surfaces/settings/appearance/appearance-section.tsx";
 import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-limits-section.tsx";
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
+import { PipelinesSection } from "./surfaces/settings/pipelines/pipelines-section.tsx";
 import { SkillsSection } from "./surfaces/settings/skills/skills-section.tsx";
 import { Board } from "./surfaces/work/board.tsx";
 import { boardFiltersOf } from "./surfaces/work/board-filters.ts";
@@ -247,8 +248,23 @@ const settingsHomeRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "/",
   beforeLoad: () => {
-    throw redirect({ to: "/settings/skills", replace: true });
+    throw redirect({ to: "/settings/pipelines", replace: true });
   },
+});
+
+// The library opens at its first Pipeline; a Pipeline of its own has its address.
+const settingsPipelinesRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "pipelines",
+  component: PipelinesSection,
+  staticData: { title: "Settings" },
+});
+
+const settingsPipelineRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "pipelines/$pipelineId",
+  component: PipelinesSection,
+  staticData: { title: "Settings" },
 });
 
 const settingsSkillsRoute = createRoute({
@@ -293,6 +309,8 @@ export const router = createRouter({
     projectRoute,
     settingsRoute.addChildren([
       settingsHomeRoute,
+      settingsPipelinesRoute,
+      settingsPipelineRoute,
       settingsSkillsRoute,
       settingsOfficeLimitsRoute,
       settingsAppearanceRoute,

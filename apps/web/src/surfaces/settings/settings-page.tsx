@@ -5,6 +5,7 @@ import "./settings.css";
 
 /** Settings' sections, each a page of its own; later tasks add theirs here. */
 const SECTIONS = [
+  { to: "/settings/pipelines", icon: "route", label: "Pipelines" },
   { to: "/settings/skills", icon: "sparkles", label: "Skills" },
   { to: "/settings/office-limits", icon: "gauge", label: "Office limits" },
   { to: "/settings/appearance", icon: "palette", label: "Appearance" },

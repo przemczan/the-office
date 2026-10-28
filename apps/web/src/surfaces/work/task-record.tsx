@@ -18,6 +18,7 @@ import { RecordBlock } from "./record-block.tsx";
 import {
   latestHandoverNote,
   pipelineLabel,
+  REMOVED_PIPELINE,
   scriptCommandLine,
   stageNamesOf,
   stageProgressLine,
@@ -75,7 +76,7 @@ function StagesBlock({
   return (
     <RecordBlock
       icon="route"
-      title={`Stages · ${pipelineLabel(pipeline?.name ?? task.pipelineId, taskStages?.editedForTask ?? false)}`}
+      title={`Stages · ${pipelineLabel(pipeline?.name ?? REMOVED_PIPELINE, taskStages?.editedForTask ?? false)}`}
       actions={
         !finished && (
           <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
@@ -92,7 +93,7 @@ function StagesBlock({
       ) : pipeline ? (
         <StageList stages={pipeline.stages} roles={roles} />
       ) : (
-        <p className="task-quiet">The Pipeline {task.pipelineId} isn't in the library.</p>
+        <p className="task-quiet">Its Pipeline was removed from the library.</p>
       )}
       {editing && <EditTaskStagesDialog task={task} onClose={() => setEditing(false)} />}
     </RecordBlock>

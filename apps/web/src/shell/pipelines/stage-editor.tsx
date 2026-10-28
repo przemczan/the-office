@@ -72,6 +72,10 @@ export interface StageEditorProps {
   readonly lockedNotes: readonly string[];
   /** What saving would be refused for, from the service. */
   readonly problems: readonly StageProblem[];
+  /** What the service flags but saves, such as a Role nobody fills in a library Pipeline. */
+  readonly flags?: readonly StageProblem[];
+  /** The problems' heading: what can't be saved. */
+  readonly problemsTitle?: string;
   /** Everyone hired, who may work an Agent Stage when their Task limit isn't none. */
   readonly roles: readonly Role[];
   readonly options: RoleCardOptions;
@@ -81,20 +85,36 @@ export interface StageEditorProps {
 
 /**
  * The Stage editor (spec §2.3): a Pipeline's Stages to add, drop, reorder and set, one open at a
- * time, with what the service would refuse flagged on its Stage. One editor serves "Edit for this
- * Task" and the library.
+ * time, with what the service would refuse, or only flags, marked on its Stage. One editor serves
+ * "Edit for this Task" and the library.
  */
 export function StageEditor(props: StageEditorProps): ReactNode {
-  const { stages, onChange, lockedNotes, problems } = props;
+  const {
+    stages,
+    onChange,
+    lockedNotes,
+    problems,
+    flags = [],
+    problemsTitle = "These Stages can't be saved yet",
+  } = props;
   const [open, setOpen] = useState<number | undefined>();
   const lockedStages = lockedNotes.length;
-  const flagged = new Set(problems.map(({ stageIndex }) => stageIndex));
+  const flagged = new Set([...problems, ...flags].map(({ stageIndex }) => stageIndex));
   return (
     <div className="stage-editor">
       {problems.length > 0 && (
-        <Alert tone="warning" title="These Stages can't be saved yet">
+        <Alert tone="warning" title={problemsTitle}>
           <ul className="refusal-reasons" aria-label="Problems">
             {problems.map(({ text }) => (
+              <li key={text}>{text}</li>
+            ))}
+          </ul>
+        </Alert>
+      )}
+      {flags.length > 0 && (
+        <Alert tone="info" title="This can be saved, though nobody works these Stages yet">
+          <ul className="refusal-reasons" aria-label="Flags">
+            {flags.map(({ text }) => (
               <li key={text}>{text}</li>
             ))}
           </ul>
@@ -246,6 +266,7 @@ function StageSummary({
     stage.kind === "agent" &&
       stage.effort !== undefined &&
       `effort ${EFFORT_LABELS[stage.effort].toLowerCase()}`,
+    stage.kind === "script" && stage.publishTarget === "branch-only" && "pushes the branch only",
     stage.optional && "optional",
     onFailure &&
       `on failure back to ${target?.name ?? onFailure.goBackTo}, at most ${onFailure.rounds}×`,
