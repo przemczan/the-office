@@ -34,6 +34,18 @@ _Avoid_: Using "plan" for an Initiative
 A Task's plain-language statement of what must be true when it is done; the Task ends when it is met.
 _Avoid_: Acceptance criteria, DoD (in the UI)
 
+**Tag**:
+A free-form word on a Task, set by the user or the Planner, to find and filter Tasks by.
+_Avoid_: Label, category; "tag" for a Mention
+
+**Saved view**:
+A named set of the Work board's filters (search, priority, Tags, Initiative, Blocked), shown under "Views"; it never holds the Project filter.
+_Avoid_: Filter preset, query, perspective
+
+**Project filter**:
+The top bar's choice of which Projects every surface shows; Office-wide numbers, the rail badge, the fire alarm and Notifications ignore it.
+_Avoid_: Scope, workspace switcher, Project picker (for the choice itself)
+
 **Attachment**:
 Anything attached to an Idea, an Initiative or a Task by the user or an Agent, such as a document, a screenshot, a file or a link; it can be a Task's result.
 _Avoid_: Artifact, asset, output

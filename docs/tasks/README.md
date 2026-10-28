@@ -37,7 +37,7 @@ Order accepted by the user on 2026-10-27. A task's file is written when it becom
 | 20 | [People: hiring from scratch, letting go, editable profiles, Consultants, mentions](20-people-tier-2.md) | People | done |
 | 21 | [The Office Manager and Proposals](21-office-manager.md) | People | done |
 | 22 | [The CTO, Initiatives and dependencies](22-cto-initiatives.md) | Work | done |
-| 23 | Tags, search, saved views and the Project filter | Work | todo |
+| 23 | [Tags, search, saved views and the Project filter](23-tags-search-views.md) | Work | in progress |
 | 24 | Devops: the Pipeline library, Project commands by Proposal, onboarding | Projects | todo |
 | 25 | Skills from a source, and update Proposals | Settings | todo |
 | 26 | Parallel work in a Project, and a queue for Start | Work and the Task page | todo |
