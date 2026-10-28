@@ -26,6 +26,16 @@ export class TaskPriorityChanged extends DomainEvent {
   }
 }
 
+/** The Task's Tags as they now are. */
+export class TaskTagsChanged extends DomainEvent {
+  constructor(
+    readonly taskId: string,
+    readonly tags: readonly string[],
+  ) {
+    super();
+  }
+}
+
 /** Moved on the board, taking the priority of where it was dropped. */
 export class TaskReordered extends DomainEvent {
   constructor(

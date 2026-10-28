@@ -17,6 +17,7 @@ import {
   type TaskChange,
 } from "../domain/task-changes.js";
 import { addDependency, removeDependency } from "../domain/task-dependencies.js";
+import { changeTags } from "../domain/task-tags.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { TaskRefused } from "../domain/task-refused.js";
 import { STARTED_STATES } from "../domain/task-states.js";
@@ -67,6 +68,12 @@ export class TaskService {
     return (await this.list()).filter(({ state }) => STARTED_STATES.includes(state));
   }
 
+  /** Every Tag on a Task, each once, in alphabetical order. */
+  async tagsInUse(): Promise<string[]> {
+    const tags = new Set((await this.repository.list()).flatMap((task) => task.tags));
+    return [...tags].toSorted();
+  }
+
   async read(id: string): Promise<Task> {
     const task = await this.repository.find(id);
     if (!task) throw new TaskNotFound(id);
@@ -81,6 +88,11 @@ export class TaskService {
 
   async changePriority(id: string, priority: Priority): Promise<Task> {
     return this.update(id, (task) => changePriority(task, priority));
+  }
+
+  /** Sets the Task's Tags, in any state: the user's or the Planner's. */
+  async changeTags(id: string, tags: readonly string[]): Promise<Task> {
+    return this.update(id, (task) => changeTags(task, tags));
   }
 
   /** Places a Task that hasn't started between its neighbours in its column of the board. */

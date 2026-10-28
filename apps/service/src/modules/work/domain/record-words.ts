@@ -9,7 +9,7 @@ import { TASK_STATE_NAMES } from "./task-states.js";
 
 /**
  * A Task's record as an Agent reads it, through `read_task` or mentioned in a chat: its state,
- * priority and Pipeline, its Plan, Definition of Done and Attachments, the Idea it came from, and
+ * priority, Tags and Pipeline, its Plan, Definition of Done and Attachments, the Idea it came from, and
  * the Tasks it waits for (`blockers`, in the order of `task.blockedBy`).
  */
 export function taskRecordText(
@@ -20,6 +20,7 @@ export function taskRecordText(
   return [
     `${task.title} (Task ${task.id})`,
     `- Project ${task.projectId}; ${TASK_STATE_NAMES[task.state]}; ${task.priority} priority; Pipeline ${task.pipelineId}`,
+    ...(task.tags.length > 0 ? [`- Tags: ${task.tags.join(", ")}`] : []),
     `- Created by ${authorWords(task.createdBy)} on ${task.createdAt.toISOString()}`,
     ...(task.originIdeaId ? [`- Shaped from the Idea ${task.originIdeaId}`] : []),
     ...(task.proposedPipeline

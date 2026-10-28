@@ -1,6 +1,6 @@
 # Work: module map
 
-**Owns:** Ideas, Initiatives (shaped from an Idea, confirmed, dropped, done once their Tasks are: `initiative-changes.ts`; the Projects one spans are its Tasks', which name it), Tasks (states, priority, manual order, Plan, Definition of Done, the Task's Pipeline id, the Tasks it waits for: `blockedBy`, `task-dependencies.ts`) and Attachments of an Idea, an Initiative or a Task (`ideas`, `initiatives`, `tasks`, `attachments`); Office settings in one row (`work_settings`, the Office-wide limit, which Settings › Office limits changes; the repository answers the default until it is saved); screenshots attached from Stages (`StageScreenshots`); the Office tools for Ideas and Tasks, whose records (`domain/record-words.ts`) are also what a mention in a chat gives the Agent, through Conversations' `WorkRecords` (which also gives a Link card its Task's title); an Initiative's record (`initiativeRecordText`) briefs its shaping Thread through Conversations' `InitiativeThreadSetups` (`ShapingThreadSetup`) and is what a mention gives; the CTO's Office tools there (`ShapingOfficeTools`: its outcome, Tasks and their dependencies, an `InitiativeEdit`) write straight onto it while it is shaping, as the user writes its outcome (`PUT /initiatives/:id/outcome`), and once it is active draft each change as a Proposal the user applies (`InitiativeService.changeByCto`).
+**Owns:** Ideas, Initiatives (shaped from an Idea, confirmed, dropped, done once their Tasks are: `initiative-changes.ts`; the Projects one spans are its Tasks', which name it), Tasks (states, priority, Tags (`task-tags.ts`, set by the user and by the Planner's `write_tags`), manual order, Plan, Definition of Done, the Task's Pipeline id, the Tasks it waits for: `blockedBy`, `task-dependencies.ts`) and Attachments of an Idea, an Initiative or a Task (`ideas`, `initiatives`, `tasks`, `attachments`); Office settings in one row (`work_settings`, the Office-wide limit, which Settings › Office limits changes; the repository answers the default until it is saved); screenshots attached from Stages (`StageScreenshots`); the Office tools for Ideas and Tasks, whose records (`domain/record-words.ts`) are also what a mention in a chat gives the Agent, through Conversations' `WorkRecords` (which also gives a Link card its Task's title); an Initiative's record (`initiativeRecordText`) briefs its shaping Thread through Conversations' `InitiativeThreadSetups` (`ShapingThreadSetup`) and is what a mention gives; the CTO's Office tools there (`ShapingOfficeTools`: its outcome, Tasks and their dependencies, an `InitiativeEdit`) write straight onto it while it is shaping, as the user writes its outcome (`PUT /initiatives/:id/outcome`), and once it is active draft each change as a Proposal the user applies (`InitiativeService.changeByCto`).
 
 **Talks to:** through ports bound in [app.module.ts](../../app.module.ts): `KnownProjects` to `ProjectService`, `ProjectWorktrees` to `TaskWorktrees`, `KnownPeople` to `RoleCards`, `KnownPipelines` to `PipelineLibrary`, `SessionPeople`, `SessionTasks`, `SessionInitiatives` (the Initiative a shaping session writes onto), `TaskThreads`, `InitiativeThreads` (the shaping Thread with the CTO, opened as an Idea is shaped when a CTO is hired, else started by the user: `POST /initiatives/:id/shaping`) and `IdeaCards` (the card `capture_idea` posts in the chat) to `ThreadService`, `TaskDecisions` to `DecisionService`, `ProposalDrafts` (the CTO's Proposals on an active Initiative) to `ProposalService`. Pipelines reacts to its events and moves started Tasks through `TaskService`. Work applies Proposals of the Office-wide limit with `OfficeLimitProposals` (`adapters/conversations/`), which fills Conversations' `ProposalAppliers` as Work starts and judges one by the contracts' rule Settings saves by, and of an Initiative with `InitiativeProposals`, judged as applying judges (`initiativeEditProblems`) and applied under the Initiative's hold; `WorkPortsForTestsModule` provides the registry.
 
@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, AttachmentAdded, AttachmentMoved, AttachmentRemoved, IdeaCaptured, IdeaDropped, IdeaRestored, IdeaShaped, IdeaShapedIntoInitiative, InitiativeCreated, InitiativeStateChanged, OfficeWideLimitChanged, TaskCreated, TaskDefinitionOfDoneConfirmed, TaskDefinitionOfDoneProposed, TaskPaused, TaskPipelineConfirmed, TaskPipelineProposed, TaskPlanConfirmed, TaskPlanProposed, TaskPriorityChanged, TaskReordered, TaskResumed, TaskStarted, TaskStateChanged, TaskStopped, WorkModule
+IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, AttachmentAdded, AttachmentMoved, AttachmentRemoved, IdeaCaptured, IdeaDropped, IdeaRestored, IdeaShaped, IdeaShapedIntoInitiative, InitiativeCreated, InitiativeStateChanged, OfficeWideLimitChanged, TaskCreated, TaskDefinitionOfDoneConfirmed, TaskDefinitionOfDoneProposed, TaskPaused, TaskPipelineConfirmed, TaskPipelineProposed, TaskPlanConfirmed, TaskPlanProposed, TaskPriorityChanged, TaskTagsChanged, TaskReordered, TaskResumed, TaskStarted, TaskStateChanged, TaskStopped, WorkModule
 
 ## Domain events
 
@@ -18,7 +18,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `domain/idea-events.ts`: IdeaCaptured, IdeaShaped, IdeaShapedIntoInitiative, IdeaDropped, IdeaRestored
 - `domain/initiative-events.ts`: InitiativeCreated, InitiativeStateChanged, InitiativeOutcomeWritten
 - `domain/office-limit-events.ts`: OfficeWideLimitChanged
-- `domain/task-events.ts`: TaskCreated, TaskStateChanged, TaskPriorityChanged, TaskReordered, TaskPlanProposed, TaskPlanConfirmed, TaskDefinitionOfDoneProposed, TaskDefinitionOfDoneConfirmed, TaskPipelineProposed, TaskPipelineConfirmed, TaskPaused, TaskStopped, TaskResumed, TaskDependencyAdded, TaskDependencyRemoved, TaskStarted
+- `domain/task-events.ts`: TaskCreated, TaskStateChanged, TaskPriorityChanged, TaskTagsChanged, TaskReordered, TaskPlanProposed, TaskPlanConfirmed, TaskDefinitionOfDoneProposed, TaskDefinitionOfDoneConfirmed, TaskPipelineProposed, TaskPipelineConfirmed, TaskPaused, TaskStopped, TaskResumed, TaskDependencyAdded, TaskDependencyRemoved, TaskStarted
 
 ## HTTP routes (under `/api`)
 
@@ -51,6 +51,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `GET /tasks`: TasksController.list
 - `GET /tasks/:id`: TasksController.read
 - `PUT /tasks/:id/priority`: TasksController.changePriority
+- `PUT /tasks/:id/tags`: TasksController.changeTags
 - `PUT /tasks/:id/place`: TasksController.reorder
 - `POST /tasks/:id/dependencies`: TasksController.addDependency
 - `DELETE /tasks/:id/dependencies/:blockerId`: TasksController.removeDependency
@@ -107,7 +108,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 ### adapters/office-tools/
 
 - `attachment-office-tools.ts`: ATTACH_FILE, ATTACH_LINK, AttachmentOfficeTools
-- `planning-office-tools.ts`: WRITE_PLAN, WRITE_DEFINITION_OF_DONE, PROPOSE_PIPELINE, READ_ATTACHMENT, DOCUMENT_READ_LIMIT, PlanningOfficeTools
+- `planning-office-tools.ts`: WRITE_PLAN, WRITE_DEFINITION_OF_DONE, PROPOSE_PIPELINE, READ_ATTACHMENT, WRITE_TAGS, DOCUMENT_READ_LIMIT, PlanningOfficeTools
 - `shaping-office-tools.ts`: READ_INITIATIVE, WRITE_OUTCOME, ADD_TASK, ADD_DEPENDENCY, REMOVE_DEPENDENCY, ShapingOfficeTools
 - `work-office-tools.ts`: LIST_TASKS, READ_TASK, LIST_IDEAS, READ_IDEA, CREATE_TASK, WorkOfficeTools
 - `work-tool-answers.ts`: OfficeToolResult, WorkToolRefused, answered, personInSession
@@ -170,15 +171,16 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `shaping.ts`: CTO, SHAPING_THREAD_TITLE, SHAPING_INSTRUCTIONS, SHAPING_OPENING
 - `task-changes.ts`: TaskChange, NewTaskSetting, createTask, changeTaskState, undoPlanningMove, markTaskReady, changeStartedTaskState, pauseTask, stopTask, resumeTask, changePriority, reorderTask
 - `task-dependencies.ts`: addDependency, createdWaitingFor, removeDependency, blockingTasks, blockedProblems
-- `task-events.ts`: TaskCreated, TaskStateChanged, TaskPriorityChanged, TaskReordered, TaskPlanProposed, TaskPlanConfirmed, TaskDefinitionOfDoneProposed, TaskDefinitionOfDoneConfirmed, TaskPipelineProposed, TaskPipelineConfirmed, TaskPaused, TaskStopped, TaskResumed, TaskDependencyAdded, TaskDependencyRemoved, TaskStarted
+- `task-events.ts`: TaskCreated, TaskStateChanged, TaskPriorityChanged, TaskTagsChanged, TaskReordered, TaskPlanProposed, TaskPlanConfirmed, TaskDefinitionOfDoneProposed, TaskDefinitionOfDoneConfirmed, TaskPipelineProposed, TaskPipelineConfirmed, TaskPaused, TaskStopped, TaskResumed, TaskDependencyAdded, TaskDependencyRemoved, TaskStarted
 - `task-not-found.ts`: TaskNotFound
 - `task-refused.ts`: TaskRefused
 - `task-start.ts`: StartingStage, DEFAULT_OFFICE_WIDE_LIMIT, TaskLimit, StartingPerson, StartConditions, HeldAtStart, firstAgentStage, startProblems, startTask
 - `task-states.ts`: TASK_STATE_NAMES, NOT_STARTED_STATES, STARTED_STATES, stateChangeProblems, ReadinessLine, readinessLines, openDecisionProblems
+- `task-tags.ts`: MAX_TAGS, MAX_TAG_LENGTH, normalizedTags, tagsProblems, changeTags
 - `task.ts`: TASK_STATES, TaskState, PRIORITIES, Priority, Task, ProposedPipeline, NewTask, trimmedNewTask, newTaskProblems
 - `title.ts`: titleProblem
 - `work.fixtures.ts`: anIdea, anInitiative, aTask, aPlannedTask, aLink
-- Tests: attachment-changes.test.ts, idea-changes.test.ts, initiative-changes.test.ts, initiative-edit.test.ts, manual-order.test.ts, planning-changes.test.ts, planning.test.ts, task-changes.test.ts, task-dependencies.test.ts, task-start.test.ts, task-states.test.ts
+- Tests: attachment-changes.test.ts, idea-changes.test.ts, initiative-changes.test.ts, initiative-edit.test.ts, manual-order.test.ts, planning-changes.test.ts, planning.test.ts, task-changes.test.ts, task-dependencies.test.ts, task-start.test.ts, task-states.test.ts, task-tags.test.ts
 
 ### ports/
 

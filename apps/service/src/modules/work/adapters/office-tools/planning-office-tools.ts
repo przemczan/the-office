@@ -3,6 +3,7 @@ import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
 import { PlanningService } from "../../application/planning-service.js";
+import { TaskService } from "../../application/task-service.js";
 import { attachmentKindWords, type Attachment } from "../../domain/attachment.js";
 import { AttachmentNotFound } from "../../domain/attachment-not-found.js";
 import { SessionTasks } from "../../ports/session-tasks.js";
@@ -12,6 +13,7 @@ export const WRITE_PLAN = "write_plan";
 export const WRITE_DEFINITION_OF_DONE = "write_definition_of_done";
 export const PROPOSE_PIPELINE = "propose_pipeline";
 export const READ_ATTACHMENT = "read_attachment";
+export const WRITE_TAGS = "write_tags";
 
 /**
  * How much of a document read_attachment answers with, so one large file can't fill the session's
@@ -24,14 +26,15 @@ const PROPOSED =
 
 /**
  * The Office tools the Planner plans a Task with, in a Thread on it (spec §2.1, §2.3): each writes
- * onto the session's own Task as proposed, for the user to confirm, and read_attachment reads its
- * Attachments.
+ * onto the session's own Task as proposed, for the user to confirm, but for write_tags, whose Tags
+ * apply at once; read_attachment reads its Attachments.
  */
 @Injectable()
 export class PlanningOfficeTools implements OnModuleInit {
   constructor(
     private readonly registry: OfficeToolRegistry,
     private readonly planning: PlanningService,
+    private readonly tasks: TaskService,
     private readonly attachments: AttachmentService,
     private readonly sessionTasks: SessionTasks,
   ) {}
@@ -41,6 +44,7 @@ export class PlanningOfficeTools implements OnModuleInit {
     this.registerWriteDefinitionOfDone();
     this.registerProposePipeline();
     this.registerReadAttachment();
+    this.registerWriteTags();
   }
 
   private registerWritePlan(): void {
@@ -111,6 +115,27 @@ export class PlanningOfficeTools implements OnModuleInit {
             throw new AttachmentNotFound(attachmentId);
           }
           return this.readingOf(attachment);
+        }),
+    });
+  }
+
+  private registerWriteTags(): void {
+    this.registry.register({
+      name: WRITE_TAGS,
+      description:
+        "Sets this Task's Tags: a few short words the user finds and filters Tasks by, such as its area or kind. It replaces the Tags the Task has; each is kept lower-case, spaces made hyphens. They apply at once, and the user can change them.",
+      input: z.object({
+        tags: z.array(z.string()).describe("Every Tag the Task should have, one word each."),
+      }),
+      run: ({ tags }, { sessionId }) =>
+        answered(async () => {
+          const task = await this.tasks.changeTags(await this.taskIn(sessionId), tags);
+          const inUse = (await this.tasks.tagsInUse()).filter((tag) => !task.tags.includes(tag));
+          const now =
+            task.tags.length > 0
+              ? `The Task's Tags are now ${task.tags.join(", ")}.`
+              : "The Task has no Tags now.";
+          return inUse.length > 0 ? `${now} Other Tags in use: ${inUse.join(", ")}.` : now;
         }),
     });
   }

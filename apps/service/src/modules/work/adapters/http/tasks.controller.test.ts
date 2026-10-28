@@ -81,6 +81,7 @@ describe("POST /api/tasks", () => {
       projectId,
       state: "backlog",
       priority: "high",
+      tags: [],
       plan: "",
       planConfirmed: false,
       definitionOfDone: [],
@@ -91,6 +92,12 @@ describe("POST /api/tasks", () => {
       createdBy: { kind: "user" },
     });
     expect(webEventsOf(work)).toEqual([{ type: "task.created", taskId: task.id }]);
+  });
+
+  it("keeps the Tags given, normalized", async () => {
+    const task = await create({ tags: ["Login", " auth flow"] });
+
+    expect(task.tags).toEqual(["login", "auth-flow"]);
   });
 
   it("refuses a Task without a title or Project, saving nothing", async () => {
@@ -140,6 +147,35 @@ describe("PUT /api/tasks/:id/priority", () => {
 
     expect(taskSchema.parse(await response.json()).priority).toBe("low");
     expect(webEventsOf(work)).toEqual([{ type: "task.priority-changed", taskId: task.id }]);
+  });
+});
+
+describe("PUT /api/tasks/:id/tags", () => {
+  it("sets the Tags, normalized, and announces them", async () => {
+    const task = await create({ tags: ["ui"] });
+    work.published.length = 0;
+
+    const response = await sendJson(work, "PUT", `/tasks/${task.id}/tags`, {
+      tags: ["ui", "Dark Mode"],
+    });
+
+    expect(taskSchema.parse(await response.json()).tags).toEqual(["ui", "dark-mode"]);
+    expect(webEventsOf(work)).toEqual([{ type: "task.tags-changed", taskId: task.id }]);
+  });
+
+  it("refuses too many Tags with the reason, keeping the ones it had", async () => {
+    const task = await create({ tags: ["ui"] });
+    work.published.length = 0;
+
+    const response = await sendJson(work, "PUT", `/tasks/${task.id}/tags`, {
+      tags: Array.from({ length: 13 }, (_, at) => `tag-${at}`),
+    });
+
+    expect(response.status).toBe(422);
+    expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
+      "A Task can have at most 12 Tags.",
+    ]);
+    expect(work.published).toEqual([]);
   });
 });
 

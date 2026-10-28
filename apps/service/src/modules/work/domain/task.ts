@@ -1,4 +1,5 @@
 import type { Author } from "./author.js";
+import { normalizedTags, tagsProblems } from "./task-tags.js";
 import { titleProblem } from "./title.js";
 
 /**
@@ -28,6 +29,8 @@ export interface Task {
   readonly projectId: string;
   readonly state: TaskState;
   readonly priority: Priority;
+  /** Free-form words to find and filter it by, normalized and unique (task-tags.ts). */
+  readonly tags: readonly string[];
   /** Its place in the board's manual order, a key compared as plain strings (manual-order.ts). */
   readonly order: string;
   /** How it will be done; empty until planned. */
@@ -67,14 +70,20 @@ export interface ProposedPipeline {
 }
 
 /** What creating a Task takes from whoever asks; The Office sets the rest. */
-export type NewTask = Pick<Task, "title" | "projectId" | "priority">;
+export type NewTask = Pick<Task, "title" | "projectId" | "priority"> & Partial<Pick<Task, "tags">>;
 
-export function trimmedNewTask(task: NewTask): NewTask {
-  return { title: task.title.trim(), projectId: task.projectId, priority: task.priority };
+/** A new Task as given, trimmed, with its Tags normalized: none when none were given. */
+export function trimmedNewTask(task: NewTask): Required<NewTask> {
+  return {
+    title: task.title.trim(),
+    projectId: task.projectId,
+    priority: task.priority,
+    tags: normalizedTags(task.tags ?? []),
+  };
 }
 
 /** Why a new Task can't be created; that its Project exists is checked by the caller. */
 export function newTaskProblems(task: NewTask): string[] {
   const problem = titleProblem(task.title, "Task");
-  return problem ? [problem] : [];
+  return [...(problem ? [problem] : []), ...tagsProblems(normalizedTags(task.tags ?? []))];
 }

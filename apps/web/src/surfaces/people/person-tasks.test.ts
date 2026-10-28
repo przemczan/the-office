@@ -37,6 +37,7 @@ function aTask(fields: Partial<Task>): Task {
     title: "Fix the login redirect",
     projectId: "admin-panel",
     priority: "normal",
+    tags: [],
     state: "backlog",
     plan: "",
     planConfirmed: false,

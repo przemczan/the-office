@@ -40,6 +40,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     projectId: "admin-panel",
     state: "backlog",
     priority: "normal",
+    tags: [],
     order: "a0",
     plan: "",
     planConfirmed: false,

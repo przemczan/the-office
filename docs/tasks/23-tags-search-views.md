@@ -25,7 +25,7 @@ Leave out: archive and "Show archived" (tier 3; the board keeps showing Done and
 
 ## Steps
 
-- [ ] 1. Tags, the service side: a Task's Tags (trimmed, lower-cased, unique on the Task), `PUT /tasks/:id/tags`, Tags in use for suggestions, Tags in `POST /tasks`, a `TaskTagsChanged` event and its WebSocket event, Tags in the record words, and the Planner's `write_tags` Office tool. Commit.
+- [x] 1. Tags, the service side: a Task's Tags (trimmed, lower-cased, unique on the Task), `PUT /tasks/:id/tags`, Tags in use for suggestions, Tags in `POST /tasks`, a `TaskTagsChanged` event and its WebSocket event, Tags in the record words, and the Planner's `write_tags` Office tool. Commit.
   Read: `work.schema.ts` (`tasks`), `task-service.ts`, `tasks.controller.ts`, `work-web-events.ts`, `planning-office-tools.ts`; contracts' `work.ts`.
 - [ ] 2. Tags, the web: the Task page's Tags (add with suggestions, remove), Tags in "+ Task", Tags on the board card. Commit.
   Read: `task-record.tsx`, `new-task-dialog.tsx`, `board.tsx`; the `ui` package's input and chip components.
@@ -46,11 +46,13 @@ Leave out: archive and "Show archived" (tier 3; the board keeps showing Done and
 
 ## State
 
-- Not started: no code yet. The step 0 commit wrote this file, the glossary's Tag, Saved view and Project filter, and spec 2.1's Defaults for them.
-- Decided with the user (2026-10-28), in spec 2.1's Defaults: both searches (the board's over Tasks, ⌘K over Tasks, Initiatives, Ideas, people and document Attachments); Tags on Tasks only, set by the user and the Planner; Saved views stored by The Office, the Project filter per browser; ⌘K follows the Project filter with a note; the three glossary terms as worded.
+- Built (step 1): a Task's `tags` (`text[]`, migration `0041_task_tags`), rules in `domain/task-tags.ts` (lower-case, spaces made hyphens, each once, at most 12 of at most 32 characters; set in any state); `TaskService.changeTags` and `tagsInUse`; `PUT /tasks/:id/tags` (`tagsChangeSchema`), `tags` in `POST /tasks` and `POST /initiatives/:id/tasks` (optional, none by default: `NewTask` and `NewInitiativeTask` are the schemas' `z.input`); `TaskTagsChanged` → `task.tags-changed`, which the web's `api/work.ts` answers by refreshing the Tasks; Tags in `taskRecordText`; the Planner's `write_tags` (applies at once, answers with the other Tags in use) in `PLANNING_OFFICE_TOOLS` and `PLANNING_INSTRUCTIONS`.
+- Next (step 2): the web has `Task.tags` but shows nothing yet. Tags in use for suggestions come from the Tasks list the web already holds; no route for them.
+- Decided with the user (2026-10-28), in spec 2.1's Defaults: both searches (the board's over Tasks, ⌘K over Tasks, Initiatives, Ideas, people and document Attachments); Tags on Tasks only, set by the user and the Planner; Saved views stored by The Office, the Project filter per browser; ⌘K follows the Project filter with a note; the glossary's Tag, Saved view and Project filter.
 - Decided here: one matcher, the service's full-text search, so a Saved view's search means the same everywhere. Work owns the search route (every record searched but people is Work's); people are matched in the web from those hired, so no new port.
-- Traps: a document Attachment's text is on disk (`filesystem-attachment-files.ts`), not in `attachments`; the search needs it stored when added. Glossary: "tag" stays avoided for a Mention.
+- Traps: a document Attachment's text is on disk (`filesystem-attachment-files.ts`), not in `attachments`; the search needs it stored when added. Glossary: "tag" stays avoided for a Mention. Tests share the database, so Tags in use include other files' Tags.
 
 ## Progress
 
 - 2026-10-28 · step 0: wrote the task file, the glossary's three terms and spec 2.1's Defaults with the user's answers; next is step 1, Tags on the service side.
+- 2026-10-28 · step 1: Tags on the service side: the column and rules, `PUT /tasks/:id/tags`, Tags on new Tasks, the event, the record words and the Planner's `write_tags`; next is step 2, Tags in the web.

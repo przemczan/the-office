@@ -310,6 +310,7 @@ export const workEventInvalidations: Readonly<
   "task.stopped": () => [TASKS],
   "task.resumed": () => [TASKS],
   "task.priority-changed": () => [TASKS],
+  "task.tags-changed": () => [TASKS],
   "task.reordered": () => [TASKS],
   "task.dependency-added": () => [TASKS],
   "task.dependency-removed": () => [TASKS],

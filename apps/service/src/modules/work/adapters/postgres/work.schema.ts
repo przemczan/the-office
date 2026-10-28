@@ -55,6 +55,10 @@ export const tasks = pgTable(
     projectId: text("project_id").notNull(),
     state: text("state").$type<TaskState>().notNull(),
     priority: text("priority").$type<Priority>().notNull(),
+    tags: text("tags")
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
     /** Compared in code as plain strings; never sorted by Postgres, whose collation differs. */
     order: text("order_key").notNull(),
     plan: text("plan").notNull(),

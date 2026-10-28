@@ -18,6 +18,7 @@ import {
   READ_ATTACHMENT,
   WRITE_DEFINITION_OF_DONE,
   WRITE_PLAN,
+  WRITE_TAGS,
 } from "./planning-office-tools.js";
 
 let officeData: string;
@@ -74,6 +75,7 @@ it("are among a planning session's Office tools", () => {
       WRITE_DEFINITION_OF_DONE,
       PROPOSE_PIPELINE,
       READ_ATTACHMENT,
+      WRITE_TAGS,
     ]),
   );
 });
@@ -210,6 +212,37 @@ describe("read_attachment", () => {
 
     await expect(call(READ_ATTACHMENT, { attachmentId: elsewhere.id })).resolves.toEqual({
       text: `There is no Attachment "${elsewhere.id}".`,
+      isError: true,
+    });
+  });
+});
+
+describe("write_tags", () => {
+  it("sets the session's Task's Tags at once, normalized, and names the other Tags in use", async () => {
+    const other = await work.app
+      .get(TaskService)
+      .create(
+        { title: "Export logs", projectId: "firmware", priority: "low", tags: ["docs"] },
+        THE_USER,
+      );
+
+    const result = await call(WRITE_TAGS, { tags: ["Login ", "auth flow", "login"] });
+
+    expect(result).toMatchObject({
+      text: expect.stringMatching(
+        /^The Task's Tags are now login, auth-flow\. Other Tags in use: .*\bdocs\b/,
+      ),
+      isError: false,
+    });
+    expect((await current()).tags).toEqual(["login", "auth-flow"]);
+    expect(other.tags).toEqual(["docs"]);
+  });
+
+  it("refuses a Tag too long, with the reason", async () => {
+    const result = await call(WRITE_TAGS, { tags: ["x".repeat(33)] });
+
+    expect(result).toEqual({
+      text: `The Tag "${"x".repeat(33)}" is longer than 32 characters.`,
       isError: true,
     });
   });

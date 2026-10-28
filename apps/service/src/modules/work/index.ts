@@ -23,6 +23,7 @@ export {
   TaskPlanConfirmed,
   TaskPlanProposed,
   TaskPriorityChanged,
+  TaskTagsChanged,
   TaskReordered,
   TaskResumed,
   TaskStarted,

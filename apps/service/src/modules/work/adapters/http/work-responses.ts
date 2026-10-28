@@ -52,6 +52,7 @@ export function toTaskResponse(task: Task): TaskResponse {
     projectId: task.projectId,
     state: task.state,
     priority: task.priority,
+    tags: [...task.tags],
     plan: task.plan,
     planConfirmed: task.planConfirmed,
     definitionOfDone: [...task.definitionOfDone],

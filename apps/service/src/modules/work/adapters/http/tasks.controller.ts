@@ -18,6 +18,7 @@ import {
   pipelineChangeSchema,
   planChangeSchema,
   priorityChangeSchema,
+  tagsChangeSchema,
   taskPlacementSchema,
   type DefinitionOfDoneChange,
   type NewDependency,
@@ -27,6 +28,7 @@ import {
   type PriorityChange,
   type Readiness,
   type StartCheck,
+  type TagsChange,
   type Task as TaskResponse,
   type TaskPlacement,
 } from "@the-office/contracts";
@@ -69,6 +71,14 @@ export class TasksController {
     @Body(new ContractPipe(priorityChangeSchema)) { priority }: PriorityChange,
   ): Promise<TaskResponse> {
     return toTaskResponse(await this.tasks.changePriority(id, priority));
+  }
+
+  @Put(":id/tags")
+  async changeTags(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(tagsChangeSchema)) { tags }: TagsChange,
+  ): Promise<TaskResponse> {
+    return toTaskResponse(await this.tasks.changeTags(id, tags));
   }
 
   @Put(":id/place")

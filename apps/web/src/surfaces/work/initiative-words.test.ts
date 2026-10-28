@@ -10,6 +10,7 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     title: `Task ${id}`,
     projectId: "firmware",
     priority: "normal",
+    tags: [],
     state: "backlog",
     plan: "",
     planConfirmed: false,

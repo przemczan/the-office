@@ -84,12 +84,14 @@ export const newTaskSchema = z.object({
   title: z.string(),
   projectId: z.string(),
   priority: prioritySchema,
+  /** Free-form words to find it by; the service keeps each lower-case, once. None when left out. */
+  tags: z.array(z.string()).default([]),
 });
-export type NewTask = z.infer<typeof newTaskSchema>;
+export type NewTask = z.input<typeof newTaskSchema>;
 
 /** What "Add a Task" on an Initiative takes (POST /initiatives/:id/tasks): the Tasks it must wait for too. */
 export const newInitiativeTaskSchema = newTaskSchema.extend({ blockedBy: z.array(z.uuid()) });
-export type NewInitiativeTask = z.infer<typeof newInitiativeTaskSchema>;
+export type NewInitiativeTask = z.input<typeof newInitiativeTaskSchema>;
 
 /**
  * Why a Task's conversations can be read but not continued, for the states that end the Task: no
@@ -142,6 +144,10 @@ export const taskListSchema = z.array(taskSchema);
 /** PUT /tasks/:id/priority */
 export const priorityChangeSchema = z.object({ priority: prioritySchema });
 export type PriorityChange = z.infer<typeof priorityChangeSchema>;
+
+/** PUT /tasks/:id/tags: the Task's Tags as they should be. */
+export const tagsChangeSchema = z.object({ tags: z.array(z.string()) });
+export type TagsChange = z.infer<typeof tagsChangeSchema>;
 
 /**
  * PUT /tasks/:id/plan: the user's Plan, confirmed. Confirming the proposed one sends it as shown,
@@ -281,6 +287,7 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("task.stopped"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.resumed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.priority-changed"), taskId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("task.tags-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.reordered"), taskId: z.uuid() }),
   webEventSchema.extend({
     type: z.literal("task.dependency-added"),
