@@ -1,5 +1,5 @@
 import type { BadgeProps } from "@the-office/ui";
-import type { Author, Priority, Role, TaskState } from "@the-office/contracts";
+import type { Author, Idea, Priority, Role, TaskState } from "@the-office/contracts";
 
 /** Each Task state as the UI names it (spec §2.1). */
 export const TASK_STATE_NAMES: Readonly<Record<TaskState, string>> = {
@@ -44,4 +44,9 @@ export const PRIORITY_ICONS: Readonly<Record<Priority, string>> = {
 export function authorName(author: Author, roles: readonly Role[] | undefined): string {
   if (author.kind === "user") return "You";
   return roles?.find((role) => role.key === author.roleKey)?.card.name ?? author.roleKey;
+}
+
+/** The Projects an Idea is in, for the Project filter: none when it is Office-wide. */
+export function projectIdsOfIdea(idea: Pick<Idea, "projectId">): string[] {
+  return idea.projectId === null ? [] : [idea.projectId];
 }

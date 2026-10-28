@@ -5,6 +5,8 @@ import { Link } from "@tanstack/react-router";
 import { Fragment, useState, type DragEvent, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, placeTask, taskQueries } from "../../api/work.ts";
+import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
+import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { PriorityIcon, TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
@@ -56,7 +58,7 @@ const EDGES: Partial<Record<TaskState, string>> = {
 type DropTarget = { readonly before: string } | { readonly endOf: string };
 
 /**
- * Every Project's Tasks by state, each column by priority then manual order (the service's order).
+ * The Tasks of the Projects the Project filter shows, by state, each column by priority then manual order (the service's order).
  * A card that hasn't started drags within its column; dropped among another priority, it takes it.
  */
 export function Board(): ReactNode {
@@ -64,6 +66,10 @@ export function Board(): ReactNode {
   const projects = useQuery(projectQueries.list());
   const initiatives = useQuery(initiativeQueries.list());
   const { filters, change: changeFilters, shows } = useBoardFilters(tasks.data ?? []);
+  const projectFilter = useProjectFilter();
+  // Blockers and placement read every Task: one in another Project still holds a Task back.
+  const inProjectFilter = (task: Task): boolean => projectFilter.shows([task.projectId]);
+  const matching = tasks.data?.filter(shows) ?? [];
   const [dragged, setDragged] = useState<Task>();
   const [target, setTarget] = useState<DropTarget>();
   const placing = usePlacing();
@@ -99,15 +105,25 @@ export function Board(): ReactNode {
     <>
       <FilterBar
         filters={filters}
-        tags={tagsOffered(tasks.data ?? [], filters)}
-        initiatives={initiatives.data ?? []}
+        tags={tagsOffered(tasks.data?.filter(inProjectFilter) ?? [], filters)}
+        initiatives={
+          initiatives.data?.filter(
+            ({ id, projectIds }) => projectFilter.shows(projectIds) || id === filters.initiative,
+          ) ?? []
+        }
         onChange={changeFilters}
+      />
+      <InOtherProjectsNote
+        count={matching.filter((task) => !inProjectFilter(task)).length}
+        one="Task"
+        many="Tasks"
       />
       {tasks.error && <Alert tone="danger" title={tasks.error.message} />}
       <div className="board">
         {COLUMNS.map((column) => {
-          const cards =
-            tasks.data?.filter((task) => column.states.includes(task.state) && shows(task)) ?? [];
+          const cards = matching.filter(
+            (task) => column.states.includes(task.state) && inProjectFilter(task),
+          );
           return (
             <section key={column.key} className="board-column" aria-label={column.label}>
               <h3>

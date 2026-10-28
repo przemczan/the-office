@@ -5,6 +5,8 @@ import { useId, useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { addTaskToInitiative, createTask, initiativeQueries, taskQueries } from "../../api/work.ts";
 import { ProjectChip } from "../../shell/project-chip.tsx";
+import { onlyProjectShown } from "../../shell/project-filter/project-filter-choices.ts";
+import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { canHoldBack } from "./dependency-words.ts";
@@ -17,7 +19,8 @@ type NewTaskDraft = Omit<NewTask, "projectId"> & { readonly projectId?: string }
 /**
  * "+ Task": a title, its Project and any Tags; it starts in Backlog. Given an Initiative, it is "Add a Task"
  * there (prototypes/app/work.js `new-task`): in the Initiative's first Project unless another is
- * chosen, and waiting for any of its Tasks that can still hold it back.
+ * chosen, and waiting for any of its Tasks that can still hold it back. Otherwise it is in the one
+ * Project the Project filter shows, or the first.
  */
 export function NewTaskDialog({
   initiative,
@@ -35,7 +38,12 @@ export function NewTaskDialog({
     tags: [],
   });
   const [blockedBy, setBlockedBy] = useState<ReadonlySet<string>>(new Set());
-  const projectId = draft.projectId ?? initiative?.projectIds[0] ?? projects.data?.[0]?.id;
+  const { filter } = useProjectFilter();
+  const projectId =
+    draft.projectId ??
+    initiative?.projectIds[0] ??
+    onlyProjectShown(filter) ??
+    projects.data?.[0]?.id;
   const candidates =
     initiative && tasks.data ? tasksOfInitiative(initiative, tasks.data).filter(canHoldBack) : [];
   const queryClient = useQueryClient();

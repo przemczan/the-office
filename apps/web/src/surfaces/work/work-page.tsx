@@ -4,6 +4,8 @@ import { Button, Icon, Tabs } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { ideaQueries } from "../../api/work.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
+import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
+import { projectIdsOfIdea } from "../../shell/work/work-words.ts";
 import { NewTaskDialog } from "./new-task-dialog.tsx";
 import "./work.css";
 
@@ -14,8 +16,8 @@ const TABS = [
 ] as const;
 
 /**
- * Work (prototypes/app/work.js): the Tasks by state on one board for every Project, Ideas, and
- * Initiatives.
+ * Work (prototypes/app/work.js): the Tasks by state on one board for the Projects the Project
+ * filter shows, Ideas, and Initiatives.
  */
 export function WorkPage(): ReactNode {
   const ideas = useQuery(ideaQueries.list());
@@ -24,7 +26,10 @@ export function WorkPage(): ReactNode {
   const [adding, setAdding] = useState(false);
   const shown = TABS.find(({ to }) => to !== "/work" && matchRoute({ to }) !== false) ?? TABS[0];
   usePageHeading({ title: "Work", crumb: shown.crumb });
-  const newIdeas = ideas.data?.filter((idea) => idea.state === "new").length;
+  const projectFilter = useProjectFilter();
+  const newIdeas = ideas.data?.filter(
+    (idea) => idea.state === "new" && projectFilter.shows(projectIdsOfIdea(idea)),
+  ).length;
   return (
     <div className="work-page">
       <div className="work-tabs">

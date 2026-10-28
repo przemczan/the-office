@@ -299,6 +299,67 @@ test("the board's filters narrow it by search, Tags, priority and Blocked, kept 
   await expect.poll(shown).toEqual(["Filtered manual pages"]);
 });
 
+test("the Project filter narrows the board and Ideas, remembered by the browser, until Show all projects", async ({
+  page,
+}) => {
+  const alpha = await addedProject(page, "Narrowed alpha", "NA");
+  const beta = await addedProject(page, "Narrowed beta", "NB");
+  // So that alpha and beta are never every Project, whichever other files have run.
+  await addedProject(page, "Narrowed gamma", "NG");
+  await createdTask(page, alpha, "Narrowed alpha telemetry");
+  await createdTask(page, beta, "Narrowed beta telemetry");
+  for (const [title, projectId] of [
+    ["Narrowed beta idea", beta.id],
+    ["Narrowed office-wide idea", null],
+  ] as const) {
+    const response = await page.request.post("/api/ideas", {
+      data: { title, notes: "", projectId },
+    });
+    expect(response.status()).toBe(201);
+  }
+  const alphaCard = page.getByRole("article", { name: "Narrowed alpha telemetry" });
+  const betaCard = page.getByRole("article", { name: "Narrowed beta telemetry" });
+  const trigger = page.getByRole("button", { name: /^Project filter:/ });
+  const showAll = page.getByRole("button", { name: /in other Projects.*Show all projects/ });
+  await page.goto("/work");
+  await expect(trigger).toHaveText(/All projects/);
+  await expect(betaCard).toBeVisible();
+  await expect(showAll).toHaveCount(0);
+
+  await trigger.click();
+  await page.getByRole("button", { name: "Show only Narrowed alpha" }).click();
+  await expect(trigger).toHaveText(/Narrowed alpha/);
+  await expect(alphaCard).toBeVisible();
+  await expect(betaCard).toHaveCount(0);
+  await expect(showAll).toBeVisible();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-filter.png") });
+
+  await page.reload();
+  await expect(trigger).toHaveText(/Narrowed alpha/);
+  await expect(betaCard).toHaveCount(0);
+  await page.goto("/work/ideas");
+  await expect(page.getByRole("article", { name: "Narrowed office-wide idea" })).toBeVisible();
+  await expect(page.getByRole("article", { name: "Narrowed beta idea" })).toHaveCount(0);
+
+  await trigger.click();
+  const projectsShown = page.getByRole("group", { name: "Projects shown" });
+  await projectsShown.getByRole("button", { name: "Narrowed beta", exact: true }).click();
+  await expect(trigger).toHaveText(/2 projects/);
+  await expect(page.getByRole("article", { name: "Narrowed beta idea" })).toBeVisible();
+  await projectsShown.getByRole("button", { name: "Narrowed alpha", exact: true }).click();
+  await expect(trigger).toHaveText(/Narrowed beta/);
+  await page.keyboard.press("Escape");
+  await expect(projectsShown).toHaveCount(0);
+
+  await page.goto("/work");
+  await expect(alphaCard).toHaveCount(0);
+  await expect(betaCard).toBeVisible();
+  await showAll.click();
+  await expect(trigger).toHaveText(/All projects/);
+  await expect(alphaCard).toBeVisible();
+  await expect(showAll).toHaveCount(0);
+});
+
 test("the user saves the board's filters as a view, applies it and removes it", async ({
   page,
 }) => {

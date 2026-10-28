@@ -6,33 +6,49 @@ import type { ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, taskQueries } from "../../api/work.ts";
 import { EmptyCard } from "../../shell/item-card.tsx";
+import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
+import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { useCto } from "../../shell/work/use-cto.ts";
 import { InitiativeProjects, InitiativeStateBadge } from "./initiative-parts.tsx";
 import { initiativeProgress, progressWords, tasksOfInitiative } from "./initiative-words.ts";
 
-/** Work › Initiatives (prototypes/app/work.js `initiativesList`): a card for each, the newest first. */
+/**
+ * Work › Initiatives (prototypes/app/work.js `initiativesList`): a card for each the Project filter
+ * shows, the newest first.
+ */
 export function InitiativesList(): ReactNode {
   const initiatives = useQuery(initiativeQueries.list());
   const tasks = useQuery(taskQueries.list());
   const projects = useQuery(projectQueries.list());
   const cto = useCto();
+  const projectFilter = useProjectFilter();
   if (initiatives.error) return <Alert tone="danger" title={initiatives.error.message} />;
   if (!initiatives.data || !tasks.data) return null;
   if (initiatives.data.length === 0) {
     return <EmptyCard>No Initiatives yet. Shape an Idea into one from Ideas.</EmptyCard>;
   }
+  const shown = initiatives.data.filter(({ projectIds }) => projectFilter.shows(projectIds));
   return (
-    <div className="initiative-cards">
-      {initiatives.data.map((initiative) => (
-        <InitiativeCard
-          key={initiative.id}
-          initiative={initiative}
-          tasks={tasks.data}
-          projects={projects.data}
-          cto={cto}
-        />
-      ))}
-    </div>
+    <>
+      <InOtherProjectsNote
+        count={initiatives.data.length - shown.length}
+        one="Initiative"
+        many="Initiatives"
+      />
+      {shown.length > 0 && (
+        <div className="initiative-cards">
+          {shown.map((initiative) => (
+            <InitiativeCard
+              key={initiative.id}
+              initiative={initiative}
+              tasks={tasks.data}
+              projects={projects.data}
+              cto={cto}
+            />
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 

@@ -22,6 +22,8 @@ import { AddAttachmentDialog } from "../../shell/attachments/add-attachment-dial
 import { AttachmentChips } from "../../shell/attachments/attachment-chips.tsx";
 import { useCopyRecordLink } from "../../shell/copy-record-link.ts";
 import { EmptyCard } from "../../shell/item-card.tsx";
+import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
+import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { dayAndClockOf, dayOf } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
@@ -29,7 +31,7 @@ import { ShapeIdeaDialog } from "../../shell/work/shape-idea-dialog.tsx";
 import { useIdeaPlanning } from "../../shell/work/use-idea-planning.ts";
 import { useCto } from "../../shell/work/use-cto.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
-import { authorName } from "../../shell/work/work-words.ts";
+import { authorName, projectIdsOfIdea } from "../../shell/work/work-words.ts";
 import { useShaping, useShapingIntoInitiative } from "./use-shaping.ts";
 
 /**
@@ -44,55 +46,66 @@ export function IdeasPage(): ReactNode {
   const initiatives = useQuery(initiativeQueries.list());
   const linkedTo = useSearch({ from: "/work/ideas" }).idea;
   const page = useScrolledToLinked(linkedTo, ideas.data !== undefined);
+  const projectFilter = useProjectFilter();
+  // The Idea a link opened at shows whatever the Project filter is.
+  const shown = (idea: Idea): boolean =>
+    projectFilter.shows(projectIdsOfIdea(idea)) || idea.id === linkedTo;
   const inState = (state: Idea["state"]): Idea[] =>
-    ideas.data?.filter((idea) => idea.state === state) ?? [];
+    ideas.data?.filter((idea) => idea.state === state && shown(idea)) ?? [];
   const fresh = inState("new");
   const shaped = inState("shaped");
   const dropped = inState("dropped");
   return (
-    <div className="ideas-page" ref={page}>
-      <section className="panel">
-        <h2>
-          <Icon name="lightbulb" size={15} strokeWidth={1.6} />
-          New <span className="panel-count">{fresh.length}</span>
-        </h2>
-        {ideas.error && <Alert tone="danger" title={ideas.error.message} />}
-        <div className="feed">
-          {fresh.map((idea) => (
-            <IdeaCard
-              key={idea.id}
-              idea={idea}
-              projects={projects.data}
-              roles={roles.data}
-              linkedTo={idea.id === linkedTo}
-            />
-          ))}
-          {ideas.data && fresh.length === 0 && (
-            <EmptyCard>No new Ideas. Capture one with "Idea" in the top bar.</EmptyCard>
-          )}
-        </div>
-      </section>
-      <section className="panel">
-        <h2>
-          <Icon name="check" size={15} strokeWidth={1.6} />
-          Shaped <span className="panel-count">{shaped.length}</span>
-        </h2>
-        <div className="ideas-shaped">
-          {shaped.map((idea) => (
-            <ShapedIdea
-              key={idea.id}
-              idea={idea}
-              projects={projects.data}
-              tasks={tasks.data}
-              initiatives={initiatives.data}
-              linkedTo={idea.id === linkedTo}
-            />
-          ))}
-          {shaped.length === 0 && <p className="ideas-none">None yet</p>}
-        </div>
-        <DroppedIdeas ideas={dropped} linkedTo={linkedTo} />
-      </section>
-    </div>
+    <>
+      <InOtherProjectsNote
+        count={ideas.data?.filter((idea) => !shown(idea)).length ?? 0}
+        one="Idea"
+        many="Ideas"
+      />
+      <div className="ideas-page" ref={page}>
+        <section className="panel">
+          <h2>
+            <Icon name="lightbulb" size={15} strokeWidth={1.6} />
+            New <span className="panel-count">{fresh.length}</span>
+          </h2>
+          {ideas.error && <Alert tone="danger" title={ideas.error.message} />}
+          <div className="feed">
+            {fresh.map((idea) => (
+              <IdeaCard
+                key={idea.id}
+                idea={idea}
+                projects={projects.data}
+                roles={roles.data}
+                linkedTo={idea.id === linkedTo}
+              />
+            ))}
+            {ideas.data && fresh.length === 0 && (
+              <EmptyCard>No new Ideas. Capture one with "Idea" in the top bar.</EmptyCard>
+            )}
+          </div>
+        </section>
+        <section className="panel">
+          <h2>
+            <Icon name="check" size={15} strokeWidth={1.6} />
+            Shaped <span className="panel-count">{shaped.length}</span>
+          </h2>
+          <div className="ideas-shaped">
+            {shaped.map((idea) => (
+              <ShapedIdea
+                key={idea.id}
+                idea={idea}
+                projects={projects.data}
+                tasks={tasks.data}
+                initiatives={initiatives.data}
+                linkedTo={idea.id === linkedTo}
+              />
+            ))}
+            {shaped.length === 0 && <p className="ideas-none">None yet</p>}
+          </div>
+          <DroppedIdeas ideas={dropped} linkedTo={linkedTo} />
+        </section>
+      </div>
+    </>
   );
 }
 
