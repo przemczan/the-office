@@ -1,6 +1,6 @@
 # 24 · Devops: the Pipeline library, Project commands by Proposal, onboarding
 
-Status: in progress
+Status: done
 
 ## Goal
 
@@ -13,7 +13,7 @@ The user can hire Devops, who onboards new Projects and looks after the Pipeline
 - [x] The proof-of-concept target: a Publish Stage publishes by the Project's publishing mode or pushes the branch only; the Proof of concept Pipeline does the latter, and Changes still shows what was pushed. Check: a service test against a real git repository with a bare remote.
 - [x] Devops' Proposals: from a chat or a Stage Thread, Devops proposes a Project's commands and install inputs, or a library Pipeline's Stages; the card shows now and proposed and applies with a click; a stale one is refused. The user still edits commands on the Project page. Check: a service test through the scripted engine; Playwright applying each.
 - [x] Onboarding: "Ask Devops to onboard one" opens a chat; Devops' Project Proposal, applied, adds the Project and its "Onboard" Task, Ready on the Onboard Pipeline; the Project page shows onboarding, onboarded or none. Check: a service test through the scripted engine; Playwright from the chat to the Onboard Task.
-- [ ] `npm run verify` and `npm run verify:linux` pass, and the user has looked at hiring Devops, the library editor, a Devops Proposal and onboarding a Project in the running app. Check: the commands; the user's word, logged.
+- [x] `npm run verify` and `npm run verify:linux` pass, and the user has looked at hiring Devops, the library editor, a Devops Proposal and onboarding a Project in the running app. Check: the commands; the user's word, logged.
 
 ## Read first
 
@@ -41,11 +41,12 @@ Leave out: Stage templates (tier 3, spec 2.3's Defaults); the click-through's on
   Read: `ProjectService.add`, `ProjectChecks`; Work's `TaskService` create and states; `InitiativeProposals`.
 - [x] 7b. Onboarding, the web: "Ask Devops to onboard one" on the Projects page, the Project card, the Project page's Onboarding block and its Task; Playwright from the chat to the Onboard Task. Commit.
   Read: click-through `projects.js` (`onboardingBlock`, `project-add`); the Projects surface map.
-- [ ] 8. The user looks at hiring Devops, the library editor, a Devops Proposal and onboarding a Project; `npm run verify:linux`; close the task. Commit.
+- [x] 8. The user looks at hiring Devops, the library editor, a Devops Proposal and onboarding a Project; `npm run verify:linux`; close the task. Commit.
   Read: [testing](../../apps/service/docs/testing.md) for the live check.
 
 ## State
 
+- Done (2026-10-28): every step built, both verifies passed, and the user, asked to look at hiring Devops, the library editor, a Devops Proposal and onboarding a Project in the running app, said all was fine.
 - Built, steps 1 to 4: the Devops preset (Nina, `people/domain/presets.ts`); the library (`pipelines` table seeded with five built-ins, `PipelineLibrary`, `PipelineLibraryEditor` and its routes, rules in `domain/library-pipeline.ts`, events `pipeline.added`/`saved`/`removed`); the Publish Stage's `publishTarget` and the branch-only push; Settings › Pipelines (`surfaces/settings/pipelines/`, Playwright in `settings.e2e.ts`). The library flags, never refuses, who fills a Role (nobody, or Task limit none: `pipelineEditFlags`); the Task's own editor refuses both. Library responses now keep `publishTarget`.
 - Built, step 5: Devops' Proposals. Kinds `project-commands` (`projectId`, `from`/`to` with only the commands and install inputs that change) and `pipeline` (`pipelineId`, `from`/`to` Stages; Conversations keeps them as `object`, unread). Contracts: `projectCommandFieldsSchema`, Stage schemas moved to `stages.ts` (cycle with `conversations.ts`), tool names `PROPOSE_PROJECT_COMMANDS_TOOL`, `PROPOSE_LIBRARY_PIPELINE_TOOL` (the Planner already has `propose_pipeline`).
 - Commands: Conversations' `ProjectCommandOfficeTools` (`propose_project_commands`, `proposedCommandFields` keeps what differs) and `ProjectCommandProposals` call Projects' `ProjectService` directly (Projects never needs Conversations); `proposedCommandsProblems` judges a draft; `changeCommandsAsProposed` applies all or nothing (domain `changeCommandsAsProposed` checked under the row lock, saved in one update, each field still announced with its own event; `ProjectRepository.update` now takes `ProjectChanges`). `list_projects` now shows install inputs.
@@ -63,12 +64,4 @@ Leave out: Stage templates (tier 3, spec 2.3's Defaults); the click-through's on
 
 ## Progress
 
-- 2026-10-28 · task file: sliced into nine steps with the user's answers on onboarding, commands, the proof-of-concept target and the library editor; step 1, the Devops preset, is next.
-- 2026-10-28 · step 1: the Devops preset (Nina; Allowed / Consult CTO / Never; Memory, Chat, Consultant on; Task limit 2), its service tests and the Playwright hire; step 2, the library's service side, is next.
-- 2026-10-28 · step 2: the `pipelines` table seeded with the five built-ins, `PipelineLibrary` reading it, the editor's add, copy, save, remove and use routes with their refusals and events; step 3, the proof-of-concept target, is next.
-- 2026-10-28 · step 3: the library flags a Role nobody fills instead of refusing it (`POST /pipelines/check`, own commit); a Publish Stage's target, the branch-only push keeping Changes, Proof of concept pushing the branch only and Onboard publishing; step 4, the library editor on the web, is next.
-- 2026-10-28 · step 4: Settings › Pipelines on the web (list with flags, New Pipeline, Duplicate, editor with Save, Discard and Remove, who uses it), a removed Pipeline shown on its Tasks, Playwright; step 5, Devops' Proposals on the service, is next.
-- 2026-10-28 · step 5: Devops' Proposals of Project commands and library Pipeline Stages, their tools in chat and Stage Threads, appliers refusing a stale Proposal, the cards on the web, a whole-app test on the scripted engine; step 6, the entry points and Playwright, is next.
-- 2026-10-28 · step 6: "Ask Nina" on a Project's Commands and a library Pipeline opens her chat with the question drafted; Playwright applies both kinds and sees a stale one refused; step 7a, onboarding on the service, is next.
-- 2026-10-28 · step 7a: a commands Proposal applies all or nothing (own commit); the `project` Proposal and Devops' `propose_project`, Work's applier adding the Project and its Onboard Task Ready on Onboard with its worktree, `GET /onboardings`, the card; step 7b, onboarding on the web, is next.
-- 2026-10-28 · step 7b: "Ask Nina to onboard one" on the Projects page, the onboarding badge on the card and page, the Project page's Onboarding block with its Task; Playwright from the chat to the Onboard Task; step 8, the user's look and closing, is next.
+The log is archived in [archive/24-devops-pipeline-library.md](archive/24-devops-pipeline-library.md).
