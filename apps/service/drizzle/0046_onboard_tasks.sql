@@ -1,0 +1,2 @@
+ALTER TABLE "tasks" ADD COLUMN "is_onboard_task" boolean DEFAULT false NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "tasks_onboard_task_per_project" ON "tasks" USING btree ("project_id") WHERE "tasks"."is_onboard_task";

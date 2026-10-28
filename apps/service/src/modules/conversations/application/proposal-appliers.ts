@@ -80,6 +80,8 @@ export class ProposalAppliers {
         return this.applierOf("project-commands").problemsWith(change);
       case "pipeline":
         return this.applierOf("pipeline").problemsWith(change);
+      case "project":
+        return this.applierOf("project").problemsWith(change);
     }
   }
 
@@ -101,6 +103,8 @@ export class ProposalAppliers {
         return this.applierOf("project-commands").apply(change, proposedBy);
       case "pipeline":
         return this.applierOf("pipeline").apply(change, proposedBy);
+      case "project":
+        return this.applierOf("project").apply(change, proposedBy);
     }
   }
 

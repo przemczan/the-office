@@ -96,6 +96,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
               WorkModule.register({
                 imports: [projects, conversations, PeopleModule, PipelineLibraryModule],
                 knownProjects: ProjectService,
+                newProjects: ProjectService,
                 projectWorktrees: TaskWorktrees,
                 knownPeople: RoleCards,
                 knownPipelines: PipelineLibrary,

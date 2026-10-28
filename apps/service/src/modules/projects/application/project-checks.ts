@@ -16,13 +16,18 @@ export class ProjectChecks {
 
   /** Refuses with every reason the Project can't be added, before anything is saved. */
   async checkNewProject(given: NewProject): Promise<void> {
+    const problems = await this.newProjectProblems(given);
+    if (problems.length > 0) throw new ProjectRefused(problems);
+  }
+
+  /** Every reason the Project can't be added; empty when it can. */
+  async newProjectProblems(given: NewProject): Promise<string[]> {
     const newProject = trimmedNewProject(given);
-    const problems = [
+    return [
       ...newProjectProblems(newProject),
       ...(await this.repositoryProblems(newProject.path, newProject.baseBranch)),
       ...(await this.pipelineProblems(newProject.defaultPipeline)),
     ];
-    if (problems.length > 0) throw new ProjectRefused(problems);
   }
 
   async checkDefaultPipeline(pipelineId: string): Promise<void> {

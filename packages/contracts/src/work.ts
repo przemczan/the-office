@@ -142,6 +142,24 @@ export type Task = z.infer<typeof taskSchema>;
 /** Every Task, in the board's order: by priority, then by manual order. */
 export const taskListSchema = z.array(taskSchema);
 
+/**
+ * A Project's onboarding, read from its Onboard Task: onboarding until the Task is done, then
+ * onboarded. A Project without one, or whose Onboard Task was dropped, has none.
+ */
+export const onboardingStateSchema = z.enum(["onboarding", "onboarded"]);
+export type OnboardingState = z.infer<typeof onboardingStateSchema>;
+
+export const projectOnboardingSchema = z.object({
+  projectId: z.string(),
+  /** The Project's Onboard Task. */
+  taskId: z.uuid(),
+  state: onboardingStateSchema,
+});
+export type ProjectOnboarding = z.infer<typeof projectOnboardingSchema>;
+
+/** GET /onboardings: every Project that has an onboarding; one not listed has none. */
+export const projectOnboardingListSchema = z.array(projectOnboardingSchema);
+
 /** PUT /tasks/:id/priority */
 export const priorityChangeSchema = z.object({ priority: prioritySchema });
 export type PriorityChange = z.infer<typeof priorityChangeSchema>;

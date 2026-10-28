@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
 import { roleCardSchema } from "./people.js";
-import { projectCommandFieldsSchema } from "./projects.js";
+import { newProjectSchema, projectCommandFieldsSchema } from "./projects.js";
 import { stageSchema } from "./stages.js";
 import { prioritySchema } from "./work.js";
 
@@ -213,6 +213,9 @@ export const PROPOSE_PROJECT_COMMANDS_TOOL = "propose_project_commands";
 /** The Office tool Devops drafts a Proposal of a library Pipeline's Stages with, hidden alike. */
 export const PROPOSE_LIBRARY_PIPELINE_TOOL = "propose_library_pipeline";
 
+/** The Office tool Devops drafts a Project to onboard with, hidden alike behind its card. */
+export const PROPOSE_PROJECT_TOOL = "propose_project";
+
 /** The fields of a Role card a change rewrites, each one whole; skills aren't among them. */
 const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).partial();
 
@@ -280,6 +283,16 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     pipelineId: z.string(),
     from: z.array(stageSchema),
     to: z.array(stageSchema),
+  }),
+  /**
+   * A Project Devops drafted to onboard: applying it adds the Project and its Onboard Task, Ready
+   * on the Onboard Pipeline. Both ids are null until the user applied it.
+   */
+  z.object({
+    kind: z.literal("project"),
+    project: newProjectSchema,
+    projectId: z.string().nullable(),
+    taskId: z.uuid().nullable(),
   }),
 ]);
 export type ProposedChange = z.infer<typeof proposedChangeSchema>;

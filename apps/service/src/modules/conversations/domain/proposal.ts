@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import type { RoleCard } from "../../people/index.js";
-import type { ProjectCommandFields } from "../../projects/index.js";
+import type { NewProject, ProjectCommandFields } from "../../projects/index.js";
 import { ProposalRefused } from "./proposal-refused.js";
 
 /**
@@ -16,6 +16,7 @@ export interface ProposedChanges {
   readonly initiative: ProposedInitiativeChange;
   readonly "project-commands": ProposedProjectCommands;
   readonly pipeline: ProposedPipelineChange;
+  readonly project: ProposedProject;
 }
 
 /** The kinds of change a Proposal can carry. */
@@ -114,6 +115,19 @@ export interface ProposedPipelineChange {
   readonly pipelineId: string;
   readonly from: readonly PipelineStage[];
   readonly to: readonly PipelineStage[];
+}
+
+/**
+ * A Project Devops drafted to onboard (spec §2.1 Defaults): applying it adds the Project and its
+ * Onboard Task, Ready on the Onboard Pipeline.
+ */
+export interface ProposedProject {
+  readonly kind: "project";
+  readonly project: NewProject;
+  /** The Project added, once the user applied it; undefined before. */
+  readonly projectId: string | undefined;
+  /** Its Onboard Task, once the user applied it; undefined before. */
+  readonly taskId: string | undefined;
 }
 
 /** A Stage of a Pipeline, as Pipelines' library keeps it; Conversations doesn't read it. */

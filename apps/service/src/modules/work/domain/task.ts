@@ -50,6 +50,8 @@ export interface Task {
    * first Agent Stage, as the click-through counts; undefined before Start or without one.
    */
   readonly personRole: string | undefined;
+  /** Whether it is its Project's Onboard Task, whose state is the Project's onboarding. */
+  readonly isOnboardTask: boolean;
   /**
    * The Tasks that must be Done before it can start, in any Project, in the order they were added
    * (task-dependencies.ts); a Dropped one stays listed but no longer blocks.

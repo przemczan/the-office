@@ -59,6 +59,11 @@ export class ProjectService {
     return project;
   }
 
+  /** Every reason `add` would refuse the Project now, as a Proposal of it is judged. */
+  async newProjectProblems(given: NewProject): Promise<string[]> {
+    return this.checks.newProjectProblems(withResolvedPath(trimmedNewProject(given)));
+  }
+
   async list(): Promise<readonly Project[]> {
     return this.repository.list();
   }

@@ -3,6 +3,7 @@ import {
   type DecisionAnswer as DecisionAnswerResponse,
   type Decision as DecisionResponse,
   type Message as MessageResponse,
+  type NewProject as NewProjectResponse,
   type ProjectCommandFields as ProjectCommandFieldsResponse,
   type Proposal as ProposalResponse,
   type ProposedChange as ProposedChangeResponse,
@@ -10,6 +11,7 @@ import {
 } from "@the-office/contracts";
 import type { ContextDecision } from "../../domain/context-policy.js";
 import type { Decision, DecisionAnswer } from "../../domain/decision.js";
+import type { NewProject } from "../../../projects/index.js";
 import type { Message } from "../../domain/message.js";
 import type { Proposal, ProposedChange, ProposedProjectCommands } from "../../domain/proposal.js";
 import { tokensSoFar, type Thread } from "../../domain/thread.js";
@@ -150,7 +152,27 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         from: STAGES.parse(change.from),
         to: STAGES.parse(change.to),
       };
+    case "project":
+      return {
+        kind: "project",
+        project: toNewProjectResponse(change.project),
+        projectId: change.projectId ?? null,
+        taskId: change.taskId ?? null,
+      };
   }
+}
+
+function toNewProjectResponse(project: NewProject): NewProjectResponse {
+  return {
+    name: project.name,
+    path: project.path,
+    baseBranch: project.baseBranch,
+    mark: { label: project.mark.label, colour: project.mark.colour },
+    commands: { ...project.commands },
+    installInputs: [...project.installInputs],
+    publishingMode: project.publishingMode,
+    defaultPipeline: project.defaultPipeline,
+  };
 }
 
 const STAGES = stageSchema.array();

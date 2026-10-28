@@ -2,6 +2,7 @@ import {
   CAPTURE_IDEA_TOOL,
   PROPOSE_LIBRARY_PIPELINE_TOOL as CONTRACT_PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_PROJECT_COMMANDS_TOOL as CONTRACT_PROPOSE_PROJECT_COMMANDS_TOOL,
+  PROPOSE_PROJECT_TOOL as CONTRACT_PROPOSE_PROJECT_TOOL,
   SHOW_OFFICE_STATUS_TOOL as CONTRACT_SHOW_OFFICE_STATUS_TOOL,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
@@ -15,6 +16,7 @@ import {
   PROPOSE_OFFICE_SETTING_TOOL,
   PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_PROJECT_COMMANDS_TOOL,
+  PROPOSE_PROJECT_TOOL,
   PROPOSE_ROLE_TOOL,
   SHOW_OFFICE_STATUS_TOOL,
 } from "./session-instructions.js";
@@ -41,12 +43,13 @@ describe("chatOfficeTools", () => {
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_OFFICE_SETTING_TOOL);
   });
 
-  it("gives Devops reading the library and drafting Project commands and Pipelines as Proposals", () => {
+  it("gives Devops reading the library and drafting Project commands, Pipelines and Projects as Proposals", () => {
     expect(chatOfficeTools(DEVOPS)).toEqual([
       ...CHAT_OFFICE_TOOLS,
       LIST_PIPELINES_TOOL,
       PROPOSE_PROJECT_COMMANDS_TOOL,
       PROPOSE_LIBRARY_PIPELINE_TOOL,
+      PROPOSE_PROJECT_TOOL,
     ]);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_LIBRARY_PIPELINE_TOOL);
   });
@@ -54,6 +57,7 @@ describe("chatOfficeTools", () => {
   it("names Devops' Proposal tools as the web does", () => {
     expect(PROPOSE_PROJECT_COMMANDS_TOOL).toBe(CONTRACT_PROPOSE_PROJECT_COMMANDS_TOOL);
     expect(PROPOSE_LIBRARY_PIPELINE_TOOL).toBe(CONTRACT_PROPOSE_LIBRARY_PIPELINE_TOOL);
+    expect(PROPOSE_PROJECT_TOOL).toBe(CONTRACT_PROPOSE_PROJECT_TOOL);
   });
 
   it("gives only the Office Manager posting Link cards", () => {

@@ -28,6 +28,13 @@ import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, officeWideLimitQuery, taskQueries } from "../../api/work.ts";
 import { EFFORT_LABELS, modelLabel } from "../engine-words.ts";
 import { personName, roleName } from "../person-name.ts";
+import {
+  COMMAND_KEYS,
+  COMMAND_LABELS,
+  INSTALL_INPUTS_LABEL,
+  installInputsLine,
+  publishingLabel,
+} from "../project-words.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import {
   CAPABILITIES,
@@ -88,7 +95,8 @@ const OFFICE_SETTINGS: Record<
  * A Proposal as a card in the drafting person's chat (spec §2.4): a new Role to hire, from scratch
  * (as proposed or edited first on the hire page) or from a preset (under the proposed name or one
  * the user gives), a change to a Role's card, a new value for an Office setting, the CTO's change to
- * an Initiative, or Devops' change to a Project's commands or a library Pipeline's Stages. Nothing
+ * an Initiative, or Devops' change to a Project's commands or a library Pipeline's Stages, or a
+ * Project to onboard. Nothing
  * changes until the user applies it; "Not now" declines it.
  */
 export function ProposalCard({ proposal }: { readonly proposal: Proposal }): ReactNode {
@@ -171,6 +179,56 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
             appliedToast={`${name} changed. Tasks that haven't started follow it.`}
             openNote={STALE_NOTE}
           />
+        </ProposalFrame>
+      );
+    }
+    case "project": {
+      const { project } = change;
+      const pipelineName =
+        pipelines?.find(({ id }) => id === project.defaultPipeline)?.name ??
+        project.defaultPipeline;
+      return (
+        <ProposalFrame title={`Onboard ${project.name}`}>
+          <dl className="proposal-fields">
+            <ProposedField label="Repository">{project.path}</ProposedField>
+            <ProposedField label="Base branch">{project.baseBranch}</ProposedField>
+            {COMMAND_KEYS.map((key) => (
+              <ProposedField key={key} label={COMMAND_LABELS[key]}>
+                {project.commands[key] || "None"}
+              </ProposedField>
+            ))}
+            <ProposedField label={INSTALL_INPUTS_LABEL}>
+              {installInputsLine(project.installInputs)}
+            </ProposedField>
+            <ProposedField label="Publishing">
+              {publishingLabel(project.publishingMode, project.baseBranch)}
+            </ProposedField>
+            <ProposedField label="Default Pipeline">{pipelineName}</ProposedField>
+          </dl>
+          <AnswerFoot
+            proposal={proposal}
+            changes={[projectQueries.list().queryKey, taskQueries.list().queryKey]}
+            appliedToast={`${project.name} added, with its Onboard Task Ready to start.`}
+            openNote="Adds the Project and its Onboard Task once applied"
+          />
+          {change.projectId !== null && change.taskId !== null && (
+            <div className="proposal-foot">
+              <Link
+                className="proposal-link"
+                to="/projects/$projectId"
+                params={{ projectId: change.projectId }}
+              >
+                Open {project.name}
+              </Link>
+              <Link
+                className="proposal-link"
+                to="/tasks/$taskId"
+                params={{ taskId: change.taskId }}
+              >
+                Open the Onboard Task
+              </Link>
+            </div>
+          )}
         </ProposalFrame>
       );
     }

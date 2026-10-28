@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import {
+  markLabelFor,
   projectMarkColourSchema,
   publishingModeSchema,
   type NewProject,
@@ -21,7 +22,7 @@ import {
 } from "../../shell/project-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
-import { installInputsFrom, MARK_COLOUR_LABELS, markLabelFor } from "./project-labels.ts";
+import { installInputsFrom, MARK_COLOUR_LABELS } from "./project-labels.ts";
 
 const COMMAND_EXAMPLES: Readonly<Record<ProjectCommandKey, string>> = {
   install: "npm ci",

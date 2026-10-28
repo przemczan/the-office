@@ -75,6 +75,7 @@ export const tasks = pgTable(
     proposedPipeline: jsonb("proposed_pipeline").$type<ProposedPipeline>(),
     /** Null until the Task starts, and for a Pipeline without an Agent Stage. */
     personRole: text("person_role"),
+    isOnboardTask: boolean("is_onboard_task").notNull().default(false),
     /** The Tasks it waits for, in the order added; a Task is dropped, never deleted, so ids hold. */
     blockedBy: uuid("blocked_by")
       .array()
@@ -88,6 +89,10 @@ export const tasks = pgTable(
   (table) => [
     uniqueIndex("tasks_order_key").on(table.order),
     index("tasks_initiative").on(table.initiativeId),
+    // A Project has one Onboard Task at most: its onboarding is read from it alone.
+    uniqueIndex("tasks_onboard_task_per_project")
+      .on(table.projectId)
+      .where(sql`${table.isOnboardTask}`),
   ],
 );
 

@@ -56,6 +56,7 @@ export class AppModule {
     const work = WorkModule.register({
       imports: [projects, conversations, PeopleModule, PipelineLibraryModule],
       knownProjects: ProjectService,
+      newProjects: ProjectService,
       projectWorktrees: TaskWorktrees,
       knownPeople: RoleCards,
       knownPipelines: PipelineLibrary,

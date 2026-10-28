@@ -20,14 +20,17 @@ import {
 import { IdeasController } from "./adapters/http/ideas.controller.js";
 import { InitiativesController } from "./adapters/http/initiatives.controller.js";
 import { OfficeLimitsController } from "./adapters/http/office-limits.controller.js";
+import { OnboardingsController } from "./adapters/http/onboardings.controller.js";
 import { SavedViewsController } from "./adapters/http/saved-views.controller.js";
 import { SearchController } from "./adapters/http/search.controller.js";
 import { InitiativeProposals } from "./adapters/conversations/initiative-proposals.js";
 import { MentionedWorkRecords } from "./adapters/conversations/mentioned-work-records.js";
 import { OfficeLimitProposals } from "./adapters/conversations/office-limit-proposals.js";
 import { PlanningThreadSetup } from "./adapters/conversations/planning-thread-setup.js";
+import { ProjectProposals } from "./adapters/conversations/project-proposals.js";
 import { ShapingThreadSetup } from "./adapters/conversations/shaping-thread-setup.js";
 import { AttachmentOfficeTools } from "./adapters/office-tools/attachment-office-tools.js";
+import { OnboardingOfficeTools } from "./adapters/office-tools/onboarding-office-tools.js";
 import { PlanningOfficeTools } from "./adapters/office-tools/planning-office-tools.js";
 import { ShapingOfficeTools } from "./adapters/office-tools/shaping-office-tools.js";
 import { WorkOfficeTools } from "./adapters/office-tools/work-office-tools.js";
@@ -44,6 +47,7 @@ import { AttachmentService } from "./application/attachment-service.js";
 import { IdeaService } from "./application/idea-service.js";
 import { InitiativeService } from "./application/initiative-service.js";
 import { OfficeLimits } from "./application/office-limits.js";
+import { OnboardingService } from "./application/onboarding-service.js";
 import { PlanningService } from "./application/planning-service.js";
 import { SavedViewService } from "./application/saved-view-service.js";
 import { SearchService } from "./application/search-service.js";
@@ -61,6 +65,7 @@ import { InitiativeThreads } from "./ports/initiative-threads.js";
 import { KnownPeople } from "./ports/known-people.js";
 import { KnownPipelines } from "./ports/known-pipelines.js";
 import { KnownProjects } from "./ports/known-projects.js";
+import { NewProjects } from "./ports/new-projects.js";
 import { ProjectWorktrees } from "./ports/project-worktrees.js";
 import { ProposalDrafts } from "./ports/proposal-drafts.js";
 import { SavedViewRepository } from "./ports/saved-view-repository.js";
@@ -79,10 +84,11 @@ export interface WorkModuleOptions {
    * The modules that provide the ports below, and Conversations' TaskThreadSetups,
    * InitiativeThreadSetups, WorkRecords and ProposalAppliers, where Work sets up the sessions of
    * Threads on its Tasks and Initiatives, gives the records mentioned in a chat and applies
-   * Proposals of the Office-wide limit and of Initiatives.
+   * Proposals of the Office-wide limit, of Initiatives and of Projects to onboard.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly knownProjects: Type<KnownProjects>;
+  readonly newProjects: Type<NewProjects>;
   readonly projectWorktrees: Type<ProjectWorktrees>;
   readonly knownPeople: Type<KnownPeople>;
   readonly knownPipelines: Type<KnownPipelines>;
@@ -105,6 +111,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
   static register({
     imports,
     knownProjects,
+    newProjects,
     projectWorktrees,
     knownPeople,
     knownPipelines,
@@ -127,6 +134,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         TasksController,
         AttachmentsController,
         OfficeLimitsController,
+        OnboardingsController,
         SearchController,
         SavedViewsController,
       ],
@@ -141,6 +149,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: SavedViewRepository, useClass: PostgresSavedViewRepository },
         { provide: WorkSettings, useClass: PostgresWorkSettings },
         { provide: KnownProjects, useExisting: knownProjects },
+        { provide: NewProjects, useExisting: newProjects },
         { provide: ProjectWorktrees, useExisting: projectWorktrees },
         { provide: KnownPeople, useExisting: knownPeople },
         { provide: KnownPipelines, useExisting: knownPipelines },
@@ -156,6 +165,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         InitiativeService,
         TaskService,
         OfficeLimits,
+        OnboardingService,
         AttachmentService,
         SearchService,
         SavedViewService,
@@ -168,11 +178,13 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         PlanningOfficeTools,
         ShapingOfficeTools,
         AttachmentOfficeTools,
+        OnboardingOfficeTools,
         PlanningThreadSetup,
         ShapingThreadSetup,
         MentionedWorkRecords,
         OfficeLimitProposals,
         InitiativeProposals,
+        ProjectProposals,
       ],
       exports: [IdeaService, TaskService, OfficeLimits, TaskRecords, StageScreenshots],
     };

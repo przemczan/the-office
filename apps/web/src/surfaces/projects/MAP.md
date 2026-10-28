@@ -14,7 +14,7 @@
 - `environment-block.tsx`: EnvironmentBlock
 - `environment-labels.ts`: checkBadge, worktreeCheckLabel, worktreeCheckDetail, commandCheckLabel, runSummary, formatDuration, EnvironmentDraft, draftOf, environmentOf
 - `project-block.tsx`: ProjectBlock
-- `project-labels.ts`: installInputsFrom, MARK_COLOUR_LABELS, markLabelFor
+- `project-labels.ts`: installInputsFrom, MARK_COLOUR_LABELS
 - `project-page.tsx`: ProjectPage
 - `projects-page.tsx`: ProjectsPage
 - `skills-block.tsx`: SkillsBlock

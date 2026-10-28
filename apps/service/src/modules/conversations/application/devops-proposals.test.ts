@@ -6,11 +6,15 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import type { INestApplication } from "@nestjs/common";
 import {
+  markLabelFor,
   PROPOSE_LIBRARY_PIPELINE_TOOL,
   PROPOSE_PROJECT_COMMANDS_TOOL,
+  PROPOSE_PROJECT_TOOL,
   pipelineSchema,
+  projectOnboardingListSchema,
   projectSchema,
   proposalSchema,
+  taskSchema,
   type Pipeline,
   type Project,
   type Proposal,
@@ -167,6 +171,90 @@ describe("Devops' Proposals, through the scripted engine", () => {
     expect(pipelineSchema.parse(await read(`/pipelines/${pipeline.id}`))).toEqual(edited);
     // The whole app, a real repository and a chat session: slow under a full run.
   }, 30_000);
+
+  it("drafts a Project to onboard; applied, it adds the Project and its Onboard Task, Ready on Onboard", async () => {
+    const repository = await aRepository();
+    const name = `Onboarded ${randomUUID().slice(0, 8)}`;
+    const drafted = {
+      name,
+      path: repository,
+      baseBranch: "main",
+      commands: {
+        install: "npm ci",
+        build: "npm run build",
+        lint: "npm run lint",
+        test: "npm test",
+      },
+      installInputs: ["package-lock.json"],
+      publishingMode: "push-and-pull-request",
+      defaultPipeline: "quick-fix",
+    };
+
+    const [proposal] = await ninaProposes([PROPOSE_PROJECT_TOOL, drafted]);
+
+    expect(proposal?.change).toEqual({
+      kind: "project",
+      project: { ...drafted, mark: { label: markLabelFor(name), colour: "teal" } },
+      projectId: null,
+      taskId: null,
+    });
+    const response = await api("POST", `/proposals/${proposal?.id}/apply`, {});
+    expect(response.status).toBe(200);
+    const { change } = proposalSchema.parse(await response.json());
+    if (change.kind !== "project" || !change.projectId || !change.taskId) {
+      throw new Error("The applied Proposal names no Project and Task.");
+    }
+    expect(projectSchema.parse(await read(`/projects/${change.projectId}`))).toMatchObject({
+      name,
+      path: repository,
+      defaultPipeline: "quick-fix",
+    });
+    expect(taskSchema.parse(await read(`/tasks/${change.taskId}`))).toMatchObject({
+      title: "Onboard",
+      projectId: change.projectId,
+      state: "ready",
+      pipelineId: "onboard",
+      planConfirmed: true,
+      definitionOfDoneConfirmed: true,
+      createdBy: { kind: "person", roleKey: DEVOPS },
+    });
+    expect(projectOnboardingListSchema.parse(await read("/onboardings"))).toContainEqual({
+      projectId: change.projectId,
+      taskId: change.taskId,
+      state: "onboarding",
+    });
+    // The whole app, a real repository and a chat session: slow under a full run.
+  }, 30_000);
+
+  it("refuses a Project to onboard that can't be added, which stays open and adds nothing", async () => {
+    const repository = await aRepository();
+    const [proposal] = await ninaProposes([
+      PROPOSE_PROJECT_TOOL,
+      {
+        name: `Moved ${randomUUID().slice(0, 8)}`,
+        path: repository,
+        baseBranch: "main",
+        commands: {
+          install: "npm ci",
+          build: "npm run build",
+          lint: "npm run lint",
+          test: "npm test",
+        },
+        installInputs: [],
+        publishingMode: "merge",
+        defaultPipeline: "quick-fix",
+      },
+    ]);
+    // The repository moves away before the user applies it.
+    await rm(repository, { recursive: true, force: true });
+    const projectsBefore = await read("/projects");
+
+    const response = await api("POST", `/proposals/${proposal?.id}/apply`, {});
+
+    expect(response.status).toBe(422);
+    expect((await readProposal(proposal?.id ?? "")).status.kind).toBe("open");
+    expect(await read("/projects")).toEqual(projectsBefore);
+  }, 30_000);
 });
 
 /** Nina, asked in her chat, calls each Office tool with its input in one turn. */
@@ -203,6 +291,7 @@ async function ninaProposes(
 const KIND_OF_TOOL: Readonly<Record<string, Proposal["change"]["kind"]>> = {
   [PROPOSE_PROJECT_COMMANDS_TOOL]: "project-commands",
   [PROPOSE_LIBRARY_PIPELINE_TOOL]: "pipeline",
+  [PROPOSE_PROJECT_TOOL]: "project",
 };
 
 async function readProposal(id: string): Promise<Proposal> {
@@ -245,8 +334,8 @@ function endsTurn(text: string): Step[] {
   ];
 }
 
-/** A Project of the test's own, on a repository of its own with one commit on main. */
-async function aProject(): Promise<Project> {
+/** A repository of the test's own with one commit on main. */
+async function aRepository(): Promise<string> {
   const repository = await mkdtemp(join(folder, "repository-"));
   await run("git", ["init", "--initial-branch=main"], { cwd: repository });
   await writeFile(join(repository, "README.md"), "Devops' Proposals.\n");
@@ -256,6 +345,12 @@ async function aProject(): Promise<Project> {
     ["-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "First"],
     { cwd: repository },
   );
+  return repository;
+}
+
+/** A Project of the test's own, on a repository of its own. */
+async function aProject(): Promise<Project> {
+  const repository = await aRepository();
   const response = await api("POST", "/projects", {
     name: `Devops ${randomUUID().slice(0, 8)}`,
     path: repository,

@@ -11,8 +11,9 @@ import { IdeaCards } from "./idea-cards.js";
 import { InitiativeThreads, type InitiativeThreadOpening } from "./initiative-threads.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { KnownProjects, type KnownProject } from "./known-projects.js";
+import { NewProjects, type AddedProject } from "./new-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "./project-worktrees.js";
-import { ProposalDrafts, type ProposedInitiativeChange } from "./proposal-drafts.js";
+import { ProposalDrafts, type WorkProposedChange } from "./proposal-drafts.js";
 import { SessionPeople } from "./session-people.js";
 import { SessionInitiatives } from "./session-initiatives.js";
 import { SessionTasks } from "./session-tasks.js";
@@ -36,6 +37,21 @@ export class KnownProjectsForTests extends KnownProjects {
       commands: { install: "npm install", build: "", lint: "npm run lint", test: "npm test" },
       useProjectSkills: true,
     };
+  }
+}
+
+/** Adds every Project it is given, keyed by its name, and refuses none. */
+@Injectable()
+export class NewProjectsForTests extends NewProjects {
+  readonly added: string[] = [];
+
+  async newProjectProblems(): Promise<string[]> {
+    return [];
+  }
+
+  async add({ name }: { readonly name: string }): Promise<AddedProject> {
+    this.added.push(name);
+    return { id: name.toLowerCase().replaceAll(" ", "-"), name };
   }
 }
 
@@ -177,13 +193,9 @@ export class TaskDecisionsForTests extends TaskDecisions {
 /** Keeps each Proposal drafted, by the session it was drafted in. */
 @Injectable()
 export class ProposalDraftsForTests extends ProposalDrafts {
-  readonly drafted: { readonly sessionId: string; readonly change: ProposedInitiativeChange }[] =
-    [];
+  readonly drafted: { readonly sessionId: string; readonly change: WorkProposedChange }[] = [];
 
-  async draft(
-    sessionId: string,
-    change: ProposedInitiativeChange,
-  ): Promise<{ readonly id: string }> {
+  async draft(sessionId: string, change: WorkProposedChange): Promise<{ readonly id: string }> {
     this.drafted.push({ sessionId, change });
     return { id: crypto.randomUUID() };
   }
@@ -191,6 +203,7 @@ export class ProposalDraftsForTests extends ProposalDrafts {
 
 const PORTS = [
   KnownProjectsForTests,
+  NewProjectsForTests,
   ProjectWorktreesForTests,
   KnownPeopleForTests,
   SessionPeopleForTests,

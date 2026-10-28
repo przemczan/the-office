@@ -49,6 +49,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     pipelineId: "full",
     proposedPipeline: undefined,
     personRole: undefined,
+    isOnboardTask: false,
     blockedBy: [],
     originIdeaId: undefined,
     initiativeId: undefined,

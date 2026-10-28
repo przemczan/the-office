@@ -12,6 +12,14 @@ export type PublishingMode = z.infer<typeof publishingModeSchema>;
 export const projectMarkColourSchema = z.enum(["teal", "violet", "gray", "ink"]);
 export type ProjectMarkColour = z.infer<typeof projectMarkColourSchema>;
 
+/** Up to three letters or digits from the name's words, as a mark's label: "Admin panel" → "AP". */
+export function markLabelFor(name: string): string {
+  const words = name.match(/[\p{L}\p{N}]+/gu) ?? [];
+  const initials =
+    words.length > 1 ? words.map((word) => word[0]).join("") : (words[0]?.slice(0, 2) ?? "");
+  return initials.slice(0, 3).toUpperCase();
+}
+
 const projectMarkSchema = z.object({ label: z.string(), colour: projectMarkColourSchema });
 
 const projectCommandsSchema = z.object({

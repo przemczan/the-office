@@ -34,7 +34,11 @@ import { PipelineLibrary, PipelineLibraryModule } from "../../pipelines/index.js
 import { ProjectService } from "../../projects/index.js";
 import { THE_USER } from "../domain/author.js";
 import type { Initiative } from "../domain/initiative.js";
-import { KnownProjectsForTests, ProjectWorktreesForTests } from "../ports/work-ports.fixtures.js";
+import {
+  KnownProjectsForTests,
+  NewProjectsForTests,
+  ProjectWorktreesForTests,
+} from "../ports/work-ports.fixtures.js";
 import { ADD_TASK, WRITE_OUTCOME } from "../adapters/office-tools/shaping-office-tools.js";
 import { WorkModule } from "../work.module.js";
 import { IdeaService } from "./idea-service.js";
@@ -125,7 +129,12 @@ class ListProjectsStandIn {
   }
 }
 
-const STAND_INS = [NoProjectBases, KnownProjectsForTests, ProjectWorktreesForTests];
+const STAND_INS = [
+  NoProjectBases,
+  KnownProjectsForTests,
+  NewProjectsForTests,
+  ProjectWorktreesForTests,
+];
 
 /** Projects' service, which Conversations judges Devops' Proposals by; none is drafted here. */
 const NO_PROJECT_SERVICE = { provide: ProjectService, useValue: {} };
@@ -171,6 +180,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       WorkModule.register({
         imports: [StandInsModule, conversations, PeopleModule, PipelineLibraryModule],
         knownProjects: KnownProjectsForTests,
+        newProjects: NewProjectsForTests,
         projectWorktrees: ProjectWorktreesForTests,
         knownPeople: RoleCards,
         knownPipelines: PipelineLibrary,

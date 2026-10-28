@@ -14,6 +14,7 @@ import {
   InitiativeThreadsForTests,
   KnownPeopleForTests,
   KnownProjectsForTests,
+  NewProjectsForTests,
   ProposalDraftsForTests,
   ProjectWorktreesForTests,
   SessionInitiativesForTests,
@@ -52,6 +53,7 @@ export async function startWorkApplication(
       WorkModule.register({
         imports: [WorkPortsForTestsModule, PipelineLibraryModule],
         knownProjects: KnownProjectsForTests,
+        newProjects: NewProjectsForTests,
         projectWorktrees: ProjectWorktreesForTests,
         knownPeople: KnownPeopleForTests,
         knownPipelines: PipelineLibrary,
