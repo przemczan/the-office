@@ -5,7 +5,7 @@ import { WorkRecords } from "./work-records.js";
 
 /**
  * Reads the records the user mentions in a message (spec §2.4): Decisions from this module's own,
- * Tasks and Ideas from the module keeping them.
+ * Tasks, Initiatives and Ideas from the module keeping them.
  */
 @Injectable()
 export class MentionedRecords {
@@ -25,6 +25,8 @@ export class MentionedRecords {
     switch (mention.kind) {
       case "task":
         return this.work.taskRecord(mention.taskId);
+      case "initiative":
+        return this.work.initiativeRecord(mention.initiativeId);
       case "idea":
         return this.work.ideaRecord(mention.ideaId);
       case "decision": {

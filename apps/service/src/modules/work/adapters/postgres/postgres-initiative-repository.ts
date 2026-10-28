@@ -9,8 +9,10 @@ import type { Task } from "../../domain/task.js";
 import type { TaskChange } from "../../domain/task-changes.js";
 import type { TaskCreated } from "../../domain/task-events.js";
 import { InitiativeRepository, type InitiativeUpdate } from "../../ports/initiative-repository.js";
+import type { TaskUpdate } from "../../ports/task-repository.js";
 import { initiatives, tasks } from "./work.schema.js";
 import {
+  changeDependenciesHeld,
   holdManualOrder,
   takenOrders,
   toInitiative,
@@ -65,6 +67,24 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
       const created = create(initiative, await takenOrders(transaction));
       await transaction.insert(tasks).values(toTaskRow(created.task));
       return created;
+    });
+  }
+
+  async changeDependencies<Event extends DomainEvent>(
+    id: string,
+    taskId: string,
+    change: (
+      initiative: Initiative,
+      task: Task,
+      tasks: readonly Task[],
+    ) => TaskChange<Event> | undefined,
+  ): Promise<TaskUpdate<Event>> {
+    return this.database.transaction(async (transaction) => {
+      // The Initiative first and the dependencies after, the one order every hold of both takes.
+      const initiative = await heldInitiative(transaction, id);
+      return changeDependenciesHeld(transaction, taskId, (task, everyTask) =>
+        change(initiative, task, everyTask),
+      );
     });
   }
 }

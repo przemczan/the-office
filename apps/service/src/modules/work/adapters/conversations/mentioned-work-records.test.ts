@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ideaSchema, taskSchema } from "@the-office/contracts";
+import { ideaSchema, initiativeSchema, taskSchema } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { WorkRecords } from "../../../conversations/index.js";
 import {
@@ -24,7 +24,7 @@ afterAll(async () => {
   await rm(officeData, { recursive: true, force: true });
 });
 
-describe("the records of mentioned Tasks and Ideas", () => {
+describe("the records of mentioned Tasks, Initiatives and Ideas", () => {
   it("are worded as read_task and read_idea word them", async () => {
     const projectId = `project-${randomUUID()}`;
     const task = taskSchema.parse(
@@ -85,10 +85,30 @@ describe("the records of mentioned Tasks and Ideas", () => {
     );
   });
 
-  it("are undefined for a Task or an Idea The Office doesn't have", async () => {
+  it("give an Initiative's record as read_initiative words it", async () => {
+    const idea = ideaSchema.parse(
+      await (
+        await sendJson(work, "POST", "/ideas", {
+          title: "Offline sync",
+          notes: "",
+          projectId: null,
+        })
+      ).json(),
+    );
+    const initiative = initiativeSchema.parse(
+      await (await sendJson(work, "POST", `/ideas/${idea.id}/initiative`)).json(),
+    );
+
+    const record = await work.app.get(WorkRecords).initiativeRecord(initiative.id);
+
+    expect(record).toMatch(/^Offline sync \(Initiative [\w-]+\)\n- shaping; spans no Project yet/);
+  });
+
+  it("are undefined for a record The Office doesn't have", async () => {
     const records = work.app.get(WorkRecords);
 
     await expect(records.taskRecord(randomUUID())).resolves.toBeUndefined();
+    await expect(records.initiativeRecord(randomUUID())).resolves.toBeUndefined();
     await expect(records.ideaRecord(randomUUID())).resolves.toBeUndefined();
   });
 });

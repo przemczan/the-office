@@ -13,7 +13,11 @@ import {
   IdeaShaped,
   IdeaShapedIntoInitiative,
 } from "../../domain/idea-events.js";
-import { InitiativeCreated, InitiativeStateChanged } from "../../domain/initiative-events.js";
+import {
+  InitiativeCreated,
+  InitiativeOutcomeWritten,
+  InitiativeStateChanged,
+} from "../../domain/initiative-events.js";
 import { OfficeWideLimitChanged } from "../../domain/office-limit-events.js";
 import {
   TaskCreated,
@@ -97,6 +101,13 @@ export class WorkWebEvents implements OnModuleInit {
         initiativeId: event.initiativeId,
         from: event.from,
         to: event.to,
+      }),
+    );
+    this.forwarding.forward(
+      InitiativeOutcomeWritten,
+      (event): WebEventOf<"initiative.outcome-written"> => ({
+        type: "initiative.outcome-written",
+        initiativeId: event.initiativeId,
       }),
     );
   }

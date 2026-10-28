@@ -253,6 +253,7 @@ export const workEventInvalidations: Readonly<
   "idea.restored": () => [IDEAS],
   "initiative.created": () => [INITIATIVES],
   "initiative.state-changed": () => [INITIATIVES],
+  "initiative.outcome-written": () => [INITIATIVES],
   "task.created": () => [TASKS, INITIATIVES],
   "task.state-changed": () => [TASKS, INITIATIVES],
   "task.started": () => [TASKS],

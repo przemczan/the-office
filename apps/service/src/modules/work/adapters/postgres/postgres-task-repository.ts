@@ -8,17 +8,17 @@ import type { TaskChange } from "../../domain/task-changes.js";
 import type { TaskCreated, TaskReordered, TaskStarted } from "../../domain/task-events.js";
 import type { HeldAtStart } from "../../domain/task-start.js";
 import { STARTED_STATES } from "../../domain/task-states.js";
-import { TaskNotFound } from "../../domain/task-not-found.js";
 import { TaskRepository, type NeighbourIds, type TaskUpdate } from "../../ports/task-repository.js";
 import { tasks } from "./work.schema.js";
 import {
-  holdDependencies,
+  changeDependenciesHeld,
+  heldTask,
   holdManualOrder,
   holdStarts,
+  saveTask,
   takenOrders,
   toTask,
   toTaskRow,
-  type Transaction,
 } from "./work-rows.js";
 
 @Injectable()
@@ -53,7 +53,7 @@ export class PostgresTaskRepository extends TaskRepository {
   ): Promise<TaskUpdate<Event>> {
     return this.database.transaction(async (transaction) => {
       const task = await heldTask(transaction, id);
-      return save(transaction, task, change(task));
+      return saveTask(transaction, task, change(task));
     });
   }
 
@@ -87,12 +87,9 @@ export class PostgresTaskRepository extends TaskRepository {
     id: string,
     change: (task: Task, tasks: readonly Task[]) => TaskChange<Event> | undefined,
   ): Promise<TaskUpdate<Event>> {
-    return this.database.transaction(async (transaction) => {
-      await holdDependencies(transaction);
-      const task = await heldTask(transaction, id);
-      const everyTask = (await transaction.select().from(tasks)).map(toTask);
-      return save(transaction, task, change(task, everyTask));
-    });
+    return this.database.transaction((transaction) =>
+      changeDependenciesHeld(transaction, id, change),
+    );
   }
 
   async reorder(
@@ -111,23 +108,11 @@ export class PostgresTaskRepository extends TaskRepository {
         above: above === undefined ? undefined : await heldTask(transaction, above),
         below: below === undefined ? undefined : await heldTask(transaction, below),
       };
-      return save(transaction, task, change(task, neighbours, await takenOrders(transaction, id)));
+      return saveTask(
+        transaction,
+        task,
+        change(task, neighbours, await takenOrders(transaction, id)),
+      );
     });
   }
-}
-
-async function heldTask(transaction: Transaction, id: string): Promise<Task> {
-  const [row] = await transaction.select().from(tasks).where(eq(tasks.id, id)).for("update");
-  if (!row) throw new TaskNotFound(id);
-  return toTask(row);
-}
-
-async function save<Event extends DomainEvent>(
-  transaction: Transaction,
-  task: Task,
-  changed: TaskChange<Event> | undefined,
-): Promise<TaskUpdate<Event>> {
-  if (!changed) return { task, event: undefined };
-  await transaction.update(tasks).set(toTaskRow(changed.task)).where(eq(tasks.id, task.id));
-  return changed;
 }

@@ -3,6 +3,7 @@ import { recordPath, type Decision, type Idea, type Task } from "@the-office/con
 /** The kinds of record a message can mention, in the UI's words. */
 export const MENTION_KINDS = {
   task: { word: "Task", icon: "square-check-big" },
+  initiative: { word: "Initiative", icon: "flag" },
   decision: { word: "Decision", icon: "circle-help" },
   idea: { word: "Idea", icon: "lightbulb" },
 } as const;

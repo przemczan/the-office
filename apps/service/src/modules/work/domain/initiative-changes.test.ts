@@ -1,13 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { THE_USER } from "./author.js";
 import {
+  addDependencyWhileShaping,
   addTaskToInitiative,
+  addTaskWhileShaping,
   confirmInitiative,
   dropInitiative,
   finishInitiative,
   initiativeProjectIds,
+  removeDependencyWhileShaping,
+  writeOutcome,
 } from "./initiative-changes.js";
-import { InitiativeStateChanged } from "./initiative-events.js";
+import { InitiativeOutcomeWritten, InitiativeStateChanged } from "./initiative-events.js";
+import { InitiativeNotShaping } from "./initiative-not-shaping.js";
 import { InitiativeRefused } from "./initiative-refused.js";
 import { anInitiative, aTask } from "./work.fixtures.js";
 
@@ -112,5 +117,80 @@ describe("initiativeProjectIds", () => {
         aTask({ projectId: "api" }),
       ]),
     ).toEqual(["api", "web"]);
+  });
+});
+
+describe("writeOutcome", () => {
+  it("writes the outcome of an Initiative being shaped, trimmed", () => {
+    const change = writeOutcome(anInitiative(), "  Writes made offline reach the server.\n");
+
+    expect(change?.initiative).toEqual(
+      anInitiative({ outcome: "Writes made offline reach the server." }),
+    );
+    expect(change?.event).toMatchObject({
+      constructor: InitiativeOutcomeWritten,
+      initiativeId: "initiative-1",
+      outcome: "Writes made offline reach the server.",
+    });
+  });
+
+  it("changes nothing when it says so already", () => {
+    expect(writeOutcome(anInitiative({ outcome: "Sync works." }), "Sync works.")).toBeUndefined();
+  });
+
+  it("refuses an empty one", () => {
+    expect(() => writeOutcome(anInitiative(), "  ")).toThrow(
+      new InitiativeRefused(["Write what must be true once the Initiative is done."]),
+    );
+  });
+
+  it("refuses once it is no longer being shaped", () => {
+    for (const state of ["active", "done", "dropped"] as const) {
+      expect(() => writeOutcome(anInitiative({ state }), "Sync works.")).toThrow(
+        new InitiativeNotShaping(state, "its outcome is written"),
+      );
+    }
+  });
+});
+
+describe("the CTO's changes while shaping", () => {
+  const setting = { pipelineId: "full", order: "a3", createdBy: THE_USER };
+  const given = { title: "Export endpoint", projectId: "api", priority: "normal" } as const;
+  const blocker = aTask({ id: "blocker", projectId: "web" });
+  const its = aTask({ id: "its", initiativeId: "initiative-1" });
+
+  it("adds a Task and changes its Tasks' dependencies, the blocker anywhere", () => {
+    expect(addTaskWhileShaping(anInitiative(), "task-9", given, setting, at).task).toMatchObject({
+      initiativeId: "initiative-1",
+    });
+    const added = addDependencyWhileShaping(anInitiative(), its, "blocker", [its, blocker]);
+    expect(added?.task.blockedBy).toEqual(["blocker"]);
+    const removed = removeDependencyWhileShaping(anInitiative(), added?.task ?? its, "blocker");
+    expect(removed?.task.blockedBy).toEqual([]);
+  });
+
+  it("refuses every one once the Initiative is no longer being shaped", () => {
+    const active = anInitiative({ state: "active" });
+    const refusal = new InitiativeNotShaping(
+      "active",
+      "its Tasks and their dependencies change straight onto it",
+    );
+
+    expect(() => addTaskWhileShaping(active, "task-9", given, setting, at)).toThrow(refusal);
+    expect(() => addDependencyWhileShaping(active, its, "blocker", [its, blocker])).toThrow(
+      refusal,
+    );
+    expect(() => removeDependencyWhileShaping(active, its, "blocker")).toThrow(refusal);
+  });
+
+  it("changes the dependencies of the Initiative's own Tasks only", () => {
+    const other = aTask({ id: "other", title: "Store the queue" });
+
+    expect(() => addDependencyWhileShaping(anInitiative(), other, "blocker", [other])).toThrow(
+      new InitiativeRefused([`The Task "Store the queue" isn't one of this Initiative's.`]),
+    );
+    expect(() => removeDependencyWhileShaping(anInitiative(), other, "blocker")).toThrow(
+      InitiativeRefused,
+    );
   });
 });

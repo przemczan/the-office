@@ -3,6 +3,7 @@ import { useToast } from "./toasts.tsx";
 
 const RECORD_WORDS: Readonly<Record<RecordLink["kind"], string>> = {
   task: "the Task",
+  initiative: "the Initiative",
   decision: "the Decision",
   idea: "the Idea",
 };

@@ -61,6 +61,7 @@ export class AppModule {
       sessionPeople: ThreadService,
       ideaCards: ThreadService,
       sessionTasks: ThreadService,
+      sessionInitiatives: ThreadService,
       taskThreads: ThreadService,
       initiativeThreads: ThreadService,
       taskDecisions: DecisionService,

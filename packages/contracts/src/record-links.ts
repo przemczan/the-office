@@ -3,10 +3,10 @@ import { z } from "zod";
 /**
  * A record of The Office a chat message can mention (spec §2.4), by the link to its page: the web
  * builds the links, and the service reads the ones in a message to give the Agent their records.
- * Initiatives join with task 22.
  */
 export type RecordLink =
   | { readonly kind: "task"; readonly taskId: string }
+  | { readonly kind: "initiative"; readonly initiativeId: string }
   | { readonly kind: "idea"; readonly ideaId: string }
   | {
       readonly kind: "decision";
@@ -21,6 +21,8 @@ export function recordPath(link: RecordLink): string {
   switch (link.kind) {
     case "task":
       return `/tasks/${link.taskId}`;
+    case "initiative":
+      return `/work/initiatives/${link.initiativeId}`;
     case "idea":
       return `/work/ideas?idea=${link.ideaId}`;
     case "decision": {
@@ -51,6 +53,9 @@ export function recordLinkOf(href: string): RecordLink | undefined {
       decisionId,
     };
   }
+  const initiativeId = INITIATIVE_PATH.exec(url.pathname)?.[1];
+  if (initiativeId !== undefined && isUuid(initiativeId))
+    return { kind: "initiative", initiativeId };
   const ideaId = url.searchParams.get("idea");
   if (IDEAS_PATH.test(url.pathname) && ideaId !== null && isUuid(ideaId)) {
     return { kind: "idea", ideaId };
@@ -76,6 +81,8 @@ function recordKey(link: RecordLink): string {
   switch (link.kind) {
     case "task":
       return `task:${link.taskId}`;
+    case "initiative":
+      return `initiative:${link.initiativeId}`;
     case "idea":
       return `idea:${link.ideaId}`;
     case "decision":
@@ -86,9 +93,11 @@ function recordKey(link: RecordLink): string {
 /** Resolves paths; a full URL keeps its own origin, which the records don't depend on. */
 const BASE = "http://the-office.invalid";
 const TASK_PATH = /^\/tasks\/([^/]+)\/?$/;
+const INITIATIVE_PATH = /^\/work\/initiatives\/([^/]+)\/?$/;
 const IDEAS_PATH = /^\/work\/ideas\/?$/;
 /** A path or URL up to the next space, bracket or quote, where Markdown and prose end a link. */
-const LINK_CANDIDATE = /(?:https?:\/\/[^\s/()<>[\]"']+)?\/(?:tasks|work\/ideas)[^\s()<>[\]"']*/g;
+const LINK_CANDIDATE =
+  /(?:https?:\/\/[^\s/()<>[\]"']+)?\/(?:tasks|work\/(?:ideas|initiatives))[^\s()<>[\]"']*/g;
 
 const uuidSchema = z.uuid();
 

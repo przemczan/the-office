@@ -13,6 +13,7 @@ import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { KnownProjects, type KnownProject } from "./known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "./project-worktrees.js";
 import { SessionPeople } from "./session-people.js";
+import { SessionInitiatives } from "./session-initiatives.js";
 import { SessionTasks } from "./session-tasks.js";
 import { TaskDecisions } from "./task-decisions.js";
 import { TaskThreads, type TaskThreadOpening } from "./task-threads.js";
@@ -126,6 +127,16 @@ export class SessionTasksForTests extends SessionTasks {
   }
 }
 
+/** Each session is on the Initiative a test puts it on, and on none otherwise. */
+@Injectable()
+export class SessionInitiativesForTests extends SessionInitiatives {
+  readonly initiatives = new Map<string, string>();
+
+  async initiativeInSession(sessionId: string): Promise<string | undefined> {
+    return this.initiatives.get(sessionId);
+  }
+}
+
 /** Keeps each Thread opened on a Task, without a session; or fails, once `failure` is set. */
 @Injectable()
 export class TaskThreadsForTests extends TaskThreads {
@@ -169,6 +180,7 @@ const PORTS = [
   SessionPeopleForTests,
   IdeaCardsForTests,
   SessionTasksForTests,
+  SessionInitiativesForTests,
   TaskThreadsForTests,
   InitiativeThreadsForTests,
   TaskDecisionsForTests,

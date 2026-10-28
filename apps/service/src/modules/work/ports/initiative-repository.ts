@@ -4,6 +4,7 @@ import type { InitiativeChange } from "../domain/initiative-changes.js";
 import type { Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
 import type { TaskCreated } from "../domain/task-events.js";
+import type { TaskUpdate } from "./task-repository.js";
 
 /** The Initiative after an update, with the change's event, or undefined when nothing changed. */
 export interface InitiativeUpdate<Event extends DomainEvent> {
@@ -13,7 +14,8 @@ export interface InitiativeUpdate<Event extends DomainEvent> {
 
 /**
  * Where Initiatives are kept; one is made by shaping an Idea (IdeaRepository). Adding a Task and
- * every change hold the Initiative, so a Task can't join one that is becoming done.
+ * every change hold the Initiative, so a Task can't join one that is becoming done, and what a
+ * change may do is decided from the Initiative as held.
  */
 export abstract class InitiativeRepository {
   abstract find(id: string): Promise<Initiative | undefined>;
@@ -39,4 +41,19 @@ export abstract class InitiativeRepository {
     id: string,
     create: (initiative: Initiative, takenOrders: readonly string[]) => TaskChange<TaskCreated>,
   ): Promise<TaskChange<TaskCreated>>;
+
+  /**
+   * Applies `change` to the Task's dependencies as TaskRepository.changeDependencies does, holding
+   * the Initiative first and then taking that lock, every Task read in the hold. Throws
+   * InitiativeNotFound as `update` does, and TaskNotFound when there is no such Task.
+   */
+  abstract changeDependencies<Event extends DomainEvent>(
+    id: string,
+    taskId: string,
+    change: (
+      initiative: Initiative,
+      task: Task,
+      tasks: readonly Task[],
+    ) => TaskChange<Event> | undefined,
+  ): Promise<TaskUpdate<Event>>;
 }

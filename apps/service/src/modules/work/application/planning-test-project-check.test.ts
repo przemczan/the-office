@@ -103,6 +103,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                 sessionPeople: ThreadService,
                 ideaCards: ThreadService,
                 sessionTasks: ThreadService,
+                sessionInitiatives: ThreadService,
                 taskThreads: ThreadService,
                 initiativeThreads: ThreadService,
                 taskDecisions: DecisionService,

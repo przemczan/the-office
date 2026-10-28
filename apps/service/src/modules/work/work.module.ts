@@ -24,6 +24,7 @@ import { PlanningThreadSetup } from "./adapters/conversations/planning-thread-se
 import { ShapingThreadSetup } from "./adapters/conversations/shaping-thread-setup.js";
 import { AttachmentOfficeTools } from "./adapters/office-tools/attachment-office-tools.js";
 import { PlanningOfficeTools } from "./adapters/office-tools/planning-office-tools.js";
+import { ShapingOfficeTools } from "./adapters/office-tools/shaping-office-tools.js";
 import { WorkOfficeTools } from "./adapters/office-tools/work-office-tools.js";
 import { TasksController } from "./adapters/http/tasks.controller.js";
 import { PostgresAttachmentRepository } from "./adapters/postgres/postgres-attachment-repository.js";
@@ -53,6 +54,7 @@ import { KnownPipelines } from "./ports/known-pipelines.js";
 import { KnownProjects } from "./ports/known-projects.js";
 import { ProjectWorktrees } from "./ports/project-worktrees.js";
 import { SessionPeople } from "./ports/session-people.js";
+import { SessionInitiatives } from "./ports/session-initiatives.js";
 import { SessionTasks } from "./ports/session-tasks.js";
 import { TaskRepository } from "./ports/task-repository.js";
 import { TaskDecisions } from "./ports/task-decisions.js";
@@ -75,6 +77,7 @@ export interface WorkModuleOptions {
   readonly sessionPeople: Type<SessionPeople>;
   readonly ideaCards: Type<IdeaCards>;
   readonly sessionTasks: Type<SessionTasks>;
+  readonly sessionInitiatives: Type<SessionInitiatives>;
   readonly taskThreads: Type<TaskThreads>;
   readonly initiativeThreads: Type<InitiativeThreads>;
   readonly taskDecisions: Type<TaskDecisions>;
@@ -91,6 +94,7 @@ export class WorkModule implements NestModule {
     sessionPeople,
     ideaCards,
     sessionTasks,
+    sessionInitiatives,
     taskThreads,
     initiativeThreads,
     taskDecisions,
@@ -121,6 +125,7 @@ export class WorkModule implements NestModule {
         { provide: SessionPeople, useExisting: sessionPeople },
         { provide: IdeaCards, useExisting: ideaCards },
         { provide: SessionTasks, useExisting: sessionTasks },
+        { provide: SessionInitiatives, useExisting: sessionInitiatives },
         { provide: TaskThreads, useExisting: taskThreads },
         { provide: InitiativeThreads, useExisting: initiativeThreads },
         { provide: TaskDecisions, useExisting: taskDecisions },
@@ -136,6 +141,7 @@ export class WorkModule implements NestModule {
         WorkWebEvents,
         WorkOfficeTools,
         PlanningOfficeTools,
+        ShapingOfficeTools,
         AttachmentOfficeTools,
         PlanningThreadSetup,
         ShapingThreadSetup,

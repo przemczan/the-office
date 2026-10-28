@@ -5,14 +5,13 @@ import { OfficeToolRegistry } from "../../../engine/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { TaskService } from "../../application/task-service.js";
-import type { Author } from "../../domain/author.js";
 import type { Idea } from "../../domain/idea.js";
 import { ideaRecordText, taskRecordText, whereOf } from "../../domain/record-words.js";
 import { PRIORITIES, type Task } from "../../domain/task.js";
 import { TASK_STATE_NAMES } from "../../domain/task-states.js";
 import { IdeaCards } from "../../ports/idea-cards.js";
 import { SessionPeople } from "../../ports/session-people.js";
-import { answered, WorkToolRefused } from "./work-tool-answers.js";
+import { answered, personInSession } from "./work-tool-answers.js";
 
 export const LIST_TASKS = "list_tasks";
 export const READ_TASK = "read_task";
@@ -125,7 +124,7 @@ export class WorkOfficeTools implements OnModuleInit {
         answered(async () => {
           const idea = await this.ideas.capture(
             { title, notes: notes ?? "", projectId },
-            await this.personIn(sessionId),
+            await personInSession(this.sessionPeople, sessionId),
           );
           await this.ideaCards.postIdeaCard(sessionId, idea.id);
           return `Captured the Idea "${idea.title}" (Idea ${idea.id}), ${whereOf(idea.projectId)}. Its card is in this chat, for the user to plan it from.`;
@@ -147,19 +146,11 @@ export class WorkOfficeTools implements OnModuleInit {
         answered(async () => {
           const task = await this.tasks.create(
             { title, projectId, priority: priority ?? "normal" },
-            await this.personIn(sessionId),
+            await personInSession(this.sessionPeople, sessionId),
           );
           return `Created the Task "${task.title}" (Task ${task.id}) in Backlog in ${task.projectId}, on the Pipeline ${task.pipelineId}.`;
         }),
     });
-  }
-
-  private async personIn(sessionId: string): Promise<Author> {
-    const roleKey = await this.sessionPeople.personInSession(sessionId);
-    if (roleKey === undefined) {
-      throw new WorkToolRefused("The Office doesn't know whose session this is.");
-    }
-    return { kind: "person", roleKey };
   }
 }
 

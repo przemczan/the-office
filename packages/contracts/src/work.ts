@@ -59,6 +59,10 @@ export type Initiative = z.infer<typeof initiativeSchema>;
 /** The newest first. */
 export const initiativeListSchema = z.array(initiativeSchema);
 
+/** PUT /initiatives/:id/outcome: the user's outcome, written while the Initiative is being shaped. */
+export const outcomeChangeSchema = z.object({ outcome: z.string() });
+export type OutcomeChange = z.infer<typeof outcomeChangeSchema>;
+
 export const taskStateSchema = z.enum([
   "backlog",
   "planning",
@@ -260,6 +264,7 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
     from: initiativeStateSchema,
     to: initiativeStateSchema,
   }),
+  webEventSchema.extend({ type: z.literal("initiative.outcome-written"), initiativeId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.created"), taskId: z.uuid() }),
   webEventSchema.extend({
     type: z.literal("task.state-changed"),

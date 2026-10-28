@@ -143,6 +143,8 @@ function toMention(link: RecordLink): Mention {
   switch (link.kind) {
     case "task":
       return { kind: "task", taskId: link.taskId };
+    case "initiative":
+      return { kind: "initiative", initiativeId: link.initiativeId };
     case "idea":
       return { kind: "idea", ideaId: link.ideaId };
     case "decision":

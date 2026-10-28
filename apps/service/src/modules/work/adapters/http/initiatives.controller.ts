@@ -7,12 +7,15 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Put,
   UseFilters,
 } from "@nestjs/common";
 import {
   newTaskSchema,
+  outcomeChangeSchema,
   type Initiative as InitiativeResponse,
   type NewTask,
+  type OutcomeChange,
   type Task as TaskResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
@@ -50,6 +53,15 @@ export class InitiativesController {
   @HttpCode(HttpStatus.OK)
   async confirm(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativeResponse> {
     return this.respond(await this.initiatives.confirm(id));
+  }
+
+  /** The user's outcome; refused once the Initiative is no longer being shaped. */
+  @Put(":id/outcome")
+  async writeOutcome(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(outcomeChangeSchema)) { outcome }: OutcomeChange,
+  ): Promise<InitiativeResponse> {
+    return this.respond(await this.initiatives.writeOutcome(id, outcome));
   }
 
   /** Its Tasks stay as they are. */

@@ -7,11 +7,15 @@ import type { Author } from "../domain/author.js";
 import { shapeIdeaIntoInitiative } from "../domain/idea-changes.js";
 import type { Initiative } from "../domain/initiative.js";
 import {
+  addDependencyWhileShaping,
   addTaskToInitiative,
+  addTaskWhileShaping,
   confirmInitiative,
   dropInitiative,
   finishInitiative,
+  removeDependencyWhileShaping,
   tasksByInitiative,
+  writeOutcome,
   type InitiativeChange,
 } from "../domain/initiative-changes.js";
 import { InitiativeNotFound } from "../domain/initiative-not-found.js";
@@ -20,6 +24,7 @@ import { orderAfter } from "../domain/manual-order.js";
 import { initiativeRecordText } from "../domain/record-words.js";
 import { CTO, SHAPING_OPENING, SHAPING_THREAD_TITLE } from "../domain/shaping.js";
 import { newTaskProblems, type NewTask, type Task } from "../domain/task.js";
+import type { TaskChange } from "../domain/task-changes.js";
 import { TaskStateChanged } from "../domain/task-events.js";
 import { AttachmentRepository } from "../ports/attachment-repository.js";
 import { IdeaRepository } from "../ports/idea-repository.js";
@@ -30,8 +35,9 @@ import { KnownProjects } from "../ports/known-projects.js";
 import { TaskRepository } from "../ports/task-repository.js";
 
 /**
- * The Initiatives use cases: shaped from an Idea, confirmed, dropped, and done once their Tasks
- * are. Each change is saved first and its events published after.
+ * The Initiatives use cases: shaped from an Idea, its outcome, Tasks and their dependencies written
+ * while shaping, confirmed, dropped, and done once their Tasks are. Each change is saved first and
+ * its events published after.
  */
 @Injectable()
 export class InitiativeService implements OnModuleInit {
@@ -159,8 +165,46 @@ export class InitiativeService implements OnModuleInit {
     return this.update(id, dropInitiative);
   }
 
-  /** A new Task in Backlog in the Initiative and the Project, following the Project's default Pipeline. */
+  /** What must be true once it is done, by the user or the CTO, while it is being shaped. */
+  async writeOutcome(id: string, outcome: string): Promise<Initiative> {
+    return this.update(id, (initiative) => writeOutcome(initiative, outcome));
+  }
+
+  /**
+   * The user's new Task in Backlog in the Initiative and the Project, following the Project's
+   * default Pipeline, while the Initiative is shaping or active.
+   */
   async addTask(id: string, given: NewTask, createdBy: Author): Promise<Task> {
+    return this.createTask(id, given, createdBy, addTaskToInitiative);
+  }
+
+  /** The CTO's new Task, as `addTask`, straight onto the Initiative only while it is being shaped. */
+  async addTaskWhileShaping(id: string, given: NewTask, createdBy: Author): Promise<Task> {
+    return this.createTask(id, given, createdBy, addTaskWhileShaping);
+  }
+
+  /**
+   * The CTO makes one of its Tasks wait for `blockerId`, any Task anywhere, straight onto the
+   * Initiative only while it is being shaped.
+   */
+  async addDependencyWhileShaping(id: string, taskId: string, blockerId: string): Promise<Task> {
+    return this.changeDependencies(id, taskId, (initiative, task, tasks) =>
+      addDependencyWhileShaping(initiative, task, blockerId, tasks),
+    );
+  }
+
+  async removeDependencyWhileShaping(id: string, taskId: string, blockerId: string): Promise<Task> {
+    return this.changeDependencies(id, taskId, (initiative, task) =>
+      removeDependencyWhileShaping(initiative, task, blockerId),
+    );
+  }
+
+  private async createTask(
+    id: string,
+    given: NewTask,
+    createdBy: Author,
+    create: typeof addTaskToInitiative,
+  ): Promise<Task> {
     const project = await this.projects.find(given.projectId);
     if (!project) {
       throw new InitiativeRefused([
@@ -169,7 +213,7 @@ export class InitiativeService implements OnModuleInit {
       ]);
     }
     const { task, event } = await this.repository.addTask(id, (initiative, takenOrders) =>
-      addTaskToInitiative(
+      create(
         initiative,
         randomUUID(),
         given,
@@ -178,6 +222,20 @@ export class InitiativeService implements OnModuleInit {
       ),
     );
     await this.events.publish(event);
+    return task;
+  }
+
+  private async changeDependencies<Event extends DomainEvent>(
+    id: string,
+    taskId: string,
+    change: (
+      initiative: Initiative,
+      task: Task,
+      tasks: readonly Task[],
+    ) => TaskChange<Event> | undefined,
+  ): Promise<Task> {
+    const { task, event } = await this.repository.changeDependencies(id, taskId, change);
+    if (event) await this.events.publish(event);
     return task;
   }
 

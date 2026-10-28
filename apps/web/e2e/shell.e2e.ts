@@ -133,5 +133,7 @@ test.describe("losing the service", () => {
     reachable = true;
     await expect(strip).not.toContainText("Reconnecting");
     await expect(notice).toHaveCount(0);
+    // Reconnecting refetches the queries, so a read of the roles may still be in the route then.
+    await page.unrouteAll({ behavior: "ignoreErrors" });
   });
 });

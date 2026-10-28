@@ -1,9 +1,13 @@
-import { sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { Database } from "../../../../platform/database/database.js";
+import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
 import type { Idea } from "../../domain/idea.js";
 import type { Initiative } from "../../domain/initiative.js";
 import type { Task } from "../../domain/task.js";
+import type { TaskChange } from "../../domain/task-changes.js";
+import { TaskNotFound } from "../../domain/task-not-found.js";
+import type { TaskUpdate } from "../../ports/task-repository.js";
 import { attachments, ideas, initiatives, tasks } from "./work.schema.js";
 
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
@@ -30,8 +34,40 @@ export async function holdStarts(transaction: Transaction): Promise<void> {
 }
 
 /** Holds changes of dependencies until the transaction ends, so two can't close a cycle at once. */
-export async function holdDependencies(transaction: Transaction): Promise<void> {
+async function holdDependencies(transaction: Transaction): Promise<void> {
   await transaction.execute(sql`select pg_advisory_xact_lock(hashtext('work.dependencies'))`);
+}
+
+/**
+ * Applies `change` to the Task's dependencies in the transaction, holding every change of
+ * dependencies and the Task meanwhile, with every Task read in the hold.
+ */
+export async function changeDependenciesHeld<Event extends DomainEvent>(
+  transaction: Transaction,
+  id: string,
+  change: (task: Task, tasks: readonly Task[]) => TaskChange<Event> | undefined,
+): Promise<TaskUpdate<Event>> {
+  await holdDependencies(transaction);
+  const task = await heldTask(transaction, id);
+  const everyTask = (await transaction.select().from(tasks)).map(toTask);
+  return saveTask(transaction, task, change(task, everyTask));
+}
+
+export async function heldTask(transaction: Transaction, id: string): Promise<Task> {
+  const [row] = await transaction.select().from(tasks).where(eq(tasks.id, id)).for("update");
+  if (!row) throw new TaskNotFound(id);
+  return toTask(row);
+}
+
+/** Saves the Task as `changed` left it; nothing when it is undefined. */
+export async function saveTask<Event extends DomainEvent>(
+  transaction: Transaction,
+  task: Task,
+  changed: TaskChange<Event> | undefined,
+): Promise<TaskUpdate<Event>> {
+  if (!changed) return { task, event: undefined };
+  await transaction.update(tasks).set(toTaskRow(changed.task)).where(eq(tasks.id, task.id));
+  return changed;
 }
 
 /** Every Task's order key, but `besidesTaskId`'s. */

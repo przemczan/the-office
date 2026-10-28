@@ -16,3 +16,12 @@ export class InitiativeStateChanged extends DomainEvent {
     super();
   }
 }
+
+export class InitiativeOutcomeWritten extends DomainEvent {
+  constructor(
+    readonly initiativeId: string,
+    readonly outcome: string,
+  ) {
+    super();
+  }
+}

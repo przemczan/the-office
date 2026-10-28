@@ -1,10 +1,10 @@
 # Work: module map
 
-**Owns:** Ideas, Initiatives (shaped from an Idea, confirmed, dropped, done once their Tasks are: `initiative-changes.ts`; the Projects one spans are its Tasks', which name it), Tasks (states, priority, manual order, Plan, Definition of Done, the Task's Pipeline id, the Tasks it waits for: `blockedBy`, `task-dependencies.ts`) and Attachments of an Idea, an Initiative or a Task (`ideas`, `initiatives`, `tasks`, `attachments`); Office settings in one row (`work_settings`, the Office-wide limit, which Settings › Office limits changes; the repository answers the default until it is saved); screenshots attached from Stages (`StageScreenshots`); the Office tools for Ideas and Tasks, whose records (`domain/record-words.ts`) are also what a mention in a chat gives the Agent, through Conversations' `WorkRecords` (which also gives a Link card its Task's title); an Initiative's record (`initiativeRecordText`) briefs its shaping Thread through Conversations' `InitiativeThreadSetups` (`ShapingThreadSetup`).
+**Owns:** Ideas, Initiatives (shaped from an Idea, confirmed, dropped, done once their Tasks are: `initiative-changes.ts`; the Projects one spans are its Tasks', which name it), Tasks (states, priority, manual order, Plan, Definition of Done, the Task's Pipeline id, the Tasks it waits for: `blockedBy`, `task-dependencies.ts`) and Attachments of an Idea, an Initiative or a Task (`ideas`, `initiatives`, `tasks`, `attachments`); Office settings in one row (`work_settings`, the Office-wide limit, which Settings › Office limits changes; the repository answers the default until it is saved); screenshots attached from Stages (`StageScreenshots`); the Office tools for Ideas and Tasks, whose records (`domain/record-words.ts`) are also what a mention in a chat gives the Agent, through Conversations' `WorkRecords` (which also gives a Link card its Task's title); an Initiative's record (`initiativeRecordText`) briefs its shaping Thread through Conversations' `InitiativeThreadSetups` (`ShapingThreadSetup`) and is what a mention gives; the CTO's Office tools there (`ShapingOfficeTools`: its outcome, Tasks and their dependencies) write straight onto it while it is shaping, as the user writes its outcome (`PUT /initiatives/:id/outcome`).
 
-**Talks to:** through ports bound in [app.module.ts](../../app.module.ts): `KnownProjects` to `ProjectService`, `ProjectWorktrees` to `TaskWorktrees`, `KnownPeople` to `RoleCards`, `KnownPipelines` to `PipelineLibrary`, `SessionPeople`, `SessionTasks`, `TaskThreads`, `InitiativeThreads` (the shaping Thread with the CTO, opened as an Idea is shaped when a CTO is hired, else started by the user: `POST /initiatives/:id/shaping`) and `IdeaCards` (the card `capture_idea` posts in the chat) to `ThreadService`, `TaskDecisions` to `DecisionService`. Pipelines reacts to its events and moves started Tasks through `TaskService`. Work applies Proposals of the Office-wide limit with `OfficeLimitProposals` (`adapters/conversations/`), which fills Conversations' `ProposalAppliers` as Work starts and judges one by the contracts' rule Settings saves by; `WorkPortsForTestsModule` provides the registry.
+**Talks to:** through ports bound in [app.module.ts](../../app.module.ts): `KnownProjects` to `ProjectService`, `ProjectWorktrees` to `TaskWorktrees`, `KnownPeople` to `RoleCards`, `KnownPipelines` to `PipelineLibrary`, `SessionPeople`, `SessionTasks`, `SessionInitiatives` (the Initiative a shaping session writes onto), `TaskThreads`, `InitiativeThreads` (the shaping Thread with the CTO, opened as an Idea is shaped when a CTO is hired, else started by the user: `POST /initiatives/:id/shaping`) and `IdeaCards` (the card `capture_idea` posts in the chat) to `ThreadService`, `TaskDecisions` to `DecisionService`. Pipelines reacts to its events and moves started Tasks through `TaskService`. Work applies Proposals of the Office-wide limit with `OfficeLimitProposals` (`adapters/conversations/`), which fills Conversations' `ProposalAppliers` as Work starts and judges one by the contracts' rule Settings saves by; `WorkPortsForTestsModule` provides the registry.
 
-**Traps:** a Task joins an Initiative only through `InitiativeRepository.addTask`, and the done check (`InitiativeService`, on a Task's `TaskStateChanged` to done or dropped, and on Confirm) goes through `InitiativeRepository.update`: both hold the Initiative's row, so no Task joins one becoming done. Start reads the Task's blockers in its own hold (`HeldAtStart`), and every change of dependencies takes one lock and reads every Task (`TaskRepository.changeDependencies`), so no two changes close a cycle; use those, never `update`, for either. The Task holds only its Pipeline's id; the Task's own copy of its Stages lives in Pipelines (`task_stages`), as decided with the user in task 10. Every test file shares the `work_settings` row each Start reads: a test that lowers the limit overrides `WorkSettings` with `WorkSettingsForTests`.
+**Traps:** a Task joins an Initiative only through `InitiativeRepository.addTask`, and the done check (`InitiativeService`, on a Task's `TaskStateChanged` to done or dropped, and on Confirm) goes through `InitiativeRepository.update`: both hold the Initiative's row, so no Task joins one becoming done. Whether the CTO may change an Initiative straight away is decided from the row as held (`InitiativeNotShaping`, thrown in the hold), never from a read before it. A dependency of an Initiative's Task changes holding the Initiative first and the dependencies after (`InitiativeRepository.changeDependencies`), the one order any hold of both takes. Start reads the Task's blockers in its own hold (`HeldAtStart`), and every change of dependencies takes one lock and reads every Task (`TaskRepository.changeDependencies`), so no two changes close a cycle; use those, never `update`, for either. The Task holds only its Pipeline's id; the Task's own copy of its Stages lives in Pipelines (`task_stages`), as decided with the user in task 10. Every test file shares the `work_settings` row each Start reads: a test that lowers the limit overrides `WorkSettings` with `WorkSettingsForTests`.
 
 <!-- Generated by `npm run maps` from the code; edit only above this line. -->
 
@@ -16,7 +16,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 
 - `domain/attachment-events.ts`: AttachmentAdded, AttachmentMoved, AttachmentRemoved
 - `domain/idea-events.ts`: IdeaCaptured, IdeaShaped, IdeaShapedIntoInitiative, IdeaDropped, IdeaRestored
-- `domain/initiative-events.ts`: InitiativeCreated, InitiativeStateChanged
+- `domain/initiative-events.ts`: InitiativeCreated, InitiativeStateChanged, InitiativeOutcomeWritten
 - `domain/office-limit-events.ts`: OfficeWideLimitChanged
 - `domain/task-events.ts`: TaskCreated, TaskStateChanged, TaskPriorityChanged, TaskReordered, TaskPlanProposed, TaskPlanConfirmed, TaskDefinitionOfDoneProposed, TaskDefinitionOfDoneConfirmed, TaskPipelineProposed, TaskPipelineConfirmed, TaskPaused, TaskStopped, TaskResumed, TaskDependencyAdded, TaskDependencyRemoved, TaskStarted
 
@@ -41,6 +41,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `GET /initiatives`: InitiativesController.list
 - `GET /initiatives/:id`: InitiativesController.read
 - `POST /initiatives/:id/confirm`: InitiativesController.confirm
+- `PUT /initiatives/:id/outcome`: InitiativesController.writeOutcome
 - `POST /initiatives/:id/drop`: InitiativesController.drop
 - `POST /initiatives/:id/shaping`: InitiativesController.shape
 - `POST /initiatives/:id/tasks`: InitiativesController.addTask
@@ -106,9 +107,10 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 
 - `attachment-office-tools.ts`: ATTACH_FILE, ATTACH_LINK, AttachmentOfficeTools
 - `planning-office-tools.ts`: WRITE_PLAN, WRITE_DEFINITION_OF_DONE, PROPOSE_PIPELINE, READ_ATTACHMENT, DOCUMENT_READ_LIMIT, PlanningOfficeTools
+- `shaping-office-tools.ts`: READ_INITIATIVE, WRITE_OUTCOME, ADD_TASK, ADD_DEPENDENCY, REMOVE_DEPENDENCY, ShapingOfficeTools
 - `work-office-tools.ts`: LIST_TASKS, READ_TASK, LIST_IDEAS, READ_IDEA, CREATE_TASK, WorkOfficeTools
-- `work-tool-answers.ts`: OfficeToolResult, WorkToolRefused, answered
-- Tests: attachment-office-tools.test.ts, planning-office-tools.test.ts, work-office-tools.test.ts
+- `work-tool-answers.ts`: OfficeToolResult, WorkToolRefused, answered, personInSession
+- Tests: attachment-office-tools.test.ts, planning-office-tools.test.ts, shaping-office-tools.test.ts, work-office-tools.test.ts
 
 ### adapters/postgres/
 
@@ -117,7 +119,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `postgres-initiative-repository.ts`: PostgresInitiativeRepository
 - `postgres-task-repository.ts`: PostgresTaskRepository
 - `postgres-work-settings.ts`: PostgresWorkSettings
-- `work-rows.ts`: Transaction, IdeaRow, InitiativeRow, TaskRow, AttachmentRow, holdManualOrder, holdStarts, holdDependencies, takenOrders, toIdeaRow, toIdea, toInitiativeRow, toInitiative, toTaskRow, toTask, ownerColumns, toAttachmentRow, toAttachment
+- `work-rows.ts`: Transaction, IdeaRow, InitiativeRow, TaskRow, AttachmentRow, holdManualOrder, holdStarts, changeDependenciesHeld, heldTask, saveTask, takenOrders, toIdeaRow, toIdea, toInitiativeRow, toInitiative, toTaskRow, toTask, ownerColumns, toAttachmentRow, toAttachment
 - `work-settings.schema.ts`: workSettings
 - `work.schema.ts`: ideas, initiatives, tasks, attachments
 - Tests: postgres-work-repositories.test.ts
@@ -152,9 +154,10 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `idea-not-found.ts`: IdeaNotFound
 - `idea-refused.ts`: IdeaRefused
 - `idea.ts`: IdeaState, Idea, NewIdea, trimmedNewIdea, newIdeaProblems
-- `initiative-changes.ts`: InitiativeChange, confirmInitiative, dropInitiative, finishInitiative, addTaskToInitiative, tasksByInitiative, initiativeProjectIds
-- `initiative-events.ts`: InitiativeCreated, InitiativeStateChanged
+- `initiative-changes.ts`: InitiativeChange, confirmInitiative, dropInitiative, finishInitiative, addTaskToInitiative, writeOutcome, addTaskWhileShaping, addDependencyWhileShaping, removeDependencyWhileShaping, tasksByInitiative, initiativeProjectIds
+- `initiative-events.ts`: InitiativeCreated, InitiativeStateChanged, InitiativeOutcomeWritten
 - `initiative-not-found.ts`: InitiativeNotFound
+- `initiative-not-shaping.ts`: InitiativeNotShaping
 - `initiative-refused.ts`: InitiativeRefused
 - `initiative.ts`: INITIATIVE_STATES, InitiativeState, Initiative
 - `manual-order.ts`: boardOrder, orderAfter, Neighbours, placementBetween, compareOrders
@@ -187,11 +190,12 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `known-pipelines.ts`: KnownPipelines
 - `known-projects.ts`: KnownProject, KnownProjects
 - `project-worktrees.ts`: TaskWorktree, ProjectWorktrees
+- `session-initiatives.ts`: SessionInitiatives
 - `session-people.ts`: SessionPeople
 - `session-tasks.ts`: SessionTasks
 - `task-decisions.ts`: TaskDecisions
 - `task-repository.ts`: TaskUpdate, NeighbourIds, TaskRepository
 - `task-threads.ts`: TaskThreadOpening, TaskThreads
-- `work-ports.fixtures.ts`: UNKNOWN_PROJECT, KnownProjectsForTests, ProjectWorktreesForTests, KnownPeopleForTests, WorkSettingsForTests, SessionPeopleForTests, UNKNOWN_SESSION, IdeaCardsForTests, SessionTasksForTests, TaskThreadsForTests, InitiativeThreadsForTests, TaskDecisionsForTests, WorkPortsForTestsModule
+- `work-ports.fixtures.ts`: UNKNOWN_PROJECT, KnownProjectsForTests, ProjectWorktreesForTests, KnownPeopleForTests, WorkSettingsForTests, SessionPeopleForTests, UNKNOWN_SESSION, IdeaCardsForTests, SessionTasksForTests, SessionInitiativesForTests, TaskThreadsForTests, InitiativeThreadsForTests, TaskDecisionsForTests, WorkPortsForTestsModule
 - `work-settings.ts`: WorkSettings
 - `worktree-files.ts`: WorktreeFile, WorktreeFileLimits, WorktreeFiles

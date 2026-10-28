@@ -8,15 +8,31 @@ import {
 } from "../../../conversations/index.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { SHAPING_INSTRUCTIONS } from "../../domain/shaping.js";
+import {
+  ADD_DEPENDENCY,
+  ADD_TASK,
+  READ_INITIATIVE,
+  REMOVE_DEPENDENCY,
+  WRITE_OUTCOME,
+} from "../office-tools/shaping-office-tools.js";
+import { LIST_IDEAS, LIST_TASKS, READ_IDEA, READ_TASK } from "../office-tools/work-office-tools.js";
 
-/** The Office tools of a shaping session: it reads The Office's records. */
+/**
+ * The Office tools of a shaping session: it reads The Office's records and writes onto its own
+ * Initiative; create_task is left out, since a Task made there would be no part of it.
+ */
 export const SHAPING_OFFICE_TOOLS = [
   "list_projects",
   "list_people",
-  "list_tasks",
-  "read_task",
-  "list_ideas",
-  "read_idea",
+  LIST_TASKS,
+  READ_TASK,
+  LIST_IDEAS,
+  READ_IDEA,
+  READ_INITIATIVE,
+  WRITE_OUTCOME,
+  ADD_TASK,
+  ADD_DEPENDENCY,
+  REMOVE_DEPENDENCY,
 ] as const;
 
 /** Sets up the sessions of Threads on Initiatives for Conversations, from the Initiative's record. */

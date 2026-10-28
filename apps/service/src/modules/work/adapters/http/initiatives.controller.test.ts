@@ -143,7 +143,8 @@ describe("POST /api/ideas/:id/initiative", () => {
     const listed = initiativeListSchema.parse(
       await (await sendJson(work, "GET", "/initiatives")).json(),
     );
-    expect(listed[0]).toEqual(initiative);
+    // Every test file shares the database, so another may have shaped a newer one meanwhile.
+    expect(listed).toContainEqual(initiative);
   });
 
   it("refuses to shape an Idea twice, and sends its Attachments to the Initiative", async () => {
@@ -264,6 +265,43 @@ describe("POST /api/initiatives/:id/tasks", () => {
     expect(workRefusalSchema.parse(await dropped.json()).reasons).toEqual([
       "A dropped Initiative takes no more Tasks.",
     ]);
+  });
+});
+
+describe("PUT /api/initiatives/:id/outcome", () => {
+  it("writes the user's outcome while the Initiative is being shaped", async () => {
+    const initiative = await shape(await capture());
+    work.published.length = 0;
+
+    const response = await sendJson(work, "PUT", `/initiatives/${initiative.id}/outcome`, {
+      outcome: " Every usage export is a CSV the admin downloads. ",
+    });
+
+    expect(response.status).toBe(200);
+    expect(initiativeSchema.parse(await response.json()).outcome).toBe(
+      "Every usage export is a CSV the admin downloads.",
+    );
+    expect(webEventsOf(work)).toEqual([
+      { type: "initiative.outcome-written", initiativeId: initiative.id },
+    ]);
+  });
+
+  it("refuses an empty one, and any once the Initiative is confirmed", async () => {
+    const initiative = await shape(await capture());
+
+    const empty = await sendJson(work, "PUT", `/initiatives/${initiative.id}/outcome`, {
+      outcome: "",
+    });
+    await post(initiative, "confirm");
+    const confirmed = await sendJson(work, "PUT", `/initiatives/${initiative.id}/outcome`, {
+      outcome: "Every usage export is a CSV.",
+    });
+
+    expect(empty.status).toBe(422);
+    expect(workRefusalSchema.parse(await confirmed.json()).reasons).toEqual([
+      "The Initiative is active: its outcome is written only while it is being shaped.",
+    ]);
+    expect((await read(initiative)).outcome).toBe("");
   });
 });
 

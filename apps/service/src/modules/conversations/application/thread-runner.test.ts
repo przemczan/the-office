@@ -189,6 +189,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   app.get(WorkRecords).provide({
     taskRecord: (taskId) => Promise.resolve(workRecords.get(taskId)),
     taskTitle: () => Promise.resolve(undefined),
+    initiativeRecord: (initiativeId) => Promise.resolve(workRecords.get(initiativeId)),
     ideaRecord: (ideaId) => Promise.resolve(workRecords.get(ideaId)),
   });
   threads = app.get(ThreadService);
@@ -639,6 +640,7 @@ describe("a Thread on a Task", () => {
     });
     expect((await threads.read(opened.id)).title).toBe("Planning");
     await expect(threads.taskInSession(session?.id ?? "")).resolves.toBe(taskId);
+    await expect(threads.initiativeInSession(session?.id ?? "")).resolves.toBeUndefined();
     await expect(threads.personInSession(session?.id ?? "")).resolves.toBe(roleKey);
   });
 
@@ -784,6 +786,7 @@ describe("a Thread on an Initiative", () => {
       { id: opened.id },
     ]);
     await expect(threads.taskInSession(session?.id ?? "")).resolves.toBeUndefined();
+    await expect(threads.initiativeInSession(session?.id ?? "")).resolves.toBe(initiativeId);
   });
 });
 
@@ -1022,9 +1025,11 @@ describe("a message mentioning records", () => {
     if (!decision) throw new Error("No Decision was opened.");
     const taskId = randomUUID();
     const ideaId = randomUUID();
+    const initiativeId = randomUUID();
     const missingTaskId = randomUUID();
     workRecords.set(taskId, "Export CSV (Task) · Plan: write the exporter.");
     workRecords.set(ideaId, "Dark mode (Idea) · Notes: for the night shift.");
+    workRecords.set(initiativeId, "Offline sync (Initiative) · Outcome: writes survive.");
     workRecords.set(decision.taskId, "Admin export (Task) · Plan: ask about archived Projects.");
     const chat = await threads.startInChat(roleKey);
     const said = "Compare [@Export CSV](/tasks/x) with [@Dark mode](/work/ideas?idea=y).";
@@ -1033,6 +1038,7 @@ describe("a message mentioning records", () => {
       { kind: "task", taskId },
       { kind: "idea", ideaId },
       { kind: "decision", decisionId: decision.id },
+      { kind: "initiative", initiativeId },
       { kind: "task", taskId: missingTaskId },
     ]);
     const log = await answered(chat.id, 3);
@@ -1049,13 +1055,14 @@ describe("a message mentioning records", () => {
         text.indexOf("\n\n## The user's message"),
       )
       .split("\n\n---\n\n");
-    expect(records).toHaveLength(4);
+    expect(records).toHaveLength(5);
     expect(records[0]).toBe("Export CSV (Task) · Plan: write the exporter.");
     expect(records[1]).toBe("Dark mode (Idea) · Notes: for the night shift.");
     expect(records[2]).toContain(`Question: ${EXPORT_QUESTION}`);
     expect(records[2]).toContain("Not answered yet: it waits on the user.");
     expect(records[2]).toContain("Admin export (Task) · Plan: ask about archived Projects.");
-    expect(records[3]).toBe(`The Office has no Task ${missingTaskId}.`);
+    expect(records[3]).toBe("Offline sync (Initiative) · Outcome: writes survive.");
+    expect(records[4]).toBe(`The Office has no Task ${missingTaskId}.`);
     // The Thread's context line shows the Brief with the records, as the session got it.
     const [context, message] = drafts(log);
     expect(context?.kind === "context" && context.brief).toContain("## Records the user mentioned");

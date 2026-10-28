@@ -128,6 +128,15 @@ export class ThreadService {
     return home?.kind === "task" ? home.taskId : undefined;
   }
 
+  /**
+   * The Initiative whose Thread has the engine session `sessionId` now, for the Office tools the CTO
+   * shapes it with; undefined for any other session.
+   */
+  async initiativeInSession(sessionId: string): Promise<string | undefined> {
+    const home = (await this.repository.findBySession(sessionId))?.home;
+    return home?.kind === "initiative" ? home.initiativeId : undefined;
+  }
+
   /** The Idea the person captured, as its card in the chat whose session is `sessionId`. */
   async postIdeaCard(sessionId: string, ideaId: string): Promise<void> {
     await this.postInChat(sessionId, (roleKey) => ({ kind: "idea", roleKey, ideaId }));

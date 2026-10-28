@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { RecordLink } from "@the-office/contracts";
+import { recordPath, type RecordLink } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { ideaQueries, taskQueries } from "../api/work.ts";
@@ -8,7 +8,7 @@ import { MENTION_KINDS } from "./conversation/mention-words.ts";
 import "./record-mention.css";
 
 /**
- * A Task, Decision or Idea mentioned in a message (spec §2.4), shown as a chip linking to it in the
+ * A Task, Initiative, Decision or Idea mentioned in a message (spec §2.4), shown as a chip linking to it in the
  * app, named as the record is now. Until it is read, or once it is gone, the words written stand.
  */
 export function RecordMention({
@@ -31,6 +31,8 @@ export function RecordMention({
           written={written}
         />
       );
+    case "initiative":
+      return <InitiativeMention link={link} written={written} />;
     case "idea":
       return <IdeaMention ideaId={link.ideaId} written={written} />;
   }
@@ -91,6 +93,25 @@ function IdeaMention({
       <Icon name={MENTION_KINDS.idea.icon} size={12} />
       {title ?? shownWords(written, "idea")}
     </Link>
+  );
+}
+
+/**
+ * Linked by its path until the Initiative page joins the router (task 22, step 4a), which also names
+ * it as it is now.
+ */
+function InitiativeMention({
+  link,
+  written,
+}: {
+  readonly link: Extract<RecordLink, { kind: "initiative" }>;
+  readonly written: ReactNode;
+}): ReactNode {
+  return (
+    <a className="record-mention" href={recordPath(link)} title="Initiative">
+      <Icon name={MENTION_KINDS.initiative.icon} size={12} />
+      {shownWords(written, "initiative")}
+    </a>
   );
 }
 

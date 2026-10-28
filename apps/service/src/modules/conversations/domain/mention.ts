@@ -3,10 +3,11 @@ import { answerWords, type Decision } from "./decision.js";
 
 /**
  * A record the user mentions in a chat message, by its link or with `@` (spec §2.4): the Agent
- * there is given its record with the message. Initiatives join with task 22.
+ * there is given its record with the message.
  */
 export type Mention =
   | { readonly kind: "task"; readonly taskId: string }
+  | { readonly kind: "initiative"; readonly initiativeId: string }
   | { readonly kind: "idea"; readonly ideaId: string }
   | { readonly kind: "decision"; readonly decisionId: string };
 
@@ -14,8 +15,8 @@ export type Mention =
 export type MentionedRecord = { readonly mention: Mention; readonly text: string | undefined };
 
 /**
- * The Brief of a session that starts on the user's message, with the record of each Task, Idea or
- * Decision the message mentions, read now, so the Agent works from the record as it stands.
+ * The Brief of a session that starts on the user's message, with the record of each Task,
+ * Initiative, Idea or Decision the message mentions, read now, so the Agent works from the record as it stands.
  */
 export function briefWithMentionedRecords(
   brief: Brief,
@@ -79,6 +80,8 @@ function goneWords(mention: Mention): string {
   switch (mention.kind) {
     case "task":
       return `The Office has no Task ${mention.taskId}.`;
+    case "initiative":
+      return `The Office has no Initiative ${mention.initiativeId}.`;
     case "idea":
       return `The Office has no Idea ${mention.ideaId}.`;
     case "decision":
