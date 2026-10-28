@@ -25,12 +25,12 @@
 - `pipelines.ts`: pipelineQueries, addPipeline, duplicatePipeline, savePipeline, removePipeline, editTaskStages, continueAtGate, sendBackFromGate, dropAtGate, pipelineEventInvalidations
 - `projects.ts`: projectQueries, taskChangesKey, addProject, changeCommand, changeInstallInputs, startEnvironmentCheck, changePublishingMode, changeDefaultPipeline, changeUseProjectSkills, projectEventInvalidations
 - `skills.ts`: skillQueries, writeSkill, uploadSkill, editSkill, uploadSkillVersion, changeSkillState, changeSkillEveryone, assignSkill, removeSkill, skillEventInvalidations
-- `work.ts`: TASKS, ideaQueries, initiativeQueries, officeWideLimitQuery, changeOfficeWideLimit, savedViewsQuery, saveView, removeView, searchQuery, taskQueries, attachmentQueries, captureIdea, shapeIdea, planIdea, shapeIntoInitiative, startShapingThread, confirmInitiative, dropInitiative, writeInitiativeOutcome, addTaskToInitiative, dropIdea, restoreIdea, createTask, changePriority, changeTags, placeTask, planTask, confirmPlan, confirmDefinitionOfDone, setPipeline, addDependency, removeDependency, markReady, startTask, pauseTask, stopTask, resumeTask, dropTask, addLink, addFile, removeAttachment, attachmentContentUrl, workEventInvalidations
+- `work.ts`: TASKS, ideaQueries, initiativeQueries, officeWideLimitQuery, changeOfficeWideLimit, savedViewsQuery, saveView, removeView, searchQuery, taskQueries, onboardingsQuery, attachmentQueries, captureIdea, shapeIdea, planIdea, shapeIntoInitiative, startShapingThread, confirmInitiative, dropInitiative, writeInitiativeOutcome, addTaskToInitiative, dropIdea, restoreIdea, createTask, changePriority, changeTags, placeTask, planTask, confirmPlan, confirmDefinitionOfDone, setPipeline, addDependency, removeDependency, markReady, startTask, pauseTask, stopTask, resumeTask, dropTask, addLink, addFile, removeAttachment, attachmentContentUrl, workEventInvalidations
 - Tests: api-client.test.ts, conversations.test.ts, event-stream.test.ts
 
 ### shell/
 
-- `ask-devops.tsx`: AskDevopsButton
+- `ask-devops.tsx`: AskDevopsButton, useDevops
 - `brand-tone.ts`: useBrandTone
 - `copy-record-link.ts`: useCopyRecordLink
 - `desk.tsx`: Desk, PanelHeadingProps, Panel, PanelHeading, Feed

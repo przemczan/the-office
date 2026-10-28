@@ -10,13 +10,14 @@ import { ProjectMark } from "../../shell/project-mark.tsx";
 import { CommandsBlock } from "./commands-block.tsx";
 import { DefaultPipelineBlock } from "./default-pipeline-block.tsx";
 import { EnvironmentBlock } from "./environment-block.tsx";
+import { OnboardingBadge, OnboardingBlock } from "./onboarding-block.tsx";
 import { SkillsBlock } from "./skills-block.tsx";
 import { WorkBlock } from "./work-block.tsx";
 import "./projects.css";
 
 /**
  * A Project's own page: its commands, default Pipeline and publishing, its own skills, its
- * environment, and how its Tasks stand.
+ * onboarding, its environment, and how its Tasks stand.
  */
 export function ProjectPage(): ReactNode {
   const { projectId } = useParams({ from: "/projects/$projectId" });
@@ -38,6 +39,7 @@ export function ProjectPage(): ReactNode {
           <SkillsBlock project={project.data} />
         </div>
         <div className="project-column">
+          <OnboardingBlock project={project.data} />
           <EnvironmentBlock project={project.data} />
           <WorkBlock project={project.data} />
         </div>
@@ -53,6 +55,7 @@ function ProjectHead({ project }: { readonly project: Project }): ReactNode {
       <div>
         <h2>{project.name}</h2>
         <div className="project-head-meta">
+          <OnboardingBadge projectId={project.id} />
           <span className="project-path">{project.path}</span>
           <span>· {project.baseBranch}</span>
         </div>

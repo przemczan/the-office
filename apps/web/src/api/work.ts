@@ -7,6 +7,7 @@ import {
   initiativeListSchema,
   initiativeSchema,
   officeWideLimitSchema,
+  projectOnboardingListSchema,
   readinessSchema,
   savedViewListSchema,
   savedViewSchema,
@@ -160,6 +161,16 @@ export const taskQueries = {
         getFromApi(`${taskPath(id)}/readiness`, readinessSchema, signal),
     }),
 };
+
+/**
+ * Every Project's onboarding, read from its Onboard Task; a Project not listed has none. Under the
+ * Tasks' key, so any Task event refreshes it.
+ */
+export const onboardingsQuery = () =>
+  queryOptions({
+    queryKey: [...TASKS, "onboardings"],
+    queryFn: ({ signal }) => getFromApi("/onboardings", projectOnboardingListSchema, signal),
+  });
 
 export const attachmentQueries = {
   /** The Idea's or Task's Attachments, in the order they were added. */

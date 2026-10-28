@@ -1651,6 +1651,67 @@ test("the user asks Nina from a Project's Commands and a library Pipeline, and a
   }
 });
 
+test("the user asks Nina to onboard a Project, applies her Proposal and finds its Onboard Task Ready", async ({
+  page,
+}) => {
+  const repository = await createTemporaryRepository();
+  try {
+    const name = `Onboarded ${Date.now()}`;
+    const nina = chatWith(page, "Nina");
+
+    await page.goto("/projects");
+    await page.getByRole("button", { name: "Ask Nina to onboard one" }).click();
+    await expect(nina.getByLabel("Message")).toHaveValue(
+      "Can you onboard a new Project? The repository is ",
+    );
+    const threadId = new URL(page.url()).searchParams.get("thread") ?? "";
+    await seedProposal(
+      threadId,
+      {
+        kind: "project",
+        project: {
+          name,
+          path: repository.path,
+          baseBranch: "main",
+          mark: { label: "ON", colour: "teal" },
+          commands: PASSING_COMMANDS,
+          installInputs: [],
+          publishingMode: "push-and-pull-request",
+          defaultPipeline: "quick-fix",
+        },
+        projectId: null,
+        taskId: null,
+      },
+      "devops",
+    );
+    await page.goto(`/projects?chat=devops&thread=${threadId}`);
+
+    const card = nina.getByRole("region", { name: `Proposal: Onboard ${name}` });
+    await expect(card).toContainText(repository.path);
+    await card.getByRole("button", { name: "Apply change" }).click();
+    await expect(card).toContainText("Applied");
+    await expect(
+      page.getByText(`${name} added, with its Onboard Task Ready to start.`),
+    ).toBeVisible();
+    const projectCard = page.locator(".project-card", { hasText: name });
+    await expect(projectCard).toContainText("Onboarding");
+
+    await card.getByRole("link", { name: `Open ${name}` }).click();
+    // The Onboarding block, from the Onboard Task.
+    const onboarding = page.locator(".project-block-note", { hasText: "From the Task" });
+    await expect(onboarding).toHaveText("From the Task Onboard · Ready, waiting for your Start");
+    await expect(page.locator(".project-head")).toContainText("Onboarding");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-onboarding.png") });
+
+    await onboarding.getByRole("link", { name: "Onboard" }).click();
+    await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+/);
+    await expect(page.locator(".task-page")).toContainText("Ready");
+    await expect(page.locator(".task-page")).toContainText("Onboard");
+  } finally {
+    await repository.remove();
+  }
+});
+
 /**
  * A Link card Marta posted in her chat, as the Conversations service leaves one: only an Agent's
  * session posts one. `to` is the person's Role key.

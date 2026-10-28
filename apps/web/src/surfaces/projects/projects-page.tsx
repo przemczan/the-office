@@ -5,6 +5,7 @@ import { Alert, Button, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
+import { AskDevopsButton, useDevops } from "../../shell/ask-devops.tsx";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
 import { narrowed } from "../../shell/project-filter/project-filter-choices.ts";
@@ -12,17 +13,20 @@ import { useProjectFilter } from "../../shell/project-filter/use-project-filter.
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { publishingLabel } from "../../shell/project-words.ts";
 import { AddProjectDialog } from "./add-project-dialog.tsx";
+import { OnboardingBadge } from "./onboarding-block.tsx";
 import "./projects.css";
 
 /**
- * The Projects The Office works on, a card each for those the Project filter shows, and adding
- * one. The count in the heading is every Project.
+ * The Projects The Office works on, a card each for those the Project filter shows with its
+ * onboarding, and adding one: by asking Devops to onboard it, or by hand. The count in the heading
+ * is every Project.
  */
 export function ProjectsPage(): ReactNode {
   const projects = useQuery(projectQueries.list());
   const pipelines = useQuery(pipelineQueries.list());
   const projectFilter = useProjectFilter();
   const [adding, setAdding] = useState(false);
+  const devops = useDevops();
   usePageHeading({ title: "Projects", crumb: projects.data && countOf(projects.data) });
   const { shown, elsewhere } = narrowed(projects.data ?? [], ({ id }) => projectFilter.shows([id]));
   return (
@@ -43,10 +47,15 @@ export function ProjectsPage(): ReactNode {
             </div>
           </div>
           <p className="project-tile-text">
-            Give its folder, base branch and commands. Script Stages run the commands in each Task's
-            worktree.
+            {devops?.card.capabilities.chat
+              ? `${devops.card.name} prepares it until it builds and tests in a fresh worktree, and asks before installing anything. Or give its folder, base branch and commands yourself.`
+              : "Give its folder, base branch and commands. Script Stages run the commands in each Task's worktree."}
           </p>
-          <div>
+          <div className="add-project-actions">
+            <AskDevopsButton
+              label={(name) => `Ask ${name} to onboard one`}
+              draft="Can you onboard a new Project? The repository is "
+            />
             <Button variant="secondary" onClick={() => setAdding(true)}>
               Add by path
             </Button>
@@ -84,6 +93,7 @@ function ProjectCard({
           <h2 className="project-tile-name">{project.name}</h2>
           <div className="project-tile-sub project-path">{project.path}</div>
         </div>
+        <OnboardingBadge projectId={project.id} />
       </div>
       <div className="project-tile-sub">
         <Icon name="route" size={13} />

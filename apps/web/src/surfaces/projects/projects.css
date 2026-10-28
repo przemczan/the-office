@@ -152,6 +152,12 @@
   min-width: 0;
 }
 
+.add-project-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .project-block-title {
   display: inline-flex;
   align-items: center;
