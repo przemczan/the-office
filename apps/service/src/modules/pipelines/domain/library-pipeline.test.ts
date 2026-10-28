@@ -31,41 +31,38 @@ function anEdit(fields: Partial<PipelineEdit> = {}): PipelineEdit {
 }
 
 describe("pipelineEditProblems", () => {
-  it("allows a named Pipeline whose Stages can run and whose Roles someone fills", () => {
-    expect(pipelineEditProblems(anEdit(), builtInPipelines, DEVELOPER_HIRED)).toEqual([]);
+  it("allows a named Pipeline whose Stages can run", () => {
+    expect(pipelineEditProblems(anEdit(), builtInPipelines)).toEqual([]);
   });
 
   it("wants a name, and one no other Pipeline has in any case", () => {
-    expect(pipelineEditProblems(anEdit({ name: "  " }), [], DEVELOPER_HIRED)).toEqual([
+    expect(pipelineEditProblems(anEdit({ name: "  " }), [])).toEqual([
       { text: "Give the Pipeline a name." },
     ]);
-    expect(
-      pipelineEditProblems(anEdit({ name: " full " }), builtInPipelines, DEVELOPER_HIRED),
-    ).toEqual([{ text: 'Another Pipeline is named "full".' }]);
+    expect(pipelineEditProblems(anEdit({ name: " full " }), builtInPipelines)).toEqual([
+      { text: 'Another Pipeline is named "full".' },
+    ]);
   });
 
-  it("checks the Stages as the Stage editor does, and refuses a Role whose person only talks", () => {
+  it("checks the Stages as the Stage editor does", () => {
     const stages = [
-      agentStage({ role: "consultant" }),
-      agentStage({ key: "review", name: "Review", session: "continue" }),
+      agentStage(),
+      agentStage({ key: "review", name: "Review", role: "reviewer", session: "continue" }),
       scriptStage({ onFailure: { goBackTo: "publish", rounds: 1 } }),
     ];
-    const roles = new Map<string, RoleFilling>([
-      ...DEVELOPER_HIRED,
-      ["consultant", { title: "Consultant", person: { name: "Kai", taskLimit: "none" } }],
-    ]);
 
-    expect(pipelineEditProblems(anEdit({ stages }), [], roles).map(({ text }) => text)).toEqual([
+    expect(pipelineEditProblems(anEdit({ stages }), []).map(({ text }) => text)).toEqual([
       "Stage 2 · Review: continuing a session needs the same Role in the Stage before.",
       "Stage 3 · Tests: on failure it can only go back to an earlier Stage.",
-      "Stage 1 · Implement: Kai's Task limit is none, so Consultant only talks and can't work a Stage.",
     ]);
-    expect(pipelineEditProblems(anEdit({ stages: [] }), [], DEVELOPER_HIRED)).toEqual([
+    expect(pipelineEditProblems(anEdit({ stages: [] }), [])).toEqual([
       { text: "A Pipeline needs at least one Stage." },
     ]);
   });
+});
 
-  it("allows a Role nobody fills, never hired or let go, which it only flags", () => {
+describe("pipelineEditFlags", () => {
+  it("flags a Role nobody fills, never hired or let go", () => {
     const stages = [
       agentStage({ role: "devops" }),
       agentStage({ key: "ship", name: "Ship", role: "designer" }),
@@ -74,11 +71,27 @@ describe("pipelineEditProblems", () => {
       ["devops", { title: "Devops", person: undefined, letGoPerson: "Dana" }],
     ]);
 
-    expect(pipelineEditProblems(anEdit({ stages }), [], roles)).toEqual([]);
     expect(pipelineEditFlags(anEdit({ stages }), roles).map(({ text }) => text)).toEqual([
       "Stage 1 · Implement: Dana was let go from Devops; hire Dana back, hire someone else, or choose who works it.",
       "Stage 2 · Ship: nobody fills designer; hire someone or choose who works it.",
     ]);
+  });
+
+  it("flags a Role whose person's Task limit is none (spec §2.3)", () => {
+    const roles = new Map<string, RoleFilling>([
+      ["consultant", { title: "Consultant", person: { name: "Kai", taskLimit: "none" } }],
+    ]);
+
+    expect(
+      pipelineEditFlags(anEdit({ stages: [agentStage({ role: "consultant" })] }), roles).map(
+        ({ text }) => text,
+      ),
+    ).toEqual([
+      "Stage 1 · Implement: Kai's Task limit is none, so Consultant only talks and can't work a Stage.",
+    ]);
+  });
+
+  it("flags nothing when someone with a Task limit fills every Role", () => {
     expect(pipelineEditFlags(anEdit(), DEVELOPER_HIRED)).toEqual([]);
   });
 });

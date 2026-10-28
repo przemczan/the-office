@@ -266,7 +266,8 @@ describe("Worktrees.changes", () => {
       files: expected,
       worktreePath: undefined,
     });
-  });
+    // Real git: a worktree made, committed in, removed and read twice; slow under a full run.
+  }, 30_000);
 });
 
 describe("Worktrees.remove", () => {

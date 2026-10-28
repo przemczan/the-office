@@ -105,15 +105,14 @@ export class PipelineLibraryEditor {
     pipelineId: string | undefined,
   ): Promise<{ readonly problems: StageProblem[]; readonly flags: StageProblem[] }> {
     const others = (await this.repository.list()).filter(({ id }) => id !== pipelineId);
-    const roles = await this.roleFillings.of(edit.stages);
     return {
-      problems: pipelineEditProblems(edit, others, roles),
-      flags: pipelineEditFlags(edit, roles),
+      problems: pipelineEditProblems(edit, others),
+      flags: pipelineEditFlags(edit, await this.roleFillings.of(edit.stages)),
     };
   }
 
   private async refuseProblems(edit: PipelineEdit, others: readonly Pipeline[]): Promise<void> {
-    const problems = pipelineEditProblems(edit, others, await this.roleFillings.of(edit.stages));
+    const problems = pipelineEditProblems(edit, others);
     if (problems.length > 0) throw new StagesEditRefused(problems);
   }
 }

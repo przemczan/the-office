@@ -33,28 +33,6 @@ export function staffingProblems(
   );
 }
 
-/**
- * Agent Stages whose Role is filled by someone who only talks: no Pipeline may name the Role while
- * that stands (spec §2.2), so the library refuses it as a Task's editor does.
- */
-export function talkOnlyRoleProblems(
-  stages: readonly Stage[],
-  roles: ReadonlyMap<string, RoleFilling>,
-): StageProblem[] {
-  return problemsOnAgentStages(stages, 0, roles, talkOnlyProblem);
-}
-
-/**
- * Agent Stages whose Role nobody fills, never hired or let go. The library flags them and saves
- * anyway: a Task reaching such a Stage is paused until someone fills the Role.
- */
-export function vacantRoleFlags(
-  stages: readonly Stage[],
-  roles: ReadonlyMap<string, RoleFilling>,
-): StageProblem[] {
-  return problemsOnAgentStages(stages, 0, roles, vacancyProblem);
-}
-
 function problemsOnAgentStages(
   stages: readonly Stage[],
   fromIndex: number,
