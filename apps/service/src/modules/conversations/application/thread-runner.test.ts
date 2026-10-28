@@ -21,7 +21,11 @@ import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
-import { CHAT_OFFICE_TOOLS, HANDOVER_REQUEST } from "../domain/session-instructions.js";
+import {
+  CHANGE_ROLE_TOOL,
+  CHAT_OFFICE_TOOLS,
+  HANDOVER_REQUEST,
+} from "../domain/session-instructions.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { TokensCounted, TurnEnded } from "../domain/conversation-events.js";
@@ -36,6 +40,7 @@ import { Briefs } from "./briefs.js";
 import { Consultations } from "./consultations.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 import { DecisionService } from "./decision-service.js";
+import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
 import { InterruptedAnswers } from "./interrupted-answers.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
@@ -140,6 +145,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       Briefs,
       sessionMemoryProvider(),
       TaskThreadSetups,
+      InitiativeThreadSetups,
       SessionPlaces,
       ThreadContexts,
       ThreadRunner,
@@ -167,6 +173,15 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       Promise.resolve({
         ...taskSetup(taskId),
         sessionRefusal: tasksWithoutSessions.has(taskId) ? NO_SESSION_REASON : undefined,
+      }),
+  });
+  // As the Work module sets up its Initiatives' Threads.
+  app.get(InitiativeThreadSetups).provide({
+    setUp: ({ initiativeId }) =>
+      Promise.resolve({
+        instructions: "On this Initiative you shape.",
+        officeTools: ["read_task"],
+        record: `You are shaping the Initiative ${initiativeId}.`,
       }),
   });
   // As the Work module gives its records.
@@ -729,6 +744,47 @@ function opensDecision(callId: string, question: string, options: string[]): Ste
     { step: "event", event: { kind: "tool-result", callId, text: "", isError: false } },
   ];
 }
+
+describe("a Thread on an Initiative", () => {
+  it("opens on The Office's words reading every Project's base branch, briefed from the Initiative's record", async () => {
+    const initiativeId = randomUUID();
+    await startWith(started(...aTurn("brief", "What outcome do you want?")));
+
+    const opened = await threads.startOnInitiative({
+      initiativeId,
+      roleKey,
+      title: "Shaping",
+      opening: "Shape the Initiative with the user.",
+    });
+    const log = await answered(opened.id, 2);
+
+    expect(opened).toMatchObject({ home: { kind: "initiative", initiativeId }, title: "Shaping" });
+    const [session] = engine.sessions;
+    const brief = session?.received[0];
+    expect(brief?.step === "start" && brief.brief.text).toMatch(
+      new RegExp(
+        `^You are shaping the Initiative ${initiativeId}\\.\\n\\n## The Projects[\\s\\S]*\\n\\n## What to do now\\n\\nShape the Initiative with the user\\.$`,
+      ),
+    );
+    expect(session?.options).toMatchObject({
+      folder: join(officeData, "bases"),
+      profile: { edit: false, run: { kind: "read-only-git" }, web: true },
+    });
+    const tools = session?.options.officeTools.map(({ name }) => name);
+    expect(tools).toContain("read_task");
+    expect(tools).not.toContain(CHANGE_ROLE_TOOL);
+    expect(tools).not.toContain(OPEN_DECISION_TOOL);
+    expect(session?.options.instructions).toMatch(/\n\nOn this Initiative you shape\.$/);
+    expect(prepared).toEqual([{ sessionId: session?.id, roleKey, project: undefined }]);
+    expect(exchanges(log)).toEqual([
+      { kind: "person", roleKey, text: "What outcome do you want?" },
+    ]);
+    await expect(threads.listOnInitiative(initiativeId)).resolves.toMatchObject([
+      { id: opened.id },
+    ]);
+    await expect(threads.taskInSession(session?.id ?? "")).resolves.toBeUndefined();
+  });
+});
 
 async function planningThread(): Promise<Thread> {
   return threads.startOnTask({

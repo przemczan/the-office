@@ -5,13 +5,14 @@ import {
   CONSULTATION_OFFICE_TOOLS,
   chatInstructions,
   consultationInstructions,
-  taskThreadInstructions,
+  workThreadInstructions,
   type SessionPersonCard,
 } from "../domain/session-instructions.js";
 import type { Thread } from "../domain/thread.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { Briefs } from "./briefs.js";
+import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
 
 /** Where a Thread's session works and what it is given, which its home decides. */
@@ -30,8 +31,9 @@ export interface SessionPlace {
 }
 
 /**
- * A chat session reads every Project's base branch with the service's own variables (spec §6); a
- * session on a Task works in the Task's worktree, as the module keeping Tasks sets it up.
+ * A chat session, or one on an Initiative, reads every Project's base branch with the service's own
+ * variables (spec §6); a session on a Task works in the Task's worktree. The module keeping Work
+ * sets up what a session on a Task or an Initiative is given.
  */
 @Injectable()
 export class SessionPlaces {
@@ -41,11 +43,22 @@ export class SessionPlaces {
     private readonly bases: ProjectBases,
     private readonly briefs: Briefs,
     private readonly taskThreads: TaskThreadSetups,
+    private readonly initiativeThreads: InitiativeThreadSetups,
   ) {}
 
   async of(thread: Thread): Promise<SessionPlace> {
-    if (thread.home.kind === "chat") return this.chat(thread);
-    const { taskId } = thread.home;
+    const { home } = thread;
+    switch (home.kind) {
+      case "chat":
+        return this.chat(thread);
+      case "task":
+        return this.task(thread, home.taskId);
+      case "initiative":
+        return this.initiative(thread, home.initiativeId);
+    }
+  }
+
+  private async task(thread: Thread, taskId: string): Promise<SessionPlace> {
     const setup = await this.taskThreads.of({
       threadId: thread.id,
       taskId,
@@ -62,7 +75,7 @@ export class SessionPlaces {
       instructions: (card) =>
         thread.consultation
           ? consultationInstructions(card)
-          : taskThreadInstructions(card, setup.instructions),
+          : workThreadInstructions(card, setup.instructions),
       // The module keeping Tasks made the worktree before it opened the Thread.
       ready: () => Promise.resolve(),
     };
@@ -70,14 +83,38 @@ export class SessionPlaces {
 
   private async chat(thread: Thread): Promise<SessionPlace> {
     return {
-      folder: this.bases.folder,
-      // The service's own: a chat runs no Project command, so no Project's changes to it.
-      environment: serviceEnvironment(),
-      project: undefined,
+      ...this.basesPlace(thread),
       officeTools: chatOfficeTools(thread.roleKey),
       brief: await this.briefs.forThread(thread),
       span: {},
       instructions: chatInstructions,
+    };
+  }
+
+  /** An Initiative spans Projects, so its session reads every base branch, as a chat's does. */
+  private async initiative(thread: Thread, initiativeId: string): Promise<SessionPlace> {
+    const setup = await this.initiativeThreads.of({
+      threadId: thread.id,
+      initiativeId,
+      roleKey: thread.roleKey,
+    });
+    return {
+      ...this.basesPlace(thread),
+      officeTools: setup.officeTools,
+      brief: await this.briefs.forInitiativeThread(thread, setup),
+      span: { "office.initiative": initiativeId },
+      instructions: (card) => workThreadInstructions(card, setup.instructions),
+    };
+  }
+
+  private basesPlace(
+    thread: Thread,
+  ): Pick<SessionPlace, "folder" | "environment" | "project" | "ready"> {
+    return {
+      folder: this.bases.folder,
+      // The service's own: such a session runs no Project command, so no Project's changes to it.
+      environment: serviceEnvironment(),
+      project: undefined,
       ready: async () => {
         const projects = await this.bases.refresh();
         this.logger.log(`Thread ${thread.id} reads ${projects.length} Projects' base branches.`);

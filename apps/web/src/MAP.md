@@ -17,7 +17,7 @@
 ### api/
 
 - `api-client.ts`: ApiError, shouldRetry, getFromApi, sendToApi, deleteFromApiReturning, sendFileToApi, postToApi, deleteFromApi
-- `conversations.ts`: threadQueries, sizeThresholdQuery, changeSizeThreshold, decisionQueries, proposalQueries, applyProposal, declineProposal, startChatThread, sendMessage, renameThread, chooseContextOverride, answerDecision, threadEventInvalidations, threadEventCacheUpdates
+- `conversations.ts`: threadQueries, sizeThresholdQuery, changeSizeThreshold, decisionQueries, proposalQueries, applyProposal, declineProposal, startChatThread, sendMessage, renameThread, chooseContextOverride, answerDecision, threadEventInvalidations, threadEventCacheUpdates, homeThreadsQuery
 - `event-stream-provider.tsx`: EventInvalidations, EventCacheUpdates, EventStreamProvider, useEventStreamStatus
 - `event-stream.ts`: EventStreamStatus, EventStreamOptions, RECONNECT_DELAYS_MS, EventStream
 - `notifications.ts`: nowQueries, notificationQueries, reportActivity, notificationEventCacheUpdates

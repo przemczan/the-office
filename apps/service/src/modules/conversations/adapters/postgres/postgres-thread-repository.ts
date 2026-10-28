@@ -244,9 +244,25 @@ async function withOpenDecisions(reader: Reader, rows: readonly ThreadRow[]): Pr
 }
 
 function homeColumns(home: Home): { readonly kind: Home["kind"]; readonly id: string } {
-  return home.kind === "chat"
-    ? { kind: "chat", id: home.roleKey }
-    : { kind: "task", id: home.taskId };
+  switch (home.kind) {
+    case "chat":
+      return { kind: "chat", id: home.roleKey };
+    case "task":
+      return { kind: "task", id: home.taskId };
+    case "initiative":
+      return { kind: "initiative", id: home.initiativeId };
+  }
+}
+
+function toHome(kind: Home["kind"], id: string): Home {
+  switch (kind) {
+    case "chat":
+      return { kind: "chat", roleKey: id };
+    case "task":
+      return { kind: "task", taskId: id };
+    case "initiative":
+      return { kind: "initiative", initiativeId: id };
+  }
 }
 
 function toRow(thread: Thread): ThreadRow {
@@ -271,10 +287,7 @@ function toRow(thread: Thread): ThreadRow {
 function toThread(row: ThreadRow, openDecision: Decision | undefined): Thread {
   return {
     id: row.id,
-    home:
-      row.homeKind === "chat"
-        ? { kind: "chat", roleKey: row.homeId }
-        : { kind: "task", taskId: row.homeId },
+    home: toHome(row.homeKind, row.homeId),
     roleKey: row.roleKey,
     title: row.title ?? undefined,
     state: row.state,

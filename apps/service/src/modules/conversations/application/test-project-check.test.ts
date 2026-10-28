@@ -25,6 +25,7 @@ import { Briefs } from "./briefs.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
+import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
 import { ThreadContexts } from "./thread-contexts.js";
 import { ThreadRunner } from "./thread-runner.js";
@@ -118,6 +119,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
               Briefs,
               sessionMemoryProvider(),
               TaskThreadSetups,
+              InitiativeThreadSetups,
               SessionPlaces,
               ThreadContexts,
               ThreadRunner,

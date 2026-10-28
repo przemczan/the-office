@@ -1,12 +1,13 @@
 import type { Decision } from "./decision.js";
 
 /**
- * Where a conversation lives (spec §2.4): a person's chat, or a Task's conversation. The Task's
- * comes with the Work module; an Initiative's with tier 2.
+ * Where a conversation lives (spec §2.4): a person's chat, a Task's conversation, or an
+ * Initiative's, where the CTO shapes it with the user.
  */
 export type Home =
   | { readonly kind: "chat"; readonly roleKey: string }
-  | { readonly kind: "task"; readonly taskId: string };
+  | { readonly kind: "task"; readonly taskId: string }
+  | { readonly kind: "initiative"; readonly initiativeId: string };
 
 /** Whether the person is answering in the Thread, or it waits for the user's next message. */
 export type ThreadState = "waiting" | "answering";

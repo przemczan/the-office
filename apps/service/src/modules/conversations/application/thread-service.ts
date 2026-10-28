@@ -10,9 +10,12 @@ import {
   logMessages,
   renameThread,
   startChatThread,
+  startInitiativeThread,
   startTaskThread,
+  type InitiativeThreadStart,
   type TaskThreadStart,
 } from "../domain/thread-changes.js";
+import type { ThreadStarted } from "../domain/conversation-events.js";
 import { ThreadNotFound } from "../domain/thread-not-found.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
@@ -20,6 +23,11 @@ import { ThreadRunner } from "./thread-runner.js";
 
 /** A Thread The Office opens on a Task, and what it asks the person first. */
 export interface TaskThreadOpening extends TaskThreadStart {
+  readonly opening: string;
+}
+
+/** A Thread The Office opens on an Initiative, and what it asks the person first. */
+export interface InitiativeThreadOpening extends InitiativeThreadStart {
   readonly opening: string;
 }
 
@@ -52,12 +60,28 @@ export class ThreadService {
    * once, in a new session with the Task's Brief. Refused when nobody fills the Role.
    */
   async startOnTask({ opening, ...start }: TaskThreadOpening): Promise<Thread> {
-    if (!(await this.roleCards.find(start.roleKey))) {
-      throw new ThreadRefused([
-        `Nobody fills the Role "${start.roleKey}" yet: hire them on People.`,
-      ]);
-    }
-    const { thread, event } = startTaskThread(randomUUID(), start, new Date());
+    await this.refuseUnlessFilled(start.roleKey);
+    return this.openWith(startTaskThread(randomUUID(), start, new Date()), opening);
+  }
+
+  /**
+   * Opens a Thread on an Initiative, where the person starts on `opening` at once, in a new session
+   * with the Initiative's Brief. Refused when nobody fills the Role.
+   */
+  async startOnInitiative({ opening, ...start }: InitiativeThreadOpening): Promise<Thread> {
+    await this.refuseUnlessFilled(start.roleKey);
+    return this.openWith(startInitiativeThread(randomUUID(), start, new Date()), opening);
+  }
+
+  private async refuseUnlessFilled(roleKey: string): Promise<void> {
+    if (await this.roleCards.find(roleKey)) return;
+    throw new ThreadRefused([`Nobody fills the Role "${roleKey}" yet: hire them on People.`]);
+  }
+
+  private async openWith(
+    { thread, event }: { readonly thread: Thread; readonly event: ThreadStarted },
+    opening: string,
+  ): Promise<Thread> {
     await this.repository.add(thread);
     await this.events.publish(event);
     return this.runner.open(thread.id, opening);
@@ -74,6 +98,11 @@ export class ThreadService {
   /** The Threads on a Task, the newest first; none for a Task The Office doesn't know. */
   listOnTask(taskId: string): Promise<readonly Thread[]> {
     return this.repository.listIn({ kind: "task", taskId });
+  }
+
+  /** The Threads on an Initiative, the newest first; none for one The Office doesn't know. */
+  listOnInitiative(initiativeId: string): Promise<readonly Thread[]> {
+    return this.repository.listIn({ kind: "initiative", initiativeId });
   }
 
   /** The Threads with the person on every Task, the newest first: their part in those Tasks. */

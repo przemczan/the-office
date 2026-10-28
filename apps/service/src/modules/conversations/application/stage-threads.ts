@@ -18,7 +18,7 @@ import { SessionMemory } from "./session-memory.js";
 import {
   openingMessage,
   sessionOfficeTools,
-  taskThreadInstructions,
+  workThreadInstructions,
 } from "../domain/session-instructions.js";
 import { addTokens, NO_TOKENS, type Thread, type TokenTotals } from "../domain/thread.js";
 import {
@@ -395,7 +395,7 @@ export class StageThreads {
       environment: request.environment,
       model: request.model ?? card.model,
       effort: request.effort ?? card.effort,
-      instructions: taskThreadInstructions(card, request.session.instructions),
+      instructions: workThreadInstructions(card, request.session.instructions),
       skills: {
         folder: skills.folder,
         names: skills.names,

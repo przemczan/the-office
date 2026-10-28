@@ -16,6 +16,7 @@ import type { ProposalStatus, ProposedChange } from "../../domain/proposal.js";
 import type {
   Consultation,
   ContextOverride,
+  Home,
   ThreadState,
   TokenTotals,
 } from "../../domain/thread.js";
@@ -35,12 +36,15 @@ export interface ThreadSessionRow {
   readonly full: boolean;
 }
 
-/** Each Thread, keyed by its home: `chat` with the Role's key, or `task` with the Task's id. */
+/**
+ * Each Thread, keyed by its home: `chat` with the Role's key, `task` with the Task's id, or
+ * `initiative` with the Initiative's.
+ */
 export const threads = pgTable(
   "threads",
   {
     id: uuid("id").primaryKey(),
-    homeKind: text("home_kind").$type<"chat" | "task">().notNull(),
+    homeKind: text("home_kind").$type<Home["kind"]>().notNull(),
     homeId: text("home_id").notNull(),
     roleKey: text("role_key").notNull(),
     title: text("title"),

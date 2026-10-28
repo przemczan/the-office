@@ -1,4 +1,10 @@
 export { DecisionService } from "./application/decision-service.js";
+export {
+  InitiativeThreadSetups,
+  type InitiativeThreadRequest,
+  type InitiativeThreadSetup,
+  type InitiativeThreadSource,
+} from "./application/initiative-thread-setups.js";
 export { InterruptedAnswers } from "./application/interrupted-answers.js";
 export {
   ProposalAppliers,
@@ -21,7 +27,11 @@ export {
   type TaskThreadSource,
 } from "./application/task-thread-setups.js";
 export { ThreadRunner } from "./application/thread-runner.js";
-export { ThreadService, type TaskThreadOpening } from "./application/thread-service.js";
+export {
+  ThreadService,
+  type InitiativeThreadOpening,
+  type TaskThreadOpening,
+} from "./application/thread-service.js";
 export { WorkRecords, type WorkRecordSource } from "./application/work-records.js";
 export { ConversationsModule } from "./conversations.module.js";
 export {

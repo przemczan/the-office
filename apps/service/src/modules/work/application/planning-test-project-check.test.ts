@@ -104,6 +104,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                 ideaCards: ThreadService,
                 sessionTasks: ThreadService,
                 taskThreads: ThreadService,
+                initiativeThreads: ThreadService,
                 taskDecisions: DecisionService,
               }),
             ],

@@ -1,8 +1,14 @@
 import { join } from "node:path";
 import { Injectable, Module } from "@nestjs/common";
-import { ProposalAppliers, TaskThreadSetups, WorkRecords } from "../../conversations/index.js";
+import {
+  InitiativeThreadSetups,
+  ProposalAppliers,
+  TaskThreadSetups,
+  WorkRecords,
+} from "../../conversations/index.js";
 import { DEFAULT_OFFICE_WIDE_LIMIT, type TaskLimit } from "../domain/task-start.js";
 import { IdeaCards } from "./idea-cards.js";
+import { InitiativeThreads, type InitiativeThreadOpening } from "./initiative-threads.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { KnownProjects, type KnownProject } from "./known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "./project-worktrees.js";
@@ -133,6 +139,19 @@ export class TaskThreadsForTests extends TaskThreads {
   }
 }
 
+/** Keeps each Thread opened on an Initiative, without a session; or fails, once `failure` is set. */
+@Injectable()
+export class InitiativeThreadsForTests extends InitiativeThreads {
+  readonly opened: InitiativeThreadOpening[] = [];
+  failure: Error | undefined;
+
+  async startOnInitiative(opening: InitiativeThreadOpening): Promise<{ readonly id: string }> {
+    if (this.failure) throw this.failure;
+    this.opened.push(opening);
+    return { id: crypto.randomUUID() };
+  }
+}
+
 /** The Decisions open on each Task: none unless a test opens some. */
 @Injectable()
 export class TaskDecisionsForTests extends TaskDecisions {
@@ -151,8 +170,10 @@ const PORTS = [
   IdeaCardsForTests,
   SessionTasksForTests,
   TaskThreadsForTests,
+  InitiativeThreadsForTests,
   TaskDecisionsForTests,
   TaskThreadSetups,
+  InitiativeThreadSetups,
   WorkRecords,
   ProposalAppliers,
 ];

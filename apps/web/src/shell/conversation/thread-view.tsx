@@ -2,7 +2,12 @@ import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/
 import type { NewMessage, Thread } from "@the-office/contracts";
 import { Button, Icon, IconButton, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { renameThread, sendMessage, threadQueries } from "../../api/conversations.ts";
+import {
+  homeThreadsQuery,
+  renameThread,
+  sendMessage,
+  threadQueries,
+} from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { roleName } from "../person-name.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
@@ -174,7 +179,5 @@ function ThreadTitle({
 
 /** The list of the Thread's home, which shows its title too. */
 function homeThreadsKey({ home }: Thread): QueryKey {
-  return home.kind === "chat"
-    ? threadQueries.inChat(home.roleKey).queryKey
-    : threadQueries.onTask(home.taskId).queryKey;
+  return homeThreadsQuery(home).queryKey;
 }

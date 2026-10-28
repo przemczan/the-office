@@ -15,9 +15,14 @@ import {
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { EventBus } from "../../../../platform/events/event-bus.js";
+import { SHAPING_OPENING } from "../../domain/shaping.js";
 import { TaskStateChanged } from "../../domain/task-events.js";
 import { TaskRepository } from "../../ports/task-repository.js";
-import { UNKNOWN_PROJECT } from "../../ports/work-ports.fixtures.js";
+import {
+  InitiativeThreadsForTests,
+  KnownPeopleForTests,
+  UNKNOWN_PROJECT,
+} from "../../ports/work-ports.fixtures.js";
 import {
   sendJson,
   startWorkApplication,
@@ -163,6 +168,62 @@ describe("POST /api/ideas/:id/initiative", () => {
     const response = await sendJson(work, "GET", `/initiatives/${randomUUID()}`);
 
     expect(response.status).toBe(404);
+  });
+});
+
+describe("the shaping Thread", () => {
+  const shaping = {
+    roleKey: "cto",
+    title: "Shaping",
+    opening: SHAPING_OPENING,
+  };
+
+  it("opens with the CTO as an Idea is shaped, when one is hired", async () => {
+    const initiative = await shape(await capture());
+
+    expect(work.app.get(InitiativeThreadsForTests).opened).toEqual([
+      { initiativeId: initiative.id, ...shaping },
+    ]);
+  });
+
+  it("isn't opened without a CTO, and the user starts it once one is hired", async () => {
+    const people = work.app.get(KnownPeopleForTests);
+    people.vacant.add("cto");
+    const initiative = await shape(await capture());
+
+    const refused = await sendJson(work, "POST", `/initiatives/${initiative.id}/shaping`);
+    people.vacant.delete("cto");
+    const started = await sendJson(work, "POST", `/initiatives/${initiative.id}/shaping`);
+
+    expect(refused.status).toBe(422);
+    expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      "Hire a CTO on People first: shaping is a conversation with them.",
+    ]);
+    expect(started.status).toBe(200);
+    expect(initiativeSchema.parse(await started.json()).id).toBe(initiative.id);
+    expect(work.app.get(InitiativeThreadsForTests).opened).toEqual([
+      { initiativeId: initiative.id, ...shaping },
+    ]);
+  });
+
+  it("leaves the Initiative shaped when its Thread can't open", async () => {
+    work.app.get(InitiativeThreadsForTests).failure = new Error("The engine is down.");
+
+    const initiative = await shape(await capture());
+
+    expect((await read(initiative)).state).toBe("shaping");
+  });
+
+  it("isn't started on a dropped Initiative", async () => {
+    const initiative = await shape(await capture());
+    await post(initiative, "drop");
+
+    const refused = await sendJson(work, "POST", `/initiatives/${initiative.id}/shaping`);
+
+    expect(refused.status).toBe(422);
+    expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      "The Initiative is dropped: nothing is left to shape.",
+    ]);
   });
 });
 

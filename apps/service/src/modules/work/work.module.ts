@@ -21,6 +21,7 @@ import { OfficeLimitsController } from "./adapters/http/office-limits.controller
 import { MentionedWorkRecords } from "./adapters/conversations/mentioned-work-records.js";
 import { OfficeLimitProposals } from "./adapters/conversations/office-limit-proposals.js";
 import { PlanningThreadSetup } from "./adapters/conversations/planning-thread-setup.js";
+import { ShapingThreadSetup } from "./adapters/conversations/shaping-thread-setup.js";
 import { AttachmentOfficeTools } from "./adapters/office-tools/attachment-office-tools.js";
 import { PlanningOfficeTools } from "./adapters/office-tools/planning-office-tools.js";
 import { WorkOfficeTools } from "./adapters/office-tools/work-office-tools.js";
@@ -46,6 +47,7 @@ import { AttachmentRepository } from "./ports/attachment-repository.js";
 import { IdeaCards } from "./ports/idea-cards.js";
 import { IdeaRepository } from "./ports/idea-repository.js";
 import { InitiativeRepository } from "./ports/initiative-repository.js";
+import { InitiativeThreads } from "./ports/initiative-threads.js";
 import { KnownPeople } from "./ports/known-people.js";
 import { KnownPipelines } from "./ports/known-pipelines.js";
 import { KnownProjects } from "./ports/known-projects.js";
@@ -60,9 +62,10 @@ import { WorktreeFiles } from "./ports/worktree-files.js";
 
 export interface WorkModuleOptions {
   /**
-   * The modules that provide the ports below, and Conversations' TaskThreadSetups, WorkRecords and
-   * ProposalAppliers, where Work sets up the sessions of Threads on its Tasks, gives the records
-   * mentioned in a chat and applies Proposals of the Office-wide limit.
+   * The modules that provide the ports below, and Conversations' TaskThreadSetups,
+   * InitiativeThreadSetups, WorkRecords and ProposalAppliers, where Work sets up the sessions of
+   * Threads on its Tasks and Initiatives, gives the records mentioned in a chat and applies
+   * Proposals of the Office-wide limit.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly knownProjects: Type<KnownProjects>;
@@ -73,6 +76,7 @@ export interface WorkModuleOptions {
   readonly ideaCards: Type<IdeaCards>;
   readonly sessionTasks: Type<SessionTasks>;
   readonly taskThreads: Type<TaskThreads>;
+  readonly initiativeThreads: Type<InitiativeThreads>;
   readonly taskDecisions: Type<TaskDecisions>;
 }
 
@@ -88,6 +92,7 @@ export class WorkModule implements NestModule {
     ideaCards,
     sessionTasks,
     taskThreads,
+    initiativeThreads,
     taskDecisions,
   }: WorkModuleOptions): DynamicModule {
     return {
@@ -117,6 +122,7 @@ export class WorkModule implements NestModule {
         { provide: IdeaCards, useExisting: ideaCards },
         { provide: SessionTasks, useExisting: sessionTasks },
         { provide: TaskThreads, useExisting: taskThreads },
+        { provide: InitiativeThreads, useExisting: initiativeThreads },
         { provide: TaskDecisions, useExisting: taskDecisions },
         IdeaService,
         InitiativeService,
@@ -132,6 +138,7 @@ export class WorkModule implements NestModule {
         PlanningOfficeTools,
         AttachmentOfficeTools,
         PlanningThreadSetup,
+        ShapingThreadSetup,
         MentionedWorkRecords,
         OfficeLimitProposals,
       ],

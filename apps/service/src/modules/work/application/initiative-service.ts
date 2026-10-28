@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Injectable, type OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { moveAttachment } from "../domain/attachment-changes.js";
@@ -11,15 +11,21 @@ import {
   confirmInitiative,
   dropInitiative,
   finishInitiative,
+  tasksByInitiative,
   type InitiativeChange,
 } from "../domain/initiative-changes.js";
 import { InitiativeNotFound } from "../domain/initiative-not-found.js";
 import { InitiativeRefused } from "../domain/initiative-refused.js";
 import { orderAfter } from "../domain/manual-order.js";
+import { initiativeRecordText } from "../domain/record-words.js";
+import { CTO, SHAPING_OPENING, SHAPING_THREAD_TITLE } from "../domain/shaping.js";
 import { newTaskProblems, type NewTask, type Task } from "../domain/task.js";
 import { TaskStateChanged } from "../domain/task-events.js";
+import { AttachmentRepository } from "../ports/attachment-repository.js";
 import { IdeaRepository } from "../ports/idea-repository.js";
 import { InitiativeRepository } from "../ports/initiative-repository.js";
+import { InitiativeThreads } from "../ports/initiative-threads.js";
+import { KnownPeople } from "../ports/known-people.js";
 import { KnownProjects } from "../ports/known-projects.js";
 import { TaskRepository } from "../ports/task-repository.js";
 
@@ -29,11 +35,16 @@ import { TaskRepository } from "../ports/task-repository.js";
  */
 @Injectable()
 export class InitiativeService implements OnModuleInit {
+  private readonly logger = new Logger(InitiativeService.name);
+
   constructor(
     private readonly repository: InitiativeRepository,
     private readonly ideas: IdeaRepository,
     private readonly tasks: TaskRepository,
+    private readonly attachments: AttachmentRepository,
     private readonly projects: KnownProjects,
+    private readonly people: KnownPeople,
+    private readonly threads: InitiativeThreads,
     private readonly events: EventBus,
   ) {}
 
@@ -46,8 +57,51 @@ export class InitiativeService implements OnModuleInit {
     });
   }
 
-  /** Makes the Idea an Initiative being shaped; the Idea's Attachments move to it. */
+  /**
+   * Makes the Idea an Initiative being shaped, the Idea's Attachments moving to it, and opens its
+   * shaping Thread when a CTO is hired. Without one the user writes it by hand, and starts its
+   * Thread once a CTO is hired (spec §2.1 Defaults).
+   */
   async shape(ideaId: string, shapedBy: Author): Promise<Initiative> {
+    const initiative = await this.shapeFromIdea(ideaId, shapedBy);
+    if (!(await this.people.find(CTO))) return initiative;
+    // An Initiative stands without its Thread, so one that couldn't open leaves the user to start it.
+    await this.openShapingThread(initiative.id).catch((error: unknown) => {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.warn(`The Initiative ${initiative.id}'s shaping Thread couldn't open: ${reason}`);
+    });
+    return initiative;
+  }
+
+  /**
+   * A new shaping Thread on the Initiative, where the CTO starts at once. Refused for a done or
+   * dropped Initiative, and while nobody is the CTO.
+   */
+  async startShapingThread(id: string): Promise<{ readonly id: string }> {
+    const initiative = await this.read(id);
+    if (initiative.state === "done" || initiative.state === "dropped") {
+      throw new InitiativeRefused([
+        `The Initiative is ${initiative.state}: nothing is left to shape.`,
+      ]);
+    }
+    if (!(await this.people.find(CTO))) {
+      throw new InitiativeRefused([
+        "Hire a CTO on People first: shaping is a conversation with them.",
+      ]);
+    }
+    return this.openShapingThread(id);
+  }
+
+  private async openShapingThread(id: string): Promise<{ readonly id: string }> {
+    return this.threads.startOnInitiative({
+      initiativeId: id,
+      roleKey: CTO,
+      title: SHAPING_THREAD_TITLE,
+      opening: SHAPING_OPENING,
+    });
+  }
+
+  private async shapeFromIdea(ideaId: string, shapedBy: Author): Promise<Initiative> {
     const initiativeId = randomUUID();
     const shaped = await this.ideas.shapeIntoInitiative(ideaId, (idea, attachments) => ({
       ...shapeIdeaIntoInitiative(idea, initiativeId, shapedBy, new Date()),
@@ -75,23 +129,24 @@ export class InitiativeService implements OnModuleInit {
     return initiative;
   }
 
-  /**
-   * Every Initiative's Tasks, by the Initiative's id, from one read of the board, in the order they
-   * were added, so the Projects it spans keep their order.
-   */
+  /** Every Initiative's Tasks, by the Initiative's id, from one read of the board (tasksByInitiative). */
   async tasksByInitiative(): Promise<ReadonlyMap<string, readonly Task[]>> {
-    const byInitiative = new Map<string, Task[]>();
-    const added = (await this.tasks.list()).toSorted(
-      (one, other) =>
-        one.createdAt.getTime() - other.createdAt.getTime() || one.id.localeCompare(other.id),
-    );
-    for (const task of added) {
-      if (!task.initiativeId) continue;
-      const tasks = byInitiative.get(task.initiativeId) ?? [];
-      tasks.push(task);
-      byInitiative.set(task.initiativeId, tasks);
-    }
-    return byInitiative;
+    return tasksByInitiative(await this.tasks.list());
+  }
+
+  /**
+   * The Initiative's record as an Agent reads it, in its Thread or mentioned in a chat. Throws
+   * InitiativeNotFound when there is no such Initiative.
+   */
+  async recordText(id: string): Promise<string> {
+    const initiative = await this.read(id);
+    const [board, attachments] = await Promise.all([
+      this.tasks.list(),
+      this.attachments.listOf({ kind: "initiative", initiativeId: id }),
+    ]);
+    const tasks = tasksByInitiative(board).get(id) ?? [];
+    const byId = new Map(board.map((task) => [task.id, task]));
+    return initiativeRecordText(initiative, tasks, byId, attachments);
   }
 
   /** Makes it active; done at once when its Tasks already are. */

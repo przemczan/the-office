@@ -59,6 +59,17 @@ export class InitiativesController {
     return this.respond(await this.initiatives.drop(id));
   }
 
+  /**
+   * A new shaping Thread with the CTO, who starts on it at once; its Threads are listed by
+   * GET /initiatives/:id/threads.
+   */
+  @Post(":id/shaping")
+  @HttpCode(HttpStatus.OK)
+  async shape(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativeResponse> {
+    await this.initiatives.startShapingThread(id);
+    return this.respond(await this.initiatives.read(id));
+  }
+
   /** A new Task in the Initiative, in Backlog in its Project. */
   @Post(":id/tasks")
   async addTask(

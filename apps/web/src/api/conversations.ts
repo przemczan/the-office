@@ -42,6 +42,16 @@ export const threadQueries = {
       queryFn: ({ signal }) =>
         getFromApi(`/tasks/${encodeURIComponent(taskId)}/threads`, threadListSchema, signal),
     }),
+  onInitiative: (initiativeId: string) =>
+    queryOptions({
+      queryKey: [...THREADS, "initiative", initiativeId],
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `/initiatives/${encodeURIComponent(initiativeId)}/threads`,
+          threadListSchema,
+          signal,
+        ),
+    }),
   /** The person's Threads on every Task, the newest first. */
   onTasksWith: (roleKey: string) =>
     queryOptions({
@@ -190,11 +200,21 @@ function showTokens(
     threads?.some(({ id }) => id === threadId)
       ? threads.map((thread) => (thread.id === threadId ? { ...thread, tokens } : thread))
       : threads;
-  const homeList =
-    home.kind === "chat" ? threadQueries.inChat(home.roleKey) : threadQueries.onTask(home.taskId);
-  queryClient.setQueryData(homeList.queryKey, inList);
+  queryClient.setQueryData(homeThreadsQuery(home).queryKey, inList);
   // Every person's list of their Threads on Tasks, since the event doesn't name whose it is.
   queryClient.setQueriesData<Thread[]>({ queryKey: [...THREADS, "on-tasks"] }, inList);
+}
+
+/** The Threads of the home, the newest first. */
+export function homeThreadsQuery(home: Home) {
+  switch (home.kind) {
+    case "chat":
+      return threadQueries.inChat(home.roleKey);
+    case "task":
+      return threadQueries.onTask(home.taskId);
+    case "initiative":
+      return threadQueries.onInitiative(home.initiativeId);
+  }
 }
 
 function threadPath(id: string): `/${string}` {

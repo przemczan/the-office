@@ -22,6 +22,7 @@ import { DecisionService } from "./application/decision-service.js";
 import { HeldCalls } from "./application/held-calls.js";
 import { InterruptedAnswers } from "./application/interrupted-answers.js";
 import { LinkCards } from "./application/link-cards.js";
+import { InitiativeThreadSetups } from "./application/initiative-thread-setups.js";
 import { MentionedRecords } from "./application/mentioned-records.js";
 import { ProposalAppliers } from "./application/proposal-appliers.js";
 import { ProposalService } from "./application/proposal-service.js";
@@ -68,6 +69,7 @@ export class ConversationsModule {
         ThreadService,
         Briefs,
         TaskThreadSetups,
+        InitiativeThreadSetups,
         WorkRecords,
         MentionedRecords,
         SessionMemory,
@@ -98,6 +100,7 @@ export class ConversationsModule {
         InterruptedAnswers,
         ThreadService,
         TaskThreadSetups,
+        InitiativeThreadSetups,
         WorkRecords,
         ProposalAppliers,
         StageThreads,

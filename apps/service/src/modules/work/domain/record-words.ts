@@ -1,6 +1,8 @@
 import { attachmentLines, type Attachment } from "./attachment.js";
 import type { Author } from "./author.js";
 import type { Idea } from "./idea.js";
+import type { Initiative } from "./initiative.js";
+import { initiativeProjectIds } from "./initiative-changes.js";
 import { confirmationWords } from "./planning.js";
 import type { Task } from "./task.js";
 import { TASK_STATE_NAMES } from "./task-states.js";
@@ -52,6 +54,52 @@ function blockerLines(blockers: readonly Task[]): string[] {
       return `- ${blocker.title} (Task ${blocker.id}), ${TASK_STATE_NAMES[blocker.state]}${dropped}`;
     }),
   ];
+}
+
+/**
+ * An Initiative's record as an Agent reads it, in its Thread or mentioned in a chat: its state and
+ * outcome, the Idea it was shaped from, its Attachments, and its Tasks in the order they were
+ * added, each with its Project, state and the Tasks it waits for, looked up in `blockers`.
+ */
+export function initiativeRecordText(
+  initiative: Initiative,
+  tasks: readonly Task[],
+  blockers: ReadonlyMap<string, Task>,
+  attachments: readonly Attachment[],
+): string {
+  return [
+    `${initiative.name} (Initiative ${initiative.id})`,
+    `- ${initiative.state}; spans ${projectsWords(initiativeProjectIds(tasks))}`,
+    `- Shaped from the Idea ${initiative.originIdeaId} by ${authorWords(initiative.createdBy)} on ${initiative.createdAt.toISOString()}`,
+    "",
+    "Outcome:",
+    initiative.outcome === "" ? "Not written yet." : initiative.outcome,
+    "",
+    "Tasks:",
+    ...(tasks.length === 0
+      ? ["None yet."]
+      : tasks.map((task) => initiativeTaskLine(task, blockers))),
+    "",
+    "Attachments:",
+    ...attachmentLines(attachments),
+  ].join("\n");
+}
+
+function projectsWords(projectIds: readonly string[]): string {
+  if (projectIds.length === 0) return "no Project yet";
+  return projectIds.map((projectId) => `the Project ${projectId}`).join(", ");
+}
+
+function initiativeTaskLine(task: Task, blockers: ReadonlyMap<string, Task>): string {
+  const line = `- ${task.title} (Task ${task.id}), in the Project ${task.projectId}, ${TASK_STATE_NAMES[task.state]}`;
+  if (task.blockedBy.length === 0) return line;
+  const waitsFor = task.blockedBy.map((blockerId) => {
+    const blocker = blockers.get(blockerId);
+    return blocker
+      ? `${blocker.title} (Task ${blocker.id}, ${TASK_STATE_NAMES[blocker.state]})`
+      : `the Task ${blockerId}`;
+  });
+  return `${line}; must wait for ${waitsFor.join(", ")}`;
 }
 
 /**

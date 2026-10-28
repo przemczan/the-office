@@ -64,6 +64,14 @@ export class ThreadsController {
     return Promise.all(threads.map((thread) => this.toResponse(thread)));
   }
 
+  @Get("initiatives/:initiativeId/threads")
+  async listOnInitiative(
+    @Param("initiativeId", ParseUUIDPipe) initiativeId: string,
+  ): Promise<ThreadResponse[]> {
+    const threads = await this.threads.listOnInitiative(initiativeId);
+    return Promise.all(threads.map((thread) => this.toResponse(thread)));
+  }
+
   /** The person's Threads on Tasks, the newest first: a person's Work tab lists those Tasks. */
   @Get("roles/:roleKey/task-threads")
   async listOnTasksWith(@Param("roleKey") roleKey: string): Promise<ThreadResponse[]> {

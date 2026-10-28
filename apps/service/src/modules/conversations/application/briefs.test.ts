@@ -5,6 +5,7 @@ import { startTestApplication } from "../../../../test/test-application.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import {
   freshChatThreadBrief,
+  initiativeThreadBrief,
   newChatThreadBrief,
   taskThreadBrief,
   type BriefMemory,
@@ -19,6 +20,10 @@ import { aThread, aUserMessage } from "../domain/thread.fixtures.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
+import {
+  InitiativeThreadSetups,
+  type InitiativeThreadRequest,
+} from "./initiative-thread-setups.js";
 import { sessionMemoryProvider, type MemoryAsk } from "./session-memory.fixtures.js";
 import { TaskThreadSetups, type TaskThreadRequest } from "./task-thread-setups.js";
 
@@ -45,10 +50,19 @@ beforeAll(async () => {
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       { provide: ProjectBases, useValue: bases },
       TaskThreadSetups,
+      InitiativeThreadSetups,
       sessionMemoryProvider(MEMORY, asked),
       Briefs,
     ],
   }));
+  app.get(InitiativeThreadSetups).provide({
+    setUp: ({ initiativeId }: InitiativeThreadRequest) =>
+      Promise.resolve({
+        instructions: "You shape the Initiative.",
+        officeTools: [],
+        record: recordOf(initiativeId),
+      }),
+  });
   app.get(TaskThreadSetups).provide({
     setUp: ({ taskId }: TaskThreadRequest) =>
       Promise.resolve({
@@ -134,6 +148,24 @@ describe("Briefs", () => {
     await expect(briefs.forThread(aThread({ home, session: A_SESSION }))).resolves.toEqual(
       taskThreadBrief({ ...record, continuing: true }),
     );
+  });
+
+  it("briefs a Thread on an Initiative from its record, the Memory for no Project and every Project", async () => {
+    asked.length = 0;
+    const initiativeId = randomUUID();
+    const home = { kind: "initiative", initiativeId } as const;
+    const record = { record: recordOf(initiativeId), memory: MEMORY, projects: PROJECTS };
+
+    await expect(briefs.forThread(aThread({ roleKey: "cto", home }))).resolves.toEqual(
+      initiativeThreadBrief({ ...record, continuing: false }),
+    );
+    await expect(
+      briefs.forThread(aThread({ roleKey: "cto", home, session: A_SESSION })),
+    ).resolves.toEqual(initiativeThreadBrief({ ...record, continuing: true }));
+    expect(asked).toEqual([
+      { roleKey: "cto", projectId: undefined },
+      { roleKey: "cto", projectId: undefined },
+    ]);
   });
 
   it("briefs a Thread on a Task with the Decisions answered in any of the Task's Threads, and the one it waits on", async () => {

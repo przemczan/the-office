@@ -293,7 +293,8 @@ export class ThreadRunner implements OnModuleDestroy {
       ]);
     }
     const current = await this.roleCards.find(thread.roleKey);
-    if (thread.home.kind === "task") {
+    // Chat being off closes only a person's chat: they still answer on Tasks and Initiatives.
+    if (thread.home.kind !== "chat") {
       if (!current) throw new ThreadRefused(["Nobody fills this Thread's Role any more."]);
       return current;
     }

@@ -62,6 +62,7 @@ export class AppModule {
       ideaCards: ThreadService,
       sessionTasks: ThreadService,
       taskThreads: ThreadService,
+      initiativeThreads: ThreadService,
       taskDecisions: DecisionService,
     });
     const pipelines = PipelinesModule.register({

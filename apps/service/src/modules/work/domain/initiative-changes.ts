@@ -68,6 +68,25 @@ export function addTaskToInitiative(
   );
 }
 
+/**
+ * Every Initiative's Tasks on the board, by the Initiative's id, in the order they were added, so
+ * the Projects one spans keep their order.
+ */
+export function tasksByInitiative(board: readonly Task[]): ReadonlyMap<string, readonly Task[]> {
+  const byInitiative = new Map<string, Task[]>();
+  const added = board.toSorted(
+    (one, other) =>
+      one.createdAt.getTime() - other.createdAt.getTime() || one.id.localeCompare(other.id),
+  );
+  for (const task of added) {
+    if (!task.initiativeId) continue;
+    const tasks = byInitiative.get(task.initiativeId) ?? [];
+    tasks.push(task);
+    byInitiative.set(task.initiativeId, tasks);
+  }
+  return byInitiative;
+}
+
 /** The Projects an Initiative spans: its Tasks', each once, in the order its Tasks come. */
 export function initiativeProjectIds(tasks: readonly Pick<Task, "projectId">[]): string[] {
   return [...new Set(tasks.map(({ projectId }) => projectId))];

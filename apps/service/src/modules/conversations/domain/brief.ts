@@ -148,6 +148,38 @@ export function taskThreadBrief({
   ]);
 }
 
+/** What a Brief for a Thread on an Initiative is assembled from. */
+export interface InitiativeThreadRecord {
+  /** The Initiative's record, as the module keeping Initiatives words it. */
+  readonly record: string;
+  /** The Thread continues in a fresh session, after one before it. */
+  readonly continuing: boolean;
+  /** The person's Memory notes that hold for every Project, since an Initiative spans them. */
+  readonly memory: BriefMemory;
+  readonly projects: readonly BriefProject[];
+}
+
+/**
+ * A Brief for a Thread on an Initiative: its record and where the Projects are, and, when the
+ * Thread continues in a fresh session, that the earlier context is gone. Like a Task's, it carries
+ * none of the Thread's exchanges: what was settled is on the Initiative (spec §2.5).
+ */
+export function initiativeThreadBrief({
+  record,
+  continuing,
+  memory,
+  projects,
+}: InitiativeThreadRecord): Brief {
+  return briefOf([
+    continuing
+      ? "You are continuing a Thread on an Initiative in a fresh session: the earlier session's context is gone, and this Brief, from the Initiative's record, is what you pick up from."
+      : undefined,
+    record,
+    memorySection(memory),
+    projectsSection(projects),
+  ]);
+}
+
 function memorySection({ lines, leftOut }: BriefMemory): string | undefined {
   if (lines.length === 0 && leftOut === 0) return undefined;
   const omitted =

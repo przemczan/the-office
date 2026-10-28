@@ -33,6 +33,7 @@ import { LinkCards } from "../../application/link-cards.js";
 import { ProposalService } from "../../application/proposal-service.js";
 import { aPlannerCard } from "../../application/session-role.fixtures.js";
 import { SessionPlaces } from "../../application/session-places.js";
+import { InitiativeThreadSetups } from "../../application/initiative-thread-setups.js";
 import { TaskThreadSetups } from "../../application/task-thread-setups.js";
 import { ThreadContexts } from "../../application/thread-contexts.js";
 import { StageThreads } from "../../application/stage-threads.js";
@@ -107,6 +108,7 @@ beforeEach(async () => {
       Briefs,
       sessionMemoryProvider(),
       TaskThreadSetups,
+      InitiativeThreadSetups,
       SessionPlaces,
       ThreadContexts,
       ThreadRunner,

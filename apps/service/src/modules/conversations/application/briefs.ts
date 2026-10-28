@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import {
   freshChatThreadBrief,
+  initiativeThreadBrief,
   newChatThreadBrief,
   taskThreadBrief,
   type Brief,
@@ -8,6 +9,7 @@ import {
 import type { Thread } from "../domain/thread.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
+import { InitiativeThreadSetups, type InitiativeThreadSetup } from "./initiative-thread-setups.js";
 import { SessionMemory } from "./session-memory.js";
 import { TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js";
 
@@ -18,18 +20,35 @@ export class Briefs {
     private readonly repository: ThreadRepository,
     private readonly bases: ProjectBases,
     private readonly taskThreads: TaskThreadSetups,
+    private readonly initiativeThreads: InitiativeThreadSetups,
     private readonly memory: SessionMemory,
   ) {}
 
   /** The Brief of the Thread's next session. Read before the message it answers is logged. */
   async forThread(thread: Thread): Promise<Brief> {
-    if (thread.home.kind === "chat") return this.forChatThread(thread);
-    const setup = await this.taskThreads.of({
-      threadId: thread.id,
-      taskId: thread.home.taskId,
-      roleKey: thread.roleKey,
-    });
-    return this.forTaskThread(thread, setup);
+    const { home } = thread;
+    switch (home.kind) {
+      case "chat":
+        return this.forChatThread(thread);
+      case "task":
+        return this.forTaskThread(
+          thread,
+          await this.taskThreads.of({
+            threadId: thread.id,
+            taskId: home.taskId,
+            roleKey: thread.roleKey,
+          }),
+        );
+      case "initiative":
+        return this.forInitiativeThread(
+          thread,
+          await this.initiativeThreads.of({
+            threadId: thread.id,
+            initiativeId: home.initiativeId,
+            roleKey: thread.roleKey,
+          }),
+        );
+    }
   }
 
   /**
@@ -44,6 +63,17 @@ export class Briefs {
       answered: await this.repository.answeredOn(thread.home.taskId),
       open: thread.openDecision,
       memory: await this.memory.forBrief(thread.roleKey, setup.projectId),
+    });
+  }
+
+  /** As `forThread`, from the setup the session is about to start with: the Initiative's record. */
+  async forInitiativeThread(thread: Thread, setup: InitiativeThreadSetup): Promise<Brief> {
+    return initiativeThreadBrief({
+      record: setup.record,
+      continuing: thread.session !== undefined,
+      // An Initiative spans Projects, so it reads the notes that hold for all of them.
+      memory: await this.memory.forBrief(thread.roleKey, undefined),
+      projects: await this.bases.list(),
     });
   }
 

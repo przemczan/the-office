@@ -22,10 +22,10 @@ export function chatInstructions(card: SessionPersonCard): string {
 }
 
 /**
- * The standing instructions of a session on a Task: who the person is, their card's instructions,
- * and what they do in the Thread, as the module keeping Tasks words it.
+ * The standing instructions of a session on a Task or an Initiative: who the person is, their
+ * card's instructions, and what they do in the Thread, as the module keeping Work words it.
  */
-export function taskThreadInstructions(card: SessionPersonCard, inTheThread: string): string {
+export function workThreadInstructions(card: SessionPersonCard, inTheThread: string): string {
   return [...personInstructions(card), inTheThread].join("\n\n");
 }
 

@@ -42,6 +42,7 @@ import { SessionPlaces } from "./session-places.js";
 import { StageDecisions } from "./stage-decisions.js";
 import { StageThreads, type StageThreadRequest } from "./stage-threads.js";
 import { TaskTokens } from "./task-tokens.js";
+import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { MentionedRecords } from "./mentioned-records.js";
@@ -137,6 +138,7 @@ async function startOn(scripted: ScriptedEngine): Promise<void> {
       Briefs,
       sessionMemoryProvider(),
       TaskThreadSetups,
+      InitiativeThreadSetups,
       SessionPlaces,
       ThreadRunner,
       MentionedRecords,

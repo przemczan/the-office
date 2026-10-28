@@ -2,10 +2,11 @@ import { z } from "zod";
 import { webEventSchema } from "./events.js";
 import { roleCardSchema } from "./people.js";
 
-/** Where a conversation lives: a person's chat, by the Role's key, or a Task's. */
+/** Where a conversation lives: a person's chat, by the Role's key, a Task's or an Initiative's. */
 export const homeSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("chat"), roleKey: z.string() }),
   z.object({ kind: z.literal("task"), taskId: z.string() }),
+  z.object({ kind: z.literal("initiative"), initiativeId: z.string() }),
 ]);
 export type Home = z.infer<typeof homeSchema>;
 

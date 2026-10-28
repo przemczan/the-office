@@ -30,6 +30,7 @@ import {
   tokensSoFar,
   type Consultation,
   type ContextOverride,
+  type Home,
   type Thread,
   type ThreadSession,
   type TokenTotals,
@@ -143,9 +144,41 @@ export function startConsultationThread(
   return threadOnTask(id, start, startedAt, { stageThread: false, consultation });
 }
 
+/** Where a Thread on an Initiative is, who answers in it, and what it is called. */
+export interface InitiativeThreadStart {
+  readonly initiativeId: string;
+  readonly roleKey: string;
+  readonly title: string;
+}
+
+/**
+ * A Thread on an Initiative, where the CTO shapes it with the user, titled by The Office: its first
+ * message is The Office's opening, not the user's.
+ */
+export function startInitiativeThread(
+  id: string,
+  { initiativeId, roleKey, title }: InitiativeThreadStart,
+  startedAt: Date,
+): { readonly thread: Thread; readonly event: ThreadStarted } {
+  return titledThread(id, { kind: "initiative", initiativeId }, { roleKey, title }, startedAt, {
+    stageThread: false,
+    consultation: undefined,
+  });
+}
+
 function threadOnTask(
   id: string,
-  { taskId, roleKey, title }: TaskThreadStart,
+  { taskId, ...person }: TaskThreadStart,
+  startedAt: Date,
+  kind: Pick<Thread, "stageThread" | "consultation">,
+): { readonly thread: Thread; readonly event: ThreadStarted } {
+  return titledThread(id, { kind: "task", taskId }, person, startedAt, kind);
+}
+
+function titledThread(
+  id: string,
+  home: Home,
+  { roleKey, title }: { readonly roleKey: string; readonly title: string },
   startedAt: Date,
   { stageThread, consultation }: Pick<Thread, "stageThread" | "consultation">,
 ): { readonly thread: Thread; readonly event: ThreadStarted } {
@@ -153,7 +186,7 @@ function threadOnTask(
   if (problems.length > 0) throw new ThreadRefused(problems);
   const thread: Thread = {
     id,
-    home: { kind: "task", taskId },
+    home,
     roleKey,
     title: title.trim(),
     state: "waiting",

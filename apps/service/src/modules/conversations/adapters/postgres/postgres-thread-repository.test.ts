@@ -85,6 +85,16 @@ describe("PostgresThreadRepository", () => {
     await expect(repository.listOnTasksWith(roleKey)).resolves.toEqual([newer, older]);
   });
 
+  it("keeps a Thread on an Initiative in its home, apart from the person's Threads on Tasks", async () => {
+    const roleKey = `role-${randomUUID()}`;
+    const home = { kind: "initiative", initiativeId: randomUUID() } as const;
+    const shaping = aThread({ id: randomUUID(), home, roleKey, title: "Shaping" });
+    await repository.add(shaping);
+
+    await expect(repository.listIn(home)).resolves.toEqual([shaping]);
+    await expect(repository.listOnTasksWith(roleKey)).resolves.toEqual([]);
+  });
+
   it("finds a Thread by the engine session it has now", async () => {
     const roleKey = `role-${randomUUID()}`;
     const session = {

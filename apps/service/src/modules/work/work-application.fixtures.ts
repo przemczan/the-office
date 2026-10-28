@@ -11,6 +11,7 @@ import { EventStreamModule } from "../../platform/websocket/event-stream.module.
 import { WebEventForwarding } from "../../platform/websocket/web-event-forwarding.js";
 import {
   IdeaCardsForTests,
+  InitiativeThreadsForTests,
   KnownPeopleForTests,
   KnownProjectsForTests,
   ProjectWorktreesForTests,
@@ -56,6 +57,7 @@ export async function startWorkApplication(
         ideaCards: IdeaCardsForTests,
         sessionTasks: SessionTasksForTests,
         taskThreads: TaskThreadsForTests,
+        initiativeThreads: InitiativeThreadsForTests,
         taskDecisions: TaskDecisionsForTests,
       }),
     ],
