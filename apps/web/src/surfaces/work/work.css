@@ -19,6 +19,18 @@
   gap: 14px;
 }
 
+.must-wait-for {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.must-wait-for-task {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /*
  * The Stage editor grows with its open Stage; it scrolls inside the dialog, which keeps its title
  * and Save in view (the dialog's overlay doesn't scroll).

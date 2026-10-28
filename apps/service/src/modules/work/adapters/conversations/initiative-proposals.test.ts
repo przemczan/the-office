@@ -97,6 +97,7 @@ describe("Proposals of the CTO's changes to an Initiative", () => {
       .addTask(
         initiative.id,
         { title: "Queue writes", projectId: "api", priority: "normal" },
+        [],
         THE_USER,
       );
     const blocker = await tasks.create(

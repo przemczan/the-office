@@ -1611,3 +1611,140 @@ test("Marta's chat shows the Ideas she captured, planned from their cards, and t
     await repository.remove();
   }
 });
+
+const SHAPED_OUTCOME = "Customers download their monthly usage as a CSV file from the web app.";
+const PROPOSED_OUTCOME =
+  "Customers download their monthly usage as a CSV file from the web app and the API.";
+
+/** "Add a Task" on the Initiative page, in `projectName`, waiting for the Tasks named. */
+async function addTaskToInitiative(
+  page: Page,
+  title: string,
+  projectName: string,
+  mustWaitFor: readonly string[],
+): Promise<void> {
+  await page.getByRole("button", { name: "Add a Task" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("Add a Task to Usage exports for customers")).toBeVisible();
+  await dialog.getByLabel("Title").fill(title);
+  // The design system's radios are named by their label, not by role.
+  await dialog.getByRole("radiogroup").locator("label").filter({ hasText: projectName }).click();
+  for (const blocker of mustWaitFor) {
+    await dialog
+      .getByRole("group", { name: "Must wait for" })
+      .locator("label")
+      .filter({ hasText: blocker })
+      .click();
+  }
+  await dialog.getByRole("button", { name: "Add the Task" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText(`${title} is in Backlog.`)).toBeVisible();
+}
+
+// The engine replays the last session in e2e/sessions.jsonl: Bob writes the outcome while the
+// Initiative is shaped, then proposes a new one once it is active.
+test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confirms it, applies Bob's Proposal and drops it", async ({
+  page,
+}) => {
+  const repository = await createTemporaryRepository();
+  const dashboardRepository = await createTemporaryRepository();
+  try {
+    const project = await addedProject(page, repository, "Metering", "MT");
+    await addedProject(page, dashboardRepository, "Dashboard", "DB");
+    const outside = await page.request.post("/api/tasks", {
+      data: { title: "Usage table schema", projectId: project.id, priority: "normal" },
+    });
+    expect(outside.status()).toBe(201);
+    const idea = await page.request.post("/api/ideas", {
+      data: { title: "Usage exports for customers", notes: "", projectId: null },
+    });
+    expect(idea.status()).toBe(201);
+
+    await page.goto("/work/ideas");
+    await page
+      .getByRole("article", { name: "Usage exports for customers" })
+      .getByRole("button", { name: "Shape into an Initiative with Bob" })
+      .click();
+    await expect(page).toHaveURL(/\/work\/initiatives\/[0-9a-f-]+$/);
+    const initiativeUrl = page.url();
+    await expect(page.getByText("Shaping with Bob")).toBeVisible();
+
+    // Bob writes the outcome straight onto the page while it is being shaped; the user edits it.
+    const conversation = page.getByRole("complementary", { name: "Conversation" });
+    await expect(
+      conversation.getByText(
+        "I wrote the outcome. Add the Tasks, and confirm the Initiative when it is right.",
+      ),
+    ).toBeVisible();
+    const outcome = page
+      .getByRole("region", { name: "Record" })
+      .getByRole("region", { name: "Outcome" });
+    await expect(outcome).toContainText(SHAPED_OUTCOME);
+    await outcome.getByRole("button", { name: "Edit" }).click();
+    await outcome.getByRole("textbox", { name: "Outcome" }).fill(`${SHAPED_OUTCOME} Monthly.`);
+    await outcome.getByRole("button", { name: "Save" }).click();
+    await expect(outcome).toContainText(`${SHAPED_OUTCOME} Monthly.`);
+
+    await addTaskToInitiative(page, "Usage export endpoint", "Metering", []);
+    await addTaskToInitiative(page, "Usage export button", "Dashboard", ["Usage export endpoint"]);
+
+    // A blocker outside the Initiative, added on its Task's page, shows in the graph too.
+    const graph = page.getByRole("group", { name: "Task graph" });
+    await graph.getByRole("link", { name: /Usage export endpoint/ }).click();
+    const dependencies = page
+      .getByRole("region", { name: "Record" })
+      .getByRole("region", { name: "Dependencies" });
+    await dependencies.getByRole("button", { name: "Add", exact: true }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("textbox", { name: "Find a Task" }).fill("Usage table");
+    await dialog.getByText("Usage table schema").click();
+    await dialog.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(dialog).toBeHidden();
+    await page.goto(initiativeUrl);
+    await expect(graph.getByRole("link")).toHaveCount(3);
+    await expect(graph.getByRole("link", { name: /Usage table schema/ })).toContainText(
+      "outside this Initiative",
+    );
+    await expect(page.getByText("2 across 2 Projects")).toBeVisible();
+
+    await page.getByRole("button", { name: "Confirm the Initiative" }).click();
+    await expect(
+      page.getByText("Initiative confirmed. Its Tasks wait in Backlog until Jan plans them."),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Confirm the Initiative" })).toHaveCount(0);
+    await expect(outcome.getByRole("button", { name: "Edit" })).toHaveCount(0);
+
+    // Once it is active, Bob's change is a Proposal the user applies.
+    const message = conversation.getByLabel("Message");
+    await message.fill("The API should export it too");
+    await message.press("Enter");
+    const proposal = conversation.getByRole("region", {
+      name: "Proposal: New outcome for the Initiative",
+    });
+    await expect(proposal).toContainText(PROPOSED_OUTCOME);
+    await proposal.getByRole("button", { name: "Apply change" }).click();
+    await expect(proposal).toContainText("Applied");
+    await expect(outcome).toContainText(PROPOSED_OUTCOME);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-initiative.png") });
+
+    await page.goto("/work/initiatives");
+    await expect(page.getByRole("link", { name: "Usage exports for customers" })).toContainText(
+      "0 of 2 Tasks done",
+    );
+
+    await page.goto(initiativeUrl);
+    await page.getByRole("button", { name: "More for Usage exports for customers" }).click();
+    await page.getByRole("menu").getByRole("button", { name: "Drop the Initiative" }).click();
+    await expect(
+      page.getByText("Initiative dropped. Its Tasks stay where they are."),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Add a Task" })).toHaveCount(0);
+    await expect(
+      page.getByText(
+        "This Initiative was dropped, so you can read this conversation but not continue it.",
+      ),
+    ).toBeVisible();
+  } finally {
+    await Promise.all([repository.remove(), dashboardRepository.remove()]);
+  }
+});

@@ -81,7 +81,7 @@ async function aTaskOutside(title: string): Promise<Task> {
 async function anInitiativeTask(title: string): Promise<Task> {
   return work.app
     .get(InitiativeService)
-    .addTask(initiative.id, { title, projectId: aProjectId(), priority: "normal" }, THE_USER);
+    .addTask(initiative.id, { title, projectId: aProjectId(), priority: "normal" }, [], THE_USER);
 }
 
 it("are among a shaping session's Office tools", () => {

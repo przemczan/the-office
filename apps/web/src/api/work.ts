@@ -16,9 +16,11 @@ import {
   type Idea,
   type Initiative,
   type NewIdea,
+  type NewInitiativeTask,
   type NewLink,
   type NewTask,
   type OfficeWideLimit,
+  type OutcomeChange,
   type Priority,
   type Readiness,
   type StartCheck,
@@ -153,6 +155,26 @@ export function shapeIntoInitiative(id: string): Promise<Initiative> {
 /** A new shaping Thread with the CTO, who starts on it at once. */
 export function startShapingThread(id: string): Promise<Initiative> {
   return sendToApi("POST", `${initiativePath(id)}/shaping`, {}, initiativeSchema);
+}
+
+/** "Confirm the Initiative": active, or done at once when its Tasks already are. */
+export function confirmInitiative(id: string): Promise<Initiative> {
+  return sendToApi("POST", `${initiativePath(id)}/confirm`, {}, initiativeSchema);
+}
+
+/** Its Tasks stay as they are. */
+export function dropInitiative(id: string): Promise<Initiative> {
+  return sendToApi("POST", `${initiativePath(id)}/drop`, {}, initiativeSchema);
+}
+
+/** The user's outcome, while the Initiative is being shaped. */
+export function writeInitiativeOutcome(id: string, change: OutcomeChange): Promise<Initiative> {
+  return sendToApi("PUT", `${initiativePath(id)}/outcome`, change, initiativeSchema);
+}
+
+/** "Add a Task": in Backlog in its Project, waiting for the Tasks it names. */
+export function addTaskToInitiative(id: string, newTask: NewInitiativeTask): Promise<Task> {
+  return sendToApi("POST", `${initiativePath(id)}/tasks`, newTask, taskSchema);
 }
 
 export function dropIdea(id: string): Promise<Idea> {

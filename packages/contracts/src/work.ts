@@ -87,6 +87,10 @@ export const newTaskSchema = z.object({
 });
 export type NewTask = z.infer<typeof newTaskSchema>;
 
+/** What "Add a Task" on an Initiative takes (POST /initiatives/:id/tasks): the Tasks it must wait for too. */
+export const newInitiativeTaskSchema = newTaskSchema.extend({ blockedBy: z.array(z.uuid()) });
+export type NewInitiativeTask = z.infer<typeof newInitiativeTaskSchema>;
+
 /**
  * Why a Task's conversations can be read but not continued, for the states that end the Task: no
  * session works on it any more (Done: Publish removed its worktree; Dropped: the user ended it).

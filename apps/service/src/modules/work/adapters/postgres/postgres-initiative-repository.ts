@@ -13,6 +13,7 @@ import type { TaskUpdate } from "../../ports/task-repository.js";
 import { initiatives, tasks } from "./work.schema.js";
 import {
   changeDependenciesHeld,
+  everyTaskHoldingDependencies,
   holdManualOrder,
   takenOrders,
   toInitiative,
@@ -59,12 +60,18 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
 
   async addTask(
     id: string,
-    create: (initiative: Initiative, takenOrders: readonly string[]) => TaskChange<TaskCreated>,
+    create: (
+      initiative: Initiative,
+      takenOrders: readonly string[],
+      tasks: readonly Task[],
+    ) => TaskChange<TaskCreated>,
   ): Promise<TaskChange<TaskCreated>> {
     return this.database.transaction(async (transaction) => {
+      // The manual order, the Initiative, then the dependencies: the order every other hold takes.
       await holdManualOrder(transaction);
       const initiative = await heldInitiative(transaction, id);
-      const created = create(initiative, await takenOrders(transaction));
+      const everyTask = await everyTaskHoldingDependencies(transaction);
+      const created = create(initiative, await takenOrders(transaction), everyTask);
       await transaction.insert(tasks).values(toTaskRow(created.task));
       return created;
     });

@@ -74,11 +74,16 @@ async function read(initiative: Initiative): Promise<Initiative> {
   return initiativeSchema.parse(await response.json());
 }
 
-async function addTask(initiative: Initiative, projectId = aProjectId()): Promise<Task> {
+async function addTask(
+  initiative: Initiative,
+  projectId = aProjectId(),
+  blockedBy: readonly string[] = [],
+): Promise<Task> {
   const response = await sendJson(work, "POST", `/initiatives/${initiative.id}/tasks`, {
     title: "Export endpoint",
     projectId,
     priority: "normal",
+    blockedBy,
   });
   expect(response.status).toBe(201);
   return taskSchema.parse(await response.json());
@@ -253,18 +258,50 @@ describe("POST /api/initiatives/:id/tasks", () => {
       title: "Export endpoint",
       projectId: UNKNOWN_PROJECT,
       priority: "normal",
+      blockedBy: [],
     });
     await post(initiative, "drop");
     const dropped = await sendJson(work, "POST", `/initiatives/${initiative.id}/tasks`, {
       title: "Export endpoint",
       projectId: aProjectId(),
       priority: "normal",
+      blockedBy: [],
     });
 
     expect(unknown.status).toBe(422);
     expect(workRefusalSchema.parse(await dropped.json()).reasons).toEqual([
       "A dropped Initiative takes no more Tasks.",
     ]);
+  });
+
+  it("adds a Task that waits for the Tasks named, in any Initiative or Project", async () => {
+    const initiative = await shape(await capture());
+    const endpoint = await addTask(initiative);
+    const elsewhere = await addTask(await shape(await capture()));
+
+    const button = await addTask(initiative, aProjectId(), [endpoint.id, elsewhere.id]);
+
+    expect(button.blockedBy).toEqual([endpoint.id, elsewhere.id]);
+  });
+
+  it("refuses a Task waiting for a dropped Task or none, with every reason, adding nothing", async () => {
+    const initiative = await shape(await capture());
+    const dropped = await addTask(initiative);
+    await sendJson(work, "POST", `/tasks/${dropped.id}/drop`);
+    const missing = crypto.randomUUID();
+
+    const response = await sendJson(work, "POST", `/initiatives/${initiative.id}/tasks`, {
+      title: "Export button",
+      projectId: aProjectId(),
+      priority: "normal",
+      blockedBy: [dropped.id, missing],
+    });
+
+    expect(workRefusalSchema.parse(await response.json()).reasons).toEqual([
+      `"Export endpoint" was dropped, so nothing waits for it.`,
+      `There is no Task "${missing}".`,
+    ]);
+    expect((await read(initiative)).projectIds).toEqual([dropped.projectId]);
   });
 });
 

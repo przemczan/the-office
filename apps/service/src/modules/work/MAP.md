@@ -120,7 +120,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `postgres-initiative-repository.ts`: PostgresInitiativeRepository
 - `postgres-task-repository.ts`: PostgresTaskRepository
 - `postgres-work-settings.ts`: PostgresWorkSettings
-- `work-rows.ts`: Transaction, IdeaRow, InitiativeRow, TaskRow, AttachmentRow, holdManualOrder, holdStarts, changeDependenciesHeld, heldTask, saveTask, takenOrders, toIdeaRow, toIdea, toInitiativeRow, toInitiative, toTaskRow, toTask, ownerColumns, toAttachmentRow, toAttachment
+- `work-rows.ts`: Transaction, IdeaRow, InitiativeRow, TaskRow, AttachmentRow, holdManualOrder, holdStarts, everyTaskHoldingDependencies, changeDependenciesHeld, heldTask, saveTask, takenOrders, toIdeaRow, toIdea, toInitiativeRow, toInitiative, toTaskRow, toTask, ownerColumns, toAttachmentRow, toAttachment
 - `work-settings.schema.ts`: workSettings
 - `work.schema.ts`: ideas, initiatives, tasks, attachments
 - Tests: postgres-work-repositories.test.ts
@@ -169,7 +169,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `record-words.ts`: taskRecordText, initiativeRecordText, ideaRecordText, whereOf
 - `shaping.ts`: CTO, SHAPING_THREAD_TITLE, SHAPING_INSTRUCTIONS, SHAPING_OPENING
 - `task-changes.ts`: TaskChange, NewTaskSetting, createTask, changeTaskState, undoPlanningMove, markTaskReady, changeStartedTaskState, pauseTask, stopTask, resumeTask, changePriority, reorderTask
-- `task-dependencies.ts`: addDependency, removeDependency, blockingTasks, blockedProblems
+- `task-dependencies.ts`: addDependency, createdWaitingFor, removeDependency, blockingTasks, blockedProblems
 - `task-events.ts`: TaskCreated, TaskStateChanged, TaskPriorityChanged, TaskReordered, TaskPlanProposed, TaskPlanConfirmed, TaskDefinitionOfDoneProposed, TaskDefinitionOfDoneConfirmed, TaskPipelineProposed, TaskPipelineConfirmed, TaskPaused, TaskStopped, TaskResumed, TaskDependencyAdded, TaskDependencyRemoved, TaskStarted
 - `task-not-found.ts`: TaskNotFound
 - `task-refused.ts`: TaskRefused

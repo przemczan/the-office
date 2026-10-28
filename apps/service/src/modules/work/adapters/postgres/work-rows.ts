@@ -38,6 +38,12 @@ async function holdDependencies(transaction: Transaction): Promise<void> {
   await transaction.execute(sql`select pg_advisory_xact_lock(hashtext('work.dependencies'))`);
 }
 
+/** Every Task, read holding every change of dependencies until the transaction ends. */
+export async function everyTaskHoldingDependencies(transaction: Transaction): Promise<Task[]> {
+  await holdDependencies(transaction);
+  return everyTask(transaction);
+}
+
 /**
  * Applies `change` to the Task's dependencies in the transaction, holding every change of
  * dependencies and the Task meanwhile, with every Task read in the hold.
@@ -49,8 +55,11 @@ export async function changeDependenciesHeld<Event extends DomainEvent>(
 ): Promise<TaskUpdate<Event>> {
   await holdDependencies(transaction);
   const task = await heldTask(transaction, id);
-  const everyTask = (await transaction.select().from(tasks)).map(toTask);
-  return saveTask(transaction, task, change(task, everyTask));
+  return saveTask(transaction, task, change(task, await everyTask(transaction)));
+}
+
+async function everyTask(transaction: Transaction): Promise<Task[]> {
+  return (await transaction.select().from(tasks)).map(toTask);
 }
 
 export async function heldTask(transaction: Transaction, id: string): Promise<Task> {

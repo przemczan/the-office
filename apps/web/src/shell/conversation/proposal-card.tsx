@@ -24,7 +24,7 @@ import {
 } from "../../api/conversations.ts";
 import { roleCardQueries, roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
-import { officeWideLimitQuery, taskQueries } from "../../api/work.ts";
+import { initiativeQueries, officeWideLimitQuery, taskQueries } from "../../api/work.ts";
 import { EFFORT_LABELS, modelLabel } from "../engine-words.ts";
 import { personName, roleName } from "../person-name.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
@@ -135,7 +135,7 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
           <ProposedInitiativeEdit edit={change.edit} />
           <AnswerFoot
             proposal={proposal}
-            changes={[taskQueries.list().queryKey]}
+            changes={[initiativeQueries.list().queryKey, taskQueries.list().queryKey]}
             appliedToast="Change applied to the Initiative."
             openNote="Changes the Initiative once applied"
           />

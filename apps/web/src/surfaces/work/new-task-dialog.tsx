@@ -1,35 +1,56 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { NewTask } from "@the-office/contracts";
-import { Button, Dialog, Field, Input, RadioGroup } from "@the-office/ui";
+import type { Initiative, NewTask, Project, Task } from "@the-office/contracts";
+import { Button, Checkbox, Dialog, Field, Input, RadioGroup } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
-import { createTask, taskQueries } from "../../api/work.ts";
+import { addTaskToInitiative, createTask, initiativeQueries, taskQueries } from "../../api/work.ts";
 import { ProjectChip } from "../../shell/project-chip.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
+import { canHoldBack } from "./dependency-words.ts";
+import { tasksOfInitiative } from "./initiative-words.ts";
 
-/** "+ Task": a title and its Project; it starts in Backlog. */
-export function NewTaskDialog({ onClose }: { readonly onClose: () => void }): ReactNode {
+type NewTaskDraft = Omit<NewTask, "projectId"> & { readonly projectId?: string };
+
+/**
+ * "+ Task": a title and its Project; it starts in Backlog. Given an Initiative, it is "Add a Task"
+ * there (prototypes/app/work.js `new-task`): in the Initiative's first Project unless another is
+ * chosen, and waiting for any of its Tasks that can still hold it back.
+ */
+export function NewTaskDialog({
+  initiative,
+  onClose,
+}: {
+  readonly initiative?: Initiative;
+  readonly onClose: () => void;
+}): ReactNode {
   const formId = useId();
   const projects = useQuery(projectQueries.list());
-  const [draft, setDraft] = useState<Omit<NewTask, "projectId"> & { projectId?: string }>({
-    title: "",
-    priority: "normal",
-  });
-  const projectId = draft.projectId ?? projects.data?.[0]?.id;
+  const tasks = useQuery(taskQueries.list());
+  const [draft, setDraft] = useState<NewTaskDraft>({ title: "", priority: "normal" });
+  const [blockedBy, setBlockedBy] = useState<ReadonlySet<string>>(new Set());
+  const projectId = draft.projectId ?? initiative?.projectIds[0] ?? projects.data?.[0]?.id;
+  const candidates =
+    initiative && tasks.data ? tasksOfInitiative(initiative, tasks.data).filter(canHoldBack) : [];
   const queryClient = useQueryClient();
   const showToast = useToast();
   const creating = useMutation({
-    mutationFn: createTask,
+    mutationFn: (newTask: NewTask) =>
+      initiative
+        ? addTaskToInitiative(initiative.id, { ...newTask, blockedBy: [...blockedBy] })
+        : createTask(newTask),
     onSuccess: async (task) => {
-      await queryClient.invalidateQueries(taskQueries.list());
+      await Promise.all([
+        queryClient.invalidateQueries(taskQueries.list()),
+        initiative && queryClient.invalidateQueries(initiativeQueries.list()),
+      ]);
       showToast(`${task.title} is in Backlog.`);
       onClose();
     },
   });
   return (
     <Dialog
-      title="New Task"
+      title={initiative ? `Add a Task to ${initiative.name}` : "New Task"}
       width={520}
       onClose={onClose}
       actions={
@@ -78,7 +99,54 @@ export function NewTaskDialog({ onClose }: { readonly onClose: () => void }): Re
             />
           )}
         </Field>
+        {candidates.length > 0 && (
+          <MustWaitFor
+            candidates={candidates}
+            projects={projects.data}
+            chosen={blockedBy}
+            onChange={setBlockedBy}
+          />
+        )}
       </form>
     </Dialog>
+  );
+}
+
+/** The Initiative's Tasks the new one can wait for; it waits for none unless chosen. */
+function MustWaitFor({
+  candidates,
+  projects,
+  chosen,
+  onChange,
+}: {
+  readonly candidates: readonly Task[];
+  readonly projects: readonly Project[] | undefined;
+  readonly chosen: ReadonlySet<string>;
+  readonly onChange: (chosen: ReadonlySet<string>) => void;
+}): ReactNode {
+  const toggle = (taskId: string, checked: boolean): void => {
+    const next = new Set(chosen);
+    if (checked) next.add(taskId);
+    else next.delete(taskId);
+    onChange(next);
+  };
+  return (
+    <Field label="Must wait for" hint="Optional. It can't start until each one chosen is Done.">
+      <div className="must-wait-for" role="group" aria-label="Must wait for">
+        {candidates.map((task) => (
+          <Checkbox
+            key={task.id}
+            checked={chosen.has(task.id)}
+            onChange={(checked) => toggle(task.id, checked)}
+            label={
+              <span className="must-wait-for-task">
+                <ProjectChip projectId={task.projectId} projects={projects} />
+                {task.title}
+              </span>
+            }
+          />
+        ))}
+      </div>
+    </Field>
   );
 }

@@ -32,6 +32,7 @@ import { initiativeRecordText } from "../domain/record-words.js";
 import { CTO, SHAPING_OPENING, SHAPING_THREAD_TITLE } from "../domain/shaping.js";
 import { newTaskProblems, type NewTask, type Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
+import { createdWaitingFor } from "../domain/task-dependencies.js";
 import { TaskStateChanged } from "../domain/task-events.js";
 import { AttachmentRepository } from "../ports/attachment-repository.js";
 import { IdeaRepository } from "../ports/idea-repository.js";
@@ -192,10 +193,16 @@ export class InitiativeService implements OnModuleInit {
 
   /**
    * The user's new Task in Backlog in the Initiative and the Project, following the Project's
-   * default Pipeline, while the Initiative is shaping or active.
+   * default Pipeline, while the Initiative is shaping or active; it waits for `blockedBy` from the
+   * start.
    */
-  async addTask(id: string, given: NewTask, createdBy: Author): Promise<Task> {
-    return this.createTask(id, given, createdBy, addTaskToInitiative);
+  async addTask(
+    id: string,
+    given: NewTask,
+    blockedBy: readonly string[],
+    createdBy: Author,
+  ): Promise<Task> {
+    return this.createTask(id, given, createdBy, addTaskToInitiative, blockedBy);
   }
 
   /** The CTO's new Task, as `addTask`, by the route the change takes. */
@@ -309,6 +316,7 @@ export class InitiativeService implements OnModuleInit {
     given: NewTask,
     createdBy: Author,
     create: typeof addTaskToInitiative,
+    blockedBy: readonly string[] = [],
   ): Promise<Task> {
     const project = await this.projects.find(given.projectId);
     if (!project) {
@@ -317,13 +325,17 @@ export class InitiativeService implements OnModuleInit {
         `There is no Project "${given.projectId}".`,
       ]);
     }
-    const { task, event } = await this.repository.addTask(id, (initiative, takenOrders) =>
-      create(
-        initiative,
-        randomUUID(),
-        given,
-        { pipelineId: project.defaultPipeline, order: orderAfter(takenOrders), createdBy },
-        new Date(),
+    const { task, event } = await this.repository.addTask(id, (initiative, takenOrders, tasks) =>
+      createdWaitingFor(
+        create(
+          initiative,
+          randomUUID(),
+          given,
+          { pipelineId: project.defaultPipeline, order: orderAfter(takenOrders), createdBy },
+          new Date(),
+        ),
+        blockedBy,
+        tasks,
       ),
     );
     await this.events.publish(event);

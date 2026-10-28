@@ -7,6 +7,7 @@ import {
   ideaSchema,
   initiativeSchema,
   taskSchema,
+  type Initiative,
   type Task,
 } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -38,8 +39,24 @@ async function post(path: string, body?: unknown): Promise<unknown> {
   return response.json();
 }
 
-async function aTask(path: string, title: string, projectId: string): Promise<Task> {
-  return taskSchema.parse(await post(path, { title, projectId, priority: "normal" }));
+async function aTask(title: string, projectId: string): Promise<Task> {
+  return taskSchema.parse(await post("/tasks", { title, projectId, priority: "normal" }));
+}
+
+async function aTaskIn(
+  initiative: Initiative,
+  title: string,
+  projectId: string,
+  blockedBy: readonly string[],
+): Promise<Task> {
+  return taskSchema.parse(
+    await post(`/initiatives/${initiative.id}/tasks`, {
+      title,
+      projectId,
+      priority: "normal",
+      blockedBy,
+    }),
+  );
 }
 
 describe("a shaping Thread's session", () => {
@@ -49,11 +66,9 @@ describe("a shaping Thread's session", () => {
       await post("/ideas", { title: "Usage exports", notes: "", projectId: null }),
     );
     const initiative = initiativeSchema.parse(await post(`/ideas/${idea.id}/initiative`));
-    const outside = await aTask("/tasks", "Billing schema", api);
-    const endpoint = await aTask(`/initiatives/${initiative.id}/tasks`, "Export endpoint", api);
-    const button = await aTask(`/initiatives/${initiative.id}/tasks`, "Export button", web);
-    await post(`/tasks/${endpoint.id}/dependencies`, { blockerId: outside.id });
-    await post(`/tasks/${button.id}/dependencies`, { blockerId: endpoint.id });
+    const outside = await aTask("Billing schema", api);
+    const endpoint = await aTaskIn(initiative, "Export endpoint", api, [outside.id]);
+    const button = await aTaskIn(initiative, "Export button", web, [endpoint.id]);
 
     const setup = await work.app
       .get(InitiativeThreadSetups)

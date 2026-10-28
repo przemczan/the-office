@@ -34,12 +34,17 @@ export abstract class InitiativeRepository {
   ): Promise<InitiativeUpdate<Event>>;
 
   /**
-   * Saves the Task `create` makes in the Initiative from every key on the board, holding the
-   * Initiative and the board's manual order meanwhile. Throws InitiativeNotFound as `update` does.
+   * Saves the Task `create` makes in the Initiative from every key on the board and every Task,
+   * holding the board's manual order, the Initiative and every change of dependencies meanwhile, so
+   * the Tasks it waits for are judged as they stay. Throws InitiativeNotFound as `update` does.
    */
   abstract addTask(
     id: string,
-    create: (initiative: Initiative, takenOrders: readonly string[]) => TaskChange<TaskCreated>,
+    create: (
+      initiative: Initiative,
+      takenOrders: readonly string[],
+      tasks: readonly Task[],
+    ) => TaskChange<TaskCreated>,
   ): Promise<TaskChange<TaskCreated>>;
 
   /**

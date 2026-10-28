@@ -7,7 +7,12 @@ export function blockersOf(task: Task, tasks: readonly Task[]): Task[] {
 
 /** The blockers still holding the Task back: a Done or Dropped one no longer blocks (spec §2.1). */
 export function blockingTasksOf(task: Task, tasks: readonly Task[]): Task[] {
-  return blockersOf(task, tasks).filter(({ state }) => state !== "done" && state !== "dropped");
+  return blockersOf(task, tasks).filter(canHoldBack);
+}
+
+/** Whether a Task waiting for this one would wait: neither Done nor Dropped. */
+export function canHoldBack({ state }: Task): boolean {
+  return state !== "done" && state !== "dropped";
 }
 
 /** The Tasks waiting for this one, leaving out the Dropped. */
@@ -24,8 +29,7 @@ export function blockerCandidates(task: Task, tasks: readonly Task[]): Task[] {
   return tasks.filter(
     (each) =>
       each.id !== task.id &&
-      each.state !== "done" &&
-      each.state !== "dropped" &&
+      canHoldBack(each) &&
       !task.blockedBy.includes(each.id) &&
       !waitingOnIt.has(each.id),
   );

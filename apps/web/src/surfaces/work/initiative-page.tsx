@@ -7,22 +7,22 @@ import {
   type Role,
   type Task,
 } from "@the-office/contracts";
-import { Alert, Button, Icon, IconButton, Menu } from "@the-office/ui";
-import { useState, type ReactNode } from "react";
+import { Alert, Button, Icon } from "@the-office/ui";
+import type { ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, startShapingThread, taskQueries } from "../../api/work.ts";
-import { useCopyRecordLink } from "../../shell/copy-record-link.ts";
 import { EmptyCard } from "../../shell/item-card.tsx";
-import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { useCto } from "../../shell/work/use-cto.ts";
 import { AttachmentsBlock } from "./attachments-block.tsx";
+import { InitiativeActions } from "./initiative-actions.tsx";
 import { InitiativeProjects, InitiativeStateBadge } from "./initiative-parts.tsx";
 import { initiativeProgress, progressWords, tasksOfInitiative } from "./initiative-words.ts";
 import { MissingRecord } from "./missing-record.tsx";
 import { OriginBlock } from "./origin-block.tsx";
+import { OutcomeBlock } from "./outcome-block.tsx";
 import { RecordBlock } from "./record-block.tsx";
 import { RecordThreads } from "./record-threads.tsx";
 import { TaskGraph } from "./task-graph.tsx";
@@ -65,13 +65,7 @@ export function InitiativePage(): ReactNode {
       <div className="task-columns">
         <section className="task-record" aria-label="Record">
           {record.state === "shaping" && <ShapingNote cto={cto} />}
-          <RecordBlock icon="target" title="Outcome">
-            {record.outcome === "" ? (
-              <p className="task-quiet">Not written yet.</p>
-            ) : (
-              <MarkdownText text={record.outcome} />
-            )}
-          </RecordBlock>
+          <OutcomeBlock initiative={record} />
           <AttachmentsBlock
             owner={{ kind: "initiative", initiativeId: record.id }}
             ownerTitle={record.name}
@@ -108,36 +102,9 @@ function InitiativeHead({
         </div>
       </div>
       <div className="task-head-actions">
-        <InitiativeMenu initiative={initiative} />
+        <InitiativeActions initiative={initiative} />
       </div>
     </header>
-  );
-}
-
-function InitiativeMenu({ initiative }: { readonly initiative: Initiative }): ReactNode {
-  const [open, setOpen] = useState(false);
-  const copyLink = useCopyRecordLink();
-  return (
-    <Menu
-      open={open}
-      onOpenChange={setOpen}
-      align="end"
-      width={180}
-      trigger={
-        <IconButton
-          variant="secondary"
-          icon={<Icon name="ellipsis" size={14} />}
-          label={`More for ${initiative.name}`}
-        />
-      }
-      items={[
-        {
-          icon: <Icon name="link" size={14} />,
-          label: "Copy link",
-          onSelect: () => copyLink({ kind: "initiative", initiativeId: initiative.id }),
-        },
-      ]}
-    />
   );
 }
 

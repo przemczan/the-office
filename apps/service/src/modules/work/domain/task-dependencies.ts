@@ -1,6 +1,6 @@
 import type { Task } from "./task.js";
 import type { TaskChange } from "./task-changes.js";
-import { TaskDependencyAdded, TaskDependencyRemoved } from "./task-events.js";
+import { TaskDependencyAdded, TaskDependencyRemoved, type TaskCreated } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
 import { NOT_STARTED_STATES, TASK_STATE_NAMES } from "./task-states.js";
 
@@ -21,6 +21,29 @@ export function addDependency(
     task: { ...task, blockedBy: [...task.blockedBy, blockerId] },
     event: new TaskDependencyAdded(task.id, blockerId),
   };
+}
+
+/**
+ * The new Task waiting for each of `blockerIds` from the start, each judged as `addDependency`
+ * judges it; refused with every reason.
+ */
+export function createdWaitingFor(
+  created: TaskChange<TaskCreated>,
+  blockerIds: readonly string[],
+  tasks: readonly Task[],
+): TaskChange<TaskCreated> {
+  const problems: string[] = [];
+  let task = created.task;
+  for (const blockerId of blockerIds) {
+    try {
+      task = addDependency(task, blockerId, tasks)?.task ?? task;
+    } catch (error) {
+      if (!(error instanceof TaskRefused)) throw error;
+      problems.push(...error.reasons);
+    }
+  }
+  if (problems.length > 0) throw new TaskRefused(problems);
+  return { ...created, task };
 }
 
 /** Undefined when the Task doesn't wait for it. */

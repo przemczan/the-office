@@ -11,10 +11,10 @@ import {
   UseFilters,
 } from "@nestjs/common";
 import {
-  newTaskSchema,
+  newInitiativeTaskSchema,
   outcomeChangeSchema,
   type Initiative as InitiativeResponse,
-  type NewTask,
+  type NewInitiativeTask,
   type OutcomeChange,
   type Task as TaskResponse,
 } from "@the-office/contracts";
@@ -82,13 +82,13 @@ export class InitiativesController {
     return this.respond(await this.initiatives.read(id));
   }
 
-  /** A new Task in the Initiative, in Backlog in its Project. */
+  /** A new Task in the Initiative, in Backlog in its Project, waiting for the Tasks it names. */
   @Post(":id/tasks")
   async addTask(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(newTaskSchema)) given: NewTask,
+    @Body(new ContractPipe(newInitiativeTaskSchema)) { blockedBy, ...given }: NewInitiativeTask,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.initiatives.addTask(id, given, THE_USER));
+    return toTaskResponse(await this.initiatives.addTask(id, given, blockedBy, THE_USER));
   }
 
   private async respond(initiative: Initiative): Promise<InitiativeResponse> {

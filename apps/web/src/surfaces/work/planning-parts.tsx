@@ -5,12 +5,13 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import type { Pipeline, Task } from "@the-office/contracts";
-import { Badge, Button, Icon, Select, Textarea } from "@the-office/ui";
+import { Badge, Button, Select } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { confirmDefinitionOfDone, confirmPlan, setPipeline, taskQueries } from "../../api/work.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
+import { PartEditor } from "./part-editor.tsx";
 import { statementsOf } from "./planning-words.ts";
 import { RecordBlock } from "./record-block.tsx";
 
@@ -56,6 +57,7 @@ export function DefinitionOfDoneBlock({ task, planner }: PartProps): ReactNode {
           label="Definition of Done"
           hint="One statement per line: what must be true when the Task is done."
           initial={task.definitionOfDone.join("\n")}
+          saveLabel="Save and confirm"
           saving={confirming.isPending}
           onSave={(text) =>
             confirming.mutate(statementsOf(text), { onSuccess: () => setEditing(false) })
@@ -105,6 +107,7 @@ export function PlanBlock({ task, planner }: PartProps): ReactNode {
           label="Plan"
           hint="How the Task will be implemented, in Markdown."
           initial={task.plan}
+          saveLabel="Save and confirm"
           saving={confirming.isPending}
           onSave={(text) => confirming.mutate(text, { onSuccess: () => setEditing(false) })}
           onCancel={() => setEditing(false)}
@@ -224,51 +227,6 @@ function PartActions({
         </Button>
       )}
     </div>
-  );
-}
-
-/** The user's own version of a part; saving it confirms it. */
-function PartEditor({
-  label,
-  hint,
-  initial,
-  saving,
-  onSave,
-  onCancel,
-}: {
-  readonly label: string;
-  readonly hint: string;
-  readonly initial: string;
-  readonly saving: boolean;
-  readonly onSave: (text: string) => void;
-  readonly onCancel: () => void;
-}): ReactNode {
-  const [text, setText] = useState(initial);
-  return (
-    <form
-      className="task-part-editor"
-      onSubmit={(event) => {
-        event.preventDefault();
-        onSave(text);
-      }}
-    >
-      <Textarea
-        aria-label={label}
-        hint={hint}
-        rows={6}
-        value={text}
-        onChange={(event) => setText(event.target.value)}
-        autoFocus
-      />
-      <div className="task-part-actions">
-        <Button size="sm" type="submit" loading={saving} iconLeft={<Icon name="check" size={14} />}>
-          Save and confirm
-        </Button>
-        <Button size="sm" variant="ghost" onClick={onCancel}>
-          Cancel
-        </Button>
-      </div>
-    </form>
   );
 }
 
