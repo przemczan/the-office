@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { aSkillFile } from "./skill.fixtures.js";
 import { SkillRefused } from "./skill-refused.js";
-import { draftFromMd, draftFromZip, uploadKind, type ZipEntry } from "./skill-upload.js";
+import { draftFromMd, draftFromZip, uploadKind, type FolderEntry } from "./skill-upload.js";
 
 const text = (value: string) => new TextEncoder().encode(value);
-const file = (path: string, value = ""): ZipEntry => ({ kind: "file", path, content: text(value) });
+const file = (path: string, value = ""): FolderEntry => ({
+  kind: "file",
+  path,
+  content: text(value),
+});
 const SKILL_MD = "---\ndescription: Notes.\n---\nWrite them.\n";
 
 describe("uploadKind", () => {

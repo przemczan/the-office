@@ -9,8 +9,8 @@ export function uploadTooLarge(): string {
   return `An upload may hold at most ${UPLOAD_LIMITS.files} files and ${UPLOAD_LIMITS.bytes / 1024 / 1024} MB.`;
 }
 
-/** An entry of a zipped folder, as the zip names and marks it. */
-export type ZipEntry =
+/** An entry of a zipped folder or a Source's skill folder, as it names and marks it. */
+export type FolderEntry =
   | { readonly kind: "file"; readonly path: string; readonly content: Uint8Array }
   | { readonly kind: "folder" | "link" | "other"; readonly path: string };
 
@@ -38,18 +38,11 @@ export function draftFromMd(fileName: string, content: Uint8Array): SkillDraft {
  * that is no file or folder. A zip holding one folder around everything is that folder, which
  * then names the skill when its SKILL.md doesn't.
  */
-export function draftFromZip(fileName: string, entries: readonly ZipEntry[]): SkillDraft {
+export function draftFromZip(fileName: string, entries: readonly FolderEntry[]): SkillDraft {
   const kept = entries
     .map((entry) => ({ ...entry, path: entry.path.normalize("NFC").replace(/\/+$/, "") }))
     .filter((entry) => entry.path !== "" && !MAC_METADATA.test(entry.path));
-  const refused = kept
-    .filter((entry) => entry.kind === "link" || entry.kind === "other")
-    .map((entry) =>
-      entry.kind === "link"
-        ? `"${entry.path}" is a link; a skill holds only its own files.`
-        : `"${entry.path}" is not a regular file.`,
-    );
-  if (refused.length > 0) throw new SkillRefused(refused);
+  refuseLinksAndOthers(kept);
   const files: SkillFile[] = kept.flatMap((entry) =>
     entry.kind === "file" ? [{ path: entry.path, content: entry.content }] : [],
   );
@@ -60,6 +53,18 @@ export function draftFromZip(fileName: string, entries: readonly ZipEntry[]): Sk
   }
   const unwrapped = files.map((file) => ({ ...file, path: file.path.slice(wrapper.length + 1) }));
   return uploadedDraft(nameFromFileName(wrapper), "uploaded-folder", unwrapped);
+}
+
+/** Refuses links and anything else that is no file or folder, with every reason. */
+export function refuseLinksAndOthers(entries: readonly FolderEntry[]): void {
+  const refused = entries
+    .filter((entry) => entry.kind === "link" || entry.kind === "other")
+    .map((entry) =>
+      entry.kind === "link"
+        ? `"${entry.path}" is a link; a skill holds only its own files.`
+        : `"${entry.path}" is not a regular file.`,
+    );
+  if (refused.length > 0) throw new SkillRefused(refused);
 }
 
 /** The one folder every file is in, when the zip has no SKILL.md at its top. */

@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   boolean,
+  check,
   index,
   integer,
   jsonb,
@@ -12,18 +13,31 @@ import {
 import type { ProjectSkillName, SessionSkill } from "../../domain/session-skills.js";
 import type { SkillSource, SkillState } from "../../domain/skill.js";
 
-/** Each skill in the library, at its current version. */
-export const skills = pgTable("skills", {
-  name: text("name").primaryKey(),
-  description: text("description").notNull(),
-  source: text("source").$type<SkillSource>().notNull(),
-  version: integer("version").notNull(),
-  filesHash: text("files_hash").notNull(),
-  state: text("state").$type<SkillState>().notNull(),
-  everyone: boolean("everyone").notNull(),
-  addedAt: timestamp("added_at", { withTimezone: true }).notNull(),
-  savedAt: timestamp("saved_at", { withTimezone: true }).notNull(),
-});
+/** Each skill in the library, at its current version; an installed one with its Source. */
+export const skills = pgTable(
+  "skills",
+  {
+    name: text("name").primaryKey(),
+    description: text("description").notNull(),
+    source: text("source").$type<SkillSource>().notNull(),
+    sourceRepository: text("source_repository"),
+    sourceFolder: text("source_folder"),
+    pinnedTag: text("pinned_tag"),
+    pinnedCommit: text("pinned_commit"),
+    version: integer("version").notNull(),
+    filesHash: text("files_hash").notNull(),
+    state: text("state").$type<SkillState>().notNull(),
+    everyone: boolean("everyone").notNull(),
+    addedAt: timestamp("added_at", { withTimezone: true }).notNull(),
+    savedAt: timestamp("saved_at", { withTimezone: true }).notNull(),
+  },
+  (table) => [
+    check(
+      "skills_installed_from_source",
+      sql`(${table.source} = 'installed') = (${table.sourceRepository} IS NOT NULL AND ${table.sourceFolder} IS NOT NULL AND ${table.pinnedCommit} IS NOT NULL)`,
+    ),
+  ],
+);
 
 /** Every version each skill in the library has had. */
 export const skillVersions = pgTable(

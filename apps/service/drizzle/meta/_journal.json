@@ -330,6 +330,13 @@
       "when": 1793214373871,
       "tag": "0046_onboard_tasks",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1793217958655,
+      "tag": "0047_skill_sources",
+      "breakpoints": true
     }
   ]
 }

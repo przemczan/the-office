@@ -2,7 +2,7 @@ import type { Readable } from "node:stream";
 import { Injectable } from "@nestjs/common";
 import { fromBufferPromise, getFileNameLowLevel, type Entry } from "yauzl";
 import { SkillRefused } from "../../domain/skill-refused.js";
-import { UPLOAD_LIMITS, uploadTooLarge, type ZipEntry } from "../../domain/skill-upload.js";
+import { UPLOAD_LIMITS, uploadTooLarge, type FolderEntry } from "../../domain/skill-upload.js";
 import { ZipReader } from "../../ports/zip-reader.js";
 
 /** The file type bits of a Unix mode, which zips made on Unix keep in the high 16 bits. */
@@ -20,7 +20,7 @@ const DOS_REPARSE_POINT = 0x400;
  */
 @Injectable()
 export class YauzlZipReader extends ZipReader {
-  async entries(zip: Uint8Array): Promise<readonly ZipEntry[]> {
+  async entries(zip: Uint8Array): Promise<readonly FolderEntry[]> {
     const zipFile = await fromBufferPromise(Buffer.from(zip), {
       decodeStrings: false,
       validateEntrySizes: true,
@@ -29,7 +29,7 @@ export class YauzlZipReader extends ZipReader {
     });
     try {
       if (zipFile.entryCount > UPLOAD_LIMITS.files) throw new SkillRefused([uploadTooLarge()]);
-      const entries: ZipEntry[] = [];
+      const entries: FolderEntry[] = [];
       let bytes = 0;
       for await (const entry of zipFile.eachEntry()) {
         const path = getFileNameLowLevel(
@@ -62,7 +62,7 @@ function unreadable(): SkillRefused {
   return new SkillRefused(["The upload is no zip that can be read."]);
 }
 
-function kindOf(entry: Entry, path: string): ZipEntry["kind"] {
+function kindOf(entry: Entry, path: string): FolderEntry["kind"] {
   const unixType = (entry.externalFileAttributes >>> 16) & UNIX_TYPE;
   if (unixType !== 0) {
     if (unixType === UNIX_LINK) return "link";

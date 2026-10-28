@@ -11,6 +11,7 @@ import { uploadBody } from "../../platform/http/upload-body.js";
 import { FilesystemLibraryFolder } from "./adapters/filesystem/filesystem-library-folder.js";
 import { FilesystemSessionFolders } from "./adapters/filesystem/filesystem-session-folders.js";
 import { GitProjectSkillFiles } from "./adapters/git/git-project-skill-files.js";
+import { GitSourceFetcher } from "./adapters/git/git-source-fetcher.js";
 import { SkillsController } from "./adapters/http/skills.controller.js";
 import { PostgresRoleSkillRepository } from "./adapters/postgres/postgres-role-skill-repository.js";
 import { PostgresSessionSkillRepository } from "./adapters/postgres/postgres-session-skill-repository.js";
@@ -27,6 +28,7 @@ import { RoleSkillRepository } from "./ports/role-skill-repository.js";
 import { SessionFolders } from "./ports/session-folders.js";
 import { SessionSkillRepository } from "./ports/session-skill-repository.js";
 import { SkillRepository } from "./ports/skill-repository.js";
+import { SourceFetcher } from "./ports/source-fetcher.js";
 import { ZipReader } from "./ports/zip-reader.js";
 
 @Module({
@@ -39,6 +41,7 @@ import { ZipReader } from "./ports/zip-reader.js";
     { provide: SessionFolders, useClass: FilesystemSessionFolders },
     { provide: ProjectSkillFiles, useClass: GitProjectSkillFiles },
     { provide: ZipReader, useClass: YauzlZipReader },
+    { provide: SourceFetcher, useClass: GitSourceFetcher },
     SkillLibrary,
     SessionSkills,
     ProjectSkills,

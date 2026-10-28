@@ -1,7 +1,8 @@
+import type { InstalledSource } from "./installed-source.js";
 import { isWindowsDeviceName } from "./skill-files.js";
 
-/** How a skill came into the library; installing from a source is tier 2. */
-export const SKILL_SOURCES = ["written", "uploaded-file", "uploaded-folder"] as const;
+/** How a skill came into the library. */
+export const SKILL_SOURCES = ["written", "uploaded-file", "uploaded-folder", "installed"] as const;
 export type SkillSource = (typeof SKILL_SOURCES)[number];
 
 /**
@@ -18,6 +19,8 @@ export interface Skill {
   /** What every session that has the skill lists, so it is short (spec §2.6). */
   readonly description: string;
   readonly source: SkillSource;
+  /** Its Source and pinned version: there exactly when it was installed. */
+  readonly installedFrom?: InstalledSource;
   /** Counts the saved changes, from 1. */
   readonly version: number;
   /** The current version's files hash (`skillFilesHash`). */
@@ -31,7 +34,7 @@ export interface Skill {
 }
 
 /** What makes a new skill; the rest is set by The Office. */
-export type NewSkill = Pick<Skill, "name" | "description" | "source">;
+export type NewSkill = Pick<Skill, "name" | "description" | "source" | "installedFrom">;
 
 /** The engine's own limit on a skill's name. */
 const NAME_LENGTH = 64;
@@ -44,7 +47,7 @@ const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /** The new skill as it is kept: without the spaces around what the user typed. */
 export function trimmedNewSkill(skill: NewSkill): NewSkill {
-  return { name: skill.name.trim(), description: skill.description.trim(), source: skill.source };
+  return { ...skill, name: skill.name.trim(), description: skill.description.trim() };
 }
 
 /** Why a skill can't be called `name`, in the UI's words; empty when it can. */

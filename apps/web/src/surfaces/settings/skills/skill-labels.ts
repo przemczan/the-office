@@ -5,6 +5,7 @@ export const SOURCE_LABELS: Readonly<Record<SkillSource, string>> = {
   written: "Written in The Office",
   "uploaded-file": "Uploaded · one file",
   "uploaded-folder": "Uploaded · folder",
+  installed: "Installed from a source",
 };
 
 export const STATE_BADGES: Readonly<

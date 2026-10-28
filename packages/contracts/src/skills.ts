@@ -2,8 +2,29 @@ import { z } from "zod";
 import { webEventSchema } from "./events.js";
 
 /** How a skill came into the library. */
-export const skillSourceSchema = z.enum(["written", "uploaded-file", "uploaded-folder"]);
+export const skillSourceSchema = z.enum([
+  "written",
+  "uploaded-file",
+  "uploaded-folder",
+  "installed",
+]);
 export type SkillSource = z.infer<typeof skillSourceSchema>;
+
+/** The release of its Source an installed skill is held at; no tag when the Source has none. */
+export const pinnedVersionSchema = z.object({
+  tag: z.string().optional(),
+  commit: z.string(),
+});
+export type PinnedVersion = z.infer<typeof pinnedVersionSchema>;
+
+/** An installed skill's Source: `owner/repo` or a git URL, and the skill's folder in it. */
+export const installedSourceSchema = z.object({
+  repository: z.string(),
+  /** Empty for the repository's top folder. */
+  folder: z.string(),
+  pinnedVersion: pinnedVersionSchema,
+});
+export type InstalledSource = z.infer<typeof installedSourceSchema>;
 
 /** Whether sessions get the skill; every new version waits for review. */
 export const skillStateSchema = z.enum(["waiting-for-review", "on", "off"]);
@@ -13,6 +34,8 @@ export const skillSchema = z.object({
   name: z.string().min(1),
   description: z.string(),
   source: skillSourceSchema,
+  /** There exactly when it was installed. */
+  installedFrom: installedSourceSchema.optional(),
   version: z.number().int().positive(),
   filesHash: z.string(),
   state: skillStateSchema,
