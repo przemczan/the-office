@@ -1,6 +1,6 @@
 # Skills: module map
 
-**Owns:** the skill library (`skills`, `skill_versions`): uploads, skills written in place and skills installed from a Source at a pinned version (`SkillLibrary.install`; `SkillSources` reads what a Source holds), off until reviewed, "everyone"; the daily check that marks an installed skill "Update available" (`SkillUpdates`, on the platform's `Schedule`, first run at start); Role skills (`role_skills`, `role_skill_changes`); Project skills; each session's plugin folder (`SessionSkills`, `session_skills`).
+**Owns:** the skill library (`skills`, `skill_versions`): uploads, skills written in place and skills installed from a Source at a pinned version (`SkillLibrary.install`; `SkillSources` reads what a Source holds), off until reviewed, "everyone"; its updates (`SkillUpdates`): the daily check that marks an installed skill "Update available" (on the platform's `Schedule`, first run at start), an update's draft and diff (`GET /skills/:name/update-diff`, git's diff between the two pinned versions), and applying one, which keeps the skill on or off and is refused when stale; Role skills (`role_skills`, `role_skill_changes`); Project skills; each session's plugin folder (`SessionSkills`, `session_skills`).
 
 **Talks to:** no module; People, Projects and Conversations call it (Conversations' `SkillInstallProposals` and `SkillOfficeTools` install from a Source). The Engine takes the folder it builds and never reads Skills. Sources' git repositories, over the network, through `SourceFetcher` (`git ls-remote`, a one-commit fetch into a temp bare repository, read from git's objects without a checkout).
 
@@ -10,11 +10,11 @@
 
 ## Public entry (`index.ts`)
 
-SessionSkills, PreparedSkills, SessionProject, SessionSkillRequest, ProjectSkills, RoleSkills, RoleSkillsChange, SkillLibrary, SkillSources, SkillInstall, SourceSkill, SourceSkills, PinnedVersion, SkillRefused, RoleSkillsChanged, SkillAdded, SkillEveryoneChanged, SkillRemoved, SkillTurnedOff, SkillTurnedOn, SkillUpdateFound, SkillUpdateGone, SkillVersionSaved, SkillsModule
+SessionSkills, PreparedSkills, SessionProject, SessionSkillRequest, ProjectSkills, RoleSkills, RoleSkillsChange, SkillLibrary, SkillSources, SkillInstall, SourceSkill, SourceSkills, SKILL_UPDATE_CHECK, SkillUpdates, AppliedUpdate, SkillUpdateDraft, PinnedVersion, ProposedUpdate, SkillUpdateDiff, SkillRefused, RoleSkillsChanged, SkillAdded, SkillEveryoneChanged, SkillRemoved, SkillTurnedOff, SkillTurnedOn, SkillUpdateFound, SkillUpdateGone, SkillUpdated, SkillVersionSaved, SkillsModule
 
 ## Domain events
 
-- `domain/skill-events.ts`: SkillAdded, SkillVersionSaved, SkillUpdateFound, SkillUpdateGone, SkillTurnedOn, SkillTurnedOff, SkillEveryoneChanged, SkillRemoved, RoleSkillsChanged
+- `domain/skill-events.ts`: SkillAdded, SkillVersionSaved, SkillUpdateFound, SkillUpdateGone, SkillUpdated, SkillTurnedOn, SkillTurnedOff, SkillEveryoneChanged, SkillRemoved, RoleSkillsChanged
 
 ## HTTP routes (under `/api`)
 
@@ -22,6 +22,7 @@ SessionSkills, PreparedSkills, SessionProject, SessionSkillRequest, ProjectSkill
 - `POST /skills`: SkillsController.write
 - `POST /skills/uploads`: SkillsController.upload
 - `GET /skills/:name`: SkillsController.read
+- `GET /skills/:name/update-diff`: SkillsController.updateDiff
 - `GET /skills/:name/review`: SkillsController.review
 - `PUT /skills/:name`: SkillsController.edit
 - `POST /skills/:name/versions`: SkillsController.uploadVersion
@@ -86,7 +87,7 @@ SessionSkills, PreparedSkills, SessionProject, SessionSkillRequest, ProjectSkill
 - `session-skills.ts`: PreparedSkills, SessionProject, SessionSkillRequest, SessionSkills
 - `skill-library.ts`: Upload, ReviewedSkill, SkillLibrary
 - `skill-sources.ts`: SkillInstall, SourceSkill, SourceSkills, SkillSources
-- `skill-updates.ts`: SKILL_UPDATE_CHECK, SkillUpdates
+- `skill-updates.ts`: SKILL_UPDATE_CHECK, SkillUpdateDraft, AppliedUpdate, SkillUpdates
 - Tests: session-skills.test.ts, skill-library.test.ts, skill-updates.test.ts
 
 ### domain/
@@ -96,21 +97,22 @@ SessionSkills, PreparedSkills, SessionProject, SessionSkillRequest, ProjectSkill
 - `role-skills.ts`: RoleSkillAssignment, RoleSkillsChange, AssignmentsChange, withRoleSkills, withSkillRoles, assignmentsChange, skillsOfRole, rolesOfSkill, assignedSkillsProblems
 - `session-skills-not-found.ts`: SessionSkillsNotFound
 - `session-skills.ts`: SESSION_PLUGIN, SessionSkill, ProjectSkillName, ProjectSkillFile, projectSkillNamesFrom, projectSkillNameOf, SessionSkillRecord, librarySkillsFor, sessionSkillRecord, allowedSkillNames, expectedSkillNames, suffixMatches, skillOverridesOf
-- `skill-changes.ts`: SkillChange, addSkill, saveVersion, noteSourceVersion, turnOn, turnOff, changeEveryone, removeSkill
+- `skill-changes.ts`: SkillChange, addSkill, saveVersion, noteSourceVersion, applyUpdate, turnOn, turnOff, changeEveryone, removeSkill
 - `skill-draft.ts`: SkillDraft, WrittenSkill, writtenDraft, uploadedDraft, checkSameSkill, skillMdOf, nameFromFileName
-- `skill-events.ts`: SkillAdded, SkillVersionSaved, SkillUpdateFound, SkillUpdateGone, SkillTurnedOn, SkillTurnedOff, SkillEveryoneChanged, SkillRemoved, RoleSkillsChanged
+- `skill-events.ts`: SkillAdded, SkillVersionSaved, SkillUpdateFound, SkillUpdateGone, SkillUpdated, SkillTurnedOn, SkillTurnedOff, SkillEveryoneChanged, SkillRemoved, RoleSkillsChanged
 - `skill-files.ts`: SkillFile, SKILL_MD, isWindowsDeviceName, skillFilesHash, sortedByPath, skillFilePathProblem, skillFilesProblems
 - `skill-md.ts`: SkillMd, readSkillMd, writtenSkillMd, frontmatterText
 - `skill-not-found.ts`: SkillNotFound
 - `skill-refused.ts`: SkillRefused
 - `skill-review.ts`: ReviewedFile, SkillReview, reviewOf
+- `skill-update.ts`: ProposedUpdate, SkillUpdateDiff, UPDATE_DIFF_BYTES, cutDiff, updateProblem, noUpdates
 - `skill-upload.ts`: UPLOAD_LIMITS, uploadTooLarge, FolderEntry, uploadKind, uploadKindProblem, draftFromMd, draftFromZip, refuseLinksAndOthers
 - `skill-version-missing.ts`: SkillVersionMissing
 - `skill-version.ts`: SkillVersion, currentVersionOf
 - `skill.fixtures.ts`: aNewSkill, aSkill, aSkillFile
 - `skill.ts`: SKILL_SOURCES, SkillSource, SKILL_STATES, SkillState, Skill, NewSkill, DESCRIPTION_LENGTH, trimmedNewSkill, skillNameProblems, skillDescriptionProblems, newSkillProblems, skillNameTaken
 - `source-skills.ts`: SourceFolder, SOURCE_FOLDER_LIMITS, sourceFolderTooLarge, installedDraft
-- Tests: installed-source.test.ts, project-skills.test.ts, role-skills.test.ts, session-skills.test.ts, skill-changes.test.ts, skill-draft.test.ts, skill-files.test.ts, skill-md.test.ts, skill-review.test.ts, skill-upload.test.ts, skill.test.ts, source-skills.test.ts
+- Tests: installed-source.test.ts, project-skills.test.ts, role-skills.test.ts, session-skills.test.ts, skill-changes.test.ts, skill-draft.test.ts, skill-files.test.ts, skill-md.test.ts, skill-review.test.ts, skill-update.test.ts, skill-upload.test.ts, skill.test.ts, source-skills.test.ts
 
 ### ports/
 
@@ -120,5 +122,5 @@ SessionSkills, PreparedSkills, SessionProject, SessionSkillRequest, ProjectSkill
 - `session-folders.ts`: SessionFolderSkill, SessionFolders
 - `session-skill-repository.ts`: SessionSkillRepository
 - `skill-repository.ts`: SkillUpdate, SkillRepository
-- `source-fetcher.ts`: SourceNotFetched, SourceRead, SourceFetcher
+- `source-fetcher.ts`: SourceNotFetched, SourceRead, SourceDiffRead, SourceFetcher
 - `zip-reader.ts`: ZipReader

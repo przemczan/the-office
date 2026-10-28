@@ -16,6 +16,7 @@ import {
   skillEveryoneChangeSchema,
   skillRolesChangeSchema,
   skillStateChangeSchema,
+  skillUpdateDiffQuerySchema,
   skillUploadQuerySchema,
   writtenSkillSchema,
   type Skill as SkillResponse,
@@ -24,6 +25,8 @@ import {
   type SkillReview as SkillReviewResponse,
   type SkillRolesChange,
   type SkillStateChange,
+  type SkillUpdateDiff,
+  type SkillUpdateDiffQuery,
   type SkillUploadQuery,
   type WrittenSkill,
 } from "@the-office/contracts";
@@ -31,6 +34,7 @@ import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { uploadedBytes } from "../../../../platform/http/upload-body.js";
 import { RoleSkills } from "../../application/role-skills.js";
 import { SkillLibrary } from "../../application/skill-library.js";
+import { SkillUpdates } from "../../application/skill-updates.js";
 import type { Skill } from "../../domain/skill.js";
 import { SkillRefusalsFilter } from "./skill-refusals.filter.js";
 
@@ -40,6 +44,7 @@ export class SkillsController {
   constructor(
     private readonly library: SkillLibrary,
     private readonly roleSkills: RoleSkills,
+    private readonly updates: SkillUpdates,
   ) {}
 
   @Get()
@@ -68,6 +73,16 @@ export class SkillsController {
   @Get(":name")
   async read(@Param("name") name: string): Promise<SkillResponse> {
     return this.response(await this.library.read(name));
+  }
+
+  /** Reads the skill's Source, so it answers once git has fetched both versions. */
+  @Get(":name/update-diff")
+  async updateDiff(
+    @Param("name") name: string,
+    @Query(new ContractPipe(skillUpdateDiffQuerySchema)) to: SkillUpdateDiffQuery,
+  ): Promise<SkillUpdateDiff> {
+    const { from, diff, diffCut } = await this.updates.diff(name, to);
+    return { from: { ...from }, to: { ...to }, diff, diffCut };
   }
 
   @Get(":name/review")

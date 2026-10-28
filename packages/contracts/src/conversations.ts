@@ -220,6 +220,9 @@ export const PROPOSE_PROJECT_TOOL = "propose_project";
 /** The Office tool Devops drafts installing a skill from a Source with, hidden alike. */
 export const PROPOSE_SKILL_INSTALL_TOOL = "propose_skill_install";
 
+/** The Office tool Devops drafts an installed skill's update with, hidden alike. */
+export const PROPOSE_SKILL_UPDATE_TOOL = "propose_skill_update";
+
 /** The fields of a Role card a change rewrites, each one whole; skills aren't among them. */
 const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).partial();
 
@@ -310,6 +313,22 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     pinnedVersion: pinnedVersionSchema,
     name: z.string(),
     description: z.string(),
+    files: z.array(z.string()),
+    filesHash: z.string(),
+  }),
+  /**
+   * An installed skill's update Devops drafted with notes: from the pinned version it had to its
+   * Source's newer one, with its files' paths there. GET /skills/:name/update-diff shows the diff;
+   * applying pins the skill at `to`, on or off as it was, refused once it moved off `from`.
+   */
+  z.object({
+    kind: z.literal("skill-update"),
+    name: z.string(),
+    repository: z.string(),
+    folder: z.string(),
+    from: pinnedVersionSchema,
+    to: pinnedVersionSchema,
+    notes: z.string(),
     files: z.array(z.string()),
     filesHash: z.string(),
   }),

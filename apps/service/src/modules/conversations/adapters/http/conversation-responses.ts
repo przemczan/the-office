@@ -170,6 +170,18 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         files: [...change.files],
         filesHash: change.filesHash,
       };
+    case "skill-update":
+      return {
+        kind: "skill-update",
+        name: change.name,
+        repository: change.repository,
+        folder: change.folder,
+        from: { ...change.from },
+        to: { ...change.to },
+        notes: change.notes,
+        files: [...change.files],
+        filesHash: change.filesHash,
+      };
   }
 }
 

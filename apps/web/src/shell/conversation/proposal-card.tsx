@@ -51,6 +51,7 @@ import {
   type RoleTitles,
 } from "../role-card-words.ts";
 import { SkillChip } from "../skill-chip.tsx";
+import { pinnedVersionLabel } from "../skill-words.ts";
 import { momentWords } from "../time.ts";
 import { PRIORITY_NAMES } from "../work/work-words.ts";
 import { useToast } from "../toasts.tsx";
@@ -58,6 +59,7 @@ import { tokensShort } from "./context-words.ts";
 import {
   ProposedCommandChanges,
   ProposedSkillInstallFields,
+  ProposedSkillUpdateFields,
   ProposedStageChanges,
 } from "./devops-proposal-changes.tsx";
 import "./conversation.css";
@@ -246,6 +248,18 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
             changes={[skillQueries.list().queryKey]}
             appliedToast={`${change.name} installed. It is off until you review it.`}
             openNote="Fetched into the library once applied, off until you review it"
+          />
+        </ProposalFrame>
+      );
+    case "skill-update":
+      return (
+        <ProposalFrame title={`Update ${change.name}`}>
+          <ProposedSkillUpdateFields change={change} />
+          <AnswerFoot
+            proposal={proposal}
+            changes={[skillQueries.list().queryKey]}
+            appliedToast={`${change.name} pinned at ${pinnedVersionLabel(change.to)}.`}
+            openNote="Applying it is your review: the skill stays on or off as it is"
           />
         </ProposalFrame>
       );

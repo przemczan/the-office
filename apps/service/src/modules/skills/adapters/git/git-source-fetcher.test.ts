@@ -160,3 +160,27 @@ describe("skillFolders", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     ]);
   });
 });
+
+describe("diff", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
+  it("diffs the skill's folder between two pinned versions, its paths inside the folder", async () => {
+    await source.write("skills/notes/SKILL.md", sourceSkillMd("First."));
+    await source.write("skills/other/SKILL.md", sourceSkillMd("Other."));
+    const first = source.commit();
+    source.tag("v1");
+    await source.write("skills/notes/SKILL.md", sourceSkillMd("Second."));
+    await source.write("skills/other/SKILL.md", sourceSkillMd("Changed too."));
+    const second = source.commit();
+
+    const diff = await fetcher.diff({
+      url: source.url,
+      folder: "skills/notes",
+      from: { tag: "v1", commit: first },
+      to: { commit: second },
+    });
+
+    expect(diff).toContain("--- a/SKILL.md");
+    expect(diff).toContain("-description: First.");
+    expect(diff).toContain("+description: Second.");
+    expect(diff).not.toContain("Changed too.");
+  });
+});

@@ -7,7 +7,12 @@ import type { PinnedVersion, RemoteRef } from "../../domain/installed-source.js"
 import { SKILL_MD } from "../../domain/skill-files.js";
 import type { FolderEntry } from "../../domain/skill-upload.js";
 import type { SourceFolder } from "../../domain/source-skills.js";
-import { SourceFetcher, SourceNotFetched, type SourceRead } from "../../ports/source-fetcher.js";
+import {
+  SourceFetcher,
+  SourceNotFetched,
+  type SourceDiffRead,
+  type SourceRead,
+} from "../../ports/source-fetcher.js";
 
 const NETWORK_TIMEOUT_MS = 120_000;
 const LOCAL_TIMEOUT_MS = 30_000;
@@ -55,22 +60,51 @@ export class GitSourceFetcher extends SourceFetcher {
       });
   }
 
-  async skillFolders(read: SourceRead): Promise<readonly SourceFolder[]> {
-    const repository = await mkdtemp(join(tmpdir(), "office-source-"));
-    try {
-      await git(repository, ["init", "--quiet", "--bare"]);
+  skillFolders(read: SourceRead): Promise<readonly SourceFolder[]> {
+    return inTempRepository(async (repository) => {
       await fetchPinnedVersion(repository, read.url, read.pinnedVersion);
       const tree = await treeOf(repository, read.pinnedVersion.commit);
       const folders = skillFoldersIn(tree).filter(
         (folder) => read.folder === undefined || folder === read.folder,
       );
-      return await Promise.all(
+      return Promise.all(
         folders.map((folder) => readFolder(repository, folder, tree, read.limits)),
       );
-    } finally {
-      // Windows can hold a pack file open for a moment after git exits.
-      await rm(repository, { recursive: true, force: true, maxRetries: 5 });
-    }
+    });
+  }
+
+  diff(read: SourceDiffRead): Promise<string> {
+    return inTempRepository(async (repository) => {
+      await fetchPinnedVersion(repository, read.url, read.from);
+      await fetchPinnedVersion(repository, read.url, read.to);
+      const inFolder =
+        read.folder === "" ? [] : [`--relative=${read.folder}/`, "--", `${read.folder}/`];
+      // The user's diff settings never apply: no external diff tool, no text conversion.
+      const output = await git(repository, [
+        "diff",
+        "--no-color",
+        "--no-ext-diff",
+        "--no-textconv",
+        read.from.commit,
+        read.to.commit,
+        ...inFolder,
+      ]);
+      return output.toString("utf8");
+    });
+  }
+}
+
+/** Runs `read` on a bare repository of its own, removed after. */
+async function inTempRepository<Result>(
+  read: (repository: string) => Promise<Result>,
+): Promise<Result> {
+  const repository = await mkdtemp(join(tmpdir(), "office-source-"));
+  try {
+    await git(repository, ["init", "--quiet", "--bare"]);
+    return await read(repository);
+  } finally {
+    // Windows can hold a pack file open for a moment after git exits.
+    await rm(repository, { recursive: true, force: true, maxRetries: 5 });
   }
 }
 

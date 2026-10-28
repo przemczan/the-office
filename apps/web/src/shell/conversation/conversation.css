@@ -496,6 +496,11 @@
   padding: 4px 12px;
 }
 
+.proposal-notes {
+  margin: 0;
+  padding: 8px 12px 0;
+}
+
 .proposal-field {
   padding: 8px 0;
   border-top: 1px solid var(--border-subtle);

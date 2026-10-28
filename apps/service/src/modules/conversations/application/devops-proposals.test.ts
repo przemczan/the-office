@@ -12,11 +12,13 @@ import {
   PROPOSE_PROJECT_COMMANDS_TOOL,
   PROPOSE_PROJECT_TOOL,
   PROPOSE_SKILL_INSTALL_TOOL,
+  PROPOSE_SKILL_UPDATE_TOOL,
   pipelineSchema,
   projectOnboardingListSchema,
   projectSchema,
   proposalSchema,
   skillSchema,
+  skillUpdateDiffSchema,
   taskSchema,
   threadRefusalSchema,
   type Pipeline,
@@ -28,6 +30,8 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../../test/test-database.js";
 import { AppModule } from "../../../app.module.js";
+import { Schedule } from "../../../platform/schedule/schedule.js";
+import type { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import {
   EngineModule,
   ScriptedEngine,
@@ -35,7 +39,8 @@ import {
   type SessionScript,
 } from "../../engine/index.js";
 import { DEVOPS, RoleCards, type SessionRole } from "../../people/index.js";
-import { LIST_SOURCE_SKILLS_TOOL } from "../domain/session-instructions.js";
+import { SKILL_UPDATE_CHECK, SkillLibrary } from "../../skills/index.js";
+import { LIST_SOURCE_SKILLS_TOOL, READ_SKILL_UPDATE_TOOL } from "../domain/session-instructions.js";
 import { ProposalService } from "./proposal-service.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { ThreadService } from "./thread-service.js";
@@ -414,6 +419,81 @@ describe("Devops installing a skill from a source, through the scripted engine",
   );
 });
 
+describe("Devops updating an installed skill, through the scripted engine", () => {
+  it(
+    "finds the update daily, reads its diff and drafts it with notes; applied, the skill is pinned there and stays on, and a stale one is refused",
+    async () => {
+      const name = aSkillName();
+      const source = await aSource([name]);
+      await app.get(SkillLibrary, { strict: false }).install({
+        repository: source.url,
+        folder: `skills/${name}`,
+        pinnedVersion: { tag: "v1.0.0", commit: source.commit },
+      });
+      expect((await api("PUT", `/skills/${name}/state`, { state: "on" })).status).toBe(200);
+      const commit = await source.release("v1.1.0", {
+        [`skills/${name}/SKILL.md`]: `---\ndescription: Writes ${name}.\n---\nDo it twice.\n`,
+      });
+      const to = { tag: "v1.1.0", commit };
+
+      await (app.get(Schedule, { strict: false }) as ManualSchedule).runDaily(SKILL_UPDATE_CHECK);
+      expect(skillSchema.parse(await read(`/skills/${name}`)).update).toEqual(to);
+
+      const readUpdate = await ninaCalls(READ_SKILL_UPDATE_TOOL, { skill: name });
+      expect(readUpdate.isError).toBe(false);
+      expect(JSON.parse(readUpdate.text)).toMatchObject({
+        name,
+        from: { tag: "v1.0.0", commit: source.commit },
+        to,
+        files: ["SKILL.md", "scripts/run.sh"],
+        diff: expect.stringContaining("+Do it twice."),
+        diffCut: false,
+      });
+
+      const [proposal] = await ninaProposes([
+        PROPOSE_SKILL_UPDATE_TOOL,
+        { skill: name, notes: "Does it twice." },
+      ]);
+      const [stale] = await ninaProposes([
+        PROPOSE_SKILL_UPDATE_TOOL,
+        { skill: name, notes: "The same, again." },
+      ]);
+      expect(proposal?.change).toEqual({
+        kind: "skill-update",
+        name,
+        repository: source.url,
+        folder: `skills/${name}`,
+        from: { tag: "v1.0.0", commit: source.commit },
+        to,
+        notes: "Does it twice.",
+        files: ["SKILL.md", "scripts/run.sh"],
+        filesHash: expect.any(String),
+      });
+      const diff = skillUpdateDiffSchema.parse(
+        await read(`/skills/${name}/update-diff?tag=v1.1.0&commit=${commit}`),
+      );
+      expect(diff.diff).toContain("--- a/SKILL.md");
+      expect(diff.diff).toContain("-Do it.\n+Do it twice.");
+
+      expect((await api("POST", `/proposals/${proposal?.id}/apply`, {})).status).toBe(200);
+      const updated = skillSchema.parse(await read(`/skills/${name}`));
+      expect(updated).toMatchObject({ version: 2, state: "on" });
+      expect(updated.installedFrom?.pinnedVersion).toEqual(to);
+      expect(updated.update).toBeUndefined();
+
+      expect(await reasonsOf(await api("POST", `/proposals/${stale?.id}/apply`, {}))).toEqual([
+        `${name} is pinned at v1.1.0 now, not at v1.0.0 as this update was proposed from.`,
+      ]);
+      expect((await readProposal(stale?.id ?? "")).status.kind).toBe("open");
+      expect(await ninaCalls(PROPOSE_SKILL_UPDATE_TOOL, { skill: name, notes: "More." })).toEqual({
+        text: `${name} is pinned at v1.1.0, the newest version of ${source.url}.`,
+        isError: true,
+      });
+    },
+    INSTALL_TEST_TIMEOUT_MS * 2,
+  );
+});
+
 /** What Nina read back from one Office tool she called in her chat. */
 async function ninaCalls(
   tool: string,
@@ -478,6 +558,7 @@ const KIND_OF_TOOL: Readonly<Record<string, Proposal["change"]["kind"]>> = {
   [PROPOSE_LIBRARY_PIPELINE_TOOL]: "pipeline",
   [PROPOSE_PROJECT_TOOL]: "project",
   [PROPOSE_SKILL_INSTALL_TOOL]: "skill-install",
+  [PROPOSE_SKILL_UPDATE_TOOL]: "skill-update",
 };
 
 async function readProposal(id: string): Promise<Proposal> {
@@ -539,6 +620,14 @@ function aSkillName(): string {
   return `installed-${randomUUID().slice(0, 8)}`;
 }
 
+interface SourceForTest {
+  readonly url: string;
+  readonly folder: string;
+  readonly commit: string;
+  /** Writes the files at their paths, commits, tags the commit and pushes both; its id. */
+  release(tag: string, files: Readonly<Record<string, string>>): Promise<string>;
+}
+
 /**
  * A Source of the test's own: a bare repository with a skill in `skills/<name>` for each name,
  * tagged v1.0.0 unless `tagged` is false, and a skill with no description in `undescribed` when
@@ -547,7 +636,7 @@ function aSkillName(): string {
 async function aSource(
   names: readonly string[],
   { tagged = true, undescribed }: { readonly tagged?: boolean; readonly undescribed?: string } = {},
-): Promise<{ readonly url: string; readonly folder: string; readonly commit: string }> {
+): Promise<SourceForTest> {
   const checkout = await mkdtemp(join(folder, "source-"));
   const git = (...gitArguments: string[]) =>
     run("git", ["-c", "user.name=Test", "-c", "user.email=test@example.com", ...gitArguments], {
@@ -574,8 +663,22 @@ async function aSource(
   if (tagged) await git("tag", "--annotate", "--message", "First", "v1.0.0");
   const bare = `${checkout}.git`;
   await run("git", ["clone", "--bare", "--quiet", checkout, bare]);
-  const { stdout } = await run("git", ["rev-parse", "HEAD"], { cwd: checkout });
-  return { url: pathToFileURL(bare).href, folder: bare, commit: stdout.trim() };
+  const head = async () =>
+    (await run("git", ["rev-parse", "HEAD"], { cwd: checkout })).stdout.trim();
+  return {
+    url: pathToFileURL(bare).href,
+    folder: bare,
+    commit: await head(),
+    async release(tag, files) {
+      for (const [path, content] of Object.entries(files)) {
+        await writeFile(join(checkout, ...path.split("/")), content);
+      }
+      await git("commit", "--all", "-m", tag);
+      await git("tag", "--annotate", "--message", tag, tag);
+      await git("push", "--quiet", bare, "main", `refs/tags/${tag}`);
+      return head();
+    },
+  };
 }
 
 async function reasonsOf(response: Response): Promise<readonly string[]> {

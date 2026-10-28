@@ -4,6 +4,7 @@ import {
   PROPOSE_PROJECT_COMMANDS_TOOL as CONTRACT_PROPOSE_PROJECT_COMMANDS_TOOL,
   PROPOSE_PROJECT_TOOL as CONTRACT_PROPOSE_PROJECT_TOOL,
   PROPOSE_SKILL_INSTALL_TOOL as CONTRACT_PROPOSE_SKILL_INSTALL_TOOL,
+  PROPOSE_SKILL_UPDATE_TOOL as CONTRACT_PROPOSE_SKILL_UPDATE_TOOL,
   SHOW_OFFICE_STATUS_TOOL as CONTRACT_SHOW_OFFICE_STATUS_TOOL,
 } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
@@ -21,6 +22,8 @@ import {
   PROPOSE_PROJECT_TOOL,
   PROPOSE_ROLE_TOOL,
   PROPOSE_SKILL_INSTALL_TOOL,
+  PROPOSE_SKILL_UPDATE_TOOL,
+  READ_SKILL_UPDATE_TOOL,
   SHOW_OFFICE_STATUS_TOOL,
 } from "./session-instructions.js";
 
@@ -46,7 +49,7 @@ describe("chatOfficeTools", () => {
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_OFFICE_SETTING_TOOL);
   });
 
-  it("gives Devops reading the library and drafting Project commands, Pipelines, Projects and skill installs as Proposals", () => {
+  it("gives Devops reading the library and drafting Project commands, Pipelines, Projects and skill installs and updates as Proposals", () => {
     expect(chatOfficeTools(DEVOPS)).toEqual([
       ...CHAT_OFFICE_TOOLS,
       LIST_PIPELINES_TOOL,
@@ -55,9 +58,12 @@ describe("chatOfficeTools", () => {
       PROPOSE_PROJECT_TOOL,
       LIST_SOURCE_SKILLS_TOOL,
       PROPOSE_SKILL_INSTALL_TOOL,
+      READ_SKILL_UPDATE_TOOL,
+      PROPOSE_SKILL_UPDATE_TOOL,
     ]);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_LIBRARY_PIPELINE_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_SKILL_INSTALL_TOOL);
+    expect(chatOfficeTools("planner")).not.toContain(PROPOSE_SKILL_UPDATE_TOOL);
   });
 
   it("names Devops' Proposal tools as the web does", () => {
@@ -65,6 +71,7 @@ describe("chatOfficeTools", () => {
     expect(PROPOSE_LIBRARY_PIPELINE_TOOL).toBe(CONTRACT_PROPOSE_LIBRARY_PIPELINE_TOOL);
     expect(PROPOSE_PROJECT_TOOL).toBe(CONTRACT_PROPOSE_PROJECT_TOOL);
     expect(PROPOSE_SKILL_INSTALL_TOOL).toBe(CONTRACT_PROPOSE_SKILL_INSTALL_TOOL);
+    expect(PROPOSE_SKILL_UPDATE_TOOL).toBe(CONTRACT_PROPOSE_SKILL_UPDATE_TOOL);
   });
 
   it("gives only the Office Manager posting Link cards", () => {

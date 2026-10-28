@@ -79,7 +79,7 @@
 - `context-bar.tsx`: ContextBar
 - `context-words.ts`: MOVE_WORDS, OVERRIDE_WORDS, OVERRIDE_HINTS, threadTokens, tokensShort, contextDetail, contextLabel
 - `decision-card.tsx`: DecisionCard
-- `devops-proposal-changes.tsx`: ProposedCommandChanges, ProposedStageChanges, ProposedSkillInstallFields
+- `devops-proposal-changes.tsx`: ProposedCommandChanges, ProposedStageChanges, ProposedSkillInstallFields, ProposedSkillUpdateFields
 - `handover-notes.tsx`: HandoverNote, HandoverNotes, HandoverNotesProvider, useHandoverNotes
 - `idea-card.tsx`: IdeaCard
 - `link-card-words.ts`: personStatus

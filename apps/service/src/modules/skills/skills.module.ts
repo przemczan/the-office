@@ -55,7 +55,7 @@ import { ZipReader } from "./ports/zip-reader.js";
     RoleSkills,
     SkillWebEvents,
   ],
-  exports: [SkillLibrary, SkillSources, SessionSkills, ProjectSkills, RoleSkills],
+  exports: [SkillLibrary, SkillSources, SkillUpdates, SessionSkills, ProjectSkills, RoleSkills],
 })
 export class SkillsModule implements NestModule, OnApplicationBootstrap {
   private readonly logger = new Logger(SkillsModule.name);

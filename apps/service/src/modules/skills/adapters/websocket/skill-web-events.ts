@@ -10,6 +10,7 @@ import {
   SkillTurnedOn,
   SkillUpdateFound,
   SkillUpdateGone,
+  SkillUpdated,
   SkillVersionSaved,
 } from "../../domain/skill-events.js";
 
@@ -54,6 +55,10 @@ export class SkillWebEvents implements OnModuleInit {
     this.forwarding.forward(SkillUpdateGone, (event): WebEventOf<"skill.update-gone"> => ({
       type: "skill.update-gone",
       skillName: event.skillName,
+    }));
+    this.forwarding.forward(SkillUpdated, (event): WebEventOf<"skill.updated"> => ({
+      type: "skill.updated",
+      skillName: event.skill.name,
     }));
     this.forwarding.forward(SkillRemoved, (event): WebEventOf<"skill.removed"> => ({
       type: "skill.removed",

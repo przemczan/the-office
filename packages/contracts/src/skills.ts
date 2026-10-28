@@ -93,6 +93,24 @@ export const skillReviewSchema = z.object({
 });
 export type SkillReview = z.infer<typeof skillReviewSchema>;
 
+/** GET /skills/:name/update-diff: the pinned version to compare the skill's with, in the query. */
+export const skillUpdateDiffQuerySchema = z.object({
+  tag: z.string().min(1).optional(),
+  commit: z.string().regex(/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/, "must be a commit id"),
+});
+export type SkillUpdateDiffQuery = z.infer<typeof skillUpdateDiffQuerySchema>;
+
+/** What an update changes in the skill's files, from its pinned version to the newer one. */
+export const skillUpdateDiffSchema = z.object({
+  from: pinnedVersionSchema,
+  to: pinnedVersionSchema,
+  /** The unified diff of the skill's folder, its paths inside the folder. */
+  diff: z.string(),
+  /** The diff stops at a whole line: the rest is too long to show. */
+  diffCut: z.boolean(),
+});
+export type SkillUpdateDiff = z.infer<typeof skillUpdateDiffSchema>;
+
 /** PUT /skills/:name/state */
 export const skillStateChangeSchema = z.object({ state: z.enum(["on", "off"]) });
 export type SkillStateChange = z.infer<typeof skillStateChangeSchema>;
@@ -139,6 +157,8 @@ export const skillWebEventSchema = z.discriminatedUnion("type", [
   /** The daily check found an update at its Source, or the one it found is gone. */
   webEventSchema.extend({ type: z.literal("skill.update-found"), skillName: z.string() }),
   webEventSchema.extend({ type: z.literal("skill.update-gone"), skillName: z.string() }),
+  /** An update was applied: pinned at the newer version, on or off as it was. */
+  webEventSchema.extend({ type: z.literal("skill.updated"), skillName: z.string() }),
   webEventSchema.extend({ type: z.literal("skill.removed"), skillName: z.string() }),
   /** The Role's skills changed, from its card or from Settings › Skills. */
   webEventSchema.extend({ type: z.literal("skill.role-skills-changed"), roleKey: z.string() }),

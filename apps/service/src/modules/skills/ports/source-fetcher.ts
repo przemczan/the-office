@@ -20,6 +20,15 @@ export interface SourceRead {
   readonly limits: { readonly files: number; readonly bytes: number };
 }
 
+/** What to compare of a Source: a skill's folder between two pinned versions. */
+export interface SourceDiffRead {
+  readonly url: string;
+  /** The skill's folder; empty for the top folder. */
+  readonly folder: string;
+  readonly from: PinnedVersion;
+  readonly to: PinnedVersion;
+}
+
 /**
  * Reads Sources: the git repositories skills are installed from. Every call reaches the network.
  * Throws SourceNotFetched.
@@ -33,4 +42,10 @@ export abstract class SourceFetcher {
    * tag no longer points at the pinned commit.
    */
   abstract skillFolders(read: SourceRead): Promise<readonly SourceFolder[]>;
+
+  /**
+   * The unified diff of the folder from one pinned version to the other, its paths inside the
+   * folder. Refuses as `skillFolders` does when a pinned tag moved.
+   */
+  abstract diff(read: SourceDiffRead): Promise<string>;
 }

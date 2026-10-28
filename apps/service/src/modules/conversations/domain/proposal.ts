@@ -19,6 +19,7 @@ export interface ProposedChanges {
   readonly pipeline: ProposedPipelineChange;
   readonly project: ProposedProject;
   readonly "skill-install": ProposedSkillInstall;
+  readonly "skill-update": ProposedSkillUpdate;
 }
 
 /** The kinds of change a Proposal can carry. */
@@ -147,6 +148,26 @@ export interface ProposedSkillInstall {
   readonly name: string;
   readonly description: string;
   /** Its files' paths, in its folder. */
+  readonly files: readonly string[];
+  readonly filesHash: string;
+}
+
+/**
+ * An installed skill's update Devops drafted with notes (spec §2.6): from the pinned version the
+ * skill had (`from`) to its Source's newer one (`to`), with its files there as read when drafted.
+ * Applying is its review: the skill is pinned at `to`, on or off as it was; refused once it moved
+ * off `from` or the Source's files changed.
+ */
+export interface ProposedSkillUpdate {
+  readonly kind: "skill-update";
+  readonly name: string;
+  readonly repository: string;
+  readonly folder: string;
+  readonly from: PinnedVersion;
+  readonly to: PinnedVersion;
+  /** Devops' words on what the update changes. */
+  readonly notes: string;
+  /** Its files' paths at `to`, in its folder. */
   readonly files: readonly string[];
   readonly filesHash: string;
 }

@@ -34,6 +34,16 @@ export class SkillUpdateGone extends DomainEvent {
   }
 }
 
+/**
+ * Pinned at its update's version, as the user applied it: on or off as it was, since applying is
+ * its review (spec §2.6). Running sessions keep the version they started with.
+ */
+export class SkillUpdated extends DomainEvent {
+  constructor(readonly skill: Skill) {
+    super();
+  }
+}
+
 /** Sessions started from now on get it at `version`. */
 export class SkillTurnedOn extends DomainEvent {
   constructor(

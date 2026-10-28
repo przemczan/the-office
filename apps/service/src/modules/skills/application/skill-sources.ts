@@ -102,6 +102,18 @@ export class SkillSources {
     return draft;
   }
 
+  /** The unified diff of the skill's folder from its pinned version to `to`, paths inside the folder. */
+  async diff(source: InstalledSource, to: PinnedVersion): Promise<string> {
+    return this.reading(source.repository, () =>
+      this.fetcher.diff({
+        url: sourceUrl(source.repository),
+        folder: source.folder,
+        from: source.pinnedVersion,
+        to,
+      }),
+    );
+  }
+
   private foldersAt(
     source: Pick<InstalledSource, "repository" | "pinnedVersion">,
     folder: string | undefined,

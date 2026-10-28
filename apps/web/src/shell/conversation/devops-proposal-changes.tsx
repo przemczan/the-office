@@ -11,6 +11,7 @@ import {
 import { pinnedVersionLabel, sourceLabel } from "../skill-words.ts";
 
 type ProposedSkillInstall = Extract<ProposedChange, { kind: "skill-install" }>;
+type ProposedSkillUpdate = Extract<ProposedChange, { kind: "skill-update" }>;
 
 const STAGE_CHANGE_WORDS: Readonly<Record<StageChange["change"], string>> = {
   added: "Added",
@@ -113,6 +114,32 @@ export function ProposedSkillInstallFields({
         </dd>
       </div>
     </dl>
+  );
+}
+
+/** An installed skill's update: its Source, the version from and to, and Devops' notes. */
+export function ProposedSkillUpdateFields({
+  change,
+}: {
+  readonly change: ProposedSkillUpdate;
+}): ReactNode {
+  return (
+    <>
+      <ul className="proposal-changes">
+        <ChangeRow
+          label="Version"
+          from={pinnedVersionLabel(change.from)}
+          to={pinnedVersionLabel(change.to)}
+        />
+      </ul>
+      <p className="proposal-notes">{change.notes}</p>
+      <dl className="proposal-fields">
+        <div className="proposal-field">
+          <dt>Source</dt>
+          <dd>{sourceLabel(change)}</dd>
+        </div>
+      </dl>
+    </>
   );
 }
 

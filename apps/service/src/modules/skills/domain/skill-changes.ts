@@ -1,5 +1,6 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { isUpdateOf, samePinnedVersion, type PinnedVersion } from "./installed-source.js";
+import { noUpdates, updateProblem, type ProposedUpdate } from "./skill-update.js";
 import {
   newSkillProblems,
   skillDescriptionProblems,
@@ -15,6 +16,7 @@ import {
   SkillTurnedOn,
   SkillUpdateFound,
   SkillUpdateGone,
+  SkillUpdated,
   SkillVersionSaved,
 } from "./skill-events.js";
 import { SkillRefused } from "./skill-refused.js";
@@ -91,6 +93,36 @@ export function noteSourceVersion(
   }
   if (!noted) return undefined;
   return { skill: withoutUpdate, event: new SkillUpdateGone(skill.name) };
+}
+
+/**
+ * Pins the skill at its update's version with the files fetched there (spec §2.6): applying the
+ * update is its review, so the skill stays on or off as it was. A new version only when the files
+ * changed; the noted update stays only when it is newer still. Refuses a stale update.
+ */
+export function applyUpdate(
+  skill: Skill,
+  update: ProposedUpdate,
+  fetched: { readonly description: string; readonly filesHash: string },
+  savedAt: Date,
+): SkillChange<SkillUpdated> {
+  const { installedFrom, update: noted, ...withoutUpdate } = skill;
+  if (!installedFrom) throw new SkillRefused([noUpdates(skill.name)]);
+  const problem = updateProblem(skill, update);
+  if (problem !== undefined) throw new SkillRefused([problem]);
+  const filesChanged = fetched.filesHash !== skill.filesHash;
+  const updated: Skill = {
+    ...withoutUpdate,
+    installedFrom: { ...installedFrom, pinnedVersion: update.to },
+    ...(noted && isUpdateOf(noted, update.to) && { update: noted }),
+    ...(filesChanged && {
+      description: fetched.description,
+      version: skill.version + 1,
+      filesHash: fetched.filesHash,
+      savedAt,
+    }),
+  };
+  return { skill: updated, event: new SkillUpdated(updated) };
 }
 
 /** Turning a skill on is its review. Undefined when it is already on. */

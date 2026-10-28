@@ -13,7 +13,14 @@ export {
   type SourceSkill,
   type SourceSkills,
 } from "./application/skill-sources.js";
+export {
+  SKILL_UPDATE_CHECK,
+  SkillUpdates,
+  type AppliedUpdate,
+  type SkillUpdateDraft,
+} from "./application/skill-updates.js";
 export type { PinnedVersion } from "./domain/installed-source.js";
+export type { ProposedUpdate, SkillUpdateDiff } from "./domain/skill-update.js";
 export { SkillRefused } from "./domain/skill-refused.js";
 export {
   RoleSkillsChanged,
@@ -24,6 +31,7 @@ export {
   SkillTurnedOn,
   SkillUpdateFound,
   SkillUpdateGone,
+  SkillUpdated,
   SkillVersionSaved,
 } from "./domain/skill-events.js";
 export { SkillsModule } from "./skills.module.js";

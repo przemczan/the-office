@@ -31,6 +31,7 @@ import { ProposalService } from "./application/proposal-service.js";
 import { ProjectCommandProposals } from "./application/project-command-proposals.js";
 import { RoleProposals } from "./application/role-proposals.js";
 import { SkillInstallProposals } from "./application/skill-install-proposals.js";
+import { SkillUpdateProposals } from "./application/skill-update-proposals.js";
 import { SessionMemory } from "./application/session-memory.js";
 import { SessionPlaces } from "./application/session-places.js";
 import { StageDecisions } from "./application/stage-decisions.js";
@@ -91,6 +92,7 @@ export class ConversationsModule {
         RoleProposals,
         ProjectCommandProposals,
         SkillInstallProposals,
+        SkillUpdateProposals,
         SizeThresholdProposals,
         DecisionOfficeTools,
         RoleOfficeTools,
