@@ -2,7 +2,13 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ideaSchema, initiativeSchema, taskSchema, type Task } from "@the-office/contracts";
+import {
+  ENDED_INITIATIVE_CONVERSATION_WORDS,
+  ideaSchema,
+  initiativeSchema,
+  taskSchema,
+  type Task,
+} from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { InitiativeThreadSetups } from "../../../conversations/index.js";
 import { SHAPING_INSTRUCTIONS } from "../../domain/shaping.js";
@@ -71,6 +77,21 @@ describe("a shaping Thread's session", () => {
         "Attachments:",
         "None.",
       ].join("\n"),
+      sessionRefusal: undefined,
     });
+  });
+
+  it("is refused once the Initiative is dropped", async () => {
+    const idea = ideaSchema.parse(
+      await post("/ideas", { title: "Audit log", notes: "", projectId: null }),
+    );
+    const initiative = initiativeSchema.parse(await post(`/ideas/${idea.id}/initiative`));
+    await post(`/initiatives/${initiative.id}/drop`);
+
+    const setup = await work.app
+      .get(InitiativeThreadSetups)
+      .of({ threadId: randomUUID(), initiativeId: initiative.id, roleKey: "cto" });
+
+    expect(setup.sessionRefusal).toBe(ENDED_INITIATIVE_CONVERSATION_WORDS.dropped);
   });
 });

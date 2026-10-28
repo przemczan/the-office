@@ -1,4 +1,5 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
+import { ENDED_INITIATIVE_CONVERSATION_WORDS } from "@the-office/contracts";
 import {
   InitiativeThreadSetups,
   type InitiativeThreadRequest,
@@ -31,10 +32,15 @@ export class ShapingThreadSetup implements InitiativeThreadSource, OnModuleInit 
   }
 
   async setUp({ initiativeId }: InitiativeThreadRequest): Promise<InitiativeThreadSetup> {
+    const [initiative, record] = await Promise.all([
+      this.initiatives.read(initiativeId),
+      this.initiatives.recordText(initiativeId),
+    ]);
     return {
       instructions: SHAPING_INSTRUCTIONS,
       officeTools: SHAPING_OFFICE_TOOLS,
-      record: await this.initiatives.recordText(initiativeId),
+      record,
+      sessionRefusal: ENDED_INITIATIVE_CONVERSATION_WORDS[initiative.state],
     };
   }
 }

@@ -93,6 +93,14 @@ export const ENDED_TASK_CONVERSATION_WORDS: Readonly<Partial<Record<TaskState, s
     "This Task was dropped, so you can read this conversation but not continue it. To work on it again, start a new Task.",
 };
 
+/** Why an Initiative's Threads can be read but not continued, for the states that end it. */
+export const ENDED_INITIATIVE_CONVERSATION_WORDS: Readonly<
+  Partial<Record<InitiativeState, string>>
+> = {
+  done: "This Initiative is done, so you can read this conversation but not continue it.",
+  dropped: "This Initiative was dropped, so you can read this conversation but not continue it.",
+};
+
 /** A Pipeline the Planner proposes for a Task, with why it fits the Definition of Done. */
 export const proposedPipelineSchema = z.object({ pipelineId: z.string(), reason: z.string() });
 export type ProposedPipeline = z.infer<typeof proposedPipelineSchema>;

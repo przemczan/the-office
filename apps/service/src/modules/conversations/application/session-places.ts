@@ -98,6 +98,7 @@ export class SessionPlaces {
       initiativeId,
       roleKey: thread.roleKey,
     });
+    if (setup.sessionRefusal !== undefined) throw new ThreadRefused([setup.sessionRefusal]);
     return {
       ...this.basesPlace(thread),
       officeTools: setup.officeTools,

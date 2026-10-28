@@ -21,6 +21,11 @@ export interface InitiativeThreadSetup {
   readonly officeTools: readonly string[];
   /** The Initiative's record as a new session picks it up (spec §2.5): never a transcript. */
   readonly record: string;
+  /**
+   * Why no session can work on the Initiative any more, once it is done or dropped, in the UI's
+   * words. The Thread stays readable; a session is refused.
+   */
+  readonly sessionRefusal: string | undefined;
 }
 
 /** Sets up the sessions of Threads on Initiatives. */

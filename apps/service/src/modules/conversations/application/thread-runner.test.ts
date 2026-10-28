@@ -182,6 +182,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         instructions: "On this Initiative you shape.",
         officeTools: ["read_task"],
         record: `You are shaping the Initiative ${initiativeId}.`,
+        sessionRefusal: undefined,
       }),
   });
   // As the Work module gives its records.

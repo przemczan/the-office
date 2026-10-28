@@ -61,6 +61,7 @@ beforeAll(async () => {
         instructions: "You shape the Initiative.",
         officeTools: [],
         record: recordOf(initiativeId),
+        sessionRefusal: undefined,
       }),
   });
   app.get(TaskThreadSetups).provide({
