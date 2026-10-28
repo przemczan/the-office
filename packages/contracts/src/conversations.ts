@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
 import { roleCardSchema } from "./people.js";
+import { projectCommandFieldsSchema } from "./projects.js";
+import { stageSchema } from "./stages.js";
 import { prioritySchema } from "./work.js";
 
 /** Where a conversation lives: a person's chat, by the Role's key, a Task's or an Initiative's. */
@@ -205,6 +207,12 @@ export const CAPTURE_IDEA_TOOL = "capture_idea";
 /** The Office tool the Office Manager shows the Office status with, hidden alike behind its card. */
 export const SHOW_OFFICE_STATUS_TOOL = "show_office_status";
 
+/** The Office tool Devops drafts a Proposal of a Project's commands with, hidden alike. */
+export const PROPOSE_PROJECT_COMMANDS_TOOL = "propose_project_commands";
+
+/** The Office tool Devops drafts a Proposal of a library Pipeline's Stages with, hidden alike. */
+export const PROPOSE_LIBRARY_PIPELINE_TOOL = "propose_library_pipeline";
+
 /** The fields of a Role card a change rewrites, each one whole; skills aren't among them. */
 const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).partial();
 
@@ -252,6 +260,26 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("add-dependency"), taskId: z.uuid(), blockerId: z.uuid() }),
       z.object({ kind: z.literal("remove-dependency"), taskId: z.uuid(), blockerId: z.uuid() }),
     ]),
+  }),
+  /**
+   * Devops' change to a Project's commands and install inputs: the fields it rewrites as the
+   * Project had them when drafted (now), and as proposed. Applying is refused once one changed.
+   */
+  z.object({
+    kind: z.literal("project-commands"),
+    projectId: z.string(),
+    from: projectCommandFieldsSchema,
+    to: projectCommandFieldsSchema,
+  }),
+  /**
+   * Devops' new Stages for a library Pipeline, and its Stages when drafted (now). Applying is
+   * refused once they changed.
+   */
+  z.object({
+    kind: z.literal("pipeline"),
+    pipelineId: z.string(),
+    from: z.array(stageSchema),
+    to: z.array(stageSchema),
   }),
 ]);
 export type ProposedChange = z.infer<typeof proposedChangeSchema>;

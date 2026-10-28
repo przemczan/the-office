@@ -6,6 +6,7 @@ import {
   pipelineEditFlags,
   pipelineEditProblems,
   pipelineUse,
+  proposedStagesProblems,
   removalProblems,
   savedPipeline,
   type PipelineEdit,
@@ -93,6 +94,35 @@ describe("pipelineEditFlags", () => {
 
   it("flags nothing when someone with a Task limit fills every Role", () => {
     expect(pipelineEditFlags(anEdit(), DEVELOPER_HIRED)).toEqual([]);
+  });
+});
+
+describe("proposedStagesProblems", () => {
+  const nightly: Pipeline = { id: "nightly-id", ...anEdit() };
+  const proposed = [...nightly.stages, scriptStage({ key: "lint", name: "Lint", command: "lint" })];
+
+  it("allows new Stages for a Pipeline whose Stages are as they were when proposed", () => {
+    // A field left undefined is the same as one left out, as the Stages are kept.
+    const drafted = [agentStage({ onFailure: undefined }), ...nightly.stages.slice(1)];
+
+    expect(proposedStagesProblems(nightly, drafted, proposed, builtInPipelines)).toEqual([]);
+  });
+
+  it("refuses them once the Pipeline's Stages changed since", () => {
+    const changed: Pipeline = { ...nightly, stages: [agentStage()] };
+
+    expect(proposedStagesProblems(changed, nightly.stages, proposed, [])).toEqual([
+      { text: "Nightly's Stages changed since this was proposed." },
+    ]);
+  });
+
+  it("refuses what the library editor refuses, and Stages that change nothing", () => {
+    expect(proposedStagesProblems(nightly, nightly.stages, [], []).map(({ text }) => text)).toEqual(
+      ["A Pipeline needs at least one Stage."],
+    );
+    expect(proposedStagesProblems(nightly, nightly.stages, nightly.stages, [])).toEqual([
+      { text: "Nothing changes: give the Pipeline's Stages as they should be, all of them." },
+    ]);
   });
 });
 

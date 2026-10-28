@@ -8,6 +8,7 @@ import { Telemetry } from "../../platform/telemetry/telemetry.js";
 import { TelemetryModule } from "../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
 import {
+  EngineModule,
   ScriptedEngine,
   ScriptedEngineModule,
   type SessionScript,
@@ -23,6 +24,7 @@ import {
   KnownPeopleForTests,
   ProjectDefaultsForTests,
   PipelinesPortsForTestsModule,
+  ProposalDraftsForTests,
   StageDecisionsForTests,
   StageThreadsForTests,
   StartedTasksForTests,
@@ -102,8 +104,10 @@ export async function startPipelinesApplication(
         taskScreenshots: TaskScreenshotsForTests,
         taskUsage: TaskUsageForTests,
         taskThreadSessions: TaskThreadSessionsForTests,
+        proposalDrafts: ProposalDraftsForTests,
       }),
     ],
+    moduleOverrides: [{ module: EngineModule, useModule: engineModule }],
   });
   const published: DomainEvent[] = [];
   app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));

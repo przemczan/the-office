@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, Module, type DynamicModule, type ModuleMetadata } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import { ProposalAppliers } from "../../conversations/index.js";
 import { EngineSessions } from "../../engine/index.js";
 import { TaskPaused, TaskResumed } from "../../work/index.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { ProjectDefaults, type ProjectDefault } from "./project-defaults.js";
+import { ProposalDrafts, type ProposedPipelineChange } from "./proposal-drafts.js";
 import {
   StageDecisions,
   type OpenedStageDecision,
@@ -538,7 +540,21 @@ export class TaskPublishingForTests extends TaskPublishing {
   }
 }
 
-/** The ports' stand-ins, the Stage Threads' sessions on the engine `imports` give. */
+/** Conversations' Proposals: what was drafted, by session. */
+@Injectable()
+export class ProposalDraftsForTests extends ProposalDrafts {
+  readonly drafted: { readonly sessionId: string; readonly change: ProposedPipelineChange }[] = [];
+
+  draft(sessionId: string, change: ProposedPipelineChange): Promise<{ readonly id: string }> {
+    this.drafted.push({ sessionId, change });
+    return Promise.resolve({ id: randomUUID() });
+  }
+}
+
+/**
+ * The ports' stand-ins, the Stage Threads' sessions on the engine `imports` give, and the registry
+ * of Conversations' Proposal appliers, which Pipelines fills.
+ */
 @Module({})
 export class PipelinesPortsForTestsModule {
   static register(imports: NonNullable<ModuleMetadata["imports"]>): DynamicModule {
@@ -555,6 +571,8 @@ export class PipelinesPortsForTestsModule {
       TaskScreenshotsForTests,
       TaskUsageForTests,
       TaskThreadSessionsForTests,
+      ProposalDraftsForTests,
+      ProposalAppliers,
     ];
     return { module: PipelinesPortsForTestsModule, imports, providers, exports: providers };
   }

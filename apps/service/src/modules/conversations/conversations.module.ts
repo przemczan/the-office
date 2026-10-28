@@ -8,6 +8,7 @@ import { SizeThresholdController } from "./adapters/http/size-threshold.controll
 import { ThreadsController } from "./adapters/http/threads.controller.js";
 import { DecisionOfficeTools } from "./adapters/office-tools/decision-office-tools.js";
 import { LinkCardOfficeTools } from "./adapters/office-tools/link-card-office-tools.js";
+import { ProjectCommandOfficeTools } from "./adapters/office-tools/project-command-office-tools.js";
 import { ProposalOfficeTools } from "./adapters/office-tools/proposal-office-tools.js";
 import { RoleOfficeTools } from "./adapters/office-tools/role-office-tools.js";
 import { MemoryOfficeTools } from "./adapters/office-tools/memory-office-tools.js";
@@ -26,6 +27,7 @@ import { InitiativeThreadSetups } from "./application/initiative-thread-setups.j
 import { MentionedRecords } from "./application/mentioned-records.js";
 import { ProposalAppliers } from "./application/proposal-appliers.js";
 import { ProposalService } from "./application/proposal-service.js";
+import { ProjectCommandProposals } from "./application/project-command-proposals.js";
 import { RoleProposals } from "./application/role-proposals.js";
 import { SessionMemory } from "./application/session-memory.js";
 import { SessionPlaces } from "./application/session-places.js";
@@ -85,10 +87,12 @@ export class ConversationsModule {
         ProposalAppliers,
         ProposalService,
         RoleProposals,
+        ProjectCommandProposals,
         SizeThresholdProposals,
         DecisionOfficeTools,
         RoleOfficeTools,
         ProposalOfficeTools,
+        ProjectCommandOfficeTools,
         LinkCards,
         LinkCardOfficeTools,
         HeldCalls,

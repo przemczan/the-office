@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 import { startTestApplication } from "../../../../test/test-application.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
@@ -17,13 +18,14 @@ import {
   ScriptedEngineModule,
   type SessionScript,
 } from "../../engine/index.js";
-import { RoleCards, type SessionRole } from "../../people/index.js";
+import { DEVOPS, RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
 import { Consultations } from "./consultations.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import { DecisionAnswered, TokensCounted } from "../domain/conversation-events.js";
 import type { Message, MessageDraft } from "../domain/message.js";
+import { roleOfficeTools } from "../domain/session-instructions.js";
 import { NO_TOKENS, type Thread, type TokenTotals } from "../domain/thread.js";
 import {
   answerDecision,
@@ -333,6 +335,31 @@ describe("StageThreads", () => {
     await aStageRun(aStage({ roleKey: ada, model: "claude-haiku-5-5", effort: "low" }));
 
     expect(engine.sessions[0]?.options).toMatchObject({ model: "claude-haiku-5-5", effort: "low" });
+  });
+
+  it("gives Devops' Stage their own Office tools besides the Stage's, as in their chat", async () => {
+    await startWith(started(...aTurn({ status: "done" })));
+    people.set(DEVOPS, {
+      roleKey: DEVOPS,
+      cardVersion: 1,
+      card: aPlannerCard({ name: "Nina", title: "Devops", sessionDefault: "always-start-fresh" }),
+    });
+    // Pipelines and Projects register these in the service.
+    const registry = app.get(OfficeToolRegistry);
+    for (const name of roleOfficeTools(DEVOPS)) {
+      registry.register({
+        name,
+        description: name,
+        input: z.object({}),
+        run: () => Promise.resolve({ text: "", isError: false }),
+      });
+    }
+
+    await aStageRun(aStage({ roleKey: DEVOPS }));
+
+    expect(engine.sessions[0]?.options.officeTools.map(({ name }) => name)).toEqual(
+      expect.arrayContaining([...roleOfficeTools(DEVOPS)]),
+    );
   });
 
   it("continues the previous Stage's session in its Thread when the same person works the next", async () => {

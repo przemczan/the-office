@@ -24,7 +24,7 @@
 ### pipelines/
 
 - `library-pipeline-form.tsx`: LibraryPipelineForm
-- `pipeline-use-words.ts`: pipelineUseLine, stagesLine
+- `pipeline-use-words.ts`: pipelineUseLine
 - `pipelines-section.tsx`: PipelinesSection
 - Tests: pipeline-use-words.test.ts
 

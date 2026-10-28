@@ -2,7 +2,7 @@
 
 **Owns:** the Pipeline library (`pipelines`, its migration seeding the built-ins of `domain/built-in-pipelines.ts` once; `PipelineLibrary` reads it, `PipelineLibraryEditor` adds, copies, saves and removes), each Task's own copy of its Stages (`task_stages`, made at Start or at the user's first edit for the Task), and the Stage interpreter that walks them: Agent, Script, Gate and Publish Stages, loops and rounds, budgets, Stage runs (`stage_runs`).
 
-**Talks to:** reacts to Work's events (`TaskStarted`, `TaskResumed`, `TaskPaused`, `TaskStopped`, and `TaskPipelineConfirmed`, which sets aside Stages edited for the old Pipeline) Conversations' `DecisionAnswered` and People's `RoleLetGo`; everything else goes through its ports, bound in [app.module.ts](../../app.module.ts): `StartedTasks` and `TaskRecords` to Work, `KnownPeople` to People's `RoleCards`, `StageThreads`, `StageDecisions` and `TaskThreadSessions` to Conversations, `TaskGit`, `TaskCommands` and `TaskPublishing` to Projects' `TaskWorktrees`, `TaskScreenshots` to Work's `StageScreenshots`, `TaskUsage` to Conversations' `TaskTokens`, `ProjectDefaults` to Projects' `ProjectService`; the library editor counts Tasks through `StartedTasks.list`. Other modules read the library through `PipelineLibraryModule`, never `PipelinesModule`; the library's writes live in `PipelinesModule`, since they ask Projects and Work, who import the library.
+**Talks to:** reacts to Work's events (`TaskStarted`, `TaskResumed`, `TaskPaused`, `TaskStopped`, and `TaskPipelineConfirmed`, which sets aside Stages edited for the old Pipeline) Conversations' `DecisionAnswered` and People's `RoleLetGo`; everything else goes through its ports, bound in [app.module.ts](../../app.module.ts): `StartedTasks` and `TaskRecords` to Work, `KnownPeople` to People's `RoleCards`, `StageThreads`, `StageDecisions` and `TaskThreadSessions` to Conversations, `TaskGit`, `TaskCommands` and `TaskPublishing` to Projects' `TaskWorktrees`, `TaskScreenshots` to Work's `StageScreenshots`, `TaskUsage` to Conversations' `TaskTokens`, `ProjectDefaults` to Projects' `ProjectService`, `ProposalDrafts` to Conversations' `ProposalService`; the library editor counts Tasks through `StartedTasks.list`. Devops' Proposals of a library Pipeline's Stages (`pipeline`): `PipelineOfficeTools` registers `list_pipelines` and `propose_library_pipeline`, and `PipelineProposals` fills Conversations' `ProposalAppliers`, saving through `PipelineLibraryEditor.saveProposedStages`, which refuses once the Stages changed since the draft (`proposedStagesProblems`, comparing Stages as kept, so a field left undefined equals one left out); Conversations keeps the Stages unread, and they are parsed back with the contracts' `stageSchema`. Other modules read the library through `PipelineLibraryModule`, never `PipelinesModule`; the library's writes live in `PipelinesModule`, since they ask Projects and Work, who import the library.
 
 **Traps:**
 - A Publish Stage's `publishTarget` absent means the Project's publishing mode: Stages stored before it was added carry none, so never require it.
@@ -59,6 +59,10 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 - `pipelines-application.fixtures.ts`: PipelinesApplication, startPipelinesApplication, walkStages, runsOf, anAgentStage, aTurn, anAgentSession, AN_INTERRUPTED_SESSION, aDoneResult, A_WAITING_RESULT, anAskedDecision, asksOnce, answerAsked, answerLastDecision
 - `pipelines.module.ts`: PipelinesModuleOptions, PipelinesModule
 
+### adapters/conversations/
+
+- `pipeline-proposals.ts`: PipelineProposals
+
 ### adapters/http/
 
 - `gate-refusals.filter.ts`: GateRefusalsFilter
@@ -70,6 +74,10 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 - `task-gate.controller.ts`: TaskGateController
 - `task-stages.controller.ts`: TaskStagesController
 - Tests: pipeline-library.controller.test.ts, pipelines.controller.test.ts, task-gate.controller.test.ts, task-stages.controller.test.ts
+
+### adapters/office-tools/
+
+- `pipeline-office-tools.ts`: PipelineOfficeTools
 
 ### adapters/postgres/
 
@@ -114,7 +122,7 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 - `followed-hard-switches.ts`: FollowedHardSwitchValue, FollowedHardSwitches, hardSwitchesSection
 - `gate-refused.ts`: GateRefused
 - `gate.ts`: GATE_REACHED, waitingGateRun, sendBackTargets, gateActionProblems
-- `library-pipeline.ts`: PipelineEdit, TaskOnPipeline, ProjectOnPipeline, PipelineUse, pipelineEditProblems, pipelineEditFlags, addedPipeline, savedPipeline, copiedPipeline, pipelineUse, removalProblems
+- `library-pipeline.ts`: PipelineEdit, TaskOnPipeline, ProjectOnPipeline, PipelineUse, pipelineEditProblems, pipelineEditFlags, proposedStagesProblems, proposedEdit, addedPipeline, savedPipeline, copiedPipeline, pipelineUse, removalProblems
 - `pipeline-library-events.ts`: PipelineAdded, PipelineSaved, PipelineRemoved
 - `pipeline-library-refusals.ts`: PipelineRemovalRefused, UnknownPipeline
 - `pipeline-walk.ts`: WalkQuestion, NextMove, nextMove, unmetStatements
@@ -146,8 +154,9 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 
 - `known-people.ts`: HardSwitchOnCard, KnownPerson, KnownPeople
 - `pipeline-repository.ts`: PipelineRepository
-- `pipelines-ports.fixtures.ts`: ProjectDefaultsForTests, StartedTasksForTests, aTaskRecord, TaskRecordsForTests, aPerson, KnownPeopleForTests, StageThreadsForTests, StageDecisionsForTests, TaskUsageForTests, TaskThreadSessionsForTests, TaskScreenshotsForTests, PLANNED_COMMIT, TaskGitForTests, aCommandRun, TaskCommandsForTests, TaskPublishingForTests, PipelinesPortsForTestsModule
+- `pipelines-ports.fixtures.ts`: ProjectDefaultsForTests, StartedTasksForTests, aTaskRecord, TaskRecordsForTests, aPerson, KnownPeopleForTests, StageThreadsForTests, StageDecisionsForTests, TaskUsageForTests, TaskThreadSessionsForTests, TaskScreenshotsForTests, PLANNED_COMMIT, TaskGitForTests, aCommandRun, TaskCommandsForTests, TaskPublishingForTests, ProposalDraftsForTests, PipelinesPortsForTestsModule
 - `project-defaults.ts`: ProjectDefault, ProjectDefaults
+- `proposal-drafts.ts`: ProposedPipelineChange, ProposalDrafts
 - `staffing-hold-repository.ts`: StaffingHoldRepository
 - `stage-decisions.ts`: StageDecisionRequest, OpenedStageDecision, StageDecisions
 - `stage-run-repository.ts`: StageRunRepository

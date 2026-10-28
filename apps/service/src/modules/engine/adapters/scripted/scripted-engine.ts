@@ -85,6 +85,14 @@ export class ScriptedEngine extends AgentEngine {
     this.capabilities = { ...EVERY_CAPABILITY, ...capabilities };
   }
 
+  /**
+   * Adds the scripts of sessions that open after those given so far, for a test that learns what
+   * a session says, such as a record's id, only once The Office runs.
+   */
+  queue(...scripts: readonly SessionScript[]): void {
+    this.scripts.push(...scripts);
+  }
+
   async start({ id, options, brief }: NewSession): Promise<EngineSession> {
     this.requireFor(options);
     return this.open(id, options, { step: "start", brief });

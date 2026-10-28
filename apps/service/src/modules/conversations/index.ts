@@ -42,5 +42,14 @@ export {
   TurnEnded,
 } from "./domain/conversation-events.js";
 export { ProposalService } from "./application/proposal-service.js";
-export type { ProposedInitiativeChange, ProposedSettingChange } from "./domain/proposal.js";
+export type {
+  PipelineStage,
+  ProposedInitiativeChange,
+  ProposedPipelineChange,
+  ProposedSettingChange,
+} from "./domain/proposal.js";
+export {
+  LIST_PIPELINES_TOOL,
+  PROPOSE_LIBRARY_PIPELINE_TOOL,
+} from "./domain/session-instructions.js";
 export { ProposalRefused } from "./domain/proposal-refused.js";

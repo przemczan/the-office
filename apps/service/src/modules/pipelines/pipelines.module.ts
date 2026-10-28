@@ -1,10 +1,13 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
+import { EngineModule } from "../engine/index.js";
+import { PipelineProposals } from "./adapters/conversations/pipeline-proposals.js";
 import { PipelineLibraryController } from "./adapters/http/pipeline-library.controller.js";
 import { TaskGateController } from "./adapters/http/task-gate.controller.js";
 import { TaskStagesController } from "./adapters/http/task-stages.controller.js";
 import { PostgresStageRunRepository } from "./adapters/postgres/postgres-stage-run-repository.js";
 import { PostgresStaffingHoldRepository } from "./adapters/postgres/postgres-staffing-hold-repository.js";
 import { PostgresTaskStagesRepository } from "./adapters/postgres/postgres-task-stages-repository.js";
+import { PipelineOfficeTools } from "./adapters/office-tools/pipeline-office-tools.js";
 import { PipelinesWebEvents } from "./adapters/websocket/pipelines-web-events.js";
 import { AgentStageRunner } from "./application/agent-stage-runner.js";
 import { GateService } from "./application/gate-service.js";
@@ -21,6 +24,7 @@ import { TaskStagesService } from "./application/task-stages-service.js";
 import { PipelineLibraryModule } from "./pipeline-library.module.js";
 import { KnownPeople } from "./ports/known-people.js";
 import { ProjectDefaults } from "./ports/project-defaults.js";
+import { ProposalDrafts } from "./ports/proposal-drafts.js";
 import { StageDecisions } from "./ports/stage-decisions.js";
 import { StageRunRepository } from "./ports/stage-run-repository.js";
 import { StageThreads } from "./ports/stage-threads.js";
@@ -36,7 +40,10 @@ import { TaskUsage } from "./ports/task-usage.js";
 import { TaskStagesRepository } from "./ports/task-stages-repository.js";
 
 export interface PipelinesModuleOptions {
-  /** The modules that provide the ports below: Work, People, Conversations and Projects. */
+  /**
+   * The modules that provide the ports below, Work, People, Conversations and Projects, and
+   * Conversations' `ProposalAppliers`, which Pipelines fills with its kind of Proposal.
+   */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly startedTasks: Type<StartedTasks>;
   readonly taskRecords: Type<TaskRecords>;
@@ -50,6 +57,7 @@ export interface PipelinesModuleOptions {
   readonly taskScreenshots: Type<TaskScreenshots>;
   readonly taskUsage: Type<TaskUsage>;
   readonly taskThreadSessions: Type<TaskThreadSessions>;
+  readonly proposalDrafts: Type<ProposalDrafts>;
 }
 
 /**
@@ -72,10 +80,11 @@ export class PipelinesModule {
     taskScreenshots,
     taskUsage,
     taskThreadSessions,
+    proposalDrafts,
   }: PipelinesModuleOptions): DynamicModule {
     return {
       module: PipelinesModule,
-      imports: [PipelineLibraryModule, ...imports],
+      imports: [PipelineLibraryModule, EngineModule, ...imports],
       controllers: [TaskStagesController, TaskGateController, PipelineLibraryController],
       providers: [
         { provide: TaskStagesRepository, useClass: PostgresTaskStagesRepository },
@@ -92,6 +101,7 @@ export class PipelinesModule {
         { provide: TaskScreenshots, useExisting: taskScreenshots },
         { provide: TaskUsage, useExisting: taskUsage },
         { provide: TaskThreadSessions, useExisting: taskThreadSessions },
+        { provide: ProposalDrafts, useExisting: proposalDrafts },
         { provide: StaffingHoldRepository, useClass: PostgresStaffingHoldRepository },
         RoleFillings,
         TaskStagesService,
@@ -105,6 +115,8 @@ export class PipelinesModule {
         PublishStage,
         GateStageRunner,
         GateService,
+        PipelineProposals,
+        PipelineOfficeTools,
         PipelinesWebEvents,
       ],
       exports: [PipelineLibraryModule, TaskStagesService],

@@ -17,6 +17,7 @@ import type {
 import { SessionMemory } from "./session-memory.js";
 import {
   openingMessage,
+  roleOfficeTools,
   sessionOfficeTools,
   workThreadInstructions,
 } from "../domain/session-instructions.js";
@@ -403,7 +404,11 @@ export class StageThreads {
         overrides: skills.overrides,
       },
       profile: request.session.profile,
-      officeTools: sessionOfficeTools(request.session.officeTools, card, true),
+      officeTools: sessionOfficeTools(
+        [...request.session.officeTools, ...roleOfficeTools(roleKey)],
+        card,
+        true,
+      ),
       outputSchema: request.session.outputSchema,
       telemetry: {
         span: {

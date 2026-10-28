@@ -31,6 +31,7 @@ import {
   type SessionRole,
 } from "../../people/index.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../pipelines/index.js";
+import { ProjectService } from "../../projects/index.js";
 import { THE_USER } from "../domain/author.js";
 import type { Initiative } from "../domain/initiative.js";
 import { KnownProjectsForTests, ProjectWorktreesForTests } from "../ports/work-ports.fixtures.js";
@@ -126,10 +127,13 @@ class ListProjectsStandIn {
 
 const STAND_INS = [NoProjectBases, KnownProjectsForTests, ProjectWorktreesForTests];
 
+/** Projects' service, which Conversations judges Devops' Proposals by; none is drafted here. */
+const NO_PROJECT_SERVICE = { provide: ProjectService, useValue: {} };
+
 @Module({
   imports: [EngineModule],
-  providers: [...STAND_INS, ListProjectsStandIn],
-  exports: STAND_INS,
+  providers: [...STAND_INS, NO_PROJECT_SERVICE, ListProjectsStandIn],
+  exports: [...STAND_INS, ProjectService],
 })
 class StandInsModule {}
 

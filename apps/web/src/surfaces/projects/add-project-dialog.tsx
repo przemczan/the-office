@@ -12,18 +12,16 @@ import { useId, useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { addProject, projectQueries } from "../../api/projects.ts";
 import { ProjectMark } from "../../shell/project-mark.tsx";
-import { publishingLabel } from "../../shell/project-words.ts";
-import { RefusalAlert } from "../../shell/refusal-alert.tsx";
-import { useToast } from "../../shell/toasts.tsx";
+import { stagesLine } from "../../shell/pipelines/pipeline-words.ts";
 import {
   COMMAND_KEYS,
   COMMAND_LABELS,
   INSTALL_INPUTS_LABEL,
-  installInputsFrom,
-  MARK_COLOUR_LABELS,
-  markLabelFor,
-  stagesLine,
-} from "./project-labels.ts";
+  publishingLabel,
+} from "../../shell/project-words.ts";
+import { RefusalAlert } from "../../shell/refusal-alert.tsx";
+import { useToast } from "../../shell/toasts.tsx";
+import { installInputsFrom, MARK_COLOUR_LABELS, markLabelFor } from "./project-labels.ts";
 
 const COMMAND_EXAMPLES: Readonly<Record<ProjectCommandKey, string>> = {
   install: "npm ci",

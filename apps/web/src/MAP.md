@@ -41,7 +41,7 @@
 - `person-name.ts`: personName, roleName
 - `project-chip.tsx`: ProjectChip
 - `project-mark.tsx`: ProjectMark
-- `project-words.ts`: publishingLabel
+- `project-words.ts`: publishingLabel, COMMAND_KEYS, COMMAND_LABELS, INSTALL_INPUTS_LABEL, installInputsLine
 - `rail.tsx`: Rail
 - `record-mention.tsx`: RecordMention
 - `refusal-alert.tsx`: RefusalAlert
@@ -76,6 +76,7 @@
 - `context-bar.tsx`: ContextBar
 - `context-words.ts`: MOVE_WORDS, OVERRIDE_WORDS, OVERRIDE_HINTS, threadTokens, tokensShort, contextDetail, contextLabel
 - `decision-card.tsx`: DecisionCard
+- `devops-proposal-changes.tsx`: ProposedCommandChanges, ProposedStageChanges
 - `handover-notes.tsx`: HandoverNote, HandoverNotes, HandoverNotesProvider, useHandoverNotes
 - `idea-card.tsx`: IdeaCard
 - `link-card-words.ts`: personStatus
@@ -108,9 +109,10 @@
 
 ### shell/pipelines/
 
+- `pipeline-words.ts`: stagesLine, StageChange, stageChanges
 - `stage-editor.tsx`: StageEditorProps, StageEditor
 - `stage-edits.ts`: StageKind, AgentStage, ScriptStage, StageCommand, STAGE_KIND_NAMES, STAGE_COMMANDS, addStage, removeStage, canMove, moveStage, replaceStage, withRole, withCommand, canContinue, failureTargets
-- Tests: stage-edits.test.ts
+- Tests: pipeline-words.test.ts, stage-edits.test.ts
 
 ### shell/project-filter/
 

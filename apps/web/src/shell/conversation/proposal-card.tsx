@@ -23,6 +23,7 @@ import {
   threadQueries,
 } from "../../api/conversations.ts";
 import { roleCardQueries, roleQueries } from "../../api/people.ts";
+import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, officeWideLimitQuery, taskQueries } from "../../api/work.ts";
 import { EFFORT_LABELS, modelLabel } from "../engine-words.ts";
@@ -46,6 +47,7 @@ import { momentWords } from "../time.ts";
 import { PRIORITY_NAMES } from "../work/work-words.ts";
 import { useToast } from "../toasts.tsx";
 import { tokensShort } from "./context-words.ts";
+import { ProposedCommandChanges, ProposedStageChanges } from "./devops-proposal-changes.tsx";
 import "./conversation.css";
 
 type ProposedHire = Extract<ProposedChange, { kind: "hire" }>;
@@ -85,13 +87,16 @@ const OFFICE_SETTINGS: Record<
 /**
  * A Proposal as a card in the drafting person's chat (spec §2.4): a new Role to hire, from scratch
  * (as proposed or edited first on the hire page) or from a preset (under the proposed name or one
- * the user gives), a change to a Role's card, or a new value for an Office setting. Nothing changes
- * until the user applies it; "Not now" declines it.
+ * the user gives), a change to a Role's card, a new value for an Office setting, the CTO's change to
+ * an Initiative, or Devops' change to a Project's commands or a library Pipeline's Stages. Nothing
+ * changes until the user applies it; "Not now" declines it.
  */
 export function ProposalCard({ proposal }: { readonly proposal: Proposal }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
   const options = useQuery(roleCardQueries.options()).data;
   const presets = useQuery(roleCardQueries.presets()).data;
+  const projects = useQuery(projectQueries.list()).data;
+  const pipelines = useQuery(pipelineQueries.list()).data;
   const roleTitles: RoleTitles = new Map(options?.knownRoles.map(({ key, title }) => [key, title]));
   const { change } = proposal;
   switch (change.kind) {
@@ -141,8 +146,39 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
           />
         </ProposalFrame>
       );
+    case "project-commands": {
+      const name = projects?.find(({ id }) => id === change.projectId)?.name ?? change.projectId;
+      return (
+        <ProposalFrame title={`Change ${name}'s commands`}>
+          <ProposedCommandChanges from={change.from} to={change.to} />
+          <AnswerFoot
+            proposal={proposal}
+            changes={[projectQueries.list().queryKey]}
+            appliedToast={`${name}'s commands changed.`}
+            openNote={STALE_NOTE}
+          />
+        </ProposalFrame>
+      );
+    }
+    case "pipeline": {
+      const name = pipelines?.find(({ id }) => id === change.pipelineId)?.name ?? change.pipelineId;
+      return (
+        <ProposalFrame title={`Change the ${name} Pipeline`}>
+          <ProposedStageChanges from={change.from} to={change.to} />
+          <AnswerFoot
+            proposal={proposal}
+            changes={[pipelineQueries.list().queryKey]}
+            appliedToast={`${name} changed. Tasks that haven't started follow it.`}
+            openNote={STALE_NOTE}
+          />
+        </ProposalFrame>
+      );
+    }
   }
 }
+
+/** Devops' Proposals change what the user may edit by hand meanwhile, which refuses them. */
+const STALE_NOTE = "Refused if it changes before you apply this";
 
 function ProposalFrame({
   title,

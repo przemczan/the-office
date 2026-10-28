@@ -8,7 +8,8 @@ import { duplicatePipeline, pipelineQueries } from "../../../api/pipelines.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { LibraryPipelineForm } from "./library-pipeline-form.tsx";
-import { pipelineUseLine, stagesLine } from "./pipeline-use-words.ts";
+import { stagesLine } from "../../../shell/pipelines/pipeline-words.ts";
+import { pipelineUseLine } from "./pipeline-use-words.ts";
 
 /**
  * Settings › Pipelines (prototypes/app/settings.js `pipelinesSection`): the library beside the open

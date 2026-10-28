@@ -3,14 +3,14 @@ import type { Project } from "@the-office/contracts";
 import { Button, Icon, IconButton, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { changeCommand, changeInstallInputs, projectQueries } from "../../api/projects.ts";
-import { useToast } from "../../shell/toasts.tsx";
 import {
   COMMAND_KEYS,
   COMMAND_LABELS,
   INSTALL_INPUTS_LABEL,
-  installInputsFrom,
   installInputsLine,
-} from "./project-labels.ts";
+} from "../../shell/project-words.ts";
+import { useToast } from "../../shell/toasts.tsx";
+import { installInputsFrom } from "./project-labels.ts";
 import { ProjectBlock } from "./project-block.tsx";
 
 const COMMAND_SAVED = "Command saved. Running Tasks keep the one they started with.";

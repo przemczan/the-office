@@ -1,15 +1,17 @@
-import type {
-  DecisionAnswer as DecisionAnswerResponse,
-  Decision as DecisionResponse,
-  Message as MessageResponse,
-  Proposal as ProposalResponse,
-  ProposedChange as ProposedChangeResponse,
-  Thread as ThreadResponse,
+import {
+  stageSchema,
+  type DecisionAnswer as DecisionAnswerResponse,
+  type Decision as DecisionResponse,
+  type Message as MessageResponse,
+  type ProjectCommandFields as ProjectCommandFieldsResponse,
+  type Proposal as ProposalResponse,
+  type ProposedChange as ProposedChangeResponse,
+  type Thread as ThreadResponse,
 } from "@the-office/contracts";
 import type { ContextDecision } from "../../domain/context-policy.js";
 import type { Decision, DecisionAnswer } from "../../domain/decision.js";
 import type { Message } from "../../domain/message.js";
-import type { Proposal, ProposedChange } from "../../domain/proposal.js";
+import type { Proposal, ProposedChange, ProposedProjectCommands } from "../../domain/proposal.js";
 import { tokensSoFar, type Thread } from "../../domain/thread.js";
 
 export function toThreadResponse(thread: Thread, context: ContextDecision): ThreadResponse {
@@ -133,7 +135,31 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
             ? { ...change.edit, taskId: change.edit.taskId ?? null }
             : change.edit,
       };
+    case "project-commands":
+      return {
+        kind: "project-commands",
+        projectId: change.projectId,
+        from: toProjectCommandFieldsResponse(change.from),
+        to: toProjectCommandFieldsResponse(change.to),
+      };
+    case "pipeline":
+      return {
+        kind: "pipeline",
+        pipelineId: change.pipelineId,
+        // Pipelines gave the Stages; Conversations keeps them unread, so they are read here.
+        from: STAGES.parse(change.from),
+        to: STAGES.parse(change.to),
+      };
   }
+}
+
+const STAGES = stageSchema.array();
+
+function toProjectCommandFieldsResponse({
+  installInputs,
+  ...commands
+}: ProposedProjectCommands["from"]): ProjectCommandFieldsResponse {
+  return installInputs ? { ...commands, installInputs: [...installInputs] } : commands;
 }
 
 function decisionOf(

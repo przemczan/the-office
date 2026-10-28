@@ -1,4 +1,4 @@
-import { OFFICE_MANAGER } from "../../people/index.js";
+import { DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
 import { answerWords, type Decision, type DecisionAnswer } from "./decision.js";
 
 /** The parts of a Role card a session's standing instructions come from. */
@@ -71,11 +71,20 @@ export const POST_LINK_CARD_TOOL = "post_link_card";
 /** The Office tool the Office Manager shows the Office status with, which Notifications registers. */
 export const SHOW_OFFICE_STATUS_TOOL = "show_office_status";
 
+/** The Office tool Devops drafts a Proposal of a Project's commands with; named as above. */
+export const PROPOSE_PROJECT_COMMANDS_TOOL = "propose_project_commands";
+
+/** The Office tool Devops drafts a Proposal of a library Pipeline's Stages with, which Pipelines registers. */
+export const PROPOSE_LIBRARY_PIPELINE_TOOL = "propose_library_pipeline";
+
+/** The Office tool Devops reads the Pipeline library with, which Pipelines registers. */
+export const LIST_PIPELINES_TOOL = "list_pipelines";
+
 /**
  * A chat's Office tools for the Role's person: the Office Manager doesn't turn work into Tasks but
  * points to the Planner, so it never creates one; it drafts Roles and Office settings as Proposals
  * the user applies, points the user to whoever is responsible with a Link card, and shows the
- * Office status (ticket 06).
+ * Office status (ticket 06). Anyone else has their Role's own tools besides.
  */
 export function chatOfficeTools(roleKey: string): readonly string[] {
   return roleKey === OFFICE_MANAGER
@@ -86,7 +95,18 @@ export function chatOfficeTools(roleKey: string): readonly string[] {
         POST_LINK_CARD_TOOL,
         SHOW_OFFICE_STATUS_TOOL,
       ]
-    : CHAT_OFFICE_TOOLS;
+    : [...CHAT_OFFICE_TOOLS, ...roleOfficeTools(roleKey)];
+}
+
+/**
+ * The Office tools a Role's person has in their chat and their Stage Threads alike, for what the
+ * Role looks after: Devops reads the Pipeline library and proposes Project commands and library
+ * Pipelines (spec §2.2, §2.3).
+ */
+export function roleOfficeTools(roleKey: string): readonly string[] {
+  return roleKey === DEVOPS
+    ? [LIST_PIPELINES_TOOL, PROPOSE_PROJECT_COMMANDS_TOOL, PROPOSE_LIBRARY_PIPELINE_TOOL]
+    : [];
 }
 
 /**

@@ -7,7 +7,7 @@ import { changeDefaultPipeline, changePublishingMode, projectQueries } from "../
 import { publishingLabel } from "../../shell/project-words.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { ProjectBlock } from "./project-block.tsx";
-import { stagesLine } from "./project-labels.ts";
+import { stagesLine } from "../../shell/pipelines/pipeline-words.ts";
 
 /** The Pipeline a new Task starts from, and how its work is published. */
 export function DefaultPipelineBlock({ project }: { readonly project: Project }): ReactNode {

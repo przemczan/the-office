@@ -7,7 +7,7 @@ import {
   SIZE_THRESHOLD_TOKENS,
 } from "@the-office/contracts";
 import { z } from "zod";
-import { OfficeToolRegistry, type OfficeToolResult } from "../../../engine/index.js";
+import { OfficeToolRegistry } from "../../../engine/index.js";
 import { RoleNotFound, RoleService } from "../../../people/index.js";
 import { ProposalService } from "../../application/proposal-service.js";
 import {
@@ -16,7 +16,7 @@ import {
   type ProposedChange,
   type RoleCardFields,
 } from "../../domain/proposal.js";
-import { ProposalRefused } from "../../domain/proposal-refused.js";
+import { refusedToTheAgent } from "./refused-to-the-agent.js";
 
 const roleCardFieldsSchema = roleCardSchema.omit({ skills: true });
 
@@ -126,16 +126,6 @@ export class ProposalOfficeTools implements OnModuleInit {
       if (error instanceof RoleNotFound) return `The Office has no Role "${roleKey}".`;
       throw error;
     }
-  }
-}
-
-/** Drafts with `draft`, answering the Agent with what it says, or with why it was refused. */
-async function refusedToTheAgent(draft: () => Promise<string>): Promise<OfficeToolResult> {
-  try {
-    return { text: await draft(), isError: false };
-  } catch (error) {
-    if (error instanceof ProposalRefused) return { text: error.message, isError: true };
-    throw error;
   }
 }
 

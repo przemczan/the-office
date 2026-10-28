@@ -41,6 +41,7 @@ describe("list_projects", () => {
         "Admin panel (id admin-panel)",
         "- Base branch: main, read-only in chats at /office/bases/admin-panel",
         "- Commands: install `npm ci`, build `npm run build`, lint `none`, test `npm test`",
+        "- Install inputs: package-lock.json",
         "- Publishing: push and open a pull request",
         "- Default Pipeline: full",
       ].join("\n"),

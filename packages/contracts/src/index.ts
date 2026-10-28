@@ -9,4 +9,5 @@ export * from "./project-filter.js";
 export * from "./projects.js";
 export * from "./record-links.js";
 export * from "./skills.js";
+export * from "./stages.js";
 export * from "./work.js";

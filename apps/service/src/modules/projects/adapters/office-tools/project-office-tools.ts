@@ -51,6 +51,7 @@ function projectRecord(project: Project, checkout: string | undefined): string {
     `${project.name} (id ${project.id})`,
     `- Base branch: ${project.baseBranch}${checkout ? `, read-only in chats at ${checkout}` : ""}`,
     `- Commands: install \`${install || "none"}\`, build \`${build || "none"}\`, lint \`${lint || "none"}\`, test \`${test || "none"}\``,
+    `- Install inputs: ${project.installInputs.length > 0 ? project.installInputs.join(", ") : "none"}`,
     `- Publishing: ${project.publishingMode === "merge" ? `merge into ${project.baseBranch}` : "push and open a pull request"}`,
     `- Default Pipeline: ${project.defaultPipeline}`,
   ].join("\n");

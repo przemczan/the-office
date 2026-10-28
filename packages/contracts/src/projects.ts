@@ -55,6 +55,12 @@ export type Project = z.infer<typeof projectSchema>;
 
 export const projectListSchema = z.array(projectSchema);
 
+/** The commands and install inputs a Proposal changes, each one whole; the rest stay. */
+export const projectCommandFieldsSchema = projectCommandsSchema
+  .partial()
+  .extend({ installInputs: z.array(z.string()).optional() });
+export type ProjectCommandFields = z.infer<typeof projectCommandFieldsSchema>;
+
 /** PUT /projects/:id/commands/:key */
 export const commandChangeSchema = z.object({ commandLine: z.string() });
 export type CommandChange = z.infer<typeof commandChangeSchema>;

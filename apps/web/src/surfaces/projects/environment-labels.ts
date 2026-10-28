@@ -6,7 +6,7 @@ import type {
   ProjectEnvironment,
   WorktreeCheck,
 } from "@the-office/contracts";
-import { COMMAND_LABELS } from "./project-labels.ts";
+import { COMMAND_LABELS } from "../../shell/project-words.ts";
 
 type Tone = "neutral" | "success" | "warning" | "danger" | "info";
 

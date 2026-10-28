@@ -8,7 +8,7 @@ export {
   type HardSwitchKey,
   type HardSwitchValue,
 } from "./domain/hard-switches.js";
-export { CTO, OFFICE_MANAGER } from "./domain/known-roles.js";
+export { CTO, DEVOPS, OFFICE_MANAGER } from "./domain/known-roles.js";
 export type { RoleCard } from "./domain/role-card.js";
 export { RoleNotFound } from "./domain/role-not-found.js";
 export { RoleRefused } from "./domain/role-refused.js";

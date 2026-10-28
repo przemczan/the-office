@@ -1,4 +1,4 @@
-import type { Pipeline, PipelineUse } from "@the-office/contracts";
+import type { PipelineUse } from "@the-office/contracts";
 
 /**
  * Who uses a library Pipeline, as the click-through words it: "Default for Admin panel · 2 not
@@ -13,9 +13,4 @@ export function pipelineUseLine({ defaultFor, notStarted, running }: PipelineUse
       ? "1 running Task keeps the copy it started with"
       : `${running} running Tasks keep the copy they started with`;
   return `Default for ${defaults} · ${upcoming} · ${keeping}`;
-}
-
-/** The Stages in order, as the library's list shows them: "Implement → Tests → Publish". */
-export function stagesLine({ stages }: Pick<Pipeline, "stages">): string {
-  return stages.map(({ name }) => name).join(" → ");
 }

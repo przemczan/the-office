@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from "node:util";
 import type { RoleCard } from "../../people/index.js";
+import type { ProjectCommandFields } from "../../projects/index.js";
 import { ProposalRefused } from "./proposal-refused.js";
 
 /**
@@ -13,6 +14,8 @@ export interface ProposedChanges {
   readonly "office-wide-limit": ProposedSettingChange<"office-wide-limit">;
   readonly "size-threshold": ProposedSettingChange<"size-threshold">;
   readonly initiative: ProposedInitiativeChange;
+  readonly "project-commands": ProposedProjectCommands;
+  readonly pipeline: ProposedPipelineChange;
 }
 
 /** The kinds of change a Proposal can carry. */
@@ -88,6 +91,33 @@ export type InitiativeEdit =
     }
   | { readonly kind: "add-dependency"; readonly taskId: string; readonly blockerId: string }
   | { readonly kind: "remove-dependency"; readonly taskId: string; readonly blockerId: string };
+
+/**
+ * Devops' change to a Project's commands and install inputs (spec §2.3): the fields it rewrites as
+ * the Project had them when drafted (`from`), and as proposed (`to`). Projects refuses to apply it
+ * once one of them changed.
+ */
+export interface ProposedProjectCommands {
+  readonly kind: "project-commands";
+  readonly projectId: string;
+  readonly from: ProjectCommandFields;
+  readonly to: ProjectCommandFields;
+}
+
+/**
+ * Devops' new Stages for a library Pipeline (spec §2.3), and its Stages when drafted (`from`);
+ * Pipelines refuses to apply it once they changed. Conversations keeps the Stages as Pipelines
+ * gave them, without reading them, since Pipelines calls Conversations.
+ */
+export interface ProposedPipelineChange {
+  readonly kind: "pipeline";
+  readonly pipelineId: string;
+  readonly from: readonly PipelineStage[];
+  readonly to: readonly PipelineStage[];
+}
+
+/** A Stage of a Pipeline, as Pipelines' library keeps it; Conversations doesn't read it. */
+export type PipelineStage = object;
 
 /** Open until the user applies it or declines it; nothing changes before they apply it. */
 export type ProposalStatus =

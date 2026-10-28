@@ -82,6 +82,7 @@ export class AppModule {
       taskScreenshots: StageScreenshots,
       taskUsage: TaskTokens,
       taskThreadSessions: ThreadRunner,
+      proposalDrafts: ProposalService,
     });
     return {
       module: AppModule,

@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import { ONBOARD_PIPELINE } from "./built-in-pipelines.js";
 import { stageProblems, type Pipeline, type StageProblem } from "./pipeline.js";
 import { PipelineAdded, PipelineSaved } from "./pipeline-library-events.js";
@@ -58,6 +59,42 @@ export function pipelineEditFlags(
   roles: ReadonlyMap<string, RoleFilling>,
 ): StageProblem[] {
   return staffingProblems(edit.stages, 0, roles);
+}
+
+/**
+ * Every reason a Proposal of the Pipeline's new Stages (`to`) can't be saved on it now: its Stages
+ * changed since the Proposal was drafted (`from`), nothing would change, or the new Stages break a
+ * rule the library editor keeps. Its name and description stay.
+ */
+export function proposedStagesProblems(
+  pipeline: Pipeline,
+  from: readonly Stage[],
+  to: readonly Stage[],
+  otherPipelines: readonly Pipeline[],
+): StageProblem[] {
+  if (!sameStages(pipeline.stages, from)) {
+    return [{ text: `${pipeline.name}'s Stages changed since this was proposed.` }];
+  }
+  if (sameStages(from, to)) {
+    return [
+      { text: "Nothing changes: give the Pipeline's Stages as they should be, all of them." },
+    ];
+  }
+  return pipelineEditProblems(proposedEdit(pipeline, to), otherPipelines);
+}
+
+/** The Pipeline with a Proposal's Stages, under its own name and description. */
+export function proposedEdit(pipeline: Pipeline, stages: readonly Stage[]): PipelineEdit {
+  return { name: pipeline.name, description: pipeline.description, stages };
+}
+
+/** Stages alike as they are kept, where a field left out and one left undefined are the same. */
+function sameStages(one: readonly Stage[], other: readonly Stage[]): boolean {
+  return isDeepStrictEqual(asKept(one), asKept(other));
+}
+
+function asKept(stages: readonly Stage[]): unknown {
+  return JSON.parse(JSON.stringify(stages));
 }
 
 /** A Pipeline made from scratch, which `pipelineEditProblems` allowed. */

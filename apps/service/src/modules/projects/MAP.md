@@ -2,7 +2,7 @@
 
 **Owns:** Projects (`projects`): path, commands, install inputs, publishing mode, default Pipeline; the environment check (`environment_checks`); The Office's own git (`ports/git.ts`, `CommandLineGit`) under per-repository locks; a worktree per Task, the base checkouts, Changes, and the git work of Publish (`TaskWorktrees`).
 
-**Talks to:** checks a default Pipeline through its `KnownPipelines` port, bound to Pipelines' `PipelineLibrary` in [app.module.ts](../../app.module.ts); calls Engine and Skills. Serves Work (`ProjectService`, `TaskWorktrees`), Pipelines (`TaskWorktrees` as `TaskGit`, `TaskCommands` and `TaskPublishing`; `ProjectService` as `ProjectDefaults`, which the library asks before removing a Pipeline) and Conversations (`BaseCheckouts`).
+**Talks to:** checks a default Pipeline through its `KnownPipelines` port, bound to Pipelines' `PipelineLibrary` in [app.module.ts](../../app.module.ts); calls Engine and Skills. Serves Work (`ProjectService`, `TaskWorktrees`), Pipelines (`TaskWorktrees` as `TaskGit`, `TaskCommands` and `TaskPublishing`; `ProjectService` as `ProjectDefaults`, which the library asks before removing a Pipeline) and Conversations (`BaseCheckouts`, and `ProjectService` for Devops' Proposals of commands and install inputs: `proposedCommandsProblems` and `changeCommandsAsProposed`, which refuses a field changed since the draft, judged up front and again as each field's row is held, each field saved with its own event as the Project page saves it).
 
 **Traps:**
 - The module is registered once in `AppModule`, so every git change on a repository goes through the same locks.
@@ -12,7 +12,7 @@
 
 ## Public entry (`index.ts`)
 
-BaseCheckouts, BaseCheckout, ProjectService, TaskWorktrees, SessionWorktree, EnvironmentCheckFinished, EnvironmentCheckProgressed, EnvironmentCheckStarted, ProjectAdded, ProjectCommandChanged, ProjectDefaultPipelineChanged, ProjectEnvironmentChanged, ProjectInstallInputsChanged, ProjectPublishingModeChanged, ProjectUseProjectSkillsChanged, ProjectsModule
+BaseCheckouts, BaseCheckout, ProjectService, TaskWorktrees, SessionWorktree, EnvironmentCheckFinished, EnvironmentCheckProgressed, EnvironmentCheckStarted, ProjectAdded, ProjectCommandChanged, ProjectDefaultPipelineChanged, ProjectEnvironmentChanged, ProjectInstallInputsChanged, ProjectPublishingModeChanged, ProjectUseProjectSkillsChanged, ProjectNotFound, ProjectRefused, proposedCommandFields, ProjectCommandFields, ProjectsModule
 
 ## Domain events
 
@@ -115,8 +115,9 @@ BaseCheckouts, BaseCheckout, ProjectService, TaskWorktrees, SessionWorktree, Env
 - `project-refused.ts`: ProjectRefused
 - `project.fixtures.ts`: aNewProject, aProject
 - `project.ts`: PROJECT_COMMAND_KEYS, ProjectCommandKey, ProjectCommands, PUBLISHING_MODES, PublishingMode, PROJECT_MARK_COLOURS, ProjectMarkColour, ProjectMark, Project, NewProject, trimmedNewProject, newProjectProblems, commandProblem, trimmedInstallInputs, installInputsProblems, projectIdFor
+- `proposed-commands.ts`: ProjectCommandFields, proposedCommandFields, proposedCommandsProblems
 - `publication.ts`: PullRequestText, PublishTarget, RemoteBranch, Publication, pushFailure, baseMovedError, noRemoteError
-- Tests: command-run.test.ts, environment-check-changes.test.ts, project-changes.test.ts, project-environment.test.ts, project.test.ts, publication.test.ts
+- Tests: command-run.test.ts, environment-check-changes.test.ts, project-changes.test.ts, project-environment.test.ts, project.test.ts, proposed-commands.test.ts, publication.test.ts
 
 ### ports/
 
