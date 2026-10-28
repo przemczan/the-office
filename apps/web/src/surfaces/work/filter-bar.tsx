@@ -1,4 +1,4 @@
-import type { Initiative, Priority } from "@the-office/contracts";
+import type { BoardFilters, Initiative, Priority } from "@the-office/contracts";
 import { Button, Icon, Input, Select } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { PRIORITY_ICONS, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
@@ -7,12 +7,15 @@ import {
   hasBoardFilters,
   withBoardFilter,
   withTagToggled,
-  type BoardFilters,
 } from "./board-filters.ts";
+import { SavedViewsRow } from "./saved-views.tsx";
 
 const PRIORITIES: readonly Priority[] = ["high", "normal", "low"];
 
-/** The board's filters (prototypes/app/work.js `filterBar`): search, priority, Initiative, Blocked, Tags. */
+/**
+ * The board's filters (prototypes/app/work.js `filterBar`): search, priority, Initiative, Blocked,
+ * Tags, and the Saved views of them.
+ */
 export function FilterBar({
   filters,
   tags,
@@ -90,6 +93,7 @@ export function FilterBar({
           ))}
         </div>
       )}
+      <SavedViewsRow filters={filters} onChange={onChange} />
     </div>
   );
 }

@@ -299,6 +299,69 @@ test("the board's filters narrow it by search, Tags, priority and Blocked, kept 
   await expect.poll(shown).toEqual(["Filtered manual pages"]);
 });
 
+test("the user saves the board's filters as a view, applies it and removes it", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Viewed work", "VW");
+  for (const [title, priority] of [
+    ["Viewed radio driver", "high"],
+    ["Viewed radio notes", "low"],
+    ["Viewed release checklist", "high"],
+  ] as const) {
+    const response = await page.request.post("/api/tasks", {
+      data: {
+        title,
+        projectId: project.id,
+        priority,
+        tags: title.includes("radio") ? ["vw-radio"] : [],
+      },
+    });
+    expect(response.status()).toBe(201);
+  }
+  const titles = ["Viewed radio driver", "Viewed release checklist", "Viewed radio notes"];
+  const shown = (): Promise<string[]> => titlesIn(page, "Backlog", titles);
+  await page.goto("/work");
+  await expect.poll(shown).toEqual(titles);
+
+  const filters = page.getByRole("search", { name: "Filter the board" });
+  const views = filters.getByRole("group", { name: "Views" });
+  await filters
+    .getByRole("group", { name: "Tags" })
+    .getByRole("button", { name: "vw-radio" })
+    .click();
+  await filters
+    .getByRole("group", { name: "Priority" })
+    .getByRole("button", { name: "High" })
+    .click();
+  await expect.poll(shown).toEqual(["Viewed radio driver"]);
+
+  const name = `Radio work ${Date.now()}`;
+  await views.getByRole("button", { name: "Save view…" }).click();
+  const dialog = page.getByRole("dialog").filter({ hasText: "Save the view" });
+  await dialog.getByLabel("Name").fill(name);
+  await dialog.getByRole("button", { name: "Save view" }).click();
+  await expect(dialog).toBeHidden();
+  const view = views.getByRole("button", { name, exact: true });
+  await expect(view).toHaveAttribute("aria-pressed", "true");
+  await expect(views.getByRole("button", { name: "Save view…" })).toBeHidden();
+
+  await filters.getByRole("button", { name: "Clear" }).click();
+  await expect.poll(shown).toEqual(titles);
+  await expect(view).toHaveAttribute("aria-pressed", "false");
+  await view.click();
+  await expect.poll(shown).toEqual(["Viewed radio driver"]);
+  await expect(view).toHaveAttribute("aria-pressed", "true");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-saved-view.png") });
+
+  await view.click();
+  await expect.poll(shown).toEqual(titles);
+
+  await view.click();
+  await views.getByRole("button", { name: `Remove the view ${name}` }).click();
+  await expect(view).toBeHidden();
+  await expect.poll(shown).toEqual(["Viewed radio driver"]);
+});
+
 test("a Task's page shows its record, takes Attachments of every kind and opens them", async ({
   page,
 }) => {

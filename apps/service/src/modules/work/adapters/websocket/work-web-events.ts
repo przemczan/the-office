@@ -19,6 +19,7 @@ import {
   InitiativeStateChanged,
 } from "../../domain/initiative-events.js";
 import { OfficeWideLimitChanged } from "../../domain/office-limit-events.js";
+import { SavedViewRemoved, SavedViewSaved } from "../../domain/saved-view-events.js";
 import {
   TaskCreated,
   TaskDefinitionOfDoneConfirmed,
@@ -56,6 +57,7 @@ export class WorkWebEvents implements OnModuleInit {
     this.forwardTaskEvents();
     this.forwardPlanningEvents();
     this.forwardAttachmentEvents();
+    this.forwardSavedViewEvents();
     this.forwarding.forward(
       OfficeWideLimitChanged,
       (): WebEventOf<"office-wide-limit.changed"> => ({ type: "office-wide-limit.changed" }),
@@ -206,6 +208,17 @@ export class WorkWebEvents implements OnModuleInit {
         pipelineId: event.pipelineId,
       }),
     );
+  }
+
+  private forwardSavedViewEvents(): void {
+    this.forwarding.forward(SavedViewSaved, (event): WebEventOf<"saved-view.saved"> => ({
+      type: "saved-view.saved",
+      savedViewId: event.savedView.id,
+    }));
+    this.forwarding.forward(SavedViewRemoved, (event): WebEventOf<"saved-view.removed"> => ({
+      type: "saved-view.removed",
+      savedViewId: event.savedViewId,
+    }));
   }
 
   private forwardAttachmentEvents(): void {

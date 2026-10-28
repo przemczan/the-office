@@ -8,6 +8,8 @@ import {
   initiativeSchema,
   officeWideLimitSchema,
   readinessSchema,
+  savedViewListSchema,
+  savedViewSchema,
   startCheckSchema,
   taskListSchema,
   taskSchema,
@@ -18,11 +20,13 @@ import {
   type NewIdea,
   type NewInitiativeTask,
   type NewLink,
+  type NewSavedView,
   type NewTask,
   type OfficeWideLimit,
   type OutcomeChange,
   type Priority,
   type Readiness,
+  type SavedView,
   type StartCheck,
   type Task,
   type TaskPlacement,
@@ -42,6 +46,7 @@ const INITIATIVES = ["initiatives"] as const;
 export const TASKS = ["tasks"] as const;
 const ATTACHMENTS = ["attachments"] as const;
 const OFFICE_WIDE_LIMIT = ["settings", "office-wide-limit"] as const;
+const SAVED_VIEWS = ["saved-views"] as const;
 
 export const ideaQueries = {
   /** Every Idea, the newest captured first. */
@@ -86,6 +91,22 @@ export function changeOfficeWideLimit(officeWideLimit: number): Promise<OfficeWi
     { officeWideLimit },
     officeWideLimitSchema,
   );
+}
+
+/** The board's Saved views, in the order saved. */
+export const savedViewsQuery = () =>
+  queryOptions({
+    queryKey: SAVED_VIEWS,
+    queryFn: ({ signal }) => getFromApi("/saved-views", savedViewListSchema, signal),
+  });
+
+/** Saves the board's filters under a name; refused with the reasons, as for a name taken. */
+export function saveView(newSavedView: NewSavedView): Promise<SavedView> {
+  return sendToApi("POST", "/saved-views", newSavedView, savedViewSchema);
+}
+
+export function removeView(id: string): Promise<void> {
+  return deleteFromApi(`/saved-views/${encodeURIComponent(id)}`);
 }
 
 export const taskQueries = {
@@ -335,6 +356,8 @@ export const workEventInvalidations: Readonly<
   "attachment.added": () => [ATTACHMENTS],
   "attachment.moved": () => [ATTACHMENTS],
   "attachment.removed": () => [ATTACHMENTS],
+  "saved-view.saved": () => [SAVED_VIEWS],
+  "saved-view.removed": () => [SAVED_VIEWS],
   // Each Task's start check reads the limit too.
   "office-wide-limit.changed": () => [OFFICE_WIDE_LIMIT, TASKS],
 };

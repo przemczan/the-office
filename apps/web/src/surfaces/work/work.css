@@ -267,6 +267,50 @@
   color: var(--fg-1);
 }
 
+/* A Saved view: picked by its name, removed by its ×, shown on hover or focus. */
+.board-view-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+}
+
+.board-view-chip button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 100%;
+  padding: 0 6px 0 10px;
+  border: 0;
+  background: transparent;
+  color: var(--fg-2);
+  font: var(--type-caption);
+  cursor: pointer;
+}
+
+.board-view-chip .board-view-remove {
+  padding: 0 8px 0 2px;
+  color: var(--fg-3);
+  opacity: 0;
+}
+
+.board-view-chip:hover .board-view-remove,
+.board-view-chip:focus-within .board-view-remove {
+  opacity: 1;
+}
+
+.board-view-chip[data-on="true"] {
+  border-color: var(--border-strong);
+  background: var(--surface-selected);
+}
+
+.board-view-chip[data-on="true"] button {
+  color: var(--fg-1);
+}
+
 .board-note {
   display: flex;
   align-items: center;

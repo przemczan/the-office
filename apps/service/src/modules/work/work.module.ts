@@ -20,6 +20,7 @@ import {
 import { IdeasController } from "./adapters/http/ideas.controller.js";
 import { InitiativesController } from "./adapters/http/initiatives.controller.js";
 import { OfficeLimitsController } from "./adapters/http/office-limits.controller.js";
+import { SavedViewsController } from "./adapters/http/saved-views.controller.js";
 import { SearchController } from "./adapters/http/search.controller.js";
 import { InitiativeProposals } from "./adapters/conversations/initiative-proposals.js";
 import { MentionedWorkRecords } from "./adapters/conversations/mentioned-work-records.js";
@@ -34,6 +35,7 @@ import { TasksController } from "./adapters/http/tasks.controller.js";
 import { PostgresAttachmentRepository } from "./adapters/postgres/postgres-attachment-repository.js";
 import { PostgresIdeaRepository } from "./adapters/postgres/postgres-idea-repository.js";
 import { PostgresInitiativeRepository } from "./adapters/postgres/postgres-initiative-repository.js";
+import { PostgresSavedViewRepository } from "./adapters/postgres/postgres-saved-view-repository.js";
 import { PostgresTaskRepository } from "./adapters/postgres/postgres-task-repository.js";
 import { PostgresWorkSearch } from "./adapters/postgres/postgres-work-search.js";
 import { PostgresWorkSettings } from "./adapters/postgres/postgres-work-settings.js";
@@ -43,6 +45,7 @@ import { IdeaService } from "./application/idea-service.js";
 import { InitiativeService } from "./application/initiative-service.js";
 import { OfficeLimits } from "./application/office-limits.js";
 import { PlanningService } from "./application/planning-service.js";
+import { SavedViewService } from "./application/saved-view-service.js";
 import { SearchService } from "./application/search-service.js";
 import { StageScreenshots } from "./application/stage-screenshots.js";
 import { StartService } from "./application/start-service.js";
@@ -60,6 +63,7 @@ import { KnownPipelines } from "./ports/known-pipelines.js";
 import { KnownProjects } from "./ports/known-projects.js";
 import { ProjectWorktrees } from "./ports/project-worktrees.js";
 import { ProposalDrafts } from "./ports/proposal-drafts.js";
+import { SavedViewRepository } from "./ports/saved-view-repository.js";
 import { SessionPeople } from "./ports/session-people.js";
 import { SessionInitiatives } from "./ports/session-initiatives.js";
 import { SessionTasks } from "./ports/session-tasks.js";
@@ -124,6 +128,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         AttachmentsController,
         OfficeLimitsController,
         SearchController,
+        SavedViewsController,
       ],
       providers: [
         { provide: IdeaRepository, useClass: PostgresIdeaRepository },
@@ -133,6 +138,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: AttachmentFiles, useClass: FilesystemAttachmentFiles },
         { provide: WorktreeFiles, useClass: FilesystemWorktreeFiles },
         { provide: WorkSearch, useClass: PostgresWorkSearch },
+        { provide: SavedViewRepository, useClass: PostgresSavedViewRepository },
         { provide: WorkSettings, useClass: PostgresWorkSettings },
         { provide: KnownProjects, useExisting: knownProjects },
         { provide: ProjectWorktrees, useExisting: projectWorktrees },
@@ -152,6 +158,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         OfficeLimits,
         AttachmentService,
         SearchService,
+        SavedViewService,
         PlanningService,
         StartService,
         TaskRecords,

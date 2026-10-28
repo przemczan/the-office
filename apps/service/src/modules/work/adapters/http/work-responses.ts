@@ -4,6 +4,7 @@ import type {
   Author as AuthorResponse,
   Idea as IdeaResponse,
   Initiative as InitiativeResponse,
+  SavedView as SavedViewResponse,
   SearchResults as SearchResultsResponse,
   Task as TaskResponse,
 } from "@the-office/contracts";
@@ -13,6 +14,7 @@ import type { Author } from "../../domain/author.js";
 import type { Idea } from "../../domain/idea.js";
 import type { Initiative } from "../../domain/initiative.js";
 import { initiativeProjectIds } from "../../domain/initiative-changes.js";
+import type { SavedView } from "../../domain/saved-view.js";
 import type { Task } from "../../domain/task.js";
 
 export function toIdeaResponse(idea: Idea): IdeaResponse {
@@ -117,4 +119,14 @@ export function toOwnerResponse(owner: AttachmentOwner): AttachmentOwnerResponse
 
 function toAuthorResponse(author: Author): AuthorResponse {
   return author.kind === "user" ? { kind: "user" } : { kind: "person", roleKey: author.roleKey };
+}
+
+export function toSavedViewResponse(savedView: SavedView): SavedViewResponse {
+  const { tags, ...filters } = savedView.filters;
+  return {
+    id: savedView.id,
+    name: savedView.name,
+    filters: { ...filters, ...(tags && { tags: [...tags] }) },
+    savedAt: savedView.savedAt.toISOString(),
+  };
 }

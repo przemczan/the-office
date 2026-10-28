@@ -1,6 +1,6 @@
 # Work: module map
 
-**Owns:** Ideas, Initiatives (shaped from an Idea, confirmed, dropped, done once their Tasks are: `initiative-changes.ts`; the Projects one spans are its Tasks', which name it), Tasks (states, priority, Tags (`task-tags.ts`, set by the user and by the Planner's `write_tags`), manual order, Plan, Definition of Done, the Task's Pipeline id, the Tasks it waits for: `blockedBy`, `task-dependencies.ts`) and Attachments of an Idea, an Initiative or a Task (`ideas`, `initiatives`, `tasks`, `attachments`); Office settings in one row (`work_settings`, the Office-wide limit, which Settings › Office limits changes; the repository answers the default until it is saved); screenshots attached from Stages (`StageScreenshots`); the Office tools for Ideas and Tasks, whose records (`domain/record-words.ts`) are also what a mention in a chat gives the Agent, through Conversations' `WorkRecords` (which also gives a Link card its Task's title); an Initiative's record (`initiativeRecordText`) briefs its shaping Thread through Conversations' `InitiativeThreadSetups` (`ShapingThreadSetup`) and is what a mention gives; the CTO's Office tools there (`ShapingOfficeTools`: its outcome, Tasks and their dependencies, an `InitiativeEdit`) write straight onto it while it is shaping, as the user writes its outcome (`PUT /initiatives/:id/outcome`), and once it is active draft each change as a Proposal the user applies (`InitiativeService.changeByCto`). The full-text search over Tasks, Ideas, Initiatives and document Attachments (`SearchService` over the `WorkSearch` port: `GET /tasks?query=` for the board, `GET /search` for the top bar), each word the start of a word in the record (`domain/search.ts`).
+**Owns:** Ideas, Initiatives (shaped from an Idea, confirmed, dropped, done once their Tasks are: `initiative-changes.ts`; the Projects one spans are its Tasks', which name it), Tasks (states, priority, Tags (`task-tags.ts`, set by the user and by the Planner's `write_tags`), manual order, Plan, Definition of Done, the Task's Pipeline id, the Tasks it waits for: `blockedBy`, `task-dependencies.ts`) and Attachments of an Idea, an Initiative or a Task (`ideas`, `initiatives`, `tasks`, `attachments`); Office settings in one row (`work_settings`, the Office-wide limit, which Settings › Office limits changes; the repository answers the default until it is saved); screenshots attached from Stages (`StageScreenshots`); the Office tools for Ideas and Tasks, whose records (`domain/record-words.ts`) are also what a mention in a chat gives the Agent, through Conversations' `WorkRecords` (which also gives a Link card its Task's title); an Initiative's record (`initiativeRecordText`) briefs its shaping Thread through Conversations' `InitiativeThreadSetups` (`ShapingThreadSetup`) and is what a mention gives; the CTO's Office tools there (`ShapingOfficeTools`: its outcome, Tasks and their dependencies, an `InitiativeEdit`) write straight onto it while it is shaping, as the user writes its outcome (`PUT /initiatives/:id/outcome`), and once it is active draft each change as a Proposal the user applies (`InitiativeService.changeByCto`). The full-text search over Tasks, Ideas, Initiatives and document Attachments (`SearchService` over the `WorkSearch` port: `GET /tasks?query=` for the board, `GET /search` for the top bar), each word the start of a word in the record (`domain/search.ts`). Saved views (`saved_views`, `SavedViewService`, `/saved-views`): the board's filters under a name, unique in any case, kept as `keptBoardFilters` leaves them and never with the Project filter.
 
 **Talks to:** through ports bound in [app.module.ts](../../app.module.ts): `KnownProjects` to `ProjectService`, `ProjectWorktrees` to `TaskWorktrees`, `KnownPeople` to `RoleCards`, `KnownPipelines` to `PipelineLibrary`, `SessionPeople`, `SessionTasks`, `SessionInitiatives` (the Initiative a shaping session writes onto), `TaskThreads`, `InitiativeThreads` (the shaping Thread with the CTO, opened as an Idea is shaped when a CTO is hired, else started by the user: `POST /initiatives/:id/shaping`) and `IdeaCards` (the card `capture_idea` posts in the chat) to `ThreadService`, `TaskDecisions` to `DecisionService`, `ProposalDrafts` (the CTO's Proposals on an active Initiative) to `ProposalService`. Pipelines reacts to its events and moves started Tasks through `TaskService`. Work applies Proposals of the Office-wide limit with `OfficeLimitProposals` (`adapters/conversations/`), which fills Conversations' `ProposalAppliers` as Work starts and judges one by the contracts' rule Settings saves by, and of an Initiative with `InitiativeProposals`, judged as applying judges (`initiativeEditProblems`) and applied under the Initiative's hold; `WorkPortsForTestsModule` provides the registry.
 
@@ -18,6 +18,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `domain/idea-events.ts`: IdeaCaptured, IdeaShaped, IdeaShapedIntoInitiative, IdeaDropped, IdeaRestored
 - `domain/initiative-events.ts`: InitiativeCreated, InitiativeStateChanged, InitiativeOutcomeWritten
 - `domain/office-limit-events.ts`: OfficeWideLimitChanged
+- `domain/saved-view-events.ts`: SavedViewSaved, SavedViewRemoved
 - `domain/task-events.ts`: TaskCreated, TaskStateChanged, TaskPriorityChanged, TaskTagsChanged, TaskReordered, TaskPlanProposed, TaskPlanConfirmed, TaskDefinitionOfDoneProposed, TaskDefinitionOfDoneConfirmed, TaskPipelineProposed, TaskPipelineConfirmed, TaskPaused, TaskStopped, TaskResumed, TaskDependencyAdded, TaskDependencyRemoved, TaskStarted
 
 ## HTTP routes (under `/api`)
@@ -47,6 +48,9 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `POST /initiatives/:id/tasks`: InitiativesController.addTask
 - `GET /settings/office-wide-limit`: OfficeLimitsController.read
 - `PUT /settings/office-wide-limit`: OfficeLimitsController.change
+- `GET /saved-views`: SavedViewsController.list
+- `POST /saved-views`: SavedViewsController.save
+- `DELETE /saved-views/:id`: SavedViewsController.remove
 - `GET /search`: SearchController.everything
 - `POST /tasks`: TasksController.create
 - `GET /tasks`: TasksController.list
@@ -71,6 +75,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 
 ## Tables
 
+- `adapters/postgres/saved-views.schema.ts`: saved_views
 - `adapters/postgres/work-settings.schema.ts`: work_settings
 - `adapters/postgres/work.schema.ts`: ideas, initiatives, tasks, attachments, attachment_texts
 
@@ -101,11 +106,12 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `ideas.controller.ts`: IdeasController
 - `initiatives.controller.ts`: InitiativesController
 - `office-limits.controller.ts`: OfficeLimitsController
+- `saved-views.controller.ts`: SavedViewsController
 - `search.controller.ts`: SearchController
 - `tasks.controller.ts`: TasksController
 - `work-refusals.filter.ts`: WorkRefusalsFilter
-- `work-responses.ts`: toIdeaResponse, toInitiativeResponse, toTaskResponse, toAttachmentResponse, toSearchResultsResponse, toOwnerResponse
-- Tests: attachments.controller.test.ts, ideas.controller.test.ts, initiatives.controller.test.ts, office-limits.controller.test.ts, search.controller.test.ts, tasks.controller.test.ts
+- `work-responses.ts`: toIdeaResponse, toInitiativeResponse, toTaskResponse, toAttachmentResponse, toSearchResultsResponse, toOwnerResponse, toSavedViewResponse
+- Tests: attachments.controller.test.ts, ideas.controller.test.ts, initiatives.controller.test.ts, office-limits.controller.test.ts, saved-views.controller.test.ts, search.controller.test.ts, tasks.controller.test.ts
 
 ### adapters/office-tools/
 
@@ -121,9 +127,11 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `postgres-attachment-repository.ts`: PostgresAttachmentRepository
 - `postgres-idea-repository.ts`: PostgresIdeaRepository
 - `postgres-initiative-repository.ts`: PostgresInitiativeRepository
+- `postgres-saved-view-repository.ts`: PostgresSavedViewRepository
 - `postgres-task-repository.ts`: PostgresTaskRepository
 - `postgres-work-search.ts`: PostgresWorkSearch
 - `postgres-work-settings.ts`: PostgresWorkSettings
+- `saved-views.schema.ts`: savedViews
 - `search-vector.ts`: searchVectorOf
 - `work-rows.ts`: Transaction, IdeaRow, InitiativeRow, TaskRow, AttachmentRow, holdManualOrder, holdStarts, everyTaskHoldingDependencies, changeDependenciesHeld, heldTask, saveTask, takenOrders, toIdeaRow, toIdea, toInitiativeRow, toInitiative, toTaskRow, toTask, ownerColumns, toAttachmentRow, toAttachment
 - `work-settings.schema.ts`: workSettings
@@ -141,6 +149,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `initiative-service.ts`: CtoChange, InitiativeService
 - `office-limits.ts`: OfficeLimits
 - `planning-service.ts`: PlanningService
+- `saved-view-service.ts`: SavedViewService
 - `search-service.ts`: Found, SearchResults, SearchService
 - `stage-screenshots.ts`: ScreenshotsAttaching, StageScreenshots
 - `start-service.ts`: StartService
@@ -173,6 +182,10 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `planning-changes.ts`: proposePlan, confirmPlan, proposeDefinitionOfDone, confirmDefinitionOfDone, proposePipeline, confirmPipeline
 - `planning.ts`: PLANNER, PLANNING_THREAD_TITLE, PLANNING_INSTRUCTIONS, PLANNING_OPENING, PlanningProject, PlanningPipeline, PlanningRecord, planningBrief, confirmationWords
 - `record-words.ts`: taskRecordText, initiativeRecordText, ideaRecordText, whereOf
+- `saved-view-events.ts`: SavedViewSaved, SavedViewRemoved
+- `saved-view-not-found.ts`: SavedViewNotFound
+- `saved-view-refused.ts`: SavedViewRefused
+- `saved-view.ts`: SAVED_VIEW_NAME_LENGTH, BoardFilters, SavedView, NewSavedView, keptBoardFilters, newSavedViewProblems, saveView
 - `search.ts`: MAX_SEARCH_WORDS, SEARCH_RESULT_LIMIT, SEARCHED_TEXT_LIMIT, searchWords, searchedText
 - `shaping.ts`: CTO, SHAPING_THREAD_TITLE, SHAPING_INSTRUCTIONS, SHAPING_OPENING
 - `task-changes.ts`: TaskChange, NewTaskSetting, createTask, changeTaskState, undoPlanningMove, markTaskReady, changeStartedTaskState, pauseTask, stopTask, resumeTask, changePriority, reorderTask
@@ -201,6 +214,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `known-projects.ts`: KnownProject, KnownProjects
 - `project-worktrees.ts`: TaskWorktree, ProjectWorktrees
 - `proposal-drafts.ts`: ProposedInitiativeChange, ProposalDrafts
+- `saved-view-repository.ts`: SavedViewRepository
 - `session-initiatives.ts`: SessionInitiatives
 - `session-people.ts`: SessionPeople
 - `session-tasks.ts`: SessionTasks

@@ -263,6 +263,34 @@ export const searchResultsSchema = z.object({
 });
 export type SearchResults = z.infer<typeof searchResultsSchema>;
 
+/**
+ * What narrows the Work board, each left out when not set. A Saved view holds them; the Project
+ * filter is never one of them, as it follows the top bar.
+ */
+export const boardFiltersSchema = z.object({
+  /** Matched as the search's words are (`searchQuerySchema`). */
+  query: z.string().optional(),
+  priority: prioritySchema.optional(),
+  /** A Task shows only with every one of them. */
+  tags: z.array(z.string()).optional(),
+  initiative: z.uuid().optional(),
+  blocked: z.literal(true).optional(),
+});
+export type BoardFilters = z.infer<typeof boardFiltersSchema>;
+
+/** POST /saved-views: the board's filters, saved under a name. */
+export const newSavedViewSchema = z.object({ name: z.string(), filters: boardFiltersSchema });
+export type NewSavedView = z.infer<typeof newSavedViewSchema>;
+
+export const savedViewSchema = newSavedViewSchema.extend({
+  id: z.uuid(),
+  savedAt: z.iso.datetime(),
+});
+export type SavedView = z.infer<typeof savedViewSchema>;
+
+/** GET /saved-views: every Saved view, in the order saved. */
+export const savedViewListSchema = z.array(savedViewSchema);
+
 /** Settings › Office limits: the most desks the stepper offers (prototypes/app/settings.js). */
 export const OFFICE_WIDE_LIMIT_MAX = 12;
 
@@ -353,6 +381,8 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
     attachmentId: z.uuid(),
     owner: attachmentOwnerSchema,
   }),
+  webEventSchema.extend({ type: z.literal("saved-view.saved"), savedViewId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("saved-view.removed"), savedViewId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("office-wide-limit.changed") }),
 ]);
 export type WorkWebEvent = z.infer<typeof workWebEventSchema>;

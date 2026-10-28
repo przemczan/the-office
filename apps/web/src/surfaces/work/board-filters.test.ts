@@ -4,6 +4,7 @@ import {
   boardFilter,
   boardFiltersOf,
   hasBoardFilters,
+  sameBoardFilters,
   tagsOffered,
   withBoardFilter,
   withoutBoardFilters,
@@ -78,6 +79,26 @@ describe("withBoardFilter, withTagToggled and hasBoardFilters", () => {
     const tagged = withTagToggled(withTagToggled({}, "ble"), "ui");
     expect(tagged).toEqual({ tags: ["ble", "ui"] });
     expect(withTagToggled(withTagToggled(tagged, "ble"), "ui")).toEqual({});
+  });
+});
+
+describe("sameBoardFilters", () => {
+  it("matches the same filters, the Tags in any order and the search's words trimmed", () => {
+    const view = { query: "flash", tags: ["ble", "ui"], blocked: true as const };
+
+    expect(sameBoardFilters(view, { query: " flash", tags: ["ui", "ble"], blocked: true })).toBe(
+      true,
+    );
+    expect(sameBoardFilters({}, {})).toBe(true);
+  });
+
+  it("tells apart filters that narrow the board differently", () => {
+    const view = { priority: "high" as const, tags: ["ble"] };
+
+    expect(sameBoardFilters(view, { priority: "high" })).toBe(false);
+    expect(sameBoardFilters(view, { ...view, tags: ["ble", "ui"] })).toBe(false);
+    expect(sameBoardFilters(view, { ...view, blocked: true })).toBe(false);
+    expect(sameBoardFilters(view, { ...view, initiative: "i" })).toBe(false);
   });
 });
 

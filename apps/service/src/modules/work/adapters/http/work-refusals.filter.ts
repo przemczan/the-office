@@ -7,11 +7,15 @@ import { IdeaNotFound } from "../../domain/idea-not-found.js";
 import { IdeaRefused } from "../../domain/idea-refused.js";
 import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
 import { InitiativeRefused } from "../../domain/initiative-refused.js";
+import { SavedViewNotFound } from "../../domain/saved-view-not-found.js";
+import { SavedViewRefused } from "../../domain/saved-view-refused.js";
 import { TaskNotFound } from "../../domain/task-not-found.js";
 import { TaskRefused } from "../../domain/task-refused.js";
 
-type WorkRefused = IdeaRefused | InitiativeRefused | TaskRefused | AttachmentRefused;
-type WorkNotFound = IdeaNotFound | InitiativeNotFound | TaskNotFound | AttachmentNotFound;
+type WorkRefused =
+  IdeaRefused | InitiativeRefused | TaskRefused | AttachmentRefused | SavedViewRefused;
+type WorkNotFound =
+  IdeaNotFound | InitiativeNotFound | TaskNotFound | AttachmentNotFound | SavedViewNotFound;
 
 /** Answers Work's own refusals as Nest answers its errors, with `message` for the web. */
 @Catch(
@@ -19,10 +23,12 @@ type WorkNotFound = IdeaNotFound | InitiativeNotFound | TaskNotFound | Attachmen
   InitiativeRefused,
   TaskRefused,
   AttachmentRefused,
+  SavedViewRefused,
   IdeaNotFound,
   InitiativeNotFound,
   TaskNotFound,
   AttachmentNotFound,
+  SavedViewNotFound,
 )
 export class WorkRefusalsFilter implements ExceptionFilter<WorkRefused | WorkNotFound> {
   catch(error: WorkRefused | WorkNotFound, host: ArgumentsHost): void {

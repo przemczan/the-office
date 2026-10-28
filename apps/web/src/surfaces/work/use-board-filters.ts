@@ -1,9 +1,9 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import type { Task } from "@the-office/contracts";
+import type { BoardFilters, Task } from "@the-office/contracts";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useMemo } from "react";
 import { taskQueries } from "../../api/work.ts";
-import { boardFilter, withoutBoardFilters, type BoardFilters } from "./board-filters.ts";
+import { boardFilter, withoutBoardFilters } from "./board-filters.ts";
 
 export interface BoardFiltering {
   readonly filters: BoardFilters;

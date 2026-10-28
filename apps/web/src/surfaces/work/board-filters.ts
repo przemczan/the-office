@@ -1,21 +1,11 @@
-import { prioritySchema, type Priority, type Task } from "@the-office/contracts";
+import { prioritySchema, type BoardFilters, type Task } from "@the-office/contracts";
 import { blockingTasksOf } from "./dependency-words.ts";
 import { tagsInUse } from "./tag-words.ts";
 
 /**
- * What narrows the board, as its address keeps it: only the filters set. The search's words are
- * matched by the service (`GET /tasks?query=`), so they mean what ⌘K's do.
+ * The board's filters from its address, leaving out whatever isn't one: only the filters set. The
+ * search's words are matched by the service (`GET /tasks?query=`), so they mean what ⌘K's do.
  */
-export interface BoardFilters {
-  readonly query?: string;
-  readonly priority?: Priority;
-  /** A Task shows only with every one of them. */
-  readonly tags?: readonly string[];
-  readonly initiative?: string;
-  readonly blocked?: true;
-}
-
-/** The board's filters from its address, leaving out whatever isn't one. */
 export function boardFiltersOf(search: Record<string, unknown>): BoardFilters {
   const { query, priority, tags, initiative, blocked } = search;
   const priorityFound = prioritySchema.safeParse(priority);
@@ -46,6 +36,19 @@ export function withoutBoardFilters(search: object): Record<string, unknown> {
 
 export function hasBoardFilters(filters: BoardFilters): boolean {
   return Object.values(filters).some((value) => value !== undefined);
+}
+
+/** Whether both narrow the board alike: the same filters set, the Tags in any order. */
+export function sameBoardFilters(one: BoardFilters, other: BoardFilters): boolean {
+  const tags = new Set(one.tags ?? []);
+  return (
+    (one.query ?? "").trim() === (other.query ?? "").trim() &&
+    one.priority === other.priority &&
+    tags.size === new Set(other.tags ?? []).size &&
+    (other.tags ?? []).every((tag) => tags.has(tag)) &&
+    one.initiative === other.initiative &&
+    one.blocked === other.blocked
+  );
 }
 
 /** The filters with one changed; one emptied is left out, as the address keeps only those set. */
