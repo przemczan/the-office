@@ -73,8 +73,6 @@ test("the user hires the Planner, a Developer, a Reviewer, the CTO and the Offic
   for (const name of ["Jan", "Ada", "Ola", "Bob", "Marta"]) {
     await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
   }
-  // Every preset is filled, so only hiring from scratch is left.
-  await expect(page.getByRole("button", { name: "Hire a Role" })).toHaveCount(0);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-people.png") });
 });
 
@@ -289,6 +287,32 @@ test.describe("dark", () => {
 test("a Role nobody fills has no page", async ({ page }) => {
   await page.goto("/people/devops");
   await expect(page.getByRole("link", { name: "Back to People" })).toBeVisible();
+});
+
+// Hired after the tests above, which read the Developer's switch that consults Devops asking the
+// user while nobody fills the Role.
+test("the user hires Devops from the preset, who installs alone and consults the CTO before publishing outside the Pipeline", async ({
+  page,
+}) => {
+  await hireFromPreset(page, "Devops", "Nina");
+  await expect(page).toHaveURL(/\/people\/devops$/);
+
+  await page.goto("/people/devops/role");
+  await expect(roleCardGroup(page, "Work")).toContainText("2 at once");
+  const capabilities = roleCardGroup(page, "Capabilities").getByRole("listitem");
+  for (const capability of ["Shared memory", "Chat", "Consultant"]) {
+    await expect(capabilities.filter({ hasText: capability })).toHaveClass("on");
+  }
+  const permissions = roleCardGroup(page, "Permissions");
+  await expect(permissions).toContainText("Run installsAllowed");
+  await expect(permissions).toContainText("Publish outside the PipelineConsult CTO");
+  await expect(permissions).toContainText("Change RolesNever");
+  // Bob fills the CTO's Role, so the consult goes to him rather than the user.
+  await expect(permissions).not.toContainText("Asks you until someone is hired");
+
+  // Every preset is filled, so only hiring from scratch is left.
+  await page.goto("/people");
+  await expect(page.getByRole("button", { name: "Hire a Role" })).toHaveCount(0);
 });
 
 /** The chat open over the page. */

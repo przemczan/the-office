@@ -1,5 +1,5 @@
-import { ASK_ME, consult, NEVER } from "./hard-switches.js";
-import { CTO, OFFICE_MANAGER } from "./known-roles.js";
+import { ALLOWED, ASK_ME, consult, NEVER } from "./hard-switches.js";
+import { CTO, DEVOPS, OFFICE_MANAGER } from "./known-roles.js";
 import type { RoleCard } from "./role-card.js";
 
 /**
@@ -127,6 +127,35 @@ const cto: Preset = {
   },
 };
 
+const devops: Preset = {
+  roleKey: DEVOPS,
+  suggestedName: "Nina",
+  card: {
+    title: "Devops",
+    responsibilities:
+      "Onboards Projects onto the workstation and repairs them: toolchains, build and test commands, caches. Owns the Pipeline library and each Project's commands by Proposal.",
+    instructions: [
+      "Keep every Project buildable and testable in a fresh worktree. Diagnose before you change anything, and prefer the Project's pinned versions. Change a Pipeline or a Project's commands only by a Proposal the user applies; never apply one yourself.",
+      "Decide alone: running builds and diagnostics, installing what a Project needs on the workstation, cleaning caches.",
+      "Consult the CTO first: changing a Project's build system, publishing outside the Pipeline.",
+      "Ask the user: changing a Pipeline or a Project's commands, through a Proposal.",
+    ].join("\n\n"),
+    engine: "agent-sdk",
+    model: "claude-sonnet-5-5",
+    effort: "high",
+    capabilities: { sharedMemory: true, chat: true, consultant: true },
+    // Onboarding makes a Project build and test in its worktree, so Devops edits and runs there.
+    permissionProfile: { edit: true, run: "anything", web: true },
+    hardSwitches: {
+      runInstalls: ALLOWED,
+      publishOutsideThePipeline: consult(CTO),
+      changeRoles: NEVER,
+    },
+    taskLimit: 2,
+    sessionDefault: "context-policy",
+  },
+};
+
 const officeManager: Preset = {
   roleKey: OFFICE_MANAGER,
   suggestedName: "Marta",
@@ -156,8 +185,15 @@ const officeManager: Preset = {
   },
 };
 
-/** The presets built so far; Devops' comes with its task. */
-export const PRESETS: readonly Preset[] = [planner, developer, reviewer, cto, officeManager];
+/** Spec §2.2's presets, one per known Role. */
+export const PRESETS: readonly Preset[] = [
+  planner,
+  developer,
+  reviewer,
+  cto,
+  devops,
+  officeManager,
+];
 
 export function presetFor(roleKey: string): Preset | undefined {
   return PRESETS.find((preset) => preset.roleKey === roleKey);

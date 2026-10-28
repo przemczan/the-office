@@ -114,7 +114,7 @@ function editOf({ card }: Role): RoleCard {
 }
 
 describe("GET /api/presets", () => {
-  it("lists the Planner, the Developer, the Reviewer, the CTO and the Office Manager with their cards", async () => {
+  it("lists the Planner, the Developer, the Reviewer, the CTO, Devops and the Office Manager with their cards", async () => {
     const presets = presetListSchema.parse(await get("/presets"));
 
     expect(presets.map(({ roleKey, suggestedName }) => ({ roleKey, suggestedName }))).toEqual([
@@ -122,6 +122,7 @@ describe("GET /api/presets", () => {
       { roleKey: "developer", suggestedName: "Ada" },
       { roleKey: "reviewer", suggestedName: "Ola" },
       { roleKey: "cto", suggestedName: "Bob" },
+      { roleKey: "devops", suggestedName: "Nina" },
       { roleKey: "office-manager", suggestedName: "Marta" },
     ]);
     expect(presets[1]?.card).toMatchObject({ title: "Developer", taskLimit: 3 });

@@ -35,8 +35,8 @@ describe("hire", () => {
   });
 
   it("refuses a Role with no preset", () => {
-    expect(() => hire("devops", "Dana", undefined, at)).toThrow(
-      new RoleRefused(['There is no preset to hire a "devops" from.']),
+    expect(() => hire("designer", "Dana", undefined, at)).toThrow(
+      new RoleRefused(['There is no preset to hire a "designer" from.']),
     );
   });
 });

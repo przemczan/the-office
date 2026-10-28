@@ -4,6 +4,9 @@ export const OFFICE_MANAGER = "office-manager";
 /** Who shapes Initiatives and is asked first when a Task's work fails (spec §2.2, §2.3). */
 export const CTO = "cto";
 
+/** Who onboards and repairs Projects and owns the Pipeline library (spec §2.2). */
+export const DEVOPS = "devops";
+
 /**
  * The Roles of spec §2.2's presets, by the key a Role keeps once hired, with their preset titles.
  * Pipelines and Consult values name a Role by its key, also before anyone fills it, so tier 2's
@@ -14,6 +17,6 @@ export const KNOWN_ROLES: ReadonlyMap<string, string> = new Map([
   ["developer", "Developer"],
   ["reviewer", "Reviewer"],
   [CTO, "CTO"],
-  ["devops", "Devops"],
+  [DEVOPS, "Devops"],
   [OFFICE_MANAGER, "Office Manager"],
 ]);

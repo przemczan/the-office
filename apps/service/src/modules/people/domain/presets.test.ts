@@ -1,15 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { ASK_ME, consult, NEVER } from "./hard-switches.js";
+import { ALLOWED, ASK_ME, consult, NEVER } from "./hard-switches.js";
 import { PRESETS, presetFor } from "./presets.js";
 import { roleCardProblems } from "./role-card.js";
 
 describe("PRESETS", () => {
-  it("are the Planner, Developer, Reviewer, CTO and Office Manager", () => {
+  it("are the Planner, Developer, Reviewer, CTO, Devops and Office Manager", () => {
     expect(PRESETS.map((preset) => preset.roleKey)).toEqual([
       "planner",
       "developer",
       "reviewer",
       "cto",
+      "devops",
       "office-manager",
     ]);
   });
@@ -20,6 +21,7 @@ describe("PRESETS", () => {
     ["developer", { sharedMemory: false, chat: false, consultant: false }, 3],
     ["reviewer", { sharedMemory: false, chat: false, consultant: false }, 3],
     ["cto", { sharedMemory: true, chat: true, consultant: true }, 2],
+    ["devops", { sharedMemory: true, chat: true, consultant: true }, 2],
     ["office-manager", { sharedMemory: true, chat: true, consultant: false }, "none"],
   ])(
     "give the %s the capabilities %o and a Task limit of %s",
@@ -34,6 +36,7 @@ describe("PRESETS", () => {
     ["developer", { runInstalls: consult("devops"), publishOutsideThePipeline: consult("cto") }],
     ["reviewer", { runInstalls: consult("devops"), publishOutsideThePipeline: NEVER }],
     ["cto", { runInstalls: consult("devops"), publishOutsideThePipeline: ASK_ME }],
+    ["devops", { runInstalls: ALLOWED, publishOutsideThePipeline: consult("cto") }],
   ])("give the %s the Hard switches %o, and Change Roles Never", (roleKey, switches) => {
     expect(presetFor(roleKey)?.card.hardSwitches).toEqual({ ...switches, changeRoles: NEVER });
   });
@@ -52,6 +55,7 @@ describe("PRESETS", () => {
     ["office-manager", { edit: false, run: "read-only-git", web: true }],
     ["developer", { edit: true, run: "anything", web: true }],
     ["cto", { edit: true, run: "anything", web: true }],
+    ["devops", { edit: true, run: "anything", web: true }],
     ["reviewer", { edit: false, run: "project-commands", web: true }],
   ])("give the %s the permission profile %o", (roleKey, permissionProfile) => {
     expect(presetFor(roleKey)?.card.permissionProfile).toEqual(permissionProfile);

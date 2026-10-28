@@ -8,7 +8,7 @@ The user can hire Devops, who onboards new Projects and looks after the Pipeline
 
 ## Definition of Done
 
-- [ ] The Devops preset: hired from its preset with Memory, Chat and Consultant on, Task limit 2, Hard switches Allowed / Consult CTO / Never (no CTO hired: the user). Check: a service test of the preset; Playwright hiring one.
+- [x] The Devops preset: hired from its preset with Memory, Chat and Consultant on, Task limit 2, Hard switches Allowed / Consult CTO / Never (no CTO hired: the user). Check: a service test of the preset; Playwright hiring one.
 - [ ] The Pipeline library: stored by The Office, the built-ins (Full, Quick fix, Document, Onboard, Proof of concept) seeded once; the user makes a Pipeline from scratch or by duplicating one, edits its name, description and Stages in the shared Stage editor with its flags, and removes one (refused while a Project's default or a not-started Task uses it, and always for Onboard). Saving changes Tasks that haven't started; running ones keep their copy. Check: a service test of the rules and routes; Playwright making, editing and removing one.
 - [ ] The proof-of-concept target: a Publish Stage publishes by the Project's publishing mode or pushes the branch only; the Proof of concept Pipeline does the latter, and Changes still shows what was pushed. Check: a service test against a real git repository with a bare remote.
 - [ ] Devops' Proposals: from a chat or a Stage Thread, Devops proposes a Project's commands and install inputs, or a library Pipeline's Stages; the card shows now and proposed and applies with a click; a stale one is refused. The user still edits commands on the Project page. Check: a service test through the scripted engine; Playwright applying each.
@@ -25,7 +25,7 @@ Leave out: Stage templates (tier 3, spec 2.3's Defaults); the click-through's on
 
 ## Steps
 
-- [ ] 1. The Devops preset: the preset (responsibilities, instructions, Hard switches, authority), lifting "Devops' comes with its task". Commit.
+- [x] 1. The Devops preset: the preset (responsibilities, instructions, Hard switches, authority), lifting "Devops' comes with its task". Commit.
   Read: `presets.ts` (the CTO's, as the latest), `known-roles.ts`; spec 2.2's capabilities table and spec 6's Hard switch table; the CTO hire e2e in `people.e2e.ts`.
 - [ ] 2. The library, the service side: a `pipelines` table seeded by its migration with the built-ins (Onboard and Proof of concept added, Proof of concept's Publish as in step 3); `PipelineLibrary` reading it; `POST /pipelines` (new, or a copy of one), `PUT /pipelines/:id` (name, description, Stages, checked as the Stage editor checks), `DELETE /pipelines/:id` with its refusals (a port asking Projects and Work who uses it); events and their WebSocket names. Commit.
   Read: `pipeline-library.ts`, `pipeline.ts`, `stage.ts`, `TaskStagesController.check` (the Role checks); Projects' `KnownPipelines`; Work's not-started Tasks by Pipeline.
@@ -46,7 +46,7 @@ Leave out: Stage templates (tier 3, spec 2.3's Defaults); the click-through's on
 
 ## State
 
-- Nothing built yet. Next is step 1, the Devops preset.
+- Built: the Devops preset (`people/domain/presets.ts`, key `DEVOPS` in `known-roles.ts`): Nina, Sonnet 5.5 high as the click-through has her, Memory, Chat and Consultant on, Task limit 2, edits and runs anything in the worktree with web, Run installs Allowed, Publish outside the Pipeline Consult CTO, Change Roles Never. `people.e2e.ts` hires her right after "a Role nobody fills has no page", so the earlier tests still see the Developer's Consult Devops asking the user. Next is step 2, the library's service side.
 - Decided with the user (2026-10-28), in spec 2.1's and 2.3's Defaults: onboarding is a chat where Devops drafts the Project, then an Onboard Task; direct edits of commands stay beside Devops' Proposals; the proof-of-concept target pushes the branch only, with no pull request; the library editor makes, duplicates, edits and removes Pipelines, and Devops proposes Pipeline changes; Stage templates wait for tier 3. The glossary's Pipeline library and Onboarding.
 - Decided here: the built-ins are seeded into the library once and then edited like any; Onboard can't be removed. The Onboard Task is made Ready and waits for the user's Start. Its Verify Stage with no Test command fails like any Script Stage and goes back to Onboard, where Devops proposes one. The onboarding state comes from the Onboard Task alone. Work applies the Project Proposal (it already calls Projects), so Projects never imports Work.
 - Traps: `ProjectService.add` checks the repository and base branch but not the environment, so a Project that doesn't build yet can still be added. A Script Stage reads the Project's commands when it runs, so a commands Proposal applied mid-Task counts at the next Verify. Proposal tools are given per Role in `chatOfficeTools`; Stage Threads choose theirs elsewhere.
@@ -54,3 +54,4 @@ Leave out: Stage templates (tier 3, spec 2.3's Defaults); the click-through's on
 ## Progress
 
 - 2026-10-28 · task file: sliced into nine steps with the user's answers on onboarding, commands, the proof-of-concept target and the library editor; step 1, the Devops preset, is next.
+- 2026-10-28 · step 1: the Devops preset (Nina; Allowed / Consult CTO / Never; Memory, Chat, Consultant on; Task limit 2), its service tests and the Playwright hire; step 2, the library's service side, is next.
