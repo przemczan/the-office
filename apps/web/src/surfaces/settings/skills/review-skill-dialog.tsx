@@ -6,7 +6,7 @@ import { changeSkillState, removeSkill, skillQueries } from "../../../api/skills
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
 import { useSkillSaved } from "./skill-fields.tsx";
-import { SOURCE_LABELS } from "./skill-labels.ts";
+import { skillSourceLabel, skillVersionLabel } from "./skill-labels.ts";
 import type { SkillDialog } from "./skills-section.tsx";
 
 /**
@@ -64,7 +64,7 @@ export function ReviewSkillDialog({
           >
             Remove it
           </Button>
-          {skill && (
+          {skill && skill.source !== "installed" && (
             <Button
               variant="ghost"
               onClick={() =>
@@ -106,7 +106,7 @@ function Review({ review }: { readonly review: SkillReview }): ReactNode {
       <p className="skill-review-summary">
         {skill.description}{" "}
         <span>
-          · {SOURCE_LABELS[skill.source]} · v{skill.version}
+          · {skillSourceLabel(skill)} · {skillVersionLabel(skill)}
         </span>
       </p>
       {warnings.length > 0 && (

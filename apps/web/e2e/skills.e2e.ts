@@ -102,6 +102,7 @@ test("editing a written skill makes its next version, waiting for review", async
 test("the user uploads a .md and a zipped folder; each arrives off", async ({ page }) => {
   await openAddASkill(page);
   const dialog = page.getByRole("dialog");
+  await dialog.getByRole("tab", { name: "Upload" }).click();
   await dialog.getByLabel("A single .md file or a zipped folder").setInputFiles({
     name: "tdd.md",
     mimeType: "text/markdown",
@@ -111,6 +112,7 @@ test("the user uploads a .md and a zipped folder; each arrives off", async ({ pa
   await expect(page.getByText("tdd uploaded. It is off until you review it.")).toBeVisible();
 
   await page.getByRole("button", { name: "Add a skill" }).click();
+  await dialog.getByRole("tab", { name: "Upload" }).click();
   await dialog.getByLabel("A single .md file or a zipped folder").setInputFiles({
     name: "collect.zip",
     mimeType: "application/zip",
@@ -139,6 +141,7 @@ test("the user uploads a .md and a zipped folder; each arrives off", async ({ pa
 test("a zip holding a link is refused with the reason", async ({ page }) => {
   await openAddASkill(page);
   const dialog = page.getByRole("dialog");
+  await dialog.getByRole("tab", { name: "Upload" }).click();
   await dialog.getByLabel("A single .md file or a zipped folder").setInputFiles({
     name: "secrets.zip",
     mimeType: "application/zip",

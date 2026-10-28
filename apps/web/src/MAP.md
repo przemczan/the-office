@@ -30,7 +30,7 @@
 
 ### shell/
 
-- `ask-devops.tsx`: AskDevopsButton, useDevops
+- `ask-devops.tsx`: AskDevopsButton, useDevops, useAskDevops
 - `brand-tone.ts`: useBrandTone
 - `copy-record-link.ts`: useCopyRecordLink
 - `desk.tsx`: Desk, PanelHeadingProps, Panel, PanelHeading, Feed
@@ -69,7 +69,7 @@
 
 ### shell/chat/
 
-- `ask-in-chat.tsx`: AskInChatButton
+- `ask-in-chat.tsx`: AskInChat, useAskInChat, AskInChatButton
 - `chat-modal.tsx`: ChatModal
 - `use-chat.ts`: ChatControls, useChat
 

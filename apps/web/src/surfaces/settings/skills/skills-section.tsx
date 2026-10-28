@@ -12,7 +12,8 @@ import { ReviewSkillDialog } from "./review-skill-dialog.tsx";
 import {
   holdersLabel,
   inReviewOrder,
-  SOURCE_LABELS,
+  skillSourceLabel,
+  skillVersionLabel,
   STATE_BADGES,
   waitingLine,
 } from "./skill-labels.ts";
@@ -77,7 +78,7 @@ export function SkillsSection(): ReactNode {
           rows={library}
           columns={columns(setDialog, roles.data ?? [])}
           loading={skills.isPending}
-          empty="The library is empty. Add a skill by uploading it or writing it here."
+          empty="The library is empty. Add a skill: install it from a source, upload it or write it here."
         />
       </Card>
       {dialog?.kind === "add" && <AddSkillDialog onClose={close} onOpen={setDialog} />}
@@ -116,8 +117,8 @@ function columns(
       header: "Source",
       render: (skill) => (
         <>
-          <div className="skill-source">{SOURCE_LABELS[skill.source]}</div>
-          <div className="skill-version">v{skill.version}</div>
+          <div className="skill-source">{skillSourceLabel(skill)}</div>
+          <div className="skill-version">{skillVersionLabel(skill)}</div>
         </>
       ),
     },

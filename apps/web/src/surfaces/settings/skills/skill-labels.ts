@@ -1,12 +1,27 @@
 import type { Role, Skill, SkillSource, SkillState } from "@the-office/contracts";
 import type { BadgeProps } from "@the-office/ui";
+import { pinnedVersionLabel, sourceLabel } from "../../../shell/skill-words.ts";
 
-export const SOURCE_LABELS: Readonly<Record<SkillSource, string>> = {
+const SOURCE_LABELS: Readonly<Record<SkillSource, string>> = {
   written: "Written in The Office",
   "uploaded-file": "Uploaded · one file",
   "uploaded-folder": "Uploaded · folder",
   installed: "Installed from a source",
 };
+
+/** How the skill came into the library: an installed one names its Source. */
+export function skillSourceLabel(skill: Skill): string {
+  return skill.installedFrom
+    ? `Installed from ${sourceLabel(skill.installedFrom)}`
+    : SOURCE_LABELS[skill.source];
+}
+
+/** The skill's version, and the pinned version an installed one is held at. */
+export function skillVersionLabel(skill: Skill): string {
+  return skill.installedFrom
+    ? `v${skill.version} · pinned at ${pinnedVersionLabel(skill.installedFrom.pinnedVersion)}`
+    : `v${skill.version}`;
+}
 
 export const STATE_BADGES: Readonly<
   Record<SkillState, { readonly label: string; readonly tone: NonNullable<BadgeProps["tone"]> }>

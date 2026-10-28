@@ -21,6 +21,7 @@ import {
   type TaskLimit,
 } from "@the-office/contracts";
 import { queryOfficeDatabase } from "./office-database.ts";
+import { createSkillSource } from "./skill-source.ts";
 import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
@@ -289,6 +290,18 @@ test.describe("dark", () => {
 test("a Role nobody fills has no page", async ({ page }) => {
   await page.goto("/people/devops");
   await expect(page.getByRole("link", { name: "Back to People" })).toBeVisible();
+});
+
+test("with nobody in Devops' Role, installing a skill from a source says it needs one", async ({
+  page,
+}) => {
+  await page.goto("/settings/skills");
+  await page.getByRole("button", { name: "Add a skill" }).click();
+  const dialog = page.getByRole("dialog");
+
+  await expect(dialog).toContainText("Installing needs someone with the Devops Role");
+  await expect(dialog.getByRole("link", { name: "Hire one on the People page." })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /to install it$/ })).toHaveCount(0);
 });
 
 // Hired after the tests above, which read the Developer's switch that consults Devops asking the
@@ -1709,6 +1722,72 @@ test("the user asks Nina to onboard a Project, applies her Proposal and finds it
     await expect(page.locator(".task-page")).toContainText("Onboard");
   } finally {
     await repository.remove();
+  }
+});
+
+test("the user asks Nina to install a skill from a source, applies her Proposal and reviews the skill, off until then", async ({
+  page,
+}) => {
+  const name = `installed-notes-${Date.now()}`;
+  const description = "Writes release notes from a source.";
+  const source = await createSkillSource(name, description);
+  try {
+    const nina = chatWith(page, "Nina");
+    const sourceText = `${source.url} · ${source.folder}`;
+
+    await page.goto("/settings/skills");
+    await page.getByRole("button", { name: "Add a skill" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Source").fill(source.url);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-skills-install.png") });
+    await dialog.getByRole("button", { name: "Ask Nina to install it" }).click();
+    await expect(nina.getByLabel("Message")).toHaveValue(
+      `Can you install the skills from ${source.url}?`,
+    );
+    const threadId = new URL(page.url()).searchParams.get("thread") ?? "";
+    await seedProposal(
+      threadId,
+      {
+        kind: "skill-install",
+        repository: source.url,
+        folder: source.folder,
+        pinnedVersion: { tag: source.tag, commit: source.commit },
+        name,
+        description,
+        files: Object.keys(source.files),
+        filesHash: source.filesHash,
+      },
+      "devops",
+    );
+    await page.goto(`/settings/skills?chat=devops&thread=${threadId}`);
+
+    const card = nina.getByRole("region", { name: `Proposal: Install ${name}` });
+    await expect(card).toContainText(sourceText);
+    await expect(card).toContainText(source.tag);
+    await expect(card).toContainText("template.md");
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-skill-install-proposal.png"),
+    });
+    await card.getByRole("button", { name: "Apply change" }).click();
+    await expect(card).toContainText("Applied");
+    await expect(page.getByText(`${name} installed. It is off until you review it.`)).toBeVisible();
+
+    await page.goto("/settings/skills");
+    const skillRow = page.getByRole("row").filter({ hasText: name });
+    await expect(skillRow).toContainText(`Installed from ${sourceText}`);
+    await expect(skillRow).toContainText(`v1 · pinned at ${source.tag}`);
+    await expect(skillRow).toContainText("Off · waiting for your review");
+    await skillRow.getByRole("button", { name: "Review" }).click();
+    const review = page.getByRole("dialog");
+    await expect(review).toContainText(
+      `Installed from ${sourceText} · v1 · pinned at ${source.tag}`,
+    );
+    await expect(review).toContainText("template.md");
+    // An installed skill changes by an update Proposal, not by hand.
+    await expect(review.getByRole("button", { name: "Upload a new version" })).toHaveCount(0);
+    await expect(review.getByRole("button", { name: "Edit" })).toHaveCount(0);
+  } finally {
+    await source.remove();
   }
 });
 
