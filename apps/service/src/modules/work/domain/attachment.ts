@@ -1,11 +1,15 @@
 import type { Author } from "./author.js";
 
-/** What an Attachment is attached to; an Initiative comes with tier 2. */
+/** What an Attachment is attached to. */
 export type AttachmentOwner =
   | { readonly kind: "idea"; readonly ideaId: string }
+  | { readonly kind: "initiative"; readonly initiativeId: string }
   | { readonly kind: "task"; readonly taskId: string };
 
-/** Anything attached to an Idea or a Task: a document, an image, a file or a link (spec §2.1). */
+/**
+ * Anything attached to an Idea, an Initiative or a Task: a document, an image, a file or a link
+ * (spec §2.1).
+ */
 export type Attachment = AttachmentFields & (Link | StoredFile);
 
 export type AttachmentKind = Attachment["kind"];

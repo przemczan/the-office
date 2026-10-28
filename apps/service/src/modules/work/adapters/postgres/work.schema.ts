@@ -15,9 +15,10 @@ import {
 import type { AttachmentKind } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
 import type { IdeaState } from "../../domain/idea.js";
+import type { InitiativeState } from "../../domain/initiative.js";
 import type { Priority, ProposedPipeline, TaskState } from "../../domain/task.js";
 
-// The three tables are in one file because Ideas and Tasks name each other.
+// The tables are in one file because Ideas, Initiatives and Tasks name each other.
 
 export const ideas = pgTable("ideas", {
   id: uuid("id").primaryKey(),
@@ -27,9 +28,23 @@ export const ideas = pgTable("ideas", {
   projectId: text("project_id"),
   state: text("state").$type<IdeaState>().notNull(),
   taskId: uuid("task_id").references((): AnyPgColumn => tasks.id),
+  initiativeId: uuid("initiative_id").references((): AnyPgColumn => initiatives.id),
   capturedBy: jsonb("captured_by").$type<Author>().notNull(),
   capturedAt: timestamp("captured_at", { withTimezone: true }).notNull(),
   droppedAt: timestamp("dropped_at", { withTimezone: true }),
+});
+
+/** Its Tasks name it; the Projects it spans are theirs. */
+export const initiatives = pgTable("initiatives", {
+  id: uuid("id").primaryKey(),
+  name: text("name").notNull(),
+  outcome: text("outcome").notNull(),
+  state: text("state").$type<InitiativeState>().notNull(),
+  originIdeaId: uuid("origin_idea_id")
+    .notNull()
+    .references((): AnyPgColumn => ideas.id),
+  createdBy: jsonb("created_by").$type<Author>().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 });
 
 export const tasks = pgTable(
@@ -60,18 +75,26 @@ export const tasks = pgTable(
       .notNull()
       .default(sql`'{}'`),
     originIdeaId: uuid("origin_idea_id").references((): AnyPgColumn => ideas.id),
+    initiativeId: uuid("initiative_id").references((): AnyPgColumn => initiatives.id),
     createdBy: jsonb("created_by").$type<Author>().notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
   },
-  (table) => [uniqueIndex("tasks_order_key").on(table.order)],
+  (table) => [
+    uniqueIndex("tasks_order_key").on(table.order),
+    index("tasks_initiative").on(table.initiativeId),
+  ],
 );
 
-/** Each Attachment belongs to one Idea or one Task; a link has a URL, a file a media type and size. */
+/**
+ * Each Attachment belongs to one Idea, Initiative or Task; a link has a URL, a file a media type
+ * and size.
+ */
 export const attachments = pgTable(
   "attachments",
   {
     id: uuid("id").primaryKey(),
     ideaId: uuid("idea_id").references(() => ideas.id),
+    initiativeId: uuid("initiative_id").references(() => initiatives.id),
     taskId: uuid("task_id").references(() => tasks.id),
     kind: text("kind").$type<AttachmentKind>().notNull(),
     name: text("name").notNull(),
@@ -83,8 +106,12 @@ export const attachments = pgTable(
   },
   (table) => [
     index("attachments_idea").on(table.ideaId),
+    index("attachments_initiative").on(table.initiativeId),
     index("attachments_task").on(table.taskId),
-    check("attachments_one_owner", sql`num_nonnulls(${table.ideaId}, ${table.taskId}) = 1`),
+    check(
+      "attachments_one_owner",
+      sql`num_nonnulls(${table.ideaId}, ${table.initiativeId}, ${table.taskId}) = 1`,
+    ),
     check(
       "attachments_link_or_file",
       sql`case when ${table.kind} = 'link'

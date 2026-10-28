@@ -82,6 +82,7 @@ export const notificationKindSchema = z.enum([
   "outcomes.task-done",
   "outcomes.task-failed",
   "outcomes.task-paused",
+  "outcomes.initiative-done",
   "office.window-nearly-used",
   "office.window-reset",
   "office.service-down",
@@ -97,6 +98,7 @@ export const pointerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("decision"), decisionId: z.uuid(), taskId: z.uuid() }),
   z.object({ kind: z.literal("gate"), taskId: z.uuid(), stageKey: z.string().min(1) }),
   z.object({ kind: z.literal("task"), taskId: z.uuid() }),
+  z.object({ kind: z.literal("initiative"), initiativeId: z.uuid() }),
   /** The Office's own state, on Now and the status strip. */
   z.object({ kind: z.literal("office") }),
 ]);
@@ -123,6 +125,7 @@ export const activitySchema = z.object({
   page: z.discriminatedUnion("kind", [
     z.object({ kind: z.literal("now") }),
     z.object({ kind: z.literal("task"), taskId: z.uuid() }),
+    z.object({ kind: z.literal("initiative"), initiativeId: z.uuid() }),
     z.object({ kind: z.literal("elsewhere") }),
   ]),
 });

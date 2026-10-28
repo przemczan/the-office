@@ -10,6 +10,7 @@ export const NOTIFICATION_KINDS = [
   "outcomes.task-done",
   "outcomes.task-failed",
   "outcomes.task-paused",
+  "outcomes.initiative-done",
   "office.window-nearly-used",
   "office.window-reset",
   "office.service-down",

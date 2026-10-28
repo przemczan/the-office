@@ -32,6 +32,7 @@ import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 /** The routes the upload body is read on; WorkModule applies `uploadBody` to them. */
 export const ATTACHMENT_UPLOAD_ROUTES = [
   "ideas/:id/attachments/files",
+  "initiatives/:id/attachments/files",
   "tasks/:id/attachments/files",
 ] as const;
 
@@ -45,6 +46,11 @@ export class AttachmentsController {
     return this.listOf({ kind: "idea", ideaId: id });
   }
 
+  @Get("initiatives/:id/attachments")
+  async listOfInitiative(@Param("id", ParseUUIDPipe) id: string): Promise<AttachmentResponse[]> {
+    return this.listOf({ kind: "initiative", initiativeId: id });
+  }
+
   @Get("tasks/:id/attachments")
   async listOfTask(@Param("id", ParseUUIDPipe) id: string): Promise<AttachmentResponse[]> {
     return this.listOf({ kind: "task", taskId: id });
@@ -56,6 +62,14 @@ export class AttachmentsController {
     @Body(new ContractPipe(newLinkSchema)) link: NewLink,
   ): Promise<AttachmentResponse> {
     return this.addLink({ kind: "idea", ideaId: id }, link);
+  }
+
+  @Post("initiatives/:id/attachments/links")
+  async addLinkToInitiative(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(newLinkSchema)) link: NewLink,
+  ): Promise<AttachmentResponse> {
+    return this.addLink({ kind: "initiative", initiativeId: id }, link);
   }
 
   @Post("tasks/:id/attachments/links")
@@ -76,6 +90,15 @@ export class AttachmentsController {
   }
 
   @Post(ATTACHMENT_UPLOAD_ROUTES[1])
+  async addFileToInitiative(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Query(new ContractPipe(attachmentUploadQuerySchema)) query: AttachmentUploadQuery,
+    @Body() body: unknown,
+  ): Promise<AttachmentResponse> {
+    return this.addFile({ kind: "initiative", initiativeId: id }, query, body);
+  }
+
+  @Post(ATTACHMENT_UPLOAD_ROUTES[2])
   async addFileToTask(
     @Param("id", ParseUUIDPipe) id: string,
     @Query(new ContractPipe(attachmentUploadQuerySchema)) query: AttachmentUploadQuery,

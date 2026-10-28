@@ -1,6 +1,7 @@
 import type { Attachment } from "./attachment.js";
 import { THE_USER } from "./author.js";
 import type { Idea } from "./idea.js";
+import type { Initiative } from "./initiative.js";
 import type { Task } from "./task.js";
 
 export function anIdea(fields: Partial<Idea> = {}): Idea {
@@ -11,9 +12,23 @@ export function anIdea(fields: Partial<Idea> = {}): Idea {
     projectId: "admin-panel",
     state: "new",
     taskId: undefined,
+    initiativeId: undefined,
     capturedBy: THE_USER,
     capturedAt: new Date("2026-10-25T09:00:00.000Z"),
     droppedAt: undefined,
+    ...fields,
+  };
+}
+
+export function anInitiative(fields: Partial<Initiative> = {}): Initiative {
+  return {
+    id: "initiative-1",
+    name: "Usage exports",
+    outcome: "",
+    state: "shaping",
+    originIdeaId: "idea-1",
+    createdBy: THE_USER,
+    createdAt: new Date("2026-10-25T09:10:00.000Z"),
     ...fields,
   };
 }
@@ -35,6 +50,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     personRole: undefined,
     blockedBy: [],
     originIdeaId: undefined,
+    initiativeId: undefined,
     createdBy: THE_USER,
     createdAt: new Date("2026-10-25T09:30:00.000Z"),
     ...fields,

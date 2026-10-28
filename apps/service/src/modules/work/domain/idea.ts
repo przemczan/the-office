@@ -1,7 +1,7 @@
 import type { Author } from "./author.js";
 import { titleProblem } from "./title.js";
 
-/** Shaped is an Idea that became a Task (an Initiative in tier 2), which names it as its origin. */
+/** Shaped is an Idea that became a Task or an Initiative, which names it as its origin. */
 export type IdeaState = "new" | "shaped" | "dropped";
 
 /** A thought captured quickly and not yet shaped into work (spec §2.1). */
@@ -12,8 +12,10 @@ export interface Idea {
   /** Undefined for an Idea captured Office-wide. */
   readonly projectId: string | undefined;
   readonly state: IdeaState;
-  /** The Task it was shaped into; undefined unless shaped. */
+  /** The Task it was shaped into; undefined unless shaped into one. */
   readonly taskId: string | undefined;
+  /** The Initiative it was shaped into; undefined unless shaped into one. */
+  readonly initiativeId: string | undefined;
   readonly capturedBy: Author;
   readonly capturedAt: Date;
   /** When it was dropped, kept so a dropped Idea reads as one; undefined unless dropped. */

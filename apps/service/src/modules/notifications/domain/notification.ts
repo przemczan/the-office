@@ -10,6 +10,7 @@ export type Pointer =
   | { readonly kind: "decision"; readonly decisionId: string; readonly taskId: string }
   | { readonly kind: "gate"; readonly taskId: string; readonly stageKey: string }
   | { readonly kind: "task"; readonly taskId: string }
+  | { readonly kind: "initiative"; readonly initiativeId: string }
   /** The Office's own state, as Now and the status strip show it. */
   | { readonly kind: "office" };
 
@@ -134,6 +135,16 @@ function taskOutcome(
   };
 }
 
+/** Every Task of an Initiative is Done: from the CTO while one is hired, who shapes them. */
+export function initiativeDone(initiativeId: string, cto: string | undefined): NotificationDraft {
+  return {
+    kind: "outcomes.initiative-done",
+    roleKey: cto,
+    line: cto ? "Every Task of the Initiative is Done." : "The Initiative is done.",
+    pointsTo: { kind: "initiative", initiativeId },
+  };
+}
+
 /**
  * Office kinds come from the Office Manager, by their Role's key, or in the UI's own voice while
  * nobody fills the Role (spec §2.7 and its Defaults).
@@ -206,6 +217,8 @@ export type Handling =
   | { readonly kind: "task-resumed"; readonly taskId: string }
   /** The user opened the Task, which is where its outcome is looked at. */
   | { readonly kind: "task-opened"; readonly taskId: string }
+  /** The user opened the Initiative, where it shows as done. */
+  | { readonly kind: "initiative-opened"; readonly initiativeId: string }
   /** The user opened Now, where the 5-hour window shows. */
   | { readonly kind: "now-opened" }
   | { readonly kind: "window-reset" }
@@ -224,6 +237,8 @@ export function handles(handling: Handling, { kind, pointsTo }: Notification): b
       return kind === "outcomes.task-paused" && pointsAt(pointsTo, handling.taskId);
     case "task-opened":
       return pointsTo.kind === "task" && pointsTo.taskId === handling.taskId;
+    case "initiative-opened":
+      return pointsTo.kind === "initiative" && pointsTo.initiativeId === handling.initiativeId;
     case "now-opened":
       return kind === "office.window-nearly-used" || kind === "office.window-reset";
     case "window-reset":

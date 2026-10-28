@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-RoleCards, Consultant, SessionRole, RoleService, MemoryService, RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo, hardSwitchInEffect, HARD_SWITCH_LABELS, HardSwitchKey, HardSwitchValue, OFFICE_MANAGER, RoleCard, RoleNotFound, RoleRefused, PeopleModule
+RoleCards, Consultant, SessionRole, RoleService, MemoryService, RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo, hardSwitchInEffect, HARD_SWITCH_LABELS, HardSwitchKey, HardSwitchValue, CTO, OFFICE_MANAGER, RoleCard, RoleNotFound, RoleRefused, PeopleModule
 
 ## Domain events
 
@@ -78,7 +78,7 @@ RoleCards, Consultant, SessionRole, RoleService, MemoryService, RoleCardChanged,
 ### domain/
 
 - `hard-switches.ts`: HARD_SWITCH_KEYS, HardSwitchKey, HARD_SWITCH_LABELS, HardSwitchEnforcement, HARD_SWITCH_ENFORCEMENT, HardSwitchValue, HardSwitches, ALLOWED, ASK_ME, NEVER, consult, hardSwitchesProblems, hardSwitchInEffect, switchesAskingYouUntilHired, sameHardSwitchValue
-- `known-roles.ts`: OFFICE_MANAGER, KNOWN_ROLES
+- `known-roles.ts`: OFFICE_MANAGER, CTO, KNOWN_ROLES
 - `memory-note-not-found.ts`: MemoryNoteNotFound
 - `memory-note.ts`: MEMORY_NOTE_LENGTH, MemoryNoteSource, MemoryNote, MemoryNoteDraft, writeMemoryNote
 - `permission-profile.ts`: RUN_PERMISSIONS, RunPermission, PermissionProfile

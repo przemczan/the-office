@@ -54,6 +54,8 @@ export interface Task {
   readonly blockedBy: readonly string[];
   /** The Idea it was shaped from, if it was. */
   readonly originIdeaId: string | undefined;
+  /** The Initiative it is part of, if any; it stays there for good. */
+  readonly initiativeId: string | undefined;
   readonly createdBy: Author;
   readonly createdAt: Date;
 }

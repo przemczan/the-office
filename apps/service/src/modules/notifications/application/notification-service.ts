@@ -8,7 +8,7 @@ import {
   TurnEnded,
 } from "../../conversations/index.js";
 import { EngineDown, UsageWindowsChanged } from "../../engine/index.js";
-import { OFFICE_MANAGER } from "../../people/index.js";
+import { CTO, OFFICE_MANAGER } from "../../people/index.js";
 import {
   DefinitionOfDoneNotMet,
   GateContinued,
@@ -17,12 +17,19 @@ import {
   NoRetriesLeft,
   SentBackFromGate,
 } from "../../pipelines/index.js";
-import { TaskPaused, TaskResumed, TaskStateChanged, TaskStopped } from "../../work/index.js";
+import {
+  InitiativeStateChanged,
+  TaskPaused,
+  TaskResumed,
+  TaskStateChanged,
+  TaskStopped,
+} from "../../work/index.js";
 import {
   decisionWaiting,
   engineDown,
   gateWaiting,
   handles,
+  initiativeDone,
   notificationOf,
   samePointer,
   taskDone,
@@ -46,6 +53,7 @@ import { TaskStageProgress } from "../ports/task-stage-progress.js";
 export type Page =
   | { readonly kind: "now" }
   | { readonly kind: "task"; readonly taskId: string }
+  | { readonly kind: "initiative"; readonly initiativeId: string }
   | { readonly kind: "elsewhere" };
 
 /**
@@ -81,6 +89,9 @@ export class NotificationService implements OnModuleInit {
   async opened(page: Page): Promise<void> {
     if (page.kind === "now") await this.handle({ kind: "now-opened" });
     if (page.kind === "task") await this.handle({ kind: "task-opened", taskId: page.taskId });
+    if (page.kind === "initiative") {
+      await this.handle({ kind: "initiative-opened", initiativeId: page.initiativeId });
+    }
   }
 
   private subscribeToNeedsYou(): void {
@@ -121,6 +132,10 @@ export class NotificationService implements OnModuleInit {
     this.events.subscribe(TaskResumed, ({ taskId }) =>
       this.handle({ kind: "task-resumed", taskId }),
     );
+    this.events.subscribe(InitiativeStateChanged, async ({ initiativeId, to }) => {
+      if (to !== "done") return;
+      await this.raise(initiativeDone(initiativeId, await this.hired(CTO)));
+    });
     this.events.subscribe(NoRetriesLeft, async ({ taskId, stageKey }) => {
       const stage = await this.stageOf(taskId, stageKey);
       await this.raiseFailure(taskId, { kind: "no-retries-left", stageName: stage.name });
@@ -152,7 +167,12 @@ export class NotificationService implements OnModuleInit {
 
   /** Who the Office kinds come from: the Office Manager while one is hired. */
   private async officeManager(): Promise<string | undefined> {
-    return (await this.people.hiredKeys()).has(OFFICE_MANAGER) ? OFFICE_MANAGER : undefined;
+    return this.hired(OFFICE_MANAGER);
+  }
+
+  /** The Role's key while someone fills it. */
+  private async hired(roleKey: string): Promise<string | undefined> {
+    return (await this.people.hiredKeys()).has(roleKey) ? roleKey : undefined;
   }
 
   private async raiseFailure(taskId: string, failure: Failure): Promise<void> {

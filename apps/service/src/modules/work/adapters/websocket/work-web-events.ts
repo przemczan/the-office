@@ -6,7 +6,14 @@ import {
   AttachmentMoved,
   AttachmentRemoved,
 } from "../../domain/attachment-events.js";
-import { IdeaCaptured, IdeaDropped, IdeaRestored, IdeaShaped } from "../../domain/idea-events.js";
+import {
+  IdeaCaptured,
+  IdeaDropped,
+  IdeaRestored,
+  IdeaShaped,
+  IdeaShapedIntoInitiative,
+} from "../../domain/idea-events.js";
+import { InitiativeCreated, InitiativeStateChanged } from "../../domain/initiative-events.js";
 import { OfficeWideLimitChanged } from "../../domain/office-limit-events.js";
 import {
   TaskCreated,
@@ -40,6 +47,7 @@ export class WorkWebEvents implements OnModuleInit {
 
   onModuleInit(): void {
     this.forwardIdeaEvents();
+    this.forwardInitiativeEvents();
     this.forwardTaskEvents();
     this.forwardPlanningEvents();
     this.forwardAttachmentEvents();
@@ -59,6 +67,14 @@ export class WorkWebEvents implements OnModuleInit {
       ideaId: event.ideaId,
       taskId: event.taskId,
     }));
+    this.forwarding.forward(
+      IdeaShapedIntoInitiative,
+      (event): WebEventOf<"idea.shaped-into-initiative"> => ({
+        type: "idea.shaped-into-initiative",
+        ideaId: event.ideaId,
+        initiativeId: event.initiativeId,
+      }),
+    );
     this.forwarding.forward(IdeaDropped, (event): WebEventOf<"idea.dropped"> => ({
       type: "idea.dropped",
       ideaId: event.ideaId,
@@ -67,6 +83,22 @@ export class WorkWebEvents implements OnModuleInit {
       type: "idea.restored",
       ideaId: event.ideaId,
     }));
+  }
+
+  private forwardInitiativeEvents(): void {
+    this.forwarding.forward(InitiativeCreated, (event): WebEventOf<"initiative.created"> => ({
+      type: "initiative.created",
+      initiativeId: event.initiative.id,
+    }));
+    this.forwarding.forward(
+      InitiativeStateChanged,
+      (event): WebEventOf<"initiative.state-changed"> => ({
+        type: "initiative.state-changed",
+        initiativeId: event.initiativeId,
+        from: event.from,
+        to: event.to,
+      }),
+    );
   }
 
   private forwardTaskEvents(): void {

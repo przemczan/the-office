@@ -46,6 +46,7 @@ function aTask(fields: Partial<Task>): Task {
     proposedPipeline: null,
     blockedBy: [],
     originIdeaId: null,
+    initiativeId: null,
     createdBy: { kind: "user" },
     createdAt: "2026-10-25T10:00:00.000Z",
     ...fields,

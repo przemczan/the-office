@@ -7,11 +7,13 @@ export const OFFICE_TITLE = "The Office";
 const OFFICE_MANAGER = "office-manager";
 
 /**
- * Where opening a Notification goes: the Task it is about, or Now for the Office's own state, with
- * the Office Manager's chat over it when they speak.
+ * Where opening a Notification goes: the Task it is about, Work for an Initiative until its page
+ * comes (task 22, step 4a), or Now for the Office's own state, with the Office Manager's chat over
+ * it when they speak.
  */
 export type NotificationTarget =
   | { readonly to: "/tasks/$taskId"; readonly params: { readonly taskId: string } }
+  | { readonly to: "/work" }
   | { readonly to: "/now"; readonly search?: { readonly chat: string } };
 
 /**
@@ -25,6 +27,7 @@ export function targetOf({
   if (pointsTo.kind === "office") {
     return roleKey ? { to: "/now", search: { chat: roleKey } } : { to: "/now" };
   }
+  if (pointsTo.kind === "initiative") return { to: "/work" };
   return { to: "/tasks/$taskId", params: { taskId: pointsTo.taskId } };
 }
 

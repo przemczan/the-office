@@ -22,6 +22,7 @@ describe("channelsOf", () => {
       "outcomes.task-done": ["in-app", "desktop"],
       "outcomes.task-failed": ["in-app", "desktop"],
       "outcomes.task-paused": ["in-app", "desktop"],
+      "outcomes.initiative-done": ["in-app", "desktop"],
       "office.window-nearly-used": ["in-app"],
       "office.window-reset": ["in-app"],
       "office.service-down": ["in-app", "desktop"],

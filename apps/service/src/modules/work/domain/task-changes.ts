@@ -31,6 +31,7 @@ export interface NewTaskSetting {
   readonly pipelineId: string;
   readonly order: string;
   readonly originIdeaId: string | undefined;
+  readonly initiativeId: string | undefined;
   readonly createdBy: Author;
 }
 
@@ -58,6 +59,7 @@ export function createTask(
     personRole: undefined,
     blockedBy: [],
     originIdeaId: setting.originIdeaId,
+    initiativeId: setting.initiativeId,
     createdBy: setting.createdBy,
     createdAt,
   };

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { asc, eq } from "drizzle-orm";
+import { asc, eq, type SQL } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
 import { AttachmentRepository } from "../../ports/attachment-repository.js";
@@ -25,16 +25,23 @@ export class PostgresAttachmentRepository extends AttachmentRepository {
     const rows = await this.database
       .select()
       .from(attachments)
-      .where(
-        owner.kind === "idea"
-          ? eq(attachments.ideaId, owner.ideaId)
-          : eq(attachments.taskId, owner.taskId),
-      )
+      .where(ownedBy(owner))
       .orderBy(asc(attachments.addedAt), asc(attachments.id));
     return rows.map(toAttachment);
   }
 
   async remove(id: string): Promise<void> {
     await this.database.delete(attachments).where(eq(attachments.id, id));
+  }
+}
+
+function ownedBy(owner: AttachmentOwner): SQL {
+  switch (owner.kind) {
+    case "idea":
+      return eq(attachments.ideaId, owner.ideaId);
+    case "initiative":
+      return eq(attachments.initiativeId, owner.initiativeId);
+    case "task":
+      return eq(attachments.taskId, owner.taskId);
   }
 }

@@ -50,6 +50,7 @@ async function createdTask(projectId: string, fields: Partial<Task> = {}): Promi
         pipelineId: "full",
         order: orderAfter(takenOrders),
         originIdeaId: undefined,
+        initiativeId: undefined,
         createdBy: THE_USER,
       },
       new Date("2026-10-25T10:00:00.000Z"),
@@ -246,7 +247,13 @@ describe("work tables", () => {
         createTask(
           randomUUID(),
           { title: "Twin", projectId: task.projectId, priority: "normal" },
-          { pipelineId: "full", order: task.order, originIdeaId: undefined, createdBy: THE_USER },
+          {
+            pipelineId: "full",
+            order: task.order,
+            originIdeaId: undefined,
+            initiativeId: undefined,
+            createdBy: THE_USER,
+          },
           new Date(),
         ),
       ),

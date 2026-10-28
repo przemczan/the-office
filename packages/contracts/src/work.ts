@@ -24,6 +24,8 @@ export const ideaSchema = newIdeaSchema.extend({
   state: ideaStateSchema,
   /** The Task it was shaped into. */
   taskId: z.uuid().nullable(),
+  /** The Initiative it was shaped into. */
+  initiativeId: z.uuid().nullable(),
   capturedBy: authorSchema,
   capturedAt: z.iso.datetime(),
   droppedAt: z.iso.datetime().nullable(),
@@ -35,6 +37,27 @@ export const ideaListSchema = z.array(ideaSchema);
 /** POST /ideas/:id/shape: the Project the Task is made in. */
 export const ideaShapingSchema = z.object({ projectId: z.string() });
 export type IdeaShaping = z.infer<typeof ideaShapingSchema>;
+
+export const initiativeStateSchema = z.enum(["shaping", "active", "done", "dropped"]);
+export type InitiativeState = z.infer<typeof initiativeStateSchema>;
+
+/** POST /ideas/:id/initiative makes one, being shaped; its Tasks name it. */
+export const initiativeSchema = z.object({
+  id: z.uuid(),
+  name: z.string(),
+  /** Empty until written. */
+  outcome: z.string(),
+  state: initiativeStateSchema,
+  originIdeaId: z.uuid(),
+  /** The Projects of its Tasks, each once. */
+  projectIds: z.array(z.string()),
+  createdBy: authorSchema,
+  createdAt: z.iso.datetime(),
+});
+export type Initiative = z.infer<typeof initiativeSchema>;
+
+/** The newest first. */
+export const initiativeListSchema = z.array(initiativeSchema);
 
 export const taskStateSchema = z.enum([
   "backlog",
@@ -90,6 +113,8 @@ export const taskSchema = newTaskSchema.extend({
   /** The Tasks that must be Done before it can start, in the order added; a Dropped one no longer blocks. */
   blockedBy: z.array(z.uuid()),
   originIdeaId: z.uuid().nullable(),
+  /** The Initiative it is part of (POST /initiatives/:id/tasks). */
+  initiativeId: z.uuid().nullable(),
   createdBy: authorSchema,
   createdAt: z.iso.datetime(),
 });
@@ -149,17 +174,18 @@ export type Readiness = z.infer<typeof readinessSchema>;
 
 export const attachmentOwnerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("idea"), ideaId: z.uuid() }),
+  z.object({ kind: z.literal("initiative"), initiativeId: z.uuid() }),
   z.object({ kind: z.literal("task"), taskId: z.uuid() }),
 ]);
 export type AttachmentOwner = z.infer<typeof attachmentOwnerSchema>;
 
-/** POST /ideas/:id/attachments/links and /tasks/:id/attachments/links; an empty name is the URL. */
+/** POST /{ideas,initiatives,tasks}/:id/attachments/links; an empty name is the URL. */
 export const newLinkSchema = z.object({ name: z.string(), url: z.string() });
 export type NewLink = z.infer<typeof newLinkSchema>;
 
 /**
- * The query of POST /ideas/:id/attachments/files and /tasks/:id/attachments/files, whose body is
- * the file itself as `application/octet-stream`.
+ * The query of POST /{ideas,initiatives,tasks}/:id/attachments/files, whose body is the file
+ * itself as `application/octet-stream`.
  */
 export const attachmentUploadQuerySchema = z.object({
   fileName: z.string().min(1),
@@ -212,8 +238,20 @@ export type WorkRefusal = z.infer<typeof workRefusalSchema>;
 export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("idea.captured"), ideaId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("idea.shaped"), ideaId: z.uuid(), taskId: z.uuid() }),
+  webEventSchema.extend({
+    type: z.literal("idea.shaped-into-initiative"),
+    ideaId: z.uuid(),
+    initiativeId: z.uuid(),
+  }),
   webEventSchema.extend({ type: z.literal("idea.dropped"), ideaId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("idea.restored"), ideaId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("initiative.created"), initiativeId: z.uuid() }),
+  webEventSchema.extend({
+    type: z.literal("initiative.state-changed"),
+    initiativeId: z.uuid(),
+    from: initiativeStateSchema,
+    to: initiativeStateSchema,
+  }),
   webEventSchema.extend({ type: z.literal("task.created"), taskId: z.uuid() }),
   webEventSchema.extend({
     type: z.literal("task.state-changed"),

@@ -1,8 +1,17 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Author } from "./author.js";
 import { newIdeaProblems, trimmedNewIdea, type Idea, type NewIdea } from "./idea.js";
-import { IdeaCaptured, IdeaDropped, IdeaRestored, IdeaShaped } from "./idea-events.js";
+import {
+  IdeaCaptured,
+  IdeaDropped,
+  IdeaRestored,
+  IdeaShaped,
+  IdeaShapedIntoInitiative,
+} from "./idea-events.js";
 import { IdeaRefused } from "./idea-refused.js";
+import type { Initiative } from "./initiative.js";
+import type { InitiativeChange } from "./initiative-changes.js";
+import { InitiativeCreated } from "./initiative-events.js";
 import { createTask, type NewTaskSetting, type TaskChange } from "./task-changes.js";
 import type { TaskCreated } from "./task-events.js";
 
@@ -27,6 +36,7 @@ export function captureIdea(
     ...newIdea,
     state: "new",
     taskId: undefined,
+    initiativeId: undefined,
     capturedBy,
     capturedAt,
     droppedAt: undefined,
@@ -47,17 +57,14 @@ export interface Shaping {
 export function shapeIdeaIntoTask(
   idea: Idea,
   task: { readonly id: string; readonly projectId: string },
-  setting: Omit<NewTaskSetting, "originIdeaId">,
+  setting: Omit<NewTaskSetting, "originIdeaId" | "initiativeId">,
   at: Date,
 ): Shaping {
-  if (idea.state === "shaped") throw new IdeaRefused(["This Idea is already shaped."]);
-  if (idea.state === "dropped") {
-    throw new IdeaRefused(["A dropped Idea can't be shaped; restore it first."]);
-  }
+  refuseShaping(idea);
   const taskCreated = createTask(
     task.id,
     { title: idea.title, projectId: task.projectId, priority: "normal" },
-    { ...setting, originIdeaId: idea.id },
+    { ...setting, originIdeaId: idea.id, initiativeId: undefined },
     at,
   );
   return {
@@ -69,11 +76,49 @@ export function shapeIdeaIntoTask(
   };
 }
 
-/** Undefined when it is already dropped; a shaped Idea lives on as its Task's origin. */
+/** A shaped Idea and the Initiative it became, each with its event. */
+export interface ShapingIntoInitiative {
+  readonly ideaShaped: IdeaChange<IdeaShapedIntoInitiative>;
+  readonly initiativeCreated: InitiativeChange<InitiativeCreated>;
+}
+
+/**
+ * Makes a new Idea an Initiative being shaped, named after it and naming it as its origin, with no
+ * outcome or Tasks yet; the Idea keeps its Project, if any, since an Initiative spans its Tasks'.
+ * Its Attachments move with it (moveAttachment).
+ */
+export function shapeIdeaIntoInitiative(
+  idea: Idea,
+  initiativeId: string,
+  shapedBy: Author,
+  at: Date,
+): ShapingIntoInitiative {
+  refuseShaping(idea);
+  const initiative: Initiative = {
+    id: initiativeId,
+    name: idea.title,
+    outcome: "",
+    state: "shaping",
+    originIdeaId: idea.id,
+    createdBy: shapedBy,
+    createdAt: at,
+  };
+  return {
+    ideaShaped: {
+      idea: { ...idea, state: "shaped", initiativeId },
+      event: new IdeaShapedIntoInitiative(idea.id, initiativeId, at),
+    },
+    initiativeCreated: { initiative, event: new InitiativeCreated(initiative) },
+  };
+}
+
+/** Undefined when it is already dropped; a shaped Idea lives on as its Task's or Initiative's origin. */
 export function dropIdea(idea: Idea, at: Date): IdeaChange<IdeaDropped> | undefined {
   if (idea.state === "dropped") return undefined;
   if (idea.state === "shaped") {
-    throw new IdeaRefused(["A shaped Idea can't be dropped; drop its Task instead."]);
+    throw new IdeaRefused([
+      `A shaped Idea can't be dropped; drop its ${shapedIntoWord(idea)} instead.`,
+    ]);
   }
   return {
     idea: { ...idea, state: "dropped", droppedAt: at },
@@ -91,9 +136,22 @@ export function restoreIdea(idea: Idea): IdeaChange<IdeaRestored> | undefined {
   };
 }
 
-/** Why an Attachment can't be added to the Idea: a shaped one's Attachments went to its Task. */
+/** Why an Attachment can't be added to the Idea: a shaped one's Attachments went to what it became. */
 export function attachingToIdeaProblems(idea: Idea): string[] {
-  return idea.state === "shaped"
-    ? ["This Idea was shaped into a Task; add the Attachment to the Task."]
-    : [];
+  if (idea.state !== "shaped") return [];
+  const word = shapedIntoWord(idea);
+  return [
+    `This Idea was shaped into ${word === "Task" ? "a" : "an"} ${word}; add the Attachment to the ${word}.`,
+  ];
+}
+
+function refuseShaping(idea: Idea): void {
+  if (idea.state === "shaped") throw new IdeaRefused(["This Idea is already shaped."]);
+  if (idea.state === "dropped") {
+    throw new IdeaRefused(["A dropped Idea can't be shaped; restore it first."]);
+  }
+}
+
+function shapedIntoWord(idea: Idea): "Task" | "Initiative" {
+  return idea.initiativeId === undefined ? "Task" : "Initiative";
 }

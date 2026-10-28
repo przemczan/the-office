@@ -16,6 +16,7 @@ import {
   AttachmentsController,
 } from "./adapters/http/attachments.controller.js";
 import { IdeasController } from "./adapters/http/ideas.controller.js";
+import { InitiativesController } from "./adapters/http/initiatives.controller.js";
 import { OfficeLimitsController } from "./adapters/http/office-limits.controller.js";
 import { MentionedWorkRecords } from "./adapters/conversations/mentioned-work-records.js";
 import { OfficeLimitProposals } from "./adapters/conversations/office-limit-proposals.js";
@@ -26,11 +27,13 @@ import { WorkOfficeTools } from "./adapters/office-tools/work-office-tools.js";
 import { TasksController } from "./adapters/http/tasks.controller.js";
 import { PostgresAttachmentRepository } from "./adapters/postgres/postgres-attachment-repository.js";
 import { PostgresIdeaRepository } from "./adapters/postgres/postgres-idea-repository.js";
+import { PostgresInitiativeRepository } from "./adapters/postgres/postgres-initiative-repository.js";
 import { PostgresTaskRepository } from "./adapters/postgres/postgres-task-repository.js";
 import { PostgresWorkSettings } from "./adapters/postgres/postgres-work-settings.js";
 import { WorkWebEvents } from "./adapters/websocket/work-web-events.js";
 import { AttachmentService } from "./application/attachment-service.js";
 import { IdeaService } from "./application/idea-service.js";
+import { InitiativeService } from "./application/initiative-service.js";
 import { OfficeLimits } from "./application/office-limits.js";
 import { PlanningService } from "./application/planning-service.js";
 import { StageScreenshots } from "./application/stage-screenshots.js";
@@ -42,6 +45,7 @@ import { AttachmentFiles } from "./ports/attachment-files.js";
 import { AttachmentRepository } from "./ports/attachment-repository.js";
 import { IdeaCards } from "./ports/idea-cards.js";
 import { IdeaRepository } from "./ports/idea-repository.js";
+import { InitiativeRepository } from "./ports/initiative-repository.js";
 import { KnownPeople } from "./ports/known-people.js";
 import { KnownPipelines } from "./ports/known-pipelines.js";
 import { KnownProjects } from "./ports/known-projects.js";
@@ -92,12 +96,14 @@ export class WorkModule implements NestModule {
       imports: [...imports, EngineModule],
       controllers: [
         IdeasController,
+        InitiativesController,
         TasksController,
         AttachmentsController,
         OfficeLimitsController,
       ],
       providers: [
         { provide: IdeaRepository, useClass: PostgresIdeaRepository },
+        { provide: InitiativeRepository, useClass: PostgresInitiativeRepository },
         { provide: TaskRepository, useClass: PostgresTaskRepository },
         { provide: AttachmentRepository, useClass: PostgresAttachmentRepository },
         { provide: AttachmentFiles, useClass: FilesystemAttachmentFiles },
@@ -113,6 +119,7 @@ export class WorkModule implements NestModule {
         { provide: TaskThreads, useExisting: taskThreads },
         { provide: TaskDecisions, useExisting: taskDecisions },
         IdeaService,
+        InitiativeService,
         TaskService,
         OfficeLimits,
         AttachmentService,

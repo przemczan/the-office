@@ -74,9 +74,9 @@ async function shownNotification(
   const [roles, projects, task] = await Promise.all([
     queryClient.ensureQueryData(roleQueries.list()).catch(() => undefined),
     queryClient.ensureQueryData(projectQueries.list()).catch(() => undefined),
-    pointsTo.kind === "office"
-      ? undefined
-      : queryClient.ensureQueryData(taskQueries.one(pointsTo.taskId)).catch(() => undefined),
+    "taskId" in pointsTo
+      ? queryClient.ensureQueryData(taskQueries.one(pointsTo.taskId)).catch(() => undefined)
+      : undefined,
   ]);
   return {
     id: notification.id,

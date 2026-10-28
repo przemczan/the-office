@@ -5,12 +5,20 @@ import {
   captureIdea,
   dropIdea,
   restoreIdea,
+  shapeIdeaIntoInitiative,
   shapeIdeaIntoTask,
 } from "./idea-changes.js";
-import { IdeaCaptured, IdeaDropped, IdeaRestored, IdeaShaped } from "./idea-events.js";
+import {
+  IdeaCaptured,
+  IdeaDropped,
+  IdeaRestored,
+  IdeaShaped,
+  IdeaShapedIntoInitiative,
+} from "./idea-events.js";
 import { IdeaRefused } from "./idea-refused.js";
+import { InitiativeCreated } from "./initiative-events.js";
 import { TaskCreated } from "./task-events.js";
-import { anIdea, aTask } from "./work.fixtures.js";
+import { anIdea, anInitiative, aTask } from "./work.fixtures.js";
 
 const at = new Date("2026-10-25T11:00:00.000Z");
 
@@ -90,6 +98,35 @@ describe("shapeIdeaIntoTask", () => {
   });
 });
 
+describe("shapeIdeaIntoInitiative", () => {
+  it("makes an Initiative being shaped, named after the Idea, which keeps its Project", () => {
+    const shaping = shapeIdeaIntoInitiative(
+      anIdea({ title: "Usage exports" }),
+      "initiative-1",
+      THE_USER,
+      anInitiative().createdAt,
+    );
+
+    expect(shaping.initiativeCreated.initiative).toEqual(anInitiative());
+    expect(shaping.initiativeCreated.event).toEqual(new InitiativeCreated(anInitiative()));
+    expect(shaping.ideaShaped.idea).toEqual(
+      anIdea({ title: "Usage exports", state: "shaped", initiativeId: "initiative-1" }),
+    );
+    expect(shaping.ideaShaped.event).toEqual(
+      new IdeaShapedIntoInitiative("idea-1", "initiative-1", anInitiative().createdAt),
+    );
+  });
+
+  it("refuses a shaped or dropped Idea", () => {
+    expect(() =>
+      shapeIdeaIntoInitiative(anIdea({ state: "shaped" }), "initiative-1", THE_USER, at),
+    ).toThrow(new IdeaRefused(["This Idea is already shaped."]));
+    expect(() =>
+      shapeIdeaIntoInitiative(anIdea({ state: "dropped" }), "initiative-1", THE_USER, at),
+    ).toThrow(new IdeaRefused(["A dropped Idea can't be shaped; restore it first."]));
+  });
+});
+
 describe("dropIdea", () => {
   it("keeps a dropped Idea with when it was dropped", () => {
     const change = dropIdea(anIdea(), at);
@@ -100,7 +137,12 @@ describe("dropIdea", () => {
 
   it("changes nothing for a dropped Idea and refuses a shaped one", () => {
     expect(dropIdea(anIdea({ state: "dropped", droppedAt: at }), at)).toBeUndefined();
-    expect(() => dropIdea(anIdea({ state: "shaped" }), at)).toThrow(IdeaRefused);
+    expect(() => dropIdea(anIdea({ state: "shaped" }), at)).toThrow(
+      new IdeaRefused(["A shaped Idea can't be dropped; drop its Task instead."]),
+    );
+    expect(() => dropIdea(anIdea({ state: "shaped", initiativeId: "initiative-1" }), at)).toThrow(
+      new IdeaRefused(["A shaped Idea can't be dropped; drop its Initiative instead."]),
+    );
   });
 });
 
@@ -120,11 +162,14 @@ describe("restoreIdea", () => {
 });
 
 describe("attachingToIdeaProblems", () => {
-  it("sends Attachments for a shaped Idea to its Task", () => {
+  it("sends Attachments for a shaped Idea to what it became", () => {
     expect(attachingToIdeaProblems(anIdea())).toEqual([]);
     expect(attachingToIdeaProblems(anIdea({ state: "dropped" }))).toEqual([]);
     expect(attachingToIdeaProblems(anIdea({ state: "shaped" }))).toEqual([
       "This Idea was shaped into a Task; add the Attachment to the Task.",
     ]);
+    expect(
+      attachingToIdeaProblems(anIdea({ state: "shaped", initiativeId: "initiative-1" })),
+    ).toEqual(["This Idea was shaped into an Initiative; add the Attachment to the Initiative."]);
   });
 });

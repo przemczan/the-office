@@ -170,8 +170,8 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           // The user opens the Task, which handles its outcome on every channel.
           await api("POST", "/activity", { page: { kind: "task", taskId } });
           const now = nowSchema.parse(await api("GET", "/now"));
-          const own = [...raised.values()].filter(({ pointsTo }) =>
-            pointsTo.kind === "office" ? false : pointsTo.taskId === taskId,
+          const own = [...raised.values()].filter(
+            ({ pointsTo }) => "taskId" in pointsTo && pointsTo.taskId === taskId,
           );
           await note(
             `Now changed ${nowChanges} times; ${own.length} Notifications on the Task, ${own.filter(({ id }) => cleared.has(id)).length} cleared`,

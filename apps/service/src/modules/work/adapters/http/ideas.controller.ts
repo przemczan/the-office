@@ -14,14 +14,16 @@ import {
   newIdeaSchema,
   type Idea as IdeaResponse,
   type IdeaShaping,
+  type Initiative as InitiativeResponse,
   type NewIdea,
   type Task as TaskResponse,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { IdeaService } from "../../application/idea-service.js";
+import { InitiativeService } from "../../application/initiative-service.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { THE_USER } from "../../domain/author.js";
-import { toIdeaResponse, toTaskResponse } from "./work-responses.js";
+import { toIdeaResponse, toInitiativeResponse, toTaskResponse } from "./work-responses.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 
 @Controller("ideas")
@@ -29,6 +31,7 @@ import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 export class IdeasController {
   constructor(
     private readonly ideas: IdeaService,
+    private readonly initiatives: InitiativeService,
     private readonly planning: PlanningService,
   ) {}
 
@@ -60,6 +63,13 @@ export class IdeasController {
     @Body(new ContractPipe(ideaShapingSchema)) { projectId }: IdeaShaping,
   ): Promise<TaskResponse> {
     return toTaskResponse(await this.ideas.shape(id, projectId, THE_USER));
+  }
+
+  /** Shape into an Initiative: the Initiative the Idea became, being shaped, with no Tasks yet. */
+  @Post(":id/initiative")
+  @HttpCode(HttpStatus.CREATED)
+  async shapeIntoInitiative(@Param("id", ParseUUIDPipe) id: string): Promise<InitiativeResponse> {
+    return toInitiativeResponse(await this.initiatives.shape(id, THE_USER), []);
   }
 
   /** Plan as a Task with the Planner: the Task the Idea became, in Planning with its Thread. */

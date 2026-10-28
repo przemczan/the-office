@@ -2,12 +2,14 @@ import { sql } from "drizzle-orm";
 import type { Database } from "../../../../platform/database/database.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
 import type { Idea } from "../../domain/idea.js";
+import type { Initiative } from "../../domain/initiative.js";
 import type { Task } from "../../domain/task.js";
-import { attachments, ideas, tasks } from "./work.schema.js";
+import { attachments, ideas, initiatives, tasks } from "./work.schema.js";
 
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
 export type IdeaRow = typeof ideas.$inferSelect;
+export type InitiativeRow = typeof initiatives.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
 export type AttachmentRow = typeof attachments.$inferSelect;
 
@@ -49,6 +51,7 @@ export function toIdeaRow(idea: Idea): IdeaRow {
     projectId: idea.projectId ?? null,
     state: idea.state,
     taskId: idea.taskId ?? null,
+    initiativeId: idea.initiativeId ?? null,
     capturedBy: idea.capturedBy,
     capturedAt: idea.capturedAt,
     droppedAt: idea.droppedAt ?? null,
@@ -63,10 +66,19 @@ export function toIdea(row: IdeaRow): Idea {
     projectId: row.projectId ?? undefined,
     state: row.state,
     taskId: row.taskId ?? undefined,
+    initiativeId: row.initiativeId ?? undefined,
     capturedBy: row.capturedBy,
     capturedAt: row.capturedAt,
     droppedAt: row.droppedAt ?? undefined,
   };
+}
+
+export function toInitiativeRow(initiative: Initiative): InitiativeRow {
+  return { ...initiative };
+}
+
+export function toInitiative(row: InitiativeRow): Initiative {
+  return { ...row };
 }
 
 export function toTaskRow(task: Task): TaskRow {
@@ -86,6 +98,7 @@ export function toTaskRow(task: Task): TaskRow {
     personRole: task.personRole ?? null,
     blockedBy: [...task.blockedBy],
     originIdeaId: task.originIdeaId ?? null,
+    initiativeId: task.initiativeId ?? null,
     createdBy: task.createdBy,
     createdAt: task.createdAt,
   };
@@ -108,15 +121,20 @@ export function toTask(row: TaskRow): Task {
     personRole: row.personRole ?? undefined,
     blockedBy: row.blockedBy,
     originIdeaId: row.originIdeaId ?? undefined,
+    initiativeId: row.initiativeId ?? undefined,
     createdBy: row.createdBy,
     createdAt: row.createdAt,
   };
 }
 
-export function ownerColumns(owner: AttachmentOwner): Pick<AttachmentRow, "ideaId" | "taskId"> {
-  return owner.kind === "idea"
-    ? { ideaId: owner.ideaId, taskId: null }
-    : { ideaId: null, taskId: owner.taskId };
+export function ownerColumns(
+  owner: AttachmentOwner,
+): Pick<AttachmentRow, "ideaId" | "initiativeId" | "taskId"> {
+  return {
+    ideaId: owner.kind === "idea" ? owner.ideaId : null,
+    initiativeId: owner.kind === "initiative" ? owner.initiativeId : null,
+    taskId: owner.kind === "task" ? owner.taskId : null,
+  };
 }
 
 export function toAttachmentRow(attachment: Attachment): AttachmentRow {
@@ -148,6 +166,7 @@ export function toAttachment(row: AttachmentRow): Attachment {
 
 function ownerOf(row: AttachmentRow): AttachmentOwner {
   if (row.ideaId !== null) return { kind: "idea", ideaId: row.ideaId };
+  if (row.initiativeId !== null) return { kind: "initiative", initiativeId: row.initiativeId };
   return { kind: "task", taskId: present(row.taskId) };
 }
 

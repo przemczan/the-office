@@ -47,6 +47,7 @@ export class TaskService {
           pipelineId: project.defaultPipeline,
           order: orderAfter(takenOrders),
           originIdeaId: undefined,
+          initiativeId: undefined,
           createdBy,
         },
         new Date(),

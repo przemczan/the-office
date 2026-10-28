@@ -1,5 +1,5 @@
 import { ASK_ME, consult, NEVER } from "./hard-switches.js";
-import { OFFICE_MANAGER } from "./known-roles.js";
+import { CTO, OFFICE_MANAGER } from "./known-roles.js";
 import type { RoleCard } from "./role-card.js";
 
 /**
@@ -100,7 +100,7 @@ const reviewer: Preset = {
 };
 
 const cto: Preset = {
-  roleKey: "cto",
+  roleKey: CTO,
   suggestedName: "Bob",
   card: {
     title: "CTO",

@@ -25,7 +25,13 @@ import type { Task } from "./task.js";
 import { aTask } from "./work.fixtures.js";
 
 const createdAt = new Date("2026-10-25T10:00:00.000Z");
-const setting = { pipelineId: "full", order: "a3", originIdeaId: undefined, createdBy: THE_USER };
+const setting = {
+  pipelineId: "full",
+  order: "a3",
+  originIdeaId: undefined,
+  initiativeId: undefined,
+  createdBy: THE_USER,
+};
 
 describe("createTask", () => {
   it("starts the Task in Backlog, unplanned, with what The Office sets", () => {

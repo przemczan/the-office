@@ -3,7 +3,7 @@ import type { Attachment } from "../domain/attachment.js";
 import type { AttachmentChange } from "../domain/attachment-changes.js";
 import type { AttachmentMoved } from "../domain/attachment-events.js";
 import type { Idea } from "../domain/idea.js";
-import type { IdeaChange, Shaping } from "../domain/idea-changes.js";
+import type { IdeaChange, Shaping, ShapingIntoInitiative } from "../domain/idea-changes.js";
 
 /** The Idea after an update, with the change's event, or undefined when nothing changed. */
 export interface IdeaUpdate<Event extends DomainEvent> {
@@ -13,6 +13,11 @@ export interface IdeaUpdate<Event extends DomainEvent> {
 
 /** An Idea shaped into a Task, with its Attachments moved to the Task. */
 export interface ShapedIdea extends Shaping {
+  readonly moves: readonly AttachmentChange<AttachmentMoved>[];
+}
+
+/** An Idea shaped into an Initiative, with its Attachments moved to the Initiative. */
+export interface IdeaShapedIntoInitiative extends ShapingIntoInitiative {
   readonly moves: readonly AttachmentChange<AttachmentMoved>[];
 }
 
@@ -48,4 +53,14 @@ export abstract class IdeaRepository {
       takenOrders: readonly string[],
     ) => ShapedIdea,
   ): Promise<ShapedIdea>;
+
+  /**
+   * Saves the Idea, the Initiative and the moved Attachments `shape` makes, all or none, from the
+   * Idea and its Attachments as stored, holding the Idea meanwhile. Throws IdeaNotFound when there
+   * is no such Idea.
+   */
+  abstract shapeIntoInitiative(
+    id: string,
+    shape: (idea: Idea, attachments: readonly Attachment[]) => IdeaShapedIntoInitiative,
+  ): Promise<IdeaShapedIntoInitiative>;
 }

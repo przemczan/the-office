@@ -4,7 +4,14 @@ export { StageScreenshots } from "./application/stage-screenshots.js";
 export { TaskRecords } from "./application/task-records.js";
 export { TaskService } from "./application/task-service.js";
 export { AttachmentAdded, AttachmentMoved, AttachmentRemoved } from "./domain/attachment-events.js";
-export { IdeaCaptured, IdeaDropped, IdeaRestored, IdeaShaped } from "./domain/idea-events.js";
+export {
+  IdeaCaptured,
+  IdeaDropped,
+  IdeaRestored,
+  IdeaShaped,
+  IdeaShapedIntoInitiative,
+} from "./domain/idea-events.js";
+export { InitiativeCreated, InitiativeStateChanged } from "./domain/initiative-events.js";
 export { OfficeWideLimitChanged } from "./domain/office-limit-events.js";
 export {
   TaskCreated,

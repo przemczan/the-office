@@ -9,7 +9,7 @@ import { EventStreamModule } from "../../../platform/websocket/event-stream.modu
 import { DecisionAnswered, DecisionOpened, TurnEnded } from "../../conversations/index.js";
 import { EngineDown, UsageWindowsChanged } from "../../engine/index.js";
 import { GateContinued, GateReached } from "../../pipelines/index.js";
-import { TaskStateChanged } from "../../work/index.js";
+import { InitiativeStateChanged, TaskStateChanged } from "../../work/index.js";
 import { NotificationRaised, NotificationsCleared } from "../domain/notification-events.js";
 import { NotificationsModule } from "../notifications.module.js";
 import {
@@ -160,6 +160,34 @@ describe("NotificationService", () => {
     expect(cleared).toEqual([]);
 
     await reportActivity({ kind: "task", taskId });
+
+    expect(cleared).toEqual([raised[0]?.notification.id]);
+  });
+
+  it("tells an Initiative done, from the CTO once hired, and clears it when the user opens it", async () => {
+    const [first, second] = [randomUUID(), randomUUID()];
+
+    await events.publish(new InitiativeStateChanged(first, "shaping", "active"));
+    await events.publish(new InitiativeStateChanged(first, "active", "done"));
+    app.get(KnownPeopleForTests).hired.add("cto");
+    await events.publish(new InitiativeStateChanged(second, "active", "done"));
+
+    expect(raised.map(({ notification }) => notification)).toEqual([
+      expect.objectContaining({
+        kind: "outcomes.initiative-done",
+        roleKey: undefined,
+        line: "The Initiative is done.",
+        pointsTo: { kind: "initiative", initiativeId: first },
+        channels: ["in-app", "desktop"],
+      }),
+      expect.objectContaining({
+        roleKey: "cto",
+        line: "Every Task of the Initiative is Done.",
+        pointsTo: { kind: "initiative", initiativeId: second },
+      }),
+    ]);
+
+    await reportActivity({ kind: "initiative", initiativeId: first });
 
     expect(cleared).toEqual([raised[0]?.notification.id]);
   });

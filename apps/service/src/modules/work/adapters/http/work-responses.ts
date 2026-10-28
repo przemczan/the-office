@@ -3,11 +3,14 @@ import type {
   AttachmentOwner as AttachmentOwnerResponse,
   Author as AuthorResponse,
   Idea as IdeaResponse,
+  Initiative as InitiativeResponse,
   Task as TaskResponse,
 } from "@the-office/contracts";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
 import type { Idea } from "../../domain/idea.js";
+import type { Initiative } from "../../domain/initiative.js";
+import { initiativeProjectIds } from "../../domain/initiative-changes.js";
 import type { Task } from "../../domain/task.js";
 
 export function toIdeaResponse(idea: Idea): IdeaResponse {
@@ -18,9 +21,27 @@ export function toIdeaResponse(idea: Idea): IdeaResponse {
     projectId: idea.projectId ?? null,
     state: idea.state,
     taskId: idea.taskId ?? null,
+    initiativeId: idea.initiativeId ?? null,
     capturedBy: toAuthorResponse(idea.capturedBy),
     capturedAt: idea.capturedAt.toISOString(),
     droppedAt: idea.droppedAt?.toISOString() ?? null,
+  };
+}
+
+/** With the Projects of its Tasks, `tasks` being the Initiative's. */
+export function toInitiativeResponse(
+  initiative: Initiative,
+  tasks: readonly Task[],
+): InitiativeResponse {
+  return {
+    id: initiative.id,
+    name: initiative.name,
+    outcome: initiative.outcome,
+    state: initiative.state,
+    originIdeaId: initiative.originIdeaId,
+    projectIds: initiativeProjectIds(tasks),
+    createdBy: toAuthorResponse(initiative.createdBy),
+    createdAt: initiative.createdAt.toISOString(),
   };
 }
 
@@ -39,6 +60,7 @@ export function toTaskResponse(task: Task): TaskResponse {
     proposedPipeline: task.proposedPipeline ? { ...task.proposedPipeline } : null,
     blockedBy: [...task.blockedBy],
     originIdeaId: task.originIdeaId ?? null,
+    initiativeId: task.initiativeId ?? null,
     createdBy: toAuthorResponse(task.createdBy),
     createdAt: task.createdAt.toISOString(),
   };
@@ -58,9 +80,7 @@ export function toAttachmentResponse(attachment: Attachment): AttachmentResponse
 }
 
 export function toOwnerResponse(owner: AttachmentOwner): AttachmentOwnerResponse {
-  return owner.kind === "idea"
-    ? { kind: "idea", ideaId: owner.ideaId }
-    : { kind: "task", taskId: owner.taskId };
+  return { ...owner };
 }
 
 function toAuthorResponse(author: Author): AuthorResponse {

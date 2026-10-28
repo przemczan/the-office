@@ -19,6 +19,17 @@ export class IdeaShaped extends DomainEvent {
   }
 }
 
+/** The Initiative it was shaped into names it as its origin and takes its Attachments. */
+export class IdeaShapedIntoInitiative extends DomainEvent {
+  constructor(
+    readonly ideaId: string,
+    readonly initiativeId: string,
+    at: Date,
+  ) {
+    super(at);
+  }
+}
+
 export class IdeaDropped extends DomainEvent {
   constructor(
     readonly ideaId: string,

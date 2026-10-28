@@ -6,8 +6,13 @@ import type { Attachment } from "../../domain/attachment.js";
 import type { Idea } from "../../domain/idea.js";
 import type { IdeaChange } from "../../domain/idea-changes.js";
 import { IdeaNotFound } from "../../domain/idea-not-found.js";
-import { IdeaRepository, type IdeaUpdate, type ShapedIdea } from "../../ports/idea-repository.js";
-import { attachments, ideas, tasks } from "./work.schema.js";
+import {
+  IdeaRepository,
+  type IdeaShapedIntoInitiative,
+  type IdeaUpdate,
+  type ShapedIdea,
+} from "../../ports/idea-repository.js";
+import { attachments, ideas, initiatives, tasks } from "./work.schema.js";
 import {
   holdManualOrder,
   ownerColumns,
@@ -15,6 +20,7 @@ import {
   toAttachment,
   toIdea,
   toIdeaRow,
+  toInitiativeRow,
   toTaskRow,
   type Transaction,
 } from "./work-rows.js";
@@ -72,18 +78,39 @@ export class PostgresIdeaRepository extends IdeaRepository {
         await takenOrders(transaction),
       );
       await transaction.insert(tasks).values(toTaskRow(shaped.taskCreated.task));
-      await transaction
-        .update(ideas)
-        .set(toIdeaRow(shaped.ideaShaped.idea))
-        .where(eq(ideas.id, id));
-      for (const { attachment } of shaped.moves) {
-        await transaction
-          .update(attachments)
-          .set(ownerColumns(attachment.owner))
-          .where(eq(attachments.id, attachment.id));
-      }
+      await saveShapedIdea(transaction, shaped);
       return shaped;
     });
+  }
+
+  async shapeIntoInitiative(
+    id: string,
+    shape: (idea: Idea, attachments: readonly Attachment[]) => IdeaShapedIntoInitiative,
+  ): Promise<IdeaShapedIntoInitiative> {
+    return this.database.transaction(async (transaction) => {
+      const idea = await heldIdea(transaction, id);
+      const shaped = shape(idea, await attachmentsOf(transaction, id));
+      await transaction
+        .insert(initiatives)
+        .values(toInitiativeRow(shaped.initiativeCreated.initiative));
+      await saveShapedIdea(transaction, shaped);
+      return shaped;
+    });
+  }
+}
+
+/** The shaped Idea, and its Attachments with what it became as their owner. */
+async function saveShapedIdea(
+  transaction: Transaction,
+  shaped: ShapedIdea | IdeaShapedIntoInitiative,
+): Promise<void> {
+  const { idea } = shaped.ideaShaped;
+  await transaction.update(ideas).set(toIdeaRow(idea)).where(eq(ideas.id, idea.id));
+  for (const { attachment } of shaped.moves) {
+    await transaction
+      .update(attachments)
+      .set(ownerColumns(attachment.owner))
+      .where(eq(attachments.id, attachment.id));
   }
 }
 

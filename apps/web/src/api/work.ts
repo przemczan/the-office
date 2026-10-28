@@ -33,6 +33,7 @@ import {
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
 const IDEAS = ["ideas"] as const;
+const INITIATIVES = ["initiatives"] as const;
 export const TASKS = ["tasks"] as const;
 const ATTACHMENTS = ["attachments"] as const;
 const OFFICE_WIDE_LIMIT = ["settings", "office-wide-limit"] as const;
@@ -238,19 +239,22 @@ async function readDocument(id: string, signal?: AbortSignal): Promise<string> {
 }
 
 /**
- * Each Work event makes its kind stale: ["ideas"] and ["tasks"] cover the lists and each record,
- * ["attachments"] every owner's list. Shaping touches all three, so each of its events names
- * what it changed.
+ * Each Work event makes its kind stale: ["ideas"], ["initiatives"] and ["tasks"] cover the lists
+ * and each record, ["attachments"] every owner's list. Shaping touches several, so each of its
+ * events names what it changed; an Initiative spans its Tasks' Projects and is done with them.
  */
 export const workEventInvalidations: Readonly<
   Record<WorkWebEvent["type"], EventInvalidations[string]>
 > = {
   "idea.captured": () => [IDEAS],
   "idea.shaped": () => [IDEAS, TASKS],
+  "idea.shaped-into-initiative": () => [IDEAS, INITIATIVES],
   "idea.dropped": () => [IDEAS],
   "idea.restored": () => [IDEAS],
-  "task.created": () => [TASKS],
-  "task.state-changed": () => [TASKS],
+  "initiative.created": () => [INITIATIVES],
+  "initiative.state-changed": () => [INITIATIVES],
+  "task.created": () => [TASKS, INITIATIVES],
+  "task.state-changed": () => [TASKS, INITIATIVES],
   "task.started": () => [TASKS],
   "task.paused": () => [TASKS],
   "task.stopped": () => [TASKS],
@@ -273,11 +277,25 @@ export const workEventInvalidations: Readonly<
 };
 
 function ownerId(owner: AttachmentOwner): string {
-  return owner.kind === "idea" ? owner.ideaId : owner.taskId;
+  switch (owner.kind) {
+    case "idea":
+      return owner.ideaId;
+    case "initiative":
+      return owner.initiativeId;
+    case "task":
+      return owner.taskId;
+  }
 }
 
 function ownerPath(owner: AttachmentOwner): `/${string}` {
-  return owner.kind === "idea" ? ideaPath(owner.ideaId) : taskPath(owner.taskId);
+  switch (owner.kind) {
+    case "idea":
+      return ideaPath(owner.ideaId);
+    case "initiative":
+      return `/initiatives/${encodeURIComponent(owner.initiativeId)}`;
+    case "task":
+      return taskPath(owner.taskId);
+  }
 }
 
 function ideaPath(id: string): `/${string}` {

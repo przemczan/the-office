@@ -10,10 +10,12 @@ import type { Author } from "../domain/author.js";
 import type { Idea } from "../domain/idea.js";
 import { attachingToIdeaProblems } from "../domain/idea-changes.js";
 import { IdeaNotFound } from "../domain/idea-not-found.js";
+import { InitiativeNotFound } from "../domain/initiative-not-found.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { AttachmentFiles } from "../ports/attachment-files.js";
 import { AttachmentRepository } from "../ports/attachment-repository.js";
 import { IdeaRepository } from "../ports/idea-repository.js";
+import { InitiativeRepository } from "../ports/initiative-repository.js";
 import { TaskRepository } from "../ports/task-repository.js";
 
 /** A file as it is uploaded: its name, media type and bytes. */
@@ -45,11 +47,12 @@ export class AttachmentService {
     private readonly repository: AttachmentRepository,
     private readonly files: AttachmentFiles,
     private readonly ideas: IdeaRepository,
+    private readonly initiatives: InitiativeRepository,
     private readonly tasks: TaskRepository,
     private readonly events: EventBus,
   ) {}
 
-  /** Throws IdeaNotFound or TaskNotFound when the owner isn't there. */
+  /** Throws the owner's kind's NotFound when it isn't there. */
   async listOf(owner: AttachmentOwner): Promise<readonly Attachment[]> {
     await this.checkOwner(owner);
     return this.repository.listOf(owner);
@@ -112,7 +115,7 @@ export class AttachmentService {
     await this.events.publish(removeAttachment(attachment));
   }
 
-  /** A shaped Idea's Attachments went to its Task, so it takes no more. */
+  /** A shaped Idea's Attachments went to what it became, so it takes no more. */
   private async adding(owner: AttachmentOwner, addedBy: Author): Promise<Adding> {
     const idea = await this.checkOwner(owner);
     const problems = idea ? attachingToIdeaProblems(idea) : [];
@@ -120,15 +123,23 @@ export class AttachmentService {
     return { owner, addedBy, addedAt: new Date() };
   }
 
-  /** The owner when it is an Idea; throws IdeaNotFound or TaskNotFound when it isn't there. */
+  /** The owner when it is an Idea; throws its kind's NotFound when it isn't there. */
   private async checkOwner(owner: AttachmentOwner): Promise<Idea | undefined> {
-    if (owner.kind === "task") {
-      if (!(await this.tasks.find(owner.taskId))) throw new TaskNotFound(owner.taskId);
-      return undefined;
+    switch (owner.kind) {
+      case "idea": {
+        const idea = await this.ideas.find(owner.ideaId);
+        if (!idea) throw new IdeaNotFound(owner.ideaId);
+        return idea;
+      }
+      case "initiative":
+        if (!(await this.initiatives.find(owner.initiativeId))) {
+          throw new InitiativeNotFound(owner.initiativeId);
+        }
+        return undefined;
+      case "task":
+        if (!(await this.tasks.find(owner.taskId))) throw new TaskNotFound(owner.taskId);
+        return undefined;
     }
-    const idea = await this.ideas.find(owner.ideaId);
-    if (!idea) throw new IdeaNotFound(owner.ideaId);
-    return idea;
   }
 }
 
