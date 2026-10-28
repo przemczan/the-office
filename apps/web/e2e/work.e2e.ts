@@ -201,6 +201,47 @@ test("a Task's priority and Drop are in its menu, and the Project page counts it
   await expect(work).toContainText("1");
 });
 
+test('the user tags a Task in "+ Task" and on its page, and the board shows its Tags', async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Tagged work", "TW");
+  await page.goto("/work");
+
+  await page.getByRole("button", { name: "Task", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByLabel("Title").fill("Pair over BLE");
+  await dialog.getByRole("radiogroup").locator("label").filter({ hasText: project.name }).click();
+  const newTags = dialog.getByRole("group", { name: "Tags" });
+  await newTags.getByLabel("Add a Tag").fill("BLE");
+  await newTags.getByLabel("Add a Tag").press("Enter");
+  await newTags.getByLabel("Add a Tag").fill("Needs Review");
+  await newTags.getByLabel("Add a Tag").press("Enter");
+  await expect(newTags).toContainText("ble");
+  await dialog.getByRole("button", { name: "Add the Task" }).click();
+  await expect(dialog).toBeHidden();
+
+  const card = page.getByRole("article", { name: "Pair over BLE" });
+  await expect(card).toContainText("ble");
+  await expect(card).toContainText("needs-review");
+
+  await card.getByRole("link", { name: "Pair over BLE" }).click();
+  const tags = page.getByRole("group", { name: "Tags" });
+  await tags.getByLabel("Add a Tag").fill("firmware");
+  await tags.getByLabel("Add a Tag").press("Enter");
+  await tags
+    .locator("span", { hasText: "needs-review" })
+    .getByRole("button", { name: "Remove" })
+    .click();
+  await expect(tags).toContainText("firmware");
+  await expect(tags).not.toContainText("needs-review");
+
+  await page.reload();
+  await expect(tags).toContainText("ble");
+  await expect(tags).toContainText("firmware");
+  await expect(tags).not.toContainText("needs-review");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-tags.png") });
+});
+
 test("a Task's page shows its record, takes Attachments of every kind and opens them", async ({
   page,
 }) => {

@@ -193,6 +193,11 @@ export function changePriority(id: string, priority: Priority): Promise<Task> {
   return sendToApi("PUT", `${taskPath(id)}/priority`, { priority }, taskSchema);
 }
 
+/** Sets the Task's Tags as given; the service keeps each lower-case, once. */
+export function changeTags(id: string, tags: readonly string[]): Promise<Task> {
+  return sendToApi("PUT", `${taskPath(id)}/tags`, { tags }, taskSchema);
+}
+
 /** Moves a Task between two others in its column; it takes the priority that keeps it there. */
 export function placeTask(id: string, placement: TaskPlacement): Promise<Task> {
   return sendToApi("PUT", `${taskPath(id)}/place`, placement, taskSchema);

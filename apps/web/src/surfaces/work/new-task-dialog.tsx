@@ -9,11 +9,13 @@ import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { canHoldBack } from "./dependency-words.ts";
 import { tasksOfInitiative } from "./initiative-words.ts";
+import { tagsInUse } from "./tag-words.ts";
+import { TagsInput } from "./tags-input.tsx";
 
 type NewTaskDraft = Omit<NewTask, "projectId"> & { readonly projectId?: string };
 
 /**
- * "+ Task": a title and its Project; it starts in Backlog. Given an Initiative, it is "Add a Task"
+ * "+ Task": a title, its Project and any Tags; it starts in Backlog. Given an Initiative, it is "Add a Task"
  * there (prototypes/app/work.js `new-task`): in the Initiative's first Project unless another is
  * chosen, and waiting for any of its Tasks that can still hold it back.
  */
@@ -27,7 +29,11 @@ export function NewTaskDialog({
   const formId = useId();
   const projects = useQuery(projectQueries.list());
   const tasks = useQuery(taskQueries.list());
-  const [draft, setDraft] = useState<NewTaskDraft>({ title: "", priority: "normal" });
+  const [draft, setDraft] = useState<NewTaskDraft>({
+    title: "",
+    priority: "normal",
+    tags: [],
+  });
   const [blockedBy, setBlockedBy] = useState<ReadonlySet<string>>(new Set());
   const projectId = draft.projectId ?? initiative?.projectIds[0] ?? projects.data?.[0]?.id;
   const candidates =
@@ -98,6 +104,13 @@ export function NewTaskDialog({
               onChange={(value) => setDraft({ ...draft, projectId: value })}
             />
           )}
+        </Field>
+        <Field label="Tags" hint="Optional. Words to find it by, such as its area or kind.">
+          <TagsInput
+            tags={draft.tags ?? []}
+            suggestions={tagsInUse(tasks.data ?? [])}
+            onChange={(tags) => setDraft({ ...draft, tags: [...tags] })}
+          />
         </Field>
         {candidates.length > 0 && (
           <MustWaitFor

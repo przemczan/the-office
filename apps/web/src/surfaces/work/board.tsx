@@ -206,6 +206,11 @@ function BoardCard({
       </div>
       <div className="board-card-meta">
         {project ? <ProjectMark project={project} /> : task.projectId}
+        {task.tags.map((tag) => (
+          <span key={tag} className="board-card-tag">
+            {tag}
+          </span>
+        ))}
       </div>
       {blockers.length > 0 && <BlockedMark blockers={blockers} />}
       {foot && <div className="board-card-foot">{foot}</div>}

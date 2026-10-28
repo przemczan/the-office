@@ -22,6 +22,7 @@ import { ChangesTab } from "./task-changes.tsx";
 import { TaskConversation } from "./task-conversation.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 import { TaskRecord } from "./task-record.tsx";
+import { TaskTags } from "./task-tags.tsx";
 
 /**
  * The Task page (prototypes/app/task.js): its record on the left, as an overview or its Changes,
@@ -90,6 +91,7 @@ function TaskHead({
           {task.initiativeId !== null && <InitiativeLink initiativeId={task.initiativeId} />}
           <span>· {tokensShort(tokens)} tokens</span>
         </div>
+        <TaskTags task={task} />
       </div>
       <div className="task-head-actions">
         <PlanButton task={task} variant="primary" />
