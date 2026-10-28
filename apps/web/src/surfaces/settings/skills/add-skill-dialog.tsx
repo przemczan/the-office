@@ -127,7 +127,12 @@ export function AddSkillDialog({
             <SkillFileInput onChange={setFile} />
           </Field>
         )}
-        {by === "write" && <SkillFields skill={written} onChange={setWritten} withName />}
+        {by === "write" && (
+          <>
+            <SkillFields skill={written} onChange={setWritten} withName />
+            <p className="dialog-hint">Or ask someone to draft it as a Proposal from their chat.</p>
+          </>
+        )}
       </form>
     </Dialog>
   );

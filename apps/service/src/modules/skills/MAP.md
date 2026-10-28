@@ -98,7 +98,7 @@ SessionSkills, PreparedSkills, SessionProject, SessionSkillRequest, ProjectSkill
 - `session-skills-not-found.ts`: SessionSkillsNotFound
 - `session-skills.ts`: SESSION_PLUGIN, SessionSkill, ProjectSkillName, ProjectSkillFile, projectSkillNamesFrom, projectSkillNameOf, SessionSkillRecord, librarySkillsFor, sessionSkillRecord, allowedSkillNames, expectedSkillNames, suffixMatches, skillOverridesOf
 - `skill-changes.ts`: SkillChange, addSkill, saveVersion, noteSourceVersion, applyUpdate, turnOn, turnOff, changeEveryone, removeSkill
-- `skill-draft.ts`: SkillDraft, WrittenSkill, writtenDraft, uploadedDraft, checkSameSkill, skillMdOf, nameFromFileName
+- `skill-draft.ts`: SkillDraft, WrittenSkill, writtenDraft, writtenSkillProblems, uploadedDraft, checkSameSkill, skillMdOf, nameFromFileName
 - `skill-events.ts`: SkillAdded, SkillVersionSaved, SkillUpdateFound, SkillUpdateGone, SkillUpdated, SkillTurnedOn, SkillTurnedOff, SkillEveryoneChanged, SkillRemoved, RoleSkillsChanged
 - `skill-files.ts`: SkillFile, SKILL_MD, isWindowsDeviceName, skillFilesHash, sortedByPath, skillFilePathProblem, skillFilesProblems
 - `skill-md.ts`: SkillMd, readSkillMd, writtenSkillMd, frontmatterText

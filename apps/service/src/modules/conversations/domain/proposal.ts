@@ -20,6 +20,7 @@ export interface ProposedChanges {
   readonly project: ProposedProject;
   readonly "skill-install": ProposedSkillInstall;
   readonly "skill-update": ProposedSkillUpdate;
+  readonly skill: ProposedSkill;
 }
 
 /** The kinds of change a Proposal can carry. */
@@ -170,6 +171,17 @@ export interface ProposedSkillUpdate {
   /** Its files' paths at `to`, in its folder. */
   readonly files: readonly string[];
   readonly filesHash: string;
+}
+
+/**
+ * A written skill someone drafted in their chat (spec §2.6): applying adds it to the library as the
+ * Write form does, off until the user has reviewed it; refused once the name is taken.
+ */
+export interface ProposedSkill {
+  readonly kind: "skill";
+  readonly name: string;
+  readonly description: string;
+  readonly instructions: string;
 }
 
 /** A Stage of a Pipeline, as Pipelines' library keeps it; Conversations doesn't read it. */

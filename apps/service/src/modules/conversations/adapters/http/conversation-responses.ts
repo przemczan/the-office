@@ -182,6 +182,13 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         files: [...change.files],
         filesHash: change.filesHash,
       };
+    case "skill":
+      return {
+        kind: "skill",
+        name: change.name,
+        description: change.description,
+        instructions: change.instructions,
+      };
   }
 }
 

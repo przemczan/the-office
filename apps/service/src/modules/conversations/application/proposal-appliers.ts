@@ -86,6 +86,8 @@ export class ProposalAppliers {
         return this.applierOf("skill-install").problemsWith(change);
       case "skill-update":
         return this.applierOf("skill-update").problemsWith(change);
+      case "skill":
+        return this.applierOf("skill").problemsWith(change);
     }
   }
 
@@ -113,6 +115,8 @@ export class ProposalAppliers {
         return this.applierOf("skill-install").apply(change, proposedBy);
       case "skill-update":
         return this.applierOf("skill-update").apply(change, proposedBy);
+      case "skill":
+        return this.applierOf("skill").apply(change, proposedBy);
     }
   }
 

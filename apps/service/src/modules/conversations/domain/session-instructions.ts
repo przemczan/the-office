@@ -42,8 +42,15 @@ function personInstructions({
 }
 
 /**
+ * The Office tool anyone drafts a written skill with in their chat (spec §2.6); the contracts name
+ * it too, for the web to hide its activity line, and a test keeps the two the same.
+ */
+export const PROPOSE_SKILL_TOOL = "propose_skill";
+
+/**
  * The Office tools a chat session works with records by (spec §6), as the Projects, People and Work
- * modules register them: they read records, capture an Idea and create a Task, and change no file.
+ * modules register them, and Conversations `propose_skill`: they read records, capture an Idea,
+ * create a Task and draft a skill as a Proposal, and change no file.
  */
 export const CHAT_OFFICE_TOOLS = [
   "list_projects",
@@ -54,6 +61,7 @@ export const CHAT_OFFICE_TOOLS = [
   "read_idea",
   "capture_idea",
   "create_task",
+  PROPOSE_SKILL_TOOL,
 ] as const;
 
 /**

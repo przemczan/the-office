@@ -1883,6 +1883,45 @@ test("the user sees a skill's update, asks Nina, reads her Proposal's diff and a
  * A Link card Marta posted in her chat, as the Conversations service leaves one: only an Agent's
  * session posts one. `to` is the person's Role key.
  */
+test("the user applies a skill Jan drafted in his chat, and reviews it, off until then", async ({
+  page,
+}) => {
+  const name = `drafted-notes-${Date.now()}`;
+  const started = await page.request.post("/api/chats/planner/threads");
+  expect(started.status()).toBe(201);
+  const { id: threadId } = threadSchema.parse(await started.json());
+  await seedProposal(
+    threadId,
+    {
+      kind: "skill",
+      name,
+      description: "Writes a Plan's risks.",
+      instructions: "List each risk with what would show it early.",
+    },
+    "planner",
+  );
+
+  await page.goto(`/settings/skills?chat=planner&thread=${threadId}`);
+  const chat = chatWith(page, "Jan");
+  // The card shows the call, so its tool line doesn't.
+  await expect(chat.getByText("propose_skill")).toHaveCount(0);
+  const card = chat.getByRole("region", { name: `Proposal: New skill · ${name}` });
+  await expect(card).toContainText("Writes a Plan's risks.");
+  await expect(card).toContainText("List each risk with what would show it early.");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-skill-proposal.png") });
+  await card.getByRole("button", { name: "Apply change" }).click();
+  await expect(card).toContainText("Applied");
+  await expect(page.getByText(`${name} added. It is off until you review it.`)).toBeVisible();
+
+  await page.goto("/settings/skills");
+  const skillRow = page.getByRole("row").filter({ hasText: name });
+  await expect(skillRow).toContainText("Off · waiting for your review");
+  await skillRow.getByRole("button", { name: "Review" }).click();
+  await expect(page.getByRole("dialog")).toContainText(
+    "List each risk with what would show it early.",
+  );
+});
+
 async function seedLinkCard(threadId: string, to: string, note: string): Promise<void> {
   await queryOfficeDatabase(
     `insert into thread_messages (id, thread_id, body, at) values ($1, $2, $3, now())`,

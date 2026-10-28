@@ -60,6 +60,7 @@ const RECORDS: Readonly<Record<(typeof CHAT_OFFICE_TOOLS)[number], string>> = {
   read_idea: "There is no Idea with that id.",
   capture_idea: "Captured the Idea.",
   create_task: "Created the Task in Backlog.",
+  propose_skill: "Drafted the skill as a Proposal.",
 };
 
 describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(

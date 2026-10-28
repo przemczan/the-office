@@ -14,6 +14,7 @@ import {
 import {
   checkSameSkill,
   writtenDraft,
+  writtenSkillProblems,
   type SkillDraft,
   type WrittenSkill,
 } from "../domain/skill-draft.js";
@@ -78,6 +79,12 @@ export class SkillLibrary {
     return this.add(writtenDraft(written));
   }
 
+  /** Why `write` would refuse `written` now, every reason, keeping nothing. */
+  async writeProblems(written: WrittenSkill): Promise<readonly string[]> {
+    const problems = writtenSkillProblems(written);
+    return problems.length > 0 ? problems : this.nameTakenProblems(written.name.trim());
+  }
+
   async upload(upload: Upload): Promise<Skill> {
     return this.add(await this.draftOf(upload));
   }
@@ -92,7 +99,7 @@ export class SkillLibrary {
 
   /** Why a skill can't be installed under `name` now, which needs no Source read. */
   async installProblems(name: string): Promise<readonly string[]> {
-    return (await this.repository.find(name)) ? [skillNameTaken(name)] : [];
+    return this.nameTakenProblems(name);
   }
 
   /** The next version of a written skill, from the Write form. */
@@ -129,6 +136,10 @@ export class SkillLibrary {
   async remove(name: string): Promise<void> {
     const skill = await this.repository.remove(name);
     await this.events.publish(removeSkill(skill));
+  }
+
+  private async nameTakenProblems(name: string): Promise<readonly string[]> {
+    return (await this.repository.find(name)) ? [skillNameTaken(name)] : [];
   }
 
   private async draftOf({ fileName, content }: Upload): Promise<SkillDraft> {

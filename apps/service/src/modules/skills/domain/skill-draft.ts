@@ -24,16 +24,22 @@ export interface WrittenSkill {
 
 /** A skill written in The Office: one SKILL.md. Refuses with every reason. */
 export function writtenDraft(written: WrittenSkill): SkillDraft {
-  const skill: NewSkill = {
-    name: written.name.trim(),
-    description: written.description.trim(),
-    source: "written",
-  };
-  const problems = newSkillProblems(skill);
-  if (written.instructions.trim() === "") problems.push("Give the skill its instructions.");
+  const skill = writtenSkill(written);
+  const problems = writtenSkillProblems(written);
   if (problems.length > 0) throw new SkillRefused(problems);
   const text = writtenSkillMd(skill.name, skill.description, written.instructions);
   return { skill, files: [{ path: SKILL_MD, content: new TextEncoder().encode(text) }] };
+}
+
+/** Why a written skill breaks a rule, every reason; none when it can be kept. */
+export function writtenSkillProblems(written: WrittenSkill): string[] {
+  const problems = newSkillProblems(writtenSkill(written));
+  if (written.instructions.trim() === "") problems.push("Give the skill its instructions.");
+  return problems;
+}
+
+function writtenSkill(written: WrittenSkill): NewSkill {
+  return { name: written.name.trim(), description: written.description.trim(), source: "written" };
 }
 
 /**

@@ -12,12 +12,14 @@ import {
   PROPOSE_PROJECT_COMMANDS_TOOL,
   PROPOSE_PROJECT_TOOL,
   PROPOSE_SKILL_INSTALL_TOOL,
+  PROPOSE_SKILL_TOOL,
   PROPOSE_SKILL_UPDATE_TOOL,
   pipelineSchema,
   projectOnboardingListSchema,
   projectSchema,
   proposalListSchema,
   proposalSchema,
+  skillReviewSchema,
   skillSchema,
   skillUpdateDiffSchema,
   taskSchema,
@@ -500,6 +502,90 @@ describe("Devops updating an installed skill, through the scripted engine", () =
   );
 });
 
+// Anyone drafts a written skill in their chat; Nina's chat stands in for everyone's here.
+describe("A skill drafted as a Proposal in a chat, through the scripted engine", () => {
+  it("drafts a written skill; applied, it is in the library as written, off until reviewed", async () => {
+    const name = aDraftedSkillName();
+    const [proposal] = await ninaProposes([
+      PROPOSE_SKILL_TOOL,
+      {
+        name: ` ${name} `,
+        description: " Writes the release notes. ",
+        instructions: "List each change under its kind.",
+      },
+    ]);
+
+    expect(proposal?.change).toEqual({
+      kind: "skill",
+      name,
+      description: "Writes the release notes.",
+      instructions: "List each change under its kind.",
+    });
+    expect((await fetch(`${url}/api/skills/${name}`)).status).toBe(404);
+    const response = await api("POST", `/proposals/${proposal?.id}/apply`, {});
+    expect(response.status).toBe(200);
+    expect(skillReviewSchema.parse(await read(`/skills/${name}/review`))).toMatchObject({
+      skill: {
+        name,
+        description: "Writes the release notes.",
+        source: "written",
+        state: "waiting-for-review",
+        everyone: false,
+      },
+      instructions: expect.stringContaining("List each change under its kind."),
+    });
+  }, 30_000);
+
+  it("refuses drafting a skill the library refuses, with every reason, and one whose name is taken", async () => {
+    const taken = aDraftedSkillName();
+    const written = await api("POST", "/skills", {
+      name: taken,
+      description: "Mine.",
+      instructions: "Do it.",
+    });
+    expect(written.status).toBe(201);
+
+    const broken = await ninaCalls(PROPOSE_SKILL_TOOL, {
+      name: "Release Notes",
+      description: "Writes them.",
+      instructions: " ",
+    });
+    const named = await ninaCalls(PROPOSE_SKILL_TOOL, {
+      name: taken,
+      description: "Yours.",
+      instructions: "Do it.",
+    });
+
+    expect(broken.isError).toBe(true);
+    expect(broken.text).toContain("A skill's name is lowercase letters and digits");
+    expect(broken.text).toContain("Give the skill its instructions.");
+    expect(named).toEqual({
+      text: expect.stringContaining(`The library already has ${taken}.`),
+      isError: true,
+    });
+  }, 30_000);
+
+  it("refuses applying once the name is taken; the Proposal stays open", async () => {
+    const name = aDraftedSkillName();
+    const [proposal] = await ninaProposes([
+      PROPOSE_SKILL_TOOL,
+      { name, description: "Writes them.", instructions: "Do it." },
+    ]);
+    await app.get(SkillLibrary, { strict: false }).write({
+      name,
+      description: "Mine.",
+      instructions: "Mine.",
+    });
+
+    const response = await api("POST", `/proposals/${proposal?.id}/apply`, {});
+
+    expect(response.status).toBe(422);
+    expect(await reasonsOf(response)).toEqual([`The library already has ${name}.`]);
+    expect((await readProposal(proposal?.id ?? "")).status.kind).toBe("open");
+    expect(skillSchema.parse(await read(`/skills/${name}`)).description).toBe("Mine.");
+  }, 30_000);
+});
+
 /** What Nina read back from one Office tool she called in her chat. */
 async function ninaCalls(
   tool: string,
@@ -565,6 +651,7 @@ const KIND_OF_TOOL: Readonly<Record<string, Proposal["change"]["kind"]>> = {
   [PROPOSE_PROJECT_TOOL]: "project",
   [PROPOSE_SKILL_INSTALL_TOOL]: "skill-install",
   [PROPOSE_SKILL_UPDATE_TOOL]: "skill-update",
+  [PROPOSE_SKILL_TOOL]: "skill",
 };
 
 async function readProposal(id: string): Promise<Proposal> {
@@ -624,6 +711,11 @@ async function aRepository(): Promise<string> {
 /** A skill name of the test's own, since every test file shares the database. */
 function aSkillName(): string {
   return `installed-${randomUUID().slice(0, 8)}`;
+}
+
+/** A drafted skill's name of the test's own, as above. */
+function aDraftedSkillName(): string {
+  return `drafted-${randomUUID().slice(0, 8)}`;
 }
 
 interface SourceForTest {

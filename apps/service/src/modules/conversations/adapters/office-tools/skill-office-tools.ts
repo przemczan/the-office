@@ -1,5 +1,9 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import { PROPOSE_SKILL_INSTALL_TOOL, PROPOSE_SKILL_UPDATE_TOOL } from "@the-office/contracts";
+import {
+  PROPOSE_SKILL_INSTALL_TOOL,
+  PROPOSE_SKILL_TOOL,
+  PROPOSE_SKILL_UPDATE_TOOL,
+} from "@the-office/contracts";
 import { z } from "zod";
 import { OfficeToolRegistry, type OfficeToolResult } from "../../../engine/index.js";
 import { SkillRefused, SkillSources, SkillUpdates } from "../../../skills/index.js";
@@ -16,6 +20,9 @@ const DRAFTED =
 const UPDATE_DRAFTED =
   "The Proposal is in this Thread as a card, with the versions from and to, your notes and the files' diff; nothing is fetched until the user applies it, and the skill then stays on or off as it was. Don't wait for it: tell the user what changes and why it is worth it, in a line or two.";
 
+const SKILL_DRAFTED =
+  "The Proposal is in this Thread as a card, with the skill's name, description and instructions; nothing is added until the user applies it, and it then arrives off until the user has reviewed it. Don't wait for it: tell the user what the skill is for, in a line or two.";
+
 const SKILL = z.string().describe("The installed skill's name, as the library lists it.");
 
 const SOURCE = z
@@ -23,10 +30,10 @@ const SOURCE = z
   .describe("The source: owner/repo on GitHub, or a git URL (https://, ssh://, git@ or file://).");
 
 /**
- * The Office tools Devops installs and updates skills from a Source with (spec §2.6): reading what
- * a Source holds and what an update changes, and drafting one Proposal per skill. The Office
- * fetches the skill only when the user applies it, since chats only read (spec §6); each returns
- * once the Source is read.
+ * The Office tools skills are drafted with as Proposals (spec §2.6): anyone in a chat drafts a
+ * written skill; Devops installs and updates skills from a Source, reading what a Source holds and
+ * what an update changes, and drafting one Proposal per skill. The Office adds or fetches the skill
+ * only when the user applies it, since chats only read (spec §6); each returns once it is drafted.
  */
 @Injectable()
 export class SkillOfficeTools implements OnModuleInit {
@@ -38,10 +45,42 @@ export class SkillOfficeTools implements OnModuleInit {
   ) {}
 
   onModuleInit(): void {
+    this.registerProposeSkill();
     this.registerListSourceSkills();
     this.registerProposeSkillInstall();
     this.registerReadSkillUpdate();
     this.registerProposeSkillUpdate();
+  }
+
+  private registerProposeSkill(): void {
+    this.registry.register({
+      name: PROPOSE_SKILL_TOOL,
+      description:
+        "Drafts a new skill for the library, written as its SKILL.md, as a Proposal the user applies with a click. It shows in this Thread as a card with the name, description and instructions; nothing is added until the user applies it, and the skill then arrives off until the user has reviewed it.",
+      input: z.object({
+        name: z
+          .string()
+          .describe(
+            "The skill's name: lowercase letters and digits in words joined by dashes, such as release-notes.",
+          ),
+        description: z
+          .string()
+          .describe("When to use the skill, in one sentence; every session that has it lists it."),
+        instructions: z
+          .string()
+          .describe("The skill's instructions, in Markdown: the body of its SKILL.md."),
+      }),
+      run: ({ name, description, instructions }, { sessionId }) =>
+        refusedToTheAgent(async () => {
+          await this.proposals.draft(sessionId, {
+            kind: "skill",
+            name: name.trim(),
+            description: description.trim(),
+            instructions,
+          });
+          return SKILL_DRAFTED;
+        }),
+    });
   }
 
   private registerReadSkillUpdate(): void {

@@ -223,6 +223,9 @@ export const PROPOSE_SKILL_INSTALL_TOOL = "propose_skill_install";
 /** The Office tool Devops drafts an installed skill's update with, hidden alike. */
 export const PROPOSE_SKILL_UPDATE_TOOL = "propose_skill_update";
 
+/** The Office tool anyone drafts a written skill with in their chat, hidden alike. */
+export const PROPOSE_SKILL_TOOL = "propose_skill";
+
 /** The fields of a Role card a change rewrites, each one whole; skills aren't among them. */
 const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).partial();
 
@@ -331,6 +334,16 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     notes: z.string(),
     files: z.array(z.string()),
     filesHash: z.string(),
+  }),
+  /**
+   * A written skill someone drafted in their chat: applying adds it as the Write form does, off
+   * until the user has reviewed it.
+   */
+  z.object({
+    kind: z.literal("skill"),
+    name: z.string(),
+    description: z.string(),
+    instructions: z.string(),
   }),
 ]);
 export type ProposedChange = z.infer<typeof proposedChangeSchema>;

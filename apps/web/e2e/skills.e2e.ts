@@ -54,6 +54,9 @@ test("the user writes a skill, reviews it, turns it on and gives it to everyone"
   await openAddASkill(page);
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("tab", { name: "Write one" }).click();
+  await expect(
+    dialog.getByText("Or ask someone to draft it as a Proposal from their chat."),
+  ).toBeVisible();
   await dialog.getByLabel("Name").fill("release-notes");
   await dialog.getByLabel("Description").fill("Writes release notes from merged pull requests.");
   await dialog.getByLabel("Instructions").fill("Group them as Added, Changed and Fixed.");

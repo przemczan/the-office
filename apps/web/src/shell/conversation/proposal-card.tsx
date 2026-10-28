@@ -103,8 +103,8 @@ const OFFICE_SETTINGS: Record<
  * (as proposed or edited first on the hire page) or from a preset (under the proposed name or one
  * the user gives), a change to a Role's card, a new value for an Office setting, the CTO's change to
  * an Initiative, or Devops' change to a Project's commands or a library Pipeline's Stages, a
- * Project to onboard or a skill to install from a Source. Nothing changes until the user applies
- * it; "Not now" declines it.
+ * Project to onboard, a skill to install from a Source or its update, or a written skill drafted
+ * in a chat. Nothing changes until the user applies it; "Not now" declines it.
  */
 export function ProposalCard({ proposal }: { readonly proposal: Proposal }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
@@ -260,6 +260,23 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
             changes={[skillQueries.list().queryKey]}
             appliedToast={`${change.name} pinned at ${pinnedVersionLabel(change.to)}.`}
             openNote="Applying it is your review: the skill stays on or off as it is"
+          />
+        </ProposalFrame>
+      );
+    case "skill":
+      return (
+        <ProposalFrame title={`New skill · ${change.name}`}>
+          <dl className="proposal-fields">
+            <ProposedField label="Description">{change.description}</ProposedField>
+            <ProposedField label="Instructions">
+              <span className="proposal-clamp">{change.instructions}</span>
+            </ProposedField>
+          </dl>
+          <AnswerFoot
+            proposal={proposal}
+            changes={[skillQueries.list().queryKey]}
+            appliedToast={`${change.name} added. It is off until you review it.`}
+            openNote="Added to the library once applied, off until you review it"
           />
         </ProposalFrame>
       );
