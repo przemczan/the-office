@@ -4,8 +4,10 @@ import type {
   Author as AuthorResponse,
   Idea as IdeaResponse,
   Initiative as InitiativeResponse,
+  SearchResults as SearchResultsResponse,
   Task as TaskResponse,
 } from "@the-office/contracts";
+import type { SearchResults } from "../../application/search-service.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
 import type { Idea } from "../../domain/idea.js";
@@ -78,6 +80,35 @@ export function toAttachmentResponse(attachment: Attachment): AttachmentResponse
   return attachment.kind === "link"
     ? { kind: "link", ...fields, url: attachment.url }
     : { kind: attachment.kind, ...fields, mediaType: attachment.mediaType, size: attachment.size };
+}
+
+export function toSearchResultsResponse(results: SearchResults): SearchResultsResponse {
+  return {
+    tasks: results.tasks.map(({ record, projectIds }) => ({
+      id: record.id,
+      title: record.title,
+      state: record.state,
+      projectIds: [...projectIds],
+    })),
+    ideas: results.ideas.map(({ record, projectIds }) => ({
+      id: record.id,
+      title: record.title,
+      state: record.state,
+      projectIds: [...projectIds],
+    })),
+    initiatives: results.initiatives.map(({ record, projectIds }) => ({
+      id: record.id,
+      name: record.name,
+      state: record.state,
+      projectIds: [...projectIds],
+    })),
+    attachments: results.documents.map(({ record, projectIds }) => ({
+      id: record.id,
+      name: record.name,
+      owner: toOwnerResponse(record.owner),
+      projectIds: [...projectIds],
+    })),
+  };
 }
 
 export function toOwnerResponse(owner: AttachmentOwner): AttachmentOwnerResponse {

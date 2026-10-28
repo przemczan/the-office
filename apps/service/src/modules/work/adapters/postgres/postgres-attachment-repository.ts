@@ -1,9 +1,9 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { asc, eq, type SQL } from "drizzle-orm";
+import { and, asc, eq, isNull, type SQL } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
 import { AttachmentRepository } from "../../ports/attachment-repository.js";
-import { attachments } from "./work.schema.js";
+import { attachments, attachmentTexts } from "./work.schema.js";
 import { toAttachment, toAttachmentRow } from "./work-rows.js";
 
 @Injectable()
@@ -12,8 +12,15 @@ export class PostgresAttachmentRepository extends AttachmentRepository {
     super();
   }
 
-  async add(attachment: Attachment): Promise<void> {
-    await this.database.insert(attachments).values(toAttachmentRow(attachment));
+  async add(attachment: Attachment, documentText?: string): Promise<void> {
+    await this.database.transaction(async (transaction) => {
+      await transaction.insert(attachments).values(toAttachmentRow(attachment));
+      if (documentText !== undefined) {
+        await transaction
+          .insert(attachmentTexts)
+          .values({ attachmentId: attachment.id, text: documentText });
+      }
+    });
   }
 
   async find(id: string): Promise<Attachment | undefined> {
@@ -30,6 +37,23 @@ export class PostgresAttachmentRepository extends AttachmentRepository {
     return rows.map(toAttachment);
   }
 
+  async documentsWithoutText(): Promise<readonly Attachment[]> {
+    const rows = await this.database
+      .select({ attachment: attachments })
+      .from(attachments)
+      .leftJoin(attachmentTexts, eq(attachmentTexts.attachmentId, attachments.id))
+      .where(and(eq(attachments.kind, "document"), isNull(attachmentTexts.attachmentId)));
+    return rows.map(({ attachment }) => toAttachment(attachment));
+  }
+
+  async keepDocumentText(attachmentId: string, text: string): Promise<void> {
+    await this.database
+      .insert(attachmentTexts)
+      .values({ attachmentId, text })
+      .onConflictDoNothing();
+  }
+
+  /** Its text goes with it. */
   async remove(id: string): Promise<void> {
     await this.database.delete(attachments).where(eq(attachments.id, id));
   }

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import type { Readable } from "node:stream";
-import { Injectable } from "@nestjs/common";
+import { Readable } from "node:stream";
+import { Injectable, Logger } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { Attachment, AttachmentOwner, NewLink } from "../domain/attachment.js";
 import { addFile, addLink, removeAttachment, type Adding } from "../domain/attachment-changes.js";
@@ -11,6 +11,7 @@ import type { Idea } from "../domain/idea.js";
 import { attachingToIdeaProblems } from "../domain/idea-changes.js";
 import { IdeaNotFound } from "../domain/idea-not-found.js";
 import { InitiativeNotFound } from "../domain/initiative-not-found.js";
+import { SEARCHED_TEXT_LIMIT, searchedText } from "../domain/search.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { AttachmentFiles } from "../ports/attachment-files.js";
 import { AttachmentRepository } from "../ports/attachment-repository.js";
@@ -43,6 +44,8 @@ export interface DocumentText {
  */
 @Injectable()
 export class AttachmentService {
+  private readonly logger = new Logger(AttachmentService.name);
+
   constructor(
     private readonly repository: AttachmentRepository,
     private readonly files: AttachmentFiles,
@@ -73,9 +76,13 @@ export class AttachmentService {
       { name: file.name, mediaType: file.mediaType, size: file.content.byteLength },
       adding,
     );
+    const text =
+      attachment.kind === "document"
+        ? await searchedTextOf(Readable.from([file.content]))
+        : undefined;
     await this.files.save(attachment.id, file.content);
     try {
-      await this.repository.add(attachment);
+      await this.repository.add(attachment, text);
     } catch (error) {
       await this.files.remove(attachment.id);
       throw error;
@@ -115,6 +122,21 @@ export class AttachmentService {
     await this.events.publish(removeAttachment(attachment));
   }
 
+  /**
+   * Keeps the text of each document added before the search read documents. One whose file can't
+   * be read is left without, to be read again at the next start.
+   */
+  async fillDocumentTexts(): Promise<void> {
+    for (const document of await this.repository.documentsWithoutText()) {
+      try {
+        const text = await searchedTextOf(await this.files.open(document.id));
+        await this.repository.keepDocumentText(document.id, text);
+      } catch (error) {
+        this.logger.warn(`Could not read document ${document.id}: ${(error as Error).message}`);
+      }
+    }
+  }
+
   /** A shaped Idea's Attachments went to what it became, so it takes no more. */
   private async adding(owner: AttachmentOwner, addedBy: Author): Promise<Adding> {
     const idea = await this.checkOwner(owner);
@@ -141,6 +163,10 @@ export class AttachmentService {
         return undefined;
     }
   }
+}
+
+async function searchedTextOf(content: Readable): Promise<string> {
+  return searchedText((await leadingText(content, SEARCHED_TEXT_LIMIT)).text);
 }
 
 /** Reads no more of the file than it needs, and never ends on half a character. */

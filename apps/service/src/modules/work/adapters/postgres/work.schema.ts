@@ -1,7 +1,8 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import {
   boolean,
   check,
+  customType,
   index,
   integer,
   jsonb,
@@ -17,6 +18,7 @@ import type { Author } from "../../domain/author.js";
 import type { IdeaState } from "../../domain/idea.js";
 import type { InitiativeState } from "../../domain/initiative.js";
 import type { Priority, ProposedPipeline, TaskState } from "../../domain/task.js";
+import { searchVectorOf } from "./search-vector.js";
 
 // The tables are in one file because Ideas, Initiatives and Tasks name each other.
 
@@ -124,3 +126,23 @@ export const attachments = pgTable(
     ),
   ],
 );
+
+const tsvector = customType<{ data: string }>({
+  dataType: () => "tsvector",
+});
+
+/**
+ * A document Attachment's text, read when it is added, for the search. Kept apart from
+ * `attachments`, so listing Attachments never reads it, and keyed by the Attachment alone, so
+ * it stays when the Attachment moves to another owner.
+ */
+export const attachmentTexts = pgTable("attachment_texts", {
+  attachmentId: uuid("attachment_id")
+    .primaryKey()
+    .references(() => attachments.id, { onDelete: "cascade" }),
+  text: text("text").notNull(),
+  /** Parsed once as it is stored: a document's text is long, unlike any other searched field. */
+  searchVector: tsvector("search_vector")
+    .notNull()
+    .generatedAlwaysAs((): SQL => searchVectorOf(attachmentTexts.text)),
+});

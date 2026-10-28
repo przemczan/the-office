@@ -239,6 +239,30 @@ export type Attachment = z.infer<typeof attachmentSchema>;
 
 export const attachmentListSchema = z.array(attachmentSchema);
 
+/**
+ * The query of GET /tasks and GET /search: words, each matched as the start of a word in a
+ * record, all of them required. GET /tasks answers every Task when it has no words.
+ */
+export const searchQuerySchema = z.object({ query: z.string().default("") });
+export type SearchQuery = z.infer<typeof searchQuerySchema>;
+
+/** The Projects a found record is in; none for one Office-wide. */
+const foundFields = { id: z.uuid(), projectIds: z.array(z.string()) };
+
+/** GET /search: what the top bar's search found, by kind, the best matches first. */
+export const searchResultsSchema = z.object({
+  tasks: z.array(z.object({ ...foundFields, title: z.string(), state: taskStateSchema })),
+  ideas: z.array(z.object({ ...foundFields, title: z.string(), state: ideaStateSchema })),
+  initiatives: z.array(
+    z.object({ ...foundFields, name: z.string(), state: initiativeStateSchema }),
+  ),
+  /** Document Attachments, in their owner's Projects. */
+  attachments: z.array(
+    z.object({ ...foundFields, name: z.string(), owner: attachmentOwnerSchema }),
+  ),
+});
+export type SearchResults = z.infer<typeof searchResultsSchema>;
+
 /** Settings › Office limits: the most desks the stepper offers (prototypes/app/settings.js). */
 export const OFFICE_WIDE_LIMIT_MAX = 12;
 

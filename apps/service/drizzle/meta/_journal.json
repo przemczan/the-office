@@ -295,6 +295,13 @@
       "when": 1793183266289,
       "tag": "0041_task_tags",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1793188552769,
+      "tag": "0042_attachment_texts",
+      "breakpoints": true
     }
   ]
 }

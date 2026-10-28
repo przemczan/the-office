@@ -1,10 +1,12 @@
 import {
+  Logger,
   Module,
   RequestMethod,
   type DynamicModule,
   type MiddlewareConsumer,
   type ModuleMetadata,
   type NestModule,
+  type OnApplicationBootstrap,
   type Type,
 } from "@nestjs/common";
 import { uploadBody } from "../../platform/http/upload-body.js";
@@ -18,6 +20,7 @@ import {
 import { IdeasController } from "./adapters/http/ideas.controller.js";
 import { InitiativesController } from "./adapters/http/initiatives.controller.js";
 import { OfficeLimitsController } from "./adapters/http/office-limits.controller.js";
+import { SearchController } from "./adapters/http/search.controller.js";
 import { InitiativeProposals } from "./adapters/conversations/initiative-proposals.js";
 import { MentionedWorkRecords } from "./adapters/conversations/mentioned-work-records.js";
 import { OfficeLimitProposals } from "./adapters/conversations/office-limit-proposals.js";
@@ -32,6 +35,7 @@ import { PostgresAttachmentRepository } from "./adapters/postgres/postgres-attac
 import { PostgresIdeaRepository } from "./adapters/postgres/postgres-idea-repository.js";
 import { PostgresInitiativeRepository } from "./adapters/postgres/postgres-initiative-repository.js";
 import { PostgresTaskRepository } from "./adapters/postgres/postgres-task-repository.js";
+import { PostgresWorkSearch } from "./adapters/postgres/postgres-work-search.js";
 import { PostgresWorkSettings } from "./adapters/postgres/postgres-work-settings.js";
 import { WorkWebEvents } from "./adapters/websocket/work-web-events.js";
 import { AttachmentService } from "./application/attachment-service.js";
@@ -39,6 +43,7 @@ import { IdeaService } from "./application/idea-service.js";
 import { InitiativeService } from "./application/initiative-service.js";
 import { OfficeLimits } from "./application/office-limits.js";
 import { PlanningService } from "./application/planning-service.js";
+import { SearchService } from "./application/search-service.js";
 import { StageScreenshots } from "./application/stage-screenshots.js";
 import { StartService } from "./application/start-service.js";
 import { TaskRecords } from "./application/task-records.js";
@@ -61,6 +66,7 @@ import { SessionTasks } from "./ports/session-tasks.js";
 import { TaskRepository } from "./ports/task-repository.js";
 import { TaskDecisions } from "./ports/task-decisions.js";
 import { TaskThreads } from "./ports/task-threads.js";
+import { WorkSearch } from "./ports/work-search.js";
 import { WorkSettings } from "./ports/work-settings.js";
 import { WorktreeFiles } from "./ports/worktree-files.js";
 
@@ -87,7 +93,11 @@ export interface WorkModuleOptions {
 }
 
 @Module({})
-export class WorkModule implements NestModule {
+export class WorkModule implements NestModule, OnApplicationBootstrap {
+  private readonly logger = new Logger(WorkModule.name);
+
+  constructor(private readonly attachments: AttachmentService) {}
+
   static register({
     imports,
     knownProjects,
@@ -113,6 +123,7 @@ export class WorkModule implements NestModule {
         TasksController,
         AttachmentsController,
         OfficeLimitsController,
+        SearchController,
       ],
       providers: [
         { provide: IdeaRepository, useClass: PostgresIdeaRepository },
@@ -121,6 +132,7 @@ export class WorkModule implements NestModule {
         { provide: AttachmentRepository, useClass: PostgresAttachmentRepository },
         { provide: AttachmentFiles, useClass: FilesystemAttachmentFiles },
         { provide: WorktreeFiles, useClass: FilesystemWorktreeFiles },
+        { provide: WorkSearch, useClass: PostgresWorkSearch },
         { provide: WorkSettings, useClass: PostgresWorkSettings },
         { provide: KnownProjects, useExisting: knownProjects },
         { provide: ProjectWorktrees, useExisting: projectWorktrees },
@@ -139,6 +151,7 @@ export class WorkModule implements NestModule {
         TaskService,
         OfficeLimits,
         AttachmentService,
+        SearchService,
         PlanningService,
         StartService,
         TaskRecords,
@@ -162,5 +175,15 @@ export class WorkModule implements NestModule {
     consumer
       .apply(uploadBody(ATTACHMENT_SIZE_LIMIT))
       .forRoutes(...ATTACHMENT_UPLOAD_ROUTES.map((path) => ({ path, method: RequestMethod.POST })));
+  }
+
+  /** Before the service takes requests, so the search finds the documents added before it read them. */
+  async onApplicationBootstrap(): Promise<void> {
+    try {
+      await this.attachments.fillDocumentTexts();
+    } catch (error) {
+      // Those left without text are filled at the next start.
+      this.logger.warn(`Could not read the documents' text: ${(error as Error).message}`);
+    }
   }
 }

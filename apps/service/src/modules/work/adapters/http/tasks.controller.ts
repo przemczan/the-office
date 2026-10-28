@@ -9,6 +9,7 @@ import {
   ParseUUIDPipe,
   Post,
   Put,
+  Query,
   UseFilters,
 } from "@nestjs/common";
 import {
@@ -18,6 +19,7 @@ import {
   pipelineChangeSchema,
   planChangeSchema,
   priorityChangeSchema,
+  searchQuerySchema,
   tagsChangeSchema,
   taskPlacementSchema,
   type DefinitionOfDoneChange,
@@ -27,6 +29,7 @@ import {
   type PlanChange,
   type PriorityChange,
   type Readiness,
+  type SearchQuery,
   type StartCheck,
   type TagsChange,
   type Task as TaskResponse,
@@ -34,6 +37,7 @@ import {
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { PlanningService } from "../../application/planning-service.js";
+import { SearchService } from "../../application/search-service.js";
 import { StartService } from "../../application/start-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { THE_USER } from "../../domain/author.js";
@@ -47,6 +51,7 @@ export class TasksController {
     private readonly tasks: TaskService,
     private readonly planning: PlanningService,
     private readonly starting: StartService,
+    private readonly search: SearchService,
   ) {}
 
   @Post()
@@ -54,10 +59,12 @@ export class TasksController {
     return toTaskResponse(await this.tasks.create(given, THE_USER));
   }
 
-  /** Every Task, in the board's order. */
+  /** The Tasks matching the query, every Task without one, in the board's order. */
   @Get()
-  async list(): Promise<TaskResponse[]> {
-    return (await this.tasks.list()).map(toTaskResponse);
+  async list(
+    @Query(new ContractPipe(searchQuerySchema)) { query }: SearchQuery,
+  ): Promise<TaskResponse[]> {
+    return (await this.search.tasksMatching(query)).map(toTaskResponse);
   }
 
   @Get(":id")
