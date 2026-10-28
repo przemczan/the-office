@@ -1659,6 +1659,11 @@ test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confi
       data: { title: "Usage exports for customers", notes: "", projectId: null },
     });
     expect(idea.status()).toBe(201);
+    const { id: ideaId } = ideaSchema.parse(await idea.json());
+    const link = await page.request.post(`/api/ideas/${ideaId}/attachments/links`, {
+      data: { name: "Usage export sketch", url: "https://example.com/usage-export-sketch" },
+    });
+    expect(link.status()).toBe(201);
 
     await page.goto("/work/ideas");
     await page
@@ -1668,6 +1673,16 @@ test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confi
     await expect(page).toHaveURL(/\/work\/initiatives\/[0-9a-f-]+$/);
     const initiativeUrl = page.url();
     await expect(page.getByText("Shaping with Bob")).toBeVisible();
+    // The Idea stays its origin, and its Attachments moved with it.
+    const record = page.getByRole("region", { name: "Record" });
+    await expect(
+      record.getByRole("region", { name: "Attachments" }).getByText("Usage export sketch"),
+    ).toBeVisible();
+    await expect(
+      record
+        .getByRole("region", { name: "Started from the Idea" })
+        .getByRole("link", { name: "Usage exports for customers" }),
+    ).toBeVisible();
 
     // Bob writes the outcome straight onto the page while it is being shaped; the user edits it.
     const conversation = page.getByRole("complementary", { name: "Conversation" });
@@ -1676,9 +1691,7 @@ test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confi
         "I wrote the outcome. Add the Tasks, and confirm the Initiative when it is right.",
       ),
     ).toBeVisible();
-    const outcome = page
-      .getByRole("region", { name: "Record" })
-      .getByRole("region", { name: "Outcome" });
+    const outcome = record.getByRole("region", { name: "Outcome" });
     await expect(outcome).toContainText(SHAPED_OUTCOME);
     await outcome.getByRole("button", { name: "Edit" }).click();
     await outcome.getByRole("textbox", { name: "Outcome" }).fill(`${SHAPED_OUTCOME} Monthly.`);
