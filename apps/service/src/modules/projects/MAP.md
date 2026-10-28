@@ -49,7 +49,7 @@ BaseCheckouts, BaseCheckout, ProjectService, TaskWorktrees, SessionWorktree, Env
 
 - `command-line-git.ts`: CommandLineGit
 - `repository-locks.ts`: RepositoryLocks
-- `temporary-repository.fixtures.ts`: TemporaryRepository, createTemporaryRepository, gitIn, commitOnOrigin
+- `temporary-repository.fixtures.ts`: REAL_GIT_TEST, TemporaryRepository, createTemporaryRepository, gitIn, commitOnOrigin
 - Tests: command-line-git.test.ts, repository-locks.test.ts
 
 ### adapters/github/

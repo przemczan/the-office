@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { aNewSkill, aSkill } from "./skill.fixtures.js";
 import {
   addSkill,
@@ -157,6 +157,15 @@ describe("noteSourceVersion", () => {
     },
   });
   const v2 = { tag: "v2", commit: "b" };
+
+  // The expected event is made apart from the one noted: one clock reading for both.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"], now: new Date("2026-10-28T09:00:00Z") });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it("notes a newer pinned version as the update, keeping the skill's state", () => {
     const skill = { ...installed, state: "on" as const };

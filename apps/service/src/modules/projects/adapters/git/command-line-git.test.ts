@@ -9,6 +9,7 @@ import {
   createTemporaryRepository,
   gitIn,
   type TemporaryRepository,
+  REAL_GIT_TEST,
 } from "./temporary-repository.fixtures.js";
 
 const git = new CommandLineGit(new RepositoryLocks());
@@ -69,7 +70,7 @@ async function exists(path: string): Promise<boolean> {
   return (await stat(path).catch(() => undefined)) !== undefined;
 }
 
-describe("CommandLineGit.inspect", () => {
+describe("CommandLineGit.inspect", REAL_GIT_TEST, () => {
   it("knows a repository's top-level folder", async () => {
     await expect(git.inspect(repository.path)).resolves.toEqual({ kind: "repository" });
   });
@@ -99,7 +100,7 @@ describe("CommandLineGit.inspect", () => {
   });
 });
 
-describe("CommandLineGit.hasBranch", () => {
+describe("CommandLineGit.hasBranch", REAL_GIT_TEST, () => {
   it("finds a local branch", async () => {
     await expect(git.hasBranch(repository.path, "main")).resolves.toBe(true);
   });
@@ -109,7 +110,7 @@ describe("CommandLineGit.hasBranch", () => {
   });
 });
 
-describe("CommandLineGit.fetch", () => {
+describe("CommandLineGit.fetch", REAL_GIT_TEST, () => {
   it("updates the remote-tracking branch and returns its commit", async () => {
     const commit = await commitOnOrigin(repository, "fetched", "fetched.txt");
 
@@ -127,7 +128,7 @@ describe("CommandLineGit.fetch", () => {
   });
 });
 
-describe("CommandLineGit.push", () => {
+describe("CommandLineGit.push", REAL_GIT_TEST, () => {
   it("pushes a local branch to the remote's branch of the same name", async () => {
     const worktree = await aWorktree();
     await writeFile(join(worktree.path, "pushed.txt"), "pushed\n");
@@ -197,7 +198,7 @@ describe("CommandLineGit.push", () => {
   });
 });
 
-describe("CommandLineGit.contains", () => {
+describe("CommandLineGit.contains", REAL_GIT_TEST, () => {
   it("knows whether a revision was made on another", async () => {
     const worktree = await aWorktree();
     await writeFile(join(worktree.path, "later.txt"), "later\n");
@@ -214,7 +215,7 @@ describe("CommandLineGit.contains", () => {
   });
 });
 
-describe("CommandLineGit.exclusively", { timeout: 30_000 }, () => {
+describe("CommandLineGit.exclusively", REAL_GIT_TEST, () => {
   it("keeps every other git change on the repository waiting while its work makes its own", async () => {
     const worktree = await aWorktree();
     await writeFile(join(worktree.path, "waited.txt"), "waited\n");
@@ -246,7 +247,7 @@ describe("CommandLineGit.exclusively", { timeout: 30_000 }, () => {
   });
 });
 
-describe("CommandLineGit.conflictsOf", () => {
+describe("CommandLineGit.conflictsOf", REAL_GIT_TEST, () => {
   it("names the files a merge would conflict on, changing no ref or worktree", async () => {
     const { branch, main } = await besideAMovedMain("export const other = 2;\n");
     const before = gitIn(repository.path, "rev-parse", branch);
@@ -263,7 +264,7 @@ describe("CommandLineGit.conflictsOf", () => {
   });
 });
 
-describe("CommandLineGit.rebase", () => {
+describe("CommandLineGit.rebase", REAL_GIT_TEST, () => {
   it("rebases the worktree's branch onto a moved base", async () => {
     const { path, branch, main } = await besideAMovedMain("export {};\n");
 
@@ -286,7 +287,7 @@ describe("CommandLineGit.rebase", () => {
   });
 });
 
-describe("CommandLineGit refs", () => {
+describe("CommandLineGit refs", REAL_GIT_TEST, () => {
   it("points a ref of The Office's own at a commit, finds it, and finds none for a missing one", async () => {
     const { branch, main } = await besideAMovedMain("export {};\n");
     const forkPoint = await git.mergeBase(repository.path, main, `refs/heads/${branch}`);
@@ -313,7 +314,7 @@ describe("CommandLineGit refs", () => {
   });
 });
 
-describe("CommandLineGit.addWorktree", () => {
+describe("CommandLineGit.addWorktree", REAL_GIT_TEST, () => {
   it("checks out a new branch at the start point", async () => {
     const worktree = await aWorktree();
 
@@ -352,7 +353,7 @@ describe("CommandLineGit.addWorktree", () => {
   });
 });
 
-describe("CommandLineGit.checkoutDetached", () => {
+describe("CommandLineGit.checkoutDetached", REAL_GIT_TEST, () => {
   it("moves a detached worktree to the commit, dropping what changed in it", async () => {
     const worktree = detachedAtMain();
     await git.addWorktree(repository.path, worktree, variables);
@@ -368,7 +369,7 @@ describe("CommandLineGit.checkoutDetached", () => {
   });
 });
 
-describe("CommandLineGit.removeWorktree", () => {
+describe("CommandLineGit.removeWorktree", REAL_GIT_TEST, () => {
   it("removes the worktree with its uncommitted changes and keeps its branch", async () => {
     const worktree = await aWorktree();
     await writeFile(join(worktree.path, "unsaved.txt"), "unsaved\n");
@@ -427,7 +428,7 @@ describe("CommandLineGit.removeWorktree", () => {
   });
 });
 
-describe("CommandLineGit.commit", () => {
+describe("CommandLineGit.commit", REAL_GIT_TEST, () => {
   it("commits every change, untracked files included, with the message as given", async () => {
     const worktree = await aWorktree();
     await writeFile(join(worktree.path, "src", "index.ts"), "export const changed = true;\n");
@@ -463,7 +464,7 @@ describe("CommandLineGit.commit", () => {
   });
 });
 
-describe("CommandLineGit.branchChanges", () => {
+describe("CommandLineGit.branchChanges", REAL_GIT_TEST, () => {
   it("lists each committed file with its lines, renames and binary files included, and the diff", async () => {
     const worktree = await aWorktree();
     await writeFile(join(worktree.path, "src", "index.ts"), "export const changed = true;\n");
@@ -557,7 +558,7 @@ describe("CommandLineGit.branchChanges", () => {
   });
 });
 
-describe("CommandLineGit.restore", () => {
+describe("CommandLineGit.restore", REAL_GIT_TEST, () => {
   it("reverts tracked files and keeps untracked ones", async () => {
     const worktree = await aWorktree();
     await writeFile(join(worktree.path, "src", "index.ts"), "export const broken = true;\n");
@@ -578,7 +579,7 @@ describe("CommandLineGit.restore", () => {
   });
 });
 
-describe("CommandLineGit.untracked", () => {
+describe("CommandLineGit.untracked", REAL_GIT_TEST, () => {
   it("lists the untracked files that aren't ignored, in folders too", async () => {
     const worktree = await aWorktree();
     await writeFile(join(worktree.path, ".gitignore"), "node_modules/\n");
@@ -595,7 +596,7 @@ describe("CommandLineGit.untracked", () => {
   });
 });
 
-describe("CommandLineGit.discard", () => {
+describe("CommandLineGit.discard", REAL_GIT_TEST, () => {
   it("drops tracked and untracked changes and keeps ignored files", async () => {
     const worktree = await aWorktree();
     await writeFile(join(worktree.path, ".gitignore"), "node_modules/\n");
@@ -615,7 +616,7 @@ describe("CommandLineGit.discard", () => {
   });
 });
 
-describe("CommandLineGit.upstreamOf", () => {
+describe("CommandLineGit.upstreamOf", REAL_GIT_TEST, () => {
   it("names the remote branch a branch tracks", async () => {
     gitIn(repository.path, "branch", "--quiet", "tracking", "main");
     await expect(git.upstreamOf(repository.path, "tracking")).resolves.toBeUndefined();
@@ -636,7 +637,7 @@ describe("CommandLineGit.upstreamOf", () => {
   });
 });
 
-describe("CommandLineGit.addWorktree with an existing branch", () => {
+describe("CommandLineGit.addWorktree with an existing branch", REAL_GIT_TEST, () => {
   it("checks the branch out where it is", async () => {
     const first = await aWorktree();
     await writeFile(join(first.path, "kept.txt"), "kept\n");
@@ -654,7 +655,7 @@ describe("CommandLineGit.addWorktree with an existing branch", () => {
   });
 });
 
-describe("CommandLineGit with a Project's variables", () => {
+describe("CommandLineGit with a Project's variables", REAL_GIT_TEST, () => {
   it("runs the repository's hooks with them", async () => {
     const hook = join(repository.path, ".git", "hooks", "post-checkout");
     const written = join(repository.folder, "post-checkout.txt");
@@ -672,7 +673,7 @@ describe("CommandLineGit with a Project's variables", () => {
   });
 });
 
-describe("CommandLineGit.worktreeRecordPath", () => {
+describe("CommandLineGit.worktreeRecordPath", REAL_GIT_TEST, () => {
   it("names a file outside the worktree's files, which git leaves alone", async () => {
     const worktree = await aWorktree();
 
@@ -686,7 +687,7 @@ describe("CommandLineGit.worktreeRecordPath", () => {
   });
 });
 
-describe("CommandLineGit on one repository", () => {
+describe("CommandLineGit on one repository", REAL_GIT_TEST, () => {
   /** Records when each piece of work held its repository's lock. */
   class RecordingLocks extends RepositoryLocks {
     readonly held: { key: string; from: number; to: number }[] = [];

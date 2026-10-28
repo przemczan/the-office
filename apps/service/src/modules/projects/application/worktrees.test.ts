@@ -9,6 +9,7 @@ import {
   createTemporaryRepository,
   gitIn,
   type TemporaryRepository,
+  REAL_GIT_TEST,
 } from "../adapters/git/temporary-repository.fixtures.js";
 import { ShellCommandRunner } from "../adapters/shell/shell-command-runner.js";
 import type { Project } from "../domain/project.js";
@@ -58,7 +59,7 @@ async function installs(): Promise<number> {
 }
 
 // Real git, making worktrees and commits: slow under a full run.
-describe("Worktrees.prepare", { timeout: 30_000 }, () => {
+describe("Worktrees.prepare", REAL_GIT_TEST, () => {
   it("makes the Task's worktree at a stable path, on its branch at the freshly fetched base", async () => {
     const fetched = await commitOnOrigin(repository, "main", "fetched.txt");
     const taskId = aTaskId();
@@ -123,7 +124,7 @@ describe("Worktrees.prepare", { timeout: 30_000 }, () => {
   });
 });
 
-describe("Worktrees.open", () => {
+describe("Worktrees.open", REAL_GIT_TEST, () => {
   it("makes the Task's worktree at the freshly fetched base without installing, as planning reads it", async () => {
     const fetched = await commitOnOrigin(repository, "main", "planned.txt");
     const taskId = aTaskId();
@@ -141,7 +142,7 @@ describe("Worktrees.open", () => {
   });
 });
 
-describe("Worktrees.install", () => {
+describe("Worktrees.install", REAL_GIT_TEST, () => {
   it("installs again only when the install command, an install input or the environment changes", async () => {
     const { worktree } = await worktrees.prepare(project, aTaskId());
     const count = await installs();
@@ -186,7 +187,7 @@ describe("Worktrees.install", () => {
 });
 
 // Real git, making worktrees and commits: slow under a full run.
-describe("Worktrees with a Task's id", { timeout: 30_000 }, () => {
+describe("Worktrees with a Task's id", REAL_GIT_TEST, () => {
   it("commits, reports, restores and discards in the Task's worktree, with the Project's variables", async () => {
     const taskId = aTaskId();
     const { worktree } = await worktrees.prepare(project, taskId);
@@ -233,7 +234,7 @@ describe("Worktrees with a Task's id", { timeout: 30_000 }, () => {
   });
 });
 
-describe("Worktrees.changes", () => {
+describe("Worktrees.changes", REAL_GIT_TEST, () => {
   it("has none before the Task has a branch", async () => {
     await expect(worktrees.changes(project, aTaskId())).resolves.toEqual({
       files: [],
@@ -268,11 +269,10 @@ describe("Worktrees.changes", () => {
       files: expected,
       worktreePath: undefined,
     });
-    // Real git: a worktree made, committed in, removed and read twice; slow under a full run.
-  }, 30_000);
+  });
 });
 
-describe("Worktrees.remove", () => {
+describe("Worktrees.remove", REAL_GIT_TEST, () => {
   it("removes the worktree with its uncommitted changes and keeps the Task's branch", async () => {
     const taskId = aTaskId();
     const { worktree } = await worktrees.prepare(project, taskId);

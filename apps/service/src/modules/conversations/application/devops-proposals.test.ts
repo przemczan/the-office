@@ -15,6 +15,7 @@ import {
   PROPOSE_SKILL_TOOL,
   PROPOSE_SKILL_UPDATE_TOOL,
   pipelineSchema,
+  projectListSchema,
   projectOnboardingListSchema,
   projectSchema,
   proposalListSchema,
@@ -44,6 +45,7 @@ import {
 import { DEVOPS, RoleCards, type SessionRole } from "../../people/index.js";
 import { SKILL_UPDATE_CHECK, SkillLibrary } from "../../skills/index.js";
 import { LIST_SOURCE_SKILLS_TOOL, READ_SKILL_UPDATE_TOOL } from "../domain/session-instructions.js";
+import { ProjectBases } from "../ports/project-bases.js";
 import { ProposalService } from "./proposal-service.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { ThreadService } from "./thread-service.js";
@@ -92,8 +94,14 @@ beforeAll(async () => {
         { directory: folder, source: "built" },
       ),
     ],
-    // Nina's Memory is People's, kept by her Role, which the stand-in above has no row for.
-    overrides: [{ provide: RoleCards, useValue: ROLE_CARDS }, sessionMemoryProvider()],
+    overrides: [
+      { provide: RoleCards, useValue: ROLE_CARDS },
+      // Nina's Memory is People's, kept by her Role, which the stand-in above has no row for.
+      sessionMemoryProvider(),
+      // A chat reads every Project's base branch, which would run git in other test files' own
+      // repositories on the shared database while they use or delete them; no test here needs it.
+      { provide: ProjectBases, useValue: noProjectBases(join(folder, "bases")) },
+    ],
     moduleOverrides: [{ module: EngineModule, useModule: ScriptedEngineModule.register(engine) }],
   }));
 });
@@ -241,10 +249,11 @@ describe("Devops' Proposals, through the scripted engine", () => {
 
   it("refuses a Project to onboard that can't be added, which stays open and adds nothing", async () => {
     const repository = await aRepository();
+    const name = `Moved ${randomUUID().slice(0, 8)}`;
     const [proposal] = await ninaProposes([
       PROPOSE_PROJECT_TOOL,
       {
-        name: `Moved ${randomUUID().slice(0, 8)}`,
+        name,
         path: repository,
         baseBranch: "main",
         commands: {
@@ -260,13 +269,16 @@ describe("Devops' Proposals, through the scripted engine", () => {
     ]);
     // The repository moves away before the user applies it.
     await rm(repository, { recursive: true, force: true });
-    const projectsBefore = await read("/projects");
 
     const response = await api("POST", `/proposals/${proposal?.id}/apply`, {});
 
     expect(response.status).toBe(422);
     expect((await readProposal(proposal?.id ?? "")).status.kind).toBe("open");
-    expect(await read("/projects")).toEqual(projectsBefore);
+    // Only this Project: other test files add theirs to the shared database meanwhile.
+    const projects = projectListSchema.parse(await read("/projects"));
+    expect(
+      projects.filter((project) => project.name === name || project.path === repository),
+    ).toEqual([]);
   }, 30_000);
 });
 
@@ -585,6 +597,15 @@ describe("A skill drafted as a Proposal in a chat, through the scripted engine",
     expect(skillSchema.parse(await read(`/skills/${name}`)).description).toBe("Mine.");
   }, 30_000);
 });
+
+/** Project bases with no Project in them, so a chat session runs no git. */
+function noProjectBases(basesFolder: string): ProjectBases {
+  return {
+    folder: basesFolder,
+    list: () => Promise.resolve([]),
+    refresh: () => Promise.resolve([]),
+  };
+}
 
 /** What Nina read back from one Office tool she called in her chat. */
 async function ninaCalls(

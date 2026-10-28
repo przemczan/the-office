@@ -8,6 +8,7 @@ import {
   createTemporaryRepository,
   gitIn,
   type TemporaryRepository,
+  REAL_GIT_TEST,
 } from "../adapters/git/temporary-repository.fixtures.js";
 import { ShellCommandRunner } from "../adapters/shell/shell-command-runner.js";
 import type { Project } from "../domain/project.js";
@@ -98,7 +99,7 @@ async function exists(path: string): Promise<boolean> {
   return (await stat(path).catch(() => undefined)) !== undefined;
 }
 
-describe("ScriptCommands.run", () => {
+describe("ScriptCommands.run", REAL_GIT_TEST, () => {
   it("runs a passing test command once, then restores what it changed in tracked files", async () => {
     const { project, taskId, worktreePath } = await aTask(1);
 

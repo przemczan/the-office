@@ -4,6 +4,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 /**
+ * The budget of a test that runs real git several times: git's process starts dominate it, and a
+ * busy workstation (a full run beside other work) slows them well past vitest's default.
+ */
+export const REAL_GIT_TEST = { timeout: 30_000 } as const;
+
+/**
  * A git repository in a temp folder, with `main` holding one commit of `src/index.ts`, and a bare
  * repository beside it as its `origin`, holding the same `main`.
  */
