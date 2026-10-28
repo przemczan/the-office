@@ -39,12 +39,15 @@ export interface WaitingDecision {
   readonly kind: "decision";
   readonly decisionId: string;
   readonly taskId: string;
+  /** The Task's, so the Project filter can narrow what waits. */
+  readonly projectId: string;
   readonly waitingSince: Date;
 }
 
 export interface WaitingGate {
   readonly kind: "gate";
   readonly taskId: string;
+  readonly projectId: string;
   readonly stageKey: string;
   readonly waitingSince: Date;
 }
@@ -124,11 +127,11 @@ export interface NowParts {
 
 export function nowOf(parts: NowParts): Now {
   const gates = parts.started.flatMap(({ task, stages }) => {
-    const gate = stages && waitingGateOf(task.id, stages);
+    const gate = stages && waitingGateOf(task, stages);
     return gate ? [gate] : [];
   });
   return {
-    needsYou: needsYouOf(parts.openDecisions, gates),
+    needsYou: needsYouOf(parts.openDecisions, gates, parts.tasks),
     running: parts.started.map(({ task, stages }) => ({
       taskId: task.id,
       title: task.title,
@@ -147,7 +150,7 @@ export function nowOf(parts: NowParts): Now {
 
 /** The Gate the Task waits at, if it does: since the Gate's run ended as the Task reached it. */
 export function waitingGateOf(
-  taskId: string,
+  task: Pick<OfficeTask, "id" | "projectId">,
   stages: readonly StageOfTask[],
 ): WaitingGate | undefined {
   const gate = stages.find(
@@ -158,7 +161,8 @@ export function waitingGateOf(
     gate &&
     run && {
       kind: "gate",
-      taskId,
+      taskId: task.id,
+      projectId: task.projectId,
       stageKey: gate.stage.key,
       waitingSince: run.endedAt ?? run.startedAt,
     }
@@ -183,17 +187,28 @@ export function currentStageOf(stages: readonly StageOfTask[]): CurrentStage | u
   );
 }
 
+/** A Decision on a Task Work no longer knows is left out. */
 function needsYouOf(
   decisions: readonly OpenDecision[],
   gates: readonly WaitingGate[],
+  tasks: readonly OfficeTask[],
 ): NeedsYouItem[] {
+  const byId = new Map(tasks.map((task) => [task.id, task]));
   const waiting: NeedsYouItem[] = [
-    ...decisions.map(({ id, taskId, askedAt }): WaitingDecision => ({
-      kind: "decision",
-      decisionId: id,
-      taskId,
-      waitingSince: askedAt,
-    })),
+    ...decisions.flatMap(({ id, taskId, askedAt }): WaitingDecision[] => {
+      const task = byId.get(taskId);
+      return task
+        ? [
+            {
+              kind: "decision",
+              decisionId: id,
+              taskId,
+              projectId: task.projectId,
+              waitingSince: askedAt,
+            },
+          ]
+        : [];
+    }),
     ...gates,
   ];
   return waiting.toSorted(

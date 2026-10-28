@@ -442,22 +442,41 @@ async function addedProject(
   return projectSchema.parse(await added.json());
 }
 
-test("a person's Work tab lists the Tasks whose Stages they work", async ({ page }) => {
+test("a person's Work tab lists the Tasks whose Stages they work, in the Projects the filter shows", async ({
+  page,
+}) => {
   const repository = await createTemporaryRepository();
   try {
     const project = await addedProject(page, repository, "People work", "PW");
-    const created = await page.request.post("/api/tasks", {
-      data: { title: "Fix the login redirect", projectId: project.id, priority: "normal" },
-    });
-    expect(created.status()).toBe(201);
+    const elsewhere = await addedProject(page, repository, "People elsewhere", "PE");
+    for (const [title, projectId] of [
+      ["Fix the login redirect", project.id],
+      ["Fix the signup redirect", elsewhere.id],
+    ]) {
+      const created = await page.request.post("/api/tasks", {
+        data: { title, projectId, priority: "normal" },
+      });
+      expect(created.status()).toBe(201);
+    }
 
     await page.goto("/people/developer");
     await page.getByRole("tab", { name: "Work" }).click();
 
     await expect(page).toHaveURL(/\/people\/developer\/work$/);
     const row = page.getByRole("row", { name: /Fix the login redirect/ });
+    const elsewhereRow = page.getByRole("row", { name: /Fix the signup redirect/ });
     await expect(row).toContainText("Implement · Review & fix");
     await expect(row).toContainText("Backlog");
+    await expect(elsewhereRow).toBeVisible();
+
+    await page.getByRole("button", { name: /^Project filter:/ }).click();
+    await page.getByRole("button", { name: "Show only People work" }).click();
+    await expect(row).toBeVisible();
+    await expect(elsewhereRow).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /^All 1$/ })).toBeVisible();
+    await page.getByRole("button", { name: /in other Projects.*Show all projects/ }).click();
+    await expect(elsewhereRow).toBeVisible();
+
     await page.getByRole("button", { name: /^Done/ }).click();
     await expect(page.getByText("No Tasks here. Try another filter.")).toBeVisible();
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-person-work.png") });

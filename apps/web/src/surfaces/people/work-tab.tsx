@@ -8,6 +8,9 @@ import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { taskQueries } from "../../api/work.ts";
 import { ProjectChip } from "../../shell/project-chip.tsx";
+import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
+import { narrowed } from "../../shell/project-filter/project-filter-choices.ts";
+import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import {
   inFilter,
@@ -17,7 +20,10 @@ import {
   type WorkFilter,
 } from "./person-tasks.ts";
 
-/** The Tasks the person has a part in, by how they stand (prototypes/app/people.js). */
+/**
+ * The Tasks the person has a part in, by how they stand (prototypes/app/people.js), in the Projects
+ * the filter shows.
+ */
 export function WorkTab(): ReactNode {
   const { roleKey } = useParams({ from: "/people/$roleKey/work" });
   const tasks = useQuery(taskQueries.list());
@@ -25,9 +31,13 @@ export function WorkTab(): ReactNode {
   const projects = useQuery(projectQueries.list());
   const threads = useQuery(threadQueries.onTasksWith(roleKey));
   const openDecisions = useQuery(decisionQueries.open());
+  const projectFilter = useProjectFilter();
   const [filter, setFilter] = useState<WorkFilter>(WORK_FILTERS[0]);
   if (!tasks.data || !pipelines.data || !threads.data || !openDecisions.data) return null;
-  const theirs = personTasks(roleKey, tasks.data, pipelines.data, threads.data);
+  const { shown: theirs, elsewhere } = narrowed(
+    personTasks(roleKey, tasks.data, pipelines.data, threads.data),
+    ({ task }) => projectFilter.shows([task.projectId]),
+  );
   return (
     <div className="person-work">
       <div className="person-work-filters" role="group" aria-label="Show">
@@ -49,6 +59,7 @@ export function WorkTab(): ReactNode {
           </button>
         ))}
       </div>
+      <InOtherProjectsNote count={elsewhere} one="Task" many="Tasks" />
       <DataTable
         columns={columnsFor(projects.data)}
         rows={theirs

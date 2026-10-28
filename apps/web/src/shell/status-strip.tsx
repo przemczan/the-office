@@ -12,11 +12,12 @@ import {
 } from "./notifications/desktop-channel.ts";
 import { personOf } from "./notifications/notification-words.ts";
 import { doneSinceYouLeft, needsYouWords, resetWords } from "./notifications/now-words.ts";
+import { useNeedsYou } from "./notifications/use-needs-you.ts";
 import { useNeedsYouPanel } from "./notifications/use-needs-you-panel.ts";
 
 /**
  * The Office-wide figures under the top bar (spec §4), live from `now.changed`: what needs the
- * user, which opens the Needs you panel, desks in use, tokens today, the 5-hour window, Tasks
+ * user in the Projects shown, which opens the Needs you panel, desks in use, tokens today, the 5-hour window, Tasks
  * touched and done since the user left. While the web has lost the service it says so first,
  * and the Office's own Notifications (the window, the engine) show here until they clear, by the
  * Office Manager's name once one speaks them.
@@ -53,19 +54,11 @@ export function StatusStrip(): ReactNode {
 }
 
 function Figures({ now }: { readonly now: Now }): ReactNode {
-  const needsYouPanel = useNeedsYouPanel();
   const fiveHour = now.fiveHourWindow;
   const resets = fiveHour && resetWords(fiveHour.resetsAt);
   return (
     <>
-      <button
-        type="button"
-        className="shell-strip-stat shell-strip-needs-you"
-        aria-haspopup="dialog"
-        onClick={needsYouPanel.open}
-      >
-        <b>{now.needsYou.length}</b> {needsYouWords(now.needsYou.length)}
-      </button>
+      <NeedsYouFigure />
       <span className="shell-strip-stat">
         <span className={`shell-dot ${now.desks.inUse > 0 ? "running" : "idle"}`} />
         <b>{now.desks.inUse}</b>
@@ -92,6 +85,27 @@ function Figures({ now }: { readonly now: Now }): ReactNode {
         <b>{doneSinceYouLeft(now)}</b> done since you left
       </span>
     </>
+  );
+}
+
+/** The one figure the Project filter narrows, saying how many more wait in other Projects. */
+function NeedsYouFigure(): ReactNode {
+  const needsYouPanel = useNeedsYouPanel();
+  const needsYou = useNeedsYou();
+  if (!needsYou) return null;
+  const count = needsYou.shown.length;
+  return (
+    <button
+      type="button"
+      className="shell-strip-stat shell-strip-needs-you"
+      aria-haspopup="dialog"
+      onClick={needsYouPanel.open}
+    >
+      <b>{count}</b> {needsYouWords(count)}
+      {needsYou.elsewhere > 0 && (
+        <span className="shell-strip-faint">+{needsYou.elsewhere} in other Projects</span>
+      )}
+    </button>
   );
 }
 

@@ -67,9 +67,10 @@ describe("waitingGateOf", () => {
       stage("look", "gate", "waiting-on-you", [{ startedAt: at(4), endedAt: at(4) }]),
     ];
 
-    expect(waitingGateOf("t1", stages)).toEqual({
+    expect(waitingGateOf(TASK, stages)).toEqual({
       kind: "gate",
       taskId: "t1",
+      projectId: "p1",
       stageKey: "look",
       waitingSince: at(4),
     });
@@ -78,7 +79,7 @@ describe("waitingGateOf", () => {
   it("is undefined once the user acted at the Gate", () => {
     const stages = [stage("look", "gate", "done", [{ startedAt: at(4), endedAt: at(4) }])];
 
-    expect(waitingGateOf("t1", stages)).toBeUndefined();
+    expect(waitingGateOf(TASK, stages)).toBeUndefined();
   });
 });
 
@@ -96,11 +97,27 @@ describe("nowOf", () => {
         { id: "d2", taskId: "t2", askedAt: at(9) },
         { id: "d1", taskId: "t3", askedAt: at(1) },
       ],
+      tasks: [TASK, { ...TASK, id: "t2" }, { ...TASK, id: "t3" }],
     });
 
     expect(
       now.needsYou.map((item) => (item.kind === "decision" ? item.decisionId : item.stageKey)),
     ).toEqual(["d1", "look", "d2"]);
+  });
+
+  it("marks each Decision with its Task's Project, leaving out one on a Task Work no longer knows", () => {
+    const now = nowOf({
+      ...PARTS,
+      openDecisions: [
+        { id: "d1", taskId: "t2", askedAt: at(1) },
+        { id: "d2", taskId: "gone", askedAt: at(2) },
+      ],
+      tasks: [{ ...TASK, id: "t2", projectId: "p2" }],
+    });
+
+    expect(now.needsYou).toEqual([
+      { kind: "decision", decisionId: "d1", taskId: "t2", projectId: "p2", waitingSince: at(1) },
+    ]);
   });
 
   it("counts every started Task against the desks, and runs each with its Stage", () => {

@@ -1,0 +1,7 @@
+/* Grows with the Projects to choose from; scrolls inside the dialog, as `.work-form` does. */
+.shape-idea-projects {
+  max-height: calc(100vh - 240px);
+  margin: 0 -20px;
+  padding: 0 20px 4px;
+  overflow-y: auto;
+}

@@ -11,18 +11,21 @@ export function InOtherProjectsNote({
   count,
   one,
   many,
+  where,
 }: {
   readonly count: number;
   /** What is counted, as one and as many: "Task", "Tasks". */
   readonly one: string;
   readonly many: string;
+  /** Where they are, "in other Projects" unless said. */
+  readonly where?: string;
 }): ReactNode {
   const { showAllProjects } = useProjectFilter();
   if (count === 0) return null;
   return (
     <button type="button" className="in-other-projects-note" onClick={showAllProjects}>
       <Icon name="eye-off" size={14} />
-      {inOtherProjectsWords(count, one, many)}
+      {inOtherProjectsWords(count, one, many, where)}
       <span className="shell-grow" />
       <span className="in-other-projects-show">Show all projects</span>
     </button>

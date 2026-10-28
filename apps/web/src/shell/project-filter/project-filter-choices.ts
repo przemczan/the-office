@@ -62,6 +62,23 @@ export function projectFilterLabel(
 }
 
 /** "3 more Tasks in other Projects", for records the filter leaves out. */
-export function inOtherProjectsWords(count: number, one: string, many: string): string {
-  return `${count} more ${count === 1 ? one : many} in other Projects`;
+export function inOtherProjectsWords(
+  count: number,
+  one: string,
+  many: string,
+  where = "in other Projects",
+): string {
+  return `${count} more ${count === 1 ? one : many} ${where}`;
+}
+
+export interface Narrowed<T> {
+  readonly shown: readonly T[];
+  /** How many the filter leaves out. */
+  readonly elsewhere: number;
+}
+
+/** The records the filter shows, and how many more it leaves out. */
+export function narrowed<T>(records: readonly T[], shows: (record: T) => boolean): Narrowed<T> {
+  const shown = records.filter(shows);
+  return { shown, elsewhere: records.length - shown.length };
 }

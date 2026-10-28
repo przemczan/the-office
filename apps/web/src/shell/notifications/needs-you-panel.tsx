@@ -1,9 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
 import { Drawer } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { nowQueries } from "../../api/notifications.ts";
 import { NeedsYouFeed } from "./needs-you-feed.tsx";
 import { needsYouWords } from "./now-words.ts";
+import { useNeedsYou } from "./use-needs-you.ts";
 import { useNeedsYouPanel } from "./use-needs-you-panel.ts";
 
 /**
@@ -12,17 +11,18 @@ import { useNeedsYouPanel } from "./use-needs-you-panel.ts";
  */
 export function NeedsYouPanel(): ReactNode {
   const panel = useNeedsYouPanel();
-  const needsYou = useQuery(nowQueries.now()).data?.needsYou;
+  const needsYou = useNeedsYou();
   if (!panel.isOpen || !needsYou) return null;
+  const count = needsYou.shown.length;
   return (
     <Drawer
       title="Needs you"
-      description={`${needsYou.length} ${needsYouWords(needsYou.length)}, oldest first`}
+      description={`${count} ${needsYouWords(count)}, oldest first`}
       width={560}
       onClose={panel.close}
     >
       <div className="feed">
-        <NeedsYouFeed items={needsYou} />
+        <NeedsYouFeed needsYou={needsYou} />
       </div>
     </Drawer>
   );

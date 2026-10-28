@@ -5,12 +5,23 @@ import { pausedWords, waitingWords } from "./office-status-words.ts";
 const SINCE = "2026-10-27T09:00:00.000Z";
 
 function aDecision(): NeedsYouItem {
-  const taskId = crypto.randomUUID();
-  return { kind: "decision", decisionId: crypto.randomUUID(), taskId, waitingSince: SINCE };
+  return {
+    kind: "decision",
+    decisionId: crypto.randomUUID(),
+    taskId: crypto.randomUUID(),
+    projectId: "p1",
+    waitingSince: SINCE,
+  };
 }
 
 function aGate(): NeedsYouItem {
-  return { kind: "gate", taskId: crypto.randomUUID(), stageKey: "review", waitingSince: SINCE };
+  return {
+    kind: "gate",
+    taskId: crypto.randomUUID(),
+    projectId: "p1",
+    stageKey: "review",
+    waitingSince: SINCE,
+  };
 }
 
 function aRunningTask(state: TaskState): RunningTask {

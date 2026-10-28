@@ -10,6 +10,7 @@ import {
   type Task,
 } from "@the-office/contracts";
 import { taskWorktreePath } from "./office-data.ts";
+import { queryOfficeDatabase } from "./office-database.ts";
 import {
   addTaskWorktree,
   commitOnTaskBranch,
@@ -358,6 +359,58 @@ test("the Project filter narrows the board and Ideas, remembered by the browser,
   await expect(trigger).toHaveText(/All projects/);
   await expect(alphaCard).toBeVisible();
   await expect(showAll).toHaveCount(0);
+});
+
+/** An open Decision on the Task, in a Thread of its own, as a Stage's session would ask it. */
+async function seedDecision(task: Task, question: string): Promise<void> {
+  const threadId = crypto.randomUUID();
+  await queryOfficeDatabase(
+    `insert into threads (id, home_kind, home_id, role_key, title, state, tokens, started_at)
+     values ($1, 'task', $2, 'developer', 'Implement', 'waiting', $3, now())`,
+    [threadId, task.id, { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }],
+  );
+  await queryOfficeDatabase(
+    `insert into decisions (id, thread_id, task_id, role_key, question, context, options, recommendation, asked_at)
+     values ($1, $2, $3, 'developer', $4, 'Both work.', '["Yes", "No"]', '{"option":0,"reason":"It is simpler."}', now())`,
+    [crypto.randomUUID(), threadId, task.id, question],
+  );
+}
+
+test("the Project filter narrows Needs you, the status strip and the Projects list, until Show all projects", async ({
+  page,
+}) => {
+  const alpha = await addedProject(page, "Waiting alpha", "WA");
+  const beta = await addedProject(page, "Waiting beta", "WB");
+  await seedDecision(await createdTask(page, alpha, "Waiting alpha export"), "Export as CSV?");
+  await seedDecision(await createdTask(page, beta, "Waiting beta export"), "Export as JSON?");
+  const trigger = page.getByRole("button", { name: /^Project filter:/ });
+  const needsYou = page.getByRole("region", { name: "Needs you" });
+  const alphaDecision = needsYou.getByRole("region", { name: "Decision: Export as CSV?" });
+  const betaDecision = needsYou.getByRole("region", { name: "Decision: Export as JSON?" });
+  const strip = page.getByRole("status", { name: "Status strip" });
+  await page.goto("/now");
+  await expect(alphaDecision).toBeVisible();
+  await expect(betaDecision).toBeVisible();
+
+  await trigger.click();
+  await page.getByRole("button", { name: "Show only Waiting alpha" }).click();
+  await expect(alphaDecision).toBeVisible();
+  await expect(betaDecision).toHaveCount(0);
+  await expect(strip.getByRole("button", { name: /need/ })).toContainText(
+    /^1 needs you\+\d+ in other Projects$/,
+  );
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-filter-now.png") });
+
+  await page.goto("/projects");
+  await expect(page.getByRole("link", { name: /Waiting alpha/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Waiting beta/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /hidden by the Project filter/ })).toBeVisible();
+
+  await page.goto("/now");
+  await needsYou.getByRole("button", { name: /in other Projects.*Show all projects/ }).click();
+  await expect(trigger).toHaveText(/All projects/);
+  await expect(betaDecision).toBeVisible();
+  await expect(strip).not.toContainText("in other Projects");
 });
 
 test("the user saves the board's filters as a view, applies it and removes it", async ({

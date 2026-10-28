@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { ProjectChip } from "../project-chip.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
+import "./shape-idea-dialog.css";
 
 /**
  * An Office-wide Idea becomes a Task in one Project, chosen here: shaped into a Task, or planned
@@ -49,14 +50,16 @@ export function ShapeIdeaDialog({
       }
     >
       {shaping.error && <RefusalAlert title="The Idea can't be shaped" error={shaping.error} />}
-      <RadioGroup
-        options={(projects.data ?? []).map((project) => ({
-          value: project.id,
-          label: <ProjectChip projectId={project.id} projects={projects.data} />,
-        }))}
-        value={projectId}
-        onChange={setChosen}
-      />
+      <div className="shape-idea-projects">
+        <RadioGroup
+          options={(projects.data ?? []).map((project) => ({
+            value: project.id,
+            label: <ProjectChip projectId={project.id} projects={projects.data} />,
+          }))}
+          value={projectId}
+          onChange={setChosen}
+        />
+      </div>
     </Dialog>
   );
 }

@@ -102,7 +102,13 @@ describe("NowService", () => {
     const now = await readNow();
 
     expect(now.needsYou).toEqual([
-      { kind: "decision", decisionId, taskId, waitingSince: "2026-10-27T09:05:00.000Z" },
+      {
+        kind: "decision",
+        decisionId,
+        taskId,
+        projectId: "p1",
+        waitingSince: "2026-10-27T09:05:00.000Z",
+      },
     ]);
     expect(now.running).toEqual([
       {

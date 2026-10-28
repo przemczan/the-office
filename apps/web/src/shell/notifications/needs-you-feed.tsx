@@ -11,6 +11,8 @@ import { taskQueries } from "../../api/work.ts";
 import { DecisionCard } from "../conversation/decision-card.tsx";
 import { EmptyCard, ItemCard } from "../item-card.tsx";
 import { ProjectChip } from "../project-chip.tsx";
+import { InOtherProjectsNote } from "../project-filter/in-other-projects-note.tsx";
+import type { Narrowed } from "../project-filter/project-filter-choices.ts";
 import { GateActions } from "../work/gate-actions.tsx";
 import { waitingGateOf } from "../work/gate-words.ts";
 import "./notifications.css";
@@ -19,22 +21,36 @@ import "./notifications.css";
  * What waits on the user, oldest first, each answered where it shows (spec §1): a Decision with its
  * options, a Gate with Continue, Send back and Drop. The same on Now and in the Needs you panel.
  */
-export function NeedsYouFeed({ items }: { readonly items: readonly NeedsYouItem[] }): ReactNode {
+export function NeedsYouFeed({
+  needsYou,
+}: {
+  readonly needsYou: Narrowed<NeedsYouItem>;
+}): ReactNode {
   const projects = useQuery(projectQueries.list()).data;
   const roles = useQuery(roleQueries.list()).data;
-  if (items.length === 0) return <EmptyCard>Nothing needs you. Enjoy it.</EmptyCard>;
-  return items.map((item) =>
-    item.kind === "decision" ? (
-      <WaitingDecision
-        key={item.decisionId}
-        decisionId={item.decisionId}
-        taskId={item.taskId}
-        projects={projects}
-        roles={roles}
-      />
-    ) : (
-      <WaitingGate key={item.taskId} taskId={item.taskId} projects={projects} roles={roles} />
-    ),
+  const { shown, elsewhere } = needsYou;
+  return (
+    <>
+      {shown.length === 0 && (
+        <EmptyCard>
+          {elsewhere > 0 ? "Nothing needs you in these Projects." : "Nothing needs you. Enjoy it."}
+        </EmptyCard>
+      )}
+      {shown.map((item) =>
+        item.kind === "decision" ? (
+          <WaitingDecision
+            key={item.decisionId}
+            decisionId={item.decisionId}
+            taskId={item.taskId}
+            projects={projects}
+            roles={roles}
+          />
+        ) : (
+          <WaitingGate key={item.taskId} taskId={item.taskId} projects={projects} roles={roles} />
+        ),
+      )}
+      <InOtherProjectsNote count={elsewhere} one="needs you" many="need you" />
+    </>
   );
 }
 

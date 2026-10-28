@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   inOtherProjectsWords,
   knownProjectFilter,
+  narrowed,
   onlyProject,
   onlyProjectShown,
   projectFilterLabel,
@@ -53,5 +54,22 @@ describe("the Project filter's choices", () => {
   it("counts what is in other Projects", () => {
     expect(inOtherProjectsWords(1, "Task", "Tasks")).toBe("1 more Task in other Projects");
     expect(inOtherProjectsWords(3, "Task", "Tasks")).toBe("3 more Tasks in other Projects");
+    expect(inOtherProjectsWords(1, "needs you", "need you")).toBe(
+      "1 more needs you in other Projects",
+    );
+    expect(inOtherProjectsWords(2, "Project", "Projects", "hidden by the Project filter")).toBe(
+      "2 more Projects hidden by the Project filter",
+    );
+  });
+});
+
+describe("narrowed", () => {
+  it("keeps the records the filter shows and counts the others", () => {
+    const tasks = [{ projectId: "web" }, { projectId: "mobile" }, { projectId: "web" }];
+
+    expect(narrowed(tasks, ({ projectId }) => projectId === "web")).toEqual({
+      shown: [{ projectId: "web" }, { projectId: "web" }],
+      elsewhere: 1,
+    });
   });
 });

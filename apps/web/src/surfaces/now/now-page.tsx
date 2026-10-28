@@ -10,6 +10,7 @@ import { tokensShort } from "../../shell/conversation/context-words.ts";
 import { Desk, Feed, Panel, PanelHeading } from "../../shell/desk.tsx";
 import { EmptyCard, ItemCard } from "../../shell/item-card.tsx";
 import { NeedsYouFeed } from "../../shell/notifications/needs-you-feed.tsx";
+import { useNeedsYou } from "../../shell/notifications/use-needs-you.ts";
 import {
   desksWords,
   inStageWords,
@@ -19,6 +20,9 @@ import {
   sinceWords,
 } from "../../shell/notifications/now-words.ts";
 import { ProjectChip } from "../../shell/project-chip.tsx";
+import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
+import { narrowed, type Narrowed } from "../../shell/project-filter/project-filter-choices.ts";
+import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { momentWords } from "../../shell/time.ts";
 import { useClock } from "../../shell/use-clock.ts";
 import { TASK_STATE_NAMES, TASK_STATE_TONES } from "../../shell/work/work-words.ts";
@@ -26,18 +30,24 @@ import "./now.css";
 
 /**
  * Home: what needs the user, what is running, what happened since they left, and today's tokens;
- * nothing else (spec §4). Each Decision and Gate is answered in place.
+ * nothing else (spec §4). Each Decision and Gate is answered in place. The Project filter narrows
+ * the three feeds; desks and tokens stay Office-wide.
  */
 export function NowPage(): ReactNode {
   const now = useQuery(nowQueries.now()).data;
+  const needsYou = useNeedsYou();
   const projects = useQuery(projectQueries.list()).data;
   const roles = useQuery(roleQueries.list()).data;
   const clock = useClock();
   return (
     <Desk>
       <Panel label="Needs you">
-        <PanelHeading icon="inbox" title="Needs you" count={now && String(now.needsYou.length)} />
-        <Feed>{now && <NeedsYouFeed items={now.needsYou} />}</Feed>
+        <PanelHeading
+          icon="inbox"
+          title="Needs you"
+          count={needsYou && String(needsYou.shown.length)}
+        />
+        <Feed>{needsYou && <NeedsYouFeed needsYou={needsYou} />}</Feed>
       </Panel>
       <Panel label="Running and since you left">
         <PanelHeading
@@ -72,10 +82,26 @@ function RunningFeed({
   readonly roles: readonly Role[] | undefined;
   readonly clock: Date;
 }): ReactNode {
-  if (now.running.length === 0) return <EmptyCard>Nothing is running.</EmptyCard>;
-  return now.running.map((task) => (
-    <RunningCard key={task.taskId} task={task} projects={projects} roles={roles} clock={clock} />
-  ));
+  const { shown, elsewhere } = useNarrowedByProject(now.running);
+  return (
+    <>
+      {shown.length === 0 && (
+        <EmptyCard>
+          {elsewhere > 0 ? "Nothing is running in these Projects." : "Nothing is running."}
+        </EmptyCard>
+      )}
+      {shown.map((task) => (
+        <RunningCard
+          key={task.taskId}
+          task={task}
+          projects={projects}
+          roles={roles}
+          clock={clock}
+        />
+      ))}
+      <InOtherProjectsNote count={elsewhere} one="Task" many="Tasks" />
+    </>
+  );
 }
 
 function RunningCard({
@@ -134,12 +160,29 @@ function SinceYouLeftFeed({
   readonly projects: readonly Project[] | undefined;
   readonly clock: Date;
 }): ReactNode {
-  if (now.sinceYouLeft.length === 0) {
-    return <EmptyCard>Nothing finished since you left.</EmptyCard>;
-  }
-  return now.sinceYouLeft.map((task) => (
-    <FinishedCard key={task.taskId} task={task} projects={projects} clock={clock} />
-  ));
+  const { shown, elsewhere } = useNarrowedByProject(now.sinceYouLeft);
+  return (
+    <>
+      {shown.length === 0 && (
+        <EmptyCard>
+          {elsewhere > 0
+            ? "Nothing finished in these Projects since you left."
+            : "Nothing finished since you left."}
+        </EmptyCard>
+      )}
+      {shown.map((task) => (
+        <FinishedCard key={task.taskId} task={task} projects={projects} clock={clock} />
+      ))}
+      <InOtherProjectsNote count={elsewhere} one="Task" many="Tasks" />
+    </>
+  );
+}
+
+function useNarrowedByProject<T extends { readonly projectId: string }>(
+  tasks: readonly T[],
+): Narrowed<T> {
+  const { shows } = useProjectFilter();
+  return narrowed(tasks, ({ projectId }) => shows([projectId]));
 }
 
 function FinishedCard({

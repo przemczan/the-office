@@ -6,22 +6,30 @@ import { useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
+import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
+import { narrowed } from "../../shell/project-filter/project-filter-choices.ts";
+import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { publishingLabel } from "../../shell/project-words.ts";
 import { AddProjectDialog } from "./add-project-dialog.tsx";
 import "./projects.css";
 
-/** The Projects The Office works on, a card each, and adding one. */
+/**
+ * The Projects The Office works on, a card each for those the Project filter shows, and adding
+ * one. The count in the heading is every Project.
+ */
 export function ProjectsPage(): ReactNode {
   const projects = useQuery(projectQueries.list());
   const pipelines = useQuery(pipelineQueries.list());
+  const projectFilter = useProjectFilter();
   const [adding, setAdding] = useState(false);
   usePageHeading({ title: "Projects", crumb: projects.data && countOf(projects.data) });
+  const { shown, elsewhere } = narrowed(projects.data ?? [], ({ id }) => projectFilter.shows([id]));
   return (
     <div className="projects-page">
       {projects.error && <Alert tone="danger" title={projects.error.message} />}
       <div className="projects-grid">
-        {projects.data?.map((project) => (
+        {shown.map((project) => (
           <ProjectCard key={project.id} project={project} pipelines={pipelines.data} />
         ))}
         <article className="project-tile add-project-tile">
@@ -45,6 +53,12 @@ export function ProjectsPage(): ReactNode {
           </div>
         </article>
       </div>
+      <InOtherProjectsNote
+        count={elsewhere}
+        one="Project"
+        many="Projects"
+        where="hidden by the Project filter"
+      />
       {adding && <AddProjectDialog onClose={() => setAdding(false)} />}
     </div>
   );

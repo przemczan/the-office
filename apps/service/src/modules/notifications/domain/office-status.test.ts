@@ -21,9 +21,27 @@ describe("officeStatusText", () => {
     const text = officeStatusText(
       nowWith({
         needsYou: [
-          { kind: "decision", decisionId: "d1", taskId: "t1", waitingSince: AN_HOUR_AGO },
-          { kind: "gate", taskId: "t2", stageKey: "review", waitingSince: AN_HOUR_AGO },
-          { kind: "gate", taskId: "t3", stageKey: "review", waitingSince: AN_HOUR_AGO },
+          {
+            kind: "decision",
+            decisionId: "d1",
+            taskId: "t1",
+            projectId: "p1",
+            waitingSince: AN_HOUR_AGO,
+          },
+          {
+            kind: "gate",
+            taskId: "t2",
+            projectId: "p1",
+            stageKey: "review",
+            waitingSince: AN_HOUR_AGO,
+          },
+          {
+            kind: "gate",
+            taskId: "t3",
+            projectId: "p1",
+            stageKey: "review",
+            waitingSince: AN_HOUR_AGO,
+          },
         ],
         running: [
           {

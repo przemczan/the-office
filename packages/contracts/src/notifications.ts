@@ -8,11 +8,14 @@ export const needsYouItemSchema = z.discriminatedUnion("kind", [
     kind: z.literal("decision"),
     decisionId: z.uuid(),
     taskId: z.uuid(),
+    /** The Task's, which the Project filter narrows by. */
+    projectId: z.string(),
     waitingSince: z.iso.datetime(),
   }),
   z.object({
     kind: z.literal("gate"),
     taskId: z.uuid(),
+    projectId: z.string(),
     stageKey: z.string().min(1),
     waitingSince: z.iso.datetime(),
   }),
