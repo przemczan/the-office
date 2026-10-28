@@ -140,6 +140,18 @@ _Avoid_: Permission flag, guard, gate (for this)
 A packaged set of instructions and files from The Office's library that a person may use when the work calls for it.
 _Avoid_: Plugin, tool, ability
 
+**Source**:
+The git repository an installed Skill comes from (`owner/repo` on GitHub, or a git URL), with the Skill's folder in it. Written and uploaded Skills have none.
+_Avoid_: Origin, registry, upstream
+
+**Pinned version**:
+The release of its Source an installed Skill is held at: the Source's newest tag when it was installed or updated, or its newest commit when the Source has no tags. It moves only when the user applies an update Proposal.
+_Avoid_: Latest, tracked version
+
+**Update**:
+A newer pinned version than an installed Skill's, found by The Office's daily check of its Source and shown as "Update available". Devops drafts it as a Proposal; applying it saves the Skill's next version, as an edit or an upload does, and pins it there.
+_Avoid_: Upgrade, new release
+
 **Office Manager**:
 The person the user goes to by default: it drafts Roles for the user to confirm, captures Ideas, answers for the state of The Office and redirects the user to whoever is responsible.
 _Avoid_: Receptionist, HR, router

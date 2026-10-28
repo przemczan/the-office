@@ -68,6 +68,7 @@ Every tier 2 item of [spec 3](../spec/3-capabilities-by-tier.md#tier-2-the-all-d
 | §2.3, §2.2 | The Pipeline library editor; Devops owning the library and Project commands by Proposal; the proof-of-concept publish target | 24 |
 | §2.1, §8 | Onboarding a Project through Devops | 24 |
 | §2.6 | Installing skills from a source; update Proposals | 25 |
+| §2.6 | A skill drafted as a Proposal from a chat | 25 |
 | §2.1, §8 | Several Tasks in progress per Project, with conflicts handled; a queue for Start | 26 |
 | §2.7 | The kinds × channels grid; quiet hours; batching; the at-desk hold | 27 |
 | §2.8 | The fire alarm and the all clear | 27 |

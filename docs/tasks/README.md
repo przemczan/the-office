@@ -39,7 +39,7 @@ Order accepted by the user on 2026-10-27. A task's file is written when it becom
 | 22 | [The CTO, Initiatives and dependencies](22-cto-initiatives.md) | Work | done |
 | 23 | [Tags, search, saved views and the Project filter](23-tags-search-views.md) | Work | done |
 | 24 | [Devops: the Pipeline library, Project commands by Proposal, onboarding](24-devops-pipeline-library.md) | Projects | done |
-| 25 | Skills from a source, and update Proposals | Settings | todo |
+| 25 | [Skills from a source, and update Proposals](25-skills-from-a-source.md) | Settings | in progress |
 | 26 | Parallel work in a Project, and a queue for Start | Work and the Task page | todo |
 | 27 | Notifications: the kinds × channels grid, quiet hours, batching; the fire alarm | Now | todo |
 | 28 | The phone: HTTPS on the LAN, the PIN, the installed app, phone views and push | Phone | todo |
