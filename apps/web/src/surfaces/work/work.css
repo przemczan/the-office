@@ -207,6 +207,66 @@
   text-decoration-color: var(--border-strong);
 }
 
+/* ---- The board's filters (prototypes/app/app.css `.work-filters`) */
+.board-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+}
+
+.board-filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.board-filters-search {
+  flex: 1;
+  min-width: 220px;
+  max-width: 420px;
+}
+
+.board-filters-group {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.board-filters-label {
+  width: 44px;
+  font: var(--type-overline);
+  color: var(--fg-3);
+}
+
+.board-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--fg-2);
+  font: var(--type-caption);
+  cursor: pointer;
+}
+
+.board-filter-chip:hover {
+  background: var(--control-hover);
+  color: var(--fg-1);
+}
+
+.board-filter-chip[aria-pressed="true"] {
+  border-color: var(--border-strong);
+  background: var(--surface-selected);
+  color: var(--fg-1);
+}
+
 .board-note {
   display: flex;
   align-items: center;

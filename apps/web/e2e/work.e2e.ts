@@ -242,6 +242,63 @@ test('the user tags a Task in "+ Task" and on its page, and the board shows its 
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-tags.png") });
 });
 
+test("the board's filters narrow it by search, Tags, priority and Blocked, kept in its address until Clear", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Filtered work", "FW");
+  const addTask = async (title: string, fields: Partial<Task>): Promise<Task> => {
+    const response = await page.request.post("/api/tasks", {
+      data: { title, projectId: project.id, priority: "normal", ...fields },
+    });
+    expect(response.status()).toBe(201);
+    return taskSchema.parse(await response.json());
+  };
+  const pairing = await addTask("Filtered pairing handshake", {
+    priority: "high",
+    tags: ["fw-radio"],
+  });
+  const flash = await addTask("Filtered flash layout", { tags: ["fw-radio"] });
+  await addTask("Filtered manual pages", { priority: "low" });
+  const dependency = await page.request.post(`/api/tasks/${flash.id}/dependencies`, {
+    data: { blockerId: pairing.id },
+  });
+  expect(dependency.ok()).toBe(true);
+  const titles = ["Filtered pairing handshake", "Filtered flash layout", "Filtered manual pages"];
+  const shown = (): Promise<string[]> => titlesIn(page, "Backlog", titles);
+  await page.goto("/work");
+  await expect.poll(shown).toEqual(titles);
+
+  const filters = page.getByRole("search", { name: "Filter the board" });
+  await filters.getByLabel("Search Tasks").fill("handsh");
+  await expect.poll(shown).toEqual(["Filtered pairing handshake"]);
+  await filters.getByRole("button", { name: "Clear" }).click();
+  await expect(filters.getByLabel("Search Tasks")).toHaveValue("");
+  await expect.poll(shown).toEqual(titles);
+
+  await filters
+    .getByRole("group", { name: "Tags" })
+    .getByRole("button", { name: "fw-radio" })
+    .click();
+  await expect.poll(shown).toEqual(["Filtered pairing handshake", "Filtered flash layout"]);
+  await filters.getByRole("button", { name: "Blocked" }).click();
+  await expect.poll(shown).toEqual(["Filtered flash layout"]);
+
+  await page.reload();
+  await expect(filters.getByRole("button", { name: "Blocked" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await expect.poll(shown).toEqual(["Filtered flash layout"]);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-board-filters.png") });
+
+  await filters.getByRole("button", { name: "Clear" }).click();
+  await filters
+    .getByRole("group", { name: "Priority" })
+    .getByRole("button", { name: "Low" })
+    .click();
+  await expect.poll(shown).toEqual(["Filtered manual pages"]);
+});
+
 test("a Task's page shows its record, takes Attachments of every kind and opens them", async ({
   page,
 }) => {

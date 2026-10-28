@@ -4,16 +4,19 @@ import { Alert, Icon } from "@the-office/ui";
 import { Link } from "@tanstack/react-router";
 import { Fragment, useState, type DragEvent, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
-import { placeTask, taskQueries } from "../../api/work.ts";
+import { initiativeQueries, placeTask, taskQueries } from "../../api/work.ts";
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { PriorityIcon, TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { NOT_STARTED, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
+import { tagsOffered } from "./board-filters.ts";
 import { blockingTasksOf } from "./dependency-words.ts";
+import { FilterBar } from "./filter-bar.tsx";
 import { PlanButton } from "./planning-actions.tsx";
 import { TaskMenu } from "./task-menu.tsx";
+import { useBoardFilters } from "./use-board-filters.ts";
 
 interface Column {
   readonly key: string;
@@ -59,6 +62,8 @@ type DropTarget = { readonly before: string } | { readonly endOf: string };
 export function Board(): ReactNode {
   const tasks = useQuery(taskQueries.list());
   const projects = useQuery(projectQueries.list());
+  const initiatives = useQuery(initiativeQueries.list());
+  const { filters, change: changeFilters, shows } = useBoardFilters(tasks.data ?? []);
   const [dragged, setDragged] = useState<Task>();
   const [target, setTarget] = useState<DropTarget>();
   const placing = usePlacing();
@@ -92,10 +97,17 @@ export function Board(): ReactNode {
 
   return (
     <>
+      <FilterBar
+        filters={filters}
+        tags={tagsOffered(tasks.data ?? [], filters)}
+        initiatives={initiatives.data ?? []}
+        onChange={changeFilters}
+      />
       {tasks.error && <Alert tone="danger" title={tasks.error.message} />}
       <div className="board">
         {COLUMNS.map((column) => {
-          const cards = tasks.data?.filter((task) => column.states.includes(task.state)) ?? [];
+          const cards =
+            tasks.data?.filter((task) => column.states.includes(task.state) && shows(task)) ?? [];
           return (
             <section key={column.key} className="board-column" aria-label={column.label}>
               <h3>

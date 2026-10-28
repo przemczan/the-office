@@ -22,6 +22,7 @@ import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-li
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
 import { SkillsSection } from "./surfaces/settings/skills/skills-section.tsx";
 import { Board } from "./surfaces/work/board.tsx";
+import { boardFiltersOf } from "./surfaces/work/board-filters.ts";
 import { IdeasPage } from "./surfaces/work/ideas-page.tsx";
 import { InitiativePage } from "./surfaces/work/initiative-page.tsx";
 import { InitiativesList } from "./surfaces/work/initiatives-list.tsx";
@@ -86,6 +87,7 @@ const boardRoute = createRoute({
   getParentRoute: () => workRoute,
   path: "/",
   component: Board,
+  validateSearch: boardFiltersOf,
   staticData: { title: "Work" },
 });
 

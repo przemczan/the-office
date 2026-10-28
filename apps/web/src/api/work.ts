@@ -95,6 +95,13 @@ export const taskQueries = {
       queryKey: TASKS,
       queryFn: ({ signal }) => getFromApi("/tasks", taskListSchema, signal),
     }),
+  /** The Tasks the board's search matches, by the service's full-text search; under the Tasks' key. */
+  matching: (query: string) =>
+    queryOptions({
+      queryKey: [...TASKS, "matching", query],
+      queryFn: ({ signal }) =>
+        getFromApi(`/tasks?query=${encodeURIComponent(query)}`, taskListSchema, signal),
+    }),
   one: (id: string) =>
     queryOptions({
       queryKey: [...TASKS, id],
