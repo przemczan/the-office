@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Project, Task, TaskPlacement, TaskState } from "@the-office/contracts";
 import { Alert, Icon } from "@the-office/ui";
 import { Link } from "@tanstack/react-router";
-import { useState, type DragEvent, type ReactNode } from "react";
+import { Fragment, useState, type DragEvent, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { placeTask, taskQueries } from "../../api/work.ts";
 import { ProjectMark } from "../../shell/project-mark.tsx";
@@ -11,6 +11,7 @@ import { PriorityIcon, TaskStateBadge } from "../../shell/work/task-state-badge.
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { NOT_STARTED, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
+import { blockingTasksOf } from "./dependency-words.ts";
 import { PlanButton } from "./planning-actions.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 
@@ -118,6 +119,7 @@ export function Board(): ReactNode {
                     projects={projects.data}
                     planner={planner}
                     waiting={waitingOnYou(task)}
+                    blockers={blockingTasksOf(task, tasks.data ?? [])}
                     dragging={dragged?.id === task.id}
                     dropBefore={
                       target !== undefined && "before" in target && target.before === task.id
@@ -149,6 +151,7 @@ function BoardCard({
   projects,
   planner,
   waiting,
+  blockers,
   dragging,
   dropBefore,
   onDragStart,
@@ -160,6 +163,8 @@ function BoardCard({
   readonly planner: string | undefined;
   /** In Planning or Paused with a Decision open. */
   readonly waiting: boolean;
+  /** The Tasks still holding it back. */
+  readonly blockers: readonly Task[];
   readonly dragging: boolean;
   readonly dropBefore: boolean;
   readonly onDragStart: () => void;
@@ -202,8 +207,29 @@ function BoardCard({
       <div className="board-card-meta">
         {project ? <ProjectMark project={project} /> : task.projectId}
       </div>
+      {blockers.length > 0 && <BlockedMark blockers={blockers} />}
       {foot && <div className="board-card-foot">{foot}</div>}
     </article>
+  );
+}
+
+/** "Blocked by" and the Tasks that must be Done first, each a link to its page. */
+function BlockedMark({ blockers }: { readonly blockers: readonly Task[] }): ReactNode {
+  return (
+    <div className="board-card-blocked">
+      <Icon name="lock" size={12} />
+      <span>
+        Blocked by{" "}
+        {blockers.map((blocker, index) => (
+          <Fragment key={blocker.id}>
+            {index > 0 && ", "}
+            <Link to="/tasks/$taskId" params={{ taskId: blocker.id }} draggable={false}>
+              {blocker.title}
+            </Link>
+          </Fragment>
+        ))}
+      </span>
+    </div>
   );
 }
 

@@ -16,7 +16,7 @@
 
 ### api/
 
-- `api-client.ts`: ApiError, shouldRetry, getFromApi, sendToApi, sendFileToApi, postToApi, deleteFromApi
+- `api-client.ts`: ApiError, shouldRetry, getFromApi, sendToApi, deleteFromApiReturning, sendFileToApi, postToApi, deleteFromApi
 - `conversations.ts`: threadQueries, sizeThresholdQuery, changeSizeThreshold, decisionQueries, proposalQueries, applyProposal, declineProposal, startChatThread, sendMessage, renameThread, chooseContextOverride, answerDecision, threadEventInvalidations, threadEventCacheUpdates
 - `event-stream-provider.tsx`: EventInvalidations, EventCacheUpdates, EventStreamProvider, useEventStreamStatus
 - `event-stream.ts`: EventStreamStatus, EventStreamOptions, RECONNECT_DELAYS_MS, EventStream
@@ -25,7 +25,7 @@
 - `pipelines.ts`: pipelineQueries, editTaskStages, continueAtGate, sendBackFromGate, dropAtGate, pipelineEventInvalidations
 - `projects.ts`: projectQueries, taskChangesKey, addProject, changeCommand, changeInstallInputs, startEnvironmentCheck, changePublishingMode, changeDefaultPipeline, changeUseProjectSkills, projectEventInvalidations
 - `skills.ts`: skillQueries, writeSkill, uploadSkill, editSkill, uploadSkillVersion, changeSkillState, changeSkillEveryone, assignSkill, removeSkill, skillEventInvalidations
-- `work.ts`: TASKS, ideaQueries, officeWideLimitQuery, changeOfficeWideLimit, taskQueries, attachmentQueries, captureIdea, shapeIdea, planIdea, dropIdea, restoreIdea, createTask, changePriority, placeTask, planTask, confirmPlan, confirmDefinitionOfDone, setPipeline, markReady, startTask, pauseTask, stopTask, resumeTask, dropTask, addLink, addFile, removeAttachment, attachmentContentUrl, workEventInvalidations
+- `work.ts`: TASKS, ideaQueries, officeWideLimitQuery, changeOfficeWideLimit, taskQueries, attachmentQueries, captureIdea, shapeIdea, planIdea, dropIdea, restoreIdea, createTask, changePriority, placeTask, planTask, confirmPlan, confirmDefinitionOfDone, setPipeline, addDependency, removeDependency, markReady, startTask, pauseTask, stopTask, resumeTask, dropTask, addLink, addFile, removeAttachment, attachmentContentUrl, workEventInvalidations
 - Tests: api-client.test.ts, conversations.test.ts, event-stream.test.ts
 
 ### shell/

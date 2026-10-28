@@ -11,6 +11,7 @@ import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { dayAndClockOf } from "../../shell/time.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
+import { DependenciesBlock } from "./dependencies-block.tsx";
 import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
 import { GateBlock } from "./gate-view.tsx";
 import { DefinitionOfDoneBlock, PlanBlock, ProposedPipeline } from "./planning-parts.tsx";
@@ -27,7 +28,7 @@ import {
 
 /**
  * The Task's record: the Gate it waits at, if any; what must be true, how, its Stages, its
- * Attachments and where it came from.
+ * dependencies, its Attachments and where it came from.
  */
 export function TaskRecord({
   task,
@@ -46,6 +47,7 @@ export function TaskRecord({
       <DefinitionOfDoneBlock task={task} planner={planner} />
       <PlanBlock task={task} planner={planner} />
       <StagesBlock task={task} pipeline={pipeline} planner={planner} roles={roles.data} />
+      <DependenciesBlock task={task} />
       <AttachmentsBlock task={task} />
       {task.originIdeaId !== null && <OriginBlock ideaId={task.originIdeaId} />}
     </section>

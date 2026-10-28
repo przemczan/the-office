@@ -750,6 +750,7 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   }
   await page.reload();
   await expect(start).toBeEnabled();
+  await waitForAnotherTaskAndStopWaiting(page, project);
 
   const idea = await page.request.post("/api/ideas", {
     data: { title: "Keep the sign-in page per tab", notes: "", projectId: project.id },
@@ -777,6 +778,61 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
       .getByRole("button", { name: /^Planning · Jan/ }),
   ).toHaveAttribute("aria-pressed", "true");
 });
+
+/**
+ * On the Ready Task's page: it waits for a Backlog Task, so Start says why it can't start and the
+ * board and the other Task show the dependency; it stops waiting, and Start is open again.
+ */
+async function waitForAnotherTaskAndStopWaiting(page: Page, project: Project): Promise<void> {
+  const blockerTitle = "Session expiry is detected";
+  const created = await page.request.post("/api/tasks", {
+    data: { title: blockerTitle, projectId: project.id, priority: "normal" },
+  });
+  expect(created.status()).toBe(201);
+  const blocker = taskSchema.parse(await created.json());
+  const taskUrl = page.url();
+  const start = page.getByRole("button", { name: "Start", exact: true });
+  const dependencies = page
+    .getByRole("region", { name: "Record" })
+    .getByRole("region", { name: "Dependencies" });
+
+  await dependencies.getByRole("button", { name: "Add", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText("What must be Done first?")).toBeVisible();
+  await dialog.getByRole("textbox", { name: "Find a Task" }).fill("expiry");
+  await dialog.getByText(blockerTitle).click();
+  await dialog.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(dialog).toBeHidden();
+  await expect(
+    dependencies
+      .getByRole("region", { name: "Must be Done first" })
+      .getByRole("link", { name: blockerTitle }),
+  ).toBeVisible();
+  await expect(
+    page.getByText(`Blocked by "${blockerTitle}", which must be Done first.`),
+  ).toBeVisible();
+  await expect(start).toBeDisabled();
+
+  await page.goto("/work");
+  await expect(
+    page
+      .getByRole("region", { name: "Ready", exact: true })
+      .getByRole("article", { name: "Sign-in returns to the page" })
+      .getByText(`Blocked by ${blockerTitle}`),
+  ).toBeVisible();
+  await page.goto(`/tasks/${blocker.id}`);
+  await expect(
+    dependencies
+      .getByRole("region", { name: "Waiting for this Task" })
+      .getByRole("link", { name: "Sign-in returns to the page" }),
+  ).toBeVisible();
+
+  await page.goto(taskUrl);
+  await dependencies.getByRole("button", { name: `Stop waiting for ${blockerTitle}` }).click();
+  await expect(dependencies.getByRole("region", { name: "Must be Done first" })).toHaveCount(0);
+  await expect(start).toBeEnabled();
+  expect((await page.request.post(`/api/tasks/${blocker.id}/drop`)).status()).toBe(200);
+}
 
 const PAGE_QUESTION = "Which page should sign-in return to when the session expired?";
 

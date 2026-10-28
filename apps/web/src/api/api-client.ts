@@ -59,6 +59,18 @@ export async function sendToApi<Schema extends z.ZodType>(
   return answerOf(response, schema);
 }
 
+/** Deletes what `path` under /api names, and checks the answer as getFromApi does. */
+export async function deleteFromApiReturning<Schema extends z.ZodType>(
+  path: `/${string}`,
+  schema: Schema,
+): Promise<z.infer<Schema>> {
+  const response = await fetch(`${API_PATH}${path}`, {
+    method: "DELETE",
+    headers: { Accept: "application/json" },
+  });
+  return answerOf(response, schema);
+}
+
 /**
  * Sends a file's bytes to `path` under /api, with its name and `query` in the query, and checks the
  * answer.

@@ -238,12 +238,15 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
     { name: "screen.png", mimeType: "image/png", buffer: Buffer.from("not really a png") },
     { name: "export.zip", mimeType: "application/zip", buffer: Buffer.from("zip bytes") },
   ];
+  const addAttachment = record
+    .getByRole("region", { name: "Attachments" })
+    .getByRole("button", { name: "Add" });
   for (const file of files) {
-    await record.getByRole("button", { name: "Add" }).click();
+    await addAttachment.click();
     await page.getByRole("dialog").getByLabel("File to attach").setInputFiles(file);
     await expect(page.getByText(`${file.name} attached.`)).toBeVisible();
   }
-  await record.getByRole("button", { name: "Add" }).click();
+  await addAttachment.click();
   const dialog = page.getByRole("dialog");
   await dialog.getByText("Link", { exact: true }).click();
   await dialog.getByLabel("Address").fill("https://example.com/sign-in");

@@ -144,9 +144,11 @@ function AddNote({ roleKey }: { readonly roleKey: string }): ReactNode {
   const projects = useQuery(projectQueries.list());
   const queryClient = useQueryClient();
   const adding = useMutation({
-    mutationFn: () => addMemoryNote(roleKey, { text, projectId: projectId || undefined }),
-    onSuccess: async () => {
-      setText("");
+    mutationFn: (note: string) =>
+      addMemoryNote(roleKey, { text: note, projectId: projectId || undefined }),
+    onSuccess: async (_added, note) => {
+      // The next note may be typed already, the added one showing from its event before this answer.
+      setText((current) => (current === note ? "" : current));
       await queryClient.invalidateQueries(roleQueries.memory(roleKey));
     },
   });
@@ -156,7 +158,7 @@ function AddNote({ roleKey }: { readonly roleKey: string }): ReactNode {
         className="memory-add"
         onSubmit={(event) => {
           event.preventDefault();
-          adding.mutate();
+          adding.mutate(text);
         }}
       >
         {adding.error && <RefusalAlert title="The note can't be added" error={adding.error} />}

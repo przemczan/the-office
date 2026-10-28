@@ -23,7 +23,13 @@ import {
   type TaskPlacement,
   type WorkWebEvent,
 } from "@the-office/contracts";
-import { deleteFromApi, getFromApi, sendFileToApi, sendToApi } from "./api-client.ts";
+import {
+  deleteFromApi,
+  deleteFromApiReturning,
+  getFromApi,
+  sendFileToApi,
+  sendToApi,
+} from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
 const IDEAS = ["ideas"] as const;
@@ -163,6 +169,18 @@ export function confirmDefinitionOfDone(
 /** Sets the Task's Pipeline: the proposed one to confirm it, or another; either ends the proposal. */
 export function setPipeline(id: string, pipelineId: string): Promise<Task> {
   return sendToApi("PUT", `${taskPath(id)}/pipeline`, { pipelineId }, taskSchema);
+}
+
+/** The Task waits for `blockerId` to be Done before it can start; refused with every reason. */
+export function addDependency(id: string, blockerId: string): Promise<Task> {
+  return sendToApi("POST", `${taskPath(id)}/dependencies`, { blockerId }, taskSchema);
+}
+
+export function removeDependency(id: string, blockerId: string): Promise<Task> {
+  return deleteFromApiReturning(
+    `${taskPath(id)}/dependencies/${encodeURIComponent(blockerId)}`,
+    taskSchema,
+  );
 }
 
 /** Refused with the reasons until the Plan and the Definition of Done are confirmed. */
