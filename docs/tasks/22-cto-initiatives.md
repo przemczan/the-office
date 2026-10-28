@@ -1,6 +1,6 @@
 # 22 · The CTO, Initiatives and dependencies
 
-Status: in progress
+Status: done
 
 ## Goal
 
@@ -14,7 +14,7 @@ The user can hire the CTO, shape an Idea into an Initiative with them across Pro
 - [x] Shaping with the CTO: the Initiative's conversation is a Thread with the CTO given its record; while shaping, the CTO writes the outcome and adds Tasks and their dependencies straight onto the page; once active, each change the CTO wants is a Proposal the user applies. An Initiative can be mentioned in any chat. Check: a service test through the scripted engine; Playwright confirming an Initiative and applying a Proposal.
 - [x] The Initiatives tab and the Initiative page: cards with progress, the Task graph across Projects (blockers outside it dashed), the outcome, Attachments, the origin Idea, the shaping thread, "Add a Task" with what it must wait for, and Drop. Check: Playwright.
 - [x] The CTO first on failures: a Stage failing with no retries left, or a round limit reached, goes to the CTO when one is hired, who sends the Task back for one more round with guidance or passes it on to the user; budget limits always ask the user. Check: a service test through the scripted engine.
-- [ ] `npm run verify` and `npm run verify:linux` pass, and the user has looked at hiring the CTO, shaping an Initiative, its graph and a blocked Task in the running app. Check: the commands; the user's word, logged.
+- [x] `npm run verify` and `npm run verify:linux` pass, and the user has looked at hiring the CTO, shaping an Initiative, its graph and a blocked Task in the running app. Check: the commands; the user's word, logged.
 
 ## Read first
 
@@ -46,11 +46,12 @@ Leave out: tags, search, saved views and the Project filter (task 23); moving a 
   Read: `shell/conversation/proposal-card.tsx`; click-through `work.js` `workDialogs` (`new-task`).
 - [x] 5. The CTO first on failures: the walk's "no retries left" and round-limit Decisions put to the CTO when hired, their answer (one more round with guidance, or passed on to the user). Commit.
   Read: `walk-decisions.ts`, `stage-interpreter.ts` (where it opens them); `Decision.putTo`, `Consultations`, `passDecisionOn`.
-- [ ] 6. The user looks at hiring the CTO, shaping an Initiative, its graph and a blocked Task; `npm run verify:linux`; close the task. Commit.
+- [x] 6. The user looks at hiring the CTO, shaping an Initiative, its graph and a blocked Task; `npm run verify:linux`; close the task. Commit.
   Read: [testing](../../apps/service/docs/testing.md) for the live check.
 
 ## State
 
+- Done (2026-10-28): every step built, both verifies passed, and the user looked at hiring the CTO, shaping an Initiative, its graph and a blocked Task in the running app and said it looks ok.
 - Built (steps 1–4b): the CTO preset (`cto`, Bob in e2e); dependencies (`Task.blockedBy`, `domain/task-dependencies.ts`, the Task page's Dependencies block, the board's "Blocked by"); Initiatives (`InitiativeService`, routes under `/initiatives`, "Initiative done" Notification); the shaping Thread (`ShapingThreadSetup`) and the CTO's tools (`shaping-office-tools.ts`), straight onto it while shaping, an `initiative` Proposal once active (`InitiativeProposals`); the web's Initiatives tab and Initiative page (`surfaces/work/`, see its MAP).
 - 4b: `POST /initiatives/:id/tasks` takes `blockedBy` (`newInitiativeTaskSchema`): the Task is made waiting for them in one transaction (manual order → Initiative → dependencies hold; `createdWaitingFor` judges each as `addDependency`), publishing only `TaskCreated`. The web: `initiative-actions.tsx` (Confirm, "Add a Task" = `NewTaskDialog` given the Initiative, Drop from the menu with no dialog, as the click-through), `outcome-block.tsx` (Edit while shaping, on the shared `part-editor.tsx`), the Proposal card refreshes Initiatives on applying.
 - The e2e: `people.e2e.ts`'s last test with the last session in `sessions.jsonl` (Bob's `write_outcome` while shaping, then a Proposal once active). The design system's radios and checkboxes have no accessible name: pick them by their `label`, scoped to the radiogroup.
@@ -58,20 +59,9 @@ Leave out: tags, search, saved views and the Project filter (task 23); moving a 
 - 5: a Stage failing with no retries left is put to the CTO first (`asksTheCtoFirst` in `walk-decisions.ts`, `putTo` on `StageDecisions.open`); Conversations' `StageDecisions` keeps it with the user when no CTO with Consultant on is hired, and opens the CTO's Consultation at once ("Consultation · The Office and Bob"). The CTO answers only in their own words (`consultantAnswerProblems`), which come back as `one-more-round` with `guidedBy` and are named in the Brief ("Guidance for this round from Bob (CTO)"), or passes it on to the user (`passDecisionOn` now takes The Office's Decision). `NoRetriesLeft.putTo` keeps the "failed" Notification and Now outcome away while the CTO has it.
 - Decided with the user (2026-10-28), in spec 2.3's Defaults: every Stage failing with no retries left goes to the CTO first, Script and Publish ones too; a Stage the CTO sent back once in a walk goes to the user when it fails again; the Definition of Done, a restart, a moved base and budget limits ask the user directly.
 - The Consultation of The Office's Decision has no asker (`Consultation.askerRoleKey` undefined, `null` in the API); its note says the Task's Pipeline waits. The e2e: Bob is hired by test 18, whose Publish fails (no remote), so `sessions.jsonl` scripts Bob passing it on, and the test waits for that before the next one opens sessions.
-- For step 6: the live look (hiring the CTO, shaping, the graph, a blocked Task) is the user's; then `npm run verify:linux` and closing the task.
 - Open, not blocking: the CTO's `write_outcome` tool line shows above its Proposal card (Marta's propose tools hide theirs by name, but the CTO's tools also write straight, where the line is the only trace).
 - Watch: `projects/application/worktrees.test.ts` timed out once at 5 s under a full run. Tests share the database: never assume the newest Initiative is the test's own.
 
 ## Progress
 
-- 2026-10-28 · task file: sliced into nine steps with the user, its open questions answered; step 1, the CTO preset, is next.
-- 2026-10-28 · step 1: the CTO preset, hired in the presets e2e; dependencies, the service side, are next.
-- 2026-10-28 · step 2a: dependencies on the service side (rules, Start refused while blocked, routes, events, the record); the web side is next.
-- 2026-10-28 · step 2b: the Task page's Dependencies block (add, remove, waiting for this Task), the board's "Blocked by", e2e seeing Start refused; the Memory e2e race fixed; Initiatives on the service side are next.
-- 2026-10-28 · step 3a: Initiatives on the service side (shaping from an Idea with its Attachments, Confirm, Drop, done with its Tasks, Add a Task, the "Initiative done" Notification), the done rule settled with the user; the Initiative's conversation with the CTO is next.
-- 2026-10-28 · step 3b (split into 3b–3d): the Initiative's Thread with the CTO (home, session on the base branches, Brief from its record, opened on shaping or started later; shaping without a CTO settled with the user); the CTO's tools while shaping are next.
-- 2026-10-28 · step 3c: the CTO's shaping tools (outcome, Tasks, dependencies) decided in the Initiative's hold, the user's outcome route, Initiative mentions; the Initiative Proposal (3d) is next.
-- 2026-10-28 · step 3d: the CTO's changes to an active Initiative drafted as an `initiative` Proposal the user applies (Work's applier, a drafting port, a minimal card), checked first then by state; the scripted-engine shaping test; the web's Initiatives tab and page (4a) are next.
-- 2026-10-28 · step 4a: the Initiatives tab and the Initiative page (Task graph across Projects, record, Threads with the CTO), "Shape into an Initiative" on an Idea, links from the Task page, shaped Ideas, mentions and the "Initiative done" Notification; 4b (Confirm, Add a Task, Drop, the Proposal card, Playwright) is next.
-- 2026-10-28 · step 4b: Confirm, "Add a Task" with what it must wait for (made in one transaction), Drop, the outcome edited while shaping, the Initiative Proposal applied; Playwright through shaping with Bob; the CTO first on failures (5) is next.
-- 2026-10-28 · step 5: the CTO first on failures (no retries left or a round limit, by Consultation; guidance as one more round named in the Brief, or passed on to the user; a second failure of the same Stage goes to the user); the user's look and closing (6) are next.
+The log is archived in [archive/22-cto-initiatives.md](archive/22-cto-initiatives.md).
