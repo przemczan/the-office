@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   compareTags,
   fallbackNameOf,
+  isUpdateOf,
   pinnedVersionLabel,
   pinnedVersionOf,
   sourceFolderProblem,
@@ -111,5 +112,28 @@ describe("pinnedVersionLabel", () => {
   it("is the tag, or the commit's first characters", () => {
     expect(pinnedVersionLabel({ tag: "v1.0", commit: "abcdef123" })).toBe("v1.0");
     expect(pinnedVersionLabel({ commit: "abcdef123" })).toBe("abcdef1");
+  });
+});
+
+describe("isUpdateOf", () => {
+  const pinned = { tag: "v1.9", commit: "a" };
+
+  it("is a newer tag at another commit", () => {
+    expect(isUpdateOf({ tag: "v1.10", commit: "b" }, pinned)).toBe(true);
+  });
+
+  it("is no older or equal tag, nor the pinned commit", () => {
+    expect(isUpdateOf({ tag: "v1.8", commit: "b" }, pinned)).toBe(false);
+    expect(isUpdateOf({ tag: "v1.9", commit: "b" }, pinned)).toBe(false);
+    expect(isUpdateOf({ tag: "v2.0", commit: "a" }, pinned)).toBe(false);
+  });
+
+  it("is no untagged commit once the skill is pinned at a tag", () => {
+    expect(isUpdateOf({ commit: "b" }, pinned)).toBe(false);
+  });
+
+  it("is any other commit, tagged or not, of a skill pinned without a tag", () => {
+    expect(isUpdateOf({ commit: "b" }, { commit: "a" })).toBe(true);
+    expect(isUpdateOf({ tag: "v1", commit: "b" }, { commit: "a" })).toBe(true);
   });
 });

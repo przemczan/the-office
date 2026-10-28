@@ -76,6 +76,8 @@ export const skillEventInvalidations: Readonly<
   "skill.turned-on": () => [SKILLS],
   "skill.turned-off": () => [SKILLS],
   "skill.everyone-changed": () => [SKILLS],
+  "skill.update-found": () => [SKILLS],
+  "skill.update-gone": () => [SKILLS],
   "skill.removed": () => [SKILLS, ["projects"], ["roles"]],
   "skill.role-skills-changed": () => [SKILLS, ["roles"]],
 };

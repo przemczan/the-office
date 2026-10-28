@@ -36,6 +36,8 @@ export const skillSchema = z.object({
   source: skillSourceSchema,
   /** There exactly when it was installed. */
   installedFrom: installedSourceSchema.optional(),
+  /** The newer pinned version its Source has, found by the daily check: "Update available". */
+  update: pinnedVersionSchema.optional(),
   version: z.number().int().positive(),
   filesHash: z.string(),
   state: skillStateSchema,
@@ -134,6 +136,9 @@ export const skillWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("skill.turned-on"), skillName: z.string() }),
   webEventSchema.extend({ type: z.literal("skill.turned-off"), skillName: z.string() }),
   webEventSchema.extend({ type: z.literal("skill.everyone-changed"), skillName: z.string() }),
+  /** The daily check found an update at its Source, or the one it found is gone. */
+  webEventSchema.extend({ type: z.literal("skill.update-found"), skillName: z.string() }),
+  webEventSchema.extend({ type: z.literal("skill.update-gone"), skillName: z.string() }),
   webEventSchema.extend({ type: z.literal("skill.removed"), skillName: z.string() }),
   /** The Role's skills changed, from its card or from Settings › Skills. */
   webEventSchema.extend({ type: z.literal("skill.role-skills-changed"), roleKey: z.string() }),

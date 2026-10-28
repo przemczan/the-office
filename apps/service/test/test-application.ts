@@ -8,12 +8,17 @@ import type {
 import { Test } from "@nestjs/testing";
 import { DatabaseModule } from "../src/platform/database/database.module.js";
 import { configureHttp, HTTP_APPLICATION_OPTIONS } from "../src/platform/http/configure-http.js";
+import { Schedule } from "../src/platform/schedule/schedule.js";
+import { ManualSchedule } from "../src/platform/schedule/schedule.fixtures.js";
 import { testDatabaseUrl } from "./test-database.js";
 
 export interface TestApplicationOptions extends ModuleMetadata {
   /** Adds the DatabaseModule, on this run's test database. */
   readonly database?: boolean;
-  /** Replaces these providers wherever they are bound, such as a port a module binds itself. */
+  /**
+   * Replaces these providers wherever they are bound, such as a port a module binds itself.
+   * `Schedule` is a `ManualSchedule` unless replaced here, so no job runs by the clock in a test.
+   */
   readonly overrides?: readonly ProviderOverride[];
   /** Replaces these modules wherever they are imported, such as the engine by a scripted one. */
   readonly moduleOverrides?: readonly ModuleOverride[];
@@ -51,6 +56,7 @@ export async function startTestApplication({
     ...metadata,
     imports: database ? [DatabaseModule.forRoot({ url: testDatabaseUrl() }), ...imports] : imports,
   });
+  builder.overrideProvider(Schedule).useValue(new ManualSchedule());
   for (const { provide, useValue } of overrides)
     builder.overrideProvider(provide).useValue(useValue);
   for (const { module, useModule } of moduleOverrides)

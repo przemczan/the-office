@@ -1,4 +1,5 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { PinnedVersion } from "./installed-source.js";
 import type { RoleSkillsChange } from "./role-skills.js";
 import type { Skill } from "./skill.js";
 
@@ -13,6 +14,23 @@ export class SkillAdded extends DomainEvent {
 export class SkillVersionSaved extends DomainEvent {
   constructor(readonly skill: Skill) {
     super(skill.savedAt);
+  }
+}
+
+/** Its Source has a newer pinned version, which Devops can propose as an update. */
+export class SkillUpdateFound extends DomainEvent {
+  constructor(
+    readonly skillName: string,
+    readonly update: PinnedVersion,
+  ) {
+    super();
+  }
+}
+
+/** The update found before is no longer at its Source. */
+export class SkillUpdateGone extends DomainEvent {
+  constructor(readonly skillName: string) {
+    super();
   }
 }
 

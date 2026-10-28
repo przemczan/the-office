@@ -1,4 +1,5 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import { isUpdateOf, samePinnedVersion, type PinnedVersion } from "./installed-source.js";
 import {
   newSkillProblems,
   skillDescriptionProblems,
@@ -12,6 +13,8 @@ import {
   SkillRemoved,
   SkillTurnedOff,
   SkillTurnedOn,
+  SkillUpdateFound,
+  SkillUpdateGone,
   SkillVersionSaved,
 } from "./skill-events.js";
 import { SkillRefused } from "./skill-refused.js";
@@ -69,6 +72,25 @@ export function saveVersion(
     savedAt,
   };
   return { skill: saved, event: new SkillVersionSaved(saved) };
+}
+
+/**
+ * Notes what the daily check found its Source pinned at now (spec §2.6): an update when it is
+ * newer than the skill's pinned version, none otherwise. Undefined when that is what the skill
+ * already notes, or it wasn't installed.
+ */
+export function noteSourceVersion(
+  skill: Skill,
+  now: PinnedVersion,
+): SkillChange<SkillUpdateFound | SkillUpdateGone> | undefined {
+  if (!skill.installedFrom) return undefined;
+  const { update: noted, ...withoutUpdate } = skill;
+  if (isUpdateOf(now, skill.installedFrom.pinnedVersion)) {
+    if (noted && samePinnedVersion(noted, now)) return undefined;
+    return { skill: { ...skill, update: now }, event: new SkillUpdateFound(skill.name, now) };
+  }
+  if (!noted) return undefined;
+  return { skill: withoutUpdate, event: new SkillUpdateGone(skill.name) };
 }
 
 /** Turning a skill on is its review. Undefined when it is already on. */

@@ -8,6 +8,8 @@ import {
 } from "@nestjs/common";
 import { SKILL_UPLOAD_BYTES } from "@the-office/contracts";
 import { uploadBody } from "../../platform/http/upload-body.js";
+import { Schedule } from "../../platform/schedule/schedule.js";
+import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { FilesystemLibraryFolder } from "./adapters/filesystem/filesystem-library-folder.js";
 import { FilesystemSessionFolders } from "./adapters/filesystem/filesystem-session-folders.js";
 import { GitProjectSkillFiles } from "./adapters/git/git-project-skill-files.js";
@@ -23,6 +25,7 @@ import { RoleSkills } from "./application/role-skills.js";
 import { SessionSkills } from "./application/session-skills.js";
 import { SkillLibrary } from "./application/skill-library.js";
 import { SkillSources } from "./application/skill-sources.js";
+import { SKILL_UPDATE_CHECK, SkillUpdates } from "./application/skill-updates.js";
 import { LibraryFolder } from "./ports/library-folder.js";
 import { ProjectSkillFiles } from "./ports/project-skill-files.js";
 import { RoleSkillRepository } from "./ports/role-skill-repository.js";
@@ -33,6 +36,7 @@ import { SourceFetcher } from "./ports/source-fetcher.js";
 import { ZipReader } from "./ports/zip-reader.js";
 
 @Module({
+  imports: [ScheduleModule],
   controllers: [SkillsController],
   providers: [
     { provide: SkillRepository, useClass: PostgresSkillRepository },
@@ -45,6 +49,7 @@ import { ZipReader } from "./ports/zip-reader.js";
     { provide: SourceFetcher, useClass: GitSourceFetcher },
     SkillLibrary,
     SkillSources,
+    SkillUpdates,
     SessionSkills,
     ProjectSkills,
     RoleSkills,
@@ -55,7 +60,11 @@ import { ZipReader } from "./ports/zip-reader.js";
 export class SkillsModule implements NestModule, OnApplicationBootstrap {
   private readonly logger = new Logger(SkillsModule.name);
 
-  constructor(private readonly sessionSkills: SessionSkills) {}
+  constructor(
+    private readonly sessionSkills: SessionSkills,
+    private readonly updates: SkillUpdates,
+    private readonly schedule: Schedule,
+  ) {}
 
   configure(consumer: MiddlewareConsumer): void {
     consumer
@@ -74,5 +83,7 @@ export class SkillsModule implements NestModule, OnApplicationBootstrap {
       // What it leaves is harmless, and the next start sweeps again.
       this.logger.warn(`Could not sweep the skill folders: ${(error as Error).message}`);
     }
+    // In the background: a Source that answers slowly never holds up the start.
+    this.schedule.daily(SKILL_UPDATE_CHECK, () => this.updates.check());
   }
 }

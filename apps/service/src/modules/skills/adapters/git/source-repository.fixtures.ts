@@ -16,6 +16,8 @@ export interface SourceRepository {
   commit(): string;
   /** Tags the newest commit and pushes the tag; an annotated tag is an object of its own. */
   tag(name: string, kind?: "lightweight" | "annotated"): void;
+  /** Deletes the tag, here and in the bare repository. */
+  untag(name: string): void;
   remove(): Promise<void>;
 }
 
@@ -61,6 +63,10 @@ export async function createSourceRepository(): Promise<SourceRepository> {
       if (kind === "annotated") git(checkout, "tag", "--annotate", "--message", name, name);
       else git(checkout, "tag", name);
       git(checkout, "push", "--quiet", "origin", `refs/tags/${name}`);
+    },
+    untag(name) {
+      git(checkout, "tag", "--delete", name);
+      git(checkout, "push", "--quiet", "origin", `:refs/tags/${name}`);
     },
     remove: () => rm(root, { recursive: true, force: true, maxRetries: 5 }),
   };

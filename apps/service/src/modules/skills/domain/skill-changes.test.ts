@@ -3,6 +3,7 @@ import { aNewSkill, aSkill } from "./skill.fixtures.js";
 import {
   addSkill,
   changeEveryone,
+  noteSourceVersion,
   removeSkill,
   saveVersion,
   turnOff,
@@ -14,6 +15,8 @@ import {
   SkillRemoved,
   SkillTurnedOff,
   SkillTurnedOn,
+  SkillUpdateFound,
+  SkillUpdateGone,
   SkillVersionSaved,
 } from "./skill-events.js";
 import { SkillRefused } from "./skill-refused.js";
@@ -141,5 +144,46 @@ describe("changeEveryone", () => {
 describe("removeSkill", () => {
   it("announces the removal", () => {
     expect(removeSkill(aSkill())).toEqual(anEvent(SkillRemoved, { skillName: "release-notes" }));
+  });
+});
+
+describe("noteSourceVersion", () => {
+  const installed = aSkill({
+    source: "installed",
+    installedFrom: {
+      repository: "acme/skills",
+      folder: "notes",
+      pinnedVersion: { tag: "v1", commit: "a" },
+    },
+  });
+  const v2 = { tag: "v2", commit: "b" };
+
+  it("notes a newer pinned version as the update, keeping the skill's state", () => {
+    const skill = { ...installed, state: "on" as const };
+    expect(noteSourceVersion(skill, v2)).toEqual({
+      skill: { ...skill, update: v2 },
+      event: new SkillUpdateFound(skill.name, v2),
+    });
+  });
+
+  it("changes nothing when the update is already noted, or there is none", () => {
+    expect(noteSourceVersion({ ...installed, update: v2 }, v2)).toBeUndefined();
+    expect(noteSourceVersion(installed, { tag: "v1", commit: "a" })).toBeUndefined();
+  });
+
+  it("notes a newer update over the one noted before", () => {
+    const v3 = { tag: "v3", commit: "c" };
+    expect(noteSourceVersion({ ...installed, update: v2 }, v3)?.skill.update).toEqual(v3);
+  });
+
+  it("clears an update its Source no longer has", () => {
+    expect(noteSourceVersion({ ...installed, update: v2 }, { tag: "v1", commit: "a" })).toEqual({
+      skill: installed,
+      event: new SkillUpdateGone(installed.name),
+    });
+  });
+
+  it("notes nothing on a skill that wasn't installed", () => {
+    expect(noteSourceVersion(aSkill(), v2)).toBeUndefined();
   });
 });

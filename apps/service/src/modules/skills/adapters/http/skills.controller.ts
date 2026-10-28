@@ -147,6 +147,7 @@ function toSkillResponse(skill: Skill, roles: readonly string[]): SkillResponse 
     description: skill.description,
     source: skill.source,
     ...(skill.installedFrom && { installedFrom: skill.installedFrom }),
+    ...(skill.update && { update: skill.update }),
     version: skill.version,
     filesHash: skill.filesHash,
     state: skill.state,

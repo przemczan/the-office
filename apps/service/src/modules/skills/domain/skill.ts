@@ -1,4 +1,4 @@
-import type { InstalledSource } from "./installed-source.js";
+import type { InstalledSource, PinnedVersion } from "./installed-source.js";
 import { isWindowsDeviceName } from "./skill-files.js";
 
 /** How a skill came into the library. */
@@ -21,6 +21,11 @@ export interface Skill {
   readonly source: SkillSource;
   /** Its Source and pinned version: there exactly when it was installed. */
   readonly installedFrom?: InstalledSource;
+  /**
+   * The newer pinned version the daily check found at its Source, shown as "Update available";
+   * only an installed skill has one.
+   */
+  readonly update?: PinnedVersion;
   /** Counts the saved changes, from 1. */
   readonly version: number;
   /** The current version's files hash (`skillFilesHash`). */

@@ -2,7 +2,7 @@ import { Inject, Injectable } from "@nestjs/common";
 import { asc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
-import type { InstalledSource } from "../../domain/installed-source.js";
+import type { InstalledSource, PinnedVersion } from "../../domain/installed-source.js";
 import { skillNameTaken, type Skill } from "../../domain/skill.js";
 import type { SkillChange } from "../../domain/skill-changes.js";
 import { SkillNotFound } from "../../domain/skill-not-found.js";
@@ -92,6 +92,8 @@ function toRow(skill: Skill): SkillRow {
     sourceFolder: skill.installedFrom?.folder ?? null,
     pinnedTag: skill.installedFrom?.pinnedVersion.tag ?? null,
     pinnedCommit: skill.installedFrom?.pinnedVersion.commit ?? null,
+    updateTag: skill.update?.tag ?? null,
+    updateCommit: skill.update?.commit ?? null,
     version: skill.version,
     filesHash: skill.filesHash,
     state: skill.state,
@@ -108,6 +110,9 @@ function toSkill(row: SkillRow): Skill {
     description: row.description,
     source: row.source,
     ...(installedFrom && { installedFrom }),
+    ...(row.updateCommit !== null && {
+      update: pinnedVersion(row.updateTag, row.updateCommit),
+    }),
     version: row.version,
     filesHash: row.filesHash,
     state: row.state,
@@ -125,11 +130,12 @@ function installedSourceOf(row: SkillRow): InstalledSource | undefined {
   return {
     repository: row.sourceRepository,
     folder: row.sourceFolder,
-    pinnedVersion: {
-      ...(row.pinnedTag !== null && { tag: row.pinnedTag }),
-      commit: row.pinnedCommit,
-    },
+    pinnedVersion: pinnedVersion(row.pinnedTag, row.pinnedCommit),
   };
+}
+
+function pinnedVersion(tag: string | null, commit: string): PinnedVersion {
+  return { ...(tag !== null && { tag }), commit };
 }
 
 function toVersion(row: SkillVersionRow): SkillVersion {

@@ -81,6 +81,21 @@ export function pinnedVersionLabel(pinnedVersion: PinnedVersion): string {
   return pinnedVersion.tag ?? pinnedVersion.commit.slice(0, 7);
 }
 
+/**
+ * Whether the Source's pinned version now is an update of `pinned`: another commit with a newer
+ * tag, or any other commit when `pinned` has no tag. A deleted tag, or a tag moved to another
+ * commit, is none: only a newer release is offered.
+ */
+export function isUpdateOf(now: PinnedVersion, pinned: PinnedVersion): boolean {
+  if (now.commit === pinned.commit) return false;
+  if (pinned.tag === undefined) return true;
+  return now.tag !== undefined && compareTags(now.tag, pinned.tag) > 0;
+}
+
+export function samePinnedVersion(first: PinnedVersion, second: PinnedVersion): boolean {
+  return first.tag === second.tag && first.commit === second.commit;
+}
+
 /** Each tag with the commit it points at, peeling annotated tags. */
 function tagsOf(refs: readonly RemoteRef[]): { tag: string; commit: string }[] {
   const commits = new Map<string, string>();

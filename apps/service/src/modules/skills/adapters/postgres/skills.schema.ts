@@ -13,7 +13,10 @@ import {
 import type { ProjectSkillName, SessionSkill } from "../../domain/session-skills.js";
 import type { SkillSource, SkillState } from "../../domain/skill.js";
 
-/** Each skill in the library, at its current version; an installed one with its Source. */
+/**
+ * Each skill in the library, at its current version; an installed one with its Source, and the
+ * update its Source has when the daily check found one.
+ */
 export const skills = pgTable(
   "skills",
   {
@@ -24,6 +27,8 @@ export const skills = pgTable(
     sourceFolder: text("source_folder"),
     pinnedTag: text("pinned_tag"),
     pinnedCommit: text("pinned_commit"),
+    updateTag: text("update_tag"),
+    updateCommit: text("update_commit"),
     version: integer("version").notNull(),
     filesHash: text("files_hash").notNull(),
     state: text("state").$type<SkillState>().notNull(),
@@ -35,6 +40,10 @@ export const skills = pgTable(
     check(
       "skills_installed_from_source",
       sql`(${table.source} = 'installed') = (${table.sourceRepository} IS NOT NULL AND ${table.sourceFolder} IS NOT NULL AND ${table.pinnedCommit} IS NOT NULL)`,
+    ),
+    check(
+      "skills_update_of_installed",
+      sql`${table.updateCommit} IS NULL OR ${table.source} = 'installed'`,
     ),
   ],
 );

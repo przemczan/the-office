@@ -337,6 +337,13 @@
       "when": 1793217958655,
       "tag": "0047_skill_sources",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1793223586920,
+      "tag": "0048_skill_updates",
+      "breakpoints": true
     }
   ]
 }
