@@ -23,7 +23,8 @@ import {
   threadQueries,
 } from "../../api/conversations.ts";
 import { roleCardQueries, roleQueries } from "../../api/people.ts";
-import { officeWideLimitQuery } from "../../api/work.ts";
+import { projectQueries } from "../../api/projects.ts";
+import { officeWideLimitQuery, taskQueries } from "../../api/work.ts";
 import { EFFORT_LABELS, modelLabel } from "../engine-words.ts";
 import { personName, roleName } from "../person-name.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
@@ -42,6 +43,7 @@ import {
 } from "../role-card-words.ts";
 import { SkillChip } from "../skill-chip.tsx";
 import { momentWords } from "../time.ts";
+import { PRIORITY_NAMES } from "../work/work-words.ts";
 import { useToast } from "../toasts.tsx";
 import { tokensShort } from "./context-words.ts";
 import "./conversation.css";
@@ -50,6 +52,7 @@ type ProposedHire = Extract<ProposedChange, { kind: "hire" }>;
 type ProposedPresetHire = Extract<ProposedChange, { kind: "hire-from-preset" }>;
 type ProposedRoleChange = Extract<ProposedChange, { kind: "change" }>;
 type ProposedSettingChange = Extract<ProposedChange, { kind: OfficeSetting }>;
+type InitiativeEdit = Extract<ProposedChange, { kind: "initiative" }>["edit"];
 type OfficeSetting = "office-wide-limit" | "size-threshold";
 
 /** How the card words each Office setting, as Settings › Office limits does. */
@@ -124,6 +127,18 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
         <ProposalFrame title={OFFICE_SETTINGS[change.kind].title}>
           <ProposedSetting change={change} />
           <SettingFoot proposal={proposal} setting={change.kind} />
+        </ProposalFrame>
+      );
+    case "initiative":
+      return (
+        <ProposalFrame title={INITIATIVE_EDIT_TITLES[change.edit.kind]}>
+          <ProposedInitiativeEdit edit={change.edit} />
+          <AnswerFoot
+            proposal={proposal}
+            changes={[taskQueries.list().queryKey]}
+            appliedToast="Change applied to the Initiative."
+            openNote="Changes the Initiative once applied"
+          />
         </ProposalFrame>
       );
   }
@@ -242,6 +257,50 @@ function ProposedChanges({
 }
 
 /** The setting from its value when drafted to the one proposed. */
+const INITIATIVE_EDIT_TITLES: Readonly<Record<InitiativeEdit["kind"], string>> = {
+  outcome: "New outcome for the Initiative",
+  "add-task": "New Task in the Initiative",
+  "add-dependency": "A Task waits for another",
+  "remove-dependency": "A Task stops waiting",
+};
+
+/** The CTO's change to the Initiative, its Tasks and Projects by name. */
+function ProposedInitiativeEdit({ edit }: { readonly edit: InitiativeEdit }): ReactNode {
+  const tasks = useQuery(taskQueries.list()).data;
+  const projects = useQuery(projectQueries.list()).data;
+  const taskTitle = (id: string): string => tasks?.find((task) => task.id === id)?.title ?? id;
+  switch (edit.kind) {
+    case "outcome":
+      return (
+        <dl className="proposal-fields">
+          <ProposedField label="Outcome">{edit.outcome}</ProposedField>
+        </dl>
+      );
+    case "add-task":
+      return (
+        <dl className="proposal-fields">
+          <ProposedField label="Title">{edit.title}</ProposedField>
+          <ProposedField label="Project">
+            {projects?.find(({ id }) => id === edit.projectId)?.name ?? edit.projectId}
+          </ProposedField>
+          <ProposedField label="Priority">{PRIORITY_NAMES[edit.priority]}</ProposedField>
+        </dl>
+      );
+    case "add-dependency":
+    case "remove-dependency":
+      return (
+        <dl className="proposal-fields">
+          <ProposedField label="Task">{taskTitle(edit.taskId)}</ProposedField>
+          <ProposedField
+            label={edit.kind === "add-dependency" ? "Must be Done first" : "No longer waits for"}
+          >
+            {taskTitle(edit.blockerId)}
+          </ProposedField>
+        </dl>
+      );
+  }
+}
+
 function ProposedSetting({ change }: { readonly change: ProposedSettingChange }): ReactNode {
   const { label, valueText } = OFFICE_SETTINGS[change.kind];
   return (
@@ -433,10 +492,52 @@ function ChangeFoot({
   readonly proposal: Proposal;
   readonly personFirstName: string;
 }): ReactNode {
-  const showToast = useToast();
-  const answering = useAnswering(proposal, [roleQueries.list().queryKey], () =>
-    showToast(`Change applied. ${personFirstName} works with it from the next session.`),
+  return (
+    <AnswerFoot
+      proposal={proposal}
+      changes={[roleQueries.list().queryKey]}
+      appliedToast={`Change applied. ${personFirstName} works with it from the next session.`}
+      appliedNote={`${personFirstName} works with it from the next session`}
+      openNote={`Applies at ${personFirstName}'s next session start`}
+    />
   );
+}
+
+function SettingFoot({
+  proposal,
+  setting,
+}: {
+  readonly proposal: Proposal;
+  readonly setting: OfficeSetting;
+}): ReactNode {
+  const { appliesWhen, query } = OFFICE_SETTINGS[setting];
+  return (
+    <AnswerFoot
+      proposal={proposal}
+      changes={[query().queryKey]}
+      appliedToast="Change applied."
+      openNote={appliesWhen}
+    />
+  );
+}
+
+/** "Apply change" and "Not now" on a change applied as proposed, then what became of it. */
+function AnswerFoot({
+  proposal,
+  changes,
+  appliedToast,
+  appliedNote,
+  openNote,
+}: {
+  readonly proposal: Proposal;
+  /** What applying it changes, refreshed once it is applied. */
+  readonly changes: readonly QueryKey[];
+  readonly appliedToast: string;
+  readonly appliedNote?: string;
+  readonly openNote: string;
+}): ReactNode {
+  const showToast = useToast();
+  const answering = useAnswering(proposal, changes, () => showToast(appliedToast));
   const { status } = proposal;
   return (
     <div className="proposal-foot">
@@ -444,8 +545,8 @@ function ChangeFoot({
         <>
           <Badge tone="success">Applied</Badge>
           <span className="proposal-note">
-            by you · {momentWords(status.at)} · {personFirstName} works with it from the next
-            session
+            by you · {momentWords(status.at)}
+            {appliedNote && ` · ${appliedNote}`}
           </span>
         </>
       )}
@@ -469,56 +570,7 @@ function ChangeFoot({
           >
             Not now
           </Button>
-          <span className="proposal-note">Applies at {personFirstName}'s next session start</span>
-          {answering.error && (
-            <RefusalAlert title="The change can't be applied yet" error={answering.error} />
-          )}
-        </>
-      )}
-    </div>
-  );
-}
-
-function SettingFoot({
-  proposal,
-  setting,
-}: {
-  readonly proposal: Proposal;
-  readonly setting: OfficeSetting;
-}): ReactNode {
-  const showToast = useToast();
-  const { appliesWhen, query } = OFFICE_SETTINGS[setting];
-  const answering = useAnswering(proposal, [query().queryKey], () => showToast("Change applied."));
-  const { status } = proposal;
-  return (
-    <div className="proposal-foot">
-      {status.kind === "applied" && (
-        <>
-          <Badge tone="success">Applied</Badge>
-          <span className="proposal-note">by you · {momentWords(status.at)}</span>
-        </>
-      )}
-      {status.kind === "declined" && <Badge tone="neutral">Not applied</Badge>}
-      {status.kind === "open" && (
-        <>
-          <Button
-            size="sm"
-            loading={answering.applying.isPending}
-            disabled={answering.busy}
-            onClick={() => answering.applying.mutate({})}
-          >
-            Apply change
-          </Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            loading={answering.declining.isPending}
-            disabled={answering.busy}
-            onClick={() => answering.declining.mutate()}
-          >
-            Not now
-          </Button>
-          <span className="proposal-note">{appliesWhen}</span>
+          <span className="proposal-note">{openNote}</span>
           {answering.error && (
             <RefusalAlert title="The change can't be applied yet" error={answering.error} />
           )}

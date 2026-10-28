@@ -3,10 +3,16 @@ import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { InitiativeService } from "../../application/initiative-service.js";
 import { TaskService } from "../../application/task-service.js";
+import type { InitiativeEdit } from "../../domain/initiative-edit.js";
 import { PRIORITIES } from "../../domain/task.js";
 import { SessionInitiatives } from "../../ports/session-initiatives.js";
 import { SessionPeople } from "../../ports/session-people.js";
-import { answered, personInSession, WorkToolRefused } from "./work-tool-answers.js";
+import {
+  answered,
+  personInSession,
+  WorkToolRefused,
+  type OfficeToolResult,
+} from "./work-tool-answers.js";
 
 export const READ_INITIATIVE = "read_initiative";
 export const WRITE_OUTCOME = "write_outcome";
@@ -14,12 +20,16 @@ export const ADD_TASK = "add_task";
 export const ADD_DEPENDENCY = "add_dependency";
 export const REMOVE_DEPENDENCY = "remove_dependency";
 
-const ON_THE_PAGE =
-  "It shows on the Initiative's page at once; the user confirms the whole Initiative once it is agreed.";
+const WHERE_IT_GOES =
+  "While the Initiative is being shaped, it shows on the Initiative's page at once and the user confirms the whole Initiative once it is agreed; once it is active, it is drafted as a Proposal in this Thread, which changes the Initiative only when the user applies it.";
+
+const PROPOSED =
+  "The Initiative is active, so this is drafted as a Proposal in this Thread: it changes the Initiative once the user applies it.";
 
 /**
  * The Office tools the CTO shapes an Initiative with, in a Thread on it (spec §2.1 Defaults): each
- * writes straight onto the session's own Initiative while it is being shaped.
+ * writes straight onto the session's own Initiative while it is being shaped, and drafts a Proposal
+ * of the change once it is active.
  */
 @Injectable()
 export class ShapingOfficeTools implements OnModuleInit {
@@ -53,54 +63,53 @@ export class ShapingOfficeTools implements OnModuleInit {
   private registerWriteOutcome(): void {
     this.registry.register({
       name: WRITE_OUTCOME,
-      description: `Writes this Initiative's outcome: what must be true once it is done, in plain language the user agreed to. It replaces the outcome it has. ${ON_THE_PAGE}`,
+      description: `Writes this Initiative's outcome: what must be true once it is done, in plain language the user agreed to. It replaces the outcome it has. ${WHERE_IT_GOES}`,
       input: z.object({ outcome: z.string().describe("The whole outcome, in plain language.") }),
       run: ({ outcome }, { sessionId }) =>
-        answered(async () => {
-          await this.initiatives.writeOutcome(await this.initiativeIn(sessionId), outcome);
-          return `Wrote the outcome onto the Initiative. ${ON_THE_PAGE}`;
-        }),
+        this.change(sessionId, { kind: "outcome", outcome }, () =>
+          Promise.resolve("Wrote the outcome onto the Initiative's page."),
+        ),
     });
   }
 
   private registerAddTask(): void {
     this.registry.register({
       name: ADD_TASK,
-      description: `Adds a Task to this Initiative in your name, in Backlog in one Project, on the Project's default Pipeline; planning it comes after. ${ON_THE_PAGE}`,
+      description: `Adds a Task to this Initiative in your name, in Backlog in one Project, on the Project's default Pipeline; planning it comes after. ${WHERE_IT_GOES}`,
       input: z.object({
         title: z.string().describe("One line naming the outcome of this Task."),
         projectId: z.string().describe("The Project's id, as list_projects gives it."),
         priority: z.enum(PRIORITIES).optional().describe("Normal unless the user says otherwise."),
       }),
       run: ({ title, projectId, priority }, { sessionId }) =>
-        answered(async () => {
-          const task = await this.initiatives.addTaskWhileShaping(
-            await this.initiativeIn(sessionId),
-            { title, projectId, priority: priority ?? "normal" },
-            await personInSession(this.sessionPeople, sessionId),
-          );
-          return `Added the Task "${task.title}" (Task ${task.id}) in Backlog in ${task.projectId}. ${ON_THE_PAGE}`;
-        }),
+        this.change(
+          sessionId,
+          { kind: "add-task", title, projectId, priority: priority ?? "normal", taskId: undefined },
+          async (applied) => {
+            const taskId = applied.kind === "add-task" ? applied.taskId : undefined;
+            if (taskId === undefined) throw new Error("Adding the Task answered no Task.");
+            const task = await this.tasks.read(taskId);
+            return `Added the Task "${task.title}" (Task ${task.id}) in Backlog in ${task.projectId}, on the Initiative's page.`;
+          },
+        ),
     });
   }
 
   private registerAddDependency(): void {
     this.registry.register({
       name: ADD_DEPENDENCY,
-      description: `Makes one of this Initiative's Tasks wait for another Task to be Done before it can start. The Task it waits for can be any Task, in any Project or Initiative; a Task can't wait for itself or close a cycle. ${ON_THE_PAGE}`,
+      description: `Makes one of this Initiative's Tasks wait for another Task to be Done before it can start. The Task it waits for can be any Task, in any Project or Initiative; a Task can't wait for itself or close a cycle. ${WHERE_IT_GOES}`,
       input: z.object({
         taskId: z.string().describe("The id of this Initiative's Task that must wait."),
         blockerId: z.string().describe("The id of the Task that must be Done first."),
       }),
       run: ({ taskId, blockerId }, { sessionId }) =>
-        answered(async () => {
-          const task = await this.initiatives.addDependencyWhileShaping(
-            await this.initiativeIn(sessionId),
-            taskId,
-            blockerId,
-          );
-          const blocker = await this.tasks.read(blockerId);
-          return `"${task.title}" now waits for "${blocker.title}" to be Done. ${ON_THE_PAGE}`;
+        this.change(sessionId, { kind: "add-dependency", taskId, blockerId }, async () => {
+          const [task, blocker] = await Promise.all([
+            this.tasks.read(taskId),
+            this.tasks.read(blockerId),
+          ]);
+          return `"${task.title}" now waits for "${blocker.title}" to be Done, on the Initiative's page.`;
         }),
     });
   }
@@ -108,20 +117,33 @@ export class ShapingOfficeTools implements OnModuleInit {
   private registerRemoveDependency(): void {
     this.registry.register({
       name: REMOVE_DEPENDENCY,
-      description: `Lets one of this Initiative's Tasks stop waiting for a Task it waits for. ${ON_THE_PAGE}`,
+      description: `Lets one of this Initiative's Tasks stop waiting for a Task it waits for. ${WHERE_IT_GOES}`,
       input: z.object({
         taskId: z.string().describe("The id of this Initiative's Task that waits."),
         blockerId: z.string().describe("The id of the Task it waits for."),
       }),
       run: ({ taskId, blockerId }, { sessionId }) =>
-        answered(async () => {
-          const task = await this.initiatives.removeDependencyWhileShaping(
-            await this.initiativeIn(sessionId),
-            taskId,
-            blockerId,
-          );
-          return `"${task.title}" no longer waits for the Task ${blockerId}. ${ON_THE_PAGE}`;
+        this.change(sessionId, { kind: "remove-dependency", taskId, blockerId }, async () => {
+          const task = await this.tasks.read(taskId);
+          return `"${task.title}" no longer waits for the Task ${blockerId}, on the Initiative's page.`;
         }),
+    });
+  }
+
+  /** The CTO's change to the session's Initiative, answered as `written` words it or as proposed. */
+  private change(
+    sessionId: string,
+    edit: InitiativeEdit,
+    written: (applied: InitiativeEdit) => Promise<string>,
+  ): Promise<OfficeToolResult> {
+    return answered(async () => {
+      const change = await this.initiatives.changeByCto(
+        await this.initiativeIn(sessionId),
+        edit,
+        await personInSession(this.sessionPeople, sessionId),
+        sessionId,
+      );
+      return change.kind === "written" ? written(change.edit) : PROPOSED;
     });
   }
 

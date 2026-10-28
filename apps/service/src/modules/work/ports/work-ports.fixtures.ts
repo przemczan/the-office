@@ -12,6 +12,7 @@ import { InitiativeThreads, type InitiativeThreadOpening } from "./initiative-th
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { KnownProjects, type KnownProject } from "./known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "./project-worktrees.js";
+import { ProposalDrafts, type ProposedInitiativeChange } from "./proposal-drafts.js";
 import { SessionPeople } from "./session-people.js";
 import { SessionInitiatives } from "./session-initiatives.js";
 import { SessionTasks } from "./session-tasks.js";
@@ -173,6 +174,21 @@ export class TaskDecisionsForTests extends TaskDecisions {
   }
 }
 
+/** Keeps each Proposal drafted, by the session it was drafted in. */
+@Injectable()
+export class ProposalDraftsForTests extends ProposalDrafts {
+  readonly drafted: { readonly sessionId: string; readonly change: ProposedInitiativeChange }[] =
+    [];
+
+  async draft(
+    sessionId: string,
+    change: ProposedInitiativeChange,
+  ): Promise<{ readonly id: string }> {
+    this.drafted.push({ sessionId, change });
+    return { id: crypto.randomUUID() };
+  }
+}
+
 const PORTS = [
   KnownProjectsForTests,
   ProjectWorktreesForTests,
@@ -184,6 +200,7 @@ const PORTS = [
   TaskThreadsForTests,
   InitiativeThreadsForTests,
   TaskDecisionsForTests,
+  ProposalDraftsForTests,
   TaskThreadSetups,
   InitiativeThreadSetups,
   WorkRecords,

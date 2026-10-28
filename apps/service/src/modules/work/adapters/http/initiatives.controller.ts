@@ -61,7 +61,7 @@ export class InitiativesController {
     @Param("id", ParseUUIDPipe) id: string,
     @Body(new ContractPipe(outcomeChangeSchema)) { outcome }: OutcomeChange,
   ): Promise<InitiativeResponse> {
-    return this.respond(await this.initiatives.writeOutcome(id, outcome));
+    return this.respond(await this.initiatives.writeOutcome(id, outcome, "straight"));
   }
 
   /** Its Tasks stay as they are. */

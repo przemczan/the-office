@@ -1,4 +1,10 @@
-import type { INestApplication, InjectionToken, ModuleMetadata } from "@nestjs/common";
+import type {
+  DynamicModule,
+  INestApplication,
+  InjectionToken,
+  ModuleMetadata,
+  Type,
+} from "@nestjs/common";
 import { Test } from "@nestjs/testing";
 import { DatabaseModule } from "../src/platform/database/database.module.js";
 import { configureHttp, HTTP_APPLICATION_OPTIONS } from "../src/platform/http/configure-http.js";
@@ -9,11 +15,18 @@ export interface TestApplicationOptions extends ModuleMetadata {
   readonly database?: boolean;
   /** Replaces these providers wherever they are bound, such as a port a module binds itself. */
   readonly overrides?: readonly ProviderOverride[];
+  /** Replaces these modules wherever they are imported, such as the engine by a scripted one. */
+  readonly moduleOverrides?: readonly ModuleOverride[];
 }
 
 export interface ProviderOverride {
   readonly provide: InjectionToken;
   readonly useValue: unknown;
+}
+
+export interface ModuleOverride {
+  readonly module: Type;
+  readonly useModule: Type | DynamicModule;
 }
 
 export interface TestApplication {
@@ -31,6 +44,7 @@ export async function startTestApplication({
   database = false,
   imports = [],
   overrides = [],
+  moduleOverrides = [],
   ...metadata
 }: TestApplicationOptions): Promise<TestApplication> {
   const builder = Test.createTestingModule({
@@ -39,6 +53,8 @@ export async function startTestApplication({
   });
   for (const { provide, useValue } of overrides)
     builder.overrideProvider(provide).useValue(useValue);
+  for (const { module, useModule } of moduleOverrides)
+    builder.overrideModule(module).useModule(useModule);
   const moduleRef = await builder.compile();
   const app = moduleRef.createNestApplication({ ...HTTP_APPLICATION_OPTIONS, logger: false });
   configureHttp(app);

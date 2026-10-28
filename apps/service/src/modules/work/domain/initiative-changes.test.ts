@@ -1,19 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { THE_USER } from "./author.js";
 import {
-  addDependencyWhileShaping,
+  addCtoTask,
+  addDependencyOfItsTask,
   addTaskToInitiative,
-  addTaskWhileShaping,
   confirmInitiative,
   dropInitiative,
   finishInitiative,
   initiativeProjectIds,
-  removeDependencyWhileShaping,
+  removeDependencyOfItsTask,
   writeOutcome,
 } from "./initiative-changes.js";
 import { InitiativeOutcomeWritten, InitiativeStateChanged } from "./initiative-events.js";
 import { InitiativeNotShaping } from "./initiative-not-shaping.js";
 import { InitiativeRefused } from "./initiative-refused.js";
+import { TaskRefused } from "./task-refused.js";
 import { anInitiative, aTask } from "./work.fixtures.js";
 
 const at = new Date("2026-10-28T10:00:00.000Z");
@@ -122,7 +123,11 @@ describe("initiativeProjectIds", () => {
 
 describe("writeOutcome", () => {
   it("writes the outcome of an Initiative being shaped, trimmed", () => {
-    const change = writeOutcome(anInitiative(), "  Writes made offline reach the server.\n");
+    const change = writeOutcome(
+      anInitiative(),
+      "  Writes made offline reach the server.\n",
+      "straight",
+    );
 
     expect(change?.initiative).toEqual(
       anInitiative({ outcome: "Writes made offline reach the server." }),
@@ -134,62 +139,108 @@ describe("writeOutcome", () => {
     });
   });
 
-  it("changes nothing when it says so already", () => {
-    expect(writeOutcome(anInitiative({ outcome: "Sync works." }), "Sync works.")).toBeUndefined();
+  it("changes nothing when it says so already, whatever the state", () => {
+    const done = anInitiative({ state: "done", outcome: "Sync works." });
+
+    expect(writeOutcome(done, "Sync works.", "straight")).toBeUndefined();
   });
 
-  it("refuses an empty one", () => {
-    expect(() => writeOutcome(anInitiative(), "  ")).toThrow(
+  it("refuses an empty one before judging the state", () => {
+    expect(() => writeOutcome(anInitiative({ state: "active" }), "  ", "straight")).toThrow(
       new InitiativeRefused(["Write what must be true once the Initiative is done."]),
     );
   });
 
-  it("refuses once it is no longer being shaped", () => {
+  it("writes straight onto it only while it is being shaped", () => {
     for (const state of ["active", "done", "dropped"] as const) {
-      expect(() => writeOutcome(anInitiative({ state }), "Sync works.")).toThrow(
+      expect(() => writeOutcome(anInitiative({ state }), "Sync works.", "straight")).toThrow(
         new InitiativeNotShaping(state, "its outcome is written"),
+      );
+    }
+  });
+
+  it("writes it by Proposal while it is shaping or active, never once done or dropped", () => {
+    for (const state of ["shaping", "active"] as const) {
+      const change = writeOutcome(anInitiative({ state }), "Sync works.", "by-proposal");
+      expect(change?.initiative.outcome).toBe("Sync works.");
+    }
+    for (const state of ["done", "dropped"] as const) {
+      expect(() => writeOutcome(anInitiative({ state }), "Sync works.", "by-proposal")).toThrow(
+        new InitiativeRefused([`The Initiative is ${state}: it changes no more.`]),
       );
     }
   });
 });
 
-describe("the CTO's changes while shaping", () => {
+describe("the CTO's Tasks and their dependencies", () => {
   const setting = { pipelineId: "full", order: "a3", createdBy: THE_USER };
   const given = { title: "Export endpoint", projectId: "api", priority: "normal" } as const;
   const blocker = aTask({ id: "blocker", projectId: "web" });
   const its = aTask({ id: "its", initiativeId: "initiative-1" });
 
   it("adds a Task and changes its Tasks' dependencies, the blocker anywhere", () => {
-    expect(addTaskWhileShaping(anInitiative(), "task-9", given, setting, at).task).toMatchObject({
+    const initiative = anInitiative();
+
+    expect(addCtoTask(initiative, "straight", "task-9", given, setting, at).task).toMatchObject({
       initiativeId: "initiative-1",
     });
-    const added = addDependencyWhileShaping(anInitiative(), its, "blocker", [its, blocker]);
+    const added = addDependencyOfItsTask(initiative, "straight", its, "blocker", [its, blocker]);
     expect(added?.task.blockedBy).toEqual(["blocker"]);
-    const removed = removeDependencyWhileShaping(anInitiative(), added?.task ?? its, "blocker");
+    const removed = removeDependencyOfItsTask(
+      initiative,
+      "straight",
+      added?.task ?? its,
+      "blocker",
+    );
     expect(removed?.task.blockedBy).toEqual([]);
   });
 
-  it("refuses every one once the Initiative is no longer being shaped", () => {
+  it("refuses every one straight onto it once it is no longer being shaped", () => {
     const active = anInitiative({ state: "active" });
+    const waiting = { ...its, blockedBy: ["blocker"] };
     const refusal = new InitiativeNotShaping(
       "active",
       "its Tasks and their dependencies change straight onto it",
     );
 
-    expect(() => addTaskWhileShaping(active, "task-9", given, setting, at)).toThrow(refusal);
-    expect(() => addDependencyWhileShaping(active, its, "blocker", [its, blocker])).toThrow(
+    expect(() => addCtoTask(active, "straight", "task-9", given, setting, at)).toThrow(refusal);
+    expect(() =>
+      addDependencyOfItsTask(active, "straight", its, "blocker", [its, blocker]),
+    ).toThrow(refusal);
+    expect(() => removeDependencyOfItsTask(active, "straight", waiting, "blocker")).toThrow(
       refusal,
     );
-    expect(() => removeDependencyWhileShaping(active, its, "blocker")).toThrow(refusal);
+  });
+
+  it("makes each one by Proposal once it is active", () => {
+    const active = anInitiative({ state: "active" });
+
+    expect(addCtoTask(active, "by-proposal", "task-9", given, setting, at).task.id).toBe("task-9");
+    const added = addDependencyOfItsTask(active, "by-proposal", its, "blocker", [its, blocker]);
+    expect(added?.task.blockedBy).toEqual(["blocker"]);
+  });
+
+  it("judges what is asked before the state: a wrong or empty change is never a Proposal", () => {
+    const active = anInitiative({ state: "active" });
+
+    expect(() =>
+      addCtoTask(active, "straight", "task-9", { ...given, title: " " }, setting, at),
+    ).toThrow(TaskRefused);
+    expect(() => addDependencyOfItsTask(active, "straight", its, "its", [its])).toThrow(
+      TaskRefused,
+    );
+    expect(removeDependencyOfItsTask(active, "straight", its, "blocker")).toBeUndefined();
   });
 
   it("changes the dependencies of the Initiative's own Tasks only", () => {
     const other = aTask({ id: "other", title: "Store the queue" });
 
-    expect(() => addDependencyWhileShaping(anInitiative(), other, "blocker", [other])).toThrow(
+    expect(() =>
+      addDependencyOfItsTask(anInitiative(), "straight", other, "blocker", [other]),
+    ).toThrow(
       new InitiativeRefused([`The Task "Store the queue" isn't one of this Initiative's.`]),
     );
-    expect(() => removeDependencyWhileShaping(anInitiative(), other, "blocker")).toThrow(
+    expect(() => removeDependencyOfItsTask(anInitiative(), "straight", other, "blocker")).toThrow(
       InitiativeRefused,
     );
   });

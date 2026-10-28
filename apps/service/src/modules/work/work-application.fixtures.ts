@@ -14,6 +14,7 @@ import {
   InitiativeThreadsForTests,
   KnownPeopleForTests,
   KnownProjectsForTests,
+  ProposalDraftsForTests,
   ProjectWorktreesForTests,
   SessionInitiativesForTests,
   SessionPeopleForTests,
@@ -61,6 +62,7 @@ export async function startWorkApplication(
         taskThreads: TaskThreadsForTests,
         initiativeThreads: InitiativeThreadsForTests,
         taskDecisions: TaskDecisionsForTests,
+        proposalDrafts: ProposalDraftsForTests,
       }),
     ],
   });

@@ -10,7 +10,11 @@ import { TaskService } from "../../application/task-service.js";
 import { THE_USER } from "../../domain/author.js";
 import type { Initiative } from "../../domain/initiative.js";
 import type { Task } from "../../domain/task.js";
-import { SessionInitiativesForTests } from "../../ports/work-ports.fixtures.js";
+import {
+  ProposalDraftsForTests,
+  SessionInitiativesForTests,
+  UNKNOWN_PROJECT,
+} from "../../ports/work-ports.fixtures.js";
 import { startWorkApplication, type WorkApplication } from "../../work-application.fixtures.js";
 import { SHAPING_OFFICE_TOOLS } from "../conversations/shaping-thread-setup.js";
 import {
@@ -28,8 +32,8 @@ let initiative: Initiative;
 
 const SESSION = "shaping-session";
 const CHAT_SESSION = "chat-session";
-const ON_THE_PAGE =
-  "It shows on the Initiative's page at once; the user confirms the whole Initiative once it is agreed.";
+const PROPOSED =
+  "The Initiative is active, so this is drafted as a Proposal in this Thread: it changes the Initiative once the user applies it.";
 
 beforeAll(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-shaping-tools-"));
@@ -97,7 +101,7 @@ describe("write_outcome", () => {
     const result = await call(WRITE_OUTCOME, { outcome: "Writes made offline reach the server." });
 
     expect(result).toEqual({
-      text: `Wrote the outcome onto the Initiative. ${ON_THE_PAGE}`,
+      text: "Wrote the outcome onto the Initiative's page.",
       isError: false,
     });
     expect((await current()).outcome).toBe("Writes made offline reach the server.");
@@ -124,7 +128,7 @@ describe("add_task", () => {
       createdBy: { kind: "person", roleKey: "planner" },
     });
     expect(result).toEqual({
-      text: `Added the Task "Queue schema" (Task ${task?.id}) in Backlog in ${projectId}. ${ON_THE_PAGE}`,
+      text: `Added the Task "Queue schema" (Task ${task?.id}) in Backlog in ${projectId}, on the Initiative's page.`,
       isError: false,
     });
   });
@@ -140,7 +144,7 @@ describe("add_dependency and remove_dependency", () => {
     const removed = await call(REMOVE_DEPENDENCY, { taskId: queue.id, blockerId: schema.id });
 
     expect(added).toEqual({
-      text: `"Store the queue on flash" now waits for "Queue schema" to be Done. ${ON_THE_PAGE}`,
+      text: `"Store the queue on flash" now waits for "Queue schema" to be Done, on the Initiative's page.`,
       isError: false,
     });
     expect(waiting.blockedBy).toEqual([schema.id]);
@@ -166,30 +170,63 @@ describe("add_dependency and remove_dependency", () => {
   });
 });
 
-describe("once the Initiative is no longer being shaped", () => {
-  it("each tool is refused and changes nothing", async () => {
+describe("once the Initiative is active", () => {
+  it("each tool drafts a Proposal of the change in the session's Thread, changing nothing yet", async () => {
     const queue = await anInitiativeTask("Store the queue on flash");
     const schema = await aTaskOutside("Queue schema");
     await work.app.get(InitiativeService).confirm(initiative.id);
-    const refusal =
-      "The Initiative is active: its Tasks and their dependencies change straight onto it only while it is being shaped.";
+    const projectId = aProjectId();
 
-    expect(await call(WRITE_OUTCOME, { outcome: "Sync works." })).toEqual({
-      text: "The Initiative is active: its outcome is written only while it is being shaped.",
-      isError: true,
-    });
-    expect(await call(ADD_TASK, { title: "Retry", projectId: aProjectId() })).toEqual({
-      text: refusal,
-      isError: true,
-    });
-    expect(await call(ADD_DEPENDENCY, { taskId: queue.id, blockerId: schema.id })).toEqual({
-      text: refusal,
-      isError: true,
-    });
+    const answers = [
+      await call(WRITE_OUTCOME, { outcome: "Sync works." }),
+      await call(ADD_TASK, { title: "Retry", projectId }),
+      await call(ADD_DEPENDENCY, { taskId: queue.id, blockerId: schema.id }),
+    ];
+
+    expect(answers).toEqual(Array.from({ length: 3 }, () => ({ text: PROPOSED, isError: false })));
+    expect(work.app.get(ProposalDraftsForTests).drafted).toEqual(
+      [
+        { kind: "outcome", outcome: "Sync works." },
+        { kind: "add-task", title: "Retry", projectId, priority: "normal", taskId: undefined },
+        { kind: "add-dependency", taskId: queue.id, blockerId: schema.id },
+      ].map((edit) => ({
+        sessionId: SESSION,
+        change: { kind: "initiative", initiativeId: initiative.id, edit },
+      })),
+    );
     expect((await current()).outcome).toBe("");
     expect((await work.app.get(InitiativeService).tasksByInitiative()).get(initiative.id)).toEqual([
       queue,
     ]);
+  });
+
+  it("drafts no change that is wrong, or that changes nothing", async () => {
+    const queue = await anInitiativeTask("Store the queue on flash");
+    await work.app.get(InitiativeService).confirm(initiative.id);
+
+    expect(await call(ADD_DEPENDENCY, { taskId: queue.id, blockerId: queue.id })).toMatchObject({
+      isError: true,
+    });
+    expect(await call(REMOVE_DEPENDENCY, { taskId: queue.id, blockerId: queue.id })).toEqual({
+      text: `"Store the queue on flash" no longer waits for the Task ${queue.id}, on the Initiative's page.`,
+      isError: false,
+    });
+    expect(await call(ADD_TASK, { title: "Retry", projectId: UNKNOWN_PROJECT })).toMatchObject({
+      isError: true,
+    });
+    expect(work.app.get(ProposalDraftsForTests).drafted).toEqual([]);
+  });
+});
+
+describe("once the Initiative is dropped", () => {
+  it("each tool is refused and drafts nothing", async () => {
+    await work.app.get(InitiativeService).drop(initiative.id);
+
+    expect(await call(WRITE_OUTCOME, { outcome: "Sync works." })).toEqual({
+      text: "The Initiative is dropped: its outcome is written only while it is being shaped.",
+      isError: true,
+    });
+    expect(work.app.get(ProposalDraftsForTests).drafted).toEqual([]);
   });
 });
 

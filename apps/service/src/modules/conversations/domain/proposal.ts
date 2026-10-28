@@ -12,6 +12,7 @@ export interface ProposedChanges {
   readonly change: ProposedRoleChange;
   readonly "office-wide-limit": ProposedSettingChange<"office-wide-limit">;
   readonly "size-threshold": ProposedSettingChange<"size-threshold">;
+  readonly initiative: ProposedInitiativeChange;
 }
 
 /** The kinds of change a Proposal can carry. */
@@ -63,6 +64,30 @@ export interface ProposedSettingChange<Setting extends OfficeSetting = OfficeSet
   readonly from: number;
   readonly to: number;
 }
+
+/**
+ * A change the CTO wants to an active Initiative (spec §2.1 Defaults), which Work applies under the
+ * Initiative's hold, refusing it once the Initiative is done or dropped.
+ */
+export interface ProposedInitiativeChange {
+  readonly kind: "initiative";
+  readonly initiativeId: string;
+  readonly edit: InitiativeEdit;
+}
+
+/** What a Proposal changes on an Initiative: its outcome, a new Task, or a dependency of its Task. */
+export type InitiativeEdit =
+  | { readonly kind: "outcome"; readonly outcome: string }
+  | {
+      readonly kind: "add-task";
+      readonly title: string;
+      readonly projectId: string;
+      readonly priority: "high" | "normal" | "low";
+      /** The Task added, once the user applied it; undefined before. */
+      readonly taskId: string | undefined;
+    }
+  | { readonly kind: "add-dependency"; readonly taskId: string; readonly blockerId: string }
+  | { readonly kind: "remove-dependency"; readonly taskId: string; readonly blockerId: string };
 
 /** Open until the user applies it or declines it; nothing changes before they apply it. */
 export type ProposalStatus =

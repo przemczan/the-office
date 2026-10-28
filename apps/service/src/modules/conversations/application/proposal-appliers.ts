@@ -74,6 +74,8 @@ export class ProposalAppliers {
         return this.applierOf("office-wide-limit").problemsWith(change);
       case "size-threshold":
         return this.applierOf("size-threshold").problemsWith(change);
+      case "initiative":
+        return this.applierOf("initiative").problemsWith(change);
     }
   }
 
@@ -89,6 +91,8 @@ export class ProposalAppliers {
         return this.applierOf("office-wide-limit").apply(change, proposedBy);
       case "size-threshold":
         return this.applierOf("size-threshold").apply(change, proposedBy);
+      case "initiative":
+        return this.applierOf("initiative").apply(change, proposedBy);
     }
   }
 

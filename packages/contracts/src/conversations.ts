@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
 import { roleCardSchema } from "./people.js";
+import { prioritySchema } from "./work.js";
 
 /** Where a conversation lives: a person's chat, by the Role's key, a Task's or an Initiative's. */
 export const homeSchema = z.discriminatedUnion("kind", [
@@ -227,6 +228,26 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("office-wide-limit"), from: z.number(), to: z.number() }),
   /** A new size threshold, in tokens, and the threshold when drafted. */
   z.object({ kind: z.literal("size-threshold"), from: z.number(), to: z.number() }),
+  /** A change the CTO wants to an active Initiative; Work applies it. */
+  z.object({
+    kind: z.literal("initiative"),
+    initiativeId: z.uuid(),
+    edit: z.discriminatedUnion("kind", [
+      /** Its new outcome, whole. */
+      z.object({ kind: z.literal("outcome"), outcome: z.string() }),
+      /** A new Task in Backlog in one Project; `taskId` is null until the user applied it. */
+      z.object({
+        kind: z.literal("add-task"),
+        title: z.string(),
+        projectId: z.string(),
+        priority: prioritySchema,
+        taskId: z.uuid().nullable(),
+      }),
+      /** One of its Tasks (`taskId`) made to wait for any Task (`blockerId`). */
+      z.object({ kind: z.literal("add-dependency"), taskId: z.uuid(), blockerId: z.uuid() }),
+      z.object({ kind: z.literal("remove-dependency"), taskId: z.uuid(), blockerId: z.uuid() }),
+    ]),
+  }),
 ]);
 export type ProposedChange = z.infer<typeof proposedChangeSchema>;
 

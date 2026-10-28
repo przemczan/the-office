@@ -2,6 +2,7 @@ import { Module, type DynamicModule } from "@nestjs/common";
 import {
   ConversationsModule,
   DecisionService,
+  ProposalService,
   StageDecisions,
   StageThreads,
   TaskTokens,
@@ -65,6 +66,7 @@ export class AppModule {
       taskThreads: ThreadService,
       initiativeThreads: ThreadService,
       taskDecisions: DecisionService,
+      proposalDrafts: ProposalService,
     });
     const pipelines = PipelinesModule.register({
       imports: [work, PeopleModule, conversations, projects],

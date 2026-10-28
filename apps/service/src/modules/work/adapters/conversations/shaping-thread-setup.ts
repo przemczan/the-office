@@ -18,8 +18,8 @@ import {
 import { LIST_IDEAS, LIST_TASKS, READ_IDEA, READ_TASK } from "../office-tools/work-office-tools.js";
 
 /**
- * The Office tools of a shaping session: it reads The Office's records and writes onto its own
- * Initiative; create_task is left out, since a Task made there would be no part of it.
+ * The Office tools of a shaping session: it reads The Office's records and changes its own
+ * Initiative, straight while it is shaping and by Proposal once it is active; create_task is left out, since a Task made there would be no part of it.
  */
 export const SHAPING_OFFICE_TOOLS = [
   "list_projects",

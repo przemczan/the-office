@@ -103,6 +103,7 @@ export class ConversationsModule {
         InitiativeThreadSetups,
         WorkRecords,
         ProposalAppliers,
+        ProposalService,
         StageThreads,
         StageDecisions,
         TaskTokens,

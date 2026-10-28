@@ -3,9 +3,10 @@ import type { Initiative, InitiativeState } from "./initiative.js";
 import { InitiativeOutcomeWritten, InitiativeStateChanged } from "./initiative-events.js";
 import { InitiativeNotShaping } from "./initiative-not-shaping.js";
 import { InitiativeRefused } from "./initiative-refused.js";
-import type { NewTask, Task } from "./task.js";
+import { newTaskProblems, trimmedNewTask, type NewTask, type Task } from "./task.js";
 import { createTask, type NewTaskSetting, type TaskChange } from "./task-changes.js";
 import { addDependency, removeDependency } from "./task-dependencies.js";
+import { TaskRefused } from "./task-refused.js";
 import type { TaskCreated, TaskDependencyAdded, TaskDependencyRemoved } from "./task-events.js";
 
 /** An Initiative after a change, with the event that announces it. */
@@ -71,69 +72,94 @@ export function addTaskToInitiative(
 }
 
 /**
- * What must be true once it is done, written by the CTO or the user while it is being shaped (spec
- * §2.1 Defaults); undefined when it says so already.
+ * How a change reaches an Initiative (spec §2.1 Defaults): straight onto it, only while it is being
+ * shaped, or by a Proposal of the CTO's the user applies, while it is shaping or active.
+ */
+export type InitiativeChangeRoute = "straight" | "by-proposal";
+
+/**
+ * What must be true once it is done, written by the CTO or the user; undefined when it says so
+ * already. Each change below judges what it asks before the Initiative's state, so a request that
+ * is wrong or changes nothing is answered as such, never turned into a Proposal.
  */
 export function writeOutcome(
   initiative: Initiative,
   outcome: string,
+  route: InitiativeChangeRoute,
 ): InitiativeChange<InitiativeOutcomeWritten> | undefined {
-  requireShaping(initiative, "its outcome is written");
   const written = outcome.trim();
   if (written === "") {
     throw new InitiativeRefused(["Write what must be true once the Initiative is done."]);
   }
   if (written === initiative.outcome) return undefined;
+  requireOpenTo(initiative, route, "its outcome is written");
   return {
     initiative: { ...initiative, outcome: written },
     event: new InitiativeOutcomeWritten(initiative.id, written),
   };
 }
 
-/**
- * The CTO's new Task, straight onto an Initiative being shaped (spec §2.1 Defaults); the user adds
- * one with addTaskToInitiative while it is active too.
- */
-export function addTaskWhileShaping(
+/** The CTO's new Task in the Initiative; the user adds one with addTaskToInitiative. */
+export function addCtoTask(
   initiative: Initiative,
+  route: InitiativeChangeRoute,
   id: string,
   given: NewTask,
   setting: Omit<NewTaskSetting, "initiativeId" | "originIdeaId">,
   at: Date,
 ): TaskChange<TaskCreated> {
-  requireShaping(initiative, CTO_CHANGES);
+  requireCtoTaskAllowed(initiative, route, given);
   return addTaskToInitiative(initiative, id, given, setting, at);
 }
 
-/**
- * The CTO makes one of the Initiative's Tasks wait for `blockerId`, any Task anywhere, while it is
- * being shaped; the rules are addDependency's.
- */
-export function addDependencyWhileShaping(
+/** Refuses the CTO's new Task as addCtoTask would, without making it. */
+export function requireCtoTaskAllowed(
   initiative: Initiative,
+  route: InitiativeChangeRoute,
+  given: NewTask,
+): void {
+  const problems = newTaskProblems(trimmedNewTask(given));
+  if (problems.length > 0) throw new TaskRefused(problems);
+  requireOpenTo(initiative, route, CTO_CHANGES);
+}
+
+/**
+ * The CTO makes one of the Initiative's Tasks wait for `blockerId`, any Task anywhere; the rules
+ * are addDependency's.
+ */
+export function addDependencyOfItsTask(
+  initiative: Initiative,
+  route: InitiativeChangeRoute,
   task: Task,
   blockerId: string,
   tasks: readonly Task[],
 ): TaskChange<TaskDependencyAdded> | undefined {
-  requireShaping(initiative, CTO_CHANGES);
   requireItsTask(initiative, task);
-  return addDependency(task, blockerId, tasks);
+  const added = addDependency(task, blockerId, tasks);
+  if (added) requireOpenTo(initiative, route, CTO_CHANGES);
+  return added;
 }
 
-export function removeDependencyWhileShaping(
+export function removeDependencyOfItsTask(
   initiative: Initiative,
+  route: InitiativeChangeRoute,
   task: Task,
   blockerId: string,
 ): TaskChange<TaskDependencyRemoved> | undefined {
-  requireShaping(initiative, CTO_CHANGES);
   requireItsTask(initiative, task);
-  return removeDependency(task, blockerId);
+  const removed = removeDependency(task, blockerId);
+  if (removed) requireOpenTo(initiative, route, CTO_CHANGES);
+  return removed;
 }
 
 const CTO_CHANGES = "its Tasks and their dependencies change straight onto it";
 
-function requireShaping(initiative: Initiative, change: string): void {
-  if (initiative.state !== "shaping") throw new InitiativeNotShaping(initiative.state, change);
+function requireOpenTo(initiative: Initiative, route: InitiativeChangeRoute, change: string): void {
+  const { state } = initiative;
+  if (route === "straight" && state !== "shaping") throw new InitiativeNotShaping(state, change);
+  if (state === "done" || state === "dropped") {
+    throw new InitiativeRefused([`The Initiative is ${state}: it changes no more.`]);
+  }
 }
 
 function requireItsTask(initiative: Initiative, task: Task): void {

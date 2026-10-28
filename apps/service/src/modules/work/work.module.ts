@@ -18,6 +18,7 @@ import {
 import { IdeasController } from "./adapters/http/ideas.controller.js";
 import { InitiativesController } from "./adapters/http/initiatives.controller.js";
 import { OfficeLimitsController } from "./adapters/http/office-limits.controller.js";
+import { InitiativeProposals } from "./adapters/conversations/initiative-proposals.js";
 import { MentionedWorkRecords } from "./adapters/conversations/mentioned-work-records.js";
 import { OfficeLimitProposals } from "./adapters/conversations/office-limit-proposals.js";
 import { PlanningThreadSetup } from "./adapters/conversations/planning-thread-setup.js";
@@ -53,6 +54,7 @@ import { KnownPeople } from "./ports/known-people.js";
 import { KnownPipelines } from "./ports/known-pipelines.js";
 import { KnownProjects } from "./ports/known-projects.js";
 import { ProjectWorktrees } from "./ports/project-worktrees.js";
+import { ProposalDrafts } from "./ports/proposal-drafts.js";
 import { SessionPeople } from "./ports/session-people.js";
 import { SessionInitiatives } from "./ports/session-initiatives.js";
 import { SessionTasks } from "./ports/session-tasks.js";
@@ -67,7 +69,7 @@ export interface WorkModuleOptions {
    * The modules that provide the ports below, and Conversations' TaskThreadSetups,
    * InitiativeThreadSetups, WorkRecords and ProposalAppliers, where Work sets up the sessions of
    * Threads on its Tasks and Initiatives, gives the records mentioned in a chat and applies
-   * Proposals of the Office-wide limit.
+   * Proposals of the Office-wide limit and of Initiatives.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly knownProjects: Type<KnownProjects>;
@@ -81,6 +83,7 @@ export interface WorkModuleOptions {
   readonly taskThreads: Type<TaskThreads>;
   readonly initiativeThreads: Type<InitiativeThreads>;
   readonly taskDecisions: Type<TaskDecisions>;
+  readonly proposalDrafts: Type<ProposalDrafts>;
 }
 
 @Module({})
@@ -98,6 +101,7 @@ export class WorkModule implements NestModule {
     taskThreads,
     initiativeThreads,
     taskDecisions,
+    proposalDrafts,
   }: WorkModuleOptions): DynamicModule {
     return {
       module: WorkModule,
@@ -129,6 +133,7 @@ export class WorkModule implements NestModule {
         { provide: TaskThreads, useExisting: taskThreads },
         { provide: InitiativeThreads, useExisting: initiativeThreads },
         { provide: TaskDecisions, useExisting: taskDecisions },
+        { provide: ProposalDrafts, useExisting: proposalDrafts },
         IdeaService,
         InitiativeService,
         TaskService,
@@ -147,6 +152,7 @@ export class WorkModule implements NestModule {
         ShapingThreadSetup,
         MentionedWorkRecords,
         OfficeLimitProposals,
+        InitiativeProposals,
       ],
       exports: [IdeaService, TaskService, OfficeLimits, TaskRecords, StageScreenshots],
     };
