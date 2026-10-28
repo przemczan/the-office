@@ -2,7 +2,7 @@
 
 **Owns:** Projects (`projects`): path, commands, install inputs, publishing mode, default Pipeline; the environment check (`environment_checks`); The Office's own git (`ports/git.ts`, `CommandLineGit`) under per-repository locks; a worktree per Task, the base checkouts, Changes, and the git work of Publish (`TaskWorktrees`).
 
-**Talks to:** checks a default Pipeline through its `KnownPipelines` port, bound to Pipelines' `PipelineLibrary` in [app.module.ts](../../app.module.ts); calls Engine and Skills. Serves Work (`ProjectService`, `TaskWorktrees`), Pipelines (`TaskWorktrees` as `TaskGit`, `TaskCommands` and `TaskPublishing`; `ProjectService` as `ProjectDefaults`, which the library asks before removing a Pipeline) and Conversations (`BaseCheckouts`, and `ProjectService` for Devops' Proposals of commands and install inputs: `proposedCommandsProblems` and `changeCommandsAsProposed`, which refuses a field changed since the draft, judged up front and again as each field's row is held, each field saved with its own event as the Project page saves it).
+**Talks to:** checks a default Pipeline through its `KnownPipelines` port, bound to Pipelines' `PipelineLibrary` in [app.module.ts](../../app.module.ts); calls Engine and Skills. Serves Work (`ProjectService`, `TaskWorktrees`), Pipelines (`TaskWorktrees` as `TaskGit`, `TaskCommands` and `TaskPublishing`; `ProjectService` as `ProjectDefaults`, which the library asks before removing a Pipeline) and Conversations (`BaseCheckouts`, and `ProjectService` for Devops' Proposals of commands and install inputs: `proposedCommandsProblems` and `changeCommandsAsProposed`, which applies the whole Proposal or none of it: judged against the row as it is held and saved in one update, each field still announced with its own event as the Project page announces it).
 
 **Traps:**
 - The module is registered once in `AppModule`, so every git change on a repository goes through the same locks.
@@ -108,7 +108,7 @@ BaseCheckouts, BaseCheckout, ProjectService, TaskWorktrees, SessionWorktree, Env
 - `environment-check-changes.ts`: EnvironmentCheckChange, startEnvironmentCheck, progressEnvironmentCheck, finishEnvironmentCheck
 - `environment-check-events.ts`: EnvironmentCheckStarted, EnvironmentCheckProgressed, EnvironmentCheckFinished
 - `environment-check.ts`: CheckState, CheckedBase, WorktreeCheck, CommandCheck, Check, EnvironmentCheckState, EnvironmentCheck
-- `project-changes.ts`: ProjectChange, addProject, changeCommand, changeInstallInputs, changeEnvironment, changePublishingMode, changeDefaultPipeline, changeUseProjectSkills
+- `project-changes.ts`: ProjectChange, ProjectChanges, asProjectChanges, changeCommandsAsProposed, addProject, changeCommand, changeInstallInputs, changeEnvironment, changePublishingMode, changeDefaultPipeline, changeUseProjectSkills
 - `project-environment.ts`: ProjectVariable, ProjectEnvironment, UNCHANGED_ENVIRONMENT, trimmedEnvironment, environmentProblems, sameEnvironment
 - `project-events.ts`: ProjectAdded, ProjectCommandChanged, ProjectInstallInputsChanged, ProjectEnvironmentChanged, ProjectPublishingModeChanged, ProjectDefaultPipelineChanged, ProjectUseProjectSkillsChanged
 - `project-not-found.ts`: ProjectNotFound
@@ -125,5 +125,5 @@ BaseCheckouts, BaseCheckout, ProjectService, TaskWorktrees, SessionWorktree, Env
 - `environment-check-repository.ts`: EnvironmentCheckRepository
 - `git.ts`: FolderInspection, WorktreeCheckout, NewWorktree, Upstream, Head, ChangedFile, BranchChanges, NO_BRANCH_CHANGES, GitVariables, GitCommandFailed, Git
 - `known-pipelines.ts`: KnownPipelines
-- `project-repository.ts`: ProjectUpdate, ProjectRepository
+- `project-repository.ts`: ProjectRepository
 - `pull-requests.ts`: PullRequestRequest, PullRequest, PullRequestRefused, PullRequests

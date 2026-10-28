@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   addProject,
   changeCommand,
+  changeCommandsAsProposed,
   changeDefaultPipeline,
   changeEnvironment,
   changeInstallInputs,
@@ -62,6 +63,30 @@ describe("changeCommand", () => {
   it("refuses an empty command", () => {
     expect(() => changeCommand(aProject(), "build", "  ")).toThrow(
       new ProjectRefused(["The build command can't be empty."]),
+    );
+  });
+});
+
+describe("changeCommandsAsProposed", () => {
+  const from = { test: "npm test", installInputs: ["package-lock.json"] };
+  const to = { test: "vitest run", installInputs: ["package-lock.json", ".nvmrc"] };
+
+  it("changes every field it proposes, each announced in turn", () => {
+    const { project, events } = changeCommandsAsProposed(aProject(), from, to);
+
+    expect(project.commands.test).toBe("vitest run");
+    expect(project.installInputs).toEqual(["package-lock.json", ".nvmrc"]);
+    expect(events).toEqual([
+      expect.any(ProjectCommandChanged),
+      expect.any(ProjectInstallInputsChanged),
+    ]);
+  });
+
+  it("refuses the whole Proposal when one field changed since it was drafted", () => {
+    const editedByHand = aProject({ installInputs: ["pnpm-lock.yaml"] });
+
+    expect(() => changeCommandsAsProposed(editedByHand, from, to)).toThrow(
+      new ProjectRefused(["The install inputs changed since this was proposed."]),
     );
   });
 });

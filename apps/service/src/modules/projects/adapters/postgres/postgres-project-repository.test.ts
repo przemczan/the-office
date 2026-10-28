@@ -2,7 +2,11 @@ import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
-import { changeCommand } from "../../domain/project-changes.js";
+import {
+  asProjectChanges,
+  changeCommand,
+  changeCommandsAsProposed,
+} from "../../domain/project-changes.js";
 import { aProject } from "../../domain/project.fixtures.js";
 import { ProjectNotFound } from "../../domain/project-not-found.js";
 import { PostgresProjectRepository } from "./postgres-project-repository.js";
@@ -55,26 +59,30 @@ describe("PostgresProjectRepository", () => {
   });
 
   describe("update", () => {
-    it("saves the change and returns it", async () => {
+    it("saves the changes kept together whole and returns them", async () => {
       const project = aProjectOfItsOwn();
       await repository.add(project);
 
-      const change = await repository.update(project.id, (stored) =>
-        changeCommand(stored, "test", "npm test -- --run"),
+      const changes = await repository.update(project.id, (stored) =>
+        changeCommandsAsProposed(
+          stored,
+          { test: stored.commands.test, lint: stored.commands.lint },
+          { test: "npm test -- --run", lint: "oxlint" },
+        ),
       );
 
-      expect(change.event?.commandLine).toBe("npm test -- --run");
-      await expect(repository.find(project.id)).resolves.toEqual(change.project);
+      expect(changes.events).toHaveLength(2);
+      await expect(repository.find(project.id)).resolves.toEqual(changes.project);
+      expect(changes.project.commands).toMatchObject({ test: "npm test -- --run", lint: "oxlint" });
     });
 
     it("returns the Project as stored when nothing changes", async () => {
       const project = aProjectOfItsOwn();
       await repository.add(project);
 
-      await expect(repository.update(project.id, () => undefined)).resolves.toEqual({
-        project,
-        event: undefined,
-      });
+      await expect(
+        repository.update(project.id, (stored) => ({ project: stored, events: [] })),
+      ).resolves.toEqual({ project, events: [] });
     });
 
     it("loses neither of two changes made at once", async () => {
@@ -82,8 +90,12 @@ describe("PostgresProjectRepository", () => {
       await repository.add(project);
 
       await Promise.all([
-        repository.update(project.id, (stored) => changeCommand(stored, "test", "vitest run")),
-        repository.update(project.id, (stored) => changeCommand(stored, "lint", "oxlint")),
+        repository.update(project.id, (stored) =>
+          asProjectChanges(stored, changeCommand(stored, "test", "vitest run")),
+        ),
+        repository.update(project.id, (stored) =>
+          asProjectChanges(stored, changeCommand(stored, "lint", "oxlint")),
+        ),
       ]);
 
       const stored = await repository.find(project.id);
@@ -91,9 +103,9 @@ describe("PostgresProjectRepository", () => {
     });
 
     it("refuses a Project it doesn't have", async () => {
-      await expect(repository.update("nowhere", () => undefined)).rejects.toEqual(
-        new ProjectNotFound("nowhere"),
-      );
+      await expect(
+        repository.update("nowhere", (stored) => ({ project: stored, events: [] })),
+      ).rejects.toEqual(new ProjectNotFound("nowhere"));
     });
   });
 });

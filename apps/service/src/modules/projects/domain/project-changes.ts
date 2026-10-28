@@ -3,6 +3,7 @@ import {
   commandProblem,
   installInputsProblems,
   newProjectProblems,
+  PROJECT_COMMAND_KEYS,
   trimmedInstallInputs,
   trimmedNewProject,
   type NewProject,
@@ -25,11 +26,56 @@ import {
   type ProjectEnvironment,
 } from "./project-environment.js";
 import { ProjectRefused } from "./project-refused.js";
+import { proposedCommandsProblems, type ProjectCommandFields } from "./proposed-commands.js";
 
 /** A Project after a change, with the event that announces it. */
 export interface ProjectChange<Event extends DomainEvent> {
   readonly project: Project;
   readonly event: Event;
+}
+
+/** A Project after one or more changes kept together, with each change's event in order. */
+export interface ProjectChanges {
+  readonly project: Project;
+  readonly events: readonly DomainEvent[];
+}
+
+/** One change, or none, as changes kept together. */
+export function asProjectChanges(
+  project: Project,
+  change: ProjectChange<DomainEvent> | undefined,
+): ProjectChanges {
+  return change ? { project: change.project, events: [change.event] } : { project, events: [] };
+}
+
+/**
+ * Applies a Proposal of commands and install inputs (spec §2.3) whole: refused with every reason
+ * when one field changed since it was drafted or breaks a rule, else every field it changes, each
+ * with its own event, as the Project page would save them one by one.
+ */
+export function changeCommandsAsProposed(
+  project: Project,
+  from: ProjectCommandFields,
+  to: ProjectCommandFields,
+): ProjectChanges {
+  const problems = proposedCommandsProblems(project, from, to);
+  if (problems.length > 0) throw new ProjectRefused(problems);
+  const fieldChanges: ((current: Project) => ProjectChange<DomainEvent> | undefined)[] =
+    PROJECT_COMMAND_KEYS.flatMap((key) => {
+      const commandLine = to[key];
+      return commandLine === undefined
+        ? []
+        : [(current: Project) => changeCommand(current, key, commandLine)];
+    });
+  const { installInputs } = to;
+  if (installInputs) fieldChanges.push((current) => changeInstallInputs(current, installInputs));
+  return fieldChanges.reduce<ProjectChanges>(
+    (changes, fieldChange) => {
+      const next = asProjectChanges(changes.project, fieldChange(changes.project));
+      return { project: next.project, events: [...changes.events, ...next.events] };
+    },
+    { project, events: [] },
+  );
 }
 
 /** Refuses with every reason when the new Project's own fields break a rule. */

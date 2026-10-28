@@ -1,11 +1,10 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { asc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Project } from "../../domain/project.js";
-import type { ProjectChange } from "../../domain/project-changes.js";
+import type { ProjectChanges } from "../../domain/project-changes.js";
 import { ProjectNotFound } from "../../domain/project-not-found.js";
-import { ProjectRepository, type ProjectUpdate } from "../../ports/project-repository.js";
+import { ProjectRepository } from "../../ports/project-repository.js";
 import { projects } from "./projects.schema.js";
 
 type ProjectRow = typeof projects.$inferSelect;
@@ -33,10 +32,7 @@ export class PostgresProjectRepository extends ProjectRepository {
     return rows.map(toProject);
   }
 
-  async update<Event extends DomainEvent>(
-    id: string,
-    change: (project: Project) => ProjectChange<Event> | undefined,
-  ): Promise<ProjectUpdate<Event>> {
+  async update(id: string, change: (project: Project) => ProjectChanges): Promise<ProjectChanges> {
     return this.database.transaction(async (transaction) => {
       const [row] = await transaction
         .select()
@@ -44,9 +40,8 @@ export class PostgresProjectRepository extends ProjectRepository {
         .where(eq(projects.id, id))
         .for("update");
       if (!row) throw new ProjectNotFound(id);
-      const project = toProject(row);
-      const changed = change(project);
-      if (!changed) return { project, event: undefined };
+      const changed = change(toProject(row));
+      if (changed.events.length === 0) return changed;
       await transaction.update(projects).set(toRow(changed.project)).where(eq(projects.id, id));
       return changed;
     });

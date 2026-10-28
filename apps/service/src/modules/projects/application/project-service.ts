@@ -3,7 +3,6 @@ import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import {
-  PROJECT_COMMAND_KEYS,
   projectIdFor,
   trimmedNewProject,
   type NewProject,
@@ -13,17 +12,19 @@ import {
 } from "../domain/project.js";
 import {
   addProject,
+  asProjectChanges,
   changeCommand,
+  changeCommandsAsProposed,
   changeDefaultPipeline,
   changeEnvironment,
   changeInstallInputs,
   changePublishingMode,
   changeUseProjectSkills,
   type ProjectChange,
+  type ProjectChanges,
 } from "../domain/project-changes.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
-import { ProjectRefused } from "../domain/project-refused.js";
 import {
   proposedCommandsProblems,
   type ProjectCommandFields,
@@ -98,32 +99,15 @@ export class ProjectService {
   }
 
   /**
-   * Applies a Proposal of commands and install inputs (spec §2.3), refused with every reason, and
-   * changing nothing, when one field changed since it was drafted or breaks a rule. Each field is
-   * saved with its own event, as the Project page saves it, and checked again as its row is held.
+   * Applies a Proposal of commands and install inputs (spec §2.3) all or nothing: checked against
+   * the Project as its row is held and saved in one go, so a hand edit can't land between fields.
    */
   async changeCommandsAsProposed(
     id: string,
     from: ProjectCommandFields,
     to: ProjectCommandFields,
   ): Promise<Project> {
-    refuseProblems(proposedCommandsProblems(await this.read(id), from, to));
-    for (const key of PROJECT_COMMAND_KEYS) {
-      const commandLine = to[key];
-      if (commandLine === undefined) continue;
-      await this.update(id, (project) => {
-        refuseProblems(proposedCommandsProblems(project, from, { [key]: commandLine }));
-        return changeCommand(project, key, commandLine);
-      });
-    }
-    const { installInputs } = to;
-    if (installInputs) {
-      await this.update(id, (project) => {
-        refuseProblems(proposedCommandsProblems(project, from, { installInputs }));
-        return changeInstallInputs(project, installInputs);
-      });
-    }
-    return this.read(id);
+    return this.updateTogether(id, (project) => changeCommandsAsProposed(project, from, to));
   }
 
   /** For the environment check, once it passed with the environment. */
@@ -145,18 +129,21 @@ export class ProjectService {
     return this.update(id, (project) => changeUseProjectSkills(project, useProjectSkills));
   }
 
-  private async update<Event extends DomainEvent>(
+  private async update(
     id: string,
-    change: (project: Project) => ProjectChange<Event> | undefined,
+    change: (project: Project) => ProjectChange<DomainEvent> | undefined,
   ): Promise<Project> {
-    const { project, event } = await this.repository.update(id, change);
-    if (event) await this.events.publish(event);
+    return this.updateTogether(id, (project) => asProjectChanges(project, change(project)));
+  }
+
+  private async updateTogether(
+    id: string,
+    change: (project: Project) => ProjectChanges,
+  ): Promise<Project> {
+    const { project, events } = await this.repository.update(id, change);
+    for (const event of events) await this.events.publish(event);
     return project;
   }
-}
-
-function refuseProblems(problems: readonly string[]): void {
-  if (problems.length > 0) throw new ProjectRefused(problems);
 }
 
 /** The path as the repository's folder is named: without `..` or a trailing separator. */
