@@ -21,7 +21,8 @@ export interface RemoteBranch {
 
 /**
  * How a Publish ended (spec §2.3, §9): the Task's branch pushed with a pull request open, or
- * merged into the base branch on its remote; nothing to publish; the base moved on so the branch
+ * merged into the base branch on its remote; pushed as a branch only, for a proof of concept;
+ * nothing to publish; the base moved on so the branch
  * no longer applies cleanly, which asks the user; or a failure, such as a refused push, in words
  * for the Agent who repairs it or the user.
  */
@@ -35,6 +36,7 @@ export type Publication =
       /** Whether The Office rebased the branch onto the base first, as the base had moved on. */
       readonly rebased: boolean;
     }
+  | { readonly kind: "branch-pushed"; readonly branch: string; readonly remote: string }
   | { readonly kind: "nothing-to-publish"; readonly branch: string; readonly base: RemoteBranch }
   | {
       readonly kind: "base-moved";
@@ -102,6 +104,11 @@ export function publishOutcome(publication: Publication): StageOutcome {
         summary: `${rebasing} into ${into.branch} on ${into.remote}, which is now at ${commit.slice(0, SHORT_COMMIT_LENGTH)}.`,
       };
     }
+    case "branch-pushed":
+      return {
+        status: "done",
+        summary: `Pushed ${publication.branch} to ${publication.remote}, with no pull request and no merge, as this Publish pushes the branch only.`,
+      };
     case "nothing-to-publish":
       return {
         status: "done",

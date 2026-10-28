@@ -120,7 +120,12 @@ describe("Publishing in push + PR mode", GIT_TIMEOUT, () => {
   it("pushes the Task's branch and opens a pull request into the base, in the record's words", async () => {
     const task = await aTaskWithACommit(pullRequestProject());
 
-    const publication = await publishing.publish(pullRequestProject(), task.taskId, text);
+    const publication = await publishing.publish(
+      pullRequestProject(),
+      task.taskId,
+      text,
+      "publishing-mode",
+    );
 
     expect(publication).toEqual({
       kind: "pull-request-opened",
@@ -145,7 +150,7 @@ describe("Publishing in push + PR mode", GIT_TIMEOUT, () => {
     const log: string[] = [];
 
     const publishingDone = publishing
-      .publish(pullRequestProject(), task.taskId, text)
+      .publish(pullRequestProject(), task.taskId, text, "publishing-mode")
       .then(() => void log.push("published"));
     await expect.poll(() => pullRequests.requests.length, { timeout: 30_000 }).toBe(1);
     const committing = git
@@ -165,7 +170,7 @@ describe("Publishing in push + PR mode", GIT_TIMEOUT, () => {
     await commitOnOrigin(repository, "main", `beside-${task.taskId}.txt`);
 
     await expect(
-      publishing.publish(pullRequestProject(), task.taskId, text),
+      publishing.publish(pullRequestProject(), task.taskId, text, "publishing-mode"),
     ).resolves.toMatchObject({
       kind: "pull-request-opened",
     });
@@ -175,7 +180,9 @@ describe("Publishing in push + PR mode", GIT_TIMEOUT, () => {
     const task = await aTaskWithACommit(pullRequestProject());
     pullRequests.refusal = "GitHub didn't open the pull request: GraphQL: Resource not accessible.";
 
-    await expect(publishing.publish(pullRequestProject(), task.taskId, text)).resolves.toEqual({
+    await expect(
+      publishing.publish(pullRequestProject(), task.taskId, text, "publishing-mode"),
+    ).resolves.toEqual({
       kind: "failed",
       error: "GitHub didn't open the pull request: GraphQL: Resource not accessible.",
     });
@@ -187,7 +194,12 @@ describe("Publishing in push + PR mode", GIT_TIMEOUT, () => {
     const hook = join(repository.originPath, "hooks", "pre-receive");
     await writeFile(hook, "#!/bin/sh\necho 'protected branch' >&2\nexit 1\n", { mode: 0o755 });
     try {
-      const publication = await publishing.publish(pullRequestProject(), task.taskId, text);
+      const publication = await publishing.publish(
+        pullRequestProject(),
+        task.taskId,
+        text,
+        "publishing-mode",
+      );
 
       expect(publication).toMatchObject({ kind: "failed" });
       expect(publication.kind === "failed" && publication.error).toMatch(
@@ -207,7 +219,9 @@ describe("Publishing in push + PR mode", GIT_TIMEOUT, () => {
     const task = await aTaskWithACommit(pullRequestProject(), file);
     await commitOnOrigin(repository, "main", file);
 
-    await expect(publishing.publish(pullRequestProject(), task.taskId, text)).resolves.toEqual({
+    await expect(
+      publishing.publish(pullRequestProject(), task.taskId, text, "publishing-mode"),
+    ).resolves.toEqual({
       kind: "base-moved",
       error: `${task.branch} no longer applies cleanly on main on origin: it would conflict in\n- ${file}`,
       conflictedFiles: [file],
@@ -222,7 +236,12 @@ describe("Publishing in merge mode", GIT_TIMEOUT, () => {
     const localMain = gitIn(repository.path, "rev-parse", "main");
     const task = await aTaskWithACommit(mergingProject());
 
-    const publication = await publishing.publish(mergingProject(), task.taskId, text);
+    const publication = await publishing.publish(
+      mergingProject(),
+      task.taskId,
+      text,
+      "publishing-mode",
+    );
 
     expect(publication).toEqual({
       kind: "merged",
@@ -240,9 +259,11 @@ describe("Publishing in merge mode", GIT_TIMEOUT, () => {
 
   it("has nothing to publish when it runs again after merging", async () => {
     const task = await aTaskWithACommit(mergingProject());
-    await publishing.publish(mergingProject(), task.taskId, text);
+    await publishing.publish(mergingProject(), task.taskId, text, "publishing-mode");
 
-    await expect(publishing.publish(mergingProject(), task.taskId, text)).resolves.toEqual({
+    await expect(
+      publishing.publish(mergingProject(), task.taskId, text, "publishing-mode"),
+    ).resolves.toEqual({
       kind: "nothing-to-publish",
       branch: task.branch,
       base: { remote: "origin", branch: "main" },
@@ -253,7 +274,12 @@ describe("Publishing in merge mode", GIT_TIMEOUT, () => {
     const task = await aTaskWithACommit(mergingProject());
     const moved = await commitOnOrigin(repository, "main", `beside-${task.taskId}.txt`);
 
-    const publication = await publishing.publish(mergingProject(), task.taskId, text);
+    const publication = await publishing.publish(
+      mergingProject(),
+      task.taskId,
+      text,
+      "publishing-mode",
+    );
 
     const rebased = gitIn(repository.path, "rev-parse", `refs/heads/${task.branch}`);
     expect(publication).toEqual({
@@ -275,7 +301,7 @@ describe("Publishing in merge mode", GIT_TIMEOUT, () => {
     const task = await aTaskWithACommit(mergingProject());
     const forkedFrom = await commitOnOrigin(repository, "main", `beside-${task.taskId}.txt`);
 
-    await publishing.publish(mergingProject(), task.taskId, text);
+    await publishing.publish(mergingProject(), task.taskId, text, "publishing-mode");
 
     expect(gitIn(repository.path, "rev-parse", `refs/office/published-from/${task.taskId}`)).toBe(
       forkedFrom,
@@ -289,10 +315,52 @@ describe("Publishing in merge mode", GIT_TIMEOUT, () => {
     const task = await aTaskWithACommit(mergingProject(), file);
     await commitOnOrigin(repository, "main", file);
 
-    await expect(publishing.publish(mergingProject(), task.taskId, text)).resolves.toMatchObject({
+    await expect(
+      publishing.publish(mergingProject(), task.taskId, text, "publishing-mode"),
+    ).resolves.toMatchObject({
       kind: "base-moved",
       conflictedFiles: [file],
     });
+  });
+});
+
+describe("Publishing the branch only", GIT_TIMEOUT, () => {
+  it.each(["push-and-pull-request", "merge"] as const)(
+    "pushes the Task's branch alone in %s mode, opening no pull request and leaving the base",
+    async (publishingMode) => {
+      const project = aProjectPublishingBy(publishingMode);
+      const task = await aTaskWithACommit(project);
+      const originMain = originCommitOf("main");
+
+      const publication = await publishing.publish(project, task.taskId, text, "branch-only");
+
+      expect(publication).toEqual({ kind: "branch-pushed", branch: task.branch, remote: "origin" });
+      expect(originCommitOf(task.branch)).toBe(task.commit);
+      expect(originCommitOf("main")).toBe(originMain);
+      expect(pullRequests.requests).toEqual([]);
+    },
+  );
+
+  it("pushes a branch the base moved past, as nothing is merged", async () => {
+    const file = `conflict-${taskCount + 1}.txt`;
+    const task = await aTaskWithACommit(pullRequestProject(), file);
+    await commitOnOrigin(repository, "main", file);
+
+    await expect(
+      publishing.publish(pullRequestProject(), task.taskId, text, "branch-only"),
+    ).resolves.toEqual({ kind: "branch-pushed", branch: task.branch, remote: "origin" });
+    expect(originCommitOf(task.branch)).toBe(task.commit);
+  });
+
+  it("keeps what it pushed in the Task's changes once the worktree is gone", async () => {
+    const task = await aTaskWithACommit(pullRequestProject());
+
+    await publishing.publish(pullRequestProject(), task.taskId, text, "branch-only");
+    await worktrees.remove(pullRequestProject(), task.taskId);
+
+    const changes = await worktrees.changes(pullRequestProject(), task.taskId);
+    expect(changes.files.map(({ path }) => path)).toEqual([`${task.taskId}.txt`]);
+    expect(changes.worktreePath).toBeUndefined();
   });
 });
 
@@ -303,7 +371,9 @@ describe("Publishing without a remote", GIT_TIMEOUT, () => {
       const project = aProjectPublishingBy("merge");
       const task = await aTaskWithACommit(project);
 
-      await expect(publishing.publish(project, task.taskId, text)).resolves.toEqual({
+      await expect(
+        publishing.publish(project, task.taskId, text, "publishing-mode"),
+      ).resolves.toEqual({
         kind: "failed",
         error:
           "main tracks no remote branch, so Publish has nowhere to push. Set its upstream (`git branch --set-upstream-to=origin/main main`), then run Publish again.",

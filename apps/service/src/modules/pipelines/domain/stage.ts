@@ -16,6 +16,12 @@ export const STAGE_KIND_NAMES: Readonly<Record<StageKind, string>> = {
  */
 export type ScriptStageCommand = "build" | "lint" | "test" | "publish";
 
+/**
+ * Where a Publish Stage takes the Task's branch (spec §2.3's proof-of-concept publish target): by
+ * the Project's publishing mode, or pushed as a branch only, with no pull request and no merge.
+ */
+export type PublishTarget = "publishing-mode" | "branch-only";
+
 /** Fresh with a Brief, or continuing the previous Stage's session when the same Role worked it. */
 export type StageSession = "fresh" | "continue";
 
@@ -59,6 +65,8 @@ export interface AgentStage extends StageFields {
 export interface ScriptStage extends StageFields {
   readonly kind: "script";
   readonly command: ScriptStageCommand;
+  /** A Publish Stage's alone; absent means the Project's publishing mode. */
+  readonly publishTarget?: PublishTarget;
   readonly onFailure?: OnFailure;
 }
 

@@ -9,6 +9,10 @@ export const onFailureSchema = z.object({
   rounds: z.int().positive(),
 });
 
+/** Where a Publish Stage takes the Task's branch (spec §2.3). */
+export const publishTargetSchema = z.enum(["publishing-mode", "branch-only"]);
+export type PublishTarget = z.infer<typeof publishTargetSchema>;
+
 const stageFields = {
   key: z.string().min(1),
   name: z.string(),
@@ -35,6 +39,11 @@ export const stageSchema = z.discriminatedUnion("kind", [
     kind: z.literal("script"),
     ...stageFields,
     command: z.enum(["build", "lint", "test", "publish"]),
+    /**
+     * A Publish Stage's alone: by the Project's publishing mode, or pushing the Task's branch only,
+     * for a proof of concept. Absent means the publishing mode.
+     */
+    publishTarget: publishTargetSchema.optional(),
     onFailure: onFailureSchema.optional(),
   }),
   z.object({ kind: z.literal("gate"), ...stageFields }),

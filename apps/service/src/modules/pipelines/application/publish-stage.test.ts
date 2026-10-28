@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
-import type { Stage } from "../domain/stage.js";
+import type { ScriptStage } from "../domain/stage.js";
 import {
   aDoneResult,
   anAgentSession,
@@ -20,7 +20,7 @@ afterEach(async () => {
 });
 
 const implement = anAgentStage("implement", { name: "Implement" });
-const publish: Stage = {
+const publish: ScriptStage = {
   kind: "script",
   key: "publish",
   name: "Publish",
@@ -54,6 +54,7 @@ describe("A Publish Stage", () => {
             "Added the dialog.",
           ].join("\n"),
         },
+        target: "publishing-mode",
       },
     ]);
     const [implemented, published] = await runsOf(pipelines, taskId);
@@ -63,6 +64,29 @@ describe("A Publish Stage", () => {
     });
     expect(published?.headCommit).toBe(implemented?.headCommit);
     expect(pipelines.commands.ran).toEqual([]);
+    expect(pipelines.git.removedWorktrees).toEqual([taskId]);
+    expect(pipelines.tasks.changes).toEqual([{ taskId, state: "done" }]);
+  });
+
+  it("pushes the branch only when its target says so, then removes the worktree", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult("Tried it out."))]);
+    pipelines.publishing.publications.push({
+      kind: "branch-pushed",
+      branch: "office/task",
+      remote: "origin",
+    });
+
+    const taskId = await walkStages(pipelines, [
+      implement,
+      { ...publish, publishTarget: "branch-only" },
+    ]);
+
+    expect(pipelines.publishing.published.map(({ target }) => target)).toEqual(["branch-only"]);
+    expect((await runsOf(pipelines, taskId)).at(-1)?.outcome).toEqual({
+      status: "done",
+      summary:
+        "Pushed office/task to origin, with no pull request and no merge, as this Publish pushes the branch only.",
+    });
     expect(pipelines.git.removedWorktrees).toEqual([taskId]);
     expect(pipelines.tasks.changes).toEqual([{ taskId, state: "done" }]);
   });

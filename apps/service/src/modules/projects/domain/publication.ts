@@ -5,6 +5,12 @@ export interface PullRequestText {
   readonly body: string;
 }
 
+/**
+ * Where a Publish Stage takes the Task's branch (spec §2.3): by the Project's publishing mode, or
+ * pushed as a branch only, with no pull request and no merge.
+ */
+export type PublishTarget = "publishing-mode" | "branch-only";
+
 /** A branch on a remote. */
 export interface RemoteBranch {
   readonly remote: string;
@@ -12,8 +18,9 @@ export interface RemoteBranch {
 }
 
 /**
- * How a Publish ended, by the Project's publishing mode (spec §9): the Task's branch pushed with a
- * pull request open, or merged into the base branch on its remote; nothing to publish; the base
+ * How a Publish ended, by the Project's publishing mode (spec §9) or the Stage's target (spec §2.3):
+ * the Task's branch pushed with a pull request open, merged into the base branch on its remote, or
+ * pushed as a branch only; nothing to publish; the base
  * moved on so the branch would conflict with it, which the user decides about; or a failure,
  * such as a refused push, in words for the Agent who repairs it or the user.
  */
@@ -27,6 +34,7 @@ export type Publication =
       /** Whether The Office rebased the branch onto the base first, as the base had moved on. */
       readonly rebased: boolean;
     }
+  | { readonly kind: "branch-pushed"; readonly branch: string; readonly remote: string }
   | { readonly kind: "nothing-to-publish"; readonly branch: string; readonly base: RemoteBranch }
   | {
       readonly kind: "base-moved";

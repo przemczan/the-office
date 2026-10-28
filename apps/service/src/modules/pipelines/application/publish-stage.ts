@@ -11,7 +11,8 @@ import type { StageWork } from "./stage-runner.js";
 /**
  * Runs a Publish Stage (spec §2.3): a Script Stage The Office runs with its own git rather than a
  * Project command, with no model call. It publishes the Task's committed branch by the Project's
- * publishing mode, a pull request worded from the Task's record, and once it has published, the
+ * publishing mode, a pull request worded from the Task's record, or pushes the branch only when the
+ * Stage's target says so (a proof of concept); once it has published, the
  * worktree goes; the branch keeps the work for any Stage after it. Its failures go where any
  * Script Stage's go; a base that moved on asks the user (`afterBaseMoved`).
  */
@@ -33,7 +34,12 @@ export class PublishStage {
     const { expected, refusal } = await this.stageGit.start(work, task);
     if (refusal) return refusal;
     const text = pullRequestText(task, stages, earlierRuns, stage.key);
-    const publication = await this.publishing.publish(task.project.id, run.taskId, text);
+    const publication = await this.publishing.publish(
+      task.project.id,
+      run.taskId,
+      text,
+      stage.publishTarget ?? "publishing-mode",
+    );
     const outcome = publishOutcome(publication);
     // A merge may have rebased the branch: the next Stage expects HEAD where Publish left it.
     const left = publication.kind === "merged" ? publication.commit : expected.commit;

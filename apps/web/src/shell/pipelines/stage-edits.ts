@@ -8,7 +8,8 @@ import type { Stage } from "@the-office/contracts";
 
 export type StageKind = Stage["kind"];
 export type AgentStage = Extract<Stage, { kind: "agent" }>;
-export type StageCommand = Extract<Stage, { kind: "script" }>["command"];
+export type ScriptStage = Extract<Stage, { kind: "script" }>;
+export type StageCommand = ScriptStage["command"];
 
 export const STAGE_KIND_NAMES: Readonly<Record<StageKind, string>> = {
   agent: "Agent Stage",
@@ -103,6 +104,14 @@ export function withRole(stages: readonly Stage[], index: number, role: string):
   return changed.session === "continue" && !canContinue(stages.with(index, changed), index)
     ? { ...changed, session: "fresh" }
     : changed;
+}
+
+/** The Script Stage running another command; only a Publish Stage keeps its publish target. */
+export function withCommand(stage: ScriptStage, command: StageCommand): ScriptStage {
+  const { publishTarget, ...rest } = stage;
+  return command === "publish" && publishTarget
+    ? { ...rest, command, publishTarget }
+    : { ...rest, command };
 }
 
 /** Whether the Agent Stage may continue the session of the Stage before: the same Role works it. */

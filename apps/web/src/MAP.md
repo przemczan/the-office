@@ -109,7 +109,7 @@
 ### shell/pipelines/
 
 - `stage-editor.tsx`: StageEditorProps, StageEditor
-- `stage-edits.ts`: StageKind, AgentStage, StageCommand, STAGE_KIND_NAMES, STAGE_COMMANDS, addStage, removeStage, canMove, moveStage, replaceStage, withRole, canContinue, failureTargets
+- `stage-edits.ts`: StageKind, AgentStage, ScriptStage, StageCommand, STAGE_KIND_NAMES, STAGE_COMMANDS, addStage, removeStage, canMove, moveStage, replaceStage, withRole, withCommand, canContinue, failureTargets
 - Tests: stage-edits.test.ts
 
 ### shell/project-filter/

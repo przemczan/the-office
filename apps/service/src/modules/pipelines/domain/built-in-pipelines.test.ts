@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { builtInPipelines, ONBOARD_PIPELINE } from "./built-in-pipelines.js";
 import { stageProblems } from "./pipeline.js";
+import type { Stage } from "./stage.js";
 
 function stagesOf(name: string): string[] {
   const pipeline = builtInPipelines.find((builtIn) => builtIn.name === name);
   return pipeline?.stages.map((stage) => stage.name) ?? [];
+}
+
+function lastStageOf(id: string): Stage | undefined {
+  return builtInPipelines.find((pipeline) => pipeline.id === id)?.stages.at(-1);
 }
 
 describe("the built-in Pipelines", () => {
@@ -23,7 +28,7 @@ describe("the built-in Pipelines", () => {
     expect(stagesOf("Full")).toEqual(["Implement", "Tests", "Review & fix", "Publish"]);
     expect(stagesOf("Quick fix")).toEqual(["Implement", "Tests", "Publish"]);
     expect(stagesOf("Document")).toEqual(["Produce", "Review & fix"]);
-    expect(stagesOf("Onboard")).toEqual(["Onboard", "Verify"]);
+    expect(stagesOf("Onboard")).toEqual(["Onboard", "Verify", "Publish"]);
     expect(stagesOf("Proof of concept")).toEqual(["Implement", "Tests", "Publish"]);
   });
 
@@ -76,10 +81,21 @@ describe("the built-in Pipelines", () => {
   it("send Onboard's failed Verify back to Onboard, where Devops can propose the commands", () => {
     const stages = builtInPipelines.find(({ id }) => id === ONBOARD_PIPELINE)!.stages;
 
-    expect(stages.at(-1)).toMatchObject({
+    expect(stages.find(({ key }) => key === "verify")).toMatchObject({
       kind: "script",
       command: "test",
       onFailure: { goBackTo: "onboard" },
     });
+  });
+
+  it("publish Onboard's fixes by the publishing mode, and push Proof of concept's branch only", () => {
+    expect(lastStageOf(ONBOARD_PIPELINE)).toEqual({
+      kind: "script",
+      key: "publish",
+      name: "Publish",
+      command: "publish",
+      optional: false,
+    });
+    expect(lastStageOf("proof-of-concept")).toMatchObject({ publishTarget: "branch-only" });
   });
 });

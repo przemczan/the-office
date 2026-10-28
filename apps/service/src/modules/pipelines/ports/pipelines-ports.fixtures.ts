@@ -19,6 +19,7 @@ import {
 } from "./stage-threads.js";
 import { StartedTasks, type StartedTask, type WalkTaskState } from "./started-tasks.js";
 import type { CommandRun, Installation, ScriptCommandRun } from "../domain/stage-command-run.js";
+import type { PublishTarget } from "../domain/stage.js";
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
 import type { DecisionAnswer } from "../domain/walk-decisions.js";
 import { TaskCommands, type ScriptCommandKey } from "./task-commands.js";
@@ -514,10 +515,19 @@ export class TaskPublishingForTests extends TaskPublishing {
   /** What the next Publishes give, in order. */
   readonly publications: Publication[] = [];
   /** Every Publish, in order, with the pull request's words. */
-  readonly published: { readonly taskId: string; readonly text: PullRequestText }[] = [];
+  readonly published: {
+    readonly taskId: string;
+    readonly text: PullRequestText;
+    readonly target: PublishTarget;
+  }[] = [];
 
-  publish(_projectId: string, taskId: string, text: PullRequestText): Promise<Publication> {
-    this.published.push({ taskId, text });
+  publish(
+    _projectId: string,
+    taskId: string,
+    text: PullRequestText,
+    target: PublishTarget,
+  ): Promise<Publication> {
+    this.published.push({ taskId, text, target });
     return Promise.resolve(
       this.publications.shift() ?? {
         kind: "pull-request-opened",

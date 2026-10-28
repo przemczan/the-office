@@ -40,6 +40,9 @@ export function problemOnStage(stage: Stage, stageIndex: number, problem: string
 function problemsOfStage(stage: Stage, earlierStages: readonly Stage[]): string[] {
   const problems = identityProblems(stage, earlierStages);
   if (stage.kind === "agent") problems.push(...agentStageProblems(stage, earlierStages.at(-1)));
+  if (stage.kind === "script" && stage.command !== "publish" && stage.publishTarget) {
+    problems.push("only a Publish Stage has a publish target.");
+  }
   if (stage.kind !== "gate" && stage.onFailure) {
     problems.push(...onFailureProblems(stage.onFailure, earlierStages));
   }

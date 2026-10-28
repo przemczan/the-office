@@ -19,6 +19,16 @@ describe("stageProblems", () => {
     expect(stageProblems(stages)).toEqual([]);
   });
 
+  it("takes a Publish Stage's target, and refuses one on another Script Stage", () => {
+    const publish = scriptStage({ key: "publish", name: "Publish", command: "publish" });
+
+    expect(stageProblems([{ ...publish, publishTarget: "branch-only" }])).toEqual([]);
+    expect(stageProblems([{ ...publish, publishTarget: "publishing-mode" }])).toEqual([]);
+    expect(problemTexts([scriptStage({ publishTarget: "branch-only" })])).toEqual([
+      "Stage 1 · Tests: only a Publish Stage has a publish target.",
+    ]);
+  });
+
   it("refuses a Pipeline with no Stages", () => {
     expect(stageProblems([])).toEqual([{ text: "A Pipeline needs at least one Stage." }]);
   });

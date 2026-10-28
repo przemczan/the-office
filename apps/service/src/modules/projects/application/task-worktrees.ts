@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import type { Publication, PullRequestText } from "../domain/publication.js";
+import type { Publication, PublishTarget, PullRequestText } from "../domain/publication.js";
 import type { Head } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectService } from "./project-service.js";
@@ -93,9 +93,17 @@ export class TaskWorktrees {
     return this.worktrees.changes(await this.projects.read(projectId), taskId);
   }
 
-  /** Publishes the Task's committed branch by the Project's publishing mode (spec §9). */
-  async publish(projectId: string, taskId: string, text: PullRequestText): Promise<Publication> {
-    return this.publishing.publish(await this.projects.read(projectId), taskId, text);
+  /**
+   * Publishes the Task's committed branch by the Project's publishing mode (spec §9), or pushes it
+   * only, as the Publish Stage's target says (spec §2.3).
+   */
+  async publish(
+    projectId: string,
+    taskId: string,
+    text: PullRequestText,
+    target: PublishTarget,
+  ): Promise<Publication> {
+    return this.publishing.publish(await this.projects.read(projectId), taskId, text, target);
   }
 
   /** Removes the Task's worktree with whatever it holds; its branch stays. */

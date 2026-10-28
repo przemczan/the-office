@@ -7,7 +7,9 @@ import {
   failureTargets,
   moveStage,
   removeStage,
+  withCommand,
   withRole,
+  type ScriptStage,
 } from "./stage-edits.ts";
 
 const implement: Stage = {
@@ -92,5 +94,22 @@ describe("the Stage editor's changes", () => {
     const gated = addStage(quickFix, "gate", 0).stages;
     expect(keysOf(failureTargets(gated, 3))).toEqual(["implement", "tests"]);
     expect(failureTargets(gated, 0)).toEqual([]);
+  });
+});
+
+describe("withCommand", () => {
+  const pushingTheBranch: ScriptStage = {
+    kind: "script",
+    key: "publish",
+    name: "Publish",
+    optional: false,
+    command: "publish",
+    publishTarget: "branch-only",
+  };
+
+  it("keeps a Publish Stage's target while it publishes, and drops it for another command", () => {
+    expect(withCommand(pushingTheBranch, "publish")).toEqual(pushingTheBranch);
+    const { publishTarget: _dropped, ...withoutTarget } = pushingTheBranch;
+    expect(withCommand(pushingTheBranch, "test")).toEqual({ ...withoutTarget, command: "test" });
   });
 });

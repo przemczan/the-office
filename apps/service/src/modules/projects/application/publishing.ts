@@ -5,6 +5,7 @@ import {
   noRemoteError,
   pushFailure,
   type Publication,
+  type PublishTarget,
   type PullRequestText,
   type RemoteBranch,
 } from "../domain/publication.js";
@@ -13,8 +14,8 @@ import { PullRequestRefused, PullRequests } from "../ports/pull-requests.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { Worktrees } from "./worktrees.js";
 
-/** Where a Publish takes the Task's branch: the base branch as its remote has it, freshly fetched. */
-interface PublishTarget {
+/** What one Publish works with: the Task's branch and the base as its remote has it, freshly fetched. */
+interface PublishContext {
   readonly taskId: string;
   readonly branch: string;
   readonly base: RemoteBranch;
@@ -24,14 +25,15 @@ interface PublishTarget {
 
 /**
  * Publish (spec §2.3, §9): The Office's own git takes a Task's committed branch to the remote its
- * base branch tracks, by the Project's publishing mode (spec §9). Push + PR pushes the branch and
- * opens a pull request; merge fast-forwards the base branch on the remote to the branch, as the
- * click-through's `git merge --ff-only` does, rebasing the branch onto the fetched base first when
- * the base moved on. A branch that would conflict with the freshly fetched base asks the user in
- * both. Both run with the repository to themselves, so nothing moves a ref between the check and
- * the push, and record where the published branch forked from the base. Pushes run with the Project's variables, which hold no
- * publishing token; git's own credential helper signs them in. The user's checkout and local
- * base branch are left as they are.
+ * base branch tracks, by the Project's publishing mode (spec §9) unless the Stage's target pushes
+ * the branch only. Push + PR pushes the branch and opens a pull request; merge fast-forwards the
+ * base branch on the remote to the branch, as the click-through's `git merge --ff-only` does,
+ * rebasing the branch onto the fetched base first when the base moved on. A branch that would
+ * conflict with the freshly fetched base asks the user in both. Each runs with the repository to
+ * itself, so nothing moves a ref between the check and the push, and records where the published
+ * branch forked from the base. Pushes run with the Project's variables, which hold no publishing
+ * token; git's own credential helper signs them in. The user's checkout and local base branch are
+ * left as they are.
  */
 @Injectable()
 export class Publishing {
@@ -42,7 +44,12 @@ export class Publishing {
     private readonly worktrees: Worktrees,
   ) {}
 
-  async publish(project: Project, taskId: string, text: PullRequestText): Promise<Publication> {
+  async publish(
+    project: Project,
+    taskId: string,
+    text: PullRequestText,
+    target: PublishTarget,
+  ): Promise<Publication> {
     const branch = this.worktrees.branchOf(taskId);
     const base = await this.git.upstreamOf(project.path, project.baseBranch);
     if (!base) return { kind: "failed", error: noRemoteError(project.baseBranch) };
@@ -57,13 +64,14 @@ export class Publishing {
               (said) => `Fetching ${base.branch} from ${base.remote} failed. git said: ${said}`,
             );
           });
-        const target: PublishTarget = { taskId, branch, base, baseCommit, variables };
+        const context: PublishContext = { taskId, branch, base, baseCommit, variables };
         if (await this.git.contains(project.path, baseCommit, branchRef(branch))) {
           return { kind: "nothing-to-publish", branch, base } as const;
         }
+        if (target === "branch-only") return this.pushBranchOnly(project, context);
         return project.publishingMode === "merge"
-          ? this.merge(project, target)
-          : this.pushAndOpenPullRequest(project, target, text);
+          ? this.merge(project, context)
+          : this.pushAndOpenPullRequest(project, context, text);
       })
       .catch((error: unknown) => {
         if (error instanceof PublishFailed)
@@ -74,14 +82,14 @@ export class Publishing {
 
   private async pushAndOpenPullRequest(
     project: Project,
-    target: PublishTarget,
+    context: PublishContext,
     { title, body }: PullRequestText,
   ): Promise<Publication> {
-    const { branch, base, baseCommit } = target;
+    const { branch, base, baseCommit } = context;
     const conflictedFiles = await this.git.conflictsOf(project.path, baseCommit, branchRef(branch));
-    if (conflictedFiles.length > 0) return conflicting(target, conflictedFiles);
-    await this.push(project, target, { remote: base.remote, branch });
-    await this.recordPublished(project, target);
+    if (conflictedFiles.length > 0) return conflicting(context, conflictedFiles);
+    await this.push(project, context, { remote: base.remote, branch });
+    await this.recordPublished(project, context);
     const pullRequest = await this.pullRequests
       .open({ repositoryPath: project.path, baseBranch: base.branch, branch, title, body })
       .catch((error: unknown) => {
@@ -92,32 +100,43 @@ export class Publishing {
   }
 
   /**
+   * Pushes the Task's branch to the base's remote and stops there, for a proof of concept: no pull
+   * request and no merge, so a base that moved on is no conflict of its.
+   */
+  private async pushBranchOnly(project: Project, context: PublishContext): Promise<Publication> {
+    const { branch, base } = context;
+    await this.push(project, context, { remote: base.remote, branch });
+    await this.recordPublished(project, context);
+    return { kind: "branch-pushed", branch, remote: base.remote };
+  }
+
+  /**
    * Fast-forwards the remote's base to the Task's branch, rebasing the branch onto the fetched
    * base first when the base moved on (the user's answer of 2026-10-26); a rebase that would
    * conflict leaves the branch as it was.
    */
-  private async merge(project: Project, target: PublishTarget): Promise<Publication> {
-    const { branch, baseCommit } = target;
+  private async merge(project: Project, context: PublishContext): Promise<Publication> {
+    const { branch, baseCommit } = context;
     const ref = branchRef(branch);
     const moved = !(await this.git.contains(project.path, ref, baseCommit));
     if (moved) {
       const conflictedFiles = await this.git.conflictsOf(project.path, baseCommit, ref);
-      if (conflictedFiles.length > 0) return conflicting(target, conflictedFiles);
-      const worktreePath = this.worktrees.pathOf(project, target.taskId);
+      if (conflictedFiles.length > 0) return conflicting(context, conflictedFiles);
+      const worktreePath = this.worktrees.pathOf(project, context.taskId);
       const rebaseConflicts = await this.git
-        .rebase(worktreePath, baseCommit, target.variables)
+        .rebase(worktreePath, baseCommit, context.variables)
         .catch((error: unknown) => {
           throw failure(
             error,
-            (said) => `Rebasing ${branch} onto ${target.base.branch} failed. git said: ${said}`,
+            (said) => `Rebasing ${branch} onto ${context.base.branch} failed. git said: ${said}`,
           );
         });
-      if (rebaseConflicts.length > 0) return conflicting(target, rebaseConflicts);
+      if (rebaseConflicts.length > 0) return conflicting(context, rebaseConflicts);
     }
-    await this.push(project, target, target.base);
-    await this.recordPublished(project, target);
+    await this.push(project, context, context.base);
+    await this.recordPublished(project, context);
     const commit = await this.git.commitOf(project.path, ref);
-    return { kind: "merged", branch, into: target.base, commit, rebased: moved };
+    return { kind: "merged", branch, into: context.base, commit, rebased: moved };
   }
 
   /**
@@ -126,7 +145,7 @@ export class Publishing {
    */
   private async recordPublished(
     project: Project,
-    { taskId, branch, baseCommit }: PublishTarget,
+    { taskId, branch, baseCommit }: PublishContext,
   ): Promise<void> {
     const forkPoint = await this.git.mergeBase(project.path, baseCommit, branchRef(branch));
     await this.git.setRef(project.path, this.worktrees.publishedFromRefOf(taskId), forkPoint);
@@ -134,7 +153,7 @@ export class Publishing {
 
   private async push(
     project: Project,
-    { branch, variables }: PublishTarget,
+    { branch, variables }: PublishContext,
     into: RemoteBranch,
   ): Promise<void> {
     await this.git.push(project.path, branch, into, variables).catch((error: unknown) => {
@@ -153,7 +172,7 @@ function failure(error: unknown, words: (said: string) => string): unknown {
 
 /** The branch would conflict with the base: the user decides, as no Agent can merge or rebase. */
 function conflicting(
-  { branch, base }: PublishTarget,
+  { branch, base }: PublishContext,
   conflictedFiles: readonly string[],
 ): Publication {
   return {

@@ -1,5 +1,7 @@
 import {
   effortSchema,
+  publishTargetSchema,
+  type PublishTarget,
   type Role,
   type RoleCardOptions,
   type Stage,
@@ -28,6 +30,7 @@ import {
   replaceStage,
   STAGE_COMMANDS,
   STAGE_KIND_NAMES,
+  withCommand,
   withRole,
   type AgentStage,
   type StageCommand,
@@ -46,6 +49,11 @@ const COMMAND_NAMES: Readonly<Record<StageCommand, string>> = {
   lint: "Lint",
   build: "Build",
   publish: "Publish",
+};
+
+const PUBLISH_TARGET_NAMES: Readonly<Record<PublishTarget, string>> = {
+  "publishing-mode": "By the Project's publishing mode",
+  "branch-only": "Push the branch only (proof of concept)",
 };
 
 /** The most times a failure may go back, as the click-through offers. */
@@ -284,7 +292,21 @@ function StageForm(props: StageEditorRowProps & { readonly stage: Stage }): Reac
           }))}
           onChange={(command) => {
             const chosen = STAGE_COMMANDS.find((offered) => offered === command);
-            if (chosen) change({ ...stage, command: chosen });
+            if (chosen) change(withCommand(stage, chosen));
+          }}
+        />
+      )}
+      {stage.kind === "script" && stage.command === "publish" && (
+        <Select
+          label="Publishes"
+          value={stage.publishTarget ?? "publishing-mode"}
+          options={publishTargetSchema.options.map((target) => ({
+            value: target,
+            label: PUBLISH_TARGET_NAMES[target],
+          }))}
+          onChange={(target) => {
+            const chosen = publishTargetSchema.options.find((offered) => offered === target);
+            if (chosen) change({ ...stage, publishTarget: chosen });
           }}
         />
       )}

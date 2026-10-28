@@ -117,7 +117,7 @@ const onboard: Pipeline = {
   id: ONBOARD_PIPELINE,
   name: "Onboard",
   description:
-    "Prepares a Project on the workstation until it builds and tests in a fresh worktree.",
+    "Prepares a Project on the workstation until it builds and tests in a fresh worktree, then publishes the fixes.",
   stages: [
     {
       kind: "agent",
@@ -138,11 +138,10 @@ const onboard: Pipeline = {
       optional: false,
       onFailure: { goBackTo: "onboard", rounds: 2 },
     },
+    { kind: "script", key: "publish", name: "Publish", command: "publish", optional: false },
   ],
 };
 
-// Its Publish pushes the branch only from task 24's step 3, which adds a Publish Stage's target;
-// until then it publishes by the Project's publishing mode like the others.
 const proofOfConcept: Pipeline = {
   id: "proof-of-concept",
   name: "Proof of concept",
@@ -167,7 +166,14 @@ const proofOfConcept: Pipeline = {
       optional: false,
       onFailure: { goBackTo: "implement", rounds: 2 },
     },
-    { kind: "script", key: "publish", name: "Publish", command: "publish", optional: false },
+    {
+      kind: "script",
+      key: "publish",
+      name: "Publish",
+      command: "publish",
+      publishTarget: "branch-only",
+      optional: false,
+    },
   ],
 };
 
