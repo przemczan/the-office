@@ -10,12 +10,15 @@ const REPORT_EVERY_MS = 60_000;
 const ACTIVITY_EVENTS = ["pointermove", "pointerdown", "keydown", "wheel", "focus"] as const;
 
 const TASK_PAGE = /^\/tasks\/([^/]+)/;
+const INITIATIVE_PAGE = /^\/work\/initiatives\/([^/]+)/;
 
-/** The page at a path, as far as Notifications care: Now, a Task's page, or another. */
+/** The page at a path, as far as Notifications care: Now, a Task's or an Initiative's page, or another. */
 export function pageAt(pathname: string): Activity["page"] {
   if (pathname === "/now") return { kind: "now" };
   const taskId = TASK_PAGE.exec(pathname)?.[1];
-  return taskId ? { kind: "task", taskId } : { kind: "elsewhere" };
+  if (taskId) return { kind: "task", taskId };
+  const initiativeId = INITIATIVE_PAGE.exec(pathname)?.[1];
+  return initiativeId ? { kind: "initiative", initiativeId } : { kind: "elsewhere" };
 }
 
 /**

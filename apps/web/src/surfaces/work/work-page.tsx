@@ -10,15 +10,19 @@ import "./work.css";
 const TABS = [
   { value: "tasks", label: "Tasks", to: "/work", crumb: "Tasks by state" },
   { value: "ideas", label: "Ideas", to: "/work/ideas", crumb: "Ideas" },
+  { value: "initiatives", label: "Initiatives", to: "/work/initiatives", crumb: "Initiatives" },
 ] as const;
 
-/** Work (prototypes/app/work.js): the Tasks by state on one board for every Project, and Ideas. */
+/**
+ * Work (prototypes/app/work.js): the Tasks by state on one board for every Project, Ideas, and
+ * Initiatives.
+ */
 export function WorkPage(): ReactNode {
   const ideas = useQuery(ideaQueries.list());
   const matchRoute = useMatchRoute();
   const navigate = useNavigate();
   const [adding, setAdding] = useState(false);
-  const shown = matchRoute({ to: "/work/ideas" }) === false ? TABS[0] : TABS[1];
+  const shown = TABS.find(({ to }) => to !== "/work" && matchRoute({ to }) !== false) ?? TABS[0];
   usePageHeading({ title: "Work", crumb: shown.crumb });
   const newIdeas = ideas.data?.filter((idea) => idea.state === "new").length;
   return (

@@ -1,4 +1,10 @@
-import { recordPath, type Decision, type Idea, type Task } from "@the-office/contracts";
+import {
+  recordPath,
+  type Decision,
+  type Idea,
+  type Initiative,
+  type Task,
+} from "@the-office/contracts";
 
 /** The kinds of record a message can mention, in the UI's words. */
 export const MENTION_KINDS = {
@@ -37,9 +43,10 @@ export function mentionQueryAt(text: string, caret: number): MentionQuery | unde
   return { start: caret - query.length - 1, query };
 }
 
-/** The Tasks, open Decisions and Ideas a message can mention; dropped ones are left out. */
+/** The Tasks, Initiatives, open Decisions and Ideas a message can mention; dropped ones are left out. */
 export function mentionables(
   tasks: readonly Task[],
+  initiatives: readonly Initiative[],
   decisions: readonly Decision[],
   ideas: readonly Idea[],
 ): Mentionable[] {
@@ -52,6 +59,13 @@ export function mentionables(
         kind: "task" as const,
         label: title,
         path: recordPath({ kind: "task", taskId: id }),
+      })),
+    ...initiatives
+      .filter(({ state }) => state !== "dropped")
+      .map(({ id, name }) => ({
+        kind: "initiative" as const,
+        label: name,
+        path: recordPath({ kind: "initiative", initiativeId: id }),
       })),
     ...decisions.map(({ id, taskId, threadId }) => ({
       kind: "decision" as const,

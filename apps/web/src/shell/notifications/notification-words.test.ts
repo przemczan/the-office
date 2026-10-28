@@ -12,13 +12,16 @@ import {
 const TASK_ID = "6820f3e0-132c-414a-9d26-ed497c7ea9bf";
 
 describe("targetOf", () => {
-  it("opens the Task a Decision, a Gate or an outcome is about, and Now for the Office", () => {
+  it("opens the Task or Initiative a Notification is about, and Now for the Office", () => {
     expect(
       targetOf({
         pointsTo: { kind: "decision", decisionId: TASK_ID, taskId: TASK_ID },
         roleKey: "developer",
       }),
     ).toEqual({ to: "/tasks/$taskId", params: { taskId: TASK_ID } });
+    expect(
+      targetOf({ pointsTo: { kind: "initiative", initiativeId: TASK_ID }, roleKey: null }),
+    ).toEqual({ to: "/work/initiatives/$initiativeId", params: { initiativeId: TASK_ID } });
     expect(targetOf({ pointsTo: { kind: "office" }, roleKey: null })).toEqual({ to: "/now" });
   });
 

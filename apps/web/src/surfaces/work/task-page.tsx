@@ -1,13 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import type { Pipeline, Project, Task, Thread } from "@the-office/contracts";
-import { EmptyState, Tabs } from "@the-office/ui";
+import { Tabs } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { ApiError } from "../../api/api-client.ts";
 import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
-import { taskQueries } from "../../api/work.ts";
+import { initiativeQueries, taskQueries } from "../../api/work.ts";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
 import { pipelineLabel, taskTokens } from "./stage-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
@@ -15,6 +14,7 @@ import { ProjectChip } from "../../shell/project-chip.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { PRIORITY_NAMES } from "../../shell/work/work-words.ts";
+import { MissingRecord } from "./missing-record.tsx";
 import { MarkReadyButton, PlanButton } from "./planning-actions.tsx";
 import { RunControls } from "./run-controls.tsx";
 import { StartButton } from "./start-action.tsx";
@@ -39,7 +39,7 @@ export function TaskPage(): ReactNode {
     parent: { label: "Work", to: "/work" },
     crumb: task.data?.title,
   });
-  if (task.error) return <Missing error={task.error} />;
+  if (task.error) return <MissingRecord error={task.error} kind="Task" />;
   const record = task.data;
   if (!record) return null;
   const pipeline = pipelines.data?.find(({ id }) => id === record.pipelineId);
@@ -87,6 +87,7 @@ function TaskHead({
           <ProjectChip projectId={task.projectId} projects={projects} />
           <span>· Pipeline {pipelineLabel(pipeline?.name ?? task.pipelineId, editedForTask)}</span>
           <span>· {PRIORITY_NAMES[task.priority]} priority</span>
+          {task.initiativeId !== null && <InitiativeLink initiativeId={task.initiativeId} />}
           <span>· {tokensShort(tokens)} tokens</span>
         </div>
       </div>
@@ -98,6 +99,17 @@ function TaskHead({
         <TaskMenu task={task} />
       </div>
     </header>
+  );
+}
+
+/** The Initiative the Task is part of, by its name now. */
+function InitiativeLink({ initiativeId }: { readonly initiativeId: string }): ReactNode {
+  const name = useQuery(initiativeQueries.one(initiativeId)).data?.name;
+  if (name === undefined) return null;
+  return (
+    <Link to="/work/initiatives/$initiativeId" params={{ initiativeId }}>
+      · Initiative {name}
+    </Link>
   );
 }
 
@@ -131,19 +143,5 @@ function RecordTabs({
         })
       }
     />
-  );
-}
-
-function Missing({ error }: { readonly error: Error }): ReactNode {
-  const gone = error instanceof ApiError && error.status === 404;
-  return (
-    <div className="task-page">
-      <EmptyState
-        icon={gone ? "file-x" : "circle-alert"}
-        title={gone ? error.message : "The Task can't be shown."}
-        description={gone ? undefined : error.message}
-        action={<Link to="/work">Back to Work</Link>}
-      />
-    </div>
   );
 }

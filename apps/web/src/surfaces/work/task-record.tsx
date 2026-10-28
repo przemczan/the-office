@@ -4,17 +4,15 @@ import { Button, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
-import { attachmentQueries, ideaQueries } from "../../api/work.ts";
-import { AddAttachmentDialog } from "../../shell/attachments/add-attachment-dialog.tsx";
-import { AttachmentChips } from "../../shell/attachments/attachment-chips.tsx";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
-import { dayAndClockOf } from "../../shell/time.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
+import { AttachmentsBlock } from "./attachments-block.tsx";
 import { DependenciesBlock } from "./dependencies-block.tsx";
 import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
 import { GateBlock } from "./gate-view.tsx";
 import { DefinitionOfDoneBlock, PlanBlock, ProposedPipeline } from "./planning-parts.tsx";
+import { OriginBlock } from "./origin-block.tsx";
 import { ReadyBlock } from "./ready-block.tsx";
 import { RecordBlock } from "./record-block.tsx";
 import {
@@ -48,7 +46,7 @@ export function TaskRecord({
       <PlanBlock task={task} planner={planner} />
       <StagesBlock task={task} pipeline={pipeline} planner={planner} roles={roles.data} />
       <DependenciesBlock task={task} />
-      <AttachmentsBlock task={task} />
+      <AttachmentsBlock owner={{ kind: "task", taskId: task.id }} ownerTitle={task.title} />
       {task.originIdeaId !== null && <OriginBlock ideaId={task.originIdeaId} />}
     </section>
   );
@@ -206,48 +204,4 @@ function whoWorks(
   if (stage.kind === "gate") return "Gate";
   const role = roles?.find(({ key }) => key === stage.role);
   return role ? `${role.card.name} · ${role.card.title}` : "nobody yet";
-}
-
-function AttachmentsBlock({ task }: { readonly task: Task }): ReactNode {
-  const owner = { kind: "task", taskId: task.id } as const;
-  const attachments = useQuery(attachmentQueries.of(owner));
-  const [adding, setAdding] = useState(false);
-  return (
-    <RecordBlock
-      icon="paperclip"
-      title="Attachments"
-      actions={
-        <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
-          Add
-        </Button>
-      }
-    >
-      {attachments.data?.length === 0 ? (
-        <p className="task-quiet">None</p>
-      ) : (
-        <AttachmentChips attachments={attachments.data ?? []} />
-      )}
-      {adding && (
-        <AddAttachmentDialog
-          owner={owner}
-          ownerTitle={task.title}
-          onClose={() => setAdding(false)}
-        />
-      )}
-    </RecordBlock>
-  );
-}
-
-function OriginBlock({ ideaId }: { readonly ideaId: string }): ReactNode {
-  const idea = useQuery(ideaQueries.one(ideaId));
-  if (!idea.data) return null;
-  return (
-    <RecordBlock icon="lightbulb" title="Started from the Idea">
-      <p className="task-plan">
-        {idea.data.title}{" "}
-        <span className="task-quiet">· captured {dayAndClockOf(idea.data.capturedAt)}</span>
-      </p>
-      {idea.data.notes !== "" && <p className="task-quiet">{idea.data.notes}</p>}
-    </RecordBlock>
-  );
 }

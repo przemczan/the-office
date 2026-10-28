@@ -4,6 +4,8 @@ import {
   attachmentSchema,
   ideaListSchema,
   ideaSchema,
+  initiativeListSchema,
+  initiativeSchema,
   officeWideLimitSchema,
   readinessSchema,
   startCheckSchema,
@@ -12,6 +14,7 @@ import {
   type Attachment,
   type AttachmentOwner,
   type Idea,
+  type Initiative,
   type NewIdea,
   type NewLink,
   type NewTask,
@@ -49,6 +52,20 @@ export const ideaQueries = {
     queryOptions({
       queryKey: [...IDEAS, id],
       queryFn: ({ signal }) => getFromApi(ideaPath(id), ideaSchema, signal),
+    }),
+};
+
+export const initiativeQueries = {
+  /** Every Initiative, the newest first; a Task's events refresh it, as it spans their Projects. */
+  list: () =>
+    queryOptions({
+      queryKey: INITIATIVES,
+      queryFn: ({ signal }) => getFromApi("/initiatives", initiativeListSchema, signal),
+    }),
+  one: (id: string) =>
+    queryOptions({
+      queryKey: [...INITIATIVES, id],
+      queryFn: ({ signal }) => getFromApi(initiativePath(id), initiativeSchema, signal),
     }),
 };
 
@@ -126,6 +143,16 @@ export function shapeIdea(id: string, projectId: string): Promise<Task> {
 /** Plan as a Task with the Planner: the Task the Idea became, in Planning with its Thread. */
 export function planIdea(id: string, projectId: string): Promise<Task> {
   return sendToApi("POST", `${ideaPath(id)}/plan`, { projectId }, taskSchema);
+}
+
+/** The Initiative the Idea became, being shaped; with the CTO in its Thread when one is hired. */
+export function shapeIntoInitiative(id: string): Promise<Initiative> {
+  return sendToApi("POST", `${ideaPath(id)}/initiative`, {}, initiativeSchema);
+}
+
+/** A new shaping Thread with the CTO, who starts on it at once. */
+export function startShapingThread(id: string): Promise<Initiative> {
+  return sendToApi("POST", `${initiativePath(id)}/shaping`, {}, initiativeSchema);
 }
 
 export function dropIdea(id: string): Promise<Idea> {
@@ -293,10 +320,14 @@ function ownerPath(owner: AttachmentOwner): `/${string}` {
     case "idea":
       return ideaPath(owner.ideaId);
     case "initiative":
-      return `/initiatives/${encodeURIComponent(owner.initiativeId)}`;
+      return initiativePath(owner.initiativeId);
     case "task":
       return taskPath(owner.taskId);
   }
+}
+
+function initiativePath(id: string): `/${string}` {
+  return `/initiatives/${encodeURIComponent(id)}`;
 }
 
 function ideaPath(id: string): `/${string}` {

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Icon } from "@the-office/ui";
 import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { decisionQueries } from "../../api/conversations.ts";
-import { ideaQueries, taskQueries } from "../../api/work.ts";
+import { ideaQueries, initiativeQueries, taskQueries } from "../../api/work.ts";
 import {
   matchingMentionables,
   MENTION_KINDS,
@@ -129,17 +129,23 @@ export function useMentions(draft: string, setDraft: (draft: string) => void): M
   };
 }
 
-/** The Tasks, open Decisions and Ideas, read once the picker first opens. */
+/** The Tasks, Initiatives, open Decisions and Ideas, read once the picker first opens. */
 function useMentionables(open: boolean): {
   readonly records: Mentionable[];
   readonly loading: boolean;
 } {
   const tasks = useQuery({ ...taskQueries.list(), enabled: open });
+  const initiatives = useQuery({ ...initiativeQueries.list(), enabled: open });
   const decisions = useQuery({ ...decisionQueries.open(), enabled: open });
   const ideas = useQuery({ ...ideaQueries.list(), enabled: open });
   return {
-    records: mentionables(tasks.data ?? [], decisions.data ?? [], ideas.data ?? []),
-    loading: tasks.isPending || decisions.isPending || ideas.isPending,
+    records: mentionables(
+      tasks.data ?? [],
+      initiatives.data ?? [],
+      decisions.data ?? [],
+      ideas.data ?? [],
+    ),
+    loading: tasks.isPending || initiatives.isPending || decisions.isPending || ideas.isPending,
   };
 }
 

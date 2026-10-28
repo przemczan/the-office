@@ -1,0 +1,92 @@
+import type { Task } from "@the-office/contracts";
+import { describe, expect, it } from "vitest";
+import { initiativeProgress, progressWords, taskGraph } from "./initiative-words.ts";
+
+const INITIATIVE_ID = "3f0c2b1a-9d8e-4f7a-8b6c-5d4e3f2a1b0c";
+
+function aTask(id: string, fields: Partial<Task> = {}): Task {
+  return {
+    id,
+    title: `Task ${id}`,
+    projectId: "firmware",
+    priority: "normal",
+    state: "backlog",
+    plan: "",
+    planConfirmed: false,
+    definitionOfDone: [],
+    definitionOfDoneConfirmed: false,
+    pipelineId: "full",
+    proposedPipeline: null,
+    blockedBy: [],
+    originIdeaId: null,
+    initiativeId: INITIATIVE_ID,
+    createdBy: { kind: "user" },
+    createdAt: "2026-10-28T10:00:00.000Z",
+    ...fields,
+  };
+}
+
+const columnIds = (graph: ReturnType<typeof taskGraph>): string[][] =>
+  graph.columns.map((column) => column.map(({ task }) => task.id));
+
+describe("taskGraph", () => {
+  it("puts each Task right of every Task it waits for", () => {
+    const schema = aTask("schema");
+    const api = aTask("api", { blockedBy: ["schema"], projectId: "service" });
+    const app = aTask("app", { blockedBy: ["api"], projectId: "app" });
+    const docs = aTask("docs", { blockedBy: ["schema", "app"] });
+    const tasks = [schema, api, app, docs];
+
+    expect(columnIds(taskGraph(tasks, tasks))).toEqual([["schema"], ["api"], ["app"], ["docs"]]);
+  });
+
+  it("draws an outside blocker once, marked, with no columns for its own blockers", () => {
+    const older = aTask("older", { initiativeId: null });
+    const elsewhere = aTask("elsewhere", {
+      initiativeId: null,
+      blockedBy: ["older"],
+      state: "done",
+    });
+    const first = aTask("first", { blockedBy: ["elsewhere"] });
+    const second = aTask("second", { blockedBy: ["elsewhere"] });
+    const graph = taskGraph([first, second], [older, elsewhere, first, second]);
+
+    expect(columnIds(graph)).toEqual([["elsewhere"], ["first", "second"]]);
+    expect(graph.columns[0]?.[0]?.outside).toBe(true);
+    expect(graph.edges).toEqual([
+      { from: "elsewhere", to: "first", blockerDone: true },
+      { from: "elsewhere", to: "second", blockerDone: true },
+    ]);
+  });
+
+  it("orders a column by Project", () => {
+    const service = aTask("service-task", { projectId: "service" });
+    const app = aTask("app-task", { projectId: "app" });
+
+    expect(columnIds(taskGraph([service, app], [service, app]))).toEqual([
+      ["app-task", "service-task"],
+    ]);
+  });
+
+  it("still ends on a cycle", () => {
+    const first = aTask("first", { blockedBy: ["second"] });
+    const second = aTask("second", { blockedBy: ["first"] });
+
+    expect(taskGraph([first, second], [first, second]).columns.flat()).toHaveLength(2);
+  });
+});
+
+describe("initiativeProgress", () => {
+  it("leaves Dropped Tasks out, and counts Ready ones waiting for nothing", () => {
+    const done = aTask("done", { state: "done" });
+    const dropped = aTask("dropped", { state: "dropped" });
+    const free = aTask("free", { state: "ready" });
+    const blocked = aTask("blocked", { state: "ready", blockedBy: ["free"] });
+    const tasks = [done, dropped, free, blocked];
+
+    const progress = initiativeProgress(tasks, tasks);
+
+    expect(progress).toEqual({ done: 1, counted: 3, readyToStart: 1 });
+    expect(progressWords(progress)).toBe("1 of 3 Tasks done · 1 ready to start");
+  });
+});

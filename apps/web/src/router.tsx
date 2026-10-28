@@ -23,6 +23,8 @@ import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
 import { SkillsSection } from "./surfaces/settings/skills/skills-section.tsx";
 import { Board } from "./surfaces/work/board.tsx";
 import { IdeasPage } from "./surfaces/work/ideas-page.tsx";
+import { InitiativePage } from "./surfaces/work/initiative-page.tsx";
+import { InitiativesList } from "./surfaces/work/initiatives-list.tsx";
 import { TaskPage } from "./surfaces/work/task-page.tsx";
 import { WorkPage } from "./surfaces/work/work-page.tsx";
 
@@ -99,6 +101,22 @@ const ideasRoute = createRoute({
   validateSearch: (search: Record<string, unknown>): IdeasSearch => ({
     ...(typeof search["idea"] === "string" && { idea: search["idea"] }),
   }),
+  staticData: { title: "Work" },
+});
+
+const initiativesRoute = createRoute({
+  getParentRoute: () => workRoute,
+  path: "initiatives",
+  component: InitiativesList,
+  staticData: { title: "Work" },
+});
+
+// An Initiative's page, at the path its links name (`recordPath`), outside Work's tabs as a Task's is.
+const initiativeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "work/initiatives/$initiativeId",
+  component: InitiativePage,
+  // Until the Initiative is read; the page then names it.
   staticData: { title: "Work" },
 });
 
@@ -256,7 +274,8 @@ export const router = createRouter({
   routeTree: rootRoute.addChildren([
     homeRoute,
     nowRoute,
-    workRoute.addChildren([boardRoute, ideasRoute]),
+    workRoute.addChildren([boardRoute, ideasRoute, initiativesRoute]),
+    initiativeRoute,
     taskRoute,
     peopleRoute,
     personRoute.addChildren([

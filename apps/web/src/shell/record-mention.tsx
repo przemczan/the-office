@@ -1,9 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { recordPath, type RecordLink } from "@the-office/contracts";
+import type { RecordLink } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { ideaQueries, taskQueries } from "../api/work.ts";
+import { ideaQueries, initiativeQueries, taskQueries } from "../api/work.ts";
 import { MENTION_KINDS } from "./conversation/mention-words.ts";
 import "./record-mention.css";
 
@@ -32,7 +32,7 @@ export function RecordMention({
         />
       );
     case "initiative":
-      return <InitiativeMention link={link} written={written} />;
+      return <InitiativeMention initiativeId={link.initiativeId} written={written} />;
     case "idea":
       return <IdeaMention ideaId={link.ideaId} written={written} />;
   }
@@ -96,22 +96,24 @@ function IdeaMention({
   );
 }
 
-/**
- * Linked by its path until the Initiative page joins the router (task 22, step 4a), which also names
- * it as it is now.
- */
 function InitiativeMention({
-  link,
+  initiativeId,
   written,
 }: {
-  readonly link: Extract<RecordLink, { kind: "initiative" }>;
+  readonly initiativeId: string;
   readonly written: ReactNode;
 }): ReactNode {
+  const name = useQuery(initiativeQueries.one(initiativeId)).data?.name;
   return (
-    <a className="record-mention" href={recordPath(link)} title="Initiative">
+    <Link
+      className="record-mention"
+      to="/work/initiatives/$initiativeId"
+      params={{ initiativeId }}
+      title="Initiative"
+    >
       <Icon name={MENTION_KINDS.initiative.icon} size={12} />
-      {shownWords(written, "initiative")}
-    </a>
+      {name ?? shownWords(written, "initiative")}
+    </Link>
   );
 }
 

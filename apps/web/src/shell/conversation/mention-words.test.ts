@@ -1,6 +1,8 @@
+import type { Initiative } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   matchingMentionables,
+  mentionables,
   mentionQueryAt,
   withMentionLinks,
   type Mentionable,
@@ -9,6 +11,19 @@ import {
 const EXPORT: Mentionable = { kind: "task", label: "Export", path: "/tasks/a" };
 const EXPORT_CSV: Mentionable = { kind: "task", label: "Export CSV [beta]", path: "/tasks/b" };
 const DARK_MODE: Mentionable = { kind: "idea", label: "Dark mode", path: "/work/ideas?idea=c" };
+
+function anInitiative(id: string, state: Initiative["state"]): Initiative {
+  return {
+    id,
+    name: `Initiative ${id}`,
+    outcome: "",
+    state,
+    originIdeaId: "5d1c2b3a-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+    projectIds: [],
+    createdBy: { kind: "user" },
+    createdAt: "2026-10-28T10:00:00.000Z",
+  };
+}
 
 describe("the @ being typed", () => {
   it("is found at the start of the message or after a space, up to the caret", () => {
@@ -29,6 +44,12 @@ describe("the records the picker offers", () => {
     expect(matchingMentionables(records, "csv")).toEqual([EXPORT_CSV]);
     expect(matchingMentionables(records, "ide")).toEqual([DARK_MODE]);
     expect(matchingMentionables(records, "")).toEqual(records);
+  });
+
+  it("include the Initiatives by their page, leaving out a dropped one", () => {
+    expect(
+      mentionables([], [anInitiative("a", "active"), anInitiative("b", "dropped")], [], []),
+    ).toEqual([{ kind: "initiative", label: "Initiative a", path: "/work/initiatives/a" }]);
   });
 });
 

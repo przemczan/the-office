@@ -888,3 +888,148 @@
   font: 600 10px/1 var(--font-sans);
   color: var(--surface);
 }
+
+/* ---- Initiatives: the tab's cards, and the Task graph on an Initiative's page */
+
+.initiative-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--gap-card);
+}
+
+.initiative-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--pad-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  color: inherit;
+  text-decoration: none;
+}
+
+.initiative-card:hover {
+  border-color: var(--border-strong);
+}
+
+.initiative-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.initiative-card-name {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+
+.initiative-card-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.initiative-card-outcome {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+}
+
+@media (max-width: 980px) {
+  .initiative-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.task-graph {
+  position: relative;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+}
+
+.task-graph-edges {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.task-graph-edges path {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+
+.task-graph-edges path.blocker-done {
+  stroke: var(--success-border);
+}
+
+.task-graph-edges .task-graph-arrow {
+  fill: var(--border-strong);
+  stroke: none;
+}
+
+.task-graph-columns {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 44px;
+  width: max-content;
+  min-width: 100%;
+}
+
+.task-graph-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.task-graph-node {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 200px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: inherit;
+  font: var(--type-body-sm);
+  text-decoration: none;
+}
+
+.task-graph-node:hover {
+  border-color: var(--border-strong);
+}
+
+.task-graph-node.outside {
+  border-style: dashed;
+  background: transparent;
+}
+
+.task-graph-node-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.task-graph-node-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}

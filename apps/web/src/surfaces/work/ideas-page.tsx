@@ -4,7 +4,7 @@ import {
   useQueryClient,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import type { Idea, Project, Role, Task } from "@the-office/contracts";
+import type { Idea, Initiative, Project, Role, Task } from "@the-office/contracts";
 import { Alert, Button, Icon, IconButton, Menu } from "@the-office/ui";
 import { Link, useSearch } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
@@ -14,6 +14,7 @@ import {
   attachmentQueries,
   dropIdea,
   ideaQueries,
+  initiativeQueries,
   restoreIdea,
   taskQueries,
 } from "../../api/work.ts";
@@ -26,9 +27,10 @@ import { dayAndClockOf, dayOf } from "../../shell/time.ts";
 import { useToast } from "../../shell/toasts.tsx";
 import { ShapeIdeaDialog } from "../../shell/work/shape-idea-dialog.tsx";
 import { useIdeaPlanning } from "../../shell/work/use-idea-planning.ts";
+import { useCto } from "../../shell/work/use-cto.ts";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { authorName } from "../../shell/work/work-words.ts";
-import { useShaping } from "./use-shaping.ts";
+import { useShaping, useShapingIntoInitiative } from "./use-shaping.ts";
 
 /**
  * Ideas (prototypes/app/work.js): the new ones to shape or drop, and those shaped or dropped. An
@@ -39,6 +41,7 @@ export function IdeasPage(): ReactNode {
   const projects = useQuery(projectQueries.list());
   const roles = useQuery(roleQueries.list());
   const tasks = useQuery(taskQueries.list());
+  const initiatives = useQuery(initiativeQueries.list());
   const linkedTo = useSearch({ from: "/work/ideas" }).idea;
   const page = useScrolledToLinked(linkedTo, ideas.data !== undefined);
   const inState = (state: Idea["state"]): Idea[] =>
@@ -81,6 +84,7 @@ export function IdeasPage(): ReactNode {
               idea={idea}
               projects={projects.data}
               tasks={tasks.data}
+              initiatives={initiatives.data}
               linkedTo={idea.id === linkedTo}
             />
           ))}
@@ -139,6 +143,8 @@ function IdeaCard({
   const copyLink = useCopyRecordLink();
   const shaping = useShaping(idea);
   const planning = useIdeaPlanning(idea);
+  const cto = useCto();
+  const shapingIntoInitiative = useShapingIntoInitiative(idea);
   const actions: Readonly<Record<IdeaAction, IdeaActionWords>> = {
     shape: { label: "Shape into a Task", icon: "list-checks", mutation: shaping },
     plan: {
@@ -224,6 +230,15 @@ function IdeaCard({
             </Button>
           );
         })}
+        <Button
+          variant="secondary"
+          size="sm"
+          iconLeft={<Icon name="flag" size={14} />}
+          loading={shapingIntoInitiative.isPending}
+          onClick={() => shapingIntoInitiative.mutate()}
+        >
+          {cto ? `Shape into an Initiative with ${cto.card.name}` : "Shape into an Initiative"}
+        </Button>
       </div>
       {attaching && (
         <AddAttachmentDialog
@@ -248,14 +263,17 @@ function ShapedIdea({
   idea,
   projects,
   tasks,
+  initiatives,
   linkedTo,
 }: {
   readonly idea: Idea;
   readonly projects: readonly Project[] | undefined;
   readonly tasks: readonly Task[] | undefined;
+  readonly initiatives: readonly Initiative[] | undefined;
   readonly linkedTo: boolean;
 }): ReactNode {
   const task = tasks?.find(({ id }) => id === idea.taskId);
+  const initiative = initiatives?.find(({ id }) => id === idea.initiativeId);
   return (
     <div
       className={`ideas-row${linkedTo ? " linked-to" : ""}`}
@@ -271,6 +289,19 @@ function ShapedIdea({
               <Link to="/tasks/$taskId" params={{ taskId: task.id }} className="ideas-task-link">
                 <Icon name="list-checks" size={12} />
                 {task.title}
+              </Link>
+            </span>
+          )}
+          {initiative && (
+            <span>
+              · became{" "}
+              <Link
+                to="/work/initiatives/$initiativeId"
+                params={{ initiativeId: initiative.id }}
+                className="ideas-task-link"
+              >
+                <Icon name="flag" size={12} />
+                {initiative.name}
               </Link>
             </span>
           )}

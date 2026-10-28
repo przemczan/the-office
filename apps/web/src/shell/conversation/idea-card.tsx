@@ -18,7 +18,7 @@ type IdeaCardMessage = Extract<Message, { kind: "idea" }>;
 
 /**
  * An Idea the person captured in the chat (spec §2.2), as Work holds it now: still new, it is
- * planned as a Task with the Planner from here; shaped, it links its Task.
+ * planned as a Task with the Planner from here; shaped, it links its Task or Initiative.
  */
 export function IdeaCard({ card }: { readonly card: IdeaCardMessage }): ReactNode {
   const idea = useQuery(ideaQueries.one(card.ideaId));
@@ -65,6 +65,12 @@ function IdeaFoot({ idea }: { readonly idea: Idea }): ReactNode {
           <Badge tone="success">Shaped</Badge>
           {idea.taskId !== null && (
             <RecordMention link={{ kind: "task", taskId: idea.taskId }} written="its Task" />
+          )}
+          {idea.initiativeId !== null && (
+            <RecordMention
+              link={{ kind: "initiative", initiativeId: idea.initiativeId }}
+              written="its Initiative"
+            />
           )}
         </>
       );
