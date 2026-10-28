@@ -60,6 +60,15 @@ describe("GET /api/pipelines/:id", () => {
     ]);
   });
 
+  it("gives a Publish Stage's target", async () => {
+    const response = await fetch(`${url}/api/pipelines/proof-of-concept`);
+
+    expect(pipelineSchema.parse(await response.json()).stages.at(-1)).toMatchObject({
+      key: "publish",
+      publishTarget: "branch-only",
+    });
+  });
+
   it("answers 404 with the reason for a Pipeline that doesn't exist", async () => {
     const response = await fetch(`${url}/api/pipelines/nowhere`);
 

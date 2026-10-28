@@ -73,7 +73,13 @@ function toStageResponse(stage: Stage): StageResponse {
         onFailure: stage.onFailure,
       };
     case "script":
-      return { kind: "script", ...fields, command: stage.command, onFailure: stage.onFailure };
+      return {
+        kind: "script",
+        ...fields,
+        command: stage.command,
+        publishTarget: stage.publishTarget,
+        onFailure: stage.onFailure,
+      };
     case "gate":
       return { kind: "gate", ...fields };
   }
