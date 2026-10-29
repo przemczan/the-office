@@ -12,6 +12,7 @@ import {
   savedViewListSchema,
   savedViewSchema,
   searchResultsSchema,
+  queueSchema,
   startAnswerSchema,
   startCheckSchema,
   taskListSchema,
@@ -31,6 +32,7 @@ import {
   type ProjectFilter,
   type Readiness,
   type SavedView,
+  type QueuedTask,
   type StartAnswer,
   type StartCheck,
   type Task,
@@ -41,6 +43,7 @@ import {
   deleteFromApi,
   deleteFromApiReturning,
   getFromApi,
+  postToApi,
   sendFileToApi,
   sendToApi,
 } from "./api-client.ts";
@@ -147,6 +150,12 @@ export const taskQueries = {
     queryOptions({
       queryKey: [...TASKS, id],
       queryFn: ({ signal }) => getFromApi(taskPath(id), taskSchema, signal),
+    }),
+  /** The queue for Start, first place first; under the Tasks' key, so any Task event refreshes it. */
+  queue: () =>
+    queryOptions({
+      queryKey: [...TASKS, "queue"],
+      queryFn: ({ signal }): Promise<QueuedTask[]> => getFromApi("/queue", queueSchema, signal),
     }),
   /** Why Start would be refused now; under the Task's key, so any Task event refreshes it. */
   startCheck: (id: string) =>
@@ -307,6 +316,16 @@ export function markReady(id: string): Promise<Task> {
  */
 export function startTask(id: string): Promise<StartAnswer> {
   return sendToApi("POST", `${taskPath(id)}/start`, {}, startAnswerSchema);
+}
+
+/** Take out of the queue: the Task stays Ready. */
+export function takeOutOfQueue(taskId: string): Promise<void> {
+  return deleteFromApi(`/queue/${encodeURIComponent(taskId)}`);
+}
+
+/** Move up: one place in the queue, past the Task ahead of it. */
+export function moveUpInQueue(taskId: string): Promise<void> {
+  return postToApi(`/queue/${encodeURIComponent(taskId)}/move-up`, {});
 }
 
 /** Pause: held once the Agent's current turn ends, its edits kept (spec §2.4). */

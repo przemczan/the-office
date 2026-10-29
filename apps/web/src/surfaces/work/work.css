@@ -977,6 +977,14 @@
   color: var(--fg-3);
 }
 
+.queued-mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-3);
+  font-size: 12px;
+}
+
 .board-card-note {
   color: var(--fg-3);
 }

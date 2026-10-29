@@ -27,6 +27,7 @@ import {
 import { SkillsModule } from "./modules/skills/index.js";
 import {
   OfficeLimits,
+  QueueService,
   StageScreenshots,
   TaskRecords,
   TaskService,
@@ -101,6 +102,7 @@ export class AppModule {
           openDecisions: DecisionService,
           taskStageProgress: TaskStagesService,
           deskLimit: OfficeLimits,
+          startQueue: QueueService,
           knownPeople: RoleCards,
           accountUsage: UsageWindowState,
           officeStatusCards: ThreadService,

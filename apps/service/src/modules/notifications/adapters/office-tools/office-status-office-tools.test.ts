@@ -10,6 +10,7 @@ import { NotificationsModule } from "../../notifications.module.js";
 import {
   AccountUsageForTests,
   DeskLimitForTests,
+  StartQueueForTests,
   KnownPeopleForTests,
   NotificationsPortsForTestsModule,
   OfficeStatusCardsForTests,
@@ -33,6 +34,7 @@ describe("the show_office_status tool", () => {
           openDecisions: OpenDecisionsForTests,
           taskStageProgress: TaskStageProgressForTests,
           deskLimit: DeskLimitForTests,
+          startQueue: StartQueueForTests,
           knownPeople: KnownPeopleForTests,
           accountUsage: AccountUsageForTests,
           officeStatusCards: OfficeStatusCardsForTests,

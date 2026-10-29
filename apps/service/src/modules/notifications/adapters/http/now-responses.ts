@@ -5,6 +5,7 @@ export function toNowResponse(now: Now): NowResponse {
   return {
     needsYou: now.needsYou.map(toNeedsYouResponse),
     running: now.running.map(toRunningResponse),
+    queue: now.queue.map(({ reasons, ...queued }) => ({ ...queued, reasons: [...reasons] })),
     leftAt: now.leftAt?.toISOString() ?? null,
     sinceYouLeft: now.sinceYouLeft.map(({ occurredAt, ...finished }) => ({
       ...finished,

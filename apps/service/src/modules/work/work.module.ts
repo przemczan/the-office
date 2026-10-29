@@ -195,7 +195,14 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         InitiativeProposals,
         ProjectProposals,
       ],
-      exports: [IdeaService, TaskService, OfficeLimits, TaskRecords, StageScreenshots],
+      exports: [
+        IdeaService,
+        TaskService,
+        OfficeLimits,
+        QueueService,
+        TaskRecords,
+        StageScreenshots,
+      ],
     };
   }
 

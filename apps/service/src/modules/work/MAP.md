@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, AttachmentAdded, AttachmentMoved, AttachmentRemoved, IdeaCaptured, IdeaDropped, IdeaRestored, IdeaShaped, IdeaShapedIntoInitiative, InitiativeCreated, InitiativeStateChanged, OfficeWideLimitChanged, TaskCreated, TaskDefinitionOfDoneConfirmed, TaskDefinitionOfDoneProposed, TaskPaused, TaskPipelineConfirmed, TaskPipelineProposed, TaskPlanConfirmed, TaskPlanProposed, TaskPriorityChanged, TaskTagsChanged, TaskReordered, TaskResumed, TaskStarted, TaskStateChanged, TaskStopped, WorkModule
+IdeaService, OfficeLimits, QueueService, StageScreenshots, TaskRecords, TaskService, AttachmentAdded, AttachmentMoved, AttachmentRemoved, IdeaCaptured, IdeaDropped, IdeaRestored, IdeaShaped, IdeaShapedIntoInitiative, InitiativeCreated, InitiativeStateChanged, OfficeWideLimitChanged, TaskLeftQueue, TaskMovedUpInQueue, TaskQueued, TaskCreated, TaskDefinitionOfDoneConfirmed, TaskDefinitionOfDoneProposed, TaskPaused, TaskPipelineConfirmed, TaskPipelineProposed, TaskPlanConfirmed, TaskPlanProposed, TaskPriorityChanged, TaskTagsChanged, TaskReordered, TaskResumed, TaskStarted, TaskStateChanged, TaskStopped, WorkModule
 
 ## Domain events
 

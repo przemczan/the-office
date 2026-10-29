@@ -2,7 +2,7 @@
 
 **Owns:** Notifications (`notifications`): the kinds tree and routing resolved from the nearest level (`domain/notification-kinds.ts`), each Notification raised from another module's event with its content and channels, and cleared once the user handles what it points to (`NotificationService`); and Now and the status strip as one read model (`NowService`, pushed whole as `now.changed`), and what only events tell, kept in its own tables: each started Task's outcomes (`task_outcomes`), the user's activity, which says where Since you left begins (`user_activity`), tokens by day (`day_tokens`, measured from `thread_token_counts`) and the Tasks touched each day (`tasks_touched`).
 
-**Talks to:** nothing calls it. It reacts to the events of Work, Pipelines, Conversations and the Engine, and reads the rest through its ports, bound in [app.module.ts](../../app.module.ts): `OfficeTasks` to Work's `TaskService`, `DeskLimit` to Work's `OfficeLimits`, `KnownPeople` to People's `RoleCards` (whether an Office Manager is hired, who then speaks the Office kinds, or a CTO, who then tells an Initiative done), `OpenDecisions` to Conversations' `DecisionService`, `TaskStageProgress` to Pipelines' `TaskStagesService`, `AccountUsage` to the Engine's `UsageWindowState`. The Office Manager's `show_office_status` (`OfficeStatusOfficeTools`, on the Engine's registry that `imports` must provide) gives the Agent Now in words (`officeStatusText`) and posts the Office status card through `OfficeStatusCards`, bound to Conversations' `ThreadService`; `NotificationsPortsForTestsModule` provides a registry of its own.
+**Talks to:** nothing calls it. It reacts to the events of Work, Pipelines, Conversations and the Engine, and reads the rest through its ports, bound in [app.module.ts](../../app.module.ts): `OfficeTasks` to Work's `TaskService`, `DeskLimit` to Work's `OfficeLimits`, `StartQueue` to Work's `QueueService` (Now's queue, first place first), `KnownPeople` to People's `RoleCards` (whether an Office Manager is hired, who then speaks the Office kinds, or a CTO, who then tells an Initiative done), `OpenDecisions` to Conversations' `DecisionService`, `TaskStageProgress` to Pipelines' `TaskStagesService`, `AccountUsage` to the Engine's `UsageWindowState`. The Office Manager's `show_office_status` (`OfficeStatusOfficeTools`, on the Engine's registry that `imports` must provide) gives the Agent Now in words (`officeStatusText`) and posts the Office status card through `OfficeStatusCards`, bound to Conversations' `ThreadService`; `NotificationsPortsForTestsModule` provides a registry of its own.
 
 **Traps:**
 - Both tier 1 channels live in the browser: the service routes each Notification and sends it, with its channels, as `notification.raised`; the web's channel adapters show it. A channel outside the browser (tier 2's phone push) is a port here.
@@ -74,7 +74,7 @@ NotificationsModule
 - `notification-kinds.ts`: NOTIFICATION_KINDS, NotificationKind, CHANNELS, Channel, ChannelSettings, Routing, DEFAULT_ROUTING, WINDOW_NEARLY_USED_PERCENT, levelsOf, channelsOf
 - `notification.ts`: Pointer, Notification, NotificationDraft, notificationOf, decisionWaiting, gateWaiting, taskDone, Failure, taskFailed, taskPaused, initiativeDone, windowNearlyUsed, windowReset, engineDown, windowMove, Handling, handles, samePointer
 - `now-events.ts`: NowChanged
-- `now.ts`: OfficeTask, OpenDecision, StageOfTask, FiveHourWindow, WaitingDecision, WaitingGate, NeedsYouItem, CurrentStage, RunningTask, FinishedTask, Desks, Now, StartedTask, NowParts, nowOf, waitingGateOf, currentStageOf
+- `now.ts`: OfficeTask, OpenDecision, StageOfTask, FiveHourWindow, WaitingDecision, WaitingGate, NeedsYouItem, CurrentStage, RunningTask, FinishedTask, QueuedOnNow, QueuedTask, Desks, Now, StartedTask, NowParts, nowOf, waitingGateOf, currentStageOf
 - `office-day.ts`: officeDayOf
 - `office-status.ts`: officeStatusText
 - `task-outcome.ts`: TaskOutcomeKind, TaskOutcome, latestPerTask
@@ -87,11 +87,12 @@ NotificationsModule
 - `desk-limit.ts`: DeskLimit
 - `known-people.ts`: KnownPeople
 - `notification-repository.ts`: NotificationRepository
-- `notifications-ports.fixtures.ts`: OfficeTasksForTests, OpenDecisionsForTests, TaskStageProgressForTests, DeskLimitForTests, KnownPeopleForTests, AccountUsageForTests, OfficeStatusCardsForTests, NotificationsPortsForTestsModule
+- `notifications-ports.fixtures.ts`: OfficeTasksForTests, OpenDecisionsForTests, TaskStageProgressForTests, DeskLimitForTests, StartQueueForTests, KnownPeopleForTests, AccountUsageForTests, OfficeStatusCardsForTests, NotificationsPortsForTestsModule
 - `office-day-figures.ts`: ThreadTokens, OfficeDayFigures
 - `office-status-cards.ts`: OfficeStatusCards
 - `office-tasks.ts`: OfficeTasks
 - `open-decisions.ts`: OpenDecisions
+- `start-queue.ts`: StartQueue
 - `task-outcome-repository.ts`: TaskOutcomeRepository
 - `task-stage-progress.ts`: TaskStageProgress
 - `user-activity-repository.ts`: UserActivityRepository

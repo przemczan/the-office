@@ -23,7 +23,10 @@ import {
 } from "../../pipelines/index.js";
 import {
   OfficeWideLimitChanged,
+  TaskLeftQueue,
+  TaskMovedUpInQueue,
   TaskPaused,
+  TaskQueued,
   TaskResumed,
   TaskStarted,
   TaskStateChanged,
@@ -39,6 +42,7 @@ import { DeskLimit } from "../ports/desk-limit.js";
 import { OfficeDayFigures } from "../ports/office-day-figures.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
 import { OpenDecisions } from "../ports/open-decisions.js";
+import { StartQueue } from "../ports/start-queue.js";
 import { TaskOutcomeRepository } from "../ports/task-outcome-repository.js";
 import { TaskStageProgress } from "../ports/task-stage-progress.js";
 import { UserActivityRepository } from "../ports/user-activity-repository.js";
@@ -58,6 +62,9 @@ const NOW_CHANGES: readonly DomainEventClass[] = [
   DecisionReopened,
   UsageWindowsChanged,
   OfficeWideLimitChanged,
+  TaskQueued,
+  TaskLeftQueue,
+  TaskMovedUpInQueue,
 ];
 
 /**
@@ -77,6 +84,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     private readonly decisions: OpenDecisions,
     private readonly stages: TaskStageProgress,
     private readonly deskLimit: DeskLimit,
+    private readonly queue: StartQueue,
     private readonly usage: AccountUsage,
     private readonly outcomes: TaskOutcomeRepository,
     private readonly activity: UserActivityRepository,
@@ -99,19 +107,29 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
   async now(): Promise<Now> {
     const at = new Date();
     const day = officeDayOf(at);
-    const [started, openDecisions, tasks, activity, tokensToday, tasksTouched, officeWideLimit] =
-      await Promise.all([
-        this.startedTasks(),
-        this.decisions.listOpen(),
-        this.tasks.list(),
-        this.activity.find(),
-        this.figures.tokensOn(day),
-        this.figures.tasksTouchedOn(day),
-        this.deskLimit.officeWideLimit(),
-      ]);
+    const [
+      started,
+      openDecisions,
+      queued,
+      tasks,
+      activity,
+      tokensToday,
+      tasksTouched,
+      officeWideLimit,
+    ] = await Promise.all([
+      this.startedTasks(),
+      this.decisions.listOpen(),
+      this.queue.list(),
+      this.tasks.list(),
+      this.activity.find(),
+      this.figures.tokensOn(day),
+      this.figures.tasksTouchedOn(day),
+      this.deskLimit.officeWideLimit(),
+    ]);
     return nowOf({
       started,
       openDecisions,
+      queued,
       tasks,
       leftAt: activity?.leftAt,
       outcomes: activity ? await this.outcomes.since(activity.leftAt) : [],

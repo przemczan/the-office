@@ -25,6 +25,7 @@ function stage(
 const PARTS: NowParts = {
   started: [],
   openDecisions: [],
+  queued: [],
   tasks: [],
   leftAt: undefined,
   outcomes: [],
@@ -184,6 +185,26 @@ describe("nowOf", () => {
         outcome: "done",
         occurredAt: at(3),
       },
+    ]);
+  });
+
+  it("shows the queue in its order, each Task with its place and reasons", () => {
+    const first = { ...TASK, id: "t2", title: "Fix the header", state: "ready" };
+    const second = { ...TASK, id: "t3", projectId: "p2", state: "ready" };
+    const waits = ["The Office-wide limit is reached: all 3 desks are in use."];
+    const now = nowOf({
+      ...PARTS,
+      tasks: [TASK, second, first],
+      queued: [
+        { taskId: "t2", reasons: waits },
+        { taskId: "gone", reasons: waits },
+        { taskId: "t3", reasons: waits },
+      ],
+    });
+
+    expect(now.queue).toEqual([
+      { taskId: "t2", title: "Fix the header", projectId: "p1", place: 1, reasons: waits },
+      { taskId: "t3", title: "Add a filter", projectId: "p2", place: 3, reasons: waits },
     ]);
   });
 });

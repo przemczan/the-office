@@ -10,7 +10,17 @@ export default defineConfig({
   forbidOnly: !!process.env["CI"],
   reporter: [["list"]],
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure" },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: "**/queue.e2e.ts" },
+    // The queue is one for the Office and any release weighs all of it: its test runs alone, after
+    // every other file.
+    {
+      name: "queue",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: "**/queue.e2e.ts",
+      dependencies: ["chromium"],
+    },
+  ],
   webServer: {
     // npm run test:e2e at the root builds the web app and the service first.
     command: "node e2e/serve-office.ts",

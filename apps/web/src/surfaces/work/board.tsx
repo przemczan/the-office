@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Project, Task, TaskPlacement, TaskState } from "@the-office/contracts";
+import type { Project, QueuedTask, Task, TaskPlacement, TaskState } from "@the-office/contracts";
 import { Alert, Icon } from "@the-office/ui";
 import { Link } from "@tanstack/react-router";
 import { Fragment, useState, type DragEvent, type ReactNode } from "react";
@@ -17,6 +17,7 @@ import { tagsOffered } from "./board-filters.ts";
 import { blockingTasksOf } from "./dependency-words.ts";
 import { FilterBar } from "./filter-bar.tsx";
 import { PlanButton } from "./planning-actions.tsx";
+import { QueuedMark } from "./queue-parts.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 import { useBoardFilters } from "./use-board-filters.ts";
 
@@ -63,6 +64,7 @@ type DropTarget = { readonly before: string } | { readonly endOf: string };
  */
 export function Board(): ReactNode {
   const tasks = useQuery(taskQueries.list());
+  const queue = useQuery(taskQueries.queue()).data;
   const projects = useQuery(projectQueries.list());
   const initiatives = useQuery(initiativeQueries.list());
   const { filters, change: changeFilters, shows } = useBoardFilters(tasks.data ?? []);
@@ -147,6 +149,7 @@ export function Board(): ReactNode {
                     projects={projects.data}
                     planner={planner}
                     waiting={waitingOnYou(task)}
+                    queued={queue?.find(({ taskId }) => taskId === task.id)}
                     blockers={blockingTasksOf(task, tasks.data ?? [])}
                     dragging={dragged?.id === task.id}
                     dropBefore={
@@ -179,6 +182,7 @@ function BoardCard({
   projects,
   planner,
   waiting,
+  queued,
   blockers,
   dragging,
   dropBefore,
@@ -191,6 +195,8 @@ function BoardCard({
   readonly planner: string | undefined;
   /** In Planning or Paused with a Decision open. */
   readonly waiting: boolean;
+  /** Its place in the queue for Start; undefined while it isn't queued. */
+  readonly queued: QueuedTask | undefined;
   /** The Tasks still holding it back. */
   readonly blockers: readonly Task[];
   readonly dragging: boolean;
@@ -200,7 +206,7 @@ function BoardCard({
 }): ReactNode {
   const project = projects?.find(({ id }) => id === task.projectId);
   const movable = NOT_STARTED.includes(task.state);
-  const foot = footOf(task, planner, waiting);
+  const foot = queued ? <QueuedMark queued={queued} /> : footOf(task, planner, waiting);
   const classes = [
     "board-card",
     waiting ? "edge-decision" : EDGES[task.state],

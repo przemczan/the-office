@@ -82,6 +82,21 @@ export interface FinishedTask {
   readonly occurredAt: Date;
 }
 
+/** A Task in Work's queue for Start, with the waits that hold it, from Work. */
+export interface QueuedOnNow {
+  readonly taskId: string;
+  readonly reasons: readonly string[];
+}
+
+/** A queued Task as Now shows it: its place, counted from 1, and why it waits. */
+export interface QueuedTask {
+  readonly taskId: string;
+  readonly title: string;
+  readonly projectId: string;
+  readonly place: number;
+  readonly reasons: readonly string[];
+}
+
 /** The running Tasks against the Office-wide limit (spec §2.2 Defaults). */
 export interface Desks {
   readonly inUse: number;
@@ -93,6 +108,8 @@ export interface Now {
   /** Oldest first. */
   readonly needsYou: readonly NeedsYouItem[];
   readonly running: readonly RunningTask[];
+  /** The queue for Start, first place first (spec §2.1, "A queue for Start"). */
+  readonly queue: readonly QueuedTask[];
   /** Undefined until the user is first seen. */
   readonly leftAt: Date | undefined;
   /** Each Task's latest outcome since the user left, latest first. */
@@ -115,6 +132,8 @@ export interface StartedTask {
 export interface NowParts {
   readonly started: readonly StartedTask[];
   readonly openDecisions: readonly OpenDecision[];
+  /** First place first. */
+  readonly queued: readonly QueuedOnNow[];
   readonly tasks: readonly OfficeTask[];
   readonly leftAt: Date | undefined;
   /** The outcomes since the user left. */
@@ -139,6 +158,7 @@ export function nowOf(parts: NowParts): Now {
       state: task.state,
       stage: stages && currentStageOf(stages),
     })),
+    queue: queueOf(parts.queued, parts.tasks),
     leftAt: parts.leftAt,
     sinceYouLeft: finishedTasksOf(parts.outcomes, parts.tasks),
     tokensToday: parts.tokensToday,
@@ -146,6 +166,14 @@ export function nowOf(parts: NowParts): Now {
     desks: { inUse: parts.started.length, limit: parts.officeWideLimit },
     fiveHourWindow: parts.fiveHourWindow,
   };
+}
+
+function queueOf(queued: readonly QueuedOnNow[], tasks: readonly OfficeTask[]): QueuedTask[] {
+  return queued.flatMap(({ taskId, reasons }, index) => {
+    const task = tasks.find(({ id }) => id === taskId);
+    if (!task) return [];
+    return [{ taskId, title: task.title, projectId: task.projectId, place: index + 1, reasons }];
+  });
 }
 
 /** The Gate the Task waits at, if it does: since the Gate's run ended as the Task reached it. */

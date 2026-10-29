@@ -1,12 +1,19 @@
 import { Module } from "@nestjs/common";
 import { OfficeToolRegistry } from "../../engine/index.js";
-import type { FiveHourWindow, OfficeTask, OpenDecision, StageOfTask } from "../domain/now.js";
+import type {
+  FiveHourWindow,
+  OfficeTask,
+  OpenDecision,
+  QueuedOnNow,
+  StageOfTask,
+} from "../domain/now.js";
 import { AccountUsage } from "./account-usage.js";
 import { DeskLimit } from "./desk-limit.js";
 import { KnownPeople } from "./known-people.js";
 import { OfficeStatusCards } from "./office-status-cards.js";
 import { OfficeTasks } from "./office-tasks.js";
 import { OpenDecisions } from "./open-decisions.js";
+import { StartQueue } from "./start-queue.js";
 import { TaskStageProgress } from "./task-stage-progress.js";
 
 const STARTED_STATES: readonly string[] = ["in-progress", "waiting-on-you", "paused"];
@@ -55,6 +62,14 @@ export class DeskLimitForTests extends DeskLimit {
   }
 }
 
+export class StartQueueForTests extends StartQueue {
+  queued: QueuedOnNow[] = [];
+
+  async list(): Promise<readonly QueuedOnNow[]> {
+    return this.queued;
+  }
+}
+
 export class KnownPeopleForTests extends KnownPeople {
   readonly hired = new Set<string>();
 
@@ -81,6 +96,7 @@ const PORTS = [
   OpenDecisionsForTests,
   TaskStageProgressForTests,
   DeskLimitForTests,
+  StartQueueForTests,
   KnownPeopleForTests,
   AccountUsageForTests,
   OfficeStatusCardsForTests,

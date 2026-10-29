@@ -11,6 +11,7 @@ import { NotificationService } from "./application/notification-service.js";
 import { NowService } from "./application/now-service.js";
 import { AccountUsage } from "./ports/account-usage.js";
 import { DeskLimit } from "./ports/desk-limit.js";
+import { StartQueue } from "./ports/start-queue.js";
 import { KnownPeople } from "./ports/known-people.js";
 import { NotificationRepository } from "./ports/notification-repository.js";
 import { OfficeDayFigures } from "./ports/office-day-figures.js";
@@ -31,6 +32,7 @@ export interface NotificationsModuleOptions {
   readonly openDecisions: Type<OpenDecisions>;
   readonly taskStageProgress: Type<TaskStageProgress>;
   readonly deskLimit: Type<DeskLimit>;
+  readonly startQueue: Type<StartQueue>;
   readonly knownPeople: Type<KnownPeople>;
   readonly accountUsage: Type<AccountUsage>;
   readonly officeStatusCards: Type<OfficeStatusCards>;
@@ -49,6 +51,7 @@ export class NotificationsModule {
     openDecisions,
     taskStageProgress,
     deskLimit,
+    startQueue,
     knownPeople,
     accountUsage,
     officeStatusCards,
@@ -66,6 +69,7 @@ export class NotificationsModule {
         { provide: OpenDecisions, useExisting: openDecisions },
         { provide: TaskStageProgress, useExisting: taskStageProgress },
         { provide: DeskLimit, useExisting: deskLimit },
+        { provide: StartQueue, useExisting: startQueue },
         { provide: KnownPeople, useExisting: knownPeople },
         { provide: AccountUsage, useExisting: accountUsage },
         { provide: OfficeStatusCards, useExisting: officeStatusCards },

@@ -1,6 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import type { FinishedTask, Now, Project, Role, RunningTask } from "@the-office/contracts";
+import type {
+  FinishedTask,
+  Now,
+  Project,
+  QueuedOnNow,
+  Role,
+  RunningTask,
+} from "@the-office/contracts";
 import { Avatar, Badge } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { nowQueries } from "../../api/notifications.ts";
@@ -29,7 +36,7 @@ import { TASK_STATE_NAMES, TASK_STATE_TONES } from "../../shell/work/work-words.
 import "./now.css";
 
 /**
- * Home: what needs the user, what is running, what happened since they left, and today's tokens;
+ * Home: what needs the user, what is running and queued, what happened since they left, and today's tokens;
  * nothing else (spec §4). Each Decision and Gate is answered in place. The Project filter narrows
  * the three feeds; desks and tokens stay Office-wide.
  */
@@ -59,6 +66,14 @@ export function NowPage(): ReactNode {
         <Feed>
           {now && <RunningFeed now={now} projects={projects} roles={roles} clock={clock} />}
         </Feed>
+        {now && now.queue.length > 0 && (
+          <>
+            <PanelHeading icon="list-ordered" title="Queue" count={String(now.queue.length)} />
+            <Feed>
+              <QueueFeed queue={now.queue} projects={projects} />
+            </Feed>
+          </>
+        )}
         <PanelHeading
           icon="moon"
           title="Since you left"
@@ -148,6 +163,39 @@ function RunningCard({
         </div>
       </div>
     </ItemCard>
+  );
+}
+
+/** The queue for Start, first place first: each Task starts by itself once a desk and its person are free. */
+function QueueFeed({
+  queue,
+  projects,
+}: {
+  readonly queue: readonly QueuedOnNow[];
+  readonly projects: readonly Project[] | undefined;
+}): ReactNode {
+  const { shown, elsewhere } = useNarrowedByProject(queue);
+  return (
+    <>
+      {shown.length === 0 && <EmptyCard>Nothing is queued in these Projects.</EmptyCard>}
+      {shown.map((task) => (
+        <ItemCard key={task.taskId} edge="paused" label={`Queued: ${task.title}`}>
+          <div className="now-item">
+            <div className="now-item-heading">
+              <Badge tone="info">Queued</Badge>
+              <Link to="/tasks/$taskId" params={{ taskId: task.taskId }} className="now-item-title">
+                {task.title}
+              </Link>
+              <ProjectChip projectId={task.projectId} projects={projects} />
+            </div>
+            <div className="now-item-sub">
+              Place {task.place} · {task.reasons.join(" ")}
+            </div>
+          </div>
+        </ItemCard>
+      ))}
+      <InOtherProjectsNote count={elsewhere} one="Task" many="Tasks" />
+    </>
   );
 }
 

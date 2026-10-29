@@ -44,6 +44,16 @@ export const runningTaskSchema = z.object({
 });
 export type RunningTask = z.infer<typeof runningTaskSchema>;
 
+/** A Task in the queue for Start, its place counted from 1, with the waits that hold it. */
+export const queuedOnNowSchema = z.object({
+  taskId: z.uuid(),
+  title: z.string(),
+  projectId: z.string(),
+  place: z.number().int().positive(),
+  reasons: z.array(z.string()),
+});
+export type QueuedOnNow = z.infer<typeof queuedOnNowSchema>;
+
 export const taskOutcomeSchema = z.enum(["done", "failed", "paused"]);
 export type TaskOutcome = z.infer<typeof taskOutcomeSchema>;
 
@@ -61,6 +71,8 @@ export type FinishedTask = z.infer<typeof finishedTaskSchema>;
 export const nowSchema = z.object({
   needsYou: z.array(needsYouItemSchema),
   running: z.array(runningTaskSchema),
+  /** The queue for Start, first place first. */
+  queue: z.array(queuedOnNowSchema),
   /** Null until the user is first seen. */
   leftAt: z.iso.datetime().nullable(),
   /** Latest first. */
