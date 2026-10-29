@@ -50,11 +50,19 @@ export class PlanningOfficeTools implements OnModuleInit {
   private registerWritePlan(): void {
     this.registry.register({
       name: WRITE_PLAN,
-      description: `Writes the Plan onto this Task: how it will be done, in plain words whoever implements it can follow. It replaces the Plan the Task has; read the Task with read_task first, since the user may have edited it. ${PROPOSED}`,
-      input: z.object({ plan: z.string().describe("The whole Plan, as Markdown.") }),
-      run: ({ plan }, { sessionId }) =>
+      description: `Writes the Plan onto this Task: how it will be done, in plain words whoever implements it can follow, with the files it expects to change. It replaces the Plan the Task has; read the Task with read_task first, since the user may have edited it. Start warns the user when a Task in progress in the same Project expects to change some of the same files. ${PROPOSED}`,
+      input: z.object({
+        plan: z.string().describe("The whole Plan, as Markdown."),
+        filesToChange: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "The files and folders the Plan expects to change, as paths from the repository's root; a folder covers everything under it. Left out, the Task keeps those it has.",
+          ),
+      }),
+      run: ({ plan, filesToChange }, { sessionId }) =>
         answered(async () => {
-          await this.planning.proposePlan(await this.taskIn(sessionId), plan);
+          await this.planning.proposePlan(await this.taskIn(sessionId), { plan, filesToChange });
           return `Wrote the Plan onto the Task. ${PROPOSED}`;
         }),
     });

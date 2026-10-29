@@ -122,6 +122,11 @@ export const taskSchema = newTaskSchema.extend({
   plan: z.string(),
   /** False while the Plan is the Planner's proposal; true once the user confirmed or edited it. */
   planConfirmed: z.boolean(),
+  /**
+   * The files and folders the Plan expects to change, written and confirmed with it; a folder
+   * covers the files under it. Start warns of an Overlap on them.
+   */
+  filesToChange: z.array(z.string()),
   definitionOfDone: z.array(z.string()),
   /** As `planConfirmed`, for the Definition of Done. */
   definitionOfDoneConfirmed: z.boolean(),
@@ -170,9 +175,13 @@ export type TagsChange = z.infer<typeof tagsChangeSchema>;
 
 /**
  * PUT /tasks/:id/plan: the user's Plan, confirmed. Confirming the proposed one sends it as shown,
- * so what is confirmed is what the user read; an edit sends the edited words.
+ * so what is confirmed is what the user read; an edit sends the edited words. Its files to change
+ * go with it; left out, the Task keeps those it has.
  */
-export const planChangeSchema = z.object({ plan: z.string() });
+export const planChangeSchema = z.object({
+  plan: z.string(),
+  filesToChange: z.array(z.string()).optional(),
+});
 export type PlanChange = z.infer<typeof planChangeSchema>;
 
 /** PUT /tasks/:id/definition-of-done: the user's Definition of Done, confirmed, as with the Plan. */
@@ -201,15 +210,43 @@ export const newDependencySchema = z.object({ blockerId: z.uuid() });
 export type NewDependency = z.infer<typeof newDependencySchema>;
 
 /**
- * GET /tasks/:id/start: why the Task can't start now; both empty when it can. A refusal stops
+ * A started Task in the same Project whose Plan expects to change some of the same files: the
+ * files both expect to change, of a folder and a file under it the file.
+ */
+export const overlapSchema = z.object({
+  taskId: z.uuid(),
+  title: z.string(),
+  files: z.array(z.string()),
+});
+export type Overlap = z.infer<typeof overlapSchema>;
+
+/**
+ * GET /tasks/:id/start: why the Task can't start now; all empty when it can. A refusal stops
  * Start; a wait (the Office-wide limit, its person's Task limit) only holds the Task until a desk
- * and its person are free.
+ * and its person are free; an Overlap asks the user to start anyway or to queue behind it.
  */
 export const startCheckSchema = z.object({
   refusals: z.array(z.string()),
   waits: z.array(z.string()),
+  overlaps: z.array(overlapSchema),
 });
 export type StartCheck = z.infer<typeof startCheckSchema>;
+
+/**
+ * The user's answer to an Overlap at Start: "start-anyway", or "queue-behind" the Tasks it
+ * overlaps until each is Done or Dropped.
+ */
+export const overlapChoiceSchema = z.enum(["start-anyway", "queue-behind"]);
+export type OverlapChoice = z.infer<typeof overlapChoiceSchema>;
+
+/**
+ * POST /tasks/:id/start: the answer to an Overlap; while one stands, Start without it refuses. No
+ * body is no answer.
+ */
+export const startRequestSchema = z
+  .object({ onOverlap: overlapChoiceSchema.optional() })
+  .default({});
+export type StartRequest = z.infer<typeof startRequestSchema>;
 
 /** A Task in the one Office-wide queue for Start, with the waits that hold it. */
 export const queuedTaskSchema = z.object({
@@ -218,6 +255,8 @@ export const queuedTaskSchema = z.object({
   place: z.number().int().positive(),
   queuedAt: z.iso.datetime(),
   reasons: z.array(z.string()),
+  /** The Tasks it was queued behind for an Overlap, each until it is Done or Dropped. */
+  behind: z.array(z.uuid()),
 });
 export type QueuedTask = z.infer<typeof queuedTaskSchema>;
 

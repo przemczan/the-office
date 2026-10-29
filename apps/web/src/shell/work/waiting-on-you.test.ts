@@ -14,6 +14,7 @@ function aTask(fields: Partial<Task>): Task {
     state: "planning",
     plan: "",
     planConfirmed: false,
+    filesToChange: [],
     definitionOfDone: [],
     definitionOfDoneConfirmed: false,
     pipelineId: "full",

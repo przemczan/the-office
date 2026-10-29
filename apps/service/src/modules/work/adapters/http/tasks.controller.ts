@@ -30,8 +30,10 @@ import {
   type PriorityChange,
   type Readiness,
   type SearchQuery,
+  startRequestSchema,
   type StartAnswer,
   type StartCheck,
+  type StartRequest,
   type TagsChange,
   type Task as TaskResponse,
   type TaskPlacement,
@@ -132,9 +134,9 @@ export class TasksController {
   @Put(":id/plan")
   async confirmPlan(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(planChangeSchema)) { plan }: PlanChange,
+    @Body(new ContractPipe(planChangeSchema)) { plan, filesToChange }: PlanChange,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.confirmPlan(id, plan));
+    return toTaskResponse(await this.planning.confirmPlan(id, { plan, filesToChange }));
   }
 
   /** The user's Definition of Done, confirmed, as with the Plan. */
@@ -176,21 +178,32 @@ export class TasksController {
     };
   }
 
-  /** Why the Task can't start now, refusals apart from waits, for the Task page beside Start. */
+  /**
+   * Why the Task can't start now, refusals apart from waits, and its Overlaps, for the Task page
+   * beside Start.
+   */
   @Get(":id/start")
   async startCheck(@Param("id", ParseUUIDPipe) id: string): Promise<StartCheck> {
-    const { refusals, waits } = await this.starting.startReasons(id);
-    return { refusals: [...refusals], waits: [...waits] };
+    const { refusals, waits, overlaps } = await this.starting.check(id);
+    return {
+      refusals: [...refusals],
+      waits: [...waits],
+      overlaps: overlaps.map(({ taskId, title, files }) => ({ taskId, title, files: [...files] })),
+    };
   }
 
   /**
-   * Start: Ready → In progress, or into the queue when only a limit holds it; refused with the
-   * reasons when anything else does.
+   * Start: Ready → In progress, or into the queue when only a limit holds it or the user queues it
+   * behind an Overlap; refused with the reasons when anything else does, or an Overlap the user
+   * hasn't answered.
    */
   @Post(":id/start")
   @HttpCode(HttpStatus.OK)
-  async start(@Param("id", ParseUUIDPipe) id: string): Promise<StartAnswer> {
-    const starting = await this.starting.start(id);
+  async start(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Body(new ContractPipe(startRequestSchema)) { onOverlap }: StartRequest,
+  ): Promise<StartAnswer> {
+    const starting = await this.starting.start(id, onOverlap);
     if (starting.kind === "started") {
       return { task: toTaskResponse(starting.change.task), queued: null };
     }

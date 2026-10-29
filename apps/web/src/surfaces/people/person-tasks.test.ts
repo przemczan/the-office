@@ -41,6 +41,7 @@ function aTask(fields: Partial<Task>): Task {
     state: "backlog",
     plan: "",
     planConfirmed: false,
+    filesToChange: [],
     definitionOfDone: [],
     definitionOfDoneConfirmed: false,
     pipelineId: "full",

@@ -57,6 +57,7 @@ export function createOnboardTask(
     state: "ready",
     plan: onboardTaskPlan(project.name),
     planConfirmed: true,
+    filesToChange: [],
     definitionOfDone: ONBOARD_TASK_DEFINITION_OF_DONE,
     definitionOfDoneConfirmed: true,
     isOnboardTask: true,

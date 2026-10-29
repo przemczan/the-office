@@ -16,4 +16,9 @@ export const queue = pgTable("queue", {
     .array()
     .notNull()
     .default(sql`'{}'`),
+  /** The Tasks it was queued behind for an Overlap; a Task is dropped, never deleted, so ids hold. */
+  behind: uuid("behind")
+    .array()
+    .notNull()
+    .default(sql`'{}'`),
 });

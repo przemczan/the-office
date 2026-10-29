@@ -7,6 +7,7 @@ import type { StartConditions } from "./task-start.js";
 import { aTask } from "./work.fixtures.js";
 
 const NOW = new Date("2026-10-29T09:00:00.000Z");
+const NO_CHOICE = { now: NOW, onOverlap: undefined };
 
 function conditionsFor(role: string, taskLimit = 1, officeWideLimit = 3): StartConditions {
   return {
@@ -17,17 +18,23 @@ function conditionsFor(role: string, taskLimit = 1, officeWideLimit = 3): StartC
 }
 
 const developer = conditionsFor("developer");
+const developerFor = (): StartConditions => developer;
 
 function ready(id: string, fields: Partial<Task> = {}): Task {
   return aTask({ id, title: `Task ${id}`, state: "ready", ...fields });
 }
 
-function started(id: string, personRole: string): Task {
-  return aTask({ id, state: "in-progress", personRole });
+function started(id: string, personRole: string, fields: Partial<Task> = {}): Task {
+  return aTask({ id, title: `Task ${id}`, state: "in-progress", personRole, ...fields });
 }
 
-function queued(taskId: string, place: number, reasons: readonly string[] = []): QueuedTask {
-  return { taskId, place, queuedAt: NOW, reasons };
+function queued(
+  taskId: string,
+  place: number,
+  reasons: readonly string[] = [],
+  behind: readonly string[] = [],
+): QueuedTask {
+  return { taskId, place, queuedAt: NOW, reasons, behind };
 }
 
 describe("startOrQueue", () => {
@@ -37,7 +44,7 @@ describe("startOrQueue", () => {
       developer,
       { startedTasks: [], blockers: [] },
       [],
-      NOW,
+      NO_CHOICE,
     );
 
     expect(starting.kind).toBe("started");
@@ -46,7 +53,7 @@ describe("startOrQueue", () => {
   it("queues a Task only waits hold, last in the queue, and announces it", () => {
     const held = { startedTasks: [started("x", "developer")], blockers: [] };
 
-    const starting = startOrQueue(ready("a"), developer, held, [queued("q", 4)], NOW);
+    const starting = startOrQueue(ready("a"), developer, held, [queued("q", 4)], NO_CHOICE);
 
     expect(starting).toEqual({
       kind: "queued",
@@ -63,7 +70,7 @@ describe("startOrQueue", () => {
       developer,
       held,
       [queued("a", 2), queued("b", 3)],
-      NOW,
+      NO_CHOICE,
     );
 
     expect(starting).toEqual({
@@ -76,12 +83,61 @@ describe("startOrQueue", () => {
     const blocker = aTask({ id: "b", title: "Queue schema", state: "ready" });
     const held = { startedTasks: [started("x", "developer")], blockers: [blocker] };
 
-    expect(() => startOrQueue(ready("a"), developer, held, [], NOW)).toThrow(
+    expect(() => startOrQueue(ready("a"), developer, held, [], NO_CHOICE)).toThrow(
       new TaskRefused([
         'Blocked by "Queue schema", which must be Done first.',
         "The developer is at the Task limit (1).",
       ]),
     );
+  });
+});
+
+describe("startOrQueue with an Overlap", () => {
+  const overlapping = started("x", "reviewer", { title: "Login", filesToChange: ["src/auth"] });
+  const held = { startedTasks: [overlapping], blockers: [] };
+  const task = ready("a", { filesToChange: ["src/auth/login.ts"] });
+  const BEHIND_LOGIN = 'Queued behind "Login" until it is Done or Dropped.';
+
+  it("refuses until the user chooses, naming the Task and the files", () => {
+    expect(() => startOrQueue(task, developer, held, [], NO_CHOICE)).toThrow(
+      new TaskRefused([
+        '"Login" is in progress and expects to change src/auth/login.ts too: start anyway, or queue behind it.',
+      ]),
+    );
+  });
+
+  it("starts anyway when the user says so", () => {
+    const starting = startOrQueue(task, developer, held, [], {
+      now: NOW,
+      onOverlap: "start-anyway",
+    });
+
+    expect(starting.kind).toBe("started");
+  });
+
+  it("queues behind the overlapping Task, though a desk is free", () => {
+    const starting = startOrQueue(task, developer, held, [queued("q", 1)], {
+      now: NOW,
+      onOverlap: "queue-behind",
+    });
+
+    expect(starting).toEqual({
+      kind: "queued",
+      queued: queued("a", 2, [BEHIND_LOGIN], ["x"]),
+      event: expect.any(TaskQueued) as TaskQueued,
+    });
+  });
+
+  it("is released once the Task it is behind is Done or Dropped, and not before", () => {
+    const queue = [queued("a", 1, [BEHIND_LOGIN], ["x"])];
+
+    const waiting = releaseQueue(queue, [overlapping, task], developerFor);
+    const done = releaseQueue(queue, [{ ...overlapping, state: "done" }, task], developerFor);
+    const dropped = releaseQueue(queue, [{ ...overlapping, state: "dropped" }, task], developerFor);
+
+    expect(waiting.waiting).toEqual(queue);
+    expect(done.started.map(({ task: { id } }) => id)).toEqual(["a"]);
+    expect(dropped.started.map(({ task: { id } }) => id)).toEqual(["a"]);
   });
 });
 

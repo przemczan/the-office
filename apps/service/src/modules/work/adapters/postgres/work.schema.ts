@@ -65,6 +65,10 @@ export const tasks = pgTable(
     order: text("order_key").notNull(),
     plan: text("plan").notNull(),
     planConfirmed: boolean("plan_confirmed").notNull().default(false),
+    filesToChange: text("files_to_change")
+      .array()
+      .notNull()
+      .default(sql`'{}'`),
     definitionOfDone: text("definition_of_done")
       .array()
       .notNull()

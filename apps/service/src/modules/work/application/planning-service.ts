@@ -10,6 +10,7 @@ import {
   proposeDefinitionOfDone,
   proposePipeline,
   proposePlan,
+  type PlanWriting,
 } from "../domain/planning-changes.js";
 import type { ProposedPipeline, Task } from "../domain/task.js";
 import {
@@ -102,13 +103,13 @@ export class PlanningService {
     return this.plan(task.id);
   }
 
-  async proposePlan(taskId: string, plan: string): Promise<Task> {
-    return this.update(taskId, (task) => proposePlan(task, plan));
+  async proposePlan(taskId: string, writing: PlanWriting): Promise<Task> {
+    return this.update(taskId, (task) => proposePlan(task, writing));
   }
 
   /** The user's Plan, confirmed: the proposed one as it is, or their edit of it. */
-  async confirmPlan(taskId: string, plan: string): Promise<Task> {
-    return this.update(taskId, (task) => confirmPlan(task, plan));
+  async confirmPlan(taskId: string, writing: PlanWriting): Promise<Task> {
+    return this.update(taskId, (task) => confirmPlan(task, writing));
   }
 
   async proposeDefinitionOfDone(taskId: string, statements: readonly string[]): Promise<Task> {

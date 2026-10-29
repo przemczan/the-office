@@ -107,11 +107,14 @@ async function saveStarted(transaction: Transaction, task: Task): Promise<void> 
 }
 
 async function saveQueued(transaction: Transaction, queued: QueuedTask): Promise<void> {
-  const row = { ...queued, reasons: [...queued.reasons] };
+  const row = { ...queued, reasons: [...queued.reasons], behind: [...queued.behind] };
   await transaction
     .insert(queue)
     .values(row)
-    .onConflictDoUpdate({ target: queue.taskId, set: { reasons: row.reasons } });
+    .onConflictDoUpdate({
+      target: queue.taskId,
+      set: { reasons: row.reasons, behind: row.behind },
+    });
 }
 
 async function removeQueued(transaction: Transaction, taskId: string): Promise<boolean> {
@@ -122,6 +125,6 @@ async function removeQueued(transaction: Transaction, taskId: string): Promise<b
   return removed.length > 0;
 }
 
-function toQueuedTask({ taskId, place, queuedAt, reasons }: QueueRow): QueuedTask {
-  return { taskId, place, queuedAt, reasons };
+function toQueuedTask({ taskId, place, queuedAt, reasons, behind }: QueueRow): QueuedTask {
+  return { taskId, place, queuedAt, reasons, behind };
 }

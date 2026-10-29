@@ -8,6 +8,7 @@ import { AttachmentService } from "../../application/attachment-service.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { THE_USER } from "../../domain/author.js";
+import { taskRecordText } from "../../domain/record-words.js";
 import { PLANNING_OFFICE_TOOLS } from "../conversations/planning-thread-setup.js";
 import type { Task } from "../../domain/task.js";
 import { SessionTasksForTests } from "../../ports/work-ports.fixtures.js";
@@ -92,6 +93,18 @@ describe("write_plan", () => {
       plan: "Keep the requested path through the sign-in.",
       planConfirmed: false,
     });
+  });
+
+  it("writes the files the Plan expects to change with it, shown in the Task's record", async () => {
+    await call(WRITE_PLAN, {
+      plan: "Keep the requested path through the sign-in.",
+      filesToChange: ["src/auth/", "src/login.ts"],
+    });
+
+    expect((await current()).filesToChange).toEqual(["src/auth", "src/login.ts"]);
+    expect(taskRecordText(await current(), [], [])).toContain(
+      "Files to change:\n- src/auth\n- src/login.ts",
+    );
   });
 
   it("refuses a session on no Task, and a Task past Planning, with the reason", async () => {

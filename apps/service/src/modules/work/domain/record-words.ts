@@ -31,6 +31,9 @@ export function taskRecordText(
     "",
     task.plan === "" ? "Plan:" : `Plan, ${confirmationWords(task.planConfirmed)}:`,
     task.plan === "" ? "No Plan yet." : task.plan,
+    ...(task.filesToChange.length === 0
+      ? []
+      : ["", "Files to change:", ...task.filesToChange.map((path) => `- ${path}`)]),
     "",
     task.definitionOfDone.length === 0
       ? "Definition of Done:"

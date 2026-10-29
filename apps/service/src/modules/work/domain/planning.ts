@@ -70,13 +70,18 @@ export function planningBrief({
     pipelinesSection(task, pipelines),
     task.plan === ""
       ? undefined
-      : `## The Plan, ${confirmationWords(task.planConfirmed)}\n\n${task.plan}`,
+      : `## The Plan, ${confirmationWords(task.planConfirmed)}\n\n${task.plan}${filesToChangeLines(task)}`,
     task.definitionOfDone.length === 0
       ? undefined
       : `## The Definition of Done, ${confirmationWords(task.definitionOfDoneConfirmed)}\n\n${task.definitionOfDone.map((statement) => `- ${statement}`).join("\n")}`,
   ]
     .filter((section) => section !== undefined)
     .join("\n\n");
+}
+
+function filesToChangeLines({ filesToChange }: Task): string {
+  if (filesToChange.length === 0) return "";
+  return `\n\nFiles to change:\n${filesToChange.map((path) => `- ${path}`).join("\n")}`;
 }
 
 function attachmentsSection(attachments: readonly Attachment[]): string {

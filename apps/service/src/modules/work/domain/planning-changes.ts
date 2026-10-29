@@ -1,3 +1,4 @@
+import { filesToChangeProblems, normalizedFilesToChange } from "./files-to-change.js";
 import type { ProposedPipeline, Task } from "./task.js";
 import type { TaskChange } from "./task-changes.js";
 import {
@@ -14,28 +15,64 @@ import { NOT_STARTED_STATES, TASK_STATE_NAMES } from "./task-states.js";
 /*
  * The Planner proposes the Plan, the Definition of Done and a Pipeline on a Task in Planning; the
  * user confirms each, as proposed or edited, until the Task starts (spec §2.1, §2.3). The Planner
- * writing again makes a part proposed again; the same words change nothing.
+ * writing again makes a part proposed again; the same words change nothing. The Plan's files to
+ * change go with it: written, proposed and confirmed together.
  */
 
-export function proposePlan(task: Task, plan: string): TaskChange<TaskPlanProposed> | undefined {
-  const trimmed = plan.trim();
-  refuseWith([...proposingProblems(task, "The Plan"), ...planProblems(trimmed)]);
-  if (trimmed === task.plan) return undefined;
+/** A Plan as written: its words, and the files it expects to change. */
+export interface PlanWriting {
+  readonly plan: string;
+  /** Undefined keeps those the Task has. */
+  readonly filesToChange?: readonly string[] | undefined;
+}
+
+export function proposePlan(
+  task: Task,
+  writing: PlanWriting,
+): TaskChange<TaskPlanProposed> | undefined {
+  const { plan, filesToChange } = writtenPlan(task, writing);
+  refuseWith([
+    ...proposingProblems(task, "The Plan"),
+    ...planProblems(plan),
+    ...filesToChangeProblems(filesToChange),
+  ]);
+  if (samePlan(task, plan, filesToChange)) return undefined;
   return {
-    task: { ...task, plan: trimmed, planConfirmed: false },
+    task: { ...task, plan, filesToChange, planConfirmed: false },
     event: new TaskPlanProposed(task.id),
   };
 }
 
 /** The user's Plan: the proposed one confirmed, or their own edit of it. */
-export function confirmPlan(task: Task, plan: string): TaskChange<TaskPlanConfirmed> | undefined {
-  const trimmed = plan.trim();
-  refuseWith([...confirmingProblems(task, "Plan"), ...planProblems(trimmed)]);
-  if (trimmed === task.plan && task.planConfirmed) return undefined;
+export function confirmPlan(
+  task: Task,
+  writing: PlanWriting,
+): TaskChange<TaskPlanConfirmed> | undefined {
+  const { plan, filesToChange } = writtenPlan(task, writing);
+  refuseWith([
+    ...confirmingProblems(task, "Plan"),
+    ...planProblems(plan),
+    ...filesToChangeProblems(filesToChange),
+  ]);
+  if (samePlan(task, plan, filesToChange) && task.planConfirmed) return undefined;
   return {
-    task: { ...task, plan: trimmed, planConfirmed: true },
+    task: { ...task, plan, filesToChange, planConfirmed: true },
     event: new TaskPlanConfirmed(task.id),
   };
+}
+
+function writtenPlan(
+  task: Task,
+  { plan, filesToChange }: PlanWriting,
+): { readonly plan: string; readonly filesToChange: readonly string[] } {
+  return {
+    plan: plan.trim(),
+    filesToChange: filesToChange ? normalizedFilesToChange(filesToChange) : task.filesToChange,
+  };
+}
+
+function samePlan(task: Task, plan: string, filesToChange: readonly string[]): boolean {
+  return plan === task.plan && sameStatements(filesToChange, task.filesToChange);
 }
 
 export function proposeDefinitionOfDone(

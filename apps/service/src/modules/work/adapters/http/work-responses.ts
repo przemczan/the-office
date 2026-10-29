@@ -61,6 +61,7 @@ export function toTaskResponse(task: Task): TaskResponse {
     tags: [...task.tags],
     plan: task.plan,
     planConfirmed: task.planConfirmed,
+    filesToChange: [...task.filesToChange],
     definitionOfDone: [...task.definitionOfDone],
     definitionOfDoneConfirmed: task.definitionOfDoneConfirmed,
     pipelineId: task.pipelineId,
@@ -141,10 +142,11 @@ export function toSavedViewResponse(savedView: SavedView): SavedViewResponse {
 
 /** The queue, given first place first, each Task with its place counted from 1. */
 export function toQueueResponse(queue: readonly QueuedTask[]): QueuedTaskResponse[] {
-  return queue.map(({ taskId, queuedAt, reasons }, index) => ({
+  return queue.map(({ taskId, queuedAt, reasons, behind }, index) => ({
     taskId,
     place: index + 1,
     queuedAt: queuedAt.toISOString(),
     reasons: [...reasons],
+    behind: [...behind],
   }));
 }

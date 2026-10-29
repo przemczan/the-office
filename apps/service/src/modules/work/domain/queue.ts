@@ -4,6 +4,7 @@ import type { TaskStarted } from "./task-events.js";
 import { TaskQueued } from "./queue-events.js";
 import { TaskRefused } from "./task-refused.js";
 import { startReasons, startTask, type HeldAtStart, type StartConditions } from "./task-start.js";
+import { overlapsOf, overlapWords } from "./task-overlap.js";
 import { STARTED_STATES } from "./task-states.js";
 
 /**
@@ -17,7 +18,15 @@ export interface QueuedTask {
   readonly queuedAt: Date;
   /** The waits that held it at its last turn, as the board and Now show them. */
   readonly reasons: readonly string[];
+  /** The Tasks it was queued behind for an Overlap: it waits until each is Done or Dropped. */
+  readonly behind: readonly string[];
 }
+
+/**
+ * The user's answer to an Overlap at Start: start the Task anyway, or queue it behind the Tasks it
+ * overlaps. Undefined when they gave none, which refuses Start while an Overlap stands.
+ */
+export type OverlapChoice = "start-anyway" | "queue-behind" | undefined;
 
 /** What Start did: started the Task, or queued it behind the others. */
 export type Starting =
@@ -26,22 +35,49 @@ export type Starting =
 
 /**
  * Start (spec §2.1): starts the Task, queues it when only waits stand in its way, or refuses with
- * every reason when any refuses. A Task already queued keeps its place.
+ * every reason when any refuses. An Overlap with a started Task refuses until the user chooses to
+ * start anyway or to queue behind it (spec §2.1, "Overlaps at Start"). A Task already queued keeps
+ * its place, and the Tasks it is behind unless queued behind others now.
  */
 export function startOrQueue(
   task: Task,
   conditions: StartConditions,
   held: HeldAtStart,
   queue: readonly QueuedTask[],
-  now: Date,
+  { now, onOverlap }: { readonly now: Date; readonly onOverlap: OverlapChoice },
 ): Starting {
   const { refusals, waits } = startReasons(task, conditions, held);
   if (refusals.length > 0) throw new TaskRefused([...refusals, ...waits]);
-  if (waits.length === 0) return { kind: "started", change: startTask(task, conditions, held) };
+  const overlaps = overlapsOf(task, held.startedTasks);
+  if (overlaps.length > 0 && onOverlap === undefined) {
+    throw new TaskRefused(overlaps.map(overlapWords));
+  }
   const queued = queue.find(({ taskId }) => taskId === task.id);
-  if (queued) return { kind: "queued", queued: { ...queued, reasons: waits } };
-  const joined = { taskId: task.id, place: lastPlace(queue) + 1, queuedAt: now, reasons: waits };
-  return { kind: "queued", queued: joined, event: new TaskQueued(task.id, waits) };
+  const behind =
+    overlaps.length > 0 && onOverlap === "queue-behind"
+      ? overlaps.map(({ taskId }) => taskId)
+      : (queued?.behind ?? []);
+  const allWaits = [...waits, ...behindWaits(behind, held.startedTasks)];
+  if (allWaits.length === 0) return { kind: "started", change: startTask(task, conditions, held) };
+  if (queued) return { kind: "queued", queued: { ...queued, reasons: allWaits, behind } };
+  const joined = {
+    taskId: task.id,
+    place: lastPlace(queue) + 1,
+    queuedAt: now,
+    reasons: allWaits,
+    behind,
+  };
+  return { kind: "queued", queued: joined, event: new TaskQueued(task.id, allWaits) };
+}
+
+/**
+ * What holds a Task queued behind others: each of them not yet Done or Dropped, which `tasks`
+ * holds as started (a Task it is behind that isn't there has ended or left).
+ */
+function behindWaits(behind: readonly string[], tasks: readonly Task[]): string[] {
+  return tasks
+    .filter(({ id, state }) => behind.includes(id) && STARTED_STATES.includes(state))
+    .map(({ title }) => `Queued behind "${title}" until it is Done or Dropped.`);
 }
 
 /** The queue in its order, first place first. */
@@ -87,8 +123,9 @@ export function releaseQueue(
       blockers,
     };
     const { refusals, waits } = startReasons(task, conditions, held);
+    const allWaits = [...waits, ...behindWaits(queued.behind, tasks)];
     if (refusals.length > 0) refused.push({ taskId: task.id, refusals });
-    else if (waits.length > 0) waiting.push({ ...queued, reasons: waits });
+    else if (allWaits.length > 0) waiting.push({ ...queued, reasons: allWaits });
     else started.push(startTask(task, conditions, held));
   }
   return { started, refused, waiting };

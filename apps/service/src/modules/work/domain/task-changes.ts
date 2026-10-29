@@ -52,6 +52,7 @@ export function createTask(
     order: setting.order,
     plan: "",
     planConfirmed: false,
+    filesToChange: [],
     definitionOfDone: [],
     definitionOfDoneConfirmed: false,
     pipelineId: setting.pipelineId,

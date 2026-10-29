@@ -418,7 +418,7 @@ async function proposedTask(): Promise<Task> {
   const task = await create();
   await plan(task.id);
   const planning = work.app.get(PlanningService);
-  await planning.proposePlan(task.id, "Keep the requested path through the sign-in.");
+  await planning.proposePlan(task.id, { plan: "Keep the requested path through the sign-in." });
   await planning.proposeDefinitionOfDone(task.id, ["Signing in returns to the page asked for."]);
   await planning.proposePipeline(task.id, { pipelineId: "full", reason: "It changes code." });
   return task;
@@ -574,7 +574,7 @@ async function readyTask(): Promise<Task> {
   return task;
 }
 
-const nothing: StartCheck = { refusals: [], waits: [] };
+const nothing: StartCheck = { refusals: [], waits: [], overlaps: [] };
 
 async function startCheck(taskId: string): Promise<StartCheck> {
   return startCheckSchema.parse(
@@ -645,10 +645,49 @@ describe("Start", () => {
     const refused = await start(task.id);
     await sendJson(work, "POST", `/tasks/${blocker.id}/drop`);
 
-    expect(check).toEqual({ refusals: [reason], waits: [] });
+    expect(check).toEqual({ refusals: [reason], waits: [], overlaps: [] });
     expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([reason]);
     expect(await startCheck(task.id)).toEqual(nothing);
     expect((await start(task.id)).status).toBe(200);
+  });
+
+  it("warns of an Overlap with a started Task of the Project, refusing Start until the user starts anyway", async () => {
+    const first = await readyTask();
+    await confirmFilesToChange(first.id, ["src/auth"]);
+    await start(first.id);
+    const second = await readyTask();
+    const confirmed = await confirmFilesToChange(second.id, ["./src/auth/login.ts", "README.md"]);
+    const overlap = {
+      taskId: first.id,
+      title: first.title,
+      files: ["src/auth/login.ts"],
+    };
+
+    const check = await startCheck(second.id);
+    const refused = await start(second.id);
+    const anyway = await sendJson(work, "POST", `/tasks/${second.id}/start`, {
+      onOverlap: "start-anyway",
+    });
+    if (anyway.ok) startedIds.push(second.id);
+
+    expect(confirmed).toMatchObject({
+      filesToChange: ["src/auth/login.ts", "README.md"],
+      planConfirmed: true,
+    });
+    expect(check).toEqual({ ...nothing, overlaps: [overlap] });
+    expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      `"${first.title}" is in progress and expects to change src/auth/login.ts too: start anyway, or queue behind it.`,
+    ]);
+    expect(startAnswerSchema.parse(await anyway.json()).task.state).toBe("in-progress");
+  });
+
+  it("finds no Overlap for a Plan with no files to change", async () => {
+    const first = await readyTask();
+    await confirmFilesToChange(first.id, ["src"]);
+    await start(first.id);
+    const second = await readyTask();
+
+    expect(await startCheck(second.id)).toEqual(nothing);
   });
 
   it("pauses, stops and resumes a started Task, announcing each", async () => {
@@ -689,6 +728,16 @@ describe("Start", () => {
     expect((await readTask(task.id)).state).toBe("backlog");
   });
 });
+
+/** The user confirms the Task's Plan with these files to change. */
+async function confirmFilesToChange(taskId: string, filesToChange: string[]): Promise<Task> {
+  const response = await sendJson(work, "PUT", `/tasks/${taskId}/plan`, {
+    plan: "Mine.",
+    filesToChange,
+  });
+  expect(response.status).toBe(200);
+  return taskSchema.parse(await response.json());
+}
 
 async function requestStart(taskId: string): Promise<Response> {
   return sendJson(work, "POST", `/tasks/${taskId}/start`);
@@ -737,7 +786,7 @@ describe("The queue", () => {
     const response = await requestStart(second.id);
     const answer = startAnswerSchema.parse(await response.json());
 
-    expect(check).toEqual({ refusals: [], waits: [ONLY_DESK] });
+    expect(check).toEqual({ refusals: [], waits: [ONLY_DESK], overlaps: [] });
     expect(response.status).toBe(200);
     expect(answer.task.state).toBe("ready");
     expect(answer.queued).toMatchObject({ taskId: second.id, reasons: [ONLY_DESK] });
@@ -791,6 +840,31 @@ describe("The queue", () => {
     expect((await readTask(second.id)).state).toBe("in-progress");
   });
 
+  it("queues a Task behind the one it overlaps, though a desk is free, until that one is Done", async () => {
+    const first = await ownReadyTask();
+    await confirmFilesToChange(first.id, ["src/auth"]);
+    await requestStart(first.id);
+    const second = await ownReadyTask();
+    await confirmFilesToChange(second.id, ["src/auth/login.ts"]);
+    const behind = `Queued behind "${first.title}" until it is Done or Dropped.`;
+
+    const response = await sendJson(work, "POST", `/tasks/${second.id}/start`, {
+      onOverlap: "queue-behind",
+    });
+    const answer = startAnswerSchema.parse(await response.json());
+    await sendJson(work, "PUT", "/settings/office-wide-limit", { officeWideLimit: 12 });
+    const stillQueued = await ownQueue();
+    await finish(first.id);
+
+    expect(answer).toMatchObject({
+      task: { state: "ready" },
+      queued: { taskId: second.id, reasons: [behind], behind: [first.id] },
+    });
+    expect(stillQueued).toEqual([second.id]);
+    expect((await readTask(second.id)).state).toBe("in-progress");
+    expect(await ownQueue()).toEqual([]);
+  });
+
   it("takes out a Task that leaves Ready", async () => {
     await deskTaken();
     const second = await ownReadyTask();
@@ -822,7 +896,7 @@ describe("The queue", () => {
 
     expect((await readTask(second.id)).state).toBe("ready");
     expect(await ownQueue()).toEqual([]);
-    expect(await startCheck(second.id)).toEqual({ refusals: [reason], waits: [] });
+    expect(await startCheck(second.id)).toEqual({ refusals: [reason], waits: [], overlaps: [] });
     expect(webEventsOf(work)).toContainEqual({
       type: "task.left-queue",
       taskId: second.id,

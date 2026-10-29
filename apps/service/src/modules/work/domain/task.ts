@@ -37,6 +37,11 @@ export interface Task {
   readonly plan: string;
   /** Whether the user confirmed the Plan as it stands; the Planner's writing leaves it proposed. */
   readonly planConfirmed: boolean;
+  /**
+   * The files and folders the Plan expects to change (files-to-change.ts), written and confirmed
+   * with it; Start weighs an Overlap on them.
+   */
+  readonly filesToChange: readonly string[];
   /** What must be true when it is done, one plain-language statement each. */
   readonly definitionOfDone: readonly string[];
   /** As `planConfirmed`, for the Definition of Done. */
