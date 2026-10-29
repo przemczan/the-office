@@ -1241,7 +1241,14 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
       const task = taskSchema.parse(await created.json());
       ownIds.push(task.id);
       engine.queue(PLANNER_SESSION);
+      const sessionsBefore = engine.sessions.length;
       expect((await send("POST", `/tasks/${task.id}/planning`)).status).toBe(200);
+      // The Planner's session may start after the answer: one starting later would take the
+      // script meant for a Developer's session.
+      await vi.waitFor(() => expect(engine.sessions.length).toBeGreaterThan(sessionsBefore), {
+        timeout: 10_000,
+        interval: 50,
+      });
       await send("PUT", `/tasks/${task.id}/plan`, { plan: "Mine." });
       await send("PUT", `/tasks/${task.id}/definition-of-done`, { definitionOfDone: ["Mine."] });
       await send("PUT", `/tasks/${task.id}/pipeline`, { pipelineId });
