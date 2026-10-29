@@ -3,7 +3,7 @@ import { Injectable, Module, type DynamicModule, type ModuleMetadata } from "@ne
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { ProposalAppliers } from "../../conversations/index.js";
 import { EngineSessions } from "../../engine/index.js";
-import { TaskPaused, TaskResumed } from "../../work/index.js";
+import { TaskPaused, TaskResumed, TaskStateChanged } from "../../work/index.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { ProjectDefaults, type ProjectDefault } from "./project-defaults.js";
 import { ProposalDrafts, type ProposedPipelineChange } from "./proposal-drafts.js";
@@ -68,12 +68,15 @@ export class StartedTasksForTests extends StartedTasks {
     return task;
   }
 
-  /** As Work moves it: a Paused Task stays Paused, held by the user. */
+  /** As Work moves it: a Paused Task stays Paused, held by the user; TaskStateChanged tells of it. */
   async changeState(taskId: string, state: WalkTaskState): Promise<StartedTask> {
     const task = await this.read(taskId);
     if (task.state === "paused") return task;
     this.put(taskId, { ...task, state });
     this.changes.push({ taskId, state });
+    if (task.state !== state) {
+      await this.announce(new TaskStateChanged(taskId, task.state as WalkTaskState, state));
+    }
     return this.read(taskId);
   }
 
@@ -95,6 +98,7 @@ export class StartedTasksForTests extends StartedTasks {
   async drop(taskId: string): Promise<StartedTask> {
     const task = await this.read(taskId);
     this.put(taskId, { ...task, state: "dropped" });
+    await this.announce(new TaskStateChanged(taskId, task.state as WalkTaskState, "dropped"));
     return this.read(taskId);
   }
 }

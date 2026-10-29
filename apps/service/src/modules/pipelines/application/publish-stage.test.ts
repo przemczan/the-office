@@ -229,6 +229,73 @@ describe("A Publish Stage", () => {
     expect(runs[3]?.headCommit).toBe(RESOLVED_COMMIT);
   });
 
+  it("runs Resolve's Agent on the merged branch with the feedback its Gate sent back, committing as any Stage", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult("Kept both renames.")),
+      anAgentSession(aDoneResult("Kept the longer name.")),
+    ]);
+    pipelines.publishing.publications.push({
+      kind: "base-moved",
+      error: "office/task no longer applies cleanly on main on origin.",
+      conflictedFiles: ["src/index.ts"],
+    });
+    const taskId = await walkStages(pipelines, [implement, publish]);
+
+    await pipelines.app
+      .get(GateService)
+      .sendBack(taskId, RESOLVE_KEY, "Keep the longer of the two names.");
+    await pipelines.app.get(StageInterpreter, { strict: false }).walked(taskId);
+
+    const runs = await runsOf(pipelines, taskId);
+    expect(runs.slice(2).map(({ stageKey, outcome }) => [stageKey, outcome?.status])).toEqual([
+      [RESOLVE_KEY, "done"],
+      [RESOLVE_TEST_KEY, "done"],
+      [RESOLVE_GATE_KEY, "done"],
+      [RESOLVE_KEY, "done"],
+      [RESOLVE_TEST_KEY, "done"],
+      [RESOLVE_GATE_KEY, "done"],
+    ]);
+    // No second merge: the Gate's round is the Agent's, committed as an ordinary Stage commit.
+    expect(pipelines.publishing.resolveCalls.map(({ call }) => call)).toEqual(["start", "finish"]);
+    expect(pipelines.git.commits).toHaveLength(2);
+    const work = pipelines.stageThreads.requests.at(-1)?.work;
+    expect(work).toContain("The merge is committed already");
+    expect(work).toContain("Keep the longer of the two names.");
+  });
+
+  it("gives the worktree back from Resolve's merge when the user drops the Task", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult("Couldn't tell which rename wins.")),
+    ]);
+    pipelines.publishing.publications.push({
+      kind: "base-moved",
+      error: "office/task no longer applies cleanly on main on origin.",
+      conflictedFiles: ["src/index.ts"],
+    });
+    pipelines.publishing.resolveEnds.push({ kind: "markers-left", files: ["src/index.ts"] });
+    const taskId = await walkStages(pipelines, [implement, publish]);
+
+    await answerLastDecision(pipelines, taskId, { kind: "option", option: 1 });
+
+    expect(pipelines.tasks.changes.at(-1)).toEqual({ taskId, state: "dropped" });
+    expect(pipelines.publishing.resolveCalls.map(({ call }) => call)).toEqual([
+      "start",
+      "finish",
+      "abandon",
+    ]);
+  });
+
+  it("leaves git alone when a Task Resolve never ran on is dropped", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const taskId = await walkStages(pipelines, [implement, publish]);
+
+    await pipelines.tasks.drop(taskId);
+
+    expect(pipelines.publishing.resolveCalls).toEqual([]);
+  });
+
   it("leaves the branch where a rebasing merge left it, for any Stage after it to expect", async () => {
     pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
     const rebased = "r".repeat(40);
