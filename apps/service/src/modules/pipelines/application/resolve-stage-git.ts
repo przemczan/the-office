@@ -63,10 +63,13 @@ export class ResolveStageGit implements OnModuleInit {
   private async abandonMerge(taskId: string): Promise<void> {
     const runs = await this.runs.list(taskId);
     if (!runs.some(({ stageKey }) => stageKey === RESOLVE_KEY)) return;
-    const task = await this.records.read(taskId);
-    await this.publishing.abandonResolve(task.project.id, taskId).catch((error: unknown) => {
+    try {
+      const task = await this.records.read(taskId);
+      await this.publishing.abandonResolve(task.project.id, taskId);
+    } catch (error) {
+      // The Drop stands all the same; the merge is left in the worktree for the user to see.
       this.logger.warn(`Resolve's merge stays in Task ${taskId}'s worktree: ${String(error)}`);
-    });
+    }
   }
 
   async begin(
