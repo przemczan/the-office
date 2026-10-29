@@ -1,4 +1,5 @@
 import type { WalkQuestion } from "./pipeline-walk.js";
+import { isResolveStage } from "./resolve-stages.js";
 import type { Stage } from "./stage.js";
 import { tokensWords } from "./stage-budget.js";
 import type {
@@ -36,7 +37,7 @@ const GUIDANCE_HINT = "Or answer in your own words: your answer guides one more 
 /**
  * The Decision for what the walk asks (spec §2.3), The Office's: when a Stage fails with no
  * retries left or reaches its budget, the Pipeline ends with the Definition of Done not reported
- * met, The Office restarted during a Stage, or Publish found the base branch moved on. The Agent
+ * met, The Office restarted during a Stage, or a conflict at Publish is left to the user. The Agent
  * asks its own with an Office tool, never
  * through the walk. The user always may answer in their own words (`walkAnswerOf`).
  */
@@ -195,16 +196,37 @@ function notStartedDecision(stage: Stage): WalkDecision {
 }
 
 /**
- * The Office resolves no conflicts between Tasks (spec §2.3 leaves them to tier 2), and no Agent
- * can merge or rebase, so the user chooses: publish again once the base branch no longer conflicts
- * with the branch, finish without publishing, or drop the Task.
+ * A conflict at Publish the user decides about (spec §2.3, "Conflicts at Publish"): after Resolve
+ * gave up, or left a conflict that came back too often, they resolve it in the worktree, where The
+ * Office left it, or drop the Task.
  */
 function baseMovedDecision(stage: Stage, error: string): WalkDecision {
+  if (!isResolveStage(stage)) return conflictWithNobodyToResolve(stage, error);
+  return {
+    kind: "base-moved",
+    draft: {
+      question: `"${stage.name}" couldn't resolve the Task's conflict with the base branch. What now?`,
+      context: `${error}\n\nThe Office merged the base branch into the Task's branch and left the conflicted files in the Task's worktree. Resolve them there yourself, removing every conflict marker without committing, then choose the first option: The Office commits the merge and runs the Project's Test and a Gate before Publish. Or answer in your own words: your answer guides one more round of "${stage.name}".`,
+      options: ["I resolved it in the worktree", DROP_THE_TASK],
+      recommendation: {
+        option: 0,
+        reason: "The branch keeps the Task's work; it publishes once the conflict is resolved.",
+      },
+    },
+    options: [{ kind: "resolved-in-worktree" }, { kind: "drop" }],
+  };
+}
+
+/**
+ * A Task with no Agent Stage has nobody to resolve a conflict at Publish: the user chooses to
+ * publish again once the base no longer conflicts, finish without publishing, or drop the Task.
+ */
+function conflictWithNobodyToResolve(stage: Stage, error: string): WalkDecision {
   return {
     kind: "base-moved",
     draft: {
       question: `"${stage.name}" can't publish: the Task's branch conflicts with the base branch. What now?`,
-      context: `${error}\n\nThe Office resolves no conflicts between Tasks, and no Agent can merge or rebase. "${stage.name}" can run again once the base branch no longer conflicts with the branch.`,
+      context: `${error}\n\nThe Task has no Agent Stage whose person could resolve the conflict, and no Agent can merge or rebase. "${stage.name}" can run again once the base branch no longer conflicts with the branch.`,
       options: [`Run "${stage.name}" again`, "Continue without publishing", DROP_THE_TASK],
       recommendation: {
         option: 0,

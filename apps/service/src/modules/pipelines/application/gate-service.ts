@@ -1,3 +1,4 @@
+import { walkedStages } from "../domain/resolve-stages.js";
 import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
@@ -38,8 +39,8 @@ export class GateService {
 
   /** The Task's Stages after the action; refused with the reasons when the Gate doesn't allow it. */
   private async act(taskId: string, action: GateAction): Promise<TaskProgress | undefined> {
-    const stages = (await this.taskStages.find(taskId))?.stages ?? [];
     const runs = await this.runs.list(taskId);
+    const stages = walkedStages((await this.taskStages.find(taskId))?.stages ?? [], runs);
     const problems = gateActionProblems(stages, runs, action);
     const gate = waitingGateRun(stages, runs);
     if (problems.length > 0 || !gate) throw new GateRefused(problems);

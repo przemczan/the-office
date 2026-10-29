@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { RESOLVE_KEY } from "./resolve-stages.js";
 import type { Stage } from "./stage.js";
 import {
   NO_STAGE_TOKENS,
@@ -248,7 +249,7 @@ describe("the base-moved Decision", () => {
       draft: {
         question:
           "\"Publish\" can't publish: the Task's branch conflicts with the base branch. What now?",
-        context: `${error}\n\nThe Office resolves no conflicts between Tasks, and no Agent can merge or rebase. "Publish" can run again once the base branch no longer conflicts with the branch.`,
+        context: `${error}\n\nThe Task has no Agent Stage whose person could resolve the conflict, and no Agent can merge or rebase. "Publish" can run again once the base branch no longer conflicts with the branch.`,
         options: ['Run "Publish" again', "Continue without publishing", "Drop the Task"],
         recommendation: {
           option: 0,
@@ -261,6 +262,31 @@ describe("the base-moved Decision", () => {
         { kind: "drop" },
       ],
     });
+  });
+
+  it("asks the user, after Resolve gave up, to resolve it in the worktree or drop the Task", () => {
+    const resolve: Stage = {
+      kind: "agent",
+      key: RESOLVE_KEY,
+      name: "Resolve",
+      optional: false,
+      role: "developer",
+      brief: "",
+      session: "fresh",
+      budget: 500_000,
+    };
+    const error = "These files still hold conflict markers:\n- src/index.ts";
+    const run = aRun(RESOLVE_KEY, { status: "failed", error });
+
+    const decision = walkDecision(run, { kind: "base-moved", stage: resolve, error });
+
+    expect(decision.draft.question).toBe(
+      "\"Resolve\" couldn't resolve the Task's conflict with the base branch. What now?",
+    );
+    expect(decision.draft.context).toContain(error);
+    expect(decision.draft.options).toEqual(["I resolved it in the worktree", "Drop the Task"]);
+    expect(decision.options).toEqual([{ kind: "resolved-in-worktree" }, { kind: "drop" }]);
+    expect(asksTheCtoFirst({ kind: "base-moved", stage: resolve, error }, [run])).toBe(false);
   });
 });
 

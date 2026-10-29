@@ -1,3 +1,4 @@
+import { walkedStages } from "../domain/resolve-stages.js";
 import { randomUUID } from "node:crypto";
 import {
   Injectable,
@@ -395,7 +396,13 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       new Date(),
     );
     if (!(await this.runs.saveNew(started.run))) return { step: "over" };
-    return { step: "started", stage, started, stages, earlierRuns: runs };
+    return {
+      step: "started",
+      stage,
+      started,
+      stages: walkedStages(stages, runs),
+      earlierRuns: runs,
+    };
   }
 
   /**

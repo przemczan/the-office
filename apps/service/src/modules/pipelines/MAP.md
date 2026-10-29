@@ -5,6 +5,7 @@
 **Talks to:** reacts to Work's events (`TaskStarted`, `TaskResumed`, `TaskPaused`, `TaskStopped`, and `TaskPipelineConfirmed`, which sets aside Stages edited for the old Pipeline) Conversations' `DecisionAnswered` and People's `RoleLetGo`; everything else goes through its ports, bound in [app.module.ts](../../app.module.ts): `StartedTasks` and `TaskRecords` to Work, `KnownPeople` to People's `RoleCards`, `StageThreads`, `StageDecisions` and `TaskThreadSessions` to Conversations, `TaskGit`, `TaskCommands` and `TaskPublishing` to Projects' `TaskWorktrees`, `TaskScreenshots` to Work's `StageScreenshots`, `TaskUsage` to Conversations' `TaskTokens`, `ProjectDefaults` to Projects' `ProjectService`, `ProposalDrafts` to Conversations' `ProposalService`; the library editor counts Tasks through `StartedTasks.list`. Devops' Proposals of a library Pipeline's Stages (`pipeline`): `PipelineOfficeTools` registers `list_pipelines` and `propose_library_pipeline`, and `PipelineProposals` fills Conversations' `ProposalAppliers`, saving through `PipelineLibraryEditor.saveProposedStages`, which refuses once the Stages changed since the draft (`proposedStagesProblems`, comparing Stages as kept, so a field left undefined equals one left out); Conversations keeps the Stages unread, and they are parsed back with the contracts' `stageSchema`. Other modules read the library through `PipelineLibraryModule`, never `PipelinesModule`; the library's writes live in `PipelinesModule`, since they ask Projects and Work, who import the library.
 
 **Traps:**
+
 - A Publish Stage's `publishTarget` absent means the Project's publishing mode: Stages stored before it was added carry none, so never require it.
 - The built-ins live twice: `builtInPipelines` and the `pipelines` migration's seed, which `pipeline-library.test.ts` compares; a change to a built-in needs a migration too. Once seeded, the table is the library, and the user's edits of a built-in stand.
 - The service's tests share one database across files run in parallel: a test makes Pipelines of its own under a unique name and never changes or removes a built-in.
@@ -12,6 +13,7 @@
 - An edit of a Task's Stages and the walk's start of each run take one per-Task lock (`TaskStagesService.holding`), and the walk reads the Stages afresh each move: start a run anywhere else and an edit can change the Stage under it.
 - The walk is worked out from the Stage runs (`nextMove` in `domain/pipeline-walk.ts`): a Gate action, an answer or a send-back is data on a run, replayed, not a call.
 - A Stage failing with no retries left is put to the CTO first (`asksTheCtoFirst`, `StageDecisionRequest.putTo`); Conversations falls back to the user when no CTO can be consulted, and `NoRetriesLeft.putTo` says which. The CTO's words come back as a `one-more-round` answer with `guidedBy`, which the Brief names, and a Stage they sent back once goes to the user next time.
+- Resolve (spec 2.3, "Conflicts at Publish"): a Publish run that conflicts puts Resolve, its Test and a Gate (keys `office:resolve…`, `domain/resolve-stages.ts`) before that Publish, derived from the runs and never stored: read the Stages as walked (`walkedStages`) wherever runs meet them (the walk, progress, the Gate, staffing), and strip them from an edit (`withoutResolveStages`). The Resolve Agent Stage's git is The Office's around the Agent's turn (`ResolveStageGit`, through `TaskPublishing`): no commit of its own, the merge committed once no marker is left.
 - `StaffingHolds` pauses a Task whose next Stages nobody can work, behind a Decision kept in `staffing_holds`; the interpreter asks it on every `TaskResumed` before walking, so a Resume while the lack stands pauses the Task again.
 
 **Open:** after Publish removes the worktree, a message to the Task's Planning Thread opens a session in a folder that no longer exists (task 14).
@@ -103,6 +105,7 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 - `pipeline-library-editor.ts`: PipelineLibraryEditor
 - `pipeline-library.ts`: PipelineLibrary
 - `publish-stage.ts`: PublishStage
+- `resolve-stage-git.ts`: ResolveBegun, ResolveStageGit
 - `role-fillings.ts`: RoleFillings
 - `script-stage-runner.ts`: ScriptStageRunner
 - `staffing-holds.ts`: StaffingHolds
@@ -128,6 +131,7 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 - `pipeline-walk.ts`: WalkQuestion, NextMove, nextMove, unmetStatements
 - `pipeline.ts`: Pipeline, StageProblem, stageProblems, problemOnStage
 - `publish.ts`: PullRequestText, RemoteBranch, ResolveStart, ResolveEnd, BaseTakenIn, Publication, PublishedTask, pullRequestText, publishOutcome
+- `resolve-stages.ts`: RESOLVE_KEY, RESOLVE_TEST_KEY, RESOLVE_GATE_KEY, RESOLVE_ROUNDS, isResolveStage, withoutResolveStages, goesToResolve, walkedStages, withResolveStages, conflictCarried, conflictCameBackTooOften, afterResolveTestFailed, resolvedByTheUser, resolveBrief
 - `script-stage-outcome.ts`: scriptStageOutcome, installFailure
 - `staffing-decision.ts`: STAFFING_OPTIONS, staffingDecision
 - `stage-budget.ts`: stageBudget, budgetReached, budgetOutcome, tokensWords

@@ -14,7 +14,7 @@ import type { StageWork } from "./stage-runner.js";
  * publishing mode, a pull request worded from the Task's record, or pushes the branch only when the
  * Stage's target says so (a proof of concept); once it has published, the
  * worktree goes; the branch keeps the work for any Stage after it. Its failures go where any
- * Script Stage's go; a base that moved on asks the user (`afterBaseMoved`).
+ * Script Stage's go; a branch that conflicts with the base goes to Resolve (`afterBaseMoved`).
  */
 @Injectable()
 export class PublishStage {

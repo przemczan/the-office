@@ -11,7 +11,10 @@ import {
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
-import { PLANNED_COMMIT } from "../ports/pipelines-ports.fixtures.js";
+import { PLANNED_COMMIT, RESOLVED_COMMIT } from "../ports/pipelines-ports.fixtures.js";
+import { RESOLVE_GATE_KEY, RESOLVE_KEY, RESOLVE_TEST_KEY } from "../domain/resolve-stages.js";
+import { GateService } from "./gate-service.js";
+import { StageInterpreter } from "./stage-interpreter.js";
 
 let pipelines: PipelinesApplication;
 
@@ -133,8 +136,11 @@ describe("A Publish Stage", () => {
     expect(removedBefore).toEqual(["2"]);
   });
 
-  it("asks the user when the base moved on, going back nowhere, and publishes again once told", async () => {
-    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+  it("goes to Resolve when the branch conflicts with the base: the Task's person resolves, The Office commits the merge, the Test and a Gate run, then Publish again", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult("Kept both renames.")),
+    ]);
     const error =
       "office/task no longer applies cleanly on main on origin: merging it would conflict in\n- src/index.ts";
     pipelines.publishing.publications.push({
@@ -145,29 +151,82 @@ describe("A Publish Stage", () => {
 
     const taskId = await walkStages(pipelines, [implement, publish]);
 
-    expect((await runsOf(pipelines, taskId)).at(-1)?.outcome).toEqual({
-      status: "failed",
-      error,
-      baseMoved: { conflictedFiles: ["src/index.ts"] },
-    });
-    expect(pipelines.decisions.on(taskId).at(-1)?.draft).toMatchObject({
-      question:
-        "\"Publish\" can't publish: the Task's branch conflicts with the base branch. What now?",
-      options: ['Run "Publish" again', "Continue without publishing", "Drop the Task"],
-    });
-    expect(pipelines.tasks.changes).toEqual([{ taskId, state: "waiting-on-you" }]);
-    expect(pipelines.git.removedWorktrees).toEqual([]);
-
-    await answerLastDecision(pipelines, taskId, { kind: "option", option: 0 });
-
     const runs = await runsOf(pipelines, taskId);
     expect(runs.map(({ stageKey, outcome }) => [stageKey, outcome?.status])).toEqual([
       ["implement", "done"],
       ["publish", "failed"],
-      ["publish", "done"],
+      [RESOLVE_KEY, "done"],
+      [RESOLVE_TEST_KEY, "done"],
+      [RESOLVE_GATE_KEY, "done"],
     ]);
-    expect(runs[2]?.carriedFailure).toBeUndefined();
+    expect(runs[2]?.carriedFailure).toEqual({ stageKey: "publish", error, round: 1, rounds: 3 });
+    expect(runs[2]?.headCommit).toBe(RESOLVED_COMMIT);
+    expect(pipelines.publishing.resolveCalls).toEqual([
+      { call: "start", taskId },
+      { call: "finish", taskId },
+    ]);
+    // The merge is The Office's: the Agent's work isn't committed apart from it.
+    expect(pipelines.git.commits).toHaveLength(1);
+    expect(pipelines.commands.ran.map(({ key }) => key)).toEqual(["test"]);
+    expect(pipelines.decisions.on(taskId)).toEqual([]);
+    expect(pipelines.tasks.changes).toEqual([{ taskId, state: "waiting-on-you" }]);
+    expect(pipelines.git.removedWorktrees).toEqual([]);
+
+    const after = await pipelines.app.get(GateService).continue(taskId);
+    await pipelines.app.get(StageInterpreter, { strict: false }).walked(taskId);
+
+    expect(after?.stages.map(({ stage }) => stage.name)).toEqual([
+      "Implement",
+      "Resolve",
+      "Test after Resolve",
+      "Review the resolved conflict",
+      "Publish",
+    ]);
+    expect((await runsOf(pipelines, taskId)).at(-1)).toMatchObject({
+      stageKey: "publish",
+      outcome: { status: "done" },
+    });
+    expect(pipelines.publishing.published).toHaveLength(2);
     expect(pipelines.git.removedWorktrees).toEqual([taskId]);
+  });
+
+  it("asks the user directly when Resolve gives up, and commits the merge once they resolved it in the worktree", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult()),
+      anAgentSession(aDoneResult("Couldn't tell which rename wins.")),
+    ]);
+    pipelines.publishing.publications.push({
+      kind: "base-moved",
+      error: "office/task no longer applies cleanly on main on origin.",
+      conflictedFiles: ["src/index.ts"],
+    });
+    pipelines.publishing.resolveEnds.push({ kind: "markers-left", files: ["src/index.ts"] });
+
+    const taskId = await walkStages(pipelines, [implement, publish]);
+
+    expect((await runsOf(pipelines, taskId)).at(-1)).toMatchObject({
+      stageKey: RESOLVE_KEY,
+      outcome: { status: "failed" },
+    });
+    const asked = pipelines.decisions.on(taskId).at(-1);
+    expect(asked?.draft.options).toEqual(["I resolved it in the worktree", "Drop the Task"]);
+    expect(asked?.putTo).toBeUndefined();
+
+    await answerLastDecision(pipelines, taskId, { kind: "option", option: 0 });
+
+    const runs = await runsOf(pipelines, taskId);
+    expect(runs.slice(2).map(({ stageKey, outcome }) => [stageKey, outcome?.status])).toEqual([
+      [RESOLVE_KEY, "failed"],
+      [RESOLVE_KEY, "done"],
+      [RESOLVE_TEST_KEY, "done"],
+      [RESOLVE_GATE_KEY, "done"],
+    ]);
+    expect(pipelines.publishing.resolveCalls.map(({ call }) => call)).toEqual([
+      "start",
+      "finish",
+      "finish",
+    ]);
+    expect(runs[3]?.headCommit).toBe(RESOLVED_COMMIT);
   });
 
   it("leaves the branch where a rebasing merge left it, for any Stage after it to expect", async () => {

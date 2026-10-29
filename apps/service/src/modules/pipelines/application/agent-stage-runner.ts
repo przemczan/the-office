@@ -1,3 +1,4 @@
+import { isResolveStage } from "../domain/resolve-stages.js";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { READ_ONLY_GIT_COMMANDS } from "../../engine/index.js";
 import {
@@ -48,6 +49,7 @@ import { TaskGit } from "../ports/task-git.js";
 import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
 import { TaskScreenshots } from "../ports/task-screenshots.js";
 import { TaskUsage } from "../ports/task-usage.js";
+import { ResolveStageGit } from "./resolve-stage-git.js";
 import { StageGit } from "./stage-git.js";
 import type { StageRunner, StageWork } from "./stage-runner.js";
 import { StageRunners } from "./stage-runners.js";
@@ -77,7 +79,8 @@ type Ending = Parameters<StageThread["end"]>[0];
  * screenshots that can't be attached, and becomes the run's outcome with its Handover note; the
  * screenshots it lists are attached to the Task (research §8). Then The Office
  * ends the session with what it left running, checks git is where it left it, and commits the
- * Stage's work (spec §5.5). An interrupted run (spec §2.4) ends its session uncommitted instead:
+ * Stage's work (spec §5.5); a Resolve Stage's merge is The Office's around the Agent's turn
+ * (`ResolveStageGit`). An interrupted run (spec §2.4) ends its session uncommitted instead:
  * a Stop, or The Office shutting down, stops the running turn now and discards the Stage's
  * uncommitted edits; a Pause waits for the turn to end and keeps them for the Stage to go on with.
  */
@@ -92,6 +95,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     private readonly threads: StageThreads,
     private readonly git: TaskGit,
     private readonly stageGit: StageGit,
+    private readonly resolveGit: ResolveStageGit,
     private readonly commands: TaskCommands,
     private readonly runs: StageRunRepository,
     private readonly usage: TaskUsage,
@@ -118,6 +122,30 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     const { expected, refusal } = await this.stageGit.start(work, task);
     if (refusal) return refusal;
     if (work.interruption.requested) return this.holdWork(work, task, expected);
+    const resolving = isResolveStage(work.stage)
+      ? await this.resolveGit.begin(work, task, expected)
+      : undefined;
+    if (resolving?.kind === "ended") return resolving.outcome;
+    return this.work(
+      resolving ? { ...work, stage: { ...work.stage, brief: resolving.brief } } : work,
+      person,
+      task,
+      expected,
+      resolving?.merging ?? false,
+    );
+  }
+
+  /**
+   * The Agent's turn: the Project's dependencies installed, the Stage Thread opened and its result
+   * read, then the work committed, or Resolve's merge when `merging`.
+   */
+  private async work(
+    work: StageWork<"agent">,
+    person: KnownPerson,
+    task: TaskRecord,
+    expected: ExpectedHead,
+    merging: boolean,
+  ): Promise<StageOutcome> {
     // Only a restart stops the install; a Stop or a Pause during it waits for it to end.
     const installation = await this.commands.install(
       task.project.id,
@@ -138,7 +166,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       // Before git is read, so a dev server or a watcher it started can't change the worktree.
       await thread.endSession();
       const outcome = result
-        ? await this.commitWork(work, task, expected, result)
+        ? await this.commitWork(work, task, expected, result, merging)
         : await this.holdWork(work, task, expected);
       ending = endingOf(outcome);
       return outcome;
@@ -159,9 +187,11 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     task: TaskRecord,
     expected: ExpectedHead,
     result: StageOutcome,
+    merging: boolean,
   ): Promise<StageOutcome> {
     const after = await this.stageGit.checkHead(run, task, expected);
     if (after) return changedGitItself(after, result.handoverNote);
+    if (merging) return this.resolveGit.finish(run, task, expected, result);
     await this.stageGit.commit(
       run,
       task,

@@ -1,3 +1,9 @@
+import {
+  conflictCarried,
+  goesToResolve,
+  RESOLVE_KEY,
+  withResolveStages,
+} from "./resolve-stages.js";
 import type { Stage } from "./stage.js";
 import type {
   BudgetReached,
@@ -17,7 +23,10 @@ export type WalkQuestion =
   | { readonly kind: "budget"; readonly stage: Stage; readonly reached: BudgetReached }
   /** The Office restarted during the Stage: it never runs again unless the user says so. */
   | { readonly kind: "restart"; readonly stage: Stage }
-  /** Publish found the base branch moved on, so the Task's branch no longer applies cleanly. */
+  /**
+   * Resolve gave up on a conflict at Publish, or left it to the user as it came back too often;
+   * or, with no Agent Stage to resolve it, Publish found the Task's branch conflicts with the base.
+   */
   | { readonly kind: "base-moved"; readonly stage: Stage; readonly error: string }
   /**
    * Every Stage ended, but the Definition of Done isn't reported met; one more round would run
@@ -70,7 +79,8 @@ function at(index: number): WalkPosition {
 
 /** What the walk replays as it goes over the runs. */
 interface Walk {
-  readonly stages: readonly Stage[];
+  /** The Task's Stages, with Resolve's put in once a conflict at Publish went to it. */
+  stages: readonly Stage[];
   readonly definitionOfDone: readonly string[];
   position: WalkPosition;
   /** The runs replayed so far, the current one last. */
@@ -115,7 +125,7 @@ export function nextMove(
       `Stage run ${run.number} of Task ${run.taskId} stopped the walk (${stopped.move}), yet runs follow it.`,
     );
   }
-  const stage = stages[walk.position.index];
+  const stage = walk.stages[walk.position.index];
   if (!stage) return { move: "complete" };
   if (stage.optional && unmetStatements(definitionOfDone, runs).length === 0) {
     return { move: "skip", stage };
@@ -159,8 +169,9 @@ function replay(walk: Walk, run: StageRun): StoppingMove | undefined {
       // Held by the user: the walk stays at the Stage, with the failure it carried, using no round.
       if (outcome.interrupted) return undefined;
       if (outcome.baseMoved) return afterBaseMoved(walk, run, stage, outcome.error);
-      return outcome.budgetReached
-        ? afterBudget(walk, run, stage, outcome.budgetReached)
+      if (outcome.budgetReached) return afterBudget(walk, run, stage, outcome.budgetReached);
+      return stage.key === RESOLVE_KEY
+        ? afterResolveGaveUp(walk, run, stage, outcome.error)
         : afterFailure(walk, run, stage, outcome.error);
   }
 }
@@ -228,6 +239,7 @@ function afterFailure(
     case "answered":
     case "mark-done":
     case "raise-budget":
+    case "resolved-in-worktree":
       throw new Error(`Stage run ${run.id} was answered "${answer.kind}" after a failure.`);
   }
 }
@@ -275,9 +287,12 @@ function afterRestart(run: StageRun, stage: Stage): StoppingMove | undefined {
 }
 
 /**
- * Publish found the Task's branch no longer applies cleanly on the base branch, which always asks
- * the user (spec §2.3), never a loop: no Agent can merge or rebase, as git is The Office's. Run
- * again, it stays at the Stage using no round; continuing records the failure as an accepted issue.
+ * Publish found the Task's branch conflicts with the base (spec §2.3, "Conflicts at Publish"):
+ * Resolve, the Project's Test and a Gate are put before the Publish the first time, and the walk
+ * goes to Resolve, again each time the conflict comes back, until Resolve leaves it to the user.
+ * With no Agent Stage to resolve it, or for a run asked about before The Office resolved
+ * conflicts, the user is asked on the run: run again stays at the Stage using no round;
+ * continuing records the failure as an accepted issue.
  */
 function afterBaseMoved(
   walk: Walk,
@@ -285,6 +300,20 @@ function afterBaseMoved(
   stage: Stage,
   error: string,
 ): StoppingMove | undefined {
+  if (goesToResolve(run)) {
+    const stages = withResolveStages(walk.stages, walk.position.index);
+    const index = stages.findIndex(({ key }) => key === RESOLVE_KEY);
+    if (index >= 0) {
+      walk.stages = stages;
+      const conflicts = walk.replayed.filter(goesToResolve).length;
+      walk.position = {
+        index,
+        carriedFailure: conflictCarried(stage, error, conflicts),
+        sentBack: undefined,
+      };
+      return undefined;
+    }
+  }
   const waiting = waitingOn(run, "base-moved", { kind: "base-moved", stage, error });
   if (waiting) return waiting;
   const answer = answerOf(run, "base-moved");
@@ -297,6 +326,38 @@ function afterBaseMoved(
       return { move: "drop" };
     default:
       throw new Error(`Stage run ${run.id} was answered "${answer.kind}" after the base moved.`);
+  }
+}
+
+/**
+ * Resolve gave up, or left a conflict that came back too often to the user, who is asked
+ * directly, not the CTO (spec §2.3): once they resolved it in the worktree Resolve runs again to
+ * commit it, words of their own guide one more round of Resolve, or they drop the Task.
+ */
+function afterResolveGaveUp(
+  walk: Walk,
+  run: StageRun,
+  stage: Stage,
+  error: string,
+): StoppingMove | undefined {
+  const waiting = waitingOn(run, "base-moved", { kind: "base-moved", stage, error });
+  if (waiting) return waiting;
+  const answer = answerOf(run, "base-moved");
+  switch (answer.kind) {
+    case "resolved-in-worktree":
+      walk.position = at(walk.position.index);
+      return undefined;
+    case "one-more-round":
+      walk.position = {
+        index: walk.position.index,
+        carriedFailure: { stageKey: stage.key, error, round: 1, rounds: 1, ...guidanceOf(answer) },
+        sentBack: undefined,
+      };
+      return undefined;
+    case "drop":
+      return { move: "drop" };
+    default:
+      throw new Error(`Stage run ${run.id} was answered "${answer.kind}" after Resolve gave up.`);
   }
 }
 
@@ -342,6 +403,7 @@ function advance(walk: Walk, run: StageRun): StoppingMove | undefined {
     case "more-rounds":
     case "accept-issues":
     case "raise-budget":
+    case "resolved-in-worktree":
       throw new Error(
         `Stage run ${run.id} was answered "${answer.kind}" at the Definition of Done.`,
       );

@@ -50,8 +50,8 @@ export type StageOutcome = (
        */
       readonly cutShort?: true;
       /**
-       * Set on a Publish run that found the Task's branch no longer applies cleanly on the base
-       * branch, which asks the user rather than going back (spec §2.3).
+       * Set on a Publish run that found the Task's branch conflicts with the base branch, which
+       * goes to Resolve rather than going back (spec §2.3, "Conflicts at Publish").
        */
       readonly baseMoved?: BaseMoved;
     }
@@ -180,6 +180,8 @@ export type WalkAnswer =
   | { readonly kind: "mark-done" }
   /** The Stage's budget grows by this many tokens, and the Stage runs again. */
   | { readonly kind: "raise-budget"; readonly tokens: number }
+  /** The user resolved the conflict Resolve gave up on in the worktree: The Office commits it. */
+  | { readonly kind: "resolved-in-worktree" }
   | { readonly kind: "drop" };
 
 /**

@@ -550,22 +550,31 @@ export class TaskPublishingForTests extends TaskPublishing {
     );
   }
 
+  constructor(private readonly git: TaskGitForTests) {
+    super();
+  }
+
   startResolve(_projectId: string, taskId: string): Promise<ResolveStart> {
     this.resolveCalls.push({ call: "start", taskId });
-    return Promise.resolve(
-      this.resolveStarts.shift() ?? {
-        kind: "conflicted",
-        base: { remote: "origin", branch: "main" },
-        conflictedFiles: ["src/index.ts"],
-      },
-    );
+    const start = this.resolveStarts.shift() ?? {
+      kind: "conflicted",
+      base: { remote: "origin", branch: "main" },
+      conflictedFiles: ["src/index.ts"],
+    };
+    if (start.kind === "merged") this.mergedAt(taskId, start.commit);
+    return Promise.resolve(start);
   }
 
   finishResolve(_projectId: string, taskId: string): Promise<ResolveEnd> {
     this.resolveCalls.push({ call: "finish", taskId });
-    return Promise.resolve(
-      this.resolveEnds.shift() ?? { kind: "resolved", commit: RESOLVED_COMMIT },
-    );
+    const end = this.resolveEnds.shift() ?? { kind: "resolved", commit: RESOLVED_COMMIT };
+    if (end.kind === "resolved") this.mergedAt(taskId, end.commit);
+    return Promise.resolve(end);
+  }
+
+  /** The merge commit moves the Task's branch, as git's would. */
+  private mergedAt(taskId: string, commit: string): void {
+    this.git.move(taskId, { commit, branch: aTaskRecord().worktree.branch });
   }
 
   abandonResolve(_projectId: string, taskId: string): Promise<void> {

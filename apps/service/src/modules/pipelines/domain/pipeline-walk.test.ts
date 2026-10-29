@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { GATE_REACHED } from "./gate.js";
 import { nextMove, unmetStatements } from "./pipeline-walk.js";
+import {
+  RESOLVE_GATE_KEY,
+  RESOLVE_KEY,
+  RESOLVE_TEST_KEY,
+  resolvedByTheUser,
+  walkedStages,
+} from "./resolve-stages.js";
 import type { OnFailure, Stage } from "./stage.js";
 import {
   NO_STAGE_TOKENS,
@@ -90,6 +97,14 @@ function decided(kind: StageDecisionKind, answer?: WalkAnswer): StageRunDecision
   return kind === "agent"
     ? { id, kind, question: "Which page?", options: [], answer }
     : { id, kind, options: [], answer };
+}
+
+/** The runs with the user's Continue on the Gate's run, the `fromLast`th from the end. */
+function continuedAtTheGate(ran: readonly StageRun[], fromLast = 1): StageRun[] {
+  const gateIndex = ran.length - fromLast;
+  return ran.map((run, index) =>
+    index === gateIndex ? { ...run, gateAction: { kind: "continue" } } : run,
+  );
 }
 
 const stages = [
@@ -243,7 +258,7 @@ describe("nextMove", () => {
     ).toEqual({ move: "drop" });
   });
 
-  it("asks when Publish finds the base moved on, never going back, then runs it again, continues or drops", () => {
+  it("asks of a conflict at Publish asked about before Resolve, or with no Agent Stage to resolve it, then runs it again, continues or drops", () => {
     const publishing = [
       agentStage("write"),
       { ...scriptStage("publish", { goBackTo: "write", rounds: 2 }), command: "publish" } as const,
@@ -257,7 +272,10 @@ describe("nextMove", () => {
     };
     const before: Ran = ["write", done];
 
-    expect(nextMove(publishing, runs(before, ["publish", moved]), NO_DEFINITION_OF_DONE)).toEqual({
+    const scriptsOnly = [scriptStage("check"), ...publishing.slice(1, 2)];
+    expect(
+      nextMove(scriptsOnly, runs(["check", done], ["publish", moved]), NO_DEFINITION_OF_DONE),
+    ).toEqual({
       move: "ask",
       run: expect.objectContaining({ id: "run-2" }),
       question: { kind: "base-moved", stage: publishing[1], error },
@@ -281,6 +299,146 @@ describe("nextMove", () => {
     expect(
       nextMove(publishing, runs(before, ["publish", moved, drop]), NO_DEFINITION_OF_DONE),
     ).toEqual({ move: "drop" });
+  });
+
+  describe("a conflict at Publish", () => {
+    const publish = { ...scriptStage("publish"), command: "publish" } as const;
+    const pipeline = [agentStage("write"), scriptStage("check"), publish];
+    const error = "office/task-1 no longer applies cleanly on main on origin.";
+    const conflicted: StageOutcome = {
+      status: "failed",
+      error,
+      baseMoved: { conflictedFiles: ["a.ts"] },
+    };
+    const before: readonly Ran[] = [
+      ["write", done],
+      ["check", done],
+    ];
+    const resolvedOnce: readonly Ran[] = [
+      ...before,
+      ["publish", conflicted],
+      [RESOLVE_KEY, done],
+      [RESOLVE_TEST_KEY, done],
+      [RESOLVE_GATE_KEY, done],
+    ];
+
+    it("puts Resolve, the Project's Test and a Gate before the Publish, and goes to Resolve", () => {
+      const ran = runs(...before, ["publish", conflicted]);
+
+      const walked = walkedStages(pipeline, ran);
+
+      expect(walked.map(({ key }) => key)).toEqual([
+        "write",
+        "check",
+        RESOLVE_KEY,
+        RESOLVE_TEST_KEY,
+        RESOLVE_GATE_KEY,
+        "publish",
+      ]);
+      expect(walked[2]).toMatchObject({ kind: "agent", role: "developer", session: "fresh" });
+      expect(walked[3]).toMatchObject({
+        kind: "script",
+        command: "test",
+        onFailure: { goBackTo: RESOLVE_KEY, rounds: 2 },
+      });
+      expect(walked[4]).toMatchObject({ kind: "gate" });
+      expect(nextMove(pipeline, ran, NO_DEFINITION_OF_DONE)).toEqual({
+        move: "run",
+        stage: walked[2],
+        carriedFailure: { stageKey: "publish", error, round: 1, rounds: 3 },
+        sentBack: undefined,
+      });
+    });
+
+    it("walks the Test, then waits at the Gate, then runs Publish again", () => {
+      const tested = runs(...resolvedOnce.slice(0, -1));
+      expect(nextMove(pipeline, tested, NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: { key: RESOLVE_GATE_KEY },
+      });
+      const atGate = runs(...resolvedOnce.slice(0, -1), [RESOLVE_GATE_KEY, GATE_REACHED]);
+      expect(nextMove(pipeline, atGate, NO_DEFINITION_OF_DONE)).toMatchObject({ move: "wait" });
+      const continued = continuedAtTheGate(runs(...resolvedOnce));
+      expect(nextMove(pipeline, continued, NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: publish,
+      });
+      const published = continuedAtTheGate(runs(...resolvedOnce, ["publish", done]), 2);
+      expect(nextMove(pipeline, published, NO_DEFINITION_OF_DONE)).toEqual({ move: "complete" });
+    });
+
+    it("goes back to Resolve when the Test fails, at most twice", () => {
+      const ran = runs(
+        ...before,
+        ["publish", conflicted],
+        [RESOLVE_KEY, done],
+        [RESOLVE_TEST_KEY, failed("1 test fails.")],
+      );
+
+      expect(nextMove(pipeline, ran, NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: { key: RESOLVE_KEY },
+        carriedFailure: { stageKey: RESOLVE_TEST_KEY, round: 1, rounds: 2 },
+      });
+    });
+
+    it("goes back to Resolve each time the conflict comes back, counting it", () => {
+      const ran = continuedAtTheGate(runs(...resolvedOnce, ["publish", conflicted]), 2);
+
+      expect(nextMove(pipeline, ran, NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: { key: RESOLVE_KEY },
+        carriedFailure: { stageKey: "publish", round: 2, rounds: 3 },
+      });
+    });
+
+    it("asks the user directly when Resolve gives up, then commits what they resolved, guides one more round or drops", () => {
+      const gaveUp = failed("These files still hold conflict markers.");
+      const asked = runs(...before, ["publish", conflicted], [RESOLVE_KEY, gaveUp]);
+      const resolve = walkedStages(pipeline, asked)[2];
+
+      expect(nextMove(pipeline, asked, NO_DEFINITION_OF_DONE)).toEqual({
+        move: "ask",
+        run: expect.objectContaining({ stageKey: RESOLVE_KEY }),
+        question: {
+          kind: "base-moved",
+          stage: resolve,
+          error: gaveUp.status === "failed" ? gaveUp.error : "",
+        },
+      });
+      const resolvedByUser = runs(
+        ...before,
+        ["publish", conflicted],
+        [RESOLVE_KEY, gaveUp, decided("base-moved", { kind: "resolved-in-worktree" })],
+      );
+      expect(nextMove(pipeline, resolvedByUser, NO_DEFINITION_OF_DONE)).toEqual({
+        move: "run",
+        stage: resolve,
+        carriedFailure: undefined,
+        sentBack: undefined,
+      });
+      expect(resolvedByTheUser(resolvedByUser)).toBe(true);
+      const guided = runs(
+        ...before,
+        ["publish", conflicted],
+        [
+          RESOLVE_KEY,
+          gaveUp,
+          decided("base-moved", { kind: "one-more-round", guidance: "Keep both lists." }),
+        ],
+      );
+      expect(nextMove(pipeline, guided, NO_DEFINITION_OF_DONE)).toMatchObject({
+        move: "run",
+        stage: resolve,
+        carriedFailure: { stageKey: RESOLVE_KEY, guidance: "Keep both lists." },
+      });
+      const dropped = runs(
+        ...before,
+        ["publish", conflicted],
+        [RESOLVE_KEY, gaveUp, decided("base-moved", { kind: "drop" })],
+      );
+      expect(nextMove(pipeline, dropped, NO_DEFINITION_OF_DONE)).toEqual({ move: "drop" });
+    });
   });
 
   it("carries the error into the next run only", () => {

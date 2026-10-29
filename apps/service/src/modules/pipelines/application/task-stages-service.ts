@@ -1,3 +1,4 @@
+import { walkedStages, withoutResolveStages } from "../domain/resolve-stages.js";
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
@@ -90,7 +91,7 @@ export class TaskStagesService implements OnModuleInit {
     return this.changes.run(taskId, async () => {
       const { own, runs, problems } = await this.review(taskId, edited);
       if (problems.length > 0) throw new StagesEditRefused(problems);
-      const { taskStages, event } = editTaskStages(own, edited);
+      const { taskStages, event } = editTaskStages(own, withoutResolveStages(edited));
       await this.repository.save(taskStages);
       await this.events.publish(event);
       return progressOf(taskStages, runs);
@@ -109,8 +110,10 @@ export class TaskStagesService implements OnModuleInit {
   async staffingProblems(taskId: string): Promise<readonly StageProblem[]> {
     const own = await this.find(taskId);
     if (!own) return [];
-    const fromIndex = firstStageToWork(own.stages, await this.runs.list(taskId));
-    return staffingProblems(own.stages, fromIndex, await this.roleFillings.of(own.stages));
+    const runs = await this.runs.list(taskId);
+    const stages = walkedStages(own.stages, runs);
+    const fromIndex = firstStageToWork(stages, runs);
+    return staffingProblems(stages, fromIndex, await this.roleFillings.of(stages));
   }
 
   /**
@@ -143,7 +146,12 @@ export class TaskStagesService implements OnModuleInit {
     });
   }
 
-  private async review(taskId: string, edited: readonly Stage[]): Promise<ReviewedEdit> {
+  /**
+   * The edit is weighed as the Task's own Stages alone: the editor shows Resolve's too, which The
+   * Office puts back as the walk goes.
+   */
+  private async review(taskId: string, shown: readonly Stage[]): Promise<ReviewedEdit> {
+    const edited = withoutResolveStages(shown);
     const { state, pipelineId } = await this.tasks.read(taskId);
     const own = await this.ownOrCopied(taskId, pipelineId);
     const runs = await this.runs.list(taskId);
@@ -174,9 +182,10 @@ interface ReviewedEdit {
 }
 
 function progressOf(own: TaskStages, runs: readonly StageRun[]): TaskProgress {
+  const stages = walkedStages(own.stages, runs);
   return {
-    stages: stagesProgress(own.stages, runs),
+    stages: stagesProgress(stages, runs),
     editedForTask: own.editedForTask,
-    lockedStages: lockedStageCount(own.stages, runs),
+    lockedStages: lockedStageCount(stages, runs),
   };
 }
