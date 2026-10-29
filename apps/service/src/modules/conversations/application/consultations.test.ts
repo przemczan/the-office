@@ -343,6 +343,16 @@ async function settled(threadId: string): Promise<Thread> {
   );
 }
 
+/** Waits for the Thread's turn to begin: one opened a moment ago still waits before it answers. */
+async function answering(threadId: string): Promise<void> {
+  await vi.waitFor(
+    async () => {
+      if ((await threads.read(threadId)).state !== "answering") throw new Error("Not yet.");
+    },
+    { timeout: 5_000, interval: 20 },
+  );
+}
+
 describe("a consult during the fire alarm", () => {
   const ALARM_ON = { on: true, since: new Date("2026-10-29T09:00:00.000Z") } as const;
 
@@ -375,13 +385,7 @@ describe("a consult during the fire alarm", () => {
     ]);
     const asker = await developerOnATask();
     const consultation = await consultationOn(asker);
-    await vi.waitFor(
-      async () => {
-        if ((await threads.read(consultation.id)).state !== "answering")
-          throw new Error("Not yet.");
-      },
-      { timeout: 5_000, interval: 20 },
-    );
+    await answering(consultation.id);
 
     await app.get(FireAlarmInThreads).sounded();
 
@@ -424,13 +428,7 @@ describe("a consult during the fire alarm", () => {
     );
     const asker = await developerOnATask();
     const consultation = await consultationOn(asker);
-    await vi.waitFor(
-      async () => {
-        if ((await threads.read(consultation.id)).state !== "answering")
-          throw new Error("Not yet.");
-      },
-      { timeout: 5_000, interval: 20 },
-    );
+    await answering(consultation.id);
     const fireAlarm = app.get(FireAlarmInThreads);
     await fireAlarm.sounded();
 
@@ -447,7 +445,7 @@ describe("a consult during the fire alarm", () => {
     ]);
     const asker = await developerOnATask();
     const consultation = await consultationOn(asker);
-    await settled(consultation.id);
+    await answering(consultation.id);
     const fireAlarm = app.get(FireAlarmInThreads);
     await fireAlarm.sounded();
 
