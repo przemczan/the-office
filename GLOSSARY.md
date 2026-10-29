@@ -46,6 +46,14 @@ _Avoid_: Filter preset, query, perspective
 The top bar's choice of which Projects every surface shows; Office-wide numbers, the rail badge, the fire alarm and Notifications ignore it.
 _Avoid_: Scope, workspace switcher, Project picker (for the choice itself)
 
+**Queue**:
+The one Office-wide line of Tasks that Start couldn't run yet because a desk or their person's Task limit wasn't free, each with its reason; they start by themselves, oldest first, and hold no desk until they do.
+_Avoid_: Backlog (a Task state), waiting list, pending
+
+**Overlap**:
+Two Tasks in one Project whose Plans expect to change some of the same files; Start warns of it before a Task joins one in progress.
+_Avoid_: Conflict (git's, found at Publish), collision, clash
+
 **Attachment**:
 Anything attached to an Idea, an Initiative or a Task by the user or an Agent, such as a document, a screenshot, a file or a link; it can be a Task's result.
 _Avoid_: Artifact, asset, output

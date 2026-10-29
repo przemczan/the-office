@@ -25,7 +25,7 @@ From [13](../../.scratch/the-office/issues/13-first-slice.md), with [16](../../.
 **Test:** the user would run all their Projects' work through The Office all day, from the desk and the phone.
 
 - **Work:** dependencies; Initiatives with the CTO and their Task graph; tags, search, saved views; the Project filter.
-- **Parallel work:** several Tasks in progress per Project, with conflicts handled (open question).
+- **Parallel work:** several Tasks in progress per Project; a queue for Start; overlaps warned at Start; conflicts resolved at Publish by the Task's Developer.
 - **People:** CTO, Devops, Office Manager (Proposals, redirects, capturing Ideas, the status view); hiring from scratch; letting go; Consultants and Consultations; mentions; shared memory with its Memory tab and delete actions; editable permission profiles.
 - **Pipelines:** the library editor; Devops owning the library and Project commands by Proposal; the proof-of-concept publish target.
 - **Projects:** onboarding through Devops.
