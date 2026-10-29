@@ -268,7 +268,7 @@ describe("PostgresFireAlarmRepository", () => {
   /** Rolled back: the stored alarm holds every file's Starts, so no test ever leaves it on. */
   class RolledBack extends Error {}
 
-  it("is off as migrated, and sounds once, keeping when", async () => {
+  it("is off as migrated, sounds once, keeping when, and the all clear turns it off once", async () => {
     const since = new Date("2026-10-29T09:00:00.000Z");
     const seen: unknown[] = [];
 
@@ -281,12 +281,23 @@ describe("PostgresFireAlarmRepository", () => {
         seen.push(await alarm.sound(since));
         seen.push(await alarm.sound(new Date("2026-10-29T10:00:00.000Z")));
         seen.push(await alarm.read());
+        seen.push(await alarm.allClear());
+        seen.push(await alarm.allClear());
+        seen.push(await alarm.read());
         throw new RolledBack();
       })
       .catch((error: unknown) => {
         if (!(error instanceof RolledBack)) throw error;
       });
 
-    expect(seen).toEqual([{ on: false }, true, false, { on: true, since }]);
+    expect(seen).toEqual([
+      { on: false },
+      true,
+      false,
+      { on: true, since },
+      true,
+      false,
+      { on: false },
+    ]);
   });
 });

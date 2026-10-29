@@ -24,9 +24,11 @@ import { NotificationRoutingRepository } from "./ports/notification-routing-repo
 import { NotificationTimingRepository } from "./ports/notification-timing-repository.js";
 import { OfficeDayFigures } from "./ports/office-day-figures.js";
 import { OfficeStatusCards } from "./ports/office-status-cards.js";
+import { OfficeFireAlarm } from "./ports/office-fire-alarm.js";
 import { OfficeTasks } from "./ports/office-tasks.js";
 import { OpenDecisions } from "./ports/open-decisions.js";
 import { PhonePush } from "./ports/phone-push.js";
+import { ResumePlans } from "./ports/resume-plans.js";
 import { TaskOutcomeRepository } from "./ports/task-outcome-repository.js";
 import { TaskStageProgress } from "./ports/task-stage-progress.js";
 import { UserActivityRepository } from "./ports/user-activity-repository.js";
@@ -45,6 +47,8 @@ export interface NotificationsModuleOptions {
   readonly knownPeople: Type<KnownPeople>;
   readonly accountUsage: Type<AccountUsage>;
   readonly officeStatusCards: Type<OfficeStatusCards>;
+  readonly officeFireAlarm: Type<OfficeFireAlarm>;
+  readonly resumePlans: Type<ResumePlans>;
 }
 
 /**
@@ -64,6 +68,8 @@ export class NotificationsModule {
     knownPeople,
     accountUsage,
     officeStatusCards,
+    officeFireAlarm,
+    resumePlans,
   }: NotificationsModuleOptions): DynamicModule {
     return {
       module: NotificationsModule,
@@ -86,6 +92,8 @@ export class NotificationsModule {
         { provide: KnownPeople, useExisting: knownPeople },
         { provide: AccountUsage, useExisting: accountUsage },
         { provide: OfficeStatusCards, useExisting: officeStatusCards },
+        { provide: OfficeFireAlarm, useExisting: officeFireAlarm },
+        { provide: ResumePlans, useExisting: resumePlans },
         NowService,
         NotificationService,
         NotificationDelivery,

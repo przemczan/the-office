@@ -19,7 +19,7 @@ import { installFailure } from "../domain/script-stage-outcome.js";
 import { stageCommitMessage, type ExpectedHead } from "../domain/stage-commit.js";
 import { failedInstall, installRuns } from "../domain/stage-command-run.js";
 import { closingOf, interruptedOutcome } from "../domain/stage-interruption.js";
-import type { Stage } from "../domain/stage.js";
+import type { AgentStage, Stage } from "../domain/stage.js";
 import { budgetOutcome, budgetReached } from "../domain/stage-budget.js";
 import {
   addTokens,
@@ -41,7 +41,9 @@ import { StageRunRepository } from "../ports/stage-run-repository.js";
 import {
   StageThreads,
   type AskedDecision,
+  type StageSessionAhead,
   type StageThread,
+  type StageThreadRequest,
   type StageTurn,
 } from "../ports/stage-threads.js";
 import { TaskCommands } from "../ports/task-commands.js";
@@ -231,25 +233,8 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       task.project.commands,
       READ_ONLY_GIT_COMMANDS,
     );
-    const record = agentStageRecord({
-      task: {
-        title: task.title,
-        plan: task.plan,
-        definitionOfDone: task.definitionOfDone,
-        attachmentLines: task.attachmentLines,
-        projectName: task.project.name,
-        baseBranch: task.project.baseBranch,
-        worktree: task.worktree,
-      },
-      earlier: earlierResults(stages, earlierRuns),
-      diffSummary: await this.git.changesSoFar(task.project.id, run.taskId),
-      commands,
-      hardSwitches: this.followedHardSwitches(card.hardSwitches),
-    });
     const answered = answeredQuestion(stage, earlierRuns);
     const held = heldRun(stage, earlierRuns);
-    // A Stage that runs again in its own Thread continues there as the Context policy decides.
-    const inItsThread = answered !== undefined || held?.threadId !== undefined;
     return this.threads.open({
       taskId: run.taskId,
       projectId: task.project.id,
@@ -257,15 +242,10 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       stageName: stage.name,
       model: stage.model,
       effort: stage.effort,
-      declared: inItsThread ? undefined : stage.session,
-      previousThreadId: previousAgentThread(
-        stages,
-        // A run held before its session began left no Thread: the one before it is the last.
-        held && held.threadId === undefined ? earlierRuns.slice(0, -1) : earlierRuns,
-      ),
+      ...stageSessionOf(stage, stages, earlierRuns),
       // What the user wrote that the held run's session ended before taking goes with this run.
       carryMessagesSince: held?.startedAt,
-      record,
+      record: await this.recordOf(run.taskId, card, task, stages, earlierRuns),
       work: agentStageWork(stage, {
         carried: await this.carriedRound(stages, run.carriedFailure),
         sentBack: run.sentBack && {
@@ -289,6 +269,55 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         officeTools: AGENT_STAGE_OFFICE_TOOLS,
         outputSchema: STAGE_RESULT_SCHEMA,
       },
+    });
+  }
+
+  /**
+   * What the Stage's session would be were it to begin now, decided as `open` decides it: for what
+   * the all clear shows will resume (spec §2.8). Undefined when nobody fills the Stage's Role.
+   */
+  async sessionAhead(
+    taskId: string,
+    { stage, stages, earlierRuns }: Pick<StageWork<"agent">, "stage" | "stages" | "earlierRuns">,
+  ): Promise<StageSessionAhead | undefined> {
+    const person = await this.people.find(stage.role);
+    if (!person) return undefined;
+    const task = await this.records.read(taskId);
+    return this.threads.sessionAhead({
+      taskId,
+      projectId: task.project.id,
+      roleKey: stage.role,
+      ...stageSessionOf(stage, stages, earlierRuns),
+      record: await this.recordOf(taskId, person.card, task, stages, earlierRuns),
+    });
+  }
+
+  /** The Task's record a new session of the Stage's is briefed with. */
+  private async recordOf(
+    taskId: string,
+    card: KnownPerson["card"],
+    task: TaskRecord,
+    stages: readonly Stage[],
+    earlierRuns: readonly StageRun[],
+  ): Promise<string> {
+    return agentStageRecord({
+      task: {
+        title: task.title,
+        plan: task.plan,
+        definitionOfDone: task.definitionOfDone,
+        attachmentLines: task.attachmentLines,
+        projectName: task.project.name,
+        baseBranch: task.project.baseBranch,
+        worktree: task.worktree,
+      },
+      earlier: earlierResults(stages, earlierRuns),
+      diffSummary: await this.git.changesSoFar(task.project.id, taskId),
+      commands: allowedCommands(
+        card.permissionProfile.run,
+        task.project.commands,
+        READ_ONLY_GIT_COMMANDS,
+      ),
+      hardSwitches: this.followedHardSwitches(card.hardSwitches),
     });
   }
 
@@ -462,6 +491,29 @@ function earlierResults(
     if (!stage || stage.kind === "gate" || !outcome) return [];
     return [{ stageName: stage.name, kind: stage.kind, outcome }];
   });
+}
+
+/**
+ * The session the Stage asks of its Stage Thread: one that runs again in its own Thread, after its
+ * Agent's question was answered or its run was held, continues there as the Context policy decides;
+ * any other declares its own at the Stage boundary.
+ */
+function stageSessionOf(
+  stage: AgentStage,
+  stages: readonly Stage[],
+  earlierRuns: readonly StageRun[],
+): Pick<StageThreadRequest, "declared" | "previousThreadId"> {
+  const held = heldRun(stage, earlierRuns);
+  const inItsThread =
+    answeredQuestion(stage, earlierRuns) !== undefined || held?.threadId !== undefined;
+  return {
+    declared: inItsThread ? undefined : stage.session,
+    previousThreadId: previousAgentThread(
+      stages,
+      // A run held before its session began left no Thread: the one before it is the last.
+      held && held.threadId === undefined ? earlierRuns.slice(0, -1) : earlierRuns,
+    ),
+  };
 }
 
 /** The previous run's Stage Thread, when an Agent worked it: the one a Stage may continue. */

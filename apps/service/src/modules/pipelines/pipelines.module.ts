@@ -11,6 +11,7 @@ import { PostgresTaskStagesRepository } from "./adapters/postgres/postgres-task-
 import { PipelineOfficeTools } from "./adapters/office-tools/pipeline-office-tools.js";
 import { PipelinesWebEvents } from "./adapters/websocket/pipelines-web-events.js";
 import { AgentStageRunner } from "./application/agent-stage-runner.js";
+import { AlarmResumes } from "./application/alarm-resumes.js";
 import { GateService } from "./application/gate-service.js";
 import { GateStageRunner } from "./application/gate-stage-runner.js";
 import { PipelineLibraryEditor } from "./application/pipeline-library-editor.js";
@@ -114,6 +115,7 @@ export class PipelinesModule {
         StageGit,
         ResolveStageGit,
         AgentStageRunner,
+        AlarmResumes,
         ScriptStageRunner,
         PublishStage,
         GateStageRunner,
@@ -122,7 +124,7 @@ export class PipelinesModule {
         PipelineOfficeTools,
         PipelinesWebEvents,
       ],
-      exports: [PipelineLibraryModule, TaskStagesService],
+      exports: [PipelineLibraryModule, TaskStagesService, AlarmResumes],
     };
   }
 }

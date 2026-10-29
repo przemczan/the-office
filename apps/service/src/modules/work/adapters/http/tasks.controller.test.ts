@@ -38,7 +38,7 @@ import { PlanningService } from "../../application/planning-service.js";
 import { QueueService } from "../../application/queue-service.js";
 import { FireAlarmService } from "../../application/fire-alarm-service.js";
 import { TaskService } from "../../application/task-service.js";
-import { AlarmSounded } from "../../domain/fire-alarm-events.js";
+import { AlarmSounded, AllClearGiven } from "../../domain/fire-alarm-events.js";
 import { TaskPaused } from "../../domain/task-events.js";
 import type { Task as StoredTask } from "../../domain/task.js";
 import type { TaskChange } from "../../domain/task-changes.js";
@@ -1126,6 +1126,56 @@ describe("The fire alarm", () => {
       "The fire alarm is on. The Task resumes with the all clear.",
     ]);
     expect(webEventsOf(work)).toEqual([{ type: "task.paused", taskId: task.id }]);
+  });
+
+  it("gives the all clear: each Task it paused resumes unless held or dropped, and the queue is released", async () => {
+    const resumed = await startedTask();
+    const held = await startedTask();
+    const dropped = await startedTask();
+    await sound();
+    const queued = await readyTask();
+    ownIds.push(queued.id);
+    await sendJson(work, "POST", `/tasks/${queued.id}/start`);
+    work.published.length = 0;
+
+    const response = await sendJson(work, "POST", "/fire-alarm/all-clear", {
+      hold: [held.id],
+      drop: [dropped.id],
+    });
+
+    expect(response.status).toBe(200);
+    expect(fireAlarmSchema.parse(await response.json())).toEqual({ on: false });
+    expect(await storedTask(resumed.id)).toMatchObject({
+      state: "in-progress",
+      pausedByAlarm: false,
+    });
+    expect(await storedTask(held.id)).toMatchObject({ state: "paused", pausedByAlarm: false });
+    expect(await storedTask(dropped.id)).toMatchObject({ state: "dropped" });
+    expect((await readTask(queued.id)).state).toBe("in-progress");
+    const given = work.published.find((event) => event instanceof AllClearGiven);
+    expect(given).toMatchObject({
+      resumed: [resumed.id],
+      held: [held.id],
+      dropped: [dropped.id],
+    });
+    expect(webEventsOf(work)).toEqual(
+      expect.arrayContaining([
+        { type: "task.resumed", taskId: resumed.id },
+        { type: "task.paused", taskId: held.id },
+        { type: "task.state-changed", taskId: dropped.id, from: "paused", to: "dropped" },
+      ]),
+    );
+  });
+
+  it("gives no all clear while it is off", async () => {
+    const task = await startedTask();
+    await sendJson(work, "POST", `/tasks/${task.id}/pause`);
+    work.published.length = 0;
+
+    const response = await sendJson(work, "POST", "/fire-alarm/all-clear", { hold: [], drop: [] });
+
+    expect(fireAlarmSchema.parse(await response.json())).toEqual({ on: false });
+    expect(work.published).toEqual([]);
   });
 });
 

@@ -3,7 +3,8 @@ import { totalTokens, type StageInterruption, type StageRun } from "./stage-run.
 
 /**
  * Where one of a started Task's Stages stands, as the Task page shows it: from its latest run, or
- * pending before its first. A run the user held with Pause or Stop is no failure (spec §2.4).
+ * pending before its first. A run the user held with Pause or Stop, or the fire alarm held, is no
+ * failure (spec §2.4, §2.8).
  */
 export type StageState =
   "pending" | "running" | "waiting-on-you" | "paused" | "stopped" | "done" | "skipped" | "failed";
@@ -69,9 +70,12 @@ function stateOf(stage: Stage, { outcome, decisions, gateAction }: StageRun): St
   }
 }
 
-/** A restart stays a failure: The Office, not the user, ended the run. */
+/**
+ * A restart stays a failure: The Office, not the user, ended the run. The fire alarm holds a run
+ * as a Pause does.
+ */
 function heldState(interrupted: StageInterruption | undefined): StageState | undefined {
-  if (interrupted === "pause") return "paused";
+  if (interrupted === "pause" || interrupted === "alarm") return "paused";
   if (interrupted === "stop") return "stopped";
   return undefined;
 }

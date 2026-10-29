@@ -14,6 +14,7 @@ function nowWith(parts: Pick<Now, "needsYou" | "running">): Now {
     tasksTouched: 0,
     desks: { inUse: parts.running.length, limit: 3 },
     fiveHourWindow: undefined,
+    fireAlarm: undefined,
   };
 }
 

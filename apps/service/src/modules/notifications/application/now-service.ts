@@ -23,6 +23,8 @@ import {
   TaskStagesEdited,
 } from "../../pipelines/index.js";
 import {
+  AlarmSounded,
+  AllClearGiven,
   OfficeWideLimitChanged,
   TaskLeftQueue,
   TaskMovedUpInQueue,
@@ -33,7 +35,7 @@ import {
   TaskStateChanged,
   TaskStopped,
 } from "../../work/index.js";
-import { nowOf, type Now, type StartedTask } from "../domain/now.js";
+import { nowOf, type Now, type StartedTask, type TaskResume } from "../domain/now.js";
 import { NowChanged } from "../domain/now-events.js";
 import { officeDayOf } from "../domain/office-day.js";
 import type { TaskOutcomeKind } from "../domain/task-outcome.js";
@@ -41,8 +43,10 @@ import { recordActivity, type UserActivity } from "../domain/user-activity.js";
 import { AccountUsage } from "../ports/account-usage.js";
 import { DeskLimit } from "../ports/desk-limit.js";
 import { OfficeDayFigures } from "../ports/office-day-figures.js";
+import { OfficeFireAlarm } from "../ports/office-fire-alarm.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
 import { OpenDecisions } from "../ports/open-decisions.js";
+import { ResumePlans } from "../ports/resume-plans.js";
 import { StartQueue } from "../ports/start-queue.js";
 import { TaskOutcomeRepository } from "../ports/task-outcome-repository.js";
 import { TaskStageProgress } from "../ports/task-stage-progress.js";
@@ -66,6 +70,8 @@ const NOW_CHANGES: readonly DomainEventClass[] = [
   TaskQueued,
   TaskLeftQueue,
   TaskMovedUpInQueue,
+  AlarmSounded,
+  AllClearGiven,
 ];
 
 /**
@@ -90,6 +96,8 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     private readonly outcomes: TaskOutcomeRepository,
     private readonly activity: UserActivityRepository,
     private readonly figures: OfficeDayFigures,
+    private readonly fireAlarm: OfficeFireAlarm,
+    private readonly resumePlans: ResumePlans,
     private readonly schedule: Schedule,
     private readonly events: EventBus,
   ) {}
@@ -118,6 +126,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       tokensToday,
       tasksTouched,
       officeWideLimit,
+      fireAlarm,
     ] = await Promise.all([
       this.startedTasks(),
       this.decisions.listOpen(),
@@ -127,6 +136,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       this.figures.tokensOn(day),
       this.figures.tasksTouchedOn(day),
       this.deskLimit.officeWideLimit(),
+      this.fireAlarm.read(),
     ]);
     return nowOf({
       started,
@@ -139,7 +149,24 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       tasksTouched,
       officeWideLimit,
       fiveHourWindow: this.usage.current?.fiveHour,
+      fireAlarm,
+      resumes: fireAlarm.on ? await this.resumesOf(started) : new Map(),
     });
+  }
+
+  /**
+   * How each Task the alarm paused would resume, read afresh each time: a cache cools with no
+   * event to tell.
+   */
+  private async resumesOf(
+    started: readonly StartedTask[],
+  ): Promise<ReadonlyMap<string, TaskResume | undefined>> {
+    const paused = started.filter(({ task }) => task.pausedByAlarm);
+    return new Map(
+      await Promise.all(
+        paused.map(async ({ task }) => [task.id, await this.resumePlans.of(task.id)] as const),
+      ),
+    );
   }
 
   /** The user was active just now; coming back after an absence moves where Since you left begins. */

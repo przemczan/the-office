@@ -543,6 +543,19 @@ export function beginOpening(
 }
 
 /**
+ * The person is asked again in a Thread The Office stopped them answering in, such as a
+ * Consultation the fire alarm stopped (spec §2.8): as an opening, but the Thread may have its
+ * session, which the Context policy's move continues or replaces.
+ */
+export function beginAskingAgain(
+  thread: Thread,
+  opening: Opening,
+  askedAt: Date,
+): ThreadChange<MessagesLogged> {
+  return begin(thread, opening, [contextLineOf(thread, opening, askedAt)], askedAt);
+}
+
+/**
  * The person starts on a Stage in its Stage Thread, a new one or the previous Stage's continued:
  * the move at the Stage boundary is logged whatever it is, and the Thread is answering until the
  * Stage ends.

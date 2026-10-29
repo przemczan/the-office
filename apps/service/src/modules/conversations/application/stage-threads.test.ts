@@ -421,6 +421,31 @@ describe("StageThreads", () => {
     expect(again.stageThread.move).toMatchObject({ move: "resume", reason: "cache-warm" });
   });
 
+  it("tells ahead what the Stage's session would be, as opening it then decides, for the all clear's plan", async () => {
+    await startWith(
+      started(...aTurn({ status: "needs_decision" })),
+      resumed(...aTurn({ status: "done" }, "Going on.")),
+    );
+    const ada = aPerson("Ada");
+    const first = await aStageRun(aStage({ roleKey: ada }));
+    const request = aStage({
+      roleKey: ada,
+      declared: undefined,
+      previousThreadId: first.stageThread.threadId,
+    });
+    const logged = (await repository.messages(first.stageThread.threadId)).length;
+
+    const ahead = await stageThreads.sessionAhead(request);
+    const loggedAhead = (await repository.messages(first.stageThread.threadId)).length;
+    const opened = await aStageRun(request);
+
+    expect(loggedAhead).toBe(logged);
+    expect(ahead).toMatchObject({ move: opened.stageThread.move.move, cacheWarm: true });
+    expect(ahead.contextTokens).toBe(opened.stageThread.move.contextTokens);
+    expect(ahead.contextTokens).toBeGreaterThan(0);
+    expect(ahead.briefTokens).toBeGreaterThan(0);
+  });
+
   it("takes the user's choice in the Thread's context label when the Stage goes on in it, and spends it", async () => {
     await startWith(
       started(...aTurn({ status: "needs_decision" })),

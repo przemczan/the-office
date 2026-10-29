@@ -18,6 +18,7 @@ import {
   InitiativeOutcomeWritten,
   InitiativeStateChanged,
 } from "../../domain/initiative-events.js";
+import { AlarmSounded, AllClearGiven } from "../../domain/fire-alarm-events.js";
 import { OfficeWideLimitChanged } from "../../domain/office-limit-events.js";
 import { TaskLeftQueue, TaskMovedUpInQueue, TaskQueued } from "../../domain/queue-events.js";
 import { SavedViewRemoved, SavedViewSaved } from "../../domain/saved-view-events.js";
@@ -27,6 +28,7 @@ import {
   TaskDependencyAdded,
   TaskDependencyRemoved,
   TaskDefinitionOfDoneProposed,
+  TaskHeldAtAllClear,
   TaskPaused,
   TaskPipelineConfirmed,
   TaskPipelineProposed,
@@ -64,6 +66,12 @@ export class WorkWebEvents implements OnModuleInit {
       OfficeWideLimitChanged,
       (): WebEventOf<"office-wide-limit.changed"> => ({ type: "office-wide-limit.changed" }),
     );
+    this.forwarding.forward(AlarmSounded, (): WebEventOf<"fire-alarm.sounded"> => ({
+      type: "fire-alarm.sounded",
+    }));
+    this.forwarding.forward(AllClearGiven, (): WebEventOf<"fire-alarm.all-clear"> => ({
+      type: "fire-alarm.all-clear",
+    }));
   }
 
   private forwardIdeaEvents(): void {
@@ -133,6 +141,11 @@ export class WorkWebEvents implements OnModuleInit {
       taskId: event.taskId,
     }));
     this.forwarding.forward(TaskPaused, (event): WebEventOf<"task.paused"> => ({
+      type: "task.paused",
+      taskId: event.taskId,
+    }));
+    // Held at the all clear: still Paused, now as the user's own Pause.
+    this.forwarding.forward(TaskHeldAtAllClear, (event): WebEventOf<"task.paused"> => ({
       type: "task.paused",
       taskId: event.taskId,
     }));

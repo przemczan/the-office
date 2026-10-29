@@ -6,4 +6,7 @@ export abstract class FireAlarmRepository {
 
   /** Turns the alarm on since `since`; false when it was on already, which leaves it as it was. */
   abstract sound(since: Date): Promise<boolean>;
+
+  /** Turns the alarm off; false when it was off already. */
+  abstract allClear(): Promise<boolean>;
 }

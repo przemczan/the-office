@@ -13,6 +13,7 @@ import { EngineModule, UsageWindowState } from "./modules/engine/index.js";
 import { NotificationsModule } from "./modules/notifications/index.js";
 import { PeopleModule, RoleCards } from "./modules/people/index.js";
 import {
+  AlarmResumes,
   PipelineLibrary,
   PipelineLibraryModule,
   PipelinesModule,
@@ -26,6 +27,7 @@ import {
 } from "./modules/projects/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
 import {
+  FireAlarmService,
   OfficeLimits,
   QueueService,
   StageScreenshots,
@@ -106,6 +108,8 @@ export class AppModule {
           knownPeople: RoleCards,
           accountUsage: UsageWindowState,
           officeStatusCards: ThreadService,
+          officeFireAlarm: FireAlarmService,
+          resumePlans: AlarmResumes,
         }),
         PeopleModule,
         pipelines,

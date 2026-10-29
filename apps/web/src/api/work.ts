@@ -57,6 +57,8 @@ export const TASKS = ["tasks"] as const;
 const ATTACHMENTS = ["attachments"] as const;
 const OFFICE_WIDE_LIMIT = ["settings", "office-wide-limit"] as const;
 const SAVED_VIEWS = ["saved-views"] as const;
+/** The fire alarm and the Threads it is lifted for. */
+const FIRE_ALARM = ["fire-alarm"] as const;
 
 export const ideaQueries = {
   /** Every Idea, the newest captured first. */
@@ -419,6 +421,9 @@ export const workEventInvalidations: Readonly<
   "saved-view.removed": () => [SAVED_VIEWS],
   // Each Task's start check reads the limit too.
   "office-wide-limit.changed": () => [OFFICE_WIDE_LIMIT, TASKS],
+  // Each Task's start check reads the alarm too.
+  "fire-alarm.sounded": () => [FIRE_ALARM, TASKS],
+  "fire-alarm.all-clear": () => [FIRE_ALARM, TASKS],
 };
 
 function ownerId(owner: AttachmentOwner): string {

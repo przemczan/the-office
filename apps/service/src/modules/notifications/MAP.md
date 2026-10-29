@@ -2,7 +2,7 @@
 
 **Owns:** Notifications (`notifications`): the kinds tree and routing resolved from the nearest level (`domain/notification-kinds.ts`), the routing the user sets in Settings › Notifications, by level and channel (`NotificationRouting`, `notification_routing`, seeded with ticket 20's defaults), each Notification raised from another module's event with its content and the channels the stored routing gives it, Outcomes landing close together collapsed into one, and cleared once the user handles what it points to (`NotificationService`); the delivery rules, pure in `domain/delivery.ts`, and their timing (`notification_timing`, one row: the at-desk hold, the away delay, batching, quiet hours), applied by `NotificationDelivery`: the desktop and phone held inside quiet hours with one summary at their end, the phone waiting while the user is at the desk, sent through the `PhonePush` port (`RecordingPhonePush` until task 28's Web Push); and Now and the status strip as one read model (`NowService`, pushed whole as `now.changed`), and what only events tell, kept in its own tables: each started Task's outcomes (`task_outcomes`), the user's activity, which says where Since you left begins (`user_activity`), tokens by day (`day_tokens`, measured from `thread_token_counts`) and the Tasks touched each day (`tasks_touched`).
 
-**Talks to:** nothing calls it. It reacts to the events of Work, Pipelines, Conversations and the Engine, and reads the rest through its ports, bound in [app.module.ts](../../app.module.ts): `OfficeTasks` to Work's `TaskService`, `DeskLimit` to Work's `OfficeLimits`, `StartQueue` to Work's `QueueService` (Now's queue, first place first), `KnownPeople` to People's `RoleCards` (whether an Office Manager is hired, who then speaks the Office kinds, or a CTO, who then tells an Initiative done), `OpenDecisions` to Conversations' `DecisionService`, `TaskStageProgress` to Pipelines' `TaskStagesService`, `AccountUsage` to the Engine's `UsageWindowState`. The Office Manager's `show_office_status` (`OfficeStatusOfficeTools`, on the Engine's registry that `imports` must provide) gives the Agent Now in words (`officeStatusText`) and posts the Office status card through `OfficeStatusCards`, bound to Conversations' `ThreadService`; `NotificationsPortsForTestsModule` provides a registry of its own.
+**Talks to:** nothing calls it. It reacts to the events of Work, Pipelines, Conversations and the Engine, and reads the rest through its ports, bound in [app.module.ts](../../app.module.ts): `OfficeTasks` to Work's `TaskService`, `DeskLimit` to Work's `OfficeLimits`, `StartQueue` to Work's `QueueService` (Now's queue, first place first), `KnownPeople` to People's `RoleCards` (whether an Office Manager is hired, who then speaks the Office kinds, or a CTO, who then tells an Initiative done), `OpenDecisions` to Conversations' `DecisionService`, `TaskStageProgress` to Pipelines' `TaskStagesService`, `AccountUsage` to the Engine's `UsageWindowState`, `OfficeFireAlarm` to Work's `FireAlarmService` and `ResumePlans` to Pipelines' `AlarmResumes`: while the alarm is on, Now carries it (`Now.fireAlarm`: stopping until each Task it paused has a plan, then each plan and the total), read afresh on every read, since a cache cools with no event. The Office Manager's `show_office_status` (`OfficeStatusOfficeTools`, on the Engine's registry that `imports` must provide) gives the Agent Now in words (`officeStatusText`) and posts the Office status card through `OfficeStatusCards`, bound to Conversations' `ThreadService`; `NotificationsPortsForTestsModule` provides a registry of its own.
 
 **Traps:**
 - In-app and the desktop live in the browser: the service routes each Notification and sends it, with its channels and those quiet hours hold, as `notification.raised` (with the ids it `replaces`: a collapse takes the place of the Outcome or the collapse shown before); the web's channel adapters show it and ignore `phone`. The phone is a channel outside the browser, pushed through `PhonePush` here.
@@ -93,7 +93,7 @@ NotificationsModule
 - `notification-timing.ts`: TimeOfDay, QuietHours, NotificationTiming, DEFAULT_TIMING, minutesMs, inQuietHours, quietHoursEnd
 - `notification.ts`: Pointer, GatheringKind, Notification, NotificationDraft, notificationOf, decisionWaiting, gateWaiting, taskDone, Failure, taskFailed, taskPaused, initiativeDone, windowNearlyUsed, windowReset, engineDown, windowMove, Handling, handles, samePointer
 - `now-events.ts`: NowChanged
-- `now.ts`: OfficeTask, OpenDecision, StageOfTask, FiveHourWindow, WaitingDecision, WaitingGate, NeedsYouItem, CurrentStage, RunningTask, FinishedTask, QueuedOnNow, QueuedTask, Desks, Now, StartedTask, NowParts, nowOf, waitingGateOf, currentStageOf
+- `now.ts`: OfficeTask, NowFireAlarm, TaskResume, OpenDecision, StageOfTask, FiveHourWindow, WaitingDecision, WaitingGate, NeedsYouItem, CurrentStage, RunningTask, FinishedTask, QueuedOnNow, QueuedTask, AlarmPausedTask, FireAlarmOnNow, Desks, Now, StartedTask, NowParts, nowOf, waitingGateOf, currentStageOf
 - `office-day.ts`: officeDayOf
 - `office-status.ts`: officeStatusText
 - `task-outcome.ts`: TaskOutcomeKind, TaskOutcome, latestPerTask
@@ -109,12 +109,14 @@ NotificationsModule
 - `notification-repository.ts`: NotificationRepository
 - `notification-routing-repository.ts`: NotificationRoutingRepository
 - `notification-timing-repository.ts`: NotificationTimingRepository
-- `notifications-ports.fixtures.ts`: OfficeTasksForTests, OpenDecisionsForTests, TaskStageProgressForTests, DeskLimitForTests, StartQueueForTests, KnownPeopleForTests, AccountUsageForTests, OfficeStatusCardsForTests, NotificationsPortsForTestsModule
+- `notifications-ports.fixtures.ts`: OfficeTasksForTests, OpenDecisionsForTests, TaskStageProgressForTests, DeskLimitForTests, StartQueueForTests, KnownPeopleForTests, AccountUsageForTests, OfficeStatusCardsForTests, OfficeFireAlarmForTests, ResumePlansForTests, NotificationsPortsForTestsModule
 - `office-day-figures.ts`: ThreadTokens, OfficeDayFigures
+- `office-fire-alarm.ts`: OfficeFireAlarm
 - `office-status-cards.ts`: OfficeStatusCards
 - `office-tasks.ts`: OfficeTasks
 - `open-decisions.ts`: OpenDecisions
 - `phone-push.ts`: PhonePush
+- `resume-plans.ts`: ResumePlans
 - `start-queue.ts`: StartQueue
 - `task-outcome-repository.ts`: TaskOutcomeRepository
 - `task-stage-progress.ts`: TaskStageProgress

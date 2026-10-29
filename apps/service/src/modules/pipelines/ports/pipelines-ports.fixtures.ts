@@ -15,6 +15,7 @@ import {
 import {
   StageThreads,
   type AskedDecision,
+  type StageSessionAhead,
   type StageThread,
   type StageThreadRequest,
   type StageTurn,
@@ -236,6 +237,19 @@ export class StageThreadsForTests extends StageThreads {
 
   constructor(private readonly sessions: EngineSessions) {
     super();
+  }
+
+  /** What `sessionAhead` answers, as a test sets it: a new session, unless set. */
+  ahead: StageSessionAhead = { move: "fresh", cacheWarm: false, contextTokens: 0, briefTokens: 0 };
+
+  /** What each `sessionAhead` asked about, in order. */
+  readonly askedAhead: Parameters<StageThreads["sessionAhead"]>[0][] = [];
+
+  async sessionAhead(
+    request: Parameters<StageThreads["sessionAhead"]>[0],
+  ): Promise<StageSessionAhead> {
+    this.askedAhead.push(request);
+    return this.ahead;
   }
 
   async open(request: StageThreadRequest): Promise<StageThread> {

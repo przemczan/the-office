@@ -31,6 +31,7 @@ import type { Thread, ThreadSession } from "../domain/thread.js";
 import {
   answerDecision,
   beginAnswer,
+  beginAskingAgain,
   beginOpening,
   countRunningTurn,
   endTurn,
@@ -203,13 +204,30 @@ export class ThreadRunner implements OnModuleDestroy {
    * session, given the Brief and `opening`, answers before the user has said anything.
    */
   async open(threadId: string, opening: string): Promise<Thread> {
+    return this.startOn(threadId, opening, beginOpening);
+  }
+
+  /**
+   * Has the person start again on a Thread The Office stopped them answering in, such as a
+   * Consultation the fire alarm stopped: as `open`, its session continued or replaced under the
+   * Context policy.
+   */
+  async askAgain(threadId: string, opening: string): Promise<Thread> {
+    return this.startOn(threadId, opening, beginAskingAgain);
+  }
+
+  private async startOn(
+    threadId: string,
+    opening: string,
+    begin: (thread: Thread, opening: Opening, at: Date) => ThreadChange<MessagesLogged>,
+  ): Promise<Thread> {
     const now = new Date();
     const thread = await this.threadOf(threadId);
     const current = await this.personOf(thread);
     const place = await this.places.of(thread);
     const { decision, role, newSession } = await this.moveFor(thread, current, place, now);
     const answering = await this.change(threadId, (latest) =>
-      beginOpening(
+      begin(
         latest,
         { personName: current.card.name, decision, newSession, brief: place.brief.text },
         now,

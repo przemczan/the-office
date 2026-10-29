@@ -34,7 +34,9 @@ import {
   StartQueueForTests,
   KnownPeopleForTests,
   NotificationsPortsForTestsModule,
+  OfficeFireAlarmForTests,
   OfficeStatusCardsForTests,
+  ResumePlansForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
   TaskStageProgressForTests,
@@ -97,6 +99,8 @@ describe("NotificationService", () => {
           knownPeople: KnownPeopleForTests,
           accountUsage: AccountUsageForTests,
           officeStatusCards: OfficeStatusCardsForTests,
+          officeFireAlarm: OfficeFireAlarmForTests,
+          resumePlans: ResumePlansForTests,
         }),
       ],
     }));

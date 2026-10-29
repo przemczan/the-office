@@ -6,11 +6,18 @@ import {
   type NowParts,
   type OfficeTask,
   type StageOfTask,
+  type TaskResume,
 } from "./now.js";
 
 const at = (minute: number): Date => new Date(Date.UTC(2026, 9, 27, 9, minute));
 
-const TASK: OfficeTask = { id: "t1", title: "Add a filter", projectId: "p1", state: "in-progress" };
+const TASK: OfficeTask = {
+  id: "t1",
+  title: "Add a filter",
+  projectId: "p1",
+  state: "in-progress",
+  pausedByAlarm: false,
+};
 
 function stage(
   key: string,
@@ -33,6 +40,8 @@ const PARTS: NowParts = {
   tasksTouched: 0,
   officeWideLimit: 3,
   fiveHourWindow: undefined,
+  fireAlarm: { on: false },
+  resumes: new Map(),
 };
 
 describe("currentStageOf", () => {
@@ -206,5 +215,68 @@ describe("nowOf", () => {
       { taskId: "t2", title: "Fix the header", projectId: "p1", place: 1, reasons: waits },
       { taskId: "t3", title: "Add a filter", projectId: "p2", place: 3, reasons: waits },
     ]);
+  });
+});
+
+describe("the fire alarm on Now", () => {
+  const since = at(0);
+  const byAlarm: OfficeTask = { ...TASK, state: "paused", pausedByAlarm: true };
+  const usersOwn: OfficeTask = { ...TASK, id: "t2", state: "paused", pausedByAlarm: false };
+  const warm: TaskResume = {
+    kind: "continues-warm",
+    stageName: "build Stage",
+    contextTokens: 41_000,
+    briefTokens: 0,
+    tokens: 4_100,
+  };
+
+  it("is none while the alarm is off", () => {
+    expect(nowOf(PARTS).fireAlarm).toBeUndefined();
+  });
+
+  it("lists the Tasks it paused, stopping while one has no plan yet", () => {
+    const parts: NowParts = {
+      ...PARTS,
+      started: [
+        { task: byAlarm, stages: undefined },
+        { task: usersOwn, stages: undefined },
+      ],
+      fireAlarm: { on: true, since },
+      resumes: new Map([[byAlarm.id, undefined]]),
+    };
+
+    expect(nowOf(parts).fireAlarm).toEqual({
+      since,
+      stopping: true,
+      paused: [
+        {
+          taskId: byAlarm.id,
+          title: byAlarm.title,
+          projectId: byAlarm.projectId,
+          stage: undefined,
+          resume: undefined,
+        },
+      ],
+      resumeTokens: 0,
+    });
+  });
+
+  it("totals what resuming them all costs once every Stage has stopped", () => {
+    const script: TaskResume = { ...warm, kind: "script", contextTokens: 0, tokens: 0 };
+    const other: OfficeTask = { ...byAlarm, id: "t3" };
+    const parts: NowParts = {
+      ...PARTS,
+      started: [
+        { task: byAlarm, stages: undefined },
+        { task: other, stages: undefined },
+      ],
+      fireAlarm: { on: true, since },
+      resumes: new Map([
+        [byAlarm.id, warm],
+        [other.id, script],
+      ]),
+    };
+
+    expect(nowOf(parts).fireAlarm).toMatchObject({ stopping: false, resumeTokens: 4_100 });
   });
 });

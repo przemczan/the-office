@@ -24,4 +24,13 @@ export class PostgresFireAlarmRepository extends FireAlarmRepository {
       .returning({ id: fireAlarm.id });
     return turnedOn.length > 0;
   }
+
+  async allClear(): Promise<boolean> {
+    const turnedOff = await this.database
+      .update(fireAlarm)
+      .set({ on: false, since: null })
+      .where(eq(fireAlarm.on, true))
+      .returning({ id: fireAlarm.id });
+    return turnedOff.length > 0;
+  }
 }

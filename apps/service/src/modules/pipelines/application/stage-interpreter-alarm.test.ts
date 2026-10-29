@@ -23,6 +23,7 @@ import { startStageRun } from "../domain/stage-run-changes.js";
 import { PLANNED_COMMIT } from "../ports/pipelines-ports.fixtures.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
+import { AlarmResumes } from "./alarm-resumes.js";
 import { GateService } from "./gate-service.js";
 import { StageInterpreter } from "./stage-interpreter.js";
 
@@ -224,6 +225,92 @@ describe("Sounding the fire alarm", () => {
       ["look", "done"],
       ["review", "done"],
     ]);
+  });
+});
+
+describe("What the all clear would resume", () => {
+  it("is nothing yet while the held Stage's turn runs, then its session as the Stage would continue it in its Thread", async () => {
+    const pipelines = await start([anAgentSession(aDoneResult())]);
+    const taskId = randomUUID();
+    const resumes = pipelines.app.get(AlarmResumes, { strict: false });
+    let whileStopping: unknown = "unread";
+    whileTheFirstTurnRuns(pipelines, async () => {
+      await soundTheAlarm(pipelines, taskId);
+      whileStopping = await resumes.of(taskId);
+    });
+    await walkStages(pipelines, [implement, review], taskId);
+    pipelines.stageThreads.ahead = {
+      move: "resume",
+      cacheWarm: true,
+      contextTokens: 41_000,
+      briefTokens: 3_000,
+    };
+
+    const planned = await resumes.of(taskId);
+
+    const [held] = await runsOf(pipelines, taskId);
+    expect(whileStopping).toBeUndefined();
+    expect(pipelines.stageThreads.askedAhead).toEqual([
+      expect.objectContaining({
+        taskId,
+        declared: undefined,
+        previousThreadId: held?.threadId,
+      }),
+    ]);
+    expect(planned).toEqual({
+      kind: "continues-warm",
+      stageName: "Implement",
+      contextTokens: 41_000,
+      briefTokens: 0,
+      tokens: 4_100,
+    });
+  });
+
+  it("re-caches a cold context, or starts fresh with a Brief, as the Context policy would", async () => {
+    const pipelines = await start([anAgentSession(aDoneResult())]);
+    const taskId = randomUUID();
+    whileTheFirstTurnRuns(pipelines, () => soundTheAlarm(pipelines, taskId));
+    await walkStages(pipelines, [implement], taskId);
+    const resumes = pipelines.app.get(AlarmResumes, { strict: false });
+
+    pipelines.stageThreads.ahead = {
+      move: "resume",
+      cacheWarm: false,
+      contextTokens: 12_000,
+      briefTokens: 3_000,
+    };
+    const cold = await resumes.of(taskId);
+    pipelines.stageThreads.ahead = {
+      move: "fresh",
+      cacheWarm: false,
+      contextTokens: 48_000,
+      briefTokens: 3_000,
+    };
+    const fresh = await resumes.of(taskId);
+
+    expect(cold).toMatchObject({ kind: "re-caches", contextTokens: 12_000, tokens: 12_000 });
+    expect(fresh).toMatchObject({ kind: "fresh", briefTokens: 3_000, tokens: 3_000 });
+  });
+
+  it("runs a Script Stage's script again, with no model call", async () => {
+    const pipelines = await start();
+    const taskId = randomUUID();
+    pipelines.commands.runsUntilStopped = true;
+    pipelines.commands.observe = (call) => {
+      if (call === "runCommand") void soundTheAlarm(pipelines, taskId);
+    };
+    await walkStages(pipelines, [tests, review], taskId);
+
+    const planned = await pipelines.app.get(AlarmResumes, { strict: false }).of(taskId);
+
+    expect(planned).toEqual({
+      kind: "script",
+      stageName: "Tests",
+      contextTokens: 0,
+      briefTokens: 0,
+      tokens: 0,
+    });
+    expect(pipelines.stageThreads.askedAhead).toEqual([]);
   });
 });
 

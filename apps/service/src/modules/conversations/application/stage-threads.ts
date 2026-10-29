@@ -96,6 +96,20 @@ export interface StageThreadRequest {
   readonly session: StageSessionSettings;
 }
 
+/** What decides a Stage's session: who works it, after which Thread, and the Brief's record. */
+type StageSessionRequest = Pick<
+  StageThreadRequest,
+  "taskId" | "projectId" | "roleKey" | "declared" | "previousThreadId" | "record"
+>;
+
+/** What a Stage's session would be were it to begin now. */
+export interface StageSessionAhead {
+  readonly move: ContextDecision["move"];
+  readonly cacheWarm: boolean;
+  readonly contextTokens: number;
+  readonly briefTokens: number;
+}
+
 /** How a turn of the person's ended. */
 export interface StageTurn {
   /** The turn's structured output; undefined when the engine gave none. */
@@ -172,29 +186,7 @@ export class StageThreads {
   /** Throws RoleNotFound when nobody fills the Stage's Role. */
   async open(request: StageThreadRequest): Promise<StageThread> {
     const now = new Date();
-    const current = await this.roleCards.forNewSession(request.roleKey);
-    const previous = await this.previousThread(request.previousThreadId);
-    const brief = taskThreadBrief({
-      record: request.record,
-      continuing: false,
-      answered: await this.repository.answeredOn(request.taskId),
-      open: undefined,
-      memory: await this.memory.forBrief(request.roleKey, request.projectId),
-    });
-    const move = decideContext(
-      {
-        now,
-        session: previous?.session,
-        roleKey: request.roleKey,
-        sessionDefault: current.card.sessionDefault,
-        // Going on in its Thread, the Stage takes the user's choice in that Thread's context label,
-        // which Resume's label shows; at a Stage boundary the declared session wins.
-        override: request.declared === undefined ? previous?.override : undefined,
-        declared: request.declared,
-        briefTokens: brief.tokens,
-      },
-      await this.settings.current(),
-    );
+    const { current, previous, brief, move } = await this.decide(request, now);
     const undelivered =
       previous && request.carryMessagesSince
         ? undeliveredSince(await this.repository.messages(previous.id), request.carryMessagesSince)
@@ -215,6 +207,58 @@ export class StageThreads {
       await this.change(previous.id, (latest) => chooseOverride(latest, undefined, now));
     }
     return this.startIn(carrying, current, move, brief, now);
+  }
+
+  /**
+   * What `open` would decide for the Stage's session now, opening nothing: for what the all clear
+   * shows will resume (spec §2.8).
+   */
+  async sessionAhead(request: StageSessionRequest): Promise<StageSessionAhead> {
+    const { brief, move } = await this.decide(request, new Date());
+    return {
+      move: move.move,
+      cacheWarm: move.cacheWarm,
+      contextTokens: move.contextTokens,
+      briefTokens: brief.tokens,
+    };
+  }
+
+  /**
+   * The Context policy's move for the Stage's session (spec §2.5): going on in its Thread, the
+   * Stage takes the user's choice in that Thread's context label, which Resume's label shows; at a
+   * Stage boundary the declared session wins.
+   */
+  private async decide(
+    request: StageSessionRequest,
+    now: Date,
+  ): Promise<{
+    readonly current: SessionRole;
+    readonly previous: Thread | undefined;
+    readonly brief: Brief;
+    readonly move: ContextDecision;
+  }> {
+    const current = await this.roleCards.forNewSession(request.roleKey);
+    const previous = await this.previousThread(request.previousThreadId);
+    const brief = taskThreadBrief({
+      record: request.record,
+      continuing: false,
+      answered: await this.repository.answeredOn(request.taskId),
+      open: undefined,
+      memory: await this.memory.forBrief(request.roleKey, request.projectId),
+    });
+    const move = decideContext(
+      {
+        now,
+        session: previous?.session,
+        roleKey: request.roleKey,
+        sessionDefault: current.card.sessionDefault,
+        override: request.declared === undefined ? previous?.override : undefined,
+        declared: request.declared,
+        briefTokens: brief.tokens,
+      },
+      await this.settings.current(),
+    );
+    return { current, previous, brief, move };
   }
 
   /**

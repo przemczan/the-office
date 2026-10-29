@@ -4,6 +4,7 @@ import {
   changePriority,
   changeStartedTaskState,
   createTask,
+  giveTaskAllClear,
   pauseTask,
   pauseTaskForAlarm,
   reorderTask,
@@ -13,6 +14,7 @@ import {
 } from "./task-changes.js";
 import {
   TaskCreated,
+  TaskHeldAtAllClear,
   TaskPaused,
   TaskPriorityChanged,
   TaskReordered,
@@ -278,5 +280,38 @@ describe("undoPlanningMove", () => {
 
   it("changes nothing once the Task has left Planning", () => {
     expect(undoPlanningMove(aTask({ state: "ready" }))).toBeUndefined();
+  });
+});
+
+describe("giveTaskAllClear", () => {
+  const pausedByAlarm = aTask({ state: "paused", pausedByAlarm: true });
+
+  it("resumes a Task the alarm paused, In progress where its Pipeline was held", () => {
+    const change = giveTaskAllClear(pausedByAlarm, "resume");
+
+    expect(change?.task).toMatchObject({ state: "in-progress", pausedByAlarm: false });
+    expect(change?.event).toBeInstanceOf(TaskResumed);
+  });
+
+  it("holds it as the user's own Pause, or drops it", () => {
+    const held = giveTaskAllClear(pausedByAlarm, "hold");
+    const dropped = giveTaskAllClear(pausedByAlarm, "drop");
+
+    expect(held?.task).toMatchObject({ state: "paused", pausedByAlarm: false });
+    expect(held?.event).toBeInstanceOf(TaskHeldAtAllClear);
+    expect(dropped?.task).toMatchObject({ state: "dropped", pausedByAlarm: false });
+    expect(dropped?.event).toEqual(
+      expect.objectContaining({ taskId: pausedByAlarm.id, from: "paused", to: "dropped" }),
+    );
+  });
+
+  it("leaves every Task the alarm doesn't hold as it is", () => {
+    for (const task of [
+      aTask({ state: "paused", pausedByAlarm: false }),
+      aTask({ state: "in-progress" }),
+    ]) {
+      expect(giveTaskAllClear(task, "resume")).toBeUndefined();
+      expect(giveTaskAllClear(task, "drop")).toBeUndefined();
+    }
   });
 });

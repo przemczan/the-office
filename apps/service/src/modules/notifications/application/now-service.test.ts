@@ -18,7 +18,9 @@ import {
   StartQueueForTests,
   KnownPeopleForTests,
   NotificationsPortsForTestsModule,
+  OfficeFireAlarmForTests,
   OfficeStatusCardsForTests,
+  ResumePlansForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
   TaskStageProgressForTests,
@@ -59,6 +61,8 @@ describe("NowService", () => {
           knownPeople: KnownPeopleForTests,
           accountUsage: AccountUsageForTests,
           officeStatusCards: OfficeStatusCardsForTests,
+          officeFireAlarm: OfficeFireAlarmForTests,
+          resumePlans: ResumePlansForTests,
         }),
       ],
     }));
@@ -85,7 +89,15 @@ describe("NowService", () => {
   it("reads what waits, what runs and the desks from the modules that own them", async () => {
     const taskId = randomUUID();
     const decisionId = randomUUID();
-    tasks.tasks = [{ id: taskId, title: "Add a filter", projectId: "p1", state: "in-progress" }];
+    tasks.tasks = [
+      {
+        id: taskId,
+        title: "Add a filter",
+        projectId: "p1",
+        state: "in-progress",
+        pausedByAlarm: false,
+      },
+    ];
     app.get(TaskStageProgressForTests).stages.set(taskId, [
       {
         stage: { key: "build", name: "Build", kind: "agent", role: "developer" },
@@ -130,6 +142,52 @@ describe("NowService", () => {
     expect(now.fiveHourWindow).toEqual({ percentUsed: 42, resetsAt: "2026-10-27T12:00:00.000Z" });
   });
 
+  it("carries the fire alarm while it is on, with how each Task it paused would resume", async () => {
+    const taskId = randomUUID();
+    tasks.tasks = [
+      { id: taskId, title: "Add a filter", projectId: "p1", state: "paused", pausedByAlarm: true },
+    ];
+    const alarm = app.get(OfficeFireAlarmForTests);
+    const off = await readNow();
+    alarm.alarm = { on: true, since: new Date("2026-10-29T09:00:00Z") };
+    const stopping = await readNow();
+    app.get(ResumePlansForTests).resumes.set(taskId, {
+      kind: "re-caches",
+      stageName: "Build",
+      contextTokens: 12_000,
+      briefTokens: 0,
+      tokens: 12_000,
+    });
+
+    const planned = await readNow();
+
+    expect(off.fireAlarm).toBeNull();
+    expect(stopping.fireAlarm).toMatchObject({
+      stopping: true,
+      paused: [{ taskId, resume: null }],
+    });
+    expect(planned.fireAlarm).toEqual({
+      since: "2026-10-29T09:00:00.000Z",
+      stopping: false,
+      paused: [
+        {
+          taskId,
+          title: "Add a filter",
+          projectId: "p1",
+          stage: null,
+          resume: {
+            kind: "re-caches",
+            stageName: "Build",
+            contextTokens: 12_000,
+            briefTokens: 0,
+            tokens: 12_000,
+          },
+        },
+      ],
+      resumeTokens: 12_000,
+    });
+  });
+
   it("keeps a Task done after the user was seen, and announces it in Since you left", async () => {
     const activity = await fetch(`${url}/api/activity`, {
       method: "POST",
@@ -138,7 +196,9 @@ describe("NowService", () => {
     });
     expect(activity.status).toBe(204);
     const taskId = randomUUID();
-    tasks.tasks = [{ id: taskId, title: "Add a filter", projectId: "p1", state: "done" }];
+    tasks.tasks = [
+      { id: taskId, title: "Add a filter", projectId: "p1", state: "done", pausedByAlarm: false },
+    ];
 
     await events.publish(new TaskStateChanged(taskId, "in-progress", "done"));
 

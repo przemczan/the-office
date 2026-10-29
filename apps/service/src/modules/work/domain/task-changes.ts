@@ -4,6 +4,7 @@ import { boardOrder, placementBetween, type Neighbours } from "./manual-order.js
 import { newTaskProblems, trimmedNewTask, type NewTask, type Priority, type Task } from "./task.js";
 import {
   TaskCreated,
+  TaskHeldAtAllClear,
   TaskPaused,
   TaskPriorityChanged,
   TaskReordered,
@@ -194,6 +195,32 @@ export function resumeTask(
     task: { ...task, pausedByAlarm: true },
     event: new TaskPaused(task.id, "paused", "alarm"),
   };
+}
+
+/** What the user chose, before the all clear, for a Task the fire alarm paused (spec §2.8). */
+export type AllClearChoice = "resume" | "hold" | "drop";
+
+/**
+ * The all clear for a Task the fire alarm paused: Resume takes it In progress, where its Pipeline
+ * was held; Hold leaves it Paused as the user's own Pause; Drop drops it. Undefined for any other
+ * Task, which the alarm doesn't hold.
+ */
+export function giveTaskAllClear(
+  task: Task,
+  choice: AllClearChoice,
+): TaskChange<TaskResumed | TaskHeldAtAllClear | TaskStateChanged> | undefined {
+  if (task.state !== "paused" || !task.pausedByAlarm) return undefined;
+  switch (choice) {
+    case "resume":
+      return {
+        task: { ...task, state: "in-progress", pausedByAlarm: false },
+        event: new TaskResumed(task.id),
+      };
+    case "hold":
+      return { task: { ...task, pausedByAlarm: false }, event: new TaskHeldAtAllClear(task.id) };
+    case "drop":
+      return changeTaskState(task, "dropped");
+  }
 }
 
 function refuseUnlessRunning(task: Task, verb: "paused" | "stopped"): void {

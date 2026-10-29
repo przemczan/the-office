@@ -6,6 +6,28 @@ export interface OfficeTask {
   readonly title: string;
   readonly projectId: string;
   readonly state: string;
+  /** Whether the fire alarm holds it Paused, apart from the user's own Pause. */
+  readonly pausedByAlarm: boolean;
+}
+
+/** The fire alarm, from Work: off, or on since it was sounded. */
+export type NowFireAlarm = { readonly on: false } | { readonly on: true; readonly since: Date };
+
+/** How a Task the fire alarm paused would go on at the all clear (spec §2.8), from Pipelines. */
+export interface TaskResume {
+  readonly kind:
+    | "continues-warm"
+    | "re-caches"
+    | "fresh"
+    | "script"
+    | "publish-finished"
+    | "waits-on-you"
+    | "goes-on";
+  readonly stageName: string | undefined;
+  readonly contextTokens: number;
+  readonly briefTokens: number;
+  /** What resuming costs, in tokens, before work continues. */
+  readonly tokens: number;
 }
 
 /** A Decision that waits on the user, from Conversations. */
@@ -97,6 +119,30 @@ export interface QueuedTask {
   readonly reasons: readonly string[];
 }
 
+/** A Task the fire alarm paused, with how it would go on at the all clear. */
+export interface AlarmPausedTask {
+  readonly taskId: string;
+  readonly title: string;
+  readonly projectId: string;
+  readonly stage: CurrentStage | undefined;
+  /** Undefined while its Stage is still stopping at its safe point. */
+  readonly resume: TaskResume | undefined;
+}
+
+/**
+ * The fire alarm while it is on (spec §2.8): stopping until every Stage it holds has reached its
+ * safe point, then the plan the all clear follows, each Task resuming unless the user holds or
+ * drops it.
+ */
+export interface FireAlarmOnNow {
+  readonly since: Date;
+  readonly stopping: boolean;
+  /** Each Task it paused, in the order Now runs them. */
+  readonly paused: readonly AlarmPausedTask[];
+  /** What resuming every one of them costs, in tokens. */
+  readonly resumeTokens: number;
+}
+
 /** The running Tasks against the Office-wide limit (spec §2.2 Defaults). */
 export interface Desks {
   readonly inUse: number;
@@ -120,6 +166,8 @@ export interface Now {
   readonly desks: Desks;
   /** Undefined until the engine first reports the account's windows. */
   readonly fiveHourWindow: FiveHourWindow | undefined;
+  /** Undefined while the fire alarm is off. */
+  readonly fireAlarm: FireAlarmOnNow | undefined;
 }
 
 export interface StartedTask {
@@ -142,6 +190,9 @@ export interface NowParts {
   readonly tasksTouched: number;
   readonly officeWideLimit: number;
   readonly fiveHourWindow: FiveHourWindow | undefined;
+  readonly fireAlarm: NowFireAlarm;
+  /** How each Task the alarm paused would resume, by its id; read only while the alarm is on. */
+  readonly resumes: ReadonlyMap<string, TaskResume | undefined>;
 }
 
 export function nowOf(parts: NowParts): Now {
@@ -149,15 +200,16 @@ export function nowOf(parts: NowParts): Now {
     const gate = stages && waitingGateOf(task, stages);
     return gate ? [gate] : [];
   });
+  const running = parts.started.map(({ task, stages }) => ({
+    taskId: task.id,
+    title: task.title,
+    projectId: task.projectId,
+    state: task.state,
+    stage: stages && currentStageOf(stages),
+  }));
   return {
     needsYou: needsYouOf(parts.openDecisions, gates, parts.tasks),
-    running: parts.started.map(({ task, stages }) => ({
-      taskId: task.id,
-      title: task.title,
-      projectId: task.projectId,
-      state: task.state,
-      stage: stages && currentStageOf(stages),
-    })),
+    running,
     queue: queueOf(parts.queued, parts.tasks),
     leftAt: parts.leftAt,
     sinceYouLeft: finishedTasksOf(parts.outcomes, parts.tasks),
@@ -165,6 +217,32 @@ export function nowOf(parts: NowParts): Now {
     tasksTouched: parts.tasksTouched,
     desks: { inUse: parts.started.length, limit: parts.officeWideLimit },
     fiveHourWindow: parts.fiveHourWindow,
+    fireAlarm: fireAlarmOf(parts, running),
+  };
+}
+
+function fireAlarmOf(
+  { fireAlarm, started, resumes }: NowParts,
+  running: readonly RunningTask[],
+): FireAlarmOnNow | undefined {
+  if (!fireAlarm.on) return undefined;
+  const pausedIds = new Set(
+    started.filter(({ task }) => task.pausedByAlarm).map(({ task }) => task.id),
+  );
+  const paused = running
+    .filter(({ taskId }) => pausedIds.has(taskId))
+    .map(({ taskId, title, projectId, stage }) => ({
+      taskId,
+      title,
+      projectId,
+      stage,
+      resume: resumes.get(taskId),
+    }));
+  return {
+    since: fireAlarm.since,
+    stopping: paused.some(({ resume }) => resume === undefined),
+    paused,
+    resumeTokens: paused.reduce((sum, { resume }) => sum + (resume?.tokens ?? 0), 0),
   };
 }
 

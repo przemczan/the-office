@@ -123,6 +123,16 @@ export class TaskStopped extends DomainEvent {
   }
 }
 
+/**
+ * The user held a Task the fire alarm paused as they gave the all clear (spec §2.8): it stays
+ * Paused, now as their own Pause, and nothing of it runs until they resume it.
+ */
+export class TaskHeldAtAllClear extends DomainEvent {
+  constructor(readonly taskId: string) {
+    super();
+  }
+}
+
 /** Paused → In progress: the user resumed the Task, whose Pipeline goes on where it was held. */
 export class TaskResumed extends DomainEvent {
   constructor(readonly taskId: string) {

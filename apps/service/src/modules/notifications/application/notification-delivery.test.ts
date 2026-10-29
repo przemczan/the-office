@@ -26,7 +26,9 @@ import {
   DeskLimitForTests,
   KnownPeopleForTests,
   NotificationsPortsForTestsModule,
+  OfficeFireAlarmForTests,
   OfficeStatusCardsForTests,
+  ResumePlansForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
   StartQueueForTests,
@@ -84,6 +86,8 @@ describe("NotificationDelivery", () => {
           knownPeople: KnownPeopleForTests,
           accountUsage: AccountUsageForTests,
           officeStatusCards: OfficeStatusCardsForTests,
+          officeFireAlarm: OfficeFireAlarmForTests,
+          resumePlans: ResumePlansForTests,
         }),
       ],
       overrides: [

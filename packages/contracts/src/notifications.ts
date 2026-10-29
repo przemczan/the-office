@@ -67,6 +67,59 @@ export const finishedTaskSchema = z.object({
 });
 export type FinishedTask = z.infer<typeof finishedTaskSchema>;
 
+/**
+ * How a Task the fire alarm paused would go on at the all clear (spec §2.8), through the Context
+ * policy: its Agent Stage continues its session with the cache warm (`contextTokens` read from the
+ * cache), continues and re-caches `contextTokens`, or starts fresh with a Brief and the Handover
+ * note (`briefTokens`); a Script Stage runs its script again; a Publish the alarm let finish is
+ * recorded; a Task waiting on the user waits again; anything else goes on with no model call.
+ */
+export const resumeKindSchema = z.enum([
+  "continues-warm",
+  "re-caches",
+  "fresh",
+  "script",
+  "publish-finished",
+  "waits-on-you",
+  "goes-on",
+]);
+export type ResumeKind = z.infer<typeof resumeKindSchema>;
+
+export const taskResumeSchema = z.object({
+  kind: resumeKindSchema,
+  /** The Stage it goes on with; null when it has none ahead. */
+  stageName: z.string().nullable(),
+  contextTokens: z.number().int().nonnegative(),
+  briefTokens: z.number().int().nonnegative(),
+  /** What resuming costs, in tokens, before work continues. */
+  tokens: z.number().int().nonnegative(),
+});
+export type TaskResume = z.infer<typeof taskResumeSchema>;
+
+/** A Task the fire alarm paused, with how it would go on at the all clear. */
+export const alarmPausedTaskSchema = z.object({
+  taskId: z.uuid(),
+  title: z.string(),
+  projectId: z.string(),
+  stage: currentStageSchema.nullable(),
+  /** Null while its Stage is still stopping at its safe point. */
+  resume: taskResumeSchema.nullable(),
+});
+export type AlarmPausedTask = z.infer<typeof alarmPausedTaskSchema>;
+
+/**
+ * The fire alarm while it is on: stopping until every Stage it holds has reached its safe point,
+ * then the plan the all clear follows, each Task resuming unless the user holds or drops it.
+ */
+export const fireAlarmOnNowSchema = z.object({
+  since: z.iso.datetime(),
+  stopping: z.boolean(),
+  paused: z.array(alarmPausedTaskSchema),
+  /** What resuming every Task it paused costs, in tokens. */
+  resumeTokens: z.number().int().nonnegative(),
+});
+export type FireAlarmOnNow = z.infer<typeof fireAlarmOnNowSchema>;
+
 /** Now and the status strip: what needs the user, what runs, and the Office's figures. */
 export const nowSchema = z.object({
   needsYou: z.array(needsYouItemSchema),
@@ -86,6 +139,8 @@ export const nowSchema = z.object({
   fiveHourWindow: z
     .object({ percentUsed: z.number(), resetsAt: z.iso.datetime().nullable() })
     .nullable(),
+  /** Null while the fire alarm is off. */
+  fireAlarm: fireAlarmOnNowSchema.nullable(),
 });
 export type Now = z.infer<typeof nowSchema>;
 

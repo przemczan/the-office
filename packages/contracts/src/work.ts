@@ -427,6 +427,16 @@ export const fireAlarmSchema = z.discriminatedUnion("on", [
 ]);
 export type FireAlarm = z.infer<typeof fireAlarmSchema>;
 
+/**
+ * POST /fire-alarm/all-clear, which answers the alarm, off: the Tasks the alarm paused that the
+ * user holds or drops, by id; every other one it paused resumes.
+ */
+export const allClearSchema = z.object({
+  hold: z.array(z.uuid()),
+  drop: z.array(z.uuid()),
+});
+export type AllClear = z.infer<typeof allClearSchema>;
+
 /** What a refused change answers: every reason, also joined into Nest's `message`. */
 export const workRefusalSchema = z.object({
   statusCode: z.literal(422),
@@ -520,5 +530,8 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("saved-view.saved"), savedViewId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("saved-view.removed"), savedViewId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("office-wide-limit.changed") }),
+  /** The fire alarm sounded, or the all clear was given: every tab reads it again, and its lifts. */
+  webEventSchema.extend({ type: z.literal("fire-alarm.sounded") }),
+  webEventSchema.extend({ type: z.literal("fire-alarm.all-clear") }),
 ]);
 export type WorkWebEvent = z.infer<typeof workWebEventSchema>;

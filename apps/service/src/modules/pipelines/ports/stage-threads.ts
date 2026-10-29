@@ -101,12 +101,31 @@ export interface StageThread {
   }): Promise<void>;
 }
 
+/** What a Stage's session would be were it to begin now, as the Context policy decides it. */
+export interface StageSessionAhead {
+  readonly move: StageSessionMove;
+  /** Whether the session it would continue still has its prompt cache warm. */
+  readonly cacheWarm: boolean;
+  /** The context of the session it would continue; 0 when it would continue none. */
+  readonly contextTokens: number;
+  /** What the Brief of a new session would take, estimated. */
+  readonly briefTokens: number;
+}
+
 /**
  * The Stage Threads on Tasks' conversations, which Conversations keeps; the composition root binds
  * it. It decides each Stage's session through the Context policy (spec §2.5).
  */
 export abstract class StageThreads {
   abstract open(request: StageThreadRequest): Promise<StageThread>;
+
+  /** What `open` would decide for the Stage's session now, opening nothing. */
+  abstract sessionAhead(
+    request: Pick<
+      StageThreadRequest,
+      "taskId" | "projectId" | "roleKey" | "declared" | "previousThreadId" | "record"
+    >,
+  ): Promise<StageSessionAhead>;
 
   /**
    * Ends the Stage's work in the Thread of a run The Office left running as it stopped, closing

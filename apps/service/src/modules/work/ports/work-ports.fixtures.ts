@@ -134,7 +134,13 @@ export class FireAlarmRepositoryForTests extends FireAlarmRepository {
     return true;
   }
 
-  /** Off again, as task 27's all clear will turn it; for a test's end. */
+  async allClear(): Promise<boolean> {
+    if (!this.alarm.on) return false;
+    this.alarm = FIRE_ALARM_OFF;
+    return true;
+  }
+
+  /** Off again without the all clear, leaving the Tasks it paused as they are; for a test's end. */
   turnOff(): void {
     this.alarm = FIRE_ALARM_OFF;
   }

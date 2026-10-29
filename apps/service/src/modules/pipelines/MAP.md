@@ -14,6 +14,7 @@
 - The walk is worked out from the Stage runs (`nextMove` in `domain/pipeline-walk.ts`): a Gate action, an answer or a send-back is data on a run, replayed, not a call.
 - A Stage failing with no retries left is put to the CTO first (`asksTheCtoFirst`, `StageDecisionRequest.putTo`); Conversations falls back to the user when no CTO can be consulted, and `NoRetriesLeft.putTo` says which. The CTO's words come back as a `one-more-round` answer with `guidedBy`, which the Brief names, and a Stage they sent back once goes to the user next time.
 - Resolve (spec 2.3, "Conflicts at Publish"): a Publish run that conflicts puts Resolve, its Test and a Gate (keys `office:resolve…`, `domain/resolve-stages.ts`) before that Publish, derived from the runs and never stored: read the Stages as walked (`walkedStages`) wherever runs meet them (the walk, progress, the Gate, staffing), and strip them from an edit (`withoutResolveStages`). The Resolve Agent Stage's git is The Office's around the Agent's turn (`ResolveStageGit`, through `TaskPublishing`): no commit of its own, the merge committed once no marker is left; a round its Gate sent back is an ordinary Agent round on the merged branch, committed as any Stage's; dropping the Task aborts a merge left in progress (Work's `TaskStateChanged`).
+- What the all clear would resume (`AlarmResumes`, pure `domain/alarm-resume.ts`, read by Notifications' Now): from the walk's next move, an Agent Stage's session as `AgentStageRunner.sessionAhead` asks `StageThreads.sessionAhead` (the same `stageSessionOf` and record as a run's `open`), a warm cache counted at a tenth of its context; none while the held run still runs. A run the alarm held shows Paused.
 - The fire alarm (spec 2.8) is the `alarm` interruption: held after the Agent's turn as a Pause, its edits kept, but its Project commands stopped now, so a Script Stage stops at once; a Publish takes no interruption and finishes. `AlarmSounded` schedules the hard stop (`Schedule.once`) of the runs going on then, which cuts their turns short (`StageRunInterruption.hardStop`, `cutShortBy`), edits kept. At boot an In progress Task is held through `StartedTasks.holdForFireAlarm` before anything walks, and a run left running on a Task the alarm paused ends held by it.
 - `StaffingHolds` pauses a Task whose next Stages nobody can work, behind a Decision kept in `staffing_holds`; the interpreter asks it on every `TaskResumed` before walking, so a Resume while the lack stands pauses the Task again.
 
@@ -23,7 +24,7 @@
 
 ## Public entry (`index.ts`)
 
-PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateDropped, GateReached, NoRetriesLeft, PipelineCompleted, SentBackFromGate, StageRunEnded, StageRunStarted, WentBackToStage, TaskStagesEdited, TaskStagesMade, PipelineLibraryModule, PipelinesModule, StageDecisions, TaskCommands, TaskUsage, TaskGit
+AlarmResumes, PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateDropped, GateReached, NoRetriesLeft, PipelineCompleted, SentBackFromGate, StageRunEnded, StageRunStarted, WentBackToStage, TaskStagesEdited, TaskStagesMade, PipelineLibraryModule, PipelinesModule, StageDecisions, TaskCommands, TaskUsage, TaskGit
 
 ## Domain events
 
@@ -101,6 +102,7 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 ### application/
 
 - `agent-stage-runner.ts`: AGENT_STAGE_OFFICE_TOOLS, AgentStageRunner
+- `alarm-resumes.ts`: AlarmResumes
 - `gate-service.ts`: GateService
 - `gate-stage-runner.ts`: GateStageRunner
 - `pipeline-library-editor.ts`: PipelineLibraryEditor
@@ -121,6 +123,7 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 ### domain/
 
 - `agent-stage-brief.ts`: AGENT_STAGE_INSTRUCTIONS, BriefTask, EarlierResult, AgentStageRecord, agentStageRecord, AnsweredQuestion, CarriedRound, StageWorkReasons, HeldRun, agentStageWork
+- `alarm-resume.ts`: ResumeKind, TaskResume, WalkAhead, SessionAhead, walkAhead, taskResumeOf
 - `allowed-commands.ts`: RunPermission, CommandPermission, AllowedCommands, allowedCommands
 - `built-in-pipelines.ts`: ONBOARD_PIPELINE, builtInPipelines
 - `followed-hard-switches.ts`: FollowedHardSwitchValue, FollowedHardSwitches, hardSwitchesSection
@@ -165,7 +168,7 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 - `staffing-hold-repository.ts`: StaffingHoldRepository
 - `stage-decisions.ts`: StageDecisionRequest, OpenedStageDecision, StageDecisions
 - `stage-run-repository.ts`: StageRunRepository
-- `stage-threads.ts`: StageSessionSettings, StageThreadRequest, StageTurn, AskedDecision, StageThread, StageThreads
+- `stage-threads.ts`: StageSessionSettings, StageThreadRequest, StageTurn, AskedDecision, StageThread, StageSessionAhead, StageThreads
 - `started-tasks.ts`: WalkTaskState, StartedTask, StartedTasks
 - `task-commands.ts`: ScriptCommandKey, TaskCommands
 - `task-git.ts`: WorktreeHead, TaskGit

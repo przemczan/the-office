@@ -13,7 +13,9 @@ import {
   StartQueueForTests,
   KnownPeopleForTests,
   NotificationsPortsForTestsModule,
+  OfficeFireAlarmForTests,
   OfficeStatusCardsForTests,
+  ResumePlansForTests,
   OfficeTasksForTests,
   OpenDecisionsForTests,
   TaskStageProgressForTests,
@@ -38,6 +40,8 @@ describe("the show_office_status tool", () => {
           knownPeople: KnownPeopleForTests,
           accountUsage: AccountUsageForTests,
           officeStatusCards: OfficeStatusCardsForTests,
+          officeFireAlarm: OfficeFireAlarmForTests,
+          resumePlans: ResumePlansForTests,
         }),
       ],
     }));
@@ -50,7 +54,13 @@ describe("the show_office_status tool", () => {
   it("posts the Office status card in the chat and gives the Agent the status in words, Office-wide", async () => {
     const taskId = randomUUID();
     app.get(OfficeTasksForTests).tasks = [
-      { id: taskId, title: "Add a filter", projectId: "p1", state: "waiting-on-you" },
+      {
+        id: taskId,
+        title: "Add a filter",
+        projectId: "p1",
+        state: "waiting-on-you",
+        pausedByAlarm: false,
+      },
     ];
     app.get(OpenDecisionsForTests).open = [
       { id: randomUUID(), taskId, askedAt: new Date("2026-10-27T09:05:00Z") },

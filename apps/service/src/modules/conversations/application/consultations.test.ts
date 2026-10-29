@@ -392,7 +392,76 @@ describe("a consult during the fire alarm", () => {
     });
     expect((await threads.read(asker.id)).openDecision).toMatchObject({ putTo: consultantKey });
   });
+
+  it("opens the Consultation it kept from opening once the all clear is given", async () => {
+    await startWith(started(...consults("CTO")), started());
+    const fireAlarm = app.get(FireAlarmInThreads);
+    let on = false;
+    const open = decisions.open.bind(decisions);
+    vi.spyOn(decisions, "open").mockImplementation(async (...given) => {
+      const opened = await open(...given);
+      on = true;
+      return opened;
+    });
+    fireAlarm.readFrom(() => Promise.resolve(on ? ALARM_ON : { on: false }));
+    const asker = await developerOnATask();
+    await settled(asker.id);
+    await consultations.openFor(await threads.read(asker.id));
+    const whileOn = await consultationsOn(asker);
+
+    on = false;
+    await fireAlarm.allClear([taskOf(asker)]);
+
+    expect(whileOn).toEqual([]);
+    expect(await consultationsOn(asker)).toHaveLength(1);
+  });
+
+  it("asks the Consultant again in the Consultation it stopped, once the all clear is given", async () => {
+    await startWith(
+      started(...consults("CTO")),
+      [{ step: "start", brief: { id: "brief", text: "" } }, { step: "end" }],
+      [{ step: "resume" }],
+    );
+    const asker = await developerOnATask();
+    const consultation = await consultationOn(asker);
+    await vi.waitFor(
+      async () => {
+        if ((await threads.read(consultation.id)).state !== "answering")
+          throw new Error("Not yet.");
+      },
+      { timeout: 5_000, interval: 20 },
+    );
+    const fireAlarm = app.get(FireAlarmInThreads);
+    await fireAlarm.sounded();
+
+    await fireAlarm.allClear([taskOf(asker)]);
+
+    expect((await threads.read(consultation.id)).state).toBe("answering");
+    expect(await consultationsOn(asker)).toHaveLength(1);
+  });
+
+  it("leaves the Consultations of a Task the all clear doesn't name as they are", async () => {
+    await startWith(started(...consults("CTO")), [
+      { step: "start", brief: { id: "brief", text: "" } },
+      { step: "end" },
+    ]);
+    const asker = await developerOnATask();
+    const consultation = await consultationOn(asker);
+    await settled(consultation.id);
+    const fireAlarm = app.get(FireAlarmInThreads);
+    await fireAlarm.sounded();
+
+    await fireAlarm.allClear([randomUUID()]);
+
+    expect((await threads.read(consultation.id)).state).toBe("waiting");
+  });
 });
+
+/** The Task the Thread is on. */
+function taskOf({ home }: Thread): string {
+  if (home.kind !== "task") throw new Error("The Thread is on no Task.");
+  return home.taskId;
+}
 
 describe("a consult of a hired Consultant", () => {
   it("opens a Consultation labelled with both, which the Consultant answers for the Agent", async () => {

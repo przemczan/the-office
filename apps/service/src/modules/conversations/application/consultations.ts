@@ -45,8 +45,8 @@ interface ConsultationAtWork {
  * user, so the user may answer it in the Consultant's place: that takes the Consultation over. A
  * consult of someone who isn't a hired Consultant goes to the user. A Consultant asked to approve
  * may pass it on, at most two steps up, then it is the user's. The fire alarm stops each
- * Consultation answering and opens none while it is on; the Decision still waits on its Consultant
- * (spec §2.8).
+ * Consultation answering and opens none while it is on; the Decision still waits on its Consultant,
+ * who is asked again once the all clear is given (spec §2.8).
  */
 @Injectable()
 export class Consultations implements OnModuleInit {
@@ -66,6 +66,7 @@ export class Consultations implements OnModuleInit {
     // Agent ready to take it.
     this.events.subscribe(TurnEnded, ({ thread }) => this.openFor(thread));
     this.fireAlarm.whenSounded(() => this.stopForFireAlarm());
+    this.fireAlarm.whenAllClear((taskIds) => this.goOnAfterAllClear(taskIds));
   }
 
   /**
@@ -145,6 +146,39 @@ export class Consultations implements OnModuleInit {
     }
   }
 
+  /**
+   * The all clear was given (spec §2.8): on each of the Tasks that go on, a Decision still waiting
+   * on its Consultant has them asked: again in the Consultation the alarm stopped, or in one it
+   * kept from opening.
+   */
+  async goOnAfterAllClear(taskIds: readonly string[]): Promise<void> {
+    for (const taskId of taskIds) {
+      const threads = await this.repository.listIn({ kind: "task", taskId });
+      for (const asker of threads) {
+        await this.askAgainFor(asker, threads).catch((error: unknown) => {
+          this.logger.error(
+            `Thread ${asker.id}'s Consultant wasn't asked again after the all clear: ${String(error)}`,
+          );
+        });
+      }
+    }
+  }
+
+  private async askAgainFor(asker: Thread, threads: readonly Thread[]): Promise<void> {
+    const decision = asker.openDecision;
+    if (!decision?.putTo || asker.consultation) return;
+    const stopped = threads.find(
+      ({ consultation, roleKey }) =>
+        consultation?.decisionId === decision.id && roleKey === decision.putTo,
+    );
+    if (!stopped) {
+      await this.openFor(asker);
+      return;
+    }
+    if (stopped.state === "answering") return;
+    await this.runner.askAgain(stopped.id, await this.openingFor(decision));
+  }
+
   /** The Consultation the session works and the Decision that waits on its Consultant. */
   private async waitingIn(sessionId: string): Promise<ConsultationAtWork> {
     const consultation = await this.repository.findBySession(sessionId);
@@ -193,15 +227,10 @@ export class Consultations implements OnModuleInit {
 
   private async start(asker: Thread, decision: Decision, consultantKey: string): Promise<void> {
     if (asker.home.kind !== "task") return;
-    const [askerName, consultant, passers] = await Promise.all([
-      decision.roleKey === undefined ? THE_OFFICE : this.nameOf(decision.roleKey),
+    const [askerName, consultant, opening] = await Promise.all([
+      this.askerNameOf(decision),
       this.roleCards.find(consultantKey),
-      Promise.all(
-        decision.passedOn.map(async ({ roleKey, reason }) => ({
-          name: await this.nameOf(roleKey),
-          reason,
-        })),
-      ),
+      this.openingFor(decision),
     ]);
     if (!consultant) throw new Error(`Nobody fills the Role "${consultantKey}" now.`);
     const { thread, event } = startConsultationThread(
@@ -216,7 +245,25 @@ export class Consultations implements OnModuleInit {
     );
     await this.repository.add(thread);
     await this.events.publish(event);
-    await this.runner.open(thread.id, consultationOpening(decision, askerName, passers));
+    await this.runner.open(thread.id, opening);
+  }
+
+  /** What the Consultant is asked: the Decision, who asks it, and who passed it on, with why. */
+  private async openingFor(decision: Decision): Promise<string> {
+    const [askerName, passers] = await Promise.all([
+      this.askerNameOf(decision),
+      Promise.all(
+        decision.passedOn.map(async ({ roleKey, reason }) => ({
+          name: await this.nameOf(roleKey),
+          reason,
+        })),
+      ),
+    ]);
+    return consultationOpening(decision, askerName, passers);
+  }
+
+  private async askerNameOf(decision: Decision): Promise<string> {
+    return decision.roleKey === undefined ? THE_OFFICE : this.nameOf(decision.roleKey);
   }
 
   /** The name of the person who fills the Role; its key when nobody does now. */
