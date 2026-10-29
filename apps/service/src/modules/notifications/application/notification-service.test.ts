@@ -305,6 +305,8 @@ describe("NotificationService", () => {
     expect(open.find(({ id }) => id === raised[4]?.notification.id)?.roleKey).toBe(
       "office-manager",
     );
+    // One engine down is open at a time on the shared database: the engine answers again.
+    await events.publish(new TurnEnded({} as TurnEnded["thread"], new Date()));
   });
 
   describe("the routing", () => {

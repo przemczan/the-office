@@ -11,7 +11,7 @@ import { EventsModule } from "../../../platform/events/events.module.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
-import { DecisionAnswered, DecisionOpened, TurnEnded } from "../../conversations/index.js";
+import { DecisionAnswered, DecisionOpened } from "../../conversations/index.js";
 import { EngineDown } from "../../engine/index.js";
 import { TaskStateChanged } from "../../work/index.js";
 import { RecordingPhonePush } from "../adapters/phone/recording-phone-push.js";
@@ -19,7 +19,12 @@ import type { Notification } from "../domain/notification.js";
 import { NotificationRaised, NotificationsCleared } from "../domain/notification-events.js";
 import { DEFAULT_TIMING } from "../domain/notification-timing.js";
 import { NotificationsModule } from "../notifications.module.js";
-import { NotificationTimingForTests, UserActivityForTests } from "../ports/delivery.fixtures.js";
+import {
+  NotificationsForTests,
+  NotificationTimingForTests,
+  UserActivityForTests,
+} from "../ports/delivery.fixtures.js";
+import { NotificationRepository } from "../ports/notification-repository.js";
 import { NotificationTimingRepository } from "../ports/notification-timing-repository.js";
 import {
   AccountUsageForTests,
@@ -51,9 +56,8 @@ function decisionEvent(
 }
 
 /**
- * Every test file shares the database, and the delivery rules act on every open Notification the
- * clock has reached: each test here runs on a day of its own in 2100, which no other file's clock
- * reaches, and looks only at its own Notifications.
+ * Each test keeps its Notifications, the timing and the user's activity in fixtures of its own,
+ * apart from the other files', and runs on a day of its own.
  */
 let testDay = 0;
 
@@ -62,6 +66,7 @@ describe("NotificationDelivery", () => {
   let url: string;
   let events: EventBus;
   let schedule: ManualSchedule;
+  let notifications: NotificationsForTests;
   let timing: NotificationTimingForTests;
   let activity: UserActivityForTests;
   let raised: NotificationRaised[];
@@ -92,6 +97,7 @@ describe("NotificationDelivery", () => {
       ],
       overrides: [
         { provide: Schedule, useValue: schedule },
+        { provide: NotificationRepository, useValue: notifications },
         { provide: NotificationTimingRepository, useValue: timing },
         { provide: UserActivityRepository, useValue: activity },
       ],
@@ -109,6 +115,7 @@ describe("NotificationDelivery", () => {
     noon = (minutes = 0) => new Date(2100, 0, day, 12, minutes);
     schedule = new ManualSchedule();
     schedule.setTime(noon());
+    notifications = new NotificationsForTests();
     timing = new NotificationTimingForTests();
     activity = new UserActivityForTests();
     await start();
@@ -255,8 +262,6 @@ describe("NotificationDelivery", () => {
 
       await events.publish(decisionEvent(DecisionAnswered, decision));
       expect(cleared).toEqual([waiting?.id, summary?.id]);
-      // The engine answers again, so no engine down stays open for the other tests.
-      await events.publish(new TurnEnded({} as TurnEnded["thread"], new Date()));
     });
 
     it("send the summary at once when they are turned off with something held", async () => {

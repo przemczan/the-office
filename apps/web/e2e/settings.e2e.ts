@@ -1,5 +1,6 @@
 import path from "node:path";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+import type { NotificationTiming } from "@the-office/contracts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
@@ -90,6 +91,23 @@ function hoursFromNow(hours: number): string {
   return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
 }
 
+/**
+ * Waits for the service to keep a timing that matches. The cards show a change before it is kept
+ * and send the next one only after it, so a reload made sooner loses what was still waiting.
+ */
+function timingKept(
+  page: Page,
+  matches: (timing: NotificationTiming) => boolean,
+): Promise<unknown> {
+  return page.waitForResponse(
+    async (response) =>
+      response.url().endsWith("/notifications/timing") &&
+      response.request().method() === "PUT" &&
+      response.ok() &&
+      matches((await response.json()) as NotificationTiming),
+  );
+}
+
 // The e2e files share one database: quiet hours are moved at once to hours the clock is outside
 // of, so no other file's Notifications are held, and every change is given back.
 test("At the desk, Quiet hours and batching keep their minutes and quiet hours across reloads", async ({
@@ -107,6 +125,14 @@ test("At the desk, Quiet hours and batching keep their minutes and quiet hours a
   await expect(quietHours).not.toBeChecked();
   await expect(page.getByText("Off until you set them.")).toBeVisible();
 
+  const [quietFrom, quietTo] = [hoursFromNow(3), hoursFromNow(4)];
+  const changesKept = timingKept(
+    page,
+    (timing) =>
+      timing.awayMinutes === 7 &&
+      timing.quietHours?.from === quietFrom &&
+      timing.quietHours.to === quietTo,
+  );
   await away.fill("7");
   await away.press("Enter");
   await quietHours.check();
@@ -114,9 +140,9 @@ test("At the desk, Quiet hours and batching keep their minutes and quiet hours a
   const to = page.getByLabel("Quiet hours to");
   await expect(from).toHaveValue("22:00");
   await expect(to).toHaveValue("07:00");
-  const [quietFrom, quietTo] = [hoursFromNow(3), hoursFromNow(4)];
   await from.fill(quietFrom);
   await to.fill(quietTo);
+  await changesKept;
   await expect(page.getByText(/one summary comes when it ends/)).toBeVisible();
   await page.screenshot({
     path: path.join(SCREENSHOTS, "light-1600-settings-notification-timing.png"),
@@ -133,10 +159,15 @@ test("At the desk, Quiet hours and batching keep their minutes and quiet hours a
   await expect(from).toHaveValue(quietFrom);
   await expect(to).toHaveValue(quietTo);
 
+  const defaultsKept = timingKept(
+    page,
+    (timing) => timing.awayMinutes === 5 && timing.quietHours === null,
+  );
   await quietHours.uncheck();
   await away.fill("5");
   await away.press("Enter");
   await expect(from).toHaveCount(0);
+  await defaultsKept;
   await page.reload();
   await expect(away).toHaveValue("5");
   await expect(quietHours).not.toBeChecked();

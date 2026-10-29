@@ -103,7 +103,7 @@ NotificationsModule
 ### ports/
 
 - `account-usage.ts`: AccountUsage
-- `delivery.fixtures.ts`: NotificationTimingForTests, UserActivityForTests
+- `delivery.fixtures.ts`: NotificationTimingForTests, UserActivityForTests, NotificationsForTests
 - `desk-limit.ts`: DeskLimit
 - `known-people.ts`: KnownPeople
 - `notification-repository.ts`: NotificationRepository
