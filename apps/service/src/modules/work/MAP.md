@@ -180,7 +180,7 @@ FireAlarmService, IdeaService, OfficeLimits, QueueService, StageScreenshots, Tas
 - `start-service.ts`: StartCheck, StartService
 - `task-records.ts`: TaskRecord, TaskRecords
 - `task-service.ts`: TaskService
-- Tests: planning-test-project-check.test.ts, shaping-with-the-cto.test.ts, stage-screenshots.test.ts, task-records.test.ts, test-project-check.test.ts
+- Tests: fire-alarm-test-project-check.test.ts, planning-test-project-check.test.ts, shaping-with-the-cto.test.ts, stage-screenshots.test.ts, task-records.test.ts, test-project-check.test.ts
 
 ### domain/
 

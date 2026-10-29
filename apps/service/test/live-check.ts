@@ -268,10 +268,17 @@ export async function stageLines(
   return lines;
 }
 
-/** Leaves the Test Project as it was: the check's worktrees, the Task's branch and the base branch removed. */
+/**
+ * Leaves the Test Project as it was: the check's worktrees, the Task's branch and, for a check that
+ * made one, its throwaway base branch removed.
+ */
 export async function cleanUpTestProject(
   repositoryPath: string,
-  left: { readonly base: string; readonly taskId: string | undefined; readonly officeData: string },
+  left: {
+    readonly base?: string;
+    readonly taskId: string | undefined;
+    readonly officeData: string;
+  },
 ): Promise<void> {
   const officeWorktrees = comparable(left.officeData);
   await quietly(async () => {
@@ -286,5 +293,6 @@ export async function cleanUpTestProject(
     const taskId = left.taskId;
     await quietly(() => git(repositoryPath, "branch", "-D", `office/${taskId}`));
   }
-  await quietly(() => git(repositoryPath, "branch", "-D", left.base));
+  const base = left.base;
+  if (base !== undefined) await quietly(() => git(repositoryPath, "branch", "-D", base));
 }
