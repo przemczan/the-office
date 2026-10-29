@@ -57,6 +57,7 @@ export function toTaskResponse(task: Task): TaskResponse {
     title: task.title,
     projectId: task.projectId,
     state: task.state,
+    pausedByAlarm: task.pausedByAlarm,
     priority: task.priority,
     tags: [...task.tags],
     plan: task.plan,

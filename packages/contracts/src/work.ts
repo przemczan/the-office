@@ -119,6 +119,8 @@ export type ProposedPipeline = z.infer<typeof proposedPipelineSchema>;
 export const taskSchema = newTaskSchema.extend({
   id: z.uuid(),
   state: taskStateSchema,
+  /** Paused by the fire alarm, apart from the user's own Pause; the all clear resumes it. */
+  pausedByAlarm: z.boolean(),
   plan: z.string(),
   /** False while the Plan is the Planner's proposal; true once the user confirmed or edited it. */
   planConfirmed: z.boolean(),

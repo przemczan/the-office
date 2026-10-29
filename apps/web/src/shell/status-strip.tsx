@@ -5,6 +5,8 @@ import { notificationQueries, nowQueries } from "../api/notifications.ts";
 import { useEventStreamStatus } from "../api/event-stream-provider.tsx";
 import { roleQueries } from "../api/people.ts";
 import { tokensShort } from "./conversation/context-words.ts";
+import { alarmStateWords } from "./fire-alarm/fire-alarm-words.ts";
+import "./fire-alarm/fire-alarm.css";
 import {
   askForDesktopPermission,
   desktopPermission,
@@ -18,7 +20,8 @@ import { useNeedsYouPanel } from "./notifications/use-needs-you-panel.ts";
 /**
  * The Office-wide figures under the top bar (spec §4), live from `now.changed`: what needs the
  * user in the Projects shown, which opens the Needs you panel, desks in use, tokens today, the 5-hour window, Tasks
- * touched and done since the user left. While the web has lost the service it says so first,
+ * touched and done since the user left, and the fire alarm's state, its desks at 0 while it is on.
+ * While the web has lost the service it says so first,
  * and the Office's own Notifications (the window, the engine) show here until they clear, by the
  * Office Manager's name once one speaks them.
  */
@@ -49,6 +52,12 @@ export function StatusStrip(): ReactNode {
       {now && <Figures now={now} />}
       <span className="shell-grow" />
       <DesktopPermission />
+      {now && (
+        <span className={`shell-strip-alarm${now.fireAlarm ? " on" : ""}`}>
+          <i aria-hidden="true" />
+          {alarmStateWords(now.fireAlarm)}
+        </span>
+      )}
     </div>
   );
 }
@@ -56,12 +65,14 @@ export function StatusStrip(): ReactNode {
 function Figures({ now }: { readonly now: Now }): ReactNode {
   const fiveHour = now.fiveHourWindow;
   const resets = fiveHour && resetWords(fiveHour.resetsAt);
+  // While the alarm is on nothing runs at a desk, though its Tasks keep theirs.
+  const inUse = now.fireAlarm ? 0 : now.desks.inUse;
   return (
     <>
       <NeedsYouFigure />
       <span className="shell-strip-stat">
-        <span className={`shell-dot ${now.desks.inUse > 0 ? "running" : "idle"}`} />
-        <b>{now.desks.inUse}</b>
+        <span className={`shell-dot ${inUse > 0 ? "running" : "idle"}`} />
+        <b>{inUse}</b>
         <span className="shell-strip-faint">/ {now.desks.limit}</span> desks in use
       </span>
       <span className="shell-strip-separator" />

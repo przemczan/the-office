@@ -84,7 +84,7 @@ function TaskHead({
       <div className="task-head-grow">
         <h2>{task.title}</h2>
         <div className="task-head-meta">
-          <TaskStateBadge state={task.state} />
+          <TaskStateBadge state={task.state} pausedByAlarm={task.pausedByAlarm} />
           {waitingOnYou(task) && <TaskStateBadge state="waiting-on-you" />}
           <ProjectChip projectId={task.projectId} projects={projects} />
           <span>· Pipeline {pipelineLabel(pipeline?.name ?? REMOVED_PIPELINE, editedForTask)}</span>

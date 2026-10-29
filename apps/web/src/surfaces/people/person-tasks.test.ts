@@ -40,6 +40,7 @@ function aTask(fields: Partial<Task>): Task {
     tags: [],
     state: "backlog",
     plan: "",
+    pausedByAlarm: false,
     planConfirmed: false,
     filesToChange: [],
     definitionOfDone: [],

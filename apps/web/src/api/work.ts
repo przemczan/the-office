@@ -6,6 +6,7 @@ import {
   ideaSchema,
   initiativeListSchema,
   initiativeSchema,
+  fireAlarmSchema,
   officeWideLimitSchema,
   projectOnboardingListSchema,
   readinessSchema,
@@ -37,6 +38,8 @@ import {
   type QueuedTask,
   type StartAnswer,
   type StartCheck,
+  type AllClear,
+  type FireAlarm,
   type Task,
   type TaskPlacement,
   type WorkWebEvent,
@@ -58,7 +61,7 @@ const ATTACHMENTS = ["attachments"] as const;
 const OFFICE_WIDE_LIMIT = ["settings", "office-wide-limit"] as const;
 const SAVED_VIEWS = ["saved-views"] as const;
 /** The fire alarm and the Threads it is lifted for. */
-const FIRE_ALARM = ["fire-alarm"] as const;
+export const FIRE_ALARM = ["fire-alarm"] as const;
 
 export const ideaQueries = {
   /** Every Idea, the newest captured first. */
@@ -103,6 +106,16 @@ export function changeOfficeWideLimit(officeWideLimit: number): Promise<OfficeWi
     { officeWideLimit },
     officeWideLimitSchema,
   );
+}
+
+/** Sounds the one Office-wide fire alarm (spec §2.8); Now carries it from then on. */
+export function soundTheAlarm(): Promise<FireAlarm> {
+  return sendToApi("POST", "/fire-alarm/sound", {}, fireAlarmSchema);
+}
+
+/** The all clear: every Task the alarm paused resumes, unless the user holds or drops it. */
+export function giveTheAllClear(choices: AllClear): Promise<FireAlarm> {
+  return sendToApi("POST", "/fire-alarm/all-clear", choices, fireAlarmSchema);
 }
 
 /** The board's Saved views, in the order saved. */

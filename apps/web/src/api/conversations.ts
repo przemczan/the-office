@@ -1,6 +1,7 @@
 import { queryOptions, type QueryClient } from "@tanstack/react-query";
 import {
   decisionListSchema,
+  fireAlarmLiftsSchema,
   messageListSchema,
   proposalListSchema,
   proposalSchema,
@@ -10,6 +11,7 @@ import {
   threadWebEventSchema,
   type ContextOverride,
   type DecisionAnswer,
+  type FireAlarmLifts,
   type Home,
   type NewMessage,
   type Proposal,
@@ -19,9 +21,9 @@ import {
   type ThreadWebEvent,
   type TokenTotals,
 } from "@the-office/contracts";
-import { getFromApi, sendToApi } from "./api-client.ts";
+import { deleteFromApiReturning, getFromApi, sendToApi } from "./api-client.ts";
 import type { EventCacheUpdates, EventInvalidations } from "./event-stream-provider.tsx";
-import { TASKS } from "./work.ts";
+import { FIRE_ALARM, TASKS } from "./work.ts";
 
 const THREADS = ["threads"] as const;
 const DECISIONS = ["decisions"] as const;
@@ -121,6 +123,26 @@ export function declineProposal(id: string): Promise<Proposal> {
 }
 
 /** A fresh Thread in the person's chat. */
+/**
+ * The Threads whose Agent may act while the fire alarm is on (spec §2.8); under the alarm's key,
+ * so its sounding and its all clear read them again.
+ */
+export const fireAlarmLiftsQuery = () =>
+  queryOptions({
+    queryKey: [...FIRE_ALARM, "lifts"],
+    queryFn: ({ signal }) => getFromApi("/fire-alarm/lifts", fireAlarmLiftsSchema, signal),
+  });
+
+/** "Let <name> act in this thread": its Agent runs tools until the all clear. */
+export function liftTheAlarm(threadId: string): Promise<FireAlarmLifts> {
+  return sendToApi("PUT", `/fire-alarm/lifts/${threadId}`, {}, fireAlarmLiftsSchema);
+}
+
+/** "Take it back": the Thread's Agent runs no tools again while the alarm is on. */
+export function takeTheLiftBack(threadId: string): Promise<FireAlarmLifts> {
+  return deleteFromApiReturning(`/fire-alarm/lifts/${threadId}`, fireAlarmLiftsSchema);
+}
+
 export function startChatThread(roleKey: string): Promise<Thread> {
   return sendToApi("POST", `/chats/${encodeURIComponent(roleKey)}/threads`, {}, threadSchema);
 }

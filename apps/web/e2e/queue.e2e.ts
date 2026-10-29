@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  nowSchema,
   projectSchema,
   taskSchema,
   type NewProject,
@@ -24,7 +25,13 @@ test.beforeAll(async () => {
   repository = await createTemporaryRepository();
 });
 
-test.afterAll(async () => {
+test.afterAll(async ({ request }) => {
+  // Off again should the fire alarm's test stop midway, every Task it paused held, none walking.
+  const now = nowSchema.parse(await (await request.get("/api/now")).json());
+  if (now.fireAlarm) {
+    const hold = now.fireAlarm.paused.map(({ taskId }) => taskId);
+    await request.post("/api/fire-alarm/all-clear", { data: { hold, drop: [] } });
+  }
   await queryOfficeDatabase("delete from queue", []);
   await repository.remove();
 });
@@ -179,4 +186,70 @@ test("Start warns of an Overlap with a Task in progress, naming it and the files
   // Out of the queue before the Task it waits behind ends, so no release starts a walk.
   await page.request.post(`/api/tasks/${task.id}/drop`);
   await queryOfficeDatabase(`update tasks set state = 'dropped' where id = $1`, [inProgress.id]);
+});
+
+// Here, alone, since the alarm holds every file's Starts and pauses every file's started Tasks;
+// each Task is held at the all clear, so no walk starts after the files that left them.
+test("the fire alarm: sounded from the top bar, it stops and holds the Tasks, the strip's desks at 0, chats run no tools unless let; the all clear holds, drops or resumes each", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Alarm desk", "AD");
+  const task = await readyTask(page, project, "Alarm holds the export");
+  // In progress without a walk, and with a planning Thread to write in.
+  await queryOfficeDatabase(`update tasks set state = 'in-progress' where id = $1`, [task.id]);
+  await queryOfficeDatabase(
+    `insert into threads (id, home_kind, home_id, role_key, title, state, tokens, started_at)
+     values ($1, 'task', $2, 'planner', null, 'waiting', $3, now())`,
+    [crypto.randomUUID(), task.id, { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }],
+  );
+  const strip = page.getByRole("status", { name: "Status strip" });
+
+  await page.goto("/now");
+  await expect(strip).toContainText("Alarm off · all clear");
+  await page.getByRole("button", { name: "Sound the alarm" }).click();
+
+  await expect(
+    page.getByText("Alarm sounded: every Stage stops at its next safe point."),
+  ).toBeVisible();
+  await expect(strip).toContainText(/Alarm on/);
+  await expect(strip).toContainText(/(?<!\d)0\/ \d+ desks in use/);
+  const panel = page.getByRole("region", { name: "Fire alarm" });
+  await expect(panel.getByRole("heading", { name: /^Alarm on since \d/ })).toBeVisible();
+  await expect(panel.getByRole("listitem").filter({ hasText: task.title })).toContainText(
+    "Stopped",
+  );
+
+  await page.goto(`/tasks/${task.id}`);
+  await expect(page.getByText("Paused by the alarm").first()).toBeVisible();
+  const note = page.getByRole("note").filter({ hasText: "Alarm on:" });
+  await expect(note).toContainText("answers but runs no tools.");
+  await note.getByRole("button", { name: /^Let .+ act in this thread$/ }).click();
+  const lifted = page.getByRole("note").filter({ hasText: "may run tools in this thread" });
+  await expect(lifted).toBeVisible();
+  await lifted.getByRole("button", { name: "Take it back" }).click();
+  await expect(note).toBeVisible();
+
+  await page.getByRole("button", { name: "All clear…" }).click();
+  await expect(page).toHaveURL(/\/$|\/now$/);
+  const review = page.getByRole("region", { name: "Before the all clear" });
+  const choices = review.getByRole("group", { name: `What happens to ${task.title}` });
+  await expect(review).toContainText("Goes on · no model call");
+  await expect(choices.getByRole("button", { name: "Resume" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  const groups = review.getByRole("group", { name: /^What happens to / });
+  for (const group of await groups.all()) await group.getByRole("button", { name: "Hold" }).click();
+  await expect(review).toContainText(
+    /0 to resume · about 0 tokens before work continues · \d+ held or dropped/,
+  );
+  await review.getByRole("button", { name: "All clear", exact: true }).click();
+
+  await expect(page.getByText("All clear. 0 Tasks resume.")).toBeVisible();
+  await expect(strip).toContainText("Alarm off · all clear");
+  await expect(page.getByRole("region", { name: "Fire alarm" })).toBeHidden();
+  await page.goto(`/tasks/${task.id}`);
+  await expect(page.getByText("Paused by the alarm")).toBeHidden();
+
+  await page.request.post(`/api/tasks/${task.id}/drop`);
 });

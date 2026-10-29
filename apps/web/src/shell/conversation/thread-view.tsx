@@ -10,6 +10,7 @@ import {
 } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { roleName } from "../person-name.ts";
+import { AlarmNote } from "../fire-alarm/alarm-note.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { Composer } from "./composer.tsx";
 import { ContextBar } from "./context-bar.tsx";
@@ -68,6 +69,10 @@ export function ThreadView({
         stageThread={thread.data.stageThread}
       />
       {sending.error && <RefusalAlert title="The message wasn't sent" error={sending.error} />}
+      {readOnlyReason === undefined && !thread.data.stageThread && (
+        // A Stage's session is held at its safe point instead.
+        <AlarmNote threadId={threadId} personName={personName} />
+      )}
       {readOnlyReason === undefined ? (
         <Composer
           placeholder={

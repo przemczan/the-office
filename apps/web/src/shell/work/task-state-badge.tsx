@@ -1,6 +1,7 @@
 import type { Priority, TaskState } from "@the-office/contracts";
 import { Badge, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
+import { PAUSED_BY_THE_ALARM } from "../fire-alarm/fire-alarm-words.ts";
 import {
   PRIORITY_ICONS,
   PRIORITY_NAMES,
@@ -8,10 +9,17 @@ import {
   TASK_STATE_TONES,
 } from "./work-words.ts";
 
-export function TaskStateBadge({ state }: { readonly state: TaskState }): ReactNode {
+/** The Task's state; a Task the fire alarm holds reads "Paused by the alarm". */
+export function TaskStateBadge({
+  state,
+  pausedByAlarm = false,
+}: {
+  readonly state: TaskState;
+  readonly pausedByAlarm?: boolean;
+}): ReactNode {
   return (
     <Badge tone={TASK_STATE_TONES[state]} dot>
-      {TASK_STATE_NAMES[state]}
+      {state === "paused" && pausedByAlarm ? PAUSED_BY_THE_ALARM : TASK_STATE_NAMES[state]}
     </Badge>
   );
 }

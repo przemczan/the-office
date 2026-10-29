@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 import { taskQueries } from "../api/work.ts";
 import { DocumentDialog } from "./attachments/attachment-chips.tsx";
 import { useBrandTone } from "./brand-tone.ts";
+import { AlarmButton } from "./fire-alarm/alarm-button.tsx";
 import type { PageHeading } from "./page-heading.tsx";
 import { onlyProjectShown } from "./project-filter/project-filter-choices.ts";
 import { ProjectFilterMenu } from "./project-filter/project-filter-menu.tsx";
@@ -13,8 +14,8 @@ import { TopBarSearch } from "./search/top-bar-search.tsx";
 import { CaptureIdeaDialog } from "./work/capture-idea-dialog.tsx";
 
 /**
- * The lockup, the page's title with its crumb, the Project filter, the search, and "Idea", which
- * captures one from any page.
+ * The lockup, the page's title with its crumb, the Project filter, the search, "Idea", which
+ * captures one from any page, and the fire alarm.
  */
 export function TopBar({ title, crumb, parent }: Partial<PageHeading>): ReactNode {
   const [capturing, setCapturing] = useState(false);
@@ -52,6 +53,7 @@ export function TopBar({ title, crumb, parent }: Partial<PageHeading>): ReactNod
       >
         Idea
       </Button>
+      <AlarmButton />
       {capturing && (
         <CaptureIdeaDialog
           projectId={projectId ?? task.data?.projectId ?? onlyProjectShown(filter) ?? null}

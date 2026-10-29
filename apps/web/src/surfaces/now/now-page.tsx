@@ -14,6 +14,7 @@ import { nowQueries } from "../../api/notifications.ts";
 import { roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
+import { PAUSED_BY_THE_ALARM } from "../../shell/fire-alarm/fire-alarm-words.ts";
 import { Desk, Feed, Panel, PanelHeading } from "../../shell/desk.tsx";
 import { EmptyCard, ItemCard } from "../../shell/item-card.tsx";
 import { NeedsYouFeed } from "../../shell/notifications/needs-you-feed.tsx";
@@ -33,11 +34,12 @@ import { useProjectFilter } from "../../shell/project-filter/use-project-filter.
 import { momentWords } from "../../shell/time.ts";
 import { useClock } from "../../shell/use-clock.ts";
 import { TASK_STATE_NAMES, TASK_STATE_TONES } from "../../shell/work/work-words.ts";
+import { AlarmPanel } from "./alarm-panel.tsx";
 import "./now.css";
 
 /**
  * Home: what needs the user, what is running and queued, what happened since they left, and today's tokens;
- * nothing else (spec §4). Each Decision and Gate is answered in place. The Project filter narrows
+ * nothing else (spec §4), with the fire alarm above while it is on (spec §2.8). Each Decision and Gate is answered in place. The Project filter narrows
  * the three feeds; desks and tokens stay Office-wide.
  */
 export function NowPage(): ReactNode {
@@ -47,42 +49,45 @@ export function NowPage(): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
   const clock = useClock();
   return (
-    <Desk>
-      <Panel label="Needs you">
-        <PanelHeading
-          icon="inbox"
-          title="Needs you"
-          count={needsYou && String(needsYou.shown.length)}
-        />
-        <Feed>{needsYou && <NeedsYouFeed needsYou={needsYou} />}</Feed>
-      </Panel>
-      <Panel label="Running and since you left">
-        <PanelHeading
-          icon="activity"
-          title="Running"
-          count={now && desksWords(now)}
-          action={{ label: "Open Work", to: "/work" }}
-        />
-        <Feed>
-          {now && <RunningFeed now={now} projects={projects} roles={roles} clock={clock} />}
-        </Feed>
-        {now && now.queue.length > 0 && (
-          <>
-            <PanelHeading icon="list-ordered" title="Queue" count={String(now.queue.length)} />
-            <Feed>
-              <QueueFeed queue={now.queue} projects={projects} />
-            </Feed>
-          </>
-        )}
-        <PanelHeading
-          icon="moon"
-          title="Since you left"
-          count={now && sinceWords(now.leftAt, clock)}
-        />
-        <Feed>{now && <SinceYouLeftFeed now={now} projects={projects} clock={clock} />}</Feed>
-        {now && <TodaysTokens now={now} />}
-      </Panel>
-    </Desk>
+    <>
+      {now?.fireAlarm && <AlarmPanel alarm={now.fireAlarm} />}
+      <Desk>
+        <Panel label="Needs you">
+          <PanelHeading
+            icon="inbox"
+            title="Needs you"
+            count={needsYou && String(needsYou.shown.length)}
+          />
+          <Feed>{needsYou && <NeedsYouFeed needsYou={needsYou} />}</Feed>
+        </Panel>
+        <Panel label="Running and since you left">
+          <PanelHeading
+            icon="activity"
+            title="Running"
+            count={now && desksWords(now)}
+            action={{ label: "Open Work", to: "/work" }}
+          />
+          <Feed>
+            {now && <RunningFeed now={now} projects={projects} roles={roles} clock={clock} />}
+          </Feed>
+          {now && now.queue.length > 0 && (
+            <>
+              <PanelHeading icon="list-ordered" title="Queue" count={String(now.queue.length)} />
+              <Feed>
+                <QueueFeed queue={now.queue} projects={projects} />
+              </Feed>
+            </>
+          )}
+          <PanelHeading
+            icon="moon"
+            title="Since you left"
+            count={now && sinceWords(now.leftAt, clock)}
+          />
+          <Feed>{now && <SinceYouLeftFeed now={now} projects={projects} clock={clock} />}</Feed>
+          {now && <TodaysTokens now={now} />}
+        </Panel>
+      </Desk>
+    </>
   );
 }
 
@@ -131,6 +136,9 @@ function RunningCard({
   readonly clock: Date;
 }): ReactNode {
   const { stage } = task;
+  const pausedByAlarm = useQuery(nowQueries.now()).data?.fireAlarm?.paused.some(
+    ({ taskId }) => taskId === task.taskId,
+  );
   const person = stage?.role ? roles?.find(({ key }) => key === stage.role) : undefined;
   return (
     <ItemCard
@@ -144,7 +152,9 @@ function RunningCard({
           </Link>
           <ProjectChip projectId={task.projectId} projects={projects} />
           {task.state !== "in-progress" && (
-            <Badge tone={TASK_STATE_TONES[task.state]}>{TASK_STATE_NAMES[task.state]}</Badge>
+            <Badge tone={TASK_STATE_TONES[task.state]}>
+              {pausedByAlarm ? PAUSED_BY_THE_ALARM : TASK_STATE_NAMES[task.state]}
+            </Badge>
           )}
         </div>
         <div className="now-item-sub">

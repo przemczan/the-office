@@ -1,0 +1,37 @@
+/* ---- the fire alarm's note under a chat's composer */
+.composer-note.alarm-note {
+  border-top-color: var(--danger-border);
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+}
+
+.composer-note.alarm-note.lifted {
+  border-top-color: var(--warning-border);
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
+}
+
+/* ---- the alarm's state at the strip's end */
+.shell-strip-alarm {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-3);
+  white-space: nowrap;
+}
+
+.shell-strip-alarm i {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-strong);
+}
+
+.shell-strip-alarm.on {
+  color: var(--danger-fg);
+}
+
+.shell-strip-alarm.on i {
+  background: var(--danger);
+}

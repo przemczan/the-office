@@ -26,11 +26,11 @@ export class AlarmResumes {
    */
   async of(taskId: string): Promise<TaskResume | undefined> {
     const own = await this.taskStages.find(taskId);
+    if (!own) return taskResumeOf({ kind: "goes-on", stage: undefined }, undefined);
     const runs = await this.runs.list(taskId);
-    const stages = walkedStages(own?.stages ?? [], runs);
+    const stages = walkedStages(own.stages, runs);
     const { definitionOfDone } = await this.records.read(taskId);
-    const ahead = own ? walkAhead(stages, runs, definitionOfDone) : undefined;
-    if (!ahead) return taskResumeOf({ kind: "goes-on", stage: undefined }, undefined);
+    const ahead = walkAhead(stages, runs, definitionOfDone);
     const session =
       ahead.kind === "agent"
         ? await this.agents.sessionAhead(taskId, {
