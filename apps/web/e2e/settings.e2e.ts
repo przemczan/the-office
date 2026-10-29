@@ -33,6 +33,57 @@ test("Office limits keeps the desks and the size threshold across reloads", asyn
   await expect(threshold).toHaveText("30k");
 });
 
+// The e2e files share one database: only "Alarm lifted with work waiting", which nothing raises
+// yet, is changed, and it is given back to its group.
+test("Notifications shows what goes where, a kind set or inherited, and Reset gives it back", async ({
+  page,
+}) => {
+  await page.goto("/settings");
+  await page.getByRole("link", { name: "Notifications" }).click();
+  await expect(page).toHaveURL(/\/settings\/notifications$/);
+  const grid = page.getByRole("table");
+  await expect(grid.getByRole("columnheader", { name: /Phone/ })).toContainText("Not set up yet");
+  await expect(page.getByText("Never notified: Stage progress, Tasks starting")).toBeVisible();
+
+  const cell = (channel: string, row: string) =>
+    grid.getByRole("button", { name: `${channel} for ${row}`, exact: true });
+  // Ticket 20's defaults: a failed Task also goes to the phone, set on its own row.
+  await expect(cell("Phone", "Task failed")).toHaveAttribute("aria-pressed", "true");
+  await expect(cell("Phone", "Task failed")).toHaveAttribute("title", "Set here");
+  await expect(cell("Phone", "Task done")).toHaveAttribute("aria-pressed", "false");
+  await expect(cell("Desktop", "Task done")).toHaveAttribute("title", "Inherited from Outcomes");
+  await expect(
+    grid.getByRole("row", { name: /^Task done/ }).getByRole("button", { name: "Reset" }),
+  ).toHaveCount(0);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-settings-notifications.png") });
+
+  const alarmLifted = cell("Phone", "Alarm lifted with work waiting");
+  const reset = grid
+    .getByRole("row", { name: /^Alarm lifted with work waiting/ })
+    .getByRole("button", { name: "Reset" });
+  await expect(alarmLifted).toHaveAttribute("title", "Inherited from Office");
+  await alarmLifted.click();
+  await expect(alarmLifted).toHaveAttribute("aria-pressed", "true");
+  await expect(alarmLifted).toHaveAttribute("title", "Set here");
+
+  await page.reload();
+  await expect(alarmLifted).toHaveAttribute("aria-pressed", "true");
+  await reset.click();
+  await expect(alarmLifted).toHaveAttribute("aria-pressed", "false");
+  await expect(alarmLifted).toHaveAttribute("title", "Inherited from Office");
+  await expect(reset).toHaveCount(0);
+
+  // Setting a kind back to what its group gives drops the setting: the row inherits again.
+  await cell("In-app", "Alarm lifted with work waiting").click();
+  await expect(reset).toBeVisible();
+  await cell("In-app", "Alarm lifted with work waiting").click();
+  await expect(cell("In-app", "Alarm lifted with work waiting")).toHaveAttribute(
+    "title",
+    "Inherited from Office",
+  );
+  await expect(reset).toHaveCount(0);
+});
+
 // The e2e files share one database, and work.e2e.ts walks Full and Quick fix: this test makes
 // Pipelines of its own, with Script Stages and Gates only, as nobody may fill the Developer yet.
 test("the user makes a Pipeline, edits it, duplicates it and removes the copy; Onboard stays", async ({

@@ -1,4 +1,11 @@
-import type { Channel, Notification, Project, Role, Task } from "@the-office/contracts";
+import type {
+  Channel,
+  Notification,
+  NotificationRouting,
+  Project,
+  Role,
+  Task,
+} from "@the-office/contracts";
 
 /** The product's name, the tab's title with no Notification open. */
 export const OFFICE_TITLE = "The Office";
@@ -38,18 +45,24 @@ export function targetOf({
   return { to: "/tasks/$taskId", params: { taskId: pointsTo.taskId } };
 }
 
-/**
- * Where spec 2.7's routing sends "service down" in the browser: in-app and to the desktop. Its phone
- * push would come from the service, which is what is down.
- */
-const SERVICE_DOWN_CHANNELS: readonly Channel[] = ["in-app", "desktop"];
+/** The channels in the browser; the phone is pushed to by the service. */
+const BROWSER_CHANNELS: readonly Channel[] = ["in-app", "desktop"];
 
 /**
  * "Service down", which the web raises itself since the service can't while the web has lost it:
- * from the Office Manager while one is hired, as the service's Office kinds are.
+ * from the Office Manager while one is hired, as the service's Office kinds are; to the browser's
+ * channels the user's routing last read gives it.
  */
-export function serviceDown(roles: readonly Role[] | undefined): Notification {
+export function serviceDown(
+  roles: readonly Role[] | undefined,
+  routing: NotificationRouting | undefined,
+): Notification {
   const officeManager = roles?.find(({ key, letGoAt }) => key === OFFICE_MANAGER && !letGoAt);
+  const routed = routing?.["office.down.service"];
+  // Until the routing is read, ticket 20's default: in-app and the desktop.
+  const channels = routed
+    ? BROWSER_CHANNELS.filter((channel) => routed[channel].on)
+    : BROWSER_CHANNELS;
   return {
     id: "service-down",
     kind: "office.down.service",
@@ -58,7 +71,7 @@ export function serviceDown(roles: readonly Role[] | undefined): Notification {
       ? "I lost touch with the service and am reconnecting."
       : "The Office lost its service and is reconnecting.",
     pointsTo: { kind: "office" },
-    channels: [...SERVICE_DOWN_CHANNELS],
+    channels: [...channels],
     raisedAt: new Date(0).toISOString(),
   };
 }

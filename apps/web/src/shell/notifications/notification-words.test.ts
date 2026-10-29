@@ -39,16 +39,24 @@ function officeManager(letGoAt: string | null): Role[] {
 
 describe("serviceDown", () => {
   it("comes from the Office Manager while one is hired, and in the UI's voice otherwise", () => {
-    expect(serviceDown(officeManager(null))).toMatchObject({
+    expect(serviceDown(officeManager(null), undefined)).toMatchObject({
       roleKey: "office-manager",
       line: "I lost touch with the service and am reconnecting.",
       channels: ["in-app", "desktop"],
     });
-    expect(serviceDown(officeManager("2026-10-27T09:00:00.000Z"))).toMatchObject({
+    expect(serviceDown(officeManager("2026-10-27T09:00:00.000Z"), undefined)).toMatchObject({
       roleKey: null,
       line: "The Office lost its service and is reconnecting.",
     });
-    expect(serviceDown(undefined).roleKey).toBeNull();
+    expect(serviceDown(undefined, undefined).roleKey).toBeNull();
+  });
+
+  it("goes to the browser's channels the user's routing gives it, never the phone", () => {
+    const off = { on: false, from: "office" };
+    const on = { on: true, from: "office.down.service" };
+    const routing = { "office.down.service": { "in-app": on, desktop: off, phone: on } };
+
+    expect(serviceDown(undefined, routing).channels).toEqual(["in-app"]);
   });
 });
 

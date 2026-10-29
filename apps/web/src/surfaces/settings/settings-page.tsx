@@ -8,6 +8,7 @@ const SECTIONS = [
   { to: "/settings/pipelines", icon: "route", label: "Pipelines" },
   { to: "/settings/skills", icon: "sparkles", label: "Skills" },
   { to: "/settings/office-limits", icon: "gauge", label: "Office limits" },
+  { to: "/settings/notifications", icon: "bell", label: "Notifications" },
   { to: "/settings/appearance", icon: "palette", label: "Appearance" },
 ] as const;
 

@@ -22,14 +22,16 @@ import { useUnreadBadge } from "./unread-badge.ts";
 export function useNotificationChannels(): void {
   const open = useQuery(notificationQueries.open()).data;
   const roles = useQuery(roleQueries.list()).data;
+  const routing = useQuery(notificationQueries.routing()).data;
   const reconnecting = useEventStreamStatus() === "reconnecting";
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const inApp = useInAppChannel();
   const [desktop] = useState(() => new DesktopChannel());
   const all = useMemo(
-    () => (open === undefined ? undefined : reconnecting ? [...open, serviceDown(roles)] : open),
-    [open, reconnecting, roles],
+    () =>
+      open === undefined ? undefined : reconnecting ? [...open, serviceDown(roles, routing)] : open,
+    [open, reconnecting, roles, routing],
   );
   const shown = useRef<ReadonlySet<string> | undefined>(undefined);
 

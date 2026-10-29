@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { OFFICE_WIDE_LIMIT_MAX, SIZE_THRESHOLD_TOKENS } from "@the-office/contracts";
-import { Card, Icon } from "@the-office/ui";
+import { Card } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { changeSizeThreshold, sizeThresholdQuery } from "../../../api/conversations.ts";
 import { nowQueries } from "../../../api/notifications.ts";
 import { changeOfficeWideLimit, officeWideLimitQuery } from "../../../api/work.ts";
 import { tokensShort } from "../../../shell/conversation/context-words.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
-import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
+import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
 import { Stepper } from "./stepper.tsx";
 
 /** Settings › Office limits: the desks and the Context policy's size threshold. */
@@ -30,7 +30,7 @@ function DesksCard(): ReactNode {
     onSuccess: (saved) => queryClient.setQueryData(officeWideLimitQuery().queryKey, saved),
   });
   return (
-    <Card title={<CardTitle icon="gauge">Desks</CardTitle>}>
+    <Card title={<SettingsCardTitle icon="gauge">Desks</SettingsCardTitle>}>
       <div className="stepper-row">
         <div className="stepper-row-words">
           <b>Running Tasks at once across The Office</b>
@@ -53,8 +53,8 @@ function DesksCard(): ReactNode {
         {now.data && `${now.data.desks.inUse} in use now. `}
         Lowering it lets running Tasks finish; nothing new starts until one ends.
       </p>
-      <Problem title="The limit can't be read" error={limit.error} />
-      <Problem title="The limit can't be saved" error={saving.error} />
+      <SettingsProblem title="The limit can't be read" error={limit.error} />
+      <SettingsProblem title="The limit can't be saved" error={saving.error} />
     </Card>
   );
 }
@@ -67,7 +67,7 @@ function SizeThresholdCard(): ReactNode {
     onSuccess: (saved) => queryClient.setQueryData(sizeThresholdQuery().queryKey, saved),
   });
   return (
-    <Card title={<CardTitle icon="layers">Context policy</CardTitle>}>
+    <Card title={<SettingsCardTitle icon="layers">Context policy</SettingsCardTitle>}>
       <div className="stepper-row">
         <div className="stepper-row-words">
           <b>Size threshold</b>
@@ -94,39 +94,8 @@ function SizeThresholdCard(): ReactNode {
         It applies from each Thread&apos;s next message; a person&apos;s session default decides
         whether it is used.
       </p>
-      <Problem title="The size threshold can't be read" error={threshold.error} />
-      <Problem title="The size threshold can't be saved" error={saving.error} />
+      <SettingsProblem title="The size threshold can't be read" error={threshold.error} />
+      <SettingsProblem title="The size threshold can't be saved" error={saving.error} />
     </Card>
-  );
-}
-
-function CardTitle({
-  icon,
-  children,
-}: {
-  readonly icon: string;
-  readonly children: string;
-}): ReactNode {
-  return (
-    <span className="settings-block-title">
-      <Icon name={icon} size={15} strokeWidth={1.6} />
-      {children}
-    </span>
-  );
-}
-
-function Problem({
-  title,
-  error,
-}: {
-  readonly title: string;
-  readonly error: Error | null;
-}): ReactNode {
-  return (
-    error && (
-      <div className="settings-banner">
-        <RefusalAlert title={title} error={error} />
-      </div>
-    )
   );
 }

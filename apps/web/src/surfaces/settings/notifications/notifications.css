@@ -1,0 +1,121 @@
+/* Settings › Notifications (prototypes/app/settings.js `notificationsSection`). Colours are
+   aliases only. */
+
+.routing-intro {
+  margin-bottom: 12px;
+}
+
+.routing-grid {
+  width: 100%;
+  border-collapse: collapse;
+  font: var(--type-body-sm);
+}
+
+.routing-grid thead th {
+  width: 140px;
+  padding: 6px 8px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  font: 500 12px/1.3 var(--font-sans);
+  color: var(--fg-1);
+  text-align: center;
+}
+
+.routing-grid thead th:first-child {
+  width: auto;
+}
+
+.routing-grid thead .settings-note {
+  font-weight: 400;
+}
+
+.routing-grid tbody th,
+.routing-grid td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-weight: 400;
+  text-align: left;
+}
+
+.routing-grid .routing-group th,
+.routing-grid .routing-group td {
+  padding-top: 12px;
+  background: var(--surface-sunken);
+  font-weight: 600;
+}
+
+.routing-grid .routing-kind {
+  padding-left: 24px;
+}
+
+.routing-kind .settings-note {
+  display: block;
+}
+
+.routing-kind button {
+  height: 20px;
+  margin-left: 8px;
+  padding: 0 6px;
+  vertical-align: middle;
+}
+
+.routing-grid td.routing-column {
+  text-align: center;
+}
+
+.routing-cell {
+  display: inline-grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px dashed var(--border-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-3);
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+.routing-cell.on {
+  border-style: solid;
+  color: var(--fg-2);
+}
+
+.routing-cell.set {
+  border-style: solid;
+  border-color: var(--accent-subtle-fg);
+}
+
+.routing-cell.set.on {
+  background: var(--accent-subtle);
+  color: var(--accent-subtle-fg);
+}
+
+button.routing-cell:hover:not(:disabled) {
+  background: var(--control-hover);
+}
+
+.routing-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 6px;
+}
+
+.routing-legend .routing-cell {
+  width: 18px;
+  height: 18px;
+  margin-left: 6px;
+  cursor: default;
+}
+
+.routing-legend .routing-cell:first-child {
+  margin-left: 0;
+}
+
+@media (max-width: 720px) {
+  .routing-grid thead th {
+    width: auto;
+  }
+}

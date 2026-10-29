@@ -1,12 +1,15 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
   notificationListSchema,
+  notificationRoutingSchema,
   notificationsWebEventSchema,
   nowSchema,
   type Activity,
+  type ChannelSetting,
   type Notification,
+  type NotificationRouting,
 } from "@the-office/contracts";
-import { getFromApi, postToApi } from "./api-client.ts";
+import { deleteFromApiReturning, getFromApi, postToApi, sendToApi } from "./api-client.ts";
 import type { EventCacheUpdates } from "./event-stream-provider.tsx";
 
 export const nowQueries = {
@@ -25,7 +28,27 @@ export const notificationQueries = {
       queryKey: ["notifications"],
       queryFn: ({ signal }) => getFromApi("/notifications", notificationListSchema, signal),
     }),
+  /** What goes where: each level of the kinds tree with every channel as it routes there. */
+  routing: () =>
+    queryOptions({
+      queryKey: ["notification-routing"],
+      queryFn: ({ signal }) =>
+        getFromApi("/notifications/routing", notificationRoutingSchema, signal),
+    }),
 };
+
+/** Sets a channel at a level of the kinds tree; the answer is the whole routing. */
+export function setRoutingChannel(
+  level: string,
+  setting: ChannelSetting,
+): Promise<NotificationRouting> {
+  return sendToApi("PUT", `/notifications/routing/${level}`, setting, notificationRoutingSchema);
+}
+
+/** Gives a kind back to its group; the answer is the whole routing. */
+export function resetRouting(level: string): Promise<NotificationRouting> {
+  return deleteFromApiReturning(`/notifications/routing/${level}`, notificationRoutingSchema);
+}
 
 /**
  * Tells the service the user is active, and on which page: where Since you left begins, and what
