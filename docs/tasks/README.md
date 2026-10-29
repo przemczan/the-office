@@ -1,6 +1,6 @@
 # Build tasks
 
-[The spec](../spec/3-capabilities-by-tier.md)'s tiers, sliced into tasks in build order. The current task is the first row that is not `done`. How a session works through a task is in [CLAUDE.md](../../CLAUDE.md).
+[The spec](../spec/3-capabilities-by-tier.md)'s tiers, sliced into tasks in build order. The current task is the first row that is neither `done` nor `postponed`. How a session works through a task is in [CLAUDE.md](../../CLAUDE.md).
 
 ## Tier 1: the base
 
@@ -42,7 +42,7 @@ Order accepted by the user on 2026-10-27. A task's file is written when it becom
 | 25 | [Skills from a source, and update Proposals](25-skills-from-a-source.md) | Settings | done |
 | 26 | [Parallel work in a Project, and a queue for Start](26-parallel-work-and-start-queue.md) | Work and the Task page | done |
 | 27 | [Notifications: the kinds × channels grid, quiet hours, batching; the fire alarm](27-notifications-and-fire-alarm.md) | Now | done |
-| 28 | The phone: HTTPS on the LAN, the PIN, the installed app, phone views and push | Phone | todo |
+| 28 | [The phone: HTTPS on the LAN, the PIN, the installed app, phone views and push](28-the-phone.md) | Phone | postponed |
 | 29 | Running: start at login, the `-p` fallback adapter | Foundation | todo |
 | 30 | The tier 2 acceptance run | All | todo |
 

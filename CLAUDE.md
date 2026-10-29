@@ -6,7 +6,7 @@ A single-user workspace run like an office, built from [the spec](docs/spec/READ
 
 Load only what the current step needs: whatever a session reads stays in its context and is paid for on every later call.
 
-1. Open [docs/tasks/README.md](docs/tasks/README.md). The current task is the first row that is not `done`. A task still `todo` becomes `in progress`, in its file and in the README.
+1. Open [docs/tasks/README.md](docs/tasks/README.md). The current task is the first row that is neither `done` nor `postponed`. A task still `todo` becomes `in progress`, in its file and in the README.
 2. In that task's file, read Goal, Definition of Done, Read first, State, and the first unchecked step with its `Read:` line, and continue from that step. Earlier Progress lines and other tasks' logs are not needed.
 3. Before changing a module or a surface, read its `MAP.md` (`apps/service/src/modules/<module>/`, `apps/service/src/platform/`, `apps/web/src/`, `apps/web/src/surfaces/<surface>/`, `apps/web/e2e/`, `packages/contracts/src/`): what it owns, what it talks to and its traps, then its routes, events, tables and files. From there, find symbols with LSP and read code by range.
 4. In the click-through, grep the function the task names and read only its range, never a whole file.
