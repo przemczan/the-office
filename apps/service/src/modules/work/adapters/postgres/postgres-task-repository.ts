@@ -1,20 +1,17 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Neighbours } from "../../domain/manual-order.js";
 import type { Task } from "../../domain/task.js";
 import type { TaskChange } from "../../domain/task-changes.js";
-import type { TaskCreated, TaskReordered, TaskStarted } from "../../domain/task-events.js";
-import type { HeldAtStart } from "../../domain/task-start.js";
-import { STARTED_STATES } from "../../domain/task-states.js";
+import type { TaskCreated, TaskReordered } from "../../domain/task-events.js";
 import { TaskRepository, type NeighbourIds, type TaskUpdate } from "../../ports/task-repository.js";
 import { tasks } from "./work.schema.js";
 import {
   changeDependenciesHeld,
   heldTask,
   holdManualOrder,
-  holdStarts,
   saveTask,
   takenOrders,
   toTask,
@@ -54,32 +51,6 @@ export class PostgresTaskRepository extends TaskRepository {
     return this.database.transaction(async (transaction) => {
       const task = await heldTask(transaction, id);
       return saveTask(transaction, task, change(task));
-    });
-  }
-
-  async start(
-    id: string,
-    change: (task: Task, held: HeldAtStart) => TaskChange<TaskStarted>,
-  ): Promise<TaskChange<TaskStarted>> {
-    return this.database.transaction(async (transaction) => {
-      await holdStarts(transaction);
-      const task = await heldTask(transaction, id);
-      const startedRows = await transaction
-        .select()
-        .from(tasks)
-        .where(inArray(tasks.state, [...STARTED_STATES]));
-      const blockerRows = task.blockedBy.length
-        ? await transaction
-            .select()
-            .from(tasks)
-            .where(inArray(tasks.id, [...task.blockedBy]))
-        : [];
-      const started = change(task, {
-        startedTasks: startedRows.map(toTask),
-        blockers: blockerRows.map(toTask),
-      });
-      await transaction.update(tasks).set(toTaskRow(started.task)).where(eq(tasks.id, id));
-      return started;
     });
   }
 

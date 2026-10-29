@@ -34,11 +34,13 @@ import { OnboardingOfficeTools } from "./adapters/office-tools/onboarding-office
 import { PlanningOfficeTools } from "./adapters/office-tools/planning-office-tools.js";
 import { ShapingOfficeTools } from "./adapters/office-tools/shaping-office-tools.js";
 import { WorkOfficeTools } from "./adapters/office-tools/work-office-tools.js";
+import { QueueController } from "./adapters/http/queue.controller.js";
 import { TasksController } from "./adapters/http/tasks.controller.js";
 import { PostgresAttachmentRepository } from "./adapters/postgres/postgres-attachment-repository.js";
 import { PostgresIdeaRepository } from "./adapters/postgres/postgres-idea-repository.js";
 import { PostgresInitiativeRepository } from "./adapters/postgres/postgres-initiative-repository.js";
 import { PostgresSavedViewRepository } from "./adapters/postgres/postgres-saved-view-repository.js";
+import { PostgresQueueRepository } from "./adapters/postgres/postgres-queue-repository.js";
 import { PostgresTaskRepository } from "./adapters/postgres/postgres-task-repository.js";
 import { PostgresWorkSearch } from "./adapters/postgres/postgres-work-search.js";
 import { PostgresWorkSettings } from "./adapters/postgres/postgres-work-settings.js";
@@ -52,6 +54,8 @@ import { PlanningService } from "./application/planning-service.js";
 import { SavedViewService } from "./application/saved-view-service.js";
 import { SearchService } from "./application/search-service.js";
 import { StageScreenshots } from "./application/stage-screenshots.js";
+import { QueueService } from "./application/queue-service.js";
+import { StartConditionsReader } from "./application/start-conditions.js";
 import { StartService } from "./application/start-service.js";
 import { TaskRecords } from "./application/task-records.js";
 import { TaskService } from "./application/task-service.js";
@@ -72,6 +76,7 @@ import { SavedViewRepository } from "./ports/saved-view-repository.js";
 import { SessionPeople } from "./ports/session-people.js";
 import { SessionInitiatives } from "./ports/session-initiatives.js";
 import { SessionTasks } from "./ports/session-tasks.js";
+import { QueueRepository } from "./ports/queue-repository.js";
 import { TaskRepository } from "./ports/task-repository.js";
 import { TaskDecisions } from "./ports/task-decisions.js";
 import { TaskThreads } from "./ports/task-threads.js";
@@ -132,6 +137,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         IdeasController,
         InitiativesController,
         TasksController,
+        QueueController,
         AttachmentsController,
         OfficeLimitsController,
         OnboardingsController,
@@ -142,6 +148,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: IdeaRepository, useClass: PostgresIdeaRepository },
         { provide: InitiativeRepository, useClass: PostgresInitiativeRepository },
         { provide: TaskRepository, useClass: PostgresTaskRepository },
+        { provide: QueueRepository, useClass: PostgresQueueRepository },
         { provide: AttachmentRepository, useClass: PostgresAttachmentRepository },
         { provide: AttachmentFiles, useClass: FilesystemAttachmentFiles },
         { provide: WorktreeFiles, useClass: FilesystemWorktreeFiles },
@@ -170,7 +177,9 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         SearchService,
         SavedViewService,
         PlanningService,
+        StartConditionsReader,
         StartService,
+        QueueService,
         TaskRecords,
         StageScreenshots,
         WorkWebEvents,

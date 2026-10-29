@@ -211,6 +211,32 @@ export const startCheckSchema = z.object({
 });
 export type StartCheck = z.infer<typeof startCheckSchema>;
 
+/** A Task in the one Office-wide queue for Start, with the waits that hold it. */
+export const queuedTaskSchema = z.object({
+  taskId: z.uuid(),
+  /** 1 for the Task first in the queue. */
+  place: z.number().int().positive(),
+  queuedAt: z.iso.datetime(),
+  reasons: z.array(z.string()),
+});
+export type QueuedTask = z.infer<typeof queuedTaskSchema>;
+
+/**
+ * GET /queue: every queued Task, first place first. DELETE /queue/:taskId takes one out;
+ * POST /queue/:taskId/move-up moves it one place up.
+ */
+export const queueSchema = z.array(queuedTaskSchema);
+
+/**
+ * POST /tasks/:id/start: the Task, In progress, or still Ready with its place in the queue when
+ * only waits held it.
+ */
+export const startAnswerSchema = z.object({
+  task: taskSchema,
+  queued: queuedTaskSchema.nullable(),
+});
+export type StartAnswer = z.infer<typeof startAnswerSchema>;
+
 /**
  * GET /tasks/:id/readiness: the "Before Ready" checklist, each condition of Mark Ready with the
  * reasons it isn't met yet, built from the same rules that refuse Mark Ready.
@@ -390,6 +416,15 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("task.paused"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.stopped"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.resumed"), taskId: z.uuid() }),
+  webEventSchema.extend({ type: z.literal("task.queued"), taskId: z.uuid() }),
+  webEventSchema.extend({
+    type: z.literal("task.left-queue"),
+    taskId: z.uuid(),
+    why: z.enum(["started", "taken-out", "left-ready", "refused"]),
+    /** The reasons that refuse Start, when its turn met them. */
+    refusals: z.array(z.string()),
+  }),
+  webEventSchema.extend({ type: z.literal("task.moved-up-in-queue"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.priority-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.tags-changed"), taskId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("task.reordered"), taskId: z.uuid() }),

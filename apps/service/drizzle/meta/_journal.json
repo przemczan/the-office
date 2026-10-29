@@ -344,6 +344,13 @@
       "when": 1793223586920,
       "tag": "0048_skill_updates",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1793234622233,
+      "tag": "0049_queue",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  queueSchema,
+  startAnswerSchema,
   startCheckSchema,
   taskListSchema,
   taskSchema,
@@ -13,6 +15,7 @@ import {
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { PlanningService } from "../../application/planning-service.js";
+import { TaskService } from "../../application/task-service.js";
 import { PLANNING_OPENING } from "../../domain/planning.js";
 import {
   KnownPeopleForTests,
@@ -581,7 +584,10 @@ describe("Start", () => {
     const response = await start(task.id);
 
     expect(response.status).toBe(200);
-    expect(taskSchema.parse(await response.json()).state).toBe("in-progress");
+    expect(startAnswerSchema.parse(await response.json())).toMatchObject({
+      task: { state: "in-progress" },
+      queued: null,
+    });
     expect(webEventsOf(work)).toEqual([{ type: "task.started", taskId: task.id }]);
   });
 
@@ -597,23 +603,6 @@ describe("Start", () => {
     expect(response.status).toBe(200);
     expect((await readTask(first.id)).state).toBe("in-progress");
     expect((await readTask(second.id)).state).toBe("in-progress");
-  });
-
-  it("refuses with the wait once Settings lowers the Office-wide limit to 1", async () => {
-    await start((await readyTask()).id);
-    projectId = `project-${randomUUID()}`;
-    const second = await readyTask();
-
-    const lowered = await sendJson(work, "PUT", "/settings/office-wide-limit", {
-      officeWideLimit: 1,
-    });
-    const refused = await start(second.id);
-
-    expect(lowered.status).toBe(200);
-    expect(refused.status).toBe(422);
-    expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([
-      "The Office-wide limit is reached: the only desk is in use.",
-    ]);
   });
 
   it("refuses a Task that isn't Ready", async () => {
@@ -678,5 +667,147 @@ describe("Start", () => {
       ["Only a Paused Task can be resumed; this one is in Backlog."],
     ]);
     expect((await readTask(task.id)).state).toBe("backlog");
+  });
+});
+
+async function requestStart(taskId: string): Promise<Response> {
+  return sendJson(work, "POST", `/tasks/${taskId}/start`);
+}
+
+/** Done, as Pipelines moves a Task whose walk ends. */
+async function finish(taskId: string): Promise<void> {
+  await work.app.get(TaskService).changeState(taskId, "done");
+}
+
+describe("The queue", () => {
+  const ONLY_DESK = "The Office-wide limit is reached: the only desk is in use.";
+  /** Started and queued Tasks hold desks and places for every test file, so each is dropped. */
+  const ownIds: string[] = [];
+
+  afterEach(async () => {
+    for (const id of ownIds.splice(0)) await sendJson(work, "POST", `/tasks/${id}/drop`);
+  });
+
+  async function ownReadyTask(): Promise<Task> {
+    const task = await readyTask();
+    ownIds.push(task.id);
+    return task;
+  }
+
+  /** One Task in progress and the Office-wide limit lowered to 1, so the next Start only waits. */
+  async function deskTaken(): Promise<Task> {
+    const first = await ownReadyTask();
+    await requestStart(first.id);
+    await sendJson(work, "PUT", "/settings/office-wide-limit", { officeWideLimit: 1 });
+    return first;
+  }
+
+  /** The test's own Tasks in the queue, first place first. */
+  async function ownQueue(): Promise<string[]> {
+    const queue = queueSchema.parse(await (await sendJson(work, "GET", "/queue")).json());
+    return queue.map(({ taskId }) => taskId).filter((taskId) => ownIds.includes(taskId));
+  }
+
+  it("queues a Task only the limit holds, and starts it by itself once the started one is Done", async () => {
+    const first = await deskTaken();
+    const second = await ownReadyTask();
+    work.published.length = 0;
+
+    const check = await startCheck(second.id);
+    const response = await requestStart(second.id);
+    const answer = startAnswerSchema.parse(await response.json());
+
+    expect(check).toEqual({ refusals: [], waits: [ONLY_DESK] });
+    expect(response.status).toBe(200);
+    expect(answer.task.state).toBe("ready");
+    expect(answer.queued).toMatchObject({ taskId: second.id, reasons: [ONLY_DESK] });
+    expect(webEventsOf(work)).toEqual([{ type: "task.queued", taskId: second.id }]);
+    expect(await ownQueue()).toEqual([second.id]);
+
+    work.published.length = 0;
+    await finish(first.id);
+
+    expect((await readTask(second.id)).state).toBe("in-progress");
+    expect(await ownQueue()).toEqual([]);
+    expect(webEventsOf(work)).toContainEqual({
+      type: "task.left-queue",
+      taskId: second.id,
+      why: "started",
+      refusals: [],
+    });
+  });
+
+  it("keeps its order, oldest first, as the user moves one up and takes one out", async () => {
+    const first = await deskTaken();
+    const [a, b, c] = [await ownReadyTask(), await ownReadyTask(), await ownReadyTask()];
+    for (const task of [a, b, c]) await requestStart(task.id);
+
+    const movedUp = await sendJson(work, "POST", `/queue/${c.id}/move-up`);
+    const takenOut = await sendJson(work, "DELETE", `/queue/${a.id}`);
+    const firstMovedUp = await sendJson(work, "POST", `/queue/${c.id}/move-up`);
+
+    expect(movedUp.status).toBe(204);
+    expect(takenOut.status).toBe(204);
+    expect(workRefusalSchema.parse(await firstMovedUp.json()).reasons).toEqual([
+      "The Task is already first in the queue.",
+    ]);
+    expect(await ownQueue()).toEqual([c.id, b.id]);
+    expect((await readTask(a.id)).state).toBe("ready");
+
+    await finish(first.id);
+
+    expect((await readTask(c.id)).state).toBe("in-progress");
+    expect((await readTask(b.id)).state).toBe("ready");
+    expect(await ownQueue()).toEqual([b.id]);
+  });
+
+  it("starts a queued Task when Settings raises the limit", async () => {
+    await deskTaken();
+    const second = await ownReadyTask();
+    await requestStart(second.id);
+
+    await sendJson(work, "PUT", "/settings/office-wide-limit", { officeWideLimit: 12 });
+
+    expect((await readTask(second.id)).state).toBe("in-progress");
+  });
+
+  it("takes out a Task that leaves Ready", async () => {
+    await deskTaken();
+    const second = await ownReadyTask();
+    await requestStart(second.id);
+    work.published.length = 0;
+
+    await sendJson(work, "POST", `/tasks/${second.id}/drop`);
+
+    expect(await ownQueue()).toEqual([]);
+    expect(webEventsOf(work)).toContainEqual({
+      type: "task.left-queue",
+      taskId: second.id,
+      why: "left-ready",
+      refusals: [],
+    });
+  });
+
+  it("takes out a Task whose turn meets a refusal, the reason shown on its page", async () => {
+    const first = await deskTaken();
+    const second = await ownReadyTask();
+    await requestStart(second.id);
+    const blocker = await create({ title: "Queue schema" });
+    ownIds.push(blocker.id);
+    await addDependency(second.id, blocker.id);
+    const reason = 'Blocked by "Queue schema", which must be Done first.';
+    work.published.length = 0;
+
+    await finish(first.id);
+
+    expect((await readTask(second.id)).state).toBe("ready");
+    expect(await ownQueue()).toEqual([]);
+    expect(await startCheck(second.id)).toEqual({ refusals: [reason], waits: [] });
+    expect(webEventsOf(work)).toContainEqual({
+      type: "task.left-queue",
+      taskId: second.id,
+      why: "refused",
+      refusals: [reason],
+    });
   });
 });

@@ -12,6 +12,7 @@ import {
   savedViewListSchema,
   savedViewSchema,
   searchResultsSchema,
+  startAnswerSchema,
   startCheckSchema,
   taskListSchema,
   taskSchema,
@@ -30,6 +31,7 @@ import {
   type ProjectFilter,
   type Readiness,
   type SavedView,
+  type StartAnswer,
   type StartCheck,
   type Task,
   type TaskPlacement,
@@ -299,9 +301,12 @@ export function markReady(id: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/ready`, {}, taskSchema);
 }
 
-/** Start: Ready → In progress, refused with the reasons while a limit is reached. */
-export function startTask(id: string): Promise<Task> {
-  return sendToApi("POST", `${taskPath(id)}/start`, {}, taskSchema);
+/**
+ * Start: Ready → In progress, or into the queue when only a limit holds it; refused with the
+ * reasons when anything else does.
+ */
+export function startTask(id: string): Promise<StartAnswer> {
+  return sendToApi("POST", `${taskPath(id)}/start`, {}, startAnswerSchema);
 }
 
 /** Pause: held once the Agent's current turn ends, its edits kept (spec §2.4). */
@@ -370,6 +375,9 @@ export const workEventInvalidations: Readonly<
   "task.paused": () => [TASKS],
   "task.stopped": () => [TASKS],
   "task.resumed": () => [TASKS],
+  "task.queued": () => [TASKS],
+  "task.left-queue": () => [TASKS],
+  "task.moved-up-in-queue": () => [TASKS],
   "task.priority-changed": () => [TASKS],
   "task.tags-changed": () => [TASKS],
   "task.reordered": () => [TASKS],

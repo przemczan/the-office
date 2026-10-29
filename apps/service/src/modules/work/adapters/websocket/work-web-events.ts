@@ -19,6 +19,7 @@ import {
   InitiativeStateChanged,
 } from "../../domain/initiative-events.js";
 import { OfficeWideLimitChanged } from "../../domain/office-limit-events.js";
+import { TaskLeftQueue, TaskMovedUpInQueue, TaskQueued } from "../../domain/queue-events.js";
 import { SavedViewRemoved, SavedViewSaved } from "../../domain/saved-view-events.js";
 import {
   TaskCreated,
@@ -55,6 +56,7 @@ export class WorkWebEvents implements OnModuleInit {
     this.forwardIdeaEvents();
     this.forwardInitiativeEvents();
     this.forwardTaskEvents();
+    this.forwardQueueEvents();
     this.forwardPlanningEvents();
     this.forwardAttachmentEvents();
     this.forwardSavedViewEvents();
@@ -167,6 +169,23 @@ export class WorkWebEvents implements OnModuleInit {
         blockerId: event.blockerId,
       }),
     );
+  }
+
+  private forwardQueueEvents(): void {
+    this.forwarding.forward(TaskQueued, (event): WebEventOf<"task.queued"> => ({
+      type: "task.queued",
+      taskId: event.taskId,
+    }));
+    this.forwarding.forward(TaskLeftQueue, (event): WebEventOf<"task.left-queue"> => ({
+      type: "task.left-queue",
+      taskId: event.taskId,
+      why: event.why,
+      refusals: [...event.refusals],
+    }));
+    this.forwarding.forward(TaskMovedUpInQueue, (event): WebEventOf<"task.moved-up-in-queue"> => ({
+      type: "task.moved-up-in-queue",
+      taskId: event.taskId,
+    }));
   }
 
   private forwardPlanningEvents(): void {

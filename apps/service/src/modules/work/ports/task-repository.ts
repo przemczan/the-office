@@ -2,8 +2,7 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Neighbours } from "../domain/manual-order.js";
 import type { Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
-import type { TaskCreated, TaskReordered, TaskStarted } from "../domain/task-events.js";
-import type { HeldAtStart } from "../domain/task-start.js";
+import type { TaskCreated, TaskReordered } from "../domain/task-events.js";
 
 /** The Task after an update, with the change's event, or undefined when nothing changed. */
 export interface TaskUpdate<Event extends DomainEvent> {
@@ -41,15 +40,6 @@ export abstract class TaskRepository {
     id: string,
     change: (task: Task) => TaskChange<Event> | undefined,
   ): Promise<TaskUpdate<Event>>;
-
-  /**
-   * As `update`, with every started Task and the Tasks it waits for read in the same hold, so two
-   * Starts at once never both pass the limits. Throws TaskNotFound as `update` does.
-   */
-  abstract start(
-    id: string,
-    change: (task: Task, held: HeldAtStart) => TaskChange<TaskStarted>,
-  ): Promise<TaskChange<TaskStarted>>;
 
   /**
    * As `update`, with every Task read in the same hold, which every change of dependencies takes,

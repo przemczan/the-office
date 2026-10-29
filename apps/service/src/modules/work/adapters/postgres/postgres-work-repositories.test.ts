@@ -107,7 +107,8 @@ describe("PostgresTaskRepository", () => {
     // Postgres's default collation but before it in code.
     const board = (await tasks.list())
       .toSorted(boardOrder)
-      .filter((task) => task.priority === "normal");
+      // Backlog's column only: other files' Tasks in other states may sort first.
+      .filter((task) => task.state === "backlog" && task.priority === "normal");
     await tasks.reorder(moved.id, { above: undefined, below: board[0]?.id }, reorderTask);
     const created = await createdTask(projectId, { title: "Created" });
 

@@ -30,6 +30,7 @@ import {
   type PriorityChange,
   type Readiness,
   type SearchQuery,
+  type StartAnswer,
   type StartCheck,
   type TagsChange,
   type Task as TaskResponse,
@@ -38,10 +39,11 @@ import {
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { SearchService } from "../../application/search-service.js";
+import { QueueService } from "../../application/queue-service.js";
 import { StartService } from "../../application/start-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { THE_USER } from "../../domain/author.js";
-import { toTaskResponse } from "./work-responses.js";
+import { toQueueResponse, toTaskResponse } from "./work-responses.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 
 @Controller("tasks")
@@ -51,6 +53,7 @@ export class TasksController {
     private readonly tasks: TaskService,
     private readonly planning: PlanningService,
     private readonly starting: StartService,
+    private readonly queue: QueueService,
     private readonly search: SearchService,
   ) {}
 
@@ -180,11 +183,19 @@ export class TasksController {
     return { refusals: [...refusals], waits: [...waits] };
   }
 
-  /** Start: Ready → In progress, refused with the reasons while the limits are reached. */
+  /**
+   * Start: Ready → In progress, or into the queue when only a limit holds it; refused with the
+   * reasons when anything else does.
+   */
   @Post(":id/start")
   @HttpCode(HttpStatus.OK)
-  async start(@Param("id", ParseUUIDPipe) id: string): Promise<TaskResponse> {
-    return toTaskResponse(await this.starting.start(id));
+  async start(@Param("id", ParseUUIDPipe) id: string): Promise<StartAnswer> {
+    const starting = await this.starting.start(id);
+    if (starting.kind === "started") {
+      return { task: toTaskResponse(starting.change.task), queued: null };
+    }
+    const queued = toQueueResponse(await this.queue.list()).find(({ taskId }) => taskId === id);
+    return { task: toTaskResponse(await this.tasks.read(id)), queued: queued ?? null };
   }
 
   /** Pause: the Task is held, its running Stage once the Agent's current turn ends. */

@@ -4,7 +4,7 @@ import {
   useQueryClient,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import type { Task } from "@the-office/contracts";
+import type { StartAnswer, Task } from "@the-office/contracts";
 import { Button, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { startTask, taskQueries } from "../../api/work.ts";
@@ -40,12 +40,17 @@ export function StartButton({ task }: { readonly task: Task }): ReactNode {
   );
 }
 
-function useStarting(): UseMutationResult<Task, Error, Task> {
+function useStarting(): UseMutationResult<StartAnswer, Error, Task> {
   const queryClient = useQueryClient();
   const showToast = useToast();
   return useMutation({
     mutationFn: (task: Task) => startTask(task.id),
-    onSuccess: (started) => showToast(`${started.title} started.`),
+    onSuccess: ({ task, queued }) =>
+      showToast(
+        queued
+          ? `${task.title} is queued, place ${queued.place}: ${queued.reasons.join(" ")}`
+          : `${task.title} started.`,
+      ),
     onError: (error) => showToast(error.message),
     onSettled: () => queryClient.invalidateQueries(taskQueries.list()),
   });

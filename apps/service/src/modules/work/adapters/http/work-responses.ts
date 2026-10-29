@@ -4,6 +4,7 @@ import type {
   Author as AuthorResponse,
   Idea as IdeaResponse,
   Initiative as InitiativeResponse,
+  QueuedTask as QueuedTaskResponse,
   SavedView as SavedViewResponse,
   SearchResults as SearchResultsResponse,
   Task as TaskResponse,
@@ -14,6 +15,7 @@ import type { Author } from "../../domain/author.js";
 import type { Idea } from "../../domain/idea.js";
 import type { Initiative } from "../../domain/initiative.js";
 import { initiativeProjectIds } from "../../domain/initiative-changes.js";
+import type { QueuedTask } from "../../domain/queue.js";
 import type { SavedView } from "../../domain/saved-view.js";
 import type { Task } from "../../domain/task.js";
 
@@ -135,4 +137,14 @@ export function toSavedViewResponse(savedView: SavedView): SavedViewResponse {
     filters: { ...filters, ...(tags && { tags: [...tags] }) },
     savedAt: savedView.savedAt.toISOString(),
   };
+}
+
+/** The queue, given first place first, each Task with its place counted from 1. */
+export function toQueueResponse(queue: readonly QueuedTask[]): QueuedTaskResponse[] {
+  return queue.map(({ taskId, queuedAt, reasons }, index) => ({
+    taskId,
+    place: index + 1,
+    queuedAt: queuedAt.toISOString(),
+    reasons: [...reasons],
+  }));
 }
