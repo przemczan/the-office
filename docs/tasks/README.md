@@ -28,7 +28,7 @@ Done 2026-10-27. The problems its acceptance run surfaced are in [archive/17-set
 
 ## Tier 2: the all-day workspace
 
-Order accepted by the user on 2026-10-27. A task's file is written when it becomes current, after the [open questions](../spec/8-open-questions-and-risks.md) it needs are settled with the user; a row without a link has no file yet.
+Order accepted by the user on 2026-10-27. A task's file is written when it becomes current, after the [open questions](../spec/8-open-questions-and-risks.md) it needs are settled with the user; a row without a link has no file yet. Task 28, the phone, is postponed by the user (2026-10-29) and left out of the rest of tier 2, the acceptance run included, until they decide; its file keeps the answers settled so far.
 
 | # | Task | Surface | Status |
 |---|---|---|---|
