@@ -75,5 +75,5 @@ Every tier 2 item of [spec 3](../spec/3-capabilities-by-tier.md#tier-2-the-all-d
 | §2.7 | The kinds × channels grid (with the Phone column); quiet hours; batching; the at-desk hold (phone pushes through a recording port until 28's Web Push) | 27 |
 | §2.8 | The fire alarm and the all clear | 27 |
 | §4, §2.7 | The phone: HTTPS on the LAN with a local certificate authority, the PIN, the installed app, phone views, phone push (postponed; left out of tasks 29 and 30 until the user decides) | 28 |
-| §5.1, §5.4 | Start at login (a Windows service or scheduled task; a systemd user service); the `-p` fallback adapter | 29 |
+| §5.4 | The `-p` fallback adapter, matching the Agent SDK adapter (start at login left out for now, §3) | 29 |
 | §3 | The tier 2 test, all day from the desk (the phone left out while task 28 is postponed) | 30 |

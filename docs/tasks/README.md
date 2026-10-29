@@ -43,7 +43,7 @@ Order accepted by the user on 2026-10-27. A task's file is written when it becom
 | 26 | [Parallel work in a Project, and a queue for Start](26-parallel-work-and-start-queue.md) | Work and the Task page | done |
 | 27 | [Notifications: the kinds × channels grid, quiet hours, batching; the fire alarm](27-notifications-and-fire-alarm.md) | Now | done |
 | 28 | [The phone: HTTPS on the LAN, the PIN, the installed app, phone views and push](28-the-phone.md) | Phone | postponed |
-| 29 | Running: start at login, the `-p` fallback adapter | Foundation | todo |
+| 29 | [Running: the `-p` fallback adapter](29-the-p-fallback.md) | Foundation | in progress |
 | 30 | The tier 2 acceptance run | All | todo |
 
 Carried into task 30 (the user's word, 2026-10-29): from task 25, installing one skill from github.com/anthropics/skills on the running app, and the user's look at installing, updating and a drafted skill there.

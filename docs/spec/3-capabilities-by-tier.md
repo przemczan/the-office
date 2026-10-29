@@ -33,7 +33,7 @@ From [13](../../.scratch/the-office/issues/13-first-slice.md), with [16](../../.
 - **Safety:** the fire alarm.
 - **Phone:** HTTPS on the LAN with a local certificate authority, the PIN, the installed app, phone views, phone push.
 - **Notifications:** the kinds × channels grid; quiet hours; batching; the at-desk hold.
-- **Running:** start at login (a Windows service or scheduled task; a systemd user service on Linux); the `-p` fallback adapter.
+- **Running:** the `-p` fallback adapter. Start at login is left out for now: the user sets The Office up and starts it by hand on Windows or Linux (the user, 2026-10-30).
 
 ## Tier 3: on need
 
