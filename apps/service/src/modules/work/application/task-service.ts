@@ -11,16 +11,19 @@ import {
   changeTaskState,
   createTask,
   pauseTask,
+  pauseTaskForAlarm,
   reorderTask,
   resumeTask,
   stopTask,
   type TaskChange,
 } from "../domain/task-changes.js";
 import { addDependency, removeDependency } from "../domain/task-dependencies.js";
+import { TaskResumed } from "../domain/task-events.js";
 import { changeTags } from "../domain/task-tags.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
 import { TaskRefused } from "../domain/task-refused.js";
 import { STARTED_STATES } from "../domain/task-states.js";
+import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
 import { KnownProjects } from "../ports/known-projects.js";
 import { TaskRepository, type NeighbourIds } from "../ports/task-repository.js";
 
@@ -30,6 +33,7 @@ export class TaskService {
   constructor(
     private readonly repository: TaskRepository,
     private readonly projects: KnownProjects,
+    private readonly fireAlarm: FireAlarmRepository,
     private readonly events: EventBus,
   ) {}
 
@@ -133,14 +137,40 @@ export class TaskService {
     return this.update(id, stopTask);
   }
 
-  /** TaskResumed tells Pipelines to walk the Task's Stages on from where they were held. */
+  /**
+   * TaskResumed tells Pipelines to walk the Task's Stages on from where they were held. While the
+   * fire alarm is on, the alarm holds the Task instead, until the all clear.
+   */
   async resume(id: string): Promise<Task> {
-    return this.update(id, resumeTask);
+    const fireAlarmOn = await this.fireAlarmOn();
+    const { task, event } = await this.repository.update(id, (held) =>
+      resumeTask(held, { fireAlarmOn }),
+    );
+    // Read again after the save: an alarm sounded meanwhile may have passed the Task by as Paused.
+    if (event instanceof TaskResumed && (await this.fireAlarmOn())) {
+      return this.update(id, pauseTaskForAlarm);
+    }
+    if (event) await this.events.publish(event);
+    return task;
+  }
+
+  /**
+   * Pauses a Task In progress or Waiting on you as the fire alarm does, if it is on: as The Office
+   * starts again, for a sounding it stopped during. Whether the alarm is on.
+   */
+  async holdForFireAlarm(id: string): Promise<boolean> {
+    if (!(await this.fireAlarmOn())) return false;
+    await this.update(id, pauseTaskForAlarm);
+    return true;
   }
 
   /** Moves a started Task along its Pipeline: Pipelines' interpreter calls it, Start never does. */
   async changeState(id: string, state: Task["state"]): Promise<Task> {
     return this.update(id, (task) => changeStartedTaskState(task, state));
+  }
+
+  private async fireAlarmOn(): Promise<boolean> {
+    return (await this.fireAlarm.read()).on;
   }
 
   private async update<Event extends DomainEvent>(

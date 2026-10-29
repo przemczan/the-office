@@ -32,7 +32,8 @@ import { ConversationsSettingsForTests } from "../ports/conversations-settings.f
 import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
-import { Consultations } from "./consultations.js";
+import { Consultations, STOPPED_BY_THE_FIRE_ALARM } from "./consultations.js";
+import { FireAlarmInThreads } from "./fire-alarm-in-threads.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { DecisionService } from "./decision-service.js";
 import { InterruptedAnswers } from "./interrupted-answers.js";
@@ -160,6 +161,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       InterruptedAnswers,
       DecisionService,
       Consultations,
+      FireAlarmInThreads,
       DecisionOfficeTools,
     ],
   }));
@@ -335,6 +337,47 @@ async function settled(threadId: string): Promise<Thread> {
     { timeout: 5_000, interval: 20 },
   );
 }
+
+describe("a consult during the fire alarm", () => {
+  const ALARM_ON = { on: true, since: new Date("2026-10-29T09:00:00.000Z") } as const;
+
+  it("opens no Consultation while it is on: the Decision still waits on its Consultant", async () => {
+    await startWith(started(...consults("CTO")));
+    app.get(FireAlarmInThreads).readFrom(() => Promise.resolve(ALARM_ON));
+    const asker = await developerOnATask();
+
+    await settled(asker.id);
+    await consultations.openFor(await threads.read(asker.id));
+
+    expect(await consultationsOn(asker)).toEqual([]);
+    expect((await threads.read(asker.id)).openDecision).toMatchObject({ putTo: consultantKey });
+  });
+
+  it("stops a Consultation answering as it sounds, which then waits, saying why", async () => {
+    await startWith(started(...consults("CTO")), [
+      { step: "start", brief: { id: "brief", text: "" } },
+      { step: "end" },
+    ]);
+    const asker = await developerOnATask();
+    const consultation = await consultationOn(asker);
+    await vi.waitFor(
+      async () => {
+        if ((await threads.read(consultation.id)).state !== "answering")
+          throw new Error("Not yet.");
+      },
+      { timeout: 5_000, interval: 20 },
+    );
+
+    await app.get(FireAlarmInThreads).sounded();
+
+    expect((await threads.read(consultation.id)).state).toBe("waiting");
+    expect((await threads.messages(consultation.id)).at(-1)).toMatchObject({
+      kind: "failure",
+      reason: STOPPED_BY_THE_FIRE_ALARM,
+    });
+    expect((await threads.read(asker.id)).openDecision).toMatchObject({ putTo: consultantKey });
+  });
+});
 
 describe("a consult of a hired Consultant", () => {
   it("opens a Consultation labelled with both, which the Consultant answers for the Agent", async () => {

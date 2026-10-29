@@ -5,6 +5,7 @@ import {
   changeStartedTaskState,
   createTask,
   pauseTask,
+  pauseTaskForAlarm,
   reorderTask,
   resumeTask,
   stopTask,
@@ -158,11 +159,39 @@ describe("Pause, Stop and Resume", () => {
   });
 
   it("resumes a Paused Task In progress", () => {
-    const resumed = resumeTask(aTask({ state: "paused" }));
+    const resumed = resumeTask(aTask({ state: "paused" }), { fireAlarmOn: false });
 
     expect(resumed.task).toEqual(aTask({ state: "in-progress" }));
     expect(resumed.event).toBeInstanceOf(TaskResumed);
     expect(resumed.event).toMatchObject({ taskId: "task-1" });
+  });
+
+  it("pauses a running Task for the fire alarm, apart from the user's Pause, leaving a Task the user paused theirs", () => {
+    const paused = pauseTaskForAlarm(aTask({ state: "waiting-on-you" }));
+
+    expect(paused?.task).toEqual(aTask({ state: "paused", pausedByAlarm: true }));
+    expect(paused?.event).toMatchObject({ taskId: "task-1", from: "waiting-on-you", by: "alarm" });
+    expect(pauseTaskForAlarm(aTask({ state: "paused" }))).toBeUndefined();
+    expect(pauseTaskForAlarm(aTask({ state: "ready" }))).toBeUndefined();
+  });
+
+  it("keeps a Resume while the fire alarm is on as the alarm holding the Task, and refuses one it holds", () => {
+    const resumed = resumeTask(aTask({ state: "paused" }), { fireAlarmOn: true });
+
+    expect(resumed.task).toEqual(aTask({ state: "paused", pausedByAlarm: true }));
+    expect(resumed.event).toMatchObject({ from: "paused", by: "alarm" });
+    expect(() => resumeTask(resumed.task, { fireAlarmOn: true })).toThrow(
+      new TaskRefused(["The fire alarm is on. The Task resumes with the all clear."]),
+    );
+  });
+
+  it("makes a Task the alarm paused the user's own once they stop it, or it resumes", () => {
+    const heldByAlarm = aTask({ state: "paused", pausedByAlarm: true });
+
+    expect(stopTask(heldByAlarm).task.pausedByAlarm).toBe(false);
+    expect(resumeTask(heldByAlarm, { fireAlarmOn: false }).task).toEqual(
+      aTask({ state: "in-progress" }),
+    );
   });
 
   it("refuses a Task that isn't running, and a Resume of one that isn't Paused", () => {
@@ -172,7 +201,7 @@ describe("Pause, Stop and Resume", () => {
     expect(() => stopTask(aTask({ state: "done" }))).toThrow(
       new TaskRefused(["Only a Task in progress can be stopped; this one is in Done."]),
     );
-    expect(() => resumeTask(aTask({ state: "waiting-on-you" }))).toThrow(
+    expect(() => resumeTask(aTask({ state: "waiting-on-you" }), { fireAlarmOn: false })).toThrow(
       new TaskRefused(["Only a Paused Task can be resumed; this one is in Waiting on you."]),
     );
   });

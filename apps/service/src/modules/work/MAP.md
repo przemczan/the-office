@@ -1,20 +1,21 @@
 # Work: module map
 
-**Owns:** Ideas, Initiatives (shaped from an Idea, confirmed, dropped, done once their Tasks are: `initiative-changes.ts`; the Projects one spans are its Tasks', which name it), Tasks (states, priority, Tags (`task-tags.ts`, set by the user and by the Planner's `write_tags`), manual order, Plan, Definition of Done, the Task's Pipeline id, the Tasks it waits for: `blockedBy`, `task-dependencies.ts`) and Attachments of an Idea, an Initiative or a Task (`ideas`, `initiatives`, `tasks`, `attachments`); Office settings in one row (`work_settings`, the Office-wide limit, which Settings › Office limits changes; the repository answers the default until it is saved); screenshots attached from Stages (`StageScreenshots`); the Office tools for Ideas and Tasks, whose records (`domain/record-words.ts`) are also what a mention in a chat gives the Agent, through Conversations' `WorkRecords` (which also gives a Link card its Task's title); an Initiative's record (`initiativeRecordText`) briefs its shaping Thread through Conversations' `InitiativeThreadSetups` (`ShapingThreadSetup`) and is what a mention gives; the CTO's Office tools there (`ShapingOfficeTools`: its outcome, Tasks and their dependencies, an `InitiativeEdit`) write straight onto it while it is shaping, as the user writes its outcome (`PUT /initiatives/:id/outcome`), and once it is active draft each change as a Proposal the user applies (`InitiativeService.changeByCto`). The full-text search over Tasks, Ideas, Initiatives and document Attachments (`SearchService` over the `WorkSearch` port: `GET /tasks?query=` for the board, `GET /search` for the top bar, narrowed by the Project filter it is given, `domain/project-filter.ts`, before each kind is cut to its best 50, with how many more match in other Projects), each word the start of a word in the record (`domain/search.ts`). Saved views (`saved_views`, `SavedViewService`, `/saved-views`): the board's filters under a name, unique in any case, kept as `keptBoardFilters` leaves them and never with the Project filter. Start and the one Office-wide queue (`queue`, `domain/queue.ts`, `StartService`, `QueueService`, `/queue`): `startReasons` sorts refusals from waits (the Office-wide limit, the person's Task limit); Start on waits alone queues the Task, which stays Ready; `QueueService.release` starts the queued Tasks that can, first place first, and takes out those whose turn meets a refusal. The Plan's files to change (`filesToChange`, `domain/files-to-change.ts`), written by `write_plan` and confirmed with the Plan (`PUT /tasks/:id/plan`); an Overlap with a started Task of the same Project (`domain/task-overlap.ts`) is in the start check and refuses Start until the user answers `start-anyway` or `queue-behind`, which queues the Task behind those Tasks (`queue.behind`) until each is Done or Dropped.
+**Owns:** Ideas, Initiatives (shaped from an Idea, confirmed, dropped, done once their Tasks are: `initiative-changes.ts`; the Projects one spans are its Tasks', which name it), Tasks (states, priority, Tags (`task-tags.ts`, set by the user and by the Planner's `write_tags`), manual order, Plan, Definition of Done, the Task's Pipeline id, the Tasks it waits for: `blockedBy`, `task-dependencies.ts`) and Attachments of an Idea, an Initiative or a Task (`ideas`, `initiatives`, `tasks`, `attachments`); Office settings in one row (`work_settings`, the Office-wide limit, which Settings › Office limits changes; the repository answers the default until it is saved); screenshots attached from Stages (`StageScreenshots`); the Office tools for Ideas and Tasks, whose records (`domain/record-words.ts`) are also what a mention in a chat gives the Agent, through Conversations' `WorkRecords` (which also gives a Link card its Task's title); an Initiative's record (`initiativeRecordText`) briefs its shaping Thread through Conversations' `InitiativeThreadSetups` (`ShapingThreadSetup`) and is what a mention gives; the CTO's Office tools there (`ShapingOfficeTools`: its outcome, Tasks and their dependencies, an `InitiativeEdit`) write straight onto it while it is shaping, as the user writes its outcome (`PUT /initiatives/:id/outcome`), and once it is active draft each change as a Proposal the user applies (`InitiativeService.changeByCto`). The full-text search over Tasks, Ideas, Initiatives and document Attachments (`SearchService` over the `WorkSearch` port: `GET /tasks?query=` for the board, `GET /search` for the top bar, narrowed by the Project filter it is given, `domain/project-filter.ts`, before each kind is cut to its best 50, with how many more match in other Projects), each word the start of a word in the record (`domain/search.ts`). Saved views (`saved_views`, `SavedViewService`, `/saved-views`): the board's filters under a name, unique in any case, kept as `keptBoardFilters` leaves them and never with the Project filter. Start and the one Office-wide queue (`queue`, `domain/queue.ts`, `StartService`, `QueueService`, `/queue`): `startReasons` sorts refusals from waits (the Office-wide limit, the person's Task limit); Start on waits alone queues the Task, which stays Ready; `QueueService.release` starts the queued Tasks that can, first place first, and takes out those whose turn meets a refusal. The Plan's files to change (`filesToChange`, `domain/files-to-change.ts`), written by `write_plan` and confirmed with the Plan (`PUT /tasks/:id/plan`); an Overlap with a started Task of the same Project (`domain/task-overlap.ts`) is in the start check and refuses Start until the user answers `start-anyway` or `queue-behind`, which queues the Task behind those Tasks (`queue.behind`) until each is Done or Dropped. The fire alarm (spec 2.8, `fire_alarm`, one row seeded off, `FireAlarmRepository`, `FireAlarmService`, `GET /fire-alarm`, `POST /fire-alarm/sound`): sounding it publishes `AlarmSounded` with its hard stop 60 s on and pauses every Task In progress or Waiting on you as paused by the alarm (`Task.pausedByAlarm`, `pauseTaskForAlarm`, `TaskPaused` with `by: "alarm"`), apart from the user's Pause; while it is on Start and every release wait with "The fire alarm is on." (`HeldAtStart.fireAlarmOn`), and a Resume is kept as the alarm holding the Task.
 
-**Talks to:** through ports bound in [app.module.ts](../../app.module.ts): `KnownProjects` to `ProjectService`, `ProjectWorktrees` to `TaskWorktrees`, `KnownPeople` to `RoleCards`, `KnownPipelines` to `PipelineLibrary`, `SessionPeople`, `SessionTasks`, `SessionInitiatives` (the Initiative a shaping session writes onto), `TaskThreads`, `InitiativeThreads` (the shaping Thread with the CTO, opened as an Idea is shaped when a CTO is hired, else started by the user: `POST /initiatives/:id/shaping`) and `IdeaCards` (the card `capture_idea` posts in the chat) to `ThreadService`, `TaskDecisions` to `DecisionService`, `ProposalDrafts` (the CTO's Proposals on an active Initiative, and Devops' Projects to onboard) to `ProposalService`, `NewProjects` (adding a Project from a Proposal, and its dry run) to `ProjectService`. Pipelines reacts to its events and moves started Tasks through `TaskService`. The queue releases on a started Task's `TaskStateChanged` to done or dropped, on `OfficeWideLimitChanged` and on People's `RoleCardChanged` (a Task limit raised), and once as the service starts (`office.ts`, after every module's start, never in a test app), and takes out a Task that leaves Ready. Work applies Proposals of the Office-wide limit with `OfficeLimitProposals` (`adapters/conversations/`), which fills Conversations' `ProposalAppliers` as Work starts and judges one by the contracts' rule Settings saves by, of a Project to onboard with `ProjectProposals` (the Project through `NewProjects`, then its Onboard Task through `OnboardingService`, which opens the Task's worktree itself since the Task skips Planning; `propose_project` is `OnboardingOfficeTools`), and of an Initiative with `InitiativeProposals`, judged as applying judges (`initiativeEditProblems`) and applied under the Initiative's hold; `WorkPortsForTestsModule` provides the registry.
+**Talks to:** through ports bound in [app.module.ts](../../app.module.ts): `KnownProjects` to `ProjectService`, `ProjectWorktrees` to `TaskWorktrees`, `KnownPeople` to `RoleCards`, `KnownPipelines` to `PipelineLibrary`, `SessionPeople`, `SessionTasks`, `SessionInitiatives` (the Initiative a shaping session writes onto), `TaskThreads`, `InitiativeThreads` (the shaping Thread with the CTO, opened as an Idea is shaped when a CTO is hired, else started by the user: `POST /initiatives/:id/shaping`) and `IdeaCards` (the card `capture_idea` posts in the chat) to `ThreadService`, `TaskDecisions` to `DecisionService`, `ProposalDrafts` (the CTO's Proposals on an active Initiative, and Devops' Projects to onboard) to `ProposalService`, `NewProjects` (adding a Project from a Proposal, and its dry run) to `ProjectService`. Pipelines reacts to its events and moves started Tasks through `TaskService`. The queue releases on a started Task's `TaskStateChanged` to done or dropped, on `OfficeWideLimitChanged` and on People's `RoleCardChanged` (a Task limit raised), and once as the service starts (`office.ts`, after every module's start, never in a test app), and takes out a Task that leaves Ready. `FireAlarmForThreads` (`adapters/conversations/`) gives Conversations' `FireAlarmInThreads` the alarm to read and tells it when it sounds; Pipelines holds Stages on `TaskPaused` by the alarm and `AlarmSounded`, and at boot through `TaskService.holdForFireAlarm`. Work applies Proposals of the Office-wide limit with `OfficeLimitProposals` (`adapters/conversations/`), which fills Conversations' `ProposalAppliers` as Work starts and judges one by the contracts' rule Settings saves by, of a Project to onboard with `ProjectProposals` (the Project through `NewProjects`, then its Onboard Task through `OnboardingService`, which opens the Task's worktree itself since the Task skips Planning; `propose_project` is `OnboardingOfficeTools`), and of an Initiative with `InitiativeProposals`, judged as applying judges (`initiativeEditProblems`) and applied under the Initiative's hold; `WorkPortsForTestsModule` provides the registry.
 
-**Traps:** a Project's onboarding is read from its Onboard Task alone (`isOnboardTask`, one per Project by a partial unique index; `projectOnboardingOf`), never from the Onboard Pipeline, which any Task may follow; Work serves it at `GET /onboardings` because Projects can't ask Work without the two Nest modules importing each other. A Task joins an Initiative only through `InitiativeRepository.addTask`, and the done check (`InitiativeService`, on a Task's `TaskStateChanged` to done or dropped, and on Confirm) goes through `InitiativeRepository.update`: both hold the Initiative's row, so no Task joins one becoming done. Whether the CTO may change an Initiative straight away is decided from the row as held (`InitiativeNotShaping`, thrown in the hold), never from a read before it; only then, outside the hold, is the change judged and drafted as a Proposal. Each CTO change judges what it asks before the state (`requireOpenTo` last), so a wrong or no-op request is never drafted. A dependency of an Initiative's Task changes holding the Initiative first and the dependencies after (`InitiativeRepository.changeDependencies`), the one order any hold of both takes. Start reads the Task's blockers in its own hold (`HeldAtStart`), and every change of dependencies takes one lock and reads every Task (`TaskRepository.changeDependencies`), so no two changes close a cycle; use those, never `update`, for either. The Task holds only its Pipeline's id; the Task's own copy of its Stages lives in Pipelines (`task_stages`), as decided with the user in task 10. A document's text is on disk, so the search keeps its own copy in `attachment_texts`, written with the Attachment as it is added and filled at start for those added before (`AttachmentService.fillDocumentTexts`); a searched field and the query split into words alike (`search-vector.ts`, `searchWords`), so change both together. Every test file shares the `work_settings` row each Start reads: a test that lowers the limit overrides `WorkSettings` with `WorkSettingsForTests`. Start, every release and every queue change hold Starts (`holdStarts`), so two never take one desk; a release reads the other modules' conditions before the hold. The queue is shared by every test file too, and a release in any test app weighs every queued row with that app's ports: only `tasks.controller.test.ts` queues Tasks, and drops each after its test.
+**Traps:** a Project's onboarding is read from its Onboard Task alone (`isOnboardTask`, one per Project by a partial unique index; `projectOnboardingOf`), never from the Onboard Pipeline, which any Task may follow; Work serves it at `GET /onboardings` because Projects can't ask Work without the two Nest modules importing each other. A Task joins an Initiative only through `InitiativeRepository.addTask`, and the done check (`InitiativeService`, on a Task's `TaskStateChanged` to done or dropped, and on Confirm) goes through `InitiativeRepository.update`: both hold the Initiative's row, so no Task joins one becoming done. Whether the CTO may change an Initiative straight away is decided from the row as held (`InitiativeNotShaping`, thrown in the hold), never from a read before it; only then, outside the hold, is the change judged and drafted as a Proposal. Each CTO change judges what it asks before the state (`requireOpenTo` last), so a wrong or no-op request is never drafted. A dependency of an Initiative's Task changes holding the Initiative first and the dependencies after (`InitiativeRepository.changeDependencies`), the one order any hold of both takes. Start reads the Task's blockers in its own hold (`HeldAtStart`), and every change of dependencies takes one lock and reads every Task (`TaskRepository.changeDependencies`), so no two changes close a cycle; use those, never `update`, for either. The Task holds only its Pipeline's id; the Task's own copy of its Stages lives in Pipelines (`task_stages`), as decided with the user in task 10. A document's text is on disk, so the search keeps its own copy in `attachment_texts`, written with the Attachment as it is added and filled at start for those added before (`AttachmentService.fillDocumentTexts`); a searched field and the query split into words alike (`search-vector.ts`, `searchWords`), so change both together. Every test file shares the `work_settings` row each Start reads: a test that lowers the limit overrides `WorkSettings` with `WorkSettingsForTests`. Start, every release and every queue change hold Starts (`holdStarts`), so two never take one desk; a release reads the other modules' conditions before the hold. The queue is shared by every test file too, and a release in any test app weighs every queued row with that app's ports: only `tasks.controller.test.ts` queues Tasks, and drops each after its test. The fire alarm is read in the hold of Starts, after sounding has turned it on and before it pauses the started Tasks (`TaskRepository.updateEveryStarted` holds Starts), so no Start slips past it; a Resume reads it again after its save. Its row holds every file's Starts and its sounding pauses every file's started Tasks: a test sounds a `FireAlarmRepositoryForTests` with a `TaskRepository` narrowed to its own Project (`tasks.controller.test.ts`), turns it off before its drops, and the Postgres adapter's test rolls its transaction back.
 
 <!-- Generated by `npm run maps` from the code; edit only above this line. -->
 
 ## Public entry (`index.ts`)
 
-IdeaService, OfficeLimits, QueueService, StageScreenshots, TaskRecords, TaskService, AttachmentAdded, AttachmentMoved, AttachmentRemoved, IdeaCaptured, IdeaDropped, IdeaRestored, IdeaShaped, IdeaShapedIntoInitiative, InitiativeCreated, InitiativeStateChanged, OfficeWideLimitChanged, TaskLeftQueue, TaskMovedUpInQueue, TaskQueued, TaskCreated, TaskDefinitionOfDoneConfirmed, TaskDefinitionOfDoneProposed, TaskPaused, TaskPipelineConfirmed, TaskPipelineProposed, TaskPlanConfirmed, TaskPlanProposed, TaskPriorityChanged, TaskTagsChanged, TaskReordered, TaskResumed, TaskStarted, TaskStateChanged, TaskStopped, WorkModule
+IdeaService, OfficeLimits, QueueService, StageScreenshots, TaskRecords, TaskService, AttachmentAdded, AttachmentMoved, AttachmentRemoved, IdeaCaptured, IdeaDropped, IdeaRestored, IdeaShaped, IdeaShapedIntoInitiative, AlarmSounded, InitiativeCreated, InitiativeStateChanged, OfficeWideLimitChanged, TaskLeftQueue, TaskMovedUpInQueue, TaskQueued, TaskCreated, TaskDefinitionOfDoneConfirmed, TaskDefinitionOfDoneProposed, TaskPaused, TaskPipelineConfirmed, TaskPipelineProposed, TaskPlanConfirmed, TaskPlanProposed, TaskPriorityChanged, TaskTagsChanged, TaskReordered, TaskResumed, TaskStarted, TaskStateChanged, TaskStopped, WorkModule
 
 ## Domain events
 
 - `domain/attachment-events.ts`: AttachmentAdded, AttachmentMoved, AttachmentRemoved
+- `domain/fire-alarm-events.ts`: AlarmSounded
 - `domain/idea-events.ts`: IdeaCaptured, IdeaShaped, IdeaShapedIntoInitiative, IdeaDropped, IdeaRestored
 - `domain/initiative-events.ts`: InitiativeCreated, InitiativeStateChanged, InitiativeOutcomeWritten
 - `domain/office-limit-events.ts`: OfficeWideLimitChanged
@@ -32,6 +33,8 @@ IdeaService, OfficeLimits, QueueService, StageScreenshots, TaskRecords, TaskServ
 - `POST /tasks/:id/attachments/links`: AttachmentsController.addLinkToTask
 - `GET /attachments/:id/content`: AttachmentsController.content
 - `DELETE /attachments/:id`: AttachmentsController.remove
+- `GET /fire-alarm`: FireAlarmController.read
+- `POST /fire-alarm/sound`: FireAlarmController.sound
 - `POST /ideas`: IdeasController.capture
 - `GET /ideas`: IdeasController.list
 - `GET /ideas/:id`: IdeasController.read
@@ -80,6 +83,7 @@ IdeaService, OfficeLimits, QueueService, StageScreenshots, TaskRecords, TaskServ
 
 ## Tables
 
+- `adapters/postgres/fire-alarm.schema.ts`: fire_alarm
 - `adapters/postgres/queue.schema.ts`: queue
 - `adapters/postgres/saved-views.schema.ts`: saved_views
 - `adapters/postgres/work-settings.schema.ts`: work_settings
@@ -94,6 +98,7 @@ IdeaService, OfficeLimits, QueueService, StageScreenshots, TaskRecords, TaskServ
 
 ### adapters/conversations/
 
+- `fire-alarm-for-threads.ts`: FireAlarmForThreads
 - `initiative-proposals.ts`: InitiativeProposals
 - `mentioned-work-records.ts`: MentionedWorkRecords
 - `office-limit-proposals.ts`: OfficeLimitProposals
@@ -110,6 +115,7 @@ IdeaService, OfficeLimits, QueueService, StageScreenshots, TaskRecords, TaskServ
 ### adapters/http/
 
 - `attachments.controller.ts`: ATTACHMENT_UPLOAD_ROUTES, AttachmentsController
+- `fire-alarm.controller.ts`: FireAlarmController
 - `ideas.controller.ts`: IdeasController
 - `initiatives.controller.ts`: InitiativesController
 - `office-limits.controller.ts`: OfficeLimitsController
@@ -134,7 +140,9 @@ IdeaService, OfficeLimits, QueueService, StageScreenshots, TaskRecords, TaskServ
 
 ### adapters/postgres/
 
+- `fire-alarm.schema.ts`: fireAlarm
 - `postgres-attachment-repository.ts`: PostgresAttachmentRepository
+- `postgres-fire-alarm-repository.ts`: PostgresFireAlarmRepository
 - `postgres-idea-repository.ts`: PostgresIdeaRepository
 - `postgres-initiative-repository.ts`: PostgresInitiativeRepository
 - `postgres-queue-repository.ts`: PostgresQueueRepository
@@ -157,6 +165,7 @@ IdeaService, OfficeLimits, QueueService, StageScreenshots, TaskRecords, TaskServ
 ### application/
 
 - `attachment-service.ts`: UploadedFile, OpenedFile, DocumentText, AttachmentService
+- `fire-alarm-service.ts`: FireAlarmService
 - `idea-service.ts`: IdeaService
 - `initiative-service.ts`: CtoChange, InitiativeService
 - `office-limits.ts`: OfficeLimits
@@ -181,6 +190,8 @@ IdeaService, OfficeLimits, QueueService, StageScreenshots, TaskRecords, TaskServ
 - `attachment.ts`: AttachmentOwner, Attachment, AttachmentKind, NewLink, NewFile, ATTACHMENT_SIZE_LIMIT, SCREENSHOT_SIZE_LIMIT, mediaTypeOf, storedFileKind, attachmentLines, attachmentKindWords, trimmedNewLink, newLinkProblems, newFileProblems
 - `author.ts`: Author, THE_USER
 - `files-to-change.ts`: normalizedFilesToChange, filesToChangeProblems, covers
+- `fire-alarm-events.ts`: AlarmSounded
+- `fire-alarm.ts`: FireAlarm, FIRE_ALARM_OFF, FIRE_ALARM_ON, hardStopAt
 - `idea-changes.ts`: IdeaChange, captureIdea, Shaping, shapeIdeaIntoTask, ShapingIntoInitiative, shapeIdeaIntoInitiative, dropIdea, restoreIdea, attachingToIdeaProblems
 - `idea-events.ts`: IdeaCaptured, IdeaShaped, IdeaShapedIntoInitiative, IdeaDropped, IdeaRestored
 - `idea-not-found.ts`: IdeaNotFound
@@ -208,9 +219,9 @@ IdeaService, OfficeLimits, QueueService, StageScreenshots, TaskRecords, TaskServ
 - `saved-view.ts`: SAVED_VIEW_NAME_LENGTH, BoardFilters, SavedView, NewSavedView, keptBoardFilters, newSavedViewProblems, saveView
 - `search.ts`: MAX_SEARCH_WORDS, SEARCH_RESULT_LIMIT, SEARCHED_TEXT_LIMIT, searchWords, searchedText
 - `shaping.ts`: CTO, SHAPING_THREAD_TITLE, SHAPING_INSTRUCTIONS, SHAPING_OPENING
-- `task-changes.ts`: TaskChange, NewTaskSetting, createTask, changeTaskState, undoPlanningMove, markTaskReady, changeStartedTaskState, pauseTask, stopTask, resumeTask, changePriority, reorderTask
+- `task-changes.ts`: TaskChange, NewTaskSetting, createTask, changeTaskState, undoPlanningMove, markTaskReady, changeStartedTaskState, pauseTask, pauseTaskForAlarm, stopTask, resumeTask, changePriority, reorderTask
 - `task-dependencies.ts`: addDependency, createdWaitingFor, removeDependency, blockingTasks, blockedProblems
-- `task-events.ts`: TaskCreated, TaskStateChanged, TaskPriorityChanged, TaskTagsChanged, TaskReordered, TaskPlanProposed, TaskPlanConfirmed, TaskDefinitionOfDoneProposed, TaskDefinitionOfDoneConfirmed, TaskPipelineProposed, TaskPipelineConfirmed, TaskPaused, TaskStopped, TaskResumed, TaskDependencyAdded, TaskDependencyRemoved, TaskStarted
+- `task-events.ts`: TaskCreated, TaskStateChanged, TaskPriorityChanged, TaskTagsChanged, TaskReordered, TaskPlanProposed, TaskPlanConfirmed, TaskDefinitionOfDoneProposed, TaskDefinitionOfDoneConfirmed, TaskPipelineProposed, TaskPipelineConfirmed, PausedBy, TaskPaused, TaskStopped, TaskResumed, TaskDependencyAdded, TaskDependencyRemoved, TaskStarted
 - `task-not-found.ts`: TaskNotFound
 - `task-overlap.ts`: Overlap, overlapsOf, overlapWords
 - `task-refused.ts`: TaskRefused
@@ -226,6 +237,7 @@ IdeaService, OfficeLimits, QueueService, StageScreenshots, TaskRecords, TaskServ
 
 - `attachment-files.ts`: AttachmentFiles
 - `attachment-repository.ts`: AttachmentRepository
+- `fire-alarm-repository.ts`: FireAlarmRepository
 - `idea-cards.ts`: IdeaCards
 - `idea-repository.ts`: IdeaUpdate, ShapedIdea, IdeaShapedIntoInitiative, IdeaRepository
 - `initiative-repository.ts`: InitiativeUpdate, InitiativeRepository
@@ -236,7 +248,7 @@ IdeaService, OfficeLimits, QueueService, StageScreenshots, TaskRecords, TaskServ
 - `new-projects.ts`: AddedProject, NewProjects
 - `project-worktrees.ts`: TaskWorktree, ProjectWorktrees
 - `proposal-drafts.ts`: ProposedInitiativeChange, ProposedProject, WorkProposedChange, ProposalDrafts
-- `queue-repository.ts`: QueueRepository
+- `queue-repository.ts`: HeldForRelease, QueueRepository
 - `saved-view-repository.ts`: SavedViewRepository
 - `session-initiatives.ts`: SessionInitiatives
 - `session-people.ts`: SessionPeople
@@ -244,7 +256,7 @@ IdeaService, OfficeLimits, QueueService, StageScreenshots, TaskRecords, TaskServ
 - `task-decisions.ts`: TaskDecisions
 - `task-repository.ts`: TaskUpdate, NeighbourIds, TaskRepository
 - `task-threads.ts`: TaskThreadOpening, TaskThreads
-- `work-ports.fixtures.ts`: UNKNOWN_PROJECT, KnownProjectsForTests, NewProjectsForTests, ProjectWorktreesForTests, KnownPeopleForTests, WorkSettingsForTests, SessionPeopleForTests, UNKNOWN_SESSION, IdeaCardsForTests, SessionTasksForTests, SessionInitiativesForTests, TaskThreadsForTests, InitiativeThreadsForTests, TaskDecisionsForTests, ProposalDraftsForTests, WorkPortsForTestsModule
+- `work-ports.fixtures.ts`: UNKNOWN_PROJECT, KnownProjectsForTests, NewProjectsForTests, ProjectWorktreesForTests, KnownPeopleForTests, WorkSettingsForTests, FireAlarmRepositoryForTests, SessionPeopleForTests, UNKNOWN_SESSION, IdeaCardsForTests, SessionTasksForTests, SessionInitiativesForTests, TaskThreadsForTests, InitiativeThreadsForTests, TaskDecisionsForTests, ProposalDraftsForTests, WorkPortsForTestsModule
 - `work-search.ts`: SearchMatches, WorkSearch
 - `work-settings.ts`: WorkSettings
 - `worktree-files.ts`: WorktreeFile, WorktreeFileLimits, WorktreeFiles

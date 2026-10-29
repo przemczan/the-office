@@ -79,6 +79,7 @@ export const tasks = pgTable(
     proposedPipeline: jsonb("proposed_pipeline").$type<ProposedPipeline>(),
     /** Null until the Task starts, and for a Pipeline without an Agent Stage. */
     personRole: text("person_role"),
+    pausedByAlarm: boolean("paused_by_alarm").notNull().default(false),
     isOnboardTask: boolean("is_onboard_task").notNull().default(false),
     /** The Tasks it waits for, in the order added; a Task is dropped, never deleted, so ids hold. */
     blockedBy: uuid("blocked_by")

@@ -24,7 +24,12 @@ import {
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { DecisionService } from "./decision-service.js";
+import { FireAlarmInThreads } from "./fire-alarm-in-threads.js";
 import { ThreadRunner } from "./thread-runner.js";
+
+/** Why a Consultation stopped as the fire alarm sounded, in its log. */
+export const STOPPED_BY_THE_FIRE_ALARM =
+  "The fire alarm stopped this Consultation: it goes on after the all clear.";
 
 /** A Consultation whose Consultant the Decision still waits on. */
 interface ConsultationAtWork {
@@ -39,7 +44,9 @@ interface ConsultationAtWork {
  * their memory and the Task's brief. The Agent still waits on the Decision as it would on the
  * user, so the user may answer it in the Consultant's place: that takes the Consultation over. A
  * consult of someone who isn't a hired Consultant goes to the user. A Consultant asked to approve
- * may pass it on, at most two steps up, then it is the user's.
+ * may pass it on, at most two steps up, then it is the user's. The fire alarm stops each
+ * Consultation answering and opens none while it is on; the Decision still waits on its Consultant
+ * (spec §2.8).
  */
 @Injectable()
 export class Consultations implements OnModuleInit {
@@ -50,6 +57,7 @@ export class Consultations implements OnModuleInit {
     private readonly repository: ThreadRepository,
     private readonly decisions: DecisionService,
     private readonly runner: ThreadRunner,
+    private readonly fireAlarm: FireAlarmInThreads,
     private readonly events: EventBus,
   ) {}
 
@@ -57,6 +65,7 @@ export class Consultations implements OnModuleInit {
     // The Consultation opens once the Agent's turn has ended, so the Consultant's answer finds the
     // Agent ready to take it.
     this.events.subscribe(TurnEnded, ({ thread }) => this.openFor(thread));
+    this.fireAlarm.whenSounded(() => this.stopForFireAlarm());
   }
 
   /**
@@ -122,6 +131,20 @@ export class Consultations implements OnModuleInit {
     return next;
   }
 
+  /** The fire alarm sounded: every Consultation answering stops now (spec §2.8). */
+  async stopForFireAlarm(): Promise<void> {
+    for (const thread of await this.repository.answering()) {
+      if (!thread.consultation) continue;
+      await this.runner
+        .stopAnswering(thread.id, STOPPED_BY_THE_FIRE_ALARM)
+        .catch((error: unknown) => {
+          this.logger.error(
+            `Consultation ${thread.id} didn't stop for the fire alarm: ${String(error)}`,
+          );
+        });
+    }
+  }
+
   /** The Consultation the session works and the Decision that waits on its Consultant. */
   private async waitingIn(sessionId: string): Promise<ConsultationAtWork> {
     const consultation = await this.repository.findBySession(sessionId);
@@ -145,11 +168,12 @@ export class Consultations implements OnModuleInit {
 
   /**
    * Opens the Consultation for the Decision the Thread's Agent, or The Office, put to a Consultant,
-   * once for each Consultant it is put to.
+   * once for each Consultant it is put to; none while the fire alarm is on.
    */
   async openFor(asker: Thread): Promise<void> {
     const decision = asker.openDecision;
     if (!decision?.putTo || asker.consultation) return;
+    if ((await this.fireAlarm.read()).on) return;
     const consultantKey = decision.putTo;
     const threads = await this.repository.listIn(asker.home);
     const opened = threads.some(

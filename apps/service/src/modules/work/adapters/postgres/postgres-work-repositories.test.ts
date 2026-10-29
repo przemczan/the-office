@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { Attachment } from "../../domain/attachment.js";
 import { moveAttachment } from "../../domain/attachment-changes.js";
 import { THE_USER } from "../../domain/author.js";
@@ -13,6 +14,7 @@ import { changePriority, createTask, reorderTask } from "../../domain/task-chang
 import { TaskNotFound } from "../../domain/task-not-found.js";
 import { aLink, anIdea } from "../../domain/work.fixtures.js";
 import { PostgresAttachmentRepository } from "./postgres-attachment-repository.js";
+import { PostgresFireAlarmRepository } from "./postgres-fire-alarm-repository.js";
 import { PostgresIdeaRepository } from "./postgres-idea-repository.js";
 import { PostgresTaskRepository } from "./postgres-task-repository.js";
 
@@ -259,5 +261,32 @@ describe("work tables", () => {
         ),
       ),
     ).rejects.toMatchObject({ cause: { constraint: "tasks_order_key" } });
+  });
+});
+
+describe("PostgresFireAlarmRepository", () => {
+  /** Rolled back: the stored alarm holds every file's Starts, so no test ever leaves it on. */
+  class RolledBack extends Error {}
+
+  it("is off as migrated, and sounds once, keeping when", async () => {
+    const since = new Date("2026-10-29T09:00:00.000Z");
+    const seen: unknown[] = [];
+
+    await app
+      .get<Database>(DATABASE)
+      .transaction(async (transaction) => {
+        // The transaction offers every query the repository makes.
+        const alarm = new PostgresFireAlarmRepository(transaction as unknown as Database);
+        seen.push(await alarm.read());
+        seen.push(await alarm.sound(since));
+        seen.push(await alarm.sound(new Date("2026-10-29T10:00:00.000Z")));
+        seen.push(await alarm.read());
+        throw new RolledBack();
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof RolledBack)) throw error;
+      });
+
+    expect(seen).toEqual([{ on: false }, true, false, { on: true, since }]);
   });
 });

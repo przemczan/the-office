@@ -142,7 +142,9 @@ export class NotificationService implements OnModuleInit {
       if (to !== "done") return;
       await this.raise(taskDone(taskId, (await this.tasks.read(taskId)).personRole));
     });
-    this.events.subscribe(TaskPaused, async ({ taskId }) => {
+    this.events.subscribe(TaskPaused, async ({ taskId, by }) => {
+      // The user sounded the alarm themselves; Now shows what it holds.
+      if (by === "alarm") return;
       await this.raise(taskPaused(taskId, (await this.tasks.read(taskId)).personRole, "pause"));
     });
     this.events.subscribe(TaskStopped, async ({ taskId }) => {

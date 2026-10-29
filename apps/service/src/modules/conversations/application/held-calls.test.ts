@@ -8,6 +8,7 @@ import { aThread } from "../domain/thread.fixtures.js";
 import type { ThreadRepository } from "../ports/thread-repository.js";
 import { Consultations } from "./consultations.js";
 import type { DecisionService } from "./decision-service.js";
+import { FireAlarmInThreads } from "./fire-alarm-in-threads.js";
 import { HeldCalls, type HeldCallRequest } from "./held-calls.js";
 import type { ThreadRunner } from "./thread-runner.js";
 import type { EventBus } from "../../../platform/events/event-bus.js";
@@ -79,6 +80,7 @@ function heldCallsWith({
     threads,
     decisions,
     {} as ThreadRunner,
+    new FireAlarmInThreads(),
     {} as EventBus,
   );
   return { heldCalls: new HeldCalls(roleCards, threads, consultations), opened, putTo };

@@ -5,6 +5,7 @@ import type { Task } from "../domain/task.js";
 import { overlapsOf, type Overlap } from "../domain/task-overlap.js";
 import { startReasons, type StartReasons } from "../domain/task-start.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
+import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
 import { QueueRepository } from "../ports/queue-repository.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { StartConditionsReader } from "./start-conditions.js";
@@ -16,7 +17,7 @@ export interface StartCheck extends StartReasons {
 
 /**
  * Start, the user's call on a Ready Task (spec §2.1, §9): refused with the reasons, queued when
- * only a limit or the user's choice to queue behind an Overlap stands in the way, or the Task
+ * only the fire alarm, a limit or the user's choice to queue behind an Overlap stands in the way, or the Task
  * moves to In progress and TaskStarted tells Pipelines to make its own Stages and run them.
  */
 @Injectable()
@@ -25,6 +26,7 @@ export class StartService {
     private readonly tasks: TaskRepository,
     private readonly queue: QueueRepository,
     private readonly conditions: StartConditionsReader,
+    private readonly fireAlarm: FireAlarmRepository,
     private readonly events: EventBus,
   ) {}
 
@@ -46,6 +48,7 @@ export class StartService {
     const reasons = startReasons(task, await this.conditions.of(task), {
       startedTasks: tasks,
       blockers,
+      fireAlarmOn: (await this.fireAlarm.read()).on,
     });
     return { ...reasons, overlaps: overlapsOf(task, tasks) };
   }

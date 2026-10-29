@@ -38,6 +38,7 @@ import { ProjectBases } from "../ports/project-bases.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Briefs } from "./briefs.js";
 import { Consultations } from "./consultations.js";
+import { FireAlarmInThreads } from "./fire-alarm-in-threads.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 import { DecisionService } from "./decision-service.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
@@ -155,6 +156,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       InterruptedAnswers,
       DecisionService,
       Consultations,
+      FireAlarmInThreads,
       DecisionOfficeTools,
     ],
   }));

@@ -157,11 +157,13 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     this.events.subscribe(TaskStateChanged, ({ taskId, to, occurredAt }) =>
       to === "done" ? this.keepOutcome(taskId, "done", occurredAt) : this.announceInBackground(),
     );
-    for (const eventClass of [TaskPaused, TaskStopped]) {
-      this.events.subscribe(eventClass, ({ taskId, occurredAt }) =>
-        this.keepOutcome(taskId, "paused", occurredAt),
-      );
-    }
+    // What the fire alarm holds is no Outcome: Now shows it with the alarm.
+    this.events.subscribe(TaskPaused, ({ taskId, occurredAt, by }) =>
+      by === "alarm" ? this.announceInBackground() : this.keepOutcome(taskId, "paused", occurredAt),
+    );
+    this.events.subscribe(TaskStopped, ({ taskId, occurredAt }) =>
+      this.keepOutcome(taskId, "paused", occurredAt),
+    );
     // A failure put to the CTO first isn't the user's outcome unless the CTO passes it on.
     this.events.subscribe(NoRetriesLeft, ({ taskId, occurredAt, putTo }) =>
       putTo === undefined ? this.keepOutcome(taskId, "failed", occurredAt) : undefined,

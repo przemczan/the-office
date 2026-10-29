@@ -35,14 +35,53 @@ describe("StageRunInterruption", () => {
 
     expect([
       interruption.requested,
-      interruption.cutShort,
+      interruption.cutShortBy,
       interruption.now,
       interruption.commandsSignal.aborted,
       stopped,
-    ]).toEqual(["pause", true, true, true, ["now"]]);
+    ]).toEqual(["pause", "restart", true, true, ["now"]]);
   });
 
-  it("stops the Project commands only on a restart, which outranks a Stop without a second interrupt", () => {
+  it("holds a run for the fire alarm after the turn, its commands stopped now, and cuts the turn short at the hard stop", () => {
+    const interruption = new StageRunInterruption();
+    const stopped: string[] = [];
+    interruption.onNow(() => stopped.push("now"));
+
+    interruption.request("pause");
+    interruption.request("alarm");
+    const held = [interruption.requested, interruption.now, interruption.commandsSignal.aborted];
+    interruption.hardStop();
+    interruption.hardStop();
+
+    expect(held).toEqual(["alarm", false, true]);
+    expect([interruption.cutShortBy, interruption.now, stopped]).toEqual(["alarm", true, ["now"]]);
+  });
+
+  it("cuts short at the hard stop only a run held until its turn ends", () => {
+    const untouched = new StageRunInterruption();
+    const stoppedAlready = new StageRunInterruption();
+    stoppedAlready.request("stop");
+
+    untouched.hardStop();
+    stoppedAlready.hardStop();
+
+    expect([untouched.cutShortBy, untouched.now, stoppedAlready.cutShortBy]).toEqual([
+      undefined,
+      false,
+      undefined,
+    ]);
+  });
+
+  it("keeps a run the fire alarm holds held, cut short, as The Office restarts", () => {
+    const interruption = new StageRunInterruption();
+
+    interruption.request("alarm");
+    interruption.request("restart");
+
+    expect([interruption.requested, interruption.cutShortBy]).toEqual(["alarm", "restart"]);
+  });
+
+  it("stops the Project commands on a restart, which outranks a Stop without a second interrupt", () => {
     const interruption = new StageRunInterruption();
     const stopped: string[] = [];
     interruption.onNow(() => stopped.push("now"));

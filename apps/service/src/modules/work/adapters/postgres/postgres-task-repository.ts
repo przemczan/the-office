@@ -1,17 +1,19 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Neighbours } from "../../domain/manual-order.js";
 import type { Task } from "../../domain/task.js";
 import type { TaskChange } from "../../domain/task-changes.js";
 import type { TaskCreated, TaskReordered } from "../../domain/task-events.js";
+import { STARTED_STATES } from "../../domain/task-states.js";
 import { TaskRepository, type NeighbourIds, type TaskUpdate } from "../../ports/task-repository.js";
 import { tasks } from "./work.schema.js";
 import {
   changeDependenciesHeld,
   heldTask,
   holdManualOrder,
+  holdStarts,
   saveTask,
   takenOrders,
   toTask,
@@ -51,6 +53,26 @@ export class PostgresTaskRepository extends TaskRepository {
     return this.database.transaction(async (transaction) => {
       const task = await heldTask(transaction, id);
       return saveTask(transaction, task, change(task));
+    });
+  }
+
+  async updateEveryStarted<Event extends DomainEvent>(
+    change: (task: Task) => TaskChange<Event> | undefined,
+  ): Promise<readonly TaskChange<Event>[]> {
+    return this.database.transaction(async (transaction) => {
+      await holdStarts(transaction);
+      const started = await transaction
+        .select()
+        .from(tasks)
+        .where(inArray(tasks.state, [...STARTED_STATES]))
+        .for("update");
+      const changes: TaskChange<Event>[] = [];
+      for (const task of started.map(toTask)) {
+        const changed = change(task);
+        await saveTask(transaction, task, changed);
+        if (changed) changes.push(changed);
+      }
+      return changes;
     });
   }
 

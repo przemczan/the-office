@@ -24,10 +24,15 @@ export interface TestApplicationOptions extends ModuleMetadata {
   readonly moduleOverrides?: readonly ModuleOverride[];
 }
 
-export interface ProviderOverride {
-  readonly provide: InjectionToken;
-  readonly useValue: unknown;
-}
+/** A provider replaced by a value, or by what a factory makes of other providers. */
+export type ProviderOverride =
+  | { readonly provide: InjectionToken; readonly useValue: unknown }
+  | {
+      readonly provide: InjectionToken;
+      // Nest passes the injected providers as they are bound, untyped.
+      readonly useFactory: (...injected: never[]) => unknown;
+      readonly inject: readonly InjectionToken[];
+    };
 
 export interface ModuleOverride {
   readonly module: Type;
@@ -57,8 +62,11 @@ export async function startTestApplication({
     imports: database ? [DatabaseModule.forRoot({ url: testDatabaseUrl() }), ...imports] : imports,
   });
   builder.overrideProvider(Schedule).useValue(new ManualSchedule());
-  for (const { provide, useValue } of overrides)
-    builder.overrideProvider(provide).useValue(useValue);
+  for (const override of overrides) {
+    const replaced = builder.overrideProvider(override.provide);
+    if ("useValue" in override) replaced.useValue(override.useValue);
+    else replaced.useFactory({ factory: override.useFactory, inject: [...override.inject] });
+  }
   for (const { module, useModule } of moduleOverrides)
     builder.overrideModule(module).useModule(useModule);
   const moduleRef = await builder.compile();

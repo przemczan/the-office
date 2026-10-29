@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import {
+  fireAlarmSchema,
   pipelineSchema,
   projectSchema,
   queueSchema,
@@ -36,9 +37,18 @@ import { MemoryService, RoleCards, type SessionRole } from "../../../people/inde
 import { PlanningService } from "../../application/planning-service.js";
 import { QueueService } from "../../application/queue-service.js";
 import { TaskService } from "../../application/task-service.js";
+import { AlarmSounded } from "../../domain/fire-alarm-events.js";
+import { TaskPaused } from "../../domain/task-events.js";
+import type { Task as StoredTask } from "../../domain/task.js";
+import type { TaskChange } from "../../domain/task-changes.js";
+import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
+import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import type { DomainEvent } from "../../../../platform/events/domain-event.js";
+import { PostgresTaskRepository } from "../postgres/postgres-task-repository.js";
 import { PLANNER, PLANNING_OPENING } from "../../domain/planning.js";
 import { changeStartedTaskState } from "../../domain/task-changes.js";
 import {
+  FireAlarmRepositoryForTests,
   KnownPeopleForTests,
   ProjectWorktreesForTests,
   TaskDecisionsForTests,
@@ -960,6 +970,145 @@ describe("The queue", () => {
     },
     REAL_GIT_TEST_MS,
   );
+});
+
+/**
+ * Sounding the alarm pauses every started Task in the database: this one pauses only the test's own
+ * Project's, so no other file's Task stops.
+ */
+class OwnProjectTaskRepository extends PostgresTaskRepository {
+  constructor(
+    database: Database,
+    private readonly ownProjectId: () => string,
+  ) {
+    super(database);
+  }
+
+  override updateEveryStarted<Event extends DomainEvent>(
+    change: (task: StoredTask) => TaskChange<Event> | undefined,
+  ): Promise<readonly TaskChange<Event>[]> {
+    return super.updateEveryStarted((task) =>
+      task.projectId === this.ownProjectId() ? change(task) : undefined,
+    );
+  }
+}
+
+async function sound(): Promise<Response> {
+  return sendJson(work, "POST", "/fire-alarm/sound");
+}
+
+/** The Task as Work keeps it, with what the web doesn't read yet. */
+function storedTask(taskId: string): Promise<StoredTask> {
+  return work.app.get(TaskService).read(taskId);
+}
+
+describe("The fire alarm", () => {
+  /** The test's own alarm: the stored one holds every file's Starts. */
+  let fireAlarm: FireAlarmRepositoryForTests;
+  const ownIds: string[] = [];
+
+  beforeEach(async () => {
+    await work.app.close();
+    fireAlarm = new FireAlarmRepositoryForTests();
+    const settings = new WorkSettingsForTests();
+    await settings.changeOfficeWideLimit(12);
+    work = await startWorkApplication(officeData, [
+      { provide: WorkSettings, useValue: settings },
+      { provide: FireAlarmRepository, useValue: fireAlarm },
+      {
+        provide: TaskRepository,
+        useFactory: (database: Database) => new OwnProjectTaskRepository(database, () => projectId),
+        inject: [DATABASE],
+      },
+    ]);
+  });
+
+  afterEach(async () => {
+    // Off first, so the drops' release weighs every file's queue as it is.
+    fireAlarm.turnOff();
+    for (const id of ownIds.splice(0)) await sendJson(work, "POST", `/tasks/${id}/drop`);
+  });
+
+  async function startedTask(): Promise<Task> {
+    const task = await readyTask();
+    ownIds.push(task.id);
+    expect((await sendJson(work, "POST", `/tasks/${task.id}/start`)).status).toBe(200);
+    return task;
+  }
+
+  it("is off until sounded, then on since it was", async () => {
+    const before = fireAlarmSchema.parse(await (await sendJson(work, "GET", "/fire-alarm")).json());
+
+    const sounded = await sound();
+    const after = fireAlarmSchema.parse(await (await sendJson(work, "GET", "/fire-alarm")).json());
+
+    expect(before).toEqual({ on: false });
+    expect(sounded.status).toBe(200);
+    expect(fireAlarmSchema.parse(await sounded.json())).toEqual(after);
+    expect(after).toMatchObject({ on: true });
+  });
+
+  it("pauses each Task in progress or waiting as paused by it, leaving the user's Pause theirs", async () => {
+    const working = await startedTask();
+    const waiting = await startedTask();
+    await work.app.get(TaskService).changeState(waiting.id, "waiting-on-you");
+    const paused = await startedTask();
+    await sendJson(work, "POST", `/tasks/${paused.id}/pause`);
+    work.published.length = 0;
+
+    await sound();
+    await sound();
+
+    expect(await storedTask(working.id)).toMatchObject({ state: "paused", pausedByAlarm: true });
+    expect(await storedTask(waiting.id)).toMatchObject({ state: "paused", pausedByAlarm: true });
+    expect(await storedTask(paused.id)).toMatchObject({ state: "paused", pausedByAlarm: false });
+    expect(work.published.filter((event) => event instanceof AlarmSounded)).toHaveLength(1);
+    const pausedEvents = work.published
+      .filter((event) => event instanceof TaskPaused)
+      .map(({ taskId, from, by }) => ({ taskId, from, by }));
+    // In no particular order: the started Tasks are read as the database gives them.
+    expect(pausedEvents).toHaveLength(2);
+    expect(pausedEvents).toEqual(
+      expect.arrayContaining([
+        { taskId: working.id, from: "in-progress", by: "alarm" },
+        { taskId: waiting.id, from: "waiting-on-you", by: "alarm" },
+      ]),
+    );
+  });
+
+  it("queues Start with the alarm as its reason, and the release, as at boot, starts nothing", async () => {
+    const task = await readyTask();
+    ownIds.push(task.id);
+    await sound();
+
+    const check = await startCheck(task.id);
+    const started = await sendJson(work, "POST", `/tasks/${task.id}/start`);
+    await work.app.get(QueueService).release();
+
+    expect(check.waits).toEqual(["The fire alarm is on."]);
+    expect(startAnswerSchema.parse(await started.json())).toMatchObject({
+      task: { state: "ready" },
+      queued: { reasons: ["The fire alarm is on."] },
+    });
+    expect((await readTask(task.id)).state).toBe("ready");
+  });
+
+  it("keeps a Resume while it is on as the alarm holding the Task, which the all clear resumes", async () => {
+    const task = await startedTask();
+    await sendJson(work, "POST", `/tasks/${task.id}/pause`);
+    await sound();
+    work.published.length = 0;
+
+    const resumed = await sendJson(work, "POST", `/tasks/${task.id}/resume`);
+    const again = await sendJson(work, "POST", `/tasks/${task.id}/resume`);
+
+    expect(taskSchema.parse(await resumed.json()).state).toBe("paused");
+    expect(await storedTask(task.id)).toMatchObject({ state: "paused", pausedByAlarm: true });
+    expect(workRefusalSchema.parse(await again.json()).reasons).toEqual([
+      "The fire alarm is on. The Task resumes with the all clear.",
+    ]);
+    expect(webEventsOf(work)).toEqual([{ type: "task.paused", taskId: task.id }]);
+  });
 });
 
 describe("Conflicts at Publish", () => {

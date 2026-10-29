@@ -10,6 +10,7 @@ import {
   type Type,
 } from "@nestjs/common";
 import { uploadBody } from "../../platform/http/upload-body.js";
+import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { EngineModule } from "../engine/index.js";
 import { FilesystemAttachmentFiles } from "./adapters/filesystem/filesystem-attachment-files.js";
 import { FilesystemWorktreeFiles } from "./adapters/filesystem/worktree-files.js";
@@ -17,12 +18,14 @@ import {
   ATTACHMENT_UPLOAD_ROUTES,
   AttachmentsController,
 } from "./adapters/http/attachments.controller.js";
+import { FireAlarmController } from "./adapters/http/fire-alarm.controller.js";
 import { IdeasController } from "./adapters/http/ideas.controller.js";
 import { InitiativesController } from "./adapters/http/initiatives.controller.js";
 import { OfficeLimitsController } from "./adapters/http/office-limits.controller.js";
 import { OnboardingsController } from "./adapters/http/onboardings.controller.js";
 import { SavedViewsController } from "./adapters/http/saved-views.controller.js";
 import { SearchController } from "./adapters/http/search.controller.js";
+import { FireAlarmForThreads } from "./adapters/conversations/fire-alarm-for-threads.js";
 import { InitiativeProposals } from "./adapters/conversations/initiative-proposals.js";
 import { MentionedWorkRecords } from "./adapters/conversations/mentioned-work-records.js";
 import { OfficeLimitProposals } from "./adapters/conversations/office-limit-proposals.js";
@@ -37,6 +40,7 @@ import { WorkOfficeTools } from "./adapters/office-tools/work-office-tools.js";
 import { QueueController } from "./adapters/http/queue.controller.js";
 import { TasksController } from "./adapters/http/tasks.controller.js";
 import { PostgresAttachmentRepository } from "./adapters/postgres/postgres-attachment-repository.js";
+import { PostgresFireAlarmRepository } from "./adapters/postgres/postgres-fire-alarm-repository.js";
 import { PostgresIdeaRepository } from "./adapters/postgres/postgres-idea-repository.js";
 import { PostgresInitiativeRepository } from "./adapters/postgres/postgres-initiative-repository.js";
 import { PostgresSavedViewRepository } from "./adapters/postgres/postgres-saved-view-repository.js";
@@ -46,6 +50,7 @@ import { PostgresWorkSearch } from "./adapters/postgres/postgres-work-search.js"
 import { PostgresWorkSettings } from "./adapters/postgres/postgres-work-settings.js";
 import { WorkWebEvents } from "./adapters/websocket/work-web-events.js";
 import { AttachmentService } from "./application/attachment-service.js";
+import { FireAlarmService } from "./application/fire-alarm-service.js";
 import { IdeaService } from "./application/idea-service.js";
 import { InitiativeService } from "./application/initiative-service.js";
 import { OfficeLimits } from "./application/office-limits.js";
@@ -62,6 +67,7 @@ import { TaskService } from "./application/task-service.js";
 import { ATTACHMENT_SIZE_LIMIT } from "./domain/attachment.js";
 import { AttachmentFiles } from "./ports/attachment-files.js";
 import { AttachmentRepository } from "./ports/attachment-repository.js";
+import { FireAlarmRepository } from "./ports/fire-alarm-repository.js";
 import { IdeaCards } from "./ports/idea-cards.js";
 import { IdeaRepository } from "./ports/idea-repository.js";
 import { InitiativeRepository } from "./ports/initiative-repository.js";
@@ -132,7 +138,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
     return {
       module: WorkModule,
       // Chats read Work and capture Ideas through Office tools on the Engine's registry.
-      imports: [...imports, EngineModule],
+      imports: [...imports, EngineModule, ScheduleModule],
       controllers: [
         IdeasController,
         InitiativesController,
@@ -143,6 +149,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         OnboardingsController,
         SearchController,
         SavedViewsController,
+        FireAlarmController,
       ],
       providers: [
         { provide: IdeaRepository, useClass: PostgresIdeaRepository },
@@ -155,6 +162,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: WorkSearch, useClass: PostgresWorkSearch },
         { provide: SavedViewRepository, useClass: PostgresSavedViewRepository },
         { provide: WorkSettings, useClass: PostgresWorkSettings },
+        { provide: FireAlarmRepository, useClass: PostgresFireAlarmRepository },
         { provide: KnownProjects, useExisting: knownProjects },
         { provide: NewProjects, useExisting: newProjects },
         { provide: ProjectWorktrees, useExisting: projectWorktrees },
@@ -180,6 +188,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         StartConditionsReader,
         StartService,
         QueueService,
+        FireAlarmService,
         TaskRecords,
         StageScreenshots,
         WorkWebEvents,
@@ -194,6 +203,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         OfficeLimitProposals,
         InitiativeProposals,
         ProjectProposals,
+        FireAlarmForThreads,
       ],
       exports: [
         IdeaService,

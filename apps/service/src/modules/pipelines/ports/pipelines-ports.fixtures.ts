@@ -50,12 +50,18 @@ export class StartedTasksForTests extends StartedTasks {
   /** Every state the walk moved a Task to, in order. */
   readonly changes: { readonly taskId: string; readonly state: WalkTaskState }[] = [];
 
+  /** Whether the fire alarm is on, as Work keeps it. */
+  fireAlarmOn = false;
+
   /** Tells the application of an event Work publishes, once the test application is up. */
   announce: (event: DomainEvent) => Promise<void> = () => Promise.resolve();
 
-  /** Puts the Task as Work would, such as In progress as it starts. */
-  put(taskId: string, task: Omit<StartedTask, "id">): void {
-    this.tasks.set(taskId, { ...task, id: taskId });
+  /** Puts the Task as Work would, such as In progress as it starts; not paused by the alarm. */
+  put(
+    taskId: string,
+    task: Omit<StartedTask, "id" | "pausedByAlarm"> & Partial<StartedTask>,
+  ): void {
+    this.tasks.set(taskId, { pausedByAlarm: false, ...task, id: taskId });
   }
 
   async list(): Promise<readonly StartedTask[]> {
@@ -88,9 +94,25 @@ export class StartedTasksForTests extends StartedTasks {
     return this.read(taskId);
   }
 
+  /** As Work sounds the alarm: a running Task is paused by it, then TaskPaused tells Pipelines. */
+  async pauseForAlarm(taskId: string): Promise<StartedTask> {
+    const task = await this.read(taskId);
+    const from = task.state;
+    if (from !== "in-progress" && from !== "waiting-on-you") return task;
+    this.put(taskId, { ...task, state: "paused", pausedByAlarm: true });
+    await this.announce(new TaskPaused(taskId, from, "alarm"));
+    return this.read(taskId);
+  }
+
+  async holdForFireAlarm(taskId: string): Promise<boolean> {
+    if (!this.fireAlarmOn) return false;
+    await this.pauseForAlarm(taskId);
+    return true;
+  }
+
   async resume(taskId: string): Promise<StartedTask> {
     const task = await this.read(taskId);
-    this.put(taskId, { ...task, state: "in-progress" });
+    this.put(taskId, { ...task, state: "in-progress", pausedByAlarm: false });
     await this.announce(new TaskResumed(taskId));
     return this.read(taskId);
   }

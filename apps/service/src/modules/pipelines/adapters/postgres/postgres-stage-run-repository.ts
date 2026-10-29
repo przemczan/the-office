@@ -8,7 +8,7 @@ import type {
   StageRunDecision,
   StageSessionMove,
   StageTokens,
-  UserInterruption,
+  AskedInterruption,
 } from "../../domain/stage-run.js";
 import { StageRunRepository } from "../../ports/stage-run-repository.js";
 import { stageRuns } from "./stage-runs.schema.js";
@@ -48,7 +48,7 @@ export class PostgresStageRunRepository extends StageRunRepository {
     await this.database.update(stageRuns).set({ decisions }).where(eq(stageRuns.id, runId));
   }
 
-  async saveHeldBy(runId: string, heldBy: UserInterruption): Promise<void> {
+  async saveHeldBy(runId: string, heldBy: AskedInterruption): Promise<void> {
     await this.database.update(stageRuns).set({ heldBy }).where(eq(stageRuns.id, runId));
   }
 

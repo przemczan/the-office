@@ -45,8 +45,9 @@ export type StageOutcome = (
        */
       readonly notStarted?: true;
       /**
-       * Set on a run the user paused whose Agent's turn The Office cut short as it shut down: its
-       * edits stay, maybe half-done (the user's answer of 2026-10-26).
+       * Set on a run the user paused, or the fire alarm held, whose Agent's turn The Office cut
+       * short, as it shut down or once the alarm's hard stop came: its edits stay, maybe half-done
+       * (the user's answer of 2026-10-26).
        */
       readonly cutShort?: true;
       /**
@@ -60,14 +61,16 @@ export type StageOutcome = (
 /**
  * Why The Office interrupted a run (spec §2.4): the user's Stop, which stops the Agent's turn now
  * and discards the Stage's uncommitted edits, or their Pause, which holds the run once the turn
- * ends and keeps them; either way its Stage runs again once the user resumes the Task. Or The
- * Office restarting during the Stage, which ends it as Stop does, and stops its Project commands
- * too; its Stage runs again only once the user says so in a Decision.
+ * ends and keeps them; either way its Stage runs again once the user resumes the Task. The fire
+ * alarm (spec §2.8) holds it as a Pause does, but stops its Project commands at once, so a Script
+ * Stage stops then; its Stage runs again after the all clear. Or The Office restarting during the
+ * Stage, which ends it as Stop does, and stops its Project commands too; its Stage runs again only
+ * once the user says so in a Decision.
  */
-export type StageInterruption = "stop" | "pause" | "restart";
+export type StageInterruption = "stop" | "pause" | "alarm" | "restart";
 
-/** What the user can ask of a running Stage run: hold it after the turn, or stop it now. */
-export type UserInterruption = Extract<StageInterruption, "stop" | "pause">;
+/** What can be asked of a running Stage run: the user's Pause or Stop, or the fire alarm. */
+export type AskedInterruption = Extract<StageInterruption, "stop" | "pause" | "alarm">;
 
 /** The base branch moved on since the Task's branch left it, so Publish can't take the branch. */
 export interface BaseMoved {
@@ -243,10 +246,11 @@ export interface StageRun {
   /** The Decisions the walk opened on the run, at most one of each kind. */
   readonly decisions: readonly StageRunDecision[];
   /**
-   * What the user asked of the run while it ran, the strongest kept, so a start after a crash
-   * honours it: a Stop discards the run's edits, a Pause keeps them. Undefined while nobody asked.
+   * What the user, or the fire alarm, asked of the run while it ran, the strongest kept, so a start
+   * after a crash honours it: a Stop discards the run's edits, a Pause or the alarm keeps them.
+   * Undefined while nobody asked.
    */
-  readonly heldBy: UserInterruption | undefined;
+  readonly heldBy: AskedInterruption | undefined;
   /**
    * What the user did at a Gate's run, which ends as the Task reaches the Gate and waits for it.
    * Undefined while the Gate waits, and for every other kind's run.

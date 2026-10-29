@@ -88,8 +88,9 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
   }
 
   /**
-   * Ends a run whose commands The Office stopped, as it does only when shutting down: interrupted,
-   * not failed by what the stopped command printed, and with what it left uncommitted discarded.
+   * Ends a run whose commands The Office stopped, as it does when shutting down or for the fire
+   * alarm: interrupted, not failed by what the stopped command printed, and with what it left
+   * uncommitted discarded after a shutdown, kept for the Stage's run again after the alarm.
    */
   private async stopped(
     { run, interruption }: StageWork<"script">,
@@ -105,7 +106,7 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
     const moved = await this.stageGit.checkHead(run, task, expected);
     if (moved) return commandChangedGit(moved);
     const discarded = await this.stageGit.settleInterrupted(run, task, expected, stoppedBy);
-    return interruptedOutcome(stoppedBy, discarded, { cutShort: interruption.cutShort });
+    return interruptedOutcome(stoppedBy, discarded, { cutShortBy: interruption.cutShortBy });
   }
 }
 

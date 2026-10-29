@@ -183,7 +183,8 @@ function MessageItem({
     case "held":
       return (
         <div className="message-line held">
-          <Icon name={message.heldBy === "pause" ? "pause" : "square"} size={12} />
+          {/* The fire alarm holds a Stage as a Pause does: it goes on after the all clear. */}
+          <Icon name={message.heldBy === "stop" ? "square" : "pause"} size={12} />
           <span className="message-summary">{message.text}</span>
         </div>
       );

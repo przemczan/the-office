@@ -5,6 +5,7 @@ export {
   type InitiativeThreadSetup,
   type InitiativeThreadSource,
 } from "./application/initiative-thread-setups.js";
+export { FireAlarmInThreads, type ThreadsFireAlarm } from "./application/fire-alarm-in-threads.js";
 export { InterruptedAnswers } from "./application/interrupted-answers.js";
 export {
   ProposalAppliers,

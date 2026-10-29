@@ -217,7 +217,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     const after = await this.stageGit.checkHead(run, task, expected);
     if (after) return changedGitItself(after, undefined);
     const discarded = await this.stageGit.settleInterrupted(run, task, expected, held);
-    return interruptedOutcome(held, discarded, { cutShort: interruption.cutShort });
+    return interruptedOutcome(held, discarded, { cutShortBy: interruption.cutShortBy });
   }
 
   private async open(

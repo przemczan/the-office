@@ -1,4 +1,5 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
+import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { EngineModule } from "../engine/index.js";
 import { PipelineProposals } from "./adapters/conversations/pipeline-proposals.js";
 import { PipelineLibraryController } from "./adapters/http/pipeline-library.controller.js";
@@ -85,7 +86,7 @@ export class PipelinesModule {
   }: PipelinesModuleOptions): DynamicModule {
     return {
       module: PipelinesModule,
-      imports: [PipelineLibraryModule, EngineModule, ...imports],
+      imports: [PipelineLibraryModule, EngineModule, ScheduleModule, ...imports],
       controllers: [TaskStagesController, TaskGateController, PipelineLibraryController],
       providers: [
         { provide: TaskStagesRepository, useClass: PostgresTaskStagesRepository },

@@ -5,16 +5,24 @@ import type { QueuedTask, Release, Starting } from "../../domain/queue.js";
 import type { Task } from "../../domain/task.js";
 import type { HeldAtStart } from "../../domain/task-start.js";
 import { STARTED_STATES } from "../../domain/task-states.js";
-import { QueueRepository } from "../../ports/queue-repository.js";
+import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
+import { QueueRepository, type HeldForRelease } from "../../ports/queue-repository.js";
 import { queue } from "./queue.schema.js";
 import { tasks } from "./work.schema.js";
 import { heldTask, holdStarts, toTask, toTaskRow, type Transaction } from "./work-rows.js";
 
 type QueueRow = typeof queue.$inferSelect;
 
+/**
+ * The fire alarm is read through its own port, after the hold is taken: sounding it holds Starts
+ * once it is on, so a Start either sees it or started before the alarm paused every started Task.
+ */
 @Injectable()
 export class PostgresQueueRepository extends QueueRepository {
-  constructor(@Inject(DATABASE) private readonly database: Database) {
+  constructor(
+    @Inject(DATABASE) private readonly database: Database,
+    private readonly fireAlarm: FireAlarmRepository,
+  ) {
     super();
   }
 
@@ -39,11 +47,12 @@ export class PostgresQueueRepository extends QueueRepository {
             .from(tasks)
             .where(inArray(tasks.id, [...task.blockedBy]))
         : [];
-      const starting = decide(
-        task,
-        { startedTasks: startedRows.map(toTask), blockers: blockerRows.map(toTask) },
-        await heldQueue(transaction),
-      );
+      const held = {
+        startedTasks: startedRows.map(toTask),
+        blockers: blockerRows.map(toTask),
+        fireAlarmOn: (await this.fireAlarm.read()).on,
+      };
+      const starting = decide(task, held, await heldQueue(transaction));
       if (starting.kind === "started") {
         await saveStarted(transaction, starting.change.task);
       } else {
@@ -54,7 +63,7 @@ export class PostgresQueueRepository extends QueueRepository {
   }
 
   async release(
-    decide: (queue: readonly QueuedTask[], tasks: readonly Task[]) => Release,
+    decide: (queue: readonly QueuedTask[], held: HeldForRelease) => Release,
   ): Promise<Release> {
     return this.database.transaction(async (transaction) => {
       await holdStarts(transaction);
@@ -71,7 +80,10 @@ export class PostgresQueueRepository extends QueueRepository {
           ),
         )
         .for("update");
-      const release = decide(inQueue, (await transaction.select().from(tasks)).map(toTask));
+      const release = decide(inQueue, {
+        tasks: (await transaction.select().from(tasks)).map(toTask),
+        fireAlarmOn: (await this.fireAlarm.read()).on,
+      });
       for (const { task } of release.started) await saveStarted(transaction, task);
       for (const { taskId } of release.refused) await removeQueued(transaction, taskId);
       for (const waiting of release.waiting) await saveQueued(transaction, waiting);

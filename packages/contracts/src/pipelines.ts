@@ -90,8 +90,11 @@ export const stageRunOutcomeSchema = z.discriminatedUnion("status", [
     budgetReached: z
       .object({ used: z.int().nonnegative(), budget: z.int().nonnegative() })
       .nullable(),
-    /** Set when the user stopped or paused the run, or The Office restarted during it. */
-    interrupted: z.enum(["stop", "pause", "restart"]).nullable(),
+    /**
+     * Set when the user stopped or paused the run, the fire alarm held it, or The Office restarted
+     * during it.
+     */
+    interrupted: z.enum(["stop", "pause", "alarm", "restart"]).nullable(),
     ...handoverNoteField,
   }),
 ]);

@@ -42,7 +42,7 @@ describe("startOrQueue", () => {
     const starting = startOrQueue(
       ready("a"),
       developer,
-      { startedTasks: [], blockers: [] },
+      { startedTasks: [], blockers: [], fireAlarmOn: false },
       [],
       NO_CHOICE,
     );
@@ -51,7 +51,7 @@ describe("startOrQueue", () => {
   });
 
   it("queues a Task only waits hold, last in the queue, and announces it", () => {
-    const held = { startedTasks: [started("x", "developer")], blockers: [] };
+    const held = { startedTasks: [started("x", "developer")], blockers: [], fireAlarmOn: false };
 
     const starting = startOrQueue(ready("a"), developer, held, [queued("q", 4)], NO_CHOICE);
 
@@ -63,7 +63,7 @@ describe("startOrQueue", () => {
   });
 
   it("keeps a queued Task's place when Start is asked again, announcing nothing", () => {
-    const held = { startedTasks: [started("x", "developer")], blockers: [] };
+    const held = { startedTasks: [started("x", "developer")], blockers: [], fireAlarmOn: false };
 
     const starting = startOrQueue(
       ready("a"),
@@ -81,7 +81,11 @@ describe("startOrQueue", () => {
 
   it("refuses with every reason when any refuses, queuing nothing", () => {
     const blocker = aTask({ id: "b", title: "Queue schema", state: "ready" });
-    const held = { startedTasks: [started("x", "developer")], blockers: [blocker] };
+    const held = {
+      startedTasks: [started("x", "developer")],
+      blockers: [blocker],
+      fireAlarmOn: false,
+    };
 
     expect(() => startOrQueue(ready("a"), developer, held, [], NO_CHOICE)).toThrow(
       new TaskRefused([
@@ -94,7 +98,7 @@ describe("startOrQueue", () => {
 
 describe("startOrQueue with an Overlap", () => {
   const overlapping = started("x", "reviewer", { title: "Login", filesToChange: ["src/auth"] });
-  const held = { startedTasks: [overlapping], blockers: [] };
+  const held = { startedTasks: [overlapping], blockers: [], fireAlarmOn: false };
   const task = ready("a", { filesToChange: ["src/auth/login.ts"] });
   const BEHIND_LOGIN = 'Queued behind "Login" until it is Done or Dropped.';
 
@@ -131,15 +135,28 @@ describe("startOrQueue with an Overlap", () => {
   it("is released once the Task it is behind is Done or Dropped, and not before", () => {
     const queue = [queued("a", 1, [BEHIND_LOGIN], ["x"])];
 
-    const waiting = releaseQueue(queue, [overlapping, task], developerFor);
-    const done = releaseQueue(queue, [{ ...overlapping, state: "done" }, task], developerFor);
-    const dropped = releaseQueue(queue, [{ ...overlapping, state: "dropped" }, task], developerFor);
+    const waiting = releaseQueue(queue, alarmOff([overlapping, task]), developerFor);
+    const done = releaseQueue(
+      queue,
+      alarmOff([{ ...overlapping, state: "done" }, task]),
+      developerFor,
+    );
+    const dropped = releaseQueue(
+      queue,
+      alarmOff([{ ...overlapping, state: "dropped" }, task]),
+      developerFor,
+    );
 
     expect(waiting.waiting).toEqual(queue);
     expect(done.started.map(({ task: { id } }) => id)).toEqual(["a"]);
     expect(dropped.started.map(({ task: { id } }) => id)).toEqual(["a"]);
   });
 });
+
+/** What a release holds while the fire alarm is off. */
+function alarmOff(tasks: readonly Task[]): { tasks: readonly Task[]; fireAlarmOn: boolean } {
+  return { tasks, fireAlarmOn: false };
+}
 
 describe("releaseQueue", () => {
   const conditions = new Map([
@@ -151,7 +168,7 @@ describe("releaseQueue", () => {
   it("starts the first place first, each counting against those after it", () => {
     const tasks = [ready("a"), ready("b")];
 
-    const release = releaseQueue([queued("b", 2), queued("a", 1)], tasks, (id) =>
+    const release = releaseQueue([queued("b", 2), queued("a", 1)], alarmOff(tasks), (id) =>
       conditions.get(id),
     );
 
@@ -163,7 +180,7 @@ describe("releaseQueue", () => {
   it("lets a Task whose person is free start past one waiting for a busy person", () => {
     const tasks = [started("x", "developer"), ready("a"), ready("c")];
 
-    const release = releaseQueue([queued("a", 1), queued("c", 2)], tasks, (id) =>
+    const release = releaseQueue([queued("a", 1), queued("c", 2)], alarmOff(tasks), (id) =>
       conditions.get(id),
     );
 
@@ -174,7 +191,7 @@ describe("releaseQueue", () => {
   it("takes out a Task whose turn meets a refusal, with the reasons", () => {
     const tasks = [ready("a", { blockedBy: ["b"] }), ready("b", { title: "Queue schema" })];
 
-    const release = releaseQueue([queued("a", 1)], tasks, (id) => conditions.get(id));
+    const release = releaseQueue([queued("a", 1)], alarmOff(tasks), (id) => conditions.get(id));
 
     expect(release.refused).toEqual([
       { taskId: "a", refusals: ['Blocked by "Queue schema", which must be Done first.'] },
@@ -183,17 +200,32 @@ describe("releaseQueue", () => {
   });
 
   it("takes out a Task that is no longer Ready", () => {
-    const release = releaseQueue([queued("a", 1)], [aTask({ id: "a", state: "planning" })], (id) =>
-      conditions.get(id),
+    const release = releaseQueue(
+      [queued("a", 1)],
+      alarmOff([aTask({ id: "a", state: "planning" })]),
+      (id) => conditions.get(id),
     );
 
     expect(release.refused.map(({ taskId }) => taskId)).toEqual(["a"]);
   });
 
   it("leaves waiting a Task queued after its conditions were read", () => {
-    const release = releaseQueue([queued("d", 1)], [ready("d")], (id) => conditions.get(id));
+    const release = releaseQueue([queued("d", 1)], alarmOff([ready("d")]), (id) =>
+      conditions.get(id),
+    );
 
     expect(release.waiting).toEqual([queued("d", 1)]);
+  });
+
+  it("starts nothing while the fire alarm is on, each Task waiting with it as a reason", () => {
+    const release = releaseQueue(
+      [queued("a", 1)],
+      { tasks: [ready("a")], fireAlarmOn: true },
+      (id) => conditions.get(id),
+    );
+
+    expect(release.started).toEqual([]);
+    expect(release.waiting).toEqual([queued("a", 1, ["The fire alarm is on."])]);
   });
 });
 

@@ -1,12 +1,15 @@
 import { join } from "node:path";
 import { Injectable, Module } from "@nestjs/common";
 import {
+  FireAlarmInThreads,
   InitiativeThreadSetups,
   ProposalAppliers,
   TaskThreadSetups,
   WorkRecords,
 } from "../../conversations/index.js";
+import { FIRE_ALARM_OFF, type FireAlarm } from "../domain/fire-alarm.js";
 import { DEFAULT_OFFICE_WIDE_LIMIT, type TaskLimit } from "../domain/task-start.js";
+import { FireAlarmRepository } from "./fire-alarm-repository.js";
 import { IdeaCards } from "./idea-cards.js";
 import { InitiativeThreads, type InitiativeThreadOpening } from "./initiative-threads.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
@@ -114,6 +117,29 @@ export class WorkSettingsForTests extends WorkSettings {
   }
 }
 
+/**
+ * A fire alarm of the test's own: every test file shares the database, whose row each Start and
+ * release reads, so a test that sounds it must never sound the stored one.
+ */
+export class FireAlarmRepositoryForTests extends FireAlarmRepository {
+  private alarm: FireAlarm = FIRE_ALARM_OFF;
+
+  async read(): Promise<FireAlarm> {
+    return this.alarm;
+  }
+
+  async sound(since: Date): Promise<boolean> {
+    if (this.alarm.on) return false;
+    this.alarm = { on: true, since };
+    return true;
+  }
+
+  /** Off again, as task 27's all clear will turn it; for a test's end. */
+  turnOff(): void {
+    this.alarm = FIRE_ALARM_OFF;
+  }
+}
+
 /** Each session is the Planner's, but UNKNOWN_SESSION. */
 @Injectable()
 export class SessionPeopleForTests extends SessionPeople {
@@ -218,6 +244,7 @@ const PORTS = [
   InitiativeThreadSetups,
   WorkRecords,
   ProposalAppliers,
+  FireAlarmInThreads,
 ];
 
 /** Provides them all, for `WorkModule.register({ imports: [this module] })`. */

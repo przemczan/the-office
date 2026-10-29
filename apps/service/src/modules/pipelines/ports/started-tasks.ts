@@ -7,6 +7,8 @@ export interface StartedTask {
   readonly state: string;
   /** The library Pipeline the Task's own Stages are copied from. */
   readonly pipelineId: string;
+  /** Whether the fire alarm holds it Paused, apart from the user's own Pause. */
+  readonly pausedByAlarm: boolean;
 }
 
 /**
@@ -27,6 +29,12 @@ export abstract class StartedTasks {
 
   /** Holds the Task as the user's Pause does, for a reason the walk can't go on with. */
   abstract pause(taskId: string): Promise<StartedTask>;
+
+  /**
+   * Pauses a Task In progress or Waiting on you as the fire alarm does, if the alarm is on: as The
+   * Office starts again after stopping during a sounding. Whether the alarm is on.
+   */
+  abstract holdForFireAlarm(taskId: string): Promise<boolean>;
 
   /** Resumes a Paused Task, as the user's Resume does. */
   abstract resume(taskId: string): Promise<StartedTask>;

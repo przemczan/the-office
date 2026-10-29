@@ -8,10 +8,17 @@ import {
   type OnModuleInit,
 } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { Schedule, type Wait } from "../../../platform/schedule/schedule.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { DecisionAnswered } from "../../conversations/index.js";
 import { CTO } from "../../people/index.js";
-import { TaskPaused, TaskResumed, TaskStarted, TaskStopped } from "../../work/index.js";
+import {
+  AlarmSounded,
+  TaskPaused,
+  TaskResumed,
+  TaskStarted,
+  TaskStopped,
+} from "../../work/index.js";
 import { StaffingHolds } from "./staffing-holds.js";
 import { nextMove, type NextMove } from "../domain/pipeline-walk.js";
 import { STAGE_KIND_NAMES, type Stage } from "../domain/stage.js";
@@ -25,7 +32,7 @@ import type {
   StageInterruption,
   StageOutcome,
   StageRun,
-  UserInterruption,
+  AskedInterruption,
 } from "../domain/stage-run.js";
 import { endStageRun, startStageRun } from "../domain/stage-run-changes.js";
 import {
@@ -88,8 +95,9 @@ type AskMove = Extract<NextMove, { move: "ask" }>;
  * the Task's runs left it, and goes on again once the user answers what it asked or resumes the
  * Task. A Task the user pauses is held once its Agent's running turn ends, mid-Stage; one they
  * stop has that turn stopped now (spec §2.4). Either way the Stage runs again once resumed. The
- * Office shutting down stops every running turn and command now; a Stage it restarted during runs
- * again only once the user says so.
+ * fire alarm holds every running Stage as a Pause does, its commands stopped now, and cuts the
+ * turns still running short at its hard stop (spec §2.8). The Office shutting down stops every
+ * running turn and command now; a Stage it restarted during runs again only once the user says so.
  */
 @Injectable()
 export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, OnModuleDestroy {
@@ -97,8 +105,13 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   private readonly walks = new Map<string, Promise<void>>();
   /** Tasks asked to walk while their walk was going on, walked again once it ends. */
   private readonly walksAgain = new Set<string>();
-  /** The user's Stop or Pause of each walk's Stage run, from before the walk reads the state for it. */
+  /**
+   * The user's Stop or Pause of each walk's Stage run, or the fire alarm, from before the walk reads
+   * the state for it.
+   */
   private readonly interruptions = new Map<string, StageRunInterruption>();
+  /** The fire alarm's hard stop of the runs going on as it sounded, until it comes. */
+  private hardStop: Wait | undefined;
   private stopping = false;
 
   constructor(
@@ -113,6 +126,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     private readonly events: EventBus,
     private readonly telemetry: Telemetry,
     private readonly staffingHolds: StaffingHolds,
+    private readonly schedule: Schedule,
   ) {}
 
   onModuleInit(): void {
@@ -120,7 +134,10 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     this.events.subscribe(TaskResumed, async ({ taskId }) => {
       if (!(await this.staffingHolds.holdIfLackingPeople(taskId))) this.walkInBackground(taskId);
     });
-    this.events.subscribe(TaskPaused, ({ taskId }) => this.interrupt(taskId, "pause"));
+    this.events.subscribe(TaskPaused, ({ taskId, by }) =>
+      this.interrupt(taskId, by === "alarm" ? "alarm" : "pause"),
+    );
+    this.events.subscribe(AlarmSounded, ({ hardStopAt }) => this.hardStopAt(hardStopAt));
     this.events.subscribe(TaskStopped, ({ taskId }) => this.interrupt(taskId, "stop"));
     this.events.subscribe(DecisionAnswered, ({ decision }) => {
       if (!decision.answer) return;
@@ -186,12 +203,26 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   }
 
   /**
+   * Cuts short, at `at`, the Agent turns of the runs going on now, which the fire alarm holds
+   * (spec §2.8): those it holds later never started a turn, and a run started after the all clear
+   * is none of these.
+   */
+  private hardStopAt(at: Date): void {
+    const going = [...this.interruptions.values()];
+    this.hardStop?.cancel();
+    this.hardStop = this.schedule.once("the fire alarm's hard stop", at, async () => {
+      this.hardStop = undefined;
+      for (const interruption of going) interruption.hardStop();
+    });
+  }
+
+  /**
    * Holds the Stage run of the Task's walk, if one goes on: its runner stops the Agent's turn now
-   * (Stop) or once it ends (Pause), and ends the run as interrupted. A walk about to start one
+   * (Stop) or once it ends (Pause, the fire alarm), and ends the run as interrupted. A walk about to start one
    * records it held without running it. The run records what the user asked, so a start after a
    * crash honours it.
    */
-  async interrupt(taskId: string, interruption: UserInterruption): Promise<void> {
+  async interrupt(taskId: string, interruption: AskedInterruption): Promise<void> {
     this.interruptions.get(taskId)?.request(interruption);
     const running = (await this.runs.list(taskId)).at(-1);
     if (!running || running.outcome || !outranks(interruption, running.heldBy)) return;
@@ -200,11 +231,12 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
 
   /**
    * Takes up what the service left as it last stopped (spec §2.4): a run left running ends as The
-   * Office restarted during it, or as paused with its edits on a Task the user paused, its Stage
-   * Thread with it. An In progress Task is walked on, but a
-   * Stage it would start, after one The Office restarted between, is first recorded as not
-   * started, so the walk asks the user before any Stage runs again or starts. A Paused Task stays
-   * as the user holds it.
+   * Office restarted during it, or as held with its edits on a Task the user paused or the fire
+   * alarm holds, its Stage Thread with it. An In progress Task is walked on, unless the alarm is on
+   * (a sounding the service stopped during), which holds it instead; but a Stage it would start,
+   * after one The Office restarted between, is first recorded as not started, so the walk asks the
+   * user before any Stage runs again or starts. A Paused Task stays as the user, or the alarm,
+   * holds it.
    */
   async onApplicationBootstrap(): Promise<void> {
     for (const task of await this.tasks.list()) {
@@ -222,6 +254,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
    */
   async onModuleDestroy(): Promise<void> {
     this.stopping = true;
+    this.hardStop?.cancel();
     for (const interruption of this.interruptions.values()) interruption.request("restart");
     await Promise.all(this.walks.values());
   }
@@ -248,13 +281,18 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     this.walks.set(taskId, walk);
   }
 
-  private async takeUpAfterRestart({ id, state }: StartedTask): Promise<void> {
+  private async takeUpAfterRestart(task: StartedTask): Promise<void> {
+    const { id } = task;
     // A Task whose walk never began has no Stages of its own yet, and nothing to take up.
     const own = await this.taskStages.find(id);
     if (!own) return;
+    const held = task.state === "in-progress" && (await this.tasks.holdForFireAlarm(id));
+    const { state, pausedByAlarm } = held ? await this.tasks.read(id) : task;
     const runs = await this.runs.list(id);
     const last = runs.at(-1);
-    if (last && !last.outcome) await this.endLeftRunning(last, runs.slice(0, -1), state);
+    if (last && !last.outcome) {
+      await this.endLeftRunning(last, runs.slice(0, -1), { state, pausedByAlarm });
+    }
     if (state !== "in-progress") return;
     const { definitionOfDone } = await this.records.read(id);
     const ended = await this.runs.list(id);
@@ -267,24 +305,24 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
 
   /**
    * Ends the run as The Office restarted during it, its uncommitted edits discarded, and its Stage
-   * Thread's work with it; or as the user asked of it before the crash: a Stop ends it stopped,
-   * its edits discarded, and a Pause, waiting for the Agent's turn the crash cut short, holds it
-   * paused with its edits kept. A Paused Task with nothing recorded counts as paused.
+   * Thread's work with it; or as asked of it before the crash: a Stop ends it stopped, its edits
+   * discarded, and a Pause or the fire alarm, waiting for the Agent's turn the crash cut short,
+   * holds it with its edits kept. A Paused Task with nothing recorded counts as held by whoever
+   * paused it.
    */
   private async endLeftRunning(
     run: StageRun,
     earlierRuns: readonly StageRun[],
-    taskState: string,
+    held: Pick<StartedTask, "state" | "pausedByAlarm">,
   ): Promise<void> {
-    const interruption: StageInterruption =
-      run.heldBy ?? (taskState === "paused" ? "pause" : "restart");
+    const interruption: StageInterruption = run.heldBy ?? heldByAfterRestart(held);
     const task = await this.records.read(run.taskId);
     const discarded = await this.stageGit.settleLeftRunning(
       { run, earlierRuns },
       task,
       interruption,
     );
-    const outcome = interruptedOutcome(interruption, discarded, { cutShort: true });
+    const outcome = interruptedOutcome(interruption, discarded, { cutShortBy: "restart" });
     const ended = endStageRun(run, outcome, new Date());
     await this.runs.saveEnded(ended.run);
     const closing = closingOf(outcome);
@@ -572,6 +610,15 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       await this.events.publish(new DefinitionOfDoneNotMet(taskId, question.unmet));
     }
   }
+}
+
+/** What holds a run left running with nothing recorded on it, by the state of its Task. */
+function heldByAfterRestart({
+  state,
+  pausedByAlarm,
+}: Pick<StartedTask, "state" | "pausedByAlarm">): StageInterruption {
+  if (state !== "paused") return "restart";
+  return pausedByAlarm ? "alarm" : "pause";
 }
 
 function stackOf(reason: unknown): string {

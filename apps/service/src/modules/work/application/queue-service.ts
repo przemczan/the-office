@@ -47,12 +47,12 @@ export class QueueService implements OnModuleInit {
 
   /**
    * The one release: starts every queued Task that can start now, first place first, and takes out
-   * those whose turn met a reason that refuses Start. Task 27's fire alarm holds the queue here.
+   * those whose turn met a reason that refuses Start. While the fire alarm is on, each waits.
    */
   async release(): Promise<void> {
     const conditions = await this.conditionsOfQueued();
-    const { started, refused } = await this.queue.release((queue, tasks) =>
-      releaseQueue(queue, tasks, (taskId) => conditions.get(taskId)),
+    const { started, refused } = await this.queue.release((queue, held) =>
+      releaseQueue(queue, held, (taskId) => conditions.get(taskId)),
     );
     for (const { task, event } of started) {
       await this.events.publish(new TaskLeftQueue(task.id, "started"));

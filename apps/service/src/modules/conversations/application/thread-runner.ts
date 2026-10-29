@@ -280,6 +280,17 @@ export class ThreadRunner implements OnModuleDestroy {
     );
   }
 
+  /**
+   * Stops the person answering in the Thread now: their session ends, and the Thread waits for the
+   * user again, with why in its log. Nothing when it isn't answering.
+   */
+  async stopAnswering(threadId: string, reason: string): Promise<void> {
+    await this.endLive(threadId);
+    await this.change(threadId, (thread) =>
+      thread.state === "answering" ? failAnswer(thread, reason, new Date()) : undefined,
+    );
+  }
+
   async onModuleDestroy(): Promise<void> {
     await Promise.all([...this.live.keys()].map((threadId) => this.endLive(threadId)));
   }

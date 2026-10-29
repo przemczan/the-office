@@ -12,6 +12,7 @@ export {
   IdeaShaped,
   IdeaShapedIntoInitiative,
 } from "./domain/idea-events.js";
+export { AlarmSounded } from "./domain/fire-alarm-events.js";
 export { InitiativeCreated, InitiativeStateChanged } from "./domain/initiative-events.js";
 export { OfficeWideLimitChanged } from "./domain/office-limit-events.js";
 export { TaskLeftQueue, TaskMovedUpInQueue, TaskQueued } from "./domain/queue-events.js";

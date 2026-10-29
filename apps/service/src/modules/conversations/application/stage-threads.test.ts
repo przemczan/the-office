@@ -22,6 +22,7 @@ import { DEVOPS, RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
 import { Consultations } from "./consultations.js";
+import { FireAlarmInThreads } from "./fire-alarm-in-threads.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import { DecisionAnswered, TokensCounted } from "../domain/conversation-events.js";
 import type { Message, MessageDraft } from "../domain/message.js";
@@ -149,6 +150,7 @@ async function startOn(scripted: ScriptedEngine): Promise<void> {
       StageDecisions,
       DecisionService,
       Consultations,
+      FireAlarmInThreads,
       DecisionOfficeTools,
       ThreadService,
       TaskTokens,

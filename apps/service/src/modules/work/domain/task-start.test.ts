@@ -36,7 +36,7 @@ function started(id: string, fields: Partial<Task> = {}): Task {
 }
 
 function held(startedTasks: readonly Task[], blockers: readonly Task[] = []): HeldAtStart {
-  return { startedTasks, blockers };
+  return { startedTasks, blockers, fireAlarmOn: false };
 }
 
 function refused(...refusals: string[]): StartReasons {
@@ -178,6 +178,15 @@ describe("startReasons", () => {
     const blockers = [aTask({ id: "b1", state: "done" }), aTask({ id: "b2", state: "dropped" })];
 
     expect(startReasons(ready, conditions, held([], blockers))).toEqual(nothing);
+  });
+
+  it("waits while the fire alarm is on, before the limits", () => {
+    const alarmOn = { ...held([]), fireAlarmOn: true };
+
+    expect(startReasons(ready, conditions, alarmOn)).toEqual({
+      refusals: [],
+      waits: ["The fire alarm is on."],
+    });
   });
 
   it("refuses, never waits, when the first Agent Stage's person only talks", () => {

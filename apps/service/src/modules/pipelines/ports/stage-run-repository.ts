@@ -5,7 +5,7 @@ import type {
   StageRunDecision,
   StageSessionMove,
   StageTokens,
-  UserInterruption,
+  AskedInterruption,
 } from "../domain/stage-run.js";
 
 /** Where each Task's Stage runs are kept. */
@@ -32,7 +32,7 @@ export abstract class StageRunRepository {
   abstract saveDecisions(runId: string, decisions: readonly StageRunDecision[]): Promise<void>;
 
   /** Saves what the user asked of the run while it runs, replacing what they asked before. */
-  abstract saveHeldBy(runId: string, heldBy: UserInterruption): Promise<void>;
+  abstract saveHeldBy(runId: string, heldBy: AskedInterruption): Promise<void>;
 
   /**
    * Saves what the user did at a Gate's run; false when an action was saved first, as each Gate

@@ -22,6 +22,7 @@ import { Consultations } from "./application/consultations.js";
 import { ContextPolicySettingsService } from "./application/context-policy-settings.js";
 import { DecisionService } from "./application/decision-service.js";
 import { HeldCalls } from "./application/held-calls.js";
+import { FireAlarmInThreads } from "./application/fire-alarm-in-threads.js";
 import { InterruptedAnswers } from "./application/interrupted-answers.js";
 import { LinkCards } from "./application/link-cards.js";
 import { InitiativeThreadSetups } from "./application/initiative-thread-setups.js";
@@ -85,6 +86,7 @@ export class ConversationsModule {
         InterruptedAnswers,
         DecisionService,
         Consultations,
+        FireAlarmInThreads,
         StageThreads,
         StageDecisions,
         TaskTokens,
@@ -109,6 +111,7 @@ export class ConversationsModule {
       ],
       exports: [
         DecisionService,
+        FireAlarmInThreads,
         InterruptedAnswers,
         ThreadService,
         TaskThreadSetups,

@@ -2,6 +2,7 @@ import type { Task } from "./task.js";
 import type { TaskChange } from "./task-changes.js";
 import { blockedProblems } from "./task-dependencies.js";
 import { TaskStarted } from "./task-events.js";
+import { FIRE_ALARM_ON } from "./fire-alarm.js";
 import { TaskRefused } from "./task-refused.js";
 import { STARTED_STATES, TASK_STATE_NAMES } from "./task-states.js";
 
@@ -43,13 +44,15 @@ export interface StartConditions {
 export interface HeldAtStart {
   readonly startedTasks: readonly Task[];
   readonly blockers: readonly Task[];
+  /** Whether the fire alarm is on, which holds every Start until the all clear (spec §2.8). */
+  readonly fireAlarmOn: boolean;
 }
 
 /**
  * Why the Task can't start now, sorted as Start treats them (spec §2.1, "A queue for Start"): a
  * refusal (not Ready, a Task it waits for isn't Done, a vacant Role, a person who only talks) stops
- * Start; a wait (the Office-wide limit, its person's Task limit) only holds the Task until a desk
- * and its person are free. Both are empty when it can start.
+ * Start; a wait (the fire alarm, the Office-wide limit, its person's Task limit) only holds the Task
+ * until the all clear, and a desk and its person are free. Both are empty when it can start.
  */
 export interface StartReasons {
   readonly refusals: readonly string[];
@@ -65,7 +68,7 @@ export function firstAgentStage(stages: readonly StartingStage[]): AgentStarting
 export function startReasons(
   task: Task,
   conditions: StartConditions,
-  { startedTasks, blockers }: HeldAtStart,
+  { startedTasks, blockers, fireAlarmOn }: HeldAtStart,
 ): StartReasons {
   if (task.state !== "ready") {
     return refusedFor(
@@ -82,6 +85,7 @@ export function startReasons(
   return {
     refusals: [...blockedProblems(blockers), ...personRefusals(stage, conditions.person)],
     waits: [
+      ...(fireAlarmOn ? [FIRE_ALARM_ON] : []),
       ...officeWideLimitWaits(conditions.officeWideLimit, others),
       ...taskLimitWaits(stage, conditions.person, others),
     ],

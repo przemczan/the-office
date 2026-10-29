@@ -92,11 +92,19 @@ export class TaskPipelineConfirmed extends DomainEvent {
   }
 }
 
-/** The user paused the Task: its running Stage is held once the Agent's turn ends (spec §2.4). */
+/** Who paused a Task: the user, or the fire alarm (spec §2.8), which the all clear resumes. */
+export type PausedBy = "user" | "alarm";
+
+/**
+ * The Task is held Paused: its running Stage is held once the Agent's turn ends (spec §2.4), or, by
+ * the fire alarm, at its next safe point (spec §2.8). `from` is Paused when the alarm took over a
+ * Resume the user asked for while it was on.
+ */
 export class TaskPaused extends DomainEvent {
   constructor(
     readonly taskId: string,
     readonly from: TaskState,
+    readonly by: PausedBy = "user",
   ) {
     super();
   }

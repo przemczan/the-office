@@ -55,6 +55,11 @@ export interface Task {
    * first Agent Stage, as the click-through counts; undefined before Start or without one.
    */
   readonly personRole: string | undefined;
+  /**
+   * Whether the fire alarm holds it Paused (spec §2.8), apart from a Pause of the user's own: the
+   * all clear resumes it, or the user's Hold makes it theirs.
+   */
+  readonly pausedByAlarm: boolean;
   /** Whether it is its Project's Onboard Task, whose state is the Project's onboarding. */
   readonly isOnboardTask: boolean;
   /**

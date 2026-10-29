@@ -11,6 +11,7 @@ import {
   TaskStateChanged,
   TaskStopped,
 } from "./task-events.js";
+import { FIRE_ALARM_ON } from "./fire-alarm.js";
 import { TaskRefused } from "./task-refused.js";
 import {
   NOT_STARTED_STATES,
@@ -58,6 +59,7 @@ export function createTask(
     pipelineId: setting.pipelineId,
     proposedPipeline: undefined,
     personRole: undefined,
+    pausedByAlarm: false,
     isOnboardTask: false,
     blockedBy: [],
     originIdeaId: setting.originIdeaId,
@@ -76,7 +78,10 @@ export function changeTaskState(
   const problems = stateChangeProblems(task, to);
   if (problems.length > 0) throw new TaskRefused(problems);
   if (task.state === to) return undefined;
-  return { task: { ...task, state: to }, event: new TaskStateChanged(task.id, task.state, to) };
+  return {
+    task: { ...task, state: to, pausedByAlarm: false },
+    event: new TaskStateChanged(task.id, task.state, to),
+  };
 }
 
 /**
@@ -130,26 +135,65 @@ export function changeStartedTaskState(
 export function pauseTask(task: Task): TaskChange<TaskPaused> | undefined {
   if (task.state === "paused") return undefined;
   refuseUnlessRunning(task, "paused");
-  return { task: { ...task, state: "paused" }, event: new TaskPaused(task.id, task.state) };
+  return {
+    task: { ...task, state: "paused", pausedByAlarm: false },
+    event: new TaskPaused(task.id, task.state),
+  };
+}
+
+/**
+ * The fire alarm sounding (spec §2.8): a Task In progress or Waiting on you is held as Paused by
+ * the alarm, its running Stage at its next safe point. Undefined for any other: a Task the user
+ * paused stays theirs.
+ */
+export function pauseTaskForAlarm(task: Task): TaskChange<TaskPaused> | undefined {
+  if (task.state !== "in-progress" && task.state !== "waiting-on-you") return undefined;
+  return {
+    task: { ...task, state: "paused", pausedByAlarm: true },
+    event: new TaskPaused(task.id, task.state, "alarm"),
+  };
 }
 
 /**
  * Stop (spec §2.4): as Pause, but the Stage running now is interrupted; a Task paused already can
- * still be stopped, so its Stage doesn't run to its end.
+ * still be stopped, so its Stage doesn't run to its end. The Stop is the user's, even of a Task
+ * the fire alarm paused.
  */
 export function stopTask(task: Task): TaskChange<TaskStopped> {
   if (task.state !== "paused") refuseUnlessRunning(task, "stopped");
-  return { task: { ...task, state: "paused" }, event: new TaskStopped(task.id, task.state) };
+  return {
+    task: { ...task, state: "paused", pausedByAlarm: false },
+    event: new TaskStopped(task.id, task.state),
+  };
 }
 
-/** Resume: a Paused Task goes on In progress, where its Pipeline was held. */
-export function resumeTask(task: Task): TaskChange<TaskResumed> {
+/**
+ * Resume: a Paused Task goes on In progress, where its Pipeline was held. While the fire alarm is
+ * on, nothing walks (the user's answer of 2026-10-29): the Resume is kept as the alarm holding the
+ * Task, which the all clear resumes.
+ */
+export function resumeTask(
+  task: Task,
+  { fireAlarmOn }: { readonly fireAlarmOn: boolean },
+): TaskChange<TaskResumed | TaskPaused> {
   if (task.state !== "paused") {
     throw new TaskRefused([
       `Only a Paused Task can be resumed; this one is in ${TASK_STATE_NAMES[task.state]}.`,
     ]);
   }
-  return { task: { ...task, state: "in-progress" }, event: new TaskResumed(task.id) };
+  if (!fireAlarmOn) {
+    return {
+      task: { ...task, state: "in-progress", pausedByAlarm: false },
+      event: new TaskResumed(task.id),
+    };
+  }
+  if (task.pausedByAlarm) {
+    throw new TaskRefused([`${FIRE_ALARM_ON} The Task resumes with the all clear.`]);
+  }
+  return {
+    task: { ...task, pausedByAlarm: true },
+    event: new TaskPaused(task.id, "paused", "alarm"),
+  };
 }
 
 function refuseUnlessRunning(task: Task, verb: "paused" | "stopped"): void {

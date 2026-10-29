@@ -2,6 +2,12 @@ import type { HeldAtStart } from "../domain/task-start.js";
 import type { QueuedTask, Release, Starting } from "../domain/queue.js";
 import type { Task } from "../domain/task.js";
 
+/** What a release reads in the hold of Starts. */
+export interface HeldForRelease {
+  readonly tasks: readonly Task[];
+  readonly fireAlarmOn: boolean;
+}
+
 /**
  * Where Start and the queue are kept. Start, every release and every change of the queue hold
  * Starts until saved, so two never count the same free desk or take the same place.
@@ -11,8 +17,8 @@ export abstract class QueueRepository {
   abstract list(): Promise<readonly QueuedTask[]>;
 
   /**
-   * Start: `decide` weighs the Task with every started Task, the Tasks it waits for and the queue
-   * read in the hold, then the started Task or its place in the queue is saved. Throws
+   * Start: `decide` weighs the Task with every started Task, the Tasks it waits for, the fire alarm
+   * and the queue read in the hold, then the started Task or its place in the queue is saved. Throws
    * TaskNotFound when there is no such Task.
    */
   abstract start(
@@ -21,12 +27,12 @@ export abstract class QueueRepository {
   ): Promise<Starting>;
 
   /**
-   * A release: `decide` weighs the queue against every Task read in the hold; the Tasks it starts
-   * are saved and leave the queue with those refused, and those still waiting keep their new
-   * reasons.
+   * A release: `decide` weighs the queue against every Task and the fire alarm read in the hold;
+   * the Tasks it starts are saved and leave the queue with those refused, and those still waiting
+   * keep their new reasons.
    */
   abstract release(
-    decide: (queue: readonly QueuedTask[], tasks: readonly Task[]) => Release,
+    decide: (queue: readonly QueuedTask[], held: HeldForRelease) => Release,
   ): Promise<Release>;
 
   /** Takes the Task out of the queue; whether it was in it. */

@@ -1,15 +1,22 @@
-import { actsNow, outranks, stopsCommands } from "../domain/stage-interruption.js";
+import {
+  actsNow,
+  outranks,
+  stopsCommands,
+  waitsForTheTurn,
+  type CutShortBy,
+} from "../domain/stage-interruption.js";
 import type { StageInterruption } from "../domain/stage-run.js";
 
 /**
- * What was asked of a Stage run going on (spec §2.4): Pause holds it once the Agent's current turn
- * ends, Stop interrupts it now, and The Office shutting down interrupts it now with its Project
- * commands. Each escalates what was asked before it; nothing undoes one. A shutdown after a Pause
- * cuts the turn short but leaves the run paused, its edits kept (the user's answer of 2026-10-26).
+ * What was asked of a Stage run going on (spec §2.4, §2.8): Pause holds it once the Agent's current
+ * turn ends, the fire alarm too but stops its Project commands now, Stop interrupts it now, and The
+ * Office shutting down interrupts it now with its Project commands. Each escalates what was asked
+ * before it; nothing undoes one. A shutdown, or the alarm's hard stop, after a Pause or the alarm
+ * cuts the turn short but leaves the run held, its edits kept (the user's answer of 2026-10-26).
  */
 export class StageRunInterruption {
   private asked: StageInterruption | undefined;
-  private shutDownWhilePaused = false;
+  private cutBy: CutShortBy | undefined;
   private readonly nowListeners = new Set<() => void>();
   private readonly commandsStop = new AbortController();
 
@@ -20,12 +27,12 @@ export class StageRunInterruption {
 
   /** Whether the run is to stop what runs now, not wait for the turn to end. */
   get now(): boolean {
-    return this.cutShort || (this.asked !== undefined && actsNow(this.asked));
+    return this.cutBy !== undefined || (this.asked !== undefined && actsNow(this.asked));
   }
 
-  /** Whether The Office shut down while the run was paused, cutting the Agent's turn short. */
-  get cutShort(): boolean {
-    return this.shutDownWhilePaused;
+  /** What cut the Agent's turn of a held run short; undefined while nothing did. */
+  get cutShortBy(): CutShortBy | undefined {
+    return this.cutBy;
   }
 
   /** Aborted once the run's Project commands are to stop too. */
@@ -36,15 +43,29 @@ export class StageRunInterruption {
   request(interruption: StageInterruption): void {
     if (!outranks(interruption, this.asked)) return;
     const wasNow = this.now;
-    if (interruption === "restart" && this.asked === "pause") this.shutDownWhilePaused = true;
+    if (interruption === "restart" && waitsForTheTurn(this.asked)) this.cutBy = "restart";
     else this.asked = interruption;
     if (stopsCommands(interruption)) this.commandsStop.abort();
-    if (!wasNow && this.now) for (const listener of this.nowListeners) listener();
+    if (!wasNow && this.now) this.tellNow();
+  }
+
+  /**
+   * The fire alarm's hard stop (spec §2.8): a run held until its Agent's turn ends has that turn
+   * cut short now, its edits kept. Nothing to a run that nobody held, or that stops now already.
+   */
+  hardStop(): void {
+    if (!waitsForTheTurn(this.asked) || this.now) return;
+    this.cutBy = "alarm";
+    this.tellNow();
   }
 
   /** Calls `listener` once the run is to stop now; returns what removes it. */
   onNow(listener: () => void): () => void {
     this.nowListeners.add(listener);
     return () => this.nowListeners.delete(listener);
+  }
+
+  private tellNow(): void {
+    for (const listener of this.nowListeners) listener();
   }
 }

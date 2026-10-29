@@ -98,11 +98,11 @@ export interface Release {
  * Starts every queued Task that can start now, in the queue's order, each counting against the
  * limits of those after it, so a Task waiting for a busy person holds none behind it. A Task that
  * meets a refusal leaves the queue; one with no conditions (queued after they were read) waits on.
- * `tasks` holds every Task, read in the hold of Starts.
+ * `tasks` holds every Task and `fireAlarmOn` the alarm, both read in the hold of Starts.
  */
 export function releaseQueue(
   queue: readonly QueuedTask[],
-  tasks: readonly Task[],
+  { tasks, fireAlarmOn }: { readonly tasks: readonly Task[]; readonly fireAlarmOn: boolean },
   conditionsOf: (taskId: string) => StartConditions | undefined,
 ): Release {
   const byId = new Map(tasks.map((task) => [task.id, task]));
@@ -121,6 +121,7 @@ export function releaseQueue(
     const held = {
       startedTasks: [...startedTasks, ...started.map((change) => change.task)],
       blockers,
+      fireAlarmOn,
     };
     const { refusals, waits } = startReasons(task, conditions, held);
     const allWaits = [...waits, ...behindWaits(queued.behind, tasks)];

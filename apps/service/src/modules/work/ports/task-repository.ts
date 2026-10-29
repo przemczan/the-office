@@ -42,6 +42,14 @@ export abstract class TaskRepository {
   ): Promise<TaskUpdate<Event>>;
 
   /**
+   * Applies `change` to every started Task as stored, holding Starts and those Tasks until the
+   * results are saved, so no Task starts meanwhile. Returns the Tasks it changed, with their events.
+   */
+  abstract updateEveryStarted<Event extends DomainEvent>(
+    change: (task: Task) => TaskChange<Event> | undefined,
+  ): Promise<readonly TaskChange<Event>[]>;
+
+  /**
    * As `update`, with every Task read in the same hold, which every change of dependencies takes,
    * so two changes at once can't close a cycle between them.
    */

@@ -417,6 +417,16 @@ export const officeWideLimitSchema = z.object({
 });
 export type OfficeWideLimit = z.infer<typeof officeWideLimitSchema>;
 
+/**
+ * GET /fire-alarm, and what POST /fire-alarm/sound answers (spec §2.8): off, or on since it was
+ * sounded.
+ */
+export const fireAlarmSchema = z.discriminatedUnion("on", [
+  z.object({ on: z.literal(false) }),
+  z.object({ on: z.literal(true), since: z.iso.datetime() }),
+]);
+export type FireAlarm = z.infer<typeof fireAlarmSchema>;
+
 /** What a refused change answers: every reason, also joined into Nest's `message`. */
 export const workRefusalSchema = z.object({
   statusCode: z.literal(422),

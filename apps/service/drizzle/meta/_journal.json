@@ -372,6 +372,13 @@
       "when": 1793274947187,
       "tag": "0052_notification_timing",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1793277738127,
+      "tag": "0053_fire_alarm",
+      "breakpoints": true
     }
   ]
 }
