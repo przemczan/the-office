@@ -267,7 +267,9 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
       return (
         <ProposalFrame title={`New skill · ${change.name}`}>
           <dl className="proposal-fields">
-            <ProposedField label="Description">{change.description}</ProposedField>
+            <ProposedField label="Description">
+              <span className="proposal-clamp">{change.description}</span>
+            </ProposedField>
             <ProposedField label="Instructions">
               <span className="proposal-clamp">{change.instructions}</span>
             </ProposedField>

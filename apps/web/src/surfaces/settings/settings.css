@@ -76,6 +76,12 @@
   font: var(--type-caption);
   color: var(--fg-3);
   white-space: normal;
+  /* A published skill's description runs to 1,536 characters; Review shows all of it. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
 }
 
 .skill-source {
@@ -154,6 +160,7 @@
 
 .skill-review-summary {
   margin: 0;
+  white-space: pre-line;
   font: var(--type-body-sm);
   color: var(--fg-1);
 }

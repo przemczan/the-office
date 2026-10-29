@@ -35,6 +35,18 @@ describe("readSkillMd", () => {
     });
   });
 
+  it("reads a description in a block scalar: literal keeps its lines, folded joins them", () => {
+    const literal = "---\ndescription: |-\n  Use it for notes.\n  Skip it for code.\n---\n";
+    const folded = "---\r\ndescription: >\r\n  Use it for notes,\r\n  not code.\r\n---\r\n";
+
+    expect(readSkillMd(literal)).toMatchObject({
+      frontmatter: { description: "Use it for notes.\nSkip it for code." },
+    });
+    expect(readSkillMd(folded)).toMatchObject({
+      frontmatter: { description: "Use it for notes, not code.\n" },
+    });
+  });
+
   it("refuses frontmatter that is no YAML", () => {
     expect(readSkillMd("---\nname: [tdd\n---\n")).toMatch(/^SKILL\.md's frontmatter is not YAML: /);
   });
@@ -61,6 +73,14 @@ describe("writtenSkillMd", () => {
     expect(readSkillMd(text)).toEqual({
       frontmatter: { name: "tdd", description },
       instructions: "Red, green.",
+    });
+  });
+
+  it("reads back a description of several lines", () => {
+    const description = "Use it for notes.\nSkip it for code: write tests instead.";
+
+    expect(readSkillMd(writtenSkillMd("tdd", description, "Red."))).toMatchObject({
+      frontmatter: { description },
     });
   });
 });

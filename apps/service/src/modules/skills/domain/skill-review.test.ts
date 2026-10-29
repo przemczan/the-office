@@ -81,6 +81,17 @@ describe("reviewOf", () => {
     ]);
   });
 
+  it("flags a description over 500 characters, which takes more of each session's listing", () => {
+    const description = `|-\n  Use it for notes.\n  ${"x".repeat(490)}\n`;
+    const files = [
+      aSkillFile("SKILL.md", `---\nname: notes\ndescription: ${description}---\nWrite them.\n`),
+    ];
+
+    expect(reviewOf(files).warnings).toEqual([
+      "Its description is 508 characters: every session that has it lists all of it, which leaves less of the listing's room for other skills.",
+    ]);
+  });
+
   it.each(["Run !`git status` first.", "```!\ngit status\n```"])(
     "warns of commands the text would run as it loads: %s",
     (instructions) => {

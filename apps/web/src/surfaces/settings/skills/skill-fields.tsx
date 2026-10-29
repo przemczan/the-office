@@ -27,9 +27,11 @@ export function SkillFields({
           autoFocus
         />
       )}
-      <Input
+      <Textarea
         label="Description"
+        rows={2}
         placeholder="When to use it, in one sentence: this is what sits in every session's context"
+        hint="Every session that has the skill lists it, so short is better; Review flags a long one."
         value={skill.description}
         onChange={(event) => onChange({ ...skill, description: event.target.value })}
         autoFocus={!withName}

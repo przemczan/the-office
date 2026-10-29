@@ -96,7 +96,7 @@ export function ProposedSkillInstallFields({
       </div>
       <div className="proposal-field">
         <dt>Skill</dt>
-        <dd>
+        <dd className="proposal-clamp">
           {change.name} · {change.description}
         </dd>
       </div>

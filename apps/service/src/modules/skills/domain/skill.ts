@@ -44,10 +44,15 @@ export type NewSkill = Pick<Skill, "name" | "description" | "source" | "installe
 /** The engine's own limit on a skill's name. */
 const NAME_LENGTH = 64;
 /**
- * Well under the engine's 1,536 characters per entry, so a session's listing keeps every
- * description within its budget of about 1% of the context window (8,000 characters at 200k).
+ * The engine's own limit on a listing entry: a longer description is cut there. The user accepted
+ * the engine's limit so that published skills install as they are (spec §2.6).
  */
-export const DESCRIPTION_LENGTH = 200;
+export const DESCRIPTION_LENGTH = 1_536;
+/**
+ * A session's listing gets about 1% of the context window, 8,000 characters at 200k; a description
+ * over 500 takes more than a sixteenth of it, so Review flags it.
+ */
+export const LONG_DESCRIPTION_LENGTH = 500;
 const NAME = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 /** The new skill as it is kept: without the spaces around what the user typed. */
@@ -77,14 +82,18 @@ export function skillNameProblems(name: string): string[] {
 /** Why a skill can't have `description`, in the UI's words; empty when it can. */
 export function skillDescriptionProblems(description: string): string[] {
   if (description === "") return ["Give the skill a description: when to use it, in one sentence."];
-  const problems: string[] = [];
-  if (/[\r\n]/.test(description)) problems.push("A skill's description must be one line.");
   if (description.length > DESCRIPTION_LENGTH) {
-    problems.push(
-      `A skill's description may be at most ${DESCRIPTION_LENGTH} characters: every session that has it lists it.`,
-    );
+    return [
+      `A skill's description may be at most ${DESCRIPTION_LENGTH.toLocaleString("en")} characters, as the engine lists no more of it.`,
+    ];
   }
-  return problems;
+  return [];
+}
+
+/** Review's flag on a description that takes much of each session's skill listing; undefined when short. */
+export function longDescriptionWarning(description: string): string | undefined {
+  if (description.length <= LONG_DESCRIPTION_LENGTH) return undefined;
+  return `Its description is ${description.length.toLocaleString("en")} characters: every session that has it lists all of it, which leaves less of the listing's room for other skills.`;
 }
 
 /** Why a new skill can't be saved, with every reason. */

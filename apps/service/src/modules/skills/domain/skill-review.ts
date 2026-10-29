@@ -1,5 +1,7 @@
 import { sortedByPath, type SkillFile } from "./skill-files.js";
 import { skillMdOf } from "./skill-draft.js";
+import { frontmatterText } from "./skill-md.js";
+import { longDescriptionWarning } from "./skill.js";
 
 /** A file as Review shows it. */
 export interface ReviewedFile {
@@ -87,6 +89,10 @@ export function reviewOf(files: readonly SkillFile[]): SkillReview {
       "Its instructions hold commands meant to run as it loads; sessions don't run them.",
     );
   }
+  const longDescription = longDescriptionWarning(
+    frontmatterText(skillMd, "description")?.trim() ?? "",
+  );
+  if (longDescription) warnings.push(longDescription);
   return { files: reviewed, instructions: skillMd.instructions, warnings };
 }
 

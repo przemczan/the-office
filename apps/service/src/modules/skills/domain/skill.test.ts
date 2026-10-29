@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { newSkillProblems, skillDescriptionProblems, skillNameProblems } from "./skill.js";
+import {
+  longDescriptionWarning,
+  newSkillProblems,
+  skillDescriptionProblems,
+  skillNameProblems,
+} from "./skill.js";
 import { aNewSkill } from "./skill.fixtures.js";
 
 describe("skillNameProblems", () => {
@@ -47,11 +52,26 @@ describe("skillDescriptionProblems", () => {
     ]);
   });
 
-  it("refuses more than one line and more than 200 characters at once", () => {
-    expect(skillDescriptionProblems(`${"x".repeat(200)}\nmore`)).toEqual([
-      "A skill's description must be one line.",
-      "A skill's description may be at most 200 characters: every session that has it lists it.",
+  it("passes several lines up to the engine's 1,536 characters", () => {
+    expect(skillDescriptionProblems(`Use it for notes.\n${"x".repeat(1_518)}`)).toEqual([]);
+  });
+
+  it("refuses more than the engine's 1,536 characters", () => {
+    expect(skillDescriptionProblems("x".repeat(1_537))).toEqual([
+      "A skill's description may be at most 1,536 characters, as the engine lists no more of it.",
     ]);
+  });
+});
+
+describe("longDescriptionWarning", () => {
+  it("passes a description of up to 500 characters", () => {
+    expect(longDescriptionWarning("x".repeat(500))).toBeUndefined();
+  });
+
+  it("flags a longer one with its length", () => {
+    expect(longDescriptionWarning("x".repeat(1_204))).toBe(
+      "Its description is 1,204 characters: every session that has it lists all of it, which leaves less of the listing's room for other skills.",
+    );
   });
 });
 

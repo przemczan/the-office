@@ -493,7 +493,7 @@ function SkillFields({
             disabled={skill.everyone}
             onChange={(on) => toggle(skill.name, on)}
             label={skill.name}
-            description={skillNote(skill)}
+            description={<span className="role-card-skill-note">{skillNote(skill)}</span>}
           />
         ))}
       </div>

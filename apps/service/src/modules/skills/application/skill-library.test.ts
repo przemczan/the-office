@@ -99,6 +99,27 @@ describe("install", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     expect(published).toEqual([new SkillAdded(skill)]);
   });
 
+  it("installs a long description of several lines, as published skills have, and Review flags it", async () => {
+    const name = aName();
+    const lines = ["Use it for release notes.", "x".repeat(600), "Skip it for changelogs."];
+    const blockScalar = `|-\n${lines.map((line) => `  ${line}`).join("\n")}`;
+    await source.write(`skills/${name}/SKILL.md`, sourceSkillMd(blockScalar));
+    const commit = source.commit();
+
+    const skill = await library.install({
+      repository: source.url,
+      folder: `skills/${name}`,
+      pinnedVersion: { commit },
+    });
+
+    const description = lines.join("\n");
+    expect(skill.description).toBe(description);
+    expect(await library.read(name)).toMatchObject({ description });
+    expect((await library.review(name)).warnings).toEqual([
+      `Its description is ${description.length} characters: every session that has it lists all of it, which leaves less of the listing's room for other skills.`,
+    ]);
+  });
+
   it("fetches a pinned commit when the source has no tags, its top folder named by its SKILL.md", async () => {
     const name = aName();
     await source.write("SKILL.md", sourceSkillMd("Notes.", name));

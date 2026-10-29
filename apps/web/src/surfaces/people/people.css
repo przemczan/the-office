@@ -378,6 +378,15 @@
   gap: 10px 16px;
 }
 
+/* A skill's description runs to 1,536 characters; its Review shows all of it. */
+.role-card-skill-note {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
 .role-card-save-bar {
   position: sticky;
   bottom: 16px;

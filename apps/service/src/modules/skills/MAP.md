@@ -110,7 +110,7 @@ SessionSkills, PreparedSkills, SessionProject, SessionSkillRequest, ProjectSkill
 - `skill-version-missing.ts`: SkillVersionMissing
 - `skill-version.ts`: SkillVersion, currentVersionOf
 - `skill.fixtures.ts`: aNewSkill, aSkill, aSkillFile
-- `skill.ts`: SKILL_SOURCES, SkillSource, SKILL_STATES, SkillState, Skill, NewSkill, DESCRIPTION_LENGTH, trimmedNewSkill, skillNameProblems, skillDescriptionProblems, newSkillProblems, skillNameTaken
+- `skill.ts`: SKILL_SOURCES, SkillSource, SKILL_STATES, SkillState, Skill, NewSkill, DESCRIPTION_LENGTH, LONG_DESCRIPTION_LENGTH, trimmedNewSkill, skillNameProblems, skillDescriptionProblems, longDescriptionWarning, newSkillProblems, skillNameTaken
 - `source-skills.ts`: SourceFolder, SOURCE_FOLDER_LIMITS, sourceFolderTooLarge, installedDraft
 - Tests: installed-source.test.ts, project-skills.test.ts, role-skills.test.ts, session-skills.test.ts, skill-changes.test.ts, skill-draft.test.ts, skill-files.test.ts, skill-md.test.ts, skill-review.test.ts, skill-update.test.ts, skill-upload.test.ts, skill.test.ts, source-skills.test.ts
 
