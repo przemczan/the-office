@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
-import { notificationListSchema, type Notification } from "@the-office/contracts";
+import {
+  notificationListSchema,
+  notificationRoutingSchema,
+  type Notification,
+  type NotificationRouting,
+} from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
@@ -11,7 +16,13 @@ import { EngineDown, UsageWindowsChanged } from "../../engine/index.js";
 import { CTO } from "../../people/index.js";
 import { GateContinued, GateReached, NoRetriesLeft } from "../../pipelines/index.js";
 import { InitiativeStateChanged, TaskStateChanged } from "../../work/index.js";
-import { NotificationRaised, NotificationsCleared } from "../domain/notification-events.js";
+import { toRoutingResponse } from "../adapters/http/notification-responses.js";
+import {
+  NotificationRaised,
+  NotificationsCleared,
+  RoutingChanged,
+} from "../domain/notification-events.js";
+import { DEFAULT_ROUTING } from "../domain/notification-kinds.js";
 import { NotificationsModule } from "../notifications.module.js";
 import {
   AccountUsageForTests,
@@ -45,6 +56,11 @@ function reading(percentUsed: number): UsageWindowsChanged {
     fiveHour: { percentUsed, resetsAt: new Date("2026-10-27T12:00:00Z") },
     sevenDay: { percentUsed: 10, resetsAt: undefined },
   });
+}
+
+async function routingOf(response: Response): Promise<NotificationRouting> {
+  expect(response.status).toBe(200);
+  return notificationRoutingSchema.parse(await response.json());
 }
 
 describe("NotificationService", () => {
@@ -99,6 +115,22 @@ describe("NotificationService", () => {
     expect(response.status).toBe(204);
   }
 
+  async function readRouting(): Promise<NotificationRouting> {
+    return routingOf(await fetch(`${url}/api/notifications/routing`));
+  }
+
+  async function changeRouting(
+    method: "PUT" | "DELETE",
+    level: string,
+    body?: unknown,
+  ): Promise<Response> {
+    return fetch(`${url}/api/notifications/routing/${level}`, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  }
+
   it("points at a Decision until it is answered, in its asker's first person", async () => {
     const decision = { id: randomUUID(), taskId: randomUUID(), roleKey: "developer" };
 
@@ -110,7 +142,7 @@ describe("NotificationService", () => {
       roleKey: "developer",
       line: "I need your answer: Keep the query string?",
       pointsTo: { kind: "decision", decisionId: decision.id, taskId: decision.taskId },
-      channels: ["in-app", "desktop"],
+      channels: ["in-app", "desktop", "phone"],
     });
     expect((await openNotifications()).map(({ id }) => id)).toContain(notification?.id);
 
@@ -222,8 +254,8 @@ describe("NotificationService", () => {
     await events.publish(reading(4));
 
     expect(raised.map(({ notification }) => [notification.kind, notification.channels])).toEqual([
-      ["office.window-nearly-used", ["in-app"]],
-      ["office.window-reset", ["in-app"]],
+      ["office.window.nearly-used", ["in-app"]],
+      ["office.window.reset", ["in-app"]],
     ]);
     expect(cleared).toContain(raised[0]?.notification.id);
   });
@@ -253,5 +285,64 @@ describe("NotificationService", () => {
     expect(open.find(({ id }) => id === raised[4]?.notification.id)?.roleKey).toBe(
       "office-manager",
     );
+  });
+
+  describe("the routing", () => {
+    // The routing is one table for every test file, which run at once: these tests change only
+    // levels no other file raises, and give each back.
+    afterEach(async () => {
+      for (const level of ["office.window", "office.alarm-lifted"]) {
+        await changeRouting("DELETE", level);
+      }
+    });
+
+    it("starts from ticket 20's defaults, as the migration stored them", async () => {
+      expect(await readRouting()).toEqual(toRoutingResponse(DEFAULT_ROUTING));
+    });
+
+    it("sets a channel at a kind, shows where each channel comes from, and resets it", async () => {
+      const changed: RoutingChanged[] = [];
+      events.subscribe(RoutingChanged, (event) => void changed.push(event));
+
+      const set = await routingOf(
+        await changeRouting("PUT", "office.alarm-lifted", { channel: "phone", on: true }),
+      );
+
+      expect(set["office.alarm-lifted"]).toEqual({
+        "in-app": { on: true, from: "office" },
+        desktop: { on: false, from: "office" },
+        phone: { on: true, from: "office.alarm-lifted" },
+      });
+      expect(changed.map(({ routing }) => routing["office.alarm-lifted"])).toEqual([
+        { phone: true },
+      ]);
+
+      const reset = await routingOf(await changeRouting("DELETE", "office.alarm-lifted"));
+
+      expect(reset["office.alarm-lifted"]?.phone).toEqual({ on: false, from: "office" });
+      expect(await readRouting()).toEqual(reset);
+    });
+
+    it("refuses a level that isn't in the kinds tree, a group's reset and a channel it doesn't know", async () => {
+      expect(
+        (await changeRouting("PUT", "office.coffee", { channel: "phone", on: true })).status,
+      ).toBe(404);
+      expect((await changeRouting("DELETE", "office")).status).toBe(400);
+      expect(
+        (await changeRouting("PUT", "office.alarm-lifted", { channel: "email", on: true })).status,
+      ).toBe(400);
+    });
+
+    it("routes every new Notification by what is stored", async () => {
+      await routingOf(await changeRouting("PUT", "office.window", { channel: "phone", on: true }));
+
+      // Opening Now handles any window Notification an earlier test left open.
+      await reportActivity({ kind: "now" });
+      await events.publish(reading(91));
+
+      expect(raised.map(({ notification }) => notification.channels)).toEqual([
+        ["in-app", "phone"],
+      ]);
+    });
   });
 });

@@ -2,11 +2,13 @@ import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nes
 import { NotificationsController } from "./adapters/http/notifications.controller.js";
 import { NowController } from "./adapters/http/now.controller.js";
 import { PostgresNotificationRepository } from "./adapters/postgres/postgres-notification-repository.js";
+import { PostgresNotificationRoutingRepository } from "./adapters/postgres/postgres-notification-routing-repository.js";
 import { PostgresOfficeDayFigures } from "./adapters/postgres/postgres-office-day-figures.js";
 import { PostgresTaskOutcomeRepository } from "./adapters/postgres/postgres-task-outcome-repository.js";
 import { PostgresUserActivityRepository } from "./adapters/postgres/postgres-user-activity-repository.js";
 import { OfficeStatusOfficeTools } from "./adapters/office-tools/office-status-office-tools.js";
 import { NotificationsWebEvents } from "./adapters/websocket/notifications-web-events.js";
+import { NotificationRouting } from "./application/notification-routing.js";
 import { NotificationService } from "./application/notification-service.js";
 import { NowService } from "./application/now-service.js";
 import { AccountUsage } from "./ports/account-usage.js";
@@ -14,6 +16,7 @@ import { DeskLimit } from "./ports/desk-limit.js";
 import { StartQueue } from "./ports/start-queue.js";
 import { KnownPeople } from "./ports/known-people.js";
 import { NotificationRepository } from "./ports/notification-repository.js";
+import { NotificationRoutingRepository } from "./ports/notification-routing-repository.js";
 import { OfficeDayFigures } from "./ports/office-day-figures.js";
 import { OfficeStatusCards } from "./ports/office-status-cards.js";
 import { OfficeTasks } from "./ports/office-tasks.js";
@@ -65,6 +68,7 @@ export class NotificationsModule {
         { provide: UserActivityRepository, useClass: PostgresUserActivityRepository },
         { provide: OfficeDayFigures, useClass: PostgresOfficeDayFigures },
         { provide: NotificationRepository, useClass: PostgresNotificationRepository },
+        { provide: NotificationRoutingRepository, useClass: PostgresNotificationRoutingRepository },
         { provide: OfficeTasks, useExisting: officeTasks },
         { provide: OpenDecisions, useExisting: openDecisions },
         { provide: TaskStageProgress, useExisting: taskStageProgress },
@@ -75,6 +79,7 @@ export class NotificationsModule {
         { provide: OfficeStatusCards, useExisting: officeStatusCards },
         NowService,
         NotificationService,
+        NotificationRouting,
         NotificationsWebEvents,
         OfficeStatusOfficeTools,
       ],

@@ -1,11 +1,12 @@
 # Notifications: module map
 
-**Owns:** Notifications (`notifications`): the kinds tree and routing resolved from the nearest level (`domain/notification-kinds.ts`), each Notification raised from another module's event with its content and channels, and cleared once the user handles what it points to (`NotificationService`); and Now and the status strip as one read model (`NowService`, pushed whole as `now.changed`), and what only events tell, kept in its own tables: each started Task's outcomes (`task_outcomes`), the user's activity, which says where Since you left begins (`user_activity`), tokens by day (`day_tokens`, measured from `thread_token_counts`) and the Tasks touched each day (`tasks_touched`).
+**Owns:** Notifications (`notifications`): the kinds tree and routing resolved from the nearest level (`domain/notification-kinds.ts`), the routing the user sets in Settings › Notifications, by level and channel (`NotificationRouting`, `notification_routing`, seeded with ticket 20's defaults), each Notification raised from another module's event with its content and the channels the stored routing gives it, and cleared once the user handles what it points to (`NotificationService`); and Now and the status strip as one read model (`NowService`, pushed whole as `now.changed`), and what only events tell, kept in its own tables: each started Task's outcomes (`task_outcomes`), the user's activity, which says where Since you left begins (`user_activity`), tokens by day (`day_tokens`, measured from `thread_token_counts`) and the Tasks touched each day (`tasks_touched`).
 
 **Talks to:** nothing calls it. It reacts to the events of Work, Pipelines, Conversations and the Engine, and reads the rest through its ports, bound in [app.module.ts](../../app.module.ts): `OfficeTasks` to Work's `TaskService`, `DeskLimit` to Work's `OfficeLimits`, `StartQueue` to Work's `QueueService` (Now's queue, first place first), `KnownPeople` to People's `RoleCards` (whether an Office Manager is hired, who then speaks the Office kinds, or a CTO, who then tells an Initiative done), `OpenDecisions` to Conversations' `DecisionService`, `TaskStageProgress` to Pipelines' `TaskStagesService`, `AccountUsage` to the Engine's `UsageWindowState`. The Office Manager's `show_office_status` (`OfficeStatusOfficeTools`, on the Engine's registry that `imports` must provide) gives the Agent Now in words (`officeStatusText`) and posts the Office status card through `OfficeStatusCards`, bound to Conversations' `ThreadService`; `NotificationsPortsForTestsModule` provides a registry of its own.
 
 **Traps:**
-- Both tier 1 channels live in the browser: the service routes each Notification and sends it, with its channels, as `notification.raised`; the web's channel adapters show it. A channel outside the browser (tier 2's phone push) is a port here.
+- In-app and the desktop live in the browser: the service routes each Notification and sends it, with its channels, as `notification.raised`; the web's channel adapters show it and ignore `phone`. The phone is a channel outside the browser, sent through a port here (task 27 step 3).
+- The routing is one table for every test file, which run at once: a test that changes it changes only levels no other file raises, and gives them back.
 - Opening a page handles what points to it: the web reports the page with each activity (`POST /activity`), and opening a Task handles its outcomes, opening Now the 5-hour window's.
 - `EventBus.publish` waits for its handlers, so Now is read and announced in the background (`announceInBackground`), one read after a burst of events.
 - Tokens today count how much each Thread's tokens so far grew since its last count; a turn's own count replacing its running one makes the growth negative, which is right.
@@ -19,18 +20,21 @@ NotificationsModule
 
 ## Domain events
 
-- `domain/notification-events.ts`: NotificationRaised, NotificationsCleared
+- `domain/notification-events.ts`: NotificationRaised, NotificationsCleared, RoutingChanged
 - `domain/now-events.ts`: NowChanged
 
 ## HTTP routes (under `/api`)
 
 - `GET /notifications`: NotificationsController.listOpen
+- `GET /notifications/routing`: NotificationsController.readRouting
+- `PUT /notifications/routing/:level`: NotificationsController.setChannel
+- `DELETE /notifications/routing/:level`: NotificationsController.reset
 - `GET /now`: NowController.read
 - `POST /activity`: NowController.recordActivity
 
 ## Tables
 
-- `adapters/postgres/notifications.schema.ts`: task_outcomes, user_activity, thread_token_counts, day_tokens, tasks_touched, notifications
+- `adapters/postgres/notifications.schema.ts`: task_outcomes, user_activity, thread_token_counts, day_tokens, tasks_touched, notifications, notification_routing
 
 ## Files
 
@@ -40,7 +44,7 @@ NotificationsModule
 
 ### adapters/http/
 
-- `notification-responses.ts`: toNotificationResponse
+- `notification-responses.ts`: toNotificationResponse, toRoutingResponse
 - `notifications.controller.ts`: NotificationsController
 - `now-responses.ts`: toNowResponse
 - `now.controller.ts`: NowController
@@ -52,8 +56,9 @@ NotificationsModule
 
 ### adapters/postgres/
 
-- `notifications.schema.ts`: taskOutcomes, userActivity, threadTokenCounts, dayTokens, tasksTouched, notifications
+- `notifications.schema.ts`: taskOutcomes, userActivity, threadTokenCounts, dayTokens, tasksTouched, notifications, notificationRouting
 - `postgres-notification-repository.ts`: PostgresNotificationRepository
+- `postgres-notification-routing-repository.ts`: PostgresNotificationRoutingRepository
 - `postgres-office-day-figures.ts`: PostgresOfficeDayFigures
 - `postgres-task-outcome-repository.ts`: PostgresTaskOutcomeRepository
 - `postgres-user-activity-repository.ts`: PostgresUserActivityRepository
@@ -64,14 +69,15 @@ NotificationsModule
 
 ### application/
 
+- `notification-routing.ts`: NotificationRouting
 - `notification-service.ts`: Page, NotificationService
 - `now-service.ts`: NowService
 - Tests: notification-service.test.ts, now-service.test.ts, test-project-check.test.ts
 
 ### domain/
 
-- `notification-events.ts`: NotificationRaised, NotificationsCleared
-- `notification-kinds.ts`: NOTIFICATION_KINDS, NotificationKind, CHANNELS, Channel, ChannelSettings, Routing, DEFAULT_ROUTING, WINDOW_NEARLY_USED_PERCENT, levelsOf, channelsOf
+- `notification-events.ts`: NotificationRaised, NotificationsCleared, RoutingChanged
+- `notification-kinds.ts`: NOTIFICATION_KINDS, NotificationKind, CHANNELS, Channel, ChannelSettings, Routing, DEFAULT_ROUTING, WINDOW_NEARLY_USED_PERCENT, levelsOf, ROUTING_LEVELS, isRoutingLevel, RoutedChannel, routedChannel, channelsOf, isGroup, withChannelSet, withLevelReset
 - `notification.ts`: Pointer, Notification, NotificationDraft, notificationOf, decisionWaiting, gateWaiting, taskDone, Failure, taskFailed, taskPaused, initiativeDone, windowNearlyUsed, windowReset, engineDown, windowMove, Handling, handles, samePointer
 - `now-events.ts`: NowChanged
 - `now.ts`: OfficeTask, OpenDecision, StageOfTask, FiveHourWindow, WaitingDecision, WaitingGate, NeedsYouItem, CurrentStage, RunningTask, FinishedTask, QueuedOnNow, QueuedTask, Desks, Now, StartedTask, NowParts, nowOf, waitingGateOf, currentStageOf
@@ -87,6 +93,7 @@ NotificationsModule
 - `desk-limit.ts`: DeskLimit
 - `known-people.ts`: KnownPeople
 - `notification-repository.ts`: NotificationRepository
+- `notification-routing-repository.ts`: NotificationRoutingRepository
 - `notifications-ports.fixtures.ts`: OfficeTasksForTests, OpenDecisionsForTests, TaskStageProgressForTests, DeskLimitForTests, StartQueueForTests, KnownPeopleForTests, AccountUsageForTests, OfficeStatusCardsForTests, NotificationsPortsForTestsModule
 - `office-day-figures.ts`: ThreadTokens, OfficeDayFigures
 - `office-status-cards.ts`: OfficeStatusCards

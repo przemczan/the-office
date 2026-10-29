@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   bigint,
+  boolean,
   check,
   date,
   index,
@@ -76,4 +77,18 @@ export const notifications = pgTable(
     clearedAt: timestamp("cleared_at", { withTimezone: true }),
   },
   (table) => [index("notifications_cleared_at").on(table.clearedAt)],
+);
+
+/**
+ * The routing, a row per level and channel it sets; a level with no row for a channel takes it
+ * from the level above. The migration that made it stored ticket 20's defaults.
+ */
+export const notificationRouting = pgTable(
+  "notification_routing",
+  {
+    level: text("level").notNull(),
+    channel: text("channel").$type<Channel>().notNull(),
+    on: boolean("on").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.level, table.channel] })],
 );

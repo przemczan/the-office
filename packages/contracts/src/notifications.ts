@@ -98,15 +98,35 @@ export const notificationKindSchema = z.enum([
   "outcomes.task-failed",
   "outcomes.task-paused",
   "outcomes.initiative-done",
-  "office.window-nearly-used",
-  "office.window-reset",
-  "office.service-down",
-  "office.engine-down",
+  "office.window.nearly-used",
+  "office.window.reset",
+  "office.down.service",
+  "office.down.engine",
+  "office.alarm-lifted",
 ]);
 export type NotificationKind = z.infer<typeof notificationKindSchema>;
 
-export const channelSchema = z.enum(["in-app", "desktop"]);
+/** In-app and the desktop live in the browser; the phone is pushed to by the service. */
+export const channelSchema = z.enum(["in-app", "desktop", "phone"]);
 export type Channel = z.infer<typeof channelSchema>;
+
+/** A channel at one level of the kinds tree: on or off, and the level that sets it (null: none). */
+export const routedChannelSchema = z.object({ on: z.boolean(), from: z.string().nullable() });
+export type RoutedChannel = z.infer<typeof routedChannelSchema>;
+
+/**
+ * What goes where, the grid in Settings › Notifications: each level of the kinds tree (a group,
+ * the levels below it and its kinds) with every channel as it routes there.
+ */
+export const notificationRoutingSchema = z.record(
+  z.string(),
+  z.record(channelSchema, routedChannelSchema),
+);
+export type NotificationRouting = z.infer<typeof notificationRoutingSchema>;
+
+/** Sets one channel at a level, for every kind below it that sets nothing of its own. */
+export const channelSettingSchema = z.object({ channel: channelSchema, on: z.boolean() });
+export type ChannelSetting = z.infer<typeof channelSettingSchema>;
 
 /** What a Notification opens. */
 export const pointerSchema = z.discriminatedUnion("kind", [

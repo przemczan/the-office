@@ -181,7 +181,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             expect.arrayContaining(["needs-you.decision", "needs-you.gate", "outcomes.task-done"]),
           );
           for (const notification of own) {
-            expect(notification.channels).toEqual(["in-app", "desktop"]);
+            expect(notification.channels).toEqual(expect.arrayContaining(["in-app", "desktop"]));
             expect(cleared.has(notification.id)).toBe(true);
           }
           expect(now.needsYou.filter((item) => item.taskId === taskId)).toEqual([]);

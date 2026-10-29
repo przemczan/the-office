@@ -45,6 +45,7 @@ import {
 } from "../domain/notification.js";
 import { NotificationRaised, NotificationsCleared } from "../domain/notification-events.js";
 import { KnownPeople } from "../ports/known-people.js";
+import { NotificationRoutingRepository } from "../ports/notification-routing-repository.js";
 import { NotificationRepository } from "../ports/notification-repository.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
 import { TaskStageProgress } from "../ports/task-stage-progress.js";
@@ -58,9 +59,9 @@ export type Page =
 
 /**
  * Raises a Notification for each thing that waits on the user or happened (spec §2.7), routed to
- * its kind's channels, and clears it once the user handles that thing. Both reach the web as
- * events, where the tier 1 channels live; a Notification already open for the same thing is not
- * raised again.
+ * its kind's channels by the routing the user keeps in Settings, and clears it once the user handles
+ * that thing. Both reach the web as events, where the browser's channels live; a Notification
+ * already open for the same thing is not raised again.
  */
 @Injectable()
 export class NotificationService implements OnModuleInit {
@@ -72,6 +73,7 @@ export class NotificationService implements OnModuleInit {
     private readonly tasks: OfficeTasks,
     private readonly stages: TaskStageProgress,
     private readonly people: KnownPeople,
+    private readonly routing: NotificationRoutingRepository,
     private readonly events: EventBus,
   ) {}
 
@@ -184,7 +186,8 @@ export class NotificationService implements OnModuleInit {
   private async raise(draft: NotificationDraft): Promise<void> {
     const open = await this.repository.listOpen();
     if (open.some((notification) => samePointer(notification, draft))) return;
-    const notification = notificationOf(draft, randomUUID(), new Date());
+    const routing = await this.routing.read();
+    const notification = notificationOf(draft, randomUUID(), new Date(), routing);
     await this.repository.add(notification);
     await this.events.publish(new NotificationRaised(notification));
   }

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { DEFAULT_ROUTING } from "./notification-kinds.js";
 import {
   decisionWaiting,
   engineDown,
@@ -18,7 +19,7 @@ import {
 const AT = new Date("2026-10-27T09:00:00Z");
 
 function raised(draft: NotificationDraft) {
-  return notificationOf(draft, "n1", AT);
+  return notificationOf(draft, "n1", AT, DEFAULT_ROUTING);
 }
 
 /** What a Notification says: its kind, who speaks (null for The Office), and its line. */
@@ -53,9 +54,9 @@ describe("the Notifications' content", () => {
       ],
       ["outcomes.task-paused", "developer", "I paused at a safe point."],
       ["outcomes.task-paused", "developer", "I stopped where I was."],
-      ["office.window-nearly-used", null, "90% of the 5-hour window is used."],
-      ["office.window-reset", null, "The 5-hour window reset."],
-      ["office.engine-down", null, "The engine is down: Claude Code didn't start."],
+      ["office.window.nearly-used", null, "90% of the 5-hour window is used."],
+      ["office.window.reset", null, "The 5-hour window reset."],
+      ["office.down.engine", null, "The engine is down: Claude Code didn't start."],
     ]);
   });
 
@@ -105,14 +106,14 @@ describe("the Notifications' content", () => {
         engineDown("Claude Code didn't start.", "office-manager"),
       ].map(content),
     ).toEqual([
-      ["office.window-nearly-used", "office-manager", "We've used 92% of the 5-hour window."],
+      ["office.window.nearly-used", "office-manager", "We've used 92% of the 5-hour window."],
       [
-        "office.window-reset",
+        "office.window.reset",
         "office-manager",
         "The 5-hour window reset, so we have all of it again.",
       ],
       [
-        "office.engine-down",
+        "office.down.engine",
         "office-manager",
         "I can't reach the engine: Claude Code didn't start.",
       ],
@@ -125,7 +126,7 @@ describe("the Notifications' content", () => {
       raised(gateWaiting("t1", { key: "look", name: "UI acceptance" }, "developer")),
     ).toMatchObject({
       line: "My work is ready for your look at UI acceptance.",
-      channels: ["in-app", "desktop"],
+      channels: ["in-app", "desktop", "phone"],
     });
   });
 });

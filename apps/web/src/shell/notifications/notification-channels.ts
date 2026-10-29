@@ -55,6 +55,7 @@ export function useNotificationChannels(): void {
   useUnreadBadge(unreadCount(all ?? []));
 }
 
+/** The browser's channel for it, if any; the phone is the service's to push to. */
 function channelFor(
   { channels }: Notification,
   inApp: NotificationChannel,

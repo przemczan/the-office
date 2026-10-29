@@ -1,8 +1,10 @@
 import {
   channelsOf,
+  levelsOf,
   WINDOW_NEARLY_USED_PERCENT,
   type Channel,
   type NotificationKind,
+  type Routing,
 } from "./notification-kinds.js";
 
 /** What a Notification opens: the thing that waits or happened (spec §2.7). */
@@ -41,8 +43,14 @@ export interface NotificationDraft {
   readonly pointsTo: Pointer;
 }
 
-export function notificationOf(draft: NotificationDraft, id: string, raisedAt: Date): Notification {
-  return { ...draft, id, channels: channelsOf(draft.kind), raisedAt };
+/** The draft raised now, to the channels the routing sends its kind to. */
+export function notificationOf(
+  draft: NotificationDraft,
+  id: string,
+  raisedAt: Date,
+  routing: Routing,
+): Notification {
+  return { ...draft, id, channels: channelsOf(draft.kind, routing), raisedAt };
 }
 
 /** A Decision waits on the user: its asker's question, or The Office's. */
@@ -157,7 +165,7 @@ export function windowNearlyUsed(
 ): NotificationDraft {
   const percent = Math.round(percentUsed);
   return officeKind(
-    "office.window-nearly-used",
+    "office.window.nearly-used",
     officeManager,
     `We've used ${percent}% of the 5-hour window.`,
     `${percent}% of the 5-hour window is used.`,
@@ -166,7 +174,7 @@ export function windowNearlyUsed(
 
 export function windowReset(officeManager: string | undefined): NotificationDraft {
   return officeKind(
-    "office.window-reset",
+    "office.window.reset",
     officeManager,
     "The 5-hour window reset, so we have all of it again.",
     "The 5-hour window reset.",
@@ -175,7 +183,7 @@ export function windowReset(officeManager: string | undefined): NotificationDraf
 
 export function engineDown(reason: string, officeManager: string | undefined): NotificationDraft {
   return officeKind(
-    "office.engine-down",
+    "office.down.engine",
     officeManager,
     `I can't reach the engine: ${reason}`,
     `The engine is down: ${reason}`,
@@ -242,11 +250,11 @@ export function handles(handling: Handling, { kind, pointsTo }: Notification): b
     case "initiative-opened":
       return pointsTo.kind === "initiative" && pointsTo.initiativeId === handling.initiativeId;
     case "now-opened":
-      return kind === "office.window-nearly-used" || kind === "office.window-reset";
+      return levelsOf(kind).includes("office.window");
     case "window-reset":
-      return kind === "office.window-nearly-used";
+      return kind === "office.window.nearly-used";
     case "engine-answered":
-      return kind === "office.engine-down";
+      return kind === "office.down.engine";
   }
 }
 

@@ -38,7 +38,10 @@ export function targetOf({
   return { to: "/tasks/$taskId", params: { taskId: pointsTo.taskId } };
 }
 
-/** Where spec 2.7's routing sends "service down": in-app and to the desktop. */
+/**
+ * Where spec 2.7's routing sends "service down" in the browser: in-app and to the desktop. Its phone
+ * push would come from the service, which is what is down.
+ */
 const SERVICE_DOWN_CHANNELS: readonly Channel[] = ["in-app", "desktop"];
 
 /**
@@ -49,7 +52,7 @@ export function serviceDown(roles: readonly Role[] | undefined): Notification {
   const officeManager = roles?.find(({ key, letGoAt }) => key === OFFICE_MANAGER && !letGoAt);
   return {
     id: "service-down",
-    kind: "office.service-down",
+    kind: "office.down.service",
     roleKey: officeManager ? OFFICE_MANAGER : null,
     line: officeManager
       ? "I lost touch with the service and am reconnecting."
