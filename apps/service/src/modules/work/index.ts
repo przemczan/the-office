@@ -1,3 +1,4 @@
+export { FireAlarmService } from "./application/fire-alarm-service.js";
 export { IdeaService } from "./application/idea-service.js";
 export { OfficeLimits } from "./application/office-limits.js";
 export { QueueService } from "./application/queue-service.js";

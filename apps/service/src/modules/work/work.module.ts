@@ -206,6 +206,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         FireAlarmForThreads,
       ],
       exports: [
+        FireAlarmService,
         IdeaService,
         TaskService,
         OfficeLimits,

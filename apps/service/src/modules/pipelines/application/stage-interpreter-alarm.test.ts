@@ -61,14 +61,14 @@ function scheduleOf({ app }: PipelinesApplication): ManualSchedule {
   return app.get(Schedule, { strict: false }) as ManualSchedule;
 }
 
-/** The user sounds the alarm, as Work announces it: AlarmSounded, then each running Task paused by it. */
+/** The user sounds the alarm, as Work announces it: each running Task paused by it, then AlarmSounded. */
 async function soundTheAlarm(pipelines: PipelinesApplication, taskId: string): Promise<void> {
   const since = scheduleOf(pipelines).now();
   pipelines.tasks.fireAlarmOn = true;
+  await pipelines.tasks.pauseForAlarm(taskId);
   await pipelines.app
     .get(EventBus)
     .publish(new AlarmSounded(since, new Date(since.getTime() + 60_000)));
-  await pipelines.tasks.pauseForAlarm(taskId);
 }
 
 /** Runs `action` once, as the first Stage's first turn runs. */

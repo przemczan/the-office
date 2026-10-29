@@ -3,7 +3,7 @@ import { Logger, type DynamicModule, type INestApplication } from "@nestjs/commo
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module.js";
 import { InterruptedAnswers } from "./modules/conversations/index.js";
-import { QueueService } from "./modules/work/index.js";
+import { FireAlarmService, QueueService } from "./modules/work/index.js";
 import { InvalidOfficeConfigError } from "./platform/config/invalid-office-config-error.js";
 import { readOfficeConfig, type OfficeConfig } from "./platform/config/office-config.js";
 import { configureHttp, HTTP_APPLICATION_OPTIONS } from "./platform/http/configure-http.js";
@@ -74,12 +74,14 @@ function closeOnShutdownSignal(app: INestApplication, telemetry: StartedTelemetr
 }
 
 /**
- * Puts right the answers the last run cut short, then releases the kept queue (spec §2.1), since a
- * desk may have been freed while the service was down. After every module's start, so the walks
- * the release starts aren't taken for ones the last run left.
+ * Puts right the answers the last run cut short, finishes a fire alarm's sounding it stopped
+ * during (spec §2.8), then releases the kept queue (spec §2.1), since a desk may have been freed
+ * while the service was down; the release holds while the alarm is on. After every module's start,
+ * so the walks the release starts aren't taken for ones the last run left.
  */
 async function takeUpWhereTheOfficeStopped(app: INestApplication): Promise<void> {
   await app.get(InterruptedAnswers).recover();
+  await app.get(FireAlarmService).finishSounding();
   await app.get(QueueService).release();
 }
 

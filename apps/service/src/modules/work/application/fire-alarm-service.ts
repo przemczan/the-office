@@ -26,17 +26,28 @@ export class FireAlarmService {
 
   /**
    * Sounds the alarm; sounded again, it leaves it as it is. Either way it pauses the started Tasks
-   * still running, so a sounding the service stopped during is finished.
+   * still running. AlarmSounded comes after, so the hard stop it sets reaches every run held.
    */
   async sound(): Promise<FireAlarm> {
     const since = this.schedule.now();
-    if (await this.alarm.sound(since)) {
-      await this.events.publish(new AlarmSounded(since, hardStopAt(since)));
-    }
+    const turnedOn = await this.alarm.sound(since);
     // Once the alarm is on, so a Start holding Starts meanwhile either saw it or is paused here.
+    await this.pauseStartedTasks();
+    if (turnedOn) await this.events.publish(new AlarmSounded(since, hardStopAt(since)));
+    return this.alarm.read();
+  }
+
+  /**
+   * As The Office starts again, before anything is released: while the alarm is on, pauses the
+   * started Tasks a sounding the service stopped during left running. Nothing while it is off.
+   */
+  async finishSounding(): Promise<void> {
+    if ((await this.alarm.read()).on) await this.pauseStartedTasks();
+  }
+
+  private async pauseStartedTasks(): Promise<void> {
     for (const { event } of await this.tasks.updateEveryStarted(pauseTaskForAlarm)) {
       await this.events.publish(event);
     }
-    return this.alarm.read();
   }
 }

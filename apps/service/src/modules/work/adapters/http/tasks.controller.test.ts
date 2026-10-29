@@ -36,6 +36,7 @@ import {
 import { MemoryService, RoleCards, type SessionRole } from "../../../people/index.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { QueueService } from "../../application/queue-service.js";
+import { FireAlarmService } from "../../application/fire-alarm-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { AlarmSounded } from "../../domain/fire-alarm-events.js";
 import { TaskPaused } from "../../domain/task-events.js";
@@ -1074,6 +1075,23 @@ describe("The fire alarm", () => {
         { taskId: waiting.id, from: "waiting-on-you", by: "alarm" },
       ]),
     );
+  });
+
+  it("is finished as The Office starts again after stopping during a sounding, and nothing while off", async () => {
+    const working = await startedTask();
+    const waiting = await startedTask();
+    await work.app.get(TaskService).changeState(waiting.id, "waiting-on-you");
+    const fireAlarmService = work.app.get(FireAlarmService);
+
+    await fireAlarmService.finishSounding();
+    const whileOff = (await storedTask(working.id)).state;
+    // On, but the service stopped before it paused anything.
+    await fireAlarm.sound(new Date());
+    await fireAlarmService.finishSounding();
+
+    expect(whileOff).toBe("in-progress");
+    expect(await storedTask(working.id)).toMatchObject({ state: "paused", pausedByAlarm: true });
+    expect(await storedTask(waiting.id)).toMatchObject({ state: "paused", pausedByAlarm: true });
   });
 
   it("queues Start with the alarm as its reason, and the release, as at boot, starts nothing", async () => {
