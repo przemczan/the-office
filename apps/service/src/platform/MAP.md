@@ -1,6 +1,6 @@
 # Service platform: map
 
-**Owns:** the shared plumbing below every module: config, database, domain events, HTTP, the Office data directory, per-key locks within the process, the `Schedule` The Office runs its own jobs by (`ScheduleModule`; tests get a `ManualSchedule` from `startTestApplication`, the e2e service a two-second day), the WebSocket push, telemetry, the web app's pages, and `os/`, the only code that branches on the operating system. What a module may use is in the [module template](../../docs/module-template.md).
+**Owns:** the shared plumbing below every module: config, database, domain events, HTTP, the Office data directory, per-key locks within the process, the `Schedule`, The Office's clock: the time and the jobs and one-off waits it runs by itself (`ScheduleModule`; tests get a `ManualSchedule` from `startTestApplication`, whose time is the system's until a test sets it and moves only by `advanceTo`, the e2e service a two-second day), the WebSocket push, telemetry, the web app's pages, and `os/`, the only code that branches on the operating system. What a module may use is in the [module template](../../docs/module-template.md).
 
 **Traps:** `EventBus.publish` waits for asynchronous handlers (a failing one stops neither the others nor the publisher), so a long reaction must run in the background. `TimerSchedule` waits for a running job in `beforeApplicationShutdown`, before the database closes.
 
@@ -77,7 +77,7 @@
 
 - `schedule.fixtures.ts`: ManualSchedule
 - `schedule.module.ts`: ScheduleModule
-- `schedule.ts`: ScheduledJob, Schedule
+- `schedule.ts`: ScheduledJob, Wait, Schedule
 - `timer-schedule.ts`: TimerSchedule
 - Tests: timer-schedule.test.ts
 

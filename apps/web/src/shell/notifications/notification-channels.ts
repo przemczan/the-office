@@ -57,13 +57,18 @@ export function useNotificationChannels(): void {
   useUnreadBadge(unreadCount(all ?? []));
 }
 
-/** The browser's channel for it, if any; the phone is the service's to push to. */
+/**
+ * The browser's channel for it, if any; the phone is the service's to push to. Inside quiet hours
+ * the desktop is held and the toast shows instead.
+ */
 function channelFor(
-  { channels }: Notification,
+  { channels, held }: Notification,
   inApp: NotificationChannel,
   desktop: DesktopChannel,
 ): NotificationChannel | undefined {
-  if (channels.includes("desktop") && desktop.takesNow()) return desktop;
+  if (channels.includes("desktop") && !held.includes("desktop") && desktop.takesNow()) {
+    return desktop;
+  }
   return channels.includes("in-app") ? inApp : undefined;
 }
 

@@ -136,24 +136,64 @@ export const pointerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("initiative"), initiativeId: z.uuid() }),
   /** The Office's own state, on Now and the status strip. */
   z.object({ kind: z.literal("office") }),
+  /** Now, where Needs you and Since you left show what a Notification gathered. */
+  z.object({ kind: z.literal("since-you-left") }),
 ]);
 export type Pointer = z.infer<typeof pointerSchema>;
+
+/**
+ * A Notification standing for others rather than for a kind: Outcomes landing close together,
+ * collapsed into one, or the summary of what quiet hours held. Neither is a row of the grid.
+ */
+export const gatheringKindSchema = z.enum(["collapsed-outcomes", "quiet-hours-summary"]);
+export type GatheringKind = z.infer<typeof gatheringKindSchema>;
 
 /** A pointer to something that waits on the user or happened, cleared once they handle it. */
 export const notificationSchema = z.object({
   id: z.uuid(),
-  kind: notificationKindSchema,
+  kind: z.union([notificationKindSchema, gatheringKindSchema]),
   /** Who speaks, by their Role's key; null when The Office does. */
   roleKey: z.string().min(1).nullable(),
   /** In the person's first person, or the UI's own voice. */
   line: z.string().min(1),
   pointsTo: pointerSchema,
+  /** Where its kind's routing sends it. */
   channels: z.array(channelSchema),
+  /** The channels quiet hours hold it from: their summary brings it when they end. */
+  held: z.array(channelSchema),
   raisedAt: z.iso.datetime(),
 });
 export type Notification = z.infer<typeof notificationSchema>;
 
 export const notificationListSchema = z.array(notificationSchema);
+
+/** A time of day on the service's clock, "HH:MM". */
+export const timeOfDaySchema = z
+  .string()
+  .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "A time of day, HH:MM.");
+
+/** How many minutes a wait of the timing takes: at least one, at most a day. */
+const timingMinutesSchema = z
+  .number()
+  .int()
+  .min(1)
+  .max(24 * 60);
+
+/** When Notifications reach the desktop and the phone: "At the desk", "Quiet hours and batching". */
+export const notificationTimingSchema = z.object({
+  /** Phone pushes wait while The Office was used in the last this many minutes. */
+  holdPhoneMinutes: timingMinutesSchema,
+  /** Then anything still unhandled goes to the phone after this many minutes more. */
+  awayMinutes: timingMinutesSchema,
+  /** Outcomes landing within this many minutes collapse into one. */
+  batchOutcomesMinutes: timingMinutesSchema,
+  /** Null while off; a window ending earlier than it starts runs across midnight. */
+  quietHours: z
+    .object({ from: timeOfDaySchema, to: timeOfDaySchema })
+    .refine(({ from, to }) => from !== to, "Quiet hours end at another time than they start.")
+    .nullable(),
+});
+export type NotificationTiming = z.infer<typeof notificationTimingSchema>;
 
 /** The user is active on this page; opening what a Notification points to handles it. */
 export const activitySchema = z.object({
@@ -171,6 +211,8 @@ export const notificationsWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({
     type: z.literal("notification.raised"),
     notification: notificationSchema,
+    /** The Notifications it takes the place of on every channel. */
+    replaces: z.array(z.uuid()),
   }),
   webEventSchema.extend({
     type: z.literal("notifications.cleared"),

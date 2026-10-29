@@ -21,6 +21,7 @@ export class NotificationsWebEvents implements OnModuleInit {
     this.forwarding.forward(NotificationRaised, (event) => ({
       type: "notification.raised",
       notification: toNotificationResponse(event.notification),
+      replaces: [...event.replaces],
     }));
     this.forwarding.forward(NotificationsCleared, (event) => ({
       type: "notifications.cleared",

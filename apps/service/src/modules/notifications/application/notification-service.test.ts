@@ -3,12 +3,16 @@ import type { INestApplication } from "@nestjs/common";
 import {
   notificationListSchema,
   notificationRoutingSchema,
+  notificationTimingSchema,
   type Notification,
   type NotificationRouting,
+  type NotificationTiming,
 } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { Schedule } from "../../../platform/schedule/schedule.js";
+import type { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import { DecisionAnswered, DecisionOpened, TurnEnded } from "../../conversations/index.js";
@@ -63,10 +67,17 @@ async function routingOf(response: Response): Promise<NotificationRouting> {
   return notificationRoutingSchema.parse(await response.json());
 }
 
+/**
+ * Outcomes landing close together collapse, also those of other files running at once: each test
+ * raises on a day of its own in 2001, which no other file's clock reaches.
+ */
+let testDay = 0;
+
 describe("NotificationService", () => {
   let app: INestApplication;
   let url: string;
   let events: EventBus;
+  let schedule: ManualSchedule;
   let raised: NotificationRaised[];
   let cleared: string[];
 
@@ -90,6 +101,9 @@ describe("NotificationService", () => {
       ],
     }));
     events = app.get(EventBus);
+    schedule = app.get(Schedule, { strict: false }) as ManualSchedule;
+    testDay += 1;
+    schedule.setTime(new Date(2001, 0, testDay, 12));
     raised = [];
     cleared = [];
     events.subscribe(NotificationRaised, (event) => void raised.push(event));
@@ -226,6 +240,8 @@ describe("NotificationService", () => {
     await events.publish(new InitiativeStateChanged(first, "shaping", "active"));
     await events.publish(new InitiativeStateChanged(first, "active", "done"));
     app.get(KnownPeopleForTests).hired.add("cto");
+    // Past the batching window, so the second isn't collapsed with the first.
+    await schedule.advanceBy(3 * 60_000);
     await events.publish(new InitiativeStateChanged(second, "active", "done"));
 
     expect(raised.map(({ notification }) => notification)).toEqual([
@@ -345,4 +361,69 @@ describe("NotificationService", () => {
       ]);
     });
   });
+
+  describe("the timing", () => {
+    // The timing is one row for every test file, which run at once: this test sets quiet hours
+    // the system's clock is outside of for a while, and gives the defaults back.
+    afterEach(async () => {
+      await changeTiming(url, TIMING_DEFAULTS);
+    });
+
+    it("starts from ticket 20's defaults, as the migration stored them", async () => {
+      expect(await readTiming(url)).toEqual(TIMING_DEFAULTS);
+    });
+
+    it("keeps the minutes and quiet hours the user sets", async () => {
+      const timing = {
+        holdPhoneMinutes: 10,
+        awayMinutes: 15,
+        batchOutcomesMinutes: 3,
+        quietHours: { from: hoursFromNow(3), to: hoursFromNow(4) },
+      };
+
+      const response = await changeTiming(url, timing);
+
+      expect(response.status).toBe(200);
+      expect(await readTiming(url)).toEqual(timing);
+    });
+
+    it("refuses minutes under one, a time that isn't one and quiet hours ending as they start", async () => {
+      for (const timing of [
+        { ...TIMING_DEFAULTS, awayMinutes: 0 },
+        { ...TIMING_DEFAULTS, quietHours: { from: "25:00", to: "07:00" } },
+        { ...TIMING_DEFAULTS, quietHours: { from: "22:00", to: "22:00" } },
+      ]) {
+        expect((await changeTiming(url, timing)).status).toBe(400);
+      }
+    });
+  });
 });
+
+const MINUTE_MS = 60_000;
+
+const TIMING_DEFAULTS = {
+  holdPhoneMinutes: 5,
+  awayMinutes: 5,
+  batchOutcomesMinutes: 2,
+  quietHours: null,
+};
+
+async function changeTiming(url: string, timing: unknown): Promise<Response> {
+  return fetch(`${url}/api/notifications/timing`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(timing),
+  });
+}
+
+async function readTiming(url: string): Promise<NotificationTiming> {
+  const response = await fetch(`${url}/api/notifications/timing`);
+  expect(response.status).toBe(200);
+  return notificationTimingSchema.parse(await response.json());
+}
+
+/** "HH:MM" this many hours from the system's time. */
+function hoursFromNow(hours: number): string {
+  const at = new Date(Date.now() + hours * 60 * MINUTE_MS);
+  return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
+}

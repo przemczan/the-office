@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from "node:util";
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
 import type { DomainEventClass } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { Schedule } from "../../../platform/schedule/schedule.js";
 import {
   DecisionAnswered,
   DecisionOpened,
@@ -89,6 +90,7 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     private readonly outcomes: TaskOutcomeRepository,
     private readonly activity: UserActivityRepository,
     private readonly figures: OfficeDayFigures,
+    private readonly schedule: Schedule,
     private readonly events: EventBus,
   ) {}
 
@@ -142,7 +144,9 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
 
   /** The user was active just now; coming back after an absence moves where Since you left begins. */
   async recordActivity(): Promise<UserActivity> {
-    const recorded = await this.activity.update((known) => recordActivity(known, new Date()));
+    const recorded = await this.activity.update((known) =>
+      recordActivity(known, this.schedule.now()),
+    );
     if (this.announced?.leftAt?.getTime() !== recorded.leftAt.getTime()) {
       this.announceInBackground();
     }

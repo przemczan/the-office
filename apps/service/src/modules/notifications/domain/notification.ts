@@ -14,7 +14,16 @@ export type Pointer =
   | { readonly kind: "task"; readonly taskId: string }
   | { readonly kind: "initiative"; readonly initiativeId: string }
   /** The Office's own state, as Now and the status strip show it. */
-  | { readonly kind: "office" };
+  | { readonly kind: "office" }
+  /** Now, where Needs you and Since you left show what a Notification gathered. */
+  | { readonly kind: "since-you-left" };
+
+/**
+ * A Notification that stands for others rather than for a kind (spec §2.7 Defaults): Outcomes
+ * landing close together, collapsed into one, or the summary of what quiet hours held. Neither is a
+ * kind in the tree, so neither is a row of the grid.
+ */
+export type GatheringKind = "collapsed-outcomes" | "quiet-hours-summary";
 
 /**
  * A pointer to something that waits on the user or happened, sent to the channels its kind routes
@@ -22,7 +31,7 @@ export type Pointer =
  */
 export interface Notification {
   readonly id: string;
-  readonly kind: NotificationKind;
+  readonly kind: NotificationKind | GatheringKind;
   /**
    * Who speaks, by their Role's key; undefined when The Office does, in the UI's own voice: a Task
    * with nobody on it, or an Office kind while no Office Manager is hired (spec §2.7 Defaults).
@@ -31,8 +40,18 @@ export interface Notification {
   /** In the person's first person, or the UI's own voice when nobody speaks. */
   readonly line: string;
   readonly pointsTo: Pointer;
+  /** Where its kind's routing sends it. */
   readonly channels: readonly Channel[];
   readonly raisedAt: Date;
+  /**
+   * The Notifications it stands for, when it gathers others; it is cleared once none of them is
+   * open. Collapsed Outcomes also take their place in the list.
+   */
+  readonly gathers: readonly string[];
+  /** The channels quiet hours hold it from, until their summary goes. */
+  readonly held: readonly Channel[];
+  /** When it went to the phone; undefined until it does. */
+  readonly phonePushedAt: Date | undefined;
 }
 
 /** What a Notification says, before it has an id and a time. */
@@ -50,7 +69,15 @@ export function notificationOf(
   raisedAt: Date,
   routing: Routing,
 ): Notification {
-  return { ...draft, id, channels: channelsOf(draft.kind, routing), raisedAt };
+  return {
+    ...draft,
+    id,
+    channels: channelsOf(draft.kind, routing),
+    raisedAt,
+    gathers: [],
+    held: [],
+    phonePushedAt: undefined,
+  };
 }
 
 /** A Decision waits on the user: its asker's question, or The Office's. */
@@ -259,7 +286,10 @@ export function handles(handling: Handling, { kind, pointsTo }: Notification): b
 }
 
 /** Whether a later Notification would point at what an open one does, so only one is kept. */
-export function samePointer(one: NotificationDraft, other: NotificationDraft): boolean {
+export function samePointer(
+  one: Pick<Notification, "kind" | "pointsTo">,
+  other: Pick<Notification, "kind" | "pointsTo">,
+): boolean {
   // Compared field by field: a pointer read back from storage may list its fields in another order.
   const fields = Object.entries(one.pointsTo);
   const otherFields = new Map(Object.entries(other.pointsTo));

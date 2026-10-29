@@ -1,13 +1,17 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
+import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { NotificationsController } from "./adapters/http/notifications.controller.js";
 import { NowController } from "./adapters/http/now.controller.js";
 import { PostgresNotificationRepository } from "./adapters/postgres/postgres-notification-repository.js";
 import { PostgresNotificationRoutingRepository } from "./adapters/postgres/postgres-notification-routing-repository.js";
+import { PostgresNotificationTimingRepository } from "./adapters/postgres/postgres-notification-timing-repository.js";
 import { PostgresOfficeDayFigures } from "./adapters/postgres/postgres-office-day-figures.js";
 import { PostgresTaskOutcomeRepository } from "./adapters/postgres/postgres-task-outcome-repository.js";
 import { PostgresUserActivityRepository } from "./adapters/postgres/postgres-user-activity-repository.js";
 import { OfficeStatusOfficeTools } from "./adapters/office-tools/office-status-office-tools.js";
+import { RecordingPhonePush } from "./adapters/phone/recording-phone-push.js";
 import { NotificationsWebEvents } from "./adapters/websocket/notifications-web-events.js";
+import { NotificationDelivery } from "./application/notification-delivery.js";
 import { NotificationRouting } from "./application/notification-routing.js";
 import { NotificationService } from "./application/notification-service.js";
 import { NowService } from "./application/now-service.js";
@@ -17,10 +21,12 @@ import { StartQueue } from "./ports/start-queue.js";
 import { KnownPeople } from "./ports/known-people.js";
 import { NotificationRepository } from "./ports/notification-repository.js";
 import { NotificationRoutingRepository } from "./ports/notification-routing-repository.js";
+import { NotificationTimingRepository } from "./ports/notification-timing-repository.js";
 import { OfficeDayFigures } from "./ports/office-day-figures.js";
 import { OfficeStatusCards } from "./ports/office-status-cards.js";
 import { OfficeTasks } from "./ports/office-tasks.js";
 import { OpenDecisions } from "./ports/open-decisions.js";
+import { PhonePush } from "./ports/phone-push.js";
 import { TaskOutcomeRepository } from "./ports/task-outcome-repository.js";
 import { TaskStageProgress } from "./ports/task-stage-progress.js";
 import { UserActivityRepository } from "./ports/user-activity-repository.js";
@@ -61,7 +67,7 @@ export class NotificationsModule {
   }: NotificationsModuleOptions): DynamicModule {
     return {
       module: NotificationsModule,
-      imports,
+      imports: [ScheduleModule, ...imports],
       controllers: [NowController, NotificationsController],
       providers: [
         { provide: TaskOutcomeRepository, useClass: PostgresTaskOutcomeRepository },
@@ -69,6 +75,9 @@ export class NotificationsModule {
         { provide: OfficeDayFigures, useClass: PostgresOfficeDayFigures },
         { provide: NotificationRepository, useClass: PostgresNotificationRepository },
         { provide: NotificationRoutingRepository, useClass: PostgresNotificationRoutingRepository },
+        { provide: NotificationTimingRepository, useClass: PostgresNotificationTimingRepository },
+        // Task 28 binds Web Push here.
+        { provide: PhonePush, useClass: RecordingPhonePush },
         { provide: OfficeTasks, useExisting: officeTasks },
         { provide: OpenDecisions, useExisting: openDecisions },
         { provide: TaskStageProgress, useExisting: taskStageProgress },
@@ -79,6 +88,7 @@ export class NotificationsModule {
         { provide: OfficeStatusCards, useExisting: officeStatusCards },
         NowService,
         NotificationService,
+        NotificationDelivery,
         NotificationRouting,
         NotificationsWebEvents,
         OfficeStatusOfficeTools,

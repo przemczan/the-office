@@ -71,8 +71,12 @@ export const notificationEventCacheUpdates: EventCacheUpdates = {
   "notification.raised": (event, queryClient) => {
     const raised = notificationsWebEventSchema.parse(event);
     if (raised.type !== "notification.raised") return;
+    // Collapsed Outcomes take the place of the Outcome, or the collapse, shown before them.
+    const { notification, replaces } = raised;
     queryClient.setQueryData(notificationQueries.open().queryKey, (open: Notification[] = []) =>
-      open.some(({ id }) => id === raised.notification.id) ? open : [...open, raised.notification],
+      open.some(({ id }) => id === notification.id)
+        ? open
+        : [...open.filter(({ id }) => !replaces.includes(id)), notification],
     );
   },
   "notifications.cleared": (event, queryClient) => {

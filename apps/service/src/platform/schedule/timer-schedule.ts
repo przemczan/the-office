@@ -1,20 +1,49 @@
 import { Logger, type BeforeApplicationShutdown } from "@nestjs/common";
-import { Schedule, type ScheduledJob } from "./schedule.js";
+import { Schedule, type ScheduledJob, type Wait } from "./schedule.js";
 
-/** The Office's clock: Node's timers, which never keep the process alive. */
+/** Node's timers take at most this long (about 24.8 days); a longer wait is armed again. */
+const LONGEST_TIMER_MS = 2 ** 31 - 1;
+
+/** The Office's clock: the system's time and Node's timers, which never keep the process alive. */
 export class TimerSchedule extends Schedule implements BeforeApplicationShutdown {
   private readonly logger = new Logger(Schedule.name);
   private readonly timers = new Set<NodeJS.Timeout>();
   private readonly running = new Set<Promise<void>>();
   private stopped = false;
 
-  /** `dayMs` is how long a day is: shorter only where tests watch a daily job run. */
+  /** `dayMs` is how long a day is for daily jobs: shorter only where tests watch one run. */
   constructor(private readonly dayMs: number) {
     super();
   }
 
+  now(): Date {
+    return new Date();
+  }
+
   daily(name: string, job: ScheduledJob): void {
-    this.runAfter(0, name, job);
+    const runDaily = (delayMs: number): void => {
+      this.runAfter(delayMs, name, job, () => runDaily(this.dayMs));
+    };
+    runDaily(0);
+  }
+
+  once(name: string, at: Date, job: ScheduledJob): Wait {
+    let timer: NodeJS.Timeout | undefined;
+    const arm = (): void => {
+      const delayMs = at.getTime() - Date.now();
+      timer =
+        delayMs > LONGEST_TIMER_MS
+          ? this.timerAfter(LONGEST_TIMER_MS, arm)
+          : this.runAfter(Math.max(0, delayMs), name, job, () => undefined);
+    };
+    arm();
+    return {
+      cancel: () => {
+        if (!timer) return;
+        clearTimeout(timer);
+        this.timers.delete(timer);
+      },
+    };
   }
 
   /** Before the database closes, so no run is cut off halfway through its writes. */
@@ -25,18 +54,30 @@ export class TimerSchedule extends Schedule implements BeforeApplicationShutdown
     await Promise.all(this.running);
   }
 
-  private runAfter(delayMs: number, name: string, job: ScheduledJob): void {
-    if (this.stopped) return;
-    const timer = setTimeout(() => {
-      this.timers.delete(timer);
+  private runAfter(
+    delayMs: number,
+    name: string,
+    job: ScheduledJob,
+    afterRun: () => void,
+  ): NodeJS.Timeout | undefined {
+    return this.timerAfter(delayMs, () => {
       const run = this.run(name, job).finally(() => {
         this.running.delete(run);
-        this.runAfter(this.dayMs, name, job);
+        afterRun();
       });
       this.running.add(run);
+    });
+  }
+
+  private timerAfter(delayMs: number, fire: () => void): NodeJS.Timeout | undefined {
+    if (this.stopped) return undefined;
+    const timer = setTimeout(() => {
+      this.timers.delete(timer);
+      fire();
     }, delayMs);
     timer.unref();
     this.timers.add(timer);
+    return timer;
   }
 
   private async run(name: string, job: ScheduledJob): Promise<void> {

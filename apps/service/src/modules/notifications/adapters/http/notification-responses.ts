@@ -1,9 +1,11 @@
 import type {
   Notification as NotificationResponse,
   NotificationRouting as NotificationRoutingResponse,
+  NotificationTiming as NotificationTimingResponse,
   RoutedChannel as RoutedChannelResponse,
 } from "@the-office/contracts";
 import type { Notification } from "../../domain/notification.js";
+import type { NotificationTiming } from "../../domain/notification-timing.js";
 import {
   ROUTING_LEVELS,
   routedChannel,
@@ -11,13 +13,33 @@ import {
   type Routing,
 } from "../../domain/notification-kinds.js";
 
-export function toNotificationResponse(notification: Notification): NotificationResponse {
+export function toNotificationResponse({
+  id,
+  kind,
+  roleKey,
+  line,
+  pointsTo,
+  channels,
+  held,
+  raisedAt,
+}: Notification): NotificationResponse {
   return {
-    ...notification,
-    roleKey: notification.roleKey ?? null,
-    channels: [...notification.channels],
-    raisedAt: notification.raisedAt.toISOString(),
+    id,
+    kind,
+    roleKey: roleKey ?? null,
+    line,
+    pointsTo,
+    channels: [...channels],
+    held: [...held],
+    raisedAt: raisedAt.toISOString(),
   };
+}
+
+export function toTimingResponse({
+  quietHours,
+  ...minutes
+}: NotificationTiming): NotificationTimingResponse {
+  return { ...minutes, quietHours: quietHours ?? null };
 }
 
 /** Every level of the kinds tree with each channel as it routes there, for the grid. */

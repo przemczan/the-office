@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { Schedule } from "../../../platform/schedule/schedule.js";
 import {
   DecisionAnswered,
   DecisionOpened,
@@ -43,12 +44,23 @@ import {
   type Notification,
   type NotificationDraft,
 } from "../domain/notification.js";
-import { NotificationRaised, NotificationsCleared } from "../domain/notification-events.js";
+import {
+  collapsedOutcomes,
+  emptiedGatherings,
+  isOutcome,
+  outcomeToJoin,
+  outcomesOf,
+  shownOf,
+  withQuietHours,
+} from "../domain/delivery.js";
+import { NotificationsCleared } from "../domain/notification-events.js";
 import { KnownPeople } from "../ports/known-people.js";
 import { NotificationRoutingRepository } from "../ports/notification-routing-repository.js";
 import { NotificationRepository } from "../ports/notification-repository.js";
+import { NotificationTimingRepository } from "../ports/notification-timing-repository.js";
 import { OfficeTasks } from "../ports/office-tasks.js";
 import { TaskStageProgress } from "../ports/task-stage-progress.js";
+import { NotificationDelivery } from "./notification-delivery.js";
 
 /** Where the user is in The Office, as the web reports it with their activity. */
 export type Page =
@@ -61,7 +73,8 @@ export type Page =
  * Raises a Notification for each thing that waits on the user or happened (spec §2.7), routed to
  * its kind's channels by the routing the user keeps in Settings, and clears it once the user handles
  * that thing. Both reach the web as events, where the browser's channels live; a Notification
- * already open for the same thing is not raised again.
+ * already open for the same thing is not raised again, and an Outcome landing soon after another
+ * collapses with it into one. `NotificationDelivery` sends each when the delivery rules say.
  */
 @Injectable()
 export class NotificationService implements OnModuleInit {
@@ -74,6 +87,9 @@ export class NotificationService implements OnModuleInit {
     private readonly stages: TaskStageProgress,
     private readonly people: KnownPeople,
     private readonly routing: NotificationRoutingRepository,
+    private readonly timing: NotificationTimingRepository,
+    private readonly delivery: NotificationDelivery,
+    private readonly schedule: Schedule,
     private readonly events: EventBus,
   ) {}
 
@@ -83,8 +99,9 @@ export class NotificationService implements OnModuleInit {
     this.subscribeToOffice();
   }
 
-  listOpen(): Promise<readonly Notification[]> {
-    return this.repository.listOpen();
+  /** The open Notifications as the list shows them: collapsed Outcomes in place of theirs. */
+  async listOpen(): Promise<readonly Notification[]> {
+    return shownOf(await this.repository.listOpen());
   }
 
   /** The user opened a page: opening what a Notification points to handles it. */
@@ -184,20 +201,32 @@ export class NotificationService implements OnModuleInit {
   }
 
   private async raise(draft: NotificationDraft): Promise<void> {
+    const at = this.schedule.now();
     const open = await this.repository.listOpen();
     if (open.some((notification) => samePointer(notification, draft))) return;
-    const routing = await this.routing.read();
-    const notification = notificationOf(draft, randomUUID(), new Date(), routing);
-    await this.repository.add(notification);
-    await this.events.publish(new NotificationRaised(notification));
+    const [routing, timing] = await Promise.all([this.routing.read(), this.timing.read()]);
+    const raised = withQuietHours(notificationOf(draft, randomUUID(), at, routing), timing, at);
+    await this.repository.add(raised);
+    const joined = isOutcome(raised) ? outcomeToJoin(shownOf(open), timing, at) : undefined;
+    if (!joined) {
+      await this.delivery.send(raised);
+      return;
+    }
+    const outcomes = [...outcomesOf(joined, open), raised];
+    const collapsed = withQuietHours(collapsedOutcomes(outcomes, randomUUID(), at), timing, at);
+    await this.repository.add(collapsed);
+    // An earlier collapse is replaced for good; a single Outcome waits, gathered, to be handled.
+    if (joined.kind === "collapsed-outcomes") await this.repository.clear([joined.id], at);
+    await this.delivery.send(collapsed, [joined.id]);
   }
 
   private async handle(handling: Handling): Promise<void> {
     const open = await this.repository.listOpen();
     const handled = open.filter((notification) => handles(handling, notification));
     if (handled.length === 0) return;
-    const ids = handled.map(({ id }) => id);
-    await this.repository.clear(ids, new Date());
+    const stillOpen = open.filter((notification) => !handled.includes(notification));
+    const ids = [...handled, ...emptiedGatherings(stillOpen)].map(({ id }) => id);
+    await this.repository.clear(ids, this.schedule.now());
     await this.events.publish(new NotificationsCleared(ids));
   }
 

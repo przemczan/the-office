@@ -27,7 +27,8 @@ export type NotificationTarget =
 
 /**
  * An Office kind opens Now even when it opens the Office Manager's chat, since opening Now is what
- * handles the 5-hour window's (spec §2.7 Defaults).
+ * handles the 5-hour window's (spec §2.7 Defaults). What gathers others opens Now too, where Needs
+ * you and Since you left show them.
  */
 export function targetOf({
   pointsTo,
@@ -36,6 +37,7 @@ export function targetOf({
   if (pointsTo.kind === "office") {
     return roleKey ? { to: "/now", search: { chat: roleKey } } : { to: "/now" };
   }
+  if (pointsTo.kind === "since-you-left") return { to: "/now" };
   if (pointsTo.kind === "initiative") {
     return {
       to: "/work/initiatives/$initiativeId",
@@ -72,6 +74,8 @@ export function serviceDown(
       : "The Office lost its service and is reconnecting.",
     pointsTo: { kind: "office" },
     channels: [...channels],
+    // The service's down only while the web lost it, so its quiet hours can't hold this one.
+    held: [],
     raisedAt: new Date(0).toISOString(),
   };
 }
