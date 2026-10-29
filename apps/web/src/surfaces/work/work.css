@@ -712,6 +712,22 @@
   margin-top: 6px;
 }
 
+.task-files-to-change {
+  margin-top: 12px;
+}
+
+.task-files-to-change ul {
+  margin: 0;
+  padding-left: 18px;
+  font: var(--type-body-sm);
+  line-height: 1.55;
+}
+
+.task-files-to-change code,
+.task-overlap-files code {
+  font: var(--type-mono);
+}
+
 .task-dependencies + .task-dependencies {
   margin-top: 12px;
 }

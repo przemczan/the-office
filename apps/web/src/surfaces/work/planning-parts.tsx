@@ -4,8 +4,8 @@ import {
   useQueryClient,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import type { Pipeline, Task } from "@the-office/contracts";
-import { Badge, Button, Select } from "@the-office/ui";
+import type { PlanChange, Pipeline, Task } from "@the-office/contracts";
+import { Badge, Button, Icon, Select, Textarea } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { confirmDefinitionOfDone, confirmPlan, setPipeline, taskQueries } from "../../api/work.ts";
@@ -80,7 +80,9 @@ export function DefinitionOfDoneBlock({ task, planner }: PartProps): ReactNode {
 }
 
 export function PlanBlock({ task, planner }: PartProps): ReactNode {
-  const confirming = useRecordChange(task, (plan: string) => confirmPlan(task.id, plan));
+  const confirming = useRecordChange(task, (plan: Required<PlanChange>) =>
+    confirmPlan(task.id, plan),
+  );
   const [editing, setEditing] = useState(false);
   const written = task.plan !== "";
   return (
@@ -95,7 +97,9 @@ export function PlanBlock({ task, planner }: PartProps): ReactNode {
             written={written}
             confirmed={task.planConfirmed}
             confirming={confirming.isPending}
-            onConfirm={() => confirming.mutate(task.plan)}
+            onConfirm={() =>
+              confirming.mutate({ plan: task.plan, filesToChange: [...task.filesToChange] })
+            }
             onEdit={() => setEditing(true)}
           />
         )
@@ -103,21 +107,87 @@ export function PlanBlock({ task, planner }: PartProps): ReactNode {
     >
       {confirming.error && <RefusalAlert title="The Plan wasn't saved" error={confirming.error} />}
       {editing ? (
-        <PartEditor
-          label="Plan"
-          hint="How the Task will be implemented, in Markdown."
-          initial={task.plan}
-          saveLabel="Save and confirm"
+        <PlanEditor
+          task={task}
           saving={confirming.isPending}
-          onSave={(text) => confirming.mutate(text, { onSuccess: () => setEditing(false) })}
+          onSave={(plan) => confirming.mutate(plan, { onSuccess: () => setEditing(false) })}
           onCancel={() => setEditing(false)}
         />
       ) : written ? (
-        <p className="task-plan">{task.plan}</p>
+        <>
+          <p className="task-plan">{task.plan}</p>
+          <FilesToChange files={task.filesToChange} />
+        </>
       ) : (
         <p className="task-quiet">No Plan yet.</p>
       )}
     </RecordBlock>
+  );
+}
+
+/** The files and folders the Plan expects to change, which Start weighs Overlaps on. */
+function FilesToChange({ files }: { readonly files: readonly string[] }): ReactNode {
+  if (files.length === 0) return null;
+  return (
+    <section className="task-files-to-change" aria-label="Files to change">
+      <div className="task-dependencies-label">Files to change</div>
+      <ul>
+        {files.map((path) => (
+          <li key={path}>
+            <code>{path}</code>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** The user's own Plan and the files it expects to change, saved and confirmed together. */
+function PlanEditor({
+  task,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  readonly task: Task;
+  readonly saving: boolean;
+  readonly onSave: (plan: Required<PlanChange>) => void;
+  readonly onCancel: () => void;
+}): ReactNode {
+  const [plan, setPlan] = useState(task.plan);
+  const [files, setFiles] = useState(task.filesToChange.join("\n"));
+  return (
+    <form
+      className="task-part-editor"
+      onSubmit={(event) => {
+        event.preventDefault();
+        onSave({ plan, filesToChange: statementsOf(files) });
+      }}
+    >
+      <Textarea
+        aria-label="Plan"
+        hint="How the Task will be implemented, in Markdown."
+        rows={6}
+        value={plan}
+        onChange={(event) => setPlan(event.target.value)}
+        autoFocus
+      />
+      <Textarea
+        aria-label="Files to change"
+        hint="One path per line, from the repository's root; a folder covers the files under it."
+        rows={3}
+        value={files}
+        onChange={(event) => setFiles(event.target.value)}
+      />
+      <div className="task-part-actions">
+        <Button size="sm" type="submit" loading={saving} iconLeft={<Icon name="check" size={14} />}>
+          Save and confirm
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel}>
+          Cancel
+        </Button>
+      </div>
+    </form>
   );
 }
 

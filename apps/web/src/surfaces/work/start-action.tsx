@@ -4,7 +4,7 @@ import {
   useQueryClient,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import type { StartAnswer, StartCheck, Task } from "@the-office/contracts";
+import type { Overlap, OverlapChoice, StartAnswer, StartCheck, Task } from "@the-office/contracts";
 import { Button, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { startTask, taskQueries } from "../../api/work.ts";
@@ -14,7 +14,9 @@ import { QueueActions, QueuedMark, useQueued } from "./queue-parts.tsx";
 /**
  * Start on a Ready Task (prototypes/app/task.js): disabled with the reasons while a blocker or a
  * vacant Role refuses it; while only a limit holds it, Start says the Task joins the queue (spec
- * §2.1, "A queue for Start"). A queued Task shows its place, reasons and the queue's actions.
+ * §2.1, "A queue for Start"). An Overlap with a Task in progress in the Project names it and the
+ * files, and Start becomes "Start anyway" or "Queue behind it" (spec §2.1, "Overlaps at Start"). A
+ * queued Task shows its place, reasons and the queue's actions.
  */
 export function StartButton({ task }: { readonly task: Task }): ReactNode {
   const ready = task.state === "ready";
@@ -31,6 +33,36 @@ export function StartButton({ task }: { readonly task: Task }): ReactNode {
     );
   }
   const refused = (check.data?.refusals.length ?? 0) > 0;
+  const overlaps = refused ? [] : (check.data?.overlaps ?? []);
+  const startWith = (onOverlap: OverlapChoice | undefined) => starting.mutate({ task, onOverlap });
+  const loadingFor = (onOverlap: OverlapChoice | undefined) =>
+    starting.isPending && starting.variables.onOverlap === onOverlap;
+  if (overlaps.length > 0) {
+    return (
+      <>
+        <OverlapNote overlaps={overlaps} />
+        {check.data && <StartNote check={check.data} />}
+        <Button
+          variant="primary"
+          iconLeft={<Icon name="play" size={14} />}
+          disabled={starting.isPending}
+          loading={loadingFor("start-anyway")}
+          onClick={() => startWith("start-anyway")}
+        >
+          Start anyway
+        </Button>
+        <Button
+          variant="secondary"
+          iconLeft={<Icon name="clock" size={14} />}
+          disabled={starting.isPending}
+          loading={loadingFor("queue-behind")}
+          onClick={() => startWith("queue-behind")}
+        >
+          {overlaps.length === 1 ? "Queue behind it" : "Queue behind them"}
+        </Button>
+      </>
+    );
+  }
   return (
     <>
       {check.data && <StartNote check={check.data} />}
@@ -39,11 +71,34 @@ export function StartButton({ task }: { readonly task: Task }): ReactNode {
         iconLeft={<Icon name="play" size={14} />}
         disabled={!check.data || refused}
         loading={starting.isPending}
-        onClick={() => starting.mutate(task)}
+        onClick={() => startWith(undefined)}
       >
         Start
       </Button>
     </>
+  );
+}
+
+/** Each Task in progress in the Project expecting to change some of the same files, and which. */
+function OverlapNote({ overlaps }: { readonly overlaps: readonly Overlap[] }): ReactNode {
+  return (
+    <span className="task-head-note task-overlap-files" role="note" aria-label="Overlap">
+      <Icon name="files" size={14} />
+      <span>
+        {overlaps.map(({ taskId, title, files }) => (
+          <span key={taskId}>
+            Overlap: &ldquo;{title}&rdquo; is in progress and expects to change{" "}
+            {files.map((path, at) => (
+              <span key={path}>
+                {at > 0 && ", "}
+                <code>{path}</code>
+              </span>
+            ))}{" "}
+            too.{" "}
+          </span>
+        ))}
+      </span>
+    </span>
   );
 }
 
@@ -66,11 +121,16 @@ function StartNote({ check }: { readonly check: StartCheck }): ReactNode {
   );
 }
 
-function useStarting(): UseMutationResult<StartAnswer, Error, Task> {
+interface StartRequest {
+  readonly task: Task;
+  readonly onOverlap: OverlapChoice | undefined;
+}
+
+function useStarting(): UseMutationResult<StartAnswer, Error, StartRequest> {
   const queryClient = useQueryClient();
   const showToast = useToast();
   return useMutation({
-    mutationFn: (task: Task) => startTask(task.id),
+    mutationFn: ({ task, onOverlap }: StartRequest) => startTask(task.id, onOverlap),
     onSuccess: ({ task, queued }) =>
       showToast(
         queued
@@ -78,9 +138,11 @@ function useStarting(): UseMutationResult<StartAnswer, Error, Task> {
           : `${task.title} started.`,
       ),
     onError: (error) => showToast(error.message),
-    onSettled: async () => {
+    onSettled: async (_answer, _error, { task }) => {
       await queryClient.invalidateQueries(taskQueries.list());
       await queryClient.invalidateQueries(taskQueries.queue());
+      // A refusal may be an Overlap that arose since the check was read.
+      await queryClient.invalidateQueries(taskQueries.startCheck(task.id));
     },
   });
 }

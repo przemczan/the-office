@@ -28,6 +28,8 @@ import {
   type NewTask,
   type OfficeWideLimit,
   type OutcomeChange,
+  type OverlapChoice,
+  type PlanChange,
   type Priority,
   type ProjectFilter,
   type Readiness,
@@ -276,8 +278,8 @@ export function planTask(id: string): Promise<Task> {
 }
 
 /** The user's Plan, confirmed: the proposed one exactly as shown, or their edit of it. */
-export function confirmPlan(id: string, plan: string): Promise<Task> {
-  return sendToApi("PUT", `${taskPath(id)}/plan`, { plan }, taskSchema);
+export function confirmPlan(id: string, plan: Required<PlanChange>): Promise<Task> {
+  return sendToApi("PUT", `${taskPath(id)}/plan`, plan, taskSchema);
 }
 
 /** The user's Definition of Done, confirmed, as with the Plan. */
@@ -311,11 +313,13 @@ export function markReady(id: string): Promise<Task> {
 }
 
 /**
- * Start: Ready → In progress, or into the queue when only a limit holds it; refused with the
- * reasons when anything else does.
+ * Start: Ready → In progress, or into the queue when only a limit holds it or `onOverlap` queues
+ * it behind the Tasks it overlaps; refused with the reasons when anything else does, or an Overlap
+ * stands unanswered.
  */
-export function startTask(id: string): Promise<StartAnswer> {
-  return sendToApi("POST", `${taskPath(id)}/start`, {}, startAnswerSchema);
+export function startTask(id: string, onOverlap?: OverlapChoice): Promise<StartAnswer> {
+  const request = onOverlap ? { onOverlap } : {};
+  return sendToApi("POST", `${taskPath(id)}/start`, request, startAnswerSchema);
 }
 
 /** Take out of the queue: the Task stays Ready. */

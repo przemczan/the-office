@@ -138,3 +138,45 @@ test("Start says when it only queues the Task, and what holds it", async ({ page
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Take out of the queue" })).toBeVisible();
 });
+
+test("Start warns of an Overlap with a Task in progress, naming it and the files, and queues behind it", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Queue overlap", "QO");
+  const inProgress = await readyTask(page, project, "Rework the sign-in");
+  // In progress without a walk: Start's only part here is the warning and the queue.
+  await queryOfficeDatabase(
+    `update tasks set state = 'in-progress', files_to_change = '{src/auth}' where id = $1`,
+    [inProgress.id],
+  );
+  const task = await readyTask(page, project, "Keep the redirect after sign-in");
+
+  await page.goto(`/tasks/${task.id}`);
+  const plan = page.getByRole("region", { name: "Plan" });
+  await plan.getByRole("button", { name: "Edit" }).click();
+  await plan.getByLabel("Files to change").fill("./src/auth/login.ts\nREADME.md");
+  await plan.getByRole("button", { name: "Save and confirm" }).click();
+  await expect(plan.getByRole("region", { name: "Files to change" })).toHaveText(
+    /src\/auth\/login\.ts\s*README\.md/,
+  );
+
+  const overlap = page.getByRole("note", { name: "Overlap" });
+  await expect(overlap).toHaveText(
+    "Overlap: “Rework the sign-in” is in progress and expects to change src/auth/login.ts too.",
+  );
+  await expect(page.getByRole("button", { name: "Start anyway" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Start", exact: true })).toBeHidden();
+  await page.getByRole("button", { name: "Queue behind it" }).click();
+
+  await expect(page.getByText(`${task.title} is queued, place`)).toBeVisible();
+  // Last in the queue, behind those the tests before left there.
+  await expect(
+    page.getByText(
+      /^Place \d+ · Queued behind "Rework the sign-in" until it is Done or Dropped\.$/,
+    ),
+  ).toBeVisible();
+
+  // Out of the queue before the Task it waits behind ends, so no release starts a walk.
+  await page.request.post(`/api/tasks/${task.id}/drop`);
+  await queryOfficeDatabase(`update tasks set state = 'dropped' where id = $1`, [inProgress.id]);
+});
