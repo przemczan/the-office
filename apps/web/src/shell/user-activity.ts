@@ -22,8 +22,9 @@ export function pageAt(pathname: string): Activity["page"] {
 }
 
 /**
- * Reports the user active while the tab is visible and used, at most once a minute, and at once
- * on opening another page: the service learns when they left, and what they opened.
+ * Reports the user active while the tab is visible and used, or focused, at most once a minute,
+ * and at once on opening another page: the service learns when they left, what they opened, and
+ * holds phone pushes while The Office is focused (spec §2.7).
  */
 export function useReportingActivity(): void {
   const pathname = useLocation({ select: (location) => location.pathname });
@@ -50,9 +51,14 @@ export function useReportingActivity(): void {
     for (const type of ACTIVITY_EVENTS)
       window.addEventListener(type, onActivity, { passive: true });
     document.addEventListener("visibilitychange", onActivity);
+    // A focused tab counts as being at the desk though nothing moves, as when reading.
+    const whileFocused = window.setInterval(() => {
+      if (document.hasFocus()) report.current(false);
+    }, REPORT_EVERY_MS);
     return () => {
       for (const type of ACTIVITY_EVENTS) window.removeEventListener(type, onActivity);
       document.removeEventListener("visibilitychange", onActivity);
+      window.clearInterval(whileFocused);
     };
   }, []);
 }

@@ -172,12 +172,9 @@ export const timeOfDaySchema = z
   .string()
   .regex(/^([01]\d|2[0-3]):[0-5]\d$/, "A time of day, HH:MM.");
 
-/** How many minutes a wait of the timing takes: at least one, at most a day. */
-const timingMinutesSchema = z
-  .number()
-  .int()
-  .min(1)
-  .max(24 * 60);
+/** How many minutes a wait of the timing takes: at least one, at most an hour. */
+export const TIMING_MINUTES_MAX = 60;
+const timingMinutesSchema = z.number().int().min(1).max(TIMING_MINUTES_MAX);
 
 /** When Notifications reach the desktop and the phone: "At the desk", "Quiet hours and batching". */
 export const notificationTimingSchema = z.object({

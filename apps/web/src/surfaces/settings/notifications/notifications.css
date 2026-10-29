@@ -119,3 +119,42 @@ button.routing-cell:hover:not(:disabled) {
     width: auto;
   }
 }
+
+/* ---- At the desk, Quiet hours and batching */
+.timing {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font: var(--type-body-sm);
+  color: var(--fg-1);
+}
+
+.timing label,
+.timing-quiet {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.timing input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.timing-minutes,
+.timing-time {
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--fg-1);
+  font: var(--type-body-sm);
+}
+
+.timing-minutes {
+  width: 56px;
+}

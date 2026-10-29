@@ -84,6 +84,64 @@ test("Notifications shows what goes where, a kind set or inherited, and Reset gi
   await expect(reset).toHaveCount(0);
 });
 
+/** "HH:MM" this many hours from the system's time. */
+function hoursFromNow(hours: number): string {
+  const at = new Date(Date.now() + hours * 60 * 60_000);
+  return `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
+}
+
+// The e2e files share one database: quiet hours are moved at once to hours the clock is outside
+// of, so no other file's Notifications are held, and every change is given back.
+test("At the desk, Quiet hours and batching keep their minutes and quiet hours across reloads", async ({
+  page,
+}) => {
+  await page.goto("/settings/notifications");
+  const away = page.getByRole("spinbutton", { name: "Minutes after you leave" });
+  const batching = page.getByRole("spinbutton", { name: "Minutes Outcomes collapse within" });
+  const quietHours = page.getByRole("checkbox", { name: "Quiet hours" });
+  await expect(
+    page.getByRole("spinbutton", { name: "Minutes the phone is held after use" }),
+  ).toHaveValue("5");
+  await expect(away).toHaveValue("5");
+  await expect(batching).toHaveValue("2");
+  await expect(quietHours).not.toBeChecked();
+  await expect(page.getByText("Off until you set them.")).toBeVisible();
+
+  await away.fill("7");
+  await away.press("Enter");
+  await quietHours.check();
+  const from = page.getByLabel("Quiet hours from");
+  const to = page.getByLabel("Quiet hours to");
+  await expect(from).toHaveValue("22:00");
+  await expect(to).toHaveValue("07:00");
+  const [quietFrom, quietTo] = [hoursFromNow(3), hoursFromNow(4)];
+  await from.fill(quietFrom);
+  await to.fill(quietTo);
+  await expect(page.getByText(/one summary comes when it ends/)).toBeVisible();
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-settings-notification-timing.png"),
+    fullPage: true,
+  });
+  // A minute out of range goes back to what is kept.
+  await batching.fill("0");
+  await batching.blur();
+  await expect(batching).toHaveValue("2");
+
+  await page.reload();
+  await expect(away).toHaveValue("7");
+  await expect(quietHours).toBeChecked();
+  await expect(from).toHaveValue(quietFrom);
+  await expect(to).toHaveValue(quietTo);
+
+  await quietHours.uncheck();
+  await away.fill("5");
+  await away.press("Enter");
+  await expect(from).toHaveCount(0);
+  await page.reload();
+  await expect(away).toHaveValue("5");
+  await expect(quietHours).not.toBeChecked();
+});
+
 // The e2e files share one database, and work.e2e.ts walks Full and Quick fix: this test makes
 // Pipelines of its own, with Script Stages and Gates only, as nobody may fill the Developer yet.
 test("the user makes a Pipeline, edits it, duplicates it and removes the copy; Onboard stays", async ({

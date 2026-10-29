@@ -2,12 +2,14 @@ import { queryOptions } from "@tanstack/react-query";
 import {
   notificationListSchema,
   notificationRoutingSchema,
+  notificationTimingSchema,
   notificationsWebEventSchema,
   nowSchema,
   type Activity,
   type ChannelSetting,
   type Notification,
   type NotificationRouting,
+  type NotificationTiming,
 } from "@the-office/contracts";
 import { deleteFromApiReturning, getFromApi, postToApi, sendToApi } from "./api-client.ts";
 import type { EventCacheUpdates } from "./event-stream-provider.tsx";
@@ -35,7 +37,19 @@ export const notificationQueries = {
       queryFn: ({ signal }) =>
         getFromApi("/notifications/routing", notificationRoutingSchema, signal),
     }),
+  /** When Notifications reach the desktop and the phone: the at-desk hold, quiet hours, batching. */
+  timing: () =>
+    queryOptions({
+      queryKey: ["notification-timing"],
+      queryFn: ({ signal }) =>
+        getFromApi("/notifications/timing", notificationTimingSchema, signal),
+    }),
 };
+
+/** Keeps the whole timing; the answer is what the service kept. */
+export function setTiming(timing: NotificationTiming): Promise<NotificationTiming> {
+  return sendToApi("PUT", "/notifications/timing", timing, notificationTimingSchema);
+}
 
 /** Sets a channel at a level of the kinds tree; the answer is the whole routing. */
 export function setRoutingChannel(

@@ -1,7 +1,10 @@
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { expect, test, type WebSocketRoute } from "@playwright/test";
+import type { Notification } from "@the-office/contracts";
+import { desktopShown, focusTab, recordDesktopNotifications } from "./desktop-notifications.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
@@ -135,5 +138,103 @@ test.describe("losing the service", () => {
     await expect(notice).toHaveCount(0);
     // Reconnecting refetches the queries, so a read of the roles may still be in the route then.
     await page.unrouteAll({ behavior: "ignoreErrors" });
+  });
+});
+
+/** A Notification in The Office's voice, as the service raises it. */
+function notification(fields: Partial<Notification> & Pick<Notification, "line">): Notification {
+  return {
+    id: randomUUID(),
+    kind: "outcomes.task-done",
+    roleKey: null,
+    pointsTo: { kind: "task", taskId: randomUUID() },
+    channels: ["in-app", "desktop"],
+    held: [],
+    raisedAt: new Date().toISOString(),
+    ...fields,
+  };
+}
+
+test.describe("Notifications as the service sends them", () => {
+  test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
+
+  test("collapsed Outcomes take the first one's place in the toast and on the desktop; quiet hours hold the desktop until their summary", async ({
+    page,
+  }) => {
+    // The event stream stands for the service, which sends these as the delivery rules say.
+    const streams: WebSocketRoute[] = [];
+    await page.routeWebSocket(/\/api\/events$/, (stream) => {
+      stream.connectToServer();
+      streams.push(stream);
+    });
+    const raise = (raised: Notification, replaces: readonly string[] = []): void => {
+      const event = {
+        type: "notification.raised",
+        occurredAt: raised.raisedAt,
+        notification: raised,
+        replaces,
+      };
+      for (const stream of streams) stream.send(JSON.stringify({ type: "event", event }));
+    };
+    await recordDesktopNotifications(page);
+    await page.goto("/projects");
+    await expect(page.getByRole("status", { name: "Status strip" })).toContainText("tokens today");
+    const toasts = page.locator(".toasts");
+
+    const first = notification({ line: "Done." });
+    raise(first);
+    await expect(toasts.getByRole("button", { name: "Done." })).toBeVisible();
+    const collapsed = notification({
+      kind: "collapsed-outcomes",
+      line: "2 Tasks done",
+      pointsTo: { kind: "since-you-left" },
+    });
+    raise(collapsed, [first.id]);
+    await expect(toasts.getByRole("button", { name: "Done." })).toHaveCount(0);
+    await expect(toasts.getByRole("button", { name: "2 Tasks done" })).toBeVisible();
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-collapsed-outcomes.png") });
+    // It opens Since you left, on Now.
+    await toasts.getByRole("button", { name: "2 Tasks done" }).click();
+    await expect(page).toHaveURL(/\/now$/);
+
+    // Away from the tab, the desktop shows them, the collapse in the first one's place.
+    await focusTab(page, false);
+    const another = notification({ line: "Paused.", kind: "outcomes.task-paused" });
+    raise(another);
+    await expect.poll(async () => (await desktopShown(page)).length).toBe(1);
+    raise({ ...collapsed, id: randomUUID(), line: "3 Tasks done, 1 Task paused" }, [
+      collapsed.id,
+      another.id,
+    ]);
+    await expect
+      .poll(async () => desktopShown(page))
+      .toEqual([
+        { title: "The Office", body: "Paused.", closed: true },
+        { title: "The Office", body: "3 Tasks done, 1 Task paused", closed: false },
+      ]);
+
+    // Quiet hours hold the desktop: the toast shows instead, and the summary goes to the desktop.
+    const held = notification({
+      kind: "needs-you.gate",
+      line: "Settings waits for your look.",
+      pointsTo: { kind: "gate", taskId: randomUUID(), stageKey: "look" },
+      channels: ["in-app", "desktop", "phone"],
+      held: ["desktop", "phone"],
+    });
+    raise(held);
+    await expect(
+      toasts.getByRole("button", { name: "Settings waits for your look." }),
+    ).toBeVisible();
+    raise(
+      notification({
+        kind: "quiet-hours-summary",
+        line: "During quiet hours: 1 needs you.",
+        pointsTo: { kind: "since-you-left" },
+        channels: ["desktop", "phone"],
+      }),
+    );
+    await expect
+      .poll(async () => (await desktopShown(page)).map(({ body }) => body))
+      .toEqual(["Paused.", "3 Tasks done, 1 Task paused", "During quiet hours: 1 needs you."]);
   });
 });

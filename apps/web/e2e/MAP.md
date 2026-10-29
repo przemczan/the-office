@@ -1,6 +1,6 @@
 # Web end-to-end tests: map
 
-**Owns:** the Playwright tests and what they share: `serve-office.ts` starts the built service on the scripted engine, `office-database.ts` reaches the e2e database (for seeding what the UI can't yet make), `office-data.ts` is the fixed e2e Office data directory, `temporary-repository.ts` makes a Project's repository, `skill-source.ts` a bare repository to install a skill from (by a `file://` URL, with the files hash a seeded Proposal needs), and `sessions.jsonl` holds the scripted sessions.
+**Owns:** the Playwright tests and what they share: `serve-office.ts` starts the built service on the scripted engine, `office-database.ts` reaches the e2e database (for seeding what the UI can't yet make), `office-data.ts` is the fixed e2e Office data directory, `temporary-repository.ts` makes a Project's repository, `desktop-notifications.ts` the browser's Notification as a recording with the tab's focus set by the test, `skill-source.ts` a bare repository to install a skill from (by a `file://` URL, with the files hash a seeded Proposal needs), and `sessions.jsonl` holds the scripted sessions.
 
 **Traps:** the scripted engine hands out `sessions.jsonl`'s scripts in the order sessions open, across files running in parallel, so every test that opens sessions lives in `people.e2e.ts`, the one serial file, its script in order. That file is also the only one that hires, so a test that needs someone hired (an Agent Stage's Role, the Stage editor's flags) lives there too. A Stage failing with no retries left while the CTO is hired opens their Consultation, a session of its own: the sign-in Task's failed Publish does, so its test waits for Bob to pass it on. `queue.e2e.ts` runs alone after every other file (its own Playwright project), since any release weighs the Office's one queue; it seeds queued Tasks in the database. The e2e files share one database, so titles must differ across files (`getByRole` matches substrings), and the Notification routing is changed only on "Alarm lifted with work waiting", which nothing raises, and given back. What only an Agent's session makes (a Consultation, a Proposal, a Link card) is seeded in the database in the service's own shape (a Proposal's new Role keeps its skills beside the card), with its `thread_messages` row; a proposed hire takes a title no preset has.
 
@@ -10,6 +10,7 @@
 
 ### ./
 
+- `desktop-notifications.ts`: DesktopRecord, recordDesktopNotifications, desktopShown, focusTab
 - `office-data.ts`: E2E_OFFICE_DATA, taskWorktreePath
 - `office-database.ts`: E2E_ENVIRONMENT, E2E_DATABASE_SERVER, E2E_DATABASE_NAME, E2E_DATABASE_URL, queryOfficeDatabase, required
 - `people.e2e.ts`
