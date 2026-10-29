@@ -1,9 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import type { Publication, PublishTarget, PullRequestText } from "../domain/publication.js";
+import type { ResolveEnd, ResolveStart } from "../domain/resolve.js";
 import type { Head } from "../ports/git.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ProjectService } from "./project-service.js";
 import { Publishing } from "./publishing.js";
+import { Resolving } from "./resolving.js";
 import { SCREENSHOTS_FOLDER } from "./screenshots-folder.js";
 import { ScriptCommands, type ScriptCommandKey, type ScriptCommandRun } from "./script-commands.js";
 import { Worktrees, type Installation, type TaskChanges } from "./worktrees.js";
@@ -30,6 +32,7 @@ export class TaskWorktrees {
     private readonly commands: ProjectCommandRunner,
     private readonly scriptCommands: ScriptCommands,
     private readonly publishing: Publishing,
+    private readonly resolving: Resolving,
   ) {}
 
   /**
@@ -104,6 +107,24 @@ export class TaskWorktrees {
     target: PublishTarget,
   ): Promise<Publication> {
     return this.publishing.publish(await this.projects.read(projectId), taskId, text, target);
+  }
+
+  /**
+   * Resolve's start (spec §2.3, "Conflicts at Publish"): merges the freshly fetched base into the
+   * Task's branch, leaving the conflicted files in its worktree for the Task's person.
+   */
+  async startResolve(projectId: string, taskId: string): Promise<ResolveStart> {
+    return this.resolving.start(await this.projects.read(projectId), taskId);
+  }
+
+  /** Commits Resolve's merge as one merge commit, unless a conflict marker remains. */
+  async finishResolve(projectId: string, taskId: string): Promise<ResolveEnd> {
+    return this.resolving.finish(await this.projects.read(projectId), taskId);
+  }
+
+  /** Gives the Task's worktree and branch back as they were before Resolve's merge began. */
+  async abandonResolve(projectId: string, taskId: string): Promise<void> {
+    await this.resolving.abandon(await this.projects.read(projectId), taskId);
   }
 
   /** Removes the Task's worktree with whatever it holds; its branch stays. */

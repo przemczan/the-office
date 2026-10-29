@@ -287,6 +287,89 @@ describe("CommandLineGit.rebase", REAL_GIT_TEST, () => {
   });
 });
 
+function indexPath(worktreePath: string): string {
+  return join(worktreePath, "src", "index.ts");
+}
+
+describe("CommandLineGit merges", REAL_GIT_TEST, () => {
+  it("merges a moved base in cleanly as one merge commit of its message", async () => {
+    const { path, branch, main } = await besideAMovedMain("export {};\n");
+    const before = gitIn(path, "rev-parse", "HEAD");
+
+    const merge = await git.merge(path, main, "Merge main into the Task", variables);
+
+    const head = gitIn(path, "rev-parse", "HEAD");
+    expect(merge).toEqual({ kind: "merged", commit: head });
+    expect(gitIn(path, "rev-list", "--parents", "--max-count=1", "HEAD")).toBe(
+      `${head} ${before} ${main}`,
+    );
+    expect(gitIn(path, "log", "--format=%s", "--max-count=1")).toBe("Merge main into the Task");
+    expect(gitIn(path, "symbolic-ref", "--short", "HEAD")).toBe(branch);
+    await expect(git.hasMergesSince(repository.path, main, `refs/heads/${branch}`)).resolves.toBe(
+      true,
+    );
+  });
+
+  it("leaves a conflicting merge in progress, then commits it once the markers are gone", async () => {
+    const { path, main } = await besideAMovedMain("export const other = 2;\n");
+    const before = gitIn(path, "rev-parse", "HEAD");
+
+    await expect(git.merge(path, main, "Merge main", variables)).resolves.toEqual({
+      kind: "conflicted",
+      conflictedFiles: ["src/index.ts"],
+    });
+    expect(gitIn(path, "rev-parse", "HEAD")).toBe(before);
+    expect(await readFile(indexPath(path), "utf8")).toContain("<<<<<<< ");
+    await expect(git.mergeConflicts(path)).resolves.toEqual(["src/index.ts"]);
+    await expect(git.concludeMerge(path, "Merge main", variables)).resolves.toEqual({
+      kind: "markers-left",
+      files: ["src/index.ts"],
+    });
+
+    await writeFile(indexPath(path), "export const task = 1;\nexport const other = 2;\n");
+    const conclusion = await git.concludeMerge(path, "Merge main", variables);
+
+    const head = gitIn(path, "rev-parse", "HEAD");
+    expect(conclusion).toEqual({ kind: "committed", commit: head });
+    expect(gitIn(path, "rev-list", "--parents", "--max-count=1", "HEAD")).toBe(
+      `${head} ${before} ${main}`,
+    );
+    expect(gitIn(path, "status", "--porcelain")).toBe("");
+    await expect(git.concludeMerge(path, "Merge main", variables)).resolves.toEqual({
+      kind: "not-merging",
+    });
+  });
+
+  it("commits a conflict resolved by deleting the file", async () => {
+    const { path, main } = await besideAMovedMain("export const other = 2;\n");
+    await git.merge(path, main, "Merge main", variables);
+
+    await rm(indexPath(path));
+
+    await expect(git.concludeMerge(path, "Merge main", variables)).resolves.toMatchObject({
+      kind: "committed",
+    });
+    expect(gitIn(path, "ls-files", "src")).toBe("");
+  });
+
+  it("puts the worktree and the branch back as they were when a merge is aborted", async () => {
+    const { path, branch, main } = await besideAMovedMain("export const other = 2;\n");
+    const before = gitIn(path, "rev-parse", "HEAD");
+    await git.merge(path, main, "Merge main", variables);
+
+    await git.abortMerge(path, variables);
+
+    expect(gitIn(path, "rev-parse", "HEAD")).toBe(before);
+    expect(gitIn(path, "status", "--porcelain")).toBe("");
+    expect(await readFile(indexPath(path), "utf8")).toBe("export const task = 1;\n");
+    await expect(git.mergeConflicts(path)).resolves.toEqual([]);
+    await expect(git.hasMergesSince(repository.path, main, `refs/heads/${branch}`)).resolves.toBe(
+      false,
+    );
+    await expect(git.abortMerge(path, variables)).resolves.toBeUndefined();
+  });
+});
+
 describe("CommandLineGit refs", REAL_GIT_TEST, () => {
   it("points a ref of The Office's own at a commit, finds it, and finds none for a missing one", async () => {
     const { branch, main } = await besideAMovedMain("export {};\n");

@@ -18,6 +18,7 @@ import { ProjectChecks } from "./application/project-checks.js";
 import { ProjectCommandRunner } from "./application/project-command-runner.js";
 import { ProjectService } from "./application/project-service.js";
 import { Publishing } from "./application/publishing.js";
+import { Resolving } from "./application/resolving.js";
 import { ScriptCommands } from "./application/script-commands.js";
 import { TaskWorktrees } from "./application/task-worktrees.js";
 import { Worktrees } from "./application/worktrees.js";
@@ -58,6 +59,7 @@ export class ProjectsModule {
         Worktrees,
         ScriptCommands,
         Publishing,
+        Resolving,
         TaskWorktrees,
         BaseCheckouts,
         ProjectWebEvents,

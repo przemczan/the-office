@@ -25,7 +25,7 @@ import type { PublishTarget } from "../domain/stage.js";
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
 import type { DecisionAnswer } from "../domain/walk-decisions.js";
 import { TaskCommands, type ScriptCommandKey } from "./task-commands.js";
-import type { Publication, PullRequestText } from "../domain/publish.js";
+import type { Publication, PullRequestText, ResolveEnd, ResolveStart } from "../domain/publish.js";
 import { TaskGit, type WorktreeHead } from "./task-git.js";
 import { TaskPublishing } from "./task-publishing.js";
 import { TaskRecords, type TaskRecord } from "./task-records.js";
@@ -508,14 +508,25 @@ export class TaskCommandsForTests extends TaskCommands {
   }
 }
 
+/** The commit Resolve's merge commit is, unless a test puts another. */
+export const RESOLVED_COMMIT = "5e1f0c4a9b2d8e7f6a5b4c3d2e1f0a9b8c7d6e5f";
+
 /**
- * Publishing in memory: each Publish opens a pull request, unless a test puts what the next
- * Publishes give.
+ * Publishing in memory: each Publish opens a pull request, and each Resolve's merge leaves
+ * `src/index.ts` conflicted and commits as RESOLVED_COMMIT, unless a test puts what the next give.
  */
 @Injectable()
 export class TaskPublishingForTests extends TaskPublishing {
   /** What the next Publishes give, in order. */
   readonly publications: Publication[] = [];
+  /** What the next Resolves' merges begin and end with, in order. */
+  readonly resolveStarts: ResolveStart[] = [];
+  readonly resolveEnds: ResolveEnd[] = [];
+  /** Every Resolve call, in order, with its Task. */
+  readonly resolveCalls: {
+    readonly call: "start" | "finish" | "abandon";
+    readonly taskId: string;
+  }[] = [];
   /** Every Publish, in order, with the pull request's words. */
   readonly published: {
     readonly taskId: string;
@@ -537,6 +548,29 @@ export class TaskPublishingForTests extends TaskPublishing {
         url: "https://github.com/notnullsoft/admin/pull/7",
       },
     );
+  }
+
+  startResolve(_projectId: string, taskId: string): Promise<ResolveStart> {
+    this.resolveCalls.push({ call: "start", taskId });
+    return Promise.resolve(
+      this.resolveStarts.shift() ?? {
+        kind: "conflicted",
+        base: { remote: "origin", branch: "main" },
+        conflictedFiles: ["src/index.ts"],
+      },
+    );
+  }
+
+  finishResolve(_projectId: string, taskId: string): Promise<ResolveEnd> {
+    this.resolveCalls.push({ call: "finish", taskId });
+    return Promise.resolve(
+      this.resolveEnds.shift() ?? { kind: "resolved", commit: RESOLVED_COMMIT },
+    );
+  }
+
+  abandonResolve(_projectId: string, taskId: string): Promise<void> {
+    this.resolveCalls.push({ call: "abandon", taskId });
+    return Promise.resolve();
   }
 }
 

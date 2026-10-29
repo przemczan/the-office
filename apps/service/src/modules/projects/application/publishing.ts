@@ -2,6 +2,7 @@ import { Injectable } from "@nestjs/common";
 import type { Project } from "../domain/project.js";
 import {
   baseMovedError,
+  type BaseTakenIn,
   noRemoteError,
   pushFailure,
   type Publication,
@@ -9,6 +10,7 @@ import {
   type PullRequestText,
   type RemoteBranch,
 } from "../domain/publication.js";
+import { mergeMessage } from "../domain/resolve.js";
 import { Git, GitCommandFailed, type GitVariables } from "../ports/git.js";
 import { PullRequestRefused, PullRequests } from "../ports/pull-requests.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
@@ -28,8 +30,8 @@ interface PublishContext {
  * base branch tracks, by the Project's publishing mode (spec §9) unless the Stage's target pushes
  * the branch only. Push + PR pushes the branch and opens a pull request; merge fast-forwards the
  * base branch on the remote to the branch, as the click-through's `git merge --ff-only` does,
- * rebasing the branch onto the fetched base first when the base moved on. A branch that would
- * conflict with the freshly fetched base asks the user in both. Each runs with the repository to
+ * taking in the fetched base first when it moved on. A branch that would conflict with the
+ * freshly fetched base goes to Resolve in both (`Resolving`). Each runs with the repository to
  * itself, so nothing moves a ref between the check and the push, and records where the published
  * branch forked from the base. Pushes run with the Project's variables, which hold no publishing
  * token; git's own credential helper signs them in. The user's checkout and local base branch are
@@ -111,32 +113,55 @@ export class Publishing {
   }
 
   /**
-   * Fast-forwards the remote's base to the Task's branch, rebasing the branch onto the fetched
-   * base first when the base moved on (the user's answer of 2026-10-26); a rebase that would
-   * conflict leaves the branch as it was.
+   * Fast-forwards the remote's base to the Task's branch, taking in the fetched base first when it
+   * moved on: by a rebase (the user's answer of 2026-10-26), or by a merge when Resolve merged the
+   * branch before, as a rebase drops merge commits and so the conflicts they resolved come back
+   * (spec §2.3, "Conflicts at Publish"). One that would conflict leaves the branch as it was.
    */
   private async merge(project: Project, context: PublishContext): Promise<Publication> {
-    const { branch, baseCommit } = context;
+    const { branch } = context;
     const ref = branchRef(branch);
-    const moved = !(await this.git.contains(project.path, ref, baseCommit));
-    if (moved) {
-      const conflictedFiles = await this.git.conflictsOf(project.path, baseCommit, ref);
-      if (conflictedFiles.length > 0) return conflicting(context, conflictedFiles);
-      const worktreePath = this.worktrees.pathOf(project, context.taskId);
-      const rebaseConflicts = await this.git
-        .rebase(worktreePath, baseCommit, context.variables)
-        .catch((error: unknown) => {
-          throw failure(
-            error,
-            (said) => `Rebasing ${branch} onto ${context.base.branch} failed. git said: ${said}`,
-          );
-        });
-      if (rebaseConflicts.length > 0) return conflicting(context, rebaseConflicts);
-    }
+    const baseTakenIn = await this.takeInBase(project, context);
+    if (typeof baseTakenIn !== "string") return baseTakenIn;
     await this.push(project, context, context.base);
     await this.recordPublished(project, context);
     const commit = await this.git.commitOf(project.path, ref);
-    return { kind: "merged", branch, into: context.base, commit, rebased: moved };
+    return { kind: "merged", branch, into: context.base, commit, baseTakenIn };
+  }
+
+  /** How the branch took in the fetched base, or the conflict that kept it from doing so. */
+  private async takeInBase(
+    project: Project,
+    context: PublishContext,
+  ): Promise<BaseTakenIn | Publication> {
+    const { branch, baseCommit, base, variables } = context;
+    const ref = branchRef(branch);
+    if (await this.git.contains(project.path, ref, baseCommit)) return "not-needed";
+    const conflictedFiles = await this.git.conflictsOf(project.path, baseCommit, ref);
+    if (conflictedFiles.length > 0) return conflicting(context, conflictedFiles);
+    const worktreePath = this.worktrees.pathOf(project, context.taskId);
+    if (await this.git.hasMergesSince(project.path, baseCommit, ref)) {
+      const merge = await this.git
+        .merge(worktreePath, baseCommit, mergeMessage(base, branch), variables)
+        .catch((error: unknown) => {
+          throw failure(
+            error,
+            (said) => `Merging ${base.branch} into ${branch} failed. git said: ${said}`,
+          );
+        });
+      if (merge.kind === "merged") return "by-merge";
+      await this.git.abortMerge(worktreePath, variables);
+      return conflicting(context, merge.conflictedFiles);
+    }
+    const rebaseConflicts = await this.git
+      .rebase(worktreePath, baseCommit, variables)
+      .catch((error: unknown) => {
+        throw failure(
+          error,
+          (said) => `Rebasing ${branch} onto ${base.branch} failed. git said: ${said}`,
+        );
+      });
+    return rebaseConflicts.length > 0 ? conflicting(context, rebaseConflicts) : "by-rebase";
   }
 
   /**
@@ -170,7 +195,7 @@ function failure(error: unknown, words: (said: string) => string): unknown {
   return error instanceof GitCommandFailed ? new PublishFailed(words(error.detail)) : error;
 }
 
-/** The branch would conflict with the base: the user decides, as no Agent can merge or rebase. */
+/** The branch would conflict with the base: Resolve takes it (spec §2.3, "Conflicts at Publish"). */
 function conflicting(
   { branch, base }: PublishContext,
   conflictedFiles: readonly string[],

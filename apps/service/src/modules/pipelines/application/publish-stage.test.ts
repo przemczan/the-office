@@ -178,7 +178,7 @@ describe("A Publish Stage", () => {
       branch: "office/task",
       into: { remote: "origin", branch: "main" },
       commit: rebased,
-      rebased: true,
+      baseTakenIn: "by-rebase",
     });
 
     const taskId = await walkStages(pipelines, [implement, publish]);

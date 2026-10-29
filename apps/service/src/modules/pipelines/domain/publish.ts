@@ -20,6 +20,32 @@ export interface RemoteBranch {
 }
 
 /**
+ * How Resolve's merge began (spec §2.3, "Conflicts at Publish"): the fetched base merged into the
+ * Task's branch with the conflicted files left in the worktree for the Agent; merged cleanly, as
+ * the base moved on past the conflict; or a failure, such as a fetch git refused.
+ */
+export type ResolveStart =
+  | {
+      readonly kind: "conflicted";
+      readonly base: RemoteBranch;
+      readonly conflictedFiles: readonly string[];
+    }
+  | { readonly kind: "merged"; readonly base: RemoteBranch; readonly commit: string }
+  | { readonly kind: "failed"; readonly error: string };
+
+/**
+ * How Resolve's merge ended: committed as one merge commit, or not, as files still hold conflict
+ * markers, or a failure, such as no merge in progress to commit.
+ */
+export type ResolveEnd =
+  | { readonly kind: "resolved"; readonly commit: string }
+  | { readonly kind: "markers-left"; readonly files: readonly string[] }
+  | { readonly kind: "failed"; readonly error: string };
+
+/** How Publish took in a base that had moved on since the branch left it, if it had. */
+export type BaseTakenIn = "not-needed" | "by-rebase" | "by-merge";
+
+/**
  * How a Publish ended (spec §2.3, §9): the Task's branch pushed with a pull request open, or
  * merged into the base branch on its remote; pushed as a branch only, for a proof of concept;
  * nothing to publish; the base moved on so the branch
@@ -33,8 +59,11 @@ export type Publication =
       readonly branch: string;
       readonly into: RemoteBranch;
       readonly commit: string;
-      /** Whether The Office rebased the branch onto the base first, as the base had moved on. */
-      readonly rebased: boolean;
+      /**
+       * How The Office took in a base that had moved on: rebasing the branch onto it, or merging
+       * it into a branch Resolve merged before, which a rebase would undo.
+       */
+      readonly baseTakenIn: BaseTakenIn;
     }
   | { readonly kind: "branch-pushed"; readonly branch: string; readonly remote: string }
   | { readonly kind: "nothing-to-publish"; readonly branch: string; readonly base: RemoteBranch }
@@ -86,6 +115,17 @@ export function pullRequestText(
   };
 }
 
+function mergedWords(branch: string, into: RemoteBranch, baseTakenIn: BaseTakenIn): string {
+  switch (baseTakenIn) {
+    case "not-needed":
+      return `Merged ${branch}`;
+    case "by-rebase":
+      return `Rebased ${branch} onto ${into.branch}, which had moved on, then merged it`;
+    case "by-merge":
+      return `Merged ${into.branch}, which had moved on, into ${branch}, then merged it`;
+  }
+}
+
 /** How the Publish Stage's run ended, from what Publish did. */
 export function publishOutcome(publication: Publication): StageOutcome {
   switch (publication.kind) {
@@ -95,13 +135,10 @@ export function publishOutcome(publication: Publication): StageOutcome {
         summary: `Pushed ${publication.branch} and opened the pull request ${publication.url}`,
       };
     case "merged": {
-      const { branch, into, commit, rebased } = publication;
-      const rebasing = rebased
-        ? `Rebased ${branch} onto ${into.branch}, which had moved on, then merged it`
-        : `Merged ${branch}`;
+      const { branch, into, commit, baseTakenIn } = publication;
       return {
         status: "done",
-        summary: `${rebasing} into ${into.branch} on ${into.remote}, which is now at ${commit.slice(0, SHORT_COMMIT_LENGTH)}.`,
+        summary: `${mergedWords(branch, into, baseTakenIn)} into ${into.branch} on ${into.remote}, which is now at ${commit.slice(0, SHORT_COMMIT_LENGTH)}.`,
       };
     }
     case "branch-pushed":

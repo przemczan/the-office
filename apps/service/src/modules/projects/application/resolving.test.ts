@@ -1,0 +1,202 @@
+import { readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
+import { CommandLineGit } from "../adapters/git/command-line-git.js";
+import { RepositoryLocks } from "../adapters/git/repository-locks.js";
+import {
+  commitOnOrigin,
+  createTemporaryRepository,
+  gitIn,
+  REAL_GIT_TEST,
+  type TemporaryRepository,
+} from "../adapters/git/temporary-repository.fixtures.js";
+import { ShellCommandRunner } from "../adapters/shell/shell-command-runner.js";
+import type { Project } from "../domain/project.js";
+import { aProject } from "../domain/project.fixtures.js";
+import { PullRequests, type PullRequest } from "../ports/pull-requests.js";
+import { ProjectCommandRunner } from "./project-command-runner.js";
+import { Publishing } from "./publishing.js";
+import { Resolving } from "./resolving.js";
+import { Worktrees } from "./worktrees.js";
+
+class NoPullRequests extends PullRequests {
+  open(): Promise<PullRequest> {
+    return Promise.reject(new Error("A merging Project opens no pull request."));
+  }
+}
+
+// Real git on a temporary repository whose main tracks its origin's, which is a bare repository.
+let repository: TemporaryRepository;
+let git: CommandLineGit;
+let worktrees: Worktrees;
+let resolving: Resolving;
+let publishing: Publishing;
+let taskCount = 0;
+const variables = Object.fromEntries(
+  Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined),
+);
+const ORIGIN = { remote: "origin", branch: "main" };
+const RESOLVED = "from the Task\nfrom the origin\n";
+
+beforeAll(async () => {
+  repository = await createTemporaryRepository();
+  gitIn(repository.path, "fetch", "--quiet", "origin");
+  gitIn(repository.path, "branch", "--quiet", "--set-upstream-to=origin/main", "main");
+  git = new CommandLineGit(new RepositoryLocks());
+  const commands = new ProjectCommandRunner(new ShellCommandRunner());
+  worktrees = new Worktrees(
+    git,
+    commands,
+    new OfficeDataDirectory(join(repository.folder, "office-data")),
+  );
+  resolving = new Resolving(git, commands, worktrees);
+  publishing = new Publishing(git, new NoPullRequests(), commands, worktrees);
+});
+
+afterAll(async () => {
+  await repository.remove();
+});
+
+function mergingProject(): Project {
+  return aProject({ path: repository.path, publishingMode: "merge" });
+}
+
+interface ConflictedTask {
+  readonly taskId: string;
+  readonly branch: string;
+  readonly worktreePath: string;
+  readonly commit: string;
+  readonly file: string;
+  readonly baseCommit: string;
+}
+
+/** A Task whose one commit adds `file`, which the origin's main then adds too, otherwise. */
+async function aTaskConflictingWithTheBase(): Promise<ConflictedTask> {
+  taskCount += 1;
+  const taskId = `task-${taskCount}`;
+  const file = `conflict-${taskCount}.txt`;
+  const worktree = await worktrees.open(mergingProject(), taskId);
+  await writeFile(join(worktree.path, file), "from the Task\n");
+  const commit = await git.commit(worktree.path, `Add ${file}`, variables);
+  if (!commit) throw new Error("The Task's commit committed nothing.");
+  const baseCommit = await commitOnOrigin(repository, "main", file);
+  return { taskId, branch: worktree.branch, worktreePath: worktree.path, commit, file, baseCommit };
+}
+
+function originMain(): string {
+  return gitIn(repository.originPath, "rev-parse", "refs/heads/main");
+}
+
+describe("Resolving", REAL_GIT_TEST, () => {
+  it("merges the base in, leaving the conflicted file, and commits it once resolved, which Publish then fast-forwards the base to", async () => {
+    const task = await aTaskConflictingWithTheBase();
+
+    await expect(resolving.start(mergingProject(), task.taskId)).resolves.toEqual({
+      kind: "conflicted",
+      base: ORIGIN,
+      conflictedFiles: [task.file],
+    });
+    const conflicted = await readFile(join(task.worktreePath, task.file), "utf8");
+    expect(conflicted).toContain("<<<<<<< ");
+    await expect(resolving.finish(mergingProject(), task.taskId)).resolves.toEqual({
+      kind: "markers-left",
+      files: [task.file],
+    });
+
+    await writeFile(join(task.worktreePath, task.file), RESOLVED);
+    const end = await resolving.finish(mergingProject(), task.taskId);
+
+    const head = gitIn(task.worktreePath, "rev-parse", "HEAD");
+    expect(end).toEqual({ kind: "resolved", commit: head });
+    expect(gitIn(task.worktreePath, "rev-list", "--parents", "--max-count=1", "HEAD")).toBe(
+      `${head} ${task.commit} ${task.baseCommit}`,
+    );
+    expect(gitIn(task.worktreePath, "log", "--format=%s", "--max-count=1")).toBe(
+      `Merge main from origin into ${task.branch}`,
+    );
+    await expect(
+      publishing.publish(mergingProject(), task.taskId, { title: "", body: "" }, "publishing-mode"),
+    ).resolves.toEqual({
+      kind: "merged",
+      branch: task.branch,
+      into: ORIGIN,
+      commit: head,
+      baseTakenIn: "not-needed",
+    });
+    expect(originMain()).toBe(head);
+  });
+
+  it("takes a merge already in progress as it is", async () => {
+    const task = await aTaskConflictingWithTheBase();
+    await resolving.start(mergingProject(), task.taskId);
+    await writeFile(join(task.worktreePath, task.file), RESOLVED);
+
+    await expect(resolving.start(mergingProject(), task.taskId)).resolves.toEqual({
+      kind: "conflicted",
+      base: ORIGIN,
+      conflictedFiles: [task.file],
+    });
+
+    expect(await readFile(join(task.worktreePath, task.file), "utf8")).toBe(RESOLVED);
+    expect(gitIn(task.worktreePath, "rev-parse", "HEAD")).toBe(task.commit);
+    await resolving.abandon(mergingProject(), task.taskId);
+  });
+
+  it("gives the worktree and the branch back as they were when abandoned", async () => {
+    const task = await aTaskConflictingWithTheBase();
+    await resolving.start(mergingProject(), task.taskId);
+
+    await resolving.abandon(mergingProject(), task.taskId);
+
+    expect(gitIn(task.worktreePath, "rev-parse", "HEAD")).toBe(task.commit);
+    expect(gitIn(task.worktreePath, "status", "--porcelain")).toBe("");
+    expect(await readFile(join(task.worktreePath, task.file), "utf8")).toBe("from the Task\n");
+    await expect(resolving.finish(mergingProject(), task.taskId)).resolves.toMatchObject({
+      kind: "failed",
+    });
+  });
+
+  it("merges a base that moved past the conflict cleanly, with nothing left for the Agent", async () => {
+    const task = await aTaskConflictingWithTheBase();
+    gitIn(repository.path, "fetch", "--quiet", "origin");
+    gitIn(task.worktreePath, "merge", "--quiet", "--no-edit", "-X", "ours", "origin/main");
+    const moved = await commitOnOrigin(repository, "main", `beside-${task.taskId}.txt`);
+
+    const start = await resolving.start(mergingProject(), task.taskId);
+
+    const head = gitIn(task.worktreePath, "rev-parse", "HEAD");
+    expect(start).toEqual({ kind: "merged", base: ORIGIN, commit: head });
+    expect(gitIn(task.worktreePath, "rev-parse", "HEAD^2")).toBe(moved);
+  });
+
+  it("merges a base that moved on again after Resolve rather than rebasing, keeping the resolution", async () => {
+    const task = await aTaskConflictingWithTheBase();
+    await resolving.start(mergingProject(), task.taskId);
+    await writeFile(join(task.worktreePath, task.file), RESOLVED);
+    const end = await resolving.finish(mergingProject(), task.taskId);
+    if (end.kind !== "resolved") throw new Error("Resolve's merge wasn't committed.");
+    const moved = await commitOnOrigin(repository, "main", `beside-${task.taskId}.txt`);
+
+    const publication = await publishing.publish(
+      mergingProject(),
+      task.taskId,
+      { title: "", body: "" },
+      "publishing-mode",
+    );
+
+    const head = gitIn(task.worktreePath, "rev-parse", "HEAD");
+    expect(publication).toEqual({
+      kind: "merged",
+      branch: task.branch,
+      into: ORIGIN,
+      commit: head,
+      baseTakenIn: "by-merge",
+    });
+    expect(gitIn(task.worktreePath, "rev-list", "--parents", "--max-count=1", "HEAD")).toBe(
+      `${head} ${end.commit} ${moved}`,
+    );
+    expect(originMain()).toBe(head);
+    expect(await readFile(join(task.worktreePath, task.file), "utf8")).toBe(RESOLVED);
+  });
+});

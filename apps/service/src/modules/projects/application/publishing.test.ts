@@ -248,7 +248,7 @@ describe("Publishing in merge mode", GIT_TIMEOUT, () => {
       branch: task.branch,
       into: { remote: "origin", branch: "main" },
       commit: task.commit,
-      rebased: false,
+      baseTakenIn: "not-needed",
     });
     expect(originCommitOf("main")).toBe(task.commit);
     expect(gitIn(repository.path, "rev-parse", "refs/remotes/origin/main")).toBe(task.commit);
@@ -287,7 +287,7 @@ describe("Publishing in merge mode", GIT_TIMEOUT, () => {
       branch: task.branch,
       into: { remote: "origin", branch: "main" },
       commit: rebased,
-      rebased: true,
+      baseTakenIn: "by-rebase",
     });
     expect(rebased).not.toBe(task.commit);
     expect(gitIn(repository.path, "rev-parse", `${rebased}^`)).toBe(moved);

@@ -54,6 +54,20 @@ export interface BranchChanges {
 
 export const NO_BRANCH_CHANGES: BranchChanges = { files: [], diff: "", diffCut: false };
 
+/** How a merge into a worktree's branch began: committed, or left in progress on its conflicts. */
+export type MergeStart =
+  | { readonly kind: "merged"; readonly commit: string }
+  | { readonly kind: "conflicted"; readonly conflictedFiles: readonly string[] };
+
+/**
+ * How concluding a merge in progress ended: committed; not, as files still hold markers; or not,
+ * as no merge was in progress.
+ */
+export type MergeConclusion =
+  | { readonly kind: "committed"; readonly commit: string }
+  | { readonly kind: "markers-left"; readonly files: readonly string[] }
+  | { readonly kind: "not-merging" };
+
 /**
  * The variables git runs with on a Project: its command environment, since git runs the
  * Project's tooling, its hooks (Git LFS's pre-push among them) and filters.
@@ -128,6 +142,37 @@ export abstract class Git {
     onto: string,
     variables: GitVariables,
   ): Promise<readonly string[]>;
+
+  /**
+   * Merges `revision` into the branch the worktree has checked out, without the repository's hooks,
+   * and commits the merge in `message` when it merges cleanly. A merge that conflicts stays in
+   * progress with the conflicted files as git leaves them, until concludeMerge or abortMerge.
+   */
+  abstract merge(
+    worktreePath: string,
+    revision: string,
+    message: string,
+    variables: GitVariables,
+  ): Promise<MergeStart>;
+
+  /** The files the worktree's merge in progress conflicted in, none when no merge is in progress. */
+  abstract mergeConflicts(worktreePath: string): Promise<readonly string[]>;
+
+  /**
+   * Commits the worktree's merge in progress with every change in the worktree, without the
+   * repository's hooks, unless a file it conflicted in still holds a conflict marker.
+   */
+  abstract concludeMerge(
+    worktreePath: string,
+    message: string,
+    variables: GitVariables,
+  ): Promise<MergeConclusion>;
+
+  /** Puts the worktree and its branch back as they were before the merge in progress, if any. */
+  abstract abortMerge(worktreePath: string, variables: GitVariables): Promise<void>;
+
+  /** Whether `revision` holds a merge commit that `base` doesn't. */
+  abstract hasMergesSince(repositoryPath: string, base: string, revision: string): Promise<boolean>;
 
   /** Whether `ancestor` is `revision` or one of the commits it was made on. */
   abstract contains(repositoryPath: string, revision: string, ancestor: string): Promise<boolean>;

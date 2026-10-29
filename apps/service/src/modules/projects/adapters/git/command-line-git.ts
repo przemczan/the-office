@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { realpath, rm, stat } from "node:fs/promises";
+import { readFile, realpath, rm, stat } from "node:fs/promises";
 import { normalize, resolve } from "node:path";
 import { Injectable } from "@nestjs/common";
 import {
@@ -10,6 +10,8 @@ import {
   type FolderInspection,
   type GitVariables,
   type Head,
+  type MergeConclusion,
+  type MergeStart,
   type NewWorktree,
   type Upstream,
   type WorktreeCheckout,
@@ -249,6 +251,79 @@ export class CommandLineGit extends Git {
     });
   }
 
+  async merge(
+    worktreePath: string,
+    revision: string,
+    message: string,
+    variables: GitVariables,
+  ): Promise<MergeStart> {
+    // A merge commit moves the branch's ref, which lives with the refs every worktree shares.
+    return this.locked(worktreePath, async () => {
+      // The same merge whatever the user's git config says: a merge commit of The Office's own
+      // words, no stash, no hooks and no resolutions git recorded earlier.
+      const gitArguments = [
+        "merge",
+        "--quiet",
+        "--no-commit",
+        "--no-ff",
+        "--no-verify",
+        "--no-autostash",
+        "--no-rerere-autoupdate",
+        revision,
+      ];
+      const result = await runGit({ folder: worktreePath, gitArguments, variables });
+      if (result.exitCode === 0) {
+        if (await isMerging(worktreePath)) await commitStaged(worktreePath, message, variables);
+        return { kind: "merged", commit: await commitOf(worktreePath, "HEAD") };
+      }
+      const conflictedFiles = await unmergedFiles(worktreePath);
+      if (conflictedFiles.length > 0) return { kind: "conflicted", conflictedFiles };
+      // Failed before merging anything, such as on a change a merge would overwrite.
+      if (await isMerging(worktreePath)) {
+        await runGit({ folder: worktreePath, gitArguments: ["merge", "--abort"], variables });
+      }
+      throw new GitCommandFailed(
+        gitArguments,
+        result.exitCode,
+        `${result.stderr}\n${result.stdout}`.trim(),
+      );
+    });
+  }
+
+  async mergeConflicts(worktreePath: string): Promise<readonly string[]> {
+    return unmergedFiles(worktreePath);
+  }
+
+  async concludeMerge(
+    worktreePath: string,
+    message: string,
+    variables: GitVariables,
+  ): Promise<MergeConclusion> {
+    return this.locked(worktreePath, async () => {
+      if (!(await isMerging(worktreePath))) return { kind: "not-merging" };
+      const files = await filesWithConflictMarkers(worktreePath, await unmergedFiles(worktreePath));
+      if (files.length > 0) return { kind: "markers-left", files };
+      await git({ folder: worktreePath, gitArguments: ["add", "--all"], variables });
+      await commitStaged(worktreePath, message, variables);
+      return { kind: "committed", commit: await commitOf(worktreePath, "HEAD") };
+    });
+  }
+
+  async abortMerge(worktreePath: string, variables: GitVariables): Promise<void> {
+    await this.locked(worktreePath, async () => {
+      if (!(await isMerging(worktreePath))) return;
+      await git({ folder: worktreePath, gitArguments: ["merge", "--abort"], variables });
+    });
+  }
+
+  async hasMergesSince(repositoryPath: string, base: string, revision: string): Promise<boolean> {
+    const output = await git({
+      folder: repositoryPath,
+      gitArguments: ["rev-list", "--merges", "--max-count=1", revision, `^${base}`],
+    });
+    return output.trim() !== "";
+  }
+
   async addWorktree(
     repositoryPath: string,
     worktree: NewWorktree,
@@ -324,15 +399,7 @@ export class CommandLineGit extends Git {
         variables,
       });
       if (staged.exitCode === 0) return undefined;
-      // The message goes through standard input, so its length and characters never meet the
-      // command line's limits. --no-verify: the Project's commit hooks are its own tooling,
-      // which The Office runs as Stages.
-      await git({
-        folder: worktreePath,
-        gitArguments: ["commit", "--quiet", "--no-verify", "--file", "-"],
-        variables,
-        input: message,
-      });
+      await commitStaged(worktreePath, message, variables);
       return commitOf(worktreePath, "HEAD");
     });
   }
@@ -466,6 +533,71 @@ export class CommandLineGit extends Git {
   private async locked<Result>(folder: string, work: () => Promise<Result>): Promise<Result> {
     return this.locks.run(await commonDirectory(folder), work);
   }
+}
+
+/**
+ * Commits what is staged, a merge in progress included. The message goes through standard input,
+ * so its length and characters never meet the command line's limits. --no-verify: the Project's
+ * commit hooks are its own tooling, which The Office runs as Stages.
+ */
+async function commitStaged(
+  worktreePath: string,
+  message: string,
+  variables: GitVariables,
+): Promise<void> {
+  await git({
+    folder: worktreePath,
+    gitArguments: ["commit", "--quiet", "--no-verify", "--file", "-"],
+    variables,
+    input: message,
+  });
+}
+
+/** Whether the worktree has a merge in progress. */
+async function isMerging(worktreePath: string): Promise<boolean> {
+  const result = await runGit({
+    folder: worktreePath,
+    gitArguments: ["rev-parse", "--verify", "--quiet", "MERGE_HEAD^{commit}"],
+  });
+  return result.exitCode === 0;
+}
+
+/** The files git's records hold as conflicted, which stay so until they are staged. */
+async function unmergedFiles(worktreePath: string): Promise<readonly string[]> {
+  const output = await git({
+    folder: worktreePath,
+    gitArguments: ["diff", "--name-only", "--diff-filter=U", "-z"],
+  });
+  return nulSeparated(output);
+}
+
+/**
+ * A line git writes around a conflict: the start of ours, the base's part of a three-way one, the
+ * end of theirs. Its `=======` in between is left out, as a Markdown heading may underline so.
+ */
+const CONFLICT_MARKER = /^(?:<{7}|\|{7}|>{7})(?: |\r?$)/m;
+
+/** Which of `files` still hold a conflict marker; a file deleted to resolve it holds none. */
+async function filesWithConflictMarkers(
+  worktreePath: string,
+  files: readonly string[],
+): Promise<readonly string[]> {
+  const marked = await Promise.all(
+    files.map(async (file) => {
+      const content = await readFile(resolve(worktreePath, file), "utf8").catch(
+        (error: unknown) => {
+          if (isMissing(error)) return "";
+          throw error;
+        },
+      );
+      return CONFLICT_MARKER.test(content);
+    }),
+  );
+  return files.filter((_file, index) => marked[index]);
+}
+
+function isMissing(error: unknown): boolean {
+  return error instanceof Error && "code" in error && error.code === "ENOENT";
 }
 
 /** The options and the revision `git worktree add` takes for a checkout. */

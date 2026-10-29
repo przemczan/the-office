@@ -17,11 +17,14 @@ export interface RemoteBranch {
   readonly branch: string;
 }
 
+/** How Publish took in a base that had moved on since the branch left it, if it had. */
+export type BaseTakenIn = "not-needed" | "by-rebase" | "by-merge";
+
 /**
  * How a Publish ended, by the Project's publishing mode (spec §9) or the Stage's target (spec §2.3):
  * the Task's branch pushed with a pull request open, merged into the base branch on its remote, or
  * pushed as a branch only; nothing to publish; the base
- * moved on so the branch would conflict with it, which the user decides about; or a failure,
+ * moved on so the branch would conflict with it, which Resolve takes; or a failure,
  * such as a refused push, in words for the Agent who repairs it or the user.
  */
 export type Publication =
@@ -31,8 +34,11 @@ export type Publication =
       readonly branch: string;
       readonly into: RemoteBranch;
       readonly commit: string;
-      /** Whether The Office rebased the branch onto the base first, as the base had moved on. */
-      readonly rebased: boolean;
+      /**
+       * How The Office took in a base that had moved on: rebasing the branch onto it, or merging
+       * it into a branch Resolve merged before, which a rebase would undo.
+       */
+      readonly baseTakenIn: BaseTakenIn;
     }
   | { readonly kind: "branch-pushed"; readonly branch: string; readonly remote: string }
   | { readonly kind: "nothing-to-publish"; readonly branch: string; readonly base: RemoteBranch }

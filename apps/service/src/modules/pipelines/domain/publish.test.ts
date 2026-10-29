@@ -141,7 +141,7 @@ describe("publishOutcome", () => {
         branch: "office/task-1",
         into: { remote: "origin", branch: "main" },
         commit: "0123456789abcdef0123456789abcdef01234567",
-        rebased: false,
+        baseTakenIn: "not-needed",
       }),
     ).toEqual({
       status: "done",
@@ -156,12 +156,28 @@ describe("publishOutcome", () => {
         branch: "office/task-1",
         into: { remote: "origin", branch: "main" },
         commit: "0123456789abcdef0123456789abcdef01234567",
-        rebased: true,
+        baseTakenIn: "by-rebase",
       }),
     ).toEqual({
       status: "done",
       summary:
         "Rebased office/task-1 onto main, which had moved on, then merged it into main on origin, which is now at 01234567.",
+    });
+  });
+
+  it("says it merged the base in first when Resolve had merged the branch before", () => {
+    expect(
+      publishOutcome({
+        kind: "merged",
+        branch: "office/task-1",
+        into: { remote: "origin", branch: "main" },
+        commit: "0123456789abcdef0123456789abcdef01234567",
+        baseTakenIn: "by-merge",
+      }),
+    ).toEqual({
+      status: "done",
+      summary:
+        "Merged main, which had moved on, into office/task-1, then merged it into main on origin, which is now at 01234567.",
     });
   });
 

@@ -127,7 +127,7 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 - `pipeline-library-refusals.ts`: PipelineRemovalRefused, UnknownPipeline
 - `pipeline-walk.ts`: WalkQuestion, NextMove, nextMove, unmetStatements
 - `pipeline.ts`: Pipeline, StageProblem, stageProblems, problemOnStage
-- `publish.ts`: PullRequestText, RemoteBranch, Publication, PublishedTask, pullRequestText, publishOutcome
+- `publish.ts`: PullRequestText, RemoteBranch, ResolveStart, ResolveEnd, BaseTakenIn, Publication, PublishedTask, pullRequestText, publishOutcome
 - `script-stage-outcome.ts`: scriptStageOutcome, installFailure
 - `staffing-decision.ts`: STAFFING_OPTIONS, staffingDecision
 - `stage-budget.ts`: stageBudget, budgetReached, budgetOutcome, tokensWords
@@ -154,7 +154,7 @@ PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateD
 
 - `known-people.ts`: HardSwitchOnCard, KnownPerson, KnownPeople
 - `pipeline-repository.ts`: PipelineRepository
-- `pipelines-ports.fixtures.ts`: ProjectDefaultsForTests, StartedTasksForTests, aTaskRecord, TaskRecordsForTests, aPerson, KnownPeopleForTests, StageThreadsForTests, StageDecisionsForTests, TaskUsageForTests, TaskThreadSessionsForTests, TaskScreenshotsForTests, PLANNED_COMMIT, TaskGitForTests, aCommandRun, TaskCommandsForTests, TaskPublishingForTests, ProposalDraftsForTests, PipelinesPortsForTestsModule
+- `pipelines-ports.fixtures.ts`: ProjectDefaultsForTests, StartedTasksForTests, aTaskRecord, TaskRecordsForTests, aPerson, KnownPeopleForTests, StageThreadsForTests, StageDecisionsForTests, TaskUsageForTests, TaskThreadSessionsForTests, TaskScreenshotsForTests, PLANNED_COMMIT, TaskGitForTests, aCommandRun, TaskCommandsForTests, RESOLVED_COMMIT, TaskPublishingForTests, ProposalDraftsForTests, PipelinesPortsForTestsModule
 - `project-defaults.ts`: ProjectDefault, ProjectDefaults
 - `proposal-drafts.ts`: ProposedPipelineChange, ProposalDrafts
 - `staffing-hold-repository.ts`: StaffingHoldRepository
