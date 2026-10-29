@@ -1,6 +1,6 @@
 # 25 · Skills from a source, and update Proposals
 
-Status: in progress
+Status: done
 
 ## Goal
 
@@ -8,12 +8,12 @@ With Devops hired, the user asks Devops to install a skill from a source (`owner
 
 ## Definition of Done
 
-- [ ] Installing from a source: Devops' tools list a source's skills and draft an install Proposal for one; its card shows the source, the skill, its pinned version and its files; applying it fetches the skill at that version into the library, source `installed`, off until reviewed; a name already in the library, a source that can't be fetched or files the library refuses are refused with a reason. Check: a service test against a local bare git repository (tags, and none) through the scripted engine.
-- [ ] Install on the web: Add a skill › "Install from a source" with "Ask Nina to install it" opening her chat with the source drafted; with no Devops hired, the tab says installing needs someone with the Devops Role; the library row and Review show the source and pinned version. Check: Playwright.
+- [x] Installing from a source: Devops' tools list a source's skills and draft an install Proposal for one; its card shows the source, the skill, its pinned version and its files; applying it fetches the skill at that version into the library, source `installed`, off until reviewed; a name already in the library, a source that can't be fetched or files the library refuses are refused with a reason. Check: a service test against a local bare git repository (tags, and none) through the scripted engine.
+- [x] Install on the web: Add a skill › "Install from a source" with "Ask Nina to install it" opening her chat with the source drafted; with no Devops hired, the tab says installing needs someone with the Devops Role; the library row and Review show the source and pinned version. Check: Playwright.
 - [x] Updates found: a daily check (`git ls-remote`, no engine) marks an installed skill whose source has a newer pinned version "Update available", and clears it once applied. Check: a service test against a local bare repository with a fixed clock.
 - [x] Update Proposals: Devops drafts one with notes; its card and the row's "Review the update" show the version from and to and the files' diff; applying it saves the next version and leaves the skill on or off as it was; a stale one (pinned version moved) is refused. Check: a service test through the scripted engine; Playwright applying one.
 - [x] A skill drafted as a Proposal: someone in a chat drafts a written skill (name, description, instructions); applying it adds it off, reviewed as any new skill. Check: a service test through the scripted engine; Playwright applying one.
-- [ ] `npm run verify` and `npm run verify:linux` pass; with the user's go-ahead, one skill is installed from a real public source; the user has looked at installing, updating and a drafted skill in the running app. Check: the commands; the user's word, logged.
+- [x] `npm run verify` and `npm run verify:linux` pass. Check: the commands. The live install of one skill from github.com/anthropics/skills and the user's look at installing, updating and a drafted skill in the running app moved to task 30, the tier 2 acceptance run (the user's word, 2026-10-29).
 
 ## Read first
 
@@ -39,7 +39,7 @@ Leave out: "Uses this week" (skill usage counts are tier 3); installing several 
   Read: click-through `settings.js` (`skillRow`, `skillsSection`, `skill-update`); `skills-section.tsx`, `review-skill-dialog.tsx`.
 - [x] 7. A skill drafted as a Proposal: the `skill` kind (a written skill), `propose_skill` for everyone in a chat, the applier adding it off through `SkillLibrary.write`, its card; the Write tab's "Or ask someone to draft it as a Proposal"; service test and Playwright. Commit.
   Read: `chatOfficeTools`; `SkillLibrary.write`; step 2's tool and card.
-- [ ] 8. With the user's go-ahead (it reaches a real public source), install one skill from it on the running app; the user looks at installing, updating and a drafted skill; `npm run verify:linux`; close the task. Commit.
+- [x] 8. `npm run verify` and `npm run verify:linux`; close the task. Commit. The live install from a real public source and the user's look at installing, updating and a drafted skill moved to task 30 (the user's word, 2026-10-29).
   Read: [testing](../../apps/service/docs/testing.md) for the live check.
 
 Batches for implementing subagents: A = steps 1–3 (install), B = steps 4–6 (updates), C = step 7 with step 8's checks prepared; step 8's live install and the user's look stay with the orchestrator.
@@ -52,7 +52,7 @@ Batches for implementing subagents: A = steps 1–3 (install), B = steps 4–6 (
 - Built (step 6, the web): `GET /proposals/open` (`ProposalService.listOpen`, web `proposalQueries.open`); the row's "→ version" and "Review the update", the banner's updates, update-first order (`skill-labels.ts` `offersUpdate`, `updateLabel`, `waitingLine`); `update-skill-dialog.tsx` (Ask Nina with "Can you propose the update of <name> to <version>?", or the open Proposal's notes, diff and "Apply the update"); the card's diff (`shell/skill-update-diff.tsx`); `diffLines` moved to `shell/unified-diff.ts` with `shell/unified-diff-view.tsx`, shared with the Task's Changes tab. Playwright: `people.e2e.ts` "the user sees a skill's update…"; `e2e/skill-source.ts` `release`.
 - Decided (steps 4–6): an update is another commit with a newer tag, or any other commit when pinned untagged (`isUpdateOf`); a deleted or moved tag is none; an unreadable Source is logged and keeps what was noted; Devops reads the diff before proposing; the diff is git's between the two pinned versions; drafting proposes the Source's pinned version now; the banner says "update available" (found), not "proposed" as the click-through does, since the check finds them before Devops proposes; "Review the update" offers only an open Proposal from the skill's pinned version, else Ask Nina.
 - Built (step 7, a drafted skill): Conversations' `skill` Proposal (`ProposedSkill`), `application/skill-proposals.ts` `SkillProposals` (judged by Skills' `SkillLibrary.writeProblems`, applied by `write`, so it arrives off), `propose_skill` in `SkillOfficeTools` and in `CHAT_OFFICE_TOOLS` (everyone's chat, the Office Manager's too); web: the `skill` card ("New skill · name", description, clamped instructions), the Write tab's "Or ask someone to draft it as a Proposal from their chat." Tests: `devops-proposals.test.ts` "A skill drafted as a Proposal in a chat" (Nina's chat stands in for anyone's); Playwright `people.e2e.ts` "the user applies a skill Jan drafted…".
-- Next: step 8, with the user's go-ahead only: install one skill from a real public source on the running app; the user looks at installing, updating and a drafted skill; `npm run verify:linux`; close the task. DoD boxes 1 and 2 are still unticked though steps 1–3 built them: confirm their checks and tick them at the close.
+- Done (step 8, 2026-10-29): `npm run verify` and `npm run verify:linux` pass; DoD boxes 1 and 2 confirmed by `skill-library.test.ts`, `devops-proposals.test.ts` and `people.e2e.ts`. Decided with the user: the live install of one skill from github.com/anthropics/skills and their look at installing, updating and a drafted skill in the running app move to task 30 (noted under the README's tier 2 table).
 - Decided with the user (2026-10-29, from step 8's live check, where 19 of anthropics/skills' 20 folders were refused): a skill's description may be up to the engine's 1,536 characters and several lines, for every source (`skill.ts` `DESCRIPTION_LENGTH`); Review flags one over 500 (`LONG_DESCRIPTION_LENGTH`, `longDescriptionWarning`); the Write tab's Description is a textarea, the row, the Role card's skill picker and the Proposal cards clamp it, Review shows it whole with its lines; a session gets SKILL.md unchanged, so the engine lists it as it reads it. All 20 folders of a local anthropics/skills clone now pass the install checks.
 - Decided with the user (2026-10-28): applying an update is its review (the skill stays on or off); updates found daily with `git ls-remote` and only flagged, Devops drafts the Proposal when asked; a stale update Proposal is refused; the pinned version is the newest tag, or the newest commit with no tags; a skill drafted as a Proposal is in this task.
 - Decided before: one Proposal per skill; installing needs the Devops Role; fetching is The Office's own `git`; fetched files pass the upload rules; written and uploaded skills get no updates; appliers and tools live in Conversations calling Skills, so Skills talks to no module.
@@ -60,14 +60,4 @@ Batches for implementing subagents: A = steps 1–3 (install), B = steps 4–6 (
 
 ## Progress
 
-- 2026-10-28 · step 0: task file written with the user's answers on update review, finding updates, the pinned version and drafted skills; spec 2.6 Defaults, glossary and coverage updated; step 1 is next.
-- 2026-10-28 · step 1: an installed skill's Source and pinned version (migration 0047), the `SourceFetcher` port with its git adapter, `SkillLibrary.install`; tests on local bare repositories; step 2 is next.
-- 2026-10-28 · step 2: the `skill-install` Proposal, Devops' `list_source_skills` and `propose_skill_install`, its applier in Conversations calling Skills' `SkillSources` and `SkillLibrary.install`, and its card; step 3 is next.
-- 2026-10-28 · step 3: Add a skill's "Install from a source" (Ask Nina, or needs the Devops Role), the source and pinned version in the row and Review, Playwright on a local bare repository; the no-tags and refused-files cases through the scripted engine; step 4 is next.
-- 2026-10-28 · step 4: the platform's `Schedule` (timer, manual in tests, a short day in e2e) and Skills' daily update check marking `Skill.update` (migration 0048, `skill.update-found`/`-gone`); step 5 is next.
-- 2026-10-28 · step 5: the `skill-update` Proposal (Devops' `read_skill_update` and `propose_skill_update`), `SkillUpdates.apply` keeping the state and refusing stale ones, `GET /skills/:name/update-diff` from git; a minimal card; step 6 is next.
-- 2026-10-28 · step 6: the row's "→ version", the banner's updates, "Review the update" (Ask Nina, or the open Proposal with its diff and Apply), the card's diff, `GET /proposals/open`, a shared unified-diff view; Playwright applies one; step 7 is next.
-- 2026-10-28 · step 6 fix: "Review the update" offers only an open update Proposal from the skill's pinned version, so a stale one never hides Ask Nina; step 7 is next.
-- 2026-10-28 · step 7: the `skill` Proposal, a written skill anyone drafts in their chat with `propose_skill`, applied through `SkillLibrary.write` (off until reviewed); its card and the Write tab's line; service test and Playwright; step 8 is next.
-- 2026-10-29 · step 7 fix: tests no longer fail through other files: Devops' chats in `devops-proposals.test.ts` refresh no Project bases and its onboarding refusal checks only its own Project; real-git Projects tests share a 30 s budget; a skill event test reads one clock; step 8 is next.
-- 2026-10-29 · step 8 fix: a skill's description may run to the engine's 1,536 characters over several lines (the user's answer), Review flags one over 500; all 20 anthropics/skills folders pass the install checks; step 8 is next.
+The log is archived in [archive/25-skills-from-a-source.md](archive/25-skills-from-a-source.md).
