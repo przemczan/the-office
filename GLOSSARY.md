@@ -54,6 +54,14 @@ _Avoid_: Backlog (a Task state), waiting list, pending
 Two Tasks in one Project whose Plans expect to change some of the same files; Start warns of it before a Task joins one in progress.
 _Avoid_: Conflict (git's, found at Publish), collision, clash
 
+**Files to change**:
+The files and folders a Plan expects to change, written by the Planner with the Plan and confirmed with it; a folder covers the files under it. Start weighs an Overlap on them.
+_Avoid_: Touch set, affected files, scope
+
+**Resolve**:
+The Stage The Office adds before Publish when the Task's branch conflicts with the base: The Office merges the base in, the Task's person edits the conflicted files, then the Project's Test and a Gate run before Publish again.
+_Avoid_: Rebase, merge fix, conflict Stage
+
 **Attachment**:
 Anything attached to an Idea, an Initiative or a Task by the user or an Agent, such as a document, a screenshot, a file or a link; it can be a Task's result.
 _Avoid_: Artifact, asset, output

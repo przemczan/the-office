@@ -1,8 +1,12 @@
+import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 import {
+  pipelineSchema,
+  projectSchema,
   queueSchema,
   startAnswerSchema,
   startCheckSchema,
@@ -10,13 +14,26 @@ import {
   taskSchema,
   workRefusalSchema,
   type NewTask,
+  type Pipeline,
   type StartCheck,
   type Task,
 } from "@the-office/contracts";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { startTestApplication } from "../../../../../test/test-application.js";
+import { testDatabaseUrl } from "../../../../../test/test-database.js";
+import { AppModule } from "../../../../app.module.js";
+import {
+  EngineModule,
+  ScriptedEngine,
+  ScriptedEngineModule,
+  type SessionScript,
+} from "../../../engine/index.js";
+import { MemoryService, RoleCards, type SessionRole } from "../../../people/index.js";
 import { PlanningService } from "../../application/planning-service.js";
+import { QueueService } from "../../application/queue-service.js";
 import { TaskService } from "../../application/task-service.js";
-import { PLANNING_OPENING } from "../../domain/planning.js";
+import { PLANNER, PLANNING_OPENING } from "../../domain/planning.js";
+import { changeStartedTaskState } from "../../domain/task-changes.js";
 import {
   KnownPeopleForTests,
   ProjectWorktreesForTests,
@@ -25,6 +42,7 @@ import {
   UNKNOWN_PROJECT,
   WorkSettingsForTests,
 } from "../../ports/work-ports.fixtures.js";
+import { TaskRepository } from "../../ports/task-repository.js";
 import { WorkSettings } from "../../ports/work-settings.js";
 import {
   sendJson,
@@ -32,6 +50,8 @@ import {
   webEventsOf,
   type WorkApplication,
 } from "../../work-application.fixtures.js";
+
+const run = promisify(execFile);
 
 let officeData: string;
 let work: WorkApplication;
@@ -810,4 +830,271 @@ describe("The queue", () => {
       refusals: [reason],
     });
   });
+
+  it("is kept across a restart and released as the service starts, when a desk freed meanwhile", async () => {
+    const first = await deskTaken();
+    const second = await ownReadyTask();
+    await requestStart(second.id);
+    // The started Task ended as the service stopped, before its release could run.
+    await work.app
+      .get(TaskRepository)
+      .update(first.id, (task) => changeStartedTaskState(task, "done"));
+    await work.app.close();
+
+    work = await startWorkApplication(officeData, [
+      { provide: WorkSettings, useValue: new WorkSettingsForTests() },
+    ]);
+    expect(await ownQueue()).toEqual([second.id]);
+    // What the service runs once every module has started (office.ts).
+    await work.app.get(QueueService).release();
+
+    expect((await readTask(second.id)).state).toBe("in-progress");
+    expect(await ownQueue()).toEqual([]);
+  });
+
+  it(
+    "starts a queued Task by itself once the running one's walk ends Done, through the scripted engine",
+    async () => {
+      const office = await startOffice();
+      try {
+        const pipeline = await office.aPipeline();
+        const first = await office.readyTask(pipeline.id);
+        const second = await office.readyTask(pipeline.id);
+        office.engine.queue(DEVELOPER_SESSION, DEVELOPER_SESSION);
+
+        await office.send("POST", `/tasks/${first.id}/start`);
+        await office.untilState(first.id, "waiting-on-you");
+        const queued = startAnswerSchema.parse(
+          await (await office.send("POST", `/tasks/${second.id}/start`)).json(),
+        );
+        const continued = await office.send("POST", `/tasks/${first.id}/gate/continue`);
+
+        expect(continued.ok).toBe(true);
+        expect(queued.queued?.reasons).toEqual([`${DEVELOPER_NAME} is at the Task limit (1).`]);
+        await office.untilState(first.id, "done");
+        // Released as the first walk ended: the second walks on to its own Gate.
+        await office.untilState(second.id, "waiting-on-you");
+        expect(await office.queue()).toEqual([]);
+        await office.send("POST", `/tasks/${second.id}/drop`);
+      } finally {
+        await office.close();
+      }
+    },
+    REAL_GIT_TEST_MS,
+  );
 });
+
+/** Real git for the worktrees, an Agent's turn and a Gate: well past vitest's default. */
+const REAL_GIT_TEST_MS = 60_000;
+const DEVELOPER_NAME = "Ola";
+
+/** A Stage's session of one turn, done with the one Definition of Done statement met. */
+const DEVELOPER_SESSION: SessionScript = [
+  { step: "start", brief: { id: "brief", text: "" } },
+  turnEnded({
+    status: "done",
+    summary: "Done.",
+    handoverNote: "Nothing is left.",
+    definitionOfDoneMet: [1],
+  }),
+  { step: "read-context-usage", usage: { tokens: 32_000, window: 1_000_000 } },
+  { step: "end" },
+];
+
+/** The Planner's opening turn on a Task, which the test then confirms for itself. */
+const PLANNER_SESSION: SessionScript = [
+  { step: "start", brief: { id: "brief", text: "" } },
+  turnEnded(undefined),
+];
+
+function turnEnded(output: unknown): SessionScript[number] {
+  return {
+    step: "event",
+    event: {
+      kind: "turn-ended",
+      outcome: "completed",
+      consumedMessageIds: ["brief"],
+      usage: { input: 10, output: 10, cacheRead: 0, cacheCreation: 0 },
+      sessionCostUsd: 0.01,
+      output,
+      errors: [],
+    },
+  };
+}
+
+interface Office {
+  readonly engine: ScriptedEngine;
+  send(method: string, path: string, body?: unknown): Promise<Response>;
+  /** A library Pipeline of the test's own: its Developer's Agent Stage, then a Gate. */
+  aPipeline(): Promise<Pipeline>;
+  readyTask(pipelineId: string): Promise<Task>;
+  untilState(taskId: string, state: Task["state"]): Promise<void>;
+  /** The Office's own Tasks in the queue. */
+  queue(): Promise<string[]>;
+  close(): Promise<void>;
+}
+
+/**
+ * The whole service on the scripted engine, with a Developer of the test's own whose Task limit is
+ * 1, so only this test's Tasks count against it, and a Project on a repository of its own.
+ */
+async function startOffice(): Promise<Office> {
+  const folder = await mkdtemp(join(tmpdir(), "office-queue-walk-"));
+  const engine = new ScriptedEngine([]);
+  const developerKey = `queue-developer-${randomUUID().slice(0, 8)}`;
+  const settings = new WorkSettingsForTests();
+  // Every test file's started Tasks count against the Office-wide limit: only the Task limit holds.
+  await settings.changeOfficeWideLimit(1_000);
+  const { app, url } = await startTestApplication({
+    imports: [
+      AppModule.register(
+        { port: 0, databaseUrl: testDatabaseUrl(), officeDataDirectory: join(folder, "data") },
+        { directory: folder, source: "built" },
+      ),
+    ],
+    overrides: [
+      { provide: WorkSettings, useValue: settings },
+      { provide: RoleCards, useValue: roleCardsOf(developerKey) },
+      { provide: MemoryService, useValue: NO_MEMORY },
+    ],
+    moduleOverrides: [{ module: EngineModule, useModule: ScriptedEngineModule.register(engine) }],
+  });
+  const ownIds: string[] = [];
+  const send = (method: string, path: string, body?: unknown): Promise<Response> =>
+    fetch(`${url}/api${path}`, {
+      method,
+      headers: { "content-type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  const readTaskOf = async (taskId: string): Promise<Task> =>
+    taskSchema.parse(await (await send("GET", `/tasks/${taskId}`)).json());
+  const repository = await aRepository(folder);
+  const project = projectSchema.parse(
+    await (
+      await send("POST", "/projects", {
+        name: `Queue ${randomUUID().slice(0, 8)}`,
+        path: repository,
+        baseBranch: "main",
+        mark: { label: "QU", colour: "teal" },
+        commands: {
+          install: "npm ci",
+          build: "npm run build",
+          lint: "npm run lint",
+          test: "npm test",
+        },
+        installInputs: ["package-lock.json"],
+        publishingMode: "merge",
+        defaultPipeline: "quick-fix",
+      })
+    ).json(),
+  );
+  return {
+    engine,
+    send,
+    async aPipeline() {
+      const response = await send("POST", "/pipelines", {
+        name: `Queue ${randomUUID().slice(0, 8)}`,
+        description: "Its Developer's work, then a Gate.",
+        stages: [
+          {
+            kind: "agent",
+            key: "build",
+            name: "Build",
+            optional: false,
+            role: developerKey,
+            brief: "Build it.",
+            session: "fresh",
+            budget: 100_000,
+          },
+          { kind: "gate", key: "review", name: "Review", optional: false },
+        ],
+      });
+      expect(response.status).toBe(201);
+      return pipelineSchema.parse(await response.json());
+    },
+    async readyTask(pipelineId) {
+      const created = await send("POST", "/tasks", {
+        title: "Fix the login redirect",
+        projectId: project.id,
+        priority: "normal",
+      });
+      const task = taskSchema.parse(await created.json());
+      ownIds.push(task.id);
+      engine.queue(PLANNER_SESSION);
+      expect((await send("POST", `/tasks/${task.id}/planning`)).status).toBe(200);
+      await send("PUT", `/tasks/${task.id}/plan`, { plan: "Mine." });
+      await send("PUT", `/tasks/${task.id}/definition-of-done`, { definitionOfDone: ["Mine."] });
+      await send("PUT", `/tasks/${task.id}/pipeline`, { pipelineId });
+      expect((await send("POST", `/tasks/${task.id}/ready`)).status).toBe(200);
+      return task;
+    },
+    async untilState(taskId, state) {
+      await vi.waitFor(async () => expect((await readTaskOf(taskId)).state).toBe(state), {
+        timeout: 20_000,
+        interval: 100,
+      });
+    },
+    async queue() {
+      const queue = queueSchema.parse(await (await send("GET", "/queue")).json());
+      return queue.map(({ taskId }) => taskId).filter((taskId) => ownIds.includes(taskId));
+    },
+    async close() {
+      for (const id of ownIds) await send("POST", `/tasks/${id}/drop`);
+      await app.close();
+      await rm(folder, { recursive: true, force: true });
+    },
+  };
+}
+
+/** The Planner and the test's own Developer, both hired, with no Memory in use. */
+function roleCardsOf(developerKey: string): Partial<RoleCards> {
+  const roleOf = (key: string): SessionRole => ({
+    roleKey: key,
+    cardVersion: 1,
+    card:
+      key === developerKey ? DEVELOPER_CARD : { ...DEVELOPER_CARD, name: "Jan", title: "Planner" },
+  });
+  const hired = new Set([PLANNER, developerKey]);
+  return {
+    find: (key) => Promise.resolve(hired.has(key) ? roleOf(key) : undefined),
+    forNewSession: (key) => Promise.resolve(roleOf(key)),
+    forResumedSession: (key) => Promise.resolve(roleOf(key)),
+    hiredKeys: () => Promise.resolve(hired),
+    consultants: () => Promise.resolve([]),
+    findLetGo: () => Promise.resolve(undefined),
+  };
+}
+
+const DEVELOPER_CARD: SessionRole["card"] = {
+  name: DEVELOPER_NAME,
+  title: "Developer",
+  responsibilities: "Builds what the Plan says.",
+  instructions: "Keep each change small.",
+  engine: "agent-sdk",
+  model: "claude-haiku-4-5",
+  effort: "low",
+  capabilities: { sharedMemory: false, chat: true, consultant: false },
+  permissionProfile: { edit: true, run: "read-only-git", web: false },
+  hardSwitches: {
+    runInstalls: { kind: "never" },
+    publishOutsideThePipeline: { kind: "never" },
+    changeRoles: { kind: "never" },
+  },
+  taskLimit: 1,
+  sessionDefault: "context-policy",
+};
+
+const NO_MEMORY: Pick<MemoryService, "read"> = {
+  read: () => Promise.resolve({ inUse: false, notes: [] }),
+};
+
+async function aRepository(folder: string): Promise<string> {
+  const repository = join(folder, "repository");
+  await mkdir(repository);
+  const git = (...args: string[]) => run("git", args, { cwd: repository });
+  await git("init", "--initial-branch=main");
+  await writeFile(join(repository, "README.md"), "The queue.\n");
+  await git("add", ".");
+  await git("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-m", "First");
+  return repository;
+}
