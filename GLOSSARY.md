@@ -102,9 +102,21 @@ _Avoid_: Fact, memo, entry (note alone means nothing: an Idea is not a note)
 The one Office-wide switch that pauses all automated work until the user gives the all clear; talking to Agents stays possible while it is on.
 _Avoid_: Emergency stop, kill switch, global pause
 
+**Sound the alarm**:
+The user's act that turns the Fire alarm on: every Stage, waiting Task and Consultation stops at its next safe point.
+_Avoid_: Trigger, panic, stop all
+
+**All clear**:
+The user's act that turns the Fire alarm off, after seeing on Now what will resume, how and at what cost, with Resume, Hold or Drop per Task.
+_Avoid_: Lift, reset, unpause
+
 **Notification**:
 A signal outside the page the user is on that something waits for them or has happened; it opens that thing and is cleared by handling it, never by reading the Notification itself.
 _Avoid_: Alert, inbox item, notice
+
+**Quiet hours**:
+A daily window, off until the user sets it, in which no Notification goes to the desktop or the phone except "an Agent engine down"; one summary comes when it ends.
+_Avoid_: Do not disturb, silent mode, mute
 
 **Pipeline**:
 A named, ordered set of Stages that a Task's work follows.

@@ -72,7 +72,7 @@ Every tier 2 item of [spec 3](../spec/3-capabilities-by-tier.md#tier-2-the-all-d
 | §2.1, §2.2, §8 | Several Tasks in progress per Project; the queue for Start, on the board, the Task page and Now | 26 |
 | §2.1, §8 | Overlaps: the Plan's files to change, the warning at Start, queuing behind a Task | 26 |
 | §2.3, §5.5, §8 | Conflicts at Publish: the Resolve Stage, the Project's Test and a Gate before Publish again | 26 |
-| §2.7 | The kinds × channels grid; quiet hours; batching; the at-desk hold | 27 |
+| §2.7 | The kinds × channels grid (with the Phone column); quiet hours; batching; the at-desk hold (phone pushes through a recording port until 28's Web Push) | 27 |
 | §2.8 | The fire alarm and the all clear | 27 |
 | §4, §2.7 | The phone: HTTPS on the LAN with a local certificate authority, the PIN, the installed app, phone views, phone push | 28 |
 | §5.1, §5.4 | Start at login (a Windows service or scheduled task; a systemd user service); the `-p` fallback adapter | 29 |
