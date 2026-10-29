@@ -200,8 +200,15 @@ export type TaskPlacement = z.infer<typeof taskPlacementSchema>;
 export const newDependencySchema = z.object({ blockerId: z.uuid() });
 export type NewDependency = z.infer<typeof newDependencySchema>;
 
-/** GET /tasks/:id/start: why POST /tasks/:id/start would be refused now; empty when it can start. */
-export const startCheckSchema = z.object({ reasons: z.array(z.string()) });
+/**
+ * GET /tasks/:id/start: why the Task can't start now; both empty when it can. A refusal stops
+ * Start; a wait (the Office-wide limit, its person's Task limit) only holds the Task until a desk
+ * and its person are free.
+ */
+export const startCheckSchema = z.object({
+  refusals: z.array(z.string()),
+  waits: z.array(z.string()),
+});
 export type StartCheck = z.infer<typeof startCheckSchema>;
 
 /**

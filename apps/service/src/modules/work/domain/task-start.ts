@@ -27,7 +27,6 @@ export interface StartingPerson {
 
 /** What Start weighs besides the Tasks already started, gathered from the other modules. */
 export interface StartConditions {
-  readonly projectName: string;
   /** The Stages of the Task's Pipeline, or undefined when the library has no such Pipeline. */
   readonly stages: readonly StartingStage[] | undefined;
   /** Who fills the Role of the first Agent Stage; undefined when nobody does or there is none. */
@@ -46,34 +45,47 @@ export interface HeldAtStart {
   readonly blockers: readonly Task[];
 }
 
+/**
+ * Why the Task can't start now, sorted as Start treats them (spec §2.1, "A queue for Start"): a
+ * refusal (not Ready, a Task it waits for isn't Done, a vacant Role, a person who only talks) stops
+ * Start; a wait (the Office-wide limit, its person's Task limit) only holds the Task until a desk
+ * and its person are free. Both are empty when it can start.
+ */
+export interface StartReasons {
+  readonly refusals: readonly string[];
+  readonly waits: readonly string[];
+}
+
 /** The Agent Stage whose Role's person the Task counts against, as the click-through counts. */
 export function firstAgentStage(stages: readonly StartingStage[]): AgentStartingStage | undefined {
   return stages.find((stage): stage is AgentStartingStage => stage.role !== undefined);
 }
 
-/**
- * Every reason the Task can't start now (spec §2.1, §9): a Task it waits for isn't Done, the
- * Project already has a Task started, the Office-wide limit is reached, or the person of its first
- * Agent Stage is at their Task limit. Empty when it can start.
- */
-export function startProblems(
+/** Every reason the Task can't start now, the refusals apart from the waits. */
+export function startReasons(
   task: Task,
   conditions: StartConditions,
   { startedTasks, blockers }: HeldAtStart,
-): string[] {
+): StartReasons {
   if (task.state !== "ready") {
-    return [`Only a Ready Task can start; this one is in ${TASK_STATE_NAMES[task.state]}.`];
+    return refusedFor(
+      `Only a Ready Task can start; this one is in ${TASK_STATE_NAMES[task.state]}.`,
+    );
   }
-  if (!conditions.stages) return [`There is no Pipeline "${task.pipelineId}" in the library.`];
+  if (!conditions.stages) {
+    return refusedFor(`There is no Pipeline "${task.pipelineId}" in the library.`);
+  }
   const others = startedTasks.filter(
     (other) => other.id !== task.id && STARTED_STATES.includes(other.state),
   );
-  return [
-    ...blockedProblems(blockers),
-    ...projectProblems(task, conditions.projectName, others),
-    ...officeWideLimitProblems(conditions.officeWideLimit, others),
-    ...taskLimitProblems(firstAgentStage(conditions.stages), conditions.person, others),
-  ];
+  const stage = firstAgentStage(conditions.stages);
+  return {
+    refusals: [...blockedProblems(blockers), ...personRefusals(stage, conditions.person)],
+    waits: [
+      ...officeWideLimitWaits(conditions.officeWideLimit, others),
+      ...taskLimitWaits(stage, conditions.person, others),
+    ],
+  };
 }
 
 /** Ready → In progress, counted against the first Agent Stage's person. Refuses with every reason. */
@@ -82,8 +94,8 @@ export function startTask(
   conditions: StartConditions,
   held: HeldAtStart,
 ): TaskChange<TaskStarted> {
-  const problems = startProblems(task, conditions, held);
-  if (problems.length > 0) throw new TaskRefused(problems);
+  const { refusals, waits } = startReasons(task, conditions, held);
+  if (refusals.length > 0 || waits.length > 0) throw new TaskRefused([...refusals, ...waits]);
   const personRole = conditions.stages && firstAgentStage(conditions.stages)?.role;
   return {
     task: { ...task, state: "in-progress", personRole },
@@ -91,29 +103,35 @@ export function startTask(
   };
 }
 
-function projectProblems(task: Task, projectName: string, others: readonly Task[]): string[] {
-  const started = others.find((other) => other.projectId === task.projectId);
-  return started ? [`${projectName} already has a Task in progress: "${started.title}".`] : [];
+function refusedFor(reason: string): StartReasons {
+  return { refusals: [reason], waits: [] };
 }
 
-function officeWideLimitProblems(limit: number, others: readonly Task[]): string[] {
-  if (others.length < limit) return [];
-  const desks = limit === 1 ? "the only desk is" : `all ${limit} desks are`;
-  return [`The Office-wide limit is reached: ${desks} in use.`];
-}
-
-function taskLimitProblems(
+function personRefusals(
   stage: AgentStartingStage | undefined,
   person: StartingPerson | undefined,
-  others: readonly Task[],
 ): string[] {
   if (!stage) return [];
   if (!person) {
     return [`Nobody fills the Role ${stage.name} needs: hire a person for it on People first.`];
   }
-  if (person.taskLimit === "none") {
-    return [`${person.name} only talks (Task limit none), so can't work ${stage.name}.`];
-  }
+  return person.taskLimit === "none"
+    ? [`${person.name} only talks (Task limit none), so can't work ${stage.name}.`]
+    : [];
+}
+
+function officeWideLimitWaits(limit: number, others: readonly Task[]): string[] {
+  if (others.length < limit) return [];
+  const desks = limit === 1 ? "the only desk is" : `all ${limit} desks are`;
+  return [`The Office-wide limit is reached: ${desks} in use.`];
+}
+
+function taskLimitWaits(
+  stage: AgentStartingStage | undefined,
+  person: StartingPerson | undefined,
+  others: readonly Task[],
+): string[] {
+  if (!stage || !person || person.taskLimit === "none") return [];
   const theirs = others.filter((other) => other.personRole === stage.role).length;
   return theirs >= person.taskLimit
     ? [`${person.name} is at the Task limit (${person.taskLimit}).`]

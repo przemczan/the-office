@@ -200,7 +200,7 @@ IdeaService, OfficeLimits, StageScreenshots, TaskRecords, TaskService, Attachmen
 - `task-events.ts`: TaskCreated, TaskStateChanged, TaskPriorityChanged, TaskTagsChanged, TaskReordered, TaskPlanProposed, TaskPlanConfirmed, TaskDefinitionOfDoneProposed, TaskDefinitionOfDoneConfirmed, TaskPipelineProposed, TaskPipelineConfirmed, TaskPaused, TaskStopped, TaskResumed, TaskDependencyAdded, TaskDependencyRemoved, TaskStarted
 - `task-not-found.ts`: TaskNotFound
 - `task-refused.ts`: TaskRefused
-- `task-start.ts`: StartingStage, DEFAULT_OFFICE_WIDE_LIMIT, TaskLimit, StartingPerson, StartConditions, HeldAtStart, firstAgentStage, startProblems, startTask
+- `task-start.ts`: StartingStage, DEFAULT_OFFICE_WIDE_LIMIT, TaskLimit, StartingPerson, StartConditions, HeldAtStart, StartReasons, firstAgentStage, startReasons, startTask
 - `task-states.ts`: TASK_STATE_NAMES, NOT_STARTED_STATES, STARTED_STATES, stateChangeProblems, ReadinessLine, readinessLines, openDecisionProblems
 - `task-tags.ts`: MAX_TAGS, MAX_TAG_LENGTH, normalizedTags, tagsProblems, changeTags
 - `task.ts`: TASK_STATES, TaskState, PRIORITIES, Priority, Task, ProposedPipeline, NewTask, trimmedNewTask, newTaskProblems

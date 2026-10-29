@@ -11,14 +11,14 @@ import { startTask, taskQueries } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
 
 /**
- * Start on a Ready Task (prototypes/app/task.js): disabled with the reason while a limit or the
- * Project's Task in progress stands in the way, so the user sees why before clicking.
+ * Start on a Ready Task (prototypes/app/task.js): disabled with the reasons while a limit, a blocker
+ * or a vacant Role stands in the way, so the user sees why before clicking.
  */
 export function StartButton({ task }: { readonly task: Task }): ReactNode {
   const check = useQuery({ ...taskQueries.startCheck(task.id), enabled: task.state === "ready" });
   const starting = useStarting();
   if (task.state !== "ready") return null;
-  const reasons = check.data?.reasons ?? [];
+  const reasons = check.data ? [...check.data.refusals, ...check.data.waits] : [];
   return (
     <>
       {reasons.length > 0 && (

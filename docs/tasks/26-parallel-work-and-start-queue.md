@@ -25,7 +25,7 @@ Leave out: the fire alarm holding the queue (task 27 makes "Tasks waiting to sta
 
 ## Steps
 
-- [ ] 1. Several Tasks per Project, and Start's reasons sorted: drop `projectProblems`; `startProblems` tells a reason that only waits (the Office-wide limit, the person's Task limit) from one that refuses; the start check in the contracts (`startCheckSchema`) carries both; tests that expected the old refusal updated. Commit.
+- [x] 1. Several Tasks per Project, and Start's reasons sorted: drop `projectProblems`; `startProblems` tells a reason that only waits (the Office-wide limit, the person's Task limit) from one that refuses; the start check in the contracts (`startCheckSchema`) carries both; tests that expected the old refusal updated. Commit.
   Read: `task-start.ts`, `task-start.test.ts` (lines 61, 92), `start-service.ts`, `tasks.controller.test.ts` (around line 590), `packages/contracts/src/work.ts` (`startCheckSchema`).
 - [ ] 2. The queue, the service: a queue table by migration (Task, place, queued at, reason, the Task it waits behind); Start puts a Task that only waits into it and answers so; one release, under `holdStarts`, run when a started Task ends (`TaskStateChanged` to Done or Dropped), the Office-wide limit changes and People's `RoleCardChanged`, starting the oldest that can; a queued Task whose turn meets a refusing reason leaves the queue with it; take out and move up routes; leaving Ready or Drop takes it out; events for the web. Commit.
   Read: step 1's files; `work-rows.ts` `holdStarts`; `task-changes.ts`; `work-web-events.ts`; the platform map only if a clock or timer is needed.
@@ -46,7 +46,7 @@ Batches for implementing subagents: A = steps 1–3 (the queue), B = steps 4–5
 
 ## State
 
-- Built: nothing yet. Start refuses today in `task-start.ts` `startProblems` (Project busy, Office-wide limit, Task limit, blockers, vacant Role); a conflict at Publish (`Publishing`, `conflictsOf`) becomes `baseMovedDecision` in `walk-decisions.ts`, asking the user.
+- Built (step 1): several Tasks may be in progress in one Project (each has its own worktree and branch, `TaskWorktrees` by Task id). `task-start.ts` `startReasons` gives `StartReasons { refusals, waits }`: refusals are not Ready, no Pipeline, blockers, a vacant Role, a person who only talks (Task limit none); waits are the Office-wide limit and the person's Task limit. `startTask` still refuses on either until step 2 queues on waits only. `StartService.startReasons`; `GET /tasks/:id/start` answers `startCheckSchema` `{ refusals, waits }`; `start-action.tsx` still disables Start on either. A conflict at Publish (`Publishing`, `conflictsOf`) becomes `baseMovedDecision` in `walk-decisions.ts`, asking the user.
 - Decided with the user (2026-10-29, in the spec): the queue (2.1 "A queue for Start"), overlaps (2.1 "Overlaps at Start"), conflicts at Publish (2.3 "Conflicts at Publish"); several Tasks may be in progress in one Project; merge order stays first to Publish.
 - Open questions for the user, with the proposed default (ask before the step that needs it):
   1. History after Resolve (step 6): The Office merges the fetched base into the Task's branch (one stop, a merge commit in the repository; Publish then fast-forwards), or replays the rebase stop by stop (linear history, several stops). Proposed: merge.
@@ -66,3 +66,4 @@ Batches for implementing subagents: A = steps 1–3 (the queue), B = steps 4–5
 ## Progress
 
 - 2026-10-29 · step 0: task file written; the user's answers on the queue, overlaps and conflicts at Publish written into spec 2.1, 2.2, 2.3, 3 and 8, the glossary and coverage; next is step 1, after the open questions above that it needs (none).
+- 2026-10-29 · step 1: Start no longer refuses for the Project's Task in progress; `startReasons` sorts refusals from waits and the start check carries both; next is step 2, the queue on the service side.

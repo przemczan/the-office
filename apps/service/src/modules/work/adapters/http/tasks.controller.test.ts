@@ -551,6 +551,8 @@ async function readyTask(): Promise<Task> {
   return task;
 }
 
+const nothing: StartCheck = { refusals: [], waits: [] };
+
 async function startCheck(taskId: string): Promise<StartCheck> {
   return startCheckSchema.parse(
     await (await sendJson(work, "GET", `/tasks/${taskId}/start`)).json(),
@@ -573,7 +575,7 @@ describe("Start", () => {
 
   it("moves a Ready Task to In progress and announces it", async () => {
     const task = await readyTask();
-    expect(await startCheck(task.id)).toEqual({ reasons: [] });
+    expect(await startCheck(task.id)).toEqual(nothing);
     work.published.length = 0;
 
     const response = await start(task.id);
@@ -583,22 +585,21 @@ describe("Start", () => {
     expect(webEventsOf(work)).toEqual([{ type: "task.started", taskId: task.id }]);
   });
 
-  it("refuses with the reason while the Project has a Task in progress, before and on Start", async () => {
+  it("starts two Tasks of one Project, each in progress", async () => {
     const first = await readyTask();
     const second = await readyTask();
     await start(first.id);
-    const reason = `The ${projectId} already has a Task in progress: "Fix the login redirect".`;
 
     const check = await startCheck(second.id);
-    const refused = await start(second.id);
+    const response = await start(second.id);
 
-    expect(check).toEqual({ reasons: [reason] });
-    expect(refused.status).toBe(422);
-    expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([reason]);
-    expect((await readTask(second.id)).state).toBe("ready");
+    expect(check).toEqual(nothing);
+    expect(response.status).toBe(200);
+    expect((await readTask(first.id)).state).toBe("in-progress");
+    expect((await readTask(second.id)).state).toBe("in-progress");
   });
 
-  it("refuses with the reason once Settings lowers the Office-wide limit to 1", async () => {
+  it("refuses with the wait once Settings lowers the Office-wide limit to 1", async () => {
     await start((await readyTask()).id);
     projectId = `project-${randomUUID()}`;
     const second = await readyTask();
@@ -635,9 +636,9 @@ describe("Start", () => {
     const refused = await start(task.id);
     await sendJson(work, "POST", `/tasks/${blocker.id}/drop`);
 
-    expect(check).toEqual({ reasons: [reason] });
+    expect(check).toEqual({ refusals: [reason], waits: [] });
     expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([reason]);
-    expect(await startCheck(task.id)).toEqual({ reasons: [] });
+    expect(await startCheck(task.id)).toEqual(nothing);
     expect((await start(task.id)).status).toBe(200);
   });
 

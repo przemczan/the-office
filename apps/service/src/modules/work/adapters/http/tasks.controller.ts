@@ -173,10 +173,11 @@ export class TasksController {
     };
   }
 
-  /** Why Start would be refused now, for the Task page to show beside the button. */
+  /** Why the Task can't start now, refusals apart from waits, for the Task page beside Start. */
   @Get(":id/start")
   async startCheck(@Param("id", ParseUUIDPipe) id: string): Promise<StartCheck> {
-    return { reasons: [...(await this.starting.startProblems(id))] };
+    const { refusals, waits } = await this.starting.startReasons(id);
+    return { refusals: [...refusals], waits: [...waits] };
   }
 
   /** Start: Ready → In progress, refused with the reasons while the limits are reached. */
