@@ -379,6 +379,13 @@
       "when": 1793277738127,
       "tag": "0053_fire_alarm",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1793291732854,
+      "tag": "0054_fire_alarm_lifts",
+      "breakpoints": true
     }
   ]
 }

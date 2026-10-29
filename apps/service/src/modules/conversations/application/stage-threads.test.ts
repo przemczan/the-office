@@ -54,6 +54,9 @@ import { ThreadService } from "./thread-service.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
+import { FireAlarmLifts } from "./fire-alarm-lifts.js";
+import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
+import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
 
 type Step = SessionScript[number];
 
@@ -144,6 +147,8 @@ async function startOn(scripted: ScriptedEngine): Promise<void> {
       InitiativeThreadSetups,
       SessionPlaces,
       ThreadRunner,
+      FireAlarmLifts,
+      { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       MentionedRecords,
       WorkRecords,
       StageThreads,

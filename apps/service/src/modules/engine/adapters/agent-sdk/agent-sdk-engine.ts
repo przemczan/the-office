@@ -27,7 +27,7 @@ import type {
 } from "../../ports/engine-session.js";
 import type { UsageWindows } from "../../domain/usage-windows.js";
 import type { SessionEvent } from "../../ports/session-events.js";
-import type { SessionOptions, SessionSkills } from "../../ports/session-options.js";
+import type { SessionOptions, SessionSkills, ToolHold } from "../../ports/session-options.js";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import { EngineProcess } from "./engine-process.js";
 import { engineTaskFolder } from "./engine-task-folder.js";
@@ -81,6 +81,7 @@ export class AgentSdkEngine extends AgentEngine {
     const engineProcess = new EngineProcess(this.operatingSystem.processTrees);
     const held: HeldTo = {
       rules: this.officeRules(id, options),
+      toolHold: options.toolHold,
       skills: options.skills,
       paths: this.operatingSystem.paths,
     };
@@ -127,6 +128,7 @@ export class AgentSdkEngine extends AgentEngine {
 /** What a session is held to as it runs. */
 interface HeldTo {
   readonly rules: OfficeRules;
+  readonly toolHold: ToolHold | undefined;
   readonly skills: SessionSkills | undefined;
   readonly paths: PathRules;
 }
@@ -149,7 +151,7 @@ class AgentSdkSession implements EngineSession {
     this.engine = query({
       prompt: this.input,
       options: options({
-        preToolUse: officeRulesHook(held.rules, this.refusals),
+        preToolUse: officeRulesHook(held.rules, this.refusals, held.toolHold),
         spawnProcess: engineProcess.spawn,
       }),
     });

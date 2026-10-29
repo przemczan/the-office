@@ -49,6 +49,9 @@ import { ThreadRunner } from "./thread-runner.js";
 import { MentionedRecords } from "./mentioned-records.js";
 import { WorkRecords } from "./work-records.js";
 import { ThreadService } from "./thread-service.js";
+import { FireAlarmLifts } from "./fire-alarm-lifts.js";
+import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
+import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
 
 type Step = SessionScript[number];
 
@@ -154,6 +157,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       SessionPlaces,
       ThreadContexts,
       ThreadRunner,
+      FireAlarmLifts,
+      { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       MentionedRecords,
       WorkRecords,
       StageThreads,
@@ -343,7 +348,17 @@ describe("a consult during the fire alarm", () => {
 
   it("opens no Consultation while it is on: the Decision still waits on its Consultant", async () => {
     await startWith(started(...consults("CTO")));
-    app.get(FireAlarmInThreads).readFrom(() => Promise.resolve(ALARM_ON));
+    let consulted = false;
+    const open = decisions.open.bind(decisions);
+    vi.spyOn(decisions, "open").mockImplementation(async (...given) => {
+      const opened = await open(...given);
+      consulted = true;
+      return opened;
+    });
+    // Sounded once the Agent's consult is in, before its turn ends: the alarm holds the consult itself.
+    app
+      .get(FireAlarmInThreads)
+      .readFrom(() => Promise.resolve(consulted ? ALARM_ON : { on: false }));
     const asker = await developerOnATask();
 
     await settled(asker.id);

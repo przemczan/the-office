@@ -3,6 +3,7 @@ import { EngineModule } from "../engine/index.js";
 import { PeopleModule } from "../people/index.js";
 import { SkillsModule } from "../skills/index.js";
 import { DecisionsController } from "./adapters/http/decisions.controller.js";
+import { FireAlarmLiftsController } from "./adapters/http/fire-alarm-lifts.controller.js";
 import { ProposalsController } from "./adapters/http/proposals.controller.js";
 import { SizeThresholdController } from "./adapters/http/size-threshold.controller.js";
 import { ThreadsController } from "./adapters/http/threads.controller.js";
@@ -23,6 +24,9 @@ import { ContextPolicySettingsService } from "./application/context-policy-setti
 import { DecisionService } from "./application/decision-service.js";
 import { HeldCalls } from "./application/held-calls.js";
 import { FireAlarmInThreads } from "./application/fire-alarm-in-threads.js";
+import { FireAlarmLifts } from "./application/fire-alarm-lifts.js";
+import { PostgresFireAlarmLiftRepository } from "./adapters/postgres/postgres-fire-alarm-lift-repository.js";
+import { FireAlarmLiftRepository } from "./ports/fire-alarm-lift-repository.js";
 import { InterruptedAnswers } from "./application/interrupted-answers.js";
 import { LinkCards } from "./application/link-cards.js";
 import { InitiativeThreadSetups } from "./application/initiative-thread-setups.js";
@@ -67,11 +71,13 @@ export class ConversationsModule {
         DecisionsController,
         ProposalsController,
         SizeThresholdController,
+        FireAlarmLiftsController,
       ],
       providers: [
         { provide: ThreadRepository, useClass: PostgresThreadRepository },
         { provide: ProjectBases, useExisting: projectBases },
         { provide: ConversationsSettings, useClass: PostgresConversationsSettings },
+        { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
         ContextPolicySettingsService,
         ThreadService,
         Briefs,
@@ -87,6 +93,7 @@ export class ConversationsModule {
         DecisionService,
         Consultations,
         FireAlarmInThreads,
+        FireAlarmLifts,
         StageThreads,
         StageDecisions,
         TaskTokens,

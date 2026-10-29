@@ -4,6 +4,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 import { describeAgentEngineContract } from "../../ports/agent-engine.contract.js";
 import { SessionSkillsDiffer, type EngineCapabilities } from "../../ports/agent-engine.js";
 import type { SessionEvent } from "../../ports/session-events.js";
@@ -123,6 +124,65 @@ describe("ScriptedEngine", () => {
 
     expect((await reading).at(-1)).toMatchObject({ consumedMessageIds: [brief.id] });
     expect(engine.sessions[0]?.received).toEqual([{ step: "start", brief }, { step: "end" }]);
+  });
+
+  it("refuses each call while the session's tool hold does, as the Office rules hook would, running no Office tool", async () => {
+    const ran: string[] = [];
+    const held = "Refused by The Office: the fire alarm is on.";
+    const script: SessionScript = [
+      { step: "start", brief: { id: "brief", text: "Read the Task." } },
+      {
+        step: "event",
+        event: {
+          kind: "tool-call",
+          callId: "call-1",
+          tool: "read_task",
+          officeTool: true,
+          input: {},
+          withinToolCall: undefined,
+        },
+      },
+      {
+        step: "event",
+        event: { kind: "tool-result", callId: "call-1", text: "The Task.", isError: false },
+      },
+      { step: "event", event: TURN_ENDED },
+      { step: "end" },
+    ];
+    const engine = new ScriptedEngine([script]);
+    const session = await engine.start({
+      id: randomUUID(),
+      options: {
+        ...options(),
+        officeTools: [
+          {
+            name: "read_task",
+            description: "Reads the Task.",
+            input: z.object({}),
+            run: () => {
+              ran.push("read_task");
+              return Promise.resolve({ text: "The Task.", isError: false });
+            },
+          },
+        ],
+        toolHold: () => Promise.resolve(held),
+      },
+      brief: { id: randomUUID(), text: "Read the Task." },
+    });
+    const reading = readAll(session.events);
+    await session.end();
+
+    expect((await reading).slice(1, 3)).toEqual([
+      { kind: "tool-result", callId: "call-1", text: held, isError: true },
+      {
+        kind: "tool-refused",
+        callId: "call-1",
+        tool: "read_task",
+        reason: held,
+        refusedBy: "office-rules",
+      },
+    ]);
+    expect(ran).toEqual([]);
   });
 
   it("fails the session when the caller does something other than the script's next step", async () => {

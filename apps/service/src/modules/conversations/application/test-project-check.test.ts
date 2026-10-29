@@ -35,6 +35,10 @@ import { ThreadService } from "./thread-service.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
+import { FireAlarmInThreads } from "./fire-alarm-in-threads.js";
+import { FireAlarmLifts } from "./fire-alarm-lifts.js";
+import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
+import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
 
 /**
  * Task 09's check on the Test Project (docs/tasks/09-conversations.md): the Planner, on Haiku, chats
@@ -124,6 +128,9 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
               SessionPlaces,
               ThreadContexts,
               ThreadRunner,
+              FireAlarmInThreads,
+              FireAlarmLifts,
+              { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
               MentionedRecords,
               WorkRecords,
             ],

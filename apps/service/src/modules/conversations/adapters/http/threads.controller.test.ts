@@ -1,10 +1,11 @@
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import {
   decisionListSchema,
+  fireAlarmLiftsSchema,
   messageListSchema,
   proposalSchema,
   sizeThresholdSchema,
@@ -51,12 +52,17 @@ import { ThreadRepository } from "../../ports/thread-repository.js";
 import { PostgresThreadRepository } from "../postgres/postgres-thread-repository.js";
 import { ThreadWebEvents } from "../websocket/thread-web-events.js";
 import { DecisionsController } from "./decisions.controller.js";
+import { FireAlarmLiftsController } from "./fire-alarm-lifts.controller.js";
 import { ProposalsController } from "./proposals.controller.js";
 import { SizeThresholdController } from "./size-threshold.controller.js";
 import { ThreadsController } from "./threads.controller.js";
 import { ContextPolicySettingsService } from "../../application/context-policy-settings.js";
 import { ConversationsSettings } from "../../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../../ports/conversations-settings.fixtures.js";
+import { FireAlarmInThreads } from "../../application/fire-alarm-in-threads.js";
+import { FireAlarmLifts } from "../../application/fire-alarm-lifts.js";
+import { FireAlarmLiftRepository } from "../../ports/fire-alarm-lift-repository.js";
+import { PostgresFireAlarmLiftRepository } from "../postgres/postgres-fire-alarm-lift-repository.js";
 
 let app: INestApplication;
 let url: string;
@@ -97,6 +103,7 @@ beforeEach(async () => {
       DecisionsController,
       ProposalsController,
       SizeThresholdController,
+      FireAlarmLiftsController,
     ],
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
@@ -112,6 +119,9 @@ beforeEach(async () => {
       SessionPlaces,
       ThreadContexts,
       ThreadRunner,
+      FireAlarmInThreads,
+      FireAlarmLifts,
+      { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       MentionedRecords,
       WorkRecords,
       StageThreads,
@@ -166,7 +176,7 @@ function webEvents(): unknown[] {
   });
 }
 
-function send(method: "POST" | "PUT", path: string, body?: unknown): Promise<Response> {
+function send(method: "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<Response> {
   return fetch(`${url}/api${path}`, {
     method,
     headers: { "Content-Type": "application/json" },
@@ -744,5 +754,34 @@ describe("/api/settings/size-threshold", () => {
 
     expect(refused.status).toBe(400);
     expect(published).toEqual([]);
+  });
+});
+
+async function liftsAfter(response: Promise<Response>): Promise<readonly string[]> {
+  return fireAlarmLiftsSchema.parse(await (await response).json()).threadIds;
+}
+
+describe("the fire alarm's lifts", () => {
+  it("lets a Thread's Agent act while the alarm is on, until taken back, and none while it is off", async () => {
+    const roleKey = aPerson("Jan", true);
+    const thread = threadSchema.parse(
+      await (await send("POST", `/chats/${roleKey}/threads`)).json(),
+    );
+    const refused = await send("PUT", `/fire-alarm/lifts/${thread.id}`);
+    // A sounding of the test's own: lifts are kept by it, in a table every test file shares.
+    const since = new Date(Date.UTC(2026, 9, 29) + randomInt(2 ** 40));
+    app.get(FireAlarmInThreads).readFrom(() => Promise.resolve({ on: true, since }));
+
+    const lifted = await liftsAfter(send("PUT", `/fire-alarm/lifts/${thread.id}`));
+    const listed = await liftsAfter(get("/fire-alarm/lifts"));
+    const takenBack = await liftsAfter(send("DELETE", `/fire-alarm/lifts/${thread.id}`));
+    const nobody = await send("PUT", `/fire-alarm/lifts/${randomUUID()}`);
+
+    expect(refused.status).toBe(422);
+    expect(threadRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      "The fire alarm isn't on: every Agent may act already.",
+    ]);
+    expect([lifted, listed, takenBack]).toEqual([[thread.id], [thread.id], []]);
+    expect(nobody.status).toBe(404);
   });
 });

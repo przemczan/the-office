@@ -1,6 +1,6 @@
 # Engine: module map
 
-**Owns:** the `AgentEngine` port and its adapters: the Agent SDK adapter and the scripted engine every other test runs on (`adapters/scripted/`). The Office rules in the `PreToolUse` hook (profiles, the git deny, secrets, protected paths, PowerShell twins), Office tools (`OfficeToolRegistry`), and the 5-hour and 7-day windows (`UsageWindowsChanged`, `EngineDown`).
+**Owns:** the `AgentEngine` port and its adapters: the Agent SDK adapter and the scripted engine every other test runs on (`adapters/scripted/`). The Office rules in the `PreToolUse` hook (profiles, the git deny, secrets, protected paths, PowerShell twins), and before them a session's `ToolHold` (`SessionOptions.toolHold`, asked at every call: while it gives words, every call is refused in them, as the fire alarm does; the scripted engine honours it too, running no Office tool), Office tools (`OfficeToolRegistry`), and the 5-hour and 7-day windows (`UsageWindowsChanged`, `EngineDown`).
 
 **Talks to:** no module. A session's owner hands it the skills folder, the options and the environment; modules give it their Office tools through `OfficeToolRegistry`. It never reads Skills.
 
@@ -73,4 +73,4 @@ EngineSessions, OfficeToolRegistry, OfficeToolResult, UsageWindowState, EngineDo
 - `engine-session.ts`: UserMessage, MessagePriority, ContextUsage, EngineSession
 - `office-tool.ts`: OfficeToolCall, OfficeToolResult, OfficeTool
 - `session-events.ts`: TokenUsage, TextEvent, ToolCallEvent, ToolResultEvent, RefusedBy, ToolRefusedEvent, TurnTokensEvent, TurnOutcome, TurnEndedEvent, RateLimitStatus, RateLimitEvent, SessionEvent
-- `session-options.ts`: Effort, SessionSkills, JsonSchema, SessionOptions
+- `session-options.ts`: Effort, SessionSkills, ToolHold, JsonSchema, SessionOptions

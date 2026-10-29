@@ -16,6 +16,13 @@ export interface SessionSkills {
   readonly overrides: Readonly<Record<string, "off">>;
 }
 
+/**
+ * Asked before each tool call of a session, after the engine's input validation: the words that
+ * refuse it while The Office holds every tool call, such as while the fire alarm is on (spec
+ * §2.8), or undefined to judge the call by the Office rules.
+ */
+export type ToolHold = () => Promise<string | undefined>;
+
 /** A JSON Schema document, as an engine takes it for a turn's output. */
 export type JsonSchema = Readonly<Record<string, unknown>>;
 
@@ -44,4 +51,6 @@ export interface SessionOptions {
   readonly officeTools: readonly OfficeTool[];
   /** What each turn's output must match, or undefined for a reply in plain words. */
   readonly outputSchema: JsonSchema | undefined;
+  /** Undefined for a session whose tool calls The Office never holds as a whole. */
+  readonly toolHold?: ToolHold;
 }

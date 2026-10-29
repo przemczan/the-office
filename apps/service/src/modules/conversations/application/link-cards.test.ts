@@ -42,6 +42,10 @@ import { ThreadContexts } from "./thread-contexts.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { ThreadService } from "./thread-service.js";
 import { WorkRecords } from "./work-records.js";
+import { FireAlarmInThreads } from "./fire-alarm-in-threads.js";
+import { FireAlarmLifts } from "./fire-alarm-lifts.js";
+import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
+import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
 
 type Step = SessionScript[number];
 
@@ -144,6 +148,9 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       SessionPlaces,
       ThreadContexts,
       ThreadRunner,
+      FireAlarmInThreads,
+      FireAlarmLifts,
+      { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       MentionedRecords,
       WorkRecords,
       StageThreads,

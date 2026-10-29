@@ -45,6 +45,7 @@ import {
 import { ThreadNotFound } from "../domain/thread-not-found.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
+import { FireAlarmLifts } from "./fire-alarm-lifts.js";
 import { MentionedRecords } from "./mentioned-records.js";
 import { sessionLogLines } from "./session-log.js";
 import { SessionPlaces, type SessionPlace } from "./session-places.js";
@@ -117,6 +118,7 @@ export class ThreadRunner implements OnModuleDestroy {
     private readonly events: EventBus,
     private readonly settings: ContextPolicySettingsService,
     private readonly mentionedRecords: MentionedRecords,
+    private readonly fireAlarmLifts: FireAlarmLifts,
   ) {}
 
   /**
@@ -432,6 +434,8 @@ export class ThreadRunner implements OnModuleDestroy {
         thread.home.kind === "task" && !thread.consultation,
       ),
       outputSchema: undefined,
+      // Asked at each call, so an alarm sounding or lifted mid-session holds or frees the next.
+      toolHold: () => this.fireAlarmLifts.heldReason(thread.id),
       telemetry: {
         span: { ...place.span, "office.thread": thread.id, "office.role": roleKey },
         metric: { "office.conversation.home": thread.home.kind },

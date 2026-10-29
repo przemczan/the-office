@@ -177,6 +177,11 @@ export class ScriptedSession implements EngineSession {
   /** The script's message ids to the ids the caller chose. */
   private readonly messageIds = new Map<string, string>();
   private readonly officeToolResults = new Map<string, Promise<OfficeToolResult>>();
+  /** The calls The Office's hold refused, by id, with the tool and the hold's words. */
+  private readonly heldCalls = new Map<
+    string,
+    { readonly tool: string; readonly reason: string }
+  >();
   private readonly recordedWindows: (UsageWindows | undefined)[];
   private readonly recordedContextUsage: ContextUsage[];
   private readonly played: Promise<void>;
@@ -267,9 +272,10 @@ export class ScriptedSession implements EngineSession {
     try {
       for (const step of script) {
         if (step.step === "event") {
-          const event = await this.replay(step.event);
-          this.reportedEvents.push(event);
-          this.reported.push(event);
+          for (const event of await this.replay(step.event)) {
+            this.reportedEvents.push(event);
+            this.reported.push(event);
+          }
         } else if (!isRead(step)) {
           await this.takeRequest(step);
         }
@@ -303,22 +309,46 @@ export class ScriptedSession implements EngineSession {
     answer();
   }
 
-  private async replay(event: SessionEvent): Promise<SessionEvent> {
+  /**
+   * The events a scripted one reports as the Agent's side reads them. While the session's tool
+   * hold refuses, as the Office rules hook does, a call runs nothing and its result is the hold's
+   * words, followed by its refusal.
+   */
+  private async replay(event: SessionEvent): Promise<SessionEvent[]> {
     switch (event.kind) {
-      case "tool-call":
-        if (event.officeTool) this.runOfficeTool(event.callId, event.tool, event.input);
-        return event;
+      case "tool-call": {
+        const held = await this.options.toolHold?.();
+        if (held !== undefined)
+          this.heldCalls.set(event.callId, { tool: event.tool, reason: held });
+        else if (event.officeTool) this.runOfficeTool(event.callId, event.tool, event.input);
+        return [event];
+      }
       case "tool-result": {
+        const held = this.heldCalls.get(event.callId);
+        if (held) {
+          return [
+            { ...event, text: held.reason, isError: true },
+            {
+              kind: "tool-refused",
+              callId: event.callId,
+              tool: held.tool,
+              reason: held.reason,
+              refusedBy: "office-rules",
+            },
+          ];
+        }
         const result = await this.officeToolResults.get(event.callId);
-        return result === undefined ? event : { ...event, ...result };
+        return [result === undefined ? event : { ...event, ...result }];
       }
       case "turn-ended":
-        return {
-          ...event,
-          consumedMessageIds: event.consumedMessageIds.map((id) => this.messageIds.get(id) ?? id),
-        };
+        return [
+          {
+            ...event,
+            consumedMessageIds: event.consumedMessageIds.map((id) => this.messageIds.get(id) ?? id),
+          },
+        ];
       default:
-        return event;
+        return [event];
     }
   }
 

@@ -121,6 +121,13 @@ export const threadTitleSchema = z.object({ title: z.string() });
 export type ThreadTitle = z.infer<typeof threadTitleSchema>;
 
 /**
+ * GET /fire-alarm/lifts, and what PUT and DELETE /fire-alarm/lifts/:threadId answer (spec §2.8):
+ * the Threads whose Agent may act while the fire alarm is on; none while it is off.
+ */
+export const fireAlarmLiftsSchema = z.object({ threadIds: z.array(z.uuid()) });
+export type FireAlarmLifts = z.infer<typeof fireAlarmLiftsSchema>;
+
+/**
  * The Office tool an Agent opens a Decision with. Its tool activity line is hidden in the web,
  * since the Decision's card shows the call.
  */

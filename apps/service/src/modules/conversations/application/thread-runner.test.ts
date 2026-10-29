@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -55,6 +55,9 @@ import { ThreadService } from "./thread-service.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
+import { FireAlarmLifts, HELD_BY_THE_FIRE_ALARM } from "./fire-alarm-lifts.js";
+import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
+import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
 
 type Card = SessionRole["card"];
 type Step = SessionScript[number];
@@ -150,6 +153,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       SessionPlaces,
       ThreadContexts,
       ThreadRunner,
+      FireAlarmLifts,
+      { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       MentionedRecords,
       WorkRecords,
       StageThreads,
@@ -460,7 +465,11 @@ describe("continuing a Thread", () => {
 
     const [first, resumed] = engine.sessions;
     expect(resumed?.id).toBe(first?.id);
-    expect(resumed?.options).toEqual(first?.options);
+    // The same options, but the fire alarm's hold, a function made for each move.
+    expect({ ...resumed?.options, toolHold: undefined }).toEqual({
+      ...first?.options,
+      toolHold: undefined,
+    });
     expect(drafts(log).slice(3)).toEqual([
       contextLine({ move: "resume", reason: "small-context", contextTokens: 12_000 }),
       { kind: "user", text: "Still there?", delivery: "delivered" },
@@ -1184,5 +1193,88 @@ describe("near the context limit", () => {
       move: "fresh",
       reason: "context-full",
     });
+  });
+});
+
+/**
+ * A sounding of the test's own: lifts are kept by when the alarm sounded, in a table every test
+ * file shares.
+ */
+function aSounding(): { readonly on: true; readonly since: Date } {
+  return { on: true, since: new Date(Date.UTC(2026, 9, 29) + randomInt(2 ** 40)) };
+}
+
+/** The person calls a chat's Office tool, then answers in words. */
+function callsAnOfficeTool(): SessionScript {
+  const tool = CHAT_OFFICE_TOOLS[0];
+  return started(
+    {
+      step: "event",
+      event: {
+        kind: "tool-call",
+        callId: "c-1",
+        tool,
+        officeTool: true,
+        input: {},
+        withinToolCall: undefined,
+      },
+    },
+    { step: "event", event: { kind: "tool-result", callId: "c-1", text: "", isError: false } },
+    ...aTurn("brief", "Here is what I know."),
+  );
+}
+
+function refusalsIn(log: readonly Message[]): MessageDraft[] {
+  return drafts(log).filter(({ kind }) => kind === "refusal");
+}
+
+describe("chats during the fire alarm", () => {
+  it("lets Agents answer but refuses every tool call, except in a Thread the user lifted it for", async () => {
+    await startWith(callsAnOfficeTool(), callsAnOfficeTool());
+    const sounded = aSounding();
+    app.get(FireAlarmInThreads).readFrom(() => Promise.resolve(sounded));
+    const held = await threads.startInChat(roleKey);
+    const lifted = await threads.startInChat(roleKey);
+    await app.get(FireAlarmLifts).lift(lifted.id);
+
+    await runner.send(held.id, "What changed?");
+    const heldLog = await answered(held.id, 5);
+    await runner.send(lifted.id, "What changed?");
+    const liftedLog = await answered(lifted.id, 4);
+
+    expect(refusalsIn(heldLog)).toEqual([
+      { kind: "refusal", roleKey, tool: CHAT_OFFICE_TOOLS[0], reason: HELD_BY_THE_FIRE_ALARM },
+    ]);
+    expect(drafts(heldLog).at(-1)).toEqual({
+      kind: "person",
+      roleKey,
+      text: "Here is what I know.",
+    });
+    expect(refusalsIn(liftedLog)).toEqual([]);
+    await expect(app.get(FireAlarmLifts).lifted()).resolves.toEqual([lifted.id]);
+  });
+
+  it("keeps a lift until the all clear, refuses one while the alarm is off, and takes one back", async () => {
+    await startWith();
+    const lifts = app.get(FireAlarmLifts);
+    const thread = await threads.startInChat(roleKey);
+
+    await expect(lifts.lift(thread.id)).rejects.toThrow(
+      "The fire alarm isn't on: every Agent may act already.",
+    );
+    const sounded = aSounding();
+    const next = aSounding();
+    app.get(FireAlarmInThreads).readFrom(() => Promise.resolve(sounded));
+    await lifts.lift(thread.id);
+    const whileOn = await lifts.heldReason(thread.id);
+    app.get(FireAlarmInThreads).readFrom(() => Promise.resolve(next));
+    const nextSounding = await lifts.heldReason(thread.id);
+    app.get(FireAlarmInThreads).readFrom(() => Promise.resolve(sounded));
+    await lifts.takeBack(thread.id);
+
+    expect(whileOn).toBeUndefined();
+    expect(nextSounding).toBe(HELD_BY_THE_FIRE_ALARM);
+    await expect(lifts.heldReason(thread.id)).resolves.toBe(HELD_BY_THE_FIRE_ALARM);
+    await expect(lifts.lifted()).resolves.toEqual([]);
   });
 });
