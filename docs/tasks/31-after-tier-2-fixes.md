@@ -48,7 +48,6 @@ Decided with the user on 2026-10-30: one task for the whole list; H says in the 
 - The other three design-system Menus stay on `Menu`; switch one by its import if it clips.
 - Trap: in e2e, a click on a board card's tag or meta is caught by the title's link; click the card by position.
 - Trap: `people.e2e.ts:1770` (a skill's update via the 2 s daily check) failed once in a full run and passed on reruns; flaky, not from this task.
-- Trap: `read_initiative`/`read_task` with an id that isn't a uuid fails the call in Postgres rather than answering "no such record"; as before, not changed here.
 - Open, ask at step 6: rebuild or retire task 09's check.
 
 ## Progress
@@ -58,3 +57,4 @@ Decided with the user on 2026-10-30: one task for the whole list; H says in the 
 - 2026-10-30 · step 2: Gate and Stage editor words, the script note on send back, command toasts as they work, the let-go turn note, the outside-worktree write refusal naming the rule, chat instructions to read with Read and Grep; next, step 3, tokens.
 - 2026-10-30 · step 3: every token count leaves cache reads out (contracts' `countedTokens`) with an info icon giving the four kinds and their cost; Now and Stages send the kinds, the day tables keep them; spec 2.7 amended; next, step 4, chats.
 - 2026-10-30 · step 4: Devops reads a local repository's top level and manifests from their chat, a chat's Brief carries every memory note labelled with its Project, every chat reads an Initiative by id, and a hire refuses a name equal to the title; next, step 5, Work.
+- 2026-10-30 · after step 4: `propose_project` points Devops to `read_local_repository`. Found: `read_task`, `read_idea` and `read_initiative` with an id that isn't a uuid fail the call in Postgres instead of answering that there is no such record; waits for the user (not in this step's files); next, step 5, Work.
