@@ -234,6 +234,29 @@ test("the user hires a person from scratch, filling the whole Role card", async 
   await expect(roleCardGroup(page, "Work")).toContainText("1 at once");
 });
 
+test("the user switches a Role to Claude Code -p with one of its models, and the card shows it", async ({
+  page,
+}) => {
+  await page.goto("/people/data-analyst/role/edit");
+  const form = page.locator("form.role-card-form");
+  const engine = form.getByRole("combobox", { name: "Engine" });
+  await expect(engine).toHaveValue("agent-sdk");
+  await engine.selectOption({ label: "Claude Code -p" });
+  await form.getByLabel("Model").selectOption({ label: "Haiku 5.5" });
+  await page.getByRole("button", { name: "Save changes" }).click();
+
+  await expect(
+    page.getByText("Role card saved. Mia works with it from the next session."),
+  ).toBeVisible();
+  await expect(page).toHaveURL(/\/people\/data-analyst\/role$/);
+  await page.reload();
+  await expect(roleCardGroup(page, "Engine")).toContainText(
+    "Haiku 5.5 · effort medium · Claude Code -p",
+  );
+  const changes = page.getByRole("listitem").filter({ hasText: "Role card version 2" });
+  await expect(changes).toContainText("Engine Agent SDK → Claude Code -p");
+});
+
 test("the user lets a person go, finds their page kept and read-only, and hires them back", async ({
   page,
 }) => {
