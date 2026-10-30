@@ -2,6 +2,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import {
   decisionListSchema,
+  engineSchema,
   ideaSchema,
   messageListSchema,
   projectSchema,
@@ -102,7 +103,13 @@ export function tokensOf(tokens: Readonly<Record<string, number>>): number {
   return Object.values(tokens).reduce((sum, part) => sum + part, 0);
 }
 
-/** Hires each Role from its preset on Haiku at low effort, the cheapest that proves a check. */
+/** The engine a check's Roles work with, when OFFICE_CHECK_ENGINE names one; the preset's otherwise. */
+const CHECK_ENGINE = engineSchema.optional().parse(process.env["OFFICE_CHECK_ENGINE"]);
+
+/**
+ * Hires each Role from its preset on Haiku at low effort, the cheapest that proves a check, on
+ * the engine OFFICE_CHECK_ENGINE names, if any.
+ */
 export async function hireOnHaiku(
   api: Api,
   hires: readonly (readonly [roleKey: string, name: string])[],
@@ -111,6 +118,7 @@ export async function hireOnHaiku(
     const hired = roleSchema.parse(await api("POST", "/roles", { roleKey, name }));
     await api("PUT", `/roles/${roleKey}/card`, {
       ...hired.card,
+      engine: CHECK_ENGINE ?? hired.card.engine,
       model: "claude-haiku-5-5",
       effort: "low",
       skills: [],

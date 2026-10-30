@@ -575,17 +575,7 @@
         "memoryFileTokens": 0
       },
       "usageWindows": {
-        "rateLimitsAvailable": true,
-        "windows": {
-          "five_hour": {
-            "utilization": true,
-            "resetsAt": true
-          },
-          "seven_day": {
-            "utilization": true,
-            "resetsAt": true
-          }
-        }
+        "rateLimitsAvailable": true
       },
       "officeToolMethods": ["initialize", "notifications/initialized", "tools/list"],
       "requestsToHost": []
@@ -616,17 +606,7 @@
         "memoryFileTokens": 0
       },
       "usageWindows": {
-        "rateLimitsAvailable": true,
-        "windows": {
-          "five_hour": {
-            "utilization": true,
-            "resetsAt": true
-          },
-          "seven_day": {
-            "utilization": true,
-            "resetsAt": true
-          }
-        }
+        "rateLimitsAvailable": true
       },
       "officeToolMethods": ["initialize", "notifications/initialized", "tools/list"],
       "requestsToHost": []

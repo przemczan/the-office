@@ -3,26 +3,12 @@ import type { ClaudeCodePSession, UsageAnswer } from "../../claude-code-p/claude
 import type { Observation } from "../../check.ts";
 import { sortedNames } from "../observations.ts";
 
-/** The plan windows the Office shows (spec §5.4). */
-const WINDOWS = ["five_hour", "seven_day"] as const;
-
-/** Which of the windows the usage query answers with, by field, never their values. */
+/**
+ * Whether the usage query answers. Before any turn, which windows it names and with which fields
+ * follows the account's state, not the engine; the live contract reads them after a turn.
+ */
 export function usageWindows(usage: UsageAnswer): Observation {
-  return {
-    rateLimitsAvailable: usage.rate_limits_available ?? null,
-    windows: Object.fromEntries(
-      WINDOWS.map((window) => {
-        const limit = usage.rate_limits?.[window];
-        return [
-          window,
-          {
-            utilization: typeof limit?.utilization === "number",
-            resetsAt: typeof limit?.resets_at === "string",
-          },
-        ];
-      }),
-    ),
-  };
+  return { rateLimitsAvailable: usage.rate_limits_available ?? null };
 }
 
 /** The `rate_limit_event` messages of a session, with which windows they name. */

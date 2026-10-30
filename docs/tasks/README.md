@@ -43,7 +43,7 @@ Order accepted by the user on 2026-10-27. A task's file is written when it becom
 | 26 | [Parallel work in a Project, and a queue for Start](26-parallel-work-and-start-queue.md) | Work and the Task page | done |
 | 27 | [Notifications: the kinds × channels grid, quiet hours, batching; the fire alarm](27-notifications-and-fire-alarm.md) | Now | done |
 | 28 | [The phone: HTTPS on the LAN, the PIN, the installed app, phone views and push](28-the-phone.md) | Phone | postponed |
-| 29 | [Running: the `-p` fallback adapter](29-the-p-fallback.md) | Foundation | in progress |
+| 29 | [Running: the `-p` fallback adapter](29-the-p-fallback.md) | Foundation | done |
 | 30 | The tier 2 acceptance run | All | todo |
 
 Carried into task 30 (the user's word, 2026-10-29): from task 25, installing one skill from github.com/anthropics/skills on the running app, and the user's look at installing, updating and a drafted skill there.
@@ -63,6 +63,7 @@ Decided with the user on 2026-10-27: a fix is built where it is found only when 
 - Found in task 24: Start refuses only when the first Agent Stage's Role is vacant (`work/domain/task-start.ts`). A later Agent Stage whose Role nobody fills, which the library now only flags, lets the Task start and then fails in the runner ("Nobody fills the Role"), since `pipelines/application/staffing-holds.ts` holds Tasks when someone is let go (and Resume checks staffing) but nothing does on `TaskStarted`. Proposed fix: hold the Task on `TaskStarted` too, paused behind the same Decision Resume and letting someone go give, so it carries on, or drops, by the user's answer once someone fills the Role.
 - Found in task 24: applying a `project` Proposal adds the Project, then its Onboard Task, in separate transactions (Work's `ProjectProposals`). If the Task can't be added (in practice, its worktree can't be made), the Proposal is refused but stays open with the Project already added, and applying it again tries to add the Project a second time. Proposed fix: on a second apply, find the Project the Proposal already added (by its repository) and carry on with the Task, so applying converges.
 - Found in task 25: an applied `skill-update` Proposal's card reads its files' diff from the Source each time (`GET /skills/:name/update-diff`, `shell/skill-update-diff.tsx`), so it shows an error once the Source is gone or no longer has those versions. Proposed fix: keep the diff with the Proposal when it is applied (or the files hash's diff from the library's kept versions), and show that on an applied card.
+- Found in task 29: task 09's chat check on the Test Project (`conversations/application/test-project-check.test.ts`) no longer builds its Nest module, since `ThreadRunner` needs `StageThreads`; it fails before any session. Proposed fix: build it from the Conversations module as the later checks do through `test/live-check.ts`, or retire it, since the later checks cover chat with the Planner.
 
 Read these only when a step needs them:
 

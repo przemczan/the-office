@@ -1,6 +1,6 @@
 # 29 · Running: the `-p` fallback adapter
 
-Status: in progress
+Status: done
 
 ## Goal
 
@@ -11,8 +11,8 @@ A Role can work with Claude Code `-p` in place of the Agent SDK, picked in its R
 - [x] The engine check has runs for the fallback on Windows and on Linux: the pinned binary in `-p` with stream-json in and out; for each capability of `EngineCapabilities`, whether it holds and how; Office tools through the binary's stream (a `localhost` MCP endpoint until step 4a); the Office rules from a hook that asks the service; exactly the session's skills. Check: `npm run engine-check -- --only fallback.` on both platforms, recorded in [engine-check.md](../engine-check.md).
 - [x] `ClaudeCodePEngine` passes the `AgentEngine` contract (`describeAgentEngineContract`) with the capabilities the engine check found, live under `OFFICE_ENGINE_TESTS=live`; its event mapping and its flags have unit tests. Check: the adapter's tests, live on Windows and Linux.
 - [x] Sessions run on the engine their Role picks: the Engine module holds an engine per id, a session names its engine, capabilities are read per engine, a Thread resumes only on the engine its session ran on (a changed engine starts fresh). Check: service tests on two scripted engines.
-- [ ] The Role card's Engine field offers "Claude Code -p" with its models; a Role switched to it chats and runs a Stage with Office tools. Check: Playwright of the Role card; a live check on the Test Project with a Role on the fallback (cheapest model).
-- [ ] `npm run verify` and `npm run verify:linux` pass. Check: the commands.
+- [x] The Role card's Engine field offers "Claude Code -p" with its models; a Role switched to it chats and runs a Stage with Office tools. Check: Playwright of the Role card; a live check on the Test Project with a Role on the fallback (cheapest model).
+- [x] `npm run verify` and `npm run verify:linux` pass. Check: the commands.
 
 ## Read first
 
@@ -36,30 +36,17 @@ Leave out: start at login (left out for now, spec 3: The Office is set up and st
   Read: the State; `adapters/claude-code-p/stream-json.ts` (`refuse`, `read`), `claude-code-p-arguments.ts` (`officeToolServer`), `adapters/http/session-endpoints.controller.ts`; the SDK's handling by grep in `node_modules/@anthropic-ai/claude-agent-sdk/sdk.mjs` (`mcp_message`, `sdkMcpServers`).
 - [x] 5. The Role card, the web: the Engine field offering "Claude Code -p" (`ENGINE_LABELS`), the models following the engine; Playwright. Commit.
   Read: `apps/web/src/shell/role-card-words.ts`; the Role card editor in `surfaces/people/`, by its map.
-- [ ] 6. The live check on the Test Project with a Role on the fallback; `npm run verify` and `npm run verify:linux`; close the task. Commit.
+- [x] 6. The live check on the Test Project with a Role on the fallback; `npm run verify` and `npm run verify:linux`; close the task. Commit.
   Read: [the Test Project](test-project.md); [testing](../../apps/service/docs/testing.md) for a live check.
 
 ## State
 
-- Steps 0-5 done; next is step 6, the live check on the Test Project, then closing the task.
-- The Role card (web): `EngineFields` in `role-card-form.tsx` lists the engines and each one's models from `GET /role-card-options` (no model list in the web); switching engines keeps the model when the new engine offers it, else takes its first. The view shows the engine's label (`ENGINE_LABELS`). Playwright: "the user switches a Role to Claude Code -p…" in `people.e2e.ts` (Mia, who opens no sessions, so the scripted session order is untouched). The click-through names the SDK "Claude Agent SDK"; the web keeps "Agent SDK", as before this task.
-- Built: `ClaudeCodePEngine` (`apps/service/src/modules/engine/adapters/claude-code-p/claude-code-p-engine.ts`, `open`) spawns the pinned binary (`pinned-binary.ts`) with `claudeCodePArguments` (`claude-code-p-arguments.ts`); `StreamJson` (`stream-json.ts`) writes messages and control requests and answers the engine's: `mcp_message` from a `StreamMcpServer` it was given, the rest refused. The Office tools: `OfficeToolServer` (`office-tool-server.ts`), an in-process MCP server named `{type: "sdk", name: "office"}` in `--mcp-config`, each tool `_meta['anthropic/alwaysLoad']`, each call asked of `toolDecision` again. The hook: `SessionEndpoints` (`session-endpoints.ts`) and `SessionEndpointsController` (`adapters/http/`), `/api/engine/claude-code-p/hook`, a token per session. Shared with the SDK adapter: `adapters/claude-code/`.
-- Checked: the live contract (haiku) 10/10 on Windows and Linux; engine check `fallback.*` re-run on both plus `fallback.priority-next-office-tool` (engine-check.md). No `initialize` request is needed for the `sdk` server in `-p`.
-- Engine id `claude-code-p`, label "Claude Code -p"; `ENGINE_MODELS` in the Engine module's public entry, `engineSchema` in contracts (`packages/contracts/src/people.ts`).
-- Not run live yet: `--append-system-prompt-file` and the `Skill(...)` rules (the contract sets neither); step 6's Test Project check covers both.
-- Open: `fallback.start` reads `get_usage` before any turn, which follows the account's state: on Linux it differs there (no `resets_at`, no `utilization`), on the old route too (A/B, 2026-10-30); Windows matches. The contract reads the windows after a turn and passes on both. Whether to move that read after a turn (a model call) is for the user.
-- Traps: `SessionEndpoints.origin()` throws until the service listens, so a live check needs the HTTP app listening (`serveSessionEndpoints()` in `adapters/http/session-endpoints.fixtures.ts` does it for the adapter's test). A hook held for a Decision needs a timeout longer than 600 s or a refusal on timeout. The live suites need Postgres for vitest's global setup (Linux host: `ssh -R 5432`, copy at `/root/the-office-29`). Windows pipe writes are asynchronous: keep anything ordered with messages on the binary's input.
-- Decided with the user on 2026-10-30: start at login dropped for now; the fallback at parity with the SDK adapter, picked per Role, no Office-wide switch, the pinned binary and the same models; the Context policy's reason label "engine changed"; Office tools through the binary's stream (B).
-- Engine-check structure: `RecordedSession` (`src/recorded-session.ts`) is the base of `ProbeSession` (SDK) and `ClaudeCodePSession`; `claude-code-p/office-tool-server.ts` answers `mcp_message`; shared options in `src/office-options.ts`.
+- Done 2026-10-30. A Role works with Claude Code `-p` when its Role card's Engine field says so: `ClaudeCodePEngine` (`apps/service/src/modules/engine/adapters/claude-code-p/`) runs the pinned binary over stream-json, its Office tools in-process through the binary's stream (`mcp_message`), the Office rules through the hook endpoint on `localhost` with a token per session; sessions start and resume on their Role's engine (`AgentEngines`, `EngineSessions`), a changed engine starts fresh ("engine changed").
+- Checked: the engine check's `fallback.*` on Windows and Linux; the live contract 10/10 on both; task 12's Test Project check with `OFFICE_CHECK_ENGINE=claude-code-p` (the Planner planned, the Developer implemented with the Office tools, one command refused by the rules, the handover note through an Office tool, `npm test` passed, `main` untouched). Its last assertion, the Test Project's folder clean, failed only on the user's own uncommitted work there (19 files changed 01:00–07:24, before the run), not the Agent's.
+- `fallback.start` records only that the usage query answers: before any turn its windows follow the account's state (none named on Linux on 2026-10-30).
+- Left: `--append-system-prompt-file` and the `Skill(...)` rules were not run live with skills (the checks hire with no skills); the conversations module's task 09 chat check no longer builds its Nest module (`ThreadRunner` needs `StageThreads` since), found here, not fixed.
+- Decided with the user on 2026-10-30: start at login dropped for now; the fallback at parity with the SDK adapter, per Role, the pinned binary and the same models; "engine changed"; Office tools through the binary's stream; the token reaching an Agent's commands accepted, the rules asked on every Office tool call; `--plugin-dir`.
 
 ## Progress
 
-- 2026-10-30 · step 0: questions settled (start at login dropped, the fallback at parity with the SDK adapter); spec 3, 5.1, 5.4 amended; next is step 1, the engine check's fallback runs.
-- 2026-10-30 · step 1: the engine check runs the pinned binary in `-p` (`fallback.*`, 7 checks) on Windows and Linux; every capability holds, Office tools and rules reach `localhost` with a per-session token; next is step 2, an engine per Role.
-- 2026-10-30 · step 2: an engine per Role: ids and models in Engine's public entry, `AgentEngines`, sessions start and resume on the engine their settings name, capabilities per engine, a Thread's session keeps its engine and a changed engine starts fresh; the fallback a refusing placeholder; next is step 3, the Office tools and rules over `localhost`.
-- 2026-10-30 · step 3: the fallback's hook and MCP endpoints in the service under `/api/engine/claude-code-p/`, a token per session (`SessionEndpoints`), every Office tool call judged by the session's rules and ToolHold; shared Claude Code pieces in `adapters/claude-code/`; next is step 4, `ClaudeCodePEngine`.
-- 2026-10-30 · step 4 (not ticked): `ClaudeCodePEngine` runs sessions on the pinned binary in `-p`; the live contract passes on Linux and fails `barge-in` on Windows (an Office tool's answer races a `next` message); the fix is the user's choice (State); next is that answer, then step 5.
-- 2026-10-30 · step 4a planned: the user chose Office tools through the binary's stream (spec 5.4 Defaults amended), keeping "engine changed"; next is step 4a.
-- 2026-10-30 · step 4a: Office tools served in-process through the binary's stream (`mcp_message`), the MCP endpoint removed, the hook kept; engine check re-run plus `fallback.priority-next-office-tool` on both platforms; live contract 10/10 on Windows and Linux, so step 4 ticked with DoD 1-2; next is step 5.
-- 2026-10-30 · step 4a follow-up: `fallback.start` re-run; its usage-window difference on Linux holds on the old route too (account state, before any turn), noted in engine-check.md; next is step 5.
-- 2026-10-30 · step 5: the Role card's Engine field already offered "Claude Code -p" with the models the service sends; Playwright switches a Role to it, saves, and finds it on the card and in the change history; next is step 6, the live check.
+The log is archived in [archive/29-the-p-fallback.md](archive/29-the-p-fallback.md).
