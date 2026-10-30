@@ -60,6 +60,7 @@ const RECORDS: Readonly<Record<(typeof CHAT_OFFICE_TOOLS)[number], string>> = {
   list_people: "Jan · Planner (Role planner)\nWrites each Task's Plan with you.",
   list_tasks: "There is no Task yet.",
   read_task: "There is no Task with that id.",
+  read_initiative: "There is no Initiative with that id.",
   list_ideas: "There is no Idea yet.",
   read_idea: "There is no Idea with that id.",
   capture_idea: "Captured the Idea.",
@@ -77,6 +78,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
         const officeData = join(folder, "office-data");
         const bases = join(officeData, "bases");
         const project: BriefProject = {
+          projectId: "notnullsoft-admin",
           name: "notnullsoft-admin",
           baseBranch: "main",
           folder: join(bases, "notnullsoft-admin"),

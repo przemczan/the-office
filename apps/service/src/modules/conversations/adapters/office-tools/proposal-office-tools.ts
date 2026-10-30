@@ -18,7 +18,13 @@ import {
 } from "../../domain/proposal.js";
 import { refusedToTheAgent } from "./refused-to-the-agent.js";
 
-const roleCardFieldsSchema = roleCardSchema.omit({ skills: true });
+const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).extend({
+  name: z
+    .string()
+    .describe(
+      "The person's first name, apart from the Role's title: a person is never named by it.",
+    ),
+});
 
 const ROLE_DRAFTED =
   "The Proposal is in this chat as a card; nothing changes until the user applies it, and they may edit a new Role before hiring. Don't wait for it: tell the user what you propose and why, in a line or two.";
@@ -79,7 +85,7 @@ export class ProposalOfficeTools implements OnModuleInit {
       run: async ({ role, preset, card, skills }, { sessionId }) => {
         const change =
           preset !== undefined
-            ? presetRole(preset.trim(), role, card, skills)
+            ? this.presetRole(preset.trim(), role, card, skills)
             : role === undefined
               ? newRole(card, skills)
               : await this.changeOf(role.trim(), card, skills);
@@ -121,26 +127,39 @@ export class ProposalOfficeTools implements OnModuleInit {
     if (skills !== undefined) return "A change to a Role leaves its skills as they are.";
     try {
       const { role } = await this.roles.read(roleKey);
-      return proposedRoleChange(roleKey, role.card, fields);
+      const { name, title } = { ...role.card, ...fields };
+      const renamed = fields.name !== undefined || fields.title !== undefined;
+      return (
+        (renamed ? nameProblem(name, title) : undefined) ??
+        proposedRoleChange(roleKey, role.card, fields)
+      );
     } catch (error) {
       if (error instanceof RoleNotFound) return `The Office has no Role "${roleKey}".`;
       throw error;
     }
   }
-}
 
-/** A person in the preset's Role, or what is wrong with the call, in words the Agent acts on. */
-function presetRole(
-  roleKey: string,
-  role: string | undefined,
-  { name, ...fields }: RoleCardFields,
-  skills: readonly string[] | undefined,
-): ProposedChange | string {
-  if (role !== undefined) return "Give a preset to hire from or a Role to change, not both.";
-  if (skills !== undefined || Object.keys(fields).length > 0) {
-    return "A preset's Role is hired on the preset's card; give only the person's name as card.name. Their card can change once they are hired.";
+  /** A person in the preset's Role, or what is wrong with the call, in words the Agent acts on. */
+  private presetRole(
+    roleKey: string,
+    role: string | undefined,
+    { name = "", ...fields }: RoleCardFields,
+    skills: readonly string[] | undefined,
+  ): ProposedChange | string {
+    if (role !== undefined) return "Give a preset to hire from or a Role to change, not both.";
+    if (skills !== undefined || Object.keys(fields).length > 0) {
+      return "A preset's Role is hired on the preset's card; give only the person's name as card.name. Their card can change once they are hired.";
+    }
+    // An unknown preset is refused as the Proposal is drafted, by the owner.
+    const preset = this.roles.presets().find((candidate) => candidate.roleKey === roleKey);
+    return (
+      (preset && nameProblem(name, preset.card.title)) ?? {
+        kind: "hire-from-preset",
+        roleKey,
+        name,
+      }
+    );
   }
-  return { kind: "hire-from-preset", roleKey, name: name ?? "" };
 }
 
 /** A new Role on the card given, or what is missing from it, in words the Agent acts on. */
@@ -153,5 +172,18 @@ function newRole(
     const named = [...new Set(card.error.issues.map((issue) => issue.path.join(".")))];
     return `A new Role needs its whole Role card; give ${named.join(", ")}.`;
   }
-  return { kind: "hire", card: card.data, skills: skills ?? [], roleKey: undefined };
+  return (
+    nameProblem(card.data.name, card.data.title) ?? {
+      kind: "hire",
+      card: card.data,
+      skills: skills ?? [],
+      roleKey: undefined,
+    }
+  );
+}
+
+/** Why a person can't be named `name` in a Role titled `title`: never by the title itself. */
+function nameProblem(name: string, title: string): string | undefined {
+  if (name.trim().toLowerCase() !== title.trim().toLowerCase()) return undefined;
+  return `"${name.trim()}" is the Role's title; give the person a first name of their own as card.name.`;
 }

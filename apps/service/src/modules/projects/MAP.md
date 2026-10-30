@@ -2,7 +2,7 @@
 
 **Owns:** Projects (`projects`): path, commands, install inputs, publishing mode, default Pipeline; the environment check (`environment_checks`); The Office's own git (`ports/git.ts`, `CommandLineGit`) under per-repository locks; a worktree per Task, the base checkouts, Changes, and the git work of Publish and Resolve (`TaskWorktrees`; `Publishing`, `Resolving`).
 
-**Talks to:** checks a default Pipeline through its `KnownPipelines` port, bound to Pipelines' `PipelineLibrary` in [app.module.ts](../../app.module.ts); calls Engine and Skills. Serves Work (`ProjectService`, `TaskWorktrees`), Pipelines (`TaskWorktrees` as `TaskGit`, `TaskCommands` and `TaskPublishing`; `ProjectService` as `ProjectDefaults`, which the library asks before removing a Pipeline) and Conversations (`BaseCheckouts`, and `ProjectService` for Devops' Proposals of commands and install inputs: `proposedCommandsProblems` and `changeCommandsAsProposed`; and Work's `NewProjects` for a Project to onboard: `add` and its dry run `newProjectProblems`, which applies the whole Proposal or none of it: judged against the row as it is held and saved in one update, each field still announced with its own event as the Project page announces it).
+**Talks to:** checks a default Pipeline through its `KnownPipelines` port, bound to Pipelines' `PipelineLibrary` in [app.module.ts](../../app.module.ts); calls Engine and Skills. Serves Work (`ProjectService`, `TaskWorktrees`), Pipelines (`TaskWorktrees` as `TaskGit`, `TaskCommands` and `TaskPublishing`; `ProjectService` as `ProjectDefaults`, which the library asks before removing a Pipeline) and Conversations (`BaseCheckouts`; Devops' `read_local_repository` in their chat, reading a repository's top level and manifest files before it is a Project (`LocalRepositories`, refusing a folder as adding a Project does); and `ProjectService` for Devops' Proposals of commands and install inputs: `proposedCommandsProblems` and `changeCommandsAsProposed`; and Work's `NewProjects` for a Project to onboard: `add` and its dry run `newProjectProblems`, which applies the whole Proposal or none of it: judged against the row as it is held and saved in one update, each field still announced with its own event as the Project page announces it).
 
 **Traps:**
 - The module is registered once in `AppModule`, so every git change on a repository goes through the same locks.
@@ -68,7 +68,7 @@ BaseCheckouts, BaseCheckout, ProjectService, TaskWorktrees, SessionWorktree, Env
 
 ### adapters/office-tools/
 
-- `project-office-tools.ts`: LIST_PROJECTS, ProjectOfficeTools
+- `project-office-tools.ts`: LIST_PROJECTS, READ_LOCAL_REPOSITORY, ProjectOfficeTools
 - Tests: project-office-tools.test.ts
 
 ### adapters/postgres/
@@ -93,6 +93,7 @@ BaseCheckouts, BaseCheckout, ProjectService, TaskWorktrees, SessionWorktree, Env
 - `base-checkouts.ts`: BaseCheckout, BaseCheckouts
 - `command-environment.ts`: commandEnvironment
 - `environment-checks.ts`: EnvironmentChecks
+- `local-repositories.ts`: TopLevelEntry, ManifestFile, LocalRepository, MANIFEST_CHARACTERS, LocalRepositories
 - `project-checks.ts`: ProjectChecks
 - `project-command-runner.ts`: ProjectCommand, ProjectCommandRunner
 - `project-service.ts`: ProjectService
@@ -102,7 +103,7 @@ BaseCheckouts, BaseCheckout, ProjectService, TaskWorktrees, SessionWorktree, Env
 - `script-commands.ts`: ScriptCommandKey, MovedFiles, ScriptCommandRun, ScriptCommands
 - `task-worktrees.ts`: SessionWorktree, TaskWorktrees
 - `worktrees.ts`: BaseBranch, TaskWorktree, InstallOptions, Installation, TaskChanges, ThrowawayWorktree, Worktrees
-- Tests: base-checkouts.test.ts, command-environment.test.ts, project-checks.test.ts, publishing.test.ts, resolving.test.ts, script-commands.test.ts, worktrees.test.ts
+- Tests: base-checkouts.test.ts, command-environment.test.ts, local-repositories.test.ts, project-checks.test.ts, publishing.test.ts, resolving.test.ts, script-commands.test.ts, worktrees.test.ts
 
 ### domain/
 

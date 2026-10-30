@@ -37,7 +37,10 @@ function toolDrafting(refusal?: string, name = PROPOSE_ROLE_TOOL) {
   const roles = {
     read: (key: string) =>
       key === "tester" ? Promise.resolve(tester) : Promise.reject(new RoleNotFound(key)),
-    presets: () => [{ roleKey: "developer" }, { roleKey: "planner" }],
+    presets: () => [
+      { roleKey: "developer", card: { title: "Developer" } },
+      { roleKey: "planner", card: { title: "Planner" } },
+    ],
   } as unknown as RoleService;
   const registry = new OfficeToolRegistry();
   new ProposalOfficeTools(registry, proposals, roles).onModuleInit();
@@ -47,6 +50,14 @@ function toolDrafting(refusal?: string, name = PROPOSE_ROLE_TOOL) {
 }
 
 const session = { sessionId: "session-1" };
+
+/** What the Agent reads when it names a person by the Role's title. */
+function namedByTheTitle(name: string) {
+  return {
+    text: `"${name}" is the Role's title; give the person a first name of their own as card.name.`,
+    isError: true,
+  };
+}
 
 describe("the propose_role tool", () => {
   it("is named as the contracts name it", () => {
@@ -126,6 +137,32 @@ describe("the propose_role tool", () => {
     await expect(
       tool.run({ role: "tester", card: {}, skills: ["playwright"] }, session),
     ).resolves.toMatchObject({ isError: true });
+    expect(drafted).toEqual([]);
+  });
+
+  it("asks for a first name apart from the title", () => {
+    const { tool } = toolDrafting();
+
+    expect(JSON.stringify(z.toJSONSchema(tool.input))).toContain(
+      "The person's first name, apart from the Role's title",
+    );
+  });
+
+  it("refuses a person named by the Role's title, hired from scratch, from a preset or renamed", async () => {
+    const { tool, drafted } = toolDrafting();
+
+    await expect(
+      tool.run(
+        { card: { ...aProposedCard(), name: "Docs Writer", title: "Docs writer" } },
+        session,
+      ),
+    ).resolves.toEqual(namedByTheTitle("Docs Writer"));
+    await expect(
+      tool.run({ preset: "developer", card: { name: " developer " } }, session),
+    ).resolves.toEqual(namedByTheTitle("developer"));
+    await expect(
+      tool.run({ role: "tester", card: { name: aProposedCard().title } }, session),
+    ).resolves.toEqual(namedByTheTitle(aProposedCard().title));
     expect(drafted).toEqual([]);
   });
 

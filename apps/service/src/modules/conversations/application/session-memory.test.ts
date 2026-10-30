@@ -21,19 +21,17 @@ function sessionMemoryOf(memory: Memory): SessionMemory {
 
 describe("SessionMemory", () => {
   it("reads the notes of a person whose Shared memory is on", async () => {
-    const memory = await sessionMemoryOf({ inUse: true, notes: NOTES }).forBrief(
-      "planner",
-      undefined,
-    );
+    const memory = await sessionMemoryOf({ inUse: true, notes: NOTES }).forBrief("planner", {
+      kind: "all-projects",
+    });
 
     expect(memory.lines).toEqual(["- 2026-10-10: Prefers short answers."]);
   });
 
   it("reads none while Shared memory is off: the notes are kept, not read", async () => {
-    const memory = await sessionMemoryOf({ inUse: false, notes: NOTES }).forBrief(
-      "planner",
-      undefined,
-    );
+    const memory = await sessionMemoryOf({ inUse: false, notes: NOTES }).forBrief("planner", {
+      kind: "all-projects",
+    });
 
     expect(memory).toEqual({ lines: [], leftOut: 0 });
   });

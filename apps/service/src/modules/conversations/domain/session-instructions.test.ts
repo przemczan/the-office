@@ -25,7 +25,9 @@ import {
   PROPOSE_SKILL_INSTALL_TOOL,
   PROPOSE_SKILL_TOOL,
   PROPOSE_SKILL_UPDATE_TOOL,
+  READ_LOCAL_REPOSITORY_TOOL,
   READ_SKILL_UPDATE_TOOL,
+  roleOfficeTools,
   SHOW_OFFICE_STATUS_TOOL,
 } from "./session-instructions.js";
 
@@ -51,6 +53,18 @@ describe("chatOfficeTools", () => {
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_OFFICE_SETTING_TOOL);
   });
 
+  it("gives everyone reading an Initiative by its id, the Office Manager too", () => {
+    expect(chatOfficeTools("planner")).toContain("read_initiative");
+    expect(chatOfficeTools(DEVOPS)).toContain("read_initiative");
+    expect(chatOfficeTools(OFFICE_MANAGER)).toContain("read_initiative");
+  });
+
+  it("gives only Devops' chat reading a repository on the workstation, never their Stage Threads", () => {
+    expect(chatOfficeTools(DEVOPS)).toContain(READ_LOCAL_REPOSITORY_TOOL);
+    expect(roleOfficeTools(DEVOPS)).not.toContain(READ_LOCAL_REPOSITORY_TOOL);
+    expect(chatOfficeTools("planner")).not.toContain(READ_LOCAL_REPOSITORY_TOOL);
+  });
+
   it("gives everyone drafting a written skill as a Proposal, the Office Manager too", () => {
     expect(chatOfficeTools("planner")).toContain(PROPOSE_SKILL_TOOL);
     expect(chatOfficeTools(DEVOPS)).toContain(PROPOSE_SKILL_TOOL);
@@ -68,6 +82,7 @@ describe("chatOfficeTools", () => {
       PROPOSE_SKILL_INSTALL_TOOL,
       READ_SKILL_UPDATE_TOOL,
       PROPOSE_SKILL_UPDATE_TOOL,
+      READ_LOCAL_REPOSITORY_TOOL,
     ]);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_LIBRARY_PIPELINE_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_SKILL_INSTALL_TOOL);

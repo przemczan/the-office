@@ -28,7 +28,12 @@ import { sessionMemoryProvider, type MemoryAsk } from "./session-memory.fixtures
 import { TaskThreadSetups, type TaskThreadRequest } from "./task-thread-setups.js";
 
 const PROJECTS: BriefProject[] = [
-  { name: "Admin panel", baseBranch: "main", folder: "/office/bases/admin-panel" },
+  {
+    projectId: "admin-panel",
+    name: "Admin panel",
+    baseBranch: "main",
+    folder: "/office/bases/admin-panel",
+  },
 ];
 
 let app: INestApplication;
@@ -125,7 +130,7 @@ describe("Briefs", () => {
     );
   });
 
-  it("reads the person's Memory for no Project in a chat, and for the Task's Project on a Task", async () => {
+  it("reads every note of the person's Memory in a chat, and the Task's Project's on a Task", async () => {
     asked.length = 0;
     const roleKey = "planner";
 
@@ -133,8 +138,8 @@ describe("Briefs", () => {
     await briefs.forThread(aThread({ roleKey, home: { kind: "task", taskId: randomUUID() } }));
 
     expect(asked).toEqual([
-      { roleKey, projectId: undefined },
-      { roleKey, projectId: "admin-panel" },
+      { roleKey, reach: { kind: "every-note", projects: PROJECTS } },
+      { roleKey, reach: { kind: "project", projectId: "admin-panel" } },
     ]);
   });
 
@@ -165,8 +170,8 @@ describe("Briefs", () => {
       briefs.forThread(aThread({ roleKey: "cto", home, session: A_SESSION })),
     ).resolves.toEqual(initiativeThreadBrief({ ...record, continuing: true }));
     expect(asked).toEqual([
-      { roleKey: "cto", projectId: undefined },
-      { roleKey: "cto", projectId: undefined },
+      { roleKey: "cto", reach: { kind: "all-projects" } },
+      { roleKey: "cto", reach: { kind: "all-projects" } },
     ]);
   });
 

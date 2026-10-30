@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-EngineSessions, OfficeToolRegistry, OfficeToolResult, UsageWindowState, EngineDown, UsageWindowsChanged, ENGINE_MODELS, ENGINES, Engine, READ_ONLY_GIT_COMMANDS, EngineModule, ScriptedEngine, StandInEngine, readRecording, SessionScript, ScriptedEngineModule, NewSession, EngineSession
+EngineSessions, OfficeToolRegistry, OfficeTool, OfficeToolResult, UsageWindowState, EngineDown, UsageWindowsChanged, ENGINE_MODELS, ENGINES, Engine, READ_ONLY_GIT_COMMANDS, EngineModule, ScriptedEngine, StandInEngine, readRecording, SessionScript, ScriptedEngineModule, NewSession, EngineSession
 
 ## Domain events
 

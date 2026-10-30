@@ -236,3 +236,30 @@ it("refuses a session on no Initiative, as a chat's is", async () => {
     isError: true,
   });
 });
+
+describe("read_initiative", () => {
+  it("reads any Initiative by its id, in a chat as anywhere", async () => {
+    await call(WRITE_OUTCOME, { outcome: "Writes made offline reach the server." });
+
+    const result = await call(READ_INITIATIVE, { initiativeId: initiative.id }, CHAT_SESSION);
+
+    expect(result.isError).toBe(false);
+    expect(result.text).toContain("Outcome:\nWrites made offline reach the server.");
+  });
+
+  it("asks a session on no Initiative for the id", async () => {
+    expect(await call(READ_INITIATIVE, {}, CHAT_SESSION)).toEqual({
+      text: "This session is on no Initiative: give the id of the Initiative to read.",
+      isError: true,
+    });
+  });
+
+  it("says when there is no Initiative with the id", async () => {
+    const missing = randomUUID();
+
+    expect(await call(READ_INITIATIVE, { initiativeId: missing }, CHAT_SESSION)).toEqual({
+      text: `There is no Initiative "${missing}".`,
+      isError: true,
+    });
+  });
+});

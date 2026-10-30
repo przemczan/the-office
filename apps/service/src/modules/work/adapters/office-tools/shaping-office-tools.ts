@@ -23,13 +23,20 @@ export const REMOVE_DEPENDENCY = "remove_dependency";
 const WHERE_IT_GOES =
   "While the Initiative is being shaped, it shows on the Initiative's page at once and the user confirms the whole Initiative once it is agreed; once it is active, it is drafted as a Proposal in this Thread, which changes the Initiative only when the user applies it.";
 
+const ONLY_ON_AN_INITIATIVE =
+  "This tool works in a Thread on an Initiative, and this session is on none.";
+
+const NAME_THE_INITIATIVE =
+  "This session is on no Initiative: give the id of the Initiative to read.";
+
 const PROPOSED =
   "The Initiative is active, so this is drafted as a Proposal in this Thread: it changes the Initiative once the user applies it.";
 
 /**
  * The Office tools the CTO shapes an Initiative with, in a Thread on it (spec §2.1 Defaults): each
  * writes straight onto the session's own Initiative while it is being shaped, and drafts a Proposal
- * of the change once it is active.
+ * of the change once it is active. `read_initiative` reads any Initiative by its id, so every chat
+ * has it too.
  */
 @Injectable()
 export class ShapingOfficeTools implements OnModuleInit {
@@ -53,10 +60,21 @@ export class ShapingOfficeTools implements OnModuleInit {
     this.registry.register({
       name: READ_INITIATIVE,
       description:
-        "Reads this Initiative's record as it stands now: its state, the Projects it spans, its outcome, its Tasks with what each must wait for, and its Attachments. The user may have changed it since your Brief.",
-      input: z.object({}),
-      run: (_, { sessionId }) =>
-        answered(async () => this.initiatives.recordText(await this.initiativeIn(sessionId))),
+        "Reads an Initiative's record as it stands now: its state, the Projects it spans, its outcome, its Tasks with what each must wait for, and its Attachments. In a Thread on an Initiative it reads that one unless you name another; the user may have changed it since your Brief.",
+      input: z.object({
+        initiativeId: z
+          .string()
+          .optional()
+          .describe(
+            "The Initiative's id; leave it out in a Thread on an Initiative to read that one.",
+          ),
+      }),
+      run: ({ initiativeId }, { sessionId }) =>
+        answered(async () =>
+          this.initiatives.recordText(
+            initiativeId ?? (await this.initiativeIn(sessionId, NAME_THE_INITIATIVE)),
+          ),
+        ),
     });
   }
 
@@ -147,13 +165,9 @@ export class ShapingOfficeTools implements OnModuleInit {
     });
   }
 
-  private async initiativeIn(sessionId: string): Promise<string> {
+  private async initiativeIn(sessionId: string, onNone = ONLY_ON_AN_INITIATIVE): Promise<string> {
     const initiativeId = await this.sessionInitiatives.initiativeInSession(sessionId);
-    if (initiativeId === undefined) {
-      throw new WorkToolRefused(
-        "This tool works in a Thread on an Initiative, and this session is on none.",
-      );
-    }
+    if (initiativeId === undefined) throw new WorkToolRefused(onNone);
     return initiativeId;
   }
 }

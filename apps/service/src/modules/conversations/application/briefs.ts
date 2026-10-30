@@ -62,7 +62,10 @@ export class Briefs {
       continuing: thread.session !== undefined,
       answered: await this.repository.answeredOn(thread.home.taskId),
       open: thread.openDecision,
-      memory: await this.memory.forBrief(thread.roleKey, setup.projectId),
+      memory: await this.memory.forBrief(thread.roleKey, {
+        kind: "project",
+        projectId: setup.projectId,
+      }),
     });
   }
 
@@ -72,7 +75,7 @@ export class Briefs {
       record: setup.record,
       continuing: thread.session !== undefined,
       // An Initiative spans Projects, so it reads the notes that hold for all of them.
-      memory: await this.memory.forBrief(thread.roleKey, undefined),
+      memory: await this.memory.forBrief(thread.roleKey, { kind: "all-projects" }),
       projects: await this.bases.list(),
     });
   }
@@ -80,8 +83,8 @@ export class Briefs {
   /** A new chat Thread's, or the one it continues fresh with from its log so far. */
   private async forChatThread(thread: Thread): Promise<Brief> {
     const projects = await this.bases.list();
-    // A chat is on no Project, so it reads the notes that hold for all of them.
-    const memory = await this.memory.forBrief(thread.roleKey, undefined);
+    // A chat reads every Project, so it reads every note.
+    const memory = await this.memory.forBrief(thread.roleKey, { kind: "every-note", projects });
     if (thread.session === undefined) return newChatThreadBrief(projects, memory);
     const log = await this.repository.messages(thread.id);
     return freshChatThreadBrief({ title: thread.title, log, projects, memory });

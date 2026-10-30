@@ -91,7 +91,12 @@ let forgotten: string[];
 let prepared: Parameters<SessionSkills["prepare"]>[0][];
 
 const PROJECTS: BriefProject[] = [
-  { name: "Admin panel", baseBranch: "main", folder: "/office/bases/admin-panel" },
+  {
+    projectId: "admin-panel",
+    name: "Admin panel",
+    baseBranch: "main",
+    folder: "/office/bases/admin-panel",
+  },
 ];
 
 beforeEach(async () => {

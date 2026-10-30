@@ -13,6 +13,7 @@ export interface Brief {
 
 /** A Project as a session reads it: its base branch, checked out read-only. */
 export interface BriefProject {
+  readonly projectId: string;
   readonly name: string;
   readonly baseBranch: string;
   /** Where the session reads the base branch. */
@@ -50,25 +51,54 @@ export interface BriefMemory {
 export const NO_MEMORY: BriefMemory = { lines: [], leftOut: 0 };
 
 /**
- * The notes that hold for all Projects and those about `projectId`, the newest that fit under the
- * cap: older ones are dropped, never summarised, since no model call builds a Brief.
+ * Which of a person's notes a Brief reads: on a Task, those for all Projects and its Project's; on
+ * an Initiative, those for all Projects; in a chat, which reads every Project, every note, each
+ * labelled with what it is about.
  */
-export function selectMemory(
-  notes: readonly BriefMemoryNote[],
-  projectId: string | undefined,
-): BriefMemory {
+export type MemoryReach =
+  | { readonly kind: "project"; readonly projectId: string }
+  | { readonly kind: "all-projects" }
+  | { readonly kind: "every-note"; readonly projects: readonly BriefProject[] };
+
+/** The label the Memory tab groups a note for all Projects under. */
+const ALL_PROJECTS = "All Projects";
+
+/**
+ * The notes `reach` reads, the newest that fit under the cap: older ones are dropped, never
+ * summarised, since no model call builds a Brief.
+ */
+export function selectMemory(notes: readonly BriefMemoryNote[], reach: MemoryReach): BriefMemory {
   const relevant = notes
-    .filter((note) => note.projectId === undefined || note.projectId === projectId)
+    .filter((note) => isInReach(note, reach))
     .toSorted((first, second) => second.writtenAt.getTime() - first.writtenAt.getTime());
   const lines: string[] = [];
   let room = MEMORY_TOKENS * CHARACTERS_PER_TOKEN;
   for (const note of relevant) {
-    const line = `- ${note.writtenAt.toISOString().slice(0, 10)}: ${note.text}`;
+    const line = `- ${note.writtenAt.toISOString().slice(0, 10)}${aboutLabel(note, reach)}: ${note.text}`;
     if (line.length > room) break;
     lines.push(line);
     room -= line.length;
   }
   return { lines: lines.toReversed(), leftOut: relevant.length - lines.length };
+}
+
+function isInReach(note: BriefMemoryNote, reach: MemoryReach): boolean {
+  switch (reach.kind) {
+    case "every-note":
+      return true;
+    case "all-projects":
+      return note.projectId === undefined;
+    case "project":
+      return note.projectId === undefined || note.projectId === reach.projectId;
+  }
+}
+
+/** What the note is about, where a Brief reads the notes of more than one Project. */
+function aboutLabel(note: BriefMemoryNote, reach: MemoryReach): string {
+  if (reach.kind !== "every-note") return "";
+  if (note.projectId === undefined) return ` (${ALL_PROJECTS})`;
+  const project = reach.projects.find(({ projectId }) => projectId === note.projectId);
+  return ` (${project?.name ?? note.projectId})`;
 }
 
 /**

@@ -17,7 +17,7 @@ export interface SessionPersonCard {
 export function chatInstructions(card: SessionPersonCard): string {
   return [
     ...personInstructions(card),
-    "In your chat you read and answer; you change no file. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch with Read, Grep and Glob (the shell runs only read-only git, so don't reach for it to list or read files), search and fetch the web, and with The Office's tools read its records of Projects, people, Tasks and Ideas, capture an Idea, and create a Task in Backlog when the user asks for one or agrees to it.",
+    "In your chat you read and answer; you change no file. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch with Read, Grep and Glob (the shell runs only read-only git, so don't reach for it to list or read files), search and fetch the web, and with The Office's tools read its records of Projects, people, Tasks, Initiatives and Ideas, capture an Idea, and create a Task in Backlog when the user asks for one or agrees to it.",
   ].join("\n\n");
 }
 
@@ -57,6 +57,7 @@ export const CHAT_OFFICE_TOOLS = [
   "list_people",
   "list_tasks",
   "read_task",
+  "read_initiative",
   "list_ideas",
   "read_idea",
   "capture_idea",
@@ -104,10 +105,17 @@ export const READ_SKILL_UPDATE_TOOL = "read_skill_update";
 export const PROPOSE_SKILL_UPDATE_TOOL = "propose_skill_update";
 
 /**
+ * The Office tool Devops reads a repository on the workstation with before it is a Project, which
+ * Projects registers: its top level and manifest files, nothing else.
+ */
+export const READ_LOCAL_REPOSITORY_TOOL = "read_local_repository";
+
+/**
  * A chat's Office tools for the Role's person: the Office Manager doesn't turn work into Tasks but
  * points to the Planner, so it never creates one; it drafts Roles and Office settings as Proposals
  * the user applies, points the user to whoever is responsible with a Link card, and shows the
- * Office status (ticket 06). Anyone else has their Role's own tools besides.
+ * Office status (ticket 06). Anyone else has their Role's own tools besides, and Devops, onboarding a
+ * Project from their chat, reads its repository before it has a base branch to read.
  */
 export function chatOfficeTools(roleKey: string): readonly string[] {
   return roleKey === OFFICE_MANAGER
@@ -118,7 +126,11 @@ export function chatOfficeTools(roleKey: string): readonly string[] {
         POST_LINK_CARD_TOOL,
         SHOW_OFFICE_STATUS_TOOL,
       ]
-    : [...CHAT_OFFICE_TOOLS, ...roleOfficeTools(roleKey)];
+    : [
+        ...CHAT_OFFICE_TOOLS,
+        ...roleOfficeTools(roleKey),
+        ...(roleKey === DEVOPS ? [READ_LOCAL_REPOSITORY_TOOL] : []),
+      ];
 }
 
 /**

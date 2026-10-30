@@ -250,7 +250,10 @@ export class StageThreads {
       continuing: false,
       answered: await this.repository.answeredOn(request.taskId),
       open: undefined,
-      memory: await this.memory.forBrief(request.roleKey, request.projectId),
+      memory: await this.memory.forBrief(request.roleKey, {
+        kind: "project",
+        projectId: request.projectId,
+      }),
     });
     const move = decideContext(
       {

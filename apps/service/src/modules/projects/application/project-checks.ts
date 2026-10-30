@@ -48,11 +48,17 @@ export class ProjectChecks {
     ];
   }
 
+  /** Why `path` isn't a repository's top-level folder given in full; undefined when it is. */
+  async repositoryFolderProblem(path: string): Promise<string | undefined> {
+    if (!isAbsolute(path)) return "Give the repository's full path, not a relative one.";
+    const inspection = await this.git.inspect(path);
+    return inspection.kind === "repository" ? undefined : folderProblem(path, inspection);
+  }
+
   private async repositoryProblems(path: string, baseBranch: string): Promise<string[]> {
     if (path === "") return [];
-    if (!isAbsolute(path)) return ["Give the repository's full path, not a relative one."];
-    const inspection = await this.git.inspect(path);
-    if (inspection.kind !== "repository") return [folderProblem(path, inspection)];
+    const problem = await this.repositoryFolderProblem(path);
+    if (problem !== undefined) return [problem];
     if (baseBranch === "" || (await this.git.hasBranch(path, baseBranch))) return [];
     return [`The repository has no branch "${baseBranch}".`];
   }

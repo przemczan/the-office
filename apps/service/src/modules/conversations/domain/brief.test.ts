@@ -15,7 +15,12 @@ import { aDecision } from "./decision.fixtures.js";
 import type { Message, MessageDraft } from "./message.js";
 
 const PROJECTS: BriefProject[] = [
-  { name: "Admin panel", baseBranch: "main", folder: "/office/bases/admin-panel" },
+  {
+    projectId: "admin-panel",
+    name: "Admin panel",
+    baseBranch: "main",
+    folder: "/office/bases/admin-panel",
+  },
 ];
 
 let position = 0;
@@ -169,7 +174,7 @@ describe("a person's Memory in a Brief", () => {
         note("Of another Project.", 12, "billing"),
         note("Oldest, for all.", 10),
       ],
-      "admin-panel",
+      { kind: "project", projectId: "admin-panel" },
     );
 
     expect(memory).toEqual({
@@ -182,13 +187,29 @@ describe("a person's Memory in a Brief", () => {
     });
   });
 
-  it("takes only the notes for all Projects in a chat, which is on none", () => {
-    const memory = selectMemory(
-      [note("For all.", 10), note("Of one.", 11, "admin-panel")],
-      undefined,
-    );
+  it("takes only the notes for all Projects on an Initiative", () => {
+    const memory = selectMemory([note("For all.", 10), note("Of one.", 11, "admin-panel")], {
+      kind: "all-projects",
+    });
 
     expect(memory.lines).toEqual(["- 2026-10-10: For all."]);
+  });
+
+  it("takes every note in a chat, which reads every Project, each labelled with what it is about", () => {
+    const memory = selectMemory(
+      [
+        note("For all.", 10),
+        note("Of the Admin panel.", 11, "admin-panel"),
+        note("Of a Project since removed.", 12, "billing"),
+      ],
+      { kind: "every-note", projects: PROJECTS },
+    );
+
+    expect(memory.lines).toEqual([
+      "- 2026-10-10 (All Projects): For all.",
+      "- 2026-10-11 (Admin panel): Of the Admin panel.",
+      "- 2026-10-12 (billing): Of a Project since removed.",
+    ]);
   });
 
   it("keeps the newest notes that fit under the cap and counts the older ones left out", () => {
@@ -196,7 +217,7 @@ describe("a person's Memory in a Brief", () => {
     const fitting = Math.floor((MEMORY_TOKENS * 4) / `- 2026-10-01: ${text}`.length);
     const notes = Array.from({ length: fitting + 3 }, (_, index) => note(text, index + 1));
 
-    const memory = selectMemory(notes, undefined);
+    const memory = selectMemory(notes, { kind: "all-projects" });
 
     expect(memory.lines).toHaveLength(fitting);
     expect(memory.leftOut).toBe(3);

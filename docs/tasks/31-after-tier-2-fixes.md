@@ -30,7 +30,7 @@ Decided with the user on 2026-10-30: one task for the whole list; H says in the 
   Read: the Settings, People and Projects surfaces' maps; the [Engine map](../../apps/service/src/modules/engine/MAP.md) for the refusal and the chat instructions.
 - [x] 3. Problem 13, tokens without cache reads everywhere (Threads, Stages, Now, the strip) with the info icon; amend spec 2.7's "Today's figures" with the user's agreement on its wording first. Commit.
   Read: [spec 2.7 Defaults](../spec/2.7-notifications.md#defaults); problem 13 in the tier 1 archive; the Now surface's map.
-- [ ] 4. Chats: B (a read-only Office tool for Devops' onboarding chat reading a named local path's top level and manifests), G (a chat's Brief carries every memory note, labelled with its Project), K (`read_initiative` in every chat), F (the hire tool asks for a first name apart from the title and refuses one equal to it). Commit.
+- [x] 4. Chats: B (a read-only Office tool for Devops' onboarding chat reading a named local path's top level and manifests), G (a chat's Brief carries every memory note, labelled with its Project), K (`read_initiative` in every chat), F (the hire tool asks for a first name apart from the title and refuses one equal to it). Commit.
   Read: the [Conversations](../../apps/service/src/modules/conversations/MAP.md) and [People](../../apps/service/src/modules/people/MAP.md) maps.
 - [ ] 5. Work: D (Planning starts the Planner on the user's first message; amend spec 2.1), J (a Task's record lists its state changes with who or what made each), task 24's hold on `TaskStarted` when a later Agent Stage's Role is vacant, task 24's `project` Proposal converging on a second apply. Commit.
   Read: the [Work map](../../apps/service/src/modules/work/MAP.md); [spec 2.1](../spec/2.1-work.md); `pipelines/application/staffing-holds.ts`.
@@ -41,12 +41,14 @@ Decided with the user on 2026-10-30: one task for the whole list; H says in the 
 
 ## State
 
-- Steps 1–3 built. Step 1 (apps/web): the card's stretched title link, the Task's "More" menu on `shell/floating-menu.tsx`, "+ Task" opening the Task, Thread tabs by `surfaces/work/thread-tabs.ts`, Changes folded per file. Step 2: Gate and Stage editor words, command toasts per command, the let-go turn note, `OfficeRules.outsideWriteRefusal`, chat instructions. Step 3: contracts' `countedTokens` (input, output, cache writes) behind every count; Now's `tokensToday` and a Stage's `tokens` are now the four kinds (`TokenTotals`), the day tables by kind (migrations 0056–0057, which empty them once); `shell/token-count.tsx` shows the count with its info icon. Spec 2.7 amended. Next: step 4, chats (B, G, K, F).
+- Steps 1–4 built. Step 1 (apps/web): the card's stretched title link, the Task's "More" menu on `shell/floating-menu.tsx`, "+ Task" opening the Task, Thread tabs by `surfaces/work/thread-tabs.ts`, Changes folded per file. Step 2: Gate and Stage editor words, command toasts per command, the let-go turn note, `OfficeRules.outsideWriteRefusal`, chat instructions. Step 3: contracts' `countedTokens` behind every count, Now and Stages by kind (`TokenTotals`), `shell/token-count.tsx`; spec 2.7 amended.
+- Step 4: B is Projects' `read_local_repository` (`LocalRepositories`, Devops' chat only, top level and a fixed list of manifests, 8,000 characters each, folder refusals shared with adding a Project through `ProjectChecks.repositoryFolderProblem`); G is `MemoryReach` in `domain/brief.ts` (a chat reads every note, labelled with its Project's name or "All Projects"; `BriefProject` now carries `projectId`); K is `read_initiative` with an optional `initiativeId`, in `CHAT_OFFICE_TOOLS`; F refuses a name equal to the title in `propose_role` (from scratch, preset, rename). Engine's index now exports the `OfficeTool` type. Next: step 5, Work (D, J, task 24's two).
 - Decided with the user on 2026-10-30: a started Task doesn't keep its commands (toast says it runs the new one from its next Stage of that command); spec 2.7's wording for tokens as now written there.
 - Budgets already left cache reads out (`TaskTokens`); unchanged. Live checks' logs still total all four kinds (`tokensOf`).
 - The other three design-system Menus stay on `Menu`; switch one by its import if it clips.
 - Trap: in e2e, a click on a board card's tag or meta is caught by the title's link; click the card by position.
 - Trap: `people.e2e.ts:1770` (a skill's update via the 2 s daily check) failed once in a full run and passed on reruns; flaky, not from this task.
+- Trap: `read_initiative`/`read_task` with an id that isn't a uuid fails the call in Postgres rather than answering "no such record"; as before, not changed here.
 - Open, ask at step 6: rebuild or retire task 09's check.
 
 ## Progress
@@ -55,3 +57,4 @@ Decided with the user on 2026-10-30: one task for the whole list; H says in the 
 - 2026-10-30 · step 1: the whole board card opens the Task, its menu floats outside the board and flips up, "+ Task" hints at planning and opens the Task, new Stage tabs land after the shown one marked New, Changes fold per file; next, step 2, the words.
 - 2026-10-30 · step 2: Gate and Stage editor words, the script note on send back, command toasts as they work, the let-go turn note, the outside-worktree write refusal naming the rule, chat instructions to read with Read and Grep; next, step 3, tokens.
 - 2026-10-30 · step 3: every token count leaves cache reads out (contracts' `countedTokens`) with an info icon giving the four kinds and their cost; Now and Stages send the kinds, the day tables keep them; spec 2.7 amended; next, step 4, chats.
+- 2026-10-30 · step 4: Devops reads a local repository's top level and manifests from their chat, a chat's Brief carries every memory note labelled with its Project, every chat reads an Initiative by id, and a hire refuses a name equal to the title; next, step 5, Work.

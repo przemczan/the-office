@@ -14,6 +14,7 @@ import { ShellCommandRunner } from "./adapters/shell/shell-command-runner.js";
 import { ProjectWebEvents } from "./adapters/websocket/project-web-events.js";
 import { BaseCheckouts } from "./application/base-checkouts.js";
 import { EnvironmentChecks } from "./application/environment-checks.js";
+import { LocalRepositories } from "./application/local-repositories.js";
 import { ProjectChecks } from "./application/project-checks.js";
 import { ProjectCommandRunner } from "./application/project-command-runner.js";
 import { ProjectService } from "./application/project-service.js";
@@ -55,6 +56,7 @@ export class ProjectsModule {
         { provide: KnownPipelines, useExisting: knownPipelines },
         EnvironmentChecks,
         ProjectChecks,
+        LocalRepositories,
         ProjectService,
         Worktrees,
         ScriptCommands,
