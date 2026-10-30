@@ -4,7 +4,6 @@ import { useState, type ReactNode } from "react";
 import { notificationQueries, nowQueries } from "../api/notifications.ts";
 import { useEventStreamStatus } from "../api/event-stream-provider.tsx";
 import { roleQueries } from "../api/people.ts";
-import { tokensShort } from "./conversation/context-words.ts";
 import { alarmStateWords } from "./fire-alarm/fire-alarm-words.ts";
 import "./fire-alarm/fire-alarm.css";
 import {
@@ -16,6 +15,7 @@ import { personOf } from "./notifications/notification-words.ts";
 import { doneSinceYouLeft, needsYouWords, resetWords } from "./notifications/now-words.ts";
 import { useNeedsYou } from "./notifications/use-needs-you.ts";
 import { useNeedsYouPanel } from "./notifications/use-needs-you-panel.ts";
+import { TokenCount } from "./token-count.tsx";
 
 /**
  * The Office-wide figures under the top bar (spec §4), live from `now.changed`: what needs the
@@ -77,7 +77,7 @@ function Figures({ now }: { readonly now: Now }): ReactNode {
       </span>
       <span className="shell-strip-separator" />
       <span className="shell-strip-stat">
-        <b>{tokensShort(now.tokensToday)}</b> tokens today
+        <TokenCount tokens={now.tokensToday} label="tokens today" strong />
       </span>
       {fiveHour && (
         <span className="shell-strip-stat wide">

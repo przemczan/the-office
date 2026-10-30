@@ -1,5 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Pipeline, Role, Stage, Task, TaskStage } from "@the-office/contracts";
+import {
+  countedTokens,
+  type Pipeline,
+  type Role,
+  type Stage,
+  type Task,
+  type TaskStage,
+} from "@the-office/contracts";
 import { Button, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
@@ -24,6 +31,7 @@ import {
   stageProgressLine,
   stageRule,
 } from "./stage-words.ts";
+import { TokenInfo } from "../../shell/token-count.tsx";
 
 /**
  * The Task's record: the Gate it waits at, if any; what must be true, how, its Stages, its
@@ -145,6 +153,7 @@ function TaskStageList({
           name={taskStage.stage.name}
           who={whoWorks(taskStage.stage, roles, scriptCommandLine(taskStage))}
           detail={stageProgressLine(taskStage, names)}
+          tokens={taskStage.tokens}
           handoverNote={latestHandoverNote(taskStage)}
         />
       ))}
@@ -158,6 +167,7 @@ function StageRow({
   name,
   who,
   detail,
+  tokens,
   handoverNote,
 }: {
   readonly number: number;
@@ -165,6 +175,8 @@ function StageRow({
   readonly name: string;
   readonly who: string;
   readonly detail: string;
+  /** Its runs' tokens, which `detail` counts; undefined before the Stage runs. */
+  readonly tokens?: TaskStage["tokens"];
   readonly handoverNote: string | undefined;
 }): ReactNode {
   return (
@@ -178,6 +190,7 @@ function StageRow({
         </div>
         <div className="task-stage-detail">
           <MarkdownText text={detail} inline />
+          {tokens && countedTokens(tokens) > 0 && <TokenInfo tokens={tokens} />}
         </div>
         {handoverNote !== undefined && (
           <div className="task-stage-note">

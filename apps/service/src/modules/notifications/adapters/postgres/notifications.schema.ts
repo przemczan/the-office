@@ -43,14 +43,23 @@ export const userActivity = pgTable(
 /** Each Thread's tokens so far at its last count, which the next count is measured from. */
 export const threadTokenCounts = pgTable("thread_token_counts", {
   threadId: uuid("thread_id").primaryKey(),
-  tokens: bigint("tokens", { mode: "number" }).notNull(),
+  ...tokenKindColumns(),
 });
 
-/** The tokens counted on each day, all four kinds. */
+/** The tokens counted on each day, by kind. */
 export const dayTokens = pgTable("day_tokens", {
   day: date("day", { mode: "string" }).primaryKey(),
-  tokens: bigint("tokens", { mode: "number" }).notNull(),
+  ...tokenKindColumns(),
 });
+
+function tokenKindColumns() {
+  return {
+    input: bigint("input", { mode: "number" }).notNull(),
+    output: bigint("output", { mode: "number" }).notNull(),
+    cacheRead: bigint("cache_read", { mode: "number" }).notNull(),
+    cacheCreation: bigint("cache_creation", { mode: "number" }).notNull(),
+  };
+}
 
 /** The Tasks with a Stage run on each day. */
 export const tasksTouched = pgTable(

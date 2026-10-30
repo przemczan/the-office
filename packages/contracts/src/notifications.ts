@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { tokenTotalsSchema } from "./conversations.js";
 import { webEventSchema } from "./events.js";
 import { taskStateSchema } from "./work.js";
 
@@ -130,7 +131,7 @@ export const nowSchema = z.object({
   leftAt: z.iso.datetime().nullable(),
   /** Latest first. */
   sinceYouLeft: z.array(finishedTaskSchema),
-  tokensToday: z.number().int(),
+  tokensToday: tokenTotalsSchema,
   /** The Tasks with a Stage run today. */
   tasksTouched: z.number().int().nonnegative(),
   /** The running Tasks against the Office-wide limit. */

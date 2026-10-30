@@ -4,7 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { INestApplication } from "@nestjs/common";
-import { nowSchema, pipelineSchema, type Now, type Stage } from "@the-office/contracts";
+import {
+  countedTokens,
+  nowSchema,
+  pipelineSchema,
+  type Now,
+  type Stage,
+} from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   addTestProject,
@@ -227,6 +233,6 @@ async function nowLines(api: Api, when: string): Promise<string[]> {
         `  running: ${title} · ${state} · ${stage ? `${stage.name} (${stage.role ?? "no Agent"}) since ${stage.since}` : "no Stage yet"}`,
     ),
     `  since you left (from ${now.leftAt ?? "never"}): ${now.sinceYouLeft.map(({ title, outcome }) => `${outcome} ${title}`).join("; ") || "nothing"}`,
-    `  strip: ${now.tokensToday} tokens today, desks ${now.desks.inUse} of ${now.desks.limit}, ${now.tasksTouched} Tasks touched, 5-hour window ${now.fiveHourWindow ? `${now.fiveHourWindow.percentUsed}%` : "not read yet"}`,
+    `  strip: ${countedTokens(now.tokensToday)} tokens today ${JSON.stringify(now.tokensToday)}, desks ${now.desks.inUse} of ${now.desks.limit}, ${now.tasksTouched} Tasks touched, 5-hour window ${now.fiveHourWindow ? `${now.fiveHourWindow.percentUsed}%` : "not read yet"}`,
   ];
 }

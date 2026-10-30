@@ -1,3 +1,4 @@
+import type { TokenKinds } from "./office-day.js";
 import { latestPerTask, type TaskOutcome, type TaskOutcomeKind } from "./task-outcome.js";
 
 /** A Task as Now shows it, from Work. */
@@ -160,7 +161,7 @@ export interface Now {
   readonly leftAt: Date | undefined;
   /** Each Task's latest outcome since the user left, latest first. */
   readonly sinceYouLeft: readonly FinishedTask[];
-  readonly tokensToday: number;
+  readonly tokensToday: TokenKinds;
   /** The Tasks with a Stage run today (the user's answer of 2026-10-27). */
   readonly tasksTouched: number;
   readonly desks: Desks;
@@ -186,7 +187,7 @@ export interface NowParts {
   readonly leftAt: Date | undefined;
   /** The outcomes since the user left. */
   readonly outcomes: readonly TaskOutcome[];
-  readonly tokensToday: number;
+  readonly tokensToday: TokenKinds;
   readonly tasksTouched: number;
   readonly officeWideLimit: number;
   readonly fiveHourWindow: FiveHourWindow | undefined;

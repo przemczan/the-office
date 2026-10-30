@@ -1,6 +1,7 @@
 import type { Stage, StageRun, TaskStage, Thread, ThreadContext } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import { latestRunOf, resumeWords, type HeldWork } from "./resume-words.ts";
+import { NO_TOKENS } from "../../shell/token-words.ts";
 
 const THREAD_ID = "5d1c2b3a-4e5f-4a6b-8c7d-9e0f1a2b3c4d";
 
@@ -142,11 +143,17 @@ describe("latestRunOf", () => {
       {
         stage: implement,
         state: "paused",
-        tokens: 0,
+        tokens: NO_TOKENS,
         wentBack: null,
         runs: [aRun({ number: 1 }), aRun({ number: 3 })],
       },
-      { stage: tests, state: "done", tokens: 0, wentBack: null, runs: [aRun({ number: 2 })] },
+      {
+        stage: tests,
+        state: "done",
+        tokens: NO_TOKENS,
+        wentBack: null,
+        runs: [aRun({ number: 2 })],
+      },
     ];
 
     expect(latestRunOf(stages)).toMatchObject({

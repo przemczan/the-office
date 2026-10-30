@@ -2,7 +2,6 @@ import type {
   ContextMove,
   ContextOverride,
   ContextReason,
-  Thread,
   ThreadContext,
 } from "@the-office/contracts";
 
@@ -28,11 +27,6 @@ export const OVERRIDE_HINTS: Readonly<Record<ContextOverride, string>> = {
   "start-fresh": "End this session and start a fresh one with a brief",
   "continue-anyway": "Resume the previous session instead, re-caching its context",
 };
-
-/** Every token a Thread's turns used, as the engine reported them. */
-export function threadTokens({ tokens }: Pick<Thread, "tokens">): number {
-  return tokens.input + tokens.output + tokens.cacheRead + tokens.cacheCreation;
-}
 
 /** "41k" for 41,234 tokens and "1.2M" past a million; small counts as they are. */
 export function tokensShort(tokens: number): string {

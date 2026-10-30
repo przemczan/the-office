@@ -7,7 +7,6 @@ import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { initiativeQueries, taskQueries } from "../../api/work.ts";
-import { tokensShort } from "../../shell/conversation/context-words.ts";
 import { pipelineLabel, REMOVED_PIPELINE, taskTokens } from "./stage-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
@@ -23,6 +22,7 @@ import { TaskConversation } from "./task-conversation.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 import { TaskRecord } from "./task-record.tsx";
 import { TaskTags } from "./task-tags.tsx";
+import { TokenCount } from "../../shell/token-count.tsx";
 
 /**
  * The Task page (prototypes/app/task.js): its record on the left, as an overview or its Changes,
@@ -90,7 +90,9 @@ function TaskHead({
           <span>· Pipeline {pipelineLabel(pipeline?.name ?? REMOVED_PIPELINE, editedForTask)}</span>
           <span>· {PRIORITY_NAMES[task.priority]} priority</span>
           {task.initiativeId !== null && <InitiativeLink initiativeId={task.initiativeId} />}
-          <span>· {tokensShort(tokens)} tokens</span>
+          <span>
+            · <TokenCount tokens={tokens} label="tokens" />
+          </span>
         </div>
         <TaskTags task={task} />
       </div>

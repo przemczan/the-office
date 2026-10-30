@@ -18,7 +18,7 @@ export type Home = z.infer<typeof homeSchema>;
 export const threadStateSchema = z.enum(["waiting", "answering"]);
 export type ThreadState = z.infer<typeof threadStateSchema>;
 
-/** A Thread's tokens over all its turns, split as the engine reports them. */
+/** Tokens over all a Thread's turns, a Stage's runs or a day, split as the engine reports them. */
 export const tokenTotalsSchema = z.object({
   input: z.number().int().nonnegative(),
   output: z.number().int().nonnegative(),
@@ -26,6 +26,15 @@ export const tokenTotalsSchema = z.object({
   cacheCreation: z.number().int().nonnegative(),
 });
 export type TokenTotals = z.infer<typeof tokenTotalsSchema>;
+
+/**
+ * The tokens every count in The Office shows: input, output and cache writes. Cache reads are left
+ * out: they cost about a tenth of input, yet are most of a long session's tokens (spec 2.7,
+ * "Today's figures").
+ */
+export function countedTokens({ input, output, cacheCreation }: TokenTotals): number {
+  return input + output + cacheCreation;
+}
 
 /** The Context policy's moves (spec §2.5). */
 export const contextMoveSchema = z.enum(["resume", "fresh", "hand-off"]);

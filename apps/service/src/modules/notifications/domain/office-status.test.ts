@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Now } from "./now.js";
 import { officeStatusText } from "./office-status.js";
+import { NO_TOKENS } from "./office-day.js";
 
 const AN_HOUR_AGO = new Date("2026-10-27T09:00:00Z");
 
@@ -10,7 +11,7 @@ function nowWith(parts: Pick<Now, "needsYou" | "running">): Now {
     queue: [],
     leftAt: undefined,
     sinceYouLeft: [],
-    tokensToday: 0,
+    tokensToday: NO_TOKENS,
     tasksTouched: 0,
     desks: { inUse: parts.running.length, limit: 3 },
     fiveHourWindow: undefined,

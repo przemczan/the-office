@@ -393,6 +393,20 @@
       "when": 1793320351107,
       "tag": "0055_thread_session_engine",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1793358919589,
+      "tag": "0056_token_kinds",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1793358920599,
+      "tag": "0057_token_kinds_columns",
+      "breakpoints": true
     }
   ]
 }

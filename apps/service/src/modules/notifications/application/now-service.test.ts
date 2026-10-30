@@ -29,6 +29,15 @@ import {
 type CountedThread = ConstructorParameters<typeof TokensCounted>[0];
 
 /** Only what Now reads of a Thread: its id and its tokens. */
+function grownBy(before: Now, after: Now): Now["tokensToday"] {
+  return {
+    input: after.tokensToday.input - before.tokensToday.input,
+    output: after.tokensToday.output - before.tokensToday.output,
+    cacheRead: after.tokensToday.cacheRead - before.tokensToday.cacheRead,
+    cacheCreation: after.tokensToday.cacheCreation - before.tokensToday.cacheCreation,
+  };
+}
+
 function threadWith(id: string, ended: number, running: number): CountedThread {
   const thread = {
     id,
@@ -224,7 +233,8 @@ describe("NowService", () => {
     await events.publish(new StageRunStarted(taskId, randomUUID(), "test"));
 
     const now = await readNow();
-    expect(now.tokensToday - before.tokensToday).toBe(140);
+    // Each kind apart: the running turn's cache reads went as the ended turn's input came.
+    expect(grownBy(before, now)).toEqual({ input: 140, output: 0, cacheRead: 0, cacheCreation: 0 });
     expect(now.tasksTouched - before.tasksTouched).toBe(1);
   });
 
@@ -233,7 +243,12 @@ describe("NowService", () => {
 
     await events.publish(new TokensCounted(threadWith(randomUUID(), 5_000, 30), new Date()));
 
-    expect((await readNow()).tokensToday - before.tokensToday).toBe(30);
+    expect(grownBy(before, await readNow())).toEqual({
+      input: 0,
+      output: 0,
+      cacheRead: 30,
+      cacheCreation: 0,
+    });
   });
 
   it("sends Now to the web whole", async () => {

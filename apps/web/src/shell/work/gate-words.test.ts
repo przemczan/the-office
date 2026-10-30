@@ -6,6 +6,7 @@ import {
   sendBackWords,
   waitingGateOf,
 } from "./gate-words.ts";
+import { NO_TOKENS } from "../token-words.ts";
 
 function agentStage(key: string, name: string): Stage {
   return {
@@ -61,7 +62,7 @@ function at(
   state: TaskStage["state"],
   gateAction: StageRun["gateAction"] = null,
 ): TaskStage {
-  return { stage, state, tokens: 0, wentBack: null, runs: [aRun(gateAction)] };
+  return { stage, state, tokens: NO_TOKENS, wentBack: null, runs: [aRun(gateAction)] };
 }
 
 describe("waitingGateOf", () => {

@@ -13,7 +13,6 @@ import type { ReactNode } from "react";
 import { nowQueries } from "../../api/notifications.ts";
 import { roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
-import { tokensShort } from "../../shell/conversation/context-words.ts";
 import { PAUSED_BY_THE_ALARM } from "../../shell/fire-alarm/fire-alarm-words.ts";
 import { Desk, Feed, Panel, PanelHeading } from "../../shell/desk.tsx";
 import { EmptyCard, ItemCard } from "../../shell/item-card.tsx";
@@ -36,6 +35,7 @@ import { useClock } from "../../shell/use-clock.ts";
 import { TASK_STATE_NAMES, TASK_STATE_TONES } from "../../shell/work/work-words.ts";
 import { AlarmPanel } from "./alarm-panel.tsx";
 import "./now.css";
+import { TokenCount } from "../../shell/token-count.tsx";
 
 /**
  * Home: what needs the user, what is running and queued, what happened since they left, and today's tokens;
@@ -276,7 +276,7 @@ function FinishedCard({
 function TodaysTokens({ now }: { readonly now: Now }): ReactNode {
   return (
     <p className="now-tokens">
-      <b>{tokensShort(now.tokensToday)}</b> tokens today
+      <TokenCount tokens={now.tokensToday} label="tokens today" strong />
       {now.fiveHourWindow && (
         <>
           {" "}

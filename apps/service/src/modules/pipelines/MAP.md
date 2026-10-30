@@ -147,7 +147,7 @@ AlarmResumes, PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateCo
 - `stage-run-changes.ts`: NewStageRun, startStageRun, endStageRun
 - `stage-run-events.ts`: StageRunStarted, StageRunEnded, StopHeldAsPause, StageSkipped, BudgetReached, WentBackToStage, NoRetriesLeft, DefinitionOfDoneNotMet, GateReached, GateContinued, SentBackFromGate, GateDropped, PipelineCompleted
 - `stage-run.fixtures.ts`: aStageRun
-- `stage-run.ts`: StageRecommendation, StageDecision, StageOutcome, StageInterruption, AskedInterruption, BaseMoved, BudgetReached, StageSessionMove, StageTokens, NO_STAGE_TOKENS, totalTokens, addTokens, StageOutcomeStatus, CarriedFailure, GateAction, SentBack, StageDecisionKind, WalkAnswer, StageRunDecision, AgentRunDecision, WalkRunDecision, WalkDecisionKind, StageRun
+- `stage-run.ts`: StageRecommendation, StageDecision, StageOutcome, StageInterruption, AskedInterruption, BaseMoved, BudgetReached, StageSessionMove, StageTokens, NO_STAGE_TOKENS, addTokens, StageOutcomeStatus, CarriedFailure, GateAction, SentBack, StageDecisionKind, WalkAnswer, StageRunDecision, AgentRunDecision, WalkRunDecision, WalkDecisionKind, StageRun
 - `stage-staffing.ts`: RoleFilling, staffingProblems
 - `stage.fixtures.ts`: agentStage, scriptStage, gate
 - `stage.ts`: Stage, StageKind, STAGE_KIND_NAMES, ScriptStageCommand, PublishTarget, StageSession, Effort, OnFailure, AgentStage, ScriptStage, Gate

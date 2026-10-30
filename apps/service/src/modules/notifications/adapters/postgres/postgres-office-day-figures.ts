@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { count, eq, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import { NO_TOKENS, tokensGrown, type TokenKinds } from "../../domain/office-day.js";
 import { OfficeDayFigures, type ThreadTokens } from "../../ports/office-day-figures.js";
 import { dayTokens, tasksTouched, threadTokenCounts } from "./notifications.schema.js";
 
@@ -17,32 +18,37 @@ export class PostgresOfficeDayFigures extends OfficeDayFigures {
   ): Promise<void> {
     await this.database.transaction(async (transaction) => {
       const [previous] = await transaction
-        .select({ tokens: threadTokenCounts.tokens })
+        .select(kindsOf(threadTokenCounts))
         .from(threadTokenCounts)
         .where(eq(threadTokenCounts.threadId, threadId))
         .for("update");
-      const grown = soFar - (previous?.tokens ?? endedTurns);
-      if (grown === 0) return;
+      const grown = tokensGrown(previous ?? endedTurns, soFar);
+      if (Object.values(grown).every((kind) => kind === 0)) return;
       await transaction
         .insert(threadTokenCounts)
-        .values({ threadId, tokens: soFar })
-        .onConflictDoUpdate({ target: threadTokenCounts.threadId, set: { tokens: soFar } });
+        .values({ threadId, ...soFar })
+        .onConflictDoUpdate({ target: threadTokenCounts.threadId, set: { ...soFar } });
       await transaction
         .insert(dayTokens)
-        .values({ day, tokens: grown })
+        .values({ day, ...grown })
         .onConflictDoUpdate({
           target: dayTokens.day,
-          set: { tokens: sql`${dayTokens.tokens} + ${grown}` },
+          set: {
+            input: sql`${dayTokens.input} + ${grown.input}`,
+            output: sql`${dayTokens.output} + ${grown.output}`,
+            cacheRead: sql`${dayTokens.cacheRead} + ${grown.cacheRead}`,
+            cacheCreation: sql`${dayTokens.cacheCreation} + ${grown.cacheCreation}`,
+          },
         });
     });
   }
 
-  async tokensOn(day: string): Promise<number> {
+  async tokensOn(day: string): Promise<TokenKinds> {
     const [row] = await this.database
-      .select({ tokens: dayTokens.tokens })
+      .select(kindsOf(dayTokens))
       .from(dayTokens)
       .where(eq(dayTokens.day, day));
-    return row?.tokens ?? 0;
+    return row ?? NO_TOKENS;
   }
 
   async touchTask(taskId: string, day: string): Promise<void> {
@@ -56,4 +62,13 @@ export class PostgresOfficeDayFigures extends OfficeDayFigures {
       .where(eq(tasksTouched.day, day));
     return row?.touched ?? 0;
   }
+}
+
+function kindsOf(table: typeof threadTokenCounts | typeof dayTokens) {
+  return {
+    input: table.input,
+    output: table.output,
+    cacheRead: table.cacheRead,
+    cacheCreation: table.cacheCreation,
+  };
 }

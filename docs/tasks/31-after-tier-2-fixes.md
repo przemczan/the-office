@@ -28,7 +28,7 @@ Decided with the user on 2026-10-30: one task for the whole list; H says in the 
   Read: the [web map](../../apps/web/src/MAP.md) and the Work surface's map; the click-through's board and Task page.
 - [x] 2. Words: problems 9 and 10 (Gate view, Stage editor, a Script Stage sent back to); task 24's command toast and `ProjectService.changeCommand`'s comment; H's let-go confirmation; C's refusal naming the rule; I's chat session instructions (shell runs only read-only git; read with Read and Grep). Commit.
   Read: the Settings, People and Projects surfaces' maps; the [Engine map](../../apps/service/src/modules/engine/MAP.md) for the refusal and the chat instructions.
-- [ ] 3. Problem 13, tokens without cache reads everywhere (Threads, Stages, Now, the strip) with the info icon; amend spec 2.7's "Today's figures" with the user's agreement on its wording first. Commit.
+- [x] 3. Problem 13, tokens without cache reads everywhere (Threads, Stages, Now, the strip) with the info icon; amend spec 2.7's "Today's figures" with the user's agreement on its wording first. Commit.
   Read: [spec 2.7 Defaults](../spec/2.7-notifications.md#defaults); problem 13 in the tier 1 archive; the Now surface's map.
 - [ ] 4. Chats: B (a read-only Office tool for Devops' onboarding chat reading a named local path's top level and manifests), G (a chat's Brief carries every memory note, labelled with its Project), K (`read_initiative` in every chat), F (the hire tool asks for a first name apart from the title and refuses one equal to it). Commit.
   Read: the [Conversations](../../apps/service/src/modules/conversations/MAP.md) and [People](../../apps/service/src/modules/people/MAP.md) maps.
@@ -41,16 +41,17 @@ Decided with the user on 2026-10-30: one task for the whole list; H says in the 
 
 ## State
 
-- Steps 1–2 built. Step 1 (apps/web): the card's stretched title link (`work.css`), the Task's "More" menu on `shell/floating-menu.tsx`, "+ Task" opening the Task, Thread tabs by `surfaces/work/thread-tabs.ts`, Changes folded per file (`diffOfFile`). Step 2: Gate words (`gate-view.tsx`, `gate-words.ts`' `scriptNote`, the Stage editor's Gate name hint), the command toast per command (`commands-block.tsx`), the let-go dialog's turn note, the Office rules' outside-worktree write refusal (`engine/domain/office-rules.ts`, `outsideWriteRefusal`), chat instructions pointing to Read, Grep and Glob. Next: step 3, tokens without cache reads.
-- Decided with the user on 2026-10-30: a started Task doesn't keep its commands; the toast says it runs the new one from its next Stage of that command (Install: before its next Stage).
-- The other three design-system Menus (palette, Ideas, Initiative actions) stay on `Menu`; switch one by its import if it clips.
-- Trap: the board's clipper is `.board`'s `overflow-x: auto`, not the column. In e2e, a click on a card's tag or meta is caught by the title's link; click the card by position.
+- Steps 1–3 built. Step 1 (apps/web): the card's stretched title link, the Task's "More" menu on `shell/floating-menu.tsx`, "+ Task" opening the Task, Thread tabs by `surfaces/work/thread-tabs.ts`, Changes folded per file. Step 2: Gate and Stage editor words, command toasts per command, the let-go turn note, `OfficeRules.outsideWriteRefusal`, chat instructions. Step 3: contracts' `countedTokens` (input, output, cache writes) behind every count; Now's `tokensToday` and a Stage's `tokens` are now the four kinds (`TokenTotals`), the day tables by kind (migrations 0056–0057, which empty them once); `shell/token-count.tsx` shows the count with its info icon. Spec 2.7 amended. Next: step 4, chats (B, G, K, F).
+- Decided with the user on 2026-10-30: a started Task doesn't keep its commands (toast says it runs the new one from its next Stage of that command); spec 2.7's wording for tokens as now written there.
+- Budgets already left cache reads out (`TaskTokens`); unchanged. Live checks' logs still total all four kinds (`tokensOf`).
+- The other three design-system Menus stay on `Menu`; switch one by its import if it clips.
+- Trap: in e2e, a click on a board card's tag or meta is caught by the title's link; click the card by position.
 - Trap: `people.e2e.ts:1770` (a skill's update via the 2 s daily check) failed once in a full run and passed on reruns; flaky, not from this task.
-- Open, ask at the step that needs it: step 3, spec 2.7's new wording; step 6, rebuild or retire task 09's check.
-- Port 4310 on the workstation had a `node` process (PID 48896, started 2026-10-29 23:06) not started by this task; the user was told. It was free on 2026-10-30 after step 1.
+- Open, ask at step 6: rebuild or retire task 09's check.
 
 ## Progress
 
 - 2026-10-30 · step 0: this file written from the user's answers (one task; H says the turn finishes; D amends spec 2.1; the three items run live); next, step 1, the board and the Task page.
 - 2026-10-30 · step 1: the whole board card opens the Task, its menu floats outside the board and flips up, "+ Task" hints at planning and opens the Task, new Stage tabs land after the shown one marked New, Changes fold per file; next, step 2, the words.
 - 2026-10-30 · step 2: Gate and Stage editor words, the script note on send back, command toasts as they work, the let-go turn note, the outside-worktree write refusal naming the rule, chat instructions to read with Read and Grep; next, step 3, tokens.
+- 2026-10-30 · step 3: every token count leaves cache reads out (contracts' `countedTokens`) with an info icon giving the four kinds and their cost; Now and Stages send the kinds, the day tables keep them; spec 2.7 amended; next, step 4, chats.

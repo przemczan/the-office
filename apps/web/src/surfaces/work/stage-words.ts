@@ -1,14 +1,17 @@
-import type {
-  ContextMove,
-  GateAction,
-  Stage,
-  StageRun,
-  StageState,
-  TaskStage,
-  Thread,
+import {
+  countedTokens,
+  type ContextMove,
+  type GateAction,
+  type Stage,
+  type StageRun,
+  type StageState,
+  type TaskStage,
+  type Thread,
+  type TokenTotals,
 } from "@the-office/contracts";
-import { threadTokens, tokensShort } from "../../shell/conversation/context-words.ts";
+import { tokensShort } from "../../shell/conversation/context-words.ts";
 import { durationWords } from "../../shell/time.ts";
+import { sumTokens } from "../../shell/token-words.ts";
 
 /**
  * The words of the Task page's Stages block (prototypes/app/task.js): "Done · 18 min · 41k tokens ·
@@ -65,7 +68,8 @@ export function stageProgressLine(
   names: StageNames,
   now: Date = new Date(),
 ): string {
-  const { state, runs, tokens } = taskStage;
+  const { state, runs } = taskStage;
+  const tokens = countedTokens(taskStage.tokens);
   const latest = runs.at(-1);
   if (state === "pending" || !latest) {
     return [STAGE_STATE_WORDS.pending, ...stageRule(taskStage.stage, names)].join(" · ");
@@ -165,9 +169,9 @@ function plain(text: string): string {
 }
 
 /**
- * The Task's tokens: every token of every Thread on it, as the Stages' tokens count them. They
- * include a running turn's tokens so far, so they move mid-turn.
+ * The Task's tokens: those of every Thread on it, by kind. They include a running turn's tokens so
+ * far, so they move mid-turn.
  */
-export function taskTokens(threads: readonly Pick<Thread, "tokens">[] | undefined): number {
-  return (threads ?? []).reduce((sum, thread) => sum + threadTokens(thread), 0);
+export function taskTokens(threads: readonly Pick<Thread, "tokens">[] | undefined): TokenTotals {
+  return sumTokens((threads ?? []).map(({ tokens }) => tokens));
 }

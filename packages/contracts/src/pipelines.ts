@@ -163,8 +163,8 @@ export type StageRun = z.infer<typeof stageRunSchema>;
 export const taskStageSchema = z.object({
   stage: stageSchema,
   state: stageStateSchema,
-  /** Every token of its runs, all four kinds, as "tokens in this Thread" counts them. */
-  tokens: z.int().nonnegative(),
+  /** Every token of its runs, by kind. */
+  tokens: tokenTotalsSchema,
   /** Set when its latest run failed and its loop went back to an earlier Stage. */
   wentBack: wentBackSchema.nullable(),
   /** Oldest first. */

@@ -8,6 +8,7 @@ import {
   type StageOfTask,
   type TaskResume,
 } from "./now.js";
+import { NO_TOKENS } from "./office-day.js";
 
 const at = (minute: number): Date => new Date(Date.UTC(2026, 9, 27, 9, minute));
 
@@ -36,7 +37,7 @@ const PARTS: NowParts = {
   tasks: [],
   leftAt: undefined,
   outcomes: [],
-  tokensToday: 0,
+  tokensToday: NO_TOKENS,
   tasksTouched: 0,
   officeWideLimit: 3,
   fiveHourWindow: undefined,

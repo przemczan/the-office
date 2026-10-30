@@ -246,7 +246,9 @@ export async function stageLines(
   api: Api,
   { stage, state, tokens, runs }: TaskStage,
 ): Promise<string[]> {
-  const lines = [`## ${stage.name} (${stage.kind}): ${state}, ${tokens} tokens`];
+  const lines = [
+    `## ${stage.name} (${stage.kind}): ${state}, ${tokensOf(tokens)} tokens ${JSON.stringify(tokens)}`,
+  ];
   for (const stageRun of runs) {
     const { outcome } = stageRun;
     const seconds =

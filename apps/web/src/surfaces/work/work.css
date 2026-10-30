@@ -940,6 +940,11 @@
   color: var(--fg-3);
 }
 
+.task-stage-detail .token-info {
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
 .task-stage-done .task-stage-number {
   border-color: var(--success-border);
   background: var(--success-subtle);

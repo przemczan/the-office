@@ -37,7 +37,7 @@ import {
 } from "../../work/index.js";
 import { nowOf, type Now, type StartedTask, type TaskResume } from "../domain/now.js";
 import { NowChanged } from "../domain/now-events.js";
-import { officeDayOf } from "../domain/office-day.js";
+import { addTokenKinds, officeDayOf } from "../domain/office-day.js";
 import type { TaskOutcomeKind } from "../domain/task-outcome.js";
 import { recordActivity, type UserActivity } from "../domain/user-activity.js";
 import { AccountUsage } from "../ports/account-usage.js";
@@ -207,10 +207,12 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
     });
     for (const eventClass of [TokensCounted, TurnEnded]) {
       this.events.subscribe(eventClass, async ({ thread, occurredAt }) => {
-        const endedTurns = allKinds(thread.tokens);
         await this.figures.countThreadTokens(
           thread.id,
-          { endedTurns, soFar: endedTurns + allKinds(thread.runningTurnTokens) },
+          {
+            endedTurns: thread.tokens,
+            soFar: addTokenKinds(thread.tokens, thread.runningTurnTokens),
+          },
           officeDayOf(occurredAt),
         );
         this.announceInBackground();
@@ -265,20 +267,6 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       await this.events.publish(new NowChanged(now));
     } while (this.announceAgain);
   }
-}
-
-function allKinds({
-  input,
-  output,
-  cacheRead,
-  cacheCreation,
-}: {
-  readonly input: number;
-  readonly output: number;
-  readonly cacheRead: number;
-  readonly cacheCreation: number;
-}): number {
-  return input + output + cacheRead + cacheCreation;
 }
 
 function stackOf(reason: unknown): string {

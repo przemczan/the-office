@@ -100,11 +100,6 @@ export interface StageTokens {
 
 export const NO_STAGE_TOKENS: StageTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
 
-/** Every token of a run, all four kinds, as "tokens in this Thread" counts them. */
-export function totalTokens({ input, output, cacheRead, cacheCreation }: StageTokens): number {
-  return input + output + cacheRead + cacheCreation;
-}
-
 export function addTokens(total: StageTokens, more: StageTokens): StageTokens {
   return {
     input: total.input + more.input,

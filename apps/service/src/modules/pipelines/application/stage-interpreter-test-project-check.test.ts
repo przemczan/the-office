@@ -206,7 +206,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           // Each Stage's tokens, sessions and results, as the Task page reads them.
           const ownStages = await stagesOf(api, taskId);
           for (const stage of ownStages) await note(...(await stageLines(api, stage)));
-          const total = ownStages.reduce((sum, { tokens }) => sum + tokens, 0);
+          const total = ownStages.reduce((sum, { tokens }) => sum + tokensOf(tokens), 0);
           await note(`Stage tokens in all: ${total}`);
 
           // What git holds: the Stages' commits on the Task's branch, the Project's main untouched.

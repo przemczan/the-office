@@ -94,7 +94,7 @@ NotificationsModule
 - `notification.ts`: Pointer, GatheringKind, Notification, NotificationDraft, notificationOf, decisionWaiting, gateWaiting, taskDone, Failure, taskFailed, taskPaused, initiativeDone, windowNearlyUsed, windowReset, engineDown, windowMove, Handling, handles, samePointer
 - `now-events.ts`: NowChanged
 - `now.ts`: OfficeTask, NowFireAlarm, TaskResume, OpenDecision, StageOfTask, FiveHourWindow, WaitingDecision, WaitingGate, NeedsYouItem, CurrentStage, RunningTask, FinishedTask, QueuedOnNow, QueuedTask, AlarmPausedTask, FireAlarmOnNow, Desks, Now, StartedTask, NowParts, nowOf, waitingGateOf, currentStageOf
-- `office-day.ts`: officeDayOf
+- `office-day.ts`: officeDayOf, TokenKinds, NO_TOKENS, addTokenKinds, tokensGrown
 - `office-status.ts`: officeStatusText
 - `task-outcome.ts`: TaskOutcomeKind, TaskOutcome, latestPerTask
 - `user-activity.ts`: AWAY_AFTER_MS, UserActivity, recordActivity

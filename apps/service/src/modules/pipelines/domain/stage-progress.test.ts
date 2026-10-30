@@ -172,7 +172,7 @@ describe("stagesProgress", () => {
     ).toEqual(["done", "skipped"]);
   });
 
-  it("counts every token of every run, cache reads too", () => {
+  it("adds every run's tokens, each kind apart", () => {
     const tokens = { input: 10, output: 200, cacheRead: 30_000, cacheCreation: 4_000 };
     const progress = stagesProgress(
       [implement, tests],
@@ -183,6 +183,9 @@ describe("stagesProgress", () => {
       ),
     );
 
-    expect(progress.map((each) => each.tokens)).toEqual([68_420, 0]);
+    expect(progress.map((each) => each.tokens)).toEqual([
+      { input: 20, output: 400, cacheRead: 60_000, cacheCreation: 8_000 },
+      { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
+    ]);
   });
 });

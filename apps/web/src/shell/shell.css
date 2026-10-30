@@ -550,6 +550,34 @@ body,
   color: var(--fg-3);
 }
 
+/* ---- a token count with its info icon (token-count.tsx) */
+.token-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.token-info {
+  display: inline-grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg-3);
+  cursor: help;
+}
+
+.token-info:hover,
+.token-info:focus-visible {
+  color: var(--fg-1);
+}
+
+.token-kinds {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 /* ---- where an item belongs: its Project's mark and name, or Office-wide */
 .project-chip {
   display: inline-flex;

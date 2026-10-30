@@ -9,9 +9,9 @@ import {
   MOVE_WORDS,
   OVERRIDE_HINTS,
   OVERRIDE_WORDS,
-  threadTokens,
   tokensShort,
 } from "./context-words.ts";
+import { TokenCount } from "../token-count.tsx";
 
 /**
  * The Thread's context label (spec §2.5): what the next message does to its session and why, the
@@ -30,7 +30,6 @@ export function ContextBar({
     onSuccess: (chosen) => queryClient.setQueryData(threadQueries.one(chosen.id).queryKey, chosen),
   });
   const { context } = thread;
-  const total = threadTokens(thread);
   return (
     <div className="context-bar">
       <div className="context-label" aria-label="Context">
@@ -42,7 +41,9 @@ export function ContextBar({
         <span className="visually-hidden"> · </span>
         <span>{contextDetail(context, personName)}</span>
       </div>
-      <span className="context-tokens">{tokensShort(total)} tokens in this Thread</span>
+      <span className="context-tokens">
+        <TokenCount tokens={thread.tokens} label="tokens in this Thread" />
+      </span>
       <span className="context-actions">
         {context.alternatives.map(({ override, tokens: cost }) => (
           <Button

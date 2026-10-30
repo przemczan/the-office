@@ -8,6 +8,7 @@ import {
   stageProgressLine,
   taskTokens,
 } from "./stage-words.ts";
+import { NO_TOKENS } from "../../shell/token-words.ts";
 
 const implement: Stage = {
   kind: "agent",
@@ -49,7 +50,7 @@ function aRun(fields: Partial<StageRun>): StageRun {
 }
 
 function aTaskStage(stage: Stage, fields: Partial<TaskStage>): TaskStage {
-  return { stage, state: "pending", tokens: 0, wentBack: null, runs: [], ...fields };
+  return { stage, state: "pending", tokens: NO_TOKENS, wentBack: null, runs: [], ...fields };
 }
 
 const handedOver = {
@@ -71,7 +72,11 @@ describe("stageProgressLine", () => {
 
     expect(
       stageProgressLine(
-        aTaskStage(implement, { state: "done", tokens: 41_234, runs: [run] }),
+        aTaskStage(implement, {
+          state: "done",
+          tokens: { input: 1_234, output: 10_000, cacheRead: 900_000, cacheCreation: 30_000 },
+          runs: [run],
+        }),
         names,
         now,
       ),
@@ -152,11 +157,16 @@ describe("the Stage's Handover note and command", () => {
 });
 
 describe("taskTokens", () => {
-  it("counts every token of the Task's Threads, cache reads too", () => {
+  it("adds the Task's Threads' tokens, each kind apart", () => {
     const tokens = { input: 10, output: 200, cacheRead: 30_000, cacheCreation: 4_000 };
 
-    expect(taskTokens([{ tokens }, { tokens }])).toBe(68_420);
-    expect(taskTokens(undefined)).toBe(0);
+    expect(taskTokens([{ tokens }, { tokens }])).toEqual({
+      input: 20,
+      output: 400,
+      cacheRead: 60_000,
+      cacheCreation: 8_000,
+    });
+    expect(taskTokens(undefined)).toEqual(NO_TOKENS);
   });
 });
 

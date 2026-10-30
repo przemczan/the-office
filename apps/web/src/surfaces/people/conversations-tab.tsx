@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import type { Project, Task, Thread } from "@the-office/contracts";
+import { countedTokens, type Project, type Task, type Thread } from "@the-office/contracts";
 import { Button, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
@@ -135,15 +135,14 @@ function ThreadRow({
   readonly personName: string;
   readonly onOpen: () => void;
 }): ReactNode {
-  const { input, output, cacheRead, cacheCreation } = thread.tokens;
   return (
     <li>
       <button type="button" className="person-thread" onClick={onOpen}>
         <Icon name="message-circle" size={14} />
         <span className="person-thread-title">{thread.title ?? "New thread"}</span>
         <span className="person-thread-meta">
-          {contextLabel(thread.context, personName)} ·{" "}
-          {tokensShort(input + output + cacheRead + cacheCreation)} tokens
+          {contextLabel(thread.context, personName)} · {tokensShort(countedTokens(thread.tokens))}{" "}
+          tokens
         </span>
         <span className="person-thread-time">{dayAndClockOf(thread.startedAt)}</span>
       </button>

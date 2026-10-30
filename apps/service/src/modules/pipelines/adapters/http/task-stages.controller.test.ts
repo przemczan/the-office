@@ -78,8 +78,8 @@ describe("GET /api/tasks/:id/stages", () => {
     const { stages, lockedStages, testResults } = await stagesOf(taskId);
 
     expect(stages?.map(({ stage, state, tokens }) => [stage.key, state, tokens])).toEqual([
-      ["implement", "done", 20],
-      ["tests", "done", 0],
+      ["implement", "done", { input: 10, output: 10, cacheRead: 0, cacheCreation: 0 }],
+      ["tests", "done", { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }],
     ]);
     expect(lockedStages).toBe(2);
     expect(stages?.[0]?.runs).toEqual([
