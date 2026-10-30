@@ -8,7 +8,7 @@ Tier 2 is proven as a whole: a day's work on the Test Project run through The Of
 
 ## Definition of Done
 
-- [ ] The service runs from a copy of HEAD on the LXC (10.1.1.66) with its own Postgres and data directory, and the Test Project is onboarded through Devops. Check: the run, logged in State.
+- [x] The service runs from a copy of HEAD on the LXC (10.1.1.66) with its own Postgres and data directory, and the Test Project is onboarded through Devops. Check: the run, logged in State.
 - [ ] Each scenario below runs end to end through the API, with each Task's tokens and anything that got in the way logged. Check: the driver's one-line-per-step output, summarised in State; the service log free of errors not explained there.
 - [ ] Every problem found is written down with a proposed fix; a fix is built here only when it blocks the run. Check: the Progress log.
 - [ ] The user has read the problems and said whether they would run all their Projects' work through The Office all day from the desk. Check: their verdict in State.
@@ -25,7 +25,7 @@ How the run works (decided with the user on 2026-10-30): on the LXC for the day,
 ## Steps
 
 - [x] 0. Settle how the run works with the user; write this file, link it from the README, update coverage. Commit.
-- [ ] 1. Set up: stop task 17's service and `docker compose -p office17 down` (the user's word); copy HEAD to `/root/the-office-30`, `npm ci`, build; Postgres `office30` on 5452, service on 4330, `OFFICE_DATA_DIR=/root/office-data-30`, telemetry off; clone the Test Project to `/root/notnullsoft-admin-30`. The driver script; hire Devops, CTO and Office Manager where not hired, on Haiku. Onboard the Test Project through Devops (the `project` Proposal and its Onboard Task). Commit.
+- [x] 1. Set up: stop task 17's service and `docker compose -p office17 down` (the user's word); copy HEAD to `/root/the-office-30`, `npm ci`, build; Postgres `office30` on 5452, service on 4330, `OFFICE_DATA_DIR=/root/office-data-30`, telemetry off; clone the Test Project to `/root/notnullsoft-admin-30`. The driver script; hire Devops, CTO and Office Manager where not hired, on Haiku. Onboard the Test Project through Devops (the `project` Proposal and its Onboard Task). Commit.
   Read: [build-defaults.md](build-defaults.md) (Linux); the Projects and People controllers' routes, by their maps.
 - [ ] 2. Pipelines: one Pipeline library edit, one Project command changed by a Devops Proposal and applied. Commit.
   Read: the [Pipelines map](../../apps/service/src/modules/pipelines/MAP.md).
@@ -41,10 +41,14 @@ How the run works (decided with the user on 2026-10-30): on the LXC for the day,
 
 ## State
 
-- Step 0 done (2026-10-30). Decided with the user: the run as above; stop task 17's LXC service; verdict only from the user.
-- Checked: the LXC reaches github.com; task 17's service holds 4320 and Postgres 5442 (to be stopped in step 1).
-- Next: step 1.
+- Running on the LXC: `/root/the-office-30` (HEAD 7f55d53 plus step 1's fix, built there), Postgres `office30` on 5452, service on 4330 (`/root/office30.log`), data `/root/office-data-30`, the Test Project cloned to `/root/notnullsoft-admin-30` (origin `/root/notnullsoft-admin-17`, local only). Task 17's service and its compose project are down.
+- The driver is `o.mjs` in the session's scratchpad, copied to `/root/o.mjs`: `get|post|put|del PATH`, `chat ROLE TEXT`, `say THREAD TEXT`, `log THREAD N`, `run TASK [nostart]`, `threads TASK`, `staff`. Six presets hired (Jan, Ada, Ola, Bob, Nina, Marta), all on Haiku at low effort.
+- Onboarded through Devops: Proposal `3157bdb7…` applied, Project `notnullsoft-admin` (merge, Quick fix), Onboard Task `ef2e8d55…` done in 50 s, nothing to fix; Devops chat 1.9k out, 150k cache reads; Onboard 2.1k out, 36k writes, 200k reads.
+- Found, for step 7: (A) on a fresh Office the first chat failed, `bases/` not made with no Project, fixed here (`BaseCheckouts.refresh`); (B) Devops can't read the repository it is asked to onboard (a chat reads only `bases/`), so the user has to type the commands; (C) a refused `/tmp` redirect reads "no approval surface", which says nothing to the Agent about why.
+- Decided with the user: as in How the run works; task 17's LXC service stopped.
+- Next: step 2, Pipelines.
 
 ## Progress
 
 - 2026-10-30 · step 0: how the run works settled with the user; this file written; next, step 1, the LXC set-up and onboarding the Test Project through Devops.
+- 2026-10-30 · step 1: the service on the LXC, six presets on Haiku, the Test Project onboarded through Devops; a fresh Office now makes `bases/` before its first chat; next, step 2, Pipelines.

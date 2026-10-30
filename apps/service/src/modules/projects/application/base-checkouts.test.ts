@@ -1,4 +1,4 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
@@ -66,6 +66,22 @@ afterAll(async () => {
 });
 
 describe("BaseCheckouts", () => {
+  it("makes the folder a chat session works in when there is no Project yet", async () => {
+    const officeData = new OfficeDataDirectory(join(repository.folder, "empty-office-data"));
+    const git = new CommandLineGit(new RepositoryLocks());
+    const commands = new ProjectCommandRunner(new ShellCommandRunner());
+    const empty = new BaseCheckouts(
+      new ListedProjects([]),
+      git,
+      new Worktrees(git, commands, officeData),
+      commands,
+      officeData,
+    );
+
+    await expect(empty.refresh()).resolves.toEqual([]);
+    expect((await stat(empty.folder)).isDirectory()).toBe(true);
+  });
+
   it("names each Project's checkout under bases/ without running git", async () => {
     const folder = join(repository.folder, "office-data", "bases");
 

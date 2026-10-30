@@ -49,9 +49,11 @@ export class BaseCheckouts {
   /**
    * Checks each Project's base branch out afresh, from its upstream fetched first, as a Task's
    * worktree starts (spec §9). A Project that fails keeps the checkout it had, and is left out
-   * when it has none.
+   * when it has none. The folder that holds them is made even with no Project, since a chat
+   * session works in it, as Devops does onboarding the first Project.
    */
   async refresh(): Promise<readonly BaseCheckout[]> {
+    await mkdir(this.folder, { recursive: true });
     const refreshed: BaseCheckout[] = [];
     for (const project of await this.projects.list()) {
       const checkout = this.checkoutOf(project);
