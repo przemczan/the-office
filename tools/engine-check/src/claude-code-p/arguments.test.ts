@@ -27,7 +27,7 @@ test("runs -p with stream-json in and out and the session's flags", () => {
     "--verbose",
   ]);
   assert.equal(flag(args, "--tools"), "Bash,Read");
-  assert.equal(flag(args, "--plugin-dir-no-mcp"), OPTIONS.pluginFolder);
+  assert.equal(flag(args, "--plugin-dir"), OPTIONS.pluginFolder);
   assert.equal(flag(args, "--allowedTools"), "Skill(office:alpha),Skill(lint)");
   assert.equal(flag(args, "--session-id"), "s1");
   assert.ok(args.includes("--exclude-dynamic-system-prompt-sections"));

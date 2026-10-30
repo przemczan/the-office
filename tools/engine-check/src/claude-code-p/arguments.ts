@@ -44,8 +44,8 @@ export function claudeCodePArguments(options: ClaudeCodePOptions): string[] {
     `--model=${options.model}`,
     `--tools=${options.tools.join(",")}`,
     "--setting-sources=project",
-    // What the SDK passes for a plugin with `skipMcpDiscovery`; `--plugin-dir` would also start its MCP servers.
-    `--plugin-dir-no-mcp=${options.pluginFolder}`,
+    // Ticket 22's public flag; the session folder holds skills only, so no plugin MCP server starts.
+    `--plugin-dir=${options.pluginFolder}`,
     ...(options.allowedSkills.length > 0
       ? [`--allowedTools=${options.allowedSkills.map((skill) => `Skill(${skill})`).join(",")}`]
       : []),
