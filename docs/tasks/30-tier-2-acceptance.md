@@ -27,9 +27,9 @@ How the run works (decided with the user on 2026-10-30): on the LXC for the day,
 - [x] 0. Settle how the run works with the user; write this file, link it from the README, update coverage. Commit.
 - [x] 1. Set up: stop task 17's service and `docker compose -p office17 down` (the user's word); copy HEAD to `/root/the-office-30`, `npm ci`, build; Postgres `office30` on 5452, service on 4330, `OFFICE_DATA_DIR=/root/office-data-30`, telemetry off; clone the Test Project to `/root/notnullsoft-admin-30`. The driver script; hire Devops, CTO and Office Manager where not hired, on Haiku. Onboard the Test Project through Devops (the `project` Proposal and its Onboard Task). Commit.
   Read: [build-defaults.md](build-defaults.md) (Linux); the Projects and People controllers' routes, by their maps.
-- [ ] 2. Pipelines: one Pipeline library edit, one Project command changed by a Devops Proposal and applied. Commit.
+- [x] 2. Pipelines: one Pipeline library edit, one Project command changed by a Devops Proposal and applied. Commit.
   Read: the [Pipelines map](../../apps/service/src/modules/pipelines/MAP.md).
-- [ ] 3. The CTO and parallel work: an Initiative shaped with the CTO into 2–3 tiny Tasks, one depending on another (Start refused while blocked); two Tasks changing the same file in progress together, the queue for Start, the overlap warning, a conflict at Publish through the Resolve Stage, the Project's Test and a Gate; "Initiative done". Tags, search, a saved view and the Project filter on those Tasks. Commit.
+- [ ] 3. The CTO and parallel work: an Initiative shaped with the CTO into 2–3 tiny Tasks, one depending on another (Start refused while blocked); two Tasks changing the same file in progress together, the queue for Start, the overlap warning, a conflict at Publish through the Resolve Stage, the Project's Test and a Gate; one Task on the Proof of concept Pipeline (its publish target); "Initiative done". Tags, search, a saved view and the Project filter on those Tasks. Commit.
   Read: the [Work map](../../apps/service/src/modules/work/MAP.md); spec [2.1](../spec/2.1-work.md) where a state is unclear.
 - [ ] 4. People and the Office Manager: hire from scratch, edit a permission profile, one Consultation and one mention, shared memory written, read and deleted, a Role on Claude Code `-p` running a Stage, letting someone go and the staffing hold; the Office Manager capturing an Idea, a Role or settings Proposal, the Office status. Commit.
   Read: the [People](../../apps/service/src/modules/people/MAP.md) and [Conversations](../../apps/service/src/modules/conversations/MAP.md) maps.
@@ -45,10 +45,12 @@ How the run works (decided with the user on 2026-10-30): on the LXC for the day,
 - The driver is `o.mjs` in the session's scratchpad, copied to `/root/o.mjs`: `get|post|put|del PATH`, `chat ROLE TEXT`, `say THREAD TEXT`, `log THREAD N`, `run TASK [nostart]`, `threads TASK`, `staff`. Six presets hired (Jan, Ada, Ola, Bob, Nina, Marta), all on Haiku at low effort.
 - Onboarded through Devops: Proposal `3157bdb7…` applied, Project `notnullsoft-admin` (merge, Quick fix), Onboard Task `ef2e8d55…` done in 50 s, nothing to fix; Devops chat 1.9k out, 150k cache reads; Onboard 2.1k out, 36k writes, 200k reads.
 - Found, for step 7: (A) on a fresh Office the first chat failed, `bases/` not made with no Project, fixed here (`BaseCheckouts.refresh`); (B) Devops can't read the repository it is asked to onboard (a chat reads only `bases/`), so the user has to type the commands; (C) a refused `/tmp` redirect reads "no approval surface", which says nothing to the Agent about why.
+- Pipelines: "Quick fix (copy)" made from Quick fix and edited by hand into "Quick fix with lint" (`7d8b3ce5…`: Implement > Lint > Tests > Publish); Devops then drafted, in one chat (1.3k out, 116k reads), a `pipeline` Proposal adding the Gate "Look before publish" before Publish and a `project-commands` Proposal making Test `npm test --silent`; both applied and read back.
 - Decided with the user: as in How the run works; task 17's LXC service stopped.
-- Next: step 2, Pipelines.
+- Next: step 3, the CTO and parallel work.
 
 ## Progress
 
 - 2026-10-30 · step 0: how the run works settled with the user; this file written; next, step 1, the LXC set-up and onboarding the Test Project through Devops.
 - 2026-10-30 · step 1: the service on the LXC, six presets on Haiku, the Test Project onboarded through Devops; a fresh Office now makes `bases/` before its first chat; next, step 2, Pipelines.
+- 2026-10-30 · step 2: a library Pipeline copied and edited, and Devops' Pipeline and Project-commands Proposals applied on the LXC; next, step 3, the CTO and parallel work.
