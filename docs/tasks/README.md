@@ -28,6 +28,8 @@ Done 2026-10-27. The problems its acceptance run surfaced are in [archive/17-set
 
 ## Tier 2: the all-day workspace
 
+Done 2026-10-30, the phone left out (task 28, postponed). The user's verdict: they would run all their Projects' work through The Office all day from the desk once the problems its acceptance run surfaced are fixed; those are in the after-tier-2 list below, from [archive/30-tier-2-acceptance.md](archive/30-tier-2-acceptance.md).
+
 Order accepted by the user on 2026-10-27. A task's file is written when it becomes current, after the [open questions](../spec/8-open-questions-and-risks.md) it needs are settled with the user; a row without a link has no file yet. Task 28, the phone, is postponed by the user (2026-10-29) and left out of the rest of tier 2, the acceptance run included, until they decide; its file keeps the answers settled so far.
 
 | # | Task | Surface | Status |
@@ -44,7 +46,7 @@ Order accepted by the user on 2026-10-27. A task's file is written when it becom
 | 27 | [Notifications: the kinds × channels grid, quiet hours, batching; the fire alarm](27-notifications-and-fire-alarm.md) | Now | done |
 | 28 | [The phone: HTTPS on the LAN, the PIN, the installed app, phone views and push](28-the-phone.md) | Phone | postponed |
 | 29 | [Running: the `-p` fallback adapter](29-the-p-fallback.md) | Foundation | done |
-| 30 | [The tier 2 acceptance run](30-tier-2-acceptance.md) | All | in progress |
+| 30 | [The tier 2 acceptance run](30-tier-2-acceptance.md) | All | done |
 
 Carried into task 30 (the user's word, 2026-10-29): from task 25, installing one skill from github.com/anthropics/skills on the running app, and the user's look at installing, updating and a drafted skill there.
 
@@ -64,6 +66,16 @@ Decided with the user on 2026-10-27: a fix is built where it is found only when 
 - Found in task 24: applying a `project` Proposal adds the Project, then its Onboard Task, in separate transactions (Work's `ProjectProposals`). If the Task can't be added (in practice, its worktree can't be made), the Proposal is refused but stays open with the Project already added, and applying it again tries to add the Project a second time. Proposed fix: on a second apply, find the Project the Proposal already added (by its repository) and carry on with the Task, so applying converges.
 - Found in task 25: an applied `skill-update` Proposal's card reads its files' diff from the Source each time (`GET /skills/:name/update-diff`, `shell/skill-update-diff.tsx`), so it shows an error once the Source is gone or no longer has those versions. Proposed fix: keep the diff with the Proposal when it is applied (or the files hash's diff from the library's kept versions), and show that on an applied card.
 - Found in task 29: task 09's chat check on the Test Project (`conversations/application/test-project-check.test.ts`) no longer builds its Nest module, since `ThreadRunner` needs `StageThreads`; it fails before any session. Proposed fix: build it from the Conversations module as the later checks do through `test/live-check.ts`, or retire it, since the later checks cover chat with the Planner.
+- Found in task 30 (B): Devops can't read the repository it is asked to onboard, as a chat reads only `bases/`, so the user types the commands. Proposed fix: a read-only Office tool for Devops' onboarding chat that reads a named local path's top level and its manifest files (package.json, README).
+- Found in task 30 (C): a refused shell redirect to `/tmp` reads "requires approval, and this session has no approval surface", which doesn't tell the Agent the rule. Proposed fix: name the rule in the refusal ("writes outside the worktree are refused; keep output in the shell").
+- Found in task 30 (D): Backlog moves on only through Planning, which always starts a Planner turn (78–148k cache reads on Haiku) even when the user writes the Plan. Proposed fix: Planning starts the Planner on the user's first message, not at once. Amends [spec 2.1](../spec/2.1-work.md).
+- Found in task 30 (E): a Stage commit's subject is the Agent's summary cut at 72 with "…" (`pipelines/domain/stage-commit.ts`). Proposed fix: "<Stage>: <Task title>" as the subject, the summary in the body.
+- Found in task 30 (F): the Office Manager's hire card named the person by the title ("Docs Writer"). Proposed fix: the hire tool asks for a first name apart from the title, and refuses a name equal to it.
+- Found in task 30 (G): a chat's Brief carries only Office-wide memory notes (`SessionMemory.forBrief(role, undefined)`), so a Project note saved in a chat is not read in the next chat. Proposed fix: a chat's Brief carries every note, each labelled with its Project, since a chat reads every Project.
+- Found in task 30 (H): letting someone go, like Pause, holds their Stage only once its turn ends, so a let-go Developer finished all of Implement first (9.9k out, 620k reads). Proposed fix: say so in the let-go confirmation, or end the turn as Stop does; the user chooses which.
+- Found in task 30 (I): chat Agents try shell commands first and are refused ("only read-only git"), a wasted call each time. Proposed fix: a chat session's instructions say its shell runs only read-only git, and to read files with Read and Grep.
+- Found in task 30 (J): a Task's record, as `read_task` gives it, has no history, so the Office Manager said a Task "shows no pause" that letting go had paused. Proposed fix: the record lists the Task's state changes with who or what made each.
+- Found in task 30 (K): in a chat, an Initiative named by its bare id can't be read (no `read_initiative` there; only a mention's link carries its record), while a Task's or Idea's can. Proposed fix: offer `read_initiative` in every chat, as `read_task` and `read_idea` are.
 
 Read these only when a step needs them:
 
