@@ -12,6 +12,7 @@ import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { ScriptedEngine } from "../adapters/scripted/scripted-engine.js";
 import type { SessionScript } from "../adapters/scripted/session-script.js";
 import { EngineDown, UsageWindowsChanged } from "../domain/engine-events.js";
+import type { Engine } from "../domain/engines.js";
 import {
   CapabilityMissing,
   SessionSkillsDiffer,
@@ -20,6 +21,7 @@ import {
 import type { EngineSession } from "../ports/engine-session.js";
 import type { SessionEvent, TurnEndedEvent } from "../ports/session-events.js";
 import type { OfficeTool } from "../ports/office-tool.js";
+import { AgentEngines } from "./agent-engines.js";
 import { EngineSessions, type SessionSettings } from "./engine-sessions.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
 import { UsageWindowState } from "./usage-window-state.js";
@@ -42,6 +44,7 @@ const NOTE_TOOL: OfficeTool = {
 };
 
 const SETTINGS: SessionSettings = {
+  engine: "agent-sdk",
   folder: "/work/task-1",
   environment: {},
   model: "claude-haiku-5-5",
@@ -92,7 +95,15 @@ const TWO_TURNS: SessionScript = [
   { step: "end" },
 ];
 
+/** Sessions on the Agent SDK's stand-in, with no session for the fallback's. */
 function setUp(scripts: readonly SessionScript[], capabilities: Partial<EngineCapabilities> = {}) {
+  return setUpOn({
+    "agent-sdk": new ScriptedEngine(scripts, capabilities),
+    "claude-code-p": new ScriptedEngine([]),
+  });
+}
+
+function setUpOn(engines: Readonly<Record<Engine, ScriptedEngine>>) {
   const spans = new InMemorySpanExporter();
   const tracerProvider = new TracerProvider({
     spanProcessors: [new SimpleSpanProcessor({ exporter: spans })],
@@ -108,7 +119,7 @@ function setUp(scripts: readonly SessionScript[], capabilities: Partial<EngineCa
   const officeTools = new OfficeToolRegistry();
   officeTools.register(NOTE_TOOL);
   const sessions = new EngineSessions(
-    new ScriptedEngine(scripts, capabilities),
+    new AgentEngines(engines),
     telemetry,
     events,
     usageWindows,
@@ -268,5 +279,104 @@ describe("EngineSessions", () => {
 
     await expect(turns(session, 1)).rejects.toThrow("the caller asked to send");
     expect(published).toEqual([expect.any(EngineDown)]);
+  });
+});
+
+const ONE_TURN: SessionScript = [
+  { step: "start", brief: { id: "brief", text: "Begin." } },
+  turnEnded("brief", 0.01),
+  { step: "end" },
+];
+const RESUMED: SessionScript = [{ step: "resume" }, { step: "end" }];
+const ON_THE_FALLBACK: SessionSettings = { ...SETTINGS, engine: "claude-code-p" };
+
+/** The Agent SDK's stand-in can do everything; the fallback's no Office tools or usage windows. */
+function twoEngines(scripts: {
+  readonly agentSdk?: readonly SessionScript[];
+  readonly claudeCodeP?: readonly SessionScript[];
+}) {
+  const agentSdk = new ScriptedEngine(scripts.agentSdk ?? []);
+  const claudeCodeP = new ScriptedEngine(scripts.claudeCodeP ?? [], {
+    officeTools: false,
+    usageWindows: false,
+  });
+  return {
+    agentSdk,
+    claudeCodeP,
+    ...setUpOn({ "agent-sdk": agentSdk, "claude-code-p": claudeCodeP }),
+  };
+}
+
+describe("EngineSessions on an engine per Role", () => {
+  it("starts and resumes each session on the engine it names", async () => {
+    const { sessions, agentSdk, claudeCodeP } = twoEngines({
+      agentSdk: [RESUMED],
+      claudeCodeP: [ONE_TURN],
+    });
+
+    const started = await sessions.start({
+      id: "s-1",
+      settings: { ...ON_THE_FALLBACK, officeTools: [] },
+      brief: message("Begin."),
+    });
+    await turns(started, 1);
+    await started.end();
+    const resumed = await sessions.resume("s-2", SETTINGS);
+    await resumed.end();
+
+    expect(claudeCodeP.sessions.map((session) => session.id)).toEqual(["s-1"]);
+    expect(agentSdk.sessions.map((session) => session.id)).toEqual(["s-2"]);
+  });
+
+  it("reads each engine's own capabilities", () => {
+    const { sessions } = twoEngines({});
+
+    expect(sessions.capabilitiesOf("agent-sdk").officeTools).toBe(true);
+    expect(sessions.capabilitiesOf("claude-code-p")).toMatchObject({
+      officeTools: false,
+      usageWindows: false,
+      interrupt: true,
+    });
+  });
+
+  it("refuses on an engine what only the other can do", async () => {
+    const { sessions, published } = twoEngines({ agentSdk: [ONE_TURN], claudeCodeP: [ONE_TURN] });
+
+    await expect(
+      sessions.start({ id: "s-1", settings: ON_THE_FALLBACK, brief: message("Begin.") }),
+    ).rejects.toThrow(new CapabilityMissing("officeTools"));
+    const session = await sessions.start({
+      id: "s-2",
+      settings: SETTINGS,
+      brief: message("Begin."),
+    });
+    await turns(session, 1);
+    await session.end();
+    expect(published).toEqual([]);
+  });
+
+  it("reads the usage windows on a rate limit by the session's engine's capabilities", async () => {
+    const { sessions, usageWindows } = setUpOn({
+      "agent-sdk": new ScriptedEngine([], { usageWindows: false }),
+      "claude-code-p": new ScriptedEngine([
+        [
+          { step: "start", brief: { id: "brief", text: "Begin." } },
+          RATE_LIMIT,
+          turnEnded("brief", 0.01),
+          { step: "read-usage-windows", windows: WINDOWS },
+          { step: "end" },
+        ],
+      ]),
+    });
+
+    const session = await sessions.start({
+      id: "s-1",
+      settings: ON_THE_FALLBACK,
+      brief: message("Begin."),
+    });
+    await turns(session, 1);
+    await session.end();
+
+    await vi.waitFor(() => expect(usageWindows.current).toEqual(WINDOWS));
   });
 });

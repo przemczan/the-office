@@ -42,6 +42,7 @@ export const contextReasonSchema = z.enum([
   "your-choice",
   "stage-declared",
   "context-full",
+  "engine-changed",
 ]);
 export type ContextReason = z.infer<typeof contextReasonSchema>;
 

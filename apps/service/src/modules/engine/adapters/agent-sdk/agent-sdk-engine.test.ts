@@ -11,6 +11,7 @@ import { z } from "zod";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { Telemetry } from "../../../../platform/telemetry/telemetry.js";
+import { AgentEngines } from "../../application/agent-engines.js";
 import { EngineSessions } from "../../application/engine-sessions.js";
 import { OfficeToolRegistry } from "../../application/office-tool-registry.js";
 import { UsageWindowState } from "../../application/usage-window-state.js";
@@ -81,8 +82,9 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
         },
       });
       const events = new EventBus();
+      const engine = liveEngine();
       const sessions = new EngineSessions(
-        liveEngine(),
+        new AgentEngines({ "agent-sdk": engine, "claude-code-p": engine }),
         new Telemetry(trace.getTracer("test"), metrics.getMeter("test")),
         events,
         new UsageWindowState(events),
@@ -91,7 +93,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
 
       const session = await sessions.start({
         id: randomUUID(),
-        settings: { ...options(folder), officeTools: ["note"] },
+        settings: { ...options(folder), engine: "agent-sdk", officeTools: ["note"] },
         brief: message(
           'Call the note tool once with the word "tangerine", then reply with the single word: done',
         ),

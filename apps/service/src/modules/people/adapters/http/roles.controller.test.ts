@@ -130,11 +130,13 @@ describe("GET /api/presets", () => {
 });
 
 describe("GET /api/role-card-options", () => {
-  it("offers the engine's models, the known Roles and how each switch is seen to", async () => {
+  it("offers each engine's models, the known Roles and how each switch is seen to", async () => {
     const options = roleCardOptionsSchema.parse(await get("/role-card-options"));
 
+    const models = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"];
     expect(options.engines).toEqual([
-      { engine: "agent-sdk", models: ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"] },
+      { engine: "agent-sdk", models },
+      { engine: "claude-code-p", models },
     ]);
     expect(options.knownRoles).toContainEqual({ key: "devops", title: "Devops" });
     expect(options.hardSwitches).toEqual([

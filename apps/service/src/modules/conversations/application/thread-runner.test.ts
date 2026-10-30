@@ -69,6 +69,8 @@ const WINDOW = 1_000_000;
 
 let app: INestApplication;
 let engine: ScriptedEngine;
+/** The `-p` fallback's stand-in, for a card switched to it. */
+let fallback: ScriptedEngine;
 let officeData: string;
 /** Each card version of the Planner's Role, from 1, under a key of this test's own. */
 let versions: Card[];
@@ -105,7 +107,16 @@ afterEach(async () => {
 
 /** Boots the runner on a scripted engine that replays `scripts`, one per session opened. */
 async function startWith(...scripts: SessionScript[]): Promise<void> {
+  await startOn(scripts, []);
+}
+
+/** Boots the runner with the Agent SDK's stand-in replaying `scripts`, the fallback's its own. */
+async function startOn(
+  scripts: readonly SessionScript[],
+  fallbackScripts: readonly SessionScript[],
+): Promise<void> {
   engine = new ScriptedEngine(scripts);
+  fallback = new ScriptedEngine(fallbackScripts);
   forgotten = [];
   prepared = [];
   // The library is shared by every test file, so the sessions here get no skills of it.
@@ -136,7 +147,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       EventStreamModule,
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
-      ScriptedEngineModule.register(engine),
+      ScriptedEngineModule.register({ "agent-sdk": engine, "claude-code-p": fallback }),
     ],
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
@@ -510,6 +521,39 @@ describe("continuing a Thread", () => {
     expect((await threads.read(thread.id)).session).toMatchObject({
       id: fresh?.id,
       cardVersion: 2,
+    });
+  });
+
+  it("starts a warm Thread fresh on the engine its person's card switched to", async () => {
+    await startOn(
+      [started(...aTurn("brief", "Hello."))],
+      [started(...aTurn("brief", "Still here."))],
+    );
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Hello.");
+    await answered(thread.id, 3);
+    versions.push({ ...PLANNER, engine: "claude-code-p" });
+
+    await runner.send(thread.id, "Still there?");
+    const log = await answered(thread.id, 6);
+
+    const [first] = engine.sessions;
+    const [fresh] = fallback.sessions;
+    expect(engine.sessions).toHaveLength(1);
+    expect(fresh?.id).not.toBe(first?.id);
+    expect(forgotten).toEqual([first?.id]);
+    expect(drafts(log)[3]).toEqual(
+      contextLine({
+        move: "fresh",
+        reason: "engine-changed",
+        contextTokens: 32_000,
+        briefTokens: expect.any(Number),
+      }),
+    );
+    expect((await threads.read(thread.id)).session).toMatchObject({
+      id: fresh?.id,
+      cardVersion: 2,
+      engine: "claude-code-p",
     });
   });
 

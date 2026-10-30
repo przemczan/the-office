@@ -2,7 +2,7 @@
 
 **Owns:** Roles hired from presets (Planner, Developer, Reviewer, CTO, Devops, Office Manager) or from scratch (keyed from the card's title by `roleKeyFor`, never a preset's key), Role cards and their versions (`roles`, `role_card_versions`), each version with who proposed it when the user applied a Proposal (`proposed_by`, "proposed by" in `GET /roles/:key/changes`), authority and Hard switches, Task limits; each person's Memory (`memory_notes`, append-only notes, deleted one at a time or all).
 
-**Talks to:** calls Engine (profiles) and Skills (a Role's skills). Work and Pipelines read cards through their `KnownPeople` ports, bound to `RoleCards` in [app.module.ts](../../app.module.ts); Conversations reads them through the index, and applies Proposals of Roles through `RoleService` (`hireFromScratch`/`hire`/`changeCard` with `proposedBy`; `hiringProblems`/`presetHiringProblems`/`cardChangeProblems` judge one as it is drafted, saving nothing).
+**Talks to:** calls Engine (profiles; the engines and their models a card picks from) and Skills (a Role's skills). Work and Pipelines read cards through their `KnownPeople` ports, bound to `RoleCards` in [app.module.ts](../../app.module.ts); Conversations reads them through the index, and applies Proposals of Roles through `RoleService` (`hireFromScratch`/`hire`/`changeCard` with `proposedBy`; `hiringProblems`/`presetHiringProblems`/`cardChangeProblems` judge one as it is drafted, saving nothing).
 
 **Traps:** a person let go keeps the Role's key (`letGoAt`), so nothing else can be hired into it until `hireBack`; `RoleCards.find` and `forResumedSession` treat them as not filling it, while `RoleService.read`/`list` still show them. A Role hired from a preset has the preset's fixed key, so only `adapters/http/roles.controller.test.ts` hires from the presets ([testing](../../../docs/testing.md)).
 
@@ -85,7 +85,7 @@ RoleCards, Consultant, SessionRole, RoleService, MemoryService, RoleCardChanged,
 - `presets.ts`: Preset, PRESETS, presetFor
 - `role-card-changes.ts`: RoleCardField, RoleCardValue, RoleCardFieldChange, roleCardChanges
 - `role-card-version-not-found.ts`: RoleCardVersionNotFound
-- `role-card.ts`: ENGINES, Engine, ENGINE_MODELS, EFFORTS, Effort, SESSION_DEFAULTS, SessionDefault, Capabilities, RoleCard, NAME_LENGTH, TITLE_LENGTH, RESPONSIBILITIES_LENGTH, INSTRUCTIONS_LENGTH, trimmedRoleCard, roleCardProblems, personNameProblems
+- `role-card.ts`: EFFORTS, Effort, SESSION_DEFAULTS, SessionDefault, Capabilities, RoleCard, NAME_LENGTH, TITLE_LENGTH, RESPONSIBILITIES_LENGTH, INSTRUCTIONS_LENGTH, trimmedRoleCard, roleCardProblems, personNameProblems
 - `role-changes.ts`: RoleChange, hire, hireFromScratch, letGo, hireBack, changeRoleCard
 - `role-events.ts`: RoleHired, RoleLetGo, RoleHiredBack, RoleMemoryChanged, RoleCardChanged
 - `role-key.ts`: roleKeyFor

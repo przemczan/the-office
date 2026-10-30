@@ -1,3 +1,4 @@
+import type { Engine } from "../../engine/index.js";
 import type { Decision } from "./decision.js";
 
 /**
@@ -47,6 +48,8 @@ export interface ThreadSession {
   readonly roleKey: string;
   /** The Role card version it started with, which a resume runs with again. */
   readonly cardVersion: number;
+  /** The engine it runs on, the only one that can resume it. */
+  readonly engine: Engine;
   readonly startedAt: Date;
   /** When its last engine call ended, which tells whether the prompt cache is still warm. */
   readonly lastCallAt: Date | undefined;

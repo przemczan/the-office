@@ -355,6 +355,7 @@ export class ThreadRunner implements OnModuleDestroy {
         session: thread.session,
         roleKey: thread.roleKey,
         sessionDefault: current.card.sessionDefault,
+        engine: current.card.engine,
         override: thread.override,
         briefTokens: place.brief.tokens,
       },
@@ -399,7 +400,7 @@ export class ThreadRunner implements OnModuleDestroy {
       const skills = await this.sessionSkills.rebuild(session.id);
       const opened = await this.engine.resume(
         session.id,
-        this.settingsOf(thread, role, skills, place),
+        this.settingsOf(thread, session, role, skills, place),
       );
       this.watch(thread.id, role.roleKey, place.folder, opened);
       opened.send(said, "later");
@@ -414,7 +415,7 @@ export class ThreadRunner implements OnModuleDestroy {
       });
       opened = await this.engine.start({
         id: session.id,
-        settings: this.settingsOf(thread, role, skills, place),
+        settings: this.settingsOf(thread, session, role, skills, place),
         brief: { id: said.id, text: briefed },
       });
     } catch (error) {
@@ -428,11 +429,13 @@ export class ThreadRunner implements OnModuleDestroy {
 
   private settingsOf(
     thread: Thread,
+    { engine }: ThreadSession,
     { roleKey, card }: SessionRole,
     skills: SessionSettings["skills"],
     place: SessionPlace,
   ): SessionSettings {
     return {
+      engine,
       folder: place.folder,
       environment: place.environment,
       model: card.model,

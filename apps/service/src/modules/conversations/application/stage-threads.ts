@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable, Logger } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { EngineSessions } from "../../engine/index.js";
+import { EngineSessions, type Engine } from "../../engine/index.js";
 import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { taskThreadBrief, type Brief } from "../domain/brief.js";
@@ -21,7 +21,13 @@ import {
   sessionOfficeTools,
   workThreadInstructions,
 } from "../domain/session-instructions.js";
-import { addTokens, NO_TOKENS, type Thread, type TokenTotals } from "../domain/thread.js";
+import {
+  addTokens,
+  NO_TOKENS,
+  type Thread,
+  type ThreadSession,
+  type TokenTotals,
+} from "../domain/thread.js";
 import {
   bargeIn,
   beginStageWork,
@@ -252,6 +258,7 @@ export class StageThreads {
         session: previous?.session,
         roleKey: request.roleKey,
         sessionDefault: current.card.sessionDefault,
+        engine: current.card.engine,
         override: request.declared === undefined ? previous?.override : undefined,
         declared: request.declared,
         briefTokens: brief.tokens,
@@ -346,12 +353,21 @@ export class StageThreads {
     );
     const opened = await this.opening(previous.id, undefined, async () => {
       const skills = await this.sessionSkills.rebuild(session.id);
-      return this.engine.resume(session.id, this.settingsOf(previous.id, request, role, skills));
+      return this.engine.resume(
+        session.id,
+        this.settingsOf(previous.id, session, request, role, skills),
+      );
     });
     const work = { id: randomUUID(), text: request.work };
     opened.send(work, "later");
     return this.live(
-      { threadId: previous.id, roleKey: role.roleKey, folder: request.folder, began: now },
+      {
+        threadId: previous.id,
+        roleKey: role.roleKey,
+        engine: session.engine,
+        folder: request.folder,
+        began: now,
+      },
       move,
       opened,
       carried(work.id),
@@ -395,12 +411,18 @@ export class StageThreads {
       });
       return this.engine.start({
         id: session.id,
-        settings: this.settingsOf(thread.id, request, role, skills),
+        settings: this.settingsOf(thread.id, session, request, role, skills),
         brief: { id: briefId, text: openingMessage(brief.text, request.work) },
       });
     });
     return this.live(
-      { threadId: thread.id, roleKey: role.roleKey, folder: request.folder, began: now },
+      {
+        threadId: thread.id,
+        roleKey: role.roleKey,
+        engine: session.engine,
+        folder: request.folder,
+        began: now,
+      },
       move,
       opened,
       carried(briefId),
@@ -431,11 +453,13 @@ export class StageThreads {
 
   private settingsOf(
     threadId: string,
+    { engine }: ThreadSession,
     request: StageThreadRequest,
     { roleKey, card }: SessionRole,
     skills: Awaited<ReturnType<SessionSkills["prepare"]>>,
   ): SessionSettings {
     return {
+      engine,
       folder: request.folder,
       environment: request.environment,
       model: request.model ?? card.model,
@@ -471,7 +495,7 @@ export class StageThreads {
    * again, and delivered once a turn has taken the work, as a barge-in is.
    */
   private async live(
-    { threadId, roleKey, folder, began }: StageWorkPlace,
+    { threadId, roleKey, engine, folder, began }: StageWorkPlace,
     move: ContextDecision,
     session: EngineSession,
     carried: CarriedMessages | undefined,
@@ -545,7 +569,7 @@ export class StageThreads {
       },
       interrupt: async () => {
         if (!turnRunning || sessionEnded) return;
-        if (!this.engine.capabilities.interrupt) return endSession();
+        if (!this.engine.capabilitiesOf(engine).interrupt) return endSession();
         await session.interrupt().catch(async (error: unknown) => {
           this.logger.warn(`Thread ${threadId}'s turn wasn't interrupted: ${messageOf(error)}`);
           await endSession();
@@ -620,10 +644,14 @@ export class StageThreads {
   }
 }
 
-/** Where a Stage's work goes on: its Thread, its person and their folder, since `began`. */
+/**
+ * Where a Stage's work goes on: its Thread, its person, the engine their session runs on and
+ * their folder, since `began`.
+ */
 interface StageWorkPlace {
   readonly threadId: string;
   readonly roleKey: string;
+  readonly engine: Engine;
   readonly folder: string;
   readonly began: Date;
 }

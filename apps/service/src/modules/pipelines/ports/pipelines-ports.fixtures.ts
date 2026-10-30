@@ -258,6 +258,7 @@ export class StageThreadsForTests extends StageThreads {
     const session = await this.sessions.start({
       id: randomUUID(),
       settings: {
+        engine: "agent-sdk",
         folder: request.folder,
         environment: request.environment,
         model: "scripted",

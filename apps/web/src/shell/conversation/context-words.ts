@@ -91,5 +91,7 @@ function reasonWords(reason: ContextReason, contextTokens: number, personName: s
       return "as the Stage declares";
     case "context-full":
       return "context full, Handover note written";
+    case "engine-changed":
+      return "engine changed";
   }
 }

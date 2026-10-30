@@ -13,6 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { Telemetry } from "../../../../platform/telemetry/telemetry.js";
+import { AgentEngines } from "../../application/agent-engines.js";
 import { EngineSessions } from "../../application/engine-sessions.js";
 import { OfficeToolRegistry } from "../../application/office-tool-registry.js";
 import { UsageWindowState } from "../../application/usage-window-state.js";
@@ -80,7 +81,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
           windowsChanged.push(event);
         });
         const sessions = new EngineSessions(
-          engine,
+          new AgentEngines({ "agent-sdk": engine, "claude-code-p": engine }),
           new Telemetry(tracing.getTracer("the-office"), metering.getMeter("the-office")),
           events,
           new UsageWindowState(events),
@@ -90,6 +91,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
         const session = await sessions.start({
           id: sessionId,
           settings: {
+            engine: "agent-sdk",
             folder: worktree,
             environment: Object.fromEntries(
               Object.entries(process.env).filter(

@@ -1,4 +1,5 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { RoleCard } from "../../people/index.js";
 import { isApproval } from "./consult.js";
 import type { ContextDecision } from "./context-policy.js";
 import {
@@ -242,16 +243,24 @@ function titleOf(messages: readonly Message[]): string | undefined {
   return title === "" ? undefined : title;
 }
 
-/** A session the Context policy's move starts for the person, before its first call. */
+/**
+ * A session the Context policy's move starts for the person, before its first call, on the engine
+ * their card picks.
+ */
 export function freshSession(
   id: string,
-  { roleKey, cardVersion }: Pick<ThreadSession, "roleKey" | "cardVersion">,
+  {
+    roleKey,
+    cardVersion,
+    card,
+  }: Pick<ThreadSession, "roleKey" | "cardVersion"> & { readonly card: Pick<RoleCard, "engine"> },
   startedAt: Date,
 ): ThreadSession {
   return {
     id,
     roleKey,
     cardVersion,
+    engine: card.engine,
     startedAt,
     lastCallAt: undefined,
     contextTokens: 0,

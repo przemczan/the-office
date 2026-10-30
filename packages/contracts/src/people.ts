@@ -2,7 +2,7 @@ import { z } from "zod";
 import { webEventSchema } from "./events.js";
 
 /** The engines a Role may work with. */
-export const engineSchema = z.enum(["agent-sdk"]);
+export const engineSchema = z.enum(["agent-sdk", "claude-code-p"]);
 export type Engine = z.infer<typeof engineSchema>;
 
 /** How hard the model thinks. */

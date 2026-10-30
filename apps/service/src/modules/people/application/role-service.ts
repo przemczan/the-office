@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { ENGINE_MODELS, ENGINES, type Engine } from "../../engine/index.js";
 import { RoleSkills } from "../../skills/index.js";
 import {
   HARD_SWITCH_ENFORCEMENT,
@@ -10,14 +11,7 @@ import {
 import { KNOWN_ROLES } from "../domain/known-roles.js";
 import { PRESETS, type Preset } from "../domain/presets.js";
 import type { Role } from "../domain/role.js";
-import {
-  ENGINE_MODELS,
-  ENGINES,
-  roleCardProblems,
-  trimmedRoleCard,
-  type Engine,
-  type RoleCard,
-} from "../domain/role-card.js";
+import { roleCardProblems, trimmedRoleCard, type RoleCard } from "../domain/role-card.js";
 import {
   changeRoleCard,
   hire,

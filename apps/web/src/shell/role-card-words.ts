@@ -46,7 +46,10 @@ export const CAPABILITIES: readonly CapabilityInfo[] = [
   },
 ];
 
-export const ENGINE_LABELS: Readonly<Record<Engine, string>> = { "agent-sdk": "Agent SDK" };
+export const ENGINE_LABELS: Readonly<Record<Engine, string>> = {
+  "agent-sdk": "Agent SDK",
+  "claude-code-p": "Claude Code -p",
+};
 
 export const SESSION_DEFAULTS: Readonly<
   Record<SessionDefault, { readonly label: string; readonly description: string }>

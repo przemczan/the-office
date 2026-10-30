@@ -1,6 +1,6 @@
 # Engine: module map
 
-**Owns:** the `AgentEngine` port and its adapters: the Agent SDK adapter and the scripted engine every other test runs on (`adapters/scripted/`). The Office rules in the `PreToolUse` hook (profiles, the git deny, secrets, protected paths, PowerShell twins), and before them a session's `ToolHold` (`SessionOptions.toolHold`, asked at every call: while it gives words, every call is refused in them, as the fire alarm does; the scripted engine honours it too, running no Office tool), Office tools (`OfficeToolRegistry`), and the 5-hour and 7-day windows (`UsageWindowsChanged`, `EngineDown`).
+**Owns:** the engines a Role may pick (`ENGINES`, `ENGINE_MODELS`: `agent-sdk` and the `-p` fallback `claude-code-p`), the `AgentEngine` port and its adapters, one per engine in `AgentEngines`: the Agent SDK adapter, the fallback's (`adapters/claude-code-p/`, refusing every session until task 29 step 4), and the scripted engine every other test runs on (`adapters/scripted/`). `EngineSessions` starts and resumes a session on the engine its settings name, and reads capabilities per engine. The Office rules in the `PreToolUse` hook (profiles, the git deny, secrets, protected paths, PowerShell twins), and before them a session's `ToolHold` (`SessionOptions.toolHold`, asked at every call: while it gives words, every call is refused in them, as the fire alarm does; the scripted engine honours it too, running no Office tool), Office tools (`OfficeToolRegistry`), and the 5-hour and 7-day windows (`UsageWindowsChanged`, `EngineDown`).
 
 **Talks to:** no module. A session's owner hands it the skills folder, the options and the environment; modules give it their Office tools through `OfficeToolRegistry`. It never reads Skills.
 
@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-EngineSessions, OfficeToolRegistry, OfficeToolResult, UsageWindowState, EngineDown, UsageWindowsChanged, READ_ONLY_GIT_COMMANDS, EngineModule, ScriptedEngine, StandInEngine, readRecording, SessionScript, ScriptedEngineModule, NewSession, EngineSession
+EngineSessions, OfficeToolRegistry, OfficeToolResult, UsageWindowState, EngineDown, UsageWindowsChanged, ENGINE_MODELS, ENGINES, Engine, READ_ONLY_GIT_COMMANDS, EngineModule, ScriptedEngine, StandInEngine, readRecording, SessionScript, ScriptedEngineModule, NewSession, EngineSession
 
 ## Domain events
 
@@ -36,6 +36,10 @@ EngineSessions, OfficeToolRegistry, OfficeToolResult, UsageWindowState, EngineDo
 - `tool-refusals.ts`: ToolRefusals
 - Tests: agent-sdk-engine.test.ts, engine-task-folder.test.ts, office-rules-hook.test.ts, sdk-events.test.ts, sdk-options.test.ts, start-check.test.ts, test-project-check.test.ts, tool-actions.test.ts, tool-refusals.test.ts
 
+### adapters/claude-code-p/
+
+- `claude-code-p-engine.ts`: ClaudeCodePEngine
+
 ### adapters/scripted/
 
 - `recording-engine.ts`: RecordingEngine
@@ -45,6 +49,7 @@ EngineSessions, OfficeToolRegistry, OfficeToolResult, UsageWindowState, EngineDo
 
 ### application/
 
+- `agent-engines.ts`: AgentEngines
 - `engine-call-spans.ts`: SessionTelemetry, SessionCosts, promptFeatures, EngineCallSpans
 - `engine-sessions.ts`: SessionSettings, SessionStart, EngineSessions
 - `office-tool-registry.ts`: OfficeToolRegistry
@@ -56,6 +61,7 @@ EngineSessions, OfficeToolRegistry, OfficeToolResult, UsageWindowState, EngineDo
 - `agent-action.ts`: AgentAction
 - `directory-change.ts`: DirectoryChange, directoryChange
 - `engine-events.ts`: UsageWindowsChanged, EngineDown
+- `engines.ts`: ENGINES, Engine, ENGINE_MODELS
 - `git-commands.ts`: READ_ONLY_GIT_COMMANDS, isGit, gitChange
 - `office-rules.ts`: ToolDecision, OfficeRules
 - `permission-profile.ts`: CommandPermission, PermissionProfile

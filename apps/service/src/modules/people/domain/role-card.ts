@@ -1,15 +1,7 @@
+import { ENGINE_MODELS, type Engine } from "../../engine/index.js";
 import { hardSwitchesProblems, type HardSwitches } from "./hard-switches.js";
 import type { PermissionProfile } from "./permission-profile.js";
 import { taskLimitProblem, type TaskLimit } from "./task-limit.js";
-
-/** The engines a Role may work with; `claude -p` as a fallback is tier 2 (spec §5.4). */
-export const ENGINES = ["agent-sdk"] as const;
-export type Engine = (typeof ENGINES)[number];
-
-/** The models each engine offers, by the engine's own ids. */
-export const ENGINE_MODELS: Readonly<Record<Engine, readonly string[]>> = {
-  "agent-sdk": ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"],
-};
 
 /** How hard the model thinks. */
 export const EFFORTS = ["low", "medium", "high", "xhigh", "max"] as const;

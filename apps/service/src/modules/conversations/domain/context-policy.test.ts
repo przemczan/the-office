@@ -18,6 +18,7 @@ function aContinuation(
     now: NOW,
     session: {
       roleKey: "planner",
+      engine: "agent-sdk",
       lastCallAt: new Date(NOW.getTime() - minutesSinceLastCall * MINUTE),
       contextTokens,
       startContextTokens: 0,
@@ -25,6 +26,7 @@ function aContinuation(
     },
     roleKey: "planner",
     sessionDefault: "context-policy",
+    engine: "agent-sdk",
     override: undefined,
     briefTokens: 3_000,
     ...fields,
@@ -36,6 +38,7 @@ function cooledFrom33k(contextTokens: number): Continuation {
   return aContinuation(90, contextTokens, {
     session: {
       roleKey: "planner",
+      engine: "agent-sdk",
       lastCallAt: new Date(NOW.getTime() - 90 * MINUTE),
       contextTokens,
       startContextTokens: 33_000,
@@ -93,6 +96,7 @@ describe("the Context policy", () => {
       aContinuation(0, 48_000, {
         session: {
           roleKey: "planner",
+          engine: "agent-sdk",
           lastCallAt: undefined,
           contextTokens: 48_000,
           startContextTokens: 0,
@@ -151,6 +155,7 @@ describe("a session whose context filled up", () => {
       aContinuation(1, 820_000, {
         session: {
           roleKey: "planner",
+          engine: "agent-sdk",
           lastCallAt: new Date(NOW.getTime() - MINUTE),
           contextTokens: 820_000,
           startContextTokens: 33_000,
@@ -167,6 +172,33 @@ describe("a session whose context filled up", () => {
       contextTokens: 820_000,
       briefTokens: 3_000,
       alternatives: [],
+    });
+  });
+
+  it("starts fresh when the person's card picks another engine, whatever would resume", () => {
+    const onTheFallback = { engine: "claude-code-p" } as const;
+    const resuming = [
+      aContinuation(5, 40_000, onTheFallback),
+      aContinuation(90, 40_000, { ...onTheFallback, override: "continue-anyway" }),
+      aContinuation(5, 40_000, { ...onTheFallback, declared: "continue" }),
+    ];
+
+    for (const continuation of resuming) {
+      expect(decideContext(continuation)).toEqual({
+        move: "fresh",
+        reason: "engine-changed",
+        cacheWarm: false,
+        contextTokens: 40_000,
+        briefTokens: 3_000,
+        alternatives: [],
+      });
+    }
+  });
+
+  it("leaves the engine out when nobody fills the Role any more", () => {
+    expect(decideContext(aContinuation(5, 40_000, { engine: undefined }))).toMatchObject({
+      move: "resume",
+      reason: "cache-warm",
     });
   });
 });

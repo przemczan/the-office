@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { Engine } from "../../../engine/index.js";
 import type { DecisionAnswer, PassedOn, Recommendation } from "../../domain/decision.js";
 import type { MessageDraft } from "../../domain/message.js";
 import type { ProposalStatus, ProposedChange } from "../../domain/proposal.js";
@@ -29,6 +30,7 @@ export interface ThreadSessionRow {
   readonly id: string;
   readonly roleKey: string;
   readonly cardVersion: number;
+  readonly engine: Engine;
   readonly startedAt: string;
   readonly lastCallAt: string | null;
   readonly contextTokens: number;

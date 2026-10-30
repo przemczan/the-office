@@ -27,6 +27,7 @@ export class ThreadContexts {
         roleKey: thread.roleKey,
         // Nobody fills the Role any more: its Threads stay readable, and nobody answers.
         sessionDefault: role?.card.sessionDefault ?? "context-policy",
+        engine: role?.card.engine,
         override: thread.override,
         briefTokens: brief.tokens,
       },

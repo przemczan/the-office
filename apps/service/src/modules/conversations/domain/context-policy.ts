@@ -1,3 +1,4 @@
+import type { Engine } from "../../engine/index.js";
 import type { ContextOverride, ThreadSession } from "./thread.js";
 
 /** A person's default for a Thread whose cache has cooled, from their Role card (spec §9). */
@@ -28,7 +29,9 @@ export type ContextReason =
   /** A Stage begins: the session it declares wins (spec §2.5). */
   | "stage-declared"
   /** The context neared its limit and the person wrote a Handover note: never resumed. */
-  | "context-full";
+  | "context-full"
+  /** The person's Role card picks another engine than the session runs on, which can't resume it. */
+  | "engine-changed";
 
 export interface ContextPolicySettings {
   /** How long the prompt cache stays warm after a call. */
@@ -60,13 +63,15 @@ export interface Continuation {
   readonly session:
     | Pick<
         ThreadSession,
-        "roleKey" | "lastCallAt" | "contextTokens" | "startContextTokens" | "full"
+        "roleKey" | "engine" | "lastCallAt" | "contextTokens" | "startContextTokens" | "full"
       >
     | undefined;
   /** Who answers next, by the key of the Role they fill. */
   readonly roleKey: string;
   /** Theirs, from the Role card version the next session would run with. */
   readonly sessionDefault: SessionDefault;
+  /** The engine that card picks; undefined when nobody fills the Role, so nobody answers. */
+  readonly engine: Engine | undefined;
   readonly override: ContextOverride | undefined;
   /**
    * At a Stage boundary, the session the Stage declares: fresh, or continuing the previous Stage's
@@ -94,8 +99,8 @@ export interface ContextDecision {
   readonly briefTokens: number | undefined;
   /**
    * "Start fresh" with what a Brief takes, or "Continue anyway" with the context to read back or
-   * re-cache; none for a new Thread, a hand-off or a full context, which have no session to choose
-   * between.
+   * re-cache; none for a new Thread, a hand-off, a full context or a changed engine, which have no
+   * session to choose between.
    */
   readonly alternatives: readonly ContextAlternative[];
 }
@@ -121,6 +126,14 @@ export function decideContext(
       contextTokens: session.contextTokens,
       move: "fresh",
       reason: "context-full",
+    };
+  }
+  if (continuation.engine !== undefined && session.engine !== continuation.engine) {
+    return {
+      ...withoutSession(briefTokens),
+      contextTokens: session.contextTokens,
+      move: "fresh",
+      reason: "engine-changed",
     };
   }
   const cacheWarm = isWarm(session.lastCallAt, continuation.now, settings);
