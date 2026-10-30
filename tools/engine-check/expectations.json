@@ -418,6 +418,294 @@
       }
     }
   },
+  "fallback.hook-unreachable": {
+    "win32": {
+      "read": {
+        "outcome": "denied",
+        "preToolUseFirst": false,
+        "permissionDeniedMessage": null,
+        "permissionDeniedHook": false
+      },
+      "fileContentReachedModel": false
+    },
+    "linux": {
+      "read": {
+        "outcome": "denied",
+        "preToolUseFirst": false,
+        "permissionDeniedMessage": null,
+        "permissionDeniedHook": false
+      },
+      "fileContentReachedModel": false
+    }
+  },
+  "fallback.interrupt": {
+    "win32": {
+      "receiptCapabilityAdvertised": true,
+      "receiptListsStillQueued": true,
+      "interruptedTurnEnded": "aborted_tools",
+      "command": {
+        "outcome": "failed",
+        "interrupted": false,
+        "movedToBackground": false
+      },
+      "nextTurnInSameProcess": "completed",
+      "resumed": {
+        "turnEnded": "completed",
+        "sameSession": true
+      },
+      "commandRanToItsEnd": false
+    },
+    "linux": {
+      "receiptCapabilityAdvertised": true,
+      "receiptListsStillQueued": true,
+      "interruptedTurnEnded": "aborted_tools",
+      "command": {
+        "outcome": "failed",
+        "interrupted": false,
+        "movedToBackground": false
+      },
+      "nextTurnInSameProcess": "completed",
+      "resumed": {
+        "turnEnded": "completed",
+        "sameSession": true
+      },
+      "commandRanToItsEnd": false
+    }
+  },
+  "fallback.output-schema": {
+    "win32": {
+      "turnEnded": "completed",
+      "structuredOutput": true,
+      "rateLimitEvents": {
+        "arrived": true,
+        "resetsAt": true,
+        "namesAWindow": true
+      }
+    },
+    "linux": {
+      "turnEnded": "completed",
+      "structuredOutput": true,
+      "rateLimitEvents": {
+        "arrived": true,
+        "resetsAt": true,
+        "namesAWindow": true
+      }
+    }
+  },
+  "fallback.priority-later": {
+    "win32": {
+      "sentWhileCommandRan": true,
+      "firstTurnEnded": "completed",
+      "landedIn": "next turn",
+      "command": {
+        "outcome": "allowed",
+        "interrupted": false,
+        "movedToBackground": false
+      }
+    },
+    "linux": {
+      "sentWhileCommandRan": true,
+      "firstTurnEnded": "completed",
+      "landedIn": "next turn",
+      "command": {
+        "outcome": "allowed",
+        "interrupted": false,
+        "movedToBackground": false
+      }
+    }
+  },
+  "fallback.priority-next": {
+    "win32": {
+      "sentWhileCommandRan": true,
+      "firstTurnEnded": "completed",
+      "landedIn": "running turn",
+      "command": {
+        "outcome": "allowed",
+        "interrupted": false,
+        "movedToBackground": false
+      }
+    },
+    "linux": {
+      "sentWhileCommandRan": true,
+      "firstTurnEnded": "completed",
+      "landedIn": "running turn",
+      "command": {
+        "outcome": "allowed",
+        "interrupted": false,
+        "movedToBackground": false
+      }
+    }
+  },
+  "fallback.start": {
+    "win32": {
+      "claudeCodeVersion": "2.1.310",
+      "sessionIdKept": true,
+      "startCheck": {
+        "held": false,
+        "pluginErrors": 0,
+        "sessionPluginAtItsFolder": true,
+        "listedSkills": ["lint", "office:alpha", "office:beta"]
+      },
+      "init": {
+        "sessionPluginAtItsFolder": true,
+        "pluginErrors": [],
+        "otherPlugins": [],
+        "toolsBeyondOffice": [],
+        "officeToolsMissing": [],
+        "mcpServers": {
+          "office": "connected"
+        },
+        "autoMemoryFolder": false
+      },
+      "contextUsage": {
+        "answered": true,
+        "memoryFiles": [],
+        "memoryFileTokens": 0
+      },
+      "usageWindows": {
+        "rateLimitsAvailable": true,
+        "windows": {
+          "five_hour": {
+            "utilization": true,
+            "resetsAt": true
+          },
+          "seven_day": {
+            "utilization": true,
+            "resetsAt": true
+          }
+        }
+      },
+      "endpoints": {
+        "mcpWithToken": true,
+        "mcpRefused": 0
+      },
+      "requestsToHost": []
+    },
+    "linux": {
+      "claudeCodeVersion": "2.1.310",
+      "sessionIdKept": true,
+      "startCheck": {
+        "held": false,
+        "pluginErrors": 0,
+        "sessionPluginAtItsFolder": true,
+        "listedSkills": ["lint", "office:alpha", "office:beta"]
+      },
+      "init": {
+        "sessionPluginAtItsFolder": true,
+        "pluginErrors": [],
+        "otherPlugins": [],
+        "toolsBeyondOffice": [],
+        "officeToolsMissing": [],
+        "mcpServers": {
+          "office": "connected"
+        },
+        "autoMemoryFolder": false
+      },
+      "contextUsage": {
+        "answered": true,
+        "memoryFiles": [],
+        "memoryFileTokens": 0
+      },
+      "usageWindows": {
+        "rateLimitsAvailable": true,
+        "windows": {
+          "five_hour": {
+            "utilization": true,
+            "resetsAt": true
+          },
+          "seven_day": {
+            "utilization": true,
+            "resetsAt": true
+          }
+        }
+      },
+      "endpoints": {
+        "mcpWithToken": true,
+        "mcpRefused": 0
+      },
+      "requestsToHost": []
+    }
+  },
+  "fallback.tools-and-rules": {
+    "win32": {
+      "officeTool": {
+        "call": {
+          "outcome": "allowed",
+          "preToolUseFirst": true,
+          "permissionDeniedMessage": null,
+          "permissionDeniedHook": false
+        },
+        "handlerReceived": ["check"]
+      },
+      "allowedCommand": {
+        "outcome": "allowed",
+        "preToolUseFirst": true,
+        "permissionDeniedMessage": null,
+        "permissionDeniedHook": false
+      },
+      "tokenReachedCommands": "present",
+      "refusedCommand": {
+        "outcome": "denied",
+        "preToolUseFirst": true,
+        "permissionDeniedMessage": null,
+        "permissionDeniedHook": false,
+        "reasonReachedModel": true
+      },
+      "skill": {
+        "outcome": "allowed",
+        "preToolUseFirst": true,
+        "permissionDeniedMessage": null,
+        "permissionDeniedHook": false
+      },
+      "hookEvents": ["PostToolUse", "PreToolUse"],
+      "endpoints": {
+        "hookWithToken": true,
+        "hookRefused": 0,
+        "mcpWithToken": true,
+        "mcpRefused": 0
+      },
+      "requestsToHost": []
+    },
+    "linux": {
+      "officeTool": {
+        "call": {
+          "outcome": "allowed",
+          "preToolUseFirst": true,
+          "permissionDeniedMessage": null,
+          "permissionDeniedHook": false
+        },
+        "handlerReceived": ["check"]
+      },
+      "allowedCommand": {
+        "outcome": "allowed",
+        "preToolUseFirst": true,
+        "permissionDeniedMessage": null,
+        "permissionDeniedHook": false
+      },
+      "tokenReachedCommands": "present",
+      "refusedCommand": {
+        "outcome": "denied",
+        "preToolUseFirst": true,
+        "permissionDeniedMessage": null,
+        "permissionDeniedHook": false,
+        "reasonReachedModel": true
+      },
+      "skill": {
+        "outcome": "allowed",
+        "preToolUseFirst": true,
+        "permissionDeniedMessage": null,
+        "permissionDeniedHook": false
+      },
+      "hookEvents": ["PostToolUse", "PreToolUse"],
+      "endpoints": {
+        "hookWithToken": true,
+        "hookRefused": 0,
+        "mcpWithToken": true,
+        "mcpRefused": 0
+      },
+      "requestsToHost": []
+    }
+  },
   "permissions.file-tool-fence": {
     "win32": {
       "fileTools": {

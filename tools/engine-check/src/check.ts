@@ -1,3 +1,7 @@
+import type {
+  ClaudeCodePSession,
+  ClaudeCodePSessionSpec,
+} from "./claude-code-p/claude-code-p-session.ts";
 import type { Json } from "./json.ts";
 import type { ProbeSession, SessionSpec } from "./probe-session.ts";
 import type { Sandbox } from "./sandbox.ts";
@@ -13,6 +17,8 @@ export interface CheckContext {
   readonly signal: AbortSignal;
   /** Starts a session the runner closes, counts tokens for and deletes after the check. */
   startSession(spec: SessionSpec): Promise<ProbeSession>;
+  /** The same for a session on the pinned binary in `-p`, the fallback's route (spec §5.4 Defaults). */
+  startClaudeCodePSession(spec: ClaudeCodePSessionSpec): Promise<ClaudeCodePSession>;
 }
 
 export interface Check {

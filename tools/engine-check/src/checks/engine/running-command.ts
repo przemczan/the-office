@@ -6,7 +6,7 @@ import type {
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import type { ProbeHook, ProbeSession } from "../../probe-session.ts";
+import type { RecordedSession, SessionHook } from "../../recorded-session.ts";
 import { pathExists } from "../paths.ts";
 import { toolDecision } from "../permissions/hook-decisions.ts";
 import {
@@ -67,7 +67,9 @@ export type CommandObservation = {
  * A `PreToolUse` hook that allows the running command, as a Role's profile allows a test run, refuses
  * any other Bash call, and runs `act` once, when the command's first run is under way.
  */
-export function allowRunningCommandThen(act: (session: ProbeSession) => void): ProbeHook {
+export function allowRunningCommandThen<S extends RecordedSession>(
+  act: (session: S) => void,
+): SessionHook<S> {
   let acted = false;
   return async (input, session) => {
     if (input.hook_event_name !== "PreToolUse" || input.tool_name !== "Bash") {
@@ -85,7 +87,7 @@ export function allowRunningCommandThen(act: (session: ProbeSession) => void): P
 }
 
 /** How the running command ended, from Bash's structured output. */
-export function observeRunningCommand(session: ProbeSession): CommandObservation {
+export function observeRunningCommand(session: RecordedSession): CommandObservation {
   const calls = runningCommandCalls(session);
   const output = commandOutput(session, calls);
   return {
@@ -99,7 +101,7 @@ export function observeRunningCommand(session: ProbeSession): CommandObservation
  * Stops the command if it was moved to the background and still runs: the engine process waits for
  * its background commands before it exits, and would write to the transcript after the check deleted it.
  */
-export async function stopBackgroundCommand(session: ProbeSession): Promise<void> {
+export async function stopBackgroundCommand(session: RecordedSession): Promise<void> {
   const taskId = commandOutput(session, runningCommandCalls(session))?.backgroundTaskId;
   if (taskId === undefined) {
     return;
@@ -108,19 +110,19 @@ export async function stopBackgroundCommand(session: ProbeSession): Promise<void
     isTaskEnd(message, taskId),
   );
   if (!session.messages.some((message) => isTaskEnd(message, taskId))) {
-    await session.control.stopTask(taskId);
+    await session.stopTask(taskId);
   }
   await ended;
 }
 
-function runningCommandCalls(session: ProbeSession): ToolCall[] {
+function runningCommandCalls(session: RecordedSession): ToolCall[] {
   return toolCalls(session.messages).filter(
     (call) => call.name === "Bash" && call.input["command"] === RUNNING_COMMAND,
   );
 }
 
 function commandOutput(
-  session: ProbeSession,
+  session: RecordedSession,
   calls: readonly ToolCall[],
 ): { interrupted?: boolean; backgroundTaskId?: string } | undefined {
   const call = calls.at(-1);

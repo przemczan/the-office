@@ -2,9 +2,11 @@ import { deleteSession, type SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { rmdir } from "node:fs/promises";
 import { join } from "node:path";
 import type { Check, Observation, Platform } from "./check.ts";
+import { ClaudeCodePSession } from "./claude-code-p/claude-code-p-session.ts";
 import type { Expectations } from "./expectations.ts";
 import { diffJson, type JsonDifference } from "./json.ts";
-import { ProbeSession, type HookCall, type TokenUsage } from "./probe-session.ts";
+import { ProbeSession } from "./probe-session.ts";
+import type { HookCall, RecordedSession, TokenUsage } from "./recorded-session.ts";
 import { Sandbox } from "./sandbox.ts";
 import { transcriptFolder } from "./transcripts.ts";
 
@@ -47,7 +49,7 @@ export async function runCheck(
   );
   const signal = timeout.signal;
   const sandbox = await Sandbox.create();
-  const sessions: ProbeSession[] = [];
+  const sessions: RecordedSession[] = [];
   const expected = expectations[check.id]?.[platform];
   try {
     const observed = await untilAborted(
@@ -56,6 +58,11 @@ export async function runCheck(
         signal,
         startSession: async (spec) => {
           const session = await ProbeSession.start(sandbox, spec, signal);
+          sessions.push(session);
+          return session;
+        },
+        startClaudeCodePSession: async (spec) => {
+          const session = await ClaudeCodePSession.start(sandbox, spec, signal);
           sessions.push(session);
           return session;
         },

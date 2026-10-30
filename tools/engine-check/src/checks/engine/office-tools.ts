@@ -1,13 +1,6 @@
 import { createSdkMcpServer, type tool } from "@anthropic-ai/claude-agent-sdk";
+import { OFFICE_TOOL_SERVER } from "../../office-options.ts";
 import type { SessionSpec } from "../../probe-session.ts";
-
-/** The in-process MCP server that holds the Office tools (spec §5.4). */
-export const OFFICE_TOOL_SERVER = "office";
-
-/** The name the model calls an Office tool by. */
-export function officeToolName(tool: string): string {
-  return `mcp__${OFFICE_TOOL_SERVER}__${tool}`;
-}
 
 /** The tool definitions `createSdkMcpServer()` takes, each with its own input schema. */
 type OfficeTools = NonNullable<Parameters<typeof createSdkMcpServer>[0]["tools"]>;

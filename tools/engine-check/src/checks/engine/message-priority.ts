@@ -1,7 +1,8 @@
 import type { SDKMessage, SDKResultMessage } from "@anthropic-ai/claude-agent-sdk";
 import { setTimeout as delay } from "node:timers/promises";
 import type { Check, CheckContext, Observation } from "../../check.ts";
-import type { MessageDelivery, ProbeSession } from "../../probe-session.ts";
+import type { MessageDelivery, RecordedSession, SessionHook } from "../../recorded-session.ts";
+import type { Sandbox } from "../../sandbox.ts";
 import { consumedMessages } from "./requests.ts";
 import {
   allowRunningCommandThen,
@@ -31,7 +32,7 @@ function priorityCheck(name: string, title: string, delivery: MessageDelivery): 
   return {
     id: `engine.priority-${name}`,
     title,
-    run: (context) => observeBargeIn(context, delivery),
+    run: (context) => observeBargeIn(context.sandbox, sdkSession(context), delivery),
   };
 }
 
@@ -58,9 +59,15 @@ export const priorityNowCheck: Check = {
     "a message with priority 'now' interrupts the running turn, with and without a human origin",
   async run(context) {
     return {
-      withoutOrigin: await observeBargeIn(context, { priority: "now" }, "without-origin"),
+      withoutOrigin: await observeBargeIn(
+        context.sandbox,
+        sdkSession(context),
+        { priority: "now" },
+        "without-origin",
+      ),
       humanOrigin: await observeBargeIn(
-        context,
+        context.sandbox,
+        sdkSession(context),
         { priority: "now", origin: { kind: "human" } },
         "human-origin",
       ),
@@ -68,22 +75,32 @@ export const priorityNowCheck: Check = {
   },
 };
 
-async function observeBargeIn(
-  { sandbox, startSession }: CheckContext,
+/** Starts a session in `repository` whose `PreToolUse` hook is `preToolUse`, on either route. */
+export type StartWithHook<S extends RecordedSession> = (
+  repository: string,
+  preToolUse: SessionHook<S>,
+) => Promise<S>;
+
+function sdkSession({ startSession }: CheckContext): StartWithHook<RecordedSession> {
+  return (repository, preToolUse) =>
+    startSession({ repository, hooks: { PreToolUse: preToolUse } });
+}
+
+export async function observeBargeIn<S extends RecordedSession>(
+  sandbox: Sandbox,
+  start: StartWithHook<S>,
   delivery: MessageDelivery,
   repositoryName?: string,
 ): Promise<Observation> {
   const repository = await sandbox.createRepository(repositoryName);
   await prepareRunningCommand(repository);
   let bargeIn: string | undefined;
-  const session = await startSession({
+  const session = await start(
     repository,
-    hooks: {
-      PreToolUse: allowRunningCommandThen((running) => {
-        bargeIn = running.send(BARGE_IN, delivery);
-      }),
-    },
-  });
+    allowRunningCommandThen<S>((running) => {
+      bargeIn = running.send(BARGE_IN, delivery);
+    }),
+  );
   session.send(RUN_COMMAND_PROMPT);
   const firstTurn = await session.nextResult();
   const landing =
@@ -99,7 +116,7 @@ async function observeBargeIn(
 }
 
 async function followBargeIn(
-  session: ProbeSession,
+  session: RecordedSession,
   firstTurn: SDKResultMessage,
   bargeIn: string,
 ): Promise<Landing> {

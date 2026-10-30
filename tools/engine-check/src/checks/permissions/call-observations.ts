@@ -1,5 +1,5 @@
 import type { HookInput } from "@anthropic-ai/claude-agent-sdk";
-import type { ProbeSession } from "../../probe-session.ts";
+import type { RecordedSession } from "../../recorded-session.ts";
 import {
   lastOutcome,
   permissionDeniedMessage,
@@ -19,7 +19,7 @@ export type CallObservation = {
 };
 
 /** Observes the latest of `calls`, the retry when the model tried twice. */
-export function observeCall(session: ProbeSession, calls: readonly ToolCall[]): CallObservation {
+export function observeCall(session: RecordedSession, calls: readonly ToolCall[]): CallObservation {
   const call = calls.at(-1);
   if (call === undefined) {
     return {
@@ -38,7 +38,7 @@ export function observeCall(session: ProbeSession, calls: readonly ToolCall[]): 
   };
 }
 
-export function seenFirstByPreToolUse(session: ProbeSession, call: ToolCall): boolean {
+export function seenFirstByPreToolUse(session: RecordedSession, call: ToolCall): boolean {
   const hookCall = session.hookCalls.find(
     (candidate) => candidate.event === "PreToolUse" && hookedToolUseId(candidate.input) === call.id,
   );
@@ -47,7 +47,7 @@ export function seenFirstByPreToolUse(session: ProbeSession, call: ToolCall): bo
 }
 
 function hookCalledFor(
-  session: ProbeSession,
+  session: RecordedSession,
   event: "PreToolUse" | "PermissionDenied",
   call: ToolCall,
 ): boolean {

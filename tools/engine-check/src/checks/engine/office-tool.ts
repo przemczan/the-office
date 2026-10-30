@@ -4,7 +4,8 @@ import type { Check } from "../../check.ts";
 import type { ProbeSession } from "../../probe-session.ts";
 import { observeCall, type CallObservation } from "../permissions/call-observations.ts";
 import { toolCalls } from "../tool-calls.ts";
-import { OFFICE_TOOL_SERVER, officeToolName, textResult, withOfficeTools } from "./office-tools.ts";
+import { OFFICE_TOOL_SERVER, officeToolName } from "../../office-options.ts";
+import { textResult, withOfficeTools } from "./office-tools.ts";
 
 const TOOL = "handover_note";
 const NOTE = "check";

@@ -6,7 +6,8 @@ import { z } from "zod";
 import type { Check } from "../../check.ts";
 import { sortedNames } from "../observations.ts";
 import { callsOn, lastOutcome, toolCalls } from "../tool-calls.ts";
-import { officeToolName, textResult, withOfficeTools } from "./office-tools.ts";
+import { officeToolName } from "../../office-options.ts";
+import { textResult, withOfficeTools } from "./office-tools.ts";
 import { readsEarlierPromptFromCache, requestUsages, turns } from "./requests.ts";
 
 export const DECISION_WAIT_VARIABLE = "ENGINE_CHECK_DECISION_WAIT_MINUTES";

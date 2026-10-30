@@ -18,6 +18,7 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 | Claude Code, bundled by the SDK | 2.1.310 |
 | Node | 22 (`.nvmrc`; `>=22.18` for built-in type stripping) |
 | `zod` (the SDK's peer) | 4.6.7 |
+| `@modelcontextprotocol/sdk` (the SDK's own, for the fallback's stand-in MCP endpoint) | 1.32.2 |
 | Model for the checks | `claude-haiku-5-5` |
 
 ## Runs
@@ -26,6 +27,8 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 |---|---|---|
 | Windows 11 (win32), the workstation | 2026-10-25 | 28 checks run and recorded; the slow `engine.decision-wait` recorded 2026-10-24 |
 | Ubuntu 24.04 x64 (linux), an LXC container signed in to Claude Code as root | 2026-10-25 | 27 checks run and recorded, and the slow `engine.decision-wait` (62 minutes) |
+| Windows 11 (win32), the workstation | 2026-10-30 | the 7 `fallback.*` checks run and recorded (task 29); `skills.start-check`, `engine.office-tool` and `engine.priority-next` re-run after the probe's refactor, matching |
+| Ubuntu 24.04 x64 (linux), the same LXC container | 2026-10-30 | the 7 `fallback.*` checks run and recorded, the same as on Windows |
 
 `permissions.powershell-twin` runs on Windows only. Results differ between platforms only where an entry says so: `skills.user-scope`, `engine.priority-now` and `engine.lean-options`.
 
@@ -38,6 +41,14 @@ Each check runs in a throwaway git repository in a temp folder, with an Office d
 - `tools` naming the built-in tools explicitly, the same list on both platforms with PowerShell on Windows only (see `engine.lean-options`);
 - `permissionPrompts: 'none'`, the `claude_code` system prompt preset with `excludeDynamicSections`, an environment without inherited `CLAUDE*`, `ANTHROPIC*`, `MCP_*` and `OTEL_*` variables;
 - the hooks The Office registers (`PreToolUse`, `PostToolUse`, `PermissionDenied`), recorded on every call and allowing by default; a check decides calls where it needs to.
+
+The `fallback.*` checks start the same options on the `-p` route (spec §5.4 Defaults): the pinned binary the SDK bundles, found as the SDK finds it (`@anthropic-ai/claude-agent-sdk-<platform>-<arch>/claude[.exe]`, on Linux the glibc build first), spawned with the flags `tools/engine-check/src/claude-code-p/arguments.ts` builds from them:
+
+- `--print --input-format=stream-json --output-format=stream-json --verbose`, `--model`, `--tools`, `--setting-sources=project`, `--plugin-dir-no-mcp=<session plugin folder>` (what the SDK passes for a plugin with `skipMcpDiscovery`; ticket 22's `--plugin-dir` would also start the plugin's MCP servers, and gives the same `fallback.start` result, as the session folder has none), `--allowedTools=Skill(office:<name>),…`, `--permission-prompts=none`, `--exclude-dynamic-system-prompt-sections`, `--session-id` or `--resume`, and `--json-schema` where a check holds the output to one;
+- `--settings` with the settings above plus the hooks: each event an `http` hook to the session's `localhost` endpoint with `onFailure: 'block'`, a 600 s timeout and `Authorization: Bearer ${OFFICE_SESSION_TOKEN}` (`allowedEnvVars`), and `mcp__office` in `permissions.allow` when the session has Office tools;
+- `--mcp-config` naming an `office` server of type `http` on the same `localhost` origin, `alwaysLoad: true`, with the same header;
+- the environment above plus `OFFICE_SESSION_TOKEN`, a token made per session, so it is on no command line; the stand-in (`claude-code-p/local-endpoints.ts`, `node:http` on `127.0.0.1` and the MCP SDK's stateless streamable HTTP transport) refuses a request without it;
+- no `initialize` request: messages and the control requests (`interrupt`, `get_context_usage`, `reload_plugins`, `get_usage`, `stop_task`) are written to its input as the SDK writes them, and a control request from the engine to the host would be answered with an error and recorded.
 
 A check records facts that hold run to run (booleans, outcomes, sorted names, token counts rounded to 10k), never model text. Where a check varies an option on purpose, its entry says so.
 
@@ -242,6 +253,46 @@ Slow: about an hour; runs only with `--include-slow`. Recorded on Windows 2026-1
 - **Observed:** under the Office's options `init` names no memory folder, the model has none to write to, and no folder is created. With the engine's default, `init.memory_paths` (not in the typings) names `~/.claude/projects/<repository>/memory/`, and the model writes there with no prompt despite the read fence and `permissionPrompts: 'none'`; the hook sees those writes first.
 - **Meaning:** §5.4 now turns auto-memory off: its folder is outside the worktree, shared by every worktree of a repository and every Role, and outside the Brief. Memory stays The Office's own (Shared memory, tier 2). The engine auto-allows writes to some of its own paths outside the worktree, so the read fence and `permissionPrompts: 'none'` do not keep writes in the worktree: the hook fences writes itself (task 06).
 
+## The `-p` fallback
+
+Each capability of `EngineCapabilities` on the pinned binary in `-p`, started as [How a check runs](#how-a-check-runs) describes (task 29, spec §5.4 Defaults). Every check gave the same result on Windows and Linux.
+
+### fallback.start
+
+- **Run:** a session with two session skills, a Project skill the Role has (`lint`) and one turned off by `skillOverrides` (`deploy`), and one Office tool on the MCP endpoint; the SDK adapter's start check (`reload_plugins` holding on cache impact, then `get_context_usage`) before any message, then a message that does not query, then `get_usage`. No model call.
+- **Observed:** the binary is 2.1.310 and keeps the session id given. The start check works as on the SDK: nothing held, no plugin errors, the `office` plugin at its folder, and the listing is exactly `lint`, `office:alpha`, `office:beta`. `init` lists exactly the Office's tools plus `mcp__office__handover_note`, one MCP server, `office`, `connected`, no other plugin, no claude.ai connector, no auto-memory folder; no memory files load (none listed, 0 tokens in the `memory_files` category; a session started without the Office's settings showed about 2.4k there, with auto-memory on). `get_usage` answers with `five_hour` and `seven_day`, each with `utilization` and `resets_at`. The MCP requests carried the token from the variable; the engine asked the host nothing.
+- **Meaning:** the skills of §5.6 hold on `-p` without the SDK's allowlist: the setting sources, the overrides and the session folder leave exactly the session's skills, as ticket 22 expected. The lean options of §5.4 hold as flags and settings. `contextUsage` and `usageWindows` hold through control requests, `officeTools` through the endpoint.
+
+### fallback.tools-and-rules
+
+- **Run:** one turn that calls the Office tool, runs a command the hook endpoint allows (a script writing whether the session's token is in its environment, not the token), runs one it refuses with a reason, and runs a session skill with the Skill tool.
+- **Observed:** the Office tool's call reaches the endpoint's handler with the note asked for, after the hook saw it. The allowed command runs; the refused one is `denied` and the model reads the hook's reason. The skill runs under the `Skill(office:alpha)` rule. The hook endpoint gets `PreToolUse` and `PostToolUse` calls, each with the token. **The token is in the environment of the Agent's commands.**
+- **Meaning:** the Office tools and the Office rules reach the service on `localhost` (§5.4 Defaults, §6), and skills run as on the SDK. An Agent can read its own session's token and call that session's endpoints directly. Wherever the token goes (environment, command line or a file), a process of the same user can read it, so it ties a call to a session but does not keep an Agent out (task 29 step 3).
+
+### fallback.hook-unreachable
+
+- **Run:** the hook points at a `localhost` port nothing listens on; one turn reading `README.md`.
+- **Observed:** the Read call is `denied` (in `permission_denials`) and its result is `PreToolUse:Read hook error: […] failed; blocking because onFailure is "block"`; the file's content never reaches the model.
+- **Meaning:** with `onFailure: 'block'` the Office rules refuse when the service can't be reached (§6). The engine's default for a failing hook is `continue`, which would let the call go ahead (the SDK's `Settings` typings), so the flag is required.
+
+### fallback.output-schema
+
+- **Run:** a turn under `--json-schema` asking for `{answer: "OK"}`.
+- **Observed:** the turn completes with `structured_output` exactly `{answer: "OK"}`. The turn streams `rate_limit_event`, with `resetsAt` and a `rateLimitType`; which window it names follows the account's use (`seven_day` on these runs, `five_hour` in `engine.rate-limit-event`), so only that it names one is recorded.
+- **Meaning:** `outputSchema` holds. `usageWindows` reads the windows from `get_usage`, with the event as the signal, as on the SDK (`engine.rate-limit-event`).
+
+### fallback.interrupt
+
+- **Run:** as `engine.interrupt`, with an `interrupt` control request while the 30 s command runs, a next turn in the same process, then a new process with `--resume`.
+- **Observed:** the same as on the SDK: the receipt lists `still_queued` (`interrupt_receipt_v1` in `init.capabilities`), the turn ends `aborted_tools`, the Bash call fails and the command itself ends, the next turn completes, and the resumed session continues under the same id.
+- **Meaning:** `interrupt` and `resume` hold.
+
+### fallback.priority-next, fallback.priority-later
+
+- **Run:** as `engine.priority-next` and `-later`, the message written to the binary's input with its `priority`.
+- **Observed:** the same as on the SDK: `next` lands in the running turn after the tool call ends; `later` waits for the turn to end and starts the next.
+- **Meaning:** `bargeIn` holds.
+
 ## Other observations
 
 Seen while running the checks, recorded so a bump can be compared against them.
@@ -255,6 +306,6 @@ Seen while running the checks, recorded so a bump can be compared against them.
 
 ## Not checked
 
-- Items that concern only `claude -p` (tier 2), among them whether the Skill tool asks for permission by default.
+- On the `-p` fallback: priority `now` (not used), a hook that answers too late or with an error status rather than not at all, and whether the Skill tool asks for permission without the `Skill(…)` rule.
 - Which engine-owned paths outside the worktree, other than the auto-memory folder, the engine auto-allows writes to. The hook fences writes regardless.
 - From the research's "Could not confirm": whether `forkSession` resumes read the parent's cache, a non-child process posting into a session's inbox on Windows, concurrency limits beyond three sessions and how cache reads count against plan quota, `projectConfigRoot` and `CLAUDE_SECURESTORAGE_CONFIG_DIR`. Tier 1 uses none of them.
