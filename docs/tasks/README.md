@@ -52,7 +52,11 @@ Carried into task 30 (the user's word, 2026-10-29): from task 25, installing one
 
 ## After tier 2: the remaining fixes
 
-Decided with the user on 2026-10-27: a fix is built where it is found only when it would be harder to make after the changes that come next. Every other fix is listed here, and they are done together once tier 2 is done and before tier 3, each spec amendment agreed with the user then. The numbers are the tier 1 run's problems in [archive/17-settings-acceptance.md](archive/17-settings-acceptance.md), each with its proposed fix there.
+Decided with the user on 2026-10-27: a fix is built where it is found only when it would be harder to make after the changes that come next. Every other fix is listed here, and they are done together once tier 2 is done and before tier 3, each spec amendment agreed with the user then. The numbers are the tier 1 run's problems in [archive/17-settings-acceptance.md](archive/17-settings-acceptance.md), each with its proposed fix there. Task 31 builds them all (the user's word, 2026-10-30) and removes each line once it is built.
+
+| # | Task | Surface | Status |
+| --- | --- | --- | --- |
+| 31 | [The after-tier-2 fixes](31-after-tier-2-fixes.md) | All | in progress |
 
 - Problem 1: make the whole Task card on the board the link, its menu and buttons stopping the click.
 - Problem 3: the "+ Task" dialog says the work is described when planning with the Planner, and opens the new Task's page.
