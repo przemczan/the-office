@@ -292,6 +292,7 @@ Each capability of `EngineCapabilities` on the pinned binary in `-p`, started as
 - **Run:** as `engine.priority-next` and `-later`, the message written to the binary's input with its `priority`.
 - **Observed:** the same as on the SDK: `next` lands in the running turn after the tool call ends; `later` waits for the turn to end and starts the next.
 - **Meaning:** `bargeIn` holds.
+- **Seen since (task 29 step 4, the service's `ClaudeCodePEngine` under the `AgentEngine` contract, 2026-10-30):** at an Office tool's end it doesn't hold on Windows. The contract's `barge-in` scenario sends a `next` message while the Office tool runs and lets the tool answer at once: on Windows the turn ends consuming the brief only (twice in two runs), and the message lands in the next turn; with 1.5 s between the message and the answer it lands in the running turn. On Linux the scenario passes. On the SDK the tool's answer comes back through the binary's input after the message, so the order holds; on `-p` it comes over HTTP and races the message written to the input. The binary acknowledges each message it reads with a `command_lifecycle` line (`state: "queued"`, `command_uuid` the message's uuid; then `started`, `completed`), about 3 ms after the write, with or without `--replay-user-messages` (which echoes the message only once a turn takes it). `command_lifecycle` is not in the SDK's typings and the SDK doesn't read it.
 
 ## Other observations
 

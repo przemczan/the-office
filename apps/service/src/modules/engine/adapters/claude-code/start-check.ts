@@ -1,6 +1,10 @@
 import { realpath } from "node:fs";
 import { promisify } from "node:util";
-import type { Query, SDKSystemMessage } from "@anthropic-ai/claude-agent-sdk";
+import type {
+  SDKControlGetContextUsageResponse,
+  SDKControlReloadPluginsResponse,
+  SDKSystemMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 import type { PathRules } from "../../../../platform/os/path-rules.js";
 import { listingProblems } from "../../domain/skill-listing.js";
 import type { SessionSkills } from "../../ports/session-options.js";
@@ -10,6 +14,15 @@ const SESSION_PLUGIN = "office";
 
 /** The system's own reading of a path, which on Windows turns a short name into the long one. */
 const realPath = promisify(realpath.native);
+
+/**
+ * The engine's control requests the start check sends, as the SDK's `Query` has them and as the
+ * `-p` fallback writes them to the binary's input.
+ */
+export interface StartCheckRequests {
+  reloadPlugins(options: { holdOnCacheImpact: boolean }): Promise<SDKControlReloadPluginsResponse>;
+  getContextUsage(options: { detail: "summary" }): Promise<SDKControlGetContextUsageResponse>;
+}
 
 interface LoadedPlugin {
   readonly name: string;
@@ -22,7 +35,7 @@ interface LoadedPlugin {
  * impact and the context usage answer before it (docs/engine-check.md, `skills.start-before-brief`).
  */
 export async function startCheckProblems(
-  engine: Query,
+  engine: StartCheckRequests,
   skills: SessionSkills | undefined,
   paths: PathRules,
 ): Promise<string[]> {

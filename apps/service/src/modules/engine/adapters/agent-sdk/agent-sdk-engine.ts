@@ -2,17 +2,14 @@ import {
   query,
   type Options,
   type Query,
-  type SDKMessage,
   type SDKSystemMessage,
   type SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import { Injectable } from "@nestjs/common";
-import { homedir } from "node:os";
-import { OFFICE_ENV_FILE } from "../../../../platform/config/office-env-file.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { PathRules } from "../../../../platform/os/path-rules.js";
-import { OfficeRules } from "../../domain/office-rules.js";
+import type { OfficeRules } from "../../domain/office-rules.js";
 import {
   AgentEngine,
   SessionSkillsDiffer,
@@ -29,13 +26,13 @@ import type { UsageWindows } from "../../domain/usage-windows.js";
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions, SessionSkills, ToolHold } from "../../ports/session-options.js";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
-import { EngineProcess } from "./engine-process.js";
-import { engineTaskFolder } from "./engine-task-folder.js";
+import { EngineProcess } from "../claude-code/engine-process.js";
 import { officeRulesHook } from "../claude-code/office-rules-hook.js";
-import { sessionEvents, TurnTokens, usageWindows } from "../claude-code/sdk-events.js";
-import { ToolRefusals } from "../claude-code/tool-refusals.js";
-import { sdkOptions, sessionEnvironment, type SdkSession } from "./sdk-options.js";
-import { initProblems, startCheckProblems } from "./start-check.js";
+import { usageWindows } from "../claude-code/sdk-events.js";
+import { sessionOfficeRules } from "../claude-code/session-office-rules.js";
+import { initProblems, startCheckProblems } from "../claude-code/start-check.js";
+import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code/stream-events.js";
+import { sdkOptions, type SdkSession } from "./sdk-options.js";
 
 /**
  * Sessions on the TypeScript Claude Agent SDK, on the user's own login (spec §5.4): one long-lived
@@ -80,7 +77,7 @@ export class AgentSdkEngine extends AgentEngine {
   ): Promise<AgentSdkSession> {
     const engineProcess = new EngineProcess(this.operatingSystem.processTrees);
     const held: HeldTo = {
-      rules: this.officeRules(id, options),
+      rules: sessionOfficeRules(this.operatingSystem, this.officeData.path, id, options),
       toolHold: options.toolHold,
       skills: options.skills,
       paths: this.operatingSystem.paths,
@@ -107,22 +104,6 @@ export class AgentSdkEngine extends AgentEngine {
     }
     return session;
   }
-
-  private officeRules(sessionId: string, options: SessionOptions): OfficeRules {
-    return new OfficeRules({
-      workingFolder: options.folder,
-      readableFolders: [
-        ...(options.skills === undefined ? [] : [options.skills.folder]),
-        engineTaskFolder(this.operatingSystem, options.folder, sessionId),
-      ],
-      profile: options.profile,
-      userSecrets: this.operatingSystem.secretPaths,
-      officeFiles: [this.officeData.path, OFFICE_ENV_FILE],
-      homeFolder: homedir(),
-      environment: sessionEnvironment(options.environment),
-      paths: this.operatingSystem.paths,
-    });
-  }
 }
 
 /** What a session is held to as it runs. */
@@ -136,8 +117,7 @@ interface HeldTo {
 class AgentSdkSession implements EngineSession {
   private readonly input = new AsyncChannel<SDKUserMessage>();
   private readonly reported = new AsyncChannel<SessionEvent>();
-  private readonly refusals = new ToolRefusals();
-  private readonly turnTokens = new TurnTokens();
+  private readonly streamEvents = new StreamEvents();
   private readonly engine: Query;
   private readonly read: Promise<void>;
   private ending = false;
@@ -151,7 +131,7 @@ class AgentSdkSession implements EngineSession {
     this.engine = query({
       prompt: this.input,
       options: options({
-        preToolUse: officeRulesHook(held.rules, this.refusals, held.toolHold),
+        preToolUse: officeRulesHook(held.rules, this.streamEvents.refusals, held.toolHold),
         spawnProcess: engineProcess.spawn,
       }),
     });
@@ -176,14 +156,7 @@ class AgentSdkSession implements EngineSession {
   }
 
   private push(message: UserMessage, priority: MessagePriority | undefined): void {
-    this.input.push({
-      type: "user",
-      message: { role: "user", content: message.text },
-      parent_tool_use_id: null,
-      // A UUID, as the port asks of message ids.
-      uuid: message.id as SDKUserMessage["uuid"] & string,
-      ...(priority !== undefined && { priority }),
-    });
+    this.input.push(userMessage(message, priority));
   }
 
   async interrupt(): Promise<void> {
@@ -216,20 +189,14 @@ class AgentSdkSession implements EngineSession {
     try {
       for await (const message of this.engine) {
         if (isInit(message) && (await this.refusedAtInit(message))) return;
-        const events = sessionEvents(message).map((event) =>
-          event.kind === "turn-ended" ? this.turnTokens.settled(event) : event,
-        );
-        for (const event of this.refusals.withRefusals(message, events)) {
-          this.reported.push(event);
-        }
-        for (const event of this.turnTokens.eventsOf(message)) this.reported.push(event);
+        for (const event of this.streamEvents.of(message)) this.reported.push(event);
       }
       this.reported.close();
     } catch (error) {
       if (this.ending) {
         this.reported.close();
       } else {
-        this.reported.fail(this.stopped(error));
+        this.reported.fail(engineStopped(error, this.engineProcess.stderr));
       }
     }
   }
@@ -247,18 +214,4 @@ class AgentSdkSession implements EngineSession {
     this.engine.close();
     return true;
   }
-
-  /** Why the engine stopped running the session, with the end of what it wrote to its standard error. */
-  private stopped(error: unknown): Error {
-    const message = error instanceof Error ? error.message : String(error);
-    const stderr = this.engineProcess.stderr;
-    const said = stderr === "" ? "" : `\n${stderr}`;
-    return new Error(`The engine stopped running the session: ${message}${said}`, {
-      cause: error,
-    });
-  }
-}
-
-function isInit(message: SDKMessage): message is SDKSystemMessage {
-  return message.type === "system" && message.subtype === "init";
 }

@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import type { Writable } from "node:stream";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
-import { EngineProcess } from "../agent-sdk/engine-process.js";
+import { EngineProcess } from "../claude-code/engine-process.js";
 import { listingProblems } from "../../domain/skill-listing.js";
 import {
   AgentEngine,

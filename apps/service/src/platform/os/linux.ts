@@ -36,6 +36,11 @@ export function linux({ variables, homeDirectory, userId }: UserEnvironment): Op
         throw new Error("The engine's temporary folder on Linux needs the user's id.");
       return posix.join(variables["TMPDIR"] || "/tmp", `claude-${userId}`);
     },
+    // The glibc build first, unless the system has no glibc, as the SDK picks.
+    get claudeCodeBinaries() {
+      const builds = [`linux-${process.arch}`, `linux-${process.arch}-musl`];
+      return (hasGlibc() ? builds : builds.toReversed()).map((build) => `${build}/claude`);
+    },
     secretPaths: [
       posix.join(homeDirectory, ".ssh"),
       posix.join(
@@ -53,6 +58,11 @@ export function linux({ variables, homeDirectory, userId }: UserEnvironment): Op
     ],
     sameVariableName: (one, other) => one === other,
   };
+}
+
+function hasGlibc(): boolean {
+  const report = process.report.getReport() as { header?: { glibcVersionRuntime?: string } };
+  return report.header?.glibcVersionRuntime !== undefined;
 }
 
 // The XDG Base Directory spec says a relative XDG_DATA_HOME is invalid and is to be ignored.

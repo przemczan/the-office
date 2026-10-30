@@ -47,6 +47,7 @@ export function windows({ variables, homeDirectory }: UserEnvironment): Operatin
       variables["TEMP"] || variables["TMP"] || win32.join(localAppData, "Temp"),
       "claude",
     ),
+    claudeCodeBinaries: [`win32-${process.arch}/claude.exe`],
     secretPaths: [
       win32.join(homeDirectory, ".ssh"),
       win32.join(

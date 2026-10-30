@@ -28,6 +28,11 @@ export interface OperatingSystem {
    * them, which a session may read (spec §6).
    */
   readonly engineTemporaryFolder: string;
+  /**
+   * The Claude Code binary the Agent SDK bundles, by the platform package npm installs beside the
+   * SDK, as `<package suffix>/<executable>`, in the order the SDK tries them (spec §5.4 Defaults).
+   */
+  readonly claudeCodeBinaries: readonly string[];
   /** Whether two environment variable names name one variable: Windows ignores their case. */
   sameVariableName(one: string, other: string): boolean;
 }

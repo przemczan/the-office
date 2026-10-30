@@ -147,6 +147,12 @@ describe("windows", () => {
     );
   });
 
+  it("finds the bundled Claude Code in the package for this architecture", () => {
+    expect(windows({ variables: {}, homeDirectory }).claudeCodeBinaries).toEqual([
+      `win32-${process.arch}/claude.exe`,
+    ]);
+  });
+
   it("has Agents run commands in Bash and PowerShell", () => {
     expect(windows({ variables: {}, homeDirectory }).agentShells).toEqual(["bash", "powershell"]);
   });

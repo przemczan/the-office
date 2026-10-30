@@ -1,4 +1,3 @@
-import type { SpawnedProcess, SpawnOptions } from "@anthropic-ai/claude-agent-sdk";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
@@ -8,6 +7,16 @@ const STDERR_KEPT = 4000;
 
 /** How long a closed engine has to end by itself before The Office ends it. */
 const EXIT_GRACE_MS = 10_000;
+
+/** How to start the engine, as the Agent SDK's `spawnClaudeCodeProcess` is asked. */
+export interface EngineCommand {
+  readonly command: string;
+  readonly args: string[];
+  readonly cwd?: string | undefined;
+  readonly env: Readonly<Record<string, string | undefined>>;
+  /** Ends the engine at once; the SDK aborts only after its graceful close has had its time. */
+  readonly signal?: AbortSignal | undefined;
+}
 
 /**
  * The engine's process for one session, started so that what it starts can be ended with it: in
@@ -25,12 +34,17 @@ export class EngineProcess {
     return this.stderrTail.trim();
   }
 
-  /** Starts the engine, as the SDK's `spawnClaudeCodeProcess` does. */
-  readonly spawn = ({ command, args, cwd, env, signal }: SpawnOptions): SpawnedProcess => {
+  /** Starts the engine; also the SDK's `spawnClaudeCodeProcess`. */
+  readonly spawn = ({
+    command,
+    args,
+    cwd,
+    env,
+    signal,
+  }: EngineCommand): ChildProcessWithoutNullStreams => {
     const child = spawn(command, args, {
       cwd,
       env,
-      // Aborted only after the SDK's graceful close has had its time.
       signal,
       stdio: "pipe",
       detached: this.processTrees.detached,

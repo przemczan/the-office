@@ -119,6 +119,15 @@ describe("linux", () => {
     ).toBe("/var/tmp/claude-1000");
   });
 
+  it("finds the bundled Claude Code in its glibc or musl build", () => {
+    const binaries = linux({ variables: {}, homeDirectory }).claudeCodeBinaries;
+
+    expect(binaries.toSorted()).toEqual([
+      `linux-${process.arch}-musl/claude`,
+      `linux-${process.arch}/claude`,
+    ]);
+  });
+
   it("has Agents run commands in Bash alone", () => {
     expect(linux({ variables: {}, homeDirectory }).agentShells).toEqual(["bash"]);
   });

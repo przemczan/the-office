@@ -1,11 +1,11 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { Query, SDKSystemMessage } from "@anthropic-ai/claude-agent-sdk";
+import type { SDKSystemMessage } from "@anthropic-ai/claude-agent-sdk";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { SessionSkills } from "../../ports/session-options.js";
-import { initProblems, startCheckProblems } from "./start-check.js";
+import { initProblems, startCheckProblems, type StartCheckRequests } from "./start-check.js";
 
 const { paths } = currentOperatingSystem();
 let folder: string;
@@ -38,7 +38,7 @@ function anEngine({
   errorCount = 0,
   held = false,
   listed = ["office:tdd", "deploy"],
-}: EngineAnswers = {}): Query {
+}: EngineAnswers = {}): StartCheckRequests {
   return {
     reloadPlugins: () =>
       Promise.resolve({
@@ -51,7 +51,7 @@ function anEngine({
       }),
     getContextUsage: () =>
       Promise.resolve({ skills: { skillFrontmatter: listed.map((name) => ({ name })) } }),
-  } as unknown as Query;
+  } as unknown as StartCheckRequests;
 }
 
 describe("startCheckProblems", () => {
