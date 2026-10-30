@@ -463,6 +463,93 @@ body,
   justify-content: space-between;
 }
 
+/* ---- the design system's Menu drawn outside a clipping parent (floating-menu.tsx), as Menu.jsx
+   draws its list and items */
+.floating-menu-anchor {
+  position: relative;
+  display: inline-flex;
+}
+
+.floating-menu-trigger {
+  display: inline-flex;
+}
+
+.floating-menu {
+  position: fixed;
+  visibility: hidden;
+  z-index: var(--z-dropdown);
+  padding: 4px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-3);
+}
+
+.floating-menu-divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--border);
+}
+
+.floating-menu-heading {
+  padding: 6px 10px 4px;
+  font: var(--type-overline);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-caps);
+  color: var(--fg-3);
+}
+
+.floating-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg-1);
+  font: 400 13px/1 var(--font-sans);
+  text-align: left;
+  cursor: pointer;
+}
+
+.floating-menu-item:hover:not(:disabled) {
+  background: var(--control-hover);
+}
+
+.floating-menu-item.danger {
+  color: var(--danger-fg);
+}
+
+.floating-menu-item.danger:hover:not(:disabled) {
+  background: var(--danger-subtle);
+}
+
+.floating-menu-item:disabled {
+  color: var(--fg-disabled);
+  cursor: not-allowed;
+}
+
+.floating-menu-icon {
+  display: grid;
+  color: var(--fg-3);
+}
+
+.floating-menu-item.danger .floating-menu-icon {
+  color: inherit;
+}
+
+.floating-menu-label {
+  flex: 1;
+}
+
+.floating-menu-item kbd {
+  font: 400 11px/1 var(--font-mono);
+  color: var(--fg-3);
+}
+
 /* ---- where an item belongs: its Project's mark and name, or Office-wide */
 .project-chip {
   display: inline-flex;

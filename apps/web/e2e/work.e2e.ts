@@ -220,14 +220,25 @@ test('the user tags a Task in "+ Task" and on its page, and the board shows its 
   await newTags.getByLabel("Add a Tag").fill("Needs Review");
   await newTags.getByLabel("Add a Tag").press("Enter");
   await expect(newTags).toContainText("ble");
+  await expect(
+    dialog.getByText("You describe the work when you plan it with the Planner."),
+  ).toBeVisible();
   await dialog.getByRole("button", { name: "Add the Task" }).click();
   await expect(dialog).toBeHidden();
+  // The new Task's page opens.
+  await expect(page).toHaveURL(/\/tasks\//);
+  await expect(page.getByRole("heading", { name: "Pair over BLE", level: 2 })).toBeVisible();
 
+  await page.goBack();
   const card = page.getByRole("article", { name: "Pair over BLE" });
   await expect(card).toContainText("ble");
   await expect(card).toContainText("needs-review");
 
-  await card.getByRole("link", { name: "Pair over BLE" }).click();
+  // The whole card opens the Task, not only its title.
+  // Its bottom corner, away from the title, sits under the title's link.
+  const box = await card.boundingBox();
+  await card.click({ position: { x: 6, y: (box?.height ?? 12) - 6 } });
+  await expect(page).toHaveURL(/\/tasks\//);
   const tags = page.getByRole("group", { name: "Tags" });
   await tags.getByLabel("Add a Tag").fill("firmware");
   await tags.getByLabel("Add a Tag").press("Enter");
@@ -651,14 +662,20 @@ test("a Task's Changes tab lists the files its branch changed with their lines a
   const changes = page.getByRole("region", { name: "Changes" });
   await expect(changes.getByText("Files changed · 1")).toBeVisible();
   await expect(changes.getByRole("listitem")).toContainText(["backoff.ts+2−0"]);
-  await expect(changes.getByLabel("Diff against the base branch")).toContainText(
-    "+export const BACKOFF_MS = 30_000;",
-  );
+  // Each file starts folded to its header; a click unfolds it, and "Fold all" folds it again.
+  const diff = changes.getByLabel("Diff of backoff.ts against the base branch");
+  await expect(diff).toHaveCount(0);
+  await changes.getByRole("button", { name: /backoff\.ts/ }).click();
+  await expect(diff).toContainText("+export const BACKOFF_MS = 30_000;");
+  await changes.getByRole("button", { name: "Fold all", exact: true }).click();
+  await expect(diff).toHaveCount(0);
+  await changes.getByRole("button", { name: "Unfold all" }).click();
+  await expect(diff).toBeVisible();
   await expect(changes.getByText("Tests:")).toBeVisible();
   await expect(changes.getByText("not run yet")).toBeVisible();
   // The branch has no worktree yet, so there is nothing to open.
   await expect(changes.getByRole("link", { name: "Open in editor" })).toHaveCount(0);
-  await expect(changes.getByRole("link", { name: "backoff.ts" })).toHaveCount(0);
+  await expect(changes.getByRole("link", { name: "Open backoff.ts in the editor" })).toHaveCount(0);
 
   addTaskWorktree(repository, task.id, taskWorktreePath(project.id, task.id));
   await page.reload();
@@ -669,10 +686,9 @@ test("a Task's Changes tab lists the files its branch changed with their lines a
     "href",
     new RegExp(`${worktreeUrl}$`),
   );
-  await expect(changes.getByRole("link", { name: "backoff.ts" })).toHaveAttribute(
-    "href",
-    new RegExp(`${worktreeUrl}/backoff\\.ts$`),
-  );
+  await expect(
+    changes.getByRole("link", { name: "Open backoff.ts in the editor" }),
+  ).toHaveAttribute("href", new RegExp(`${worktreeUrl}/backoff\\.ts$`));
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-changes.png") });
 
   await page.getByRole("tab", { name: "Overview" }).click();

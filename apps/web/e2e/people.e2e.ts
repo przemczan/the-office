@@ -937,10 +937,13 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(implement).toContainText("Waiting on you");
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Stop" })).toBeVisible();
-  await expect(conversation.getByRole("button", { name: /^Implement/ })).toHaveAttribute(
-    "aria-pressed",
-    "true",
-  );
+  // Implement's tab comes after the one shown, marked new, and the user stays where they were.
+  const implementTab = conversation.getByRole("button", { name: /^Implement/ });
+  await expect(implementTab).toContainText("New");
+  await expect(implementTab).toHaveAttribute("aria-pressed", "false");
+  await implementTab.click();
+  await expect(implementTab).toHaveAttribute("aria-pressed", "true");
+  await expect(implementTab).not.toContainText("New");
   const decision = conversation.getByRole("region", { name: `Decision: ${PAGE_QUESTION}` });
   await expect(decision).toBeVisible();
   // Between Stages The Office sends the Stage Thread's messages, so no follow-up is offered.

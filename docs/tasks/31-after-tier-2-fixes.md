@@ -24,7 +24,7 @@ Decided with the user on 2026-10-30: one task for the whole list; H says in the 
 ## Steps
 
 - [x] 0. Write this file and link it from the README. Commit.
-- [ ] 1. The board and the Task page: problems 1 (the whole card is the link), 2 (the "…" menu outside the column's overflow, flipping up), 3 (the "+ Task" dialog's wording, opening the new Task), 7 (a new Stage session's tab added after the current one, marked new), 8 (Changes folded by file, "Unfold all" and "Fold all"). Commit.
+- [x] 1. The board and the Task page: problems 1 (the whole card is the link), 2 (the "…" menu outside the column's overflow, flipping up), 3 (the "+ Task" dialog's wording, opening the new Task), 7 (a new Stage session's tab added after the current one, marked new), 8 (Changes folded by file, "Unfold all" and "Fold all"). Commit.
   Read: the [web map](../../apps/web/src/MAP.md) and the Work surface's map; the click-through's board and Task page.
 - [ ] 2. Words: problems 9 and 10 (Gate view, Stage editor, a Script Stage sent back to); task 24's command toast and `ProjectService.changeCommand`'s comment; H's let-go confirmation; C's refusal naming the rule; I's chat session instructions (shell runs only read-only git; read with Read and Grep). Commit.
   Read: the Settings, People and Projects surfaces' maps; the [Engine map](../../apps/service/src/modules/engine/MAP.md) for the refusal and the chat instructions.
@@ -41,10 +41,14 @@ Decided with the user on 2026-10-30: one task for the whole list; H says in the 
 
 ## State
 
-- Nothing built yet. Next: step 1, the board and the Task page.
+- Step 1 built (apps/web only): the board card's title link stretched over the card (`work.css`), the Task's "More" menu on `shell/floating-menu.tsx` (portalled, placed by `menu-placement.ts`, following its trigger on scroll), "+ Task"'s hint and opening the new Task (`new-task-dialog.tsx`; an Initiative's "Add a Task" stays put), Thread tabs by `surfaces/work/thread-tabs.ts`, Changes folded per file (`diffOfFile` in `changes-words.ts`). Next: step 2, the words.
+- The other three design-system Menus (palette, Ideas, Initiative actions) stay on `Menu`; switch one by its import if it clips.
+- Trap: the board's clipper is `.board`'s `overflow-x: auto` (it makes overflow-y auto too), not the column. In e2e, a click on a card's tag or meta is caught by the title's link; click the card by position.
+- Trap: `people.e2e.ts:1770` (a skill's update via the 2 s daily check) failed once in a full run and passed on two reruns; flaky, not from this step.
 - Open, ask at the step that needs it: step 3, spec 2.7's new wording; step 2, whether a started Task should keep its commands (default: no, word the toast as it works); step 6, rebuild or retire task 09's check.
 - Port 4310 on the workstation had a `node` process (PID 48896, started 2026-10-29 23:06) not started by this task; the user was told.
 
 ## Progress
 
 - 2026-10-30 · step 0: this file written from the user's answers (one task; H says the turn finishes; D amends spec 2.1; the three items run live); next, step 1, the board and the Task page.
+- 2026-10-30 · step 1: the whole board card opens the Task, its menu floats outside the board and flips up, "+ Task" hints at planning and opens the Task, new Stage tabs land after the shown one marked New, Changes fold per file; next, step 2, the words.

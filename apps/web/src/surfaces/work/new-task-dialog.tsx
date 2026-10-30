@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import type { Initiative, NewTask, Project, Task } from "@the-office/contracts";
 import { Button, Checkbox, Dialog, Field, Input, RadioGroup } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
@@ -17,10 +18,11 @@ import { TagsInput } from "./tags-input.tsx";
 type NewTaskDraft = Omit<NewTask, "projectId"> & { readonly projectId?: string };
 
 /**
- * "+ Task": a title, its Project and any Tags; it starts in Backlog. Given an Initiative, it is "Add a Task"
- * there (prototypes/app/work.js `new-task`): in the Initiative's first Project unless another is
- * chosen, and waiting for any of its Tasks that can still hold it back. Otherwise it is in the one
- * Project the Project filter shows, or the first.
+ * "+ Task": a title, its Project and any Tags; it starts in Backlog, and its page opens. Given an
+ * Initiative, it is "Add a Task" there (prototypes/app/work.js `new-task`): in the Initiative's
+ * first Project unless another is chosen, and waiting for any of its Tasks that can still hold it
+ * back; the user stays on the Initiative to add the next. Otherwise it is in the one Project the
+ * Project filter shows, or the first.
  */
 export function NewTaskDialog({
   initiative,
@@ -48,6 +50,7 @@ export function NewTaskDialog({
     initiative && tasks.data ? tasksOfInitiative(initiative, tasks.data).filter(canHoldBack) : [];
   const queryClient = useQueryClient();
   const showToast = useToast();
+  const navigate = useNavigate();
   const creating = useMutation({
     mutationFn: (newTask: NewTask) =>
       initiative
@@ -60,6 +63,7 @@ export function NewTaskDialog({
       ]);
       showToast(`${task.title} is in Backlog.`);
       onClose();
+      if (!initiative) await navigate({ to: "/tasks/$taskId", params: { taskId: task.id } });
     },
   });
   return (
@@ -97,6 +101,7 @@ export function NewTaskDialog({
           label="Title"
           value={draft.title}
           onChange={(event) => setDraft({ ...draft, title: event.target.value })}
+          hint="You describe the work when you plan it with the Planner."
           autoFocus
         />
         <Field label="Project">

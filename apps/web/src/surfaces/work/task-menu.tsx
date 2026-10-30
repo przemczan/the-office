@@ -1,8 +1,9 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Priority, Task } from "@the-office/contracts";
-import { Icon, IconButton, Menu, type MenuItem } from "@the-office/ui";
+import { Icon, IconButton, type MenuItem } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { changePriority, taskQueries } from "../../api/work.ts";
+import { FloatingMenu } from "../../shell/floating-menu.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { NOT_STARTED, PRIORITY_ICONS, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
@@ -91,7 +92,7 @@ export function TaskMenu({ task }: { readonly task: Task }): ReactNode {
   if (items.length === 0) return null;
   return (
     <>
-      <Menu
+      <FloatingMenu
         open={open}
         onOpenChange={setOpen}
         align="end"

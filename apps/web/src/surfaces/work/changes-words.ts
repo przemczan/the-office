@@ -34,3 +34,14 @@ export function editorLink(worktreePath: string, filePath?: string): string {
   const rooted = path.startsWith("/") ? path : `/${path}`;
   return `vscode://file${encodeURI(rooted).replaceAll("#", "%23").replaceAll("?", "%3F")}`;
 }
+
+/**
+ * The part of a Task's diff for one changed file, from its "diff --git" line to the next; undefined
+ * when the diff stops before it. git quotes a path holding unusual characters.
+ */
+export function diffOfFile(diff: string, path: string): string | undefined {
+  return diff.split(/^(?=diff --git )/m).find((file) => {
+    const header = file.split("\n", 1)[0] ?? "";
+    return header.endsWith(` b/${path}`) || header.endsWith(` "b/${path}"`);
+  });
+}

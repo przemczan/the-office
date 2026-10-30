@@ -58,12 +58,7 @@ Decided with the user on 2026-10-27: a fix is built where it is found only when 
 | --- | --- | --- | --- |
 | 31 | [The after-tier-2 fixes](31-after-tier-2-fixes.md) | All | in progress |
 
-- Problem 1: make the whole Task card on the board the link, its menu and buttons stopping the click.
-- Problem 3: the "+ Task" dialog says the work is described when planning with the Planner, and opens the new Task's page.
-- Problem 7: a Stage session that starts adds its tab right after the current one, marked new, without switching to it.
 - Problems 9 and 10: the Gate view says what the user does there; the Stage editor says a Gate's name is a label for the user; a Script Stage chosen to send back to says it can't read the feedback.
-- Problem 2: the board card's "…" menu is clipped when the board is short. Render it outside the column's overflow, flipping up when there is no room below.
-- Problem 8: on the Changes tab, every file starts folded to its header with its +/- counts, unfolds on a click, with "Unfold all" and "Fold all".
 - Problem 13: count tokens without cache reads everywhere (Threads, Stages, Now, the strip), with an info icon giving input, output, cache writes and cache reads and what each costs. Amends [spec 2.7 Defaults](../spec/2.7-notifications.md#defaults), "Today's figures", which counts all four kinds.
 - Found in task 24: the Project page's toast on a saved command says running Tasks keep the one they started with (`surfaces/projects/commands-block.tsx`), but a Script Stage runs the Project's command as it is when the Stage runs (`ScriptStageRunner` through `TaskCommands`), and `ProjectService.changeCommand` says the same as the toast. Proposed fix: word the toast and the comment as it works ("Command saved. Tasks run it from their next Build, Lint or Test Stage."), unless the user wants a started Task to keep its commands.
 - Found in task 24: Start refuses only when the first Agent Stage's Role is vacant (`work/domain/task-start.ts`). A later Agent Stage whose Role nobody fills, which the library now only flags, lets the Task start and then fails in the runner ("Nobody fills the Role"), since `pipelines/application/staffing-holds.ts` holds Tasks when someone is let go (and Resume checks staffing) but nothing does on `TaskStarted`. Proposed fix: hold the Task on `TaskStarted` too, paused behind the same Decision Resume and letting someone go give, so it carries on, or drops, by the user's answer once someone fills the Role.

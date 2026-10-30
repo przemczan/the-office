@@ -7,12 +7,12 @@ import type {
   TestResult,
   TestResultState,
 } from "@the-office/contracts";
-import { Badge } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { Badge, Button, Icon } from "@the-office/ui";
+import { useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { UnifiedDiffView } from "../../shell/unified-diff-view.tsx";
-import { editorLink, fileLineWords, TEST_RESULT_WORDS } from "./changes-words.ts";
+import { diffOfFile, editorLink, fileLineWords, TEST_RESULT_WORDS } from "./changes-words.ts";
 import { RecordBlock } from "./record-block.tsx";
 import { firstLine } from "./stage-words.ts";
 
@@ -39,8 +39,9 @@ export function ChangesTab({ task }: { readonly task: Task }): ReactNode {
 }
 
 /**
- * The files a Task changed with their lines, the diff against the base branch and the latest test
- * results (prototypes/app/task.js, `changesHtml`); a Gate shows the same.
+ * The files a Task changed with their lines, each folded to its header until a click shows its diff
+ * against the base branch, and the latest test results (prototypes/app/task.js, `changesHtml`); a
+ * Gate shows the same.
  */
 export function ChangesView({
   changes,
@@ -49,6 +50,7 @@ export function ChangesView({
   readonly changes: TaskChanges;
   readonly testResults: readonly TestResult[];
 }): ReactNode {
+  const [unfolded, setUnfolded] = useState<ReadonlySet<string>>(new Set());
   if (changes.files.length === 0) {
     return (
       <RecordBlock icon="git-compare" title="Files changed">
@@ -61,21 +63,37 @@ export function ChangesView({
       icon="git-compare"
       title={`Files changed · ${changes.files.length}`}
       actions={
-        changes.worktreePath !== null && (
-          <a className="changes-open" href={editorLink(changes.worktreePath)}>
-            Open in editor
-          </a>
-        )
+        <span className="changes-actions">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setUnfolded(new Set(changes.files.map(({ path }) => path)))}
+          >
+            Unfold all
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setUnfolded(new Set())}>
+            Fold all
+          </Button>
+          {changes.worktreePath !== null && (
+            <a className="changes-open" href={editorLink(changes.worktreePath)}>
+              Open in editor
+            </a>
+          )}
+        </span>
       }
     >
       <ul className="changes-files">
         {changes.files.map((file) => (
-          <FileRow key={file.path} file={file} worktreePath={changes.worktreePath} />
+          <FileRow
+            key={file.path}
+            file={file}
+            diff={diffOfFile(changes.diff, file.path)}
+            worktreePath={changes.worktreePath}
+            unfolded={unfolded.has(file.path)}
+            onToggle={() => setUnfolded(toggled(unfolded, file.path))}
+          />
         ))}
       </ul>
-      <div className="changes-diff">
-        <UnifiedDiffView diff={changes.diff} label="Diff against the base branch" />
-      </div>
       {changes.diffCut && (
         <p className="task-quiet changes-cut">The diff stops here: the rest is too long to show.</p>
       )}
@@ -84,36 +102,74 @@ export function ChangesView({
   );
 }
 
-/** A file of the list, which opens in the editor while the Task has its worktree and the file. */
+/**
+ * A file of the list: its header unfolds its diff, and it opens in the editor while the Task has its
+ * worktree and the file.
+ */
 function FileRow({
   file,
+  diff,
   worktreePath,
+  unfolded,
+  onToggle,
 }: {
   readonly file: ChangedFile;
+  /** Its part of the diff; undefined when the diff stops before it. */
+  readonly diff: string | undefined;
   readonly worktreePath: string | null;
+  readonly unfolded: boolean;
+  readonly onToggle: () => void;
 }): ReactNode {
   const lines = fileLineWords(file);
   return (
     <li>
-      <span className="changes-path">
-        {file.previousPath !== null && `${file.previousPath} → `}
-        {worktreePath === null || file.deleted ? (
-          file.path
-        ) : (
-          <a href={editorLink(worktreePath, file.path)}>{file.path}</a>
+      <div className="changes-file-head">
+        <button type="button" className="changes-fold" aria-expanded={unfolded} onClick={onToggle}>
+          <Icon name={unfolded ? "chevron-down" : "chevron-right"} size={14} />
+          <span className="changes-path">
+            {file.previousPath !== null && `${file.previousPath} → `}
+            {file.path}
+            {file.deleted && <span className="task-quiet"> · deleted</span>}
+          </span>
+          {lines === "binary" ? (
+            <span className="task-quiet">binary</span>
+          ) : (
+            <>
+              <span className="changes-added">{lines.added}</span>
+              <span className="changes-removed">{lines.removed}</span>
+            </>
+          )}
+        </button>
+        {worktreePath !== null && !file.deleted && (
+          <a
+            className="changes-open-file"
+            href={editorLink(worktreePath, file.path)}
+            aria-label={`Open ${file.path} in the editor`}
+            title="Open in the editor"
+          >
+            <Icon name="external-link" size={13} />
+          </a>
         )}
-        {file.deleted && <span className="task-quiet"> · deleted</span>}
-      </span>
-      {lines === "binary" ? (
-        <span className="task-quiet">binary</span>
-      ) : (
-        <>
-          <span className="changes-added">{lines.added}</span>
-          <span className="changes-removed">{lines.removed}</span>
-        </>
+      </div>
+      {unfolded && (
+        <div className="changes-diff">
+          {diff === undefined ? (
+            <p className="task-quiet">
+              The diff stops before this file: the rest is too long to show.
+            </p>
+          ) : (
+            <UnifiedDiffView diff={diff} label={`Diff of ${file.path} against the base branch`} />
+          )}
+        </div>
       )}
     </li>
   );
+}
+
+function toggled(paths: ReadonlySet<string>, path: string): ReadonlySet<string> {
+  const next = new Set(paths);
+  if (!next.delete(path)) next.add(path);
+  return next;
 }
 
 function TestResults({ results }: { readonly results: readonly TestResult[] }): ReactNode {
