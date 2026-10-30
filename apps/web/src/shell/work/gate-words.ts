@@ -43,16 +43,20 @@ export function defaultSendBackTarget(targets: readonly Stage[]): Stage | undefi
   return targets.findLast(({ kind }) => kind === "agent") ?? targets.at(-1);
 }
 
-/** What the send-back form says for its target: who changes what, or that a script runs again. */
+/**
+ * What the send-back form says for its target: who changes what, or, beside a Script Stage, that it
+ * can't read the feedback and only runs again.
+ */
 export function sendBackWords(
   target: Stage | undefined,
   personName: string,
-): { readonly placeholder: string; readonly sent: string } {
+): { readonly placeholder: string; readonly sent: string; readonly scriptNote?: string } {
   if (target?.kind !== "agent") {
     const name = target?.name ?? "The Stage";
     return {
       placeholder: `What should change? ${name} runs again; your feedback stays on its run.`,
       sent: `Sent back to ${name}: it runs again.`,
+      scriptNote: `${name} is a script: it can't read your feedback, it only runs again.`,
     };
   }
   return { placeholder: `What should ${personName} change?`, sent: `Sent back to ${personName}.` };

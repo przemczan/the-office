@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { Project } from "@the-office/contracts";
+import type { Project, ProjectCommandKey } from "@the-office/contracts";
 import { Button, Icon, IconButton, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { changeCommand, changeInstallInputs, projectQueries } from "../../api/projects.ts";
@@ -14,7 +14,13 @@ import { useToast } from "../../shell/toasts.tsx";
 import { installInputsFrom } from "./project-labels.ts";
 import { ProjectBlock } from "./project-block.tsx";
 
-const COMMAND_SAVED = "Command saved. Running Tasks keep the one they started with.";
+// A running Task reads a command when its Stage runs, so a change reaches it there (task 24).
+const COMMAND_SAVED: Readonly<Record<ProjectCommandKey, string>> = {
+  install: "Command saved. Tasks install with it before their next Stage.",
+  build: "Command saved. Tasks run it from their next Build Stage.",
+  lint: "Command saved. Tasks run it from their next Lint Stage.",
+  test: "Command saved. Tasks run it from their next Test Stage.",
+};
 
 /** One line of the block, shown as text and changed in place. */
 interface CommandsRow {
@@ -49,7 +55,7 @@ export function CommandsBlock({ project }: { readonly project: Project }): React
           draft={`Can you propose a change to the commands of ${project.name}? `}
         />
       }
-      note="Script Stages run these in the Task's worktree with no Agent. Running Tasks keep the command they started with."
+      note="Script Stages run these in the Task's worktree with no Agent, as they are when the Stage runs."
     >
       <div className="commands">
         {rowsOf(project).map((row) =>
@@ -85,7 +91,7 @@ function rowsOf(project: Project): CommandsRow[] {
       changeLabel: `Change the ${COMMAND_LABELS[key].toLowerCase()} command`,
       inputLabel: `${COMMAND_LABELS[key]} command`,
       line: project.commands[key],
-      savedMessage: COMMAND_SAVED,
+      savedMessage: COMMAND_SAVED[key],
       isUnchanged: (line) => line.trim() === project.commands[key],
       save: (line) => changeCommand(project.id, key, line),
     };

@@ -16,3 +16,9 @@
 .gate-send-back .gate-actions {
   margin-top: 0;
 }
+
+.gate-script-note {
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--warning-fg);
+}

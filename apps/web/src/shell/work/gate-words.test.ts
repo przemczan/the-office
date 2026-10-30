@@ -120,6 +120,7 @@ describe("the send-back chooser", () => {
     expect(sendBackWords(tests, "the Agent")).toEqual({
       placeholder: "What should change? Tests runs again; your feedback stays on its run.",
       sent: "Sent back to Tests: it runs again.",
+      scriptNote: "Tests is a script: it can't read your feedback, it only runs again.",
     });
   });
 });

@@ -329,6 +329,17 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
         });
         expect(decide(command(dialect, "npm test > results.txt"))).toEqual({ allowed: true });
       });
+
+      it("refuses writing a command's output outside the worktree, naming the rule", () => {
+        expect(decide(command(dialect, "npm test > /tmp/results.txt"))).toEqual({
+          allowed: false,
+          reason: `Refused by The Office: /tmp/results.txt is outside the worktree, and writes outside it are refused; keep a command's output in the shell, or write it inside ${platform.worktree}.`,
+        });
+        expect(decide(command(dialect, "npm test > ../task-2/results.txt"))).toMatchObject({
+          allowed: false,
+        });
+        expect(decide(command(dialect, "npm test > out/results.txt"))).toEqual({ allowed: true });
+      });
     });
   });
 

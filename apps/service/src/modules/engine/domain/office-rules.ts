@@ -164,11 +164,38 @@ export class OfficeRules {
         if (secret !== undefined) return secret;
       }
     }
+    const outsideWrite = this.outsideWriteRefusal(command, directories);
+    if (outsideWrite !== undefined) return outsideWrite;
     const program = programWords(command, dialect);
     const change = isGit(program) ? gitChange(program) : undefined;
     return change === undefined
       ? undefined
       : `Refused by The Office: Agents never change git (${change}); The Office commits, branches and publishes. Only ${READ_ONLY_GIT} runs.`;
+  }
+
+  /**
+   * A command's output written to a file outside the worktree. The engine refuses it too, but in
+   * words that don't tell the Agent the rule (task 30's problem C).
+   */
+  private outsideWriteRefusal(
+    command: SimpleCommand,
+    directories: readonly string[],
+  ): string | undefined {
+    const { paths, workingFolder } = this.rules;
+    for (const { target, writes } of command.redirects) {
+      if (!writes || NULL_DEVICES.has(target.toLowerCase())) continue;
+      const expanded = this.secrets.expand(target);
+      // A variable the session doesn't set, or a substitution: where it writes is not read.
+      if (UNREAD_PARTS.test(expanded)) continue;
+      if (
+        directories.some(
+          (directory) => !paths.isWithin(paths.resolve(directory, expanded), workingFolder),
+        )
+      ) {
+        return `Refused by The Office: ${target} is outside the worktree, and writes outside it are refused; keep a command's output in the shell, or write it inside ${workingFolder}.`;
+      }
+    }
+    return undefined;
   }
 
   private profileCommandRefusal(

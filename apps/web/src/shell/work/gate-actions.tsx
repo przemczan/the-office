@@ -126,6 +126,7 @@ function SendBackForm({
           onChange={setStageKey}
         />
       )}
+      {words.scriptNote && <p className="gate-script-note">{words.scriptNote}</p>}
       <MessageField
         label="Your feedback"
         rows={3}

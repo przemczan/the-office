@@ -56,8 +56,7 @@ function GateView({
     <div className="task-gate">
       <RecordBlock icon="hand" title={`Gate · ${waiting.gate.name}`}>
         <p className="task-quiet">
-          The Task waits for you to look at the work so far: let it continue, send it back with your
-          feedback, or drop it.
+          Look at the work so far, then Continue, Send back with notes, or Drop.
         </p>
         <StageResults waiting={waiting} taskStages={taskStages} />
         <GateAttachments task={task} />

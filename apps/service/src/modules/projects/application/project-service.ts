@@ -79,7 +79,7 @@ export class ProjectService {
     return this.repository.find(id);
   }
 
-  /** Tasks already running keep the command line they started with. */
+  /** A running Task runs the new line from its next Script Stage, which reads it when it runs. */
   async changeCommand(id: string, key: ProjectCommandKey, commandLine: string): Promise<Project> {
     return this.update(id, (project) => changeCommand(project, key, commandLine));
   }

@@ -97,7 +97,7 @@ test("a folder that isn't a repository, or a branch it lacks, is refused with th
   await expect(page).toHaveURL(/\/projects$/);
 });
 
-test("editing a command saves it, and the toast says running Tasks keep theirs", async ({
+test("editing a command saves it, and the toast says Tasks run it from their next Script Stage", async ({
   page,
 }) => {
   const project = await addedProject(page, "Command edits");
@@ -108,7 +108,7 @@ test("editing a command saves it, and the toast says running Tasks keep theirs",
   await page.keyboard.press("Enter");
 
   await expect(
-    page.getByText("Command saved. Running Tasks keep the one they started with."),
+    page.getByText("Command saved. Tasks run it from their next Test Stage."),
   ).toBeVisible();
   await expect(page.getByText("npm test -- --run")).toBeVisible();
   await page.reload();

@@ -298,6 +298,11 @@ function StageForm(props: StageEditorRowProps & { readonly stage: Stage }): Reac
     <div className="stage-editor-form">
       <Input
         label="Name"
+        hint={
+          stage.kind === "gate"
+            ? "A label for you; the Agents don't read it or act on it"
+            : undefined
+        }
         value={stage.name}
         onChange={(event) => change({ ...stage, name: event.target.value })}
       />
