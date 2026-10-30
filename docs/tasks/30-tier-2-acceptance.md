@@ -33,7 +33,7 @@ How the run works (decided with the user on 2026-10-30): on the LXC for the day,
   Read: the [Work map](../../apps/service/src/modules/work/MAP.md); spec [2.1](../spec/2.1-work.md) where a state is unclear.
 - [x] 4. People and the Office Manager: hire from scratch, edit a permission profile, one Consultation and one mention, shared memory written, read and deleted, a Role on Claude Code `-p` running a Stage, letting someone go and the staffing hold; the Office Manager capturing an Idea, a Role or settings Proposal, the Office status. Commit.
   Read: the [People](../../apps/service/src/modules/people/MAP.md) and [Conversations](../../apps/service/src/modules/conversations/MAP.md) maps.
-- [ ] 5. Skills: install one skill from github.com/anthropics/skills, an update Proposal, a skill drafted from a chat as a Proposal. Commit.
+- [x] 5. Skills: install one skill from github.com/anthropics/skills, an update Proposal, a skill drafted from a chat as a Proposal. Commit.
   Read: the [Skills map](../../apps/service/src/modules/skills/MAP.md).
 - [ ] 6. Notifications and safety: the kinds × channels grid, quiet hours around now, batching, the at-desk hold; the fire alarm and the all clear. Commit.
   Read: the [Notifications map](../../apps/service/src/modules/notifications/MAP.md); `work/application/fire-alarm-service.ts`.
@@ -54,7 +54,8 @@ How the run works (decided with the user on 2026-10-30): on the LXC for the day,
 - People and the Office Manager: Marta (one chat, 2.1k out, 199k reads) captured an Idea (CHANGELOG.md), showed the Office status, read a mentioned Task, drafted a `hire` Proposal (applied with the name edited to Iris: she had put the title "Docs Writer" as the name) and an `office-wide-limit` Proposal 3 → 4 (applied). Iris, hired from scratch as a Consultant with no Tasks, read a mentioned Idea in her chat. The Planner saved a Project note to shared memory; a new Planner chat didn't recall it (see G); the note deleted. The Developer moved to Claude Code `-p` with Run installs on "consult the CTO": Task 7 added markdownlint-cli without a hold, right by spec 6 (the Project's own dependencies are a code change). Letting the Developer go while Task 8 ran paused it behind a Decision; hired back, "Resume" finished it. The Consultation itself was seen in step 3 (the CTO on the failed Publish).
 - More found, for step 7: (F) the Office Manager's hire card used the title as the person's name; (G) a chat's Brief carries only Office-wide memory notes (`SessionMemory.forBrief(role, undefined)`), so a Project note saved in a chat is not read in the next chat; (H) letting someone go pauses their Task only at the end of their turn, so the let-go Developer finished all of Implement (9.9k out, 620k reads) before the hold.
 - The Developer stays on `-p` with Run installs on consult the CTO; the Office-wide limit is 4.
-- Next: step 5, Skills.
+- Skills: Devops listed github.com/anthropics/skills (20 skills at `ca45fc4`) and drafted installing `internal-comms` (0.9k out, 98k reads); applied, reviewed, on, given to Marta, whose next chat named `office:internal-comms` as its one skill. The update path on a local Source (`/root/skill-source-30.git`, tags v1 and v2, `/root/source.sh`): installed at v1 by Devops' Proposal, v2 pushed, the check at the service's start marked the update, Devops drafted the `skill-update` Proposal with notes, applied (stays waiting for review, as before). Iris drafted `changelog-entries` from her chat as a `skill` Proposal (0.8k out), applied, waiting for review.
+- Next: step 6, Notifications and safety.
 
 ## Progress
 
@@ -63,3 +64,4 @@ How the run works (decided with the user on 2026-10-30): on the LXC for the day,
 - 2026-10-30 · step 2: a library Pipeline copied and edited, and Devops' Pipeline and Project-commands Proposals applied on the LXC; next, step 3, the CTO and parallel work.
 - 2026-10-30 · step 3: an Initiative shaped with the CTO and done; dependency, overlap, the queue, a conflict resolved at Publish, Proof of concept, tags, search, the Project filter and a Saved view, all on the LXC; next, step 4, People and the Office Manager.
 - 2026-10-30 · step 4: the Office Manager's Idea, status, mention and Proposals; a hire from scratch; shared memory; the Developer on `-p`; letting go and hiring back with the staffing hold; next, step 5, Skills.
+- 2026-10-30 · step 5: a skill installed from github.com/anthropics/skills and reaching a session, an update Proposal from a local Source, a skill drafted in a chat; next, step 6, Notifications and the fire alarm.
