@@ -10,12 +10,7 @@ import { isOfficeOwnVariable } from "../../../../platform/config/office-config.j
 import type { AgentShell } from "../../../../platform/os/shell.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
 import type { SessionOptions } from "../../ports/session-options.js";
-
-/** The in-process MCP server that holds a session's Office tools. */
-export const OFFICE_TOOL_SERVER = "office";
-
-/** What the engine calls an Office tool by. */
-export const OFFICE_TOOL_PREFIX = `mcp__${OFFICE_TOOL_SERVER}__`;
+import { OFFICE_TOOL_SERVER, officeToolAnswer } from "../claude-code/office-tools.js";
 
 /**
  * The engine's built-in tools besides the shells, named explicitly so both systems get the same
@@ -181,10 +176,9 @@ function officeToolServer(
     name: OFFICE_TOOL_SERVER,
     alwaysLoad: true,
     tools: officeTools.map((officeTool) =>
-      tool(officeTool.name, officeTool.description, officeTool.input.shape, async (input) => {
-        const result = await officeTool.run(input, { sessionId });
-        return { content: [{ type: "text", text: result.text }], isError: result.isError };
-      }),
+      tool(officeTool.name, officeTool.description, officeTool.input.shape, (input) =>
+        officeToolAnswer(officeTool, input, sessionId),
+      ),
     ),
   });
 }

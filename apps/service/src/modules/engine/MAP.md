@@ -1,6 +1,6 @@
 # Engine: module map
 
-**Owns:** the engines a Role may pick (`ENGINES`, `ENGINE_MODELS`: `agent-sdk` and the `-p` fallback `claude-code-p`), the `AgentEngine` port and its adapters, one per engine in `AgentEngines`: the Agent SDK adapter, the fallback's (`adapters/claude-code-p/`, refusing every session until task 29 step 4), and the scripted engine every other test runs on (`adapters/scripted/`). `EngineSessions` starts and resumes a session on the engine its settings name, and reads capabilities per engine. The Office rules in the `PreToolUse` hook (profiles, the git deny, secrets, protected paths, PowerShell twins), and before them a session's `ToolHold` (`SessionOptions.toolHold`, asked at every call: while it gives words, every call is refused in them, as the fire alarm does; the scripted engine honours it too, running no Office tool), Office tools (`OfficeToolRegistry`), and the 5-hour and 7-day windows (`UsageWindowsChanged`, `EngineDown`).
+**Owns:** the engines a Role may pick (`ENGINES`, `ENGINE_MODELS`: `agent-sdk` and the `-p` fallback `claude-code-p`), the `AgentEngine` port and its adapters, one per engine in `AgentEngines`: the Agent SDK adapter, the fallback's (`adapters/claude-code-p/`, refusing every session until task 29 step 4), and the scripted engine every other test runs on (`adapters/scripted/`). What both Claude Code adapters share (the event mapping, tool refusals, the Office rules hook and `toolDecision`, the Office tools' names) is in `adapters/claude-code/`. The fallback's sessions reach the service on `localhost` (`adapters/http/`, under `/api/engine/claude-code-p/`): the hook endpoint and an MCP endpoint with the session's Office tools, behind a token per session (`SessionEndpoints`); the MCP endpoint judges every call by the session's rules again, since the Agent's commands see the token. `EngineSessions` starts and resumes a session on the engine its settings name, and reads capabilities per engine. The Office rules in the `PreToolUse` hook (profiles, the git deny, secrets, protected paths, PowerShell twins), and before them a session's `ToolHold` (`SessionOptions.toolHold`, asked at every call: while it gives words, every call is refused in them, as the fire alarm does; the scripted engine honours it too, running no Office tool), Office tools (`OfficeToolRegistry`), and the 5-hour and 7-day windows (`UsageWindowsChanged`, `EngineDown`).
 
 **Talks to:** no module. A session's owner hands it the skills folder, the options and the environment; modules give it their Office tools through `OfficeToolRegistry`. It never reads Skills.
 
@@ -28,17 +28,29 @@ EngineSessions, OfficeToolRegistry, OfficeToolResult, UsageWindowState, EngineDo
 - `agent-sdk-engine.ts`: AgentSdkEngine
 - `engine-process.ts`: EngineProcess
 - `engine-task-folder.ts`: engineTaskFolder
-- `office-rules-hook.ts`: officeRulesHook
-- `sdk-events.ts`: sessionEvents, TurnTokens, portToolName, usageWindows
-- `sdk-options.ts`: OFFICE_TOOL_SERVER, OFFICE_TOOL_PREFIX, SdkSession, sdkOptions, sessionEnvironment
+- `sdk-options.ts`: SdkSession, sdkOptions, sessionEnvironment
 - `start-check.ts`: startCheckProblems, initProblems
+- Tests: agent-sdk-engine.test.ts, engine-task-folder.test.ts, sdk-options.test.ts, start-check.test.ts, test-project-check.test.ts
+
+### adapters/claude-code/
+
+- `office-rules-hook.ts`: officeRulesHook, toolDecision
+- `office-tools.ts`: OFFICE_TOOL_SERVER, OFFICE_TOOL_PREFIX, officeToolAnswer, textAnswer
+- `sdk-events.ts`: sessionEvents, TurnTokens, portToolName, usageWindows
 - `tool-actions.ts`: agentAction
 - `tool-refusals.ts`: ToolRefusals
-- Tests: agent-sdk-engine.test.ts, engine-task-folder.test.ts, office-rules-hook.test.ts, sdk-events.test.ts, sdk-options.test.ts, start-check.test.ts, test-project-check.test.ts, tool-actions.test.ts, tool-refusals.test.ts
+- Tests: office-rules-hook.test.ts, sdk-events.test.ts, tool-actions.test.ts, tool-refusals.test.ts
 
 ### adapters/claude-code-p/
 
 - `claude-code-p-engine.ts`: ClaudeCodePEngine
+- `session-endpoints.ts`: SESSION_ENDPOINTS_ROUTE, HOOK_ROUTE, MCP_ROUTE, EndpointSession, OpenEndpoints, SessionEndpoints
+
+### adapters/http/
+
+- `session-endpoints.controller.ts`: SessionEndpointsController
+- `session-endpoints.fixtures.ts`: ServedEndpoints, serveSessionEndpoints
+- Tests: session-endpoints.controller.test.ts
 
 ### adapters/scripted/
 

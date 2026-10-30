@@ -31,11 +31,11 @@ import type { SessionOptions, SessionSkills, ToolHold } from "../../ports/sessio
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import { EngineProcess } from "./engine-process.js";
 import { engineTaskFolder } from "./engine-task-folder.js";
-import { officeRulesHook } from "./office-rules-hook.js";
-import { sessionEvents, TurnTokens, usageWindows } from "./sdk-events.js";
+import { officeRulesHook } from "../claude-code/office-rules-hook.js";
+import { sessionEvents, TurnTokens, usageWindows } from "../claude-code/sdk-events.js";
+import { ToolRefusals } from "../claude-code/tool-refusals.js";
 import { sdkOptions, sessionEnvironment, type SdkSession } from "./sdk-options.js";
 import { initProblems, startCheckProblems } from "./start-check.js";
-import { ToolRefusals } from "./tool-refusals.js";
 
 /**
  * Sessions on the TypeScript Claude Agent SDK, on the user's own login (spec §5.4): one long-lived

@@ -1,14 +1,18 @@
 import { Module } from "@nestjs/common";
 import { AgentSdkEngine } from "./adapters/agent-sdk/agent-sdk-engine.js";
 import { ClaudeCodePEngine } from "./adapters/claude-code-p/claude-code-p-engine.js";
+import { SessionEndpoints } from "./adapters/claude-code-p/session-endpoints.js";
+import { SessionEndpointsController } from "./adapters/http/session-endpoints.controller.js";
 import { AgentEngines } from "./application/agent-engines.js";
 import { EngineSessions } from "./application/engine-sessions.js";
 import { OfficeToolRegistry } from "./application/office-tool-registry.js";
 import { UsageWindowState } from "./application/usage-window-state.js";
 
 @Module({
+  controllers: [SessionEndpointsController],
   providers: [
     AgentSdkEngine,
+    SessionEndpoints,
     ClaudeCodePEngine,
     {
       provide: AgentEngines,
