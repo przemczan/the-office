@@ -1,9 +1,9 @@
-import type { HookEvent, McpHttpServerConfig, Settings } from "@anthropic-ai/claude-agent-sdk";
+import type { HookEvent, McpSdkServerConfig, Settings } from "@anthropic-ai/claude-agent-sdk";
 import { OFFICE_TOOL_SERVER } from "../office-options.ts";
 
 /**
  * The variable the session's token reaches the engine in, interpolated into the headers it sends
- * the local endpoints, so the token is on no command line. Not a `CLAUDE*`-style name, which the
+ * the local hook endpoint, so the token is on no command line. Not a `CLAUDE*`-style name, which the
  * session's environment drops.
  */
 export const TOKEN_VARIABLE = "OFFICE_SESSION_TOKEN";
@@ -23,16 +23,16 @@ export interface ClaudeCodePOptions {
   readonly settings: Settings;
   readonly hookEvents: readonly HookEvent[];
   readonly hookUrl: string;
-  /** The Office tools' endpoint; no MCP server is named when omitted. */
-  readonly mcpUrl?: string;
+  /** Whether the session has Office tools, which the host serves through the binary's stream. */
+  readonly officeTools: boolean;
   readonly jsonSchema?: Record<string, unknown>;
   readonly session: { readonly id: string; readonly resumes: boolean };
 }
 
 /**
  * The command line of one session on the pinned binary in `-p`, the flags the SDK passes for the
- * same options (ticket 22's `-p` fallback line), with the hooks and the Office tools on `localhost`
- * in place of the SDK's in-process ones (spec §5.4 Defaults).
+ * same options (ticket 22's `-p` fallback line), with the hooks on `localhost` in place of the
+ * SDK's in-process ones; the Office tools are the host's, as the SDK's are (spec §5.4 Defaults).
  */
 export function claudeCodePArguments(options: ClaudeCodePOptions): string[] {
   const { session } = options;
@@ -50,9 +50,9 @@ export function claudeCodePArguments(options: ClaudeCodePOptions): string[] {
       ? [`--allowedTools=${options.allowedSkills.map((skill) => `Skill(${skill})`).join(",")}`]
       : []),
     `--settings=${JSON.stringify(withHooks(options))}`,
-    ...(options.mcpUrl === undefined
-      ? []
-      : [`--mcp-config=${JSON.stringify({ mcpServers: officeToolServer(options.mcpUrl) })}`]),
+    ...(options.officeTools
+      ? [`--mcp-config=${JSON.stringify({ mcpServers: OFFICE_TOOL_SERVER_CONFIG })}`]
+      : []),
     "--permission-prompts=none",
     "--exclude-dynamic-system-prompt-sections",
     ...(options.jsonSchema === undefined
@@ -66,7 +66,7 @@ export function claudeCodePArguments(options: ClaudeCodePOptions): string[] {
  * Every hook asks the local endpoint; `onFailure: 'block'` makes an endpoint that can't be reached
  * refuse the call, where the engine's default would let it go ahead.
  */
-function withHooks({ settings, hookEvents, hookUrl, mcpUrl }: ClaudeCodePOptions): Settings {
+function withHooks({ settings, hookEvents, hookUrl, officeTools }: ClaudeCodePOptions): Settings {
   return {
     ...settings,
     hooks: Object.fromEntries(
@@ -93,15 +93,13 @@ function withHooks({ settings, hookEvents, hookUrl, mcpUrl }: ClaudeCodePOptions
       // permissionPrompts "none" refuses whatever would prompt, so the Office tools are allowed by rule.
       allow: [
         ...(settings.permissions?.allow ?? []),
-        ...(mcpUrl === undefined ? [] : [`mcp__${OFFICE_TOOL_SERVER}`]),
+        ...(officeTools ? [`mcp__${OFFICE_TOOL_SERVER}`] : []),
       ],
     },
   };
 }
 
-/** Always loaded, so the Agent calls an Office tool without looking it up first. */
-function officeToolServer(url: string): Record<string, McpHttpServerConfig> {
-  return {
-    [OFFICE_TOOL_SERVER]: { type: "http", url, headers: AUTHORIZATION, alwaysLoad: true },
-  };
-}
+/** The binary asks the host for this server's messages with `mcp_message` control requests. */
+const OFFICE_TOOL_SERVER_CONFIG: Record<string, McpSdkServerConfig> = {
+  [OFFICE_TOOL_SERVER]: { type: "sdk", name: OFFICE_TOOL_SERVER },
+};

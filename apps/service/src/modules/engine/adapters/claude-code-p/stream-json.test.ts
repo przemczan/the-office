@@ -2,7 +2,7 @@ import type { ChildProcessWithoutNullStreams } from "node:child_process";
 import { EventEmitter } from "node:events";
 import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
-import { StreamJson } from "./stream-json.js";
+import { StreamJson, type StreamMcpServer } from "./stream-json.js";
 
 /** An engine's process whose output the test writes and whose input it reads. */
 class FakeEngine extends EventEmitter {
@@ -37,6 +37,14 @@ class FakeEngine extends EventEmitter {
     this.stdout.end();
     this.stdout.on("end", () => this.emit("close", code, code === null ? "SIGKILL" : null));
   }
+}
+
+function mcpMessage(requestId: string, serverName: string, message: unknown) {
+  return {
+    type: "control_request",
+    request_id: requestId,
+    request: { subtype: "mcp_message", server_name: serverName, message },
+  };
 }
 
 async function all<T>(messages: AsyncIterable<T>): Promise<T[]> {
@@ -122,7 +130,70 @@ describe("StreamJson", () => {
     expect(await engine.input()).toEqual([
       {
         type: "control_response",
-        response: { subtype: "error", request_id: "e1", error: "The Office answers no requests." },
+        response: {
+          subtype: "error",
+          request_id: "e1",
+          error: "The Office answers no such request.",
+        },
+      },
+    ]);
+    expect(stream.messages.isOpen).toBe(true);
+  });
+
+  it("answers an MCP message from the server it names, after what was sent before the answer", async () => {
+    const engine = new FakeEngine();
+    let answerCall: ((answer: unknown) => void) | undefined;
+    const office: StreamMcpServer = {
+      name: "office",
+      answer: () =>
+        new Promise((resolve) => {
+          answerCall = resolve;
+        }),
+    };
+    const stream = new StreamJson(engine.asChild, [office]);
+    const call = { jsonrpc: "2.0", id: 7, method: "tools/call", params: { name: "note" } };
+
+    engine.writes(mcpMessage("e1", "office", call));
+    await engine.input();
+    stream.send({ type: "user", priority: "next" });
+    answerCall?.({ jsonrpc: "2.0", id: 7, result: { echoed: call } });
+
+    expect(await engine.input()).toEqual([
+      { type: "user", priority: "next" },
+      {
+        type: "control_response",
+        response: {
+          subtype: "success",
+          request_id: "e1",
+          response: { mcp_response: { jsonrpc: "2.0", id: 7, result: { echoed: call } } },
+        },
+      },
+    ]);
+  });
+
+  it("refuses an MCP message for a server it doesn't serve, or one its server fails", async () => {
+    const engine = new FakeEngine();
+    const failing: StreamMcpServer = {
+      name: "office",
+      answer: () => Promise.reject(new Error("The Office tools closed.")),
+    };
+    const stream = new StreamJson(engine.asChild, [failing]);
+    const ping = { jsonrpc: "2.0", id: 1, method: "ping" };
+
+    engine.writes(mcpMessage("e1", "other", ping), mcpMessage("e2", "office", ping));
+
+    expect(await engine.input()).toEqual([
+      {
+        type: "control_response",
+        response: {
+          subtype: "error",
+          request_id: "e1",
+          error: "The Office answers no such request.",
+        },
+      },
+      {
+        type: "control_response",
+        response: { subtype: "error", request_id: "e2", error: "The Office tools closed." },
       },
     ]);
     expect(stream.messages.isOpen).toBe(true);

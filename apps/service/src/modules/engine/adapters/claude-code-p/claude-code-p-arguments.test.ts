@@ -36,7 +36,6 @@ const NOTE_TOOL: OfficeTool = {
 };
 
 const HOOK_URL = "http://127.0.0.1:4310/api/engine/claude-code-p/hook";
-const MCP_URL = "http://127.0.0.1:4310/api/engine/claude-code-p/mcp";
 const AUTHORIZATION = { Authorization: `Bearer \${${TOKEN_VARIABLE}}` };
 
 function argumentsFor(session: Partial<ClaudeCodePSession> = {}): string[] {
@@ -46,7 +45,6 @@ function argumentsFor(session: Partial<ClaudeCodePSession> = {}): string[] {
     options: OPTIONS,
     agentShells: ["bash"],
     hookUrl: HOOK_URL,
-    mcpUrl: MCP_URL,
     instructionsFile: undefined,
     ...session,
   });
@@ -136,17 +134,14 @@ describe("claudeCodePArguments", () => {
     });
   });
 
-  it("serves the Office tools from the service's MCP endpoint, the token from the environment", () => {
+  it("names the service's Office tool server, which the binary reaches through its stream", () => {
     const options = { ...OPTIONS, officeTools: [NOTE_TOOL] };
     const args = argumentsFor({ options });
 
     expect(JSON.parse(flag(args, "mcp-config") ?? "{}")).toEqual({
-      mcpServers: {
-        office: { type: "http", url: MCP_URL, headers: AUTHORIZATION, alwaysLoad: true },
-      },
+      mcpServers: { office: { type: "sdk", name: "office" } },
     });
     expect(settingsOf(args)).toMatchObject({ permissions: { allow: ["mcp__office"] } });
-    expect(args.join(" ")).not.toMatch(/Bearer [^$]/);
   });
 
   it("names no MCP server for a session without Office tools", () => {

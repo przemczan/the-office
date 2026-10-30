@@ -30,14 +30,14 @@ const PROMPT =
   `Then reply with just OK.`;
 
 /**
- * The Office tools and the Office rules on `localhost` (spec §5.4 Defaults, §6): an Office tool from
- * the MCP endpoint, a hook endpoint that allows one command and refuses another, and a session skill
+ * The Office tools and the Office rules (spec §5.4 Defaults, §6): an Office tool through the
+ * binary's stream, a hook endpoint that allows one command and refuses another, and a session skill
  * run by the `Skill(office:…)` rule ticket 22 names, all in one turn.
  */
 export const fallbackToolsAndRulesCheck: Check = {
   id: "fallback.tools-and-rules",
   title:
-    "an Office tool from the MCP endpoint runs, the hook endpoint refuses a call, and a session skill runs",
+    "an Office tool through the stream runs, the hook endpoint refuses a call, and a session skill runs",
   async run({ sandbox, startClaudeCodePSession }) {
     const repository = await sandbox.createRepository();
     await writeFile(
@@ -92,9 +92,8 @@ export const fallbackToolsAndRulesCheck: Check = {
       endpoints: {
         hookWithToken: session.hookRequests.withToken > 0,
         hookRefused: session.hookRequests.refused,
-        mcpWithToken: session.mcpRequests.withToken > 0,
-        mcpRefused: session.mcpRequests.refused,
       },
+      officeToolMethods: [...new Set(session.officeToolMethods)],
       requestsToHost: requestsToHost(session),
     };
   },

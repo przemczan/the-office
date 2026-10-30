@@ -10,7 +10,7 @@ const OPTIONS: ClaudeCodePOptions = {
   settings: { autoMemoryEnabled: false, permissions: { allow: ["Read"] } },
   hookEvents: ["PreToolUse"],
   hookUrl: "http://127.0.0.1:4000/hook",
-  mcpUrl: "http://127.0.0.1:4000/mcp",
+  officeTools: true,
   session: { id: "s1", resumes: false },
 };
 
@@ -55,16 +55,10 @@ test("hooks ask the endpoint and refuse when it fails, with the token only by va
   assert.equal(settings.autoMemoryEnabled, false);
 });
 
-test("names the Office tools' endpoint only when there is one", () => {
+test("names the host's Office tool server only when the session has Office tools", () => {
   const withTools = JSON.parse(flag(claudeCodePArguments(OPTIONS), "--mcp-config") ?? "{}");
-  assert.deepEqual(withTools.mcpServers.office, {
-    type: "http",
-    url: OPTIONS.mcpUrl,
-    headers: { Authorization: "Bearer ${OFFICE_SESSION_TOKEN}" },
-    alwaysLoad: true,
-  });
-  const { mcpUrl: _, ...withoutEndpoint } = OPTIONS;
-  const args = claudeCodePArguments(withoutEndpoint);
+  assert.deepEqual(withTools.mcpServers, { office: { type: "sdk", name: "office" } });
+  const args = claudeCodePArguments({ ...OPTIONS, officeTools: false });
   assert.equal(flag(args, "--mcp-config"), undefined);
   assert.deepEqual(JSON.parse(flag(args, "--settings") ?? "{}").permissions.allow, ["Read"]);
 });

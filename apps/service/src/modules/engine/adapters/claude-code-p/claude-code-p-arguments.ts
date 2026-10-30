@@ -1,4 +1,4 @@
-import type { McpHttpServerConfig, Settings } from "@anthropic-ai/claude-agent-sdk";
+import type { McpSdkServerConfig, Settings } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentShell } from "../../../../platform/os/shell.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { OFFICE_TOOL_SERVER } from "../claude-code/office-tools.js";
@@ -6,7 +6,7 @@ import { sessionSettings, sessionTools } from "../claude-code/session-settings.j
 
 /**
  * The variable the session's token reaches the engine in, interpolated into the headers it sends
- * the service, so the token is on no command line. Not a `CLAUDE*`-style name, which the session's
+ * the service's hook endpoint, so the token is on no command line. Not a `CLAUDE*`-style name, which the session's
  * environment drops.
  */
 export const TOKEN_VARIABLE = "OFFICE_SESSION_TOKEN";
@@ -23,9 +23,8 @@ export interface ClaudeCodePSession {
   readonly options: SessionOptions;
   /** The shells Agents run commands in on this system. */
   readonly agentShells: readonly AgentShell[];
-  /** The service's endpoints for this session. */
+  /** The service's hook endpoint for this session. */
   readonly hookUrl: string;
-  readonly mcpUrl: string;
   /**
    * The file holding the session's instructions, when it has any: on the command line they could
    * pass the 32,767 characters Windows allows it.
@@ -36,8 +35,8 @@ export interface ClaudeCodePSession {
 /**
  * The command line of one session on the pinned binary in `-p` (spec §5.4 Defaults): the flags the
  * SDK passes for the options the SDK adapter gives it, as the engine check found them
- * (docs/engine-check.md, "The `-p` fallback"), with the hook and the Office tools on `localhost`
- * in place of the SDK's in-process ones.
+ * (docs/engine-check.md, "The `-p` fallback"), with the hook on `localhost` in place of the SDK's
+ * in-process one; the Office tools are the service's, through the binary's stream, as on the SDK.
  */
 export function claudeCodePArguments(session: ClaudeCodePSession): string[] {
   const { options } = session;
@@ -55,7 +54,7 @@ export function claudeCodePArguments(session: ClaudeCodePSession): string[] {
     ...skillRules(options),
     `--settings=${JSON.stringify(withHook(session))}`,
     ...(options.officeTools.length > 0
-      ? [`--mcp-config=${JSON.stringify({ mcpServers: officeToolServer(session.mcpUrl) })}`]
+      ? [`--mcp-config=${JSON.stringify({ mcpServers: OFFICE_TOOL_SERVER_CONFIG })}`]
       : []),
     "--permission-prompts=none",
     "--exclude-dynamic-system-prompt-sections",
@@ -101,9 +100,7 @@ function withHook(session: ClaudeCodePSession): Settings {
   };
 }
 
-/** Always loaded, so the Agent calls an Office tool without looking it up first. */
-function officeToolServer(url: string): Record<string, McpHttpServerConfig> {
-  return {
-    [OFFICE_TOOL_SERVER]: { type: "http", url, headers: AUTHORIZATION, alwaysLoad: true },
-  };
-}
+/** The engine sends this server's messages to the service as `mcp_message` control requests. */
+const OFFICE_TOOL_SERVER_CONFIG: Record<string, McpSdkServerConfig> = {
+  [OFFICE_TOOL_SERVER]: { type: "sdk", name: OFFICE_TOOL_SERVER },
+};

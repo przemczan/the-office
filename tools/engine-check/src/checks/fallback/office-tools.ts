@@ -1,10 +1,10 @@
 import { z } from "zod";
-import type { EndpointTool } from "../../claude-code-p/local-endpoints.ts";
+import type { OfficeTool } from "../../claude-code-p/office-tool-server.ts";
 
 export const HANDOVER_NOTE = "handover_note";
 
-/** An Office tool on the stand-in endpoint, recording each note it is handed. */
-export function handoverNoteTool(notes: string[]): EndpointTool {
+/** An Office tool the check serves, recording each note it is handed. */
+export function handoverNoteTool(notes: string[]): OfficeTool {
   return {
     name: HANDOVER_NOTE,
     description: "Saves the Agent's handover note on the Task.",

@@ -2,6 +2,7 @@ import type { Check } from "../../check.ts";
 import { fallbackHookUnreachableCheck } from "./hook-unreachable.ts";
 import { fallbackInterruptCheck } from "./interrupt.ts";
 import { fallbackPriorityLaterCheck, fallbackPriorityNextCheck } from "./message-priority.ts";
+import { fallbackOfficeToolBargeInCheck } from "./office-tool-barge-in.ts";
 import { fallbackOutputSchemaCheck } from "./output-schema.ts";
 import { fallbackStartCheck } from "./start.ts";
 import { fallbackToolsAndRulesCheck } from "./tools-and-rules.ts";
@@ -14,5 +15,6 @@ export const fallbackChecks: readonly Check[] = [
   fallbackOutputSchemaCheck,
   fallbackInterruptCheck,
   fallbackPriorityNextCheck,
+  fallbackOfficeToolBargeInCheck,
   fallbackPriorityLaterCheck,
 ];

@@ -14,14 +14,14 @@ const PROJECT_SKILLS = { kept: "lint", off: "deploy" } as const;
 
 /**
  * The fallback's start without a model call (spec §5.4 Defaults, §5.6): the pinned binary in `-p`,
- * the Office tools from the `localhost` endpoint, exactly the session's skills by ticket 22's flags
+ * the Office tools through the binary's stream, exactly the session's skills by ticket 22's flags
  * and the SDK adapter's start check, the lean options of §5.4 as flags and settings, and the
  * control requests behind the context usage and usage windows capabilities.
  */
 export const fallbackStartCheck: Check = {
   id: "fallback.start",
   title:
-    "the pinned binary in -p starts with exactly the session's skills, the Office tools from localhost and the lean options",
+    "the pinned binary in -p starts with exactly the session's skills, the Office tools through its stream and the lean options",
   async run({ sandbox, startClaudeCodePSession }) {
     const repository = await sandbox.createRepository();
     for (const name of Object.values(PROJECT_SKILLS)) {
@@ -87,10 +87,7 @@ export const fallbackStartCheck: Check = {
           contextUsage.categories.find((category) => category.id === "memory_files")?.tokens ?? 0,
       },
       usageWindows: usageWindows(usage),
-      endpoints: {
-        mcpWithToken: session.mcpRequests.withToken > 0,
-        mcpRefused: session.mcpRequests.refused,
-      },
+      officeToolMethods: [...new Set(session.officeToolMethods)],
       requestsToHost: requestsToHost(session),
     };
   },

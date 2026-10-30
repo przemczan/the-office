@@ -115,7 +115,8 @@ export async function observeBargeIn<S extends RecordedSession>(
   };
 }
 
-async function followBargeIn(
+/** Where a message sent during `firstTurn` landed, waiting for it as `observeBargeIn` describes. */
+export async function followBargeIn(
   session: RecordedSession,
   firstTurn: SDKResultMessage,
   bargeIn: string,

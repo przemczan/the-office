@@ -10,10 +10,12 @@ import type {
 } from "@anthropic-ai/claude-agent-sdk";
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import type { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
 import { createInterface } from "node:readline";
 import { setTimeout as delay } from "node:timers/promises";
 import {
   allowedSkillNames,
+  OFFICE_TOOL_SERVER,
   CHECK_MODEL,
   hookEvents,
   OFFICE_TOOLS,
@@ -24,7 +26,8 @@ import { RecordedSession } from "../recorded-session.ts";
 import type { Sandbox } from "../sandbox.ts";
 import { sessionEnvironment } from "../session-environment.ts";
 import { claudeCodePArguments, TOKEN_VARIABLE } from "./arguments.ts";
-import { LocalEndpoints, type EndpointRequests, type EndpointTool } from "./local-endpoints.ts";
+import { LocalEndpoints, type EndpointRequests } from "./local-endpoints.ts";
+import { OfficeToolServer, type OfficeTool } from "./office-tool-server.ts";
 import { pinnedBinaryPath } from "./pinned-binary.ts";
 
 /** How long a closed session's engine has to end by itself before the check ends it. */
@@ -34,8 +37,8 @@ const EXIT_GRACE_MS = 10_000;
 const PROTOCOL_LINES = new Set(["control_response", "control_cancel_request", "keep_alive"]);
 
 export interface ClaudeCodePSessionSpec extends SessionSpecBase<ClaudeCodePSession> {
-  /** Served on the session's MCP endpoint; no MCP server is named when omitted. */
-  readonly officeTools?: readonly EndpointTool[];
+  /** Served from the check's process through the binary's stream; no MCP server is named when omitted. */
+  readonly officeTools?: readonly OfficeTool[];
   /** Held to by every turn's output (`--json-schema`). */
   readonly jsonSchema?: Record<string, unknown>;
   /** Where the hook calls go in place of the session's endpoint, to see what a hook nobody answers does. */
@@ -57,6 +60,13 @@ interface ControlAnswer {
   readonly error?: string;
 }
 
+/** A control request the binary sends the host for an SDK MCP server (`SDKControlMcpMessageRequest`). */
+interface McpMessageRequest {
+  readonly subtype: "mcp_message";
+  readonly server_name: string;
+  readonly message: JSONRPCMessage;
+}
+
 interface PendingRequest {
   readonly resolve: (response: unknown) => void;
   readonly reject: (reason: unknown) => void;
@@ -65,11 +75,13 @@ interface PendingRequest {
 /**
  * One session on the pinned Claude Code binary in `-p` with stream-json in and out (spec §5.4
  * Defaults): the messages and control requests the SDK would send are written to its input, and
- * the hooks and Office tools reach a stand-in for the service on `localhost`.
+ * the hooks reach a stand-in for the service on `localhost`; the Office tools are served from the
+ * check's process through the binary's stream, as the SDK serves its in-process ones.
  */
 export class ClaudeCodePSession extends RecordedSession {
   /** Control requests the engine sent the host, which the check answers with an error. */
   readonly hostRequests: unknown[] = [];
+  private readonly officeToolServer: OfficeToolServer | undefined;
   private readonly pending = new Map<string, PendingRequest>();
   private readonly spec: ClaudeCodePSessionSpec;
   private readonly endpoints: LocalEndpoints;
@@ -86,6 +98,8 @@ export class ClaudeCodePSession extends RecordedSession {
     super(sessionId, spec.repository, pluginFolder, signal);
     this.spec = spec;
     this.endpoints = endpoints;
+    this.officeToolServer =
+      spec.officeTools === undefined ? undefined : new OfficeToolServer(spec.officeTools);
   }
 
   static async start(
@@ -95,7 +109,7 @@ export class ClaudeCodePSession extends RecordedSession {
   ): Promise<ClaudeCodePSession> {
     const sessionId = spec.resume ?? spec.sessionId ?? randomUUID();
     const pluginFolder = await sandbox.writeSessionPlugin(sessionId, spec.skills ?? []);
-    const endpoints = await LocalEndpoints.start(spec.officeTools ?? []);
+    const endpoints = await LocalEndpoints.start();
     const session = new ClaudeCodePSession(sessionId, pluginFolder, spec, endpoints, signal);
     endpoints.answerHooksWith((input) => session.answerHook(input));
     session.spawnEngine();
@@ -107,9 +121,9 @@ export class ClaudeCodePSession extends RecordedSession {
     return this.endpoints.hookRequests;
   }
 
-  /** Requests to the MCP endpoint, with the session's token or refused without it. */
-  get mcpRequests(): EndpointRequests {
-    return this.endpoints.mcpRequests;
+  /** The MCP methods the binary sent the Office tool server through its stream, in order. */
+  get officeToolMethods(): readonly string[] {
+    return this.officeToolServer?.methods ?? [];
   }
 
   interrupt(): Promise<SDKControlInterruptResponse | undefined> {
@@ -163,7 +177,7 @@ export class ClaudeCodePSession extends RecordedSession {
       settings: sessionSettings(this.pluginFolder, spec.settings),
       hookEvents: hookEvents(spec.hooks ?? {}),
       hookUrl: spec.hookUrl ?? this.endpoints.hookUrl,
-      ...(spec.officeTools === undefined ? {} : { mcpUrl: this.endpoints.mcpUrl }),
+      officeTools: this.officeToolServer !== undefined,
       ...(spec.jsonSchema === undefined ? {} : { jsonSchema: spec.jsonSchema }),
       session: { id: this.sessionId, resumes: spec.resume !== undefined },
     });
@@ -222,15 +236,39 @@ export class ClaudeCodePSession extends RecordedSession {
     );
   }
 
-  /** Nothing the Office needs asks the host; an unanswered request would hang the session. */
+  /**
+   * The Office tool server's messages are answered from it; nothing else the Office needs asks the
+   * host, and an unanswered request would hang the session.
+   */
   private answerHostRequest(message: Record<string, unknown>): void {
-    this.hostRequests.push(message["request"]);
+    const request = message["request"];
+    if (this.officeToolServer !== undefined && isOfficeToolMessage(request)) {
+      void this.answerOfficeToolMessage(message["request_id"], this.officeToolServer, request);
+      return;
+    }
+    this.hostRequests.push(request);
     this.write({
       type: "control_response",
       response: {
         subtype: "error",
         request_id: message["request_id"],
         error: "The engine check answers no requests.",
+      },
+    });
+  }
+
+  private async answerOfficeToolMessage(
+    requestId: unknown,
+    server: OfficeToolServer,
+    request: McpMessageRequest,
+  ): Promise<void> {
+    const mcpResponse = await server.answer(request.message);
+    this.write({
+      type: "control_response",
+      response: {
+        subtype: "success",
+        request_id: requestId,
+        response: { mcp_response: mcpResponse },
       },
     });
   }
@@ -268,4 +306,9 @@ export class ClaudeCodePSession extends RecordedSession {
   private write(line: unknown): void {
     this.child?.stdin.write(`${JSON.stringify(line)}\n`);
   }
+}
+
+function isOfficeToolMessage(request: unknown): request is McpMessageRequest {
+  const candidate = request as Partial<McpMessageRequest> | undefined;
+  return candidate?.subtype === "mcp_message" && candidate.server_name === OFFICE_TOOL_SERVER;
 }

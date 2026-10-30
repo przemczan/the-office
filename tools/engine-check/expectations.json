@@ -536,6 +536,18 @@
       }
     }
   },
+  "fallback.priority-next-office-tool": {
+    "win32": {
+      "officeToolCalls": 1,
+      "sentWhileToolAnswered": true,
+      "landedIn": "running turn"
+    },
+    "linux": {
+      "officeToolCalls": 1,
+      "sentWhileToolAnswered": true,
+      "landedIn": "running turn"
+    }
+  },
   "fallback.start": {
     "win32": {
       "claudeCodeVersion": "2.1.310",
@@ -575,10 +587,7 @@
           }
         }
       },
-      "endpoints": {
-        "mcpWithToken": true,
-        "mcpRefused": 0
-      },
+      "officeToolMethods": ["initialize", "notifications/initialized", "tools/list"],
       "requestsToHost": []
     },
     "linux": {
@@ -619,10 +628,7 @@
           }
         }
       },
-      "endpoints": {
-        "mcpWithToken": true,
-        "mcpRefused": 0
-      },
+      "officeToolMethods": ["initialize", "notifications/initialized", "tools/list"],
       "requestsToHost": []
     }
   },
@@ -660,10 +666,9 @@
       "hookEvents": ["PostToolUse", "PreToolUse"],
       "endpoints": {
         "hookWithToken": true,
-        "hookRefused": 0,
-        "mcpWithToken": true,
-        "mcpRefused": 0
+        "hookRefused": 0
       },
+      "officeToolMethods": ["initialize", "notifications/initialized", "tools/list", "tools/call"],
       "requestsToHost": []
     },
     "linux": {
@@ -699,10 +704,9 @@
       "hookEvents": ["PostToolUse", "PreToolUse"],
       "endpoints": {
         "hookWithToken": true,
-        "hookRefused": 0,
-        "mcpWithToken": true,
-        "mcpRefused": 0
+        "hookRefused": 0
       },
+      "officeToolMethods": ["initialize", "notifications/initialized", "tools/list", "tools/call"],
       "requestsToHost": []
     }
   },

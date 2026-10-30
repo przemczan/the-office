@@ -1,12 +1,9 @@
 import { request as httpRequest } from "node:http";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { z } from "zod";
 import { linux } from "../../../../platform/os/linux.js";
 import { OfficeRules } from "../../domain/office-rules.js";
-import type { OfficeTool, OfficeToolCall } from "../../ports/office-tool.js";
-import type { ToolHold } from "../../ports/session-options.js";
 import type { EndpointSession, OpenEndpoints } from "../claude-code-p/session-endpoints.js";
-import { officeRulesHook, toolDecision } from "../claude-code/office-rules-hook.js";
+import { officeRulesHook } from "../claude-code/office-rules-hook.js";
 import { ToolRefusals } from "../claude-code/tool-refusals.js";
 import { serveSessionEndpoints, type ServedEndpoints } from "./session-endpoints.fixtures.js";
 
@@ -23,35 +20,10 @@ const RULES = new OfficeRules({
   paths: SYSTEM.paths,
 });
 
-/** An Office tool that keeps every call it runs. */
-function noteTool(name: string): { tool: OfficeTool; calls: unknown[] } {
-  const calls: unknown[] = [];
-  const tool: OfficeTool = {
-    name,
-    description: "Takes a note.",
-    input: z.object({ word: z.string() }),
-    run: (input, call: OfficeToolCall) => {
-      calls.push({ input, sessionId: call.sessionId });
-      return Promise.resolve({ text: "noted", isError: false });
-    },
-  };
-  return { tool, calls };
-}
-
 /** A session held to the Office rules as an adapter holds one. */
-function session(
-  id: string,
-  officeTools: readonly OfficeTool[],
-  hold?: ToolHold,
-): EndpointSession & { refusals: ToolRefusals } {
+function session(): EndpointSession & { refusals: ToolRefusals } {
   const refusals = new ToolRefusals();
-  return {
-    id,
-    officeTools,
-    refusals,
-    preToolUse: officeRulesHook(RULES, refusals, hold),
-    decide: (tool, input) => toolDecision(RULES, hold, tool, input),
-  };
+  return { refusals, preToolUse: officeRulesHook(RULES, refusals) };
 }
 
 let served: ServedEndpoints;
@@ -75,37 +47,6 @@ function open(endpointSession: EndpointSession): OpenEndpoints {
   return endpoints;
 }
 
-/** One JSON-RPC request as the engine sends it to a stateless MCP server. */
-function mcpRequest(
-  endpoints: OpenEndpoints,
-  method: string,
-  params: Record<string, unknown>,
-  token = endpoints.token,
-): Promise<Response> {
-  return fetch(endpoints.mcpUrl, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json, text/event-stream",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ jsonrpc: "2.0", id: 1, method, params }),
-  });
-}
-
-async function mcpResult(
-  endpoints: OpenEndpoints,
-  method: string,
-  params: Record<string, unknown> = {},
-): Promise<Record<string, unknown>> {
-  const response = await mcpRequest(endpoints, method, params);
-  const answer = (await response.json()) as { result: Record<string, unknown> };
-  return answer.result;
-}
-
-const callNote = (endpoints: OpenEndpoints, name: string) =>
-  mcpResult(endpoints, "tools/call", { name, arguments: { word: "tangerine" } });
-
 function postHook(endpoints: OpenEndpoints, body: unknown, token = endpoints.token) {
   return fetch(endpoints.hookUrl, {
     method: "POST",
@@ -126,7 +67,7 @@ const preToolUse = (tool_name: string, tool_input: unknown) => ({
 
 describe("the hook endpoint", () => {
   it("answers as the session's hook: allows what the Office rules allow", async () => {
-    const endpoints = open(session("s1", []));
+    const endpoints = open(session());
 
     const response = await postHook(endpoints, preToolUse("Read", { file_path: "README.md" }));
 
@@ -137,7 +78,7 @@ describe("the hook endpoint", () => {
   });
 
   it("refuses with the Office rules' reason and tells the session", async () => {
-    const refused = session("s1", []);
+    const refused = session();
     const told = vi.spyOn(refused.refusals, "refusedByOfficeRules");
     const endpoints = open(refused);
 
@@ -157,7 +98,7 @@ describe("the hook endpoint", () => {
   });
 
   it("reads a call whose input is larger than a parser's default", async () => {
-    const endpoints = open(session("s1", []));
+    const endpoints = open(session());
     const content = "x".repeat(2 * 1024 * 1024);
 
     const response = await postHook(endpoints, preToolUse("Write", { file_path: "a.ts", content }));
@@ -166,7 +107,7 @@ describe("the hook endpoint", () => {
   });
 
   it("answers other events with nothing to change", async () => {
-    const endpoints = open(session("s1", []));
+    const endpoints = open(session());
 
     const response = await postHook(endpoints, { hook_event_name: "PostToolUse" });
 
@@ -174,13 +115,13 @@ describe("the hook endpoint", () => {
   });
 
   it("refuses a call that isn't a hook's input", async () => {
-    const endpoints = open(session("s1", []));
+    const endpoints = open(session());
 
     expect((await postHook(endpoints, { hook_event_name: "PreToolUse" })).status).toBe(400);
   });
 
   it("refuses a request without the session's token, or after its session ended", async () => {
-    const endpoints = open(session("s1", []));
+    const endpoints = open(session());
     const call = preToolUse("Read", { file_path: "README.md" });
 
     expect((await postHook(endpoints, call, "not-the-token")).status).toBe(401);
@@ -191,7 +132,7 @@ describe("the hook endpoint", () => {
   });
 
   it("answers only requests addressed to localhost", async () => {
-    const endpoints = open(session("s1", []));
+    const endpoints = open(session());
     const url = new URL(endpoints.hookUrl);
 
     const status = await new Promise<number>((resolve, reject) => {
@@ -216,59 +157,5 @@ describe("the hook endpoint", () => {
     });
 
     expect(status).toBe(403);
-  });
-});
-
-describe("the MCP endpoint", () => {
-  it("lists only the session's own Office tools", async () => {
-    const notes = noteTool("take_note");
-    const other = noteTool("other_note");
-    const endpoints = open(session("s1", [notes.tool]));
-    open(session("s2", [other.tool]));
-
-    const { tools } = (await mcpResult(endpoints, "tools/list")) as { tools: { name: string }[] };
-
-    expect(tools.map((tool) => tool.name)).toEqual(["take_note"]);
-  });
-
-  it("runs a call for its session and answers what the tool said", async () => {
-    const notes = noteTool("take_note");
-    const endpoints = open(session("s1", [notes.tool]));
-    const result = await callNote(endpoints, "take_note");
-
-    expect(result).toMatchObject({ content: [{ type: "text", text: "noted" }], isError: false });
-    expect(notes.calls).toEqual([{ input: { word: "tangerine" }, sessionId: "s1" }]);
-  });
-
-  it("asks the session's ToolHold on every call, and runs no tool it holds", async () => {
-    const notes = noteTool("take_note");
-    const endpoints = open(
-      session("s1", [notes.tool], () => Promise.resolve("The fire alarm is on.")),
-    );
-    const result = await callNote(endpoints, "take_note");
-
-    expect(result).toMatchObject({
-      content: [{ type: "text", text: "The fire alarm is on." }],
-      isError: true,
-    });
-    expect(notes.calls).toEqual([]);
-  });
-
-  it("doesn't reach another session's tool with a session's token", async () => {
-    const other = noteTool("other_note");
-    const endpoints = open(session("s1", [noteTool("take_note").tool]));
-    open(session("s2", [other.tool]));
-    const result = await callNote(endpoints, "other_note");
-
-    expect(result.isError).toBe(true);
-    expect(other.calls).toEqual([]);
-  });
-
-  it("refuses a client without the session's token", async () => {
-    const endpoints = open(session("s1", [noteTool("take_note").tool]));
-
-    const response = await mcpRequest(endpoints, "tools/list", {}, "not-the-token");
-
-    expect(response.status).toBe(401);
   });
 });

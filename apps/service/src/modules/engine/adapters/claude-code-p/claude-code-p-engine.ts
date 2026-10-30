@@ -39,6 +39,7 @@ import {
 } from "../claude-code/start-check.js";
 import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code/stream-events.js";
 import { claudeCodePArguments, TOKEN_VARIABLE } from "./claude-code-p-arguments.js";
+import { OfficeToolServer } from "./office-tool-server.js";
 import { pinnedBinaryPath } from "./pinned-binary.js";
 import { SessionEndpoints, type OpenEndpoints } from "./session-endpoints.js";
 import { StreamJson } from "./stream-json.js";
@@ -57,6 +58,8 @@ export const CLAUDE_CODE_P_CAPABILITIES: EngineCapabilities = {
 /** What a session opens beside its engine's process, which ending it closes. */
 interface SessionResources {
   readonly endpoints: OpenEndpoints;
+  /** The session's Office tools, when it has any. */
+  readonly officeTools: OfficeToolServer | undefined;
   /** Holds the instructions file, when the session has instructions. */
   readonly folder: string | undefined;
 }
@@ -64,8 +67,8 @@ interface SessionResources {
 /**
  * The `-p` fallback (spec §5.4 Defaults): sessions on the pinned Claude Code binary in `-p`, with
  * stream-json in and out, held to what the SDK adapter holds its sessions to: the same tools,
- * settings, skills and environment, the Office rules from a hook and the Office tools from an MCP
- * server, both the service's own on `localhost`.
+ * settings, skills and environment, the Office rules from a hook the service answers on
+ * `localhost`, and the Office tools served in-process through the binary's stream, as on the SDK.
  */
 @Injectable()
 export class ClaudeCodePEngine extends AgentEngine {
@@ -103,13 +106,16 @@ export class ClaudeCodePEngine extends AgentEngine {
     const streamEvents = new StreamEvents();
     const hold = options.toolHold;
     const endpoints = this.endpoints.open({
-      id,
-      officeTools: options.officeTools,
       preToolUse: officeRulesHook(rules, streamEvents.refusals, hold),
-      decide: (tool, input) => toolDecision(rules, hold, tool, input),
     });
     const resources: SessionResources = {
       endpoints,
+      officeTools:
+        options.officeTools.length === 0
+          ? undefined
+          : new OfficeToolServer(options.officeTools, id, (tool, input) =>
+              toolDecision(rules, hold, tool, input),
+            ),
       folder: options.instructions === "" ? undefined : await instructionsFolder(options),
     };
     const engineProcess = new EngineProcess(this.operatingSystem.processTrees);
@@ -123,7 +129,6 @@ export class ClaudeCodePEngine extends AgentEngine {
           options,
           agentShells: this.operatingSystem.agentShells,
           hookUrl: endpoints.hookUrl,
-          mcpUrl: endpoints.mcpUrl,
           instructionsFile:
             resources.folder === undefined ? undefined : join(resources.folder, INSTRUCTIONS_FILE),
         }),
@@ -131,7 +136,10 @@ export class ClaudeCodePEngine extends AgentEngine {
         env: this.environment(options, endpoints.token),
       });
       session = new ClaudeCodePSession(id, {
-        stream: new StreamJson(engine),
+        stream: new StreamJson(
+          engine,
+          resources.officeTools === undefined ? [] : [resources.officeTools],
+        ),
         streamEvents,
         engineProcess,
         skills: options.skills,
@@ -173,8 +181,9 @@ async function instructionsFolder(options: SessionOptions): Promise<string> {
   return folder;
 }
 
-async function closeResources({ endpoints, folder }: SessionResources): Promise<void> {
+async function closeResources({ endpoints, officeTools, folder }: SessionResources): Promise<void> {
   endpoints.close();
+  await officeTools?.close();
   if (folder !== undefined) await rm(folder, { recursive: true, force: true });
 }
 
