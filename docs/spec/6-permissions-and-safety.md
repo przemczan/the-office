@@ -2,7 +2,7 @@
 
 From [25](../../.scratch/the-office/issues/25-agent-permissions.md), amending [05](../../.scratch/the-office/issues/05-roles.md), [08](../../.scratch/the-office/issues/08-pipelines.md), [09](../../.scratch/the-office/issues/09-conversations.md).
 
-- **Threat model:** the rules guard against an Agent's mistakes and keep the user in charge of what leaves the workstation; they do not contain a hostile Agent. Native Windows has no command sandbox, and Linux runs under the same rules so both behave alike; stronger containment (the engine's sandbox on Linux and WSL2, or a separate user) is tier 3.
+- **Threat model:** the rules guard against an Agent's mistakes and keep the user in charge of what leaves the workstation; they do not contain a hostile Agent. Native Windows has no command sandbox, and Linux runs under the same rules so both behave alike; stronger containment (the engine's sandbox on Linux and WSL2, or a separate user) is not planned.
 - **Two layers:**
   - **Office rules in code,** which no profile loosens: Agents never change git (read-only `status`, `diff`, `log`, `show` only, every Stage); the HEAD and branch check; worktree restore after tests; the enforced Hard switches; the secrets refusal; one `PreToolUse` hook that sees every call the engine's own input validation lets through, before any rule decides. The Office sets no path-scoped deny rule, which would refuse before the hook; validation refusals show only in `result.permission_denials` and are logged from there.
   - **A permission profile as data on the Role card:** read, edit, run, web. A Stage may narrow it, never widen it. Editable in tier 2.

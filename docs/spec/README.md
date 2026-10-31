@@ -23,7 +23,7 @@ The spec is one file per section, so a session reads only the sections its task 
 
 ### Tiers and UX
 
-- [3. Capabilities by tier](3-capabilities-by-tier.md): what tier 1, 2 and 3 each hold.
+- [3. Capabilities by tier](3-capabilities-by-tier.md): what tier 1, 2 and 3 each hold, and what comes after them.
 - [4. UX direction](4-ux-direction.md): the five surfaces, the A3 · Desk shell, the Task page, themes, brand, copy.
 
 ### 5. Architecture and stack

@@ -37,4 +37,10 @@ From [13](../../.scratch/the-office/issues/13-first-slice.md), with [16](../../.
 
 ## Tier 3: on need
 
-Archive; Attachment versions; Stage templates in the Pipeline library; moving Tasks between Projects; the Graphite and Paper palettes and the densities; skill usage counts; Grafana dashboards; usage estimates; other engines (Codex, API-based); integrations (webhooks, MCP servers for Agents, issue trackers, chat apps); email and chat-app Notifications; access away from home; stronger containment (WSL2 sandbox or a separate Windows user); stack-specific checks for installs and publishing.
+Archive; Attachment versions; Stage templates in the Pipeline library; moving Tasks between Projects; the Graphite and Paper palettes and the densities; skill usage counts; the bundled `otel-lgtm` made optional, and the telemetry sent to the user's own Grafana or OpenTelemetry collector when they choose (the user builds the dashboards); usage estimates; API-based engines, so local LLMs can be connected, built first among the engines; MCP servers for Agents; talking to The Office from chat apps; email and chat-app Notifications; stack-specific checks for installs and publishing.
+
+Decided with the user on 2026-10-31: access away from home and stronger containment are not planned; issue trackers are dropped.
+
+## Later
+
+After tier 3: the Codex engine; webhooks.
