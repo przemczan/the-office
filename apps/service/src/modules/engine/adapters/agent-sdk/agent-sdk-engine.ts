@@ -29,7 +29,7 @@ import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import { EngineProcess } from "../claude-code/engine-process.js";
 import { officeRulesHook } from "../claude-code/office-rules-hook.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
-import { sessionOfficeRules } from "../claude-code/session-office-rules.js";
+import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
 import { initProblems, startCheckProblems } from "../claude-code/start-check.js";
 import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code/stream-events.js";
 import { sdkOptions, type SdkSession } from "./sdk-options.js";
@@ -77,7 +77,7 @@ export class AgentSdkEngine extends AgentEngine {
   ): Promise<AgentSdkSession> {
     const engineProcess = new EngineProcess(this.operatingSystem.processTrees);
     const held: HeldTo = {
-      rules: sessionOfficeRules(this.operatingSystem, this.officeData.path, id, options),
+      rules: claudeCodeOfficeRules(this.operatingSystem, this.officeData.path, id, options),
       toolHold: options.toolHold,
       skills: options.skills,
       paths: this.operatingSystem.paths,

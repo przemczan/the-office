@@ -1,10 +1,10 @@
 # Engine: module map
 
-**Owns:** the engines a Role may pick (`ENGINES`: `agent-sdk` and the `-p` fallback `claude-code-p`) and the models each offers (`EngineModels`, which People's card checks ask: a fixed list on the Claude Code engines, the API endpoints' models named `<endpoint id>/<model id>` by `apiEndpointModel`); the Office-wide settings of Settings › Engines in `EngineSettingsModule`, which both `EngineModule` and `ScriptedEngineModule` hold (`GET`/`PUT /api/settings/engines`; the API endpoints, each key kept in `api_endpoints` and never sent back, only `keySet`; the search endpoint in `engine_settings`); the `AgentEngine` port and its adapters, one per engine in `AgentEngines`: the Agent SDK adapter, the fallback's (`adapters/claude-code-p/`: the pinned binary in `-p`, stream-json in and out through `StreamJson`), and the scripted engine every other test runs on (`adapters/scripted/`). The OpenAI-compatible API adapter (`adapters/openai-compatible-api/`, no engine id yet) has `ChatCompletionsClient`: streamed chat completions from one API endpoint over `node:http`/`node:https`, the text as it comes and then the whole answer (tool calls assembled by index, usage mapped to `TokenUsage`, or undefined when the server sends none), aborted by a signal; its tests run on `FakeChatCompletionsServer`, which streams scripted answers and records each request. What both Claude Code adapters share (the event mapping, tool refusals, the Office rules hook and `toolDecision`, the Office tools' names) is in `adapters/claude-code/`. The fallback's hook reaches the service on `localhost` (`adapters/http/`, under `/api/engine/claude-code-p/`), behind a token per session (`SessionEndpoints`); its Office tools are served in-process through the binary's own stream (`OfficeToolServer` answering `mcp_message` control requests, which `StreamJson` routes to it), judging every call by the session's rules again as it runs. `ClaudeCodePEngine` opens both before it spawns the binary and closes them when the session ends. `EngineSessions` starts and resumes a session on the engine its settings name, and reads capabilities per engine. The Office rules in the `PreToolUse` hook (profiles, the git deny, secrets, protected paths, a command's output written outside the worktree refused in words naming the rule before the engine's own wordless refusal, PowerShell twins; the read-only git refusal names pipes and Read and Grep, as `READ_ONLY_SHELL_RULE` does in the chat, planning and shaping instructions that quote it), and before them a session's `ToolHold` (`SessionOptions.toolHold`, asked at every call: while it gives words, every call is refused in them, as the fire alarm does; the scripted engine honours it too, running no Office tool), Office tools (`OfficeToolRegistry`), and the 5-hour and 7-day windows (`UsageWindowsChanged`, `EngineDown`).
+**Owns:** the engines a Role may pick (`ENGINES`: `agent-sdk`, the `-p` fallback `claude-code-p`, and `openai-compatible-api`) and the models each offers (`EngineModels`, which People's card checks ask: a fixed list on the Claude Code engines, the API endpoints' models named `<endpoint id>/<model id>` by `apiEndpointModel`); the Office-wide settings of Settings › Engines in `EngineSettingsModule`, which both `EngineModule` and `ScriptedEngineModule` hold (`GET`/`PUT /api/settings/engines`; the API endpoints, each key kept in `api_endpoints` and never sent back, only `keySet`; the search endpoint in `engine_settings`); the `AgentEngine` port and its adapters, one per engine in `AgentEngines`: the Agent SDK adapter, the fallback's (`adapters/claude-code-p/`: the pinned binary in `-p`, stream-json in and out through `StreamJson`), and the scripted engine every other test runs on (`adapters/scripted/`). The OpenAI-compatible API adapter (`adapters/openai-compatible-api/`) is The Office's own agent loop: `OpenAiCompatibleApiEngine` finds the API endpoint and model the Model field names in the settings (`ModelNotOffered` when Settings › Engines no longer lists them, a refusal, not the engine down), and each `ApiSession` turn sends the conversation through `ChatCompletionsClient` (streamed chat completions over `node:http`/`node:https`, the text as it comes and then the whole answer, tool calls assembled by index, aborted by a signal), runs the tool calls and sends again until an answer makes none. Its tools (`SessionTools`: Read, Grep, Glob, Edit, Write) carry Claude Code's names and inputs, each a zod schema that also gives the model its JSON Schema; a call is refused by the engine when the tool is unknown, its arguments aren't JSON or don't fit, then judged by `toolDecision`, and only then run. Its tests run on `FakeChatCompletionsServer`, which streams scripted answers and records each request. What every adapter judging Claude Code's tool names shares (`agentAction`, `toolDecision`, `sessionOfficeRules` with each engine's readable folders, the Office tools' names) is in `adapters/office-rules/`; what both Claude Code adapters share (the event mapping, tool refusals, the Office rules hook, `claudeCodeOfficeRules`) is in `adapters/claude-code/`. The fallback's hook reaches the service on `localhost` (`adapters/http/`, under `/api/engine/claude-code-p/`), behind a token per session (`SessionEndpoints`); its Office tools are served in-process through the binary's own stream (`OfficeToolServer` answering `mcp_message` control requests, which `StreamJson` routes to it), judging every call by the session's rules again as it runs. `ClaudeCodePEngine` opens both before it spawns the binary and closes them when the session ends. `EngineSessions` starts and resumes a session on the engine its settings name, and reads capabilities per engine. The Office rules in the `PreToolUse` hook (profiles, the git deny, secrets, protected paths, a command's output written outside the worktree refused in words naming the rule before the engine's own wordless refusal, PowerShell twins; the read-only git refusal names pipes and Read and Grep, as `READ_ONLY_SHELL_RULE` does in the chat, planning and shaping instructions that quote it), and before them a session's `ToolHold` (`SessionOptions.toolHold`, asked at every call: while it gives words, every call is refused in them, as the fire alarm does; the scripted engine honours it too, running no Office tool), Office tools (`OfficeToolRegistry`), and the 5-hour and 7-day windows (`UsageWindowsChanged`, `EngineDown`).
 
 **Talks to:** no module. A session's owner hands it the skills folder, the options and the environment; modules give it their Office tools through `OfficeToolRegistry`. It never reads Skills.
 
-**Traps:** what the pinned SDK does is checked by the engine check ([docs/engine-check.md](../../../../../docs/engine-check.md)); re-run it on every SDK bump. The engine's own read fence is off, so the hook is the only fence of Read, Grep and Glob (`agentAction` reads every folder a call names, a Glob's brace alternatives included), and `claudeMdExcludes` keeps the instruction files above a session's folder out (`permissions.read-fence-off`). The engine settings are Office-wide in a database every test file shares: tests keep theirs in `EngineSettingsForTests`, and the Postgres test puts back what it found. An API endpoint's id is made from its name when it is added and kept on a rename, since Role cards name it; the Model field splits at its first `/` (`parseApiEndpointModel`), as a model's id may hold one. The chat completions client doesn't use `fetch`: Node's has fixed waits of about 300 s, too short for a slow local server reading a long prompt, so it keeps its own (`ChatCompletionsTimeouts`). An abort throws the signal's reason, every other failure a `ChatCompletionsError` in words. Live adapter tests run only with `OFFICE_ENGINE_TESTS=live` ([testing](../../../docs/testing.md)). The fallback's live test serves the endpoints itself (`serveSessionEndpoints`). Keep the fallback's Office tool answers on the binary's input: over a separate channel (the old `localhost` MCP endpoint) an answer overtook a `next` message on Windows (engine-check.md, `fallback.priority-next-office-tool`).
+**Traps:** what the pinned SDK does is checked by the engine check ([docs/engine-check.md](../../../../../docs/engine-check.md)); re-run it on every SDK bump. The engine's own read fence is off, so the hook is the only fence of Read, Grep and Glob (`agentAction` reads every folder a call names, a Glob's brace alternatives included), and `claudeMdExcludes` keeps the instruction files above a session's folder out (`permissions.read-fence-off`). The engine settings are Office-wide in a database every test file shares: tests keep theirs in `EngineSettingsForTests`, and the Postgres test puts back what it found. An API endpoint's id is made from its name when it is added and kept on a rename, since Role cards name it; the Model field splits at its first `/` (`parseApiEndpointModel`), as a model's id may hold one. The chat completions client doesn't use `fetch`: Node's has fixed waits of about 300 s, too short for a slow local server reading a long prompt, so it keeps its own (`ChatCompletionsTimeouts`). An abort throws the signal's reason, every other failure a `ChatCompletionsError` in words; the loop ends that turn `failed` and takes the next message. The loop's Glob and Grep list only what the session's rules let it read, skipping `.git` and `node_modules` (no `.gitignore`), and Edit and Write change an existing file only once the session has read it. `reasoning_content` is neither shown nor sent back. Live adapter tests run only with `OFFICE_ENGINE_TESTS=live` ([testing](../../../docs/testing.md)). The fallback's live test serves the endpoints itself (`serveSessionEndpoints`). Keep the fallback's Office tool answers on the binary's input: over a separate channel (the old `localhost` MCP endpoint) an answer overtook a `next` message on Windows (engine-check.md, `fallback.priority-next-office-tool`).
 
 <!-- Generated by `npm run maps` from the code; edit only above this line. -->
 
@@ -43,16 +43,15 @@ EngineSessions, OfficeToolRegistry, OfficeTool, OfficeToolResult, UsageWindowSta
 
 - `engine-process.ts`: EngineCommand, EngineProcess
 - `engine-task-folder.ts`: engineTaskFolder
-- `office-rules-hook.ts`: officeRulesHook, toolDecision
-- `office-tools.ts`: OFFICE_TOOL_SERVER, OFFICE_TOOL_PREFIX, officeToolAnswer, textAnswer
+- `office-rules-hook.ts`: officeRulesHook
+- `office-tools.ts`: officeToolAnswer, textAnswer
 - `sdk-events.ts`: sessionEvents, TurnTokens, portToolName, usageWindows
-- `session-office-rules.ts`: sessionOfficeRules
+- `session-office-rules.ts`: claudeCodeOfficeRules
 - `session-settings.ts`: sessionTools, sessionSettings, sessionEnvironment
 - `start-check.ts`: StartCheckRequests, startCheckProblems, initProblems
 - `stream-events.ts`: StreamEvents, userMessage, isInit, engineStopped
-- `tool-actions.ts`: agentAction
 - `tool-refusals.ts`: ToolRefusals
-- Tests: engine-task-folder.test.ts, office-rules-hook.test.ts, sdk-events.test.ts, start-check.test.ts, stream-events.test.ts, tool-actions.test.ts, tool-refusals.test.ts
+- Tests: engine-task-folder.test.ts, office-rules-hook.test.ts, sdk-events.test.ts, start-check.test.ts, stream-events.test.ts, tool-refusals.test.ts
 
 ### adapters/claude-code-p/
 
@@ -72,14 +71,35 @@ EngineSessions, OfficeToolRegistry, OfficeTool, OfficeToolResult, UsageWindowSta
 - `session-endpoints.fixtures.ts`: ServedEndpoints, serveSessionEndpoints
 - Tests: engine-settings.controller.test.ts, session-endpoints.controller.test.ts
 
+### adapters/office-rules/
+
+- `office-tool-names.ts`: OFFICE_TOOL_SERVER, OFFICE_TOOL_PREFIX
+- `session-office-rules.ts`: EngineRuleParts, sessionOfficeRules
+- `tool-actions.ts`: agentAction
+- `tool-decision.ts`: toolDecision
+- Tests: tool-actions.test.ts
+
 ### adapters/openai-compatible-api/
 
+- `api-session.ts`: ApiSessionParts, ApiSession
+- `built-in-tool.ts`: ToolOutput, ToolContext, ReadFiles, PreparedCall, InvalidCall, BuiltInTool, builtInTool, success, failure, resolvedPath
 - `chat-completions-client.ts`: ChatCompletionsTimeouts, DEFAULT_CHAT_COMPLETIONS_TIMEOUTS, CompletionTextEvent, CompletionEndedEvent, CompletionEvent, ChatCompletionsError, ChatCompletionsEndpoint, ChatCompletionsClient, chatCompletionsUrl
 - `chat-completions.ts`: ToolCall, SystemMessage, UserMessage, AssistantMessage, ToolMessage, ChatMessage, ToolDefinition, ChatCompletionsRequest, ToolCallDelta, CompletionUsage, completionChunkSchema, CompletionChunk, STREAM_DONE
 - `completion-assembly.ts`: Completion, CompletionAssembly
+- `edit-tool.ts`: EDIT_TOOL, editedContent
 - `fake-chat-completions-server.fixtures.ts`: ScriptedToolCall, ScriptedUsage, ScriptedReply, ScriptedStatus, ScriptedSilence, ScriptedAnswer, AnswerEnd, RecordedRequest, FakeChatCompletionsServer, textReply
+- `file-listing.ts`: ListedFile, listedFiles
+- `file-problems.ts`: fileProblem, isMissing, isBinary
+- `glob-tool.ts`: GLOB_TOOL
+- `grep-tool.ts`: GREP_TOOL
+- `openai-compatible-api-engine.ts`: OPENAI_COMPATIBLE_API_CAPABILITIES, OpenAiCompatibleApiEngine
+- `read-tool.ts`: READ_TOOL
 - `server-sent-events.ts`: ServerSentEvents
-- Tests: chat-completions-client.test.ts, server-sent-events.test.ts
+- `session-tools.ts`: SessionTools
+- `system-prompt.ts`: SystemPromptParts, systemPrompt
+- `text-search.ts`: SearchContext, TextSearch, textSearch, splitLines, matchCount, matchingLines
+- `write-tool.ts`: WRITE_TOOL
+- Tests: chat-completions-client.test.ts, file-tools.test.ts, openai-compatible-api-engine.test.ts, server-sent-events.test.ts
 
 ### adapters/postgres/
 
@@ -127,7 +147,7 @@ EngineSessions, OfficeToolRegistry, OfficeTool, OfficeToolResult, UsageWindowSta
 ### ports/
 
 - `agent-engine.contract.ts`: CONTRACT_SCENARIOS, ContractScenario, EngineUnderContract, describeAgentEngineContract
-- `agent-engine.ts`: EngineCapabilities, EngineCapability, CapabilityMissing, SessionSkillsDiffer, NewSession, AgentEngine
+- `agent-engine.ts`: EngineCapabilities, EngineCapability, CapabilityMissing, SessionSkillsDiffer, ModelNotOffered, NewSession, AgentEngine
 - `engine-session.ts`: UserMessage, MessagePriority, ContextUsage, EngineSession
 - `engine-settings-repository.fixtures.ts`: EngineSettingsForTests
 - `engine-settings-repository.ts`: EngineSettingsRepository

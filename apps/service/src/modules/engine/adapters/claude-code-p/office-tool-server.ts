@@ -3,12 +3,8 @@ import type { Transport } from "@modelcontextprotocol/sdk/shared/transport.js";
 import type { JSONRPCMessage, RequestId } from "@modelcontextprotocol/sdk/types.js";
 import type { ToolDecision } from "../../domain/office-rules.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
-import {
-  OFFICE_TOOL_PREFIX,
-  OFFICE_TOOL_SERVER,
-  officeToolAnswer,
-  textAnswer,
-} from "../claude-code/office-tools.js";
+import { officeToolAnswer, textAnswer } from "../claude-code/office-tools.js";
+import { OFFICE_TOOL_PREFIX, OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
 
 /** Whether the session may call a tool, by the engine's name for it, as its hook decides. */
 export type ToolDecider = (tool: string, input: unknown) => Promise<ToolDecision>;

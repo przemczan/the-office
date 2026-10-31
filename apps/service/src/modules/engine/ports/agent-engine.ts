@@ -43,6 +43,20 @@ export class SessionSkillsDiffer extends Error {
   }
 }
 
+/**
+ * A session whose model the engine doesn't offer now, such as a Role card naming an API endpoint
+ * removed from Settings › Engines since: refused before its first turn, in words saying why.
+ */
+export class ModelNotOffered extends Error {
+  constructor(
+    readonly model: string,
+    reason: string,
+  ) {
+    super(`The model ${model} isn't offered: ${reason}`);
+    this.name = "ModelNotOffered";
+  }
+}
+
 export interface NewSession {
   /** Chosen by the caller, so what is named after the session, such as its skills folder, exists before it starts. */
   readonly id: string;

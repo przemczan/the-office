@@ -154,7 +154,11 @@ async function startOn(
       EventStreamModule,
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
-      ScriptedEngineModule.register({ "agent-sdk": engine, "claude-code-p": fallback }),
+      ScriptedEngineModule.register({
+        "agent-sdk": engine,
+        "claude-code-p": fallback,
+        "openai-compatible-api": new ScriptedEngine([]),
+      }),
     ],
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },

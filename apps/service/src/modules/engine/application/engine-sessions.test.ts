@@ -15,6 +15,7 @@ import { EngineDown, UsageWindowsChanged } from "../domain/engine-events.js";
 import type { Engine } from "../domain/engines.js";
 import {
   CapabilityMissing,
+  ModelNotOffered,
   SessionSkillsDiffer,
   type EngineCapabilities,
 } from "../ports/agent-engine.js";
@@ -100,6 +101,7 @@ function setUp(scripts: readonly SessionScript[], capabilities: Partial<EngineCa
   return setUpOn({
     "agent-sdk": new ScriptedEngine(scripts, capabilities),
     "claude-code-p": new ScriptedEngine([]),
+    "openai-compatible-api": new ScriptedEngine([]),
   });
 }
 
@@ -254,6 +256,28 @@ describe("EngineSessions", () => {
     expect(published).toEqual([]);
   });
 
+  it("refuses a model the engine no longer offers without announcing the engine down", async () => {
+    class WithoutTheModel extends ScriptedEngine {
+      override async start(): Promise<never> {
+        throw new ModelNotOffered("local/gone", "Settings › Engines lists no API endpoint local.");
+      }
+    }
+    const { sessions, published } = setUpOn({
+      "agent-sdk": new ScriptedEngine([]),
+      "claude-code-p": new ScriptedEngine([]),
+      "openai-compatible-api": new WithoutTheModel([]),
+    });
+
+    await expect(
+      sessions.start({
+        id: "s-1",
+        settings: { ...SETTINGS, engine: "openai-compatible-api" },
+        brief: message("Begin."),
+      }),
+    ).rejects.toThrow(ModelNotOffered);
+    expect(published).toEqual([]);
+  });
+
   it("announces the engine down when it can't start a session", async () => {
     const { sessions, published } = setUp([]);
 
@@ -303,7 +327,11 @@ function twoEngines(scripts: {
   return {
     agentSdk,
     claudeCodeP,
-    ...setUpOn({ "agent-sdk": agentSdk, "claude-code-p": claudeCodeP }),
+    ...setUpOn({
+      "agent-sdk": agentSdk,
+      "claude-code-p": claudeCodeP,
+      "openai-compatible-api": new ScriptedEngine([]),
+    }),
   };
 }
 
@@ -367,6 +395,7 @@ describe("EngineSessions on an engine per Role", () => {
           { step: "end" },
         ],
       ]),
+      "openai-compatible-api": new ScriptedEngine([]),
     });
 
     const session = await sessions.start({

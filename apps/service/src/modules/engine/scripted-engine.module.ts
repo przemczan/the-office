@@ -36,5 +36,5 @@ function perEngine(
   engines: ScriptedEngine | Readonly<Record<Engine, ScriptedEngine>>,
 ): Readonly<Record<Engine, ScriptedEngine>> {
   if (!(engines instanceof AgentEngine)) return engines;
-  return { "agent-sdk": engines, "claude-code-p": engines };
+  return { "agent-sdk": engines, "claude-code-p": engines, "openai-compatible-api": engines };
 }

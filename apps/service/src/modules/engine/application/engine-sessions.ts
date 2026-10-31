@@ -7,6 +7,7 @@ import type { Engine } from "../domain/engines.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import {
   CapabilityMissing,
+  ModelNotOffered,
   SessionSkillsDiffer,
   type EngineCapabilities,
 } from "../ports/agent-engine.js";
@@ -213,11 +214,15 @@ class WatchedSession implements EngineSession {
 }
 
 /**
- * Refusing what the engine can't do, or a session without exactly its skills, is the caller's to
- * handle; the engine is not down.
+ * Refusing what the engine can't do, a session without exactly its skills, or a model the engine
+ * doesn't offer now, is the caller's to handle; the engine is not down.
  */
 function isRefusal(error: unknown): boolean {
-  return error instanceof CapabilityMissing || error instanceof SessionSkillsDiffer;
+  return (
+    error instanceof CapabilityMissing ||
+    error instanceof SessionSkillsDiffer ||
+    error instanceof ModelNotOffered
+  );
 }
 
 function messageOf(error: unknown): string {

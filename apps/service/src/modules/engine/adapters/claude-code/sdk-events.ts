@@ -14,7 +14,7 @@ import type {
   TurnEndedEvent,
   TurnOutcome,
 } from "../../ports/session-events.js";
-import { OFFICE_TOOL_PREFIX } from "./office-tools.js";
+import { OFFICE_TOOL_PREFIX } from "../office-rules/office-tool-names.js";
 
 /** How the engine ends a turn that `interrupt()` stopped, by what was running then. */
 const INTERRUPTED_REASONS: ReadonlySet<string> = new Set(["aborted_streaming", "aborted_tools"]);

@@ -49,6 +49,7 @@ export const CAPABILITIES: readonly CapabilityInfo[] = [
 export const ENGINE_LABELS: Readonly<Record<Engine, string>> = {
   "agent-sdk": "Agent SDK",
   "claude-code-p": "Claude Code -p",
+  "openai-compatible-api": "OpenAI-compatible API",
 };
 
 export const SESSION_DEFAULTS: Readonly<

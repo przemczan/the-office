@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { linux } from "../../../../platform/os/linux.js";
 import { OfficeRules } from "../../domain/office-rules.js";
 import { officeRulesHook } from "./office-rules-hook.js";
-import { OFFICE_TOOL_PREFIX } from "./office-tools.js";
+import { OFFICE_TOOL_PREFIX } from "../office-rules/office-tool-names.js";
 import { ToolRefusals } from "./tool-refusals.js";
 
 const SYSTEM = linux({ variables: {}, homeDirectory: "/home/office" });

@@ -1,12 +1,6 @@
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
 
-/** The MCP server that holds a session's Office tools, in-process or on `localhost`. */
-export const OFFICE_TOOL_SERVER = "office";
-
-/** What the engine calls an Office tool by. */
-export const OFFICE_TOOL_PREFIX = `mcp__${OFFICE_TOOL_SERVER}__`;
-
 /** Runs an Office tool for a session's call, its input checked against the tool's schema by MCP. */
 export async function officeToolAnswer(
   officeTool: OfficeTool,

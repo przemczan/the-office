@@ -7,7 +7,8 @@ import { EngineSettingsRepository } from "./ports/engine-settings-repository.js"
 
 /**
  * The engines' Office-wide settings and the models they make each engine offer. Both
- * `EngineModule` and `ScriptedEngineModule` hold it, so a test on scripted engines keeps them.
+ * `EngineModule` and `ScriptedEngineModule` hold it, so a test on scripted engines keeps them;
+ * the OpenAI-compatible API engine reads its API endpoints, keys included, from the repository.
  */
 @Module({
   controllers: [EngineSettingsController],
@@ -16,6 +17,6 @@ import { EngineSettingsRepository } from "./ports/engine-settings-repository.js"
     EngineSettingsService,
     EngineModels,
   ],
-  exports: [EngineSettingsService, EngineModels],
+  exports: [EngineSettingsService, EngineModels, EngineSettingsRepository],
 })
 export class EngineSettingsModule {}

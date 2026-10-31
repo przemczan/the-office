@@ -84,7 +84,11 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
       const events = new EventBus();
       const engine = liveEngine();
       const sessions = new EngineSessions(
-        new AgentEngines({ "agent-sdk": engine, "claude-code-p": engine }),
+        new AgentEngines({
+          "agent-sdk": engine,
+          "claude-code-p": engine,
+          "openai-compatible-api": engine,
+        }),
         new Telemetry(trace.getTracer("test"), metrics.getMeter("test")),
         events,
         new UsageWindowState(events),

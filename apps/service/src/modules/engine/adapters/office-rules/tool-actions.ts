@@ -1,5 +1,5 @@
 import type { AgentAction } from "../../domain/agent-action.js";
-import { OFFICE_TOOL_PREFIX } from "./office-tools.js";
+import { OFFICE_TOOL_PREFIX } from "./office-tool-names.js";
 
 /**
  * The engine's tools of its own workings, allowed under every profile: loading a skill or a

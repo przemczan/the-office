@@ -81,7 +81,11 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
           windowsChanged.push(event);
         });
         const sessions = new EngineSessions(
-          new AgentEngines({ "agent-sdk": engine, "claude-code-p": engine }),
+          new AgentEngines({
+            "agent-sdk": engine,
+            "claude-code-p": engine,
+            "openai-compatible-api": engine,
+          }),
           new Telemetry(tracing.getTracer("the-office"), metering.getMeter("the-office")),
           events,
           new UsageWindowState(events),

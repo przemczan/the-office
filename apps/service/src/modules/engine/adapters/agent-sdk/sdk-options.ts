@@ -8,7 +8,8 @@ import {
 import type { AgentShell } from "../../../../platform/os/shell.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
 import type { SessionOptions } from "../../ports/session-options.js";
-import { OFFICE_TOOL_SERVER, officeToolAnswer } from "../claude-code/office-tools.js";
+import { officeToolAnswer } from "../claude-code/office-tools.js";
+import { OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
 import {
   sessionEnvironment,
   sessionSettings,

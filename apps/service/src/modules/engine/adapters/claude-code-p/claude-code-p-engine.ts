@@ -28,9 +28,9 @@ import type {
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions, SessionSkills } from "../../ports/session-options.js";
 import { EngineProcess } from "../claude-code/engine-process.js";
-import { officeRulesHook, toolDecision } from "../claude-code/office-rules-hook.js";
+import { officeRulesHook } from "../claude-code/office-rules-hook.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
-import { sessionOfficeRules } from "../claude-code/session-office-rules.js";
+import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
 import { sessionEnvironment } from "../claude-code/session-settings.js";
 import {
   initProblems,
@@ -43,6 +43,7 @@ import { OfficeToolServer } from "./office-tool-server.js";
 import { pinnedBinaryPath } from "./pinned-binary.js";
 import { SessionEndpoints, type OpenEndpoints } from "./session-endpoints.js";
 import { StreamJson } from "./stream-json.js";
+import { toolDecision } from "../office-rules/tool-decision.js";
 
 /** What the engine check found the fallback can do (docs/engine-check.md, "The `-p` fallback"). */
 export const CLAUDE_CODE_P_CAPABILITIES: EngineCapabilities = {
@@ -102,7 +103,7 @@ export class ClaudeCodePEngine extends AgentEngine {
     resumes: boolean,
     options: SessionOptions,
   ): Promise<ClaudeCodePSession> {
-    const rules = sessionOfficeRules(this.operatingSystem, this.officeData.path, id, options);
+    const rules = claudeCodeOfficeRules(this.operatingSystem, this.officeData.path, id, options);
     const streamEvents = new StreamEvents();
     const hold = options.toolHold;
     const endpoints = this.endpoints.open({

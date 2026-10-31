@@ -1,7 +1,7 @@
 import type { McpSdkServerConfig, Settings } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentShell } from "../../../../platform/os/shell.js";
 import type { SessionOptions } from "../../ports/session-options.js";
-import { OFFICE_TOOL_SERVER } from "../claude-code/office-tools.js";
+import { OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
 import { sessionSettings, sessionTools } from "../claude-code/session-settings.js";
 
 /**
