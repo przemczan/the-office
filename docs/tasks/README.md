@@ -62,13 +62,14 @@ Decided with the user on 2026-10-27: a fix is built where it is found only when 
 
 ## Tier 3: on need
 
-Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written when it becomes current, after the [open questions](../spec/8-open-questions-and-risks.md) it needs are settled with the user. Task 28, the phone, waits until after tier 3 (the user, 2026-10-31).
+Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written when it becomes current, after the [open questions](../spec/8-open-questions-and-risks.md) it needs are settled with the user. Task 28, the phone, waits until after tier 3 (the user, 2026-10-31). Task 46, a Project from a git repository, was added on 2026-10-31 to come right after task 36; it keeps its number so the others keep theirs.
 
 | # | Task | Surface | Status |
 | --- | --- | --- | --- |
 | 34 | [Telemetry: the bundled `otel-lgtm` optional, the user's own Grafana or collector](34-telemetry-own-grafana.md) | Foundation | done |
 | 35 | [The OpenAI-compatible API engine, for local LLMs](35-api-based-engine.md) | Foundation | done |
 | 36 | [MCP servers for Agents](36-mcp-servers.md) | People | in progress |
+| 46 | A Project from a git repository, and Sign in with GitHub | Projects | todo |
 | 37 | Usage estimates | Now | todo |
 | 38 | Archive, and moving Tasks between Projects | Work | todo |
 | 39 | Attachment versions | Work and the Task page | todo |

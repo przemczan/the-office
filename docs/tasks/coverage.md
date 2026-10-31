@@ -95,4 +95,5 @@ Every tier 3 item of [spec 3](../spec/3-capabilities-by-tier.md#tier-3-on-need) 
 | §2.7 | Email and chat-app Notifications (WhatsApp first) | 42 |
 | §2.4, §8 | Talking to The Office from chat apps (WhatsApp first) | 43 |
 | §6 | Stack-specific checks for installs and publishing | 44 |
+| §2.1, §2.3, §5.5, §8 | A Project from a git repository (any git URL cloned into the Office data directory; a picker of the user's GitHub repositories; Devops' onboarding by URL), and Sign in with GitHub (a GitHub App, device flow) used for every GitHub Project's fetch, push and pull requests | 46 |
 | §3 | The tier 3 acceptance run | 45 |
