@@ -1,3 +1,4 @@
+import { READ_ONLY_SHELL_RULE } from "../../engine/index.js";
 import { DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
 import { answerWords, type Decision, type DecisionAnswer } from "./decision.js";
 
@@ -17,7 +18,7 @@ export interface SessionPersonCard {
 export function chatInstructions(card: SessionPersonCard): string {
   return [
     ...personInstructions(card),
-    "In your chat you read and answer; you change no file. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch with Read, Grep and Glob (the shell runs only read-only git, so don't reach for it to list or read files), search and fetch the web, and with The Office's tools read its records of Projects, people, Tasks, Initiatives and Ideas, capture an Idea, and create a Task in Backlog when the user asks for one or agrees to it.",
+    `In your chat you read and answer; you change no file. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and with The Office's tools read its records of Projects, people, Tasks, Initiatives and Ideas, capture an Idea, and create a Task in Backlog when the user asks for one or agrees to it.`,
   ].join("\n\n");
 }
 

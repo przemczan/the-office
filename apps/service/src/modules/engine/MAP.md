@@ -1,6 +1,6 @@
 # Engine: module map
 
-**Owns:** the engines a Role may pick (`ENGINES`, `ENGINE_MODELS`: `agent-sdk` and the `-p` fallback `claude-code-p`), the `AgentEngine` port and its adapters, one per engine in `AgentEngines`: the Agent SDK adapter, the fallback's (`adapters/claude-code-p/`: the pinned binary in `-p`, stream-json in and out through `StreamJson`), and the scripted engine every other test runs on (`adapters/scripted/`). What both Claude Code adapters share (the event mapping, tool refusals, the Office rules hook and `toolDecision`, the Office tools' names) is in `adapters/claude-code/`. The fallback's hook reaches the service on `localhost` (`adapters/http/`, under `/api/engine/claude-code-p/`), behind a token per session (`SessionEndpoints`); its Office tools are served in-process through the binary's own stream (`OfficeToolServer` answering `mcp_message` control requests, which `StreamJson` routes to it), judging every call by the session's rules again as it runs. `ClaudeCodePEngine` opens both before it spawns the binary and closes them when the session ends. `EngineSessions` starts and resumes a session on the engine its settings name, and reads capabilities per engine. The Office rules in the `PreToolUse` hook (profiles, the git deny, secrets, protected paths, a command's output written outside the worktree refused in words naming the rule before the engine's own wordless refusal, PowerShell twins), and before them a session's `ToolHold` (`SessionOptions.toolHold`, asked at every call: while it gives words, every call is refused in them, as the fire alarm does; the scripted engine honours it too, running no Office tool), Office tools (`OfficeToolRegistry`), and the 5-hour and 7-day windows (`UsageWindowsChanged`, `EngineDown`).
+**Owns:** the engines a Role may pick (`ENGINES`, `ENGINE_MODELS`: `agent-sdk` and the `-p` fallback `claude-code-p`), the `AgentEngine` port and its adapters, one per engine in `AgentEngines`: the Agent SDK adapter, the fallback's (`adapters/claude-code-p/`: the pinned binary in `-p`, stream-json in and out through `StreamJson`), and the scripted engine every other test runs on (`adapters/scripted/`). What both Claude Code adapters share (the event mapping, tool refusals, the Office rules hook and `toolDecision`, the Office tools' names) is in `adapters/claude-code/`. The fallback's hook reaches the service on `localhost` (`adapters/http/`, under `/api/engine/claude-code-p/`), behind a token per session (`SessionEndpoints`); its Office tools are served in-process through the binary's own stream (`OfficeToolServer` answering `mcp_message` control requests, which `StreamJson` routes to it), judging every call by the session's rules again as it runs. `ClaudeCodePEngine` opens both before it spawns the binary and closes them when the session ends. `EngineSessions` starts and resumes a session on the engine its settings name, and reads capabilities per engine. The Office rules in the `PreToolUse` hook (profiles, the git deny, secrets, protected paths, a command's output written outside the worktree refused in words naming the rule before the engine's own wordless refusal, PowerShell twins; the read-only git refusal names pipes and Read and Grep, as `READ_ONLY_SHELL_RULE` does in the chat, planning and shaping instructions that quote it), and before them a session's `ToolHold` (`SessionOptions.toolHold`, asked at every call: while it gives words, every call is refused in them, as the fire alarm does; the scripted engine honours it too, running no Office tool), Office tools (`OfficeToolRegistry`), and the 5-hour and 7-day windows (`UsageWindowsChanged`, `EngineDown`).
 
 **Talks to:** no module. A session's owner hands it the skills folder, the options and the environment; modules give it their Office tools through `OfficeToolRegistry`. It never reads Skills.
 
@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-EngineSessions, OfficeToolRegistry, OfficeTool, OfficeToolResult, UsageWindowState, EngineDown, UsageWindowsChanged, ENGINE_MODELS, ENGINES, Engine, READ_ONLY_GIT_COMMANDS, EngineModule, ScriptedEngine, StandInEngine, readRecording, SessionScript, ScriptedEngineModule, NewSession, EngineSession
+EngineSessions, OfficeToolRegistry, OfficeTool, OfficeToolResult, UsageWindowState, EngineDown, UsageWindowsChanged, ENGINE_MODELS, ENGINES, Engine, READ_ONLY_GIT_COMMANDS, READ_ONLY_SHELL_RULE, EngineModule, ScriptedEngine, StandInEngine, readRecording, SessionScript, ScriptedEngineModule, NewSession, EngineSession
 
 ## Domain events
 
@@ -83,7 +83,7 @@ EngineSessions, OfficeToolRegistry, OfficeTool, OfficeToolResult, UsageWindowSta
 - `engine-events.ts`: UsageWindowsChanged, EngineDown
 - `engines.ts`: ENGINES, Engine, ENGINE_MODELS
 - `git-commands.ts`: READ_ONLY_GIT_COMMANDS, isGit, gitChange
-- `office-rules.ts`: ToolDecision, OfficeRules
+- `office-rules.ts`: ToolDecision, READ_ONLY_SHELL_RULE, OfficeRules
 - `permission-profile.ts`: CommandPermission, PermissionProfile
 - `secret-paths.ts`: SecretPaths
 - `session-rules.ts`: PathSemantics, SessionRules

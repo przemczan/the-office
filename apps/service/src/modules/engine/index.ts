@@ -5,6 +5,7 @@ export { UsageWindowState } from "./application/usage-window-state.js";
 export { EngineDown, UsageWindowsChanged } from "./domain/engine-events.js";
 export { ENGINE_MODELS, ENGINES, type Engine } from "./domain/engines.js";
 export { READ_ONLY_GIT_COMMANDS } from "./domain/git-commands.js";
+export { READ_ONLY_SHELL_RULE } from "./domain/office-rules.js";
 export { EngineModule } from "./engine.module.js";
 // For other modules' tests: sessions replay scripts, with no model calls.
 export { ScriptedEngine, type StandInEngine } from "./adapters/scripted/scripted-engine.js";

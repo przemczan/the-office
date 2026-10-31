@@ -302,6 +302,14 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
         }
       });
 
+      it("says a pipe is refused too, and to read and search with Read and Grep", () => {
+        expect(planner.decide(command(dialect, "git show HEAD:README.md | head -20"))).toEqual({
+          allowed: false,
+          reason:
+            "Not allowed in this session: commands other than read-only git (status, diff, log, show), alone or in a pipe; read files with Read and search them with Grep instead.",
+        });
+      });
+
       it("runs the Project's own commands, with more arguments, and read-only git", () => {
         for (const commandLine of [
           "npm test",

@@ -30,6 +30,14 @@ const ALLOWED: ToolDecision = { allowed: true };
 
 const READ_ONLY_GIT = `read-only git (${READ_ONLY_GIT_COMMANDS.join(", ")})`;
 
+const READ_WITH_TOOLS = "read files with Read and search them with Grep";
+
+/**
+ * The read-only git profile's rule in the words of a session's instructions, matching its refusal:
+ * Agents on it reached for head and grep through the shell (task 31's live run).
+ */
+export const READ_ONLY_SHELL_RULE = `the shell runs only ${READ_ONLY_GIT} and refuses every other command, in a pipe too (git show | head is refused), so ${READ_WITH_TOOLS}`;
+
 /**
  * The Office rules, which no profile loosens (git, secrets, protected paths, the folders a session
  * reads and edits), and then the session's permission profile, applied as data (spec §6).
@@ -214,7 +222,9 @@ export class OfficeRules {
     const program = programWords(command, dialect);
     if (program.length === 0 || isGit(program)) return undefined;
     if (permission.kind === "read-only-git") {
-      return notAllowedReason(`commands other than ${READ_ONLY_GIT}`);
+      return notAllowedReason(
+        `commands other than ${READ_ONLY_GIT}, alone or in a pipe; ${READ_WITH_TOOLS} instead`,
+      );
     }
     return projectCommands(permission.commandLines).some((allowed) => startsWith(program, allowed))
       ? undefined

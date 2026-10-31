@@ -14,14 +14,18 @@ export function onboardTaskPlan(projectName: string): string {
     `Make ${projectName} build and test in a fresh worktree of its base branch.`,
     "Run its install, build, lint and test commands there, fix what fails in the repository, and propose better commands where they are wrong.",
     "Ask before installing anything on the workstation.",
-    "Verify then runs the Test command; Publish ships the fixes by the Project's publishing mode.",
+    "Verify then runs the Test command; Publish ships the fixes by the Project's publishing mode. A repository that needs no fixes is onboarded as it is: report the Definition of Done met.",
   ].join("\n\n");
 }
 
+/**
+ * Devops reports it in the Onboard Stage, before Publish runs, so each statement must hold then,
+ * the last one for a repository that needed no fixes too (task 31's live run).
+ */
 export const ONBOARD_TASK_DEFINITION_OF_DONE: readonly string[] = [
   "The install, build, lint and test commands pass in a fresh worktree of the base branch.",
   "Nothing was installed on the workstation without the user's approval.",
-  "The fixes the repository needed are published by the Project's publishing mode.",
+  "The fixes the repository needed, if any, are made in the worktree for Publish to ship by the Project's publishing mode; a repository that needed none meets this as it is.",
 ];
 
 /** What The Office sets on a Project's Onboard Task besides its Project. */
