@@ -9,9 +9,11 @@ import type { ToolDefinition } from "./chat-completions.js";
 import { EDIT_TOOL } from "./edit-tool.js";
 import { GLOB_TOOL } from "./glob-tool.js";
 import { GREP_TOOL } from "./grep-tool.js";
+import type { ListedSkill } from "./listed-skills.js";
 import { officeBuiltInTool, type CallJudge } from "./office-tool.js";
 import { READ_TOOL } from "./read-tool.js";
 import { shellTool } from "./shell-tool.js";
+import { skillTool } from "./skill-tool.js";
 import { structuredOutputTool } from "./structured-output-tool.js";
 import { taskStopTool } from "./task-stop-tool.js";
 import { webFetchTool } from "./web-fetch-tool.js";
@@ -30,6 +32,8 @@ export interface SessionToolParts {
   readonly backgroundCommands: BackgroundCommands;
   /** What WebSearch goes through; none while Settings › Engines sets no search endpoint. */
   readonly searchEndpoint: SearchEndpointClient | undefined;
+  /** What the session lists, which Skill loads; Skill is offered with none too. */
+  readonly skills: readonly ListedSkill[];
   readonly sessionId: string;
   readonly officeTools: readonly OfficeTool[];
   /** Judges an Office tool's call again as it runs. */
@@ -55,6 +59,7 @@ export class SessionTools {
       taskStopTool(parts.backgroundCommands),
       webFetchTool(),
       webSearchTool(parts.searchEndpoint),
+      skillTool(parts.skills),
       ...parts.officeTools.map((tool) => officeBuiltInTool(tool, parts.sessionId, parts.judge)),
       ...(parts.outputSchema === undefined ? [] : [structuredOutputTool(parts.outputSchema)]),
     ]);

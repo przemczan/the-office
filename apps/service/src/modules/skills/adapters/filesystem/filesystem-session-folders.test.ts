@@ -68,13 +68,13 @@ describe("FilesystemSessionFolders", () => {
     expect(await readdir(join(officeData, "sessions"))).toEqual([]);
   });
 
-  it("keeps what else a session's folder holds", async () => {
+  it("removes what else a session's folder holds, such as the conversation an engine keeps", async () => {
     await folders.write("s-1", [tdd]);
-    await writeFile(join(officeData, "sessions", "s-1", "other"), "");
+    await writeFile(join(officeData, "sessions", "s-1", "conversation.json"), "{}");
 
     await folders.remove("s-1");
 
-    expect(await readdir(join(officeData, "sessions", "s-1"))).toEqual(["other"]);
+    expect(await readdir(join(officeData, "sessions"))).toEqual([]);
   });
 
   it("prunes the folders of sessions it isn't told to keep, and what a crash left", async () => {

@@ -13,8 +13,15 @@ import { portToolName } from "../office-rules/office-tool-names.js";
 import type { BackgroundCommands } from "./background-commands.js";
 import type { ToolContext, ToolOutput } from "./built-in-tool.js";
 import { ChatCompletionsError, type ChatCompletionsClient } from "./chat-completions-client.js";
-import type { ChatMessage, SystemMessage, ToolCall, ToolMessage } from "./chat-completions.js";
+import type {
+  ChatMessage,
+  SystemMessage,
+  ToolCall,
+  ToolDefinition,
+  ToolMessage,
+} from "./chat-completions.js";
 import type { Completion } from "./completion-assembly.js";
+import type { ConversationFile } from "./conversation-file.js";
 import type { SessionTools } from "./session-tools.js";
 import { STRUCTURED_OUTPUT_TOOL } from "./structured-output-tool.js";
 
@@ -23,6 +30,8 @@ export interface ApiSessionParts {
   readonly client: ChatCompletionsClient;
   /** The model's id at its API endpoint. */
   readonly model: string;
+  /** How many tokens the model's context holds, as Settings › Engines lists it. */
+  readonly contextWindow: number;
   readonly system: SystemMessage;
   readonly tools: SessionTools;
   readonly toolContext: ToolContext;
@@ -30,6 +39,10 @@ export interface ApiSessionParts {
   readonly backgroundCommands: BackgroundCommands;
   /** Whether each turn ends in output given through StructuredOutput. */
   readonly answersInSchema: boolean;
+  /** Where the conversation is kept after each turn, so the session resumes from it. */
+  readonly conversationFile: ConversationFile;
+  /** The conversation a resumed session kept; empty for a new one. */
+  readonly kept: readonly ChatMessage[];
   /** The Office rules' decision on a call, as `toolDecision` gives it. */
   judge(tool: string, input: unknown): Promise<ToolDecision>;
 }
@@ -72,18 +85,22 @@ interface AnsweredCall {
  */
 export class ApiSession implements EngineSession {
   private readonly reported = new AsyncChannel<SessionEvent>();
-  private readonly conversation: ChatMessage[] = [];
+  private readonly conversation: ChatMessage[];
   /** Messages sent and not yet taken by a turn, in the order they came. */
   private readonly waiting: WaitingMessage[] = [];
   private readonly ending = new AbortController();
   private running: Promise<void> | undefined;
   private turnRunning: RunningTurn | undefined;
   private failed = false;
+  /** What the last request held, as its API endpoint counted it; undefined until one counts. */
+  private requestTokens: number | undefined;
 
   constructor(
     readonly id: string,
     private readonly parts: ApiSessionParts,
-  ) {}
+  ) {
+    this.conversation = [...parts.kept];
+  }
 
   get events(): AsyncIterable<SessionEvent> {
     return this.reported;
@@ -114,8 +131,18 @@ export class ApiSession implements EngineSession {
     throw new CapabilityMissing("usageWindows");
   }
 
+  /**
+   * The last request's prompt and answer, which the next request starts from, against the model's
+   * window. Nothing is ever compacted: near the limit the session's owner asks for a handover
+   * (spec §2.5). A server that counts no tokens is estimated from the conversation's length.
+   */
   async readContextUsage(): Promise<ContextUsage> {
-    throw new CapabilityMissing("contextUsage");
+    const { system, tools, contextWindow } = this.parts;
+    return {
+      tokens:
+        this.requestTokens ?? estimatedTokens([system, ...this.conversation], tools.definitions),
+      window: contextWindow,
+    };
   }
 
   async end(): Promise<void> {
@@ -141,6 +168,7 @@ export class ApiSession implements EngineSession {
       } finally {
         this.turnRunning = undefined;
       }
+      await this.parts.conversationFile.save(this.conversation);
     }
   }
 
@@ -181,11 +209,11 @@ export class ApiSession implements EngineSession {
         consumed.push(...this.take(this.takeWaiting("next")));
       }
     } catch (error) {
-      if (this.ending.signal.aborted) return;
+      // Before the session's end too: the kept conversation must answer every call it holds.
       this.answerInterrupted(unanswered);
       if (signal.aborted) {
         this.conversation.push({ role: "user", content: INTERRUPTED_NOTE });
-        this.turnEnded("interrupted", consumed, usage, []);
+        if (!this.ending.signal.aborted) this.turnEnded("interrupted", consumed, usage, []);
         return;
       }
       if (!(error instanceof ChatCompletionsError)) throw error;
@@ -241,11 +269,15 @@ export class ApiSession implements EngineSession {
   private async complete(signal: AbortSignal): Promise<Completion> {
     const { client, model, system, tools } = this.parts;
     const answer = client.stream(
-      { model, messages: [system, ...this.conversation], tools: tools.definitions },
+      { model, messages: requestMessages(system, this.conversation), tools: tools.definitions },
       signal,
     );
     for await (const event of answer) {
-      if (event.kind === "completed") return event.completion;
+      if (event.kind === "completed") {
+        const { usage } = event.completion;
+        if (usage !== undefined) this.requestTokens = requestTokens(usage);
+        return event.completion;
+      }
       this.reported.push({ kind: "text", text: event.text, withinToolCall: undefined });
     }
     throw new ChatCompletionsError("The API endpoint's answer ended before it was complete.");
@@ -402,6 +434,45 @@ function parsedArguments(text: string): ParsedArguments {
   } catch (error) {
     return { parsed: false, problem: messageOf(error) };
   }
+}
+
+/**
+ * What a request sends: the user messages that follow one another (waiting messages, a background
+ * command's notice, the note of an interrupted turn) joined into one, as a strict chat template
+ * refuses two in a row. The kept conversation holds them apart.
+ */
+function requestMessages(
+  system: SystemMessage,
+  conversation: readonly ChatMessage[],
+): ChatMessage[] {
+  const messages: ChatMessage[] = [system];
+  for (const message of conversation) {
+    const last = messages.at(-1);
+    if (message.role === "user" && last?.role === "user") {
+      messages[messages.length - 1] = {
+        role: "user",
+        content: `${last.content}\n\n${message.content}`,
+      };
+    } else {
+      messages.push(message);
+    }
+  }
+  return messages;
+}
+
+/** Everything the request held, the cached part too, and the answer, which the next one holds. */
+function requestTokens(usage: TokenUsage): number {
+  return usage.input + usage.cacheRead + usage.cacheCreation + usage.output;
+}
+
+/** About four characters a token, as a rough measure for a server that counts none. */
+const CHARACTERS_PER_TOKEN = 4;
+
+function estimatedTokens(
+  messages: readonly ChatMessage[],
+  tools: readonly ToolDefinition[],
+): number {
+  return Math.ceil(JSON.stringify({ messages, tools }).length / CHARACTERS_PER_TOKEN);
 }
 
 function added(sum: TokenUsage, usage: TokenUsage | undefined): TokenUsage {

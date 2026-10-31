@@ -17,7 +17,10 @@ export abstract class SessionFolders {
    */
   abstract write(sessionId: string, skills: readonly SessionFolderSkill[]): Promise<string>;
 
-  /** Does nothing when the session has no folder. */
+  /**
+   * Removes the session's whole folder, with what an engine keeps there to resume the session, as
+   * the OpenAI-compatible API's conversation. Does nothing when the session has no folder.
+   */
   abstract remove(sessionId: string): Promise<void>;
 
   /** Removes the folder of every session `keep` refuses. */

@@ -8,7 +8,6 @@ import type { ToolDecision } from "../../domain/office-rules.js";
 import { listingProblems } from "../../domain/skill-listing.js";
 import {
   AgentEngine,
-  CapabilityMissing,
   ModelNotOffered,
   SessionSkillsDiffer,
   type EngineCapabilities,
@@ -24,19 +23,20 @@ import { ApiSession } from "./api-session.js";
 import { BackgroundCommands, backgroundCommandFolder } from "./background-commands.js";
 import { ReadFiles } from "./built-in-tool.js";
 import { ChatCompletionsClient } from "./chat-completions-client.js";
+import type { ChatMessage } from "./chat-completions.js";
+import { ConversationFile } from "./conversation-file.js";
+import { listedSkills } from "./listed-skills.js";
+import { projectInstructions } from "./project-instructions.js";
 import { SessionTools } from "./session-tools.js";
 import { systemPrompt } from "./system-prompt.js";
 
-/**
- * What the loop does so far. It never reads usage windows: a local server has none. Resume and the
- * context usage are missing until the loop keeps its conversation (docs/tasks/35-api-based-engine.md).
- */
+/** It never reads usage windows: a local server has none. */
 export const OPENAI_COMPATIBLE_API_CAPABILITIES: EngineCapabilities = {
   bargeIn: true,
   interrupt: true,
-  resume: false,
+  resume: true,
   usageWindows: false,
-  contextUsage: false,
+  contextUsage: true,
   officeTools: true,
   outputSchema: true,
 };
@@ -45,6 +45,16 @@ export const OPENAI_COMPATIBLE_API_CAPABILITIES: EngineCapabilities = {
 interface EndpointModel {
   readonly endpoint: ApiEndpoint;
   readonly modelId: string;
+  readonly contextWindow: number;
+}
+
+/** What a session opens with beside its options. */
+interface SessionOpening {
+  readonly endpointModel: EndpointModel;
+  readonly searchEndpoint: SearchEndpoint | null;
+  readonly conversationFile: ConversationFile;
+  /** The conversation a resumed session kept; empty for a new one. */
+  readonly kept: readonly ChatMessage[];
 }
 
 /**
@@ -68,29 +78,50 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
   async start({ id, options, brief }: NewSession): Promise<EngineSession> {
     this.requireFor(options);
     const settings = await this.settings.read();
-    const session = this.open(
-      id,
-      options,
-      endpointModel(settings, options.model),
-      settings.searchEndpoint,
-    );
+    const session = await this.open(id, options, {
+      endpointModel: endpointModel(settings, options.model),
+      searchEndpoint: settings.searchEndpoint,
+      conversationFile: this.conversationFile(id),
+      kept: [],
+    });
     session.send(brief, "later");
     return session;
   }
 
-  /** The loop keeps no conversation yet to resume from. */
-  async resume(_sessionId: string, _options: SessionOptions): Promise<EngineSession> {
-    throw new CapabilityMissing("resume");
+  /** From the conversation the session kept; throws ConversationMissing when it kept none. */
+  async resume(sessionId: string, options: SessionOptions): Promise<EngineSession> {
+    this.require("resume");
+    this.requireFor(options);
+    const settings = await this.settings.read();
+    const conversationFile = this.conversationFile(sessionId);
+    return this.open(sessionId, options, {
+      endpointModel: endpointModel(settings, options.model),
+      searchEndpoint: settings.searchEndpoint,
+      conversationFile,
+      kept: await conversationFile.read(),
+    });
   }
 
-  private open(
+  private conversationFile(sessionId: string): ConversationFile {
+    return ConversationFile.of(this.officeData.folder("sessions"), sessionId);
+  }
+
+  /** Refuses, before any request, a session without exactly its skills (spec §5.6). */
+  private async open(
     id: string,
     options: SessionOptions,
-    { endpoint, modelId }: EndpointModel,
-    searchEndpoint: SearchEndpoint | null,
-  ): ApiSession {
-    // The loop lists no skills yet, so a session that must have some can't start.
-    const problems = listingProblems(options.skills?.expected ?? [], []);
+    {
+      endpointModel: { endpoint, modelId, contextWindow },
+      searchEndpoint,
+      conversationFile,
+      kept,
+    }: SessionOpening,
+  ): Promise<ApiSession> {
+    const skills = await listedSkills(options.folder, options.skills);
+    const problems = listingProblems(
+      options.skills?.expected ?? [],
+      skills.map(({ name }) => name),
+    );
     if (problems.length > 0) throw new SessionSkillsDiffer(id, problems);
     const { paths, agentShells, processTrees } = this.operatingSystem;
     const backgroundCommands = new BackgroundCommands(
@@ -107,9 +138,11 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
     return new ApiSession(id, {
       client: new ChatCompletionsClient(endpoint),
       model: modelId,
+      contextWindow,
       system: systemPrompt({
         folder: options.folder,
         operatingSystem: this.operatingSystem.name,
+        projectInstructions: await projectInstructions(options.folder),
         instructions: options.instructions,
         answersInSchema: options.outputSchema !== undefined,
       }),
@@ -118,6 +151,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
         processTrees,
         backgroundCommands,
         searchEndpoint: searchEndpoint === null ? undefined : new SearxngClient(searchEndpoint),
+        skills,
         sessionId: id,
         officeTools: options.officeTools,
         judge,
@@ -132,6 +166,8 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
       },
       backgroundCommands,
       answersInSchema: options.outputSchema !== undefined,
+      conversationFile,
+      kept,
       judge,
     });
   }
@@ -151,11 +187,12 @@ function endpointModel(settings: EngineSettings, model: string): EndpointModel {
       `Settings › Engines lists no API endpoint ${named.endpointId}; pick another model on the Role card.`,
     );
   }
-  if (!endpoint.models.some(({ id }) => id === named.modelId)) {
+  const offered = endpoint.models.find(({ id }) => id === named.modelId);
+  if (offered === undefined) {
     throw new ModelNotOffered(
       model,
       `the API endpoint ${endpoint.name} lists no model ${named.modelId} in Settings › Engines; pick another model on the Role card.`,
     );
   }
-  return { endpoint, modelId: named.modelId };
+  return { endpoint, modelId: offered.id, contextWindow: offered.contextWindow };
 }

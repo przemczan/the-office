@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
@@ -20,13 +20,14 @@ import type { OfficeTool } from "../../ports/office-tool.js";
 import type { EngineSession } from "../../ports/engine-session.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
 import type { SessionEvent, TurnEndedEvent } from "../../ports/session-events.js";
-import type { SessionOptions } from "../../ports/session-options.js";
+import type { SessionOptions, SessionSkills } from "../../ports/session-options.js";
 import {
   FakeChatCompletionsServer,
   textReply,
   type ScriptedAnswer,
   type ScriptedReply,
 } from "./fake-chat-completions-server.fixtures.js";
+import { ConversationMissing } from "./conversation-file.js";
 import {
   OPENAI_COMPATIBLE_API_CAPABILITIES,
   OpenAiCompatibleApiEngine,
@@ -40,13 +41,18 @@ const SHELL_TOOLS = currentOperatingSystem().agentShells.map(({ shell }) =>
 );
 
 let fake: FakeChatCompletionsServer;
+let officeData: string;
 
-beforeAll(async () => {
+// A server and an Office data folder per test: under load a slow test's session may still ask for
+// answers once it is over, and with a shared server it took those scripted for the next tests.
+beforeEach(async () => {
   fake = await FakeChatCompletionsServer.start();
+  officeData = await mkdtemp(join(tmpdir(), "office-api-data-"));
 });
 
-afterAll(async () => {
+afterEach(async () => {
   await fake.close();
+  await rm(officeData, { recursive: true, force: true });
 });
 
 function endpoint(models = [{ id: "coder:q4", contextWindow: 100_000 }]): ApiEndpoint {
@@ -59,7 +65,7 @@ function engineOn(
 ): OpenAiCompatibleApiEngine {
   return new OpenAiCompatibleApiEngine(
     new EngineSettingsForTests({ apiEndpoints: endpoints, searchEndpoint }),
-    new OfficeDataDirectory(join(tmpdir(), "office-data-of-no-test")),
+    new OfficeDataDirectory(officeData),
   );
 }
 
@@ -95,6 +101,14 @@ function contractAnswers(scenario: ContractScenario): ScriptedAnswer[] {
       return [toolCall("mcp__office__hold", {}), textReply(["back"], USAGE)];
     case "output-schema":
       return [toolCall("StructuredOutput", { word: "ready" }), textReply(["ready"], USAGE)];
+    case "resume":
+      return [
+        textReply(["ok"], USAGE),
+        toolCall("mcp__office__note", { word: "tangerine" }),
+        textReply(["done"], USAGE),
+      ];
+    case "context-usage":
+      return [textReply(["ready"], USAGE)];
     default:
       return [];
   }
@@ -188,6 +202,7 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
       "TaskStop",
       "WebFetch",
       "WebSearch",
+      "Skill",
     ]);
   });
 
@@ -370,16 +385,213 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
     await expect(start("claude-haiku-5-5")).rejects.toThrow(ModelNotOffered);
   });
 
-  it("doesn't start a session that must list skills, since it lists none yet", async () => {
-    const start = engineOn().start({
-      id: "s-1",
-      options: options({
-        skills: { folder, names: ["review"], expected: ["review"], overrides: {} },
-      }),
-      brief: { id: "b", text: "Hi." },
+  it("gives the model the Project's instruction files that apply to every file", async () => {
+    await writeFile(join(folder, "CLAUDE.md"), "Run the tests before you commit.\n");
+    await mkdir(join(folder, ".claude", "rules"), { recursive: true });
+    await writeFile(join(folder, ".claude", "rules", "style.md"), "Name things plainly.\n");
+    await writeFile(
+      join(folder, ".claude", "rules", "web.md"),
+      "---\npaths: ['web/**']\n---\nUse the design system.\n",
+    );
+    await writeFile(join(folder, "CLAUDE.local.md"), "Only mine.\n");
+    fake.script(textReply(["Ok."], USAGE));
+
+    await oneTurn();
+
+    const system = String(lastRequestBody().messages[0]?.["content"]);
+    expect(system).toContain(
+      `Contents of ${join(folder, "CLAUDE.md")} (project instructions, checked into the codebase):\n\nRun the tests before you commit.`,
+    );
+    expect(system).toContain("Name things plainly.");
+    expect(system).not.toContain("Use the design system.");
+    expect(system).not.toContain("Only mine.");
+    expect(system.indexOf("Run the tests")).toBeLessThan(system.indexOf("You are the Developer."));
+  });
+
+  describe("its skills", () => {
+    let plugin: string;
+
+    beforeEach(async () => {
+      plugin = join(folder, "..", `${randomUUID()}-plugin`);
+      await writeTextFile(join(plugin, ".claude-plugin", "plugin.json"), '{"name":"office"}');
+      await writeTextFile(
+        join(plugin, "skills", "tdd", "SKILL.md"),
+        "---\nname: tdd\ndescription: Test first.\n---\n\nWrite the test, then $ARGUMENTS.\n",
+      );
+      await writeTextFile(
+        join(folder, ".claude", "skills", "lint-all", "SKILL.md"),
+        "---\nname: lint\ndescription: Lints the code.\n---\nRun the linter.\n",
+      );
+      await writeTextFile(join(folder, ".claude", "commands", "ops", "deploy.md"), "# Deploys\n");
     });
 
-    await expect(start).rejects.toThrow(SessionSkillsDiffer);
+    afterEach(async () => {
+      await rm(plugin, { recursive: true, force: true });
+    });
+
+    const allowingProject = (): SessionSkills => ({
+      folder: plugin,
+      names: ["office:tdd", "lint-all", "ops:deploy"],
+      expected: ["lint", "office:tdd", "ops:deploy"],
+      overrides: {},
+    });
+
+    it("lists exactly its skills to the model, the Project's by the name they list as", async () => {
+      fake.script(textReply(["Ok."], USAGE));
+
+      await oneTurn(options({ skills: allowingProject() }));
+
+      const skill = lastRequestBody().tools.find((tool) => tool.function.name === "Skill");
+      expect(skill?.function.description).toContain(
+        "Available skills:\n- lint: Lints the code.\n- office:tdd: Test first.\n- ops:deploy: Deploys",
+      );
+    });
+
+    it("leaves out the Project's skills its Project turns off", async () => {
+      fake.script(textReply(["Ok."], USAGE));
+
+      await oneTurn(
+        options({
+          skills: {
+            folder: plugin,
+            names: ["office:tdd"],
+            expected: ["office:tdd"],
+            overrides: { "lint-all": "off", "ops:deploy": "off" },
+          },
+        }),
+      );
+
+      const skill = lastRequestBody().tools.find((tool) => tool.function.name === "Skill");
+      expect(skill?.function.description).toContain("Available skills:\n- office:tdd: Test first.");
+      expect(skill?.function.description).not.toContain("lint");
+    });
+
+    it("doesn't start a session whose listing isn't exactly what it must list", async () => {
+      const start = engineOn().start({
+        id: "s-1",
+        options: options({
+          skills: { ...allowingProject(), expected: ["office:tdd", "review"] },
+        }),
+        brief: { id: "b", text: "Hi." },
+      });
+
+      await expect(start).rejects.toThrow(SessionSkillsDiffer);
+      await expect(start).rejects.toThrow("It doesn't list review.");
+      expect(fake.requests).toEqual([]);
+    });
+
+    it("loads a skill by its name, its arguments filled in, from the folder it is in", async () => {
+      fake.script(
+        toolCall("Skill", { skill: "office:tdd", args: "make it pass" }),
+        toolCall("Skill", { skill: "/ops:deploy" }),
+        toolCall("Skill", { skill: "review" }),
+        textReply(["Done."], USAGE),
+      );
+
+      const { events } = await oneTurn(options({ skills: allowingProject() }));
+
+      const results = events.filter((event) => event.kind === "tool-result");
+      expect(results).toMatchObject([
+        {
+          isError: false,
+          text: `Base directory for this skill: ${join(plugin, "skills", "tdd")}\n\nWrite the test, then make it pass.`,
+        },
+        { isError: false, text: "# Deploys" },
+        { isError: true, text: "Unknown skill: review" },
+      ]);
+      expect(events.some((event) => event.kind === "tool-refused")).toBe(false);
+    });
+  });
+
+  describe("its conversation", () => {
+    it("resumes an ended session from the conversation it kept, by its id", async () => {
+      const id = randomUUID();
+      fake.script(
+        toolCall("Read", { file_path: join(folder, "missing.txt") }),
+        textReply(["First."], USAGE),
+      );
+      const first = await engineOn().start({
+        id,
+        options: options(),
+        brief: { id: "brief", text: "Begin." },
+      });
+      session = first;
+      await untilTurnEnds(first.events[Symbol.asyncIterator]());
+      await first.end();
+
+      fake.script(textReply(["Second."], USAGE));
+      const resumed = await engineOn().resume(id, options());
+      session = resumed;
+      resumed.send({ id: "again", text: "Again." }, "next");
+      const { turn } = await untilTurnEnds(resumed.events[Symbol.asyncIterator]());
+
+      expect(turn).toMatchObject({ outcome: "completed", consumedMessageIds: ["again"] });
+      expect(lastRequestBody().messages.slice(1)).toMatchObject([
+        { role: "user", content: "Begin." },
+        { role: "assistant", tool_calls: [{ function: { name: "Read" } }] },
+        { role: "tool" },
+        { role: "assistant", content: "First." },
+        { role: "user", content: "Again." },
+      ]);
+      expect(lastRequestBody().messages[0]).toMatchObject({ role: "system" });
+    });
+
+    it("keeps an answer for each call of a turn the session's end cut short", async () => {
+      const id = randomUUID();
+      fake.script(toolCall("mcp__office__hold", {}));
+      const hold: OfficeTool = {
+        name: "hold",
+        description: "Holds.",
+        input: z.object({}),
+        run: () => new Promise(() => undefined),
+      };
+      const first = await engineOn().start({
+        id,
+        options: options({ officeTools: [hold] }),
+        brief: { id: "brief", text: "Begin." },
+      });
+      const events = first.events[Symbol.asyncIterator]();
+      let next = await events.next();
+      while (!next.done && next.value.kind !== "tool-call") next = await events.next();
+      await first.end();
+
+      fake.script(textReply(["Back."], USAGE));
+      const resumed = await engineOn().resume(id, options({ officeTools: [hold] }));
+      session = resumed;
+      resumed.send({ id: "again", text: "Again." }, "next");
+      await untilTurnEnds(resumed.events[Symbol.asyncIterator]());
+
+      expect(lastRequestBody().messages.slice(2)).toMatchObject([
+        { role: "assistant" },
+        { role: "tool", content: "Interrupted before it finished." },
+        { role: "user", content: "[The user interrupted this turn.]\n\nAgain." },
+      ]);
+    });
+
+    it("refuses to resume a session that kept no conversation", async () => {
+      await expect(engineOn().resume(randomUUID(), options())).rejects.toThrow(ConversationMissing);
+    });
+
+    it("reads the context usage from the last request's tokens, against the model's window", async () => {
+      fake.script(
+        toolCall("Read", { file_path: join(folder, "missing.txt") }),
+        textReply(["Done."], { prompt: 900, completion: 30, cached: 600 }),
+      );
+
+      await oneTurn();
+
+      expect(await session?.readContextUsage()).toEqual({ tokens: 930, window: 100_000 });
+    });
+
+    it("estimates the context usage when the API endpoint counts no tokens", async () => {
+      fake.script(textReply(["Done."]));
+
+      await oneTurn();
+
+      const usage = await session?.readContextUsage();
+      expect(usage?.window).toBe(100_000);
+      expect(usage?.tokens).toBeGreaterThan(100);
+    });
   });
 
   describe("its shells", () => {
@@ -473,12 +685,16 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
       });
       expect(next.turn).toMatchObject({ outcome: "completed", consumedMessageIds: ["after"] });
       const messages = lastRequestBody().messages;
-      expect(messages.slice(-4).map((message) => message["role"])).toEqual([
+      expect(messages.slice(-3).map((message) => message["role"])).toEqual([
         "assistant",
         "tool",
         "user",
-        "user",
       ]);
+      // The interrupted turn's note and the next message, as one: a chat template may refuse two.
+      expect(messages.at(-1)).toEqual({
+        role: "user",
+        content: "[The user interrupted this turn.]\n\nGo on.",
+      });
     });
   });
 
@@ -694,9 +910,7 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
     expect(turn.outcome).toBe("interrupted");
     expect(await streaming?.ended).toBe("closed-by-client");
     expect(lastRequestBody().messages.slice(1)).toEqual([
-      { role: "user", content: "Begin." },
-      { role: "user", content: "[The user interrupted this turn.]" },
-      { role: "user", content: "Go on." },
+      { role: "user", content: "Begin.\n\n[The user interrupted this turn.]\n\nGo on." },
     ]);
   });
 
@@ -790,6 +1004,11 @@ async function childProcessId(folder: string): Promise<number> {
   }
 }
 
+async function writeTextFile(path: string, text: string): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, text);
+}
+
 const WORD_SCHEMA = {
   type: "object",
   properties: { word: { type: "string" } },
@@ -808,7 +1027,9 @@ function inheritedEnvironment(): Record<string, string> {
 interface RecordedBody {
   readonly model: string;
   readonly messages: readonly Record<string, unknown>[];
-  readonly tools: readonly { readonly function: { readonly name: string } }[];
+  readonly tools: readonly {
+    readonly function: { readonly name: string; readonly description: string };
+  }[];
 }
 
 function lastRequestBody(): RecordedBody {
