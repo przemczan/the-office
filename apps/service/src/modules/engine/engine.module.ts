@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { McpClientModule } from "../../platform/mcp/mcp-client.module.js";
 import { AgentSdkEngine } from "./adapters/agent-sdk/agent-sdk-engine.js";
 import { ClaudeCodePEngine } from "./adapters/claude-code-p/claude-code-p-engine.js";
 import { SessionEndpoints } from "./adapters/claude-code-p/session-endpoints.js";
@@ -11,7 +12,7 @@ import { UsageWindowState } from "./application/usage-window-state.js";
 import { EngineSettingsModule } from "./engine-settings.module.js";
 
 @Module({
-  imports: [EngineSettingsModule],
+  imports: [EngineSettingsModule, McpClientModule],
   controllers: [SessionEndpointsController],
   providers: [
     AgentSdkEngine,

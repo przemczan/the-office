@@ -9,6 +9,7 @@ import type {
   UserMessage,
 } from "../../ports/engine-session.js";
 import type { SessionEvent, TokenUsage, TurnOutcome } from "../../ports/session-events.js";
+import type { McpServerConnections } from "../mcp-servers/mcp-server-connections.js";
 import { portToolName } from "../office-rules/office-tool-names.js";
 import type { BackgroundCommands } from "./background-commands.js";
 import type { ToolContext, ToolOutput } from "./built-in-tool.js";
@@ -37,6 +38,8 @@ export interface ApiSessionParts {
   readonly toolContext: ToolContext;
   /** The session's background commands, ended on interrupt and when the session ends. */
   readonly backgroundCommands: BackgroundCommands;
+  /** The session's MCP servers, each ended with its process tree when the session ends. */
+  readonly mcpConnections: McpServerConnections;
   /** Whether each turn ends in output given through StructuredOutput. */
   readonly answersInSchema: boolean;
   /** Where the conversation is kept after each turn, so the session resumes from it. */
@@ -148,7 +151,7 @@ export class ApiSession implements EngineSession {
   async end(): Promise<void> {
     this.ending.abort(new SessionEnded());
     await this.running;
-    await this.parts.backgroundCommands.close();
+    await Promise.all([this.parts.backgroundCommands.close(), this.parts.mcpConnections.close()]);
     if (!this.failed) this.reported.close();
   }
 

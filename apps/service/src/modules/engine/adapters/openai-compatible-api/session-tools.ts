@@ -2,7 +2,8 @@ import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
 import type { AgentShellProgram } from "../../../../platform/os/shell.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
 import type { SearchEndpointClient } from "../../ports/search-endpoint-client.js";
-import type { JsonSchema } from "../../ports/session-options.js";
+import type { JsonSchema, SessionMcpServer } from "../../ports/session-options.js";
+import type { McpServerConnections } from "../mcp-servers/mcp-server-connections.js";
 import type { BackgroundCommands } from "./background-commands.js";
 import type { BuiltInTool } from "./built-in-tool.js";
 import type { ToolDefinition } from "./chat-completions.js";
@@ -10,6 +11,7 @@ import { EDIT_TOOL } from "./edit-tool.js";
 import { GLOB_TOOL } from "./glob-tool.js";
 import { GREP_TOOL } from "./grep-tool.js";
 import type { ListedSkill } from "./listed-skills.js";
+import { mcpBuiltInTool } from "./mcp-tool.js";
 import { officeBuiltInTool, type CallJudge } from "./office-tool.js";
 import { READ_TOOL } from "./read-tool.js";
 import { shellTool } from "./shell-tool.js";
@@ -38,6 +40,9 @@ export interface SessionToolParts {
   readonly officeTools: readonly OfficeTool[];
   /** Judges an Office tool's call again as it runs. */
   readonly judge: CallJudge;
+  /** The session's MCP servers, each with the tools recorded for it, and where their calls go. */
+  readonly mcpServers: readonly SessionMcpServer[];
+  readonly mcpConnections: McpServerConnections;
   /** When set, the session answers through StructuredOutput. */
   readonly outputSchema: JsonSchema | undefined;
 }
@@ -61,6 +66,9 @@ export class SessionTools {
       webSearchTool(parts.searchEndpoint),
       skillTool(parts.skills),
       ...parts.officeTools.map((tool) => officeBuiltInTool(tool, parts.sessionId, parts.judge)),
+      ...parts.mcpServers.flatMap((server) =>
+        server.tools.map((tool) => mcpBuiltInTool(server.name, tool, parts.mcpConnections)),
+      ),
       ...(parts.outputSchema === undefined ? [] : [structuredOutputTool(parts.outputSchema)]),
     ]);
   }

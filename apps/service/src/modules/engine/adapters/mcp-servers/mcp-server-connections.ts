@@ -11,6 +11,9 @@ const CONNECT_TIMEOUT_MS = 30_000;
 /** How long one tool call may run. */
 const CALL_TIMEOUT_MS = 10 * 60_000;
 
+/** What stands for a Server value in a failure's words. */
+const SERVER_VALUE_MARK = "[a Server value]";
+
 /** What a call of an MCP tool answered, as the Agent reads it. */
 export interface McpToolAnswer {
   readonly text: string;
@@ -18,8 +21,9 @@ export interface McpToolAnswer {
 }
 
 /**
- * A session's connections to its MCP servers through The Office's own client, each opened at the
- * first call of one of its tools and kept until `close`, which ends a local server's process tree.
+ * A session's connections to its MCP servers through The Office's own client, each opened by
+ * `open` or at the first call of one of its tools, and kept until `close`, which ends a local
+ * server's process tree.
  */
 export class McpServerConnections {
   private readonly connections = new Map<string, Promise<McpConnection>>();
@@ -30,12 +34,29 @@ export class McpServerConnections {
     private readonly client: McpClient,
   ) {}
 
-  /** Calls a tool the Office rules allowed; a server that fails answers with why, as an error. */
-  async call(server: string, tool: string, input: unknown): Promise<McpToolAnswer> {
+  /**
+   * Starts every server at once, before the session's first turn. One that fails is not an error:
+   * its tools stay listed, as the session's tool list is fixed, and a call answers why.
+   */
+  async open(): Promise<void> {
+    await Promise.allSettled(this.servers.map(async ({ name }) => this.connectionTo(name)));
+  }
+
+  /**
+   * Calls a tool the Office rules allowed; a server that fails answers with why, as an error.
+   * `signal` stops waiting for the answer, as when the turn is interrupted.
+   */
+  async call(
+    server: string,
+    tool: string,
+    input: unknown,
+    signal?: AbortSignal,
+  ): Promise<McpToolAnswer> {
     try {
       const connection = await this.connectionTo(server);
       const result = await connection.callTool(tool, inputObject(input), {
         timeoutMs: CALL_TIMEOUT_MS,
+        signal,
       });
       return {
         // Images have no text for the Agent to read here, as the Claude Code engines report them.
@@ -45,7 +66,9 @@ export class McpServerConnections {
         isError: result.isError,
       };
     } catch (error) {
-      if (error instanceof McpServerFailure) return { text: error.message, isError: true };
+      if (error instanceof McpServerFailure) {
+        return { text: this.withoutServerValues(error.message), isError: true };
+      }
       throw error;
     }
   }
@@ -61,6 +84,19 @@ export class McpServerConnections {
         await connection?.close();
       }),
     );
+  }
+
+  /**
+   * A failure's words hold a local server's standard error, which may print a Server value, a
+   * secret among them; the Agent and the kept conversation never read one there.
+   */
+  private withoutServerValues(text: string): string {
+    return this.servers
+      .flatMap(({ launch }) =>
+        Object.values(launch.transport === "stdio" ? launch.environmentVariables : launch.headers),
+      )
+      .filter((value) => value !== "")
+      .reduce((redacted, value) => redacted.replaceAll(value, SERVER_VALUE_MARK), text);
   }
 
   private connectionTo(name: string): Promise<McpConnection> {

@@ -10,6 +10,11 @@ export const OFFICE_TOOL_PREFIX = `mcp__${OFFICE_TOOL_SERVER}__`;
  */
 const MCP_TOOL_NAME = /^mcp__([a-z0-9-]+)__(.+)$/;
 
+/** What the engine calls a tool of one of the session's MCP servers. */
+export function mcpToolName(server: string, tool: string): string {
+  return `mcp__${server}__${tool}`;
+}
+
 /** The server and the tool an engine's tool name names, or undefined for a tool of no MCP server. */
 export function mcpToolOf(
   engineName: string,

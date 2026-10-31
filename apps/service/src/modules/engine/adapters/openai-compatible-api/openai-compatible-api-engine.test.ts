@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { SdkMcpClient } from "../../../../platform/mcp/sdk-mcp-client.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
@@ -14,6 +15,7 @@ import {
   describeAgentEngineContract,
   type ContractScenario,
 } from "../../ports/agent-engine.contract.js";
+import { CONTRACT_MCP_SERVER } from "../mcp-servers/contract-mcp-server.fixtures.js";
 import { FakeSearxngServer } from "../searxng/fake-searxng-server.fixtures.js";
 import { ModelNotOffered, SessionSkillsDiffer } from "../../ports/agent-engine.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
@@ -66,6 +68,7 @@ function engineOn(
   return new OpenAiCompatibleApiEngine(
     new EngineSettingsForTests({ apiEndpoints: endpoints, searchEndpoint }),
     new OfficeDataDirectory(officeData),
+    new SdkMcpClient(),
   );
 }
 
@@ -109,6 +112,13 @@ function contractAnswers(scenario: ContractScenario): ScriptedAnswer[] {
       ];
     case "context-usage":
       return [textReply(["ready"], USAGE)];
+    case "mcp-tool":
+      return [
+        toolCall("mcp__fake__environment-variable", { name: "FAKE_SERVER_VALUE" }),
+        toolCall("mcp__fake__started-process", {}),
+        toolCall("mcp__fake__echo", { text: "hi" }),
+        textReply(["done"], USAGE),
+      ];
     default:
       return [];
   }
@@ -118,6 +128,7 @@ describeAgentEngineContract("OpenAiCompatibleApiEngine on a fake server", {
   capabilities: OPENAI_COMPATIBLE_API_CAPABILITIES,
   model: "local/coder:q4",
   timeoutMs: 10_000,
+  mcpServer: CONTRACT_MCP_SERVER,
   async engineFor(scenario) {
     fake.script(...contractAnswers(scenario));
     return engineOn();
@@ -147,6 +158,7 @@ describe.runIf(process.env["OFFICE_ENGINE_TESTS"] === "live" && LIVE_BASE_URL &&
       capabilities: OPENAI_COMPATIBLE_API_CAPABILITIES,
       model: `live/${LIVE_MODEL}`,
       timeoutMs: 30 * 60_000,
+      mcpServer: CONTRACT_MCP_SERVER,
       engineFor: () => Promise.resolve(engineOn([live])),
     });
   },
@@ -1024,6 +1036,84 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
           { role: "user", content: expect.stringContaining("call the StructuredOutput tool") },
         ]),
       });
+    });
+  });
+
+  describe("its MCP servers", () => {
+    const ECHO_TOOL = {
+      name: "echo",
+      description: "Answers with the text it is given.",
+      inputSchema: {
+        $schema: "http://json-schema.org/draft-07/schema#",
+        type: "object",
+        properties: { text: { type: "string" } },
+      },
+    };
+    const ECHO_ALLOWED: PermissionProfile = {
+      ...READ_ONLY,
+      mcpTools: { "fake/echo": { kind: "allowed" } },
+    };
+
+    it("offers each server's tools as recorded, under mcp__<server>__<tool>, and runs an allowed call", async () => {
+      fake.script(toolCall("mcp__fake__echo", { text: "hi" }), textReply(["Done."], USAGE));
+
+      const { events } = await oneTurn(
+        options({
+          profile: ECHO_ALLOWED,
+          mcpServers: [
+            { name: "fake", launch: CONTRACT_MCP_SERVER.launch({}, folder), tools: [ECHO_TOOL] },
+          ],
+        }),
+      );
+
+      expect(events.find((event) => event.kind === "tool-result")).toMatchObject({
+        text: "hi",
+        isError: false,
+      });
+      const offered = lastRequestBody().tools.at(-1);
+      expect(offered?.function).toEqual({
+        name: "mcp__fake__echo",
+        description: ECHO_TOOL.description,
+        parameters: { type: "object", properties: { text: { type: "string" } } },
+      });
+    });
+
+    it("keeps a server that fails to start in the tool list, a call answering why without its Server values", async () => {
+      const secret = "plum-secret-value";
+      const failing = {
+        transport: "stdio",
+        command: process.execPath,
+        arguments: ["-e", "console.error('token ' + process.env.FAKE_TOKEN); process.exit(1)"],
+        environmentVariables: { FAKE_TOKEN: secret },
+        workingFolder: folder,
+      } as const;
+      fake.script(toolCall("mcp__fake__echo", { text: "hi" }), textReply(["Done."], USAGE));
+      const id = randomUUID();
+      const started = await engineOn().start({
+        id,
+        options: options({
+          profile: ECHO_ALLOWED,
+          mcpServers: [{ name: "fake", launch: failing, tools: [ECHO_TOOL] }],
+        }),
+        brief: { id: "brief", text: "Begin." },
+      });
+      session = started;
+
+      const { events } = await untilTurnEnds(started.events[Symbol.asyncIterator]());
+
+      expect(lastRequestBody().tools.at(-1)?.function.name).toBe("mcp__fake__echo");
+      const result = events.find((event) => event.kind === "tool-result");
+      expect(result).toMatchObject({
+        isError: true,
+        text: expect.stringContaining("token [a Server value]"),
+      });
+      expect(JSON.stringify(events)).not.toContain(secret);
+      // Kept once the turn has ended, as the session saves it after its turn.
+      const kept = await vi.waitFor(() =>
+        readFile(join(officeData, "sessions", id, "conversation.json"), "utf8"),
+      );
+      expect(kept).toContain("token [a Server value]");
+      expect(kept).not.toContain(secret);
     });
   });
 });

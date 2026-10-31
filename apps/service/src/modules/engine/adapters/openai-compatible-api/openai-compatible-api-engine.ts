@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { McpClient } from "../../../../platform/mcp/mcp-client.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
@@ -16,6 +17,7 @@ import {
 import type { EngineSession } from "../../ports/engine-session.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import type { SessionOptions } from "../../ports/session-options.js";
+import { McpServerConnections } from "../mcp-servers/mcp-server-connections.js";
 import { sessionOfficeRules } from "../office-rules/session-office-rules.js";
 import { toolDecision } from "../office-rules/tool-decision.js";
 import { SearxngClient } from "../searxng/searxng-client.js";
@@ -71,6 +73,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
   constructor(
     private readonly settings: EngineSettingsRepository,
     private readonly officeData: OfficeDataDirectory,
+    private readonly mcpClient: McpClient,
   ) {
     super();
   }
@@ -106,7 +109,10 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
     return ConversationFile.of(this.officeData.folder("sessions"), sessionId);
   }
 
-  /** Refuses, before any request, a session without exactly its skills (spec §5.6). */
+  /**
+   * Refuses, before any request, a session without exactly its skills (spec §5.6). Its MCP servers
+   * start last, so that little can fail after them; if anything does, they are ended.
+   */
   private async open(
     id: string,
     options: SessionOptions,
@@ -135,41 +141,52 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
     });
     const judge = (tool: string, input: unknown): Promise<ToolDecision> =>
       toolDecision(rules, options, tool, input);
-    return new ApiSession(id, {
-      client: new ChatCompletionsClient(endpoint),
-      model: modelId,
-      contextWindow,
-      system: systemPrompt({
-        folder: options.folder,
-        operatingSystem: this.operatingSystem.name,
-        projectInstructions: await projectInstructions(options.folder),
-        instructions: options.instructions,
-        answersInSchema: options.outputSchema !== undefined,
-      }),
-      tools: SessionTools.of({
-        agentShells,
-        processTrees,
+    const instructions = await projectInstructions(options.folder);
+    const mcpConnections = new McpServerConnections(options.mcpServers, this.mcpClient);
+    await mcpConnections.open();
+    try {
+      return new ApiSession(id, {
+        client: new ChatCompletionsClient(endpoint),
+        model: modelId,
+        contextWindow,
+        system: systemPrompt({
+          folder: options.folder,
+          operatingSystem: this.operatingSystem.name,
+          projectInstructions: instructions,
+          instructions: options.instructions,
+          answersInSchema: options.outputSchema !== undefined,
+        }),
+        tools: SessionTools.of({
+          agentShells,
+          processTrees,
+          backgroundCommands,
+          searchEndpoint: searchEndpoint === null ? undefined : new SearxngClient(searchEndpoint),
+          skills,
+          sessionId: id,
+          officeTools: options.officeTools,
+          judge,
+          mcpServers: options.mcpServers,
+          mcpConnections,
+          outputSchema: options.outputSchema,
+        }),
+        toolContext: {
+          folder: options.folder,
+          environment: options.environment,
+          paths,
+          mayRead: (path) => rules.decide({ kind: "read", paths: [path] }).allowed,
+          readFiles: new ReadFiles(),
+        },
         backgroundCommands,
-        searchEndpoint: searchEndpoint === null ? undefined : new SearxngClient(searchEndpoint),
-        skills,
-        sessionId: id,
-        officeTools: options.officeTools,
+        mcpConnections,
+        answersInSchema: options.outputSchema !== undefined,
+        conversationFile,
+        kept,
         judge,
-        outputSchema: options.outputSchema,
-      }),
-      toolContext: {
-        folder: options.folder,
-        environment: options.environment,
-        paths,
-        mayRead: (path) => rules.decide({ kind: "read", paths: [path] }).allowed,
-        readFiles: new ReadFiles(),
-      },
-      backgroundCommands,
-      answersInSchema: options.outputSchema !== undefined,
-      conversationFile,
-      kept,
-      judge,
-    });
+      });
+    } catch (error) {
+      await mcpConnections.close();
+      throw error;
+    }
   }
 }
 

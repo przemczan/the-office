@@ -1,3 +1,4 @@
+import { SdkMcpClient } from "../../../../platform/mcp/sdk-mcp-client.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { apiEndpointModel } from "../../domain/api-endpoints.js";
 import type { AgentEngine } from "../../ports/agent-engine.js";
@@ -30,6 +31,7 @@ export async function apiEngineOnFakeServer(officeData: string): Promise<ApiEngi
   const engine = new OpenAiCompatibleApiEngine(
     new EngineSettingsForTests({ apiEndpoints: [endpoint], searchEndpoint: null }),
     new OfficeDataDirectory(officeData),
+    new SdkMcpClient(),
   );
   return { engine, server, model: apiEndpointModel(endpoint.id, "coder:q4") };
 }
