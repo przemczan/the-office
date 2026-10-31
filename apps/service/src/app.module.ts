@@ -25,6 +25,7 @@ import {
   ProjectsModule,
   TaskWorktrees,
 } from "./modules/projects/index.js";
+import { McpServersModule } from "./modules/mcp-servers/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
 import {
   FireAlarmService,
@@ -97,6 +98,7 @@ export class AppModule {
         EventsModule,
         EventStreamModule,
         HealthModule,
+        McpServersModule,
         OfficeDataModule.forRoot(config.officeDataDirectory),
         NotificationsModule.register({
           imports: [work, conversations, pipelines, PeopleModule, EngineModule],

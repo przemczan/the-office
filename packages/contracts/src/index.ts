@@ -3,6 +3,7 @@ export * from "./conversations.js";
 export * from "./engines.js";
 export * from "./events.js";
 export * from "./health.js";
+export * from "./mcp-servers.js";
 export * from "./notifications.js";
 export * from "./people.js";
 export * from "./pipelines.js";

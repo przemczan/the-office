@@ -36,7 +36,7 @@ Decided with the user on 2026-10-31:
 ## Steps
 
 - [x] 0. Write this file; settle the open questions with the user; spec §5.4's Defaults line and §6's MCP tools line, the glossary's terms, `coverage.md`'s row; link it from the README. Commit.
-- [ ] 1. The library in a new module `mcp-servers`: the `mcp_servers` table (name, transport, command with arguments or URL, the declared Server values with their Office-wide values, on or off), `GET`/`POST`/`PUT`/`DELETE /api/mcp-servers` with contracts, a pasted JSON config parsed into a server (the shape of Claude Code's `mcpServers` entries), validation, events. A secret's value is never sent back; an edit that changes the command, URL or values' names turns the server off. Commit.
+- [x] 1. The library in a new module `mcp-servers`: the `mcp_servers` table (name, transport, command with arguments or URL, the declared Server values with their Office-wide values, on or off), `GET`/`POST`/`PUT`/`DELETE /api/mcp-servers` with contracts, a pasted JSON config parsed into a server (the shape of Claude Code's `mcpServers` entries), validation, events. A secret's value is never sent back; an edit that changes the command, URL or values' names turns the server off. Commit.
   Read: the [module template](../../apps/service/docs/module-template.md); `skills/application/skill-library.ts` (the library's shape and events); `engine/adapters/http/` Settings › Engines' controller and `packages/contracts/src/` its schema (a key never sent back, task 35 step 1); `apps/service/drizzle/` (the latest migration).
 - [ ] 2. The review: an `McpClient` port with an adapter on `@modelcontextprotocol/sdk` (stdio through the platform's process spawning, so the tree ends; Streamable HTTP) that connects, lists tools and closes, with timeouts. `GET /api/mcp-servers/:name/review` connects with the Office-wide values and returns the config and the tools; `PUT …/state` turns a server on only against the reviewed tool list, which is stored. A fake stdio server and a fake HTTP server as test fixtures. Commit.
   Read: the State; `skills/adapters/http/skills.controller.ts` (`review`, `changeState`); `platform/os/` (`platform/MAP.md`) for spawning and `ProcessTrees`.
@@ -55,10 +55,14 @@ Decided with the user on 2026-10-31:
 
 ## State
 
-- Step 0 done: this file; spec §5.4's Defaults line on MCP servers and §6's MCP tools line; "MCP server" and "Server value" in the glossary; `coverage.md`'s row; the README links it.
-- Traps for later steps: the SDK adapter loads Project settings (`settingSources: ['project']`), so make sure a Project's `.mcp.json` never adds servers; `.mcp.json` is already a protected path. Changing MCP servers mid-session breaks the prompt cache (spec §5.4), so a session's servers are fixed at its start and the same on resume. `@modelcontextprotocol/sdk` 1.32.2 is already a dependency.
-- Next: step 1.
+- Built (step 1): the module `apps/service/src/modules/mcp-servers/` (in `AppModule`): `McpServerLibrary` (list, read, add, change, remove, `readPastedConfig`) over `McpServerRepository` (`mcp_servers`, migration 0061; Server values as jsonb with their Office-wide values). Domain: `mcp-server.ts` (record, rules), `mcp-server-changes.ts`, `pasted-config.ts`, events `McpServerAdded`/`Changed`(`turnedOff`)/`Removed`, which carry the name only. Routes `GET`/`POST /mcp-servers`, `POST /mcp-servers/pasted-config` (reads one server for the form, keeps nothing), `GET`/`PUT`/`DELETE /mcp-servers/:name`; contracts in `packages/contracts/src/mcp-servers.ts` (flat, discriminated by `transport`: `stdio` or `streamable-http`), web events `mcp-server.added|changed|removed`.
+- Decided: a Server value's kind follows the transport (env variable for stdio, header for HTTP). Secrets as API endpoints' keys: answered as `officeWideValueSet`; an edit without a value keeps it, an empty one clears it; a secret made plain loses its value. A pasted config's values start required, secret when the name looks it (`key|token|secret|auth…`); `${VAR}` is no value, `${VAR:-x}` is `x`; `sse` is refused. The server's name never changes (tool names): lowercase, single hyphens, ≤ 32 characters, not `office`.
+- Turning off: the task's list read as transport, command, arguments, URL, or the set of values' names; an Office-wide value or a flag keeps it on. State is only `on`/`off`; step 2 adds the reviewed tool list in its own migration and `turnOn`/`turnOff` (a change to the domain's `changeMcpServer` should then also drop the stored tool list when it turns off).
+- Open: spec §5.3's module list doesn't name `mcp-servers` yet (the task adds the module).
+- Traps for step 2: on Windows a command like `npx` needs the platform's spawning to resolve `.cmd`; tests share the database, so use random names (`aName()` in the controller test).
+- Next: step 2, the review.
 
 ## Progress
 
 - 2026-10-31 · step 0: task file written, open questions settled with the user, spec, glossary, coverage and README updated; next step 1, the library.
+- 2026-10-31 · step 1: module `mcp-servers` with the library (`mcp_servers`), its routes and contracts, pasted JSON configs read for the form, secrets never sent back, edits to what runs or values' names turning a server off; next step 2, the review.
