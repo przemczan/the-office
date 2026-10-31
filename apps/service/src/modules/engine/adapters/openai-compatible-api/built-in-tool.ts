@@ -6,6 +6,11 @@ import type { ToolDefinition } from "./chat-completions.js";
 export interface ToolOutput {
   readonly text: string;
   readonly isError: boolean;
+  /**
+   * Set when the engine refuses a call the Office rules allowed, as WebSearch is with no search
+   * endpoint set: nothing ran, and the session reports a refusal by the engine.
+   */
+  readonly refused?: true;
 }
 
 /** What the session's tools work in and share. */
@@ -104,6 +109,10 @@ export function success(text: string): ToolOutput {
 
 export function failure(text: string): ToolOutput {
   return { text, isError: true };
+}
+
+export function engineRefusal(text: string): ToolOutput {
+  return { text, isError: true, refused: true };
 }
 
 /** Where a tool's path names, resolved against the session's folder. */

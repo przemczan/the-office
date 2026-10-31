@@ -19,7 +19,11 @@ export type BackgroundStop =
   | { readonly kind: "unknown" };
 
 interface RunningCommand {
+  readonly id: string;
+  readonly outputFile: string;
   readonly commandLine: string;
+  /** What the call said the command does, or its command line, as the notice of its end names it. */
+  readonly description: string;
   readonly processId: number;
   /** Settles once the shell has exited and whatever it left running has been ended. */
   readonly exited: Promise<void>;
@@ -43,6 +47,8 @@ export function backgroundCommandFolder(paths: PathRules, sessionId: string): st
  */
 export class BackgroundCommands {
   private readonly commands = new Map<string, RunningCommand>();
+  /** The notices of commands that ended by themselves, not yet given to the model. */
+  private readonly notices: string[] = [];
 
   constructor(
     readonly folder: string,
@@ -50,7 +56,12 @@ export class BackgroundCommands {
     private readonly paths: PathRules,
   ) {}
 
-  async start(shell: ShellProgram, command: CommandLine): Promise<BackgroundStart> {
+  /** Starts `command`; `description` names it in the notice of its end. */
+  async start(
+    shell: ShellProgram,
+    command: CommandLine,
+    description: string,
+  ): Promise<BackgroundStart> {
     const id = commandId();
     const outputFile = this.paths.join(this.folder, `${id}.output`);
     await mkdir(this.folder, { recursive: true, mode: 0o700 });
@@ -77,7 +88,16 @@ export class BackgroundCommands {
         problem: `${shell.name} could not start: ${problem ?? "it has no process id"}`,
       };
     }
-    this.commands.set(id, this.watched(child, child.pid, command.commandLine));
+    this.commands.set(
+      id,
+      this.watched(child, {
+        id,
+        outputFile,
+        commandLine: command.commandLine,
+        description,
+        processId: child.pid,
+      }),
+    );
     return { kind: "started", id, outputFile };
   }
 
@@ -91,6 +111,14 @@ export class BackgroundCommands {
     }
     await this.end(command);
     return { kind: "stopped", commandLine: command.commandLine };
+  }
+
+  /**
+   * The notices of the commands that ended by themselves since the last call, as Claude Code tells
+   * its model of them; a command TaskStop or `endAll` ended has none.
+   */
+  takeNotices(): string[] {
+    return this.notices.splice(0);
   }
 
   /** Ends every command still running, each with every process it started. */
@@ -111,11 +139,16 @@ export class BackgroundCommands {
     await rm(this.folder, { recursive: true, force: true, maxRetries: 5 }).catch(() => undefined);
   }
 
-  private watched(child: ChildProcess, processId: number, commandLine: string): RunningCommand {
+  private watched(
+    child: ChildProcess,
+    started: Pick<
+      RunningCommand,
+      "id" | "outputFile" | "commandLine" | "description" | "processId"
+    >,
+  ): RunningCommand {
     let exited!: () => void;
     const command: RunningCommand = {
-      commandLine,
-      processId,
+      ...started,
       exited: new Promise((resolve) => (exited = resolve)),
       exitCode: undefined,
       ending: undefined,
@@ -124,13 +157,20 @@ export class BackgroundCommands {
     child.on("error", () => undefined);
     child.once("exit", (exitCode) => {
       command.exitCode = exitCode;
+      if (command.ending !== undefined) {
+        void command.ending.then(exited);
+        return;
+      }
       // As in the foreground, what a command leaves running once it exits by itself is ended:
       // later its id may be another process's.
-      const leftovers =
-        command.ending ?? this.processTrees.endLeftovers(processId).catch(() => undefined);
-      void leftovers.then(exited);
+      void this.endedByItself(command, exitCode).then(exited);
     });
     return command;
+  }
+
+  private async endedByItself(command: RunningCommand, exitCode: number | null): Promise<void> {
+    await this.processTrees.endLeftovers(command.processId).catch(() => undefined);
+    this.notices.push(endedNotice(command, exitCode));
   }
 
   private async end(command: RunningCommand): Promise<void> {
@@ -138,6 +178,22 @@ export class BackgroundCommands {
     await command.ending;
     await command.exited;
   }
+}
+
+/** Claude Code's notice of a background command's end, which the model reads as a user message. */
+function endedNotice(command: RunningCommand, exitCode: number | null): string {
+  const completed = exitCode === 0;
+  const ending = completed
+    ? "completed (exit code 0)"
+    : `failed${exitCode === null ? "" : ` with exit code ${exitCode}`}`;
+  return [
+    "<task-notification>",
+    `<task-id>${command.id}</task-id>`,
+    `<output-file>${command.outputFile}</output-file>`,
+    `<status>${completed ? "completed" : "failed"}</status>`,
+    `<summary>Background command "${command.description}" ${ending}</summary>`,
+    "</task-notification>",
+  ].join("\n");
 }
 
 /** Resolves once the child has started, or with the reason it couldn't. */

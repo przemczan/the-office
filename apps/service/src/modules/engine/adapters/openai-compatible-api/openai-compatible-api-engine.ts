@@ -3,6 +3,7 @@ import { OfficeDataDirectory } from "../../../../platform/office-data/office-dat
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
 import { parseApiEndpointModel, type ApiEndpoint } from "../../domain/api-endpoints.js";
+import type { EngineSettings, SearchEndpoint } from "../../domain/engine-settings.js";
 import type { ToolDecision } from "../../domain/office-rules.js";
 import { listingProblems } from "../../domain/skill-listing.js";
 import {
@@ -18,6 +19,7 @@ import { EngineSettingsRepository } from "../../ports/engine-settings-repository
 import type { SessionOptions } from "../../ports/session-options.js";
 import { sessionOfficeRules } from "../office-rules/session-office-rules.js";
 import { toolDecision } from "../office-rules/tool-decision.js";
+import { SearxngClient } from "../searxng/searxng-client.js";
 import { ApiSession } from "./api-session.js";
 import { BackgroundCommands, backgroundCommandFolder } from "./background-commands.js";
 import { ReadFiles } from "./built-in-tool.js";
@@ -65,7 +67,13 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
 
   async start({ id, options, brief }: NewSession): Promise<EngineSession> {
     this.requireFor(options);
-    const session = this.open(id, options, await this.endpointModel(options.model));
+    const settings = await this.settings.read();
+    const session = this.open(
+      id,
+      options,
+      endpointModel(settings, options.model),
+      settings.searchEndpoint,
+    );
     session.send(brief, "later");
     return session;
   }
@@ -79,6 +87,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
     id: string,
     options: SessionOptions,
     { endpoint, modelId }: EndpointModel,
+    searchEndpoint: SearchEndpoint | null,
   ): ApiSession {
     // The loop lists no skills yet, so a session that must have some can't start.
     const problems = listingProblems(options.skills?.expected ?? [], []);
@@ -108,6 +117,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
         agentShells,
         processTrees,
         backgroundCommands,
+        searchEndpoint: searchEndpoint === null ? undefined : new SearxngClient(searchEndpoint),
         sessionId: id,
         officeTools: options.officeTools,
         judge,
@@ -125,27 +135,27 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
       judge,
     });
   }
+}
 
-  /** The API endpoint and model a session's Model field names, as Settings › Engines lists them now. */
-  private async endpointModel(model: string): Promise<EndpointModel> {
-    const named = parseApiEndpointModel(model);
-    if (named === undefined) {
-      throw new ModelNotOffered(model, "it names no API endpoint, as `<endpoint>/<model>` would.");
-    }
-    const { apiEndpoints } = await this.settings.read();
-    const endpoint = apiEndpoints.find(({ id }) => id === named.endpointId);
-    if (endpoint === undefined) {
-      throw new ModelNotOffered(
-        model,
-        `Settings › Engines lists no API endpoint ${named.endpointId}; pick another model on the Role card.`,
-      );
-    }
-    if (!endpoint.models.some(({ id }) => id === named.modelId)) {
-      throw new ModelNotOffered(
-        model,
-        `the API endpoint ${endpoint.name} lists no model ${named.modelId} in Settings › Engines; pick another model on the Role card.`,
-      );
-    }
-    return { endpoint, modelId: named.modelId };
+/** The API endpoint and model a session's Model field names, as Settings › Engines lists them now. */
+function endpointModel(settings: EngineSettings, model: string): EndpointModel {
+  const named = parseApiEndpointModel(model);
+  if (named === undefined) {
+    throw new ModelNotOffered(model, "it names no API endpoint, as `<endpoint>/<model>` would.");
   }
+  const { apiEndpoints } = settings;
+  const endpoint = apiEndpoints.find(({ id }) => id === named.endpointId);
+  if (endpoint === undefined) {
+    throw new ModelNotOffered(
+      model,
+      `Settings › Engines lists no API endpoint ${named.endpointId}; pick another model on the Role card.`,
+    );
+  }
+  if (!endpoint.models.some(({ id }) => id === named.modelId)) {
+    throw new ModelNotOffered(
+      model,
+      `the API endpoint ${endpoint.name} lists no model ${named.modelId} in Settings › Engines; pick another model on the Role card.`,
+    );
+  }
+  return { endpoint, modelId: named.modelId };
 }

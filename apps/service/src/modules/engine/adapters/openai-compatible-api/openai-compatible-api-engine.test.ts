@@ -8,11 +8,13 @@ import { OfficeDataDirectory } from "../../../../platform/office-data/office-dat
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
 import type { ApiEndpoint } from "../../domain/api-endpoints.js";
+import type { SearchEndpoint } from "../../domain/engine-settings.js";
 import type { PermissionProfile } from "../../domain/permission-profile.js";
 import {
   describeAgentEngineContract,
   type ContractScenario,
 } from "../../ports/agent-engine.contract.js";
+import { FakeSearxngServer } from "../searxng/fake-searxng-server.fixtures.js";
 import { ModelNotOffered, SessionSkillsDiffer } from "../../ports/agent-engine.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
 import type { EngineSession } from "../../ports/engine-session.js";
@@ -51,9 +53,12 @@ function endpoint(models = [{ id: "coder:q4", contextWindow: 100_000 }]): ApiEnd
   return { id: "local", name: "Local", baseUrl: fake.baseUrl, key: "", models };
 }
 
-function engineOn(endpoints: readonly ApiEndpoint[] = [endpoint()]): OpenAiCompatibleApiEngine {
+function engineOn(
+  endpoints: readonly ApiEndpoint[] = [endpoint()],
+  searchEndpoint: SearchEndpoint | null = null,
+): OpenAiCompatibleApiEngine {
   return new OpenAiCompatibleApiEngine(
-    new EngineSettingsForTests({ apiEndpoints: endpoints, searchEndpoint: null }),
+    new EngineSettingsForTests({ apiEndpoints: endpoints, searchEndpoint }),
     new OfficeDataDirectory(join(tmpdir(), "office-data-of-no-test")),
   );
 }
@@ -139,8 +144,9 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
 
   async function oneTurn(
     sessionOptions: SessionOptions = options(),
+    engine: OpenAiCompatibleApiEngine = engineOn(),
   ): Promise<{ events: SessionEvent[]; turn: TurnEndedEvent }> {
-    const started = await engineOn().start({
+    const started = await engine.start({
       id: randomUUID(),
       options: sessionOptions,
       brief: { id: "brief", text: "Begin." },
@@ -180,6 +186,8 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
       "Write",
       ...SHELL_TOOLS,
       "TaskStop",
+      "WebFetch",
+      "WebSearch",
     ]);
   });
 
@@ -552,6 +560,43 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
       });
     });
 
+    it("tells the model of one that ended by itself, as the next message would land", async () => {
+      // The second call outlasts the first command's end, its leftovers' end included.
+      const outlasting = `node -e "setTimeout(() => {}, 3000)"`;
+      fake.script(
+        toolCall("Bash", {
+          command: "echo done-7; exit 3",
+          description: "Print and fail",
+          run_in_background: true,
+        }),
+        toolCall("Bash", { command: outlasting }),
+        textReply(["Seen."], USAGE),
+      );
+
+      const { events, turn } = await oneTurn(options({ profile: ANYTHING, environment }));
+
+      expect(turn.outcome).toBe("completed");
+      expect(turn.consumedMessageIds).toEqual(["brief"]);
+      const started = events.find((event) => event.kind === "tool-result");
+      const [, id = "", outputFile = ""] =
+        /with ID: (\S+)\. Output is being written to: (.+)$/.exec(
+          started?.kind === "tool-result" ? started.text : "",
+        ) ?? [];
+      const messages = lastRequestBody().messages;
+      expect(messages.at(-1)).toEqual({
+        role: "user",
+        content: [
+          "<task-notification>",
+          `<task-id>${id}</task-id>`,
+          `<output-file>${outputFile}</output-file>`,
+          "<status>failed</status>",
+          '<summary>Background command "Print and fail" failed with exit code 3</summary>',
+          "</task-notification>",
+        ].join("\n"),
+      });
+      expect(messages.at(-2)).toMatchObject({ role: "tool" });
+    });
+
     it("ends every one with what it started on interrupt, between turns too", async () => {
       const { started, child } = await startedInBackground();
       expect(isRunning(child)).toBe(true);
@@ -569,6 +614,62 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
 
       expect(isRunning(child)).toBe(false);
       await expect(readFile(background.outputFile)).rejects.toThrow("ENOENT");
+    });
+  });
+
+  describe("its web tools", () => {
+    const WEB: PermissionProfile = { ...READ_ONLY, web: true };
+    let searxng: FakeSearxngServer;
+
+    beforeAll(async () => {
+      searxng = await FakeSearxngServer.start();
+    });
+
+    afterAll(async () => {
+      await searxng.close();
+    });
+
+    it("searches through the search endpoint Settings › Engines sets", async () => {
+      searxng.results("office", [{ title: "Office", url: "https://example.com/", snippet: "" }]);
+      fake.script(toolCall("WebSearch", { query: "office" }), textReply(["Found."], USAGE));
+
+      const { events } = await oneTurn(
+        options({ profile: WEB }),
+        engineOn([endpoint()], { baseUrl: searxng.baseUrl }),
+      );
+
+      expect(events.filter((event) => event.kind === "tool-refused")).toEqual([]);
+      expect(events.find((event) => event.kind === "tool-result")).toMatchObject({
+        isError: false,
+        text: expect.stringContaining("1. [Office](https://example.com/)"),
+      });
+    });
+
+    it("leaves the profile's refusal first, then refuses a search with no search endpoint", async () => {
+      fake.script(
+        toolCall("WebSearch", { query: "office" }),
+        toolCall("WebFetch", { url: "https://example.com/", prompt: "?" }),
+        textReply(["No."], USAGE),
+      );
+      const { events: underReadOnly } = await oneTurn();
+      await session?.end();
+      fake.script(toolCall("WebSearch", { query: "office" }), textReply(["No."], USAGE));
+      const { events: withWeb } = await oneTurn(options({ profile: WEB }));
+
+      expect(underReadOnly.filter((event) => event.kind === "tool-refused")).toMatchObject([
+        { tool: "WebSearch", refusedBy: "office-rules" },
+        { tool: "WebFetch", refusedBy: "office-rules" },
+      ]);
+      expect(withWeb.filter((event) => event.kind === "tool-refused")).toEqual([
+        {
+          kind: "tool-refused",
+          callId: expect.any(String),
+          tool: "WebSearch",
+          refusedBy: "engine",
+          reason:
+            "WebSearch has no search endpoint: none is set in Settings › Engines, so nothing was searched.",
+        },
+      ]);
     });
   });
 

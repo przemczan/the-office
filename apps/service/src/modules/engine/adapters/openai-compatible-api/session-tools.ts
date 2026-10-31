@@ -1,6 +1,7 @@
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
 import type { AgentShellProgram } from "../../../../platform/os/shell.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
+import type { SearchEndpointClient } from "../../ports/search-endpoint-client.js";
 import type { JsonSchema } from "../../ports/session-options.js";
 import type { BackgroundCommands } from "./background-commands.js";
 import type { BuiltInTool } from "./built-in-tool.js";
@@ -13,6 +14,8 @@ import { READ_TOOL } from "./read-tool.js";
 import { shellTool } from "./shell-tool.js";
 import { structuredOutputTool } from "./structured-output-tool.js";
 import { taskStopTool } from "./task-stop-tool.js";
+import { webFetchTool } from "./web-fetch-tool.js";
+import { webSearchTool } from "./web-search-tool.js";
 import { WRITE_TOOL } from "./write-tool.js";
 
 /** The file tools, under the Claude Code engines' names, so the same Office rules judge them. */
@@ -25,6 +28,8 @@ export interface SessionToolParts {
   readonly processTrees: ProcessTrees;
   /** The session's commands run in the background, which the shells start and TaskStop stops. */
   readonly backgroundCommands: BackgroundCommands;
+  /** What WebSearch goes through; none while Settings › Engines sets no search endpoint. */
+  readonly searchEndpoint: SearchEndpointClient | undefined;
   readonly sessionId: string;
   readonly officeTools: readonly OfficeTool[];
   /** Judges an Office tool's call again as it runs. */
@@ -48,6 +53,8 @@ export class SessionTools {
         shellTool(shell, parts.processTrees, parts.backgroundCommands),
       ),
       taskStopTool(parts.backgroundCommands),
+      webFetchTool(),
+      webSearchTool(parts.searchEndpoint),
       ...parts.officeTools.map((tool) => officeBuiltInTool(tool, parts.sessionId, parts.judge)),
       ...(parts.outputSchema === undefined ? [] : [structuredOutputTool(parts.outputSchema)]),
     ]);

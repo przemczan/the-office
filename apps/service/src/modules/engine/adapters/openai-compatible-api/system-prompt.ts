@@ -28,6 +28,7 @@ export function systemPrompt({
     `Your working folder is ${folder}, on ${operatingSystem}. Give tools absolute paths.`,
     "Use the tools to read, search and change files; read a file before you edit or overwrite it. Run commands with the shell tools.",
     "Every tool call is judged by The Office's rules before it runs. When a call is refused, the result says why; don't work around the refusal.",
+    "A message in <task-notification> tags is not the user: it tells you a background command has ended.",
     answersInSchema
       ? `When the work is done, call ${STRUCTURED_OUTPUT_TOOL} with your answer; that ends your turn.`
       : "When the work is done, reply in plain words.",

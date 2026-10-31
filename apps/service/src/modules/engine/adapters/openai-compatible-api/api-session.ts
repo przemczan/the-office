@@ -145,6 +145,7 @@ export class ApiSession implements EngineSession {
   }
 
   private async turn(messages: readonly UserMessage[], signal: AbortSignal): Promise<void> {
+    this.landNotices();
     const consumed = this.take(messages);
     let usage = NO_TOKENS;
     let output: { readonly value: unknown } | undefined;
@@ -176,6 +177,7 @@ export class ApiSession implements EngineSession {
           output = answered.output ?? output;
           signal.throwIfAborted();
         }
+        this.landNotices();
         consumed.push(...this.take(this.takeWaiting("next")));
       }
     } catch (error) {
@@ -199,6 +201,16 @@ export class ApiSession implements EngineSession {
       ...messages.map((message) => ({ role: "user", content: message.text }) as const),
     );
     return messages.map((message) => message.id);
+  }
+
+  /**
+   * Adds the notices of background commands that ended by themselves, where Claude Code lands them:
+   * as a `next` message lands, or at the next turn's start. They never start a turn themselves.
+   */
+  private landNotices(): void {
+    for (const notice of this.parts.backgroundCommands.takeNotices()) {
+      this.conversation.push({ role: "user", content: notice });
+    }
   }
 
   /** Takes the waiting messages of one priority, leaving the others in their order. */
@@ -289,6 +301,7 @@ export class ApiSession implements EngineSession {
       if (signal.aborted) throw error;
       output = { text: `${name} failed: ${messageOf(error)}`, isError: true };
     }
+    if (output.refused === true) return this.refused(call, "engine", output.text);
     const message = this.result(call, output.text, output.isError);
     if (name === STRUCTURED_OUTPUT_TOOL && !output.isError) {
       return { message, output: { value: prepared.input } };

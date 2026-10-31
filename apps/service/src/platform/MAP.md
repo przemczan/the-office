@@ -47,6 +47,7 @@
 - `api-path.ts`: isApiPath
 - `configure-http.ts`: HTTP_APPLICATION_OPTIONS, configureHttp
 - `contract-pipe.ts`: ContractPipe
+- `fetch-failure.ts`: fetchFailure
 - `local-requests.ts`: RequestAddressing, localRequestRefusal, refuseNonLocalRequests, addressingOf
 - `upload-body.ts`: uploadBody, uploadedBytes
 - Tests: configure-http.test.ts, contract-pipe.test.ts, local-requests.test.ts
