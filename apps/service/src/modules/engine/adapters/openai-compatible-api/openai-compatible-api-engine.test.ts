@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
@@ -179,6 +179,7 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
       "Edit",
       "Write",
       ...SHELL_TOOLS,
+      "TaskStop",
     ]);
   });
 
@@ -470,6 +471,104 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
         "user",
         "user",
       ]);
+    });
+  });
+
+  describe("its background commands", () => {
+    const ANYTHING: PermissionProfile = { ...READ_ONLY, run: { kind: "anything" } };
+    const environment = inheritedEnvironment();
+
+    /** Starts a session whose first turn runs NODE_CHILD in the background after `echo started-42`. */
+    async function startedInBackground(): Promise<{
+      started: EngineSession;
+      events: AsyncIterator<SessionEvent>;
+      background: { id: string; outputFile: string };
+      child: number;
+    }> {
+      fake.script(
+        toolCall("Bash", { command: `echo started-42; ${NODE_CHILD}`, run_in_background: true }),
+        textReply(["Started."], USAGE),
+      );
+      const started = await engineOn().start({
+        id: randomUUID(),
+        options: options({ profile: ANYTHING, environment }),
+        brief: { id: "brief", text: "Begin." },
+      });
+      session = started;
+      const events = started.events[Symbol.asyncIterator]();
+      const first = await untilTurnEnds(events);
+      expect(first.turn.outcome).toBe("completed");
+      const result = first.events.find((event) => event.kind === "tool-result");
+      const answer =
+        /^Command running in background with ID: (\S+)\. Output is being written to: (.+)$/.exec(
+          result?.kind === "tool-result" ? result.text : "",
+        );
+      expect(answer).not.toBeNull();
+      const [, id = "", outputFile = ""] = answer ?? [];
+      return {
+        started,
+        events,
+        background: { id, outputFile },
+        child: await childProcessId(folder),
+      };
+    }
+
+    it("runs past its turn, its output read by the session, until TaskStop ends it with what it started", async () => {
+      const { started, events, background, child } = await startedInBackground();
+      expect(isRunning(child)).toBe(true);
+      await vi.waitFor(async () =>
+        expect(await readFile(background.outputFile, "utf8")).toContain("started-42"),
+      );
+
+      fake.script(
+        toolCall("Read", { file_path: background.outputFile }),
+        toolCall("TaskStop", { task_id: background.id }),
+        toolCall("TaskStop", { task_id: background.id }),
+        textReply(["Stopped."], USAGE),
+      );
+      started.send({ id: "check", text: "Read it, then stop it." }, "later");
+      const { events: seen } = await untilTurnEnds(events);
+
+      expect(seen.filter((event) => event.kind === "tool-refused")).toEqual([]);
+      expect(seen.filter((event) => event.kind === "tool-result")).toMatchObject([
+        { isError: false, text: expect.stringContaining("started-42") },
+        {
+          isError: false,
+          text: `Successfully stopped task: ${background.id} (echo started-42; ${NODE_CHILD})`,
+        },
+        { isError: true, text: expect.stringContaining(`Task ${background.id} is not running`) },
+      ]);
+      expect(isRunning(child)).toBe(false);
+    });
+
+    it("tells the model of a task id it doesn't know", async () => {
+      fake.script(toolCall("TaskStop", { task_id: "b0000" }), textReply(["Oh."], USAGE));
+
+      const { events } = await oneTurn(options({ profile: ANYTHING, environment }));
+
+      expect(events.find((event) => event.kind === "tool-result")).toMatchObject({
+        isError: true,
+        text: "No task found with ID: b0000",
+      });
+    });
+
+    it("ends every one with what it started on interrupt, between turns too", async () => {
+      const { started, child } = await startedInBackground();
+      expect(isRunning(child)).toBe(true);
+
+      await started.interrupt();
+
+      expect(isRunning(child)).toBe(false);
+    });
+
+    it("ends every one with what it started when the session ends, and removes their output", async () => {
+      const { started, background, child } = await startedInBackground();
+
+      await started.end();
+      session = undefined;
+
+      expect(isRunning(child)).toBe(false);
+      await expect(readFile(background.outputFile)).rejects.toThrow("ENOENT");
     });
   });
 

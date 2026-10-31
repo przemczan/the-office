@@ -2,6 +2,7 @@ import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
 import type { AgentShellProgram } from "../../../../platform/os/shell.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
 import type { JsonSchema } from "../../ports/session-options.js";
+import type { BackgroundCommands } from "./background-commands.js";
 import type { BuiltInTool } from "./built-in-tool.js";
 import type { ToolDefinition } from "./chat-completions.js";
 import { EDIT_TOOL } from "./edit-tool.js";
@@ -11,6 +12,7 @@ import { officeBuiltInTool, type CallJudge } from "./office-tool.js";
 import { READ_TOOL } from "./read-tool.js";
 import { shellTool } from "./shell-tool.js";
 import { structuredOutputTool } from "./structured-output-tool.js";
+import { taskStopTool } from "./task-stop-tool.js";
 import { WRITE_TOOL } from "./write-tool.js";
 
 /** The file tools, under the Claude Code engines' names, so the same Office rules judge them. */
@@ -21,6 +23,8 @@ export interface SessionToolParts {
   /** The system's shells, as the SDK adapter's tool list has them per system. */
   readonly agentShells: readonly AgentShellProgram[];
   readonly processTrees: ProcessTrees;
+  /** The session's commands run in the background, which the shells start and TaskStop stops. */
+  readonly backgroundCommands: BackgroundCommands;
   readonly sessionId: string;
   readonly officeTools: readonly OfficeTool[];
   /** Judges an Office tool's call again as it runs. */
@@ -40,7 +44,10 @@ export class SessionTools {
   static of(parts: SessionToolParts): SessionTools {
     return new SessionTools([
       ...FILE_TOOLS,
-      ...parts.agentShells.map((shell) => shellTool(shell, parts.processTrees)),
+      ...parts.agentShells.map((shell) =>
+        shellTool(shell, parts.processTrees, parts.backgroundCommands),
+      ),
+      taskStopTool(parts.backgroundCommands),
       ...parts.officeTools.map((tool) => officeBuiltInTool(tool, parts.sessionId, parts.judge)),
       ...(parts.outputSchema === undefined ? [] : [structuredOutputTool(parts.outputSchema)]),
     ]);

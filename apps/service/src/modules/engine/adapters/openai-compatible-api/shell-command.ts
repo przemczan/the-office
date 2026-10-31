@@ -1,12 +1,42 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn, type ChildProcess, type SpawnOptionsWithoutStdio } from "node:child_process";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
 import type { ShellProgram } from "../../../../platform/os/shell.js";
 
-/** One command line to run in a shell, in the foreground of a turn. */
-export interface ShellCommand {
+/** One command line and where it runs. */
+export interface CommandLine {
   readonly commandLine: string;
   readonly folder: string;
   readonly environment: Readonly<Record<string, string>>;
+}
+
+/** How to spawn a command line in `shell` so that `ProcessTrees` can end its whole tree. */
+export interface ShellSpawn {
+  readonly file: string;
+  readonly arguments: readonly string[];
+  readonly options: SpawnOptionsWithoutStdio;
+}
+
+export function shellSpawn(
+  shell: ShellProgram,
+  processTrees: ProcessTrees,
+  command: CommandLine,
+): ShellSpawn {
+  const invocation = shell.invocation(command.commandLine);
+  return {
+    file: invocation.file,
+    arguments: invocation.arguments,
+    options: {
+      cwd: command.folder,
+      env: command.environment,
+      detached: processTrees.detached,
+      windowsHide: true,
+      windowsVerbatimArguments: invocation.windowsVerbatimArguments,
+    },
+  };
+}
+
+/** One command line to run in a shell, in the foreground of a turn. */
+export interface ShellCommand extends CommandLine {
   readonly timeoutMs: number;
   /** Ends the command's whole tree when it aborts. */
   readonly signal: AbortSignal;
@@ -37,16 +67,9 @@ export function runShellCommand(
   command: ShellCommand,
 ): Promise<CommandEnding> {
   if (command.signal.aborted) return Promise.resolve({ kind: "stopped", output: "" });
-  const invocation = shell.invocation(command.commandLine);
+  const { file, arguments: shellArguments, options } = shellSpawn(shell, processTrees, command);
   return new Promise((resolve) => {
-    const child = spawn(invocation.file, invocation.arguments, {
-      cwd: command.folder,
-      env: command.environment,
-      stdio: ["ignore", "pipe", "pipe"],
-      detached: processTrees.detached,
-      windowsHide: true,
-      windowsVerbatimArguments: invocation.windowsVerbatimArguments,
-    });
+    const child = spawn(file, shellArguments, { ...options, stdio: ["ignore", "pipe", "pipe"] });
     const chunks: Buffer[] = [];
     child.stdout.on("data", (chunk: Buffer) => chunks.push(chunk));
     child.stderr.on("data", (chunk: Buffer) => chunks.push(chunk));

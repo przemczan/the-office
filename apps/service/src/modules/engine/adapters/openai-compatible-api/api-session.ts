@@ -10,6 +10,7 @@ import type {
 } from "../../ports/engine-session.js";
 import type { SessionEvent, TokenUsage, TurnOutcome } from "../../ports/session-events.js";
 import { portToolName } from "../office-rules/office-tool-names.js";
+import type { BackgroundCommands } from "./background-commands.js";
 import type { ToolContext, ToolOutput } from "./built-in-tool.js";
 import { ChatCompletionsError, type ChatCompletionsClient } from "./chat-completions-client.js";
 import type { ChatMessage, SystemMessage, ToolCall, ToolMessage } from "./chat-completions.js";
@@ -25,6 +26,8 @@ export interface ApiSessionParts {
   readonly system: SystemMessage;
   readonly tools: SessionTools;
   readonly toolContext: ToolContext;
+  /** The session's background commands, ended on interrupt and when the session ends. */
+  readonly backgroundCommands: BackgroundCommands;
   /** Whether each turn ends in output given through StructuredOutput. */
   readonly answersInSchema: boolean;
   /** The Office rules' decision on a call, as `toolDecision` gives it. */
@@ -93,14 +96,18 @@ export class ApiSession implements EngineSession {
   }
 
   /**
-   * Stops the running turn: its request is aborted and each running command ended with every
-   * process it started. Returns once the turn has ended; the session then takes waiting messages.
+   * Stops the session's work, as Stop asks (spec §5.4): the running turn's request is aborted, and
+   * each running command, in the foreground or the background, is ended with every process it
+   * started. Returns once the turn has ended; the session then takes waiting messages.
    */
   async interrupt(): Promise<void> {
     const turn = this.turnRunning;
-    if (turn === undefined) return;
-    turn.control.abort(new TurnInterrupted());
-    await turn.finished.catch(() => undefined);
+    if (turn !== undefined) {
+      turn.control.abort(new TurnInterrupted());
+      await turn.finished.catch(() => undefined);
+    }
+    // After the turn's end, so that no call of it starts a command once they are ended.
+    await this.parts.backgroundCommands.endAll();
   }
 
   async readUsageWindows(): Promise<UsageWindows | undefined> {
@@ -114,6 +121,7 @@ export class ApiSession implements EngineSession {
   async end(): Promise<void> {
     this.ending.abort(new SessionEnded());
     await this.running;
+    await this.parts.backgroundCommands.close();
     if (!this.failed) this.reported.close();
   }
 

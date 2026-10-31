@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
 import type { AgentShell, AgentShellProgram } from "../../../../platform/os/shell.js";
+import type { BackgroundCommands, BackgroundStart } from "./background-commands.js";
 import {
   builtInTool,
   failure,
@@ -33,33 +34,57 @@ const shellInput = z.object({
     .string()
     .optional()
     .describe("Clear, concise description of what this command does in 5-10 words"),
+  run_in_background: z
+    .boolean()
+    .optional()
+    .describe(
+      "Set to true to run this command in the background. Use Read to read the output later.",
+    ),
 });
 
 /**
- * Claude Code's Bash or PowerShell: one command line run to its end in the session's folder and
- * environment, its whole tree ended on interrupt or once its time is up.
+ * Claude Code's Bash or PowerShell: one command line run in the session's folder and environment,
+ * either to its end, its whole tree ended on interrupt or once its time is up, or in the
+ * background, where it runs on until it exits, TaskStop stops it or the session ends it.
  */
-export function shellTool(program: AgentShellProgram, processTrees: ProcessTrees): BuiltInTool {
+export function shellTool(
+  program: AgentShellProgram,
+  processTrees: ProcessTrees,
+  backgroundCommands: BackgroundCommands,
+): BuiltInTool {
   return builtInTool({
     name: TOOL_NAMES[program.shell],
     description: [
       `Runs a command line in ${program.name} in your working folder and returns its output.`,
       `- It waits for the command to end, ${DEFAULT_TIMEOUT_MS / 60_000} minutes at most unless \`timeout\` asks for more (up to ${MAX_TIMEOUT_MS / 60_000}).`,
+      "- With `run_in_background`, it answers at once with the command's id and the file its output is written to; read that file with Read, and stop the command with TaskStop.",
       "- Use Read, Grep and Glob rather than shell commands to read and search files.",
     ].join("\n"),
     input: shellInput,
-    run: async (input, context, signal) =>
-      shellOutput(
-        await runShellCommand(program, processTrees, {
-          commandLine: input.command,
-          folder: context.folder,
-          environment: context.environment,
-          timeoutMs: input.timeout ?? DEFAULT_TIMEOUT_MS,
-          signal,
-        }),
-        input.timeout ?? DEFAULT_TIMEOUT_MS,
-      ),
+    run: async (input, context, signal) => {
+      const command = {
+        commandLine: input.command,
+        folder: context.folder,
+        environment: context.environment,
+      };
+      if (input.run_in_background === true) {
+        return backgroundOutput(await backgroundCommands.start(program, command));
+      }
+      const timeoutMs = input.timeout ?? DEFAULT_TIMEOUT_MS;
+      return shellOutput(
+        await runShellCommand(program, processTrees, { ...command, timeoutMs, signal }),
+        timeoutMs,
+      );
+    },
   });
+}
+
+/** What Claude Code answers when a command goes to the background. */
+function backgroundOutput(start: BackgroundStart): ToolOutput {
+  if (start.kind === "not-started") return failure(start.problem);
+  return success(
+    `Command running in background with ID: ${start.id}. Output is being written to: ${start.outputFile}`,
+  );
 }
 
 function shellOutput(ending: CommandEnding, timeoutMs: number): ToolOutput {

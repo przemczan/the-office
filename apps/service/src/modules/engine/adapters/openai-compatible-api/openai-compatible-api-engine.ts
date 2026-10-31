@@ -19,6 +19,7 @@ import type { SessionOptions } from "../../ports/session-options.js";
 import { sessionOfficeRules } from "../office-rules/session-office-rules.js";
 import { toolDecision } from "../office-rules/tool-decision.js";
 import { ApiSession } from "./api-session.js";
+import { BackgroundCommands, backgroundCommandFolder } from "./background-commands.js";
 import { ReadFiles } from "./built-in-tool.js";
 import { ChatCompletionsClient } from "./chat-completions-client.js";
 import { SessionTools } from "./session-tools.js";
@@ -82,11 +83,16 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
     // The loop lists no skills yet, so a session that must have some can't start.
     const problems = listingProblems(options.skills?.expected ?? [], []);
     if (problems.length > 0) throw new SessionSkillsDiffer(id, problems);
+    const { paths, agentShells, processTrees } = this.operatingSystem;
+    const backgroundCommands = new BackgroundCommands(
+      backgroundCommandFolder(paths, id),
+      processTrees,
+      paths,
+    );
     const rules = sessionOfficeRules(this.operatingSystem, this.officeData.path, options, {
-      readableFolders: [],
+      readableFolders: [backgroundCommands.folder],
       environment: options.environment,
     });
-    const { paths, agentShells, processTrees } = this.operatingSystem;
     const judge = (tool: string, input: unknown): Promise<ToolDecision> =>
       toolDecision(rules, options.toolHold, tool, input);
     return new ApiSession(id, {
@@ -101,6 +107,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
       tools: SessionTools.of({
         agentShells,
         processTrees,
+        backgroundCommands,
         sessionId: id,
         officeTools: options.officeTools,
         judge,
@@ -113,6 +120,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
         mayRead: (path) => rules.decide({ kind: "read", paths: [path] }).allowed,
         readFiles: new ReadFiles(),
       },
+      backgroundCommands,
       answersInSchema: options.outputSchema !== undefined,
       judge,
     });
