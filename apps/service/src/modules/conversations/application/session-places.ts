@@ -87,7 +87,7 @@ export class SessionPlaces {
       officeTools: chatOfficeTools(thread.roleKey),
       brief: await this.briefs.forThread(thread),
       span: {},
-      instructions: chatInstructions,
+      instructions: (card) => chatInstructions(card, thread.roleKey),
     };
   }
 

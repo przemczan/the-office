@@ -13,6 +13,7 @@ import { DEVOPS, OFFICE_MANAGER } from "../../people/index.js";
 import {
   CHANGE_ROLE_TOOL,
   CHAT_OFFICE_TOOLS,
+  chatInstructions,
   chatOfficeTools,
   LIST_PIPELINES_TOOL,
   LIST_SOURCE_SKILLS_TOOL,
@@ -30,6 +31,17 @@ import {
   roleOfficeTools,
   SHOW_OFFICE_STATUS_TOOL,
 } from "./session-instructions.js";
+
+describe("chatInstructions", () => {
+  const card = { name: "Nina", title: "Devops", responsibilities: "", instructions: "" };
+
+  it("tells Devops to read a repository that is not a Project yet only with its tool", () => {
+    expect(chatInstructions(card, DEVOPS)).toContain(
+      `Read, Grep, Glob and the shell are refused there. Read it only with ${READ_LOCAL_REPOSITORY_TOOL}`,
+    );
+    expect(chatInstructions(card, "planner")).not.toContain(READ_LOCAL_REPOSITORY_TOOL);
+  });
+});
 
 describe("chatOfficeTools", () => {
   it("gives a person's chat every chat tool", () => {

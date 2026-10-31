@@ -15,10 +15,12 @@ export interface SessionPersonCard {
  * chat only reads (spec §2.4, §6). The same for every session of a card version, so they stay in
  * the cached prefix.
  */
-export function chatInstructions(card: SessionPersonCard): string {
+export function chatInstructions(card: SessionPersonCard, roleKey: string): string {
   return [
     ...personInstructions(card),
     `In your chat you read and answer; you change no file. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and with The Office's tools read its records of Projects, people, Tasks, Initiatives and Ideas, capture an Idea, and create a Task in Backlog when the user asks for one or agrees to it.`,
+    // Devops reached for Grep on the repository it onboarded, refused outside its folders (task 33's run).
+    ...(roleKey === DEVOPS ? [READ_LOCAL_REPOSITORY_RULE] : []),
   ].join("\n\n");
 }
 
@@ -107,9 +109,11 @@ export const PROPOSE_SKILL_UPDATE_TOOL = "propose_skill_update";
 
 /**
  * The Office tool Devops reads a repository on the workstation with before it is a Project, which
- * Projects registers: its top level and manifest files, nothing else.
+ * Projects registers: its branches, and the names and manifest files of one folder at a time.
  */
 export const READ_LOCAL_REPOSITORY_TOOL = "read_local_repository";
+
+const READ_LOCAL_REPOSITORY_RULE = `A repository that is not a Project yet lies outside your folders: Read, Grep, Glob and the shell are refused there. Read it only with ${READ_LOCAL_REPOSITORY_TOOL}, its top level first, then each folder you need with its folder argument.`;
 
 /**
  * A chat's Office tools for the Role's person: the Office Manager doesn't turn work into Tasks but
