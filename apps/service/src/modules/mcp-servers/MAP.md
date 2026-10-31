@@ -10,11 +10,11 @@
 
 ## Public entry (`index.ts`)
 
-McpServerLibrary, McpServerAdded, McpServerChanged, McpServerRemoved, McpServerTurnedOff, McpServerTurnedOn, McpServersModule
+McpServerLibrary, ProjectServerValues, ProjectMcpServerValues, ProjectServerValueView, RoleMcpServers, SessionMcpServers, PreparedMcpServer, PreparedMcpServers, SessionMcpServerRequest, McpServerAdded, McpServerChanged, McpServerRemoved, McpServerRolesChanged, McpServerTurnedOff, McpServerTurnedOn, McpServerRefused, ProjectServerValueEdit, LeftOutMcpServer, McpServersModule
 
 ## Domain events
 
-- `domain/mcp-server-events.ts`: McpServerAdded, McpServerChanged, McpServerTurnedOn, McpServerTurnedOff, McpServerRemoved
+- `domain/mcp-server-events.ts`: McpServerAdded, McpServerChanged, McpServerTurnedOn, McpServerTurnedOff, McpServerRolesChanged, McpServerRemoved
 
 ## HTTP routes (under `/api`)
 
@@ -25,11 +25,12 @@ McpServerLibrary, McpServerAdded, McpServerChanged, McpServerRemoved, McpServerT
 - `PUT /mcp-servers/:name`: McpServersController.change
 - `GET /mcp-servers/:name/review`: McpServersController.review
 - `PUT /mcp-servers/:name/state`: McpServersController.changeState
+- `PUT /mcp-servers/:name/roles`: McpServersController.assign
 - `DELETE /mcp-servers/:name`: McpServersController.remove
 
 ## Tables
 
-- `adapters/postgres/mcp-servers.schema.ts`: mcp_servers
+- `adapters/postgres/mcp-servers.schema.ts`: mcp_servers, role_mcp_servers, project_server_values, session_mcp_servers
 
 ## Files
 
@@ -45,8 +46,11 @@ McpServerLibrary, McpServerAdded, McpServerChanged, McpServerRemoved, McpServerT
 
 ### adapters/postgres/
 
-- `mcp-servers.schema.ts`: mcpServers
+- `mcp-servers.schema.ts`: mcpServers, roleMcpServers, projectServerValues, sessionMcpServers
 - `postgres-mcp-server-repository.ts`: PostgresMcpServerRepository
+- `postgres-project-server-value-repository.ts`: PostgresProjectServerValueRepository
+- `postgres-role-mcp-server-repository.ts`: PostgresRoleMcpServerRepository
+- `postgres-session-mcp-server-repository.ts`: PostgresSessionMcpServerRepository
 
 ### adapters/websocket/
 
@@ -56,18 +60,28 @@ McpServerLibrary, McpServerAdded, McpServerChanged, McpServerRemoved, McpServerT
 
 - `mcp-server-launch.ts`: officeWideValues, launchOf
 - `mcp-server-library.ts`: McpServerReview, McpServerLibrary
+- `project-server-values.ts`: ProjectServerValueView, ProjectMcpServerValues, ProjectServerValues
+- `role-mcp-servers.ts`: RoleMcpServers
+- `session-mcp-servers.ts`: PreparedMcpServer, PreparedMcpServers, SessionMcpServerRequest, SessionMcpServers
+- Tests: session-mcp-servers.test.ts
 
 ### domain/
 
 - `mcp-server-changes.ts`: McpServerChange, addMcpServer, changeMcpServer, turnOnMcpServer, turnOffMcpServer, removeMcpServer
-- `mcp-server-events.ts`: McpServerAdded, McpServerChanged, McpServerTurnedOn, McpServerTurnedOff, McpServerRemoved
+- `mcp-server-events.ts`: McpServerAdded, McpServerChanged, McpServerTurnedOn, McpServerTurnedOff, McpServerRolesChanged, McpServerRemoved
 - `mcp-server-not-found.ts`: McpServerNotFound
 - `mcp-server-refused.ts`: McpServerRefused
 - `mcp-server-review.ts`: reviewDigest
+- `mcp-server.fixtures.ts`: anMcpServer
 - `mcp-server.ts`: MCP_SERVER_TRANSPORTS, McpServerTransport, McpServerConnection, ServerValue, MCP_SERVER_STATES, McpServerState, McpServerTool, McpServer, ServerValueEdit, McpServerEdit, NewMcpServer, NAME_LENGTH, mcpServerNameProblems, mcpServerNameTaken, connectionProblems, serverValueProblems, trimmedConnection, withoutSecrets, sameConnection
 - `pasted-config.ts`: pastedMcpServer
-- Tests: mcp-server-changes.test.ts, pasted-config.test.ts
+- `project-server-values.ts`: ProjectServerValue, ProjectServerValueEdit, editedProjectServerValues, projectServerValuesAfterChange, serverValuesFor, missingRequiredValues, keptValue
+- `session-mcp-servers.ts`: RecordedMcpServer, SessionMcpServerRecord, LeftOutMcpServer, startProblem, recordedMcpServer, resumeProblem
+- Tests: mcp-server-changes.test.ts, pasted-config.test.ts, project-server-values.test.ts, session-mcp-servers.test.ts
 
 ### ports/
 
 - `mcp-server-repository.ts`: McpServerUpdate, McpServerRepository
+- `project-server-value-repository.ts`: ProjectServerValueRepository
+- `role-mcp-server-repository.ts`: RoleMcpServer, RoleMcpServerRepository
+- `session-mcp-server-repository.ts`: SessionMcpServerRepository

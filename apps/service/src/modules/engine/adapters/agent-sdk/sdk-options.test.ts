@@ -23,6 +23,7 @@ const OPTIONS: SessionOptions = {
   skills: undefined,
   profile: { edit: true, run: { kind: "anything" }, web: true },
   officeTools: [],
+  mcpServers: [],
   instructions: "",
   outputSchema: undefined,
 };

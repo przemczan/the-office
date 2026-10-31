@@ -276,6 +276,7 @@ export class StageThreadsForTests extends StageThreads {
         skills: undefined,
         profile: request.session.profile,
         officeTools: [],
+        mcpServers: [],
         outputSchema: request.session.outputSchema,
       },
       brief: { id: randomUUID(), text: `${request.record}\n\n${request.work}` },

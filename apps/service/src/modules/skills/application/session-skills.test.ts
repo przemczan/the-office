@@ -398,6 +398,7 @@ async function firstTurnTokens(
       },
       profile: { edit: false, run: { kind: "read-only-git" }, web: false },
       officeTools: [],
+      mcpServers: [],
       instructions: "",
       outputSchema: undefined,
     },

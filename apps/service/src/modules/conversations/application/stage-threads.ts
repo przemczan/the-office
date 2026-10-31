@@ -3,6 +3,7 @@ import { Injectable, Logger } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { EngineSessions, type Engine } from "../../engine/index.js";
+import { SessionMcpServers, type LeftOutMcpServer } from "../../mcp-servers/index.js";
 import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { taskThreadBrief, type Brief } from "../domain/brief.js";
@@ -17,6 +18,7 @@ import type {
 import { SessionMemory } from "./session-memory.js";
 import {
   openingMessage,
+  withLeftOutServers,
   roleOfficeTools,
   sessionOfficeTools,
   workThreadInstructions,
@@ -184,6 +186,7 @@ export class StageThreads {
     private readonly roleCards: RoleCards,
     private readonly engine: EngineSessions,
     private readonly sessionSkills: SessionSkills,
+    private readonly sessionMcpServers: SessionMcpServers,
     private readonly events: EventBus,
     private readonly settings: ContextPolicySettingsService,
     private readonly memory: SessionMemory,
@@ -354,15 +357,18 @@ export class StageThreads {
         now,
       ),
     );
+    let leftOut: readonly LeftOutMcpServer[] = [];
     const opened = await this.opening(previous.id, undefined, async () => {
       const skills = await this.sessionSkills.rebuild(session.id);
+      const servers = await this.sessionMcpServers.rebuild(session.id, request.folder);
+      leftOut = servers.leftOut;
       return this.engine.resume(
         session.id,
-        this.settingsOf(previous.id, session, request, role, skills),
+        this.settingsOf(previous.id, session, request, role, skills, servers.servers),
       );
     });
     const work = { id: randomUUID(), text: request.work };
-    opened.send(work, "later");
+    opened.send({ ...work, text: withLeftOutServers(work.text, leftOut) }, "later");
     return this.live(
       {
         threadId: previous.id,
@@ -412,10 +418,19 @@ export class StageThreads {
         roleKey: role.roleKey,
         project: { folder: request.folder, useProjectSkills: request.useProjectSkills },
       });
+      const servers = await this.sessionMcpServers.prepare({
+        sessionId: session.id,
+        roleKey: role.roleKey,
+        projectId: request.projectId,
+        workingFolder: request.folder,
+      });
       return this.engine.start({
         id: session.id,
-        settings: this.settingsOf(thread.id, session, request, role, skills),
-        brief: { id: briefId, text: openingMessage(brief.text, request.work) },
+        settings: this.settingsOf(thread.id, session, request, role, skills, servers.servers),
+        brief: {
+          id: briefId,
+          text: withLeftOutServers(openingMessage(brief.text, request.work), servers.leftOut),
+        },
       });
     });
     return this.live(
@@ -460,6 +475,7 @@ export class StageThreads {
     request: StageThreadRequest,
     { roleKey, card }: SessionRole,
     skills: Awaited<ReturnType<SessionSkills["prepare"]>>,
+    mcpServers: SessionSettings["mcpServers"],
   ): SessionSettings {
     return {
       engine,
@@ -480,6 +496,7 @@ export class StageThreads {
         card,
         true,
       ),
+      mcpServers,
       outputSchema: request.session.outputSchema,
       telemetry: {
         span: {
@@ -614,10 +631,16 @@ export class StageThreads {
     return { output: turn.output, problem, tokens: turn.usage };
   }
 
-  /** A session that won't be resumed: its skills folder goes, and a failure there only warns. */
+  /**
+   * A session that won't be resumed: its skills folder and its MCP servers' record go, and a
+   * failure there only warns.
+   */
   private async forget(sessionId: string): Promise<void> {
     await this.sessionSkills.forget(sessionId).catch((error: unknown) => {
       this.logger.warn(`Session ${sessionId}'s skills stay: ${messageOf(error)}`);
+    });
+    await this.sessionMcpServers.forget(sessionId).catch((error: unknown) => {
+      this.logger.warn(`Session ${sessionId}'s MCP servers stay recorded: ${messageOf(error)}`);
     });
   }
 

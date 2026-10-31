@@ -107,6 +107,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
             skills: undefined,
             profile: { edit: false, run: { kind: "read-only-git" }, web: false },
             officeTools: [],
+            mcpServers: [],
             instructions: "",
             outputSchema: undefined,
           },

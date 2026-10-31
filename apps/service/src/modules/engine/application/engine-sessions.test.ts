@@ -58,6 +58,7 @@ const SETTINGS: SessionSettings = {
   },
   profile: { edit: true, run: { kind: "anything" }, web: false },
   officeTools: ["note"],
+  mcpServers: [],
   instructions: "",
   outputSchema: undefined,
 };

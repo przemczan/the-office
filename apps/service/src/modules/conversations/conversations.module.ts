@@ -1,6 +1,7 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
 import { EngineModule } from "../engine/index.js";
 import { PeopleModule } from "../people/index.js";
+import { McpServersModule } from "../mcp-servers/index.js";
 import { SkillsModule } from "../skills/index.js";
 import { DecisionsController } from "./adapters/http/decisions.controller.js";
 import { FireAlarmLiftsController } from "./adapters/http/fire-alarm-lifts.controller.js";
@@ -65,7 +66,7 @@ export class ConversationsModule {
       module: ConversationsModule,
       // A chat is with a person, whose Role card sets their session; the engine runs it with
       // their skills.
-      imports: [...imports, PeopleModule, EngineModule, SkillsModule],
+      imports: [...imports, PeopleModule, EngineModule, SkillsModule, McpServersModule],
       controllers: [
         ThreadsController,
         DecisionsController,

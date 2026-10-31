@@ -36,6 +36,13 @@ export class McpServerTurnedOff extends DomainEvent {
   }
 }
 
+/** The Roles it is assigned to changed; their running sessions keep the servers they started with. */
+export class McpServerRolesChanged extends DomainEvent {
+  constructor(readonly serverName: string) {
+    super();
+  }
+}
+
 export class McpServerRemoved extends DomainEvent {
   constructor(readonly serverName: string) {
     super();

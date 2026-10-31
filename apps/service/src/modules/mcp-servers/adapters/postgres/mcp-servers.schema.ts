@@ -1,11 +1,12 @@
 import { sql } from "drizzle-orm";
-import { check, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { boolean, check, jsonb, pgTable, primaryKey, text, timestamp } from "drizzle-orm/pg-core";
 import type {
   McpServerState,
   McpServerTool,
   McpServerTransport,
   ServerValue,
 } from "../../domain/mcp-server.js";
+import type { RecordedMcpServer } from "../../domain/session-mcp-servers.js";
 
 /**
  * Each MCP server in the library: a local command with its arguments or a remote URL, and its
@@ -33,3 +34,41 @@ export const mcpServers = pgTable(
     check("mcp_servers_state", sql`${table.state} IN ('on', 'off')`),
   ],
 );
+
+/** Each server assigned to a Role, by the Role's key; a removed server takes its own along. */
+export const roleMcpServers = pgTable(
+  "role_mcp_servers",
+  {
+    roleKey: text("role_key").notNull(),
+    serverName: text("server_name")
+      .notNull()
+      .references(() => mcpServers.name, { onDelete: "cascade" }),
+  },
+  (table) => [primaryKey({ columns: [table.roleKey, table.serverName] })],
+);
+
+/**
+ * A Project's own values for a server's Server values, secrets among them; a removed server takes
+ * its own along.
+ */
+export const projectServerValues = pgTable(
+  "project_server_values",
+  {
+    projectId: text("project_id").notNull(),
+    serverName: text("server_name")
+      .notNull()
+      .references(() => mcpServers.name, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    value: text("value").notNull(),
+    secret: boolean("secret").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.projectId, table.serverName, table.name] })],
+);
+
+/** The servers each session started with, never their values, while it can be resumed. */
+export const sessionMcpServers = pgTable("session_mcp_servers", {
+  sessionId: text("session_id").primaryKey(),
+  projectId: text("project_id"),
+  servers: jsonb("servers").$type<readonly RecordedMcpServer[]>().notNull(),
+  preparedAt: timestamp("prepared_at", { withTimezone: true }).notNull(),
+});

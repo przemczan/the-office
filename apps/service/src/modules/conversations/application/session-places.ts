@@ -19,8 +19,13 @@ import { TaskThreadSetups } from "./task-thread-setups.js";
 export interface SessionPlace {
   readonly folder: string;
   readonly environment: Readonly<Record<string, string>>;
-  /** The Project checkout the session works in, for its skills; undefined for a chat's. */
-  readonly project: { readonly folder: string; readonly useProjectSkills: boolean } | undefined;
+  /**
+   * The Project checkout the session works in, for its skills and its MCP servers' Server values;
+   * undefined for a chat's.
+   */
+  readonly project:
+    | { readonly id: string; readonly folder: string; readonly useProjectSkills: boolean }
+    | undefined;
   readonly officeTools: readonly string[];
   readonly brief: Brief;
   /** What its engine calls are tagged with, beside the Thread and the person. */
@@ -68,7 +73,11 @@ export class SessionPlaces {
     return {
       folder: setup.folder,
       environment: setup.environment,
-      project: { folder: setup.folder, useProjectSkills: setup.useProjectSkills },
+      project: {
+        id: setup.projectId,
+        folder: setup.folder,
+        useProjectSkills: setup.useProjectSkills,
+      },
       officeTools: thread.consultation ? CONSULTATION_OFFICE_TOOLS : setup.officeTools,
       brief: await this.briefs.forTaskThread(thread, setup),
       span: { "office.task": taskId },

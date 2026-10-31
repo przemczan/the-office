@@ -1,11 +1,13 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
 import { EngineModule } from "../engine/index.js";
+import { McpServersModule } from "../mcp-servers/index.js";
 import { SkillsModule } from "../skills/index.js";
 import { ProjectOfficeTools } from "./adapters/office-tools/project-office-tools.js";
 import { CommandLineGit } from "./adapters/git/command-line-git.js";
 import { RepositoryLocks } from "./adapters/git/repository-locks.js";
 import { GitHubCliPullRequests } from "./adapters/github/github-cli-pull-requests.js";
 import { EnvironmentChecksController } from "./adapters/http/environment-checks.controller.js";
+import { ProjectServerValuesController } from "./adapters/http/project-server-values.controller.js";
 import { ProjectsController } from "./adapters/http/projects.controller.js";
 import { TaskChangesController } from "./adapters/http/task-changes.controller.js";
 import { PostgresEnvironmentCheckRepository } from "./adapters/postgres/postgres-environment-check-repository.js";
@@ -41,10 +43,16 @@ export class ProjectsModule {
   static register({ imports, knownPipelines }: ProjectsModuleOptions): DynamicModule {
     return {
       module: ProjectsModule,
-      // The Project page lists the repository's own skills through the Skills module; chats read
-      // the Projects through an Office tool on the Engine's registry.
-      imports: [...imports, SkillsModule, EngineModule],
-      controllers: [ProjectsController, EnvironmentChecksController, TaskChangesController],
+      // The Project page lists the repository's own skills through the Skills module and keeps its
+      // Server values through the MCP servers module; chats read the Projects through an Office
+      // tool on the Engine's registry.
+      imports: [...imports, SkillsModule, McpServersModule, EngineModule],
+      controllers: [
+        ProjectsController,
+        ProjectServerValuesController,
+        EnvironmentChecksController,
+        TaskChangesController,
+      ],
       providers: [
         { provide: ProjectRepository, useClass: PostgresProjectRepository },
         { provide: EnvironmentCheckRepository, useClass: PostgresEnvironmentCheckRepository },

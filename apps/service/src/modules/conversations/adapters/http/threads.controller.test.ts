@@ -25,6 +25,7 @@ import { EventStreamModule } from "../../../../platform/websocket/event-stream.m
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { ScriptedEngine, ScriptedEngineModule } from "../../../engine/index.js";
 import { RoleCards, type SessionRole } from "../../../people/index.js";
+import { McpServersModule } from "../../../mcp-servers/index.js";
 import { SkillsModule } from "../../../skills/index.js";
 import { Briefs } from "../../application/briefs.js";
 import { sessionMemoryProvider } from "../../application/session-memory.fixtures.js";
@@ -95,6 +96,7 @@ beforeEach(async () => {
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
       SkillsModule,
+      McpServersModule,
       // The runner's own tests answer messages; these send ones it refuses, or no session takes.
       ScriptedEngineModule.register(new ScriptedEngine([])),
     ],

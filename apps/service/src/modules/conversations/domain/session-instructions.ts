@@ -228,6 +228,22 @@ export function briefedMessage(brief: string, said: string): string {
   return `${brief}\n\n## The user's message\n\n${said}`;
 }
 
+/** One of the Role's MCP servers a session doesn't get, with why, in the brief's words. */
+export interface LeftOutServer {
+  readonly name: string;
+  readonly reason: string;
+}
+
+/**
+ * A session's message, such as its Brief or the first one it is resumed with, led by the Role's
+ * MCP servers it doesn't get, so the person knows their tools are missing (spec §5.4).
+ */
+export function withLeftOutServers(text: string, leftOut: readonly LeftOutServer[]): string {
+  if (leftOut.length === 0) return text;
+  const lines = leftOut.map(({ name, reason }) => `- ${name}: ${reason}`);
+  return `## MCP servers left out\n\nThese MCP servers of your Role are not in this session, so their tools are missing:\n\n${lines.join("\n")}\n\n${text}`;
+}
+
 /**
  * The first message of a Thread The Office opens, such as a Task's planning Thread: the Brief,
  * then what The Office asks of the person, before the user has said anything.

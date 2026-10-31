@@ -122,6 +122,7 @@ describe("POST /api/mcp-servers", () => {
       ],
       state: "off",
       tools: [],
+      roles: [],
       addedAt: expect.any(String),
     });
     expect(webEvents()).toEqual([{ type: "mcp-server.added", serverName: name }]);
@@ -460,6 +461,34 @@ describe("PUT /api/mcp-servers/:name/state", () => {
     await add(name);
 
     expect((await send("PUT", `/mcp-servers/${name}/state`, { state: "on" })).status).toBe(400);
+  });
+});
+
+describe("PUT /api/mcp-servers/:name/roles", () => {
+  it("assigns the server to exactly these Roles", async () => {
+    const name = aName();
+    await add(name);
+    await serverOf(await send("PUT", `/mcp-servers/${name}/roles`, { roles: ["cto"] }));
+    published = [];
+
+    const assigned = await serverOf(
+      await send("PUT", `/mcp-servers/${name}/roles`, {
+        roles: ["developer", " devops ", "developer"],
+      }),
+    );
+
+    expect(assigned.roles).toEqual(["developer", "devops"]);
+    expect((await serverOf(await fetch(`${url}/api/mcp-servers/${name}`))).roles).toEqual([
+      "developer",
+      "devops",
+    ]);
+    const listed = mcpServerListSchema.parse(await (await fetch(`${url}/api/mcp-servers`)).json());
+    expect(listed.find((server) => server.name === name)?.roles).toEqual(["developer", "devops"]);
+    expect(webEvents()).toEqual([{ type: "mcp-server.roles-changed", serverName: name }]);
+  });
+
+  it("answers 404 for a server the library hasn't", async () => {
+    expect((await send("PUT", `/mcp-servers/${aName()}/roles`, { roles: [] })).status).toBe(404);
   });
 });
 

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable, Logger, type OnModuleDestroy } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { EngineSessions } from "../../engine/index.js";
+import { SessionMcpServers } from "../../mcp-servers/index.js";
 import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { ChatNotFound } from "../domain/chat-not-found.js";
@@ -12,6 +13,7 @@ import {
   HANDOVER_REQUEST,
   openingMessage,
   sessionOfficeTools,
+  withLeftOutServers,
 } from "../domain/session-instructions.js";
 import {
   DEFAULT_CONTEXT_POLICY_SETTINGS,
@@ -115,6 +117,7 @@ export class ThreadRunner implements OnModuleDestroy {
     private readonly places: SessionPlaces,
     private readonly engine: EngineSessions,
     private readonly sessionSkills: SessionSkills,
+    private readonly sessionMcpServers: SessionMcpServers,
     private readonly stageThreads: StageThreads,
     private readonly events: EventBus,
     private readonly settings: ContextPolicySettingsService,
@@ -398,12 +401,13 @@ export class ThreadRunner implements OnModuleDestroy {
     await place.ready();
     if (decision.move === "resume") {
       const skills = await this.sessionSkills.rebuild(session.id);
+      const servers = await this.sessionMcpServers.rebuild(session.id, place.folder);
       const opened = await this.engine.resume(
         session.id,
-        this.settingsOf(thread, session, role, skills, place),
+        this.settingsOf(thread, session, role, { skills, mcpServers: servers.servers }, place),
       );
       this.watch(thread.id, role.roleKey, place.folder, opened);
-      opened.send(said, "later");
+      opened.send({ ...said, text: withLeftOutServers(said.text, servers.leftOut) }, "later");
       return;
     }
     let opened: EngineSession;
@@ -413,10 +417,22 @@ export class ThreadRunner implements OnModuleDestroy {
         roleKey: role.roleKey,
         project: place.project,
       });
+      const servers = await this.sessionMcpServers.prepare({
+        sessionId: session.id,
+        roleKey: role.roleKey,
+        projectId: place.project?.id,
+        workingFolder: place.folder,
+      });
       opened = await this.engine.start({
         id: session.id,
-        settings: this.settingsOf(thread, session, role, skills, place),
-        brief: { id: said.id, text: briefed },
+        settings: this.settingsOf(
+          thread,
+          session,
+          role,
+          { skills, mcpServers: servers.servers },
+          place,
+        ),
+        brief: { id: said.id, text: withLeftOutServers(briefed, servers.leftOut) },
       });
     } catch (error) {
       await this.forget(session.id);
@@ -431,7 +447,7 @@ export class ThreadRunner implements OnModuleDestroy {
     thread: Thread,
     { engine }: ThreadSession,
     { roleKey, card }: SessionRole,
-    skills: SessionSettings["skills"],
+    { skills, mcpServers }: Pick<SessionSettings, "skills" | "mcpServers">,
     place: SessionPlace,
   ): SessionSettings {
     return {
@@ -454,6 +470,7 @@ export class ThreadRunner implements OnModuleDestroy {
         card,
         thread.home.kind === "task" && !thread.consultation,
       ),
+      mcpServers,
       outputSchema: undefined,
       // Asked at each call, so an alarm sounding or lifted mid-session holds or frees the next.
       toolHold: () => this.fireAlarmLifts.heldReason(thread.id),
@@ -559,10 +576,16 @@ export class ThreadRunner implements OnModuleDestroy {
     if (this.endings.get(threadId) === ending) this.endings.delete(threadId);
   }
 
-  /** A session that won't be resumed: its skills folder goes, and a failure there only warns. */
+  /**
+   * A session that won't be resumed: its skills folder and its MCP servers' record go, and a
+   * failure there only warns.
+   */
   private async forget(sessionId: string): Promise<void> {
     await this.sessionSkills.forget(sessionId).catch((error: unknown) => {
       this.logger.warn(`Session ${sessionId}'s skills stay: ${messageOf(error)}`);
+    });
+    await this.sessionMcpServers.forget(sessionId).catch((error: unknown) => {
+      this.logger.warn(`Session ${sessionId}'s MCP servers stay recorded: ${messageOf(error)}`);
     });
   }
 

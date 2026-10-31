@@ -24,6 +24,7 @@ import {
   RoleService,
   type SessionRole,
 } from "../../people/index.js";
+import { SessionMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { ProposalOfficeTools } from "../adapters/office-tools/proposal-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
@@ -61,6 +62,7 @@ import { FireAlarmInThreads } from "./fire-alarm-in-threads.js";
 import { FireAlarmLifts } from "./fire-alarm-lifts.js";
 import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
 import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
+import { sessionMcpServersStandIn } from "./session-mcp-servers.fixtures.js";
 
 type Step = SessionScript[number];
 
@@ -133,6 +135,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       { provide: ProjectBases, useValue: bases },
       { provide: SessionSkills, useValue: sessionSkills },
+      { provide: SessionMcpServers, useValue: sessionMcpServersStandIn().service },
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
       ContextPolicySettingsService,
       ThreadService,

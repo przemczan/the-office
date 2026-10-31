@@ -23,7 +23,9 @@ import { McpServerNotFound } from "../domain/mcp-server-not-found.js";
 import { McpServerRefused } from "../domain/mcp-server-refused.js";
 import { reviewDigest } from "../domain/mcp-server-review.js";
 import { pastedMcpServer } from "../domain/pasted-config.js";
+import { projectServerValuesAfterChange } from "../domain/project-server-values.js";
 import { McpServerRepository } from "../ports/mcp-server-repository.js";
+import { ProjectServerValueRepository } from "../ports/project-server-value-repository.js";
 import { launchOf, officeWideValues } from "./mcp-server-launch.js";
 
 /** How long a review waits for the server to start and list its tools: `npx` may download it first. */
@@ -51,6 +53,7 @@ export class McpServerLibrary {
     private readonly repository: McpServerRepository,
     private readonly events: EventBus,
     private readonly client: McpClient,
+    private readonly projectValues: ProjectServerValueRepository,
   ) {}
 
   async list(): Promise<readonly McpServer[]> {
@@ -79,8 +82,13 @@ export class McpServerLibrary {
     return pastedMcpServer(config);
   }
 
+  /** A Project's values follow its Server values: see `projectServerValuesAfterChange`. */
   async change(name: string, edit: McpServerEdit): Promise<McpServer> {
-    return this.update(name, (kept) => changeMcpServer(kept, edit));
+    const server = await this.update(name, (kept) => changeMcpServer(kept, edit));
+    await this.projectValues.updateAll(name, (kept) =>
+      projectServerValuesAfterChange(server, kept),
+    );
+    return server;
   }
 
   async remove(name: string): Promise<void> {

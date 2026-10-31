@@ -442,6 +442,13 @@
       "when": 1793477820867,
       "tag": "0062_mcp_server_tools",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1793479009581,
+      "tag": "0063_mcp_server_assignment",
+      "breakpoints": true
     }
   ]
 }

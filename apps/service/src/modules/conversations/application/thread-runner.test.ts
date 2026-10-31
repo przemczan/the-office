@@ -23,6 +23,7 @@ import {
   type ApiEngineOnFakeServer,
 } from "../../engine/index.fixtures.js";
 import { RoleCards, type SessionRole } from "../../people/index.js";
+import { SessionMcpServers, type PreparedMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
@@ -63,6 +64,10 @@ import { ConversationsSettingsForTests } from "../ports/conversations-settings.f
 import { FireAlarmLifts, HELD_BY_THE_FIRE_ALARM } from "./fire-alarm-lifts.js";
 import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
 import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
+import {
+  sessionMcpServersStandIn,
+  type SessionMcpServersStandIn,
+} from "./session-mcp-servers.fixtures.js";
 
 type Card = SessionRole["card"];
 type Step = SessionScript[number];
@@ -96,6 +101,23 @@ let decisions: DecisionService;
 let forgotten: string[];
 /** What each new session's skills were prepared for. */
 let prepared: Parameters<SessionSkills["prepare"]>[0][];
+/** What the MCP servers module stands in for, and the servers it gives new and resumed sessions. */
+let mcpServers: SessionMcpServersStandIn;
+let mcpServersOnStart: PreparedMcpServers;
+let mcpServersOnResume: PreparedMcpServers;
+
+/** A server a session runs, and one of the Role's it is told it doesn't get. */
+const WITH_MCP_SERVERS: PreparedMcpServers = {
+  servers: [
+    {
+      name: "github",
+      launch: { transport: "streamable-http", url: "https://mcp.example.com", headers: {} },
+      tools: [{ name: "list_issues", description: "Lists the issues.", inputSchema: {} }],
+    },
+  ],
+  leftOut: [{ name: "linear", reason: "it has no value for LINEAR_TOKEN." }],
+};
+const NO_MCP_SERVERS: PreparedMcpServers = { servers: [], leftOut: [] };
 
 const PROJECTS: BriefProject[] = [
   {
@@ -110,6 +132,8 @@ beforeEach(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-threads-"));
   versions = [PLANNER];
   roleKey = `role-${randomUUID()}`;
+  mcpServersOnStart = NO_MCP_SERVERS;
+  mcpServersOnResume = NO_MCP_SERVERS;
 });
 
 afterEach(async () => {
@@ -135,6 +159,7 @@ async function startOn(
   fallback = new ScriptedEngine(fallbackScripts);
   forgotten = [];
   prepared = [];
+  mcpServers = sessionMcpServersStandIn(mcpServersOnStart, mcpServersOnResume);
   // The library is shared by every test file, so the sessions here get no skills of it.
   const sessionSkills: Pick<SessionSkills, "prepare" | "rebuild" | "forget"> = {
     prepare: (request) => {
@@ -174,6 +199,7 @@ async function startOn(
       { provide: RoleCards, useValue: roleCards },
       { provide: ProjectBases, useValue: bases },
       { provide: SessionSkills, useValue: sessionSkills },
+      { provide: SessionMcpServers, useValue: mcpServers.service },
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
       ContextPolicySettingsService,
       ThreadService,
@@ -433,6 +459,63 @@ describe("a new Thread's first message", () => {
         full: false,
       },
     });
+  });
+});
+
+describe("a chat's MCP servers", () => {
+  it("starts the session with its Role's servers on the Office-wide values, its Brief led by those left out", async () => {
+    mcpServersOnStart = WITH_MCP_SERVERS;
+    await startWith(started(...aTurn("brief", "Hello.")));
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Hello.");
+    await answered(thread.id, 3);
+
+    const [session] = engine.sessions;
+    expect(session?.options.mcpServers).toEqual(WITH_MCP_SERVERS.servers);
+    expect(mcpServers.prepared).toEqual([
+      {
+        sessionId: session?.id,
+        roleKey,
+        projectId: undefined,
+        workingFolder: join(officeData, "bases"),
+      },
+    ]);
+    const brief = session?.received[0];
+    expect(brief?.step === "start" && brief.brief.text).toMatch(
+      /^## MCP servers left out\n\n[^#]*\n\n- linear: it has no value for LINEAR_TOKEN\.\n\n[\s\S]*## The user's message\n\nHello\.$/,
+    );
+  });
+
+  it("resumes with the servers it recorded, telling the session of those left out since", async () => {
+    mcpServersOnStart = WITH_MCP_SERVERS;
+    mcpServersOnResume = {
+      servers: [],
+      leftOut: [{ name: "github", reason: "it was turned off." }],
+    };
+    await startWith(started(...aTurn("brief", "Hello.")), [
+      { step: "resume" },
+      sent("m-2"),
+      ...aTurn("m-2", "Back again."),
+    ]);
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Hello.");
+    await answered(thread.id, 3);
+    await runner.onModuleDestroy();
+    await cooled(thread.id, 12_000);
+
+    await runner.send(thread.id, "Still there?");
+    const log = await answered(thread.id, 6);
+
+    const [first, resumed] = engine.sessions;
+    expect(mcpServers.rebuilt).toEqual([first?.id]);
+    expect(resumed?.options.mcpServers).toEqual([]);
+    const message = resumed?.received.find((step) => step.step === "send");
+    expect(message?.step === "send" && message.message.text).toMatch(
+      /^## MCP servers left out\n\n[^#]*- github: it was turned off\.\n\nStill there\?$/,
+    );
+    // The log keeps what the user said.
+    expect(drafts(log)[4]).toEqual({ kind: "user", text: "Still there?", delivery: "delivered" });
   });
 });
 
@@ -778,7 +861,14 @@ describe("a Thread on a Task", () => {
       /^You are Jan, the Planner in The Office[\s\S]*\n\nOn this Task you plan\.$/,
     );
     expect(prepared).toEqual([
-      { sessionId: session?.id, roleKey, project: { folder: worktree, useProjectSkills: true } },
+      {
+        sessionId: session?.id,
+        roleKey,
+        project: { id: "admin-panel", folder: worktree, useProjectSkills: true },
+      },
+    ]);
+    expect(mcpServers.prepared).toEqual([
+      { sessionId: session?.id, roleKey, projectId: "admin-panel", workingFolder: worktree },
     ]);
     expect(drafts(log)).toEqual([
       contextLine({ move: "fresh", reason: "new-thread", briefTokens: expect.any(Number) }),

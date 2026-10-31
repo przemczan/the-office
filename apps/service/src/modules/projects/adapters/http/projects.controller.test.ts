@@ -4,6 +4,8 @@ import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import {
   projectListSchema,
+  projectMcpServerValuesListSchema,
+  projectMcpServerValuesSchema,
   projectSkillListSchema,
   projectRefusalSchema,
   projectSchema,
@@ -21,6 +23,7 @@ import { OfficeDataModule } from "../../../../platform/office-data/office-data.m
 import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
+import { McpServerLibrary } from "../../../mcp-servers/index.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../../pipelines/index.js";
 import { ProjectsModule } from "../../projects.module.js";
 import {
@@ -385,5 +388,108 @@ describe("GET /api/projects/:id/tasks/:taskId/changes", () => {
 
     expect(missing.status).toBe(404);
     expect(malformed.status).toBe(400);
+  });
+});
+
+const PROJECT_SECRET = "project-secret-never-sent-back";
+
+async function addMcpServer(): Promise<string> {
+  const name = `github-${randomUUID().slice(0, 8)}`;
+  await app.get(McpServerLibrary).add({
+    name,
+    connection: { transport: "stdio", command: "npx", arguments: ["server-github"] },
+    serverValues: [
+      { name: "GITHUB_TOKEN", secret: true, required: true, officeWideValue: "office-secret" },
+      { name: "GITHUB_HOST", secret: false, required: false, officeWideValue: "github.com" },
+    ],
+  });
+  return name;
+}
+
+describe("Server values", () => {
+  it("keeps a Project's values over the Office-wide ones, a secret's never sent back", async () => {
+    const project = await addProject();
+    const serverName = await addMcpServer();
+
+    const changed = await send("PUT", `/projects/${project.id}/server-values/${serverName}`, {
+      serverValues: [
+        { name: "GITHUB_TOKEN", projectValue: PROJECT_SECRET },
+        { name: "GITHUB_HOST", projectValue: "github.example.com" },
+      ],
+    });
+    expect(changed.status).toBe(200);
+    expect(await changed.clone().text()).not.toContain(PROJECT_SECRET);
+    const listed = await fetch(`${url}/api/projects/${project.id}/server-values`);
+    const text = await listed.text();
+
+    expect(text).not.toContain(PROJECT_SECRET);
+    expect(text).not.toContain("office-secret");
+    const values = projectMcpServerValuesListSchema
+      .parse(JSON.parse(text))
+      .find((server) => server.serverName === serverName);
+    expect(values).toEqual(projectMcpServerValuesSchema.parse(await changed.json()));
+    expect(values?.serverValues).toEqual([
+      {
+        name: "GITHUB_TOKEN",
+        secret: true,
+        required: true,
+        officeWideValueSet: true,
+        projectValueSet: true,
+      },
+      {
+        name: "GITHUB_HOST",
+        secret: false,
+        required: false,
+        officeWideValue: "github.com",
+        officeWideValueSet: true,
+        projectValue: "github.example.com",
+        projectValueSet: true,
+      },
+    ]);
+  });
+
+  it("keeps a value given none and clears one given empty", async () => {
+    const project = await addProject();
+    const serverName = await addMcpServer();
+    const path = `/projects/${project.id}/server-values/${serverName}`;
+    await send("PUT", path, {
+      serverValues: [
+        { name: "GITHUB_TOKEN", projectValue: PROJECT_SECRET },
+        { name: "GITHUB_HOST", projectValue: "github.example.com" },
+      ],
+    });
+
+    const changed = projectMcpServerValuesSchema.parse(
+      await (
+        await send("PUT", path, {
+          serverValues: [{ name: "GITHUB_TOKEN" }, { name: "GITHUB_HOST", projectValue: "" }],
+        })
+      ).json(),
+    );
+
+    expect(changed.serverValues.map(({ projectValueSet }) => projectValueSet)).toEqual([
+      true,
+      false,
+    ]);
+  });
+
+  it("refuses a name that isn't one of the server's values, or a server the library hasn't", async () => {
+    const project = await addProject();
+    const serverName = await addMcpServer();
+
+    const unknownValue = await send("PUT", `/projects/${project.id}/server-values/${serverName}`, {
+      serverValues: [{ name: "TOKEN", projectValue: "x" }],
+    });
+    const unknownServer = await send("PUT", `/projects/${project.id}/server-values/nothing`, {
+      serverValues: [],
+    });
+    const unknownProject = await fetch(`${url}/api/projects/${randomUUID()}/server-values`);
+
+    expect(unknownValue.status).toBe(422);
+    expect(projectRefusalSchema.parse(await unknownValue.json()).reasons).toEqual([
+      `"TOKEN" is not a Server value of "${serverName}".`,
+    ]);
+    expect(unknownServer.status).toBe(422);
+    expect(unknownProject.status).toBe(404);
   });
 });

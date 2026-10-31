@@ -179,6 +179,7 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
       skills: undefined,
       profile: READ_ONLY,
       officeTools: [],
+      mcpServers: [],
       outputSchema: undefined,
       ...changes,
     };

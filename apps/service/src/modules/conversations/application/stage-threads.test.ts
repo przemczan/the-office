@@ -19,6 +19,7 @@ import {
   type SessionScript,
 } from "../../engine/index.js";
 import { DEVOPS, RoleCards, type SessionRole } from "../../people/index.js";
+import { SessionMcpServers, type PreparedMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
 import { Consultations } from "./consultations.js";
@@ -57,6 +58,10 @@ import { ConversationsSettingsForTests } from "../ports/conversations-settings.f
 import { FireAlarmLifts } from "./fire-alarm-lifts.js";
 import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
 import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
+import {
+  sessionMcpServersStandIn,
+  type SessionMcpServersStandIn,
+} from "./session-mcp-servers.fixtures.js";
 
 type Step = SessionScript[number];
 
@@ -72,10 +77,17 @@ let repository: ThreadRepository;
 /** The people of this test, by Role key, each under a key of its own. */
 let people: Map<string, SessionRole>;
 let forgotten: string[];
+/** What the MCP servers module stands in for, and the servers it gives new and resumed sessions. */
+let mcpServers: SessionMcpServersStandIn;
+let mcpServersOnStart: PreparedMcpServers;
+let mcpServersOnResume: PreparedMcpServers;
+const NO_MCP_SERVERS: PreparedMcpServers = { servers: [], leftOut: [] };
 
 beforeEach(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-stage-threads-"));
   people = new Map();
+  mcpServersOnStart = NO_MCP_SERVERS;
+  mcpServersOnResume = NO_MCP_SERVERS;
 });
 
 afterEach(async () => {
@@ -97,6 +109,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
 async function startOn(scripted: ScriptedEngine): Promise<void> {
   engine = scripted;
   forgotten = [];
+  mcpServers = sessionMcpServersStandIn(mcpServersOnStart, mcpServersOnResume);
   const noSkills = (sessionId: string) =>
     Promise.resolve({
       folder: join(officeData, "sessions", sessionId, "skills"),
@@ -139,6 +152,7 @@ async function startOn(scripted: ScriptedEngine): Promise<void> {
       { provide: RoleCards, useValue: roleCards },
       { provide: ProjectBases, useValue: bases },
       { provide: SessionSkills, useValue: sessionSkills },
+      { provide: SessionMcpServers, useValue: mcpServers.service },
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
       ContextPolicySettingsService,
       Briefs,
@@ -344,6 +358,40 @@ describe("StageThreads", () => {
     expect(engine.sessions[0]?.options).toMatchObject({ model: "claude-haiku-5-5", effort: "low" });
   });
 
+  it("opens the session with its Role's MCP servers on the Project's values, its Brief led by those left out", async () => {
+    mcpServersOnStart = {
+      servers: [
+        {
+          name: "github",
+          launch: { transport: "streamable-http", url: "https://mcp.example.com", headers: {} },
+          tools: [{ name: "list_issues", description: "Lists the issues.", inputSchema: {} }],
+        },
+      ],
+      leftOut: [{ name: "linear", reason: "it has no value for LINEAR_TOKEN." }],
+    };
+    await startWith(started(...aTurn({ status: "done" })));
+    const ada = aPerson("Ada");
+    const request = aStage({ roleKey: ada });
+
+    await aStageRun(request);
+
+    const [session] = engine.sessions;
+    expect(session?.options.mcpServers).toEqual(mcpServersOnStart.servers);
+    expect(mcpServers.prepared).toEqual([
+      {
+        sessionId: session?.id,
+        roleKey: ada,
+        projectId: request.projectId,
+        workingFolder: request.folder,
+      },
+    ]);
+    const opening = session?.received[0];
+    const brief = opening?.step === "start" ? opening.brief.text : "";
+    expect(brief.startsWith("## MCP servers left out\n\n")).toBe(true);
+    expect(brief).toContain("- linear: it has no value for LINEAR_TOKEN.\n\n");
+    expect(brief).toContain("## The Task\n\nRename a device.");
+  });
+
   it("gives Devops' Stage their own Office tools besides the Stage's, as in their chat", async () => {
     await startWith(started(...aTurn({ status: "done" })));
     people.set(DEVOPS, {
@@ -396,6 +444,7 @@ describe("StageThreads", () => {
       step: "send",
       message: { text: "## The Stage: Review & fix" },
     });
+    expect(mcpServers.rebuilt).toEqual([resumedSession?.id]);
     const log = drafts(await repository.messages(first.stageThread.threadId));
     expect(log.slice(3)).toEqual([
       expect.objectContaining({ kind: "context", move: "resume", reason: "stage-declared" }),

@@ -60,6 +60,7 @@ function options(): SessionOptions {
     skills: undefined,
     profile: { edit: true, run: { kind: "anything" }, web: false },
     officeTools: [],
+    mcpServers: [],
     instructions: "",
     outputSchema: undefined,
   };

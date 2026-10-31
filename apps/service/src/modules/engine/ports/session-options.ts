@@ -17,6 +17,43 @@ export interface SessionSkills {
 }
 
 /**
+ * An MCP server the session runs (spec §5.4), as the MCP servers module prepared it: how to reach
+ * it with its values, which may hold secrets, and the tools it was given, named in the session
+ * `mcp__<name>__<tool>`. The same on each resume, but for its values.
+ */
+export interface SessionMcpServer {
+  readonly name: string;
+  readonly launch: SessionMcpServerLaunch;
+  readonly tools: readonly SessionMcpServerTool[];
+}
+
+/**
+ * How to reach the server: the platform's `McpServerLaunch`, which the adapters hand to its
+ * `McpClient`, restated because the ports layer takes nothing else from the platform.
+ */
+export type SessionMcpServerLaunch =
+  | {
+      readonly transport: "stdio";
+      readonly command: string;
+      readonly arguments: readonly string[];
+      readonly environmentVariables: Readonly<Record<string, string>>;
+      readonly workingFolder: string;
+    }
+  | {
+      readonly transport: "streamable-http";
+      readonly url: string;
+      readonly headers: Readonly<Record<string, string>>;
+    };
+
+/** A tool as the server listed it at its review: the platform's `McpTool`. */
+export interface SessionMcpServerTool {
+  readonly name: string;
+  readonly description: string;
+  /** The JSON Schema of its input. */
+  readonly inputSchema: Readonly<Record<string, unknown>>;
+}
+
+/**
  * Asked before each tool call of a session, after the engine's input validation: the words that
  * refuse it while The Office holds every tool call, such as while the fire alarm is on (spec
  * §2.8), or undefined to judge the call by the Office rules.
@@ -49,6 +86,8 @@ export interface SessionOptions {
   readonly skills: SessionSkills | undefined;
   readonly profile: PermissionProfile;
   readonly officeTools: readonly OfficeTool[];
+  /** The Role's MCP servers that run in the session; none when it has none. */
+  readonly mcpServers: readonly SessionMcpServer[];
   /** What each turn's output must match, or undefined for a reply in plain words. */
   readonly outputSchema: JsonSchema | undefined;
   /** Undefined for a session whose tool calls The Office never holds as a whole. */

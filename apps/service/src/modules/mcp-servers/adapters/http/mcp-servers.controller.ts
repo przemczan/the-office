@@ -12,12 +12,14 @@ import {
 } from "@nestjs/common";
 import {
   mcpServerEditSchema,
+  mcpServerRolesChangeSchema,
   mcpServerStateChangeSchema,
   newMcpServerSchema,
   pastedConfigSchema,
   type McpServer as McpServerResponse,
   type McpServerEdit as McpServerEditRequest,
   type McpServerReview as McpServerReviewResponse,
+  type McpServerRolesChange,
   type McpServerStateChange,
   type McpServerTool as McpServerToolResponse,
   type NewMcpServer as NewMcpServerMessage,
@@ -27,6 +29,7 @@ import {
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { McpServerLibrary, type McpServerReview } from "../../application/mcp-server-library.js";
+import { RoleMcpServers } from "../../application/role-mcp-servers.js";
 import type {
   McpServer,
   McpServerConnection,
@@ -41,11 +44,17 @@ import { McpServerRefusalsFilter } from "./mcp-server-refusals.filter.js";
 @Controller("mcp-servers")
 @UseFilters(McpServerRefusalsFilter)
 export class McpServersController {
-  constructor(private readonly library: McpServerLibrary) {}
+  constructor(
+    private readonly library: McpServerLibrary,
+    private readonly roleServers: RoleMcpServers,
+  ) {}
 
   @Get()
   async list(): Promise<McpServerResponse[]> {
-    return (await this.library.list()).map(toMcpServerResponse);
+    const roles = await this.roleServers.byServer();
+    return (await this.library.list()).map((server) =>
+      toMcpServerResponse(server, roles.get(server.name) ?? []),
+    );
   }
 
   @Post()
@@ -57,7 +66,7 @@ export class McpServersController {
       connection: connectionOf(newServer),
       serverValues: newServer.serverValues.map(toServerValueEdit),
     });
-    return toMcpServerResponse(server);
+    return toMcpServerResponse(server, []);
   }
 
   /** Reads a pasted config for the form, which the user checks before adding; keeps nothing. */
@@ -71,7 +80,7 @@ export class McpServersController {
 
   @Get(":name")
   async read(@Param("name") name: string): Promise<McpServerResponse> {
-    return toMcpServerResponse(await this.library.read(name));
+    return this.response(await this.library.read(name));
   }
 
   @Put(":name")
@@ -83,13 +92,14 @@ export class McpServersController {
       connection: connectionOf(edit),
       serverValues: edit.serverValues.map(toServerValueEdit),
     });
-    return toMcpServerResponse(server);
+    return this.response(server);
   }
 
   /** Connects with the Office-wide values: the user reviews what runs and the tools it lists. */
   @Get(":name/review")
   async review(@Param("name") name: string): Promise<McpServerReviewResponse> {
-    return toReviewResponse(await this.library.review(name));
+    const review = await this.library.review(name);
+    return toReviewResponse(review, await this.rolesOf(name));
   }
 
   @Put(":name/state")
@@ -101,13 +111,31 @@ export class McpServersController {
       change.state === "on"
         ? this.library.turnOn(name, change.reviewDigest)
         : this.library.turnOff(name);
-    return toMcpServerResponse(await server);
+    return this.response(await server);
+  }
+
+  /** The Roles whose Agents get it, from their next sessions on. */
+  @Put(":name/roles")
+  async assign(
+    @Param("name") name: string,
+    @Body(new ContractPipe(mcpServerRolesChangeSchema)) { roles }: McpServerRolesChange,
+  ): Promise<McpServerResponse> {
+    const assigned = await this.roleServers.assignServer(name, roles);
+    return toMcpServerResponse(await this.library.read(name), assigned);
   }
 
   @Delete(":name")
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param("name") name: string): Promise<void> {
     await this.library.remove(name);
+  }
+
+  private async response(server: McpServer): Promise<McpServerResponse> {
+    return toMcpServerResponse(server, await this.rolesOf(server.name));
+  }
+
+  private async rolesOf(name: string): Promise<readonly string[]> {
+    return (await this.roleServers.byServer()).get(name) ?? [];
   }
 }
 
@@ -126,28 +154,28 @@ function toServerValueEdit({
   return { name, secret, required, ...(officeWideValue !== undefined && { officeWideValue }) };
 }
 
-function toMcpServerResponse({
-  name,
-  connection,
-  serverValues,
-  state,
-  tools,
-  addedAt,
-}: McpServer): McpServerResponse {
+function toMcpServerResponse(
+  { name, connection, serverValues, state, tools, addedAt }: McpServer,
+  roles: readonly string[],
+): McpServerResponse {
   return withConnection(
     {
       name,
       serverValues: serverValues.map(toServerValueResponse),
       state,
       tools: tools.map(toToolResponse),
+      roles: [...roles],
       addedAt: addedAt.toISOString(),
     },
     connection,
   );
 }
 
-function toReviewResponse(review: McpServerReview): McpServerReviewResponse {
-  const server = toMcpServerResponse(review.server);
+function toReviewResponse(
+  review: McpServerReview,
+  roles: readonly string[],
+): McpServerReviewResponse {
+  const server = toMcpServerResponse(review.server, roles);
   return review.connected
     ? {
         server,

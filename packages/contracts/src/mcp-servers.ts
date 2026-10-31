@@ -51,6 +51,8 @@ const mcpServerFieldsSchema = z.object({
   state: mcpServerStateSchema,
   /** The tools its review listed when it was turned on; none while it is off. */
   tools: z.array(mcpServerToolSchema),
+  /** The keys of the Roles it is assigned to, in order. */
+  roles: z.array(z.string()),
   addedAt: z.iso.datetime(),
 });
 
@@ -126,6 +128,50 @@ export const mcpServerStateChangeSchema = z.discriminatedUnion("state", [
 ]);
 export type McpServerStateChange = z.infer<typeof mcpServerStateChangeSchema>;
 
+/** PUT /mcp-servers/:name/roles: exactly the Roles it is assigned to, by their keys. */
+export const mcpServerRolesChangeSchema = z.object({ roles: z.array(z.string()) });
+export type McpServerRolesChange = z.infer<typeof mcpServerRolesChangeSchema>;
+
+/**
+ * A Server value on a Project's page: its Office-wide value and the Project's own, which wins. A
+ * secret's values are never sent back, only whether they are set.
+ */
+export const projectServerValueSchema = serverValueSchema.extend({
+  /** Absent for a secret and for a value the Project doesn't set. */
+  projectValue: z.string().optional(),
+  projectValueSet: z.boolean(),
+});
+export type ProjectServerValue = z.infer<typeof projectServerValueSchema>;
+
+/** One MCP server's Server values on a Project's page. */
+export const projectMcpServerValuesSchema = z.object({
+  serverName: z.string(),
+  serverValues: z.array(projectServerValueSchema),
+});
+export type ProjectMcpServerValues = z.infer<typeof projectMcpServerValuesSchema>;
+
+/** GET /projects/:id/server-values: each server of the library that has Server values. */
+export const projectMcpServerValuesListSchema = z.array(projectMcpServerValuesSchema);
+
+/**
+ * A Project's value as the Project page saves it. Without a `projectValue` it keeps the one kept;
+ * an empty one clears it, so the Office-wide value applies.
+ */
+export const projectServerValueEditSchema = z.object({
+  name: z.string(),
+  projectValue: z.string().optional(),
+});
+export type ProjectServerValueEdit = z.infer<typeof projectServerValueEditSchema>;
+
+/**
+ * PUT /projects/:id/server-values/:serverName: the Project's values for the server; a Server value
+ * not given is cleared.
+ */
+export const projectServerValuesChangeSchema = z.object({
+  serverValues: z.array(projectServerValueEditSchema),
+});
+export type ProjectServerValuesChange = z.infer<typeof projectServerValuesChangeSchema>;
+
 export const mcpServerRefusalSchema = z.object({
   statusCode: z.literal(422),
   message: z.string(),
@@ -139,6 +185,7 @@ export const mcpServerWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("mcp-server.changed"), serverName: z.string() }),
   webEventSchema.extend({ type: z.literal("mcp-server.turned-on"), serverName: z.string() }),
   webEventSchema.extend({ type: z.literal("mcp-server.turned-off"), serverName: z.string() }),
+  webEventSchema.extend({ type: z.literal("mcp-server.roles-changed"), serverName: z.string() }),
   webEventSchema.extend({ type: z.literal("mcp-server.removed"), serverName: z.string() }),
 ]);
 export type McpServerWebEvent = z.infer<typeof mcpServerWebEventSchema>;

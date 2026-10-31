@@ -394,6 +394,7 @@ function defaultOptions(folder: string, model: string): SessionOptions {
     skills: undefined,
     profile: READ_ONLY,
     officeTools: [],
+    mcpServers: [],
     instructions: "",
     outputSchema: undefined,
   };

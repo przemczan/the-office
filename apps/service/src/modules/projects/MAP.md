@@ -2,7 +2,7 @@
 
 **Owns:** Projects (`projects`): path, commands, install inputs, publishing mode, default Pipeline; the environment check (`environment_checks`); The Office's own git (`ports/git.ts`, `CommandLineGit`) under per-repository locks; a worktree per Task, the base checkouts, Changes, and the git work of Publish and Resolve (`TaskWorktrees`; `Publishing`, `Resolving`).
 
-**Talks to:** checks a default Pipeline through its `KnownPipelines` port, bound to Pipelines' `PipelineLibrary` in [app.module.ts](../../app.module.ts); calls Engine and Skills. Serves Work (`ProjectService`, `TaskWorktrees`), Pipelines (`TaskWorktrees` as `TaskGit`, `TaskCommands` and `TaskPublishing`; `ProjectService` as `ProjectDefaults`, which the library asks before removing a Pipeline) and Conversations (`BaseCheckouts`; Devops' `read_local_repository` in their chat, reading a repository's local branches and the names and manifest files of its top level or one folder inside it before it is a Project (`LocalRepositories`, refusing a repository folder as adding a Project does, and a folder that leaves the repository or is git's own); and `ProjectService` for Devops' Proposals of commands and install inputs: `proposedCommandsProblems` and `changeCommandsAsProposed`; and Work's `NewProjects` for a Project to onboard: `add` and its dry run `newProjectProblems`, which applies the whole Proposal or none of it: judged against the row as it is held and saved in one update, each field still announced with its own event as the Project page announces it).
+**Talks to:** checks a default Pipeline through its `KnownPipelines` port, bound to Pipelines' `PipelineLibrary` in [app.module.ts](../../app.module.ts); calls Engine, Skills and MCP servers (the Project page's Server values, `GET`/`PUT /projects/:id/server-values`, in `ProjectServerValuesController`; the library's refusals answered as the Project's). Serves Work (`ProjectService`, `TaskWorktrees`), Pipelines (`TaskWorktrees` as `TaskGit`, `TaskCommands` and `TaskPublishing`; `ProjectService` as `ProjectDefaults`, which the library asks before removing a Pipeline) and Conversations (`BaseCheckouts`; Devops' `read_local_repository` in their chat, reading a repository's local branches and the names and manifest files of its top level or one folder inside it before it is a Project (`LocalRepositories`, refusing a repository folder as adding a Project does, and a folder that leaves the repository or is git's own); and `ProjectService` for Devops' Proposals of commands and install inputs: `proposedCommandsProblems` and `changeCommandsAsProposed`; and Work's `NewProjects` for a Project to onboard: `add` and its dry run `newProjectProblems`, which applies the whole Proposal or none of it: judged against the row as it is held and saved in one update, each field still announced with its own event as the Project page announces it).
 
 **Traps:**
 - The module is registered once in `AppModule`, so every git change on a repository goes through the same locks.
@@ -24,6 +24,8 @@ BaseCheckouts, BaseCheckout, ProjectService, TaskWorktrees, SessionWorktree, Env
 
 - `GET /projects/:id/environment-check`: EnvironmentChecksController.latest
 - `POST /projects/:id/environment-check`: EnvironmentChecksController.start
+- `GET /projects/:id/server-values`: ProjectServerValuesController.list
+- `PUT /projects/:id/server-values/:serverName`: ProjectServerValuesController.change
 - `POST /projects`: ProjectsController.add
 - `GET /projects`: ProjectsController.list
 - `GET /projects/:id`: ProjectsController.read
@@ -62,6 +64,7 @@ BaseCheckouts, BaseCheckout, ProjectService, TaskWorktrees, SessionWorktree, Env
 
 - `environment-checks.controller.ts`: EnvironmentChecksController
 - `project-refusals.filter.ts`: ProjectRefusalsFilter
+- `project-server-values.controller.ts`: ProjectServerValuesController
 - `projects.controller.ts`: ProjectsController
 - `task-changes.controller.ts`: TaskChangesController
 - Tests: environment-checks.controller.test.ts, projects.controller.test.ts
