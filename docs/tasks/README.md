@@ -79,6 +79,22 @@ Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written
 | 44 | Stack-specific checks for installs and publishing | Projects | todo |
 | 45 | The tier 3 acceptance run | All | todo |
 
+## After tier 3: the remaining fixes
+
+As in tier 2 (the user, 2026-10-31): a fix is built where it is found only when it would be harder to make after the changes that come next. Every other fix or open check is listed here and done together once tier 3 is done; a task that builds one removes its line.
+
+- **Shared scripted engine in `devops-proposals.test.ts`:** its tests share one `ScriptedEngine` and its first-in, first-out script queue with no `afterEach`, so one late test leaves its script for the next and ten tests time out (seen once under `verify:linux`, 2026-10-31). Fix: an `afterEach` that checks each test used exactly its own scripts, or one engine per test.
+- **Spawn-and-end-tree code in two places:** `projects/adapters/shell/` and the engine's `adapters/openai-compatible-api/shell-command.ts` each start a command and end its process tree. Proposed: move the shared part into `platform/os/`.
+- **An idle session and a background command's notice (task 35):** the pinned binary queues `<task-notification>` at priority `next`, but whether an idle SDK session starts a turn for it was not seen live; the OpenAI-compatible API engine lands it at the next turn. Check in the engine check, and match if they differ.
+- **A skill loaded on a live API endpoint (task 35):** the Skill tool is tested on the fake server only; see it once on a live server.
+- **Task 35's choices for the user to review**, made while building and recorded in [archive/35-api-based-engine.md](archive/35-api-based-engine.md):
+  - WebFetch gives the page text to the session's own model under the call's prompt, with no second request; the page stays in the session's context.
+  - Nothing is compacted; without a token count from the server, usage is estimated at 4 characters per token.
+  - WebSearch and Skill are always offered, so the tool list stays fixed; without a Search endpoint a WebSearch call is refused after the Office rules allow it.
+  - A turn that must give structured output and doesn't is reminded twice, then fails.
+  - After a resume, Edit needs a fresh Read; nested `CLAUDE.md` files, `@` imports and nested skills are not loaded.
+  - Settings › Engines has no click-through screen, so its wording and layout are new; "Search endpoint" is a new glossary term.
+
 Read these only when a step needs them:
 
 - [build-defaults.md](build-defaults.md): choices the spec leaves open (Windows and Linux, the workspace layout, the checks, the Office data directory, the scripted engine adapter). Change one only with the user.
