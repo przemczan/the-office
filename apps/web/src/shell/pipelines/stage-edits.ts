@@ -1,4 +1,5 @@
 import type { Stage } from "@the-office/contracts";
+import { withPermissions } from "./stage-permissions.ts";
 
 /**
  * The Stage editor's changes to a list of Stages, each answering the new list. Stages before
@@ -100,7 +101,8 @@ export function replaceStage(
 export function withRole(stages: readonly Stage[], index: number, role: string): AgentStage {
   const stage = stages[index];
   if (stage?.kind !== "agent") throw new Error(`Stage ${index + 1} isn't an Agent Stage.`);
-  const changed = { ...stage, role };
+  // The MCP tools set belong to the Role's servers, so another Role starts from its own card.
+  const changed = withPermissions({ ...stage, role }, { mcpTools: undefined });
   return changed.session === "continue" && !canContinue(stages.with(index, changed), index)
     ? { ...changed, session: "fresh" }
     : changed;

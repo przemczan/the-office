@@ -5,6 +5,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { TaskPipelineConfirmed } from "../../work/index.js";
 import { builtInPipelines } from "../domain/built-in-pipelines.js";
 import type { Stage } from "../domain/stage.js";
+import type { StagePermissions } from "../domain/stage-permissions.js";
 import { gate } from "../domain/stage.fixtures.js";
 import { aStageRun } from "../domain/stage-run.fixtures.js";
 import { StagesEditRefused } from "../domain/stages-edit-refused.js";
@@ -138,6 +139,34 @@ describe("Edit for this Task", () => {
     expect(await refusalOf(service.edit(aTask(), quickFix))).toEqual([
       "Stage 1 · Implement: Ada's Task limit is none, so developer only talks and can't work a Stage.",
     ]);
+  });
+
+  it("refuses Stage permissions wider than the Role card's, and keeps those that narrow it", async () => {
+    const [implement, ...rest] = quickFix;
+    if (implement?.kind !== "agent") throw new Error("Quick fix starts with an Agent Stage.");
+    const withPermissions = (permissions: StagePermissions): Stage[] => [
+      { ...implement, permissions },
+      ...rest,
+    ];
+
+    expect(
+      await refusalOf(
+        service.edit(
+          aTask(),
+          withPermissions({ run: "anything", mcpTools: { "github/merge": { kind: "allowed" } } }),
+        ),
+      ),
+    ).toEqual([
+      "Stage 1 · Implement: the run permission can only be narrowed from the Role card's.",
+      "Stage 1 · Implement: the MCP tool github/merge can only be narrowed from the Role card's setting.",
+    ]);
+    const taskId = aTask();
+    const narrowing = withPermissions({
+      edit: false,
+      mcpTools: { "github/merge": { kind: "never" } },
+    });
+    await service.edit(taskId, narrowing);
+    expect((await service.find(taskId))?.stages).toEqual(narrowing);
   });
 
   it("refuses editing a Task that is done", async () => {

@@ -157,7 +157,13 @@ export class TaskStagesService implements OnModuleInit {
     const runs = await this.runs.list(taskId);
     const problems = FINISHED_STATES.includes(state)
       ? [{ text: "A Task that is done or dropped keeps its Stages." }]
-      : editProblems(own, edited, runs, await this.roleFillings.of(edited));
+      : [
+          ...editProblems(own, edited, runs, await this.roleFillings.of(edited)),
+          ...(await this.roleFillings.permissionProblems(
+            edited,
+            lockedStageCount(own.stages, runs),
+          )),
+        ];
     return { own, runs, problems };
   }
 

@@ -113,6 +113,37 @@ describe("AgentStageRunner", () => {
     ]);
   });
 
+  it("narrows the Role card's profile by the Stage's permissions, never widening it, and briefs the narrowed commands", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult("Reviewed."))]);
+
+    await walkStages(pipelines, [
+      anAgentStage("implement", {
+        name: "Implement",
+        permissions: {
+          edit: false,
+          run: "read-only-git",
+          mcpTools: {
+            "github/merge": { kind: "never" },
+            "github/list_issues": { kind: "allowed" },
+          },
+        },
+      }),
+    ]);
+
+    const [request] = pipelines.stageThreads.requests;
+    expect(request?.session.profile).toEqual({
+      edit: false,
+      run: { kind: "read-only-git" },
+      web: false,
+      mcpTools: {
+        "github/merge": { kind: "never" },
+        "github/list_issues": { kind: "consult", role: "devops" },
+      },
+    });
+    expect(request?.record).toContain("You may run read-only git");
+    expect(request?.record).not.toContain("npm test");
+  });
+
   it("hands the earlier results on and names the previous Agent Stage's Thread", async () => {
     pipelines = await startPipelinesApplication([
       anAgentSession(aDoneResult("Added the dialog.", "Left: the list's refresh.")),

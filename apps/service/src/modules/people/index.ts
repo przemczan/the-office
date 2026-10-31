@@ -14,6 +14,11 @@ export {
   narrowedMcpToolSetting,
   type McpToolSettings,
 } from "./domain/mcp-tool-settings.js";
+export {
+  narrowedPermissionProfile,
+  permissionNarrowingProblems,
+  type PermissionNarrowing,
+} from "./domain/permission-profile.js";
 export type { RoleCard } from "./domain/role-card.js";
 export { RoleNotFound } from "./domain/role-not-found.js";
 export { RoleRefused } from "./domain/role-refused.js";

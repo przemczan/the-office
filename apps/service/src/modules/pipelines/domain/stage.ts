@@ -1,3 +1,5 @@
+import type { StagePermissions } from "./stage-permissions.js";
+
 /** One step of a Pipeline (spec §2.3): work by an Agent in a Role, a Project command, or a Gate. */
 export type Stage = AgentStage | ScriptStage | Gate;
 
@@ -59,6 +61,8 @@ export interface AgentStage extends StageFields {
   readonly model?: string;
   /** Absent keeps the Role's. */
   readonly effort?: Effort;
+  /** Narrows the Role card's permission profile; absent keeps it whole. */
+  readonly permissions?: StagePermissions;
   readonly onFailure?: OnFailure;
 }
 

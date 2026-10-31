@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { effortSchema } from "./people.js";
+import { effortSchema, hardSwitchValueSchema, runPermissionSchema } from "./people.js";
 
 /** "On failure go back to Stage X, at most N times": the Stage's key and its rounds. */
 export const onFailureSchema = z.object({
@@ -10,6 +10,19 @@ export const onFailureSchema = z.object({
 /** Where a Publish Stage takes the Task's branch (spec §2.3). */
 export const publishTargetSchema = z.enum(["publishing-mode", "branch-only"]);
 export type PublishTarget = z.infer<typeof publishTargetSchema>;
+
+/**
+ * What an Agent Stage states of its Role card's permission profile (spec §6), each absent where the
+ * card's stands: it may narrow the profile, never widen it, so editing and the web can only be taken
+ * away. MCP tools are keyed `server/tool`, as on the card.
+ */
+export const stagePermissionsSchema = z.object({
+  edit: z.literal(false).optional(),
+  run: runPermissionSchema.optional(),
+  web: z.literal(false).optional(),
+  mcpTools: z.record(z.string().regex(/^[a-z0-9-]+\/.+$/), hardSwitchValueSchema).optional(),
+});
+export type StagePermissions = z.infer<typeof stagePermissionsSchema>;
 
 const stageFields = {
   key: z.string().min(1),
@@ -35,6 +48,8 @@ export const stageSchema = z.discriminatedUnion("kind", [
     model: z.string().min(1).optional(),
     /** Absent keeps the Role's. */
     effort: effortSchema.optional(),
+    /** Absent keeps the Role card's profile whole. */
+    permissions: stagePermissionsSchema.optional(),
     onFailure: onFailureSchema.optional(),
   }),
   z.object({

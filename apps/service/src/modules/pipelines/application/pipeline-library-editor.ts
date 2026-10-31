@@ -135,7 +135,10 @@ export class PipelineLibraryEditor {
     const others = (await this.repository.list()).filter(({ id }) => id !== pipelineId);
     return {
       problems: pipelineEditProblems(edit, others),
-      flags: pipelineEditFlags(edit, await this.roleFillings.of(edit.stages)),
+      flags: [
+        ...pipelineEditFlags(edit, await this.roleFillings.of(edit.stages)),
+        ...(await this.roleFillings.permissionProblems(edit.stages, 0)),
+      ],
     };
   }
 

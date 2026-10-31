@@ -37,6 +37,7 @@ import {
   type StageCommand,
   type StageKind,
 } from "./stage-edits.ts";
+import { StagePermissionFields } from "./stage-permission-fields.tsx";
 import "./stage-editor.css";
 
 const KIND_ICONS: Readonly<Record<StageKind, string>> = {
@@ -268,6 +269,7 @@ function StageSummary({
     stage.kind === "agent" &&
       stage.effort !== undefined &&
       `effort ${EFFORT_LABELS[stage.effort].toLowerCase()}`,
+    stage.kind === "agent" && stage.permissions !== undefined && "narrowed permission profile",
     stage.kind === "script" && stage.publishTarget === "branch-only" && "pushes the branch only",
     stage.optional && "optional",
     onFailure &&
@@ -410,7 +412,8 @@ function AgentFields({
 }): ReactNode {
   const modelLabel = useModelLabel();
   const continuing = canContinue(stages, index);
-  const engine = roles.find(({ key }) => key === stage.role)?.card.engine;
+  const role = roles.find(({ key }) => key === stage.role);
+  const engine = role?.card.engine;
   const models =
     options.engines.find((offered) => offered.engine === engine)?.models ??
     options.engines.flatMap((offered) => offered.models);
@@ -463,6 +466,7 @@ function AgentFields({
           onChange={(event) => change({ ...stage, brief: event.target.value })}
         />
       </div>
+      <StagePermissionFields stage={stage} role={role} options={options} change={change} />
     </>
   );
 }

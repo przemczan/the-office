@@ -50,6 +50,8 @@ import {
   ENFORCEMENT_LABELS,
   ENGINE_LABELS,
   HARD_SWITCH_LABELS,
+  hardSwitchChoiceOf,
+  hardSwitchValueOf,
   missingCapabilitiesWords,
   RUN_LABELS,
   SESSION_DEFAULTS,
@@ -458,7 +460,7 @@ function PermissionFields({
             options={[
               { value: "allowed", label: "Allowed" },
               ...consultable.map(({ key: roleKey, title }) => ({
-                value: `${CONSULT_CHOICE}${roleKey}`,
+                value: hardSwitchChoiceOf({ kind: "consult", role: roleKey }),
                 label: `Consult ${title}`,
               })),
               { value: "ask-me", label: "Ask me" },
@@ -537,19 +539,4 @@ function taskLimitOptions({ taskLimits }: RoleCardOptions): { value: string; lab
 
 function taskLimitOf(value: string): TaskLimit {
   return value === "none" ? "none" : Number(value);
-}
-
-/** A switch's value as one choice of its select: "consult:devops" for Consult Devops. */
-const CONSULT_CHOICE = "consult:";
-
-function hardSwitchChoiceOf(value: HardSwitchValue): string {
-  return value.kind === "consult" ? `${CONSULT_CHOICE}${value.role}` : value.kind;
-}
-
-function hardSwitchValueOf(choice: string): HardSwitchValue {
-  if (choice.startsWith(CONSULT_CHOICE)) {
-    return { kind: "consult", role: choice.slice(CONSULT_CHOICE.length) };
-  }
-  if (choice === "allowed" || choice === "ask-me" || choice === "never") return { kind: choice };
-  throw new Error(`No Hard switch value is chosen as ${choice}.`);
 }

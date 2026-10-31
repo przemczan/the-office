@@ -7,6 +7,7 @@
 **Traps:**
 
 - A Publish Stage's `publishTarget` absent means the Project's publishing mode: Stages stored before it was added carry none, so never require it.
+- An Agent Stage's `permissions` narrow its Role card's profile through People's `narrowedPermissionProfile` (in `AgentStageRunner.open` and `sessionAhead`, the Brief's commands too); absent keeps the card's, and Stages stored before carry none. A setting wider than the card is flagged in the library and refused for a Task (`RoleFillings.permissionProblems`, not `staffingProblems`, which holds Tasks); at run time the card's applies. MCP tools the Role's servers don't have are ignored.
 - The built-ins live twice: `builtInPipelines` and the `pipelines` migration's seed, which `pipeline-library.test.ts` compares; a change to a built-in needs a migration too. Once seeded, the table is the library, and the user's edits of a built-in stand.
 - The service's tests share one database across files run in parallel: a test makes Pipelines of its own under a unique name and never changes or removes a built-in.
 - `EventBus.publish` waits for its handlers, so the interpreter walks in the background (`walkInBackground`); awaiting the walk would hold Start's request for the whole Pipeline.
@@ -142,6 +143,7 @@ AlarmResumes, PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateCo
 - `stage-command-run.ts`: CommandOutcome, CommandRun, MovedFiles, ScriptCommandRun, StageCommandPurpose, StageCommandRun, Installation, installRuns, failedInstall, commandRunsOf, howItEnded
 - `stage-commit.ts`: ExpectedHead, stageCommitMessage, headProblem
 - `stage-interruption.ts`: CutShortBy, actsNow, stopsCommands, waitsForTheTurn, outranks, RESTARTED, notStartedOutcome, interruptedOutcome, StageWorkClosing, closingOf
+- `stage-permissions.ts`: HardSwitchOnCard, StagePermissions
 - `stage-progress.ts`: StageState, WentBack, StageProgress, TaskProgress, stagesProgress
 - `stage-result.ts`: STAGE_RESULT_SCHEMA, StageResultReading, readStageResult, screenshotsRefused, correctionMessage
 - `stage-run-changes.ts`: NewStageRun, startStageRun, endStageRun
@@ -160,7 +162,7 @@ AlarmResumes, PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateCo
 
 ### ports/
 
-- `known-people.ts`: HardSwitchOnCard, KnownPerson, KnownPeople
+- `known-people.ts`: KnownPerson, KnownPeople
 - `pipeline-repository.ts`: PipelineRepository
 - `pipelines-ports.fixtures.ts`: ProjectDefaultsForTests, StartedTasksForTests, aTaskRecord, TaskRecordsForTests, aPerson, KnownPeopleForTests, StageThreadsForTests, StageDecisionsForTests, TaskUsageForTests, TaskThreadSessionsForTests, TaskScreenshotsForTests, PLANNED_COMMIT, TaskGitForTests, aCommandRun, TaskCommandsForTests, RESOLVED_COMMIT, TaskPublishingForTests, ProposalDraftsForTests, PipelinesPortsForTestsModule
 - `project-defaults.ts`: ProjectDefault, ProjectDefaults

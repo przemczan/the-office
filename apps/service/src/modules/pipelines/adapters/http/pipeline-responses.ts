@@ -70,6 +70,7 @@ function toStageResponse(stage: Stage): StageResponse {
         budget: stage.budget,
         model: stage.model,
         effort: stage.effort,
+        permissions: stage.permissions,
         onFailure: stage.onFailure,
       };
     case "script":

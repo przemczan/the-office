@@ -1,6 +1,7 @@
 import { isResolveStage } from "../domain/resolve-stages.js";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { READ_ONLY_GIT_COMMANDS } from "../../engine/index.js";
+import { narrowedPermissionProfile } from "../../people/index.js";
 import {
   AGENT_STAGE_INSTRUCTIONS,
   agentStageRecord,
@@ -10,7 +11,7 @@ import {
   type EarlierResult,
   type HeldRun,
 } from "../domain/agent-stage-brief.js";
-import { allowedCommands } from "../domain/allowed-commands.js";
+import { allowedCommands, type AllowedCommands } from "../domain/allowed-commands.js";
 import type {
   FollowedHardSwitches,
   FollowedHardSwitchValue,
@@ -35,7 +36,8 @@ import {
   STAGE_RESULT_SCHEMA,
   type StageResultReading,
 } from "../domain/stage-result.js";
-import { KnownPeople, type HardSwitchOnCard, type KnownPerson } from "../ports/known-people.js";
+import { KnownPeople, type KnownPerson } from "../ports/known-people.js";
+import type { HardSwitchOnCard } from "../domain/stage-permissions.js";
 import { acceptedIssues, agentDecision } from "../domain/walk-decisions.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import {
@@ -228,11 +230,8 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     task: TaskRecord,
     installProblem: string | undefined,
   ): Promise<StageThread> {
-    const commands = allowedCommands(
-      card.permissionProfile.run,
-      task.project.commands,
-      READ_ONLY_GIT_COMMANDS,
-    );
+    const profile = narrowedPermissionProfile(card.permissionProfile, stage.permissions);
+    const commands = allowedCommands(profile.run, task.project.commands, READ_ONLY_GIT_COMMANDS);
     const answered = answeredQuestion(stage, earlierRuns);
     const held = heldRun(stage, earlierRuns);
     return this.threads.open({
@@ -245,7 +244,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       ...stageSessionOf(stage, stages, earlierRuns),
       // What the user wrote that the held run's session ended before taking goes with this run.
       carryMessagesSince: held?.startedAt,
-      record: await this.recordOf(run.taskId, card, task, stages, earlierRuns),
+      record: await this.recordOf(run.taskId, card, commands, task, stages, earlierRuns),
       work: agentStageWork(stage, {
         carried: await this.carriedRound(stages, run.carriedFailure),
         sentBack: run.sentBack && {
@@ -261,12 +260,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       useProjectSkills: task.project.useProjectSkills,
       session: {
         instructions: AGENT_STAGE_INSTRUCTIONS,
-        profile: {
-          edit: card.permissionProfile.edit,
-          run: commands.permission,
-          web: card.permissionProfile.web,
-          mcpTools: card.permissionProfile.mcpTools,
-        },
+        profile: { ...profile, run: commands.permission },
         officeTools: AGENT_STAGE_OFFICE_TOOLS,
         outputSchema: STAGE_RESULT_SCHEMA,
       },
@@ -284,19 +278,22 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     const person = await this.people.find(stage.role);
     if (!person) return undefined;
     const task = await this.records.read(taskId);
+    const { run } = narrowedPermissionProfile(person.card.permissionProfile, stage.permissions);
+    const commands = allowedCommands(run, task.project.commands, READ_ONLY_GIT_COMMANDS);
     return this.threads.sessionAhead({
       taskId,
       projectId: task.project.id,
       roleKey: stage.role,
       ...stageSessionOf(stage, stages, earlierRuns),
-      record: await this.recordOf(taskId, person.card, task, stages, earlierRuns),
+      record: await this.recordOf(taskId, person.card, commands, task, stages, earlierRuns),
     });
   }
 
-  /** The Task's record a new session of the Stage's is briefed with. */
+  /** The Task's record a new session of the Stage's is briefed with, naming the `commands` it may run. */
   private async recordOf(
     taskId: string,
     card: KnownPerson["card"],
+    commands: AllowedCommands,
     task: TaskRecord,
     stages: readonly Stage[],
     earlierRuns: readonly StageRun[],
@@ -313,11 +310,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       },
       earlier: earlierResults(stages, earlierRuns),
       diffSummary: await this.git.changesSoFar(task.project.id, taskId),
-      commands: allowedCommands(
-        card.permissionProfile.run,
-        task.project.commands,
-        READ_ONLY_GIT_COMMANDS,
-      ),
+      commands,
       hardSwitches: this.followedHardSwitches(card.hardSwitches),
     });
   }

@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-RoleCards, Consultant, SessionRole, RoleService, MemoryService, RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo, hardSwitchInEffect, HARD_SWITCH_LABELS, HardSwitchKey, HardSwitchValue, CTO, DEVOPS, OFFICE_MANAGER, mcpToolSettingsFor, narrowedMcpToolSetting, McpToolSettings, RoleCard, RoleNotFound, RoleRefused, PeopleModule
+RoleCards, Consultant, SessionRole, RoleService, MemoryService, RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo, hardSwitchInEffect, HARD_SWITCH_LABELS, HardSwitchKey, HardSwitchValue, CTO, DEVOPS, OFFICE_MANAGER, mcpToolSettingsFor, narrowedMcpToolSetting, McpToolSettings, narrowedPermissionProfile, permissionNarrowingProblems, PermissionNarrowing, RoleCard, RoleNotFound, RoleRefused, PeopleModule
 
 ## Domain events
 
@@ -82,7 +82,7 @@ RoleCards, Consultant, SessionRole, RoleService, MemoryService, RoleCardChanged,
 - `mcp-tool-settings.ts`: McpToolSettings, MCP_TOOL_DEFAULT, mcpToolKey, mcpToolSetting, mcpToolSettingsFor, mcpToolSettingsProblems, noWiderThan, narrowedMcpToolSetting
 - `memory-note-not-found.ts`: MemoryNoteNotFound
 - `memory-note.ts`: MEMORY_NOTE_LENGTH, MemoryNoteSource, MemoryNote, MemoryNoteDraft, writeMemoryNote
-- `permission-profile.ts`: RUN_PERMISSIONS, RunPermission, PermissionProfile
+- `permission-profile.ts`: RUN_PERMISSIONS, RunPermission, PermissionProfile, PermissionNarrowing, narrowedPermissionProfile, permissionNarrowingProblems
 - `presets.ts`: Preset, PRESETS, presetFor
 - `role-card-changes.ts`: RoleCardField, RoleCardValue, RoleCardFieldChange, roleCardChanges
 - `role-card-version-not-found.ts`: RoleCardVersionNotFound
@@ -95,7 +95,7 @@ RoleCards, Consultant, SessionRole, RoleService, MemoryService, RoleCardChanged,
 - `role.fixtures.ts`: OFFERED_MODELS, aRoleCard, aRole
 - `role.ts`: Role, RoleCardVersion
 - `task-limit.ts`: TaskLimit, LOWEST_TASK_LIMIT, HIGHEST_TASK_LIMIT, taskLimitProblem
-- Tests: hard-switches.test.ts, mcp-tool-settings.test.ts, memory-note.test.ts, presets.test.ts, role-card-changes.test.ts, role-card.test.ts, role-changes.test.ts, role-key.test.ts, task-limit.test.ts
+- Tests: hard-switches.test.ts, mcp-tool-settings.test.ts, memory-note.test.ts, permission-profile.test.ts, presets.test.ts, role-card-changes.test.ts, role-card.test.ts, role-changes.test.ts, role-key.test.ts, task-limit.test.ts
 
 ### ports/
 

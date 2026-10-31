@@ -1,5 +1,5 @@
 import type { CommandPermission } from "../domain/allowed-commands.js";
-import type { HardSwitchOnCard } from "./known-people.js";
+import type { HardSwitchOnCard } from "../domain/stage-permissions.js";
 import type { Effort, StageSession } from "../domain/stage.js";
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
 import type { StageDecision, StageSessionMove, StageTokens } from "../domain/stage-run.js";
@@ -13,7 +13,7 @@ export interface StageSessionSettings {
     readonly run: CommandPermission;
     readonly web: boolean;
     /**
-     * The card's MCP tool settings, keyed `server/tool`: a Stage may narrow them (spec §6); the
+     * The card's MCP tool settings as the Stage narrows them (spec §6), keyed `server/tool`; the
      * session's own tools not set here hold at the default.
      */
     readonly mcpTools: Readonly<Record<string, HardSwitchOnCard>>;

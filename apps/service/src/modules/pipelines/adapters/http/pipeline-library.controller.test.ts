@@ -146,6 +146,32 @@ describe("POST /api/pipelines/check", () => {
     });
   });
 
+  it("flags Stage permissions wider than the Role card's, which Save keeps", async () => {
+    const edit = anEdit({ stages: [agentStage({ permissions: { run: "anything", web: false } })] });
+
+    const response = await send("POST", "/pipelines/check", edit);
+
+    expect(pipelineCheckSchema.parse(await response.json())).toEqual({
+      problems: [],
+      flags: [
+        {
+          stageIndex: 0,
+          text: "Stage 1 · Implement: the run permission can only be narrowed from the Role card's.",
+        },
+      ],
+    });
+    expect((await added(edit)).stages).toEqual(edit.stages);
+  });
+
+  it("refuses a Stage that would give back editing", async () => {
+    const response = await send("POST", "/pipelines/check", {
+      ...anEdit(),
+      stages: [{ ...agentStage(), permissions: { edit: true } }],
+    });
+
+    expect(response.status).toBe(400);
+  });
+
   it("doesn't count the Pipeline being saved as taking its own name", async () => {
     const pipeline = await added();
 

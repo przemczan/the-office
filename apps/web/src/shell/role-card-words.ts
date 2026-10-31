@@ -160,13 +160,32 @@ export function hardSwitchValueLabel(value: HardSwitchValue, roleTitles: RoleTit
   }
 }
 
+/** A switch's value as one choice of a select: "consult:devops" for Consult Devops. */
+const CONSULT_CHOICE = "consult:";
+
+export function hardSwitchChoiceOf(value: HardSwitchValue): string {
+  return value.kind === "consult" ? `${CONSULT_CHOICE}${value.role}` : value.kind;
+}
+
+export function hardSwitchValueOf(choice: string): HardSwitchValue {
+  if (choice.startsWith(CONSULT_CHOICE)) {
+    return { kind: "consult", role: choice.slice(CONSULT_CHOICE.length) };
+  }
+  if (choice === "allowed" || choice === "ask-me" || choice === "never") return { kind: choice };
+  throw new Error(`No Hard switch value is chosen as ${choice}.`);
+}
+
+export function editLabel(edit: boolean): string {
+  return edit ? "Edits files in its worktree" : "Reads files only";
+}
+
+export function webLabel(web: boolean): string {
+  return web ? "Searches and fetches the web" : "No web";
+}
+
 /** The profile as lines: what the Agent edits, runs and reaches. */
 export function permissionProfileLines(profile: PermissionProfile): string[] {
-  return [
-    profile.edit ? "Edits files in its worktree" : "Reads files only",
-    RUN_LABELS[profile.run],
-    profile.web ? "Searches and fetches the web" : "No web",
-  ];
+  return [editLabel(profile.edit), RUN_LABELS[profile.run], webLabel(profile.web)];
 }
 
 /** A part of a Role card from one value to another, down to each capability and switch. */

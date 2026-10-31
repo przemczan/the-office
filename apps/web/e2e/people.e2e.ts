@@ -636,6 +636,17 @@ test("Edit for this Task swaps the Pipeline and sets every field of its Stages, 
     await implement.getByLabel("Effort").selectOption("high");
     await implement.getByLabel("Budget").fill("120");
     await implement.getByLabel("Brief").fill("Keep the filters in the address.");
+    // The Stage narrows the Reviewer's permission profile, offered nothing wider than the card.
+    const runs = implement.getByLabel("Runs", { exact: true });
+    await expect(runs.locator("option")).toHaveText([
+      "Role default: Runs the Project's commands and read-only git",
+      "Runs read-only git only",
+    ]);
+    await expect(implement.getByLabel("Files", { exact: true }).locator("option")).toHaveText([
+      "Role default: Reads files only",
+    ]);
+    await runs.selectOption({ label: "Runs read-only git only" });
+    await implement.getByLabel("Web", { exact: true }).selectOption({ label: "No web" });
 
     // An Agent Stage moved up behind Implement continues its session with the same Role.
     await dialog.getByRole("button", { name: "Agent Stage", exact: true }).click();
@@ -690,6 +701,7 @@ test("Edit for this Task swaps the Pipeline and sets every field of its Stages, 
         effort: "high",
         budget: 120_000,
         brief: "Keep the filters in the address.",
+        permissions: { run: "read-only-git", web: false },
       },
       {
         kind: "agent",
@@ -717,6 +729,9 @@ test("Edit for this Task swaps the Pipeline and sets every field of its Stages, 
     await editorRow(page, "Implement").getByRole("button", { name: "Edit Implement" }).click();
     await expect(editorRow(page, "Implement").getByLabel("Model")).toHaveValue("claude-haiku-5-5");
     await expect(editorRow(page, "Implement").getByLabel("Budget")).toHaveValue("120");
+    await expect(editorRow(page, "Implement").getByLabel("Runs", { exact: true })).toHaveValue(
+      "read-only-git",
+    );
     await expect(editorRow(page, "Tests")).toContainText("on failure back to Review, at most 2×");
     await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
 
