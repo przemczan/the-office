@@ -124,6 +124,34 @@ describeAgentEngineContract("OpenAiCompatibleApiEngine on a fake server", {
   },
 });
 
+/**
+ * A live server is slow and its model may be weak, so the contract runs on it only when asked
+ * (apps/service/docs/testing.md): OFFICE_ENGINE_TESTS=live with OFFICE_API_BASE_URL and
+ * OFFICE_API_MODEL set; `-t` picks the scenarios worth a run.
+ */
+const LIVE_BASE_URL = process.env["OFFICE_API_BASE_URL"];
+const LIVE_MODEL = process.env["OFFICE_API_MODEL"];
+
+describe.runIf(process.env["OFFICE_ENGINE_TESTS"] === "live" && LIVE_BASE_URL && LIVE_MODEL)(
+  "OpenAiCompatibleApiEngine on a live server",
+  () => {
+    const live: ApiEndpoint = {
+      id: "live",
+      name: "Live",
+      baseUrl: LIVE_BASE_URL ?? "",
+      key: process.env["OFFICE_API_KEY"] ?? "",
+      models: [{ id: LIVE_MODEL ?? "", contextWindow: 100_000 }],
+    };
+
+    describeAgentEngineContract("OpenAiCompatibleApiEngine", {
+      capabilities: OPENAI_COMPATIBLE_API_CAPABILITIES,
+      model: `live/${LIVE_MODEL}`,
+      timeoutMs: 30 * 60_000,
+      engineFor: () => Promise.resolve(engineOn([live])),
+    });
+  },
+);
+
 const READ_ONLY: PermissionProfile = { edit: false, run: { kind: "read-only-git" }, web: false };
 const EDITS: PermissionProfile = { ...READ_ONLY, edit: true };
 

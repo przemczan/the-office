@@ -33,6 +33,8 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 | Windows 11 and Ubuntu 24.04 | 2026-10-31 | `permissions.read-fence-off` added (task 33 step 1), the same on both |
 | Windows 11 and Ubuntu 24.04 | 2026-10-31 | every check but the slow one, with the read fence off and `claudeMdExcludes` in the Office's options (task 33 step 2); `permissions.file-tool-fence` and `skills.plugin-folder-reads` retired, `permissions.hook-sees-every-call` re-recorded |
 
+| Windows 11 (win32), the workstation | 2026-10-31 | the OpenAI-compatible API engine live on Strata (task 35 step 9): five contract scenarios, then a chat and a Stage on the Test Project (task 35's check); see [the OpenAI-compatible API](#the-openai-compatible-api) |
+
 `permissions.powershell-twin` runs on Windows only. Results differ between platforms only where an entry says so: `skills.user-scope`, `engine.priority-now` and `engine.lean-options`.
 
 ## How a check runs
@@ -313,6 +315,16 @@ Each capability of `EngineCapabilities` on the pinned binary in `-p`, started as
 - **Run:** one turn calling an Office tool served through the stream whose handler sends a `next` message before it answers, as the contract's `barge-in` sends one while a held Office tool waits (task 29 step 4a).
 - **Observed:** on Windows and on Linux the message lands in the running turn: its result lists the brief and the message. Re-run `fallback.priority-next` matches. The service's `ClaudeCodePEngine` passes the contract's `barge-in`, and the whole contract (10 of 10), on both.
 - **Meaning:** through the stream the tool's answer goes down the binary's input after every message sent before it, as on the SDK, so `bargeIn` holds at an Office tool's end too.
+
+## The OpenAI-compatible API
+
+The Office's own loop (spec §5.4 Defaults, task 35) has no binary to check: it is checked by the `AgentEngine` contract on a live server and by task 35's check on the Test Project (apps/service/docs/testing.md, live checks). Seen once, on Windows only, on the user's Strata at `http://127.0.0.1:8080/v1` serving `qwen3.8-flash-next-coder-iq1_m` (`n_ctx` 100000), which reads a prompt at about 14 tokens/s and writes about 11 tokens/s, so each scenario ran alone.
+
+- **Contract:** `reply` (streaming; 140 s), `refusal` (a Write judged by the Office rules, refused in their words; 364 s), `interrupt` (an Office tool held, the turn interrupted, the next message taken; 212 s), `resume` (the conversation kept and an Office tool called with the word remembered; 244 s), `output-schema` (StructuredOutput checked; 240 s) pass. `office-tool`, `barge-in`, `later` and `context-usage` were left out as the fake server covers them; `usage-windows` is refused by design.
+- **Chat on the Test Project:** the Developer on the endpoint's model, asked how many workspaces the Test Project's `package.json` lists, ran Glob then Read and replied `3` in one message, in 475 s and 14.9k tokens.
+- **A Stage on the Test Project:** a Task the user planned (the Planner never ran) on Quick fix with a Gate before Publish, the Developer on the endpoint's model. Implement (145 s, 94k tokens, 78k of them read from the server's cache) ran Read, Edit, `git status --short` through Bash, a Write to `.claude/` refused by the Office rules in their words (the model read the refusal and did not retry), and StructuredOutput; Tests passed and the Task waited at the Gate, then was dropped. Each answer's text shows as one message. A first run, with the refused Write aimed at `.github/`, was allowed: `.github/` is not a protected path in the Office rules (only `.git`, `.claude` and `.mcp.json`), so the check's Plan was wrong, not the engine.
+- **Observed:** Strata streams the model's reasoning as `reasoning_content`, which the loop leaves out; only `content` is the answer. Two consecutive user messages in one request were accepted (200), so joining them per request is a precaution, not a need, on this server. Skills were not loaded live.
+- **From the pinned binary (2.1.310), not from a session:** `AGENTS.md` and `.claude/AGENTS.md` load only through the built-in `cc-plugin-agents-md` plugin (by default where the project has no `CLAUDE.md`), which the Office's settings turn off, so the SDK adapter's sessions load neither and the loop's list matches. A background command's notice is queued as a `task-notification` command at priority `next`; whether that starts a turn in an idle SDK session was not seen.
 
 ## Other observations
 
