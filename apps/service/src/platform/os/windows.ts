@@ -1,10 +1,11 @@
 import { execFile } from "node:child_process";
+import { existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { win32 } from "node:path";
 import type { OperatingSystem, UserEnvironment } from "./operating-system.js";
 import { pathLengthProblem, type PathLimits, type PathRules } from "./path-rules.js";
 import type { ProcessTrees } from "./process-trees.js";
-import type { FailedShellCommand, Shell } from "./shell.js";
+import type { AgentShellProgram, FailedShellCommand, Shell } from "./shell.js";
 
 /*
  * MAX_PATH is 260 UTF-16 characters with the terminating NUL, and a directory must leave room for
@@ -40,7 +41,7 @@ export function windows({ variables, homeDirectory }: UserEnvironment): Operatin
     defaultOfficeDataDirectory: win32.join(localAppData, "the-office"),
     paths: windowsPaths,
     defaultShell: commandPrompt(variables),
-    agentShells: ["bash", "powershell"],
+    agentShells: [gitBash(variables), windowsPowerShell(variables)],
     processTrees: taskkill(variables),
     // In the temporary folder Node's os.tmpdir() gives.
     engineTemporaryFolder: win32.join(
@@ -109,6 +110,76 @@ function commandPrompt(variables: UserEnvironment["variables"]): Shell {
       if (program === undefined || CMD_BUILT_INS.has(program.toLowerCase())) return false;
       return !(await anyFileExists(programCandidates(program, failed)));
     },
+  };
+}
+
+/**
+ * Git Bash, found as Claude Code finds it: at CLAUDE_CODE_GIT_BASH_PATH, else beside the git.exe
+ * on PATH (`Git\cmd\git.exe` or `Git\bin\git.exe`), else where Git for Windows installs. Never a
+ * bash.exe on PATH, which in System32 is WSL's. Looked up on the first command, then kept.
+ */
+function gitBash(variables: UserEnvironment["variables"]): AgentShellProgram {
+  let file: string | undefined;
+  return {
+    shell: "bash",
+    name: "Git Bash",
+    invocation: (commandLine) => {
+      file ??= gitBashFile(variables);
+      return { file, arguments: ["-c", commandLine], windowsVerbatimArguments: false };
+    },
+  };
+}
+
+function gitBashFile(variables: UserEnvironment["variables"]): string {
+  const installed = win32.join(
+    variables["ProgramFiles"] || "C:\\Program Files",
+    "Git",
+    "bin",
+    "bash.exe",
+  );
+  // Windows ignores a variable name's case, and a copied environment keeps whichever it had.
+  const path = Object.entries(variables).find(([name]) => name.toUpperCase() === "PATH")?.[1];
+  const besideGit = (path ?? "")
+    .split(";")
+    .map((entry) => entry.replaceAll('"', "").trim())
+    .filter((folder) => folder !== "" && existsSync(win32.join(folder, "git.exe")))
+    .flatMap((folder) => [
+      win32.join(folder, "..", "bin", "bash.exe"),
+      win32.join(folder, "bash.exe"),
+    ]);
+  const candidates = [variables["CLAUDE_CODE_GIT_BASH_PATH"], ...besideGit, installed];
+  return (
+    candidates.find(
+      (candidate) => candidate !== undefined && candidate !== "" && existsSync(candidate),
+    ) ?? installed
+  );
+}
+
+/**
+ * Windows PowerShell, by its full path. The command line goes in as `-Command`: `-EncodedCommand`
+ * would write errors as CLIXML once the output is piped. Its output is set to UTF-8 first.
+ */
+function windowsPowerShell(variables: UserEnvironment["variables"]): AgentShellProgram {
+  const file = win32.join(
+    variables["SystemRoot"] || "C:\\Windows",
+    "System32",
+    "WindowsPowerShell",
+    "v1.0",
+    "powershell.exe",
+  );
+  return {
+    shell: "powershell",
+    name: "PowerShell",
+    invocation: (commandLine) => ({
+      file,
+      arguments: [
+        "-NoProfile",
+        "-NonInteractive",
+        "-Command",
+        `[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $ProgressPreference = 'SilentlyContinue'; ${commandLine}`,
+      ],
+      windowsVerbatimArguments: false,
+    }),
   };
 }
 

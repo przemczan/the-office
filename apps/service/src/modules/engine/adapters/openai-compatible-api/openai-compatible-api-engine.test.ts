@@ -3,7 +3,10 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { z } from "zod";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
+import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
+import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
 import type { ApiEndpoint } from "../../domain/api-endpoints.js";
 import type { PermissionProfile } from "../../domain/permission-profile.js";
 import {
@@ -11,6 +14,7 @@ import {
   type ContractScenario,
 } from "../../ports/agent-engine.contract.js";
 import { ModelNotOffered, SessionSkillsDiffer } from "../../ports/agent-engine.js";
+import type { OfficeTool } from "../../ports/office-tool.js";
 import type { EngineSession } from "../../ports/engine-session.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
 import type { SessionEvent, TurnEndedEvent } from "../../ports/session-events.js";
@@ -27,6 +31,11 @@ import {
 } from "./openai-compatible-api-engine.js";
 
 const USAGE = { prompt: 120, completion: 8 };
+
+/** The shells the SDK adapter lists on this system, in its order. */
+const SHELL_TOOLS = currentOperatingSystem().agentShells.map(({ shell }) =>
+  shell === "bash" ? "Bash" : "PowerShell",
+);
 
 let fake: FakeChatCompletionsServer;
 
@@ -67,6 +76,20 @@ function contractAnswers(scenario: ContractScenario): ScriptedAnswer[] {
         toolCall("Write", { file_path: "notes.txt", content: "hi" }),
         textReply(["refused"], USAGE),
       ];
+    case "office-tool":
+      return [toolCall("mcp__office__note", { word: "tangerine" }), textReply(["done"], USAGE)];
+    case "barge-in":
+      return [toolCall("mcp__office__hold", {}), textReply(["done extra"], USAGE)];
+    case "later":
+      return [
+        toolCall("mcp__office__hold", {}),
+        textReply(["done"], USAGE),
+        textReply(["later"], USAGE),
+      ];
+    case "interrupt":
+      return [toolCall("mcp__office__hold", {}), textReply(["back"], USAGE)];
+    case "output-schema":
+      return [toolCall("StructuredOutput", { word: "ready" }), textReply(["ready"], USAGE)];
     default:
       return [];
   }
@@ -155,6 +178,7 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
       "Glob",
       "Edit",
       "Write",
+      ...SHELL_TOOLS,
     ]);
   });
 
@@ -278,14 +302,17 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
   });
 
   it("refuses a tool the session doesn't have", async () => {
-    fake.script(toolCall("Bash", { command: "ls" }), textReply(["Sorry."], USAGE));
+    fake.script(
+      toolCall("NotebookEdit", { notebook_path: "a.ipynb" }),
+      textReply(["Sorry."], USAGE),
+    );
 
     const { events } = await oneTurn();
 
     expect(events.find((event) => event.kind === "tool-refused")).toMatchObject({
-      tool: "Bash",
+      tool: "NotebookEdit",
       refusedBy: "engine",
-      reason: expect.stringContaining("No tool is named Bash"),
+      reason: expect.stringContaining("No tool is named NotebookEdit"),
     });
   });
 
@@ -345,7 +372,238 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
 
     await expect(start).rejects.toThrow(SessionSkillsDiffer);
   });
+
+  describe("its shells", () => {
+    const ANYTHING: PermissionProfile = { ...READ_ONLY, run: { kind: "anything" } };
+    const environment = { ...inheritedEnvironment(), OFFICE_PROBE: "probed" };
+
+    it("runs a command in the session's folder and environment, and reads back its exit code", async () => {
+      fake.script(
+        toolCall("Bash", { command: "echo $OFFICE_PROBE; pwd > where.txt; exit 3" }),
+        textReply(["Done."], USAGE),
+      );
+
+      const { events, turn } = await oneTurn(options({ profile: ANYTHING, environment }));
+
+      expect(turn.outcome).toBe("completed");
+      expect(events.find((event) => event.kind === "tool-result")).toMatchObject({
+        isError: true,
+        text: "Exit code 3\nprobed",
+      });
+      expect(await readFile(join(folder, "where.txt"), "utf8")).not.toBe("");
+    });
+
+    it.runIf(SHELL_TOOLS.includes("PowerShell"))(
+      "runs a PowerShell command line, with its exit code",
+      async () => {
+        fake.script(
+          toolCall("PowerShell", { command: 'Write-Output "$env:OFFICE_PROBE"; exit 3' }),
+          textReply(["Done."], USAGE),
+        );
+
+        const { events } = await oneTurn(options({ profile: ANYTHING, environment }));
+
+        expect(events.find((event) => event.kind === "tool-result")).toMatchObject({
+          isError: true,
+          text: "Exit code 3\nprobed",
+        });
+      },
+    );
+
+    it("refuses a command the profile doesn't allow, and runs nothing", async () => {
+      fake.script(toolCall("Bash", { command: "echo hi > made.txt" }), textReply(["No."], USAGE));
+
+      const { events } = await oneTurn(options({ environment }));
+
+      expect(events.find((event) => event.kind === "tool-refused")).toMatchObject({
+        tool: "Bash",
+        refusedBy: "office-rules",
+      });
+      await expect(readFile(join(folder, "made.txt"))).rejects.toThrow("ENOENT");
+    });
+
+    it("ends a command that runs out of its time, with what it started", async () => {
+      fake.script(
+        toolCall("Bash", { command: `${NODE_CHILD}`, timeout: 1500 }),
+        textReply(["Too slow."], USAGE),
+      );
+
+      const { events } = await oneTurn(options({ profile: ANYTHING, environment }));
+
+      expect(events.find((event) => event.kind === "tool-result")).toMatchObject({
+        isError: true,
+        text: expect.stringContaining("ran out of time after 1500 ms"),
+      });
+      expect(isRunning(await childProcessId(folder))).toBe(false);
+    });
+
+    it("ends a running command with every process it started on interrupt", async () => {
+      fake.script(toolCall("Bash", { command: NODE_CHILD }), textReply(["Back."], USAGE));
+      const started = await engineOn().start({
+        id: randomUUID(),
+        options: options({ profile: ANYTHING, environment }),
+        brief: { id: "brief", text: "Begin." },
+      });
+      session = started;
+      const events = started.events[Symbol.asyncIterator]();
+
+      const child = await childProcessId(folder);
+      await started.interrupt();
+      const interrupted = await untilTurnEnds(events);
+      started.send({ id: "after", text: "Go on." }, "next");
+      const next = await untilTurnEnds(events);
+
+      expect(isRunning(child)).toBe(false);
+      expect(interrupted.turn).toMatchObject({
+        outcome: "interrupted",
+        consumedMessageIds: ["brief"],
+      });
+      expect(interrupted.events.find((event) => event.kind === "tool-result")).toMatchObject({
+        isError: true,
+        text: expect.stringContaining("The command was stopped."),
+      });
+      expect(next.turn).toMatchObject({ outcome: "completed", consumedMessageIds: ["after"] });
+      const messages = lastRequestBody().messages;
+      expect(messages.slice(-4).map((message) => message["role"])).toEqual([
+        "assistant",
+        "tool",
+        "user",
+        "user",
+      ]);
+    });
+  });
+
+  it("stops a request still streaming on interrupt, and keeps nothing of its answer", async () => {
+    fake.script({ kind: "reply", text: ["Thinking"], stall: true }, textReply(["Back."], USAGE));
+    const started = await engineOn().start({
+      id: randomUUID(),
+      options: options(),
+      brief: { id: "brief", text: "Begin." },
+    });
+    session = started;
+    const events = started.events[Symbol.asyncIterator]();
+    let next = await events.next();
+    while (!next.done && next.value.kind !== "text") next = await events.next();
+    const streaming = fake.requests.at(-1);
+
+    await started.interrupt();
+    const { turn } = await untilTurnEnds(events);
+    started.send({ id: "after", text: "Go on." }, "next");
+    await untilTurnEnds(events);
+
+    expect(turn.outcome).toBe("interrupted");
+    expect(await streaming?.ended).toBe("closed-by-client");
+    expect(lastRequestBody().messages.slice(1)).toEqual([
+      { role: "user", content: "Begin." },
+      { role: "user", content: "[The user interrupted this turn.]" },
+      { role: "user", content: "Go on." },
+    ]);
+  });
+
+  it("judges an Office tool again as it runs, so a hold begun meanwhile refuses it", async () => {
+    const calls: unknown[] = [];
+    const note: OfficeTool = {
+      name: "note",
+      description: "Notes down one word.",
+      input: z.object({ word: z.string() }),
+      run: (input) => {
+        calls.push(input);
+        return Promise.resolve({ text: "Noted.", isError: false });
+      },
+    };
+    let asked = 0;
+    fake.script(toolCall("mcp__office__note", { word: "hi" }), textReply(["Held."], USAGE));
+
+    const { events } = await oneTurn(
+      options({
+        officeTools: [note],
+        toolHold: () => Promise.resolve(++asked > 1 ? "The fire alarm is on." : undefined),
+      }),
+    );
+
+    expect(events.find((event) => event.kind === "tool-call")).toMatchObject({
+      tool: "note",
+      officeTool: true,
+    });
+    expect(events.find((event) => event.kind === "tool-result")).toMatchObject({
+      isError: true,
+      text: "The fire alarm is on.",
+    });
+    expect(calls).toEqual([]);
+  });
+
+  describe("its output schema", () => {
+    const schema = WORD_SCHEMA;
+
+    it("offers StructuredOutput with the schema, refuses input that doesn't fit, and ends in what fits", async () => {
+      fake.script(
+        toolCall("StructuredOutput", { word: 7 }),
+        toolCall("StructuredOutput", { word: "ready" }),
+        textReply(["Done."], USAGE),
+      );
+
+      const { events, turn } = await oneTurn(options({ outputSchema: schema }));
+
+      expect(events.find((event) => event.kind === "tool-refused")).toMatchObject({
+        tool: "StructuredOutput",
+        refusedBy: "engine",
+        reason: expect.stringContaining("/word must be string"),
+      });
+      expect(turn).toMatchObject({ outcome: "completed", output: { word: "ready" } });
+      const offered = lastRequestBody().tools.find(
+        (tool) => tool.function.name === "StructuredOutput",
+      );
+      expect(offered?.function).toMatchObject({ parameters: schema });
+    });
+
+    it("reminds a model that answers without it, then fails the turn after the last reminder", async () => {
+      fake.script(
+        textReply(["One."], USAGE),
+        textReply(["Two."], USAGE),
+        textReply(["Three."], USAGE),
+      );
+
+      const { turn } = await oneTurn(options({ outputSchema: schema }));
+
+      expect(turn).toMatchObject({
+        outcome: "failed",
+        output: undefined,
+        errors: [expect.stringContaining("without calling StructuredOutput")],
+      });
+      expect(fake.requests.at(-1)?.body).toMatchObject({
+        messages: expect.arrayContaining([
+          { role: "user", content: expect.stringContaining("call the StructuredOutput tool") },
+        ]),
+      });
+    });
+  });
 });
+
+/** A command whose node child writes its id where `childProcessId` finds it, then runs on. */
+const NODE_CHILD = `node -e "require('fs').writeFileSync('child.pid', String(process.pid)); setInterval(() => {}, 1000)"`;
+
+async function childProcessId(folder: string): Promise<number> {
+  for (;;) {
+    const text = await readFile(join(folder, "child.pid"), "utf8").catch(() => "");
+    if (text !== "") return Number(text);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
+const WORD_SCHEMA = {
+  type: "object",
+  properties: { word: { type: "string" } },
+  required: ["word"],
+  additionalProperties: false,
+};
+
+function inheritedEnvironment(): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(
+      (entry): entry is [string, string] => entry[1] !== undefined,
+    ),
+  );
+}
 
 interface RecordedBody {
   readonly model: string;

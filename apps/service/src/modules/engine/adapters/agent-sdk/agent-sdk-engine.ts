@@ -87,7 +87,7 @@ export class AgentSdkEngine extends AgentEngine {
         id,
         resumes,
         options,
-        agentShells: this.operatingSystem.agentShells,
+        agentShells: this.operatingSystem.agentShells.map(({ shell }) => shell),
         ...hooks,
       }),
     );

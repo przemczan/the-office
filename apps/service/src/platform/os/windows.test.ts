@@ -1,10 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { programCandidates, programOf, windows } from "./windows.js";
 
 const homeDirectory = "C:\\Users\\office";
 
 /** Windows paths as written, backslashes and all. */
 const raw = String.raw;
+
+/** How Git Bash runs `echo hi` under these variables. */
+const bashOf = (variables: Record<string, string>) =>
+  windows({ variables, homeDirectory }).agentShells[0]?.invocation("echo hi");
 
 /** A path of short names, exactly this many characters long. */
 const pathOfLength = (length: number): string => `C:\\${"a\\".repeat(length / 2)}`.slice(0, length);
@@ -154,7 +161,69 @@ describe("windows", () => {
   });
 
   it("has Agents run commands in Bash and PowerShell", () => {
-    expect(windows({ variables: {}, homeDirectory }).agentShells).toEqual(["bash", "powershell"]);
+    expect(windows({ variables: {}, homeDirectory }).agentShells.map(({ shell }) => shell)).toEqual(
+      ["bash", "powershell"],
+    );
+  });
+
+  describe("agentShells", () => {
+    let folder: string;
+
+    beforeEach(async () => {
+      folder = await mkdtemp(join(tmpdir(), "office-git-bash-"));
+    });
+
+    afterEach(async () => {
+      await rm(folder, { recursive: true, force: true });
+    });
+
+    async function file(...segments: string[]): Promise<string> {
+      const path = join(folder, ...segments);
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, "");
+      return path;
+    }
+
+    it("runs PowerShell by its full path, the command line after -Command with its output in UTF-8", () => {
+      const powerShell = windows({ variables: { SystemRoot: raw`D:\Windows` }, homeDirectory })
+        .agentShells[1];
+      expect(powerShell?.invocation("Get-ChildItem")).toEqual({
+        file: raw`D:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`,
+        arguments: [
+          "-NoProfile",
+          "-NonInteractive",
+          "-Command",
+          "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; $ProgressPreference = 'SilentlyContinue'; Get-ChildItem",
+        ],
+        windowsVerbatimArguments: false,
+      });
+    });
+
+    it("runs Git Bash where Git for Windows installs it when nothing else names one", () => {
+      expect(bashOf({ ProgramFiles: raw`D:\Apps`, PATH: "" })).toEqual({
+        file: raw`D:\Apps\Git\bin\bash.exe`,
+        arguments: ["-c", "echo hi"],
+        windowsVerbatimArguments: false,
+      });
+    });
+
+    it.runIf(process.platform === "win32")(
+      "runs the Git Bash CLAUDE_CODE_GIT_BASH_PATH names, as Claude Code does",
+      async () => {
+        const bash = await file("portable", "bash.exe");
+        expect(bashOf({ CLAUDE_CODE_GIT_BASH_PATH: bash })?.file).toBe(bash);
+      },
+    );
+
+    it.runIf(process.platform === "win32")(
+      "finds Git Bash beside the git.exe on PATH, never a bash.exe on PATH",
+      async () => {
+        const git = await file("Git", "cmd", "git.exe");
+        const bash = await file("Git", "bin", "bash.exe");
+        const wsl = await file("System32", "bash.exe");
+        expect(bashOf({ Path: `${dirname(wsl)};${dirname(git)}` })?.file).toBe(bash);
+      },
+    );
   });
 
   describe("defaultShell.couldNotRun", () => {

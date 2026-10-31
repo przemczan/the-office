@@ -128,7 +128,7 @@ export class ClaudeCodePEngine extends AgentEngine {
           id,
           resumes,
           options,
-          agentShells: this.operatingSystem.agentShells,
+          agentShells: this.operatingSystem.agentShells.map(({ shell }) => shell),
           hookUrl: endpoints.hookUrl,
           instructionsFile:
             resources.folder === undefined ? undefined : join(resources.folder, INSTRUCTIONS_FILE),

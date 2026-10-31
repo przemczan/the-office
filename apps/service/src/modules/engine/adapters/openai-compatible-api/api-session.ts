@@ -9,11 +9,13 @@ import type {
   UserMessage,
 } from "../../ports/engine-session.js";
 import type { SessionEvent, TokenUsage, TurnOutcome } from "../../ports/session-events.js";
+import { portToolName } from "../office-rules/office-tool-names.js";
 import type { ToolContext, ToolOutput } from "./built-in-tool.js";
 import { ChatCompletionsError, type ChatCompletionsClient } from "./chat-completions-client.js";
 import type { ChatMessage, SystemMessage, ToolCall, ToolMessage } from "./chat-completions.js";
 import type { Completion } from "./completion-assembly.js";
 import type { SessionTools } from "./session-tools.js";
+import { STRUCTURED_OUTPUT_TOOL } from "./structured-output-tool.js";
 
 /** What a session runs on and is held to. */
 export interface ApiSessionParts {
@@ -23,6 +25,8 @@ export interface ApiSessionParts {
   readonly system: SystemMessage;
   readonly tools: SessionTools;
   readonly toolContext: ToolContext;
+  /** Whether each turn ends in output given through StructuredOutput. */
+  readonly answersInSchema: boolean;
   /** The Office rules' decision on a call, as `toolDecision` gives it. */
   judge(tool: string, input: unknown): Promise<ToolDecision>;
 }
@@ -30,17 +34,47 @@ export interface ApiSessionParts {
 const NO_TOKENS: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
 
 /**
+ * How often a turn that must end in output is reminded when its model answers without calling
+ * StructuredOutput, before the turn fails, as Claude Code retries it within the turn.
+ */
+const OUTPUT_REMINDERS = 2;
+
+const OUTPUT_REMINDER = `Your turn isn't over: call the ${STRUCTURED_OUTPUT_TOOL} tool with your answer, in the shape its input asks for.`;
+
+/** What the conversation says where a turn was interrupted, as Claude Code marks it. */
+const INTERRUPTED_NOTE = "[The user interrupted this turn.]";
+
+interface WaitingMessage {
+  readonly message: UserMessage;
+  readonly priority: MessagePriority;
+}
+
+/** The turn running now, which interrupt aborts and waits for. */
+interface RunningTurn {
+  readonly control: AbortController;
+  readonly finished: Promise<void>;
+}
+
+/** A tool call's answer, and the turn's output when it gave one. */
+interface AnsweredCall {
+  readonly message: ToolMessage;
+  readonly output?: { readonly value: unknown };
+}
+
+/**
  * A session of The Office's own agent loop: each turn sends the conversation to the API endpoint,
  * streams the answer's text, runs the tool calls it makes once the Office rules allow each, and
- * sends again until the model answers without one.
+ * sends again until the model answers without one. A message sent with priority `next` lands
+ * between tool calls; one sent `later` waits for the turn's end (spec §5.4).
  */
 export class ApiSession implements EngineSession {
   private readonly reported = new AsyncChannel<SessionEvent>();
   private readonly conversation: ChatMessage[] = [];
-  /** Messages sent and not yet taken by a turn. */
-  private readonly waiting: UserMessage[] = [];
+  /** Messages sent and not yet taken by a turn, in the order they came. */
+  private readonly waiting: WaitingMessage[] = [];
   private readonly ending = new AbortController();
   private running: Promise<void> | undefined;
+  private turnRunning: RunningTurn | undefined;
   private failed = false;
 
   constructor(
@@ -52,15 +86,21 @@ export class ApiSession implements EngineSession {
     return this.reported;
   }
 
-  /** Without barge-in, a message sent while a turn runs waits for the next turn, `next` or not. */
-  send(message: UserMessage, _priority: MessagePriority): void {
+  send(message: UserMessage, priority: MessagePriority): void {
     if (this.ending.signal.aborted || this.failed) return;
-    this.waiting.push(message);
+    this.waiting.push({ message, priority });
     this.running ??= this.runTurns().catch((error: unknown) => this.fail(error));
   }
 
+  /**
+   * Stops the running turn: its request is aborted and each running command ended with every
+   * process it started. Returns once the turn has ended; the session then takes waiting messages.
+   */
   async interrupt(): Promise<void> {
-    throw new CapabilityMissing("interrupt");
+    const turn = this.turnRunning;
+    if (turn === undefined) return;
+    turn.control.abort(new TurnInterrupted());
+    await turn.finished.catch(() => undefined);
   }
 
   async readUsageWindows(): Promise<UsageWindows | undefined> {
@@ -80,46 +120,109 @@ export class ApiSession implements EngineSession {
   /** Takes the waiting messages a turn at a time, until none is left. */
   private async runTurns(): Promise<void> {
     for (;;) {
-      const messages = this.waiting.splice(0);
+      const messages = this.waiting.splice(0).map(({ message }) => message);
       if (messages.length === 0 || this.ending.signal.aborted) {
         this.running = undefined;
         return;
       }
-      await this.turn(messages);
+      const control = new AbortController();
+      const finished = this.turn(messages, AbortSignal.any([this.ending.signal, control.signal]));
+      this.turnRunning = { control, finished };
+      try {
+        await finished;
+      } finally {
+        this.turnRunning = undefined;
+      }
     }
   }
 
-  private async turn(messages: readonly UserMessage[]): Promise<void> {
-    const consumed = messages.map((message) => message.id);
-    this.conversation.push(
-      ...messages.map((message) => ({ role: "user", content: message.text }) as const),
-    );
+  private async turn(messages: readonly UserMessage[], signal: AbortSignal): Promise<void> {
+    const consumed = this.take(messages);
     let usage = NO_TOKENS;
+    let output: { readonly value: unknown } | undefined;
+    let reminders = 0;
+    /** The calls of the last answer not answered yet, the first one running. */
+    let unanswered: ToolCall[] = [];
     try {
       for (;;) {
-        const completion = await this.complete();
+        const completion = await this.complete(signal);
         usage = added(usage, completion.usage);
         this.conversation.push(completion.message);
         const calls = completion.message.tool_calls ?? [];
-        if (calls.length === 0) break;
+        unanswered = [...calls];
+        if (unanswered.length === 0) {
+          if (!this.parts.answersInSchema || output !== undefined) break;
+          if (reminders === OUTPUT_REMINDERS) {
+            this.turnEnded("failed", consumed, usage, [noOutput()]);
+            return;
+          }
+          reminders += 1;
+          this.conversation.push({ role: "user", content: OUTPUT_REMINDER });
+          continue;
+        }
         this.reported.push({ kind: "turn-tokens", soFar: usage });
-        for (const call of calls) this.conversation.push(await this.toolCall(call));
+        for (const call of calls) {
+          const answered = await this.toolCall(call, signal);
+          this.conversation.push(answered.message);
+          unanswered.shift();
+          output = answered.output ?? output;
+          signal.throwIfAborted();
+        }
+        consumed.push(...this.take(this.takeWaiting("next")));
       }
     } catch (error) {
       if (this.ending.signal.aborted) return;
+      this.answerInterrupted(unanswered);
+      if (signal.aborted) {
+        this.conversation.push({ role: "user", content: INTERRUPTED_NOTE });
+        this.turnEnded("interrupted", consumed, usage, []);
+        return;
+      }
       if (!(error instanceof ChatCompletionsError)) throw error;
       this.turnEnded("failed", consumed, usage, [error.message]);
       return;
     }
-    this.turnEnded("completed", consumed, usage, []);
+    this.turnEnded("completed", consumed, usage, [], output?.value);
+  }
+
+  /** Adds messages to the conversation, returning their ids. */
+  private take(messages: readonly UserMessage[]): string[] {
+    this.conversation.push(
+      ...messages.map((message) => ({ role: "user", content: message.text }) as const),
+    );
+    return messages.map((message) => message.id);
+  }
+
+  /** Takes the waiting messages of one priority, leaving the others in their order. */
+  private takeWaiting(priority: MessagePriority): UserMessage[] {
+    const taken = this.waiting.filter((waiting) => waiting.priority === priority);
+    const left = this.waiting.filter((waiting) => waiting.priority !== priority);
+    this.waiting.splice(0, this.waiting.length, ...left);
+    return taken.map(({ message }) => message);
+  }
+
+  /**
+   * Answers the calls an interrupt left: the running one as stopped, the rest as not run, so the
+   * conversation has a tool message for each call it holds, as the API asks.
+   */
+  private answerInterrupted([running, ...notRun]: readonly ToolCall[]): void {
+    if (running === undefined) return;
+    this.conversation.push(this.result(running, "Interrupted before it finished.", true));
+    for (const call of notRun) {
+      this.conversation.push({
+        role: "tool",
+        tool_call_id: call.id,
+        content: "Not run: the turn was interrupted.",
+      });
+    }
   }
 
   /** One request: its text reported as it streams, then the whole answer. */
-  private async complete(): Promise<Completion> {
+  private async complete(signal: AbortSignal): Promise<Completion> {
     const { client, model, system, tools } = this.parts;
     const answer = client.stream(
       { model, messages: [system, ...this.conversation], tools: tools.definitions },
-      this.ending.signal,
+      signal,
     );
     for await (const event of answer) {
       if (event.kind === "completed") return event.completion;
@@ -132,18 +235,18 @@ export class ApiSession implements EngineSession {
    * Runs one call as Claude Code does: input the tool can't take is refused by the engine, then
    * the Office rules judge it, and only then does it run.
    */
-  private async toolCall(call: ToolCall): Promise<ToolMessage> {
+  private async toolCall(call: ToolCall, signal: AbortSignal): Promise<AnsweredCall> {
     const { name } = call.function;
+    const tool = this.parts.tools.named(name);
     const input = parsedArguments(call.function.arguments);
     this.reported.push({
       kind: "tool-call",
       callId: call.id,
-      tool: name,
-      officeTool: false,
+      tool: portToolName(name),
+      officeTool: tool?.officeTool ?? false,
       input: input.parsed ? input.value : call.function.arguments,
       withinToolCall: undefined,
     });
-    const tool = this.parts.tools.named(name);
     if (tool === undefined) {
       return this.refused(
         call,
@@ -170,11 +273,19 @@ export class ApiSession implements EngineSession {
     if (!decision.allowed) return this.refused(call, "office-rules", decision.reason);
     let output: ToolOutput;
     try {
-      output = await prepared.run(this.parts.toolContext);
+      const run = prepared.run(this.parts.toolContext, signal);
+      // An Office tool can't be stopped, so the turn stops waiting for it; the loop's own tools
+      // end on the signal and answer with what they did.
+      output = await (tool.officeTool ? untilAborted(run, signal) : run);
     } catch (error) {
+      if (signal.aborted) throw error;
       output = { text: `${name} failed: ${messageOf(error)}`, isError: true };
     }
-    return this.result(call, output.text, output.isError);
+    const message = this.result(call, output.text, output.isError);
+    if (name === STRUCTURED_OUTPUT_TOOL && !output.isError) {
+      return { message, output: { value: prepared.input } };
+    }
+    return { message };
   }
 
   /** A refused call's result, which the model reads, then the refusal. */
@@ -182,16 +293,16 @@ export class ApiSession implements EngineSession {
     call: ToolCall,
     refusedBy: "engine" | "office-rules",
     reason: string,
-  ): ToolMessage {
+  ): AnsweredCall {
     const message = this.result(call, reason, true);
     this.reported.push({
       kind: "tool-refused",
       callId: call.id,
-      tool: call.function.name,
+      tool: portToolName(call.function.name),
       reason,
       refusedBy,
     });
-    return message;
+    return { message };
   }
 
   private result(call: ToolCall, text: string, isError: boolean): ToolMessage {
@@ -204,6 +315,7 @@ export class ApiSession implements EngineSession {
     consumedMessageIds: readonly string[],
     usage: TokenUsage,
     errors: readonly string[],
+    output?: unknown,
   ): void {
     this.reported.push({
       kind: "turn-ended",
@@ -212,7 +324,7 @@ export class ApiSession implements EngineSession {
       usage,
       // A local server has no price, and The Office knows none for other servers.
       sessionCostUsd: 0,
-      output: undefined,
+      output,
       errors,
     });
   }
@@ -224,6 +336,15 @@ export class ApiSession implements EngineSession {
   }
 }
 
+/** Why a turn's request and commands were aborted: the session was interrupted. */
+class TurnInterrupted extends Error {
+  override readonly name = "TurnInterrupted";
+
+  constructor() {
+    super("The turn was interrupted.");
+  }
+}
+
 /** Why a session's request was aborted: the session ended. */
 class SessionEnded extends Error {
   override readonly name = "SessionEnded";
@@ -231,6 +352,21 @@ class SessionEnded extends Error {
   constructor() {
     super("The session ended.");
   }
+}
+
+function noOutput(): string {
+  return `The turn ended without its output: the model answered ${OUTPUT_REMINDERS + 1} times without calling ${STRUCTURED_OUTPUT_TOOL} with input that fits.`;
+}
+
+/** What `work` settles with, or the signal's reason once it aborts; `work` runs on unwatched. */
+function untilAborted<T>(work: Promise<T>, signal: AbortSignal): Promise<T> {
+  work.catch(() => undefined);
+  if (signal.aborted) return Promise.reject(signal.reason as Error);
+  return new Promise((resolve, reject) => {
+    const abort = (): void => reject(signal.reason as Error);
+    signal.addEventListener("abort", abort, { once: true });
+    work.then(resolve, reject).finally(() => signal.removeEventListener("abort", abort));
+  });
 }
 
 type ParsedArguments =

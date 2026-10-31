@@ -12,6 +12,8 @@ export interface ToolOutput {
 export interface ToolContext {
   /** The session's folder, which relative paths are resolved against, as the Office rules do. */
   readonly folder: string;
+  /** The variables the session runs commands with. */
+  readonly environment: Readonly<Record<string, string>>;
   readonly paths: PathRules;
   /**
    * Whether the session's Office rules let it read `path`. A listing (Glob, Grep) leaves out what
@@ -40,7 +42,8 @@ export interface PreparedCall {
   readonly valid: true;
   /** The input as the tool read it, defaults filled, which the Office rules judge. */
   readonly input: unknown;
-  run(context: ToolContext): Promise<ToolOutput>;
+  /** Runs the call; `signal` aborts when the turn is interrupted or the session ends. */
+  run(context: ToolContext, signal: AbortSignal): Promise<ToolOutput>;
 }
 
 /** A call whose input the tool can't take, refused before the Office rules see it. */
@@ -51,7 +54,9 @@ export interface InvalidCall {
 
 /** One of the loop's tools, under Claude Code's name and with its input. */
 export interface BuiltInTool {
+  /** As the model calls it: an Office tool under `OFFICE_TOOL_PREFIX`. */
   readonly name: string;
+  readonly officeTool: boolean;
   readonly definition: ToolDefinition;
   prepare(input: unknown): PreparedCall | InvalidCall;
 }
@@ -60,7 +65,7 @@ interface ToolSpecification<Input> {
   readonly name: string;
   readonly description: string;
   readonly input: z.ZodType<Input>;
-  run(input: Input, context: ToolContext): Promise<ToolOutput>;
+  run(input: Input, context: ToolContext, signal: AbortSignal): Promise<ToolOutput>;
 }
 
 /** A tool whose input is checked against `input`, which also gives the model its JSON Schema. */
@@ -70,6 +75,7 @@ export function builtInTool<Input>(specification: ToolSpecification<Input>): Bui
   });
   return {
     name: specification.name,
+    officeTool: false,
     definition: {
       type: "function",
       function: {
@@ -86,7 +92,7 @@ export function builtInTool<Input>(specification: ToolSpecification<Input>): Bui
       return {
         valid: true,
         input: parsed.data,
-        run: (context) => specification.run(parsed.data, context),
+        run: (context, signal) => specification.run(parsed.data, context, signal),
       };
     },
   };

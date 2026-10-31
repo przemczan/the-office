@@ -1,6 +1,6 @@
 import type { PathRules } from "./path-rules.js";
 import type { ProcessTrees } from "./process-trees.js";
-import type { AgentShell, Shell } from "./shell.js";
+import type { AgentShellProgram, Shell } from "./shell.js";
 
 /**
  * Everything that differs between the operating systems The Office runs on (spec §5.1), with one
@@ -15,8 +15,11 @@ export interface OperatingSystem {
   readonly paths: PathRules;
   /** The shell a Project's commands run in. */
   readonly defaultShell: Shell;
-  /** The shells Agents run commands in: PowerShell beside Bash on Windows only (spec §5.4). */
-  readonly agentShells: readonly AgentShell[];
+  /**
+   * The shells Agents run commands in: PowerShell beside Bash on Windows only (spec §5.4), with
+   * the program each runs a command line in: Git Bash on Windows, as Claude Code finds it.
+   */
+  readonly agentShells: readonly AgentShellProgram[];
   readonly processTrees: ProcessTrees;
   /**
    * Where the user's secrets live that no Agent reads (spec §6): SSH keys, the Claude credentials,

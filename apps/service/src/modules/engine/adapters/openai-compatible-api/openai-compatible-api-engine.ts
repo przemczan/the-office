@@ -3,6 +3,7 @@ import { OfficeDataDirectory } from "../../../../platform/office-data/office-dat
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
 import { parseApiEndpointModel, type ApiEndpoint } from "../../domain/api-endpoints.js";
+import type { ToolDecision } from "../../domain/office-rules.js";
 import { listingProblems } from "../../domain/skill-listing.js";
 import {
   AgentEngine,
@@ -24,17 +25,17 @@ import { SessionTools } from "./session-tools.js";
 import { systemPrompt } from "./system-prompt.js";
 
 /**
- * What the loop does so far. It never reads usage windows: a local server has none. The rest is
- * missing until the loop builds it (docs/tasks/35-api-based-engine.md).
+ * What the loop does so far. It never reads usage windows: a local server has none. Resume and the
+ * context usage are missing until the loop keeps its conversation (docs/tasks/35-api-based-engine.md).
  */
 export const OPENAI_COMPATIBLE_API_CAPABILITIES: EngineCapabilities = {
-  bargeIn: false,
-  interrupt: false,
+  bargeIn: true,
+  interrupt: true,
   resume: false,
   usageWindows: false,
   contextUsage: false,
-  officeTools: false,
-  outputSchema: false,
+  officeTools: true,
+  outputSchema: true,
 };
 
 /** An API endpoint and the id of the model there that a session runs on. */
@@ -85,7 +86,9 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
       readableFolders: [],
       environment: options.environment,
     });
-    const paths = this.operatingSystem.paths;
+    const { paths, agentShells, processTrees } = this.operatingSystem;
+    const judge = (tool: string, input: unknown): Promise<ToolDecision> =>
+      toolDecision(rules, options.toolHold, tool, input);
     return new ApiSession(id, {
       client: new ChatCompletionsClient(endpoint),
       model: modelId,
@@ -93,15 +96,25 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
         folder: options.folder,
         operatingSystem: this.operatingSystem.name,
         instructions: options.instructions,
+        answersInSchema: options.outputSchema !== undefined,
       }),
-      tools: new SessionTools(),
+      tools: SessionTools.of({
+        agentShells,
+        processTrees,
+        sessionId: id,
+        officeTools: options.officeTools,
+        judge,
+        outputSchema: options.outputSchema,
+      }),
       toolContext: {
         folder: options.folder,
+        environment: options.environment,
         paths,
         mayRead: (path) => rules.decide({ kind: "read", paths: [path] }).allowed,
         readFiles: new ReadFiles(),
       },
-      judge: (tool, input) => toolDecision(rules, options.toolHold, tool, input),
+      answersInSchema: options.outputSchema !== undefined,
+      judge,
     });
   }
 

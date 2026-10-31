@@ -1,6 +1,6 @@
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { SessionEvent, ToolRefusedEvent } from "../../ports/session-events.js";
-import { portToolName } from "./sdk-events.js";
+import { portToolName } from "../office-rules/office-tool-names.js";
 
 /** For a refusal the engine names no reason for and whose result was not seen. */
 const UNKNOWN_REASON = "Refused by the engine.";

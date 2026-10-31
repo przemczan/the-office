@@ -4,7 +4,7 @@ import { runningInGroup } from "./linux-processes.js";
 import type { OperatingSystem, UserEnvironment } from "./operating-system.js";
 import { pathLengthProblem, type PathLimits, type PathRules } from "./path-rules.js";
 import type { ProcessTrees } from "./process-trees.js";
-import type { Shell } from "./shell.js";
+import type { AgentShellProgram, Shell } from "./shell.js";
 
 /** What POSIX sh exits with when it can't run a command: 126 not executable, 127 not found. */
 const COULD_NOT_RUN_EXIT_CODES: ReadonlySet<number> = new Set([126, 127]);
@@ -28,7 +28,7 @@ export function linux({ variables, homeDirectory, userId }: UserEnvironment): Op
     ),
     paths: linuxPaths,
     defaultShell: bourneShell,
-    agentShells: ["bash"],
+    agentShells: [bash],
     processTrees: processGroups,
     // Named after the user, as the engine names it, in the temporary folder Node's os.tmpdir() gives.
     get engineTemporaryFolder() {
@@ -99,6 +99,16 @@ const bourneShell: Shell = {
     windowsVerbatimArguments: false,
   }),
   couldNotRun: ({ exitCode }) => Promise.resolve(COULD_NOT_RUN_EXIT_CODES.has(exitCode)),
+};
+
+const bash: AgentShellProgram = {
+  shell: "bash",
+  name: "bash",
+  invocation: (commandLine) => ({
+    file: "/bin/bash",
+    arguments: ["-c", commandLine],
+    windowsVerbatimArguments: false,
+  }),
 };
 
 // A detached process leads a process group of its own, which a negative id signals as a whole;

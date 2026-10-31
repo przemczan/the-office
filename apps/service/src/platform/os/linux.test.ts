@@ -128,8 +128,14 @@ describe("linux", () => {
     ]);
   });
 
-  it("has Agents run commands in Bash alone", () => {
-    expect(linux({ variables: {}, homeDirectory }).agentShells).toEqual(["bash"]);
+  it("has Agents run commands in Bash alone, by its full path", () => {
+    const { agentShells } = linux({ variables: {}, homeDirectory });
+    expect(agentShells.map(({ shell }) => shell)).toEqual(["bash"]);
+    expect(agentShells[0]?.invocation("ls -la")).toEqual({
+      file: "/bin/bash",
+      arguments: ["-c", "ls -la"],
+      windowsVerbatimArguments: false,
+    });
   });
 
   describe("defaultShell.couldNotRun", () => {

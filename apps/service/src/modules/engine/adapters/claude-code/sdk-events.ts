@@ -14,7 +14,7 @@ import type {
   TurnEndedEvent,
   TurnOutcome,
 } from "../../ports/session-events.js";
-import { OFFICE_TOOL_PREFIX } from "../office-rules/office-tool-names.js";
+import { OFFICE_TOOL_PREFIX, portToolName } from "../office-rules/office-tool-names.js";
 
 /** How the engine ends a turn that `interrupt()` stopped, by what was running then. */
 const INTERRUPTED_REASONS: ReadonlySet<string> = new Set(["aborted_streaming", "aborted_tools"]);
@@ -122,13 +122,6 @@ function sameUsage(one: TokenUsage, other: TokenUsage): boolean {
     one.cacheRead === other.cacheRead &&
     one.cacheCreation === other.cacheCreation
   );
-}
-
-/** A tool's name as the port has it: an Office tool by its own name, any other as the engine names it. */
-export function portToolName(engineName: string): string {
-  return engineName.startsWith(OFFICE_TOOL_PREFIX)
-    ? engineName.slice(OFFICE_TOOL_PREFIX.length)
-    : engineName;
 }
 
 function assistantEvents({ message, parent_tool_use_id }: SDKAssistantMessage): SessionEvent[] {

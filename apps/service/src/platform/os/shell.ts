@@ -4,11 +4,20 @@
  */
 export type AgentShell = "bash" | "powershell";
 
-export interface Shell {
+/** A program that runs one command line. */
+export interface ShellProgram {
   /** For messages, such as `cmd.exe` or `sh`. */
   readonly name: string;
   /** How to run one command line in this shell, as the file, arguments and option to spawn it with. */
   invocation(commandLine: string): ShellInvocation;
+}
+
+/** The program behind an Agent's shell tool, for an engine that runs the tool itself. */
+export interface AgentShellProgram extends ShellProgram {
+  readonly shell: AgentShell;
+}
+
+export interface Shell extends ShellProgram {
   /**
    * Whether the shell could not run the command at all, as when its program isn't installed,
    * which says nothing about the Project's code, as opposed to the command failing.

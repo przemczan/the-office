@@ -18,6 +18,7 @@ beforeEach(async () => {
   const paths = currentOperatingSystem().paths;
   context = {
     folder,
+    environment: {},
     paths,
     mayRead: (path) => !paths.names(path).includes("private"),
     readFiles: new ReadFiles(),
@@ -31,7 +32,7 @@ afterEach(async () => {
 async function run(tool: BuiltInTool, input: unknown): Promise<ToolOutput> {
   const prepared = tool.prepare(input);
   if (!prepared.valid) throw new Error(prepared.problem);
-  return prepared.run(context);
+  return prepared.run(context, new AbortController().signal);
 }
 
 async function files(names: Readonly<Record<string, string>>): Promise<void> {
