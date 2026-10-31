@@ -209,11 +209,16 @@ export class InitiativeService implements OnModuleInit {
   private async addCtoTask(
     id: string,
     given: NewTask,
+    blockedBy: readonly string[],
     createdBy: Author,
     route: InitiativeChangeRoute,
   ): Promise<Task> {
-    return this.createTask(id, given, createdBy, (initiative, ...made) =>
-      addCtoTask(initiative, route, ...made),
+    return this.createTask(
+      id,
+      given,
+      createdBy,
+      (initiative, ...made) => addCtoTask(initiative, route, ...made),
+      blockedBy,
     );
   }
 
@@ -299,7 +304,7 @@ export class InitiativeService implements OnModuleInit {
         await this.writeOutcome(id, edit.outcome, route);
         return edit;
       case "add-task": {
-        const task = await this.addCtoTask(id, newTaskOf(edit), cto, route);
+        const task = await this.addCtoTask(id, newTaskOf(edit), edit.blockedBy, cto, route);
         return { ...edit, taskId: task.id };
       }
       case "add-dependency":
@@ -316,7 +321,7 @@ export class InitiativeService implements OnModuleInit {
     given: NewTask,
     createdBy: Author,
     create: typeof addTaskToInitiative,
-    blockedBy: readonly string[] = [],
+    blockedBy: readonly string[],
   ): Promise<Task> {
     const project = await this.projects.find(given.projectId);
     if (!project) {

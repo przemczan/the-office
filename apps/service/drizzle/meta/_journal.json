@@ -414,6 +414,13 @@
       "when": 1793362902145,
       "tag": "0058_task_state_changes",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1793439908804,
+      "tag": "0059_initiative_task_blockers",
+      "breakpoints": true
     }
   ]
 }

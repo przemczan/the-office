@@ -99,7 +99,7 @@ describe("a call behind Change Roles", () => {
   it("runs when the switch is Allowed", async () => {
     const { heldCalls, opened } = heldCallsWith({ changeRoles: { kind: "allowed" } });
 
-    await expect(heldCalls.hold(request)).resolves.toEqual({ kind: "proceed" });
+    await expect(heldCalls.hold(request)).resolves.toEqual({ kind: "proceed", roleKey: "planner" });
     expect(opened).toEqual([]);
   });
 
@@ -166,7 +166,7 @@ describe("a call behind Change Roles", () => {
       answered: [anApproval(0)],
     });
 
-    await expect(heldCalls.hold(request)).resolves.toEqual({ kind: "proceed" });
+    await expect(heldCalls.hold(request)).resolves.toEqual({ kind: "proceed", roleKey: "planner" });
     await expect(heldCalls.hold(request)).resolves.toMatchObject({ kind: "held" });
     expect(opened).toHaveLength(1);
   });

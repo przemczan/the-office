@@ -27,6 +27,7 @@ import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { RoleSkills, SkillLibrary } from "../../../skills/index.js";
+import { RoleService } from "../../application/role-service.js";
 import { PRESETS } from "../../domain/presets.js";
 import { PeopleModule } from "../../people.module.js";
 import { roles } from "../postgres/roles.schema.js";
@@ -439,5 +440,14 @@ describe("GET /api/roles/:key/changes", () => {
       },
       { kind: "hired", at: hired.hiredAt, proposedBy: null },
     ]);
+  });
+
+  it("names the person who reworded the Role, as a Proposal's change does", async () => {
+    await hire("developer", "Ada");
+    await app.get(RoleService).reword("developer", { instructions: "Test first." }, "planner");
+
+    const [latest] = roleChangeListSchema.parse(await get("/roles/developer/changes"));
+
+    expect(latest).toMatchObject({ kind: "card-changed", proposedBy: "planner" });
   });
 });

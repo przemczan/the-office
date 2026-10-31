@@ -278,12 +278,16 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     edit: z.discriminatedUnion("kind", [
       /** Its new outcome, whole. */
       z.object({ kind: z.literal("outcome"), outcome: z.string() }),
-      /** A new Task in Backlog in one Project; `taskId` is null until the user applied it. */
+      /**
+       * A new Task in Backlog in one Project, waiting from the start for the Tasks `blockedBy`
+       * names; `taskId` is null until the user applied it.
+       */
       z.object({
         kind: z.literal("add-task"),
         title: z.string(),
         projectId: z.string(),
         priority: prioritySchema,
+        blockedBy: z.array(z.uuid()),
         taskId: z.uuid().nullable(),
       }),
       /** One of its Tasks (`taskId`) made to wait for any Task (`blockerId`). */

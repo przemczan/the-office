@@ -134,7 +134,11 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         initiativeId: change.initiativeId,
         edit:
           change.edit.kind === "add-task"
-            ? { ...change.edit, taskId: change.edit.taskId ?? null }
+            ? {
+                ...change.edit,
+                blockedBy: [...change.edit.blockedBy],
+                taskId: change.edit.taskId ?? null,
+              }
             : change.edit,
       };
     case "project-commands":

@@ -132,6 +132,40 @@ describe("add_task", () => {
       isError: false,
     });
   });
+
+  it("adds it waiting for the Tasks it names, while shaping", async () => {
+    const schema = await aTaskOutside("Queue schema");
+    const projectId = aProjectId();
+
+    const result = await call(ADD_TASK, {
+      title: "Queue writes",
+      projectId,
+      blockedBy: [schema.id],
+    });
+
+    const [task] =
+      (await work.app.get(InitiativeService).tasksByInitiative()).get(initiative.id) ?? [];
+    expect(task?.blockedBy).toEqual([schema.id]);
+    expect(result.text).toBe(
+      `Added the Task "Queue writes" (Task ${task?.id}) in Backlog in ${projectId}, waiting for "Queue schema", on the Initiative's page.`,
+    );
+  });
+
+  it("adds nothing waiting for a Task that isn't there", async () => {
+    const result = await call(ADD_TASK, {
+      title: "Queue writes",
+      projectId: aProjectId(),
+      blockedBy: ["gone"],
+    });
+
+    expect(result).toEqual({
+      text: expect.stringContaining('There is no Task "gone".'),
+      isError: true,
+    });
+    expect((await work.app.get(InitiativeService).tasksByInitiative()).get(initiative.id)).toBe(
+      undefined,
+    );
+  });
 });
 
 describe("add_dependency and remove_dependency", () => {
@@ -179,7 +213,7 @@ describe("once the Initiative is active", () => {
 
     const answers = [
       await call(WRITE_OUTCOME, { outcome: "Sync works." }),
-      await call(ADD_TASK, { title: "Retry", projectId }),
+      await call(ADD_TASK, { title: "Retry", projectId, blockedBy: [schema.id] }),
       await call(ADD_DEPENDENCY, { taskId: queue.id, blockerId: schema.id }),
     ];
 
@@ -187,7 +221,14 @@ describe("once the Initiative is active", () => {
     expect(work.app.get(ProposalDraftsForTests).drafted).toEqual(
       [
         { kind: "outcome", outcome: "Sync works." },
-        { kind: "add-task", title: "Retry", projectId, priority: "normal", taskId: undefined },
+        {
+          kind: "add-task",
+          title: "Retry",
+          projectId,
+          priority: "normal",
+          blockedBy: [schema.id],
+          taskId: undefined,
+        },
         { kind: "add-dependency", taskId: queue.id, blockerId: schema.id },
       ].map((edit) => ({
         sessionId: SESSION,

@@ -1,6 +1,6 @@
 # 32 · The fixes task 31's run found
 
-Status: todo
+Status: in progress
 
 ## Goal
 
@@ -25,7 +25,7 @@ Decided with the user on 2026-10-31: these four are fixed in their own task, bef
 ## Steps
 
 - [x] 0. Write this file and link it from the README. Commit.
-- [ ] 1. The proposer and the dependency: `RoleOfficeTools.change` passes the Agent's Role to `RoleService.reword`, which hands it to `changeCard`'s `proposedBy`; `InitiativeEdit`'s `add-task` gains `blockedBy` (the `add_task` tool, `newTaskOf`, the Proposal's contract and card), checked by the dependency rules when drafted and when applied. Commit.
+- [x] 1. The proposer and the dependency: `RoleOfficeTools.change` passes the Agent's Role to `RoleService.reword`, which hands it to `changeCard`'s `proposedBy`; `InitiativeEdit`'s `add-task` gains `blockedBy` (the `add_task` tool, `newTaskOf`, the Proposal's contract and card), checked by the dependency rules when drafted and when applied. Commit.
   Read: the [People](../../apps/service/src/modules/people/MAP.md), [Conversations](../../apps/service/src/modules/conversations/MAP.md) and [Work](../../apps/service/src/modules/work/MAP.md) maps; `conversations/adapters/office-tools/role-office-tools.ts`; `work/domain/initiative-edit.ts`; `work/adapters/office-tools/shaping-office-tools.ts`.
 - [ ] 2. The shell refusal's words and Onboard's Definition of Done: `OfficeRules`' read-only git refusal names pipes and points to Read and Grep, matched by the chat and planning instructions; the Onboard Definition of Done's publish line holds when nothing needed fixing. Commit.
   Read: the [Engine map](../../apps/service/src/modules/engine/MAP.md); `engine/domain/office-rules.ts`; `conversations/domain/session-instructions.ts`; `work/domain/onboarding.ts`, `planning.ts`.
@@ -34,9 +34,12 @@ Decided with the user on 2026-10-31: these four are fixed in their own task, bef
 
 ## State
 
-- Nothing built yet. The four problems, as found on 2026-10-31 (task 31 step 7): the Planner's `change_role` change shows `proposedBy: null`, as the user's own change does; the Planner (Haiku) tried `head` and `git show … | head` in its planning Thread and was refused; an Onboard Task whose repository needed no fixes ended in "the Definition of Done isn't reported met", and the user marked it Done; the CTO's `add-task` Proposal couldn't name the Task it waits for, so a second Proposal added the dependency.
+- Step 1 built. The proposer: `HeldCalls.hold`'s `proceed` carries the caller's `roleKey`, which `RoleOfficeTools` passes to `RoleService.reword(key, words, proposedBy)` and on to `changeCard`; checked in `roles.controller.test.ts` (history names `planner`) and `role-office-tools.test.ts`.
+- The dependency: `InitiativeEdit`'s `add-task` has `blockedBy` (Work's and Conversations' types, the contract, `add_task`'s optional `blockedBy` input, its answer naming what it waits for); drafted, `initiativeEditProblems` judges it with `newTaskBlockerProblems` (`task-dependencies.ts`) through `requireCtoTaskAllowed`'s `blockerProblems`; applied, `createTask` runs `createdWaitingFor`. Migration `0059` gives drafted add-task Proposals `blockedBy: []`. The Proposal card shows "Must be Done first"; the Initiative e2e seeds Bob's add-task Proposal in the shaping Thread and applies it. The shaping instructions say add_task names its blockers.
+- Next, step 2: the shell refusal's words and Onboard's Definition of Done.
 - The LXC: task 31's copy `/root/the-office-31` (port 4331, compose `office31` on 5462, data `/root/office-data-31`) and task 30's (4330, `office30`) are stopped, their data kept; start with `docker compose -p office31 up -d postgres` and `npm start` there with `/root/.local/bin` on PATH. Driver `/root/o31.mjs`.
 
 ## Progress
 
 - 2026-10-31 · step 0: this file written from task 31's findings (the user's word: before tier 3); next, step 1, the proposer and the dependency.
+- 2026-10-31 · step 1: `change_role` names its caller as the Role change's proposer; the CTO's `add-task` takes `blockedBy`, judged when drafted and applied, shown on the Proposal card (migration 0059); next, step 2, the shell refusal's words and Onboard's Definition of Done.

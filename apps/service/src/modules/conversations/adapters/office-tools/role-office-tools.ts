@@ -80,7 +80,7 @@ export class RoleOfficeTools implements OnModuleInit {
         isError: false,
       };
     }
-    await this.roles.reword(roleKey, words);
+    await this.roles.reword(roleKey, words, outcome.roleKey);
     return {
       text: `Changed: ${role.card.name}'s next sessions read the new words.`,
       isError: false,

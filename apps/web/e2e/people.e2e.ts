@@ -2050,6 +2050,28 @@ const SHAPED_OUTCOME = "Customers download their monthly usage as a CSV file fro
 const PROPOSED_OUTCOME =
   "Customers download their monthly usage as a CSV file from the web app and the API.";
 
+/**
+ * A Proposal of `edit` the CTO drafted in the Initiative's shaping Thread, as the Conversations
+ * service leaves one (see `seedProposal`).
+ */
+async function seedInitiativeProposal(
+  initiativeId: string,
+  edit: Record<string, unknown>,
+): Promise<void> {
+  const shapingThread = `from threads where home_kind = 'initiative' and home_id = $1`;
+  const proposalId = crypto.randomUUID();
+  await queryOfficeDatabase(
+    `insert into proposals (id, thread_id, drafted_by, drafted_at, change, status)
+     select $2::uuid, id, 'cto', now(), $3::jsonb, 'open' ${shapingThread}`,
+    [initiativeId, proposalId, { kind: "initiative", initiativeId, edit }],
+  );
+  await queryOfficeDatabase(
+    `insert into thread_messages (id, thread_id, body, at)
+     select $2::uuid, id, $3::jsonb, now() ${shapingThread}`,
+    [initiativeId, crypto.randomUUID(), { kind: "proposal", roleKey: "cto", proposalId }],
+  );
+}
+
 /** "Add a Task" on the Initiative page, in `projectName`, waiting for the Tasks named. */
 async function addTaskToInitiative(
   page: Page,
@@ -2089,6 +2111,7 @@ test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confi
       data: { title: "Usage table schema", projectId: project.id, priority: "normal" },
     });
     expect(outside.status()).toBe(201);
+    const outsideTask = taskSchema.parse(await outside.json());
     const idea = await page.request.post("/api/ideas", {
       data: { title: "Usage exports for customers", notes: "", projectId: null },
     });
@@ -2172,11 +2195,34 @@ test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confi
     await proposal.getByRole("button", { name: "Apply change" }).click();
     await expect(proposal).toContainText("Applied");
     await expect(outcome).toContainText(PROPOSED_OUTCOME);
+
+    // Bob's new Task names the Task it waits for in the same Proposal.
+    const initiativeId = new URL(initiativeUrl).pathname.split("/").at(-1) ?? "";
+    await seedInitiativeProposal(initiativeId, {
+      kind: "add-task",
+      title: "Usage export in the API",
+      projectId: project.id,
+      priority: "normal",
+      blockedBy: [outsideTask.id],
+    });
+    await page.reload();
+    const newTask = conversation.getByRole("region", {
+      name: "Proposal: New Task in the Initiative",
+    });
+    await expect(newTask).toContainText("Usage export in the API");
+    await expect(newTask.getByText("Must be Done first")).toBeVisible();
+    await expect(newTask.getByText("Usage table schema")).toBeVisible();
+    await newTask.getByRole("button", { name: "Apply change" }).click();
+    await expect(newTask).toContainText("Applied");
+    await expect(graph.getByRole("link")).toHaveCount(4);
+    await graph.getByRole("link", { name: /Usage export in the API/ }).click();
+    await expect(dependencies).toContainText("Usage table schema");
+    await page.goto(initiativeUrl);
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-initiative.png") });
 
     await page.goto("/work/initiatives");
     await expect(page.getByRole("link", { name: "Usage exports for customers" })).toContainText(
-      "0 of 2 Tasks done",
+      "0 of 3 Tasks done",
     );
 
     await page.goto(initiativeUrl);

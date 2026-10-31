@@ -55,12 +55,16 @@ describe("Proposals of the CTO's changes to an Initiative", () => {
     expect((await current()).outcome).toBe("Writes made offline reach the server.");
   });
 
-  it("add the Task in the CTO's name, answering it with the Task's id", async () => {
+  it("add the Task in the CTO's name, waiting for its blockers, answering it with its id", async () => {
+    const blocker = await work.app
+      .get(TaskService)
+      .create({ title: "Store the queue", projectId: "web", priority: "normal" }, THE_USER);
     const added = {
       kind: "add-task",
       title: "Queue schema",
       projectId: "api",
       priority: "high",
+      blockedBy: [blocker.id],
     } as const;
     const change = proposed({ ...added, taskId: undefined });
 
@@ -72,8 +76,34 @@ describe("Proposals of the CTO's changes to an Initiative", () => {
     expect(task).toMatchObject({
       title: "Queue schema",
       priority: "high",
+      blockedBy: [blocker.id],
       createdBy: { kind: "person", roleKey: "cto" },
     });
+  });
+
+  it("are refused a new Task waiting for a dropped Task, as drafted and as applied", async () => {
+    const tasks = work.app.get(TaskService);
+    const blocker = await tasks.create(
+      { title: "Store the queue", projectId: "web", priority: "normal" },
+      THE_USER,
+    );
+    await tasks.drop(blocker.id);
+    const appliers = work.app.get(ProposalAppliers);
+    const change = proposed({
+      kind: "add-task",
+      title: "Queue schema",
+      projectId: "api",
+      priority: "normal",
+      blockedBy: [blocker.id],
+      taskId: undefined,
+    });
+    const reason = `"Store the queue" was dropped, so nothing waits for it.`;
+
+    expect(await appliers.problemsWith(change)).toEqual([reason]);
+    await expect(appliers.apply(change, "cto")).rejects.toThrow(new ProposalRefused([reason]));
+    expect((await work.app.get(InitiativeService).tasksByInitiative()).get(initiative.id)).toBe(
+      undefined,
+    );
   });
 
   it("are refused once the Initiative is dropped, leaving the Proposal to stay open", async () => {

@@ -7,6 +7,7 @@ import {
 } from "./initiative-changes.js";
 import { InitiativeRefused } from "./initiative-refused.js";
 import type { NewTask, Priority, Task } from "./task.js";
+import { newTaskBlockerProblems } from "./task-dependencies.js";
 import { TaskNotFound } from "./task-not-found.js";
 import { TaskRefused } from "./task-refused.js";
 
@@ -22,6 +23,8 @@ export type InitiativeEdit =
       readonly title: string;
       readonly projectId: string;
       readonly priority: Priority;
+      /** The Tasks it waits for from the start, in any Project or Initiative. */
+      readonly blockedBy: readonly string[];
       /** The Task added, once the user applied it; undefined before. */
       readonly taskId: string | undefined;
     }
@@ -66,7 +69,12 @@ function whatStaysAsItIs(
         ? undefined
         : "The Initiative's outcome says so already.";
     case "add-task":
-      requireCtoTaskAllowed(initiative, "by-proposal", newTaskOf(edit));
+      requireCtoTaskAllowed(
+        initiative,
+        "by-proposal",
+        newTaskOf(edit),
+        newTaskBlockerProblems(edit.blockedBy, board),
+      );
       return undefined;
     case "add-dependency": {
       const task = taskOn(board, edit.taskId);

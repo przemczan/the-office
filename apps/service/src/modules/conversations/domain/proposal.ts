@@ -91,6 +91,8 @@ export type InitiativeEdit =
       readonly title: string;
       readonly projectId: string;
       readonly priority: "high" | "normal" | "low";
+      /** The Tasks it waits for from the start. */
+      readonly blockedBy: readonly string[];
       /** The Task added, once the user applied it; undefined before. */
       readonly taskId: string | undefined;
     }

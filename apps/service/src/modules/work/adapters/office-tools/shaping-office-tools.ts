@@ -93,21 +93,36 @@ export class ShapingOfficeTools implements OnModuleInit {
   private registerAddTask(): void {
     this.registry.register({
       name: ADD_TASK,
-      description: `Adds a Task to this Initiative in your name, in Backlog in one Project, on the Project's default Pipeline; planning it comes after. ${WHERE_IT_GOES}`,
+      description: `Adds a Task to this Initiative in your name, in Backlog in one Project, on the Project's default Pipeline, waiting from the start for the Tasks it names; planning it comes after. ${WHERE_IT_GOES}`,
       input: z.object({
         title: z.string().describe("One line naming the outcome of this Task."),
         projectId: z.string().describe("The Project's id, as list_projects gives it."),
         priority: z.enum(PRIORITIES).optional().describe("Normal unless the user says otherwise."),
+        blockedBy: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "The ids of the Tasks that must be Done before this one can start, in any Project or Initiative; none unless it must wait.",
+          ),
       }),
-      run: ({ title, projectId, priority }, { sessionId }) =>
+      run: ({ title, projectId, priority, blockedBy }, { sessionId }) =>
         this.change(
           sessionId,
-          { kind: "add-task", title, projectId, priority: priority ?? "normal", taskId: undefined },
+          {
+            kind: "add-task",
+            title,
+            projectId,
+            priority: priority ?? "normal",
+            blockedBy: blockedBy ?? [],
+            taskId: undefined,
+          },
           async (applied) => {
             const taskId = applied.kind === "add-task" ? applied.taskId : undefined;
             if (taskId === undefined) throw new Error("Adding the Task answered no Task.");
             const task = await this.tasks.read(taskId);
-            return `Added the Task "${task.title}" (Task ${task.id}) in Backlog in ${task.projectId}, on the Initiative's page.`;
+            const blockers = await Promise.all(task.blockedBy.map((id) => this.tasks.read(id)));
+            const waiting = blockers.map((blocker) => `"${blocker.title}"`).join(" and ");
+            return `Added the Task "${task.title}" (Task ${task.id}) in Backlog in ${task.projectId}${waiting && `, waiting for ${waiting}`}, on the Initiative's page.`;
           },
         ),
     });

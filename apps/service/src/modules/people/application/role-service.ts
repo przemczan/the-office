@@ -207,13 +207,17 @@ export class RoleService {
     return refusalReasons(() => Promise.resolve(changeRoleCard(role, edit, new Date())));
   }
 
-  /** Saves the card with these words changed and nothing else, as `changeCard` does. */
+  /**
+   * Saves the card with these words changed and nothing else, as `changeCard` does, as proposed by
+   * the person filling `proposedBy`.
+   */
   async reword(
     key: string,
     words: Partial<Pick<RoleCard, "responsibilities" | "instructions">>,
+    proposedBy: string,
   ): Promise<RoleWithSkills> {
     const { role, skills } = await this.read(key);
-    return this.changeCard(key, { ...role.card, ...words }, skills);
+    return this.changeCard(key, { ...role.card, ...words }, skills, proposedBy);
   }
 
   /**

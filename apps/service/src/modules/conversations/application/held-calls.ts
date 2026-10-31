@@ -11,9 +11,12 @@ import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { Consultations } from "./consultations.js";
 
-/** What becomes of a call behind a Hard switch: it runs now, is refused, or waits on approval. */
+/**
+ * What becomes of a call behind a Hard switch: it runs now, as made by the person filling `roleKey`,
+ * is refused, or waits on approval.
+ */
 export type HeldCallOutcome =
-  | { readonly kind: "proceed" }
+  | { readonly kind: "proceed"; readonly roleKey: string }
   | { readonly kind: "refused"; readonly reason: string }
   | { readonly kind: "held"; readonly waitingOn: string };
 
@@ -53,9 +56,10 @@ export class HeldCalls {
     const ruling = heldCallRuling(HARD_SWITCH_LABELS[request.switchKey], inEffect, (roleKey) =>
       this.roleCards.roleTitle(roleKey),
     );
-    if (ruling.kind === "proceed") return ruling;
+    const proceed: HeldCallOutcome = { kind: "proceed", roleKey: thread.roleKey };
+    if (ruling.kind === "proceed") return proceed;
     if (ruling.kind === "refuse") return refused(ruling.reason);
-    if (await this.spentApprovalIn(thread.id, request.call)) return { kind: "proceed" };
+    if (await this.spentApprovalIn(thread.id, request.call)) return proceed;
     try {
       const consultant = await this.consultations.put(request.sessionId, {
         kind: "approval",

@@ -11,15 +11,15 @@ const developer = { role: { key: "developer", card: { name: "Ada", title: "Devel
 
 /** The tool as registered, over a People that keeps the rewordings and a hold that rules as told. */
 function toolWith(outcome: HeldCallOutcome) {
-  const reworded: Array<{ key: string; words: Words }> = [];
+  const reworded: Array<{ key: string; words: Words; proposedBy: string }> = [];
   const holds: Array<{ call: string }> = [];
   const roles = {
     read: (key: string) => {
       if (key !== "developer") throw new RoleNotFound(key);
       return Promise.resolve(developer);
     },
-    reword: (key: string, words: Words) => {
-      reworded.push({ key, words });
+    reword: (key: string, words: Words, proposedBy: string) => {
+      reworded.push({ key, words, proposedBy });
       return Promise.resolve(developer);
     },
   } as unknown as RoleService;
@@ -39,13 +39,15 @@ function toolWith(outcome: HeldCallOutcome) {
 const input = { role: "developer", instructions: "Write tests first.", why: "Fewer regressions." };
 
 describe("the change_role tool", () => {
-  it("rewords the Role when the call may run", async () => {
-    const { tool, reworded } = toolWith({ kind: "proceed" });
+  it("rewords the Role, as proposed by the caller, when the call may run", async () => {
+    const { tool, reworded } = toolWith({ kind: "proceed", roleKey: "planner" });
 
     const result = await tool.run(input, { sessionId: "session-1" });
 
     expect(result.isError).toBe(false);
-    expect(reworded).toEqual([{ key: "developer", words: { instructions: "Write tests first." } }]);
+    expect(reworded).toEqual([
+      { key: "developer", words: { instructions: "Write tests first." }, proposedBy: "planner" },
+    ]);
   });
 
   it("changes nothing and tells the Agent to end its turn while the call is held", async () => {
@@ -70,7 +72,7 @@ describe("the change_role tool", () => {
   });
 
   it("asks nobody about a Role that isn't there", async () => {
-    const { tool, holds } = toolWith({ kind: "proceed" });
+    const { tool, holds } = toolWith({ kind: "proceed", roleKey: "planner" });
 
     await expect(
       tool.run({ ...input, role: "janitor" }, { sessionId: "session-1" }),
@@ -79,7 +81,7 @@ describe("the change_role tool", () => {
   });
 
   it("asks what to change when the call changes nothing", async () => {
-    const { tool, holds } = toolWith({ kind: "proceed" });
+    const { tool, holds } = toolWith({ kind: "proceed", roleKey: "planner" });
 
     const result = await tool.run({ role: "developer", why: "Because." }, { sessionId: "s" });
 

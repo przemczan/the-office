@@ -428,6 +428,11 @@ function ProposedInitiativeEdit({ edit }: { readonly edit: InitiativeEdit }): Re
             {projects?.find(({ id }) => id === edit.projectId)?.name ?? edit.projectId}
           </ProposedField>
           <ProposedField label="Priority">{PRIORITY_NAMES[edit.priority]}</ProposedField>
+          {edit.blockedBy.length > 0 && (
+            <ProposedField label="Must be Done first">
+              {edit.blockedBy.map(taskTitle).join(", ")}
+            </ProposedField>
+          )}
         </dl>
       );
     case "add-dependency":

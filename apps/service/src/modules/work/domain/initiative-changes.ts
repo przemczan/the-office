@@ -112,13 +112,17 @@ export function addCtoTask(
   return addTaskToInitiative(initiative, id, given, setting, at);
 }
 
-/** Refuses the CTO's new Task as addCtoTask would, without making it. */
+/**
+ * Refuses the CTO's new Task as addCtoTask would, without making it, together with
+ * `blockerProblems`, the reasons it couldn't wait for the Tasks it asks to.
+ */
 export function requireCtoTaskAllowed(
   initiative: Initiative,
   route: InitiativeChangeRoute,
   given: NewTask,
+  blockerProblems: readonly string[] = [],
 ): void {
-  const problems = newTaskProblems(trimmedNewTask(given));
+  const problems = [...newTaskProblems(trimmedNewTask(given)), ...blockerProblems];
   if (problems.length > 0) throw new TaskRefused(problems);
   requireOpenTo(initiative, route, CTO_CHANGES);
 }

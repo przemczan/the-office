@@ -11,6 +11,7 @@ const addTask: InitiativeEdit = {
   title: "Export endpoint",
   projectId: "api",
   priority: "normal",
+  blockedBy: ["blocker"],
   taskId: undefined,
 };
 
@@ -70,5 +71,16 @@ describe("initiativeEditProblems", () => {
         board,
       ),
     ).toEqual([`There is no Task "gone".`]);
+  });
+
+  it("refuses a new Task's wait for a Task that isn't there or was dropped, with its own reasons", () => {
+    const dropped = aTask({ id: "dropped", title: "Old queue", state: "dropped" });
+    const edit: InitiativeEdit = { ...addTask, title: " ", blockedBy: ["gone", "dropped"] };
+
+    expect(initiativeEditProblems(active, edit, [...board, dropped])).toEqual([
+      expect.any(String),
+      `There is no Task "gone".`,
+      `"Old queue" was dropped, so nothing waits for it.`,
+    ]);
   });
 });

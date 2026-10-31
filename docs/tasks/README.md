@@ -57,7 +57,7 @@ Decided with the user on 2026-10-27: a fix is built where it is found only when 
 | # | Task | Surface | Status |
 | --- | --- | --- | --- |
 | 31 | [The after-tier-2 fixes](31-after-tier-2-fixes.md) | All | done |
-| 32 | [The fixes task 31's run found](32-after-task-31-fixes.md) | All | todo |
+| 32 | [The fixes task 31's run found](32-after-task-31-fixes.md) | All | in progress |
 
 Read these only when a step needs them:
 

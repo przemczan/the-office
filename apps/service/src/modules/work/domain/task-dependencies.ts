@@ -46,6 +46,17 @@ export function createdWaitingFor(
   return { ...created, task };
 }
 
+/**
+ * Why a Task not made yet couldn't wait for each of `blockerIds` from the start, judged as
+ * `createdWaitingFor` judges them; nothing waits for a new Task, so it closes no cycle.
+ */
+export function newTaskBlockerProblems(
+  blockerIds: readonly string[],
+  tasks: readonly Task[],
+): string[] {
+  return [...new Set(blockerIds)].flatMap((blockerId) => blockerProblems(blockerId, tasks));
+}
+
 /** Undefined when the Task doesn't wait for it. */
 export function removeDependency(
   task: Task,
@@ -77,15 +88,21 @@ function dependencyProblems(task: Task, blockerId: string, tasks: readonly Task[
     ];
   }
   if (blockerId === task.id) return ["A Task can't wait for itself."];
+  const problems = blockerProblems(blockerId, tasks);
   const blocker = tasks.find(({ id }) => id === blockerId);
-  if (!blocker) return [`There is no Task "${blockerId}".`];
-  if (blocker.state === "dropped") {
-    return [`"${blocker.title}" was dropped, so nothing waits for it.`];
-  }
-  if (!waitsFor(blocker, task.id, tasks)) return [];
+  if (problems.length > 0 || !blocker || !waitsFor(blocker, task.id, tasks)) return problems;
   return [
     `"${blocker.title}" already waits for "${task.title}", so "${task.title}" can't wait for it.`,
   ];
+}
+
+/** Why no Task could wait for `blockerId`: it isn't there, or was dropped. */
+function blockerProblems(blockerId: string, tasks: readonly Task[]): string[] {
+  const blocker = tasks.find(({ id }) => id === blockerId);
+  if (!blocker) return [`There is no Task "${blockerId}".`];
+  if (blocker.state === "dropped")
+    return [`"${blocker.title}" was dropped, so nothing waits for it.`];
+  return [];
 }
 
 /** Whether `task` waits for `targetId`, directly or through the Tasks it waits for. */

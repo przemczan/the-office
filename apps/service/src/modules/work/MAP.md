@@ -222,7 +222,7 @@ FireAlarmService, IdeaService, OfficeLimits, QueueService, StageScreenshots, Tas
 - `shaping.ts`: CTO, SHAPING_THREAD_TITLE, SHAPING_INSTRUCTIONS, SHAPING_OPENING
 - `state-change.ts`: StateChangeCause, BY_THE_PIPELINE, BY_THE_FIRE_ALARM, BY_THE_QUEUE, StateChange, stateChangeLines
 - `task-changes.ts`: TaskChange, withStateChange, NewTaskSetting, createTask, changeTaskState, undoPlanningMove, markTaskReady, changeStartedTaskState, pauseTask, pauseTaskForAlarm, stopTask, resumeTask, AllClearChoice, giveTaskAllClear, changePriority, reorderTask
-- `task-dependencies.ts`: addDependency, createdWaitingFor, removeDependency, blockingTasks, blockedProblems
+- `task-dependencies.ts`: addDependency, createdWaitingFor, newTaskBlockerProblems, removeDependency, blockingTasks, blockedProblems
 - `task-events.ts`: TaskCreated, TaskStateChanged, TaskPriorityChanged, TaskTagsChanged, TaskReordered, TaskPlanProposed, TaskPlanConfirmed, TaskDefinitionOfDoneProposed, TaskDefinitionOfDoneConfirmed, TaskPipelineProposed, TaskPipelineConfirmed, PausedBy, TaskPaused, TaskStopped, TaskHeldAtAllClear, TaskResumed, TaskDependencyAdded, TaskDependencyRemoved, TaskStarted
 - `task-not-found.ts`: TaskNotFound
 - `task-overlap.ts`: Overlap, overlapsOf, overlapWords
