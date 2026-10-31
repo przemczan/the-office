@@ -148,6 +148,18 @@ _Avoid_: Persona, profile, agent type
 Everything that defines a Role: its person's name and title, responsibilities, instructions, model and engine, capabilities (shared memory, chat, Consultant), permission profile, authority, Task limit and Skills.
 _Avoid_: Role config, definition, settings
 
+**OpenAI-compatible API**:
+The engine a Role may pick to work on a model served on the OpenAI-compatible API, such as a local LLM; The Office runs the agent loop itself.
+_Avoid_: API engine, local engine, LLM provider
+
+**API endpoint**:
+A server on the OpenAI-compatible API that the user lists in Settings → Engines: its name, base URL, key and models. A Role's Model field names an API endpoint and one of its models.
+_Avoid_: Provider, backend, model server, connection
+
+**Search endpoint**:
+The web search service set Office-wide that WebSearch goes through for the OpenAI-compatible API (SearXNG).
+_Avoid_: Search provider, search engine
+
 **Agent**:
 A Role's person at work on one thing, a Task or a conversation; the same person can be at work on several things at once.
 _Avoid_: Bot, worker, assistant, instance
