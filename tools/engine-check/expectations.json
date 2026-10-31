@@ -1098,6 +1098,46 @@
       }
     }
   },
+  "permissions.read-fence-off": {
+    "win32": {
+      "fenceOn": {
+        "bracedVariable": "denied",
+        "codeOnStdin": "allowed",
+        "gitInAnotherFolder": "denied",
+        "shellReadOutside": "denied"
+      },
+      "fenceOff": {
+        "bracedVariable": "allowed",
+        "codeOnStdin": "allowed",
+        "gitInAnotherFolder": "allowed",
+        "shellReadOutside": "allowed",
+        "fileToolsOutside": {
+          "Read": "allowed",
+          "Grep": "allowed",
+          "Glob": "allowed"
+        }
+      }
+    },
+    "linux": {
+      "fenceOn": {
+        "bracedVariable": "denied",
+        "codeOnStdin": "allowed",
+        "gitInAnotherFolder": "denied",
+        "shellReadOutside": "denied"
+      },
+      "fenceOff": {
+        "bracedVariable": "allowed",
+        "codeOnStdin": "allowed",
+        "gitInAnotherFolder": "allowed",
+        "shellReadOutside": "allowed",
+        "fileToolsOutside": {
+          "Read": "allowed",
+          "Grep": "allowed",
+          "Glob": "allowed"
+        }
+      }
+    }
+  },
   "skills.allowlist-suffix": {
     "win32": {
       "listedSkills": ["office:alpha", "office:beta", "office:review", "review", "vendor:review"]

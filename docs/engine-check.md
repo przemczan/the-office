@@ -30,6 +30,7 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 | Windows 11 (win32), the workstation | 2026-10-30 | the 7 `fallback.*` checks run and recorded (task 29); `skills.start-check`, `engine.office-tool` and `engine.priority-next` re-run after the probe's refactor, matching |
 | Ubuntu 24.04 x64 (linux), the same LXC container | 2026-10-30 | the 7 `fallback.*` checks run and recorded, the same as on Windows |
 | Windows 11 and Ubuntu 24.04 | 2026-10-30 | after the Office tools moved to the binary's stream (task 29 step 4a): `fallback.start`, `fallback.tools-and-rules`, `fallback.priority-next` re-run and `fallback.priority-next-office-tool` added, on both |
+| Windows 11 and Ubuntu 24.04 | 2026-10-31 | `permissions.read-fence-off` added (task 33 step 1), the same on both |
 
 `permissions.powershell-twin` runs on Windows only. Results differ between platforms only where an entry says so: `skills.user-scope`, `engine.priority-now` and `engine.lean-options`.
 
@@ -74,6 +75,7 @@ Results that contradicted or went beyond the spec, and how the spec reads now. E
 | `skills.project-names` | §5.6 | Project skills keyed by the bare name | Keyed by a skill's folder or a command's path under `commands/`; expected at start by their listed names, at the repository's top only |
 | `skills.frontmatter-yaml` | §2.6 Defaults | Uploads need YAML frontmatter | A plain value holding `: ` is read as the engine reads it |
 | `skills.shell-execution` | §5.6 | Not covered | `disableSkillShellExecution` true: a skill's commands bypass the hook when they run |
+| `permissions.read-fence-off` (2026-10-31) | §6 | `blockReadsOutsideWorkingDirectories` on fences the file tools; shell reads outside work only for profiles that allow commands | The setting is off: under it the engine refused commands the hook allowed. The hook alone fences Read, Grep and Glob; shell reads outside run wherever the profile allows the command |
 
 ## Skills
 
@@ -177,6 +179,12 @@ Windows only.
 - **Observed:** all three tools are fenced alike: the worktree is readable, the rest of the Office data directory is refused, and the skills folder is readable exactly when it is in `permissions.additionalDirectories`. The shell `cat` outside is refused for want of an approval, since no command allow rule covers it.
 - **Linux:** the same with the Office's explicit tool list. With the engine's default tool set Linux has no Grep or Glob at all (a call answers "No such tool available: Grep. Grep is not available in this session — search file contents with `grep` via the Bash tool instead."), which led §5.4 to name the tools explicitly.
 - **Meaning:** the fence covers every file tool, and the grant opens the skills folder for all three and nothing else. Contradicted §6's "shell reads outside are accepted", now amended: they work only for profiles that allow commands. Not tried: a `cat` inside the worktree. Task 06 settled it without allow rules: the Office rules hook (`OfficeRules` in `apps/service/src/modules/engine/domain/`) allows each command its profile allows, wherever it reads, and refuses the rest.
+
+### permissions.read-fence-off
+
+- **Run:** under a hook that allows them, four commands the engine refused in task 32's live run (`true | cat; echo "status=${PIPESTATUS[0]}"`, `node -v`, `git -C <another repository> log -1 --oneline`, `cat <a file outside>`), each in a session of its own with `blockReadsOutsideWorkingDirectories` on, then all four in one session with it off, followed there by Read, Grep and Glob on a file and folder outside the worktree, which the hook also allows.
+- **Observed:** with the fence on, `node -v` runs and the other three are refused past the hook's `allow`: under the fence the engine judges every shell command and asks when its parser can't show the command reads only inside (a variable in braces, a folder named outside, a file read outside), and with no approval surface it refuses, naming the setting at the end of a long message that also tells the model not to retry. After one such refusal it refuses every later call that would ask (`circuitBreaker: outsideReadsBlocked` in the transcript), so a single session stops early. With the fence off all four commands run, and Read, Grep and Glob read outside: nothing but the hook fences the file tools then. The same on Windows and Linux.
+- **Meaning:** the fence contradicted §6's "shell reads outside work for profiles that allow commands", and refused commands the Office rules allow. §6 now turns it off (the user's answer of 2026-10-31) and the hook alone fences Read, Grep and Glob, as it did already in its own words.
 
 ### permissions.protected-paths
 

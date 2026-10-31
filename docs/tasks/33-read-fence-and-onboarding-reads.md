@@ -8,8 +8,8 @@ The two problems task 32's live run found are fixed before tier 3 starts: a shel
 
 ## Definition of Done
 
-- [ ] The engine check shows that with `permissions.blockReadsOutsideWorkingDirectories` off and the Office's hook on, the shell commands the engine refused in task 32's run (`${PIPESTATUS[0]}`, a bare `node -v`, `git -C <another folder>`) run, and Read, Grep and Glob outside the session's folders are refused by the hook, each way a path can be given. Check: the check's entry in [engine-check.md](../engine-check.md), on Windows and on the LXC.
-- [ ] Sessions run with the setting off, and the hook alone fences the file tools. Spec §6 says so. Check: a service test of the session settings and of every fenced path shape; §6 and the code agree.
+- [x] The engine check shows that with `permissions.blockReadsOutsideWorkingDirectories` off, the shell commands the engine refused in task 32's run (`${PIPESTATUS[0]}`, `git -C <another folder>`, a read outside) run once the hook allows them, and that only the hook fences Read, Grep and Glob then. Check: `permissions.read-fence-off` in [engine-check.md](../engine-check.md), recorded on Windows and on the LXC.
+- [ ] Sessions run with the setting off, and the hook alone fences the file tools, each way a path can be given. Spec §6 says so. Check: a service test of the session settings and of every fenced path shape; §6 and the code agree.
 - [ ] `read_local_repository` lists the repository's local branches with the current one marked, and takes an optional folder inside the repository that it reads as it reads the top level. Check: a service test.
 - [ ] Each fix seen once on the LXC with Devops on Haiku, with tokens logged: an onboarding chat reads a sub-folder through the tool and no Glob, Read or git outside its folders is refused; a compound command with `${PIPESTATUS[0]}` runs in a Task. Check: the driver's output, summarised in State; `npm run verify` and `npm run verify:linux` pass.
 
@@ -25,10 +25,10 @@ Decided with the user on 2026-10-31: the engine's read fence is turned off and t
 ## Steps
 
 - [x] 0. Write this file and link it from the README. Commit.
-- [ ] 1. The engine check: a `permissions` check that runs task 32's refused commands and Read, Grep and Glob outside (absolute paths, `..`, an absolute Glob pattern, Grep's `glob`, the engine's task-output folder) with the setting off under a hook that fences as the Office's does; record it in engine-check.md, retire or re-word `permissions.file-tool-fence` and `skills.plugin-folder-reads` as the result says; amend §6's build rules. Run on Windows and the LXC. Commit.
+- [x] 1. The engine check: `permissions.read-fence-off` runs task 32's refused commands with the setting on and off under a hook that allows them, and the file tools outside with it off; recorded on Windows and the LXC; §6 and §5.6 amended. Commit.
   Read: [engine-check.md](../engine-check.md) "How a check runs" and "Permissions"; `tools/engine-check/src/office-options.ts`; `checks/permissions/file-tool-fence.ts`, `hook-sees-every-call.ts`.
-- [ ] 2. The service: `sessionSettings` drops the setting (and `additionalDirectories` if only the fence needed it); `agentAction` and `OfficeRules`' read fence close any path shape step 1 found open; the engine check's own options match. Commit.
-  Read: the [Engine map](../../apps/service/src/modules/engine/MAP.md); `engine/adapters/claude-code/session-settings.ts`, `tool-actions.ts`; `engine/domain/office-rules.ts` (the read fence, around `outside this session's folders`).
+- [ ] 2. The service: `sessionSettings` drops the setting and `additionalDirectories`; the hook's read fence is tested, and closed where open, for each path shape (absolute and relative paths, `..`, an absolute Glob pattern, Grep's `glob`, the skills folder, the engine's task-output folder); the engine check's own options match, `permissions.file-tool-fence` retired and `skills.plugin-folder-reads` re-run and re-recorded on both platforms. Commit.
+  Read: the [Engine map](../../apps/service/src/modules/engine/MAP.md); `engine/adapters/claude-code/session-settings.ts`, `tool-actions.ts`; `engine/domain/office-rules.ts` (the read fence, around `outside this session's folders`); `tools/engine-check/src/office-options.ts`, `checks/skills/plugin-folder-reads.ts`.
 - [ ] 3. `read_local_repository`: the local branches, the current one marked, and an optional `folder` read like the top level, refused outside the repository; the tool's and the onboarding Proposal's descriptions say so. Commit.
   Read: the [Projects map](../../apps/service/src/modules/projects/MAP.md); `projects/application/local-repositories.ts`; `projects/adapters/office-tools/project-office-tools.ts`; `work/adapters/office-tools/onboarding-office-tools.ts`.
 - [ ] 4. On the LXC, from a copy of HEAD on its own data: each fix seen once; stop the service and its compose project after; close the task. Commit.
@@ -36,9 +36,13 @@ Decided with the user on 2026-10-31: the engine's read fence is turned off and t
 
 ## State
 
-- Step 0 done. Found in task 32's transcripts on the LXC (`/root/.claude/projects/-root-office-data-31-*`): every engine refusal there names `permissions.blockReadsOutsideWorkingDirectories` at the end of its message ("What required approval: …"): a variable in braces, code on stdin (`node -v`), `git -C` naming another folder, reads outside. The engine asks on these even after the hook's `allow` ("an ask rule, a safety check … requires the full permission pipeline"), and with no approval surface it refuses.
-- Next: step 1, the engine check.
+- Found in task 32's transcripts on the LXC (`/root/.claude/projects/-root-office-data-31-*`): every engine refusal there names `permissions.blockReadsOutsideWorkingDirectories` at the end of its message ("What required approval: …"). The engine asks on these even after the hook's `allow`, and with no approval surface it refuses; after one it refuses every later call that would ask (`circuitBreaker: outsideReadsBlocked`).
+- Step 1: `tools/engine-check/src/checks/permissions/read-fence-off.ts`, recorded in `expectations.json` for both platforms (the same): fence on, a braced variable, `git -C` elsewhere and `cat` outside are refused past the hook (`node -v` alone runs); fence off, all run and Read, Grep and Glob read outside. Spec §6's build rule and §5.6's grant sentence amended; engine-check.md has the entry, a Runs row and a Spec amendments row.
+- The service still sets the fence; the engine check's `office-options.ts` too. Step 2 drops both, retires `permissions.file-tool-fence` (it tests the setting) and re-runs `skills.plugin-folder-reads` without the grant.
+- The LXC copy for this task: `/root/the-office-33` (from 31's, `npm ci` done, no `.env` yet).
+- Next: step 2.
 
 ## Progress
 
 - 2026-10-31 · step 0: the task file, from task 32's two findings and the user's answers; next, step 1, the engine check with the read fence off.
+- 2026-10-31 · step 1: `permissions.read-fence-off` shows the engine's read fence refuses commands the hook allows and that with it off only the hook fences the file tools, the same on Windows and Linux; §6 and §5.6 amended; next, step 2, the service without the fence.
