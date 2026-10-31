@@ -56,7 +56,7 @@ Decided with the user on 2026-10-27: a fix is built where it is found only when 
 
 | # | Task | Surface | Status |
 | --- | --- | --- | --- |
-| 31 | [The after-tier-2 fixes](31-after-tier-2-fixes.md) | All | in progress |
+| 31 | [The after-tier-2 fixes](31-after-tier-2-fixes.md) | All | done |
 
 Read these only when a step needs them:
 
