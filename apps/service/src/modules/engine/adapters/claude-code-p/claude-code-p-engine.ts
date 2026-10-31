@@ -28,6 +28,7 @@ import type {
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions, SessionSkills } from "../../ports/session-options.js";
 import { EngineProcess } from "../claude-code/engine-process.js";
+import { McpConfigFile } from "../claude-code/mcp-config-file.js";
 import { officeRulesHook } from "../claude-code/office-rules-hook.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
 import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
@@ -38,7 +39,11 @@ import {
   type StartCheckRequests,
 } from "../claude-code/start-check.js";
 import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code/stream-events.js";
-import { claudeCodePArguments, TOKEN_VARIABLE } from "./claude-code-p-arguments.js";
+import {
+  claudeCodePArguments,
+  claudeCodePMcpConfig,
+  TOKEN_VARIABLE,
+} from "./claude-code-p-arguments.js";
 import { OfficeToolServer } from "./office-tool-server.js";
 import { pinnedBinaryPath } from "./pinned-binary.js";
 import { SessionEndpoints, type OpenEndpoints } from "./session-endpoints.js";
@@ -63,6 +68,8 @@ interface SessionResources {
   readonly officeTools: OfficeToolServer | undefined;
   /** Holds the instructions file, when the session has instructions. */
   readonly folder: string | undefined;
+  /** The session's MCP config, when it has MCP servers or Office tools. */
+  readonly mcpConfigFile: McpConfigFile | undefined;
 }
 
 /**
@@ -118,6 +125,7 @@ export class ClaudeCodePEngine extends AgentEngine {
               toolDecision(rules, holds, tool, input),
             ),
       folder: options.instructions === "" ? undefined : await instructionsFolder(options),
+      mcpConfigFile: await this.mcpConfigFile(id, options),
     };
     const engineProcess = new EngineProcess(this.operatingSystem.processTrees);
     let session: ClaudeCodePSession;
@@ -132,6 +140,7 @@ export class ClaudeCodePEngine extends AgentEngine {
           hookUrl: endpoints.hookUrl,
           instructionsFile:
             resources.folder === undefined ? undefined : join(resources.folder, INSTRUCTIONS_FILE),
+          mcpConfigFile: resources.mcpConfigFile?.path,
         }),
         cwd: options.folder,
         env: this.environment(options, endpoints.token),
@@ -165,6 +174,16 @@ export class ClaudeCodePEngine extends AgentEngine {
     return session;
   }
 
+  private async mcpConfigFile(
+    id: string,
+    options: SessionOptions,
+  ): Promise<McpConfigFile | undefined> {
+    const config = claudeCodePMcpConfig(options);
+    return config === undefined
+      ? undefined
+      : McpConfigFile.write(this.officeData.folder("sessions"), id, config);
+  }
+
   /** The session's variables, as the SDK adapter gives them, and the token only The Office sets. */
   private environment(options: SessionOptions, token: string): Record<string, string> {
     const given = Object.entries(sessionEnvironment(options.environment)).filter(
@@ -182,10 +201,16 @@ async function instructionsFolder(options: SessionOptions): Promise<string> {
   return folder;
 }
 
-async function closeResources({ endpoints, officeTools, folder }: SessionResources): Promise<void> {
+async function closeResources({
+  endpoints,
+  officeTools,
+  folder,
+  mcpConfigFile,
+}: SessionResources): Promise<void> {
   endpoints.close();
   await officeTools?.close();
   if (folder !== undefined) await rm(folder, { recursive: true, force: true });
+  await mcpConfigFile?.remove();
 }
 
 /** What a session runs on and is held to. */

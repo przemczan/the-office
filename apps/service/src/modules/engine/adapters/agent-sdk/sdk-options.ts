@@ -8,6 +8,7 @@ import {
 import type { AgentShell } from "../../../../platform/os/shell.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
 import type { SessionOptions } from "../../ports/session-options.js";
+import type { McpConfig } from "../claude-code/mcp-config-file.js";
 import { officeToolAnswer } from "../claude-code/office-tools.js";
 import { mcpServerConfigs } from "../claude-code/session-mcp-servers.js";
 import { OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
@@ -22,6 +23,8 @@ export interface SdkSession {
   /** Whether the session continues an ended one with its conversation. */
   readonly resumes: boolean;
   readonly options: SessionOptions;
+  /** The file holding the session's MCP servers with their values, when it has any. */
+  readonly mcpConfigFile: string | undefined;
   /** The shells Agents run commands in on this system. */
   readonly agentShells: readonly AgentShell[];
   /** Decides every tool call by the Office rules. */
@@ -38,6 +41,7 @@ export function sdkOptions({
   id,
   resumes,
   options,
+  mcpConfigFile,
   agentShells,
   preToolUse,
   spawnProcess,
@@ -64,14 +68,13 @@ export function sdkOptions({
     },
     env: sessionEnvironment(options.environment),
     hooks: { PreToolUse: [{ hooks: [preToolUse] }] },
-    ...((options.officeTools.length > 0 || options.mcpServers.length > 0) && {
-      mcpServers: {
-        ...mcpServerConfigs(options.mcpServers),
-        ...(options.officeTools.length > 0 && {
-          [OFFICE_TOOL_SERVER]: officeToolServer(options.officeTools, id),
-        }),
-      },
+    // The in-process server reaches the binary on its input, never on the command line.
+    ...(options.officeTools.length > 0 && {
+      mcpServers: { [OFFICE_TOOL_SERVER]: officeToolServer(options.officeTools, id) },
     }),
+    // The SDK writes `mcpServers` inline on the binary's command line, so the session's servers,
+    // holding their values, go in a file instead (`McpConfigFile`).
+    ...(mcpConfigFile !== undefined && { extraArgs: { "mcp-config": mcpConfigFile } }),
     // Only the servers above: a Project's `.mcp.json`, which its own settings may turn on, never.
     strictMcpConfig: true,
     ...(options.outputSchema !== undefined && {
@@ -80,6 +83,11 @@ export function sdkOptions({
     ...(resumes ? { resume: id } : { sessionId: id }),
     spawnClaudeCodeProcess: spawnProcess,
   };
+}
+
+/** What the session's MCP config file holds: its servers, without the in-process Office server. */
+export function sdkMcpConfig({ mcpServers }: SessionOptions): McpConfig | undefined {
+  return mcpServers.length === 0 ? undefined : { mcpServers: mcpServerConfigs(mcpServers) };
 }
 
 /** Always loaded, so the Agent calls an Office tool without looking it up first. */

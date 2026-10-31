@@ -1,9 +1,15 @@
-import type { HookCallback } from "@anthropic-ai/claude-agent-sdk";
+import {
+  query,
+  type HookCallback,
+  type SDKUserMessage,
+  type SpawnOptions,
+} from "@anthropic-ai/claude-agent-sdk";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import type { OfficeTool } from "../../ports/office-tool.js";
 import type { SessionOptions } from "../../ports/session-options.js";
-import { sdkOptions, type SdkSession } from "./sdk-options.js";
+import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
+import { sdkMcpConfig, sdkOptions, type SdkSession } from "./sdk-options.js";
 
 const OPTIONS: SessionOptions = {
   folder: "/office/worktrees/task-1",
@@ -60,11 +66,35 @@ const MCP_SERVERS: SessionOptions["mcpServers"] = [
   },
 ];
 
+const MCP_CONFIG_FILE = "/office/sessions/session-1/mcp-config-1.json";
+
+/** What the SDK would start the binary with, which never starts here. */
+function spawnedWith(session: Partial<SdkSession>): SpawnOptions {
+  const spawned: SpawnOptions[] = [];
+  const startQuery = () =>
+    query({
+      prompt: new AsyncChannel<SDKUserMessage>(),
+      options: optionsFor({
+        ...session,
+        spawnProcess: (spawn) => {
+          spawned.push(spawn);
+          throw new Error("Not started in this test.");
+        },
+      }),
+    });
+  // The SDK starts the binary as the query is made.
+  expect(startQuery).toThrow("Not started in this test.");
+  const [spawn] = spawned;
+  if (spawn === undefined) throw new Error("The SDK started no binary.");
+  return spawn;
+}
+
 function optionsFor(session: Partial<SdkSession> = {}) {
   return sdkOptions({
     id: "session-1",
     resumes: false,
     options: OPTIONS,
+    mcpConfigFile: undefined,
     agentShells: ["bash"],
     preToolUse: PRE_TOOL_USE,
     spawnProcess: () => {
@@ -194,25 +224,40 @@ describe("sdkOptions", () => {
     expect(options.settings).toMatchObject({ permissions: { allow: ["mcp__office"] } });
   });
 
-  it("runs only the session's MCP servers with their values, each allowed by rule for the hook to judge", () => {
+  it("names the session's MCP config file, holding its servers, beside the in-process server", () => {
     const options = optionsFor({
       options: { ...OPTIONS, officeTools: [NOTE_TOOL], mcpServers: MCP_SERVERS },
+      mcpConfigFile: MCP_CONFIG_FILE,
     });
 
     expect(options.strictMcpConfig).toBe(true);
-    expect(options.mcpServers).toMatchObject({
-      github: {
-        type: "stdio",
-        command: "npx",
-        args: ["-y", "@modelcontextprotocol/server-github"],
-        env: { GITHUB_TOKEN: "secret" },
-      },
-      search: { type: "http", url: "https://mcp.example.com/mcp", headers: { "X-Key": "k" } },
-      office: { type: "sdk", name: "office" },
-    });
+    expect(options.extraArgs).toEqual({ "mcp-config": MCP_CONFIG_FILE });
+    expect(Object.keys(options.mcpServers ?? {})).toEqual(["office"]);
     expect(options.settings).toMatchObject({
       permissions: { allow: ["mcp__office", "mcp__github", "mcp__search"] },
     });
+  });
+
+  it("names no MCP config file for a session without one", () => {
+    expect(optionsFor().extraArgs).toBeUndefined();
+  });
+
+  it("starts the binary with the file as the one MCP config, no Server value on its command line or in its environment", () => {
+    const { args, env } = spawnedWith({
+      options: { ...OPTIONS, officeTools: [NOTE_TOOL], mcpServers: MCP_SERVERS },
+      mcpConfigFile: MCP_CONFIG_FILE,
+    });
+
+    const flags = args.flatMap((arg, index) => (arg.startsWith("--mcp-config") ? [index] : []));
+    expect(flags.map((index) => args[index])).toEqual(["--mcp-config"]);
+    const [index = -1] = flags;
+    expect(args[index + 1]).toBe(MCP_CONFIG_FILE);
+    // The flag takes several values: what follows the file is another flag, never a value.
+    expect(args[index + 2] ?? "--").toMatch(/^--/);
+    const started = [...args, ...Object.values(env)].join(" ");
+    for (const value of ["secret", "X-Key", "server-github"]) {
+      expect(started).not.toContain(value);
+    }
   });
 
   it("never runs a Project's own MCP servers, even with no server of the session's", () => {
@@ -224,5 +269,27 @@ describe("sdkOptions", () => {
     const options = optionsFor({ options: { ...OPTIONS, outputSchema: schema } });
 
     expect(options.outputFormat).toEqual({ type: "json_schema", schema });
+  });
+});
+
+describe("sdkMcpConfig", () => {
+  it("holds the session's MCP servers with their values, without the in-process server", () => {
+    expect(sdkMcpConfig({ ...OPTIONS, officeTools: [NOTE_TOOL], mcpServers: MCP_SERVERS })).toEqual(
+      {
+        mcpServers: {
+          github: {
+            type: "stdio",
+            command: "npx",
+            args: ["-y", "@modelcontextprotocol/server-github"],
+            env: { GITHUB_TOKEN: "secret" },
+          },
+          search: { type: "http", url: "https://mcp.example.com/mcp", headers: { "X-Key": "k" } },
+        },
+      },
+    );
+  });
+
+  it("is none for a session without MCP servers", () => {
+    expect(sdkMcpConfig({ ...OPTIONS, officeTools: [NOTE_TOOL] })).toBeUndefined();
   });
 });

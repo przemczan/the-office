@@ -27,13 +27,14 @@ import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions, SessionSkills } from "../../ports/session-options.js";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import { EngineProcess } from "../claude-code/engine-process.js";
+import { McpConfigFile } from "../claude-code/mcp-config-file.js";
 import { officeRulesHook } from "../claude-code/office-rules-hook.js";
 import type { SessionHolds } from "../office-rules/tool-decision.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
 import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
 import { initProblems, startCheckProblems } from "../claude-code/start-check.js";
 import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code/stream-events.js";
-import { sdkOptions, type SdkSession } from "./sdk-options.js";
+import { sdkMcpConfig, sdkOptions, type SdkSession } from "./sdk-options.js";
 
 /**
  * Sessions on the TypeScript Claude Agent SDK, on the user's own login (spec §5.4): one long-lived
@@ -83,15 +84,27 @@ export class AgentSdkEngine extends AgentEngine {
       skills: options.skills,
       paths: this.operatingSystem.paths,
     };
-    const session = new AgentSdkSession(id, held, engineProcess, (hooks) =>
-      sdkOptions({
-        id,
-        resumes,
-        options,
-        agentShells: this.operatingSystem.agentShells.map(({ shell }) => shell),
-        ...hooks,
-      }),
-    );
+    const mcpConfig = sdkMcpConfig(options);
+    const mcpConfigFile =
+      mcpConfig === undefined
+        ? undefined
+        : await McpConfigFile.write(this.officeData.folder("sessions"), id, mcpConfig);
+    let session: AgentSdkSession;
+    try {
+      session = new AgentSdkSession(id, held, { engineProcess, mcpConfigFile }, (hooks) =>
+        sdkOptions({
+          id,
+          resumes,
+          options,
+          mcpConfigFile: mcpConfigFile?.path,
+          agentShells: this.operatingSystem.agentShells.map(({ shell }) => shell),
+          ...hooks,
+        }),
+      );
+    } catch (error) {
+      await mcpConfigFile?.remove();
+      throw error;
+    }
     let problems: string[];
     try {
       problems = await session.startCheckProblems();
@@ -115,6 +128,13 @@ interface HeldTo {
   readonly paths: PathRules;
 }
 
+/** What a session runs on, which ending it ends. */
+interface SessionParts {
+  readonly engineProcess: EngineProcess;
+  /** The session's MCP servers with their values, when it has any. */
+  readonly mcpConfigFile: McpConfigFile | undefined;
+}
+
 class AgentSdkSession implements EngineSession {
   private readonly input = new AsyncChannel<SDKUserMessage>();
   private readonly reported = new AsyncChannel<SessionEvent>();
@@ -126,14 +146,14 @@ class AgentSdkSession implements EngineSession {
   constructor(
     readonly id: string,
     private readonly held: HeldTo,
-    private readonly engineProcess: EngineProcess,
+    private readonly parts: SessionParts,
     options: (session: Pick<SdkSession, "preToolUse" | "spawnProcess">) => Options,
   ) {
     this.engine = query({
       prompt: this.input,
       options: options({
         preToolUse: officeRulesHook(held.rules, this.streamEvents.refusals, held.holds),
-        spawnProcess: engineProcess.spawn,
+        spawnProcess: parts.engineProcess.spawn,
       }),
     });
     this.read = this.readMessages();
@@ -183,7 +203,8 @@ class AgentSdkSession implements EngineSession {
     this.input.close();
     this.engine.close();
     await this.read;
-    await this.engineProcess.endWithLeftovers();
+    await this.parts.engineProcess.endWithLeftovers();
+    await this.parts.mcpConfigFile?.remove();
   }
 
   private async readMessages(): Promise<void> {
@@ -197,7 +218,7 @@ class AgentSdkSession implements EngineSession {
       if (this.ending) {
         this.reported.close();
       } else {
-        this.reported.fail(engineStopped(error, this.engineProcess.stderr));
+        this.reported.fail(engineStopped(error, this.parts.engineProcess.stderr));
       }
     }
   }

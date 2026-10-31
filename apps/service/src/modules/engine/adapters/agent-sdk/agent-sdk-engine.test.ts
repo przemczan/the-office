@@ -19,6 +19,7 @@ import { UsageWindowState } from "../../application/usage-window-state.js";
 import { describeAgentEngineContract } from "../../ports/agent-engine.contract.js";
 import type { AgentEngine } from "../../ports/agent-engine.js";
 import type { EngineSession } from "../../ports/engine-session.js";
+import type { OfficeTool } from "../../ports/office-tool.js";
 import type { SessionEvent, TurnEndedEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { RecordingEngine } from "../scripted/recording-engine.js";
@@ -32,7 +33,8 @@ import { currentOperatingSystem } from "../../../../platform/os/current-operatin
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import { EngineProcess } from "../claude-code/engine-process.js";
 import { CONTRACT_MCP_SERVER } from "../mcp-servers/contract-mcp-server.fixtures.js";
-import { sdkOptions } from "./sdk-options.js";
+import { McpConfigFile } from "../claude-code/mcp-config-file.js";
+import { sdkMcpConfig, sdkOptions } from "./sdk-options.js";
 
 /**
  * These tests run real sessions on the user's login, which cost quota, so they run only when asked:
@@ -47,6 +49,13 @@ const run = promisify(execFile);
 /** No session here works inside it; the Office rules keep sessions out of it. */
 const OFFICE_DATA = new OfficeDataDirectory(join(tmpdir(), "office-engine-data"));
 const liveEngine = () => new AgentSdkEngine(OFFICE_DATA);
+
+const NOTE_TOOL: OfficeTool = {
+  name: "note",
+  description: "Notes a word.",
+  input: z.object({ word: z.string() }),
+  run: () => Promise.resolve({ text: "Noted.", isError: false }),
+};
 
 describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live session", () => {
   describeAgentEngineContract("AgentSdkEngine", {
@@ -64,7 +73,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
   });
 
   // No model call: the session is never sent a message.
-  it("runs the session's MCP servers and never a Project's own, even one its settings turn on", async () => {
+  it("runs the session's MCP servers from their file beside the Office tools, and never a Project's own, even one its settings turn on", async () => {
     const folder = await mkdtemp(join(tmpdir(), "office-mcp-"));
     const projectServer = { command: process.execPath, args: [FAKE_STDIO_MCP_SERVER] };
     await writeFile(
@@ -77,34 +86,50 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
       JSON.stringify({ enableAllProjectMcpServers: true }),
     );
     const engineProcess = new EngineProcess(currentOperatingSystem().processTrees);
+    const id = randomUUID();
     const withServer: SessionOptions = {
       ...options(folder),
+      officeTools: [NOTE_TOOL],
       mcpServers: [{ name: "fake", launch: fakeStdioMcpServer(), tools: [] }],
     };
+    const mcpConfig = sdkMcpConfig(withServer);
+    if (mcpConfig === undefined) throw new Error("The session has MCP servers.");
+    const mcpConfigFile = await McpConfigFile.write(OFFICE_DATA.folder("sessions"), id, mcpConfig);
     const prompt = new AsyncChannel<SDKUserMessage>();
     const session = query({
       prompt,
       options: sdkOptions({
-        id: randomUUID(),
+        id,
         resumes: false,
         options: withServer,
+        mcpConfigFile: mcpConfigFile.path,
         agentShells: [],
         preToolUse: () => Promise.resolve({}),
         spawnProcess: engineProcess.spawn,
       }),
     });
     try {
-      const servers = await session.mcpServerStatus();
-      expect(servers.map(({ name, status }) => ({ name, status }))).toEqual([
-        { name: "fake", status: "connected" },
-      ]);
+      // The servers connect without blocking the session's start.
+      await expect
+        .poll(
+          async () =>
+            (await session.mcpServerStatus())
+              .map(({ name, status }) => ({ name, status }))
+              .toSorted((one, other) => one.name.localeCompare(other.name)),
+          { timeout: 30_000, interval: 500 },
+        )
+        .toEqual([
+          { name: "fake", status: "connected" },
+          { name: "office", status: "connected" },
+        ]);
     } finally {
       prompt.close();
       session.close();
       await engineProcess.endWithLeftovers();
+      await mcpConfigFile.remove();
       await rm(folder, { recursive: true, force: true });
     }
-  });
+  }, 60_000);
 
   it("shares the cached prefix between sessions in two worktrees of one repository", async () => {
     const folder = await mkdtemp(join(tmpdir(), "office-cache-"));

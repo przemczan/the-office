@@ -1,8 +1,9 @@
-import type { McpSdkServerConfig, Settings } from "@anthropic-ai/claude-agent-sdk";
+import type { Settings } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentShell } from "../../../../platform/os/shell.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
-import { mcpServerConfigs, type McpServerConfig } from "../claude-code/session-mcp-servers.js";
+import type { McpConfig } from "../claude-code/mcp-config-file.js";
+import { mcpServerConfigs } from "../claude-code/session-mcp-servers.js";
 import { sessionSettings, sessionTools } from "../claude-code/session-settings.js";
 
 /**
@@ -31,6 +32,8 @@ export interface ClaudeCodePSession {
    * pass the 32,767 characters Windows allows it.
    */
   readonly instructionsFile: string | undefined;
+  /** The file holding the session's MCP config (`claudeCodePMcpConfig`), when it has one. */
+  readonly mcpConfigFile: string | undefined;
 }
 
 /**
@@ -54,7 +57,8 @@ export function claudeCodePArguments(session: ClaudeCodePSession): string[] {
     ...(options.skills === undefined ? [] : [`--plugin-dir=${options.skills.folder}`]),
     ...skillRules(options),
     `--settings=${JSON.stringify(withHook(session))}`,
-    ...mcpConfig(options),
+    // One value: the flag takes several, and would read on into the next argument otherwise.
+    ...(session.mcpConfigFile === undefined ? [] : [`--mcp-config=${session.mcpConfigFile}`]),
     // Only the servers above: a Project's `.mcp.json`, which its own settings may turn on, never.
     "--strict-mcp-config",
     "--permission-prompts=none",
@@ -102,18 +106,22 @@ function withHook(session: ClaudeCodePSession): Settings {
 }
 
 /**
- * The session's MCP servers, as the SDK adapter passes them, and the Office tool server, whose
- * messages the engine sends the service as `mcp_message` control requests. The session's token is
- * in the binary's environment, which a local server would inherit, so it is blanked there.
+ * What the session's MCP config file holds: its MCP servers, as the SDK adapter's file holds them,
+ * and the Office tool server, whose messages the engine sends the service as `mcp_message` control
+ * requests. The session's token is in the binary's environment, which a local server would inherit,
+ * so it is blanked there. None for a session with neither.
  */
-function mcpConfig({ officeTools, mcpServers }: SessionOptions): string[] {
-  const servers: Record<string, McpServerConfig | McpSdkServerConfig> = {
-    ...mcpServerConfigs(mcpServers, [TOKEN_VARIABLE]),
-    ...(officeTools.length > 0 && {
-      [OFFICE_TOOL_SERVER]: { type: "sdk", name: OFFICE_TOOL_SERVER },
-    }),
+export function claudeCodePMcpConfig({
+  officeTools,
+  mcpServers,
+}: SessionOptions): McpConfig | undefined {
+  if (officeTools.length === 0 && mcpServers.length === 0) return undefined;
+  return {
+    mcpServers: {
+      ...mcpServerConfigs(mcpServers, [TOKEN_VARIABLE]),
+      ...(officeTools.length > 0 && {
+        [OFFICE_TOOL_SERVER]: { type: "sdk", name: OFFICE_TOOL_SERVER },
+      }),
+    },
   };
-  return Object.keys(servers).length === 0
-    ? []
-    : [`--mcp-config=${JSON.stringify({ mcpServers: servers })}`];
 }

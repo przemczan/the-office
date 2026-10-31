@@ -5,6 +5,7 @@ import type { SessionOptions } from "../../ports/session-options.js";
 import { sessionSettings } from "../claude-code/session-settings.js";
 import {
   claudeCodePArguments,
+  claudeCodePMcpConfig,
   TOKEN_VARIABLE,
   type ClaudeCodePSession,
 } from "./claude-code-p-arguments.js";
@@ -36,6 +37,25 @@ const NOTE_TOOL: OfficeTool = {
   run: () => Promise.resolve({ text: "Noted.", isError: false }),
 };
 
+const MCP_SERVERS: SessionOptions["mcpServers"] = [
+  {
+    name: "github",
+    launch: {
+      transport: "stdio",
+      command: "npx",
+      arguments: ["-y", "@modelcontextprotocol/server-github"],
+      environmentVariables: { GITHUB_TOKEN: "secret" },
+      workingFolder: OPTIONS.folder,
+    },
+    tools: [],
+  },
+  {
+    name: "search",
+    launch: { transport: "streamable-http", url: "https://mcp.example.com/mcp", headers: {} },
+    tools: [],
+  },
+];
+
 const HOOK_URL = "http://127.0.0.1:4310/api/engine/claude-code-p/hook";
 const AUTHORIZATION = { Authorization: `Bearer \${${TOKEN_VARIABLE}}` };
 
@@ -47,6 +67,7 @@ function argumentsFor(session: Partial<ClaudeCodePSession> = {}): string[] {
     agentShells: ["bash"],
     hookUrl: HOOK_URL,
     instructionsFile: undefined,
+    mcpConfigFile: undefined,
     ...session,
   });
 }
@@ -135,64 +156,31 @@ describe("claudeCodePArguments", () => {
     });
   });
 
-  it("names the service's Office tool server, which the binary reaches through its stream", () => {
-    const options = { ...OPTIONS, officeTools: [NOTE_TOOL] };
-    const args = argumentsFor({ options });
+  it("reads the session's MCP config from its file, as one value of the flag", () => {
+    const args = argumentsFor({ mcpConfigFile: "/office/sessions/session-1/mcp-config-1.json" });
 
-    expect(JSON.parse(flag(args, "mcp-config") ?? "{}")).toEqual({
-      mcpServers: { office: { type: "sdk", name: "office" } },
-    });
-    expect(settingsOf(args)).toMatchObject({ permissions: { allow: ["mcp__office"] } });
+    expect(args.filter((arg) => arg.startsWith("--mcp-config"))).toEqual([
+      "--mcp-config=/office/sessions/session-1/mcp-config-1.json",
+    ]);
   });
 
-  it("names no MCP server for a session without Office tools or MCP servers", () => {
-    expect(flag(argumentsFor(), "mcp-config")).toBeUndefined();
+  it("names no MCP config for a session without one", () => {
+    expect(argumentsFor().some((arg) => arg.startsWith("--mcp-config"))).toBe(false);
   });
 
-  it("runs only the session's MCP servers, each allowed by rule, a local one without the token", () => {
-    const options: SessionOptions = {
-      ...OPTIONS,
-      mcpServers: [
-        {
-          name: "github",
-          launch: {
-            transport: "stdio",
-            command: "npx",
-            arguments: ["-y", "@modelcontextprotocol/server-github"],
-            environmentVariables: { GITHUB_TOKEN: "secret" },
-            workingFolder: OPTIONS.folder,
-          },
-          tools: [],
-        },
-        {
-          name: "search",
-          launch: { transport: "streamable-http", url: "https://mcp.example.com/mcp", headers: {} },
-          tools: [],
-        },
-      ],
-    };
-    const args = argumentsFor({ options });
-
-    expect(JSON.parse(flag(args, "mcp-config") ?? "{}")).toEqual({
-      mcpServers: {
-        github: {
-          type: "stdio",
-          command: "npx",
-          args: ["-y", "@modelcontextprotocol/server-github"],
-          env: { GITHUB_TOKEN: "secret", [TOKEN_VARIABLE]: "" },
-        },
-        search: { type: "http", url: "https://mcp.example.com/mcp", headers: {} },
-      },
+  it("allows the Office tool server and each MCP server by rule", () => {
+    const args = argumentsFor({
+      options: { ...OPTIONS, officeTools: [NOTE_TOOL], mcpServers: MCP_SERVERS },
     });
+
     expect(settingsOf(args)).toMatchObject({
-      permissions: { allow: ["mcp__github", "mcp__search"] },
+      permissions: { allow: ["mcp__office", "mcp__github", "mcp__search"] },
     });
   });
 
   it("never runs a Project's own MCP servers", () => {
     expect(argumentsFor()).toContain("--strict-mcp-config");
   });
-
   it("appends the instructions from their file, and holds each turn to the output schema", () => {
     const schema = { type: "object", properties: { answer: { type: "string" } } };
     const args = argumentsFor({
@@ -211,5 +199,31 @@ describe("claudeCodePArguments", () => {
 
     expect(flag(args, "append-system-prompt-file")).toBeUndefined();
     expect(flag(args, "json-schema")).toBeUndefined();
+  });
+});
+
+describe("claudeCodePMcpConfig", () => {
+  it("names the service's Office tool server, which the binary reaches through its stream", () => {
+    expect(claudeCodePMcpConfig({ ...OPTIONS, officeTools: [NOTE_TOOL] })).toEqual({
+      mcpServers: { office: { type: "sdk", name: "office" } },
+    });
+  });
+
+  it("is none for a session without Office tools or MCP servers", () => {
+    expect(claudeCodePMcpConfig(OPTIONS)).toBeUndefined();
+  });
+
+  it("holds the session's MCP servers with their values, a local one without the token", () => {
+    expect(claudeCodePMcpConfig({ ...OPTIONS, mcpServers: MCP_SERVERS })).toEqual({
+      mcpServers: {
+        github: {
+          type: "stdio",
+          command: "npx",
+          args: ["-y", "@modelcontextprotocol/server-github"],
+          env: { GITHUB_TOKEN: "secret", [TOKEN_VARIABLE]: "" },
+        },
+        search: { type: "http", url: "https://mcp.example.com/mcp", headers: {} },
+      },
+    });
   });
 });
