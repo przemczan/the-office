@@ -331,6 +331,7 @@ describe("a Thread", () => {
       { kind: "user", text: "Read the deploy workflow.", delivery: "delivered" },
       { kind: "tool-activity", roleKey, tool: "Read", summary: "deploy-production.yml" },
       { kind: "refusal", roleKey, tool: "Edit", reason: "A chat only reads." },
+      { kind: "mcp-server-not-started", server: "github", reason: undefined },
       { kind: "person", roleKey, text: "It deploys on every push to main." },
       { kind: "link-card", roleKey, to: devops, taskId: undefined, note: "Check the cache." },
       { kind: "link-card", roleKey, to: "gone", taskId, note: "Ask about the Task." },
@@ -354,6 +355,7 @@ describe("a Thread", () => {
       },
       { kind: "tool-activity", roleKey, tool: "Read", summary: "deploy-production.yml" },
       { kind: "refusal", roleKey, tool: "Edit", reason: "A chat only reads." },
+      { kind: "mcp-server-not-started", server: "github", reason: null },
       { kind: "person", roleKey, text: "It deploys on every push to main." },
       {
         kind: "link-card",

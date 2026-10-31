@@ -3,6 +3,7 @@ import {
   type McpClient,
   type McpConnection,
 } from "../../../../platform/mcp/mcp-client.js";
+import type { McpServerNotStartedEvent } from "../../ports/session-events.js";
 import type { SessionMcpServer } from "../../ports/session-options.js";
 
 /** How long a server has to start and answer MCP's initialization. */
@@ -35,11 +36,23 @@ export class McpServerConnections {
   ) {}
 
   /**
-   * Starts every server at once, before the session's first turn. One that fails is not an error:
-   * its tools stay listed, as the session's tool list is fixed, and a call answers why.
+   * Starts every server at once, before the session's first turn, and tells which failed and why.
+   * One that fails is not an error: its tools stay listed, as the session's tool list is fixed,
+   * and a call tries it again or answers why, without telling again.
    */
-  async open(): Promise<void> {
-    await Promise.allSettled(this.servers.map(async ({ name }) => this.connectionTo(name)));
+  async open(): Promise<McpServerNotStartedEvent[]> {
+    const starts = await Promise.all(
+      this.servers.map(async ({ name }): Promise<McpServerNotStartedEvent[]> => {
+        try {
+          await this.connectionTo(name);
+          return [];
+        } catch (error) {
+          const reason = this.withoutServerValues(messageOf(error));
+          return [{ kind: "mcp-server-not-started", server: name, reason }];
+        }
+      }),
+    );
+    return starts.flat();
   }
 
   /**
@@ -113,6 +126,10 @@ export class McpServerConnections {
     this.connections.set(name, connecting);
     return connecting;
   }
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function inputObject(input: unknown): Readonly<Record<string, unknown>> {

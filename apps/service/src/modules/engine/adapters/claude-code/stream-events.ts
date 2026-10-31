@@ -1,23 +1,35 @@
 import type { SDKMessage, SDKSystemMessage, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import type { MessagePriority, UserMessage } from "../../ports/engine-session.js";
 import type { SessionEvent } from "../../ports/session-events.js";
+import { McpServerStarts } from "./mcp-server-starts.js";
 import { sessionEvents, TurnTokens } from "./sdk-events.js";
 import { ToolRefusals } from "./tool-refusals.js";
 
 /**
  * The port's events of one session's stream, message by message, as both Claude Code adapters
- * read it: each message's own events, the tool refusals it shows, and the running turn's tokens.
+ * read it: each message's own events, the tool refusals it shows, the running turn's tokens, and
+ * the session's MCP servers that failed to start.
  */
 export class StreamEvents {
   /** Where the session's Office rules hook tells its refusals. */
   readonly refusals = new ToolRefusals();
   private readonly turnTokens = new TurnTokens();
+  private readonly mcpServerStarts: McpServerStarts;
+
+  /** `mcpServers`: the names of the session's MCP servers. */
+  constructor(mcpServers: readonly string[]) {
+    this.mcpServerStarts = new McpServerStarts(mcpServers);
+  }
 
   of(message: SDKMessage): SessionEvent[] {
     const events = sessionEvents(message).map((event) =>
       event.kind === "turn-ended" ? this.turnTokens.settled(event) : event,
     );
-    return [...this.refusals.withRefusals(message, events), ...this.turnTokens.eventsOf(message)];
+    return [
+      ...this.mcpServerStarts.eventsOf(message),
+      ...this.refusals.withRefusals(message, events),
+      ...this.turnTokens.eventsOf(message),
+    ];
   }
 }
 

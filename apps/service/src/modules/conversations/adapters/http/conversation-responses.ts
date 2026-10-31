@@ -70,6 +70,8 @@ export function toMessageResponse(
     }
     case "context":
       return { ...fields, briefTokens: fields.briefTokens ?? null, brief: fields.brief ?? null };
+    case "mcp-server-not-started":
+      return { ...fields, reason: fields.reason ?? null };
     case "decision": {
       const { decisionId, roleKey, ...card } = fields;
       return {

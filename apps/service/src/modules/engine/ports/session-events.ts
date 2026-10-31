@@ -98,6 +98,18 @@ export interface RateLimitEvent {
   readonly resetsAt: Date | undefined;
 }
 
+/**
+ * One of the session's MCP servers failed to start, reported once for each start of the session.
+ * The session goes on: the engine leaves the server's tools out, or each call answers why.
+ */
+export interface McpServerNotStartedEvent {
+  readonly kind: "mcp-server-not-started";
+  /** As the session's MCP servers name it. */
+  readonly server: string;
+  /** Why, with every Server value of the session replaced; undefined when the engine doesn't say. */
+  readonly reason: string | undefined;
+}
+
 /** Everything a session reports, in the order it happened. */
 export type SessionEvent =
   | TextEvent
@@ -106,4 +118,5 @@ export type SessionEvent =
   | ToolRefusedEvent
   | TurnTokensEvent
   | TurnEndedEvent
-  | RateLimitEvent;
+  | RateLimitEvent
+  | McpServerNotStartedEvent;

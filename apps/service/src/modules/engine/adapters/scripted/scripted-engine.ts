@@ -196,7 +196,8 @@ type McpCallOutcome =
  * `ScriptMismatch`. Office tools the script calls run, and the Agent reads what they answer. A
  * call of an MCP tool is judged as the engines' hooks judge it, by the session's profile and
  * holds, and once allowed runs on the session's server, started at its first call and ended
- * with the session; its recorded judgment is not replayed.
+ * with the session; its recorded judgment is not replayed. A server that failed to start is
+ * reported as the script recorded it, as the session starts no server before its first call.
  * Reading the usage windows or the context usage is answered whenever it comes, from what the
  * script recorded in order, the last again once all were read, since who reads them and when is
  * the Office's.

@@ -91,15 +91,20 @@ export class AgentSdkEngine extends AgentEngine {
         : await McpConfigFile.write(this.officeData.folder("sessions"), id, mcpConfig);
     let session: AgentSdkSession;
     try {
-      session = new AgentSdkSession(id, held, { engineProcess, mcpConfigFile }, (hooks) =>
-        sdkOptions({
-          id,
-          resumes,
-          options,
-          mcpConfigFile: mcpConfigFile?.path,
-          agentShells: this.operatingSystem.agentShells.map(({ shell }) => shell),
-          ...hooks,
-        }),
+      const streamEvents = new StreamEvents(options.mcpServers.map(({ name }) => name));
+      session = new AgentSdkSession(
+        id,
+        held,
+        { engineProcess, mcpConfigFile, streamEvents },
+        (hooks) =>
+          sdkOptions({
+            id,
+            resumes,
+            options,
+            mcpConfigFile: mcpConfigFile?.path,
+            agentShells: this.operatingSystem.agentShells.map(({ shell }) => shell),
+            ...hooks,
+          }),
       );
     } catch (error) {
       await mcpConfigFile?.remove();
@@ -128,17 +133,17 @@ interface HeldTo {
   readonly paths: PathRules;
 }
 
-/** What a session runs on, which ending it ends. */
+/** What a session runs on, which ending it ends, and how its stream is read. */
 interface SessionParts {
   readonly engineProcess: EngineProcess;
   /** The session's MCP servers with their values, when it has any. */
   readonly mcpConfigFile: McpConfigFile | undefined;
+  readonly streamEvents: StreamEvents;
 }
 
 class AgentSdkSession implements EngineSession {
   private readonly input = new AsyncChannel<SDKUserMessage>();
   private readonly reported = new AsyncChannel<SessionEvent>();
-  private readonly streamEvents = new StreamEvents();
   private readonly engine: Query;
   private readonly read: Promise<void>;
   private ending = false;
@@ -152,7 +157,7 @@ class AgentSdkSession implements EngineSession {
     this.engine = query({
       prompt: this.input,
       options: options({
-        preToolUse: officeRulesHook(held.rules, this.streamEvents.refusals, held.holds),
+        preToolUse: officeRulesHook(held.rules, this.parts.streamEvents.refusals, held.holds),
         spawnProcess: parts.engineProcess.spawn,
       }),
     });
@@ -211,7 +216,7 @@ class AgentSdkSession implements EngineSession {
     try {
       for await (const message of this.engine) {
         if (isInit(message) && (await this.refusedAtInit(message))) return;
-        for (const event of this.streamEvents.of(message)) this.reported.push(event);
+        for (const event of this.parts.streamEvents.of(message)) this.reported.push(event);
       }
       this.reported.close();
     } catch (error) {

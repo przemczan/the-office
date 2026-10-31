@@ -171,6 +171,16 @@ function MessageItem({
           <span className="message-summary">{message.reason}</span>
         </div>
       );
+    case "mcp-server-not-started":
+      return (
+        <div className="message-line failed">
+          <Icon name="triangle-alert" size={12} />
+          <span className="message-summary">
+            The MCP server {message.server} didn't start
+            {message.reason === null ? "." : `: ${message.reason}`}
+          </span>
+        </div>
+      );
     case "context":
       return <ContextLine line={message} personName={personName} />;
     case "failure":

@@ -114,6 +114,11 @@ const sessionEvent = z.discriminatedUnion("kind", [
     status: z.enum(["allowed", "warning", "rejected"]),
     resetsAt: absent(z.coerce.date()),
   }),
+  z.object({
+    kind: z.literal("mcp-server-not-started"),
+    server: z.string(),
+    reason: absent(z.string()),
+  }),
 ]) satisfies z.ZodType<SessionEvent, unknown>;
 
 const scriptStep = z.discriminatedUnion("step", [

@@ -15,8 +15,8 @@ export interface SessionLogger {
 }
 
 /**
- * What a session's event adds to its Thread's log: the person's words, what they did with a tool
- * and what was refused. Work inside a tool call stays the tool's; a turn's end is the caller's.
+ * What a session's event adds to its Thread's log: the person's words, what they did with a tool,
+ * what was refused and which MCP server didn't start. Work inside a tool call stays the tool's; a turn's end is the caller's.
  */
 export function sessionLogLines(
   event: SessionEvent,
@@ -42,6 +42,8 @@ export function sessionLogLines(
       ];
     case "tool-refused":
       return [{ kind: "refusal", roleKey, tool: event.tool, reason: event.reason }];
+    case "mcp-server-not-started":
+      return [{ kind: "mcp-server-not-started", server: event.server, reason: event.reason }];
     default:
       return [];
   }

@@ -1078,7 +1078,7 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
       });
     });
 
-    it("keeps a server that fails to start in the tool list, a call answering why without its Server values", async () => {
+    it("reports a server that fails to start once and keeps it in the tool list, a call answering why, both without its Server values", async () => {
       const secret = "plum-secret-value";
       const failing = {
         transport: "stdio",
@@ -1101,6 +1101,15 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
 
       const { events } = await untilTurnEnds(started.events[Symbol.asyncIterator]());
 
+      // The call tried the server again; only its start at the session's opening is reported.
+      expect(events.filter((event) => event.kind === "mcp-server-not-started")).toEqual([
+        {
+          kind: "mcp-server-not-started",
+          server: "fake",
+          reason: expect.stringContaining("token [a Server value]"),
+        },
+      ]);
+      expect(events[0]?.kind).toBe("mcp-server-not-started");
       expect(lastRequestBody().tools.at(-1)?.function.name).toBe("mcp__fake__echo");
       const result = events.find((event) => event.kind === "tool-result");
       expect(result).toMatchObject({

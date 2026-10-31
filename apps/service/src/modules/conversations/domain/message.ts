@@ -21,6 +21,7 @@ export type MessageDraft =
   | { readonly kind: "handover-note"; readonly roleKey: string; readonly text: string }
   | ToolActivity
   | Refusal
+  | McpServerNotStarted
   | DecisionCard
   | DecisionAnswerLine
   | ProposalCard
@@ -91,6 +92,15 @@ interface Refusal {
   readonly roleKey: string;
   readonly tool: string;
   readonly reason: string;
+}
+
+/** One of the session's MCP servers didn't start: The Office's line, with why when the engine said. */
+interface McpServerNotStarted {
+  readonly kind: "mcp-server-not-started";
+  /** The MCP server's name. */
+  readonly server: string;
+  /** Without the Server values it was started with. */
+  readonly reason: string | undefined;
 }
 
 /**

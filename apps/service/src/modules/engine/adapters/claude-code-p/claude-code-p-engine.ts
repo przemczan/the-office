@@ -111,7 +111,7 @@ export class ClaudeCodePEngine extends AgentEngine {
     options: SessionOptions,
   ): Promise<ClaudeCodePSession> {
     const rules = claudeCodeOfficeRules(this.operatingSystem, this.officeData.path, id, options);
-    const streamEvents = new StreamEvents();
+    const streamEvents = new StreamEvents(options.mcpServers.map(({ name }) => name));
     const holds = { toolHold: options.toolHold, approvalHold: options.approvalHold };
     const endpoints = this.endpoints.open({
       preToolUse: officeRulesHook(rules, streamEvents.refusals, holds),

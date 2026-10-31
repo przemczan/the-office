@@ -76,6 +76,8 @@ export function messageLine(message: Message): string {
       return "office-status card";
     case "refusal":
       return `refusal ${message.tool}: ${message.reason}`;
+    case "mcp-server-not-started":
+      return `mcp-server-not-started ${message.server}: ${message.reason ?? "(no reason)"}`;
   }
 }
 

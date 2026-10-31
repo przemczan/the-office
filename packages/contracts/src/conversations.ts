@@ -523,6 +523,16 @@ export const messageSchema = z.discriminatedUnion("kind", [
     tool: z.string(),
     reason: z.string(),
   }),
+  /**
+   * One of the session's MCP servers didn't start: The Office's line, with why (every Server value
+   * replaced), or null when the engine doesn't say.
+   */
+  z.object({
+    ...messageFields,
+    kind: z.literal("mcp-server-not-started"),
+    server: z.string(),
+    reason: z.string().nullable(),
+  }),
 ]);
 export type Message = z.infer<typeof messageSchema>;
 

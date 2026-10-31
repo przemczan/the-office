@@ -371,4 +371,39 @@ describe("RecordingEngine", () => {
     expect(written).not.toContain(folder);
     expect(written).not.toContain(homedir());
   });
+
+  it("records an MCP server that failed to start, with or without why, for the scripted engine to report", async () => {
+    const withoutWhy: SessionEvent = {
+      kind: "mcp-server-not-started",
+      server: "github",
+      reason: undefined,
+    };
+    const withWhy: SessionEvent = {
+      kind: "mcp-server-not-started",
+      server: "linear",
+      reason: "It exited with 1.",
+    };
+    const notStarted: SessionScript = [
+      { step: "start", brief: { id: "brief", text: "Begin." } },
+      { step: "event", event: withoutWhy },
+      { step: "event", event: withWhy },
+      { step: "event", event: TURN_ENDED },
+      { step: "end" },
+    ];
+    const recording = new RecordingEngine(new ScriptedEngine([notStarted]));
+    const brief = { id: "brief", text: "Begin." };
+    const session = await recording.start({ id: randomUUID(), options: options(), brief });
+    const reported: SessionEvent[] = [];
+    for await (const event of session.events) {
+      reported.push(event);
+      if (event.kind === "turn-ended") break;
+    }
+    await session.end();
+    const file = join(folder, "recording.jsonl");
+
+    await recording.save(file);
+
+    expect(reported.slice(0, 2)).toEqual([withoutWhy, withWhy]);
+    expect(await readRecording(file)).toEqual([notStarted]);
+  });
 });

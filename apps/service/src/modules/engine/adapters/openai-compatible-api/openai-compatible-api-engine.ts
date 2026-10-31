@@ -143,7 +143,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
       toolDecision(rules, options, tool, input);
     const instructions = await projectInstructions(options.folder);
     const mcpConnections = new McpServerConnections(options.mcpServers, this.mcpClient);
-    await mcpConnections.open();
+    const mcpServersNotStarted = await mcpConnections.open();
     try {
       return new ApiSession(id, {
         client: new ChatCompletionsClient(endpoint),
@@ -178,6 +178,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
         },
         backgroundCommands,
         mcpConnections,
+        mcpServersNotStarted,
         answersInSchema: options.outputSchema !== undefined,
         conversationFile,
         kept,

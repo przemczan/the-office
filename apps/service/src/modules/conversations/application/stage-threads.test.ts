@@ -394,6 +394,32 @@ describe("StageThreads", () => {
     expect(brief).toContain("## The Task\n\nRename a device.");
   });
 
+  it("logs each MCP server the session failed to start as a line in the Stage Thread", async () => {
+    await startWith(
+      started(
+        {
+          step: "event",
+          event: { kind: "mcp-server-not-started", server: "github", reason: "It exited with 1." },
+        },
+        {
+          step: "event",
+          event: { kind: "mcp-server-not-started", server: "linear", reason: undefined },
+        },
+        ...aTurn({ status: "done" }),
+      ),
+    );
+    const ada = aPerson("Ada");
+
+    const { stageThread } = await aStageRun(aStage({ roleKey: ada }));
+
+    const log = drafts(await repository.messages(stageThread.threadId));
+    expect(log.slice(1, 4)).toEqual([
+      { kind: "mcp-server-not-started", server: "github", reason: "It exited with 1." },
+      { kind: "mcp-server-not-started", server: "linear", reason: undefined },
+      { kind: "person", roleKey: ada, text: "Working on it." },
+    ]);
+  });
+
   it("gives Devops' Stage their own Office tools besides the Stage's, as in their chat", async () => {
     await startWith(started(...aTurn({ status: "done" })));
     people.set(DEVOPS, {

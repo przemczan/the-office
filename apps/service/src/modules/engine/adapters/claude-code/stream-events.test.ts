@@ -1,5 +1,6 @@
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 import { describe, expect, it } from "vitest";
+import { OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
 import { StreamEvents, userMessage } from "./stream-events.js";
 
 const USAGE = { input_tokens: 10, output_tokens: 2, cache_read_input_tokens: 0 };
@@ -13,7 +14,7 @@ const assistant = (content: unknown[]): SDKMessage =>
 
 describe("StreamEvents", () => {
   it("gives a message's events, then the running turn's tokens", () => {
-    const events = new StreamEvents().of(assistant([{ type: "text", text: "hi" }]));
+    const events = new StreamEvents([]).of(assistant([{ type: "text", text: "hi" }]));
 
     expect(events).toEqual([
       { kind: "text", text: "hi", withinToolCall: undefined },
@@ -25,7 +26,7 @@ describe("StreamEvents", () => {
   });
 
   it("reports a call the Office rules refused after its result", () => {
-    const stream = new StreamEvents();
+    const stream = new StreamEvents([]);
     stream.of(
       assistant([{ type: "tool_use", id: "c1", name: "Write", input: { file_path: "a" } }]),
     );
@@ -49,6 +50,35 @@ describe("StreamEvents", () => {
         refusedBy: "office-rules",
       },
     ]);
+  });
+
+  it("reports each of the session's MCP servers that didn't start once, from the init that opens each turn", () => {
+    // The shape binary 2.1.310 writes: `status` is the server's connection state, with no error text.
+    const init = {
+      type: "system",
+      subtype: "init",
+      mcp_servers: [
+        { name: OFFICE_TOOL_SERVER, status: "failed", source: "sdk" },
+        { name: "github", status: "failed", source: "dynamic" },
+        { name: "sentry", status: "needs-auth", source: "dynamic" },
+        { name: "linear", status: "connected", source: "dynamic" },
+        { name: "slow", status: "pending", source: "dynamic" },
+      ],
+    } as unknown as SDKMessage;
+    const stream = new StreamEvents(["github", "sentry", "linear", "slow"]);
+
+    const firstTurn = stream.of(init);
+    const secondTurn = stream.of(init);
+
+    expect(firstTurn).toEqual([
+      { kind: "mcp-server-not-started", server: "github", reason: undefined },
+      {
+        kind: "mcp-server-not-started",
+        server: "sentry",
+        reason: "It asked for authentication; check its Server values.",
+      },
+    ]);
+    expect(secondTurn).toEqual([]);
   });
 });
 

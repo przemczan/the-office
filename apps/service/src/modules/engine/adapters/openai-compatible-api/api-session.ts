@@ -8,7 +8,12 @@ import type {
   MessagePriority,
   UserMessage,
 } from "../../ports/engine-session.js";
-import type { SessionEvent, TokenUsage, TurnOutcome } from "../../ports/session-events.js";
+import type {
+  McpServerNotStartedEvent,
+  SessionEvent,
+  TokenUsage,
+  TurnOutcome,
+} from "../../ports/session-events.js";
 import type { McpServerConnections } from "../mcp-servers/mcp-server-connections.js";
 import { portToolName } from "../office-rules/office-tool-names.js";
 import type { BackgroundCommands } from "./background-commands.js";
@@ -40,6 +45,8 @@ export interface ApiSessionParts {
   readonly backgroundCommands: BackgroundCommands;
   /** The session's MCP servers, each ended with its process tree when the session ends. */
   readonly mcpConnections: McpServerConnections;
+  /** The servers that failed to start as the session opened, reported before anything else. */
+  readonly mcpServersNotStarted: readonly McpServerNotStartedEvent[];
   /** Whether each turn ends in output given through StructuredOutput. */
   readonly answersInSchema: boolean;
   /** Where the conversation is kept after each turn, so the session resumes from it. */
@@ -103,6 +110,7 @@ export class ApiSession implements EngineSession {
     private readonly parts: ApiSessionParts,
   ) {
     this.conversation = [...parts.kept];
+    for (const event of parts.mcpServersNotStarted) this.reported.push(event);
   }
 
   get events(): AsyncIterable<SessionEvent> {
