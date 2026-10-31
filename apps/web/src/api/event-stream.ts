@@ -17,8 +17,12 @@ export interface EventStreamOptions {
   /** The event types to receive, subscribed again on every connection. */
   readonly eventTypes: readonly string[];
   readonly onEvent: (event: WebEvent) => void;
-  /** A lost connection was opened again; the events sent in between are lost. */
-  readonly onReconnected: () => void;
+  /**
+   * A connection's subscription is in place, as the service's reply to it says: the events sent
+   * before it, while connecting or while a lost connection was down, are lost. Called once per
+   * connection, the first one included.
+   */
+  readonly onSubscribed: () => void;
   readonly openWebSocket?: (url: string) => WebSocket;
 }
 
@@ -33,7 +37,8 @@ export class EventStream {
   private socket: WebSocket | undefined;
   private reconnectTimer: ReturnType<typeof setTimeout> | undefined;
   private failedAttempts = 0;
-  private hasConnected = false;
+  /** The socket whose subscription the service confirmed, so its later replies change nothing. */
+  private subscribedSocket: WebSocket | undefined;
   private running = false;
   private currentStatus: EventStreamStatus = "connecting";
   private readonly listeners = new Set<() => void>();
@@ -66,7 +71,7 @@ export class EventStream {
     const socket = (this.options.openWebSocket ?? openBrowserWebSocket)(this.options.url);
     this.socket = socket;
     socket.addEventListener("open", () => this.opened(socket));
-    socket.addEventListener("message", (message) => this.received(message.data));
+    socket.addEventListener("message", (message) => this.received(socket, message.data));
     // Every close is a lost connection, the service's own shutdown (1001) included.
     socket.addEventListener("close", () => this.closed(socket));
   }
@@ -78,15 +83,20 @@ export class EventStream {
       const subscribe: ClientMessage = { type: "subscribe", events: [...this.options.eventTypes] };
       socket.send(JSON.stringify(subscribe));
     }
-    if (this.hasConnected) this.options.onReconnected();
-    this.hasConnected = true;
     this.setStatus("connected");
   }
 
-  private received(data: unknown): void {
-    if (typeof data !== "string") return;
+  private received(socket: WebSocket, data: unknown): void {
+    if (socket !== this.socket || typeof data !== "string") return;
     const message = parseServerMessage(data);
     if (message?.type === "event") this.options.onEvent(message.event);
+    else if (message?.type === "subscriptions") this.subscribed(socket);
+  }
+
+  private subscribed(socket: WebSocket): void {
+    if (socket === this.subscribedSocket) return;
+    this.subscribedSocket = socket;
+    this.options.onSubscribed();
   }
 
   private closed(socket: WebSocket): void {

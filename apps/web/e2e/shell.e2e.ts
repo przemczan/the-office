@@ -163,8 +163,19 @@ test.describe("Notifications as the service sends them", () => {
   }) => {
     // The event stream stands for the service, which sends these as the delivery rules say.
     const streams: WebSocketRoute[] = [];
+    // Once subscribed the page reads the open Notifications again, which would drop those raised
+    // here, unknown to the service; so they're raised only after that read.
+    let caughtUp: Promise<unknown> | undefined;
     await page.routeWebSocket(/\/api\/events$/, (stream) => {
-      stream.connectToServer();
+      const service = stream.connectToServer();
+      service.onMessage((message) => {
+        if (typeof message === "string" && message.includes('"type":"subscriptions"')) {
+          caughtUp ??= page.waitForResponse((response) =>
+            response.url().endsWith("/api/notifications"),
+          );
+        }
+        stream.send(message);
+      });
       streams.push(stream);
     });
     const raise = (raised: Notification, replaces: readonly string[] = []): void => {
@@ -179,6 +190,8 @@ test.describe("Notifications as the service sends them", () => {
     await recordDesktopNotifications(page);
     await page.goto("/projects");
     await expect(page.getByRole("status", { name: "Status strip" })).toContainText("tokens today");
+    await expect.poll(() => caughtUp).toBeDefined();
+    await caughtUp;
     const toasts = page.locator(".toasts");
 
     const first = notification({ line: "Done." });

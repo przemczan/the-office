@@ -43,7 +43,7 @@ function startStream(options: Partial<EventStreamOptions> = {}): EventStream {
     url: EVENTS_URL,
     eventTypes: ["task.started"],
     onEvent: () => undefined,
-    onReconnected: () => undefined,
+    onSubscribed: () => undefined,
     ...options,
     openWebSocket: (url) => {
       const socket = new FakeWebSocket(url);
@@ -105,20 +105,59 @@ describe("the event stream", () => {
     expect(onEvent.mock.calls).toEqual([[withFields]]);
   });
 
-  it("reconnects after the service went away, subscribes again and says so", () => {
-    const onReconnected = vi.fn<() => void>();
-    const eventStream = startStream({ onReconnected });
+  it("says the subscription is in place once the service confirms it, not when the socket opens", () => {
+    const onSubscribed = vi.fn<() => void>();
+    startStream({ onSubscribed });
+
     latestSocket().open();
+    expect(onSubscribed).not.toHaveBeenCalled();
+    latestSocket().receive({ type: "subscriptions", events: ["task.started"] });
+
+    expect(onSubscribed).toHaveBeenCalledOnce();
+  });
+
+  it("says so once per connection, whatever the service replies later", () => {
+    const onSubscribed = vi.fn<() => void>();
+    startStream({ onSubscribed });
+    latestSocket().open();
+
+    latestSocket().receive({ type: "subscriptions", events: ["task.started"] });
+    latestSocket().receive({ type: "subscriptions", events: ["task.started"] });
+
+    expect(onSubscribed).toHaveBeenCalledOnce();
+  });
+
+  it("reconnects after the service went away, subscribes again and says so", () => {
+    const onSubscribed = vi.fn<() => void>();
+    const eventStream = startStream({ onSubscribed });
+    latestSocket().open();
+    latestSocket().receive({ type: "subscriptions", events: ["task.started"] });
 
     latestSocket().serviceGone();
     expect(eventStream.status()).toBe("reconnecting");
     vi.advanceTimersByTime(RECONNECT_DELAYS_MS[0]);
     latestSocket().open();
+    latestSocket().receive({ type: "subscriptions", events: ["task.started"] });
 
     expect(sockets).toHaveLength(2);
     expect(latestSocket().sent).toEqual([{ type: "subscribe", events: ["task.started"] }]);
-    expect(onReconnected).toHaveBeenCalledOnce();
+    expect(onSubscribed).toHaveBeenCalledTimes(2);
     expect(eventStream.status()).toBe("connected");
+  });
+
+  it("ignores what a socket it already left behind still says", () => {
+    const onEvent = vi.fn<(event: WebEvent) => void>();
+    const onSubscribed = vi.fn<() => void>();
+    startStream({ onEvent, onSubscribed });
+    const lost = latestSocket();
+    lost.open();
+    lost.serviceGone();
+
+    lost.receive({ type: "subscriptions", events: ["task.started"] });
+    lost.receive({ type: "event", event: TASK_STARTED });
+
+    expect(onSubscribed).not.toHaveBeenCalled();
+    expect(onEvent).not.toHaveBeenCalled();
   });
 
   it("waits longer after each failed attempt, up to its longest wait", () => {
@@ -136,9 +175,9 @@ describe("the event stream", () => {
     }
   });
 
-  it("tries again while the service has never answered, without a refetch", () => {
-    const onReconnected = vi.fn<() => void>();
-    const eventStream = startStream({ onReconnected });
+  it("tries again while the service has never answered, and says nothing until it subscribes", () => {
+    const onSubscribed = vi.fn<() => void>();
+    const eventStream = startStream({ onSubscribed });
 
     latestSocket().serviceGone();
     expect(eventStream.status()).toBe("reconnecting");
@@ -146,7 +185,7 @@ describe("the event stream", () => {
     latestSocket().open();
 
     expect(eventStream.status()).toBe("connected");
-    expect(onReconnected).not.toHaveBeenCalled();
+    expect(onSubscribed).not.toHaveBeenCalled();
   });
 
   it("tells its subscribers when the status changes", () => {

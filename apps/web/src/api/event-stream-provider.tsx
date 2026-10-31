@@ -25,8 +25,9 @@ const EventStreamContext = createContext<EventStream | undefined>(undefined);
 
 /**
  * Keeps the queries fresh from the service's domain events while mounted, refetching the ones an
- * event makes stale or changing them in place. After a reconnect every
- * query is refetched, since the events sent while the connection was down are lost.
+ * event makes stale or changing them in place. Once each connection's subscription is in place,
+ * the first one's included, every query is refetched: the events sent before it are lost, and a
+ * query read while connecting would otherwise keep what it read for good.
  */
 export function EventStreamProvider({
   invalidations,
@@ -69,7 +70,7 @@ function createEventStream(
         void queryClient.invalidateQueries({ queryKey });
       }
     },
-    onReconnected: () => void queryClient.invalidateQueries(),
+    onSubscribed: () => void queryClient.invalidateQueries(),
   });
 }
 
