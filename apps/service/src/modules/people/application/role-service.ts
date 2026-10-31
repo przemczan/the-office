@@ -13,8 +13,10 @@ import {
   HARD_SWITCH_KEYS,
   type HardSwitchEnforcement,
   type HardSwitchKey,
+  type HardSwitchValue,
 } from "../domain/hard-switches.js";
 import { KNOWN_ROLES } from "../domain/known-roles.js";
+import { MCP_TOOL_DEFAULT } from "../domain/mcp-tool-settings.js";
 import { PRESETS, type Preset } from "../domain/presets.js";
 import type { Role } from "../domain/role.js";
 import { roleCardProblems, trimmedRoleCard, type RoleCard } from "../domain/role-card.js";
@@ -58,6 +60,8 @@ export interface RoleCardOptions {
     readonly key: HardSwitchKey;
     readonly enforcement: HardSwitchEnforcement;
   }[];
+  /** Where an MCP tool's setting starts, until the user sets it. */
+  readonly mcpToolDefault: HardSwitchValue;
   readonly taskLimits: { readonly lowest: number; readonly highest: number };
 }
 
@@ -186,6 +190,7 @@ export class RoleService {
         key,
         enforcement: HARD_SWITCH_ENFORCEMENT[key],
       })),
+      mcpToolDefault: MCP_TOOL_DEFAULT,
       taskLimits: { lowest: LOWEST_TASK_LIMIT, highest: HIGHEST_TASK_LIMIT },
     };
   }

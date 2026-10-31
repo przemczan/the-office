@@ -11,6 +11,7 @@ import {
   hardSwitchChoiceOf,
   hardSwitchValueLabel,
   hardSwitchValueOf,
+  mcpToolKey,
   roleTitlesOf,
   RUN_LABELS,
   webLabel,
@@ -54,7 +55,7 @@ export function StagePermissionFields({
   const roleTitles = roleTitlesOf(options);
   const consultable = options.knownRoles.map(({ key }) => key).filter((key) => key !== stage.role);
   const tools = role.mcpServers.flatMap((server) =>
-    server.tools.map((tool) => ({ key: `${server.name}/${tool.name}`, card: tool.setting })),
+    server.tools.map((tool) => ({ key: mcpToolKey(server.name, tool.name), card: tool.setting })),
   );
   return (
     <div className="stage-editor-wide">

@@ -51,6 +51,11 @@ const mcpServerFieldsSchema = z.object({
   state: mcpServerStateSchema,
   /** The tools its review listed when it was turned on; none while it is off. */
   tools: z.array(mcpServerToolSchema),
+  /**
+   * Of `tools`, those sessions leave out, by name: as `mcp__<server>__<tool>` their names run over
+   * the model APIs' 64 characters.
+   */
+  toolsTooLong: z.array(z.string()),
   /** The keys of the Roles it is assigned to, in order. */
   roles: z.array(z.string()),
   addedAt: z.iso.datetime(),

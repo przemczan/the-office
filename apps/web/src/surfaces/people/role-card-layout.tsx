@@ -18,6 +18,11 @@ export const ROLE_CARD_GROUPS = {
     title: "Skills",
     description: "From the library in Settings; skills for everyone come with every Role.",
   },
+  mcpServers: {
+    title: "MCP servers",
+    description:
+      "From the library in Settings. Each tool has its own setting, as a Hard switch; a Stage may narrow it.",
+  },
 } as const;
 
 /**

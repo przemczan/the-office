@@ -1,6 +1,7 @@
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { projectSchema, type NewProject, type Project } from "@the-office/contracts";
+import { addFakeMcpServer } from "./fake-mcp-server.ts";
 import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
@@ -113,6 +114,56 @@ test("editing a command saves it, and the toast says Tasks run it from their nex
   await expect(page.getByText("npm test -- --run")).toBeVisible();
   await page.reload();
   await expect(page.getByText("npm test -- --run")).toBeVisible();
+});
+
+test("a Project overrides an MCP server's Server values, a secret never shown", async ({
+  page,
+}) => {
+  const server = "e2e-project-values-server";
+  const officeWideSecret = "office-wide-secret-value";
+  const projectSecret = "project-secret-value";
+  await addFakeMcpServer(page, server, [
+    { name: "FAKE_TOKEN", secret: true, required: true, officeWideValue: officeWideSecret },
+    { name: "FAKE_REGION", secret: false, required: false, officeWideValue: "eu" },
+  ]);
+  const project = await addedProject(page, "Values override");
+  await page.goto(`/projects/${project.id}`);
+
+  const values = page.getByRole("region", { name: `MCP server ${server}` });
+  const token = values.getByRole("listitem", { name: "Server value FAKE_TOKEN" });
+  const region = values.getByRole("listitem", { name: "Server value FAKE_REGION" });
+  await expect(token).toContainText("Office-wide Set");
+  await expect(token).toContainText("This Project The Office-wide value");
+  await expect(region).toContainText("Office-wide eu");
+
+  await values.getByRole("button", { name: `Change ${server}'s values for this Project` }).click();
+  const editor = page.getByRole("form", { name: `MCP server ${server}` });
+  await editor.getByLabel("FAKE_TOKEN for this Project").fill(projectSecret);
+  await expect(editor.getByText("The value you typed is kept on Save.")).toBeVisible();
+  await editor.getByLabel("FAKE_REGION for this Project").fill("us");
+  await editor.getByRole("button", { name: "Save" }).click();
+
+  await expect(
+    page.getByText(
+      "Server values saved. Sessions in Values override get them from their next start.",
+    ),
+  ).toBeVisible();
+  await expect(token).toContainText("This Project Set");
+  await expect(region).toContainText("This Project us");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-server-values.png") });
+
+  // The kept secret is only said to be set, in the editor and over the API.
+  await page.reload();
+  await values.getByRole("button", { name: `Change ${server}'s values for this Project` }).click();
+  await expect(
+    editor.getByText("A value is set. It is never shown; type a new one to replace it."),
+  ).toBeVisible();
+  await expect(editor.getByLabel("FAKE_TOKEN for this Project")).toHaveValue("");
+  await expect(page.locator("body")).not.toContainText(projectSecret);
+  await expect(page.locator("body")).not.toContainText(officeWideSecret);
+  const listed = await (await page.request.get(`/api/projects/${project.id}/server-values`)).text();
+  expect(listed).not.toContain(projectSecret);
+  expect(listed).not.toContain(officeWideSecret);
 });
 
 test("the install inputs are changed beside the install command", async ({ page }) => {

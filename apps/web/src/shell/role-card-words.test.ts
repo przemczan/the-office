@@ -60,6 +60,19 @@ describe("the Role card's words", () => {
         roleTitles,
       ),
     ).toBe("Publish outside the Pipeline Consult CTO → Never");
+    const profile = { edit: false, run: "read-only-git", web: true, mcpTools: {} } as const;
+    expect(
+      changeLine(
+        {
+          field: "permissionProfile",
+          from: profile,
+          to: { ...profile, mcpTools: { "github/search": { kind: "allowed" } } },
+        },
+        roleTitles,
+      ),
+    ).toBe(
+      "Permission profile Reads files only, Runs read-only git only, Searches and fetches the web → Reads files only, Runs read-only git only, Searches and fetches the web, MCP tool github/search Allowed",
+    );
     expect(changeLine({ field: "instructions", from: "Old.", to: "New." }, roleTitles)).toBe(
       "Instructions edited",
     );

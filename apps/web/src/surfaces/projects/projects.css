@@ -277,6 +277,63 @@
   color: var(--fg-3);
 }
 
+/* ---- the Server values */
+.server-values-server {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0;
+}
+
+.server-values-server + .server-values-server {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.server-values-server-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font: var(--type-label);
+}
+
+.server-values-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.server-values-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 4px 12px;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.server-values-name {
+  font: var(--type-mono);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.server-values-label {
+  color: var(--fg-3);
+}
+
+.server-values-warning {
+  grid-column: 1 / -1;
+  color: var(--warning-fg);
+}
+
+.server-values-actions {
+  display: flex;
+  gap: 8px;
+}
+
 /* ---- the commands */
 .commands {
   --command-key-width: 88px;
@@ -350,7 +407,8 @@
   }
 
   .projects-grid,
-  .add-project-columns {
+  .add-project-columns,
+  .server-values-list li {
     grid-template-columns: minmax(0, 1fr);
   }
 }

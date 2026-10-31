@@ -91,23 +91,13 @@ export function withSecretValue(
   return officeWideValue === undefined ? rest : { ...rest, officeWideValue };
 }
 
-/** What saving does with a secret's Office-wide value: kept as it is, a new one, or none. */
-export type SecretOnSave = "kept-set" | "kept-none" | "new" | "removed";
-
-/** `saved` is the value kept under the same name, while it is a secret. */
-export function secretOnSave(edit: ServerValueEdit, saved: ServerValue | undefined): SecretOnSave {
-  const set = saved?.secret === true && saved.officeWideValueSet;
-  if (edit.officeWideValue === undefined) return set ? "kept-set" : "kept-none";
-  if (edit.officeWideValue !== "") return "new";
-  return set ? "removed" : "kept-none";
+/**
+ * Whether a secret Office-wide value is kept under the value's name. `saved` is the value kept under
+ * that name; a plain one made secret keeps no secret, as the text in its field is what is saved.
+ */
+export function secretValueSet(saved: ServerValue | undefined): boolean {
+  return saved?.secret === true && saved.officeWideValueSet;
 }
-
-export const SECRET_ON_SAVE_WORDS: Readonly<Record<SecretOnSave, string>> = {
-  "kept-set": "A value is set. It is never shown; type a new one to replace it.",
-  "kept-none": "No value is set.",
-  new: "The value you typed is kept on Save.",
-  removed: "The value is removed on Save.",
-};
 
 /** How the server runs, in one line: its command with its arguments, or its URL. */
 export function connectionLine(server: McpServer | NewMcpServer): string {

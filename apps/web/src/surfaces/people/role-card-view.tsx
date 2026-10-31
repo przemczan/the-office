@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import type { Role, RoleCardOptions, Skill } from "@the-office/contracts";
+import type { Role, RoleCardOptions, RoleMcpServer, Skill } from "@the-office/contracts";
 import { Badge, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { EFFORT_LABELS } from "../../shell/engine-words.ts";
@@ -17,6 +17,7 @@ import {
   roleTitlesOf,
   SESSION_DEFAULTS,
   taskLimitLabel,
+  type RoleTitles,
 } from "../../shell/role-card-words.ts";
 import { useModelLabel } from "../../shell/use-model-label.ts";
 import { sessionSkillsOf } from "./session-skills.ts";
@@ -112,6 +113,53 @@ export function RoleCardView({
           </p>
         )}
       </RoleCardGroup>
+      <RoleCardGroup group="mcpServers">
+        {role.mcpServers.length > 0 ? (
+          <ul className="role-card-mcp-servers">
+            {role.mcpServers.map((server) => (
+              <McpServerOnCard key={server.name} server={server} roleTitles={roleTitles} />
+            ))}
+          </ul>
+        ) : (
+          <p className="role-card-empty">
+            None yet. Add them to the library in{" "}
+            <Link to="/settings/mcp-servers">Settings › MCP servers</Link>, then give them to{" "}
+            {card.name} with Edit Role.
+          </p>
+        )}
+      </RoleCardGroup>
     </div>
+  );
+}
+
+/** A server the Role has: on, with each tool's setting, or off, when no session gets it. */
+function McpServerOnCard({
+  server,
+  roleTitles,
+}: {
+  readonly server: RoleMcpServer;
+  readonly roleTitles: RoleTitles;
+}): ReactNode {
+  return (
+    <li aria-label={`MCP server ${server.name}`}>
+      <div className="role-card-mcp-server-name">
+        <code>{server.name}</code>
+        <Badge size="sm" tone={server.on ? "success" : "neutral"}>
+          {server.on ? "On" : "Off"}
+        </Badge>
+      </div>
+      {server.on ? (
+        <ul className="role-card-switches">
+          {server.tools.map((tool) => (
+            <li key={tool.name}>
+              <span className="role-card-switch-name">{tool.name}</span>
+              <span>{hardSwitchValueLabel(tool.setting, roleTitles)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <span className="role-card-note">Off: no session gets it until it is on</span>
+      )}
+    </li>
   );
 }

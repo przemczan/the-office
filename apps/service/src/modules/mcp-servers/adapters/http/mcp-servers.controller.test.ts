@@ -122,6 +122,7 @@ describe("POST /api/mcp-servers", () => {
       ],
       state: "off",
       tools: [],
+      toolsTooLong: [],
       roles: [],
       addedAt: expect.any(String),
     });
@@ -393,6 +394,7 @@ describe("PUT /api/mcp-servers/:name/state", () => {
       );
       expect(on.state).toBe("on");
       expect(on.tools.map(({ name: tool }) => tool)).toEqual(FAKE_STDIO_MCP_TOOLS);
+      expect(on.toolsTooLong).toEqual([]);
 
       const changed = await serverOf(
         await send("PUT", `/mcp-servers/${name}`, {

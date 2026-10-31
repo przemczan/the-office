@@ -6,6 +6,7 @@ import {
   sessionDefaultSchema,
   type HardSwitchKey,
   type HardSwitchValue,
+  type McpServer,
   type PermissionProfile,
   type Proposal,
   type Role,
@@ -29,6 +30,7 @@ import {
 } from "@the-office/ui";
 import { useId, useState, type ReactNode } from "react";
 import { applyProposal, proposalQueries } from "../../api/conversations.ts";
+import { assignMcpServer, mcpServerQueries } from "../../api/mcp-servers.ts";
 import {
   changeRoleCard,
   filledRoleKeys,
@@ -44,6 +46,12 @@ import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { blankRoleCard } from "./blank-role-card.ts";
 import { RoleCardGroup } from "./role-card-layout.tsx";
+import { McpServerFields } from "./role-card-mcp-server-fields.tsx";
+import {
+  assignedMcpServersOf,
+  mcpServerAssignments,
+  withoutServerToolSettings,
+} from "./role-mcp-servers.ts";
 import {
   ASKS_YOU_UNTIL_HIRED,
   CAPABILITIES,
@@ -51,6 +59,7 @@ import {
   ENGINE_LABELS,
   HARD_SWITCH_LABELS,
   hardSwitchChoiceOf,
+  hardSwitchChoices,
   hardSwitchValueOf,
   missingCapabilitiesWords,
   RUN_LABELS,
@@ -65,7 +74,8 @@ export function RoleCardEditPage(): ReactNode {
   const roles = useQuery(roleQueries.list());
   const options = useQuery(roleCardQueries.options());
   const library = useQuery(skillQueries.list());
-  if (!role.data || !roles.data || !options.data || !library.data) return null;
+  const mcpServers = useQuery(mcpServerQueries.list());
+  if (!role.data || !roles.data || !options.data || !library.data || !mcpServers.data) return null;
   return (
     <RoleCardForm
       // A card saved elsewhere meanwhile starts the form again from it.
@@ -74,6 +84,7 @@ export function RoleCardEditPage(): ReactNode {
       hiredRoles={filledRoleKeys(roles.data)}
       options={options.data}
       library={library.data}
+      mcpServerLibrary={mcpServers.data}
     />
   );
 }
@@ -92,15 +103,17 @@ export function HireFromScratchPage(): ReactNode {
   const roles = useQuery(roleQueries.list());
   const options = useQuery(roleCardQueries.options());
   const library = useQuery(skillQueries.list());
+  const mcpServers = useQuery(mcpServerQueries.list());
   const proposal = useQuery({
     ...proposalQueries.one(proposalId ?? ""),
     enabled: proposalId !== undefined,
   });
-  if (!roles.data || !options.data || !library.data) return null;
+  if (!roles.data || !options.data || !library.data || !mcpServers.data) return null;
   const formProps = {
     hiredRoles: filledRoleKeys(roles.data),
     options: options.data,
     library: library.data,
+    mcpServerLibrary: mcpServers.data,
   };
   if (proposalId === undefined)
     return <RoleCardForm subject={{ kind: "new-role" }} {...formProps} />;
@@ -136,15 +149,29 @@ function RoleCardForm({
   hiredRoles,
   options,
   library,
+  mcpServerLibrary,
 }: {
   readonly subject: FormSubject;
   readonly hiredRoles: ReadonlySet<string>;
   readonly options: RoleCardOptions;
   readonly library: readonly Skill[];
+  readonly mcpServerLibrary: readonly McpServer[];
 }): ReactNode {
   const formId = useId();
+  const ownRoleKey = subject.kind === "role" ? subject.role.key : undefined;
   const saved = startingCard(subject, options);
   const [draft, setDraft] = useState(saved);
+  // The MCP servers module keeps them, so they are saved beside the card, not in it.
+  const [assigned, setAssigned] = useState(() =>
+    assignedMcpServersOf(mcpServerLibrary, ownRoleKey),
+  );
+  const assignmentsFor = (roleKey: string) =>
+    mcpServerAssignments(mcpServerLibrary, roleKey, assigned);
+  const assignServers = async (roleKey: string): Promise<void> => {
+    await Promise.all(
+      assignmentsFor(roleKey).map(({ name, roles }) => assignMcpServer(name, roles)),
+    );
+  };
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const showToast = useToast();
@@ -173,29 +200,54 @@ function RoleCardForm({
     mutationFn: async (): Promise<void> => {
       switch (subject.kind) {
         case "role": {
-          const changed = await changeRoleCard(subject.role.key, draft);
-          queryClient.setQueryData(roleQueries.one(changed.key).queryKey, changed);
+          // A card saved unchanged would add an empty version to its history.
+          const changed = cardUnsaved
+            ? await changeRoleCard(subject.role.key, draft)
+            : subject.role;
+          await assignServers(subject.role.key);
           showToast(`Role card saved. ${changed.card.name} works with it from the next session.`);
+          // The Role's own query too, which carries its MCP servers.
           await queryClient.invalidateQueries(roleQueries.list());
           await cancel();
           return;
         }
         case "new-role": {
           const hired = await hire({ card: draft });
-          queryClient.setQueryData(roleQueries.one(hired.key).queryKey, hired);
+          await assignServers(hired.key);
           await showHired(hired.key);
           return;
         }
         case "proposal": {
           const { change } = await applyProposal(subject.proposal.id, { card: draft });
-          if (change.kind === "hire" && change.roleKey !== null) await showHired(change.roleKey);
+          if (change.kind === "hire" && change.roleKey !== null) {
+            await assignServers(change.roleKey);
+            await showHired(change.roleKey);
+          }
           return;
         }
       }
     },
   });
   const change = (fields: Partial<RoleCard>): void => setDraft({ ...draft, ...fields });
-  const unsaved = JSON.stringify(draft) !== JSON.stringify(saved);
+  const assign = (serverName: string, on: boolean): void => {
+    const next = new Set(assigned);
+    if (on) {
+      next.add(serverName);
+    } else {
+      next.delete(serverName);
+      // The card keeps settings only for the tools of its servers.
+      change({
+        permissionProfile: {
+          ...draft.permissionProfile,
+          mcpTools: withoutServerToolSettings(draft.permissionProfile.mcpTools, serverName),
+        },
+      });
+    }
+    setAssigned(next);
+  };
+  const cardUnsaved = JSON.stringify(draft) !== JSON.stringify(saved);
+  const unsaved =
+    cardUnsaved || (ownRoleKey !== undefined && assignmentsFor(ownRoleKey).length > 0);
   const editing = subject.kind === "role";
   return (
     <form
@@ -219,13 +271,24 @@ function RoleCardForm({
           <EngineFields draft={draft} options={options} change={change} />
           <CapabilityFields draft={draft} change={change} />
           <PermissionFields
-            ownRoleKey={editing ? subject.role.key : undefined}
+            ownRoleKey={ownRoleKey}
             draft={draft}
             options={options}
             hiredRoles={hiredRoles}
             change={change}
           />
           <SkillFields draft={draft} library={library} change={change} />
+          <McpServerFields
+            library={mcpServerLibrary}
+            assigned={assigned}
+            assign={assign}
+            settings={draft.permissionProfile.mcpTools}
+            changeSettings={(mcpTools) =>
+              change({ permissionProfile: { ...draft.permissionProfile, mcpTools } })
+            }
+            consultable={mcpToolConsultable(options, ownRoleKey)}
+            defaultSetting={options.mcpToolDefault}
+          />
         </div>
       </Card>
       <div className="role-card-save-bar">
@@ -457,15 +520,7 @@ function PermissionFields({
             label={HARD_SWITCH_LABELS[key]}
             hint={hint}
             value={hardSwitchChoiceOf(value)}
-            options={[
-              { value: "allowed", label: "Allowed" },
-              ...consultable.map(({ key: roleKey, title }) => ({
-                value: hardSwitchChoiceOf({ kind: "consult", role: roleKey }),
-                label: `Consult ${title}`,
-              })),
-              { value: "ask-me", label: "Ask me" },
-              { value: "never", label: "Never" },
-            ]}
+            options={hardSwitchChoices(consultable)}
             onChange={(choice) => changeSwitch(key, hardSwitchValueOf(choice))}
           />
         );
@@ -516,6 +571,18 @@ function skillNote(skill: Skill): string {
   if (skill.state === "waiting-for-review") return "Off until you review it";
   if (skill.state === "off") return "Off: no session gets it until it is on";
   return skill.description;
+}
+
+/**
+ * The Roles an MCP tool may consult: any but the card's own, which only the default may name (what
+ * Devops' own person would consult goes to the user).
+ */
+function mcpToolConsultable(
+  { knownRoles, mcpToolDefault }: RoleCardOptions,
+  ownRoleKey: string | undefined,
+): RoleCardOptions["knownRoles"] {
+  const defaultRole = mcpToolDefault.kind === "consult" ? mcpToolDefault.role : undefined;
+  return knownRoles.filter(({ key }) => key !== ownRoleKey || key === defaultRole);
 }
 
 /** The card as the user edits it, with the skills in name order. */

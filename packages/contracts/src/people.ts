@@ -154,6 +154,8 @@ export const roleCardOptionsSchema = z.object({
   hardSwitches: z.array(
     z.object({ key: hardSwitchKeySchema, enforcement: z.enum(["enforced", "followed"]) }),
   ),
+  /** Where an MCP tool's setting starts, until the user sets it on the card. */
+  mcpToolDefault: hardSwitchValueSchema,
   taskLimits: z.object({ lowest: z.number().int(), highest: z.number().int() }),
 });
 export type RoleCardOptions = z.infer<typeof roleCardOptionsSchema>;

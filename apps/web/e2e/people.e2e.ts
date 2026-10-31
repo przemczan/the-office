@@ -21,6 +21,7 @@ import {
   type TaskLimit,
 } from "@the-office/contracts";
 import { desktopShown, focusTab, recordDesktopNotifications } from "./desktop-notifications.ts";
+import { addFakeMcpServerTurnedOn } from "./fake-mcp-server.ts";
 import { queryOfficeDatabase } from "./office-database.ts";
 import { createSkillSource } from "./skill-source.ts";
 import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
@@ -758,6 +759,80 @@ test("Edit for this Task swaps the Pipeline and sets every field of its Stages, 
     await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
   } finally {
+    await repository.remove();
+  }
+});
+
+test("the user gives Ola an MCP server on the Role card, sets a tool, and a Stage only narrows it", async ({
+  page,
+}) => {
+  const server = "e2e-role-card-server";
+  await addFakeMcpServerTurnedOn(page, server);
+  const repository = await createTemporaryRepository();
+  try {
+    await page.goto("/people/reviewer/role/edit");
+    const form = page.locator("form.role-card-form");
+    const part = form.getByRole("group", { name: `MCP server ${server}` });
+    await expect(part).toContainText("On, with 3 tools");
+    await part.getByText(server, { exact: true }).click();
+    const echo = part.getByLabel(`MCP tool ${server}/echo`);
+    // Every tool starts at Consult Devops.
+    await expect(echo).toHaveValue("consult:devops");
+    await echo.selectOption({ label: "Allowed" });
+    await expect(page.getByText("You have unsaved changes.")).toBeVisible();
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-role-card-form-mcp-servers.png"),
+      fullPage: true,
+    });
+    await page.getByRole("button", { name: "Save changes" }).click();
+
+    await expect(
+      page.getByText("Role card saved. Ola works with it from the next session."),
+    ).toBeVisible();
+    const onCard = roleCardGroup(page, "MCP servers").getByRole("listitem", {
+      name: `MCP server ${server}`,
+    });
+    await expect(onCard).toContainText("On");
+    await expect(onCard).toContainText("echoAllowed");
+    await expect(onCard).toContainText("environment-variableConsult Devops");
+    const role = roleSchema.parse(await (await page.request.get("/api/roles/reviewer")).json());
+    // The card keeps only what the user set.
+    expect(role.card.permissionProfile.mcpTools).toEqual({
+      [`${server}/echo`]: { kind: "allowed" },
+    });
+
+    // A Stage worked by Ola offers only what is narrower than the card for each tool.
+    const project = await addedProject(page, repository, "MCP tools", "MT");
+    const created = await page.request.post("/api/tasks", {
+      data: { title: "Echo through the MCP server", projectId: project.id, priority: "normal" },
+    });
+    const { id: taskId } = taskSchema.parse(await created.json());
+    await page.goto(`/tasks/${taskId}`);
+    await page.getByRole("button", { name: "Edit for this Task" }).click();
+    await page.getByRole("dialog").getByLabel("Pipeline").selectOption("quick-fix");
+    const implement = editorRow(page, "Implement");
+    await implement.getByRole("button", { name: "Edit Implement" }).click();
+    await implement.getByLabel("Who works it").selectOption("reviewer");
+    await expect(
+      implement.getByLabel(`MCP tool ${server}/environment-variable`).locator("option"),
+    ).toHaveText(["Role default: Consult Devops", "Ask me", "Never"]);
+    const stageEcho = implement.getByLabel(`MCP tool ${server}/echo`);
+    await expect(stageEcho.locator("option").first()).toHaveText("Role default: Allowed");
+    await expect(stageEcho.locator("option", { hasText: /^Allowed$/ })).toHaveCount(0);
+    await stageEcho.selectOption({ label: "Ask me" });
+    await page.getByRole("dialog").getByRole("button", { name: "Save for this Task" }).click();
+    await expect(page.getByText("Stages saved for Echo through the MCP server.")).toBeVisible();
+
+    const own = taskStagesSchema.parse(
+      await (await page.request.get(`/api/tasks/${taskId}/stages`)).json(),
+    );
+    const narrowed = own.stages?.map(({ stage }) => stage).find(({ key }) => key === "implement");
+    expect(narrowed?.kind === "agent" && narrowed.permissions).toEqual({
+      mcpTools: { [`${server}/echo`]: { kind: "ask-me" } },
+    });
+  } finally {
+    // Ola's later sessions start without it.
+    await page.request.put(`/api/mcp-servers/${server}/roles`, { data: { roles: [] } });
     await repository.remove();
   }
 });

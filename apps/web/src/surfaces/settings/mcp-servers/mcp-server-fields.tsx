@@ -10,10 +10,10 @@ import {
   Textarea,
 } from "@the-office/ui";
 import type { ReactNode } from "react";
+import { SecretValueInput } from "../../../shell/secret-value-input.tsx";
 import {
   NEW_SERVER_VALUE,
-  SECRET_ON_SAVE_WORDS,
-  secretOnSave,
+  secretValueSet,
   withSecret,
   withSecretValue,
   type McpServerDraft,
@@ -155,7 +155,12 @@ function ServerValueFields({
           inputStyle={{ fontFamily: "var(--font-mono)" }}
         />
         {value.secret ? (
-          <SecretValueInput value={value} saved={saved} change={change} />
+          <SecretValueInput
+            label="Office-wide value"
+            typed={value.officeWideValue}
+            set={secretValueSet(saved)}
+            change={(typed) => change(withSecretValue(value, typed))}
+          />
         ) : (
           <Input
             label="Office-wide value"
@@ -185,46 +190,5 @@ function ServerValueFields({
         />
       </div>
     </fieldset>
-  );
-}
-
-/** As Settings › Engines' key: an edit without a value keeps the one kept. */
-function SecretValueInput({
-  value,
-  saved,
-  change,
-}: {
-  readonly value: ServerValueEdit;
-  readonly saved: ServerValue | undefined;
-  readonly change: (value: ServerValueEdit) => void;
-}): ReactNode {
-  const onSave = secretOnSave(value, saved);
-  return (
-    <Input
-      label="Office-wide value"
-      type="password"
-      autoComplete="off"
-      hint={SECRET_ON_SAVE_WORDS[onSave]}
-      value={value.officeWideValue ?? ""}
-      // Emptying the field keeps the value; only "Remove the value" removes it.
-      onChange={({ target: { value: typed } }) =>
-        change(withSecretValue(value, typed || undefined))
-      }
-      suffix={
-        onSave === "kept-set" ? (
-          <Button variant="ghost" size="sm" onClick={() => change(withSecretValue(value, ""))}>
-            Remove the value
-          </Button>
-        ) : onSave === "removed" ? (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => change(withSecretValue(value, undefined))}
-          >
-            Keep the value
-          </Button>
-        ) : undefined
-      }
-    />
   );
 }

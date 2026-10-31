@@ -354,6 +354,27 @@
   color: var(--fg-2);
 }
 
+.role-card-mcp-servers {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.role-card-mcp-server-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+/* A tool has no enforcement badge, so its row has two columns. */
+.role-card-mcp-servers .role-card-switches li {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+
 /* ---- the form */
 .role-card-form {
   display: flex;
@@ -376,6 +397,20 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px 16px;
+}
+
+.role-card-mcp-server {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Each tool's setting sits under its server's tick. */
+.role-card-mcp-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 26px;
 }
 
 /* A skill's description runs to 1,536 characters; its Review shows all of it. */

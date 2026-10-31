@@ -5,7 +5,7 @@ import {
   draftOfServer,
   mcpServerEditOf,
   newMcpServerOf,
-  secretOnSave,
+  secretValueSet,
   serverValuesLine,
   withSecret,
 } from "./mcp-server-draft.ts";
@@ -33,6 +33,7 @@ const GITHUB: McpServer = {
   serverValues: [TOKEN, OWNER],
   state: "on",
   tools: [],
+  toolsTooLong: [],
   roles: [],
   addedAt: "2026-10-31T09:00:00.000Z",
 };
@@ -73,16 +74,11 @@ describe("Settings › MCP servers' draft", () => {
     });
   });
 
-  it("says what saving does with a secret's value", () => {
-    const kept = { name: "GITHUB_TOKEN", secret: true, required: true };
-
-    expect(secretOnSave(kept, TOKEN)).toBe("kept-set");
-    expect(secretOnSave(kept, undefined)).toBe("kept-none");
-    expect(secretOnSave({ ...kept, officeWideValue: "ghp_new" }, TOKEN)).toBe("new");
-    expect(secretOnSave({ ...kept, officeWideValue: "" }, TOKEN)).toBe("removed");
-    expect(secretOnSave({ ...kept, officeWideValue: "" }, undefined)).toBe("kept-none");
+  it("keeps a secret's value only under a value that is secret", () => {
+    expect(secretValueSet(TOKEN)).toBe(true);
+    expect(secretValueSet(undefined)).toBe(false);
     // A plain value made secret keeps no secret: its text in the field is what is saved.
-    expect(secretOnSave(kept, OWNER)).toBe("kept-none");
+    expect(secretValueSet(OWNER)).toBe(false);
   });
 
   it("starts a secret made plain empty, since its value is never shown", () => {

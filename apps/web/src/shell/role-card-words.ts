@@ -175,12 +175,45 @@ export function hardSwitchValueOf(choice: string): HardSwitchValue {
   throw new Error(`No Hard switch value is chosen as ${choice}.`);
 }
 
+/**
+ * A Hard switch's or an MCP tool's choices, as a select offers them: Allowed, Consult each Role of
+ * `consultable`, Ask me, Never.
+ */
+export function hardSwitchChoices(
+  consultable: readonly { readonly key: string; readonly title: string }[],
+): { value: string; label: string }[] {
+  return [
+    { value: "allowed", label: "Allowed" },
+    ...consultable.map(({ key, title }) => ({
+      value: hardSwitchChoiceOf({ kind: "consult", role: key }),
+      label: `Consult ${title}`,
+    })),
+    { value: "ask-me", label: "Ask me" },
+    { value: "never", label: "Never" },
+  ];
+}
+
 export function editLabel(edit: boolean): string {
   return edit ? "Edits files in its worktree" : "Reads files only";
 }
 
 export function webLabel(web: boolean): string {
   return web ? "Searches and fetches the web" : "No web";
+}
+
+/** An MCP tool's key in the permission profile, and its name on the card: `server/tool`. */
+export function mcpToolKey(serverName: string, toolName: string): string {
+  return `${serverName}/${toolName}`;
+}
+
+/** Each MCP tool the user set, in key order, such as "MCP tool github/search Allowed". */
+export function mcpToolSettingLines(
+  settings: PermissionProfile["mcpTools"],
+  roleTitles: RoleTitles,
+): string[] {
+  return Object.entries(settings)
+    .toSorted(([first], [second]) => first.localeCompare(second))
+    .map(([key, setting]) => `MCP tool ${key} ${hardSwitchValueLabel(setting, roleTitles)}`);
 }
 
 /** The profile as lines: what the Agent edits, runs and reaches. */
@@ -268,7 +301,9 @@ export function fieldValueText(
   if (typeof value === "object") {
     return "kind" in value
       ? hardSwitchValueLabel(value, roleTitles)
-      : permissionProfileLines(value).join(", ");
+      : [...permissionProfileLines(value), ...mcpToolSettingLines(value.mcpTools, roleTitles)].join(
+          ", ",
+        );
   }
   switch (field) {
     case "model":

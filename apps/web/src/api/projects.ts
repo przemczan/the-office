@@ -2,6 +2,8 @@ import { queryOptions } from "@tanstack/react-query";
 import {
   environmentCheckSchema,
   latestEnvironmentCheckSchema,
+  projectMcpServerValuesListSchema,
+  projectMcpServerValuesSchema,
   projectListSchema,
   projectSchema,
   projectSkillListSchema,
@@ -11,6 +13,8 @@ import {
   type Project,
   type ProjectEnvironment,
   type ProjectCommandKey,
+  type ProjectMcpServerValues,
+  type ProjectServerValuesChange,
   type ProjectWebEvent,
   type PublishingMode,
 } from "@the-office/contracts";
@@ -44,6 +48,16 @@ export const projectQueries = {
       queryKey: [...PROJECTS, id, "skills"],
       queryFn: ({ signal }) =>
         getFromApi(`${projectPath(id)}/skills`, projectSkillListSchema, signal),
+    }),
+  /**
+   * Each MCP server's Server values with this Project's own. Under the Project's key, so the
+   * library's events refresh it as they refresh the Projects.
+   */
+  serverValues: (id: string) =>
+    queryOptions({
+      queryKey: serverValuesKey(id),
+      queryFn: ({ signal }) =>
+        getFromApi(`${projectPath(id)}/server-values`, projectMcpServerValuesListSchema, signal),
     }),
   /** What the Task's commits changed in its Project, for the Changes tab. */
   taskChanges: (projectId: string, taskId: string) =>
@@ -119,6 +133,27 @@ export function changeUseProjectSkills(id: string, useProjectSkills: boolean): P
     { useProjectSkills },
     projectSchema,
   );
+}
+
+/**
+ * The Project's values for one MCP server: each value given is kept as given or, without a
+ * `projectValue`, as kept; a value left out is cleared.
+ */
+export function changeProjectServerValues(
+  id: string,
+  serverName: string,
+  change: ProjectServerValuesChange,
+): Promise<ProjectMcpServerValues> {
+  return sendToApi(
+    "PUT",
+    `${projectPath(id)}/server-values/${encodeURIComponent(serverName)}`,
+    change,
+    projectMcpServerValuesSchema,
+  );
+}
+
+function serverValuesKey(id: string) {
+  return [...PROJECTS, id, "server-values"] as const;
 }
 
 /**

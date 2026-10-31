@@ -38,6 +38,7 @@ export class RolesController {
       })),
       knownRoles: options.knownRoles.map(({ key, title }) => ({ key, title })),
       hardSwitches: options.hardSwitches.map(({ key, enforcement }) => ({ key, enforcement })),
+      mcpToolDefault: { ...options.mcpToolDefault },
       taskLimits: { ...options.taskLimits },
     };
   }

@@ -11,6 +11,7 @@ import { CommandsBlock } from "./commands-block.tsx";
 import { DefaultPipelineBlock } from "./default-pipeline-block.tsx";
 import { EnvironmentBlock } from "./environment-block.tsx";
 import { OnboardingBadge, OnboardingBlock } from "./onboarding-block.tsx";
+import { ServerValuesBlock } from "./server-values-block.tsx";
 import { SkillsBlock } from "./skills-block.tsx";
 import { WorkBlock } from "./work-block.tsx";
 import "./projects.css";
@@ -37,6 +38,7 @@ export function ProjectPage(): ReactNode {
           <CommandsBlock project={project.data} />
           <DefaultPipelineBlock project={project.data} />
           <SkillsBlock project={project.data} />
+          <ServerValuesBlock project={project.data} />
         </div>
         <div className="project-column">
           <OnboardingBlock project={project.data} />

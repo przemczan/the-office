@@ -165,6 +165,7 @@ function toMcpServerResponse(
       serverValues: serverValues.map(toServerValueResponse),
       state,
       tools: tools.map(toToolResponse),
+      toolsTooLong: toolsTooLongForSessions(name, tools),
       roles: [...roles],
       addedAt: addedAt.toISOString(),
     },

@@ -152,7 +152,7 @@ describe("GET /api/presets", () => {
 });
 
 describe("GET /api/role-card-options", () => {
-  it("offers each engine's models and what it can't do, the known Roles and how each switch is seen to", async () => {
+  it("offers each engine's models and what it can't do, the known Roles, how each switch is seen to and where an MCP tool starts", async () => {
     const options = roleCardOptionsSchema.parse(await get("/role-card-options"));
 
     const models = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"];
@@ -172,6 +172,7 @@ describe("GET /api/role-card-options", () => {
       { key: "publishOutsideThePipeline", enforcement: "followed" },
       { key: "changeRoles", enforcement: "enforced" },
     ]);
+    expect(options.mcpToolDefault).toEqual({ kind: "consult", role: "devops" });
     expect(options.taskLimits).toEqual({ lowest: 1, highest: 6 });
   });
 

@@ -1,20 +1,9 @@
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { CONNECTING, FAKE_MCP_SERVER, FAKE_MCP_TOOLS } from "./fake-mcp-server.ts";
 
 /** Saved on every run, for a person to look over. */
 const SCREENSHOTS = path.resolve(import.meta.dirname, "../e2e-results/screenshots");
-
-/** The service's fake local MCP server, which the service starts with Node as it is. */
-const FAKE_SERVER = fileURLToPath(
-  new URL("../../service/src/platform/mcp/fake-stdio-mcp-server.fixtures.ts", import.meta.url),
-);
-
-/** Its tools, as it lists them. */
-const FAKE_TOOLS = ["echo", "environment-variable", "started-process"];
-
-/** A test connection starts Node and the MCP SDK, which takes a while on a cold start. */
-const CONNECTING = { timeout: 30_000 };
 
 test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
 
@@ -31,14 +20,15 @@ function row(page: Page, name: string): Locator {
 async function expectFakeServerTools(dialog: Locator): Promise<void> {
   const tools = dialog.getByRole("region", { name: "Tools it lists" });
   await expect(tools).toBeVisible(CONNECTING);
-  for (const tool of FAKE_TOOLS) await expect(tools.getByText(tool, { exact: true })).toBeVisible();
+  for (const tool of FAKE_MCP_TOOLS)
+    await expect(tools.getByText(tool, { exact: true })).toBeVisible();
 }
 
 test("the user adds an MCP server by the form, reviews it and turns it on", async ({ page }) => {
   const dialog = await openAddAnMcpServer(page);
   await dialog.getByRole("textbox", { name: "Name", exact: true }).fill("e2e-form-server");
   await dialog.getByLabel("Command").fill(process.execPath);
-  await dialog.getByLabel("Arguments").fill(FAKE_SERVER);
+  await dialog.getByLabel("Arguments").fill(FAKE_MCP_SERVER);
   await dialog.getByRole("button", { name: "Add a Server value" }).click();
   const value = dialog.getByRole("group", { name: "the new Server value" });
   await value.getByLabel("Name").fill("FAKE_GREETING");
@@ -75,7 +65,7 @@ test("a pasted JSON config fills the form for the user to check before adding", 
       mcpServers: {
         "e2e-pasted-server": {
           command: process.execPath,
-          args: [FAKE_SERVER],
+          args: [FAKE_MCP_SERVER],
           env: { FAKE_TOKEN: "pasted-token-value", FAKE_REGION: "${REGION:-eu}" },
         },
       },
@@ -110,7 +100,7 @@ test("a secret Server value is never shown, not even in a failed review", async 
       transport: "stdio",
       command: process.execPath,
       // The fake server fails, writing its token to its standard error.
-      arguments: [FAKE_SERVER, "--fail"],
+      arguments: [FAKE_MCP_SERVER, "--fail"],
       serverValues: [{ name: "FAKE_TOKEN", secret: true, required: true, officeWideValue: secret }],
     },
   });
