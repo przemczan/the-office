@@ -67,7 +67,7 @@ Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written
 | # | Task | Surface | Status |
 | --- | --- | --- | --- |
 | 34 | [Telemetry: the bundled `otel-lgtm` optional, the user's own Grafana or collector](34-telemetry-own-grafana.md) | Foundation | done |
-| 35 | [The OpenAI-compatible API engine, for local LLMs](35-api-based-engine.md) | Foundation | in progress |
+| 35 | [The OpenAI-compatible API engine, for local LLMs](35-api-based-engine.md) | Foundation | done |
 | 36 | MCP servers for Agents | People | todo |
 | 37 | Usage estimates | Now | todo |
 | 38 | Archive, and moving Tasks between Projects | Work | todo |

@@ -1,6 +1,6 @@
 # 35 · The OpenAI-compatible API engine, for local LLMs
 
-Status: in progress
+Status: done
 
 ## Goal
 
@@ -60,7 +60,7 @@ Decided with the user on 2026-10-31:
 
 ## State
 
-- Done: steps 0–9; every Definition of Done box ticked. Engine id `openai-compatible-api` in `adapters/openai-compatible-api/`; Settings › Engines in the Engine module and `surfaces/settings/engines/`; Model field `<endpoint id>/<model id>`; capabilities all true but `usageWindows`.
+- Done: steps 0–9; every Definition of Done box ticked, `npm run verify` and `npm run verify:linux` passing. Engine id `openai-compatible-api` in `adapters/openai-compatible-api/`; Settings › Engines in the Engine module and `surfaces/settings/engines/`; Model field `<endpoint id>/<model id>`; capabilities all true but `usageWindows`.
 - Live on Strata (Windows, 2026-10-31, `qwen3.8-flash-next-coder-iq1_m`, about 14 tokens/s read and 11 written), recorded in [engine-check.md](../engine-check.md#the-openai-compatible-api): the contract's `reply` 140 s, `refusal` 364 s, `interrupt` 212 s, `resume` 244 s (an Office tool), `output-schema` 240 s pass; the Developer's chat on the Test Project ran Glob and Read and replied in one message (475 s); Implement on the Test Project ran Read, Edit, Bash, a refused Write to `.claude/` and StructuredOutput (145 s), Tests passed, the Task waited at the Gate and was dropped.
 - Live checks: the contract on a live server with `OFFICE_ENGINE_TESTS=live`, `OFFICE_API_BASE_URL`, `OFFICE_API_MODEL` (`openai-compatible-api-engine.test.ts`, `-t` picks scenarios); task 35's check in `conversations/application/openai-compatible-api-test-project-check.test.ts` with `OFFICE_TEST_PROJECT` too (apps/service/docs/testing.md).
 - Answered: consecutive user messages are accepted by Strata (joining them stays as a precaution for strict templates); `AGENTS.md` loads only through the built-in `cc-plugin-agents-md` plugin, which the Office turns off, so the loop's instruction files match (seen in the binary's code, not a session).
@@ -68,13 +68,4 @@ Decided with the user on 2026-10-31:
 
 ## Progress
 
-- 2026-10-31 · step 0: the task file, with the user's answers (one engine id, the words, the key, SearXNG, streaming and background commands, Strata), spec §5.4's Defaults line, the glossary, coverage; next is step 1, the Office-wide settings.
-- 2026-10-31 · step 1: Settings › Engines in the Engine module (API endpoints with keys never sent back, the search endpoint; `GET`/`PUT /api/settings/engines`, tables, migration 0060), `EngineModels` answering People's card checks, the Model field as `<endpoint id>/<model id>`; next is step 2, the streaming client.
-- 2026-10-31 · step 2: `ChatCompletionsClient` in `adapters/openai-compatible-api/` streams chat completions over node:http (SSE text, tool calls assembled by index, usage or none), aborts by signal, waits generously and configurably; `FakeChatCompletionsServer` scripts answers and records requests; next is step 3, the engine id and the loop's core.
-- 2026-10-31 · step 3: the engine id `openai-compatible-api` everywhere engines are listed; `OpenAiCompatibleApiEngine` and `ApiSession`, the loop over the client with Read, Grep, Glob, Edit and Write under Claude Code's names, each judged by `toolDecision` first; `ModelNotOffered` for a removed endpoint; shared rules pieces in `adapters/office-rules/`; next is step 4, a turn's control.
-- 2026-10-31 · step 4: a turn's control: Bash and PowerShell through the platform's `agentShells` (Git Bash on Windows), each command's tree ended on interrupt or timeout; interrupt per turn, barge-in by priority, Office tools judged again as they run, StructuredOutput checked by Ajv; the contract passes with four capabilities true; next is step 5, background commands.
-- 2026-10-31 · step 5: background commands: `run_in_background` on Bash and PowerShell starts one in `BackgroundCommands`, its output in the session's own readable folder and read with Read; TaskStop ends one with its tree; interrupt ends them all, the session's end too and removes the folder; next is step 6, the web tools.
-- 2026-10-31 · step 6: WebFetch (page fetched within limits, HTML as Markdown, under the prompt) and WebSearch through the `SearchEndpointClient` port with a SearXNG adapter and fake, refused by the engine with no search endpoint after the Office rules; Claude Code's `<task-notification>` for a background command that ends by itself; next is step 7, skills and the Context policy.
-- 2026-10-31 · step 7: skills listed and checked at start and resume, the Skill tool, the Project's CLAUDE.md and rules in the system prompt, the conversation kept under `sessions/<id>/` for resume, context usage from the last request against the model's window, consecutive user messages joined per request, a fake server per test; next is step 8, Settings › Engines in the web.
-- 2026-10-31 · step 8: Settings › Engines in the web (API endpoints, key set or not, Search endpoint, Save and Discard, refusals in words); Model fields name "<endpoint> · <model>"; the card names what the engine can't do; text reported whole per answer; Conversations tests of resume and fresh start on the fake server; next is step 9, the live check on Strata.
-- 2026-10-31 · step 9: the live check on Strata: five contract scenarios, a chat and a Stage on the Test Project through task 35's new check, recorded in engine-check.md; AGENTS.md and consecutive user messages answered; the task closes next.
+The log is in [archive/35-api-based-engine.md](archive/35-api-based-engine.md).
