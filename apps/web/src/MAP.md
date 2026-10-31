@@ -123,7 +123,7 @@
 - `unread-badge.ts`: useUnreadBadge
 - `use-needs-you-panel.ts`: NeedsYouPanelControls, useNeedsYouPanel
 - `use-needs-you.ts`: useNeedsYou
-- Tests: notification-words.test.ts, now-words.test.ts
+- Tests: notification-channels.test.tsx, notification-words.test.ts, now-words.test.ts
 
 ### shell/pipelines/
 

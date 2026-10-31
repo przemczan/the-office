@@ -33,22 +33,30 @@ export function useNotificationChannels(): void {
       open === undefined ? undefined : reconnecting ? [...open, serviceDown(roles, routing)] : open,
     [open, reconnecting, roles, routing],
   );
-  const shown = useRef<ReadonlySet<string> | undefined>(undefined);
+  // Each open Notification's id, with a token for the time it was raised.
+  const raised = useRef<ReadonlyMap<string, symbol> | undefined>(undefined);
 
   useEffect(() => {
     if (all === undefined) return;
-    const ids = new Set(all.map(({ id }) => id));
-    const before = shown.current;
-    shown.current = ids;
+    const before = raised.current;
+    const now = new Map(all.map(({ id }) => [id, before?.get(id) ?? Symbol(id)]));
+    raised.current = now;
     if (before === undefined) return;
+    const showWhenReady = async (notification: Notification): Promise<void> => {
+      const raising = now.get(notification.id);
+      const toShow = await shownNotification(notification, queryClient, (target) => {
+        void navigate(target);
+      });
+      // Cleared while its words loaded, its clear came before the show and would never come again;
+      // raised again meanwhile, that raising shows it.
+      if (raised.current?.get(notification.id) !== raising) return;
+      channelFor(notification, inApp, desktop)?.show(toShow);
+    };
     for (const notification of all) {
-      if (before.has(notification.id)) continue;
-      void shownNotification(notification, queryClient, (target) => void navigate(target)).then(
-        (toShow) => channelFor(notification, inApp, desktop)?.show(toShow),
-      );
+      if (!before.has(notification.id)) void showWhenReady(notification);
     }
-    for (const id of before) {
-      if (ids.has(id)) continue;
+    for (const id of before.keys()) {
+      if (now.has(id)) continue;
       inApp.clear(id);
       desktop.clear(id);
     }
