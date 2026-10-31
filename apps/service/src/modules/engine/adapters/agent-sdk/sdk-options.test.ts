@@ -64,6 +64,12 @@ describe("sdkOptions", () => {
       permissionPrompts: "none",
       systemPrompt: { type: "preset", preset: "claude_code", excludeDynamicSections: true },
       settings: {
+        claudeMdExcludes: ["/office/worktrees", "/office", ""].flatMap((folder) => [
+          `${folder}/CLAUDE.md`,
+          `${folder}/CLAUDE.local.md`,
+          `${folder}/.claude/CLAUDE.md`,
+          `${folder}/.claude/rules/**`,
+        ]),
         syncClaudeAiSkills: false,
         syncClaudeAiPlugins: false,
         disableBundledSkills: true,
@@ -78,8 +84,7 @@ describe("sdkOptions", () => {
           "cc-plugin-plugin-authoring@builtin": false,
         },
         permissions: {
-          blockReadsOutsideWorkingDirectories: true,
-          additionalDirectories: [],
+          blockReadsOutsideWorkingDirectories: false,
           allow: [],
         },
       },
@@ -127,7 +132,7 @@ describe("sdkOptions", () => {
     expect(options.sessionId).toBeUndefined();
   });
 
-  it("loads the skills folder as a plugin the file tools may read, listing only its skills", () => {
+  it("loads the skills folder as a plugin, listing only its skills", () => {
     const options = optionsFor({
       options: {
         ...OPTIONS,
@@ -147,7 +152,6 @@ describe("sdkOptions", () => {
     expect(options.settings).toMatchObject({
       disableSkillShellExecution: true,
       skillOverrides: { lint: "off" },
-      permissions: { additionalDirectories: ["/office/sessions/s/skills"] },
     });
   });
 

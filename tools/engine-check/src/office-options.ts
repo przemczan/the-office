@@ -1,4 +1,5 @@
 import type { HookEvent, Settings } from "@anthropic-ai/claude-agent-sdk";
+import { dirname } from "node:path";
 import type { RecordedSession, SessionHook } from "./recorded-session.ts";
 import { SESSION_PLUGIN_NAME, type SkillFixture } from "./sandbox.ts";
 
@@ -95,8 +96,25 @@ export function hookEvents(hooks: Partial<Record<HookEvent, unknown>>): HookEven
   return [...new Set<HookEvent>([...OFFICE_HOOK_EVENTS, ...(Object.keys(hooks) as HookEvent[])])];
 }
 
-/** The settings of spec §5.4, §5.6 and §6, with a check's overrides. */
-export function sessionSettings(pluginFolder: string, overrides: Settings = {}): Settings {
+/** Where the engine finds instructions in a folder. */
+const INSTRUCTION_FILES = ["CLAUDE.md", "CLAUDE.local.md", ".claude/CLAUDE.md", ".claude/rules/**"];
+
+/**
+ * The instruction files of every folder above the working folder, which the engine loads as the
+ * Project's own unless its read fence is on; with it off (spec §6) they are excluded, so the user's
+ * own `~/.claude/CLAUDE.md` never reaches a session whose folder is under their home folder.
+ */
+function instructionFilesAbove(workingFolder: string): string[] {
+  const files: string[] = [];
+  for (let above = dirname(workingFolder); ; above = dirname(above)) {
+    const prefix = above.replaceAll("\\", "/").replace(/\/$/, "");
+    files.push(...INSTRUCTION_FILES.map((file) => `${prefix}/${file}`));
+    if (dirname(above) === above) return files;
+  }
+}
+
+/** The settings of spec §5.4, §5.6 and §6 for a session in `workingFolder`, with a check's overrides. */
+export function sessionSettings(workingFolder: string, overrides: Settings = {}): Settings {
   return {
     syncClaudeAiSkills: false,
     syncClaudeAiPlugins: false,
@@ -108,11 +126,9 @@ export function sessionSettings(pluginFolder: string, overrides: Settings = {}):
     enabledPlugins: Object.fromEntries(
       BUILT_IN_PLUGINS.map((plugin) => [`${plugin}@builtin`, false]),
     ),
+    claudeMdExcludes: instructionFilesAbove(workingFolder),
     ...overrides,
-    permissions: {
-      blockReadsOutsideWorkingDirectories: true,
-      additionalDirectories: [pluginFolder],
-      ...overrides.permissions,
-    },
+    // The hook alone fences reads (spec §6, permissions.read-fence-off).
+    permissions: { blockReadsOutsideWorkingDirectories: false, ...overrides.permissions },
   };
 }

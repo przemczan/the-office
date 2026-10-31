@@ -174,7 +174,7 @@ export class ClaudeCodePSession extends RecordedSession {
       tools: OFFICE_TOOLS,
       pluginFolder: this.pluginFolder,
       allowedSkills: allowedSkillNames(spec),
-      settings: sessionSettings(this.pluginFolder, spec.settings),
+      settings: sessionSettings(spec.repository, spec.settings),
       hookEvents: hookEvents(spec.hooks ?? {}),
       hookUrl: spec.hookUrl ?? this.endpoints.hookUrl,
       officeTools: this.officeToolServer !== undefined,

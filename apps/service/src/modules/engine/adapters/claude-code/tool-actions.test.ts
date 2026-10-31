@@ -45,6 +45,22 @@ describe("agentAction", () => {
     });
   });
 
+  it("reads each folder a glob's braces name, and climbs for a .. after a wildcard", () => {
+    expect(agentAction("Glob", { pattern: "{src,/etc}/*.conf" })).toEqual({
+      kind: "read",
+      paths: [".", "./src", "/etc"],
+    });
+    expect(agentAction("Glob", { pattern: "docs/{a,{b,../../c}}/*" })).toEqual({
+      kind: "read",
+      paths: [".", "./docs/a", "./docs/b", "./docs/../../c"],
+    });
+    expect(agentAction("Glob", { pattern: "src/*/../../../*" })).toEqual({
+      kind: "read",
+      paths: [".", "./src/../../.."],
+    });
+    expect(agentAction("Glob", { pattern: "{*.md" })).toEqual({ kind: "read", paths: [".", "./"] });
+  });
+
   it("reads each shell's commands in its own dialect, and the Monitor tool's in Bash's", () => {
     expect(agentAction("Bash", { command: "npm test" })).toEqual({
       kind: "command",

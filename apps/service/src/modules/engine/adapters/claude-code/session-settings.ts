@@ -1,4 +1,5 @@
 import type { Settings } from "@anthropic-ai/claude-agent-sdk";
+import { dirname } from "node:path";
 import { isOfficeOwnVariable } from "../../../../platform/config/office-config.js";
 import type { AgentShell } from "../../../../platform/os/shell.js";
 import type { SessionOptions } from "../../ports/session-options.js";
@@ -63,9 +64,27 @@ export function sessionTools(agentShells: readonly AgentShell[]): string[] {
   return [...BUILT_IN_TOOLS, ...agentShells.map((shell) => SHELL_TOOLS[shell])].toSorted();
 }
 
+/** Where the engine finds instructions in a folder. */
+const INSTRUCTION_FILES = ["CLAUDE.md", "CLAUDE.local.md", ".claude/CLAUDE.md", ".claude/rules/**"];
+
+/**
+ * The instruction files of every folder above a session's folder. Without its read fence the engine
+ * loads them as the Project's own, so the user's `~/.claude/CLAUDE.md` would reach every session whose
+ * folder is under their home folder (spec §6, the engine check's permissions.read-fence-off).
+ */
+function instructionFilesAbove(folder: string): string[] {
+  const files: string[] = [];
+  for (let above = dirname(folder); ; above = dirname(above)) {
+    const prefix = above.replaceAll("\\", "/").replace(/\/$/, "");
+    files.push(...INSTRUCTION_FILES.map((file) => `${prefix}/${file}`));
+    if (dirname(above) === above) return files;
+  }
+}
+
 /** The settings of spec §5.4, §5.6 and §6 a session runs with, hooks aside. */
-export function sessionSettings({ skills, officeTools }: SessionOptions): Settings {
+export function sessionSettings({ folder, skills, officeTools }: SessionOptions): Settings {
   return {
+    claudeMdExcludes: instructionFilesAbove(folder),
     syncClaudeAiSkills: false,
     syncClaudeAiPlugins: false,
     disableBundledSkills: true,
@@ -82,9 +101,9 @@ export function sessionSettings({ skills, officeTools }: SessionOptions): Settin
       BUILT_IN_PLUGINS.map((plugin) => [`${plugin}@builtin`, false]),
     ),
     permissions: {
-      blockReadsOutsideWorkingDirectories: true,
-      // Lets the file tools read the skills folder under the read fence, and nothing else (spec §5.6).
-      additionalDirectories: skills === undefined ? [] : [skills.folder],
+      // The hook alone fences reads: under the engine's read fence it refused shell commands the hook
+      // allowed (spec §6, the engine check's permissions.read-fence-off).
+      blockReadsOutsideWorkingDirectories: false,
       // permissionPrompts "none" refuses whatever would prompt, so the Office tools are allowed by rule.
       allow: officeTools.length > 0 ? [`mcp__${OFFICE_TOOL_SERVER}`] : [],
     },

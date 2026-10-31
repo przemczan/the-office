@@ -33,7 +33,8 @@ export function agentAction(tool: string, input: unknown): AgentAction {
       return { kind: "read", paths: [field(input, "path") || "."] };
     case "Glob": {
       const folder = field(input, "path") || ".";
-      return { kind: "read", paths: [folder, globFolder(folder, field(input, "pattern"))] };
+      const patterns = braceAlternatives(field(input, "pattern"));
+      return { kind: "read", paths: [folder, ...patterns.map((one) => globFolder(folder, one))] };
     }
     case "Edit":
     case "Write":
@@ -60,11 +61,56 @@ function monitorAction(input: unknown): AgentAction {
     : { kind: "engine" };
 }
 
-/** The folder a glob pattern searches, before its first wildcard, which an absolute pattern names itself. */
+/**
+ * The patterns a glob's braces stand for, so an alternative naming another folder (`{src,/etc}/*`)
+ * is judged on its own. Since the hook alone fences the file tools (spec §6), nothing behind it would.
+ */
+function braceAlternatives(pattern: string): string[] {
+  const open = pattern.indexOf("{");
+  const close = open === -1 ? -1 : matchingBrace(pattern, open);
+  if (close === -1) return [pattern];
+  const before = pattern.slice(0, open);
+  const after = pattern.slice(close + 1);
+  return topLevelParts(pattern.slice(open + 1, close)).flatMap((part) =>
+    braceAlternatives(`${before}${part}${after}`),
+  );
+}
+
+function matchingBrace(pattern: string, open: number): number {
+  let depth = 0;
+  for (let index = open; index < pattern.length; index++) {
+    if (pattern[index] === "{") depth++;
+    if (pattern[index] === "}" && --depth === 0) return index;
+  }
+  return -1;
+}
+
+/** The comma-separated parts of a brace's inside, nested braces kept whole. */
+function topLevelParts(inside: string): string[] {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let index = 0; index < inside.length; index++) {
+    if (inside[index] === "{") depth++;
+    if (inside[index] === "}") depth--;
+    if (inside[index] === "," && depth === 0) {
+      parts.push(inside.slice(start, index));
+      start = index + 1;
+    }
+  }
+  return [...parts, inside.slice(start)];
+}
+
+/**
+ * The folder a glob pattern searches, before its first wildcard, which an absolute pattern names
+ * itself; each `..` after a wildcard climbs from there, so the fence judges the highest folder reached.
+ */
 function globFolder(folder: string, pattern: string): string {
   const names = pattern.split(/[\\/]/);
-  const wildcard = names.findIndex((name) => /[*?[{]/.test(name));
-  const fixed = (wildcard === -1 ? names.slice(0, -1) : names.slice(0, wildcard)).join("/");
+  const wildcard = names.findIndex((name) => /[*?[]/.test(name));
+  const fixedNames = wildcard === -1 ? names.slice(0, -1) : names.slice(0, wildcard);
+  const climbs = wildcard === -1 ? [] : names.slice(wildcard).filter((name) => name === "..");
+  const fixed = [...fixedNames, ...climbs].join("/");
   return /^([a-zA-Z]:)?[\\/]/.test(pattern) ? fixed || "/" : `${folder}/${fixed}`;
 }
 

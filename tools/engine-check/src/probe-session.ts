@@ -96,7 +96,7 @@ export class ProbeSession extends RecordedSession {
         skipMcpDiscovery: true,
       })),
       skills: allowedSkillNames(spec),
-      settings: sessionSettings(this.pluginFolder, spec.settings),
+      settings: sessionSettings(spec.repository, spec.settings),
       permissionPrompts: "none",
       systemPrompt: { type: "preset", preset: "claude_code", excludeDynamicSections: true },
       env: sessionEnvironment(),

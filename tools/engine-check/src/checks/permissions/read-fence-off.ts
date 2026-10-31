@@ -2,21 +2,24 @@ import { writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import type { Check, Observation } from "../../check.ts";
 import type { ProbeHook, ProbeSession, SessionSpec } from "../../probe-session.ts";
+import { sortedNames } from "../observations.ts";
 import { isWithin } from "../paths.ts";
 import { callsOn, lastOutcome, targetPath, toolCalls, type AttemptOutcome } from "../tool-calls.ts";
 import { toolDecision } from "./hook-decisions.ts";
 
 const MARKER = "fence-marker";
 
-const FENCE_OFF: Partial<SessionSpec> = {
-  settings: { permissions: { blockReadsOutsideWorkingDirectories: false } },
+/** The engine's read fence, as The Office set it until task 33; its options now leave it off. */
+const FENCE_ON: Partial<SessionSpec> = {
+  settings: { permissions: { blockReadsOutsideWorkingDirectories: true } },
 };
 
 /**
  * Under `blockReadsOutsideWorkingDirectories` the engine also judges every shell command, and asks,
  * past the hook's `allow`, when its parser can't show the command reads only inside (task 32's run);
  * with no approval surface it refuses. Spec §6 accepts shell reads outside, so the check runs the
- * commands refused there under a hook that allows them, with the fence on and off. With the fence on
+ * commands refused there under a hook that allows them, with the fence on and off (the Office's
+ * options, spec §6). With the fence on
  * each command has a session of its own: after one such refusal the engine refuses every later call
  * that would ask, and tells the model not to try. With the fence off the file tools are tried outside
  * too, under a hook that allows them, to show what fences them then.
@@ -32,6 +35,8 @@ export const readFenceOffCheck: Check = {
     ]);
     const outside = join(sandbox.root, "outside.txt");
     await writeFile(outside, `${MARKER}\n`);
+    // Instructions in a folder above the worktree, as the user's ~/.claude/CLAUDE.md is above an Office data directory in their home folder.
+    await writeFile(join(sandbox.root, "CLAUDE.md"), "Instructions above the worktree.\n");
     const commands = {
       bracedVariable: 'true | cat; echo "status=${PIPESTATUS[0]}"',
       codeOnStdin: "node -v",
@@ -48,27 +53,38 @@ export const readFenceOffCheck: Check = {
       await session.nextResult();
       return session;
     };
-    const [fenceOn, fenceOff] = await Promise.all([
+    const [fenceOn, fenceOff, withoutExcludes] = await Promise.all([
       Promise.all(
         Object.entries(commands).map(async ([name, command]) => {
-          const session = await run({}, [`Bash: ${command}`]);
+          const session = await run(FENCE_ON, [`Bash: ${command}`]);
           return [name, commandOutcome(session, command)] as const;
         }),
       ),
-      run(FENCE_OFF, [
+      run({}, [
         ...Object.values(commands).map((command) => `Bash: ${command}`),
         ...fileToolSteps(outside, sandbox.root),
       ]),
+      startSession({ repository, settings: { claudeMdExcludes: [] } }),
     ]);
     return {
       fenceOn: Object.fromEntries(fenceOn),
       fenceOff: {
         ...commandOutcomes(fenceOff, commands),
         fileToolsOutside: fileToolOutcomes(fenceOff, outside),
+        instructionsAbove: {
+          officeOptions: await instructionFileTypes(fenceOff),
+          withoutExcludes: await instructionFileTypes(withoutExcludes),
+        },
       },
     };
   },
 };
+
+/** The kinds of instruction file the session loaded, as its context usage names them. */
+async function instructionFileTypes(session: ProbeSession): Promise<string[]> {
+  const usage = await session.control.getContextUsage();
+  return sortedNames(usage.memoryFiles.map((file) => file.type));
+}
 
 function fileToolSteps(file: string, folder: string): string[] {
   return [

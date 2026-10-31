@@ -690,86 +690,6 @@
       "requestsToHost": []
     }
   },
-  "permissions.file-tool-fence": {
-    "win32": {
-      "fileTools": {
-        "withoutGrant": {
-          "worktree": {
-            "Read": "allowed",
-            "Grep": "allowed",
-            "Glob": "allowed"
-          },
-          "sessionSkillsFolder": {
-            "Read": "denied",
-            "Grep": "denied",
-            "Glob": "denied"
-          },
-          "officeData": {
-            "Read": "denied",
-            "Grep": "denied",
-            "Glob": "denied"
-          }
-        },
-        "officeOptions": {
-          "worktree": {
-            "Read": "allowed",
-            "Grep": "allowed",
-            "Glob": "allowed"
-          },
-          "sessionSkillsFolder": {
-            "Read": "allowed",
-            "Grep": "allowed",
-            "Glob": "allowed"
-          },
-          "officeData": {
-            "Read": "denied",
-            "Grep": "denied",
-            "Glob": "denied"
-          }
-        }
-      },
-      "shellReadOfOfficeData": "denied"
-    },
-    "linux": {
-      "fileTools": {
-        "withoutGrant": {
-          "worktree": {
-            "Read": "allowed",
-            "Grep": "allowed",
-            "Glob": "allowed"
-          },
-          "sessionSkillsFolder": {
-            "Read": "denied",
-            "Grep": "denied",
-            "Glob": "denied"
-          },
-          "officeData": {
-            "Read": "denied",
-            "Grep": "denied",
-            "Glob": "denied"
-          }
-        },
-        "officeOptions": {
-          "worktree": {
-            "Read": "allowed",
-            "Grep": "allowed",
-            "Glob": "allowed"
-          },
-          "sessionSkillsFolder": {
-            "Read": "allowed",
-            "Grep": "allowed",
-            "Glob": "allowed"
-          },
-          "officeData": {
-            "Read": "denied",
-            "Grep": "denied",
-            "Glob": "denied"
-          }
-        }
-      },
-      "shellReadOfOfficeData": "denied"
-    }
-  },
   "permissions.hook-after-resume": {
     "win32": {
       "beforeResume": {
@@ -840,7 +760,7 @@
         "readOutsideWorkingDirectory": {
           "outcome": "denied",
           "preToolUseFirst": true,
-          "permissionDeniedMessage": "other",
+          "permissionDeniedMessage": "asyncAgent",
           "permissionDeniedHook": false
         },
         "writeWithoutApproval": {
@@ -875,7 +795,7 @@
         "readOutsideWorkingDirectory": {
           "outcome": "denied",
           "preToolUseFirst": true,
-          "permissionDeniedMessage": "other",
+          "permissionDeniedMessage": "asyncAgent",
           "permissionDeniedHook": false
         },
         "writeWithoutApproval": {
@@ -1115,6 +1035,10 @@
           "Read": "allowed",
           "Grep": "allowed",
           "Glob": "allowed"
+        },
+        "instructionsAbove": {
+          "officeOptions": [],
+          "withoutExcludes": ["Project"]
         }
       }
     },
@@ -1134,6 +1058,10 @@
           "Read": "allowed",
           "Grep": "allowed",
           "Glob": "allowed"
+        },
+        "instructionsAbove": {
+          "officeOptions": [],
+          "withoutExcludes": ["Project"]
         }
       }
     }
@@ -1212,44 +1140,6 @@
       ],
       "listedSkills": ["child:three", "skill-at-root:two", "without-manifest:one"],
       "pluginErrors": []
-    }
-  },
-  "skills.plugin-folder-reads": {
-    "win32": {
-      "withoutGrant": {
-        "skillFolder": "denied",
-        "outsideFile": "denied"
-      },
-      "readAllowRule": {
-        "skillFolder": "denied",
-        "outsideFile": "denied"
-      },
-      "officeOptions": {
-        "skillFolder": "allowed",
-        "outsideFile": "denied"
-      },
-      "additionalDirectoriesOption": {
-        "skillFolder": "allowed",
-        "outsideFile": "denied"
-      }
-    },
-    "linux": {
-      "withoutGrant": {
-        "skillFolder": "denied",
-        "outsideFile": "denied"
-      },
-      "readAllowRule": {
-        "skillFolder": "denied",
-        "outsideFile": "denied"
-      },
-      "officeOptions": {
-        "skillFolder": "allowed",
-        "outsideFile": "denied"
-      },
-      "additionalDirectoriesOption": {
-        "skillFolder": "allowed",
-        "outsideFile": "denied"
-      }
     }
   },
   "skills.project-names": {

@@ -21,7 +21,7 @@ import { SkillRepository } from "../ports/skill-repository.js";
 
 /** What a session is started with, and what it must list at its start (spec §5.6). */
 export interface PreparedSkills {
-  /** The session's own plugin folder, for `plugins` and `permissions.additionalDirectories`. */
+  /** The session's own plugin folder, loaded as a plugin and readable by the session's file tools. */
   readonly folder: string;
   /** The engine's allowlist. */
   readonly names: readonly string[];

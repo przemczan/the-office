@@ -4,7 +4,6 @@ import { denyRuleCheck } from "./deny-rule.ts";
 import { frontmatterYamlCheck } from "./frontmatter-yaml.ts";
 import { overridesOffCheck } from "./overrides-off.ts";
 import { pluginDetectionCheck } from "./plugin-detection.ts";
-import { pluginFolderReadsCheck } from "./plugin-folder-reads.ts";
 import { projectNamesCheck } from "./project-names.ts";
 import { resumeCheck } from "./resume.ts";
 import { shellExecutionCheck } from "./shell-execution.ts";
@@ -21,7 +20,6 @@ export const skillsChecks: readonly Check[] = [
   overridesOffCheck,
   projectNamesCheck,
   userScopeCheck,
-  pluginFolderReadsCheck,
   resumeCheck,
   denyRuleCheck,
   shellExecutionCheck,
