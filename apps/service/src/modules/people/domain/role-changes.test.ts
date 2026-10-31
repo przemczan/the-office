@@ -148,7 +148,12 @@ describe("changeRoleCard", () => {
   });
 
   it("saves a changed permission profile as a change", () => {
-    const permissionProfile = { edit: false, run: "read-only-git", web: true } as const;
+    const permissionProfile = {
+      edit: false,
+      run: "read-only-git",
+      web: true,
+      mcpTools: {},
+    } as const;
     const change = changeRoleCard(aRole(), aRoleCard({ permissionProfile }), OFFERED_MODELS, at);
 
     expect(change?.role.card.permissionProfile).toEqual(permissionProfile);

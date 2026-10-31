@@ -1,3 +1,5 @@
+import type { McpToolSettings } from "./mcp-tool-settings.js";
+
 /**
  * Which commands an Agent may run. Read-only git is allowed under each, and none allows a git command
  * that changes anything (spec §6). The Project's own commands are its command lines, read from the
@@ -17,4 +19,6 @@ export interface PermissionProfile {
   readonly run: RunPermission;
   /** Whether it searches and fetches the web. */
   readonly web: boolean;
+  /** Each tool of the Role's MCP servers, as the user set it. */
+  readonly mcpTools: McpToolSettings;
 }

@@ -1,7 +1,7 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
-import { RoleService, type RoleWithSkills } from "../../application/role-service.js";
+import { RoleService, type RoleWithAssignments } from "../../application/role-service.js";
 import { KNOWN_ROLES } from "../../domain/known-roles.js";
 
 /** An Office tool as the registry takes it. */
@@ -47,7 +47,7 @@ export class PeopleOfficeTools implements OnModuleInit {
   }
 }
 
-function personRecord({ role, skills }: RoleWithSkills): string {
+function personRecord({ role, skills }: RoleWithAssignments): string {
   const { card } = role;
   const capabilities = [
     card.capabilities.chat ? "Chat on" : "Chat off",

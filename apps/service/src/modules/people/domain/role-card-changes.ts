@@ -4,6 +4,7 @@ import {
   type HardSwitchKey,
   type HardSwitchValue,
 } from "./hard-switches.js";
+import { MCP_TOOL_DEFAULT, type McpToolSettings } from "./mcp-tool-settings.js";
 import type { PermissionProfile } from "./permission-profile.js";
 import type { Capabilities, RoleCard } from "./role-card.js";
 import type { TaskLimit } from "./task-limit.js";
@@ -70,5 +71,18 @@ export function roleCardChanges(before: RoleCard, after: RoleCard): RoleCardFiel
 }
 
 function samePermissionProfile(first: PermissionProfile, second: PermissionProfile): boolean {
-  return first.edit === second.edit && first.run === second.run && first.web === second.web;
+  return (
+    first.edit === second.edit &&
+    first.run === second.run &&
+    first.web === second.web &&
+    sameMcpToolSettings(first.mcpTools, second.mcpTools)
+  );
+}
+
+/** A tool left unset and one set at the default are the same setting. */
+function sameMcpToolSettings(first: McpToolSettings, second: McpToolSettings): boolean {
+  const keys = new Set([...Object.keys(first), ...Object.keys(second)]);
+  return [...keys].every((key) =>
+    sameHardSwitchValue(first[key] ?? MCP_TOOL_DEFAULT, second[key] ?? MCP_TOOL_DEFAULT),
+  );
 }

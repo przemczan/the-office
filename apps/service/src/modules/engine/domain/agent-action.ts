@@ -10,6 +10,8 @@ export type AgentAction =
   | { readonly kind: "command"; readonly dialect: ShellDialect; readonly commandLine: string }
   | { readonly kind: "web" }
   | { readonly kind: "office-tool" }
+  /** A tool of one of the session's MCP servers, by the server's and the tool's own names. */
+  | { readonly kind: "mcp-tool"; readonly server: string; readonly tool: string }
   /** The engine's own workings: loading a skill or a tool, a subagent, a turn's structured output. */
   | { readonly kind: "engine" }
   /** A tool The Office doesn't give Agents, by the engine's name for it. */

@@ -4,7 +4,13 @@ import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { EngineSessions, type Engine } from "../../engine/index.js";
 import { SessionMcpServers, type LeftOutMcpServer } from "../../mcp-servers/index.js";
-import { RoleCards, type SessionRole } from "../../people/index.js";
+import {
+  mcpToolSettingsFor,
+  RoleCards,
+  type McpToolSettings,
+  type SessionRole,
+} from "../../people/index.js";
+import { ApprovalHolds } from "./approval-holds.js";
 import { SessionSkills } from "../../skills/index.js";
 import { taskThreadBrief, type Brief } from "../domain/brief.js";
 import { decideContext, type ContextDecision } from "../domain/context-policy.js";
@@ -64,7 +70,10 @@ type SessionSettings = Parameters<EngineSessions["start"]>[0]["settings"];
 export interface StageSessionSettings {
   /** What the person does in a Stage, added to their card's instructions; the same every Stage. */
   readonly instructions: string;
-  readonly profile: SessionSettings["profile"];
+  /** The session's profile, but its MCP tools' settings as the card keeps them: those set only. */
+  readonly profile: Omit<SessionSettings["profile"], "mcpTools"> & {
+    readonly mcpTools: McpToolSettings;
+  };
   readonly officeTools: readonly string[];
   /** The Stage's result schema, the same every Stage, so it stays in the cached prefix. */
   readonly outputSchema: NonNullable<SessionSettings["outputSchema"]>;
@@ -190,6 +199,7 @@ export class StageThreads {
     private readonly events: EventBus,
     private readonly settings: ContextPolicySettingsService,
     private readonly memory: SessionMemory,
+    private readonly approvalHolds: ApprovalHolds,
   ) {}
 
   /** Throws RoleNotFound when nobody fills the Stage's Role. */
@@ -471,7 +481,7 @@ export class StageThreads {
 
   private settingsOf(
     threadId: string,
-    { engine }: ThreadSession,
+    { id, engine }: ThreadSession,
     request: StageThreadRequest,
     { roleKey, card }: SessionRole,
     skills: Awaited<ReturnType<SessionSkills["prepare"]>>,
@@ -490,7 +500,10 @@ export class StageThreads {
         expected: skills.expected,
         overrides: skills.overrides,
       },
-      profile: request.session.profile,
+      profile: {
+        ...request.session.profile,
+        mcpTools: mcpToolSettingsFor(request.session.profile.mcpTools, mcpServers),
+      },
       officeTools: sessionOfficeTools(
         [...request.session.officeTools, ...roleOfficeTools(roleKey)],
         card,
@@ -498,6 +511,7 @@ export class StageThreads {
       ),
       mcpServers,
       outputSchema: request.session.outputSchema,
+      approvalHold: this.approvalHolds.of(id),
       telemetry: {
         span: {
           "office.task": request.taskId,

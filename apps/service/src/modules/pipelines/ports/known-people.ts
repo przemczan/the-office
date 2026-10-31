@@ -18,6 +18,8 @@ export interface KnownPerson {
       readonly edit: boolean;
       readonly run: RunPermission;
       readonly web: boolean;
+      /** The MCP tools the user set, keyed `server/tool`; any other is at the default. */
+      readonly mcpTools: Readonly<Record<string, HardSwitchOnCard>>;
     };
     readonly hardSwitches: Readonly<Record<keyof FollowedHardSwitches, HardSwitchOnCard>>;
   };

@@ -58,7 +58,7 @@ function options(): SessionOptions {
     model: "scripted",
     effort: "low",
     skills: undefined,
-    profile: { edit: true, run: { kind: "anything" }, web: false },
+    profile: { edit: true, run: { kind: "anything" }, web: false, mcpTools: {} },
     officeTools: [],
     mcpServers: [],
     instructions: "",
@@ -262,7 +262,7 @@ describe("the Test Project check's recording", () => {
       id: randomUUID(),
       options: {
         ...options(),
-        profile: { edit: false, run: { kind: "read-only-git" }, web: false },
+        profile: { edit: false, run: { kind: "read-only-git" }, web: false, mcpTools: {} },
       },
       brief: { id: randomUUID(), text: "Read, commit, read a secret." },
     });

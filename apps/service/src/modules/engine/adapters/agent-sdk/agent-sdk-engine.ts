@@ -24,10 +24,11 @@ import type {
 } from "../../ports/engine-session.js";
 import type { UsageWindows } from "../../domain/usage-windows.js";
 import type { SessionEvent } from "../../ports/session-events.js";
-import type { SessionOptions, SessionSkills, ToolHold } from "../../ports/session-options.js";
+import type { SessionOptions, SessionSkills } from "../../ports/session-options.js";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
 import { EngineProcess } from "../claude-code/engine-process.js";
 import { officeRulesHook } from "../claude-code/office-rules-hook.js";
+import type { SessionHolds } from "../office-rules/tool-decision.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
 import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
 import { initProblems, startCheckProblems } from "../claude-code/start-check.js";
@@ -78,7 +79,7 @@ export class AgentSdkEngine extends AgentEngine {
     const engineProcess = new EngineProcess(this.operatingSystem.processTrees);
     const held: HeldTo = {
       rules: claudeCodeOfficeRules(this.operatingSystem, this.officeData.path, id, options),
-      toolHold: options.toolHold,
+      holds: { toolHold: options.toolHold, approvalHold: options.approvalHold },
       skills: options.skills,
       paths: this.operatingSystem.paths,
     };
@@ -109,7 +110,7 @@ export class AgentSdkEngine extends AgentEngine {
 /** What a session is held to as it runs. */
 interface HeldTo {
   readonly rules: OfficeRules;
-  readonly toolHold: ToolHold | undefined;
+  readonly holds: SessionHolds;
   readonly skills: SessionSkills | undefined;
   readonly paths: PathRules;
 }
@@ -131,7 +132,7 @@ class AgentSdkSession implements EngineSession {
     this.engine = query({
       prompt: this.input,
       options: options({
-        preToolUse: officeRulesHook(held.rules, this.streamEvents.refusals, held.toolHold),
+        preToolUse: officeRulesHook(held.rules, this.streamEvents.refusals, held.holds),
         spawnProcess: engineProcess.spawn,
       }),
     });

@@ -56,6 +56,7 @@ import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
 import { FireAlarmLifts } from "./fire-alarm-lifts.js";
+import { ApprovalHolds } from "./approval-holds.js";
 import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
 import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
 import {
@@ -66,7 +67,7 @@ import {
 type Step = SessionScript[number];
 
 const OUTPUT_SCHEMA = { type: "object" };
-const PROFILE = { edit: true, run: { kind: "anything" }, web: false } as const;
+const PROFILE = { edit: true, run: { kind: "anything" }, web: false, mcpTools: {} } as const;
 const USAGE = { input: 3, output: 120, cacheRead: 9_000, cacheCreation: 26_000 };
 
 let app: INestApplication;
@@ -162,6 +163,7 @@ async function startOn(scripted: ScriptedEngine): Promise<void> {
       SessionPlaces,
       ThreadRunner,
       FireAlarmLifts,
+      ApprovalHolds,
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       MentionedRecords,
       WorkRecords,

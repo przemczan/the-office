@@ -1541,7 +1541,7 @@ const DEVELOPER_CARD: SessionRole["card"] = {
   model: "claude-haiku-4-5",
   effort: "low",
   capabilities: { sharedMemory: false, chat: true, consultant: false },
-  permissionProfile: { edit: true, run: "read-only-git", web: false },
+  permissionProfile: { edit: true, run: "read-only-git", web: false, mcpTools: {} },
   hardSwitches: {
     runInstalls: { kind: "never" },
     publishOutsideThePipeline: { kind: "never" },

@@ -12,7 +12,7 @@ export function aProposedCard(fields: Partial<RoleCard> = {}): RoleCard {
     model: "claude-sonnet-5-5",
     effort: "medium",
     capabilities: { sharedMemory: false, chat: true, consultant: false },
-    permissionProfile: { edit: false, run: "read-only-git", web: false },
+    permissionProfile: { edit: false, run: "read-only-git", web: false, mcpTools: {} },
     hardSwitches: {
       runInstalls: { kind: "never" },
       publishOutsideThePipeline: { kind: "never" },

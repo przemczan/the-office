@@ -1,5 +1,6 @@
 import type { Engine } from "../../engine/index.js";
 import { hardSwitchesProblems, type HardSwitches } from "./hard-switches.js";
+import { mcpToolSettingsProblems } from "./mcp-tool-settings.js";
 import type { PermissionProfile } from "./permission-profile.js";
 import { taskLimitProblem, type TaskLimit } from "./task-limit.js";
 
@@ -101,6 +102,7 @@ export function roleCardProblems(
   const limitProblem = taskLimitProblem(card.taskLimit);
   if (limitProblem) problems.push(limitProblem);
   problems.push(...hardSwitchesProblems(roleKey, card.hardSwitches));
+  problems.push(...mcpToolSettingsProblems(roleKey, card.permissionProfile.mcpTools));
   return problems;
 }
 

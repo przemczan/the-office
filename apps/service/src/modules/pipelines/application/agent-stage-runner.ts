@@ -265,6 +265,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
           edit: card.permissionProfile.edit,
           run: commands.permission,
           web: card.permissionProfile.web,
+          mcpTools: card.permissionProfile.mcpTools,
         },
         officeTools: AGENT_STAGE_OFFICE_TOOLS,
         outputSchema: STAGE_RESULT_SCHEMA,

@@ -56,7 +56,7 @@ const SETTINGS: SessionSettings = {
     expected: ["office:review"],
     overrides: {},
   },
-  profile: { edit: true, run: { kind: "anything" }, web: false },
+  profile: { edit: true, run: { kind: "anything" }, web: false, mcpTools: {} },
   officeTools: ["note"],
   mcpServers: [],
   instructions: "",

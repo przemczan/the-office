@@ -30,13 +30,14 @@ import {
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { McpServerLibrary, type McpServerReview } from "../../application/mcp-server-library.js";
 import { RoleMcpServers } from "../../application/role-mcp-servers.js";
-import type {
-  McpServer,
-  McpServerConnection,
-  McpServerTool,
-  NewMcpServer,
-  ServerValue,
-  ServerValueEdit,
+import {
+  toolsTooLongForSessions,
+  type McpServer,
+  type McpServerConnection,
+  type McpServerTool,
+  type NewMcpServer,
+  type ServerValue,
+  type ServerValueEdit,
 } from "../../domain/mcp-server.js";
 import { McpServerRefusalsFilter } from "./mcp-server-refusals.filter.js";
 
@@ -181,6 +182,7 @@ function toReviewResponse(
         server,
         connected: true,
         tools: review.tools.map(toToolResponse),
+        toolsTooLong: toolsTooLongForSessions(review.server.name, review.tools),
         reviewDigest: review.reviewDigest,
       }
     : { server, connected: false, problem: review.problem };

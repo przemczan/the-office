@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { anMcpServer } from "./mcp-server.fixtures.js";
-import { recordedMcpServer, resumeProblem, startProblem } from "./session-mcp-servers.js";
+import { toolsTooLongForSessions } from "./mcp-server.js";
+import {
+  recordedMcpServer,
+  resumeProblem,
+  sessionTools,
+  startProblem,
+} from "./session-mcp-servers.js";
 
 describe("startProblem", () => {
   it("names the required values the server has none for", () => {
@@ -49,5 +55,23 @@ describe("resumeProblem", () => {
         }),
       ),
     ).toBe("it changed since the session started.");
+  });
+});
+
+const tool = (name: string) => ({ name, description: "", inputSchema: {} });
+
+describe("a session's tools", () => {
+  // `mcp__github__` takes 13 of the 64 characters a tool's name may have.
+  const fits = "a".repeat(51);
+  const tooLong = "a".repeat(52);
+  const server = anMcpServer({ tools: [tool("list_issues"), tool(fits), tool(tooLong)] });
+
+  it("leaves out a tool whose name in the session runs over 64 characters", () => {
+    expect(toolsTooLongForSessions(server.name, server.tools)).toEqual([tooLong]);
+    expect(sessionTools(server).map(({ name }) => name)).toEqual(["list_issues", fits]);
+  });
+
+  it("records only the tools the session gets", () => {
+    expect(recordedMcpServer(server).tools.map(({ name }) => name)).toEqual(["list_issues", fits]);
   });
 });

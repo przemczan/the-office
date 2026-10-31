@@ -51,6 +51,7 @@ import { MentionedRecords } from "./mentioned-records.js";
 import { WorkRecords } from "./work-records.js";
 import { ThreadService } from "./thread-service.js";
 import { FireAlarmLifts } from "./fire-alarm-lifts.js";
+import { ApprovalHolds } from "./approval-holds.js";
 import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
 import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
 import { sessionMcpServersStandIn } from "./session-mcp-servers.fixtures.js";
@@ -161,6 +162,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       ThreadContexts,
       ThreadRunner,
       FireAlarmLifts,
+      ApprovalHolds,
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       MentionedRecords,
       WorkRecords,

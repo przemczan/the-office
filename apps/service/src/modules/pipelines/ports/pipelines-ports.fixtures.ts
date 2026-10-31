@@ -179,7 +179,7 @@ export function aPerson(name = "Ada"): KnownPerson {
     card: {
       name,
       taskLimit: 2,
-      permissionProfile: { edit: true, run: "project-commands", web: false },
+      permissionProfile: { edit: true, run: "project-commands", web: false, mcpTools: {} },
       hardSwitches: {
         runInstalls: { kind: "consult", role: "devops" },
         publishOutsideThePipeline: { kind: "never" },

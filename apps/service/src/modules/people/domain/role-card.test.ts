@@ -26,6 +26,10 @@ describe("roleCardProblems", () => {
       capabilities: { sharedMemory: true, chat: false, consultant: false },
       taskLimit: 7,
       hardSwitches: { ...aRoleCard().hardSwitches, runInstalls: consult("developer") },
+      permissionProfile: {
+        ...aRoleCard().permissionProfile,
+        mcpTools: { "github/merge": consult("janitor") },
+      },
     });
 
     expect(roleCardProblems("developer", card, OFFERED_MODELS)).toEqual([
@@ -36,6 +40,7 @@ describe("roleCardProblems", () => {
       "Choose a model the engine offers.",
       "A Task limit is 1 to 6 Tasks at once, or none.",
       "Run installs can't consult the Role itself.",
+      "The MCP tool github/merge consults a Role The Office doesn't know.",
     ]);
   });
 

@@ -1,7 +1,6 @@
 import type { HookCallback, HookJSONOutput } from "@anthropic-ai/claude-agent-sdk";
 import type { OfficeRules, ToolDecision } from "../../domain/office-rules.js";
-import type { ToolHold } from "../../ports/session-options.js";
-import { toolDecision } from "../office-rules/tool-decision.js";
+import { toolDecision, type SessionHolds } from "../office-rules/tool-decision.js";
 import type { ToolRefusals } from "./tool-refusals.js";
 
 /**
@@ -12,11 +11,11 @@ import type { ToolRefusals } from "./tool-refusals.js";
 export function officeRulesHook(
   rules: OfficeRules,
   refusals: ToolRefusals,
-  hold?: ToolHold,
+  holds: SessionHolds = {},
 ): HookCallback {
   return async (input) => {
     if (input.hook_event_name !== "PreToolUse") return {};
-    const decision = await toolDecision(rules, hold, input.tool_name, input.tool_input);
+    const decision = await toolDecision(rules, holds, input.tool_name, input.tool_input);
     if (!decision.allowed) refusals.refusedByOfficeRules(input.tool_use_id, decision.reason);
     return hookOutput(decision);
   };

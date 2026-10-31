@@ -3,7 +3,8 @@ import { Injectable, Logger, type OnModuleDestroy } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { EngineSessions } from "../../engine/index.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
-import { RoleCards, type SessionRole } from "../../people/index.js";
+import { mcpToolSettingsFor, RoleCards, type SessionRole } from "../../people/index.js";
+import { ApprovalHolds } from "./approval-holds.js";
 import { SessionSkills } from "../../skills/index.js";
 import { ChatNotFound } from "../domain/chat-not-found.js";
 import { answerProblems, type Decision, type DecisionAnswer } from "../domain/decision.js";
@@ -123,6 +124,7 @@ export class ThreadRunner implements OnModuleDestroy {
     private readonly settings: ContextPolicySettingsService,
     private readonly mentionedRecords: MentionedRecords,
     private readonly fireAlarmLifts: FireAlarmLifts,
+    private readonly approvalHolds: ApprovalHolds,
   ) {}
 
   /**
@@ -445,7 +447,7 @@ export class ThreadRunner implements OnModuleDestroy {
 
   private settingsOf(
     thread: Thread,
-    { engine }: ThreadSession,
+    { id, engine }: ThreadSession,
     { roleKey, card }: SessionRole,
     { skills, mcpServers }: Pick<SessionSettings, "skills" | "mcpServers">,
     place: SessionPlace,
@@ -463,8 +465,14 @@ export class ThreadRunner implements OnModuleDestroy {
         expected: skills.expected,
         overrides: skills.overrides,
       },
-      // Only reads (spec §6): the card's profile, narrowed.
-      profile: { edit: false, run: { kind: "read-only-git" }, web: card.permissionProfile.web },
+      // Only reads (spec §6): the card's profile, narrowed. Its MCP tools keep their settings; one
+      // waiting on approval is refused in a chat, which opens no Decision (`HeldCalls`).
+      profile: {
+        edit: false,
+        run: { kind: "read-only-git" },
+        web: card.permissionProfile.web,
+        mcpTools: mcpToolSettingsFor(card.permissionProfile.mcpTools, mcpServers),
+      },
       officeTools: sessionOfficeTools(
         place.officeTools,
         card,
@@ -474,6 +482,7 @@ export class ThreadRunner implements OnModuleDestroy {
       outputSchema: undefined,
       // Asked at each call, so an alarm sounding or lifted mid-session holds or frees the next.
       toolHold: () => this.fireAlarmLifts.heldReason(thread.id),
+      approvalHold: this.approvalHolds.of(id),
       telemetry: {
         span: { ...place.span, "office.thread": thread.id, "office.role": roleKey },
         metric: { "office.conversation.home": thread.home.kind },

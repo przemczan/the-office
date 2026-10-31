@@ -1,4 +1,4 @@
-import type { McpServer, McpServerTool } from "./mcp-server.js";
+import { toolsTooLongForSessions, type McpServer, type McpServerTool } from "./mcp-server.js";
 import { reviewDigest } from "./mcp-server-review.js";
 import { missingRequiredValues } from "./project-server-values.js";
 
@@ -39,11 +39,17 @@ export function startProblem(
   return `it has no value for ${missing.join(", ")}.`;
 }
 
+/** The server's tools a session gets: all but those `toolsTooLongForSessions` names. */
+export function sessionTools(server: Pick<McpServer, "name" | "tools">): McpServerTool[] {
+  const tooLong = new Set(toolsTooLongForSessions(server.name, server.tools));
+  return server.tools.filter(({ name }) => !tooLong.has(name));
+}
+
 /** What a session records of a server it starts with. */
 export function recordedMcpServer(server: McpServer): RecordedMcpServer {
   return {
     name: server.name,
-    tools: server.tools,
+    tools: sessionTools(server),
     reviewDigest: reviewDigest(server, server.tools),
   };
 }

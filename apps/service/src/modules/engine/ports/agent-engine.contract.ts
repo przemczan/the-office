@@ -371,7 +371,12 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
   });
 }
 
-const READ_ONLY = { edit: false, run: { kind: "read-only-git" }, web: false } as const;
+const READ_ONLY = {
+  edit: false,
+  run: { kind: "read-only-git" },
+  web: false,
+  mcpTools: {},
+} as const;
 
 const NOTED = "Noted.";
 

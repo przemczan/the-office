@@ -23,6 +23,7 @@ import { Briefs } from "./application/briefs.js";
 import { Consultations } from "./application/consultations.js";
 import { ContextPolicySettingsService } from "./application/context-policy-settings.js";
 import { DecisionService } from "./application/decision-service.js";
+import { ApprovalHolds } from "./application/approval-holds.js";
 import { HeldCalls } from "./application/held-calls.js";
 import { FireAlarmInThreads } from "./application/fire-alarm-in-threads.js";
 import { FireAlarmLifts } from "./application/fire-alarm-lifts.js";
@@ -114,6 +115,7 @@ export class ConversationsModule {
         LinkCards,
         LinkCardOfficeTools,
         HeldCalls,
+        ApprovalHolds,
         MemoryOfficeTools,
         ThreadWebEvents,
       ],

@@ -12,7 +12,7 @@ function rules(paths = SYSTEM.paths): OfficeRules {
   return new OfficeRules({
     workingFolder: "/work/task-1",
     readableFolders: [],
-    profile: { edit: false, run: { kind: "anything" }, web: false },
+    profile: { edit: false, run: { kind: "anything" }, web: false, mcpTools: {} },
     userSecrets: SYSTEM.secretPaths,
     officeFiles: [],
     homeFolder: "/home/office",
@@ -90,7 +90,9 @@ describe("officeRulesHook", () => {
     it("refuses each call in the hold's words, an Office tool's too, and keeps it for the Thread log", async () => {
       const refusals = new ToolRefusals();
       const refused = vi.spyOn(refusals, "refusedByOfficeRules");
-      const hook = officeRulesHook(rules(), refusals, () => Promise.resolve(ALARM));
+      const hook = officeRulesHook(rules(), refusals, {
+        toolHold: () => Promise.resolve(ALARM),
+      });
       const denied = {
         hookSpecificOutput: {
           hookEventName: "PreToolUse",
@@ -110,7 +112,9 @@ describe("officeRulesHook", () => {
 
     it("judges each call by the Office rules once the hold lets go, as for a lifted Thread", async () => {
       let held: string | undefined = ALARM;
-      const hook = officeRulesHook(rules(), new ToolRefusals(), () => Promise.resolve(held));
+      const hook = officeRulesHook(rules(), new ToolRefusals(), {
+        toolHold: () => Promise.resolve(held),
+      });
       await hook(preToolUse("Read", { file_path: "README.md" }), "c1", SIGNAL);
 
       held = undefined;

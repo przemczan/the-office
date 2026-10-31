@@ -111,6 +111,11 @@ export const mcpServerReviewSchema = z.discriminatedUnion("connected", [
     server: mcpServerSchema,
     connected: z.literal(true),
     tools: z.array(mcpServerToolSchema),
+    /**
+     * The tools sessions leave out, by name: as `mcp__<server>__<tool>` their names run over the
+     * model APIs' 64 characters.
+     */
+    toolsTooLong: z.array(z.string()),
     /** What the review showed, which turning the server on sends back. */
     reviewDigest: z.string(),
   }),

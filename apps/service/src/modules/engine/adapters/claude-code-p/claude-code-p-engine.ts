@@ -105,9 +105,9 @@ export class ClaudeCodePEngine extends AgentEngine {
   ): Promise<ClaudeCodePSession> {
     const rules = claudeCodeOfficeRules(this.operatingSystem, this.officeData.path, id, options);
     const streamEvents = new StreamEvents();
-    const hold = options.toolHold;
+    const holds = { toolHold: options.toolHold, approvalHold: options.approvalHold };
     const endpoints = this.endpoints.open({
-      preToolUse: officeRulesHook(rules, streamEvents.refusals, hold),
+      preToolUse: officeRulesHook(rules, streamEvents.refusals, holds),
     });
     const resources: SessionResources = {
       endpoints,
@@ -115,7 +115,7 @@ export class ClaudeCodePEngine extends AgentEngine {
         options.officeTools.length === 0
           ? undefined
           : new OfficeToolServer(options.officeTools, id, (tool, input) =>
-              toolDecision(rules, hold, tool, input),
+              toolDecision(rules, holds, tool, input),
             ),
       folder: options.instructions === "" ? undefined : await instructionsFolder(options),
     };

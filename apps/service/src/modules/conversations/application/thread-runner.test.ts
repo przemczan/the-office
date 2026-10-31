@@ -62,6 +62,7 @@ import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { ConversationsSettings } from "../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../ports/conversations-settings.fixtures.js";
 import { FireAlarmLifts, HELD_BY_THE_FIRE_ALARM } from "./fire-alarm-lifts.js";
+import { ApprovalHolds } from "./approval-holds.js";
 import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
 import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
 import {
@@ -211,6 +212,7 @@ async function startOn(
       ThreadContexts,
       ThreadRunner,
       FireAlarmLifts,
+      ApprovalHolds,
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       MentionedRecords,
       WorkRecords,
@@ -579,11 +581,8 @@ describe("continuing a Thread", () => {
 
     const [first, resumed] = engine.sessions;
     expect(resumed?.id).toBe(first?.id);
-    // The same options, but the fire alarm's hold, a function made for each move.
-    expect({ ...resumed?.options, toolHold: undefined }).toEqual({
-      ...first?.options,
-      toolHold: undefined,
-    });
+    // The same options, but the holds, functions made for each move.
+    expect(withoutHolds(resumed?.options)).toEqual(withoutHolds(first?.options));
     expect(drafts(log).slice(3)).toEqual([
       contextLine({ move: "resume", reason: "small-context", contextTokens: 12_000 }),
       { kind: "user", text: "Still there?", delivery: "delivered" },
@@ -1496,3 +1495,8 @@ describe("chats during the fire alarm", () => {
     await expect(lifts.lifted()).resolves.toEqual([]);
   });
 });
+
+/** A session's options but its holds, which are functions made for each move. */
+function withoutHolds(options: object | undefined): object {
+  return { ...options, toolHold: undefined, approvalHold: undefined };
+}

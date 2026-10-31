@@ -29,13 +29,6 @@ export type Capabilities = z.infer<typeof capabilitiesSchema>;
 export const runPermissionSchema = z.enum(["read-only-git", "project-commands", "anything"]);
 export type RunPermission = z.infer<typeof runPermissionSchema>;
 
-export const permissionProfileSchema = z.object({
-  edit: z.boolean(),
-  run: runPermissionSchema,
-  web: z.boolean(),
-});
-export type PermissionProfile = z.infer<typeof permissionProfileSchema>;
-
 export const hardSwitchKeySchema = z.enum([
   "runInstalls",
   "publishOutsideThePipeline",
@@ -51,6 +44,18 @@ export const hardSwitchValueSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("never") }),
 ]);
 export type HardSwitchValue = z.infer<typeof hardSwitchValueSchema>;
+
+export const permissionProfileSchema = z.object({
+  edit: z.boolean(),
+  run: runPermissionSchema,
+  web: z.boolean(),
+  /**
+   * Each tool of the Role's MCP servers the user set, keyed `server/tool`, set like a Hard switch;
+   * any other is at Consult Devops.
+   */
+  mcpTools: z.record(z.string(), hardSwitchValueSchema),
+});
+export type PermissionProfile = z.infer<typeof permissionProfileSchema>;
 
 export const hardSwitchesSchema = z.object({
   runInstalls: hardSwitchValueSchema,
@@ -83,6 +88,17 @@ export const roleCardSchema = z.object({
 });
 export type RoleCard = z.infer<typeof roleCardSchema>;
 
+/**
+ * An MCP server the Role has (PUT /mcp-servers/:name/roles assigns it): whether it is on, and each
+ * tool its sessions get with the tool's setting on the card, the default included.
+ */
+export const roleMcpServerSchema = z.object({
+  name: z.string(),
+  on: z.boolean(),
+  tools: z.array(z.object({ name: z.string(), setting: hardSwitchValueSchema })),
+});
+export type RoleMcpServer = z.infer<typeof roleMcpServerSchema>;
+
 /** A Role someone fills, by the key Pipelines and Consult values name it by. */
 export const roleSchema = z.object({
   key: z.string().min(1),
@@ -95,6 +111,8 @@ export const roleSchema = z.object({
   letGoAt: z.iso.datetime().nullable(),
   /** The switches whose Consult value names a Role nobody fills, so they ask the user for now. */
   askingYouUntilHired: z.array(hardSwitchKeySchema),
+  /** In name order. */
+  mcpServers: z.array(roleMcpServerSchema),
 });
 export type Role = z.infer<typeof roleSchema>;
 

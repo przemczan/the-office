@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import {
+  mcpServerReviewSchema,
   presetListSchema,
   roleCardOptionsSchema,
   roleChangeListSchema,
@@ -26,6 +27,7 @@ import { OfficeDataModule } from "../../../../platform/office-data/office-data.m
 import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
+import { FAKE_STDIO_MCP_SERVER } from "../../../../platform/mcp/fake-mcp-servers.fixtures.js";
 import { RoleSkills, SkillLibrary } from "../../../skills/index.js";
 import { RoleService } from "../../application/role-service.js";
 import { PRESETS } from "../../domain/presets.js";
@@ -88,6 +90,25 @@ async function get(path: string): Promise<unknown> {
   const response = await fetch(`${url}/api${path}`);
   expect(response.status).toBe(200);
   return response.json();
+}
+
+/** Adds the fake local MCP server to the library and turns it on, as its review listed it. */
+async function addReviewedFakeServer(name: string): Promise<void> {
+  const added = await send("POST", "/mcp-servers", {
+    name,
+    transport: "stdio",
+    command: process.execPath,
+    arguments: [FAKE_STDIO_MCP_SERVER],
+    serverValues: [],
+  });
+  expect(added.status).toBe(201);
+  const review = mcpServerReviewSchema.parse(await get(`/mcp-servers/${name}/review`));
+  if (!review.connected) throw new Error(review.problem);
+  const on = await send("PUT", `/mcp-servers/${name}/state`, {
+    state: "on",
+    reviewDigest: review.reviewDigest,
+  });
+  expect(on.status).toBe(200);
 }
 
 async function hire(roleKey: string, name: string): Promise<Role> {
@@ -295,6 +316,37 @@ describe("GET /api/roles", () => {
     expect(reviewer).toEqual(listed.find((role) => role.key === "reviewer"));
   });
 
+  it("lists the Role's MCP servers with each tool's setting, the default included", async () => {
+    // A name of the test's own, since every test file shares the database.
+    const name = `fake-${randomUUID().slice(0, 8)}`;
+    await addReviewedFakeServer(name);
+    expect((await send("PUT", `/mcp-servers/${name}/roles`, { roles: ["planner"] })).status).toBe(
+      200,
+    );
+    const hired = await hire("planner", "Jan");
+    const changed = await send("PUT", "/roles/planner/card", {
+      ...editOf(hired),
+      permissionProfile: {
+        ...hired.card.permissionProfile,
+        mcpTools: { [`${name}/echo`]: { kind: "allowed" } },
+      },
+    });
+    expect(changed.status).toBe(200);
+
+    const planner = roleSchema.parse(await get("/roles/planner"));
+
+    const devops = { kind: "consult", role: "devops" };
+    expect(planner.mcpServers.find((server) => server.name === name)).toEqual({
+      name,
+      on: true,
+      tools: [
+        { name: "echo", setting: { kind: "allowed" } },
+        { name: "environment-variable", setting: devops },
+        { name: "started-process", setting: devops },
+      ],
+    });
+  });
+
   it("answers 404 for a Role nobody fills", async () => {
     const response = await fetch(`${url}/api/roles/developer`);
 
@@ -349,7 +401,12 @@ describe("POST /api/roles/:key/let-go and /hire-back", () => {
 describe("PUT /api/roles/:key/card", () => {
   it("saves the card as its next version, with its permission profile", async () => {
     const hired = await hire("developer", "Ada");
-    const permissionProfile = { edit: false, run: "read-only-git", web: true };
+    const permissionProfile = {
+      edit: false,
+      run: "read-only-git",
+      web: true,
+      mcpTools: { "github/merge": { kind: "never" } },
+    };
     const edit = {
       ...editOf(hired),
       taskLimit: 2,

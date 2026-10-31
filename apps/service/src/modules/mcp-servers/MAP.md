@@ -2,7 +2,7 @@
 
 **Owns:** the MCP server library (`mcp_servers`, spec §5.4): each server's local command and arguments (stdio) or remote URL (Streamable HTTP), its Server values (environment variables of a local server, headers of a remote one; plain or secret; required or not) with their Office-wide values, whether it is on and the tools its review listed when it was turned on. A server is added off (`McpServerLibrary.add`), and an edit to its command, arguments, URL, transport or its values' names turns it off and forgets its tools. The review (`GET /mcp-servers/:name/review`, `McpServerLibrary.review`) connects through the platform's `McpClient` with the Office-wide values and shows the tools, or why it couldn't connect, with a `reviewDigest` (`domain/mcp-server-review.ts`) of what it showed; `PUT /mcp-servers/:name/state` turns it on only when that digest matches the server as kept and its tools listed again, and records them; a pasted JSON config in the shape of Claude Code's `mcpServers` entries is read into a server for the form (`POST /mcp-servers/pasted-config`, `pastedMcpServer`), and nothing is kept until the user adds it.
 
-**Talks to:** the platform's MCP client (`McpClientModule`), with a launch built by `application/mcp-server-launch.ts`; no module yet; Settings › MCP servers in the web, over `/mcp-servers`.
+**Talks to:** the platform's MCP client (`McpClientModule`), with a launch built by `application/mcp-server-launch.ts`; People reads a Role's servers and their tools (`RoleMcpServers.byRole`, `McpServerOnCard`), and Conversations prepares a session's (`SessionMcpServers`), whose tools leave out those named over 64 characters (`sessionTools`; the review flags them as `toolsTooLong`); Settings › MCP servers in the web, over `/mcp-servers`.
 
 **Traps:** a secret's Office-wide value is kept in the database and never leaves the service: the controller answers `officeWideValueSet` instead, an edit without a value keeps the one kept, and a secret made plain loses its value so a later GET can't show it. The events name the server and never carry it, so a subscriber to every event never sees a secret; a server's own words (its standard error in a failed review) have each secret's value hidden by `withoutSecrets`. The name is never changed: it names the server's tools (`mcp__<name>__<tool>`), so it has single hyphens only, at most 32 characters, and `office` is the Office tools' own.
 
@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-McpServerLibrary, ProjectServerValues, ProjectMcpServerValues, ProjectServerValueView, RoleMcpServers, SessionMcpServers, PreparedMcpServer, PreparedMcpServers, SessionMcpServerRequest, McpServerAdded, McpServerChanged, McpServerRemoved, McpServerRolesChanged, McpServerTurnedOff, McpServerTurnedOn, McpServerRefused, ProjectServerValueEdit, LeftOutMcpServer, McpServersModule
+McpServerLibrary, ProjectServerValues, ProjectMcpServerValues, ProjectServerValueView, RoleMcpServers, McpServerOnCard, SessionMcpServers, PreparedMcpServer, PreparedMcpServers, SessionMcpServerRequest, McpServerAdded, McpServerChanged, McpServerRemoved, McpServerRolesChanged, McpServerTurnedOff, McpServerTurnedOn, McpServerRefused, ProjectServerValueEdit, LeftOutMcpServer, McpServersModule
 
 ## Domain events
 
@@ -61,7 +61,7 @@ McpServerLibrary, ProjectServerValues, ProjectMcpServerValues, ProjectServerValu
 - `mcp-server-launch.ts`: officeWideValues, launchOf
 - `mcp-server-library.ts`: McpServerReview, McpServerLibrary
 - `project-server-values.ts`: ProjectServerValueView, ProjectMcpServerValues, ProjectServerValues
-- `role-mcp-servers.ts`: RoleMcpServers
+- `role-mcp-servers.ts`: McpServerOnCard, RoleMcpServers
 - `session-mcp-servers.ts`: PreparedMcpServer, PreparedMcpServers, SessionMcpServerRequest, SessionMcpServers
 - Tests: session-mcp-servers.test.ts
 
@@ -73,10 +73,10 @@ McpServerLibrary, ProjectServerValues, ProjectMcpServerValues, ProjectServerValu
 - `mcp-server-refused.ts`: McpServerRefused
 - `mcp-server-review.ts`: reviewDigest
 - `mcp-server.fixtures.ts`: anMcpServer
-- `mcp-server.ts`: MCP_SERVER_TRANSPORTS, McpServerTransport, McpServerConnection, ServerValue, MCP_SERVER_STATES, McpServerState, McpServerTool, McpServer, ServerValueEdit, McpServerEdit, NewMcpServer, NAME_LENGTH, mcpServerNameProblems, mcpServerNameTaken, connectionProblems, serverValueProblems, trimmedConnection, withoutSecrets, sameConnection
+- `mcp-server.ts`: MCP_SERVER_TRANSPORTS, McpServerTransport, McpServerConnection, ServerValue, MCP_SERVER_STATES, McpServerState, McpServerTool, McpServer, ServerValueEdit, McpServerEdit, NewMcpServer, NAME_LENGTH, SESSION_TOOL_NAME_LENGTH, sessionToolName, toolsTooLongForSessions, mcpServerNameProblems, mcpServerNameTaken, connectionProblems, serverValueProblems, trimmedConnection, withoutSecrets, sameConnection
 - `pasted-config.ts`: pastedMcpServer
 - `project-server-values.ts`: ProjectServerValue, ProjectServerValueEdit, editedProjectServerValues, projectServerValuesAfterChange, serverValuesFor, missingRequiredValues, keptValue
-- `session-mcp-servers.ts`: RecordedMcpServer, SessionMcpServerRecord, LeftOutMcpServer, startProblem, recordedMcpServer, resumeProblem
+- `session-mcp-servers.ts`: RecordedMcpServer, SessionMcpServerRecord, LeftOutMcpServer, startProblem, sessionTools, recordedMcpServer, resumeProblem
 - Tests: mcp-server-changes.test.ts, pasted-config.test.ts, project-server-values.test.ts, session-mcp-servers.test.ts
 
 ### ports/

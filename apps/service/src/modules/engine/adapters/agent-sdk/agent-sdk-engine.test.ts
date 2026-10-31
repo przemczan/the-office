@@ -152,7 +152,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
         id: randomUUID(),
         options: {
           ...options(folder),
-          profile: { edit: false, run: { kind: "anything" }, web: false },
+          profile: { edit: false, run: { kind: "anything" }, web: false, mcpTools: {} },
         },
         brief: message(
           "Use the Bash tool with run_in_background set to true to run: echo background-42 && sleep 30. " +
@@ -192,7 +192,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
         id: randomUUID(),
         options: {
           ...options(folder),
-          profile: { edit: false, run: { kind: "anything" }, web: false },
+          profile: { edit: false, run: { kind: "anything" }, web: false, mcpTools: {} },
         },
         brief: message(
           "Use the Bash tool with run_in_background set to true to run: node keep-alive.mjs. " +
@@ -257,7 +257,7 @@ function options(folder: string): SessionOptions {
     model: MODEL,
     effort: "low",
     skills: undefined,
-    profile: { edit: false, run: { kind: "read-only-git" }, web: false },
+    profile: { edit: false, run: { kind: "read-only-git" }, web: false, mcpTools: {} },
     officeTools: [],
     mcpServers: [],
     instructions: "",

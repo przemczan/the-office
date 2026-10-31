@@ -9,6 +9,11 @@ export {
   type HardSwitchValue,
 } from "./domain/hard-switches.js";
 export { CTO, DEVOPS, OFFICE_MANAGER } from "./domain/known-roles.js";
+export {
+  mcpToolSettingsFor,
+  narrowedMcpToolSetting,
+  type McpToolSettings,
+} from "./domain/mcp-tool-settings.js";
 export type { RoleCard } from "./domain/role-card.js";
 export { RoleNotFound } from "./domain/role-not-found.js";
 export { RoleRefused } from "./domain/role-refused.js";

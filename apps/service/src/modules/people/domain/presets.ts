@@ -31,7 +31,7 @@ const planner: Preset = {
     model: "claude-opus-5-5",
     effort: "high",
     capabilities: { sharedMemory: true, chat: true, consultant: true },
-    permissionProfile: { edit: false, run: "read-only-git", web: true },
+    permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
     hardSwitches: {
       runInstalls: consult("devops"),
       publishOutsideThePipeline: NEVER,
@@ -59,7 +59,7 @@ const developer: Preset = {
     model: "claude-opus-5-5",
     effort: "high",
     capabilities: { sharedMemory: false, chat: false, consultant: false },
-    permissionProfile: { edit: true, run: "anything", web: true },
+    permissionProfile: { edit: true, run: "anything", web: true, mcpTools: {} },
     hardSwitches: {
       runInstalls: consult("devops"),
       publishOutsideThePipeline: consult("cto"),
@@ -87,7 +87,7 @@ const reviewer: Preset = {
     model: "claude-sonnet-5-5",
     effort: "high",
     capabilities: { sharedMemory: false, chat: false, consultant: false },
-    permissionProfile: { edit: false, run: "project-commands", web: true },
+    permissionProfile: { edit: false, run: "project-commands", web: true, mcpTools: {} },
     hardSwitches: {
       runInstalls: consult("devops"),
       publishOutsideThePipeline: NEVER,
@@ -116,7 +116,7 @@ const cto: Preset = {
     model: "claude-opus-5-5",
     effort: "high",
     capabilities: { sharedMemory: true, chat: true, consultant: true },
-    permissionProfile: { edit: true, run: "anything", web: true },
+    permissionProfile: { edit: true, run: "anything", web: true, mcpTools: {} },
     hardSwitches: {
       runInstalls: consult("devops"),
       publishOutsideThePipeline: ASK_ME,
@@ -145,7 +145,7 @@ const devops: Preset = {
     effort: "high",
     capabilities: { sharedMemory: true, chat: true, consultant: true },
     // Onboarding makes a Project build and test in its worktree, so Devops edits and runs there.
-    permissionProfile: { edit: true, run: "anything", web: true },
+    permissionProfile: { edit: true, run: "anything", web: true, mcpTools: {} },
     hardSwitches: {
       runInstalls: ALLOWED,
       publishOutsideThePipeline: consult(CTO),
@@ -173,7 +173,7 @@ const officeManager: Preset = {
     effort: "medium",
     capabilities: { sharedMemory: true, chat: true, consultant: false },
     // A chat only reads (spec §6), and the Office Manager never works a Stage.
-    permissionProfile: { edit: false, run: "read-only-git", web: true },
+    permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
     hardSwitches: {
       runInstalls: NEVER,
       publishOutsideThePipeline: NEVER,

@@ -17,3 +17,4 @@ export { ScriptedEngineModule } from "./scripted-engine.module.js";
 export { OPENAI_COMPATIBLE_API_CAPABILITIES } from "./adapters/openai-compatible-api/openai-compatible-api-engine.js";
 export type { NewSession } from "./ports/agent-engine.js";
 export type { EngineSession } from "./ports/engine-session.js";
+export type { ApprovalCall, ApprovalHold } from "./ports/session-options.js";

@@ -152,7 +152,12 @@ describe.runIf(process.env["OFFICE_ENGINE_TESTS"] === "live" && LIVE_BASE_URL &&
   },
 );
 
-const READ_ONLY: PermissionProfile = { edit: false, run: { kind: "read-only-git" }, web: false };
+const READ_ONLY: PermissionProfile = {
+  edit: false,
+  run: { kind: "read-only-git" },
+  web: false,
+  mcpTools: {},
+};
 const EDITS: PermissionProfile = { ...READ_ONLY, edit: true };
 
 describe("OpenAiCompatibleApiEngine's loop", () => {

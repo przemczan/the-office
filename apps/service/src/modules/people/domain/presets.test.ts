@@ -50,7 +50,7 @@ describe("PRESETS", () => {
     });
   });
 
-  // Spec §6's default profiles; a chat only reads.
+  // Spec §6's default profiles, every MCP tool at its default; a chat only reads.
   it.each([
     ["planner", { edit: false, run: "read-only-git", web: true }],
     ["office-manager", { edit: false, run: "read-only-git", web: true }],
@@ -59,7 +59,10 @@ describe("PRESETS", () => {
     ["devops", { edit: true, run: "anything", web: true }],
     ["reviewer", { edit: false, run: "project-commands", web: true }],
   ])("give the %s the permission profile %o", (roleKey, permissionProfile) => {
-    expect(presetFor(roleKey)?.card.permissionProfile).toEqual(permissionProfile);
+    expect(presetFor(roleKey)?.card.permissionProfile).toEqual({
+      ...permissionProfile,
+      mcpTools: {},
+    });
   });
 
   it.each(PRESETS)("keep the rules with the suggested name ($roleKey)", (preset) => {

@@ -63,7 +63,7 @@ const CTO_ROLE: SessionRole = {
     model: "claude-haiku-5-5",
     effort: "low",
     capabilities: { sharedMemory: true, chat: true, consultant: true },
-    permissionProfile: { edit: false, run: "read-only-git", web: true },
+    permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
     hardSwitches: {
       runInstalls: { kind: "consult", role: "devops" },
       publishOutsideThePipeline: { kind: "ask-me" },

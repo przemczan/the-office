@@ -95,15 +95,18 @@ describe("agentAction", () => {
     }
   });
 
-  it("names every other tool unavailable, other MCP servers' too", () => {
-    for (const tool of [
-      "EnterWorktree",
-      "RemoteTrigger",
-      "CronCreate",
-      "SendMessage",
-      "mcp__github__push",
-    ]) {
+  it("names every other tool unavailable", () => {
+    for (const tool of ["EnterWorktree", "RemoteTrigger", "CronCreate", "SendMessage"]) {
       expect(agentAction(tool, {})).toEqual({ kind: "unavailable", tool });
     }
+  });
+
+  it("names an MCP server's tool by the server and the tool, the server ending at its first __", () => {
+    expect(agentAction("mcp__brave-search__web__search", {})).toEqual({
+      kind: "mcp-tool",
+      server: "brave-search",
+      tool: "web__search",
+    });
+    expect(agentAction("mcp__office__read_task", {})).toEqual({ kind: "office-tool" });
   });
 });

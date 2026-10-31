@@ -1,14 +1,19 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, type OnModuleInit } from "@nestjs/common";
+import type { ApprovalCall } from "../../engine/index.js";
 import {
   hardSwitchInEffect,
   HARD_SWITCH_LABELS,
   RoleCards,
   type HardSwitchKey,
+  type HardSwitchValue,
 } from "../../people/index.js";
 import { APPROVAL_OPTIONS, approvalQuestion } from "../domain/consult.js";
 import { heldCallRuling } from "../domain/held-call.js";
+import { mcpToolCallWords } from "../domain/mcp-tool-call.js";
+import type { Thread } from "../domain/thread.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
+import { ApprovalHolds } from "./approval-holds.js";
 import { Consultations } from "./consultations.js";
 
 /**
@@ -30,32 +35,80 @@ export interface HeldCallRequest {
   readonly why: string;
 }
 
+/** What a held call is put to the approver with, behind whichever setting holds it. */
+type HeldCall = Omit<HeldCallRequest, "switchKey">;
+
 /**
- * Holds the calls behind the enforced Hard switches (spec §6). The switch on the calling person's
- * card decides: Allowed runs, Never refuses, Ask me and Consult open an approval for the call, of the Consultant a Consult names, or of the user.
- * Nothing waits in the tool call: the answer comes as the Agent's next message, and its repeat of
- * the call then runs once if the answer was "Allow once".
+ * Holds the calls behind the enforced Hard switches and the MCP tools' settings, which are set the
+ * same way (spec §6). The setting decides: Allowed runs, Never refuses, Ask me and Consult open an
+ * approval for the call, of the Consultant a Consult names, or of the user. Nothing waits in the
+ * tool call: the answer comes as the Agent's next message, and its repeat of the call then runs
+ * once if the answer was "Allow once". In a chat no Decision opens, so such a call is refused.
  */
 @Injectable()
-export class HeldCalls {
+export class HeldCalls implements OnModuleInit {
   constructor(
     private readonly roleCards: RoleCards,
     private readonly threads: ThreadRepository,
     private readonly consultations: Consultations,
+    private readonly approvalHolds: ApprovalHolds,
   ) {}
 
+  onModuleInit(): void {
+    this.approvalHolds.holdWith((sessionId, call) => this.holdMcpToolCall(sessionId, call));
+  }
+
+  /** A call behind the switch on the calling person's card as it is now. */
   async hold(request: HeldCallRequest): Promise<HeldCallOutcome> {
     const thread = await this.threads.findBySession(request.sessionId);
     if (!thread) return refused("The Office doesn't know this session's Thread.");
     const session = await this.roleCards.find(thread.roleKey);
     if (!session) return refused("Nobody fills your Role now.");
-    const inEffect = hardSwitchInEffect(
+    return this.holdBehind(
+      thread,
+      request,
+      HARD_SWITCH_LABELS[request.switchKey],
       session.card.hardSwitches[request.switchKey],
-      await this.roleCards.hiredKeys(),
     );
-    const ruling = heldCallRuling(HARD_SWITCH_LABELS[request.switchKey], inEffect, (roleKey) =>
-      this.roleCards.roleTitle(roleKey),
+  }
+
+  /**
+   * A call of an MCP tool whose setting, as the session was given it, asks for approval: undefined
+   * when it runs now, else the words the Agent reads instead of the tool's answer.
+   */
+  async holdMcpToolCall(sessionId: string, call: ApprovalCall): Promise<string | undefined> {
+    const thread = await this.threads.findBySession(sessionId);
+    if (!thread) return "The Office doesn't know this session's Thread.";
+    const tool = `the ${call.server}/${call.tool} MCP tool`;
+    const outcome = await this.holdBehind(
+      thread,
+      {
+        sessionId,
+        call: mcpToolCallWords(call),
+        context: `Your Role card asks for approval of each call of ${tool}.`,
+        why: `${tool} needs approval for each call.`,
+      },
+      tool,
+      call.setting,
     );
+    switch (outcome.kind) {
+      case "proceed":
+        return undefined;
+      case "refused":
+        return outcome.reason;
+      case "held":
+        return `The call waits on ${outcome.waitingOn}, as a Decision in this Thread. End your turn now: their answer comes as your next message, and after "Allow once" you make the same call, with the same input, which then runs once.`;
+    }
+  }
+
+  private async holdBehind(
+    thread: Thread,
+    request: HeldCall,
+    label: string,
+    setting: HardSwitchValue,
+  ): Promise<HeldCallOutcome> {
+    const inEffect = hardSwitchInEffect(setting, await this.roleCards.hiredKeys());
+    const ruling = heldCallRuling(label, inEffect, (roleKey) => this.roleCards.roleTitle(roleKey));
     const proceed: HeldCallOutcome = { kind: "proceed", roleKey: thread.roleKey };
     if (ruling.kind === "proceed") return proceed;
     if (ruling.kind === "refuse") return refused(ruling.reason);

@@ -1,5 +1,5 @@
 import type { AgentAction } from "../../domain/agent-action.js";
-import { OFFICE_TOOL_PREFIX } from "./office-tool-names.js";
+import { mcpToolOf, OFFICE_TOOL_PREFIX } from "./office-tool-names.js";
 
 /**
  * The engine's tools of its own workings, allowed under every profile: loading a skill or a
@@ -24,6 +24,8 @@ const WEB_TOOLS: ReadonlySet<string> = new Set(["WebSearch", "WebFetch"]);
  */
 export function agentAction(tool: string, input: unknown): AgentAction {
   if (tool.startsWith(OFFICE_TOOL_PREFIX)) return { kind: "office-tool" };
+  const mcpTool = mcpToolOf(tool);
+  if (mcpTool) return { kind: "mcp-tool", ...mcpTool };
   if (ENGINE_TOOLS.has(tool)) return { kind: "engine" };
   if (WEB_TOOLS.has(tool)) return { kind: "web" };
   switch (tool) {

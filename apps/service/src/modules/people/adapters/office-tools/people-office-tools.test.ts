@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { OfficeToolRegistry } from "../../../engine/index.js";
-import type { RoleService, RoleWithSkills } from "../../application/role-service.js";
+import type { RoleService, RoleWithAssignments } from "../../application/role-service.js";
 import { aRole, aRoleCard } from "../../domain/role.fixtures.js";
 import { LIST_PEOPLE, PeopleOfficeTools } from "./people-office-tools.js";
 
-function toolsOver(roles: RoleWithSkills[]): PeopleOfficeTools {
+function toolsOver(roles: RoleWithAssignments[]): PeopleOfficeTools {
   const service: Pick<RoleService, "list"> = { list: () => Promise.resolve(roles) };
   return new PeopleOfficeTools(new OfficeToolRegistry(), service as RoleService);
 }
@@ -23,8 +23,8 @@ describe("list_people", () => {
       }),
     });
     const tool = toolsOver([
-      { role: jan, skills: ["definition-of-done"] },
-      { role: ada, skills: [] },
+      { role: jan, skills: ["definition-of-done"], mcpServers: [] },
+      { role: ada, skills: [], mcpServers: [] },
     ]).listPeople();
 
     const result = await tool.run({}, { sessionId: "s-1" });

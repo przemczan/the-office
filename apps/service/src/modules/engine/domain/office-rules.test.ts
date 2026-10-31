@@ -55,7 +55,12 @@ const LINUX: Platform = {
   bashHome: "/home/office",
 };
 
-const DEVELOPER: PermissionProfile = { edit: true, run: { kind: "anything" }, web: true };
+const DEVELOPER: PermissionProfile = {
+  edit: true,
+  run: { kind: "anything" },
+  web: true,
+  mcpTools: {},
+};
 
 function rulesOn(platform: Platform, profile: PermissionProfile = DEVELOPER): OfficeRules {
   return new OfficeRules({
@@ -272,8 +277,14 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
         commandLines: ["npm test", "npm run lint && npm run typecheck"],
       },
       web: false,
+      mcpTools: {},
     });
-    const planner = rulesOn(platform, { edit: false, run: { kind: "read-only-git" }, web: true });
+    const planner = rulesOn(platform, {
+      edit: false,
+      run: { kind: "read-only-git" },
+      web: true,
+      mcpTools: {},
+    });
 
     it("refuses edits and the web where the profile has none", () => {
       expect(reviewer.decide({ kind: "edit", paths: ["src/app.ts"] })).toEqual({
@@ -364,5 +375,44 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
     });
     expect(decide({ kind: "engine" })).toEqual({ allowed: true });
     expect(decide({ kind: "office-tool" })).toEqual({ allowed: true });
+  });
+});
+
+const mcpCall = (tool: string): AgentAction => ({ kind: "mcp-tool", server: "github", tool });
+
+describe("OfficeRules on MCP tools", () => {
+  const rules = rulesOn(LINUX, {
+    ...DEVELOPER,
+    mcpTools: {
+      "github/list_issues": { kind: "allowed" },
+      "github/create_issue": { kind: "consult", role: "devops" },
+      "github/merge": { kind: "ask-me" },
+      "github/delete_repo": { kind: "never" },
+    },
+  });
+
+  it("runs an Allowed tool", () => {
+    expect(rules.decide(mcpCall("list_issues"))).toEqual({ allowed: true });
+  });
+
+  it("refuses a tool set to Never in the rules' words", () => {
+    expect(rules.decide(mcpCall("delete_repo"))).toEqual({
+      allowed: false,
+      reason: "Not allowed in this session: the github/delete_repo MCP tool.",
+    });
+  });
+
+  it.each([
+    ["create_issue", { kind: "consult", role: "devops" }],
+    ["merge", { kind: "ask-me" }],
+  ])("leaves %s to the approval its setting asks for", (tool, setting) => {
+    expect(rules.decide(mcpCall(tool))).toMatchObject({ allowed: false, approval: setting });
+  });
+
+  it("refuses a tool of no server the session was given", () => {
+    expect(rules.decide(mcpCall("unknown"))).toEqual({
+      allowed: false,
+      reason: "Not available in The Office: the github/unknown MCP tool.",
+    });
   });
 });

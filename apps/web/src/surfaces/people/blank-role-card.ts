@@ -17,7 +17,7 @@ export function blankRoleCard({ engines, taskLimits }: RoleCardOptions): RoleCar
     model,
     effort: "medium",
     capabilities: { sharedMemory: false, chat: true, consultant: false },
-    permissionProfile: { edit: false, run: "read-only-git", web: false },
+    permissionProfile: { edit: false, run: "read-only-git", web: false, mcpTools: {} },
     hardSwitches: {
       runInstalls: { kind: "ask-me" },
       publishOutsideThePipeline: { kind: "ask-me" },

@@ -105,7 +105,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
             model: "claude-haiku-5-5",
             effort: "low",
             skills: undefined,
-            profile: { edit: false, run: { kind: "read-only-git" }, web: false },
+            profile: { edit: false, run: { kind: "read-only-git" }, web: false, mcpTools: {} },
             officeTools: [],
             mcpServers: [],
             instructions: "",

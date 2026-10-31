@@ -2,7 +2,7 @@
 
 **Owns:** Roles hired from presets (Planner, Developer, Reviewer, CTO, Devops, Office Manager) or from scratch (keyed from the card's title by `roleKeyFor`, never a preset's key), Role cards and their versions (`roles`, `role_card_versions`), each version with who proposed it when the user applied a Proposal or an Agent changed it with `change_role` (`proposed_by`, "proposed by" in `GET /roles/:key/changes`), authority and Hard switches, Task limits; each person's Memory (`memory_notes`, append-only notes, deleted one at a time or all).
 
-**Talks to:** calls Engine (profiles; the engines, and the models each offers now through `EngineModels`, which the card checks are handed: `roleCardProblems`, `hireFromScratch` and `changeRoleCard` take the offered models) and Skills (a Role's skills). Work and Pipelines read cards through their `KnownPeople` ports, bound to `RoleCards` in [app.module.ts](../../app.module.ts); Conversations reads them through the index, and applies Proposals of Roles through `RoleService` (`hireFromScratch`/`hire`/`changeCard` with `proposedBy`, and `change_role`'s held call through `reword`; `hiringProblems`/`presetHiringProblems`/`cardChangeProblems` judge one as it is drafted, saving nothing).
+**Talks to:** calls Engine (profiles; the engines, and the models each offers now through `EngineModels`, which the card checks are handed: `roleCardProblems`, `hireFromScratch` and `changeRoleCard` take the offered models) Skills (a Role's skills) and MCP servers (a Role's servers with their tools, `RoleMcpServers.byRole`/`serversOf`, listed on the card with each tool's setting from `mcp-tool-settings.ts`, Consult Devops when unset). Work and Pipelines read cards through their `KnownPeople` ports, bound to `RoleCards` in [app.module.ts](../../app.module.ts); Conversations reads them through the index, and applies Proposals of Roles through `RoleService` (`hireFromScratch`/`hire`/`changeCard` with `proposedBy`, and `change_role`'s held call through `reword`; `hiringProblems`/`presetHiringProblems`/`cardChangeProblems` judge one as it is drafted, saving nothing).
 
 **Traps:** a person let go keeps the Role's key (`letGoAt`), so nothing else can be hired into it until `hireBack`; `RoleCards.find` and `forResumedSession` treat them as not filling it, while `RoleService.read`/`list` still show them. A Role hired from a preset has the preset's fixed key, so only `adapters/http/roles.controller.test.ts` hires from the presets ([testing](../../../docs/testing.md)).
 
@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-RoleCards, Consultant, SessionRole, RoleService, MemoryService, RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo, hardSwitchInEffect, HARD_SWITCH_LABELS, HardSwitchKey, HardSwitchValue, CTO, DEVOPS, OFFICE_MANAGER, RoleCard, RoleNotFound, RoleRefused, PeopleModule
+RoleCards, Consultant, SessionRole, RoleService, MemoryService, RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo, hardSwitchInEffect, HARD_SWITCH_LABELS, HardSwitchKey, HardSwitchValue, CTO, DEVOPS, OFFICE_MANAGER, mcpToolSettingsFor, narrowedMcpToolSetting, McpToolSettings, RoleCard, RoleNotFound, RoleRefused, PeopleModule
 
 ## Domain events
 
@@ -72,13 +72,14 @@ RoleCards, Consultant, SessionRole, RoleService, MemoryService, RoleCardChanged,
 - `memory-service.ts`: Memory, MemoryService
 - `role-cards.ts`: SessionRole, Consultant, RoleCards
 - `role-history.ts`: RoleHistoryEntry, roleHistory
-- `role-service.ts`: RoleWithSkills, RoleCardOptions, RoleService
+- `role-service.ts`: RoleWithAssignments, RoleCardOptions, RoleService
 - Tests: memory-service.test.ts, role-cards.test.ts
 
 ### domain/
 
 - `hard-switches.ts`: HARD_SWITCH_KEYS, HardSwitchKey, HARD_SWITCH_LABELS, HardSwitchEnforcement, HARD_SWITCH_ENFORCEMENT, HardSwitchValue, HardSwitches, ALLOWED, ASK_ME, NEVER, consult, hardSwitchesProblems, hardSwitchInEffect, switchesAskingYouUntilHired, sameHardSwitchValue
 - `known-roles.ts`: OFFICE_MANAGER, CTO, DEVOPS, KNOWN_ROLES
+- `mcp-tool-settings.ts`: McpToolSettings, MCP_TOOL_DEFAULT, mcpToolKey, mcpToolSetting, mcpToolSettingsFor, mcpToolSettingsProblems, noWiderThan, narrowedMcpToolSetting
 - `memory-note-not-found.ts`: MemoryNoteNotFound
 - `memory-note.ts`: MEMORY_NOTE_LENGTH, MemoryNoteSource, MemoryNote, MemoryNoteDraft, writeMemoryNote
 - `permission-profile.ts`: RUN_PERMISSIONS, RunPermission, PermissionProfile
@@ -94,7 +95,7 @@ RoleCards, Consultant, SessionRole, RoleService, MemoryService, RoleCardChanged,
 - `role.fixtures.ts`: OFFERED_MODELS, aRoleCard, aRole
 - `role.ts`: Role, RoleCardVersion
 - `task-limit.ts`: TaskLimit, LOWEST_TASK_LIMIT, HIGHEST_TASK_LIMIT, taskLimitProblem
-- Tests: hard-switches.test.ts, memory-note.test.ts, presets.test.ts, role-card-changes.test.ts, role-card.test.ts, role-changes.test.ts, role-key.test.ts, task-limit.test.ts
+- Tests: hard-switches.test.ts, mcp-tool-settings.test.ts, memory-note.test.ts, presets.test.ts, role-card-changes.test.ts, role-card.test.ts, role-changes.test.ts, role-key.test.ts, task-limit.test.ts
 
 ### ports/
 

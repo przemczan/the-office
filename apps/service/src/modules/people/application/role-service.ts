@@ -6,6 +6,7 @@ import {
   type Engine,
   type EngineCapability,
 } from "../../engine/index.js";
+import { RoleMcpServers, type McpServerOnCard } from "../../mcp-servers/index.js";
 import { RoleSkills } from "../../skills/index.js";
 import {
   HARD_SWITCH_ENFORCEMENT,
@@ -33,10 +34,14 @@ import { HIGHEST_TASK_LIMIT, LOWEST_TASK_LIMIT } from "../domain/task-limit.js";
 import { RoleRepository } from "../ports/role-repository.js";
 import { roleHistory, type RoleHistoryEntry } from "./role-history.js";
 
-/** A Role with the library skills its card names, which the Skills module keeps. */
-export interface RoleWithSkills {
+/**
+ * A Role with what its card names from the libraries: its skills, which the Skills module keeps,
+ * and its MCP servers, which the MCP servers module keeps.
+ */
+export interface RoleWithAssignments {
   readonly role: Role;
   readonly skills: readonly string[];
+  readonly mcpServers: readonly McpServerOnCard[];
 }
 
 /** The choices the Role card form offers, and how each Hard switch is seen to. */
@@ -88,6 +93,7 @@ export class RoleService {
   constructor(
     private readonly repository: RoleRepository,
     private readonly roleSkills: RoleSkills,
+    private readonly roleMcpServers: RoleMcpServers,
     private readonly engineModels: EngineModels,
     private readonly engineSessions: EngineSessions,
     private readonly events: EventBus,
@@ -98,7 +104,7 @@ export class RoleService {
    * person `proposedBy`. Refuses with every reason, before saving, also when someone already fills
    * the Role.
    */
-  async hire(roleKey: string, name: string, proposedBy?: string): Promise<RoleWithSkills> {
+  async hire(roleKey: string, name: string, proposedBy?: string): Promise<RoleWithAssignments> {
     const hiredAt = new Date();
     const filledBy = await this.repository.find(roleKey);
     const { role, event } = hire(roleKey, name, filledBy, hiredAt, proposedBy);
@@ -108,7 +114,7 @@ export class RoleService {
       throw new Error(`The Role "${roleKey}" was filled and emptied again while hiring.`);
     }
     await this.events.publish(event);
-    return { role, skills: await this.roleSkills.of(role.key) };
+    return this.withAssignments(role);
   }
 
   /** Every reason hiring `name` from the preset would be refused now, saving nothing. */
@@ -126,7 +132,7 @@ export class RoleService {
     card: RoleCard,
     skills: readonly string[],
     proposedBy?: string,
-  ): Promise<RoleWithSkills> {
+  ): Promise<RoleWithAssignments> {
     const hiredAt = new Date();
     const { role, event } = await this.hiringFromScratch(card, skills, hiredAt, proposedBy);
     if (!(await this.repository.add(role))) {
@@ -136,7 +142,11 @@ export class RoleService {
       throw new Error(`The Role "${role.key}" was filled and emptied again while hiring.`);
     }
     await this.events.publish(event);
-    return { role, skills: await this.roleSkills.assignToRole(role.key, skills) };
+    return {
+      role,
+      skills: await this.roleSkills.assignToRole(role.key, skills),
+      mcpServers: await this.roleMcpServers.serversOf(role.key),
+    };
   }
 
   /** Every reason hiring from scratch would be refused now, saving nothing; empty when it wouldn't. */
@@ -180,18 +190,28 @@ export class RoleService {
     };
   }
 
-  async list(): Promise<readonly RoleWithSkills[]> {
+  async list(): Promise<readonly RoleWithAssignments[]> {
     const skills = await this.roleSkills.byRole();
+    const mcpServers = await this.roleMcpServers.byRole();
     return (await this.repository.list()).map((role) => ({
       role,
       skills: skills.get(role.key) ?? [],
+      mcpServers: mcpServers.get(role.key) ?? [],
     }));
   }
 
-  async read(key: string): Promise<RoleWithSkills> {
+  async read(key: string): Promise<RoleWithAssignments> {
     const role = await this.repository.find(key);
     if (!role) throw new RoleNotFound(key);
-    return { role, skills: await this.roleSkills.of(key) };
+    return this.withAssignments(role);
+  }
+
+  private async withAssignments(role: Role): Promise<RoleWithAssignments> {
+    return {
+      role,
+      skills: await this.roleSkills.of(role.key),
+      mcpServers: await this.roleMcpServers.serversOf(role.key),
+    };
   }
 
   /**
@@ -204,7 +224,7 @@ export class RoleService {
     edit: RoleCard,
     skills: readonly string[],
     proposedBy?: string,
-  ): Promise<RoleWithSkills> {
+  ): Promise<RoleWithAssignments> {
     const offeredModels = await this.engineModels.offeredBy(edit.engine);
     const problems = [
       ...roleCardProblems(key, trimmedRoleCard(edit), offeredModels),
@@ -215,7 +235,11 @@ export class RoleService {
       changeRoleCard(stored, edit, offeredModels, new Date(), proposedBy),
     );
     if (event) await this.events.publish(event);
-    return { role, skills: await this.roleSkills.assignToRole(key, skills) };
+    return {
+      role,
+      skills: await this.roleSkills.assignToRole(key, skills),
+      mcpServers: await this.roleMcpServers.serversOf(key),
+    };
   }
 
   /**
@@ -238,7 +262,7 @@ export class RoleService {
     key: string,
     words: Partial<Pick<RoleCard, "responsibilities" | "instructions">>,
     proposedBy: string,
-  ): Promise<RoleWithSkills> {
+  ): Promise<RoleWithAssignments> {
     const { role, skills } = await this.read(key);
     return this.changeCard(key, { ...role.card, ...words }, skills, proposedBy);
   }
@@ -247,21 +271,21 @@ export class RoleService {
    * Lets the person go: nobody fills the Role from now on, and their card, Memory and chats stay,
    * unused and readable. Refused when they were let go already.
    */
-  async letGo(key: string): Promise<RoleWithSkills> {
+  async letGo(key: string): Promise<RoleWithAssignments> {
     const { role, event } = await this.repository.changeStanding(key, (stored) =>
       letGo(stored, new Date()),
     );
     await this.events.publish(event);
-    return { role, skills: await this.roleSkills.of(key) };
+    return this.withAssignments(role);
   }
 
   /** Hires the person let go back into their Role, with their card, Memory and chats as they were. */
-  async hireBack(key: string): Promise<RoleWithSkills> {
+  async hireBack(key: string): Promise<RoleWithAssignments> {
     const { role, event } = await this.repository.changeStanding(key, (stored) =>
       hireBack(stored, new Date()),
     );
     await this.events.publish(event);
-    return { role, skills: await this.roleSkills.of(key) };
+    return this.withAssignments(role);
   }
 
   /** The person's change history, newest first, ending with the hire. */

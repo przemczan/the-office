@@ -4,7 +4,7 @@ export {
   type ProjectMcpServerValues,
   type ProjectServerValueView,
 } from "./application/project-server-values.js";
-export { RoleMcpServers } from "./application/role-mcp-servers.js";
+export { RoleMcpServers, type McpServerOnCard } from "./application/role-mcp-servers.js";
 export {
   SessionMcpServers,
   type PreparedMcpServer,

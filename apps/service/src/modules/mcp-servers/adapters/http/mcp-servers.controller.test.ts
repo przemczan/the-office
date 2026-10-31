@@ -325,6 +325,7 @@ describe("GET /api/mcp-servers/:name/review", () => {
     expect(review).toMatchObject({
       server: { name, command: process.execPath, state: "off", tools: [] },
       connected: true,
+      toolsTooLong: [],
       reviewDigest: expect.any(String),
     });
     expect(review.connected && review.tools.map(({ name: tool }) => tool)).toEqual(

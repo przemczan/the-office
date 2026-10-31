@@ -396,7 +396,7 @@ async function firstTurnTokens(
         expected: skills.expected,
         overrides: skills.overrides,
       },
-      profile: { edit: false, run: { kind: "read-only-git" }, web: false },
+      profile: { edit: false, run: { kind: "read-only-git" }, web: false, mcpTools: {} },
       officeTools: [],
       mcpServers: [],
       instructions: "",

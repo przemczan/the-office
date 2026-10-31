@@ -62,6 +62,7 @@ import { ConversationsSettings } from "../../ports/conversations-settings.js";
 import { ConversationsSettingsForTests } from "../../ports/conversations-settings.fixtures.js";
 import { FireAlarmInThreads } from "../../application/fire-alarm-in-threads.js";
 import { FireAlarmLifts } from "../../application/fire-alarm-lifts.js";
+import { ApprovalHolds } from "../../application/approval-holds.js";
 import { FireAlarmLiftRepository } from "../../ports/fire-alarm-lift-repository.js";
 import { PostgresFireAlarmLiftRepository } from "../postgres/postgres-fire-alarm-lift-repository.js";
 
@@ -123,6 +124,7 @@ beforeEach(async () => {
       ThreadRunner,
       FireAlarmInThreads,
       FireAlarmLifts,
+      ApprovalHolds,
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
       MentionedRecords,
       WorkRecords,

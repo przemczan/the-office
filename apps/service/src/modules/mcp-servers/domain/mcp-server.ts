@@ -72,6 +72,27 @@ export interface NewMcpServer extends McpServerEdit {
 /** Room for the tool's own name in `mcp__<name>__<tool>`, which the model APIs cap at 64. */
 export const NAME_LENGTH = 32;
 
+/** The model APIs' cap on a tool's name, which a session's MCP tool is named within. */
+export const SESSION_TOOL_NAME_LENGTH = 64;
+
+/** What a session calls a server's tool. */
+export function sessionToolName(serverName: string, toolName: string): string {
+  return `mcp__${serverName}__${toolName}`;
+}
+
+/**
+ * The server's tools a session can't be given, by name: their names in the session run over the
+ * model APIs' cap, so sessions leave them out and run the rest.
+ */
+export function toolsTooLongForSessions(
+  serverName: string,
+  tools: readonly Pick<McpServerTool, "name">[],
+): string[] {
+  return tools
+    .map(({ name }) => name)
+    .filter((name) => sessionToolName(serverName, name).length > SESSION_TOOL_NAME_LENGTH);
+}
+
 /** The Engine's own tool server, whose tools are the Office tools. */
 const RESERVED_NAMES: ReadonlySet<string> = new Set(["office"]);
 

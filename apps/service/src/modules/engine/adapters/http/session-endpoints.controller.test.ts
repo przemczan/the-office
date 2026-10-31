@@ -12,7 +12,7 @@ const SYSTEM = linux({ variables: {}, homeDirectory: "/home/office" });
 const RULES = new OfficeRules({
   workingFolder: "/work/task-1",
   readableFolders: [],
-  profile: { edit: false, run: { kind: "anything" }, web: false },
+  profile: { edit: false, run: { kind: "anything" }, web: false, mcpTools: {} },
   userSecrets: SYSTEM.secretPaths,
   officeFiles: [],
   homeFolder: "/home/office",

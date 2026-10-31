@@ -134,7 +134,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
       environment: options.environment,
     });
     const judge = (tool: string, input: unknown): Promise<ToolDecision> =>
-      toolDecision(rules, options.toolHold, tool, input);
+      toolDecision(rules, options, tool, input);
     return new ApiSession(id, {
       client: new ChatCompletionsClient(endpoint),
       model: modelId,

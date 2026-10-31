@@ -1,4 +1,5 @@
 import type { CommandPermission } from "../domain/allowed-commands.js";
+import type { HardSwitchOnCard } from "./known-people.js";
 import type { Effort, StageSession } from "../domain/stage.js";
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
 import type { StageDecision, StageSessionMove, StageTokens } from "../domain/stage-run.js";
@@ -11,6 +12,11 @@ export interface StageSessionSettings {
     readonly edit: boolean;
     readonly run: CommandPermission;
     readonly web: boolean;
+    /**
+     * The card's MCP tool settings, keyed `server/tool`: a Stage may narrow them (spec §6); the
+     * session's own tools not set here hold at the default.
+     */
+    readonly mcpTools: Readonly<Record<string, HardSwitchOnCard>>;
   };
   readonly officeTools: readonly string[];
   /** The result schema, the same every Stage, so it stays in the cached prefix. */

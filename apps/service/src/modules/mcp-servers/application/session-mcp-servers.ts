@@ -5,6 +5,7 @@ import { serverValuesFor, type ProjectServerValue } from "../domain/project-serv
 import {
   recordedMcpServer,
   resumeProblem,
+  sessionTools,
   startProblem,
   type LeftOutMcpServer,
 } from "../domain/session-mcp-servers.js";
@@ -125,7 +126,7 @@ export class SessionMcpServers {
         prepared.push({
           name: server.name,
           launch: launchOf(server, values, workingFolder),
-          tools: server.tools,
+          tools: sessionTools(server),
         });
       }
     }

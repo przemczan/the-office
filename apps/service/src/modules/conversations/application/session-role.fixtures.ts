@@ -11,7 +11,7 @@ export function aPlannerCard(fields: Partial<SessionRole["card"]> = {}): Session
     model: "claude-opus-5-5",
     effort: "high",
     capabilities: { sharedMemory: false, chat: true, consultant: true },
-    permissionProfile: { edit: false, run: "read-only-git", web: true },
+    permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },
     hardSwitches: {
       runInstalls: { kind: "consult", role: "devops" },
       publishOutsideThePipeline: { kind: "never" },

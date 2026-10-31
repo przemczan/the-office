@@ -10,6 +10,7 @@ import { OfficeDataModule } from "../../../platform/office-data/office-data.modu
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import { EngineModule } from "../../engine/index.js";
+import { McpServersModule } from "../../mcp-servers/index.js";
 import { SkillsModule } from "../../skills/index.js";
 import { PostgresRoleRepository } from "../adapters/postgres/postgres-role-repository.js";
 import { aRole, aRoleCard } from "../domain/role.fixtures.js";
@@ -35,6 +36,7 @@ beforeAll(async () => {
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
       SkillsModule,
+      McpServersModule,
       EngineModule,
     ],
     providers: [

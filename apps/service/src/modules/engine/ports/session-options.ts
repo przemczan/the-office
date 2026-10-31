@@ -1,4 +1,4 @@
-import type { PermissionProfile } from "../domain/permission-profile.js";
+import type { ApprovalSetting, PermissionProfile } from "../domain/permission-profile.js";
 import type { OfficeTool } from "./office-tool.js";
 
 /** How hard the model thinks, as a Role card names it. */
@@ -60,6 +60,22 @@ export interface SessionMcpServerTool {
  */
 export type ToolHold = () => Promise<string | undefined>;
 
+/** A call of an MCP tool whose setting asks for someone's approval: Consult a person or Ask me. */
+export interface ApprovalCall {
+  readonly server: string;
+  readonly tool: string;
+  /** As the Agent gave it; the same input makes the same call, which an approval lets run once. */
+  readonly input: unknown;
+  readonly setting: ApprovalSetting;
+}
+
+/**
+ * Asked for each call that waits on approval (spec §6), as a held Hard switch's call is: undefined
+ * when an approval lets it run now, else the words that refuse it, such as that it waits on a
+ * Decision. Apart from `ToolHold`, so a hold of every call never approves one.
+ */
+export type ApprovalHold = (call: ApprovalCall) => Promise<string | undefined>;
+
 /** A JSON Schema document, as an engine takes it for a turn's output. */
 export type JsonSchema = Readonly<Record<string, unknown>>;
 
@@ -92,4 +108,6 @@ export interface SessionOptions {
   readonly outputSchema: JsonSchema | undefined;
   /** Undefined for a session whose tool calls The Office never holds as a whole. */
   readonly toolHold?: ToolHold;
+  /** Undefined for a session where a call waiting on approval is refused. */
+  readonly approvalHold?: ApprovalHold;
 }

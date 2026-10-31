@@ -15,7 +15,7 @@ const OPTIONS: SessionOptions = {
   model: "claude-haiku-5-5",
   effort: "medium",
   skills: undefined,
-  profile: { edit: true, run: { kind: "anything" }, web: true },
+  profile: { edit: true, run: { kind: "anything" }, web: true, mcpTools: {} },
   officeTools: [],
   mcpServers: [],
   instructions: "",

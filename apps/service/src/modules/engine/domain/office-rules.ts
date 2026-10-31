@@ -1,7 +1,7 @@
 import type { AgentAction } from "./agent-action.js";
 import { directoryChange } from "./directory-change.js";
 import { gitChange, isGit, READ_ONLY_GIT_COMMANDS } from "./git-commands.js";
-import type { CommandPermission } from "./permission-profile.js";
+import type { ApprovalSetting, CommandPermission } from "./permission-profile.js";
 import { SecretPaths } from "./secret-paths.js";
 import type { SessionRules } from "./session-rules.js";
 import {
@@ -13,9 +13,13 @@ import {
   type SimpleCommand,
 } from "./shell-commands.js";
 
-/** Whether a tool call may run; a refusal says why, in words the Agent reads (spec §6). */
+/**
+ * Whether a tool call may run; a refusal says why, in words the Agent reads (spec §6). A call
+ * whose setting asks for someone's approval is refused unless that approval is sought (`approval`).
+ */
 export type ToolDecision =
-  { readonly allowed: true } | { readonly allowed: false; readonly reason: string };
+  | { readonly allowed: true }
+  | { readonly allowed: false; readonly reason: string; readonly approval?: ApprovalSetting };
 
 /** What only The Office writes in a worktree: git's records and the engine's project settings. */
 const PROTECTED_NAMES: ReadonlySet<string> = new Set([".git", ".claude", ".mcp.json"]);
@@ -66,6 +70,27 @@ export class OfficeRules {
           : notAllowed("editing files");
       case "command":
         return this.commandDecision(action.commandLine, action.dialect);
+      case "mcp-tool":
+        return this.mcpToolDecision(action.server, action.tool);
+    }
+  }
+
+  /** Each tool of the session's MCP servers as its setting says; any other is not The Office's. */
+  private mcpToolDecision(server: string, tool: string): ToolDecision {
+    const setting = this.rules.profile.mcpTools[`${server}/${tool}`];
+    if (!setting) return refused(`Not available in The Office: the ${server}/${tool} MCP tool.`);
+    switch (setting.kind) {
+      case "allowed":
+        return ALLOWED;
+      case "never":
+        return notAllowed(`the ${server}/${tool} MCP tool`);
+      case "consult":
+      case "ask-me":
+        return {
+          allowed: false,
+          reason: `The ${server}/${tool} MCP tool runs only on approval, which this session can't ask for.`,
+          approval: setting,
+        };
     }
   }
 
