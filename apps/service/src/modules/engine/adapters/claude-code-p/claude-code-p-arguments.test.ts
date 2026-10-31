@@ -145,8 +145,52 @@ describe("claudeCodePArguments", () => {
     expect(settingsOf(args)).toMatchObject({ permissions: { allow: ["mcp__office"] } });
   });
 
-  it("names no MCP server for a session without Office tools", () => {
+  it("names no MCP server for a session without Office tools or MCP servers", () => {
     expect(flag(argumentsFor(), "mcp-config")).toBeUndefined();
+  });
+
+  it("runs only the session's MCP servers, each allowed by rule, a local one without the token", () => {
+    const options: SessionOptions = {
+      ...OPTIONS,
+      mcpServers: [
+        {
+          name: "github",
+          launch: {
+            transport: "stdio",
+            command: "npx",
+            arguments: ["-y", "@modelcontextprotocol/server-github"],
+            environmentVariables: { GITHUB_TOKEN: "secret" },
+            workingFolder: OPTIONS.folder,
+          },
+          tools: [],
+        },
+        {
+          name: "search",
+          launch: { transport: "streamable-http", url: "https://mcp.example.com/mcp", headers: {} },
+          tools: [],
+        },
+      ],
+    };
+    const args = argumentsFor({ options });
+
+    expect(JSON.parse(flag(args, "mcp-config") ?? "{}")).toEqual({
+      mcpServers: {
+        github: {
+          type: "stdio",
+          command: "npx",
+          args: ["-y", "@modelcontextprotocol/server-github"],
+          env: { GITHUB_TOKEN: "secret", [TOKEN_VARIABLE]: "" },
+        },
+        search: { type: "http", url: "https://mcp.example.com/mcp", headers: {} },
+      },
+    });
+    expect(settingsOf(args)).toMatchObject({
+      permissions: { allow: ["mcp__github", "mcp__search"] },
+    });
+  });
+
+  it("never runs a Project's own MCP servers", () => {
+    expect(argumentsFor()).toContain("--strict-mcp-config");
   });
 
   it("appends the instructions from their file, and holds each turn to the output schema", () => {

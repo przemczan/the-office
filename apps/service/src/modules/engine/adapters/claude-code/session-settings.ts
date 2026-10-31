@@ -82,7 +82,12 @@ function instructionFilesAbove(folder: string): string[] {
 }
 
 /** The settings of spec §5.4, §5.6 and §6 a session runs with, hooks aside. */
-export function sessionSettings({ folder, skills, officeTools }: SessionOptions): Settings {
+export function sessionSettings({
+  folder,
+  skills,
+  officeTools,
+  mcpServers,
+}: SessionOptions): Settings {
   return {
     claudeMdExcludes: instructionFilesAbove(folder),
     syncClaudeAiSkills: false,
@@ -104,8 +109,12 @@ export function sessionSettings({ folder, skills, officeTools }: SessionOptions)
       // The hook alone fences reads: under the engine's read fence it refused shell commands the hook
       // allowed (spec §6, the engine check's permissions.read-fence-off).
       blockReadsOutsideWorkingDirectories: false,
-      // permissionPrompts "none" refuses whatever would prompt, so the Office tools are allowed by rule.
-      allow: officeTools.length > 0 ? [`mcp__${OFFICE_TOOL_SERVER}`] : [],
+      // permissionPrompts "none" refuses whatever would prompt, so the MCP servers' tools are allowed
+      // by rule; the hook, which runs first, judges each call (engine check, engine.office-tool).
+      allow: [
+        ...(officeTools.length > 0 ? [OFFICE_TOOL_SERVER] : []),
+        ...mcpServers.map(({ name }) => name),
+      ].map((server) => `mcp__${server}`),
     },
   };
 }

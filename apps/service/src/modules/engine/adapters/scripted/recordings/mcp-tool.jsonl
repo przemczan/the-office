@@ -1,0 +1,11 @@
+{"step":"start","brief":{"id":"5f0c2a8e-3d41-4b7a-9e21-6c1f8d2b7a40","text":"Use the tools of the fake MCP server, each once, in this order: environment-variable with the name FAKE_SERVER_VALUE, started-process, and echo with the text hi. If a call is refused, do not try it again; then reply with the single word: done"}}
+{"step":"event","event":{"kind":"tool-call","callId":"toolu_01Mcp1EnvironmentVariable","tool":"mcp__fake__environment-variable","officeTool":false,"input":{"name":"FAKE_SERVER_VALUE"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"toolu_01Mcp1EnvironmentVariable","text":"kumquat","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"toolu_01Mcp2StartedProcess","tool":"mcp__fake__started-process","officeTool":false,"input":{},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"toolu_01Mcp2StartedProcess","text":"4242","isError":false}}
+{"step":"event","event":{"kind":"tool-call","callId":"toolu_01Mcp3Echo","tool":"mcp__fake__echo","officeTool":false,"input":{"text":"hi"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"toolu_01Mcp3Echo","text":"Not allowed in this session: the fake/echo MCP tool.","isError":true}}
+{"step":"event","event":{"kind":"tool-refused","callId":"toolu_01Mcp3Echo","tool":"mcp__fake__echo","reason":"Not allowed in this session: the fake/echo MCP tool.","refusedBy":"office-rules"}}
+{"step":"event","event":{"kind":"text","text":"done","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["5f0c2a8e-3d41-4b7a-9e21-6c1f8d2b7a40"],"usage":{"input":6,"output":212,"cacheRead":51548,"cacheCreation":1830},"sessionCostUsd":0.0013,"output":null,"errors":[]}}
+{"step":"end"}

@@ -4,6 +4,7 @@ import { afterAll, beforeAll, describe } from "vitest";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { describeAgentEngineContract } from "../../ports/agent-engine.contract.js";
 import { serveSessionEndpoints, type ServedEndpoints } from "../http/session-endpoints.fixtures.js";
+import { CONTRACT_MCP_SERVER } from "../mcp-servers/contract-mcp-server.fixtures.js";
 import { CLAUDE_CODE_P_CAPABILITIES, ClaudeCodePEngine } from "./claude-code-p-engine.js";
 
 /**
@@ -34,6 +35,7 @@ describe.runIf(MODE === "live")("ClaudeCodePEngine on a live session", () => {
     capabilities: CLAUDE_CODE_P_CAPABILITIES,
     model: MODEL,
     timeoutMs: 180_000,
+    mcpServer: CONTRACT_MCP_SERVER,
     engineFor: () => Promise.resolve(liveEngine()),
   });
 });

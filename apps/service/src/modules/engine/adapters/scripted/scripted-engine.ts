@@ -1,7 +1,14 @@
 import { homedir } from "node:os";
 import type { Writable } from "node:stream";
+import type { McpClient } from "../../../../platform/mcp/mcp-client.js";
+import { SdkMcpClient } from "../../../../platform/mcp/sdk-mcp-client.js";
+import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
 import { EngineProcess } from "../claude-code/engine-process.js";
+import { McpServerConnections, type McpToolAnswer } from "../mcp-servers/mcp-server-connections.js";
+import { mcpToolOf } from "../office-rules/office-tool-names.js";
+import { toolDecision } from "../office-rules/tool-decision.js";
+import { OfficeRules } from "../../domain/office-rules.js";
 import { listingProblems } from "../../domain/skill-listing.js";
 import {
   AgentEngine,
@@ -74,6 +81,7 @@ export class ScriptedEngine extends AgentEngine {
   /** Every session started or resumed, in order. */
   readonly sessions: ScriptedSession[] = [];
   private readonly scripts: SessionScript[];
+  private readonly mcpClient: McpClient = new SdkMcpClient();
 
   constructor(
     scripts: readonly SessionScript[],
@@ -119,6 +127,7 @@ export class ScriptedEngine extends AgentEngine {
       options,
       script,
       this.capabilities,
+      new McpServerConnections(options.mcpServers, this.mcpClient),
       this.standIn && startStandIn(this.standIn),
     );
     this.sessions.push(session);
@@ -136,6 +145,24 @@ function startStandIn({ command, args, processTrees }: StandInEngine): RunningSt
     signal: new AbortController().signal,
   });
   return { process: engineProcess, input: stdin };
+}
+
+/**
+ * The rules a scripted session judges its MCP calls by. Only their profile part decides an MCP
+ * call, so no file of the user's or The Office's is named: every other call's judgment is
+ * replayed as recorded.
+ */
+function mcpToolRules(options: SessionOptions): OfficeRules {
+  return new OfficeRules({
+    workingFolder: options.folder,
+    readableFolders: [],
+    profile: options.profile,
+    userSecrets: [],
+    officeFiles: [],
+    homeFolder: homedir(),
+    environment: options.environment,
+    paths: currentOperatingSystem().paths,
+  });
 }
 
 /** The start check of spec §5.6, against what the script says the engine listed. */
@@ -158,10 +185,18 @@ interface PendingRequest {
   readonly refuse: (error: unknown) => void;
 }
 
+/** How a call of an MCP tool went: refused in the rules' or a hold's words, or run. */
+type McpCallOutcome =
+  | { readonly refused: { readonly tool: string; readonly reason: string } }
+  | { readonly answer: McpToolAnswer };
+
 /**
  * One replayed session. It reports the script's events in order and waits at each of the
  * caller's steps until the caller takes it; doing anything else fails the session with
- * `ScriptMismatch`. Office tools the script calls run, and the Agent reads what they answer.
+ * `ScriptMismatch`. Office tools the script calls run, and the Agent reads what they answer. A
+ * call of an MCP tool is judged as the engines' hooks judge it, by the session's profile and
+ * holds, and once allowed runs on the session's server, started at its first call and ended
+ * with the session; its recorded judgment is not replayed.
  * Reading the usage windows or the context usage is answered whenever it comes, from what the
  * script recorded in order, the last again once all were read, since who reads them and when is
  * the Office's.
@@ -177,6 +212,8 @@ export class ScriptedSession implements EngineSession {
   /** The script's message ids to the ids the caller chose. */
   private readonly messageIds = new Map<string, string>();
   private readonly officeToolResults = new Map<string, Promise<OfficeToolResult>>();
+  private readonly mcpCalls = new Map<string, Promise<McpCallOutcome>>();
+  private readonly rules: OfficeRules;
   /** The calls The Office's hold refused, by id, with the tool and the hold's words. */
   private readonly heldCalls = new Map<
     string,
@@ -192,8 +229,10 @@ export class ScriptedSession implements EngineSession {
     readonly options: SessionOptions,
     script: SessionScript,
     private readonly capabilities: EngineCapabilities,
+    private readonly mcpServers: McpServerConnections,
     private readonly standIn?: RunningStandIn,
   ) {
+    this.rules = mcpToolRules(options);
     const steps = script.map((step) => inPlaces(step, { folder: options.folder, home: homedir() }));
     this.recordedWindows = steps.flatMap((step) =>
       step.step === "read-usage-windows" ? [step.windows] : [],
@@ -246,6 +285,7 @@ export class ScriptedSession implements EngineSession {
     try {
       await this.played;
     } finally {
+      await this.mcpServers.close();
       if (this.standIn) {
         this.standIn.input.end();
         await this.standIn.process.endWithLeftovers();
@@ -317,6 +357,14 @@ export class ScriptedSession implements EngineSession {
   private async replay(event: SessionEvent): Promise<SessionEvent[]> {
     switch (event.kind) {
       case "tool-call": {
+        const mcpTool = event.officeTool ? undefined : mcpToolOf(event.tool);
+        if (mcpTool !== undefined) {
+          const outcome = this.mcpCall(event.tool, mcpTool, event.input);
+          // Awaited when the script reaches the call's result.
+          outcome.catch(() => undefined);
+          this.mcpCalls.set(event.callId, outcome);
+          return [event];
+        }
         const held = await this.options.toolHold?.();
         if (held !== undefined)
           this.heldCalls.set(event.callId, { tool: event.tool, reason: held });
@@ -324,6 +372,12 @@ export class ScriptedSession implements EngineSession {
         return [event];
       }
       case "tool-result": {
+        const mcpCall = this.mcpCalls.get(event.callId);
+        if (mcpCall) {
+          const outcome = await mcpCall;
+          if ("answer" in outcome) return [{ ...event, ...outcome.answer }];
+          this.heldCalls.set(event.callId, outcome.refused);
+        }
         const held = this.heldCalls.get(event.callId);
         if (held) {
           return [
@@ -340,6 +394,9 @@ export class ScriptedSession implements EngineSession {
         const result = await this.officeToolResults.get(event.callId);
         return [result === undefined ? event : { ...event, ...result }];
       }
+      case "tool-refused":
+        // The session judged the MCP call itself, and reported its refusal with the result.
+        return this.mcpCalls.has(event.callId) ? [] : [event];
       case "turn-ended":
         return [
           {
@@ -350,6 +407,17 @@ export class ScriptedSession implements EngineSession {
       default:
         return [event];
     }
+  }
+
+  /** Judges an MCP call as the engines' hook does, then runs it if allowed. */
+  private async mcpCall(
+    engineName: string,
+    { server, tool }: { readonly server: string; readonly tool: string },
+    input: unknown,
+  ): Promise<McpCallOutcome> {
+    const decision = await toolDecision(this.rules, this.options, engineName, input);
+    if (!decision.allowed) return { refused: { tool: engineName, reason: decision.reason } };
+    return { answer: await this.mcpServers.call(server, tool, input) };
   }
 
   private runOfficeTool(callId: string, name: string, input: unknown): void {

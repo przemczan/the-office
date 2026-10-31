@@ -9,6 +9,7 @@ import type { AgentShell } from "../../../../platform/os/shell.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { officeToolAnswer } from "../claude-code/office-tools.js";
+import { mcpServerConfigs } from "../claude-code/session-mcp-servers.js";
 import { OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
 import {
   sessionEnvironment,
@@ -63,9 +64,16 @@ export function sdkOptions({
     },
     env: sessionEnvironment(options.environment),
     hooks: { PreToolUse: [{ hooks: [preToolUse] }] },
-    ...(options.officeTools.length > 0 && {
-      mcpServers: { [OFFICE_TOOL_SERVER]: officeToolServer(options.officeTools, id) },
+    ...((options.officeTools.length > 0 || options.mcpServers.length > 0) && {
+      mcpServers: {
+        ...mcpServerConfigs(options.mcpServers),
+        ...(options.officeTools.length > 0 && {
+          [OFFICE_TOOL_SERVER]: officeToolServer(options.officeTools, id),
+        }),
+      },
     }),
+    // Only the servers above: a Project's `.mcp.json`, which its own settings may turn on, never.
+    strictMcpConfig: true,
     ...(options.outputSchema !== undefined && {
       outputFormat: { type: "json_schema", schema: { ...options.outputSchema } },
     }),

@@ -3,15 +3,23 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import { fakeStdioMcpServer } from "../../../../platform/mcp/fake-mcp-servers.fixtures.js";
+import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
 import { describeAgentEngineContract } from "../../ports/agent-engine.contract.js";
 import { SessionSkillsDiffer, type EngineCapabilities } from "../../ports/agent-engine.js";
 import type { SessionEvent } from "../../ports/session-events.js";
 import type { SessionOptions } from "../../ports/session-options.js";
+import { CONTRACT_MCP_SERVER } from "../mcp-servers/contract-mcp-server.fixtures.js";
 import { RecordingEngine } from "./recording-engine.js";
 import { ScriptedEngine, ScriptMismatch } from "./scripted-engine.js";
-import { PLACEHOLDERS, readRecording, type SessionScript } from "./session-script.js";
+import {
+  PLACEHOLDERS,
+  readRecording,
+  type ScriptStep,
+  type SessionScript,
+} from "./session-script.js";
 
 const RECORDINGS = fileURLToPath(new URL("./recordings/", import.meta.url));
 
@@ -29,6 +37,7 @@ describeAgentEngineContract("ScriptedEngine replaying the recordings", {
   capabilities: new ScriptedEngine([]).capabilities,
   model: "scripted",
   timeoutMs: 5000,
+  mcpServer: CONTRACT_MCP_SERVER,
   engineFor: async (scenario) =>
     new ScriptedEngine(await readRecording(join(RECORDINGS, `${scenario}.jsonl`))),
 });
@@ -37,6 +46,7 @@ describeAgentEngineContract("ScriptedEngine without capabilities", {
   capabilities: NO_CAPABILITY,
   model: "scripted",
   timeoutMs: 5000,
+  mcpServer: CONTRACT_MCP_SERVER,
   engineFor: async (scenario) =>
     new ScriptedEngine(await readRecording(join(RECORDINGS, `${scenario}.jsonl`)), NO_CAPABILITY),
 });
@@ -100,7 +110,73 @@ async function readAll(events: AsyncIterable<SessionEvent>): Promise<SessionEven
   return read;
 }
 
+function mcpCall(callId: string, tool: string, recorded: string): ScriptStep[] {
+  return [
+    {
+      step: "event",
+      event: {
+        kind: "tool-call",
+        callId,
+        tool,
+        officeTool: false,
+        input: {},
+        withinToolCall: undefined,
+      },
+    },
+    { step: "event", event: { kind: "tool-result", callId, text: recorded, isError: false } },
+  ];
+}
+
+/** Calls two tools of the fake MCP server, as recorded on a session that allowed both. */
+const CALLS_MCP_TOOLS: SessionScript = [
+  { step: "start", brief: { id: "brief", text: "Use the fake server." } },
+  ...mcpCall("call-1", "mcp__fake__started-process", "recorded"),
+  ...mcpCall("call-2", "mcp__fake__echo", "recorded"),
+  { step: "event", event: TURN_ENDED },
+  { step: "end" },
+];
+
 describe("ScriptedEngine", () => {
+  it("runs an allowed MCP call on the session's server, holds one on approval, and ends the server with the session", async () => {
+    const engine = new ScriptedEngine([CALLS_MCP_TOOLS]);
+    const session = await engine.start({
+      id: randomUUID(),
+      options: {
+        ...options(),
+        profile: {
+          ...options().profile,
+          mcpTools: {
+            "fake/started-process": { kind: "allowed" },
+            "fake/echo": { kind: "ask-me" },
+          },
+        },
+        mcpServers: [{ name: "fake", launch: fakeStdioMcpServer(), tools: [] }],
+        approvalHold: () => Promise.resolve("It waits on your answer."),
+      },
+      brief: { id: randomUUID(), text: "Use the fake server." },
+    });
+    const reported = session.events[Symbol.asyncIterator]();
+    const events: SessionEvent[] = [];
+    while (events.at(-1)?.kind !== "turn-ended") events.push((await reported.next()).value);
+    const started = events.find(
+      (event) => event.kind === "tool-result" && event.callId === "call-1",
+    );
+    const startedProcess = Number(started?.kind === "tool-result" ? started.text : Number.NaN);
+    expect(isRunning(startedProcess)).toBe(true);
+    expect(events.filter((event) => event.kind === "tool-refused")).toEqual([
+      {
+        kind: "tool-refused",
+        callId: "call-2",
+        tool: "mcp__fake__echo",
+        reason: "It waits on your answer.",
+        refusedBy: "office-rules",
+      },
+    ]);
+
+    await session.end();
+    await vi.waitFor(() => expect(isRunning(startedProcess)).toBe(false), { timeout: 10_000 });
+  });
+
   it("names the session's own folder and home where the script names them", async () => {
     const engine = new ScriptedEngine([READS_A_FILE]);
     const session = await engine.start({

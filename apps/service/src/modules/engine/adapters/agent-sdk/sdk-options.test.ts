@@ -37,6 +37,29 @@ const NOTE_TOOL: OfficeTool = {
 
 const PRE_TOOL_USE: HookCallback = () => Promise.resolve({});
 
+const MCP_SERVERS: SessionOptions["mcpServers"] = [
+  {
+    name: "github",
+    launch: {
+      transport: "stdio",
+      command: "npx",
+      arguments: ["-y", "@modelcontextprotocol/server-github"],
+      environmentVariables: { GITHUB_TOKEN: "secret" },
+      workingFolder: "/office/worktrees/task-1",
+    },
+    tools: [],
+  },
+  {
+    name: "search",
+    launch: {
+      transport: "streamable-http",
+      url: "https://mcp.example.com/mcp",
+      headers: { "X-Key": "k" },
+    },
+    tools: [],
+  },
+];
+
 function optionsFor(session: Partial<SdkSession> = {}) {
   return sdkOptions({
     id: "session-1",
@@ -169,6 +192,31 @@ describe("sdkOptions", () => {
     expect(Object.keys(options.mcpServers ?? {})).toEqual(["office"]);
     expect(options.mcpServers?.["office"]).toMatchObject({ type: "sdk", name: "office" });
     expect(options.settings).toMatchObject({ permissions: { allow: ["mcp__office"] } });
+  });
+
+  it("runs only the session's MCP servers with their values, each allowed by rule for the hook to judge", () => {
+    const options = optionsFor({
+      options: { ...OPTIONS, officeTools: [NOTE_TOOL], mcpServers: MCP_SERVERS },
+    });
+
+    expect(options.strictMcpConfig).toBe(true);
+    expect(options.mcpServers).toMatchObject({
+      github: {
+        type: "stdio",
+        command: "npx",
+        args: ["-y", "@modelcontextprotocol/server-github"],
+        env: { GITHUB_TOKEN: "secret" },
+      },
+      search: { type: "http", url: "https://mcp.example.com/mcp", headers: { "X-Key": "k" } },
+      office: { type: "sdk", name: "office" },
+    });
+    expect(options.settings).toMatchObject({
+      permissions: { allow: ["mcp__office", "mcp__github", "mcp__search"] },
+    });
+  });
+
+  it("never runs a Project's own MCP servers, even with no server of the session's", () => {
+    expect(optionsFor().strictMcpConfig).toBe(true);
   });
 
   it("holds each turn's output to the output schema", () => {

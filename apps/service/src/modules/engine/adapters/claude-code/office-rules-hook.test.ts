@@ -2,17 +2,19 @@ import type { HookInput } from "@anthropic-ai/claude-agent-sdk";
 import { describe, expect, it, vi } from "vitest";
 import { linux } from "../../../../platform/os/linux.js";
 import { OfficeRules } from "../../domain/office-rules.js";
+import type { PermissionProfile } from "../../domain/permission-profile.js";
+import type { ApprovalHold } from "../../ports/session-options.js";
 import { officeRulesHook } from "./office-rules-hook.js";
 import { OFFICE_TOOL_PREFIX } from "../office-rules/office-tool-names.js";
 import { ToolRefusals } from "./tool-refusals.js";
 
 const SYSTEM = linux({ variables: {}, homeDirectory: "/home/office" });
 
-function rules(paths = SYSTEM.paths): OfficeRules {
+function rules(paths = SYSTEM.paths, mcpTools: PermissionProfile["mcpTools"] = {}): OfficeRules {
   return new OfficeRules({
     workingFolder: "/work/task-1",
     readableFolders: [],
-    profile: { edit: false, run: { kind: "anything" }, web: false, mcpTools: {} },
+    profile: { edit: false, run: { kind: "anything" }, web: false, mcpTools },
     userSecrets: SYSTEM.secretPaths,
     officeFiles: [],
     homeFolder: "/home/office",
@@ -60,6 +62,40 @@ describe("officeRulesHook", () => {
       },
     });
     expect(refused).toHaveBeenCalledWith("c1", "Not allowed in this session: editing files.");
+  });
+
+  it("judges each MCP tool by its setting, a call on approval by the session's approval hold", async () => {
+    const approvalHold = vi.fn<ApprovalHold>(() => Promise.resolve("It waits on Devops."));
+    const hook = officeRulesHook(
+      rules(SYSTEM.paths, {
+        "github/list_issues": { kind: "allowed" },
+        "github/create_issue": { kind: "consult", role: "devops" },
+        "github/delete_repository": { kind: "never" },
+      }),
+      new ToolRefusals(),
+      { approvalHold },
+    );
+    const decisionOf = async (tool: string) => {
+      const output = await hook(preToolUse(`mcp__github__${tool}`, {}), "c1", SIGNAL);
+      return "hookSpecificOutput" in output ? output.hookSpecificOutput : undefined;
+    };
+
+    expect(await decisionOf("list_issues")).toMatchObject({ permissionDecision: "allow" });
+    expect(await decisionOf("create_issue")).toMatchObject({
+      permissionDecision: "deny",
+      permissionDecisionReason: "It waits on Devops.",
+    });
+    expect(approvalHold).toHaveBeenCalledWith({
+      server: "github",
+      tool: "create_issue",
+      input: {},
+      setting: { kind: "consult", role: "devops" },
+    });
+    expect(await decisionOf("delete_repository")).toMatchObject({
+      permissionDecision: "deny",
+      permissionDecisionReason:
+        "Not allowed in this session: the github/delete_repository MCP tool.",
+    });
   });
 
   it("refuses a call it fails to judge rather than let it through", async () => {

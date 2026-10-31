@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { AgentEngine, CapabilityMissing, type EngineCapabilities } from "./agent-engine.js";
 import type { EngineSession, UserMessage } from "./engine-session.js";
@@ -14,7 +14,12 @@ import type {
   ToolRefusedEvent,
   TurnEndedEvent,
 } from "./session-events.js";
-import type { SessionOptions } from "./session-options.js";
+import type {
+  ApprovalCall,
+  SessionMcpServer,
+  SessionMcpServerLaunch,
+  SessionOptions,
+} from "./session-options.js";
 
 /**
  * What every adapter of `AgentEngine` does, as tests each adapter runs against itself. Each
@@ -32,6 +37,7 @@ export const CONTRACT_SCENARIOS = [
   "output-schema",
   "usage-windows",
   "context-usage",
+  "mcp-tool",
 ] as const;
 
 export type ContractScenario = (typeof CONTRACT_SCENARIOS)[number];
@@ -47,6 +53,16 @@ export interface EngineUnderContract {
   engineFor(scenario: ContractScenario): Promise<AgentEngine>;
   /** Called once a scenario's sessions have ended, as a recording engine saves them. */
   afterScenario?(scenario: ContractScenario, engine: AgentEngine): Promise<void>;
+  /** The fake local MCP server `mcp-tool` runs on; undefined skips it, for an engine without them yet. */
+  readonly mcpServer?: ContractMcpServer;
+}
+
+/** The platform's fake local MCP server, which the ports layer can't reach itself. */
+export interface ContractMcpServer {
+  /** Its launch in `folder`, with `variables` set: its tools are echo, environment-variable and started-process. */
+  launch(variables: Readonly<Record<string, string>>, folder: string): SessionMcpServerLaunch;
+  /** Whether a process runs, to see the process the server started end with the session. */
+  isRunning(processId: number): boolean;
 }
 
 type ScenarioRun = (engine: AgentEngine, options: SessionOptions) => Promise<void>;
@@ -155,6 +171,57 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
         });
         expect(existsSync(join(options.folder, "notes.txt"))).toBe(false);
         await session.end();
+      }),
+      under.timeoutMs,
+    );
+
+    const mcpServer = under.mcpServer;
+    it.runIf(mcpServer)(
+      "runs the session's MCP server as each tool's setting says, and ends it with the session",
+      scenario("mcp-tool", async (engine, options) => {
+        if (mcpServer === undefined) return;
+        const approvals: ApprovalCall[] = [];
+        const session = await engine.start({
+          id: randomUUID(),
+          options: {
+            ...options,
+            profile: { ...options.profile, mcpTools: FAKE_TOOL_SETTINGS },
+            mcpServers: [fakeServer(mcpServer, options.folder)],
+            approvalHold: (call) => {
+              approvals.push(call);
+              return Promise.resolve(undefined);
+            },
+          },
+          brief: message(
+            `Use the tools of the ${FAKE_SERVER} MCP server, each once, in this order: ` +
+              `environment-variable with the name ${SERVER_VALUE_NAME}, started-process, and echo ` +
+              "with the text hi. If a call is refused, do not try it again; then reply with the " +
+              "single word: done",
+          ),
+        });
+        const log = new EventLog(session);
+
+        expect((await log.nextTurn()).outcome).toBe("completed");
+        expect(log.resultOf(log.toolCall(mcpToolName("environment-variable")))).toMatchObject({
+          text: SERVER_VALUE,
+          isError: false,
+        });
+        expect(approvals).toMatchObject([
+          { server: FAKE_SERVER, tool: "started-process", setting: CONSULT_DEVOPS },
+        ]);
+        const started = log.resultOf(log.toolCall(mcpToolName("started-process")));
+        expect(started).toMatchObject({ text: expect.stringMatching(/^\d+$/), isError: false });
+        const echo = log.toolCall(mcpToolName("echo"));
+        expect(log.refusal()).toMatchObject({
+          callId: echo.callId,
+          refusedBy: "office-rules",
+          reason: `Not allowed in this session: the ${FAKE_SERVER}/echo MCP tool.`,
+        });
+        await session.end();
+        const startedProcess = Number(started?.kind === "tool-result" ? started.text : "");
+        await vi.waitFor(() => expect(mcpServer.isRunning(startedProcess)).toBe(false), {
+          timeout: 10_000,
+        });
       }),
       under.timeoutMs,
     );
@@ -390,6 +457,51 @@ const WORD_SCHEMA = {
   additionalProperties: false,
 };
 
+const FAKE_SERVER = "fake";
+const SERVER_VALUE_NAME = "FAKE_SERVER_VALUE";
+const SERVER_VALUE = "kumquat";
+const CONSULT_DEVOPS = { kind: "consult", role: "devops" } as const;
+
+/** One of each setting: an Allowed tool, one on approval and one never run. */
+const FAKE_TOOL_SETTINGS = {
+  [`${FAKE_SERVER}/environment-variable`]: { kind: "allowed" },
+  [`${FAKE_SERVER}/started-process`]: CONSULT_DEVOPS,
+  [`${FAKE_SERVER}/echo`]: { kind: "never" },
+} as const;
+
+function mcpToolName(tool: string): string {
+  return `mcp__${FAKE_SERVER}__${tool}`;
+}
+
+/** The fake local MCP server with a Server value, started in the session's folder. */
+function fakeServer(mcpServer: ContractMcpServer, folder: string): SessionMcpServer {
+  return {
+    name: FAKE_SERVER,
+    launch: mcpServer.launch({ [SERVER_VALUE_NAME]: SERVER_VALUE }, folder),
+    tools: [
+      {
+        name: "echo",
+        description: "Answers with the text it is given.",
+        inputSchema: objectSchema({ text: { type: "string" } }),
+      },
+      {
+        name: "environment-variable",
+        description: "Answers with an environment variable's value.",
+        inputSchema: objectSchema({ name: { type: "string" } }),
+      },
+      {
+        name: "started-process",
+        description: "Answers with the id of the process the server started.",
+        inputSchema: objectSchema({}),
+      },
+    ],
+  };
+}
+
+function objectSchema(properties: Record<string, unknown>): Record<string, unknown> {
+  return { type: "object", properties, required: Object.keys(properties) };
+}
+
 function defaultOptions(folder: string, model: string): SessionOptions {
   return {
     folder,
@@ -502,6 +614,14 @@ class EventLog {
         event.kind === "tool-call" && event.officeTool && event.tool === tool,
     );
     if (call === undefined) throw new Error(`No call of the Office tool ${tool} was reported.`);
+    return call;
+  }
+
+  toolCall(tool: string): ToolCallEvent {
+    const call = this.events.find(
+      (event): event is ToolCallEvent => event.kind === "tool-call" && event.tool === tool,
+    );
+    if (call === undefined) throw new Error(`No call of ${tool} was reported.`);
     return call;
   }
 

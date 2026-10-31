@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { metrics, trace } from "@opentelemetry/api";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
@@ -23,6 +24,15 @@ import type { SessionOptions } from "../../ports/session-options.js";
 import { RecordingEngine } from "../scripted/recording-engine.js";
 import { AgentSdkEngine } from "./agent-sdk-engine.js";
 import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
+import {
+  FAKE_STDIO_MCP_SERVER,
+  fakeStdioMcpServer,
+} from "../../../../platform/mcp/fake-mcp-servers.fixtures.js";
+import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
+import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
+import { EngineProcess } from "../claude-code/engine-process.js";
+import { CONTRACT_MCP_SERVER } from "../mcp-servers/contract-mcp-server.fixtures.js";
+import { sdkOptions } from "./sdk-options.js";
 
 /**
  * These tests run real sessions on the user's login, which cost quota, so they run only when asked:
@@ -43,6 +53,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
     capabilities: liveEngine().capabilities,
     model: MODEL,
     timeoutMs: 180_000,
+    mcpServer: CONTRACT_MCP_SERVER,
     engineFor: () =>
       Promise.resolve(MODE === "record" ? new RecordingEngine(liveEngine()) : liveEngine()),
     afterScenario: async (scenario, engine) => {
@@ -50,6 +61,49 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
         await engine.save(join(RECORDINGS, `${scenario}.jsonl`));
       }
     },
+  });
+
+  // No model call: the session is never sent a message.
+  it("runs the session's MCP servers and never a Project's own, even one its settings turn on", async () => {
+    const folder = await mkdtemp(join(tmpdir(), "office-mcp-"));
+    const projectServer = { command: process.execPath, args: [FAKE_STDIO_MCP_SERVER] };
+    await writeFile(
+      join(folder, ".mcp.json"),
+      JSON.stringify({ mcpServers: { "project-server": projectServer } }),
+    );
+    await mkdir(join(folder, ".claude"));
+    await writeFile(
+      join(folder, ".claude", "settings.json"),
+      JSON.stringify({ enableAllProjectMcpServers: true }),
+    );
+    const engineProcess = new EngineProcess(currentOperatingSystem().processTrees);
+    const withServer: SessionOptions = {
+      ...options(folder),
+      mcpServers: [{ name: "fake", launch: fakeStdioMcpServer(), tools: [] }],
+    };
+    const prompt = new AsyncChannel<SDKUserMessage>();
+    const session = query({
+      prompt,
+      options: sdkOptions({
+        id: randomUUID(),
+        resumes: false,
+        options: withServer,
+        agentShells: [],
+        preToolUse: () => Promise.resolve({}),
+        spawnProcess: engineProcess.spawn,
+      }),
+    });
+    try {
+      const servers = await session.mcpServerStatus();
+      expect(servers.map(({ name, status }) => ({ name, status }))).toEqual([
+        { name: "fake", status: "connected" },
+      ]);
+    } finally {
+      prompt.close();
+      session.close();
+      await engineProcess.endWithLeftovers();
+      await rm(folder, { recursive: true, force: true });
+    }
   });
 
   it("shares the cached prefix between sessions in two worktrees of one repository", async () => {
