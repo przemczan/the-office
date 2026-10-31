@@ -2,6 +2,13 @@ import { presetFor } from "./presets.js";
 import type { Role } from "./role.js";
 import type { RoleCard } from "./role-card.js";
 
+/** The models a fixture card's engine offers: the Claude Code engines' list (`EngineModels`). */
+export const OFFERED_MODELS: readonly string[] = [
+  "claude-opus-5-5",
+  "claude-sonnet-5-5",
+  "claude-haiku-5-5",
+];
+
 /** The Developer preset's card, named Ada. */
 export function aRoleCard(fields: Partial<RoleCard> = {}): RoleCard {
   const preset = presetFor("developer");

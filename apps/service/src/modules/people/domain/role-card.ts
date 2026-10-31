@@ -1,4 +1,4 @@
-import { ENGINE_MODELS, type Engine } from "../../engine/index.js";
+import type { Engine } from "../../engine/index.js";
 import { hardSwitchesProblems, type HardSwitches } from "./hard-switches.js";
 import type { PermissionProfile } from "./permission-profile.js";
 import { taskLimitProblem, type TaskLimit } from "./task-limit.js";
@@ -41,7 +41,7 @@ export interface RoleCard {
   /** What the Agent works from. */
   readonly instructions: string;
   readonly engine: Engine;
-  /** One of `ENGINE_MODELS` for the engine. */
+  /** One of the models the engine offers, as the Engine module's `EngineModels` names them. */
   readonly model: string;
   readonly effort: Effort;
   readonly capabilities: Capabilities;
@@ -68,8 +68,15 @@ export function trimmedRoleCard<Card extends RoleCard>(card: Card): Card {
   };
 }
 
-/** Why the card of the Role `roleKey` can't be saved, in the UI's words; empty when it can. */
-export function roleCardProblems(roleKey: string, card: RoleCard): string[] {
+/**
+ * Why the card of the Role `roleKey` can't be saved, in the UI's words; empty when it can.
+ * `offeredModels` are the models the card's engine offers now, which the Engine module answers.
+ */
+export function roleCardProblems(
+  roleKey: string,
+  card: RoleCard,
+  offeredModels: readonly string[],
+): string[] {
   const problems = [
     ...personNameProblems(card.name),
     ...textProblems(card.title, TITLE_LENGTH, "Give the Role a title.", "A Role's title"),
@@ -88,7 +95,7 @@ export function roleCardProblems(roleKey: string, card: RoleCard): string[] {
   ];
   if (/\n\s*\n/.test(card.responsibilities.trim()))
     problems.push("The responsibilities are one paragraph.");
-  if (!ENGINE_MODELS[card.engine].includes(card.model)) {
+  if (!offeredModels.includes(card.model)) {
     problems.push("Choose a model the engine offers.");
   }
   const limitProblem = taskLimitProblem(card.taskLimit);

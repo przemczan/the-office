@@ -27,8 +27,8 @@ export class RolesController {
   }
 
   @Get("role-card-options")
-  cardOptions(): RoleCardOptions {
-    const options = this.roles.cardOptions();
+  async cardOptions(): Promise<RoleCardOptions> {
+    const options = await this.roles.cardOptions();
     return {
       engines: options.engines.map(({ engine, models }) => ({ engine, models: [...models] })),
       knownRoles: options.knownRoles.map(({ key, title }) => ({ key, title })),

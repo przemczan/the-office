@@ -5,6 +5,7 @@ import { EngineSessions } from "./application/engine-sessions.js";
 import { OfficeToolRegistry } from "./application/office-tool-registry.js";
 import { UsageWindowState } from "./application/usage-window-state.js";
 import type { Engine } from "./domain/engines.js";
+import { EngineSettingsModule } from "./engine-settings.module.js";
 import { AgentEngine } from "./ports/agent-engine.js";
 
 /**
@@ -19,13 +20,14 @@ export class ScriptedEngineModule {
   ): DynamicModule {
     return {
       module: ScriptedEngineModule,
+      imports: [EngineSettingsModule],
       providers: [
         { provide: AgentEngines, useValue: new AgentEngines(perEngine(engines)) },
         OfficeToolRegistry,
         UsageWindowState,
         EngineSessions,
       ],
-      exports: [EngineSessions, OfficeToolRegistry, UsageWindowState],
+      exports: [EngineSessions, OfficeToolRegistry, UsageWindowState, EngineSettingsModule],
     };
   }
 }

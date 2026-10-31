@@ -147,6 +147,15 @@ describe("GET /api/role-card-options", () => {
     ]);
     expect(options.taskLimits).toEqual({ lowest: 1, highest: 6 });
   });
+
+  it("offers every preset's model on its engine", async () => {
+    const { engines } = roleCardOptionsSchema.parse(await get("/role-card-options"));
+    const presets = presetListSchema.parse(await get("/presets"));
+
+    for (const { card } of presets) {
+      expect(engines.find(({ engine }) => engine === card.engine)?.models).toContain(card.model);
+    }
+  });
 });
 
 describe("POST /api/roles", () => {

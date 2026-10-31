@@ -38,7 +38,7 @@ Decided with the user on 2026-10-31:
 ## Steps
 
 - [x] 0. Write this file; settle the open questions with the user; spec §5.4's Defaults line, the glossary's terms, `coverage.md`'s row; link it from the README. Commit.
-- [ ] 1. The Office-wide settings in the Engine module: the API endpoints and the search endpoint, in a Postgres table, with `GET`/`PUT /api/settings/engines` and its contract. An application service answers each engine's models: the static list for the Claude Code engines, the API endpoints' models for this one. People's card validation and `cardOptions` ask it instead of `ENGINE_MODELS`. No engine id yet. Commit.
+- [x] 1. The Office-wide settings in the Engine module: the API endpoints and the search endpoint, in a Postgres table, with `GET`/`PUT /api/settings/engines` and its contract. An application service answers each engine's models: the static list for the Claude Code engines, the API endpoints' models for this one. People's card validation and `cardOptions` ask it instead of `ENGINE_MODELS`. No engine id yet. Commit.
   Read: `engine/domain/engines.ts`; `engine/index.ts`; `engine/engine.module.ts`; `people/domain/role-card.ts` (`roleCardProblems`, l. 71–98); `people/application/role-service.ts` (`cardOptions`, l. 152–162); the precedent `conversations/adapters/http/size-threshold.controller.ts`, `conversations/application/context-policy-settings.ts`, `conversations/adapters/postgres/postgres-conversations-settings.ts`; `packages/contracts/src/people.ts` (`engineSchema`, l. 5; the card options, l. 125); `apps/service/drizzle/` (the latest migration, `0048_*`); the module template on adding a table.
 - [ ] 2. The client: a chat-completions client for the OpenAI-compatible API that streams (server-sent events: text, tool-call deltas assembled into whole calls, the final usage) and can be aborted. It comes with a fake server fixture that replays scripted streamed answers and records each request. Commit.
   Read: the State; `engine/ports/session-events.ts`; `platform/http/` (`platform/MAP.md`, l. 45–53) for an HTTP client already in use.
@@ -59,14 +59,18 @@ Decided with the user on 2026-10-31:
 
 ## State
 
-- Step 0 done: the decisions above, spec §5.4's Defaults line, the glossary's three terms, `coverage.md`'s row. Nothing is built yet; step 1 is next.
-- How the Model field holds an API endpoint and a model is step 1's to choose. `SessionOptions.model` and the card's `model` are one string today, and a model id may itself hold `/` or `:`. The simplest choice is an endpoint id with its own separator, split once.
-- `ENGINE_MODELS` is a static list read by synchronous domain code (`roleCardProblems`), so the models move behind an application service (step 1); the web reads them from the card options (`role-card-form.tsx`, `stage-editor.tsx`).
-- Every Agent Stage asks for an output schema (`STAGE_RESULT_SCHEMA`), so `outputSchema` must be true. Conversations read context usage and resume with no capability check.
-- Mirroring the Claude Code engines' tool names and inputs lets `agentAction`, `toolDecision` and the Office rules judge the loop's calls unchanged. TaskStop and Skill already count as `engine` actions there.
-- On a local server the Context policy's "cache warm" (under an hour) means little; resume stays the warm path whatever the label says.
+- Step 1 done. The Engine module's `EngineSettingsModule` (held by both `EngineModule` and `ScriptedEngineModule`) owns Settings › Engines: `GET`/`PUT /api/settings/engines` (contract `packages/contracts/src/engines.ts`), the domain in `domain/engine-settings.ts` and `domain/api-endpoints.ts`, tables `api_endpoints` and `engine_settings` (migration `0060_engine_settings`). The key is kept and sent back only as `keySet`; on PUT, no `key` keeps it, `""` clears it.
+- Decided (step 1): an API endpoint has an `id` made from its name when it is added (`apiEndpointIdFor`, numbered when taken) and kept on a rename. The Model field is `<endpoint id>/<model id>`, split at the first `/` (`apiEndpointModel`/`parseApiEndpointModel`): ids never hold `/`, model ids may (`strata/org/coder:q4`).
+- `EngineModels` (exported) answers each engine's models from `offeredModels(engine, settings)` in `domain/engines.ts`; step 3 adds the engine's entry there, `({ apiEndpoints }) => apiEndpointModels(apiEndpoints)`. `ENGINE_MODELS` is gone.
+- People: `roleCardProblems`, `hireFromScratch` and `changeRoleCard` take the offered models; `RoleService` asks `EngineModels`, and `cardOptions` is async. Tests use `OFFERED_MODELS` (`role.fixtures.ts`).
+- `EngineSettingsService` (`current`, `change`) is what step 6's WebSearch reads for the search endpoint; it isn't exported from the module yet.
+- Traps: the settings are Office-wide in the database every test file shares. Tests keep theirs in `EngineSettingsForTests` (`ports/engine-settings-repository.fixtures.ts`), and the Postgres test puts back what it found. Once step 3 adds the engine, a test that writes real settings changes what parallel card checks see.
+- Open, for later steps: a card naming a removed endpoint or model is refused on its next save ("Choose a model the engine offers."), but its sessions only fail at start (step 3 should refuse in words). There is no settings-changed event yet (step 8 may want one). The web reads `models` as plain strings, so labels show the raw `<id>/<model>` until step 8.
+- Base URLs are kept as typed, trimmed (e.g. `http://127.0.0.1:8080/v1`); the step 2 client joins `/chat/completions` onto them, a trailing `/` included.
 - Strata, at `http://127.0.0.1:8080/v1`, answers `/v1/models` with `qwen3.8-flash-next-coder-iq1_m` and a 100k context. It is the user's and it is slow: tests never reach it; the live check sends few, small requests, one at a time.
+- Every Agent Stage asks for an output schema (`STAGE_RESULT_SCHEMA`), so `outputSchema` must be true. Mirroring Claude Code's tool names and inputs lets `agentAction`, `toolDecision` and the Office rules judge the loop's calls unchanged.
 
 ## Progress
 
 - 2026-10-31 · step 0: the task file, with the user's answers (one engine id, the words, the key, SearXNG, streaming and background commands, Strata), spec §5.4's Defaults line, the glossary, coverage; next is step 1, the Office-wide settings.
+- 2026-10-31 · step 1: Settings › Engines in the Engine module (API endpoints with keys never sent back, the search endpoint; `GET`/`PUT /api/settings/engines`, tables, migration 0060), `EngineModels` answering People's card checks, the Model field as `<endpoint id>/<model id>`; next is step 2, the streaming client.

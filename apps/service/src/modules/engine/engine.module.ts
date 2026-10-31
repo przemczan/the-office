@@ -7,8 +7,10 @@ import { AgentEngines } from "./application/agent-engines.js";
 import { EngineSessions } from "./application/engine-sessions.js";
 import { OfficeToolRegistry } from "./application/office-tool-registry.js";
 import { UsageWindowState } from "./application/usage-window-state.js";
+import { EngineSettingsModule } from "./engine-settings.module.js";
 
 @Module({
+  imports: [EngineSettingsModule],
   controllers: [SessionEndpointsController],
   providers: [
     AgentSdkEngine,
@@ -24,6 +26,6 @@ import { UsageWindowState } from "./application/usage-window-state.js";
     UsageWindowState,
     EngineSessions,
   ],
-  exports: [EngineSessions, OfficeToolRegistry, UsageWindowState],
+  exports: [EngineSessions, OfficeToolRegistry, UsageWindowState, EngineSettingsModule],
 })
 export class EngineModule {}

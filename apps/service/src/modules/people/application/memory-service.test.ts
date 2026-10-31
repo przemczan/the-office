@@ -8,7 +8,7 @@ import { PostgresMemoryRepository } from "../adapters/postgres/postgres-memory-r
 import { PostgresRoleRepository } from "../adapters/postgres/postgres-role-repository.js";
 import type { MemoryNoteDraft } from "../domain/memory-note.js";
 import { MemoryNoteNotFound } from "../domain/memory-note-not-found.js";
-import { aRole, aRoleCard } from "../domain/role.fixtures.js";
+import { aRole, aRoleCard, OFFERED_MODELS } from "../domain/role.fixtures.js";
 import { changeRoleCard, letGo } from "../domain/role-changes.js";
 import { RoleMemoryChanged } from "../domain/role-events.js";
 import { RoleNotFound } from "../domain/role-not-found.js";
@@ -81,6 +81,7 @@ describe("MemoryService", () => {
         changeRoleCard(
           role,
           { ...role.card, capabilities: { ...role.card.capabilities, sharedMemory: false } },
+          OFFERED_MODELS,
           new Date(),
         ),
       );

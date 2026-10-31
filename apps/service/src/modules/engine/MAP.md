@@ -1,25 +1,35 @@
 # Engine: module map
 
-**Owns:** the engines a Role may pick (`ENGINES`, `ENGINE_MODELS`: `agent-sdk` and the `-p` fallback `claude-code-p`), the `AgentEngine` port and its adapters, one per engine in `AgentEngines`: the Agent SDK adapter, the fallback's (`adapters/claude-code-p/`: the pinned binary in `-p`, stream-json in and out through `StreamJson`), and the scripted engine every other test runs on (`adapters/scripted/`). What both Claude Code adapters share (the event mapping, tool refusals, the Office rules hook and `toolDecision`, the Office tools' names) is in `adapters/claude-code/`. The fallback's hook reaches the service on `localhost` (`adapters/http/`, under `/api/engine/claude-code-p/`), behind a token per session (`SessionEndpoints`); its Office tools are served in-process through the binary's own stream (`OfficeToolServer` answering `mcp_message` control requests, which `StreamJson` routes to it), judging every call by the session's rules again as it runs. `ClaudeCodePEngine` opens both before it spawns the binary and closes them when the session ends. `EngineSessions` starts and resumes a session on the engine its settings name, and reads capabilities per engine. The Office rules in the `PreToolUse` hook (profiles, the git deny, secrets, protected paths, a command's output written outside the worktree refused in words naming the rule before the engine's own wordless refusal, PowerShell twins; the read-only git refusal names pipes and Read and Grep, as `READ_ONLY_SHELL_RULE` does in the chat, planning and shaping instructions that quote it), and before them a session's `ToolHold` (`SessionOptions.toolHold`, asked at every call: while it gives words, every call is refused in them, as the fire alarm does; the scripted engine honours it too, running no Office tool), Office tools (`OfficeToolRegistry`), and the 5-hour and 7-day windows (`UsageWindowsChanged`, `EngineDown`).
+**Owns:** the engines a Role may pick (`ENGINES`: `agent-sdk` and the `-p` fallback `claude-code-p`) and the models each offers (`EngineModels`, which People's card checks ask: a fixed list on the Claude Code engines, the API endpoints' models named `<endpoint id>/<model id>` by `apiEndpointModel`); the Office-wide settings of Settings › Engines in `EngineSettingsModule`, which both `EngineModule` and `ScriptedEngineModule` hold (`GET`/`PUT /api/settings/engines`; the API endpoints, each key kept in `api_endpoints` and never sent back, only `keySet`; the search endpoint in `engine_settings`); the `AgentEngine` port and its adapters, one per engine in `AgentEngines`: the Agent SDK adapter, the fallback's (`adapters/claude-code-p/`: the pinned binary in `-p`, stream-json in and out through `StreamJson`), and the scripted engine every other test runs on (`adapters/scripted/`). What both Claude Code adapters share (the event mapping, tool refusals, the Office rules hook and `toolDecision`, the Office tools' names) is in `adapters/claude-code/`. The fallback's hook reaches the service on `localhost` (`adapters/http/`, under `/api/engine/claude-code-p/`), behind a token per session (`SessionEndpoints`); its Office tools are served in-process through the binary's own stream (`OfficeToolServer` answering `mcp_message` control requests, which `StreamJson` routes to it), judging every call by the session's rules again as it runs. `ClaudeCodePEngine` opens both before it spawns the binary and closes them when the session ends. `EngineSessions` starts and resumes a session on the engine its settings name, and reads capabilities per engine. The Office rules in the `PreToolUse` hook (profiles, the git deny, secrets, protected paths, a command's output written outside the worktree refused in words naming the rule before the engine's own wordless refusal, PowerShell twins; the read-only git refusal names pipes and Read and Grep, as `READ_ONLY_SHELL_RULE` does in the chat, planning and shaping instructions that quote it), and before them a session's `ToolHold` (`SessionOptions.toolHold`, asked at every call: while it gives words, every call is refused in them, as the fire alarm does; the scripted engine honours it too, running no Office tool), Office tools (`OfficeToolRegistry`), and the 5-hour and 7-day windows (`UsageWindowsChanged`, `EngineDown`).
 
 **Talks to:** no module. A session's owner hands it the skills folder, the options and the environment; modules give it their Office tools through `OfficeToolRegistry`. It never reads Skills.
 
-**Traps:** what the pinned SDK does is checked by the engine check ([docs/engine-check.md](../../../../../docs/engine-check.md)); re-run it on every SDK bump. The engine's own read fence is off, so the hook is the only fence of Read, Grep and Glob (`agentAction` reads every folder a call names, a Glob's brace alternatives included), and `claudeMdExcludes` keeps the instruction files above a session's folder out (`permissions.read-fence-off`). Live adapter tests run only with `OFFICE_ENGINE_TESTS=live` ([testing](../../../docs/testing.md)). The fallback's live test serves the endpoints itself (`serveSessionEndpoints`). Keep the fallback's Office tool answers on the binary's input: over a separate channel (the old `localhost` MCP endpoint) an answer overtook a `next` message on Windows (engine-check.md, `fallback.priority-next-office-tool`).
+**Traps:** what the pinned SDK does is checked by the engine check ([docs/engine-check.md](../../../../../docs/engine-check.md)); re-run it on every SDK bump. The engine's own read fence is off, so the hook is the only fence of Read, Grep and Glob (`agentAction` reads every folder a call names, a Glob's brace alternatives included), and `claudeMdExcludes` keeps the instruction files above a session's folder out (`permissions.read-fence-off`). The engine settings are Office-wide in a database every test file shares: tests keep theirs in `EngineSettingsForTests`, and the Postgres test puts back what it found. An API endpoint's id is made from its name when it is added and kept on a rename, since Role cards name it; the Model field splits at its first `/` (`parseApiEndpointModel`), as a model's id may hold one. Live adapter tests run only with `OFFICE_ENGINE_TESTS=live` ([testing](../../../docs/testing.md)). The fallback's live test serves the endpoints itself (`serveSessionEndpoints`). Keep the fallback's Office tool answers on the binary's input: over a separate channel (the old `localhost` MCP endpoint) an answer overtook a `next` message on Windows (engine-check.md, `fallback.priority-next-office-tool`).
 
 <!-- Generated by `npm run maps` from the code; edit only above this line. -->
 
 ## Public entry (`index.ts`)
 
-EngineSessions, OfficeToolRegistry, OfficeTool, OfficeToolResult, UsageWindowState, EngineDown, UsageWindowsChanged, ENGINE_MODELS, ENGINES, Engine, READ_ONLY_GIT_COMMANDS, READ_ONLY_SHELL_RULE, EngineModule, ScriptedEngine, StandInEngine, readRecording, SessionScript, ScriptedEngineModule, NewSession, EngineSession
+EngineSessions, OfficeToolRegistry, OfficeTool, OfficeToolResult, UsageWindowState, EngineDown, UsageWindowsChanged, EngineModels, ENGINES, Engine, READ_ONLY_GIT_COMMANDS, READ_ONLY_SHELL_RULE, EngineModule, ScriptedEngine, StandInEngine, readRecording, SessionScript, ScriptedEngineModule, NewSession, EngineSession
 
 ## Domain events
 
 - `domain/engine-events.ts`: UsageWindowsChanged, EngineDown
 
+## HTTP routes (under `/api`)
+
+- `GET /settings/engines`: EngineSettingsController.read
+- `PUT /settings/engines`: EngineSettingsController.change
+
+## Tables
+
+- `adapters/postgres/engine-settings.schema.ts`: api_endpoints, engine_settings
+
 ## Files
 
 ### ./
 
+- `engine-settings.module.ts`: EngineSettingsModule
 - `engine.module.ts`: EngineModule
 - `scripted-engine.module.ts`: ScriptedEngineModule
 
@@ -56,9 +66,17 @@ EngineSessions, OfficeToolRegistry, OfficeTool, OfficeToolResult, UsageWindowSta
 
 ### adapters/http/
 
+- `engine-settings-refusal.filter.ts`: EngineSettingsRefusalFilter
+- `engine-settings.controller.ts`: EngineSettingsController
 - `session-endpoints.controller.ts`: SessionEndpointsController
 - `session-endpoints.fixtures.ts`: ServedEndpoints, serveSessionEndpoints
-- Tests: session-endpoints.controller.test.ts
+- Tests: engine-settings.controller.test.ts, session-endpoints.controller.test.ts
+
+### adapters/postgres/
+
+- `engine-settings.schema.ts`: apiEndpoints, engineSettings
+- `postgres-engine-settings.ts`: PostgresEngineSettings
+- Tests: postgres-engine-settings.test.ts
 
 ### adapters/scripted/
 
@@ -71,7 +89,9 @@ EngineSessions, OfficeToolRegistry, OfficeTool, OfficeToolResult, UsageWindowSta
 
 - `agent-engines.ts`: AgentEngines
 - `engine-call-spans.ts`: SessionTelemetry, SessionCosts, promptFeatures, EngineCallSpans
+- `engine-models.ts`: EngineModels
 - `engine-sessions.ts`: SessionSettings, SessionStart, EngineSessions
+- `engine-settings-service.ts`: EngineSettingsService
 - `office-tool-registry.ts`: OfficeToolRegistry
 - `usage-window-state.ts`: UsageWindowState
 - Tests: engine-sessions.test.ts, office-tool-registry.test.ts
@@ -79,9 +99,12 @@ EngineSessions, OfficeToolRegistry, OfficeTool, OfficeToolResult, UsageWindowSta
 ### domain/
 
 - `agent-action.ts`: AgentAction
+- `api-endpoints.ts`: ApiEndpointModel, ApiEndpoint, apiEndpointModel, parseApiEndpointModel, apiEndpointModels, apiEndpointIdFor
 - `directory-change.ts`: DirectoryChange, directoryChange
 - `engine-events.ts`: UsageWindowsChanged, EngineDown
-- `engines.ts`: ENGINES, Engine, ENGINE_MODELS
+- `engine-settings-refused.ts`: EngineSettingsRefused
+- `engine-settings.ts`: SearchEndpoint, EngineSettings, DEFAULT_ENGINE_SETTINGS, ApiEndpointEdit, EngineSettingsEdit, API_ENDPOINT_NAME_LENGTH, changedEngineSettings
+- `engines.ts`: ENGINES, Engine, offeredModels
 - `git-commands.ts`: READ_ONLY_GIT_COMMANDS, isGit, gitChange
 - `office-rules.ts`: ToolDecision, READ_ONLY_SHELL_RULE, OfficeRules
 - `permission-profile.ts`: CommandPermission, PermissionProfile
@@ -90,13 +113,15 @@ EngineSessions, OfficeToolRegistry, OfficeTool, OfficeToolResult, UsageWindowSta
 - `shell-commands.ts`: ShellDialect, Redirect, SimpleCommand, UnreadableCommand, simpleCommands, programWords, programName
 - `skill-listing.ts`: listingProblems
 - `usage-windows.ts`: UsageWindow, UsageWindows, sameUsageWindows
-- Tests: directory-change.test.ts, office-rules.test.ts, shell-commands.test.ts
+- Tests: api-endpoints.test.ts, directory-change.test.ts, engine-settings.test.ts, office-rules.test.ts, shell-commands.test.ts
 
 ### ports/
 
 - `agent-engine.contract.ts`: CONTRACT_SCENARIOS, ContractScenario, EngineUnderContract, describeAgentEngineContract
 - `agent-engine.ts`: EngineCapabilities, EngineCapability, CapabilityMissing, SessionSkillsDiffer, NewSession, AgentEngine
 - `engine-session.ts`: UserMessage, MessagePriority, ContextUsage, EngineSession
+- `engine-settings-repository.fixtures.ts`: EngineSettingsForTests
+- `engine-settings-repository.ts`: EngineSettingsRepository
 - `office-tool.ts`: OfficeToolCall, OfficeToolResult, OfficeTool
 - `session-events.ts`: TokenUsage, TextEvent, ToolCallEvent, ToolResultEvent, RefusedBy, ToolRefusedEvent, TurnTokensEvent, TurnOutcome, TurnEndedEvent, RateLimitStatus, RateLimitEvent, SessionEvent
 - `session-options.ts`: Effort, SessionSkills, ToolHold, JsonSchema, SessionOptions

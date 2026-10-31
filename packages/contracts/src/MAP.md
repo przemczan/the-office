@@ -8,7 +8,7 @@
 
 ## Public entry (`index.ts`)
 
-all of ./api.js, all of ./conversations.js, all of ./events.js, all of ./health.js, all of ./notifications.js, all of ./people.js, all of ./pipelines.js, all of ./project-filter.js, all of ./projects.js, all of ./record-links.js, all of ./skills.js, all of ./stages.js, all of ./work.js
+all of ./api.js, all of ./conversations.js, all of ./engines.js, all of ./events.js, all of ./health.js, all of ./notifications.js, all of ./people.js, all of ./pipelines.js, all of ./project-filter.js, all of ./projects.js, all of ./record-links.js, all of ./skills.js, all of ./stages.js, all of ./work.js
 
 ## Files
 
@@ -16,6 +16,7 @@ all of ./api.js, all of ./conversations.js, all of ./events.js, all of ./health.
 
 - `api.ts`: API_PATH
 - `conversations.ts`: homeSchema, Home, threadStateSchema, ThreadState, tokenTotalsSchema, TokenTotals, countedTokens, contextMoveSchema, ContextMove, contextReasonSchema, ContextReason, contextOverrideSchema, ContextOverride, threadContextSchema, ThreadContext, threadSchema, Thread, threadListSchema, newMessageSchema, NewMessage, contextOverrideChoiceSchema, ContextOverrideChoice, threadTitleSchema, ThreadTitle, fireAlarmLiftsSchema, FireAlarmLifts, OPEN_DECISION_TOOL, CONSULT_TOOL, ANSWER_CONSULTATION_TOOL, DECISION_TOOLS, decisionAnswerSchema, DecisionAnswer, decisionSchema, Decision, decisionListSchema, PROPOSE_ROLE_TOOL, PROPOSE_OFFICE_SETTING_TOOL, POST_LINK_CARD_TOOL, CAPTURE_IDEA_TOOL, SHOW_OFFICE_STATUS_TOOL, PROPOSE_PROJECT_COMMANDS_TOOL, PROPOSE_LIBRARY_PIPELINE_TOOL, PROPOSE_PROJECT_TOOL, PROPOSE_SKILL_INSTALL_TOOL, PROPOSE_SKILL_UPDATE_TOOL, PROPOSE_SKILL_TOOL, proposedChangeSchema, ProposedChange, proposalStatusSchema, ProposalStatus, proposalSchema, Proposal, proposalListSchema, proposalApplicationSchema, ProposalApplication, messageDeliverySchema, MessageDelivery, messageSchema, Message, messageListSchema, threadRefusalSchema, ThreadRefusal, SIZE_THRESHOLD_TOKENS, sizeThresholdSchema, SizeThreshold, threadWebEventSchema, ThreadWebEvent
+- `engines.ts`: apiEndpointModelSchema, ApiEndpointModel, apiEndpointSchema, ApiEndpoint, searchEndpointSchema, SearchEndpoint, engineSettingsSchema, EngineSettings, apiEndpointEditSchema, ApiEndpointEdit, engineSettingsEditSchema, EngineSettingsEdit, engineSettingsRefusalSchema, EngineSettingsRefusal
 - `events.ts`: EVENTS_PATH, clientMessageSchema, ClientMessage, webEventSchema, WebEvent, serverMessageSchema, ServerMessage
 - `health.ts`: healthReportSchema, HealthReport
 - `notifications.ts`: needsYouItemSchema, NeedsYouItem, currentStageSchema, CurrentStage, runningTaskSchema, RunningTask, queuedOnNowSchema, QueuedOnNow, taskOutcomeSchema, TaskOutcome, finishedTaskSchema, FinishedTask, resumeKindSchema, ResumeKind, taskResumeSchema, TaskResume, alarmPausedTaskSchema, AlarmPausedTask, fireAlarmOnNowSchema, FireAlarmOnNow, nowSchema, Now, notificationKindSchema, NotificationKind, channelSchema, Channel, routedChannelSchema, RoutedChannel, notificationRoutingSchema, NotificationRouting, channelSettingSchema, ChannelSetting, pointerSchema, Pointer, gatheringKindSchema, GatheringKind, notificationSchema, Notification, notificationListSchema, timeOfDaySchema, TIMING_MINUTES_MAX, notificationTimingSchema, NotificationTiming, activitySchema, Activity, notificationsWebEventSchema, NotificationsWebEvent

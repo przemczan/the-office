@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { consult } from "./hard-switches.js";
-import { aRoleCard } from "./role.fixtures.js";
+import { aRoleCard, OFFERED_MODELS } from "./role.fixtures.js";
 import { roleCardProblems, trimmedRoleCard } from "./role-card.js";
 
 describe("trimmedRoleCard", () => {
@@ -13,7 +13,7 @@ describe("trimmedRoleCard", () => {
 
 describe("roleCardProblems", () => {
   it("accepts a preset's card", () => {
-    expect(roleCardProblems("developer", aRoleCard())).toEqual([]);
+    expect(roleCardProblems("developer", aRoleCard(), OFFERED_MODELS)).toEqual([]);
   });
 
   it("refuses with every reason", () => {
@@ -28,7 +28,7 @@ describe("roleCardProblems", () => {
       hardSwitches: { ...aRoleCard().hardSwitches, runInstalls: consult("developer") },
     });
 
-    expect(roleCardProblems("developer", card)).toEqual([
+    expect(roleCardProblems("developer", card, OFFERED_MODELS)).toEqual([
       "Give the person a name.",
       "Give the Role a title.",
       "Give the Role's responsibilities in one paragraph.",
@@ -47,7 +47,7 @@ describe("roleCardProblems", () => {
       instructions: "I".repeat(8_001),
     });
 
-    expect(roleCardProblems("developer", card)).toEqual([
+    expect(roleCardProblems("developer", card, OFFERED_MODELS)).toEqual([
       "A person's name may be at most 40 characters.",
       "A Role's title may be at most 40 characters.",
       "The instructions may be at most 8000 characters.",
@@ -56,6 +56,8 @@ describe("roleCardProblems", () => {
   });
 
   it("accepts a Task limit of none", () => {
-    expect(roleCardProblems("developer", aRoleCard({ taskLimit: "none" }))).toEqual([]);
+    expect(roleCardProblems("developer", aRoleCard({ taskLimit: "none" }), OFFERED_MODELS)).toEqual(
+      [],
+    );
   });
 });

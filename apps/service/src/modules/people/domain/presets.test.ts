@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ALLOWED, ASK_ME, consult, NEVER } from "./hard-switches.js";
 import { PRESETS, presetFor } from "./presets.js";
+import { OFFERED_MODELS } from "./role.fixtures.js";
 import { roleCardProblems } from "./role-card.js";
 
 describe("PRESETS", () => {
@@ -64,6 +65,6 @@ describe("PRESETS", () => {
   it.each(PRESETS)("keep the rules with the suggested name ($roleKey)", (preset) => {
     const card = { ...preset.card, name: preset.suggestedName };
 
-    expect(roleCardProblems(preset.roleKey, card)).toEqual([]);
+    expect(roleCardProblems(preset.roleKey, card, OFFERED_MODELS)).toEqual([]);
   });
 });

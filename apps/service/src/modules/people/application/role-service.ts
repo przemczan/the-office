@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { ENGINE_MODELS, ENGINES, type Engine } from "../../engine/index.js";
+import { EngineModels, type Engine } from "../../engine/index.js";
 import { RoleSkills } from "../../skills/index.js";
 import {
   HARD_SWITCH_ENFORCEMENT,
@@ -78,6 +78,7 @@ export class RoleService {
   constructor(
     private readonly repository: RoleRepository,
     private readonly roleSkills: RoleSkills,
+    private readonly engineModels: EngineModels,
     private readonly events: EventBus,
   ) {}
 
@@ -119,7 +120,8 @@ export class RoleService {
     const { role, event } = await this.hiringFromScratch(card, skills, hiredAt, proposedBy);
     if (!(await this.repository.add(role))) {
       // Someone was hired into the Role meanwhile: refuse as if they had been there before.
-      hireFromScratch(role.key, card, await this.repository.find(role.key), hiredAt);
+      const offeredModels = await this.engineModels.offeredBy(card.engine);
+      hireFromScratch(role.key, card, offeredModels, await this.repository.find(role.key), hiredAt);
       throw new Error(`The Role "${role.key}" was filled and emptied again while hiring.`);
     }
     await this.events.publish(event);
@@ -139,9 +141,10 @@ export class RoleService {
   ): Promise<RoleChange<RoleHired>> {
     const roleKey = roleKeyFor(card.title);
     const skillProblems = await this.roleSkills.problemsWith(skills);
+    const offeredModels = await this.engineModels.offeredBy(card.engine);
     const filledBy = await this.repository.find(roleKey);
     return refusingAlso(skillProblems, () =>
-      hireFromScratch(roleKey, card, filledBy, hiredAt, proposedBy),
+      hireFromScratch(roleKey, card, offeredModels, filledBy, hiredAt, proposedBy),
     );
   }
 
@@ -149,9 +152,10 @@ export class RoleService {
     return PRESETS;
   }
 
-  cardOptions(): RoleCardOptions {
+  async cardOptions(): Promise<RoleCardOptions> {
+    const models = await this.engineModels.byEngine();
     return {
-      engines: ENGINES.map((engine) => ({ engine, models: ENGINE_MODELS[engine] })),
+      engines: [...models].map(([engine, offered]) => ({ engine, models: offered })),
       knownRoles: [...KNOWN_ROLES].map(([key, title]) => ({ key, title })),
       hardSwitches: HARD_SWITCH_KEYS.map((key) => ({
         key,
@@ -186,13 +190,14 @@ export class RoleService {
     skills: readonly string[],
     proposedBy?: string,
   ): Promise<RoleWithSkills> {
+    const offeredModels = await this.engineModels.offeredBy(edit.engine);
     const problems = [
-      ...roleCardProblems(key, trimmedRoleCard(edit)),
+      ...roleCardProblems(key, trimmedRoleCard(edit), offeredModels),
       ...(await this.roleSkills.problemsWith(skills)),
     ];
     if (problems.length > 0) throw new RoleRefused(problems);
     const { role, event } = await this.repository.update(key, (stored) =>
-      changeRoleCard(stored, edit, new Date(), proposedBy),
+      changeRoleCard(stored, edit, offeredModels, new Date(), proposedBy),
     );
     if (event) await this.events.publish(event);
     return { role, skills: await this.roleSkills.assignToRole(key, skills) };
@@ -204,7 +209,10 @@ export class RoleService {
    */
   async cardChangeProblems(key: string, edit: RoleCard): Promise<readonly string[]> {
     const { role } = await this.read(key);
-    return refusalReasons(() => Promise.resolve(changeRoleCard(role, edit, new Date())));
+    const offeredModels = await this.engineModels.offeredBy(edit.engine);
+    return refusalReasons(() =>
+      Promise.resolve(changeRoleCard(role, edit, offeredModels, new Date())),
+    );
   }
 
   /**
