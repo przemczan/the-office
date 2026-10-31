@@ -18,6 +18,7 @@ From [25](../../.scratch/the-office/issues/25-agent-permissions.md), amending [0
 
   - **Enforced by The Office:** change Roles (an Office tool) and git. **Followed by the Agent:** run installs and publish outside the Pipeline. The Office stays agnostic of each Project's stack, so the brief states them in plain words ("Before you install anything that changes the machine outside the worktree, consult Devops; adding or updating the Project's own dependencies is a code change") and the Agent asks through the consult tool first. The Role card marks which are enforced and which are followed.
   - A held call waits on a Consultation (Consult *person*) or a Decision (Ask me). Approvals by colleagues show on the Task, in the Stage log and as one line in Since you left; never a Notification. A Decision never grants "always"; widening permissions is a Role card change.
+- **MCP tools:** each tool of a Role's MCP servers ([5.4](5.4-the-engine.md#defaults)) has its own setting in the Role card's permission profile, set like a Hard switch to Allowed, Consult a person, Ask me or Never, and starting at Consult Devops; a Stage may narrow it, never widen it. A held call waits as a Hard switch's does. Enforced by The Office: the hook judges every MCP tool call (the user, 2026-10-31).
 - **Other refusals** are immediate, with a reason the Agent reads ("Not allowed for a Reviewer: editing files. Open a Decision if you need it."), logged on the Thread.
 - **Default profiles:**
 

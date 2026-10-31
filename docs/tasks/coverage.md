@@ -86,7 +86,7 @@ Every tier 3 item of [spec 3](../spec/3-capabilities-by-tier.md#tier-3-on-need) 
 |---|---|---|
 | §5.2 | The bundled `otel-lgtm` optional; the telemetry sent to the user's own Grafana or OpenTelemetry collector | 34 |
 | §5.4, §5.6, §2.5, §6, §8 | The OpenAI-compatible API engine, The Office's own agent loop, for local LLMs: API endpoints and a search endpoint set Office-wide, streamed replies, background commands, skills and the Context policy | 35 |
-| §2.2, §6, §8 | MCP servers for Agents | 36 |
+| §2.2, §5.4, §6, §8 | MCP servers for Agents: an Office-wide library reviewed before use, assigned on the Role card, Server values set Office-wide and per Project, each MCP tool judged by the Office rules from Consult Devops; on all three engines | 36 |
 | §8 | Usage estimates, what is estimated set Office-wide by the user | 37 |
 | §2.1 | Archive; moving Tasks between Projects until In progress, the Plan marked for the Planner to re-check | 38 |
 | §2.1 | Attachment versions | 39 |

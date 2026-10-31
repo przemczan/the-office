@@ -192,6 +192,14 @@ _Avoid_: Latest, tracked version
 A newer pinned version than an installed Skill's, found by The Office's daily check of its Source and shown as "Update available". Devops drafts it as a Proposal; applying it saves the Skill's next version, as an edit or an upload does, and pins it there.
 _Avoid_: Upgrade, new release
 
+**MCP server**:
+A server from The Office's library, a local command or a remote URL, whose tools a person may use when their Role card assigns it; off until the user reviews it.
+_Avoid_: Integration, connector, plugin, tool server
+
+**Server value**:
+A named value an MCP server needs (an environment variable or a header), plain or secret, set Office-wide and overridden on a Project's page.
+_Avoid_: Variable, parameter, credential, config
+
 **Office Manager**:
 The person the user goes to by default: it drafts Roles for the user to confirm, captures Ideas, answers for the state of The Office and redirects the user to whoever is responsible.
 _Avoid_: Receptionist, HR, router
