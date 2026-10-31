@@ -17,6 +17,7 @@ import type { AttachmentKind } from "../../domain/attachment.js";
 import type { Author } from "../../domain/author.js";
 import type { IdeaState } from "../../domain/idea.js";
 import type { InitiativeState } from "../../domain/initiative.js";
+import type { StateChangeCause } from "../../domain/state-change.js";
 import type { Priority, ProposedPipeline, TaskState } from "../../domain/task.js";
 import { searchVectorOf } from "./search-vector.js";
 
@@ -99,6 +100,26 @@ export const tasks = pgTable(
       .on(table.projectId)
       .where(sql`${table.isOnboardTask}`),
   ],
+);
+
+/**
+ * A Task's moves between states, each saved with the Task's change, for its record. A Task kept
+ * from before these were has no row for its creation (`from_state` null).
+ */
+export const taskStateChanges = pgTable(
+  "task_state_changes",
+  {
+    /** In the order they were saved: one Task's changes are saved one at a time, its row held. */
+    id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+    taskId: uuid("task_id")
+      .notNull()
+      .references(() => tasks.id),
+    fromState: text("from_state").$type<TaskState>(),
+    toState: text("to_state").$type<TaskState>().notNull(),
+    changedAt: timestamp("changed_at", { withTimezone: true }).notNull(),
+    changedBy: jsonb("changed_by").$type<StateChangeCause>().notNull(),
+  },
+  (table) => [index("task_state_changes_task").on(table.taskId)],
 );
 
 /**

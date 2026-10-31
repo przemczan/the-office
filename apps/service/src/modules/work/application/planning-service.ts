@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import type { Author } from "../domain/author.js";
-import { PLANNER, PLANNING_OPENING, PLANNING_THREAD_TITLE } from "../domain/planning.js";
+import { THE_USER, type Author } from "../domain/author.js";
+import { PLANNER, PLANNING_THREAD_TITLE } from "../domain/planning.js";
 import {
   confirmDefinitionOfDone,
   confirmPipeline,
@@ -32,8 +32,8 @@ import { IdeaService } from "./idea-service.js";
 
 /**
  * Planning a Task as a conversation with the Planner (spec §2.1): its own worktree on the freshly
- * fetched base branch, and a planning Thread where the Planner starts at once. The Planner
- * proposes the Plan, the Definition of Done and a Pipeline; the user confirms them and marks the
+ * fetched base branch, and a planning Thread where the Planner starts on the user's first message,
+ * so a Plan the user writes alone costs no model call. The Planner proposes the Plan, the Definition of Done and a Pipeline; the user confirms them and marks the
  * Task Ready.
  */
 @Injectable()
@@ -67,7 +67,7 @@ export class PlanningService {
       throw new TaskRefused([`The Task's worktree couldn't be made: ${reason}`]);
     });
     const { task: planning, event } = await this.tasks.update(taskId, (latest) =>
-      changeTaskState(latest, "planning"),
+      changeTaskState(latest, "planning", THE_USER),
     );
     // Another call moved it first, and opened its Thread.
     if (!event) return planning;
@@ -82,12 +82,7 @@ export class PlanningService {
    */
   private async openPlanningThread(taskId: string): Promise<void> {
     try {
-      await this.threads.startOnTask({
-        taskId,
-        roleKey: PLANNER,
-        title: PLANNING_THREAD_TITLE,
-        opening: PLANNING_OPENING,
-      });
+      await this.threads.openOnTask({ taskId, roleKey: PLANNER, title: PLANNING_THREAD_TITLE });
     } catch (error) {
       const { event } = await this.tasks.update(taskId, undoPlanningMove);
       if (event) await this.events.publish(event);

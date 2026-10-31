@@ -1,5 +1,6 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { Neighbours } from "../domain/manual-order.js";
+import type { StateChange } from "../domain/state-change.js";
 import type { Task } from "../domain/task.js";
 import type { TaskChange } from "../domain/task-changes.js";
 import type { TaskCreated, TaskReordered } from "../domain/task-events.js";
@@ -30,6 +31,9 @@ export abstract class TaskRepository {
 
   /** Every Task, in no particular order. */
   abstract list(): Promise<readonly Task[]>;
+
+  /** The Task's kept state changes, oldest first; none for a Task The Office doesn't know. */
+  abstract stateChangesOf(taskId: string): Promise<readonly StateChange[]>;
 
   /**
    * Applies `change` to the Task as stored, holding it against other changes until the result is

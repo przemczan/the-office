@@ -2,8 +2,9 @@ import { randomUUID } from "node:crypto";
 import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import type { Author } from "../domain/author.js";
+import { THE_USER, type Author } from "../domain/author.js";
 import { boardOrder, orderAfter } from "../domain/manual-order.js";
+import type { StateChange } from "../domain/state-change.js";
 import { newTaskProblems, type NewTask, type Priority, type Task } from "../domain/task.js";
 import {
   changePriority,
@@ -84,6 +85,11 @@ export class TaskService {
     return task;
   }
 
+  /** The Task's kept state changes, oldest first, each with who or what made it. */
+  async stateChangesOf(taskId: string): Promise<readonly StateChange[]> {
+    return this.repository.stateChangesOf(taskId);
+  }
+
   /** The Tasks it waits for, in the order they were added. */
   async blockersOf(task: Task): Promise<Task[]> {
     const tasks = new Map((await this.repository.list()).map((each) => [each.id, each]));
@@ -123,13 +129,24 @@ export class TaskService {
     return task;
   }
 
+  /** Drops the Task, by the user: on its page, or by their answer to a Decision. */
   async drop(id: string): Promise<Task> {
-    return this.update(id, (task) => changeTaskState(task, "dropped"));
+    return this.update(id, (task) => changeTaskState(task, "dropped", THE_USER));
   }
 
-  /** Holds the Task; TaskPaused tells Pipelines to hold its running Stage once the turn ends. */
+  /**
+   * The user's Pause; TaskPaused tells Pipelines to hold its running Stage once the turn ends.
+   */
   async pause(id: string): Promise<Task> {
-    return this.update(id, pauseTask);
+    return this.update(id, (task) => pauseTask(task, THE_USER));
+  }
+
+  /**
+   * Holds the Task Paused as the user's Pause does, but by The Office, for a reason the walk can't
+   * go on with, which its record gives.
+   */
+  async hold(id: string, reason: string): Promise<Task> {
+    return this.update(id, (task) => pauseTask(task, { kind: "office", reason }));
   }
 
   /** Holds the Task now; TaskStopped tells Pipelines to interrupt the Stage running. */

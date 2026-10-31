@@ -1,3 +1,5 @@
+import { THE_USER } from "./author.js";
+import { BY_THE_QUEUE } from "./state-change.js";
 import type { Task } from "./task.js";
 import type { TaskChange } from "./task-changes.js";
 import type { TaskStarted } from "./task-events.js";
@@ -58,7 +60,8 @@ export function startOrQueue(
       ? overlaps.map(({ taskId }) => taskId)
       : (queued?.behind ?? []);
   const allWaits = [...waits, ...behindWaits(behind, held.startedTasks)];
-  if (allWaits.length === 0) return { kind: "started", change: startTask(task, conditions, held) };
+  if (allWaits.length === 0)
+    return { kind: "started", change: startTask(task, conditions, held, THE_USER) };
   if (queued) return { kind: "queued", queued: { ...queued, reasons: allWaits, behind } };
   const joined = {
     taskId: task.id,
@@ -127,7 +130,7 @@ export function releaseQueue(
     const allWaits = [...waits, ...behindWaits(queued.behind, tasks)];
     if (refusals.length > 0) refused.push({ taskId: task.id, refusals });
     else if (allWaits.length > 0) waiting.push({ ...queued, reasons: allWaits });
-    else started.push(startTask(task, conditions, held));
+    else started.push(startTask(task, conditions, held, BY_THE_QUEUE));
   }
   return { started, refused, waiting };
 }

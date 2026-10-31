@@ -3,7 +3,11 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import { DecisionAnswered } from "../../conversations/index.js";
 import { RoleLetGo } from "../../people/index.js";
-import { STAFFING_OPTIONS, staffingDecision } from "../domain/staffing-decision.js";
+import {
+  STAFFING_OPTIONS,
+  staffingDecision,
+  staffingHoldReason,
+} from "../domain/staffing-decision.js";
 import { StageDecisions } from "../ports/stage-decisions.js";
 import { StaffingHoldRepository } from "../ports/staffing-hold-repository.js";
 import { StartedTasks } from "../ports/started-tasks.js";
@@ -44,7 +48,9 @@ export class StaffingHolds implements OnModuleInit {
     return this.holding.run(taskId, async () => {
       const problems = await this.taskStages.staffingProblems(taskId);
       if (problems.length === 0) return false;
-      if ((await this.tasks.read(taskId)).state !== "paused") await this.tasks.pause(taskId);
+      if ((await this.tasks.read(taskId)).state !== "paused") {
+        await this.tasks.hold(taskId, staffingHoldReason(problems));
+      }
       if (await this.holds.isHeld(taskId)) return true;
       const { id } = await this.decisions.open({
         taskId,

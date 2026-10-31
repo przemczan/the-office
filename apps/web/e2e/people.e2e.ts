@@ -738,16 +738,22 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await expect(page).toHaveURL(/\/tasks\/[0-9a-f-]+$/);
   signIn.taskUrl = page.url();
   await expect(
-    page.getByText("Sign-in returns to the page is in Planning with Jan."),
+    page.getByText(
+      "Sign-in returns to the page is in Planning: message Jan to start, or write the Plan yourself.",
+    ),
   ).toBeVisible();
   const conversation = page.getByRole("complementary", { name: "Conversation" });
   await expect(conversation.getByRole("button", { name: /^Planning · Jan/ })).toBeVisible();
+  // Jan starts on the user's first message, not as the Task moves to Planning.
+  const message = conversation.getByLabel("Message");
+  await message.fill("Signing in should bring me back to the page I was on.");
+  await message.press("Enter");
   const decision = conversation.getByRole("region", { name: `Decision: ${QUERY_QUESTION}` });
   await expect(
     decision.getByText("Jan recommends “Keep the query string”: Filters live in the query string."),
   ).toBeVisible();
   await expect(conversation.getByText(OPEN_DECISION_TOOL)).toHaveCount(0);
-  // The opening's context line opens to show the Brief the session started with.
+  // The first context line opens to show the Brief the session started with.
   const brief = conversation.locator(".message-brief-text");
   await expect(brief).toBeHidden();
   await conversation.getByText("Brief", { exact: true }).click();
@@ -1031,7 +1037,7 @@ async function seedGatedStages(page: Page, taskId: string): Promise<void> {
   expect(edited.status()).toBe(200);
 }
 
-/** A Task planned through the API, Ready to start; planning replays Jan's session for it. */
+/** A Task planned through the API, Ready to start; the user writes its parts, so Jan never starts. */
 async function readyTask(page: Page, projectId: string, title: string): Promise<string> {
   const created = await page.request.post("/api/tasks", {
     data: { title, projectId, priority: "normal" },
@@ -1055,8 +1061,8 @@ async function readyTask(page: Page, projectId: string, title: string): Promise<
   return id;
 }
 
-// The engine replays the last sessions in e2e/sessions.jsonl: Jan's planning, then Implement's two,
-// the second after the Gate sent the work back.
+// The engine replays the next sessions in e2e/sessions.jsonl: Implement's two, the second after the
+// Gate sent the work back.
 test("a Gate holds the Task for the user, sends the work back with feedback, then continues", async ({
   page,
 }) => {
@@ -1259,8 +1265,8 @@ async function seedConsultation(taskId: string, plannerThreadId: string): Promis
   return decisionId;
 }
 
-// The engine replays the last two sessions in e2e/sessions.jsonl: Jan's planning, then Adam's reply
-// once the user joins the Consultation.
+// The engine replays the next session in e2e/sessions.jsonl: Adam's reply once the user joins the
+// Consultation.
 test("the user reads a Consultation on the Task, sees its Decision wait on the Consultant, and joins it", async ({
   page,
 }) => {

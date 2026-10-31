@@ -37,6 +37,7 @@ import { MemoryService, RoleCards, type SessionRole } from "../../../people/inde
 import { PlanningService } from "../../application/planning-service.js";
 import { QueueService } from "../../application/queue-service.js";
 import { FireAlarmService } from "../../application/fire-alarm-service.js";
+import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import { AlarmSounded, AllClearGiven } from "../../domain/fire-alarm-events.js";
 import { TaskPaused } from "../../domain/task-events.js";
@@ -46,7 +47,7 @@ import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { PostgresTaskRepository } from "../postgres/postgres-task-repository.js";
-import { PLANNER, PLANNING_OPENING } from "../../domain/planning.js";
+import { PLANNER } from "../../domain/planning.js";
 import { changeStartedTaskState } from "../../domain/task-changes.js";
 import {
   FireAlarmRepositoryForTests,
@@ -352,7 +353,6 @@ describe("POST /api/tasks/:id/planning", () => {
       taskId: task.id,
       roleKey: "planner",
       title: "Planning",
-      opening: PLANNING_OPENING,
     });
     expect(webEventsOf(work)).toEqual([
       { type: "task.state-changed", taskId: task.id, from: "backlog", to: "planning" },
@@ -722,6 +722,33 @@ describe("Start", () => {
       { type: "task.paused", taskId: task.id },
       { type: "task.stopped", taskId: task.id },
       { type: "task.resumed", taskId: task.id },
+    ]);
+  });
+
+  it("keeps each state change on the Task's record, with who or what made it", async () => {
+    const task = await readyTask();
+    await start(task.id);
+    const tasks = work.app.get(TaskService);
+    await tasks.changeState(task.id, "waiting-on-you");
+    await tasks.hold(
+      task.id,
+      "nobody can work its next Stages. Stage 2 · Implement: Adam was let go.",
+    );
+    await sendJson(work, "POST", `/tasks/${task.id}/resume`);
+
+    const record = await work.app.get(TaskRecords).recordText(task.id);
+
+    expect(record.slice(record.indexOf("State changes:")).split("\n")).toEqual([
+      "State changes:",
+      expect.stringMatching(/: created in Backlog, by the user$/),
+      expect.stringMatching(/: Backlog → Planning, by the user$/),
+      expect.stringMatching(/: Planning → Ready, by the user$/),
+      expect.stringMatching(/: Ready → In progress, by the user$/),
+      expect.stringMatching(/: In progress → Waiting on you, by its Pipeline$/),
+      expect.stringMatching(
+        /: Waiting on you → Paused, by The Office: nobody can work its next Stages\. Stage 2 · Implement: Adam was let go\.$/,
+      ),
+      expect.stringMatching(/: Paused → In progress, by the user$/),
     ]);
   });
 
@@ -1301,12 +1328,6 @@ const DEVELOPER_SESSION: SessionScript = [
   { step: "end" },
 ];
 
-/** The Planner's opening turn on a Task, which the test then confirms for itself. */
-const PLANNER_SESSION: SessionScript = [
-  { step: "start", brief: { id: "brief", text: "" } },
-  turnEnded(undefined),
-];
-
 function turnEnded(output: unknown): SessionScript[number] {
   return {
     step: "event",
@@ -1457,15 +1478,8 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
       });
       const task = taskSchema.parse(await created.json());
       ownIds.push(task.id);
-      engine.queue(PLANNER_SESSION);
-      const sessionsBefore = engine.sessions.length;
+      // The user writes the Plan alone, so the Planner never starts.
       expect((await send("POST", `/tasks/${task.id}/planning`)).status).toBe(200);
-      // The Planner's session may start after the answer: one starting later would take the
-      // script meant for a Developer's session.
-      await vi.waitFor(() => expect(engine.sessions.length).toBeGreaterThan(sessionsBefore), {
-        timeout: 10_000,
-        interval: 50,
-      });
       await send("PUT", `/tasks/${task.id}/plan`, { plan: "Mine." });
       await send("PUT", `/tasks/${task.id}/definition-of-done`, { definitionOfDone: ["Mine."] });
       await send("PUT", `/tasks/${task.id}/pipeline`, { pipelineId });
@@ -1514,6 +1528,7 @@ function roleCardsOf(developerKey: string, taskLimit: number): Partial<RoleCards
     hiredKeys: () => Promise.resolve(hired),
     consultants: () => Promise.resolve([]),
     findLetGo: () => Promise.resolve(undefined),
+    roleTitle: (key) => roleOf(key).card.title,
   };
 }
 

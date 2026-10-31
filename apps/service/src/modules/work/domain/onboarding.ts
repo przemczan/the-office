@@ -62,7 +62,11 @@ export function createOnboardTask(
     definitionOfDoneConfirmed: true,
     isOnboardTask: true,
   };
-  return { task: onboardTask, event: new TaskCreated(onboardTask) };
+  return {
+    task: onboardTask,
+    event: new TaskCreated(onboardTask),
+    stateChange: { from: undefined, to: "ready", at: createdAt, by: setting.createdBy },
+  };
 }
 
 /** A Project's onboarding, read from its Onboard Task alone; a Project without one has none. */

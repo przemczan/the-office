@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { THE_USER } from "./author.js";
 import type { Task } from "./task.js";
 import { TaskStarted } from "./task-events.js";
 import { TaskRefused } from "./task-refused.js";
@@ -51,7 +52,7 @@ const nothing: StartReasons = { refusals: [], waits: [] };
 
 describe("startTask", () => {
   it("moves a Ready Task to In progress, counted against its first Agent Stage's Role", () => {
-    const { task, event } = startTask(ready, conditions, held([]));
+    const { task, event } = startTask(ready, conditions, held([]), THE_USER);
 
     expect(task).toEqual({ ...ready, state: "in-progress", personRole: "developer" });
     expect(event).toBeInstanceOf(TaskStarted);
@@ -61,13 +62,13 @@ describe("startTask", () => {
   it("counts against nobody when the Pipeline has no Agent Stage", () => {
     const scriptsOnly = { ...conditions, stages: [{ name: "Tests" }], person: undefined };
 
-    expect(startTask(ready, scriptsOnly, held([])).task.personRole).toBeUndefined();
+    expect(startTask(ready, scriptsOnly, held([]), THE_USER).task.personRole).toBeUndefined();
   });
 
   it("starts beside another Task in progress in the same Project", () => {
     const other = started("a", { projectId: "admin-panel" });
 
-    expect(startTask(ready, conditions, held([other])).task.state).toBe("in-progress");
+    expect(startTask(ready, conditions, held([other]), THE_USER).task.state).toBe("in-progress");
   });
 
   it("refuses with every reason, the refusals before the waits", () => {
@@ -78,7 +79,7 @@ describe("startTask", () => {
     ];
     const blockers = [aTask({ id: "b1", title: "Queue schema", state: "ready" })];
 
-    expect(() => startTask(ready, conditions, held(others, blockers))).toThrow(
+    expect(() => startTask(ready, conditions, held(others, blockers), THE_USER)).toThrow(
       new TaskRefused([
         'Blocked by "Queue schema", which must be Done first.',
         "The Office-wide limit is reached: all 3 desks are in use.",

@@ -5,10 +5,12 @@ import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
 import type { Idea } from "../../domain/idea.js";
 import type { Initiative } from "../../domain/initiative.js";
 import type { Task } from "../../domain/task.js";
+import type { StateChange } from "../../domain/state-change.js";
 import type { TaskChange } from "../../domain/task-changes.js";
+import type { TaskCreated } from "../../domain/task-events.js";
 import { TaskNotFound } from "../../domain/task-not-found.js";
 import type { TaskUpdate } from "../../ports/task-repository.js";
-import { attachments, ideas, initiatives, tasks } from "./work.schema.js";
+import { attachments, ideas, initiatives, tasks, taskStateChanges } from "./work.schema.js";
 
 export type Transaction = Parameters<Parameters<Database["transaction"]>[0]>[0];
 
@@ -76,7 +78,50 @@ export async function saveTask<Event extends DomainEvent>(
 ): Promise<TaskUpdate<Event>> {
   if (!changed) return { task, event: undefined };
   await transaction.update(tasks).set(toTaskRow(changed.task)).where(eq(tasks.id, task.id));
+  await keepStateChange(transaction, changed);
   return changed;
+}
+
+/** Inserts the new Task with its creation, the first of its kept state changes. */
+export async function insertTask(
+  transaction: Transaction,
+  created: TaskChange<TaskCreated>,
+): Promise<void> {
+  await transaction.insert(tasks).values(toTaskRow(created.task));
+  await keepStateChange(transaction, created);
+}
+
+/** Keeps the change's move between states with the Task, when it makes one. */
+export async function keepStateChange(
+  transaction: Transaction,
+  { task, stateChange }: TaskChange<DomainEvent>,
+): Promise<void> {
+  if (!stateChange) return;
+  await transaction.insert(taskStateChanges).values({
+    taskId: task.id,
+    fromState: stateChange.from ?? null,
+    toState: stateChange.to,
+    changedAt: stateChange.at,
+    changedBy: stateChange.by,
+  });
+}
+
+/** The Task's kept state changes, in the order they were saved. */
+export async function stateChangesOf(
+  database: Database | Transaction,
+  taskId: string,
+): Promise<StateChange[]> {
+  const rows = await database
+    .select()
+    .from(taskStateChanges)
+    .where(eq(taskStateChanges.taskId, taskId))
+    .orderBy(taskStateChanges.id);
+  return rows.map((row) => ({
+    from: row.fromState ?? undefined,
+    to: row.toState,
+    at: row.changedAt,
+    by: row.changedBy,
+  }));
 }
 
 /** Every Task's order key, but `besidesTaskId`'s. */

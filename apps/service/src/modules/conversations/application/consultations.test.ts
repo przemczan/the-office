@@ -310,12 +310,12 @@ const ASKER_TAKES_THE_ANSWER: Step[] = [
 ];
 
 async function developerOnATask(): Promise<Thread> {
-  return threads.startOnTask({
+  const opened = await threads.openOnTask({
     taskId: randomUUID(),
     roleKey: askerKey,
     title: "Build the export",
-    opening: "Build the export.",
   });
+  return app.get(ThreadRunner).send(opened.id, "Build the export.");
 }
 
 /** The Consultation on the Task, once it has started. */

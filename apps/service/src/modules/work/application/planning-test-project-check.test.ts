@@ -17,7 +17,13 @@ import {
   type Task,
 } from "@the-office/contracts";
 import { describe, expect, it, vi } from "vitest";
-import { checkApi, messageLine, type Api, type ApiCall } from "../../../../test/live-check.js";
+import {
+  checkApi,
+  FIRST_PLANNING_MESSAGE,
+  messageLine,
+  type Api,
+  type ApiCall,
+} from "../../../../test/live-check.js";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
 import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
@@ -207,11 +213,15 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             return log.since(label, said);
           };
 
-          await turn(undefined, "The Office's opening");
+          // The Planner starts on the user's first message (spec 2.1).
+          await turn(FIRST_PLANNING_MESSAGE, "The user's first message");
 
           // The Brief, as the Thread's first session read it.
           const brief = await firstSessionMessage(shaped.id);
-          await note("The first session's first message (the Brief and the opening):", brief);
+          await note(
+            "The first session's first message (the Brief and the user's message):",
+            brief,
+          );
           expect(brief).toContain(shaped.title);
           expect(brief).toContain(idea.notes);
           expect(brief).toContain(`Attachment ${attachment.id}`);

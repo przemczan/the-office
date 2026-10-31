@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { attachmentLines } from "../domain/attachment.js";
+import { taskRecordText } from "../domain/record-words.js";
 import type { Task } from "../domain/task.js";
 import { KnownProjects, type KnownProject } from "../ports/known-projects.js";
 import { ProjectWorktrees, type TaskWorktree } from "../ports/project-worktrees.js";
@@ -17,7 +18,10 @@ export interface TaskRecord extends Pick<Task, "title" | "plan" | "definitionOfD
   readonly worktree: TaskWorktree;
 }
 
-/** The Tasks' records for the modules that brief sessions working on them, such as Pipelines. */
+/**
+ * The Tasks' records: for the modules that brief sessions working on them, such as Pipelines, and as
+ * an Agent reads one.
+ */
 @Injectable()
 export class TaskRecords {
   constructor(
@@ -50,5 +54,19 @@ export class TaskRecords {
       },
       worktree,
     };
+  }
+
+  /**
+   * The Task's record as an Agent reads it, through `read_task` or mentioned in a chat. Throws
+   * TaskNotFound when there is no such Task.
+   */
+  async recordText(taskId: string): Promise<string> {
+    const task = await this.tasks.read(taskId);
+    const [attachments, blockers, stateChanges] = await Promise.all([
+      this.attachments.listOf({ kind: "task", taskId }),
+      this.tasks.blockersOf(task),
+      this.tasks.stateChangesOf(taskId),
+    ]);
+    return taskRecordText(task, attachments, blockers, stateChanges);
   }
 }

@@ -7,6 +7,7 @@ import {
   TaskThreadSetups,
   WorkRecords,
 } from "../../conversations/index.js";
+import type { NewProject } from "../../projects/index.js";
 import { FIRE_ALARM_OFF, type FireAlarm } from "../domain/fire-alarm.js";
 import { DEFAULT_OFFICE_WIDE_LIMIT, type TaskLimit } from "../domain/task-start.js";
 import { FireAlarmRepository } from "./fire-alarm-repository.js";
@@ -47,14 +48,21 @@ export class KnownProjectsForTests extends KnownProjects {
 @Injectable()
 export class NewProjectsForTests extends NewProjects {
   readonly added: string[] = [];
+  private readonly byPath = new Map<string, AddedProject>();
 
   async newProjectProblems(): Promise<string[]> {
     return [];
   }
 
-  async add({ name }: { readonly name: string }): Promise<AddedProject> {
+  async findByPath(path: string): Promise<AddedProject | undefined> {
+    return this.byPath.get(path);
+  }
+
+  async add({ name, path }: Pick<NewProject, "name" | "path">): Promise<AddedProject> {
     this.added.push(name);
-    return { id: name.toLowerCase().replaceAll(" ", "-"), name };
+    const project = { id: name.toLowerCase().replaceAll(" ", "-"), name };
+    this.byPath.set(path, project);
+    return project;
   }
 }
 
@@ -192,7 +200,7 @@ export class TaskThreadsForTests extends TaskThreads {
   readonly opened: TaskThreadOpening[] = [];
   failure: Error | undefined;
 
-  async startOnTask(opening: TaskThreadOpening): Promise<{ readonly id: string }> {
+  async openOnTask(opening: TaskThreadOpening): Promise<{ readonly id: string }> {
     if (this.failure) throw this.failure;
     this.opened.push(opening);
     return { id: crypto.randomUUID() };

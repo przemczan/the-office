@@ -87,12 +87,21 @@ export class StartedTasksForTests extends StartedTasks {
     return this.read(taskId);
   }
 
-  /** As Work does: the state changes, then TaskPaused tells Pipelines. */
+  /** Each hold by The Office, with the reason its record gives, in order. */
+  readonly holds: { readonly taskId: string; readonly reason: string }[] = [];
+
+  /** As the user's Pause in Work: the state changes, then TaskPaused tells Pipelines. */
   async pause(taskId: string): Promise<StartedTask> {
     const task = await this.read(taskId);
     this.put(taskId, { ...task, state: "paused" });
     await this.announce(new TaskPaused(taskId, task.state as "in-progress"));
     return this.read(taskId);
+  }
+
+  /** As Work holds it: paused as by the user, the reason kept for its record. */
+  async hold(taskId: string, reason: string): Promise<StartedTask> {
+    this.holds.push({ taskId, reason });
+    return this.pause(taskId);
   }
 
   /** As Work sounds the alarm: a running Task is paused by it, then TaskPaused tells Pipelines. */

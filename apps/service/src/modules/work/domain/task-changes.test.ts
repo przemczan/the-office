@@ -38,7 +38,7 @@ const setting = {
 
 describe("createTask", () => {
   it("starts the Task in Backlog, unplanned, with what The Office sets", () => {
-    const { task, event } = createTask(
+    const { task, event, stateChange } = createTask(
       "task-9",
       { title: " Fix the login redirect ", projectId: "admin-panel", priority: "high" },
       setting,
@@ -48,6 +48,12 @@ describe("createTask", () => {
     expect(task).toEqual(aTask({ id: "task-9", priority: "high", order: "a3", createdAt }));
     expect(event).toEqual(new TaskCreated(task));
     expect(event.occurredAt).toEqual(createdAt);
+    expect(stateChange).toEqual({
+      from: undefined,
+      to: "backlog",
+      at: createdAt,
+      by: setting.createdBy,
+    });
   });
 
   it("refuses a Task without a title", () => {
@@ -143,7 +149,7 @@ describe("changeStartedTaskState", () => {
 describe("Pause, Stop and Resume", () => {
   it("holds a Task In progress or Waiting on you as Paused, and announces how", () => {
     for (const state of ["in-progress", "waiting-on-you"] as const) {
-      const paused = pauseTask(aTask({ state }));
+      const paused = pauseTask(aTask({ state }), THE_USER);
       const stopped = stopTask(aTask({ state }));
 
       expect(paused?.task).toEqual(aTask({ state: "paused" }));
@@ -156,7 +162,7 @@ describe("Pause, Stop and Resume", () => {
   });
 
   it("changes nothing on a Pause of a Paused Task, while a Stop still stops its running Stage", () => {
-    expect(pauseTask(aTask({ state: "paused" }))).toBeUndefined();
+    expect(pauseTask(aTask({ state: "paused" }), THE_USER)).toBeUndefined();
     expect(stopTask(aTask({ state: "paused" })).event).toMatchObject({ from: "paused" });
   });
 
@@ -196,8 +202,26 @@ describe("Pause, Stop and Resume", () => {
     );
   });
 
+  it("keeps who or what made each move, and no move when the state stays", () => {
+    const office = { kind: "office", reason: "nobody can work its next Stages." } as const;
+    const held = pauseTask(aTask({ state: "in-progress" }), office);
+    const alarm = pauseTaskForAlarm(aTask({ state: "in-progress" }));
+    const keptAsAlarm = resumeTask(aTask({ state: "paused" }), { fireAlarmOn: true });
+
+    expect(held?.stateChange).toEqual({
+      from: "in-progress",
+      to: "paused",
+      at: held?.event.occurredAt,
+      by: office,
+    });
+    expect(alarm?.stateChange).toMatchObject({ to: "paused", by: { kind: "fire-alarm" } });
+    expect(stopTask(aTask({ state: "in-progress" })).stateChange?.by).toEqual(THE_USER);
+    expect(stopTask(aTask({ state: "paused" })).stateChange).toBeUndefined();
+    expect(keptAsAlarm.stateChange).toBeUndefined();
+  });
+
   it("refuses a Task that isn't running, and a Resume of one that isn't Paused", () => {
-    expect(() => pauseTask(aTask({ state: "ready" }))).toThrow(
+    expect(() => pauseTask(aTask({ state: "ready" }), THE_USER)).toThrow(
       new TaskRefused(["Only a Task in progress can be paused; this one is in Ready."]),
     );
     expect(() => stopTask(aTask({ state: "done" }))).toThrow(

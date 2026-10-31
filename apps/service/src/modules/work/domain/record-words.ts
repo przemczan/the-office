@@ -1,21 +1,24 @@
 import { attachmentLines, type Attachment } from "./attachment.js";
-import type { Author } from "./author.js";
+import { authorWords } from "./author.js";
 import type { Idea } from "./idea.js";
 import type { Initiative } from "./initiative.js";
 import { initiativeProjectIds } from "./initiative-changes.js";
 import { confirmationWords } from "./planning.js";
+import { stateChangeLines, type StateChange } from "./state-change.js";
 import type { Task } from "./task.js";
 import { TASK_STATE_NAMES } from "./task-states.js";
 
 /**
  * A Task's record as an Agent reads it, through `read_task` or mentioned in a chat: its state,
- * priority, Tags and Pipeline, its Plan, Definition of Done and Attachments, the Idea it came from, and
- * the Tasks it waits for (`blockers`, in the order of `task.blockedBy`).
+ * priority, Tags and Pipeline, its Plan, Definition of Done and Attachments, the Idea it came from,
+ * the Tasks it waits for (`blockers`, in the order of `task.blockedBy`), and its kept state changes
+ * with who or what made each.
  */
 export function taskRecordText(
   task: Task,
   attachments: readonly Attachment[],
   blockers: readonly Task[],
+  stateChanges: readonly StateChange[],
 ): string {
   return [
     `${task.title} (Task ${task.id})`,
@@ -45,6 +48,8 @@ export function taskRecordText(
     "",
     "Attachments:",
     ...attachmentLines(attachments),
+    "",
+    ...stateChangeLines(stateChanges),
   ].join("\n");
 }
 
@@ -132,8 +137,4 @@ function shapedIntoWords({ taskId, initiativeId }: Idea): string {
 /** In a Project or Office-wide, as an Agent reads an Idea's place. */
 export function whereOf(projectId: string | undefined): string {
   return projectId === undefined ? "Office-wide" : `in the Project ${projectId}`;
-}
-
-function authorWords(author: Author): string {
-  return author.kind === "user" ? "the user" : `the person in the Role ${author.roleKey}`;
 }

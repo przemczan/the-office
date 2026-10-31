@@ -79,6 +79,12 @@ export class ProjectService {
     return this.repository.find(id);
   }
 
+  /** The Project added from the repository at `path`, read as `add` reads it; undefined when none. */
+  async findByPath(path: string): Promise<Project | undefined> {
+    const repositoryPath = resolvedPath(path.trim());
+    return (await this.repository.list()).find((project) => project.path === repositoryPath);
+  }
+
   /** A running Task runs the new line from its next Script Stage, which reads it when it runs. */
   async changeCommand(id: string, key: ProjectCommandKey, commandLine: string): Promise<Project> {
     return this.update(id, (project) => changeCommand(project, key, commandLine));
@@ -151,9 +157,11 @@ export class ProjectService {
   }
 }
 
-/** The path as the repository's folder is named: without `..` or a trailing separator. */
 function withResolvedPath(newProject: NewProject): NewProject {
-  return isAbsolute(newProject.path)
-    ? { ...newProject, path: resolve(newProject.path) }
-    : newProject;
+  return { ...newProject, path: resolvedPath(newProject.path) };
+}
+
+/** The path as the repository's folder is named: without `..` or a trailing separator. */
+function resolvedPath(path: string): string {
+  return isAbsolute(path) ? resolve(path) : path;
 }

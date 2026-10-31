@@ -102,7 +102,7 @@ describe("write_plan", () => {
     });
 
     expect((await current()).filesToChange).toEqual(["src/auth", "src/login.ts"]);
-    expect(taskRecordText(await current(), [], [])).toContain(
+    expect(taskRecordText(await current(), [], [], [])).toContain(
       "Files to change:\n- src/auth\n- src/login.ts",
     );
   });

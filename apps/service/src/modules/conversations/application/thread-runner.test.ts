@@ -76,6 +76,8 @@ let officeData: string;
 let versions: Card[];
 let roleKey: string;
 const NO_SESSION_REASON = "This Task is Done, so its conversation can't go on.";
+/** The user's first message in a planning Thread, which starts the Planner. */
+const PLAN_IT = "Let's plan the export.";
 /** Tasks whose setup says no session can work on them (Done: Publish removed the worktree). */
 const tasksWithoutSessions = new Set<string>();
 /** The records of Tasks and Ideas as the Work module words them, by id. */
@@ -620,13 +622,9 @@ describe("a Thread on a Task", () => {
   it("stays readable but takes no message once no session can work on its Task", async () => {
     const taskId = randomUUID();
     await startWith(started(...aTurn("brief", "What must be true when it is done?")));
-    const opened = await threads.startOnTask({
-      taskId,
-      roleKey,
-      title: "Planning",
-      opening: "Plan the Task with the user.",
-    });
-    await answered(opened.id, 2);
+    const opened = await planningThread(taskId);
+    await runner.send(opened.id, PLAN_IT);
+    await answered(opened.id, 3);
     const before = await threads.messages(opened.id);
     const stateBefore = (await threads.read(opened.id)).state;
 
@@ -639,7 +637,7 @@ describe("a Thread on a Task", () => {
     expect((await threads.read(opened.id)).state).toBe(stateBefore);
   });
 
-  it("opens on The Office's words in the Task's worktree, read-only, before the user says anything", async () => {
+  it("opens waiting for the user, then starts in the Task's worktree, read-only, on their first message", async () => {
     const taskId = randomUUID();
     const worktree = taskSetup(taskId).folder;
     await startWith(
@@ -659,19 +657,24 @@ describe("a Thread on a Task", () => {
       ),
     );
 
-    const opened = await threads.startOnTask({
-      taskId,
-      roleKey,
-      title: "Planning",
-      opening: "Plan the Task with the user.",
-    });
-    const log = await answered(opened.id, 3);
+    const opened = await planningThread(taskId);
 
-    expect(opened).toMatchObject({ home: { kind: "task", taskId }, title: "Planning" });
+    expect(opened).toMatchObject({
+      home: { kind: "task", taskId },
+      title: "Planning",
+      state: "waiting",
+      session: undefined,
+    });
+    expect(await threads.messages(opened.id)).toEqual([]);
+    expect(engine.sessions).toHaveLength(0);
+
+    await runner.send(opened.id, PLAN_IT);
+    const log = await answered(opened.id, 4);
+
     const [session] = engine.sessions;
     const brief = session?.received[0];
     expect(brief?.step === "start" && brief.brief.text).toBe(
-      `You are planning the Task ${taskId}.\n\n## What to do now\n\nPlan the Task with the user.`,
+      `You are planning the Task ${taskId}.\n\n## The user's message\n\n${PLAN_IT}`,
     );
     expect(session?.options).toMatchObject({
       folder: worktree,
@@ -690,6 +693,7 @@ describe("a Thread on a Task", () => {
     ]);
     expect(drafts(log)).toEqual([
       contextLine({ move: "fresh", reason: "new-thread", briefTokens: expect.any(Number) }),
+      { kind: "user", text: PLAN_IT, delivery: "delivered" },
       { kind: "tool-activity", roleKey, tool: "Read", summary: "README.md" },
       { kind: "person", roleKey, text: "What must be true when it is done?" },
     ]);
@@ -710,20 +714,12 @@ describe("a Thread on a Task", () => {
       started(...aTurn("brief", "What must be true when it is done?"), { step: "end" }),
       started(...aTurn("brief", "Which page?")),
     );
-    const planning = await threads.startOnTask({
-      taskId,
-      roleKey,
-      title: "Planning",
-      opening: "Plan the Task with the user.",
-    });
-    await answered(planning.id, 2);
-    const other = await threads.startOnTask({
-      taskId: randomUUID(),
-      roleKey,
-      title: "Planning",
-      opening: "Plan the Task with the user.",
-    });
-    await answered(other.id, 2);
+    const planning = await planningThread(taskId);
+    await runner.send(planning.id, PLAN_IT);
+    await answered(planning.id, 3);
+    const other = await planningThread();
+    await runner.send(other.id, PLAN_IT);
+    await answered(other.id, 3);
 
     await runner.endWaiting(taskId);
 
@@ -737,18 +733,14 @@ describe("a Thread on a Task", () => {
       started(...aTurn("brief", "What must be true?"), sent("m-2"), ...aTurn("m-2", "Noted.")),
     );
     versions.push({ ...PLANNER, capabilities: { ...PLANNER.capabilities, chat: false } });
-    const opened = await threads.startOnTask({
-      taskId: randomUUID(),
-      roleKey,
-      title: "Planning",
-      opening: "Plan the Task with the user.",
-    });
-    await answered(opened.id, 2);
+    const opened = await planningThread();
+    await runner.send(opened.id, PLAN_IT);
+    await answered(opened.id, 3);
 
     await runner.send(opened.id, "The page loads under a second.");
-    const log = await answered(opened.id, 4);
+    const log = await answered(opened.id, 5);
 
-    expect(drafts(log).slice(2)).toEqual([
+    expect(drafts(log).slice(3)).toEqual([
       { kind: "user", text: "The page loads under a second.", delivery: "delivered" },
       { kind: "person", roleKey, text: "Noted." },
     ]);
@@ -758,12 +750,7 @@ describe("a Thread on a Task", () => {
     await startWith();
 
     await expect(
-      threads.startOnTask({
-        taskId: randomUUID(),
-        roleKey: "nobody",
-        title: "Planning",
-        opening: "Plan the Task with the user.",
-      }),
+      threads.openOnTask({ taskId: randomUUID(), roleKey: "nobody", title: "Planning" }),
     ).rejects.toThrow(ThreadRefused);
     expect(engine.sessions).toHaveLength(0);
   });
@@ -850,13 +837,15 @@ describe("a Thread on an Initiative", () => {
   });
 });
 
-async function planningThread(): Promise<Thread> {
-  return threads.startOnTask({
-    taskId: randomUUID(),
-    roleKey,
-    title: "Planning",
-    opening: "Plan the Task with the user.",
-  });
+/** A Task's planning Thread, waiting for the user's first message. */
+async function planningThread(taskId: string = randomUUID()): Promise<Thread> {
+  return threads.openOnTask({ taskId, roleKey, title: "Planning" });
+}
+
+/** A Task's planning Thread where the Planner answers the user's first message. */
+async function plannerAnswering(): Promise<Thread> {
+  const opened = await planningThread();
+  return runner.send(opened.id, PLAN_IT);
 }
 
 /** The log without context lines and tool activity, whose order around a tool's own lines varies. */
@@ -872,9 +861,9 @@ describe("a Decision", () => {
         ...aTurn("brief", "I asked about archived Projects."),
       ),
     );
-    const opened = await planningThread();
+    const opened = await plannerAnswering();
 
-    const log = await answered(opened.id, 4);
+    const log = await answered(opened.id, 5);
 
     const thread = await threads.read(opened.id);
     const decision = {
@@ -892,6 +881,7 @@ describe("a Decision", () => {
     };
     expect(thread.openDecision).toEqual(decision);
     expect(exchanges(log)).toEqual([
+      { kind: "user", text: PLAN_IT, delivery: "delivered" },
       { kind: "decision", roleKey, decisionId: thread.openDecision?.id },
       { kind: "person", roleKey, text: "I asked about archived Projects." },
     ]);
@@ -908,13 +898,13 @@ describe("a Decision", () => {
         ...aTurn("answer", "Only active ones, then."),
       ),
     );
-    const opened = await planningThread();
-    await answered(opened.id, 4);
+    const opened = await plannerAnswering();
+    await answered(opened.id, 5);
     const open = (await threads.read(opened.id)).openDecision;
     if (!open) throw new Error("No Decision was opened.");
 
     await decisions.answer(open.id, { kind: "option", option: 0 });
-    const log = await answered(opened.id, 6);
+    const log = await answered(opened.id, 7);
 
     const [session] = engine.sessions;
     expect(engine.sessions).toHaveLength(1);
@@ -953,16 +943,16 @@ describe("a Decision", () => {
       ),
       started(...aTurn("brief", "Visible ones plus the id.")),
     );
-    const opened = await planningThread();
-    await answered(opened.id, 4);
+    const opened = await plannerAnswering();
+    await answered(opened.id, 5);
     const first = (await threads.read(opened.id)).openDecision;
     if (!first) throw new Error("No Decision was opened.");
     await decisions.answer(first.id, { kind: "option", option: 0 });
-    await answered(opened.id, 8);
+    await answered(opened.id, 9);
 
     // A follow-up is an ordinary message: the Decision stays open.
     await runner.send(opened.id, "What does visible mean?");
-    await answered(opened.id, 10);
+    await answered(opened.id, 11);
     const second = (await threads.read(opened.id)).openDecision;
     expect(second?.question).toBe(COLUMNS_QUESTION);
     await cooled(opened.id, 80_000);
@@ -971,7 +961,7 @@ describe("a Decision", () => {
       kind: "free-answer",
       text: "The visible ones, plus the id.",
     });
-    const log = await answered(opened.id, 13);
+    const log = await answered(opened.id, 14);
 
     const fresh = engine.sessions[1];
     const brief = fresh?.received[0];
@@ -1009,8 +999,8 @@ describe("a Decision", () => {
       [{ step: "start", brief: { id: "brief", text: "" }, listedSkills: ["stray"] }],
       started(...aTurn("brief", "Only active ones, then.")),
     );
-    const opened = await planningThread();
-    await answered(opened.id, 4);
+    const opened = await plannerAnswering();
+    await answered(opened.id, 5);
     const open = (await threads.read(opened.id)).openDecision;
     if (!open) throw new Error("No Decision was opened.");
     const before = (await threads.read(opened.id)).session;
@@ -1079,8 +1069,8 @@ describe("a message mentioning records", () => {
       ),
       started(...aTurn("brief", "I read them.")),
     );
-    const planning = await planningThread();
-    await answered(planning.id, 4);
+    const planning = await plannerAnswering();
+    await answered(planning.id, 5);
     const decision = (await threads.read(planning.id)).openDecision;
     if (!decision) throw new Error("No Decision was opened.");
     const taskId = randomUUID();

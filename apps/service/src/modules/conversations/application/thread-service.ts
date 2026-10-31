@@ -21,11 +21,6 @@ import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { ThreadRunner } from "./thread-runner.js";
 
-/** A Thread The Office opens on a Task, and what it asks the person first. */
-export interface TaskThreadOpening extends TaskThreadStart {
-  readonly opening: string;
-}
-
 /** A Thread The Office opens on an Initiative, and what it asks the person first. */
 export interface InitiativeThreadOpening extends InitiativeThreadStart {
   readonly opening: string;
@@ -56,12 +51,16 @@ export class ThreadService {
   }
 
   /**
-   * Opens a Thread on a Task, such as its planning Thread, where the person starts on `opening` at
-   * once, in a new session with the Task's Brief. Refused when nobody fills the Role.
+   * Opens a Thread on a Task, such as its planning Thread, waiting for the user: the person starts
+   * on their first message, in a new session with the Task's Brief. Refused when nobody fills the
+   * Role.
    */
-  async startOnTask({ opening, ...start }: TaskThreadOpening): Promise<Thread> {
+  async openOnTask(start: TaskThreadStart): Promise<Thread> {
     await this.refuseUnlessFilled(start.roleKey);
-    return this.openWith(startTaskThread(randomUUID(), start, new Date()), opening);
+    const { thread, event } = startTaskThread(randomUUID(), start, new Date());
+    await this.repository.add(thread);
+    await this.events.publish(event);
+    return thread;
   }
 
   /**

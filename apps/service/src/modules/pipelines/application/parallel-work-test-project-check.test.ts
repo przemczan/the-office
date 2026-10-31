@@ -29,6 +29,7 @@ import {
   stageLines,
   stagesOf,
   tokensOf,
+  startPlanner,
   untilThreadWaits,
   untilWalkStops,
   type Api,
@@ -302,7 +303,7 @@ async function planWithThePlanner(
   await api("POST", `/tasks/${taskId}/planning`);
   const thread = threadListSchema.parse(await api("GET", `/tasks/${taskId}/threads`))[0];
   if (!thread) throw new Error("Planning opened no Thread.");
-  await untilThreadWaits(api, thread.id, PLANNER_MS);
+  await startPlanner(api, thread.id, PLANNER_MS);
   for (const asked of await openDecisionsOn(api, taskId)) {
     await api("POST", `/decisions/${asked.id}/answer`, {
       kind: "option",

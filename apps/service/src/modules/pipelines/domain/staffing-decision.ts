@@ -4,6 +4,11 @@ import type { StageDecision } from "./stage-run.js";
 /** The option indexes of `staffingDecision`, which the answer is read by. */
 export const STAFFING_OPTIONS = { resume: 0, drop: 1 } as const;
 
+/** Why The Office holds the Task, as its record gives it: each Stage nobody can work, and why. */
+export function staffingHoldReason(problems: readonly StageProblem[]): string {
+  return `nobody can work its next Stages. ${problems.map(({ text }) => text).join(" ")}`;
+}
+
 /**
  * The Decision for a Task held because nobody can work its next Stages, such as after the person
  * who filled a Role was let go (spec §2.2). Resuming while the lack stands holds the Task again.

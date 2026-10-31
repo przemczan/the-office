@@ -20,13 +20,18 @@ export function useIdeaPlanning(idea: Idea): UseMutationResult<Task, Error, stri
   });
 }
 
-/** The Task is in Planning with the Planner: its page opens on its planning Thread. */
+/**
+ * The Task is in Planning: its page opens on its planning Thread, where the Planner starts on the
+ * user's first message.
+ */
 export function useOnPlanned(): (task: Task) => Promise<void> {
   const showToast = useToast();
   const navigate = useNavigate();
   const planner = usePlanner()?.card.name ?? "the Planner";
   return async (task) => {
-    showToast(`${task.title} is in Planning with ${planner}.`);
+    showToast(
+      `${task.title} is in Planning: message ${planner} to start, or write the Plan yourself.`,
+    );
     await navigate({ to: "/tasks/$taskId", params: { taskId: task.id } });
   };
 }

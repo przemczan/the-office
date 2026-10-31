@@ -3,13 +3,22 @@ import { eq, inArray } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { QueuedTask, Release, Starting } from "../../domain/queue.js";
 import type { Task } from "../../domain/task.js";
+import type { TaskChange } from "../../domain/task-changes.js";
+import type { TaskStarted } from "../../domain/task-events.js";
 import type { HeldAtStart } from "../../domain/task-start.js";
 import { STARTED_STATES } from "../../domain/task-states.js";
 import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
 import { QueueRepository, type HeldForRelease } from "../../ports/queue-repository.js";
 import { queue } from "./queue.schema.js";
 import { tasks } from "./work.schema.js";
-import { heldTask, holdStarts, toTask, toTaskRow, type Transaction } from "./work-rows.js";
+import {
+  heldTask,
+  holdStarts,
+  keepStateChange,
+  toTask,
+  toTaskRow,
+  type Transaction,
+} from "./work-rows.js";
 
 type QueueRow = typeof queue.$inferSelect;
 
@@ -54,7 +63,7 @@ export class PostgresQueueRepository extends QueueRepository {
       };
       const starting = decide(task, held, await heldQueue(transaction));
       if (starting.kind === "started") {
-        await saveStarted(transaction, starting.change.task);
+        await saveStarted(transaction, starting.change);
       } else {
         await saveQueued(transaction, starting.queued);
       }
@@ -84,7 +93,7 @@ export class PostgresQueueRepository extends QueueRepository {
         tasks: (await transaction.select().from(tasks)).map(toTask),
         fireAlarmOn: (await this.fireAlarm.read()).on,
       });
-      for (const { task } of release.started) await saveStarted(transaction, task);
+      for (const started of release.started) await saveStarted(transaction, started);
       for (const { taskId } of release.refused) await removeQueued(transaction, taskId);
       for (const waiting of release.waiting) await saveQueued(transaction, waiting);
       return release;
@@ -113,8 +122,13 @@ async function heldQueue(transaction: Transaction): Promise<QueuedTask[]> {
 }
 
 /** Saves the started Task, which leaves the queue if it was in it. */
-async function saveStarted(transaction: Transaction, task: Task): Promise<void> {
+async function saveStarted(
+  transaction: Transaction,
+  started: TaskChange<TaskStarted>,
+): Promise<void> {
+  const { task } = started;
   await transaction.update(tasks).set(toTaskRow(task)).where(eq(tasks.id, task.id));
+  await keepStateChange(transaction, started);
   await removeQueued(transaction, task.id);
 }
 

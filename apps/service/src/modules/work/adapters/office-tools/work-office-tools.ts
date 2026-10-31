@@ -4,9 +4,10 @@ import { z } from "zod";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import { AttachmentService } from "../../application/attachment-service.js";
 import { IdeaService } from "../../application/idea-service.js";
+import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import type { Idea } from "../../domain/idea.js";
-import { ideaRecordText, taskRecordText, whereOf } from "../../domain/record-words.js";
+import { ideaRecordText, whereOf } from "../../domain/record-words.js";
 import { PRIORITIES, type Task } from "../../domain/task.js";
 import { TASK_STATE_NAMES } from "../../domain/task-states.js";
 import { IdeaCards } from "../../ports/idea-cards.js";
@@ -28,6 +29,7 @@ export class WorkOfficeTools implements OnModuleInit {
   constructor(
     private readonly registry: OfficeToolRegistry,
     private readonly tasks: TaskService,
+    private readonly taskRecords: TaskRecords,
     private readonly ideas: IdeaService,
     private readonly attachments: AttachmentService,
     private readonly sessionPeople: SessionPeople,
@@ -66,14 +68,9 @@ export class WorkOfficeTools implements OnModuleInit {
     this.registry.register({
       name: READ_TASK,
       description:
-        "Reads one Task's record: its state, priority and Pipeline, its Plan, its Definition of Done, its Attachments, the Idea it came from and the Tasks that must be Done before it can start.",
+        "Reads one Task's record: its state, priority and Pipeline, its Plan, its Definition of Done, its Attachments, the Idea it came from, the Tasks that must be Done before it can start, and its state changes with who or what made each.",
       input: z.object({ taskId: z.string().describe("The Task's id, as list_tasks gives it.") }),
-      run: ({ taskId }) =>
-        answered(async () => {
-          const task = await this.tasks.read(taskId);
-          const attachments = await this.attachments.listOf({ kind: "task", taskId: task.id });
-          return taskRecordText(task, attachments, await this.tasks.blockersOf(task));
-        }),
+      run: ({ taskId }) => answered(() => this.taskRecords.recordText(taskId)),
     });
   }
 

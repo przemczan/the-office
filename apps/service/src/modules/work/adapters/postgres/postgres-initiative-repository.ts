@@ -15,11 +15,11 @@ import {
   changeDependenciesHeld,
   everyTaskHoldingDependencies,
   holdManualOrder,
+  insertTask,
   takenOrders,
   toInitiative,
   toInitiativeRow,
   toTask,
-  toTaskRow,
   type Transaction,
 } from "./work-rows.js";
 
@@ -72,7 +72,7 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
       const initiative = await heldInitiative(transaction, id);
       const everyTask = await everyTaskHoldingDependencies(transaction);
       const created = create(initiative, await takenOrders(transaction), everyTask);
-      await transaction.insert(tasks).values(toTaskRow(created.task));
+      await insertTask(transaction, created);
       return created;
     });
   }

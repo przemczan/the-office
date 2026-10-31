@@ -14,6 +14,9 @@ export abstract class NewProjects {
   /** Every reason `add` would refuse the Project now; empty when it can be added. */
   abstract newProjectProblems(project: NewProject): Promise<string[]>;
 
+  /** The Project added from the repository at `path`; undefined when none is. */
+  abstract findByPath(path: string): Promise<AddedProject | undefined>;
+
   /** Refused, with Projects' own error, when the Project breaks a rule. */
   abstract add(project: NewProject): Promise<AddedProject>;
 }

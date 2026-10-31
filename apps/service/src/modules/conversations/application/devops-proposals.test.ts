@@ -43,6 +43,7 @@ import {
   type SessionScript,
 } from "../../engine/index.js";
 import { DEVOPS, RoleCards, type SessionRole } from "../../people/index.js";
+import { TaskWorktrees } from "../../projects/index.js";
 import { SKILL_UPDATE_CHECK, SkillLibrary } from "../../skills/index.js";
 import { LIST_SOURCE_SKILLS_TOOL, READ_SKILL_UPDATE_TOOL } from "../domain/session-instructions.js";
 import { ProjectBases } from "../ports/project-bases.js";
@@ -239,6 +240,55 @@ describe("Devops' Proposals, through the scripted engine", () => {
       definitionOfDoneConfirmed: true,
       createdBy: { kind: "person", roleKey: DEVOPS },
     });
+    expect(projectOnboardingListSchema.parse(await read("/onboardings"))).toContainEqual({
+      projectId: change.projectId,
+      taskId: change.taskId,
+      state: "onboarding",
+    });
+    // The whole app, a real repository and a chat session: slow under a full run.
+  }, 30_000);
+
+  it("applied again after its Onboard Task failed, carries on with the Project already added", async () => {
+    const repository = await aRepository();
+    const name = `Retried ${randomUUID().slice(0, 8)}`;
+    const [proposal] = await ninaProposes([
+      PROPOSE_PROJECT_TOOL,
+      {
+        name,
+        path: repository,
+        baseBranch: "main",
+        commands: {
+          install: "npm ci",
+          build: "npm run build",
+          lint: "npm run lint",
+          test: "npm test",
+        },
+        installInputs: [],
+        publishingMode: "merge",
+        defaultPipeline: "quick-fix",
+      },
+    ]);
+    vi.spyOn(app.get(TaskWorktrees, { strict: false }), "open").mockRejectedValueOnce(
+      new Error("No space left on the disk."),
+    );
+
+    const refused = await api("POST", `/proposals/${proposal?.id}/apply`, {});
+    expect(refused.status).toBe(422);
+    expect(await reasonsOf(refused)).toEqual([
+      `${name} is added, but its Onboard Task isn't: The Onboard Task's worktree couldn't be made: No space left on the disk.`,
+    ]);
+    expect((await readProposal(proposal?.id ?? "")).status.kind).toBe("open");
+
+    const applied = await api("POST", `/proposals/${proposal?.id}/apply`, {});
+    expect(applied.status).toBe(200);
+    const { change } = proposalSchema.parse(await applied.json());
+    if (change.kind !== "project" || !change.projectId || !change.taskId) {
+      throw new Error("The applied Proposal names no Project and Task.");
+    }
+    const projects = projectListSchema.parse(await read("/projects"));
+    expect(projects.filter((project) => project.path === repository)).toMatchObject([
+      { id: change.projectId, name },
+    ]);
     expect(projectOnboardingListSchema.parse(await read("/onboardings"))).toContainEqual({
       projectId: change.projectId,
       taskId: change.taskId,

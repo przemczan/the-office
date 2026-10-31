@@ -28,6 +28,7 @@ import {
   stageLines,
   stagesOf,
   tokensOf,
+  startPlanner,
   untilThreadWaits,
   untilWalkStops,
 } from "../../../../test/live-check.js";
@@ -143,7 +144,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             await api("GET", `/tasks/${taskId}/threads`),
           )[0];
           if (!planningThread) throw new Error("Planning opened no Thread.");
-          await untilThreadWaits(api, planningThread.id, PLANNER_OPENING_MS);
+          await startPlanner(api, planningThread.id, PLANNER_OPENING_MS);
           // The opening may already ask where the version comes from: the Plan's answer.
           const asked = (await openDecisionsOn(api, taskId))[0];
           if (asked) {

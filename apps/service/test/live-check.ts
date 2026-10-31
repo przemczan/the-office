@@ -171,6 +171,16 @@ export async function untilThreadWaits(
   );
 }
 
+/** The user's first message in a planning Thread, which starts the Planner (spec 2.1). */
+export const FIRST_PLANNING_MESSAGE =
+  "Let's plan this Task. Read what you need of it and its worktree, then ask me what is unclear, starting with what must be true when it is done.";
+
+/** Sends the user's first message in a planning Thread and waits for the Planner's answer. */
+export async function startPlanner(api: Api, threadId: string, timeoutMs: number): Promise<void> {
+  await api("POST", `/threads/${threadId}/messages`, { text: FIRST_PLANNING_MESSAGE });
+  await untilThreadWaits(api, threadId, timeoutMs);
+}
+
 /** The Task a check plans: its Idea, then the plan and Definition of Done the user writes. */
 export interface CheckTask {
   readonly title: string;
@@ -180,7 +190,7 @@ export interface CheckTask {
 }
 
 /**
- * Plans `task` on Quick fix as tasks 12 to 15's checks do: the Planner's opening, its Decisions
+ * Plans `task` on Quick fix as tasks 12 to 15's checks do: the Planner's first answer, its Decisions
  * answered with their recommendations, then the user writes the parts and marks the Task Ready.
  */
 export async function planOnQuickFix(
@@ -198,7 +208,7 @@ export async function planOnQuickFix(
   await api("POST", `/tasks/${taskId}/planning`);
   const planningThread = threadListSchema.parse(await api("GET", `/tasks/${taskId}/threads`))[0];
   if (!planningThread) throw new Error("Planning opened no Thread.");
-  await untilThreadWaits(api, planningThread.id, openingMs);
+  await startPlanner(api, planningThread.id, openingMs);
   for (const asked of await openDecisionsOn(api, taskId)) {
     await api("POST", `/decisions/${asked.id}/answer`, {
       kind: "option",

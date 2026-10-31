@@ -1,5 +1,5 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import type { Author } from "./author.js";
+import { THE_USER, type Author } from "./author.js";
 import { boardOrder, placementBetween, type Neighbours } from "./manual-order.js";
 import { newTaskProblems, trimmedNewTask, type NewTask, type Priority, type Task } from "./task.js";
 import {
@@ -13,6 +13,12 @@ import {
   TaskStopped,
 } from "./task-events.js";
 import { FIRE_ALARM_ON } from "./fire-alarm.js";
+import {
+  BY_THE_FIRE_ALARM,
+  BY_THE_PIPELINE,
+  type StateChange,
+  type StateChangeCause,
+} from "./state-change.js";
 import { TaskRefused } from "./task-refused.js";
 import {
   NOT_STARTED_STATES,
@@ -22,10 +28,25 @@ import {
   stateChangeProblems,
 } from "./task-states.js";
 
-/** A Task after a change, with the event that announces it. */
+/**
+ * A Task after a change, with the event that announces it, and the move between states it makes,
+ * kept with the Task as it is saved.
+ */
 export interface TaskChange<Event extends DomainEvent> {
   readonly task: Task;
   readonly event: Event;
+  readonly stateChange?: StateChange;
+}
+
+/** The change, with its move kept when it takes the Task to another state. */
+export function withStateChange<Event extends DomainEvent>(
+  change: TaskChange<Event>,
+  from: Task,
+  by: StateChangeCause,
+): TaskChange<Event> {
+  if (change.task.state === from.state) return change;
+  const stateChange = { from: from.state, to: change.task.state, at: change.event.occurredAt, by };
+  return { ...change, stateChange };
 }
 
 /** What The Office sets on a new Task: its Pipeline comes from the Project's default. */
@@ -68,21 +89,30 @@ export function createTask(
     createdBy: setting.createdBy,
     createdAt,
   };
-  return { task, event: new TaskCreated(task) };
+  return {
+    task,
+    event: new TaskCreated(task),
+    stateChange: { from: undefined, to: task.state, at: createdAt, by: setting.createdBy },
+  };
 }
 
 /** Undefined when the Task is already there; refused when the move breaks the state rules. */
 export function changeTaskState(
   task: Task,
   to: Task["state"],
+  by: StateChangeCause,
 ): TaskChange<TaskStateChanged> | undefined {
   const problems = stateChangeProblems(task, to);
   if (problems.length > 0) throw new TaskRefused(problems);
   if (task.state === to) return undefined;
-  return {
-    task: { ...task, state: to, pausedByAlarm: false },
-    event: new TaskStateChanged(task.id, task.state, to),
-  };
+  return withStateChange(
+    {
+      task: { ...task, state: to, pausedByAlarm: false },
+      event: new TaskStateChanged(task.id, task.state, to),
+    },
+    task,
+    by,
+  );
 }
 
 /**
@@ -91,10 +121,14 @@ export function changeTaskState(
  */
 export function undoPlanningMove(task: Task): TaskChange<TaskStateChanged> | undefined {
   if (task.state !== "planning") return undefined;
-  return {
-    task: { ...task, state: "backlog" },
-    event: new TaskStateChanged(task.id, "planning", "backlog"),
-  };
+  return withStateChange(
+    {
+      task: { ...task, state: "backlog" },
+      event: new TaskStateChanged(task.id, "planning", "backlog"),
+    },
+    task,
+    { kind: "office", reason: "its planning Thread couldn't be opened" },
+  );
 }
 
 /**
@@ -108,7 +142,7 @@ export function markTaskReady(
   if (task.state === "ready") return undefined;
   const problems = [...stateChangeProblems(task, "ready"), ...openDecisionProblems(openDecisions)];
   if (problems.length > 0) throw new TaskRefused(problems);
-  return changeTaskState(task, "ready");
+  return changeTaskState(task, "ready", THE_USER);
 }
 
 /**
@@ -126,20 +160,25 @@ export function changeStartedTaskState(
     ]);
   }
   if (task.state === "paused") return undefined;
-  return changeTaskState(task, to);
+  return changeTaskState(task, to, BY_THE_PIPELINE);
 }
 
 /**
  * Pause (spec §2.4): a Task In progress or Waiting on you is held as Paused, its running Stage once
- * the Agent's current turn ends. Undefined when it is Paused already.
+ * the Agent's current turn ends; by the user, or by The Office for a reason the walk can't go on
+ * with. Undefined when it is Paused already.
  */
-export function pauseTask(task: Task): TaskChange<TaskPaused> | undefined {
+export function pauseTask(task: Task, by: StateChangeCause): TaskChange<TaskPaused> | undefined {
   if (task.state === "paused") return undefined;
   refuseUnlessRunning(task, "paused");
-  return {
-    task: { ...task, state: "paused", pausedByAlarm: false },
-    event: new TaskPaused(task.id, task.state),
-  };
+  return withStateChange(
+    {
+      task: { ...task, state: "paused", pausedByAlarm: false },
+      event: new TaskPaused(task.id, task.state),
+    },
+    task,
+    by,
+  );
 }
 
 /**
@@ -149,10 +188,14 @@ export function pauseTask(task: Task): TaskChange<TaskPaused> | undefined {
  */
 export function pauseTaskForAlarm(task: Task): TaskChange<TaskPaused> | undefined {
   if (task.state !== "in-progress" && task.state !== "waiting-on-you") return undefined;
-  return {
-    task: { ...task, state: "paused", pausedByAlarm: true },
-    event: new TaskPaused(task.id, task.state, "alarm"),
-  };
+  return withStateChange(
+    {
+      task: { ...task, state: "paused", pausedByAlarm: true },
+      event: new TaskPaused(task.id, task.state, "alarm"),
+    },
+    task,
+    BY_THE_FIRE_ALARM,
+  );
 }
 
 /**
@@ -162,10 +205,14 @@ export function pauseTaskForAlarm(task: Task): TaskChange<TaskPaused> | undefine
  */
 export function stopTask(task: Task): TaskChange<TaskStopped> {
   if (task.state !== "paused") refuseUnlessRunning(task, "stopped");
-  return {
-    task: { ...task, state: "paused", pausedByAlarm: false },
-    event: new TaskStopped(task.id, task.state),
-  };
+  return withStateChange(
+    {
+      task: { ...task, state: "paused", pausedByAlarm: false },
+      event: new TaskStopped(task.id, task.state),
+    },
+    task,
+    THE_USER,
+  );
 }
 
 /**
@@ -183,10 +230,14 @@ export function resumeTask(
     ]);
   }
   if (!fireAlarmOn) {
-    return {
-      task: { ...task, state: "in-progress", pausedByAlarm: false },
-      event: new TaskResumed(task.id),
-    };
+    return withStateChange(
+      {
+        task: { ...task, state: "in-progress", pausedByAlarm: false },
+        event: new TaskResumed(task.id),
+      },
+      task,
+      THE_USER,
+    );
   }
   if (task.pausedByAlarm) {
     throw new TaskRefused([`${FIRE_ALARM_ON} The Task resumes with the all clear.`]);
@@ -212,14 +263,18 @@ export function giveTaskAllClear(
   if (task.state !== "paused" || !task.pausedByAlarm) return undefined;
   switch (choice) {
     case "resume":
-      return {
-        task: { ...task, state: "in-progress", pausedByAlarm: false },
-        event: new TaskResumed(task.id),
-      };
+      return withStateChange(
+        {
+          task: { ...task, state: "in-progress", pausedByAlarm: false },
+          event: new TaskResumed(task.id),
+        },
+        task,
+        THE_USER,
+      );
     case "hold":
       return { task: { ...task, pausedByAlarm: false }, event: new TaskHeldAtAllClear(task.id) };
     case "drop":
-      return changeTaskState(task, "dropped");
+      return changeTaskState(task, "dropped", THE_USER);
   }
 }
 

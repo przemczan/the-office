@@ -7,7 +7,7 @@ import {
 import { ProjectRefused, type NewProject } from "../../../projects/index.js";
 import { OnboardingService } from "../../application/onboarding-service.js";
 import { TaskRefused } from "../../domain/task-refused.js";
-import { NewProjects } from "../../ports/new-projects.js";
+import { NewProjects, type AddedProject } from "../../ports/new-projects.js";
 
 /**
  * Proposals of a Project to onboard (spec §2.1 Defaults): applying one adds the Project through
@@ -39,12 +39,15 @@ export class ProjectProposals implements OnModuleInit {
   /**
    * Judged whole first, so a refusal leaves the Proposal open with nothing added. The Project and
    * its Task can't be added in one transaction: should the Task fail after the Project is added,
-   * the refusal says so, and the Project stays for the user to onboard by hand.
+   * the refusal says so and the Proposal stays open, and applying it again carries on with the
+   * Project already added.
    */
   private async apply(change: ProposedProject, proposedBy: string): Promise<ProposedProject> {
     const problems = await this.problemsWith(change.project);
     if (problems.length > 0) throw new ProposalRefused(problems);
-    const project = await this.projects.add(change.project).catch(refusedAsProposal);
+    const project =
+      (await this.addedWithoutOnboarding(change.project)) ??
+      (await this.projects.add(change.project).catch(refusedAsProposal));
     const task = await this.onboarding
       .addOnboardTask(project.id, { kind: "person", roleKey: proposedBy })
       .catch((error: unknown) => {
@@ -54,6 +57,20 @@ export class ProjectProposals implements OnModuleInit {
         ]);
       });
     return { ...change, projectId: project.id, taskId: task.id };
+  }
+
+  /**
+   * The Project an earlier apply added before its Onboard Task failed: at the repository, under the
+   * Proposal's name, not onboarded. A Project the user added there by hand isn't taken for it.
+   */
+  private async addedWithoutOnboarding({
+    path,
+    name,
+  }: NewProject): Promise<AddedProject | undefined> {
+    const project = await this.projects.findByPath(path);
+    if (!project || project.name !== name.trim()) return undefined;
+    const onboardings = await this.onboarding.list();
+    return onboardings.some(({ projectId }) => projectId === project.id) ? undefined : project;
   }
 }
 

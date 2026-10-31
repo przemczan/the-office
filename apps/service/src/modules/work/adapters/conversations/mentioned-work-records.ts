@@ -3,10 +3,11 @@ import { WorkRecords, type WorkRecordSource } from "../../../conversations/index
 import { AttachmentService } from "../../application/attachment-service.js";
 import { IdeaService } from "../../application/idea-service.js";
 import { InitiativeService } from "../../application/initiative-service.js";
+import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
 import { IdeaNotFound } from "../../domain/idea-not-found.js";
 import { InitiativeNotFound } from "../../domain/initiative-not-found.js";
-import { ideaRecordText, taskRecordText } from "../../domain/record-words.js";
+import { ideaRecordText } from "../../domain/record-words.js";
 import { TaskNotFound } from "../../domain/task-not-found.js";
 
 /**
@@ -18,6 +19,7 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
   constructor(
     private readonly records: WorkRecords,
     private readonly tasks: TaskService,
+    private readonly taskRecords: TaskRecords,
     private readonly initiatives: InitiativeService,
     private readonly ideas: IdeaService,
     private readonly attachments: AttachmentService,
@@ -29,9 +31,7 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
 
   async taskRecord(taskId: string): Promise<string | undefined> {
     try {
-      const task = await this.tasks.read(taskId);
-      const attachments = await this.attachments.listOf({ kind: "task", taskId });
-      return taskRecordText(task, attachments, await this.tasks.blockersOf(task));
+      return await this.taskRecords.recordText(taskId);
     } catch (error) {
       if (error instanceof TaskNotFound) return undefined;
       throw error;

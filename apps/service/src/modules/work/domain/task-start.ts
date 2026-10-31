@@ -1,5 +1,6 @@
 import type { Task } from "./task.js";
-import type { TaskChange } from "./task-changes.js";
+import type { StateChangeCause } from "./state-change.js";
+import { withStateChange, type TaskChange } from "./task-changes.js";
 import { blockedProblems } from "./task-dependencies.js";
 import { TaskStarted } from "./task-events.js";
 import { FIRE_ALARM_ON } from "./fire-alarm.js";
@@ -92,19 +93,27 @@ export function startReasons(
   };
 }
 
-/** Ready → In progress, counted against the first Agent Stage's person. Refuses with every reason. */
+/**
+ * Ready → In progress, counted against the first Agent Stage's person: by the user's Start, or by
+ * the queue as the Task's turn comes. Refuses with every reason.
+ */
 export function startTask(
   task: Task,
   conditions: StartConditions,
   held: HeldAtStart,
+  by: StateChangeCause,
 ): TaskChange<TaskStarted> {
   const { refusals, waits } = startReasons(task, conditions, held);
   if (refusals.length > 0 || waits.length > 0) throw new TaskRefused([...refusals, ...waits]);
   const personRole = conditions.stages && firstAgentStage(conditions.stages)?.role;
-  return {
-    task: { ...task, state: "in-progress", personRole },
-    event: new TaskStarted(task.id, task.pipelineId),
-  };
+  return withStateChange(
+    {
+      task: { ...task, state: "in-progress", personRole },
+      event: new TaskStarted(task.id, task.pipelineId),
+    },
+    task,
+    by,
+  );
 }
 
 function refusedFor(reason: string): StartReasons {

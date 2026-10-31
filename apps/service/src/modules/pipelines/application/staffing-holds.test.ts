@@ -42,7 +42,7 @@ async function stateOf(taskId: string): Promise<string> {
 }
 
 async function answering(taskId: string, option: number): Promise<void> {
-  const [asked] = pipelines.decisions.on(taskId);
+  const asked = pipelines.decisions.on(taskId).at(-1);
   if (!asked) throw new Error("No Decision was asked.");
   await pipelines.app.get(EventBus).publish(
     new DecisionAnswered(
@@ -76,13 +76,21 @@ async function answering(taskId: string, option: number): Promise<void> {
 }
 
 describe("a Task whose next Stage names a Role let go", () => {
-  it("is paused behind a Decision that says who was let go", async () => {
+  it("is paused by The Office behind a Decision, both saying who was let go", async () => {
     pipelines = await startWithDevops();
     const taskId = await taskWaitingAtGate(deploy);
 
     await lettingGo("devops");
 
     expect(await stateOf(taskId)).toBe("paused");
+    expect(pipelines.tasks.holds).toEqual([
+      {
+        taskId,
+        reason: expect.stringMatching(
+          /^nobody can work its next Stages\. Stage 3 · Deploy: Dana was let go from Devops;/,
+        ),
+      },
+    ]);
     const [asked, ...others] = pipelines.decisions.on(taskId);
     expect(others).toEqual([]);
     expect(asked?.draft.options).toEqual(["Resume the Task", "Drop the Task"]);
@@ -112,6 +120,7 @@ describe("a Task whose next Stage names a Role let go", () => {
     await lettingGo("devops");
 
     expect(await stateOf(taskId)).toBe("paused");
+    expect(pipelines.tasks.holds).toEqual([]);
     expect(pipelines.decisions.on(taskId)).toHaveLength(1);
   });
 
@@ -121,6 +130,7 @@ describe("a Task whose next Stage names a Role let go", () => {
     await lettingGo("devops");
 
     await answering(taskId, 0);
+    await pipelines.app.get(StageInterpreter).walked(taskId);
 
     expect(await stateOf(taskId)).toBe("paused");
     expect(pipelines.decisions.on(taskId)).toHaveLength(2);
@@ -165,6 +175,34 @@ describe("a Task whose next Stage names a Role let go", () => {
 });
 
 /** Ada fills `developer`, and Dev fills `devops` until a test lets them go. */
+describe("a Task started with a later Agent Stage whose Role nobody fills", () => {
+  it("is held at once, before its first Stage runs, behind the Decision", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+
+    const taskId = await walkStages(pipelines, [draft, look, deploy]);
+
+    expect(await stateOf(taskId)).toBe("paused");
+    expect(pipelines.engine.sessions).toHaveLength(0);
+    expect(pipelines.tasks.holds).toEqual([
+      { taskId, reason: expect.stringContaining("Stage 3 · Deploy: nobody fills") },
+    ]);
+    expect(pipelines.decisions.on(taskId)).toHaveLength(1);
+  });
+
+  it("is held again by Resume while the Role stays vacant, and dropped by the Drop answer", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+    const taskId = await walkStages(pipelines, [draft, look, deploy]);
+
+    await answering(taskId, 0);
+    await pipelines.app.get(StageInterpreter).walked(taskId);
+
+    expect(await stateOf(taskId)).toBe("paused");
+    expect(pipelines.decisions.on(taskId)).toHaveLength(2);
+    await answering(taskId, 1);
+    expect(await stateOf(taskId)).toBe("dropped");
+  });
+});
+
 async function startWithDevops(): Promise<PipelinesApplication> {
   const started = await startPipelinesApplication([
     anAgentSession(aDoneResult()),

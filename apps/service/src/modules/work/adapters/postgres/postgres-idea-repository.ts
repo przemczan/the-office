@@ -12,16 +12,16 @@ import {
   type IdeaUpdate,
   type ShapedIdea,
 } from "../../ports/idea-repository.js";
-import { attachments, ideas, initiatives, tasks } from "./work.schema.js";
+import { attachments, ideas, initiatives } from "./work.schema.js";
 import {
   holdManualOrder,
+  insertTask,
   ownerColumns,
   takenOrders,
   toAttachment,
   toIdea,
   toIdeaRow,
   toInitiativeRow,
-  toTaskRow,
   type Transaction,
 } from "./work-rows.js";
 
@@ -77,7 +77,7 @@ export class PostgresIdeaRepository extends IdeaRepository {
         await attachmentsOf(transaction, id),
         await takenOrders(transaction),
       );
-      await transaction.insert(tasks).values(toTaskRow(shaped.taskCreated.task));
+      await insertTask(transaction, shaped.taskCreated);
       await saveShapedIdea(transaction, shaped);
       return shaped;
     });

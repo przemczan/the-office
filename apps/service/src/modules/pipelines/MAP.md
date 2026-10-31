@@ -137,7 +137,7 @@ AlarmResumes, PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateCo
 - `publish.ts`: PullRequestText, RemoteBranch, ResolveStart, ResolveEnd, BaseTakenIn, Publication, PublishedTask, pullRequestText, publishOutcome
 - `resolve-stages.ts`: RESOLVE_KEY, RESOLVE_TEST_KEY, RESOLVE_GATE_KEY, RESOLVE_ROUNDS, isResolveStage, withoutResolveStages, goesToResolve, walkedStages, withResolveStages, conflictCarried, conflictCameBackTooOften, afterResolveTestFailed, resolvedByTheUser, resolveBrief
 - `script-stage-outcome.ts`: scriptStageOutcome, installFailure
-- `staffing-decision.ts`: STAFFING_OPTIONS, staffingDecision
+- `staffing-decision.ts`: STAFFING_OPTIONS, staffingHoldReason, staffingDecision
 - `stage-budget.ts`: stageBudget, budgetReached, budgetOutcome, tokensWords
 - `stage-command-run.ts`: CommandOutcome, CommandRun, MovedFiles, ScriptCommandRun, StageCommandPurpose, StageCommandRun, Installation, installRuns, failedInstall, commandRunsOf, howItEnded
 - `stage-commit.ts`: ExpectedHead, stageCommitMessage, headProblem

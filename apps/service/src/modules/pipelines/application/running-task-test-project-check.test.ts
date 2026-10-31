@@ -26,6 +26,7 @@ import {
   stageLines,
   stagesOf,
   tokensOf,
+  startPlanner,
   untilThreadWaits,
   type Api,
 } from "../../../../test/live-check.js";
@@ -147,7 +148,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             await api("GET", `/tasks/${taskId}/threads`),
           )[0];
           if (!planningThread) throw new Error("Planning opened no Thread.");
-          await untilThreadWaits(api, planningThread.id, PLANNER_OPENING_MS);
+          await startPlanner(api, planningThread.id, PLANNER_OPENING_MS);
           for (const asked of await openDecisionsOn(api, taskId)) {
             await api("POST", `/decisions/${asked.id}/answer`, {
               kind: "option",

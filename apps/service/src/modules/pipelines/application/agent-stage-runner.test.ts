@@ -8,6 +8,7 @@ import type { SessionScript } from "../../engine/index.js";
 import type { Stage } from "../domain/stage.js";
 import type { StageOutcome } from "../domain/stage-run.js";
 import { STAGE_RESULT_SCHEMA } from "../domain/stage-result.js";
+import { startStageRun } from "../domain/stage-run-changes.js";
 import {
   A_WAITING_RESULT,
   aDoneResult,
@@ -27,6 +28,8 @@ import {
   PLANNED_COMMIT,
 } from "../ports/pipelines-ports.fixtures.js";
 import { isRunning } from "../../../platform/os/process-trees.fixtures.js";
+import { AgentStageRunner } from "./agent-stage-runner.js";
+import { StageRunInterruption } from "./stage-run-interruption.js";
 
 let pipelines: PipelinesApplication;
 
@@ -273,18 +276,36 @@ describe("AgentStageRunner", () => {
     expect(run?.outcome?.status).toBe("done");
   });
 
+  // The walk holds the Task before such a Stage; the runner still refuses one let go meanwhile.
   it("fails the Stage, with no session, when nobody fills its Role", async () => {
     pipelines = await startPipelinesApplication();
     pipelines.people.people.delete("developer");
-
-    const taskId = await walkStages(pipelines, [implement]);
-
-    expect(await outcomesOf(taskId)).toEqual([
+    if (implement.kind !== "agent") throw new Error("Implement is an Agent Stage.");
+    const taskId = randomUUID();
+    const { run } = startStageRun(
       {
-        status: "failed",
-        error: 'Nobody fills the Role "developer" this Stage needs: hire them on People.',
+        id: randomUUID(),
+        taskId,
+        stageKey: implement.key,
+        carriedFailure: undefined,
+        sentBack: undefined,
       },
-    ]);
+      0,
+      new Date(),
+    );
+
+    const outcome = await pipelines.app.get(AgentStageRunner).run({
+      stage: implement,
+      run,
+      stages: [implement],
+      earlierRuns: [],
+      interruption: new StageRunInterruption(),
+    });
+
+    expect(outcome).toEqual({
+      status: "failed",
+      error: 'Nobody fills the Role "developer" this Stage needs: hire them on People.',
+    });
     expect(pipelines.stageThreads.requests).toEqual([]);
   });
 });

@@ -27,8 +27,11 @@ export abstract class StartedTasks {
    */
   abstract changeState(taskId: string, state: WalkTaskState): Promise<StartedTask>;
 
-  /** Holds the Task as the user's Pause does, for a reason the walk can't go on with. */
-  abstract pause(taskId: string): Promise<StartedTask>;
+  /**
+   * Holds the Task Paused as the user's Pause does, for a reason the walk can't go on with; its
+   * record names The Office and the reason.
+   */
+  abstract hold(taskId: string, reason: string): Promise<StartedTask>;
 
   /**
    * Pauses a Task In progress or Waiting on you as the fire alarm does, if the alarm is on: as The

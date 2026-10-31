@@ -3,6 +3,7 @@ import { eq, inArray } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import type { Neighbours } from "../../domain/manual-order.js";
+import type { StateChange } from "../../domain/state-change.js";
 import type { Task } from "../../domain/task.js";
 import type { TaskChange } from "../../domain/task-changes.js";
 import type { TaskCreated, TaskReordered } from "../../domain/task-events.js";
@@ -14,10 +15,11 @@ import {
   heldTask,
   holdManualOrder,
   holdStarts,
+  insertTask,
   saveTask,
+  stateChangesOf,
   takenOrders,
   toTask,
-  toTaskRow,
 } from "./work-rows.js";
 
 @Injectable()
@@ -32,7 +34,7 @@ export class PostgresTaskRepository extends TaskRepository {
     return this.database.transaction(async (transaction) => {
       await holdManualOrder(transaction);
       const created = create(await takenOrders(transaction));
-      await transaction.insert(tasks).values(toTaskRow(created.task));
+      await insertTask(transaction, created);
       return created;
     });
   }
@@ -44,6 +46,10 @@ export class PostgresTaskRepository extends TaskRepository {
 
   async list(): Promise<readonly Task[]> {
     return (await this.database.select().from(tasks)).map(toTask);
+  }
+
+  async stateChangesOf(taskId: string): Promise<readonly StateChange[]> {
+    return stateChangesOf(this.database, taskId);
   }
 
   async update<Event extends DomainEvent>(

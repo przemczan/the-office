@@ -131,9 +131,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
 
   onModuleInit(): void {
     this.events.subscribe(TaskStarted, ({ taskId }) => this.walkInBackground(taskId));
-    this.events.subscribe(TaskResumed, async ({ taskId }) => {
-      if (!(await this.staffingHolds.holdIfLackingPeople(taskId))) this.walkInBackground(taskId);
-    });
+    this.events.subscribe(TaskResumed, ({ taskId }) => this.walkInBackground(taskId));
     this.events.subscribe(TaskPaused, ({ taskId, by }) =>
       this.interrupt(taskId, by === "alarm" ? "alarm" : "pause"),
     );
@@ -366,7 +364,9 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
 
   /**
    * One trace per Task: the first walk begins it, and every later walk, after an answer or a
-   * restart, joins it, so its Stages and their engine calls are traced together.
+   * restart, joins it, so its Stages and their engine calls are traced together. Each walk first
+   * holds the Task when nobody can work the Stages it goes on with: as it starts, with a later Agent
+   * Stage's Role vacant, as much as when it resumes.
    */
   private async walk(taskId: string): Promise<void> {
     // The Task's own Stages, made here too: the event bus only logs a copy that failed as it started.
@@ -374,6 +374,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
       taskId,
       (await this.tasks.read(taskId)).pipelineId,
     );
+    if (await this.staffingHolds.holdIfLackingPeople(taskId)) return;
     const attributes = { "office.task.id": taskId, "office.pipeline": pipelineId };
     await this.telemetry.inTrace("walk", attributes, trace, async (_span, root) => {
       if (!trace) await this.taskStages.saveTrace(taskId, root);
