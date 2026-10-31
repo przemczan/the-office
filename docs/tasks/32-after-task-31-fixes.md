@@ -39,7 +39,7 @@ Decided with the user on 2026-10-31: these four are fixed in their own task, bef
   - The Planner's chat read a file with Read alone (4, 988, 27,026, 25,127). Its planning Thread used Grep and Read, no shell; its `change_role` was held, allowed once, and the Developer's version 3 shows `proposedBy: planner` (20, 3,618, 36,388, 285,793).
   - The CTO, in a fresh Initiative's Thread: while shaping, two `add_task` calls, the second waiting for the first, written straight; once active, one Proposal carrying `blockedBy`, applied, the new Task waiting (16, 1,324, 28,224, 189,365). The old Initiative's resumed Thread still drafted the dependency apart, as its own history from task 31 did; declined.
   - Devops onboarded `/root/notnullsoft-admin-32` (task 31's fixed base, branch `office-32-base`, bare origin, merge): the chat's Proposal (10, 2,391, 36,457, 133,306), then the Onboard Task Done in 50 s with no Decision and nothing published (18, 2,336, 37,514, 275,520).
-- Found, waiting for the user (Progress): the engine's own wordless refusal ("requires approval… no approval surface") of Devops' compound commands with `;` or `${PIPESTATUS}`; Devops' onboarding chat reaching for `git branch --list`, Glob and Read outside its folders after `read_local_repository`.
+- Found, fixed in [task 33](33-read-fence-and-onboarding-reads.md): the engine's own wordless refusal ("requires approval… no approval surface") of Devops' compound commands with `;` or `${PIPESTATUS}`; Devops' onboarding chat reaching for `git branch --list`, Glob and Read outside its folders after `read_local_repository`.
 - The LXC: the 4331 service and compose `office31` are stopped, data kept in `/root/office-data-31`.
 
 ## Progress
