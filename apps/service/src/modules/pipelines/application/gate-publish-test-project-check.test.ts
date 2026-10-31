@@ -112,7 +112,12 @@ describe.runIf(
         ({ app, url } = await startTestApplication({
           imports: [
             AppModule.register(
-              { port: 0, databaseUrl: testDatabaseUrl(), officeDataDirectory: officeData },
+              {
+                host: "127.0.0.1",
+                port: 0,
+                databaseUrl: testDatabaseUrl(),
+                officeDataDirectory: officeData,
+              },
               { directory: WEB_APP, source: "built" },
             ),
           ],

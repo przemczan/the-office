@@ -1404,7 +1404,12 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
   const { app, url } = await startTestApplication({
     imports: [
       AppModule.register(
-        { port: 0, databaseUrl: testDatabaseUrl(), officeDataDirectory: join(folder, "data") },
+        {
+          host: "127.0.0.1",
+          port: 0,
+          databaseUrl: testDatabaseUrl(),
+          officeDataDirectory: join(folder, "data"),
+        },
         { directory: folder, source: "built" },
       ),
     ],

@@ -88,6 +88,7 @@ beforeAll(async () => {
     imports: [
       AppModule.register(
         {
+          host: "127.0.0.1",
           port: 0,
           databaseUrl: testDatabaseUrl(),
           officeDataDirectory: join(folder, "office-data"),
