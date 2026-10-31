@@ -77,3 +77,22 @@ Every tier 2 item of [spec 3](../spec/3-capabilities-by-tier.md#tier-2-the-all-d
 | §4, §2.7 | The phone: HTTPS on the LAN with a local certificate authority, the PIN, the installed app, phone views, phone push (postponed; left out of tasks 29 and 30 until the user decides) | 28 |
 | §5.4 | The `-p` fallback adapter, matching the Agent SDK adapter (start at login left out for now, §3) | 29 |
 | §3, §2.1–§2.8, §5.4 | The tier 2 test, all day from the desk, on the Test Project on Linux, driven through the API (the phone left out while task 28 is postponed) | 30 |
+
+## Tier 3
+
+Every tier 3 item of [spec 3](../spec/3-capabilities-by-tier.md#tier-3-on-need) and the task that builds it. Rows are refined, with spec sections, as each task's file is written.
+
+| Spec | Item | Task |
+|---|---|---|
+| §5.2 | The bundled `otel-lgtm` optional; the telemetry sent to the user's own Grafana or OpenTelemetry collector | 34 |
+| §5.4, §8 | API-based engines on the OpenAI-compatible API, for local LLMs | 35 |
+| §2.2, §6, §8 | MCP servers for Agents | 36 |
+| §8 | Usage estimates, what is estimated set Office-wide by the user | 37 |
+| §2.1 | Archive; moving Tasks between Projects until In progress, the Plan marked for the Planner to re-check | 38 |
+| §2.1 | Attachment versions | 39 |
+| §2.3 | Stage templates in the Pipeline library | 40 |
+| §4, §2.6 | The Graphite and Paper palettes; the densities; skill usage counts | 41 |
+| §2.7 | Email and chat-app Notifications (WhatsApp first) | 42 |
+| §2.4, §8 | Talking to The Office from chat apps (WhatsApp first) | 43 |
+| §6 | Stack-specific checks for installs and publishing | 44 |
+| §3 | The tier 3 acceptance run | 45 |

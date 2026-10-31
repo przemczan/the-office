@@ -43,4 +43,4 @@ Decided with the user on 2026-10-31: access away from home and stronger containm
 
 ## Later
 
-After tier 3: the Codex engine; webhooks.
+After tier 3: the Codex engine; webhooks; the phone, tier 2's item postponed by the user (2026-10-31).

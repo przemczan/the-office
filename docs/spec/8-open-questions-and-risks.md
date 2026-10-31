@@ -5,7 +5,7 @@
 None blocks tier 1. Each becomes a ticket when its tier starts.
 
 - **Tier 2:** the form of shared memory and how the user reads and edits it; whether Tasks of an Initiative still being shaped can be planned and started; whether the Office Manager can be let go; folding a Proposal's Role card in chat.
-- **Tier 3:** quota and usage estimates; integrations.
+- **Tier 3:** quota and usage estimates, what is estimated set Office-wide by the user (the user, 2026-10-31); the API-based engine, on the OpenAI-compatible API (the user, 2026-10-31): how it applies the Office rules, skills and the Context policy without Claude Code's hooks, and which Roles may run on it; MCP servers for Agents: where they are set (the user leans to per Role) and how the rules cover their tools; chat apps, WhatsApp first (the user, 2026-10-31).
 
 ## Risks
 

@@ -60,6 +60,25 @@ Decided with the user on 2026-10-27: a fix is built where it is found only when 
 | 32 | [The fixes task 31's run found](32-after-task-31-fixes.md) | All | done |
 | 33 | [The read fence in the hook, and what onboarding reads](33-read-fence-and-onboarding-reads.md) | All | done |
 
+## Tier 3: on need
+
+Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written when it becomes current, after the [open questions](../spec/8-open-questions-and-risks.md) it needs are settled with the user. Task 28, the phone, waits until after tier 3 (the user, 2026-10-31).
+
+| # | Task | Surface | Status |
+| --- | --- | --- | --- |
+| 34 | Telemetry: the bundled `otel-lgtm` optional, the user's own Grafana or collector | Foundation | todo |
+| 35 | API-based engines, for local LLMs | Foundation | todo |
+| 36 | MCP servers for Agents | People | todo |
+| 37 | Usage estimates | Now | todo |
+| 38 | Archive, and moving Tasks between Projects | Work | todo |
+| 39 | Attachment versions | Work and the Task page | todo |
+| 40 | Stage templates in the Pipeline library | Projects | todo |
+| 41 | The Graphite and Paper palettes, the densities, skill usage counts | Settings | todo |
+| 42 | Email and chat-app Notifications | Now | todo |
+| 43 | Talking to The Office from chat apps | Conversations | todo |
+| 44 | Stack-specific checks for installs and publishing | Projects | todo |
+| 45 | The tier 3 acceptance run | All | todo |
+
 Read these only when a step needs them:
 
 - [build-defaults.md](build-defaults.md): choices the spec leaves open (Windows and Linux, the workspace layout, the checks, the Office data directory, the scripted engine adapter). Change one only with the user.
