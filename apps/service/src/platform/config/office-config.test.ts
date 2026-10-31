@@ -153,6 +153,7 @@ describe("isOfficeOwnVariable", () => {
     "database_url",
     "OFFICE_DATA_DIR",
     "POSTGRES_PASSWORD",
+    "COMPOSE_PROFILES",
     "GRAFANA_PORT",
     "OTEL_EXPORTER_OTLP_ENDPOINT",
     "npm_config_local_prefix",

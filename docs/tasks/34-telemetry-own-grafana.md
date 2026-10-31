@@ -8,7 +8,7 @@ The user chooses where The Office's traces, metrics and logs go: to the bundled 
 
 ## Definition of Done
 
-- [ ] The bundled `otel-lgtm` sits behind a compose profile that `.env.example` turns on, so a fresh copy behaves as today; with it off, `docker compose up -d` starts Postgres alone and `npm run verify:linux` still runs. Check: `docker compose ps` both ways; `npm run verify:linux` with the profile off.
+- [x] The bundled `otel-lgtm` sits behind a compose profile that `.env.example` turns on, so a fresh copy behaves as today; with it off, `docker compose up -d` starts Postgres alone and `npm run verify:linux` still runs. Check: `docker compose ps` both ways; `npm run verify:linux` with the profile off.
 - [ ] The service exports to any OTLP over HTTP endpoint the standard `OTEL_*` variables name, with their headers and timeout; its 2-second export timeout applies only when no timeout is set. Check: a service test of the timeout chosen; `npm run verify`.
 - [ ] Seen once live: the service sends to a second `otel-lgtm` standing in for the user's own Grafana, with the bundled one off, and the health request's trace is in that Grafana; `.env.example` says how to switch and how to send nowhere (`OTEL_SDK_DISABLED`). Check: the trace looked up in the stand-in's Tempo, summarised in State.
 
@@ -24,17 +24,19 @@ Decided with the user on 2026-10-31: the bundled `otel-lgtm` stays the default a
 ## Steps
 
 - [x] 0. Write this file and link it from the README. Commit.
-- [ ] 1. Compose: `otel-lgtm` behind a profile, turned on by `COMPOSE_PROFILES` in `.env.example`; `verify-linux` no longer needs it; `.env.example` explains the three choices (bundled, own endpoint with its headers, none). Commit.
+- [x] 1. Compose: `otel-lgtm` behind a profile, turned on by `COMPOSE_PROFILES` in `.env.example`; `verify-linux` no longer needs it; `.env.example` explains the three choices (bundled, own endpoint with its headers, none). Commit.
   Read: `docker-compose.yml`; `.env.example`; `tools/verify-linux/verify-linux.sh` (what it needs from the stack).
 - [ ] 2. The service: the export timeout from `OTEL_EXPORTER_OTLP_TIMEOUT` when set, 2 seconds otherwise, with a test; the live check against a stand-in Grafana; close the task. Commit.
   Read: `apps/service/src/platform/telemetry/start-telemetry.ts`, `telemetry.test.ts`.
 
 ## State
 
-- Found while writing this file: the service already reads the standard `OTEL_*` variables (endpoint, headers), so pointing at another endpoint works today; what is missing is turning the bundled container off and a timeout fit for a collector off this machine (the explicit 2-second `timeoutMillis` in `startTelemetry` overrides `OTEL_EXPORTER_OTLP_TIMEOUT`). The pinned SDK honours `OTEL_SDK_DISABLED` (`sdk-node`, `NodeSDK` start).
-- `verify-linux` depends on `otel-lgtm` being healthy and sets the endpoint to it; with a profile it needs `required: false` or no dependency (to be checked against Compose v5.6.1).
-- Next: step 1.
+- Step 1 built: `otel-lgtm` has the `grafana` profile in `docker-compose.yml`, turned on by `COMPOSE_PROFILES=grafana` in `.env.example` (and added to the workstation's own `.env`, so its stack is unchanged); `verify-linux` depends on it with `required: false`. `COMPOSE_PROFILES` is one of The Office's own variables (`isOfficeOwnVariable`), so a Project's own `docker compose` never inherits it. `.env.example` explains the bundled Grafana, an own endpoint with `OTEL_EXPORTER_OTLP_HEADERS` and `OTEL_EXPORTER_OTLP_TIMEOUT`, and `OTEL_SDK_DISABLED`.
+- Checked: with the profile off, a throwaway compose project (`-p office34check`, Postgres on 5491) started Postgres alone and `verify-linux` passed in it, the export failing quietly; removed after.
+- The service already reads the standard `OTEL_*` variables (endpoint, headers). Left for step 2: the explicit 2-second `timeoutMillis` in `startTelemetry` overrides `OTEL_EXPORTER_OTLP_TIMEOUT`, which `.env.example` now promises; the pinned SDK honours `OTEL_SDK_DISABLED` (`sdk-node`, `NodeSDK` start).
+- Next: step 2.
 
 ## Progress
 
 - 2026-10-31 · step 0: task file written, linked from the README; next is step 1, the compose profile.
+- 2026-10-31 · step 1: `otel-lgtm` behind the `grafana` compose profile, on in `.env.example`; verify-linux runs without it; `.env.example` explains the choices; next is step 2, the export timeout and the live check.

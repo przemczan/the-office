@@ -1,7 +1,9 @@
 # Local infrastructure for The Office: Postgres and the OpenTelemetry backend (spec §5.2).
 # Values come from .env (copy .env.example). Ports are published on 127.0.0.1 only, since
-# The Office serves localhost alone (spec §5.1). verify-linux, behind its own profile, is
-# npm run verify:linux; it reaches the others over the project network by service name.
+# The Office serves localhost alone (spec §5.1). otel-lgtm, the bundled Grafana, is behind the
+# grafana profile, which .env.example turns on through COMPOSE_PROFILES; without it the
+# telemetry goes to the user's own endpoint, or nowhere. verify-linux, behind its own profile,
+# is npm run verify:linux; it reaches the others over the project network by service name.
 name: the-office
 
 services:
@@ -28,6 +30,7 @@ services:
     restart: unless-stopped
 
   otel-lgtm:
+    profiles: [grafana]
     image: grafana/otel-lgtm:0.38.0@sha256:75cdf892daffadf3763ef61c16a6d7f8586216fce0b40bba7874a0b053121084
     ports:
       - "127.0.0.1:${GRAFANA_PORT:?copy .env.example to .env}:3000"
@@ -65,8 +68,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      # Waited for when the grafana profile is on; otherwise the export fails quietly.
       otel-lgtm:
         condition: service_healthy
+        required: false
 
 volumes:
   postgres-data:

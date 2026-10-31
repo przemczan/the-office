@@ -66,7 +66,7 @@ export function readOfficeConfig(
 }
 
 /** Set in `.env` beside The Office's own config: the compose stack's and telemetry's. */
-const OFFICE_STACK_VARIABLES = /^(POSTGRES_\w+|GRAFANA_PORT|OTEL_\w+)$/;
+const OFFICE_STACK_VARIABLES = /^(POSTGRES_\w+|COMPOSE_PROFILES|GRAFANA_PORT|OTEL_\w+)$/;
 /** What npm sets for the script it starts the service with, such as `npm_config_local_prefix`. */
 const NPM_SCRIPT_VARIABLES = /^(NPM_\w+|INIT_CWD|NODE)$/;
 /** A production switch makes a Project's install leave out its development dependencies. */
