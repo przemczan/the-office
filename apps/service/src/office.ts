@@ -12,9 +12,6 @@ import { OfficeLogger } from "./platform/telemetry/office-logger.js";
 import type { StartedTelemetry } from "./platform/telemetry/start-telemetry.js";
 import type { WebAppSource } from "./platform/web-app/web-app.module.js";
 
-// Tier 1 serves this machine alone (spec §5.1).
-const LOCALHOST = "127.0.0.1";
-
 // apps/web, from this file in src/ or dist/.
 const WEB_APP_DIRECTORY = fileURLToPath(new URL("../../web/", import.meta.url));
 
@@ -40,20 +37,20 @@ function readConfig(): OfficeConfig {
  */
 async function serve(
   app: INestApplication,
-  port: number,
+  { host, port }: Pick<OfficeConfig, "host" | "port">,
   prepare: (app: INestApplication) => Promise<void>,
 ): Promise<void> {
   configureHttp(app);
   try {
     await app.init();
     await prepare(app);
-    await app.listen(port, LOCALHOST);
+    await app.listen(port, host);
   } catch (error) {
     // Closes what started before the failure, such as the database pool, so the process can end.
     await app.close();
     throw error;
   }
-  logger.log(`Serving http://localhost:${port}`);
+  logger.log(`Serving http://${host}:${port}`);
 }
 
 /**
@@ -95,7 +92,7 @@ async function start(
   const app = await create(
     AppModule.register(config, { directory: WEB_APP_DIRECTORY, source: webApp }),
   );
-  await serve(app, config.port, takeUpWhereTheOfficeStopped);
+  await serve(app, config, takeUpWhereTheOfficeStopped);
   closeOnShutdownSignal(app, telemetry);
 }
 

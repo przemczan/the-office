@@ -70,7 +70,7 @@ describe("configureHttp", () => {
       status: 403,
       body: {
         statusCode: 403,
-        message: "The Office answers only requests addressed to localhost or 127.0.0.1.",
+        message: "The Office answers only requests addressed to localhost or to its own IP address.",
         error: "Forbidden",
       },
     });

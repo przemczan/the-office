@@ -3,6 +3,8 @@ import { z } from "zod";
 import { InvalidOfficeConfigError, type ConfigProblem } from "./invalid-office-config-error.js";
 
 export interface OfficeConfig {
+  /** The address the service listens on. */
+  readonly host: string;
   readonly port: number;
   readonly databaseUrl: string;
   readonly officeDataDirectory: string;
@@ -17,6 +19,9 @@ export type EnvironmentVariables = Readonly<Record<string, string | undefined>>;
 
 const REQUIRED = "is required";
 const PORT_RANGE = "must be a port number from 1 to 65535";
+const HOST_ADDRESS = "must be an IP address, such as 127.0.0.1 or 0.0.0.0";
+// Loopback unless the user opens The Office to the LAN (spec §5.1).
+const DEFAULT_HOST = "127.0.0.1";
 
 // An env file copied with a value left blank yields "", which means "not set", not "invalid".
 function blankAsUnset(value: unknown): unknown {
@@ -24,6 +29,10 @@ function blankAsUnset(value: unknown): unknown {
 }
 
 const environmentSchema = z.object({
+  OFFICE_HOST: z.preprocess(
+    blankAsUnset,
+    z.union([z.ipv4(), z.ipv6()], { error: HOST_ADDRESS }).default(DEFAULT_HOST),
+  ),
   OFFICE_PORT: z.preprocess(
     blankAsUnset,
     z
@@ -59,6 +68,7 @@ export function readOfficeConfig(
     throw new InvalidOfficeConfigError(result.error.issues.map(toConfigProblem));
   }
   return {
+    host: result.data.OFFICE_HOST,
     port: result.data.OFFICE_PORT,
     databaseUrl: result.data.DATABASE_URL,
     officeDataDirectory: result.data.OFFICE_DATA_DIR ?? defaults.officeDataDirectory(),

@@ -34,8 +34,38 @@ describe("readOfficeConfig", () => {
       platformDefaults(),
     );
 
-    expect(config).toEqual({ port: 4310, databaseUrl, officeDataDirectory });
+    expect(config).toEqual({ host: "127.0.0.1", port: 4310, databaseUrl, officeDataDirectory });
   });
+
+  it.each([
+    ["unset", undefined, "127.0.0.1"],
+    ["blank", "", "127.0.0.1"],
+    ["every IPv4 address", "0.0.0.0", "0.0.0.0"],
+    ["an IPv4 address", "10.1.1.70", "10.1.1.70"],
+    ["an IPv6 address", "::", "::"],
+  ])("reads OFFICE_HOST %s", (_, value, host) => {
+    const config = readOfficeConfig(
+      { OFFICE_HOST: value, OFFICE_PORT: port, DATABASE_URL: databaseUrl },
+      platformDefaults(),
+    );
+
+    expect(config.host).toBe(host);
+  });
+
+  it.each(["localhost", "the-office.lan", "10.1.1", "10.1.1.70:4310"])(
+    "refuses OFFICE_HOST %s, which is not an IP address",
+    (value) => {
+      const error = readProblems({
+        OFFICE_HOST: value,
+        OFFICE_PORT: port,
+        DATABASE_URL: databaseUrl,
+      });
+
+      expect(error.problems).toEqual([
+        { variable: "OFFICE_HOST", problem: "must be an IP address, such as 127.0.0.1 or 0.0.0.0" },
+      ]);
+    },
+  );
 
   it("accepts the postgresql:// scheme", () => {
     const postgresqlUrl = "postgresql://office@localhost/the_office";

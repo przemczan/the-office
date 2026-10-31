@@ -22,7 +22,7 @@ beforeAll(async () => {
   const compiled = await Test.createTestingModule({
     imports: [
       AppModule.register(
-        { port: 0, databaseUrl: testDatabaseUrl(), officeDataDirectory: folder },
+        { host: "127.0.0.1", port: 0, databaseUrl: testDatabaseUrl(), officeDataDirectory: folder },
         { directory: folder, source: "built" },
       ),
     ],
