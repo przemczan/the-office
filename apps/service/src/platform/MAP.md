@@ -88,11 +88,12 @@
 
 ### telemetry/
 
+- `export-timeout.ts`: exportTimeoutMilliseconds
 - `office-logger.ts`: OfficeLogger
 - `start-telemetry.ts`: StartedTelemetry, startTelemetry
 - `telemetry.module.ts`: TelemetryModule
 - `telemetry.ts`: TelemetryAttributes, TokenUsage, TraceRoot, Telemetry
-- Tests: office-logger.test.ts, telemetry.test.ts
+- Tests: export-timeout.test.ts, office-logger.test.ts, telemetry.test.ts
 
 ### web-app/
 
