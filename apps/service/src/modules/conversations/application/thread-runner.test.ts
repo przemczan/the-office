@@ -17,6 +17,11 @@ import {
   ScriptedEngineModule,
   type SessionScript,
 } from "../../engine/index.js";
+import {
+  apiEngineOnFakeServer,
+  textReply,
+  type ApiEngineOnFakeServer,
+} from "../../engine/index.fixtures.js";
 import { RoleCards, type SessionRole } from "../../people/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
@@ -117,10 +122,14 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
   await startOn(scripts, []);
 }
 
-/** Boots the runner with the Agent SDK's stand-in replaying `scripts`, the fallback's its own. */
+/**
+ * Boots the runner with the Agent SDK's stand-in replaying `scripts`, the fallback's its own, and
+ * the OpenAI-compatible API on `apiEngine`.
+ */
 async function startOn(
   scripts: readonly SessionScript[],
   fallbackScripts: readonly SessionScript[],
+  apiEngine: ApiEngineOnFakeServer["engine"] = new ScriptedEngine([]),
 ): Promise<void> {
   engine = new ScriptedEngine(scripts);
   fallback = new ScriptedEngine(fallbackScripts);
@@ -157,7 +166,7 @@ async function startOn(
       ScriptedEngineModule.register({
         "agent-sdk": engine,
         "claude-code-p": fallback,
-        "openai-compatible-api": new ScriptedEngine([]),
+        "openai-compatible-api": apiEngine,
       }),
     ],
     providers: [
@@ -619,6 +628,82 @@ describe("continuing a Thread", () => {
 
     await expect(runner.send(thread.id, "Hello again.")).rejects.toThrow(ThreadRefused);
     await expect(threads.messages(thread.id)).resolves.toHaveLength(3);
+  });
+});
+
+/** The Thread's first exchange, its session then ended as when the service stops, and cooled. */
+async function cooledAfterFirstAnswer(contextTokens: number): Promise<Thread> {
+  const thread = await threads.startInChat(roleKey);
+  await runner.send(thread.id, "Read the deploy workflow.");
+  await answered(thread.id, 3);
+  await runner.onModuleDestroy();
+  await cooled(thread.id, contextTokens);
+  return threads.read(thread.id);
+}
+
+describe("a Thread on the OpenAI-compatible API, its own sessions on a fake server", () => {
+  let api: ApiEngineOnFakeServer;
+
+  beforeEach(async () => {
+    api = await apiEngineOnFakeServer(officeData);
+    versions = [{ ...PLANNER, engine: "openai-compatible-api", model: api.model }];
+    await startOn([], [], api.engine);
+  });
+
+  afterEach(async () => {
+    await api.server.close();
+  });
+
+  /** The messages each request to the server carried, in order. */
+  function requestedMessages(): { readonly role: string; readonly content?: unknown }[][] {
+    const body = z.object({ messages: z.array(z.looseObject({ role: z.string() })) });
+    return api.server.requests.map((request) => body.parse(request.body).messages);
+  }
+
+  it("resumes a cooled Thread with a small context from the conversation the engine kept", async () => {
+    api.server.script(textReply(["It deploys ", "on push."]), textReply(["The tests run first."]));
+    const thread = await cooledAfterFirstAnswer(12_000);
+
+    await runner.send(thread.id, "And the tests?");
+    const log = await answered(thread.id, 6);
+
+    expect(drafts(log).slice(3)).toEqual([
+      contextLine({ move: "resume", reason: "small-context", contextTokens: 12_000 }),
+      { kind: "user", text: "And the tests?", delivery: "delivered" },
+      { kind: "person", roleKey, text: "The tests run first." },
+    ]);
+    expect((await threads.read(thread.id)).session?.id).toBe(thread.session?.id);
+    const [first = [], resumed = []] = requestedMessages();
+    expect(resumed.slice(0, first.length)).toEqual(first);
+    expect(resumed.slice(first.length)).toEqual([
+      expect.objectContaining({ role: "assistant", content: "It deploys on push." }),
+      expect.objectContaining({ role: "user", content: expect.stringContaining("And the tests?") }),
+    ]);
+  });
+
+  it("starts a cooled Thread with a large context fresh, briefed from its log alone", async () => {
+    api.server.script(textReply(["It deploys on push."]), textReply(["The tests run first."]));
+    const thread = await cooledAfterFirstAnswer(80_000);
+
+    await runner.send(thread.id, "And the tests?");
+    const log = await answered(thread.id, 6);
+
+    expect(drafts(log)[3]).toEqual(
+      contextLine({
+        move: "fresh",
+        reason: "cache-expired",
+        contextTokens: 80_000,
+        briefTokens: expect.any(Number),
+      }),
+    );
+    const fresh = (await threads.read(thread.id)).session?.id;
+    expect(fresh).not.toBe(thread.session?.id);
+    expect(forgotten).toEqual([thread.session?.id]);
+    const [, freshRequest = []] = requestedMessages();
+    expect(freshRequest.map(({ role }) => role)).toEqual(["system", "user"]);
+    expect(freshRequest[1]?.content).toMatch(
+      /in a fresh session[\s\S]*You: It deploys on push\.[\s\S]*## The user's message\n\nAnd the tests\?$/,
+    );
   });
 });
 

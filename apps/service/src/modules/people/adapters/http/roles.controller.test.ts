@@ -131,15 +131,19 @@ describe("GET /api/presets", () => {
 });
 
 describe("GET /api/role-card-options", () => {
-  it("offers each engine's models, the known Roles and how each switch is seen to", async () => {
+  it("offers each engine's models and what it can't do, the known Roles and how each switch is seen to", async () => {
     const options = roleCardOptionsSchema.parse(await get("/role-card-options"));
 
     const models = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"];
     // The API endpoints' models are Office-wide settings, which other test files change.
     expect(options.engines).toEqual([
-      { engine: "agent-sdk", models },
-      { engine: "claude-code-p", models },
-      { engine: "openai-compatible-api", models: expect.any(Array) },
+      { engine: "agent-sdk", models, missingCapabilities: [] },
+      { engine: "claude-code-p", models, missingCapabilities: [] },
+      {
+        engine: "openai-compatible-api",
+        models: expect.any(Array),
+        missingCapabilities: ["usageWindows"],
+      },
     ]);
     expect(options.knownRoles).toContainEqual({ key: "devops", title: "Devops" });
     expect(options.hardSwitches).toEqual([

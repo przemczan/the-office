@@ -19,6 +19,7 @@ import { ProjectPage } from "./surfaces/projects/project-page.tsx";
 import { ProjectsPage } from "./surfaces/projects/projects-page.tsx";
 import { AppearanceSection } from "./surfaces/settings/appearance/appearance-section.tsx";
 import { NotificationsSection } from "./surfaces/settings/notifications/notifications-section.tsx";
+import { EnginesSection } from "./surfaces/settings/engines/engines-section.tsx";
 import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-limits-section.tsx";
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
 import { PipelinesSection } from "./surfaces/settings/pipelines/pipelines-section.tsx";
@@ -275,6 +276,13 @@ const settingsSkillsRoute = createRoute({
   staticData: { title: "Settings" },
 });
 
+const settingsEnginesRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "engines",
+  component: EnginesSection,
+  staticData: { title: "Settings" },
+});
+
 const settingsOfficeLimitsRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "office-limits",
@@ -320,6 +328,7 @@ export const router = createRouter({
       settingsPipelinesRoute,
       settingsPipelineRoute,
       settingsSkillsRoute,
+      settingsEnginesRoute,
       settingsOfficeLimitsRoute,
       settingsNotificationsRoute,
       settingsAppearanceRoute,

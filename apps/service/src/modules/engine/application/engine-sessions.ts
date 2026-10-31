@@ -7,9 +7,11 @@ import type { Engine } from "../domain/engines.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import {
   CapabilityMissing,
+  missingCapabilities,
   ModelNotOffered,
   SessionSkillsDiffer,
   type EngineCapabilities,
+  type EngineCapability,
 } from "../ports/agent-engine.js";
 import type {
   ContextUsage,
@@ -61,6 +63,11 @@ export class EngineSessions {
 
   capabilitiesOf(engine: Engine): EngineCapabilities {
     return this.engines.of(engine).capabilities;
+  }
+
+  /** What `engine` declares it can't do, which the Role card names. */
+  missingCapabilitiesOf(engine: Engine): readonly EngineCapability[] {
+    return missingCapabilities(this.capabilitiesOf(engine));
   }
 
   async start({ id, settings, brief }: SessionStart): Promise<EngineSession> {

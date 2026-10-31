@@ -27,7 +27,8 @@ import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { skillQueries } from "../../api/skills.ts";
 import { initiativeQueries, officeWideLimitQuery, taskQueries } from "../../api/work.ts";
-import { EFFORT_LABELS, modelLabel } from "../engine-words.ts";
+import { EFFORT_LABELS } from "../engine-words.ts";
+import { useModelLabel } from "../use-model-label.ts";
 import { personName, roleName } from "../person-name.ts";
 import {
   COMMAND_KEYS,
@@ -319,6 +320,7 @@ function ProposedCard({
   readonly card: RoleCard;
   readonly roleTitles: RoleTitles;
 }): ReactNode {
+  const modelLabel = useModelLabel();
   const capabilities = CAPABILITIES.filter(({ key }) => card.capabilities[key]);
   return (
     <dl className="proposal-fields">

@@ -1,4 +1,10 @@
-import { LAYERS, MODULE_ENTRY, type Layer, type Place } from "./module-layout.ts";
+import {
+  LAYERS,
+  MODULE_ENTRY,
+  MODULE_TEST_ENTRY,
+  type Layer,
+  type Place,
+} from "./module-layout.ts";
 
 /** The platform file the domain layer subclasses for its events; nothing else in the platform. */
 const DOMAIN_EVENT_FILE = "events/domain-event";
@@ -24,9 +30,9 @@ export function moduleBoundaryViolation({
     return `src/platform/ is below the modules and never imports one. ${TEMPLATE}`;
   }
   if (isInModule(target) && (!isInModule(importer) || importer.module !== target.module)) {
-    return target.kind === "module root" && target.file === MODULE_ENTRY
+    return isEntryFor(target, importerIsTest)
       ? undefined
-      : `Another module is reached only through its public entry, modules/${target.module}/${MODULE_ENTRY}.ts. ${TEMPLATE}`;
+      : `Another module is reached only through its public entry, modules/${target.module}/${MODULE_ENTRY}.ts, and from tests also ${MODULE_TEST_ENTRY}.ts. ${TEMPLATE}`;
   }
   // Tests may wire a module's layers together and boot the app; the module boundary above still
   // holds for them.
@@ -74,6 +80,11 @@ function platformViolation(layer: Layer, platformFile: string): string | undefin
   return usesOnlyDomainEvent && platformFile !== DOMAIN_EVENT_FILE
     ? `The ${layer} layer imports src/platform/${platformFile}; ${layer} uses only src/platform/${DOMAIN_EVENT_FILE}.ts from the platform. ${TEMPLATE}`
     : undefined;
+}
+
+function isEntryFor(target: Place, importerIsTest: boolean): boolean {
+  if (target.kind !== "module root") return false;
+  return target.file === MODULE_ENTRY || (importerIsTest && target.file === MODULE_TEST_ENTRY);
 }
 
 function isInModule(place: Place): place is Extract<Place, { module: string }> {

@@ -11,14 +11,28 @@ if (!scripts) throw new Error("The end-to-end service needs OFFICE_ENGINE_SCRIPT
 await launch("built", async (appModule) => {
   // Loaded once telemetry has started, as launch.ts asks.
   const { Test } = await import("@nestjs/testing");
-  const { EngineModule, readRecording, ScriptedEngine, ScriptedEngineModule } =
-    await import("./modules/engine/index.js");
+  const {
+    EngineModule,
+    OPENAI_COMPATIBLE_API_CAPABILITIES,
+    readRecording,
+    ScriptedEngine,
+    ScriptedEngineModule,
+  } = await import("./modules/engine/index.js");
   const { Schedule } = await import("./platform/schedule/schedule.js");
   const { TimerSchedule } = await import("./platform/schedule/timer-schedule.js");
   const engine = new ScriptedEngine(await readRecording(scripts));
+  // No end-to-end session runs on the OpenAI-compatible API; its stand-in only declares what the
+  // engine can't do, for the Role card to name.
+  const apiEngine = new ScriptedEngine([], OPENAI_COMPATIBLE_API_CAPABILITIES);
   const moduleRef = await Test.createTestingModule({ imports: [appModule] })
     .overrideModule(EngineModule)
-    .useModule(ScriptedEngineModule.register(engine))
+    .useModule(
+      ScriptedEngineModule.register({
+        "agent-sdk": engine,
+        "claude-code-p": engine,
+        "openai-compatible-api": apiEngine,
+      }),
+    )
     .overrideProvider(Schedule)
     .useFactory({ factory: () => new TimerSchedule(E2E_DAY_MS) })
     .compile();

@@ -112,6 +112,20 @@ describe("/api/settings/engines", () => {
     expect(await repository.read()).toEqual({ apiEndpoints: [], searchEndpoint: null });
   });
 
+  it("refuses a model without its context window in words, as Settings › Engines shows them", async () => {
+    const refused = await put({
+      apiEndpoints: [
+        { name: "Strata", baseUrl: "http://strata", models: [{ id: "qwen3", contextWindow: 0 }] },
+      ],
+      searchEndpoint: null,
+    });
+
+    expect(refused.status).toBe(422);
+    expect(engineSettingsRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      'Give each model of "Strata" its context window, in tokens.',
+    ]);
+  });
+
   it("refuses a body outside the contract", async () => {
     const refused = await put({ apiEndpoints: [{ name: "Strata" }] });
 

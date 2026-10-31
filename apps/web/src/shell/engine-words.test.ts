@@ -7,4 +7,11 @@ describe("the engine's words", () => {
     expect(modelLabel("claude-haiku-5-5")).toBe("Haiku 5.5");
     expect(modelLabel("some-other-model")).toBe("some-other-model");
   });
+
+  it("names an API endpoint's model by the endpoint's name, split at the first slash", () => {
+    const strata = { id: "strata", name: "Strata", baseUrl: "", keySet: false, models: [] };
+
+    expect(modelLabel("strata/org/coder:q4", [strata])).toBe("Strata · org/coder:q4");
+    expect(modelLabel("removed/qwen3", [strata])).toBe("removed/qwen3");
+  });
 });

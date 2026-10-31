@@ -281,6 +281,53 @@ test("the user lets a person go, finds their page kept and read-only, and hires 
   await expect(page.getByRole("button", { name: "Edit Role" })).toBeVisible();
 });
 
+// Mia opens no session, so her card may name an API endpoint no server answers at.
+test("the user lists an API endpoint in Settings › Engines and puts Mia on one of its models", async ({
+  page,
+}) => {
+  await page.goto("/settings/engines");
+  await page.getByRole("button", { name: "Add an API endpoint" }).click();
+  const endpoint = page.locator("fieldset.api-endpoint").last();
+  await endpoint.getByLabel("Name", { exact: true }).fill("People Strata");
+  await endpoint.getByLabel("Base URL").fill("http://127.0.0.1:8080/v1");
+  await endpoint.getByLabel("Key").fill("sk-people");
+  await endpoint.getByLabel("Model", { exact: true }).fill("org/coder:q4");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  // The model has no context window yet.
+  await expect(page.getByText("The engines weren't saved")).toBeVisible();
+  await expect(
+    page.getByText('Give each model of "People Strata" its context window, in tokens.'),
+  ).toBeVisible();
+
+  await endpoint.getByLabel("Context window").fill("100000");
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(
+    page.getByText("Engines saved. Sessions started from now on use them."),
+  ).toBeVisible();
+  await page.reload();
+  await expect(endpoint.getByLabel("Name", { exact: true })).toHaveValue("People Strata");
+  await expect(endpoint.getByLabel("Key")).toHaveValue("");
+  await expect(endpoint.getByText("A key is set. It is never shown")).toBeVisible();
+
+  await page.goto("/people/data-analyst/role/edit");
+  const form = page.locator("form.role-card-form");
+  await form.getByRole("combobox", { name: "Engine" }).selectOption({
+    label: "OpenAI-compatible API",
+  });
+  await expect(
+    form.getByText("It has no usage windows, so the 5-hour window doesn't count it."),
+  ).toBeVisible();
+  await form.getByLabel("Model").selectOption({ label: "People Strata · org/coder:q4" });
+  await page.getByRole("button", { name: "Save changes" }).click();
+
+  await expect(page).toHaveURL(/\/people\/data-analyst\/role$/);
+  await page.reload();
+  await expect(roleCardGroup(page, "Engine")).toContainText(
+    "People Strata · org/coder:q4 · effort medium · OpenAI-compatible API",
+  );
+  await expect(roleCardGroup(page, "Engine")).toContainText("It has no usage windows");
+});
+
 test("Assign… in Settings › Skills gives a skill to the people chosen", async ({ page }) => {
   await page.goto("/settings/skills");
   await page

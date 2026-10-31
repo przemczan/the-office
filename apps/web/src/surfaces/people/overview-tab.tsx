@@ -3,7 +3,8 @@ import { Link, useParams } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { skillQueries } from "../../api/skills.ts";
-import { EFFORT_LABELS, modelLabel } from "../../shell/engine-words.ts";
+import { EFFORT_LABELS } from "../../shell/engine-words.ts";
+import { useModelLabel } from "../../shell/use-model-label.ts";
 import { SkillChip } from "../../shell/skill-chip.tsx";
 import { PersonBlock } from "./role-card-layout.tsx";
 import { SESSION_DEFAULTS, taskLimitLabel } from "../../shell/role-card-words.ts";
@@ -14,6 +15,7 @@ export function OverviewTab(): ReactNode {
   const { roleKey } = useParams({ from: "/people/$roleKey/" });
   const role = useQuery(roleQueries.one(roleKey));
   const library = useQuery(skillQueries.list());
+  const modelLabel = useModelLabel();
   if (!role.data) return null;
   const { card } = role.data;
   const skills = library.data ? sessionSkillsOf(role.data, library.data) : [];

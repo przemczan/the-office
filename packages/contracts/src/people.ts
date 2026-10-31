@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { engineCapabilitySchema } from "./engines.js";
 import { webEventSchema } from "./events.js";
 
 /** The engines a Role may work with. */
@@ -122,7 +123,14 @@ export const presetListSchema = z.array(presetSchema);
 
 /** GET /role-card-options: the choices the Role card form offers, and how each switch is seen to. */
 export const roleCardOptionsSchema = z.object({
-  engines: z.array(z.object({ engine: engineSchema, models: z.array(z.string()) })),
+  engines: z.array(
+    z.object({
+      engine: engineSchema,
+      models: z.array(z.string()),
+      /** What the engine declares it can't do, which the card names under its Engine field. */
+      missingCapabilities: z.array(engineCapabilitySchema),
+    }),
+  ),
   /** Every Role a Consult value may name, hired or not. */
   knownRoles: z.array(z.object({ key: z.string(), title: z.string() })),
   hardSwitches: z.array(

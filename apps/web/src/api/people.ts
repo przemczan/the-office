@@ -45,7 +45,10 @@ export const roleQueries = {
     }),
 };
 
-/** What hiring and the Role card form offer; neither changes while the service runs. */
+/**
+ * What hiring and the Role card form offer. The presets don't change while the service runs; the
+ * options change only when Settings › Engines is saved, which refreshes them.
+ */
 export const roleCardQueries = {
   presets: () =>
     queryOptions({

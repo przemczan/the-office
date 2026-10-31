@@ -14,10 +14,11 @@ import { AgentEngine } from "./ports/agent-engine.js";
  */
 @Module({})
 export class ScriptedEngineModule {
-  /** One scripted engine stands in for every engine, or each engine has its own. */
-  static register(
-    engines: ScriptedEngine | Readonly<Record<Engine, ScriptedEngine>>,
-  ): DynamicModule {
+  /**
+   * One scripted engine stands in for every engine, or each engine has its own: a scripted one, or
+   * an engine's own on a fake server (`apiEngineOnFakeServer`).
+   */
+  static register(engines: ScriptedEngine | Readonly<Record<Engine, AgentEngine>>): DynamicModule {
     return {
       module: ScriptedEngineModule,
       imports: [EngineSettingsModule],
@@ -33,8 +34,8 @@ export class ScriptedEngineModule {
 }
 
 function perEngine(
-  engines: ScriptedEngine | Readonly<Record<Engine, ScriptedEngine>>,
-): Readonly<Record<Engine, ScriptedEngine>> {
+  engines: ScriptedEngine | Readonly<Record<Engine, AgentEngine>>,
+): Readonly<Record<Engine, AgentEngine>> {
   if (!(engines instanceof AgentEngine)) return engines;
   return { "agent-sdk": engines, "claude-code-p": engines, "openai-compatible-api": engines };
 }

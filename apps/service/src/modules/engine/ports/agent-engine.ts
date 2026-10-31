@@ -21,6 +21,13 @@ export interface EngineCapabilities {
 
 export type EngineCapability = keyof EngineCapabilities;
 
+/** What `capabilities` lack, in the order they are declared. */
+export function missingCapabilities(capabilities: EngineCapabilities): readonly EngineCapability[] {
+  // An engine's capabilities object holds exactly the interface's keys.
+  const declared = Object.keys(capabilities) as EngineCapability[];
+  return declared.filter((capability) => !capabilities[capability]);
+}
+
 /** Asked of an engine for something it declares it can't do. */
 export class CapabilityMissing extends Error {
   constructor(readonly capability: EngineCapability) {

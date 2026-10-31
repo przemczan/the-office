@@ -20,6 +20,12 @@ export type Place =
 export const MODULE_ENTRY = "index";
 
 /**
+ * What a module gives other modules' tests, such as a fake of a server its adapters talk to: a
+ * fixture, left out of the build, so only tests reach it.
+ */
+export const MODULE_TEST_ENTRY = "index.fixtures";
+
+/**
  * @param workspacePath - the file's path inside its workspace, with forward slashes, e.g.
  *   `src/modules/work/domain/task.ts`. A folder stands for its `index` file.
  */

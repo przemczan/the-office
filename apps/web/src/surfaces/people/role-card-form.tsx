@@ -37,7 +37,7 @@ import {
   roleQueries,
 } from "../../api/people.ts";
 import { skillQueries } from "../../api/skills.ts";
-import { EFFORT_LABELS, modelLabel } from "../../shell/engine-words.ts";
+import { EFFORT_LABELS } from "../../shell/engine-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { personName } from "../../shell/person-name.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
@@ -50,9 +50,11 @@ import {
   ENFORCEMENT_LABELS,
   ENGINE_LABELS,
   HARD_SWITCH_LABELS,
+  missingCapabilitiesWords,
   RUN_LABELS,
   SESSION_DEFAULTS,
 } from "../../shell/role-card-words.ts";
+import { useModelLabel } from "../../shell/use-model-label.ts";
 
 /** "Edit Role": the person's whole Role card as a form, saved as its next version. */
 export function RoleCardEditPage(): ReactNode {
@@ -333,12 +335,14 @@ function EngineFields({
   options,
   change,
 }: FieldsProps & { readonly options: RoleCardOptions }): ReactNode {
-  const models = options.engines.find(({ engine }) => engine === draft.engine)?.models ?? [];
+  const modelLabel = useModelLabel();
+  const picked = options.engines.find(({ engine }) => engine === draft.engine);
   return (
     <RoleCardGroup group="engine">
       <div className="role-card-form-pair">
         <Select
           label="Engine"
+          hint={picked && missingCapabilitiesWords(picked.missingCapabilities)}
           value={draft.engine}
           options={options.engines.map(({ engine }) => ({
             value: engine,
@@ -357,7 +361,10 @@ function EngineFields({
         <Select
           label="Model"
           value={draft.model}
-          options={models.map((model) => ({ value: model, label: modelLabel(model) }))}
+          options={(picked?.models ?? []).map((model) => ({
+            value: model,
+            label: modelLabel(model),
+          }))}
           onChange={(model) => change({ model })}
         />
       </div>

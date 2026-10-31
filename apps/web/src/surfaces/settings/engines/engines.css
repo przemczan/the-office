@@ -1,0 +1,47 @@
+/* Settings › Engines: each API endpoint as a block of its fields and its models. */
+.api-endpoints {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.api-endpoint {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+
+.api-endpoint-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.api-endpoint-models {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.api-endpoint-model {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.api-endpoint-actions {
+  display: flex;
+  justify-content: space-between;
+}
+
+@media (max-width: 960px) {
+  .api-endpoint-fields {
+    grid-template-columns: 1fr;
+  }
+}

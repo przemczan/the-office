@@ -265,7 +265,10 @@ export class ApiSession implements EngineSession {
     }
   }
 
-  /** One request: its text reported as it streams, then the whole answer. */
+  /**
+   * One request, streamed. Its text is reported once the answer is whole, as the SDK reports a
+   * text block: the port's text event is what the Agent wrote, which a Thread logs as one message.
+   */
   private async complete(signal: AbortSignal): Promise<Completion> {
     const { client, model, system, tools } = this.parts;
     const answer = client.stream(
@@ -273,12 +276,14 @@ export class ApiSession implements EngineSession {
       signal,
     );
     for await (const event of answer) {
-      if (event.kind === "completed") {
-        const { usage } = event.completion;
-        if (usage !== undefined) this.requestTokens = requestTokens(usage);
-        return event.completion;
+      if (event.kind !== "completed") continue;
+      const { usage, message } = event.completion;
+      if (usage !== undefined) this.requestTokens = requestTokens(usage);
+      // Local models often write a blank line before a tool call; it says nothing.
+      if (message.content !== null && message.content.trim() !== "") {
+        this.reported.push({ kind: "text", text: message.content, withinToolCall: undefined });
       }
-      this.reported.push({ kind: "text", text: event.text, withinToolCall: undefined });
+      return event.completion;
     }
     throw new ChatCompletionsError("The API endpoint's answer ended before it was complete.");
   }

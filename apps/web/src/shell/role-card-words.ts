@@ -4,6 +4,7 @@ import {
   sessionDefaultSchema,
   type Capabilities,
   type Engine,
+  type EngineCapability,
   type HardSwitchKey,
   type HardSwitchValue,
   type PermissionProfile,
@@ -51,6 +52,23 @@ export const ENGINE_LABELS: Readonly<Record<Engine, string>> = {
   "claude-code-p": "Claude Code -p",
   "openai-compatible-api": "OpenAI-compatible API",
 };
+
+/** What the card says, under its Engine field, of each thing the engine declares it can't do. */
+const MISSING_CAPABILITY_WORDS: Readonly<Record<EngineCapability, string>> = {
+  bargeIn: "A message sent while it works waits for the turn to end.",
+  interrupt: "Stop can't end a running turn.",
+  resume: "A Thread can't continue its session once it ends, so it starts fresh.",
+  usageWindows: "It has no usage windows, so the 5-hour window doesn't count it.",
+  contextUsage: "It can't tell how full its context is, so the Context policy can't weigh it.",
+  officeTools: "It can't use Office tools.",
+  outputSchema: "It can't hold a Stage's answer to a schema.",
+};
+
+/** The words for what an engine can't do; undefined when it can do everything. */
+export function missingCapabilitiesWords(missing: readonly EngineCapability[]): string | undefined {
+  if (missing.length === 0) return undefined;
+  return missing.map((capability) => MISSING_CAPABILITY_WORDS[capability]).join(" ");
+}
 
 export const SESSION_DEFAULTS: Readonly<
   Record<SessionDefault, { readonly label: string; readonly description: string }>

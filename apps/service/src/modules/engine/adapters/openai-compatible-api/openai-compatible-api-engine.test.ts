@@ -169,14 +169,15 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
     return untilTurnEnds(started.events[Symbol.asyncIterator]());
   }
 
-  it("streams the reply, sends the system prompt and the tools, and counts the turn's tokens", async () => {
+  it("streams the reply, reports it whole, sends the system prompt and the tools, and counts the turn's tokens", async () => {
     fake.script(textReply(["Hello", " there."], { prompt: 300, completion: 4, cached: 100 }));
 
     const { events, turn } = await oneTurn();
 
+    expect(fake.requests[0]?.body).toMatchObject({ stream: true });
+    // As the SDK reports a text block: a Thread logs each text event as one message.
     expect(events.filter((event) => event.kind === "text").map((event) => event.text)).toEqual([
-      "Hello",
-      " there.",
+      "Hello there.",
     ]);
     expect(turn).toMatchObject({
       outcome: "completed",
@@ -898,16 +899,16 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
     });
     session = started;
     const events = started.events[Symbol.asyncIterator]();
-    let next = await events.next();
-    while (!next.done && next.value.kind !== "text") next = await events.next();
+    await vi.waitFor(() => expect(fake.requests).toHaveLength(1));
     const streaming = fake.requests.at(-1);
 
     await started.interrupt();
-    const { turn } = await untilTurnEnds(events);
+    const { events: reported, turn } = await untilTurnEnds(events);
     started.send({ id: "after", text: "Go on." }, "next");
     await untilTurnEnds(events);
 
     expect(turn.outcome).toBe("interrupted");
+    expect(reported.filter((event) => event.kind === "text")).toEqual([]);
     expect(await streaming?.ended).toBe("closed-by-client");
     expect(lastRequestBody().messages.slice(1)).toEqual([
       { role: "user", content: "Begin.\n\n[The user interrupted this turn.]\n\nGo on." },

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   changeLine,
   hardSwitchValueLabel,
+  missingCapabilitiesWords,
   proposedFieldChanges,
   skillsChangeLine,
   taskLimitShort,
@@ -17,6 +18,13 @@ describe("the Role card's words", () => {
     expect(taskLimitShort("none")).toBe("Talks only");
     expect(taskLimitShort(1)).toBe("Up to 1 Task");
     expect(taskLimitShort(3)).toBe("Up to 3 Tasks");
+  });
+
+  it("names what an engine can't do, and nothing when it can do everything", () => {
+    expect(missingCapabilitiesWords(["usageWindows"])).toBe(
+      "It has no usage windows, so the 5-hour window doesn't count it.",
+    );
+    expect(missingCapabilitiesWords([])).toBeUndefined();
   });
 
   it("names the Role a Consult value consults by its title", () => {

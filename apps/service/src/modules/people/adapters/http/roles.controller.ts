@@ -30,7 +30,11 @@ export class RolesController {
   async cardOptions(): Promise<RoleCardOptions> {
     const options = await this.roles.cardOptions();
     return {
-      engines: options.engines.map(({ engine, models }) => ({ engine, models: [...models] })),
+      engines: options.engines.map(({ engine, models, missingCapabilities }) => ({
+        engine,
+        models: [...models],
+        missingCapabilities: [...missingCapabilities],
+      })),
       knownRoles: options.knownRoles.map(({ key, title }) => ({ key, title })),
       hardSwitches: options.hardSwitches.map(({ key, enforcement }) => ({ key, enforcement })),
       taskLimits: { ...options.taskLimits },

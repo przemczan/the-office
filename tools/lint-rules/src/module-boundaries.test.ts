@@ -52,6 +52,24 @@ describe("between modules", () => {
     );
   });
 
+  test("only tests reach another module's fixtures, through its test entry", () => {
+    assert.equal(
+      violation("src/modules/work/application/a.test.ts", "src/modules/people/index.fixtures.js"),
+      undefined,
+    );
+    assert.match(
+      violation("src/modules/work/application/a.ts", "src/modules/people/index.fixtures.js") ?? "",
+      /public entry/,
+    );
+    assert.match(
+      violation(
+        "src/modules/work/application/a.test.ts",
+        "src/modules/people/domain/b.fixtures.js",
+      ) ?? "",
+      /public entry/,
+    );
+  });
+
   test("the platform imports no module, not even its entry", () => {
     assert.match(
       violation("src/platform/events/event-bus.ts", "src/modules/work/index.js") ?? "",

@@ -1,6 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { EngineModels, type Engine } from "../../engine/index.js";
+import {
+  EngineModels,
+  EngineSessions,
+  type Engine,
+  type EngineCapability,
+} from "../../engine/index.js";
 import { RoleSkills } from "../../skills/index.js";
 import {
   HARD_SWITCH_ENFORCEMENT,
@@ -36,7 +41,12 @@ export interface RoleWithSkills {
 
 /** The choices the Role card form offers, and how each Hard switch is seen to. */
 export interface RoleCardOptions {
-  readonly engines: readonly { readonly engine: Engine; readonly models: readonly string[] }[];
+  readonly engines: readonly {
+    readonly engine: Engine;
+    readonly models: readonly string[];
+    /** What the engine declares it can't do. */
+    readonly missingCapabilities: readonly EngineCapability[];
+  }[];
   /** Every Role a Consult value may name, hired or not. */
   readonly knownRoles: readonly { readonly key: string; readonly title: string }[];
   readonly hardSwitches: readonly {
@@ -79,6 +89,7 @@ export class RoleService {
     private readonly repository: RoleRepository,
     private readonly roleSkills: RoleSkills,
     private readonly engineModels: EngineModels,
+    private readonly engineSessions: EngineSessions,
     private readonly events: EventBus,
   ) {}
 
@@ -155,7 +166,11 @@ export class RoleService {
   async cardOptions(): Promise<RoleCardOptions> {
     const models = await this.engineModels.byEngine();
     return {
-      engines: [...models].map(([engine, offered]) => ({ engine, models: offered })),
+      engines: [...models].map(([engine, offered]) => ({
+        engine,
+        models: offered,
+        missingCapabilities: this.engineSessions.missingCapabilitiesOf(engine),
+      })),
       knownRoles: [...KNOWN_ROLES].map(([key, title]) => ({ key, title })),
       hardSwitches: HARD_SWITCH_KEYS.map((key) => ({
         key,

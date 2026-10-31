@@ -1,6 +1,6 @@
 # Settings surface: map
 
-**Owns:** Settings: Pipelines (the library beside the open Pipeline: New Pipeline, Duplicate, its name, description and Stages in the shared Stage editor with Save and Discard, Remove with the service's reasons, and who uses it; Settings opens here), Skills (the library, with an installed skill's Source and pinned version, Review, and Add a skill: "Install from a source", which asks Devops in their chat with the source drafted or says installing needs someone with the Devops Role, Upload and Write; an update found at an installed skill's Source shows as "→ version" on its row and in the banner, and "Review the update" asks Devops for the update Proposal or shows their open one, with its notes and diff, to apply) and Office limits (the desks, from Work, and the Context policy's size threshold, from Conversations), Notifications ("What goes where": the kinds tree × In-app, Desktop and Phone from `GET /notifications/routing`, each cell set on its row or inherited from its group, a click setting it and Reset giving a kind back; the rows and their words in `routing-words.ts`; "At the desk" and "Quiet hours and batching" from `GET /notifications/timing`, each change sent whole by `PUT`, one at a time, `timing-cards.tsx`) and Appearance (the palette, or following the system, kept in this browser by `useAppearance` from `packages/ui`). It reads the service through `src/api/` (see [the web app's map](../../MAP.md)).
+**Owns:** Settings: Pipelines (the library beside the open Pipeline: New Pipeline, Duplicate, its name, description and Stages in the shared Stage editor with Save and Discard, Remove with the service's reasons, and who uses it; Settings opens here), Skills (the library, with an installed skill's Source and pinned version, Review, and Add a skill: "Install from a source", which asks Devops in their chat with the source drafted or says installing needs someone with the Devops Role, Upload and Write; an update found at an installed skill's Source shows as "→ version" on its row and in the banner, and "Review the update" asks Devops for the update Proposal or shows their open one, with its notes and diff, to apply), Engines (the API endpoints of the OpenAI-compatible API, each with its name, base URL, key and models with their context windows, and the Search endpoint, edited as one draft with Save and Discard and sent whole by `PUT /settings/engines`, refused with every reason; the key never comes back, so the draft leaves it out, keeping it, unless the user types one or removes it with "Remove the key"; a save refreshes the Role card options, `engines/`) and Office limits (the desks, from Work, and the Context policy's size threshold, from Conversations), Notifications ("What goes where": the kinds tree × In-app, Desktop and Phone from `GET /notifications/routing`, each cell set on its row or inherited from its group, a click setting it and Reset giving a kind back; the rows and their words in `routing-words.ts`; "At the desk" and "Quiet hours and batching" from `GET /notifications/timing`, each change sent whole by `PUT`, one at a time, `timing-cards.tsx`) and Appearance (the palette, or following the system, kept in this browser by `useAppearance` from `packages/ui`). It reads the service through `src/api/` (see [the web app's map](../../MAP.md)).
 
 **Traps:** the grid's rows are levels of the service's kinds tree, keyed as the service keys them: a kind added there needs its row here. The library's check (`POST /pipelines/check`) gives problems, which hold Save, and flags (a Role nobody fills), which don't; each list item runs its own check for its warning mark.
 
@@ -16,6 +16,12 @@
 ### appearance/
 
 - `appearance-section.tsx`: AppearanceSection
+
+### engines/
+
+- `engine-settings-draft.ts`: draftOf, NEW_API_ENDPOINT, KeyOnSave, keyOnSave, KEY_ON_SAVE_WORDS, searchEndpointOf
+- `engines-section.tsx`: EnginesSection
+- Tests: engine-settings-draft.test.ts
 
 ### notifications/
 

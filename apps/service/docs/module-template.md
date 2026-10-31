@@ -5,6 +5,7 @@ A module is a bounded context of [spec §5.3](../../../docs/spec/5.3-modules.md)
 ```
 src/modules/work/
   index.ts           the public entry: what other modules and the composition root may use
+  index.fixtures.ts  optional: the fixtures other modules' tests may use
   work.module.ts     the Nest module: providers, and the adapter bound to each port
   domain/            entities, rules, and domain events (subclasses of DomainEvent)
   ports/             what the application needs from outside, as interfaces
@@ -22,7 +23,7 @@ src/modules/work/
 `npm run verify` enforces these with the oxlint rules `office/module-boundaries` and `office/workspace-boundaries` from [tools/lint-rules](../../../tools/lint-rules/src/plugin.ts).
 
 - **Layers import only inward:** adapters → application → ports → domain. A layer imports its own files and the inner layers; the root files import any of them, and no layer imports the root files.
-- **Another module is reached only through its `index.ts`**, from other modules and the composition root alike. Modules talk through application services and domain events, and none reads another's tables.
+- **Another module is reached only through its `index.ts`**, from other modules and the composition root alike; their tests may also use its `index.fixtures.ts`. Modules talk through application services and domain events, and none reads another's tables.
 - **The platform is below the modules** and never imports one. The domain and ports layers take only `src/platform/events/domain-event.ts` from it; application and adapters use all of it.
 - **Only adapters import `@the-office/contracts`.** The contracts are the wire format; the inner layers never see it.
 - **A module holds only its four layers and its root files.** A layer importing from any other folder in the module is refused.
@@ -56,7 +57,7 @@ Projects (`src/modules/projects/`) is the first; later modules copy its shape.
 - **A repository's `update(id, change)`** applies the change inside a transaction that holds the row (`SELECT … FOR UPDATE`), so two changes at once never lose one.
 - **A rule that needs another module** goes through that module's application service, unless the other module will need this one: then this module declares a port of its own and the composition root binds it. Projects asks `KnownPipelines`, which `AppModule` binds to Pipelines' `PipelineLibrary`, because Pipelines' Stage interpreter will call Projects. The modules that read the library import `PipelineLibraryModule`, never `PipelinesModule`, which reacts to Work's `TaskStarted` and moves started Tasks through its `StartedTasks` port, bound to Work's `TaskService`.
 - **A module called back by one that calls it** offers a registry the caller fills as it starts: Work, which opens Threads through Conversations, gives Conversations what a Thread on a Task works with through `TaskThreadSetups`, as modules give the Engine their Office tools through `OfficeToolRegistry`. A port bound by the composition root would make the two Nest modules import each other.
-- **Fixtures** (`*.fixtures.ts`) are test data beside the code they describe, shared by its tests and left out of the build.
+- **Fixtures** (`*.fixtures.ts`) are test data beside the code they describe, shared by its tests and left out of the build. Fixtures other modules' tests need, such as a fake of a server the module's adapters talk to, are exported from `index.fixtures.ts`.
 
 ## Adding a module
 

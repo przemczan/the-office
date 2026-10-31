@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import type { Role, RoleCardOptions, Skill } from "@the-office/contracts";
 import { Badge, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { EFFORT_LABELS, modelLabel } from "../../shell/engine-words.ts";
+import { EFFORT_LABELS } from "../../shell/engine-words.ts";
 import { SkillChip } from "../../shell/skill-chip.tsx";
 import { RoleCardGroup, RoleCardValue } from "./role-card-layout.tsx";
 import {
@@ -12,11 +12,13 @@ import {
   ENGINE_LABELS,
   HARD_SWITCH_LABELS,
   hardSwitchValueLabel,
+  missingCapabilitiesWords,
   permissionProfileLines,
   roleTitlesOf,
   SESSION_DEFAULTS,
   taskLimitLabel,
 } from "../../shell/role-card-words.ts";
+import { useModelLabel } from "../../shell/use-model-label.ts";
 import { sessionSkillsOf } from "./session-skills.ts";
 
 /** Every setting of a Role card, read-only, grouped as its form groups them. */
@@ -32,6 +34,9 @@ export function RoleCardView({
   const { card } = role;
   const roleTitles = roleTitlesOf(options);
   const skills = sessionSkillsOf(role, library);
+  const modelLabel = useModelLabel();
+  const missing = options.engines.find(({ engine }) => engine === card.engine)?.missingCapabilities;
+  const cantDo = missing && missingCapabilitiesWords(missing);
   return (
     <div className="role-card">
       <RoleCardGroup group="identity">
@@ -56,6 +61,7 @@ export function RoleCardView({
         <RoleCardValue label="Works with">
           {modelLabel(card.model)} · effort {EFFORT_LABELS[card.effort].toLowerCase()} ·{" "}
           {ENGINE_LABELS[card.engine]}
+          {cantDo && <span className="role-card-note">{cantDo}</span>}
         </RoleCardValue>
       </RoleCardGroup>
       <RoleCardGroup group="capabilities">

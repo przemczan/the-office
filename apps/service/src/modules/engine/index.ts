@@ -1,4 +1,5 @@
 export { EngineSessions } from "./application/engine-sessions.js";
+export type { EngineCapability } from "./ports/agent-engine.js";
 export { OfficeToolRegistry } from "./application/office-tool-registry.js";
 export type { OfficeTool, OfficeToolResult } from "./ports/office-tool.js";
 export { UsageWindowState } from "./application/usage-window-state.js";
@@ -12,5 +13,7 @@ export { EngineModule } from "./engine.module.js";
 export { ScriptedEngine, type StandInEngine } from "./adapters/scripted/scripted-engine.js";
 export { readRecording, type SessionScript } from "./adapters/scripted/session-script.js";
 export { ScriptedEngineModule } from "./scripted-engine.module.js";
+// So a stand-in for this engine declares what it can't do, as the Role card names it.
+export { OPENAI_COMPATIBLE_API_CAPABILITIES } from "./adapters/openai-compatible-api/openai-compatible-api-engine.js";
 export type { NewSession } from "./ports/agent-engine.js";
 export type { EngineSession } from "./ports/engine-session.js";
