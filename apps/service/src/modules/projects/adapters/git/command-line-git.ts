@@ -10,6 +10,7 @@ import {
   type FolderInspection,
   type GitVariables,
   type Head,
+  type LocalBranch,
   type MergeConclusion,
   type MergeStart,
   type NewWorktree,
@@ -87,6 +88,20 @@ export class CommandLineGit extends Git {
       gitArguments: ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}^{commit}`],
     });
     return result.exitCode === 0;
+  }
+
+  async localBranches(repositoryPath: string): Promise<readonly LocalBranch[]> {
+    const output = await git({
+      folder: repositoryPath,
+      gitArguments: ["for-each-ref", "--format=%(HEAD)%00%(refname:short)", "refs/heads"],
+    });
+    return output
+      .split("\n")
+      .filter((line) => line !== "")
+      .map((line) => {
+        const [head = "", name = ""] = line.split("\0");
+        return { name, checkedOut: head === "*" };
+      });
   }
 
   async upstreamOf(repositoryPath: string, branch: string): Promise<Upstream | undefined> {

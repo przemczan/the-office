@@ -110,6 +110,22 @@ describe("CommandLineGit.hasBranch", REAL_GIT_TEST, () => {
   });
 });
 
+describe("CommandLineGit.localBranches", REAL_GIT_TEST, () => {
+  it("lists the local branches by name, the checked-out one marked", async () => {
+    const own = await createTemporaryRepository();
+    try {
+      gitIn(own.path, "branch", "release/1.0");
+
+      await expect(git.localBranches(own.path)).resolves.toEqual([
+        { name: "main", checkedOut: true },
+        { name: "release/1.0", checkedOut: false },
+      ]);
+    } finally {
+      await own.remove();
+    }
+  });
+});
+
 describe("CommandLineGit.fetch", REAL_GIT_TEST, () => {
   it("updates the remote-tracking branch and returns its commit", async () => {
     const commit = await commitOnOrigin(repository, "fetched", "fetched.txt");

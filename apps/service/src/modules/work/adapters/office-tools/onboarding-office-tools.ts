@@ -27,7 +27,7 @@ export class OnboardingOfficeTools implements OnModuleInit {
     this.registry.register({
       name: PROPOSE_PROJECT_TOOL,
       description:
-        "Drafts a new Project to onboard as a Proposal the user applies with a click: applying it adds the Project and its Onboard Task, in which you make it build and test in a fresh worktree. Look at the repository first, with read_local_repository: its base branch, and the commands that install, build, lint and test it. It shows in this Thread as a card and adds nothing until the user applies it. It returns at once.",
+        "Drafts a new Project to onboard as a Proposal the user applies with a click: applying it adds the Project and its Onboard Task, in which you make it build and test in a fresh worktree. Look at the repository first, with read_local_repository: its base branch among its local branches, and the commands that install, build, lint and test it, reading a package's folder with its folder argument when they live below the top level. It shows in this Thread as a card and adds nothing until the user applies it. It returns at once.",
       input: DRAFTED_PROJECT.extend({
         name: DRAFTED_PROJECT.shape.name.describe("The Project's name, as the user calls it."),
         path: DRAFTED_PROJECT.shape.path.describe(

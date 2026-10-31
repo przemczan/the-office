@@ -25,6 +25,13 @@ export interface Upstream {
 }
 
 /** Where a worktree's HEAD is: the after-Stage check compares it with where it was before. */
+/** A branch of a repository's own, not a remote's. */
+export interface LocalBranch {
+  readonly name: string;
+  /** The repository's working tree has it checked out. */
+  readonly checkedOut: boolean;
+}
+
 export interface Head {
   readonly commit: string;
   /** The branch checked out, or undefined when HEAD is detached. */
@@ -98,6 +105,9 @@ export abstract class Git {
 
   /** Whether the repository at `repositoryPath` has a local branch named `branch`. */
   abstract hasBranch(repositoryPath: string, branch: string): Promise<boolean>;
+
+  /** The repository's local branches by name, none for a repository without commits. */
+  abstract localBranches(repositoryPath: string): Promise<readonly LocalBranch[]>;
 
   /** The remote branch `branch` tracks, or undefined when it tracks none on a remote. */
   abstract upstreamOf(repositoryPath: string, branch: string): Promise<Upstream | undefined>;

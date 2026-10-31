@@ -8,6 +8,7 @@ import {
   type ManifestFile,
 } from "../../application/local-repositories.js";
 import { ProjectService } from "../../application/project-service.js";
+import type { LocalBranch } from "../../ports/git.js";
 import type { Project } from "../../domain/project.js";
 import { ProjectRefused } from "../../domain/project-refused.js";
 
@@ -16,7 +17,16 @@ export const READ_LOCAL_REPOSITORY = "read_local_repository";
 
 const LOCAL_REPOSITORY_INPUT = z.object({
   path: z.string().describe("The repository's top-level folder, as a full path."),
+  folder: z
+    .string()
+    .optional()
+    .describe(
+      "A folder inside the repository to read instead of its top level, relative to it, such as apps/server.",
+    ),
 });
+
+/** Enough to find the base branch among, without a long list filling the session. */
+const LISTED_BRANCHES = 30;
 
 /**
  * The Office tools that read the Projects' records (spec §6), and a repository on the workstation
@@ -61,11 +71,11 @@ export class ProjectOfficeTools implements OnModuleInit {
     return {
       name: READ_LOCAL_REPOSITORY,
       description:
-        "Reads a git repository on the workstation that is not a Project yet, to onboard it: the names at its top level and its manifest files there (package.json, README and the like), each up to about 2k tokens. It reads nothing below the top level.",
+        "Reads a git repository on the workstation that is not a Project yet, to onboard it: its local branches, the checked-out one marked, and the names in its top-level folder, or in `folder` inside it, with the manifest files there (package.json, README and the like), each up to about 2k tokens. Read a folder below with `folder` when the top level points to packages there. It is the only way to read the repository from this chat: Read, Glob, Grep and git are refused outside your folders.",
       input: LOCAL_REPOSITORY_INPUT,
-      run: async ({ path }) => {
+      run: async ({ path, folder }) => {
         try {
-          const repository = await this.localRepositories.read(path);
+          const repository = await this.localRepositories.read(path, folder);
           return { text: localRepositoryText(path, repository), isError: false };
         } catch (error) {
           if (error instanceof ProjectRefused) return { text: error.message, isError: true };
@@ -76,13 +86,28 @@ export class ProjectOfficeTools implements OnModuleInit {
   }
 }
 
-function localRepositoryText(path: string, { entries, manifests }: LocalRepository): string {
+function localRepositoryText(
+  path: string,
+  { folder, entries, manifests, branches }: LocalRepository,
+): string {
   const listing = entries.map(({ name, kind }) => `- ${name}${kind === "folder" ? "/" : ""}`);
   return [
-    `The repository at ${path}, at its top level:`,
+    branchesText(branches),
+    `The repository at ${path}, ${folder === "" ? "at its top level" : `in ${folder}`}:`,
     listing.length > 0 ? listing.join("\n") : "(empty)",
     ...manifests.map(manifestText),
   ].join("\n\n");
+}
+
+/** The checked-out branch first, so a long list never hides it. */
+function branchesText(branches: readonly LocalBranch[]): string {
+  if (branches.length === 0) return "Local branches: none yet.";
+  const listed = branches
+    .toSorted((first, second) => Number(second.checkedOut) - Number(first.checkedOut))
+    .slice(0, LISTED_BRANCHES)
+    .map(({ name, checkedOut }) => (checkedOut ? `${name} (checked out)` : name));
+  const more = branches.length - listed.length;
+  return `Local branches: ${listed.join(", ")}${more > 0 ? ` and ${more} more` : ""}.`;
 }
 
 function manifestText({ name, text, cut }: ManifestFile): string {

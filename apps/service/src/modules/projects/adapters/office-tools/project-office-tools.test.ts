@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { OfficeToolRegistry } from "../../../engine/index.js";
 import type { BaseCheckouts } from "../../application/base-checkouts.js";
 import type { LocalRepositories } from "../../application/local-repositories.js";
@@ -89,14 +89,19 @@ describe("list_projects", () => {
 });
 
 describe("read_local_repository", () => {
-  it("lists the top level, folders marked, then each manifest file under its name", async () => {
+  it("lists the branches, the top level, folders marked, then each manifest file under its name", async () => {
     const tool = toolsReading(() =>
       Promise.resolve({
+        folder: "",
         entries: [
           { name: "package.json", kind: "file" },
           { name: "src", kind: "folder" },
         ],
         manifests: [{ name: "package.json", text: "{}", cut: true }],
+        branches: [
+          { name: "develop", checkedOut: false },
+          { name: "main", checkedOut: true },
+        ],
       }),
     ).readLocalRepository();
 
@@ -105,11 +110,35 @@ describe("read_local_repository", () => {
     expect(result).toEqual({
       isError: false,
       text: [
+        "Local branches: main (checked out), develop.",
         "The repository at /work/admin-panel, at its top level:",
         "- package.json\n- src/",
         "## package.json (its start; the file goes on)\n\n{}",
       ].join("\n\n"),
     });
+  });
+
+  it("reads the folder asked for, and lists at most 30 branches, the checked-out one first", async () => {
+    const branches = Array.from({ length: 40 }, (_, index) => ({
+      name: `branch-${String(index).padStart(2, "0")}`,
+      checkedOut: index === 35,
+    }));
+    const read = vi.fn<LocalRepositories["read"]>(() =>
+      Promise.resolve({ folder: "apps/server", entries: [], manifests: [], branches }),
+    );
+    const tool = toolsReading(read).readLocalRepository();
+
+    const result = await tool.run(
+      { path: "/work/admin-panel", folder: "apps/server" },
+      { sessionId: "s-1" },
+    );
+
+    expect(read).toHaveBeenCalledWith("/work/admin-panel", "apps/server");
+    const [branchLine, heading] = result.text.split("\n\n");
+    expect(branchLine).toMatch(
+      /^Local branches: branch-35 \(checked out\), branch-00, .*branch-28 and 10 more\.$/,
+    );
+    expect(heading).toBe("The repository at /work/admin-panel, in apps/server:");
   });
 
   it("answers the Agent why it can't read the folder", async () => {
