@@ -198,7 +198,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       run,
       task,
       expected,
-      stageCommitMessage(stage.name, result, acceptedIssues(stages, earlierRuns)),
+      stageCommitMessage(stage.name, task.title, result, acceptedIssues(stages, earlierRuns)),
     );
     return result;
   }

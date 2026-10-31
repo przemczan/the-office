@@ -1855,6 +1855,14 @@ test("the user sees a skill's update, asks Nina, reads her Proposal's diff and a
     await expect(skillRow).toContainText("v2 · pinned at v1.1.0");
     await expect(skillRow).not.toContainText("→");
     await expect(skillRow).toContainText("On");
+
+    // The applied card keeps its diff once the Source is gone.
+    await source.remove();
+    await page.goto(`/settings/skills?chat=devops&thread=${threadId}`);
+    await expect(card).toContainText("Applied");
+    await expect(card.getByLabel("Changes from v1.0.0 to v1.1.0")).toContainText(
+      "+Group them as Added, Changed, Fixed and Removed.",
+    );
   } finally {
     await source.remove();
   }

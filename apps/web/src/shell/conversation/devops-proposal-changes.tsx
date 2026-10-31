@@ -142,7 +142,12 @@ export function ProposedSkillUpdateFields({
         <div className="proposal-field">
           <dt>Files</dt>
           <dd>
-            <SkillUpdateDiff name={change.name} from={change.from} to={change.to} />
+            <SkillUpdateDiff
+              name={change.name}
+              from={change.from}
+              to={change.to}
+              appliedDiff={change.appliedDiff}
+            />
           </dd>
         </div>
       </dl>

@@ -14,6 +14,7 @@ import {
 } from "../../ports/idea-repository.js";
 import { attachments, ideas, initiatives } from "./work.schema.js";
 import {
+  canBeRowId,
   holdManualOrder,
   insertTask,
   ownerColumns,
@@ -36,6 +37,7 @@ export class PostgresIdeaRepository extends IdeaRepository {
   }
 
   async find(id: string): Promise<Idea | undefined> {
+    if (!canBeRowId(id)) return undefined;
     const [row] = await this.database.select().from(ideas).where(eq(ideas.id, id));
     return row && toIdea(row);
   }
@@ -115,6 +117,7 @@ async function saveShapedIdea(
 }
 
 async function heldIdea(transaction: Transaction, id: string): Promise<Idea> {
+  if (!canBeRowId(id)) throw new IdeaNotFound(id);
   const [row] = await transaction.select().from(ideas).where(eq(ideas.id, id)).for("update");
   if (!row) throw new IdeaNotFound(id);
   return toIdea(row);

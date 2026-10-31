@@ -23,10 +23,12 @@ export class SkillUpdateProposals implements OnModuleInit {
     });
   }
 
+  /** Reads the diff before the skill moves off `from`, and keeps it with the Proposal. */
   private async apply(change: ProposedSkillUpdate): Promise<ProposedSkillUpdate> {
     try {
+      const { diff, diffCut } = await this.updates.diff(change.name, change.from, change.to);
       await this.updates.apply(change);
-      return change;
+      return { ...change, appliedDiff: { diff, diffCut } };
     } catch (error) {
       if (error instanceof SkillRefused) throw new ProposalRefused(error.reasons);
       throw error;

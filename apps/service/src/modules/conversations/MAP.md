@@ -128,7 +128,7 @@ DecisionService, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThre
 - `thread-runner.ts`: Answerer, ThreadRunner
 - `thread-service.ts`: InitiativeThreadOpening, ThreadService
 - `work-records.ts`: WorkRecordSource, WorkRecords
-- Tests: briefs.test.ts, consultations.test.ts, devops-proposals.test.ts, held-calls.test.ts, link-cards.test.ts, proposal-service.test.ts, session-memory.test.ts, stage-threads.test.ts, test-project-check.test.ts, thread-runner.test.ts
+- Tests: briefs.test.ts, consultations.test.ts, devops-proposals.test.ts, held-calls.test.ts, link-cards.test.ts, proposal-service.test.ts, session-memory.test.ts, stage-threads.test.ts, thread-runner.test.ts
 
 ### domain/
 
@@ -148,7 +148,7 @@ DecisionService, InitiativeThreadSetups, InitiativeThreadRequest, InitiativeThre
 - `proposal-not-found.ts`: ProposalNotFound
 - `proposal-refused.ts`: ProposalRefused
 - `proposal.fixtures.ts`: aProposedCard, aProposal
-- `proposal.ts`: ProposedChanges, ProposedChangeKind, ProposedChange, RoleCardFields, ProposedHire, ProposedPresetHire, ProposedRoleChange, OFFICE_SETTINGS, OfficeSetting, ProposedSettingChange, ProposedInitiativeChange, InitiativeEdit, ProposedProjectCommands, ProposedPipelineChange, ProposedProject, ProposedSkillInstall, ProposedSkillUpdate, ProposedSkill, PipelineStage, ProposalStatus, Proposal, EditedHire, proposedRoleChange, proposedChangeProblems, changeToApply, refuseUnlessOpen
+- `proposal.ts`: ProposedChanges, ProposedChangeKind, ProposedChange, RoleCardFields, ProposedHire, ProposedPresetHire, ProposedRoleChange, OFFICE_SETTINGS, OfficeSetting, ProposedSettingChange, ProposedInitiativeChange, InitiativeEdit, ProposedProjectCommands, ProposedPipelineChange, ProposedProject, ProposedSkillInstall, ProposedSkillUpdate, AppliedSkillDiff, ProposedSkill, PipelineStage, ProposalStatus, Proposal, EditedHire, proposedRoleChange, proposedChangeProblems, changeToApply, refuseUnlessOpen
 - `session-instructions.ts`: SessionPersonCard, chatInstructions, workThreadInstructions, PROPOSE_SKILL_TOOL, CHAT_OFFICE_TOOLS, PROPOSE_ROLE_TOOL, PROPOSE_OFFICE_SETTING_TOOL, POST_LINK_CARD_TOOL, SHOW_OFFICE_STATUS_TOOL, PROPOSE_PROJECT_COMMANDS_TOOL, PROPOSE_LIBRARY_PIPELINE_TOOL, PROPOSE_PROJECT_TOOL, LIST_PIPELINES_TOOL, LIST_SOURCE_SKILLS_TOOL, PROPOSE_SKILL_INSTALL_TOOL, READ_SKILL_UPDATE_TOOL, PROPOSE_SKILL_UPDATE_TOOL, READ_LOCAL_REPOSITORY_TOOL, chatOfficeTools, roleOfficeTools, ANSWER_CONSULTATION_TOOL, CONSULTATION_OFFICE_TOOLS, consultationInstructions, REMEMBER_TOOL, CHANGE_ROLE_TOOL, sessionOfficeTools, HANDOVER_REQUEST, briefedMessage, openingMessage, decisionAnswerMessage
 - `thread-changes.ts`: ThreadChange, DeliveryMarking, ChatPerson, startChatThread, TaskThreadStart, startTaskThread, startStageThread, startConsultationThread, InitiativeThreadStart, startInitiativeThread, renameThread, logMessages, freshSession, Answering, Opening, beginAnswer, bargeIn, markDelivery, DecisionOpening, openDecision, ProposalDrafting, draftProposal, DecisionAnswering, answerDecision, DecisionRecording, recordDecisionAnswer, beginOpening, beginAskingAgain, beginStageWork, StageWorkEnding, endStageWork, TurnCount, endTurn, countRunningTurn, UnopenedSession, failAnswer, failDecisionAnswer, putDecisionToUser, PassingOn, passDecisionOn, chooseOverride
 - `thread-not-found.ts`: ThreadNotFound

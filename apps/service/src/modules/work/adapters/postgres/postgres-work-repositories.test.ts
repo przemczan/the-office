@@ -16,19 +16,27 @@ import { aLink, anIdea } from "../../domain/work.fixtures.js";
 import { PostgresAttachmentRepository } from "./postgres-attachment-repository.js";
 import { PostgresFireAlarmRepository } from "./postgres-fire-alarm-repository.js";
 import { PostgresIdeaRepository } from "./postgres-idea-repository.js";
+import { PostgresInitiativeRepository } from "./postgres-initiative-repository.js";
 import { PostgresTaskRepository } from "./postgres-task-repository.js";
 
 let app: INestApplication;
 let ideas: PostgresIdeaRepository;
 let tasks: PostgresTaskRepository;
 let attachments: PostgresAttachmentRepository;
+let initiatives: PostgresInitiativeRepository;
 
 beforeAll(async () => {
   ({ app } = await startTestApplication({
     database: true,
-    providers: [PostgresIdeaRepository, PostgresTaskRepository, PostgresAttachmentRepository],
+    providers: [
+      PostgresIdeaRepository,
+      PostgresTaskRepository,
+      PostgresAttachmentRepository,
+      PostgresInitiativeRepository,
+    ],
   }));
   ideas = app.get(PostgresIdeaRepository);
+  initiatives = app.get(PostgresInitiativeRepository);
   tasks = app.get(PostgresTaskRepository);
   attachments = app.get(PostgresAttachmentRepository);
 });
@@ -129,6 +137,13 @@ describe("PostgresTaskRepository", () => {
       tasks.reorder(task.id, { above: missing, below: undefined }, reorderTask),
     ).rejects.toThrow(new TaskNotFound(missing));
   });
+
+  it("knows no Task by an id that isn't a uuid, such as one an Agent mistyped", async () => {
+    expect(await tasks.find("task-7")).toBeUndefined();
+    await expect(tasks.update("task-7", (stored) => changePriority(stored, "low"))).rejects.toThrow(
+      new TaskNotFound("task-7"),
+    );
+  });
 });
 
 describe("PostgresIdeaRepository", () => {
@@ -211,6 +226,14 @@ describe("PostgresIdeaRepository", () => {
     await expect(ideas.update(missing, (stored) => dropIdea(stored, new Date()))).rejects.toThrow(
       new IdeaNotFound(missing),
     );
+  });
+
+  it("knows no Idea or Initiative by an id that isn't a uuid", async () => {
+    expect(await ideas.find("idea-7")).toBeUndefined();
+    await expect(ideas.update("idea-7", (stored) => dropIdea(stored, new Date()))).rejects.toThrow(
+      new IdeaNotFound("idea-7"),
+    );
+    expect(await initiatives.find("initiative-7")).toBeUndefined();
   });
 });
 

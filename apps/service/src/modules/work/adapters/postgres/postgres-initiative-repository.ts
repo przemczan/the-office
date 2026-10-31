@@ -14,6 +14,7 @@ import { initiatives, tasks } from "./work.schema.js";
 import {
   changeDependenciesHeld,
   everyTaskHoldingDependencies,
+  canBeRowId,
   holdManualOrder,
   insertTask,
   takenOrders,
@@ -30,6 +31,7 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
   }
 
   async find(id: string): Promise<Initiative | undefined> {
+    if (!canBeRowId(id)) return undefined;
     const [row] = await this.database.select().from(initiatives).where(eq(initiatives.id, id));
     return row && toInitiative(row);
   }
@@ -97,6 +99,7 @@ export class PostgresInitiativeRepository extends InitiativeRepository {
 }
 
 async function heldInitiative(transaction: Transaction, id: string): Promise<Initiative> {
+  if (!canBeRowId(id)) throw new InitiativeNotFound(id);
   const [row] = await transaction
     .select()
     .from(initiatives)

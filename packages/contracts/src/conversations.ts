@@ -338,8 +338,10 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
   }),
   /**
    * An installed skill's update Devops drafted with notes: from the pinned version it had to its
-   * Source's newer one, with its files' paths there. GET /skills/:name/update-diff shows the diff;
-   * applying pins the skill at `to`, on or off as it was, refused once it moved off `from`.
+   * Source's newer one, with its files' paths there. GET /skills/:name/update-diff shows the diff
+   * while it is open; applying pins the skill at `to`, on or off as it was, refused once it moved
+   * off `from`, and keeps the diff as `appliedDiff` (null before, and for one applied before it was
+   * kept).
    */
   z.object({
     kind: z.literal("skill-update"),
@@ -351,6 +353,7 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
     notes: z.string(),
     files: z.array(z.string()),
     filesHash: z.string(),
+    appliedDiff: z.object({ diff: z.string(), diffCut: z.boolean() }).nullable(),
   }),
   /**
    * A written skill someone drafted in their chat: applying adds it as the Write form does, off

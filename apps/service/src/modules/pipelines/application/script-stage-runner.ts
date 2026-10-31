@@ -79,6 +79,7 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
     else {
       const message = stageCommitMessage(
         stage.name,
+        task.title,
         outcome,
         acceptedIssues(work.stages, work.earlierRuns),
       );

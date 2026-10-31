@@ -331,7 +331,7 @@ describe("AgentStageRunner after the session", () => {
     expect(commit).toEqual({
       taskId,
       message:
-        "Implement: Added the rename dialog.\n\nAdded the rename dialog.\n\nIt saves on Enter.\n\nHandover note:\nLeft: the list's refresh.",
+        "Implement: Rename a device\n\nAdded the rename dialog.\n\nIt saves on Enter.\n\nHandover note:\nLeft: the list's refresh.",
       commit: expect.any(String),
     });
     const [run] = await runsOf(pipelines, taskId);

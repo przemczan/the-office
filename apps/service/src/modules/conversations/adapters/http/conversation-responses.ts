@@ -181,6 +181,7 @@ function toProposedChangeResponse(change: ProposedChange): ProposedChangeRespons
         notes: change.notes,
         files: [...change.files],
         filesHash: change.filesHash,
+        appliedDiff: change.appliedDiff ? { ...change.appliedDiff } : null,
       };
     case "skill":
       return {

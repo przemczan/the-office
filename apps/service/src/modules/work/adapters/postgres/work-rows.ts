@@ -19,6 +19,16 @@ export type InitiativeRow = typeof initiatives.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
 export type AttachmentRow = typeof attachments.$inferSelect;
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Whether `id` can name a row of a uuid-keyed table: Postgres fails a query by any other id, which
+ * names no record, such as one an Agent mistyped.
+ */
+export function canBeRowId(id: string): boolean {
+  return UUID.test(id);
+}
+
 /**
  * Holds the board's manual order until the transaction ends, so whatever writes an order key reads
  * the keys taken and saves its own before anyone else reads them.
@@ -65,6 +75,7 @@ async function everyTask(transaction: Transaction): Promise<Task[]> {
 }
 
 export async function heldTask(transaction: Transaction, id: string): Promise<Task> {
+  if (!canBeRowId(id)) throw new TaskNotFound(id);
   const [row] = await transaction.select().from(tasks).where(eq(tasks.id, id)).for("update");
   if (!row) throw new TaskNotFound(id);
   return toTask(row);

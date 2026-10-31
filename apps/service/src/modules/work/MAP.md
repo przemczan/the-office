@@ -154,7 +154,7 @@ FireAlarmService, IdeaService, OfficeLimits, QueueService, StageScreenshots, Tas
 - `queue.schema.ts`: queue
 - `saved-views.schema.ts`: savedViews
 - `search-vector.ts`: searchVectorOf
-- `work-rows.ts`: Transaction, IdeaRow, InitiativeRow, TaskRow, AttachmentRow, holdManualOrder, holdStarts, everyTaskHoldingDependencies, changeDependenciesHeld, heldTask, saveTask, insertTask, keepStateChange, stateChangesOf, takenOrders, toIdeaRow, toIdea, toInitiativeRow, toInitiative, toTaskRow, toTask, ownerColumns, toAttachmentRow, toAttachment
+- `work-rows.ts`: Transaction, IdeaRow, InitiativeRow, TaskRow, AttachmentRow, canBeRowId, holdManualOrder, holdStarts, everyTaskHoldingDependencies, changeDependenciesHeld, heldTask, saveTask, insertTask, keepStateChange, stateChangesOf, takenOrders, toIdeaRow, toIdea, toInitiativeRow, toInitiative, toTaskRow, toTask, ownerColumns, toAttachmentRow, toAttachment
 - `work-settings.schema.ts`: workSettings
 - `work.schema.ts`: ideas, initiatives, tasks, taskStateChanges, attachments, attachmentTexts
 - Tests: postgres-work-repositories.test.ts

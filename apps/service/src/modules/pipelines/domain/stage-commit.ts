@@ -12,17 +12,19 @@ export interface ExpectedHead {
 }
 
 /**
- * The message The Office commits a Stage's work with (spec §5.5): a subject from the Stage's
- * result, the whole result below it, then the Handover note, then the issues the user chose to
- * continue with so far (research §7), each by its first line.
+ * The message The Office commits a Stage's work with (spec §5.5): "<Stage>: <Task title>" as the
+ * subject, so a log reads by Task and Stage (problem E of task 30), the Stage's whole result below
+ * it, then the Handover note, then the issues the user chose to continue with so far (research §7),
+ * each by its first line.
  */
 export function stageCommitMessage(
   stageName: string,
+  taskTitle: string,
   outcome: StageOutcome,
   accepted: readonly AcceptedIssue[] = [],
 ): string {
   const result = resultText(outcome);
-  const subject = cut(`${stageName}: ${firstLine(result)}`, SUBJECT_LENGTH);
+  const subject = cut(`${stageName}: ${taskTitle.trim()}`, SUBJECT_LENGTH);
   const body = [
     result.trim(),
     outcome.handoverNote === undefined

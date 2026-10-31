@@ -58,10 +58,6 @@ Decided with the user on 2026-10-27: a fix is built where it is found only when 
 | --- | --- | --- | --- |
 | 31 | [The after-tier-2 fixes](31-after-tier-2-fixes.md) | All | in progress |
 
-- Found in task 25: an applied `skill-update` Proposal's card reads its files' diff from the Source each time (`GET /skills/:name/update-diff`, `shell/skill-update-diff.tsx`), so it shows an error once the Source is gone or no longer has those versions. Proposed fix: keep the diff with the Proposal when it is applied (or the files hash's diff from the library's kept versions), and show that on an applied card.
-- Found in task 29: task 09's chat check on the Test Project (`conversations/application/test-project-check.test.ts`) no longer builds its Nest module, since `ThreadRunner` needs `StageThreads`; it fails before any session. Proposed fix: build it from the Conversations module as the later checks do through `test/live-check.ts`, or retire it, since the later checks cover chat with the Planner.
-- Found in task 30 (E): a Stage commit's subject is the Agent's summary cut at 72 with "…" (`pipelines/domain/stage-commit.ts`). Proposed fix: "<Stage>: <Task title>" as the subject, the summary in the body.
-
 Read these only when a step needs them:
 
 - [build-defaults.md](build-defaults.md): choices the spec leaves open (Windows and Linux, the workspace layout, the checks, the Office data directory, the scripted engine adapter). Change one only with the user.

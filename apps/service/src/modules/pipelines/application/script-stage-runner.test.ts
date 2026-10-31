@@ -124,13 +124,13 @@ describe("ScriptStageRunner", () => {
     const taskId = await walkStages(pipelines, [tests, aScriptStage("lint", { name: "Lint" })]);
 
     expect(pipelines.git.commits).toEqual([
-      expect.objectContaining({ message: expect.stringMatching(/^Lint: `npm run lint` passed\./) }),
+      expect.objectContaining({ message: expect.stringMatching(/^Lint: Rename a device\n/) }),
     ]);
     const runs = await runsOf(pipelines, taskId);
     expect(runs[0]?.headCommit).toBe(PLANNED_COMMIT);
   });
 
-  it("commits what a build or lint changed, with a message from its result", async () => {
+  it("commits what a build or lint changed, with the Task in the subject and the result below", async () => {
     pipelines = await startPipelinesApplication();
     const build = aScriptStage("build", { name: "Build" });
 
@@ -139,7 +139,7 @@ describe("ScriptStageRunner", () => {
     expect(pipelines.git.commits).toEqual([
       {
         taskId,
-        message: "Build: `npm run build` passed.\n\n`npm run build` passed.",
+        message: "Build: Rename a device\n\n`npm run build` passed.",
         commit: expect.any(String),
       },
     ]);

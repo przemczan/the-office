@@ -171,6 +171,17 @@ export interface ProposedSkillUpdate {
   /** Its files' paths at `to`, in its folder. */
   readonly files: readonly string[];
   readonly filesHash: string;
+  /**
+   * What it changed in the skill's files, kept as it is applied, so its card shows it once the
+   * Source is gone or no longer has those versions.
+   */
+  readonly appliedDiff?: AppliedSkillDiff;
+}
+
+/** A skill update's diff of its folder, cut at a whole line when too long to show. */
+export interface AppliedSkillDiff {
+  readonly diff: string;
+  readonly diffCut: boolean;
 }
 
 /**

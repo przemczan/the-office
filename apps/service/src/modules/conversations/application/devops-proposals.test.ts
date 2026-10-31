@@ -533,6 +533,7 @@ describe("Devops updating an installed skill, through the scripted engine", () =
         notes: "Does it twice.",
         files: ["SKILL.md", "scripts/run.sh"],
         filesHash: expect.any(String),
+        appliedDiff: null,
       });
       const diff = skillUpdateDiffSchema.parse(
         await read(
@@ -547,6 +548,10 @@ describe("Devops updating an installed skill, through the scripted engine", () =
       expect(updated).toMatchObject({ version: 2, state: "on" });
       expect(updated.installedFrom?.pinnedVersion).toEqual(to);
       expect(updated.update).toBeUndefined();
+      // Kept as applied: the card shows it without the Source.
+      expect((await readProposal(proposal?.id ?? "")).change).toMatchObject({
+        appliedDiff: { diff: diff.diff, diffCut: false },
+      });
 
       expect(await reasonsOf(await api("POST", `/proposals/${stale?.id}/apply`, {}))).toEqual([
         `${name} is pinned at v1.1.0 now, not at v1.0.0 as this update was proposed from.`,

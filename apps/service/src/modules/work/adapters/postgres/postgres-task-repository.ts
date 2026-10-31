@@ -13,6 +13,7 @@ import { tasks } from "./work.schema.js";
 import {
   changeDependenciesHeld,
   heldTask,
+  canBeRowId,
   holdManualOrder,
   holdStarts,
   insertTask,
@@ -40,6 +41,7 @@ export class PostgresTaskRepository extends TaskRepository {
   }
 
   async find(id: string): Promise<Task | undefined> {
+    if (!canBeRowId(id)) return undefined;
     const [row] = await this.database.select().from(tasks).where(eq(tasks.id, id));
     return row && toTask(row);
   }
