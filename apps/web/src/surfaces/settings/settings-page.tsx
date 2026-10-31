@@ -7,6 +7,7 @@ import "./settings.css";
 const SECTIONS = [
   { to: "/settings/pipelines", icon: "route", label: "Pipelines" },
   { to: "/settings/skills", icon: "sparkles", label: "Skills" },
+  { to: "/settings/mcp-servers", icon: "plug", label: "MCP servers" },
   { to: "/settings/engines", icon: "cpu", label: "Engines" },
   { to: "/settings/office-limits", icon: "gauge", label: "Office limits" },
   { to: "/settings/notifications", icon: "bell", label: "Notifications" },

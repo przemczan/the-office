@@ -21,6 +21,7 @@
 - `engine.ts`: engineSettingsQuery, changeEngineSettings
 - `event-stream-provider.tsx`: EventInvalidations, EventCacheUpdates, EventStreamProvider, useEventStreamStatus
 - `event-stream.ts`: EventStreamStatus, EventStreamOptions, RECONNECT_DELAYS_MS, EventStream
+- `mcp-servers.ts`: mcpServerQueries, addMcpServer, readPastedConfig, changeMcpServer, changeMcpServerState, assignMcpServer, removeMcpServer, mcpServerEventInvalidations
 - `notifications.ts`: nowQueries, notificationQueries, setTiming, setRoutingChannel, resetRouting, reportActivity, notificationEventCacheUpdates
 - `people.ts`: roleQueries, roleCardQueries, hire, changeRoleCard, filledRoleKeys, letGoOfPerson, hirePersonBack, addMemoryNote, deleteMemoryNote, clearMemory, roleEventInvalidations
 - `pipelines.ts`: pipelineQueries, addPipeline, duplicatePipeline, savePipeline, removePipeline, editTaskStages, continueAtGate, sendBackFromGate, dropAtGate, pipelineEventInvalidations

@@ -1,0 +1,127 @@
+/* Settings › MCP servers: the library's rows, the form's Server values and the review's tools. */
+.mcp-server-name {
+  font: var(--type-mono);
+  color: var(--fg-1);
+}
+
+.mcp-server-connection {
+  max-width: 420px;
+  margin-top: 2px;
+  overflow: hidden;
+  font: var(--type-mono);
+  font-size: 11px;
+  color: var(--fg-3);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* A form or review grows with the Server values and tools; it scrolls inside the dialog, as
+   `.shape-idea-projects` does. */
+.mcp-server-dialog-body {
+  max-height: calc(100vh - 280px);
+  margin: 0 -20px;
+  padding: 0 20px 4px;
+  overflow-y: auto;
+}
+
+.server-values {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.server-values-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.server-values-title {
+  font: var(--type-body-sm);
+  font-weight: 600;
+  color: var(--fg-1);
+}
+
+.server-value {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+
+.server-value-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.server-value-fields > :last-child {
+  margin-top: 22px;
+}
+
+.server-value-flags {
+  display: flex;
+  gap: 24px;
+}
+
+.mcp-server-problem {
+  margin: 0;
+  font: var(--type-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+}
+
+.mcp-server-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mcp-server-tools-title {
+  margin: 0;
+  font: var(--type-body-sm);
+  font-weight: 600;
+  color: var(--fg-1);
+}
+
+.mcp-server-tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mcp-server-tool-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.mcp-server-tool-name {
+  font: var(--type-mono);
+  color: var(--fg-1);
+}
+
+.mcp-server-tool-description {
+  flex-basis: 100%;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+@media (max-width: 760px) {
+  .server-value-fields {
+    grid-template-columns: 1fr;
+  }
+}

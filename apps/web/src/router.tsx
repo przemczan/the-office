@@ -20,6 +20,7 @@ import { ProjectsPage } from "./surfaces/projects/projects-page.tsx";
 import { AppearanceSection } from "./surfaces/settings/appearance/appearance-section.tsx";
 import { NotificationsSection } from "./surfaces/settings/notifications/notifications-section.tsx";
 import { EnginesSection } from "./surfaces/settings/engines/engines-section.tsx";
+import { McpServersSection } from "./surfaces/settings/mcp-servers/mcp-servers-section.tsx";
 import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-limits-section.tsx";
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
 import { PipelinesSection } from "./surfaces/settings/pipelines/pipelines-section.tsx";
@@ -276,6 +277,13 @@ const settingsSkillsRoute = createRoute({
   staticData: { title: "Settings" },
 });
 
+const settingsMcpServersRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "mcp-servers",
+  component: McpServersSection,
+  staticData: { title: "Settings" },
+});
+
 const settingsEnginesRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "engines",
@@ -328,6 +336,7 @@ export const router = createRouter({
       settingsPipelinesRoute,
       settingsPipelineRoute,
       settingsSkillsRoute,
+      settingsMcpServersRoute,
       settingsEnginesRoute,
       settingsOfficeLimitsRoute,
       settingsNotificationsRoute,
