@@ -1,0 +1,32 @@
+import type { ChildProcessWithoutNullStreams } from "node:child_process";
+import spawn from "cross-spawn";
+import type { ProcessTrees } from "./process-trees.js";
+
+/** A program a user named by its command, such as a local MCP server's `npx`, to start without a shell. */
+export interface Program {
+  readonly command: string;
+  readonly arguments: readonly string[];
+  readonly workingFolder: string;
+  /** Its whole environment: nothing is inherited beyond it. */
+  readonly environment: Readonly<Record<string, string>>;
+}
+
+/**
+ * Starts the program as a shell would find its command: on Windows `npx` is `npx.cmd`, which only
+ * cmd.exe runs, so cross-spawn runs it there with each argument quoted for it, never letting an
+ * argument be read as more of the command line. Started as `processTrees` needs, so `end` ends it
+ * with everything it started, cmd.exe's child among them. Its standard streams are pipes.
+ */
+export function startProgram(
+  program: Program,
+  processTrees: ProcessTrees,
+): ChildProcessWithoutNullStreams {
+  // With every stream a pipe, none of them is null.
+  return spawn(program.command, [...program.arguments], {
+    cwd: program.workingFolder,
+    env: { ...program.environment },
+    stdio: "pipe",
+    detached: processTrees.detached,
+    windowsHide: true,
+  }) as ChildProcessWithoutNullStreams;
+}

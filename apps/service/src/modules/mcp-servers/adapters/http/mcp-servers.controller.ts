@@ -12,20 +12,25 @@ import {
 } from "@nestjs/common";
 import {
   mcpServerEditSchema,
+  mcpServerStateChangeSchema,
   newMcpServerSchema,
   pastedConfigSchema,
   type McpServer as McpServerResponse,
   type McpServerEdit as McpServerEditRequest,
+  type McpServerReview as McpServerReviewResponse,
+  type McpServerStateChange,
+  type McpServerTool as McpServerToolResponse,
   type NewMcpServer as NewMcpServerMessage,
   type PastedConfig,
   type ServerValue as ServerValueResponse,
   type ServerValueEdit as ServerValueEditMessage,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
-import { McpServerLibrary } from "../../application/mcp-server-library.js";
+import { McpServerLibrary, type McpServerReview } from "../../application/mcp-server-library.js";
 import type {
   McpServer,
   McpServerConnection,
+  McpServerTool,
   NewMcpServer,
   ServerValue,
   ServerValueEdit,
@@ -81,6 +86,24 @@ export class McpServersController {
     return toMcpServerResponse(server);
   }
 
+  /** Connects with the Office-wide values: the user reviews what runs and the tools it lists. */
+  @Get(":name/review")
+  async review(@Param("name") name: string): Promise<McpServerReviewResponse> {
+    return toReviewResponse(await this.library.review(name));
+  }
+
+  @Put(":name/state")
+  async changeState(
+    @Param("name") name: string,
+    @Body(new ContractPipe(mcpServerStateChangeSchema)) change: McpServerStateChange,
+  ): Promise<McpServerResponse> {
+    const server =
+      change.state === "on"
+        ? this.library.turnOn(name, change.reviewDigest)
+        : this.library.turnOff(name);
+    return toMcpServerResponse(await server);
+  }
+
   @Delete(":name")
   @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param("name") name: string): Promise<void> {
@@ -108,6 +131,7 @@ function toMcpServerResponse({
   connection,
   serverValues,
   state,
+  tools,
   addedAt,
 }: McpServer): McpServerResponse {
   return withConnection(
@@ -115,10 +139,27 @@ function toMcpServerResponse({
       name,
       serverValues: serverValues.map(toServerValueResponse),
       state,
+      tools: tools.map(toToolResponse),
       addedAt: addedAt.toISOString(),
     },
     connection,
   );
+}
+
+function toReviewResponse(review: McpServerReview): McpServerReviewResponse {
+  const server = toMcpServerResponse(review.server);
+  return review.connected
+    ? {
+        server,
+        connected: true,
+        tools: review.tools.map(toToolResponse),
+        reviewDigest: review.reviewDigest,
+      }
+    : { server, connected: false, problem: review.problem };
+}
+
+function toToolResponse({ name, description, inputSchema }: McpServerTool): McpServerToolResponse {
+  return { name, description, inputSchema: { ...inputSchema } };
 }
 
 function toNewMcpServerMessage({

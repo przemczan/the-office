@@ -1,10 +1,16 @@
 import { sql } from "drizzle-orm";
 import { check, jsonb, pgTable, text, timestamp } from "drizzle-orm/pg-core";
-import type { McpServerState, McpServerTransport, ServerValue } from "../../domain/mcp-server.js";
+import type {
+  McpServerState,
+  McpServerTool,
+  McpServerTransport,
+  ServerValue,
+} from "../../domain/mcp-server.js";
 
 /**
  * Each MCP server in the library: a local command with its arguments or a remote URL, and its
- * Server values with their Office-wide values, secrets among them.
+ * Server values with their Office-wide values, secrets among them, and the tools its review listed
+ * when it was turned on.
  */
 export const mcpServers = pgTable(
   "mcp_servers",
@@ -16,6 +22,7 @@ export const mcpServers = pgTable(
     url: text("url"),
     serverValues: jsonb("server_values").$type<readonly ServerValue[]>().notNull(),
     state: text("state").$type<McpServerState>().notNull(),
+    tools: jsonb("tools").$type<readonly McpServerTool[]>().notNull().default([]),
     addedAt: timestamp("added_at", { withTimezone: true }).notNull(),
   },
   (table) => [

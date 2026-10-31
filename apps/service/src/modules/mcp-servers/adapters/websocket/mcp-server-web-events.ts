@@ -5,6 +5,8 @@ import {
   McpServerAdded,
   McpServerChanged,
   McpServerRemoved,
+  McpServerTurnedOff,
+  McpServerTurnedOn,
 } from "../../domain/mcp-server-events.js";
 
 type WebEventOf<Type extends McpServerWebEvent["type"]> = Omit<
@@ -24,6 +26,14 @@ export class McpServerWebEvents implements OnModuleInit {
     }));
     this.forwarding.forward(McpServerChanged, (event): WebEventOf<"mcp-server.changed"> => ({
       type: "mcp-server.changed",
+      serverName: event.serverName,
+    }));
+    this.forwarding.forward(McpServerTurnedOn, (event): WebEventOf<"mcp-server.turned-on"> => ({
+      type: "mcp-server.turned-on",
+      serverName: event.serverName,
+    }));
+    this.forwarding.forward(McpServerTurnedOff, (event): WebEventOf<"mcp-server.turned-off"> => ({
+      type: "mcp-server.turned-off",
       serverName: event.serverName,
     }));
     this.forwarding.forward(McpServerRemoved, (event): WebEventOf<"mcp-server.removed"> => ({

@@ -28,6 +28,14 @@ export interface ServerValue {
 export const MCP_SERVER_STATES = ["on", "off"] as const;
 export type McpServerState = (typeof MCP_SERVER_STATES)[number];
 
+/** A tool as the server listed it at the review. */
+export interface McpServerTool {
+  readonly name: string;
+  readonly description: string;
+  /** The JSON Schema of its input. */
+  readonly inputSchema: Readonly<Record<string, unknown>>;
+}
+
 /** A server in The Office's library, whose tools a Role card may give its Agents. */
 export interface McpServer {
   /** Its tools are named `mcp__<name>__<tool>`, so it never changes. */
@@ -35,6 +43,8 @@ export interface McpServer {
   readonly connection: McpServerConnection;
   readonly serverValues: readonly ServerValue[];
   readonly state: McpServerState;
+  /** The tools the review listed when it was turned on; none while it is off. */
+  readonly tools: readonly McpServerTool[];
   readonly addedAt: Date;
 }
 
@@ -146,6 +156,15 @@ export function trimmedConnection(connection: McpServerConnection): McpServerCon
   return connection.transport === "stdio"
     ? { ...connection, command: connection.command.trim() }
     : { ...connection, url: connection.url.trim() };
+}
+
+/** The text with each secret's Office-wide value hidden, for a server's own words to be shown. */
+export function withoutSecrets(text: string, server: McpServer): string {
+  return server.serverValues.reduce(
+    (hidden, { secret, officeWideValue }) =>
+      secret && officeWideValue ? hidden.replaceAll(officeWideValue, "•••") : hidden,
+    text,
+  );
 }
 
 export function sameConnection(one: McpServerConnection, other: McpServerConnection): boolean {

@@ -22,6 +22,20 @@ export class McpServerChanged extends DomainEvent {
   }
 }
 
+/** Reviewed and turned on, its tools as the review listed them. */
+export class McpServerTurnedOn extends DomainEvent {
+  constructor(readonly serverName: string) {
+    super();
+  }
+}
+
+/** Turned off by the user; a change that needs a review is McpServerChanged's `turnedOff`. */
+export class McpServerTurnedOff extends DomainEvent {
+  constructor(readonly serverName: string) {
+    super();
+  }
+}
+
 export class McpServerRemoved extends DomainEvent {
   constructor(readonly serverName: string) {
     super();

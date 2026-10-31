@@ -75,7 +75,7 @@ export class PostgresMcpServerRepository extends McpServerRepository {
   }
 }
 
-function toRow({ name, connection, serverValues, state, addedAt }: McpServer): McpServerRow {
+function toRow({ name, connection, serverValues, state, tools, addedAt }: McpServer): McpServerRow {
   return {
     name,
     transport: connection.transport,
@@ -84,6 +84,7 @@ function toRow({ name, connection, serverValues, state, addedAt }: McpServer): M
     url: connection.transport === "streamable-http" ? connection.url : null,
     serverValues,
     state,
+    tools,
     addedAt,
   };
 }
@@ -94,6 +95,7 @@ function toMcpServer(row: McpServerRow): McpServer {
     connection: connectionOf(row),
     serverValues: row.serverValues,
     state: row.state,
+    tools: row.tools,
     addedAt: row.addedAt,
   };
 }

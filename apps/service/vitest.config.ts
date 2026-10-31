@@ -7,11 +7,13 @@ export default defineProject({
   plugins: [swc.vite()],
   ssr: {
     resolve: {
-      // "source" reads workspace packages from src/. "module" goes: Vite resolves externalized
-      // packages with these conditions too, and some "module" builds are for bundlers only
+      // "the-office-source" reads workspace packages from src/; a name of The Office's own, since
+      // Vite resolves externalized packages with these conditions too and some offer a plain
+      // "source" in TypeScript (eventsource-parser), which Node won't strip under node_modules.
+      // "module" goes for the same reason: some "module" builds are for bundlers only
       // (@opentelemetry/semantic-conventions imports directories), which Node then fails to load.
       conditions: [
-        "source",
+        "the-office-source",
         ...defaultServerConditions.filter((condition) => condition !== "module"),
       ],
     },

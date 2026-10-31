@@ -34,11 +34,23 @@ export type ServerValue = z.infer<typeof serverValueSchema>;
 export const mcpServerStateSchema = z.enum(["on", "off"]);
 export type McpServerState = z.infer<typeof mcpServerStateSchema>;
 
+/** A tool as the server lists it. */
+export const mcpServerToolSchema = z.object({
+  name: z.string(),
+  /** Empty when the server gives none. */
+  description: z.string(),
+  /** The JSON Schema of its input. */
+  inputSchema: z.record(z.string(), z.unknown()),
+});
+export type McpServerTool = z.infer<typeof mcpServerToolSchema>;
+
 const mcpServerFieldsSchema = z.object({
   /** Its tools are named `mcp__<name>__<tool>`, so it is never changed. */
   name: z.string().min(1),
   serverValues: z.array(serverValueSchema),
   state: mcpServerStateSchema,
+  /** The tools its review listed when it was turned on; none while it is off. */
+  tools: z.array(mcpServerToolSchema),
   addedAt: z.iso.datetime(),
 });
 
@@ -88,6 +100,32 @@ export type NewMcpServer = z.infer<typeof newMcpServerSchema>;
 export const pastedConfigSchema = z.object({ config: z.string() });
 export type PastedConfig = z.infer<typeof pastedConfigSchema>;
 
+/**
+ * GET /mcp-servers/:name/review: the server with the tools it lists on a test connection with its
+ * Office-wide values, or why it couldn't connect (a secret's value hidden from the server's words).
+ */
+export const mcpServerReviewSchema = z.discriminatedUnion("connected", [
+  z.object({
+    server: mcpServerSchema,
+    connected: z.literal(true),
+    tools: z.array(mcpServerToolSchema),
+    /** What the review showed, which turning the server on sends back. */
+    reviewDigest: z.string(),
+  }),
+  z.object({ server: mcpServerSchema, connected: z.literal(false), problem: z.string() }),
+]);
+export type McpServerReview = z.infer<typeof mcpServerReviewSchema>;
+
+/**
+ * PUT /mcp-servers/:name/state. Turning it on carries the review's digest, and is refused when the
+ * server or its tools changed since that review.
+ */
+export const mcpServerStateChangeSchema = z.discriminatedUnion("state", [
+  z.object({ state: z.literal("on"), reviewDigest: z.string().min(1) }),
+  z.object({ state: z.literal("off") }),
+]);
+export type McpServerStateChange = z.infer<typeof mcpServerStateChangeSchema>;
+
 export const mcpServerRefusalSchema = z.object({
   statusCode: z.literal(422),
   message: z.string(),
@@ -99,6 +137,8 @@ export type McpServerRefusal = z.infer<typeof mcpServerRefusalSchema>;
 export const mcpServerWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("mcp-server.added"), serverName: z.string() }),
   webEventSchema.extend({ type: z.literal("mcp-server.changed"), serverName: z.string() }),
+  webEventSchema.extend({ type: z.literal("mcp-server.turned-on"), serverName: z.string() }),
+  webEventSchema.extend({ type: z.literal("mcp-server.turned-off"), serverName: z.string() }),
   webEventSchema.extend({ type: z.literal("mcp-server.removed"), serverName: z.string() }),
 ]);
 export type McpServerWebEvent = z.infer<typeof mcpServerWebEventSchema>;

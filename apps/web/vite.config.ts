@@ -4,6 +4,7 @@ import { defaultClientConditions, defineConfig } from "vite";
 
 export default defineConfig({
   plugins: [react(), designSystem()],
-  // "source" reads workspace packages such as @the-office/contracts from their src/, unbuilt.
-  resolve: { conditions: ["source", ...defaultClientConditions] },
+  // "the-office-source" reads workspace packages such as @the-office/contracts from their src/,
+  // unbuilt. A name of The Office's own: some packages offer a plain "source" too.
+  resolve: { conditions: ["the-office-source", ...defaultClientConditions] },
 });
