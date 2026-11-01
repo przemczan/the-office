@@ -1,14 +1,15 @@
 # Pipelines: module map
 
-**Owns:** the Pipeline library (`pipelines`, its migration seeding the built-ins of `domain/built-in-pipelines.ts` once; `PipelineLibrary` reads it, `PipelineLibraryEditor` adds, copies, saves and removes), each Task's own copy of its Stages (`task_stages`, made at Start or at the user's first edit for the Task), and the Stage interpreter that walks them: Agent, Script, Gate and Publish Stages, loops and rounds, budgets, Stage runs (`stage_runs`).
+**Owns:** the Pipeline library (`pipelines`, its migration seeding the built-ins of `domain/built-in-pipelines.ts` once; `PipelineLibrary` reads it, `PipelineLibraryEditor` adds, copies, saves and removes), each Task's own copy of its Stages (`task_stages`, made at Start or at the user's first edit for the Task), and the Stage interpreter that walks them: Agent, Script, Gate and Publish Stages, loops and rounds, budgets, Stage runs (`stage_runs`), and their history for Work's Usage estimates (`UsageHistory`, pure `domain/usage-history.ts`).
 
-**Talks to:** reacts to Work's events (`TaskStarted`, `TaskResumed`, `TaskPaused` (by the user or the fire alarm), `TaskStopped`, `AlarmSounded`, `TaskStateChanged` to Dropped (Resolve's merge aborted), and `TaskPipelineConfirmed`, which sets aside Stages edited for the old Pipeline) Conversations' `DecisionAnswered` and People's `RoleLetGo`; everything else goes through its ports, bound in [app.module.ts](../../app.module.ts): `StartedTasks` and `TaskRecords` to Work, `KnownPeople` to People's `RoleCards`, `StageThreads`, `StageDecisions` and `TaskThreadSessions` to Conversations, `TaskGit`, `TaskCommands` and `TaskPublishing` to Projects' `TaskWorktrees`, `TaskScreenshots` to Work's `StageScreenshots`, `TaskUsage` to Conversations' `TaskTokens`, `ProjectDefaults` to Projects' `ProjectService`, `ProposalDrafts` to Conversations' `ProposalService`; the library editor counts Tasks through `StartedTasks.list`. Devops' Proposals of a library Pipeline's Stages (`pipeline`): `PipelineOfficeTools` registers `list_pipelines` and `propose_library_pipeline`, and `PipelineProposals` fills Conversations' `ProposalAppliers`, saving through `PipelineLibraryEditor.saveProposedStages`, which refuses once the Stages changed since the draft (`proposedStagesProblems`, comparing Stages as kept, so a field left undefined equals one left out); Conversations keeps the Stages unread, and they are parsed back with the contracts' `stageSchema`. Other modules read the library through `PipelineLibraryModule`, never `PipelinesModule`; the library's writes live in `PipelinesModule`, since they ask Projects and Work, who import the library.
+**Talks to:** reacts to Work's events (`TaskStarted`, `TaskResumed`, `TaskPaused` (by the user or the fire alarm), `TaskStopped`, `AlarmSounded`, `TaskStateChanged` to Dropped (Resolve's merge aborted), and `TaskPipelineConfirmed`, which sets aside Stages edited for the old Pipeline) Conversations' `DecisionAnswered` and People's `RoleLetGo`; everything else goes through its ports, bound in [app.module.ts](../../app.module.ts): `StartedTasks` and `TaskRecords` to Work, `KnownPeople` to People's `RoleCards`, `StageThreads`, `StageDecisions` and `TaskThreadSessions` to Conversations, `TaskGit`, `TaskCommands` and `TaskPublishing` to Projects' `TaskWorktrees`, `TaskScreenshots` to Work's `StageScreenshots`, `TaskUsage` to Conversations' `TaskTokens`, `ProjectDefaults` to Projects' `ProjectService`, `ProposalDrafts` to Conversations' `ProposalService`; the library editor counts Tasks through `StartedTasks.list`. Devops' Proposals of a library Pipeline's Stages (`pipeline`): `PipelineOfficeTools` registers `list_pipelines` and `propose_library_pipeline`, and `PipelineProposals` fills Conversations' `ProposalAppliers`, saving through `PipelineLibraryEditor.saveProposedStages`, which refuses once the Stages changed since the draft (`proposedStagesProblems`, comparing Stages as kept, so a field left undefined equals one left out); Conversations keeps the Stages unread, and they are parsed back with the contracts' `stageSchema`. Other modules read the library through `PipelineLibraryModule`, never `PipelinesModule`; the library's writes live in `PipelinesModule`, since they ask Projects and Work, who import the library. `UsageHistory` prices runs through Engine's `ModelPrices` (by `engineIdOf` of each run's engine) and is for Work's port, through `UsageHistoryModule`.
 
 **Traps:**
 
 - A Publish Stage's `publishTarget` absent means the Project's publishing mode: Stages stored before it was added carry none, so never require it.
 - An Agent Stage's `permissions` narrow its Role card's profile through People's `narrowedPermissionProfile` (in `AgentStageRunner.open` and `sessionAhead`, the Brief's commands too); absent keeps the card's, and Stages stored before carry none. A setting wider than the card is flagged in the library and refused for a Task (`RoleFillings.permissionProblems`, not `staffingProblems`, which holds Tasks); at run time the card's applies. MCP tools the Role's servers don't have are ignored.
 - The built-ins live twice: `builtInPipelines` and the `pipelines` migration's seed, which `pipeline-library.test.ts` compares; a change to a built-in needs a migration too. Once seeded, the table is the library, and the user's edits of a built-in stand.
+- `UsageHistoryModule` holds `StageRunRepository` and `UsageHistory` apart, as `PipelineLibraryModule` holds the library, so Work can import it: it must never depend on a port bound to Work. Work names the done Tasks (`UsageHistory.of(doneTaskIds)`, `ratios(doneTaskIds)`), as Pipelines keeps no Project or done time; the latest 20 by their last run's end are kept.
 - The service's tests share one database across files run in parallel: a test makes Pipelines of its own under a unique name and never changes or removes a built-in.
 - `EventBus.publish` waits for its handlers, so the interpreter walks in the background (`walkInBackground`); awaiting the walk would hold Start's request for the whole Pipeline.
 - An edit of a Task's Stages and the walk's start of each run take one per-Task lock (`TaskStagesService.holding`), and the walk reads the Stages afresh each move: start a run anywhere else and an edit can change the Stage under it.
@@ -25,7 +26,7 @@
 
 ## Public entry (`index.ts`)
 
-AlarmResumes, PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateContinued, GateDropped, GateReached, NoRetriesLeft, PipelineCompleted, SentBackFromGate, StageRunEnded, StageRunStarted, WentBackToStage, TaskStagesEdited, TaskStagesMade, PipelineLibraryModule, PipelinesModule, StageDecisions, TaskCommands, TaskUsage, TaskGit
+AlarmResumes, PipelineLibrary, TaskStagesService, UsageHistory, StageUsage, StageUsages, UsageRatios, UsageWindowName, WindowChange, DefinitionOfDoneNotMet, GateContinued, GateDropped, GateReached, NoRetriesLeft, PipelineCompleted, SentBackFromGate, StageRunEnded, StageRunStarted, WentBackToStage, TaskStagesEdited, TaskStagesMade, PipelineLibraryModule, PipelinesModule, UsageHistoryModule, StageDecisions, TaskCommands, TaskUsage, TaskGit
 
 ## Domain events
 
@@ -63,6 +64,7 @@ AlarmResumes, PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateCo
 - `pipeline-library.module.ts`: PipelineLibraryModule
 - `pipelines-application.fixtures.ts`: PipelinesApplication, startPipelinesApplication, walkStages, runsOf, anAgentStage, aTurn, anAgentSession, AN_INTERRUPTED_SESSION, aDoneResult, A_WAITING_RESULT, anAskedDecision, asksOnce, answerAsked, answerLastDecision
 - `pipelines.module.ts`: PipelinesModuleOptions, PipelinesModule
+- `usage-history.module.ts`: UsageHistoryModule
 
 ### adapters/conversations/
 
@@ -120,7 +122,8 @@ AlarmResumes, PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateCo
 - `stage-runner.ts`: StageOfKind, StageWork, StageRunner
 - `stage-runners.ts`: StageRunners
 - `task-stages-service.ts`: TaskStagesService
-- Tests: agent-stage-runner.test.ts, gate-publish-test-project-check.test.ts, parallel-work-test-project-check.test.ts, pipeline-library.test.ts, publish-stage.test.ts, running-task-test-project-check.test.ts, script-stage-runner.test.ts, staffing-holds.test.ts, stage-editor-test-project-check.test.ts, stage-interpreter-alarm.test.ts, stage-interpreter-decisions.test.ts, stage-interpreter-edited.test.ts, stage-interpreter-gates.test.ts, stage-interpreter-restart.test.ts, stage-interpreter-stop.test.ts, stage-interpreter-telemetry.test.ts, stage-interpreter-test-project-check.test.ts, stage-interpreter.test.ts, stage-run-interruption.test.ts, task-stages-service.test.ts
+- `usage-history.ts`: UsageHistory
+- Tests: agent-stage-runner.test.ts, gate-publish-test-project-check.test.ts, parallel-work-test-project-check.test.ts, pipeline-library.test.ts, publish-stage.test.ts, running-task-test-project-check.test.ts, script-stage-runner.test.ts, staffing-holds.test.ts, stage-editor-test-project-check.test.ts, stage-interpreter-alarm.test.ts, stage-interpreter-decisions.test.ts, stage-interpreter-edited.test.ts, stage-interpreter-gates.test.ts, stage-interpreter-restart.test.ts, stage-interpreter-stop.test.ts, stage-interpreter-telemetry.test.ts, stage-interpreter-test-project-check.test.ts, stage-interpreter.test.ts, stage-run-interruption.test.ts, task-stages-service.test.ts, usage-history.test.ts
 
 ### domain/
 
@@ -158,8 +161,9 @@ AlarmResumes, PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateCo
 - `task-stages-events.ts`: TaskStagesMade, TaskStagesEdited, TaskStagesReset
 - `task-stages.ts`: TaskStages, TaskTrace, makeTaskStages, followsPipeline, lockedStageCount, firstStageToWork, editProblems, editTaskStages
 - `test-results.ts`: TestResultState, TestResult, latestTestResults
+- `usage-history.ts`: HISTORY_TASKS, UsageWindowName, USAGE_WINDOW_NAMES, WindowChange, StageUsage, StageUsages, PricedTokens, ModelTokens, UsageRatios, countedTokens, latestTasksRuns, stageUsages, tokensByModel, usageRatios, windowChangeOf
 - `walk-decisions.ts`: DecisionAnswer, WalkDecision, walkDecision, walkAnswerOf, asksTheCtoFirst, agentDecision, AcceptedIssue, acceptedIssues
-- Tests: agent-stage-brief.test.ts, built-in-pipelines.test.ts, followed-hard-switches.test.ts, gate.test.ts, library-pipeline.test.ts, pipeline-walk.test.ts, pipeline.test.ts, publish.test.ts, script-stage-outcome.test.ts, stage-budget.test.ts, stage-commit.test.ts, stage-progress.test.ts, stage-result.test.ts, stage-staffing.test.ts, task-stages.test.ts, test-results.test.ts, walk-decisions.test.ts
+- Tests: agent-stage-brief.test.ts, built-in-pipelines.test.ts, followed-hard-switches.test.ts, gate.test.ts, library-pipeline.test.ts, pipeline-walk.test.ts, pipeline.test.ts, publish.test.ts, script-stage-outcome.test.ts, stage-budget.test.ts, stage-commit.test.ts, stage-progress.test.ts, stage-result.test.ts, stage-staffing.test.ts, task-stages.test.ts, test-results.test.ts, usage-history.test.ts, walk-decisions.test.ts
 
 ### ports/
 

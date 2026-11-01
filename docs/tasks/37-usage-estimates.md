@@ -120,13 +120,13 @@ Chosen while writing, for the user to review:
 - [x] 2b. Web, Settings › Engines' Model prices, about 55k: a Prices card listing each offered model (the Claude Code engines' as `GET` lists them, and each drafted API endpoint's) with four price fields, in the section's one draft, Save and Discard. e2e test. Commit.
 
   Read: the State; `apps/web/src/surfaces/settings/MAP.md` (Engines); `settings/engines/engines-section.tsx`, `engine-settings-draft.ts`; `apps/web/src/api/engine.ts`; `apps/web/e2e/MAP.md`.
-- [ ] 3a. The history estimate, in Pipelines, about 75k:
+- [x] 3a. The history estimate, in Pipelines, about 75k:
   - `domain/usage-history.ts`:
     - a Stage's samples over the last 20 done Tasks, and the median of each token kind;
     - the window samples that count, and their change scaled by the run's token share;
     - the sample count;
     - the Office-wide ratios of window % and of priced cost to tokens.
-  - `UsageHistory.of(projectId, pipelineId)` gives, per Stage key, its median tokens and window changes with the sample count. `UsageHistory.ratios()` gives the ratios. Both are exported for Work's port.
+  - `UsageHistory.of(doneTaskIds)` (Work names the done Tasks of the Project and Pipeline; decided in step 3a) gives, per Stage key, its median tokens and window changes with the sample count. `UsageHistory.ratios(doneTaskIds)` gives the ratios. Both are exported for Work's port.
   - Commit.
 
   Read: the State; `pipelines/MAP.md` (Talks to); `pipelines/ports/stage-run-repository.ts` and its Postgres adapter (list queries by symbol); `pipelines/ports/started-tasks.ts`; the [module template](../../apps/service/docs/module-template.md), on exporting an application service.
@@ -134,13 +134,13 @@ Chosen while writing, for the user to review:
   - `write_plan` takes `estimatedTokens` (optional; left out, the Task keeps its own). `PUT /tasks/:id/plan` and the Task's contract carry it.
   - `domain/usage-estimate.ts`:
     - per engine, from each Stage's Role's engine and model;
-    - from history at 3 samples, else the Plan's tokens over the Agent Stages with the ratios;
+    - from history at 3 samples (`UsageHistory.of`, given the Project's done Tasks on the Pipeline), else the Plan's tokens over the Agent Stages with the ratios (`UsageHistory.ratios`, given every done Task);
     - cost priced through a port to `ModelPrices`;
     - only the ticked measures, and `null` with none ticked.
   - `GET /tasks/:id/start` carries it. `GET /usage-estimates` gives every Ready and queued Task's.
   - Commit.
 
-  Read: the State; `work/adapters/office-tools/planning-office-tools.ts` (`registerWritePlan`, l. 50–68); `work/domain/planning-changes.ts` (`proposePlan`); `work/domain/task.ts` (`Task`); `work/ports/known-pipelines.ts`, `known-people.ts` (the Stages and each Role's engine and model); `packages/contracts/src/work.ts` (`taskSchema`, `startCheckSchema` l. 225–235); `work/application/start-service.ts` (`check`); `app.module.ts` (Work's port bindings).
+  Read: the State; `pipelines/domain/usage-history.ts` (`StageUsage`, `UsageRatios`, `countedTokens`); `work/adapters/office-tools/planning-office-tools.ts` (`registerWritePlan`, l. 50–68); `work/domain/planning-changes.ts` (`proposePlan`); `work/domain/task.ts` (`Task`); `work/ports/known-pipelines.ts`, `known-people.ts` (the Stages and each Role's engine and model); `packages/contracts/src/work.ts` (`taskSchema`, `startCheckSchema` l. 225–235); `work/application/start-service.ts` (`check`); `app.module.ts` (Work's port bindings).
 - [ ] 4. The measures and caps, in Work, about 70k:
   - `work_settings` gains the ticked measures, and `engine_caps` (one row per engine id: `claude-code`, the Claude Code engines' account, and `openai-compatible-api`; 5-hour %, 7-day %, daily tokens, daily dollars, each nullable) comes with a migration. A Stage's engine reaches its row through Engine's `engineIdOf`, the one mapping. Window caps default to 90% on `claude-code`.
   - `GET`/`PUT /settings/usage`, with an event that releases the queue.
@@ -198,13 +198,15 @@ Chosen while writing, for the user to review:
 
 ## State
 
-- Steps 1a–2b done; next, 3a. Engine: `EngineSessions.readUsageWindows(engine, session)` reads the windows (no model call) into `UsageWindowState` (`UsageWindowReading`: the windows, `readAt`, `officeTokensSoFar`). Undefined without the capability, an account without windows, or a failed read. A window not begun is 0% with `resetsAt` undefined.
+- Steps 1a–3a done; next, 3b. Engine: `EngineSessions.readUsageWindows(engine, session)` reads the windows (no model call) into `UsageWindowState` (`UsageWindowReading`: the windows, `readAt`, `officeTokensSoFar`). Undefined without the capability, an account without windows, or a failed read. A window not begun is 0% with `resetsAt` undefined.
 - Pipelines: `StageRun` has `engine` (the kind), `model`, `usageWindowsAtStart`, `usageWindowsAtEnd` (migration 0068). Not migrated to engine ids: price a run through `engineIdOf(run.engine)`.
 - Engine ids (the user, 2026-11-01): caps, readings, each day's use and Model prices are keyed by `EngineId` (`domain/engines.ts`): `claude-code` for both Claude Code engines, `openai-compatible-api`. `engineIdOf` is the one mapping; `ENGINE_IDS` lists them, `modelsOfferedOn(engineId, apiEndpoints)` gives the models offered on one. Task 47 replaces them.
 - Each day's use: `DayUsage.today(engineId)` gives `ModelDayUsage[]` from `engine_day_usage` (migration 0069), local day from the injected `Schedule`.
 - Model prices (step 2a, decided here: by engine id and model, so a Claude model has one price on both Claude Code engines): `model_prices` (migration 0070, numeric, checked ≥ 0) in `adapters/postgres/engine-settings.schema.ts`, written in the settings' one `replace` transaction. `EngineSettings.modelPrices` holds only priced, offered models (`PricedModel`, `domain/model-prices.ts`); `changedEngineSettings` drops unpriced or no-longer-offered ones (by the edited endpoints) and refuses a model twice or a negative price (422). `offeredModels` now takes the API endpoints, not the settings (no import cycle).
 - Contract: `GET`/`PUT /settings/engines` carry `modelPrices`, every offered model as `OfferedModel` (`engineId`, `model`, `price` or null), the Claude Code models first.
-- Web (step 2b): Settings › Engines' "Model prices" card (`settings/engines/model-prices-card.tsx`), a row per offered model with Input, Output, Cache writes, Cache reads. The draft (`EngineSettingsDraft`) keeps each price as text by `offeredModelKey`; `offeredModelsOf` lists the Claude Code models as `GET` gave them, then each drafted endpoint's, a new one by the id Save will give it (contracts' `apiEndpointIdFor`, a mirror of Engine's, tested on the same cases). A price is all four numbers or none (decided here: a partly filled one shows "Give all four, or none for no price." and holds Save); $0 is a price. The e2e test (`people.e2e.ts`, after the API endpoint's) clears its prices, so no model is priced for later tests.
+- Web (step 2b): Settings › Engines' "Model prices" card (`settings/engines/model-prices-card.tsx`); a price is all four numbers or none (decided in 2b), $0 is a price. Its e2e test (`people.e2e.ts`) clears its prices, so no model is priced for later tests.
+- History (step 3a): `UsageHistory` (`pipelines/application/usage-history.ts`) in its own `UsageHistoryModule` (with `StageRunRepository`), exported, so Work can import it without a cycle. Decided in 3a: Pipelines keeps no Project or done time, so Work names the done Tasks: `of(doneTaskIds)` gives `StageUsages` (Stage key → `StageUsage`: median `tokens` kind by kind, `samples`, `windows.fiveHour`/`sevenDay` as `{ percentUsed, samples }` or undefined); `ratios(doneTaskIds)` gives `UsageRatios` (`percentUsedPerToken` per window, `dollarsPerToken`), Office-wide when given every done Task. Both keep the latest 20 Tasks by their last run's end.
+- Rules in `domain/usage-history.ts` (decided in 3a): a token count is input + output + cache writes (`countedTokens`); a Task that never ran a Stage gives no sample of it; a window sample needs every run of it to count; a run counts when both readings exist, the Office's tokens rose, `end.readAt` is before the start's `resetsAt` and the % didn't drop; share capped at 1. Ratios: runs priced by their own engine (`engineIdOf`) and model, one `costOf` per engine and model; runs with no model or price are left out of dollars. `of` gives no cost: 3b prices medians with each Stage's Role's model.
 - `ModelPrices.costOf(engineId, model, tokens)` (`application/model-prices.ts`, exported, in `EngineSettingsModule`): dollars from `TokenUsage` kind by kind (input, output, `cacheCreation` × cache writes, `cacheRead` × cache reads), undefined with no price. It reads the settings per call.
 - Trap for 5b: every scripted session in every test file adds to today's `engine_day_usage` on the shared database; Work's tests bind their own day's use.
 - Trap for 5a: `UsageWindowsChanged` fires only on a change; 5a needs a signal on every reading. `UsageWindowState` holds one reading.
@@ -219,3 +221,4 @@ Chosen while writing, for the user to review:
 - 2026-11-01 · step 1c: each day's use per engine id and model in `engine_day_usage` (migration 0069), added on every turn's end, `DayUsage.today(engineId)`; caps, readings and day use keyed by engine id via `engineIdOf` (steps 4–6a reworded); next, step 2a, Model prices.
 - 2026-11-01 · step 2a: Model prices in `model_prices` (migration 0070) keyed by engine id and model, carried whole by `GET`/`PUT /settings/engines` as every offered model with its price or none; `ModelPrices.costOf(engineId, model, tokens)` exported; next, step 2b, the Prices card.
 - 2026-11-01 · step 2b: Settings › Engines' Model prices card, a row of four prices per offered model in the section's one draft, a new API endpoint's priced before Save by contracts' `apiEndpointIdFor` mirror; e2e in `people.e2e.ts`; next, step 3a, the history estimate.
+- 2026-11-01 · step 3a: `UsageHistory.of(doneTaskIds)` (each Stage's median tokens and window changes, sample counts) and `ratios(doneTaskIds)` (window % and dollars per token) over the latest 20 done Tasks, in its own `UsageHistoryModule` for Work; next, step 3b, the Planner's estimate and the Task's Usage estimate.

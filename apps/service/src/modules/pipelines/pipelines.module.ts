@@ -5,7 +5,6 @@ import { PipelineProposals } from "./adapters/conversations/pipeline-proposals.j
 import { PipelineLibraryController } from "./adapters/http/pipeline-library.controller.js";
 import { TaskGateController } from "./adapters/http/task-gate.controller.js";
 import { TaskStagesController } from "./adapters/http/task-stages.controller.js";
-import { PostgresStageRunRepository } from "./adapters/postgres/postgres-stage-run-repository.js";
 import { PostgresStaffingHoldRepository } from "./adapters/postgres/postgres-staffing-hold-repository.js";
 import { PostgresTaskStagesRepository } from "./adapters/postgres/postgres-task-stages-repository.js";
 import { PipelineOfficeTools } from "./adapters/office-tools/pipeline-office-tools.js";
@@ -29,7 +28,6 @@ import { KnownPeople } from "./ports/known-people.js";
 import { ProjectDefaults } from "./ports/project-defaults.js";
 import { ProposalDrafts } from "./ports/proposal-drafts.js";
 import { StageDecisions } from "./ports/stage-decisions.js";
-import { StageRunRepository } from "./ports/stage-run-repository.js";
 import { StageThreads } from "./ports/stage-threads.js";
 import { StaffingHoldRepository } from "./ports/staffing-hold-repository.js";
 import { StartedTasks } from "./ports/started-tasks.js";
@@ -41,6 +39,7 @@ import { TaskScreenshots } from "./ports/task-screenshots.js";
 import { TaskThreadSessions } from "./ports/task-thread-sessions.js";
 import { TaskUsage } from "./ports/task-usage.js";
 import { TaskStagesRepository } from "./ports/task-stages-repository.js";
+import { UsageHistoryModule } from "./usage-history.module.js";
 
 export interface PipelinesModuleOptions {
   /**
@@ -87,11 +86,16 @@ export class PipelinesModule {
   }: PipelinesModuleOptions): DynamicModule {
     return {
       module: PipelinesModule,
-      imports: [PipelineLibraryModule, EngineModule, ScheduleModule, ...imports],
+      imports: [
+        PipelineLibraryModule,
+        UsageHistoryModule,
+        EngineModule,
+        ScheduleModule,
+        ...imports,
+      ],
       controllers: [TaskStagesController, TaskGateController, PipelineLibraryController],
       providers: [
         { provide: TaskStagesRepository, useClass: PostgresTaskStagesRepository },
-        { provide: StageRunRepository, useClass: PostgresStageRunRepository },
         { provide: StartedTasks, useExisting: startedTasks },
         { provide: TaskRecords, useExisting: taskRecords },
         { provide: KnownPeople, useExisting: knownPeople },

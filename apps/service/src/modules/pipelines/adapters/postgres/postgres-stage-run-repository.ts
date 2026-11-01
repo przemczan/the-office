@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { StageCommandRun } from "../../domain/stage-command-run.js";
 import type {
@@ -96,23 +96,37 @@ export class PostgresStageRunRepository extends StageRunRepository {
       .from(stageRuns)
       .where(eq(stageRuns.taskId, taskId))
       .orderBy(asc(stageRuns.number));
-    return rows.map((row) => ({
-      ...row,
-      carriedFailure: row.carriedFailure ?? undefined,
-      sentBack: row.sentBack ?? undefined,
-      threadId: row.threadId ?? undefined,
-      session: row.session ?? undefined,
-      engine: row.engine ?? undefined,
-      model: row.model ?? undefined,
-      usageWindowsAtStart: readingOrNone(row.usageWindowsAtStart),
-      usageWindowsAtEnd: readingOrNone(row.usageWindowsAtEnd),
-      headCommit: row.headCommit ?? undefined,
-      heldBy: row.heldBy ?? undefined,
-      gateAction: row.gateAction ?? undefined,
-      outcome: row.outcome ?? undefined,
-      endedAt: row.endedAt ?? undefined,
-    }));
+    return rows.map(stageRunOf);
   }
+
+  async listOfTasks(taskIds: readonly string[]): Promise<readonly StageRun[]> {
+    if (taskIds.length === 0) return [];
+    const rows = await this.database
+      .select()
+      .from(stageRuns)
+      .where(inArray(stageRuns.taskId, [...taskIds]))
+      .orderBy(asc(stageRuns.taskId), asc(stageRuns.number));
+    return rows.map(stageRunOf);
+  }
+}
+
+function stageRunOf(row: typeof stageRuns.$inferSelect): StageRun {
+  return {
+    ...row,
+    carriedFailure: row.carriedFailure ?? undefined,
+    sentBack: row.sentBack ?? undefined,
+    threadId: row.threadId ?? undefined,
+    session: row.session ?? undefined,
+    engine: row.engine ?? undefined,
+    model: row.model ?? undefined,
+    usageWindowsAtStart: readingOrNone(row.usageWindowsAtStart),
+    usageWindowsAtEnd: readingOrNone(row.usageWindowsAtEnd),
+    headCommit: row.headCommit ?? undefined,
+    heldBy: row.heldBy ?? undefined,
+    gateAction: row.gateAction ?? undefined,
+    outcome: row.outcome ?? undefined,
+    endedAt: row.endedAt ?? undefined,
+  };
 }
 
 function storedOrNone(

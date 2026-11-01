@@ -62,4 +62,7 @@ export abstract class StageRunRepository {
 
   /** The Task's runs, oldest first. */
   abstract list(taskId: string): Promise<readonly StageRun[]>;
+
+  /** The runs of each of the Tasks, each Task's oldest first. */
+  abstract listOfTasks(taskIds: readonly string[]): Promise<readonly StageRun[]>;
 }
