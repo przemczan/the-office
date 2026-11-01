@@ -63,7 +63,7 @@ McpServerLibrary, ProjectServerValues, ProjectMcpServerValues, ProjectServerValu
 - `project-server-values.ts`: ProjectServerValueView, ProjectMcpServerValues, ProjectServerValues
 - `role-mcp-servers.ts`: McpServerOnCard, RoleMcpServers
 - `session-mcp-servers.ts`: PreparedMcpServer, PreparedMcpServers, SessionMcpServerRequest, SessionMcpServers
-- Tests: session-mcp-servers.test.ts
+- Tests: mcp-tools-test-project-check.test.ts, session-mcp-servers.test.ts
 
 ### domain/
 

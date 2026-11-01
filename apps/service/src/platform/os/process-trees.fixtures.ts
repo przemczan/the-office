@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { win32 } from "node:path";
 import { promisify } from "node:util";
 import { hasEnded, processFromStat } from "./linux-processes.js";
@@ -47,27 +47,55 @@ function statOf(processId: number): string | undefined {
   }
 }
 
+/**
+ * How many running processes hold one of the values on their command line, as a check that a secret
+ * never reaches one.
+ */
+export async function commandLinesHolding(values: readonly string[]): Promise<number> {
+  if (process.platform !== "win32") {
+    let holding = 0;
+    for (const id of readdirSync("/proc").filter((entry) => /^\d+$/.test(entry))) {
+      const commandLine = linuxCommandLineOf(Number(id)) ?? "";
+      if (values.some((value) => commandLine.includes(value))) holding += 1;
+    }
+    return holding;
+  }
+  // Each value split in two, so the query's own command line never holds it whole.
+  const conditions = values.map((value) => {
+    const half = Math.floor(value.length / 2);
+    return `$_.CommandLine -like ('*' + '${value.slice(0, half)}' + '${value.slice(half)}' + '*')`;
+  });
+  const query = `@(Get-CimInstance Win32_Process | Where-Object { ${conditions.join(" -or ")} }).Count`;
+  return Number(await powerShell(query));
+}
+
 /** The process's command line, or undefined once it has gone. */
 async function commandLineOf(processId: number): Promise<string | undefined> {
-  if (process.platform !== "win32") {
-    try {
-      return readFileSync(`/proc/${processId}/cmdline`, "utf8").replaceAll("\0", " ");
-    } catch {
-      return undefined;
-    }
+  if (process.platform !== "win32") return linuxCommandLineOf(processId);
+  const query = `(Get-CimInstance Win32_Process -Filter 'ProcessId=${processId}').CommandLine`;
+  return (await powerShell(query)) || undefined;
+}
+
+function linuxCommandLineOf(processId: number): string | undefined {
+  try {
+    return readFileSync(`/proc/${processId}/cmdline`, "utf8").replaceAll("\0", " ");
+  } catch {
+    return undefined;
   }
-  const powerShell = win32.join(
+}
+
+async function powerShell(query: string): Promise<string> {
+  const program = win32.join(
     process.env["SystemRoot"] || "C:\\Windows",
     "System32",
     "WindowsPowerShell",
     "v1.0",
     "powershell.exe",
   );
-  const query = `(Get-CimInstance Win32_Process -Filter 'ProcessId=${processId}').CommandLine`;
   const { stdout } = await promisify(execFile)(
-    powerShell,
+    program,
     ["-NoProfile", "-NonInteractive", "-Command", query],
     { windowsHide: true },
   );
-  return stdout.trim() || undefined;
+  return stdout.trim();
 }

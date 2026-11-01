@@ -34,6 +34,7 @@ Every run writes `tools/engine-check/out/report-<platform>.json` with each sessi
 | Windows 11 and Ubuntu 24.04 | 2026-10-31 | every check but the slow one, with the read fence off and `claudeMdExcludes` in the Office's options (task 33 step 2); `permissions.file-tool-fence` and `skills.plugin-folder-reads` retired, `permissions.hook-sees-every-call` re-recorded |
 
 | Windows 11 (win32), the workstation | 2026-10-31 | the OpenAI-compatible API engine live on Strata (task 35 step 9): five contract scenarios, then a chat and a Stage on the Test Project (task 35's check); see [the OpenAI-compatible API](#the-openai-compatible-api) |
+| Windows 11 (win32), the workstation | 2026-11-01 | MCP servers live on the Agent SDK engine, Haiku (task 36 step 8, `mcp-servers/application/mcp-tools-test-project-check`): the fake stdio server, its secret Server value overridden on the Test Project. An Allowed tool ran under `permissionPrompts: 'none'` with no prompt; one at Consult Devops was held, waited on Devops in a Consultation, ran after the user's Allow once in the resumed session. The binary listed the MCP tools as deferred, so Haiku loaded them with ToolSearch first. The private MCP config file was written at the start and at the resume, and none was left; no command line held the value; the server's process tree ended. 35 s, 162k tokens (mostly cache reads) |
 
 `permissions.powershell-twin` runs on Windows only. Results differ between platforms only where an entry says so: `skills.user-scope`, `engine.priority-now` and `engine.lean-options`.
 

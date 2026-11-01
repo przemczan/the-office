@@ -78,7 +78,7 @@
 - `linux.ts`: linux
 - `operating-system.ts`: OperatingSystem, UserEnvironment
 - `path-rules.ts`: PathRules, PathEntry, PathLimits, pathLengthProblem
-- `process-trees.fixtures.ts`: isRunning, processMark, isMarkedRunning
+- `process-trees.fixtures.ts`: isRunning, processMark, isMarkedRunning, commandLinesHolding
 - `process-trees.ts`: ProcessTrees
 - `program.ts`: Program, startProgram
 - `shell.ts`: AgentShell, ShellProgram, AgentShellProgram, Shell, ShellInvocation, FailedShellCommand
