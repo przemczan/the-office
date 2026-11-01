@@ -2,6 +2,7 @@ import type { INestApplication } from "@nestjs/common";
 import {
   GITHUB_SIGN_IN_FAILED_PARAMETER,
   gitHubAppManifestFormSchema,
+  gitHubRepositoryListSchema,
   gitHubSignInSchema,
   gitHubStateSchema,
   gitHubWebEventSchema,
@@ -260,6 +261,39 @@ describe("/api/github", () => {
       },
     });
     expect(webEvents()).toEqual([{ type: "github.changed" }, { type: "github.changed" }]);
+  });
+
+  it("lists the repositories the App is installed on, never showing a token", async () => {
+    await registerApp();
+    await signInThroughGitHub();
+    github.installations.install("office-user", [{ fullName: "office-user/notes", private: true }]);
+
+    const response = await office("/api/github/repositories");
+
+    expect(response.status).toBe(200);
+    expect(gitHubRepositoryListSchema.parse(await response.json())).toEqual([
+      {
+        fullName: "office-user/notes",
+        repositoryUrl: `${github.urls.web}/office-user/notes.git`,
+        private: true,
+        defaultBranch: "main",
+      },
+    ]);
+    const shown = answers.join("\n");
+    for (const secret of [...github.issuedTokens, FAKE_GITHUB_SECRETS.clientSecret]) {
+      expect(shown).not.toContain(secret);
+    }
+  });
+
+  it("can't list the repositories while signed out", async () => {
+    await registerApp();
+
+    const response = await office("/api/github/repositories");
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toMatchObject({
+      message: "Sign in with GitHub first, in Settings › Office identity.",
+    });
   });
 
   it("ends a sign-in begun under the App registered before", async () => {

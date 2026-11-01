@@ -1,4 +1,5 @@
 import type { GitHubApp } from "../domain/github-app.js";
+import type { GitHubRepository } from "../domain/github-repository.js";
 import type { UserTokens } from "../domain/sign-in.js";
 
 /** A sign-in's code GitHub sent the browser back with, and what proves The Office asked for it. */
@@ -32,6 +33,18 @@ export abstract class GitHubApi {
 
   /** The login of the user the token belongs to. Also throws `GitHubApiFailure` when GitHub refuses. */
   abstract loginOf(accessToken: string): Promise<string>;
+
+  /**
+   * Trades the refresh token for a new user token and refresh token, with the App's client secret.
+   * Once GitHub has answered, the tokens before no longer work.
+   */
+  abstract refreshUserToken(app: GitHubApp, refreshToken: string): Promise<TokenAnswer>;
+
+  /**
+   * Every repository of the App's installations that the user can reach, every page of them. Also
+   * throws `GitHubApiFailure` when GitHub refuses.
+   */
+  abstract repositoriesOf(accessToken: string): Promise<readonly GitHubRepository[]>;
 }
 
 /** A call to GitHub that failed, in the UI's words; never holding GitHub's answer, which may carry secrets. */
@@ -39,5 +52,13 @@ export class GitHubApiFailure extends Error {
   constructor(message: string) {
     super(message);
     this.name = "GitHubApiFailure";
+  }
+}
+
+/** A call that got no answer from GitHub, so GitHub may not have seen it. */
+export class GitHubUnreachable extends GitHubApiFailure {
+  constructor(message: string) {
+    super(message);
+    this.name = "GitHubUnreachable";
   }
 }

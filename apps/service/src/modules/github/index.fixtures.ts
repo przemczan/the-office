@@ -5,3 +5,4 @@ export {
   type FakeGitHubApp,
   type RecordedRequest,
 } from "./adapters/github/fake-github.fixtures.js";
+export { type FakeRepository } from "./adapters/github/fake-github-installations.fixtures.js";

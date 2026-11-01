@@ -9,6 +9,7 @@ import { GitHubAppRepository } from "../ports/github-app-repository.js";
 import { GitHubSignInRepository } from "../ports/github-sign-in-repository.js";
 import { gitHubUrl, GitHubUrls } from "./github-urls.js";
 import { PendingStates } from "./pending-states.js";
+import { SignInChanges } from "./sign-in-changes.js";
 
 /** GitHub's codes last ten minutes, so a trip to GitHub that takes longer can't finish anyway. */
 const SIGN_IN_TRIP_MS = 10 * 60 * 1000;
@@ -42,11 +43,6 @@ export interface SignInReturn {
 @Injectable()
 export class GitHubSignIn implements OnModuleInit, OnModuleDestroy {
   private readonly pending = new PendingStates<PendingSignIn>(SIGN_IN_TRIP_MS);
-  /**
-   * Changes run one after another, so a token can't be kept after the sign-out, or the new App,
-   * that came in while GitHub was being asked for it.
-   */
-  private changes: Promise<unknown> = Promise.resolve();
   private unsubscribe: Unsubscribe | undefined;
 
   constructor(
@@ -55,11 +51,12 @@ export class GitHubSignIn implements OnModuleInit, OnModuleDestroy {
     private readonly apps: GitHubAppRepository,
     private readonly signIns: GitHubSignInRepository,
     private readonly events: EventBus,
+    private readonly changes: SignInChanges,
   ) {}
 
   onModuleInit(): void {
     this.unsubscribe = this.events.subscribe(GitHubAppRegistered, () =>
-      this.change(() => this.forgetForNewApp()),
+      this.changes.run(() => this.forgetForNewApp()),
     );
   }
 
@@ -131,7 +128,7 @@ export class GitHubSignIn implements OnModuleInit, OnModuleDestroy {
     };
     const tokens = await this.exchange(app, signInCode);
     const login = await this.loginOf(tokens);
-    await this.change(async () => {
+    await this.changes.run(async () => {
       await this.appSignedInto(pending);
       await this.signIns.replace({ status: "signed-in", login, tokens });
       await this.events.publish(new GitHubSignedIn(login));
@@ -140,7 +137,7 @@ export class GitHubSignIn implements OnModuleInit, OnModuleDestroy {
 
   /** Forgets the token. */
   async signOut(): Promise<void> {
-    await this.change(async () => {
+    await this.changes.run(async () => {
       await this.signIns.replace(undefined);
       await this.events.publish(new GitHubSignedOut(undefined));
     });
@@ -180,12 +177,6 @@ export class GitHubSignIn implements OnModuleInit, OnModuleDestroy {
     await this.signIns.replace({ status: "signed-out", reason });
     await this.events.publish(new GitHubSignedOut(reason));
   }
-
-  private change(work: () => Promise<void>): Promise<void> {
-    const next = this.changes.then(work);
-    this.changes = next.catch(() => undefined);
-    return next;
-  }
 }
 
 function failedSignIn(error: unknown): never {
@@ -197,7 +188,7 @@ function failedSignIn(error: unknown): never {
  * GitHub's `error` codes, sent the browser back with instead of a code or refusing a code's
  * exchange, in the user's words.
  */
-function refusalReason(error: string): string {
+export function refusalReason(error: string): string {
   switch (error) {
     case "access_denied":
       return "The sign-in was cancelled on GitHub. Sign in again.";

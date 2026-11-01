@@ -52,6 +52,21 @@ export const gitHubStateSchema = z.discriminatedUnion("status", [
 ]);
 export type GitHubState = z.infer<typeof gitHubStateSchema>;
 
+/** A repository the GitHub App is installed on that the signed-in user can reach, for Add Project. */
+export const gitHubRepositorySchema = z.object({
+  /** `owner/name`. */
+  fullName: z.string().min(1),
+  /** Its https Repository URL, to clone it by. */
+  repositoryUrl: z.string().min(1),
+  private: z.boolean(),
+  defaultBranch: z.string().min(1),
+});
+export type GitHubRepository = z.infer<typeof gitHubRepositorySchema>;
+
+/** Every repository the App is installed on that the user can reach, by `fullName`. */
+export const gitHubRepositoryListSchema = z.array(gitHubRepositorySchema);
+export type GitHubRepositoryList = z.infer<typeof gitHubRepositoryListSchema>;
+
 /** Sign in with GitHub changed, so an open Settings page refetches it. */
 export const gitHubWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("github.changed") }),

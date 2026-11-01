@@ -1,4 +1,5 @@
 import {
+  BadGatewayException,
   ConflictException,
   Controller,
   Delete,
@@ -12,11 +13,14 @@ import {
 import {
   GITHUB_SIGN_IN_FAILED_PARAMETER,
   OFFICE_IDENTITY_SETTINGS_PATH,
+  type GitHubRepositoryList,
   type GitHubSignIn as GitHubSignInAnswer,
   type GitHubState,
 } from "@the-office/contracts";
 import type { Request } from "express";
+import { GitHubAccess } from "../../application/github-access.js";
 import { GitHubSignIn, type SignInState } from "../../application/github-sign-in.js";
+import { GitHubAccessFailed, NotSignedInWithGitHub } from "../../domain/github-repository.js";
 import { GitHubSignInFailed } from "../../domain/sign-in.js";
 import { officeOriginOf, returnUrlsOf } from "./github-return-urls.js";
 import { textOrUndefined } from "./query-text.js";
@@ -24,7 +28,10 @@ import { textOrUndefined } from "./query-text.js";
 /** Sign in with GitHub, from Settings › Office identity. No answer holds a token. */
 @Controller("github")
 export class GitHubController {
-  constructor(private readonly signIn: GitHubSignIn) {}
+  constructor(
+    private readonly signIn: GitHubSignIn,
+    private readonly access: GitHubAccess,
+  ) {}
 
   @Get()
   async state(): Promise<GitHubState> {
@@ -66,6 +73,23 @@ export class GitHubController {
       if (!(failure instanceof GitHubSignInFailed)) throw failure;
       const query = new URLSearchParams({ [GITHUB_SIGN_IN_FAILED_PARAMETER]: failure.reason });
       return { url: `${OFFICE_IDENTITY_SETTINGS_PATH}?${query}` };
+    }
+  }
+
+  /** The repositories the App is installed on that the user can reach, every page of them. */
+  @Get("repositories")
+  async repositories(): Promise<GitHubRepositoryList> {
+    try {
+      return (await this.access.repositories()).map((repository) => ({
+        fullName: repository.fullName,
+        repositoryUrl: repository.repositoryUrl,
+        private: repository.private,
+        defaultBranch: repository.defaultBranch,
+      }));
+    } catch (error) {
+      if (error instanceof NotSignedInWithGitHub) throw new ConflictException(error.message);
+      if (error instanceof GitHubAccessFailed) throw new BadGatewayException(error.reason);
+      throw error;
     }
   }
 

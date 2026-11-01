@@ -6,15 +6,17 @@ import { PostgresGitHubApp } from "./adapters/postgres/postgres-github-app.js";
 import { PostgresGitHubSignIn } from "./adapters/postgres/postgres-github-sign-in.js";
 import { GitHubWebEvents } from "./adapters/websocket/github-web-events.js";
 import { AppRegistration } from "./application/app-registration.js";
+import { GitHubAccess } from "./application/github-access.js";
 import { GitHubSignIn } from "./application/github-sign-in.js";
 import { GITHUB_URLS, GitHubUrls } from "./application/github-urls.js";
+import { SignInChanges } from "./application/sign-in-changes.js";
 import { GitHubApi } from "./ports/github-api.js";
 import { GitHubAppRepository } from "./ports/github-app-repository.js";
 import { GitHubSignInRepository } from "./ports/github-sign-in-repository.js";
 
 /**
- * Sign in with GitHub (spec §5.3): the GitHub App registered by its manifest, and the user's
- * sign-in through it. GitHub's base URLs are given, so tests talk to a fake GitHub server instead.
+ * Sign in with GitHub (spec §5.3): the GitHub App registered by its manifest, the user's sign-in
+ * through it, and their token in use. GitHub's base URLs are given, so tests talk to a fake GitHub server instead.
  */
 @Module({})
 export class GitHubModule {
@@ -28,9 +30,12 @@ export class GitHubModule {
         { provide: GitHubAppRepository, useClass: PostgresGitHubApp },
         { provide: GitHubSignInRepository, useClass: PostgresGitHubSignIn },
         AppRegistration,
+        SignInChanges,
         GitHubSignIn,
+        GitHubAccess,
         GitHubWebEvents,
       ],
+      exports: [GitHubAccess],
     };
   }
 }

@@ -2,6 +2,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { GitHubUrls } from "../../application/github-urls.js";
+import { FakeInstallations, type ApiAnswer } from "./fake-github-installations.fixtures.js";
 
 /**
  * The secrets the fake hands out with each App: the private key and webhook secret, which tests
@@ -28,6 +29,8 @@ export interface RecordedRequest {
   /** The query, with its `?`, or empty. */
   readonly search: string;
   readonly accept: string | undefined;
+  /** A token request's `grant_type`, so tests tell refreshes from code exchanges; nothing else of a body. */
+  readonly grantType: string | undefined;
 }
 
 /** The REST API's base path on the fake, so a client that drops its base's path is caught. */
@@ -42,6 +45,12 @@ interface RegisteredApp extends FakeGitHubApp {
   readonly callbackUrls: readonly string[];
 }
 
+/** A refresh token handed out, until it is used: who it is for and the user token handed out with it. */
+interface IssuedRefreshToken {
+  readonly login: string;
+  readonly accessToken: string;
+}
+
 /** A sign-in's code GitHub sent the browser back with, until it is exchanged. */
 interface SignInCode {
   readonly clientId: string;
@@ -54,7 +63,8 @@ interface SignInCode {
 /**
  * GitHub on 127.0.0.1, as far as The Office uses it: the page that registers an App from a
  * manifest and the REST API converting its code; the authorize page and token endpoint of an
- * App's web sign-in, and `GET /user`. One server is both bases of `urls`. Behaves as
+ * App's web sign-in and the refresh of its tokens; `GET /user`, and the installations and their
+ * repositories a user token reaches. One server is both bases of `urls`. Behaves as
  * docs.github.com describes; where the docs are silent, as noted at each place.
  */
 export class FakeGitHub {
@@ -68,15 +78,20 @@ export class FakeGitHub {
   signedInUser = "office-user";
   /** Whether the user cancels on the authorize page instead of authorizing. */
   cancelAuthorization = false;
+  /** The App's installations, which tests add to. */
+  readonly installations: FakeInstallations;
   private readonly appsByCode = new Map<string, FakeGitHubApp>();
   private readonly registeredApps = new Map<string, RegisteredApp>();
   private readonly signInCodes = new Map<string, SignInCode>();
   private readonly loginsByAccessToken = new Map<string, string>();
+  private readonly refreshTokens = new Map<string, IssuedRefreshToken>();
 
   private constructor(
     private readonly server: Server,
     readonly urls: GitHubUrls,
-  ) {}
+  ) {
+    this.installations = new FakeInstallations(urls.web);
+  }
 
   static async start(): Promise<FakeGitHub> {
     const server = createServer();
@@ -105,6 +120,11 @@ export class FakeGitHub {
     if (app) this.registeredApps.set(clientId, { ...app, clientSecret: "reset-client-secret" });
   }
 
+  /** GitHub ending every refresh token before its time, as revoking the App's authorization does. */
+  revokeRefreshTokens(): void {
+    this.refreshTokens.clear();
+  }
+
   async close(): Promise<void> {
     this.server.closeAllConnections();
     await new Promise<void>((resolve, reject) =>
@@ -114,13 +134,14 @@ export class FakeGitHub {
 
   private async handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
     const url = new URL(request.url ?? "/", this.urls.web);
+    const body = await readBody(request);
     this.requests.push({
       method: request.method ?? "GET",
       path: url.pathname,
       search: url.search,
       accept: request.headers.accept,
+      grantType: new URLSearchParams(body).get("grant_type") ?? undefined,
     });
-    const body = await readBody(request);
     const conversion = new RegExp(`^${API_PATH}/app-manifests/([^/]+)/conversions$`).exec(
       url.pathname,
     );
@@ -137,6 +158,11 @@ export class FakeGitHub {
       this.exchange(parameters, request.headers.accept, response);
     } else if (request.method === "GET" && url.pathname === `${API_PATH}/user`) {
       this.user(request.headers.authorization, response);
+    } else if (
+      request.method === "GET" &&
+      url.pathname.startsWith(`${API_PATH}/user/installations`)
+    ) {
+      this.installationsApi(url, request.headers.authorization, response);
     } else {
       sendJson(response, 404, { message: "Not Found" });
     }
@@ -253,6 +279,9 @@ export class FakeGitHub {
     if (app === undefined || parameters.get("client_secret") !== app.clientSecret) {
       return oauthError("incorrect_client_credentials");
     }
+    if (parameters.get("grant_type") === "refresh_token") {
+      return this.refreshAnswer(parameters.get("refresh_token") ?? "");
+    }
     const codeValue = parameters.get("code") ?? "";
     const code = this.signInCodes.get(codeValue);
     // A code is used once, whatever came of it.
@@ -274,12 +303,26 @@ export class FakeGitHub {
     return this.tokensFor(code.login);
   }
 
+  /**
+   * A refresh: a new user token and refresh token, and the ones before no longer work. Undocumented
+   * which `error` GitHub gives a used, revoked or unknown refresh token; `bad_refresh_token` is what
+   * it is known to answer.
+   */
+  private refreshAnswer(refreshToken: string): Record<string, string | number> {
+    const issued = this.refreshTokens.get(refreshToken);
+    if (issued === undefined) return oauthError("bad_refresh_token");
+    this.refreshTokens.delete(refreshToken);
+    this.loginsByAccessToken.delete(issued.accessToken);
+    return this.tokensFor(issued.login);
+  }
+
   /** Expiring tokens, as an App whose user tokens expire, or asked for `offline_access`, gets. */
   private tokensFor(login: string): Record<string, string | number> {
     const accessToken = `${FAKE_TOKEN_PREFIXES[0]}${randomBytes(12).toString("hex")}`;
     const refreshToken = `${FAKE_TOKEN_PREFIXES[1]}${randomBytes(12).toString("hex")}`;
     this.issuedTokens.push(accessToken, refreshToken);
     this.loginsByAccessToken.set(accessToken, login);
+    this.refreshTokens.set(refreshToken, { login, accessToken });
     return {
       access_token: accessToken,
       expires_in: 28800,
@@ -291,12 +334,39 @@ export class FakeGitHub {
   }
 
   private user(authorization: string | undefined, response: ServerResponse): void {
-    const login = this.loginsByAccessToken.get(authorization?.replace(/^Bearer /, "") ?? "");
+    const login = this.loginOf(authorization);
     if (login === undefined) {
-      sendJson(response, 401, { message: "Bad credentials", status: "401" });
+      sendBadCredentials(response);
       return;
     }
     sendJson(response, 200, { login, id: 1, type: "User" });
+  }
+
+  private installationsApi(
+    url: URL,
+    authorization: string | undefined,
+    response: ServerResponse,
+  ): void {
+    if (this.loginOf(authorization) === undefined) {
+      sendBadCredentials(response);
+      return;
+    }
+    const repositories = new RegExp(`^${API_PATH}/user/installations/([0-9]+)/repositories$`).exec(
+      url.pathname,
+    );
+    let answer: ApiAnswer;
+    if (url.pathname === `${API_PATH}/user/installations`) {
+      answer = this.installations.listInstallations(url);
+    } else if (repositories) {
+      answer = this.installations.listRepositories(url, Number(repositories[1]));
+    } else {
+      answer = { status: 404, body: { message: "Not Found" } };
+    }
+    sendJson(response, answer.status, answer.body, answer.headers);
+  }
+
+  private loginOf(authorization: string | undefined): string | undefined {
+    return this.loginsByAccessToken.get(authorization?.replace(/^Bearer /, "") ?? "");
   }
 }
 
@@ -326,6 +396,17 @@ async function readBody(request: IncomingMessage): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-function sendJson(response: ServerResponse, status: number, body: unknown): void {
-  response.writeHead(status, { "content-type": "application/json" }).end(JSON.stringify(body));
+function sendBadCredentials(response: ServerResponse): void {
+  sendJson(response, 401, { message: "Bad credentials", status: "401" });
+}
+
+function sendJson(
+  response: ServerResponse,
+  status: number,
+  body: unknown,
+  headers: Record<string, string> = {},
+): void {
+  response
+    .writeHead(status, { ...headers, "content-type": "application/json" })
+    .end(JSON.stringify(body));
 }

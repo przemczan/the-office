@@ -1,16 +1,16 @@
 # GitHub: module map
 
-**Owns:** Sign in with GitHub (spec §5.3, §5.5): the GitHub App the user registers from Settings › Office identity by GitHub's manifest flow, kept in one row (`github_app`: Client ID, client secret, slug, owner), and the user's sign-in through it (`github_sign_in`: login, tokens and their expiries, or why The Office signed the user out). Registering: `GET /github/app/manifest` hands the browser a form for GitHub's new-App page with an unguessable state (`PendingStates`, GitHub's hour); GitHub sends the browser back to `GET /github/app/registered?code&state`, which converts the code (`POST /app-manifests/{code}/conversions`), replaces the App, publishes `GitHubAppRegistered` and redirects to Settings › Office identity, a failure carrying why in `registrationFailed`. Signing in (`GitHubSignIn`, GitHub's web flow for an App's user token): `POST /github/sign-in` gives GitHub's authorize URL (state, PKCE S256, `offline_access`); GitHub sends the browser back to `GET /github/sign-in/callback`, which exchanges the code with the client secret and verifier, keeps the tokens, publishes `GitHubSignedIn` and redirects to Settings, a failure carrying why in `signInFailed`. `DELETE /github/sign-in` forgets the tokens (`GitHubSignedOut`). `GET /github` gives the state. Later steps of task 46 add the token in use, its refresh and the repository list.
+**Owns:** Sign in with GitHub (spec §5.3, §5.5): the GitHub App the user registers from Settings › Office identity by GitHub's manifest flow, kept in one row (`github_app`: Client ID, client secret, slug, owner), and the user's sign-in through it (`github_sign_in`: login, tokens and their expiries, or why The Office signed the user out). Registering: `GET /github/app/manifest` hands the browser a form for GitHub's new-App page with an unguessable state (`PendingStates`, GitHub's hour); GitHub sends the browser back to `GET /github/app/registered?code&state`, which converts the code (`POST /app-manifests/{code}/conversions`), replaces the App, publishes `GitHubAppRegistered` and redirects to Settings › Office identity, a failure carrying why in `registrationFailed`. Signing in (`GitHubSignIn`, GitHub's web flow for an App's user token): `POST /github/sign-in` gives GitHub's authorize URL (state, PKCE S256, `offline_access`); GitHub sends the browser back to `GET /github/sign-in/callback`, which exchanges the code with the client secret and verifier, keeps the tokens, publishes `GitHubSignedIn` and redirects to Settings, a failure carrying why in `signInFailed`. `DELETE /github/sign-in` forgets the tokens (`GitHubSignedOut`). `GET /github` gives the state. The token in use (`GitHubAccess`, the public entry): `userToken()` gives it for one command, refreshing it first when it expires within fifteen minutes (`grant_type=refresh_token` with the client secret, both tokens replaced); a refresh GitHub refuses, or a refresh token past its expiry, signs the user out with a reason (`GitHubSignedOut`), and GitHub unreachable fails the command keeping the sign-in. `GET /github/repositories` lists the repositories of the App's installations the user reaches (`GET /user/installations`, `…/{id}/repositories`, every page by the `Link` header's `next`, suspended installations left out), 409 while signed out, 502 when GitHub fails.
 
-**Talks to:** GitHub, on the base URLs `GitHubModule.register(urls)` is given (`GitHubUrls`, GitHub's own by default), through the `GitHubApi` port (`GitHubRestApi`; the token endpoint is on the web base, the REST API on the API base); the web, through `github.changed`. Tests use `FakeGitHub` from `index.fixtures.ts`: one server on 127.0.0.1 standing for GitHub's website and its REST API (under `/api/v3`, so a client dropping its base's path is caught): registering an App from a posted manifest, converting each code once, the authorize page and token endpoint of the web sign-in, and `GET /user`.
+**Talks to:** GitHub, on the base URLs `GitHubModule.register(urls)` is given (`GitHubUrls`, GitHub's own by default), through the `GitHubApi` port (`GitHubRestApi`; the token endpoint is on the web base, the REST API on the API base); the web, through `github.changed`. Tests use `FakeGitHub` from `index.fixtures.ts`: one server on 127.0.0.1 standing for GitHub's website and its REST API (under `/api/v3`, so a client dropping its base's path is caught): registering an App from a posted manifest, converting each code once, the authorize page and token endpoint of the web sign-in and the refresh (each refresh token works once, and ends the user token handed out with it), `GET /user`, and the installations and their repositories (`FakeInstallations`: `install`, GitHub's `per_page`/`page` and absolute `Link`).
 
-**Traps:** the conversion's answer holds the App's private key and webhook secret, and token answers hold tokens. `GitHubRestApi` parses only what is kept, and a failure names GitHub's status, never its body, so no secret reaches a log or an event; the client secret and tokens are never in an HTTP answer or a URL (sent in the body). GitHub refuses token requests with HTTP 200 and an `error`, and answers form-encoded without `Accept: application/json`. Registering the App again ends the sign-in (tokens of the App before won't refresh), and a sign-in begun under the App before fails. The callback URL and `redirect_url` are built from the address the request reached The Office on; signing in from another address than the one the App was registered from gets `redirect_uri_mismatch`. Sign-in changes run one at a time (`GitHubSignIn.change`), so a token isn't kept after the sign-out or new App that came in meanwhile.
+**Traps:** the conversion's answer holds the App's private key and webhook secret, and token answers hold tokens. `GitHubRestApi` parses only what is kept, and a failure names GitHub's status, never its body, so no secret reaches a log or an event; the client secret and tokens are never in an HTTP answer or a URL (sent in the body). GitHub refuses token requests with HTTP 200 and an `error`, and answers form-encoded without `Accept: application/json`. Registering the App again ends the sign-in (tokens of the App before won't refresh), and a sign-in begun under the App before fails. The callback URL and `redirect_url` are built from the address the request reached The Office on; signing in from another address than the one the App was registered from gets `redirect_uri_mismatch`. Every read of the token and every sign-in change runs one at a time on `SignInChanges`, shared by `GitHubSignIn` and `GitHubAccess`: GitHub ends both tokens on each refresh, so two refreshes at once would sign the user out, and a token isn't kept after the sign-out or new App that came in meanwhile. A caller waiting behind a refresh re-reads the kept tokens rather than refreshing again. `Link` pages are followed only on the API's own origin, so the token goes nowhere else. Calls to GitHub time out after 30 seconds, so a hung refresh can't hold up every git command.
 
 <!-- Generated by `npm run maps` from the code; edit only above this line. -->
 
 ## Public entry (`index.ts`)
 
-GITHUB_URLS, GitHubUrls, GitHubAppRegistered, GitHubModule
+GitHubAccess, GITHUB_URLS, GitHubUrls, GitHubAppRegistered, GitHubAccessFailed, NotSignedInWithGitHub, GitHubRepository, GitHubModule
 
 ## Domain events
 
@@ -23,6 +23,7 @@ GITHUB_URLS, GitHubUrls, GitHubAppRegistered, GitHubModule
 - `GET /github`: GitHubController.state
 - `POST /github/sign-in`: GitHubController.startSignIn
 - `GET /github/sign-in/callback`: GitHubController.signedIn
+- `GET /github/repositories`: GitHubController.repositories
 - `DELETE /github/sign-in`: GitHubController.signOut
 
 ## Tables
@@ -34,10 +35,11 @@ GITHUB_URLS, GitHubUrls, GitHubAppRegistered, GitHubModule
 ### ./
 
 - `github.module.ts`: GitHubModule
-- `index.fixtures.ts`: FAKE_GITHUB_SECRETS, FAKE_TOKEN_PREFIXES, FakeGitHub, FakeGitHubApp, RecordedRequest
+- `index.fixtures.ts`: FAKE_GITHUB_SECRETS, FAKE_TOKEN_PREFIXES, FakeGitHub, FakeGitHubApp, RecordedRequest, FakeRepository
 
 ### adapters/github/
 
+- `fake-github-installations.fixtures.ts`: FakeRepository, ApiAnswer, FakeInstallations
 - `fake-github.fixtures.ts`: FAKE_GITHUB_SECRETS, FAKE_TOKEN_PREFIXES, FakeGitHubApp, RecordedRequest, FakeGitHub
 - `github-rest-api.ts`: GitHubRestApi
 
@@ -63,19 +65,23 @@ GITHUB_URLS, GitHubUrls, GitHubAppRegistered, GitHubModule
 ### application/
 
 - `app-registration.ts`: ManifestForm, AppRegistration
-- `github-sign-in.ts`: SignInState, SignInReturn, GitHubSignIn
+- `github-access.ts`: GitHubAccess
+- `github-sign-in.ts`: SignInState, SignInReturn, GitHubSignIn, refusalReason
 - `github-urls.ts`: GitHubUrls, GITHUB_URLS, gitHubUrl
 - `pending-states.ts`: PendingStates
+- `sign-in-changes.ts`: SignInChanges
+- Tests: github-access.test.ts
 
 ### domain/
 
 - `github-app.ts`: GitHubApp, GitHubAppManifest, ManifestReturnUrls, gitHubAppManifest, GitHubAppRegistrationFailed
 - `github-events.ts`: GitHubAppRegistered, GitHubSignedIn, GitHubSignedOut
-- `sign-in.ts`: UserTokens, SignedOutReason, KeptSignIn, GitHubSignInFailed
+- `github-repository.ts`: GitHubRepository, GitHubAccessFailed, NotSignedInWithGitHub
+- `sign-in.ts`: UserTokens, needsRefresh, usableRefreshToken, SignedOutReason, KeptSignIn, GitHubSignInFailed
 
 ### ports/
 
-- `github-api.ts`: SignInCode, TokenAnswer, GitHubApi, GitHubApiFailure
+- `github-api.ts`: SignInCode, TokenAnswer, GitHubApi, GitHubApiFailure, GitHubUnreachable
 - `github-app-repository.fixtures.ts`: GitHubAppForTests
 - `github-app-repository.ts`: GitHubAppRepository
 - `github-sign-in-repository.fixtures.ts`: GitHubSignInForTests
