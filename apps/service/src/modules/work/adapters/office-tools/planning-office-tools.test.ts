@@ -95,6 +95,16 @@ describe("write_plan", () => {
     });
   });
 
+  it("writes the Planner's token estimate with the Plan, and keeps it when a rewrite leaves it out", async () => {
+    await call(WRITE_PLAN, { plan: "Keep the requested path.", estimatedTokens: 80_000 });
+    await call(WRITE_PLAN, { plan: "Keep the requested path through the sign-in." });
+
+    expect(await current()).toMatchObject({
+      plan: "Keep the requested path through the sign-in.",
+      estimatedTokens: 80_000,
+    });
+  });
+
   it("writes the files the Plan expects to change with it, shown in the Task's record", async () => {
     await call(WRITE_PLAN, {
       plan: "Keep the requested path through the sign-in.",

@@ -14,6 +14,7 @@ import {
   InitiativeThreadsForTests,
   KnownPeopleForTests,
   KnownProjectsForTests,
+  ModelPricesForTests,
   NewProjectsForTests,
   ProposalDraftsForTests,
   ProjectWorktreesForTests,
@@ -22,6 +23,7 @@ import {
   SessionTasksForTests,
   TaskDecisionsForTests,
   TaskThreadsForTests,
+  UsageHistoryForTests,
   WorkPortsForTestsModule,
 } from "./ports/work-ports.fixtures.js";
 import { WorkModule } from "./work.module.js";
@@ -65,6 +67,8 @@ export async function startWorkApplication(
         initiativeThreads: InitiativeThreadsForTests,
         taskDecisions: TaskDecisionsForTests,
         proposalDrafts: ProposalDraftsForTests,
+        usageHistory: UsageHistoryForTests,
+        modelPrices: ModelPricesForTests,
       }),
     ],
   });

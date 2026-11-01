@@ -14,6 +14,7 @@ import {
   taskListSchema,
   taskSchema,
   taskStagesSchema,
+  taskUsageEstimateListSchema,
   workRefusalSchema,
   type NewTask,
   type Pipeline,
@@ -36,6 +37,7 @@ import {
 import { MemoryService, RoleCards, type SessionRole } from "../../../people/index.js";
 import { PlanningService } from "../../application/planning-service.js";
 import { QueueService } from "../../application/queue-service.js";
+import { StartService } from "../../application/start-service.js";
 import { FireAlarmService } from "../../application/fire-alarm-service.js";
 import { TaskRecords } from "../../application/task-records.js";
 import { TaskService } from "../../application/task-service.js";
@@ -52,10 +54,12 @@ import { changeStartedTaskState } from "../../domain/task-changes.js";
 import {
   FireAlarmRepositoryForTests,
   KnownPeopleForTests,
+  ModelPricesForTests,
   ProjectWorktreesForTests,
   TaskDecisionsForTests,
   TaskThreadsForTests,
   UNKNOWN_PROJECT,
+  UsageHistoryForTests,
   WorkSettingsForTests,
 } from "../../ports/work-ports.fixtures.js";
 import { TaskRepository } from "../../ports/task-repository.js";
@@ -590,7 +594,12 @@ async function readyTask(): Promise<Task> {
   return task;
 }
 
-const nothing: StartCheck = { refusals: [], waits: [], overlaps: [] };
+const nothing: StartCheck = {
+  refusals: [],
+  waits: [],
+  overlaps: [],
+  usageEstimate: { basis: { source: "none" }, engines: [] },
+};
 
 async function startCheck(taskId: string): Promise<StartCheck> {
   return startCheckSchema.parse(
@@ -661,7 +670,7 @@ describe("Start", () => {
     const refused = await start(task.id);
     await sendJson(work, "POST", `/tasks/${blocker.id}/drop`);
 
-    expect(check).toEqual({ refusals: [reason], waits: [], overlaps: [] });
+    expect(check).toEqual({ ...nothing, refusals: [reason] });
     expect(workRefusalSchema.parse(await refused.json()).reasons).toEqual([reason]);
     expect(await startCheck(task.id)).toEqual(nothing);
     expect((await start(task.id)).status).toBe(200);
@@ -829,7 +838,7 @@ describe("The queue", () => {
     const response = await requestStart(second.id);
     const answer = startAnswerSchema.parse(await response.json());
 
-    expect(check).toEqual({ refusals: [], waits: [ONLY_DESK], overlaps: [] });
+    expect(check).toEqual({ ...nothing, waits: [ONLY_DESK] });
     expect(response.status).toBe(200);
     expect(answer.task.state).toBe("ready");
     expect(answer.queued).toMatchObject({ taskId: second.id, reasons: [ONLY_DESK] });
@@ -939,7 +948,7 @@ describe("The queue", () => {
 
     expect((await readTask(second.id)).state).toBe("ready");
     expect(await ownQueue()).toEqual([]);
-    expect(await startCheck(second.id)).toEqual({ refusals: [reason], waits: [], overlaps: [] });
+    expect(await startCheck(second.id)).toEqual({ ...nothing, refusals: [reason] });
     expect(webEventsOf(work)).toContainEqual({
       type: "task.left-queue",
       taskId: second.id,
@@ -1589,3 +1598,78 @@ async function aRepository(
   await git("branch", "--quiet", "--set-upstream-to=origin/main", "main");
   return { repository, originPath };
 }
+
+/** A Ready Task on the Project's default Pipeline whose Plan carries the Planner's token estimate. */
+async function estimatedTask(estimatedTokens: number): Promise<Task> {
+  const task = await readyTask();
+  await sendJson(work, "PUT", `/tasks/${task.id}/plan`, { plan: "Mine.", estimatedTokens });
+  return task;
+}
+
+describe("Usage estimates", () => {
+  const startedIds: string[] = [];
+
+  afterEach(async () => {
+    for (const id of startedIds.splice(0)) await sendJson(work, "POST", `/tasks/${id}/drop`);
+  });
+
+  async function doneTask(): Promise<Task> {
+    const task = await readyTask();
+    await sendJson(work, "POST", `/tasks/${task.id}/start`);
+    startedIds.push(task.id);
+    await finish(task.id);
+    return task;
+  }
+
+  it("carries the Planner's estimate on the Task, and in the Start check by the Office-wide ratios", async () => {
+    work.app.get(UsageHistoryForTests).usageRatios = {
+      percentUsedPerToken: { fiveHour: 0.0001, sevenDay: 0.00001 },
+      dollarsPerToken: 0.00001,
+    };
+    const task = await estimatedTask(90_000);
+
+    expect((await readTask(task.id)).estimatedTokens).toBe(90_000);
+    expect((await startCheck(task.id)).usageEstimate).toEqual({
+      basis: { source: "planner" },
+      engines: [{ engine: "agent-sdk", tokens: 90_000, fiveHourWindow: 9 }],
+    });
+  });
+
+  it("estimates from the done Tasks of the Project and Pipeline once they are 3, over the Planner's", async () => {
+    const done = await doneTask();
+    const history = work.app.get(UsageHistoryForTests);
+    const stageUsage = {
+      tokens: { input: 1000, output: 500, cacheRead: 9000, cacheCreation: 500 },
+      samples: 3,
+      windows: { fiveHour: { percentUsed: 1.5, samples: 3 }, sevenDay: undefined },
+    };
+    history.stageUsages.set(done.id, new Map([["implement", stageUsage]]));
+    // The Developer works on the Haiku model; cost isn't ticked, so only the service sees it.
+    work.app.get(ModelPricesForTests).dollarsPerToken.set("claude-haiku-5-5", 0.00001);
+    const task = await estimatedTask(90_000);
+
+    const response = await sendJson(work, "GET", "/usage-estimates");
+
+    expect(response.status).toBe(200);
+    expect(taskUsageEstimateListSchema.parse(await response.json())).toContainEqual({
+      taskId: task.id,
+      usageEstimate: {
+        basis: { source: "history", tasks: 3 },
+        engines: [{ engine: "agent-sdk", tokens: 2000, fiveHourWindow: 1.5 }],
+      },
+    });
+    const { usageEstimate } = await work.app.get(StartService).check(task.id);
+    expect(usageEstimate?.engines[0]?.cost).toBeCloseTo(0.02);
+  });
+
+  it("gives no estimate without history or the Planner's tokens", async () => {
+    const task = await readyTask();
+
+    const response = await sendJson(work, "GET", "/usage-estimates");
+
+    expect(taskUsageEstimateListSchema.parse(await response.json())).toContainEqual({
+      taskId: task.id,
+      usageEstimate: { basis: { source: "none" }, engines: [] },
+    });
+  });
+});

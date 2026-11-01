@@ -292,8 +292,14 @@ export function planTask(id: string): Promise<Task> {
   return sendToApi("POST", `${taskPath(id)}/planning`, {}, taskSchema);
 }
 
+/**
+ * A Plan as the user confirms it: its words and files to change, always sent whole. The Planner's
+ * token estimate, which the Task page doesn't edit, is kept by leaving it out.
+ */
+export type PlanConfirmation = Required<Omit<PlanChange, "estimatedTokens">>;
+
 /** The user's Plan, confirmed: the proposed one exactly as shown, or their edit of it. */
-export function confirmPlan(id: string, plan: Required<PlanChange>): Promise<Task> {
+export function confirmPlan(id: string, plan: PlanConfirmation): Promise<Task> {
   return sendToApi("PUT", `${taskPath(id)}/plan`, plan, taskSchema);
 }
 

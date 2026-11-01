@@ -24,6 +24,7 @@ import { InitiativesController } from "./adapters/http/initiatives.controller.js
 import { OfficeLimitsController } from "./adapters/http/office-limits.controller.js";
 import { OnboardingsController } from "./adapters/http/onboardings.controller.js";
 import { SavedViewsController } from "./adapters/http/saved-views.controller.js";
+import { UsageEstimatesController } from "./adapters/http/usage-estimates.controller.js";
 import { SearchController } from "./adapters/http/search.controller.js";
 import { FireAlarmForThreads } from "./adapters/conversations/fire-alarm-for-threads.js";
 import { InitiativeProposals } from "./adapters/conversations/initiative-proposals.js";
@@ -62,6 +63,7 @@ import { StageScreenshots } from "./application/stage-screenshots.js";
 import { QueueService } from "./application/queue-service.js";
 import { StartConditionsReader } from "./application/start-conditions.js";
 import { StartService } from "./application/start-service.js";
+import { UsageEstimates } from "./application/usage-estimates.js";
 import { TaskRecords } from "./application/task-records.js";
 import { TaskService } from "./application/task-service.js";
 import { ATTACHMENT_SIZE_LIMIT } from "./domain/attachment.js";
@@ -74,6 +76,7 @@ import { InitiativeRepository } from "./ports/initiative-repository.js";
 import { InitiativeThreads } from "./ports/initiative-threads.js";
 import { KnownPeople } from "./ports/known-people.js";
 import { KnownPipelines } from "./ports/known-pipelines.js";
+import { ModelPrices } from "./ports/model-prices.js";
 import { KnownProjects } from "./ports/known-projects.js";
 import { NewProjects } from "./ports/new-projects.js";
 import { ProjectWorktrees } from "./ports/project-worktrees.js";
@@ -87,6 +90,7 @@ import { TaskRepository } from "./ports/task-repository.js";
 import { TaskDecisions } from "./ports/task-decisions.js";
 import { TaskThreads } from "./ports/task-threads.js";
 import { WorkSearch } from "./ports/work-search.js";
+import { UsageHistory } from "./ports/usage-history.js";
 import { WorkSettings } from "./ports/work-settings.js";
 import { WorktreeFiles } from "./ports/worktree-files.js";
 
@@ -111,6 +115,8 @@ export interface WorkModuleOptions {
   readonly initiativeThreads: Type<InitiativeThreads>;
   readonly taskDecisions: Type<TaskDecisions>;
   readonly proposalDrafts: Type<ProposalDrafts>;
+  readonly usageHistory: Type<UsageHistory>;
+  readonly modelPrices: Type<ModelPrices>;
 }
 
 @Module({})
@@ -134,6 +140,8 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
     initiativeThreads,
     taskDecisions,
     proposalDrafts,
+    usageHistory,
+    modelPrices,
   }: WorkModuleOptions): DynamicModule {
     return {
       module: WorkModule,
@@ -149,6 +157,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         OnboardingsController,
         SearchController,
         SavedViewsController,
+        UsageEstimatesController,
         FireAlarmController,
       ],
       providers: [
@@ -176,6 +185,8 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: InitiativeThreads, useExisting: initiativeThreads },
         { provide: TaskDecisions, useExisting: taskDecisions },
         { provide: ProposalDrafts, useExisting: proposalDrafts },
+        { provide: UsageHistory, useExisting: usageHistory },
+        { provide: ModelPrices, useExisting: modelPrices },
         IdeaService,
         InitiativeService,
         TaskService,
@@ -187,6 +198,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         PlanningService,
         StartConditionsReader,
         StartService,
+        UsageEstimates,
         QueueService,
         FireAlarmService,
         TaskRecords,

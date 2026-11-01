@@ -35,9 +35,14 @@ import {
   ProposalService,
   ThreadService,
 } from "../../conversations/index.js";
-import { EngineModule } from "../../engine/index.js";
+import { EngineModule, ModelPrices } from "../../engine/index.js";
 import { PeopleModule, RoleCards } from "../../people/index.js";
-import { PipelineLibrary, PipelineLibraryModule } from "../../pipelines/index.js";
+import {
+  PipelineLibrary,
+  PipelineLibraryModule,
+  UsageHistory,
+  UsageHistoryModule,
+} from "../../pipelines/index.js";
 import {
   BaseCheckouts,
   ProjectService,
@@ -108,7 +113,13 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
               projects,
               conversations,
               WorkModule.register({
-                imports: [projects, conversations, PeopleModule, PipelineLibraryModule],
+                imports: [
+                  projects,
+                  conversations,
+                  PeopleModule,
+                  PipelineLibraryModule,
+                  UsageHistoryModule,
+                ],
                 knownProjects: ProjectService,
                 newProjects: ProjectsFromRepositories,
                 projectWorktrees: TaskWorktrees,
@@ -122,6 +133,8 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                 initiativeThreads: ThreadService,
                 taskDecisions: DecisionService,
                 proposalDrafts: ProposalService,
+                usageHistory: UsageHistory,
+                modelPrices: ModelPrices,
               }),
             ],
           }));

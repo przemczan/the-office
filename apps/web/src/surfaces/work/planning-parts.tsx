@@ -4,11 +4,17 @@ import {
   useQueryClient,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import type { PlanChange, Pipeline, Task } from "@the-office/contracts";
+import type { Pipeline, Task } from "@the-office/contracts";
 import { Badge, Button, Icon, Select, Textarea } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
-import { confirmDefinitionOfDone, confirmPlan, setPipeline, taskQueries } from "../../api/work.ts";
+import {
+  confirmDefinitionOfDone,
+  confirmPlan,
+  setPipeline,
+  taskQueries,
+  type PlanConfirmation,
+} from "../../api/work.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
 import { PartEditor } from "./part-editor.tsx";
@@ -80,9 +86,7 @@ export function DefinitionOfDoneBlock({ task, planner }: PartProps): ReactNode {
 }
 
 export function PlanBlock({ task, planner }: PartProps): ReactNode {
-  const confirming = useRecordChange(task, (plan: Required<PlanChange>) =>
-    confirmPlan(task.id, plan),
-  );
+  const confirming = useRecordChange(task, (plan: PlanConfirmation) => confirmPlan(task.id, plan));
   const [editing, setEditing] = useState(false);
   const written = task.plan !== "";
   return (
@@ -151,7 +155,7 @@ function PlanEditor({
 }: {
   readonly task: Task;
   readonly saving: boolean;
-  readonly onSave: (plan: Required<PlanChange>) => void;
+  readonly onSave: (plan: PlanConfirmation) => void;
   readonly onCancel: () => void;
 }): ReactNode {
   const [plan, setPlan] = useState(task.plan);

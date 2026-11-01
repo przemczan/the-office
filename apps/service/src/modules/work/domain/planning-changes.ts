@@ -19,26 +19,24 @@ import { NOT_STARTED_STATES, TASK_STATE_NAMES } from "./task-states.js";
  * change go with it: written, proposed and confirmed together.
  */
 
-/** A Plan as written: its words, and the files it expects to change. */
+/** A Plan as written: its words, the files it expects to change and its token estimate. */
 export interface PlanWriting {
   readonly plan: string;
   /** Undefined keeps those the Task has. */
   readonly filesToChange?: readonly string[] | undefined;
+  /** Undefined keeps the Task's own. */
+  readonly estimatedTokens?: number | undefined;
 }
 
 export function proposePlan(
   task: Task,
   writing: PlanWriting,
 ): TaskChange<TaskPlanProposed> | undefined {
-  const { plan, filesToChange } = writtenPlan(task, writing);
-  refuseWith([
-    ...proposingProblems(task, "The Plan"),
-    ...planProblems(plan),
-    ...filesToChangeProblems(filesToChange),
-  ]);
-  if (samePlan(task, plan, filesToChange)) return undefined;
+  const written = writtenPlan(task, writing);
+  refuseWith([...proposingProblems(task, "The Plan"), ...writtenPlanProblems(written)]);
+  if (samePlan(task, written)) return undefined;
   return {
-    task: { ...task, plan, filesToChange, planConfirmed: false },
+    task: { ...task, ...written, planConfirmed: false },
     event: new TaskPlanProposed(task.id),
   };
 }
@@ -48,31 +46,42 @@ export function confirmPlan(
   task: Task,
   writing: PlanWriting,
 ): TaskChange<TaskPlanConfirmed> | undefined {
-  const { plan, filesToChange } = writtenPlan(task, writing);
-  refuseWith([
-    ...confirmingProblems(task, "Plan"),
-    ...planProblems(plan),
-    ...filesToChangeProblems(filesToChange),
-  ]);
-  if (samePlan(task, plan, filesToChange) && task.planConfirmed) return undefined;
+  const written = writtenPlan(task, writing);
+  refuseWith([...confirmingProblems(task, "Plan"), ...writtenPlanProblems(written)]);
+  if (samePlan(task, written) && task.planConfirmed) return undefined;
   return {
-    task: { ...task, plan, filesToChange, planConfirmed: true },
+    task: { ...task, ...written, planConfirmed: true },
     event: new TaskPlanConfirmed(task.id),
   };
 }
 
+type WrittenPlan = Pick<Task, "plan" | "filesToChange" | "estimatedTokens">;
+
 function writtenPlan(
   task: Task,
-  { plan, filesToChange }: PlanWriting,
-): { readonly plan: string; readonly filesToChange: readonly string[] } {
+  { plan, filesToChange, estimatedTokens }: PlanWriting,
+): WrittenPlan {
   return {
     plan: plan.trim(),
     filesToChange: filesToChange ? normalizedFilesToChange(filesToChange) : task.filesToChange,
+    estimatedTokens: estimatedTokens ?? task.estimatedTokens,
   };
 }
 
-function samePlan(task: Task, plan: string, filesToChange: readonly string[]): boolean {
-  return plan === task.plan && sameStatements(filesToChange, task.filesToChange);
+function writtenPlanProblems({ plan, filesToChange, estimatedTokens }: WrittenPlan): string[] {
+  return [
+    ...planProblems(plan),
+    ...filesToChangeProblems(filesToChange),
+    ...estimatedTokensProblems(estimatedTokens),
+  ];
+}
+
+function samePlan(task: Task, written: WrittenPlan): boolean {
+  return (
+    written.plan === task.plan &&
+    sameStatements(written.filesToChange, task.filesToChange) &&
+    written.estimatedTokens === task.estimatedTokens
+  );
 }
 
 export function proposeDefinitionOfDone(
@@ -157,6 +166,13 @@ function confirmingProblems(task: Task, part: string): string[] {
 
 function planProblems(plan: string): string[] {
   return plan === "" ? ["The Plan can't be empty."] : [];
+}
+
+function estimatedTokensProblems(estimatedTokens: number | undefined): string[] {
+  return estimatedTokens === undefined ||
+    (Number.isSafeInteger(estimatedTokens) && estimatedTokens > 0)
+    ? []
+    : ["The token estimate must be a whole number above 0."];
 }
 
 function definitionOfDoneProblems(statements: readonly string[]): string[] {

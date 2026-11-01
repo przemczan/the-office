@@ -42,6 +42,11 @@ export interface Task {
    * with it; Start weighs an Overlap on them.
    */
   readonly filesToChange: readonly string[];
+  /**
+   * The Planner's estimate of the tokens the whole Pipeline will use, written and confirmed with
+   * the Plan; a Usage estimate falls back on it below 3 done Tasks.
+   */
+  readonly estimatedTokens: number | undefined;
   /** What must be true when it is done, one plain-language statement each. */
   readonly definitionOfDone: readonly string[];
   /** As `planConfirmed`, for the Definition of Done. */

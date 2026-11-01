@@ -45,7 +45,7 @@ import { QueueService } from "../../application/queue-service.js";
 import { StartService } from "../../application/start-service.js";
 import { TaskService } from "../../application/task-service.js";
 import { THE_USER } from "../../domain/author.js";
-import { toQueueResponse, toTaskResponse } from "./work-responses.js";
+import { toQueueResponse, toTaskResponse, toUsageEstimateResponse } from "./work-responses.js";
 import { WorkRefusalsFilter } from "./work-refusals.filter.js";
 
 @Controller("tasks")
@@ -134,9 +134,9 @@ export class TasksController {
   @Put(":id/plan")
   async confirmPlan(
     @Param("id", ParseUUIDPipe) id: string,
-    @Body(new ContractPipe(planChangeSchema)) { plan, filesToChange }: PlanChange,
+    @Body(new ContractPipe(planChangeSchema)) change: PlanChange,
   ): Promise<TaskResponse> {
-    return toTaskResponse(await this.planning.confirmPlan(id, { plan, filesToChange }));
+    return toTaskResponse(await this.planning.confirmPlan(id, change));
   }
 
   /** The user's Definition of Done, confirmed, as with the Plan. */
@@ -179,16 +179,17 @@ export class TasksController {
   }
 
   /**
-   * Why the Task can't start now, refusals apart from waits, and its Overlaps, for the Task page
-   * beside Start.
+   * Why the Task can't start now, refusals apart from waits, its Overlaps and its Usage estimate,
+   * for the Task page beside Start.
    */
   @Get(":id/start")
   async startCheck(@Param("id", ParseUUIDPipe) id: string): Promise<StartCheck> {
-    const { refusals, waits, overlaps } = await this.starting.check(id);
+    const { refusals, waits, overlaps, usageEstimate } = await this.starting.check(id);
     return {
       refusals: [...refusals],
       waits: [...waits],
       overlaps: overlaps.map(({ taskId, title, files }) => ({ taskId, title, files: [...files] })),
+      usageEstimate: usageEstimate ? toUsageEstimateResponse(usageEstimate) : null,
     };
   }
 

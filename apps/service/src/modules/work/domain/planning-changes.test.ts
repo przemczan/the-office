@@ -57,6 +57,27 @@ describe("proposePlan", () => {
     expect(change?.task).toMatchObject({ filesToChange: ["src/login.ts"], planConfirmed: false });
   });
 
+  it("writes the token estimate with the Plan, keeps it when none is given and proposes again when only it changes", () => {
+    const task = aPlannedTask();
+
+    const change = proposePlan(task, { plan: task.plan, estimatedTokens: 120_000 });
+    const kept = change && proposePlan(change.task, { plan: "Keep the path, and test it." });
+
+    expect(change?.task).toMatchObject({ estimatedTokens: 120_000, planConfirmed: false });
+    expect(kept?.task.estimatedTokens).toBe(120_000);
+    expect(change && proposePlan(change.task, { plan: task.plan })).toBeUndefined();
+  });
+
+  it("refuses a token estimate that isn't a whole number above 0", () => {
+    const task = aPlannedTask();
+
+    for (const estimatedTokens of [0, -5, 1.5]) {
+      expect(() => proposePlan(task, { plan: task.plan, estimatedTokens })).toThrow(
+        new TaskRefused(["The token estimate must be a whole number above 0."]),
+      );
+    }
+  });
+
   it("refuses outside Planning and an empty Plan, with every reason", () => {
     expect(() => proposePlan(aTask({ state: "ready" }), { plan: " " })).toThrow(
       new TaskRefused([

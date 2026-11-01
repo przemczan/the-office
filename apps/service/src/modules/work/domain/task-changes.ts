@@ -76,6 +76,7 @@ export function createTask(
     plan: "",
     planConfirmed: false,
     filesToChange: [],
+    estimatedTokens: undefined,
     definitionOfDone: [],
     definitionOfDoneConfirmed: false,
     pipelineId: setting.pipelineId,

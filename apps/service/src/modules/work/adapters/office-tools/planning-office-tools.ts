@@ -59,10 +59,22 @@ export class PlanningOfficeTools implements OnModuleInit {
           .describe(
             "The files and folders the Plan expects to change, as paths from the repository's root; a folder covers everything under it. Left out, the Task keeps those it has.",
           ),
+        estimatedTokens: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe(
+            "The tokens (input, output and cache writes) you expect the whole Pipeline to use, every Stage together; shown with the Plan, and the Task's Usage estimate until the Office has done enough Tasks like it. Left out, the Task keeps the one it has.",
+          ),
       }),
-      run: ({ plan, filesToChange }, { sessionId }) =>
+      run: ({ plan, filesToChange, estimatedTokens }, { sessionId }) =>
         answered(async () => {
-          await this.planning.proposePlan(await this.taskIn(sessionId), { plan, filesToChange });
+          await this.planning.proposePlan(await this.taskIn(sessionId), {
+            plan,
+            filesToChange,
+            estimatedTokens,
+          });
           return `Wrote the Plan onto the Task. ${PROPOSED}`;
         }),
     });

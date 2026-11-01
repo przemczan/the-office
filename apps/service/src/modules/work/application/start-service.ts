@@ -5,14 +5,21 @@ import type { Task } from "../domain/task.js";
 import { overlapsOf, type Overlap } from "../domain/task-overlap.js";
 import { startReasons, type StartReasons } from "../domain/task-start.js";
 import { TaskNotFound } from "../domain/task-not-found.js";
+import type { UsageEstimate } from "../domain/usage-estimate.js";
 import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
 import { QueueRepository } from "../ports/queue-repository.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { StartConditionsReader } from "./start-conditions.js";
+import { UsageEstimates } from "./usage-estimates.js";
 
-/** Why the Task can't start now, and the started Tasks it overlaps, for the Task page's Start. */
+/**
+ * Why the Task can't start now, the started Tasks it overlaps and what it is expected to use, for
+ * the Task page's Start.
+ */
 export interface StartCheck extends StartReasons {
   readonly overlaps: readonly Overlap[];
+  /** Undefined with no measure ticked. */
+  readonly usageEstimate: UsageEstimate | undefined;
 }
 
 /**
@@ -27,6 +34,7 @@ export class StartService {
     private readonly queue: QueueRepository,
     private readonly conditions: StartConditionsReader,
     private readonly fireAlarm: FireAlarmRepository,
+    private readonly usageEstimates: UsageEstimates,
     private readonly events: EventBus,
   ) {}
 
@@ -50,7 +58,11 @@ export class StartService {
       blockers,
       fireAlarmOn: (await this.fireAlarm.read()).on,
     });
-    return { ...reasons, overlaps: overlapsOf(task, tasks) };
+    return {
+      ...reasons,
+      overlaps: overlapsOf(task, tasks),
+      usageEstimate: await this.usageEstimates.of(task, tasks),
+    };
   }
 
   private async read(id: string): Promise<Task> {

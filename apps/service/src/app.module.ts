@@ -9,7 +9,7 @@ import {
   ThreadRunner,
   ThreadService,
 } from "./modules/conversations/index.js";
-import { EngineModule, UsageWindowState } from "./modules/engine/index.js";
+import { EngineModule, ModelPrices, UsageWindowState } from "./modules/engine/index.js";
 import { GitHubAccess, GitHubModule } from "./modules/github/index.js";
 import { NotificationsModule } from "./modules/notifications/index.js";
 import { PeopleModule, RoleCards } from "./modules/people/index.js";
@@ -19,6 +19,8 @@ import {
   PipelineLibraryModule,
   PipelinesModule,
   TaskStagesService,
+  UsageHistory,
+  UsageHistoryModule,
 } from "./modules/pipelines/index.js";
 import {
   BaseCheckouts,
@@ -64,7 +66,7 @@ export class AppModule {
       projectBases: BaseCheckouts,
     });
     const work = WorkModule.register({
-      imports: [projects, conversations, PeopleModule, PipelineLibraryModule],
+      imports: [projects, conversations, PeopleModule, PipelineLibraryModule, UsageHistoryModule],
       knownProjects: ProjectService,
       newProjects: ProjectsFromRepositories,
       projectWorktrees: TaskWorktrees,
@@ -78,6 +80,8 @@ export class AppModule {
       initiativeThreads: ThreadService,
       taskDecisions: DecisionService,
       proposalDrafts: ProposalService,
+      usageHistory: UsageHistory,
+      modelPrices: ModelPrices,
     });
     const pipelines = PipelinesModule.register({
       imports: [work, PeopleModule, conversations, projects],

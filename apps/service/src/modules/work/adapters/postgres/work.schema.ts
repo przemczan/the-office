@@ -1,5 +1,6 @@
 import { sql, type SQL } from "drizzle-orm";
 import {
+  bigint,
   boolean,
   check,
   customType,
@@ -70,6 +71,8 @@ export const tasks = pgTable(
       .array()
       .notNull()
       .default(sql`'{}'`),
+    /** The Planner's token estimate in the Plan; null when it gave none. */
+    estimatedTokens: bigint("estimated_tokens", { mode: "number" }),
     definitionOfDone: text("definition_of_done")
       .array()
       .notNull()

@@ -45,6 +45,7 @@ export function aTask(fields: Partial<Task> = {}): Task {
     plan: "",
     planConfirmed: false,
     filesToChange: [],
+    estimatedTokens: undefined,
     definitionOfDone: [],
     definitionOfDoneConfirmed: false,
     pipelineId: "full",

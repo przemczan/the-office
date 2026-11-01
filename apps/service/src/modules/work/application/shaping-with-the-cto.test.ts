@@ -37,7 +37,9 @@ import type { Initiative } from "../domain/initiative.js";
 import {
   KnownProjectsForTests,
   NewProjectsForTests,
+  ModelPricesForTests,
   ProjectWorktreesForTests,
+  UsageHistoryForTests,
 } from "../ports/work-ports.fixtures.js";
 import { ADD_TASK, WRITE_OUTCOME } from "../adapters/office-tools/shaping-office-tools.js";
 import { WorkModule } from "../work.module.js";
@@ -134,6 +136,8 @@ const STAND_INS = [
   KnownProjectsForTests,
   NewProjectsForTests,
   ProjectWorktreesForTests,
+  UsageHistoryForTests,
+  ModelPricesForTests,
 ];
 
 /** Projects' service, which Conversations judges Devops' Proposals by; none is drafted here. */
@@ -192,6 +196,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         initiativeThreads: ThreadService,
         taskDecisions: DecisionService,
         proposalDrafts: ProposalService,
+        usageHistory: UsageHistoryForTests,
+        modelPrices: ModelPricesForTests,
       }),
     ],
     overrides: [

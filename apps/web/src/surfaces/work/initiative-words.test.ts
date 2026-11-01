@@ -16,6 +16,7 @@ function aTask(id: string, fields: Partial<Task> = {}): Task {
     pausedByAlarm: false,
     planConfirmed: false,
     filesToChange: [],
+    estimatedTokens: null,
     definitionOfDone: [],
     definitionOfDoneConfirmed: false,
     pipelineId: "full",

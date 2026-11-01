@@ -10,6 +10,12 @@ import {
 import type { NewProject } from "../../projects/index.js";
 import { FIRE_ALARM_OFF, type FireAlarm } from "../domain/fire-alarm.js";
 import { DEFAULT_OFFICE_WIDE_LIMIT, type TaskLimit } from "../domain/task-start.js";
+import {
+  countedTokens,
+  type StageTokens,
+  type StageUsages,
+  type UsageRatios,
+} from "../domain/usage-estimate.js";
 import { FireAlarmRepository } from "./fire-alarm-repository.js";
 import { IdeaCards } from "./idea-cards.js";
 import { InitiativeThreads, type InitiativeThreadOpening } from "./initiative-threads.js";
@@ -23,6 +29,8 @@ import { SessionInitiatives } from "./session-initiatives.js";
 import { SessionTasks } from "./session-tasks.js";
 import { TaskDecisions } from "./task-decisions.js";
 import { TaskThreads, type TaskThreadOpening } from "./task-threads.js";
+import { UsageHistory } from "./usage-history.js";
+import { ModelPrices } from "./model-prices.js";
 import { WorkSettings } from "./work-settings.js";
 
 /** The one Project id KnownProjectsForTests doesn't know. */
@@ -111,7 +119,12 @@ export class KnownPeopleForTests extends KnownPeople {
     if (this.vacant.has(roleKey)) return undefined;
     return {
       roleKey,
-      card: { name: `The ${roleKey}`, taskLimit: this.taskLimits.get(roleKey) ?? 3 },
+      card: {
+        name: `The ${roleKey}`,
+        taskLimit: this.taskLimits.get(roleKey) ?? 3,
+        engine: "agent-sdk",
+        model: "claude-haiku-5-5",
+      },
     };
   }
 }
@@ -248,7 +261,45 @@ export class ProposalDraftsForTests extends ProposalDrafts {
   }
 }
 
+/**
+ * The history of the test's own, so no test reads the Stage runs every test file shares: none
+ * unless a test gives some, by the done Tasks it names.
+ */
+@Injectable()
+export class UsageHistoryForTests extends UsageHistory {
+  readonly stageUsages = new Map<string, StageUsages>();
+  usageRatios: UsageRatios = NO_USAGE_RATIOS;
+
+  /** The usages of the first named Task a test gave some for. */
+  async of(doneTaskIds: readonly string[]): Promise<StageUsages> {
+    const given = doneTaskIds.find((id) => this.stageUsages.has(id));
+    return (given === undefined ? undefined : this.stageUsages.get(given)) ?? new Map();
+  }
+
+  async ratios(): Promise<UsageRatios> {
+    return this.usageRatios;
+  }
+}
+
+const NO_USAGE_RATIOS: UsageRatios = {
+  percentUsedPerToken: { fiveHour: undefined, sevenDay: undefined },
+  dollarsPerToken: undefined,
+};
+
+/** Every model the test prices costs its dollars per counted token; the rest have no price. */
+@Injectable()
+export class ModelPricesForTests extends ModelPrices {
+  readonly dollarsPerToken = new Map<string, number>();
+
+  async costOf(_engineId: string, model: string, tokens: StageTokens): Promise<number | undefined> {
+    const price = this.dollarsPerToken.get(model);
+    return price === undefined ? undefined : price * countedTokens(tokens);
+  }
+}
+
 const PORTS = [
+  UsageHistoryForTests,
+  ModelPricesForTests,
   KnownProjectsForTests,
   NewProjectsForTests,
   ProjectWorktreesForTests,

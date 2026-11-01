@@ -119,7 +119,7 @@ test("Start says when it only queues the Task, and what holds it", async ({ page
   const task = await readyTask(page, project, "Queued badge on the cards");
   // The Start check and Start answer as the service gives them while only the limit holds a Task;
   // the queue's own service test covers the queuing itself.
-  const check: StartCheck = { refusals: [], waits: [ONLY_DESK], overlaps: [] };
+  const check: StartCheck = { refusals: [], waits: [ONLY_DESK], overlaps: [], usageEstimate: null };
   await page.route(`**/api/tasks/${task.id}/start`, async (route) => {
     if (route.request().method() === "GET") return route.fulfill({ json: check });
     await queued(task);

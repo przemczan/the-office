@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
+import { engineSchema } from "./people.js";
 import type { ProjectFilter } from "./project-filter.js";
 
 /** Who captured, created or attached something: the user, or a person by their Role's key. */
@@ -116,6 +117,9 @@ export const ENDED_INITIATIVE_CONVERSATION_WORDS: Readonly<
 export const proposedPipelineSchema = z.object({ pipelineId: z.string(), reason: z.string() });
 export type ProposedPipeline = z.infer<typeof proposedPipelineSchema>;
 
+/** Tokens as every token count gives them: input, output and cache writes. */
+const estimatedTokensSchema = z.number().int().positive();
+
 export const taskSchema = newTaskSchema.extend({
   id: z.uuid(),
   state: taskStateSchema,
@@ -129,6 +133,11 @@ export const taskSchema = newTaskSchema.extend({
    * covers the files under it. Start warns of an Overlap on them.
    */
   filesToChange: z.array(z.string()),
+  /**
+   * The Planner's estimate of the tokens the whole Pipeline will use, written and confirmed with
+   * the Plan; null when it gave none.
+   */
+  estimatedTokens: estimatedTokensSchema.nullable(),
   definitionOfDone: z.array(z.string()),
   /** As `planConfirmed`, for the Definition of Done. */
   definitionOfDoneConfirmed: z.boolean(),
@@ -178,11 +187,12 @@ export type TagsChange = z.infer<typeof tagsChangeSchema>;
 /**
  * PUT /tasks/:id/plan: the user's Plan, confirmed. Confirming the proposed one sends it as shown,
  * so what is confirmed is what the user read; an edit sends the edited words. Its files to change
- * go with it; left out, the Task keeps those it has.
+ * and token estimate go with it; each left out, the Task keeps its own.
  */
 export const planChangeSchema = z.object({
   plan: z.string(),
   filesToChange: z.array(z.string()).optional(),
+  estimatedTokens: estimatedTokensSchema.optional(),
 });
 export type PlanChange = z.infer<typeof planChangeSchema>;
 
@@ -223,6 +233,51 @@ export const overlapSchema = z.object({
 export type Overlap = z.infer<typeof overlapSchema>;
 
 /**
+ * The measures a Usage estimate is given in, as Settings › Office limits ticks them: tokens (input,
+ * output and cache writes), the 5-hour and the 7-day window in percentage points, cost in dollars.
+ */
+export const usageMeasureSchema = z.enum(["tokens", "fiveHourWindow", "sevenDayWindow", "cost"]);
+export type UsageMeasure = z.infer<typeof usageMeasureSchema>;
+
+/**
+ * What a Task's whole Pipeline is expected to use on one engine its Stages' Roles pick, in the
+ * ticked measures alone. A ticked window or cost is null when there is no estimate of it: an
+ * engine without windows, no reading to learn from, or ("no cost") a model with no Model price.
+ */
+export const engineUsageEstimateSchema = z.object({
+  engine: engineSchema,
+  tokens: z.number().int().nonnegative().optional(),
+  fiveHourWindow: z.number().nonnegative().nullable().optional(),
+  sevenDayWindow: z.number().nonnegative().nullable().optional(),
+  cost: z.number().nonnegative().nullable().optional(),
+});
+export type EngineUsageEstimate = z.infer<typeof engineUsageEstimateSchema>;
+
+/**
+ * Where a Usage estimate came from: the history of `tasks` done Tasks of the same Project and
+ * Pipeline, the Planner's token estimate below 3 of them, or neither ("no estimate").
+ */
+export const usageEstimateBasisSchema = z.discriminatedUnion("source", [
+  z.object({ source: z.literal("history"), tasks: z.number().int().positive() }),
+  z.object({ source: z.literal("planner") }),
+  z.object({ source: z.literal("none") }),
+]);
+export type UsageEstimateBasis = z.infer<typeof usageEstimateBasisSchema>;
+
+/** A Task's Usage estimate, per engine; "no estimate" has no engines. */
+export const usageEstimateSchema = z.object({
+  basis: usageEstimateBasisSchema,
+  engines: z.array(engineUsageEstimateSchema),
+});
+export type UsageEstimate = z.infer<typeof usageEstimateSchema>;
+
+/** GET /usage-estimates: every Ready Task's Usage estimate, queued ones too; empty with no measure ticked. */
+export const taskUsageEstimateListSchema = z.array(
+  z.object({ taskId: z.uuid(), usageEstimate: usageEstimateSchema }),
+);
+export type TaskUsageEstimateList = z.infer<typeof taskUsageEstimateListSchema>;
+
+/**
  * GET /tasks/:id/start: why the Task can't start now; all empty when it can. A refusal stops
  * Start; a wait (the Office-wide limit, its person's Task limit) only holds the Task until a desk
  * and its person are free; an Overlap asks the user to start anyway or to queue behind it.
@@ -231,6 +286,8 @@ export const startCheckSchema = z.object({
   refusals: z.array(z.string()),
   waits: z.array(z.string()),
   overlaps: z.array(overlapSchema),
+  /** What the Task is expected to use; null with no measure ticked. */
+  usageEstimate: usageEstimateSchema.nullable(),
 });
 export type StartCheck = z.infer<typeof startCheckSchema>;
 

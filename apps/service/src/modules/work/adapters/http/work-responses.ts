@@ -2,12 +2,14 @@ import type {
   Attachment as AttachmentResponse,
   AttachmentOwner as AttachmentOwnerResponse,
   Author as AuthorResponse,
+  EngineUsageEstimate as EngineUsageEstimateResponse,
   Idea as IdeaResponse,
   Initiative as InitiativeResponse,
   QueuedTask as QueuedTaskResponse,
   SavedView as SavedViewResponse,
   SearchResults as SearchResultsResponse,
   Task as TaskResponse,
+  UsageEstimate as UsageEstimateResponse,
 } from "@the-office/contracts";
 import type { SearchResults } from "../../application/search-service.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
@@ -18,6 +20,7 @@ import { initiativeProjectIds } from "../../domain/initiative-changes.js";
 import type { QueuedTask } from "../../domain/queue.js";
 import type { SavedView } from "../../domain/saved-view.js";
 import type { Task } from "../../domain/task.js";
+import type { EngineUsage, UsageEstimate, UsageMeasure } from "../../domain/usage-estimate.js";
 
 export function toIdeaResponse(idea: Idea): IdeaResponse {
   return {
@@ -63,6 +66,7 @@ export function toTaskResponse(task: Task): TaskResponse {
     plan: task.plan,
     planConfirmed: task.planConfirmed,
     filesToChange: [...task.filesToChange],
+    estimatedTokens: task.estimatedTokens ?? null,
     definitionOfDone: [...task.definitionOfDone],
     definitionOfDoneConfirmed: task.definitionOfDoneConfirmed,
     pipelineId: task.pipelineId,
@@ -150,4 +154,27 @@ export function toQueueResponse(queue: readonly QueuedTask[]): QueuedTaskRespons
     reasons: [...reasons],
     behind: [...behind],
   }));
+}
+
+/** The estimate in its ticked measures alone; a ticked one with no estimate is null. */
+export function toUsageEstimateResponse({
+  basis,
+  engines,
+  measures,
+}: UsageEstimate): UsageEstimateResponse {
+  return { basis: { ...basis }, engines: engines.map((each) => engineUsageOf(each, measures)) };
+}
+
+function engineUsageOf(
+  { engine, tokens, windows, cost }: EngineUsage,
+  measures: readonly UsageMeasure[],
+): EngineUsageEstimateResponse {
+  const ticked = new Set(measures);
+  return {
+    engine,
+    ...(ticked.has("tokens") && { tokens }),
+    ...(ticked.has("fiveHourWindow") && { fiveHourWindow: windows.fiveHour ?? null }),
+    ...(ticked.has("sevenDayWindow") && { sevenDayWindow: windows.sevenDay ?? null }),
+    ...(ticked.has("cost") && { cost: cost ?? null }),
+  };
 }

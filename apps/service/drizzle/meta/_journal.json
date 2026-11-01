@@ -498,6 +498,13 @@
       "when": 1793569487083,
       "tag": "0070_model_prices",
       "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1793572394404,
+      "tag": "0071_plan_estimated_tokens",
+      "breakpoints": true
     }
   ]
 }
