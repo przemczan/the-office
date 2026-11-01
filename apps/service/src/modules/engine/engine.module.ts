@@ -1,3 +1,4 @@
+import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { Module } from "@nestjs/common";
 import { McpClientModule } from "../../platform/mcp/mcp-client.module.js";
 import { AgentSdkEngine } from "./adapters/agent-sdk/agent-sdk-engine.js";
@@ -5,14 +6,17 @@ import { ClaudeCodePEngine } from "./adapters/claude-code-p/claude-code-p-engine
 import { SessionEndpoints } from "./adapters/claude-code-p/session-endpoints.js";
 import { SessionEndpointsController } from "./adapters/http/session-endpoints.controller.js";
 import { OpenAiCompatibleApiEngine } from "./adapters/openai-compatible-api/openai-compatible-api-engine.js";
+import { PostgresDayUsage } from "./adapters/postgres/postgres-day-usage.js";
 import { AgentEngines } from "./application/agent-engines.js";
+import { DayUsage } from "./application/day-usage.js";
 import { EngineSessions } from "./application/engine-sessions.js";
 import { OfficeToolRegistry } from "./application/office-tool-registry.js";
 import { UsageWindowState } from "./application/usage-window-state.js";
 import { EngineSettingsModule } from "./engine-settings.module.js";
+import { DayUsageRepository } from "./ports/day-usage-repository.js";
 
 @Module({
-  imports: [EngineSettingsModule, McpClientModule],
+  imports: [EngineSettingsModule, ScheduleModule, McpClientModule],
   controllers: [SessionEndpointsController],
   providers: [
     AgentSdkEngine,
@@ -35,8 +39,10 @@ import { EngineSettingsModule } from "./engine-settings.module.js";
     },
     OfficeToolRegistry,
     UsageWindowState,
+    { provide: DayUsageRepository, useClass: PostgresDayUsage },
+    DayUsage,
     EngineSessions,
   ],
-  exports: [EngineSessions, OfficeToolRegistry, UsageWindowState, EngineSettingsModule],
+  exports: [EngineSessions, OfficeToolRegistry, UsageWindowState, DayUsage, EngineSettingsModule],
 })
 export class EngineModule {}

@@ -12,12 +12,15 @@ import { z } from "zod";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { Telemetry } from "../../../../platform/telemetry/telemetry.js";
+import { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import { AgentEngines } from "../../application/agent-engines.js";
+import { DayUsage } from "../../application/day-usage.js";
 import { EngineSessions } from "../../application/engine-sessions.js";
 import { OfficeToolRegistry } from "../../application/office-tool-registry.js";
 import { UsageWindowState } from "../../application/usage-window-state.js";
 import { describeAgentEngineContract } from "../../ports/agent-engine.contract.js";
 import type { AgentEngine } from "../../ports/agent-engine.js";
+import { DayUsageForTests } from "../../ports/day-usage-repository.fixtures.js";
 import type { EngineSession } from "../../ports/engine-session.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
 import type { SessionEvent, TurnEndedEvent } from "../../ports/session-events.js";
@@ -172,6 +175,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
         events,
         new UsageWindowState(events),
         registry,
+        new DayUsage(new DayUsageForTests(), new ManualSchedule()),
       );
 
       const session = await sessions.start({

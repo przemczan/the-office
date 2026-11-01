@@ -8,6 +8,7 @@ import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { ScriptedEngine } from "../adapters/scripted/scripted-engine.js";
 import type { SessionScript } from "../adapters/scripted/session-script.js";
@@ -20,10 +21,12 @@ import {
   SessionSkillsDiffer,
   type EngineCapabilities,
 } from "../ports/agent-engine.js";
+import { DayUsageForTests } from "../ports/day-usage-repository.fixtures.js";
 import type { EngineSession } from "../ports/engine-session.js";
 import type { SessionEvent, TurnEndedEvent } from "../ports/session-events.js";
 import type { OfficeTool } from "../ports/office-tool.js";
 import { AgentEngines } from "./agent-engines.js";
+import { DayUsage } from "./day-usage.js";
 import { EngineSessions, type SessionSettings } from "./engine-sessions.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
 import { UsageWindowState } from "./usage-window-state.js";
@@ -122,14 +125,17 @@ function setUpOn(engines: Readonly<Record<Engine, ScriptedEngine>>) {
   const usageWindows = new UsageWindowState(events);
   const officeTools = new OfficeToolRegistry();
   officeTools.register(NOTE_TOOL);
+  const schedule = new ManualSchedule();
+  const dayUsage = new DayUsage(new DayUsageForTests(), schedule);
   const sessions = new EngineSessions(
     new AgentEngines(engines),
     telemetry,
     events,
     usageWindows,
     officeTools,
+    dayUsage,
   );
-  return { sessions, spans, published, usageWindows };
+  return { sessions, spans, published, usageWindows, dayUsage, schedule };
 }
 
 /** Reads a session's events until its `count`th turn has ended. */
@@ -146,6 +152,13 @@ async function turns(session: EngineSession, count: number): Promise<TurnEndedEv
 }
 
 const message = (text: string) => ({ id: randomUUID(), text });
+
+/** Runs one session of one turn to its end. */
+async function oneTurn(sessions: EngineSessions, settings: SessionSettings): Promise<void> {
+  const session = await sessions.start({ id: randomUUID(), settings, brief: message("Begin.") });
+  await turns(session, 1);
+  await session.end();
+}
 
 describe("EngineSessions", () => {
   it("records each engine call as a span with its tokens, cost and prompt features", async () => {
@@ -518,5 +531,67 @@ describe("EngineSessions' readings of the usage windows", () => {
     await expect(sessions.readUsageWindows("agent-sdk", session)).resolves.toBe(undefined);
     expect(usageWindows.current).toBe(undefined);
     await session.end();
+  });
+
+  describe("each day's use", () => {
+    const TURN_TOKENS = { input: 4, output: 12, cacheRead: 24_000, cacheCreation: 200 };
+
+    it("counts every turn by engine and model, both Claude Code engines on one engine id", async () => {
+      const { sessions, dayUsage } = setUpOn({
+        "agent-sdk": new ScriptedEngine([ONE_TURN, ONE_TURN]),
+        "claude-code-p": new ScriptedEngine([ONE_TURN]),
+        "openai-compatible-api": new ScriptedEngine([ONE_TURN], { usageWindows: false }),
+      });
+
+      await oneTurn(sessions, SETTINGS);
+      await oneTurn(sessions, { ...SETTINGS, model: "claude-sonnet-5-5" });
+      await oneTurn(sessions, ON_THE_FALLBACK);
+      await oneTurn(sessions, { ...ON_THE_API, model: "lab/coder" });
+
+      expect(await dayUsage.today("claude-code")).toEqual(
+        expect.arrayContaining([
+          {
+            model: "claude-haiku-5-5",
+            tokens: { input: 8, output: 24, cacheRead: 48_000, cacheCreation: 400 },
+          },
+          { model: "claude-sonnet-5-5", tokens: TURN_TOKENS },
+        ]),
+      );
+      expect(await dayUsage.today("claude-code")).toHaveLength(2);
+      expect(await dayUsage.today("openai-compatible-api")).toEqual([
+        { model: "lab/coder", tokens: TURN_TOKENS },
+      ]);
+    });
+
+    it("starts each day at local midnight on the service", async () => {
+      const { sessions, dayUsage, schedule } = setUp([ONE_TURN, ONE_TURN]);
+      schedule.setTime(new Date(2026, 10, 1, 23, 59));
+      await oneTurn(sessions, SETTINGS);
+      expect(await dayUsage.today("claude-code")).toEqual([
+        { model: "claude-haiku-5-5", tokens: TURN_TOKENS },
+      ]);
+
+      schedule.setTime(new Date(2026, 10, 2, 0, 0));
+      expect(await dayUsage.today("claude-code")).toEqual([]);
+      await oneTurn(sessions, SETTINGS);
+
+      expect(await dayUsage.today("claude-code")).toEqual([
+        { model: "claude-haiku-5-5", tokens: TURN_TOKENS },
+      ]);
+    });
+
+    it("reports the turn, the engine not down, when the day's use can't be kept", async () => {
+      const { sessions, dayUsage, published } = setUp([ONE_TURN]);
+      vi.spyOn(dayUsage, "add").mockRejectedValue(new Error("The database went away."));
+      const session = await sessions.start({
+        id: "s-1",
+        settings: SETTINGS,
+        brief: message("Begin."),
+      });
+
+      await expect(turns(session, 1)).resolves.toHaveLength(1);
+      await session.end();
+      expect(published.some((event) => event instanceof EngineDown)).toBe(false);
+    });
   });
 });

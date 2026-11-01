@@ -12,6 +12,17 @@ export interface TokenUsage {
   readonly cacheCreation: number;
 }
 
+export const NO_TOKENS: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+
+export function addedTokens(one: TokenUsage, other: TokenUsage): TokenUsage {
+  return {
+    input: one.input + other.input,
+    output: one.output + other.output,
+    cacheRead: one.cacheRead + other.cacheRead,
+    cacheCreation: one.cacheCreation + other.cacheCreation,
+  };
+}
+
 /** Text the Agent wrote. */
 export interface TextEvent {
   readonly kind: "text";

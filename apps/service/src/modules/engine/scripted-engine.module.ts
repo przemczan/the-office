@@ -1,11 +1,15 @@
+import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { Module, type DynamicModule } from "@nestjs/common";
 import type { ScriptedEngine } from "./adapters/scripted/scripted-engine.js";
+import { PostgresDayUsage } from "./adapters/postgres/postgres-day-usage.js";
 import { AgentEngines } from "./application/agent-engines.js";
+import { DayUsage } from "./application/day-usage.js";
 import { EngineSessions } from "./application/engine-sessions.js";
 import { OfficeToolRegistry } from "./application/office-tool-registry.js";
 import { UsageWindowState } from "./application/usage-window-state.js";
 import type { Engine } from "./domain/engines.js";
 import { EngineSettingsModule } from "./engine-settings.module.js";
+import { DayUsageRepository } from "./ports/day-usage-repository.js";
 import { AgentEngine } from "./ports/agent-engine.js";
 
 /**
@@ -21,14 +25,22 @@ export class ScriptedEngineModule {
   static register(engines: ScriptedEngine | Readonly<Record<Engine, AgentEngine>>): DynamicModule {
     return {
       module: ScriptedEngineModule,
-      imports: [EngineSettingsModule],
+      imports: [EngineSettingsModule, ScheduleModule],
       providers: [
         { provide: AgentEngines, useValue: new AgentEngines(perEngine(engines)) },
         OfficeToolRegistry,
         UsageWindowState,
+        { provide: DayUsageRepository, useClass: PostgresDayUsage },
+        DayUsage,
         EngineSessions,
       ],
-      exports: [EngineSessions, OfficeToolRegistry, UsageWindowState, EngineSettingsModule],
+      exports: [
+        EngineSessions,
+        OfficeToolRegistry,
+        UsageWindowState,
+        DayUsage,
+        EngineSettingsModule,
+      ],
     };
   }
 }

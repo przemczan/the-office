@@ -3,7 +3,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { AsyncChannel } from "../../../platform/streams/async-channel.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { EngineDown } from "../domain/engine-events.js";
-import type { Engine } from "../domain/engines.js";
+import { engineIdOf, type Engine, type EngineId } from "../domain/engines.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import {
   CapabilityMissing,
@@ -19,9 +19,15 @@ import type {
   MessagePriority,
   UserMessage,
 } from "../ports/engine-session.js";
-import type { SessionEvent, TokenUsage } from "../ports/session-events.js";
+import {
+  addedTokens,
+  NO_TOKENS,
+  type SessionEvent,
+  type TokenUsage,
+} from "../ports/session-events.js";
 import type { SessionOptions } from "../ports/session-options.js";
 import { AgentEngines } from "./agent-engines.js";
+import { DayUsage } from "./day-usage.js";
 import { EngineCallSpans, SessionCosts, type SessionTelemetry } from "./engine-call-spans.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
 import { UsageWindowState, type UsageWindowReading } from "./usage-window-state.js";
@@ -46,14 +52,15 @@ export interface SessionStart {
 /**
  * Runs sessions on the engine each names for the other modules, and watches each: a span per engine call
  * with its tokens and cost, the usage windows read on each rate-limit signal and when a caller
- * asks, the Office's tokens so far on the engines with windows, and an "engine down" event when the engine can't start a session or stops running one (spec §5.4).
+ * asks, the Office's tokens so far on each engine, each day's use, and an "engine down" event when
+ * the engine can't start a session or stops running one (spec §5.4).
  */
 @Injectable()
 export class EngineSessions {
   private readonly logger = new Logger(EngineSessions.name);
   private readonly costs = new SessionCosts();
-  /** Every turn's tokens on the engines with windows, which each reading carries. */
-  private officeTokensSoFar: TokenUsage = NO_TOKENS;
+  /** Every turn's tokens on each engine since the service started, which its readings carry. */
+  private readonly officeTokensSoFar = new Map<EngineId, TokenUsage>();
 
   constructor(
     private readonly engines: AgentEngines,
@@ -61,6 +68,7 @@ export class EngineSessions {
     private readonly events: EventBus,
     private readonly usageWindows: UsageWindowState,
     private readonly officeTools: OfficeToolRegistry,
+    private readonly dayUsage: DayUsage,
   ) {}
 
   capabilitiesOf(engine: Engine): EngineCapabilities {
@@ -78,7 +86,7 @@ export class EngineSessions {
     this.costs.started(id);
     const spans = this.spansOf(id, options, settings.telemetry);
     spans.messageSent(brief.id);
-    return this.watch(id, settings.engine, spans, () => engine.start({ id, options, brief }));
+    return this.watch(id, settings, spans, () => engine.start({ id, options, brief }));
   }
 
   /**
@@ -89,7 +97,7 @@ export class EngineSessions {
     const engine = this.engines.of(settings.engine);
     const options = this.optionsOf(settings);
     const spans = this.spansOf(sessionId, options, settings.telemetry);
-    return this.watch(sessionId, settings.engine, spans, () => engine.resume(sessionId, options));
+    return this.watch(sessionId, settings, spans, () => engine.resume(sessionId, options));
   }
 
   private optionsOf({
@@ -110,7 +118,7 @@ export class EngineSessions {
 
   private async watch(
     sessionId: string,
-    engine: Engine,
+    { engine, model }: SessionSettings,
     spans: EngineCallSpans,
     open: () => Promise<EngineSession>,
   ): Promise<EngineSession> {
@@ -122,14 +130,11 @@ export class EngineSessions {
       if (!isRefusal(error)) await this.engineDown(sessionId, error);
       throw error;
     }
-    const countsTokens = this.capabilitiesOf(engine).usageWindows;
     return new WatchedSession(session, spans, {
       rateLimited: async () => {
         await this.readUsageWindows(engine, session);
       },
-      turnEnded: (usage) => {
-        if (countsTokens) this.officeTokensSoFar = addedTokens(this.officeTokensSoFar, usage);
-      },
+      turnEnded: (usage) => this.turnEnded(engine, model, usage),
       failed: async (error) => {
         if (!isRefusal(error)) await this.engineDown(sessionId, error);
       },
@@ -157,10 +162,24 @@ export class EngineSessions {
     const reading: UsageWindowReading = {
       ...windows,
       readAt: new Date(),
-      officeTokensSoFar: this.officeTokensSoFar,
+      officeTokensSoFar: this.officeTokensSoFar.get(engineIdOf(engine)) ?? NO_TOKENS,
     };
     await this.usageWindows.update(reading);
     return reading;
+  }
+
+  /** A failure to keep the day's use is logged: the session runs on, and its turn is reported. */
+  private async turnEnded(engine: Engine, model: string, usage: TokenUsage): Promise<void> {
+    const engineId = engineIdOf(engine);
+    this.officeTokensSoFar.set(
+      engineId,
+      addedTokens(this.officeTokensSoFar.get(engineId) ?? NO_TOKENS, usage),
+    );
+    try {
+      await this.dayUsage.add(engine, model, usage);
+    } catch (error) {
+      this.logger.error(`Keeping the day's use failed: ${messageOf(error)}`);
+    }
   }
 
   private async engineDown(sessionId: string, error: unknown): Promise<void> {
@@ -171,7 +190,7 @@ export class EngineSessions {
 
 interface SessionWatch {
   readonly rateLimited: () => Promise<void>;
-  readonly turnEnded: (usage: TokenUsage) => void;
+  readonly turnEnded: (usage: TokenUsage) => Promise<void>;
   readonly failed: (error: unknown) => Promise<void>;
 }
 
@@ -223,7 +242,7 @@ class WatchedSession implements EngineSession {
   private async readEvents(): Promise<void> {
     try {
       for await (const event of this.session.events) {
-        this.observe(event);
+        await this.observe(event);
         this.reported.push(event);
       }
       this.spans.stopped();
@@ -235,11 +254,11 @@ class WatchedSession implements EngineSession {
     }
   }
 
-  private observe(event: SessionEvent): void {
+  private async observe(event: SessionEvent): Promise<void> {
     if (event.kind === "turn-ended") {
       this.spans.turnEnded(event);
-      // Counted before the turn is reported, so a reading taken once it ended includes it.
-      this.watch.turnEnded(event.usage);
+      // Counted before the turn is reported, so a reading or the day's use read once it ended includes it.
+      await this.watch.turnEnded(event.usage);
     }
     if (event.kind === "rate-limit" && !this.readingWindows) {
       this.readingWindows = true;
@@ -258,17 +277,6 @@ function isRefusal(error: unknown): boolean {
     error instanceof SessionSkillsDiffer ||
     error instanceof ModelNotOffered
   );
-}
-
-const NO_TOKENS: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
-
-function addedTokens(total: TokenUsage, more: TokenUsage): TokenUsage {
-  return {
-    input: total.input + more.input,
-    output: total.output + more.output,
-    cacheRead: total.cacheRead + more.cacheRead,
-    cacheCreation: total.cacheCreation + more.cacheCreation,
-  };
 }
 
 function messageOf(error: unknown): string {

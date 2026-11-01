@@ -13,11 +13,14 @@ import { describe, expect, it, vi } from "vitest";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { Telemetry } from "../../../../platform/telemetry/telemetry.js";
+import { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import { AgentEngines } from "../../application/agent-engines.js";
+import { DayUsage } from "../../application/day-usage.js";
 import { EngineSessions } from "../../application/engine-sessions.js";
 import { OfficeToolRegistry } from "../../application/office-tool-registry.js";
 import { UsageWindowState } from "../../application/usage-window-state.js";
 import { UsageWindowsChanged } from "../../domain/engine-events.js";
+import { DayUsageForTests } from "../../ports/day-usage-repository.fixtures.js";
 import type { EngineSession } from "../../ports/engine-session.js";
 import type { SessionEvent, ToolCallEvent } from "../../ports/session-events.js";
 import { RecordingEngine } from "../scripted/recording-engine.js";
@@ -90,6 +93,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
           events,
           new UsageWindowState(events),
           new OfficeToolRegistry(),
+          new DayUsage(new DayUsageForTests(), new ManualSchedule()),
         );
         const sessionId = randomUUID();
         const session = await sessions.start({

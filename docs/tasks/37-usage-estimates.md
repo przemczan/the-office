@@ -13,7 +13,7 @@ Caps are per account for the Claude Code engines, one set for the OpenAI-compati
 ## Definition of Done
 
 - [ ] Each Agent Stage run keeps its engine and model, and the usage windows read as it starts and as it ends. Each reading carries when it was read and the Office's tokens so far on the engines with windows. Check: Pipelines and Engine tests with the scripted engine; the migration.
-- [ ] The Engine counts each day's tokens by engine and model, kind by kind, from every turn of every session. "Today" starts at local midnight on the service, as in §2.7. Check: Engine tests; the migration.
+- [x] The Engine counts each day's tokens by engine id and model, kind by kind, from every turn of every session. "Today" starts at local midnight on the service, as in §2.7. Check: Engine tests; the migration.
 - [ ] Settings › Engines sets a Model price for each model it offers: input, output, cache writes and cache reads, in dollars per million tokens. They are kept in the database. A model with no price gives "no cost", which never holds a Start. Check: service tests of the settings and of a cost; e2e test of the prices.
 - [ ] A Task's Usage estimate is per engine, the engine being the one each Stage's Role picks.
   - For each Stage, a sample is the sum of that Stage's runs in one done Task of the same Project and Pipeline, among the last 20, so loops and send-backs count. The median is taken of each token kind.
@@ -102,9 +102,10 @@ Chosen while writing, for the user to review:
   - Commit.
 
   Read: the State; `pipelines/MAP.md`; `pipelines/adapters/postgres/stage-runs.schema.ts`; `pipelines/domain/stage-run.ts` (`StageTokens`, `addTokens` by symbol); `pipelines/application/agent-stage-runner.ts` (`readResult` l. 386–420, `open` by symbol); `pipelines/ports/stage-run-repository.ts` (`saveTokens`); the latest migration in `apps/service/drizzle/`.
-- [ ] 1c. The day's use per engine and model, in Engine, about 60k:
-  - `engine_day_usage` (day, engine, model, the four token kinds), added to on every turn's end in `WatchedSession`. "Today" starts at local midnight on the service, as Notifications' `day_tokens` counts it.
-  - `DayUsage.today(engine)` gives the tokens by model, exported for Work's port.
+- [x] 1c. The day's use per engine id and model, in Engine, about 60k:
+  - `engine_day_usage` (day, engine id, model, the four token kinds), added to on every turn's end in `WatchedSession`. "Today" starts at local midnight on the service, as Notifications' `day_tokens` counts it.
+  - `DayUsage.today(engineId)` gives the tokens by model, exported for Work's port.
+  - Caps, readings and each day's use are keyed by an engine id, not the `engine` kind (the user, 2026-11-01, for task 47's list of engines): `claude-code` for both Claude Code engines, `openai-compatible-api` for the API, mapped in one place, Engine's `engineIdOf`.
   - Commit.
 
   Read: the State; `engine/application/engine-sessions.ts` (`WatchedSession`); `notifications/adapters/postgres/notifications.schema.ts` (`dayTokens`, l. 43–60) and how Notifications fixes the day (grep `dayTokens`); `engine/adapters/postgres/engine-settings.schema.ts`.
@@ -141,14 +142,14 @@ Chosen while writing, for the user to review:
 
   Read: the State; `work/adapters/office-tools/planning-office-tools.ts` (`registerWritePlan`, l. 50–68); `work/domain/planning-changes.ts` (`proposePlan`); `work/domain/task.ts` (`Task`); `work/ports/known-pipelines.ts`, `known-people.ts` (the Stages and each Role's engine and model); `packages/contracts/src/work.ts` (`taskSchema`, `startCheckSchema` l. 225–235); `work/application/start-service.ts` (`check`); `app.module.ts` (Work's port bindings).
 - [ ] 4. The measures and caps, in Work, about 70k:
-  - `work_settings` gains the ticked measures, and `engine_caps` (one row per set of caps: the Claude Code engines' account and the OpenAI-compatible API; 5-hour %, 7-day %, daily tokens, daily dollars, each nullable) comes with a migration, with a mapping from each of `ENGINES` to its set. Window caps default to 90% on the Claude Code engines' set.
+  - `work_settings` gains the ticked measures, and `engine_caps` (one row per engine id: `claude-code`, the Claude Code engines' account, and `openai-compatible-api`; 5-hour %, 7-day %, daily tokens, daily dollars, each nullable) comes with a migration. A Stage's engine reaches its row through Engine's `engineIdOf`, the one mapping. Window caps default to 90% on `claude-code`.
   - `GET`/`PUT /settings/usage`, with an event that releases the queue.
   - Contract schemas.
   - Commit.
 
   Read: the State; `work/adapters/postgres/work-settings.schema.ts`; `work/ports/work-settings.ts`; `work/application/office-limits.ts`; `work/adapters/http/office-limits.controller.ts`; `work/domain/office-limit-events.ts`; `engine/domain/engines.ts` (`ENGINES`), `engine/ports/agent-engine.ts` (`usageWindows` capability).
 - [ ] 5a. The window wait, in Work, about 85k:
-  - `StartConditions` gains, per set of caps the Task's engines fall under (its estimates on those engines added up), the windows (a port `AccountWindows` bound to `UsageWindowState`), the caps, the ticked measures and the estimate.
+  - `StartConditions` gains, per engine id the Task's engines fall under (by `engineIdOf`; its estimates on those engines added up), the windows (a port `AccountWindows` bound to `UsageWindowState`, asked by engine id; only `claude-code` has windows), the caps, the ticked measures and the estimate.
   - `startReasons` adds `windowWaits`:
     - unused with no reading or a passed reset;
     - held when the use, plus the estimates of Tasks started since `readAt`, plus this Task's, passes the cap;
@@ -162,14 +163,14 @@ Chosen while writing, for the user to review:
 
   Traps: Start, every release and every queue change hold Starts (`holdStarts`). The queue and `work_settings` are shared by every test file, so a test that lowers a cap overrides it with `WorkSettingsForTests`.
 - [ ] 5b. The Daily caps, in Work, about 60k:
-  - `dailyCapWaits`: the day's use on the engines under the cap (a port bound to `DayUsage`, cost priced by `ModelPrices`), plus what is left of each Task in progress's estimate, plus this Task's; the hour exception with local midnight as the reset.
+  - `dailyCapWaits`: the day's use on the cap's engine id (a port bound to `DayUsage.today(engineId)`, cost priced by `ModelPrices`), plus what is left of each Task in progress's estimate, plus this Task's; the hour exception with local midnight as the reset.
   - The release timer covers midnight.
   - Commit.
 
   Read: the State; step 5a's code; `pipelines/ports/task-usage.ts` and Conversations' `TaskTokens` (a Task's tokens so far).
 - [ ] 6a. Web, Settings › Office limits' Usage card, about 70k:
   - the measures as checkboxes;
-  - a row per set of caps (the Claude Code engines' account, with its Window caps; the OpenAI-compatible API) with its Daily caps, which are off until set;
+  - a row per engine id (`claude-code`, the Claude Code engines' account, with its Window caps; `openai-compatible-api`) with its Daily caps, which are off until set;
   - the windows' use and resets, as the click-through's card shows;
   - Save and Discard.
 
@@ -197,12 +198,14 @@ Chosen while writing, for the user to review:
 
 ## State
 
-- Steps 1a and 1b done. Engine: `EngineSessions.readUsageWindows(engine, session)` reads the windows (no model call), keeps every reading in `UsageWindowState` (`UsageWindowReading`: the windows, `readAt`, `officeTokensSoFar` as the four kinds) and gives it back; undefined without the capability, for an account without windows, or when the read fails (logged). `officeTokensSoFar` adds every `turn-ended` usage on engines with windows. `UsageWindowsChanged` still fires only when the windows differ.
-- Decided in 1b (a default, for the user to review): each window is judged on its own. A window not begun (no `utilization` or `resets_at`, as the Claude Code adapters' `usageWindows` read it) is 0% with `resetsAt` undefined, so an idle 5-hour window keeps the 7-day reading. `BegunUsageWindowReading` and `everyWindowBegun` are gone.
-- Pipelines: `StageThread` (port `pipelines/ports/stage-threads.ts`) carries `engine` and `model` (Conversations' `stageModel`: the Stage's own, else the card's) and `usageWindows()`. `StageRun` has `engine`, `model`, `usageWindowsAtStart`, `usageWindowsAtEnd` (`domain/stage-run.ts`); `AgentStageRunner.work` saves them through `saveThread(runId, StageRunThread)` and `saveUsageWindows(runId, "start" | "end", reading)` right after the session opens and after `resultOf`, before `endSession()`. Migration `0068_stage_run_usage.sql`; the `jsonb` keeps ISO strings (`adapters/postgres/stored-usage-windows.ts`).
-- Caps are per account for the Claude Code engines, one set for the OpenAI-compatible API (the user, 2026-11-01; docs amended).
-- Every Agent Stage run adds two `read-usage-windows` to a scripted session's `received`; a script's `read-usage-windows` steps are given in order, the last repeating.
-- Trap for 5a: the queue is released "on each new reading", but `UsageWindowsChanged` fires only on a change; a reading with the same percent and a new `readAt` still clears pending estimates, so 5a needs a signal on every reading.
+- Steps 1a–1c done. Engine: `EngineSessions.readUsageWindows(engine, session)` reads the windows (no model call) into `UsageWindowState` (`UsageWindowReading`: the windows, `readAt`, `officeTokensSoFar`, the four kinds on the reading's engine id since the service started). Undefined without the capability, an account without windows, or a failed read. Each window is judged on its own: one not begun is 0% with `resetsAt` undefined.
+- Pipelines: `StageRun` has `engine` (the kind), `model`, `usageWindowsAtStart`, `usageWindowsAtEnd`, saved by `AgentStageRunner.work` (migration 0068). Not migrated to engine ids.
+- Engine ids (the user, 2026-11-01): caps, readings and each day's use are keyed by `EngineId` (`domain/engines.ts`, exported): `claude-code` for `agent-sdk` and `claude-code-p`, `openai-compatible-api`. `engineIdOf(engine)` is the one mapping; task 47 replaces it with the engines the user adds.
+- Each day's use: `DayUsage` (`application/day-usage.ts`, exported, in both `EngineModule` and `ScriptedEngineModule`) adds every turn's tokens on `turn-ended`, awaited before the turn is reported, keyed (day, engine id, model) in `engine_day_usage` (migration 0069). `today(engineId)` gives `ModelDayUsage[]`. The day is local, from the injected `Schedule`'s now (`domain/day-usage.ts` `dayOf`, a copy of Notifications' `officeDayOf`: modules can't share it). A failed write is logged; the session runs on.
+- The model is the session's Model field (`<endpoint id>/<model id>` on the API), as Model prices will key it.
+- Open for the user: step 2a and the "Chosen while writing" line key Model prices by engine kind and model, which gives one Claude model two prices; by engine id would match the rest.
+- Trap for 5b: every scripted session in every test file adds to today's `engine_day_usage` on the shared database; Work's tests bind their own day's use (`DayUsageForTests` in Engine's ports, or a fake of Work's port).
+- Trap for 5a: `UsageWindowsChanged` fires only on a change; a reading with the same percent and a new `readAt` still clears pending estimates, so 5a needs a signal on every reading. `UsageWindowState` holds one reading (only `claude-code` has windows); keyed by engine id when task 47 brings several accounts.
 - Trap: the windows refresh only while a session runs, and are lost on a restart. "No reading means no wait" keeps Tasks from waiting forever.
 - Trap: a Stage's engine and model come from its Role card at run time; history is keyed by Stage, cost priced by each run's own model.
 
@@ -211,3 +214,4 @@ Chosen while writing, for the user to review:
 - 2026-11-01 · step 0: wrote the task file, amended spec §2.1, §2.2, §2.7, §3, §4, §5.4 and §8 and the glossary with the user's answers; next, step 1a, the readings through a Stage Thread.
 - 2026-11-01 · step 1a: readings with `readAt` and the Office's tokens so far, through `StageThread.usageWindows()` (Engine, Conversations, Pipelines' port); caps reworded per account; next, step 1b, Stage runs keep engine, model and readings.
 - 2026-11-01 · step 1b: Stage runs keep engine, model and the windows read as the session opens and after its last turn (migration 0068); a window not begun now counts as unused, judged one at a time; next, step 1c, the day's use per engine and model.
+- 2026-11-01 · step 1c: each day's use per engine id and model in `engine_day_usage` (migration 0069), added on every turn's end, `DayUsage.today(engineId)`; caps, readings and day use keyed by engine id via `engineIdOf` (steps 4–6a reworded); next, step 2a, Model prices.

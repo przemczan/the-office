@@ -5,12 +5,12 @@ import { sameUsageWindows, type UsageWindows } from "../domain/usage-windows.js"
 import type { TokenUsage } from "../ports/session-events.js";
 
 /**
- * The usage windows as read at one moment, with the Office's tokens so far on the engines with
- * windows, so what one run used of a window can be told from what the rest of The Office used.
+ * The usage windows as read at one moment, with the Office's tokens so far on the engine they were
+ * read on, so what one run used of a window can be told from what the rest of The Office used.
  */
 export interface UsageWindowReading extends UsageWindows {
   readonly readAt: Date;
-  /** Since the service started, every turn of every session on an engine with windows. */
+  /** Since the service started, every turn of every session on the engine (by its engine id). */
   readonly officeTokensSoFar: TokenUsage;
 }
 

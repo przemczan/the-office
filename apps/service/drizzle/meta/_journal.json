@@ -484,6 +484,13 @@
       "when": 1793565461860,
       "tag": "0068_stage_run_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1793568615516,
+      "tag": "0069_engine_day_usage",
+      "breakpoints": true
     }
   ]
 }

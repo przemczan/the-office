@@ -8,6 +8,25 @@ import type { EngineSettings } from "./engine-settings.js";
 export const ENGINES = ["agent-sdk", "claude-code-p", "openai-compatible-api"] as const;
 export type Engine = (typeof ENGINES)[number];
 
+/**
+ * An engine as the user will list it (spec §8, task 47): what caps, readings and each day's use are
+ * kept by. The two Claude Code engines spend one account's credits, so they share an id. Kept in
+ * the database, so an id never changes.
+ */
+export type EngineId = "claude-code" | "openai-compatible-api";
+
+// The one place an engine's kind gives its id, which task 47 replaces with the engines the user adds.
+const ENGINE_IDS: Readonly<Record<Engine, EngineId>> = {
+  "agent-sdk": "claude-code",
+  "claude-code-p": "claude-code",
+  "openai-compatible-api": "openai-compatible-api",
+};
+
+/** The engine `engine`'s sessions spend on. */
+export function engineIdOf(engine: Engine): EngineId {
+  return ENGINE_IDS[engine];
+}
+
 /** Both run the pinned binary the SDK bundles, so they offer the same models, by their ids. */
 const PINNED_BINARY_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"] as const;
 
