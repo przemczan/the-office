@@ -68,7 +68,7 @@ Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written
 | --- | --- | --- | --- |
 | 34 | [Telemetry: the bundled `otel-lgtm` optional, the user's own Grafana or collector](34-telemetry-own-grafana.md) | Foundation | done |
 | 35 | [The OpenAI-compatible API engine, for local LLMs](35-api-based-engine.md) | Foundation | done |
-| 36 | [MCP servers for Agents](36-mcp-servers.md) | People | in progress |
+| 36 | [MCP servers for Agents](36-mcp-servers.md) | People | done |
 | 46 | A Project from a git repository, and Sign in with GitHub | Projects | todo |
 | 37 | Usage estimates | Now | todo |
 | 38 | Archive, and moving Tasks between Projects | Work | todo |
@@ -95,6 +95,15 @@ As in tier 2 (the user, 2026-10-31): a fix is built where it is found only when 
   - A turn that must give structured output and doesn't is reminded twice, then fails.
   - After a resume, Edit needs a fresh Read; nested `CLAUDE.md` files, `@` imports and nested skills are not loaded.
   - Settings › Engines has no click-through screen, so its wording and layout are new; "Search endpoint" is a new glossary term.
+- **Processes checked by id alone after a slow end:** some tests still ask whether a process runs by its id after waiting (e.g. `openai-compatible-api-engine.test.ts`, about l. 705–878), and Windows hands an id to a new process within a second. Use `processMark` and `isMarkedRunning` from `platform/os/process-trees.fixtures.ts`, as 9ac6271 did for the MCP client.
+- **An unexplained `verify:linux` e2e failure (task 36):** once, `mcp-servers.e2e.ts:95` found the failing server's standard error missing from the review's problem; not reproduced in about 1800 runs. Proposed: `verify-linux.sh` copies `e2e-results` out on a failure, and the MCP failure reason names the exit code or signal.
+- **A slow MCP server mid-session (task 36):** whether a server slow to start (as `npx -y`) arrives in a Claude Code session mid-way, as a `tool_addition`, was not seen live. Check it in the engine check.
+- **Task 36's choices for the user to review**, made while building and recorded in the State of [36-mcp-servers.md](36-mcp-servers.md):
+  - On the OpenAI-compatible API engine, a server that failed to start keeps its tools listed, and each call answers why; Claude Code drops them.
+  - A server left out for a missing required value is told only in the Brief.
+  - A local server's Server values are environment variables of its own process; on Linux they are readable to the same user, as any process's environment is.
+  - Tools whose `mcp__<server>__<tool>` name runs over 64 characters are left out of sessions and flagged in the review.
+  - Claude Code lists MCP tools as deferred, so the Agent loads them with ToolSearch before its first call (seen live with Haiku).
 
 Read these only when a step needs them:
 
