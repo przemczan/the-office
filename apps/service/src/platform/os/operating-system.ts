@@ -41,6 +41,11 @@ export interface OperatingSystem {
   /** Whether two environment variable names name one variable: Windows ignores their case. */
   sameVariableName(one: string, other: string): boolean;
   /**
+   * The home folder git reads the user's global config from, and expands `~` against, for a
+   * command run with `variables`.
+   */
+  gitHomeDirectory(variables: Readonly<Record<string, string | undefined>>): string;
+  /**
    * Leaves a file or folder readable and writable by the user The Office runs as only; what a
    * folder holds afterwards starts that way too.
    */

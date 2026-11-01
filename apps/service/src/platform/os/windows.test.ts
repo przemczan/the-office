@@ -291,4 +291,28 @@ describe("windows", () => {
     expect(sameVariableName("Path", "PATH")).toBe(true);
     expect(sameVariableName("PATH", "PATHEXT")).toBe(false);
   });
+
+  describe("git's home", () => {
+    const { gitHomeDirectory } = windows({ variables: {}, homeDirectory });
+
+    it("is HOME in any case when the command has it", () => {
+      expect(gitHomeDirectory({ Home: "D:\\home", USERPROFILE: "C:\\Users\\me" })).toBe("D:\\home");
+    });
+
+    it("is HOMEDRIVE and HOMEPATH while that folder exists, else USERPROFILE", () => {
+      const existing = tmpdir();
+      const drive = existing.slice(0, 2);
+      const variables = {
+        HOMEDRIVE: drive,
+        HOMEPATH: existing.slice(2),
+        USERPROFILE: "C:\\Users\\me",
+      };
+
+      expect(gitHomeDirectory(variables)).toBe(existing);
+      expect(gitHomeDirectory({ ...variables, HOMEPATH: "\\no such folder" })).toBe(
+        "C:\\Users\\me",
+      );
+      expect(gitHomeDirectory({})).toBe(homeDirectory);
+    });
+  });
 });

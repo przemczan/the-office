@@ -59,6 +59,7 @@ export function linux({ variables, homeDirectory, userId }: UserEnvironment): Op
     ],
     sshPrograms: { ssh: "ssh", keygen: "ssh-keygen", keyscan: "ssh-keyscan" },
     sameVariableName: (one, other) => one === other,
+    gitHomeDirectory: (commandVariables) => commandVariables["HOME"] || homeDirectory,
     restrictToOwner: (path, kind) => chmod(path, kind === "folder" ? 0o700 : 0o600),
   };
 }

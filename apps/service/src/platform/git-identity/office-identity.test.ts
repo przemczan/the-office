@@ -1,26 +1,34 @@
 import { execFile } from "node:child_process";
-import { access, mkdtemp, rm } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { OfficeDataDirectory } from "../office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../os/current-operating-system.js";
 import { startFakeGitHubMeta, type FakeGitHubMeta } from "./fake-github-meta.fixtures.js";
 import { IdentityFolder } from "./identity-folder.js";
+import { OfficeGitHome } from "./office-git-home.js";
 import { NoHostKeyScanner } from "./office-identity.fixtures.js";
 import { OfficeIdentity, type GitCommandIdentity } from "./office-identity.js";
 import { OfficeKnownHosts } from "./office-known-hosts.js";
 import { OfficeSshKey } from "./office-ssh-key.js";
 import {
+  isGitLfsInstalled,
+  repositoryWithLfsPointer,
   startFakeGitHttpServer,
+  USER_IGNORED_EXTENSION,
+  USER_LFS_CONCURRENT_TRANSFERS,
+  USER_NAME,
   userCredentials,
   type FakeGitHttpServer,
   type UserCredentials,
 } from "./user-credentials.fixtures.js";
 
 const run = promisify(execFile);
-const [bash] = currentOperatingSystem().agentShells;
+const operatingSystem = currentOperatingSystem();
+const [bash] = operatingSystem.agentShells;
+const gitLfsInstalled = await isGitLfsInstalled();
 
 const USER_ENVIRONMENT = {
   PATH: process.env["PATH"],
@@ -34,7 +42,12 @@ const USER_ENVIRONMENT = {
   UNSET: undefined,
 };
 
-/** A path as the identity hands it to ssh. */
+/** Whether an Authorization header is the Windows sign-in, or a Kerberos ticket on Linux. */
+function isSignIn(authorization: string): boolean {
+  return /^(Negotiate|NTLM) /.test(authorization);
+}
+
+/** A path as the identity hands it to ssh, and as its global config file includes one. */
 function forSsh(path: string): string {
   return path.split("\\").join("/");
 }
@@ -81,7 +94,7 @@ describe("OfficeIdentity", { timeout: 30_000 }, () => {
     const folder = new IdentityFolder(new OfficeDataDirectory(officeData));
     sshKey = new OfficeSshKey(folder);
     knownHosts = new OfficeKnownHosts(folder, new NoHostKeyScanner(), meta.url);
-    identity = new OfficeIdentity(sshKey, knownHosts);
+    identity = new OfficeIdentity(sshKey, knownHosts, new OfficeGitHome(folder));
   });
 
   afterEach(async () => {
@@ -100,7 +113,7 @@ describe("OfficeIdentity", { timeout: 30_000 }, () => {
       "-c",
       "http.extraHeader=",
       "-c",
-      "http.emptyAuth=true",
+      "http.emptyAuth=false",
     ]);
   });
 
@@ -114,7 +127,41 @@ describe("OfficeIdentity", { timeout: 30_000 }, () => {
       "-c",
       "http.https://github.com/octo/repo.git.extraHeader=",
       "-c",
-      "http.https://github.com/octo/repo.git.emptyAuth=true",
+      "http.https://github.com/octo/repo.git.emptyAuth=false",
+    ]);
+  });
+
+  it("runs git in a home of The Office's own, reading the user's global config by its include", async () => {
+    const { variables } = await identity.forGitCommand(undefined, USER_ENVIRONMENT);
+
+    const identityFolder = join(officeData, "identity");
+    expect(variables).toMatchObject({
+      HOME: join(identityFolder, "home"),
+      XDG_CONFIG_HOME: join("/home/user", ".config"),
+      KRB5CCNAME: `FILE:${join(identityFolder, "no-kerberos-tickets")}`,
+    });
+    await access(join(identityFolder, "home"));
+    const globalConfig = variables["GIT_CONFIG_GLOBAL"] ?? "";
+    expect(dirname(globalConfig)).toBe(identityFolder);
+    expect(await readFile(globalConfig, "utf8")).toContain(
+      [
+        "[include]",
+        `\tpath = "${forSsh(join("/home/user", ".config", "git", "config"))}"`,
+        `\tpath = "${forSsh(join("/home/user", ".gitconfig"))}"`,
+      ].join("\n"),
+    );
+  });
+
+  it("includes the user's own GIT_CONFIG_GLOBAL instead when they set one", async () => {
+    const userConfig = join(officeData, "user's.gitconfig");
+    const { variables } = await identity.forGitCommand(undefined, {
+      ...USER_ENVIRONMENT,
+      GIT_CONFIG_GLOBAL: userConfig,
+    });
+
+    const globalConfig = await readFile(variables["GIT_CONFIG_GLOBAL"] ?? "", "utf8");
+    expect(globalConfig.match(/\tpath = .*/g)).toEqual([
+      `\tpath = "${userConfig.split(sep).join("/")}"`,
     ]);
   });
 
@@ -122,7 +169,6 @@ describe("OfficeIdentity", { timeout: 30_000 }, () => {
     const { variables } = await identity.forGitCommand(undefined, USER_ENVIRONMENT);
 
     expect(variables).toMatchObject({
-      HOME: "/home/user",
       GIT_TERMINAL_PROMPT: "0",
       GCM_INTERACTIVE: "never",
       GIT_SSH_VARIANT: "ssh",
@@ -265,6 +311,116 @@ describe("OfficeIdentity", { timeout: 30_000 }, () => {
 
       expect(exitCode).not.toBe(0);
       expect(await user.reached()).toEqual([]);
+    });
+
+    describe.runIf(gitLfsInstalled)("by git-lfs", () => {
+      let repository: string;
+
+      beforeEach(async () => {
+        repository = await repositoryWithLfsPointer(`${server.origin}/repo.git`);
+      });
+
+      afterEach(async () => {
+        await rm(repository, { recursive: true, force: true, maxRetries: 5 });
+      });
+
+      const lfsFetch = ["lfs", "fetch", "origin", "HEAD"];
+
+      it("is the user's .netrc, read by git-lfs run without the identity", async () => {
+        await gitCommand([], ["-C", repository, ...lfsFetch], user.environment);
+
+        expect(server.authorizations).toContain(user.netrcAuthorization);
+      });
+
+      it("is not reached: git-lfs finds no .netrc and no credential helper", async () => {
+        const remote = `${server.origin}/repo.git`;
+        const { configArguments, variables } = await identity.forGitCommand(
+          remote,
+          user.environment,
+        );
+
+        await gitCommand(configArguments, ["-C", repository, ...lfsFetch], variables);
+
+        expect(server.authorizations.length).toBeGreaterThan(0);
+        expect(server.authorizations).not.toContain(user.netrcAuthorization);
+        expect(await user.reached()).toEqual([]);
+      });
+
+      it("keeps the user's lfs settings, which git-lfs reads through git", async () => {
+        const { configArguments, variables } = await identity.forGitCommand(
+          undefined,
+          user.environment,
+        );
+
+        const { stdout } = await run("git", [...configArguments, "-C", repository, "lfs", "env"], {
+          env: variables,
+          windowsHide: true,
+        });
+
+        expect(stdout).toContain(`ConcurrentTransfers=${USER_LFS_CONCURRENT_TRANSFERS}`);
+      });
+    });
+
+    it("leave the rest of the user's global config applying: XDG, includes, ignores, lfs", async () => {
+      const { configArguments, variables } = await identity.forGitCommand(
+        undefined,
+        user.environment,
+      );
+      const repository = join(officeData, "repository");
+      const git = (...gitArguments: string[]): Promise<{ stdout: string }> =>
+        run("git", [...configArguments, "-C", repository, ...gitArguments], {
+          env: variables,
+          windowsHide: true,
+        });
+      await run("git", ["init", "-q", repository], { windowsHide: true });
+
+      expect((await git("config", "user.name")).stdout.trim()).toBe(USER_NAME);
+      expect((await git("config", "lfs.concurrentTransfers")).stdout.trim()).toBe(
+        String(USER_LFS_CONCURRENT_TRANSFERS),
+      );
+      await expect(
+        git("check-ignore", "-q", `file${USER_IGNORED_EXTENSION}`),
+      ).resolves.toBeDefined();
+    });
+  });
+
+  describe("the Windows sign-in", () => {
+    let server: FakeGitHttpServer;
+
+    beforeEach(async () => {
+      server = await startFakeGitHttpServer(["Negotiate", "NTLM", 'Basic realm="repository"']);
+    });
+
+    afterEach(async () => {
+      await server.close();
+    });
+
+    // Only Windows answers with the logged-on user (SSPI); curl on Linux would need a Kerberos ticket.
+    it.runIf(operatingSystem.name === "Windows")(
+      "is sent by git with an empty user name, the identity's former setting",
+      async () => {
+        await gitCommand(
+          ["-c", "credential.helper=", "-c", "http.emptyAuth=true"],
+          ["ls-remote", `${server.origin}/repo.git`],
+          { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+        );
+
+        expect(server.authorizations.some(isSignIn)).toBe(true);
+      },
+    );
+
+    it("is never sent by git on the identity, to a host offering Negotiate or NTLM", async () => {
+      const remote = `${server.origin}/repo.git`;
+      const { configArguments, variables } = await identity.forGitCommand(remote, process.env);
+
+      const { stderr } = await gitCommand(configArguments, ["ls-remote", remote], {
+        ...variables,
+        GIT_ALLOW_PROTOCOL: "http",
+      });
+
+      expect(stderr).toMatch(/terminal prompts disabled/);
+      expect(server.authorizations.length).toBeGreaterThan(0);
+      expect(server.authorizations.filter(isSignIn)).toEqual([]);
     });
   });
 });

@@ -68,8 +68,29 @@ export function windows({ variables, homeDirectory }: UserEnvironment): Operatin
       return gitForWindowsSsh(variables);
     },
     sameVariableName: (one, other) => one.toUpperCase() === other.toUpperCase(),
+    gitHomeDirectory: (commandVariables) => gitForWindowsHome(commandVariables, homeDirectory),
     restrictToOwner: (path, kind) => icaclsOwnerOnly(variables, path, kind),
   };
+}
+
+/**
+ * Git for Windows' own choice when HOME is unset: `%HOMEDRIVE%%HOMEPATH%` while that folder exists
+ * (it may be a network share), else `%USERPROFILE%` (`setup_windows_environment` in its mingw.c).
+ */
+function gitForWindowsHome(
+  variables: Readonly<Record<string, string | undefined>>,
+  homeDirectory: string,
+): string {
+  const variable = (name: string): string | undefined =>
+    Object.entries(variables).find(([key]) => key.toUpperCase() === name)?.[1] || undefined;
+  const home = variable("HOME");
+  if (home !== undefined) return home;
+  const drive = variable("HOMEDRIVE");
+  const path = variable("HOMEPATH");
+  if (drive !== undefined && path !== undefined && existsSync(`${drive}${path}`)) {
+    return `${drive}${path}`;
+  }
+  return variable("USERPROFILE") ?? homeDirectory;
 }
 
 /**

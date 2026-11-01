@@ -157,4 +157,11 @@ describe("linux", () => {
     expect(sameVariableName("PATH", "PATH")).toBe(true);
     expect(sameVariableName("Path", "PATH")).toBe(false);
   });
+
+  it("finds git's home in the command's HOME, else the user's home directory", () => {
+    const { gitHomeDirectory } = linux({ variables: {}, homeDirectory });
+
+    expect(gitHomeDirectory({ HOME: "/home/other" })).toBe("/home/other");
+    expect(gitHomeDirectory({ HOME: "" })).toBe(homeDirectory);
+  });
 });

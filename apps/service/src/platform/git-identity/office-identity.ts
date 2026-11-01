@@ -4,6 +4,7 @@ import { isOfficeOwnVariable } from "../config/office-config.js";
 import { currentOperatingSystem } from "../os/current-operating-system.js";
 import { parseGitRemote, SSH_PORT, type GitRemote } from "./git-remote.js";
 import { GitHubUserToken } from "./github-user-token.js";
+import { OfficeGitHome, userGlobalConfig } from "./office-git-home.js";
 import { GITHUB_HOST, OfficeKnownHosts } from "./office-known-hosts.js";
 import { OfficeSshKey } from "./office-ssh-key.js";
 import type { MissingForSsh, RemoteNeeds } from "./remote-needs.js";
@@ -40,11 +41,11 @@ const USER_CREDENTIAL_VARIABLES: readonly string[] = [
 ];
 
 /**
- * http settings that would hand the user's credentials to a host. On a 401, curl answers with the
- * user's `~/.netrc` unless git gives it a user name, which the empty auth does; a credential helper
- * still answers after it.
+ * http settings that would hand the user's credentials to a host. An empty user name lets curl
+ * answer a 401 with the Windows sign-in (NTLM or Negotiate), and git's automatic empty auth turns
+ * it on once a 401 offers NTLM, so it is off. curl's `.netrc` is out of reach through HOME instead.
  */
-const HTTP_SETTINGS: readonly string[] = ["extraHeader=", "emptyAuth=true"];
+const HTTP_SETTINGS: readonly string[] = ["extraHeader=", "emptyAuth=false"];
 
 /**
  * The Office identity for git (spec §5.5 Defaults): every Office git command runs with only The
@@ -58,6 +59,7 @@ export class OfficeIdentity {
   constructor(
     private readonly sshKey: OfficeSshKey,
     private readonly knownHosts: OfficeKnownHosts,
+    private readonly gitHome: OfficeGitHome,
     @Optional() private readonly gitHubUserToken?: GitHubUserToken,
   ) {}
 
@@ -98,6 +100,13 @@ export class OfficeIdentity {
       await this.sshKey.ensure();
       if (reached.host === GITHUB_HOST) await this.knownHosts.trustGitHub();
     }
+    const sameVariableName = (one: string, other: string): boolean =>
+      this.operatingSystem.sameVariableName(one, other);
+    const userConfig = userGlobalConfig(
+      inherited,
+      this.operatingSystem.gitHomeDirectory(inherited),
+      sameVariableName,
+    );
     return gitCommandIdentity({
       remote,
       reached,
@@ -107,7 +116,13 @@ export class OfficeIdentity {
         privateKey: this.sshKey.privateKeyPath,
         knownHosts: this.knownHosts.path,
       },
-      sameVariableName: (one, other) => this.operatingSystem.sameVariableName(one, other),
+      home: {
+        home: this.gitHome.path,
+        globalConfig: await this.gitHome.globalConfigIncluding(userConfig.files),
+        xdgConfigHome: userConfig.xdgConfigHome,
+        kerberosCredentialCache: this.gitHome.noKerberosTickets,
+      },
+      sameVariableName,
     });
   }
 
@@ -135,7 +150,18 @@ interface GitCommandIdentityInput {
   readonly reached: GitRemote | undefined;
   readonly inherited: Readonly<Record<string, string | undefined>>;
   readonly ssh: SshFiles;
+  readonly home: GitHome;
   readonly sameVariableName: (one: string, other: string) => boolean;
+}
+
+/** The home a git command runs with, and what of the user's it keeps reading. */
+export interface GitHome {
+  readonly home: string;
+  /** The Office's global config file, including the user's. */
+  readonly globalConfig: string;
+  /** The user's, where git finds its default global ignore and attributes files. */
+  readonly xdgConfigHome: string;
+  readonly kerberosCredentialCache: string;
 }
 
 /**
@@ -147,9 +173,15 @@ export function gitCommandIdentity({
   reached,
   inherited,
   ssh,
+  home,
   sameVariableName,
 }: GitCommandIdentityInput): GitCommandIdentity {
   const identityVariables: Record<string, string> = {
+    // curl and git-lfs read `.netrc` from HOME; `~` in the user's config then means this folder.
+    HOME: home.home,
+    GIT_CONFIG_GLOBAL: home.globalConfig,
+    XDG_CONFIG_HOME: home.xdgConfigHome,
+    KRB5CCNAME: home.kerberosCredentialCache,
     GIT_TERMINAL_PROMPT: "0",
     GCM_INTERACTIVE: "never",
     GIT_SSH_COMMAND: sshCommand(ssh),
