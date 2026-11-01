@@ -2,6 +2,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { OfficeDataDirectory } from "../office-data/office-data-directory.js";
 import { GitCredentialHelper } from "./git-credential-helper.js";
+import { GITHUB_SITE, type GitHubSite } from "./github-site.js";
 import type { GitHubUserToken } from "./github-user-token.js";
 import { HostKeyScanner } from "./host-key-scanner.js";
 import { IdentityFolder } from "./identity-folder.js";
@@ -17,8 +18,8 @@ export class NoHostKeyScanner extends HostKeyScanner {
   }
 }
 
-/** Nothing listens on the discard port, so a test that reaches GitHub's list unasked fails. */
-const UNREACHABLE_META_URL = "http://127.0.0.1:9/meta";
+/** GitHub's website, on an API where nothing listens, so a test that reaches GitHub's list unasked fails. */
+const UNREACHABLE_GITHUB_API: GitHubSite = { ...GITHUB_SITE, apiUrl: "http://127.0.0.1:9" };
 
 /**
  * Where tests that name no Office data directory share one: every command writes the git home
@@ -32,13 +33,12 @@ const SHARED_OFFICE_DATA = join(tmpdir(), "office-identity-tests");
  */
 export function officeIdentityForTests(
   officeData: string = SHARED_OFFICE_DATA,
-  gitHubMetaUrl: string = UNREACHABLE_META_URL,
   gitHubUserToken?: GitHubUserToken,
 ): OfficeIdentity {
   const folder = new IdentityFolder(new OfficeDataDirectory(officeData));
   return new OfficeIdentity(
     new OfficeSshKey(folder),
-    new OfficeKnownHosts(folder, new NoHostKeyScanner(), gitHubMetaUrl),
+    new OfficeKnownHosts(folder, new NoHostKeyScanner(), gitHubUserToken ?? UNREACHABLE_GITHUB_API),
     new OfficeGitHome(folder),
     new GitCredentialHelper(folder),
     gitHubUserToken,

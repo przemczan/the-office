@@ -15,19 +15,18 @@ function problemOf(given: string): string {
 
 describe("readRepositoryUrl", () => {
   it.each([
-    ["https://github.com/acme/shop", "github.com", ["acme", "shop"], true],
-    [" https://GitHub.com/acme/shop.git/ ", "github.com", ["acme", "shop"], true],
+    ["https://github.com/acme/shop", "github.com", ["acme", "shop"]],
+    [" https://GitHub.com/acme/shop.git/ ", "github.com", ["acme", "shop"]],
     [
       "ssh://git@gitlab.example.com:2222/group/sub/app.git",
       "gitlab.example.com",
       ["group", "sub", "app"],
-      false,
     ],
-    ["git@github.com:acme/shop.git", "github.com", ["acme", "shop"], true],
-    ["git@[git.example.com]:acme/shop", "git.example.com", ["acme", "shop"], false],
-    ["git+ssh://git.example.com/acme/shop", "git.example.com", ["acme", "shop"], false],
-  ])("reads %s", (given, host, path, onGitHub) => {
-    expect(read(given)).toEqual({ url: given.trim(), host, path, onGitHub });
+    ["git@github.com:acme/shop.git", "github.com", ["acme", "shop"]],
+    ["git@[git.example.com]:acme/shop", "git.example.com", ["acme", "shop"]],
+    ["git+ssh://git.example.com/acme/shop", "git.example.com", ["acme", "shop"]],
+  ])("reads %s", (given, host, path) => {
+    expect(read(given)).toEqual({ url: given.trim(), host, path });
   });
 
   it("puts every spelling of one repository in one folder", () => {

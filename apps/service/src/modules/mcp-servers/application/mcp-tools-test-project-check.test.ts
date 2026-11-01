@@ -33,6 +33,7 @@ import {
 import { startTestApplication } from "../../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../../test/test-database.js";
 import { AppModule } from "../../../app.module.js";
+import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
  * Task 36's check on the Test Project (docs/tasks/36-mcp-servers.md, step 8): the fake local MCP
@@ -204,6 +205,7 @@ async function theOffice(): Promise<ReturnType<typeof checkApi>> {
           port: 0,
           databaseUrl: testDatabaseUrl(),
           officeDataDirectory: officeData,
+          gitHub: GITHUB_SITE,
         },
         { directory: WEB_APP, source: "built" },
       ),

@@ -6,10 +6,11 @@ import {
   type GitCredentialAnswer,
   type GitCredentialGrant,
 } from "./git-credential-helper.js";
-import { parseGitRemote, SSH_PORT, type GitRemote } from "./git-remote.js";
+import { parseGitRemote, type GitRemote } from "./git-remote.js";
 import { GitHubUserToken } from "./github-user-token.js";
 import { OfficeGitHome, userGlobalConfig } from "./office-git-home.js";
-import { GITHUB_HOST, OfficeKnownHosts } from "./office-known-hosts.js";
+import { GITHUB_SITE, type GitHubSite } from "./github-site.js";
+import { OfficeKnownHosts } from "./office-known-hosts.js";
 import { OfficeSshKey } from "./office-ssh-key.js";
 import { forSh, shellQuoted } from "./sh-words.js";
 import type { MissingForSsh, RemoteNeeds } from "./remote-needs.js";
@@ -62,6 +63,7 @@ const HTTP_SETTINGS: readonly string[] = ["extraHeader=", "emptyAuth=false"];
 @Injectable()
 export class OfficeIdentity {
   private readonly operatingSystem = currentOperatingSystem();
+  private readonly gitHub: GitHubSite;
 
   constructor(
     private readonly sshKey: OfficeSshKey,
@@ -69,14 +71,16 @@ export class OfficeIdentity {
     private readonly gitHome: OfficeGitHome,
     private readonly credentialHelper: GitCredentialHelper,
     @Optional() private readonly gitHubUserToken?: GitHubUserToken,
-  ) {}
+  ) {
+    this.gitHub = gitHubUserToken ?? GITHUB_SITE;
+  }
 
   /** Which part of the identity `remote` needs and what of it is missing, changing nothing. */
   async needsOf(remote: string): Promise<RemoteNeeds> {
     const reached = parseGitRemote(remote);
     switch (reached.transport) {
       case "https":
-        if (reached.host !== GITHUB_HOST) return { kind: "anonymous-https", host: reached.host };
+        if (!this.isGitHubWebsite(remote)) return { kind: "anonymous-https", host: reached.host };
         return {
           kind: "github-https",
           missing: (await this.gitHubUserToken?.isSignedIn()) ? [] : ["sign-in-with-github"],
@@ -96,6 +100,14 @@ export class OfficeIdentity {
   }
 
   /**
+   * Lists an ssh host as waiting for the user to confirm its fingerprint, for a refusal that sends
+   * them to confirm it before any git command reaches the host.
+   */
+  awaitHostKeyConfirmation(host: string, port: number): Promise<void> {
+    return this.knownHosts.awaitConfirmation(host, port);
+  }
+
+  /**
    * The identity for a git command that reaches `remote` (a URL, the scp-like syntax or a path),
    * or none when it reaches no remote; `inherited` is the environment it would have had.
    */
@@ -106,7 +118,9 @@ export class OfficeIdentity {
     const reached = remote === undefined ? undefined : parseGitRemote(remote);
     if (reached?.transport === "ssh") {
       await this.sshKey.ensure();
-      if (reached.host === GITHUB_HOST) await this.knownHosts.trustGitHub();
+      if (this.knownHosts.isGitHub(reached.host, reached.port)) await this.knownHosts.trustGitHub();
+      // ssh will refuse an untrusted host, which then waits for the user to confirm its key.
+      else await this.knownHosts.awaitConfirmation(reached.host, reached.port);
     }
     const sameVariableName = (one: string, other: string): boolean =>
       this.operatingSystem.sameVariableName(one, other);
@@ -143,9 +157,14 @@ export class OfficeIdentity {
   private async gitHubGrant(remote: string | undefined): Promise<GitCredentialGrant | undefined> {
     const userToken = this.gitHubUserToken;
     if (userToken === undefined || remote === undefined) return undefined;
-    if (originOf(remote) !== new URL(userToken.webUrl).origin) return undefined;
+    if (!this.isGitHubWebsite(remote)) return undefined;
     if (!(await userToken.isSignedIn())) return undefined;
     return this.credentialHelper.grant(userToken.webUrl, () => tokenAnswer(userToken));
+  }
+
+  /** Whether `remote` is a URL on GitHub's website, by its origin, as the credential helper matches it. */
+  private isGitHubWebsite(remote: string): boolean {
+    return originOf(remote) === new URL(this.gitHub.webUrl).origin;
   }
 
   /** GitHub's host keys are trusted from its published list when first needed, so never missing. */
@@ -158,7 +177,7 @@ export class OfficeIdentity {
   }): Promise<MissingForSsh[]> {
     const [keyMade, hostTrusted] = await Promise.all([
       this.sshKey.isMade(),
-      host === GITHUB_HOST && port === SSH_PORT ? true : this.knownHosts.isTrusted(host, port),
+      this.knownHosts.isGitHub(host, port) || this.knownHosts.isTrusted(host, port),
     ]);
     return [
       ...(keyMade ? [] : ["office-ssh-key" as const]),

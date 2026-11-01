@@ -9,7 +9,7 @@ import { GitCredentialHelper } from "./git-credential-helper.js";
 import { GitHubUserToken } from "./github-user-token.js";
 import { IdentityFolder } from "./identity-folder.js";
 import { OfficeGitHome } from "./office-git-home.js";
-import { NoHostKeyScanner } from "./office-identity.fixtures.js";
+import { NoHostKeyScanner, officeIdentityForTests } from "./office-identity.fixtures.js";
 import { OfficeIdentity, type GitCommandIdentity } from "./office-identity.js";
 import { OfficeKnownHosts } from "./office-known-hosts.js";
 import { OfficeSshKey } from "./office-ssh-key.js";
@@ -25,6 +25,8 @@ class TestUserToken extends GitHubUserToken {
   signedIn = true;
   read: () => Promise<string | undefined> = () => Promise.resolve(TOKEN);
   reads = 0;
+  /** Nothing listens on the discard port, so a test that reaches GitHub's list unasked fails. */
+  readonly apiUrl = "http://127.0.0.1:9";
 
   constructor(readonly webUrl: string) {
     super();
@@ -63,7 +65,7 @@ describe("OfficeIdentity, GitHub over https with Sign in with GitHub", { timeout
     helper = new GitCredentialHelper(identityFolder);
     identity = new OfficeIdentity(
       new OfficeSshKey(identityFolder),
-      new OfficeKnownHosts(identityFolder, new NoHostKeyScanner(), "http://127.0.0.1:9/meta"),
+      new OfficeKnownHosts(identityFolder, new NoHostKeyScanner(), userToken),
       new OfficeGitHome(identityFolder),
       helper,
       userToken,
@@ -127,6 +129,22 @@ describe("OfficeIdentity, GitHub over https with Sign in with GitHub", { timeout
     expect(seen).toContain("GIT_CONFIG_PARAMETERS");
     expect(seen).not.toContain(TOKEN);
     expect(JSON.stringify(pushed.identity)).not.toContain(TOKEN);
+  });
+
+  it("decides that a remote is on GitHub by GitHub's website, as the token is given", async () => {
+    const elsewhere = officeIdentityForTests(
+      join(folder, "office"),
+      new TestUserToken("https://github.example.test"),
+    );
+
+    expect(await elsewhere.needsOf("https://github.example.test/octo/repo.git")).toEqual({
+      kind: "github-https",
+      missing: [],
+    });
+    expect(await elsewhere.needsOf("https://github.com/octo/repo.git")).toEqual({
+      kind: "anonymous-https",
+      host: "github.com",
+    });
   });
 
   it("is reached anonymously while signed out, without reading the token", async () => {

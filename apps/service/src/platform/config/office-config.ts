@@ -1,5 +1,6 @@
 import { isAbsolute } from "node:path";
 import { z } from "zod";
+import { GITHUB_SITE, type GitHubSite } from "../git-identity/github-site.js";
 import { InvalidOfficeConfigError, type ConfigProblem } from "./invalid-office-config-error.js";
 
 export interface OfficeConfig {
@@ -8,6 +9,8 @@ export interface OfficeConfig {
   readonly port: number;
   readonly databaseUrl: string;
   readonly officeDataDirectory: string;
+  /** Where GitHub is: GitHub's own, or a stand-in such as the end-to-end tests' fake. */
+  readonly gitHub: GitHubSite;
 }
 
 /** Values that depend on the operating system, supplied by the platform layer. */
@@ -20,6 +23,7 @@ export type EnvironmentVariables = Readonly<Record<string, string | undefined>>;
 const REQUIRED = "is required";
 const PORT_RANGE = "must be a port number from 1 to 65535";
 const HOST_ADDRESS = "must be an IP address, such as 127.0.0.1 or 0.0.0.0";
+const WEB_ADDRESS = "must be an http:// or https:// URL";
 // Loopback unless the user opens The Office to the LAN (spec §5.1).
 const DEFAULT_HOST = "127.0.0.1";
 
@@ -53,6 +57,14 @@ const environmentSchema = z.object({
     blankAsUnset,
     z.string().refine(isAbsolute, "must be an absolute path").optional(),
   ),
+  OFFICE_GITHUB_URL: z.preprocess(
+    blankAsUnset,
+    z.url({ protocol: /^https?$/, error: WEB_ADDRESS }).default(GITHUB_SITE.webUrl),
+  ),
+  OFFICE_GITHUB_API_URL: z.preprocess(
+    blankAsUnset,
+    z.url({ protocol: /^https?$/, error: WEB_ADDRESS }).default(GITHUB_SITE.apiUrl),
+  ),
 });
 
 /**
@@ -72,6 +84,7 @@ export function readOfficeConfig(
     port: result.data.OFFICE_PORT,
     databaseUrl: result.data.DATABASE_URL,
     officeDataDirectory: result.data.OFFICE_DATA_DIR ?? defaults.officeDataDirectory(),
+    gitHub: { webUrl: result.data.OFFICE_GITHUB_URL, apiUrl: result.data.OFFICE_GITHUB_API_URL },
   };
 }
 

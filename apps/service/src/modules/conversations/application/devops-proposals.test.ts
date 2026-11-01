@@ -52,6 +52,7 @@ import { ThreadRunner } from "./thread-runner.js";
 import { ThreadService } from "./thread-service.js";
 import { sessionMemoryProvider } from "./session-memory.fixtures.js";
 import { aPlannerCard } from "./session-role.fixtures.js";
+import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 const run = promisify(execFile);
 
@@ -99,6 +100,7 @@ beforeEach(async () => {
           port: 0,
           databaseUrl: testDatabaseUrl(),
           officeDataDirectory: join(folder, "office-data"),
+          gitHub: GITHUB_SITE,
         },
         { directory: folder, source: "built" },
       ),

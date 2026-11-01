@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
+import { GITHUB_ED25519 } from "../../../../platform/git-identity/fake-github-meta.fixtures.js";
 import type { GitHubUrls } from "../../application/github-urls.js";
 import { FakeInstallations, type ApiAnswer } from "./fake-github-installations.fixtures.js";
 import { FakePullRequests } from "./fake-github-pulls.fixtures.js";
@@ -65,8 +66,8 @@ interface SignInCode {
  * GitHub on 127.0.0.1, as far as The Office uses it: the page that registers an App from a
  * manifest and the REST API converting its code; the authorize page and token endpoint of an
  * App's web sign-in and the refresh of its tokens; `GET /user`, and the installations and their
- * repositories a user token reaches, and the pull requests of those repositories. One server is
- * both bases of `urls`. Behaves as
+ * repositories a user token reaches, the pull requests of those repositories, and the ssh host
+ * keys `GET /meta` publishes (GitHub's own). One server is both bases of `urls`. Behaves as
  * docs.github.com describes; where the docs are silent, as noted at each place.
  */
 export class FakeGitHub {
@@ -98,9 +99,13 @@ export class FakeGitHub {
     this.pullRequests = new FakePullRequests(urls.web, this.installations);
   }
 
-  static async start(): Promise<FakeGitHub> {
+  /** Started on `port`, or on any free one. */
+  static async start(port = 0): Promise<FakeGitHub> {
     const server = createServer();
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(port, "127.0.0.1", resolve);
+    });
     const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
     const fake = new FakeGitHub(server, { web: origin, api: `${origin}${API_PATH}` });
     server.on("request", (request, response) => void fake.handle(request, response));
@@ -170,6 +175,8 @@ export class FakeGitHub {
       const parameters = new URLSearchParams(url.searchParams);
       for (const [key, value] of new URLSearchParams(body)) parameters.append(key, value);
       this.exchange(parameters, request.headers.accept, response);
+    } else if (request.method === "GET" && url.pathname === `${API_PATH}/meta`) {
+      sendJson(response, 200, { ssh_keys: [GITHUB_ED25519] });
     } else if (request.method === "GET" && url.pathname === `${API_PATH}/user`) {
       this.user(request.headers.authorization, response);
     } else if (

@@ -14,6 +14,7 @@ import { GitHubAccess } from "./modules/github/index.js";
 import { StageDecisions, TaskCommands, TaskGit, TaskUsage } from "./modules/pipelines/index.js";
 import { TaskWorktrees } from "./modules/projects/index.js";
 import { OfficeIdentity } from "./platform/git-identity/office-identity.js";
+import { GITHUB_SITE } from "./platform/git-identity/github-site.js";
 
 // Compiled, not started: the composition root's bindings resolve without the engine or listening.
 let folder: string;
@@ -24,7 +25,13 @@ beforeAll(async () => {
   const compiled = await Test.createTestingModule({
     imports: [
       AppModule.register(
-        { host: "127.0.0.1", port: 0, databaseUrl: testDatabaseUrl(), officeDataDirectory: folder },
+        {
+          host: "127.0.0.1",
+          port: 0,
+          databaseUrl: testDatabaseUrl(),
+          officeDataDirectory: folder,
+          gitHub: GITHUB_SITE,
+        },
         { directory: folder, source: "built" },
       ),
     ],

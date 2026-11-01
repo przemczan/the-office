@@ -42,6 +42,7 @@ import type { Stage } from "../domain/stage.js";
 import { makeTaskStages } from "../domain/task-stages.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { StageInterpreter } from "./stage-interpreter.js";
+import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
  * Task 26's check on the Test Project (docs/tasks/26-parallel-work-and-start-queue.md, step 8): two
@@ -138,6 +139,7 @@ describe.runIf(MODE === "live" && PUBLISH_CHECK === "merge" && TEST_PROJECT !== 
                   port: 0,
                   databaseUrl: testDatabaseUrl(),
                   officeDataDirectory: officeData,
+                  gitHub: GITHUB_SITE,
                 },
                 { directory: WEB_APP, source: "built" },
               ),

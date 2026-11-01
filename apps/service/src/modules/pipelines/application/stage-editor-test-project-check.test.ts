@@ -31,6 +31,7 @@ import { testDatabaseUrl } from "../../../../test/test-database.js";
 import { AppModule } from "../../../app.module.js";
 import { EngineSessions } from "../../engine/index.js";
 import { StageInterpreter } from "./stage-interpreter.js";
+import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
  * Task 15's check on the Test Project (docs/tasks/15-stage-editor.md, step 4): a Ready Task on
@@ -106,6 +107,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                   port: 0,
                   databaseUrl: testDatabaseUrl(),
                   officeDataDirectory: officeData,
+                  gitHub: GITHUB_SITE,
                 },
                 { directory: WEB_APP, source: "built" },
               ),

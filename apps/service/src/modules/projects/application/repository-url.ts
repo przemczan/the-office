@@ -1,6 +1,5 @@
 import { join } from "node:path";
 import { parseGitRemote } from "../../../platform/git-identity/git-remote.js";
-import { GITHUB_HOST } from "../../../platform/git-identity/office-known-hosts.js";
 
 /**
  * A Repository URL (spec §5.5 Defaults): an https, `ssh://` or `user@host:path` address of a
@@ -13,7 +12,6 @@ export interface RepositoryUrl {
   readonly host: string;
   /** The repository's path on the host, its owner's name or names first, without `.git`. */
   readonly path: readonly string[];
-  readonly onGitHub: boolean;
 }
 
 export type RepositoryUrlReading =
@@ -73,7 +71,7 @@ function hostAndPath(url: string): RepositoryUrlReading {
   if (!HOST.test(host)) return refused(`The Office can't keep a clone of a repository on ${host}.`);
   const path = pathSegments(parts.path);
   if (typeof path === "string") return refused(path);
-  return { kind: "url", repositoryUrl: { url, host, path, onGitHub: host === GITHUB_HOST } };
+  return { kind: "url", repositoryUrl: { url, host, path } };
 }
 
 function fromUrl(url: string): { host: string; path: string } | string {

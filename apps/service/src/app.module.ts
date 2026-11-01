@@ -42,6 +42,7 @@ import type { OfficeConfig } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
 import { EventsModule } from "./platform/events/events.module.js";
 import { GitHubUserTokenModule } from "./platform/git-identity/git-identity.module.js";
+import { OfficeIdentityHttpModule } from "./platform/git-identity/office-identity-http.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
 import { OfficeDataModule } from "./platform/office-data/office-data.module.js";
 import { TelemetryModule } from "./platform/telemetry/telemetry.module.js";
@@ -52,7 +53,7 @@ import { EventStreamModule } from "./platform/websocket/event-stream.module.js";
 export class AppModule {
   static register(config: OfficeConfig, webApp: WebAppOptions): DynamicModule {
     // One instance, so every token read goes through the same sign-in changes and refreshes once.
-    const github = GitHubModule.register();
+    const github = GitHubModule.register({ web: config.gitHub.webUrl, api: config.gitHub.apiUrl });
     // One instance, so every git change on a repository goes through the same locks.
     const projects = ProjectsModule.register({
       imports: [PipelineLibraryModule, github],
@@ -107,6 +108,7 @@ export class AppModule {
         HealthModule,
         McpServersModule,
         OfficeDataModule.forRoot(config.officeDataDirectory),
+        OfficeIdentityHttpModule,
         NotificationsModule.register({
           imports: [work, conversations, pipelines, PeopleModule, EngineModule],
           officeTasks: TaskService,

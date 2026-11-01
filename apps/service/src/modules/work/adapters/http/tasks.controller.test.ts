@@ -66,6 +66,7 @@ import {
   webEventsOf,
   type WorkApplication,
 } from "../../work-application.fixtures.js";
+import { GITHUB_SITE } from "../../../../platform/git-identity/github-site.js";
 
 const run = promisify(execFile);
 
@@ -1409,6 +1410,7 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
           port: 0,
           databaseUrl: testDatabaseUrl(),
           officeDataDirectory: join(folder, "data"),
+          gitHub: GITHUB_SITE,
         },
         { directory: folder, source: "built" },
       ),

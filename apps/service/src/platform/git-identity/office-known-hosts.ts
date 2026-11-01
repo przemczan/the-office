@@ -1,23 +1,23 @@
 import { randomUUID } from "node:crypto";
 import { readFile, rename, writeFile } from "node:fs/promises";
-import { Inject, Injectable } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { z } from "zod";
 import { fetchFailure } from "../http/fetch-failure.js";
 import { KeyedLocks } from "../locks/keyed-locks.js";
 import { SSH_PORT } from "./git-remote.js";
+import { GitHubSite, gitHubMetaUrlOf, gitHubSshHostOf } from "./github-site.js";
 import { HostKeyScanner } from "./host-key-scanner.js";
 import {
   hostKeyOf,
   knownHostName,
   knownHostsLine,
+  trustedHostKeys,
   trustedHostNames,
   type HostKey,
+  type SshHost,
+  type TrustedHost,
 } from "./host-keys.js";
 import { IdentityFolder } from "./identity-folder.js";
-
-/** Where GitHub publishes its ssh host keys: https://docs.github.com/rest/meta/meta */
-export const GITHUB_META_URL = Symbol("GITHUB_META_URL");
-export const GITHUB_HOST = "github.com";
 
 const META_TIMEOUT_MS = 30_000;
 const metaSchema = z.object({ ssh_keys: z.array(z.string()).min(1) });
@@ -41,25 +41,57 @@ export class HostKeyRefused extends Error {
 @Injectable()
 export class OfficeKnownHosts {
   readonly path: string;
+  /** The host GitHub's ssh remotes name, whose keys come from GitHub's published list. */
+  readonly gitHubHost: string;
+  private readonly gitHubMetaUrl: string;
   private readonly writes = new KeyedLocks();
+  /**
+   * Hosts an Office git command was refused for, by their known hosts name, until the user
+   * confirms one. Kept in memory: the next command refused after a restart lists its host again.
+   */
+  private readonly waitingHosts = new Map<string, SshHost>();
 
   constructor(
     private readonly folder: IdentityFolder,
     private readonly scanner: HostKeyScanner,
-    @Inject(GITHUB_META_URL) private readonly gitHubMetaUrl: string,
+    gitHub: GitHubSite,
   ) {
     this.path = folder.file("known_hosts");
+    this.gitHubHost = gitHubSshHostOf(gitHub);
+    this.gitHubMetaUrl = gitHubMetaUrlOf(gitHub);
+  }
+
+  /** Whether `host` is GitHub's, trusted from GitHub's published list when first needed. */
+  isGitHub(host: string, port: number): boolean {
+    return host === this.gitHubHost && port === SSH_PORT;
   }
 
   async isTrusted(host: string, port: number): Promise<boolean> {
     return trustedHostNames(await this.read()).has(knownHostName(host, port));
   }
 
+  /** The hosts trusted now, each with its keys, GitHub's among them once it was first reached. */
+  async trusted(): Promise<readonly TrustedHost[]> {
+    return trustedHostKeys(await this.read());
+  }
+
+  /** The hosts refused while their fingerprint waits for the user's confirmation, oldest first. */
+  async waiting(): Promise<readonly SshHost[]> {
+    const trusted = trustedHostNames(await this.read());
+    return [...this.waitingHosts].filter(([name]) => !trusted.has(name)).map(([, host]) => host);
+  }
+
+  /** Lists `host` as waiting for its fingerprint to be confirmed, unless it is trusted or GitHub's. */
+  async awaitConfirmation(host: string, port: number): Promise<void> {
+    if (this.isGitHub(host, port) || (await this.isTrusted(host, port))) return;
+    this.waitingHosts.set(knownHostName(host, port), { host, port });
+  }
+
   /** Trusts GitHub's published keys, read from GitHub the first time only. */
   async trustGitHub(): Promise<void> {
-    if (await this.isTrusted(GITHUB_HOST, SSH_PORT)) return;
+    if (await this.isTrusted(this.gitHubHost, SSH_PORT)) return;
     const keys = await this.gitHubKeys();
-    await this.add(GITHUB_HOST, SSH_PORT, keys);
+    await this.add(this.gitHubHost, SSH_PORT, keys);
   }
 
   /** The keys the host presents now, for the user to compare their fingerprints with the host's. */
@@ -77,6 +109,7 @@ export class OfficeKnownHosts {
     );
     if (confirmed.length === 0) throw new HostKeyRefused(knownHostName(host, port), fingerprint);
     await this.add(host, port, confirmed);
+    this.waitingHosts.delete(knownHostName(host, port));
   }
 
   private async gitHubKeys(): Promise<HostKey[]> {

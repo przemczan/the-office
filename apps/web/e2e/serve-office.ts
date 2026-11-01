@@ -1,11 +1,12 @@
 // Playwright's web server: the built service, serving the built web app, on a database of its own
 // that is recreated for every run (the service migrates it as it starts), and on a scripted engine
-// replaying sessions.jsonl in order: only people.e2e.ts opens sessions. Run on Node type
-// stripping, from apps/web.
+// replaying sessions.jsonl in order: only people.e2e.ts opens sessions, and with GitHub on the
+// fake GitHub server. Run on Node type stripping, from apps/web.
 import { spawn } from "node:child_process";
 import { mkdirSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Client } from "pg";
+import { fakeGitHubVariables, startFakeGitHub } from "./fake-github.ts";
 import { E2E_GIT_HOST_FOLDER, gitHostVariables } from "./git-host.ts";
 import { E2E_OFFICE_DATA } from "./office-data.ts";
 import {
@@ -26,11 +27,13 @@ rmSync(officeData, { recursive: true, force: true });
 mkdirSync(officeData, { recursive: true });
 rmSync(E2E_GIT_HOST_FOLDER, { recursive: true, force: true });
 mkdirSync(E2E_GIT_HOST_FOLDER, { recursive: true });
+const fakeGitHub = await startFakeGitHub();
 const service = spawn(process.execPath, ["--enable-source-maps", SERVICE_MAIN], {
   stdio: "inherit",
   env: {
     ...E2E_ENVIRONMENT,
     ...gitHostVariables(),
+    ...fakeGitHubVariables(),
     DATABASE_URL: E2E_DATABASE_URL,
     OFFICE_PORT: required("OFFICE_PORT"),
     OFFICE_DATA_DIR: officeData,
@@ -38,6 +41,7 @@ const service = spawn(process.execPath, ["--enable-source-maps", SERVICE_MAIN], 
   },
 });
 service.on("exit", (code) => {
+  fakeGitHub.kill();
   rmSync(officeData, { recursive: true, force: true });
   rmSync(E2E_GIT_HOST_FOLDER, { recursive: true, force: true });
   process.exit(code ?? 1);

@@ -50,9 +50,11 @@ export class ProjectRemotes {
    */
   async whyUnreachable(url: string): Promise<string | undefined> {
     const needs = await this.identity.needsOf(await this.git.reachedUrlOf(url));
-    return needs.kind === "ssh" && needs.missing.length > 0
-      ? sshFailureReason(needs.host, needs.missing)
-      : undefined;
+    if (needs.kind !== "ssh" || needs.missing.length === 0) return undefined;
+    if (needs.missing.includes("host-key")) {
+      await this.identity.awaitHostKeyConfirmation(needs.host, needs.port);
+    }
+    return sshFailureReason(needs.host, needs.missing);
   }
 }
 

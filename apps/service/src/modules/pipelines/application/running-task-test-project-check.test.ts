@@ -38,6 +38,7 @@ import { makeTaskStages } from "../domain/task-stages.js";
 import { StageThreads } from "../ports/stage-threads.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { StageInterpreter } from "./stage-interpreter.js";
+import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
  * Task 13's check on the Test Project (docs/tasks/13-running-task.md): a Task on Quick fix without
@@ -121,6 +122,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                   port: 0,
                   databaseUrl: testDatabaseUrl(),
                   officeDataDirectory: officeData,
+                  gitHub: GITHUB_SITE,
                 },
                 { directory: WEB_APP, source: "built" },
               ),

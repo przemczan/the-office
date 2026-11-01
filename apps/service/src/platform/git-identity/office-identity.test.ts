@@ -94,7 +94,7 @@ describe("OfficeIdentity", { timeout: 30_000 }, () => {
     meta = await startFakeGitHubMeta();
     const folder = new IdentityFolder(new OfficeDataDirectory(officeData));
     sshKey = new OfficeSshKey(folder);
-    knownHosts = new OfficeKnownHosts(folder, new NoHostKeyScanner(), meta.url);
+    knownHosts = new OfficeKnownHosts(folder, new NoHostKeyScanner(), meta.site);
     identity = new OfficeIdentity(
       sshKey,
       knownHosts,
@@ -203,6 +203,17 @@ describe("OfficeIdentity", { timeout: 30_000 }, () => {
 
     await access(sshKey.privateKeyPath);
     expect(await knownHosts.isTrusted("github.com", 22)).toBe(true);
+  });
+
+  it("lists another ssh host as waiting for its fingerprint once a command reaches it", async () => {
+    const remote = "ssh://git@git.example:2222/octo/repo.git";
+    await identity.needsOf(remote);
+    expect(await knownHosts.waiting()).toEqual([]);
+
+    await identity.forGitCommand(remote, USER_ENVIRONMENT);
+    await identity.forGitCommand("git@github.com:octo/repo.git", USER_ENVIRONMENT);
+
+    expect(await knownHosts.waiting()).toEqual([{ host: "git.example", port: 2222 }]);
   });
 
   it("runs ssh with the Office ssh key alone and The Office's own known hosts", async () => {

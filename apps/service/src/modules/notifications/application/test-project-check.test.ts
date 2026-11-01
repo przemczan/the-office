@@ -34,6 +34,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { NotificationRaised, NotificationsCleared } from "../domain/notification-events.js";
 import type { Notification } from "../domain/notification.js";
 import { NowChanged } from "../domain/now-events.js";
+import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
  * Task 16's check on the Test Project (docs/tasks/16-now-notifications.md, step 6): a day's loop
@@ -107,6 +108,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                   port: 0,
                   databaseUrl: testDatabaseUrl(),
                   officeDataDirectory: officeData,
+                  gitHub: GITHUB_SITE,
                 },
                 { directory: WEB_APP, source: "built" },
               ),

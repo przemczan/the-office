@@ -1,5 +1,6 @@
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { GITHUB_SITE, type GitHubSite } from "./github-site.js";
 
 /** GitHub's own ed25519 host key, as its meta API publishes it. */
 export const GITHUB_ED25519 =
@@ -7,7 +8,8 @@ export const GITHUB_ED25519 =
 
 /** A stand-in for GitHub's meta API, which answers `body` and counts the requests. */
 export interface FakeGitHubMeta {
-  readonly url: string;
+  /** GitHub's own website, with this server as its API. */
+  readonly site: GitHubSite;
   body: unknown;
   readonly requests: number;
   close(): Promise<void>;
@@ -16,7 +18,7 @@ export interface FakeGitHubMeta {
 export async function startFakeGitHubMeta(): Promise<FakeGitHubMeta> {
   let requests = 0;
   const fake = {
-    url: "",
+    site: GITHUB_SITE,
     body: { ssh_keys: [GITHUB_ED25519], ssh_key_fingerprints: {} } as unknown,
     get requests() {
       return requests;
@@ -29,6 +31,9 @@ export async function startFakeGitHubMeta(): Promise<FakeGitHubMeta> {
     response.end(JSON.stringify(fake.body));
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  fake.url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/meta`;
+  fake.site = {
+    ...GITHUB_SITE,
+    apiUrl: `http://127.0.0.1:${(server.address() as AddressInfo).port}`,
+  };
   return fake;
 }

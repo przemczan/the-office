@@ -1,11 +1,12 @@
 import { type DynamicModule, Module, type ModuleMetadata, type Type } from "@nestjs/common";
 import { GitCredentialHelper } from "./git-credential-helper.js";
+import { GITHUB_SITE, GitHubSite } from "./github-site.js";
 import { GitHubUserToken } from "./github-user-token.js";
 import { HostKeyScanner } from "./host-key-scanner.js";
 import { IdentityFolder } from "./identity-folder.js";
 import { OfficeGitHome } from "./office-git-home.js";
 import { OfficeIdentity } from "./office-identity.js";
-import { GITHUB_META_URL, OfficeKnownHosts } from "./office-known-hosts.js";
+import { OfficeKnownHosts } from "./office-known-hosts.js";
 import { OfficeSshKey } from "./office-ssh-key.js";
 import { SshKeyscan } from "./ssh-keyscan.js";
 
@@ -19,7 +20,12 @@ import { SshKeyscan } from "./ssh-keyscan.js";
     GitCredentialHelper,
     OfficeIdentity,
     { provide: HostKeyScanner, useClass: SshKeyscan },
-    { provide: GITHUB_META_URL, useValue: "https://api.github.com/meta" },
+    {
+      // Where the bound user token says GitHub is, so one value decides every GitHub remote.
+      provide: GitHubSite,
+      useFactory: (gitHubUserToken?: GitHubUserToken): GitHubSite => gitHubUserToken ?? GITHUB_SITE,
+      inject: [{ token: GitHubUserToken, optional: true }],
+    },
   ],
   exports: [OfficeIdentity, OfficeSshKey, OfficeKnownHosts],
 })

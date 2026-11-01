@@ -31,6 +31,7 @@ import {
 import { startTestApplication } from "../../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../../test/test-database.js";
 import { AppModule } from "../../../app.module.js";
+import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
  * Task 35's check on the Test Project (docs/tasks/35-api-based-engine.md, step 9): an API endpoint
@@ -98,6 +99,7 @@ async function officeOnTheEndpoint(): Promise<Api> {
           port: 0,
           databaseUrl: testDatabaseUrl(),
           officeDataDirectory: officeData,
+          gitHub: GITHUB_SITE,
         },
         { directory: WEB_APP, source: "built" },
       ),

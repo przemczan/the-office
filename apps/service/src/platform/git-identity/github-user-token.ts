@@ -1,12 +1,12 @@
+import { GitHubSite } from "./github-site.js";
+
 /**
  * Sign in with GitHub's user token, for one git command that reaches GitHub over https (spec §5.5
- * Defaults, the Office identity). Bound to the github module's access in the composition root;
- * while nothing binds it, GitHub over https is reached anonymously, as any other https host.
+ * Defaults, the Office identity), and where that GitHub is. Bound to the github module's access in
+ * the composition root; while nothing binds it, GitHub is GitHub's own and its https remotes are
+ * reached anonymously, as any other https host's.
  */
-export abstract class GitHubUserToken {
-  /** GitHub's website, whose https remotes the token is for, such as `https://github.com`. */
-  abstract readonly webUrl: string;
-
+export abstract class GitHubUserToken extends GitHubSite {
   /** Whether the user is signed in, without reading or refreshing the token. */
   abstract isSignedIn(): Promise<boolean>;
 

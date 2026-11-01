@@ -43,7 +43,7 @@ describe("OfficeKnownHosts", () => {
     knownHosts = new OfficeKnownHosts(
       new IdentityFolder(new OfficeDataDirectory(officeData)),
       scanner,
-      meta.url,
+      meta.site,
     );
   });
 
@@ -87,6 +87,35 @@ describe("OfficeKnownHosts", () => {
       knownHosts.confirm("git.example.com", 2222, shown?.fingerprint ?? ""),
     ).rejects.toThrow(HostKeyRefused);
     expect(await knownHosts.isTrusted("git.example.com", 2222)).toBe(false);
+  });
+
+  it("lists the trusted hosts with their keys, and a waiting host until it is confirmed", async () => {
+    await knownHosts.awaitConfirmation("git.example.com", 2222);
+    await knownHosts.awaitConfirmation("github.com", 22);
+    expect(await knownHosts.waiting()).toEqual([{ host: "git.example.com", port: 2222 }]);
+
+    await knownHosts.confirm("git.example.com", 2222, key(OTHER_ED25519).fingerprint);
+    await knownHosts.trustGitHub();
+
+    expect(await knownHosts.waiting()).toEqual([]);
+    expect(await knownHosts.trusted()).toEqual([
+      { host: "git.example.com", port: 2222, keys: [key(OTHER_ED25519)] },
+      { host: "github.com", port: 22, keys: [key(GITHUB_ED25519)] },
+    ]);
+  });
+
+  it("trusts GitHub's keys for the host of the website it is given", async () => {
+    const elsewhere = new OfficeKnownHosts(
+      new IdentityFolder(new OfficeDataDirectory(officeData)),
+      scanner,
+      { ...meta.site, webUrl: "http://127.0.0.1:4391" },
+    );
+
+    await elsewhere.trustGitHub();
+
+    expect(elsewhere.isGitHub("127.0.0.1", 22)).toBe(true);
+    expect(elsewhere.isGitHub("github.com", 22)).toBe(false);
+    expect(await elsewhere.isTrusted("127.0.0.1", 22)).toBe(true);
   });
 
   it("names a host on another port as ssh does", async () => {

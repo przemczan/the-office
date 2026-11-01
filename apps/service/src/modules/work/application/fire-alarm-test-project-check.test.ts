@@ -34,6 +34,7 @@ import { testDatabaseUrl } from "../../../../test/test-database.js";
 import { AppModule } from "../../../app.module.js";
 import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
 import { FireAlarmRepositoryForTests } from "../ports/work-ports.fixtures.js";
+import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 
 /**
  * Task 27's check on the Test Project (docs/tasks/27-notifications-and-fire-alarm.md): a Task whose
@@ -97,6 +98,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                   port: 0,
                   databaseUrl: testDatabaseUrl(),
                   officeDataDirectory: officeData,
+                  gitHub: GITHUB_SITE,
                 },
                 { directory: WEB_APP, source: "built" },
               ),

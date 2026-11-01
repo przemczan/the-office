@@ -34,7 +34,42 @@ describe("readOfficeConfig", () => {
       platformDefaults(),
     );
 
-    expect(config).toEqual({ host: "127.0.0.1", port: 4310, databaseUrl, officeDataDirectory });
+    expect(config).toEqual({
+      host: "127.0.0.1",
+      port: 4310,
+      databaseUrl,
+      officeDataDirectory,
+      gitHub: { webUrl: "https://github.com", apiUrl: "https://api.github.com" },
+    });
+  });
+
+  it("reads where GitHub is, such as a fake GitHub server", () => {
+    const config = readOfficeConfig(
+      {
+        OFFICE_PORT: port,
+        DATABASE_URL: databaseUrl,
+        OFFICE_GITHUB_URL: "http://127.0.0.1:4391",
+        OFFICE_GITHUB_API_URL: "http://127.0.0.1:4391/api/v3",
+      },
+      platformDefaults(),
+    );
+
+    expect(config.gitHub).toEqual({
+      webUrl: "http://127.0.0.1:4391",
+      apiUrl: "http://127.0.0.1:4391/api/v3",
+    });
+  });
+
+  it("refuses a GitHub URL that is not http or https", () => {
+    const error = readProblems({
+      OFFICE_PORT: port,
+      DATABASE_URL: databaseUrl,
+      OFFICE_GITHUB_URL: "ssh://github.com",
+    });
+
+    expect(error.problems).toEqual([
+      { variable: "OFFICE_GITHUB_URL", problem: "must be an http:// or https:// URL" },
+    ]);
   });
 
   it.each([

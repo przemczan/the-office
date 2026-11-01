@@ -42,6 +42,11 @@ export class GitHubAccess {
     return this.urls.web;
   }
 
+  /** GitHub's REST API, which publishes GitHub's ssh host keys. */
+  get apiUrl(): string {
+    return this.urls.api;
+  }
+
   /** Whether the user is signed in, without reading or refreshing the token. */
   async isSignedIn(): Promise<boolean> {
     return (await this.signIns.read())?.status === "signed-in";
