@@ -26,6 +26,8 @@ export interface Project {
   readonly name: string;
   /** The repository's top-level folder on the workstation. */
   readonly path: string;
+  /** What the repository was cloned from into `path`; null for a Project added by its path. */
+  readonly repositoryUrl: string | null;
   /** What every Task branches from and publishes to. */
   readonly baseBranch: string;
   readonly mark: ProjectMark;
@@ -55,7 +57,10 @@ export type NewProject = Pick<
   | "installInputs"
   | "publishingMode"
   | "defaultPipeline"
->;
+> & {
+  /** Given only for a clone, whose folder `path` then is. */
+  readonly repositoryUrl?: string | undefined;
+};
 
 const NAME_LENGTH = 60;
 const MARK_LABEL = /^[\p{L}\p{N}]{1,3}$/u;
@@ -65,6 +70,7 @@ export function trimmedNewProject(project: NewProject): NewProject {
   return {
     name: project.name.trim(),
     path: project.path.trim(),
+    repositoryUrl: project.repositoryUrl?.trim(),
     baseBranch: project.baseBranch.trim(),
     mark: { label: project.mark.label.trim(), colour: project.mark.colour },
     commands: {

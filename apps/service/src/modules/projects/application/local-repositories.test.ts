@@ -14,10 +14,14 @@ import type { KnownPipelines } from "../ports/known-pipelines.js";
 import { LocalRepositories, MANIFEST_CHARACTERS } from "./local-repositories.js";
 import { ProjectChecks } from "./project-checks.js";
 import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
+import type { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 
 let repository: TemporaryRepository;
 const git = new CommandLineGit(new RepositoryLocks(), officeIdentityForTests());
-const localRepositories = new LocalRepositories(new ProjectChecks(git, {} as KnownPipelines), git);
+const localRepositories = new LocalRepositories(
+  new ProjectChecks(git, {} as KnownPipelines, {} as OfficeDataDirectory),
+  git,
+);
 
 beforeAll(async () => {
   repository = await createTemporaryRepository();

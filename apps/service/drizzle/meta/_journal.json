@@ -456,6 +456,13 @@
       "when": 1793480671820,
       "tag": "0064_mcp_tool_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1793526285417,
+      "tag": "0065_project_repository_url",
+      "breakpoints": true
     }
   ]
 }

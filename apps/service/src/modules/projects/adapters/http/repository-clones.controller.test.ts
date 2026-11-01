@@ -76,6 +76,8 @@ beforeAll(async () => {
   repository = await createTemporaryRepository();
   officeData = join(repository.folder, "office-data");
   gitIn(repository.folder, "init", "--quiet", "--bare", "empty.git");
+  gitIn(repository.folder, "clone", "--quiet", "--bare", repository.path, "shop.git");
+  gitIn(join(repository.folder, "shop.git"), "branch", "release", "main");
 });
 
 afterAll(async () => {
@@ -151,6 +153,20 @@ async function refusalOf(repositoryUrl: string): Promise<readonly string[]> {
 const clonePath = (...names: string[]) =>
   join(officeData, "repositories", "git.example.test", "acme", ...names);
 
+function aClonedProject(path: string, repositoryUrl: string, baseBranch: string): NewProject {
+  return {
+    name: `Cloned ${randomUUID().slice(0, 8)}`,
+    path,
+    repositoryUrl,
+    baseBranch,
+    mark: { label: "CL", colour: "teal" },
+    commands: { install: "npm ci", build: "npm run build", lint: "npm run lint", test: "npm test" },
+    installInputs: [],
+    publishingMode: "push-and-pull-request",
+    defaultPipeline: "full",
+  };
+}
+
 describe("POST /api/repositories/clones", REAL_GIT_TEST, () => {
   it("clones into the repositories folder, then tells the remote's branches", async () => {
     const clone = await cloned(`${HOST}origin`);
@@ -174,31 +190,52 @@ describe("POST /api/repositories/clones", REAL_GIT_TEST, () => {
     expect(new Set(webEvents.map((event) => event.cloneId))).toEqual(new Set([clone.id]));
   });
 
-  it("uses a clone already there, and refuses a repository that is a Project", async () => {
+  it("uses a clone already there, fetched from the URL given last, and refuses a repository that is a Project", async () => {
     const again = await cloned(`${HOST}Origin.git`);
     expect(again).toMatchObject({ state: "cloned", path: clonePath("origin") });
+    expect(gitIn(clonePath("origin"), "remote", "get-url", "origin")).toBe(`${HOST}Origin.git`);
 
-    const project: NewProject = {
-      name: `Cloned ${randomUUID().slice(0, 8)}`,
-      path: clonePath("origin"),
-      baseBranch: "main",
-      mark: { label: "CL", colour: "teal" },
-      commands: {
-        install: "npm ci",
-        build: "npm run build",
-        lint: "npm run lint",
-        test: "npm test",
-      },
-      installInputs: [],
-      publishingMode: "push-and-pull-request",
-      defaultPipeline: "full",
-    };
+    const project = aClonedProject(clonePath("origin"), `${HOST}Origin.git`, "main");
     const added = await send("POST", "/projects", project);
     expect(added.status).toBe(201);
-    projectSchema.parse(await added.json());
+    expect(projectSchema.parse(await added.json()).repositoryUrl).toBe(`${HOST}Origin.git`);
 
     expect(await refusalOf(`${HOST}origin`)).toEqual([
       `The repository is already the Project "${project.name}".`,
+    ]);
+  });
+
+  it("adds a clone with a base branch only its remote had, which then tracks the remote's", async () => {
+    const clone = await cloned(`${HOST}shop`);
+    expect(clone).toMatchObject({ state: "cloned", defaultBranch: "main" });
+    expect(gitIn(clone.path, "branch", "--list", "release")).toBe("");
+
+    const added = await send(
+      "POST",
+      "/projects",
+      aClonedProject(clone.path, `${HOST}shop`, "release"),
+    );
+
+    expect(added.status).toBe(201);
+    expect(projectSchema.parse(await added.json())).toMatchObject({
+      repositoryUrl: `${HOST}shop`,
+      baseBranch: "release",
+    });
+    expect(gitIn(clone.path, "rev-parse", "--abbrev-ref", "release@{upstream}")).toBe(
+      "origin/release",
+    );
+  });
+
+  it("refuses a Repository URL whose clone isn't the Project's path", async () => {
+    const response = await send(
+      "POST",
+      "/projects",
+      aClonedProject(repository.path, `${HOST}shop`, "main"),
+    );
+
+    expect(response.status).toBe(422);
+    expect(projectRefusalSchema.parse(await response.json()).reasons).toEqual([
+      `The clone of ${HOST}shop is at ${clonePath("shop")}, not ${repository.path}.`,
     ]);
   });
 

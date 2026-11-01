@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto";
 import { rmdir } from "node:fs/promises";
-import { join } from "node:path";
 import { Injectable, Logger, type BeforeApplicationShutdown } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
@@ -17,10 +16,10 @@ import {
   RepositoryCloneProgressed,
   RepositoryCloneStarted,
 } from "../domain/repository-clone-events.js";
-import { Git, GitCommandFailed } from "../ports/git.js";
+import { CLONE_REMOTE, Git, GitCommandFailed } from "../ports/git.js";
 import { ProjectRemotes } from "./project-remotes.js";
 import { ProjectService } from "./project-service.js";
-import { cloneFolderOf, readRepositoryUrl, type RepositoryUrl } from "./repository-url.js";
+import { clonePathOf, readRepositoryUrl, type RepositoryUrl } from "./repository-url.js";
 
 /** A clone under way: what it has done so far, and how to stop it. */
 interface RunningClone {
@@ -58,7 +57,7 @@ export class RepositoryClones implements BeforeApplicationShutdown {
     const reading = readRepositoryUrl(url);
     if (reading.kind === "refused") throw new ProjectRefused([reading.problem]);
     const { repositoryUrl } = reading;
-    const path = join(this.officeData.folder("repositories"), ...cloneFolderOf(repositoryUrl));
+    const path = clonePathOf(this.officeData.folder("repositories"), repositoryUrl);
     const problems = await this.problems(repositoryUrl, path);
     // Nothing is awaited from here until the clone is held, so two starts can't both pass.
     if (this.isCloning(path)) problems.push("The repository is being cloned already.");
@@ -138,7 +137,11 @@ export class RepositoryClones implements BeforeApplicationShutdown {
       };
     }
     const found = await this.git.inspect(path);
-    if (found.kind !== "repository") {
+    if (found.kind === "repository") {
+      // Another spelling of the URL shares the folder, maybe over the other transport: the clone
+      // is fetched from the URL given last, which is the one its Project keeps.
+      await this.git.setFetchUrl(path, CLONE_REMOTE, url);
+    } else {
       if (found.kind !== "missing") await this.removeEmptyFolder(path);
       await this.git.clone({
         url,

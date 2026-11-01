@@ -29,6 +29,7 @@ import {
   proposedCommandsProblems,
   type ProjectCommandFields,
 } from "../domain/proposed-commands.js";
+import { CLONE_REMOTE, Git } from "../ports/git.js";
 import { ProjectRepository } from "../ports/project-repository.js";
 import { ProjectChecks } from "./project-checks.js";
 
@@ -41,6 +42,7 @@ export class ProjectService {
   constructor(
     private readonly repository: ProjectRepository,
     private readonly checks: ProjectChecks,
+    private readonly git: Git,
     private readonly events: EventBus,
   ) {}
 
@@ -48,6 +50,7 @@ export class ProjectService {
   async add(given: NewProject): Promise<Project> {
     const newProject = withResolvedPath(trimmedNewProject(given));
     await this.checks.checkNewProject(newProject);
+    await this.trackBaseBranchOfClone(newProject);
     const takenIds = new Set((await this.repository.list()).map((project) => project.id));
     const { project, event } = addProject(
       projectIdFor(newProject.name, takenIds),
@@ -57,6 +60,19 @@ export class ProjectService {
     await this.repository.add(project);
     await this.events.publish(event);
     return project;
+  }
+
+  /**
+   * A clone has only its default branch locally; another base branch is made from the remote's,
+   * tracking it, so worktrees start from its upstream as from any base branch (spec §5.5 Defaults).
+   */
+  private async trackBaseBranchOfClone({
+    path,
+    baseBranch,
+    repositoryUrl,
+  }: NewProject): Promise<void> {
+    if (repositoryUrl === undefined || (await this.git.hasBranch(path, baseBranch))) return;
+    await this.git.trackRemoteBranch(path, { remote: CLONE_REMOTE, branch: baseBranch });
   }
 
   /** Every reason `add` would refuse the Project now, as a Proposal of it is judged. */

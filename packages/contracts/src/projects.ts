@@ -33,6 +33,8 @@ const projectCommandsSchema = z.object({
 export const newProjectSchema = z.object({
   name: z.string(),
   path: z.string(),
+  /** Given only for a clone (POST /repositories/clones), whose folder `path` must then be. */
+  repositoryUrl: z.string().optional(),
   baseBranch: z.string(),
   mark: projectMarkSchema,
   commands: projectCommandsSchema,
@@ -79,6 +81,8 @@ export type ProjectRemoteNeeds = z.infer<typeof projectRemoteNeedsSchema>;
 
 export const projectSchema = newProjectSchema.extend({
   id: z.string().min(1),
+  /** What the repository was cloned from; null for a Project added by its path. */
+  repositoryUrl: z.string().nullable(),
   environment: projectEnvironmentSchema,
   useProjectSkills: z.boolean(),
   addedAt: z.iso.datetime(),

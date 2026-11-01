@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { parseGitRemote } from "../../../platform/git-identity/git-remote.js";
 import { GITHUB_HOST } from "../../../platform/git-identity/office-known-hosts.js";
 
@@ -58,6 +59,11 @@ export function readRepositoryUrl(given: string): RepositoryUrlReading {
 export function cloneFolderOf(repositoryUrl: RepositoryUrl): readonly string[] {
   // Lower case, so two spellings of one GitHub repository share a folder on every system.
   return [repositoryUrl.host, ...repositoryUrl.path.map((segment) => segment.toLowerCase())];
+}
+
+/** The full path of the repository's clone, given The Office's repositories folder. */
+export function clonePathOf(repositoriesFolder: string, repositoryUrl: RepositoryUrl): string {
+  return join(repositoriesFolder, ...cloneFolderOf(repositoryUrl));
 }
 
 function hostAndPath(url: string): RepositoryUrlReading {

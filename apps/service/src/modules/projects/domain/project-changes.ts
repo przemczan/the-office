@@ -90,6 +90,7 @@ export function addProject(
   const project: Project = {
     id,
     ...newProject,
+    repositoryUrl: newProject.repositoryUrl ?? null,
     environment: UNCHANGED_ENVIRONMENT,
     useProjectSkills: true,
     addedAt,

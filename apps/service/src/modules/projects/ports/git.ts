@@ -89,6 +89,9 @@ export interface RemoteBranches {
   readonly branches: readonly string[];
 }
 
+/** The remote a clone names its Repository URL by. */
+export const CLONE_REMOTE = "origin";
+
 /** A clone of a repository by its URL, into a folder that doesn't exist yet. */
 export interface CloneRequest {
   readonly url: string;
@@ -131,6 +134,15 @@ export abstract class Git {
 
   /** Whether the repository at `repositoryPath` has a local branch named `branch`. */
   abstract hasBranch(repositoryPath: string, branch: string): Promise<boolean>;
+
+  /** Whether the repository has the remote-tracking branch `upstream` (`refs/remotes/…`). */
+  abstract hasRemoteBranch(repositoryPath: string, upstream: Upstream): Promise<boolean>;
+
+  /** Makes the local branch `upstream.branch` at the remote-tracking branch, tracking it. */
+  abstract trackRemoteBranch(repositoryPath: string, upstream: Upstream): Promise<void>;
+
+  /** Points `remote` at `url` for fetching. */
+  abstract setFetchUrl(repositoryPath: string, remote: string, url: string): Promise<void>;
 
   /** The repository's local branches by name, none for a repository without commits. */
   abstract localBranches(repositoryPath: string): Promise<readonly LocalBranch[]>;

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import type { CloneProgress } from "../../domain/repository-clone.js";
-import type { CloneRequest, RemoteBranches } from "../../ports/git.js";
+import { CLONE_REMOTE, type CloneRequest, type RemoteBranches } from "../../ports/git.js";
 import type { GitProcess } from "./git-process.js";
 
 /** Reading a remote's branches is one round trip, however large the repository. */
@@ -47,7 +47,8 @@ export async function cloneRepository(git: GitProcess, request: CloneRequest): P
   try {
     await git.output({
       folder: parent,
-      gitArguments: ["clone", "--progress", "--", request.url, cloning],
+      // Named here, as a user's clone.defaultRemoteName would name it otherwise.
+      gitArguments: ["clone", "--progress", "--origin", CLONE_REMOTE, "--", request.url, cloning],
       remote: request.url,
       timeoutMs: 0,
       signal: request.signal,

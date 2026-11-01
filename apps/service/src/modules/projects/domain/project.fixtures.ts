@@ -19,6 +19,7 @@ export function aProject(fields: Partial<Project> = {}): Project {
   return {
     id: "admin-panel",
     ...aNewProject(),
+    repositoryUrl: null,
     environment: UNCHANGED_ENVIRONMENT,
     useProjectSkills: true,
     addedAt: new Date("2026-10-25T09:00:00.000Z"),

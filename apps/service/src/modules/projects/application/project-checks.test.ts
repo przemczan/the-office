@@ -1,7 +1,9 @@
+import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
+import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { aNewProject } from "../domain/project.fixtures.js";
 import { ProjectRefused } from "../domain/project-refused.js";
-import { Git, type FolderInspection } from "../ports/git.js";
+import { Git, type FolderInspection, type Upstream } from "../ports/git.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
 import { ProjectChecks } from "./project-checks.js";
 
@@ -11,6 +13,7 @@ class FakeGit extends Git {
   constructor(
     private readonly inspection: FolderInspection = { kind: "repository" },
     private readonly branches: readonly string[] = ["main"],
+    private readonly remoteTrackingBranches: readonly string[] = [],
   ) {
     super();
   }
@@ -23,9 +26,15 @@ class FakeGit extends Git {
     return this.branches.includes(branch);
   }
 
+  async hasRemoteBranch(_repositoryPath: string, upstream: Upstream): Promise<boolean> {
+    return this.remoteTrackingBranches.includes(`${upstream.remote}/${upstream.branch}`);
+  }
+
   // The checks only ask what a folder is and which branches it has.
   remoteBranches = notUsed;
   clone = notUsed;
+  trackRemoteBranch = notUsed;
+  setFetchUrl = notUsed;
   localBranches = notUsed;
   upstreamOf = notUsed;
   commitOf = notUsed;
@@ -67,8 +76,11 @@ class FakePipelines extends KnownPipelines {
   }
 }
 
+const OFFICE_DATA = resolve("/office-data");
+const CLONE = join(OFFICE_DATA, "repositories", "github.com", "acme", "shop");
+
 function checksWith(git: Git = new FakeGit()): ProjectChecks {
-  return new ProjectChecks(git, new FakePipelines());
+  return new ProjectChecks(git, new FakePipelines(), new OfficeDataDirectory(OFFICE_DATA));
 }
 
 async function reasonsOf(checking: Promise<void>): Promise<readonly string[]> {
@@ -118,6 +130,40 @@ describe("ProjectChecks.checkNewProject", () => {
     expect(await reasonsOf(checks.checkNewProject(aNewProject({ baseBranch: " main " })))).toEqual([
       'The repository has no branch "main".',
     ]);
+  });
+
+  it("passes a clone's folder with its Repository URL, in any spelling of it", async () => {
+    for (const repositoryUrl of ["https://github.com/acme/shop", "git@github.com:Acme/Shop.git"]) {
+      await expect(
+        checksWith().checkNewProject(aNewProject({ path: CLONE, repositoryUrl })),
+      ).resolves.toBeUndefined();
+    }
+  });
+
+  it("refuses a Repository URL whose clone isn't the path, and one The Office doesn't clone", async () => {
+    const elsewhere = aNewProject({ repositoryUrl: "https://github.com/acme/shop" });
+    const notCloned = aNewProject({ path: CLONE, repositoryUrl: "git://github.com/acme/shop" });
+
+    expect(await reasonsOf(checksWith().checkNewProject(elsewhere))).toEqual([
+      `The clone of https://github.com/acme/shop is at ${CLONE}, not ${REPOSITORY}.`,
+    ]);
+    expect(await reasonsOf(checksWith().checkNewProject(notCloned))).toEqual([
+      "The Office clones over https and ssh only, not git.",
+    ]);
+  });
+
+  it("takes a clone's base branch that is only the remote's yet, and only a clone's", async () => {
+    const git = new FakeGit({ kind: "repository" }, ["main"], ["origin/release"]);
+    const clone = aNewProject({
+      path: CLONE,
+      repositoryUrl: "https://github.com/acme/shop",
+      baseBranch: "release",
+    });
+
+    await expect(checksWith(git).checkNewProject(clone)).resolves.toBeUndefined();
+    expect(
+      await reasonsOf(checksWith(git).checkNewProject({ ...clone, repositoryUrl: undefined })),
+    ).toEqual(['The repository has no branch "release".']);
   });
 
   it("gives the domain's reasons, git's and the Pipeline's together", async () => {

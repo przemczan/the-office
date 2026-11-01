@@ -1,10 +1,12 @@
-import { isAbsolute } from "node:path";
+import { isAbsolute, resolve } from "node:path";
 import { Injectable } from "@nestjs/common";
+import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { newProjectProblems, trimmedNewProject, type NewProject } from "../domain/project.js";
 import { environmentProblems, type ProjectEnvironment } from "../domain/project-environment.js";
 import { ProjectRefused } from "../domain/project-refused.js";
-import { Git, type FolderInspection } from "../ports/git.js";
+import { CLONE_REMOTE, Git, type FolderInspection } from "../ports/git.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
+import { clonePathOf, readRepositoryUrl } from "./repository-url.js";
 
 /** The rules of a Project that need git or the Pipelines, next to the domain's own. */
 @Injectable()
@@ -12,6 +14,7 @@ export class ProjectChecks {
   constructor(
     private readonly git: Git,
     private readonly pipelines: KnownPipelines,
+    private readonly officeData: OfficeDataDirectory,
   ) {}
 
   /** Refuses with every reason the Project can't be added, before anything is saved. */
@@ -25,7 +28,8 @@ export class ProjectChecks {
     const newProject = trimmedNewProject(given);
     return [
       ...newProjectProblems(newProject),
-      ...(await this.repositoryProblems(newProject.path, newProject.baseBranch)),
+      ...this.repositoryUrlProblems(newProject),
+      ...(await this.repositoryProblems(newProject)),
       ...(await this.pipelineProblems(newProject.defaultPipeline)),
     ];
   }
@@ -55,12 +59,35 @@ export class ProjectChecks {
     return inspection.kind === "repository" ? undefined : folderProblem(path, inspection);
   }
 
-  private async repositoryProblems(path: string, baseBranch: string): Promise<string[]> {
+  /** A Repository URL is given only with its clone's folder as the path. */
+  private repositoryUrlProblems({ repositoryUrl, path }: NewProject): string[] {
+    if (repositoryUrl === undefined) return [];
+    const reading = readRepositoryUrl(repositoryUrl);
+    if (reading.kind === "refused") return [reading.problem];
+    const clonePath = resolve(
+      clonePathOf(this.officeData.folder("repositories"), reading.repositoryUrl),
+    );
+    return path === clonePath
+      ? []
+      : [`The clone of ${repositoryUrl} is at ${clonePath}, not ${path}.`];
+  }
+
+  private async repositoryProblems(newProject: NewProject): Promise<string[]> {
+    const { path, baseBranch } = newProject;
     if (path === "") return [];
     const problem = await this.repositoryFolderProblem(path);
     if (problem !== undefined) return [problem];
-    if (baseBranch === "" || (await this.git.hasBranch(path, baseBranch))) return [];
+    if (baseBranch === "" || (await this.hasBaseBranch(newProject))) return [];
     return [`The repository has no branch "${baseBranch}".`];
+  }
+
+  /** A clone's base branch may still be only the remote's, made locally as the Project is added. */
+  private async hasBaseBranch({ path, baseBranch, repositoryUrl }: NewProject): Promise<boolean> {
+    if (await this.git.hasBranch(path, baseBranch)) return true;
+    return (
+      repositoryUrl !== undefined &&
+      this.git.hasRemoteBranch(path, { remote: CLONE_REMOTE, branch: baseBranch })
+    );
   }
 
   private async pipelineProblems(pipelineId: string): Promise<string[]> {

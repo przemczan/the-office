@@ -53,6 +53,7 @@ function toRow(project: Project): ProjectRow {
     id: project.id,
     name: project.name,
     path: project.path,
+    repositoryUrl: project.repositoryUrl,
     baseBranch: project.baseBranch,
     markLabel: project.mark.label,
     markColour: project.mark.colour,
@@ -74,6 +75,7 @@ function toProject(row: ProjectRow): Project {
     id: row.id,
     name: row.name,
     path: row.path,
+    repositoryUrl: row.repositoryUrl,
     baseBranch: row.baseBranch,
     mark: { label: row.markLabel, colour: row.markColour },
     commands: {

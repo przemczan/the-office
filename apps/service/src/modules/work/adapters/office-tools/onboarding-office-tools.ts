@@ -8,8 +8,11 @@ import type { OfficeToolResult } from "./work-tool-answers.js";
 const DRAFTED =
   "The Proposal is in this Thread as a card with the Project as you drafted it; nothing is added until the user applies it, which adds the Project and its Onboard Task, Ready on the Onboard Pipeline, for the user to start. Don't wait for it: tell the user what you propose and why, in a line or two.";
 
-/** What Devops drafts; the mark is The Office's, from the name, as the Add a Project form starts it. */
-const DRAFTED_PROJECT = newProjectSchema.omit({ mark: true });
+/**
+ * What Devops drafts: a repository by its folder, never a clone's URL; the mark is The Office's,
+ * from the name, as the Add a Project form starts it.
+ */
+const DRAFTED_PROJECT = newProjectSchema.omit({ mark: true, repositoryUrl: true });
 
 /**
  * The Office tool Devops drafts a Project to onboard with (spec §2.1 Defaults), a Proposal the

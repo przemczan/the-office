@@ -7,6 +7,7 @@ export const projects = pgTable("projects", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   path: text("path").notNull(),
+  repositoryUrl: text("repository_url"),
   baseBranch: text("base_branch").notNull(),
   markLabel: text("mark_label").notNull(),
   markColour: text("mark_colour").$type<ProjectMarkColour>().notNull(),

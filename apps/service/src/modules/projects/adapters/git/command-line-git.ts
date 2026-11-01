@@ -86,6 +86,43 @@ export class CommandLineGit extends Git {
     return result.exitCode === 0;
   }
 
+  async hasRemoteBranch(repositoryPath: string, upstream: Upstream): Promise<boolean> {
+    const result = await this.process.run({
+      folder: repositoryPath,
+      gitArguments: [
+        "rev-parse",
+        "--verify",
+        "--quiet",
+        `refs/remotes/${upstream.remote}/${upstream.branch}^{commit}`,
+      ],
+    });
+    return result.exitCode === 0;
+  }
+
+  async trackRemoteBranch(repositoryPath: string, upstream: Upstream): Promise<void> {
+    await this.locked(repositoryPath, () =>
+      this.process.output({
+        folder: repositoryPath,
+        gitArguments: [
+          "branch",
+          "--track",
+          "--",
+          upstream.branch,
+          `refs/remotes/${upstream.remote}/${upstream.branch}`,
+        ],
+      }),
+    );
+  }
+
+  async setFetchUrl(repositoryPath: string, remote: string, url: string): Promise<void> {
+    await this.locked(repositoryPath, () =>
+      this.process.output({
+        folder: repositoryPath,
+        gitArguments: ["remote", "set-url", remote, url],
+      }),
+    );
+  }
+
   async localBranches(repositoryPath: string): Promise<readonly LocalBranch[]> {
     const output = await this.process.output({
       folder: repositoryPath,
