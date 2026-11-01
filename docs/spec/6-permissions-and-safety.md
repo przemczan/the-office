@@ -30,7 +30,7 @@ From [25](../../.scratch/the-office/issues/25-agent-permissions.md), amending [0
 
   Everyone also reads their session's skills folder and the engine's output of their own background commands, and uses the Office tools.
 - **Chats only read:** a chat session reads every Project's base branch, searches the web and uses the Office tools (read records, capture an Idea, open a Task); no edits, read-only commands only.
-- **Secrets:** the hook refuses reads, by file tools or in command text, of `~/.ssh`, the Claude credentials in `~/.claude`, `~/.config/gh`, `~/.aws`, browser profiles (where each lives on Windows and on Linux is the platform layer's), and The Office's own data and database credentials. A `.env` inside the worktree stays readable.
+- **Secrets:** the hook refuses reads, by file tools or in command text, of `~/.ssh`, the Claude credentials in `~/.claude`, `~/.config/gh`, `~/.aws`, browser profiles (where each lives on Windows and on Linux is the platform layer's), and The Office's own data and database credentials, the Office identity's ssh key among them. A `.env` inside the worktree stays readable. The clones of Projects added by Repository URL, in `<office-data>/repositories/`, are left out of The Office's own data, so a cloned Project's folder reads as a path-added one's does (the user, 2026-11-01).
 - **Build rules:**
   - Runtime decisions (holding, refusing with a reason) are made in hooks: `permissionPrompts: 'none'` skips `canUseTool`, and refuses whatever would prompt, so the Office tools are allowed by rule.
   - Path decisions (secrets, protected paths, what lies outside the worktree) are made in the hook, never in path-scoped deny rules.

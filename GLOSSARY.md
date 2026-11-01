@@ -14,6 +14,22 @@ _Avoid_: Repo (in the UI), workspace
 The files of a Project whose change makes a worktree run the install command again, such as a lockfile.
 _Avoid_: Dependency files, install files
 
+**Repository URL**:
+The https or ssh git URL a Project was added from; The Office clones it into its data directory. A Project added by path has none.
+_Avoid_: Remote, clone URL, Git URL (in the UI)
+
+**Office identity**:
+The only credentials The Office's git uses, shared by every Project and separate from the user's own: Sign in with GitHub and the Office ssh key. Other hosts over https are reached anonymously.
+_Avoid_: Machine credentials, service account, bot
+
+**Sign in with GitHub**:
+The Office's sign-in to GitHub through a GitHub App the user registers and installs once; its user token, kept fresh by The Office and never seen by Agents, fetches, pushes and opens pull requests for every GitHub Project.
+_Avoid_: GitHub login, GitHub token, OAuth (in the UI)
+
+**Office ssh key**:
+The ssh key The Office generates and keeps for ssh remotes on any host; the user adds its public half to each host.
+_Avoid_: Deploy key, SSH identity
+
 **Idea**:
 A thought captured quickly and not yet shaped into work; it may become an Initiative or a Task, or be dropped.
 _Avoid_: Draft, note, backlog item
