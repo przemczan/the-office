@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable, Logger } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { EngineSessions, type Engine } from "../../engine/index.js";
+import { EngineSessions, type BegunUsageWindowReading, type Engine } from "../../engine/index.js";
 import { SessionMcpServers, type LeftOutMcpServer } from "../../mcp-servers/index.js";
 import {
   mcpToolSettingsFor,
@@ -164,6 +164,12 @@ export interface StageThread {
    * `open_decision` or `consult`, answered or not; undefined when they asked none.
    */
   askedDecision(): Promise<AskedDecision | undefined>;
+  /**
+   * The account's usage windows read now through the session, with no model call. Undefined on
+   * an engine without windows, once the session has ended, or when a window has not begun or the
+   * engine didn't say its use or its reset.
+   */
+  usageWindows(): Promise<BegunUsageWindowReading | undefined>;
   /** Logs `why`, sends the person The Office's `text`, and returns the turn that answers it. */
   send(text: string, why: string): Promise<StageTurn>;
   /**
@@ -594,6 +600,8 @@ export class StageThreads {
       move,
       nextTurn,
       askedDecision: () => this.askedIn(threadId, began),
+      usageWindows: async () =>
+        sessionEnded ? undefined : this.engine.readUsageWindows(engine, session),
       send: async (text, why) => {
         await this.log(threadId, [{ kind: "failure", reason: why }]);
         session.send({ id: randomUUID(), text }, "later");

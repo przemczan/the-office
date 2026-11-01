@@ -310,6 +310,8 @@ export class StageThreadsForTests extends StageThreads {
       move: { move: "fresh" },
       nextTurn,
       askedDecision: async () => asked,
+      usageWindows: async () =>
+        sessionEnded ? undefined : this.sessions.readUsageWindows("agent-sdk", session),
       send: (text, why) => {
         this.sent.push({ threadId, text, why });
         session.send({ id: randomUUID(), text }, "later");

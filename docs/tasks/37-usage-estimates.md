@@ -89,7 +89,7 @@ Chosen while writing, for the user to review:
 ## Steps
 
 - [x] 0. Write this file; settle the open questions with the user; amend spec §2.1, §2.2, §2.7, §3, §4, §5.4 and §8; add the glossary's "Usage estimate", "Window cap", "Daily cap" and "Model price", and amend "Queue"; refine `coverage.md`'s row; link from the README. Commit.
-- [ ] 1a. Readings through a Stage Thread, in Engine and Conversations, about 65k:
+- [x] 1a. Readings through a Stage Thread, in Engine and Conversations, about 65k:
   - `EngineSessions` keeps the Office's tokens so far on engines with windows. `UsageWindowState` keeps when each reading was read. A reading carries both (`readAt`, `officeTokensSoFar`).
   - Conversations' Stage Thread gains `usageWindows()`, which reads the session's windows by the usage query (no model call). It is undefined on an engine without the `usageWindows` capability, or when the answer lacks `utilization` or `resets_at`.
   - Scripted engine scripts give the windows.
@@ -197,17 +197,16 @@ Chosen while writing, for the user to review:
 
 ## State
 
-- Step 0 done: open questions settled with the user on 2026-11-01. The choices made while writing are listed above for the user's review. Nothing built yet.
-- What exists:
-  - `UsageWindowState`, in memory, updated on a session's rate-limit signal, with no time kept;
-  - `stage_runs.tokens`, with the four kinds;
-  - the queue's waits in `startReasons`;
-  - Settings › Office limits (desks, Context policy);
-  - Settings › Engines (the API endpoints with their models).
-- Trap: the windows refresh only while a session runs, and are lost on a restart. "No reading means no wait" is what keeps Tasks from waiting forever.
-- Trap: `get_usage` may answer without `resets_at` or `utilization`, and the adapter maps a missing `utilization` to 0. A reading like that must not count as a sample (step 1a).
-- Trap: a Stage's engine and model come from its Role card at run time. A Role's model may change between Tasks, so history is keyed by Stage, and cost is priced by each run's own model.
+- Step 1a done. Engine: `EngineSessions.readUsageWindows(engine, session)` reads the windows (no model call), keeps every reading in `UsageWindowState` (`UsageWindowReading`: the windows, `readAt`, `officeTokensSoFar` as the four kinds) and gives it back only when both windows have begun (`BegunUsageWindowReading`); undefined without the capability, for an account without windows, or when the read fails (logged). `officeTokensSoFar` adds every `turn-ended` usage on engines with windows, in `WatchedSession.observe` before the event is reported. The Claude Code adapters' `usageWindows` read a window without `utilization` or `resets_at` as not begun. `UsageWindowsChanged` still fires only when the windows differ.
+- Pipelines' `StageThread.usageWindows()` (port `pipelines/ports/stage-threads.ts`, type `UsageWindowReading` in `pipelines/domain/stage-run.ts`); Conversations' `live()` in `conversations/application/stage-threads.ts` and `StageThreadsForTests` give it, undefined once the session ended. Scripts give the windows with the existing `read-usage-windows` step.
+- Caps are per account for the Claude Code engines, one set for the OpenAI-compatible API (the user, 2026-11-01; docs amended).
+- Open, for the live check: a 5-hour window not begun (after idle) makes the start reading undefined, taking the 7-day window with it, as step 1a says.
+- Trap for 1b: take the end reading after the run's last `nextTurn()` and before `end()`/`endSession()`. Every Agent Stage run now adds `read-usage-windows` to a scripted session's `received`, so tests that match `received` exactly need it.
+- Trap for 5a: the queue is released "on each new reading", but `UsageWindowsChanged` fires only on a change; a reading with the same percent and a new `readAt` still clears pending estimates, so 5a needs a signal on every reading.
+- Trap: the windows refresh only while a session runs, and are lost on a restart. "No reading means no wait" keeps Tasks from waiting forever.
+- Trap: a Stage's engine and model come from its Role card at run time; history is keyed by Stage, cost priced by each run's own model.
 
 ## Progress
 
 - 2026-11-01 · step 0: wrote the task file, amended spec §2.1, §2.2, §2.7, §3, §4, §5.4 and §8 and the glossary with the user's answers; next, step 1a, the readings through a Stage Thread.
+- 2026-11-01 · step 1a: readings with `readAt` and the Office's tokens so far, through `StageThread.usageWindows()` (Engine, Conversations, Pipelines' port); caps reworded per account; next, step 1b, Stage runs keep engine, model and readings.

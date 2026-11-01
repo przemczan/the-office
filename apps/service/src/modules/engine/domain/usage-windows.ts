@@ -12,6 +12,19 @@ export interface UsageWindows {
   readonly sevenDay: UsageWindow;
 }
 
+/** Windows that have both begun, so each says when it resets. */
+export interface BegunUsageWindows {
+  readonly fiveHour: UsageWindow & { readonly resetsAt: Date };
+  readonly sevenDay: UsageWindow & { readonly resetsAt: Date };
+}
+
+/** Only windows that have both begun show what a run used of them. */
+export function everyWindowBegun<Windows extends UsageWindows>(
+  windows: Windows,
+): windows is Windows & BegunUsageWindows {
+  return windows.fiveHour.resetsAt !== undefined && windows.sevenDay.resetsAt !== undefined;
+}
+
 export function sameUsageWindows(one: UsageWindows, other: UsageWindows): boolean {
   return sameWindow(one.fiveHour, other.fiveHour) && sameWindow(one.sevenDay, other.sevenDay);
 }

@@ -2,7 +2,12 @@ import type { CommandPermission } from "../domain/allowed-commands.js";
 import type { HardSwitchOnCard } from "../domain/stage-permissions.js";
 import type { Effort, StageSession } from "../domain/stage.js";
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
-import type { StageDecision, StageSessionMove, StageTokens } from "../domain/stage-run.js";
+import type {
+  StageDecision,
+  StageSessionMove,
+  StageTokens,
+  UsageWindowReading,
+} from "../domain/stage-run.js";
 
 /** What an Agent Stage gives its sessions, beside what the person's Role card does. */
 export interface StageSessionSettings {
@@ -88,6 +93,12 @@ export interface StageThread {
    * Stage still runs, which the walk reads as it would wait. Undefined when they asked none.
    */
   askedDecision(): Promise<AskedDecision | undefined>;
+  /**
+   * The account's usage windows read now through the session, with no model call. Undefined on
+   * an engine without windows, once the session has ended, or when a window has not begun or the
+   * engine didn't say its use or its reset.
+   */
+  usageWindows(): Promise<UsageWindowReading | undefined>;
   /** Logs `why`, sends the person `text` in the same session, and returns the turn answering it. */
   send(text: string, why: string): Promise<StageTurn>;
   /**

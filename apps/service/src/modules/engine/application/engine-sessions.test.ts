@@ -13,6 +13,7 @@ import { ScriptedEngine } from "../adapters/scripted/scripted-engine.js";
 import type { SessionScript } from "../adapters/scripted/session-script.js";
 import { EngineDown, UsageWindowsChanged } from "../domain/engine-events.js";
 import type { Engine } from "../domain/engines.js";
+import type { UsageWindows } from "../domain/usage-windows.js";
 import {
   CapabilityMissing,
   ModelNotOffered,
@@ -212,10 +213,11 @@ describe("EngineSessions", () => {
     });
     await turns(session, 1);
     await session.end();
-    await vi.waitFor(() => expect(usageWindows.current).toEqual(WINDOWS));
+    await vi.waitFor(() => expect(usageWindows.current).toMatchObject(WINDOWS));
 
     const changes = published.filter((event) => event instanceof UsageWindowsChanged);
-    expect(changes.map((change) => change.windows)).toEqual([WINDOWS]);
+    expect(changes).toHaveLength(1);
+    expect(changes[0]?.windows).toMatchObject(WINDOWS);
   });
 
   it("refuses a session named an Office tool no module registered, before the engine starts it", async () => {
@@ -407,6 +409,112 @@ describe("EngineSessions on an engine per Role", () => {
     await turns(session, 1);
     await session.end();
 
-    await vi.waitFor(() => expect(usageWindows.current).toEqual(WINDOWS));
+    await vi.waitFor(() => expect(usageWindows.current).toMatchObject(WINDOWS));
+  });
+});
+
+const ON_THE_API: SessionSettings = { ...SETTINGS, engine: "openai-compatible-api" };
+
+/** A turn, then the windows as a caller reads them. */
+function turnThenWindows(windows: UsageWindows): SessionScript {
+  return [
+    { step: "start", brief: { id: "brief", text: "Begin." } },
+    turnEnded("brief", 0.01),
+    { step: "read-usage-windows", windows },
+    { step: "end" },
+  ];
+}
+
+describe("EngineSessions' readings of the usage windows", () => {
+  it("gives when they were read and the Office's tokens so far on the engines with windows", async () => {
+    const { sessions, usageWindows } = setUpOn({
+      "agent-sdk": new ScriptedEngine([turnThenWindows(WINDOWS)]),
+      "claude-code-p": new ScriptedEngine([turnThenWindows(WINDOWS)]),
+      "openai-compatible-api": new ScriptedEngine([turnThenWindows(WINDOWS)], {
+        usageWindows: false,
+      }),
+    });
+    const onTheApi = await sessions.start({
+      id: "s-api",
+      settings: ON_THE_API,
+      brief: message("Begin."),
+    });
+    const onTheFallback = await sessions.start({
+      id: "s-p",
+      settings: ON_THE_FALLBACK,
+      brief: message("Begin."),
+    });
+    await turns(onTheApi, 1);
+    await turns(onTheFallback, 1);
+    const session = await sessions.start({
+      id: "s-1",
+      settings: SETTINGS,
+      brief: message("Begin."),
+    });
+    await turns(session, 1);
+    const before = new Date();
+
+    const reading = await sessions.readUsageWindows("agent-sdk", session);
+
+    expect(reading).toEqual({
+      ...WINDOWS,
+      readAt: expect.any(Date),
+      officeTokensSoFar: { input: 8, output: 24, cacheRead: 48_000, cacheCreation: 400 },
+    });
+    expect(reading?.readAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
+    expect(usageWindows.current).toEqual(reading);
+    await Promise.all([onTheApi.end(), onTheFallback.end(), session.end()]);
+  });
+
+  it("gives none on an engine without windows", async () => {
+    const { sessions, usageWindows } = setUpOn({
+      "agent-sdk": new ScriptedEngine([]),
+      "claude-code-p": new ScriptedEngine([]),
+      "openai-compatible-api": new ScriptedEngine([turnThenWindows(WINDOWS)], {
+        usageWindows: false,
+      }),
+    });
+    const session = await sessions.start({
+      id: "s-1",
+      settings: ON_THE_API,
+      brief: message("Begin."),
+    });
+    await turns(session, 1);
+
+    await expect(sessions.readUsageWindows("openai-compatible-api", session)).resolves.toBe(
+      undefined,
+    );
+    expect(usageWindows.current).toBe(undefined);
+    await session.end();
+  });
+
+  it("keeps a window not begun as read, but gives no reading of it", async () => {
+    const notBegun = { ...WINDOWS, sevenDay: { percentUsed: 0, resetsAt: undefined } };
+    const { sessions, usageWindows } = setUp([turnThenWindows(notBegun)]);
+    const session = await sessions.start({
+      id: "s-1",
+      settings: SETTINGS,
+      brief: message("Begin."),
+    });
+    await turns(session, 1);
+
+    await expect(sessions.readUsageWindows("agent-sdk", session)).resolves.toBe(undefined);
+    expect(usageWindows.current).toMatchObject(notBegun);
+    await session.end();
+  });
+
+  it("gives none when the read fails", async () => {
+    const { sessions, usageWindows } = setUp([turnThenWindows(WINDOWS)]);
+    const session = await sessions.start({
+      id: "s-1",
+      settings: SETTINGS,
+      brief: message("Begin."),
+    });
+    await turns(session, 1);
+    vi.spyOn(session, "readUsageWindows").mockRejectedValue(new Error("The query went away."));
+
+    await expect(sessions.readUsageWindows("agent-sdk", session)).resolves.toBe(undefined);
+    expect(usageWindows.current).toBe(undefined);
+    await session.end();
   });
 });

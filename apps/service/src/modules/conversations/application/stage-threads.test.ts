@@ -1325,4 +1325,36 @@ describe("Office tools on a Stage", () => {
     });
     expect((await threadOf(stageThread.threadId)).openDecision).toBeUndefined();
   });
+
+  it("reads the usage windows through the Stage's session, with the Office's tokens so far, until it ends", async () => {
+    const windows = {
+      fiveHour: { percentUsed: 12, resetsAt: new Date("2026-11-01T18:00:00Z") },
+      sevenDay: { percentUsed: 31, resetsAt: new Date("2026-11-05T09:00:00Z") },
+    };
+    await startWith(started(...aTurn({ status: "done" }), { step: "read-usage-windows", windows }));
+    const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
+    await stageThread.nextTurn();
+
+    await expect(stageThread.usageWindows()).resolves.toEqual({
+      ...windows,
+      readAt: expect.any(Date),
+      officeTokensSoFar: USAGE,
+    });
+    await stageThread.end({ handoverNote: undefined, closing: undefined });
+    await expect(stageThread.usageWindows()).resolves.toBe(undefined);
+    expect(
+      engine.sessions[0]?.received.filter(({ step }) => step === "read-usage-windows"),
+    ).toHaveLength(1);
+  });
+
+  it("reads no usage windows on an engine without them", async () => {
+    await startOn(
+      new ScriptedEngine([started(...aTurn({ status: "done" }))], { usageWindows: false }),
+    );
+    const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
+    await stageThread.nextTurn();
+
+    await expect(stageThread.usageWindows()).resolves.toBe(undefined);
+    await stageThread.end({ handoverNote: undefined, closing: undefined });
+  });
 });

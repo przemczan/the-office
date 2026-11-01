@@ -98,6 +98,24 @@ export interface StageTokens {
   readonly cacheCreation: number;
 }
 
+/** One of the account's usage windows as read, both begun (spec §5.4). */
+export interface UsageWindow {
+  /** From 0 to 100. */
+  readonly percentUsed: number;
+  readonly resetsAt: Date;
+}
+
+/**
+ * The 5-hour and 7-day windows as read around a run, with the Office's tokens so far on the
+ * engines with windows, so the run's share of a window's change can be told.
+ */
+export interface UsageWindowReading {
+  readonly fiveHour: UsageWindow;
+  readonly sevenDay: UsageWindow;
+  readonly readAt: Date;
+  readonly officeTokensSoFar: StageTokens;
+}
+
 export const NO_STAGE_TOKENS: StageTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
 
 export function addTokens(total: StageTokens, more: StageTokens): StageTokens {

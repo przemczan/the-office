@@ -2,7 +2,11 @@ export { EngineSessions } from "./application/engine-sessions.js";
 export type { EngineCapability } from "./ports/agent-engine.js";
 export { OfficeToolRegistry } from "./application/office-tool-registry.js";
 export type { OfficeTool, OfficeToolResult } from "./ports/office-tool.js";
-export { UsageWindowState } from "./application/usage-window-state.js";
+export {
+  UsageWindowState,
+  type BegunUsageWindowReading,
+  type UsageWindowReading,
+} from "./application/usage-window-state.js";
 export { EngineDown, UsageWindowsChanged } from "./domain/engine-events.js";
 export { EngineModels } from "./application/engine-models.js";
 export { ENGINES, type Engine } from "./domain/engines.js";

@@ -4,7 +4,7 @@ import { AsyncChannel } from "../../../platform/streams/async-channel.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { EngineDown } from "../domain/engine-events.js";
 import type { Engine } from "../domain/engines.js";
-import type { UsageWindows } from "../domain/usage-windows.js";
+import { everyWindowBegun, type UsageWindows } from "../domain/usage-windows.js";
 import {
   CapabilityMissing,
   missingCapabilities,
@@ -19,12 +19,16 @@ import type {
   MessagePriority,
   UserMessage,
 } from "../ports/engine-session.js";
-import type { SessionEvent } from "../ports/session-events.js";
+import type { SessionEvent, TokenUsage } from "../ports/session-events.js";
 import type { SessionOptions } from "../ports/session-options.js";
 import { AgentEngines } from "./agent-engines.js";
 import { EngineCallSpans, SessionCosts, type SessionTelemetry } from "./engine-call-spans.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
-import { UsageWindowState } from "./usage-window-state.js";
+import {
+  UsageWindowState,
+  type BegunUsageWindowReading,
+  type UsageWindowReading,
+} from "./usage-window-state.js";
 
 /** What a caller runs a session with: the Office tools by name, from the registry. */
 export type SessionSettings = Omit<SessionOptions, "officeTools"> & {
@@ -45,13 +49,15 @@ export interface SessionStart {
 
 /**
  * Runs sessions on the engine each names for the other modules, and watches each: a span per engine call
- * with its tokens and cost, the usage windows read on each rate-limit signal, and an "engine
- * down" event when the engine can't start a session or stops running one (spec §5.4).
+ * with its tokens and cost, the usage windows read on each rate-limit signal and when a caller
+ * asks, the Office's tokens so far on the engines with windows, and an "engine down" event when the engine can't start a session or stops running one (spec §5.4).
  */
 @Injectable()
 export class EngineSessions {
   private readonly logger = new Logger(EngineSessions.name);
   private readonly costs = new SessionCosts();
+  /** Every turn's tokens on the engines with windows, which each reading carries. */
+  private officeTokensSoFar: TokenUsage = NO_TOKENS;
 
   constructor(
     private readonly engines: AgentEngines,
@@ -120,24 +126,46 @@ export class EngineSessions {
       if (!isRefusal(error)) await this.engineDown(sessionId, error);
       throw error;
     }
+    const countsTokens = this.capabilitiesOf(engine).usageWindows;
     return new WatchedSession(session, spans, {
-      rateLimited: () => this.readUsageWindows(engine, session),
+      rateLimited: async () => {
+        await this.readUsageWindows(engine, session);
+      },
+      turnEnded: (usage) => {
+        if (countsTokens) this.officeTokensSoFar = addedTokens(this.officeTokensSoFar, usage);
+      },
       failed: async (error) => {
         if (!isRefusal(error)) await this.engineDown(sessionId, error);
       },
     });
   }
 
-  private async readUsageWindows(engine: Engine, session: EngineSession): Promise<void> {
-    if (!this.capabilitiesOf(engine).usageWindows) return;
+  /**
+   * Reads the account's windows through `session`, a session of this service on `engine`, with no
+   * model call, and keeps the reading. Undefined on an engine without windows, for an account
+   * without them, when the read fails, or when a window has not begun or the engine didn't say
+   * its use or its reset: such a reading shows nothing of what a run used.
+   */
+  async readUsageWindows(
+    engine: Engine,
+    session: EngineSession,
+  ): Promise<BegunUsageWindowReading | undefined> {
+    if (!this.capabilitiesOf(engine).usageWindows) return undefined;
     let windows: UsageWindows | undefined;
     try {
       windows = await session.readUsageWindows();
     } catch (error) {
       this.logger.warn(`Reading the usage windows failed: ${messageOf(error)}`);
-      return;
+      return undefined;
     }
-    if (windows !== undefined) await this.usageWindows.update(windows);
+    if (windows === undefined) return undefined;
+    const reading: UsageWindowReading = {
+      ...windows,
+      readAt: new Date(),
+      officeTokensSoFar: this.officeTokensSoFar,
+    };
+    await this.usageWindows.update(reading);
+    return everyWindowBegun(reading) ? reading : undefined;
   }
 
   private async engineDown(sessionId: string, error: unknown): Promise<void> {
@@ -148,6 +176,7 @@ export class EngineSessions {
 
 interface SessionWatch {
   readonly rateLimited: () => Promise<void>;
+  readonly turnEnded: (usage: TokenUsage) => void;
   readonly failed: (error: unknown) => Promise<void>;
 }
 
@@ -212,7 +241,11 @@ class WatchedSession implements EngineSession {
   }
 
   private observe(event: SessionEvent): void {
-    if (event.kind === "turn-ended") this.spans.turnEnded(event);
+    if (event.kind === "turn-ended") {
+      this.spans.turnEnded(event);
+      // Counted before the turn is reported, so a reading taken once it ended includes it.
+      this.watch.turnEnded(event.usage);
+    }
     if (event.kind === "rate-limit" && !this.readingWindows) {
       this.readingWindows = true;
       void this.watch.rateLimited().finally(() => (this.readingWindows = false));
@@ -230,6 +263,17 @@ function isRefusal(error: unknown): boolean {
     error instanceof SessionSkillsDiffer ||
     error instanceof ModelNotOffered
   );
+}
+
+const NO_TOKENS: TokenUsage = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+
+function addedTokens(total: TokenUsage, more: TokenUsage): TokenUsage {
+  return {
+    input: total.input + more.input,
+    output: total.output + more.output,
+    cacheRead: total.cacheRead + more.cacheRead,
+    cacheCreation: total.cacheCreation + more.cacheCreation,
+  };
 }
 
 function messageOf(error: unknown): string {

@@ -311,6 +311,21 @@ describe("usageWindows", () => {
     });
   });
 
+  it("reads a window without its use or its reset as not begun", () => {
+    expect(
+      usageWindows({
+        rate_limits_available: true,
+        rate_limits: {
+          five_hour: { utilization: null, resets_at: "2026-10-25T18:00:00Z" },
+          seven_day: { utilization: 7, resets_at: null },
+        },
+      }),
+    ).toEqual({
+      fiveHour: { percentUsed: 0, resetsAt: undefined },
+      sevenDay: { percentUsed: 7, resetsAt: undefined },
+    });
+  });
+
   it("has none for an account without them", () => {
     expect(usageWindows({ rate_limits_available: false, rate_limits: null })).toBe(undefined);
   });
