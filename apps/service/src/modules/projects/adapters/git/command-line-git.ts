@@ -1,4 +1,3 @@
-import { execFile } from "node:child_process";
 import { readFile, realpath, rm, stat } from "node:fs/promises";
 import { normalize, resolve } from "node:path";
 import { Injectable } from "@nestjs/common";
@@ -17,12 +16,12 @@ import {
   type Upstream,
   type WorktreeCheckout,
 } from "../../ports/git.js";
+import { OfficeIdentity } from "../../../../platform/git-identity/office-identity.js";
+import { GitProcess } from "./git-process.js";
 import { RepositoryLocks } from "./repository-locks.js";
 
-const LOCAL_TIMEOUT_MS = 30_000;
 /** Fetches, pushes and checkouts of a large repository take longer than reading it. */
 const LONG_TIMEOUT_MS = 300_000;
-const OUTPUT_LIMIT_BYTES = 64 * 1024 * 1024;
 /** A file a process has only just let go of may still be held on Windows for a moment. */
 const REMOVE_RETRIES = 5;
 /** Enough files for a Brief to show the shape of a change; git counts the rest on one line. */
@@ -36,31 +35,17 @@ const DIFF_OPTIONS = ["--no-color", "--no-ext-diff", "--find-renames"] as const;
 /** More than anyone reads in the Changes tab; a lockfile's change alone can be megabytes. */
 const DIFF_LIMIT_CHARACTERS = 1_000_000;
 
-interface GitCall {
-  readonly folder: string;
-  readonly gitArguments: readonly string[];
-  /**
-   * A Project's variables, for a call that may run its hooks and filters. Calls that only read
-   * git's records run with the service's own, with git's messages in English, as the UI shows them.
-   */
-  readonly variables?: GitVariables;
-  readonly timeoutMs?: number;
-  /** Written to git's standard input. */
-  readonly input?: string;
-}
-
-/** What git printed and how it exited; a git that couldn't start at all throws instead. */
-interface GitResult {
-  readonly exitCode: number;
-  readonly stdout: string;
-  readonly stderr: string;
-}
-
-/** Runs the git on PATH, never through a shell, so no argument is ever parsed as a command. */
+/** The Office's git on a Project, each command on the Office identity (`GitProcess`). */
 @Injectable()
 export class CommandLineGit extends Git {
-  constructor(private readonly locks: RepositoryLocks) {
+  private readonly process: GitProcess;
+
+  constructor(
+    private readonly locks: RepositoryLocks,
+    identity: OfficeIdentity,
+  ) {
     super();
+    this.process = new GitProcess(identity);
   }
 
   async inspect(path: string): Promise<FolderInspection> {
@@ -69,7 +54,7 @@ export class CommandLineGit extends Git {
     if (!entry.isDirectory()) return { kind: "not-a-folder" };
     // --show-prefix is the folder's path inside the working tree, empty at its top level. Comparing
     // the paths instead would fail on Windows, where one folder has a short and a long name.
-    const result = await runGit({
+    const result = await this.process.run({
       folder: path,
       gitArguments: ["rev-parse", "--show-prefix", "--show-toplevel"],
     });
@@ -83,7 +68,7 @@ export class CommandLineGit extends Git {
   }
 
   async hasBranch(repositoryPath: string, branch: string): Promise<boolean> {
-    const result = await runGit({
+    const result = await this.process.run({
       folder: repositoryPath,
       gitArguments: ["rev-parse", "--verify", "--quiet", `refs/heads/${branch}^{commit}`],
     });
@@ -91,7 +76,7 @@ export class CommandLineGit extends Git {
   }
 
   async localBranches(repositoryPath: string): Promise<readonly LocalBranch[]> {
-    const output = await git({
+    const output = await this.process.output({
       folder: repositoryPath,
       gitArguments: ["for-each-ref", "--format=%(HEAD)%00%(refname:short)", "refs/heads"],
     });
@@ -105,7 +90,7 @@ export class CommandLineGit extends Git {
   }
 
   async upstreamOf(repositoryPath: string, branch: string): Promise<Upstream | undefined> {
-    const output = await git({
+    const output = await this.process.output({
       folder: repositoryPath,
       gitArguments: [
         "for-each-ref",
@@ -120,7 +105,15 @@ export class CommandLineGit extends Git {
   }
 
   async commitOf(repositoryPath: string, revision: string): Promise<string> {
-    return commitOf(repositoryPath, revision);
+    return commitOf(this.process, repositoryPath, revision);
+  }
+
+  async fetchUrlOf(repositoryPath: string, remote: string): Promise<string> {
+    const output = await this.process.output({
+      folder: repositoryPath,
+      gitArguments: ["ls-remote", "--get-url", "--", remote],
+    });
+    return output.trim();
   }
 
   async fetch(
@@ -129,8 +122,9 @@ export class CommandLineGit extends Git {
     variables: GitVariables,
   ): Promise<string> {
     const trackingRef = trackingRefOf(upstream);
+    const remote = await this.fetchUrlOf(repositoryPath, upstream.remote);
     await this.locked(repositoryPath, () =>
-      git({
+      this.process.output({
         folder: repositoryPath,
         // `--` keeps a remote or branch from being read as an option.
         gitArguments: [
@@ -141,11 +135,12 @@ export class CommandLineGit extends Git {
           upstream.remote,
           `+refs/heads/${upstream.branch}:${trackingRef}`,
         ],
+        remote,
         variables,
         timeoutMs: LONG_TIMEOUT_MS,
       }),
     );
-    return commitOf(repositoryPath, trackingRef);
+    return commitOf(this.process, repositoryPath, trackingRef);
   }
 
   async push(
@@ -154,9 +149,10 @@ export class CommandLineGit extends Git {
     target: Upstream,
     variables: GitVariables,
   ): Promise<void> {
+    const remote = await this.pushUrlOf(repositoryPath, target.remote);
     // Pushing also updates the remote-tracking ref, a ref every worktree shares.
     await this.locked(repositoryPath, () =>
-      git({
+      this.process.output({
         folder: repositoryPath,
         gitArguments: [
           "push",
@@ -165,15 +161,26 @@ export class CommandLineGit extends Git {
           target.remote,
           `refs/heads/${branch}:refs/heads/${target.branch}`,
         ],
+        remote,
         variables,
         timeoutMs: LONG_TIMEOUT_MS,
       }),
     );
   }
 
+  /** Where a push to `remote` goes: its push URL, `pushInsteadOf` applied, or else its URL. */
+  private async pushUrlOf(repositoryPath: string, remote: string): Promise<string> {
+    const pushUrl = await this.process.run({
+      folder: repositoryPath,
+      gitArguments: ["remote", "get-url", "--push", "--", remote],
+    });
+    // git refuses a name that is no configured remote, which then is a URL or path itself.
+    return pushUrl.exitCode === 0 ? pushUrl.stdout.trim() : this.fetchUrlOf(repositoryPath, remote);
+  }
+
   async contains(repositoryPath: string, revision: string, ancestor: string): Promise<boolean> {
     const gitArguments = ["merge-base", "--is-ancestor", ancestor, revision];
-    const result = await runGit({ folder: repositoryPath, gitArguments });
+    const result = await this.process.run({ folder: repositoryPath, gitArguments });
     // 1 is git's "no"; anything else is a failure, such as a revision it doesn't know.
     if (result.exitCode > 1) {
       throw new GitCommandFailed(gitArguments, result.exitCode, result.stderr.trim());
@@ -197,7 +204,7 @@ export class CommandLineGit extends Git {
       base,
       branch,
     ];
-    const result = await runGit({ folder: repositoryPath, gitArguments });
+    const result = await this.process.run({ folder: repositoryPath, gitArguments });
     if (result.exitCode === 0) return [];
     if (result.exitCode > 1) {
       throw new GitCommandFailed(gitArguments, result.exitCode, result.stderr.trim());
@@ -211,7 +218,7 @@ export class CommandLineGit extends Git {
   }
 
   async findCommit(repositoryPath: string, revision: string): Promise<string | undefined> {
-    const result = await runGit({
+    const result = await this.process.run({
       folder: repositoryPath,
       gitArguments: ["rev-parse", "--verify", "--quiet", `${revision}^{commit}`],
     });
@@ -221,12 +228,15 @@ export class CommandLineGit extends Git {
   async setRef(repositoryPath: string, ref: string, commit: string): Promise<void> {
     // Refs are shared by every worktree.
     await this.locked(repositoryPath, () =>
-      git({ folder: repositoryPath, gitArguments: ["update-ref", ref, commit] }),
+      this.process.output({ folder: repositoryPath, gitArguments: ["update-ref", ref, commit] }),
     );
   }
 
   async mergeBase(repositoryPath: string, one: string, other: string): Promise<string> {
-    const output = await git({ folder: repositoryPath, gitArguments: ["merge-base", one, other] });
+    const output = await this.process.output({
+      folder: repositoryPath,
+      gitArguments: ["merge-base", one, other],
+    });
     return output.trim();
   }
 
@@ -247,15 +257,21 @@ export class CommandLineGit extends Git {
         "--no-update-refs",
         onto,
       ];
-      const result = await runGit({ folder: worktreePath, gitArguments, variables });
+      const result = await this.process.run({ folder: worktreePath, gitArguments, variables });
       if (result.exitCode === 0) return [];
-      const conflicted = await git({
-        folder: worktreePath,
-        gitArguments: ["diff", "--name-only", "--diff-filter=U", "-z"],
-        variables,
-      }).catch(() => "");
+      const conflicted = await this.process
+        .output({
+          folder: worktreePath,
+          gitArguments: ["diff", "--name-only", "--diff-filter=U", "-z"],
+          variables,
+        })
+        .catch(() => "");
       // Put the branch back as it was, conflicted or failed for another reason.
-      await runGit({ folder: worktreePath, gitArguments: ["rebase", "--abort"], variables });
+      await this.process.run({
+        folder: worktreePath,
+        gitArguments: ["rebase", "--abort"],
+        variables,
+      });
       const files = nulSeparated(conflicted);
       if (files.length > 0) return files;
       throw new GitCommandFailed(
@@ -286,16 +302,21 @@ export class CommandLineGit extends Git {
         "--no-rerere-autoupdate",
         revision,
       ];
-      const result = await runGit({ folder: worktreePath, gitArguments, variables });
+      const result = await this.process.run({ folder: worktreePath, gitArguments, variables });
       if (result.exitCode === 0) {
-        if (await isMerging(worktreePath)) await commitStaged(worktreePath, message, variables);
-        return { kind: "merged", commit: await commitOf(worktreePath, "HEAD") };
+        if (await isMerging(this.process, worktreePath))
+          await commitStaged(this.process, worktreePath, message, variables);
+        return { kind: "merged", commit: await commitOf(this.process, worktreePath, "HEAD") };
       }
-      const conflictedFiles = await unmergedFiles(worktreePath);
+      const conflictedFiles = await unmergedFiles(this.process, worktreePath);
       if (conflictedFiles.length > 0) return { kind: "conflicted", conflictedFiles };
       // Failed before merging anything, such as on a change a merge would overwrite.
-      if (await isMerging(worktreePath)) {
-        await runGit({ folder: worktreePath, gitArguments: ["merge", "--abort"], variables });
+      if (await isMerging(this.process, worktreePath)) {
+        await this.process.run({
+          folder: worktreePath,
+          gitArguments: ["merge", "--abort"],
+          variables,
+        });
       }
       throw new GitCommandFailed(
         gitArguments,
@@ -306,7 +327,7 @@ export class CommandLineGit extends Git {
   }
 
   async mergeConflicts(worktreePath: string): Promise<readonly string[]> {
-    return unmergedFiles(worktreePath);
+    return unmergedFiles(this.process, worktreePath);
   }
 
   async concludeMerge(
@@ -315,24 +336,35 @@ export class CommandLineGit extends Git {
     variables: GitVariables,
   ): Promise<MergeConclusion> {
     return this.locked(worktreePath, async () => {
-      if (!(await isMerging(worktreePath))) return { kind: "not-merging" };
-      const files = await filesWithConflictMarkers(worktreePath, await unmergedFiles(worktreePath));
+      if (!(await isMerging(this.process, worktreePath))) return { kind: "not-merging" };
+      const files = await filesWithConflictMarkers(
+        worktreePath,
+        await unmergedFiles(this.process, worktreePath),
+      );
       if (files.length > 0) return { kind: "markers-left", files };
-      await git({ folder: worktreePath, gitArguments: ["add", "--all"], variables });
-      await commitStaged(worktreePath, message, variables);
-      return { kind: "committed", commit: await commitOf(worktreePath, "HEAD") };
+      await this.process.output({
+        folder: worktreePath,
+        gitArguments: ["add", "--all"],
+        variables,
+      });
+      await commitStaged(this.process, worktreePath, message, variables);
+      return { kind: "committed", commit: await commitOf(this.process, worktreePath, "HEAD") };
     });
   }
 
   async abortMerge(worktreePath: string, variables: GitVariables): Promise<void> {
     await this.locked(worktreePath, async () => {
-      if (!(await isMerging(worktreePath))) return;
-      await git({ folder: worktreePath, gitArguments: ["merge", "--abort"], variables });
+      if (!(await isMerging(this.process, worktreePath))) return;
+      await this.process.output({
+        folder: worktreePath,
+        gitArguments: ["merge", "--abort"],
+        variables,
+      });
     });
   }
 
   async hasMergesSince(repositoryPath: string, base: string, revision: string): Promise<boolean> {
-    const output = await git({
+    const output = await this.process.output({
       folder: repositoryPath,
       gitArguments: ["rev-list", "--merges", "--max-count=1", revision, `^${base}`],
     });
@@ -346,7 +378,7 @@ export class CommandLineGit extends Git {
   ): Promise<void> {
     const [options, revision] = checkoutArguments(worktree.checkout);
     await this.locked(repositoryPath, () =>
-      git({
+      this.process.output({
         folder: repositoryPath,
         gitArguments: ["worktree", "add", "--quiet", ...options, "--", worktree.path, revision],
         variables,
@@ -361,7 +393,7 @@ export class CommandLineGit extends Git {
     variables: GitVariables,
   ): Promise<void> {
     await this.locked(worktreePath, () =>
-      git({
+      this.process.output({
         folder: worktreePath,
         gitArguments: ["checkout", "--quiet", "--force", "--detach", commit],
         variables,
@@ -375,14 +407,14 @@ export class CommandLineGit extends Git {
     worktreePath: string,
     variables: GitVariables,
   ): Promise<void> {
-    if (await isInMainWorktree(worktreePath)) {
+    if (await isInMainWorktree(this.process, worktreePath)) {
       throw new Error(`${worktreePath} is in a repository's own folder, not in a worktree.`);
     }
     // Node deletes the folder, since git for Windows can't delete paths past MAX_PATH, which
     // installed dependencies reach; git then forgets every worktree whose folder is gone.
     await rm(worktreePath, { recursive: true, force: true, maxRetries: REMOVE_RETRIES });
     await this.locked(repositoryPath, () =>
-      git({
+      this.process.output({
         folder: repositoryPath,
         gitArguments: ["worktree", "prune"],
         variables,
@@ -392,7 +424,7 @@ export class CommandLineGit extends Git {
   }
 
   async worktreeRecordPath(worktreePath: string, name: string): Promise<string> {
-    const output = await git({
+    const output = await this.process.output({
       folder: worktreePath,
       gitArguments: ["rev-parse", "--git-path", name],
     });
@@ -407,21 +439,25 @@ export class CommandLineGit extends Git {
   ): Promise<string | undefined> {
     // A commit moves the branch's ref, which lives with the refs every worktree shares.
     return this.locked(worktreePath, async () => {
-      await git({ folder: worktreePath, gitArguments: ["add", "--all"], variables });
-      const staged = await runGit({
+      await this.process.output({
+        folder: worktreePath,
+        gitArguments: ["add", "--all"],
+        variables,
+      });
+      const staged = await this.process.run({
         folder: worktreePath,
         gitArguments: ["diff", "--cached", "--quiet"],
         variables,
       });
       if (staged.exitCode === 0) return undefined;
-      await commitStaged(worktreePath, message, variables);
-      return commitOf(worktreePath, "HEAD");
+      await commitStaged(this.process, worktreePath, message, variables);
+      return commitOf(this.process, worktreePath, "HEAD");
     });
   }
 
   async head(worktreePath: string): Promise<Head> {
-    const commit = await commitOf(worktreePath, "HEAD");
-    const symbolicRef = await runGit({
+    const commit = await commitOf(this.process, worktreePath, "HEAD");
+    const symbolicRef = await this.process.run({
       folder: worktreePath,
       gitArguments: ["symbolic-ref", "--quiet", "--short", "HEAD"],
     });
@@ -429,7 +465,7 @@ export class CommandLineGit extends Git {
   }
 
   async diffSummary(worktreePath: string, baseBranch: string, forkPoint?: string): Promise<string> {
-    const output = await git({
+    const output = await this.process.output({
       folder: worktreePath,
       gitArguments: [
         "diff",
@@ -456,12 +492,12 @@ export class CommandLineGit extends Git {
       forkPoint,
     );
     const [numbers, deleted, diff] = await Promise.all([
-      git({
+      this.process.output({
         folder: repositoryPath,
         gitArguments: ["diff", ...DIFF_OPTIONS, "--numstat", "-z", range, "--"],
       }),
       // The numstat doesn't say a file was deleted.
-      git({
+      this.process.output({
         folder: repositoryPath,
         gitArguments: [
           "diff",
@@ -473,7 +509,10 @@ export class CommandLineGit extends Git {
           "--",
         ],
       }),
-      git({ folder: repositoryPath, gitArguments: ["diff", ...DIFF_OPTIONS, range, "--"] }),
+      this.process.output({
+        folder: repositoryPath,
+        gitArguments: ["diff", ...DIFF_OPTIONS, range, "--"],
+      }),
     ]);
     return { files: changedFiles(numbers, new Set(nulSeparated(deleted))), ...cutDiff(diff) };
   }
@@ -496,14 +535,14 @@ export class CommandLineGit extends Git {
   }
 
   async restore(worktreePath: string, variables: GitVariables): Promise<readonly string[]> {
-    const changed = await git({
+    const changed = await this.process.output({
       folder: worktreePath,
       gitArguments: ["diff", "--name-only", "-z", "HEAD"],
       variables,
     });
     const paths = nulSeparated(changed);
     if (paths.length > 0) {
-      await git({
+      await this.process.output({
         folder: worktreePath,
         gitArguments: ["reset", "--quiet", "--hard", "HEAD"],
         variables,
@@ -513,7 +552,7 @@ export class CommandLineGit extends Git {
   }
 
   async untracked(worktreePath: string, variables: GitVariables): Promise<readonly string[]> {
-    const listed = await git({
+    const listed = await this.process.output({
       folder: worktreePath,
       gitArguments: ["ls-files", "--others", "--exclude-standard", "-z"],
       variables,
@@ -522,7 +561,7 @@ export class CommandLineGit extends Git {
   }
 
   async discard(worktreePath: string, variables: GitVariables): Promise<readonly string[]> {
-    const status = await git({
+    const status = await this.process.output({
       folder: worktreePath,
       gitArguments: ["status", "--porcelain=v1", "-z", "--no-renames", "--untracked-files=all"],
       variables,
@@ -530,13 +569,13 @@ export class CommandLineGit extends Git {
     // Each entry is `XY <path>`.
     const paths = nulSeparated(status).map((entry) => entry.slice(3));
     if (paths.length > 0) {
-      await git({
+      await this.process.output({
         folder: worktreePath,
         gitArguments: ["reset", "--quiet", "--hard", "HEAD"],
         variables,
       });
       // Without -x, so ignored files such as installed dependencies stay.
-      await git({
+      await this.process.output({
         folder: worktreePath,
         gitArguments: ["clean", "--quiet", "-f", "-d"],
         variables,
@@ -546,7 +585,7 @@ export class CommandLineGit extends Git {
   }
 
   private async locked<Result>(folder: string, work: () => Promise<Result>): Promise<Result> {
-    return this.locks.run(await commonDirectory(folder), work);
+    return this.locks.run(await commonDirectory(this.process, folder), work);
   }
 }
 
@@ -556,11 +595,12 @@ export class CommandLineGit extends Git {
  * commit hooks are its own tooling, which The Office runs as Stages.
  */
 async function commitStaged(
+  git: GitProcess,
   worktreePath: string,
   message: string,
   variables: GitVariables,
 ): Promise<void> {
-  await git({
+  await git.output({
     folder: worktreePath,
     gitArguments: ["commit", "--quiet", "--no-verify", "--file", "-"],
     variables,
@@ -569,8 +609,8 @@ async function commitStaged(
 }
 
 /** Whether the worktree has a merge in progress. */
-async function isMerging(worktreePath: string): Promise<boolean> {
-  const result = await runGit({
+async function isMerging(git: GitProcess, worktreePath: string): Promise<boolean> {
+  const result = await git.run({
     folder: worktreePath,
     gitArguments: ["rev-parse", "--verify", "--quiet", "MERGE_HEAD^{commit}"],
   });
@@ -578,8 +618,8 @@ async function isMerging(worktreePath: string): Promise<boolean> {
 }
 
 /** The files git's records hold as conflicted, which stay so until they are staged. */
-async function unmergedFiles(worktreePath: string): Promise<readonly string[]> {
-  const output = await git({
+async function unmergedFiles(git: GitProcess, worktreePath: string): Promise<readonly string[]> {
+  const output = await git.output({
     folder: worktreePath,
     gitArguments: ["diff", "--name-only", "--diff-filter=U", "-z"],
   });
@@ -631,8 +671,8 @@ function checkoutArguments(checkout: WorktreeCheckout): [readonly string[], stri
  * Whether the folder is a repository's own working tree or inside it, where the git directory is
  * the one every worktree shares. A leftover folder git no longer knows is in none.
  */
-async function isInMainWorktree(folder: string): Promise<boolean> {
-  const result = await runGit({
+async function isInMainWorktree(git: GitProcess, folder: string): Promise<boolean> {
+  const result = await git.run({
     folder,
     gitArguments: ["rev-parse", "--path-format=absolute", "--git-dir", "--git-common-dir"],
   });
@@ -645,8 +685,8 @@ async function isInMainWorktree(folder: string): Promise<boolean> {
  * them: git names it relative to the main checkout and absolute from a worktree, and on Windows
  * a folder may also have a short name and a long one.
  */
-async function commonDirectory(folder: string): Promise<string> {
-  const output = await git({
+async function commonDirectory(git: GitProcess, folder: string): Promise<string> {
+  const output = await git.output({
     folder,
     gitArguments: ["rev-parse", "--path-format=absolute", "--git-common-dir"],
   });
@@ -693,58 +733,12 @@ function trackingRefOf(upstream: Upstream): string {
   return `refs/remotes/${upstream.remote}/${upstream.branch}`;
 }
 
-async function commitOf(folder: string, revision: string): Promise<string> {
-  const output = await git({
+async function commitOf(git: GitProcess, folder: string, revision: string): Promise<string> {
+  const output = await git.output({
     folder,
     gitArguments: ["rev-parse", "--verify", `${revision}^{commit}`],
   });
   return output.trim();
-}
-
-/** Runs git and returns what it printed, or throws GitCommandFailed when it fails. */
-async function git(call: GitCall): Promise<string> {
-  const result = await runGit(call);
-  if (result.exitCode !== 0) {
-    throw new GitCommandFailed(call.gitArguments, result.exitCode, result.stderr.trim());
-  }
-  return result.stdout;
-}
-
-function runGit({
-  folder,
-  gitArguments,
-  variables,
-  timeoutMs = LOCAL_TIMEOUT_MS,
-  input,
-}: GitCall): Promise<GitResult> {
-  return new Promise((resolvePromise, reject) => {
-    const child = execFile(
-      "git",
-      ["-C", folder, ...gitArguments],
-      {
-        // Never wait on a credential prompt.
-        env: {
-          ...(variables ?? { ...process.env, LC_ALL: "C" }),
-          GIT_TERMINAL_PROMPT: "0",
-        },
-        timeout: timeoutMs,
-        maxBuffer: OUTPUT_LIMIT_BYTES,
-        windowsHide: true,
-      },
-      (error, stdout, stderr) => {
-        if (!error) resolvePromise({ exitCode: 0, stdout, stderr });
-        else if (typeof error.code === "number") {
-          resolvePromise({ exitCode: error.code, stdout, stderr });
-        } else {
-          const reason = error.killed
-            ? `git ${gitArguments[0] ?? ""} took longer than ${timeoutMs / 1000} s in ${folder}.`
-            : `git could not run: ${error.message}`;
-          reject(new Error(reason, { cause: error }));
-        }
-      },
-    );
-    child.stdin?.end(input);
-  });
 }
 
 function lines(text: string): string[] {

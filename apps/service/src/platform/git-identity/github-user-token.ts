@@ -4,6 +4,9 @@
  * binds it, GitHub over https is reached anonymously, as any other https host.
  */
 export abstract class GitHubUserToken {
+  /** Whether the user is signed in, without reading or refreshing the token. */
+  abstract isSignedIn(): Promise<boolean>;
+
   /** The token for the command, or undefined while the user is not signed in. */
   abstract forGitCommand(): Promise<string | undefined>;
 }

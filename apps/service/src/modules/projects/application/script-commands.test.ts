@@ -16,6 +16,7 @@ import { aProject } from "../domain/project.fixtures.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { ScriptCommands } from "./script-commands.js";
 import { Worktrees } from "./worktrees.js";
+import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
 
 // Real git and real commands in a Task's worktree of a temporary repository.
 let repository: TemporaryRepository;
@@ -58,7 +59,11 @@ beforeAll(async () => {
   await writeFile(join(repository.folder, "test-suite.cjs"), TEST_SUITE);
   const commands = new ProjectCommandRunner(new ShellCommandRunner());
   officeData = new OfficeDataDirectory(join(repository.folder, "office-data"));
-  worktrees = new Worktrees(new CommandLineGit(new RepositoryLocks()), commands, officeData);
+  worktrees = new Worktrees(
+    new CommandLineGit(new RepositoryLocks(), officeIdentityForTests()),
+    commands,
+    officeData,
+  );
   scriptCommands = new ScriptCommands(worktrees, commands, officeData);
 });
 

@@ -13,6 +13,8 @@ import {
   type InstallInputsChange,
   type NewProject,
   type Project as ProjectResponse,
+  type ProjectRemoteNeeds,
+  type RemoteNeeds as RemoteNeedsResponse,
   type ProjectCommandKey,
   type PublishingModeChange,
   type ProjectSkill,
@@ -20,6 +22,8 @@ import {
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { ProjectSkills } from "../../../skills/index.js";
+import type { RemoteNeeds } from "../../../../platform/git-identity/remote-needs.js";
+import { ProjectRemotes } from "../../application/project-remotes.js";
 import { ProjectService } from "../../application/project-service.js";
 import type { Project } from "../../domain/project.js";
 import { ProjectRefusalsFilter } from "./project-refusals.filter.js";
@@ -30,6 +34,7 @@ export class ProjectsController {
   constructor(
     private readonly projects: ProjectService,
     private readonly projectSkills: ProjectSkills,
+    private readonly remotes: ProjectRemotes,
   ) {}
 
   @Post()
@@ -72,6 +77,16 @@ export class ProjectsController {
     @Body(new ContractPipe(publishingModeChangeSchema)) { publishingMode }: PublishingModeChange,
   ): Promise<ProjectResponse> {
     return toProjectResponse(await this.projects.changePublishingMode(id, publishingMode));
+  }
+
+  /**
+   * Which part of the Office identity the base branch's remote needs, read from the repository
+   * each time; apart from the record, so a list of Projects runs no git.
+   */
+  @Get(":id/remote-needs")
+  async remoteNeeds(@Param("id") id: string): Promise<ProjectRemoteNeeds> {
+    const needs = await this.remotes.needsOf(await this.projects.read(id));
+    return { remoteNeeds: needs === undefined ? null : toRemoteNeedsResponse(needs) };
   }
 
   /** The repository's own skills and commands, read from its checkout; never stored. */
@@ -118,4 +133,15 @@ function toProjectResponse(project: Project): ProjectResponse {
     useProjectSkills: project.useProjectSkills,
     addedAt: project.addedAt.toISOString(),
   };
+}
+
+function toRemoteNeedsResponse(needs: RemoteNeeds): RemoteNeedsResponse {
+  switch (needs.kind) {
+    case "github-https":
+      return { kind: needs.kind, missing: [...needs.missing] };
+    case "ssh":
+      return { kind: needs.kind, host: needs.host, port: needs.port, missing: [...needs.missing] };
+    default:
+      return needs;
+  }
 }

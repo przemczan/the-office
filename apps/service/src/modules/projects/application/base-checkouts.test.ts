@@ -17,6 +17,7 @@ import { ProjectRepository } from "../ports/project-repository.js";
 import { BaseCheckouts } from "./base-checkouts.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { Worktrees } from "./worktrees.js";
+import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
 
 /** The Projects as kept: only listing them matters here. */
 class ListedProjects extends ProjectRepository {
@@ -49,7 +50,7 @@ beforeAll(async () => {
   gitIn(repository.path, "branch", "--quiet", "--set-upstream-to=origin/main", "main");
   project = aProject({ path: repository.path });
   projects = new ListedProjects([project]);
-  const git = new CommandLineGit(new RepositoryLocks());
+  const git = new CommandLineGit(new RepositoryLocks(), officeIdentityForTests());
   const commands = new ProjectCommandRunner(new ShellCommandRunner());
   const officeData = new OfficeDataDirectory(join(repository.folder, "office-data"));
   checkouts = new BaseCheckouts(
@@ -68,7 +69,7 @@ afterAll(async () => {
 describe("BaseCheckouts", () => {
   it("makes the folder a chat session works in when there is no Project yet", async () => {
     const officeData = new OfficeDataDirectory(join(repository.folder, "empty-office-data"));
-    const git = new CommandLineGit(new RepositoryLocks());
+    const git = new CommandLineGit(new RepositoryLocks(), officeIdentityForTests());
     const commands = new ProjectCommandRunner(new ShellCommandRunner());
     const empty = new BaseCheckouts(
       new ListedProjects([]),

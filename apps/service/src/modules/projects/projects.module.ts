@@ -1,4 +1,5 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
+import { GitIdentityModule } from "../../platform/git-identity/git-identity.module.js";
 import { EngineModule } from "../engine/index.js";
 import { McpServersModule } from "../mcp-servers/index.js";
 import { SkillsModule } from "../skills/index.js";
@@ -19,6 +20,7 @@ import { EnvironmentChecks } from "./application/environment-checks.js";
 import { LocalRepositories } from "./application/local-repositories.js";
 import { ProjectChecks } from "./application/project-checks.js";
 import { ProjectCommandRunner } from "./application/project-command-runner.js";
+import { ProjectRemotes } from "./application/project-remotes.js";
 import { ProjectService } from "./application/project-service.js";
 import { Publishing } from "./application/publishing.js";
 import { Resolving } from "./application/resolving.js";
@@ -46,7 +48,7 @@ export class ProjectsModule {
       // The Project page lists the repository's own skills through the Skills module and keeps its
       // Server values through the MCP servers module; chats read the Projects through an Office
       // tool on the Engine's registry.
-      imports: [...imports, SkillsModule, McpServersModule, EngineModule],
+      imports: [...imports, GitIdentityModule, SkillsModule, McpServersModule, EngineModule],
       controllers: [
         ProjectsController,
         ProjectServerValuesController,
@@ -66,6 +68,7 @@ export class ProjectsModule {
         ProjectChecks,
         LocalRepositories,
         ProjectService,
+        ProjectRemotes,
         Worktrees,
         ScriptCommands,
         Publishing,

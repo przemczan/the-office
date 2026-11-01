@@ -9,6 +9,7 @@ import {
 import { SKILL_UPLOAD_BYTES } from "@the-office/contracts";
 import { uploadBody } from "../../platform/http/upload-body.js";
 import { Schedule } from "../../platform/schedule/schedule.js";
+import { GitIdentityModule } from "../../platform/git-identity/git-identity.module.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { FilesystemLibraryFolder } from "./adapters/filesystem/filesystem-library-folder.js";
 import { FilesystemSessionFolders } from "./adapters/filesystem/filesystem-session-folders.js";
@@ -36,7 +37,7 @@ import { SourceFetcher } from "./ports/source-fetcher.js";
 import { ZipReader } from "./ports/zip-reader.js";
 
 @Module({
-  imports: [ScheduleModule],
+  imports: [ScheduleModule, GitIdentityModule],
   controllers: [SkillsController],
   providers: [
     { provide: SkillRepository, useClass: PostgresSkillRepository },

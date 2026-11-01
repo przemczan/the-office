@@ -19,6 +19,7 @@ import { ProjectCommandRunner } from "./project-command-runner.js";
 import { Publishing } from "./publishing.js";
 import { Resolving } from "./resolving.js";
 import { Worktrees } from "./worktrees.js";
+import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
 
 class NoPullRequests extends PullRequests {
   open(): Promise<PullRequest> {
@@ -43,7 +44,7 @@ beforeAll(async () => {
   repository = await createTemporaryRepository();
   gitIn(repository.path, "fetch", "--quiet", "origin");
   gitIn(repository.path, "branch", "--quiet", "--set-upstream-to=origin/main", "main");
-  git = new CommandLineGit(new RepositoryLocks());
+  git = new CommandLineGit(new RepositoryLocks(), officeIdentityForTests());
   const commands = new ProjectCommandRunner(new ShellCommandRunner());
   worktrees = new Worktrees(
     git,

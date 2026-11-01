@@ -1,10 +1,12 @@
 import { sep } from "node:path";
-import { Injectable } from "@nestjs/common";
+import { Injectable, Optional } from "@nestjs/common";
 import { isOfficeOwnVariable } from "../config/office-config.js";
 import { currentOperatingSystem } from "../os/current-operating-system.js";
-import { parseGitRemote, type GitRemote } from "./git-remote.js";
+import { parseGitRemote, SSH_PORT, type GitRemote } from "./git-remote.js";
+import { GitHubUserToken } from "./github-user-token.js";
 import { GITHUB_HOST, OfficeKnownHosts } from "./office-known-hosts.js";
 import { OfficeSshKey } from "./office-ssh-key.js";
+import type { MissingForSsh, RemoteNeeds } from "./remote-needs.js";
 
 /** How one git command runs on the Office identity. */
 export interface GitCommandIdentity {
@@ -38,6 +40,13 @@ const USER_CREDENTIAL_VARIABLES: readonly string[] = [
 ];
 
 /**
+ * http settings that would hand the user's credentials to a host. On a 401, curl answers with the
+ * user's `~/.netrc` unless git gives it a user name, which the empty auth does; a credential helper
+ * still answers after it.
+ */
+const HTTP_SETTINGS: readonly string[] = ["extraHeader=", "emptyAuth=true"];
+
+/**
  * The Office identity for git (spec §5.5 Defaults): every Office git command runs with only The
  * Office's own credentials. A command that reaches an ssh remote gets the Office ssh key made
  * first, and GitHub's host keys when it reaches GitHub.
@@ -49,7 +58,32 @@ export class OfficeIdentity {
   constructor(
     private readonly sshKey: OfficeSshKey,
     private readonly knownHosts: OfficeKnownHosts,
+    @Optional() private readonly gitHubUserToken?: GitHubUserToken,
   ) {}
+
+  /** Which part of the identity `remote` needs and what of it is missing, changing nothing. */
+  async needsOf(remote: string): Promise<RemoteNeeds> {
+    const reached = parseGitRemote(remote);
+    switch (reached.transport) {
+      case "https":
+        if (reached.host !== GITHUB_HOST) return { kind: "anonymous-https", host: reached.host };
+        return {
+          kind: "github-https",
+          missing: (await this.gitHubUserToken?.isSignedIn()) ? [] : ["sign-in-with-github"],
+        };
+      case "ssh":
+        return {
+          kind: "ssh",
+          host: reached.host,
+          port: reached.port,
+          missing: await this.missingForSsh(reached),
+        };
+      case "local":
+        return { kind: "local" };
+      case "other":
+        return { kind: "refused", scheme: reached.scheme };
+    }
+  }
 
   /**
    * The identity for a git command that reaches `remote` (a URL, the scp-like syntax or a path),
@@ -75,6 +109,24 @@ export class OfficeIdentity {
       },
       sameVariableName: (one, other) => this.operatingSystem.sameVariableName(one, other),
     });
+  }
+
+  /** GitHub's host keys are trusted from its published list when first needed, so never missing. */
+  private async missingForSsh({
+    host,
+    port,
+  }: {
+    readonly host: string;
+    readonly port: number;
+  }): Promise<MissingForSsh[]> {
+    const [keyMade, hostTrusted] = await Promise.all([
+      this.sshKey.isMade(),
+      host === GITHUB_HOST && port === SSH_PORT ? true : this.knownHosts.isTrusted(host, port),
+    ]);
+    return [
+      ...(keyMade ? [] : ["office-ssh-key" as const]),
+      ...(hostTrusted ? [] : ["host-key" as const]),
+    ];
   }
 }
 
@@ -118,11 +170,10 @@ export function gitCommandIdentity({
       "credential.helper=",
       "-c",
       "core.askPass=",
-      "-c",
-      "http.extraHeader=",
-      // A header set for the remote's own URL outranks the one for every URL.
+      ...HTTP_SETTINGS.flatMap((setting) => ["-c", `http.${setting}`]),
+      // A setting for the remote's own URL outranks the one for every URL.
       ...(reached?.transport === "https" && remote !== undefined && !remote.includes("=")
-        ? ["-c", `http.${remote}.extraHeader=`]
+        ? HTTP_SETTINGS.flatMap((setting) => ["-c", `http.${remote}.${setting}`])
         : []),
     ],
     variables: { ...Object.fromEntries(kept), ...identityVariables },

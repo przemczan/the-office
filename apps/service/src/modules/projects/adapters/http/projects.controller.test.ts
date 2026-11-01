@@ -8,11 +8,13 @@ import {
   projectMcpServerValuesSchema,
   projectSkillListSchema,
   projectRefusalSchema,
+  projectRemoteNeedsSchema,
   projectSchema,
   projectWebEventSchema,
   taskChangesSchema,
   type NewProject,
   type Project,
+  type ProjectRemoteNeeds,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
@@ -94,6 +96,12 @@ async function addProject(fields: Partial<NewProject> = {}): Promise<Project> {
   const response = await send("POST", "/projects", aNewProject(fields));
   expect(response.status).toBe(201);
   return projectSchema.parse(await response.json());
+}
+
+async function remoteNeedsOf(project: Project): Promise<ProjectRemoteNeeds["remoteNeeds"]> {
+  const response = await fetch(`${url}/api/projects/${project.id}/remote-needs`);
+  expect(response.status).toBe(200);
+  return projectRemoteNeedsSchema.parse(await response.json()).remoteNeeds;
 }
 
 /** The events published so far, as the web receives them. */
@@ -188,6 +196,39 @@ describe("GET /api/projects", () => {
       second,
     ]);
     expect(read).toEqual(second);
+  });
+
+  it("says which part of the Office identity the base branch's remote needs", async () => {
+    const tracking = (branch: string, remoteUrl: string): void => {
+      gitIn(repository.path, "remote", "add", branch, remoteUrl);
+      gitIn(repository.path, "branch", "--quiet", "--force", branch, "main");
+      gitIn(repository.path, "config", `branch.${branch}.remote`, branch);
+      gitIn(repository.path, "config", `branch.${branch}.merge`, "refs/heads/main");
+    };
+    tracking("on-github", "https://github.com/octo/repo.git");
+    tracking("on-ssh", "git@git.example:octo/repo.git");
+    gitIn(repository.path, "branch", "--quiet", "--force", "untracked", "main");
+
+    try {
+      const onGitHub = await addProject({ baseBranch: "on-github" });
+      const onSsh = await addProject({ baseBranch: "on-ssh" });
+      const untracked = await addProject({ baseBranch: "untracked" });
+
+      expect(await remoteNeedsOf(onGitHub)).toEqual({
+        kind: "github-https",
+        missing: ["sign-in-with-github"],
+      });
+      expect(await remoteNeedsOf(onSsh)).toEqual({
+        kind: "ssh",
+        host: "git.example",
+        port: 22,
+        missing: ["office-ssh-key", "host-key"],
+      });
+      expect(await remoteNeedsOf(untracked)).toBeNull();
+    } finally {
+      gitIn(repository.path, "remote", "remove", "on-github");
+      gitIn(repository.path, "remote", "remove", "on-ssh");
+    }
   });
 
   it("answers 404 for a Project that doesn't exist", async () => {

@@ -16,6 +16,7 @@ import type { Project } from "../domain/project.js";
 import { aProject } from "../domain/project.fixtures.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
 import { Worktrees } from "./worktrees.js";
+import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
 
 // Real git and real commands on a temporary repository whose main tracks its origin's.
 let repository: TemporaryRepository;
@@ -33,7 +34,7 @@ beforeAll(async () => {
   gitIn(repository.path, "branch", "--quiet", "--set-upstream-to=origin/main", "main");
   installLog = join(repository.folder, "installs.log");
   worktrees = new Worktrees(
-    new CommandLineGit(new RepositoryLocks()),
+    new CommandLineGit(new RepositoryLocks(), officeIdentityForTests()),
     new ProjectCommandRunner(new ShellCommandRunner()),
     new OfficeDataDirectory(join(repository.folder, "office-data")),
   );

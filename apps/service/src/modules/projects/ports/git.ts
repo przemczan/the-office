@@ -115,6 +115,12 @@ export abstract class Git {
   /** The commit a branch, tag or other revision names. */
   abstract commitOf(repositoryPath: string, revision: string): Promise<string>;
 
+  /**
+   * The URL or path `remote` is fetched from, as git resolves it: `insteadOf` applied, and the
+   * remote itself when it is no configured remote's name.
+   */
+  abstract fetchUrlOf(repositoryPath: string, remote: string): Promise<string>;
+
   /** Updates `<remote>/<branch>` from the remote and returns the commit it now names. */
   abstract fetch(
     repositoryPath: string,

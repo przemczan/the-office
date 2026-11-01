@@ -1,7 +1,15 @@
 import { pathToFileURL } from "node:url";
+import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
+import { access, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { officeIdentityForTests } from "../../../../platform/git-identity/office-identity.fixtures.js";
+import {
+  userCredentials,
+  type UserCredentials,
+} from "../../../../platform/git-identity/user-credentials.fixtures.js";
 import { pinnedVersionOf } from "../../domain/installed-source.js";
 import { SourceNotFetched } from "../../ports/source-fetcher.js";
 import { GitSourceFetcher } from "./git-source-fetcher.js";
@@ -14,7 +22,7 @@ import {
 /** git on Windows is slow while every test file runs at once. */
 const GIT_TEST_TIMEOUT_MS = 30_000;
 const LIMITS = { files: 10, bytes: 1024 };
-const fetcher = new GitSourceFetcher();
+const fetcher = new GitSourceFetcher(officeIdentityForTests());
 let source: SourceRepository;
 
 beforeEach(async () => {
@@ -182,5 +190,45 @@ describe("diff", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     expect(diff).toContain("-description: First.");
     expect(diff).toContain("+description: Second.");
     expect(diff).not.toContain("Changed too.");
+  });
+});
+
+describe("on the Office identity", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
+  /** Nothing listens on port 1, so ssh fails once it has picked its key and config. */
+  const SSH_REMOTE = "ssh://git@127.0.0.1:1/";
+  let officeData: string;
+  let user: UserCredentials;
+
+  beforeEach(async () => {
+    officeData = join(tmpdir(), `office-data-${randomUUID()}`);
+    user = await userCredentials("https://rewritten.example");
+    for (const [name, value] of Object.entries(user.environment)) {
+      if (value !== undefined && value !== process.env[name]) vi.stubEnv(name, value);
+    }
+    // The user's config rewrites the Source's https URL to ssh.
+    execFileSync(
+      "git",
+      ["config", "--global", `url.${SSH_REMOTE}.insteadOf`, "https://rewritten.example/"],
+      {
+        env: user.environment,
+      },
+    );
+  });
+
+  afterEach(async () => {
+    vi.unstubAllEnvs();
+    await user.remove();
+    await rm(officeData, { recursive: true, force: true });
+  });
+
+  it("reaches the URL git resolves for a Source with the Office ssh key alone", async () => {
+    const identifiedFetcher = new GitSourceFetcher(officeIdentityForTests(officeData));
+
+    await expect(
+      identifiedFetcher.refs("https://rewritten.example/skills.git"),
+    ).rejects.toBeInstanceOf(SourceNotFetched);
+
+    await access(join(officeData, "identity", "office_ssh_key"));
+    expect(await user.reached()).toEqual([]);
   });
 });

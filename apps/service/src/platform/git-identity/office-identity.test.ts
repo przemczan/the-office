@@ -7,20 +7,20 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { OfficeDataDirectory } from "../office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../os/current-operating-system.js";
 import { startFakeGitHubMeta, type FakeGitHubMeta } from "./fake-github-meta.fixtures.js";
-import { HostKeyScanner } from "./host-key-scanner.js";
 import { IdentityFolder } from "./identity-folder.js";
+import { NoHostKeyScanner } from "./office-identity.fixtures.js";
 import { OfficeIdentity, type GitCommandIdentity } from "./office-identity.js";
 import { OfficeKnownHosts } from "./office-known-hosts.js";
 import { OfficeSshKey } from "./office-ssh-key.js";
+import {
+  startFakeGitHttpServer,
+  userCredentials,
+  type FakeGitHttpServer,
+  type UserCredentials,
+} from "./user-credentials.fixtures.js";
 
 const run = promisify(execFile);
 const [bash] = currentOperatingSystem().agentShells;
-
-class NoScanner extends HostKeyScanner {
-  scan(): Promise<never> {
-    return Promise.reject(new Error("No host is scanned here."));
-  }
-}
 
 const USER_ENVIRONMENT = {
   PATH: process.env["PATH"],
@@ -80,7 +80,7 @@ describe("OfficeIdentity", { timeout: 30_000 }, () => {
     meta = await startFakeGitHubMeta();
     const folder = new IdentityFolder(new OfficeDataDirectory(officeData));
     sshKey = new OfficeSshKey(folder);
-    knownHosts = new OfficeKnownHosts(folder, new NoScanner(), meta.url);
+    knownHosts = new OfficeKnownHosts(folder, new NoHostKeyScanner(), meta.url);
     identity = new OfficeIdentity(sshKey, knownHosts);
   });
 
@@ -99,18 +99,22 @@ describe("OfficeIdentity", { timeout: 30_000 }, () => {
       "core.askPass=",
       "-c",
       "http.extraHeader=",
+      "-c",
+      "http.emptyAuth=true",
     ]);
   });
 
-  it("clears an extra header set for the remote's own URL", async () => {
+  it("sets the http settings for the remote's own URL too", async () => {
     const { configArguments } = await identity.forGitCommand(
       "https://github.com/octo/repo.git",
       USER_ENVIRONMENT,
     );
 
-    expect(configArguments.slice(-2)).toEqual([
+    expect(configArguments.slice(-4)).toEqual([
       "-c",
       "http.https://github.com/octo/repo.git.extraHeader=",
+      "-c",
+      "http.https://github.com/octo/repo.git.emptyAuth=true",
     ]);
   });
 
@@ -166,4 +170,120 @@ describe("OfficeIdentity", { timeout: 30_000 }, () => {
       batchmode: "yes",
     });
   });
+
+  describe("what a remote needs", () => {
+    it("is Sign in with GitHub for GitHub over https, missing while nothing signs in", async () => {
+      expect(await identity.needsOf("https://github.com/octo/repo.git")).toEqual({
+        kind: "github-https",
+        missing: ["sign-in-with-github"],
+      });
+    });
+
+    it("is nothing for another host over https, reached anonymously", async () => {
+      expect(await identity.needsOf("https://gitlab.example/octo/repo.git")).toEqual({
+        kind: "anonymous-https",
+        host: "gitlab.example",
+      });
+    });
+
+    it("is the Office ssh key and a trusted host key over ssh, without making either", async () => {
+      const needs = await identity.needsOf("ssh://git@git.example:2222/octo/repo.git");
+
+      expect(needs).toEqual({
+        kind: "ssh",
+        host: "git.example",
+        port: 2222,
+        missing: ["office-ssh-key", "host-key"],
+      });
+      expect(await sshKey.isMade()).toBe(false);
+    });
+
+    it("never misses GitHub's host key, which comes from GitHub's list when first needed", async () => {
+      await sshKey.ensure();
+
+      expect(await identity.needsOf("git@github.com:octo/repo.git")).toMatchObject({ missing: [] });
+      expect(meta.requests).toBe(0);
+    });
+
+    it("is nothing for a local remote, and refuses another transport", async () => {
+      expect(await identity.needsOf(join(officeData, "remote.git"))).toEqual({ kind: "local" });
+      expect(await identity.needsOf("git://git.example/repo.git")).toEqual({
+        kind: "refused",
+        scheme: "git",
+      });
+    });
+  });
+
+  describe("the user's own credentials", () => {
+    let server: FakeGitHttpServer;
+    let user: UserCredentials;
+
+    beforeEach(async () => {
+      server = await startFakeGitHttpServer();
+      user = await userCredentials(server.origin);
+    });
+
+    afterEach(async () => {
+      await server.close();
+      await user.remove();
+    });
+
+    // The controls show each credential is there to be reached, so the identity's runs prove something.
+    it("are reached by git run without the identity", async () => {
+      await gitCommand([], ["ls-remote", `${server.origin}/repo.git`], user.environment);
+      await gitCommand([], ["ls-remote", "ssh://git@127.0.0.1:1/repo.git"], user.environment);
+
+      expect(await user.reached()).toEqual([
+        "credential-helper",
+        "scoped-credential-helper",
+        "ssh-config",
+      ]);
+      expect(server.authorizations).toContain(user.netrcAuthorization);
+    });
+
+    it("are not reached over http: no credential helper, scoped or not, and no .netrc", async () => {
+      const remote = `${server.origin}/repo.git`;
+      const { configArguments, variables } = await identity.forGitCommand(remote, user.environment);
+
+      // Plain http, which the identity refuses, stands in for https: curl reads .netrc for both.
+      const { stderr } = await gitCommand(configArguments, ["ls-remote", remote], {
+        ...variables,
+        GIT_ALLOW_PROTOCOL: "http",
+      });
+
+      expect(stderr).toMatch(/terminal prompts disabled/);
+      expect(server.authorizations.length).toBeGreaterThan(0);
+      expect(server.authorizations).not.toContain(user.netrcAuthorization);
+      expect(await user.reached()).toEqual([]);
+    });
+
+    it("are not reached over ssh: neither the user's ssh command nor their ssh config", async () => {
+      const remote = "ssh://git@127.0.0.1:1/repo.git";
+      const { configArguments, variables } = await identity.forGitCommand(remote, user.environment);
+
+      const { exitCode } = await gitCommand(configArguments, ["ls-remote", remote], variables);
+
+      expect(exitCode).not.toBe(0);
+      expect(await user.reached()).toEqual([]);
+    });
+  });
 });
+
+/** Runs git, failing or not, with `configArguments` before the subcommand. */
+async function gitCommand(
+  configArguments: readonly string[],
+  gitArguments: readonly string[],
+  environment: Readonly<Record<string, string | undefined>>,
+): Promise<{ exitCode: number; stderr: string }> {
+  return run("git", [...configArguments, ...gitArguments], {
+    env: environment,
+    timeout: 20_000,
+    windowsHide: true,
+  }).then(
+    ({ stderr }) => ({ exitCode: 0, stderr }),
+    (error: { code?: number; stderr?: string }) => ({
+      exitCode: error.code ?? -1,
+      stderr: error.stderr ?? "",
+    }),
+  );
+}

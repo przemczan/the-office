@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { officeIdentityForTests } from "../../../../platform/git-identity/office-identity.fixtures.js";
 import { GitProjectSkillFiles } from "./git-project-skill-files.js";
 import {
   createProjectCheckout,
@@ -7,7 +8,7 @@ import {
 } from "./project-checkout.fixtures.js";
 
 let checkout: ProjectCheckout;
-const files = new GitProjectSkillFiles();
+const files = new GitProjectSkillFiles(officeIdentityForTests());
 
 beforeEach(async () => {
   checkout = await createProjectCheckout();

@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { Injectable } from "@nestjs/common";
+import { OfficeIdentity } from "../../../../platform/git-identity/office-identity.js";
 import type { ProjectSkillFile } from "../../domain/session-skills.js";
 import { ProjectSkillFiles } from "../../ports/project-skill-files.js";
 
@@ -13,14 +14,40 @@ const OUTPUT_LIMIT_BYTES = 16 * 1024 * 1024;
 /** The files git tracks, or would, so the repository's ignored folders are never walked. */
 const PATHSPECS = [":(glob)**/.claude/skills/*/SKILL.md", ":(glob)**/.claude/commands/**/*.md"];
 
-/** Asks the git on PATH, never through a shell, which files of the checkout are skills. */
+/**
+ * Asks the git on PATH, never through a shell, which files of the checkout are skills; on the
+ * Office identity, as every Office git command is, though this one reaches no remote.
+ */
 @Injectable()
 export class GitProjectSkillFiles extends ProjectSkillFiles {
+  constructor(private readonly identity: OfficeIdentity) {
+    super();
+  }
+
   async files(folder: string): Promise<readonly ProjectSkillFile[]> {
+    const { configArguments, variables } = await this.identity.forGitCommand(
+      undefined,
+      process.env,
+    );
     const { stdout } = await run(
       "git",
-      ["ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", ...PATHSPECS],
-      { cwd: folder, timeout: TIMEOUT_MS, maxBuffer: OUTPUT_LIMIT_BYTES, windowsHide: true },
+      [
+        ...configArguments,
+        "ls-files",
+        "-z",
+        "--cached",
+        "--others",
+        "--exclude-standard",
+        "--",
+        ...PATHSPECS,
+      ],
+      {
+        cwd: folder,
+        env: variables,
+        timeout: TIMEOUT_MS,
+        maxBuffer: OUTPUT_LIMIT_BYTES,
+        windowsHide: true,
+      },
     );
     const paths = [...new Set(stdout.split("\0").filter((path) => path !== ""))];
     const files = await Promise.all(

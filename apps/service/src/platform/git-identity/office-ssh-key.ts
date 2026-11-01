@@ -30,6 +30,11 @@ export class OfficeSshKey {
     return (await readFile(this.publicKeyPath, "utf8")).trim();
   }
 
+  /** Whether the key has been made, without making it. */
+  isMade(): Promise<boolean> {
+    return exists(this.privateKeyPath);
+  }
+
   /**
    * Makes the key if it isn't there, once per process: both halves, or the public half again from
    * a private half left alone. A public half without its private one is no key and is replaced.

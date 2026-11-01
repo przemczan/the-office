@@ -241,6 +241,29 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
     });
   });
 
+  it("says what the Office identity lacks when the fetch fails", async () => {
+    // Nothing listens on port 1, and The Office trusts no key of 127.0.0.1.
+    gitIn(repository.path, "remote", "add", "unreachable", "ssh://git@127.0.0.1:1/repo.git");
+    gitIn(repository.path, "branch", "--quiet", "--force", "unreachable-base", "main");
+    gitIn(repository.path, "config", "branch.unreachable-base.remote", "unreachable");
+    gitIn(repository.path, "config", "branch.unreachable-base.merge", "refs/heads/main");
+    const project = await addProject({ baseBranch: "unreachable-base" });
+
+    try {
+      const check = await checked(project);
+
+      expect(check.checks[0]).toMatchObject({ step: "worktree", state: "failed" });
+      expect(check.checks[0]).toHaveProperty(
+        "problem",
+        expect.stringMatching(
+          /^The Office doesn't trust 127\.0\.0\.1's host key yet: confirm its fingerprint in Settings › Office identity\. git fetch failed/,
+        ),
+      );
+    } finally {
+      gitIn(repository.path, "remote", "remove", "unreachable");
+    }
+  });
+
   it("refuses an environment that breaks a rule, and a second check while one runs", async () => {
     const project = await addProject({
       commands: { install: PASSES, build: PASSES, lint: PASSES, test: SLEEPS },

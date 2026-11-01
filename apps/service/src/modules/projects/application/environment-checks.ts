@@ -12,8 +12,10 @@ import type { Project } from "../domain/project.js";
 import { trimmedEnvironment, type ProjectEnvironment } from "../domain/project-environment.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { EnvironmentCheckRepository } from "../ports/environment-check-repository.js";
+import { GitCommandFailed } from "../ports/git.js";
 import { ProjectChecks } from "./project-checks.js";
 import { ProjectCommandRunner } from "./project-command-runner.js";
+import { ProjectRemotes } from "./project-remotes.js";
 import { ProjectService } from "./project-service.js";
 import { Worktrees, type ThrowawayWorktree } from "./worktrees.js";
 
@@ -42,6 +44,7 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
     private readonly projects: ProjectService,
     private readonly rules: ProjectChecks,
     private readonly worktrees: Worktrees,
+    private readonly remotes: ProjectRemotes,
     private readonly commands: ProjectCommandRunner,
     private readonly repository: EnvironmentCheckRepository,
     private readonly events: EventBus,
@@ -135,10 +138,18 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
       await this.progress(running, {
         step: "worktree",
         state: "failed",
-        problem: error instanceof Error ? error.message : String(error),
+        problem: await this.worktreeProblem(project, error),
       });
       return undefined;
     }
+  }
+
+  /** git's own words, and for a failed fetch what the Office identity lacks for the remote. */
+  private async worktreeProblem(project: Project, error: unknown): Promise<string> {
+    const problem = error instanceof Error ? error.message : String(error);
+    const fetchFailed = error instanceof GitCommandFailed && error.gitArguments[0] === "fetch";
+    const reason = fetchFailed ? await this.remotes.whyFetchFailed(project) : undefined;
+    return reason === undefined ? problem : `${reason} ${problem}`;
   }
 
   /** Whether the install passed. The Project's own install command is the one frozen at start. */

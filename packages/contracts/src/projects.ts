@@ -53,6 +53,30 @@ export const projectEnvironmentSchema = z.object({
 });
 export type ProjectEnvironment = z.infer<typeof projectEnvironmentSchema>;
 
+/**
+ * Which part of the Office identity the base branch's remote needs, and what of it is missing:
+ * Sign in with GitHub for GitHub over https; the Office ssh key and a trusted host key over ssh;
+ * nothing for another https host, reached anonymously, or a local remote. Another transport is
+ * refused.
+ */
+export const remoteNeedsSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("github-https"), missing: z.array(z.literal("sign-in-with-github")) }),
+  z.object({
+    kind: z.literal("ssh"),
+    host: z.string(),
+    port: z.number().int(),
+    missing: z.array(z.enum(["office-ssh-key", "host-key"])),
+  }),
+  z.object({ kind: z.literal("anonymous-https"), host: z.string() }),
+  z.object({ kind: z.literal("local") }),
+  z.object({ kind: z.literal("refused"), scheme: z.string() }),
+]);
+export type RemoteNeeds = z.infer<typeof remoteNeedsSchema>;
+
+/** GET /projects/:id/remote-needs, read from the repository each time; null when the base branch tracks no remote branch. */
+export const projectRemoteNeedsSchema = z.object({ remoteNeeds: remoteNeedsSchema.nullable() });
+export type ProjectRemoteNeeds = z.infer<typeof projectRemoteNeedsSchema>;
+
 export const projectSchema = newProjectSchema.extend({
   id: z.string().min(1),
   environment: projectEnvironmentSchema,

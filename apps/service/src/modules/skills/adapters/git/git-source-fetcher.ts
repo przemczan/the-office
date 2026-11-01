@@ -3,6 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Injectable } from "@nestjs/common";
+import { OfficeIdentity } from "../../../../platform/git-identity/office-identity.js";
 import type { PinnedVersion, RemoteRef } from "../../domain/installed-source.js";
 import { SKILL_MD } from "../../domain/skill-files.js";
 import type { FolderEntry } from "../../domain/skill-upload.js";
@@ -17,17 +18,6 @@ import {
 const NETWORK_TIMEOUT_MS = 120_000;
 const LOCAL_TIMEOUT_MS = 30_000;
 const OUTPUT_LIMIT_BYTES = 16 * 1024 * 1024;
-
-/**
- * Never waits on a credential prompt, in the terminal or Git Credential Manager's window, and
- * speaks only the transports a Source may use, whatever the URL asks for.
- */
-const GIT_ENVIRONMENT = {
-  LC_ALL: "C",
-  GIT_TERMINAL_PROMPT: "0",
-  GCM_INTERACTIVE: "never",
-  GIT_ALLOW_PROTOCOL: "https:ssh:file",
-};
 
 /** An entry of `git ls-tree -r --long`: a blob, a link or a submodule. */
 interface TreeEntry {
@@ -47,8 +37,16 @@ const FILE_MODES = new Set(["100644", "100755"]);
  */
 @Injectable()
 export class GitSourceFetcher extends SourceFetcher {
+  private readonly git: SourceGit;
+
+  constructor(identity: OfficeIdentity) {
+    super();
+    this.git = new SourceGit(identity);
+  }
+
   async refs(url: string): Promise<readonly RemoteRef[]> {
-    const output = await git(tmpdir(), ["ls-remote", "--", url, "HEAD", "refs/tags/*"], {
+    const output = await this.git.run(tmpdir(), ["ls-remote", "--", url, "HEAD", "refs/tags/*"], {
+      remote: await this.git.resolved(url),
       timeoutMs: NETWORK_TIMEOUT_MS,
     });
     return output
@@ -61,26 +59,26 @@ export class GitSourceFetcher extends SourceFetcher {
   }
 
   skillFolders(read: SourceRead): Promise<readonly SourceFolder[]> {
-    return inTempRepository(async (repository) => {
-      await fetchPinnedVersion(repository, read.url, read.pinnedVersion);
-      const tree = await treeOf(repository, read.pinnedVersion.commit);
+    return inTempRepository(this.git, async (repository) => {
+      await fetchPinnedVersion(this.git, repository, read.url, read.pinnedVersion);
+      const tree = await treeOf(this.git, repository, read.pinnedVersion.commit);
       const folders = skillFoldersIn(tree).filter(
         (folder) => read.folder === undefined || folder === read.folder,
       );
       return Promise.all(
-        folders.map((folder) => readFolder(repository, folder, tree, read.limits)),
+        folders.map((folder) => readFolder(this.git, repository, folder, tree, read.limits)),
       );
     });
   }
 
   diff(read: SourceDiffRead): Promise<string> {
-    return inTempRepository(async (repository) => {
-      await fetchPinnedVersion(repository, read.url, read.from);
-      await fetchPinnedVersion(repository, read.url, read.to);
+    return inTempRepository(this.git, async (repository) => {
+      await fetchPinnedVersion(this.git, repository, read.url, read.from);
+      await fetchPinnedVersion(this.git, repository, read.url, read.to);
       const inFolder =
         read.folder === "" ? [] : [`--relative=${read.folder}/`, "--", `${read.folder}/`];
       // The user's diff settings never apply: no external diff tool, no text conversion.
-      const output = await git(repository, [
+      const output = await this.git.run(repository, [
         "diff",
         "--no-color",
         "--no-ext-diff",
@@ -96,11 +94,12 @@ export class GitSourceFetcher extends SourceFetcher {
 
 /** Runs `read` on a bare repository of its own, removed after. */
 async function inTempRepository<Result>(
+  git: SourceGit,
   read: (repository: string) => Promise<Result>,
 ): Promise<Result> {
   const repository = await mkdtemp(join(tmpdir(), "office-source-"));
   try {
-    await git(repository, ["init", "--quiet", "--bare"]);
+    await git.run(repository, ["init", "--quiet", "--bare"]);
     return await read(repository);
   } finally {
     // Windows can hold a pack file open for a moment after git exits.
@@ -110,16 +109,18 @@ async function inTempRepository<Result>(
 
 /** Fetches the pinned tag, which any server serves, or else the pinned commit by its id. */
 async function fetchPinnedVersion(
+  git: SourceGit,
   repository: string,
   url: string,
   pinnedVersion: PinnedVersion,
 ): Promise<void> {
   const wanted =
     pinnedVersion.tag === undefined ? pinnedVersion.commit : `refs/tags/${pinnedVersion.tag}`;
-  await git(repository, ["fetch", "--quiet", "--depth", "1", "--no-tags", "--", url, wanted], {
+  await git.run(repository, ["fetch", "--quiet", "--depth", "1", "--no-tags", "--", url, wanted], {
+    remote: await git.resolved(url),
     timeoutMs: NETWORK_TIMEOUT_MS,
   });
-  const fetched = (await git(repository, ["rev-parse", "FETCH_HEAD^{commit}"]))
+  const fetched = (await git.run(repository, ["rev-parse", "FETCH_HEAD^{commit}"]))
     .toString("utf8")
     .trim();
   if (fetched !== pinnedVersion.commit) {
@@ -129,8 +130,8 @@ async function fetchPinnedVersion(
   }
 }
 
-async function treeOf(repository: string, commit: string): Promise<TreeEntry[]> {
-  const output = await git(repository, ["ls-tree", "-r", "-z", "--long", commit]);
+async function treeOf(git: SourceGit, repository: string, commit: string): Promise<TreeEntry[]> {
+  const output = await git.run(repository, ["ls-tree", "-r", "-z", "--long", commit]);
   return output
     .toString("utf8")
     .split("\0")
@@ -152,6 +153,7 @@ function skillFoldersIn(tree: readonly TreeEntry[]): string[] {
 }
 
 async function readFolder(
+  git: SourceGit,
   repository: string,
   folder: string,
   tree: readonly TreeEntry[],
@@ -165,6 +167,7 @@ async function readFolder(
   const bytes = files.reduce((total, file) => total + file.size, 0);
   if (inFolder.length > limits.files || bytes > limits.bytes) return { folder, tooLarge: true };
   const contents = await blobsOf(
+    git,
     repository,
     files.map((file) => file.object),
     bytes,
@@ -184,6 +187,7 @@ async function readFolder(
 
 /** Each blob's bytes by its id, read with one `git cat-file --batch`. */
 async function blobsOf(
+  git: SourceGit,
   repository: string,
   objects: readonly string[],
   bytes: number,
@@ -191,7 +195,7 @@ async function blobsOf(
   const blobs = new Map<string, Uint8Array>();
   if (objects.length === 0) return blobs;
   const unique = [...new Set(objects)];
-  const output = await git(repository, ["cat-file", "--batch"], {
+  const output = await git.run(repository, ["cat-file", "--batch"], {
     input: `${unique.join("\n")}\n`,
     // Each blob comes with a header line of its id, type and size.
     outputLimit: bytes + unique.length * 128,
@@ -212,37 +216,57 @@ async function blobsOf(
 }
 
 interface GitOptions {
+  /** The URL or path the command reaches, as git resolves it; none for a local command. */
+  readonly remote?: string;
   readonly timeoutMs?: number;
   readonly input?: string;
   readonly outputLimit?: number;
 }
 
-function git(
-  folder: string,
-  gitArguments: readonly string[],
-  { timeoutMs = LOCAL_TIMEOUT_MS, input, outputLimit = OUTPUT_LIMIT_BYTES }: GitOptions = {},
-): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    const child = execFile(
-      "git",
-      ["-C", folder, ...gitArguments],
-      {
-        encoding: "buffer",
-        env: { ...process.env, ...GIT_ENVIRONMENT },
-        timeout: timeoutMs,
-        maxBuffer: outputLimit,
-        windowsHide: true,
-      },
-      (error, stdout, stderr) => {
-        if (!error) return resolve(stdout);
-        const detail = error.killed
-          ? `git ${gitArguments[0] ?? ""} took longer than ${timeoutMs / 1000} s.`
-          : causeOf(stderr.toString("utf8")) || error.message;
-        reject(new SourceNotFetched(detail));
-      },
-    );
-    child.stdin?.end(input);
-  });
+/** The git on PATH, never through a shell, each command on the Office identity. */
+class SourceGit {
+  constructor(private readonly identity: OfficeIdentity) {}
+
+  /** Where git reaches for `url`: the user's `insteadOf` rewrites apply, which may change its transport. */
+  async resolved(url: string): Promise<string> {
+    return (await this.run(tmpdir(), ["ls-remote", "--get-url", "--", url]))
+      .toString("utf8")
+      .trim();
+  }
+
+  async run(
+    folder: string,
+    gitArguments: readonly string[],
+    {
+      remote,
+      timeoutMs = LOCAL_TIMEOUT_MS,
+      input,
+      outputLimit = OUTPUT_LIMIT_BYTES,
+    }: GitOptions = {},
+  ): Promise<Buffer> {
+    const identity = await this.identity.forGitCommand(remote, { ...process.env, LC_ALL: "C" });
+    return new Promise((resolve, reject) => {
+      const child = execFile(
+        "git",
+        [...identity.configArguments, "-C", folder, ...gitArguments],
+        {
+          encoding: "buffer",
+          env: identity.variables,
+          timeout: timeoutMs,
+          maxBuffer: outputLimit,
+          windowsHide: true,
+        },
+        (error, stdout, stderr) => {
+          if (!error) return resolve(stdout);
+          const detail = error.killed
+            ? `git ${gitArguments[0] ?? ""} took longer than ${timeoutMs / 1000} s.`
+            : causeOf(stderr.toString("utf8")) || error.message;
+          reject(new SourceNotFetched(detail));
+        },
+      );
+      child.stdin?.end(input);
+    });
+  }
 }
 
 /** git's fatal line names the cause; the lines around it are hints. */
