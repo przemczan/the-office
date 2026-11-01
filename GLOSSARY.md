@@ -71,11 +71,27 @@ The top bar's choice of which Projects every surface shows; Office-wide numbers,
 _Avoid_: Scope, workspace switcher, Project picker (for the choice itself)
 
 **Queue**:
-The one Office-wide line of Tasks that Start couldn't run yet because a desk or their person's Task limit wasn't free, each with its reason; they start by themselves, oldest first, and hold no desk until they do.
+The one Office-wide line of Tasks that Start couldn't run yet because a desk or their person's Task limit wasn't free or a Window cap or Daily cap would be passed, each with its reason; they start by themselves, oldest first, and hold no desk until they do.
 _Avoid_: Backlog (a Task state), waiting list, pending
 
 **Overlap**:
 Two Tasks in one Project whose Plans expect to change some of the same files; Start warns of it before a Task joins one in progress.
+
+**Usage estimate**:
+What a Ready Task's whole Pipeline is expected to use on each engine it uses, in the measures ticked in Settings › Office limits (tokens, the 5-hour window, the 7-day window, cost); from done Tasks of the same Project and Pipeline, else the Planner's estimate in the Plan.
+_Avoid_: Budget (a Stage's token limit), forecast, quota estimate
+
+**Window cap**:
+An engine's cap on how much of the 5-hour or the 7-day window a Start may bring the window to, with its Usage estimate, before it waits in the Queue for the reset.
+_Avoid_: Quota gate, budget, limit (the Office-wide limit and Task limits count desks), threshold
+
+**Daily cap**:
+An engine's cap on the tokens, or the dollars, used in one day; a Start that would pass it, with its Usage estimate, waits in the Queue until midnight. Off unless set.
+_Avoid_: Budget, quota, daily limit
+
+**Model price**:
+What a model costs per million tokens of each kind (input, output, cache writes, cache reads), set in Settings › Engines; every cost in The Office is priced by it.
+_Avoid_: Rate, pricing, price table
 _Avoid_: Conflict (git's, found at Publish), collision, clash
 
 **Files to change**:

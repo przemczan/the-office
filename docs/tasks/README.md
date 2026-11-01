@@ -70,7 +70,7 @@ Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written
 | 35 | [The OpenAI-compatible API engine, for local LLMs](35-api-based-engine.md) | Foundation | done |
 | 36 | [MCP servers for Agents](36-mcp-servers.md) | People | done |
 | 46 | [A Project from a git repository, and Sign in with GitHub](46-project-from-git-repository.md) | Projects | done |
-| 37 | Usage estimates | Now | todo |
+| 37 | [Usage estimates](37-usage-estimates.md) | Now | in progress |
 | 38 | Archive, and moving Tasks between Projects | Work | todo |
 | 39 | Attachment versions | Work and the Task page | todo |
 | 40 | Stage templates in the Pipeline library | Projects | todo |
@@ -90,6 +90,7 @@ As in tier 2 (the user, 2026-10-31): a fix is built where it is found only when 
 - **`devops-proposals.test.ts` still flaky (found 2026-11-01):** after `99258d1` gave each test its own engine, "applied again after its Onboard Task failed" stopped once with "Still drafting." under `verify:linux` and passed on the rerun. Find what is still load-sensitive.
 - **A flaky token count in `now-service.test.ts` (found 2026-11-01):** "counts today's tokens" expected 2 to be 1 once under a full `npm run verify` and passed alone. Find what it shares with other tests.
 - **A flaky "Conflicts at Publish" test (found 2026-11-01):** `tasks.controller.test.ts` failed once under a full `npm run test` and passed on the rerun; cause not looked into. Find why it is load-sensitive and make it independent.
+- **A flaky board drag e2e test (found 2026-11-01):** `work.e2e.ts` "dragging a card reorders its column, and the order survives a reload" failed once under a full `npm run verify` (the Backlog's order polled unchanged) and passed on the rerun. Find what it races.
 - **A Stage edit lost during a Pipeline swap (found 2026-11-01):** in the Task's Stages dialog, the form is keyed by the Task's Pipeline (`edit-task-stages-dialog.tsx`), so an edit made while the swap's request is in flight is dropped without a word when it lands. Fix: disable the Stage editor while the swap is pending.
 - **Task 46's live check and open boxes (marked done for now, 2026-11-01):** step 10, the live check on the Test Project, is not run, and the boxes for every git command on the Office identity, cloning by URL, and Devops reading by URL are not ticked. The task's State lists what is unverified in GitHub's docs and a trap in `gate-publish-test-project-check.test.ts`. The user has parts of the task to discuss first.
 - **Task 35's choices for the user to review**, made while building and recorded in [archive/35-api-based-engine.md](archive/35-api-based-engine.md):
