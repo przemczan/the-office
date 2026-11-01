@@ -63,6 +63,7 @@ import { SearchService } from "./application/search-service.js";
 import { StageScreenshots } from "./application/stage-screenshots.js";
 import { QueueService } from "./application/queue-service.js";
 import { StartConditionsReader } from "./application/start-conditions.js";
+import { DailyCaps } from "./application/daily-caps.js";
 import { StartsSinceReading } from "./application/starts-since-reading.js";
 import { StartService } from "./application/start-service.js";
 import { UsageEstimates } from "./application/usage-estimates.js";
@@ -80,6 +81,7 @@ import { KnownPeople } from "./ports/known-people.js";
 import { KnownPipelines } from "./ports/known-pipelines.js";
 import { ModelPrices } from "./ports/model-prices.js";
 import { AccountWindows } from "./ports/account-windows.js";
+import { DayUsage } from "./ports/day-usage.js";
 import { KnownProjects } from "./ports/known-projects.js";
 import { NewProjects } from "./ports/new-projects.js";
 import { ProjectWorktrees } from "./ports/project-worktrees.js";
@@ -92,6 +94,7 @@ import { QueueRepository } from "./ports/queue-repository.js";
 import { TaskRepository } from "./ports/task-repository.js";
 import { TaskDecisions } from "./ports/task-decisions.js";
 import { TaskThreads } from "./ports/task-threads.js";
+import { TaskTokens } from "./ports/task-tokens.js";
 import { WorkSearch } from "./ports/work-search.js";
 import { UsageHistory } from "./ports/usage-history.js";
 import { WorkSettings } from "./ports/work-settings.js";
@@ -121,6 +124,8 @@ export interface WorkModuleOptions {
   readonly usageHistory: Type<UsageHistory>;
   readonly modelPrices: Type<ModelPrices>;
   readonly accountWindows: Type<AccountWindows>;
+  readonly dayUsage: Type<DayUsage>;
+  readonly taskTokens: Type<TaskTokens>;
 }
 
 @Module({})
@@ -147,6 +152,8 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
     usageHistory,
     modelPrices,
     accountWindows,
+    dayUsage,
+    taskTokens,
   }: WorkModuleOptions): DynamicModule {
     return {
       module: WorkModule,
@@ -194,6 +201,8 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: UsageHistory, useExisting: usageHistory },
         { provide: ModelPrices, useExisting: modelPrices },
         { provide: AccountWindows, useExisting: accountWindows },
+        { provide: DayUsage, useExisting: dayUsage },
+        { provide: TaskTokens, useExisting: taskTokens },
         IdeaService,
         InitiativeService,
         TaskService,
@@ -204,6 +213,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         SavedViewService,
         PlanningService,
         StartConditionsReader,
+        DailyCaps,
         StartsSinceReading,
         StartService,
         UsageEstimates,

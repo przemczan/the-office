@@ -20,6 +20,7 @@ import {
 } from "../domain/usage-estimate.js";
 import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from "../domain/usage-settings.js";
 import { AccountWindows } from "./account-windows.js";
+import { DayUsage, type ModelDayUsage } from "./day-usage.js";
 import { FireAlarmRepository } from "./fire-alarm-repository.js";
 import { IdeaCards } from "./idea-cards.js";
 import { InitiativeThreads, type InitiativeThreadOpening } from "./initiative-threads.js";
@@ -33,6 +34,7 @@ import { SessionInitiatives } from "./session-initiatives.js";
 import { SessionTasks } from "./session-tasks.js";
 import { TaskDecisions } from "./task-decisions.js";
 import { TaskThreads, type TaskThreadOpening } from "./task-threads.js";
+import { TaskTokens, type EngineIdTokens } from "./task-tokens.js";
 import { UsageHistory } from "./usage-history.js";
 import { ModelPrices } from "./model-prices.js";
 import { WorkSettings } from "./work-settings.js";
@@ -324,10 +326,35 @@ export class AccountWindowsForTests extends AccountWindows {
   }
 }
 
+/**
+ * The day's use of the test's own, so no test weighs the turns every other file's sessions add to
+ * today's: none unless a test gives some, by engine id.
+ */
+@Injectable()
+export class DayUsageForTests extends DayUsage {
+  readonly usage = new Map<EngineId, readonly ModelDayUsage[]>();
+
+  async today(engineId: EngineId): Promise<readonly ModelDayUsage[]> {
+    return this.usage.get(engineId) ?? [];
+  }
+}
+
+/** Each Task's Stage Threads' tokens as the test gives them: none unless it gives some. */
+@Injectable()
+export class TaskTokensForTests extends TaskTokens {
+  readonly stageTokens = new Map<string, readonly EngineIdTokens[]>();
+
+  async stageTokensSoFar(taskId: string): Promise<readonly EngineIdTokens[]> {
+    return this.stageTokens.get(taskId) ?? [];
+  }
+}
+
 const PORTS = [
   UsageHistoryForTests,
   ModelPricesForTests,
   AccountWindowsForTests,
+  DayUsageForTests,
+  TaskTokensForTests,
   KnownProjectsForTests,
   NewProjectsForTests,
   ProjectWorktreesForTests,

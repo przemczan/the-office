@@ -1,4 +1,4 @@
-import { capWaits, exceededWindowCaps, type CapWaits, type UsageAtStart } from "./cap-waits.js";
+import { capWaits, exceededCaps, type CapWaits, type UsageAtStart } from "./cap-waits.js";
 import type { Task } from "./task.js";
 import type { StateChangeCause } from "./state-change.js";
 import { withStateChange, type TaskChange } from "./task-changes.js";
@@ -100,7 +100,7 @@ export function startReasons(
 
 /** What holds the Start for the caps it would pass. */
 export function capWaitsAtStart(usage: UsageAtStart): CapWaits {
-  return capWaits(exceededWindowCaps(usage), usage.now);
+  return capWaits(exceededCaps(usage), usage.now);
 }
 
 /**

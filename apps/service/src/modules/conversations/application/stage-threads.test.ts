@@ -638,6 +638,10 @@ describe("StageThreads", () => {
     // Every Thread on the Task counts, without cache reads; the planning Thread here never had a
     // turn, so adds none.
     expect(await app.get(TaskTokens).tokensSoFar(request.taskId)).toBe(3 + 120 + 26_000);
+    // The Stage Threads alone, by the engine id their sessions spend on.
+    expect(await app.get(TaskTokens).stageTokensSoFar(request.taskId)).toEqual([
+      { engineId: "claude-code", tokens: 3 + 120 + 26_000 },
+    ]);
   });
 
   it("refuses the user's messages in a Stage Thread once its Stage has ended", async () => {

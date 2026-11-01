@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   capWaits,
+  exceededCaps,
+  exceededDailyCaps,
   exceededWindowCaps,
+  leftOfEstimate,
   nextCapRelease,
-  withStartedSinceReading,
+  nextMidnight,
+  withStarted,
+  type DailyCapsAtStart,
   type ExceededCap,
   type UsageAtStart,
   type WindowsAtStart,
@@ -41,6 +46,7 @@ function usage(windows: WindowsAtStart, estimate: EngineUsage | undefined): Usag
     measures: ["tokens", "fiveHourWindow", "sevenDayWindow"],
     estimate: estimate ? [estimate] : [],
     windows: [windows],
+    daily: [],
   };
 }
 
@@ -61,13 +67,13 @@ describe("exceededWindowCaps", () => {
     expect(exceededWindowCaps(usage(claudeCode(80, IN_THREE_HOURS, 5), estimateOf(5)))).toEqual([]);
   });
 
-  it("weighs the use alone for a Task with no estimate of the window", () => {
-    const below = usage(claudeCode(85, IN_THREE_HOURS, 20), estimateOf(undefined));
-    const past = usage(claudeCode(91, IN_THREE_HOURS), undefined);
+  it("weighs the use and the Tasks started since alone for a Task with no estimate of it", () => {
+    const below = usage(claudeCode(85, IN_THREE_HOURS, 5), estimateOf(undefined));
+    const past = usage(claudeCode(85, IN_THREE_HOURS, 6), undefined);
 
     expect(exceededWindowCaps(below)).toEqual([]);
     expect(exceededWindowCaps(past).map(({ words }) => words)).toEqual([
-      "The Claude Code engines' 5-hour window would pass its 90% cap: 91% used, and this Task has no estimate. It resets at 12:00.",
+      "The Claude Code engines' 5-hour window would pass its 90% cap: 85% used, 6% expected of the Tasks started since it was read, and this Task has no estimate. It resets at 12:00.",
     ]);
   });
 
@@ -123,14 +129,144 @@ describe("capWaits", () => {
   });
 });
 
-describe("withStartedSinceReading", () => {
-  it("adds a Task started on the same reading to what its engine id's windows expect", () => {
-    const added = withStartedSinceReading(usage(claudeCode(80, IN_THREE_HOURS, 6), undefined), [
+const MIDNIGHT = new Date(2026, 10, 3);
+
+function dailyCaps(
+  caps: DailyCapsAtStart["caps"],
+  today: number,
+  inProgress: number,
+  engineId: DailyCapsAtStart["engineId"] = "claude-code",
+): DailyCapsAtStart {
+  return {
+    engineId,
+    caps,
+    today: { tokens: today, dollars: today / 1000 },
+    inProgress: { tokens: inProgress, dollars: inProgress / 1000 },
+  };
+}
+
+function dailyUsage(daily: DailyCapsAtStart, estimate: EngineUsage | undefined): UsageAtStart {
+  return {
+    now: NOW,
+    measures: ["tokens", "cost"],
+    estimate: estimate ? [estimate] : [],
+    windows: [],
+    daily: [daily],
+  };
+}
+
+describe("exceededDailyCaps", () => {
+  const tokensCap = { tokens: 10_000, dollars: undefined };
+
+  it("passes the cap with today's use, what is left of the Tasks in progress and this Task's", () => {
+    const exceeded = exceededDailyCaps(dailyUsage(dailyCaps(tokensCap, 6000, 3500), estimateOf(5)));
+
+    expect(exceeded).toEqual([
+      {
+        words:
+          "The Claude Code engines' Daily cap of 10,000 tokens would be passed: 6,000 tokens used today, 3,500 tokens left of the estimates of the Tasks in progress and 1,000 tokens of this Task. It resets at midnight.",
+        resetsAt: MIDNIGHT,
+      },
+    ]);
+  });
+
+  it("holds nothing at the cap itself, or with no cap set", () => {
+    const off = { tokens: undefined, dollars: undefined };
+
+    expect(exceededDailyCaps(dailyUsage(dailyCaps(tokensCap, 6000, 3000), estimateOf(5)))).toEqual(
+      [],
+    );
+    expect(exceededDailyCaps(dailyUsage(dailyCaps(off, 60_000, 0), estimateOf(5)))).toEqual([]);
+  });
+
+  it("weighs the use and the Tasks in progress alone for a Task with no estimate or no cost", () => {
+    const dollarsCap = { tokens: undefined, dollars: 9.5 };
+    const noCost = { ...estimateOf(5), cost: undefined };
+
+    expect(exceededDailyCaps(dailyUsage(dailyCaps(tokensCap, 6000, 4000), undefined))).toEqual([]);
+    expect(
+      exceededDailyCaps(dailyUsage(dailyCaps(tokensCap, 6000, 4001), undefined)).map(
+        ({ words }) => words,
+      ),
+    ).toEqual([
+      "The Claude Code engines' Daily cap of 10,000 tokens would be passed: 6,000 tokens used today, 4,001 tokens left of the estimates of the Tasks in progress, and this Task has no estimate. It resets at midnight.",
+    ]);
+    expect(
+      exceededDailyCaps(dailyUsage(dailyCaps(dollarsCap, 6000, 4000), noCost)).map(
+        ({ words }) => words,
+      ),
+    ).toEqual([
+      "The Claude Code engines' Daily cap of $9.50 would be passed: $6.00 used today, $4.00 left of the estimates of the Tasks in progress, and this Task has no cost. It resets at midnight.",
+    ]);
+  });
+
+  it("weighs a cap only while its measure is ticked", () => {
+    const both = { tokens: 1000, dollars: 1 };
+    const tokensOnly: UsageAtStart = {
+      ...dailyUsage(dailyCaps(both, 6000, 0), estimateOf(5)),
+      measures: ["tokens"],
+    };
+    const noneTicked: UsageAtStart = { ...tokensOnly, measures: ["fiveHourWindow"] };
+
+    expect(exceededDailyCaps(tokensOnly).map(({ words }) => words)).toEqual([
+      expect.stringContaining("Daily cap of 1,000 tokens"),
+    ]);
+    expect(exceededDailyCaps(noneTicked)).toEqual([]);
+  });
+
+  it("lets a Start within the hour before midnight go anyway, as a window's reset does", () => {
+    const lateEvening: UsageAtStart = {
+      ...dailyUsage(dailyCaps(tokensCap, 9500, 0), estimateOf(5)),
+      measures: ["tokens", "fiveHourWindow"],
+      windows: [claudeCode(85, new Date(2026, 10, 2, 23, 40), 6)],
+    };
+    const atEleven = { ...lateEvening, now: new Date(2026, 10, 2, 23, 0) };
+    const atTen = { ...lateEvening, now: new Date(2026, 10, 2, 22, 0) };
+
+    expect(exceededCaps(atEleven)).toHaveLength(2);
+    expect(capWaits(exceededCaps(atEleven), atEleven.now).waits).toEqual([]);
+    expect(capWaits(exceededCaps(atTen), atTen.now).resetsAt).toEqual(MIDNIGHT);
+  });
+});
+
+describe("nextMidnight", () => {
+  it("is the next local midnight, from any time of today", () => {
+    expect(nextMidnight(NOW)).toEqual(MIDNIGHT);
+    expect(nextMidnight(new Date(2026, 10, 2))).toEqual(MIDNIGHT);
+    expect(nextMidnight(new Date(2026, 11, 31, 23, 59))).toEqual(new Date(2027, 0, 1));
+  });
+});
+
+describe("leftOfEstimate", () => {
+  it("leaves the estimate less the tokens used so far, its dollars in the same share", () => {
+    expect(leftOfEstimate(estimateOf(5), 500)).toEqual({ tokens: 500, dollars: 0.05 });
+    expect(leftOfEstimate(estimateOf(5), 1500)).toEqual({ tokens: 0, dollars: 0 });
+    expect(leftOfEstimate({ ...estimateOf(5), cost: undefined }, 0)).toEqual({
+      tokens: 1000,
+      dollars: 0,
+    });
+  });
+});
+
+describe("withStarted", () => {
+  it("adds a Task started in the same release to its engine id's windows and Tasks in progress", () => {
+    const before: UsageAtStart = {
+      ...usage(claudeCode(80, IN_THREE_HOURS, 6), undefined),
+      daily: [
+        dailyCaps({ tokens: 10_000, dollars: undefined }, 6000, 500),
+        dailyCaps({ tokens: 10_000, dollars: undefined }, 0, 0, "openai-compatible-api"),
+      ],
+    };
+    const added = withStarted(before, [
       estimateOf(5),
-      { ...estimateOf(7), engineId: "openai-compatible-api" },
+      { ...estimateOf(7), engineId: "openai-compatible-api", tokens: 300, cost: undefined },
     ]);
 
     expect(added.windows[0]?.startedSinceReading).toEqual({ fiveHour: 11, sevenDay: 1 });
+    expect(added.daily.map(({ inProgress }) => inProgress)).toEqual([
+      { tokens: 1500, dollars: 0.6 },
+      { tokens: 300, dollars: 0 },
+    ]);
   });
 });
 

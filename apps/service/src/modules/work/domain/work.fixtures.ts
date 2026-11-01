@@ -89,10 +89,11 @@ export function aLink(fields: Partial<Pick<Attachment, "id" | "owner">> = {}): A
   };
 }
 
-/** No estimate, and no windows the Task spends on. */
+/** No estimate, and no windows or Daily caps the Task spends under. */
 export const NO_USAGE_AT_START: UsageAtStart = {
   now: new Date("2026-10-29T09:00:00.000Z"),
   measures: [],
   estimate: [],
   windows: [],
+  daily: [],
 };

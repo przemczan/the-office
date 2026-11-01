@@ -4,6 +4,7 @@ import { TaskQueued } from "./queue-events.js";
 import { moveUpInQueue, queueOrder, releaseQueue, startOrQueue, type QueuedTask } from "./queue.js";
 import { TaskRefused } from "./task-refused.js";
 import type { StartConditions } from "./task-start.js";
+import { nextMidnight } from "./cap-waits.js";
 import { aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
 
 const NOW = new Date("2026-10-29T09:00:00.000Z");
@@ -232,6 +233,7 @@ describe("releaseQueue", () => {
             startedSinceReading: { fiveHour: 0, sevenDay: 0 },
           },
         ],
+        daily: [],
       },
     };
 
@@ -246,6 +248,40 @@ describe("releaseQueue", () => {
       [expect.stringContaining("80% used, 6% expected of the Tasks started since it was read")],
     ]);
     expect(release.capResets).toEqual([resetsAt]);
+  });
+
+  it("weighs each Task it starts against the Daily caps of those after it, as in progress", () => {
+    const today: StartConditions = {
+      ...conditionsFor("developer", 2),
+      usage: {
+        now: NOW,
+        measures: ["tokens"],
+        estimate: [
+          { engineId: "claude-code", tokens: 1000, windows: { fiveHour: 6, sevenDay: 1 }, cost: 1 },
+        ],
+        windows: [],
+        daily: [
+          {
+            engineId: "claude-code",
+            caps: { tokens: 10_000, dollars: undefined },
+            today: { tokens: 8000, dollars: 8 },
+            inProgress: { tokens: 500, dollars: 0.5 },
+          },
+        ],
+      },
+    };
+
+    const release = releaseQueue(
+      [queued("a", 1), queued("b", 2)],
+      alarmOff([ready("a"), ready("b")]),
+      () => today,
+    );
+
+    expect(release.started.map(({ task }) => task.id)).toEqual(["a"]);
+    expect(release.waiting.map(({ reasons }) => reasons)).toEqual([
+      [expect.stringContaining("8,000 tokens used today, 1,500 tokens left of the estimates")],
+    ]);
+    expect(release.capResets).toEqual([nextMidnight(NOW)]);
   });
 
   it("leaves waiting a Task queued after its conditions were read", () => {

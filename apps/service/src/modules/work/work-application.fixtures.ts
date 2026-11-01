@@ -15,6 +15,8 @@ import {
   KnownPeopleForTests,
   KnownProjectsForTests,
   AccountWindowsForTests,
+  DayUsageForTests,
+  TaskTokensForTests,
   ModelPricesForTests,
   NewProjectsForTests,
   ProposalDraftsForTests,
@@ -71,6 +73,8 @@ export async function startWorkApplication(
         usageHistory: UsageHistoryForTests,
         modelPrices: ModelPricesForTests,
         accountWindows: AccountWindowsForTests,
+        dayUsage: DayUsageForTests,
+        taskTokens: TaskTokensForTests,
       }),
     ],
   });

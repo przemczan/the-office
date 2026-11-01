@@ -31,11 +31,12 @@ import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import {
   ConversationsModule,
+  TaskTokens,
   DecisionService,
   ProposalService,
   ThreadService,
 } from "../../conversations/index.js";
-import { EngineModule, ModelPrices, UsageWindowState } from "../../engine/index.js";
+import { DayUsage, EngineModule, ModelPrices, UsageWindowState } from "../../engine/index.js";
 import { PeopleModule, RoleCards } from "../../people/index.js";
 import {
   PipelineLibrary,
@@ -136,6 +137,8 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                 usageHistory: UsageHistory,
                 modelPrices: ModelPrices,
                 accountWindows: UsageWindowState,
+                dayUsage: DayUsage,
+                taskTokens: TaskTokens,
               }),
             ],
           }));

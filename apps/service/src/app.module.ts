@@ -9,7 +9,7 @@ import {
   ThreadRunner,
   ThreadService,
 } from "./modules/conversations/index.js";
-import { EngineModule, ModelPrices, UsageWindowState } from "./modules/engine/index.js";
+import { DayUsage, EngineModule, ModelPrices, UsageWindowState } from "./modules/engine/index.js";
 import { GitHubAccess, GitHubModule } from "./modules/github/index.js";
 import { NotificationsModule } from "./modules/notifications/index.js";
 import { PeopleModule, RoleCards } from "./modules/people/index.js";
@@ -83,6 +83,8 @@ export class AppModule {
       usageHistory: UsageHistory,
       modelPrices: ModelPrices,
       accountWindows: UsageWindowState,
+      dayUsage: DayUsage,
+      taskTokens: TaskTokens,
     });
     const pipelines = PipelinesModule.register({
       imports: [work, PeopleModule, conversations, projects],

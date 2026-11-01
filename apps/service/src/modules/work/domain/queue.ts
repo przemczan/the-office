@@ -5,7 +5,7 @@ import type { TaskChange } from "./task-changes.js";
 import type { TaskStarted } from "./task-events.js";
 import { TaskQueued } from "./queue-events.js";
 import { TaskRefused } from "./task-refused.js";
-import { withStartedSinceReading } from "./cap-waits.js";
+import { withStarted } from "./cap-waits.js";
 import {
   capWaitsAtStart,
   startReasons,
@@ -108,9 +108,9 @@ export interface Release {
 
 /**
  * Starts every queued Task that can start now, in the queue's order, each counting against the
- * limits of those after it and its estimate against their windows, as started on the same reading,
- * so a Task waiting for a busy person holds none behind it. A Task that
- * meets a refusal leaves the queue; one with no conditions (queued after they were read) waits on.
+ * limits of those after it and its estimate against their caps (`withStarted`), so a Task waiting
+ * for a busy person holds none behind it. A Task that meets a refusal leaves the queue; one with no
+ * conditions (queued after they were read) waits on.
  * `tasks` holds every Task and `fireAlarmOn` the alarm, both read in the hold of Starts.
  */
 export function releaseQueue(
@@ -134,7 +134,7 @@ export function releaseQueue(
     }
     const conditions = {
       ...read,
-      usage: startedEstimates.reduce(withStartedSinceReading, read.usage),
+      usage: startedEstimates.reduce(withStarted, read.usage),
     };
     const blockers = task.blockedBy.flatMap((id) => byId.get(id) ?? []);
     const held = {

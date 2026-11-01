@@ -38,6 +38,8 @@ import {
   KnownProjectsForTests,
   NewProjectsForTests,
   AccountWindowsForTests,
+  DayUsageForTests,
+  TaskTokensForTests,
   ModelPricesForTests,
   ProjectWorktreesForTests,
   UsageHistoryForTests,
@@ -140,6 +142,8 @@ const STAND_INS = [
   UsageHistoryForTests,
   ModelPricesForTests,
   AccountWindowsForTests,
+  DayUsageForTests,
+  TaskTokensForTests,
 ];
 
 /** Projects' service, which Conversations judges Devops' Proposals by; none is drafted here. */
@@ -201,6 +205,8 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         usageHistory: UsageHistoryForTests,
         modelPrices: ModelPricesForTests,
         accountWindows: AccountWindowsForTests,
+        dayUsage: DayUsageForTests,
+        taskTokens: TaskTokensForTests,
       }),
     ],
     overrides: [

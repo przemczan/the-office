@@ -64,7 +64,11 @@ import {
   UsageHistoryForTests,
   WorkSettingsForTests,
   AccountWindowsForTests,
+  DayUsageForTests,
+  TaskTokensForTests,
 } from "../../ports/work-ports.fixtures.js";
+import { defaultEngineCaps, everyEngineCaps } from "../../domain/usage-settings.js";
+import type { UsageMeasure } from "../../domain/usage-estimate.js";
 import { TaskRepository } from "../../ports/task-repository.js";
 import { WorkSettings } from "../../ports/work-settings.js";
 import {
@@ -1757,7 +1761,7 @@ describe("Window caps", () => {
     });
   });
 
-  it("holds a Task with no estimate only when the window's use alone passes the cap", async () => {
+  it("holds a Task with no estimate only when the use and the Tasks started since pass the cap", async () => {
     await windowRead(85, 3 * HOUR);
     const task = await readyTask();
     ownIds.push(task.id);
@@ -1767,7 +1771,92 @@ describe("Window caps", () => {
     await windowRead(91, 3 * HOUR);
 
     expect((await startCheck(task.id)).waits).toEqual([
-      expect.stringContaining("91% used, and this Task has no estimate"),
+      expect.stringContaining(
+        "91% used, 0% expected of the Tasks started since it was read, and this Task has no estimate",
+      ),
     ]);
+  });
+});
+
+/** The Claude Code engines' Daily caps set, with desks to spare. */
+async function dailyCaps(
+  caps: { dailyTokens?: number; dailyDollars?: number },
+  measures: readonly UsageMeasure[] = ["tokens"],
+): Promise<void> {
+  await sendJson(work, "PUT", "/settings/office-wide-limit", { officeWideLimit: 12 });
+  await work.app.get(WorkSettings).changeUsageSettings({
+    measures,
+    caps: everyEngineCaps([{ ...defaultEngineCaps("claude-code"), ...caps }]),
+  });
+}
+
+/** What the Claude Code engines used today, on a model with no price. */
+function usedToday(tokens: number): void {
+  work.app
+    .get(DayUsageForTests)
+    .usage.set("claude-code", [
+      { model: "unpriced", tokens: { input: tokens, output: 0, cacheRead: 0, cacheCreation: 0 } },
+    ]);
+}
+
+describe("Daily caps", () => {
+  const ownIds: string[] = [];
+
+  beforeEach(() => {
+    // Midday on the service's clock, so midnight is never within the hour of a Start here.
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const now = new Date();
+    vi.setSystemTime(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12));
+  });
+
+  afterEach(async () => {
+    for (const id of ownIds.splice(0)) await sendJson(work, "POST", `/tasks/${id}/drop`);
+    vi.useRealTimers();
+  });
+
+  async function ownTask(estimatedTokens: number): Promise<Task> {
+    const task = await estimatedTask(estimatedTokens);
+    ownIds.push(task.id);
+    return task;
+  }
+
+  it("holds a Start that today's use, the rest of the Tasks in progress and its estimate pass", async () => {
+    await dailyCaps({ dailyTokens: 200_000 });
+    usedToday(100_000);
+    const first = await ownTask(60_000);
+    const second = await ownTask(60_000);
+
+    await requestStart(first.id);
+    work.app
+      .get(TaskTokensForTests)
+      .stageTokens.set(first.id, [{ engineId: "claude-code", tokens: 19_000 }]);
+    const answer = startAnswerSchema.parse(await (await requestStart(second.id)).json());
+
+    expect((await readTask(first.id)).state).toBe("in-progress");
+    expect(answer.queued?.reasons).toEqual([
+      expect.stringMatching(
+        /^The Claude Code engines' Daily cap of 200,000 tokens would be passed: 100,000 tokens used today, [\d,]+ tokens left of the estimates of the Tasks in progress and 60,000 tokens of this Task\. It resets at midnight\.$/,
+      ),
+    ]);
+  });
+
+  it("never holds a Start on the dollars of a model with no price", async () => {
+    await dailyCaps({ dailyDollars: 0.01 }, ["tokens", "cost"]);
+    usedToday(1_000_000);
+    const task = await ownTask(60_000);
+
+    await requestStart(task.id);
+
+    expect((await readTask(task.id)).state).toBe("in-progress");
+  });
+
+  it("starts a Task anyway within the hour before midnight", async () => {
+    const now = new Date();
+    vi.setSystemTime(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 30));
+    await dailyCaps({ dailyTokens: 200_000 });
+    usedToday(190_000);
+    const task = await ownTask(60_000);
+
+    expect((await startCheck(task.id)).waits).toEqual([]);
   });
 });
