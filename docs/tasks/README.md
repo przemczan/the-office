@@ -69,7 +69,7 @@ Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written
 | 34 | [Telemetry: the bundled `otel-lgtm` optional, the user's own Grafana or collector](34-telemetry-own-grafana.md) | Foundation | done |
 | 35 | [The OpenAI-compatible API engine, for local LLMs](35-api-based-engine.md) | Foundation | done |
 | 36 | [MCP servers for Agents](36-mcp-servers.md) | People | done |
-| 46 | [A Project from a git repository, and Sign in with GitHub](46-project-from-git-repository.md) | Projects | in progress |
+| 46 | [A Project from a git repository, and Sign in with GitHub](46-project-from-git-repository.md) | Projects | done |
 | 37 | Usage estimates | Now | todo |
 | 38 | Archive, and moving Tasks between Projects | Work | todo |
 | 39 | Attachment versions | Work and the Task page | todo |
@@ -91,6 +91,7 @@ As in tier 2 (the user, 2026-10-31): a fix is built where it is found only when 
 - **A flaky token count in `now-service.test.ts` (found 2026-11-01):** "counts today's tokens" expected 2 to be 1 once under a full `npm run verify` and passed alone. Find what it shares with other tests.
 - **A flaky "Conflicts at Publish" test (found 2026-11-01):** `tasks.controller.test.ts` failed once under a full `npm run test` and passed on the rerun; cause not looked into. Find why it is load-sensitive and make it independent.
 - **A Stage edit lost during a Pipeline swap (found 2026-11-01):** in the Task's Stages dialog, the form is keyed by the Task's Pipeline (`edit-task-stages-dialog.tsx`), so an edit made while the swap's request is in flight is dropped without a word when it lands. Fix: disable the Stage editor while the swap is pending.
+- **Task 46's live check and open boxes (marked done for now, 2026-11-01):** step 10, the live check on the Test Project, is not run, and the boxes for every git command on the Office identity, cloning by URL, and Devops reading by URL are not ticked. The task's State lists what is unverified in GitHub's docs and a trap in `gate-publish-test-project-check.test.ts`. The user has parts of the task to discuss first.
 - **Task 35's choices for the user to review**, made while building and recorded in [archive/35-api-based-engine.md](archive/35-api-based-engine.md):
   - WebFetch gives the page text to the session's own model under the call's prompt, with no second request; the page stays in the session's context.
   - Nothing is compacted; without a token count from the server, usage is estimated at 4 characters per token.
