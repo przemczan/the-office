@@ -8,6 +8,7 @@ import {
   type EventCacheUpdates,
   type EventInvalidations,
 } from "./api/event-stream-provider.tsx";
+import { gitHubEventInvalidations } from "./api/github.ts";
 import { mcpServerEventInvalidations } from "./api/mcp-servers.ts";
 import { notificationEventCacheUpdates } from "./api/notifications.ts";
 import { roleEventInvalidations } from "./api/people.ts";
@@ -27,6 +28,7 @@ const EVENT_INVALIDATIONS: EventInvalidations = {
   ...roleEventInvalidations,
   ...skillEventInvalidations,
   ...mcpServerEventInvalidations,
+  ...gitHubEventInvalidations,
   ...threadEventInvalidations,
   ...workEventInvalidations,
 };

@@ -18,7 +18,7 @@ const portSchema = z.number().int().min(1).max(65_535);
 export const sshHostSchema = z.object({ host: hostSchema, port: portSchema.default(SSH_PORT) });
 export type SshHost = z.infer<typeof sshHostSchema>;
 
-/** A host whose key The Office's ssh trusts, with the fingerprints of the keys it trusts. */
+/** A Trusted host: one whose key The Office's ssh accepts, with the fingerprints of those keys. */
 export const trustedHostSchema = z.object({
   host: z.string().min(1),
   port: portSchema,
@@ -29,12 +29,16 @@ export const trustedHostSchema = z.object({
 export type TrustedHost = z.infer<typeof trustedHostSchema>;
 
 /**
- * The Office's own known hosts: the hosts it trusts, and those an Office git command was refused
- * for because their fingerprint is waiting for the user to confirm it.
+ * An Unconfirmed host: one an Office git command was refused for because its key isn't confirmed
+ * yet.
  */
+export const unconfirmedHostSchema = z.object({ host: z.string().min(1), port: portSchema });
+export type UnconfirmedHost = z.infer<typeof unconfirmedHostSchema>;
+
+/** The Office's own known hosts: its Trusted hosts and its Unconfirmed hosts. */
 export const knownHostsSchema = z.object({
   trusted: z.array(trustedHostSchema),
-  waiting: z.array(z.object({ host: z.string().min(1), port: portSchema })),
+  unconfirmed: z.array(unconfirmedHostSchema),
 });
 export type KnownHosts = z.infer<typeof knownHostsSchema>;
 

@@ -113,7 +113,14 @@ function webEvents(): unknown[] {
   });
 }
 
-const app1 = { slug: "the-office-fake-1", owner: "office-user" };
+/** The App as the web sees it, its install page on the fake GitHub. */
+function registeredApp(slug = "the-office-fake-1") {
+  return {
+    slug,
+    owner: "office-user",
+    installUrl: `${github.urls.web}/apps/${slug}/installations/new`,
+  };
+}
 
 describe("/api/github", () => {
   it("can't sign in before the App is registered", async () => {
@@ -129,7 +136,7 @@ describe("/api/github", () => {
 
   it("sends the browser to GitHub's authorize page with a state and PKCE, back to this Office", async () => {
     await registerApp();
-    expect(await state()).toEqual({ status: "signed-out", app: app1 });
+    expect(await state()).toEqual({ status: "signed-out", app: registeredApp() });
 
     const authorize = await authorizeUrl();
 
@@ -153,7 +160,11 @@ describe("/api/github", () => {
     const landing = await signInThroughGitHub();
 
     expect(failureOf(landing)).toBeNull();
-    expect(await state()).toEqual({ status: "signed-in", app: app1, login: "office-user" });
+    expect(await state()).toEqual({
+      status: "signed-in",
+      app: registeredApp(),
+      login: "office-user",
+    });
     const kept = signIns.signIn;
     expect(kept).toEqual({
       status: "signed-in",
@@ -201,7 +212,7 @@ describe("/api/github", () => {
     expect((await office("/api/github/sign-in", { method: "DELETE" })).status).toBe(204);
 
     expect(signIns.signIn).toBeUndefined();
-    expect(await state()).toEqual({ status: "signed-out", app: app1 });
+    expect(await state()).toEqual({ status: "signed-out", app: registeredApp() });
     expect(webEvents()).toEqual([{ type: "github.changed" }]);
   });
 
@@ -213,7 +224,7 @@ describe("/api/github", () => {
 
     expect(failureOf(landing)).toBe("The sign-in was cancelled on GitHub. Sign in again.");
     expect(exchanges()).toBe(0);
-    expect(await state()).toEqual({ status: "signed-out", app: app1 });
+    expect(await state()).toEqual({ status: "signed-out", app: registeredApp() });
   });
 
   it("refuses a code that came back without a state this Office handed out, taking each state once", async () => {
@@ -255,7 +266,7 @@ describe("/api/github", () => {
 
     expect(await state()).toEqual({
       status: "signed-out",
-      app: { slug: "the-office-fake-2", owner: "office-user" },
+      app: registeredApp("the-office-fake-2"),
       reason: {
         text: "The GitHub App was registered again, so the sign-in under the one before ended. Sign in again.",
       },

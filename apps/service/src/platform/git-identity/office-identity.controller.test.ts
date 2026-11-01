@@ -66,11 +66,11 @@ describe("the Office identity's routes", { timeout: 30_000 }, () => {
     expect(second).toEqual(first);
   });
 
-  it("scans a waiting host and trusts the key whose fingerprint the user confirms", async () => {
-    await app.get(OfficeKnownHosts).awaitConfirmation("git.example.com", 2222);
+  it("scans an Unconfirmed host and trusts the key whose fingerprint the user confirms", async () => {
+    await app.get(OfficeKnownHosts).addUnconfirmed("git.example.com", 2222);
     expect(await knownHosts()).toEqual({
       trusted: [],
-      waiting: [{ host: "git.example.com", port: 2222 }],
+      unconfirmed: [{ host: "git.example.com", port: 2222 }],
     });
 
     const scanned = await post("/known-hosts/scan", { host: "git.example.com", port: 2222 });
@@ -94,7 +94,7 @@ describe("the Office identity's routes", { timeout: 30_000 }, () => {
           fromGitHub: false,
         },
       ],
-      waiting: [],
+      unconfirmed: [],
     };
     expect(confirmed.status).toBe(200);
     expect(await confirmed.json()).toEqual(trusted);
@@ -108,7 +108,7 @@ describe("the Office identity's routes", { timeout: 30_000 }, () => {
     });
 
     expect(confirmed.status).toBe(422);
-    expect(await knownHosts()).toEqual({ trusted: [], waiting: [] });
+    expect(await knownHosts()).toEqual({ trusted: [], unconfirmed: [] });
   });
 
   it("refuses a host that ssh's programs would read as an option", async () => {

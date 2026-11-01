@@ -205,15 +205,15 @@ describe("OfficeIdentity", { timeout: 30_000 }, () => {
     expect(await knownHosts.isTrusted("github.com", 22)).toBe(true);
   });
 
-  it("lists another ssh host as waiting for its fingerprint once a command reaches it", async () => {
+  it("lists another ssh host as an Unconfirmed host once a command reaches it", async () => {
     const remote = "ssh://git@git.example:2222/octo/repo.git";
     await identity.needsOf(remote);
-    expect(await knownHosts.waiting()).toEqual([]);
+    expect(await knownHosts.unconfirmed()).toEqual([]);
 
     await identity.forGitCommand(remote, USER_ENVIRONMENT);
     await identity.forGitCommand("git@github.com:octo/repo.git", USER_ENVIRONMENT);
 
-    expect(await knownHosts.waiting()).toEqual([{ host: "git.example", port: 2222 }]);
+    expect(await knownHosts.unconfirmed()).toEqual([{ host: "git.example", port: 2222 }]);
   });
 
   it("runs ssh with the Office ssh key alone and The Office's own known hosts", async () => {

@@ -1,0 +1,80 @@
+/* Settings › Office identity: Sign in with GitHub, the Office ssh key and the hosts. */
+.office-identity-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.office-identity-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.office-identity-permissions {
+  margin: 0;
+  padding-left: 18px;
+  font: var(--type-caption);
+  line-height: 1.6;
+  color: var(--fg-2);
+}
+
+.office-identity-link {
+  color: var(--accent);
+  font: var(--type-caption);
+}
+
+.office-ssh-key {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--radius-card);
+  background: var(--surface-sunken);
+  font: var(--type-mono);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.known-hosts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.known-host {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+}
+
+.known-host-name {
+  font: var(--type-mono);
+}
+
+.known-host-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.known-host-key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  font: var(--type-mono);
+  overflow-wrap: anywhere;
+}
+
+.known-host-key-type {
+  color: var(--fg-3);
+}

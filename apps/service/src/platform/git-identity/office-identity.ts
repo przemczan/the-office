@@ -100,11 +100,11 @@ export class OfficeIdentity {
   }
 
   /**
-   * Lists an ssh host as waiting for the user to confirm its fingerprint, for a refusal that sends
-   * them to confirm it before any git command reaches the host.
+   * Lists an ssh host as an Unconfirmed host, for a refusal that sends the user to confirm its
+   * fingerprint before any git command reaches the host.
    */
-  awaitHostKeyConfirmation(host: string, port: number): Promise<void> {
-    return this.knownHosts.awaitConfirmation(host, port);
+  addUnconfirmedHost(host: string, port: number): Promise<void> {
+    return this.knownHosts.addUnconfirmed(host, port);
   }
 
   /**
@@ -119,8 +119,9 @@ export class OfficeIdentity {
     if (reached?.transport === "ssh") {
       await this.sshKey.ensure();
       if (this.knownHosts.isGitHub(reached.host, reached.port)) await this.knownHosts.trustGitHub();
-      // ssh will refuse an untrusted host, which then waits for the user to confirm its key.
-      else await this.knownHosts.awaitConfirmation(reached.host, reached.port);
+      // ssh will refuse a host that isn't trusted, so it is an Unconfirmed host until the user
+      // confirms its key.
+      else await this.knownHosts.addUnconfirmed(reached.host, reached.port);
     }
     const sameVariableName = (one: string, other: string): boolean =>
       this.operatingSystem.sameVariableName(one, other);

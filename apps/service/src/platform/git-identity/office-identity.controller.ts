@@ -76,9 +76,9 @@ export class OfficeIdentityController {
   }
 
   private async knownHostsNow(): Promise<KnownHosts> {
-    const [trusted, waiting] = await Promise.all([
+    const [trusted, unconfirmed] = await Promise.all([
       this.knownHosts.trusted(),
-      this.knownHosts.waiting(),
+      this.knownHosts.unconfirmed(),
     ]);
     return {
       trusted: trusted.map(({ host, port, keys }) => ({
@@ -87,7 +87,7 @@ export class OfficeIdentityController {
         fingerprints: keys.map((key) => key.fingerprint),
         fromGitHub: this.knownHosts.isGitHub(host, port),
       })),
-      waiting: waiting.map(({ host, port }) => ({ host, port })),
+      unconfirmed: unconfirmed.map(({ host, port }) => ({ host, port })),
     };
   }
 }

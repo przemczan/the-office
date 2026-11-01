@@ -34,6 +34,8 @@ const registeredAppSchema = z.object({
   slug: z.string().min(1),
   /** The login of the account the App was registered on. */
   owner: z.string().min(1),
+  /** GitHub's page that installs the App on an account's repositories. */
+  installUrl: z.url(),
 });
 
 /**

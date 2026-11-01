@@ -30,6 +30,14 @@ _Avoid_: GitHub login, GitHub token, OAuth (in the UI)
 The ssh key The Office generates and keeps for ssh remotes on any host; the user adds its public half to each host.
 _Avoid_: Deploy key, SSH identity
 
+**Trusted host**:
+An ssh host whose key The Office's ssh accepts: GitHub's from GitHub's published list, any other once the user confirmed its fingerprint.
+_Avoid_: Known host, allowed host, verified host
+
+**Unconfirmed host**:
+An ssh host an Office git command was refused for because its key isn't confirmed yet; the user compares its fingerprint with the host's own and confirms it, which makes it a Trusted host.
+_Avoid_: Waiting host, pending host, unknown host
+
 **Idea**:
 A thought captured quickly and not yet shaped into work; it may become an Initiative or a Task, or be dropped.
 _Avoid_: Draft, note, backlog item

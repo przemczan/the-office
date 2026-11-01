@@ -89,15 +89,15 @@ describe("OfficeKnownHosts", () => {
     expect(await knownHosts.isTrusted("git.example.com", 2222)).toBe(false);
   });
 
-  it("lists the trusted hosts with their keys, and a waiting host until it is confirmed", async () => {
-    await knownHosts.awaitConfirmation("git.example.com", 2222);
-    await knownHosts.awaitConfirmation("github.com", 22);
-    expect(await knownHosts.waiting()).toEqual([{ host: "git.example.com", port: 2222 }]);
+  it("lists the Trusted hosts with their keys, and an Unconfirmed host until it is confirmed", async () => {
+    await knownHosts.addUnconfirmed("git.example.com", 2222);
+    await knownHosts.addUnconfirmed("github.com", 22);
+    expect(await knownHosts.unconfirmed()).toEqual([{ host: "git.example.com", port: 2222 }]);
 
     await knownHosts.confirm("git.example.com", 2222, key(OTHER_ED25519).fingerprint);
     await knownHosts.trustGitHub();
 
-    expect(await knownHosts.waiting()).toEqual([]);
+    expect(await knownHosts.unconfirmed()).toEqual([]);
     expect(await knownHosts.trusted()).toEqual([
       { host: "git.example.com", port: 2222, keys: [key(OTHER_ED25519)] },
       { host: "github.com", port: 22, keys: [key(GITHUB_ED25519)] },

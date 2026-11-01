@@ -4,9 +4,12 @@ import { HTTP_APPLICATION_OPTIONS } from "./platform/http/configure-http.js";
 // The service as `main.ts` runs it, on a scripted engine: the end-to-end tests' sessions replay the
 // scripts in OFFICE_ENGINE_SCRIPTS, one per session opened, so they make no model call.
 const scripts = process.env["OFFICE_ENGINE_SCRIPTS"];
+// No ssh server runs in the end-to-end tests: every host scanned presents this one key.
+const hostKey = process.env["OFFICE_E2E_HOST_KEY"];
 /** A day in the end-to-end service: short, so a test sees the daily jobs find what it changed. */
 const E2E_DAY_MS = 2000;
 if (!scripts) throw new Error("The end-to-end service needs OFFICE_ENGINE_SCRIPTS.");
+if (!hostKey) throw new Error("The end-to-end service needs OFFICE_E2E_HOST_KEY.");
 
 await launch("built", async (appModule) => {
   // Loaded once telemetry has started, as launch.ts asks.
@@ -20,6 +23,13 @@ await launch("built", async (appModule) => {
   } = await import("./modules/engine/index.js");
   const { Schedule } = await import("./platform/schedule/schedule.js");
   const { TimerSchedule } = await import("./platform/schedule/timer-schedule.js");
+  const { HostKeyScanner } = await import("./platform/git-identity/host-key-scanner.js");
+  const { hostKeyOf } = await import("./platform/git-identity/host-keys.js");
+  const scannedKey = hostKeyOf(hostKey);
+  if (!scannedKey) throw new Error(`OFFICE_E2E_HOST_KEY is no ssh public key: ${hostKey}`);
+  const scanner: InstanceType<typeof HostKeyScanner> = {
+    scan: () => Promise.resolve([scannedKey]),
+  };
   const engine = new ScriptedEngine(await readRecording(scripts));
   // No end-to-end session runs on the OpenAI-compatible API; its stand-in only declares what the
   // engine can't do, for the Role card to name.
@@ -35,6 +45,8 @@ await launch("built", async (appModule) => {
     )
     .overrideProvider(Schedule)
     .useFactory({ factory: () => new TimerSchedule(E2E_DAY_MS) })
+    .overrideProvider(HostKeyScanner)
+    .useValue(scanner)
     .compile();
   return moduleRef.createNestApplication({ ...HTTP_APPLICATION_OPTIONS, abortOnError: false });
 });

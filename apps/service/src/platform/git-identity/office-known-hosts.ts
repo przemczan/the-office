@@ -46,10 +46,10 @@ export class OfficeKnownHosts {
   private readonly gitHubMetaUrl: string;
   private readonly writes = new KeyedLocks();
   /**
-   * Hosts an Office git command was refused for, by their known hosts name, until the user
-   * confirms one. Kept in memory: the next command refused after a restart lists its host again.
+   * The Unconfirmed hosts, by their known hosts name, until the user confirms one. Kept in memory:
+   * the next command refused after a restart lists its host again.
    */
-  private readonly waitingHosts = new Map<string, SshHost>();
+  private readonly unconfirmedHosts = new Map<string, SshHost>();
 
   constructor(
     private readonly folder: IdentityFolder,
@@ -70,21 +70,23 @@ export class OfficeKnownHosts {
     return trustedHostNames(await this.read()).has(knownHostName(host, port));
   }
 
-  /** The hosts trusted now, each with its keys, GitHub's among them once it was first reached. */
+  /** The Trusted hosts, each with its keys, GitHub's among them once it was first reached. */
   async trusted(): Promise<readonly TrustedHost[]> {
     return trustedHostKeys(await this.read());
   }
 
-  /** The hosts refused while their fingerprint waits for the user's confirmation, oldest first. */
-  async waiting(): Promise<readonly SshHost[]> {
+  /** The Unconfirmed hosts: refused until the user confirms a key's fingerprint, oldest first. */
+  async unconfirmed(): Promise<readonly SshHost[]> {
     const trusted = trustedHostNames(await this.read());
-    return [...this.waitingHosts].filter(([name]) => !trusted.has(name)).map(([, host]) => host);
+    return [...this.unconfirmedHosts]
+      .filter(([name]) => !trusted.has(name))
+      .map(([, host]) => host);
   }
 
-  /** Lists `host` as waiting for its fingerprint to be confirmed, unless it is trusted or GitHub's. */
-  async awaitConfirmation(host: string, port: number): Promise<void> {
+  /** Lists `host` as an Unconfirmed host, unless it is a Trusted host or GitHub's. */
+  async addUnconfirmed(host: string, port: number): Promise<void> {
     if (this.isGitHub(host, port) || (await this.isTrusted(host, port))) return;
-    this.waitingHosts.set(knownHostName(host, port), { host, port });
+    this.unconfirmedHosts.set(knownHostName(host, port), { host, port });
   }
 
   /** Trusts GitHub's published keys, read from GitHub the first time only. */
@@ -109,7 +111,7 @@ export class OfficeKnownHosts {
     );
     if (confirmed.length === 0) throw new HostKeyRefused(knownHostName(host, port), fingerprint);
     await this.add(host, port, confirmed);
-    this.waitingHosts.delete(knownHostName(host, port));
+    this.unconfirmedHosts.delete(knownHostName(host, port));
   }
 
   private async gitHubKeys(): Promise<HostKey[]> {

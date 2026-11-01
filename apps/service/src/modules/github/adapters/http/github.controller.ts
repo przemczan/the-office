@@ -20,6 +20,7 @@ import {
 import type { Request } from "express";
 import { GitHubAccess } from "../../application/github-access.js";
 import { GitHubSignIn, type SignInState } from "../../application/github-sign-in.js";
+import { appInstallUrl, GitHubUrls } from "../../application/github-urls.js";
 import { GitHubAccessFailed, NotSignedInWithGitHub } from "../../domain/github-repository.js";
 import { GitHubSignInFailed } from "../../domain/sign-in.js";
 import { officeOriginOf, returnUrlsOf } from "./github-return-urls.js";
@@ -31,11 +32,12 @@ export class GitHubController {
   constructor(
     private readonly signIn: GitHubSignIn,
     private readonly access: GitHubAccess,
+    private readonly urls: GitHubUrls,
   ) {}
 
   @Get()
   async state(): Promise<GitHubState> {
-    return webStateOf(await this.signIn.state());
+    return webStateOf(await this.signIn.state(), this.urls);
   }
 
   /** GitHub's authorize page for the browser to go to, GitHub sending it back to this Office. */
@@ -100,10 +102,11 @@ export class GitHubController {
   }
 }
 
-/** Only the App's slug and owner reach the web: never its client secret or a token. */
-function webStateOf(state: SignInState): GitHubState {
+/** Only the App's slug, owner and install page reach the web: never its client secret or a token. */
+function webStateOf(state: SignInState, urls: GitHubUrls): GitHubState {
   if (state.status === "not-registered") return state;
-  const app = { slug: state.app.slug, owner: state.app.owner };
+  const { slug, owner } = state.app;
+  const app = { slug, owner, installUrl: appInstallUrl(urls, slug).href };
   if (state.status === "signed-in") return { status: "signed-in", app, login: state.login };
   return {
     status: "signed-out",

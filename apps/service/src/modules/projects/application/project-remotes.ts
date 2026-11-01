@@ -52,7 +52,7 @@ export class ProjectRemotes {
     const needs = await this.identity.needsOf(await this.git.reachedUrlOf(url));
     if (needs.kind !== "ssh" || needs.missing.length === 0) return undefined;
     if (needs.missing.includes("host-key")) {
-      await this.identity.awaitHostKeyConfirmation(needs.host, needs.port);
+      await this.identity.addUnconfirmedHost(needs.host, needs.port);
     }
     return sshFailureReason(needs.host, needs.missing);
   }

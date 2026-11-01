@@ -1,7 +1,8 @@
 // Playwright's web server: the built service, serving the built web app, on a database of its own
 // that is recreated for every run (the service migrates it as it starts), and on a scripted engine
 // replaying sessions.jsonl in order: only people.e2e.ts opens sessions, and with GitHub on the
-// fake GitHub server. Run on Node type stripping, from apps/web.
+// fake GitHub server, and a host key scanner that finds one fixed key. Run on Node type stripping,
+// from apps/web.
 import { spawn } from "node:child_process";
 import { mkdirSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -16,6 +17,7 @@ import {
   E2E_ENVIRONMENT,
   required,
 } from "./office-database.ts";
+import { hostKeyVariables } from "./ssh-host.ts";
 
 // The service on a scripted engine, which replays SESSIONS: the tests make no model call.
 const SERVICE_MAIN = fileURLToPath(new URL("../../service/dist/e2e.js", import.meta.url));
@@ -34,6 +36,7 @@ const service = spawn(process.execPath, ["--enable-source-maps", SERVICE_MAIN], 
     ...E2E_ENVIRONMENT,
     ...gitHostVariables(),
     ...fakeGitHubVariables(),
+    ...hostKeyVariables(),
     DATABASE_URL: E2E_DATABASE_URL,
     OFFICE_PORT: required("OFFICE_PORT"),
     OFFICE_DATA_DIR: officeData,

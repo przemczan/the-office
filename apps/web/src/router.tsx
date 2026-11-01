@@ -5,6 +5,10 @@ import {
   Navigate,
   redirect,
 } from "@tanstack/react-router";
+import {
+  GITHUB_APP_REGISTRATION_FAILED_PARAMETER,
+  GITHUB_SIGN_IN_FAILED_PARAMETER,
+} from "@the-office/contracts";
 import { Shell } from "./shell/shell.tsx";
 import { NowPage } from "./surfaces/now/now-page.tsx";
 import { OverviewTab } from "./surfaces/people/overview-tab.tsx";
@@ -21,6 +25,7 @@ import { AppearanceSection } from "./surfaces/settings/appearance/appearance-sec
 import { NotificationsSection } from "./surfaces/settings/notifications/notifications-section.tsx";
 import { EnginesSection } from "./surfaces/settings/engines/engines-section.tsx";
 import { McpServersSection } from "./surfaces/settings/mcp-servers/mcp-servers-section.tsx";
+import { OfficeIdentitySection } from "./surfaces/settings/office-identity/office-identity-section.tsx";
 import { OfficeLimitsSection } from "./surfaces/settings/office-limits/office-limits-section.tsx";
 import { SettingsPage } from "./surfaces/settings/settings-page.tsx";
 import { PipelinesSection } from "./surfaces/settings/pipelines/pipelines-section.tsx";
@@ -291,6 +296,29 @@ const settingsEnginesRoute = createRoute({
   staticData: { title: "Settings" },
 });
 
+/** Where GitHub's return lands Settings › Office identity, with why registering or signing in failed. */
+export interface OfficeIdentitySearch {
+  readonly [GITHUB_APP_REGISTRATION_FAILED_PARAMETER]?: string;
+  readonly [GITHUB_SIGN_IN_FAILED_PARAMETER]?: string;
+}
+
+const settingsOfficeIdentityRoute = createRoute({
+  getParentRoute: () => settingsRoute,
+  path: "office-identity",
+  component: OfficeIdentitySection,
+  validateSearch: (search: Record<string, unknown>): OfficeIdentitySearch => {
+    const registrationFailed = search[GITHUB_APP_REGISTRATION_FAILED_PARAMETER];
+    const signInFailed = search[GITHUB_SIGN_IN_FAILED_PARAMETER];
+    return {
+      ...(typeof registrationFailed === "string" && {
+        [GITHUB_APP_REGISTRATION_FAILED_PARAMETER]: registrationFailed,
+      }),
+      ...(typeof signInFailed === "string" && { [GITHUB_SIGN_IN_FAILED_PARAMETER]: signInFailed }),
+    };
+  },
+  staticData: { title: "Settings" },
+});
+
 const settingsOfficeLimitsRoute = createRoute({
   getParentRoute: () => settingsRoute,
   path: "office-limits",
@@ -338,6 +366,7 @@ export const router = createRouter({
       settingsSkillsRoute,
       settingsMcpServersRoute,
       settingsEnginesRoute,
+      settingsOfficeIdentityRoute,
       settingsOfficeLimitsRoute,
       settingsNotificationsRoute,
       settingsAppearanceRoute,
