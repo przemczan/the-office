@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { OfficeDataDirectory } from "../office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../os/current-operating-system.js";
 import { startFakeGitHubMeta, type FakeGitHubMeta } from "./fake-github-meta.fixtures.js";
+import { GitCredentialHelper } from "./git-credential-helper.js";
 import { IdentityFolder } from "./identity-folder.js";
 import { OfficeGitHome } from "./office-git-home.js";
 import { NoHostKeyScanner } from "./office-identity.fixtures.js";
@@ -94,7 +95,12 @@ describe("OfficeIdentity", { timeout: 30_000 }, () => {
     const folder = new IdentityFolder(new OfficeDataDirectory(officeData));
     sshKey = new OfficeSshKey(folder);
     knownHosts = new OfficeKnownHosts(folder, new NoHostKeyScanner(), meta.url);
-    identity = new OfficeIdentity(sshKey, knownHosts, new OfficeGitHome(folder));
+    identity = new OfficeIdentity(
+      sshKey,
+      knownHosts,
+      new OfficeGitHome(folder),
+      new GitCredentialHelper(folder),
+    );
   });
 
   afterEach(async () => {

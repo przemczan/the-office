@@ -1,6 +1,4 @@
-import { createHash, randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
-import { mkdir, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir } from "node:fs/promises";
 import { join, sep } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { IdentityFolder } from "./identity-folder.js";
@@ -82,19 +80,7 @@ export class OfficeGitHome {
   private async write(content: string): Promise<string> {
     await this.folder.prepare();
     await mkdir(this.path, { recursive: true });
-    const digest = createHash("sha256").update(content).digest("hex").slice(0, 16);
-    const file = this.folder.file(`global-${digest}.gitconfig`);
-    if (existsSync(file)) return file;
-    // Written beside and renamed, so a command in another process never reads it half written.
-    const partial = `${file}.${randomUUID()}`;
-    await writeFile(partial, content);
-    try {
-      await rename(partial, file);
-    } catch (error) {
-      await rm(partial, { force: true });
-      if (!existsSync(file)) throw error;
-    }
-    return file;
+    return this.folder.fileHolding("global", ".gitconfig", content);
   }
 }
 

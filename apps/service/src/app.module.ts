@@ -10,7 +10,7 @@ import {
   ThreadService,
 } from "./modules/conversations/index.js";
 import { EngineModule, UsageWindowState } from "./modules/engine/index.js";
-import { GitHubModule } from "./modules/github/index.js";
+import { GitHubAccess, GitHubModule } from "./modules/github/index.js";
 import { NotificationsModule } from "./modules/notifications/index.js";
 import { PeopleModule, RoleCards } from "./modules/people/index.js";
 import {
@@ -40,6 +40,7 @@ import {
 import type { OfficeConfig } from "./platform/config/office-config.js";
 import { DatabaseModule } from "./platform/database/database.module.js";
 import { EventsModule } from "./platform/events/events.module.js";
+import { GitHubUserTokenModule } from "./platform/git-identity/git-identity.module.js";
 import { HealthModule } from "./platform/health/health.module.js";
 import { OfficeDataModule } from "./platform/office-data/office-data.module.js";
 import { TelemetryModule } from "./platform/telemetry/telemetry.module.js";
@@ -49,6 +50,8 @@ import { EventStreamModule } from "./platform/websocket/event-stream.module.js";
 @Module({})
 export class AppModule {
   static register(config: OfficeConfig, webApp: WebAppOptions): DynamicModule {
+    // One instance, so every token read goes through the same sign-in changes and refreshes once.
+    const github = GitHubModule.register();
     // One instance, so every git change on a repository goes through the same locks.
     const projects = ProjectsModule.register({
       imports: [PipelineLibraryModule],
@@ -98,7 +101,8 @@ export class AppModule {
         EngineModule,
         EventsModule,
         EventStreamModule,
-        GitHubModule.register(),
+        github,
+        GitHubUserTokenModule.register({ imports: [github], gitHubUserToken: GitHubAccess }),
         HealthModule,
         McpServersModule,
         OfficeDataModule.forRoot(config.officeDataDirectory),

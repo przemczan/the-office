@@ -1,4 +1,6 @@
-import { mkdir } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { existsSync } from "node:fs";
+import { mkdir, rename, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { OfficeDataDirectory } from "../office-data/office-data-directory.js";
@@ -26,6 +28,27 @@ export class IdentityFolder {
       throw error;
     });
     return this.prepared;
+  }
+
+  /**
+   * A file holding `content`, named `<prefix>-<digest><extension>` by what it holds, written when
+   * missing; so versions of The Office or commands with different content never share one.
+   */
+  async fileHolding(prefix: string, extension: string, content: string): Promise<string> {
+    await this.prepare();
+    const digest = createHash("sha256").update(content).digest("hex").slice(0, 16);
+    const file = this.file(`${prefix}-${digest}${extension}`);
+    if (existsSync(file)) return file;
+    // Written beside and renamed, so a command in another process never reads it half written.
+    const partial = `${file}.${randomUUID()}`;
+    await writeFile(partial, content);
+    try {
+      await rename(partial, file);
+    } catch (error) {
+      await rm(partial, { force: true });
+      if (!existsSync(file)) throw error;
+    }
+    return file;
   }
 
   private async restrict(): Promise<void> {

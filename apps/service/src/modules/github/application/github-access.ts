@@ -16,6 +16,7 @@ import {
 import { GitHubAppRepository } from "../ports/github-app-repository.js";
 import { GitHubSignInRepository } from "../ports/github-sign-in-repository.js";
 import { refusalReason } from "./github-sign-in.js";
+import { GitHubUrls } from "./github-urls.js";
 import { SignInChanges } from "./sign-in-changes.js";
 
 type SignedIn = Extract<KeptSignIn, { status: "signed-in" }>;
@@ -33,7 +34,13 @@ export class GitHubAccess {
     private readonly signIns: GitHubSignInRepository,
     private readonly events: EventBus,
     private readonly changes: SignInChanges,
+    private readonly urls: GitHubUrls,
   ) {}
+
+  /** GitHub's website, whose https remotes the user token is for. */
+  get webUrl(): string {
+    return this.urls.web;
+  }
 
   /** Whether the user is signed in, without reading or refreshing the token. */
   async isSignedIn(): Promise<boolean> {

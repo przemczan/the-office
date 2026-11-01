@@ -1,12 +1,17 @@
-import { sep } from "node:path";
 import { Injectable, Optional } from "@nestjs/common";
 import { isOfficeOwnVariable } from "../config/office-config.js";
 import { currentOperatingSystem } from "../os/current-operating-system.js";
+import {
+  GitCredentialHelper,
+  type GitCredentialAnswer,
+  type GitCredentialGrant,
+} from "./git-credential-helper.js";
 import { parseGitRemote, SSH_PORT, type GitRemote } from "./git-remote.js";
 import { GitHubUserToken } from "./github-user-token.js";
 import { OfficeGitHome, userGlobalConfig } from "./office-git-home.js";
 import { GITHUB_HOST, OfficeKnownHosts } from "./office-known-hosts.js";
 import { OfficeSshKey } from "./office-ssh-key.js";
+import { forSh, shellQuoted } from "./sh-words.js";
 import type { MissingForSsh, RemoteNeeds } from "./remote-needs.js";
 
 /** How one git command runs on the Office identity. */
@@ -15,6 +20,8 @@ export interface GitCommandIdentity {
   readonly configArguments: readonly string[];
   /** The command's whole environment. */
   readonly variables: Readonly<Record<string, string>>;
+  /** Called once the command has exited: what it was let ask for ends. */
+  release(): void;
 }
 
 /** The files ssh runs with. */
@@ -60,6 +67,7 @@ export class OfficeIdentity {
     private readonly sshKey: OfficeSshKey,
     private readonly knownHosts: OfficeKnownHosts,
     private readonly gitHome: OfficeGitHome,
+    private readonly credentialHelper: GitCredentialHelper,
     @Optional() private readonly gitHubUserToken?: GitHubUserToken,
   ) {}
 
@@ -107,10 +115,12 @@ export class OfficeIdentity {
       this.operatingSystem.gitHomeDirectory(inherited),
       sameVariableName,
     );
+    const gitHubGrant = await this.gitHubGrant(remote);
     return gitCommandIdentity({
       remote,
       reached,
       inherited,
+      gitHubGrant,
       ssh: {
         ssh: this.operatingSystem.sshPrograms.ssh,
         privateKey: this.sshKey.privateKeyPath,
@@ -124,6 +134,18 @@ export class OfficeIdentity {
       },
       sameVariableName,
     });
+  }
+
+  /**
+   * Leave for a command that reaches GitHub over https to ask for the user token, while signed in.
+   * The token is read only when git asks, so a public repository needs no refresh.
+   */
+  private async gitHubGrant(remote: string | undefined): Promise<GitCredentialGrant | undefined> {
+    const userToken = this.gitHubUserToken;
+    if (userToken === undefined || remote === undefined) return undefined;
+    if (originOf(remote) !== new URL(userToken.webUrl).origin) return undefined;
+    if (!(await userToken.isSignedIn())) return undefined;
+    return this.credentialHelper.grant(userToken.webUrl, () => tokenAnswer(userToken));
   }
 
   /** GitHub's host keys are trusted from its published list when first needed, so never missing. */
@@ -149,6 +171,7 @@ interface GitCommandIdentityInput {
   readonly remote: string | undefined;
   readonly reached: GitRemote | undefined;
   readonly inherited: Readonly<Record<string, string | undefined>>;
+  readonly gitHubGrant: GitCredentialGrant | undefined;
   readonly ssh: SshFiles;
   readonly home: GitHome;
   readonly sameVariableName: (one: string, other: string) => boolean;
@@ -172,6 +195,7 @@ export function gitCommandIdentity({
   remote,
   reached,
   inherited,
+  gitHubGrant,
   ssh,
   home,
   sameVariableName,
@@ -183,6 +207,8 @@ export function gitCommandIdentity({
     XDG_CONFIG_HOME: home.xdgConfigHome,
     KRB5CCNAME: home.kerberosCredentialCache,
     GIT_TERMINAL_PROMPT: "0",
+    // git's traces of http leave the Authorization header out, whatever the user's environment says.
+    GIT_TRACE_REDACT: "1",
     GCM_INTERACTIVE: "never",
     GIT_SSH_COMMAND: sshCommand(ssh),
     GIT_SSH_VARIANT: "ssh",
@@ -200,6 +226,7 @@ export function gitCommandIdentity({
     configArguments: [
       "-c",
       "credential.helper=",
+      ...(gitHubGrant?.configArguments ?? []),
       "-c",
       "core.askPass=",
       ...HTTP_SETTINGS.flatMap((setting) => ["-c", `http.${setting}`]),
@@ -209,7 +236,31 @@ export function gitCommandIdentity({
         : []),
     ],
     variables: { ...Object.fromEntries(kept), ...identityVariables },
+    release: () => gitHubGrant?.release(),
   };
+}
+
+/**
+ * The user token as git's helper is answered: signed out while the command ran is said, never
+ * answered anonymously, since git asks only once GitHub wanted credentials.
+ */
+async function tokenAnswer(userToken: GitHubUserToken): Promise<GitCredentialAnswer> {
+  const token = await userToken.userToken();
+  if (token !== undefined) return { kind: "token", token };
+  return {
+    kind: "refused",
+    reason:
+      "Sign in with GitHub ended, so git couldn't be given GitHub's token. Settings › Office identity says why; sign in again there.",
+  };
+}
+
+/** The origin of a URL remote; none for the scp-like syntax or a path. */
+function originOf(remote: string): string | undefined {
+  try {
+    return new URL(remote).origin;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -217,11 +268,8 @@ export function gitCommandIdentity({
  * where an unknown host is refused and never added. BatchMode keeps it from asking anything.
  */
 function sshCommand({ ssh, privateKey, knownHosts }: SshFiles): string {
-  // A file goes in as an option, not `-i`, which ssh checks unexpanded and then reads expanded.
-  const fileOption = (name: string, path: string): string =>
-    `-o ${shellQuoted(`${name}=${sshConfigQuoted(percentEscaped(forSsh(path)))}`)}`;
   return [
-    shellQuoted(forSsh(ssh)),
+    shellQuoted(forSh(ssh)),
     "-F none",
     fileOption("IdentityFile", privateKey),
     "-o IdentitiesOnly=yes",
@@ -234,13 +282,9 @@ function sshCommand({ ssh, privateKey, knownHosts }: SshFiles): string {
   ].join(" ");
 }
 
-/** git runs GIT_SSH_COMMAND in sh, which takes Windows paths with forward slashes only. */
-function forSsh(path: string): string {
-  return path.split(sep).join("/");
-}
-
-function shellQuoted(text: string): string {
-  return `'${text.replaceAll("'", `'\\''`)}'`;
+/** A file goes in as an option, not `-i`, which ssh checks unexpanded and then reads expanded. */
+function fileOption(name: string, path: string): string {
+  return `-o ${shellQuoted(`${name}=${sshConfigQuoted(percentEscaped(forSh(path)))}`)}`;
 }
 
 /** ssh reads `%` in a file name as one of its tokens. */

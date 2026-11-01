@@ -65,7 +65,7 @@ export class GitProcess {
       remote,
       variables ?? { ...process.env, LC_ALL: "C" },
     );
-    return new Promise((resolvePromise, reject) => {
+    return new Promise<GitResult>((resolvePromise, reject) => {
       const child = execFile(
         "git",
         [...identity.configArguments, "-C", folder, ...gitArguments],
@@ -91,6 +91,6 @@ export class GitProcess {
       if (onStandardError)
         child.stderr?.on("data", (chunk: Buffer | string) => onStandardError(String(chunk)));
       child.stdin?.end(input);
-    });
+    }).finally(() => identity.release());
   }
 }

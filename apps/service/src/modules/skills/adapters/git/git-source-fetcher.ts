@@ -245,7 +245,7 @@ class SourceGit {
     }: GitOptions = {},
   ): Promise<Buffer> {
     const identity = await this.identity.forGitCommand(remote, { ...process.env, LC_ALL: "C" });
-    return new Promise((resolve, reject) => {
+    return new Promise<Buffer>((resolve, reject) => {
       const child = execFile(
         "git",
         [...identity.configArguments, "-C", folder, ...gitArguments],
@@ -265,7 +265,7 @@ class SourceGit {
         },
       );
       child.stdin?.end(input);
-    });
+    }).finally(() => identity.release());
   }
 }
 

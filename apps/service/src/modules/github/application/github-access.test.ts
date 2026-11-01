@@ -35,7 +35,7 @@ beforeEach(async () => {
   events.subscribeToEveryEvent((event) => void published.push(event));
   const changes = new SignInChanges();
   signIn = new GitHubSignIn(github.urls, api, apps, signIns, events, changes);
-  access = new GitHubAccess(api, apps, signIns, events, changes);
+  access = new GitHubAccess(api, apps, signIns, events, changes, github.urls);
 });
 
 afterEach(async () => {

@@ -116,16 +116,19 @@ Decided with the user on 2026-10-31 and 2026-11-01:
   - Commit.
 
   Read: the State; GitHub's "Refreshing user access tokens".
-- [ ] 7. The token reaches git and pull requests, about 100k:
+- [x] 7. The token reaches git, about 70k:
   - Step 1's port is bound to `GitHubAccess` in `app.module.ts`, so a GitHub https command gets a credential helper that Office code answers for that one command, scoped to `https://github.com`.
-  - `GitHubApiPullRequests` replaces `GitHubCliPullRequests`, and `gh` goes.
-  - Push + PR without the sign-in is refused before the push, and the refusal names Settings › Office identity.
-  - Tests on a local git server that requires the token (`git http-backend`) and against the fake API; a test that no command environment or session option holds it.
+  - Tests on a local git server that requires the token (`git http-backend`); a test that no command environment, argument or hook's environment holds it.
   - Commit. `npm run verify:linux`.
 
-  Read: the State; `projects/application/publishing.ts` (l. 55–70, 175–195); `projects/adapters/github/github-cli-pull-requests.ts`; `projects/ports/pull-requests.ts`; `app.module.ts` (the `KnownPipelines` binding).
-
   Trap: hooks such as LFS's pre-push run as the user during a push. That is spec §8's no-sandbox risk.
+- [ ] 7b. Pull requests through GitHub's API, about 70k:
+  - `GitHubApiPullRequests` replaces `GitHubCliPullRequests`, and `gh` goes: the github module opens the pull request with the user token (`POST /repos/{owner}/{repo}/pulls`; on 422, the open one for `head=owner:branch`), Projects reaches it through its `PullRequests` port in `projects/adapters/github/`.
+  - Push + PR without the sign-in is refused before the push, and the refusal names Settings › Office identity; a remote that isn't GitHub has no pull requests, refused alike.
+  - The fake GitHub's pulls endpoint; tests against it; a test that no session's options hold the token.
+  - Commit.
+
+  Read: the State; `projects/application/publishing.ts` (l. 55–70, 85–102); `projects/adapters/github/github-cli-pull-requests.ts`; `projects/ports/pull-requests.ts`; `github/adapters/github/github-rest-api.ts` (`call`, `everyPage`); `github/adapters/github/fake-github.fixtures.ts`.
 - [ ] 8. Devops' onboarding by URL, about 100k:
   - `read_local_repository` takes a URL too, read from a bare one-commit-deep fetch on the identity, nothing cloned.
   - The Proposal's `project` may hold a Repository URL instead of a path, judged in the dry run with `remoteBranches`.
@@ -172,17 +175,17 @@ Decided with the user on 2026-10-31 and 2026-11-01:
 
 ## State
 
-- Steps 0–6 and 5b done; next, 7.
-- Step 5b: `OfficeGitHome` (`platform/git-identity/office-git-home.ts`) gives every command `HOME` = `<office-data>/identity/home`, `GIT_CONFIG_GLOBAL` = `identity/global-<hash>.gitconfig` (includes the user's files by absolute path, from `userGlobalConfig`: their own `GIT_CONFIG_GLOBAL`, else XDG `git/config` then `~/.gitconfig`), `XDG_CONFIG_HOME` the user's, `KRB5CCNAME` a cache that never exists; `http.emptyAuth=false`. `OperatingSystem.gitHomeDirectory` is git's own home lookup (Git for Windows: HOME, HOMEDRIVE+HOMEPATH, USERPROFILE). Found by probes: `emptyAuth=true` sent NTLM/Negotiate through SSPI; `http.allowNTLMAuth` exists only in later Git for Windows. Traps: hooks that Office git runs (pre-commit, husky, LFS's) see the Office home, so their caches under `~` start empty; git-lfs isn't in the Linux check's image or on the LXC, so its tests skip there; `officeIdentityForTests()` without a folder shares `<tmp>/office-identity-tests`.
-- Cloning (3–3b): `projects/application/repository-url.ts`, `Git.clone`/`remoteBranches`/`fetchBranches`/`reachedUrlOf` (the identity is decided on the URL git reaches, `insteadOf` applied), `RepositoryClones` (`POST /api/repositories/clones`, web event `repository-clone.changed`); `projects.repository_url` (0065), accepted only with `path` = its clone folder. Web: `AddProjectDialog` "Where it is" (folder / git URL, `repository-clone-step.tsx`). e2e: `apps/web/e2e/git-host.ts` serves `https://git.example.test/` by `insteadOf`.
-- `modules/github/` (see its MAP.md): `github_app` (0066, client secret since 0067) by the manifest flow; `github_sign_in` (0067) by the web flow (`GitHubSignIn`: state + PKCE + `offline_access`). Routes `GET /api/github`, `POST`/`DELETE /api/github/sign-in`, `GET …/sign-in/callback`, `GET /api/github/repositories`; events → web `github.changed`. Contract `packages/contracts/src/github.ts`.
-- Step 6: `GitHubAccess` (exported by `GitHubModule` and `index.ts`): `isSignedIn()`, `userToken()` (refreshed when it expires within 15 minutes), `repositories()`. Every token read and sign-in change runs on `SignInChanges`; concurrent callers cause one refresh. Decided: GitHub refusing a refresh (`error`, or an answer without tokens) signs out with a reason; GitHub unreachable (`GitHubUnreachable`, 30 s timeout on every call) throws `GitHubAccessFailed` and keeps the sign-in, since the refresh token may be unspent (if it was spent, the next try is refused and signs out). "Paginated" read as: the service follows GitHub's pages (`per_page=100`, `Link` next, same origin only) and returns the whole list, sorted, for 9b's searchable picker; suspended installations are skipped.
-- For step 7: the port's method is `forGitCommand()`, `GitHubAccess`'s is `userToken()`; bind with a small factory or rename one of them. `userToken()` can throw `GitHubAccessFailed`.
+- Steps 0–7 and 5b done; next, 7b (pull requests through GitHub's API).
+- Step 7: `GitCredentialHelper` (`platform/git-identity/git-credential-helper.ts`): a command whose remote's origin is `GitHubUserToken.webUrl` gets, while signed in, `-c credential.<origin>.helper=!<node> <script> <port> <secret>` right after the identity's `credential.helper=`. The script (`identity/git-credential-helper-<digest>.cjs`, written by `IdentityFolder.fileHolding`, which `OfficeGitHome` now uses too) posts git's request to a loopback listener (127.0.0.1, port 0, unref'd, one per process) with the command's secret; the listener checks protocol and host, answers `get` only, user `x-access-token`. `GitCommandIdentity.release()` ends the secret; every caller (`GitProcess.run`, `GitSourceFetcher.run`, `GitProjectSkillFiles`) calls it once git exits. `GIT_TRACE_REDACT=1`. Chosen over a file or an fd: no secret on disk, a pipe-free channel that works alike on Windows and Linux, and git-lfs's own `credential fill` gets it through `GIT_CONFIG_PARAMETERS`.
+- Decided: the token is read only when git asks (no refresh for a public repository). `userToken()` throwing (`GitHubAccessFailed`) or finding the user signed out fails the command with the reason on git's stderr (`quit=1`), never anonymously: git asks only after GitHub answered 401, so anonymous would just fail later with a worse message. Signed out at the command's start: no helper, anonymous.
+- Binding: `GitHubUserTokenModule.register({ imports: [github], gitHubUserToken: GitHubAccess })`, global, in `app.module.ts`; `GitHubModule.register()` is built once there. The port's method is now `userToken()`, and `GitHubAccess.webUrl` comes from `GitHubUrls`. `OfficeIdentity` takes `GitCredentialHelper` fourth, the token fifth (`@Optional`); `officeIdentityForTests` takes the token third. `app.module.test.ts` proves the binding.
+- Residual (spec §8): `-c` values reach hooks through `GIT_CONFIG_PARAMETERS`, so a hook may ask the helper while its own command runs; the token is in no argument, variable or file (tested with a pre-push hook dumping `env`).
+- For 7b: check the refusal through a `PullRequests` method (such as `whyCannotOpen(remote)`) before the push, in the Push + PR path only; parse owner/repo from the reached URL, https or ssh (an ssh GitHub remote still needs the sign-in for the API); the API base from the github module, never hardcoded in Projects; `Publishing`'s class comment still says git's own credential helper signs pushes in.
+- Tests: `office-identity-github.test.ts` on `token-git-server.fixtures.ts` (`git http-backend`, Basic auth with the token, plain http standing in for https with `GIT_ALLOW_PROTOCOL` overridden).
 - The fake (`index.fixtures.ts`): `FakeGitHub` (authorize page, token endpoint with refresh, `revokeRefreshTokens`, `resetClientSecret`, `requests[].grantType`, `issuedTokens`) and `installations` (`FakeInstallations.install(account, repositories, { suspended })`).
-- Unverified in GitHub's docs, for the live check: the `error` for a used or revoked refresh token (the fake says `bad_refresh_token`), and for a wrong PKCE verifier (`bad_verification_code`); that the redirect back carries `error=access_denied`/`redirect_uri_mismatch`; what a suspended installation's repositories answer (the fake: 403).
-- Open for the user: the manifest leaves out the name and the webhook, and names one callback URL; the live check confirms GitHub takes that.
+- Unverified in GitHub's docs, for the live check: the `error` for a used or revoked refresh token (the fake: `bad_refresh_token`) and a wrong PKCE verifier (`bad_verification_code`); `error=access_denied`/`redirect_uri_mismatch` on the redirect back; a suspended installation's repositories (the fake: 403). Open for the user: the manifest leaves out the name and the webhook, and names one callback URL.
 - Trap for 9a: fixtures are left out of the build, so the e2e service can't import `FakeGitHub` as it is.
-- `npm run verify:linux` last passed at step 2 (Docker Desktop on the workstation fails to start). Step 5b's Linux check instead ran the whole service vitest suite on the LXC (Ubuntu 24.04, git 2.43, git-lfs 3.4.1 installed for the run and purged after): 2811 passed, 99 skipped. On Windows, `npm run verify` passes but for the e2e `people.e2e.ts:766` (a Role card's MCP tool), which fails on the commit before 5b too.
+- Step 7 checks: `npm run verify:linux` passes again (Docker Desktop is back): 3044 service tests passed, 102 skipped, 91 e2e passed. On Windows, `npm run verify` passed typecheck, lint, format and maps; its service tests once failed 7 of `devops-proposals.test.ts` under load ("Still drafting" timeouts); that file alone and the whole suite again passed (3049), and the e2e passed (97).
 - Found in step 0: several code comments cite "spec §9", the old numbering that the spec README maps.
 
 ## Progress
@@ -198,3 +201,4 @@ Decided with the user on 2026-10-31 and 2026-11-01:
 - 2026-11-01 · step 6: `GitHubAccess` gives the user token for one command, refreshed one at a time near expiry with the client secret; a refused refresh signs out with a reason; `GET /api/github/repositories` lists the installations' repositories, every page; next, step 5b, then 7.
 - 2026-11-01 · step 5b stopped: probes show `emptyAuth=true` sends the Windows sign-in, no setting on the pinned git stops it without `.netrc`, and git-lfs sends Negotiate whenever offered; options in State; next, the user's answer.
 - 2026-11-01 · step 5b: every Office git command runs with an Office home and global config including the user's, `http.emptyAuth=false`, `KRB5CCNAME` naming no cache; spec §5.5 amended with git-lfs's Negotiate as a known gap; next, step 7.
+- 2026-11-01 · step 7: the GitHub token reaches git through `GitCredentialHelper`, a loopback helper Office code answers per command, the port bound to `GitHubAccess`; pull requests split into step 7b; next, 7b.

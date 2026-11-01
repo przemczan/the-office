@@ -25,7 +25,7 @@ export class GitProjectSkillFiles extends ProjectSkillFiles {
   }
 
   async files(folder: string): Promise<readonly ProjectSkillFile[]> {
-    const { configArguments, variables } = await this.identity.forGitCommand(
+    const { configArguments, variables, release } = await this.identity.forGitCommand(
       undefined,
       process.env,
     );
@@ -48,7 +48,7 @@ export class GitProjectSkillFiles extends ProjectSkillFiles {
         maxBuffer: OUTPUT_LIMIT_BYTES,
         windowsHide: true,
       },
-    );
+    ).finally(release);
     const paths = [...new Set(stdout.split("\0").filter((path) => path !== ""))];
     const files = await Promise.all(
       paths.map(async (path) => {
