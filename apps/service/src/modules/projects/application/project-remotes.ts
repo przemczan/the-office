@@ -20,13 +20,14 @@ export class ProjectRemotes {
 
   /**
    * What the base branch's remote needs, or undefined when the base branch tracks no remote branch
-   * or its folder isn't a repository git can read.
+   * or its folder isn't a repository git can read. An ssh host whose key isn't trusted becomes an
+   * Unconfirmed host, so the Project page's line and Settings › Office identity agree.
    */
   async needsOf(project: Project): Promise<RemoteNeeds | undefined> {
     try {
       const upstream = await this.git.upstreamOf(project.path, project.baseBranch);
       if (!upstream) return undefined;
-      return await this.identity.needsOf(await this.git.fetchUrlOf(project.path, upstream.remote));
+      return await this.listedNeedsOf(await this.git.fetchUrlOf(project.path, upstream.remote));
     } catch (error) {
       if (error instanceof GitCommandFailed) return undefined;
       throw error;
@@ -49,12 +50,18 @@ export class ProjectRemotes {
    * key. GitHub over https without the sign-in still reaches a public repository.
    */
   async whyUnreachable(url: string): Promise<string | undefined> {
-    const needs = await this.identity.needsOf(await this.git.reachedUrlOf(url));
+    const needs = await this.listedNeedsOf(await this.git.reachedUrlOf(url));
     if (needs.kind !== "ssh" || needs.missing.length === 0) return undefined;
-    if (needs.missing.includes("host-key")) {
+    return sshFailureReason(needs.host, needs.missing);
+  }
+
+  /** What `remote` needs, its ssh host listed as an Unconfirmed host while its key isn't trusted. */
+  private async listedNeedsOf(remote: string): Promise<RemoteNeeds> {
+    const needs = await this.identity.needsOf(remote);
+    if (needs.kind === "ssh" && needs.missing.includes("host-key")) {
       await this.identity.addUnconfirmedHost(needs.host, needs.port);
     }
-    return sshFailureReason(needs.host, needs.missing);
+    return needs;
   }
 }
 

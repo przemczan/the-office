@@ -24,6 +24,7 @@ import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { OfficeDataModule } from "../../../../platform/office-data/office-data.module.js";
 import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
+import { OfficeKnownHosts } from "../../../../platform/git-identity/office-known-hosts.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { McpServerLibrary } from "../../../mcp-servers/index.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../../pipelines/index.js";
@@ -214,6 +215,8 @@ describe("GET /api/projects", () => {
       const onGitHub = await addProject({ baseBranch: "on-github" });
       const onSsh = await addProject({ baseBranch: "on-ssh" });
       const untracked = await addProject({ baseBranch: "untracked" });
+      const knownHosts = app.get(OfficeKnownHosts);
+      expect(await knownHosts.unconfirmed()).toEqual([]);
 
       expect(await remoteNeedsOf(onGitHub)).toEqual({
         kind: "github-https",
@@ -225,6 +228,7 @@ describe("GET /api/projects", () => {
         port: 22,
         missing: ["office-ssh-key", "host-key"],
       });
+      expect(await knownHosts.unconfirmed()).toEqual([{ host: "git.example", port: 22 }]);
       expect(await remoteNeedsOf(untracked)).toBeNull();
     } finally {
       gitIn(repository.path, "remote", "remove", "on-github");

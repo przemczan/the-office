@@ -174,7 +174,8 @@ test("an Unconfirmed host becomes a Trusted host once its fingerprint is confirm
   await expect(unconfirmed).toContainText(E2E_HOST_KEY_FINGERPRINT);
   await unconfirmed.getByRole("button", { name: "Confirm fingerprint" }).click();
 
-  await expect(page.getByText("No Unconfirmed host.")).toBeVisible();
+  // Other tests' remotes may still be listed, so only this host's Scan is expected to go.
+  await expect(unconfirmed.getByRole("button", { name: "Scan" })).toBeHidden();
   const trusted = page.getByRole("listitem", { name: host, exact: true });
   await expect(trusted.getByRole("list", { name: `Fingerprints of ${host}` })).toHaveText(
     E2E_HOST_KEY_FINGERPRINT,

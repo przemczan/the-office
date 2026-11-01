@@ -24,7 +24,7 @@ export function remoteNeedsLine(needs: RemoteNeeds): RemoteNeedsLine {
           (missing) =>
             ({
               "office-ssh-key": "The Office ssh key isn't made yet.",
-              // The host is listed among the Unconfirmed hosts once The Office tries to reach it.
+              // Reading the remote's needs lists the host among the Unconfirmed hosts.
               "host-key": `${needs.host}'s host key isn't confirmed yet: it becomes a Trusted host once its fingerprint is confirmed.`,
             })[missing],
         ),
