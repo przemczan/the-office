@@ -14,7 +14,10 @@ export const EFFORT_LABELS: Readonly<Record<Effort, string>> = {
  * A model as a person reads it: "Opus 5.5" on the Claude Code engines, "Strata · org/coder:q4" for
  * one of the API endpoints' models; one naming no endpoint listed now stays as it is.
  */
-export function modelLabel(model: string, apiEndpoints: readonly ApiEndpoint[] = []): string {
+export function modelLabel(
+  model: string,
+  apiEndpoints: readonly Pick<ApiEndpoint, "id" | "name">[] = [],
+): string {
   const named = parseApiEndpointModel(model);
   const endpoint = named && apiEndpoints.find(({ id }) => id === named.endpointId);
   if (named && endpoint) return `${endpoint.name} · ${named.modelId}`;

@@ -15,15 +15,26 @@ import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
 import {
+  draftChanged,
+  draftedEndpoints,
   draftOf,
+  engineSettingsEditOf,
   KEY_ON_SAVE_WORDS,
   keyOnSave,
   NEW_API_ENDPOINT,
+  offeredModelKey,
+  offeredModelsOf,
+  priceTextIn,
   searchEndpointOf,
+  type EngineSettingsDraft,
 } from "./engine-settings-draft.ts";
+import { ModelPricesCard } from "./model-prices-card.tsx";
 import "./engines.css";
 
-/** Settings › Engines: the API endpoints of the OpenAI-compatible API and the Search endpoint. */
+/**
+ * Settings › Engines: the API endpoints of the OpenAI-compatible API, the Search endpoint and the
+ * Model prices, one draft saved whole.
+ */
 export function EnginesSection(): ReactNode {
   usePageHeading({ title: "Settings", crumb: "Engines" });
   const settings = useQuery(engineSettingsQuery());
@@ -36,12 +47,13 @@ export function EnginesSection(): ReactNode {
 }
 
 function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): ReactNode {
-  const [draft, setDraft] = useState<EngineSettingsEdit>(() => draftOf(saved));
-  const dirty = JSON.stringify(draft) !== JSON.stringify(draftOf(saved));
+  const [draft, setDraft] = useState<EngineSettingsDraft>(() => draftOf(saved));
+  const dirty = draftChanged(draft, saved);
+  const toSave = engineSettingsEditOf(draft, saved);
   const queryClient = useQueryClient();
   const showToast = useToast();
   const saving = useMutation({
-    mutationFn: () => changeEngineSettings(draft),
+    mutationFn: (sent: EngineSettingsEdit) => changeEngineSettings(sent),
     onSuccess: async (result) => {
       queryClient.setQueryData(engineSettingsQuery().queryKey, result);
       setDraft(draftOf(result));
@@ -103,13 +115,29 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
           }
         />
       </Card>
+      <ModelPricesCard
+        offered={offeredModelsOf(draft, saved)}
+        apiEndpoints={draftedEndpoints(draft.apiEndpoints)}
+        priceTextOf={(model) => priceTextIn(draft, model)}
+        change={(model, text) =>
+          setDraft({
+            ...draft,
+            modelPrices: { ...draft.modelPrices, [offeredModelKey(model)]: text },
+          })
+        }
+      />
       {saving.error && <RefusalAlert title="The engines weren't saved" error={saving.error} />}
       <div className="settings-actions">
         <span className="settings-actions-state">{dirty ? "Unsaved changes" : "Saved"}</span>
         <Button variant="secondary" disabled={!dirty} onClick={() => setDraft(draftOf(saved))}>
           Discard
         </Button>
-        <Button loading={saving.isPending} disabled={!dirty} onClick={() => saving.mutate()}>
+        <Button
+          loading={saving.isPending}
+          // A Model price's fields show what holds it.
+          disabled={!dirty || toSave === undefined}
+          onClick={() => toSave && saving.mutate(toSave)}
+        >
           Save
         </Button>
       </div>

@@ -329,6 +329,65 @@ test("the user lists an API endpoint in Settings › Engines and puts Mia on one
   await expect(roleCardGroup(page, "Engine")).toContainText("It has no usage windows");
 });
 
+// Here, not in settings.e2e.ts: a Save sends every API endpoint, so one from a page read before the
+// test above saved would drop People Strata.
+test("the user sets Model prices in Settings › Engines, a new API endpoint's before its Save", async ({
+  page,
+}) => {
+  await page.goto("/settings/engines");
+  await page.getByRole("button", { name: "Add an API endpoint" }).click();
+  const endpoint = page.locator("fieldset.api-endpoint").last();
+  await endpoint.getByLabel("Name", { exact: true }).fill("Priced Strata");
+  await endpoint.getByLabel("Base URL").fill("http://127.0.0.1:8081/v1");
+  await endpoint.getByLabel("Model", { exact: true }).fill("local:q8");
+  await endpoint.getByLabel("Context window").fill("8000");
+
+  const local = page.getByRole("group", { name: "Model price of Priced Strata · local:q8" });
+  const haiku = page.getByRole("group", { name: "Model price of Haiku 5.5" });
+  const fillPrice = async (
+    group: typeof local,
+    [input, output, cacheWrites, cacheReads]: readonly string[],
+  ): Promise<void> => {
+    await group.getByLabel("Input").fill(input ?? "");
+    await group.getByLabel("Output").fill(output ?? "");
+    await group.getByLabel("Cache writes").fill(cacheWrites ?? "");
+    await group.getByLabel("Cache reads").fill(cacheReads ?? "");
+  };
+  await fillPrice(local, ["0", "0", "0", "0"]);
+  await haiku.getByLabel("Input").fill("1");
+  await expect(haiku.getByText("Give all four, or none for no price.")).toHaveCount(3);
+  await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+
+  await fillPrice(haiku, ["1", "5", "1.25", "0.1"]);
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(
+    page.getByText("Engines saved. Sessions started from now on use them."),
+  ).toBeVisible();
+  await page.reload();
+  await expect(haiku.getByLabel("Cache writes")).toHaveValue("1.25");
+  await expect(local.getByLabel("Output")).toHaveValue("0");
+  await expect(
+    page
+      .getByRole("group", { name: "Model price of People Strata · org/coder:q4" })
+      .getByLabel("Input"),
+  ).toHaveValue("");
+
+  await haiku.getByLabel("Output").fill("6");
+  await page.getByRole("button", { name: "Discard" }).click();
+  await expect(haiku.getByLabel("Output")).toHaveValue("5");
+
+  // Later tests price nothing, so the prices go again.
+  await fillPrice(haiku, ["", "", "", ""]);
+  await page.getByRole("button", { name: "Remove Priced Strata" }).click();
+  await expect(local).toHaveCount(0);
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(
+    page.getByText("Engines saved. Sessions started from now on use them."),
+  ).toBeVisible();
+  await page.reload();
+  await expect(haiku.getByLabel("Input")).toHaveValue("");
+});
+
 test("Assign… in Settings › Skills gives a skill to the people chosen", async ({ page }) => {
   await page.goto("/settings/skills");
   await page

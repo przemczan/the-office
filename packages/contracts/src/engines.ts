@@ -115,6 +115,30 @@ export function parseApiEndpointModel(
   return { endpointId: model.slice(0, at), modelId: model.slice(at + 1) };
 }
 
+/** An API endpoint's model as a Role's Model field names it: `strata/org/coder:q4`. */
+export function apiEndpointModel(endpointId: string, modelId: string): string {
+  return `${endpointId}/${modelId}`;
+}
+
+/**
+ * The id the Engine module gives an API endpoint added as `name` (its `apiEndpointIdFor`): its
+ * letters and digits, apart from `taken`. The web names a drafted endpoint's models by it, so a
+ * Model price typed before Save lands on the model the service saves.
+ */
+export function apiEndpointIdFor(name: string, taken: ReadonlySet<string>): string {
+  const base = name
+    .trim()
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  if (base === "" || !taken.has(base)) return base;
+  let suffix = 2;
+  while (taken.has(`${base}-${suffix}`)) suffix += 1;
+  return `${base}-${suffix}`;
+}
+
 export const engineSettingsRefusalSchema = z.object({
   statusCode: z.literal(422),
   message: z.string(),

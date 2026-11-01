@@ -42,7 +42,10 @@ export function apiEndpointModels(endpoints: readonly ApiEndpoint[]): readonly s
   );
 }
 
-/** The id an endpoint added as `name` is given: its letters and digits, apart from `taken`. */
+/**
+ * The id an endpoint added as `name` is given: its letters and digits, apart from `taken`.
+ * Contracts' `apiEndpointIdFor` mirrors it for the web; a change here goes there too.
+ */
 export function apiEndpointIdFor(name: string, taken: ReadonlySet<string>): string {
   const base = name
     .normalize("NFKD")

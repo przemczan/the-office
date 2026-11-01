@@ -40,8 +40,45 @@
   justify-content: space-between;
 }
 
+/* The Model prices card: per engine id, a row per model with its four prices. */
+.model-prices {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.model-prices-engine {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.model-price {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) repeat(4, minmax(0, 1fr));
+  align-items: end;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.model-price-model {
+  padding-bottom: 8px;
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 960px) {
   .api-endpoint-fields {
     grid-template-columns: 1fr;
+  }
+
+  .model-price {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .model-price-model {
+    grid-column: 1 / -1;
   }
 }
