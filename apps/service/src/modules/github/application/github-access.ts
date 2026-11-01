@@ -107,7 +107,8 @@ export class GitHubAccess {
   }
 }
 
-function failedAccess(error: unknown): never {
+/** A call to GitHub that failed, as the `GitHubAccessFailed` callers of the module get. */
+export function failedAccess(error: unknown): never {
   if (error instanceof GitHubApiFailure) throw new GitHubAccessFailed(error.message);
   throw error;
 }

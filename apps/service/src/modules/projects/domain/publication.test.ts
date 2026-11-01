@@ -4,14 +4,19 @@ import { pushFailure } from "./publication.js";
 const origin = { remote: "origin", branch: "office/task-1" };
 
 describe("pushFailure", () => {
-  it("says which scope the credentials lack when GitHub refuses a change to workflows", () => {
-    const said =
-      "! [remote rejected] office/task-1 -> office/task-1 (refusing to allow an OAuth App to create or update workflow `.github/workflows/ci.yml` without `workflow` scope)";
+  it.each([
+    "refusing to allow a GitHub App to create or update workflow `.github/workflows/ci.yml` without `workflows` permission",
+    "refusing to allow an OAuth App to create or update workflow `.github/workflows/ci.yml` without `workflow` scope",
+  ])(
+    "names the App's Workflows permission when GitHub refuses a change to workflows: %s",
+    (why) => {
+      const said = `! [remote rejected] office/task-1 -> office/task-1 (${why})`;
 
-    expect(pushFailure("office/task-1", origin, said)).toBe(
-      `GitHub refused the push of office/task-1 to office/task-1 on origin: the change touches .github/workflows, which needs credentials with the \`workflow\` scope, and yours lack it. Add the scope with \`gh auth refresh -s workflow\` (or use a token that has it), then run Publish again. git said: ${said}`,
-    );
-  });
+      expect(pushFailure("office/task-1", origin, said)).toBe(
+        `GitHub refused the push of office/task-1 to office/task-1 on origin: the change touches .github/workflows, which needs the GitHub App's Workflows permission. Accept the App's permissions on GitHub if it asks, or register it again from Settings › Office identity, then run Publish again. git said: ${said}`,
+      );
+    },
+  );
 
   it("says the remote has commits the branch doesn't when the push isn't a fast-forward", () => {
     const said =

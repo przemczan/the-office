@@ -12,6 +12,7 @@ import { PipelineLibrary, PipelineLibraryModule } from "../pipelines/index.js";
 import { BaseCheckouts, ProjectsModule } from "../projects/index.js";
 import { ConversationsModule } from "./conversations.module.js";
 import { ProjectBases } from "./ports/project-bases.js";
+import { GitHubModule } from "../github/index.js";
 
 let app: INestApplication;
 let officeData: string;
@@ -20,7 +21,7 @@ beforeAll(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-conversations-"));
   // As AppModule builds them: one Projects module, given to Conversations too.
   const projects = ProjectsModule.register({
-    imports: [PipelineLibraryModule],
+    imports: [PipelineLibraryModule, GitHubModule.register()],
     knownPipelines: PipelineLibrary,
   });
   ({ app } = await startTestApplication({

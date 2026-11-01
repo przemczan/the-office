@@ -28,6 +28,7 @@ import {
   REAL_GIT_TEST,
   type TemporaryRepository,
 } from "../git/temporary-repository.fixtures.js";
+import { GitHubModule } from "../../../github/index.js";
 
 const HOST = "https://git.example.test/acme/";
 /** Where `${HOST}missing` really goes: https to a port nothing answers on. */
@@ -87,7 +88,7 @@ beforeEach(async () => {
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
       ProjectsModule.register({
-        imports: [PipelineLibraryModule],
+        imports: [PipelineLibraryModule, GitHubModule.register()],
         knownPipelines: PipelineLibrary,
       }),
     ],

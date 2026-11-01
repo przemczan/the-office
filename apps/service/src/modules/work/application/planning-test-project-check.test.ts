@@ -46,6 +46,7 @@ import {
 } from "../../projects/index.js";
 import { SkillsModule } from "../../skills/index.js";
 import { WorkModule } from "../work.module.js";
+import { GitHubModule } from "../../github/index.js";
 
 /**
  * Task 11's check on the Test Project (docs/tasks/11-planning.md): through the API, as the web
@@ -84,7 +85,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
         let worktree: { path: string; branch: string } | undefined;
         try {
           const projects = ProjectsModule.register({
-            imports: [PipelineLibraryModule],
+            imports: [PipelineLibraryModule, GitHubModule.register()],
             knownPipelines: PipelineLibrary,
           });
           const conversations = ConversationsModule.register({

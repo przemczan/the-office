@@ -1,5 +1,6 @@
 import type { GitHubApp } from "../domain/github-app.js";
 import type { GitHubRepository } from "../domain/github-repository.js";
+import type { PullRequestToOpen, RepositoryOnGitHub } from "../domain/pull-request.js";
 import type { UserTokens } from "../domain/sign-in.js";
 
 /** A sign-in's code GitHub sent the browser back with, and what proves The Office asked for it. */
@@ -45,7 +46,32 @@ export abstract class GitHubApi {
    * throws `GitHubApiFailure` when GitHub refuses.
    */
   abstract repositoriesOf(accessToken: string): Promise<readonly GitHubRepository[]>;
+
+  /** Opens the pull request as the token's user, or gives GitHub's refusal. */
+  abstract openPullRequest(
+    accessToken: string,
+    pullRequest: PullRequestToOpen,
+  ): Promise<PullRequestAnswer>;
+
+  /**
+   * The web address of the open pull request of `head`, a branch of the repository, into `base`,
+   * or undefined when none is open. Also throws `GitHubApiFailure` when GitHub refuses.
+   */
+  abstract openPullRequestOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    head: string,
+    base: string,
+  ): Promise<string | undefined>;
 }
+
+/**
+ * GitHub's answer to opening a pull request: its web address, or the status it refused with and
+ * the messages of its validation errors, which GitHub writes for the user.
+ */
+export type PullRequestAnswer =
+  | { readonly kind: "opened"; readonly url: string }
+  | { readonly kind: "refused"; readonly status: number; readonly reasons: readonly string[] };
 
 /** A call to GitHub that failed, in the UI's words; never holding GitHub's answer, which may carry secrets. */
 export class GitHubApiFailure extends Error {

@@ -38,6 +38,7 @@ import {
 } from "../../projects/index.js";
 import { SkillsModule } from "../../skills/index.js";
 import { WorkModule } from "../work.module.js";
+import { GitHubModule } from "../../github/index.js";
 
 /**
  * Task 10's check on the Test Project (docs/tasks/10-work.md): through the API, as the web does,
@@ -72,7 +73,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
         let app: INestApplication | undefined;
         try {
           const projects = ProjectsModule.register({
-            imports: [PipelineLibraryModule],
+            imports: [PipelineLibraryModule, GitHubModule.register()],
             knownPipelines: PipelineLibrary,
           });
           const conversations = ConversationsModule.register({

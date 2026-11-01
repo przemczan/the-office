@@ -69,6 +69,11 @@ import {
   sessionMcpServersStandIn,
   type SessionMcpServersStandIn,
 } from "./session-mcp-servers.fixtures.js";
+import { GitHubModule } from "../../github/index.js";
+import { signedInWithGitHubForTests } from "../../github/index.fixtures.js";
+
+/** The user token of the sign-in the app holds, which no session's options may carry. */
+const GITHUB_USER_TOKEN = "ghu_session_check_token";
 
 type Card = SessionRole["card"];
 type Step = SessionScript[number];
@@ -194,6 +199,8 @@ async function startOn(
         "claude-code-p": fallback,
         "openai-compatible-api": apiEngine,
       }),
+      // Signed in with GitHub, as the app may be, so a session holding the token would show.
+      GitHubModule.register(),
     ],
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
@@ -223,6 +230,7 @@ async function startOn(
       FireAlarmInThreads,
       DecisionOfficeTools,
     ],
+    overrides: [signedInWithGitHubForTests(GITHUB_USER_TOKEN)],
   }));
   // As the Projects and People modules register theirs.
   for (const name of CHAT_OFFICE_TOOLS) {
@@ -427,6 +435,7 @@ describe("a new Thread's first message", () => {
       profile: { edit: false, run: { kind: "read-only-git" }, web: true },
     });
     expect(session?.options.officeTools.map(({ name }) => name)).toEqual([...CHAT_OFFICE_TOOLS]);
+    expect(JSON.stringify(session?.options)).not.toContain(GITHUB_USER_TOKEN);
     expect(session?.options.instructions).toContain("You are Jan, the Planner in The Office");
     // A chat's session is on no Task, so the Office tools writing onto one refuse it.
     await expect(threads.taskInSession(session?.id ?? "")).resolves.toBeUndefined();

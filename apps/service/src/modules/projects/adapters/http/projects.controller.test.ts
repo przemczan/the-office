@@ -33,6 +33,7 @@ import {
   gitIn,
   type TemporaryRepository,
 } from "../git/temporary-repository.fixtures.js";
+import { GitHubModule } from "../../../github/index.js";
 
 let repository: TemporaryRepository;
 let app: INestApplication;
@@ -56,7 +57,7 @@ beforeEach(async () => {
       TelemetryModule,
       OfficeDataModule.forRoot(join(repository.folder, "office-data")),
       ProjectsModule.register({
-        imports: [PipelineLibraryModule],
+        imports: [PipelineLibraryModule, GitHubModule.register()],
         knownPipelines: PipelineLibrary,
       }),
     ],

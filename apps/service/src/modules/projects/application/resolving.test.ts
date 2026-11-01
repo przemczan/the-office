@@ -22,6 +22,10 @@ import { Worktrees } from "./worktrees.js";
 import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
 
 class NoPullRequests extends PullRequests {
+  whyCannotOpen(): Promise<string | undefined> {
+    return Promise.reject(new Error("A merging Project opens no pull request."));
+  }
+
   open(): Promise<PullRequest> {
     return Promise.reject(new Error("A merging Project opens no pull request."));
   }

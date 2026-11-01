@@ -6,7 +6,7 @@ import { SkillsModule } from "../skills/index.js";
 import { ProjectOfficeTools } from "./adapters/office-tools/project-office-tools.js";
 import { CommandLineGit } from "./adapters/git/command-line-git.js";
 import { RepositoryLocks } from "./adapters/git/repository-locks.js";
-import { GitHubCliPullRequests } from "./adapters/github/github-cli-pull-requests.js";
+import { GitHubApiPullRequests } from "./adapters/github/github-api-pull-requests.js";
 import { EnvironmentChecksController } from "./adapters/http/environment-checks.controller.js";
 import { ProjectServerValuesController } from "./adapters/http/project-server-values.controller.js";
 import { ProjectsController } from "./adapters/http/projects.controller.js";
@@ -37,7 +37,10 @@ import { ProjectRepository } from "./ports/project-repository.js";
 import { PullRequests } from "./ports/pull-requests.js";
 
 export interface ProjectsModuleOptions {
-  /** The modules that provide `knownPipelines`. */
+  /**
+   * The modules that provide `knownPipelines`, and the github module, whose one instance opens
+   * pull requests (`GitHubPullRequests`).
+   */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
   readonly knownPipelines: Type<KnownPipelines>;
 }
@@ -63,7 +66,7 @@ export class ProjectsModule {
         { provide: EnvironmentCheckRepository, useClass: PostgresEnvironmentCheckRepository },
         { provide: Git, useClass: CommandLineGit },
         RepositoryLocks,
-        { provide: PullRequests, useClass: GitHubCliPullRequests },
+        { provide: PullRequests, useClass: GitHubApiPullRequests },
         { provide: CommandRunner, useClass: ShellCommandRunner },
         ProjectCommandRunner,
         { provide: KnownPipelines, useExisting: knownPipelines },

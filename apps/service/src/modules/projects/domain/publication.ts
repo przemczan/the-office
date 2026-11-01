@@ -51,14 +51,15 @@ export type Publication =
   | { readonly kind: "failed"; readonly error: string };
 
 /** GitHub's words when credentials without the `workflow` scope push a change to workflows. */
-const MISSING_WORKFLOW_SCOPE = /without [`']?workflow[`']? scope/i;
+/** An OAuth App's token lacks the `workflow` scope, or a GitHub App's the `workflows` permission. */
+const MISSING_WORKFLOW_PERMISSION = /without [`']?workflows?[`']? (scope|permission)/i;
 const NOT_A_FAST_FORWARD = /\[rejected\]|non-fast-forward|fetch first/i;
 
 /** Why a push failed, in words for the user, with what git said (research §5). */
 export function pushFailure(branch: string, target: RemoteBranch, said: string): string {
   const where = `${target.branch} on ${target.remote}`;
-  if (MISSING_WORKFLOW_SCOPE.test(said)) {
-    return `GitHub refused the push of ${branch} to ${where}: the change touches .github/workflows, which needs credentials with the \`workflow\` scope, and yours lack it. Add the scope with \`gh auth refresh -s workflow\` (or use a token that has it), then run Publish again. git said: ${said}`;
+  if (MISSING_WORKFLOW_PERMISSION.test(said)) {
+    return `GitHub refused the push of ${branch} to ${where}: the change touches .github/workflows, which needs the GitHub App's Workflows permission. Accept the App's permissions on GitHub if it asks, or register it again from Settings › Office identity, then run Publish again. git said: ${said}`;
   }
   if (NOT_A_FAST_FORWARD.test(said)) {
     return `${target.remote} refused the push of ${branch} to ${where}: it has commits the Task's branch doesn't. git said: ${said}`;
@@ -81,6 +82,11 @@ export function baseMovedError(
 }
 
 /** Publish pushes to the remote the base branch tracks, so a base tracking none can't publish. */
+/** Push + PR stopped before the push, as no pull request could be opened on the base's remote. */
+export function pullRequestBlockedError(branch: string, base: RemoteBranch, why: string): string {
+  return `Push + PR didn't push ${branch} to ${base.remote}: ${why} Then run Publish again, or change the Project's publishing mode to merge.`;
+}
+
 export function noRemoteError(baseBranch: string): string {
   return `${baseBranch} tracks no remote branch, so Publish has nowhere to push. Set its upstream (\`git branch --set-upstream-to=origin/${baseBranch} ${baseBranch}\`), then run Publish again.`;
 }

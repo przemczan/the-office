@@ -54,7 +54,7 @@ export class AppModule {
     const github = GitHubModule.register();
     // One instance, so every git change on a repository goes through the same locks.
     const projects = ProjectsModule.register({
-      imports: [PipelineLibraryModule],
+      imports: [PipelineLibraryModule, github],
       knownPipelines: PipelineLibrary,
     });
     const conversations = ConversationsModule.register({

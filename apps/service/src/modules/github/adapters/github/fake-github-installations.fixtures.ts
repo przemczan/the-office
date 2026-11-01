@@ -47,6 +47,17 @@ export class FakeInstallations {
     });
   }
 
+  /** Whether a user token reaches the repository: an installation that isn't suspended holds it. */
+  reaches(fullName: string): boolean {
+    return this.installations.some(
+      (installation) =>
+        !installation.suspended &&
+        installation.repositories.some(
+          (repository) => repository.fullName.toLowerCase() === fullName.toLowerCase(),
+        ),
+    );
+  }
+
   /** `GET /user/installations`, `request` being the URL under the API's base. */
   listInstallations(request: URL): ApiAnswer {
     return this.page(request, "installations", this.installations, (installation) => ({

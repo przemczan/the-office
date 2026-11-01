@@ -4,9 +4,15 @@ import { gitHubUrl, GitHubUrls } from "../../application/github-urls.js";
 import type { GitHubApp } from "../../domain/github-app.js";
 import type { GitHubRepository } from "../../domain/github-repository.js";
 import {
+  fullNameOf,
+  type PullRequestToOpen,
+  type RepositoryOnGitHub,
+} from "../../domain/pull-request.js";
+import {
   GitHubApi,
   GitHubApiFailure,
   GitHubUnreachable,
+  type PullRequestAnswer,
   type SignInCode,
   type TokenAnswer,
 } from "../../ports/github-api.js";
@@ -59,6 +65,13 @@ const repositoriesPageSchema = z.object({
       default_branch: z.string().min(1),
     }),
   ),
+});
+
+const pullRequestSchema = z.object({ html_url: z.string().min(1) });
+
+/** A 422's body: `errors`, each with a `message` when GitHub words it, such as "A pull request already exists for …". */
+const validationErrorsSchema = z.object({
+  errors: z.array(z.object({ message: z.string().min(1).optional() })),
 });
 
 /**
@@ -160,6 +173,57 @@ export class GitHubRestApi extends GitHubApi {
     return repositories.toSorted((a, b) => a.fullName.localeCompare(b.fullName));
   }
 
+  async openPullRequest(
+    accessToken: string,
+    pullRequest: PullRequestToOpen,
+  ): Promise<PullRequestAnswer> {
+    const { repository, base, head, title, body } = pullRequest;
+    // docs.github.com/rest/pulls/pulls#create-a-pull-request
+    const response = await this.call(gitHubUrl(this.urls.api, pullsPathOf(repository)), {
+      method: "POST",
+      headers: {
+        ...REST_HEADERS,
+        authorization: `Bearer ${accessToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ title, head, base, body }),
+    });
+    const answer: unknown = await response.json().catch(() => undefined);
+    if (response.status !== 201) {
+      return { kind: "refused", status: response.status, reasons: validationReasonsOf(answer) };
+    }
+    const opened = pullRequestSchema.safeParse(answer);
+    if (!opened.success) {
+      throw new GitHubApiFailure("GitHub's answer held no pull request (HTTP 201).");
+    }
+    return { kind: "opened", url: opened.data.html_url };
+  }
+
+  async openPullRequestOf(
+    accessToken: string,
+    repository: RepositoryOnGitHub,
+    head: string,
+    base: string,
+  ): Promise<string | undefined> {
+    // docs.github.com/rest/pulls/pulls#list-pull-requests: `head` is `owner:branch`.
+    const url = gitHubUrl(this.urls.api, pullsPathOf(repository));
+    url.searchParams.set("state", "open");
+    url.searchParams.set("head", `${repository.owner}:${head}`);
+    url.searchParams.set("base", base);
+    const response = await this.call(url, {
+      headers: { ...REST_HEADERS, authorization: `Bearer ${accessToken}` },
+    });
+    const listed = z
+      .array(pullRequestSchema)
+      .safeParse(await response.json().catch(() => undefined));
+    if (response.status !== 200 || !listed.success) {
+      throw new GitHubApiFailure(
+        `GitHub didn't list the open pull requests of ${fullNameOf(repository)} (HTTP ${response.status}).`,
+      );
+    }
+    return listed.data[0]?.html_url;
+  }
+
   /**
    * Every page of a list, following the `Link` header's `next` until there is none
    * (docs.github.com/rest/using-the-rest-api/using-pagination-in-the-rest-api).
@@ -235,6 +299,17 @@ async function tokenAnswerOf(response: Response, askedFor: string): Promise<Toke
       refreshTokenExpiresAt: secondsFromNow(tokens.refresh_token_expires_in),
     },
   };
+}
+
+function pullsPathOf({ owner, name }: RepositoryOnGitHub): string {
+  return `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/pulls`;
+}
+
+/** The messages of a refusal's validation errors, which GitHub writes for the user; nothing else of its body. */
+function validationReasonsOf(answer: unknown): readonly string[] {
+  return (validationErrorsSchema.safeParse(answer).data?.errors ?? []).flatMap((error) =>
+    error.message === undefined ? [] : [error.message],
+  );
 }
 
 function secondsFromNow(seconds: number | undefined): Date | undefined {

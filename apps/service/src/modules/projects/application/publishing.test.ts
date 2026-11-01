@@ -24,12 +24,20 @@ import { Publishing } from "./publishing.js";
 import { Worktrees } from "./worktrees.js";
 import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
 
-/** GitHub in memory: each request opens a pull request, unless a test refuses or holds it. */
+/** GitHub in memory: each request opens a pull request, unless a test refuses, blocks or holds it. */
 class PullRequestsForTests extends PullRequests {
   readonly requests: PullRequestRequest[] = [];
+  readonly askedWhy: string[] = [];
   refusal: string | undefined = undefined;
+  /** Why no pull request can be opened, asked before the push. */
+  blocker: string | undefined = undefined;
   /** Set while the next request waits until the test lets it go on. */
   held: Promise<void> | undefined = undefined;
+
+  async whyCannotOpen(remoteUrl: string): Promise<string | undefined> {
+    this.askedWhy.push(remoteUrl);
+    return this.blocker;
+  }
 
   async open(request: PullRequestRequest): Promise<PullRequest> {
     this.requests.push(request);
@@ -74,7 +82,9 @@ beforeAll(async () => {
 
 beforeEach(() => {
   pullRequests.requests.length = 0;
+  pullRequests.askedWhy.length = 0;
   pullRequests.refusal = undefined;
+  pullRequests.blocker = undefined;
   pullRequests.held = undefined;
 });
 
@@ -108,6 +118,11 @@ async function aTaskWithACommit(
   return { taskId, branch: worktree.branch, commit };
 }
 
+/** The URL git resolves for the origin, which the pull request is asked of. */
+function originUrl(): Promise<string> {
+  return git.fetchUrlOf(repository.path, "origin");
+}
+
 /** The commit the origin's `branch` names; undefined when the origin has no such branch. */
 function originCommitOf(branch: string): string | undefined {
   try {
@@ -135,8 +150,9 @@ describe("Publishing in push + PR mode", GIT_TIMEOUT, () => {
     });
     expect(originCommitOf(task.branch)).toBe(task.commit);
     expect(pullRequests.requests).toEqual([
-      { repositoryPath: repository.path, baseBranch: "main", branch: task.branch, ...text },
+      { remoteUrl: await originUrl(), baseBranch: "main", branch: task.branch, ...text },
     ]);
+    expect(pullRequests.askedWhy).toEqual([await originUrl()]);
     expect(gitIn(repository.path, "rev-parse", `refs/office/published-from/${task.taskId}`)).toBe(
       gitIn(repository.path, "rev-parse", `${task.commit}^`),
     );
@@ -230,6 +246,31 @@ describe("Publishing in push + PR mode", GIT_TIMEOUT, () => {
     expect(originCommitOf(task.branch)).toBeUndefined();
     expect(pullRequests.requests).toEqual([]);
   });
+
+  it("is refused before the push when no pull request can be opened, saying why", async () => {
+    const task = await aTaskWithACommit(pullRequestProject());
+    pullRequests.blocker = "No one is signed in with GitHub.";
+
+    await expect(
+      publishing.publish(pullRequestProject(), task.taskId, text, "publishing-mode"),
+    ).resolves.toEqual({
+      kind: "failed",
+      error: `Push + PR didn't push ${task.branch} to origin: No one is signed in with GitHub. Then run Publish again, or change the Project's publishing mode to merge.`,
+    });
+    expect(originCommitOf(task.branch)).toBeUndefined();
+    expect(pullRequests.requests).toEqual([]);
+  });
+
+  it("is refused before sending a conflicting branch to Resolve, which couldn't open one either", async () => {
+    const file = `blocked-conflict-${taskCount + 1}.txt`;
+    const task = await aTaskWithACommit(pullRequestProject(), file);
+    await commitOnOrigin(repository, "main", file);
+    pullRequests.blocker = "The remote isn't a repository on github.com.";
+
+    await expect(
+      publishing.publish(pullRequestProject(), task.taskId, text, "publishing-mode"),
+    ).resolves.toMatchObject({ kind: "failed" });
+  });
 });
 
 describe("Publishing in merge mode", GIT_TIMEOUT, () => {
@@ -256,6 +297,7 @@ describe("Publishing in merge mode", GIT_TIMEOUT, () => {
     expect(gitIn(repository.path, "rev-parse", "main")).toBe(localMain);
     expect(gitIn(repository.path, "status", "--porcelain")).toBe("");
     expect(pullRequests.requests).toEqual([]);
+    expect(pullRequests.askedWhy).toEqual([]);
   });
 
   it("has nothing to publish when it runs again after merging", async () => {
@@ -339,6 +381,7 @@ describe("Publishing the branch only", GIT_TIMEOUT, () => {
       expect(originCommitOf(task.branch)).toBe(task.commit);
       expect(originCommitOf("main")).toBe(originMain);
       expect(pullRequests.requests).toEqual([]);
+      expect(pullRequests.askedWhy).toEqual([]);
     },
   );
 

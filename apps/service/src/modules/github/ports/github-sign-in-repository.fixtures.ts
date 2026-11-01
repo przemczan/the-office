@@ -14,3 +14,25 @@ export class GitHubSignInForTests extends GitHubSignInRepository {
     return Promise.resolve();
   }
 }
+
+/**
+ * Replaces the kept sign-in with one signed in on `accessToken`, wherever the github module is
+ * imported, for a test that checks the token goes nowhere it shouldn't.
+ */
+export function signedInWithGitHubForTests(accessToken: string): {
+  readonly provide: typeof GitHubSignInRepository;
+  readonly useValue: GitHubSignInRepository;
+} {
+  const signIns = new GitHubSignInForTests();
+  signIns.signIn = {
+    status: "signed-in",
+    login: "office-user",
+    tokens: {
+      accessToken,
+      accessTokenExpiresAt: undefined,
+      refreshToken: undefined,
+      refreshTokenExpiresAt: undefined,
+    },
+  };
+  return { provide: GitHubSignInRepository, useValue: signIns };
+}

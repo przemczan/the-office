@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import type { AddressInfo } from "node:net";
 import type { GitHubUrls } from "../../application/github-urls.js";
 import { FakeInstallations, type ApiAnswer } from "./fake-github-installations.fixtures.js";
+import { FakePullRequests } from "./fake-github-pulls.fixtures.js";
 
 /**
  * The secrets the fake hands out with each App: the private key and webhook secret, which tests
@@ -64,7 +65,8 @@ interface SignInCode {
  * GitHub on 127.0.0.1, as far as The Office uses it: the page that registers an App from a
  * manifest and the REST API converting its code; the authorize page and token endpoint of an
  * App's web sign-in and the refresh of its tokens; `GET /user`, and the installations and their
- * repositories a user token reaches. One server is both bases of `urls`. Behaves as
+ * repositories a user token reaches, and the pull requests of those repositories. One server is
+ * both bases of `urls`. Behaves as
  * docs.github.com describes; where the docs are silent, as noted at each place.
  */
 export class FakeGitHub {
@@ -80,6 +82,8 @@ export class FakeGitHub {
   cancelAuthorization = false;
   /** The App's installations, which tests add to. */
   readonly installations: FakeInstallations;
+  /** The pull requests opened on the installed repositories. */
+  readonly pullRequests: FakePullRequests;
   private readonly appsByCode = new Map<string, FakeGitHubApp>();
   private readonly registeredApps = new Map<string, RegisteredApp>();
   private readonly signInCodes = new Map<string, SignInCode>();
@@ -91,6 +95,7 @@ export class FakeGitHub {
     readonly urls: GitHubUrls,
   ) {
     this.installations = new FakeInstallations(urls.web);
+    this.pullRequests = new FakePullRequests(urls.web, this.installations);
   }
 
   static async start(): Promise<FakeGitHub> {
@@ -107,6 +112,14 @@ export class FakeGitHub {
     const code = randomBytes(10).toString("hex");
     this.appsByCode.set(code, app);
     return code;
+  }
+
+  /** A user token for `login`, as signing in hands out, without a refresh token; it doesn't expire. */
+  issueUserToken(login: string = this.signedInUser): string {
+    const token = `${FAKE_TOKEN_PREFIXES[0]}${randomBytes(12).toString("hex")}`;
+    this.loginsByAccessToken.set(token, login);
+    this.issuedTokens.push(token);
+    return token;
   }
 
   /** The requests whose path starts with `path`, under the API's base when it starts there. */
@@ -145,6 +158,7 @@ export class FakeGitHub {
     const conversion = new RegExp(`^${API_PATH}/app-manifests/([^/]+)/conversions$`).exec(
       url.pathname,
     );
+    const pulls = new RegExp(`^${API_PATH}/repos/([^/]+/[^/]+)/pulls$`).exec(url.pathname);
     if (request.method === "POST" && url.pathname === "/settings/apps/new") {
       this.registerFromManifest(url, body, response);
     } else if (request.method === "POST" && conversion) {
@@ -163,6 +177,15 @@ export class FakeGitHub {
       url.pathname.startsWith(`${API_PATH}/user/installations`)
     ) {
       this.installationsApi(url, request.headers.authorization, response);
+    } else if (pulls) {
+      this.pullsApi(
+        request.method,
+        url,
+        pulls[1] ?? "",
+        body,
+        request.headers.authorization,
+        response,
+      );
     } else {
       sendJson(response, 404, { message: "Not Found" });
     }
@@ -362,6 +385,26 @@ export class FakeGitHub {
     } else {
       answer = { status: 404, body: { message: "Not Found" } };
     }
+    sendJson(response, answer.status, answer.body, answer.headers);
+  }
+
+  private pullsApi(
+    method: string | undefined,
+    url: URL,
+    repository: string,
+    body: string,
+    authorization: string | undefined,
+    response: ServerResponse,
+  ): void {
+    if (this.loginOf(authorization) === undefined) {
+      sendBadCredentials(response);
+      return;
+    }
+    const fullName = decodeURIComponent(repository);
+    let answer: ApiAnswer;
+    if (method === "POST") answer = this.pullRequests.open(fullName, body);
+    else if (method === "GET") answer = this.pullRequests.list(fullName, url);
+    else answer = { status: 404, body: { message: "Not Found" } };
     sendJson(response, answer.status, answer.body, answer.headers);
   }
 

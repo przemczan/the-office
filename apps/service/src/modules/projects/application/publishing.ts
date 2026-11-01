@@ -4,6 +4,7 @@ import {
   baseMovedError,
   type BaseTakenIn,
   noRemoteError,
+  pullRequestBlockedError,
   pushFailure,
   type Publication,
   type PublishTarget,
@@ -33,8 +34,9 @@ interface PublishContext {
  * taking in the fetched base first when it moved on. A branch that would conflict with the
  * freshly fetched base goes to Resolve in both (`Resolving`). Each runs with the repository to
  * itself, so nothing moves a ref between the check and the push, and records where the published
- * branch forked from the base. Pushes run with the Project's variables, which hold no publishing
- * token; git's own credential helper signs them in. The user's checkout and local base branch are
+ * branch forked from the base. Pushes run with the Project's variables on the Office identity
+ * (spec §5.5 Defaults), which signs them in; Push + PR is refused before anything is pushed when
+ * no pull request could be opened on the remote. The user's checkout and local base branch are
  * left as they are.
  */
 @Injectable()
@@ -88,12 +90,18 @@ export class Publishing {
     { title, body }: PullRequestText,
   ): Promise<Publication> {
     const { branch, base, baseCommit } = context;
+    // Before Resolve too: a branch Resolve took on would only be refused after it.
+    const remoteUrl = await this.git.fetchUrlOf(project.path, base.remote);
+    const cannotOpen = await this.pullRequests.whyCannotOpen(remoteUrl);
+    if (cannotOpen !== undefined) {
+      return { kind: "failed", error: pullRequestBlockedError(branch, base, cannotOpen) };
+    }
     const conflictedFiles = await this.git.conflictsOf(project.path, baseCommit, branchRef(branch));
     if (conflictedFiles.length > 0) return conflicting(context, conflictedFiles);
     await this.push(project, context, { remote: base.remote, branch });
     await this.recordPublished(project, context);
     const pullRequest = await this.pullRequests
-      .open({ repositoryPath: project.path, baseBranch: base.branch, branch, title, body })
+      .open({ remoteUrl, baseBranch: base.branch, branch, title, body })
       .catch((error: unknown) => {
         if (error instanceof PullRequestRefused) throw new PublishFailed(error.message);
         throw error;

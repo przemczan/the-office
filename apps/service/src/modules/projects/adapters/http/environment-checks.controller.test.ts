@@ -31,6 +31,7 @@ import {
   gitIn,
   type TemporaryRepository,
 } from "../git/temporary-repository.fixtures.js";
+import { GitHubModule } from "../../../github/index.js";
 
 // Real git and real commands, in the default shell of the system the tests run on.
 let repository: TemporaryRepository;
@@ -77,7 +78,7 @@ async function startApplication(): Promise<void> {
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
       ProjectsModule.register({
-        imports: [PipelineLibraryModule],
+        imports: [PipelineLibraryModule, GitHubModule.register()],
         knownPipelines: PipelineLibrary,
       }),
     ],
