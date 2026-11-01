@@ -15,17 +15,13 @@ import { startTestApplication } from "../../../../../test/test-application.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
-import { OfficeIdentity } from "../../../../platform/git-identity/office-identity.js";
 import { OfficeDataModule } from "../../../../platform/office-data/office-data.module.js";
 import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../../pipelines/index.js";
 import { RepositoryCloneFinished } from "../../domain/repository-clone-events.js";
-import { Git, type CloneRequest, type RemoteBranches } from "../../ports/git.js";
 import { ProjectsModule } from "../../projects.module.js";
-import { CommandLineGit } from "../git/command-line-git.js";
-import { RepositoryLocks } from "../git/repository-locks.js";
 import {
   createTemporaryRepository,
   gitIn,
@@ -34,39 +30,33 @@ import {
 } from "../git/temporary-repository.fixtures.js";
 
 const HOST = "https://git.example.test/acme/";
+/** Where `${HOST}missing` really goes: https to a port nothing answers on. */
+const UNANSWERED = "https://127.0.0.1:1/acme/missing";
 
 /**
- * Real git, with a URL on the made-up host read as the bare repository of that name beside the
- * test's repository, since a Repository URL is never a local path.
+ * Git config, as the user's global config could hold it, that reads a URL on the made-up host as
+ * the bare repository of that name beside the test's repository, since a Repository URL is never
+ * a local path.
  */
-class LocalHostGit extends CommandLineGit {
-  constructor(
-    private readonly folder: string,
-    locks: RepositoryLocks,
-    identity: OfficeIdentity,
-  ) {
-    super(locks, identity);
-  }
-
-  override remoteBranches(url: string): Promise<RemoteBranches> {
-    return super.remoteBranches(this.local(url));
-  }
-
-  override clone(request: CloneRequest): Promise<void> {
-    return super.clone({ ...request, url: this.local(request.url) });
-  }
-
-  private local(url: string): string {
-    if (!url.startsWith(HOST)) return url;
-    const name = url
-      .slice(HOST.length)
-      .replace(/\.git$/, "")
-      .toLowerCase();
-    return join(this.folder, `${name}.git`);
-  }
+function madeUpHostConfig(folder: string): Record<string, string> {
+  const local = `${folder.replaceAll("\\", "/")}/`;
+  const insteadOf: [string, string][] = [
+    [local, HOST],
+    // insteadOf is case-sensitive, as Linux's file names are.
+    [`${local}origin.git`, `${HOST}Origin.git`],
+    [UNANSWERED, `${HOST}missing`],
+  ];
+  return Object.fromEntries([
+    ["GIT_CONFIG_COUNT", String(insteadOf.length)],
+    ...insteadOf.flatMap(([to, from], index) => [
+      [`GIT_CONFIG_KEY_${index}`, `url.${to}.insteadOf`],
+      [`GIT_CONFIG_VALUE_${index}`, from],
+    ]),
+  ]);
 }
 
 let repository: TemporaryRepository;
+let madeUpHost: Record<string, string>;
 let officeData: string;
 let app: INestApplication;
 let url: string;
@@ -78,9 +68,13 @@ beforeAll(async () => {
   gitIn(repository.folder, "init", "--quiet", "--bare", "empty.git");
   gitIn(repository.folder, "clone", "--quiet", "--bare", repository.path, "shop.git");
   gitIn(join(repository.folder, "shop.git"), "branch", "release", "main");
+  gitIn(repository.folder, "clone", "--quiet", "--bare", repository.path, "store.git");
+  madeUpHost = madeUpHostConfig(repository.folder);
+  Object.assign(process.env, madeUpHost);
 });
 
 afterAll(async () => {
+  for (const name of Object.keys(madeUpHost)) delete process.env[name];
   await repository.remove();
 });
 
@@ -96,14 +90,6 @@ beforeEach(async () => {
         imports: [PipelineLibraryModule],
         knownPipelines: PipelineLibrary,
       }),
-    ],
-    overrides: [
-      {
-        provide: Git,
-        useFactory: (locks: RepositoryLocks, identity: OfficeIdentity) =>
-          new LocalHostGit(repository.folder, locks, identity),
-        inject: [RepositoryLocks, OfficeIdentity],
-      },
     ],
   }));
   published = [];
@@ -193,7 +179,8 @@ describe("POST /api/repositories/clones", REAL_GIT_TEST, () => {
   it("uses a clone already there, fetched from the URL given last, and refuses a repository that is a Project", async () => {
     const again = await cloned(`${HOST}Origin.git`);
     expect(again).toMatchObject({ state: "cloned", path: clonePath("origin") });
-    expect(gitIn(clonePath("origin"), "remote", "get-url", "origin")).toBe(`${HOST}Origin.git`);
+    // As configured: `remote get-url` would apply insteadOf.
+    expect(gitIn(clonePath("origin"), "config", "remote.origin.url")).toBe(`${HOST}Origin.git`);
 
     const project = aClonedProject(clonePath("origin"), `${HOST}Origin.git`, "main");
     const added = await send("POST", "/projects", project);
@@ -226,6 +213,22 @@ describe("POST /api/repositories/clones", REAL_GIT_TEST, () => {
     );
   });
 
+  it("fetches a clone used again, so a branch made on the remote since can be the base branch", async () => {
+    await cloned(`${HOST}store`);
+    gitIn(join(repository.folder, "store.git"), "branch", "hotfix", "main");
+
+    const again = await cloned(`${HOST}store`);
+    expect(again).toMatchObject({ state: "cloned", path: clonePath("store") });
+    expect(again.state === "cloned" && again.branches).toContain("hotfix");
+    const added = await send(
+      "POST",
+      "/projects",
+      aClonedProject(again.path, `${HOST}store`, "hotfix"),
+    );
+
+    expect(added.status).toBe(201);
+  });
+
   it("refuses a Repository URL whose clone isn't the Project's path", async () => {
     const response = await send(
       "POST",
@@ -244,8 +247,9 @@ describe("POST /api/repositories/clones", REAL_GIT_TEST, () => {
 
     expect(clone).toMatchObject({
       state: "failed",
+      // Told of the host git really reaches, after insteadOf.
       problem:
-        "git.example.test is reached anonymously over https, so only a public repository can be fetched.",
+        "127.0.0.1 is reached anonymously over https, so only a public repository can be fetched.",
     });
     expect(await stat(clonePath("missing")).catch(() => undefined)).toBeUndefined();
   });

@@ -132,6 +132,22 @@ export abstract class Git {
    */
   abstract clone(request: CloneRequest): Promise<void>;
 
+  /**
+   * The URL git reaches for `url`, with the user's `insteadOf` applied, so the identity is decided
+   * on that: an https URL may be rewritten to ssh.
+   */
+  abstract reachedUrlOf(url: string): Promise<string>;
+
+  /**
+   * Updates every remote-tracking branch of `remote` from it, pruning those gone there, so a clone
+   * used again sees the branches made on the remote since.
+   */
+  abstract fetchBranches(
+    repositoryPath: string,
+    remote: string,
+    signal: AbortSignal,
+  ): Promise<void>;
+
   /** Whether the repository at `repositoryPath` has a local branch named `branch`. */
   abstract hasBranch(repositoryPath: string, branch: string): Promise<boolean>;
 

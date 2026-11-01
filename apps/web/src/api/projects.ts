@@ -7,6 +7,8 @@ import {
   projectListSchema,
   projectSchema,
   projectSkillListSchema,
+  repositoryCloneSchema,
+  repositoryCloneWebEventSchema,
   taskChangesSchema,
   type EnvironmentCheck,
   type NewProject,
@@ -17,6 +19,9 @@ import {
   type ProjectServerValuesChange,
   type ProjectWebEvent,
   type PublishingMode,
+  type RepositoryClone,
+  type RepositoryCloneStart,
+  type RepositoryCloneWebEvent,
 } from "@the-office/contracts";
 import { getFromApi, sendToApi } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
@@ -59,6 +64,17 @@ export const projectQueries = {
       queryFn: ({ signal }) =>
         getFromApi(`${projectPath(id)}/server-values`, projectMcpServerValuesListSchema, signal),
     }),
+  /** A repository cloned by its Repository URL before it is added: under way, cloned or failed. */
+  repositoryClone: (cloneId: string) =>
+    queryOptions({
+      queryKey: repositoryCloneKey(cloneId),
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `/repositories/clones/${encodeURIComponent(cloneId)}`,
+          repositoryCloneSchema,
+          signal,
+        ),
+    }),
   /** What the Task's commits changed in its Project, for the Changes tab. */
   taskChanges: (projectId: string, taskId: string) =>
     queryOptions({
@@ -82,6 +98,12 @@ export function taskChangesKey(taskId: string): readonly unknown[] {
 
 export function addProject(newProject: NewProject): Promise<Project> {
   return sendToApi("POST", "/projects", newProject, projectSchema);
+}
+
+/** Starts cloning the repository at `url`; it is added as a Project by its clone's path after. */
+export function startRepositoryClone(url: string): Promise<RepositoryClone> {
+  const start: RepositoryCloneStart = { url };
+  return sendToApi("POST", "/repositories/clones", start, repositoryCloneSchema);
 }
 
 export function changeCommand(
@@ -156,6 +178,11 @@ function serverValuesKey(id: string) {
   return [...PROJECTS, id, "server-values"] as const;
 }
 
+/** Outside ["projects"]: a clone is no Project yet, and Project events don't change it. */
+function repositoryCloneKey(cloneId: string) {
+  return ["repository-clones", cloneId] as const;
+}
+
 /**
  * Every Project event makes the Projects stale; ["projects"] also covers each Project's own query.
  * Keyed by the contract's event types, so a type the service doesn't send can't be listed.
@@ -171,6 +198,15 @@ export const projectEventInvalidations: Readonly<
   "project.publishing-mode-changed": () => [PROJECTS],
   "project.default-pipeline-changed": () => [PROJECTS],
   "project.use-project-skills-changed": () => [PROJECTS],
+};
+
+/** A clone that started, moved on or finished is read again by its id. */
+export const repositoryCloneEventInvalidations: Readonly<
+  Record<RepositoryCloneWebEvent["type"], EventInvalidations[string]>
+> = {
+  "repository-clone.changed": (event) => [
+    repositoryCloneKey(repositoryCloneWebEventSchema.parse(event).cloneId),
+  ],
 };
 
 function projectPath(id: string): `/${string}` {

@@ -43,13 +43,13 @@ export function ProjectsPage(): ReactNode {
             </span>
             <div>
               <h2 className="project-tile-name">Add a Project</h2>
-              <div className="project-tile-sub">A repository on the workstation</div>
+              <div className="project-tile-sub">A repository on the workstation or a git URL</div>
             </div>
           </div>
           <p className="project-tile-text">
             {devops?.card.capabilities.chat
-              ? `${devops.card.name} prepares it until it builds and tests in a fresh worktree, and asks before installing anything. Or give its folder, base branch and commands yourself.`
-              : "Give its folder, base branch and commands. Script Stages run the commands in each Task's worktree."}
+              ? `${devops.card.name} prepares it until it builds and tests in a fresh worktree, and asks before installing anything. Or give its folder or git URL, base branch and commands yourself.`
+              : "Give its folder or git URL, base branch and commands. Script Stages run the commands in each Task's worktree."}
           </p>
           <div className="add-project-actions">
             <AskDevopsButton
@@ -57,7 +57,7 @@ export function ProjectsPage(): ReactNode {
               draft="Can you onboard a new Project? The repository is "
             />
             <Button variant="secondary" onClick={() => setAdding(true)}>
-              Add by path
+              Add it yourself
             </Button>
           </div>
         </article>

@@ -61,6 +61,12 @@ function ProjectHead({ project }: { readonly project: Project }): ReactNode {
           <span className="project-path">{project.path}</span>
           <span>· {project.baseBranch}</span>
         </div>
+        {project.repositoryUrl !== null && (
+          <div className="project-head-meta">
+            <span>Repository URL</span>
+            <span className="project-path">{project.repositoryUrl}</span>
+          </div>
+        )}
       </div>
     </header>
   );

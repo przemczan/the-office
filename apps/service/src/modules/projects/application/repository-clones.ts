@@ -139,8 +139,10 @@ export class RepositoryClones implements BeforeApplicationShutdown {
     const found = await this.git.inspect(path);
     if (found.kind === "repository") {
       // Another spelling of the URL shares the folder, maybe over the other transport: the clone
-      // is fetched from the URL given last, which is the one its Project keeps.
+      // is fetched from the URL given last, which is the one its Project keeps. Fetched now, so
+      // a branch made on the remote since it was cloned can be the Project's base branch.
       await this.git.setFetchUrl(path, CLONE_REMOTE, url);
+      await this.git.fetchBranches(path, CLONE_REMOTE, running.stop.signal);
     } else {
       if (found.kind !== "missing") await this.removeEmptyFolder(path);
       await this.git.clone({

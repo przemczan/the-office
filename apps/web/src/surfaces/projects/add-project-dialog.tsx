@@ -23,6 +23,12 @@ import {
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { installInputsFrom, MARK_COLOUR_LABELS } from "./project-labels.ts";
+import {
+  RepositoryCloneStep,
+  repositoryNameOf,
+  useRepositoryCloning,
+  type ClonedRepository,
+} from "./repository-clone-step.tsx";
 
 const COMMAND_EXAMPLES: Readonly<Record<ProjectCommandKey, string>> = {
   install: "npm ci",
@@ -42,10 +48,30 @@ const EMPTY: NewProject = {
   defaultPipeline: "full",
 };
 
-/** "Add a Project" as a form: the service checks the path and branch before anything is saved. */
+type WhereItIs = "folder" | "git-url";
+
+const WHERE_IT_IS_OPTIONS: { value: WhereItIs; label: string }[] = [
+  { value: "folder", label: "A folder" },
+  { value: "git-url", label: "A git URL" },
+];
+
+/**
+ * "Add a Project" as a form: the service checks the path and branch before anything is saved. A
+ * repository given by its git URL is cloned first, then added by its clone's path.
+ */
 export function AddProjectDialog({ onClose }: { readonly onClose: () => void }): ReactNode {
   const formId = useId();
+  const cloneFormId = useId();
+  const [whereItIs, setWhereItIs] = useState<WhereItIs>("folder");
+  const cloning = useRepositoryCloning();
+  const cloned = cloning.clone?.state === "cloned" ? cloning.clone : undefined;
   const [draft, setDraft] = useState(EMPTY);
+  // The form is filled from a clone once, as it finishes; the user's edits are kept after.
+  const [filledFrom, setFilledFrom] = useState<string>();
+  if (cloned && filledFrom !== cloned.id) {
+    setFilledFrom(cloned.id);
+    setDraft(draftFromClone(draft, cloned));
+  }
   // The label follows the name until the user writes one of their own.
   const [labelEdited, setLabelEdited] = useState(false);
   // Kept as typed, so a comma just written isn't dropped before the next path.
@@ -67,10 +93,32 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
   const change = (fields: Partial<NewProject>): void => setDraft({ ...draft, ...fields });
   const mark = { ...draft.mark, label: labelEdited ? draft.mark.label : markLabelFor(draft.name) };
   const defaultPipeline = pipelines.data?.find((pipeline) => pipeline.id === draft.defaultPipeline);
+  const choosingClone = whereItIs === "git-url" && !cloned;
+  const forgetClone = (): void => {
+    cloning.forget();
+    setFilledFrom(undefined);
+    change({ path: "", repositoryUrl: undefined });
+  };
+  const whereItIsControl = (
+    <Field label="Where it is">
+      {/* A block of its own, so the control keeps its width rather than the form's. */}
+      <div>
+        <SegmentedControl
+          size="sm"
+          value={whereItIs}
+          options={WHERE_IT_IS_OPTIONS}
+          onChange={(value) => {
+            setWhereItIs(whereItIsOf(value));
+            forgetClone();
+          }}
+        />
+      </div>
+    </Field>
+  );
   return (
     <Dialog
       title="Add a Project"
-      description="A git repository on this workstation. The Office checks the folder and the branch before saving."
+      description="A git repository on this workstation, or one cloned by its git URL. The Office checks the folder and the branch before saving."
       width={620}
       onClose={onClose}
       actions={
@@ -78,116 +126,169 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" form={formId} loading={adding.isPending}>
-            Add the Project
-          </Button>
+          {choosingClone ? (
+            <Button type="submit" form={cloneFormId} loading={cloning.busy}>
+              Clone
+            </Button>
+          ) : (
+            <Button type="submit" form={formId} loading={adding.isPending}>
+              Add the Project
+            </Button>
+          )}
         </>
       }
     >
-      <form
-        id={formId}
-        className="add-project-form"
-        onSubmit={(event) => {
-          event.preventDefault();
-          adding.mutate({ ...draft, mark, installInputs: installInputsFrom(installInputs) });
-        }}
-      >
-        {adding.error && (
-          <RefusalAlert title="The Project can't be added yet" error={adding.error} />
-        )}
-        <div className="add-project-columns">
-          <Input
-            label="Name"
-            value={draft.name}
-            onChange={(event) => change({ name: event.target.value })}
-            autoFocus
-          />
-          <Field label="Mark">
-            <div className="add-project-mark">
-              <ProjectMark project={{ name: draft.name, mark }} size="xl" />
-              <Input
-                aria-label="Mark label"
-                value={mark.label}
-                maxLength={3}
-                onChange={(event) => {
-                  setLabelEdited(true);
-                  change({ mark: { ...mark, label: event.target.value } });
-                }}
-                style={{ width: "var(--mark-label-width)" }}
-              />
-              <SegmentedControl
-                size="sm"
-                value={mark.colour}
-                options={projectMarkColourSchema.options.map((colour) => ({
-                  value: colour,
-                  label: MARK_COLOUR_LABELS[colour],
-                }))}
-                onChange={(colour) => change({ mark: { ...mark, colour: colourOf(colour) } })}
-              />
-            </div>
-          </Field>
-        </div>
-        <Input
-          label="Repository folder"
-          hint="The repository's top-level folder, as a full path."
-          value={draft.path}
-          onChange={(event) => change({ path: event.target.value })}
-          inputStyle={{ fontFamily: "var(--font-mono)" }}
-        />
-        <div className="add-project-columns">
-          <Input
-            label="Base branch"
-            hint="Tasks branch from it and publish to it."
-            value={draft.baseBranch}
-            onChange={(event) => change({ baseBranch: event.target.value })}
-            inputStyle={{ fontFamily: "var(--font-mono)" }}
-          />
-          <Select
-            label="Default Pipeline"
-            hint={defaultPipeline && stagesLine(defaultPipeline)}
-            value={draft.defaultPipeline}
-            options={(pipelines.data ?? []).map((pipeline) => ({
-              value: pipeline.id,
-              label: pipeline.name,
-            }))}
-            onChange={(pipelineId) => change({ defaultPipeline: pipelineId })}
-          />
-        </div>
-        <div className="add-project-columns">
-          {COMMAND_KEYS.map((key) => (
+      {choosingClone ? (
+        <RepositoryCloneStep formId={cloneFormId} cloning={cloning}>
+          {whereItIsControl}
+        </RepositoryCloneStep>
+      ) : (
+        <form
+          id={formId}
+          className="add-project-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            adding.mutate({ ...draft, mark, installInputs: installInputsFrom(installInputs) });
+          }}
+        >
+          {whereItIsControl}
+          {adding.error && (
+            <RefusalAlert title="The Project can't be added yet" error={adding.error} />
+          )}
+          <div className="add-project-columns">
             <Input
-              key={key}
-              label={COMMAND_LABELS[key]}
-              placeholder={COMMAND_EXAMPLES[key]}
-              value={draft.commands[key]}
-              onChange={(event) =>
-                change({ commands: { ...draft.commands, [key]: event.target.value } })
-              }
+              label="Name"
+              value={draft.name}
+              onChange={(event) => change({ name: event.target.value })}
+              autoFocus
+            />
+            <Field label="Mark">
+              <div className="add-project-mark">
+                <ProjectMark project={{ name: draft.name, mark }} size="xl" />
+                <Input
+                  aria-label="Mark label"
+                  value={mark.label}
+                  maxLength={3}
+                  onChange={(event) => {
+                    setLabelEdited(true);
+                    change({ mark: { ...mark, label: event.target.value } });
+                  }}
+                  style={{ width: "var(--mark-label-width)" }}
+                />
+                <SegmentedControl
+                  size="sm"
+                  value={mark.colour}
+                  options={projectMarkColourSchema.options.map((colour) => ({
+                    value: colour,
+                    label: MARK_COLOUR_LABELS[colour],
+                  }))}
+                  onChange={(colour) => change({ mark: { ...mark, colour: colourOf(colour) } })}
+                />
+              </div>
+            </Field>
+          </div>
+          {cloned ? (
+            <div className="add-project-cloned">
+              <Input
+                label="Repository URL"
+                hint={`Cloned into ${cloned.path}`}
+                value={cloned.url}
+                readOnly
+                inputStyle={{ fontFamily: "var(--font-mono)" }}
+              />
+              <Button variant="secondary" size="sm" onClick={forgetClone}>
+                Use another URL
+              </Button>
+            </div>
+          ) : (
+            <Input
+              label="Repository folder"
+              hint="The repository's top-level folder, as a full path."
+              value={draft.path}
+              onChange={(event) => change({ path: event.target.value })}
               inputStyle={{ fontFamily: "var(--font-mono)" }}
             />
-          ))}
-        </div>
-        <Input
-          label={INSTALL_INPUTS_LABEL}
-          hint="Files whose change makes a worktree install again, separated by commas. With none, a worktree installs once."
-          placeholder="package-lock.json"
-          value={installInputs}
-          onChange={(event) => setInstallInputs(event.target.value)}
-          inputStyle={{ fontFamily: "var(--font-mono)" }}
-        />
-        <Field label="Publishing">
-          <RadioGroup
-            value={draft.publishingMode}
-            options={publishingModeSchema.options.map((mode) => ({
-              value: mode,
-              label: publishingLabel(mode, draft.baseBranch.trim() || "the base branch"),
-            }))}
-            onChange={(mode) => change({ publishingMode: publishingModeSchema.parse(mode) })}
+          )}
+          <div className="add-project-columns">
+            {cloned ? (
+              <Select
+                label="Base branch"
+                hint="Tasks branch from it and publish to it."
+                value={draft.baseBranch}
+                options={cloned.branches.map((branch) => ({ value: branch, label: branch }))}
+                onChange={(branch) => change({ baseBranch: branch })}
+              />
+            ) : (
+              <Input
+                label="Base branch"
+                hint="Tasks branch from it and publish to it."
+                value={draft.baseBranch}
+                onChange={(event) => change({ baseBranch: event.target.value })}
+                inputStyle={{ fontFamily: "var(--font-mono)" }}
+              />
+            )}
+            <Select
+              label="Default Pipeline"
+              hint={defaultPipeline && stagesLine(defaultPipeline)}
+              value={draft.defaultPipeline}
+              options={(pipelines.data ?? []).map((pipeline) => ({
+                value: pipeline.id,
+                label: pipeline.name,
+              }))}
+              onChange={(pipelineId) => change({ defaultPipeline: pipelineId })}
+            />
+          </div>
+          <div className="add-project-columns">
+            {COMMAND_KEYS.map((key) => (
+              <Input
+                key={key}
+                label={COMMAND_LABELS[key]}
+                placeholder={COMMAND_EXAMPLES[key]}
+                value={draft.commands[key]}
+                onChange={(event) =>
+                  change({ commands: { ...draft.commands, [key]: event.target.value } })
+                }
+                inputStyle={{ fontFamily: "var(--font-mono)" }}
+              />
+            ))}
+          </div>
+          <Input
+            label={INSTALL_INPUTS_LABEL}
+            hint="Files whose change makes a worktree install again, separated by commas. With none, a worktree installs once."
+            placeholder="package-lock.json"
+            value={installInputs}
+            onChange={(event) => setInstallInputs(event.target.value)}
+            inputStyle={{ fontFamily: "var(--font-mono)" }}
           />
-        </Field>
-      </form>
+          <Field label="Publishing">
+            <RadioGroup
+              value={draft.publishingMode}
+              options={publishingModeSchema.options.map((mode) => ({
+                value: mode,
+                label: publishingLabel(mode, draft.baseBranch.trim() || "the base branch"),
+              }))}
+              onChange={(mode) => change({ publishingMode: publishingModeSchema.parse(mode) })}
+            />
+          </Field>
+        </form>
+      )}
     </Dialog>
   );
+}
+
+/** The clone's path and Repository URL, its default branch, and its name unless one is written. */
+function draftFromClone(draft: NewProject, clone: ClonedRepository): NewProject {
+  return {
+    ...draft,
+    name: draft.name.trim() === "" ? repositoryNameOf(clone.url) : draft.name,
+    path: clone.path,
+    repositoryUrl: clone.url,
+    baseBranch: clone.defaultBranch,
+  };
+}
+
+function whereItIsOf(value: string): WhereItIs {
+  return value === "git-url" ? "git-url" : "folder";
 }
 
 function colourOf(value: string): ProjectMarkColour {

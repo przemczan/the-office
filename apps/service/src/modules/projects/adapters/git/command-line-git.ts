@@ -19,7 +19,7 @@ import {
   type WorktreeCheckout,
 } from "../../ports/git.js";
 import { OfficeIdentity } from "../../../../platform/git-identity/office-identity.js";
-import { cloneRepository, remoteBranchesOf } from "./git-clone.js";
+import { cloneRepository, reachedUrlOf, remoteBranchesOf } from "./git-clone.js";
 import { GitProcess } from "./git-process.js";
 import { RepositoryLocks } from "./repository-locks.js";
 
@@ -76,6 +76,31 @@ export class CommandLineGit extends Git {
 
   async clone(request: CloneRequest): Promise<void> {
     return cloneRepository(this.process, request);
+  }
+
+  async reachedUrlOf(url: string): Promise<string> {
+    return reachedUrlOf(this.process, url);
+  }
+
+  async fetchBranches(repositoryPath: string, remote: string, signal: AbortSignal): Promise<void> {
+    const reached = await this.fetchUrlOf(repositoryPath, remote);
+    await this.locked(repositoryPath, () =>
+      this.process.output({
+        folder: repositoryPath,
+        gitArguments: [
+          "fetch",
+          "--quiet",
+          "--prune",
+          "--no-tags",
+          "--",
+          remote,
+          `+refs/heads/*:refs/remotes/${remote}/*`,
+        ],
+        remote: reached,
+        timeoutMs: LONG_TIMEOUT_MS,
+        signal,
+      }),
+    );
   }
 
   async hasBranch(repositoryPath: string, branch: string): Promise<boolean> {

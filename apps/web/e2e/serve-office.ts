@@ -6,6 +6,7 @@ import { spawn } from "node:child_process";
 import { mkdirSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Client } from "pg";
+import { E2E_GIT_HOST_FOLDER, gitHostVariables } from "./git-host.ts";
 import { E2E_OFFICE_DATA } from "./office-data.ts";
 import {
   E2E_DATABASE_NAME,
@@ -23,10 +24,13 @@ await recreateDatabase(E2E_DATABASE_SERVER, E2E_DATABASE_NAME);
 const officeData = E2E_OFFICE_DATA;
 rmSync(officeData, { recursive: true, force: true });
 mkdirSync(officeData, { recursive: true });
+rmSync(E2E_GIT_HOST_FOLDER, { recursive: true, force: true });
+mkdirSync(E2E_GIT_HOST_FOLDER, { recursive: true });
 const service = spawn(process.execPath, ["--enable-source-maps", SERVICE_MAIN], {
   stdio: "inherit",
   env: {
     ...E2E_ENVIRONMENT,
+    ...gitHostVariables(),
     DATABASE_URL: E2E_DATABASE_URL,
     OFFICE_PORT: required("OFFICE_PORT"),
     OFFICE_DATA_DIR: officeData,
@@ -35,6 +39,7 @@ const service = spawn(process.execPath, ["--enable-source-maps", SERVICE_MAIN], 
 });
 service.on("exit", (code) => {
   rmSync(officeData, { recursive: true, force: true });
+  rmSync(E2E_GIT_HOST_FOLDER, { recursive: true, force: true });
   process.exit(code ?? 1);
 });
 for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, () => service.kill(signal));

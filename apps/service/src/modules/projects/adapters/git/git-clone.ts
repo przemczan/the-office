@@ -22,7 +22,7 @@ export async function remoteBranchesOf(git: GitProcess, url: string): Promise<Re
   const output = await git.output({
     folder: tmpdir(),
     gitArguments: ["ls-remote", "--symref", "--", url, "HEAD", "refs/heads/*"],
-    remote: url,
+    remote: await reachedUrlOf(git, url),
     timeoutMs: LS_REMOTE_TIMEOUT_MS,
   });
   let defaultBranch: string | undefined;
@@ -34,6 +34,15 @@ export async function remoteBranchesOf(git: GitProcess, url: string): Promise<Re
     if (branch?.[1] !== undefined) branches.push(branch[1]);
   }
   return { defaultBranch, branches };
+}
+
+/** `ls-remote --get-url`, which applies `insteadOf` without reaching the remote. */
+export async function reachedUrlOf(git: GitProcess, url: string): Promise<string> {
+  const output = await git.output({
+    folder: tmpdir(),
+    gitArguments: ["ls-remote", "--get-url", "--", url],
+  });
+  return output.trim();
 }
 
 /**
@@ -49,7 +58,7 @@ export async function cloneRepository(git: GitProcess, request: CloneRequest): P
       folder: parent,
       // Named here, as a user's clone.defaultRemoteName would name it otherwise.
       gitArguments: ["clone", "--progress", "--origin", CLONE_REMOTE, "--", request.url, cloning],
-      remote: request.url,
+      remote: await reachedUrlOf(git, request.url),
       timeoutMs: 0,
       signal: request.signal,
       onStandardError: progressReader(request.onProgress),

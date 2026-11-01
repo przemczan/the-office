@@ -41,7 +41,7 @@ export class ProjectRemotes {
 
   /** What a failed clone of `url` may lack, in the user's words; undefined if nothing. */
   async whyCloneFailed(url: string): Promise<string | undefined> {
-    return fetchFailureReason(await this.identity.needsOf(url));
+    return fetchFailureReason(await this.identity.needsOf(await this.git.reachedUrlOf(url)));
   }
 
   /**
@@ -49,7 +49,7 @@ export class ProjectRemotes {
    * key. GitHub over https without the sign-in still reaches a public repository.
    */
   async whyUnreachable(url: string): Promise<string | undefined> {
-    const needs = await this.identity.needsOf(url);
+    const needs = await this.identity.needsOf(await this.git.reachedUrlOf(url));
     return needs.kind === "ssh" && needs.missing.length > 0
       ? sshFailureReason(needs.host, needs.missing)
       : undefined;

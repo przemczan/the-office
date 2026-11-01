@@ -116,6 +116,17 @@
   gap: 8px;
 }
 
+/* The cloned repository's URL, with the button to clone another under its field. */
+.add-project-cloned {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.add-project-cloned > :first-child {
+  align-self: stretch;
+}
 /* ---- a Project's page */
 .project-head {
   display: flex;

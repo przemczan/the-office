@@ -2,6 +2,7 @@ import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { projectSchema, type NewProject, type Project } from "@the-office/contracts";
 import { addFakeMcpServer } from "./fake-mcp-server.ts";
+import { branchOnHost, serveRepository } from "./git-host.ts";
 import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
@@ -58,7 +59,7 @@ async function fillTheForm(page: Page, fields: { name: string; path: string; bra
 
 test("the user adds a Project from the Projects page and lands on its page", async ({ page }) => {
   await page.goto("/projects");
-  await page.getByRole("button", { name: "Add by path" }).click();
+  await page.getByRole("button", { name: "Add it yourself" }).click();
   await fillTheForm(page, { name: "Billing service", path: repository.path, branch: "main" });
   await page.getByRole("dialog").getByLabel("Install inputs").fill("package-lock.json,");
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-add.png") });
@@ -81,7 +82,7 @@ test("a folder that isn't a repository, or a branch it lacks, is refused with th
   page,
 }) => {
   await page.goto("/projects");
-  await page.getByRole("button", { name: "Add by path" }).click();
+  await page.getByRole("button", { name: "Add it yourself" }).click();
   await fillTheForm(page, { name: "Nowhere", path: repository.folder, branch: "main" });
   const add = page.getByRole("button", { name: "Add the Project" });
 
@@ -96,6 +97,48 @@ test("a folder that isn't a repository, or a branch it lacks, is refused with th
   await add.click();
   await expect(refusal).toContainText('The repository has no branch "develop".');
   await expect(page).toHaveURL(/\/projects$/);
+});
+
+test("the user adds a Project by its git URL: cloned first, then the form opens from the clone", async ({
+  page,
+}) => {
+  const url = serveRepository(repository, "acme", "storefront");
+  branchOnHost("acme", "storefront", "release");
+  await page.goto("/projects");
+  await page.getByRole("button", { name: "Add it yourself" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("tab", { name: "A git URL" }).click();
+  const repositoryUrl = dialog.getByLabel("Repository URL");
+  const clone = dialog.getByRole("button", { name: "Clone" });
+
+  await repositoryUrl.fill("http://git.example.test/acme/storefront.git");
+  await clone.click();
+  await expect(dialog.getByRole("status")).toContainText(
+    "The Office clones over https and ssh only, not http.",
+  );
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-add-git-url.png") });
+
+  await repositoryUrl.fill(url);
+  await clone.click();
+  await expect(dialog.getByLabel("Name")).toHaveValue("storefront");
+  await expect(repositoryUrl).toHaveValue(url);
+  await expect(dialog.getByText(/Cloned into .*storefront/)).toBeVisible();
+  const baseBranch = dialog.getByLabel("Base branch");
+  await expect(baseBranch).toHaveValue("main");
+  await baseBranch.selectOption("release");
+  await dialog.getByLabel("Name").fill("Storefront");
+  await dialog.getByLabel("Install", { exact: true }).fill("npm ci");
+  await dialog.getByLabel("Build").fill("npm run build");
+  await dialog.getByLabel("Lint").fill("npm run lint");
+  await dialog.getByLabel("Test").fill("npm test");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-projects-add-cloned.png") });
+
+  await page.getByRole("button", { name: "Add the Project" }).click();
+
+  await expect(page).toHaveURL(/\/projects\/storefront$/);
+  await expect(page.getByText("Repository URL")).toBeVisible();
+  await expect(page.getByText(url)).toBeVisible();
+  await expect(page.getByText("· release")).toBeVisible();
 });
 
 test("editing a command saves it, and the toast says Tasks run it from their next Script Stage", async ({
