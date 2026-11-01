@@ -470,6 +470,13 @@
       "when": 1793528122056,
       "tag": "0066_github_app",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1793529336262,
+      "tag": "0067_github_sign_in",
+      "breakpoints": true
     }
   ]
 }

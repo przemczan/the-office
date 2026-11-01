@@ -1,6 +1,5 @@
 import { Controller, Get, Query, Redirect, Req } from "@nestjs/common";
 import {
-  API_PATH,
   GITHUB_APP_REGISTRATION_FAILED_PARAMETER,
   OFFICE_IDENTITY_SETTINGS_PATH,
   type GitHubAppManifestForm,
@@ -8,8 +7,8 @@ import {
 import type { Request } from "express";
 import { AppRegistration } from "../../application/app-registration.js";
 import { GitHubAppRegistrationFailed } from "../../domain/github-app.js";
-
-const REGISTERED_PATH = "github/app/registered";
+import { textOrUndefined } from "./query-text.js";
+import { officeOriginOf, returnUrlsOf } from "./github-return-urls.js";
 
 /** Registering the GitHub App by its manifest, from Settings › Office identity. */
 @Controller("github/app")
@@ -22,10 +21,10 @@ export class GitHubAppController {
    */
   @Get("manifest")
   manifest(@Req() request: Request): GitHubAppManifestForm {
-    const officeOrigin = `${request.protocol}://${request.host}`;
+    const officeOrigin = officeOriginOf(request);
     const { action, manifest } = this.registration.manifestForm(
       officeOrigin,
-      `${officeOrigin}${API_PATH}/${REGISTERED_PATH}`,
+      returnUrlsOf(officeOrigin),
     );
     return { action, manifest: JSON.stringify(manifest) };
   }
@@ -51,8 +50,4 @@ export class GitHubAppController {
       return { url: `${OFFICE_IDENTITY_SETTINGS_PATH}?${query}` };
     }
   }
-}
-
-function textOrUndefined(value: unknown): string | undefined {
-  return typeof value === "string" && value !== "" ? value : undefined;
 }

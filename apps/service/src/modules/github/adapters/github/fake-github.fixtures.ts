@@ -1,14 +1,20 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import type { GitHubUrls } from "../../application/github-urls.js";
 
-/** The secrets the fake hands out with each App, which tests check The Office never keeps or shows. */
+/**
+ * The secrets the fake hands out with each App: the private key and webhook secret, which tests
+ * check The Office never keeps, and the client secret, which it keeps but never shows.
+ */
 export const FAKE_GITHUB_SECRETS = {
   pem: "-----BEGIN RSA PRIVATE KEY-----\nfake-private-key\n-----END RSA PRIVATE KEY-----\n",
   clientSecret: "fake-client-secret-0123456789abcdef",
   webhookSecret: "fake-webhook-secret-0123456789",
 } as const;
+
+/** What tokens the fake hands out start with, so tests can look for any of them. */
+export const FAKE_TOKEN_PREFIXES = ["ghu_fake", "ghr_fake"] as const;
 
 export interface FakeGitHubApp {
   readonly clientId: string;
@@ -19,23 +25,53 @@ export interface FakeGitHubApp {
 export interface RecordedRequest {
   readonly method: string;
   readonly path: string;
+  /** The query, with its `?`, or empty. */
+  readonly search: string;
   readonly accept: string | undefined;
 }
 
 /** The REST API's base path on the fake, so a client that drops its base's path is caught. */
 const API_PATH = "/api/v3";
 
+/** GitHub's own limit on a sign-in's code. */
+const SIGN_IN_CODE_MS = 10 * 60 * 1000;
+
+/** An App registered from a manifest, as GitHub keeps it. */
+interface RegisteredApp extends FakeGitHubApp {
+  readonly clientSecret: string;
+  readonly callbackUrls: readonly string[];
+}
+
+/** A sign-in's code GitHub sent the browser back with, until it is exchanged. */
+interface SignInCode {
+  readonly clientId: string;
+  readonly redirectUri: string;
+  readonly codeChallenge: string | undefined;
+  readonly login: string;
+  readonly expiresAt: number;
+}
+
 /**
  * GitHub on 127.0.0.1, as far as The Office uses it: the page that registers an App from a
- * manifest, and the REST API converting its code. One server is both bases of `urls`.
+ * manifest and the REST API converting its code; the authorize page and token endpoint of an
+ * App's web sign-in, and `GET /user`. One server is both bases of `urls`. Behaves as
+ * docs.github.com describes; where the docs are silent, as noted at each place.
  */
 export class FakeGitHub {
   /** Every request, in order. */
   readonly requests: RecordedRequest[] = [];
   /** The manifests posted to the new-App page, parsed, in order. */
   readonly postedManifests: unknown[] = [];
+  /** Every token handed out, so tests can check none reaches the web. */
+  readonly issuedTokens: string[] = [];
+  /** Who authorizes on GitHub's authorize page; GitHub's own page would ask them. */
+  signedInUser = "office-user";
+  /** Whether the user cancels on the authorize page instead of authorizing. */
+  cancelAuthorization = false;
   private readonly appsByCode = new Map<string, FakeGitHubApp>();
-  private registeredApps = 0;
+  private readonly registeredApps = new Map<string, RegisteredApp>();
+  private readonly signInCodes = new Map<string, SignInCode>();
+  private readonly loginsByAccessToken = new Map<string, string>();
 
   private constructor(
     private readonly server: Server,
@@ -63,6 +99,12 @@ export class FakeGitHub {
     return this.requests.filter((request) => request.path.startsWith(path));
   }
 
+  /** GitHub deleting the App's client secret and making a new one, as its settings page does. */
+  resetClientSecret(clientId: string): void {
+    const app = this.registeredApps.get(clientId);
+    if (app) this.registeredApps.set(clientId, { ...app, clientSecret: "reset-client-secret" });
+  }
+
   async close(): Promise<void> {
     this.server.closeAllConnections();
     await new Promise<void>((resolve, reject) =>
@@ -75,6 +117,7 @@ export class FakeGitHub {
     this.requests.push({
       method: request.method ?? "GET",
       path: url.pathname,
+      search: url.search,
       accept: request.headers.accept,
     });
     const body = await readBody(request);
@@ -85,6 +128,15 @@ export class FakeGitHub {
       this.registerFromManifest(url, body, response);
     } else if (request.method === "POST" && conversion) {
       this.convert(decodeURIComponent(conversion[1] ?? ""), response);
+    } else if (request.method === "GET" && url.pathname === "/login/oauth/authorize") {
+      this.authorize(url.searchParams, response);
+    } else if (request.method === "POST" && url.pathname === "/login/oauth/access_token") {
+      // GitHub reads the parameters from the query, as its docs show them, or a form body.
+      const parameters = new URLSearchParams(url.searchParams);
+      for (const [key, value] of new URLSearchParams(body)) parameters.append(key, value);
+      this.exchange(parameters, request.headers.accept, response);
+    } else if (request.method === "GET" && url.pathname === `${API_PATH}/user`) {
+      this.user(request.headers.authorization, response);
     } else {
       sendJson(response, 404, { message: "Not Found" });
     }
@@ -94,21 +146,25 @@ export class FakeGitHub {
   private registerFromManifest(url: URL, body: string, response: ServerResponse): void {
     const manifest: unknown = JSON.parse(new URLSearchParams(body).get("manifest") ?? "null");
     this.postedManifests.push(manifest);
-    const redirectUrl = (manifest as { redirect_url?: unknown } | null)?.redirect_url;
+    const { redirect_url: redirectUrl, callback_urls: callbackUrls } = (manifest ?? {}) as {
+      redirect_url?: unknown;
+      callback_urls?: unknown;
+    };
     if (typeof redirectUrl !== "string") {
       sendJson(response, 422, { message: "The manifest has no redirect_url." });
       return;
     }
-    this.registeredApps += 1;
+    const number = this.registeredApps.size + 1;
+    const app: RegisteredApp = {
+      clientId: `Iv23liFake${number}`,
+      clientSecret: FAKE_GITHUB_SECRETS.clientSecret,
+      slug: `the-office-fake-${number}`,
+      owner: "office-user",
+      callbackUrls: Array.isArray(callbackUrls) ? callbackUrls.map(String) : [],
+    };
+    this.registeredApps.set(app.clientId, app);
     const back = new URL(redirectUrl);
-    back.searchParams.set(
-      "code",
-      this.issueCode({
-        clientId: `Iv23liFake${this.registeredApps}`,
-        slug: `the-office-fake-${this.registeredApps}`,
-        owner: "office-user",
-      }),
-    );
+    back.searchParams.set("code", this.issueCode(app));
     const state = url.searchParams.get("state");
     if (state !== null) back.searchParams.set("state", state);
     response.writeHead(302, { location: back.href }).end();
@@ -122,7 +178,7 @@ export class FakeGitHub {
     }
     this.appsByCode.delete(code);
     sendJson(response, 201, {
-      id: 1000 + this.registeredApps,
+      id: 1000 + this.registeredApps.size,
       slug: app.slug,
       node_id: "A_fake",
       client_id: app.clientId,
@@ -134,6 +190,134 @@ export class FakeGitHub {
       pem: FAKE_GITHUB_SECRETS.pem,
     });
   }
+
+  /**
+   * The authorize page once the user has decided. A `redirect_uri` that isn't one of the App's
+   * callback URLs sends the browser to the first one with `redirect_uri_mismatch`, and a cancel
+   * with `access_denied`, as GitHub's OAuth troubleshooting page describes.
+   */
+  private authorize(query: URLSearchParams, response: ServerResponse): void {
+    const app = this.registeredApps.get(query.get("client_id") ?? "");
+    const firstCallback = app?.callbackUrls[0];
+    if (app === undefined || firstCallback === undefined) {
+      sendJson(response, 404, { message: "Not Found" });
+      return;
+    }
+    const redirectUri = query.get("redirect_uri") ?? firstCallback;
+    const state = query.get("state");
+    const challengeMethod = query.get("code_challenge_method");
+    if (!app.callbackUrls.includes(redirectUri)) {
+      redirectBack(response, firstCallback, state, oauthError("redirect_uri_mismatch"));
+    } else if (challengeMethod !== null && challengeMethod !== "S256") {
+      // Undocumented which error GitHub gives for `plain`; its docs say only S256 is supported.
+      redirectBack(response, redirectUri, state, oauthError("invalid_request"));
+    } else if (this.cancelAuthorization) {
+      redirectBack(response, redirectUri, state, oauthError("access_denied"));
+    } else {
+      const code = randomBytes(10).toString("hex");
+      this.signInCodes.set(code, {
+        clientId: app.clientId,
+        redirectUri,
+        codeChallenge: query.get("code_challenge") ?? undefined,
+        login: this.signedInUser,
+        expiresAt: Date.now() + SIGN_IN_CODE_MS,
+      });
+      redirectBack(response, redirectUri, state, { code });
+    }
+  }
+
+  /**
+   * The token endpoint exchanging a sign-in's code. GitHub answers its refusals with HTTP 200 and
+   * an `error`, and answers form-encoded unless asked for JSON.
+   */
+  private exchange(
+    parameters: URLSearchParams,
+    accept: string | undefined,
+    response: ServerResponse,
+  ): void {
+    const answer = this.exchangeAnswer(parameters);
+    if (accept?.includes("application/json")) {
+      sendJson(response, 200, answer);
+      return;
+    }
+    const form = new URLSearchParams(
+      Object.entries(answer).map(([key, value]): [string, string] => [key, String(value)]),
+    );
+    response
+      .writeHead(200, { "content-type": "application/x-www-form-urlencoded; charset=utf-8" })
+      .end(form.toString());
+  }
+
+  private exchangeAnswer(parameters: URLSearchParams): Record<string, string | number> {
+    const app = this.registeredApps.get(parameters.get("client_id") ?? "");
+    if (app === undefined || parameters.get("client_secret") !== app.clientSecret) {
+      return oauthError("incorrect_client_credentials");
+    }
+    const codeValue = parameters.get("code") ?? "";
+    const code = this.signInCodes.get(codeValue);
+    // A code is used once, whatever came of it.
+    this.signInCodes.delete(codeValue);
+    if (code === undefined || code.clientId !== app.clientId || code.expiresAt <= Date.now()) {
+      return oauthError("bad_verification_code");
+    }
+    const redirectUri = parameters.get("redirect_uri");
+    if (redirectUri !== null && redirectUri !== code.redirectUri) {
+      return oauthError("redirect_uri_mismatch");
+    }
+    const verifier = parameters.get("code_verifier");
+    const challenge =
+      verifier === null ? undefined : createHash("sha256").update(verifier).digest("base64url");
+    if (code.codeChallenge !== challenge) {
+      // Undocumented which error GitHub gives for a wrong or missing verifier.
+      return oauthError("bad_verification_code");
+    }
+    return this.tokensFor(code.login);
+  }
+
+  /** Expiring tokens, as an App whose user tokens expire, or asked for `offline_access`, gets. */
+  private tokensFor(login: string): Record<string, string | number> {
+    const accessToken = `${FAKE_TOKEN_PREFIXES[0]}${randomBytes(12).toString("hex")}`;
+    const refreshToken = `${FAKE_TOKEN_PREFIXES[1]}${randomBytes(12).toString("hex")}`;
+    this.issuedTokens.push(accessToken, refreshToken);
+    this.loginsByAccessToken.set(accessToken, login);
+    return {
+      access_token: accessToken,
+      expires_in: 28800,
+      refresh_token: refreshToken,
+      refresh_token_expires_in: 15897600,
+      scope: "",
+      token_type: "bearer",
+    };
+  }
+
+  private user(authorization: string | undefined, response: ServerResponse): void {
+    const login = this.loginsByAccessToken.get(authorization?.replace(/^Bearer /, "") ?? "");
+    if (login === undefined) {
+      sendJson(response, 401, { message: "Bad credentials", status: "401" });
+      return;
+    }
+    sendJson(response, 200, { login, id: 1, type: "User" });
+  }
+}
+
+function oauthError(error: string): Record<string, string> {
+  return {
+    error,
+    error_description: `Fake GitHub: ${error}.`,
+    error_uri: `https://docs.github.com/apps/troubleshooting#${error}`,
+  };
+}
+
+function redirectBack(
+  response: ServerResponse,
+  callbackUrl: string,
+  state: string | null,
+  parameters: Record<string, string>,
+): void {
+  const back = new URL(callbackUrl);
+  for (const [key, value] of Object.entries(parameters)) back.searchParams.set(key, value);
+  if (state !== null) back.searchParams.set("state", state);
+  response.writeHead(302, { location: back.href }).end();
 }
 
 async function readBody(request: IncomingMessage): Promise<string> {

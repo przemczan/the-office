@@ -22,11 +22,22 @@ describe("PostgresGitHubApp", () => {
   it("keeps one App, a later registration replacing it", async () => {
     const before = await apps.read();
     try {
-      await apps.replace({ clientId: "Iv23liFirst", slug: "office-first", owner: "przemczan" });
-      await apps.replace({ clientId: "Iv23liSecond", slug: "office-second", owner: "notnullsoft" });
+      await apps.replace({
+        clientId: "Iv23liFirst",
+        clientSecret: "first-secret",
+        slug: "office-first",
+        owner: "przemczan",
+      });
+      await apps.replace({
+        clientId: "Iv23liSecond",
+        clientSecret: "second-secret",
+        slug: "office-second",
+        owner: "notnullsoft",
+      });
 
       expect(await apps.read()).toEqual({
         clientId: "Iv23liSecond",
+        clientSecret: "second-secret",
         slug: "office-second",
         owner: "notnullsoft",
       });

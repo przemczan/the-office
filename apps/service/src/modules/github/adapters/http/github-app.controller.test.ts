@@ -17,6 +17,8 @@ import { GitHubModule } from "../../github.module.js";
 import { FAKE_GITHUB_SECRETS, FakeGitHub } from "../../index.fixtures.js";
 import { GitHubAppRepository } from "../../ports/github-app-repository.js";
 import { GitHubAppForTests } from "../../ports/github-app-repository.fixtures.js";
+import { GitHubSignInRepository } from "../../ports/github-sign-in-repository.js";
+import { GitHubSignInForTests } from "../../ports/github-sign-in-repository.fixtures.js";
 
 let github: FakeGitHub;
 let app: INestApplication;
@@ -29,7 +31,10 @@ beforeEach(async () => {
   apps = new GitHubAppForTests();
   ({ app, url } = await startTestApplication({
     imports: [EventsModule, EventStreamModule, GitHubModule.register(github.urls)],
-    overrides: [{ provide: GitHubAppRepository, useValue: apps }],
+    overrides: [
+      { provide: GitHubAppRepository, useValue: apps },
+      { provide: GitHubSignInRepository, useValue: new GitHubSignInForTests() },
+    ],
   }));
   published = [];
   app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));
@@ -87,6 +92,8 @@ describe("/api/github/app", () => {
     expect(JSON.parse(form.manifest)).toEqual({
       url,
       redirect_url: `${url}/api/github/app/registered`,
+      callback_urls: [`${url}/api/github/sign-in/callback`],
+      request_oauth_on_install: false,
       description: expect.any(String),
       public: false,
       default_permissions: {
@@ -99,12 +106,13 @@ describe("/api/github/app", () => {
     expect((await manifestForm()).action).not.toBe(form.action);
   });
 
-  it("converts the code GitHub sends back with, keeping the Client ID, slug and owner and no secret", async () => {
+  it("converts the code GitHub sends back with, keeping the Client ID, client secret, slug and owner and no other secret", async () => {
     const landing = await returnToOffice(await postToGitHub(await manifestForm()));
 
     expect(failureOf(landing)).toBeNull();
     expect(apps.app).toEqual({
       clientId: "Iv23liFake1",
+      clientSecret: FAKE_GITHUB_SECRETS.clientSecret,
       slug: "the-office-fake-1",
       owner: "office-user",
     });
@@ -117,8 +125,11 @@ describe("/api/github/app", () => {
         return webEvent;
       }),
     ).toEqual([{ type: "github.changed" }]);
-    const kept = JSON.stringify([apps.app, published, landing.href]);
-    for (const secret of Object.values(FAKE_GITHUB_SECRETS)) expect(kept).not.toContain(secret);
+    const kept = JSON.stringify(apps.app);
+    expect(kept).not.toContain(JSON.stringify(FAKE_GITHUB_SECRETS.pem).slice(1, -1));
+    expect(kept).not.toContain(FAKE_GITHUB_SECRETS.webhookSecret);
+    const shown = JSON.stringify([published, landing.href]);
+    for (const secret of Object.values(FAKE_GITHUB_SECRETS)) expect(shown).not.toContain(secret);
     expect(github.requestsTo(new URL(github.urls.api).pathname)).toEqual([
       expect.objectContaining({ method: "POST", accept: "application/vnd.github+json" }),
     ]);

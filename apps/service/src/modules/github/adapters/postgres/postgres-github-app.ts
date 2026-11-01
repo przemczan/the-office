@@ -13,14 +13,15 @@ export class PostgresGitHubApp extends GitHubAppRepository {
   async read(): Promise<GitHubApp | undefined> {
     const [row] = await this.database.select().from(githubApp).limit(1);
     if (row === undefined) return undefined;
-    const { clientId, slug, owner } = row;
-    return { clientId, slug, owner };
+    const { clientId, clientSecret, slug, owner } = row;
+    return { clientId, clientSecret, slug, owner };
   }
 
-  async replace({ clientId, slug, owner }: GitHubApp): Promise<void> {
+  async replace({ clientId, clientSecret, slug, owner }: GitHubApp): Promise<void> {
+    const row = { clientId, clientSecret, slug, owner };
     await this.database
       .insert(githubApp)
-      .values({ clientId, slug, owner })
-      .onConflictDoUpdate({ target: githubApp.id, set: { clientId, slug, owner } });
+      .values(row)
+      .onConflictDoUpdate({ target: githubApp.id, set: row });
   }
 }

@@ -95,5 +95,5 @@ Every tier 3 item of [spec 3](../spec/3-capabilities-by-tier.md#tier-3-on-need) 
 | §2.7 | Email and chat-app Notifications (WhatsApp first) | 42 |
 | §2.4, §8 | Talking to The Office from chat apps (WhatsApp first) | 43 |
 | §6 | Stack-specific checks for installs and publishing | 44 |
-| §2.1, §2.3, §4, §5.3, §5.5, §6, §8 | A Project from a git repository (any git URL cloned into the Office data directory; a picker of the user's GitHub repositories; Devops' onboarding by URL); the Office identity, the only credentials The Office's git uses: Sign in with GitHub (a GitHub App registered by its manifest, device flow) for every GitHub Project's fetch, push and pull requests, and the Office ssh key for ssh remotes; other hosts over https anonymously | 46 |
+| §2.1, §2.3, §4, §5.3, §5.5, §6, §8 | A Project from a git repository (any git URL cloned into the Office data directory; a picker of the user's GitHub repositories; Devops' onboarding by URL); the Office identity, the only credentials The Office's git uses: Sign in with GitHub (a GitHub App registered by its manifest, signed in by its web flow) for every GitHub Project's fetch, push and pull requests, and the Office ssh key for ssh remotes; other hosts over https anonymously | 46 |
 | §3 | The tier 3 acceptance run | 45 |
