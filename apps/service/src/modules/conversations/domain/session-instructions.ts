@@ -20,7 +20,7 @@ export function chatInstructions(card: SessionPersonCard, roleKey: string): stri
     ...personInstructions(card),
     `In your chat you read and answer; you change no file. Changes happen on Tasks, where The Office gives you a worktree of your own. Here you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and with The Office's tools read its records of Projects, people, Tasks, Initiatives and Ideas, capture an Idea, and create a Task in Backlog when the user asks for one or agrees to it.`,
     // Devops reached for Grep on the repository it onboarded, refused outside its folders (task 33's run).
-    ...(roleKey === DEVOPS ? [READ_LOCAL_REPOSITORY_RULE] : []),
+    ...(roleKey === DEVOPS ? [READ_REPOSITORY_RULE] : []),
   ].join("\n\n");
 }
 
@@ -112,9 +112,9 @@ export const PROPOSE_SKILL_UPDATE_TOOL = "propose_skill_update";
  * path or on a host by its Repository URL, which Projects registers: its branches, and the names and
  * manifest files of one folder at a time.
  */
-export const READ_LOCAL_REPOSITORY_TOOL = "read_local_repository";
+export const READ_REPOSITORY_TOOL = "read_repository";
 
-const READ_LOCAL_REPOSITORY_RULE = `A repository that is not a Project yet lies outside your folders: Read, Grep, Glob and the shell are refused there. Read it only with ${READ_LOCAL_REPOSITORY_TOOL}, its top level first, then each folder you need with its folder argument. A repository on a host, such as GitHub, is read by its Repository URL in place of a path, without cloning it.`;
+const READ_REPOSITORY_RULE = `A repository that is not a Project yet lies outside your folders: Read, Grep, Glob and the shell are refused there. Read it only with ${READ_REPOSITORY_TOOL}, its top level first, then each folder you need with its folder argument. A repository on a host, such as GitHub, is read by its Repository URL in place of a path, without cloning it, and onboarded by that URL: The Office clones it when the user applies the Proposal.`;
 
 /**
  * A chat's Office tools for the Role's person: the Office Manager doesn't turn work into Tasks but
@@ -135,7 +135,7 @@ export function chatOfficeTools(roleKey: string): readonly string[] {
     : [
         ...CHAT_OFFICE_TOOLS,
         ...roleOfficeTools(roleKey),
-        ...(roleKey === DEVOPS ? [READ_LOCAL_REPOSITORY_TOOL] : []),
+        ...(roleKey === DEVOPS ? [READ_REPOSITORY_TOOL] : []),
       ];
 }
 

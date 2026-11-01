@@ -12,7 +12,8 @@ import { NewProjects, type AddedProject } from "../../ports/new-projects.js";
 /**
  * Proposals of a Project to onboard (spec §2.1 Defaults): applying one adds the Project through
  * Projects (`NewProjects`), whose rules judge it, then its Onboard Task. Work applies them since the Onboard Task
- * is Work's, and Projects never calls Work.
+ * is Work's, and Projects never calls Work. A Project by Repository URL is judged with nothing
+ * cloned, and cloned as it is applied, the apply waiting for the clone.
  */
 @Injectable()
 export class ProjectProposals implements OnModuleInit {
@@ -40,7 +41,7 @@ export class ProjectProposals implements OnModuleInit {
    * Judged whole first, so a refusal leaves the Proposal open with nothing added. The Project and
    * its Task can't be added in one transaction: should the Task fail after the Project is added,
    * the refusal says so and the Proposal stays open, and applying it again carries on with the
-   * Project already added.
+   * Project already added, and its clone not made again.
    */
   private async apply(change: ProposedProject, proposedBy: string): Promise<ProposedProject> {
     const problems = await this.problemsWith(change.project);

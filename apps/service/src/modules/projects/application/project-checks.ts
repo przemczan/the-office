@@ -34,6 +34,19 @@ export class ProjectChecks {
     ];
   }
 
+  /**
+   * Every reason a Project by Repository URL can't be added but those of its clone's folder,
+   * which isn't there before it is cloned; its branches are the remote's to answer.
+   */
+  async newCloneProblems(given: NewProject): Promise<string[]> {
+    const newProject = trimmedNewProject(given);
+    return [
+      ...newProjectProblems(newProject),
+      ...this.repositoryUrlProblems(newProject),
+      ...(await this.pipelineProblems(newProject.defaultPipeline)),
+    ];
+  }
+
   async checkDefaultPipeline(pipelineId: string): Promise<void> {
     const problems = await this.pipelineProblems(pipelineId);
     if (problems.length > 0) throw new ProjectRefused(problems);

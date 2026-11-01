@@ -203,6 +203,7 @@ function toNewProjectResponse(project: NewProject): NewProjectResponse {
   return {
     name: project.name,
     path: project.path,
+    repositoryUrl: project.repositoryUrl,
     baseBranch: project.baseBranch,
     mark: { label: project.mark.label, colour: project.mark.colour },
     commands: { ...project.commands },

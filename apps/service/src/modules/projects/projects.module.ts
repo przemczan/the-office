@@ -19,11 +19,12 @@ import { ProjectWebEvents } from "./adapters/websocket/project-web-events.js";
 import { BaseCheckouts } from "./application/base-checkouts.js";
 import { EnvironmentChecks } from "./application/environment-checks.js";
 import { LocalRepositories } from "./application/local-repositories.js";
-import { RemoteRepositories } from "./application/remote-repositories.js";
+import { RepositoriesByUrl } from "./application/repositories-by-url.js";
 import { ProjectChecks } from "./application/project-checks.js";
 import { ProjectCommandRunner } from "./application/project-command-runner.js";
 import { ProjectRemotes } from "./application/project-remotes.js";
 import { ProjectService } from "./application/project-service.js";
+import { ProjectsFromRepositories } from "./application/projects-from-repositories.js";
 import { RepositoryClones } from "./application/repository-clones.js";
 import { Publishing } from "./application/publishing.js";
 import { Resolving } from "./application/resolving.js";
@@ -75,8 +76,9 @@ export class ProjectsModule {
         RepositoryClones,
         ProjectChecks,
         LocalRepositories,
-        RemoteRepositories,
+        RepositoriesByUrl,
         ProjectService,
+        ProjectsFromRepositories,
         ProjectRemotes,
         Worktrees,
         ScriptCommands,
@@ -87,7 +89,7 @@ export class ProjectsModule {
         ProjectWebEvents,
         ProjectOfficeTools,
       ],
-      exports: [BaseCheckouts, ProjectService, TaskWorktrees],
+      exports: [BaseCheckouts, ProjectService, ProjectsFromRepositories, TaskWorktrees],
     };
   }
 }

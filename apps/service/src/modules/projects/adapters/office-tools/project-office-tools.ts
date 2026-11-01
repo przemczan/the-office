@@ -4,19 +4,16 @@ import { OfficeToolRegistry, type OfficeTool } from "../../../engine/index.js";
 import { BaseCheckouts } from "../../application/base-checkouts.js";
 import { LocalRepositories, type LocalRepository } from "../../application/local-repositories.js";
 import { ProjectService } from "../../application/project-service.js";
-import {
-  RemoteRepositories,
-  type RemoteRepository,
-} from "../../application/remote-repositories.js";
+import { RepositoriesByUrl, type RepositoryByUrl } from "../../application/repositories-by-url.js";
 import type { ManifestFile, RepositoryFolder } from "../../application/repository-folder.js";
 import type { LocalBranch } from "../../ports/git.js";
 import type { Project } from "../../domain/project.js";
 import { ProjectRefused } from "../../domain/project-refused.js";
 
 export const LIST_PROJECTS = "list_projects";
-export const READ_LOCAL_REPOSITORY = "read_local_repository";
+export const READ_REPOSITORY = "read_repository";
 
-const LOCAL_REPOSITORY_INPUT = z.object({
+const REPOSITORY_INPUT = z.object({
   path: z
     .string()
     .optional()
@@ -49,12 +46,12 @@ export class ProjectOfficeTools implements OnModuleInit {
     private readonly projects: ProjectService,
     private readonly bases: BaseCheckouts,
     private readonly localRepositories: LocalRepositories,
-    private readonly remoteRepositories: RemoteRepositories,
+    private readonly repositoriesByUrl: RepositoriesByUrl,
   ) {}
 
   onModuleInit(): void {
     this.registry.register(this.listProjects());
-    this.registry.register(this.readLocalRepository());
+    this.registry.register(this.readRepository());
   }
 
   listProjects(): OfficeTool {
@@ -78,12 +75,12 @@ export class ProjectOfficeTools implements OnModuleInit {
     };
   }
 
-  readLocalRepository(): OfficeTool<typeof LOCAL_REPOSITORY_INPUT> {
+  readRepository(): OfficeTool<typeof REPOSITORY_INPUT> {
     return {
-      name: READ_LOCAL_REPOSITORY,
+      name: READ_REPOSITORY,
       description:
         "Reads a git repository that is not a Project yet, to onboard it: one on the workstation by its `path`, or one on a host by its Repository URL as `url`, fetched one commit deep with nothing cloned. It gives the branches (the local ones with the checked-out one marked, or the remote's with its default one marked, whose last commit is read), and the names in the top-level folder, or in `folder` inside it, with the manifest files there (package.json, README and the like), each up to about 2k tokens. Read a folder below with `folder` when the top level points to packages there. It is the only way to read the repository from this chat: Read, Glob, Grep and git are refused outside your folders.",
-      input: LOCAL_REPOSITORY_INPUT,
+      input: REPOSITORY_INPUT,
       run: async (given) => {
         try {
           return { text: await this.repositoryText(given), isError: false };
@@ -100,11 +97,11 @@ export class ProjectOfficeTools implements OnModuleInit {
     path,
     url,
     folder,
-  }: z.infer<typeof LOCAL_REPOSITORY_INPUT>): Promise<string> {
+  }: z.infer<typeof REPOSITORY_INPUT>): Promise<string> {
     if (path !== undefined && url === undefined)
       return localRepositoryText(path, await this.localRepositories.read(path, folder));
     if (url !== undefined && path === undefined)
-      return remoteRepositoryText(await this.remoteRepositories.read(url, folder));
+      return repositoryByUrlText(await this.repositoriesByUrl.read(url, folder));
     throw new ProjectRefused([
       "Give the repository's path on the workstation or its Repository URL, one of the two.",
     ]);
@@ -118,7 +115,7 @@ function localRepositoryText(path: string, repository: LocalRepository): string 
   ].join("\n\n");
 }
 
-function remoteRepositoryText(repository: RemoteRepository): string {
+function repositoryByUrlText(repository: RepositoryByUrl): string {
   const { url, defaultBranch, commit, branches } = repository;
   return [
     remoteBranchesText(branches, defaultBranch),

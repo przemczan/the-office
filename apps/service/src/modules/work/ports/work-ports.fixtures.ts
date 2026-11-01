@@ -44,11 +44,18 @@ export class KnownProjectsForTests extends KnownProjects {
   }
 }
 
-/** Adds every Project it is given, keyed by its name, and refuses none. */
+/**
+ * Adds every Project it is given, keyed by its name, and refuses none; a Repository URL is cloned
+ * into `/repositories/` and its last path segment.
+ */
 @Injectable()
 export class NewProjectsForTests extends NewProjects {
   readonly added: string[] = [];
   private readonly byPath = new Map<string, AddedProject>();
+
+  clonePathOf(url: string): string {
+    return `/repositories/${url.split("/").at(-1) ?? ""}`;
+  }
 
   async newProjectProblems(): Promise<string[]> {
     return [];

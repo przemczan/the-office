@@ -1,6 +1,6 @@
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -338,7 +338,122 @@ describe("Devops' Proposals, through the scripted engine", () => {
       projects.filter((project) => project.name === name || project.path === repository),
     ).toEqual([]);
   }, 30_000);
+
+  it("drafts a Project to onboard by its Repository URL; applied, it is cloned, then added with its Onboard Task", async () => {
+    const restoreGitConfig = onMadeUpHost(await aBareRepository("shop.git"));
+    try {
+      const name = `Cloned ${randomUUID().slice(0, 8)}`;
+      const repositoryUrl = `${MADE_UP_HOST}shop`;
+      const clonePath = join(
+        folder,
+        "office-data",
+        "repositories",
+        "git.example.test",
+        "acme",
+        "shop",
+      );
+
+      const [proposal] = await ninaProposes([
+        PROPOSE_PROJECT_TOOL,
+        { ...ONBOARDED, name, url: repositoryUrl },
+      ]);
+
+      expect(proposal?.change).toEqual({
+        kind: "project",
+        project: {
+          ...ONBOARDED,
+          name,
+          path: clonePath,
+          repositoryUrl,
+          mark: { label: markLabelFor(name), colour: "teal" },
+        },
+        projectId: null,
+        taskId: null,
+      });
+      // The dry run reads the remote's branches only: nothing is cloned before the user applies it.
+      expect(await stat(clonePath).catch(() => undefined)).toBeUndefined();
+      const response = await api("POST", `/proposals/${proposal?.id}/apply`, {});
+      expect(response.status).toBe(200);
+      const { change } = proposalSchema.parse(await response.json());
+      if (change.kind !== "project" || !change.projectId || !change.taskId) {
+        throw new Error("The applied Proposal names no Project and Task.");
+      }
+      expect(projectSchema.parse(await read(`/projects/${change.projectId}`))).toMatchObject({
+        name,
+        path: clonePath,
+        repositoryUrl,
+        baseBranch: "main",
+      });
+      expect((await stat(join(clonePath, "README.md"))).isFile()).toBe(true);
+      expect(taskSchema.parse(await read(`/tasks/${change.taskId}`))).toMatchObject({
+        title: "Onboard",
+        projectId: change.projectId,
+        pipelineId: "onboard",
+      });
+    } finally {
+      restoreGitConfig();
+    }
+    // The whole app, a clone and a chat session: slow under a full run.
+  }, 30_000);
+
+  it("refuses a Project to onboard by its Repository URL without the base branch on the remote, cloning nothing", async () => {
+    const restoreGitConfig = onMadeUpHost(await aBareRepository("store.git"));
+    try {
+      const answer = await ninaCalls(PROPOSE_PROJECT_TOOL, {
+        ...ONBOARDED,
+        name: `Branchless ${randomUUID().slice(0, 8)}`,
+        url: `${MADE_UP_HOST}store`,
+        baseBranch: "develop",
+      });
+
+      expect(answer).toEqual({
+        text: expect.stringContaining('The repository has no branch "develop".'),
+        isError: true,
+      });
+      expect(
+        await stat(join(folder, "office-data", "repositories")).catch(() => undefined),
+      ).toBeUndefined();
+    } finally {
+      restoreGitConfig();
+    }
+  }, 30_000);
 });
+
+/** A Project Devops drafts to onboard, without its repository's path or URL. */
+const ONBOARDED = {
+  baseBranch: "main",
+  commands: { install: "npm ci", build: "npm run build", lint: "npm run lint", test: "npm test" },
+  installInputs: [],
+  publishingMode: "merge",
+  defaultPipeline: "quick-fix",
+};
+
+/** A made-up host, whose repositories are the bare ones in the test's folder. */
+const MADE_UP_HOST = "https://git.example.test/acme/";
+
+/**
+ * Git config, as the user's global config could hold it, that reads a URL on the made-up host as
+ * the bare repository of that name beside `bareRepository`, since a Repository URL is never a
+ * local path; undone by the function it returns.
+ */
+function onMadeUpHost(bareRepository: string): () => void {
+  const variables = {
+    GIT_CONFIG_COUNT: "1",
+    GIT_CONFIG_KEY_0: `url.${join(bareRepository, "..").replaceAll("\\", "/")}/.insteadOf`,
+    GIT_CONFIG_VALUE_0: MADE_UP_HOST,
+  };
+  Object.assign(process.env, variables);
+  return () => {
+    for (const name of Object.keys(variables)) delete process.env[name];
+  };
+}
+
+/** A bare copy of a repository of the test's own, named `name` in the test's folder. */
+async function aBareRepository(name: string): Promise<string> {
+  const bare = join(folder, name);
+  await run("git", ["clone", "--quiet", "--bare", await aRepository(), bare]);
+  return bare;
+}
 
 /** Each reads a Source with several git calls, through list, propose and apply: slow under a full run. */
 const INSTALL_TEST_TIMEOUT_MS = 90_000;

@@ -13,7 +13,7 @@ import {
   type TemporaryRepository,
 } from "../adapters/git/temporary-repository.fixtures.js";
 import { ProjectRemotes } from "./project-remotes.js";
-import { RemoteRepositories } from "./remote-repositories.js";
+import { RepositoriesByUrl } from "./repositories-by-url.js";
 import { MANIFEST_CHARACTERS } from "./repository-folder.js";
 
 const HOST = "https://git.example.test/acme/";
@@ -21,7 +21,7 @@ const ORIGIN_URL = `${HOST}origin.git`;
 
 let repository: TemporaryRepository;
 let madeUpHost: Record<string, string>;
-let remoteRepositories: RemoteRepositories;
+let repositoriesByUrl: RepositoriesByUrl;
 let tipCommit: string;
 
 /** Git config, as the user's could hold it, that reads the made-up host as the temp folder. */
@@ -63,7 +63,7 @@ beforeAll(async () => {
   Object.assign(process.env, madeUpHost);
   const identity = officeIdentityForTests(join(repository.folder, "office-data"));
   const git = new CommandLineGit(new RepositoryLocks(), identity);
-  remoteRepositories = new RemoteRepositories(git, new ProjectRemotes(git, identity));
+  repositoriesByUrl = new RepositoriesByUrl(git, new ProjectRemotes(git, identity));
 }, REAL_GIT_TEST.timeout);
 
 afterAll(async () => {
@@ -72,7 +72,7 @@ afterAll(async () => {
 });
 
 async function refusalOf(url: string, folder?: string): Promise<string> {
-  return remoteRepositories.read(url, folder).then(
+  return repositoriesByUrl.read(url, folder).then(
     () => "read",
     (error: unknown) => (error instanceof Error ? error.message : String(error)),
   );
@@ -83,9 +83,9 @@ async function fetchFolders(): Promise<string[]> {
   return (await readdir(tmpdir())).filter((name) => name.startsWith("office-repository-"));
 }
 
-describe("RemoteRepositories", REAL_GIT_TEST, () => {
+describe("RepositoriesByUrl", REAL_GIT_TEST, () => {
   it("reads the default branch's top level, with the remote's branches", async () => {
-    const read = await remoteRepositories.read(` ${ORIGIN_URL} `);
+    const read = await repositoriesByUrl.read(` ${ORIGIN_URL} `);
 
     expect(read).toMatchObject({
       url: ORIGIN_URL,
@@ -110,7 +110,7 @@ describe("RemoteRepositories", REAL_GIT_TEST, () => {
   });
 
   it("reads a folder inside the repository as it reads the top level", async () => {
-    const read = await remoteRepositories.read(ORIGIN_URL, "apps/./server/");
+    const read = await repositoriesByUrl.read(ORIGIN_URL, "apps/./server/");
 
     expect(read.folder).toBe("apps/server");
     expect(read.entries).toEqual([{ name: "package.json", kind: "file" }]);
@@ -122,7 +122,7 @@ describe("RemoteRepositories", REAL_GIT_TEST, () => {
   it("keeps nothing it fetched", async () => {
     const before = await fetchFolders();
 
-    await remoteRepositories.read(ORIGIN_URL);
+    await repositoriesByUrl.read(ORIGIN_URL);
 
     expect(await fetchFolders()).toEqual(before);
   });

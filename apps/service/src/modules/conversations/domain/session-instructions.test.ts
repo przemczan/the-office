@@ -26,7 +26,7 @@ import {
   PROPOSE_SKILL_INSTALL_TOOL,
   PROPOSE_SKILL_TOOL,
   PROPOSE_SKILL_UPDATE_TOOL,
-  READ_LOCAL_REPOSITORY_TOOL,
+  READ_REPOSITORY_TOOL,
   READ_SKILL_UPDATE_TOOL,
   roleOfficeTools,
   SHOW_OFFICE_STATUS_TOOL,
@@ -37,9 +37,15 @@ describe("chatInstructions", () => {
 
   it("tells Devops to read a repository that is not a Project yet only with its tool", () => {
     expect(chatInstructions(card, DEVOPS)).toContain(
-      `Read, Grep, Glob and the shell are refused there. Read it only with ${READ_LOCAL_REPOSITORY_TOOL}`,
+      `Read, Grep, Glob and the shell are refused there. Read it only with ${READ_REPOSITORY_TOOL}`,
     );
-    expect(chatInstructions(card, "planner")).not.toContain(READ_LOCAL_REPOSITORY_TOOL);
+    expect(chatInstructions(card, "planner")).not.toContain(READ_REPOSITORY_TOOL);
+  });
+
+  it("tells Devops to onboard a repository on a host by its Repository URL", () => {
+    expect(chatInstructions(card, DEVOPS)).toContain(
+      "onboarded by that URL: The Office clones it when the user applies the Proposal.",
+    );
   });
 });
 
@@ -72,9 +78,9 @@ describe("chatOfficeTools", () => {
   });
 
   it("gives only Devops' chat reading a repository on the workstation, never their Stage Threads", () => {
-    expect(chatOfficeTools(DEVOPS)).toContain(READ_LOCAL_REPOSITORY_TOOL);
-    expect(roleOfficeTools(DEVOPS)).not.toContain(READ_LOCAL_REPOSITORY_TOOL);
-    expect(chatOfficeTools("planner")).not.toContain(READ_LOCAL_REPOSITORY_TOOL);
+    expect(chatOfficeTools(DEVOPS)).toContain(READ_REPOSITORY_TOOL);
+    expect(roleOfficeTools(DEVOPS)).not.toContain(READ_REPOSITORY_TOOL);
+    expect(chatOfficeTools("planner")).not.toContain(READ_REPOSITORY_TOOL);
   });
 
   it("gives everyone drafting a written skill as a Proposal, the Office Manager too", () => {
@@ -94,7 +100,7 @@ describe("chatOfficeTools", () => {
       PROPOSE_SKILL_INSTALL_TOOL,
       READ_SKILL_UPDATE_TOOL,
       PROPOSE_SKILL_UPDATE_TOOL,
-      READ_LOCAL_REPOSITORY_TOOL,
+      READ_REPOSITORY_TOOL,
     ]);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_LIBRARY_PIPELINE_TOOL);
     expect(chatOfficeTools("planner")).not.toContain(PROPOSE_SKILL_INSTALL_TOOL);

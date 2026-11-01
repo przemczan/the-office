@@ -3,15 +3,11 @@ import { OfficeToolRegistry } from "../../../engine/index.js";
 import type { BaseCheckouts } from "../../application/base-checkouts.js";
 import type { LocalRepositories } from "../../application/local-repositories.js";
 import type { ProjectService } from "../../application/project-service.js";
-import type { RemoteRepositories } from "../../application/remote-repositories.js";
+import type { RepositoriesByUrl } from "../../application/repositories-by-url.js";
 import { aProject } from "../../domain/project.fixtures.js";
 import type { Project } from "../../domain/project.js";
 import { ProjectRefused } from "../../domain/project-refused.js";
-import {
-  LIST_PROJECTS,
-  ProjectOfficeTools,
-  READ_LOCAL_REPOSITORY,
-} from "./project-office-tools.js";
+import { LIST_PROJECTS, ProjectOfficeTools, READ_REPOSITORY } from "./project-office-tools.js";
 
 function toolsOver(projects: Project[]): ProjectOfficeTools {
   const service: Pick<ProjectService, "list"> = { list: () => Promise.resolve(projects) };
@@ -31,17 +27,17 @@ function toolsOver(projects: Project[]): ProjectOfficeTools {
     service as ProjectService,
     bases as BaseCheckouts,
     {} as LocalRepositories,
-    {} as RemoteRepositories,
+    {} as RepositoriesByUrl,
   );
 }
 
-function toolsReadingUrls(read: RemoteRepositories["read"]): ProjectOfficeTools {
+function toolsReadingUrls(read: RepositoriesByUrl["read"]): ProjectOfficeTools {
   return new ProjectOfficeTools(
     new OfficeToolRegistry(),
     {} as ProjectService,
     {} as BaseCheckouts,
     {} as LocalRepositories,
-    { read } as RemoteRepositories,
+    { read } as RepositoriesByUrl,
   );
 }
 
@@ -51,7 +47,7 @@ function toolsReading(read: LocalRepositories["read"]): ProjectOfficeTools {
     {} as ProjectService,
     {} as BaseCheckouts,
     { read } as LocalRepositories,
-    {} as RemoteRepositories,
+    {} as RepositoriesByUrl,
   );
 }
 
@@ -90,19 +86,19 @@ describe("list_projects", () => {
       {} as ProjectService,
       {} as BaseCheckouts,
       {} as LocalRepositories,
-      {} as RemoteRepositories,
+      {} as RepositoriesByUrl,
     );
 
     tools.onModuleInit();
 
-    expect(registry.named([LIST_PROJECTS, READ_LOCAL_REPOSITORY]).map(({ name }) => name)).toEqual([
+    expect(registry.named([LIST_PROJECTS, READ_REPOSITORY]).map(({ name }) => name)).toEqual([
       LIST_PROJECTS,
-      READ_LOCAL_REPOSITORY,
+      READ_REPOSITORY,
     ]);
   });
 });
 
-describe("read_local_repository", () => {
+describe("read_repository", () => {
   it("lists the branches, the top level, folders marked, then each manifest file under its name", async () => {
     const tool = toolsReading(() =>
       Promise.resolve({
@@ -117,7 +113,7 @@ describe("read_local_repository", () => {
           { name: "main", checkedOut: true },
         ],
       }),
-    ).readLocalRepository();
+    ).readRepository();
 
     const result = await tool.run({ path: "/work/admin-panel" }, { sessionId: "s-1" });
 
@@ -140,7 +136,7 @@ describe("read_local_repository", () => {
     const read = vi.fn<LocalRepositories["read"]>(() =>
       Promise.resolve({ folder: "apps/server", entries: [], manifests: [], branches }),
     );
-    const tool = toolsReading(read).readLocalRepository();
+    const tool = toolsReading(read).readRepository();
 
     const result = await tool.run(
       { path: "/work/admin-panel", folder: "apps/server" },
@@ -158,7 +154,7 @@ describe("read_local_repository", () => {
   it("answers the Agent why it can't read the folder", async () => {
     const tool = toolsReading(() =>
       Promise.reject(new ProjectRefused(["There is no folder at /work/missing."])),
-    ).readLocalRepository();
+    ).readRepository();
 
     await expect(tool.run({ path: "/work/missing" }, { sessionId: "s-1" })).resolves.toEqual({
       isError: true,
@@ -167,7 +163,7 @@ describe("read_local_repository", () => {
   });
 
   it("reads a repository on a host by its Repository URL, the default branch first", async () => {
-    const read = vi.fn<RemoteRepositories["read"]>(() =>
+    const read = vi.fn<RepositoriesByUrl["read"]>(() =>
       Promise.resolve({
         url: "https://github.com/acme/shop",
         defaultBranch: "main",
@@ -178,7 +174,7 @@ describe("read_local_repository", () => {
         manifests: [],
       }),
     );
-    const tool = toolsReadingUrls(read).readLocalRepository();
+    const tool = toolsReadingUrls(read).readRepository();
 
     const result = await tool.run(
       { url: "https://github.com/acme/shop", folder: "apps/server" },
@@ -197,7 +193,7 @@ describe("read_local_repository", () => {
   });
 
   it("asks for the path or the Repository URL, one of the two", async () => {
-    const tool = toolsReading(() => Promise.reject(new Error("not read"))).readLocalRepository();
+    const tool = toolsReading(() => Promise.reject(new Error("not read"))).readRepository();
     const answer = {
       isError: true,
       text: "Give the repository's path on the workstation or its Repository URL, one of the two.",

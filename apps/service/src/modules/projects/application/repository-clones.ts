@@ -21,6 +21,8 @@ import { ProjectRemotes } from "./project-remotes.js";
 import { ProjectService } from "./project-service.js";
 import { clonePathOf, readRepositoryUrl, type RepositoryUrl } from "./repository-url.js";
 
+export const NO_BRANCH_YET = "The repository has no commits yet, so no branch to work from.";
+
 /** A clone under way: what it has done so far, and how to stop it. */
 interface RunningClone {
   clone: RepositoryClone;
@@ -54,6 +56,20 @@ export class RepositoryClones implements BeforeApplicationShutdown {
    * already a Project and one being cloned.
    */
   async start(url: string): Promise<RepositoryClone> {
+    return (await this.begin(url)).clone;
+  }
+
+  /**
+   * Clones `url` as `start` does and waits for the clone to finish: the clone as it ended, cloned
+   * or failed with git's words. Refused alike before anything is cloned.
+   */
+  async clone(url: string): Promise<RepositoryClone> {
+    const running = await this.begin(url);
+    await running.done;
+    return running.clone;
+  }
+
+  private async begin(url: string): Promise<RunningClone> {
     const reading = readRepositoryUrl(url);
     if (reading.kind === "refused") throw new ProjectRefused([reading.problem]);
     const { repositoryUrl } = reading;
@@ -76,7 +92,7 @@ export class RepositoryClones implements BeforeApplicationShutdown {
     running.done = this.run(running).catch((error: unknown) => {
       this.logger.error(`The clone of ${clone.url} could not finish.`, error);
     });
-    return clone;
+    return running;
   }
 
   read(cloneId: string): RepositoryClone {
@@ -131,10 +147,7 @@ export class RepositoryClones implements BeforeApplicationShutdown {
     const { url, path } = running.clone;
     const { defaultBranch, branches } = await this.git.remoteBranches(url);
     if (defaultBranch === undefined) {
-      return {
-        state: "failed",
-        problem: "The repository has no commits yet, so no branch to work from.",
-      };
+      return { state: "failed", problem: NO_BRANCH_YET };
     }
     const found = await this.git.inspect(path);
     if (found.kind === "repository") {

@@ -317,7 +317,8 @@ export const proposedChangeSchema = z.discriminatedUnion("kind", [
   }),
   /**
    * A Project Devops drafted to onboard: applying it adds the Project and its Onboard Task, Ready
-   * on the Onboard Pipeline. Both ids are null until the user applied it.
+   * on the Onboard Pipeline. Both ids are null until the user applied it. A repository on a host
+   * has its `repositoryUrl`, and `path` is the folder applying it clones it into.
    */
   z.object({
     kind: z.literal("project"),

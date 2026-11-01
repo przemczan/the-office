@@ -33,7 +33,10 @@ const projectCommandsSchema = z.object({
 export const newProjectSchema = z.object({
   name: z.string(),
   path: z.string(),
-  /** Given only for a clone (POST /repositories/clones), whose folder `path` must then be. */
+  /**
+   * Given only for a clone (POST /repositories/clones), or a Proposal of a Project to onboard by its
+   * Repository URL, whose clone's folder `path` must then be.
+   */
   repositoryUrl: z.string().optional(),
   baseBranch: z.string(),
   mark: projectMarkSchema,

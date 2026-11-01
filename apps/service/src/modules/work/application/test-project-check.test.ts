@@ -33,6 +33,7 @@ import { PipelineLibrary, PipelineLibraryModule } from "../../pipelines/index.js
 import {
   BaseCheckouts,
   ProjectService,
+  ProjectsFromRepositories,
   ProjectsModule,
   TaskWorktrees,
 } from "../../projects/index.js";
@@ -97,7 +98,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
               WorkModule.register({
                 imports: [projects, conversations, PeopleModule, PipelineLibraryModule],
                 knownProjects: ProjectService,
-                newProjects: ProjectService,
+                newProjects: ProjectsFromRepositories,
                 projectWorktrees: TaskWorktrees,
                 knownPeople: RoleCards,
                 knownPipelines: PipelineLibrary,

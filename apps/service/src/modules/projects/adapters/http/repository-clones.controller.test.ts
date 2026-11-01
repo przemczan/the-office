@@ -20,6 +20,8 @@ import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../../pipelines/index.js";
+import { ProjectsFromRepositories } from "../../application/projects-from-repositories.js";
+import { ProjectRefused } from "../../domain/project-refused.js";
 import { RepositoryCloneFinished } from "../../domain/repository-clone-events.js";
 import { ProjectsModule } from "../../projects.module.js";
 import {
@@ -70,6 +72,7 @@ beforeAll(async () => {
   gitIn(repository.folder, "clone", "--quiet", "--bare", repository.path, "shop.git");
   gitIn(join(repository.folder, "shop.git"), "branch", "release", "main");
   gitIn(repository.folder, "clone", "--quiet", "--bare", repository.path, "store.git");
+  gitIn(repository.folder, "clone", "--quiet", "--bare", repository.path, "depot.git");
   madeUpHost = madeUpHostConfig(repository.folder);
   Object.assign(process.env, madeUpHost);
 });
@@ -278,3 +281,49 @@ describe("GET /api/repositories/clones/:id", () => {
     expect(response.status).toBe(404);
   });
 });
+
+describe(
+  "ProjectsFromRepositories, as a Proposal of a Project to onboard is applied",
+  REAL_GIT_TEST,
+  () => {
+    it("judges a Project by Repository URL from the remote's branches, cloning nothing", async () => {
+      const projects = app.get(ProjectsFromRepositories);
+      const path = projects.clonePathOf(`${HOST}depot`);
+      expect(path).toBe(clonePath("depot"));
+
+      expect(
+        await projects.newProjectProblems(aClonedProject(path, `${HOST}depot`, "main")),
+      ).toEqual([]);
+      expect(
+        await projects.newProjectProblems(aClonedProject(path, `${HOST}depot`, "develop")),
+      ).toEqual(['The repository has no branch "develop".']);
+      expect(await stat(path).catch(() => undefined)).toBeUndefined();
+    });
+
+    it("clones a Project by Repository URL, waits for the clone, then adds it", async () => {
+      const projects = app.get(ProjectsFromRepositories);
+      const project = aClonedProject(clonePath("depot"), `${HOST}depot`, "main");
+
+      const added = await projects.add(project);
+
+      expect(added).toMatchObject({ name: project.name, repositoryUrl: `${HOST}depot` });
+      expect(gitIn(clonePath("depot"), "rev-parse", "HEAD")).toBe(
+        gitIn(repository.path, "rev-parse", "main"),
+      );
+      expect(await projects.findByPath(clonePath("depot"))).toMatchObject({ id: added.id });
+    });
+
+    it("refuses a Project whose clone fails, in the words the clone failed with", async () => {
+      const projects = app.get(ProjectsFromRepositories);
+
+      const refusal = await projects
+        .add(aClonedProject(clonePath("missing"), `${HOST}missing`, "main"))
+        .catch((error: unknown) => error);
+
+      expect(refusal).toBeInstanceOf(ProjectRefused);
+      expect(refusal instanceof ProjectRefused && refusal.reasons).toEqual([
+        "127.0.0.1 is reached anonymously over https, so only a public repository can be fetched.",
+      ]);
+    });
+  },
+);

@@ -23,6 +23,7 @@ import {
 import {
   BaseCheckouts,
   ProjectService,
+  ProjectsFromRepositories,
   ProjectsModule,
   TaskWorktrees,
 } from "./modules/projects/index.js";
@@ -64,7 +65,7 @@ export class AppModule {
     const work = WorkModule.register({
       imports: [projects, conversations, PeopleModule, PipelineLibraryModule],
       knownProjects: ProjectService,
-      newProjects: ProjectService,
+      newProjects: ProjectsFromRepositories,
       projectWorktrees: TaskWorktrees,
       knownPeople: RoleCards,
       knownPipelines: PipelineLibrary,
