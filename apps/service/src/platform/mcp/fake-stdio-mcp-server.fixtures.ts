@@ -1,5 +1,6 @@
 // A local MCP server for tests, run by Node as it is (types stripped), so it imports packages only.
-// It starts a process of its own that outlives it unless its tree is ended.
+// It starts a process of its own that outlives it unless its tree is ended, with its own arguments
+// after the script, so a test's process mark is on both command lines.
 //   --silent  never answers, writing `server <id>` and `started <id>` to its standard error
 //   --fail    writes why to its standard error, with $FAKE_TOKEN, and ends at once
 import { spawn } from "node:child_process";
@@ -15,9 +16,12 @@ if (flags.has("--fail")) {
   process.exit(1);
 }
 
-const started = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], {
-  stdio: "ignore",
-});
+const started = spawn(
+  process.execPath,
+  // After "--", so Node doesn't read them as options of its own.
+  ["-e", "setInterval(() => {}, 1000)", "--", ...process.argv.slice(2)],
+  { stdio: "ignore" },
+);
 started.unref();
 
 if (flags.has("--silent")) {

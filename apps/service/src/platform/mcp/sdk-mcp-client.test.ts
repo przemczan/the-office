@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { isRunning } from "../os/process-trees.fixtures.js";
+import { isMarkedRunning, processMark } from "../os/process-trees.fixtures.js";
 import {
   FAKE_HTTP_MCP_TOOLS,
   FAKE_STDIO_MCP_TOOLS,
@@ -58,13 +58,14 @@ describe("SdkMcpClient", () => {
     });
 
     it("ends what the server started on close", PROCESS_TIMEOUT, async () => {
-      const connection = await client.connect(fakeStdioMcpServer(), options);
+      const mark = processMark();
+      const connection = await client.connect(fakeStdioMcpServer([mark]), options);
       const started = Number(await textOf(connection, "started-process"));
-      expect(isRunning(started)).toBe(true);
+      expect(await isMarkedRunning(started, mark)).toBe(true);
 
       await connection.close();
 
-      expect(isRunning(started)).toBe(false);
+      expect(await isMarkedRunning(started, mark)).toBe(false);
     });
 
     it("fails with what the server wrote when it ends", PROCESS_TIMEOUT, async () => {
@@ -81,8 +82,9 @@ describe("SdkMcpClient", () => {
     });
 
     it("gives up on a server that doesn't answer, ending it", PROCESS_TIMEOUT, async () => {
+      const mark = processMark();
       const failure = await client
-        .connect(fakeStdioMcpServer(["--silent"]), { timeoutMs: 2000 })
+        .connect(fakeStdioMcpServer(["--silent", mark]), { timeoutMs: 2000 })
         .catch((error: unknown) => error);
 
       expect(failure).toBeInstanceOf(McpServerFailure);
@@ -90,7 +92,9 @@ describe("SdkMcpClient", () => {
       expect(failed.message).toMatch(/didn't answer within 2 seconds/);
       const processIds = processIdsIn(failed);
       expect(processIds).toHaveLength(2);
-      for (const processId of processIds) expect(isRunning(processId)).toBe(false);
+      for (const processId of processIds) {
+        expect(await isMarkedRunning(processId, mark)).toBe(false);
+      }
     });
   });
 
