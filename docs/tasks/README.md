@@ -88,6 +88,7 @@ As in tier 2 (the user, 2026-10-31): a fix is built where it is found only when 
 - **Spawn-and-end-tree code in two places:** `projects/adapters/shell/` and the engine's `adapters/openai-compatible-api/shell-command.ts` each start a command and end its process tree. Proposed: move the shared part into `platform/os/`.
 - **An idle session and a background command's notice (task 35):** the pinned binary queues `<task-notification>` at priority `next`, but whether an idle SDK session starts a turn for it was not seen live; the OpenAI-compatible API engine lands it at the next turn. Check in the engine check, and match if they differ.
 - **A skill loaded on a live API endpoint (task 35):** the Skill tool is tested on the fake server only; see it once on a live server.
+- **A Stage edit lost during a Pipeline swap (found 2026-11-01):** in the Task's Stages dialog, the form is keyed by the Task's Pipeline (`edit-task-stages-dialog.tsx`), so an edit made while the swap's request is in flight is dropped without a word when it lands. Fix: disable the Stage editor while the swap is pending.
 - **Task 35's choices for the user to review**, made while building and recorded in [archive/35-api-based-engine.md](archive/35-api-based-engine.md):
   - WebFetch gives the page text to the session's own model under the call's prompt, with no second request; the page stays in the session's context.
   - Nothing is compacted; without a token count from the server, usage is estimated at 4 characters per token.
