@@ -62,7 +62,7 @@ Decided with the user on 2026-10-27: a fix is built where it is found only when 
 
 ## Tier 3: on need
 
-Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written when it becomes current, after the [open questions](../spec/8-open-questions-and-risks.md) it needs are settled with the user. Task 28, the phone, waits until after tier 3 (the user, 2026-10-31). Task 46, a Project from a git repository, was added on 2026-10-31 to come right after task 36; it keeps its number so the others keep theirs.
+Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written when it becomes current, after the [open questions](../spec/8-open-questions-and-risks.md) it needs are settled with the user. Task 28, the phone, waits until after tier 3 (the user, 2026-10-31). Task 46, a Project from a git repository, was added on 2026-10-31 to come right after task 36; it keeps its number so the others keep theirs. Task 47, engines as a list with a cascade of defaults and overrides, was added on 2026-11-01 to come right after task 37.
 
 | # | Task | Surface | Status |
 | --- | --- | --- | --- |
@@ -71,6 +71,7 @@ Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written
 | 36 | [MCP servers for Agents](36-mcp-servers.md) | People | done |
 | 46 | [A Project from a git repository, and Sign in with GitHub](46-project-from-git-repository.md) | Projects | done |
 | 37 | [Usage estimates](37-usage-estimates.md) | Now | in progress |
+| 47 | Engines as a list: Claude Code per account with a simple sign-in, and the engine cascade (Office, Project, Role) | Settings and Projects | todo |
 | 38 | Archive, and moving Tasks between Projects | Work | todo |
 | 39 | Attachment versions | Work and the Task page | todo |
 | 40 | Stage templates in the Pipeline library | Projects | todo |
