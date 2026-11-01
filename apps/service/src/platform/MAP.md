@@ -1,8 +1,8 @@
 # Service platform: map
 
-**Owns:** the shared plumbing below every module: config, database, domain events, HTTP, the Office data directory, per-key locks within the process, the `Schedule`, The Office's clock: the time and the jobs and one-off waits it runs by itself (`ScheduleModule`; tests get a `ManualSchedule` from `startTestApplication`, whose time is the system's until a test sets it and moves only by `advanceTo`, the e2e service a two-second day), the WebSocket push, telemetry, the web app's pages, The Office's MCP client (`mcp/`: `McpClient`, bound by `McpClientModule` to `SdkMcpClient` on `@modelcontextprotocol/sdk`; it connects to a local server (stdio) or a remote one (Streamable HTTP), lists tools, calls one and closes, for the MCP server review and the engines' sessions), and `os/`, the only code that branches on the operating system. What a module may use is in the [module template](../../docs/module-template.md).
+**Owns:** the shared plumbing below every module: config, database, domain events, HTTP, the Office data directory, per-key locks within the process, the `Schedule`, The Office's clock: the time and the jobs and one-off waits it runs by itself (`ScheduleModule`; tests get a `ManualSchedule` from `startTestApplication`, whose time is the system's until a test sets it and moves only by `advanceTo`, the e2e service a two-second day), the WebSocket push, telemetry, the web app's pages, The Office's MCP client (`mcp/`: `McpClient`, bound by `McpClientModule` to `SdkMcpClient` on `@modelcontextprotocol/sdk`; it connects to a local server (stdio) or a remote one (Streamable HTTP), lists tools, calls one and closes, for the MCP server review and the engines' sessions), the Office identity for git (`git-identity/`, `GitIdentityModule`: `OfficeIdentity.forGitCommand(remote, inherited)` gives one git command its `-c` arguments and whole environment; `OfficeSshKey`, made on first need in `<office-data>/identity/`; `OfficeKnownHosts`, GitHub's keys from its meta API and other hosts' after the user confirms a fingerprint; the `GitHubUserToken` port, bound by nothing yet), and `os/`, the only code that branches on the operating system. What a module may use is in the [module template](../../docs/module-template.md).
 
-**Traps:** an engine that runs Agents' shells itself takes each from `agentShells`: on Windows Git Bash is found as Claude Code finds it (`CLAUDE_CODE_GIT_BASH_PATH`, beside `git.exe` on PATH, then `Program Files\Git`), never a `bash.exe` on PATH (System32's is WSL's), and PowerShell gets its command line as `-Command`, since `-EncodedCommand` writes errors as CLIXML once output is piped. `EventBus.publish` waits for asynchronous handlers (a failing one stops neither the others nor the publisher), so a long reaction must run in the background. `TimerSchedule` waits for a running job in `beforeApplicationShutdown`, before the database closes. A program a user names by its command (a local MCP server's `npx`) starts through `startProgram` (cross-spawn, which runs a `.cmd` in cmd.exe with each argument quoted for it), never the SDK's own stdio transport, which signals only cmd.exe and leaves the server running; `ProgramStdioTransport` ends the tree on close. A local MCP server gets the service's environment without The Office's own variables. The test MCP servers are `mcp/fake-*.fixtures.ts`; the stdio one is a script Node runs with its types stripped, so it imports packages only. A test that checks a process has ended any later than right after its end, such as after `close` (whose leftovers query takes PowerShell a second), checks it with `isMarkedRunning` and a `processMark` on its command line: Windows hands an ended process's id to a new process within about a second.
+**Traps:** an engine that runs Agents' shells itself takes each from `agentShells`: on Windows Git Bash is found as Claude Code finds it (`CLAUDE_CODE_GIT_BASH_PATH`, beside `git.exe` on PATH, then `Program Files\Git`), never a `bash.exe` on PATH (System32's is WSL's), and PowerShell gets its command line as `-Command`, since `-EncodedCommand` writes errors as CLIXML once output is piped. `EventBus.publish` waits for asynchronous handlers (a failing one stops neither the others nor the publisher), so a long reaction must run in the background. `TimerSchedule` waits for a running job in `beforeApplicationShutdown`, before the database closes. A program a user names by its command (a local MCP server's `npx`) starts through `startProgram` (cross-spawn, which runs a `.cmd` in cmd.exe with each argument quoted for it), never the SDK's own stdio transport, which signals only cmd.exe and leaves the server running; `ProgramStdioTransport` ends the tree on close. A local MCP server gets the service's environment without The Office's own variables. The test MCP servers are `mcp/fake-*.fixtures.ts`; the stdio one is a script Node runs with its types stripped, so it imports packages only. A test that checks a process has ended any later than right after its end, such as after `close` (whose leftovers query takes PowerShell a second), checks it with `isMarkedRunning` and a `processMark` on its command line: Windows hands an ended process's id to a new process within about a second. The identity clears only credential helpers (`-c credential.helper=`), never global or system config, which holds LFS's filters; its `GIT_SSH_COMMAND` overrides `core.sshCommand`, runs in git's sh (forward slashes, single quotes) and names files by `-o IdentityFile=`, never `-i`, which ssh checks unexpanded and then reads with `%` expanded. `GIT_ALLOW_PROTOCOL` is `https:ssh`, plus `file` only when the remote itself is local, since setting it overrides git's own limit on submodules' `file` URLs. On Windows ssh, ssh-keygen and ssh-keyscan are Git for Windows' own (`usr\bin`), and owner-only is an icacls access list of the user alone.
 
 <!-- Generated by `npm run maps` from the code; edit only above this line. -->
 
@@ -35,6 +35,21 @@
 - `event-bus.ts`: EventHandler, Unsubscribe, EventBus
 - `events.module.ts`: EventsModule
 - Tests: event-bus.test.ts
+
+### git-identity/
+
+- `fake-github-meta.fixtures.ts`: GITHUB_ED25519, FakeGitHubMeta, startFakeGitHubMeta
+- `git-identity.module.ts`: GitIdentityModule
+- `git-remote.ts`: SSH_PORT, GitRemote, parseGitRemote
+- `github-user-token.ts`: GitHubUserToken
+- `host-key-scanner.ts`: HostKeyScanner
+- `host-keys.ts`: HostKey, hostKeyOf, knownHostName, knownHostsLine, trustedHostNames
+- `identity-folder.ts`: IdentityFolder
+- `office-identity.ts`: GitCommandIdentity, SshFiles, OfficeIdentity, gitCommandIdentity
+- `office-known-hosts.ts`: GITHUB_META_URL, GITHUB_HOST, HostKeyRefused, OfficeKnownHosts
+- `office-ssh-key.ts`: OfficeSshKey
+- `ssh-keyscan.ts`: SshKeyscan, keysFromKeyscan
+- Tests: git-remote.test.ts, office-identity.test.ts, office-known-hosts.test.ts, office-ssh-key.test.ts
 
 ### health/
 
@@ -76,7 +91,8 @@
 - `current-operating-system.ts`: currentOperatingSystem
 - `linux-processes.ts`: LinuxProcess, hasEnded, processFromStat, runningInGroup
 - `linux.ts`: linux
-- `operating-system.ts`: OperatingSystem, UserEnvironment
+- `operating-system.ts`: OperatingSystem, SshPrograms, UserEnvironment
+- `owner-only.fixtures.ts`: isOwnerOnly
 - `path-rules.ts`: PathRules, PathEntry, PathLimits, pathLengthProblem
 - `process-trees.fixtures.ts`: isRunning, processMark, isMarkedRunning, commandLinesHolding
 - `process-trees.ts`: ProcessTrees

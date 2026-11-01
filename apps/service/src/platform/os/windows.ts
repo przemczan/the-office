@@ -2,7 +2,7 @@ import { execFile } from "node:child_process";
 import { existsSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { win32 } from "node:path";
-import type { OperatingSystem, UserEnvironment } from "./operating-system.js";
+import type { OperatingSystem, SshPrograms, UserEnvironment } from "./operating-system.js";
 import { pathLengthProblem, type PathLimits, type PathRules } from "./path-rules.js";
 import type { ProcessTrees } from "./process-trees.js";
 import type { AgentShellProgram, FailedShellCommand, Shell } from "./shell.js";
@@ -64,8 +64,72 @@ export function windows({ variables, homeDirectory }: UserEnvironment): Operatin
       win32.join(appData, "Mozilla", "Firefox", "Profiles"),
       win32.join(appData, "Opera Software"),
     ],
+    get sshPrograms() {
+      return gitForWindowsSsh(variables);
+    },
     sameVariableName: (one, other) => one.toUpperCase() === other.toUpperCase(),
+    restrictToOwner: (path, kind) => icaclsOwnerOnly(variables, path, kind),
   };
+}
+
+/**
+ * The OpenSSH Git for Windows bundles in `usr\bin`, the one its git runs, never the system's own
+ * in System32: found beside the git.exe on PATH (`Git\cmd`, `Git\bin` or `Git\mingw64\bin`), else
+ * where Git for Windows installs.
+ */
+function gitForWindowsSsh(variables: UserEnvironment["variables"]): SshPrograms {
+  const installed = win32.join(variables["ProgramFiles"] || "C:\\Program Files", "Git");
+  const roots = [
+    ...foldersHoldingGit(variables).flatMap((folder) => [
+      win32.join(folder, ".."),
+      win32.join(folder, "..", ".."),
+    ]),
+    installed,
+  ];
+  const root =
+    roots.find((candidate) => existsSync(win32.join(candidate, "usr", "bin", "ssh.exe"))) ??
+    installed;
+  const program = (name: string): string => win32.join(root, "usr", "bin", `${name}.exe`);
+  return { ssh: program("ssh"), keygen: program("ssh-keygen"), keyscan: program("ssh-keyscan") };
+}
+
+/** The PATH folders that hold a git.exe. */
+function foldersHoldingGit(variables: UserEnvironment["variables"]): string[] {
+  // Windows ignores a variable name's case, and a copied environment keeps whichever it had.
+  const path = Object.entries(variables).find(([name]) => name.toUpperCase() === "PATH")?.[1];
+  return (path ?? "")
+    .split(";")
+    .map((entry) => entry.replaceAll('"', "").trim())
+    .filter((folder) => folder !== "" && existsSync(win32.join(folder, "git.exe")));
+}
+
+/**
+ * Replaces the inherited access list with full control for the user alone; a folder's entry is
+ * inherited by what it holds.
+ */
+function icaclsOwnerOnly(
+  variables: UserEnvironment["variables"],
+  path: string,
+  kind: "file" | "folder",
+): Promise<void> {
+  const file = win32.join(variables["SystemRoot"] || "C:\\Windows", "System32", "icacls.exe");
+  const user = variables["USERDOMAIN"]
+    ? `${variables["USERDOMAIN"]}\\${variables["USERNAME"] ?? ""}`
+    : (variables["USERNAME"] ?? "");
+  const access = kind === "folder" ? "(OI)(CI)(F)" : "(F)";
+  return new Promise((resolve, reject) => {
+    execFile(
+      file,
+      [path, "/inheritance:r", "/grant:r", `${user}:${access}`],
+      { windowsHide: true },
+      (error, _stdout, stderr) =>
+        error
+          ? reject(
+              new Error(`icacls could not restrict ${path}: ${stderr.trim()}`, { cause: error }),
+            )
+          : resolve(),
+    );
+  });
 }
 
 const windowsPaths: PathRules = {
@@ -137,16 +201,10 @@ function gitBashFile(variables: UserEnvironment["variables"]): string {
     "bin",
     "bash.exe",
   );
-  // Windows ignores a variable name's case, and a copied environment keeps whichever it had.
-  const path = Object.entries(variables).find(([name]) => name.toUpperCase() === "PATH")?.[1];
-  const besideGit = (path ?? "")
-    .split(";")
-    .map((entry) => entry.replaceAll('"', "").trim())
-    .filter((folder) => folder !== "" && existsSync(win32.join(folder, "git.exe")))
-    .flatMap((folder) => [
-      win32.join(folder, "..", "bin", "bash.exe"),
-      win32.join(folder, "bash.exe"),
-    ]);
+  const besideGit = foldersHoldingGit(variables).flatMap((folder) => [
+    win32.join(folder, "..", "bin", "bash.exe"),
+    win32.join(folder, "bash.exe"),
+  ]);
   const candidates = [variables["CLAUDE_CODE_GIT_BASH_PATH"], ...besideGit, installed];
   return (
     candidates.find(

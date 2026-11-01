@@ -36,8 +36,22 @@ export interface OperatingSystem {
    * SDK, as `<package suffix>/<executable>`, in the order the SDK tries them (spec §5.4 Defaults).
    */
   readonly claudeCodeBinaries: readonly string[];
+  /** The OpenSSH programs The Office's git runs: on Windows, the ones Git for Windows bundles. */
+  readonly sshPrograms: SshPrograms;
   /** Whether two environment variable names name one variable: Windows ignores their case. */
   sameVariableName(one: string, other: string): boolean;
+  /**
+   * Leaves a file or folder readable and writable by the user The Office runs as only; what a
+   * folder holds afterwards starts that way too.
+   */
+  restrictToOwner(path: string, kind: "file" | "folder"): Promise<void>;
+}
+
+/** OpenSSH's programs, each a full path or a name looked up on PATH. */
+export interface SshPrograms {
+  readonly ssh: string;
+  readonly keygen: string;
+  readonly keyscan: string;
 }
 
 /**

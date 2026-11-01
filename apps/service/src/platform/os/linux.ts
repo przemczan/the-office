@@ -1,3 +1,4 @@
+import { chmod } from "node:fs/promises";
 import { posix } from "node:path";
 import { setTimeout } from "node:timers/promises";
 import { runningInGroup } from "./linux-processes.js";
@@ -56,7 +57,9 @@ export function linux({ variables, homeDirectory, userId }: UserEnvironment): Op
       posix.join(homeDirectory, ".mozilla", "firefox"),
       posix.join(homeDirectory, "snap", "firefox"),
     ],
+    sshPrograms: { ssh: "ssh", keygen: "ssh-keygen", keyscan: "ssh-keyscan" },
     sameVariableName: (one, other) => one === other,
+    restrictToOwner: (path, kind) => chmod(path, kind === "folder" ? 0o700 : 0o600),
   };
 }
 

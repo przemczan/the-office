@@ -43,6 +43,7 @@ oxlint's JS plugins are alpha and not under semver. oxlint is pinned, and the pl
 - **Uploads:** a module's `configure` applies `uploadBody(limit)` from `src/platform/http/` to its upload routes, and the controller reads the bytes with `uploadedBytes(body)`; the file comes as `application/octet-stream`, its name in the query.
 - **Jobs of its own:** a module that runs a job by the clock imports `ScheduleModule` from `src/platform/schedule/` and asks `Schedule.daily(name, job)` in `onApplicationBootstrap`; never `setInterval`. Tests run the job with a `ManualSchedule` (`runDaily`).
 - **The Office data directory:** inject `OfficeDataDirectory` and ask it for its `folder("worktrees")`, `"sessions"`, `"skills"` or `"attachments"`.
+- **git:** a module that runs git imports `GitIdentityModule` from `src/platform/git-identity/` and runs each command with what `OfficeIdentity.forGitCommand(remote, inherited)` gives: its `configArguments` before the subcommand and its `variables` as the whole environment. The `identity` folder is the identity's own.
 - **The operating system:** anything that differs between Windows and Linux comes from `src/platform/os/`: ask `currentOperatingSystem()` for it (the data directory default, path rules, the default shell), never which system it is. A lint rule refuses `process.platform`, `os.platform()` and `os.type()` anywhere else.
 
 ## A business module

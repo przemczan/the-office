@@ -52,7 +52,7 @@ Decided with the user on 2026-10-31 and 2026-11-01:
 ## Steps
 
 - [x] 0. Write this file; settle the open questions with the user; amend spec §2.1, §2.3, §4, §5.3, §5.5, §6 and §8; add the glossary's terms ("Repository URL", "Office identity", "Sign in with GitHub", "Office ssh key"); update `coverage.md`'s row; link from the README. Commit.
-- [ ] 1. The Office identity in the platform, about 100k:
+- [x] 1. The Office identity in the platform, about 100k:
   - `platform/git-identity/`: the git environment and arguments for one command and one URL (`-c credential.helper=` clearing the user's helpers, `GIT_TERMINAL_PROMPT=0`, `GCM_INTERACTIVE=never`, `GIT_ALLOW_PROTOCOL=https:ssh`).
   - `GIT_SSH_COMMAND` running ssh with `-F none`, `-i <office key>`, `IdentitiesOnly=yes`, `IdentityAgent=none`, `UserKnownHostsFile=<office known_hosts>`, `GlobalKnownHostsFile=none` and `StrictHostKeyChecking=yes`.
   - The Office ssh key, generated once with `ssh-keygen -t ed25519 -N ""` into `<office-data>/identity/`, owner-only.
@@ -160,12 +160,17 @@ Decided with the user on 2026-10-31 and 2026-11-01:
 
 ## State
 
-- Step 0 done: this file, the spec (§2.1, §2.3, §4, §5.3, §5.5 Defaults "Clones" and "The Office identity", §6, §8), the glossary's four terms, `coverage.md` and the README.
-- Open for the user: the choices "chosen while writing" above.
-- Next, step 1.
-- Found while writing: The Office's git sets only `GIT_TERMINAL_PROMPT=0` today (`command-line-git.ts` l. 725–729), so on Windows Git Credential Manager may still open a window. Steps 1–2 replace this.
-- Found while writing: several code comments cite "spec §9", the old numbering that the spec README maps.
+- Steps 0–1 done. Built in step 1: `platform/git-identity/` (`GitIdentityModule`). `OfficeIdentity.forGitCommand(remote | undefined, inherited)` returns `{ configArguments, variables }`: put the arguments between `git` and `-C`, and use the variables as the whole environment. For an ssh remote it makes the key first, and for github.com it trusts GitHub's keys first. Also built: `OfficeSshKey` (`publicKey()`, `ensure()`), `OfficeKnownHosts` (`isTrusted`, `trustGitHub`, `scan`, `confirm(host, port, fingerprint)`, `HostKeyRefused`), `parseGitRemote`, and the `GitHubUserToken` port, which nothing binds yet. `os/` gained `sshPrograms` and `restrictToOwner`.
+- Next, step 2: no consumer uses the identity yet. `runGit` and `GitSourceFetcher` still set their own environment.
+- Decided in step 1: `GIT_ALLOW_PROTOCOL` is `https:ssh`, plus `file` only when the remote itself is a local path or `file://`. Step 2 must pass the remote each command reaches; a command that reaches none passes `undefined`.
+- Decided in step 1: these are also cleared or dropped: `core.askPass`, `http.extraHeader` (also for the remote's own URL), the variables `GIT_ASKPASS`, `SSH_ASKPASS`, `SSH_AUTH_SOCK` and the user's `GIT_SSH*`, and The Office's own variables (`isOfficeOwnVariable`). ssh runs with `BatchMode=yes` and `UpdateHostKeys=no`, so nothing is added to the known hosts without the user.
+- Decided in step 1: GitHub's keys are read once, when first needed. If GitHub rotates them, they are not read again; nothing does that yet.
+- Open for the user: the choices "chosen while writing" above. Also, git's https reads `~/.netrc` (`_netrc` on Windows) through curl, according to git's `http.c`; not yet tried. Clearing helpers doesn't stop that, and `HOME` has to stay because the LFS filters need it.
+- Traps: ssh takes `-i` unexpanded but reads `%` tokens later, so files go in as `-o IdentityFile="…"`. `ssh -G` shows `IdentityFile` with `%%` but `UserKnownHostsFile` expanded. The key's comment is `the-office@<hostname>`.
+- Seen live on Windows: Git's ssh refuses github.com with an empty Office known hosts file ("Host key verification failed") and offers the icacls-restricted key.
+- Found in step 0: several code comments cite "spec §9", the old numbering that the spec README maps.
 
 ## Progress
 
 - 2026-11-01 · step 0: the task file, the user's answers in the spec, the glossary and coverage; next, step 1, the Office identity in the platform.
+- 2026-11-01 · step 1: `platform/git-identity/` built: the git environment and `-c` arguments per remote, the Office ssh key (owner-only), The Office's known hosts (GitHub's meta, confirmed fingerprints), the `GitHubUserToken` port; `os/` gained ssh programs and owner-only; next, step 2, every Office git command on the identity.
