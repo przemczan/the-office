@@ -2,7 +2,7 @@
 
 **Owns:** Projects (`projects`): path, the Repository URL of a cloned one (given only with its clone's folder as the path), commands, install inputs, publishing mode, default Pipeline; the environment check (`environment_checks`); The Office's own git (`ports/git.ts`, `CommandLineGit`) under per-repository locks, every command on the Office identity through `GitProcess`; which part of the identity the base branch's remote needs (`ProjectRemotes`: `GET /projects/:id/remote-needs` and the environment check's failed fetch); cloning a repository by its Repository URL into `<office-data>/repositories/<host>/<path>` before it is added (`RepositoryClones`: `POST /repositories/clones`, `GET …/:id`, in memory while the service runs, told to the web as `repository-clone.changed`); a worktree per Task, the base checkouts, Changes, and the git work of Publish and Resolve (`TaskWorktrees`; `Publishing`, `Resolving`).
 
-**Talks to:** opens Push + PR's pull requests through the github module's `GitHubPullRequests` behind its `PullRequests` port (`GitHubApiPullRequests`), the github module's one instance given in `imports` by [app.module.ts](../../app.module.ts); Publish asks `whyCannotOpen` before the push, on the URL git resolves for the base's remote, and pushes nothing when the remote isn't on GitHub or no one is signed in; checks a default Pipeline through its `KnownPipelines` port, bound to Pipelines' `PipelineLibrary` in [app.module.ts](../../app.module.ts); calls Engine, Skills and MCP servers (the Project page's Server values, `GET`/`PUT /projects/:id/server-values`, in `ProjectServerValuesController`; the library's refusals answered as the Project's). Serves Work (`ProjectService`, `TaskWorktrees`), Pipelines (`TaskWorktrees` as `TaskGit`, `TaskCommands` and `TaskPublishing`; `ProjectService` as `ProjectDefaults`, which the library asks before removing a Pipeline) and Conversations (`BaseCheckouts`; Devops' `read_local_repository` in their chat, reading a repository's local branches and the names and manifest files of its top level or one folder inside it before it is a Project (`LocalRepositories`, refusing a repository folder as adding a Project does, and a folder that leaves the repository or is git's own); and `ProjectService` for Devops' Proposals of commands and install inputs: `proposedCommandsProblems` and `changeCommandsAsProposed`; and Work's `NewProjects` for a Project to onboard: `add` and its dry run `newProjectProblems`, which applies the whole Proposal or none of it: judged against the row as it is held and saved in one update, each field still announced with its own event as the Project page announces it).
+**Talks to:** opens Push + PR's pull requests through the github module's `GitHubPullRequests` behind its `PullRequests` port (`GitHubApiPullRequests`), the github module's one instance given in `imports` by [app.module.ts](../../app.module.ts); Publish asks `whyCannotOpen` before the push, on the URL git resolves for the base's remote, and pushes nothing when the remote isn't on GitHub or no one is signed in; checks a default Pipeline through its `KnownPipelines` port, bound to Pipelines' `PipelineLibrary` in [app.module.ts](../../app.module.ts); calls Engine, Skills and MCP servers (the Project page's Server values, `GET`/`PUT /projects/:id/server-values`, in `ProjectServerValuesController`; the library's refusals answered as the Project's). Serves Work (`ProjectService`, `TaskWorktrees`), Pipelines (`TaskWorktrees` as `TaskGit`, `TaskCommands` and `TaskPublishing`; `ProjectService` as `ProjectDefaults`, which the library asks before removing a Pipeline) and Conversations (`BaseCheckouts`; Devops' `read_local_repository` in their chat, reading a repository's local branches and the names and manifest files of its top level or one folder inside it before it is a Project (`LocalRepositories`, refusing a repository folder as adding a Project does, and a folder that leaves the repository or is git's own), or one on a host by its Repository URL: the remote's branches and the same of its default branch, read from that branch's last commit fetched alone into a bare repository in a temp folder removed after each read, nothing cloned (`RemoteRepositories`, `Git.readBranchTip`); and `ProjectService` for Devops' Proposals of commands and install inputs: `proposedCommandsProblems` and `changeCommandsAsProposed`; and Work's `NewProjects` for a Project to onboard: `add` and its dry run `newProjectProblems`, which applies the whole Proposal or none of it: judged against the row as it is held and saved in one update, each field still announced with its own event as the Project page announces it).
 
 **Traps:**
 - The module is registered once in `AppModule`, so every git change on a repository goes through the same locks.
@@ -58,6 +58,7 @@ BaseCheckouts, BaseCheckout, ProjectService, TaskWorktrees, SessionWorktree, Env
 ### adapters/git/
 
 - `command-line-git.ts`: CommandLineGit
+- `git-branch-tip.ts`: readBranchTip
 - `git-clone.ts`: remoteBranchesOf, reachedUrlOf, cloneRepository, progressOf
 - `git-process.ts`: GitCall, GitResult, GitProcess
 - `repository-locks.ts`: RepositoryLocks
@@ -106,20 +107,22 @@ BaseCheckouts, BaseCheckout, ProjectService, TaskWorktrees, SessionWorktree, Env
 - `base-checkouts.ts`: BaseCheckout, BaseCheckouts
 - `command-environment.ts`: commandEnvironment
 - `environment-checks.ts`: EnvironmentChecks
-- `local-repositories.ts`: FolderEntry, ManifestFile, LocalRepository, MANIFEST_CHARACTERS, LocalRepositories
+- `local-repositories.ts`: LocalRepository, LocalRepositories
 - `project-checks.ts`: ProjectChecks
 - `project-command-runner.ts`: ProjectCommand, ProjectCommandRunner
 - `project-remotes.ts`: ProjectRemotes
 - `project-service.ts`: ProjectService
 - `publishing.ts`: Publishing
+- `remote-repositories.ts`: RemoteRepository, RemoteRepositories
 - `repository-clones.ts`: RepositoryClones
+- `repository-folder.ts`: FolderEntry, ManifestFile, RepositoryFolder, MANIFEST_CHARACTERS, isManifest, manifestOf, byName
 - `repository-url.ts`: RepositoryUrl, RepositoryUrlReading, readRepositoryUrl, cloneFolderOf, clonePathOf
 - `resolving.ts`: Resolving
 - `screenshots-folder.ts`: SCREENSHOTS_FOLDER, ensureScreenshotsFolder, keepingScreenshots
 - `script-commands.ts`: ScriptCommandKey, MovedFiles, ScriptCommandRun, ScriptCommands
 - `task-worktrees.ts`: SessionWorktree, TaskWorktrees
 - `worktrees.ts`: BaseBranch, TaskWorktree, InstallOptions, Installation, TaskChanges, ThrowawayWorktree, Worktrees
-- Tests: base-checkouts.test.ts, command-environment.test.ts, local-repositories.test.ts, project-checks.test.ts, publishing.test.ts, repository-url.test.ts, resolving.test.ts, script-commands.test.ts, worktrees.test.ts
+- Tests: base-checkouts.test.ts, command-environment.test.ts, local-repositories.test.ts, project-checks.test.ts, publishing.test.ts, remote-repositories.test.ts, repository-url.test.ts, resolving.test.ts, script-commands.test.ts, worktrees.test.ts
 
 ### domain/
 
@@ -145,7 +148,7 @@ BaseCheckouts, BaseCheckout, ProjectService, TaskWorktrees, SessionWorktree, Env
 
 - `command-runner.ts`: CommandToRun, FinishedCommand, CommandRunner
 - `environment-check-repository.ts`: EnvironmentCheckRepository
-- `git.ts`: FolderInspection, WorktreeCheckout, NewWorktree, Upstream, LocalBranch, Head, ChangedFile, BranchChanges, NO_BRANCH_CHANGES, MergeStart, MergeConclusion, GitVariables, RemoteBranches, CLONE_REMOTE, CloneRequest, GitCommandFailed, Git
+- `git.ts`: FolderInspection, WorktreeCheckout, NewWorktree, Upstream, LocalBranch, Head, ChangedFile, BranchChanges, NO_BRANCH_CHANGES, MergeStart, MergeConclusion, GitVariables, RemoteBranches, CLONE_REMOTE, CloneRequest, TreeEntry, TreePathKind, FetchedBranchTip, GitCommandFailed, Git
 - `known-pipelines.ts`: KnownPipelines
 - `project-repository.ts`: ProjectRepository
 - `pull-requests.ts`: PullRequestRequest, PullRequest, PullRequestRefused, PullRequests

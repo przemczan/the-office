@@ -33,6 +33,7 @@ class FakeGit extends Git {
   // The checks only ask what a folder is and which branches it has.
   remoteBranches = notUsed;
   clone = notUsed;
+  readBranchTip = notUsed;
   reachedUrlOf = notUsed;
   fetchBranches = notUsed;
   trackRemoteBranch = notUsed;

@@ -129,14 +129,20 @@ Decided with the user on 2026-10-31 and 2026-11-01:
   - Commit.
 
   Read: the State; `projects/application/publishing.ts` (l. 55–70, 85–102); `projects/adapters/github/github-cli-pull-requests.ts`; `projects/ports/pull-requests.ts`; `github/adapters/github/github-rest-api.ts` (`call`, `everyPage`); `github/adapters/github/fake-github.fixtures.ts`.
-- [ ] 8. Devops' onboarding by URL, about 100k:
-  - `read_local_repository` takes a URL too, read from a bare one-commit-deep fetch on the identity, nothing cloned.
-  - The Proposal's `project` may hold a Repository URL instead of a path, judged in the dry run with `remoteBranches`.
-  - Applying it clones, waits, then adds the Project and its Onboard Task. A failed clone fails the apply with git's words.
-  - Devops' instructions and the contracts.
+- [x] 8a. Devops reads a repository by its URL, about 70k:
+  - `read_local_repository` takes a Repository URL too (`url` instead of `path`), read from a bare one-commit-deep fetch of the default branch on the identity, in a temp folder removed after each read; nothing cloned, nothing kept in the Office data directory.
+  - Refusals as `readRepositoryUrl` and `ProjectRemotes` word them; the folder argument checked against the commit's tree.
+  - Devops' chat instructions and the tool's description say a repository on a host is read by its URL.
   - Commit.
 
-  Read: the State; `projects/adapters/office-tools/project-office-tools.ts`; `projects/application/local-repositories.ts`; `conversations/domain/proposal.ts` (l. 120–140); `work/adapters/conversations/project-proposals.ts`; `work/application/onboarding-service.ts`; `work/ports/new-projects.ts`; `conversations/domain/session-instructions.ts` (grep `onboard`).
+  Read: the State; `projects/adapters/office-tools/project-office-tools.ts`; `projects/application/local-repositories.ts`, `repository-url.ts`, `project-remotes.ts`; `projects/adapters/git/git-clone.ts`; `skills/adapters/git/git-source-fetcher.ts` (`inTempRepository`, `fetchPinnedVersion`); `conversations/domain/session-instructions.ts` (grep `READ_LOCAL_REPOSITORY`).
+- [ ] 8b. The onboarding Proposal by URL, service only, about 90k:
+  - The Proposal's `project` may hold a Repository URL instead of a path, judged in the dry run with `remoteBranches`.
+  - Applying it clones through `RepositoryClones`, waits, then adds the Project with its `repositoryUrl` and the clone's path, and its Onboard Task. A failed clone fails the apply with git's words.
+  - `propose_project`'s description and Devops' instructions: onboard by the URL; the contracts.
+  - Commit.
+
+  Read: the State; `conversations/domain/proposal.ts` (l. 120–140); `work/adapters/conversations/project-proposals.ts`; `work/application/onboarding-service.ts`; `work/ports/new-projects.ts`; `work/adapters/office-tools/onboarding-office-tools.ts` (`propose_project`); `projects/application/repository-clones.ts` (`start` l. 56–80, `cloned` l. 130–156).
 - [ ] 9a. The web, Settings › Office identity, about 100k:
   - "Register the GitHub App": the manifest form, with what it asks for and what the user does next, which is installing it.
   - Sign in with the code and link while waiting; signed in as the login, with Sign out; signed out with why; "Install the App on more repositories".
@@ -175,7 +181,10 @@ Decided with the user on 2026-10-31 and 2026-11-01:
 
 ## State
 
-- Steps 0–7b and 5b done; next, 8 (Devops' onboarding by URL).
+- Steps 0–8a and 5b done; next, 8b (the onboarding Proposal by URL, service only).
+- Step 8a: `read_local_repository` (name kept; it now reads by `path` or by `url`, one of the two, refused otherwise) reads a Repository URL through `RemoteRepositories` (`projects/application/remote-repositories.ts`): `readRepositoryUrl`'s refusal, `ProjectRemotes.whyUnreachable` before git, `remoteBranches` (an empty repository refused), then `Git.readBranchTip(url, defaultBranch, read)` (`adapters/git/git-branch-tip.ts`): `init --bare` in a `mkdtemp` `office-repository-*` folder, `fetch --depth 1 --no-tags -- <url> refs/heads/<branch>` on the reached URL (so the GitHub helper attaches), `ls-tree`/`cat-file` from the objects, the folder removed after each read. No cache: each read fetches again; nothing goes in the Office data directory, so the Office rules are unchanged. A git failure is `whyCloneFailed(url) ?? "git couldn't read the repository: <git's words>"`. The folder is checked against the tree: a link is listed as a file and never followed, a submodule listed as a folder and refused when read.
+- `application/repository-folder.ts` holds what both reads share (`FolderEntry`, `ManifestFile`, `RepositoryFolder`, `isManifest`, `manifestOf`, `MANIFEST_CHARACTERS`).
+- Devops' chat rule says a repository on a host is read by its Repository URL without cloning; `propose_project` still takes a path only, which 8b changes (its description and the rule then say to onboard by the URL).
 - Step 7 (the token reaches git): `GitCredentialHelper` (`platform/git-identity/git-credential-helper.ts`) gives a command whose remote's origin is `GitHubUserToken.webUrl` a one-command loopback helper while signed in; every `forGitCommand` caller calls `GitCommandIdentity.release()` once git exits. The token is read only when git asks; `userToken()` failing fails the command with the reason, never anonymously. `GitHubUserTokenModule.register({ imports: [github], gitHubUserToken: GitHubAccess })`, global, in `app.module.ts`. Residual (spec §8): hooks get the `-c` values through `GIT_CONFIG_PARAMETERS`.
 - Step 7b: the github module's `GitHubPullRequests` (public entry) opens pull requests through the REST API with the user token: `POST /repos/{owner}/{repo}/pulls` `{title, head, base, body}`; on a 422, the open one from `GET …/pulls?state=open&head=owner:branch&base=…`; otherwise `PullRequestNotOpened` in words (401/403/404/422). `repositoryOnGitHubOf(remoteUrl, webUrl)` (`github/domain/pull-request.ts`): http(s) by `webUrl`'s origin, ssh and `user@host:path` by its hostname. Projects' `GitHubApiPullRequests` (`projects/adapters/github/`) wraps it behind `PullRequests` (`whyCannotOpen(remoteUrl)`, `open({ remoteUrl, … })`); `ProjectsModule.register` gets the one `github` instance in `imports`, and tests registering it add `GitHubModule.register()`. `gh` and `GitHubCliPullRequests` are gone.
 - `Publishing.pushAndOpenPullRequest` resolves `git.fetchUrlOf(base.remote)` and asks `whyCannotOpen` before the conflict check and the push (a conflicting branch would go to Resolve only to be refused after); the refusal is `pullRequestBlockedError` and names Settings › Office identity. Merge and branch-only never ask.
@@ -201,3 +210,4 @@ Decided with the user on 2026-10-31 and 2026-11-01:
 - 2026-11-01 · step 5b: every Office git command runs with an Office home and global config including the user's, `http.emptyAuth=false`, `KRB5CCNAME` naming no cache; spec §5.5 amended with git-lfs's Negotiate as a known gap; next, step 7.
 - 2026-11-01 · step 7: the GitHub token reaches git through `GitCredentialHelper`, a loopback helper Office code answers per command, the port bound to `GitHubAccess`; pull requests split into step 7b; next, 7b.
 - 2026-11-01 · step 7b: pull requests through GitHub's REST API as the signed-in user (`GitHubPullRequests`, Projects' `GitHubApiPullRequests`), the open one reused on a 422; Push + PR refused before the push when signed out or not on GitHub; `gh` gone; the fake's pulls; next, step 8, Devops' onboarding by URL.
+- 2026-11-01 · step 8a: step 8 split into 8a and 8b; `read_local_repository` reads a Repository URL from its default branch's last commit, fetched alone into a temp bare repository on the identity and removed after (`RemoteRepositories`, `Git.readBranchTip`); Devops' rule says so; next, 8b, the onboarding Proposal by URL.

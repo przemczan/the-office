@@ -101,6 +101,27 @@ export interface CloneRequest {
   readonly signal: AbortSignal;
 }
 
+/** One name in a folder of a commit's tree. */
+export interface TreeEntry {
+  readonly name: string;
+  /** A link is never followed; a submodule is another repository, not in this one's objects. */
+  readonly kind: "file" | "folder" | "link" | "submodule";
+}
+
+/** What a path names in a commit's tree. */
+export type TreePathKind = "file" | "folder" | "submodule" | "missing";
+
+/** A branch's last commit, fetched alone into a bare repository and read from git's objects. */
+export interface FetchedBranchTip {
+  readonly commit: string;
+  /** `path` is relative to the top level, with `/` between names; "" for the top level. */
+  kindOf(path: string): Promise<TreePathKind>;
+  /** The names in the folder `folder` names, which must be one. */
+  entriesOf(folder: string): Promise<readonly TreeEntry[]>;
+  /** The text of the file `path` names, which must be one. */
+  textOf(path: string): Promise<string>;
+}
+
 /** A git command that ran and failed. */
 export class GitCommandFailed extends Error {
   constructor(
@@ -131,6 +152,16 @@ export abstract class Git {
    * complete, so a folder found there is never half a clone.
    */
   abstract clone(request: CloneRequest): Promise<void>;
+
+  /**
+   * Fetches the last commit of `branch` at `url`, one commit deep into a bare repository of its own,
+   * and gives it to `read`; the repository is removed once `read` is done, so nothing is kept.
+   */
+  abstract readBranchTip<Result>(
+    url: string,
+    branch: string,
+    read: (tip: FetchedBranchTip) => Promise<Result>,
+  ): Promise<Result>;
 
   /**
    * The URL git reaches for `url`, with the user's `insteadOf` applied, so the identity is decided

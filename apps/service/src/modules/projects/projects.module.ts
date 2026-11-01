@@ -19,6 +19,7 @@ import { ProjectWebEvents } from "./adapters/websocket/project-web-events.js";
 import { BaseCheckouts } from "./application/base-checkouts.js";
 import { EnvironmentChecks } from "./application/environment-checks.js";
 import { LocalRepositories } from "./application/local-repositories.js";
+import { RemoteRepositories } from "./application/remote-repositories.js";
 import { ProjectChecks } from "./application/project-checks.js";
 import { ProjectCommandRunner } from "./application/project-command-runner.js";
 import { ProjectRemotes } from "./application/project-remotes.js";
@@ -74,6 +75,7 @@ export class ProjectsModule {
         RepositoryClones,
         ProjectChecks,
         LocalRepositories,
+        RemoteRepositories,
         ProjectService,
         ProjectRemotes,
         Worktrees,

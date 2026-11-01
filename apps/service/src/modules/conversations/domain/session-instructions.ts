@@ -108,12 +108,13 @@ export const READ_SKILL_UPDATE_TOOL = "read_skill_update";
 export const PROPOSE_SKILL_UPDATE_TOOL = "propose_skill_update";
 
 /**
- * The Office tool Devops reads a repository on the workstation with before it is a Project, which
- * Projects registers: its branches, and the names and manifest files of one folder at a time.
+ * The Office tool Devops reads a repository with before it is a Project, on the workstation by its
+ * path or on a host by its Repository URL, which Projects registers: its branches, and the names and
+ * manifest files of one folder at a time.
  */
 export const READ_LOCAL_REPOSITORY_TOOL = "read_local_repository";
 
-const READ_LOCAL_REPOSITORY_RULE = `A repository that is not a Project yet lies outside your folders: Read, Grep, Glob and the shell are refused there. Read it only with ${READ_LOCAL_REPOSITORY_TOOL}, its top level first, then each folder you need with its folder argument.`;
+const READ_LOCAL_REPOSITORY_RULE = `A repository that is not a Project yet lies outside your folders: Read, Grep, Glob and the shell are refused there. Read it only with ${READ_LOCAL_REPOSITORY_TOOL}, its top level first, then each folder you need with its folder argument. A repository on a host, such as GitHub, is read by its Repository URL in place of a path, without cloning it.`;
 
 /**
  * A chat's Office tools for the Role's person: the Office Manager doesn't turn work into Tasks but

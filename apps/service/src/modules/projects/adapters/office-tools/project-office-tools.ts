@@ -2,12 +2,13 @@ import { Injectable, type OnModuleInit } from "@nestjs/common";
 import { z } from "zod";
 import { OfficeToolRegistry, type OfficeTool } from "../../../engine/index.js";
 import { BaseCheckouts } from "../../application/base-checkouts.js";
-import {
-  LocalRepositories,
-  type LocalRepository,
-  type ManifestFile,
-} from "../../application/local-repositories.js";
+import { LocalRepositories, type LocalRepository } from "../../application/local-repositories.js";
 import { ProjectService } from "../../application/project-service.js";
+import {
+  RemoteRepositories,
+  type RemoteRepository,
+} from "../../application/remote-repositories.js";
+import type { ManifestFile, RepositoryFolder } from "../../application/repository-folder.js";
 import type { LocalBranch } from "../../ports/git.js";
 import type { Project } from "../../domain/project.js";
 import { ProjectRefused } from "../../domain/project-refused.js";
@@ -16,7 +17,16 @@ export const LIST_PROJECTS = "list_projects";
 export const READ_LOCAL_REPOSITORY = "read_local_repository";
 
 const LOCAL_REPOSITORY_INPUT = z.object({
-  path: z.string().describe("The repository's top-level folder, as a full path."),
+  path: z
+    .string()
+    .optional()
+    .describe("The top-level folder of a repository on the workstation, as a full path."),
+  url: z
+    .string()
+    .optional()
+    .describe(
+      "The Repository URL of a repository on a host instead: https://host/owner/repository, ssh://host/owner/repository or user@host:owner/repository.",
+    ),
   folder: z
     .string()
     .optional()
@@ -39,6 +49,7 @@ export class ProjectOfficeTools implements OnModuleInit {
     private readonly projects: ProjectService,
     private readonly bases: BaseCheckouts,
     private readonly localRepositories: LocalRepositories,
+    private readonly remoteRepositories: RemoteRepositories,
   ) {}
 
   onModuleInit(): void {
@@ -71,12 +82,11 @@ export class ProjectOfficeTools implements OnModuleInit {
     return {
       name: READ_LOCAL_REPOSITORY,
       description:
-        "Reads a git repository on the workstation that is not a Project yet, to onboard it: its local branches, the checked-out one marked, and the names in its top-level folder, or in `folder` inside it, with the manifest files there (package.json, README and the like), each up to about 2k tokens. Read a folder below with `folder` when the top level points to packages there. It is the only way to read the repository from this chat: Read, Glob, Grep and git are refused outside your folders.",
+        "Reads a git repository that is not a Project yet, to onboard it: one on the workstation by its `path`, or one on a host by its Repository URL as `url`, fetched one commit deep with nothing cloned. It gives the branches (the local ones with the checked-out one marked, or the remote's with its default one marked, whose last commit is read), and the names in the top-level folder, or in `folder` inside it, with the manifest files there (package.json, README and the like), each up to about 2k tokens. Read a folder below with `folder` when the top level points to packages there. It is the only way to read the repository from this chat: Read, Glob, Grep and git are refused outside your folders.",
       input: LOCAL_REPOSITORY_INPUT,
-      run: async ({ path, folder }) => {
+      run: async (given) => {
         try {
-          const repository = await this.localRepositories.read(path, folder);
-          return { text: localRepositoryText(path, repository), isError: false };
+          return { text: await this.repositoryText(given), isError: false };
         } catch (error) {
           if (error instanceof ProjectRefused) return { text: error.message, isError: true };
           throw error;
@@ -84,30 +94,71 @@ export class ProjectOfficeTools implements OnModuleInit {
       },
     };
   }
+
+  /** A repository on the workstation by its path, or one on a host by its Repository URL. */
+  private async repositoryText({
+    path,
+    url,
+    folder,
+  }: z.infer<typeof LOCAL_REPOSITORY_INPUT>): Promise<string> {
+    if (path !== undefined && url === undefined)
+      return localRepositoryText(path, await this.localRepositories.read(path, folder));
+    if (url !== undefined && path === undefined)
+      return remoteRepositoryText(await this.remoteRepositories.read(url, folder));
+    throw new ProjectRefused([
+      "Give the repository's path on the workstation or its Repository URL, one of the two.",
+    ]);
+  }
 }
 
-function localRepositoryText(
-  path: string,
-  { folder, entries, manifests, branches }: LocalRepository,
-): string {
+function localRepositoryText(path: string, repository: LocalRepository): string {
+  return [
+    localBranchesText(repository.branches),
+    folderText(`The repository at ${path}`, repository),
+  ].join("\n\n");
+}
+
+function remoteRepositoryText(repository: RemoteRepository): string {
+  const { url, defaultBranch, commit, branches } = repository;
+  return [
+    remoteBranchesText(branches, defaultBranch),
+    folderText(
+      `The repository at ${url}, its default branch ${defaultBranch} at commit ${commit.slice(0, 7)}`,
+      repository,
+    ),
+  ].join("\n\n");
+}
+
+function folderText(heading: string, { folder, entries, manifests }: RepositoryFolder): string {
   const listing = entries.map(({ name, kind }) => `- ${name}${kind === "folder" ? "/" : ""}`);
   return [
-    branchesText(branches),
-    `The repository at ${path}, ${folder === "" ? "at its top level" : `in ${folder}`}:`,
+    `${heading}, ${folder === "" ? "at its top level" : `in ${folder}`}:`,
     listing.length > 0 ? listing.join("\n") : "(empty)",
     ...manifests.map(manifestText),
   ].join("\n\n");
 }
 
 /** The checked-out branch first, so a long list never hides it. */
-function branchesText(branches: readonly LocalBranch[]): string {
+function localBranchesText(branches: readonly LocalBranch[]): string {
   if (branches.length === 0) return "Local branches: none yet.";
   const listed = branches
     .toSorted((first, second) => Number(second.checkedOut) - Number(first.checkedOut))
-    .slice(0, LISTED_BRANCHES)
     .map(({ name, checkedOut }) => (checkedOut ? `${name} (checked out)` : name));
-  const more = branches.length - listed.length;
-  return `Local branches: ${listed.join(", ")}${more > 0 ? ` and ${more} more` : ""}.`;
+  return `Local branches: ${listedText(listed)}.`;
+}
+
+/** The default branch first, as the checked-out one is for a repository on the workstation. */
+function remoteBranchesText(branches: readonly string[], defaultBranch: string): string {
+  const listed = [
+    `${defaultBranch} (the default)`,
+    ...branches.filter((name) => name !== defaultBranch),
+  ];
+  return `Branches on the remote: ${listedText(listed)}.`;
+}
+
+function listedText(names: readonly string[]): string {
+  const more = names.length - LISTED_BRANCHES;
+  return `${names.slice(0, LISTED_BRANCHES).join(", ")}${more > 0 ? ` and ${more} more` : ""}`;
 }
 
 function manifestText({ name, text, cut }: ManifestFile): string {

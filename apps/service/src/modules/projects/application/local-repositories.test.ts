@@ -11,7 +11,8 @@ import {
 } from "../adapters/git/temporary-repository.fixtures.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import type { KnownPipelines } from "../ports/known-pipelines.js";
-import { LocalRepositories, MANIFEST_CHARACTERS } from "./local-repositories.js";
+import { LocalRepositories } from "./local-repositories.js";
+import { MANIFEST_CHARACTERS } from "./repository-folder.js";
 import { ProjectChecks } from "./project-checks.js";
 import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
 import type { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";

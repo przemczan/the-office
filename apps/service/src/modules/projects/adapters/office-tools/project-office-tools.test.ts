@@ -3,6 +3,7 @@ import { OfficeToolRegistry } from "../../../engine/index.js";
 import type { BaseCheckouts } from "../../application/base-checkouts.js";
 import type { LocalRepositories } from "../../application/local-repositories.js";
 import type { ProjectService } from "../../application/project-service.js";
+import type { RemoteRepositories } from "../../application/remote-repositories.js";
 import { aProject } from "../../domain/project.fixtures.js";
 import type { Project } from "../../domain/project.js";
 import { ProjectRefused } from "../../domain/project-refused.js";
@@ -30,6 +31,17 @@ function toolsOver(projects: Project[]): ProjectOfficeTools {
     service as ProjectService,
     bases as BaseCheckouts,
     {} as LocalRepositories,
+    {} as RemoteRepositories,
+  );
+}
+
+function toolsReadingUrls(read: RemoteRepositories["read"]): ProjectOfficeTools {
+  return new ProjectOfficeTools(
+    new OfficeToolRegistry(),
+    {} as ProjectService,
+    {} as BaseCheckouts,
+    {} as LocalRepositories,
+    { read } as RemoteRepositories,
   );
 }
 
@@ -39,6 +51,7 @@ function toolsReading(read: LocalRepositories["read"]): ProjectOfficeTools {
     {} as ProjectService,
     {} as BaseCheckouts,
     { read } as LocalRepositories,
+    {} as RemoteRepositories,
   );
 }
 
@@ -77,6 +90,7 @@ describe("list_projects", () => {
       {} as ProjectService,
       {} as BaseCheckouts,
       {} as LocalRepositories,
+      {} as RemoteRepositories,
     );
 
     tools.onModuleInit();
@@ -150,5 +164,48 @@ describe("read_local_repository", () => {
       isError: true,
       text: "There is no folder at /work/missing.",
     });
+  });
+
+  it("reads a repository on a host by its Repository URL, the default branch first", async () => {
+    const read = vi.fn<RemoteRepositories["read"]>(() =>
+      Promise.resolve({
+        url: "https://github.com/acme/shop",
+        defaultBranch: "main",
+        commit: "0123456789abcdef",
+        branches: ["develop", "main"],
+        folder: "apps/server",
+        entries: [{ name: "package.json", kind: "file" }],
+        manifests: [],
+      }),
+    );
+    const tool = toolsReadingUrls(read).readLocalRepository();
+
+    const result = await tool.run(
+      { url: "https://github.com/acme/shop", folder: "apps/server" },
+      { sessionId: "s-1" },
+    );
+
+    expect(read).toHaveBeenCalledWith("https://github.com/acme/shop", "apps/server");
+    expect(result).toEqual({
+      isError: false,
+      text: [
+        "Branches on the remote: main (the default), develop.",
+        "The repository at https://github.com/acme/shop, its default branch main at commit 0123456, in apps/server:",
+        "- package.json",
+      ].join("\n\n"),
+    });
+  });
+
+  it("asks for the path or the Repository URL, one of the two", async () => {
+    const tool = toolsReading(() => Promise.reject(new Error("not read"))).readLocalRepository();
+    const answer = {
+      isError: true,
+      text: "Give the repository's path on the workstation or its Repository URL, one of the two.",
+    };
+
+    await expect(tool.run({}, { sessionId: "s-1" })).resolves.toEqual(answer);
+    await expect(
+      tool.run({ path: "/work/shop", url: "https://github.com/acme/shop" }, { sessionId: "s-1" }),
+    ).resolves.toEqual(answer);
   });
 });
