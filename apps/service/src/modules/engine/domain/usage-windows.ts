@@ -2,27 +2,17 @@
 export interface UsageWindow {
   /** How much of the window is used, from 0 to 100. */
   readonly percentUsed: number;
-  /** Undefined while the window has not begun. */
+  /** Undefined while the window has not begun, which counts as unused: its use is then 0. */
   readonly resetsAt: Date | undefined;
 }
 
-/** The account's quota (spec §5.4): the 5-hour and the 7-day window. */
+/**
+ * The account's quota (spec §5.4): the 5-hour and the 7-day window, each judged on its own, so a
+ * window not begun yet leaves the other's reading standing.
+ */
 export interface UsageWindows {
   readonly fiveHour: UsageWindow;
   readonly sevenDay: UsageWindow;
-}
-
-/** Windows that have both begun, so each says when it resets. */
-export interface BegunUsageWindows {
-  readonly fiveHour: UsageWindow & { readonly resetsAt: Date };
-  readonly sevenDay: UsageWindow & { readonly resetsAt: Date };
-}
-
-/** Only windows that have both begun show what a run used of them. */
-export function everyWindowBegun<Windows extends UsageWindows>(
-  windows: Windows,
-): windows is Windows & BegunUsageWindows {
-  return windows.fiveHour.resetsAt !== undefined && windows.sevenDay.resetsAt !== undefined;
 }
 
 export function sameUsageWindows(one: UsageWindows, other: UsageWindows): boolean {

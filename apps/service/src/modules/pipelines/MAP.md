@@ -93,6 +93,7 @@ AlarmResumes, PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateCo
 - `postgres-task-stages-repository.ts`: PostgresTaskStagesRepository
 - `staffing-holds.schema.ts`: staffingHolds
 - `stage-runs.schema.ts`: stageRuns
+- `stored-usage-windows.ts`: StoredUsageWindowReading, storedUsageWindowReading, usageWindowReadingOf
 - `task-stages.schema.ts`: taskStages
 
 ### adapters/websocket/
@@ -169,7 +170,7 @@ AlarmResumes, PipelineLibrary, TaskStagesService, DefinitionOfDoneNotMet, GateCo
 - `proposal-drafts.ts`: ProposedPipelineChange, ProposalDrafts
 - `staffing-hold-repository.ts`: StaffingHoldRepository
 - `stage-decisions.ts`: StageDecisionRequest, OpenedStageDecision, StageDecisions
-- `stage-run-repository.ts`: StageRunRepository
+- `stage-run-repository.ts`: StageRunThread, UsageWindowsMoment, StageRunRepository
 - `stage-threads.ts`: StageSessionSettings, StageThreadRequest, StageTurn, AskedDecision, StageThread, StageSessionAhead, StageThreads
 - `started-tasks.ts`: WalkTaskState, StartedTask, StartedTasks
 - `task-commands.ts`: ScriptCommandKey, TaskCommands

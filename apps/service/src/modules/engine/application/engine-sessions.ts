@@ -4,7 +4,7 @@ import { AsyncChannel } from "../../../platform/streams/async-channel.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { EngineDown } from "../domain/engine-events.js";
 import type { Engine } from "../domain/engines.js";
-import { everyWindowBegun, type UsageWindows } from "../domain/usage-windows.js";
+import type { UsageWindows } from "../domain/usage-windows.js";
 import {
   CapabilityMissing,
   missingCapabilities,
@@ -24,11 +24,7 @@ import type { SessionOptions } from "../ports/session-options.js";
 import { AgentEngines } from "./agent-engines.js";
 import { EngineCallSpans, SessionCosts, type SessionTelemetry } from "./engine-call-spans.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
-import {
-  UsageWindowState,
-  type BegunUsageWindowReading,
-  type UsageWindowReading,
-} from "./usage-window-state.js";
+import { UsageWindowState, type UsageWindowReading } from "./usage-window-state.js";
 
 /** What a caller runs a session with: the Office tools by name, from the registry. */
 export type SessionSettings = Omit<SessionOptions, "officeTools"> & {
@@ -143,13 +139,12 @@ export class EngineSessions {
   /**
    * Reads the account's windows through `session`, a session of this service on `engine`, with no
    * model call, and keeps the reading. Undefined on an engine without windows, for an account
-   * without them, when the read fails, or when a window has not begun or the engine didn't say
-   * its use or its reset: such a reading shows nothing of what a run used.
+   * without them, or when the read fails. A window not begun yet is read as unused.
    */
   async readUsageWindows(
     engine: Engine,
     session: EngineSession,
-  ): Promise<BegunUsageWindowReading | undefined> {
+  ): Promise<UsageWindowReading | undefined> {
     if (!this.capabilitiesOf(engine).usageWindows) return undefined;
     let windows: UsageWindows | undefined;
     try {
@@ -165,7 +160,7 @@ export class EngineSessions {
       officeTokensSoFar: this.officeTokensSoFar,
     };
     await this.usageWindows.update(reading);
-    return everyWindowBegun(reading) ? reading : undefined;
+    return reading;
   }
 
   private async engineDown(sessionId: string, error: unknown): Promise<void> {

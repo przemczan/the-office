@@ -488,8 +488,8 @@ describe("EngineSessions' readings of the usage windows", () => {
     await session.end();
   });
 
-  it("keeps a window not begun as read, but gives no reading of it", async () => {
-    const notBegun = { ...WINDOWS, sevenDay: { percentUsed: 0, resetsAt: undefined } };
+  it("gives a window not begun as unused, the other window's reading standing", async () => {
+    const notBegun = { ...WINDOWS, fiveHour: { percentUsed: 0, resetsAt: undefined } };
     const { sessions, usageWindows } = setUp([turnThenWindows(notBegun)]);
     const session = await sessions.start({
       id: "s-1",
@@ -498,8 +498,10 @@ describe("EngineSessions' readings of the usage windows", () => {
     });
     await turns(session, 1);
 
-    await expect(sessions.readUsageWindows("agent-sdk", session)).resolves.toBe(undefined);
-    expect(usageWindows.current).toMatchObject(notBegun);
+    const reading = await sessions.readUsageWindows("agent-sdk", session);
+
+    expect(reading).toMatchObject(notBegun);
+    expect(usageWindows.current).toEqual(reading);
     await session.end();
   });
 

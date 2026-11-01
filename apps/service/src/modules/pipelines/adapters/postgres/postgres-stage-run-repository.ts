@@ -6,12 +6,21 @@ import type {
   GateAction,
   StageRun,
   StageRunDecision,
-  StageSessionMove,
   StageTokens,
   AskedInterruption,
+  UsageWindowReading,
 } from "../../domain/stage-run.js";
-import { StageRunRepository } from "../../ports/stage-run-repository.js";
+import {
+  StageRunRepository,
+  type StageRunThread,
+  type UsageWindowsMoment,
+} from "../../ports/stage-run-repository.js";
 import { stageRuns } from "./stage-runs.schema.js";
+import {
+  storedUsageWindowReading,
+  usageWindowReadingOf,
+  type StoredUsageWindowReading,
+} from "./stored-usage-windows.js";
 
 @Injectable()
 export class PostgresStageRunRepository extends StageRunRepository {
@@ -22,14 +31,30 @@ export class PostgresStageRunRepository extends StageRunRepository {
   async saveNew(run: StageRun): Promise<boolean> {
     const saved = await this.database
       .insert(stageRuns)
-      .values(run)
+      .values({
+        ...run,
+        usageWindowsAtStart: storedOrNone(run.usageWindowsAtStart),
+        usageWindowsAtEnd: storedOrNone(run.usageWindowsAtEnd),
+      })
       .onConflictDoNothing({ target: [stageRuns.taskId, stageRuns.number] })
       .returning({ id: stageRuns.id });
     return saved.length > 0;
   }
 
-  async saveThread(runId: string, threadId: string, session: StageSessionMove): Promise<void> {
-    await this.database.update(stageRuns).set({ threadId, session }).where(eq(stageRuns.id, runId));
+  async saveThread(runId: string, thread: StageRunThread): Promise<void> {
+    await this.database.update(stageRuns).set(thread).where(eq(stageRuns.id, runId));
+  }
+
+  async saveUsageWindows(
+    runId: string,
+    moment: UsageWindowsMoment,
+    reading: UsageWindowReading,
+  ): Promise<void> {
+    const stored = storedUsageWindowReading(reading);
+    await this.database
+      .update(stageRuns)
+      .set(moment === "start" ? { usageWindowsAtStart: stored } : { usageWindowsAtEnd: stored })
+      .where(eq(stageRuns.id, runId));
   }
 
   async saveHeadCommit(runId: string, headCommit: string): Promise<void> {
@@ -77,6 +102,10 @@ export class PostgresStageRunRepository extends StageRunRepository {
       sentBack: row.sentBack ?? undefined,
       threadId: row.threadId ?? undefined,
       session: row.session ?? undefined,
+      engine: row.engine ?? undefined,
+      model: row.model ?? undefined,
+      usageWindowsAtStart: readingOrNone(row.usageWindowsAtStart),
+      usageWindowsAtEnd: readingOrNone(row.usageWindowsAtEnd),
       headCommit: row.headCommit ?? undefined,
       heldBy: row.heldBy ?? undefined,
       gateAction: row.gateAction ?? undefined,
@@ -84,4 +113,14 @@ export class PostgresStageRunRepository extends StageRunRepository {
       endedAt: row.endedAt ?? undefined,
     }));
   }
+}
+
+function storedOrNone(
+  reading: UsageWindowReading | undefined,
+): StoredUsageWindowReading | undefined {
+  return reading === undefined ? undefined : storedUsageWindowReading(reading);
+}
+
+function readingOrNone(stored: StoredUsageWindowReading | null): UsageWindowReading | undefined {
+  return stored === null ? undefined : usageWindowReadingOf(stored);
 }

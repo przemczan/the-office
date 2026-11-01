@@ -85,6 +85,9 @@ export interface StageThread {
   readonly threadId: string;
   /** The Context policy's move that began the Stage's session. */
   readonly move: { readonly move: StageSessionMove };
+  /** The engine the session runs on, as a Role card names it, and the session's model. */
+  readonly engine: string;
+  readonly model: string;
   /** The person's turn running now, as it ends. */
   nextTurn(): Promise<StageTurn>;
   /**
@@ -95,8 +98,7 @@ export interface StageThread {
   askedDecision(): Promise<AskedDecision | undefined>;
   /**
    * The account's usage windows read now through the session, with no model call. Undefined on
-   * an engine without windows, once the session has ended, or when a window has not begun or the
-   * engine didn't say its use or its reset.
+   * an engine without windows, once the session has ended, or when the read fails.
    */
   usageWindows(): Promise<UsageWindowReading | undefined>;
   /** Logs `why`, sends the person `text` in the same session, and returns the turn answering it. */

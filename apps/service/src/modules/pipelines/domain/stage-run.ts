@@ -98,16 +98,17 @@ export interface StageTokens {
   readonly cacheCreation: number;
 }
 
-/** One of the account's usage windows as read, both begun (spec §5.4). */
+/** One of the account's usage windows as read (spec §5.4). */
 export interface UsageWindow {
   /** From 0 to 100. */
   readonly percentUsed: number;
-  readonly resetsAt: Date;
+  /** Undefined while the window has not begun, which counts as unused: its use is then 0. */
+  readonly resetsAt: Date | undefined;
 }
 
 /**
- * The 5-hour and 7-day windows as read around a run, with the Office's tokens so far on the
- * engines with windows, so the run's share of a window's change can be told.
+ * The 5-hour and 7-day windows as read around a run, each judged on its own, with the Office's
+ * tokens so far on the engines with windows, so the run's share of a window's change can be told.
  */
 export interface UsageWindowReading {
   readonly fiveHour: UsageWindow;
@@ -254,8 +255,20 @@ export interface StageRun {
   readonly headCommit: string | undefined;
   /** The Project commands The Office ran for the run, in order; none when it ran none. */
   readonly commandRuns: readonly StageCommandRun[];
+  /**
+   * The engine, as a Role card names it, and the model the run's session ran on. Undefined for a
+   * run that opened none, and for runs kept before they were recorded.
+   */
+  readonly engine: string | undefined;
+  readonly model: string | undefined;
   /** Its engine calls' tokens; none for a run that made none. */
   readonly tokens: StageTokens;
+  /**
+   * The usage windows as read after the run's session opened and after its last turn. Undefined
+   * on an engine without windows, when a read failed, and for runs kept before they were read.
+   */
+  readonly usageWindowsAtStart: UsageWindowReading | undefined;
+  readonly usageWindowsAtEnd: UsageWindowReading | undefined;
   /** The Decisions the walk opened on the run, at most one of each kind. */
   readonly decisions: readonly StageRunDecision[];
   /**

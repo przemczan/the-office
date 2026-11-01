@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable, Logger } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { EngineSessions, type BegunUsageWindowReading, type Engine } from "../../engine/index.js";
+import { EngineSessions, type Engine, type UsageWindowReading } from "../../engine/index.js";
 import { SessionMcpServers, type LeftOutMcpServer } from "../../mcp-servers/index.js";
 import {
   mcpToolSettingsFor,
@@ -157,6 +157,9 @@ interface CarriedMessages {
 export interface StageThread {
   readonly threadId: string;
   readonly move: ContextDecision;
+  /** The engine and model the session runs on. */
+  readonly engine: Engine;
+  readonly model: string;
   /** The person's turn running now, as it ends. */
   nextTurn(): Promise<StageTurn>;
   /**
@@ -166,10 +169,9 @@ export interface StageThread {
   askedDecision(): Promise<AskedDecision | undefined>;
   /**
    * The account's usage windows read now through the session, with no model call. Undefined on
-   * an engine without windows, once the session has ended, or when a window has not begun or the
-   * engine didn't say its use or its reset.
+   * an engine without windows, once the session has ended, or when the read fails.
    */
-  usageWindows(): Promise<BegunUsageWindowReading | undefined>;
+  usageWindows(): Promise<UsageWindowReading | undefined>;
   /** Logs `why`, sends the person The Office's `text`, and returns the turn that answers it. */
   send(text: string, why: string): Promise<StageTurn>;
   /**
@@ -390,6 +392,7 @@ export class StageThreads {
         threadId: previous.id,
         roleKey: role.roleKey,
         engine: session.engine,
+        model: stageModel(request, role.card),
         folder: request.folder,
         began: now,
       },
@@ -454,6 +457,7 @@ export class StageThreads {
         threadId: thread.id,
         roleKey: role.roleKey,
         engine: session.engine,
+        model: stageModel(request, role.card),
         folder: request.folder,
         began: now,
       },
@@ -497,7 +501,7 @@ export class StageThreads {
       engine,
       folder: request.folder,
       environment: request.environment,
-      model: request.model ?? card.model,
+      model: stageModel(request, card),
       effort: request.effort ?? card.effort,
       instructions: workThreadInstructions(card, request.session.instructions),
       skills: {
@@ -535,7 +539,7 @@ export class StageThreads {
    * again, and delivered once a turn has taken the work, as a barge-in is.
    */
   private async live(
-    { threadId, roleKey, engine, folder, began }: StageWorkPlace,
+    { threadId, roleKey, engine, model, folder, began }: StageWorkPlace,
     move: ContextDecision,
     session: EngineSession,
     carried: CarriedMessages | undefined,
@@ -598,6 +602,8 @@ export class StageThreads {
     return {
       threadId,
       move,
+      engine,
+      model,
       nextTurn,
       askedDecision: () => this.askedIn(threadId, began),
       usageWindows: async () =>
@@ -693,13 +699,14 @@ export class StageThreads {
 }
 
 /**
- * Where a Stage's work goes on: its Thread, its person, the engine their session runs on and
- * their folder, since `began`.
+ * Where a Stage's work goes on: its Thread, its person, the engine and model their session runs on
+ * and their folder, since `began`.
  */
 interface StageWorkPlace {
   readonly threadId: string;
   readonly roleKey: string;
   readonly engine: Engine;
+  readonly model: string;
   readonly folder: string;
   readonly began: Date;
 }
@@ -711,6 +718,11 @@ interface Carrying {
 }
 
 const STAGE_ENDING = "The Stage is ending. Send your message once it has ended.";
+
+/** The Stage's own model, else the Role card's. */
+function stageModel(request: StageThreadRequest, card: SessionRole["card"]): string {
+  return request.model ?? card.model;
+}
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

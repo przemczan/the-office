@@ -113,6 +113,54 @@ describe("AgentStageRunner", () => {
     ]);
   });
 
+  it("keeps the session's engine and model, and the usage windows read as it opens and after its last turn", async () => {
+    const atStart = {
+      fiveHour: { percentUsed: 0, resetsAt: undefined },
+      sevenDay: { percentUsed: 20, resetsAt: new Date("2026-11-07T08:00:00Z") },
+    };
+    const atEnd = {
+      fiveHour: { percentUsed: 3, resetsAt: new Date("2026-11-01T18:00:00Z") },
+      sevenDay: { percentUsed: 21, resetsAt: new Date("2026-11-07T08:00:00Z") },
+    };
+    pipelines = await startPipelinesApplication([
+      [
+        ...anAgentSession(aDoneResult()),
+        { step: "read-usage-windows", windows: atStart },
+        { step: "read-usage-windows", windows: atEnd },
+      ],
+    ]);
+
+    const taskId = await walkStages(pipelines, [
+      anAgentStage("implement", { name: "Implement", model: "claude-haiku-4-5" }),
+    ]);
+
+    const [run] = await runsOf(pipelines, taskId);
+    expect(run).toMatchObject({
+      engine: "agent-sdk",
+      model: "claude-haiku-4-5",
+      usageWindowsAtStart: { ...atStart, readAt: expect.any(Date) },
+      usageWindowsAtEnd: {
+        ...atEnd,
+        readAt: expect.any(Date),
+        officeTokensSoFar: { input: 10, output: 10, cacheRead: 0, cacheCreation: 0 },
+      },
+    });
+    expect(run?.usageWindowsAtEnd?.readAt.getTime()).toBeGreaterThanOrEqual(
+      run?.usageWindowsAtStart?.readAt.getTime() ?? Infinity,
+    );
+  });
+
+  it("keeps no usage windows when the engine read none", async () => {
+    pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
+
+    const taskId = await walkStages(pipelines, [implement]);
+
+    const [run] = await runsOf(pipelines, taskId);
+    expect(run).toMatchObject({ engine: "agent-sdk", model: "scripted" });
+    expect(run?.usageWindowsAtStart).toBe(undefined);
+    expect(run?.usageWindowsAtEnd).toBe(undefined);
+  });
+
   it("narrows the Role card's profile by the Stage's permissions, never widening it, and briefs the narrowed commands", async () => {
     pipelines = await startPipelinesApplication([anAgentSession(aDoneResult("Reviewed."))]);
 

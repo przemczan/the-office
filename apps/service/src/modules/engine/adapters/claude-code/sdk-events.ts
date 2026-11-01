@@ -221,12 +221,12 @@ export function usageWindows({
 
 type UsageQueryWindow = NonNullable<SDKControlGetUsageResponse["rate_limits"]>["five_hour"];
 
-/** A window the query gives without its use or its reset is read as not begun. */
+/** A window the query gives without its use or its reset is read as not begun, so unused. */
 function usageWindow(window: UsageQueryWindow): UsageWindow {
   const percentUsed = window?.utilization ?? undefined;
   const resetsAt = window?.resets_at ?? undefined;
-  return {
-    percentUsed: percentUsed ?? 0,
-    resetsAt: percentUsed === undefined || resetsAt === undefined ? undefined : new Date(resetsAt),
-  };
+  if (percentUsed === undefined || resetsAt === undefined) {
+    return { percentUsed: 0, resetsAt: undefined };
+  }
+  return { percentUsed, resetsAt: new Date(resetsAt) };
 }

@@ -264,13 +264,15 @@ export class StageThreadsForTests extends StageThreads {
   async open(request: StageThreadRequest): Promise<StageThread> {
     this.requests.push(request);
     const threadId = randomUUID();
+    const engine = "agent-sdk";
+    const model = request.model ?? "scripted";
     const session = await this.sessions.start({
       id: randomUUID(),
       settings: {
-        engine: "agent-sdk",
+        engine,
         folder: request.folder,
         environment: request.environment,
-        model: "scripted",
+        model,
         effort: "low",
         instructions: request.session.instructions,
         skills: undefined,
@@ -308,10 +310,12 @@ export class StageThreadsForTests extends StageThreads {
       threadId,
       // A new session every Stage, as said above.
       move: { move: "fresh" },
+      engine,
+      model,
       nextTurn,
       askedDecision: async () => asked,
       usageWindows: async () =>
-        sessionEnded ? undefined : this.sessions.readUsageWindows("agent-sdk", session),
+        sessionEnded ? undefined : this.sessions.readUsageWindows(engine, session),
       send: (text, why) => {
         this.sent.push({ threadId, text, why });
         session.send({ id: randomUUID(), text }, "later");

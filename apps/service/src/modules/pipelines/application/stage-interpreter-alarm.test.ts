@@ -340,7 +340,12 @@ describe("The Office starting with the fire alarm on", () => {
     );
     const runs = pipelines.app.get(StageRunRepository, { strict: false });
     await runs.saveNew(run);
-    await runs.saveThread(run.id, threadId, "fresh");
+    await runs.saveThread(run.id, {
+      threadId,
+      session: "fresh",
+      engine: "agent-sdk",
+      model: "scripted",
+    });
     pipelines.git.uncommitted.set(taskId, ["src/dialog.ts"]);
     pipelines.tasks.put(taskId, { state: "in-progress", pipelineId: "for-tests" });
     pipelines.tasks.fireAlarmOn = true;

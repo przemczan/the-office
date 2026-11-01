@@ -311,7 +311,7 @@ describe("usageWindows", () => {
     });
   });
 
-  it("reads a window without its use or its reset as not begun", () => {
+  it("reads a window without its use or its reset as not begun, so unused", () => {
     expect(
       usageWindows({
         rate_limits_available: true,
@@ -322,7 +322,7 @@ describe("usageWindows", () => {
       }),
     ).toEqual({
       fiveHour: { percentUsed: 0, resetsAt: undefined },
-      sevenDay: { percentUsed: 7, resetsAt: undefined },
+      sevenDay: { percentUsed: 0, resetsAt: undefined },
     });
   });
 

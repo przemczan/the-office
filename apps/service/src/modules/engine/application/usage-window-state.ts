@@ -1,11 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { UsageWindowsChanged } from "../domain/engine-events.js";
-import {
-  sameUsageWindows,
-  type BegunUsageWindows,
-  type UsageWindows,
-} from "../domain/usage-windows.js";
+import { sameUsageWindows, type UsageWindows } from "../domain/usage-windows.js";
 import type { TokenUsage } from "../ports/session-events.js";
 
 /**
@@ -17,9 +13,6 @@ export interface UsageWindowReading extends UsageWindows {
   /** Since the service started, every turn of every session on an engine with windows. */
   readonly officeTokensSoFar: TokenUsage;
 }
-
-/** A reading whose windows have both begun, the only kind that shows what a run used. */
-export type BegunUsageWindowReading = UsageWindowReading & BegunUsageWindows;
 
 /** The account's usage windows as last read, Office-wide: every session shares them. */
 @Injectable()

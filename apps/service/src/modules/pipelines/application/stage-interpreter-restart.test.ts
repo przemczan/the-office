@@ -115,7 +115,14 @@ async function aRunLeftRunning(
   );
   const runs = app.get(StageRunRepository, { strict: false });
   await runs.saveNew(run);
-  if (threadId) await runs.saveThread(run.id, threadId, "fresh");
+  if (threadId) {
+    await runs.saveThread(run.id, {
+      threadId,
+      session: "fresh",
+      engine: "agent-sdk",
+      model: "scripted",
+    });
+  }
   return taskId;
 }
 
