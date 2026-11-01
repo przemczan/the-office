@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
+import { z } from "zod";
 import { GITHUB_ED25519 } from "../../../../platform/git-identity/fake-github-meta.fixtures.js";
 import type { GitHubUrls } from "../../application/github-urls.js";
 import { FakeInstallations, type ApiAnswer } from "./fake-github-installations.fixtures.js";
@@ -37,6 +38,17 @@ export interface RecordedRequest {
 
 /** The REST API's base path on the fake, so a client that drops its base's path is caught. */
 const API_PATH = "/api/v3";
+
+/**
+ * Not GitHub's: where a test running the fake as a program of its own installs the App, since it
+ * reaches the fake only over HTTP. A JSON body of `installationRequestSchema`; answers 204.
+ */
+export const FAKE_INSTALLATIONS_CONTROL_PATH = "/_fake/installations";
+
+const installationRequestSchema = z.object({
+  account: z.string().min(1),
+  repositories: z.array(z.object({ fullName: z.string().min(1), private: z.boolean().optional() })),
+});
 
 /** GitHub's own limit on a sign-in's code. */
 const SIGN_IN_CODE_MS = 10 * 60 * 1000;
@@ -94,20 +106,31 @@ export class FakeGitHub {
   private constructor(
     private readonly server: Server,
     readonly urls: GitHubUrls,
+    gitUrl: string,
   ) {
-    this.installations = new FakeInstallations(urls.web);
+    this.installations = new FakeInstallations(urls.web, gitUrl);
     this.pullRequests = new FakePullRequests(urls.web, this.installations);
   }
 
-  /** Started on `port`, or on any free one. */
-  static async start(port = 0): Promise<FakeGitHub> {
+  /**
+   * Started on `port`, or on any free one. `gitUrl` is where the repositories' clone URLs point,
+   * the fake's website unless a test serves them from another host.
+   */
+  static async start(
+    port = 0,
+    { gitUrl }: { gitUrl?: string | undefined } = {},
+  ): Promise<FakeGitHub> {
     const server = createServer();
     await new Promise<void>((resolve, reject) => {
       server.once("error", reject);
       server.listen(port, "127.0.0.1", resolve);
     });
     const origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
-    const fake = new FakeGitHub(server, { web: origin, api: `${origin}${API_PATH}` });
+    const fake = new FakeGitHub(
+      server,
+      { web: origin, api: `${origin}${API_PATH}` },
+      gitUrl ?? origin,
+    );
     server.on("request", (request, response) => void fake.handle(request, response));
     return fake;
   }
@@ -193,6 +216,10 @@ export class FakeGitHub {
         request.headers.authorization,
         response,
       );
+    } else if (request.method === "POST" && url.pathname === FAKE_INSTALLATIONS_CONTROL_PATH) {
+      const { account, repositories } = installationRequestSchema.parse(JSON.parse(body));
+      this.installations.install(account, repositories);
+      response.writeHead(204).end();
     } else {
       sendJson(response, 404, { message: "Not Found" });
     }

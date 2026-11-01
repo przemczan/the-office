@@ -1847,6 +1847,50 @@ test("the user asks Nina to onboard a Project, applies her Proposal and finds it
   }
 });
 
+test("Nina's Proposal to onboard a repository by its Repository URL shows the URL and where it is cloned into", async ({
+  page,
+}) => {
+  const name = `Onboarded by URL ${Date.now()}`;
+  const repositoryUrl = "https://git.example.test/acme/onboarded-by-url.git";
+  const cloneFolder = path.join("repositories", "git.example.test", "acme", "onboarded-by-url");
+  const nina = chatWith(page, "Nina");
+
+  await page.goto("/projects");
+  await page.getByRole("button", { name: "Ask Nina to onboard one" }).click();
+  await expect(nina.getByLabel("Message")).toHaveValue(
+    "Can you onboard a new Project? The repository is ",
+  );
+  const threadId = new URL(page.url()).searchParams.get("thread") ?? "";
+  await seedProposal(
+    threadId,
+    {
+      kind: "project",
+      project: {
+        name,
+        path: cloneFolder,
+        repositoryUrl,
+        baseBranch: "main",
+        mark: { label: "OU", colour: "teal" },
+        commands: PASSING_COMMANDS,
+        installInputs: [],
+        publishingMode: "push-and-pull-request",
+        defaultPipeline: "quick-fix",
+      },
+      projectId: null,
+      taskId: null,
+    },
+    "devops",
+  );
+  await page.goto(`/projects?chat=devops&thread=${threadId}`);
+
+  const card = nina.getByRole("region", { name: `Proposal: Onboard ${name}` });
+  const field = (label: string) => card.locator(".proposal-field", { hasText: label });
+  await expect(field("Repository URL")).toContainText(repositoryUrl);
+  await expect(field("Cloned into")).toContainText(cloneFolder);
+  await card.getByRole("button", { name: "Not now" }).click();
+  await expect(card).toContainText("Not applied");
+});
+
 test("the user asks Nina to install a skill from a source, applies her Proposal and reviews the skill, off until then", async ({
   page,
 }) => {

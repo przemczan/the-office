@@ -198,7 +198,14 @@ export function ProposalCard({ proposal }: { readonly proposal: Proposal }): Rea
       return (
         <ProposalFrame title={`Onboard ${project.name}`}>
           <dl className="proposal-fields">
-            <ProposedField label="Repository">{project.path}</ProposedField>
+            {project.repositoryUrl === undefined ? (
+              <ProposedField label="Repository">{project.path}</ProposedField>
+            ) : (
+              <>
+                <ProposedField label="Repository URL">{project.repositoryUrl}</ProposedField>
+                <ProposedField label="Cloned into">{project.path}</ProposedField>
+              </>
+            )}
             <ProposedField label="Base branch">{project.baseBranch}</ProposedField>
             {COMMAND_KEYS.map((key) => (
               <ProposedField key={key} label={COMMAND_LABELS[key]}>

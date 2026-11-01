@@ -1,6 +1,12 @@
+import { execFileSync } from "node:child_process";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
-import { projectSchema, type NewProject, type Project } from "@the-office/contracts";
+import {
+  OFFICE_IDENTITY_SETTINGS_PATH,
+  projectSchema,
+  type NewProject,
+  type Project,
+} from "@the-office/contracts";
 import { addFakeMcpServer } from "./fake-mcp-server.ts";
 import { branchOnHost, serveRepository } from "./git-host.ts";
 import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
@@ -30,10 +36,11 @@ async function addedProject(
     lint: "npm run lint",
     test: "npm test",
   },
+  repositoryPath: string = repository.path,
 ): Promise<Project> {
   const newProject: NewProject = {
     name,
-    path: repository.path,
+    path: repositoryPath,
     baseBranch: "main",
     mark: { label: "AP", colour: "violet" },
     commands,
@@ -139,6 +146,36 @@ test("the user adds a Project by its git URL: cloned first, then the form opens 
   await expect(page.getByText("Repository URL")).toBeVisible();
   await expect(page.getByText(url)).toBeVisible();
   await expect(page.getByText("· release")).toBeVisible();
+});
+
+test("a Project's page says which part of the Office identity its remote needs and what is missing", async ({
+  page,
+}) => {
+  // An ssh host of its own: office-identity.e2e.ts confirms its Unconfirmed host's key in parallel.
+  const host = "remote-needs.invalid";
+  const tracking = await createTemporaryRepository();
+  try {
+    const git = (...gitArguments: string[]): void => {
+      execFileSync("git", gitArguments, { cwd: tracking.path, stdio: "ignore" });
+    };
+    git("remote", "add", "origin", `ssh://git@${host}/acme/notes.git`);
+    git("config", "branch.main.remote", "origin");
+    git("config", "branch.main.merge", "refs/heads/main");
+    const project = await addedProject(page, "Remote over ssh", undefined, tracking.path);
+    await page.goto(`/projects/${project.id}`);
+
+    const remoteNeeds = page.locator(".project-remote-needs");
+    await expect(remoteNeeds).toContainText(
+      `Its remote, ${host}, is reached over ssh with the Office ssh key`,
+    );
+    // Whether the Office ssh key is made yet depends on the files running beside this one.
+    await expect(remoteNeeds).toContainText(`${host}'s host key isn't confirmed yet`);
+    await remoteNeeds.getByRole("link", { name: "Settings › Office identity" }).click();
+
+    await expect(page).toHaveURL(OFFICE_IDENTITY_SETTINGS_PATH);
+  } finally {
+    await tracking.remove();
+  }
 });
 
 test("editing a command saves it, and the toast says Tasks run it from their next Script Stage", async ({

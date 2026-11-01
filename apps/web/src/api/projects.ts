@@ -5,6 +5,7 @@ import {
   projectMcpServerValuesListSchema,
   projectMcpServerValuesSchema,
   projectListSchema,
+  projectRemoteNeedsSchema,
   projectSchema,
   projectSkillListSchema,
   repositoryCloneSchema,
@@ -27,6 +28,8 @@ import { getFromApi, sendToApi } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
 const PROJECTS = ["projects"] as const;
+/** Apart from the Projects' key, since Sign in with GitHub changes it too. */
+export const REMOTE_NEEDS = ["remote-needs"] as const;
 
 export const projectQueries = {
   list: () =>
@@ -63,6 +66,17 @@ export const projectQueries = {
       queryKey: serverValuesKey(id),
       queryFn: ({ signal }) =>
         getFromApi(`${projectPath(id)}/server-values`, projectMcpServerValuesListSchema, signal),
+    }),
+  /**
+   * Which part of the Office identity the base branch's remote needs and what of it is missing;
+   * null when the base branch tracks no remote branch.
+   */
+  remoteNeeds: (id: string) =>
+    queryOptions({
+      queryKey: [...REMOTE_NEEDS, id],
+      queryFn: ({ signal }) =>
+        getFromApi(`${projectPath(id)}/remote-needs`, projectRemoteNeedsSchema, signal),
+      select: ({ remoteNeeds }) => remoteNeeds,
     }),
   /** A repository cloned by its Repository URL before it is added: under way, cloned or failed. */
   repositoryClone: (cloneId: string) =>

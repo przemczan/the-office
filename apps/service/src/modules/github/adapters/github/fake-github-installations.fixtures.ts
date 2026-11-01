@@ -30,8 +30,14 @@ const MAX_PAGE_SIZE = 100;
 export class FakeInstallations {
   private readonly installations: Installation[] = [];
 
-  /** `web` is GitHub's website, where the repositories' pages and clone URLs are. */
-  constructor(private readonly web: string) {}
+  /**
+   * `web` is GitHub's website, where the repositories' pages are; `git` is where their clone URLs
+   * are, GitHub's website too unless a test serves the repositories elsewhere.
+   */
+  constructor(
+    private readonly web: string,
+    private readonly git: string = web,
+  ) {}
 
   /** The App installed on `account`'s repositories; a suspended installation is listed but can't be reached. */
   install(
@@ -88,7 +94,7 @@ export class FakeInstallations {
         private: repository.private ?? false,
         owner: { login: owner, type: "User" },
         html_url: `${this.web}/${repository.fullName}`,
-        clone_url: `${this.web}/${repository.fullName}.git`,
+        clone_url: `${this.git}/${repository.fullName}.git`,
         default_branch: "main",
       };
     });

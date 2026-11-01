@@ -5,43 +5,119 @@ import {
   knownHostsSchema,
   OFFICE_IDENTITY_SETTINGS_PATH,
 } from "@the-office/contracts";
-import { FAKE_GITHUB_URL } from "./fake-github.ts";
+import { FAKE_GITHUB_URL, installApp } from "./fake-github.ts";
+import { serveRepository } from "./git-host.ts";
 import { E2E_HOST_KEY_FINGERPRINT } from "./ssh-host.ts";
+import { createTemporaryRepository } from "./temporary-repository.ts";
 
-// The tests that register the App and sign in run in order: signing in needs the App registered.
-test("registering the GitHub App posts its manifest to GitHub and comes back to The Office", async ({
-  page,
-}) => {
-  await page.goto(OFFICE_IDENTITY_SETTINGS_PATH);
-  await page.getByRole("button", { name: "Register the GitHub App" }).click();
+// Registering the App, signing in, what needs the sign-in and signing out run in order, and stop
+// at the first failure: each needs the one before. Sign-in is the Office's, shared with the files
+// running beside this one, so every test that needs it is here, before signing out.
+test.describe.serial("Sign in with GitHub", () => {
+  test.afterAll(async ({ playwright }, testInfo) => {
+    // Signed out even when a test before "signing out" failed.
+    const api = await playwright.request.newContext({ baseURL: testInfo.project.use.baseURL });
+    await api.delete("/api/github/sign-in");
+    await api.dispose();
+  });
 
-  await expect(page).toHaveURL(OFFICE_IDENTITY_SETTINGS_PATH);
-  await expect(
-    page.getByText(/The GitHub App the-office-fake-\d+ is registered on office-user/),
-  ).toBeVisible();
-  await expect(page.getByRole("link", { name: "Install the App on repositories" })).toHaveAttribute(
-    "href",
-    new RegExp(`^${FAKE_GITHUB_URL}/apps/the-office-fake-\\d+/installations/new$`),
-  );
-});
+  test("registering the GitHub App posts its manifest to GitHub and comes back to The Office", async ({
+    page,
+  }) => {
+    await page.goto(OFFICE_IDENTITY_SETTINGS_PATH);
+    await page.getByRole("button", { name: "Register the GitHub App" }).click();
 
-test("signing in through GitHub's page shows who is signed in, until signing out", async ({
-  page,
-}) => {
-  await page.goto(OFFICE_IDENTITY_SETTINGS_PATH);
-  await page.getByRole("button", { name: "Sign in with GitHub" }).click();
+    await expect(page).toHaveURL(OFFICE_IDENTITY_SETTINGS_PATH);
+    await expect(
+      page.getByText(/The GitHub App the-office-fake-\d+ is registered on office-user/),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Install the App on repositories" }),
+    ).toHaveAttribute(
+      "href",
+      new RegExp(`^${FAKE_GITHUB_URL}/apps/the-office-fake-\\d+/installations/new$`),
+    );
+  });
 
-  await expect(page).toHaveURL(OFFICE_IDENTITY_SETTINGS_PATH);
-  await expect(page.getByText("Signed in as")).toBeVisible();
-  await expect(page.getByText("office-user", { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "Install the App on more repositories" }),
-  ).toBeVisible();
+  test("signing in through GitHub's page shows who is signed in", async ({ page }) => {
+    await page.goto(OFFICE_IDENTITY_SETTINGS_PATH);
+    await page.getByRole("button", { name: "Sign in with GitHub" }).click();
 
-  await page.getByRole("button", { name: "Sign out" }).click();
+    await expect(page).toHaveURL(OFFICE_IDENTITY_SETTINGS_PATH);
+    await expect(page.getByText("Signed in as")).toBeVisible();
+    await expect(page.getByText("office-user", { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Install the App on more repositories" }),
+    ).toBeVisible();
+  });
 
-  await expect(page.getByRole("button", { name: "Sign in with GitHub" })).toBeVisible();
-  await expect(page.getByText("Signed in as")).toBeHidden();
+  test("signed in, Add Project picks a repository from GitHub and clones it as a typed URL", async ({
+    page,
+  }) => {
+    const repository = await createTemporaryRepository();
+    try {
+      const url = serveRepository(repository, "office-user", "picked-notes");
+      await installApp("office-user", [
+        { fullName: "office-user/picked-notes", private: true },
+        { fullName: "office-user/left-alone" },
+      ]);
+      await page.goto("/projects");
+      await page.getByRole("button", { name: "Add it yourself" }).click();
+      const dialog = page.getByRole("dialog");
+      await dialog.getByRole("tab", { name: "From GitHub" }).click();
+
+      const repositories = dialog.getByRole("list", { name: "Your GitHub repositories" });
+      await expect(repositories.getByRole("button")).toHaveText([
+        /office-user\/left-alone\s*main/,
+        /office-user\/picked-notes\s*Private\s*main/,
+      ]);
+      await dialog.getByLabel("Search your repositories").fill("PICKED");
+      await expect(repositories.getByRole("button")).toHaveCount(1);
+      await dialog.getByLabel("Search your repositories").fill("nothing like it");
+      await expect(dialog.getByText("No repository matches.")).toBeVisible();
+      await dialog.getByLabel("Search your repositories").fill("picked");
+      await repositories.getByRole("button", { name: /office-user\/picked-notes/ }).click();
+
+      await expect(dialog.getByLabel("Name")).toHaveValue("picked-notes");
+      await expect(dialog.getByLabel("Repository URL")).toHaveValue(url);
+      await expect(dialog.getByText(/Cloned into .*picked-notes/)).toBeVisible();
+      await expect(dialog.getByLabel("Base branch")).toHaveValue("main");
+      await dialog.getByLabel("Name").fill("Picked notes");
+      await dialog.getByLabel("Install", { exact: true }).fill("npm ci");
+      await dialog.getByLabel("Build").fill("npm run build");
+      await dialog.getByLabel("Lint").fill("npm run lint");
+      await dialog.getByLabel("Test").fill("npm test");
+      await dialog.getByRole("button", { name: "Add the Project" }).click();
+
+      await expect(page).toHaveURL(/\/projects\/picked-notes$/);
+      await expect(page.getByText(url)).toBeVisible();
+    } finally {
+      await repository.remove();
+    }
+  });
+
+  test("signing out forgets who was signed in", async ({ page }) => {
+    await page.goto(OFFICE_IDENTITY_SETTINGS_PATH);
+    await page.getByRole("button", { name: "Sign out" }).click();
+
+    await expect(page.getByRole("button", { name: "Sign in with GitHub" })).toBeVisible();
+    await expect(page.getByText("Signed in as")).toBeHidden();
+  });
+
+  test("signed out, Add Project's From GitHub says to sign in, linking Settings", async ({
+    page,
+  }) => {
+    await page.goto("/projects");
+    await page.getByRole("button", { name: "Add it yourself" }).click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("tab", { name: "From GitHub" }).click();
+
+    await expect(dialog).toContainText("Sign in with GitHub in Settings › Office identity");
+    await expect(dialog.getByRole("list", { name: "Your GitHub repositories" })).toBeHidden();
+    await dialog.getByRole("link", { name: "Settings › Office identity" }).click();
+
+    await expect(page).toHaveURL(OFFICE_IDENTITY_SETTINGS_PATH);
+  });
 });
 
 test("why registering or signing in failed is shown until dismissed", async ({ page }) => {

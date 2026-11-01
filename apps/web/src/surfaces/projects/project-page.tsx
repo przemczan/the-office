@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "@tanstack/react-router";
-import type { Project } from "@the-office/contracts";
+import { OFFICE_IDENTITY_SETTINGS_PATH, type Project } from "@the-office/contracts";
 import { EmptyState } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { ApiError } from "../../api/api-client.ts";
@@ -11,6 +11,7 @@ import { CommandsBlock } from "./commands-block.tsx";
 import { DefaultPipelineBlock } from "./default-pipeline-block.tsx";
 import { EnvironmentBlock } from "./environment-block.tsx";
 import { OnboardingBadge, OnboardingBlock } from "./onboarding-block.tsx";
+import { remoteNeedsLine } from "./remote-needs-words.ts";
 import { ServerValuesBlock } from "./server-values-block.tsx";
 import { SkillsBlock } from "./skills-block.tsx";
 import { WorkBlock } from "./work-block.tsx";
@@ -67,8 +68,33 @@ function ProjectHead({ project }: { readonly project: Project }): ReactNode {
             <span className="project-path">{project.repositoryUrl}</span>
           </div>
         )}
+        <RemoteNeedsNote projectId={project.id} />
       </div>
     </header>
+  );
+}
+
+/** Which part of the Office identity the base branch's remote needs; nothing without a remote. */
+function RemoteNeedsNote({ projectId }: { readonly projectId: string }): ReactNode {
+  const remoteNeeds = useQuery(projectQueries.remoteNeeds(projectId));
+  if (!remoteNeeds.data) return null;
+  const line = remoteNeedsLine(remoteNeeds.data);
+  return (
+    <p className="project-remote-needs">
+      {line.needs}
+      {line.missing.map((missing) => (
+        <span key={missing} className="project-remote-missing">
+          {" "}
+          {missing}
+        </span>
+      ))}
+      {line.inSettings && (
+        <>
+          {" "}
+          <Link to={OFFICE_IDENTITY_SETTINGS_PATH}>Settings › Office identity</Link>
+        </>
+      )}
+    </p>
   );
 }
 

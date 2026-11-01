@@ -22,6 +22,7 @@ import {
 } from "../../shell/project-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
+import { GitHubRepositoryPicker } from "./github-repository-picker.tsx";
 import { installInputsFrom, MARK_COLOUR_LABELS } from "./project-labels.ts";
 import {
   RepositoryCloneStep,
@@ -48,16 +49,18 @@ const EMPTY: NewProject = {
   defaultPipeline: "full",
 };
 
-type WhereItIs = "folder" | "git-url";
+type WhereItIs = "folder" | "git-url" | "github";
 
 const WHERE_IT_IS_OPTIONS: { value: WhereItIs; label: string }[] = [
   { value: "folder", label: "A folder" },
   { value: "git-url", label: "A git URL" },
+  { value: "github", label: "From GitHub" },
 ];
 
 /**
  * "Add a Project" as a form: the service checks the path and branch before anything is saved. A
- * repository given by its git URL is cloned first, then added by its clone's path.
+ * repository given by its git URL, or picked from GitHub, is cloned first, then added by its
+ * clone's path.
  */
 export function AddProjectDialog({ onClose }: { readonly onClose: () => void }): ReactNode {
   const formId = useId();
@@ -93,7 +96,8 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
   const change = (fields: Partial<NewProject>): void => setDraft({ ...draft, ...fields });
   const mark = { ...draft.mark, label: labelEdited ? draft.mark.label : markLabelFor(draft.name) };
   const defaultPipeline = pipelines.data?.find((pipeline) => pipeline.id === draft.defaultPipeline);
-  const choosingClone = whereItIs === "git-url" && !cloned;
+  // A repository by its git URL or from GitHub is cloned before the form opens.
+  const step = cloned || whereItIs === "folder" ? "form" : whereItIs;
   const forgetClone = (): void => {
     cloning.forget();
     setFilledFrom(undefined);
@@ -118,7 +122,7 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
   return (
     <Dialog
       title="Add a Project"
-      description="A git repository on this workstation, or one cloned by its git URL. The Office checks the folder and the branch before saving."
+      description="A git repository on this workstation, or one cloned by its git URL or from GitHub. The Office checks the folder and the branch before saving."
       width={620}
       onClose={onClose}
       actions={
@@ -126,11 +130,13 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
           <Button variant="secondary" onClick={onClose}>
             Cancel
           </Button>
-          {choosingClone ? (
+          {step === "git-url" && (
             <Button type="submit" form={cloneFormId} loading={cloning.busy}>
               Clone
             </Button>
-          ) : (
+          )}
+          {/* Picking a repository from GitHub starts its clone, so that step submits nothing. */}
+          {step === "form" && (
             <Button type="submit" form={formId} loading={adding.isPending}>
               Add the Project
             </Button>
@@ -138,11 +144,15 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
         </>
       }
     >
-      {choosingClone ? (
+      {step === "github" && (
+        <GitHubRepositoryPicker cloning={cloning}>{whereItIsControl}</GitHubRepositoryPicker>
+      )}
+      {step === "git-url" && (
         <RepositoryCloneStep formId={cloneFormId} cloning={cloning}>
           {whereItIsControl}
         </RepositoryCloneStep>
-      ) : (
+      )}
+      {step === "form" && (
         <form
           id={formId}
           className="add-project-form"
@@ -197,7 +207,7 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
                 inputStyle={{ fontFamily: "var(--font-mono)" }}
               />
               <Button variant="secondary" size="sm" onClick={forgetClone}>
-                Use another URL
+                {whereItIs === "github" ? "Pick another repository" : "Use another URL"}
               </Button>
             </div>
           ) : (
@@ -288,7 +298,7 @@ function draftFromClone(draft: NewProject, clone: ClonedRepository): NewProject 
 }
 
 function whereItIsOf(value: string): WhereItIs {
-  return value === "git-url" ? "git-url" : "folder";
+  return WHERE_IT_IS_OPTIONS.find((option) => option.value === value)?.value ?? "folder";
 }
 
 function colourOf(value: string): ProjectMarkColour {

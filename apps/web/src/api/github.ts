@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
   gitHubAppManifestFormSchema,
+  gitHubRepositoryListSchema,
   gitHubSignInSchema,
   gitHubStateSchema,
   type GitHubAppManifestForm,
@@ -9,6 +10,7 @@ import {
 } from "@the-office/contracts";
 import { deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
+import { REMOTE_NEEDS } from "./projects.ts";
 
 const GITHUB = ["github"] as const;
 
@@ -18,6 +20,16 @@ export const gitHubQueries = {
     queryOptions({
       queryKey: GITHUB,
       queryFn: ({ signal }) => getFromApi("/github", gitHubStateSchema, signal),
+    }),
+  /**
+   * The repositories the App is installed on that the signed-in user reaches; the service refuses
+   * it while signed out. Under Sign in with GitHub's key, so signing in or out refreshes it.
+   */
+  repositories: () =>
+    queryOptions({
+      queryKey: [...GITHUB, "repositories"],
+      queryFn: ({ signal }) =>
+        getFromApi("/github/repositories", gitHubRepositoryListSchema, signal),
     }),
 };
 
@@ -39,5 +51,6 @@ export function signOutOfGitHub(): Promise<void> {
 export const gitHubEventInvalidations: Readonly<
   Record<GitHubWebEvent["type"], EventInvalidations[string]>
 > = {
-  "github.changed": () => [GITHUB],
+  // What a Project's remote lacks may be the sign-in.
+  "github.changed": () => [GITHUB, REMOTE_NEEDS],
 };

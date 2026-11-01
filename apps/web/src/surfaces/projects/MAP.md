@@ -1,6 +1,6 @@
 # Projects surface: map
 
-**Owns:** the Projects page (a card each with its onboarding badge; adding one by asking Devops to onboard it, `AskDevopsButton`, or the user's own form, "Where it is" a folder or a git URL; a URL is cloned first, `repository-clone-step.tsx`, its progress read live from `repository-clone.changed`, then the form opens with the clone's path, Repository URL, name and default branch, the base branch picked from the remote's) and a Project's page (its Repository URL in the head when cloned): its onboarding (`onboarding-block.tsx`, from Work's `GET /onboardings`, joined by Project and refreshed by any Task event since it sits under the Tasks' query key), commands, install inputs, publishing mode, default Pipeline, the environment check, the Project's skills, and the MCP servers' Server values with the Project's own (`server-values-block.tsx`; every value of a server is sent back, a kept secret by its name alone, as one left out is cleared). It reads the service through `src/api/` (see [the web app's map](../../MAP.md)).
+**Owns:** the Projects page (a card each with its onboarding badge; adding one by asking Devops to onboard it, `AskDevopsButton`, or the user's own form, "Where it is" a folder, a git URL or From GitHub (`github-repository-picker.tsx`: the repositories the App is installed on, searched by name, picking one starting its clone as a typed URL does; signed out or not registered, a line linking Settings › Office identity); a URL is cloned first, `repository-clone-step.tsx`, its progress read live from `repository-clone.changed`, then the form opens with the clone's path, Repository URL, name and default branch, the base branch picked from the remote's) and a Project's page (its Repository URL in the head when cloned, and a line on which part of the Office identity its base branch's remote needs and what is missing, `remote-needs-words.ts`, read under `REMOTE_NEEDS`, apart from the Projects' key, which `github.changed` refreshes): its onboarding (`onboarding-block.tsx`, from Work's `GET /onboardings`, joined by Project and refreshed by any Task event since it sits under the Tasks' query key), commands, install inputs, publishing mode, default Pipeline, the environment check, the Project's skills, and the MCP servers' Server values with the Project's own (`server-values-block.tsx`; every value of a server is sent back, a kept secret by its name alone, as one left out is cleared). It reads the service through `src/api/` (see [the web app's map](../../MAP.md)).
 
 **Traps:** no event follows a Project's Server values, so a save puts the answer in the query; the query sits under the Project's key, so the library's events, which refresh the Projects, refresh it too.
 
@@ -15,14 +15,16 @@
 - `default-pipeline-block.tsx`: DefaultPipelineBlock
 - `environment-block.tsx`: EnvironmentBlock
 - `environment-labels.ts`: checkBadge, worktreeCheckLabel, worktreeCheckDetail, commandCheckLabel, runSummary, formatDuration, EnvironmentDraft, draftOf, environmentOf
+- `github-repository-picker.tsx`: GitHubRepositoryPicker
 - `onboarding-block.tsx`: useOnboarding, OnboardingBadge, OnboardingBlock
 - `project-block.tsx`: ProjectBlock
 - `project-labels.ts`: installInputsFrom, MARK_COLOUR_LABELS
 - `project-page.tsx`: ProjectPage
 - `projects-page.tsx`: ProjectsPage
-- `repository-clone-step.tsx`: ClonedRepository, RepositoryCloning, useRepositoryCloning, RepositoryCloneStep, repositoryNameOf
+- `remote-needs-words.ts`: RemoteNeedsLine, remoteNeedsLine
+- `repository-clone-step.tsx`: ClonedRepository, RepositoryCloning, useRepositoryCloning, RepositoryCloneStep, CloneProblems, CloneProgress, repositoryNameOf
 - `server-values-block.tsx`: ServerValuesBlock
 - `server-values-draft.ts`: ServerValuesDraft, serverValuesDraftOf, serverValuesChangeOf, officeWideWords, projectValueWords, leavesServerOut
 - `skills-block.tsx`: SkillsBlock
 - `work-block.tsx`: WorkBlock
-- Tests: server-values-draft.test.ts
+- Tests: remote-needs-words.test.ts, server-values-draft.test.ts

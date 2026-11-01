@@ -59,7 +59,6 @@ export function RepositoryCloneStep({
   readonly children: ReactNode;
 }): ReactNode {
   const [url, setUrl] = useState("");
-  const { clone } = cloning;
   return (
     <form
       id={formId}
@@ -70,14 +69,7 @@ export function RepositoryCloneStep({
       }}
     >
       {children}
-      {cloning.refusal && (
-        <RefusalAlert title="The repository can't be cloned" error={cloning.refusal} />
-      )}
-      {clone?.state === "failed" && (
-        <Alert tone="danger" title="The clone failed">
-          {clone.problem}
-        </Alert>
-      )}
+      <CloneProblems cloning={cloning} />
       <Input
         label="Repository URL"
         hint="https, ssh:// or user@host:path. The Office clones it into its data folder, then you add it."
@@ -88,16 +80,32 @@ export function RepositoryCloneStep({
         inputStyle={{ fontFamily: "var(--font-mono)" }}
         autoFocus
       />
-      {clone?.state === "cloning" && <CloneProgress clone={clone} />}
+      <CloneProgress cloning={cloning} />
     </form>
   );
 }
 
-function CloneProgress({
-  clone,
-}: {
-  readonly clone: Extract<RepositoryClone, { state: "cloning" }>;
-}): ReactNode {
+/** Why the clone couldn't start, or why it failed; nothing while it goes well. */
+export function CloneProblems({ cloning }: { readonly cloning: RepositoryCloning }): ReactNode {
+  const { clone } = cloning;
+  return (
+    <>
+      {cloning.refusal && (
+        <RefusalAlert title="The repository can't be cloned" error={cloning.refusal} />
+      )}
+      {clone?.state === "failed" && (
+        <Alert tone="danger" title="The clone failed">
+          {clone.problem}
+        </Alert>
+      )}
+    </>
+  );
+}
+
+/** How far the clone has come, while it runs. */
+export function CloneProgress({ cloning }: { readonly cloning: RepositoryCloning }): ReactNode {
+  const { clone } = cloning;
+  if (clone?.state !== "cloning") return null;
   const percent = clone.progress?.percent;
   return (
     <ProgressBar

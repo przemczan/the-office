@@ -127,6 +127,61 @@
 .add-project-cloned > :first-child {
   align-self: stretch;
 }
+
+.add-project-note {
+  margin: 0;
+  color: var(--fg-2);
+}
+
+.github-repositories {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+
+.github-repositories li + li {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.github-repository {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.github-repository:hover:not(:disabled),
+.github-repository:focus-visible {
+  background: var(--surface-hover);
+}
+
+.github-repository:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.github-repository-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-family: var(--font-mono);
+}
+
+.github-repository-branch {
+  color: var(--fg-3);
+  font-family: var(--font-mono);
+}
 /* ---- a Project's page */
 .project-head {
   display: flex;
@@ -138,6 +193,17 @@
   margin: 0;
   font: 600 20px/1.3 var(--font-sans);
   letter-spacing: var(--tracking-tight);
+}
+
+.project-remote-needs {
+  max-width: 72ch;
+  margin: 6px 0 0;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.project-remote-missing {
+  color: var(--warning-fg);
 }
 
 .project-head-meta {
