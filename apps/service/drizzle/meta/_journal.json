@@ -463,6 +463,13 @@
       "when": 1793526285417,
       "tag": "0065_project_repository_url",
       "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1793528122056,
+      "tag": "0066_github_app",
+      "breakpoints": true
     }
   ]
 }

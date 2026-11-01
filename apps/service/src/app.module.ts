@@ -10,6 +10,7 @@ import {
   ThreadService,
 } from "./modules/conversations/index.js";
 import { EngineModule, UsageWindowState } from "./modules/engine/index.js";
+import { GitHubModule } from "./modules/github/index.js";
 import { NotificationsModule } from "./modules/notifications/index.js";
 import { PeopleModule, RoleCards } from "./modules/people/index.js";
 import {
@@ -97,6 +98,7 @@ export class AppModule {
         EngineModule,
         EventsModule,
         EventStreamModule,
+        GitHubModule.register(),
         HealthModule,
         McpServersModule,
         OfficeDataModule.forRoot(config.officeDataDirectory),

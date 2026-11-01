@@ -86,10 +86,10 @@ Decided with the user on 2026-10-31 and 2026-11-01:
   Read: the State; `projects/domain/project.ts` (`Project`, `NewProject`, `trimmedNewProject`); `projects/application/project-checks.ts` (`newProjectProblems`); `projects/adapters/postgres/projects.schema.ts`, `postgres-project-repository.ts`; `packages/contracts/src/projects.ts` (`newProjectSchema`, `projectSchema`); `apps/service/drizzle/0064_mcp_tool_settings.sql`.
 - [x] 3b. The web, Add Project's "Where it is": a folder or a git URL, about 70k. A URL is cloned first, with progress, then the form opens with the name and base branch from the clone. The Project page shows the Repository URL. e2e on a local repository served as a URL. Commit.
   Read: the State; `apps/web/src/surfaces/projects/MAP.md`, `add-project-dialog.tsx`; `apps/web/src/api/projects.ts`; `apps/web/e2e/MAP.md`.
-- [ ] 4. The `github` module and registering the App, about 90k:
+- [x] 4. The `github` module and registering the App, about 90k:
   - The module template's layers.
   - The manifest flow: `GET /api/github/app/manifest` gives the manifest form for the browser to post to GitHub; GitHub redirects to `GET /api/github/app/registered?code=…`; The Office calls `POST /app-manifests/{code}/conversions`, keeps the Client ID, slug and owner, discards the rest, and sends the browser back to Settings.
-  - GitHub's base URLs come from Office config, and a fake GitHub server is added as a fixture.
+  - GitHub's base URLs are given to `GitHubModule.register`, and a fake GitHub server is added as a fixture. Reading them from Office config moved to step 9a, the first whose e2e needs them.
   - Events.
   - Commit.
 
@@ -130,6 +130,7 @@ Decided with the user on 2026-10-31 and 2026-11-01:
   - Sign in with the code and link while waiting; signed in as the login, with Sign out; signed out with why; "Install the App on more repositories".
   - The Office ssh key's public half to copy, with where to add it.
   - Hosts waiting for their fingerprint to be confirmed, and the trusted ones.
+  - GitHub's base URLs from Office config (`OFFICE_GITHUB_URL`, `OFFICE_GITHUB_API_URL`, GitHub's own by default) into `GitHubModule.register`; the e2e points them at a fake GitHub server. Touches `platform/config/`, so `npm run verify:linux`.
   - e2e against the fake GitHub server.
   - Commit.
 
@@ -162,13 +163,15 @@ Decided with the user on 2026-10-31 and 2026-11-01:
 
 ## State
 
-- Steps 0–3b done. `platform/git-identity/`: `OfficeIdentity.forGitCommand(remote | undefined, inherited)`, `needsOf(remote)`, `OfficeSshKey`, `GitHubUserToken` (`@Optional`, bound by nothing yet). Every Office git command runs on it (Projects' `GitProcess`, Skills' fetcher). `GET /api/projects/:id/remote-needs`; `ProjectRemotes` words failures from the identity's state.
+- Steps 0–4 done. `platform/git-identity/`: `OfficeIdentity.forGitCommand(remote | undefined, inherited)`, `needsOf(remote)`, `OfficeSshKey`, `GitHubUserToken` (`@Optional`, bound by nothing yet). Every Office git command runs on it (Projects' `GitProcess`, Skills' fetcher). `GET /api/projects/:id/remote-needs`; `ProjectRemotes` words failures from the identity's state.
 - Cloning (step 3): `projects/application/repository-url.ts` (`readRepositoryUrl`, `clonePathOf`; http, git://, file, local paths, credentials in the URL and the rest refused); `Git.remoteBranches`, `Git.clone` (`adapters/git/git-clone.ts`, hidden sibling then renamed); `RepositoryClones` (in memory): `POST /api/repositories/clones` → 202, `GET …/:id`, web event `repository-clone.changed { cloneId }`; the Office rules let sessions read `<office-data>/repositories/`.
 - Step 3a: `projects.repository_url` (migration 0065); `NewProject.repositoryUrl` accepted only with `path` = its clone folder; a base branch only on `origin` is made locally tracking on add. Devops' `propose_project` omits it until step 8.
 - Step 3b, service: a reused clone gets `origin` set to the URL given last and is fetched (`Git.fetchBranches`, every branch, `--prune`, on the identity). Clone, `ls-remote` and `ProjectRemotes.whyUnreachable`/`whyCloneFailed` decide the identity on the URL git reaches (`Git.reachedUrlOf`, `ls-remote --get-url`, `insteadOf` applied): a user's `insteadOf` may turn https into ssh. The clone controller test now maps its made-up host by `insteadOf` in `GIT_CONFIG_COUNT` variables, not a `Git` subclass.
 - Step 3b, web: `AddProjectDialog` "Where it is": A folder / A git URL. A URL goes through `repository-clone-step.tsx` (`useRepositoryCloning`: start, refusal, live clone by `projectQueries.repositoryClone`, key `["repository-clones", id]`, refreshed by `repositoryCloneEventInvalidations` in `app.tsx`), progress as a bar with git's phase; when cloned the usual form opens with path, Repository URL (read-only, "Use another URL"), name from the URL and a base-branch Select of the remote's branches. The Projects tile's button is now "Add it yourself". `ProjectHead` shows the Repository URL.
 - e2e: `apps/web/e2e/git-host.ts` serves bare repositories on `https://git.example.test/` from `<tmp>/office-e2e-git-host` by `insteadOf` variables `serve-office.ts` gives the service. The e2e checks the refusal and the add; the progress bar itself is too quick to see there (the service test covers progress events).
-- Open for the user: git-lfs reads `.netrc` itself; a host offering Negotiate or NTLM gets the Windows sign-in through SSPI. The step-1 choices "chosen while writing" stand.
+- Step 4: `modules/github/` (see its MAP.md). `GitHubModule.register(urls = GITHUB_URLS)`; `AppRegistration` (`manifestForm`, `complete`), `GitHubApi` port → `GitHubRestApi` (parses only `client_id`, `slug`, `owner`; failures name the status, never the body), one-row `github_app` (migration 0066), `GitHubAppRegistered` → web `github.changed`. Contract `packages/contracts/src/github.ts`. Failures land on `/settings/office-identity?registrationFailed=<why>`. `redirect_url` comes from the request's own origin. `FakeGitHub` (`index.fixtures.ts`): web at its origin, API under `/api/v3`; `POST /settings/apps/new` registers from the posted manifest and 302s back with code and state; codes convert once; `requests`, `issueCode`, `FAKE_GITHUB_SECRETS`.
+- Open for the user: Device Flow can't be asked for in a manifest, so the user turns it on in the App's settings after registering (9a says so; step 5 words `device_flow_disabled`). The manifest leaves out the name (unique on GitHub) and the webhook; the live check confirms GitHub takes that. git-lfs reads `.netrc` itself; a host offering Negotiate or NTLM gets the Windows sign-in through SSPI. The step-1 choices "chosen while writing" stand.
+- Trap for 9a: fixtures are left out of the build, so the e2e service can't import `FakeGitHub` as it is.
 - `npm run verify:linux` last passed at step 2; see the latest Progress line for steps 3–3b.
 - Found in step 0: several code comments cite "spec §9", the old numbering that the spec README maps.
 
@@ -180,3 +183,4 @@ Decided with the user on 2026-10-31 and 2026-11-01:
 - 2026-11-01 · step 3: cloning by Repository URL (`RepositoryUrl`, `Git.clone`/`remoteBranches`, `RepositoryClones` with `POST`/`GET /api/repositories/clones` and `repository-clone.changed`), the `repositories` folder, the Office rules reading clones; the migration moved to a new step 3a; next, step 3a.
 - 2026-11-01 · step 3a: the Project keeps its Repository URL (migration 0065), given only with its clone's folder; a clone's base branch that is only the remote's is made locally tracking it on add; a reused clone fetches from the URL given last; next, step 3b, the web.
 - 2026-11-01 · step 3b: Add Project takes a folder or a git URL, cloned first with progress, then the form from the clone; the Project page shows its Repository URL; a reused clone is fetched; git's reached URL decides the identity; e2e on a made-up https host by `insteadOf`; next, step 4, the `github` module.
+- 2026-11-01 · step 4: the `github` module registers the GitHub App by its manifest (`GET /api/github/app/manifest`, `GET …/registered` converting the code, keeping Client ID, slug and owner in `github_app`), `github.changed`, a fake GitHub server; base URLs from Office config moved to 9a; next, step 5, sign in by device flow.
