@@ -30,7 +30,7 @@ import {
   type Proposal,
   type Stage,
 } from "@the-office/contracts";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../../test/test-database.js";
 import { AppModule } from "../../../app.module.js";
@@ -79,9 +79,16 @@ const ROLE_CARDS: Partial<RoleCards> = {
 let folder: string;
 let app: INestApplication;
 let url: string;
+/**
+ * Each test's own: a session that opens late, after its test timed out, would otherwise take the
+ * next test's script off the shared queue and show up among its sessions.
+ */
 let engine: ScriptedEngine;
 
-beforeAll(async () => {
+/** The whole app boots for each test: slow under a full run. */
+const BOOT_TIMEOUT_MS = 30_000;
+
+beforeEach(async () => {
   folder = await mkdtemp(join(tmpdir(), "office-devops-proposals-"));
   engine = new ScriptedEngine([]);
   ({ app, url } = await startTestApplication({
@@ -106,9 +113,9 @@ beforeAll(async () => {
     ],
     moduleOverrides: [{ module: EngineModule, useModule: ScriptedEngineModule.register(engine) }],
   }));
-});
+}, BOOT_TIMEOUT_MS);
 
-afterAll(async () => {
+afterEach(async () => {
   await app.close();
   await rm(folder, { recursive: true, force: true });
 });
@@ -694,6 +701,7 @@ async function ninaCalls(
 async function ninaProposes(
   ...calls: readonly (readonly [string, Record<string, unknown>])[]
 ): Promise<readonly Proposal[]> {
+  const sessionsBefore = engine.sessions.length;
   engine.queue([
     { step: "start", brief: { id: "brief", text: "" } },
     ...calls.flatMap(([tool, input], index) => toolCall(`c-${index}`, tool, input)),
@@ -707,8 +715,13 @@ async function ninaProposes(
   const drafted = await vi.waitFor(
     async () => {
       const inThread = await proposals.listInThread(started.id);
-      if (inThread.length < calls.length) throw new Error("Still drafting.");
-      return inThread;
+      if (inThread.length >= calls.length) return inThread;
+      // A refused draft never arrives: name the refusal rather than wait it out as slowness.
+      const refusal = engine.sessions
+        .slice(sessionsBefore)
+        .flatMap((session) => session.reportedEvents)
+        .find((event) => event.kind === "tool-result" && event.isError);
+      throw new Error(refusal?.kind === "tool-result" ? refusal.text : "Still drafting.");
     },
     // Installing a skill reads its Source with several git calls, slow under a full run.
     { timeout: 25_000, interval: 20 },
