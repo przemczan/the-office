@@ -1,6 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { UsageWindowsChanged } from "../domain/engine-events.js";
+import { UsageWindowsChanged, UsageWindowsRead } from "../domain/engine-events.js";
+import { hasUsageWindows, type EngineId } from "../domain/engines.js";
 import { sameUsageWindows, type UsageWindows } from "../domain/usage-windows.js";
 import type { TokenUsage } from "../ports/session-events.js";
 
@@ -26,11 +27,18 @@ export class UsageWindowState {
     return this.reading;
   }
 
-  /** Keeps every reading, and announces one whose windows differ from what was known. */
+  /** The reading of the account `engineId` spends on; undefined on one without windows. */
+  of(engineId: EngineId): UsageWindowReading | undefined {
+    return hasUsageWindows(engineId) ? this.reading : undefined;
+  }
+
+  /** Keeps every reading and announces it, and a change when its windows differ from what was known. */
   async update(reading: UsageWindowReading): Promise<void> {
     const previous = this.reading;
     this.reading = reading;
-    if (previous !== undefined && sameUsageWindows(previous, reading)) return;
-    await this.events.publish(new UsageWindowsChanged(reading));
+    if (previous === undefined || !sameUsageWindows(previous, reading)) {
+      await this.events.publish(new UsageWindowsChanged(reading));
+    }
+    await this.events.publish(new UsageWindowsRead(reading, reading.readAt));
   }
 }

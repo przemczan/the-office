@@ -1,3 +1,4 @@
+import { capWaits, exceededWindowCaps, type CapWaits, type UsageAtStart } from "./cap-waits.js";
 import type { Task } from "./task.js";
 import type { StateChangeCause } from "./state-change.js";
 import { withStateChange, type TaskChange } from "./task-changes.js";
@@ -35,6 +36,8 @@ export interface StartConditions {
   readonly person: StartingPerson | undefined;
   /** The Office setting: how many Tasks may be started at once across The Office. */
   readonly officeWideLimit: number;
+  /** What the Task is expected to use, against the caps of the engines it spends on. */
+  readonly usage: UsageAtStart;
 }
 
 /**
@@ -52,8 +55,9 @@ export interface HeldAtStart {
 /**
  * Why the Task can't start now, sorted as Start treats them (spec §2.1, "A queue for Start"): a
  * refusal (not Ready, a Task it waits for isn't Done, a vacant Role, a person who only talks) stops
- * Start; a wait (the fire alarm, the Office-wide limit, its person's Task limit) only holds the Task
- * until the all clear, and a desk and its person are free. Both are empty when it can start.
+ * Start; a wait (the fire alarm, the Office-wide limit, its person's Task limit, a cap it would
+ * pass) only holds the Task until the all clear, a desk and its person are free, and the cap
+ * allows it. Both are empty when it can start.
  */
 export interface StartReasons {
   readonly refusals: readonly string[];
@@ -89,8 +93,14 @@ export function startReasons(
       ...(fireAlarmOn ? [FIRE_ALARM_ON] : []),
       ...officeWideLimitWaits(conditions.officeWideLimit, others),
       ...taskLimitWaits(stage, conditions.person, others),
+      ...capWaitsAtStart(conditions.usage).waits,
     ],
   };
+}
+
+/** What holds the Start for the caps it would pass. */
+export function capWaitsAtStart(usage: UsageAtStart): CapWaits {
+  return capWaits(exceededWindowCaps(usage), usage.now);
 }
 
 /**

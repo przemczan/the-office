@@ -14,6 +14,7 @@ import {
   InitiativeThreadsForTests,
   KnownPeopleForTests,
   KnownProjectsForTests,
+  AccountWindowsForTests,
   ModelPricesForTests,
   NewProjectsForTests,
   ProposalDraftsForTests,
@@ -69,6 +70,7 @@ export async function startWorkApplication(
         proposalDrafts: ProposalDraftsForTests,
         usageHistory: UsageHistoryForTests,
         modelPrices: ModelPricesForTests,
+        accountWindows: AccountWindowsForTests,
       }),
     ],
   });

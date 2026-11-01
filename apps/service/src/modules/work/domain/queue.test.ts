@@ -4,7 +4,7 @@ import { TaskQueued } from "./queue-events.js";
 import { moveUpInQueue, queueOrder, releaseQueue, startOrQueue, type QueuedTask } from "./queue.js";
 import { TaskRefused } from "./task-refused.js";
 import type { StartConditions } from "./task-start.js";
-import { aTask } from "./work.fixtures.js";
+import { aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
 
 const NOW = new Date("2026-10-29T09:00:00.000Z");
 const NO_CHOICE = { now: NOW, onOverlap: undefined };
@@ -14,6 +14,7 @@ function conditionsFor(role: string, taskLimit = 1, officeWideLimit = 3): StartC
     stages: [{ name: "Implement", role }, { name: "Tests" }],
     person: { name: `The ${role}`, taskLimit },
     officeWideLimit,
+    usage: NO_USAGE_AT_START,
   };
 }
 
@@ -207,6 +208,44 @@ describe("releaseQueue", () => {
     );
 
     expect(release.refused.map(({ taskId }) => taskId)).toEqual(["a"]);
+  });
+
+  it("weighs each Task it starts against the windows of those after it, on the same reading", () => {
+    const resetsAt = new Date(NOW.getTime() + 3 * 60 * 60 * 1000);
+    const onTheReading: StartConditions = {
+      ...conditionsFor("developer", 2),
+      usage: {
+        now: NOW,
+        measures: ["fiveHourWindow"],
+        estimate: [
+          { engineId: "claude-code", tokens: 1000, windows: { fiveHour: 6, sevenDay: 1 }, cost: 1 },
+        ],
+        windows: [
+          {
+            engineId: "claude-code",
+            caps: { fiveHour: 90, sevenDay: 90 },
+            reading: {
+              readAt: NOW,
+              fiveHour: { percentUsed: 80, resetsAt },
+              sevenDay: { percentUsed: 10, resetsAt },
+            },
+            startedSinceReading: { fiveHour: 0, sevenDay: 0 },
+          },
+        ],
+      },
+    };
+
+    const release = releaseQueue(
+      [queued("a", 1), queued("b", 2)],
+      alarmOff([ready("a"), ready("b")]),
+      () => onTheReading,
+    );
+
+    expect(release.started.map(({ task }) => task.id)).toEqual(["a"]);
+    expect(release.waiting.map(({ reasons }) => reasons)).toEqual([
+      [expect.stringContaining("80% used, 6% expected of the Tasks started since it was read")],
+    ]);
+    expect(release.capResets).toEqual([resetsAt]);
   });
 
   it("leaves waiting a Task queued after its conditions were read", () => {

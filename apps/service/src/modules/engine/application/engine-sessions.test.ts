@@ -12,7 +12,7 @@ import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js"
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { ScriptedEngine } from "../adapters/scripted/scripted-engine.js";
 import type { SessionScript } from "../adapters/scripted/session-script.js";
-import { EngineDown, UsageWindowsChanged } from "../domain/engine-events.js";
+import { EngineDown, UsageWindowsChanged, UsageWindowsRead } from "../domain/engine-events.js";
 import type { Engine } from "../domain/engines.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import {
@@ -208,7 +208,7 @@ describe("EngineSessions", () => {
     expect(call?.attributes).not.toHaveProperty("office.cost.usd");
   });
 
-  it("reads the usage windows on a rate limit, and announces them when they change", async () => {
+  it("reads the usage windows on a rate limit, and announces the reading and the change", async () => {
     const { sessions, published, usageWindows } = setUp([
       [
         { step: "start", brief: { id: "brief", text: "Begin." } },
@@ -231,6 +231,9 @@ describe("EngineSessions", () => {
     const changes = published.filter((event) => event instanceof UsageWindowsChanged);
     expect(changes).toHaveLength(1);
     expect(changes[0]?.windows).toMatchObject(WINDOWS);
+    const readings = published.filter((event) => event instanceof UsageWindowsRead);
+    expect(readings).toHaveLength(1);
+    expect(readings[0]?.readAt).toEqual(usageWindows.current?.readAt);
   });
 
   it("refuses a session named an Office tool no module registered, before the engine starts it", async () => {

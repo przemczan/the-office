@@ -1,5 +1,6 @@
 import type { Attachment } from "./attachment.js";
 import { THE_USER } from "./author.js";
+import type { UsageAtStart } from "./cap-waits.js";
 import type { Idea } from "./idea.js";
 import type { Initiative } from "./initiative.js";
 import type { Task } from "./task.js";
@@ -87,3 +88,11 @@ export function aLink(fields: Partial<Pick<Attachment, "id" | "owner">> = {}): A
     ...fields,
   };
 }
+
+/** No estimate, and no windows the Task spends on. */
+export const NO_USAGE_AT_START: UsageAtStart = {
+  now: new Date("2026-10-29T09:00:00.000Z"),
+  measures: [],
+  estimate: [],
+  windows: [],
+};

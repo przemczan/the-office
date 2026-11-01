@@ -5,7 +5,14 @@ import type { TaskChange } from "./task-changes.js";
 import type { TaskStarted } from "./task-events.js";
 import { TaskQueued } from "./queue-events.js";
 import { TaskRefused } from "./task-refused.js";
-import { startReasons, startTask, type HeldAtStart, type StartConditions } from "./task-start.js";
+import { withStartedSinceReading } from "./cap-waits.js";
+import {
+  capWaitsAtStart,
+  startReasons,
+  startTask,
+  type HeldAtStart,
+  type StartConditions,
+} from "./task-start.js";
 import { overlapsOf, overlapWords } from "./task-overlap.js";
 import { STARTED_STATES } from "./task-states.js";
 
@@ -95,11 +102,14 @@ export interface Release {
   readonly refused: readonly { readonly taskId: string; readonly refusals: readonly string[] }[];
   /** Tasks still waiting, with the waits that hold them now. */
   readonly waiting: readonly QueuedTask[];
+  /** When the caps holding each waiting Task last reset, for those caps hold. */
+  readonly capResets: readonly Date[];
 }
 
 /**
  * Starts every queued Task that can start now, in the queue's order, each counting against the
- * limits of those after it, so a Task waiting for a busy person holds none behind it. A Task that
+ * limits of those after it and its estimate against their windows, as started on the same reading,
+ * so a Task waiting for a busy person holds none behind it. A Task that
  * meets a refusal leaves the queue; one with no conditions (queued after they were read) waits on.
  * `tasks` holds every Task and `fireAlarmOn` the alarm, both read in the hold of Starts.
  */
@@ -113,13 +123,19 @@ export function releaseQueue(
   const started: TaskChange<TaskStarted>[] = [];
   const refused: { taskId: string; refusals: readonly string[] }[] = [];
   const waiting: QueuedTask[] = [];
+  const capResets: Date[] = [];
+  const startedEstimates: StartConditions["usage"]["estimate"][] = [];
   for (const queued of queueOrder(queue)) {
     const task = byId.get(queued.taskId);
-    const conditions = conditionsOf(queued.taskId);
-    if (!task || !conditions) {
+    const read = conditionsOf(queued.taskId);
+    if (!task || !read) {
       waiting.push(queued);
       continue;
     }
+    const conditions = {
+      ...read,
+      usage: startedEstimates.reduce(withStartedSinceReading, read.usage),
+    };
     const blockers = task.blockedBy.flatMap((id) => byId.get(id) ?? []);
     const held = {
       startedTasks: [...startedTasks, ...started.map((change) => change.task)],
@@ -129,10 +145,16 @@ export function releaseQueue(
     const { refusals, waits } = startReasons(task, conditions, held);
     const allWaits = [...waits, ...behindWaits(queued.behind, tasks)];
     if (refusals.length > 0) refused.push({ taskId: task.id, refusals });
-    else if (allWaits.length > 0) waiting.push({ ...queued, reasons: allWaits });
-    else started.push(startTask(task, conditions, held, BY_THE_QUEUE));
+    else if (allWaits.length > 0) {
+      waiting.push({ ...queued, reasons: allWaits });
+      const { resetsAt } = capWaitsAtStart(conditions.usage);
+      if (resetsAt) capResets.push(resetsAt);
+    } else {
+      started.push(startTask(task, conditions, held, BY_THE_QUEUE));
+      startedEstimates.push(conditions.usage.estimate);
+    }
   }
-  return { started, refused, waiting };
+  return { started, refused, waiting, capResets };
 }
 
 /**

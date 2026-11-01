@@ -7,7 +7,9 @@ import {
   TaskThreadSetups,
   WorkRecords,
 } from "../../conversations/index.js";
+import { hasUsageWindows, type EngineId } from "../../engine/index.js";
 import type { NewProject } from "../../projects/index.js";
+import type { AccountWindowsReading } from "../domain/cap-waits.js";
 import { FIRE_ALARM_OFF, type FireAlarm } from "../domain/fire-alarm.js";
 import { DEFAULT_OFFICE_WIDE_LIMIT, type TaskLimit } from "../domain/task-start.js";
 import {
@@ -17,6 +19,7 @@ import {
   type UsageRatios,
 } from "../domain/usage-estimate.js";
 import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from "../domain/usage-settings.js";
+import { AccountWindows } from "./account-windows.js";
 import { FireAlarmRepository } from "./fire-alarm-repository.js";
 import { IdeaCards } from "./idea-cards.js";
 import { InitiativeThreads, type InitiativeThreadOpening } from "./initiative-threads.js";
@@ -308,9 +311,23 @@ export class ModelPricesForTests extends ModelPrices {
   }
 }
 
+/**
+ * The windows of the test's own, so no test weighs a reading another file's session made: none
+ * unless a test gives one, which counts for the Claude Code engines' account.
+ */
+@Injectable()
+export class AccountWindowsForTests extends AccountWindows {
+  reading: AccountWindowsReading | undefined;
+
+  of(engineId: EngineId): AccountWindowsReading | undefined {
+    return hasUsageWindows(engineId) ? this.reading : undefined;
+  }
+}
+
 const PORTS = [
   UsageHistoryForTests,
   ModelPricesForTests,
+  AccountWindowsForTests,
   KnownProjectsForTests,
   NewProjectsForTests,
   ProjectWorktreesForTests,

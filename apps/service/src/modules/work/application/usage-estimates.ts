@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { ENGINES, EngineSessions, engineIdOf } from "../../engine/index.js";
+import { ENGINES, EngineSessions, engineIdOf, type EngineId } from "../../engine/index.js";
 import type { Task } from "../domain/task.js";
 import {
   HISTORY_WINS_AT,
@@ -59,6 +59,12 @@ export class UsageEstimates {
     return Promise.all(
       ready.map(async (task) => ({ taskId: task.id, usageEstimate: await estimate(task) })),
     );
+  }
+
+  /** The engine ids the Task's Pipeline's Agent Stages spend on, estimated or not. */
+  async engineIdsOf(task: Task): Promise<readonly EngineId[]> {
+    const stages = await this.estimatedStages(task.pipelineId);
+    return [...new Set(stages.map(({ engineId }) => engineId))];
   }
 
   private async tickedMeasures(): Promise<readonly UsageMeasure[]> {

@@ -82,6 +82,7 @@ export class AppModule {
       proposalDrafts: ProposalService,
       usageHistory: UsageHistory,
       modelPrices: ModelPrices,
+      accountWindows: UsageWindowState,
     });
     const pipelines = PipelinesModule.register({
       imports: [work, PeopleModule, conversations, projects],

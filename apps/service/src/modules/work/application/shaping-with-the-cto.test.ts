@@ -37,6 +37,7 @@ import type { Initiative } from "../domain/initiative.js";
 import {
   KnownProjectsForTests,
   NewProjectsForTests,
+  AccountWindowsForTests,
   ModelPricesForTests,
   ProjectWorktreesForTests,
   UsageHistoryForTests,
@@ -138,6 +139,7 @@ const STAND_INS = [
   ProjectWorktreesForTests,
   UsageHistoryForTests,
   ModelPricesForTests,
+  AccountWindowsForTests,
 ];
 
 /** Projects' service, which Conversations judges Devops' Proposals by; none is drafted here. */
@@ -198,6 +200,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         proposalDrafts: ProposalService,
         usageHistory: UsageHistoryForTests,
         modelPrices: ModelPricesForTests,
+        accountWindows: AccountWindowsForTests,
       }),
     ],
     overrides: [

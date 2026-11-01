@@ -33,6 +33,7 @@ import {
   type EngineSession,
   type NewSession,
   type SessionScript,
+  UsageWindowsRead,
 } from "../../../engine/index.js";
 import { MemoryService, RoleCards, type SessionRole } from "../../../people/index.js";
 import { PlanningService } from "../../application/planning-service.js";
@@ -48,6 +49,7 @@ import type { TaskChange } from "../../domain/task-changes.js";
 import { FireAlarmRepository } from "../../ports/fire-alarm-repository.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { DomainEvent } from "../../../../platform/events/domain-event.js";
+import { EventBus } from "../../../../platform/events/event-bus.js";
 import { PostgresTaskRepository } from "../postgres/postgres-task-repository.js";
 import { PLANNER } from "../../domain/planning.js";
 import { changeStartedTaskState } from "../../domain/task-changes.js";
@@ -61,6 +63,7 @@ import {
   UNKNOWN_PROJECT,
   UsageHistoryForTests,
   WorkSettingsForTests,
+  AccountWindowsForTests,
 } from "../../ports/work-ports.fixtures.js";
 import { TaskRepository } from "../../ports/task-repository.js";
 import { WorkSettings } from "../../ports/work-settings.js";
@@ -1671,5 +1674,100 @@ describe("Usage estimates", () => {
       taskId: task.id,
       usageEstimate: { basis: { source: "none" }, engines: [] },
     });
+  });
+});
+
+const HOUR = 60 * 60 * 1000;
+
+/** The 5-hour window read now at `percentUsed`, resetting `resetsIn` from now; desks to spare. */
+async function windowRead(percentUsed: number, resetsIn: number): Promise<void> {
+  work.app.get(UsageHistoryForTests).usageRatios = {
+    percentUsedPerToken: { fiveHour: 0.0001, sevenDay: undefined },
+    dollarsPerToken: undefined,
+  };
+  await sendJson(work, "PUT", "/settings/office-wide-limit", { officeWideLimit: 12 });
+  work.app.get(AccountWindowsForTests).reading = {
+    readAt: new Date(),
+    fiveHour: { percentUsed, resetsAt: new Date(Date.now() + resetsIn) },
+    sevenDay: { percentUsed: 0, resetsAt: undefined },
+  };
+}
+
+async function newReading(): Promise<void> {
+  const windows = work.app.get(AccountWindowsForTests);
+  const reading = windows.reading;
+  if (!reading) throw new Error("No reading to read again.");
+  windows.reading = { ...reading, readAt: new Date() };
+  const { readAt, fiveHour, sevenDay } = windows.reading;
+  await work.app.get(EventBus).publish(new UsageWindowsRead({ fiveHour, sevenDay }, readAt));
+}
+
+describe("Window caps", () => {
+  const ownIds: string[] = [];
+
+  afterEach(async () => {
+    for (const id of ownIds.splice(0)) await sendJson(work, "POST", `/tasks/${id}/drop`);
+  });
+
+  /** A Ready Task expected to use 6% of the 5-hour window, by the Planner's tokens. */
+  async function sixPercentTask(): Promise<Task> {
+    const task = await estimatedTask(60_000);
+    ownIds.push(task.id);
+    return task;
+  }
+
+  it("weighs two Starts on one reading together, and starts the second on the next reading", async () => {
+    await windowRead(80, 3 * HOUR);
+    const first = await sixPercentTask();
+    const second = await sixPercentTask();
+
+    await requestStart(first.id);
+    const answer = startAnswerSchema.parse(await (await requestStart(second.id)).json());
+
+    expect((await readTask(first.id)).state).toBe("in-progress");
+    expect(answer.queued?.reasons).toEqual([
+      expect.stringMatching(
+        /^The Claude Code engines' 5-hour window would pass its 90% cap: 80% used, 6% expected of the Tasks started since it was read and 6% of this Task\. It resets (on \w{3} \d{1,2} \w{3} )?at \d\d:\d\d\.$/,
+      ),
+    ]);
+
+    await newReading();
+
+    expect((await readTask(second.id)).state).toBe("in-progress");
+  });
+
+  it("starts a Task anyway when the window it would pass resets within the hour", async () => {
+    await windowRead(95, HOUR / 2);
+    const task = await sixPercentTask();
+
+    await requestStart(task.id);
+
+    expect((await readTask(task.id)).state).toBe("in-progress");
+  });
+
+  it("releases a Task the window holds an hour before the window resets", async () => {
+    await windowRead(95, HOUR + 500);
+    const task = await sixPercentTask();
+
+    const answer = startAnswerSchema.parse(await (await requestStart(task.id)).json());
+
+    expect(answer.task.state).toBe("ready");
+    await vi.waitFor(async () => expect((await readTask(task.id)).state).toBe("in-progress"), {
+      timeout: 5000,
+    });
+  });
+
+  it("holds a Task with no estimate only when the window's use alone passes the cap", async () => {
+    await windowRead(85, 3 * HOUR);
+    const task = await readyTask();
+    ownIds.push(task.id);
+
+    expect((await startCheck(task.id)).waits).toEqual([]);
+
+    await windowRead(91, 3 * HOUR);
+
+    expect((await startCheck(task.id)).waits).toEqual([
+      expect.stringContaining("91% used, and this Task has no estimate"),
+    ]);
   });
 });

@@ -35,7 +35,7 @@ import {
   ProposalService,
   ThreadService,
 } from "../../conversations/index.js";
-import { EngineModule, ModelPrices } from "../../engine/index.js";
+import { EngineModule, ModelPrices, UsageWindowState } from "../../engine/index.js";
 import { PeopleModule, RoleCards } from "../../people/index.js";
 import {
   PipelineLibrary,
@@ -135,6 +135,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                 proposalDrafts: ProposalService,
                 usageHistory: UsageHistory,
                 modelPrices: ModelPrices,
+                accountWindows: UsageWindowState,
               }),
             ],
           }));

@@ -10,6 +10,7 @@ import { FireAlarmRepository } from "../ports/fire-alarm-repository.js";
 import { QueueRepository } from "../ports/queue-repository.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { StartConditionsReader } from "./start-conditions.js";
+import { StartsSinceReading } from "./starts-since-reading.js";
 import { UsageEstimates } from "./usage-estimates.js";
 
 /**
@@ -35,6 +36,7 @@ export class StartService {
     private readonly conditions: StartConditionsReader,
     private readonly fireAlarm: FireAlarmRepository,
     private readonly usageEstimates: UsageEstimates,
+    private readonly startsSinceReading: StartsSinceReading,
     private readonly events: EventBus,
   ) {}
 
@@ -43,6 +45,9 @@ export class StartService {
     const starting = await this.queue.start(id, (task, held, queue) =>
       startOrQueue(task, conditions, held, queue, { now: new Date(), onOverlap }),
     );
+    if (starting.kind === "started") {
+      this.startsSinceReading.record(new Date(), conditions.usage.estimate);
+    }
     const event = starting.kind === "started" ? starting.change.event : starting.event;
     if (event) await this.events.publish(event);
     return starting;

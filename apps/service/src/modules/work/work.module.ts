@@ -63,6 +63,7 @@ import { SearchService } from "./application/search-service.js";
 import { StageScreenshots } from "./application/stage-screenshots.js";
 import { QueueService } from "./application/queue-service.js";
 import { StartConditionsReader } from "./application/start-conditions.js";
+import { StartsSinceReading } from "./application/starts-since-reading.js";
 import { StartService } from "./application/start-service.js";
 import { UsageEstimates } from "./application/usage-estimates.js";
 import { TaskRecords } from "./application/task-records.js";
@@ -78,6 +79,7 @@ import { InitiativeThreads } from "./ports/initiative-threads.js";
 import { KnownPeople } from "./ports/known-people.js";
 import { KnownPipelines } from "./ports/known-pipelines.js";
 import { ModelPrices } from "./ports/model-prices.js";
+import { AccountWindows } from "./ports/account-windows.js";
 import { KnownProjects } from "./ports/known-projects.js";
 import { NewProjects } from "./ports/new-projects.js";
 import { ProjectWorktrees } from "./ports/project-worktrees.js";
@@ -118,6 +120,7 @@ export interface WorkModuleOptions {
   readonly proposalDrafts: Type<ProposalDrafts>;
   readonly usageHistory: Type<UsageHistory>;
   readonly modelPrices: Type<ModelPrices>;
+  readonly accountWindows: Type<AccountWindows>;
 }
 
 @Module({})
@@ -143,6 +146,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
     proposalDrafts,
     usageHistory,
     modelPrices,
+    accountWindows,
   }: WorkModuleOptions): DynamicModule {
     return {
       module: WorkModule,
@@ -189,6 +193,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: ProposalDrafts, useExisting: proposalDrafts },
         { provide: UsageHistory, useExisting: usageHistory },
         { provide: ModelPrices, useExisting: modelPrices },
+        { provide: AccountWindows, useExisting: accountWindows },
         IdeaService,
         InitiativeService,
         TaskService,
@@ -199,6 +204,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         SavedViewService,
         PlanningService,
         StartConditionsReader,
+        StartsSinceReading,
         StartService,
         UsageEstimates,
         QueueService,

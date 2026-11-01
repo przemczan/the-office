@@ -10,7 +10,7 @@ import {
   type StartConditions,
   type StartReasons,
 } from "./task-start.js";
-import { aTask } from "./work.fixtures.js";
+import { aTask, NO_USAGE_AT_START } from "./work.fixtures.js";
 
 const ready = aTask({ id: "task-ready", state: "ready", projectId: "admin-panel" });
 
@@ -22,6 +22,7 @@ const conditions: StartConditions = {
   ],
   person: { name: "Ada", taskLimit: 2 },
   officeWideLimit: 3,
+  usage: NO_USAGE_AT_START,
 };
 
 /** A Task already started elsewhere, by default on another Project and another person. */
