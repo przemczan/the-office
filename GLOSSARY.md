@@ -82,11 +82,11 @@ What a Ready Task's whole Pipeline is expected to use on each engine it uses, in
 _Avoid_: Budget (a Stage's token limit), forecast, quota estimate
 
 **Window cap**:
-An engine's cap on how much of the 5-hour or the 7-day window a Start may bring the window to, with its Usage estimate, before it waits in the Queue for the reset.
+The Claude Code engines' cap, one for their shared account, on how much of the 5-hour or the 7-day window a Start may bring the window to, with its Usage estimate, before it waits in the Queue for the reset.
 _Avoid_: Quota gate, budget, limit (the Office-wide limit and Task limits count desks), threshold
 
 **Daily cap**:
-An engine's cap on the tokens, or the dollars, used in one day; a Start that would pass it, with its Usage estimate, waits in the Queue until midnight. Off unless set.
+A cap on the tokens, or the dollars, used in one day, per account for the Claude Code engines, one set for the OpenAI-compatible API; a Start that would pass it, with its Usage estimate, waits in the Queue until midnight. Off unless set.
 _Avoid_: Budget, quota, daily limit
 
 **Model price**:

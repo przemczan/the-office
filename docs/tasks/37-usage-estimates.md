@@ -8,7 +8,7 @@ Before a Task starts, the user sees its Usage estimate: what its whole Pipeline 
 
 The estimate comes from history: the median of done Tasks' Stage runs for the same Project and Pipeline, Stage by Stage, summed. Below 3 done Tasks it comes from the Planner's token estimate in the Plan. Cost comes from Model prices the user sets in Settings › Engines, so it works on every engine.
 
-Each engine has its own caps: a Window cap on each window (only the Claude Code engines have windows), and a Daily cap on tokens and on dollars. A Start that would pass a cap of an engine its Pipeline uses waits in the queue until that cap resets, unless every exceeded cap resets within the prompt cache's hour.
+Caps are per account for the Claude Code engines, one set for the OpenAI-compatible API: the two Claude Code engines spend the same account's credits, so they share a Window cap on each window (only they have windows) and a Daily cap on tokens and on dollars; the OpenAI-compatible API's endpoints share one set of Daily caps. A Start that would pass a cap its Pipeline's engines fall under waits in the queue until that cap resets, unless every exceeded cap resets within the prompt cache's hour.
 
 ## Definition of Done
 
@@ -23,12 +23,12 @@ Each engine has its own caps: a Window cap on each window (only the Claude Code 
 
   Check: domain tests of medians, resets, missing readings, prices and the fallback.
 - [ ] The Planner's `write_plan` takes an optional token estimate, shown with the Plan. Check: Work tests; the contract's schemas.
-- [ ] Settings › Office limits ticks the measures (any number; none turns estimates off; tokens and the 5-hour window by default), and sets each engine's caps. Window caps default to 90%; the Daily caps are off unless set. Check: service tests; e2e test of the card.
-- [ ] Start waits in the queue when a ticked measure's cap on an engine the Task uses would be passed:
+- [ ] Settings › Office limits ticks the measures (any number; none turns estimates off; tokens and the 5-hour window by default), and sets the caps: one set for the Claude Code engines' account, one for the OpenAI-compatible API. Window caps default to 90%; the Daily caps are off unless set. Check: service tests; e2e test of the card.
+- [ ] Start waits in the queue when a ticked measure's cap that an engine the Task uses falls under would be passed (the Task's estimates on the engines under one cap add up):
   - A window: its use, plus the estimates of Tasks started since the reading, plus this Task's estimate. A window with no reading, or whose reset has passed, counts as unused.
-  - A Daily cap: the day's actual use on that engine, plus what is left of the estimates of Tasks in progress, plus this Task's.
+  - A Daily cap: the day's actual use on the engines under it, plus what is left of the estimates of Tasks in progress, plus this Task's.
 
-  A Task with no estimate waits only when the use alone passes the cap. The reason names the engine, the cap, the use, the estimate and the reset. The Task starts anyway when every exceeded cap resets within an hour. The queue is released on each new reading, an hour before the earliest reset that frees a waiting Task, and at that reset. Check: domain tests of each cap and the hour; Work tests of the timers and of two Starts on one reading.
+  A Task with no estimate waits only when the use alone passes the cap. The reason names the cap's engines, the cap, the use, the estimate and the reset. The Task starts anyway when every exceeded cap resets within an hour. The queue is released on each new reading, an hour before the earliest reset that frees a waiting Task, and at that reset. Check: domain tests of each cap and the hour; Work tests of the timers and of two Starts on one reading.
 - [ ] The estimate, or "no estimate", shows with where it came from (history of n Tasks, or the Planner):
   - on Ready Task cards;
   - on the Task page's Ready block;
@@ -62,16 +62,16 @@ Decided with the user on 2026-11-01:
 - Only a Task at Start gets an estimate, for its whole Pipeline.
 - History comes first: the median of done Tasks' Stage runs for the same Project and Pipeline, Stage by Stage, summed. It wins at 3 done Tasks, taken from the last 20.
 - Below that, the Planner's token estimate in the Plan stands in. Window % and cost are derived from Office-wide ratios to tokens. With no history at all they show "no estimate", which never holds a Start.
-- Caps are per engine, since each engine can have different credits.
-  - The Claude Code engines have a 5-hour and a 7-day Window cap, 90% by default. An engine without windows has no Window caps.
-  - Every engine has a Daily cap on tokens and one on dollars, off unless set.
+- Caps are per account for the Claude Code engines, one set for the OpenAI-compatible API (amended by the user on 2026-11-01: the Agent SDK engine and the `-p` fallback spend the same account's credits, so they share one set; the API endpoints share one set for now).
+  - The Claude Code engines' account has a 5-hour and a 7-day Window cap, 90% by default. The OpenAI-compatible API has no windows, so no Window caps.
+  - Each set has a Daily cap on tokens and one on dollars, off unless set.
 - Cost comes from a Model price per model, set in Settings, not from the engine's reported cost, so it works on every engine.
 - Pending estimates:
   - For a window, each Task started since the last reading adds its estimate until a new reading arrives.
   - For a Daily cap, the day's actual use plus the pending estimates.
 
 Chosen while writing, for the user to review:
-- "Engine" is each of `ENGINES` as a Role card names it. The two Claude Code engines read the same account's windows, but each has its own caps. The API endpoints of the OpenAI-compatible API share its engine's caps.
+- "Engine" is each of `ENGINES` as a Role card names it. The two Claude Code engines read the same account's windows and share its caps (the user, 2026-11-01). The API endpoints of the OpenAI-compatible API share its one set of caps.
 - Model prices live in the Engine module (`model_prices`, keyed by engine and model id, four numerics per million tokens, nullable as a whole: no row is no price). They are edited in Settings › Engines with the rest of its draft and sent whole by `PUT /settings/engines`. No prices are seeded.
 - A Stage run's cost is priced when the estimate is computed, from its tokens kind by kind and the current prices. A price change therefore reaches history, and no cost is stored. A Task's cost estimate is "no cost" when any Stage's model has no price.
 - For a Daily cap, the pending part is what is left of each Task in progress's estimate (estimate minus what it has used), so nothing is counted twice.
@@ -141,14 +141,14 @@ Chosen while writing, for the user to review:
 
   Read: the State; `work/adapters/office-tools/planning-office-tools.ts` (`registerWritePlan`, l. 50–68); `work/domain/planning-changes.ts` (`proposePlan`); `work/domain/task.ts` (`Task`); `work/ports/known-pipelines.ts`, `known-people.ts` (the Stages and each Role's engine and model); `packages/contracts/src/work.ts` (`taskSchema`, `startCheckSchema` l. 225–235); `work/application/start-service.ts` (`check`); `app.module.ts` (Work's port bindings).
 - [ ] 4. The measures and caps, in Work, about 70k:
-  - `work_settings` gains the ticked measures, and `engine_caps` (engine, 5-hour %, 7-day %, daily tokens, daily dollars, each nullable) comes with a migration. Window caps default to 90% on engines with windows.
+  - `work_settings` gains the ticked measures, and `engine_caps` (one row per set of caps: the Claude Code engines' account and the OpenAI-compatible API; 5-hour %, 7-day %, daily tokens, daily dollars, each nullable) comes with a migration, with a mapping from each of `ENGINES` to its set. Window caps default to 90% on the Claude Code engines' set.
   - `GET`/`PUT /settings/usage`, with an event that releases the queue.
   - Contract schemas.
   - Commit.
 
   Read: the State; `work/adapters/postgres/work-settings.schema.ts`; `work/ports/work-settings.ts`; `work/application/office-limits.ts`; `work/adapters/http/office-limits.controller.ts`; `work/domain/office-limit-events.ts`; `engine/domain/engines.ts` (`ENGINES`), `engine/ports/agent-engine.ts` (`usageWindows` capability).
 - [ ] 5a. The window wait, in Work, about 85k:
-  - `StartConditions` gains, per engine the Task uses, the windows (a port `AccountWindows` bound to `UsageWindowState`), the caps, the ticked measures and the estimate.
+  - `StartConditions` gains, per set of caps the Task's engines fall under (its estimates on those engines added up), the windows (a port `AccountWindows` bound to `UsageWindowState`), the caps, the ticked measures and the estimate.
   - `startReasons` adds `windowWaits`:
     - unused with no reading or a passed reset;
     - held when the use, plus the estimates of Tasks started since `readAt`, plus this Task's, passes the cap;
@@ -162,14 +162,14 @@ Chosen while writing, for the user to review:
 
   Traps: Start, every release and every queue change hold Starts (`holdStarts`). The queue and `work_settings` are shared by every test file, so a test that lowers a cap overrides it with `WorkSettingsForTests`.
 - [ ] 5b. The Daily caps, in Work, about 60k:
-  - `dailyCapWaits`: the day's use on the engine (a port bound to `DayUsage`, cost priced by `ModelPrices`), plus what is left of each Task in progress's estimate, plus this Task's; the hour exception with local midnight as the reset.
+  - `dailyCapWaits`: the day's use on the engines under the cap (a port bound to `DayUsage`, cost priced by `ModelPrices`), plus what is left of each Task in progress's estimate, plus this Task's; the hour exception with local midnight as the reset.
   - The release timer covers midnight.
   - Commit.
 
   Read: the State; step 5a's code; `pipelines/ports/task-usage.ts` and Conversations' `TaskTokens` (a Task's tokens so far).
 - [ ] 6a. Web, Settings › Office limits' Usage card, about 70k:
   - the measures as checkboxes;
-  - a row per engine with its Window caps (engines with windows only) and its Daily caps, which are off until set;
+  - a row per set of caps (the Claude Code engines' account, with its Window caps; the OpenAI-compatible API) with its Daily caps, which are off until set;
   - the windows' use and resets, as the click-through's card shows;
   - Save and Discard.
 
@@ -190,7 +190,7 @@ Chosen while writing, for the user to review:
   - whether `utilization` is a whole number, in which case a small run's change reads 0 and the medians round to 0;
   - what `get_usage` answers at a run's start (engine-check l. 280 saw it without `resets_at` or `utilization`).
 
-  Run a one-line Task to Done twice and read both runs' readings. Lower the agent-sdk 5-hour cap below the use and see a Start wait, then raise it and see the Task start. Record what was seen in State, and adjust the sample rule if `utilization` is coarse. Commit.
+  Run a one-line Task to Done twice and read both runs' readings. Lower the Claude Code engines' 5-hour cap below the use and see a Start wait, then raise it and see the Task start. Record what was seen in State, and adjust the sample rule if `utilization` is coarse. Commit.
 
   Read: [the Test Project](test-project.md); [testing](../../apps/service/docs/testing.md) (live checks).
 - [ ] 8. Close: every box ticked with its check, `npm run verify:linux`; archive the Progress log; the task `done` here and in the README. Commit.
