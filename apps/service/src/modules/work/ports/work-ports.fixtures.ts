@@ -16,6 +16,7 @@ import {
   type StageUsages,
   type UsageRatios,
 } from "../domain/usage-estimate.js";
+import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from "../domain/usage-settings.js";
 import { FireAlarmRepository } from "./fire-alarm-repository.js";
 import { IdeaCards } from "./idea-cards.js";
 import { InitiativeThreads, type InitiativeThreadOpening } from "./initiative-threads.js";
@@ -142,6 +143,16 @@ export class WorkSettingsForTests extends WorkSettings {
 
   async changeOfficeWideLimit(officeWideLimit: number): Promise<void> {
     this.limit = officeWideLimit;
+  }
+
+  private usage: UsageSettings = DEFAULT_USAGE_SETTINGS;
+
+  async usageSettings(): Promise<UsageSettings> {
+    return this.usage;
+  }
+
+  async changeUsageSettings(settings: UsageSettings): Promise<void> {
+    this.usage = settings;
   }
 }
 

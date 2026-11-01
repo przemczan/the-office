@@ -1,8 +1,8 @@
-import type { Engine } from "../../engine/index.js";
+import type { Engine, EngineId } from "../../engine/index.js";
 
 /*
  * A Ready Task's Usage estimate (spec §2.1): what its whole Pipeline is expected to use on each
- * engine its Stages' Roles pick. History wins at 3 done Tasks of the same Project and Pipeline:
+ * engine id its Stages' Roles' engines spend on, as caps, readings and each day's use are kept. History wins at 3 done Tasks of the same Project and Pipeline:
  * each Stage's median, summed. Below that the Planner's token estimate stands in, split evenly over
  * the Agent Stages, its window % and cost from the Office-wide ratios to tokens.
  */
@@ -54,10 +54,10 @@ export interface PipelineStage {
   readonly model?: string;
 }
 
-/** An Agent Stage with the engine and model it would work with. */
+/** An Agent Stage with the engine id its engine spends on and the model it would work with. */
 export interface EstimatedStage {
   readonly key: string;
-  readonly engine: Engine;
+  readonly engineId: EngineId;
   readonly model: string;
 }
 
@@ -68,13 +68,13 @@ export interface EstimatedStage {
 export function stageEngineAndModel(
   stage: PipelineStage,
   role: { readonly engine: Engine; readonly model: string },
-): Pick<EstimatedStage, "engine" | "model"> {
+): { readonly engine: Engine; readonly model: string } {
   return { engine: role.engine, model: stage.model ?? role.model };
 }
 
-/** What a Pipeline is expected to use on one engine; undefined where there is no estimate. */
+/** What a Pipeline is expected to use on one engine id; undefined where there is no estimate. */
 export interface EngineUsage {
-  readonly engine: Engine;
+  readonly engineId: EngineId;
   readonly tokens: number;
   readonly windows: Readonly<Record<UsageWindowName, number | undefined>>;
   /** Dollars; undefined is "no cost". */
@@ -96,8 +96,8 @@ export interface UsageEstimate {
   readonly measures: readonly UsageMeasure[];
 }
 
-/** Whether `engine` reads the account's usage windows. */
-export type ReadsUsageWindows = (engine: Engine) => boolean;
+/** Whether an engine spending on `engineId` reads the account's usage windows. */
+export type ReadsUsageWindows = (engineId: EngineId) => boolean;
 
 /**
  * How many done Tasks the history has of these Stages: the most samples any of them has, as a
@@ -108,8 +108,8 @@ export function tasksInHistory(stages: readonly EstimatedStage[], history: Stage
 }
 
 /**
- * Each Stage's median, summed per engine. A Stage the history never ran adds nothing. A window is
- * estimated only when every Stage on the engine that ran has a change of it; cost only when every
+ * Each Stage's median, summed per engine id. A Stage the history never ran adds nothing. A window
+ * is estimated only when every Stage on the engine id that ran has a change of it; cost only when every
  * such Stage's model has a price (`stageCosts`, dollars by Stage key).
  */
 export function historyUsage(
@@ -118,17 +118,17 @@ export function historyUsage(
   stageCosts: ReadonlyMap<string, number | undefined>,
   readsUsageWindows: ReadsUsageWindows,
 ): readonly EngineUsage[] {
-  return enginesOf(stages).map((engine) => {
+  return engineIdsOf(stages).map((engineId) => {
     const ran = stages.flatMap((stage) => {
       const usage = history.get(stage.key);
-      return stage.engine === engine && usage ? [{ key: stage.key, usage }] : [];
+      return stage.engineId === engineId && usage ? [{ key: stage.key, usage }] : [];
     });
     const windowSum = (name: UsageWindowName): number | undefined =>
-      readsUsageWindows(engine)
+      readsUsageWindows(engineId)
         ? sumOrUndefined(ran.map(({ usage }) => usage.windows[name]?.percentUsed))
         : undefined;
     return {
-      engine,
+      engineId,
       tokens: Math.round(sum(ran.map(({ usage }) => countedTokens(usage.tokens)))),
       windows: { fiveHour: windowSum("fiveHour"), sevenDay: windowSum("sevenDay") },
       cost: sumOrUndefined(ran.map(({ key }) => stageCosts.get(key))),
@@ -137,8 +137,8 @@ export function historyUsage(
 }
 
 /**
- * The Planner's tokens split evenly over the Agent Stages, summed per engine; window % and cost by
- * the Office-wide ratios, windows only on an engine that reads them.
+ * The Planner's tokens split evenly over the Agent Stages, summed per engine id; window % and cost
+ * by the Office-wide ratios, windows only on an engine id whose engines read them.
  */
 export function plannerUsage(
   stages: readonly EstimatedStage[],
@@ -146,15 +146,15 @@ export function plannerUsage(
   ratios: UsageRatios,
   readsUsageWindows: ReadsUsageWindows,
 ): readonly EngineUsage[] {
-  return enginesOf(stages).map((engine) => {
-    const share = stages.filter((stage) => stage.engine === engine).length / stages.length;
+  return engineIdsOf(stages).map((engineId) => {
+    const share = stages.filter((stage) => stage.engineId === engineId).length / stages.length;
     const tokens = estimatedTokens * share;
     const windowOf = (name: UsageWindowName): number | undefined => {
       const perToken = ratios.percentUsedPerToken[name];
-      return readsUsageWindows(engine) && perToken !== undefined ? tokens * perToken : undefined;
+      return readsUsageWindows(engineId) && perToken !== undefined ? tokens * perToken : undefined;
     };
     return {
-      engine,
+      engineId,
       tokens: Math.round(tokens),
       windows: { fiveHour: windowOf("fiveHour"), sevenDay: windowOf("sevenDay") },
       cost: ratios.dollarsPerToken === undefined ? undefined : tokens * ratios.dollarsPerToken,
@@ -167,8 +167,8 @@ export function countedTokens({ input, output, cacheCreation }: StageTokens): nu
   return input + output + cacheCreation;
 }
 
-function enginesOf(stages: readonly EstimatedStage[]): readonly Engine[] {
-  return [...new Set(stages.map(({ engine }) => engine))];
+function engineIdsOf(stages: readonly EstimatedStage[]): readonly EngineId[] {
+  return [...new Set(stages.map(({ engineId }) => engineId))];
 }
 
 function sum(values: readonly number[]): number {

@@ -13,11 +13,14 @@ import type { Task } from "../../domain/task.js";
 import { changePriority, createTask, reorderTask } from "../../domain/task-changes.js";
 import { TaskNotFound } from "../../domain/task-not-found.js";
 import { aLink, anIdea } from "../../domain/work.fixtures.js";
+import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from "../../domain/usage-settings.js";
 import { PostgresAttachmentRepository } from "./postgres-attachment-repository.js";
 import { PostgresFireAlarmRepository } from "./postgres-fire-alarm-repository.js";
 import { PostgresIdeaRepository } from "./postgres-idea-repository.js";
 import { PostgresInitiativeRepository } from "./postgres-initiative-repository.js";
 import { PostgresTaskRepository } from "./postgres-task-repository.js";
+import { PostgresWorkSettings } from "./postgres-work-settings.js";
+import { engineCaps, workSettings } from "./work-settings.schema.js";
 
 let app: INestApplication;
 let ideas: PostgresIdeaRepository;
@@ -322,5 +325,50 @@ describe("PostgresFireAlarmRepository", () => {
       false,
       { on: false },
     ]);
+  });
+});
+
+describe("PostgresWorkSettings", () => {
+  /** Rolled back: every test file's Starts and estimates read the stored settings. */
+  class RolledBack extends Error {}
+
+  it("answers the defaults until saved, then keeps the measures and caps apart from the Office-wide limit", async () => {
+    const changed: UsageSettings = {
+      measures: [],
+      caps: [
+        {
+          engineId: "claude-code",
+          windows: { fiveHour: undefined, sevenDay: 80 },
+          dailyTokens: 5_000_000,
+          dailyDollars: undefined,
+        },
+        {
+          engineId: "openai-compatible-api",
+          windows: undefined,
+          dailyTokens: undefined,
+          dailyDollars: 2.25,
+        },
+      ],
+    };
+    const seen: unknown[] = [];
+
+    await app
+      .get<Database>(DATABASE)
+      .transaction(async (transaction) => {
+        await transaction.delete(workSettings);
+        await transaction.delete(engineCaps);
+        // The transaction offers every query the repository makes.
+        const settings = new PostgresWorkSettings(transaction as unknown as Database);
+        seen.push(await settings.usageSettings());
+        await settings.changeOfficeWideLimit(7);
+        await settings.changeUsageSettings(changed);
+        seen.push(await settings.usageSettings(), await settings.officeWideLimit());
+        throw new RolledBack();
+      })
+      .catch((error: unknown) => {
+        if (!(error instanceof RolledBack)) throw error;
+      });
+
+    expect(seen).toEqual([DEFAULT_USAGE_SETTINGS, changed, 7]);
   });
 });

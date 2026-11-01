@@ -10,15 +10,24 @@ import {
   type UsageRatios,
 } from "./usage-estimate.js";
 
+// Implement on the Agent SDK and Review on the `-p` fallback: both spend on the Claude Code account.
 const IMPLEMENT: EstimatedStage = {
   key: "implement",
-  engine: "agent-sdk",
+  engineId: "claude-code",
   model: "claude-opus-5-5",
 };
-const REVIEW: EstimatedStage = { key: "review", engine: "agent-sdk", model: "claude-haiku-5-5" };
-const SUMMARY: EstimatedStage = { key: "summary", engine: "openai-compatible-api", model: "llama" };
+const REVIEW: EstimatedStage = {
+  key: "review",
+  engineId: "claude-code",
+  model: "claude-haiku-5-5",
+};
+const SUMMARY: EstimatedStage = {
+  key: "summary",
+  engineId: "openai-compatible-api",
+  model: "llama",
+};
 
-const readsWindowsOnClaudeCode = (engine: string): boolean => engine !== "openai-compatible-api";
+const readsWindowsOnClaudeCode = (engineId: string): boolean => engineId === "claude-code";
 
 function tokens(input: number, output = 0, cacheRead = 0, cacheCreation = 0): StageTokens {
   return { input, output, cacheRead, cacheCreation };
@@ -68,7 +77,7 @@ describe("tasksInHistory", () => {
 });
 
 describe("historyUsage", () => {
-  it("sums each Stage's median counted tokens, windows and cost per engine", () => {
+  it("sums each Stage's median counted tokens, windows and cost per engine id", () => {
     const history = new Map([
       ["implement", usage(tokens(1000, 200, 5000, 300), 3, 2, 0.5)],
       ["review", usage(tokens(400, 100), 3, 1, 0.25)],
@@ -83,9 +92,14 @@ describe("historyUsage", () => {
     expect(
       historyUsage([IMPLEMENT, REVIEW, SUMMARY], history, costs, readsWindowsOnClaudeCode),
     ).toEqual([
-      { engine: "agent-sdk", tokens: 2000, windows: { fiveHour: 3, sevenDay: 0.75 }, cost: 0.35 },
       {
-        engine: "openai-compatible-api",
+        engineId: "claude-code",
+        tokens: 2000,
+        windows: { fiveHour: 3, sevenDay: 0.75 },
+        cost: 0.35,
+      },
+      {
+        engineId: "openai-compatible-api",
         tokens: 100,
         windows: { fiveHour: undefined, sevenDay: undefined },
         cost: 0.01,
@@ -105,7 +119,7 @@ describe("historyUsage", () => {
 
     expect(historyUsage([IMPLEMENT, REVIEW], history, unpriced, readsWindowsOnClaudeCode)).toEqual([
       {
-        engine: "agent-sdk",
+        engineId: "claude-code",
         tokens: 1500,
         windows: { fiveHour: undefined, sevenDay: undefined },
         cost: undefined,
@@ -119,7 +133,7 @@ describe("historyUsage", () => {
         readsWindowsOnClaudeCode,
       ),
     ).toEqual([
-      { engine: "agent-sdk", tokens: 1000, windows: { fiveHour: 2, sevenDay: 1 }, cost: 0.3 },
+      { engineId: "claude-code", tokens: 1000, windows: { fiveHour: 2, sevenDay: 1 }, cost: 0.3 },
     ]);
   });
 });
@@ -130,18 +144,18 @@ describe("plannerUsage", () => {
     dollarsPerToken: 0.5,
   };
 
-  it("splits the Planner's tokens evenly over the Agent Stages, with window % and cost by the ratios", () => {
+  it("splits the Planner's tokens evenly over the Agent Stages per engine id, with window % and cost by the ratios", () => {
     expect(
       plannerUsage([IMPLEMENT, REVIEW, SUMMARY], 9000, ratios, readsWindowsOnClaudeCode),
     ).toEqual([
       {
-        engine: "agent-sdk",
+        engineId: "claude-code",
         tokens: 6000,
         windows: { fiveHour: 6, sevenDay: undefined },
         cost: 3000,
       },
       {
-        engine: "openai-compatible-api",
+        engineId: "openai-compatible-api",
         tokens: 3000,
         windows: { fiveHour: undefined, sevenDay: undefined },
         cost: 1500,
@@ -157,7 +171,7 @@ describe("plannerUsage", () => {
 
     expect(plannerUsage([IMPLEMENT], 5000, none, readsWindowsOnClaudeCode)).toEqual([
       {
-        engine: "agent-sdk",
+        engineId: "claude-code",
         tokens: 5000,
         windows: { fiveHour: undefined, sevenDay: undefined },
         cost: undefined,

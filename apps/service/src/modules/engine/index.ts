@@ -5,7 +5,14 @@ export type { OfficeTool, OfficeToolResult } from "./ports/office-tool.js";
 export { UsageWindowState, type UsageWindowReading } from "./application/usage-window-state.js";
 export { EngineDown, UsageWindowsChanged } from "./domain/engine-events.js";
 export { EngineModels } from "./application/engine-models.js";
-export { ENGINES, engineIdOf, type Engine, type EngineId } from "./domain/engines.js";
+export {
+  ENGINE_IDS,
+  ENGINES,
+  engineIdOf,
+  hasUsageWindows,
+  type Engine,
+  type EngineId,
+} from "./domain/engines.js";
 export { DayUsage } from "./application/day-usage.js";
 export type { ModelDayUsage } from "./ports/day-usage-repository.js";
 export { ModelPrices } from "./application/model-prices.js";

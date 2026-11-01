@@ -15,7 +15,7 @@ export {
 } from "./domain/idea-events.js";
 export { AlarmSounded, AllClearGiven } from "./domain/fire-alarm-events.js";
 export { InitiativeCreated, InitiativeStateChanged } from "./domain/initiative-events.js";
-export { OfficeWideLimitChanged } from "./domain/office-limit-events.js";
+export { OfficeWideLimitChanged, UsageSettingsChanged } from "./domain/office-limit-events.js";
 export { TaskLeftQueue, TaskMovedUpInQueue, TaskQueued } from "./domain/queue-events.js";
 export {
   TaskCreated,

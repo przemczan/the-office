@@ -26,6 +26,14 @@ export function engineIdOf(engine: Engine): EngineId {
   return ENGINE_ID_OF_ENGINE[engine];
 }
 
+/**
+ * Whether the account behind `engineId` has usage windows (spec §5.4): only the Claude Code
+ * account's. Whether an engine reads them is its capability (`usageWindows`).
+ */
+export function hasUsageWindows(engineId: EngineId): boolean {
+  return engineId === "claude-code";
+}
+
 /** Both run the pinned binary the SDK bundles, so they offer the same models, by their ids. */
 const PINNED_BINARY_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"] as const;
 

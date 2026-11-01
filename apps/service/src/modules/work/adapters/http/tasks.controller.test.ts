@@ -1631,7 +1631,7 @@ describe("Usage estimates", () => {
     expect((await readTask(task.id)).estimatedTokens).toBe(90_000);
     expect((await startCheck(task.id)).usageEstimate).toEqual({
       basis: { source: "planner" },
-      engines: [{ engine: "agent-sdk", tokens: 90_000, fiveHourWindow: 9 }],
+      engines: [{ engineId: "claude-code", tokens: 90_000, fiveHourWindow: 9 }],
     });
   });
 
@@ -1655,7 +1655,7 @@ describe("Usage estimates", () => {
       taskId: task.id,
       usageEstimate: {
         basis: { source: "history", tasks: 3 },
-        engines: [{ engine: "agent-sdk", tokens: 2000, fiveHourWindow: 1.5 }],
+        engines: [{ engineId: "claude-code", tokens: 2000, fiveHourWindow: 1.5 }],
       },
     });
     const { usageEstimate } = await work.app.get(StartService).check(task.id);

@@ -10,6 +10,7 @@ import type {
   SearchResults as SearchResultsResponse,
   Task as TaskResponse,
   UsageEstimate as UsageEstimateResponse,
+  UsageSettings as UsageSettingsResponse,
 } from "@the-office/contracts";
 import type { SearchResults } from "../../application/search-service.js";
 import type { Attachment, AttachmentOwner } from "../../domain/attachment.js";
@@ -21,6 +22,7 @@ import type { QueuedTask } from "../../domain/queue.js";
 import type { SavedView } from "../../domain/saved-view.js";
 import type { Task } from "../../domain/task.js";
 import type { EngineUsage, UsageEstimate, UsageMeasure } from "../../domain/usage-estimate.js";
+import type { UsageSettings } from "../../domain/usage-settings.js";
 
 export function toIdeaResponse(idea: Idea): IdeaResponse {
   return {
@@ -166,15 +168,30 @@ export function toUsageEstimateResponse({
 }
 
 function engineUsageOf(
-  { engine, tokens, windows, cost }: EngineUsage,
+  { engineId, tokens, windows, cost }: EngineUsage,
   measures: readonly UsageMeasure[],
 ): EngineUsageEstimateResponse {
   const ticked = new Set(measures);
   return {
-    engine,
+    engineId,
     ...(ticked.has("tokens") && { tokens }),
     ...(ticked.has("fiveHourWindow") && { fiveHourWindow: windows.fiveHour ?? null }),
     ...(ticked.has("sevenDayWindow") && { sevenDayWindow: windows.sevenDay ?? null }),
     ...(ticked.has("cost") && { cost: cost ?? null }),
+  };
+}
+
+/** The measures and every engine id's caps; a cap that is off is null. */
+export function toUsageSettingsResponse({ measures, caps }: UsageSettings): UsageSettingsResponse {
+  return {
+    measures: [...measures],
+    caps: caps.map(({ engineId, windows, dailyTokens, dailyDollars }) => ({
+      engineId,
+      ...(windows && {
+        windows: { fiveHour: windows.fiveHour ?? null, sevenDay: windows.sevenDay ?? null },
+      }),
+      dailyTokens: dailyTokens ?? null,
+      dailyDollars: dailyDollars ?? null,
+    })),
   };
 }

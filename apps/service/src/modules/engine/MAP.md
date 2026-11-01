@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-EngineSessions, EngineCapability, OfficeToolRegistry, OfficeTool, OfficeToolResult, UsageWindowState, UsageWindowReading, EngineDown, UsageWindowsChanged, EngineModels, ENGINES, engineIdOf, Engine, EngineId, DayUsage, ModelDayUsage, ModelPrices, READ_ONLY_GIT_COMMANDS, READ_ONLY_SHELL_RULE, EngineModule, ScriptedEngine, StandInEngine, readRecording, SessionScript, ScriptedEngineModule, OPENAI_COMPATIBLE_API_CAPABILITIES, NewSession, EngineSession, ApprovalCall, ApprovalHold
+EngineSessions, EngineCapability, OfficeToolRegistry, OfficeTool, OfficeToolResult, UsageWindowState, UsageWindowReading, EngineDown, UsageWindowsChanged, EngineModels, ENGINE_IDS, ENGINES, engineIdOf, hasUsageWindows, Engine, EngineId, DayUsage, ModelDayUsage, ModelPrices, READ_ONLY_GIT_COMMANDS, READ_ONLY_SHELL_RULE, EngineModule, ScriptedEngine, StandInEngine, readRecording, SessionScript, ScriptedEngineModule, OPENAI_COMPATIBLE_API_CAPABILITIES, NewSession, EngineSession, ApprovalCall, ApprovalHold
 
 ## Domain events
 
@@ -170,7 +170,7 @@ EngineSessions, EngineCapability, OfficeToolRegistry, OfficeTool, OfficeToolResu
 - `engine-events.ts`: UsageWindowsChanged, EngineDown
 - `engine-settings-refused.ts`: EngineSettingsRefused
 - `engine-settings.ts`: SearchEndpoint, EngineSettings, DEFAULT_ENGINE_SETTINGS, ApiEndpointEdit, EngineSettingsEdit, API_ENDPOINT_NAME_LENGTH, offeredModelPrices, changedEngineSettings
-- `engines.ts`: ENGINES, Engine, EngineId, engineIdOf, offeredModels, ENGINE_IDS, modelsOfferedOn
+- `engines.ts`: ENGINES, Engine, EngineId, engineIdOf, hasUsageWindows, offeredModels, ENGINE_IDS, modelsOfferedOn
 - `git-commands.ts`: READ_ONLY_GIT_COMMANDS, isGit, gitChange
 - `model-prices.ts`: ModelPrice, PricedModel, OfferedModel, OfferedOn, pricedModels
 - `office-rules.ts`: ToolDecision, READ_ONLY_SHELL_RULE, OfficeRules

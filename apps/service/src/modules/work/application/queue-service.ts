@@ -2,7 +2,7 @@ import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { RoleCardChanged } from "../../people/index.js";
 import { AllClearGiven } from "../domain/fire-alarm-events.js";
-import { OfficeWideLimitChanged } from "../domain/office-limit-events.js";
+import { OfficeWideLimitChanged, UsageSettingsChanged } from "../domain/office-limit-events.js";
 import { moveUpInQueue, queueOrder, releaseQueue, type QueuedTask } from "../domain/queue.js";
 import { TaskLeftQueue, TaskMovedUpInQueue } from "../domain/queue-events.js";
 import type { StartConditions } from "../domain/task-start.js";
@@ -37,6 +37,8 @@ export class QueueService implements OnModuleInit {
       }
     });
     this.events.subscribe(OfficeWideLimitChanged, () => this.release());
+    // A cap may have been raised, or its measure unticked.
+    this.events.subscribe(UsageSettingsChanged, () => this.release());
     // A person's Task limit may have been raised.
     this.events.subscribe(RoleCardChanged, () => this.release());
     // What Start queued while the fire alarm was on waits no longer.

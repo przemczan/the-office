@@ -45,6 +45,14 @@ export const engineIdSchema = z.enum(["claude-code", "openai-compatible-api"]);
 export type EngineId = z.infer<typeof engineIdSchema>;
 
 /**
+ * Whether the account behind `engineId` has usage windows, and so Window caps: only the Claude Code
+ * account's (spec §5.4). Mirrors the service's `hasUsageWindows`.
+ */
+export function engineIdHasUsageWindows(engineId: EngineId): boolean {
+  return engineId === "claude-code";
+}
+
+/**
  * What a model costs, in dollars per million tokens of each kind. A negative price is refused
  * with words (422), not by the contract.
  */

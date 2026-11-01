@@ -1,8 +1,7 @@
 import { Injectable } from "@nestjs/common";
-import { EngineSessions, engineIdOf } from "../../engine/index.js";
+import { ENGINES, EngineSessions, engineIdOf } from "../../engine/index.js";
 import type { Task } from "../domain/task.js";
 import {
-  DEFAULT_USAGE_MEASURES,
   HISTORY_WINS_AT,
   historyUsage,
   plannerUsage,
@@ -20,6 +19,7 @@ import { KnownPipelines } from "../ports/known-pipelines.js";
 import { ModelPrices } from "../ports/model-prices.js";
 import { TaskRepository } from "../ports/task-repository.js";
 import { UsageHistory } from "../ports/usage-history.js";
+import { WorkSettings } from "../ports/work-settings.js";
 
 /** A Ready Task's Usage estimate, queued ones' too. */
 export interface TaskUsageEstimate {
@@ -40,17 +40,18 @@ export class UsageEstimates {
     private readonly history: UsageHistory,
     private readonly prices: ModelPrices,
     private readonly engines: EngineSessions,
+    private readonly settings: WorkSettings,
   ) {}
 
   /** The Task's, its done Tasks found among `everyTask`; undefined with no measure ticked. */
   async of(task: Task, everyTask: readonly Task[]): Promise<UsageEstimate | undefined> {
-    const measures = this.tickedMeasures();
+    const measures = await this.tickedMeasures();
     return measures.length === 0 ? undefined : this.estimating(everyTask, measures)(task);
   }
 
   /** Every Ready Task's, queued ones too; none with no measure ticked. */
   async ofReadyTasks(): Promise<readonly TaskUsageEstimate[]> {
-    const measures = this.tickedMeasures();
+    const measures = await this.tickedMeasures();
     if (measures.length === 0) return [];
     const everyTask = await this.tasks.list();
     const estimate = this.estimating(everyTask, measures);
@@ -60,9 +61,8 @@ export class UsageEstimates {
     );
   }
 
-  // Settings › Office limits will keep the ticked measures; until then, its defaults.
-  private tickedMeasures(): readonly UsageMeasure[] {
-    return DEFAULT_USAGE_MEASURES;
+  private async tickedMeasures(): Promise<readonly UsageMeasure[]> {
+    return (await this.settings.usageSettings()).measures;
   }
 
   /** Estimates Tasks among `everyTask`, reading each Project and Pipeline's history once. */
@@ -112,7 +112,9 @@ export class UsageEstimates {
     const stages = await Promise.all(
       (pipeline?.stages ?? []).map(async (stage) => {
         const person = stage.role === undefined ? undefined : await this.people.find(stage.role);
-        return person ? [{ key: stage.key, ...stageEngineAndModel(stage, person.card) }] : [];
+        if (!person) return [];
+        const { engine, model } = stageEngineAndModel(stage, person.card);
+        return [{ key: stage.key, engineId: engineIdOf(engine), model }];
       }),
     );
     return stages.flat();
@@ -124,15 +126,18 @@ export class UsageEstimates {
     history: StageUsages,
   ): Promise<ReadonlyMap<string, number | undefined>> {
     const costs = await Promise.all(
-      stages.map(async ({ key, engine, model }) => {
+      stages.map(async ({ key, engineId, model }) => {
         const usage = history.get(key);
-        const cost = usage && (await this.prices.costOf(engineIdOf(engine), model, usage.tokens));
+        const cost = usage && (await this.prices.costOf(engineId, model, usage.tokens));
         return [key, cost] as const;
       }),
     );
     return new Map(costs);
   }
 
-  private readonly readsUsageWindows: ReadsUsageWindows = (engine) =>
-    this.engines.capabilitiesOf(engine).usageWindows;
+  private readonly readsUsageWindows: ReadsUsageWindows = (engineId) =>
+    ENGINES.some(
+      (engine) =>
+        engineIdOf(engine) === engineId && this.engines.capabilitiesOf(engine).usageWindows,
+    );
 }

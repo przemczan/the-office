@@ -25,6 +25,7 @@ import { OfficeLimitsController } from "./adapters/http/office-limits.controller
 import { OnboardingsController } from "./adapters/http/onboardings.controller.js";
 import { SavedViewsController } from "./adapters/http/saved-views.controller.js";
 import { UsageEstimatesController } from "./adapters/http/usage-estimates.controller.js";
+import { UsageSettingsController } from "./adapters/http/usage-settings.controller.js";
 import { SearchController } from "./adapters/http/search.controller.js";
 import { FireAlarmForThreads } from "./adapters/conversations/fire-alarm-for-threads.js";
 import { InitiativeProposals } from "./adapters/conversations/initiative-proposals.js";
@@ -158,6 +159,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         SearchController,
         SavedViewsController,
         UsageEstimatesController,
+        UsageSettingsController,
         FireAlarmController,
       ],
       providers: [

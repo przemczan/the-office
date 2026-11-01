@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { webEventSchema } from "./events.js";
-import { engineSchema } from "./people.js";
+import { engineIdHasUsageWindows, engineIdSchema } from "./engines.js";
 import type { ProjectFilter } from "./project-filter.js";
 
 /** Who captured, created or attached something: the user, or a person by their Role's key. */
@@ -240,12 +240,12 @@ export const usageMeasureSchema = z.enum(["tokens", "fiveHourWindow", "sevenDayW
 export type UsageMeasure = z.infer<typeof usageMeasureSchema>;
 
 /**
- * What a Task's whole Pipeline is expected to use on one engine its Stages' Roles pick, in the
- * ticked measures alone. A ticked window or cost is null when there is no estimate of it: an
+ * What a Task's whole Pipeline is expected to use on one engine id its Stages' Roles' engines spend
+ * on (both Claude Code engines on `claude-code`), in the ticked measures alone. A ticked window or cost is null when there is no estimate of it: an
  * engine without windows, no reading to learn from, or ("no cost") a model with no Model price.
  */
 export const engineUsageEstimateSchema = z.object({
-  engine: engineSchema,
+  engineId: engineIdSchema,
   tokens: z.number().int().nonnegative().optional(),
   fiveHourWindow: z.number().nonnegative().nullable().optional(),
   sevenDayWindow: z.number().nonnegative().nullable().optional(),
@@ -264,7 +264,7 @@ export const usageEstimateBasisSchema = z.discriminatedUnion("source", [
 ]);
 export type UsageEstimateBasis = z.infer<typeof usageEstimateBasisSchema>;
 
-/** A Task's Usage estimate, per engine; "no estimate" has no engines. */
+/** A Task's Usage estimate, per engine id; "no estimate" has no engines. */
 export const usageEstimateSchema = z.object({
   basis: usageEstimateBasisSchema,
   engines: z.array(engineUsageEstimateSchema),
@@ -475,6 +475,50 @@ export const officeWideLimitSchema = z.object({
   officeWideLimit: z.int().min(1).max(OFFICE_WIDE_LIMIT_MAX),
 });
 export type OfficeWideLimit = z.infer<typeof officeWideLimitSchema>;
+
+/** A Window cap: the % of the window a Start may bring it to. */
+export const windowCapSchema = z.int().min(1).max(100);
+
+/**
+ * The caps on one engine id (spec §2.2), each null when off: a Window cap on each window, only on an
+ * engine id whose account has them (`engineIdHasUsageWindows`), and the Daily caps on tokens and on
+ * dollars.
+ */
+export const engineCapsSchema = z.object({
+  engineId: engineIdSchema,
+  windows: z
+    .object({ fiveHour: windowCapSchema.nullable(), sevenDay: windowCapSchema.nullable() })
+    .optional(),
+  dailyTokens: z.int().positive().nullable(),
+  dailyDollars: z.number().positive().nullable(),
+});
+export type EngineCaps = z.infer<typeof engineCapsSchema>;
+
+/**
+ * GET and PUT /settings/usage, Settings › Office limits: the ticked measures (none turns estimates
+ * off) and the caps of every engine id, each once.
+ */
+export const usageSettingsSchema = z.object({
+  measures: z
+    .array(usageMeasureSchema)
+    .refine((measures) => new Set(measures).size === measures.length, {
+      message: "Each measure is ticked once.",
+    }),
+  caps: z
+    .array(engineCapsSchema)
+    .refine(
+      (caps) =>
+        caps.length === engineIdSchema.options.length &&
+        engineIdSchema.options.every((engineId) => caps.some((each) => each.engineId === engineId)),
+      { message: "Every engine id has its caps, once." },
+    )
+    .refine(
+      (caps) =>
+        caps.every(({ engineId, windows }) => engineIdHasUsageWindows(engineId) === !!windows),
+      { message: "Window caps are on the engine ids with usage windows alone." },
+    ),
+});
+export type UsageSettings = z.infer<typeof usageSettingsSchema>;
 
 /**
  * GET /fire-alarm, and what POST /fire-alarm/sound answers (spec §2.8): off, or on since it was
