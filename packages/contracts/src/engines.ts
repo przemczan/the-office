@@ -37,11 +37,43 @@ export type ApiEndpoint = z.infer<typeof apiEndpointSchema>;
 export const searchEndpointSchema = z.object({ baseUrl: z.string() });
 export type SearchEndpoint = z.infer<typeof searchEndpointSchema>;
 
+/**
+ * What an engine spends on: both Claude Code engines spend one account's credits, so they share
+ * `claude-code`. Caps, readings, each day's use and Model prices are kept by it.
+ */
+export const engineIdSchema = z.enum(["claude-code", "openai-compatible-api"]);
+export type EngineId = z.infer<typeof engineIdSchema>;
+
+/**
+ * What a model costs, in dollars per million tokens of each kind. A negative price is refused
+ * with words (422), not by the contract.
+ */
+export const modelPriceSchema = z.object({
+  input: z.number(),
+  output: z.number(),
+  cacheWrites: z.number(),
+  cacheReads: z.number(),
+});
+export type ModelPrice = z.infer<typeof modelPriceSchema>;
+
+/**
+ * A model offered on an engine id, as its Model field names it (`<endpoint id>/<model id>` on the
+ * API), with its Model price; null when it has none, which gives "no cost".
+ */
+export const offeredModelSchema = z.object({
+  engineId: engineIdSchema,
+  model: z.string(),
+  price: modelPriceSchema.nullable(),
+});
+export type OfferedModel = z.infer<typeof offeredModelSchema>;
+
 /** GET and PUT /settings/engines: the Office-wide settings of the engines. */
 export const engineSettingsSchema = z.object({
   apiEndpoints: z.array(apiEndpointSchema),
   /** Null until the user sets one; WebSearch is refused meanwhile. */
   searchEndpoint: searchEndpointSchema.nullable(),
+  /** Every model offered now, the Claude Code engines' first, then each API endpoint's. */
+  modelPrices: z.array(offeredModelSchema),
 });
 export type EngineSettings = z.infer<typeof engineSettingsSchema>;
 
@@ -59,10 +91,14 @@ export const apiEndpointEditSchema = apiEndpointSchema
   });
 export type ApiEndpointEdit = z.infer<typeof apiEndpointEditSchema>;
 
-/** PUT /settings/engines: every API endpoint, in order, and the search endpoint. */
+/**
+ * PUT /settings/engines: every API endpoint, in order, the search endpoint and the Model prices.
+ * A price of a model the saved API endpoints no longer offer is dropped.
+ */
 export const engineSettingsEditSchema = z.object({
   apiEndpoints: z.array(apiEndpointEditSchema),
   searchEndpoint: searchEndpointSchema.nullable(),
+  modelPrices: z.array(offeredModelSchema),
 });
 export type EngineSettingsEdit = z.infer<typeof engineSettingsEditSchema>;
 

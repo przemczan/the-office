@@ -9,9 +9,20 @@ const STRATA = {
   models: [{ id: "qwen3", contextWindow: 100_000 }],
 };
 
+const MODEL_PRICES = [
+  {
+    engineId: "claude-code" as const,
+    model: "claude-sonnet-5-5",
+    price: { input: 3, output: 15, cacheWrites: 3.75, cacheReads: 0.3 },
+  },
+  { engineId: "openai-compatible-api" as const, model: "strata/qwen3", price: null },
+];
+
 describe("Settings › Engines' draft", () => {
-  it("starts from the saved settings with every key kept", () => {
-    expect(draftOf({ apiEndpoints: [STRATA], searchEndpoint: null })).toEqual({
+  it("starts from the saved settings with every key and Model price kept", () => {
+    const saved = { apiEndpoints: [STRATA], searchEndpoint: null, modelPrices: MODEL_PRICES };
+
+    expect(draftOf(saved)).toEqual({
       apiEndpoints: [
         {
           id: "strata",
@@ -21,6 +32,7 @@ describe("Settings › Engines' draft", () => {
         },
       ],
       searchEndpoint: null,
+      modelPrices: MODEL_PRICES,
     });
   });
 

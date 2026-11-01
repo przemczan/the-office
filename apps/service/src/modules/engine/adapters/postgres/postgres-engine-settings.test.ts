@@ -21,7 +21,7 @@ afterAll(async () => {
 
 describe("PostgresEngineSettings", () => {
   // Every test file shares the database, so the settings kept before are put back.
-  it("keeps the API endpoints in their order with their keys, and the search endpoint", async () => {
+  it("keeps the API endpoints in their order with their keys, the search endpoint and the Model prices", async () => {
     const before = await settings.read();
     const changed: EngineSettings = {
       apiEndpoints: [
@@ -44,6 +44,18 @@ describe("PostgresEngineSettings", () => {
         },
       ],
       searchEndpoint: { baseUrl: "http://127.0.0.1:8888" },
+      modelPrices: [
+        {
+          engineId: "claude-code",
+          model: "claude-sonnet-5-5",
+          price: { input: 3, output: 15, cacheWrites: 3.75, cacheReads: 0.3 },
+        },
+        {
+          engineId: "openai-compatible-api",
+          model: "lab/small",
+          price: { input: 0.000_001, output: 0, cacheWrites: 0, cacheReads: 0 },
+        },
+      ],
     };
     try {
       await settings.replace(changed);
@@ -51,6 +63,7 @@ describe("PostgresEngineSettings", () => {
       await settings.replace({
         apiEndpoints: changed.apiEndpoints.toReversed(),
         searchEndpoint: null,
+        modelPrices: [],
       });
       const replaced = await settings.read();
 
@@ -58,6 +71,7 @@ describe("PostgresEngineSettings", () => {
       expect(replaced).toEqual({
         apiEndpoints: changed.apiEndpoints.toReversed(),
         searchEndpoint: null,
+        modelPrices: [],
       });
     } finally {
       await settings.replace(before);

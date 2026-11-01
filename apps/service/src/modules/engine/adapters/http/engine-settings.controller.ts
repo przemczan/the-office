@@ -6,10 +6,13 @@ import {
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { EngineSettingsService } from "../../application/engine-settings-service.js";
-import type { EngineSettings } from "../../domain/engine-settings.js";
+import { offeredModelPrices, type EngineSettings } from "../../domain/engine-settings.js";
 import { EngineSettingsRefusalFilter } from "./engine-settings-refusal.filter.js";
 
-/** Settings › Engines: the API endpoints, their keys never sent back, and the search endpoint. */
+/**
+ * Settings › Engines: the API endpoints, their keys never sent back, the search endpoint, and every
+ * offered model's Model price.
+ */
 @Controller("settings/engines")
 @UseFilters(EngineSettingsRefusalFilter)
 export class EngineSettingsController {
@@ -28,7 +31,8 @@ export class EngineSettingsController {
   }
 }
 
-function response({ apiEndpoints, searchEndpoint }: EngineSettings): EngineSettingsResponse {
+function response(settings: EngineSettings): EngineSettingsResponse {
+  const { apiEndpoints, searchEndpoint } = settings;
   return {
     apiEndpoints: apiEndpoints.map(({ id, name, baseUrl, key, models }) => ({
       id,
@@ -38,5 +42,10 @@ function response({ apiEndpoints, searchEndpoint }: EngineSettings): EngineSetti
       models: models.map((model) => ({ ...model })),
     })),
     searchEndpoint,
+    modelPrices: offeredModelPrices(settings).map(({ engineId, model, price }) => ({
+      engineId,
+      model,
+      price: price && { ...price },
+    })),
   };
 }

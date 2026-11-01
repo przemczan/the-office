@@ -11,11 +11,11 @@ export class EngineModels {
   constructor(private readonly settings: EngineSettingsRepository) {}
 
   async offeredBy(engine: Engine): Promise<readonly string[]> {
-    return offeredModels(engine, await this.settings.read());
+    return offeredModels(engine, (await this.settings.read()).apiEndpoints);
   }
 
   async byEngine(): Promise<ReadonlyMap<Engine, readonly string[]>> {
     const settings = await this.settings.read();
-    return new Map(ENGINES.map((engine) => [engine, offeredModels(engine, settings)]));
+    return new Map(ENGINES.map((engine) => [engine, offeredModels(engine, settings.apiEndpoints)]));
   }
 }

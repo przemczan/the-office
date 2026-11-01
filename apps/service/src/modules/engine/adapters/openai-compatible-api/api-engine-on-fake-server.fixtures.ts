@@ -29,7 +29,7 @@ export async function apiEngineOnFakeServer(officeData: string): Promise<ApiEngi
     models: [{ id: "coder:q4", contextWindow: 100_000 }],
   };
   const engine = new OpenAiCompatibleApiEngine(
-    new EngineSettingsForTests({ apiEndpoints: [endpoint], searchEndpoint: null }),
+    new EngineSettingsForTests({ apiEndpoints: [endpoint], searchEndpoint: null, modelPrices: [] }),
     new OfficeDataDirectory(officeData),
     new SdkMcpClient(),
   );

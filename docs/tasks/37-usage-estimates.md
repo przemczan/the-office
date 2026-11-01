@@ -72,7 +72,7 @@ Decided with the user on 2026-11-01:
 
 Chosen while writing, for the user to review:
 - "Engine" is each of `ENGINES` as a Role card names it. The two Claude Code engines read the same account's windows and share its caps (the user, 2026-11-01). The API endpoints of the OpenAI-compatible API share its one set of caps.
-- Model prices live in the Engine module (`model_prices`, keyed by engine and model id, four numerics per million tokens, nullable as a whole: no row is no price). They are edited in Settings › Engines with the rest of its draft and sent whole by `PUT /settings/engines`. No prices are seeded.
+- Model prices live in the Engine module (`model_prices`, keyed by engine id and model, as caps and each day's use are, so a Claude model has one price on both Claude Code engines (the user, 2026-11-01); four numerics per million tokens, nullable as a whole: no row is no price). They are edited in Settings › Engines with the rest of its draft and sent whole by `PUT /settings/engines`. No prices are seeded.
 - A Stage run's cost is priced when the estimate is computed, from its tokens kind by kind and the current prices. A price change therefore reaches history, and no cost is stored. A Task's cost estimate is "no cost" when any Stage's model has no price.
 - For a Daily cap, the pending part is what is left of each Task in progress's estimate (estimate minus what it has used), so nothing is counted twice.
 - The hour exception covers Daily caps as well: their reset is local midnight.
@@ -109,15 +109,15 @@ Chosen while writing, for the user to review:
   - Commit.
 
   Read: the State; `engine/application/engine-sessions.ts` (`WatchedSession`); `notifications/adapters/postgres/notifications.schema.ts` (`dayTokens`, l. 43–60) and how Notifications fixes the day (grep `dayTokens`); `engine/adapters/postgres/engine-settings.schema.ts`.
-- [ ] 2a. Model prices, in Engine, about 70k:
-  - `model_prices` (a migration).
+- [x] 2a. Model prices, in Engine, about 70k:
+  - `model_prices` (a migration), keyed by engine id and model.
   - `EngineSettings` and its edit carry each offered model's price. Prices of models no longer offered are dropped on save.
-  - `ModelPrices.costOf(engine, model, tokens)` gives dollars, or undefined with no price. It is exported.
+  - `ModelPrices.costOf(engineId, model, tokens)` gives dollars, or undefined with no price. It is exported.
   - Contract schemas.
   - Commit.
 
   Read: the State; `engine/domain/engine-settings.ts` (`EngineSettings`, `EngineSettingsEdit`, `changedEngineSettings`); `engine/application/engine-settings-service.ts`; `engine/application/engine-models.ts`; `engine/adapters/postgres/postgres-engine-settings.ts`; `engine/adapters/http/engine-settings.controller.ts`; `packages/contracts/src/engines.ts`.
-- [ ] 2b. Web, Settings › Engines' Model prices, about 55k: a Prices card listing each offered model (the Claude Code engines' and each API endpoint's) with four price fields, in the section's one draft, Save and Discard. e2e test. Commit.
+- [ ] 2b. Web, Settings › Engines' Model prices, about 55k: a Prices card listing each offered model (the Claude Code engines' as `GET` lists them, and each drafted API endpoint's) with four price fields, in the section's one draft, Save and Discard. e2e test. Commit.
 
   Read: the State; `apps/web/src/surfaces/settings/MAP.md` (Engines); `settings/engines/engines-section.tsx`, `engine-settings-draft.ts`; `apps/web/src/api/engine.ts`; `apps/web/e2e/MAP.md`.
 - [ ] 3a. The history estimate, in Pipelines, about 75k:
@@ -198,14 +198,15 @@ Chosen while writing, for the user to review:
 
 ## State
 
-- Steps 1a–1c done. Engine: `EngineSessions.readUsageWindows(engine, session)` reads the windows (no model call) into `UsageWindowState` (`UsageWindowReading`: the windows, `readAt`, `officeTokensSoFar`, the four kinds on the reading's engine id since the service started). Undefined without the capability, an account without windows, or a failed read. Each window is judged on its own: one not begun is 0% with `resetsAt` undefined.
-- Pipelines: `StageRun` has `engine` (the kind), `model`, `usageWindowsAtStart`, `usageWindowsAtEnd`, saved by `AgentStageRunner.work` (migration 0068). Not migrated to engine ids.
-- Engine ids (the user, 2026-11-01): caps, readings and each day's use are keyed by `EngineId` (`domain/engines.ts`, exported): `claude-code` for `agent-sdk` and `claude-code-p`, `openai-compatible-api`. `engineIdOf(engine)` is the one mapping; task 47 replaces it with the engines the user adds.
-- Each day's use: `DayUsage` (`application/day-usage.ts`, exported, in both `EngineModule` and `ScriptedEngineModule`) adds every turn's tokens on `turn-ended`, awaited before the turn is reported, keyed (day, engine id, model) in `engine_day_usage` (migration 0069). `today(engineId)` gives `ModelDayUsage[]`. The day is local, from the injected `Schedule`'s now (`domain/day-usage.ts` `dayOf`, a copy of Notifications' `officeDayOf`: modules can't share it). A failed write is logged; the session runs on.
-- The model is the session's Model field (`<endpoint id>/<model id>` on the API), as Model prices will key it.
-- Open for the user: step 2a and the "Chosen while writing" line key Model prices by engine kind and model, which gives one Claude model two prices; by engine id would match the rest.
-- Trap for 5b: every scripted session in every test file adds to today's `engine_day_usage` on the shared database; Work's tests bind their own day's use (`DayUsageForTests` in Engine's ports, or a fake of Work's port).
-- Trap for 5a: `UsageWindowsChanged` fires only on a change; a reading with the same percent and a new `readAt` still clears pending estimates, so 5a needs a signal on every reading. `UsageWindowState` holds one reading (only `claude-code` has windows); keyed by engine id when task 47 brings several accounts.
+- Steps 1a–1c done. Engine: `EngineSessions.readUsageWindows(engine, session)` reads the windows (no model call) into `UsageWindowState` (`UsageWindowReading`: the windows, `readAt`, `officeTokensSoFar`). Undefined without the capability, an account without windows, or a failed read. A window not begun is 0% with `resetsAt` undefined.
+- Pipelines: `StageRun` has `engine` (the kind), `model`, `usageWindowsAtStart`, `usageWindowsAtEnd` (migration 0068). Not migrated to engine ids: price a run through `engineIdOf(run.engine)`.
+- Engine ids (the user, 2026-11-01): caps, readings, each day's use and Model prices are keyed by `EngineId` (`domain/engines.ts`): `claude-code` for both Claude Code engines, `openai-compatible-api`. `engineIdOf` is the one mapping; `ENGINE_IDS` lists them, `modelsOfferedOn(engineId, apiEndpoints)` gives the models offered on one. Task 47 replaces them.
+- Each day's use: `DayUsage.today(engineId)` gives `ModelDayUsage[]` from `engine_day_usage` (migration 0069), local day from the injected `Schedule`.
+- Model prices (step 2a, decided here: by engine id and model, so a Claude model has one price on both Claude Code engines): `model_prices` (migration 0070, numeric, checked ≥ 0) in `adapters/postgres/engine-settings.schema.ts`, written in the settings' one `replace` transaction. `EngineSettings.modelPrices` holds only priced, offered models (`PricedModel`, `domain/model-prices.ts`); `changedEngineSettings` drops unpriced or no-longer-offered ones (by the edited endpoints) and refuses a model twice or a negative price (422). `offeredModels` now takes the API endpoints, not the settings (no import cycle).
+- Contract: `GET`/`PUT /settings/engines` carry `modelPrices`, every offered model as `OfferedModel` (`engineId`, `model`, `price` or null), the Claude Code models first. The web's `draftOf` passes them through, so Save keeps them; 2b adds the card.
+- `ModelPrices.costOf(engineId, model, tokens)` (`application/model-prices.ts`, exported, in `EngineSettingsModule`): dollars from `TokenUsage` kind by kind (input, output, `cacheCreation` × cache writes, `cacheRead` × cache reads), undefined with no price. It reads the settings per call.
+- Trap for 5b: every scripted session in every test file adds to today's `engine_day_usage` on the shared database; Work's tests bind their own day's use.
+- Trap for 5a: `UsageWindowsChanged` fires only on a change; 5a needs a signal on every reading. `UsageWindowState` holds one reading.
 - Trap: the windows refresh only while a session runs, and are lost on a restart. "No reading means no wait" keeps Tasks from waiting forever.
 - Trap: a Stage's engine and model come from its Role card at run time; history is keyed by Stage, cost priced by each run's own model.
 
@@ -215,3 +216,4 @@ Chosen while writing, for the user to review:
 - 2026-11-01 · step 1a: readings with `readAt` and the Office's tokens so far, through `StageThread.usageWindows()` (Engine, Conversations, Pipelines' port); caps reworded per account; next, step 1b, Stage runs keep engine, model and readings.
 - 2026-11-01 · step 1b: Stage runs keep engine, model and the windows read as the session opens and after its last turn (migration 0068); a window not begun now counts as unused, judged one at a time; next, step 1c, the day's use per engine and model.
 - 2026-11-01 · step 1c: each day's use per engine id and model in `engine_day_usage` (migration 0069), added on every turn's end, `DayUsage.today(engineId)`; caps, readings and day use keyed by engine id via `engineIdOf` (steps 4–6a reworded); next, step 2a, Model prices.
+- 2026-11-01 · step 2a: Model prices in `model_prices` (migration 0070) keyed by engine id and model, carried whole by `GET`/`PUT /settings/engines` as every offered model with its price or none; `ModelPrices.costOf(engineId, model, tokens)` exported; next, step 2b, the Prices card.

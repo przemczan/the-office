@@ -12,6 +12,13 @@ import { EngineSettingsForTests } from "../../ports/engine-settings-repository.f
 
 const KEY = "sk-never-sent-back";
 
+const SONNET_PRICE = { input: 3, output: 15, cacheWrites: 3.75, cacheReads: 0.3 };
+
+/** The Claude Code engines' models, unpriced, as the settings list them first. */
+const UNPRICED_CLAUDE_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"].map(
+  (model) => ({ engineId: "claude-code", model, price: null }),
+);
+
 const strataEdit: EngineSettingsEdit = {
   apiEndpoints: [
     {
@@ -22,6 +29,7 @@ const strataEdit: EngineSettingsEdit = {
     },
   ],
   searchEndpoint: { baseUrl: "http://127.0.0.1:8888" },
+  modelPrices: [],
 };
 
 let app: INestApplication;
@@ -53,10 +61,11 @@ async function read(): Promise<string> {
 }
 
 describe("/api/settings/engines", () => {
-  it("has no API endpoint and no search endpoint until the user sets them", async () => {
+  it("has no API endpoint, no search endpoint and no Model price until the user sets them", async () => {
     expect(engineSettingsSchema.parse(JSON.parse(await read()))).toEqual({
       apiEndpoints: [],
       searchEndpoint: null,
+      modelPrices: UNPRICED_CLAUDE_MODELS,
     });
   });
 
@@ -79,8 +88,33 @@ describe("/api/settings/engines", () => {
         },
       ],
       searchEndpoint: { baseUrl: "http://127.0.0.1:8888" },
+      modelPrices: [
+        ...UNPRICED_CLAUDE_MODELS,
+        { engineId: "openai-compatible-api", model: "strata/qwen3.8-flash", price: null },
+      ],
     });
     expect((await repository.read()).apiEndpoints[0]?.key).toBe(KEY);
+  });
+
+  it("keeps each offered model's Model price, by engine id and model", async () => {
+    const saved = await put({
+      ...strataEdit,
+      modelPrices: [
+        { engineId: "claude-code", model: "claude-sonnet-5-5", price: SONNET_PRICE },
+        { engineId: "claude-code", model: "claude-gone-1", price: SONNET_PRICE },
+      ],
+    });
+
+    expect(saved.status).toBe(200);
+    expect(engineSettingsSchema.parse(JSON.parse(await read())).modelPrices).toEqual([
+      { engineId: "claude-code", model: "claude-opus-5-5", price: null },
+      { engineId: "claude-code", model: "claude-sonnet-5-5", price: SONNET_PRICE },
+      { engineId: "claude-code", model: "claude-haiku-5-5", price: null },
+      { engineId: "openai-compatible-api", model: "strata/qwen3.8-flash", price: null },
+    ]);
+    expect((await repository.read()).modelPrices).toEqual([
+      { engineId: "claude-code", model: "claude-sonnet-5-5", price: SONNET_PRICE },
+    ]);
   });
 
   it("keeps the key of an endpoint saved again without one", async () => {
@@ -102,6 +136,7 @@ describe("/api/settings/engines", () => {
     const refused = await put({
       apiEndpoints: [{ name: "", baseUrl: "http://strata", models: [] }],
       searchEndpoint: null,
+      modelPrices: [],
     });
 
     expect(refused.status).toBe(422);
@@ -109,7 +144,11 @@ describe("/api/settings/engines", () => {
       "Give each API endpoint a name.",
       "Give the API endpoint at least one model.",
     ]);
-    expect(await repository.read()).toEqual({ apiEndpoints: [], searchEndpoint: null });
+    expect(await repository.read()).toEqual({
+      apiEndpoints: [],
+      searchEndpoint: null,
+      modelPrices: [],
+    });
   });
 
   it("refuses a model without its context window in words, as Settings › Engines shows them", async () => {
@@ -118,6 +157,7 @@ describe("/api/settings/engines", () => {
         { name: "Strata", baseUrl: "http://strata", models: [{ id: "qwen3", contextWindow: 0 }] },
       ],
       searchEndpoint: null,
+      modelPrices: [],
     });
 
     expect(refused.status).toBe(422);

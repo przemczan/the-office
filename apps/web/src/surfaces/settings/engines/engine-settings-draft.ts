@@ -9,7 +9,11 @@ import type {
  * Settings › Engines as the user edits it before Save: the saved settings with every key kept,
  * since a key is never sent back and an edit without one keeps it.
  */
-export function draftOf({ apiEndpoints, searchEndpoint }: EngineSettings): EngineSettingsEdit {
+export function draftOf({
+  apiEndpoints,
+  searchEndpoint,
+  modelPrices,
+}: EngineSettings): EngineSettingsEdit {
   return {
     apiEndpoints: apiEndpoints.map(({ id, name, baseUrl, models }) => ({
       id,
@@ -18,6 +22,10 @@ export function draftOf({ apiEndpoints, searchEndpoint }: EngineSettings): Engin
       models: models.map((model) => ({ ...model })),
     })),
     searchEndpoint: searchEndpoint && { ...searchEndpoint },
+    modelPrices: modelPrices.map(({ price, ...model }) => ({
+      ...model,
+      price: price && { ...price },
+    })),
   };
 }
 

@@ -1,5 +1,7 @@
 import { apiEndpointIdFor, type ApiEndpoint, type ApiEndpointModel } from "./api-endpoints.js";
 import { EngineSettingsRefused } from "./engine-settings-refused.js";
+import { ENGINE_IDS, modelsOfferedOn } from "./engines.js";
+import { pricedModels, type OfferedModel, type PricedModel } from "./model-prices.js";
 
 /** The web search WebSearch goes through for the OpenAI-compatible API: SearXNG's JSON API. */
 export interface SearchEndpoint {
@@ -11,9 +13,15 @@ export interface EngineSettings {
   readonly apiEndpoints: readonly ApiEndpoint[];
   /** Null until the user sets one. */
   readonly searchEndpoint: SearchEndpoint | null;
+  /** Only the models offered now that have a Model price. */
+  readonly modelPrices: readonly PricedModel[];
 }
 
-export const DEFAULT_ENGINE_SETTINGS: EngineSettings = { apiEndpoints: [], searchEndpoint: null };
+export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
+  apiEndpoints: [],
+  searchEndpoint: null,
+  modelPrices: [],
+};
 
 /**
  * An API endpoint as Settings › Engines saves it: without an `id` when it is new, and without a
@@ -30,13 +38,28 @@ export interface ApiEndpointEdit {
 export interface EngineSettingsEdit {
   readonly apiEndpoints: readonly ApiEndpointEdit[];
   readonly searchEndpoint: SearchEndpoint | null;
+  readonly modelPrices: readonly OfferedModel[];
 }
 
 export const API_ENDPOINT_NAME_LENGTH = 40;
 
+/** Every model offered on each engine id, in order, with its Model price or none. */
+export function offeredModelPrices({ apiEndpoints, modelPrices }: EngineSettings): OfferedModel[] {
+  return ENGINE_IDS.flatMap((engineId) =>
+    modelsOfferedOn(engineId, apiEndpoints).map((model) => ({
+      engineId,
+      model,
+      price:
+        modelPrices.find((each) => each.engineId === engineId && each.model === model)?.price ??
+        null,
+    })),
+  );
+}
+
 /**
  * The settings `edit` makes of `stored`: the API endpoints in its order, a new one given its id,
- * each keeping its key unless the edit gives one. Refuses with every reason when they break a rule.
+ * each keeping its key unless the edit gives one, and the Model prices of the models they offer.
+ * Refuses with every reason when they break a rule.
  */
 export function changedEngineSettings(
   stored: EngineSettings,
@@ -50,8 +73,13 @@ export function changedEngineSettings(
   if (searchEndpoint && !isWebAddress(searchEndpoint.baseUrl)) {
     problems.push("Give the search endpoint a base URL starting with http:// or https://.");
   }
+  const modelPrices = pricedModels(
+    edit.modelPrices,
+    (engineId) => modelsOfferedOn(engineId, apiEndpoints),
+    problems,
+  );
   if (problems.length > 0) throw new EngineSettingsRefused([...new Set(problems)]);
-  return { apiEndpoints, searchEndpoint };
+  return { apiEndpoints, searchEndpoint, modelPrices };
 }
 
 function changedApiEndpoints(

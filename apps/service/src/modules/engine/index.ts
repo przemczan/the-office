@@ -8,6 +8,7 @@ export { EngineModels } from "./application/engine-models.js";
 export { ENGINES, engineIdOf, type Engine, type EngineId } from "./domain/engines.js";
 export { DayUsage } from "./application/day-usage.js";
 export type { ModelDayUsage } from "./ports/day-usage-repository.js";
+export { ModelPrices } from "./application/model-prices.js";
 export { READ_ONLY_GIT_COMMANDS } from "./domain/git-commands.js";
 export { READ_ONLY_SHELL_RULE } from "./domain/office-rules.js";
 export { EngineModule } from "./engine.module.js";

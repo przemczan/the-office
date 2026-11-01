@@ -66,7 +66,7 @@ function engineOn(
   searchEndpoint: SearchEndpoint | null = null,
 ): OpenAiCompatibleApiEngine {
   return new OpenAiCompatibleApiEngine(
-    new EngineSettingsForTests({ apiEndpoints: endpoints, searchEndpoint }),
+    new EngineSettingsForTests({ apiEndpoints: endpoints, searchEndpoint, modelPrices: [] }),
     new OfficeDataDirectory(officeData),
     new SdkMcpClient(),
   );
