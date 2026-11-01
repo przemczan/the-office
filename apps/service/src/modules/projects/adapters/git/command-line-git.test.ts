@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, stat, symlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { officeIdentityForTests } from "../../../../platform/git-identity/office-identity.fixtures.js";
@@ -148,6 +148,62 @@ describe("CommandLineGit.fetch", REAL_GIT_TEST, () => {
 
     await expect(fetching).rejects.toBeInstanceOf(GitCommandFailed);
     await expect(fetching).rejects.toThrow(/couldn't find remote ref/i);
+  });
+});
+
+describe("CommandLineGit.remoteBranches", REAL_GIT_TEST, () => {
+  it("reads the default branch and every branch without cloning", async () => {
+    const branches = await git.remoteBranches(repository.originPath);
+
+    expect(branches.defaultBranch).toBe("main");
+    expect(branches.branches).toContain("main");
+  });
+
+  it("finds no default branch in a repository without commits", async () => {
+    const empty = join(repository.folder, `empty-${randomUUID()}.git`);
+    gitIn(repository.folder, "init", "--quiet", "--bare", empty);
+
+    await expect(git.remoteBranches(empty)).resolves.toEqual({
+      defaultBranch: undefined,
+      branches: [],
+    });
+  });
+});
+
+/** A path for a clone in a folder of its own. */
+function clonePath(): string {
+  return join(repository.folder, "repositories", randomUUID(), "shop");
+}
+
+describe("CommandLineGit.clone", REAL_GIT_TEST, () => {
+  it("clones the whole repository into the folder, telling how far it has got", async () => {
+    const folder = clonePath();
+    const progress: string[] = [];
+
+    await git.clone({
+      url: repository.originPath,
+      folder,
+      onProgress: ({ phase }) => progress.push(phase),
+      signal: new AbortController().signal,
+    });
+
+    expect(gitIn(folder, "rev-parse", "HEAD")).toBe(firstCommit);
+    expect(gitIn(folder, "branch", "--show-current")).toBe("main");
+    expect(progress[0]).toBe("Cloning");
+  });
+
+  it("leaves no folder when git refuses", async () => {
+    const folder = clonePath();
+    const cloning = git.clone({
+      url: join(repository.folder, "nowhere.git"),
+      folder,
+      onProgress: () => undefined,
+      signal: new AbortController().signal,
+    });
+
+    await expect(cloning).rejects.toBeInstanceOf(GitCommandFailed);
+    expect(await exists(folder)).toBe(false);
+    expect(await readdir(join(folder, ".."))).toEqual([]);
   });
 });
 

@@ -135,7 +135,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
       processTrees,
       paths,
     );
-    const rules = sessionOfficeRules(this.operatingSystem, this.officeData.path, options, {
+    const rules = sessionOfficeRules(this.operatingSystem, this.officeData, options, {
       readableFolders: [backgroundCommands.folder],
       environment: options.environment,
     });

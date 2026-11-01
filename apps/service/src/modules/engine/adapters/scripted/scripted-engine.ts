@@ -159,6 +159,7 @@ function mcpToolRules(options: SessionOptions): OfficeRules {
     profile: options.profile,
     userSecrets: [],
     officeFiles: [],
+    cloneFolders: [],
     homeFolder: homedir(),
     environment: options.environment,
     paths: currentOperatingSystem().paths,

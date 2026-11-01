@@ -110,7 +110,7 @@ export class ClaudeCodePEngine extends AgentEngine {
     resumes: boolean,
     options: SessionOptions,
   ): Promise<ClaudeCodePSession> {
-    const rules = claudeCodeOfficeRules(this.operatingSystem, this.officeData.path, id, options);
+    const rules = claudeCodeOfficeRules(this.operatingSystem, this.officeData, id, options);
     const streamEvents = new StreamEvents(options.mcpServers.map(({ name }) => name));
     const holds = { toolHold: options.toolHold, approvalHold: options.approvalHold };
     const endpoints = this.endpoints.open({

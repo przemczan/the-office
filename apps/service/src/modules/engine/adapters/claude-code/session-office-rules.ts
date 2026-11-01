@@ -1,3 +1,4 @@
+import type { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
 import type { OfficeRules } from "../../domain/office-rules.js";
 import type { SessionOptions } from "../../ports/session-options.js";
@@ -11,11 +12,11 @@ import { sessionEnvironment } from "./session-settings.js";
  */
 export function claudeCodeOfficeRules(
   operatingSystem: OperatingSystem,
-  officeDataPath: string,
+  officeData: OfficeDataDirectory,
   sessionId: string,
   options: SessionOptions,
 ): OfficeRules {
-  return sessionOfficeRules(operatingSystem, officeDataPath, options, {
+  return sessionOfficeRules(operatingSystem, officeData, options, {
     readableFolders: [engineTaskFolder(operatingSystem, options.folder, sessionId)],
     environment: sessionEnvironment(options.environment),
   });

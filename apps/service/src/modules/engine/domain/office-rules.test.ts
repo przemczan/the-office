@@ -69,6 +69,7 @@ function rulesOn(platform: Platform, profile: PermissionProfile = DEVELOPER): Of
     profile,
     userSecrets: platform.system.secretPaths,
     officeFiles: [platform.dataDirectory, platform.officeEnvFile],
+    cloneFolders: [platform.system.paths.join(platform.dataDirectory, "repositories")],
     homeFolder: platform.home,
     environment:
       platform === WINDOWS
@@ -128,6 +129,8 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
       // Quoted, since an unquoted backslash escapes in Bash.
       `cat '${join(platform.home, ".claude", ".credentials.json")}'`,
       `cat '${join(platform.dataDirectory, "settings.json")}'`,
+      `cat '${join(platform.dataDirectory, "identity", "office_ed25519")}'`,
+      `ls '${platform.dataDirectory}'`,
       `cat '${join(platform.otherWorktree, "src", "app.ts")}'`,
       `cat '${platform.officeEnvFile}'`,
       `ssh -i ~/.ssh/id_ed25519 host`,
@@ -145,6 +148,8 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
       "cat .env",
       `cat '${join(platform.worktree, "src", "app.ts")}'`,
       `cat '${join(platform.skillsFolder, "review", "SKILL.md")}'`,
+      // A Project's clone is read as a path-added Project's folder is.
+      `cat '${join(platform.dataDirectory, "repositories", "github.com", "acme", "shop", "README.md")}'`,
       "ssh -T git@github.com",
     ])("allows %s", (commandLine) => {
       expect(decide(command(dialect, commandLine))).toEqual({ allowed: true });
@@ -225,6 +230,14 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
         reason: `Refused by The Office: ${platform.systemFile} is outside this session's folders; read only inside ${platform.worktree}.`,
       });
       expect(decide({ kind: "read", paths: [".", "../.."] })).toMatchObject({ allowed: false });
+    });
+
+    it("refuses another Project's clone as outside the session's folders, not as The Office's own", () => {
+      const clone = join(platform.dataDirectory, "repositories", "github.com", "acme", "shop");
+      expect(decide({ kind: "read", paths: [clone] })).toEqual({
+        allowed: false,
+        reason: `Refused by The Office: ${clone} is outside this session's folders; read only inside ${platform.worktree}.`,
+      });
     });
 
     it.runIf(platform === WINDOWS)("reads a Git Bash path as the Windows path it names", () => {

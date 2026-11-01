@@ -79,7 +79,7 @@ export class AgentSdkEngine extends AgentEngine {
   ): Promise<AgentSdkSession> {
     const engineProcess = new EngineProcess(this.operatingSystem.processTrees);
     const held: HeldTo = {
-      rules: claudeCodeOfficeRules(this.operatingSystem, this.officeData.path, id, options),
+      rules: claudeCodeOfficeRules(this.operatingSystem, this.officeData, id, options),
       holds: { toolHold: options.toolHold, approvalHold: options.approvalHold },
       skills: options.skills,
       paths: this.operatingSystem.paths,

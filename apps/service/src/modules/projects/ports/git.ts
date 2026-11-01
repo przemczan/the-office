@@ -1,3 +1,4 @@
+import type { CloneProgress } from "../domain/repository-clone.js";
 /** What a folder on the workstation is to git. */
 export type FolderInspection =
   | { readonly kind: "missing" }
@@ -81,6 +82,22 @@ export type MergeConclusion =
  */
 export type GitVariables = Readonly<Record<string, string>>;
 
+/** A repository's branches on its remote, and the one its HEAD names. */
+export interface RemoteBranches {
+  /** Undefined for a repository without commits, whose HEAD names no branch yet. */
+  readonly defaultBranch: string | undefined;
+  readonly branches: readonly string[];
+}
+
+/** A clone of a repository by its URL, into a folder that doesn't exist yet. */
+export interface CloneRequest {
+  readonly url: string;
+  readonly folder: string;
+  readonly onProgress: (progress: CloneProgress) => void;
+  /** Ends the clone, leaving no folder. */
+  readonly signal: AbortSignal;
+}
+
 /** A git command that ran and failed. */
 export class GitCommandFailed extends Error {
   constructor(
@@ -102,6 +119,15 @@ export class GitCommandFailed extends Error {
 export abstract class Git {
   /** Whether `path` is the top-level folder of a repository's working tree. */
   abstract inspect(path: string): Promise<FolderInspection>;
+
+  /** The branches of the repository at `url` (`ls-remote --symref`), read without cloning it. */
+  abstract remoteBranches(url: string): Promise<RemoteBranches>;
+
+  /**
+   * Clones the whole repository into `request.folder`, which appears only once the clone is
+   * complete, so a folder found there is never half a clone.
+   */
+  abstract clone(request: CloneRequest): Promise<void>;
 
   /** Whether the repository at `repositoryPath` has a local branch named `branch`. */
   abstract hasBranch(repositoryPath: string, branch: string): Promise<boolean>;

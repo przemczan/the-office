@@ -229,6 +229,54 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
 ]);
 export type ProjectWebEvent = z.infer<typeof projectWebEventSchema>;
 
+/** What the user gives to clone a repository before adding it (POST /repositories/clones). */
+export const repositoryCloneStartSchema = z.object({
+  /** A Repository URL: https, `ssh://` or `user@host:path`. */
+  url: z.string(),
+});
+export type RepositoryCloneStart = z.infer<typeof repositoryCloneStartSchema>;
+
+/** How far a clone has got, in git's words. */
+export const cloneProgressSchema = z.object({
+  phase: z.string(),
+  percent: z.number().int().min(0).max(100).optional(),
+});
+export type CloneProgress = z.infer<typeof cloneProgressSchema>;
+
+const repositoryCloneFieldsSchema = z.object({
+  id: z.string().min(1),
+  url: z.string(),
+  /** `<office-data>/repositories/<host>/<owner>/<repo>`, the path the Project is added by. */
+  path: z.string(),
+  startedAt: z.iso.datetime(),
+  finishedAt: z.iso.datetime().optional(),
+});
+
+/**
+ * A repository cloned by its Repository URL (POST /repositories/clones, GET …/:id): under way with
+ * its progress, cloned with the remote's default branch and branches, or failed and why.
+ */
+export const repositoryCloneSchema = z.discriminatedUnion("state", [
+  repositoryCloneFieldsSchema.extend({
+    state: z.literal("cloning"),
+    progress: cloneProgressSchema.optional(),
+  }),
+  repositoryCloneFieldsSchema.extend({
+    state: z.literal("cloned"),
+    defaultBranch: z.string(),
+    branches: z.array(z.string()),
+  }),
+  repositoryCloneFieldsSchema.extend({ state: z.literal("failed"), problem: z.string() }),
+]);
+export type RepositoryClone = z.infer<typeof repositoryCloneSchema>;
+
+/** A clone started, moved on or finished; the web reads it again by its id. */
+export const repositoryCloneWebEventSchema = webEventSchema.extend({
+  type: z.literal("repository-clone.changed"),
+  cloneId: z.string(),
+});
+export type RepositoryCloneWebEvent = z.infer<typeof repositoryCloneWebEventSchema>;
+
 /** A file a Task's commits changed since its branch left the base branch. */
 export const changedFileSchema = z.object({
   /** Relative to the repository, with "/" between folders: where it is now, or was if deleted. */

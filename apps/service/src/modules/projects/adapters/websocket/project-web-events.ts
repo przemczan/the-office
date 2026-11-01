@@ -1,5 +1,5 @@
 import { Injectable, type OnModuleInit } from "@nestjs/common";
-import type { ProjectWebEvent } from "@the-office/contracts";
+import type { ProjectWebEvent, RepositoryCloneWebEvent } from "@the-office/contracts";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import {
   EnvironmentCheckFinished,
@@ -15,13 +15,21 @@ import {
   ProjectPublishingModeChanged,
   ProjectUseProjectSkillsChanged,
 } from "../../domain/project-events.js";
+import {
+  RepositoryCloneFinished,
+  RepositoryCloneProgressed,
+  RepositoryCloneStarted,
+} from "../../domain/repository-clone-events.js";
 
 type WebEventOf<Type extends ProjectWebEvent["type"]> = Omit<
   Extract<ProjectWebEvent, { type: Type }>,
   "occurredAt"
 >;
 
-/** Every Project event reaches the web, naming the Project, so an open page refetches it. */
+/**
+ * Every Project event reaches the web, naming the Project, so an open page refetches it; a clone's
+ * events name the clone.
+ */
 @Injectable()
 export class ProjectWebEvents implements OnModuleInit {
   constructor(private readonly forwarding: WebEventForwarding) {}
@@ -81,7 +89,14 @@ export class ProjectWebEvents implements OnModuleInit {
         projectId: event.projectId,
       }),
     );
+    this.forwarding.forward(RepositoryCloneStarted, (event) => cloneChanged(event.clone.id));
+    this.forwarding.forward(RepositoryCloneProgressed, (event) => cloneChanged(event.cloneId));
+    this.forwarding.forward(RepositoryCloneFinished, (event) => cloneChanged(event.clone.id));
   }
+}
+
+function cloneChanged(cloneId: string): Omit<RepositoryCloneWebEvent, "occurredAt"> {
+  return { type: "repository-clone.changed", cloneId };
 }
 
 function checkChanged(projectId: string): WebEventOf<"project.environment-check-changed"> {

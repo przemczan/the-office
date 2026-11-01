@@ -24,6 +24,8 @@ class FakeGit extends Git {
   }
 
   // The checks only ask what a folder is and which branches it has.
+  remoteBranches = notUsed;
+  clone = notUsed;
   localBranches = notUsed;
   upstreamOf = notUsed;
   commitOf = notUsed;

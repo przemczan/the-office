@@ -10,6 +10,7 @@ import { GitHubCliPullRequests } from "./adapters/github/github-cli-pull-request
 import { EnvironmentChecksController } from "./adapters/http/environment-checks.controller.js";
 import { ProjectServerValuesController } from "./adapters/http/project-server-values.controller.js";
 import { ProjectsController } from "./adapters/http/projects.controller.js";
+import { RepositoryClonesController } from "./adapters/http/repository-clones.controller.js";
 import { TaskChangesController } from "./adapters/http/task-changes.controller.js";
 import { PostgresEnvironmentCheckRepository } from "./adapters/postgres/postgres-environment-check-repository.js";
 import { PostgresProjectRepository } from "./adapters/postgres/postgres-project-repository.js";
@@ -22,6 +23,7 @@ import { ProjectChecks } from "./application/project-checks.js";
 import { ProjectCommandRunner } from "./application/project-command-runner.js";
 import { ProjectRemotes } from "./application/project-remotes.js";
 import { ProjectService } from "./application/project-service.js";
+import { RepositoryClones } from "./application/repository-clones.js";
 import { Publishing } from "./application/publishing.js";
 import { Resolving } from "./application/resolving.js";
 import { ScriptCommands } from "./application/script-commands.js";
@@ -54,6 +56,7 @@ export class ProjectsModule {
         ProjectServerValuesController,
         EnvironmentChecksController,
         TaskChangesController,
+        RepositoryClonesController,
       ],
       providers: [
         { provide: ProjectRepository, useClass: PostgresProjectRepository },
@@ -65,6 +68,7 @@ export class ProjectsModule {
         ProjectCommandRunner,
         { provide: KnownPipelines, useExisting: knownPipelines },
         EnvironmentChecks,
+        RepositoryClones,
         ProjectChecks,
         LocalRepositories,
         ProjectService,

@@ -38,6 +38,22 @@ export class ProjectRemotes {
     const needs = await this.needsOf(project);
     return needs && fetchFailureReason(needs);
   }
+
+  /** What a failed clone of `url` may lack, in the user's words; undefined if nothing. */
+  async whyCloneFailed(url: string): Promise<string | undefined> {
+    return fetchFailureReason(await this.identity.needsOf(url));
+  }
+
+  /**
+   * Why `url` can't be reached at all yet: an ssh host without the Office ssh key or a trusted host
+   * key. GitHub over https without the sign-in still reaches a public repository.
+   */
+  async whyUnreachable(url: string): Promise<string | undefined> {
+    const needs = await this.identity.needsOf(url);
+    return needs.kind === "ssh" && needs.missing.length > 0
+      ? sshFailureReason(needs.host, needs.missing)
+      : undefined;
+  }
 }
 
 /** Decided from what the identity has, not from git's words, which follow the Project's locale. */

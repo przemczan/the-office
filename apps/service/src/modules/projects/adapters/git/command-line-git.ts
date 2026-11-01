@@ -6,6 +6,7 @@ import {
   GitCommandFailed,
   type BranchChanges,
   type ChangedFile,
+  type CloneRequest,
   type FolderInspection,
   type GitVariables,
   type Head,
@@ -13,10 +14,12 @@ import {
   type MergeConclusion,
   type MergeStart,
   type NewWorktree,
+  type RemoteBranches,
   type Upstream,
   type WorktreeCheckout,
 } from "../../ports/git.js";
 import { OfficeIdentity } from "../../../../platform/git-identity/office-identity.js";
+import { cloneRepository, remoteBranchesOf } from "./git-clone.js";
 import { GitProcess } from "./git-process.js";
 import { RepositoryLocks } from "./repository-locks.js";
 
@@ -65,6 +68,14 @@ export class CommandLineGit extends Git {
     return prefix === ""
       ? { kind: "repository" }
       : { kind: "inside-a-repository", root: normalize(root) };
+  }
+
+  async remoteBranches(url: string): Promise<RemoteBranches> {
+    return remoteBranchesOf(this.process, url);
+  }
+
+  async clone(request: CloneRequest): Promise<void> {
+    return cloneRepository(this.process, request);
   }
 
   async hasBranch(repositoryPath: string, branch: string): Promise<boolean> {

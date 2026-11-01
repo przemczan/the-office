@@ -21,6 +21,11 @@ export interface SessionRules {
   readonly userSecrets: readonly string[];
   /** The Office's own files and folders, such as its data directory, outside the session's folders. */
   readonly officeFiles: readonly string[];
+  /**
+   * The folders inside The Office's files that hold Projects' clones (spec §5.5 Defaults): not The
+   * Office's own, so a session reads them as it reads a path-added Project's folder.
+   */
+  readonly cloneFolders: readonly string[];
   readonly homeFolder: string;
   /** The variables the session's commands run with, which a command line may name. */
   readonly environment: Readonly<Record<string, string>>;

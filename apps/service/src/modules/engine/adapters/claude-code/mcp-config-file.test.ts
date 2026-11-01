@@ -2,6 +2,7 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { toolDecision } from "../office-rules/tool-decision.js";
@@ -71,7 +72,12 @@ describe("McpConfigFile", () => {
       instructions: "",
       outputSchema: undefined,
     };
-    const rules = claudeCodeOfficeRules(currentOperatingSystem(), officeData, SESSION_ID, options);
+    const rules = claudeCodeOfficeRules(
+      currentOperatingSystem(),
+      new OfficeDataDirectory(officeData),
+      SESSION_ID,
+      options,
+    );
     const decide = (tool: string, input: unknown) => toolDecision(rules, {}, tool, input);
 
     await expect(decide("Read", { file_path: file.path })).resolves.toMatchObject({

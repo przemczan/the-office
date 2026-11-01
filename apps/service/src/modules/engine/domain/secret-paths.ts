@@ -51,12 +51,14 @@ export class SecretPaths {
   }
 
   private byPath(candidate: string, directory: string): string | undefined {
-    const { paths, workingFolder, readableFolders, userSecrets, officeFiles } = this.rules;
+    const { paths, workingFolder, readableFolders, userSecrets, officeFiles, cloneFolders } =
+      this.rules;
     const path = paths.resolve(directory, candidate);
-    if ([workingFolder, ...readableFolders].some((folder) => paths.isWithin(path, folder))) {
-      return undefined;
-    }
-    return [...userSecrets, ...officeFiles].find((secret) => paths.isWithin(path, secret));
+    const within = (folder: string) => paths.isWithin(path, folder);
+    if ([workingFolder, ...readableFolders].some(within)) return undefined;
+    const userSecret = userSecrets.find(within);
+    if (userSecret !== undefined || cloneFolders.some(within)) return userSecret;
+    return officeFiles.find(within);
   }
 
   /** The word with `~` and the session's variables replaced by what they hold. */

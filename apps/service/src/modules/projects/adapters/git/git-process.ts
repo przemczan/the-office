@@ -18,9 +18,14 @@ export interface GitCall {
    * git's records run with the service's own, with git's messages in English, as the UI shows them.
    */
   readonly variables?: GitVariables;
+  /** How long git may run; 0 for no limit, for a command only `signal` ends. */
   readonly timeoutMs?: number;
   /** Written to git's standard input. */
   readonly input?: string;
+  /** Ends git when aborted. */
+  readonly signal?: AbortSignal;
+  /** Called with what git writes to standard error as it writes it, such as `--progress`. */
+  readonly onStandardError?: (text: string) => void;
 }
 
 /** What git printed and how it exited; a git that couldn't start at all throws instead. */
@@ -53,6 +58,8 @@ export class GitProcess {
     variables,
     timeoutMs = LOCAL_TIMEOUT_MS,
     input,
+    signal,
+    onStandardError,
   }: GitCall): Promise<GitResult> {
     const identity = await this.identity.forGitCommand(
       remote,
@@ -65,6 +72,7 @@ export class GitProcess {
         {
           env: identity.variables,
           timeout: timeoutMs,
+          ...(signal && { signal }),
           maxBuffer: OUTPUT_LIMIT_BYTES,
           windowsHide: true,
         },
@@ -80,6 +88,8 @@ export class GitProcess {
           }
         },
       );
+      if (onStandardError)
+        child.stderr?.on("data", (chunk: Buffer | string) => onStandardError(String(chunk)));
       child.stdin?.end(input);
     });
   }

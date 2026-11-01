@@ -15,6 +15,7 @@ const RULES = new OfficeRules({
   profile: { edit: false, run: { kind: "anything" }, web: false, mcpTools: {} },
   userSecrets: SYSTEM.secretPaths,
   officeFiles: [],
+  cloneFolders: [],
   homeFolder: "/home/office",
   environment: {},
   paths: SYSTEM.paths,
