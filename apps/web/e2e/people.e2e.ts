@@ -809,7 +809,10 @@ test("the user gives Ola an MCP server on the Role card, sets a tool, and a Stag
     const { id: taskId } = taskSchema.parse(await created.json());
     await page.goto(`/tasks/${taskId}`);
     await page.getByRole("button", { name: "Edit for this Task" }).click();
-    await page.getByRole("dialog").getByLabel("Pipeline").selectOption("quick-fix");
+    const pipeline = page.getByRole("dialog").getByLabel("Pipeline");
+    await pipeline.selectOption("quick-fix");
+    // The swap lands by starting the editor again, which would drop any edit made before it.
+    await expect(pipeline).toHaveValue("quick-fix");
     const implement = editorRow(page, "Implement");
     await implement.getByRole("button", { name: "Edit Implement" }).click();
     await implement.getByLabel("Who works it").selectOption("reviewer");
