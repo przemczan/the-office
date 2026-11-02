@@ -3,8 +3,13 @@ import { McpClient } from "../../../../platform/mcp/mcp-client.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
-import { parseApiEndpointModel, type ApiEndpoint } from "../../domain/api-endpoints.js";
-import type { EngineSettings, SearchEndpoint } from "../../domain/engine-settings.js";
+import { parseApiEndpointModel } from "../../domain/api-endpoints.js";
+import type { ApiEngine } from "../../domain/engines.js";
+import {
+  apiEngines,
+  type EngineSettings,
+  type SearchEndpoint,
+} from "../../domain/engine-settings.js";
 import type { ToolDecision } from "../../domain/office-rules.js";
 import { listingProblems } from "../../domain/skill-listing.js";
 import {
@@ -45,7 +50,7 @@ export const OPENAI_COMPATIBLE_API_CAPABILITIES: EngineCapabilities = {
 
 /** An API endpoint and the id of the model there that a session runs on. */
 interface EndpointModel {
-  readonly endpoint: ApiEndpoint;
+  readonly endpoint: ApiEngine;
   readonly modelId: string;
   readonly contextWindow: number;
 }
@@ -197,8 +202,7 @@ function endpointModel(settings: EngineSettings, model: string): EndpointModel {
   if (named === undefined) {
     throw new ModelNotOffered(model, "it names no API endpoint, as `<endpoint>/<model>` would.");
   }
-  const { apiEndpoints } = settings;
-  const endpoint = apiEndpoints.find(({ id }) => id === named.endpointId);
+  const endpoint = apiEngines(settings.engines).find(({ id }) => id === named.endpointId);
   if (endpoint === undefined) {
     throw new ModelNotOffered(
       model,

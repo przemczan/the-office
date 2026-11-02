@@ -7,7 +7,7 @@ import { AccountWindows } from "../ports/account-windows.js";
 import { KnownPeople } from "../ports/known-people.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
 import { TaskRepository } from "../ports/task-repository.js";
-import { WorkSettings } from "../ports/work-settings.js";
+import { OfficeLimits } from "./office-limits.js";
 import { DailyCaps } from "./daily-caps.js";
 import { StartsSinceReading } from "./starts-since-reading.js";
 import { UsageEstimates } from "./usage-estimates.js";
@@ -23,7 +23,7 @@ export class StartConditionsReader {
   constructor(
     private readonly pipelines: KnownPipelines,
     private readonly people: KnownPeople,
-    private readonly settings: WorkSettings,
+    private readonly limits: OfficeLimits,
     private readonly tasks: TaskRepository,
     private readonly estimates: UsageEstimates,
     private readonly windows: AccountWindows,
@@ -46,8 +46,8 @@ export class StartConditionsReader {
 
   private async reading(): Promise<(task: Task) => Promise<StartConditions>> {
     const [officeWideLimit, usageSettings, everyTask] = await Promise.all([
-      this.settings.officeWideLimit(),
-      this.settings.usageSettings(),
+      this.limits.officeWideLimit(),
+      this.limits.usageSettings(),
       this.tasks.list(),
     ]);
     const now = new Date();

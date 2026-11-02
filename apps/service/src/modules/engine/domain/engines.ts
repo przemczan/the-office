@@ -1,66 +1,89 @@
-import { apiEndpointModels, type ApiEndpoint } from "./api-endpoints.js";
+import { parseApiEndpointModel, type ApiEndpointModel } from "./api-endpoints.js";
 
-/**
- * The engines a Role may work with (spec §5.4): the Agent SDK, the `-p` fallback, and The Office's
- * own agent loop on the OpenAI-compatible API.
- */
-export const ENGINES = ["agent-sdk", "claude-code-p", "openai-compatible-api"] as const;
-export type Engine = (typeof ENGINES)[number];
-
-/**
- * An engine as the user will list it (spec §5.4): what caps, readings and each day's use are kept
- * by. The two Claude Code engines spend one account's credits, so they share an id. Kept in the
- * database, so an id never changes.
- */
+/** Made from the engine's name when it is added and kept on a rename (spec §5.4). */
 export type EngineId = string;
 
-// The one place an engine's kind gives its id, which task 47 replaces with the engines the user adds.
-const ENGINE_ID_OF_ENGINE: Readonly<Record<Engine, EngineId>> = {
-  "agent-sdk": "claude-code",
-  "claude-code-p": "claude-code",
-  "openai-compatible-api": "openai-compatible-api",
+/** What an engine is: a Claude Code account, or an API endpoint of the OpenAI-compatible API. */
+export type EngineKind = "claude-code" | "openai-compatible-api";
+
+interface EngineBase {
+  readonly id: EngineId;
+  readonly name: string;
+  /** One of the models the engine offers, which picking the engine fills in. */
+  readonly defaultModel: string;
+}
+
+/** A Claude Code account, which may run on the `-p` fallback instead of the Agent SDK. */
+export interface ClaudeCodeEngine extends EngineBase {
+  readonly kind: "claude-code";
+  readonly claudeCodeP: boolean;
+}
+
+/** An API endpoint of the OpenAI-compatible API. */
+export interface ApiEngine extends EngineBase {
+  readonly kind: "openai-compatible-api";
+  readonly baseUrl: string;
+  /** Empty for a server that asks for none, as a local one. Never sent back. */
+  readonly key: string;
+  readonly models: readonly ApiEndpointModel[];
+}
+
+/** An engine the user lists in Settings › Engines (spec §5.4), which caps and usage are kept by. */
+export type Engine = ClaudeCodeEngine | ApiEngine;
+
+/** The models the pinned binary offers, on every Claude Code engine, by their ids. */
+export const CLAUDE_CODE_MODELS = [
+  "claude-opus-5-5",
+  "claude-sonnet-5-5",
+  "claude-haiku-5-5",
+] as const;
+
+/** The Claude Code setup before engines were a list, as the upgrade turns it into a row. */
+export const FIRST_CLAUDE_CODE_ENGINE: ClaudeCodeEngine = {
+  id: "claude-code",
+  name: "Claude Code",
+  kind: "claude-code",
+  defaultModel: "claude-sonnet-5-5",
+  claudeCodeP: false,
 };
 
-/** The engine `engine`'s sessions spend on. */
-export function engineIdOf(engine: Engine): EngineId {
-  return ENGINE_ID_OF_ENGINE[engine];
+/** The models `engine` offers, by their ids there. */
+export function offeredModels(engine: Engine): readonly string[] {
+  return engine.kind === "claude-code" ? CLAUDE_CODE_MODELS : engine.models.map(({ id }) => id);
 }
 
 /**
- * Whether the account behind `engineId` has usage windows (spec §5.4): only the Claude Code
- * account's. Whether an engine reads them is its capability (`usageWindows`).
+ * Whether `engine`'s account has usage windows (spec §5.4): a Claude Code account's. Whether an
+ * engine reads them is its adapter's capability (`usageWindows`).
  */
-export function hasUsageWindows(engineId: EngineId): boolean {
-  return engineId === "claude-code";
+export function hasUsageWindows(engine: Engine): boolean {
+  return engine.kind === "claude-code";
 }
 
-/** Both run the pinned binary the SDK bundles, so they offer the same models, by their ids. */
-const PINNED_BINARY_MODELS = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"] as const;
+/**
+ * What a Role card names as its engine until step 1c of task 47 makes it an engine id: the Agent
+ * SDK or the `-p` fallback, both on the first Claude Code engine, or the OpenAI-compatible API, on
+ * the engine its Model field's `<endpoint>/` names.
+ */
+export const ROLE_ENGINES = ["agent-sdk", "claude-code-p", "openai-compatible-api"] as const;
+export type RoleEngine = (typeof ROLE_ENGINES)[number];
 
-const OFFERED_MODELS: Readonly<
-  Record<Engine, (apiEndpoints: readonly ApiEndpoint[]) => readonly string[]>
-> = {
-  "agent-sdk": () => PINNED_BINARY_MODELS,
-  "claude-code-p": () => PINNED_BINARY_MODELS,
-  "openai-compatible-api": (apiEndpoints) => apiEndpointModels(apiEndpoints),
-};
-
-/** The models `engine` offers with these API endpoints, as a Role's Model field names them. */
-export function offeredModels(
-  engine: Engine,
-  apiEndpoints: readonly ApiEndpoint[],
-): readonly string[] {
-  return OFFERED_MODELS[engine](apiEndpoints);
+/** An engine and one of its models, by its id there. */
+export interface EngineModel {
+  readonly engineId: EngineId;
+  readonly model: string;
 }
 
-/** The engine ids, each once, in the order of `ENGINES`. */
-export const ENGINE_IDS: readonly EngineId[] = [...new Set(ENGINES.map(engineIdOf))];
-
-/** The models offered on `engineId` by every engine spending on it, each once. */
-export function modelsOfferedOn(
-  engineId: EngineId,
-  apiEndpoints: readonly ApiEndpoint[],
-): readonly string[] {
-  const engines = ENGINES.filter((engine) => engineIdOf(engine) === engineId);
-  return [...new Set(engines.flatMap((engine) => offeredModels(engine, apiEndpoints)))];
+/**
+ * The engine a Role card's engine and Model field run on, with the model by its id there. An API
+ * model naming no endpoint stays on the kind's own id, as the upgrade keeps such usage.
+ */
+export function engineModelOf(roleEngine: RoleEngine, model: string): EngineModel {
+  if (roleEngine !== "openai-compatible-api") {
+    return { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model };
+  }
+  const named = parseApiEndpointModel(model);
+  return named === undefined
+    ? { engineId: roleEngine, model }
+    : { engineId: named.endpointId, model: named.modelId };
 }

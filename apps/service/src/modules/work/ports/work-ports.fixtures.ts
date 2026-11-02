@@ -7,7 +7,7 @@ import {
   TaskThreadSetups,
   WorkRecords,
 } from "../../conversations/index.js";
-import { hasUsageWindows, type EngineId } from "../../engine/index.js";
+import { FIRST_CLAUDE_CODE_ENGINE, type EngineId, type EngineModel } from "../../engine/index.js";
 import type { NewProject } from "../../projects/index.js";
 import type { AccountWindowsReading } from "../domain/cap-waits.js";
 import { FIRE_ALARM_OFF, type FireAlarm } from "../domain/fire-alarm.js";
@@ -304,7 +304,7 @@ export class UsageHistoryForTests extends UsageHistory {
 export class ModelPricesForTests extends ModelPrices {
   readonly dollarsPerToken = new Map<string, number>();
 
-  async costOf(_engineId: string, model: string, tokens: StageTokens): Promise<number | undefined> {
+  async costOf({ model }: EngineModel, tokens: StageTokens): Promise<number | undefined> {
     const price = this.dollarsPerToken.get(model);
     return price === undefined ? undefined : price * countedTokens(tokens);
   }
@@ -312,14 +312,14 @@ export class ModelPricesForTests extends ModelPrices {
 
 /**
  * The windows of the test's own, so no test weighs a reading another file's session made: none
- * unless a test gives one, which counts for the Claude Code engines' account.
+ * unless a test gives one, which counts for the first Claude Code engine's account.
  */
 @Injectable()
 export class AccountWindowsForTests extends AccountWindows {
   reading: AccountWindowsReading | undefined;
 
   of(engineId: EngineId): AccountWindowsReading | undefined {
-    return hasUsageWindows(engineId) ? this.reading : undefined;
+    return engineId === FIRST_CLAUDE_CODE_ENGINE.id ? this.reading : undefined;
   }
 }
 

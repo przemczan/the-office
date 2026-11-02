@@ -8,7 +8,7 @@ import { SdkMcpClient } from "../../../../platform/mcp/sdk-mcp-client.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
-import type { ApiEndpoint } from "../../domain/api-endpoints.js";
+import type { ApiEngine } from "../../domain/engines.js";
 import type { SearchEndpoint } from "../../domain/engine-settings.js";
 import type { PermissionProfile } from "../../domain/permission-profile.js";
 import {
@@ -57,16 +57,24 @@ afterEach(async () => {
   await rm(officeData, { recursive: true, force: true });
 });
 
-function endpoint(models = [{ id: "coder:q4", contextWindow: 100_000 }]): ApiEndpoint {
-  return { id: "local", name: "Local", baseUrl: fake.baseUrl, key: "", models };
+function endpoint(models = [{ id: "coder:q4", contextWindow: 100_000 }]): ApiEngine {
+  return {
+    id: "local",
+    name: "Local",
+    kind: "openai-compatible-api",
+    defaultModel: models[0]?.id ?? "",
+    baseUrl: fake.baseUrl,
+    key: "",
+    models,
+  };
 }
 
 function engineOn(
-  endpoints: readonly ApiEndpoint[] = [endpoint()],
+  endpoints: readonly ApiEngine[] = [endpoint()],
   searchEndpoint: SearchEndpoint | null = null,
 ): OpenAiCompatibleApiEngine {
   return new OpenAiCompatibleApiEngine(
-    new EngineSettingsForTests({ apiEndpoints: endpoints, searchEndpoint, modelPrices: [] }),
+    new EngineSettingsForTests({ engines: endpoints, searchEndpoint, modelPrices: [] }),
     new OfficeDataDirectory(officeData),
     new SdkMcpClient(),
   );
@@ -146,9 +154,11 @@ const LIVE_MODEL = process.env["OFFICE_API_MODEL"];
 describe.runIf(process.env["OFFICE_ENGINE_TESTS"] === "live" && LIVE_BASE_URL && LIVE_MODEL)(
   "OpenAiCompatibleApiEngine on a live server",
   () => {
-    const live: ApiEndpoint = {
+    const live: ApiEngine = {
       id: "live",
       name: "Live",
+      kind: "openai-compatible-api",
+      defaultModel: LIVE_MODEL ?? "",
       baseUrl: LIVE_BASE_URL ?? "",
       key: process.env["OFFICE_API_KEY"] ?? "",
       models: [{ id: LIVE_MODEL ?? "", contextWindow: 100_000 }],

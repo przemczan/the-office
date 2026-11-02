@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { ApiEndpoint } from "./api-endpoints.js";
 import {
   changedEngineSettings,
   DEFAULT_ENGINE_SETTINGS,
@@ -8,20 +7,29 @@ import {
   type EngineSettings,
 } from "./engine-settings.js";
 import { EngineSettingsRefused } from "./engine-settings-refused.js";
+import { FIRST_CLAUDE_CODE_ENGINE, type ApiEngine } from "./engines.js";
 import type { ModelPrice, OfferedModel } from "./model-prices.js";
 
-const strata: ApiEndpoint = {
+const strata: ApiEngine = {
   id: "strata",
   name: "Strata",
+  kind: "openai-compatible-api",
+  defaultModel: "qwen3.8-flash",
   baseUrl: "http://127.0.0.1:8080/v1",
   key: "sk-strata",
   models: [{ id: "qwen3.8-flash", contextWindow: 100_000 }],
 };
-const stored: EngineSettings = { apiEndpoints: [strata], searchEndpoint: null, modelPrices: [] };
+const stored: EngineSettings = {
+  engines: [FIRST_CLAUDE_CODE_ENGINE, strata],
+  searchEndpoint: null,
+  modelPrices: [],
+};
+
+const DEFAULT_ENGINE_SETTINGS_EDIT = { apiEndpoints: [], searchEndpoint: null, modelPrices: [] };
 
 function anEdit(fields: Partial<ApiEndpointEdit> = {}): ApiEndpointEdit {
-  const { key: _key, ...endpoint } = strata;
-  return { ...endpoint, ...fields };
+  const { id, name, baseUrl, models } = strata;
+  return { id, name, baseUrl, models, ...fields };
 }
 
 function refusal(
@@ -57,7 +65,8 @@ describe("changedEngineSettings", () => {
     });
 
     expect(changed).toEqual({
-      apiEndpoints: [
+      engines: [
+        FIRST_CLAUDE_CODE_ENGINE,
         { ...strata, name: "Old Strata" },
         { ...strata, id: "strata-2", key: "sk-new" },
       ],
@@ -78,12 +87,41 @@ describe("changedEngineSettings", () => {
       modelPrices: [],
     });
 
-    expect(renamed.apiEndpoints).toEqual([{ ...strata, name: "Strata box" }]);
-    expect(cleared.apiEndpoints).toEqual([{ ...strata, key: "" }]);
+    expect(renamed.engines).toEqual([FIRST_CLAUDE_CODE_ENGINE, { ...strata, name: "Strata box" }]);
+    expect(cleared.engines).toEqual([FIRST_CLAUDE_CODE_ENGINE, { ...strata, key: "" }]);
   });
 
-  it("removes the endpoints left out", () => {
-    expect(changedEngineSettings(stored, DEFAULT_ENGINE_SETTINGS)).toEqual(DEFAULT_ENGINE_SETTINGS);
+  it("keeps an API engine's default model while it offers it, else takes its first", () => {
+    const coder = { id: "coder", contextWindow: 32_000 };
+    const kept = changedEngineSettings(stored, {
+      apiEndpoints: [anEdit({ models: [coder, ...strata.models] })],
+      searchEndpoint: null,
+      modelPrices: [],
+    });
+    const dropped = changedEngineSettings(stored, {
+      apiEndpoints: [anEdit({ models: [coder] })],
+      searchEndpoint: null,
+      modelPrices: [],
+    });
+
+    expect(kept.engines[1]?.defaultModel).toBe("qwen3.8-flash");
+    expect(dropped.engines[1]?.defaultModel).toBe("coder");
+  });
+
+  it("gives a new API engine an id apart from the Claude Code engines'", () => {
+    const changed = changedEngineSettings(stored, {
+      apiEndpoints: [anEdit({ id: undefined, name: "Claude Code" })],
+      searchEndpoint: null,
+      modelPrices: [],
+    });
+
+    expect(changed.engines.map(({ id }) => id)).toEqual(["claude-code", "claude-code-2"]);
+  });
+
+  it("removes the API endpoints left out and keeps the Claude Code engines", () => {
+    expect(changedEngineSettings(stored, DEFAULT_ENGINE_SETTINGS_EDIT)).toEqual(
+      DEFAULT_ENGINE_SETTINGS,
+    );
   });
 
   it("refuses with every reason", () => {
@@ -141,31 +179,31 @@ describe("changedEngineSettings", () => {
 describe("Model prices", () => {
   const sonnet: ModelPrice = { input: 3, output: 15, cacheWrites: 3.75, cacheReads: 0.3 };
   const flash: ModelPrice = { input: 0, output: 0, cacheWrites: 0, cacheReads: 0 };
-  const strataFlash = "strata/qwen3.8-flash";
+  const strataFlash = "qwen3.8-flash";
 
-  it("keeps a price per engine id and model, dropping models with none", () => {
+  it("keeps a price per Claude model and per API engine and model, dropping models with none", () => {
     const changed = priced(
       [anEdit()],
       [
-        { engineId: "claude-code", model: "claude-sonnet-5-5", price: sonnet },
-        { engineId: "claude-code", model: "claude-opus-5-5", price: null },
-        { engineId: "openai-compatible-api", model: strataFlash, price: flash },
+        { engineId: null, model: "claude-sonnet-5-5", price: sonnet },
+        { engineId: null, model: "claude-opus-5-5", price: null },
+        { engineId: "strata", model: strataFlash, price: flash },
       ],
     );
 
     expect(changed.modelPrices).toEqual([
-      { engineId: "claude-code", model: "claude-sonnet-5-5", price: sonnet },
-      { engineId: "openai-compatible-api", model: strataFlash, price: flash },
+      { engineId: null, model: "claude-sonnet-5-5", price: sonnet },
+      { engineId: "strata", model: strataFlash, price: flash },
     ]);
   });
 
-  it("drops the price of a model no longer offered, by the endpoints saved with it", () => {
+  it("drops the price of a model no longer offered, by the engines saved with it", () => {
     const changed = priced(
       [],
       [
-        { engineId: "openai-compatible-api", model: strataFlash, price: flash },
-        { engineId: "openai-compatible-api", model: "claude-sonnet-5-5", price: sonnet },
-        { engineId: "claude-code", model: strataFlash, price: flash },
+        { engineId: "strata", model: strataFlash, price: flash },
+        { engineId: "strata", model: "claude-sonnet-5-5", price: sonnet },
+        { engineId: null, model: strataFlash, price: flash },
       ],
     );
 
@@ -174,7 +212,7 @@ describe("Model prices", () => {
 
   it("refuses a negative price and a model priced twice", () => {
     const sonnetPrice: OfferedModel = {
-      engineId: "claude-code",
+      engineId: null,
       model: "claude-sonnet-5-5",
       price: sonnet,
     };
@@ -186,30 +224,32 @@ describe("Model prices", () => {
         [
           sonnetPrice,
           sonnetPrice,
-          {
-            engineId: "openai-compatible-api",
-            model: strataFlash,
-            price: { ...flash, output: -1 },
-          },
+          { engineId: "strata", model: strataFlash, price: { ...flash, output: -1 } },
         ],
       ),
     ).toEqual([
       'The model "claude-sonnet-5-5" is priced twice.',
-      'Give "strata/qwen3.8-flash" prices of zero or more dollars per million tokens.',
+      'Give "qwen3.8-flash" prices of zero or more dollars per million tokens.',
     ]);
   });
 
-  it("lists every offered model on each engine id with its price or none", () => {
+  it("lists the Claude models, then each API engine's, with its price or none", () => {
     expect(
       offeredModelPrices({
         ...stored,
-        modelPrices: [{ engineId: "claude-code", model: "claude-haiku-5-5", price: flash }],
+        modelPrices: [{ engineId: null, model: "claude-haiku-5-5", price: flash }],
       }),
     ).toEqual([
-      { engineId: "claude-code", model: "claude-opus-5-5", price: null },
-      { engineId: "claude-code", model: "claude-sonnet-5-5", price: null },
-      { engineId: "claude-code", model: "claude-haiku-5-5", price: flash },
-      { engineId: "openai-compatible-api", model: strataFlash, price: null },
+      { engineId: null, model: "claude-opus-5-5", price: null },
+      { engineId: null, model: "claude-sonnet-5-5", price: null },
+      { engineId: null, model: "claude-haiku-5-5", price: flash },
+      { engineId: "strata", model: strataFlash, price: null },
+    ]);
+  });
+
+  it("lists no Claude model with no Claude Code engine", () => {
+    expect(offeredModelPrices({ ...stored, engines: [strata] })).toEqual([
+      { engineId: "strata", model: strataFlash, price: null },
     ]);
   });
 });

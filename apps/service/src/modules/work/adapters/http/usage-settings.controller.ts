@@ -5,14 +5,10 @@ import {
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { OfficeLimits } from "../../application/office-limits.js";
-import {
-  everyEngineCaps,
-  namesEveryEngineId,
-  type UsageSettings,
-} from "../../domain/usage-settings.js";
+import type { UsageSettings } from "../../domain/usage-settings.js";
 import { toUsageSettingsResponse } from "./work-responses.js";
 
-/** Settings › Office limits' Usage: the ticked measures and every engine id's caps. */
+/** Settings › Office limits' Usage: the ticked measures and every engine's caps. */
 @Controller("settings/usage")
 export class UsageSettingsController {
   constructor(private readonly limits: OfficeLimits) {}
@@ -26,28 +22,24 @@ export class UsageSettingsController {
   async change(
     @Body(new ContractPipe(usageSettingsSchema)) request: UsageSettingsRequest,
   ): Promise<UsageSettingsRequest> {
-    if (!namesEveryEngineId(request.caps)) {
-      throw new BadRequestException("caps: Every engine id has its caps, once.");
+    if (!(await this.limits.namesEveryEngine(request.caps))) {
+      throw new BadRequestException("caps: Every engine has its caps, once.");
     }
-    const usageSettings = usageSettingsOf(request);
-    await this.limits.changeUsageSettings(usageSettings);
-    return toUsageSettingsResponse(usageSettings);
+    return toUsageSettingsResponse(await this.limits.changeUsageSettings(usageSettingsOf(request)));
   }
 }
 
 function usageSettingsOf({ measures, caps }: UsageSettingsRequest): UsageSettings {
   return {
     measures,
-    caps: everyEngineCaps(
-      caps.map(({ engineId, windows, dailyTokens, dailyDollars }) => ({
-        engineId,
-        windows: windows && {
-          fiveHour: windows.fiveHour ?? undefined,
-          sevenDay: windows.sevenDay ?? undefined,
-        },
-        dailyTokens: dailyTokens ?? undefined,
-        dailyDollars: dailyDollars ?? undefined,
-      })),
-    ),
+    caps: caps.map(({ engineId, windows, dailyTokens, dailyDollars }) => ({
+      engineId,
+      windows: windows && {
+        fiveHour: windows.fiveHour ?? undefined,
+        sevenDay: windows.sevenDay ?? undefined,
+      },
+      dailyTokens: dailyTokens ?? undefined,
+      dailyDollars: dailyDollars ?? undefined,
+    })),
   };
 }

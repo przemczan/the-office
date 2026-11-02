@@ -46,9 +46,9 @@ test("Office limits' Usage keeps the ticked measures and the caps across reloads
   const measure = (name: string) =>
     measures.locator("label").filter({ hasText: name }).getByRole("checkbox");
   const claudeCode = usage.getByRole("region", { name: "Claude Code engines" });
-  const api = usage.getByRole("region", { name: "OpenAI-compatible API" });
   const fiveHourCap = claudeCode.getByLabel("5-hour window");
-  const apiTokens = api.getByLabel("Tokens a day");
+  // Only the first Claude Code engine is listed here; an API engine's caps come with step 1g of task 47.
+  const dailyTokens = claudeCode.getByLabel("Tokens a day");
   const save = usage.getByRole("button", { name: "Save" });
 
   await expect(measure("Tokens")).toHaveAttribute("aria-checked", "true");
@@ -56,7 +56,7 @@ test("Office limits' Usage keeps the ticked measures and the caps across reloads
   await expect(measure("Cost")).toHaveAttribute("aria-checked", "false");
   await expect(fiveHourCap).toHaveValue("90");
   await expect(claudeCode.getByLabel("7-day window")).toHaveValue("90");
-  await expect(apiTokens).toHaveValue("");
+  await expect(dailyTokens).toHaveValue("");
   await expect(usage.getByText("Saved", { exact: true })).toBeVisible();
 
   await measure("Cost").click();
@@ -64,28 +64,28 @@ test("Office limits' Usage keeps the ticked measures and the caps across reloads
   await expect(usage.getByText("Give a whole % from 1 to 100")).toBeVisible();
   await expect(save).toBeDisabled();
   await fiveHourCap.fill("100");
-  await apiTokens.fill("900,000,000");
+  await dailyTokens.fill("900,000,000");
   await save.click();
   await expect(usage.getByText("Saved", { exact: true })).toBeVisible();
 
   await page.reload();
   await expect(measure("Cost")).toHaveAttribute("aria-checked", "true");
   await expect(fiveHourCap).toHaveValue("100");
-  await expect(apiTokens).toHaveValue("900000000");
+  await expect(dailyTokens).toHaveValue("900000000");
 
-  await apiTokens.fill("1");
+  await dailyTokens.fill("1");
   await usage.getByRole("button", { name: "Discard" }).click();
-  await expect(apiTokens).toHaveValue("900000000");
+  await expect(dailyTokens).toHaveValue("900000000");
 
   await measure("Cost").click();
   await fiveHourCap.fill("90");
-  await apiTokens.fill("");
+  await dailyTokens.fill("");
   await save.click();
   await expect(usage.getByText("Saved", { exact: true })).toBeVisible();
   await page.reload();
   await expect(measure("Cost")).toHaveAttribute("aria-checked", "false");
   await expect(fiveHourCap).toHaveValue("90");
-  await expect(apiTokens).toHaveValue("");
+  await expect(dailyTokens).toHaveValue("");
 });
 
 // The e2e files share one database: only "Alarm lifted with work waiting", which nothing raises

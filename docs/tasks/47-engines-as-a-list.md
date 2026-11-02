@@ -82,7 +82,7 @@ Every step leaves `npm run verify` passing. A service step that changes a contra
   - Commit.
 
   Read: the State; `packages/contracts/src/engines.ts`; `packages/contracts/src/work.ts` l. 480–520; `engine/domain/engines.ts`; each importer by grep (`engineIdOf|EngineId\b|engineIdSchema|ENGINE_IDS`), by range.
-- [ ] 1b. Engines as rows, in Engine, about 100k:
+- [x] 1b. Engines as rows, in Engine, about 100k:
   - An `engines` table: id, name, kind, default model, the `-p` switch, and for an API engine its endpoint (`api_endpoints` folded in).
   - The migration does the following:
     - creates the first Claude Code engine, `claude-code`;
@@ -101,7 +101,7 @@ Every step leaves `npm run verify` passing. A service step that changes a contra
 
   Read: the State; `engine/adapters/http/engine-settings.controller.ts`; `engine/domain/engine-settings.ts`; `packages/contracts/src/engines.ts`, `people.ts` (`roleCardSchema`); `people/application/role-service.ts` (the `offeredBy` calls); `apps/web/src/surfaces/settings/MAP.md` (Engines).
 - [ ] 1d. Caps per engine, and Stage runs keep the engine's name, in Work and Pipelines, about 80k:
-  - `engine_caps` is keyed by engine id. Window caps exist only on Claude Code engines. The migration copies the API set to each API engine.
+  - `engine_caps` is keyed by engine id (done in 1b, migration included). What is left: the contract's `engineIdHasUsageWindows` still answers by id, so a second Claude Code engine's Window caps would be refused; answer by the engine's kind.
   - `stage_runs` keeps the engine id and its name at the time of the run. The migration fills in `claude-code` for both Claude Code kinds and the endpoint's id for API runs.
   - Minimal web fix in Office limits.
   - Commit.
@@ -177,20 +177,23 @@ Every step leaves `npm run verify` passing. A service step that changes a contra
 
 ## State
 
-Steps 0 and 1a are done. Engine ids are strings now, still only `claude-code` and `openai-compatible-api`:
-- `engineIdSchema` (`packages/contracts/src/engines.ts`) is `z.string().min(1)`; the service's `EngineId` (`engine/domain/engines.ts`) is `string`. `hasUsageWindows`, `engineIdHasUsageWindows` still answer by id.
-- `usageSettingsSchema` (`work.ts`) only checks each engine id once; Work's `namesEveryEngineId` (`work/domain/usage-settings.ts`) refuses with 400, in `UsageSettingsController`, caps that leave out an id of `ENGINE_IDS` or name another. 1b swaps `ENGINE_IDS` for the engines' rows there and in `everyEngineCaps`, `DEFAULT_USAGE_SETTINGS`.
-- Words for an id fall back for an unknown one: the web's `engineIdLabel` and `ENGINE_IDS` (`shell/engine-words.ts`, used by the usage card, the estimate words and the Model prices card), Work's `engineIdWords` in `cap-waits.ts`. 1f/1g replace them with engine names.
-- Still fixed kinds: `ENGINES`, `engineIdOf`, `ENGINE_IDS`, `modelsOfferedOn` in `engine/domain/engines.ts`; the Role card's `engine` and `model` in `packages/contracts/src/people.ts`; the Stage's optional `model` in `stages.ts`.
+Steps 0, 1a and 1b are done. Engines are rows of `engines` (`engine/domain/engines.ts`: `Engine` = `ClaudeCodeEngine` with `claudeCodeP` | `ApiEngine` with base URL, key, models; `FIRST_CLAUDE_CODE_ENGINE`, `offeredModels`, `hasUsageWindows(engine)`). `EngineSettings` holds `engines`; `api_endpoints` is gone. Migration `0075_engines.sql` (checked on a seeded copy of the workstation's database, whose engine tables were empty) made `claude-code` and an engine per endpoint, re-keyed `model_prices` (Claude: engine id null, one per model; API: engine and model), `engine_day_usage` (split at the first `/`; no `/` stays on `openai-compatible-api`) and `engine_caps` (API set copied to each API engine, moved here from 1d so a save in between can't lose it). `usage_window_samples` had only `claude-code` rows: nothing to split.
+- Bridge until 1c: the Role card still names a `RoleEngine` (`ROLE_ENGINES`, renamed from `Engine` in Conversations, People, Work, Pipelines); `engineModelOf(roleEngine, model)` gives the engine id and bare model. `AgentEngines.of(engine, roleEngine?)` picks by kind, `-p` when the switch is on or the card names `claude-code-p`; `named(roleEngine)` for capabilities. 1c removes both bridges.
+- `GET`/`PUT /settings/engines` keep their shape: the controller maps API engines to `apiEndpoints` and prices to `claude-code` / `openai-compatible-api` + `endpoint/model`. 1c replaces the mapping.
+- Work's caps follow the rows: `OfficeLimits.usageSettings()` fills in `everyEngineCaps(saved, engines)` from `EngineModels.engines()`; the repository keeps only saved caps; `start-conditions.ts` reads through `OfficeLimits`.
+- `UsageWindowState` keeps a reading per engine id (`update(engineId, reading)`); its events are still Office-wide (1e/1g).
+- Known gaps: Conversations' `task-tokens.ts` counts an API Stage Thread on `openai-compatible-api`, since a Thread's session keeps no model (1c/2c: the session names its engine). A removed API engine's prices are still dropped on save (3a). The settings e2e checks the Claude Code engine's Daily cap; an API engine's region comes back in 1g.
 
 The pinned binary (2.1.310) has `claude auth login` (`--claudeai` by default, `--console`, `--sso`, `--email`) and `claude auth status --json` (`loggedIn`, `email`, `subscriptionType`, `configDirectory`).
 
 Traps:
 - Between steps, `npm run verify` must pass. 1c's mapping of kinds to ids is replaced by 2b's clearing, so keep it in the migration and nowhere else.
 - `windows.ts` and `linux.ts` keep `~/.claude/.credentials.json` as a secret path. Keep it.
+- drizzle-kit asks about renames without a TTY: generate in two passes and merge (as 0075 was).
 - Postgres tests need Docker Desktop (`C:\Docker\Docker Desktop.exe`) and `docker compose up -d postgres`.
 
 ## Progress
 
 - 2026-11-02 · step 0: task file written with the user's answers; spec, glossary, coverage and README amended; next is 1a, engine ids as strings.
 - 2026-11-02 · step 1a: engine ids are strings in the contracts, the service and the web; Work refuses caps not naming every engine id; next is 1b, engines as rows.
+- 2026-11-02 · step 1b: engines are rows of `engines`, with the migration re-keying prices, day usage and caps; Role cards reach them through `engineModelOf` until 1c; next is 1c, the engines in the API and on the Role card.

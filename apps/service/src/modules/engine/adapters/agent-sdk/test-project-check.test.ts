@@ -15,6 +15,8 @@ import { OfficeDataDirectory } from "../../../../platform/office-data/office-dat
 import { Telemetry } from "../../../../platform/telemetry/telemetry.js";
 import { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import { AgentEngines } from "../../application/agent-engines.js";
+import { EngineModels } from "../../application/engine-models.js";
+import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
 import { DayUsage } from "../../application/day-usage.js";
 import { EngineSessions } from "../../application/engine-sessions.js";
 import { OfficeToolRegistry } from "../../application/office-tool-registry.js";
@@ -97,6 +99,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
           new OfficeToolRegistry(),
           new DayUsage(new DayUsageForTests(), new ManualSchedule()),
           new UsageWindowSamples(new UsageWindowSamplesForTests()),
+          new EngineModels(new EngineSettingsForTests()),
         );
         const sessionId = randomUUID();
         const session = await sessions.start({

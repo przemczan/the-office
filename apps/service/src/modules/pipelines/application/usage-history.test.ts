@@ -9,6 +9,7 @@ import {
   ModelPrices,
   ScriptedEngine,
   ScriptedEngineModule,
+  type EngineModel,
 } from "../../engine/index.js";
 import { aStageRun } from "../domain/stage-run.fixtures.js";
 import type { StageRun, StageTokens } from "../domain/stage-run.js";
@@ -18,7 +19,7 @@ import { UsageHistory } from "./usage-history.js";
 
 /** Prices only Haiku on the Claude Code engines, a dollar per thousand input tokens. */
 const modelPrices = {
-  costOf: async (engineId: string, model: string, tokens: StageTokens) =>
+  costOf: async ({ engineId, model }: EngineModel, tokens: StageTokens) =>
     engineId === "claude-code" && model === "claude-haiku-5-5" ? tokens.input / 1_000 : undefined,
 };
 
@@ -76,7 +77,7 @@ describe("UsageHistory", () => {
     expect((await history.of([])).size).toBe(0);
   });
 
-  it("prices each run by its engine's id and its own model", async () => {
+  it("prices each run by the engine and model it ran on", async () => {
     const taskId = await aDoneTask(
       { engine: "agent-sdk", model: "claude-haiku-5-5", tokens: inputTokens(1_000) },
       { engine: "claude-code-p", model: "claude-haiku-5-5", tokens: inputTokens(3_000) },

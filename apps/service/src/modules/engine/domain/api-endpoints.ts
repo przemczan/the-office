@@ -4,17 +4,6 @@ export interface ApiEndpointModel {
   readonly contextWindow: number;
 }
 
-/** A server on the OpenAI-compatible API the user lists in Settings › Engines (spec §5.4). */
-export interface ApiEndpoint {
-  /** Made from the name when the endpoint is added and kept when it is renamed. */
-  readonly id: string;
-  readonly name: string;
-  readonly baseUrl: string;
-  /** Empty for a server that asks for none, as a local one. Never sent back. */
-  readonly key: string;
-  readonly models: readonly ApiEndpointModel[];
-}
-
 /**
  * Splits a Role's Model field into the endpoint and the model. The endpoint's id never holds it,
  * while a model's id may (`org/model:q4`), so the field is split at its first one.
@@ -36,7 +25,9 @@ export function parseApiEndpointModel(
 }
 
 /** Every model the API endpoints offer, as a Role's Model field names them, in their order. */
-export function apiEndpointModels(endpoints: readonly ApiEndpoint[]): readonly string[] {
+export function apiEndpointModels(
+  endpoints: readonly { readonly id: string; readonly models: readonly ApiEndpointModel[] }[],
+): readonly string[] {
   return endpoints.flatMap(({ id, models }) =>
     models.map((model) => apiEndpointModel(id, model.id)),
   );

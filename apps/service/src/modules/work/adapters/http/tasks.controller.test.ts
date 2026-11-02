@@ -28,6 +28,7 @@ import { testDatabaseUrl } from "../../../../../test/test-database.js";
 import { AppModule } from "../../../../app.module.js";
 import {
   EngineModule,
+  FIRST_CLAUDE_CODE_ENGINE,
   ScriptedEngine,
   ScriptedEngineModule,
   type EngineSession,
@@ -68,7 +69,7 @@ import {
   DayUsageForTests,
   TaskTokensForTests,
 } from "../../ports/work-ports.fixtures.js";
-import { defaultEngineCaps, everyEngineCaps } from "../../domain/usage-settings.js";
+import { defaultEngineCaps } from "../../domain/usage-settings.js";
 import type { UsageMeasure } from "../../domain/usage-estimate.js";
 import { TaskRepository } from "../../ports/task-repository.js";
 import { WorkSettings } from "../../ports/work-settings.js";
@@ -1793,7 +1794,7 @@ async function dailyCaps(
   await sendJson(work, "PUT", "/settings/office-wide-limit", { officeWideLimit: 12 });
   await work.app.get(WorkSettings).changeUsageSettings({
     measures,
-    caps: everyEngineCaps([{ ...defaultEngineCaps("claude-code"), ...caps }]),
+    caps: [{ ...defaultEngineCaps(FIRST_CLAUDE_CODE_ENGINE), ...caps }],
   });
 }
 

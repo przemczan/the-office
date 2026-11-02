@@ -1,4 +1,4 @@
-import type { Engine } from "../../engine/index.js";
+import type { RoleEngine } from "../../engine/index.js";
 import { hardSwitchesProblems, type HardSwitches } from "./hard-switches.js";
 import { mcpToolSettingsProblems } from "./mcp-tool-settings.js";
 import type { PermissionProfile } from "./permission-profile.js";
@@ -41,7 +41,7 @@ export interface RoleCard {
   readonly responsibilities: string;
   /** What the Agent works from. */
   readonly instructions: string;
-  readonly engine: Engine;
+  readonly engine: RoleEngine;
   /** One of the models the engine offers, as the Engine module's `EngineModels` names them. */
   readonly model: string;
   readonly effort: Effort;

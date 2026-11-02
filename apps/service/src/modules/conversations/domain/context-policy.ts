@@ -1,4 +1,4 @@
-import type { Engine } from "../../engine/index.js";
+import type { RoleEngine } from "../../engine/index.js";
 import type { ContextOverride, ThreadSession } from "./thread.js";
 
 /** A person's default for a Thread whose cache has cooled, from their Role card (spec §9). */
@@ -71,7 +71,7 @@ export interface Continuation {
   /** Theirs, from the Role card version the next session would run with. */
   readonly sessionDefault: SessionDefault;
   /** The engine that card picks; undefined when nobody fills the Role, so nobody answers. */
-  readonly engine: Engine | undefined;
+  readonly engine: RoleEngine | undefined;
   readonly override: ContextOverride | undefined;
   /**
    * At a Stage boundary, the session the Stage declares: fresh, or continuing the previous Stage's

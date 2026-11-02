@@ -7,3 +7,4 @@ export {
   textReply,
   type FakeChatCompletionsServer,
 } from "./adapters/openai-compatible-api/fake-chat-completions-server.fixtures.js";
+export { EngineSettingsForTests } from "./ports/engine-settings-repository.fixtures.js";

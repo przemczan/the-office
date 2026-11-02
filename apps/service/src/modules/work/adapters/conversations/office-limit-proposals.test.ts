@@ -2,6 +2,8 @@ import { OFFICE_WIDE_LIMIT_MAX } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { ProposalAppliers } from "../../../conversations/index.js";
+import { EngineModels } from "../../../engine/index.js";
+import { EngineSettingsForTests } from "../../../engine/index.fixtures.js";
 import { OfficeLimits } from "../../application/office-limits.js";
 import { OfficeWideLimitChanged } from "../../domain/office-limit-events.js";
 import { DEFAULT_OFFICE_WIDE_LIMIT } from "../../domain/task-start.js";
@@ -17,7 +19,10 @@ function registered() {
   events.subscribe(OfficeWideLimitChanged, (event) => {
     changed.push(event);
   });
-  new OfficeLimitProposals(appliers, new OfficeLimits(settings, events)).onModuleInit();
+  new OfficeLimitProposals(
+    appliers,
+    new OfficeLimits(settings, events, new EngineModels(new EngineSettingsForTests())),
+  ).onModuleInit();
   return { appliers, settings, changed };
 }
 

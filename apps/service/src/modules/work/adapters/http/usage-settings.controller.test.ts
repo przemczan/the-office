@@ -7,6 +7,8 @@ import {
   type UsageSettings,
 } from "@the-office/contracts";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { EngineModels, FIRST_CLAUDE_CODE_ENGINE, type Engine } from "../../../engine/index.js";
+import { EngineSettingsForTests } from "../../../engine/index.fixtures.js";
 import { UsageSettingsChanged } from "../../domain/office-limit-events.js";
 import { WorkSettingsForTests } from "../../ports/work-ports.fixtures.js";
 import { WorkSettings } from "../../ports/work-settings.js";
@@ -28,10 +30,27 @@ afterAll(async () => {
   await rm(officeData, { recursive: true, force: true });
 });
 
+/** An API engine beside the first Claude Code engine. */
+const LAB: Engine = {
+  id: "lab",
+  name: "Lab",
+  kind: "openai-compatible-api",
+  defaultModel: "coder",
+  baseUrl: "http://lab",
+  key: "",
+  models: [{ id: "coder", contextWindow: 32_000 }],
+};
+
 beforeEach(async () => {
   // The settings of the test's own: every test file's Starts and estimates read the stored ones.
+  const engines = new EngineSettingsForTests({
+    engines: [FIRST_CLAUDE_CODE_ENGINE, LAB],
+    searchEndpoint: null,
+    modelPrices: [],
+  });
   work = await startWorkApplication(officeData, [
     { provide: WorkSettings, useValue: new WorkSettingsForTests() },
+    { provide: EngineModels, useValue: new EngineModels(engines) },
   ]);
 });
 
@@ -43,7 +62,7 @@ const CHANGED: UsageSettings = {
   measures: ["cost", "tokens"],
   caps: [
     {
-      engineId: "openai-compatible-api",
+      engineId: "lab",
       dailyTokens: 2_000_000,
       dailyDollars: null,
     },
@@ -62,7 +81,7 @@ async function readUsageSettings(): Promise<UsageSettings> {
 }
 
 describe("/api/settings/usage", () => {
-  it("answers tokens and the 5-hour window ticked, and Window caps at 90% on the Claude Code account, until saved", async () => {
+  it("answers tokens and the 5-hour window ticked, and Window caps at 90% on Claude Code, each engine's, until saved", async () => {
     expect(await readUsageSettings()).toEqual({
       measures: ["tokens", "fiveHourWindow"],
       caps: [
@@ -72,12 +91,12 @@ describe("/api/settings/usage", () => {
           dailyTokens: null,
           dailyDollars: null,
         },
-        { engineId: "openai-compatible-api", dailyTokens: null, dailyDollars: null },
+        { engineId: "lab", dailyTokens: null, dailyDollars: null },
       ],
     });
   });
 
-  it("keeps the ticked measures and every engine id's caps, in engine order, and announces them", async () => {
+  it("keeps the ticked measures and every engine's caps, in the engines' order, and announces them", async () => {
     const changed = await sendJson(work, "PUT", "/settings/usage", CHANGED);
 
     expect(changed.status).toBe(200);
@@ -107,17 +126,17 @@ describe("/api/settings/usage", () => {
 
   it.each([
     ["a measure ticked twice", { ...CHANGED, measures: ["tokens", "tokens"] }],
-    ["an engine id left out", { ...CHANGED, caps: CHANGED.caps.slice(1) }],
+    ["an engine left out", { ...CHANGED, caps: CHANGED.caps.slice(1) }],
     [
-      "an engine id named twice",
+      "an engine named twice",
       { ...CHANGED, caps: [CHANGED.caps[0], CHANGED.caps[1], CHANGED.caps[1]] },
     ],
     [
-      "an engine id it doesn't know",
+      "an engine it doesn't list",
       { ...CHANGED, caps: [...CHANGED.caps, { ...CHANGED.caps[0], engineId: "strata" }] },
     ],
     [
-      "Window caps on the OpenAI-compatible API",
+      "Window caps on an API engine",
       {
         ...CHANGED,
         caps: CHANGED.caps.map((caps) => ({ ...caps, windows: { fiveHour: 50, sevenDay: 50 } })),

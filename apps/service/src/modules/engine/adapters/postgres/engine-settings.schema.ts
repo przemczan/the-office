@@ -1,30 +1,43 @@
 import { sql } from "drizzle-orm";
 import {
+  boolean,
   check,
   integer,
   jsonb,
   numeric,
   pgTable,
-  primaryKey,
   smallint,
   text,
+  unique,
 } from "drizzle-orm/pg-core";
 import type { ApiEndpointModel } from "../../domain/api-endpoints.js";
-import type { EngineId } from "../../domain/engines.js";
+import type { EngineId, EngineKind } from "../../domain/engines.js";
 
-/** The API endpoints Settings › Engines lists, in its order. */
-export const apiEndpoints = pgTable(
-  "api_endpoints",
+/**
+ * The engines Settings › Engines lists, in its order. The `-p` switch is a Claude Code engine's;
+ * the base URL, key and models an API engine's, null on the other kind.
+ */
+export const engines = pgTable(
+  "engines",
   {
     id: text("id").primaryKey(),
     position: integer("position").notNull().unique(),
     name: text("name").notNull(),
-    baseUrl: text("base_url").notNull(),
+    kind: text("kind").$type<EngineKind>().notNull(),
+    defaultModel: text("default_model").notNull(),
+    claudeCodeP: boolean("claude_code_p").notNull().default(false),
+    baseUrl: text("base_url"),
     /** Empty when the server asks for none. */
-    key: text("key").notNull(),
-    models: jsonb("models").$type<readonly ApiEndpointModel[]>().notNull(),
+    key: text("key"),
+    models: jsonb("models").$type<readonly ApiEndpointModel[]>(),
   },
-  (table) => [check("api_endpoints_id", sql`${table.id} <> ''`)],
+  (table) => [
+    check("engines_id", sql`${table.id} <> ''`),
+    check(
+      "engines_kind",
+      sql`(${table.kind} = 'claude-code' AND ${table.baseUrl} IS NULL AND ${table.key} IS NULL AND ${table.models} IS NULL) OR (${table.kind} = 'openai-compatible-api' AND ${table.baseUrl} IS NOT NULL AND ${table.key} IS NOT NULL AND ${table.models} IS NOT NULL AND NOT ${table.claudeCodeP})`,
+    ),
+  ],
 );
 
 /** The rest of the engines' settings, in one row once Settings saves them. */
@@ -38,11 +51,14 @@ export const engineSettings = pgTable(
   (table) => [check("engine_settings_one_row", sql`${table.id} = 1`)],
 );
 
-/** Each priced model's Model price, in dollars per million tokens; a model with no row has none. */
+/**
+ * Each priced model's Model price, in dollars per million tokens; a model with no row has none. A
+ * Claude model's engine id is null, its price shared by every Claude Code engine.
+ */
 export const modelPrices = pgTable(
   "model_prices",
   {
-    engineId: text("engine_id").$type<EngineId>().notNull(),
+    engineId: text("engine_id").$type<EngineId>(),
     model: text("model").notNull(),
     input: numeric("input", { mode: "number" }).notNull(),
     output: numeric("output", { mode: "number" }).notNull(),
@@ -50,7 +66,7 @@ export const modelPrices = pgTable(
     cacheReads: numeric("cache_reads", { mode: "number" }).notNull(),
   },
   (table) => [
-    primaryKey({ columns: [table.engineId, table.model] }),
+    unique("model_prices_engine_model").on(table.engineId, table.model).nullsNotDistinct(),
     check(
       "model_prices_not_negative",
       sql`${table.input} >= 0 AND ${table.output} >= 0 AND ${table.cacheWrites} >= 0 AND ${table.cacheReads} >= 0`,

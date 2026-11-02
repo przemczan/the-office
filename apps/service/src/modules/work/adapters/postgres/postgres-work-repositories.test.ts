@@ -343,12 +343,20 @@ describe("PostgresWorkSettings", () => {
           dailyDollars: undefined,
         },
         {
-          engineId: "openai-compatible-api",
+          engineId: "lab",
           windows: undefined,
           dailyTokens: undefined,
           dailyDollars: 2.25,
         },
       ],
+    };
+    // Which engine has windows is for the Engine module's engines to say: kept, none are set.
+    const kept: UsageSettings = {
+      ...changed,
+      caps: changed.caps.map((caps) => ({
+        ...caps,
+        windows: caps.windows ?? { fiveHour: undefined, sevenDay: undefined },
+      })),
     };
     const seen: unknown[] = [];
 
@@ -369,6 +377,6 @@ describe("PostgresWorkSettings", () => {
         if (!(error instanceof RolledBack)) throw error;
       });
 
-    expect(seen).toEqual([DEFAULT_USAGE_SETTINGS, changed, 7]);
+    expect(seen).toEqual([DEFAULT_USAGE_SETTINGS, kept, 7]);
   });
 });

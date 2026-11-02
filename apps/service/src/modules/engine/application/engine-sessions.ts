@@ -3,7 +3,13 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { AsyncChannel } from "../../../platform/streams/async-channel.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { EngineDown } from "../domain/engine-events.js";
-import { engineIdOf, type Engine, type EngineId } from "../domain/engines.js";
+import {
+  engineModelOf,
+  type Engine,
+  type EngineId,
+  type EngineModel,
+  type RoleEngine,
+} from "../domain/engines.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import {
   CapabilityMissing,
@@ -27,6 +33,7 @@ import {
 } from "../ports/session-events.js";
 import type { SessionOptions } from "../ports/session-options.js";
 import { AgentEngines } from "./agent-engines.js";
+import { EngineModels } from "./engine-models.js";
 import { DayUsage } from "./day-usage.js";
 import { EngineCallSpans, SessionCosts, type SessionTelemetry } from "./engine-call-spans.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
@@ -35,8 +42,11 @@ import { UsageWindowState, type UsageWindowReading } from "./usage-window-state.
 
 /** What a caller runs a session with: the Office tools by name, from the registry. */
 export type SessionSettings = Omit<SessionOptions, "officeTools"> & {
-  /** The engine the session runs on, which a resume names again: a session lives in one engine. */
-  readonly engine: Engine;
+  /**
+   * The engine the Role card names, which with the model gives the engine the session runs on
+   * (`engineModelOf`); a resume names it again: a session lives in one engine.
+   */
+  readonly engine: RoleEngine;
   readonly officeTools: readonly string[];
   /** What the caller tags the session's engine calls with, beside the engine's own attributes. */
   readonly telemetry?: SessionTelemetry;
@@ -72,19 +82,25 @@ export class EngineSessions {
     private readonly officeTools: OfficeToolRegistry,
     private readonly dayUsage: DayUsage,
     private readonly windowSamples: UsageWindowSamples,
+    private readonly engineModels: EngineModels,
   ) {}
 
-  capabilitiesOf(engine: Engine): EngineCapabilities {
-    return this.engines.of(engine).capabilities;
+  capabilitiesOf(engine: RoleEngine): EngineCapabilities {
+    return this.engines.named(engine).capabilities;
+  }
+
+  /** Whether `engine`'s sessions read its account's usage windows. */
+  readsUsageWindows(engine: Engine): boolean {
+    return this.engines.of(engine).capabilities.usageWindows;
   }
 
   /** What `engine` declares it can't do, which the Role card names. */
-  missingCapabilitiesOf(engine: Engine): readonly EngineCapability[] {
+  missingCapabilitiesOf(engine: RoleEngine): readonly EngineCapability[] {
     return missingCapabilities(this.capabilitiesOf(engine));
   }
 
   async start({ id, settings, brief }: SessionStart): Promise<EngineSession> {
-    const engine = this.engines.of(settings.engine);
+    const engine = await this.adapterOf(settings);
     const options = this.optionsOf(settings);
     this.costs.started(id);
     const spans = this.spansOf(id, options, settings.telemetry);
@@ -97,10 +113,20 @@ export class EngineSessions {
    * breaks its cached prefix, and another engine has no such session.
    */
   async resume(sessionId: string, settings: SessionSettings): Promise<EngineSession> {
-    const engine = this.engines.of(settings.engine);
+    const engine = await this.adapterOf(settings);
     const options = this.optionsOf(settings);
     const spans = this.spansOf(sessionId, options, settings.telemetry);
     return this.watch(sessionId, settings, spans, () => engine.resume(sessionId, options));
+  }
+
+  /**
+   * The adapter of the engine the settings run on. One not listed is left to the adapter the Role
+   * card names, which refuses a model it doesn't find.
+   */
+  private async adapterOf({ engine, model }: SessionSettings) {
+    const { engineId } = engineModelOf(engine, model);
+    const listed = (await this.engineModels.engines()).find(({ id }) => id === engineId);
+    return listed === undefined ? this.engines.named(engine) : this.engines.of(listed, engine);
   }
 
   private optionsOf({
@@ -121,7 +147,7 @@ export class EngineSessions {
 
   private async watch(
     sessionId: string,
-    { engine, model }: SessionSettings,
+    settings: SessionSettings,
     spans: EngineCallSpans,
     open: () => Promise<EngineSession>,
   ): Promise<EngineSession> {
@@ -135,9 +161,9 @@ export class EngineSessions {
     }
     return new WatchedSession(session, spans, {
       rateLimited: async () => {
-        await this.readUsageWindows(engine, session);
+        await this.readUsageWindows(settings, session);
       },
-      turnEnded: (usage) => this.turnEnded(engine, model, usage),
+      turnEnded: (usage) => this.turnEnded(engineModelOf(settings.engine, settings.model), usage),
       failed: async (error) => {
         if (!isRefusal(error)) await this.engineDown(sessionId, error);
       },
@@ -145,15 +171,16 @@ export class EngineSessions {
   }
 
   /**
-   * Reads the account's windows through `session`, a session of this service on `engine`, with no
+   * Reads the account's windows through `session`, a session of this service on these settings, with no
    * model call, and keeps the reading. Undefined on an engine without windows, for an account
    * without them, or when the read fails. A window not begun yet is read as unused.
    */
   async readUsageWindows(
-    engine: Engine,
+    { engine, model }: Pick<SessionSettings, "engine" | "model">,
     session: EngineSession,
   ): Promise<UsageWindowReading | undefined> {
     if (!this.capabilitiesOf(engine).usageWindows) return undefined;
+    const { engineId } = engineModelOf(engine, model);
     let windows: UsageWindows | undefined;
     try {
       windows = await session.readUsageWindows();
@@ -165,31 +192,31 @@ export class EngineSessions {
     const reading: UsageWindowReading = {
       ...windows,
       readAt: new Date(),
-      officeTokensSoFar: this.officeTokensSoFar.get(engineIdOf(engine)) ?? NO_TOKENS,
+      officeTokensSoFar: this.officeTokensSoFar.get(engineId) ?? NO_TOKENS,
     };
-    await this.usageWindows.update(reading);
-    await this.keepSample(engine, reading);
+    await this.usageWindows.update(engineId, reading);
+    await this.keepSample(engineId, reading);
     return reading;
   }
 
   /** A failure to keep a pair of readings is logged: the reading stands. */
-  private async keepSample(engine: Engine, reading: UsageWindowReading): Promise<void> {
+  private async keepSample(engineId: EngineId, reading: UsageWindowReading): Promise<void> {
     try {
-      await this.windowSamples.add(engineIdOf(engine), reading);
+      await this.windowSamples.add(engineId, reading);
     } catch (error) {
       this.logger.error(`Keeping a pair of usage readings failed: ${messageOf(error)}`);
     }
   }
 
   /** A failure to keep the day's use is logged: the session runs on, and its turn is reported. */
-  private async turnEnded(engine: Engine, model: string, usage: TokenUsage): Promise<void> {
-    const engineId = engineIdOf(engine);
+  private async turnEnded(spentOn: EngineModel, usage: TokenUsage): Promise<void> {
+    const { engineId } = spentOn;
     this.officeTokensSoFar.set(
       engineId,
       addedTokens(this.officeTokensSoFar.get(engineId) ?? NO_TOKENS, usage),
     );
     try {
-      await this.dayUsage.add(engine, model, usage);
+      await this.dayUsage.add(spentOn, usage);
     } catch (error) {
       this.logger.error(`Keeping the day's use failed: ${messageOf(error)}`);
     }

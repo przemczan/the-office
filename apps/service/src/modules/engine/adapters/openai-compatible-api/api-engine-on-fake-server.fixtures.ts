@@ -1,6 +1,7 @@
 import { SdkMcpClient } from "../../../../platform/mcp/sdk-mcp-client.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { apiEndpointModel } from "../../domain/api-endpoints.js";
+import type { ApiEngine } from "../../domain/engines.js";
 import type { AgentEngine } from "../../ports/agent-engine.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
 import { FakeChatCompletionsServer } from "./fake-chat-completions-server.fixtures.js";
@@ -21,15 +22,17 @@ export interface ApiEngineOnFakeServer {
  */
 export async function apiEngineOnFakeServer(officeData: string): Promise<ApiEngineOnFakeServer> {
   const server = await FakeChatCompletionsServer.start();
-  const endpoint = {
+  const endpoint: ApiEngine = {
     id: "fake",
     name: "Fake",
+    kind: "openai-compatible-api",
+    defaultModel: "coder:q4",
     baseUrl: server.baseUrl,
     key: "",
     models: [{ id: "coder:q4", contextWindow: 100_000 }],
   };
   const engine = new OpenAiCompatibleApiEngine(
-    new EngineSettingsForTests({ apiEndpoints: [endpoint], searchEndpoint: null, modelPrices: [] }),
+    new EngineSettingsForTests({ engines: [endpoint], searchEndpoint: null, modelPrices: [] }),
     new OfficeDataDirectory(officeData),
     new SdkMcpClient(),
   );

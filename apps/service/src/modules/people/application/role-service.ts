@@ -3,7 +3,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import {
   EngineModels,
   EngineSessions,
-  type Engine,
+  type RoleEngine,
   type EngineCapability,
 } from "../../engine/index.js";
 import { RoleMcpServers, type McpServerOnCard } from "../../mcp-servers/index.js";
@@ -49,7 +49,7 @@ export interface RoleWithAssignments {
 /** The choices the Role card form offers, and how each Hard switch is seen to. */
 export interface RoleCardOptions {
   readonly engines: readonly {
-    readonly engine: Engine;
+    readonly engine: RoleEngine;
     readonly models: readonly string[];
     /** What the engine declares it can't do. */
     readonly missingCapabilities: readonly EngineCapability[];

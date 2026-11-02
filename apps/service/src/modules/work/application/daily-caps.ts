@@ -52,7 +52,7 @@ export class DailyCaps {
     const used = await Promise.all(
       models.map(async ({ model, tokens }) => ({
         tokens: countedTokens(tokens),
-        dollars: (await this.prices.costOf(engineId, model, tokens)) ?? 0,
+        dollars: (await this.prices.costOf({ engineId, model }, tokens)) ?? 0,
       })),
     );
     return used.reduce(plusDayUse, NO_DAY_USE);

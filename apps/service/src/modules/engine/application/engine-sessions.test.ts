@@ -13,7 +13,9 @@ import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { ScriptedEngine } from "../adapters/scripted/scripted-engine.js";
 import type { SessionScript } from "../adapters/scripted/session-script.js";
 import { EngineDown, UsageWindowsChanged, UsageWindowsRead } from "../domain/engine-events.js";
-import type { Engine } from "../domain/engines.js";
+import { DEFAULT_ENGINE_SETTINGS } from "../domain/engine-settings.js";
+import { FIRST_CLAUDE_CODE_ENGINE, type RoleEngine } from "../domain/engines.js";
+import { EngineSettingsForTests } from "../ports/engine-settings-repository.fixtures.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import {
   CapabilityMissing,
@@ -27,6 +29,7 @@ import type { EngineSession } from "../ports/engine-session.js";
 import type { SessionEvent, TurnEndedEvent } from "../ports/session-events.js";
 import type { OfficeTool } from "../ports/office-tool.js";
 import { AgentEngines } from "./agent-engines.js";
+import { EngineModels } from "./engine-models.js";
 import { DayUsage } from "./day-usage.js";
 import { EngineSessions, type SessionSettings } from "./engine-sessions.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
@@ -113,7 +116,10 @@ function setUp(scripts: readonly SessionScript[], capabilities: Partial<EngineCa
   });
 }
 
-function setUpOn(engines: Readonly<Record<Engine, ScriptedEngine>>) {
+function setUpOn(
+  engines: Readonly<Record<RoleEngine, ScriptedEngine>>,
+  settings = new EngineSettingsForTests(),
+) {
   const spans = new InMemorySpanExporter();
   const tracerProvider = new TracerProvider({
     spanProcessors: [new SimpleSpanProcessor({ exporter: spans })],
@@ -139,6 +145,7 @@ function setUpOn(engines: Readonly<Record<Engine, ScriptedEngine>>) {
     officeTools,
     dayUsage,
     windowSamples,
+    new EngineModels(settings),
   );
   return { sessions, spans, published, usageWindows, dayUsage, schedule, windowSamples };
 }
@@ -475,7 +482,7 @@ describe("EngineSessions' readings of the usage windows", () => {
     await turns(session, 1);
     const before = new Date();
 
-    const reading = await sessions.readUsageWindows("agent-sdk", session);
+    const reading = await sessions.readUsageWindows(SETTINGS, session);
 
     expect(reading).toEqual({
       ...WINDOWS,
@@ -502,9 +509,7 @@ describe("EngineSessions' readings of the usage windows", () => {
     });
     await turns(session, 1);
 
-    await expect(sessions.readUsageWindows("openai-compatible-api", session)).resolves.toBe(
-      undefined,
-    );
+    await expect(sessions.readUsageWindows(ON_THE_API, session)).resolves.toBe(undefined);
     expect(usageWindows.current).toBe(undefined);
     await session.end();
   });
@@ -519,7 +524,7 @@ describe("EngineSessions' readings of the usage windows", () => {
     });
     await turns(session, 1);
 
-    const reading = await sessions.readUsageWindows("agent-sdk", session);
+    const reading = await sessions.readUsageWindows(SETTINGS, session);
 
     expect(reading).toMatchObject(notBegun);
     expect(usageWindows.current).toEqual(reading);
@@ -536,7 +541,7 @@ describe("EngineSessions' readings of the usage windows", () => {
     await turns(session, 1);
     vi.spyOn(session, "readUsageWindows").mockRejectedValue(new Error("The query went away."));
 
-    await expect(sessions.readUsageWindows("agent-sdk", session)).resolves.toBe(undefined);
+    await expect(sessions.readUsageWindows(SETTINGS, session)).resolves.toBe(undefined);
     expect(usageWindows.current).toBe(undefined);
     await session.end();
   });
@@ -570,11 +575,11 @@ describe("EngineSessions' readings of the usage windows", () => {
       brief: message("Begin."),
     });
     await turns(session, 1);
-    await sessions.readUsageWindows("agent-sdk", session);
+    await sessions.readUsageWindows(SETTINGS, session);
     session.send(message("Go on."), "next");
     await turns(session, 1);
 
-    await sessions.readUsageWindows("agent-sdk", session);
+    await sessions.readUsageWindows(SETTINGS, session);
 
     // One turn of 4 + 12 + 200 counted tokens between the readings.
     await expect(windowSamples.ratios("claude-code")).resolves.toEqual({
@@ -584,10 +589,27 @@ describe("EngineSessions' readings of the usage windows", () => {
     await session.end();
   });
 
+  it("runs a Claude Code engine whose -p switch is on on the fallback", async () => {
+    const { sessions } = setUpOn(
+      {
+        "agent-sdk": new ScriptedEngine([]),
+        "claude-code-p": new ScriptedEngine([ONE_TURN]),
+        "openai-compatible-api": new ScriptedEngine([]),
+      },
+      new EngineSettingsForTests({
+        ...DEFAULT_ENGINE_SETTINGS,
+        engines: [{ ...FIRST_CLAUDE_CODE_ENGINE, claudeCodeP: true }],
+      }),
+    );
+
+    // The Agent SDK's engine has no script, so a turn ends only on the fallback.
+    await expect(oneTurn(sessions, SETTINGS)).resolves.toBeUndefined();
+  });
+
   describe("each day's use", () => {
     const TURN_TOKENS = { input: 4, output: 12, cacheRead: 24_000, cacheCreation: 200 };
 
-    it("counts every turn by engine and model, both Claude Code engines on one engine id", async () => {
+    it("counts every turn by engine and model, an API model on its endpoint's engine", async () => {
       const { sessions, dayUsage } = setUpOn({
         "agent-sdk": new ScriptedEngine([ONE_TURN, ONE_TURN]),
         "claude-code-p": new ScriptedEngine([ONE_TURN]),
@@ -609,9 +631,7 @@ describe("EngineSessions' readings of the usage windows", () => {
         ]),
       );
       expect(await dayUsage.today("claude-code")).toHaveLength(2);
-      expect(await dayUsage.today("openai-compatible-api")).toEqual([
-        { model: "lab/coder", tokens: TURN_TOKENS },
-      ]);
+      expect(await dayUsage.today("lab")).toEqual([{ model: "coder", tokens: TURN_TOKENS }]);
     });
 
     it("starts each day at local midnight on the service", async () => {

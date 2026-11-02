@@ -4,12 +4,14 @@ import {
   apiEndpointModel,
   apiEndpointModels,
   parseApiEndpointModel,
-  type ApiEndpoint,
 } from "./api-endpoints.js";
+import type { ApiEngine } from "./engines.js";
 
-const strata: ApiEndpoint = {
+const strata: ApiEngine = {
   id: "strata",
   name: "Strata",
+  kind: "openai-compatible-api",
+  defaultModel: "qwen3.8-flash",
   baseUrl: "http://127.0.0.1:8080/v1",
   key: "",
   models: [
@@ -34,7 +36,7 @@ describe("a Role's Model field on an API endpoint", () => {
   });
 
   it("lists every endpoint's models in their order", () => {
-    const local: ApiEndpoint = { ...strata, id: "local", models: [strata.models[0]!] };
+    const local: ApiEngine = { ...strata, id: "local", models: [strata.models[0]!] };
 
     expect(apiEndpointModels([strata, local])).toEqual([
       "strata/qwen3.8-flash",

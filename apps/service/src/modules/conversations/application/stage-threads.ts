@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable, Logger } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { EngineSessions, type Engine } from "../../engine/index.js";
+import { EngineSessions, type RoleEngine } from "../../engine/index.js";
 import { SessionMcpServers, type LeftOutMcpServer } from "../../mcp-servers/index.js";
 import {
   mcpToolSettingsFor,
@@ -158,7 +158,7 @@ export interface StageThread {
   readonly threadId: string;
   readonly move: ContextDecision;
   /** The engine and model the session runs on. */
-  readonly engine: Engine;
+  readonly engine: RoleEngine;
   readonly model: string;
   /** The person's turn running now, as it ends. */
   nextTurn(): Promise<StageTurn>;
@@ -698,7 +698,7 @@ export class StageThreads {
 interface StageWorkPlace {
   readonly threadId: string;
   readonly roleKey: string;
-  readonly engine: Engine;
+  readonly engine: RoleEngine;
   readonly model: string;
   readonly folder: string;
   readonly began: Date;

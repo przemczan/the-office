@@ -1,9 +1,12 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { asc } from "drizzle-orm";
+import { asc, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import type { EngineSettings } from "../../domain/engine-settings.js";
+import type { Engine } from "../../domain/engines.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
-import { apiEndpoints, engineSettings, modelPrices } from "./engine-settings.schema.js";
+import { engines, engineSettings, modelPrices } from "./engine-settings.schema.js";
+
+type EngineRow = typeof engines.$inferSelect;
 
 @Injectable()
 export class PostgresEngineSettings extends EngineSettingsRepository {
@@ -12,42 +15,30 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
   }
 
   async read(): Promise<EngineSettings> {
-    const endpoints = await this.database
-      .select()
-      .from(apiEndpoints)
-      .orderBy(asc(apiEndpoints.position));
+    const rows = await this.database.select().from(engines).orderBy(asc(engines.position));
     const [row] = await this.database.select().from(engineSettings).limit(1);
     const prices = await this.database
       .select()
       .from(modelPrices)
-      .orderBy(asc(modelPrices.engineId), asc(modelPrices.model));
+      // The Claude models first, as Settings › Engines lists them.
+      .orderBy(sql`${modelPrices.engineId} ASC NULLS FIRST`, asc(modelPrices.model));
     const searchEndpointUrl = row?.searchEndpointUrl ?? null;
     return {
-      apiEndpoints: endpoints.map(({ id, name, baseUrl, key, models }) => ({
-        id,
-        name,
-        baseUrl,
-        key,
-        models,
-      })),
+      engines: rows.map(engineOf),
       searchEndpoint: searchEndpointUrl === null ? null : { baseUrl: searchEndpointUrl },
       modelPrices: prices.map(({ engineId, model, ...price }) => ({ engineId, model, price })),
     };
   }
 
   async replace({
-    apiEndpoints: endpoints,
+    engines: listed,
     searchEndpoint,
     modelPrices: priced,
   }: EngineSettings): Promise<void> {
     const searchEndpointUrl = searchEndpoint?.baseUrl ?? null;
     await this.database.transaction(async (transaction) => {
-      await transaction.delete(apiEndpoints);
-      if (endpoints.length > 0) {
-        await transaction
-          .insert(apiEndpoints)
-          .values(endpoints.map((endpoint, position) => ({ ...endpoint, position })));
-      }
+      await transaction.delete(engines);
+      if (listed.length > 0) await transaction.insert(engines).values(listed.map(engineRowOf));
       await transaction
         .insert(engineSettings)
         .values({ searchEndpointUrl })
@@ -60,4 +51,40 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
       }
     });
   }
+}
+
+function engineOf({
+  id,
+  name,
+  kind,
+  defaultModel,
+  claudeCodeP,
+  baseUrl,
+  key,
+  models,
+}: EngineRow): Engine {
+  if (kind === "claude-code") return { id, name, kind, defaultModel, claudeCodeP };
+  return {
+    id,
+    name,
+    kind,
+    defaultModel,
+    baseUrl: baseUrl ?? "",
+    key: key ?? "",
+    models: models ?? [],
+  };
+}
+
+function engineRowOf(engine: Engine, position: number): EngineRow {
+  const { id, name, kind, defaultModel } = engine;
+  const common = { id, position, name, kind, defaultModel };
+  return engine.kind === "claude-code"
+    ? { ...common, claudeCodeP: engine.claudeCodeP, baseUrl: null, key: null, models: null }
+    : {
+        ...common,
+        claudeCodeP: false,
+        baseUrl: engine.baseUrl,
+        key: engine.key,
+        models: engine.models,
+      };
 }

@@ -8,12 +8,14 @@ export type { UsageWindowRatios } from "./domain/usage-window-samples.js";
 export { EngineDown, UsageWindowsChanged, UsageWindowsRead } from "./domain/engine-events.js";
 export { EngineModels } from "./application/engine-models.js";
 export {
-  ENGINE_IDS,
-  ENGINES,
-  engineIdOf,
+  FIRST_CLAUDE_CODE_ENGINE,
+  ROLE_ENGINES,
+  engineModelOf,
   hasUsageWindows,
   type Engine,
   type EngineId,
+  type EngineModel,
+  type RoleEngine,
 } from "./domain/engines.js";
 export { DayUsage } from "./application/day-usage.js";
 export type { ModelDayUsage } from "./ports/day-usage-repository.js";

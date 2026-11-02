@@ -2,6 +2,7 @@ import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import type { EngineSettings } from "../../domain/engine-settings.js";
+import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
 import { PostgresEngineSettings } from "./postgres-engine-settings.js";
 
 let app: INestApplication;
@@ -21,13 +22,16 @@ afterAll(async () => {
 
 describe("PostgresEngineSettings", () => {
   // Every test file shares the database, so the settings kept before are put back.
-  it("keeps the API endpoints in their order with their keys, the search endpoint and the Model prices", async () => {
+  it("keeps the engines in their order, an API engine with its key, the search endpoint and the Model prices", async () => {
     const before = await settings.read();
     const changed: EngineSettings = {
-      apiEndpoints: [
+      engines: [
+        { ...FIRST_CLAUDE_CODE_ENGINE, claudeCodeP: true },
         {
           id: "strata",
           name: "Strata",
+          kind: "openai-compatible-api",
+          defaultModel: "org/coder:q4",
           baseUrl: "http://127.0.0.1:8080/v1",
           key: "",
           models: [{ id: "org/coder:q4", contextWindow: 100_000 }],
@@ -35,6 +39,8 @@ describe("PostgresEngineSettings", () => {
         {
           id: "lab",
           name: "Lab",
+          kind: "openai-compatible-api",
+          defaultModel: "large",
           baseUrl: "https://lab.example/v1",
           key: "sk-lab",
           models: [
@@ -46,13 +52,13 @@ describe("PostgresEngineSettings", () => {
       searchEndpoint: { baseUrl: "http://127.0.0.1:8888" },
       modelPrices: [
         {
-          engineId: "claude-code",
+          engineId: null,
           model: "claude-sonnet-5-5",
           price: { input: 3, output: 15, cacheWrites: 3.75, cacheReads: 0.3 },
         },
         {
-          engineId: "openai-compatible-api",
-          model: "lab/small",
+          engineId: "lab",
+          model: "small",
           price: { input: 0.000_001, output: 0, cacheWrites: 0, cacheReads: 0 },
         },
       ],
@@ -61,7 +67,7 @@ describe("PostgresEngineSettings", () => {
       await settings.replace(changed);
       const kept = await settings.read();
       await settings.replace({
-        apiEndpoints: changed.apiEndpoints.toReversed(),
+        engines: changed.engines.toReversed(),
         searchEndpoint: null,
         modelPrices: [],
       });
@@ -69,7 +75,7 @@ describe("PostgresEngineSettings", () => {
 
       expect(kept).toEqual(changed);
       expect(replaced).toEqual({
-        apiEndpoints: changed.apiEndpoints.toReversed(),
+        engines: changed.engines.toReversed(),
         searchEndpoint: null,
         modelPrices: [],
       });

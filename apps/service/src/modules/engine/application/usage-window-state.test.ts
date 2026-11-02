@@ -24,8 +24,8 @@ describe("UsageWindowState", () => {
     const state = new UsageWindowState(events);
     const later = new Date("2026-11-02T09:05:00.000Z");
 
-    await state.update(readingAt(new Date("2026-11-02T09:00:00.000Z")));
-    await state.update(readingAt(later));
+    await state.update("claude-code", readingAt(new Date("2026-11-02T09:00:00.000Z")));
+    await state.update("claude-code", readingAt(later));
 
     expect(published.map((event) => event.constructor)).toEqual([
       UsageWindowsChanged,
@@ -37,7 +37,7 @@ describe("UsageWindowState", () => {
 
   it("gives the reading only to an engine id with windows", async () => {
     const state = new UsageWindowState(new EventBus());
-    await state.update(readingAt(new Date("2026-11-02T09:00:00.000Z")));
+    await state.update("claude-code", readingAt(new Date("2026-11-02T09:00:00.000Z")));
 
     expect(state.of("claude-code")?.fiveHour.percentUsed).toBe(40);
     expect(state.of("openai-compatible-api")).toBeUndefined();

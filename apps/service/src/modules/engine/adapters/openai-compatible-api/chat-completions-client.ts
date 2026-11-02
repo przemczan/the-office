@@ -1,6 +1,6 @@
 import http, { type ClientRequest, type IncomingMessage } from "node:http";
 import https from "node:https";
-import type { ApiEndpoint } from "../../domain/api-endpoints.js";
+import type { ApiEngine } from "../../domain/engines.js";
 import {
   completionChunkSchema,
   STREAM_DONE,
@@ -51,7 +51,7 @@ export class ChatCompletionsError extends Error {
   }
 }
 
-export type ChatCompletionsEndpoint = Pick<ApiEndpoint, "name" | "baseUrl" | "key">;
+export type ChatCompletionsEndpoint = Pick<ApiEngine, "name" | "baseUrl" | "key">;
 
 /** Streamed chat completions from one API endpoint, on the OpenAI-compatible API. */
 export class ChatCompletionsClient {

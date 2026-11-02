@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import { dayOf } from "../domain/day-usage.js";
-import { engineIdOf, type Engine, type EngineId } from "../domain/engines.js";
+import type { EngineId, EngineModel } from "../domain/engines.js";
 import { DayUsageRepository, type ModelDayUsage } from "../ports/day-usage-repository.js";
 import type { TokenUsage } from "../ports/session-events.js";
 
@@ -16,9 +16,9 @@ export class DayUsage {
     private readonly schedule: Schedule,
   ) {}
 
-  /** Adds a turn's tokens on `model`, on the engine `engine`'s sessions spend on, to today's. */
-  async add(engine: Engine, model: string, tokens: TokenUsage): Promise<void> {
-    await this.repository.add(dayOf(this.schedule.now()), engineIdOf(engine), model, tokens);
+  /** Adds a turn's tokens on an engine's model to today's. */
+  async add({ engineId, model }: EngineModel, tokens: TokenUsage): Promise<void> {
+    await this.repository.add(dayOf(this.schedule.now()), engineId, model, tokens);
   }
 
   /** What each model on `engineId` has used today; a model unused today is left out. */

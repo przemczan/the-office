@@ -2,13 +2,8 @@ import { Inject, Injectable } from "@nestjs/common";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { DEFAULT_OFFICE_WIDE_LIMIT } from "../../domain/task-start.js";
 import { DEFAULT_USAGE_MEASURES } from "../../domain/usage-estimate.js";
-import {
-  everyEngineCaps,
-  type EngineCaps,
-  type UsageSettings,
-} from "../../domain/usage-settings.js";
+import type { EngineCaps, UsageSettings } from "../../domain/usage-settings.js";
 import { WorkSettings } from "../../ports/work-settings.js";
-import { hasUsageWindows } from "../../../engine/index.js";
 import { engineCaps, workSettings } from "./work-settings.schema.js";
 
 type EngineCapsRow = typeof engineCaps.$inferSelect;
@@ -36,7 +31,7 @@ export class PostgresWorkSettings extends WorkSettings {
     const caps = await this.database.select().from(engineCaps);
     return {
       measures: row?.usageMeasures ?? DEFAULT_USAGE_MEASURES,
-      caps: everyEngineCaps(caps.map(engineCapsOf)),
+      caps: caps.map(engineCapsOf),
     };
   }
 
@@ -56,9 +51,11 @@ export class PostgresWorkSettings extends WorkSettings {
 function engineCapsOf(row: EngineCapsRow): EngineCaps {
   return {
     engineId: row.engineId,
-    windows: hasUsageWindows(row.engineId)
-      ? { fiveHour: row.fiveHourWindow ?? undefined, sevenDay: row.sevenDayWindow ?? undefined }
-      : undefined,
+    // Whether the engine has windows is for `everyEngineCaps` to say, which knows the engines.
+    windows: {
+      fiveHour: row.fiveHourWindow ?? undefined,
+      sevenDay: row.sevenDayWindow ?? undefined,
+    },
     dailyTokens: row.dailyTokens ?? undefined,
     dailyDollars: row.dailyDollars ?? undefined,
   };

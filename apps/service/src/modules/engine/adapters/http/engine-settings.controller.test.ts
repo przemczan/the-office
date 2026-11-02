@@ -7,6 +7,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { EngineSettingsModule } from "../../engine-settings.module.js";
+import { DEFAULT_ENGINE_SETTINGS } from "../../domain/engine-settings.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
 
@@ -93,15 +94,16 @@ describe("/api/settings/engines", () => {
         { engineId: "openai-compatible-api", model: "strata/qwen3.8-flash", price: null },
       ],
     });
-    expect((await repository.read()).apiEndpoints[0]?.key).toBe(KEY);
+    expect((await repository.read()).engines[1]).toMatchObject({ id: "strata", key: KEY });
   });
 
-  it("keeps each offered model's Model price, by engine id and model", async () => {
+  it("keeps each offered model's Model price, a Claude model's for every Claude Code engine", async () => {
     const saved = await put({
       ...strataEdit,
       modelPrices: [
         { engineId: "claude-code", model: "claude-sonnet-5-5", price: SONNET_PRICE },
         { engineId: "claude-code", model: "claude-gone-1", price: SONNET_PRICE },
+        { engineId: "openai-compatible-api", model: "strata/qwen3.8-flash", price: SONNET_PRICE },
       ],
     });
 
@@ -110,10 +112,11 @@ describe("/api/settings/engines", () => {
       { engineId: "claude-code", model: "claude-opus-5-5", price: null },
       { engineId: "claude-code", model: "claude-sonnet-5-5", price: SONNET_PRICE },
       { engineId: "claude-code", model: "claude-haiku-5-5", price: null },
-      { engineId: "openai-compatible-api", model: "strata/qwen3.8-flash", price: null },
+      { engineId: "openai-compatible-api", model: "strata/qwen3.8-flash", price: SONNET_PRICE },
     ]);
     expect((await repository.read()).modelPrices).toEqual([
-      { engineId: "claude-code", model: "claude-sonnet-5-5", price: SONNET_PRICE },
+      { engineId: null, model: "claude-sonnet-5-5", price: SONNET_PRICE },
+      { engineId: "strata", model: "qwen3.8-flash", price: SONNET_PRICE },
     ]);
   });
 
@@ -127,7 +130,8 @@ describe("/api/settings/engines", () => {
 
     await put({ ...strataEdit, apiEndpoints: renamed });
 
-    expect((await repository.read()).apiEndpoints).toEqual([
+    expect((await repository.read()).engines).toEqual([
+      expect.objectContaining({ id: "claude-code" }),
       expect.objectContaining({ id: "strata", name: "Strata box", key: KEY }),
     ]);
   });
@@ -144,11 +148,7 @@ describe("/api/settings/engines", () => {
       "Give each API endpoint a name.",
       "Give the API endpoint at least one model.",
     ]);
-    expect(await repository.read()).toEqual({
-      apiEndpoints: [],
-      searchEndpoint: null,
-      modelPrices: [],
-    });
+    expect(await repository.read()).toEqual(DEFAULT_ENGINE_SETTINGS);
   });
 
   it("refuses a model without its context window in words, as Settings › Engines shows them", async () => {

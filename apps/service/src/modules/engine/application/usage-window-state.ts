@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { UsageWindowsChanged, UsageWindowsRead } from "../domain/engine-events.js";
-import { hasUsageWindows, type EngineId } from "../domain/engines.js";
+import type { EngineId } from "../domain/engines.js";
 import { sameUsageWindows, type UsageWindows } from "../domain/usage-windows.js";
 import type { TokenUsage } from "../ports/session-events.js";
 
@@ -15,27 +15,32 @@ export interface UsageWindowReading extends UsageWindows {
   readonly officeTokensSoFar: TokenUsage;
 }
 
-/** The account's usage windows as last read, Office-wide: every session shares them. */
+/** Each account's usage windows as last read, by engine id, Office-wide: every session shares them. */
 @Injectable()
 export class UsageWindowState {
-  private reading: UsageWindowReading | undefined;
+  private readonly readings = new Map<EngineId, UsageWindowReading>();
+  private latest: UsageWindowReading | undefined;
 
   constructor(private readonly events: EventBus) {}
 
-  /** Undefined until the first read; kept in memory only, so a restart forgets it. */
+  /** The latest reading on any engine; undefined until the first, kept in memory only. */
   get current(): UsageWindowReading | undefined {
-    return this.reading;
+    return this.latest;
   }
 
-  /** The reading of the account `engineId` spends on; undefined on one without windows. */
+  /** The latest reading of `engineId`'s account; undefined on one without windows or not read yet. */
   of(engineId: EngineId): UsageWindowReading | undefined {
-    return hasUsageWindows(engineId) ? this.reading : undefined;
+    return this.readings.get(engineId);
   }
 
-  /** Keeps every reading and announces it, and a change when its windows differ from what was known. */
-  async update(reading: UsageWindowReading): Promise<void> {
-    const previous = this.reading;
-    this.reading = reading;
+  /**
+   * Keeps every reading of `engineId`'s account and announces it, and a change when its windows
+   * differ from what was known.
+   */
+  async update(engineId: EngineId, reading: UsageWindowReading): Promise<void> {
+    const previous = this.readings.get(engineId);
+    this.readings.set(engineId, reading);
+    this.latest = reading;
     if (previous === undefined || !sameUsageWindows(previous, reading)) {
       await this.events.publish(new UsageWindowsChanged(reading));
     }

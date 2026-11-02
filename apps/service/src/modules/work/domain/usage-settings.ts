@@ -1,4 +1,4 @@
-import { ENGINE_IDS, hasUsageWindows, type EngineId } from "../../engine/index.js";
+import { hasUsageWindows, type Engine, type EngineId } from "../../engine/index.js";
 import {
   DEFAULT_USAGE_MEASURES,
   type UsageMeasure,
@@ -17,8 +17,8 @@ export const DEFAULT_WINDOW_CAP = 90;
 export type WindowCaps = Readonly<Record<UsageWindowName, number | undefined>>;
 
 /**
- * The caps on one engine id, each undefined when off. `windows` only on an engine id whose account
- * has usage windows (`hasUsageWindows`).
+ * The caps on one engine, each undefined when off. `windows` only on an engine whose account has
+ * usage windows (`hasUsageWindows`).
  */
 export interface EngineCaps {
   readonly engineId: EngineId;
@@ -30,15 +30,15 @@ export interface EngineCaps {
 export interface UsageSettings {
   /** None ticked turns Usage estimates off. */
   readonly measures: readonly UsageMeasure[];
-  /** Every engine id's, in the order of `ENGINE_IDS`. */
+  /** Every engine's, in the engines' order; as kept, only those saved. */
   readonly caps: readonly EngineCaps[];
 }
 
-/** An engine id's caps until saved: Window caps at 90% where there are windows, Daily caps off. */
-export function defaultEngineCaps(engineId: EngineId): EngineCaps {
+/** An engine's caps until saved: Window caps at 90% where there are windows, Daily caps off. */
+export function defaultEngineCaps(engine: Engine): EngineCaps {
   return {
-    engineId,
-    windows: hasUsageWindows(engineId)
+    engineId: engine.id,
+    windows: hasUsageWindows(engine)
       ? { fiveHour: DEFAULT_WINDOW_CAP, sevenDay: DEFAULT_WINDOW_CAP }
       : undefined,
     dailyTokens: undefined,
@@ -46,24 +46,36 @@ export function defaultEngineCaps(engineId: EngineId): EngineCaps {
   };
 }
 
+/** The settings until saved: the default measures, and no caps saved. */
 export const DEFAULT_USAGE_SETTINGS: UsageSettings = {
   measures: DEFAULT_USAGE_MEASURES,
-  caps: ENGINE_IDS.map(defaultEngineCaps),
+  caps: [],
 };
 
-/** Whether `caps` name every engine id, each once, and no other. */
-export function namesEveryEngineId(caps: readonly Pick<EngineCaps, "engineId">[]): boolean {
+/** Whether `caps` name every engine, each once, and no other. */
+export function namesEveryEngine(
+  caps: readonly Pick<EngineCaps, "engineId">[],
+  engines: readonly Engine[],
+): boolean {
   const named = new Set(caps.map(({ engineId }) => engineId));
   return (
     named.size === caps.length &&
-    named.size === ENGINE_IDS.length &&
-    ENGINE_IDS.every((engineId) => named.has(engineId))
+    named.size === engines.length &&
+    engines.every(({ id }) => named.has(id))
   );
 }
 
-/** Every engine id's caps, those not saved at their default, in the order of `ENGINE_IDS`. */
-export function everyEngineCaps(saved: readonly EngineCaps[]): readonly EngineCaps[] {
-  return ENGINE_IDS.map(
-    (engineId) => saved.find((caps) => caps.engineId === engineId) ?? defaultEngineCaps(engineId),
-  );
+/**
+ * Every engine's caps, in their order: as saved, Window caps only where there are windows, or at
+ * their default. A removed engine's are left out.
+ */
+export function everyEngineCaps(
+  saved: readonly EngineCaps[],
+  engines: readonly Engine[],
+): readonly EngineCaps[] {
+  return engines.map((engine) => {
+    const caps = saved.find(({ engineId }) => engineId === engine.id);
+    if (caps === undefined) return defaultEngineCaps(engine);
+    return { ...caps, windows: hasUsageWindows(engine) ? caps.windows : undefined };
+  });
 }

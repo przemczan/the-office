@@ -1,21 +1,38 @@
 import { Injectable } from "@nestjs/common";
-import { ENGINES, offeredModels, type Engine } from "../domain/engines.js";
+import { apiEndpointModels } from "../domain/api-endpoints.js";
+import { apiEngines } from "../domain/engine-settings.js";
+import {
+  CLAUDE_CODE_MODELS,
+  ROLE_ENGINES,
+  type Engine,
+  type RoleEngine,
+} from "../domain/engines.js";
 import { EngineSettingsRepository } from "../ports/engine-settings-repository.js";
 
 /**
- * The models each engine offers now, as a Role's Model field names them: a fixed list on the
- * Claude Code engines, the API endpoints' models on the OpenAI-compatible API.
+ * The engines listed now, and the models each engine a Role card may name offers, as its Model
+ * field names them: the Claude Code models, or every API engine's as `<endpoint>/<model>`.
  */
 @Injectable()
 export class EngineModels {
   constructor(private readonly settings: EngineSettingsRepository) {}
 
-  async offeredBy(engine: Engine): Promise<readonly string[]> {
-    return offeredModels(engine, (await this.settings.read()).apiEndpoints);
+  async engines(): Promise<readonly Engine[]> {
+    return (await this.settings.read()).engines;
   }
 
-  async byEngine(): Promise<ReadonlyMap<Engine, readonly string[]>> {
-    const settings = await this.settings.read();
-    return new Map(ENGINES.map((engine) => [engine, offeredModels(engine, settings.apiEndpoints)]));
+  async offeredBy(roleEngine: RoleEngine): Promise<readonly string[]> {
+    return modelsOn(roleEngine, await this.engines());
   }
+
+  async byEngine(): Promise<ReadonlyMap<RoleEngine, readonly string[]>> {
+    const engines = await this.engines();
+    return new Map(ROLE_ENGINES.map((roleEngine) => [roleEngine, modelsOn(roleEngine, engines)]));
+  }
+}
+
+function modelsOn(roleEngine: RoleEngine, engines: readonly Engine[]): readonly string[] {
+  return roleEngine === "openai-compatible-api"
+    ? apiEndpointModels(apiEngines(engines))
+    : CLAUDE_CODE_MODELS;
 }
