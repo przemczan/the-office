@@ -96,7 +96,7 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
               edit={engine}
               claudeModels={claudeModelsOf(saved)}
               change={(edit) => changeClaudeCodeEngine(index, edit)}
-              // Leaving a saved engine out of a Save removes it, its folder and its account.
+              // A saved engine is removed on its own, which moves what names it.
               remove={
                 engine.id === undefined
                   ? () =>
@@ -116,11 +116,14 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
               edit={endpoint}
               saved={savedApiEngines(saved.engines).find(({ id }) => id === endpoint.id)}
               change={(edit) => changeEndpoint(index, edit)}
-              remove={() =>
-                setDraft({
-                  ...draft,
-                  apiEndpoints: draft.apiEndpoints.filter((_endpoint, at) => at !== index),
-                })
+              remove={
+                endpoint.id === undefined
+                  ? () =>
+                      setDraft({
+                        ...draft,
+                        apiEndpoints: draft.apiEndpoints.filter((_endpoint, at) => at !== index),
+                      })
+                  : undefined
               }
             />
           ))}

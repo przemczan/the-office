@@ -24,6 +24,7 @@ import { RepositoriesByUrl } from "./application/repositories-by-url.js";
 import { ProjectChecks } from "./application/project-checks.js";
 import { ProjectCommandRunner } from "./application/project-command-runner.js";
 import { ProjectRemotes } from "./application/project-remotes.js";
+import { ProjectLevelMoves } from "./application/project-level-moves.js";
 import { ProjectService } from "./application/project-service.js";
 import { ProjectsFromRepositories } from "./application/projects-from-repositories.js";
 import { RepositoryClones } from "./application/repository-clones.js";
@@ -80,6 +81,7 @@ export class ProjectsModule {
         LocalRepositories,
         RepositoriesByUrl,
         ProjectService,
+        ProjectLevelMoves,
         ProjectsFromRepositories,
         ProjectRemotes,
         Worktrees,

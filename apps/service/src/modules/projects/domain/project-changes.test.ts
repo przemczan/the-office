@@ -11,6 +11,7 @@ import {
   changeRoleOverride,
   changeUseForEveryRole,
   changeUseProjectSkills,
+  moveEngineLevels,
 } from "./project-changes.js";
 import {
   ProjectAdded,
@@ -223,6 +224,48 @@ describe("changeUseForEveryRole", () => {
     expect(() => changeUseForEveryRole(aProject(), true)).toThrow(
       new ProjectRefused(["Choose a Project default before using it for every Role."]),
     );
+  });
+});
+
+describe("moveEngineLevels", () => {
+  const LOCAL = { engineId: "local", model: "gpt-oss" };
+  const toLocal = (reference: typeof SONNET) =>
+    reference.engineId === "claude-code" ? LOCAL : reference;
+
+  it("moves the Project default and each Role override naming the engine, each with its event", () => {
+    const project = aProject({
+      projectDefault: SONNET,
+      useForEveryRole: true,
+      roleOverrides: [
+        { roleKey: "cto", ...HAIKU },
+        { roleKey: "reviewer", engineId: "other", model: "m" },
+      ],
+    });
+
+    const { project: moved, events } = moveEngineLevels(project, toLocal);
+
+    expect(moved).toEqual({
+      ...project,
+      projectDefault: LOCAL,
+      roleOverrides: [
+        { roleKey: "cto", ...LOCAL },
+        { roleKey: "reviewer", engineId: "other", model: "m" },
+      ],
+    });
+    expect(events.map((event) => event.constructor)).toEqual([
+      ProjectDefaultChanged,
+      ProjectRoleOverrideChanged,
+    ]);
+    expect(events).toEqual([
+      expect.objectContaining({ projectId: "admin-panel", projectDefault: LOCAL }),
+      expect.objectContaining({ projectId: "admin-panel", roleKey: "cto", roleOverride: LOCAL }),
+    ]);
+  });
+
+  it("changes nothing when nothing names the engine", () => {
+    const project = aProject({ roleOverrides: [{ roleKey: "cto", ...LOCAL }] });
+
+    expect(moveEngineLevels(project, toLocal)).toEqual({ project, events: [] });
   });
 });
 

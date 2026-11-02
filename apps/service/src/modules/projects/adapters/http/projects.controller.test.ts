@@ -26,12 +26,16 @@ import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { OfficeKnownHosts } from "../../../../platform/git-identity/office-known-hosts.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
+import { FIRST_CLAUDE_CODE_ENGINE } from "../../../engine/index.js";
 import { McpServerLibrary } from "../../../mcp-servers/index.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../../pipelines/index.js";
 import {
   EngineLevelsChecks,
   type EngineLevelsSave,
 } from "../../application/engine-levels-checks.js";
+import { ProjectLevelMoves } from "../../application/project-level-moves.js";
+import { ProjectDefaultChanged } from "../../domain/project-events.js";
+import { ProjectRepository } from "../../ports/project-repository.js";
 import { ProjectsModule } from "../../projects.module.js";
 import {
   createTemporaryRepository,
@@ -360,7 +364,7 @@ describe("PUT /api/projects/:id/publishing-mode and /default-pipeline", () => {
   });
 });
 
-// `claude-code` is listed in the shared database and can't be removed, so no test lists its own.
+// `claude-code` is listed in the database every test file shares, so no test removes it or lists its own.
 const SONNET = { engineId: "claude-code", model: "claude-sonnet-5-5" };
 const HAIKU = { engineId: "claude-code", model: "claude-haiku-5-5" };
 
@@ -396,6 +400,43 @@ describe("the Project's engine levels", () => {
       { type: "project.use-for-every-role-changed", projectId: project.id },
       { type: "project.role-override-changed", projectId: project.id },
       { type: "project.role-override-changed", projectId: project.id },
+      { type: "project.role-override-changed", projectId: project.id },
+    ]);
+  });
+
+  it("moves the levels naming a removed engine to the replacement, each with its event", async () => {
+    const project = await addProject();
+    // An engine of this test's own, set past the checks, so other test files' Projects stay.
+    const removed = `removed-${randomUUID()}`;
+    const projectDefault = { engineId: removed, model: "claude-sonnet-5-5" };
+    await app.get(ProjectRepository).update(project.id, (stored) => ({
+      project: {
+        ...stored,
+        projectDefault,
+        roleOverrides: [
+          { roleKey: "cto", engineId: removed, model: "gpt-oss" },
+          { roleKey: "reviewer", ...SONNET },
+        ],
+      },
+      // The repository keeps a change that has an event.
+      events: [new ProjectDefaultChanged(stored.id, projectDefault)],
+    }));
+    published = [];
+    const second = { ...FIRST_CLAUDE_CODE_ENGINE, id: "second", defaultModel: "claude-haiku-5-5" };
+
+    await app.get(ProjectLevelMoves).moveProjectLevels({ engineId: removed, replacement: second });
+
+    const read = await fetch(`${url}/api/projects/${project.id}`);
+    expect(projectSchema.parse(await read.json())).toMatchObject({
+      projectDefault: { engineId: "second", model: "claude-sonnet-5-5" },
+      roleOverrides: [
+        // The replacement doesn't offer the model, so the override takes its default model.
+        { roleKey: "cto", engineId: "second", model: "claude-haiku-5-5" },
+        { roleKey: "reviewer", ...SONNET },
+      ],
+    });
+    expect(webEvents()).toEqual([
+      { type: "project.project-default-changed", projectId: project.id },
       { type: "project.role-override-changed", projectId: project.id },
     ]);
   });

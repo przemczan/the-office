@@ -12,6 +12,8 @@ export {
   type EngineCascadeSettings,
   type EngineSettingsSave,
 } from "./application/engine-settings-checks.js";
+export { EngineReferenceMoves } from "./application/engine-reference-moves.js";
+export { movedEngineModel, type EngineRemoval } from "./domain/engine-removal.js";
 export {
   FIRST_CLAUDE_CODE_ENGINE,
   hasUsageWindows,

@@ -8,7 +8,6 @@ import { EventsModule } from "../../../../platform/events/events.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { EngineSettingsService } from "../../application/engine-settings-service.js";
 import { EngineAccountChanged } from "../../domain/engine-events.js";
-import { FIRST_OFFICE_DEFAULT, type EngineSettingsEdit } from "../../domain/engine-settings.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
 import { EngineAccountsModule } from "../../engine-accounts.module.js";
 import { ClaudeCodeAccounts } from "../../ports/claude-code-accounts.js";
@@ -120,22 +119,19 @@ describe("/api/settings/engines/:engineId account and Sign in", () => {
 
   it("makes a Claude Code engine's folder when it is added, and removes it, signed out, with it", async () => {
     const service = app.get(EngineSettingsService);
-    const edit = async (engines: EngineSettingsEdit["engines"]): Promise<void> => {
-      await service.change({
-        engines,
-        officeDefault: FIRST_OFFICE_DEFAULT,
-        searchEndpoint: null,
-        modelPrices: [],
-      });
-    };
+    const stored = await service.current();
     const second = { name: "Second account", kind: "claude-code", claudeCodeP: false } as const;
-    await edit([FIRST_CLAUDE_CODE_ENGINE, { ...second, defaultModel: "claude-haiku-5-5" }]);
+    await service.change({
+      ...stored,
+      engines: [...stored.engines, { ...second, defaultModel: "claude-haiku-5-5" }],
+    });
     await post("second-account/sign-in");
     await post("second-account/sign-in/code", { code: "a-code" });
 
-    await edit([FIRST_CLAUDE_CODE_ENGINE]);
+    await service.remove("second-account", FIRST_CLAUDE_CODE_ENGINE.id);
+    // The API engine Strata has no folder.
+    await service.remove("strata", FIRST_CLAUDE_CODE_ENGINE.id);
 
-    // The API engine Strata, removed too, has no folder.
     expect(accounts.folders).toEqual(["made second-account", "removed second-account"]);
     await expect(accounts.account("second-account")).resolves.toEqual({ signedIn: false });
   });

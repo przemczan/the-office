@@ -1,7 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { presetFor } from "./presets.js";
 import { aRole, aRoleCard, OFFERED_MODELS } from "./role.fixtures.js";
-import { changeRoleCard, hire, hireBack, hireFromScratch, letGo } from "./role-changes.js";
+import {
+  changeRoleCard,
+  hire,
+  hireBack,
+  hireFromScratch,
+  letGo,
+  moveRoleOverride,
+} from "./role-changes.js";
 import { RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo } from "./role-events.js";
 import { RoleRefused } from "./role-refused.js";
 
@@ -172,6 +179,48 @@ describe("changeRoleCard", () => {
     ).toThrow(
       new RoleRefused(["Give the Role a title.", "A Task limit is 1 to 6 Tasks at once, or none."]),
     );
+  });
+});
+
+describe("moveRoleOverride", () => {
+  const onStrata = { engineId: "strata", model: "qwen3" };
+  const onClaudeCode = { engineId: "claude-code", model: "claude-haiku-5-5" };
+  const toClaudeCode = (reference: typeof onStrata) =>
+    reference.engineId === "strata" ? onClaudeCode : reference;
+
+  it("saves the moved override as the next version by the user, a let-go Role's too", () => {
+    const role = aRole({
+      card: aRoleCard({ roleOverride: onStrata }),
+      cardProposedBy: "cto",
+      letGoAt: at,
+    });
+    const change = moveRoleOverride(role, toClaudeCode, at);
+
+    expect(change?.role).toEqual({
+      ...role,
+      card: aRoleCard({ roleOverride: onClaudeCode }),
+      cardVersion: 2,
+      cardSavedAt: at,
+      cardProposedBy: undefined,
+    });
+    expect(change?.event).toEqual(
+      new RoleCardChanged(change!.role, [
+        { field: "roleOverride", from: onStrata, to: onClaudeCode },
+      ]),
+    );
+  });
+
+  it("changes nothing when the override stays, or there is none", () => {
+    expect(
+      moveRoleOverride(
+        aRole({ card: aRoleCard({ roleOverride: onClaudeCode }) }),
+        toClaudeCode,
+        at,
+      ),
+    ).toBeUndefined();
+    expect(
+      moveRoleOverride(aRole({ card: aRoleCard({ roleOverride: null }) }), toClaudeCode, at),
+    ).toBeUndefined();
   });
 });
 

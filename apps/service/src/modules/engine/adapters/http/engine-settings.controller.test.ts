@@ -8,12 +8,14 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
+import { EngineReferenceMoves } from "../../application/engine-reference-moves.js";
 import {
   EngineSettingsChecks,
   type EngineSettingsSave,
 } from "../../application/engine-settings-checks.js";
 import { EngineSettingsModule } from "../../engine-settings.module.js";
 import { EngineAdded, EngineRemoved } from "../../domain/engine-events.js";
+import type { EngineRemoval } from "../../domain/engine-removal.js";
 import { DEFAULT_ENGINE_SETTINGS, FIRST_OFFICE_DEFAULT } from "../../domain/engine-settings.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
@@ -67,6 +69,11 @@ function put(body: unknown): Promise<Response> {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
+}
+
+function remove(engineId: string, replacement?: string): Promise<Response> {
+  const query = replacement === undefined ? "" : `?replacement=${replacement}`;
+  return fetch(`${url}/api/settings/engines/${engineId}${query}`, { method: "DELETE" });
 }
 
 async function read(): Promise<string> {
@@ -168,7 +175,8 @@ describe("/api/settings/engines", () => {
       ...strataEdit,
       engines: [...strataEdit.engines, { ...secondAccount, defaultModel: "claude-haiku-5-5" }],
     });
-    await put({ ...strataEdit, engines: [FIRST_CLAUDE_CODE_ENGINE] });
+    await remove("strata", "claude-code");
+    await remove("second-account", "claude-code");
 
     expect(announced.map((event) => [event.constructor.name, event.engineId, event.kind])).toEqual([
       ["EngineAdded", "strata", "openai-compatible-api"],
@@ -254,5 +262,102 @@ describe("/api/settings/engines", () => {
     const refused = await put({ engines: [{ name: "Strata" }] });
 
     expect(refused.status).toBe(400);
+  });
+});
+
+describe("DELETE /api/settings/engines/:engineId", () => {
+  const strataDefault = { engineId: "strata", model: "qwen3.8-flash" };
+
+  beforeEach(async () => {
+    const saved = await put({ ...strataEdit, officeDefault: strataDefault });
+    if (!saved.ok) throw new Error(`Strata wasn't saved: ${saved.status}`);
+  });
+
+  it("moves what names the engine to the replacement while it is still listed, then removes it", async () => {
+    const moves: { removal: EngineRemoval; listed: string[] }[] = [];
+    app.get(EngineReferenceMoves).register(async (removal) => {
+      moves.push({ removal, listed: (await repository.read()).engines.map(({ id }) => id) });
+    });
+    const announced: EngineRemoved[] = [];
+    app.get(EventBus).subscribe(EngineRemoved, (event) => void announced.push(event));
+
+    const removed = await remove("strata", "claude-code");
+
+    expect(removed.status).toBe(200);
+    const settings = engineSettingsSchema.parse(await removed.json());
+    expect(settings.engines.map(({ id }) => id)).toEqual(["claude-code"]);
+    // The replacement doesn't offer the model, so the Office default takes its default model.
+    expect(settings.officeDefault).toEqual(FIRST_OFFICE_DEFAULT);
+    expect(moves).toEqual([
+      {
+        removal: { engineId: "strata", replacement: FIRST_CLAUDE_CODE_ENGINE },
+        listed: ["claude-code", "strata"],
+      },
+    ]);
+    expect((await repository.read()).engines).toEqual([FIRST_CLAUDE_CODE_ENGINE]);
+    expect(announced.map(({ engineId, kind }) => [engineId, kind])).toEqual([
+      ["strata", "openai-compatible-api"],
+    ]);
+  });
+
+  it("removes the first Claude Code engine too", async () => {
+    const removed = await remove("claude-code", "strata");
+
+    expect(removed.status).toBe(200);
+    expect((await repository.read()).engines.map(({ id }) => id)).toEqual(["strata"]);
+  });
+
+  it("weighs the removal in the registered checks, moving and removing nothing when one refuses", async () => {
+    const refusal = "Outside any Project, the Developer would run on Claude Code.";
+    const saves: EngineSettingsSave[] = [];
+    app.get(EngineSettingsChecks).register(async (save) => {
+      saves.push(save);
+      return save.removal ? [refusal] : [];
+    });
+    const moves: EngineRemoval[] = [];
+    app.get(EngineReferenceMoves).register(async (removal) => void moves.push(removal));
+
+    const refused = await remove("strata", "claude-code");
+
+    expect(refused.status).toBe(422);
+    expect(engineSettingsRefusalSchema.parse(await refused.json()).reasons).toEqual([refusal]);
+    expect(saves).toEqual([
+      {
+        before: expect.objectContaining({ officeDefault: strataDefault }),
+        after: expect.objectContaining({ officeDefault: FIRST_OFFICE_DEFAULT }),
+        removal: { engineId: "strata", replacement: FIRST_CLAUDE_CODE_ENGINE },
+      },
+    ]);
+    expect(moves).toEqual([]);
+    expect((await repository.read()).engines.map(({ id }) => id)).toEqual([
+      "claude-code",
+      "strata",
+    ]);
+  });
+
+  it("keeps the engine listed when a move fails, so removing it again moves the rest", async () => {
+    let failing = true;
+    app.get(EngineReferenceMoves).register(async () => {
+      if (failing) throw new Error("The database went away.");
+    });
+
+    expect((await remove("strata", "claude-code")).status).toBe(500);
+    expect((await repository.read()).engines.map(({ id }) => id)).toEqual([
+      "claude-code",
+      "strata",
+    ]);
+
+    failing = false;
+    expect((await remove("strata", "claude-code")).status).toBe(200);
+  });
+
+  it("refuses a replacement not listed, or none, in words or by the contract", async () => {
+    const refused = await remove("strata", "gone");
+
+    expect(refused.status).toBe(422);
+    expect(engineSettingsRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      'Pick the engine that takes over from "Strata" among the other engines.',
+    ]);
+    expect((await remove("strata")).status).toBe(400);
   });
 });

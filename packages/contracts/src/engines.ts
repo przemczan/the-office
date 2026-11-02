@@ -128,8 +128,8 @@ export type EngineEdit = z.infer<typeof engineEditSchema>;
 
 /**
  * PUT /settings/engines: every engine, in order, the Office default, the search endpoint and the
- * Model prices. An engine left out is removed. A price of a model the saved engines no longer
- * offer is dropped.
+ * Model prices. A saved engine left out is refused (422): DELETE /settings/engines/:engineId removes
+ * one. A price of a model the saved engines no longer offer is dropped.
  */
 export const engineSettingsEditSchema = z.object({
   engines: z.array(engineEditSchema),
@@ -138,6 +138,16 @@ export const engineSettingsEditSchema = z.object({
   modelPrices: z.array(offeredModelSchema),
 });
 export type EngineSettingsEdit = z.infer<typeof engineSettingsEditSchema>;
+
+/**
+ * DELETE /settings/engines/:engineId?replacement=<engine id>: the engine that takes over everything
+ * naming the removed one; the answer is the settings left, as GET gives them. A replacement not
+ * listed, or one failing the capability check, is refused with words (422).
+ */
+export const engineRemovalSchema = z.object({
+  replacement: engineIdSchema,
+});
+export type EngineRemoval = z.infer<typeof engineRemovalSchema>;
 
 /**
  * GET /settings/engines/:engineId/account: a Claude Code engine's account as `claude auth status`

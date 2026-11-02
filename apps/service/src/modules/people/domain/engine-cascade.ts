@@ -22,6 +22,21 @@ export interface ProjectCascadeLevels {
   readonly roleOverrides: readonly (EngineModel & { readonly roleKey: string })[];
 }
 
+/** The levels with the Project default and each Role override where `move` puts them. */
+export function movedProjectLevels(
+  levels: ProjectCascadeLevels,
+  move: (reference: EngineModel) => EngineModel,
+): ProjectCascadeLevels {
+  return {
+    projectDefault: levels.projectDefault && move(levels.projectDefault),
+    useForEveryRole: levels.useForEveryRole,
+    roleOverrides: levels.roleOverrides.map((override) => ({
+      roleKey: override.roleKey,
+      ...move(override),
+    })),
+  };
+}
+
 /** What the cascade weighs for one Role: in no Project, only the Office levels. */
 export interface EngineCascadeLevels {
   readonly officeDefault: EngineModel;

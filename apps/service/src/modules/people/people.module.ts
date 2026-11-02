@@ -11,6 +11,7 @@ import { RoleWebEvents } from "./adapters/websocket/role-web-events.js";
 import { MemoryService } from "./application/memory-service.js";
 import { RoleCards } from "./application/role-cards.js";
 import { RoleOverrideChecks } from "./application/role-override-checks.js";
+import { RoleOverrideMoves } from "./application/role-override-moves.js";
 import { RoleService } from "./application/role-service.js";
 import { MemoryRepository } from "./ports/memory-repository.js";
 import { RoleRepository } from "./ports/role-repository.js";
@@ -25,6 +26,7 @@ import { RoleRepository } from "./ports/role-repository.js";
     { provide: MemoryRepository, useClass: PostgresMemoryRepository },
     RoleService,
     RoleOverrideChecks,
+    RoleOverrideMoves,
     MemoryService,
     RoleCards,
     RoleWebEvents,

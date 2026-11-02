@@ -3,12 +3,17 @@ import {
   EngineModels,
   EngineSessions,
   EngineSettingsChecks,
+  movedEngineModel,
   type Engine,
   type EngineCapability,
   type EngineModel,
   type EngineSettingsSave,
 } from "../../engine/index.js";
-import type { ProjectCascadeLevels, ProjectWithCascadeLevels } from "../domain/engine-cascade.js";
+import {
+  movedProjectLevels,
+  type ProjectCascadeLevels,
+  type ProjectWithCascadeLevels,
+} from "../domain/engine-cascade.js";
 import {
   incapableEngineProblems,
   newlyOnIncapableEngines,
@@ -116,17 +121,34 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
 
   /**
    * The Office default and the engines change every Role's sessions everywhere; each side is
-   * weighed on its own engines, so a rename or a switch saved with it counts.
+   * weighed on its own engines, so a rename or a switch saved with it counts. A removal also
+   * moves the Role overrides and the Projects' levels naming the engine, weighed as moved.
    */
   async engineSettingsSaveProblems({
     before,
     after,
+    removal,
   }: EngineSettingsSave): Promise<readonly string[]> {
     const office = await this.officeCascade(await this.pipelineRoleSources.rolesNamed());
+    const move = (reference: EngineModel) =>
+      removal ? movedEngineModel(reference, removal) : reference;
     return this.newlyIncapableProblems(
       { ...office, officeDefault: before.officeDefault, engines: before.engines },
-      { ...office, officeDefault: after.officeDefault, engines: after.engines },
-      await this.everyPlace(),
+      {
+        ...office,
+        roleOverrides: new Map(
+          [...office.roleOverrides].map(([roleKey, override]) => [
+            roleKey,
+            override && move(override),
+          ]),
+        ),
+        officeDefault: after.officeDefault,
+        engines: after.engines,
+      },
+      (await this.everyPlace()).map((place) => ({
+        ...place,
+        after: place.after && movedProjectLevels(place.after, move),
+      })),
     );
   }
 

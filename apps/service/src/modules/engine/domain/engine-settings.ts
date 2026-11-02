@@ -1,3 +1,4 @@
+import { movedEngineModel, type EngineRemoval } from "./engine-removal.js";
 import { EngineSettingsRefused } from "./engine-settings-refused.js";
 import {
   CLAUDE_CODE_MODELS,
@@ -57,7 +58,7 @@ export type ApiEngineEdit = Omit<ApiEngine, "id" | "key"> & {
 export type EngineEdit = ClaudeCodeEngineEdit | ApiEngineEdit;
 
 export interface EngineSettingsEdit {
-  /** Every engine, in order; one left out is removed. */
+  /** Every engine, in order; a saved one left out is refused, as removing one moves what names it. */
   readonly engines: readonly EngineEdit[];
   readonly officeDefault: EngineModel;
   readonly searchEndpoint: SearchEndpoint | null;
@@ -108,10 +109,34 @@ export function changedEngineSettings(
   stored: EngineSettings,
   edit: EngineSettingsEdit,
 ): EngineSettings {
-  const problems: string[] = [];
+  return settingsOf(stored, edit, leftOutEngineProblems(stored.engines, edit.engines));
+}
+
+/**
+ * The settings once the removal is done: the engine gone and the Office default moved by
+ * `movedEngineModel`, the rest kept. Refuses with every reason when they break a rule.
+ */
+export function settingsWithoutEngine(
+  stored: EngineSettings,
+  removal: EngineRemoval,
+): EngineSettings {
+  const edit: EngineSettingsEdit = {
+    engines: stored.engines.filter(({ id }) => id !== removal.engineId),
+    officeDefault: movedEngineModel(stored.officeDefault, removal),
+    searchEndpoint: stored.searchEndpoint,
+    modelPrices: stored.modelPrices,
+  };
+  return settingsOf(stored, edit, []);
+}
+
+function settingsOf(
+  stored: EngineSettings,
+  edit: EngineSettingsEdit,
+  problems: string[],
+): EngineSettings {
   const engines = changedEnginesOf(stored.engines, edit.engines, problems);
   for (const engine of engines) problems.push(...engineProblems(engine));
-  problems.push(...duplicateNameProblems(engines), ...claudeCodeEngineProblems(engines));
+  problems.push(...duplicateNameProblems(engines));
   const officeDefault = { engineId: edit.officeDefault.engineId, model: edit.officeDefault.model };
   problems.push(...officeDefaultProblems(officeDefault, engines));
   const searchEndpoint = edit.searchEndpoint && { baseUrl: edit.searchEndpoint.baseUrl.trim() };
@@ -210,14 +235,12 @@ function duplicateNameProblems(engines: readonly Engine[]): string[] {
   return problems;
 }
 
-/*
- * The first Claude Code engine stays until removing an engine moves what names it (step 3a of
- * task 47): the presets hire onto it.
- */
-function claudeCodeEngineProblems(engines: readonly Engine[]): string[] {
-  return engines.some(({ id }) => id === FIRST_CLAUDE_CODE_ENGINE.id)
-    ? []
-    : ["The Claude Code engine can't be removed yet."];
+/** A saved engine is removed on its own, which moves what names it (`settingsWithoutEngine`). */
+function leftOutEngineProblems(stored: readonly Engine[], edits: readonly EngineEdit[]): string[] {
+  const editedIds = new Set(edits.map(({ id }) => id));
+  return stored
+    .filter(({ id }) => !editedIds.has(id))
+    .map(({ name }) => `Remove "${name}" on its own, so what names it moves to another engine.`);
 }
 
 function officeDefaultProblems(

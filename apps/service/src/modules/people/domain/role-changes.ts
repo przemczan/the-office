@@ -1,4 +1,5 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { EngineModel } from "../../engine/index.js";
 import { KNOWN_ROLES } from "./known-roles.js";
 import { presetFor } from "./presets.js";
 import type { Role } from "./role.js";
@@ -143,4 +144,32 @@ export function changeRoleCard(
     cardProposedBy: proposedBy,
   };
   return { role: changed, event: new RoleCardChanged(changed, changes) };
+}
+
+/**
+ * Saves the card as its next version with its Role override where `move` puts it, as the user
+ * removing an engine moves it (spec §5.4); undefined when the override stays. A let-go Role's card
+ * moves too, as hiring the person back restores it.
+ */
+export function moveRoleOverride(
+  role: Role,
+  move: (reference: EngineModel) => EngineModel,
+  savedAt: Date,
+): RoleChange<RoleCardChanged> | undefined {
+  const { roleOverride } = role.card;
+  const moved = roleOverride && move(roleOverride);
+  if (!moved || sameEngineModel(moved, roleOverride)) return undefined;
+  const card = { ...role.card, roleOverride: moved };
+  const changed: Role = {
+    ...role,
+    card,
+    cardVersion: role.cardVersion + 1,
+    cardSavedAt: savedAt,
+    cardProposedBy: undefined,
+  };
+  return { role: changed, event: new RoleCardChanged(changed, roleCardChanges(role.card, card)) };
+}
+
+function sameEngineModel(one: EngineModel, other: EngineModel | null): boolean {
+  return one.engineId === other?.engineId && one.model === other.model;
 }

@@ -8,7 +8,7 @@ import {
   type EngineCapability,
   type EngineModel,
 } from "../../engine/index.js";
-import type { ProjectCascadeLevels } from "../domain/engine-cascade.js";
+import type { ProjectCascadeLevels, ProjectWithCascadeLevels } from "../domain/engine-cascade.js";
 import type { PipelineRolesNamed } from "../domain/pipeline-roles-named.js";
 import { aRoleCard } from "../domain/role.fixtures.js";
 import { KnownProjectLevels } from "../ports/known-project-levels.js";
@@ -51,6 +51,8 @@ const projectLevels = [
   },
 ];
 
+/** Projects a test adds after the two above. */
+let moreProjects: ProjectWithCascadeLevels[];
 let check: (save: ProjectLevelsSave) => Promise<readonly string[]>;
 let roleOverrideChecks: RoleOverrideChecks;
 let engineSettingsChecks: EngineSettingsChecks;
@@ -84,9 +86,10 @@ beforeEach(async () => {
       engine.id === "local" ? ["officeTools"] : [],
   };
   rolesNamed = { everywhere: new Set(["developer", "reviewer"]), byProject: new Map() };
+  moreProjects = [];
   const projects: KnownProjectLevels = {
     engineLevelsOf: async () => projectLevels[0]!,
-    engineLevelsOfEveryProject: async () => projectLevels,
+    engineLevelsOfEveryProject: async () => [...projectLevels, ...moreProjects],
   };
   const saves: ProjectLevelsSaves = {
     register: (registered) => {
@@ -208,6 +211,46 @@ describe("PipelineRoleCapabilityChecks on a save of a Role override", () => {
 
 describe("PipelineRoleCapabilityChecks on a save of Settings › Engines", () => {
   const settings = { engines, officeDefault };
+
+  it("weighs a removal's moved Role overrides", async () => {
+    const [claudeCode, localModels] = engines;
+
+    await expect(
+      engineSettingsChecks.problemsOf({
+        before: settings,
+        // Only the Developer's Role override names Claude Code: an engine not listed is left alone.
+        after: { engines: [localModels!], officeDefault },
+        removal: { engineId: claudeCode!.id, replacement: localModels! },
+      }),
+    ).resolves.toEqual([
+      "Outside any Project, the Developer would run on Local models, which can't use Office tools, as their Pipelines' Agent Stages need.",
+      "In Admin panel, the Developer would run on Local models, which can't use Office tools, as their Pipelines' Agent Stages need.",
+      "In Billing, the Developer would run on Local models, which can't use Office tools, as their Pipelines' Agent Stages need.",
+    ]);
+  });
+
+  it("weighs a removal's moved Project levels", async () => {
+    const spare: Engine = { ...engines[0]!, id: "spare", name: "Spare" };
+    moreProjects = [
+      {
+        projectId: "shop",
+        projectName: "Shop",
+        projectDefault: null,
+        useForEveryRole: false,
+        roleOverrides: [{ roleKey: "reviewer", engineId: "spare", model: "claude-haiku-5-5" }],
+      },
+    ];
+
+    await expect(
+      engineSettingsChecks.problemsOf({
+        before: { engines: [...engines, spare], officeDefault },
+        after: settings,
+        removal: { engineId: "spare", replacement: engines[1]! },
+      }),
+    ).resolves.toEqual([
+      "In Shop, the Reviewer would run on Local models, which can't use Office tools, as their Pipelines' Agent Stages need.",
+    ]);
+  });
 
   it("refuses an Office default that puts the Roles a Pipeline names on an incapable engine", async () => {
     await expect(

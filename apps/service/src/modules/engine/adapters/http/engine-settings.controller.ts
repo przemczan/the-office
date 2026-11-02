@@ -1,6 +1,8 @@
-import { Body, Controller, Get, Put, UseFilters } from "@nestjs/common";
+import { Body, Controller, Delete, Get, Param, Put, Query, UseFilters } from "@nestjs/common";
 import {
+  engineRemovalSchema,
   engineSettingsEditSchema,
+  type EngineRemoval as EngineRemovalRequest,
   type Engine as EngineResponse,
   type EngineSettings as EngineSettingsResponse,
   type EngineSettingsEdit as EngineSettingsEditRequest,
@@ -13,7 +15,7 @@ import { EngineSettingsRefusalFilter } from "./engine-settings-refusal.filter.js
 
 /**
  * Settings › Engines: the engines, an API engine's key never sent back, the Office default, the
- * search endpoint, and every offered model's Model price.
+ * search endpoint, and every offered model's Model price; removing an engine with its replacement.
  */
 @Controller("settings/engines")
 @UseFilters(EngineSettingsRefusalFilter)
@@ -30,6 +32,15 @@ export class EngineSettingsController {
     @Body(new ContractPipe(engineSettingsEditSchema)) edit: EngineSettingsEditRequest,
   ): Promise<EngineSettingsResponse> {
     return response(await this.settings.change(edit));
+  }
+
+  /** Moves everything naming the engine to the replacement, then removes it. */
+  @Delete(":engineId")
+  async remove(
+    @Param("engineId") engineId: string,
+    @Query(new ContractPipe(engineRemovalSchema)) { replacement }: EngineRemovalRequest,
+  ): Promise<EngineSettingsResponse> {
+    return response(await this.settings.remove(engineId, replacement));
   }
 }
 

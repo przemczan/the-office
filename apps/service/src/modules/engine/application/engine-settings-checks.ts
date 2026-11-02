@@ -1,13 +1,18 @@
 import { Injectable } from "@nestjs/common";
+import type { EngineRemoval } from "../domain/engine-removal.js";
 import type { EngineSettings } from "../domain/engine-settings.js";
 
 /** What a save of Settings › Engines changes for the engine cascade: the engines and the Office default. */
 export type EngineCascadeSettings = Pick<EngineSettings, "engines" | "officeDefault">;
 
-/** A save of Settings › Engines: what it holds before and what the save would leave. */
+/**
+ * A save of Settings › Engines: what it holds before and what the save would leave. A removal also
+ * moves every other level naming the engine (`movedEngineModel`), which a check weighs too.
+ */
 export interface EngineSettingsSave {
   readonly before: EngineCascadeSettings;
   readonly after: EngineCascadeSettings;
+  readonly removal?: EngineRemoval;
 }
 
 /** What makes a save refused, in the UI's words; none lets it through. */

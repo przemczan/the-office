@@ -73,6 +73,33 @@ export function changeCommandsAsProposed(
     });
   const { installInputs } = to;
   if (installInputs) fieldChanges.push((current) => changeInstallInputs(current, installInputs));
+  return changesInTurn(project, fieldChanges);
+}
+
+/**
+ * Moves the Project default and each Role override where `move` puts them, as the user removing
+ * an engine moves them (spec §5.4), each with its own event; none when nothing names the engine.
+ */
+export function moveEngineLevels(
+  project: Project,
+  move: (reference: EngineModel) => EngineModel,
+): ProjectChanges {
+  const { projectDefault } = project;
+  return changesInTurn(project, [
+    (current) => (projectDefault ? changeProjectDefault(current, move(projectDefault)) : undefined),
+    ...project.roleOverrides.map(
+      ({ roleKey, engineId, model }) =>
+        (current: Project) =>
+          changeRoleOverride(current, roleKey, move({ engineId, model })),
+    ),
+  ]);
+}
+
+/** Each change applied to the Project the one before left, kept together. */
+function changesInTurn(
+  project: Project,
+  fieldChanges: readonly ((current: Project) => ProjectChange<DomainEvent> | undefined)[],
+): ProjectChanges {
   return fieldChanges.reduce<ProjectChanges>(
     (changes, fieldChange) => {
       const next = asProjectChanges(changes.project, fieldChange(changes.project));

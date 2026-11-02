@@ -28,13 +28,18 @@ import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { FAKE_STDIO_MCP_SERVER } from "../../../../platform/mcp/fake-mcp-servers.fixtures.js";
+import { FIRST_CLAUDE_CODE_ENGINE } from "../../../engine/index.js";
 import { RoleSkills, SkillLibrary } from "../../../skills/index.js";
 import {
   RoleOverrideChecks,
   type RoleOverrideSave,
 } from "../../application/role-override-checks.js";
+import { RoleOverrideMoves } from "../../application/role-override-moves.js";
 import { RoleService } from "../../application/role-service.js";
 import { PRESETS } from "../../domain/presets.js";
+import { OFFERED_MODELS } from "../../domain/role.fixtures.js";
+import { changeRoleCard } from "../../domain/role-changes.js";
+import { RoleRepository } from "../../ports/role-repository.js";
 import { PeopleModule } from "../../people.module.js";
 import { roles } from "../postgres/roles.schema.js";
 
@@ -499,6 +504,38 @@ describe("PUT /api/roles/:key/card", () => {
     expect(set.status).toBe(200);
     expect(roleSchema.parse(await set.json()).card.roleOverride).toEqual(roleOverride);
     expect(roleSchema.parse(await cleared.json()).card.roleOverride).toBeNull();
+  });
+
+  it("moves a Role override on a removed engine as the card's next version, a let-go Role's too", async () => {
+    await hire("developer", "Ada");
+    await hire("reviewer", "Ola");
+    // An engine of this test's own, set past the checks, so other test files' Roles stay.
+    const roleOverride = { engineId: `removed-${randomUUID()}`, model: "claude-opus-5-5" };
+    await app
+      .get(RoleRepository)
+      .update("developer", (stored) =>
+        changeRoleCard(stored, { ...stored.card, roleOverride }, OFFERED_MODELS, new Date()),
+      );
+    await send("POST", "/roles/developer/let-go", {});
+    const second = { ...FIRST_CLAUDE_CODE_ENGINE, id: "second", defaultModel: "claude-haiku-5-5" };
+    published = [];
+
+    await app.get(RoleOverrideMoves).moveRoleOverrides({
+      engineId: roleOverride.engineId,
+      replacement: second,
+    });
+
+    const moved = { engineId: "second", model: "claude-opus-5-5" };
+    expect(roleSchema.parse(await get("/roles/developer")).card.roleOverride).toEqual(moved);
+    const [latest] = roleChangeListSchema.parse(await get("/roles/developer/changes"));
+    expect(latest).toMatchObject({
+      kind: "card-changed",
+      cardVersion: 3,
+      changes: [{ field: "roleOverride", from: roleOverride, to: moved }],
+      proposedBy: null,
+    });
+    expect(roleSchema.parse(await get("/roles/reviewer")).cardVersion).toBe(1);
+    expect(webEvents()).toEqual([expect.objectContaining({ type: "role.card-changed" })]);
   });
 
   it("refuses a Role override on an engine Settings › Engines doesn't list", async () => {

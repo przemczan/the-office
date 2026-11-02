@@ -4,6 +4,7 @@ import {
   DEFAULT_ENGINE_SETTINGS,
   FIRST_OFFICE_DEFAULT,
   offeredModelPrices,
+  settingsWithoutEngine,
   type ApiEngineEdit,
   type ClaudeCodeEngineEdit,
   type EngineEdit,
@@ -93,12 +94,6 @@ describe("changedEngineSettings", () => {
     });
   });
 
-  it("never gives a new engine the id of one removed in the same save", () => {
-    const changed = changedEngineSettings(stored, editOf([strataEdit({ id: undefined })]));
-
-    expect(changed.engines.map(({ id }) => id)).toEqual(["claude-code", "strata-2"]);
-  });
-
   it("keeps an engine's id when it is renamed, and an API engine's key unless it is emptied", () => {
     const renamed = changedEngineSettings(
       stored,
@@ -127,8 +122,14 @@ describe("changedEngineSettings", () => {
     expect(cleared.engines).toEqual([FIRST_CLAUDE_CODE_ENGINE, { ...strata, key: "" }]);
   });
 
-  it("removes the API engines left out", () => {
-    expect(changedEngineSettings(stored, editOf([]))).toEqual(DEFAULT_ENGINE_SETTINGS);
+  it("refuses leaving a saved engine out, as removing one moves what names it", () => {
+    expect(refusal(stored, editOf([], { engines: [strataEdit()] }))).toEqual([
+      'Remove "Claude Code" on its own, so what names it moves to another engine.',
+      "Pick the Office default among the engines listed.",
+    ]);
+    expect(refusal(stored, editOf([]))).toEqual([
+      'Remove "Strata" on its own, so what names it moves to another engine.',
+    ]);
   });
 
   it("keeps an Office default on an API engine's model", () => {
@@ -194,37 +195,28 @@ describe("changedEngineSettings", () => {
   it("refuses an Office default on an engine not listed, or on a model its engine doesn't offer", () => {
     expect(
       refusal(
-        stored,
+        DEFAULT_ENGINE_SETTINGS,
         editOf([], { officeDefault: { engineId: "strata", model: "qwen3.8-flash" } }),
       ),
     ).toEqual(["Pick the Office default among the engines listed."]);
     expect(
-      refusal(stored, editOf([], { officeDefault: { engineId: "claude-code", model: "qwen3" } })),
+      refusal(
+        DEFAULT_ENGINE_SETTINGS,
+        editOf([], { officeDefault: { engineId: "claude-code", model: "qwen3" } }),
+      ),
     ).toEqual([`Pick the Office default's model among the models of "Claude Code".`]);
   });
 
   it("adds a second Claude Code engine, with an id of its own", () => {
     const changed = changedEngineSettings(
       stored,
-      editOf([claudeCodeEdit({ id: undefined, name: "Second account" })]),
+      editOf([strataEdit(), claudeCodeEdit({ id: undefined, name: "Second account" })]),
     );
 
     expect(changed.engines.filter(({ kind }) => kind === "claude-code")).toEqual([
       expect.objectContaining({ id: "claude-code" }),
       expect.objectContaining({ id: "second-account", name: "Second account" }),
     ]);
-  });
-
-  it("keeps the first Claude Code engine until removing an engine moves what names it", () => {
-    expect(
-      refusal(
-        stored,
-        editOf([], {
-          engines: [strataEdit()],
-          officeDefault: { engineId: "strata", model: "qwen3.8-flash" },
-        }),
-      ),
-    ).toEqual(["The Claude Code engine can't be removed yet."]);
   });
 
   it("refuses an engine removed meanwhile, listed twice, or of another kind", () => {
@@ -241,12 +233,44 @@ describe("changedEngineSettings", () => {
 
   it("refuses a search endpoint that isn't a web address", () => {
     expect(() =>
-      changedEngineSettings(stored, editOf([], { searchEndpoint: { baseUrl: "searxng" } })),
+      changedEngineSettings(
+        stored,
+        editOf([strataEdit()], { searchEndpoint: { baseUrl: "searxng" } }),
+      ),
     ).toThrow(
       new EngineSettingsRefused([
         "Give the search endpoint a base URL starting with http:// or https://.",
       ]),
     );
+  });
+});
+
+describe("settingsWithoutEngine", () => {
+  it("drops the engine and moves the Office default, keeping the rest", () => {
+    const settings: EngineSettings = {
+      ...stored,
+      officeDefault: { engineId: "strata", model: "qwen3.8-flash" },
+      searchEndpoint: { baseUrl: "http://127.0.0.1:8888" },
+    };
+
+    expect(
+      settingsWithoutEngine(settings, {
+        engineId: "strata",
+        replacement: FIRST_CLAUDE_CODE_ENGINE,
+      }),
+    ).toEqual({
+      engines: [FIRST_CLAUDE_CODE_ENGINE],
+      officeDefault: FIRST_OFFICE_DEFAULT,
+      searchEndpoint: { baseUrl: "http://127.0.0.1:8888" },
+      modelPrices: [],
+    });
+  });
+
+  it("gives the moved Office default the replacement's default model, keeping its key", () => {
+    const changed = settingsWithoutEngine(stored, { engineId: "claude-code", replacement: strata });
+
+    expect(changed.engines).toEqual([strata]);
+    expect(changed.officeDefault).toEqual({ engineId: "strata", model: "qwen3.8-flash" });
   });
 });
 
@@ -273,7 +297,7 @@ describe("Model prices", () => {
 
   it("drops the price of a model no longer offered, by the engines saved with it", () => {
     const changed = priced(
-      [],
+      [strataEdit({ defaultModel: "qwen4", models: [{ id: "qwen4", contextWindow: 100_000 }] })],
       [
         { engineId: "strata", model: strataFlash, price: flash },
         { engineId: "strata", model: "claude-sonnet-5-5", price: sonnet },

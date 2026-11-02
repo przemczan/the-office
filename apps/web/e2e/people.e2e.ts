@@ -66,10 +66,7 @@ function roleCardGroup(page: Page, group: string) {
   return page.getByRole("region", { name: group });
 }
 
-/**
- * Saves Settings › Engines through the API with the engines `change` gives from those saved, as a
- * test cleans up after adding one: an engine left out is removed.
- */
+/** Saves Settings › Engines through the API with the engines `change` gives from those saved. */
 async function saveEngines(
   page: Page,
   change: (
@@ -89,6 +86,18 @@ async function saveEngines(
     },
   });
   expect(kept.ok()).toBe(true);
+}
+
+/** Removes the engine called `name` through the API, as a test cleans up after adding one. */
+async function removeEngine(page: Page, name: string): Promise<void> {
+  const saved = engineSettingsSchema.parse(
+    await (await page.request.get("/api/settings/engines")).json(),
+  );
+  const engineId = saved.engines.find((engine) => engine.name === name)?.id ?? "";
+  const removed = await page.request.delete(
+    `/api/settings/engines/${encodeURIComponent(engineId)}?replacement=claude-code`,
+  );
+  expect(removed.ok()).toBe(true);
 }
 
 test("the user hires the Planner, a Developer, a Reviewer, the CTO and the Office Manager from the presets", async ({
@@ -513,14 +522,14 @@ test("the user sets Model prices in Settings › Engines, a new API endpoint's b
 
   // Later tests price nothing, so the prices go again.
   await fillPrice(haiku, ["", "", "", ""]);
-  await page.getByRole("button", { name: "Remove Priced Strata" }).click();
-  await expect(local).toHaveCount(0);
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(
     page.getByText("Engines saved. Sessions started from now on use them."),
   ).toBeVisible();
+  await removeEngine(page, "Priced Strata");
   await page.reload();
   await expect(haiku.getByLabel("Input")).toHaveValue("");
+  await expect(local).toHaveCount(0);
 });
 
 // Here for the same reason as the test above. The engine it adds is removed through the API at the
@@ -564,7 +573,7 @@ test("the user adds a Claude Code engine with its default model and -p switch, a
   await page.getByRole("button", { name: "Discard" }).click();
   await expect(engine).toHaveValue("claude-code");
 
-  await saveEngines(page, (saved) => saved.filter(({ name }) => name !== "Second account"));
+  await removeEngine(page, "Second account");
 });
 
 test("the user signs a Claude Code engine in by its sign-in page's code, pastes a token instead, and signs it out", async ({
@@ -623,7 +632,7 @@ test("the user signs a Claude Code engine in by its sign-in page's code, pastes 
   await expect(account.getByText("Signed out", { exact: true })).toBeVisible();
   await expect(account.getByRole("button", { name: "Sign out" })).toHaveCount(0);
 
-  await saveEngines(page, (saved) => saved.filter((engine) => engine.name !== name));
+  await removeEngine(page, name);
 });
 
 test("Assign… in Settings › Skills gives a skill to the people chosen", async ({ page }) => {
