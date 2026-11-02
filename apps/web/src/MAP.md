@@ -29,7 +29,7 @@
 - `pipelines.ts`: pipelineQueries, addPipeline, duplicatePipeline, savePipeline, removePipeline, editTaskStages, continueAtGate, sendBackFromGate, dropAtGate, pipelineEventInvalidations
 - `projects.ts`: REMOTE_NEEDS, projectQueries, taskChangesKey, addProject, startRepositoryClone, changeCommand, changeInstallInputs, startEnvironmentCheck, changePublishingMode, changeDefaultPipeline, changeUseProjectSkills, changeProjectServerValues, projectEventInvalidations, repositoryCloneEventInvalidations
 - `skills.ts`: skillQueries, writeSkill, uploadSkill, editSkill, uploadSkillVersion, changeSkillState, changeSkillEveryone, assignSkill, removeSkill, skillEventInvalidations
-- `work.ts`: TASKS, FIRE_ALARM, ideaQueries, initiativeQueries, officeWideLimitQuery, changeOfficeWideLimit, soundTheAlarm, giveTheAllClear, savedViewsQuery, saveView, removeView, searchQuery, taskQueries, onboardingsQuery, attachmentQueries, captureIdea, shapeIdea, planIdea, shapeIntoInitiative, startShapingThread, confirmInitiative, dropInitiative, writeInitiativeOutcome, addTaskToInitiative, dropIdea, restoreIdea, createTask, changePriority, changeTags, placeTask, planTask, PlanConfirmation, confirmPlan, confirmDefinitionOfDone, setPipeline, addDependency, removeDependency, markReady, startTask, takeOutOfQueue, moveUpInQueue, pauseTask, stopTask, resumeTask, dropTask, addLink, addFile, removeAttachment, attachmentContentUrl, workEventInvalidations
+- `work.ts`: TASKS, FIRE_ALARM, ideaQueries, initiativeQueries, officeWideLimitQuery, changeOfficeWideLimit, usageSettingsQuery, changeUsageSettings, soundTheAlarm, giveTheAllClear, savedViewsQuery, saveView, removeView, searchQuery, taskQueries, onboardingsQuery, attachmentQueries, captureIdea, shapeIdea, planIdea, shapeIntoInitiative, startShapingThread, confirmInitiative, dropInitiative, writeInitiativeOutcome, addTaskToInitiative, dropIdea, restoreIdea, createTask, changePriority, changeTags, placeTask, planTask, PlanConfirmation, confirmPlan, confirmDefinitionOfDone, setPipeline, addDependency, removeDependency, markReady, startTask, takeOutOfQueue, moveUpInQueue, pauseTask, stopTask, resumeTask, dropTask, addLink, addFile, removeAttachment, attachmentContentUrl, workEventInvalidations
 - Tests: api-client.test.ts, conversations.test.ts, event-stream.test.ts
 
 ### shell/
@@ -38,7 +38,7 @@
 - `brand-tone.ts`: useBrandTone
 - `copy-record-link.ts`: useCopyRecordLink
 - `desk.tsx`: Desk, PanelHeadingProps, Panel, PanelHeading, Feed
-- `engine-words.ts`: EFFORT_LABELS, modelLabel
+- `engine-words.ts`: ENGINE_ID_LABELS, EFFORT_LABELS, modelLabel
 - `floating-menu.tsx`: FloatingMenu
 - `item-card.tsx`: CardEdge, ItemCard, EmptyCard
 - `markdown-text.tsx`: MarkdownText

@@ -19,7 +19,7 @@ import {
   InitiativeStateChanged,
 } from "../../domain/initiative-events.js";
 import { AlarmSounded, AllClearGiven } from "../../domain/fire-alarm-events.js";
-import { OfficeWideLimitChanged } from "../../domain/office-limit-events.js";
+import { OfficeWideLimitChanged, UsageSettingsChanged } from "../../domain/office-limit-events.js";
 import { TaskLeftQueue, TaskMovedUpInQueue, TaskQueued } from "../../domain/queue-events.js";
 import { SavedViewRemoved, SavedViewSaved } from "../../domain/saved-view-events.js";
 import {
@@ -66,6 +66,9 @@ export class WorkWebEvents implements OnModuleInit {
       OfficeWideLimitChanged,
       (): WebEventOf<"office-wide-limit.changed"> => ({ type: "office-wide-limit.changed" }),
     );
+    this.forwarding.forward(UsageSettingsChanged, (): WebEventOf<"usage-settings.changed"> => ({
+      type: "usage-settings.changed",
+    }));
     this.forwarding.forward(AlarmSounded, (): WebEventOf<"fire-alarm.sounded"> => ({
       type: "fire-alarm.sounded",
     }));

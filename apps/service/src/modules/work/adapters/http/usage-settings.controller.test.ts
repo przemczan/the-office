@@ -13,6 +13,7 @@ import { WorkSettings } from "../../ports/work-settings.js";
 import {
   sendJson,
   startWorkApplication,
+  webEventsOf,
   type WorkApplication,
 } from "../../work-application.fixtures.js";
 
@@ -84,6 +85,7 @@ describe("/api/settings/usage", () => {
     expect(usageSettingsSchema.parse(await changed.json())).toEqual(kept);
     expect(await readUsageSettings()).toEqual(kept);
     expect(work.published).toEqual([expect.any(UsageSettingsChanged)]);
+    expect(webEventsOf(work)).toEqual([{ type: "usage-settings.changed" }]);
   });
 
   it("gives the estimates in the ticked measures alone, and none with no measure ticked", async () => {

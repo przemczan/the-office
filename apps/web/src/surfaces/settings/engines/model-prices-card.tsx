@@ -1,7 +1,7 @@
 import type { ApiEndpoint, EngineId } from "@the-office/contracts";
 import { Card, Input } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { modelLabel } from "../../../shell/engine-words.ts";
+import { ENGINE_ID_LABELS, modelLabel } from "../../../shell/engine-words.ts";
 import { SettingsCardTitle } from "../settings-card-parts.tsx";
 import type { PricedModel } from "./engine-settings-draft.ts";
 import {
@@ -10,11 +10,6 @@ import {
   priceFieldProblem,
   type ModelPriceText,
 } from "./model-price-fields.ts";
-
-const ENGINE_ID_LABELS: Readonly<Record<EngineId, string>> = {
-  "claude-code": "Claude Code engines",
-  "openai-compatible-api": "OpenAI-compatible API",
-};
 
 /** Settings › Engines' Model prices: four price fields for each model offered in the draft. */
 export function ModelPricesCard({

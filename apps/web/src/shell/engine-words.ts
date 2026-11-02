@@ -1,6 +1,17 @@
-import { parseApiEndpointModel, type ApiEndpoint, type Effort } from "@the-office/contracts";
+import {
+  parseApiEndpointModel,
+  type ApiEndpoint,
+  type Effort,
+  type EngineId,
+} from "@the-office/contracts";
 
 /** The words for a model and its effort, wherever a Role card or a Stage names them. */
+
+/** What an engine id spends on, as Model prices and caps name it. */
+export const ENGINE_ID_LABELS: Readonly<Record<EngineId, string>> = {
+  "claude-code": "Claude Code engines",
+  "openai-compatible-api": "OpenAI-compatible API",
+};
 
 export const EFFORT_LABELS: Readonly<Record<Effort, string>> = {
   low: "Low",

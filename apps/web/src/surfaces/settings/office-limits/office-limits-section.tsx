@@ -9,13 +9,15 @@ import { tokensShort } from "../../../shell/conversation/context-words.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
 import { Stepper } from "./stepper.tsx";
+import { UsageCard } from "./usage-card.tsx";
 
-/** Settings › Office limits: the desks and the Context policy's size threshold. */
+/** Settings › Office limits: the desks, the usage measures and caps, and the size threshold. */
 export function OfficeLimitsSection(): ReactNode {
   usePageHeading({ title: "Settings", crumb: "Office limits" });
   return (
     <>
       <DesksCard />
+      <UsageCard />
       <SizeThresholdCard />
     </>
   );

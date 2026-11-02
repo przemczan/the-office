@@ -633,6 +633,8 @@ export const workWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("saved-view.saved"), savedViewId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("saved-view.removed"), savedViewId: z.uuid() }),
   webEventSchema.extend({ type: z.literal("office-wide-limit.changed") }),
+  /** The ticked measures or a cap changed: Settings › Office limits and the estimates read again. */
+  webEventSchema.extend({ type: z.literal("usage-settings.changed") }),
   /** The fire alarm sounded, or the all clear was given: every tab reads it again, and its lifts. */
   webEventSchema.extend({ type: z.literal("fire-alarm.sounded") }),
   webEventSchema.extend({ type: z.literal("fire-alarm.all-clear") }),

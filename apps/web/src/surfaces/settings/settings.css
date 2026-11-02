@@ -273,6 +273,67 @@
   margin-top: 12px;
 }
 
+/* The Usage card: the measures, then per engine id its caps. */
+.usage-measures,
+.usage-caps {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.usage-measures legend {
+  padding: 0;
+}
+
+.usage-measure-boxes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 10px;
+}
+
+.usage-caps-note {
+  margin-top: 16px;
+}
+
+.usage-engine {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.usage-engine-name {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.usage-caps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(2, minmax(0, 1.5fr));
+  align-items: end;
+  gap: 12px;
+}
+
+.usage-caps-kind {
+  padding-bottom: 8px;
+}
+
+.usage-actions {
+  margin-top: 16px;
+}
+
+@media (max-width: 960px) {
+  .usage-caps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .usage-caps-kind {
+    padding-bottom: 0;
+  }
+}
+
 /* ---- Appearance */
 .palette-cards {
   display: grid;

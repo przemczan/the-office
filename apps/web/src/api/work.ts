@@ -18,6 +18,7 @@ import {
   startCheckSchema,
   taskListSchema,
   taskSchema,
+  usageSettingsSchema,
   type Attachment,
   type AttachmentOwner,
   type Idea,
@@ -42,6 +43,7 @@ import {
   type FireAlarm,
   type Task,
   type TaskPlacement,
+  type UsageSettings,
   type WorkWebEvent,
 } from "@the-office/contracts";
 import {
@@ -59,6 +61,7 @@ const INITIATIVES = ["initiatives"] as const;
 export const TASKS = ["tasks"] as const;
 const ATTACHMENTS = ["attachments"] as const;
 const OFFICE_WIDE_LIMIT = ["settings", "office-wide-limit"] as const;
+const USAGE_SETTINGS = ["settings", "usage"] as const;
 const SAVED_VIEWS = ["saved-views"] as const;
 /** The fire alarm and the Threads it is lifted for. */
 export const FIRE_ALARM = ["fire-alarm"] as const;
@@ -106,6 +109,17 @@ export function changeOfficeWideLimit(officeWideLimit: number): Promise<OfficeWi
     { officeWideLimit },
     officeWideLimitSchema,
   );
+}
+
+/** Settings › Office limits: the ticked measures and every engine id's caps. */
+export const usageSettingsQuery = () =>
+  queryOptions({
+    queryKey: USAGE_SETTINGS,
+    queryFn: ({ signal }) => getFromApi("/settings/usage", usageSettingsSchema, signal),
+  });
+
+export function changeUsageSettings(settings: UsageSettings): Promise<UsageSettings> {
+  return sendToApi("PUT", "/settings/usage", settings, usageSettingsSchema);
 }
 
 /** Sounds the one Office-wide fire alarm (spec §2.8); Now carries it from then on. */
@@ -440,6 +454,8 @@ export const workEventInvalidations: Readonly<
   "saved-view.removed": () => [SAVED_VIEWS],
   // Each Task's start check reads the limit too.
   "office-wide-limit.changed": () => [OFFICE_WIDE_LIMIT, TASKS],
+  // Each Task's start check gives its Usage estimate in the ticked measures.
+  "usage-settings.changed": () => [USAGE_SETTINGS, TASKS],
   // Each Task's start check reads the alarm too.
   "fire-alarm.sounded": () => [FIRE_ALARM, TASKS],
   "fire-alarm.all-clear": () => [FIRE_ALARM, TASKS],

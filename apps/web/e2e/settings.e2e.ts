@@ -34,6 +34,60 @@ test("Office limits keeps the desks and the size threshold across reloads", asyn
   await expect(threshold).toHaveText("30k");
 });
 
+// The e2e files share one database: the caps are only raised, so no other file's Start waits, and
+// every setting is given back.
+test("Office limits' Usage keeps the ticked measures and the caps across reloads", async ({
+  page,
+}) => {
+  await page.goto("/settings/office-limits");
+  // The Usage card is the only one on Office limits with Save, Discard and its regions.
+  const usage = page;
+  const measures = usage.getByRole("group", { name: "Usage estimates in" });
+  const measure = (name: string) =>
+    measures.locator("label").filter({ hasText: name }).getByRole("checkbox");
+  const claudeCode = usage.getByRole("region", { name: "Claude Code engines" });
+  const api = usage.getByRole("region", { name: "OpenAI-compatible API" });
+  const fiveHourCap = claudeCode.getByLabel("5-hour window");
+  const apiTokens = api.getByLabel("Tokens a day");
+  const save = usage.getByRole("button", { name: "Save" });
+
+  await expect(measure("Tokens")).toHaveAttribute("aria-checked", "true");
+  await expect(measure("5-hour window")).toHaveAttribute("aria-checked", "true");
+  await expect(measure("Cost")).toHaveAttribute("aria-checked", "false");
+  await expect(fiveHourCap).toHaveValue("90");
+  await expect(claudeCode.getByLabel("7-day window")).toHaveValue("90");
+  await expect(apiTokens).toHaveValue("");
+  await expect(usage.getByText("Saved", { exact: true })).toBeVisible();
+
+  await measure("Cost").click();
+  await fiveHourCap.fill("101");
+  await expect(usage.getByText("Give a whole % from 1 to 100")).toBeVisible();
+  await expect(save).toBeDisabled();
+  await fiveHourCap.fill("100");
+  await apiTokens.fill("900,000,000");
+  await save.click();
+  await expect(usage.getByText("Saved", { exact: true })).toBeVisible();
+
+  await page.reload();
+  await expect(measure("Cost")).toHaveAttribute("aria-checked", "true");
+  await expect(fiveHourCap).toHaveValue("100");
+  await expect(apiTokens).toHaveValue("900000000");
+
+  await apiTokens.fill("1");
+  await usage.getByRole("button", { name: "Discard" }).click();
+  await expect(apiTokens).toHaveValue("900000000");
+
+  await measure("Cost").click();
+  await fiveHourCap.fill("90");
+  await apiTokens.fill("");
+  await save.click();
+  await expect(usage.getByText("Saved", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(measure("Cost")).toHaveAttribute("aria-checked", "false");
+  await expect(fiveHourCap).toHaveValue("90");
+  await expect(apiTokens).toHaveValue("");
+});
+
 // The e2e files share one database: only "Alarm lifted with work waiting", which nothing raises
 // yet, is changed, and it is given back to its group.
 test("Notifications shows what goes where, a kind set or inherited, and Reset gives it back", async ({
