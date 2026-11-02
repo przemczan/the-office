@@ -8,13 +8,23 @@ import {
   type EngineAccount,
 } from "../../domain/engine-account.js";
 import type { EngineId } from "../../domain/engines.js";
+import type { PastedToken } from "../../domain/pasted-token.js";
 import {
   ClaudeCodeAccounts,
   SignInFailed,
   SignInNotRunning,
   type SignIn,
 } from "../../ports/claude-code-accounts.js";
-import { preparedEngineConfigFolder, removeEngineConfigFolder } from "./engine-config-folder.js";
+import {
+  ownEngineConfigFolder,
+  preparedEngineConfigFolder,
+  removeEngineConfigFolder,
+} from "./engine-config-folder.js";
+import {
+  holdsPastedToken,
+  removeEngineCredentials,
+  writePastedToken,
+} from "./engine-credentials.js";
 import { sessionEnvironment } from "./session-settings.js";
 
 /** How the Claude Code binary is run: the pinned one in the service, a stand-in in tests. */
@@ -38,7 +48,8 @@ const SIGN_IN_PAGE = /visit:\s*(https:\/\/\S+)/;
  * The accounts of the Claude Code engines through the binary's `auth` commands, each run with
  * `CLAUDE_CONFIG_DIR` on the engine's folder. With no TTY the login opens the browser where there is
  * a display (`BROWSER` names another opener), waits for its callback on `localhost`, and also takes
- * a code pasted on its input, which is how a browser on another machine signs in.
+ * a code pasted on its input, which is how a browser on another machine signs in. A pasted token
+ * and Sign out change the folder's login file directly, as the binary has no command for either.
  */
 export class ClaudeCodeCliAccounts extends ClaudeCodeAccounts implements OnModuleDestroy {
   private readonly signIns = new Map<EngineId, RunningSignIn>();
@@ -55,7 +66,8 @@ export class ClaudeCodeCliAccounts extends ClaudeCodeAccounts implements OnModul
   }
 
   async account(engineId: EngineId): Promise<EngineAccount> {
-    const env = await this.environmentOf(engineId);
+    const folder = await preparedEngineConfigFolder(this.officeData, engineId);
+    const env = sessionEnvironment(this.environment, folder);
     const { command, args } = this.cli();
     const output = await new Promise<string>((resolve, reject) => {
       execFile(
@@ -72,7 +84,7 @@ export class ClaudeCodeCliAccounts extends ClaudeCodeAccounts implements OnModul
         },
       );
     });
-    return engineAccountOf(output);
+    return engineAccountOf(output, await holdsPastedToken(folder));
   }
 
   async signIn(engineId: EngineId): Promise<SignIn> {
@@ -100,6 +112,18 @@ export class ClaudeCodeCliAccounts extends ClaudeCodeAccounts implements OnModul
     if (running === undefined) return Promise.reject(new SignInNotRunning(engineId));
     running.enter(code);
     return Promise.resolve();
+  }
+
+  async setPastedToken(engineId: EngineId, token: PastedToken): Promise<void> {
+    await this.signIns.get(engineId)?.end();
+    const folder = ownEngineConfigFolder(this.officeData, engineId);
+    await preparedEngineConfigFolder(this.officeData, engineId);
+    await writePastedToken(folder, token, new Date());
+  }
+
+  async signOut(engineId: EngineId): Promise<void> {
+    await this.signIns.get(engineId)?.end();
+    await removeEngineCredentials(ownEngineConfigFolder(this.officeData, engineId));
   }
 
   async prepareConfigFolder(engineId: EngineId): Promise<void> {

@@ -33,17 +33,22 @@ export class NotAnEngineConfigFolder extends Error {
 }
 
 /**
- * Removes the engine's folder with everything in it. Only a folder directly in the engines' folder
- * is removed: an id that leads anywhere else is refused, as removing it could take the data
- * directory or the user's files.
+ * The engine's folder, for removing it or changing its account. Only a folder directly in the
+ * engines' folder is given: an id that leads anywhere else is refused, as changing it could touch
+ * the data directory or the user's files.
  */
-export async function removeEngineConfigFolder(
-  officeData: OfficeDataDirectory,
-  engineId: EngineId,
-): Promise<void> {
+export function ownEngineConfigFolder(officeData: OfficeDataDirectory, engineId: EngineId): string {
   const folder = resolve(engineConfigFolder(officeData, engineId));
   if (dirname(folder) !== resolve(officeData.folder("engines"))) {
     throw new NotAnEngineConfigFolder(engineId);
   }
-  await rm(folder, { recursive: true, force: true });
+  return folder;
+}
+
+/** Removes the engine's own folder with everything in it. */
+export async function removeEngineConfigFolder(
+  officeData: OfficeDataDirectory,
+  engineId: EngineId,
+): Promise<void> {
+  await rm(ownEngineConfigFolder(officeData, engineId), { recursive: true, force: true });
 }

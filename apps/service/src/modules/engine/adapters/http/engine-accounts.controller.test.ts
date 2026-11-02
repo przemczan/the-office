@@ -72,9 +72,15 @@ afterEach(async () => {
   await app.close();
 });
 
+const TOKEN = "sk-ant-oat01-a-pasted-token_123";
+
 function post(path: string, body?: unknown): Promise<Response> {
+  return send("POST", path, body);
+}
+
+function send(method: string, path: string, body?: unknown): Promise<Response> {
   return fetch(`${url}/api/settings/engines/${path}`, {
-    method: "POST",
+    method,
     headers: { "content-type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
@@ -88,7 +94,12 @@ async function account(engineId: string): Promise<unknown> {
 
 describe("/api/settings/engines/:engineId account and Sign in", () => {
   it("reads a Claude Code engine signed out until a Sign in takes its code", async () => {
-    expect(await account("claude-code")).toEqual({ signedIn: false, email: null, plan: null });
+    expect(await account("claude-code")).toEqual({
+      signedIn: false,
+      pastedToken: false,
+      email: null,
+      plan: null,
+    });
 
     const signIn = await post("claude-code/sign-in");
     expect(signIn.status).toBe(200);
@@ -97,6 +108,7 @@ describe("/api/settings/engines/:engineId account and Sign in", () => {
 
     expect(await account("claude-code")).toEqual({
       signedIn: true,
+      pastedToken: false,
       email: "stand-in@example.com",
       plan: "max",
     });
@@ -128,10 +140,50 @@ describe("/api/settings/engines/:engineId account and Sign in", () => {
     await expect(accounts.account("second-account")).resolves.toEqual({ signedIn: false });
   });
 
+  it("signs in by a pasted token, never answered back, and signs out", async () => {
+    const pasted = await send("PUT", "claude-code/token", {
+      token: ` ${TOKEN}
+`,
+    });
+
+    expect(pasted.status).toBe(204);
+    expect(await pasted.text()).toBe("");
+    const signedIn = await fetch(`${url}/api/settings/engines/claude-code/account`);
+    expect(await signedIn.text()).not.toContain("sk-ant");
+    expect(await account("claude-code")).toEqual({
+      signedIn: true,
+      pastedToken: true,
+      email: null,
+      plan: null,
+    });
+
+    expect((await send("DELETE", "claude-code/sign-in")).status).toBe(204);
+
+    expect(await account("claude-code")).toMatchObject({ signedIn: false });
+    expect(published).toEqual([expect.any(EngineAccountChanged), expect.any(EngineAccountChanged)]);
+    expect(published).toMatchObject([{ engineId: "claude-code" }, { engineId: "claude-code" }]);
+  });
+
+  it("refuses what is no `claude setup-token` token without naming it", async () => {
+    for (const token of ["sk-ant-api03-a-console-key", "sk-ant-oat01-cut short", "a-code"]) {
+      const refused = await send("PUT", "claude-code/token", { token });
+
+      expect(refused.status).toBe(400);
+      const answer = await refused.text();
+      expect(answer).toMatch(/claude setup-token/);
+      expect(answer).not.toContain(token);
+    }
+    expect((await send("PUT", "claude-code/token", { token: "  " })).status).toBe(400);
+    expect(await account("claude-code")).toMatchObject({ signedIn: false });
+    expect(published).toEqual([]);
+  });
+
   it("refuses an engine that is no Claude Code engine, or none listed", async () => {
     expect((await fetch(`${url}/api/settings/engines/strata/account`)).status).toBe(404);
     expect((await post("strata/sign-in")).status).toBe(404);
     expect((await post("unlisted/sign-in")).status).toBe(404);
+    expect((await send("PUT", "strata/token", { token: TOKEN })).status).toBe(404);
+    expect((await send("DELETE", "strata/sign-in")).status).toBe(404);
   });
 
   it("refuses a code with no Sign in under way, and an empty one", async () => {

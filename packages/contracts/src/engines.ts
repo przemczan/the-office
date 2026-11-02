@@ -141,10 +141,12 @@ export type EngineSettingsEdit = z.infer<typeof engineSettingsEditSchema>;
 
 /**
  * GET /settings/engines/:engineId/account: a Claude Code engine's account as `claude auth status`
- * gives it, the email and plan null when signed out or not told.
+ * gives it, the email and plan null when signed out, signed in by a pasted token, or not told.
  */
 export const engineAccountSchema = z.object({
   signedIn: z.boolean(),
+  /** A token pasted with "Paste a token instead" signs it in, not a Sign in. */
+  pastedToken: z.boolean(),
   email: z.string().nullable(),
   /** The Claude subscription, such as `max` or `pro`. */
   plan: z.string().nullable(),
@@ -162,7 +164,26 @@ export type EngineSignIn = z.infer<typeof engineSignInSchema>;
 export const engineSignInCodeSchema = z.object({ code: z.string().trim().min(1) });
 export type EngineSignInCode = z.infer<typeof engineSignInCodeSchema>;
 
-/** A Sign in of a Claude Code engine ended, so an open Settings page refetches its account. */
+/**
+ * PUT /settings/engines/:engineId/token: "Paste a token instead", a token made with
+ * `claude setup-token`, which signs the engine in and is never sent back. DELETE
+ * /settings/engines/:engineId/sign-in signs the engine out, whatever signed it in.
+ */
+export const enginePastedTokenSchema = z.object({
+  token: z
+    .string()
+    .trim()
+    .regex(
+      /^sk-ant-oat01-[\w-]+$/,
+      "That is no token from `claude setup-token`: one starts with sk-ant-oat01-.",
+    ),
+});
+export type EnginePastedToken = z.infer<typeof enginePastedTokenSchema>;
+
+/**
+ * A Claude Code engine's account changed (a Sign in ended, a token was pasted, or it was signed
+ * out), so an open Settings page refetches it.
+ */
 export const engineWebEventSchema = z.discriminatedUnion("type", [
   webEventSchema.extend({ type: z.literal("engine.account-changed"), engineId: engineIdSchema }),
 ]);

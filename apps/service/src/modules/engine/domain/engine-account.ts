@@ -1,10 +1,14 @@
 import { z } from "zod";
 
-/** A Claude Code engine's account, as `claude auth status` gives it (spec §5.4). */
+/**
+ * A Claude Code engine's account, as `claude auth status` gives it (spec §5.4), signed in by Sign
+ * in or by a pasted token, which tells no email or plan.
+ */
 export type EngineAccount =
   | { readonly signedIn: false }
   | {
       readonly signedIn: true;
+      readonly pastedToken: boolean;
       readonly email: string | undefined;
       /** The Claude subscription, such as `max` or `pro`. */
       readonly plan: string | undefined;
@@ -24,8 +28,11 @@ const authStatusSchema = z.object({
   subscriptionType: z.unknown().optional(),
 });
 
-/** The account `auth status --json` printed as `output`. */
-export function engineAccountOf(output: string): EngineAccount {
+/**
+ * The account `auth status --json` printed as `output`. With `pastedToken`, what the folder holds
+ * is a pasted token, and any email or plan told is an earlier Sign in's, left in the folder.
+ */
+export function engineAccountOf(output: string, pastedToken: boolean): EngineAccount {
   const status = authStatusSchema.safeParse(parsedJson(output.trim()));
   if (!status.success) {
     const said = output.trim().split(/\r?\n/, 1)[0] ?? "";
@@ -35,7 +42,13 @@ export function engineAccountOf(output: string): EngineAccount {
   }
   const { loggedIn, email, subscriptionType } = status.data;
   if (!loggedIn) return { signedIn: false };
-  return { signedIn: true, email: textOrUndefined(email), plan: textOrUndefined(subscriptionType) };
+  if (pastedToken) return { signedIn: true, pastedToken, email: undefined, plan: undefined };
+  return {
+    signedIn: true,
+    pastedToken,
+    email: textOrUndefined(email),
+    plan: textOrUndefined(subscriptionType),
+  };
 }
 
 function parsedJson(text: string): unknown {

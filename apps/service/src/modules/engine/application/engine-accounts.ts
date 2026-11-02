@@ -3,6 +3,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import type { EngineAccount } from "../domain/engine-account.js";
 import { EngineAccountChanged, EngineAdded, EngineRemoved } from "../domain/engine-events.js";
 import type { EngineId } from "../domain/engines.js";
+import type { PastedToken } from "../domain/pasted-token.js";
 import { ClaudeCodeAccounts } from "../ports/claude-code-accounts.js";
 import { EngineModels } from "./engine-models.js";
 
@@ -14,8 +15,8 @@ export class NotAClaudeCodeEngine extends Error {
 }
 
 /**
- * Each Claude Code engine's account (spec §5.4): its status, and Sign in, whose end is announced
- * as `EngineAccountChanged`. The account lies in the engine's config folder, made when the engine
+ * Each Claude Code engine's account (spec §5.4): its status, Sign in, a pasted token and Sign out,
+ * each change announced as `EngineAccountChanged`. The account lies in the engine's config folder, made when the engine
  * is added and removed with it.
  */
 @Injectable()
@@ -55,12 +56,28 @@ export class EngineAccounts implements OnModuleInit {
     await this.accounts.enterCode(engineId, code);
   }
 
+  /** Signs the engine in by a token the user pasted, never kept anywhere but its folder. */
+  async setPastedToken(engineId: EngineId, token: PastedToken): Promise<void> {
+    await this.requireClaudeCode(engineId);
+    await this.accounts.setPastedToken(engineId, token);
+    await this.announce(engineId);
+  }
+
+  async signOut(engineId: EngineId): Promise<void> {
+    await this.requireClaudeCode(engineId);
+    await this.accounts.signOut(engineId);
+    await this.announce(engineId);
+  }
+
   private async requireClaudeCode(engineId: EngineId): Promise<void> {
     const engine = await this.engineModels.find(engineId);
     if (engine?.kind !== "claude-code") throw new NotAClaudeCodeEngine(engineId);
   }
 
-  /** Nobody waits on a Sign in's end, so a failure to announce it is logged. */
+  /**
+   * The account has changed whether or not it is announced, so a failure to announce it is logged,
+   * not answered.
+   */
   private async announce(engineId: EngineId): Promise<void> {
     try {
       await this.events.publish(new EngineAccountChanged(engineId));
