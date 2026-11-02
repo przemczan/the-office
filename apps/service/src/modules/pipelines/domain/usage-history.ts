@@ -16,16 +16,16 @@ export interface StageUsage {
 /** Each Stage's usage, by Stage key. */
 export type StageUsages = ReadonlyMap<string, StageUsage>;
 
-/** Tokens on one engine, as a Role card names it, and model, with what they cost. */
+/** Tokens on one engine and model, with what they cost. */
 export interface PricedTokens {
   readonly tokens: StageTokens;
   /** Undefined when the model has no Model price. */
   readonly dollars: number | undefined;
 }
 
-/** Tokens on one engine and model, summed over runs. */
+/** Tokens on one engine, by its id, and model, summed over runs. */
 export interface ModelTokens {
-  readonly engine: string;
+  readonly engineId: string;
   readonly model: string;
   readonly tokens: StageTokens;
 }
@@ -61,11 +61,11 @@ export function stageUsages(runs: readonly StageRun[]): StageUsages {
 /** The runs' tokens summed by engine and model; a run without either is left out. */
 export function tokensByModel(runs: readonly StageRun[]): readonly ModelTokens[] {
   const byModel = new Map<string, ModelTokens>();
-  for (const { engine, model, tokens } of runs) {
-    if (engine === undefined || model === undefined) continue;
-    const key = JSON.stringify([engine, model]);
+  for (const { engineId, model, tokens } of runs) {
+    if (engineId === undefined || model === undefined) continue;
+    const key = JSON.stringify([engineId, model]);
     const summed = byModel.get(key)?.tokens ?? NO_STAGE_TOKENS;
-    byModel.set(key, { engine, model, tokens: addTokens(summed, tokens) });
+    byModel.set(key, { engineId, model, tokens: addTokens(summed, tokens) });
   }
   return [...byModel.values()];
 }

@@ -175,8 +175,8 @@ function engineUsageOf(
   return {
     engineId,
     ...(ticked.has("tokens") && { tokens }),
-    ...(ticked.has("fiveHourWindow") && { fiveHourWindow: windows.fiveHour ?? null }),
-    ...(ticked.has("sevenDayWindow") && { sevenDayWindow: windows.sevenDay ?? null }),
+    ...(windows && ticked.has("fiveHourWindow") && { fiveHourWindow: windows.fiveHour ?? null }),
+    ...(windows && ticked.has("sevenDayWindow") && { sevenDayWindow: windows.sevenDay ?? null }),
     ...(ticked.has("cost") && { cost: cost ?? null }),
   };
 }

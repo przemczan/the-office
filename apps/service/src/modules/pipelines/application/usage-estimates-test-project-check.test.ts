@@ -323,7 +323,7 @@ async function untilDone(api: Api, taskId: string): Promise<Task> {
 /** A run's engine, model and tokens. */
 function runLines(run: StageRun): string[] {
   return [
-    `Run ${run.number} of ${run.stageKey} on ${run.engine ?? "no engine"} / ${run.model ?? "no model"}, tokens ${JSON.stringify(run.tokens)}`,
+    `Run ${run.number} of ${run.stageKey} on ${run.engineName ?? "no engine"} / ${run.model ?? "no model"}, tokens ${JSON.stringify(run.tokens)}`,
   ];
 }
 

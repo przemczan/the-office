@@ -96,4 +96,5 @@ export const NO_USAGE_AT_START: UsageAtStart = {
   estimate: [],
   windows: [],
   daily: [],
+  engineNames: new Map(),
 };

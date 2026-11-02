@@ -343,7 +343,8 @@ describe("The Office starting with the fire alarm on", () => {
     await runs.saveThread(run.id, {
       threadId,
       session: "fresh",
-      engine: "claude-code",
+      engineId: "claude-code",
+      engineName: "Claude Code",
       model: "scripted",
     });
     pipelines.git.uncommitted.set(taskId, ["src/dialog.ts"]);

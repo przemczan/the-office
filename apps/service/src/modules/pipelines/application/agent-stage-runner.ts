@@ -1,6 +1,6 @@
 import { isResolveStage } from "../domain/resolve-stages.js";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
-import { READ_ONLY_GIT_COMMANDS } from "../../engine/index.js";
+import { EngineModels, READ_ONLY_GIT_COMMANDS } from "../../engine/index.js";
 import { narrowedPermissionProfile } from "../../people/index.js";
 import {
   AGENT_STAGE_INSTRUCTIONS,
@@ -104,6 +104,7 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     private readonly runs: StageRunRepository,
     private readonly usage: TaskUsage,
     private readonly screenshots: TaskScreenshots,
+    private readonly engineModels: EngineModels,
   ) {}
 
   onModuleInit(): void {
@@ -163,7 +164,15 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     let ending: Ending = { handoverNote: undefined, closing: undefined };
     try {
       const { threadId, move, engine, model } = thread;
-      await this.runs.saveThread(work.run.id, { threadId, session: move.move, engine, model });
+      // An engine removed since its session started keeps its id as its name.
+      const engineName = (await this.engineModels.find(engine))?.name ?? engine;
+      await this.runs.saveThread(work.run.id, {
+        threadId,
+        session: move.move,
+        engineId: engine,
+        engineName,
+        model,
+      });
       const result = await this.resultOf(work, thread);
       // A held run keeps it too, so its answer waits for the user's Resume.
       const asked = await thread.askedDecision();

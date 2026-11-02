@@ -22,10 +22,10 @@ export class UsageSettingsController {
   async change(
     @Body(new ContractPipe(usageSettingsSchema)) request: UsageSettingsRequest,
   ): Promise<UsageSettingsRequest> {
-    if (!(await this.limits.namesEveryEngine(request.caps))) {
-      throw new BadRequestException("caps: Every engine has its caps, once.");
-    }
-    return toUsageSettingsResponse(await this.limits.changeUsageSettings(usageSettingsOf(request)));
+    const settings = usageSettingsOf(request);
+    const problem = await this.limits.capsProblem(settings.caps);
+    if (problem !== undefined) throw new BadRequestException(`caps: ${problem}`);
+    return toUsageSettingsResponse(await this.limits.changeUsageSettings(settings));
   }
 }
 

@@ -63,6 +63,8 @@ export interface UsageAtStart {
   readonly windows: readonly WindowsAtStart[];
   /** Each engine id with a Daily cap set the Task's engines fall under. */
   readonly daily: readonly DailyCapsAtStart[];
+  /** Each listed engine's name by its id, which the words name it by. */
+  readonly engineNames: ReadonlyMap<EngineId, string>;
 }
 
 /** A cap the Start would pass, worded, with when it resets. */
@@ -90,13 +92,9 @@ const WINDOW_WORDS: Readonly<Record<UsageWindowName, string>> = {
   sevenDay: "7-day window",
 };
 
-const ENGINE_ID_WORDS: Readonly<Record<EngineId, string>> = {
-  "claude-code": "The Claude Code engines'",
-  "openai-compatible-api": "The OpenAI-compatible API's",
-};
-
-function engineIdWords(engineId: EngineId): string {
-  return ENGINE_ID_WORDS[engineId] ?? `The ${engineId} engine's`;
+/** "The Work account engine's", by the engine's name, or its id when no name is given. */
+function engineWords({ engineNames }: UsageAtStart, engineId: EngineId): string {
+  return `The ${engineNames.get(engineId) ?? engineId} engine's`;
 }
 
 /** Each Daily cap: the measure that ticks it, what it counts, and how its amounts are worded. */
@@ -149,10 +147,10 @@ export function exceededWindowCaps(usage: UsageAtStart): ExceededCap[] {
       const read = windows.reading?.[name];
       if (!usage.measures.includes(WINDOW_MEASURES[name]) || cap === undefined) return [];
       if (!read?.resetsAt || read.resetsAt <= usage.now) return [];
-      const own = estimateOn(usage, windows.engineId)?.windows[name];
+      const own = estimateOn(usage, windows.engineId)?.windows?.[name];
       const since = windows.startedSinceReading[name];
       if (read.percentUsed + since + (own ?? 0) <= cap) return [];
-      const where = `${engineIdWords(windows.engineId)} ${WINDOW_WORDS[name]}`;
+      const where = `${engineWords(usage, windows.engineId)} ${WINDOW_WORDS[name]}`;
       const others = `${percent(read.percentUsed)} used, ${percent(since)} expected of the Tasks started since it was read`;
       const use =
         own === undefined
@@ -190,7 +188,7 @@ export function exceededDailyCaps(usage: UsageAtStart): ExceededCap[] {
           : `${others} and ${amount(ownAmount)} of this Task`;
       return [
         {
-          words: `${engineIdWords(daily.engineId)} Daily cap of ${amount(cap)} would be passed: ${use}. It resets at midnight.`,
+          words: `${engineWords(usage, daily.engineId)} Daily cap of ${amount(cap)} would be passed: ${use}. It resets at midnight.`,
           resetsAt: nextMidnight(usage.now),
         },
       ];
@@ -211,7 +209,7 @@ export function withStarted(usage: UsageAtStart, started: readonly EngineUsage[]
       const estimate = startedOn(windows.engineId);
       if (!estimate) return windows;
       const plus = (name: UsageWindowName): number =>
-        windows.startedSinceReading[name] + (estimate.windows[name] ?? 0);
+        windows.startedSinceReading[name] + (estimate.windows?.[name] ?? 0);
       return {
         ...windows,
         startedSinceReading: { fiveHour: plus("fiveHour"), sevenDay: plus("sevenDay") },

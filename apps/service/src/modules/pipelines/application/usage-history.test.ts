@@ -77,11 +77,11 @@ describe("UsageHistory", () => {
     expect((await history.of([])).size).toBe(0);
   });
 
-  it("prices each run by the engine and model it ran on, as the run kept them before engine ids too", async () => {
+  it("prices each run by the engine id and model it ran on", async () => {
     const taskId = await aDoneTask(
-      { engine: "agent-sdk", model: "claude-haiku-5-5", tokens: inputTokens(1_000) },
-      { engine: "claude-code-p", model: "claude-haiku-5-5", tokens: inputTokens(3_000) },
-      { engine: "claude-code", model: "claude-opus-5-5", tokens: inputTokens(5_000) },
+      { engineId: "claude-code", model: "claude-haiku-5-5", tokens: inputTokens(1_000) },
+      { engineId: "claude-code", model: "claude-haiku-5-5", tokens: inputTokens(3_000) },
+      { engineId: "lab", model: "claude-haiku-5-5", tokens: inputTokens(5_000) },
       { tokens: inputTokens(7_000) },
     );
 

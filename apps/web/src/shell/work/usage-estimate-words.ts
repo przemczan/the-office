@@ -1,5 +1,4 @@
 import {
-  engineIdHasUsageWindows,
   type EngineUsageEstimate,
   type UsageEstimate,
   type UsageEstimateBasis,
@@ -23,8 +22,6 @@ export const MEASURE_LABELS: Readonly<Record<UsageMeasure, string>> = {
   cost: "Cost",
 };
 
-const WINDOW_MEASURES = new Set<UsageMeasure>(["fiveHourWindow", "sevenDayWindow"]);
-
 /**
  * A Usage estimate as one line: each ticked measure, per engine id when the Task spends on several,
  * then where it came from (spec §2.1, "Usage estimates"): "Expected: 120k tokens · 6% of the
@@ -46,7 +43,6 @@ export function usageEstimateWords({ basis, engines }: UsageEstimate): string {
 
 function measuresWords(engine: EngineUsageEstimate): string {
   return MEASURES.filter((measure) => engine[measure] !== undefined)
-    .filter((measure) => !WINDOW_MEASURES.has(measure) || engineIdHasUsageWindows(engine.engineId))
     .map((measure) => measureWords(measure, engine))
     .join(" · ");
 }

@@ -31,7 +31,7 @@ function tokens(input: number, output = 0, cacheRead = 0, cacheCreation = 0): St
   return { input, output, cacheRead, cacheCreation };
 }
 
-// Only the Claude Code engines read windows, so only their engine id has ratios.
+// Only a Claude Code engine's account has windows, so only its engine id has ratios.
 const WINDOW_RATIOS: EngineWindowRatios = new Map([
   ["claude-code", { fiveHour: 0.001, sevenDay: 0.0005 }],
 ]);
@@ -93,7 +93,7 @@ describe("historyUsage", () => {
       {
         engineId: "openai-compatible-api",
         tokens: 100,
-        windows: { fiveHour: undefined, sevenDay: undefined },
+        windows: undefined,
         cost: 0.01,
       },
     ]);
@@ -157,14 +157,18 @@ describe("plannerUsage", () => {
       {
         engineId: "openai-compatible-api",
         tokens: 3000,
-        windows: { fiveHour: undefined, sevenDay: undefined },
+        windows: undefined,
         cost: 1500,
       },
     ]);
   });
 
   it("gives tokens alone when no ratio is known", () => {
-    expect(plannerUsage([IMPLEMENT], 5000, new Map(), undefined)).toEqual([
+    const unknown: EngineWindowRatios = new Map([
+      ["claude-code", { fiveHour: undefined, sevenDay: undefined }],
+    ]);
+
+    expect(plannerUsage([IMPLEMENT], 5000, unknown, undefined)).toEqual([
       {
         engineId: "claude-code",
         tokens: 5000,

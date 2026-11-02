@@ -19,7 +19,7 @@ import { createTemporaryRepository, type TemporaryRepository } from "./temporary
 
 const ONLY_DESK = "The Office-wide limit is reached: the only desk is in use.";
 const CAP_WAIT =
-  "The Claude Code engines' 5-hour window would pass its 90% cap: 80% used, 6% expected of the Tasks started since it was read and 6% of this Task. It resets at 12:00.";
+  "The Claude Code engine's 5-hour window would pass its 90% cap: 80% used, 6% expected of the Tasks started since it was read and 6% of this Task. It resets at 12:00.";
 
 let repository: TemporaryRepository;
 

@@ -80,7 +80,7 @@ export interface StageThread {
   readonly threadId: string;
   /** The Context policy's move that began the Stage's session. */
   readonly move: { readonly move: StageSessionMove };
-  /** The engine the session runs on, as a Role card names it, and the session's model. */
+  /** The engine the session runs on, by its id, and the session's model, by its id there. */
   readonly engine: string;
   readonly model: string;
   /** The person's turn running now, as it ends. */

@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { EngineModels, type EngineId } from "../../engine/index.js";
 import type { DailyCapsAtStart, UsageAtStart, WindowsAtStart } from "../domain/cap-waits.js";
 import type { Task } from "../domain/task.js";
 import { firstAgentStage, type StartConditions } from "../domain/task-start.js";
@@ -13,6 +14,13 @@ import { StartsSinceReading } from "./starts-since-reading.js";
 import { UsageEstimates } from "./usage-estimates.js";
 
 const NOTHING_SINCE_READING = { fiveHour: 0, sevenDay: 0 };
+
+/** What every Task's Start weighs alike, read once for them all. */
+interface OfficeUsageAtStart {
+  readonly daily: readonly DailyCapsAtStart[];
+  readonly engineNames: ReadonlyMap<EngineId, string>;
+  readonly now: Date;
+}
 
 /**
  * Gathers what Start weighs from the other modules: the Task's Pipeline, its person, the limit,
@@ -29,6 +37,7 @@ export class StartConditionsReader {
     private readonly windows: AccountWindows,
     private readonly startsSinceReading: StartsSinceReading,
     private readonly dailyCaps: DailyCaps,
+    private readonly engineModels: EngineModels,
   ) {}
 
   async of(task: Task): Promise<StartConditions> {
@@ -45,17 +54,19 @@ export class StartConditionsReader {
   }
 
   private async reading(): Promise<(task: Task) => Promise<StartConditions>> {
-    const [officeWideLimit, usageSettings, everyTask] = await Promise.all([
+    const [officeWideLimit, usageSettings, everyTask, engines] = await Promise.all([
       this.limits.officeWideLimit(),
       this.limits.usageSettings(),
       this.tasks.list(),
+      this.engineModels.engines(),
     ]);
     const now = new Date();
     const daily = await this.dailyCaps.of(usageSettings.caps, everyTask);
+    const engineNames = new Map(engines.map(({ id, name }) => [id, name] as const));
     return async (task) => {
       const [pipeline, usage] = await Promise.all([
         this.pipelines.find(task.pipelineId),
-        this.usageOf(task, everyTask, usageSettings, daily, now),
+        this.usageOf(task, everyTask, usageSettings, { daily, engineNames, now }),
       ]);
       const stage = pipeline && firstAgentStage(pipeline.stages);
       const person = stage && (await this.people.find(stage.role));
@@ -67,8 +78,7 @@ export class StartConditionsReader {
     task: Task,
     everyTask: readonly Task[],
     { measures, caps }: UsageSettings,
-    daily: readonly DailyCapsAtStart[],
-    now: Date,
+    { daily, engineNames, now }: OfficeUsageAtStart,
   ): Promise<UsageAtStart> {
     const [estimate, engineIds] = await Promise.all([
       this.estimates.of(task, everyTask),
@@ -89,6 +99,7 @@ export class StartConditionsReader {
       estimate: estimate?.engines ?? [],
       windows,
       daily: daily.filter(({ engineId }) => engineIds.includes(engineId)),
+      engineNames,
     };
   }
 }

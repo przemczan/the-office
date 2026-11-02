@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { EngineModels, EngineSessions, type EngineId } from "../../engine/index.js";
+import { EngineModels, hasUsageWindows, type EngineId } from "../../engine/index.js";
 import type { Task } from "../domain/task.js";
 import {
   HISTORY_WINS_AT,
@@ -39,7 +39,6 @@ export class UsageEstimates {
     private readonly people: KnownPeople,
     private readonly history: UsageHistory,
     private readonly prices: ModelPrices,
-    private readonly engines: EngineSessions,
     private readonly settings: WorkSettings,
     private readonly windowRatios: AccountWindowRatios,
     private readonly engineModels: EngineModels,
@@ -148,10 +147,13 @@ export class UsageEstimates {
     return new Map(costs);
   }
 
-  /** The window ratios of each engine whose sessions read its account's windows. */
+  /**
+   * The window ratios of each engine whose account has usage windows; one whose sessions never read
+   * them (on the `-p` fallback) has no samples, so no ratio.
+   */
   private async engineWindowRatios(): Promise<EngineWindowRatios> {
     const engineIds = (await this.engineModels.engines())
-      .filter((engine) => this.engines.readsUsageWindows(engine))
+      .filter(hasUsageWindows)
       .map(({ id }) => id);
     return new Map(
       await Promise.all(

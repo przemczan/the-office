@@ -1739,7 +1739,7 @@ describe("Window caps", () => {
     expect((await readTask(first.id)).state).toBe("in-progress");
     expect(answer.queued?.reasons).toEqual([
       expect.stringMatching(
-        /^The Claude Code engines' 5-hour window would pass its 90% cap: 80% used, 6% expected of the Tasks started since it was read and 6% of this Task\. It resets (on \w{3} \d{1,2} \w{3} )?at \d\d:\d\d\.$/,
+        /^The Claude Code engine's 5-hour window would pass its 90% cap: 80% used, 6% expected of the Tasks started since it was read and 6% of this Task\. It resets (on \w{3} \d{1,2} \w{3} )?at \d\d:\d\d\.$/,
       ),
     ]);
 
@@ -1786,7 +1786,7 @@ describe("Window caps", () => {
   });
 });
 
-/** The Claude Code engines' Daily caps set, with desks to spare. */
+/** The Claude Code engine's Daily caps set, with desks to spare. */
 async function dailyCaps(
   caps: { dailyTokens?: number; dailyDollars?: number },
   measures: readonly UsageMeasure[] = ["tokens"],
@@ -1843,7 +1843,7 @@ describe("Daily caps", () => {
     expect((await readTask(first.id)).state).toBe("in-progress");
     expect(answer.queued?.reasons).toEqual([
       expect.stringMatching(
-        /^The Claude Code engines' Daily cap of 200,000 tokens would be passed: 100,000 tokens used today, [\d,]+ tokens left of the estimates of the Tasks in progress and 60,000 tokens of this Task\. It resets at midnight\.$/,
+        /^The Claude Code engine's Daily cap of 200,000 tokens would be passed: 100,000 tokens used today, [\d,]+ tokens left of the estimates of the Tasks in progress and 60,000 tokens of this Task\. It resets at midnight\.$/,
       ),
     ]);
   });

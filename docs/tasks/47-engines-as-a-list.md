@@ -120,7 +120,7 @@ Every step leaves `npm run verify` passing. A service step that changes a contra
   - Commit.
 
   Read: the State; `people/MAP.md`; `packages/contracts/src/people.ts` (`roleCardSchema`); `people/application/role-service.ts` (the `offeredBy` calls); each `RoleEngine` site by grep (`RoleEngine|engineModelOf|ROLE_ENGINES`), by range.
-- [ ] 1d. Caps per engine, and Stage runs keep the engine's name, in Work and Pipelines, about 80k:
+- [x] 1d. Caps per engine, and Stage runs keep the engine's name, in Work and Pipelines, about 80k:
   - `engine_caps` is keyed by engine id (done in 1b, migration included). What is left: the contract's `engineIdHasUsageWindows` still answers by id, so a second Claude Code engine's Window caps would be refused; answer by the engine's kind.
   - `stage_runs` keeps the engine id and its name at the time of the run. The migration fills in `claude-code` for both Claude Code kinds and the endpoint's id for API runs.
   - Minimal web fix in Office limits.
@@ -197,23 +197,21 @@ Every step leaves `npm run verify` passing. A service step that changes a contra
 
 ## State
 
-Steps 0, 1a, 1b, 1c, 1c2, 1c3 and 1c3b are done. No bridge from a card's engine kind is left.
-- Engines are rows of `engines` (`engine/domain/engines.ts`: `ClaudeCodeEngine` with `claudeCodeP` | `ApiEngine`; `engineIdFor`, `offeredModels` (exported), `hasUsageWindows(engine)`). Migrations `0075_engines.sql`, `0076_office_default.sql`.
-- `GET`/`PUT /settings/engines` carry the engines, the Office default, the search endpoint and prices keyed by engine id (null for Claude models). `claudeCodeEngineProblems` keeps exactly one Claude Code engine, `claude-code`: presets name it, `usage-history.ts` prices old Stage runs on it (1d), and removal waits for 3a.
-- Sessions: `SessionSettings` is an `EngineModel`; `EngineSessions` refuses an unlisted engine (`EngineNotListed`); `optionsOf` still hands the API adapter `apiEndpointModel(engine.id, model)` (`engine/domain/api-endpoints.ts`, with `parseApiEndpointModel` in `openai-compatible-api-engine.ts`) until 1e. Threads: `ThreadSession.engineId` (0077).
-- The Role card (1c3b): contracts' `roleCardSchema.engine` is an `engineIdSchema`, the model bare; `GET /role-card-options` lists each listed engine (`engine` id, `offeredModels`, `EngineSessions.missingCapabilitiesOf(engine)`). People checks a card with `EngineModels.offeredOn(engineId)` (none for an unlisted engine, so "Choose a model the engine offers."). Conversations read `card.engine`/`card.model` as they are; `StageThread.engine` and `StageWorkPlace.engine` are engine ids, so new Stage runs record `claude-code` or an API engine's id.
-- Migration `0078_role_card_engine_id.sql` (checked on a seeded copy of the workstation's database; `drizzle-kit generate` reports no change): every `role_card_versions` card, the `changes` entries for `engine` and `model` (an engine entry by its version's and the version before's model; an entry now naming the same engine on both sides dropped), open `hire`/`change` Proposals (a change without a model by the Role's latest card), and, beyond the step's list, Stage models in `pipelines`, `task_stages` and open `pipeline` Proposals lose their `<endpoint>/` (else `optionsOf` would double it; 2c drops Stage models).
-- Web: `shell/use-engine-name.ts` (`useEngineName`, from Settings › Engines) labels the card's engine in the view, form and Proposal card; `modelLabel(model)` takes no engines. The change history shows engine ids (1g). `people.e2e.ts` lost the `-p` card test; the API test picks the engine by name.
-- Pipelines' `usage-history.ts` has a private `engineModelOf` for runs kept before engine ids (`agent-sdk`, `claude-code-p`, `openai-compatible-api` with `<endpoint>/<model>`); 1d's migration of `stage_runs` lets it go.
-- Tests: `thread-runner.test.ts`'s API block puts the card on `api.endpoint.id` with its default model (`apiEngineOnFakeServer` no longer gives `model`).
-- Known gaps: a removed API engine's prices are still dropped on save (3a). Usage estimate words and Office limits still label by `engineIdLabel` (1g).
+Steps 0, 1a, 1b, 1c, 1c2, 1c3, 1c3b and 1d are done.
+- Engines are rows of `engines` (`engine/domain/engines.ts`: `ClaudeCodeEngine` with `claudeCodeP` | `ApiEngine`; `engineIdFor`, `offeredModels`, `hasUsageWindows(engine)` by kind). `EngineModels.find(engineId)`. Migrations `0075_engines.sql`, `0076_office_default.sql`.
+- `GET`/`PUT /settings/engines` carry the engines, the Office default, the search endpoint and prices keyed by engine id (null for Claude models). `claudeCodeEngineProblems` still keeps exactly one Claude Code engine, `claude-code`: presets name it and removal waits for 3a; caps and Stage run history no longer need it, so only 1e's per-engine folder (and 3a) hold it.
+- Sessions: `SessionSettings` is an `EngineModel`; `EngineSessions` refuses an unlisted engine; `optionsOf` still hands the API adapter `apiEndpointModel(engine.id, model)` (`engine/domain/api-endpoints.ts`, `parseApiEndpointModel` in `openai-compatible-api-engine.ts`) until 1e. Threads: `ThreadSession.engineId` (0077). The Role card names an engine id (0078).
+- Caps (1d): the contracts' `engineIdHasUsageWindows` and the schema's windows refine are gone; `OfficeLimits.capsProblem` refuses with words caps missing an engine or with windows on the wrong kind (`windowCapsWhereWindows`). Usage estimates give windows only on a Claude Code engine (`EngineUsage.windows` undefined otherwise, ratios for each engine with `hasUsageWindows`), so the web dropped its id filter. Cap waits name the engine: "The Claude Code engine's 5-hour window …" (`UsageAtStart.engineNames`, read once per release in `StartConditionsReader`). A second Claude Code engine's caps are shown in `usage-settings.controller.test.ts` (engines given straight to `EngineModels`, as `PUT /settings/engines` still refuses one).
+- Stage runs (1d): `stage_runs.engine_id` and `engine_name` (migration `0079_stage_run_engine.sql`, generated in two passes and merged; checked on a seeded copy of the workstation's database, `drizzle-kit generate` reports no change): `agent-sdk`/`claude-code-p` to `claude-code`, API runs' `<endpoint>/<model>` split into the engine id and the bare model, an API run with no endpoint keeps `openai-compatible-api`, the name from `engines` or the id when no engine is listed under it. The Agent Stage runner records the name from `EngineModels.find` (the id if removed meanwhile). `usage-history.ts`' `engineModelOf` is gone. The workstation's 35 runs all predate recording (engine null).
+- Web: `shell/use-engine-name.ts` labels the card's engine. Known gaps: Usage estimate words and Office limits still label by `engineIdLabel` (1g); a removed API engine's prices are still dropped on save (3a).
 
 The pinned binary (2.1.310) has `claude auth login` (`--claudeai` by default, `--console`, `--sso`, `--email`) and `claude auth status --json` (`loggedIn`, `email`, `subscriptionType`, `configDirectory`).
 
 Traps:
 - Between steps, `npm run verify` must pass. 1c's mapping of kinds to ids is replaced by 2b's clearing, so keep it in the migration and nowhere else.
 - `windows.ts` and `linux.ts` keep `~/.claude/.credentials.json` as a secret path. Keep it.
-- drizzle-kit asks about renames without a TTY: generate in two passes and merge (as 0075 was).
+- drizzle-kit asks about renames without a TTY: generate in two passes and merge (as 0075 and 0079 were).
+- The workstation's `the_office` database stands at migration 0074; a copy is checked by applying 0075 onwards with `psql -f` inside the container (`sh -c`, so Git Bash leaves `/tmp` alone).
 - Postgres tests need Docker Desktop (`C:\Docker\Docker Desktop.exe`) and `docker compose up -d postgres`.
 
 ## Progress
@@ -225,3 +223,4 @@ Traps:
 - 2026-11-02 · step 1c2: sessions run on an engine id and its adapter by kind and `-p` switch, an unlisted engine refused; the Role card part split off to 1c3; next is 1c3, the Role card's engine as an engine id.
 - 2026-11-02 · step 1c3: a Thread's session names its engine id (migration 0077); the Role card part split off to 1c3b; next is 1c3b, the Role card's engine as an engine id.
 - 2026-11-02 · step 1c3b: the Role card names an engine id (migration 0078, Stage models' `<endpoint>/` too) and 1b's bridges are gone; the web labels engines by name; next is 1d, caps per engine and Stage runs keeping the engine's id and name.
+- 2026-11-02 · step 1d: caps judged by the engine's kind in Work, not the contract, cap waits naming the engine; Stage runs keep the engine's id and name (migration 0079) and the old-run pricing bridge is gone; next is 1e, each Claude Code engine's account.

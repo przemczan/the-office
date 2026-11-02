@@ -216,6 +216,7 @@ describe("releaseQueue", () => {
     const onTheReading: StartConditions = {
       ...conditionsFor("developer", 2),
       usage: {
+        ...NO_USAGE_AT_START,
         now: NOW,
         measures: ["fiveHourWindow"],
         estimate: [
@@ -254,6 +255,7 @@ describe("releaseQueue", () => {
     const today: StartConditions = {
       ...conditionsFor("developer", 2),
       usage: {
+        ...NO_USAGE_AT_START,
         now: NOW,
         measures: ["tokens"],
         estimate: [

@@ -5,6 +5,7 @@ import { EngineModels } from "../../engine/index.js";
 import {
   everyEngineCaps,
   namesEveryEngine,
+  windowCapsWhereWindows,
   type EngineCaps,
   type UsageSettings,
 } from "../domain/usage-settings.js";
@@ -39,9 +40,19 @@ export class OfficeLimits {
     return { measures, caps: everyEngineCaps(caps, await this.engines.engines()) };
   }
 
-  /** Whether `caps` name every engine listed now, each once, and no other. */
-  async namesEveryEngine(caps: readonly Pick<EngineCaps, "engineId">[]): Promise<boolean> {
-    return namesEveryEngine(caps, await this.engines.engines());
+  /**
+   * Why `caps` don't fit the engines listed now, worded; undefined when they name every engine,
+   * each once and no other, with Window caps exactly where the account has windows.
+   */
+  async capsProblem(
+    caps: readonly Pick<EngineCaps, "engineId" | "windows">[],
+  ): Promise<string | undefined> {
+    const engines = await this.engines.engines();
+    if (!namesEveryEngine(caps, engines)) return "Every engine has its caps, once.";
+    if (!windowCapsWhereWindows(caps, engines)) {
+      return "Window caps are on each Claude Code engine, and on no other.";
+    }
+    return undefined;
   }
 
   /**

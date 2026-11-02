@@ -30,7 +30,14 @@ afterAll(async () => {
   await rm(officeData, { recursive: true, force: true });
 });
 
-/** An API engine beside the first Claude Code engine. */
+/** A second Claude Code account, which has windows of its own. */
+const WORK_ACCOUNT: Engine = {
+  ...FIRST_CLAUDE_CODE_ENGINE,
+  id: "work-account",
+  name: "Work account",
+};
+
+/** An API engine beside the Claude Code engines. */
 const LAB: Engine = {
   id: "lab",
   name: "Lab",
@@ -44,7 +51,7 @@ const LAB: Engine = {
 beforeEach(async () => {
   // The settings of the test's own: every test file's Starts and estimates read the stored ones.
   const engines = new EngineSettingsForTests({
-    engines: [FIRST_CLAUDE_CODE_ENGINE, LAB],
+    engines: [FIRST_CLAUDE_CODE_ENGINE, WORK_ACCOUNT, LAB],
     searchEndpoint: null,
     modelPrices: [],
   });
@@ -67,6 +74,12 @@ const CHANGED: UsageSettings = {
       dailyDollars: null,
     },
     {
+      engineId: "work-account",
+      windows: { fiveHour: null, sevenDay: 60 },
+      dailyTokens: null,
+      dailyDollars: null,
+    },
+    {
       engineId: "claude-code",
       windows: { fiveHour: 75, sevenDay: null },
       dailyTokens: null,
@@ -81,12 +94,18 @@ async function readUsageSettings(): Promise<UsageSettings> {
 }
 
 describe("/api/settings/usage", () => {
-  it("answers tokens and the 5-hour window ticked, and Window caps at 90% on Claude Code, each engine's, until saved", async () => {
+  it("answers tokens and the 5-hour window ticked, and Window caps at 90% on each Claude Code engine, until saved", async () => {
     expect(await readUsageSettings()).toEqual({
       measures: ["tokens", "fiveHourWindow"],
       caps: [
         {
           engineId: "claude-code",
+          windows: { fiveHour: 90, sevenDay: 90 },
+          dailyTokens: null,
+          dailyDollars: null,
+        },
+        {
+          engineId: "work-account",
           windows: { fiveHour: 90, sevenDay: 90 },
           dailyTokens: null,
           dailyDollars: null,
@@ -127,10 +146,7 @@ describe("/api/settings/usage", () => {
   it.each([
     ["a measure ticked twice", { ...CHANGED, measures: ["tokens", "tokens"] }],
     ["an engine left out", { ...CHANGED, caps: CHANGED.caps.slice(1) }],
-    [
-      "an engine named twice",
-      { ...CHANGED, caps: [CHANGED.caps[0], CHANGED.caps[1], CHANGED.caps[1]] },
-    ],
+    ["an engine named twice", { ...CHANGED, caps: [...CHANGED.caps, CHANGED.caps[1]] }],
     [
       "an engine it doesn't list",
       { ...CHANGED, caps: [...CHANGED.caps, { ...CHANGED.caps[0], engineId: "strata" }] },
@@ -143,19 +159,28 @@ describe("/api/settings/usage", () => {
       },
     ],
     [
-      "no Window caps on the Claude Code account",
-      { ...CHANGED, caps: CHANGED.caps.map(({ windows: _windows, ...caps }) => caps) },
+      "no Window caps on a Claude Code engine",
+      {
+        ...CHANGED,
+        caps: CHANGED.caps.map(({ windows, ...caps }) =>
+          caps.engineId === "work-account" ? caps : { ...caps, windows },
+        ),
+      },
     ],
     [
       "a Window cap over 100%",
       {
         ...CHANGED,
-        caps: [CHANGED.caps[0], { ...CHANGED.caps[1], windows: { fiveHour: 101, sevenDay: null } }],
+        caps: [
+          CHANGED.caps[0],
+          CHANGED.caps[1],
+          { ...CHANGED.caps[2], windows: { fiveHour: 101, sevenDay: null } },
+        ],
       },
     ],
     [
       "a Daily cap of 0 tokens",
-      { ...CHANGED, caps: [{ ...CHANGED.caps[0], dailyTokens: 0 }, CHANGED.caps[1]] },
+      { ...CHANGED, caps: [{ ...CHANGED.caps[0], dailyTokens: 0 }, ...CHANGED.caps.slice(1)] },
     ],
   ])("refuses %s", async (_case, settings) => {
     const refused = await sendJson(work, "PUT", "/settings/usage", settings);

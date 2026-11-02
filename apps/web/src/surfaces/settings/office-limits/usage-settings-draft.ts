@@ -5,7 +5,7 @@ export type CapKind = "fiveHour" | "sevenDay" | "dailyTokens" | "dailyDollars";
 
 /**
  * One engine id's caps as their fields read while the user types; an empty field is a cap that is
- * off. `windows` is there exactly where the engine id has usage windows, as in the contract.
+ * off. `windows` is there exactly where the engine id has usage windows, as the service gives it.
  */
 export interface CapsText {
   readonly engineId: EngineId;

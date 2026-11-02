@@ -31,7 +31,7 @@ export class StartsSinceReading {
     const windowsOf = (name: UsageWindowName): number =>
       since.reduce(
         (total, { estimate }) =>
-          total + (estimate.find((usage) => usage.engineId === engineId)?.windows[name] ?? 0),
+          total + (estimate.find((usage) => usage.engineId === engineId)?.windows?.[name] ?? 0),
         0,
       );
     return { fiveHour: windowsOf("fiveHour"), sevenDay: windowsOf("sevenDay") };

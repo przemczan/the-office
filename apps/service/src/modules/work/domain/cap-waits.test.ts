@@ -18,6 +18,10 @@ import type { EngineUsage } from "./usage-estimate.js";
 const NOW = new Date(2026, 10, 2, 9, 0);
 const IN_THREE_HOURS = new Date(2026, 10, 2, 12, 0);
 const IN_HALF_AN_HOUR = new Date(2026, 10, 2, 9, 30);
+const ENGINE_NAMES = new Map([
+  ["claude-code", "Claude Code"],
+  ["lab", "Lab"],
+]);
 
 function estimateOf(fiveHour: number | undefined): EngineUsage {
   return { engineId: "claude-code", tokens: 1000, windows: { fiveHour, sevenDay: 1 }, cost: 0.1 };
@@ -47,6 +51,7 @@ function usage(windows: WindowsAtStart, estimate: EngineUsage | undefined): Usag
     estimate: estimate ? [estimate] : [],
     windows: [windows],
     daily: [],
+    engineNames: ENGINE_NAMES,
   };
 }
 
@@ -57,7 +62,7 @@ describe("exceededWindowCaps", () => {
     expect(exceeded).toEqual([
       {
         words:
-          "The Claude Code engines' 5-hour window would pass its 90% cap: 80% used, 6% expected of the Tasks started since it was read and 5% of this Task. It resets at 12:00.",
+          "The Claude Code engine's 5-hour window would pass its 90% cap: 80% used, 6% expected of the Tasks started since it was read and 5% of this Task. It resets at 12:00.",
         resetsAt: IN_THREE_HOURS,
       },
     ]);
@@ -73,7 +78,7 @@ describe("exceededWindowCaps", () => {
 
     expect(exceededWindowCaps(below)).toEqual([]);
     expect(exceededWindowCaps(past).map(({ words }) => words)).toEqual([
-      "The Claude Code engines' 5-hour window would pass its 90% cap: 85% used, 6% expected of the Tasks started since it was read, and this Task has no estimate. It resets at 12:00.",
+      "The Claude Code engine's 5-hour window would pass its 90% cap: 85% used, 6% expected of the Tasks started since it was read, and this Task has no estimate. It resets at 12:00.",
     ]);
   });
 
@@ -98,7 +103,7 @@ describe("exceededWindowCaps", () => {
 
     expect(exceededWindowCaps(usage(claudeCode(10, IN_THREE_HOURS), estimateOf(5)))).toEqual([]);
     expect(exceededWindowCaps(fiveHourUnticked).map(({ words }) => words)).toEqual([
-      "The Claude Code engines' 7-day window would pass its 95% cap: 99% used, 0% expected of the Tasks started since it was read and 1% of this Task. It resets on Thu 5 Nov at 14:30.",
+      "The Claude Code engine's 7-day window would pass its 95% cap: 99% used, 0% expected of the Tasks started since it was read and 1% of this Task. It resets on Thu 5 Nov at 14:30.",
     ]);
   });
 });
@@ -152,6 +157,7 @@ function dailyUsage(daily: DailyCapsAtStart, estimate: EngineUsage | undefined):
     estimate: estimate ? [estimate] : [],
     windows: [],
     daily: [daily],
+    engineNames: ENGINE_NAMES,
   };
 }
 
@@ -164,9 +170,18 @@ describe("exceededDailyCaps", () => {
     expect(exceeded).toEqual([
       {
         words:
-          "The Claude Code engines' Daily cap of 10,000 tokens would be passed: 6,000 tokens used today, 3,500 tokens left of the estimates of the Tasks in progress and 1,000 tokens of this Task. It resets at midnight.",
+          "The Claude Code engine's Daily cap of 10,000 tokens would be passed: 6,000 tokens used today, 3,500 tokens left of the estimates of the Tasks in progress and 1,000 tokens of this Task. It resets at midnight.",
         resetsAt: MIDNIGHT,
       },
+    ]);
+  });
+
+  it("names the engine whose cap it is by its name", () => {
+    const onLab = dailyCaps(tokensCap, 9500, 0, "lab");
+    const exceeded = exceededDailyCaps(dailyUsage(onLab, { ...estimateOf(5), engineId: "lab" }));
+
+    expect(exceeded.map(({ words }) => words)).toEqual([
+      expect.stringMatching(/^The Lab engine's Daily cap of 10,000 tokens would be passed/),
     ]);
   });
 
@@ -189,14 +204,14 @@ describe("exceededDailyCaps", () => {
         ({ words }) => words,
       ),
     ).toEqual([
-      "The Claude Code engines' Daily cap of 10,000 tokens would be passed: 6,000 tokens used today, 4,001 tokens left of the estimates of the Tasks in progress, and this Task has no estimate. It resets at midnight.",
+      "The Claude Code engine's Daily cap of 10,000 tokens would be passed: 6,000 tokens used today, 4,001 tokens left of the estimates of the Tasks in progress, and this Task has no estimate. It resets at midnight.",
     ]);
     expect(
       exceededDailyCaps(dailyUsage(dailyCaps(dollarsCap, 6000, 4000), noCost)).map(
         ({ words }) => words,
       ),
     ).toEqual([
-      "The Claude Code engines' Daily cap of $9.50 would be passed: $6.00 used today, $4.00 left of the estimates of the Tasks in progress, and this Task has no cost. It resets at midnight.",
+      "The Claude Code engine's Daily cap of $9.50 would be passed: $6.00 used today, $4.00 left of the estimates of the Tasks in progress, and this Task has no cost. It resets at midnight.",
     ]);
   });
 

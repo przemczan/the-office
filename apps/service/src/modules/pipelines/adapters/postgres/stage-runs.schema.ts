@@ -26,8 +26,12 @@ export const stageRuns = pgTable(
     threadId: uuid("thread_id"),
     /** How the run's session began. */
     session: text("session").$type<StageSessionMove>(),
-    /** What the run's session ran on; null for runs kept before it was recorded. */
-    engine: text("engine"),
+    /**
+     * What the run's session ran on: the engine's id and its name at the time, and the model; null
+     * for runs kept before it was recorded.
+     */
+    engineId: text("engine_id"),
+    engineName: text("engine_name"),
     model: text("model"),
     /** Where The Office left the Task's branch after the run. */
     headCommit: text("head_commit"),

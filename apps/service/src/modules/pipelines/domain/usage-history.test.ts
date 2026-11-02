@@ -93,21 +93,26 @@ describe("the Office-wide dollars per token", () => {
 
   it("sums tokens by engine and model, leaving out runs kept before they were recorded", () => {
     const sums = tokensByModel([
-      aStageRun({ engine: "agent-sdk", model: "claude-haiku-5-5", tokens: tokens(10) }),
-      aStageRun({ number: 2, engine: "agent-sdk", model: "claude-haiku-5-5", tokens: tokens(5) }),
+      aStageRun({ engineId: "claude-code", model: "claude-haiku-5-5", tokens: tokens(10) }),
+      aStageRun({
+        number: 2,
+        engineId: "claude-code",
+        model: "claude-haiku-5-5",
+        tokens: tokens(5),
+      }),
       aStageRun({
         number: 3,
-        engine: "claude-code-p",
+        engineId: "lab",
         model: "claude-haiku-5-5",
         tokens: tokens(1),
       }),
       aStageRun({ number: 4, tokens: tokens(99) }),
-      aStageRun({ number: 5, engine: "agent-sdk", tokens: NO_STAGE_TOKENS }),
+      aStageRun({ number: 5, engineId: "claude-code", tokens: NO_STAGE_TOKENS }),
     ]);
 
     expect(sums).toEqual([
-      { engine: "agent-sdk", model: "claude-haiku-5-5", tokens: tokens(15) },
-      { engine: "claude-code-p", model: "claude-haiku-5-5", tokens: tokens(1) },
+      { engineId: "claude-code", model: "claude-haiku-5-5", tokens: tokens(15) },
+      { engineId: "lab", model: "claude-haiku-5-5", tokens: tokens(1) },
     ]);
   });
 });

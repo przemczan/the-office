@@ -42,7 +42,7 @@ export type StageUsages = ReadonlyMap<string, StageUsage>;
 /** Window % per counted token on one engine id, Office-wide; undefined where no pair gives one. */
 export type WindowRatios = Readonly<Record<UsageWindowName, number | undefined>>;
 
-/** Each engine id's window ratios; an engine id whose engines read no windows has none. */
+/** Each engine id's window ratios; an engine whose account has no usage windows has none. */
 export type EngineWindowRatios = ReadonlyMap<EngineId, WindowRatios>;
 
 /** A Stage of a Pipeline in the library; an Agent Stage names its Role, and may name a model. */
@@ -71,11 +71,15 @@ export function stageEngineAndModel(
   return { engineId: role.engine, model: stage.model ?? role.model };
 }
 
+/** Each window's %; undefined where there is no estimate of it. */
+export type EngineWindows = Readonly<Record<UsageWindowName, number | undefined>>;
+
 /** What a Pipeline is expected to use on one engine id; undefined where there is no estimate. */
 export interface EngineUsage {
   readonly engineId: EngineId;
   readonly tokens: number;
-  readonly windows: Readonly<Record<UsageWindowName, number | undefined>>;
+  /** Undefined on an engine whose account has no usage windows. */
+  readonly windows: EngineWindows | undefined;
   /** Dollars; undefined is "no cost". */
   readonly cost: number | undefined;
 }
@@ -151,13 +155,11 @@ export function plannerUsage(
   });
 }
 
-/** Each window's % for `tokens`; none on an engine id without ratios, or a window without one. */
-function windowsOf(
-  tokens: number,
-  ratios: WindowRatios | undefined,
-): Readonly<Record<UsageWindowName, number | undefined>> {
+/** Each window's % for `tokens`; none on an engine id without ratios, nor for a window without one. */
+function windowsOf(tokens: number, ratios: WindowRatios | undefined): EngineWindows | undefined {
+  if (ratios === undefined) return undefined;
   const windowOf = (name: UsageWindowName): number | undefined => {
-    const perToken = ratios?.[name];
+    const perToken = ratios[name];
     return perToken === undefined ? undefined : tokens * perToken;
   };
   return { fiveHour: windowOf("fiveHour"), sevenDay: windowOf("sevenDay") };

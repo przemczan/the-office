@@ -8,11 +8,15 @@ import type {
   AskedInterruption,
 } from "../domain/stage-run.js";
 
-/** The Stage Thread a run works in, how its session began, and what the session runs on. */
+/**
+ * The Stage Thread a run works in, how its session began, and what the session runs on: the
+ * engine's id and its name now, and the model.
+ */
 export interface StageRunThread {
   readonly threadId: string;
   readonly session: StageSessionMove;
-  readonly engine: string;
+  readonly engineId: string;
+  readonly engineName: string;
   readonly model: string;
 }
 

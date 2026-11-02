@@ -21,13 +21,13 @@ describe("usageEstimateWords", () => {
     );
   });
 
-  it("names each engine id when the Task spends on several, leaving windows out where there are none", () => {
+  it("names each engine id when the Task spends on several, each in the measures it is given", () => {
     expect(
       usageEstimateWords({
         basis: { source: "planner" },
         engines: [
           { engineId: "claude-code", tokens: 60_000, fiveHourWindow: null, cost: 0.004 },
-          { engineId: "openai-compatible-api", tokens: 40_000, fiveHourWindow: null, cost: null },
+          { engineId: "openai-compatible-api", tokens: 40_000, cost: null },
         ],
       }),
     ).toBe(

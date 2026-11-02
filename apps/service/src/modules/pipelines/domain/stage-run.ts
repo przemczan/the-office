@@ -237,10 +237,12 @@ export interface StageRun {
   /** The Project commands The Office ran for the run, in order; none when it ran none. */
   readonly commandRuns: readonly StageCommandRun[];
   /**
-   * The engine, as a Role card names it, and the model the run's session ran on. Undefined for a
-   * run that opened none, and for runs kept before they were recorded.
+   * The engine the run's session ran on, by its id and its name at the time, and the model, by its
+   * id there. Each undefined for a run that opened none, and for runs kept before they were
+   * recorded; the name also for runs kept before it was.
    */
-  readonly engine: string | undefined;
+  readonly engineId: string | undefined;
+  readonly engineName: string | undefined;
   readonly model: string | undefined;
   /** Its engine calls' tokens; none for a run that made none. */
   readonly tokens: StageTokens;

@@ -65,6 +65,17 @@ export function namesEveryEngine(
   );
 }
 
+/** Whether `caps` give Window caps to exactly the engines whose account has usage windows. */
+export function windowCapsWhereWindows(
+  caps: readonly Pick<EngineCaps, "engineId" | "windows">[],
+  engines: readonly Engine[],
+): boolean {
+  return caps.every(({ engineId, windows }) => {
+    const engine = engines.find(({ id }) => id === engineId);
+    return engine === undefined || hasUsageWindows(engine) === (windows !== undefined);
+  });
+}
+
 /**
  * Every engine's caps, in their order: as saved, Window caps only where there are windows, or at
  * their default. A removed engine's are left out.

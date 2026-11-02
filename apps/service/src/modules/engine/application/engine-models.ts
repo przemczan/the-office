@@ -11,9 +11,14 @@ export class EngineModels {
     return (await this.settings.read()).engines;
   }
 
+  /** The engine listed as `engineId`; undefined when Settings › Engines lists none. */
+  async find(engineId: EngineId): Promise<Engine | undefined> {
+    return (await this.engines()).find(({ id }) => id === engineId);
+  }
+
   /** The models the engine listed as `engineId` offers; none when Settings › Engines lists none. */
   async offeredOn(engineId: EngineId): Promise<readonly string[]> {
-    const engine = (await this.engines()).find(({ id }) => id === engineId);
+    const engine = await this.find(engineId);
     return engine === undefined ? [] : offeredModels(engine);
   }
 }
