@@ -20,6 +20,7 @@ import {
   type StageThreadRequest,
   type StageTurn,
 } from "./stage-threads.js";
+import { StageRoleEngines, type NewlyNamedStageRoles } from "./stage-role-engines.js";
 import { StartedTasks, type StartedTask, type WalkTaskState } from "./started-tasks.js";
 import type { CommandRun, Installation, ScriptCommandRun } from "../domain/stage-command-run.js";
 import type { PublishTarget } from "../domain/stage.js";
@@ -33,6 +34,21 @@ import { TaskRecords, type TaskRecord } from "./task-records.js";
 import { TaskScreenshots, type ScreenshotsAttaching } from "./task-screenshots.js";
 import { TaskThreadSessions } from "./task-thread-sessions.js";
 import { TaskUsage } from "./task-usage.js";
+
+/** People's capability check: a test names the Roles whose engine can't work an Agent Stage. */
+@Injectable()
+export class StageRoleEnginesForTests extends StageRoleEngines {
+  readonly incapableRoles = new Set<string>();
+  /** Every question asked, in order. */
+  readonly asked: NewlyNamedStageRoles[] = [];
+
+  async newlyNamedRolesProblems(roles: NewlyNamedStageRoles): Promise<readonly string[]> {
+    this.asked.push(roles);
+    return roles.roleKeys
+      .filter((roleKey) => this.incapableRoles.has(roleKey))
+      .map((roleKey) => `The ${roleKey}'s engine can't work an Agent Stage.`);
+  }
+}
 
 /** Projects' defaults in memory: a test puts the Projects it needs. */
 @Injectable()
@@ -60,9 +76,14 @@ export class StartedTasksForTests extends StartedTasks {
   /** Puts the Task as Work would, such as In progress as it starts; not paused by the alarm. */
   put(
     taskId: string,
-    task: Omit<StartedTask, "id" | "pausedByAlarm"> & Partial<StartedTask>,
+    task: Omit<StartedTask, "id" | "pausedByAlarm" | "projectId"> & Partial<StartedTask>,
   ): void {
-    this.tasks.set(taskId, { pausedByAlarm: false, ...task, id: taskId });
+    this.tasks.set(taskId, {
+      pausedByAlarm: false,
+      projectId: "test-project",
+      ...task,
+      id: taskId,
+    });
   }
 
   async list(): Promise<readonly StartedTask[]> {
@@ -670,6 +691,7 @@ export class PipelinesPortsForTestsModule {
       TaskUsageForTests,
       TaskThreadSessionsForTests,
       ProposalDraftsForTests,
+      StageRoleEnginesForTests,
       ProposalAppliers,
     ];
     return { module: PipelinesPortsForTestsModule, imports, providers, exports: providers };

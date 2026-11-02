@@ -76,3 +76,16 @@ export interface ScriptStage extends StageFields {
 export interface Gate extends StageFields {
   readonly kind: "gate";
 }
+
+/** The Roles the Agent Stages among `stages` name, each once. */
+export function agentStageRoles(stages: readonly Stage[]): ReadonlySet<string> {
+  return new Set(stages.flatMap((stage) => (stage.kind === "agent" ? [stage.role] : [])));
+}
+
+/** Those of `named` that `already` doesn't hold: the Roles a save of Stages newly names. */
+export function newlyNamedRoles(
+  named: ReadonlySet<string>,
+  already: ReadonlySet<string>,
+): readonly string[] {
+  return [...named].filter((roleKey) => !already.has(roleKey));
+}

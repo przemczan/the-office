@@ -23,6 +23,7 @@ import {
   EngineCascade,
   EngineCascadeModule,
   PeopleModule,
+  PipelineRoleCapabilityChecks,
   RoleCards,
 } from "./modules/people/index.js";
 import {
@@ -115,7 +116,7 @@ export class AppModule {
       taskTokens: TaskTokens,
     });
     const pipelines = PipelinesModule.register({
-      imports: [work, PeopleModule, conversations, projects],
+      imports: [work, PeopleModule, engineCascade, conversations, projects],
       startedTasks: TaskService,
       taskRecords: TaskRecords,
       knownPeople: RoleCards,
@@ -129,6 +130,7 @@ export class AppModule {
       taskUsage: TaskTokens,
       taskThreadSessions: ThreadRunner,
       proposalDrafts: ProposalService,
+      stageRoleEngines: PipelineRoleCapabilityChecks,
     });
     return {
       module: AppModule,

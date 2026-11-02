@@ -18,7 +18,8 @@ export interface EngineCascadeModuleOptions {
 
 /**
  * The engine cascade and the capability check on its saves, apart from PeopleModule so the modules
- * that only read Role cards need no Projects; the composition root binds its ports.
+ * that only read Role cards need no Projects; the composition root binds its ports. Pipelines asks
+ * the check about the Roles its Stages newly name.
  */
 @Module({})
 export class EngineCascadeModule {
@@ -39,7 +40,7 @@ export class EngineCascadeModule {
         EngineCascade,
         PipelineRoleCapabilityChecks,
       ],
-      exports: [EngineCascade],
+      exports: [EngineCascade, PipelineRoleCapabilityChecks],
     };
   }
 }

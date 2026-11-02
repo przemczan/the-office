@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { Pipeline } from "../domain/pipeline.js";
+import { agentStageRoles } from "../domain/stage.js";
 import { PipelineRepository } from "../ports/pipeline-repository.js";
 
 /**
@@ -24,7 +25,6 @@ export class PipelineLibrary {
 
   /** The Roles the library's Agent Stages name, each once. */
   async rolesNamed(): Promise<ReadonlySet<string>> {
-    const stages = (await this.list()).flatMap((pipeline) => pipeline.stages);
-    return new Set(stages.flatMap((stage) => (stage.kind === "agent" ? [stage.role] : [])));
+    return agentStageRoles((await this.list()).flatMap((pipeline) => pipeline.stages));
   }
 }

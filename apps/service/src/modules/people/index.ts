@@ -1,6 +1,10 @@
 export { RoleCards, type Consultant, type SessionRole } from "./application/role-cards.js";
 export { RoleService } from "./application/role-service.js";
 export { EngineCascade } from "./application/engine-cascade.js";
+export {
+  PipelineRoleCapabilityChecks,
+  type NewlyNamedRoles,
+} from "./application/pipeline-role-capability-checks.js";
 export type {
   EngineCascadeLevel,
   EngineInCascade,

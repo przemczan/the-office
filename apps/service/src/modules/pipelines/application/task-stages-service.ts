@@ -4,7 +4,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import { TaskPipelineConfirmed } from "../../work/index.js";
 import type { Pipeline, StageProblem } from "../domain/pipeline.js";
-import type { Stage } from "../domain/stage.js";
+import { agentStageRoles, newlyNamedRoles, type Stage } from "../domain/stage.js";
 import { stagesProgress, type TaskProgress } from "../domain/stage-progress.js";
 import type { StageRun } from "../domain/stage-run.js";
 import { staffingProblems } from "../domain/stage-staffing.js";
@@ -20,6 +20,7 @@ import {
   type TaskTrace,
 } from "../domain/task-stages.js";
 import { TaskStagesReset } from "../domain/task-stages-events.js";
+import { StageRoleEngines } from "../ports/stage-role-engines.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StartedTasks } from "../ports/started-tasks.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
@@ -45,6 +46,7 @@ export class TaskStagesService implements OnModuleInit {
     private readonly library: PipelineLibrary,
     private readonly tasks: StartedTasks,
     private readonly roleFillings: RoleFillings,
+    private readonly roleEngines: StageRoleEngines,
     private readonly events: EventBus,
   ) {}
 
@@ -152,7 +154,7 @@ export class TaskStagesService implements OnModuleInit {
    */
   private async review(taskId: string, shown: readonly Stage[]): Promise<ReviewedEdit> {
     const edited = withoutResolveStages(shown);
-    const { state, pipelineId } = await this.tasks.read(taskId);
+    const { state, pipelineId, projectId } = await this.tasks.read(taskId);
     const own = await this.ownOrCopied(taskId, pipelineId);
     const runs = await this.runs.list(taskId);
     const problems = FINISHED_STATES.includes(state)
@@ -163,8 +165,26 @@ export class TaskStagesService implements OnModuleInit {
             edited,
             lockedStageCount(own.stages, runs),
           )),
+          ...(await this.roleEngineProblems(edited, own, projectId)),
         ];
     return { own, runs, problems };
+  }
+
+  /**
+   * Only Roles neither the Task's Stages nor the library name yet are weighed, in the Task's Project,
+   * the only place its sessions run: the others already passed the check (spec §5.4).
+   */
+  private async roleEngineProblems(
+    edited: readonly Stage[],
+    own: TaskStages,
+    projectId: string,
+  ): Promise<StageProblem[]> {
+    const named = new Set([...agentStageRoles(own.stages), ...(await this.library.rolesNamed())]);
+    const problems = await this.roleEngines.newlyNamedRolesProblems({
+      roleKeys: newlyNamedRoles(agentStageRoles(edited), named),
+      projectId,
+    });
+    return problems.map((text) => ({ text }));
   }
 
   private async ownOrCopied(taskId: string, pipelineId: string): Promise<TaskStages> {

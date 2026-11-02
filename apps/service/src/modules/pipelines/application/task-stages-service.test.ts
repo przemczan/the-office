@@ -169,6 +169,34 @@ describe("Edit for this Task", () => {
     expect((await service.find(taskId))?.stages).toEqual(narrowing);
   });
 
+  it("refuses a Role newly named whose engine can't work an Agent Stage, weighed in the Task's Project", async () => {
+    const [implement, ...rest] = quickFix;
+    if (implement?.kind !== "agent") throw new Error("Quick fix starts with an Agent Stage.");
+    pipelines.people.people.set("translator", aPerson());
+    pipelines.roleEngines.incapableRoles.add("translator");
+    const taskId = randomUUID();
+    pipelines.tasks.put(taskId, { state: "ready", pipelineId: "quick-fix", projectId: "billing" });
+    const edited: Stage[] = [{ ...implement, role: "translator" }, ...rest];
+
+    expect(await service.check(taskId, edited)).toEqual([
+      { text: "The translator's engine can't work an Agent Stage." },
+    ]);
+    expect(await refusalOf(service.edit(taskId, edited))).toEqual([
+      "The translator's engine can't work an Agent Stage.",
+    ]);
+    expect(pipelines.roleEngines.asked.at(-1)).toEqual({
+      roleKeys: ["translator"],
+      projectId: "billing",
+    });
+  });
+
+  it("weighs only Roles neither the library nor the Task's Stages name yet", async () => {
+    pipelines.roleEngines.incapableRoles.add("developer");
+
+    expect((await service.edit(aTask(), withGate)).editedForTask).toBe(true);
+    expect(pipelines.roleEngines.asked.at(-1)?.roleKeys).toEqual([]);
+  });
+
   it("refuses editing a Task that is done", async () => {
     expect(await refusalOf(service.edit(aTask("done"), withGate))).toEqual([
       "A Task that is done or dropped keeps its Stages.",

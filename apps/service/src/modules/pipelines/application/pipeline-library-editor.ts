@@ -16,12 +16,13 @@ import {
   type PipelineUse,
 } from "../domain/library-pipeline.js";
 import type { Pipeline, StageProblem } from "../domain/pipeline.js";
-import type { Stage } from "../domain/stage.js";
+import { agentStageRoles, newlyNamedRoles, type Stage } from "../domain/stage.js";
 import { PipelineRemoved } from "../domain/pipeline-library-events.js";
 import { PipelineRemovalRefused, UnknownPipeline } from "../domain/pipeline-library-refusals.js";
 import { StagesEditRefused } from "../domain/stages-edit-refused.js";
 import { PipelineRepository } from "../ports/pipeline-repository.js";
 import { ProjectDefaults } from "../ports/project-defaults.js";
+import { StageRoleEngines } from "../ports/stage-role-engines.js";
 import { StartedTasks } from "../ports/started-tasks.js";
 import { RoleFillings } from "./role-fillings.js";
 
@@ -31,7 +32,8 @@ const LIBRARY = "library";
 /**
  * The library editor (spec §2.3): the user adds a Pipeline from scratch or as a copy, saves one, and
  * removes one nobody needs. Saving changes the Tasks that haven't started and follow it; a started
- * Task, or one edited for itself, keeps its own Stages.
+ * Task, or one edited for itself, keeps its own Stages. A save that newly names a Role whose engine
+ * can't work an Agent Stage is refused (spec §5.4).
  */
 @Injectable()
 export class PipelineLibraryEditor {
@@ -42,12 +44,14 @@ export class PipelineLibraryEditor {
     private readonly roleFillings: RoleFillings,
     private readonly projects: ProjectDefaults,
     private readonly tasks: StartedTasks,
+    private readonly roleEngines: StageRoleEngines,
     private readonly events: EventBus,
   ) {}
 
   async add(edit: PipelineEdit): Promise<Pipeline> {
     return this.changes.run(LIBRARY, async () => {
-      await this.refuseProblems(edit, await this.repository.list());
+      const library = await this.repository.list();
+      await this.refuseProblems(edit, library, library);
       const { pipeline, event } = addedPipeline(randomUUID(), edit);
       await this.repository.add(pipeline);
       await this.events.publish(event);
@@ -71,7 +75,7 @@ export class PipelineLibraryEditor {
     return this.changes.run(LIBRARY, async () => {
       const library = await this.repository.list();
       if (!library.some((pipeline) => pipeline.id === id)) throw new UnknownPipeline(id);
-      await this.refuseProblems(edit, othersThan(id, library));
+      await this.refuseProblems(edit, othersThan(id, library), library);
       return this.store(id, edit);
     });
   }
@@ -85,7 +89,7 @@ export class PipelineLibraryEditor {
     const library = await this.repository.list();
     const pipeline = library.find((each) => each.id === id);
     if (!pipeline) return [{ text: new UnknownPipeline(id).message }];
-    return proposedStagesProblems(pipeline, from, to, othersThan(id, library));
+    return this.proposalProblems(pipeline, from, to, library);
   }
 
   /**
@@ -101,7 +105,7 @@ export class PipelineLibraryEditor {
       const library = await this.repository.list();
       const pipeline = library.find((each) => each.id === id);
       if (!pipeline) throw new UnknownPipeline(id);
-      const problems = proposedStagesProblems(pipeline, from, to, othersThan(id, library));
+      const problems = await this.proposalProblems(pipeline, from, to, library);
       if (problems.length > 0) throw new StagesEditRefused(problems);
       return this.store(id, proposedEdit(pipeline, to));
     });
@@ -132,9 +136,13 @@ export class PipelineLibraryEditor {
     edit: PipelineEdit,
     pipelineId: string | undefined,
   ): Promise<{ readonly problems: StageProblem[]; readonly flags: StageProblem[] }> {
-    const others = (await this.repository.list()).filter(({ id }) => id !== pipelineId);
+    const library = await this.repository.list();
+    const others = library.filter(({ id }) => id !== pipelineId);
     return {
-      problems: pipelineEditProblems(edit, others),
+      problems: [
+        ...pipelineEditProblems(edit, others),
+        ...(await this.roleEngineProblems(edit.stages, library)),
+      ],
       flags: [
         ...pipelineEditFlags(edit, await this.roleFillings.of(edit.stages)),
         ...(await this.roleFillings.permissionProblems(edit.stages, 0)),
@@ -149,9 +157,44 @@ export class PipelineLibraryEditor {
     return pipeline;
   }
 
-  private async refuseProblems(edit: PipelineEdit, others: readonly Pipeline[]): Promise<void> {
-    const problems = pipelineEditProblems(edit, others);
+  private async refuseProblems(
+    edit: PipelineEdit,
+    others: readonly Pipeline[],
+    library: readonly Pipeline[],
+  ): Promise<void> {
+    const problems = [
+      ...pipelineEditProblems(edit, others),
+      ...(await this.roleEngineProblems(edit.stages, library)),
+    ];
     if (problems.length > 0) throw new StagesEditRefused(problems);
+  }
+
+  private async proposalProblems(
+    pipeline: Pipeline,
+    from: readonly Stage[],
+    to: readonly Stage[],
+    library: readonly Pipeline[],
+  ): Promise<StageProblem[]> {
+    return [
+      ...proposedStagesProblems(pipeline, from, to, othersThan(pipeline.id, library)),
+      ...(await this.roleEngineProblems(to, library)),
+    ];
+  }
+
+  /**
+   * Only Roles the library doesn't name yet are weighed: those it names already passed the check on
+   * every save of the engine cascade, so an old failure never blocks an unrelated save.
+   */
+  private async roleEngineProblems(
+    stages: readonly Stage[],
+    library: readonly Pipeline[],
+  ): Promise<StageProblem[]> {
+    const named = agentStageRoles(library.flatMap((pipeline) => pipeline.stages));
+    const problems = await this.roleEngines.newlyNamedRolesProblems({
+      roleKeys: newlyNamedRoles(agentStageRoles(stages), named),
+      projectId: undefined,
+    });
+    return problems.map((text) => ({ text }));
   }
 }
 

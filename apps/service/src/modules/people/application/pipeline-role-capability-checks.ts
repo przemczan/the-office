@@ -8,7 +8,7 @@ import {
   type EngineModel,
   type EngineSettingsSave,
 } from "../../engine/index.js";
-import type { ProjectCascadeLevels } from "../domain/engine-cascade.js";
+import type { ProjectCascadeLevels, ProjectWithCascadeLevels } from "../domain/engine-cascade.js";
 import {
   incapableEngineProblems,
   newlyOnIncapableEngines,
@@ -28,6 +28,15 @@ interface OfficeCascade {
   readonly engines: readonly Engine[];
 }
 
+/**
+ * Roles a save of Stages newly names in Agent Stages, and the Project whose sessions they'd run in:
+ * a Task's own Stages run in its Project; the library's anywhere (undefined).
+ */
+export interface NewlyNamedRoles {
+  readonly roleKeys: readonly string[];
+  readonly projectId: string | undefined;
+}
+
 /** Where sessions run: a Project, with its levels before and after a save, or outside any. */
 interface Place {
   readonly projectName: string | undefined;
@@ -40,7 +49,8 @@ const OUTSIDE_ANY_PROJECT: Place = { projectName: undefined, before: undefined, 
 /**
  * Refuses a save of the engine cascade that would newly put a Role a Pipeline names on an engine
  * lacking what its Agent Stages need (spec §5.4). It registers with each level's save as it starts:
- * the Office default's (Settings › Engines), the Role override's, and a Project's levels'.
+ * the Office default's (Settings › Engines), the Role override's, and a Project's levels'. The
+ * other way round, Pipelines asks it about the Roles a save of Stages newly names.
  */
 @Injectable()
 export class PipelineRoleCapabilityChecks implements OnModuleInit {
@@ -102,6 +112,25 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     );
   }
 
+  /**
+   * Roles newly named in Agent Stages are weighed where their sessions would run: a Task's in its
+   * Project, the library's outside any Project and in every Project.
+   */
+  async newlyNamedRolesProblems({
+    roleKeys,
+    projectId,
+  }: NewlyNamedRoles): Promise<readonly string[]> {
+    if (roleKeys.length === 0) return [];
+    const office = await this.officeCascade(await this.withRoleOverrides(roleKeys));
+    const places =
+      projectId === undefined
+        ? await this.everyPlace()
+        : (await this.projects.engineLevelsOfEveryProject())
+            .filter((project) => project.projectId === projectId)
+            .map(unchangedPlace);
+    return this.newlyIncapableProblems({ ...office, roles: [] }, office, places);
+  }
+
   /** In each place, what `after` puts on an incapable engine that `before` didn't, named by `after`. */
   private newlyIncapableProblems(
     before: OfficeCascade,
@@ -148,18 +177,14 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
   /** Outside any Project, then every Project, whose levels a save of another level leaves as they are. */
   private async everyPlace(): Promise<Place[]> {
     const projects = await this.projects.engineLevelsOfEveryProject();
-    return [
-      OUTSIDE_ANY_PROJECT,
-      ...projects.map((project) => ({
-        projectName: project.projectName,
-        before: project,
-        after: project,
-      })),
-    ];
+    return [OUTSIDE_ANY_PROJECT, ...projects.map(unchangedPlace)];
   }
 
   private async rolesNamedByPipelines(): Promise<PipelineRole[]> {
-    const roleKeys = [...(await this.pipelineRoles.rolesNamed())];
+    return this.withRoleOverrides([...(await this.pipelineRoles.rolesNamed())]);
+  }
+
+  private async withRoleOverrides(roleKeys: readonly string[]): Promise<PipelineRole[]> {
     return Promise.all(
       roleKeys.map(async (roleKey) => ({
         roleKey,
@@ -167,4 +192,9 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
       })),
     );
   }
+}
+
+/** A Project whose levels a save of something else leaves as they are. */
+function unchangedPlace(project: ProjectWithCascadeLevels): Place {
+  return { projectName: project.projectName, before: project, after: project };
 }

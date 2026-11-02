@@ -53,6 +53,7 @@ const projectLevels = [
 let check: (save: ProjectLevelsSave) => Promise<readonly string[]>;
 let roleOverrideChecks: RoleOverrideChecks;
 let engineSettingsChecks: EngineSettingsChecks;
+let checks: PipelineRoleCapabilityChecks;
 
 beforeEach(async () => {
   const roleCards: Pick<RoleCards, "find" | "roleTitle"> = {
@@ -102,6 +103,7 @@ beforeEach(async () => {
   await moduleRef.init();
   roleOverrideChecks = moduleRef.get(RoleOverrideChecks);
   engineSettingsChecks = moduleRef.get(EngineSettingsChecks);
+  checks = moduleRef.get(PipelineRoleCapabilityChecks);
 });
 
 function aSave(before: Partial<ProjectCascadeLevels>, after: Partial<ProjectCascadeLevels>) {
@@ -203,6 +205,31 @@ describe("PipelineRoleCapabilityChecks on a save of Settings › Engines", () =>
   it("lets through a save that changes nothing for the Roles a Pipeline names", async () => {
     await expect(
       engineSettingsChecks.problemsOf({ before: settings, after: settings }),
+    ).resolves.toEqual([]);
+  });
+});
+
+describe("PipelineRoleCapabilityChecks on Roles a save of Stages newly names", () => {
+  it("weighs a library Stage's Role outside any Project and in every Project", async () => {
+    await expect(
+      checks.newlyNamedRolesProblems({ roleKeys: ["cto", "developer"], projectId: undefined }),
+    ).resolves.toEqual([
+      "In Admin panel, the Cto would run on Local models, which can't use Office tools, as their Pipelines' Agent Stages need.",
+    ]);
+  });
+
+  it("weighs a Task's Stage's Role in the Task's Project only", async () => {
+    await expect(
+      checks.newlyNamedRolesProblems({ roleKeys: ["cto"], projectId: "billing" }),
+    ).resolves.toEqual([]);
+    await expect(
+      checks.newlyNamedRolesProblems({ roleKeys: ["cto"], projectId: "admin-panel" }),
+    ).resolves.toHaveLength(1);
+  });
+
+  it("weighs a Role's own override", async () => {
+    await expect(
+      checks.newlyNamedRolesProblems({ roleKeys: ["developer"], projectId: "admin-panel" }),
     ).resolves.toEqual([]);
   });
 });

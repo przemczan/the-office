@@ -5,6 +5,7 @@ export type WalkTaskState = "in-progress" | "waiting-on-you" | "done" | "dropped
 export interface StartedTask {
   readonly id: string;
   readonly state: string;
+  readonly projectId: string;
   /** The library Pipeline the Task's own Stages are copied from. */
   readonly pipelineId: string;
   /** Whether the fire alarm holds it Paused, apart from the user's own Pause. */

@@ -9,6 +9,7 @@ import {
   type PipelineEdit,
 } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { PipelineLibraryEditor } from "../../application/pipeline-library-editor.js";
 import { TaskStagesService } from "../../application/task-stages-service.js";
 import {
   PipelineAdded,
@@ -122,6 +123,68 @@ describe("POST /api/pipelines", () => {
     const pipeline = await added(edit);
 
     expect(pipeline.stages).toEqual(edit.stages);
+  });
+});
+
+/** A Role of its own per test, which no other Pipeline in the shared library names. */
+function anIncapableRole(): string {
+  const roleKey = `translator-${randomUUID()}`;
+  pipelines.roleEngines.incapableRoles.add(roleKey);
+  return roleKey;
+}
+
+function incapableRefusal(roleKey: string) {
+  return { stageIndex: null, text: `The ${roleKey}'s engine can't work an Agent Stage.` };
+}
+
+describe("a Stage naming a Role whose engine can't work an Agent Stage", () => {
+  it("is refused in a new Pipeline, weighed outside any Project and in every Project", async () => {
+    const roleKey = anIncapableRole();
+
+    const response = await send(
+      "POST",
+      "/pipelines",
+      anEdit({ stages: [agentStage({ role: roleKey })] }),
+    );
+
+    expect(response.status).toBe(422);
+    expect(stagesEditRefusalSchema.parse(await response.json()).problems).toEqual([
+      incapableRefusal(roleKey),
+    ]);
+    expect(pipelines.roleEngines.asked.at(-1)).toEqual({
+      roleKeys: [roleKey],
+      projectId: undefined,
+    });
+  });
+
+  it("is refused on a save and in a Proposal's Stages, and named by the check before Save", async () => {
+    const pipeline = await added();
+    const roleKey = anIncapableRole();
+    const edit = anEdit({ stages: [agentStage({ role: roleKey })] });
+
+    const saved = await send("PUT", `/pipelines/${pipeline.id}`, edit);
+    const checked = await send("POST", "/pipelines/check", { ...edit, pipelineId: pipeline.id });
+    const proposed = pipelines.app
+      .get(PipelineLibraryEditor)
+      .proposedStagesProblems(pipeline.id, pipeline.stages, edit.stages);
+
+    expect(saved.status).toBe(422);
+    expect(stagesEditRefusalSchema.parse(await saved.json()).problems).toEqual([
+      incapableRefusal(roleKey),
+    ]);
+    expect(pipelineCheckSchema.parse(await checked.json()).problems).toEqual([
+      incapableRefusal(roleKey),
+    ]);
+    expect(await proposed).toEqual([{ text: incapableRefusal(roleKey).text }]);
+  });
+
+  it("lets through a Role the library already names, whatever its engine", async () => {
+    const roleKey = `translator-${randomUUID()}`;
+    const named = await added(anEdit({ stages: [agentStage({ role: roleKey })] }));
+    pipelines.roleEngines.incapableRoles.add(roleKey);
+
+    expect((await added({ copyOf: named.id })).stages).toEqual(named.stages);
+    expect((await added(anEdit({ stages: named.stages }))).stages).toEqual(named.stages);
   });
 });
 

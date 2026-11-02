@@ -28,6 +28,7 @@ import { KnownPeople } from "./ports/known-people.js";
 import { ProjectDefaults } from "./ports/project-defaults.js";
 import { ProposalDrafts } from "./ports/proposal-drafts.js";
 import { StageDecisions } from "./ports/stage-decisions.js";
+import { StageRoleEngines } from "./ports/stage-role-engines.js";
 import { StageThreads } from "./ports/stage-threads.js";
 import { StaffingHoldRepository } from "./ports/staffing-hold-repository.js";
 import { StartedTasks } from "./ports/started-tasks.js";
@@ -43,7 +44,8 @@ import { UsageHistoryModule } from "./usage-history.module.js";
 
 export interface PipelinesModuleOptions {
   /**
-   * The modules that provide the ports below, Work, People, Conversations and Projects, and
+   * The modules that provide the ports below, Work, People (with its engine cascade),
+   * Conversations and Projects, and
    * Conversations' `ProposalAppliers`, which Pipelines fills with its kind of Proposal.
    */
   readonly imports: NonNullable<ModuleMetadata["imports"]>;
@@ -60,6 +62,7 @@ export interface PipelinesModuleOptions {
   readonly taskUsage: Type<TaskUsage>;
   readonly taskThreadSessions: Type<TaskThreadSessions>;
   readonly proposalDrafts: Type<ProposalDrafts>;
+  readonly stageRoleEngines: Type<StageRoleEngines>;
 }
 
 /**
@@ -83,6 +86,7 @@ export class PipelinesModule {
     taskUsage,
     taskThreadSessions,
     proposalDrafts,
+    stageRoleEngines,
   }: PipelinesModuleOptions): DynamicModule {
     return {
       module: PipelinesModule,
@@ -109,6 +113,7 @@ export class PipelinesModule {
         { provide: TaskUsage, useExisting: taskUsage },
         { provide: TaskThreadSessions, useExisting: taskThreadSessions },
         { provide: ProposalDrafts, useExisting: proposalDrafts },
+        { provide: StageRoleEngines, useExisting: stageRoleEngines },
         { provide: StaffingHoldRepository, useClass: PostgresStaffingHoldRepository },
         RoleFillings,
         TaskStagesService,
