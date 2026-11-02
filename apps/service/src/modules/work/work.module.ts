@@ -56,6 +56,7 @@ import { FireAlarmService } from "./application/fire-alarm-service.js";
 import { IdeaService } from "./application/idea-service.js";
 import { InitiativeService } from "./application/initiative-service.js";
 import { OfficeLimits } from "./application/office-limits.js";
+import { RemovedEngineCaps } from "./application/removed-engine-caps.js";
 import { OnboardingService } from "./application/onboarding-service.js";
 import { PlanningService } from "./application/planning-service.js";
 import { SavedViewService } from "./application/saved-view-service.js";
@@ -215,6 +216,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         InitiativeService,
         TaskService,
         OfficeLimits,
+        RemovedEngineCaps,
         OnboardingService,
         AttachmentService,
         SearchService,

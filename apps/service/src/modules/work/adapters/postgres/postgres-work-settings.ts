@@ -1,4 +1,6 @@
 import { Inject, Injectable } from "@nestjs/common";
+import { eq } from "drizzle-orm";
+import type { EngineId } from "../../../engine/index.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { DEFAULT_OFFICE_WIDE_LIMIT } from "../../domain/task-start.js";
 import { DEFAULT_USAGE_MEASURES } from "../../domain/usage-estimate.js";
@@ -45,6 +47,10 @@ export class PostgresWorkSettings extends WorkSettings {
       await transaction.delete(engineCaps);
       if (caps.length > 0) await transaction.insert(engineCaps).values(caps.map(engineCapsRowOf));
     });
+  }
+
+  async forgetEngineCaps(engineId: EngineId): Promise<void> {
+    await this.database.delete(engineCaps).where(eq(engineCaps.engineId, engineId));
   }
 }
 

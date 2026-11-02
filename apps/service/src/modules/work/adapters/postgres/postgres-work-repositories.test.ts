@@ -332,7 +332,7 @@ describe("PostgresWorkSettings", () => {
   /** Rolled back: every test file's Starts and estimates read the stored settings. */
   class RolledBack extends Error {}
 
-  it("answers the defaults until saved, then keeps the measures and caps apart from the Office-wide limit", async () => {
+  it("answers the defaults until saved, keeps the measures and caps apart from the Office-wide limit, and forgets one engine's caps", async () => {
     const changed: UsageSettings = {
       measures: [],
       caps: [
@@ -371,12 +371,15 @@ describe("PostgresWorkSettings", () => {
         await settings.changeOfficeWideLimit(7);
         await settings.changeUsageSettings(changed);
         seen.push(await settings.usageSettings(), await settings.officeWideLimit());
+        await settings.forgetEngineCaps("lab");
+        seen.push(await settings.usageSettings());
         throw new RolledBack();
       })
       .catch((error: unknown) => {
         if (!(error instanceof RolledBack)) throw error;
       });
 
-    expect(seen).toEqual([DEFAULT_USAGE_SETTINGS, kept, 7]);
+    const withoutLab: UsageSettings = { ...kept, caps: kept.caps.slice(0, 1) };
+    expect(seen).toEqual([DEFAULT_USAGE_SETTINGS, kept, 7, withoutLab]);
   });
 });

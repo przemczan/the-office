@@ -10,7 +10,7 @@
 
 ## Public entry (`index.ts`)
 
-EngineSessions, EngineCapability, OfficeToolRegistry, OfficeTool, OfficeToolResult, UsageWindowState, UsageWindowReading, UsageWindowSamples, UsageWindowRatios, EngineDown, UsageWindowsChanged, UsageWindowsRead, EngineModels, EngineSettingsChecks, EngineCascadeSettings, EngineSettingsSave, EngineReferenceMoves, EngineReferenceLock, movedEngineModel, EngineRemoval, FIRST_CLAUDE_CODE_ENGINE, hasUsageWindows, offeredModels, Engine, EngineId, EngineModel, DayUsage, ModelDayUsage, ModelPrices, READ_ONLY_GIT_COMMANDS, READ_ONLY_SHELL_RULE, EngineModule, EngineAccountsModule, ScriptedEngine, StandInEngine, readRecording, SessionScript, ScriptedEngineModule, ClaudeCodeAccounts, StandInClaudeCodeAccounts, OPENAI_COMPATIBLE_API_CAPABILITIES, NewSession, NoEngineListed, EngineSession, ApprovalCall, ApprovalHold
+EngineSessions, EngineCapability, OfficeToolRegistry, OfficeTool, OfficeToolResult, UsageWindowState, UsageWindowReading, UsageWindowSamples, UsageWindowRatios, EngineAdded, EngineDown, EngineRemoved, UsageWindowsChanged, UsageWindowsRead, EngineModels, EngineSettingsChecks, EngineCascadeSettings, EngineSettingsSave, EngineReferenceMoves, EngineReferenceLock, movedEngineModel, EngineRemoval, FIRST_CLAUDE_CODE_ENGINE, hasUsageWindows, offeredModels, Engine, EngineId, EngineModel, DayUsage, ModelDayUsage, ModelPrices, READ_ONLY_GIT_COMMANDS, READ_ONLY_SHELL_RULE, EngineModule, EngineAccountsModule, ScriptedEngine, StandInEngine, readRecording, SessionScript, ScriptedEngineModule, ClaudeCodeAccounts, StandInClaudeCodeAccounts, OPENAI_COMPATIBLE_API_CAPABILITIES, NewSession, NoEngineListed, EngineSession, ApprovalCall, ApprovalHold
 
 ## Domain events
 

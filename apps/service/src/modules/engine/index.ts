@@ -5,7 +5,13 @@ export type { OfficeTool, OfficeToolResult } from "./ports/office-tool.js";
 export { UsageWindowState, type UsageWindowReading } from "./application/usage-window-state.js";
 export { UsageWindowSamples } from "./application/usage-window-samples.js";
 export type { UsageWindowRatios } from "./domain/usage-window-samples.js";
-export { EngineDown, UsageWindowsChanged, UsageWindowsRead } from "./domain/engine-events.js";
+export {
+  EngineAdded,
+  EngineDown,
+  EngineRemoved,
+  UsageWindowsChanged,
+  UsageWindowsRead,
+} from "./domain/engine-events.js";
 export { EngineModels } from "./application/engine-models.js";
 export {
   EngineSettingsChecks,

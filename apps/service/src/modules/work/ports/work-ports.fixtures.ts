@@ -177,6 +177,13 @@ export class WorkSettingsForTests extends WorkSettings {
   async changeUsageSettings(settings: UsageSettings): Promise<void> {
     this.usage = settings;
   }
+
+  async forgetEngineCaps(engineId: EngineId): Promise<void> {
+    this.usage = {
+      ...this.usage,
+      caps: this.usage.caps.filter((caps) => caps.engineId !== engineId),
+    };
+  }
 }
 
 /**
