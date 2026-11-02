@@ -260,6 +260,85 @@ test("the Role card lists the Projects where another engine or model applies, an
   }
 });
 
+test("the Project page's Engine block sets the Project default, uses it for every Role, and gives a Role an override there", async ({
+  page,
+}) => {
+  const repository = await createTemporaryRepository();
+  let project: Project | undefined;
+  try {
+    project = await addedProject(page, repository, "Engine shop", "ES");
+    await page.goto(`/projects/${project.id}`);
+    const block = page
+      .locator("section")
+      .filter({ has: page.getByRole("heading", { name: "Engine", exact: true }) });
+    const projectDefault = block.getByRole("group", { name: "Project default" });
+    const useForEveryRole = block.getByRole("switch");
+    await expect(projectDefault.getByLabel("Engine")).toHaveValue("");
+    await expect(block).toContainText("Pick a Project default first.");
+
+    // Picking an engine fills in its default model.
+    await projectDefault.getByLabel("Engine").selectOption({ label: "Claude Code" });
+    await expect(projectDefault.getByLabel("Model")).toHaveValue("claude-sonnet-5-5");
+    await projectDefault.getByLabel("Model").selectOption({ label: "Haiku 5.5" });
+    // The field shows the saved Project, so this waits for the save, which the switch ignores clicks during.
+    await expect(projectDefault.getByLabel("Model")).toHaveValue("claude-haiku-5-5");
+    await useForEveryRole.click();
+    await expect(useForEveryRole).toHaveAttribute("aria-checked", "true");
+    // While it is on, the Project default can't be cleared.
+    await expect(
+      projectDefault.getByLabel("Engine").getByRole("option", { name: "None" }),
+    ).toHaveCount(0);
+
+    // The force wins over the Developer's Role override on his card.
+    const elsewhere = roleCardGroup(page, "Engine").getByRole("list", {
+      name: "Projects where something else applies",
+    });
+    await page.goto("/people/developer/role");
+    await expect(elsewhere).toContainText(
+      "In Engine shop: Haiku 5.5 on Claude Code, from the Project default",
+    );
+
+    await page.goto(`/projects/${project.id}`);
+    const adding = block.getByRole("group", { name: "Add a Role override" });
+    await adding.getByLabel("Role").selectOption("developer");
+    await adding.getByLabel("Model").selectOption({ label: "Haiku 5.5" });
+    await adding.getByRole("button", { name: "Add" }).click();
+    const overrides = block.getByRole("list", { name: "Role overrides in this Project" });
+    await expect(overrides.getByRole("listitem")).toHaveCount(1);
+    await expect(overrides.getByRole("listitem")).toContainText("Adam · Senior developer");
+
+    await page.reload();
+    await expect(projectDefault.getByLabel("Model")).toHaveValue("claude-haiku-5-5");
+    await expect(useForEveryRole).toHaveAttribute("aria-checked", "true");
+    await expect(overrides.getByLabel("Model")).toHaveValue("claude-haiku-5-5");
+
+    // The Project's Role override wins over the force.
+    await page.goto("/people/developer/role");
+    await expect(elsewhere).toContainText(
+      "In Engine shop: Haiku 5.5 on Claude Code, from the Project's Role override",
+    );
+
+    await page.goto(`/projects/${project.id}`);
+    await overrides.getByRole("button", { name: "Remove" }).click();
+    await expect(overrides).toHaveCount(0);
+    await expect(
+      adding.getByLabel("Role").getByRole("option", { name: "Adam · Senior developer" }),
+    ).toHaveCount(1);
+  } finally {
+    if (project) {
+      const projectPath = `/api/projects/${project.id}`;
+      await page.request.put(`${projectPath}/role-overrides/developer`, {
+        data: { roleOverride: null },
+      });
+      await page.request.put(`${projectPath}/use-for-every-role`, {
+        data: { useForEveryRole: false },
+      });
+      await page.request.put(`${projectPath}/project-default`, { data: { projectDefault: null } });
+    }
+    await repository.remove();
+  }
+});
+
 test("a Role card the service refuses names every reason, and keeps what was typed", async ({
   page,
 }) => {

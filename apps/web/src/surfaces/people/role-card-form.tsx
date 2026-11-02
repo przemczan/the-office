@@ -39,7 +39,8 @@ import {
   roleQueries,
 } from "../../api/people.ts";
 import { skillQueries } from "../../api/skills.ts";
-import { EFFORT_LABELS, modelLabel } from "../../shell/engine-words.ts";
+import { EngineModelFields } from "../../shell/engine-model-fields.tsx";
+import { EFFORT_LABELS } from "../../shell/engine-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { personName } from "../../shell/person-name.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
@@ -60,11 +61,9 @@ import {
   hardSwitchChoiceOf,
   hardSwitchChoices,
   hardSwitchValueOf,
-  missingCapabilitiesWords,
   RUN_LABELS,
   SESSION_DEFAULTS,
 } from "../../shell/role-card-words.ts";
-import { useEngineName } from "../../shell/use-engine-name.ts";
 
 /** "Edit Role": the person's whole Role card as a form, saved as its next version. */
 export function RoleCardEditPage(): ReactNode {
@@ -394,48 +393,20 @@ function WorkFields({
   );
 }
 
-/** The Engine field's choice of no Role override. */
-const OFFICE_DEFAULT = "";
-
 function EngineFields({
   draft,
   options,
   change,
 }: FieldsProps & { readonly options: RoleCardOptions }): ReactNode {
-  const engineName = useEngineName();
-  const { roleOverride } = draft;
-  const picked = options.engines.find(({ engine }) => engine === roleOverride?.engineId);
   return (
     <RoleCardGroup group="engine">
       <div className="role-card-form-pair">
-        <Select
-          label="Engine"
-          hint={picked && missingCapabilitiesWords(picked.missingCapabilities)}
-          value={roleOverride?.engineId ?? OFFICE_DEFAULT}
-          options={[
-            { value: OFFICE_DEFAULT, label: "Office default" },
-            ...options.engines.map(({ engine }) => ({ value: engine, label: engineName(engine) })),
-          ]}
-          onChange={(value) => {
-            const engine = options.engines.find((offered) => offered.engine === value);
-            if (!engine) {
-              change({ roleOverride: null });
-              return;
-            }
-            change({ roleOverride: { engineId: engine.engine, model: engine.defaultModel } });
-          }}
+        <EngineModelFields
+          value={draft.roleOverride}
+          engines={options.engines}
+          noneLabel="Office default"
+          onChange={(roleOverride) => change({ roleOverride })}
         />
-        {roleOverride && (
-          <Select
-            label="Model"
-            value={roleOverride.model}
-            options={(picked?.models ?? []).map((model) => ({
-              value: model,
-              label: modelLabel(model),
-            }))}
-            onChange={(model) => change({ roleOverride: { ...roleOverride, model } })}
-          />
-        )}
       </div>
       <Field label="Effort" hint="How hard the model thinks.">
         <SegmentedControl

@@ -9,6 +9,7 @@ import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { CommandsBlock } from "./commands-block.tsx";
 import { DefaultPipelineBlock } from "./default-pipeline-block.tsx";
+import { EngineBlock } from "./engine-block.tsx";
 import { EnvironmentBlock } from "./environment-block.tsx";
 import { OnboardingBadge, OnboardingBlock } from "./onboarding-block.tsx";
 import { remoteNeedsLine } from "./remote-needs-words.ts";
@@ -18,8 +19,8 @@ import { WorkBlock } from "./work-block.tsx";
 import "./projects.css";
 
 /**
- * A Project's own page: its commands, default Pipeline and publishing, its own skills, its
- * onboarding, its environment, and how its Tasks stand.
+ * A Project's own page: its commands, default Pipeline and publishing, the engine its Roles run
+ * on, its own skills, its onboarding, its environment, and how its Tasks stand.
  */
 export function ProjectPage(): ReactNode {
   const { projectId } = useParams({ from: "/projects/$projectId" });
@@ -38,6 +39,7 @@ export function ProjectPage(): ReactNode {
         <div className="project-column">
           <CommandsBlock project={project.data} />
           <DefaultPipelineBlock project={project.data} />
+          <EngineBlock project={project.data} />
           <SkillsBlock project={project.data} />
           <ServerValuesBlock project={project.data} />
         </div>

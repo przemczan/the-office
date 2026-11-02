@@ -11,6 +11,7 @@ import {
   repositoryCloneSchema,
   repositoryCloneWebEventSchema,
   taskChangesSchema,
+  type EngineModel,
   type EnvironmentCheck,
   type NewProject,
   type Project,
@@ -158,6 +159,38 @@ export function changeDefaultPipeline(id: string, defaultPipeline: string): Prom
     "PUT",
     `${projectPath(id)}/default-pipeline`,
     { defaultPipeline },
+    projectSchema,
+  );
+}
+
+/** The engine and model every Role in the Project runs on unless a more specific level wins; null clears it. */
+export function changeProjectDefault(
+  id: string,
+  projectDefault: EngineModel | null,
+): Promise<Project> {
+  return sendToApi("PUT", `${projectPath(id)}/project-default`, { projectDefault }, projectSchema);
+}
+
+/** The Project default wins over the Office-wide Role overrides, or doesn't. */
+export function changeUseForEveryRole(id: string, useForEveryRole: boolean): Promise<Project> {
+  return sendToApi(
+    "PUT",
+    `${projectPath(id)}/use-for-every-role`,
+    { useForEveryRole },
+    projectSchema,
+  );
+}
+
+/** The engine and model one Role runs on in the Project; null removes the override. */
+export function changeRoleOverride(
+  id: string,
+  roleKey: string,
+  roleOverride: EngineModel | null,
+): Promise<Project> {
+  return sendToApi(
+    "PUT",
+    `${projectPath(id)}/role-overrides/${encodeURIComponent(roleKey)}`,
+    { roleOverride },
     projectSchema,
   );
 }

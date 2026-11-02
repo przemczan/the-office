@@ -182,11 +182,16 @@ test("a Project's page lists its own skills, read-only, with the switch", async 
 
   await expect(page.getByText("Deploys the panel.")).toBeVisible();
   await expect(page.getByText(".claude/skills/deploy")).toBeVisible();
-  await page.getByRole("switch").click();
+  // The Engine block has a switch of its own.
+  const useProjectSkills = page
+    .locator("label")
+    .filter({ hasText: "Use this Project's skills" })
+    .getByRole("switch");
+  await useProjectSkills.click();
 
   await expect(
     page.getByText("Sessions in Own skills start without its own skills."),
   ).toBeVisible();
-  await expect(page.getByRole("switch")).toHaveAttribute("aria-checked", "false");
+  await expect(useProjectSkills).toHaveAttribute("aria-checked", "false");
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-project-skills.png") });
 });

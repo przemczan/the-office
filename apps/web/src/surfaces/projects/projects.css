@@ -311,6 +311,55 @@
   gap: 10px;
 }
 
+/* ---- the engine cascade's Project levels */
+.project-engine-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.project-engine-switch {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.project-role-overrides {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.project-role-overrides h4 {
+  margin: 0;
+}
+
+.project-role-override-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.project-role-override {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.project-role-override-name {
+  align-self: center;
+  font: var(--type-body-sm);
+  color: var(--fg-1);
+}
+
 /* ---- the repository's skills */
 .project-skills-switch {
   padding: 10px 12px;
@@ -485,7 +534,9 @@
 
   .projects-grid,
   .add-project-columns,
-  .server-values-list li {
+  .server-values-list li,
+  .project-engine-pair,
+  .project-role-override {
     grid-template-columns: minmax(0, 1fr);
   }
 }
