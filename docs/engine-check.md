@@ -135,7 +135,7 @@ Results that contradicted or went beyond the spec, and how the spec reads now. E
 
 - **Run:** a session under the Office's options on a workstation with user-scope installed plugins, user skills, synced skills and synced plugins.
 - **Observed:** none of them loads. `~/.claude/commands` is absent on the Windows workstation, so that part proves nothing there. On the Linux container none of them is present, so the Linux run proves nothing here; the Windows run is the evidence. No variant with sync on was run, since it could write into `~/.claude`.
-- **Meaning:** `settingSources: ['project']` with the sync settings off keeps the user's own Claude Code setup out of Office sessions; no per-session `CLAUDE_CONFIG_DIR` is needed.
+- **Meaning:** `settingSources: ['project']` with the sync settings off keeps the user's own Claude Code setup out of Office sessions; no per-session `CLAUDE_CONFIG_DIR` is needed. From task 47 each Claude Code engine runs with its own folder as `CLAUDE_CONFIG_DIR` ([5.4](spec/5.4-the-engine.md#defaults)); task 47's live check re-runs this under one.
 
 ### skills.plugin-folder-reads
 

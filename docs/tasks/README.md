@@ -71,7 +71,7 @@ Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written
 | 36 | [MCP servers for Agents](36-mcp-servers.md) | People | done |
 | 46 | [A Project from a git repository, and Sign in with GitHub](46-project-from-git-repository.md) | Projects | done |
 | 37 | [Usage estimates](37-usage-estimates.md) | Now | done |
-| 47 | Engines as a list: Claude Code per account with a simple sign-in, and the engine cascade (Office, Project, Role) | Settings and Projects | todo |
+| 47 | [Engines as a list: Claude Code per account with a simple sign-in, and the engine cascade (Office, Project, Role)](47-engines-as-a-list.md) | Settings and Projects | in progress |
 | 38 | Archive, and moving Tasks between Projects | Work | todo |
 | 39 | Attachment versions | Work and the Task page | todo |
 | 40 | Stage templates in the Pipeline library | Projects | todo |

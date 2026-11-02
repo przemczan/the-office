@@ -83,15 +83,15 @@ What a Ready Task's whole Pipeline is expected to use on each engine it uses, in
 _Avoid_: Budget (a Stage's token limit), forecast, quota estimate
 
 **Window cap**:
-The Claude Code engines' cap, one for their shared account, on how much of the 5-hour or the 7-day window a Start may bring the window to, with its Usage estimate, before it waits in the Queue for the reset.
+A Claude Code engine's cap, one for each window, on how much of the 5-hour or the 7-day window a Start may bring the window to, with its Usage estimate, before it waits in the Queue for the reset.
 _Avoid_: Quota gate, budget, limit (the Office-wide limit and Task limits count desks), threshold
 
 **Daily cap**:
-A cap on the tokens, or the dollars, used in one day, per account for the Claude Code engines, one set for the OpenAI-compatible API; a Start that would pass it, with its Usage estimate, waits in the Queue until midnight. Off unless set.
+An engine's cap on the tokens, or the dollars, used on it in one day; a Start that would pass it, with its Usage estimate, waits in the Queue until midnight. Off unless set.
 _Avoid_: Budget, quota, daily limit
 
 **Model price**:
-What a model costs per million tokens of each kind (input, output, cache writes, cache reads), set in Settings › Engines; every cost in The Office is priced by it.
+What a model costs per million tokens of each kind (input, output, cache writes, cache reads), set in Settings › Engines: one per Claude model, shared by every Claude Code engine, and one per engine and model on the OpenAI-compatible API; every cost in The Office is priced by it.
 _Avoid_: Rate, pricing, price table
 
 **Reading source**:
@@ -185,19 +185,35 @@ _Avoid_: Checkpoint, approval step
 ### Agents
 
 **Role**:
-A job the user hires for, filled by one named person: its responsibilities, instructions, model, tools and authority.
+A job the user hires for, filled by one named person: its responsibilities, instructions, tools and authority.
 _Avoid_: Persona, profile, agent type
 
 **Role card**:
-Everything that defines a Role: its person's name and title, responsibilities, instructions, model and engine, capabilities (shared memory, chat, Consultant), permission profile, authority, Task limit and Skills.
+Everything that defines a Role: its person's name and title, responsibilities, instructions, effort, Role override, capabilities (shared memory, chat, Consultant), permission profile, authority, Task limit and Skills.
 _Avoid_: Role config, definition, settings
 
+**Engine**:
+What a session runs on, listed by the user in Settings › Engines with a name and a default model: a Claude Code account, signed in in its own folder, with the `-p` fallback as its switch, or an API endpoint of the OpenAI-compatible API. Caps and usage are kept per Engine. The one a session runs on comes from the cascade of the Office default, the Project default and the Role overrides.
+_Avoid_: Provider, backend, account (as the thing picked), engine id
+
+**Office default**:
+The Engine and model every session runs on unless a more specific level names another; set in Settings › Engines.
+_Avoid_: Global engine, default engine setting
+
+**Project default**:
+The Engine and model a Project's sessions run on, set in the Project page's Engine block; with "Use for every Role" it applies to every Role in the Project over their Office-wide Role overrides.
+_Avoid_: Project engine, project override
+
+**Role override**:
+An Engine and model a Role runs on in place of the default: Office-wide on the Role card, or a Project's own in the Project page's Engine block, which wins in that Project. With none, the Role card reads "Office default".
+_Avoid_: Role engine, model override, Stage model
+
 **OpenAI-compatible API**:
-The engine a Role may pick to work on a model served on the OpenAI-compatible API, such as a local LLM; The Office runs the agent loop itself.
+The API that an Engine of this kind works on, a model served on it such as a local LLM; The Office runs the agent loop itself.
 _Avoid_: API engine, local engine, LLM provider
 
 **API endpoint**:
-A server on the OpenAI-compatible API that the user lists in Settings → Engines: its name, base URL, key and models. A Role's Model field names an API endpoint and one of its models.
+A server on the OpenAI-compatible API, added in Settings → Engines as an Engine of its own: its name, base URL, key and models.
 _Avoid_: Provider, backend, model server, connection
 
 **Search endpoint**:
