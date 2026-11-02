@@ -81,6 +81,7 @@ import {
   type WorkApplication,
 } from "../../work-application.fixtures.js";
 import { GITHUB_SITE } from "../../../../platform/git-identity/github-site.js";
+import { ownProjectsStartedTasks } from "../../../pipelines/index.fixtures.js";
 import { ownProjectsQueue } from "../postgres/postgres-queue-repository.fixtures.js";
 
 const run = promisify(execFile);
@@ -1053,7 +1054,13 @@ function storedTask(taskId: string): Promise<StoredTask> {
   return work.app.get(TaskService).read(taskId);
 }
 
-describe("The fire alarm", () => {
+/**
+ * The all clear's test sends about 33 requests one after another, with no waits: 0.5 s alone, 1.7 to
+ * 2.6 s in eleven full runs (each request evenly about 4 times slower), and past vitest's 5 s once.
+ */
+const MANY_REQUESTS_TEST_MS = 15_000;
+
+describe("The fire alarm", { timeout: MANY_REQUESTS_TEST_MS }, () => {
   /** The test's own alarm: the stored one holds every file's Starts. */
   let fireAlarm: FireAlarmRepositoryForTests;
   const ownIds: string[] = [];
@@ -1444,6 +1451,7 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
       { provide: RoleCards, useValue: roleCardsOf(developerKey, taskLimit) },
       { provide: MemoryService, useValue: NO_MEMORY },
       ownProjectsQueue(() => ownProjectIds),
+      ownProjectsStartedTasks(() => ownProjectIds),
     ],
     moduleOverrides: [{ module: EngineModule, useModule: ScriptedEngineModule.register(engine) }],
   });

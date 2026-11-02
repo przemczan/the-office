@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { lstat, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { moveWhenFree } from "../../../../platform/os/move-when-free.js";
 import { skillFilePathProblem, type SkillFile } from "../../domain/skill-files.js";
 
 /** What a write left when it was interrupted: never a whole folder, so always safe to remove. */
@@ -21,10 +22,12 @@ export async function writeWhole(
     await mkdir(writing, { recursive: true });
     await write(writing);
     if (replace) await rm(folder, { recursive: true, force: true });
-    await rename(writing, folder).catch(async (error: unknown) => {
-      // Another call wrote the same folder first.
-      if (replace || !(await exists(folder))) throw error;
-    });
+    try {
+      await rename(writing, folder);
+    } catch {
+      // Another call wrote the same folder first; otherwise the folder may only be busy.
+      if (replace || !(await exists(folder))) await moveWhenFree(writing, folder);
+    }
   } finally {
     await rm(writing, { recursive: true, force: true });
   }

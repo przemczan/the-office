@@ -61,6 +61,7 @@ AlarmResumes, PipelineLibrary, TaskStagesService, UsageHistory, StageUsage, Stag
 
 ### ./
 
+- `index.fixtures.ts`: ownProjectsStartedTasks
 - `pipeline-library.module.ts`: PipelineLibraryModule
 - `pipelines-application.fixtures.ts`: PipelinesApplication, startPipelinesApplication, walkStages, runsOf, anAgentStage, aTurn, anAgentSession, AN_INTERRUPTED_SESSION, aDoneResult, A_WAITING_RESULT, anAskedDecision, asksOnce, answerAsked, answerLastDecision
 - `pipelines.module.ts`: PipelinesModuleOptions, PipelinesModule
@@ -177,6 +178,7 @@ AlarmResumes, PipelineLibrary, TaskStagesService, UsageHistory, StageUsage, Stag
 - `stage-role-engines.ts`: NewlyNamedStageRoles, StageRoleEngines
 - `stage-run-repository.ts`: StageRunThread, StageRunRepository
 - `stage-threads.ts`: StageSessionSettings, StageThreadRequest, StageTurn, AskedDecision, StageThread, StageSessionAhead, StageThreads
+- `started-tasks.fixtures.ts`: OwnProjectsStartedTasks, ownProjectsStartedTasks
 - `started-tasks.ts`: WalkTaskState, StartedTask, StartedTasks
 - `task-commands.ts`: ScriptCommandKey, TaskCommands
 - `task-git.ts`: WorktreeHead, TaskGit

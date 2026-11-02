@@ -102,6 +102,8 @@ async function get(path: string): Promise<unknown> {
 }
 
 /** Adds the fake local MCP server to the library and turns it on, as its review listed it. */
+const PROCESS_TIMEOUT = { timeout: 30_000 };
+
 async function addReviewedFakeServer(name: string): Promise<void> {
   const added = await send("POST", "/mcp-servers", {
     name,
@@ -320,36 +322,42 @@ describe("GET /api/roles", () => {
     expect(reviewer).toEqual(listed.find((role) => role.key === "reviewer"));
   });
 
-  it("lists the Role's MCP servers with each tool's setting, the default included", async () => {
-    // A name of the test's own, since every test file shares the database.
-    const name = `fake-${randomUUID().slice(0, 8)}`;
-    await addReviewedFakeServer(name);
-    expect((await send("PUT", `/mcp-servers/${name}/roles`, { roles: ["planner"] })).status).toBe(
-      200,
-    );
-    const hired = await hire("planner", "Jan");
-    const changed = await send("PUT", "/roles/planner/card", {
-      ...editOf(hired),
-      permissionProfile: {
-        ...hired.card.permissionProfile,
-        mcpTools: { [`${name}/echo`]: { kind: "allowed" } },
-      },
-    });
-    expect(changed.status).toBe(200);
+  // The review starts the fake server, a Node process loading the MCP SDK: 1.3 s alone, 3.2 to 4.6 s
+  // in eleven full runs, past vitest's 5 s once; mcp-servers.controller.test.ts's reviews wait so too.
+  it(
+    "lists the Role's MCP servers with each tool's setting, the default included",
+    PROCESS_TIMEOUT,
+    async () => {
+      // A name of the test's own, since every test file shares the database.
+      const name = `fake-${randomUUID().slice(0, 8)}`;
+      await addReviewedFakeServer(name);
+      expect((await send("PUT", `/mcp-servers/${name}/roles`, { roles: ["planner"] })).status).toBe(
+        200,
+      );
+      const hired = await hire("planner", "Jan");
+      const changed = await send("PUT", "/roles/planner/card", {
+        ...editOf(hired),
+        permissionProfile: {
+          ...hired.card.permissionProfile,
+          mcpTools: { [`${name}/echo`]: { kind: "allowed" } },
+        },
+      });
+      expect(changed.status).toBe(200);
 
-    const planner = roleSchema.parse(await get("/roles/planner"));
+      const planner = roleSchema.parse(await get("/roles/planner"));
 
-    const devops = { kind: "consult", role: "devops" };
-    expect(planner.mcpServers.find((server) => server.name === name)).toEqual({
-      name,
-      on: true,
-      tools: [
-        { name: "echo", setting: { kind: "allowed" } },
-        { name: "environment-variable", setting: devops },
-        { name: "started-process", setting: devops },
-      ],
-    });
-  });
+      const devops = { kind: "consult", role: "devops" };
+      expect(planner.mcpServers.find((server) => server.name === name)).toEqual({
+        name,
+        on: true,
+        tools: [
+          { name: "echo", setting: { kind: "allowed" } },
+          { name: "environment-variable", setting: devops },
+          { name: "started-process", setting: devops },
+        ],
+      });
+    },
+  );
 
   it("answers 404 for a Role nobody fills", async () => {
     const response = await fetch(`${url}/api/roles/developer`);

@@ -105,6 +105,7 @@
 - `current-operating-system.ts`: currentOperatingSystem
 - `linux-processes.ts`: LinuxProcess, hasEnded, processFromStat, runningInGroup
 - `linux.ts`: linux
+- `move-when-free.ts`: moveWhenFree
 - `operating-system.ts`: OperatingSystem, SshPrograms, UserEnvironment
 - `owner-only.fixtures.ts`: isOwnerOnly
 - `path-rules.ts`: PathRules, PathEntry, PathLimits, pathLengthProblem
@@ -113,7 +114,7 @@
 - `program.ts`: Program, startProgram
 - `shell.ts`: AgentShell, ShellProgram, AgentShellProgram, Shell, ShellInvocation, FailedShellCommand
 - `windows.ts`: windows, programOf, programCandidates
-- Tests: current-operating-system.test.ts, linux-processes.test.ts, linux.test.ts, program.test.ts, windows.test.ts
+- Tests: current-operating-system.test.ts, linux-processes.test.ts, linux.test.ts, move-when-free.test.ts, program.test.ts, windows.test.ts
 
 ### schedule/
 
