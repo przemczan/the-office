@@ -1,4 +1,4 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { EngineAdded, EngineRemoved } from "../domain/engine-events.js";
 import { engineRemovalAmong } from "../domain/engine-removal.js";
@@ -11,6 +11,7 @@ import {
 import { EngineSettingsRefused } from "../domain/engine-settings-refused.js";
 import type { Engine, EngineId } from "../domain/engines.js";
 import { EngineSettingsRepository } from "../ports/engine-settings-repository.js";
+import { EngineReferenceLock } from "./engine-reference-lock.js";
 import { EngineReferenceMoves } from "./engine-reference-moves.js";
 import { EngineSettingsChecks } from "./engine-settings-checks.js";
 
@@ -20,13 +21,12 @@ import { EngineSettingsChecks } from "./engine-settings-checks.js";
  */
 @Injectable()
 export class EngineSettingsService {
-  private readonly logger = new Logger(EngineSettingsService.name);
-
   constructor(
     private readonly repository: EngineSettingsRepository,
     private readonly events: EventBus,
     private readonly checks: EngineSettingsChecks,
     private readonly referenceMoves: EngineReferenceMoves,
+    private readonly lock: EngineReferenceLock,
   ) {}
 
   current(): Promise<EngineSettings> {
@@ -35,19 +35,27 @@ export class EngineSettingsService {
 
   /**
    * Keeps the settings `edit` makes, refusing with every reason when they break a rule or a
-   * registered check refuses them, and announces each engine added. The checks weigh the settings
-   * as read just before, so a change made in between goes unchecked.
+   * registered check refuses them, and announces each engine added. Held under the
+   * `EngineReferenceLock` from the read through the write, so a removal can't come in between.
    */
   async change(edit: EngineSettingsEdit): Promise<EngineSettings> {
+    const { stored, changed } = await this.lock.holding(() => this.kept(edit));
+    for (const { id, kind } of enginesMissingFrom(changed.engines, stored.engines)) {
+      await this.events.publish(new EngineAdded(id, kind));
+    }
+    return changed;
+  }
+
+  private async kept(edit: EngineSettingsEdit): Promise<{
+    readonly stored: EngineSettings;
+    readonly changed: EngineSettings;
+  }> {
     const stored = await this.repository.read();
     const changed = changedEngineSettings(stored, edit);
     const problems = await this.checks.problemsOf({ before: stored, after: changed });
     if (problems.length > 0) throw new EngineSettingsRefused(problems);
     await this.repository.replace(changed);
-    for (const { id, kind } of enginesMissingFrom(changed.engines, stored.engines)) {
-      await this.events.publish(new EngineAdded(id, kind));
-    }
-    return changed;
+    return { stored, changed };
   }
 
   /**
@@ -56,12 +64,22 @@ export class EngineSettingsService {
    * moves, when the removal or the moved levels break a rule or a registered check. The other
    * modules' references move first and the engine goes after: a move failing part way leaves the
    * engine listed and every moved reference on the replacement, also listed, so nothing names an
-   * engine that is gone, and removing it again moves the rest. Once the engine is gone and
-   * announced, the references move once more, for any set to it meanwhile; from then on a save
-   * naming it is refused, as it is no longer listed. That last move failing is logged, not thrown:
-   * the removal is done and can't be repeated.
+   * engine that is gone, and removing it again moves the rest. Held under the
+   * `EngineReferenceLock` from the read through the engine's removal, so no reference is saved to
+   * it meanwhile; announced after, since `EngineAccounts` waits on it in the background.
    */
   async remove(engineId: EngineId, replacementId: EngineId | null): Promise<EngineSettings> {
+    const { removed, changed } = await this.lock.holding(() =>
+      this.removedWithReferencesMoved(engineId, replacementId),
+    );
+    if (removed) await this.events.publish(new EngineRemoved(removed.id, removed.kind));
+    return changed;
+  }
+
+  private async removedWithReferencesMoved(
+    engineId: EngineId,
+    replacementId: EngineId | null,
+  ): Promise<{ readonly removed: Engine | undefined; readonly changed: EngineSettings }> {
     const stored = await this.repository.read();
     const removal = engineRemovalAmong(stored.engines, engineId, replacementId);
     const changed = settingsWithoutEngine(stored, removal);
@@ -69,14 +87,7 @@ export class EngineSettingsService {
     if (problems.length > 0) throw new EngineSettingsRefused(problems);
     await this.referenceMoves.moveEach(removal);
     await this.repository.replace(changed);
-    const removed = stored.engines.find(({ id }) => id === engineId);
-    if (removed) await this.events.publish(new EngineRemoved(removed.id, removed.kind));
-    await this.referenceMoves.moveEach(removal).catch((error: unknown) => {
-      this.logger.error(
-        `Moving what was set to the removed engine ${engineId} failed: ${messageOf(error)}`,
-      );
-    });
-    return changed;
+    return { removed: stored.engines.find(({ id }) => id === engineId), changed };
   }
 }
 
@@ -84,8 +95,4 @@ export class EngineSettingsService {
 function enginesMissingFrom(engines: readonly Engine[], others: readonly Engine[]): Engine[] {
   const otherIds = new Set(others.map(({ id }) => id));
   return engines.filter(({ id }) => !otherIds.has(id));
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }

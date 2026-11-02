@@ -9,11 +9,13 @@ import { startTestApplication } from "../../../../../test/test-application.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
 import { EngineReferenceMoves } from "../../application/engine-reference-moves.js";
+import { EngineSettingsService } from "../../application/engine-settings-service.js";
 import {
   EngineSettingsChecks,
   type EngineSettingsSave,
 } from "../../application/engine-settings-checks.js";
 import { EngineSettingsModule } from "../../engine-settings.module.js";
+import { EngineSettingsRefused } from "../../domain/engine-settings-refused.js";
 import { EngineAdded, EngineRemoved } from "../../domain/engine-events.js";
 import type { EngineRemoval } from "../../domain/engine-removal.js";
 import { DEFAULT_ENGINE_SETTINGS, FIRST_OFFICE_DEFAULT } from "../../domain/engine-settings.js";
@@ -273,7 +275,7 @@ describe("DELETE /api/settings/engines/:engineId", () => {
     if (!saved.ok) throw new Error(`Strata wasn't saved: ${saved.status}`);
   });
 
-  it("moves what names the engine to the replacement while it is still listed, then removes it and moves again", async () => {
+  it("moves what names the engine to the replacement while it is still listed, then removes it", async () => {
     const moves: { removal: EngineRemoval; listed: string[] }[] = [];
     app.get(EngineReferenceMoves).register(async (removal) => {
       moves.push({ removal, listed: (await repository.read()).engines.map(({ id }) => id) });
@@ -288,12 +290,8 @@ describe("DELETE /api/settings/engines/:engineId", () => {
     expect(settings.engines.map(({ id }) => id)).toEqual(["claude-code"]);
     // The replacement doesn't offer the model, so the Office default takes its default model.
     expect(settings.officeDefault).toEqual(FIRST_OFFICE_DEFAULT);
-    // Moved again once it is gone, for a reference set to it in between.
     const removal = { engineId: "strata", replacement: FIRST_CLAUDE_CODE_ENGINE };
-    expect(moves).toEqual([
-      { removal, listed: ["claude-code", "strata"] },
-      { removal, listed: ["claude-code"] },
-    ]);
+    expect(moves).toEqual([{ removal, listed: ["claude-code", "strata"] }]);
     expect((await repository.read()).engines).toEqual([FIRST_CLAUDE_CODE_ENGINE]);
     expect(announced.map(({ engineId, kind }) => [engineId, kind])).toEqual([
       ["strata", "openai-compatible-api"],
@@ -351,18 +349,31 @@ describe("DELETE /api/settings/engines/:engineId", () => {
     expect((await remove("strata", "claude-code")).status).toBe(200);
   });
 
-  it("announces the removal even when the move after it fails, which is only logged", async () => {
-    let calls = 0;
+  it("keeps a save of the engines waiting until the removal is done, so it can't list the engine again", async () => {
+    let moving!: () => void;
+    const moveStarted = new Promise<void>((resolve) => (moving = resolve));
+    let releaseMove!: () => void;
+    const moveHeld = new Promise<void>((resolve) => (releaseMove = resolve));
     app.get(EngineReferenceMoves).register(async () => {
-      calls += 1;
-      if (calls === 2) throw new Error("The database went away.");
+      moving();
+      await moveHeld;
     });
-    const announced: EngineRemoved[] = [];
-    app.get(EventBus).subscribe(EngineRemoved, (event) => void announced.push(event));
+    const settings = app.get(EngineSettingsService);
 
-    expect((await remove("strata", "claude-code")).status).toBe(200);
+    const removing = settings.remove("strata", "claude-code");
+    await moveStarted;
+    // Edited from the settings read before the removal, as a Settings › Engines save would be.
+    const [claudeCode, strata] = strataEdit.engines;
+    const saving = settings.change({
+      ...strataEdit,
+      engines: [claudeCode!, { ...strata!, id: "strata" }],
+      officeDefault: strataDefault,
+    });
+    releaseMove();
+
+    await removing;
+    await expect(saving).rejects.toThrow(EngineSettingsRefused);
     expect((await repository.read()).engines.map(({ id }) => id)).toEqual(["claude-code"]);
-    expect(announced.map(({ engineId }) => engineId)).toEqual(["strata"]);
   });
 
   it("refuses a replacement not listed, or none while another engine is, in words", async () => {
@@ -388,7 +399,7 @@ describe("DELETE /api/settings/engines/:engineId", () => {
       expect.objectContaining({ engines: [], officeDefault: null }),
     );
     const removal = { engineId: "claude-code", replacement: null };
-    expect(moves).toEqual([removal, removal]);
+    expect(moves).toEqual([removal]);
   });
 
   it("gives the first engine added after none the Office default", async () => {

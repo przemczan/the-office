@@ -2,7 +2,7 @@ import { isAbsolute, resolve } from "node:path";
 import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import type { EngineModel } from "../../engine/index.js";
+import { EngineReferenceLock, type EngineModel } from "../../engine/index.js";
 import {
   projectIdFor,
   trimmedNewProject,
@@ -52,6 +52,7 @@ export class ProjectService {
     private readonly git: Git,
     private readonly events: EventBus,
     private readonly engineLevelsChecks: EngineLevelsChecks,
+    private readonly engineReferences: EngineReferenceLock,
   ) {}
 
   /** Refuses with every reason, before saving, when the Project breaks a rule. */
@@ -177,12 +178,13 @@ export class ProjectService {
 
   /** Sessions already running keep the engine and model they started on. */
   async changeProjectDefault(id: string, projectDefault: EngineModel | null): Promise<Project> {
-    if (projectDefault !== null) await this.checks.checkEngineModel(projectDefault);
-    return this.changeEngineLevels(id, (project) => changeProjectDefault(project, projectDefault));
+    return this.changeEngineLevels(id, projectDefault, (project) =>
+      changeProjectDefault(project, projectDefault),
+    );
   }
 
   async changeUseForEveryRole(id: string, useForEveryRole: boolean): Promise<Project> {
-    return this.changeEngineLevels(id, (project) =>
+    return this.changeEngineLevels(id, null, (project) =>
       changeUseForEveryRole(project, useForEveryRole),
     );
   }
@@ -193,32 +195,40 @@ export class ProjectService {
     roleKey: string,
     roleOverride: EngineModel | null,
   ): Promise<Project> {
-    if (roleOverride !== null) await this.checks.checkEngineModel(roleOverride);
-    return this.changeEngineLevels(id, (project) =>
+    return this.changeEngineLevels(id, roleOverride, (project) =>
       changeRoleOverride(project, roleKey, roleOverride),
     );
   }
 
   /**
-   * Refuses, before saving, a change of the engine levels that a registered check refuses. The
-   * check weighs the Project as read just before, so a change made in between goes unchecked.
+   * Refuses, before saving, a change of the engine levels naming `named`, an engine and model
+   * Settings › Engines must list, or that a registered check refuses. Held under Engine's
+   * `EngineReferenceLock` from reading the engines through the save, so a removal can't come in
+   * between; the events are published after. The check weighs the Project as read just before,
+   * so another change to it made in between goes unchecked.
    */
   private async changeEngineLevels(
     id: string,
+    named: EngineModel | null,
     change: (project: Project) => ProjectChange<DomainEvent> | undefined,
   ): Promise<Project> {
-    const project = await this.read(id);
-    const changed = change(project)?.project;
-    if (changed) {
-      const problems = await this.engineLevelsChecks.problemsOf({
-        projectId: id,
-        projectName: project.name,
-        before: engineLevelsOf(project),
-        after: engineLevelsOf(changed),
-      });
-      if (problems.length > 0) throw new ProjectRefused(problems);
-    }
-    return this.update(id, change);
+    const { project, events } = await this.engineReferences.holding(async () => {
+      if (named !== null) await this.checks.checkEngineModel(named);
+      const stored = await this.read(id);
+      const changed = change(stored)?.project;
+      if (changed) {
+        const problems = await this.engineLevelsChecks.problemsOf({
+          projectId: id,
+          projectName: stored.name,
+          before: engineLevelsOf(stored),
+          after: engineLevelsOf(changed),
+        });
+        if (problems.length > 0) throw new ProjectRefused(problems);
+      }
+      return this.repository.update(id, (current) => asProjectChanges(current, change(current)));
+    });
+    await this.publish(events);
+    return project;
   }
 
   /** Sessions already running keep the skills they started with. */
@@ -238,8 +248,12 @@ export class ProjectService {
     change: (project: Project) => ProjectChanges,
   ): Promise<Project> {
     const { project, events } = await this.repository.update(id, change);
-    for (const event of events) await this.events.publish(event);
+    await this.publish(events);
     return project;
+  }
+
+  private async publish(events: readonly DomainEvent[]): Promise<void> {
+    for (const event of events) await this.events.publish(event);
   }
 }
 

@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { EngineSettingsController } from "./adapters/http/engine-settings.controller.js";
 import { PostgresEngineSettings } from "./adapters/postgres/postgres-engine-settings.js";
 import { EngineModels } from "./application/engine-models.js";
+import { EngineReferenceLock } from "./application/engine-reference-lock.js";
 import { EngineReferenceMoves } from "./application/engine-reference-moves.js";
 import { EngineSettingsChecks } from "./application/engine-settings-checks.js";
 import { EngineSettingsService } from "./application/engine-settings-service.js";
@@ -22,6 +23,7 @@ import { EngineSettingsRepository } from "./ports/engine-settings-repository.js"
     EngineSettingsService,
     EngineSettingsChecks,
     EngineReferenceMoves,
+    EngineReferenceLock,
     EngineModels,
     ModelPrices,
     RunningEngineSessions,
@@ -30,6 +32,7 @@ import { EngineSettingsRepository } from "./ports/engine-settings-repository.js"
     EngineSettingsService,
     EngineSettingsChecks,
     EngineReferenceMoves,
+    EngineReferenceLock,
     EngineModels,
     ModelPrices,
     EngineSettingsRepository,
