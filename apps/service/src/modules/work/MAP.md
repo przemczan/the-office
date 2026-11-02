@@ -242,7 +242,7 @@ FireAlarmService, IdeaService, OfficeLimits, QueueService, StageScreenshots, Tas
 - `task.ts`: TASK_STATES, TaskState, PRIORITIES, Priority, Task, ProposedPipeline, NewTask, trimmedNewTask, newTaskProblems
 - `title.ts`: titleProblem
 - `usage-estimate.ts`: HISTORY_WINS_AT, USAGE_MEASURES, UsageMeasure, DEFAULT_USAGE_MEASURES, StageTokens, UsageWindowName, StageUsage, StageUsages, WindowRatios, EngineWindowRatios, PipelineStage, EstimatedStage, stageEngineAndModel, EngineUsage, UsageEstimateBasis, UsageEstimate, tasksInHistory, historyUsage, plannerUsage, countedTokens
-- `usage-settings.ts`: DEFAULT_WINDOW_CAP, WindowCaps, EngineCaps, UsageSettings, defaultEngineCaps, DEFAULT_USAGE_SETTINGS, everyEngineCaps
+- `usage-settings.ts`: DEFAULT_WINDOW_CAP, WindowCaps, EngineCaps, UsageSettings, defaultEngineCaps, DEFAULT_USAGE_SETTINGS, namesEveryEngineId, everyEngineCaps
 - `work.fixtures.ts`: anIdea, anInitiative, aTask, aPlannedTask, aLink, NO_USAGE_AT_START
 - Tests: attachment-changes.test.ts, cap-waits.test.ts, idea-changes.test.ts, initiative-changes.test.ts, initiative-edit.test.ts, manual-order.test.ts, onboarding.test.ts, planning-changes.test.ts, planning.test.ts, project-filter.test.ts, queue.test.ts, search.test.ts, state-change.test.ts, task-changes.test.ts, task-dependencies.test.ts, task-overlap.test.ts, task-start.test.ts, task-states.test.ts, task-tags.test.ts, usage-estimate.test.ts
 

@@ -1,7 +1,7 @@
-import type { ApiEndpoint, EngineId } from "@the-office/contracts";
+import type { ApiEndpoint } from "@the-office/contracts";
 import { Card, Input } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { ENGINE_ID_LABELS, modelLabel } from "../../../shell/engine-words.ts";
+import { ENGINE_IDS, engineIdLabel, modelLabel } from "../../../shell/engine-words.ts";
 import { SettingsCardTitle } from "../settings-card-parts.tsx";
 import type { PricedModel } from "./engine-settings-draft.ts";
 import {
@@ -30,11 +30,11 @@ export function ModelPricesCard({
         What each model costs, in dollars per million tokens. Every cost in The Office is priced by
         them. A model left without one has no cost, which never holds a Start.
       </p>
-      {(Object.keys(ENGINE_ID_LABELS) as EngineId[]).map((engineId) => {
+      {ENGINE_IDS.map((engineId) => {
         const models = offered.filter((model) => model.engineId === engineId);
         return (
-          <section key={engineId} className="model-prices" aria-label={ENGINE_ID_LABELS[engineId]}>
-            <h3 className="model-prices-engine">{ENGINE_ID_LABELS[engineId]}</h3>
+          <section key={engineId} className="model-prices" aria-label={engineIdLabel(engineId)}>
+            <h3 className="model-prices-engine">{engineIdLabel(engineId)}</h3>
             {models.length === 0 && engineId === "openai-compatible-api" && (
               <p className="settings-note">No API endpoint offers a model yet.</p>
             )}

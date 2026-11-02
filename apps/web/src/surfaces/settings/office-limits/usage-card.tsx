@@ -4,7 +4,7 @@ import { Button, Card, Checkbox, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { nowQueries } from "../../../api/notifications.ts";
 import { changeUsageSettings, usageSettingsQuery } from "../../../api/work.ts";
-import { ENGINE_ID_LABELS } from "../../../shell/engine-words.ts";
+import { engineIdLabel } from "../../../shell/engine-words.ts";
 import { resetWords } from "../../../shell/notifications/now-words.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
@@ -115,7 +115,7 @@ function EngineCapsFields({
   readonly caps: CapsText;
   readonly change: (kind: CapKind, text: string) => void;
 }): ReactNode {
-  const label = ENGINE_ID_LABELS[caps.engineId];
+  const label = engineIdLabel(caps.engineId);
   const field = (kind: CapKind): ReactNode => (
     <Input
       label={CAP_FIELDS[kind].label}

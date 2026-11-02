@@ -496,7 +496,8 @@ export type EngineCaps = z.infer<typeof engineCapsSchema>;
 
 /**
  * GET and PUT /settings/usage, Settings › Office limits: the ticked measures (none turns estimates
- * off) and the caps of every engine id, each once.
+ * off) and the caps of every engine id, each once: the service refuses caps that leave an engine id
+ * out or name one it doesn't know.
  */
 export const usageSettingsSchema = z.object({
   measures: z
@@ -506,12 +507,9 @@ export const usageSettingsSchema = z.object({
     }),
   caps: z
     .array(engineCapsSchema)
-    .refine(
-      (caps) =>
-        caps.length === engineIdSchema.options.length &&
-        engineIdSchema.options.every((engineId) => caps.some((each) => each.engineId === engineId)),
-      { message: "Every engine id has its caps, once." },
-    )
+    .refine((caps) => new Set(caps.map(({ engineId }) => engineId)).size === caps.length, {
+      message: "Each engine id has its caps once.",
+    })
     .refine(
       (caps) =>
         caps.every(({ engineId, windows }) => engineIdHasUsageWindows(engineId) === !!windows),

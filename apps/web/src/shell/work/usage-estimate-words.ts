@@ -6,7 +6,7 @@ import {
   type UsageMeasure,
 } from "@the-office/contracts";
 import { tokensShort } from "../conversation/context-words.ts";
-import { ENGINE_ID_LABELS } from "../engine-words.ts";
+import { engineIdLabel } from "../engine-words.ts";
 
 /** The measures in the order Settings › Office limits ticks them and an estimate gives them. */
 export const MEASURES = [
@@ -39,7 +39,7 @@ export function usageEstimateWords({ basis, engines }: UsageEstimate): string {
     engines.length === 1
       ? measuresWords(only)
       : engines
-          .map((engine) => `${ENGINE_ID_LABELS[engine.engineId]}: ${measuresWords(engine)}`)
+          .map((engine) => `${engineIdLabel(engine.engineId)}: ${measuresWords(engine)}`)
           .join("; ");
   return `Expected: ${perEngine}, ${basisWords(basis)}`;
 }

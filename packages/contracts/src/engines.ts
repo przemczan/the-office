@@ -38,10 +38,11 @@ export const searchEndpointSchema = z.object({ baseUrl: z.string() });
 export type SearchEndpoint = z.infer<typeof searchEndpointSchema>;
 
 /**
- * What an engine spends on: both Claude Code engines spend one account's credits, so they share
- * `claude-code`. Caps, readings, each day's use and Model prices are kept by it.
+ * An engine's id, kept in the database, so it never changes: caps, readings, each day's use and
+ * Model prices are kept by it. Both Claude Code engines spend one account's credits, so they share
+ * `claude-code`; the OpenAI-compatible API's is `openai-compatible-api`.
  */
-export const engineIdSchema = z.enum(["claude-code", "openai-compatible-api"]);
+export const engineIdSchema = z.string().min(1);
 export type EngineId = z.infer<typeof engineIdSchema>;
 
 /**

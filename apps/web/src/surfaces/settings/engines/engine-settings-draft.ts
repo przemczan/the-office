@@ -87,7 +87,7 @@ export function offeredModelsOf(
   return [
     ...claudeCode,
     ...[...new Set(apiModels)].map((model) => ({
-      engineId: "openai-compatible-api" as const,
+      engineId: "openai-compatible-api",
       model,
     })),
   ];

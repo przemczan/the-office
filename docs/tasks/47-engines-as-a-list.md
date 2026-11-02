@@ -75,7 +75,7 @@ Chosen while writing, for the user to review:
 - [x] 0. Write this file; settle the open questions with the user; amend spec §2.1, §2.2, §2.3, §3, §4, §5.4, §5.6, §6 and §8 and `engine-check.md`; add the glossary's Engine, Office default, Project default and Role override, and amend Window cap, Daily cap, Model price, OpenAI-compatible API, API endpoint, Role and Role card; refine `coverage.md`'s row; link from the README. Commit.
 Every step leaves `npm run verify` passing. A service step that changes a contract the web reads also changes the web, just enough for typecheck and e2e to stay green. The full UI comes in the web steps, and the sizes below count those small web fixes.
 
-- [ ] 1a. Engine ids as strings, behaviour unchanged, in the contracts, the service and the web, about 80k:
+- [x] 1a. Engine ids as strings, behaviour unchanged, in the contracts, the service and the web, about 80k:
   - `engineIdSchema` becomes a string id. `engineIdHasUsageWindows` and `hasUsageWindows` take the string and still answer by id until 1b gives engines a kind. The ids stay `claude-code` and `openai-compatible-api` for now.
   - Every importer is retyped: Engine, Work (`usage-settings.ts`, `cap-waits.ts`, `usage-estimate.ts`, `daily-caps.ts`, `starts-since-reading.ts`, the ports), Pipelines' `usage-history.ts`, Conversations' `task-tokens.ts`, `apps/service/test/live-check.ts`, and the web's `engine-words.ts`, `role-card-words.ts`, `model-prices-card.tsx` and `usage-settings-draft.ts`.
   - The caps check in `work.ts` goes over the engines the settings list, not `engineIdSchema.options`.
@@ -177,20 +177,20 @@ Every step leaves `npm run verify` passing. A service step that changes a contra
 
 ## State
 
-Step 0 is done. Spec, glossary and coverage are amended, and the user's answers of 2026-11-02 are recorded above.
-
-Next is step 1a. Today the engines are fixed kinds:
-- `ENGINES` and `engineIdOf` in `engine/domain/engines.ts`;
-- `engineIdSchema` in `packages/contracts/src/engines.ts`;
-- the Role card's `engine` and `model` in `packages/contracts/src/people.ts`;
-- the Stage's optional `model` in `stages.ts`.
+Steps 0 and 1a are done. Engine ids are strings now, still only `claude-code` and `openai-compatible-api`:
+- `engineIdSchema` (`packages/contracts/src/engines.ts`) is `z.string().min(1)`; the service's `EngineId` (`engine/domain/engines.ts`) is `string`. `hasUsageWindows`, `engineIdHasUsageWindows` still answer by id.
+- `usageSettingsSchema` (`work.ts`) only checks each engine id once; Work's `namesEveryEngineId` (`work/domain/usage-settings.ts`) refuses with 400, in `UsageSettingsController`, caps that leave out an id of `ENGINE_IDS` or name another. 1b swaps `ENGINE_IDS` for the engines' rows there and in `everyEngineCaps`, `DEFAULT_USAGE_SETTINGS`.
+- Words for an id fall back for an unknown one: the web's `engineIdLabel` and `ENGINE_IDS` (`shell/engine-words.ts`, used by the usage card, the estimate words and the Model prices card), Work's `engineIdWords` in `cap-waits.ts`. 1f/1g replace them with engine names.
+- Still fixed kinds: `ENGINES`, `engineIdOf`, `ENGINE_IDS`, `modelsOfferedOn` in `engine/domain/engines.ts`; the Role card's `engine` and `model` in `packages/contracts/src/people.ts`; the Stage's optional `model` in `stages.ts`.
 
 The pinned binary (2.1.310) has `claude auth login` (`--claudeai` by default, `--console`, `--sso`, `--email`) and `claude auth status --json` (`loggedIn`, `email`, `subscriptionType`, `configDirectory`).
 
 Traps:
 - Between steps, `npm run verify` must pass. 1c's mapping of kinds to ids is replaced by 2b's clearing, so keep it in the migration and nowhere else.
 - `windows.ts` and `linux.ts` keep `~/.claude/.credentials.json` as a secret path. Keep it.
+- Postgres tests need Docker Desktop (`C:\Docker\Docker Desktop.exe`) and `docker compose up -d postgres`.
 
 ## Progress
 
 - 2026-11-02 · step 0: task file written with the user's answers; spec, glossary, coverage and README amended; next is 1a, engine ids as strings.
+- 2026-11-02 · step 1a: engine ids are strings in the contracts, the service and the web; Work refuses caps not naming every engine id; next is 1b, engines as rows.

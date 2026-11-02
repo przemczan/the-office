@@ -8,11 +8,11 @@ export const ENGINES = ["agent-sdk", "claude-code-p", "openai-compatible-api"] a
 export type Engine = (typeof ENGINES)[number];
 
 /**
- * An engine as the user will list it (spec §8, task 47): what caps, readings and each day's use are
- * kept by. The two Claude Code engines spend one account's credits, so they share an id. Kept in
- * the database, so an id never changes.
+ * An engine as the user will list it (spec §5.4): what caps, readings and each day's use are kept
+ * by. The two Claude Code engines spend one account's credits, so they share an id. Kept in the
+ * database, so an id never changes.
  */
-export type EngineId = "claude-code" | "openai-compatible-api";
+export type EngineId = string;
 
 // The one place an engine's kind gives its id, which task 47 replaces with the engines the user adds.
 const ENGINE_ID_OF_ENGINE: Readonly<Record<Engine, EngineId>> = {

@@ -51,6 +51,16 @@ export const DEFAULT_USAGE_SETTINGS: UsageSettings = {
   caps: ENGINE_IDS.map(defaultEngineCaps),
 };
 
+/** Whether `caps` name every engine id, each once, and no other. */
+export function namesEveryEngineId(caps: readonly Pick<EngineCaps, "engineId">[]): boolean {
+  const named = new Set(caps.map(({ engineId }) => engineId));
+  return (
+    named.size === caps.length &&
+    named.size === ENGINE_IDS.length &&
+    ENGINE_IDS.every((engineId) => named.has(engineId))
+  );
+}
+
 /** Every engine id's caps, those not saved at their default, in the order of `ENGINE_IDS`. */
 export function everyEngineCaps(saved: readonly EngineCaps[]): readonly EngineCaps[] {
   return ENGINE_IDS.map(

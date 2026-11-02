@@ -95,6 +95,10 @@ const ENGINE_ID_WORDS: Readonly<Record<EngineId, string>> = {
   "openai-compatible-api": "The OpenAI-compatible API's",
 };
 
+function engineIdWords(engineId: EngineId): string {
+  return ENGINE_ID_WORDS[engineId] ?? `The ${engineId} engine's`;
+}
+
 /** Each Daily cap: the measure that ticks it, what it counts, and how its amounts are worded. */
 const DAILY_MEASURES: readonly {
   readonly measure: UsageMeasure;
@@ -148,7 +152,7 @@ export function exceededWindowCaps(usage: UsageAtStart): ExceededCap[] {
       const own = estimateOn(usage, windows.engineId)?.windows[name];
       const since = windows.startedSinceReading[name];
       if (read.percentUsed + since + (own ?? 0) <= cap) return [];
-      const where = `${ENGINE_ID_WORDS[windows.engineId]} ${WINDOW_WORDS[name]}`;
+      const where = `${engineIdWords(windows.engineId)} ${WINDOW_WORDS[name]}`;
       const others = `${percent(read.percentUsed)} used, ${percent(since)} expected of the Tasks started since it was read`;
       const use =
         own === undefined
@@ -186,7 +190,7 @@ export function exceededDailyCaps(usage: UsageAtStart): ExceededCap[] {
           : `${others} and ${amount(ownAmount)} of this Task`;
       return [
         {
-          words: `${ENGINE_ID_WORDS[daily.engineId]} Daily cap of ${amount(cap)} would be passed: ${use}. It resets at midnight.`,
+          words: `${engineIdWords(daily.engineId)} Daily cap of ${amount(cap)} would be passed: ${use}. It resets at midnight.`,
           resetsAt: nextMidnight(usage.now),
         },
       ];

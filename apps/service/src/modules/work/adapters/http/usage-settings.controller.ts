@@ -1,11 +1,15 @@
-import { Body, Controller, Get, Put } from "@nestjs/common";
+import { BadRequestException, Body, Controller, Get, Put } from "@nestjs/common";
 import {
   usageSettingsSchema,
   type UsageSettings as UsageSettingsRequest,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { OfficeLimits } from "../../application/office-limits.js";
-import { everyEngineCaps, type UsageSettings } from "../../domain/usage-settings.js";
+import {
+  everyEngineCaps,
+  namesEveryEngineId,
+  type UsageSettings,
+} from "../../domain/usage-settings.js";
 import { toUsageSettingsResponse } from "./work-responses.js";
 
 /** Settings › Office limits' Usage: the ticked measures and every engine id's caps. */
@@ -22,6 +26,9 @@ export class UsageSettingsController {
   async change(
     @Body(new ContractPipe(usageSettingsSchema)) request: UsageSettingsRequest,
   ): Promise<UsageSettingsRequest> {
+    if (!namesEveryEngineId(request.caps)) {
+      throw new BadRequestException("caps: Every engine id has its caps, once.");
+    }
     const usageSettings = usageSettingsOf(request);
     await this.limits.changeUsageSettings(usageSettings);
     return toUsageSettingsResponse(usageSettings);

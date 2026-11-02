@@ -7,11 +7,18 @@ import {
 
 /** The words for a model and its effort, wherever a Role card or a Stage names them. */
 
-/** What an engine id spends on, as Model prices and caps name it. */
-export const ENGINE_ID_LABELS: Readonly<Record<EngineId, string>> = {
+const ENGINE_ID_LABELS: Readonly<Record<EngineId, string>> = {
   "claude-code": "Claude Code engines",
   "openai-compatible-api": "OpenAI-compatible API",
 };
+
+/** The engine ids Model prices list, in order, until Settings › Engines lists the engines. */
+export const ENGINE_IDS: readonly EngineId[] = Object.keys(ENGINE_ID_LABELS);
+
+/** What an engine id spends on, as Model prices and caps name it; an unknown id as it is. */
+export function engineIdLabel(engineId: EngineId): string {
+  return ENGINE_ID_LABELS[engineId] ?? engineId;
+}
 
 export const EFFORT_LABELS: Readonly<Record<Effort, string>> = {
   low: "Low",

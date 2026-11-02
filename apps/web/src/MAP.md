@@ -38,7 +38,7 @@
 - `brand-tone.ts`: useBrandTone
 - `copy-record-link.ts`: useCopyRecordLink
 - `desk.tsx`: Desk, PanelHeadingProps, Panel, PanelHeading, Feed
-- `engine-words.ts`: ENGINE_ID_LABELS, EFFORT_LABELS, modelLabel
+- `engine-words.ts`: ENGINE_IDS, engineIdLabel, EFFORT_LABELS, modelLabel
 - `floating-menu.tsx`: FloatingMenu
 - `item-card.tsx`: CardEdge, ItemCard, EmptyCard
 - `markdown-text.tsx`: MarkdownText

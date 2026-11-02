@@ -109,6 +109,14 @@ describe("/api/settings/usage", () => {
     ["a measure ticked twice", { ...CHANGED, measures: ["tokens", "tokens"] }],
     ["an engine id left out", { ...CHANGED, caps: CHANGED.caps.slice(1) }],
     [
+      "an engine id named twice",
+      { ...CHANGED, caps: [CHANGED.caps[0], CHANGED.caps[1], CHANGED.caps[1]] },
+    ],
+    [
+      "an engine id it doesn't know",
+      { ...CHANGED, caps: [...CHANGED.caps, { ...CHANGED.caps[0], engineId: "strata" }] },
+    ],
+    [
       "Window caps on the OpenAI-compatible API",
       {
         ...CHANGED,
