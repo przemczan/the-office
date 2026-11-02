@@ -148,7 +148,10 @@ export class NowService implements OnModuleInit, OnModuleDestroy {
       tokensToday,
       tasksTouched,
       officeWideLimit,
-      fiveHourWindow: this.usage.current?.fiveHour,
+      fiveHourWindows: [...this.usage.readingsByEngine].map(([engineId, { fiveHour }]) => ({
+        engineId,
+        ...fiveHour,
+      })),
       fireAlarm,
       resumes: fireAlarm.on ? await this.resumesOf(started) : new Map(),
     });

@@ -240,6 +240,6 @@ async function nowLines(api: Api, when: string): Promise<string[]> {
         `  running: ${title} · ${state} · ${stage ? `${stage.name} (${stage.role ?? "no Agent"}) since ${stage.since}` : "no Stage yet"}`,
     ),
     `  since you left (from ${now.leftAt ?? "never"}): ${now.sinceYouLeft.map(({ title, outcome }) => `${outcome} ${title}`).join("; ") || "nothing"}`,
-    `  strip: ${countedTokens(now.tokensToday)} tokens today ${JSON.stringify(now.tokensToday)}, desks ${now.desks.inUse} of ${now.desks.limit}, ${now.tasksTouched} Tasks touched, 5-hour window ${now.fiveHourWindow ? `${now.fiveHourWindow.percentUsed}%` : "not read yet"}`,
+    `  strip: ${countedTokens(now.tokensToday)} tokens today ${JSON.stringify(now.tokensToday)}, desks ${now.desks.inUse} of ${now.desks.limit}, ${now.tasksTouched} Tasks touched, 5-hour windows ${now.fiveHourWindows.length > 0 ? now.fiveHourWindows.map(({ engineId, percentUsed }) => `${engineId} ${percentUsed}%`).join(", ") : "not read yet"}`,
   ];
 }

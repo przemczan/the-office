@@ -17,6 +17,7 @@ import {
 } from "./notification.js";
 
 const CLAUDE_CODE = { id: "claude-code", name: "Claude Code" };
+const WORK_ACCOUNT = { id: "work-account", name: "Work account" };
 
 const AT = new Date("2026-10-27T09:00:00Z");
 
@@ -41,8 +42,8 @@ describe("the Notifications' content", () => {
         taskFailed("t1", "developer", { kind: "definition-of-done" }),
         taskPaused("t1", "developer", "pause"),
         taskPaused("t1", "developer", "stop"),
-        windowNearlyUsed(90, undefined),
-        windowReset(undefined),
+        windowNearlyUsed(CLAUDE_CODE, 90, undefined),
+        windowReset(CLAUDE_CODE, undefined),
         engineDown(CLAUDE_CODE, "Claude Code didn't start.", undefined),
       ].map(content),
     ).toEqual([
@@ -56,8 +57,8 @@ describe("the Notifications' content", () => {
       ],
       ["outcomes.task-paused", "developer", "I paused at a safe point."],
       ["outcomes.task-paused", "developer", "I stopped where I was."],
-      ["office.window.nearly-used", null, "90% of the 5-hour window is used."],
-      ["office.window.reset", null, "The 5-hour window reset."],
+      ["office.window.nearly-used", null, "90% of Claude Code's 5-hour window is used."],
+      ["office.window.reset", null, "Claude Code's 5-hour window reset."],
       ["office.down.engine", null, "Claude Code is down: Claude Code didn't start."],
     ]);
   });
@@ -91,11 +92,11 @@ describe("the Notifications' content", () => {
     });
   });
 
-  it("speaks of the 5-hour window with no person while no Office Manager is hired", () => {
-    expect(raised(windowNearlyUsed(91.6, undefined))).toMatchObject({
+  it("speaks of an engine's 5-hour window with no person while no Office Manager is hired", () => {
+    expect(raised(windowNearlyUsed(WORK_ACCOUNT, 91.6, undefined))).toMatchObject({
       roleKey: undefined,
-      line: "92% of the 5-hour window is used.",
-      pointsTo: { kind: "office" },
+      line: "92% of Work account's 5-hour window is used.",
+      pointsTo: { kind: "office", engineId: "work-account" },
       channels: ["in-app"],
     });
   });
@@ -103,16 +104,20 @@ describe("the Notifications' content", () => {
   it("gives the Office kinds the Office Manager's first person once one is hired", () => {
     expect(
       [
-        windowNearlyUsed(91.6, "office-manager"),
-        windowReset("office-manager"),
+        windowNearlyUsed(CLAUDE_CODE, 91.6, "office-manager"),
+        windowReset(CLAUDE_CODE, "office-manager"),
         engineDown(CLAUDE_CODE, "Claude Code didn't start.", "office-manager"),
       ].map(content),
     ).toEqual([
-      ["office.window.nearly-used", "office-manager", "We've used 92% of the 5-hour window."],
+      [
+        "office.window.nearly-used",
+        "office-manager",
+        "We've used 92% of Claude Code's 5-hour window.",
+      ],
       [
         "office.window.reset",
         "office-manager",
-        "The 5-hour window reset, so we have all of it again.",
+        "Claude Code's 5-hour window reset, so we have all of it again.",
       ],
       [
         "office.down.engine",
@@ -120,7 +125,10 @@ describe("the Notifications' content", () => {
         "I can't reach Claude Code: Claude Code didn't start.",
       ],
     ]);
-    expect(windowReset("office-manager").pointsTo).toEqual({ kind: "office" });
+    expect(windowReset(CLAUDE_CODE, "office-manager").pointsTo).toEqual({
+      kind: "office",
+      engineId: "claude-code",
+    });
   });
 
   it("goes to the channels its kind routes to", () => {
@@ -170,6 +178,16 @@ describe("handles", () => {
     expect(handles({ kind: "engine-answered", engineId: "claude-code" }, down)).toBe(true);
     expect(handles({ kind: "engine-answered", engineId: "work-account" }, down)).toBe(false);
     expect(handles({ kind: "engine-answered", engineId: "work-account" }, unnamed)).toBe(true);
+  });
+
+  it("clears only that engine's nearly used window when its window resets, and every one on Now", () => {
+    const nearlyUsed = raised(windowNearlyUsed(CLAUDE_CODE, 92, undefined));
+    const unnamed = { ...nearlyUsed, pointsTo: { kind: "office" } as const };
+
+    expect(handles({ kind: "window-reset", engineId: "claude-code" }, nearlyUsed)).toBe(true);
+    expect(handles({ kind: "window-reset", engineId: "work-account" }, nearlyUsed)).toBe(false);
+    expect(handles({ kind: "window-reset", engineId: "work-account" }, unnamed)).toBe(true);
+    expect(handles({ kind: "now-opened" }, nearlyUsed)).toBe(true);
   });
 });
 

@@ -191,7 +191,7 @@ export class EngineSessions {
       readAt: new Date(),
       officeTokensSoFar: this.officeTokensSoFar.get(engineId) ?? NO_TOKENS,
     };
-    await this.usageWindows.update(engineId, reading);
+    await this.usageWindows.update(engine, reading);
     await this.keepSample(engineId, reading);
     return reading;
   }

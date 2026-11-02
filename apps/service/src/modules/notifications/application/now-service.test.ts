@@ -118,9 +118,11 @@ describe("NowService", () => {
       { id: decisionId, taskId, askedAt: new Date("2026-10-27T09:05:00Z") },
     ];
     app.get(DeskLimitForTests).limit = 4;
-    app.get(AccountUsageForTests).current = {
+    const usage = app.get(AccountUsageForTests).readingsByEngine;
+    usage.set("claude-code", {
       fiveHour: { percentUsed: 42, resetsAt: new Date("2026-10-27T12:00:00Z") },
-    };
+    });
+    usage.set("work-account", { fiveHour: { percentUsed: 0, resetsAt: undefined } });
 
     const now = await readNow();
 
@@ -148,7 +150,10 @@ describe("NowService", () => {
       },
     ]);
     expect(now.desks).toEqual({ inUse: 1, limit: 4 });
-    expect(now.fiveHourWindow).toEqual({ percentUsed: 42, resetsAt: "2026-10-27T12:00:00.000Z" });
+    expect(now.fiveHourWindows).toEqual([
+      { engineId: "claude-code", percentUsed: 42, resetsAt: "2026-10-27T12:00:00.000Z" },
+      { engineId: "work-account", percentUsed: 0, resetsAt: null },
+    ]);
   });
 
   it("carries the fire alarm while it is on, with how each Task it paused would resume", async () => {

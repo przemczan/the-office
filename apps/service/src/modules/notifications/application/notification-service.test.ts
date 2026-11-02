@@ -56,9 +56,12 @@ function decisionEvent(
   return new eventClass(thread, asked, new Date());
 }
 
-/** The account's windows as the engine reads them, the 5-hour one this much used. */
-function reading(percentUsed: number): UsageWindowsChanged {
-  return new UsageWindowsChanged({
+/** An engine's account's windows as the engine reads them, the 5-hour one this much used. */
+function reading(
+  percentUsed: number,
+  engine = { id: "claude-code", name: "Claude Code" },
+): UsageWindowsChanged {
+  return new UsageWindowsChanged(engine.id, engine.name, {
     fiveHour: { percentUsed, resetsAt: new Date("2026-10-27T12:00:00Z") },
     sevenDay: { percentUsed: 10, resetsAt: undefined },
     source: "rate-limit-headers",
@@ -294,6 +297,25 @@ describe("NotificationService", () => {
     expect(cleared).toContain(raised[0]?.notification.id);
   });
 
+  it("keeps each engine's 5-hour window apart, telling and clearing only that engine's", async () => {
+    const workAccount = { id: "window-work-account", name: "Work account" };
+    const labAccount = { id: "window-lab-account", name: "Lab account" };
+    await events.publish(reading(90, workAccount));
+    await events.publish(reading(10, labAccount));
+    await events.publish(reading(92, workAccount));
+    await events.publish(reading(95, labAccount));
+    await events.publish(reading(4, workAccount));
+
+    expect(raised.map(({ notification }) => notification.line)).toEqual([
+      "90% of Work account's 5-hour window is used.",
+      "95% of Lab account's 5-hour window is used.",
+      "Work account's 5-hour window reset.",
+    ]);
+    expect(cleared).toEqual([raised[0]?.notification.id]);
+    // Opening Now handles both engines' windows.
+    await reportActivity({ kind: "now" });
+  });
+
   it("keeps the Office kinds in the UI's voice until an Office Manager is hired, then has them speak", async () => {
     const people = app.get(KnownPeopleForTests);
     people.hired.add("developer");
@@ -309,10 +331,10 @@ describe("NotificationService", () => {
     await events.publish(claudeCodeDown());
 
     expect(raised.map(({ notification }) => [notification.roleKey, notification.line])).toEqual([
-      [undefined, "91% of the 5-hour window is used."],
+      [undefined, "91% of Claude Code's 5-hour window is used."],
       [undefined, "Claude Code is down: Claude Code didn't start."],
-      ["office-manager", "The 5-hour window reset, so we have all of it again."],
-      ["office-manager", "We've used 93% of the 5-hour window."],
+      ["office-manager", "Claude Code's 5-hour window reset, so we have all of it again."],
+      ["office-manager", "We've used 93% of Claude Code's 5-hour window."],
       ["office-manager", "I can't reach Claude Code: Claude Code didn't start."],
     ]);
     const open = await openNotifications();

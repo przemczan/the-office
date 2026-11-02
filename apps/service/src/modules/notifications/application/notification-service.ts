@@ -78,8 +78,11 @@ export type Page =
  */
 @Injectable()
 export class NotificationService implements OnModuleInit {
-  /** The 5-hour window's last reading, which the next is compared with; unknown after a restart. */
-  private windowPercent = 0;
+  /**
+   * Each engine's 5-hour window's last reading, by engine id, which its next is compared with;
+   * unknown after a restart.
+   */
+  private readonly windowPercents = new Map<string, number>();
 
   constructor(
     private readonly repository: NotificationRepository,
@@ -169,16 +172,17 @@ export class NotificationService implements OnModuleInit {
   }
 
   private subscribeToOffice(): void {
-    this.events.subscribe(UsageWindowsChanged, async ({ windows }) => {
+    this.events.subscribe(UsageWindowsChanged, async ({ engineId, engineName, windows }) => {
+      const engine = { id: engineId, name: engineName };
       const percent = windows.fiveHour.percentUsed;
-      const move = windowMove(this.windowPercent, percent);
-      this.windowPercent = percent;
+      const move = windowMove(this.windowPercents.get(engineId) ?? 0, percent);
+      this.windowPercents.set(engineId, percent);
       if (move === "nearly-used") {
-        await this.raise(windowNearlyUsed(percent, await this.officeManager()));
+        await this.raise(windowNearlyUsed(engine, percent, await this.officeManager()));
       }
       if (move === "reset") {
-        await this.handle({ kind: "window-reset" });
-        await this.raise(windowReset(await this.officeManager()));
+        await this.handle({ kind: "window-reset", engineId });
+        await this.raise(windowReset(engine, await this.officeManager()));
       }
     });
     this.events.subscribe(EngineDown, async ({ engineId, engineName, reason }) =>

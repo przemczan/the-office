@@ -190,39 +190,62 @@ export function initiativeDone(initiativeId: string, cto: string | undefined): N
  * nobody fills the Role (spec §2.7 and its Defaults).
  */
 export function windowNearlyUsed(
+  engine: NamedEngine,
   percentUsed: number,
   officeManager: string | undefined,
 ): NotificationDraft {
   const percent = Math.round(percentUsed);
-  return officeKind(
+  return engineKind(
+    engine,
     "office.window.nearly-used",
     officeManager,
-    `We've used ${percent}% of the 5-hour window.`,
-    `${percent}% of the 5-hour window is used.`,
+    `We've used ${percent}% of ${engine.name}'s 5-hour window.`,
+    `${percent}% of ${engine.name}'s 5-hour window is used.`,
   );
 }
 
-export function windowReset(officeManager: string | undefined): NotificationDraft {
-  return officeKind(
+export function windowReset(
+  engine: NamedEngine,
+  officeManager: string | undefined,
+): NotificationDraft {
+  return engineKind(
+    engine,
     "office.window.reset",
     officeManager,
-    "The 5-hour window reset, so we have all of it again.",
-    "The 5-hour window reset.",
+    `${engine.name}'s 5-hour window reset, so we have all of it again.`,
+    `${engine.name}'s 5-hour window reset.`,
   );
 }
 
 export function engineDown(
-  engine: { readonly id: string; readonly name: string },
+  engine: NamedEngine,
   reason: string,
   officeManager: string | undefined,
 ): NotificationDraft {
+  return engineKind(
+    engine,
+    "office.down.engine",
+    officeManager,
+    `I can't reach ${engine.name}: ${reason}`,
+    `${engine.name} is down: ${reason}`,
+  );
+}
+
+interface NamedEngine {
+  readonly id: string;
+  readonly name: string;
+}
+
+/** An Office kind about one engine, kept and handled apart from every other engine's. */
+function engineKind(
+  engine: NamedEngine,
+  kind: NotificationKind,
+  officeManager: string | undefined,
+  firstPerson: string,
+  officeVoice: string,
+): NotificationDraft {
   return {
-    ...officeKind(
-      "office.down.engine",
-      officeManager,
-      `I can't reach ${engine.name}: ${reason}`,
-      `${engine.name} is down: ${reason}`,
-    ),
+    ...officeKind(kind, officeManager, firstPerson, officeVoice),
     pointsTo: { kind: "office", engineId: engine.id },
   };
 }
@@ -241,7 +264,7 @@ function officeKind(
   };
 }
 
-/** How the 5-hour window moved between two readings, as Notifications tell it. */
+/** How an engine's 5-hour window moved between two of its readings, as Notifications tell it. */
 export function windowMove(
   previousPercent: number,
   currentPercent: number,
@@ -268,7 +291,7 @@ export type Handling =
   | { readonly kind: "initiative-opened"; readonly initiativeId: string }
   /** The user opened Now, where the 5-hour window shows. */
   | { readonly kind: "now-opened" }
-  | { readonly kind: "window-reset" }
+  | { readonly kind: "window-reset"; readonly engineId: string }
   /** A turn came back from the engine, which therefore answers again. */
   | { readonly kind: "engine-answered"; readonly engineId: string };
 
@@ -290,7 +313,7 @@ export function handles(handling: Handling, { kind, pointsTo }: Notification): b
     case "now-opened":
       return levelsOf(kind).includes("office.window");
     case "window-reset":
-      return kind === "office.window.nearly-used";
+      return kind === "office.window.nearly-used" && isAbout(pointsTo, handling.engineId);
     case "engine-answered":
       return kind === "office.down.engine" && isAbout(pointsTo, handling.engineId);
   }
@@ -311,7 +334,7 @@ export function samePointer(
   );
 }
 
-/** An engine down raised before engines were named stands for any engine. */
+/** An engine's Notification raised before engines were named stands for any engine. */
 function isAbout(pointsTo: Pointer, engineId: string): boolean {
   return pointsTo.kind === "office" && (pointsTo.engineId ?? engineId) === engineId;
 }

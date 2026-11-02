@@ -1,7 +1,7 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { UsageWindowsChanged, UsageWindowsRead } from "../domain/engine-events.js";
-import type { EngineId } from "../domain/engines.js";
+import type { Engine, EngineId } from "../domain/engines.js";
 import { sameUsageWindows, type UsageWindows } from "../domain/usage-windows.js";
 import type { TokenUsage } from "../ports/session-events.js";
 
@@ -19,13 +19,12 @@ export interface UsageWindowReading extends UsageWindows {
 @Injectable()
 export class UsageWindowState {
   private readonly readings = new Map<EngineId, UsageWindowReading>();
-  private latest: UsageWindowReading | undefined;
 
   constructor(private readonly events: EventBus) {}
 
-  /** The latest reading on any engine; undefined until the first, kept in memory only. */
-  get current(): UsageWindowReading | undefined {
-    return this.latest;
+  /** Every engine's latest reading, in the order each was first read; kept in memory only. */
+  get readingsByEngine(): ReadonlyMap<EngineId, UsageWindowReading> {
+    return this.readings;
   }
 
   /** The latest reading of `engineId`'s account; undefined on one without windows or not read yet. */
@@ -34,15 +33,14 @@ export class UsageWindowState {
   }
 
   /**
-   * Keeps every reading of `engineId`'s account and announces it, and a change when its windows
+   * Keeps every reading of `engine`'s account and announces it, and a change when its windows
    * differ from what was known.
    */
-  async update(engineId: EngineId, reading: UsageWindowReading): Promise<void> {
-    const previous = this.readings.get(engineId);
-    this.readings.set(engineId, reading);
-    this.latest = reading;
+  async update(engine: Pick<Engine, "id" | "name">, reading: UsageWindowReading): Promise<void> {
+    const previous = this.readings.get(engine.id);
+    this.readings.set(engine.id, reading);
     if (previous === undefined || !sameUsageWindows(previous, reading)) {
-      await this.events.publish(new UsageWindowsChanged(reading));
+      await this.events.publish(new UsageWindowsChanged(engine.id, engine.name, reading));
     }
     await this.events.publish(new UsageWindowsRead(reading, reading.readAt));
   }

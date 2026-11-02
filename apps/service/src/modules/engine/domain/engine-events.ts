@@ -2,9 +2,17 @@ import { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { EngineId, EngineKind } from "./engines.js";
 import type { UsageWindows } from "./usage-windows.js";
 
-/** The account's usage windows changed, as read after the engine signalled a rate limit (spec §5.4). */
+/**
+ * An engine's account's usage windows changed, as read after the engine signalled a rate limit
+ * (spec §5.4). Each Claude Code engine is an account of its own, so it names the engine, with its
+ * name at the time for the words.
+ */
 export class UsageWindowsChanged extends DomainEvent {
-  constructor(readonly windows: UsageWindows) {
+  constructor(
+    readonly engineId: EngineId,
+    readonly engineName: string,
+    readonly windows: UsageWindows,
+  ) {
     super();
   }
 }

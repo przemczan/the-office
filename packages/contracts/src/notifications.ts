@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { tokenTotalsSchema } from "./conversations.js";
+import { engineIdSchema } from "./engines.js";
 import { webEventSchema } from "./events.js";
 import { taskStateSchema } from "./work.js";
 
@@ -136,10 +137,14 @@ export const nowSchema = z.object({
   tasksTouched: z.number().int().nonnegative(),
   /** The running Tasks against the Office-wide limit. */
   desks: z.object({ inUse: z.number().int().nonnegative(), limit: z.number().int().positive() }),
-  /** Null until the engine first reports the account's windows. */
-  fiveHourWindow: z
-    .object({ percentUsed: z.number(), resetsAt: z.iso.datetime().nullable() })
-    .nullable(),
+  /** Each engine's whose account's windows were read, in the order each was first read. */
+  fiveHourWindows: z.array(
+    z.object({
+      engineId: engineIdSchema,
+      percentUsed: z.number(),
+      resetsAt: z.iso.datetime().nullable(),
+    }),
+  ),
   /** Null while the fire alarm is off. */
   fireAlarm: fireAlarmOnNowSchema.nullable(),
 });

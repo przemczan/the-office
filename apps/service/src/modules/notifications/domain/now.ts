@@ -51,11 +51,16 @@ export interface StageOfTask {
   readonly runs: readonly { readonly startedAt: Date; readonly endedAt: Date | undefined }[];
 }
 
-/** The account's 5-hour window, from the Engine. */
+/** An account's 5-hour window, from the Engine. */
 export interface FiveHourWindow {
   readonly percentUsed: number;
   /** Undefined while the window has not begun. */
   readonly resetsAt: Date | undefined;
+}
+
+/** One engine's account's 5-hour window. */
+export interface EngineFiveHourWindow extends FiveHourWindow {
+  readonly engineId: string;
 }
 
 export interface WaitingDecision {
@@ -165,8 +170,8 @@ export interface Now {
   /** The Tasks with a Stage run today (the user's answer of 2026-10-27). */
   readonly tasksTouched: number;
   readonly desks: Desks;
-  /** Undefined until the engine first reports the account's windows. */
-  readonly fiveHourWindow: FiveHourWindow | undefined;
+  /** Each engine's whose account's windows were read, in the order each was first read. */
+  readonly fiveHourWindows: readonly EngineFiveHourWindow[];
   /** Undefined while the fire alarm is off. */
   readonly fireAlarm: FireAlarmOnNow | undefined;
 }
@@ -190,7 +195,7 @@ export interface NowParts {
   readonly tokensToday: TokenKinds;
   readonly tasksTouched: number;
   readonly officeWideLimit: number;
-  readonly fiveHourWindow: FiveHourWindow | undefined;
+  readonly fiveHourWindows: readonly EngineFiveHourWindow[];
   readonly fireAlarm: NowFireAlarm;
   /** How each Task the alarm paused would resume, by its id; read only while the alarm is on. */
   readonly resumes: ReadonlyMap<string, TaskResume | undefined>;
@@ -217,7 +222,7 @@ export function nowOf(parts: NowParts): Now {
     tokensToday: parts.tokensToday,
     tasksTouched: parts.tasksTouched,
     desks: { inUse: parts.started.length, limit: parts.officeWideLimit },
-    fiveHourWindow: parts.fiveHourWindow,
+    fiveHourWindows: parts.fiveHourWindows,
     fireAlarm: fireAlarmOf(parts, running),
   };
 }

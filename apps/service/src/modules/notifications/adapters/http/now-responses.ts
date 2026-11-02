@@ -20,12 +20,11 @@ export function toNowResponse(now: Now): NowResponse {
     tokensToday: now.tokensToday,
     tasksTouched: now.tasksTouched,
     desks: now.desks,
-    fiveHourWindow: now.fiveHourWindow
-      ? {
-          percentUsed: now.fiveHourWindow.percentUsed,
-          resetsAt: now.fiveHourWindow.resetsAt?.toISOString() ?? null,
-        }
-      : null,
+    fiveHourWindows: now.fiveHourWindows.map(({ engineId, percentUsed, resetsAt }) => ({
+      engineId,
+      percentUsed,
+      resetsAt: resetsAt?.toISOString() ?? null,
+    })),
     fireAlarm: now.fireAlarm ? toFireAlarmResponse(now.fireAlarm) : null,
   };
 }

@@ -63,7 +63,7 @@ export function StatusStrip(): ReactNode {
 }
 
 function Figures({ now }: { readonly now: Now }): ReactNode {
-  const fiveHour = now.fiveHourWindow;
+  const fiveHour = now.fiveHourWindows[0];
   const resets = fiveHour && resetWords(fiveHour.resetsAt);
   // While the alarm is on nothing runs at a desk, though its Tasks keep theirs.
   const inUse = now.fireAlarm ? 0 : now.desks.inUse;

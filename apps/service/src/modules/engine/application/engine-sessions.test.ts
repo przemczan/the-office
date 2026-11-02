@@ -263,14 +263,20 @@ describe("EngineSessions", () => {
     });
     await turns(session, 1);
     await session.end();
-    await vi.waitFor(() => expect(usageWindows.current).toMatchObject(WINDOWS));
+    await vi.waitFor(() =>
+      expect(usageWindows.of(FIRST_CLAUDE_CODE_ENGINE.id)).toMatchObject(WINDOWS),
+    );
 
     const changes = published.filter((event) => event instanceof UsageWindowsChanged);
     expect(changes).toHaveLength(1);
-    expect(changes[0]?.windows).toMatchObject(WINDOWS);
+    expect(changes[0]).toMatchObject({
+      engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+      engineName: FIRST_CLAUDE_CODE_ENGINE.name,
+      windows: WINDOWS,
+    });
     const readings = published.filter((event) => event instanceof UsageWindowsRead);
     expect(readings).toHaveLength(1);
-    expect(readings[0]?.readAt).toEqual(usageWindows.current?.readAt);
+    expect(readings[0]?.readAt).toEqual(usageWindows.of(FIRST_CLAUDE_CODE_ENGINE.id)?.readAt);
   });
 
   it("refuses a session named an Office tool no module registered, before the engine starts it", async () => {
@@ -515,7 +521,7 @@ describe("EngineSessions on each engine's adapter", () => {
     await turns(session, 1);
     await session.end();
 
-    await vi.waitFor(() => expect(usageWindows.current).toMatchObject(WINDOWS));
+    await vi.waitFor(() => expect(usageWindows.of(FALLBACK.id)).toMatchObject(WINDOWS));
   });
 });
 
@@ -566,7 +572,7 @@ describe("EngineSessions' readings of the usage windows", () => {
       officeTokensSoFar: { input: 4, output: 12, cacheRead: 24_000, cacheCreation: 200 },
     });
     expect(reading?.readAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
-    expect(usageWindows.current).toEqual(reading);
+    expect(usageWindows.of(FIRST_CLAUDE_CODE_ENGINE.id)).toEqual(reading);
     await Promise.all([onTheApi.end(), onTheFallback.end(), session.end()]);
   });
 
@@ -586,7 +592,7 @@ describe("EngineSessions' readings of the usage windows", () => {
     await turns(session, 1);
 
     await expect(sessions.readUsageWindows(ON_THE_API, session)).resolves.toBe(undefined);
-    expect(usageWindows.current).toBe(undefined);
+    expect(usageWindows.readingsByEngine.size).toBe(0);
     await session.end();
   });
 
@@ -603,7 +609,7 @@ describe("EngineSessions' readings of the usage windows", () => {
     const reading = await sessions.readUsageWindows(SETTINGS, session);
 
     expect(reading).toMatchObject(notBegun);
-    expect(usageWindows.current).toEqual(reading);
+    expect(usageWindows.of(FIRST_CLAUDE_CODE_ENGINE.id)).toEqual(reading);
     await session.end();
   });
 
@@ -618,7 +624,7 @@ describe("EngineSessions' readings of the usage windows", () => {
     vi.spyOn(session, "readUsageWindows").mockRejectedValue(new Error("The query went away."));
 
     await expect(sessions.readUsageWindows(SETTINGS, session)).resolves.toBe(undefined);
-    expect(usageWindows.current).toBe(undefined);
+    expect(usageWindows.readingsByEngine.size).toBe(0);
     await session.end();
   });
 

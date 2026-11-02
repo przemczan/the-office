@@ -40,7 +40,7 @@ const PARTS: NowParts = {
   tokensToday: NO_TOKENS,
   tasksTouched: 0,
   officeWideLimit: 3,
-  fiveHourWindow: undefined,
+  fiveHourWindows: [],
   fireAlarm: { on: false },
   resumes: new Map(),
 };

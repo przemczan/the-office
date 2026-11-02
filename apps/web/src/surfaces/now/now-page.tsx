@@ -283,13 +283,14 @@ function FinishedCard({
 }
 
 function TodaysTokens({ now }: { readonly now: Now }): ReactNode {
+  const fiveHour = now.fiveHourWindows[0];
   return (
     <p className="now-tokens">
       <TokenCount tokens={now.tokensToday} label="tokens today" strong />
-      {now.fiveHourWindow && (
+      {fiveHour && (
         <>
           {" "}
-          · <b>{Math.round(now.fiveHourWindow.percentUsed)}%</b> of the 5-hour window
+          · <b>{Math.round(fiveHour.percentUsed)}%</b> of the 5-hour window
         </>
       )}
     </p>

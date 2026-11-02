@@ -83,7 +83,7 @@ export class KnownPeopleForTests extends KnownPeople {
 }
 
 export class AccountUsageForTests extends AccountUsage {
-  current: { readonly fiveHour: FiveHourWindow } | undefined = undefined;
+  readonly readingsByEngine = new Map<string, { readonly fiveHour: FiveHourWindow }>();
 }
 
 /** Keeps the sessions an Office status card was posted in. */

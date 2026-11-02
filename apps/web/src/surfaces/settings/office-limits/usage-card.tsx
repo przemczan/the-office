@@ -155,10 +155,10 @@ function EngineCapsFields({
 function WindowsUse(): ReactNode {
   const now = useQuery(nowQueries.now());
   if (!now.data) return null;
-  return <p className="settings-note">{fiveHourWords(now.data.fiveHourWindow)}</p>;
+  return <p className="settings-note">{fiveHourWords(now.data.fiveHourWindows[0])}</p>;
 }
 
-function fiveHourWords(window: Now["fiveHourWindow"]): string {
+function fiveHourWords(window: Now["fiveHourWindows"][number] | undefined): string {
   if (!window) return "The 5-hour window hasn't been read yet: it is read as each Stage runs.";
   const resets = resetWords(window.resetsAt);
   return `The 5-hour window: ${Math.round(window.percentUsed)}% used${resets ? ` · ${resets}` : ""}`;
