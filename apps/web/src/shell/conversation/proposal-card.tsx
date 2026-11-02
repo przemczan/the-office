@@ -27,7 +27,6 @@ import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { skillQueries } from "../../api/skills.ts";
 import { initiativeQueries, officeWideLimitQuery, taskQueries } from "../../api/work.ts";
-import { EFFORT_LABELS, modelLabel } from "../engine-words.ts";
 import { useEngineName } from "../use-engine-name.ts";
 import { personName, roleName } from "../person-name.ts";
 import {
@@ -49,6 +48,7 @@ import {
   SESSION_DEFAULTS,
   taskLimitLabel,
   type RoleTitles,
+  worksWithText,
 } from "../role-card-words.ts";
 import { SkillChip } from "../skill-chip.tsx";
 import { pinnedVersionLabel } from "../skill-words.ts";
@@ -339,8 +339,7 @@ function ProposedCard({
       </ProposedField>
       <ProposedField label="Task limit">{taskLimitLabel(card.taskLimit)}</ProposedField>
       <ProposedField label="Works with">
-        {modelLabel(card.model)} · effort {EFFORT_LABELS[card.effort].toLowerCase()} ·{" "}
-        {engineName(card.engine)}
+        {worksWithText(card, engineName)}
         <span className="proposal-note">
           Sessions: {SESSION_DEFAULTS[card.sessionDefault].label}
         </span>

@@ -368,7 +368,9 @@ describe("a Proposal of a new Role", () => {
   });
 
   it("is not drafted on a card People would refuse, and the Agent reads why", async () => {
-    await startWith(proposes({ card: aProposedCard({ title, model: "gpt-5" }) }));
+    await startWith(
+      proposes({ card: aProposedCard({ title, responsibilities: "Tests.\n\nAnd more tests." }) }),
+    );
 
     const { thread, drafted } = await askOfficeManager("We need a tester.");
 
@@ -376,7 +378,7 @@ describe("a Proposal of a new Role", () => {
     const log = await threads.messages(thread.id);
     expect(log.some(({ kind }) => kind === "proposal")).toBe(false);
     expect(toolResultRead()).toEqual({
-      text: expect.stringContaining("model"),
+      text: expect.stringContaining("one paragraph"),
       isError: true,
     });
   });

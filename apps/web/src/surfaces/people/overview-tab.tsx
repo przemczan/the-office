@@ -3,10 +3,10 @@ import { Link, useParams } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { skillQueries } from "../../api/skills.ts";
-import { EFFORT_LABELS, modelLabel } from "../../shell/engine-words.ts";
 import { SkillChip } from "../../shell/skill-chip.tsx";
 import { PersonBlock } from "./role-card-layout.tsx";
-import { SESSION_DEFAULTS, taskLimitLabel } from "../../shell/role-card-words.ts";
+import { SESSION_DEFAULTS, taskLimitLabel, worksWithText } from "../../shell/role-card-words.ts";
+import { useEngineName } from "../../shell/use-engine-name.ts";
 import { sessionSkillsOf } from "./session-skills.ts";
 
 /** Who the person is, what they work with, and their skills. */
@@ -14,6 +14,7 @@ export function OverviewTab(): ReactNode {
   const { roleKey } = useParams({ from: "/people/$roleKey/" });
   const role = useQuery(roleQueries.one(roleKey));
   const library = useQuery(skillQueries.list());
+  const engineName = useEngineName();
   if (!role.data) return null;
   const { card } = role.data;
   const skills = library.data ? sessionSkillsOf(role.data, library.data) : [];
@@ -25,8 +26,7 @@ export function OverviewTab(): ReactNode {
         </PersonBlock>
         <PersonBlock icon="cpu" title="Works with">
           <p className="person-text">
-            {modelLabel(card.model)} · effort {EFFORT_LABELS[card.effort].toLowerCase()} ·{" "}
-            {taskLimitLabel(card.taskLimit)}
+            {worksWithText(card, engineName)} · {taskLimitLabel(card.taskLimit)}
           </p>
           <p className="person-note">
             Session default: {SESSION_DEFAULTS[card.sessionDefault].label}

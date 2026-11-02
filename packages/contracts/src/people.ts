@@ -70,10 +70,6 @@ export const roleCardSchema = z.object({
   title: z.string(),
   responsibilities: z.string(),
   instructions: z.string(),
-  /** One of the engines Settings › Engines lists, by its id. */
-  engine: engineIdSchema,
-  /** One of the engine's models, by its id there. */
-  model: z.string(),
   /** The engine and model the Role runs on outside a Project's own levels; null: the Office default. */
   roleOverride: engineModelSchema.nullable(),
   effort: effortSchema,
@@ -160,7 +156,10 @@ export const roleCardOptionsSchema = z.object({
 });
 export type RoleCardOptions = z.infer<typeof roleCardOptionsSchema>;
 
-/** A part of a Role card as its change history names it, down to each capability and switch. */
+/**
+ * A part of a Role card as its change history names it, down to each capability and switch.
+ * `engine` and `model` are named only by entries saved before the card had a Role override.
+ */
 export const roleCardFieldSchema = z.enum([
   "name",
   "title",

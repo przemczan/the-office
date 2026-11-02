@@ -130,8 +130,6 @@ export class KnownPeopleForTests extends KnownPeople {
       card: {
         name: `The ${roleKey}`,
         taskLimit: this.taskLimits.get(roleKey) ?? 3,
-        engine: FIRST_CLAUDE_CODE_ENGINE.id,
-        model: "claude-haiku-5-5",
       },
     };
   }

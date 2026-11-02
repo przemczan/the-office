@@ -2,7 +2,6 @@ import { Link } from "@tanstack/react-router";
 import type { Role, RoleCardOptions, RoleMcpServer, Skill } from "@the-office/contracts";
 import { Badge, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { EFFORT_LABELS, modelLabel } from "../../shell/engine-words.ts";
 import { SkillChip } from "../../shell/skill-chip.tsx";
 import { RoleCardGroup, RoleCardValue } from "./role-card-layout.tsx";
 import {
@@ -17,6 +16,7 @@ import {
   SESSION_DEFAULTS,
   taskLimitLabel,
   type RoleTitles,
+  worksWithText,
 } from "../../shell/role-card-words.ts";
 import { useEngineName } from "../../shell/use-engine-name.ts";
 import { sessionSkillsOf } from "./session-skills.ts";
@@ -35,7 +35,9 @@ export function RoleCardView({
   const roleTitles = roleTitlesOf(options);
   const skills = sessionSkillsOf(role, library);
   const engineName = useEngineName();
-  const missing = options.engines.find(({ engine }) => engine === card.engine)?.missingCapabilities;
+  const missing = options.engines.find(
+    ({ engine }) => engine === card.roleOverride?.engineId,
+  )?.missingCapabilities;
   const cantDo = missing && missingCapabilitiesWords(missing);
   return (
     <div className="role-card">
@@ -59,8 +61,7 @@ export function RoleCardView({
       </RoleCardGroup>
       <RoleCardGroup group="engine">
         <RoleCardValue label="Works with">
-          {modelLabel(card.model)} · effort {EFFORT_LABELS[card.effort].toLowerCase()} ·{" "}
-          {engineName(card.engine)}
+          {worksWithText(card, engineName)}
           {cantDo && <span className="role-card-note">{cantDo}</span>}
         </RoleCardValue>
       </RoleCardGroup>

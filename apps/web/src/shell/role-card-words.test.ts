@@ -6,6 +6,7 @@ import {
   proposedFieldChanges,
   skillsChangeLine,
   taskLimitShort,
+  worksWithText,
 } from "./role-card-words.ts";
 
 const roleTitles = new Map([
@@ -23,6 +24,16 @@ describe("the Role card's words", () => {
     expect(taskLimitShort("none")).toBe("Talks only");
     expect(taskLimitShort(1)).toBe("Up to 1 Task");
     expect(taskLimitShort(3)).toBe("Up to 3 Tasks");
+  });
+
+  it("says what the card works with, the Office default when it has no Role override", () => {
+    expect(worksWithText({ roleOverride: null, effort: "high" }, names.engineName)).toBe(
+      "Office default · effort high",
+    );
+    const roleOverride = { engineId: "claude-code", model: "claude-sonnet-5-5" };
+    expect(worksWithText({ roleOverride, effort: "max" }, names.engineName)).toBe(
+      "Sonnet 5.5 · effort max · Work account",
+    );
   });
 
   it("names what an engine can't do, and nothing when it can do everything", () => {
@@ -105,10 +116,10 @@ describe("the Role card's words", () => {
     } as const;
     expect(
       proposedFieldChanges(
-        { taskLimit: 2, model: "claude-opus-5-5", capabilities, hardSwitches },
+        { taskLimit: 2, effort: "high", capabilities, hardSwitches },
         {
           taskLimit: 3,
-          model: "claude-opus-5-5",
+          effort: "high",
           capabilities: { ...capabilities, consultant: true },
           hardSwitches: { ...hardSwitches, runInstalls: { kind: "ask-me" } },
         },

@@ -394,43 +394,53 @@ function WorkFields({
   );
 }
 
+/** The Engine field's choice of no Role override. */
+const OFFICE_DEFAULT = "";
+
 function EngineFields({
   draft,
   options,
   change,
 }: FieldsProps & { readonly options: RoleCardOptions }): ReactNode {
   const engineName = useEngineName();
-  const picked = options.engines.find(({ engine }) => engine === draft.engine);
+  const { roleOverride } = draft;
+  const picked = options.engines.find(({ engine }) => engine === roleOverride?.engineId);
   return (
     <RoleCardGroup group="engine">
       <div className="role-card-form-pair">
         <Select
           label="Engine"
           hint={picked && missingCapabilitiesWords(picked.missingCapabilities)}
-          value={draft.engine}
-          options={options.engines.map(({ engine }) => ({
-            value: engine,
-            label: engineName(engine),
-          }))}
+          value={roleOverride?.engineId ?? OFFICE_DEFAULT}
+          options={[
+            { value: OFFICE_DEFAULT, label: "Office default" },
+            ...options.engines.map(({ engine }) => ({ value: engine, label: engineName(engine) })),
+          ]}
           onChange={(value) => {
             const engine = options.engines.find((offered) => offered.engine === value);
-            if (!engine) return;
-            change({
-              engine: engine.engine,
-              // Another engine offers other models.
-              model: engine.models.includes(draft.model) ? draft.model : (engine.models[0] ?? ""),
-            });
+            if (!engine) {
+              change({ roleOverride: null });
+              return;
+            }
+            // Another engine offers other models.
+            const model =
+              roleOverride && engine.models.includes(roleOverride.model)
+                ? roleOverride.model
+                : (engine.models[0] ?? "");
+            change({ roleOverride: { engineId: engine.engine, model } });
           }}
         />
-        <Select
-          label="Model"
-          value={draft.model}
-          options={(picked?.models ?? []).map((model) => ({
-            value: model,
-            label: modelLabel(model),
-          }))}
-          onChange={(model) => change({ model })}
-        />
+        {roleOverride && (
+          <Select
+            label="Model"
+            value={roleOverride.model}
+            options={(picked?.models ?? []).map((model) => ({
+              value: model,
+              label: modelLabel(model),
+            }))}
+            onChange={(model) => change({ roleOverride: { ...roleOverride, model } })}
+          />
+        )}
       </div>
       <Field label="Effort" hint="How hard the model thinks.">
         <SegmentedControl

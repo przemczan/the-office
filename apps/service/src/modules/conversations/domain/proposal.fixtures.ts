@@ -8,8 +8,6 @@ export function aProposedCard(fields: Partial<RoleCard> = {}): RoleCard {
     title: "Tester",
     responsibilities: "Tests each change before it is published.",
     instructions: "Run the tests and try the change as the user would.",
-    engine: "claude-code",
-    model: "claude-sonnet-5-5",
     roleOverride: null,
     effort: "medium",
     capabilities: { sharedMemory: false, chat: true, consultant: false },

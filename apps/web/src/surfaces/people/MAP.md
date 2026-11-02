@@ -2,6 +2,8 @@
 
 **Owns:** the People grid and a person's page: Overview, Work, Conversations, Role card (with "proposed by" in its changes), and hiring: from a preset (`hire-dialog.tsx`), from scratch, or from a Proposal's card edited first (`/hire?proposal=…`, "Edit the proposed Role", saved by applying the Proposal). It reads the service through `src/api/` (see [the web app's map](../../MAP.md)); the Role card's words live in the shell (`shell/role-card-words.ts`), since a chat's Proposal card shows them too.
 
+The Role card's Engine and Model (`EngineFields` in `role-card-form.tsx`) set the Role override, "Office default" being none; the view, the Overview and a Proposal's card say it through `worksWithText`. What applies per Project comes in task 47 step 2d.
+
 The Role card's MCP servers (`role-card-mcp-server-fields.tsx`, `role-mcp-servers.ts`): the form ticks the library's servers and sets each tool of a ticked server that is on, its names too long for sessions left out (the library's `toolsTooLong`); the view shows the Role's `mcpServers`, on with each tool's setting, or off.
 
 **Traps:** the MCP servers module keeps a Role's servers, so Save sends the card (only when it changed, as an unchanged one would add an empty version) and then `PUT /mcp-servers/:name/roles` for each server whose tick changed, with the library's Roles plus or minus this one; hiring assigns after, with the new key. The card keeps only the tool settings the user set: choosing the options' `mcpToolDefault` removes the key, and unticking a server drops its tools' keys. An MCP tool may consult the card's own Role only when the default names it (Devops' card).

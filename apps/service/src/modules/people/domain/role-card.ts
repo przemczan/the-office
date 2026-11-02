@@ -41,10 +41,6 @@ export interface RoleCard {
   readonly responsibilities: string;
   /** What the Agent works from. */
   readonly instructions: string;
-  /** One of the engines Settings › Engines lists, by its id. */
-  readonly engine: EngineId;
-  /** One of the models the engine offers, by its id there. */
-  readonly model: string;
   /**
    * The engine and model the Role runs on wherever no Project sets its own (the engine cascade,
    * spec §5.4); none means the Office default.
@@ -102,9 +98,6 @@ export function roleCardProblems(
   ];
   if (/\n\s*\n/.test(card.responsibilities.trim()))
     problems.push("The responsibilities are one paragraph.");
-  if (!modelsOffered(card.engine).includes(card.model)) {
-    problems.push("Choose a model the engine offers.");
-  }
   const { roleOverride } = card;
   if (roleOverride && !modelsOffered(roleOverride.engineId).includes(roleOverride.model)) {
     problems.push("Choose an engine Settings › Engines lists, and a model it offers.");

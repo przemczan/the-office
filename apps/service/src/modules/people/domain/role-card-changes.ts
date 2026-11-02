@@ -15,8 +15,6 @@ const PLAIN_FIELDS = [
   "title",
   "responsibilities",
   "instructions",
-  "engine",
-  "model",
   "effort",
   "taskLimit",
   "sessionDefault",
@@ -27,9 +25,14 @@ const CAPABILITY_KEYS = [
   "consultant",
 ] as const satisfies readonly (keyof Capabilities)[];
 
-/** A part of a Role card as its change history names it, down to each capability and switch. */
+/**
+ * A part of a Role card as its change history names it, down to each capability and switch.
+ * `engine` and `model` are named only by entries saved before the card had a Role override.
+ */
 export type RoleCardField =
   | (typeof PLAIN_FIELDS)[number]
+  | "engine"
+  | "model"
   | "roleOverride"
   | `capabilities.${keyof Capabilities}`
   | "permissionProfile"

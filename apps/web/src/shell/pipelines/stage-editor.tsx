@@ -410,7 +410,7 @@ function AgentFields({
 }): ReactNode {
   const continuing = canContinue(stages, index);
   const role = roles.find(({ key }) => key === stage.role);
-  const engine = role?.card.engine;
+  const engine = role?.card.roleOverride?.engineId;
   const models =
     options.engines.find((offered) => offered.engine === engine)?.models ??
     options.engines.flatMap((offered) => offered.models);

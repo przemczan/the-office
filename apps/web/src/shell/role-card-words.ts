@@ -8,6 +8,7 @@ import {
   type HardSwitchValue,
   type PermissionProfile,
   type ProposedChange,
+  type RoleCard,
   type RoleCardField,
   type RoleCardOptions,
   type RoleChange,
@@ -134,6 +135,20 @@ export function roleTitlesOf(options: RoleCardOptions): RoleTitles {
 export interface FieldValueNames {
   readonly roleTitles: RoleTitles;
   readonly engineName: (engineId: EngineId) => string;
+}
+
+/**
+ * The model, effort and engine the card names, "Sonnet 5.5 · effort max · Work account", or
+ * "Office default · effort high" when it has no Role override.
+ */
+export function worksWithText(
+  { roleOverride, effort }: Pick<RoleCard, "roleOverride" | "effort">,
+  engineName: (engineId: EngineId) => string,
+): string {
+  const effortText = `effort ${EFFORT_LABELS[effort].toLowerCase()}`;
+  return roleOverride
+    ? `${modelLabel(roleOverride.model)} · ${effortText} · ${engineName(roleOverride.engineId)}`
+    : `Office default · ${effortText}`;
 }
 
 export function taskLimitLabel(limit: TaskLimit): string {

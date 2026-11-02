@@ -1,4 +1,3 @@
-import { FIRST_CLAUDE_CODE_ENGINE } from "../../engine/index.js";
 import { ALLOWED, ASK_ME, consult, NEVER } from "./hard-switches.js";
 import { CTO, DEVOPS, OFFICE_MANAGER } from "./known-roles.js";
 import type { RoleCard } from "./role-card.js";
@@ -28,8 +27,6 @@ const planner: Preset = {
       "Consult the CTO first: a Plan that touches architecture.",
       "Ask the user: marking a Task Ready, splitting a Task in two.",
     ].join("\n\n"),
-    engine: FIRST_CLAUDE_CODE_ENGINE.id,
-    model: "claude-opus-5-5",
     roleOverride: null,
     effort: "high",
     capabilities: { sharedMemory: true, chat: true, consultant: true },
@@ -57,8 +54,6 @@ const developer: Preset = {
       "Consult the CTO first: an architecture question the Plan leaves open.",
       "Ask the user: changing the Definition of Done or a public API.",
     ].join("\n\n"),
-    engine: FIRST_CLAUDE_CODE_ENGINE.id,
-    model: "claude-opus-5-5",
     roleOverride: null,
     effort: "high",
     capabilities: { sharedMemory: false, chat: false, consultant: false },
@@ -86,8 +81,6 @@ const reviewer: Preset = {
       "Consult the CTO first: a finding about architecture.",
       "Ask the user: sending a change back a third time.",
     ].join("\n\n"),
-    engine: FIRST_CLAUDE_CODE_ENGINE.id,
-    model: "claude-sonnet-5-5",
     roleOverride: null,
     effort: "high",
     capabilities: { sharedMemory: false, chat: false, consultant: false },
@@ -116,8 +109,6 @@ const cto: Preset = {
       "Consult Devops first: installing anything that changes the machine outside the worktree.",
       "Ask the user: changing a Project's architecture, confirming an Initiative, changing an Initiative once it is active.",
     ].join("\n\n"),
-    engine: FIRST_CLAUDE_CODE_ENGINE.id,
-    model: "claude-opus-5-5",
     roleOverride: null,
     effort: "high",
     capabilities: { sharedMemory: true, chat: true, consultant: true },
@@ -145,8 +136,6 @@ const devops: Preset = {
       "Consult the CTO first: changing a Project's build system, publishing outside the Pipeline.",
       "Ask the user: changing a Pipeline or a Project's commands, through a Proposal.",
     ].join("\n\n"),
-    engine: FIRST_CLAUDE_CODE_ENGINE.id,
-    model: "claude-sonnet-5-5",
     roleOverride: null,
     effort: "high",
     capabilities: { sharedMemory: true, chat: true, consultant: true },
@@ -174,8 +163,6 @@ const officeManager: Preset = {
       "Decide alone: answering for the state of The Office, capturing an Idea, drafting a Proposal.",
       "Ask the user: creating, changing or letting go of a Role; changing Office settings; starting, stopping or moving work; publishing anything.",
     ].join("\n\n"),
-    engine: FIRST_CLAUDE_CODE_ENGINE.id,
-    model: "claude-sonnet-5-5",
     roleOverride: null,
     effort: "medium",
     capabilities: { sharedMemory: true, chat: true, consultant: false },

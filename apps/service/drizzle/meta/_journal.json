@@ -582,6 +582,13 @@
       "when": 1793639350960,
       "tag": "0082_role_override",
       "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1793641348047,
+      "tag": "0083_role_cards_without_engine",
+      "breakpoints": true
     }
   ]
 }

@@ -128,7 +128,7 @@ test("a person's page shows who they are and their Role card from the presets", 
   await expect(permissions).toContainText("Asks you until someone is hired");
   await expect(permissions).toContainText("Change RolesNever");
   await expect(roleCardGroup(page, "Work")).toContainText("3 at once");
-  await expect(roleCardGroup(page, "Engine")).toContainText("Opus 5.5 · effort high");
+  await expect(roleCardGroup(page, "Engine")).toContainText("Office default · effort high");
   await expect(page.getByText("Hired", { exact: true })).toBeVisible();
   await page.screenshot({
     path: path.join(SCREENSHOTS, "light-1600-person-role-card.png"),
@@ -165,6 +165,7 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   await form.getByLabel("Instructions").fill("Work from the Plan.\n\nAsk the user: a public API.");
   await form.getByLabel("Task limit").selectOption("4");
   await form.getByText("Prefer to continue", { exact: true }).click();
+  await form.getByRole("combobox", { name: "Engine" }).selectOption({ label: "Claude Code" });
   await form.getByLabel("Model").selectOption("claude-sonnet-5-5");
   await form.getByRole("tab", { name: "Max" }).click();
   await form.getByText("Chat", { exact: true }).click();
@@ -196,7 +197,9 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   await expect(roleCardGroup(page, "Work")).toContainText("Ask the user: a public API.");
   await expect(roleCardGroup(page, "Work")).toContainText("4 at once");
   await expect(roleCardGroup(page, "Work")).toContainText("Prefer to continue");
-  await expect(roleCardGroup(page, "Engine")).toContainText("Sonnet 5.5 · effort max");
+  await expect(roleCardGroup(page, "Engine")).toContainText(
+    "Sonnet 5.5 · effort max · Claude Code",
+  );
   const capabilities = roleCardGroup(page, "Capabilities").getByRole("listitem");
   await expect(capabilities.filter({ hasText: "Chat" })).toHaveClass("on");
   await expect(capabilities.filter({ hasText: "Consultant" })).toHaveClass("on");
@@ -210,7 +213,7 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   await expect(roleCardGroup(page, "Skills")).toContainText(SKILL);
 
   const changes = page.getByRole("listitem").filter({ hasText: "Role card version 2" });
-  await expect(changes).toContainText("Model Opus 5.5 → Sonnet 5.5");
+  await expect(changes).toContainText("Engine and model Office default → Claude Code · Sonnet 5.5");
   await expect(changes).toContainText("Task limit 3 → 4");
   await expect(page.getByText(`Skills gained ${SKILL}`)).toBeVisible();
   await page.screenshot({
@@ -331,7 +334,9 @@ test("the user lists an API endpoint in Settings › Engines and puts Mia on one
   );
   await expect(roleCardGroup(page, "Engine")).toContainText("It has no usage windows");
   await expect(
-    page.getByRole("listitem").filter({ hasText: "Engine Claude Code → People Strata" }),
+    page
+      .getByRole("listitem")
+      .filter({ hasText: "Engine and model Office default → People Strata · org/coder:q4" }),
   ).toBeVisible();
 
   // An API engine has Daily caps only: it has no usage windows.

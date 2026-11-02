@@ -68,8 +68,6 @@ const CTO_ROLE: SessionRole = {
     title: "CTO",
     responsibilities: "Shapes Initiatives across Projects with you.",
     instructions: "Agree the outcome first, then the Tasks.",
-    engine: "claude-code",
-    model: "claude-haiku-5-5",
     roleOverride: null,
     effort: "low",
     capabilities: { sharedMemory: true, chat: true, consultant: true },

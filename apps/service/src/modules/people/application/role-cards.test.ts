@@ -61,14 +61,14 @@ describe("RoleCards", () => {
     await repository.add(role);
 
     const before = await roleCards.forNewSession(role.key);
-    await roles.changeCard(role.key, aRoleCard({ model: "claude-sonnet-5-5", taskLimit: 2 }), []);
+    await roles.changeCard(role.key, aRoleCard({ effort: "medium", taskLimit: 2 }), []);
     const after = await roleCards.forNewSession(role.key);
 
     expect(before).toEqual({ roleKey: role.key, cardVersion: 1, card: role.card });
     expect(after).toEqual({
       roleKey: role.key,
       cardVersion: 2,
-      card: aRoleCard({ model: "claude-sonnet-5-5", taskLimit: 2 }),
+      card: aRoleCard({ effort: "medium", taskLimit: 2 }),
     });
     await expect(roleCards.forResumedSession(role.key, before.cardVersion)).resolves.toEqual(
       before,
