@@ -50,6 +50,7 @@ import {
 } from "../ports/work-ports.fixtures.js";
 import { ADD_TASK, WRITE_OUTCOME } from "../adapters/office-tools/shaping-office-tools.js";
 import { WorkModule } from "../work.module.js";
+import { ownProjectsQueue } from "../adapters/postgres/postgres-queue-repository.fixtures.js";
 import { IdeaService } from "./idea-service.js";
 import { InitiativeService } from "./initiative-service.js";
 
@@ -221,6 +222,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     overrides: [
       { provide: RoleCards, useValue: new CtoOnly() },
       { provide: MemoryService, useValue: NO_MEMORY },
+      ownProjectsQueue(),
     ],
     moduleOverrides: [{ module: EngineModule, useModule: ScriptedEngineModule.register(engine) }],
   }));

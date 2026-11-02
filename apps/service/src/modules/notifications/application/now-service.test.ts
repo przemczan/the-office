@@ -226,33 +226,51 @@ describe("NowService", () => {
     );
   });
 
-  it("counts today's tokens by how much each Thread grew, and each Task touched once", async () => {
-    const before = await readNow();
-    const threadId = randomUUID();
-    const taskId = randomUUID();
+  describe("on a day of its own", () => {
+    // The day's figures are kept by day in tables every test file shares, and other files' Stage
+    // runs and turns count on the system's day: a year no other file's clock reaches keeps them out.
+    beforeEach(() => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date(2002, 0, 1, 12));
+    });
 
-    await events.publish(new TokensCounted(threadWith(threadId, 0, 150), new Date()));
-    // The turn's own count replaces the running one: 140 in all, not 290.
-    await events.publish(new TurnEnded(threadWith(threadId, 140, 0), new Date()));
-    await events.publish(new StageRunStarted(taskId, randomUUID(), "build"));
-    await events.publish(new StageRunStarted(taskId, randomUUID(), "test"));
+    afterEach(() => {
+      vi.useRealTimers();
+    });
 
-    const now = await readNow();
-    // Each kind apart: the running turn's cache reads went as the ended turn's input came.
-    expect(grownBy(before, now)).toEqual({ input: 140, output: 0, cacheRead: 0, cacheCreation: 0 });
-    expect(now.tasksTouched - before.tasksTouched).toBe(1);
-  });
+    it("counts today's tokens by how much each Thread grew, and each Task touched once", async () => {
+      const before = await readNow();
+      const threadId = randomUUID();
+      const taskId = randomUUID();
 
-  it("counts a Thread first seen with earlier turns from those turns, not from nothing", async () => {
-    const before = await readNow();
+      await events.publish(new TokensCounted(threadWith(threadId, 0, 150), new Date()));
+      // The turn's own count replaces the running one: 140 in all, not 290.
+      await events.publish(new TurnEnded(threadWith(threadId, 140, 0), new Date()));
+      await events.publish(new StageRunStarted(taskId, randomUUID(), "build"));
+      await events.publish(new StageRunStarted(taskId, randomUUID(), "test"));
 
-    await events.publish(new TokensCounted(threadWith(randomUUID(), 5_000, 30), new Date()));
+      const now = await readNow();
+      // Each kind apart: the running turn's cache reads went as the ended turn's input came.
+      expect(grownBy(before, now)).toEqual({
+        input: 140,
+        output: 0,
+        cacheRead: 0,
+        cacheCreation: 0,
+      });
+      expect(now.tasksTouched - before.tasksTouched).toBe(1);
+    });
 
-    expect(grownBy(before, await readNow())).toEqual({
-      input: 0,
-      output: 0,
-      cacheRead: 30,
-      cacheCreation: 0,
+    it("counts a Thread first seen with earlier turns from those turns, not from nothing", async () => {
+      const before = await readNow();
+
+      await events.publish(new TokensCounted(threadWith(randomUUID(), 5_000, 30), new Date()));
+
+      expect(grownBy(before, await readNow())).toEqual({
+        input: 0,
+        output: 0,
+        cacheRead: 30,
+        cacheCreation: 0,
+      });
     });
   });
 

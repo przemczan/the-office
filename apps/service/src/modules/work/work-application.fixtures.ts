@@ -32,6 +32,7 @@ import {
   WorkPortsForTestsModule,
 } from "./ports/work-ports.fixtures.js";
 import { WorkModule } from "./work.module.js";
+import { ownProjectsQueue } from "./adapters/postgres/postgres-queue-repository.fixtures.js";
 
 /** The Work module served over HTTP on the test database, with every event it publishes. */
 export interface WorkApplication {
@@ -51,7 +52,8 @@ export async function startWorkApplication(
 ): Promise<WorkApplication> {
   const { app, url } = await startTestApplication({
     database: true,
-    overrides,
+    // No Projects of its own by default: a test that queues Tasks names its own in `overrides`.
+    overrides: [ownProjectsQueue(), ...overrides],
     imports: [
       EventsModule,
       EventStreamModule,

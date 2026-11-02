@@ -43,6 +43,7 @@ import {
   type SessionScript,
 } from "../../engine/index.js";
 import { EngineCascade, DEVOPS, RoleCards, type SessionRole } from "../../people/index.js";
+import { ownProjectsQueue } from "../../work/index.fixtures.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { TaskWorktrees } from "../../projects/index.js";
 import { SKILL_UPDATE_CHECK, SkillLibrary } from "../../skills/index.js";
@@ -114,6 +115,8 @@ beforeEach(async () => {
       // A chat reads every Project's base branch, which would run git in other test files' own
       // repositories on the shared database while they use or delete them; no test here needs it.
       { provide: ProjectBases, useValue: noProjectBases(join(folder, "bases")) },
+      // The queue every file shares: this file queues nothing, so its releases touch none of it.
+      ownProjectsQueue(),
     ],
     moduleOverrides: [{ module: EngineModule, useModule: ScriptedEngineModule.register(engine) }],
   }));

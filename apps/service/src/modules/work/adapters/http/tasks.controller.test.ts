@@ -81,6 +81,7 @@ import {
   type WorkApplication,
 } from "../../work-application.fixtures.js";
 import { GITHUB_SITE } from "../../../../platform/git-identity/github-site.js";
+import { ownProjectsQueue } from "../postgres/postgres-queue-repository.fixtures.js";
 
 const run = promisify(execFile);
 
@@ -99,10 +100,11 @@ afterAll(async () => {
 
 beforeEach(async () => {
   // Its own Office-wide limit, so lowering it refuses no other file's Start.
+  projectId = `project-${randomUUID()}`;
   work = await startWorkApplication(officeData, [
     { provide: WorkSettings, useValue: new WorkSettingsForTests() },
+    ownProjectsQueue(() => [projectId]),
   ]);
-  projectId = `project-${randomUUID()}`;
 });
 
 afterEach(async () => {
@@ -979,6 +981,7 @@ describe("The queue", () => {
 
     work = await startWorkApplication(officeData, [
       { provide: WorkSettings, useValue: new WorkSettingsForTests() },
+      ownProjectsQueue(() => [projectId]),
     ]);
     expect(await ownQueue()).toEqual([second.id]);
     // What the service runs once every module has started (office.ts).
@@ -1063,6 +1066,7 @@ describe("The fire alarm", () => {
     work = await startWorkApplication(officeData, [
       { provide: WorkSettings, useValue: settings },
       { provide: FireAlarmRepository, useValue: fireAlarm },
+      ownProjectsQueue(() => [projectId]),
       {
         provide: TaskRepository,
         useFactory: (database: Database) => new OwnProjectTaskRepository(database, () => projectId),
@@ -1421,6 +1425,7 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
   const settings = new WorkSettingsForTests();
   // Every test file's started Tasks count against the Office-wide limit: only the Task limit holds.
   await settings.changeOfficeWideLimit(1_000);
+  let ownProjectIds: readonly string[] = [];
   const { app, url } = await startTestApplication({
     imports: [
       AppModule.register(
@@ -1438,6 +1443,7 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
       { provide: WorkSettings, useValue: settings },
       { provide: RoleCards, useValue: roleCardsOf(developerKey, taskLimit) },
       { provide: MemoryService, useValue: NO_MEMORY },
+      ownProjectsQueue(() => ownProjectIds),
     ],
     moduleOverrides: [{ module: EngineModule, useModule: ScriptedEngineModule.register(engine) }],
   });
@@ -1470,6 +1476,7 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
       })
     ).json(),
   );
+  ownProjectIds = [project.id];
   return {
     engine,
     repository,

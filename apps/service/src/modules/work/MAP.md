@@ -97,6 +97,7 @@ FireAlarmService, IdeaService, OfficeLimits, QueueService, StageScreenshots, Tas
 
 ### ./
 
+- `index.fixtures.ts`: ownProjectsQueue
 - `work-application.fixtures.ts`: WorkApplication, startWorkApplication, webEventsOf, sendJson
 - `work.module.ts`: WorkModuleOptions, WorkModule
 
@@ -151,6 +152,7 @@ FireAlarmService, IdeaService, OfficeLimits, QueueService, StageScreenshots, Tas
 - `postgres-fire-alarm-repository.ts`: PostgresFireAlarmRepository
 - `postgres-idea-repository.ts`: PostgresIdeaRepository
 - `postgres-initiative-repository.ts`: PostgresInitiativeRepository
+- `postgres-queue-repository.fixtures.ts`: OwnProjectsQueueRepository, ownProjectsQueue
 - `postgres-queue-repository.ts`: PostgresQueueRepository
 - `postgres-saved-view-repository.ts`: PostgresSavedViewRepository
 - `postgres-task-repository.ts`: PostgresTaskRepository

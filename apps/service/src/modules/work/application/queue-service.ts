@@ -85,7 +85,7 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
       const estimate = conditions.get(task.id)?.usage.estimate;
       if (estimate) this.startsSinceReading.record(startedAt, estimate);
     }
-    this.setCapTimer(capResets);
+    this.setCapTimer(capResets, weighedAt(conditions));
     for (const { task, event } of started) {
       await this.events.publish(new TaskLeftQueue(task.id, "started"));
       await this.events.publish(event);
@@ -116,14 +116,16 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
   }
 
   /**
-   * An hour before, and at, the next reset that frees a Task a cap holds. A timer longer than Node
-   * keeps releases at its longest and is set again then.
+   * An hour before, and at, the next reset that frees a Task a cap holds. The next release counts
+   * from when the caps were weighed: a moment that passed since then releases at once, rather than
+   * holding the Task until the next one. A timer longer than Node keeps releases at its longest and
+   * is set again then.
    */
-  private setCapTimer(capResets: readonly Date[]): void {
+  private setCapTimer(capResets: readonly Date[], weighed: Date): void {
     clearTimeout(this.capTimer);
-    const releaseAt = nextCapRelease(capResets, new Date());
+    const releaseAt = nextCapRelease(capResets, weighed);
     if (!releaseAt) return;
-    const delay = Math.min(releaseAt.getTime() - Date.now(), LONGEST_TIMER);
+    const delay = Math.min(Math.max(0, releaseAt.getTime() - Date.now()), LONGEST_TIMER);
     this.capTimer = setTimeout(() => {
       this.release().catch((error: unknown) => {
         this.logger.error(`The release for a cap's reset failed: ${String(error)}`);
@@ -139,4 +141,10 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     );
     return this.conditions.ofEach(queued.filter((task) => task !== undefined));
   }
+}
+
+/** The earliest moment the queued Tasks' caps were weighed at; now when none was. */
+function weighedAt(conditions: ReadonlyMap<string, StartConditions>): Date {
+  const moments = [...conditions.values()].map(({ usage }) => usage.now.getTime());
+  return moments.length === 0 ? new Date() : new Date(Math.min(...moments));
 }
