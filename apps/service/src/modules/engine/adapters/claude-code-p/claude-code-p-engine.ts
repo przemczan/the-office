@@ -32,7 +32,7 @@ import { McpConfigFile } from "../claude-code/mcp-config-file.js";
 import { officeRulesHook } from "../claude-code/office-rules-hook.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
 import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
-import { sessionEnvironment } from "../claude-code/session-settings.js";
+import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
 import {
   initProblems,
   startCheckProblems,
@@ -41,8 +41,8 @@ import {
 import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code/stream-events.js";
 import {
   claudeCodePArguments,
+  claudeCodePEnvironment,
   claudeCodePMcpConfig,
-  TOKEN_VARIABLE,
 } from "./claude-code-p-arguments.js";
 import { OfficeToolServer } from "./office-tool-server.js";
 import { pinnedBinaryPath } from "./pinned-binary.js";
@@ -110,7 +110,13 @@ export class ClaudeCodePEngine extends AgentEngine {
     resumes: boolean,
     options: SessionOptions,
   ): Promise<ClaudeCodePSession> {
-    const rules = claudeCodeOfficeRules(this.operatingSystem, this.officeData, id, options);
+    const configFolder = await preparedEngineConfigFolder(this.officeData, options.engine.id);
+    const rules = claudeCodeOfficeRules(
+      this.operatingSystem,
+      this.officeData,
+      { sessionId: id, configFolder },
+      options,
+    );
     const streamEvents = new StreamEvents(options.mcpServers.map(({ name }) => name));
     const holds = { toolHold: options.toolHold, approvalHold: options.approvalHold };
     const endpoints = this.endpoints.open({
@@ -143,7 +149,11 @@ export class ClaudeCodePEngine extends AgentEngine {
           mcpConfigFile: resources.mcpConfigFile?.path,
         }),
         cwd: options.folder,
-        env: this.environment(options, endpoints.token),
+        env: claudeCodePEnvironment(
+          options,
+          { configFolder, token: endpoints.token },
+          this.operatingSystem,
+        ),
       });
       session = new ClaudeCodePSession(id, {
         stream: new StreamJson(
@@ -182,14 +192,6 @@ export class ClaudeCodePEngine extends AgentEngine {
     return config === undefined
       ? undefined
       : McpConfigFile.write(this.officeData.folder("sessions"), id, config);
-  }
-
-  /** The session's variables, as the SDK adapter gives them, and the token only The Office sets. */
-  private environment(options: SessionOptions, token: string): Record<string, string> {
-    const given = Object.entries(sessionEnvironment(options.environment)).filter(
-      ([name]) => !this.operatingSystem.sameVariableName(name, TOKEN_VARIABLE),
-    );
-    return { ...Object.fromEntries(given), [TOKEN_VARIABLE]: token };
   }
 }
 

@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { fakeStdioMcpServer } from "../../../../platform/mcp/fake-mcp-servers.fixtures.js";
 import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
+import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
 import { describeAgentEngineContract } from "../../ports/agent-engine.contract.js";
 import { SessionSkillsDiffer, type EngineCapabilities } from "../../ports/agent-engine.js";
 import type { SessionEvent } from "../../ports/session-events.js";
@@ -35,6 +36,7 @@ const NO_CAPABILITY: EngineCapabilities = {
 
 describeAgentEngineContract("ScriptedEngine replaying the recordings", {
   capabilities: new ScriptedEngine([]).capabilities,
+  engine: FIRST_CLAUDE_CODE_ENGINE,
   model: "scripted",
   timeoutMs: 5000,
   mcpServer: CONTRACT_MCP_SERVER,
@@ -44,6 +46,7 @@ describeAgentEngineContract("ScriptedEngine replaying the recordings", {
 
 describeAgentEngineContract("ScriptedEngine without capabilities", {
   capabilities: NO_CAPABILITY,
+  engine: FIRST_CLAUDE_CODE_ENGINE,
   model: "scripted",
   timeoutMs: 5000,
   mcpServer: CONTRACT_MCP_SERVER,
@@ -65,6 +68,7 @@ function options(): SessionOptions {
   return {
     folder,
     environment: {},
+    engine: FIRST_CLAUDE_CODE_ENGINE,
     model: "scripted",
     effort: "low",
     skills: undefined,

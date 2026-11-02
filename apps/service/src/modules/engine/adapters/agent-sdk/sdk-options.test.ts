@@ -6,6 +6,7 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { AsyncChannel } from "../../../../platform/streams/async-channel.js";
@@ -24,6 +25,7 @@ const OPTIONS: SessionOptions = {
     DATABASE_URL: "postgres://office:secret@localhost:5432/office",
     OFFICE_PORT: "4100",
   },
+  engine: FIRST_CLAUDE_CODE_ENGINE,
   model: "claude-haiku-5-5",
   effort: "medium",
   skills: undefined,
@@ -66,6 +68,8 @@ const MCP_SERVERS: SessionOptions["mcpServers"] = [
   },
 ];
 
+const CONFIG_FOLDER = "/office/engines/claude-code";
+
 const MCP_CONFIG_FILE = "/office/sessions/session-1/mcp-config-1.json";
 
 /** What the SDK would start the binary with, which never starts here. */
@@ -94,6 +98,7 @@ function optionsFor(session: Partial<SdkSession> = {}) {
     id: "session-1",
     resumes: false,
     options: OPTIONS,
+    configFolder: CONFIG_FOLDER,
     mcpConfigFile: undefined,
     agentShells: ["bash"],
     preToolUse: PRE_TOOL_USE,
@@ -162,8 +167,12 @@ describe("sdkOptions", () => {
     expect(optionsFor().hooks).toEqual({ PreToolUse: [{ hooks: [PRE_TOOL_USE] }] });
   });
 
-  it("runs the session with the given variables, without the engine's nor The Office's own", () => {
-    expect(optionsFor().env).toEqual({ PATH: "/usr/bin", GREETING: "hello" });
+  it("runs the session with the given variables, without the engine's nor The Office's own, on its engine's config folder", () => {
+    expect(optionsFor().env).toEqual({
+      PATH: "/usr/bin",
+      GREETING: "hello",
+      CLAUDE_CONFIG_DIR: CONFIG_FOLDER,
+    });
   });
 
   it("adds the standing instructions to the system prompt, when there are any", () => {

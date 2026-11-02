@@ -130,6 +130,9 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
       `cat '${join(platform.home, ".claude", ".credentials.json")}'`,
       `cat '${join(platform.dataDirectory, "settings.json")}'`,
       `cat '${join(platform.dataDirectory, "identity", "office_ed25519")}'`,
+      // An engine's config folder, which holds its account, is The Office's own.
+      `cat '${join(platform.dataDirectory, "engines", "claude-code", ".credentials.json")}'`,
+      `ls '${join(platform.dataDirectory, "engines")}'`,
       `ls '${platform.dataDirectory}'`,
       `cat '${join(platform.otherWorktree, "src", "app.ts")}'`,
       `cat '${platform.officeEnvFile}'`,

@@ -27,7 +27,9 @@ import {
   ModelNotOffered,
   SessionSkillsDiffer,
   type EngineCapabilities,
+  type NewSession,
 } from "../ports/agent-engine.js";
+import type { SessionOptions } from "../ports/session-options.js";
 import { DayUsageForTests } from "../ports/day-usage-repository.fixtures.js";
 import { UsageWindowSamplesForTests } from "../ports/usage-window-sample-repository.fixtures.js";
 import type { EngineSession } from "../ports/engine-session.js";
@@ -313,7 +315,7 @@ describe("EngineSessions", () => {
   it("refuses a model the engine no longer offers without announcing the engine down", async () => {
     class WithoutTheModel extends ScriptedEngine {
       override async start(): Promise<never> {
-        throw new ModelNotOffered("local/gone", "Settings › Engines lists no API endpoint local.");
+        throw new ModelNotOffered("gone", "the API endpoint Lab lists no model gone.");
       }
     }
     const { sessions, published } = setUpOn({
@@ -422,6 +424,40 @@ describe("EngineSessions on each engine's adapter", () => {
 
     expect(claudeCodeP.sessions.map((session) => session.id)).toEqual(["s-1"]);
     expect(agentSdk.sessions.map((session) => session.id)).toEqual(["s-2"]);
+  });
+
+  it("hands the adapter the engine Settings › Engines lists and the model by its id there", async () => {
+    const handed: SessionOptions[] = [];
+    class HandedOptions extends ScriptedEngine {
+      override async start(session: NewSession): Promise<EngineSession> {
+        handed.push(session.options);
+        return super.start(session);
+      }
+
+      override async resume(sessionId: string, options: SessionOptions): Promise<EngineSession> {
+        handed.push(options);
+        return super.resume(sessionId, options);
+      }
+    }
+    const { sessions } = setUpOn({
+      "agent-sdk": new HandedOptions([RESUMED]),
+      "claude-code-p": new ScriptedEngine([]),
+      "openai-compatible-api": new HandedOptions([ONE_TURN]),
+    });
+
+    const started = await sessions.start({
+      id: "s-1",
+      settings: { ...ON_THE_API, officeTools: [] },
+      brief: message("Begin."),
+    });
+    await turns(started, 1);
+    await started.end();
+    await (await sessions.resume("s-2", SETTINGS)).end();
+
+    expect(handed.map(({ engine, model }) => ({ engine, model }))).toEqual([
+      { engine: LAB, model: "coder" },
+      { engine: FIRST_CLAUDE_CODE_ENGINE, model: "claude-haiku-5-5" },
+    ]);
   });
 
   it("reads each engine's own capabilities", async () => {

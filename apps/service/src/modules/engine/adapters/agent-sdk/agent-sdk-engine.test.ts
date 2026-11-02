@@ -14,6 +14,8 @@ import { OfficeDataDirectory } from "../../../../platform/office-data/office-dat
 import { Telemetry } from "../../../../platform/telemetry/telemetry.js";
 import { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import { AgentEngines } from "../../application/agent-engines.js";
+import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
+import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
 import { EngineModels } from "../../application/engine-models.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
 import { DayUsage } from "../../application/day-usage.js";
@@ -67,6 +69,7 @@ const NOTE_TOOL: OfficeTool = {
 describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live session", () => {
   describeAgentEngineContract("AgentSdkEngine", {
     capabilities: liveEngine().capabilities,
+    engine: FIRST_CLAUDE_CODE_ENGINE,
     model: MODEL,
     timeoutMs: 180_000,
     mcpServer: CONTRACT_MCP_SERVER,
@@ -109,6 +112,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
         id,
         resumes: false,
         options: withServer,
+        configFolder: await preparedEngineConfigFolder(OFFICE_DATA, FIRST_CLAUDE_CODE_ENGINE.id),
         mcpConfigFile: mcpConfigFile.path,
         agentShells: [],
         preToolUse: () => Promise.resolve({}),
@@ -343,6 +347,7 @@ function options(folder: string): SessionOptions {
         (entry): entry is [string, string] => entry[1] !== undefined,
       ),
     ),
+    engine: FIRST_CLAUDE_CODE_ENGINE,
     model: MODEL,
     effort: "low",
     skills: undefined,

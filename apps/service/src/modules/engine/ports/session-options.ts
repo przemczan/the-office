@@ -1,3 +1,4 @@
+import type { Engine } from "../domain/engines.js";
 import type { ApprovalSetting, PermissionProfile } from "../domain/permission-profile.js";
 import type { OfficeTool } from "./office-tool.js";
 
@@ -91,6 +92,12 @@ export interface SessionOptions {
    * (spec §5.5). The engine may drop those that would change how it runs itself.
    */
   readonly environment: Readonly<Record<string, string>>;
+  /**
+   * The engine Settings › Engines lists that the session runs on, as it was when the session
+   * opened: its account's folder, or its API endpoint.
+   */
+  readonly engine: Engine;
+  /** One of the engine's models, by its id there. */
   readonly model: string;
   readonly effort: Effort;
   /**

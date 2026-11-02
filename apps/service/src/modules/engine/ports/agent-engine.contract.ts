@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
+import type { Engine } from "../domain/engines.js";
 import { AgentEngine, CapabilityMissing, type EngineCapabilities } from "./agent-engine.js";
 import type { EngineSession, UserMessage } from "./engine-session.js";
 import type { OfficeTool, OfficeToolCall } from "./office-tool.js";
@@ -45,6 +46,8 @@ export type ContractScenario = (typeof CONTRACT_SCENARIOS)[number];
 export interface EngineUnderContract {
   /** What the adapter declares; scenarios for a missing capability check its refusal instead. */
   readonly capabilities: EngineCapabilities;
+  /** The engine Settings › Engines would list that sessions run on. */
+  readonly engine: Engine;
   /** The model sessions run on: the cheapest that follows the briefs. */
   readonly model: string;
   /** How long one scenario may take. */
@@ -87,7 +90,7 @@ export function describeAgentEngineContract(adapter: string, under: EngineUnderC
       async () => {
         const engine = await under.engineFor(name);
         expect(engine.capabilities).toEqual(under.capabilities);
-        await run(engine, defaultOptions(folder, under.model));
+        await run(engine, defaultOptions(folder, under));
         await under.afterScenario?.(name, engine);
       };
 
@@ -502,10 +505,14 @@ function objectSchema(properties: Record<string, unknown>): Record<string, unkno
   return { type: "object", properties, required: Object.keys(properties) };
 }
 
-function defaultOptions(folder: string, model: string): SessionOptions {
+function defaultOptions(
+  folder: string,
+  { engine, model }: Pick<EngineUnderContract, "engine" | "model">,
+): SessionOptions {
   return {
     folder,
     environment: inheritedEnvironment(),
+    engine,
     model,
     effort: "low",
     skills: undefined,

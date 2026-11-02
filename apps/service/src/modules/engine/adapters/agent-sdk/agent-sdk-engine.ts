@@ -31,6 +31,7 @@ import { McpConfigFile } from "../claude-code/mcp-config-file.js";
 import { officeRulesHook } from "../claude-code/office-rules-hook.js";
 import type { SessionHolds } from "../office-rules/tool-decision.js";
 import { usageWindows } from "../claude-code/sdk-events.js";
+import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
 import { claudeCodeOfficeRules } from "../claude-code/session-office-rules.js";
 import { initProblems, startCheckProblems } from "../claude-code/start-check.js";
 import { engineStopped, isInit, StreamEvents, userMessage } from "../claude-code/stream-events.js";
@@ -77,9 +78,15 @@ export class AgentSdkEngine extends AgentEngine {
     resumes: boolean,
     options: SessionOptions,
   ): Promise<AgentSdkSession> {
+    const configFolder = await preparedEngineConfigFolder(this.officeData, options.engine.id);
     const engineProcess = new EngineProcess(this.operatingSystem.processTrees);
     const held: HeldTo = {
-      rules: claudeCodeOfficeRules(this.operatingSystem, this.officeData, id, options),
+      rules: claudeCodeOfficeRules(
+        this.operatingSystem,
+        this.officeData,
+        { sessionId: id, configFolder },
+        options,
+      ),
       holds: { toolHold: options.toolHold, approvalHold: options.approvalHold },
       skills: options.skills,
       paths: this.operatingSystem.paths,
@@ -101,6 +108,7 @@ export class AgentSdkEngine extends AgentEngine {
             id,
             resumes,
             options,
+            configFolder,
             mcpConfigFile: mcpConfigFile?.path,
             agentShells: this.operatingSystem.agentShells.map(({ shell }) => shell),
             ...hooks,

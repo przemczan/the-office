@@ -3,7 +3,6 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { AsyncChannel } from "../../../platform/streams/async-channel.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { EngineDown } from "../domain/engine-events.js";
-import { apiEndpointModel } from "../domain/api-endpoints.js";
 import type { Engine, EngineId, EngineModel } from "../domain/engines.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import {
@@ -40,7 +39,7 @@ import { UsageWindowState, type UsageWindowReading } from "./usage-window-state.
  * What a caller runs a session with: the engine by its id and the model by its id there, which a
  * resume names again, as a session lives in one engine; the Office tools by name, from the registry.
  */
-export type SessionSettings = Omit<SessionOptions, "officeTools"> &
+export type SessionSettings = Omit<SessionOptions, "officeTools" | "engine"> &
   EngineModel & {
     readonly officeTools: readonly string[];
     /** What the caller tags the session's engine calls with, beside the engine's own attributes. */
@@ -127,19 +126,11 @@ export class EngineSessions {
     return (await this.engineModels.engines()).find(({ id }) => id === engineId);
   }
 
-  /**
-   * The API adapter finds its endpoint in the model's `<endpoint>/` until step 1e of task 47 hands
-   * every adapter its engine.
-   */
   private optionsOf(
     engine: Engine,
-    { telemetry: _telemetry, engineId: _engineId, model, ...settings }: SessionSettings,
+    { telemetry: _telemetry, engineId: _engineId, ...settings }: SessionSettings,
   ): SessionOptions {
-    return {
-      ...settings,
-      model: engine.kind === "openai-compatible-api" ? apiEndpointModel(engine.id, model) : model,
-      officeTools: this.officeTools.named(settings.officeTools),
-    };
+    return { ...settings, engine, officeTools: this.officeTools.named(settings.officeTools) };
   }
 
   private spansOf(

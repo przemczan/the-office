@@ -23,6 +23,8 @@ export interface SdkSession {
   /** Whether the session continues an ended one with its conversation. */
   readonly resumes: boolean;
   readonly options: SessionOptions;
+  /** The engine's config folder, which holds its account (`engineConfigFolder`). */
+  readonly configFolder: string;
   /** The file holding the session's MCP servers with their values, when it has any. */
   readonly mcpConfigFile: string | undefined;
   /** The shells Agents run commands in on this system. */
@@ -41,6 +43,7 @@ export function sdkOptions({
   id,
   resumes,
   options,
+  configFolder,
   mcpConfigFile,
   agentShells,
   preToolUse,
@@ -66,7 +69,7 @@ export function sdkOptions({
       excludeDynamicSections: true,
       ...(options.instructions !== "" && { append: options.instructions }),
     },
-    env: sessionEnvironment(options.environment),
+    env: sessionEnvironment(options.environment, configFolder),
     hooks: { PreToolUse: [{ hooks: [preToolUse] }] },
     // The in-process server reaches the binary on its input, never on the command line.
     ...(options.officeTools.length > 0 && {

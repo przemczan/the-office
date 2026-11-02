@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
+import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { toolDecision } from "../office-rules/tool-decision.js";
 import { McpConfigFile, type McpConfig } from "./mcp-config-file.js";
@@ -63,6 +64,7 @@ describe("McpConfigFile", () => {
     const options: SessionOptions = {
       folder: join(officeData, "worktrees", "task-1"),
       environment: {},
+      engine: FIRST_CLAUDE_CODE_ENGINE,
       model: "claude-haiku-5-5",
       effort: "medium",
       skills: { folder: skillsFolder, names: [], expected: [], overrides: {} },
@@ -75,7 +77,7 @@ describe("McpConfigFile", () => {
     const rules = claudeCodeOfficeRules(
       currentOperatingSystem(),
       new OfficeDataDirectory(officeData),
-      SESSION_ID,
+      { sessionId: SESSION_ID, configFolder: join(officeData, "engines", "claude-code") },
       options,
     );
     const decide = (tool: string, input: unknown) => toolDecision(rules, {}, tool, input);

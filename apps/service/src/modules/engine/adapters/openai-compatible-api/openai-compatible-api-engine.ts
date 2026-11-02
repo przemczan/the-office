@@ -3,13 +3,8 @@ import { McpClient } from "../../../../platform/mcp/mcp-client.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
-import { parseApiEndpointModel } from "../../domain/api-endpoints.js";
 import type { ApiEngine } from "../../domain/engines.js";
-import {
-  apiEngines,
-  type EngineSettings,
-  type SearchEndpoint,
-} from "../../domain/engine-settings.js";
+import type { SearchEndpoint } from "../../domain/engine-settings.js";
 import type { ToolDecision } from "../../domain/office-rules.js";
 import { listingProblems } from "../../domain/skill-listing.js";
 import {
@@ -87,7 +82,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
     this.requireFor(options);
     const settings = await this.settings.read();
     const session = await this.open(id, options, {
-      endpointModel: endpointModel(settings, options.model),
+      endpointModel: endpointModel(options),
       searchEndpoint: settings.searchEndpoint,
       conversationFile: this.conversationFile(id),
       kept: [],
@@ -103,7 +98,7 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
     const settings = await this.settings.read();
     const conversationFile = this.conversationFile(sessionId);
     return this.open(sessionId, options, {
-      endpointModel: endpointModel(settings, options.model),
+      endpointModel: endpointModel(options),
       searchEndpoint: settings.searchEndpoint,
       conversationFile,
       kept: await conversationFile.read(),
@@ -196,25 +191,17 @@ export class OpenAiCompatibleApiEngine extends AgentEngine {
   }
 }
 
-/** The API endpoint and model a session's Model field names, as Settings › Engines lists them now. */
-function endpointModel(settings: EngineSettings, model: string): EndpointModel {
-  const named = parseApiEndpointModel(model);
-  if (named === undefined) {
-    throw new ModelNotOffered(model, "it names no API endpoint, as `<endpoint>/<model>` would.");
+/** The API endpoint a session runs on and its model, as Settings › Engines lists them. */
+function endpointModel({ engine, model }: SessionOptions): EndpointModel {
+  if (engine.kind !== "openai-compatible-api") {
+    throw new ModelNotOffered(model, `"${engine.name}" is no API endpoint.`);
   }
-  const endpoint = apiEngines(settings.engines).find(({ id }) => id === named.endpointId);
-  if (endpoint === undefined) {
-    throw new ModelNotOffered(
-      model,
-      `Settings › Engines lists no API endpoint ${named.endpointId}; pick another model on the Role card.`,
-    );
-  }
-  const offered = endpoint.models.find(({ id }) => id === named.modelId);
+  const offered = engine.models.find(({ id }) => id === model);
   if (offered === undefined) {
     throw new ModelNotOffered(
       model,
-      `the API endpoint ${endpoint.name} lists no model ${named.modelId} in Settings › Engines; pick another model on the Role card.`,
+      `the API endpoint ${engine.name} lists no model ${model} in Settings › Engines; pick another model on the Role card.`,
     );
   }
-  return { endpoint, modelId: offered.id, contextWindow: offered.contextWindow };
+  return { endpoint: engine, modelId: offered.id, contextWindow: offered.contextWindow };
 }

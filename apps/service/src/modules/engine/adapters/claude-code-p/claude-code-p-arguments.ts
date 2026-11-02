@@ -1,10 +1,15 @@
 import type { Settings } from "@anthropic-ai/claude-agent-sdk";
+import type { OperatingSystem } from "../../../../platform/os/operating-system.js";
 import type { AgentShell } from "../../../../platform/os/shell.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { OFFICE_TOOL_SERVER } from "../office-rules/office-tool-names.js";
 import type { McpConfig } from "../claude-code/mcp-config-file.js";
 import { mcpServerConfigs } from "../claude-code/session-mcp-servers.js";
-import { sessionSettings, sessionTools } from "../claude-code/session-settings.js";
+import {
+  sessionEnvironment,
+  sessionSettings,
+  sessionTools,
+} from "../claude-code/session-settings.js";
 
 /**
  * The variable the session's token reaches the engine in, interpolated into the headers it sends
@@ -124,4 +129,19 @@ export function claudeCodePMcpConfig({
       }),
     },
   };
+}
+
+/**
+ * The binary's variables: the session's, as the SDK adapter gives them, on the engine's config
+ * folder, and the token only The Office sets, whatever the caller passed under its name.
+ */
+export function claudeCodePEnvironment(
+  { environment }: Pick<SessionOptions, "environment">,
+  { configFolder, token }: { readonly configFolder: string; readonly token: string },
+  { sameVariableName }: Pick<OperatingSystem, "sameVariableName">,
+): Record<string, string> {
+  const given = Object.entries(sessionEnvironment(environment, configFolder)).filter(
+    ([name]) => !sameVariableName(name, TOKEN_VARIABLE),
+  );
+  return { ...Object.fromEntries(given), [TOKEN_VARIABLE]: token };
 }

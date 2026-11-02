@@ -54,7 +54,8 @@ const BUILT_IN_PLUGINS = [
 
 /**
  * Variables of the engine's a session must not get: an API key would switch billing off the
- * subscription, `CLAUDE_CONFIG_DIR` and `CLAUDE_CODE_PLUGIN_DIRS` change what loads, and a parent
+ * subscription, a given `CLAUDE_CONFIG_DIR` would run it on another account than its engine's,
+ * `CLAUDE_CODE_PLUGIN_DIRS` changes what loads, and a parent
  * Claude Code session's own variables would make the session a nested one.
  */
 const ENGINE_VARIABLE_PREFIXES = ["CLAUDE", "ANTHROPIC", "MCP_", "OTEL_"];
@@ -121,16 +122,21 @@ export function sessionSettings({
 
 /**
  * The variables a session runs with: the given ones without the engine's, nor The Office's own,
- * which hold its database credentials (spec §6), whoever passed them.
+ * which hold its database credentials (spec §6), whoever passed them; then the engine's own
+ * config folder (`engineConfigFolder`), which holds its account.
  */
 export function sessionEnvironment(
   environment: Readonly<Record<string, string>>,
+  configFolder: string,
 ): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(environment).filter(
-      ([name]) =>
-        !isOfficeOwnVariable(name) &&
-        !ENGINE_VARIABLE_PREFIXES.some((prefix) => name.toUpperCase().startsWith(prefix)),
+  return {
+    ...Object.fromEntries(
+      Object.entries(environment).filter(
+        ([name]) =>
+          !isOfficeOwnVariable(name) &&
+          !ENGINE_VARIABLE_PREFIXES.some((prefix) => name.toUpperCase().startsWith(prefix)),
+      ),
     ),
-  );
+    CLAUDE_CONFIG_DIR: configFolder,
+  };
 }

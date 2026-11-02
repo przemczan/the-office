@@ -8,7 +8,7 @@ import { SdkMcpClient } from "../../../../platform/mcp/sdk-mcp-client.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import { isRunning } from "../../../../platform/os/process-trees.fixtures.js";
-import type { ApiEngine } from "../../domain/engines.js";
+import { FIRST_CLAUDE_CODE_ENGINE, type ApiEngine } from "../../domain/engines.js";
 import type { SearchEndpoint } from "../../domain/engine-settings.js";
 import type { PermissionProfile } from "../../domain/permission-profile.js";
 import {
@@ -134,7 +134,11 @@ function contractAnswers(scenario: ContractScenario): ScriptedAnswer[] {
 
 describeAgentEngineContract("OpenAiCompatibleApiEngine on a fake server", {
   capabilities: OPENAI_COMPATIBLE_API_CAPABILITIES,
-  model: "local/coder:q4",
+  // Read as each scenario starts, once the fake server listens.
+  get engine() {
+    return endpoint();
+  },
+  model: "coder:q4",
   timeoutMs: 10_000,
   mcpServer: CONTRACT_MCP_SERVER,
   async engineFor(scenario) {
@@ -166,7 +170,8 @@ describe.runIf(process.env["OFFICE_ENGINE_TESTS"] === "live" && LIVE_BASE_URL &&
 
     describeAgentEngineContract("OpenAiCompatibleApiEngine", {
       capabilities: OPENAI_COMPATIBLE_API_CAPABILITIES,
-      model: `live/${LIVE_MODEL}`,
+      engine: live,
+      model: LIVE_MODEL ?? "",
       timeoutMs: 30 * 60_000,
       mcpServer: CONTRACT_MCP_SERVER,
       engineFor: () => Promise.resolve(engineOn([live])),
@@ -200,7 +205,8 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
     return {
       folder,
       environment: {},
-      model: "local/coder:q4",
+      engine: endpoint(),
+      model: "coder:q4",
       effort: "low",
       instructions: "You are the Developer.",
       skills: undefined,
@@ -425,21 +431,21 @@ describe("OpenAiCompatibleApiEngine's loop", () => {
     expect(next.turn).toMatchObject({ outcome: "completed", consumedMessageIds: ["again"] });
   });
 
-  it("refuses a Role card naming an API endpoint or model no longer listed", async () => {
-    const engine = engineOn([endpoint([{ id: "other", contextWindow: 8000 }])]);
-    const start = (model: string) =>
-      engine.start({
-        id: randomUUID(),
-        options: options({ model }),
-        brief: { id: "b", text: "Hi." },
-      });
+  function startWith(changes: Partial<SessionOptions>): Promise<EngineSession> {
+    return engineOn().start({
+      id: randomUUID(),
+      options: options(changes),
+      brief: { id: "b", text: "Hi." },
+    });
+  }
 
-    await expect(start("removed/coder:q4")).rejects.toThrow(ModelNotOffered);
-    await expect(start("removed/coder:q4")).rejects.toThrow(
-      "Settings › Engines lists no API endpoint removed",
-    );
-    await expect(start("local/coder:q4")).rejects.toThrow("Local lists no model coder:q4");
-    await expect(start("claude-haiku-5-5")).rejects.toThrow(ModelNotOffered);
+  it("refuses a model its API endpoint doesn't list, or an engine that is no API endpoint", async () => {
+    await expect(
+      startWith({ engine: endpoint([{ id: "other", contextWindow: 8000 }]) }),
+    ).rejects.toThrow("Local lists no model coder:q4");
+    await expect(
+      startWith({ engine: FIRST_CLAUDE_CODE_ENGINE, model: "claude-haiku-5-5" }),
+    ).rejects.toThrow(ModelNotOffered);
   });
 
   it("gives the model the Project's instruction files that apply to every file", async () => {

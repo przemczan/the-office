@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import { linux } from "../../../../platform/os/linux.js";
+import { windows } from "../../../../platform/os/windows.js";
+import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { sessionSettings } from "../claude-code/session-settings.js";
 import {
   claudeCodePArguments,
+  claudeCodePEnvironment,
   claudeCodePMcpConfig,
   TOKEN_VARIABLE,
   type ClaudeCodePSession,
@@ -13,6 +17,7 @@ import {
 const OPTIONS: SessionOptions = {
   folder: "/office/worktrees/task-1",
   environment: { PATH: "/usr/bin" },
+  engine: FIRST_CLAUDE_CODE_ENGINE,
   model: "claude-haiku-5-5",
   effort: "medium",
   skills: undefined,
@@ -225,5 +230,34 @@ describe("claudeCodePMcpConfig", () => {
         search: { type: "http", url: "https://mcp.example.com/mcp", headers: {} },
       },
     });
+  });
+});
+
+describe("claudeCodePEnvironment", () => {
+  const configFolder = "/office/engines/claude-code";
+  const linuxUser = { variables: {}, homeDirectory: "/home/office" };
+
+  it("runs the binary on its engine's config folder with the session's token, not the caller's", () => {
+    const environment = {
+      PATH: "/usr/bin",
+      CLAUDE_CONFIG_DIR: "/home/office/.claude",
+      [TOKEN_VARIABLE]: "the caller's",
+    };
+
+    expect(
+      claudeCodePEnvironment({ environment }, { configFolder, token: "token" }, linux(linuxUser)),
+    ).toEqual({ PATH: "/usr/bin", CLAUDE_CONFIG_DIR: configFolder, [TOKEN_VARIABLE]: "token" });
+  });
+
+  it("drops the caller's token under any case on Windows, where variables ignore it", () => {
+    const environment = { Path: "C:\\Windows", office_session_token: "the caller's" };
+
+    expect(
+      claudeCodePEnvironment(
+        { environment },
+        { configFolder, token: "token" },
+        windows({ variables: {}, homeDirectory: "C:\\Users\\office" }),
+      ),
+    ).toEqual({ Path: "C:\\Windows", CLAUDE_CONFIG_DIR: configFolder, [TOKEN_VARIABLE]: "token" });
   });
 });

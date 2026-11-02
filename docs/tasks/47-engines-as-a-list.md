@@ -127,16 +127,21 @@ Every step leaves `npm run verify` passing. A service step that changes a contra
   - Commit.
 
   Read: the State; `work/MAP.md` (usage estimates part); `work/domain/usage-settings.ts`, `cap-waits.ts`; `work/adapters/postgres/work-settings.schema.ts`; `pipelines/adapters/postgres/stage-runs.schema.ts`, `postgres-stage-run-repository.ts` l. 85–100; `pipelines/application/agent-stage-runner.ts` (where it records the engine).
-- [ ] 1e. Each Claude Code engine's account, in Engine, Notifications and the platform layer, about 100k:
-  - Both Claude Code adapters set `CLAUDE_CONFIG_DIR` to `<office-data>/engines/<id>/`, on start and on resume. The folder is made when the engine is added and removed with it.
-  - `POST /settings/engines/:id/sign-in` runs the pinned binary's `auth login` with that folder. `GET …/account` gives what `auth status --json` gives: signed in, email, plan. An event announces the change.
-  - Try the sign-in by hand first: does the login open the browser and finish with no TTY under the service, on Windows and on Linux? Log what you find.
-  - `EngineDown` carries the engine's id and name, and the Notification names the engine.
-  - Office-rules tests show an engine's folder refused like the rest of the Office data.
+- [x] 1e. Each Claude Code engine's config folder, in Engine and the platform layer, about 100k (split: sizing put the whole step well over 120k, so Sign in, the account's status and the Notification went to 1e2):
+  - Both Claude Code adapters set `CLAUDE_CONFIG_DIR` to `<office-data>/engines/<id>/`, on start and on resume, the folder made when missing.
+  - Every adapter is handed its engine (`SessionOptions.engine`); `apiEndpointModel` and `parseApiEndpointModel` go.
+  - Existing Threads on a Claude Code engine start fresh (a migration).
+  - Office-rules tests show an engine's folder refused like the rest of the Office data, by path and through the variable.
   - Check that background-command output and the hook's read allowance (`engineTemporaryFolder`) still match under a moved config folder.
   - `npm run verify:linux`. Commit.
+- [ ] 1e2. Each Claude Code engine's account, in Engine and Notifications, about 90k:
+  - `POST /settings/engines/:id/sign-in` runs the pinned binary's `auth login` with the engine's folder (`engineConfigFolder`). `GET …/account` gives what `auth status --json` gives: signed in, email, plan. An event announces the change.
+  - Try the sign-in by hand first: does the login open the browser and finish with no TTY under the service, on Windows and on Linux? Spawn it with stdin not a TTY on a temporary folder, watch its output for about 15 s, kill it, never finish it. Log what you find; if it needs a TTY, stop and ask.
+  - The folder is made when a Claude Code engine is added and removed with it; `claudeCodeEngineProblems`' second-engine refusal goes (its refusal of removing `claude-code` stays until 3a).
+  - `EngineDown` carries the engine's id and name, and the Notification names the engine.
+  - Commit.
 
-  Read: the State; `engine/adapters/claude-code/session-settings.ts` (`sessionEnvironment`); `engine/adapters/agent-sdk/sdk-options.ts`; `engine/adapters/claude-code-p/claude-code-p-arguments.ts`, `pinned-binary.ts`; `engine/domain/engine-events.ts`; `notifications/domain/notification.ts` (grep `office.down.engine`); `platform/MAP.md` (data directory, `secretPaths`, `engineTemporaryFolder`); `engine/domain/secret-paths.ts`.
+  Read: the State; `engine/MAP.md`; `engine/adapters/claude-code/engine-config-folder.ts`; `engine/adapters/claude-code-p/pinned-binary.ts`; `engine/adapters/http/engine-settings.controller.ts`; `engine/application/engine-settings-service.ts`; `engine/domain/engine-settings.ts` (`claudeCodeEngineProblems`); `engine/domain/engine-events.ts`; `engine/application/engine-sessions.ts` (`engineDown`); `notifications/MAP.md`; `notifications/domain/notification.ts` (grep `office.down.engine`); `packages/contracts/src/` (the engine settings contract, by grep).
 - [ ] 1f. Web, Settings › Engines, about 100k:
   - The engines list: Add (Claude Code or API endpoint), rename, Sign in with the account's status, the `-p` switch, the default model.
   - The Office default, the search endpoint, and the prices card keyed as decided.
@@ -197,21 +202,21 @@ Every step leaves `npm run verify` passing. A service step that changes a contra
 
 ## State
 
-Steps 0, 1a, 1b, 1c, 1c2, 1c3, 1c3b and 1d are done.
-- Engines are rows of `engines` (`engine/domain/engines.ts`: `ClaudeCodeEngine` with `claudeCodeP` | `ApiEngine`; `engineIdFor`, `offeredModels`, `hasUsageWindows(engine)` by kind). `EngineModels.find(engineId)`. Migrations `0075_engines.sql`, `0076_office_default.sql`.
-- `GET`/`PUT /settings/engines` carry the engines, the Office default, the search endpoint and prices keyed by engine id (null for Claude models). `claudeCodeEngineProblems` still keeps exactly one Claude Code engine, `claude-code`: presets name it and removal waits for 3a; caps and Stage run history no longer need it, so only 1e's per-engine folder (and 3a) hold it.
-- Sessions: `SessionSettings` is an `EngineModel`; `EngineSessions` refuses an unlisted engine; `optionsOf` still hands the API adapter `apiEndpointModel(engine.id, model)` (`engine/domain/api-endpoints.ts`, `parseApiEndpointModel` in `openai-compatible-api-engine.ts`) until 1e. Threads: `ThreadSession.engineId` (0077). The Role card names an engine id (0078).
-- Caps (1d): the contracts' `engineIdHasUsageWindows` and the schema's windows refine are gone; `OfficeLimits.capsProblem` refuses with words caps missing an engine or with windows on the wrong kind (`windowCapsWhereWindows`). Usage estimates give windows only on a Claude Code engine (`EngineUsage.windows` undefined otherwise, ratios for each engine with `hasUsageWindows`), so the web dropped its id filter. Cap waits name the engine: "The Claude Code engine's 5-hour window …" (`UsageAtStart.engineNames`, read once per release in `StartConditionsReader`). A second Claude Code engine's caps are shown in `usage-settings.controller.test.ts` (engines given straight to `EngineModels`, as `PUT /settings/engines` still refuses one).
-- Stage runs (1d): `stage_runs.engine_id` and `engine_name` (migration `0079_stage_run_engine.sql`, generated in two passes and merged; checked on a seeded copy of the workstation's database, `drizzle-kit generate` reports no change): `agent-sdk`/`claude-code-p` to `claude-code`, API runs' `<endpoint>/<model>` split into the engine id and the bare model, an API run with no endpoint keeps `openai-compatible-api`, the name from `engines` or the id when no engine is listed under it. The Agent Stage runner records the name from `EngineModels.find` (the id if removed meanwhile). `usage-history.ts`' `engineModelOf` is gone. The workstation's 35 runs all predate recording (engine null).
-- Web: `shell/use-engine-name.ts` labels the card's engine. Known gaps: Usage estimate words and Office limits still label by `engineIdLabel` (1g); a removed API engine's prices are still dropped on save (3a).
-
-The pinned binary (2.1.310) has `claude auth login` (`--claudeai` by default, `--console`, `--sso`, `--email`) and `claude auth status --json` (`loggedIn`, `email`, `subscriptionType`, `configDirectory`).
+Steps 0, 1a–1d and 1e are done; 1e2 (Sign in, the account, the Notification) is next.
+- Engines are rows of `engines` (`engine/domain/engines.ts`; `engineIdFor` gives `[a-z0-9-]` ids, safe as folder names). `GET`/`PUT /settings/engines` carry the engines, the Office default, the search endpoint and prices. `claudeCodeEngineProblems` still refuses a second Claude Code engine and removing `claude-code` (1e2 lifts the first, 3a the second).
+- Sessions: `EngineSessions` hands every adapter `SessionOptions.engine` (the listed `Engine`) and the model by its id there; `SessionSettings` omits it. The API adapter reads its endpoint from it (`apiEndpointModel`/`parseApiEndpointModel` are gone; `api-endpoints.ts` keeps only `ApiEndpointModel`).
+- Config folders (1e): `adapters/claude-code/engine-config-folder.ts` (`engineConfigFolder`, `preparedEngineConfigFolder`: `<office-data>/engines/<id>/`, mkdir 0700 at each start and resume). `sessionEnvironment(environment, configFolder)` drops the given `CLAUDE_*` then sets `CLAUDE_CONFIG_DIR`; the SDK gets it via `SdkSession.configFolder`, `-p` via `claudeCodePEnvironment` (in `claude-code-p-arguments.ts`, tested). `claudeCodeOfficeRules` takes `{ sessionId, configFolder }` and expands the variable, so `$CLAUDE_CONFIG_DIR/...` is refused as Office data (`engine-config-folder.test.ts`, `office-rules.test.ts`). `OfficeDataFolder` has `engines`; build-defaults.md lists it.
+- Migration `0080_thread_session_engine_folder.sql` clears Thread sessions on Claude Code engines (their transcripts stay in `~/.claude`). Checked on a seeded copy of the workstation's database (31 cleared, a seeded API session kept); `drizzle-kit generate` reports no change.
+- `engineTemporaryFolder`: the 2.1.310 binary takes its temp root from `CLAUDE_CODE_TMPDIR` or `os.tmpdir()`, nothing from the config folder (read in the binary), so `engineTaskFolder` stands; step 4's live run confirms it.
+- `auth status --json` on an empty folder (read-only probe): exit 1 with JSON on stdout `{ loggedIn: false, authMethod: "none", apiProvider, analyticsDisabled, projectsDirectory, configDirectory }`; it writes `.claude.json` and `backups/` there. Read stdout whatever the exit code; `configDirectory` has forward slashes on Windows. Signed-in fields per the binary's help: `email`, `subscriptionType`. `auth login` takes `--claudeai` (default), `--console`, `--sso`, `--email`.
+- Until 1e2 and 1f give a Sign in, a real Claude Code session on the workstation runs signed out (engine down). Live adapter tests need `<temp>/office-engine-data/engines/claude-code/` signed in (testing.md).
+- Web: `shell/use-engine-name.ts` labels engines. Known gaps: Usage estimate words and Office limits label by `engineIdLabel` (1g); a removed API engine's prices are dropped on save (3a).
 
 Traps:
-- Between steps, `npm run verify` must pass. 1c's mapping of kinds to ids is replaced by 2b's clearing, so keep it in the migration and nowhere else.
+- Between steps, `npm run verify` must pass. 1c's mapping of kinds to ids lives only in the migrations.
 - `windows.ts` and `linux.ts` keep `~/.claude/.credentials.json` as a secret path. Keep it.
-- drizzle-kit asks about renames without a TTY: generate in two passes and merge (as 0075 and 0079 were).
-- The workstation's `the_office` database stands at migration 0074; a copy is checked by applying 0075 onwards with `psql -f` inside the container (`sh -c`, so Git Bash leaves `/tmp` alone).
+- drizzle-kit asks about renames without a TTY: generate in two passes and merge (as 0075 and 0079 were); a data-only migration is `drizzle-kit generate --custom --name <name>`.
+- The workstation's `the_office` stands at 0074; check a copy (`createdb -T the_office <copy>`) by applying 0075 onwards with `psql -f` inside the container; the hook refuses shell loops over files, so use a script in the scratchpad.
 - Postgres tests need Docker Desktop (`C:\Docker\Docker Desktop.exe`) and `docker compose up -d postgres`.
 
 ## Progress
@@ -224,3 +229,4 @@ Traps:
 - 2026-11-02 · step 1c3: a Thread's session names its engine id (migration 0077); the Role card part split off to 1c3b; next is 1c3b, the Role card's engine as an engine id.
 - 2026-11-02 · step 1c3b: the Role card names an engine id (migration 0078, Stage models' `<endpoint>/` too) and 1b's bridges are gone; the web labels engines by name; next is 1d, caps per engine and Stage runs keeping the engine's id and name.
 - 2026-11-02 · step 1d: caps judged by the engine's kind in Work, not the contract, cap waits naming the engine; Stage runs keep the engine's id and name (migration 0079) and the old-run pricing bridge is gone; next is 1e, each Claude Code engine's account.
+- 2026-11-02 · step 1e: Claude Code sessions run with `CLAUDE_CONFIG_DIR` on the engine's own folder in the Office data, refused to Agents; every adapter gets its engine, `apiEndpointModel` gone; Threads on Claude Code start fresh (0080); Sign in split to 1e2; next is 1e2.
