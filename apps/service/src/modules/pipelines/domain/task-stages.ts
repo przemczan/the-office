@@ -1,5 +1,5 @@
 import { stageProblems, problemOnStage, type Pipeline, type StageProblem } from "./pipeline.js";
-import type { Stage } from "./stage.js";
+import { agentStageRoles, type Stage } from "./stage.js";
 import type { StageRun } from "./stage-run.js";
 import { staffingProblems, type RoleFilling } from "./stage-staffing.js";
 import { TaskStagesEdited, TaskStagesMade } from "./task-stages-events.js";
@@ -50,6 +50,41 @@ export function makeTaskStages(
  */
 export function followsPipeline(own: TaskStages, pipelineId: string): boolean {
   return own.pipelineId === pipelineId;
+}
+
+/** States in which a Task keeps the Stages it has: its work is over. */
+const FINISHED_STATES: readonly string[] = ["done", "dropped"];
+
+export function isFinished(taskState: string): boolean {
+  return FINISHED_STATES.includes(taskState);
+}
+
+/** What of a Task tells whether its own Stages are open, and where their sessions run. */
+export interface TaskOfStages {
+  readonly id: string;
+  readonly state: string;
+  readonly projectId: string;
+  readonly pipelineId: string;
+}
+
+/**
+ * The Roles open Tasks' own Stages name in Agent Stages, by Project: only Stages a Task follows,
+ * of a Task neither done nor dropped, still run.
+ */
+export function rolesNamedByOpenTasks(
+  taskStages: readonly TaskStages[],
+  tasks: readonly TaskOfStages[],
+): ReadonlyMap<string, ReadonlySet<string>> {
+  const tasksById = new Map(tasks.map((task) => [task.id, task]));
+  const byProject = new Map<string, Set<string>>();
+  for (const own of taskStages) {
+    const task = tasksById.get(own.taskId);
+    if (!task || isFinished(task.state) || !followsPipeline(own, task.pipelineId)) continue;
+    const roleKeys = byProject.get(task.projectId) ?? new Set<string>();
+    for (const roleKey of agentStageRoles(own.stages)) roleKeys.add(roleKey);
+    byProject.set(task.projectId, roleKeys);
+  }
+  return byProject;
 }
 
 /**

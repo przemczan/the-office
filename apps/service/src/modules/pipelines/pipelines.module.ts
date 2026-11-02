@@ -16,6 +16,7 @@ import { GateStageRunner } from "./application/gate-stage-runner.js";
 import { PipelineLibraryEditor } from "./application/pipeline-library-editor.js";
 import { PublishStage } from "./application/publish-stage.js";
 import { RoleFillings } from "./application/role-fillings.js";
+import { RolesNamedInStages } from "./application/roles-named-in-stages.js";
 import { ScriptStageRunner } from "./application/script-stage-runner.js";
 import { ResolveStageGit } from "./application/resolve-stage-git.js";
 import { StageGit } from "./application/stage-git.js";
@@ -117,6 +118,7 @@ export class PipelinesModule {
         { provide: StaffingHoldRepository, useClass: PostgresStaffingHoldRepository },
         RoleFillings,
         TaskStagesService,
+        RolesNamedInStages,
         PipelineLibraryEditor,
         StaffingHolds,
         StageRunners,

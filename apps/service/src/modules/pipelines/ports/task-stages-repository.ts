@@ -7,6 +7,9 @@ export abstract class TaskStagesRepository {
 
   abstract find(taskId: string): Promise<TaskStages | undefined>;
 
+  /** Every Task's, done and dropped ones included. */
+  abstract list(): Promise<readonly TaskStages[]>;
+
   /** Saves the trace the Task's walks join. */
   abstract saveTrace(taskId: string, trace: TaskTrace): Promise<void>;
 

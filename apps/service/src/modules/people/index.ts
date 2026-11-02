@@ -5,6 +5,11 @@ export {
   PipelineRoleCapabilityChecks,
   type NewlyNamedRoles,
 } from "./application/pipeline-role-capability-checks.js";
+export {
+  PipelineRoleSources,
+  type PipelineRoleSource,
+} from "./application/pipeline-role-sources.js";
+export type { PipelineRolesNamed } from "./domain/pipeline-roles-named.js";
 export type {
   EngineCascadeLevel,
   EngineInCascade,

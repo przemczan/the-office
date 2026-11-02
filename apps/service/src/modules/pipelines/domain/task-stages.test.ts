@@ -11,6 +11,7 @@ import {
   followsPipeline,
   lockedStageCount,
   makeTaskStages,
+  rolesNamedByOpenTasks,
   type TaskStages,
 } from "./task-stages.js";
 
@@ -154,5 +155,37 @@ describe("followsPipeline", () => {
   it("leaves a copy behind once the Task's Pipeline was swapped", () => {
     expect(followsPipeline(own, "full")).toBe(true);
     expect(followsPipeline(own, "quick-fix")).toBe(false);
+  });
+});
+
+describe("rolesNamedByOpenTasks", () => {
+  const reviewed = { ...own, taskId: "task-2", stages: [agentStage({ role: "reviewer" })] };
+  const task = { id: "task-1", state: "in-progress", projectId: "admin-panel", pipelineId: "full" };
+
+  it("names each open Task's Agent Stage Roles in its own Project", () => {
+    expect(
+      rolesNamedByOpenTasks(
+        [own, reviewed],
+        [task, { ...task, id: "task-2", state: "todo", projectId: "billing" }],
+      ),
+    ).toEqual(
+      new Map([
+        ["admin-panel", new Set(["developer"])],
+        ["billing", new Set(["reviewer"])],
+      ]),
+    );
+  });
+
+  it("leaves out a Task done or dropped, Stages it no longer follows, and a Task not listed", () => {
+    expect(
+      rolesNamedByOpenTasks(
+        [own, reviewed, { ...own, taskId: "task-3" }],
+        [
+          { ...task, state: "done" },
+          { ...task, id: "task-2", pipelineId: "quick-fix" },
+        ],
+      ),
+    ).toEqual(new Map());
+    expect(rolesNamedByOpenTasks([own], [{ ...task, state: "dropped" }])).toEqual(new Map());
   });
 });

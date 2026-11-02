@@ -107,7 +107,6 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             imports: [projects, PipelineLibraryModule],
             knownProjectLevels: ProjectService,
             projectLevelsSaves: EngineLevelsChecks,
-            knownPipelineRoles: PipelineLibrary,
           });
           const conversations = ConversationsModule.register({
             imports: [projects, engineCascade],

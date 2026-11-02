@@ -24,7 +24,12 @@ export class PostgresTaskStagesRepository extends TaskStagesRepository {
       .select()
       .from(taskStages)
       .where(eq(taskStages.taskId, taskId));
-    return row && { ...row, trace: row.trace ?? undefined };
+    return row && taskStagesOf(row);
+  }
+
+  async list(): Promise<readonly TaskStages[]> {
+    const rows = await this.database.select().from(taskStages);
+    return rows.map(taskStagesOf);
   }
 
   async saveTrace(taskId: string, trace: TaskTrace): Promise<void> {
@@ -34,4 +39,8 @@ export class PostgresTaskStagesRepository extends TaskStagesRepository {
   async remove(taskId: string): Promise<void> {
     await this.database.delete(taskStages).where(eq(taskStages.taskId, taskId));
   }
+}
+
+function taskStagesOf(row: typeof taskStages.$inferSelect): TaskStages {
+  return { ...row, trace: row.trace ?? undefined };
 }

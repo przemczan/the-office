@@ -34,7 +34,6 @@ beforeAll(async () => {
     imports: [projects, PipelineLibraryModule],
     knownProjectLevels: ProjectService,
     projectLevelsSaves: EngineLevelsChecks,
-    knownPipelineRoles: PipelineLibrary,
   });
   ({ app } = await startTestApplication({
     database: true,

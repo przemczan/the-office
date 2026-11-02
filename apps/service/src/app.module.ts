@@ -79,7 +79,6 @@ export class AppModule {
       imports: [projects, PipelineLibraryModule],
       knownProjectLevels: ProjectService,
       projectLevelsSaves: EngineLevelsChecks,
-      knownPipelineRoles: PipelineLibrary,
     });
     const conversations = ConversationsModule.register({
       imports: [projects, engineCascade],

@@ -15,15 +15,25 @@ import {
   rolesOnIncapableEngines,
   type PipelineRole,
 } from "../domain/pipeline-role-capabilities.js";
-import { KnownPipelineRoles } from "../ports/known-pipeline-roles.js";
+import {
+  mergedRolesNamed,
+  onlyRole,
+  rolesNamedAnywhere,
+  rolesNamedIn,
+  rolesNamedWhere,
+  type PipelineRolesNamed,
+} from "../domain/pipeline-roles-named.js";
 import { KnownProjectLevels } from "../ports/known-project-levels.js";
 import { ProjectLevelsSaves, type ProjectLevelsSave } from "../ports/project-levels-saves.js";
+import { PipelineRoleSources } from "./pipeline-role-sources.js";
 import { RoleCards } from "./role-cards.js";
 import { RoleOverrideChecks, type RoleOverrideSave } from "./role-override-checks.js";
 
-/** The Office levels of the cascade for some Roles a Pipeline names, and the engines listed. */
+/** The Roles Agent Stages name, the Office levels of the cascade for them, and the engines listed. */
 interface OfficeCascade {
-  readonly roles: readonly PipelineRole[];
+  readonly rolesNamed: PipelineRolesNamed;
+  /** Each named Role's override; a Role nobody fills has none. */
+  readonly roleOverrides: ReadonlyMap<string, EngineModel | null>;
   readonly officeDefault: EngineModel;
   readonly engines: readonly Engine[];
 }
@@ -39,12 +49,18 @@ export interface NewlyNamedRoles {
 
 /** Where sessions run: a Project, with its levels before and after a save, or outside any. */
 interface Place {
+  readonly projectId: string | undefined;
   readonly projectName: string | undefined;
   readonly before: ProjectCascadeLevels | undefined;
   readonly after: ProjectCascadeLevels | undefined;
 }
 
-const OUTSIDE_ANY_PROJECT: Place = { projectName: undefined, before: undefined, after: undefined };
+const OUTSIDE_ANY_PROJECT: Place = {
+  projectId: undefined,
+  projectName: undefined,
+  before: undefined,
+  after: undefined,
+};
 
 /**
  * Refuses a save of the engine cascade that would newly put a Role a Pipeline names on an engine
@@ -58,7 +74,7 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     private readonly roleCards: RoleCards,
     private readonly engineModels: EngineModels,
     private readonly engineSessions: EngineSessions,
-    private readonly pipelineRoles: KnownPipelineRoles,
+    private readonly pipelineRoleSources: PipelineRoleSources,
     private readonly projects: KnownProjectLevels,
     private readonly projectLevelsSaves: ProjectLevelsSaves,
     private readonly roleOverrideChecks: RoleOverrideChecks,
@@ -73,12 +89,13 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
 
   /** Only the saved Project's sessions change, so only it is weighed. */
   async projectLevelsSaveProblems({
+    projectId,
     projectName,
     before,
     after,
   }: ProjectLevelsSave): Promise<readonly string[]> {
-    const office = await this.officeCascade(await this.rolesNamedByPipelines());
-    return this.newlyIncapableProblems(office, office, [{ projectName, before, after }]);
+    const office = await this.officeCascade(await this.pipelineRoleSources.rolesNamed());
+    return this.newlyIncapableProblems(office, office, [{ projectId, projectName, before, after }]);
   }
 
   /** Only the saved Role's sessions change, outside any Project and in each one. */
@@ -87,11 +104,12 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     before,
     after,
   }: RoleOverrideSave): Promise<readonly string[]> {
-    if (!(await this.pipelineRoles.rolesNamed()).has(roleKey)) return [];
-    const office = await this.officeCascade([]);
+    const named = await this.pipelineRoleSources.rolesNamed();
+    if (!rolesNamedAnywhere(named).has(roleKey)) return [];
+    const office = await this.officeCascade(onlyRole(named, roleKey));
     return this.newlyIncapableProblems(
-      { ...office, roles: [{ roleKey, roleOverride: before }] },
-      { ...office, roles: [{ roleKey, roleOverride: after }] },
+      { ...office, roleOverrides: new Map([[roleKey, before]]) },
+      { ...office, roleOverrides: new Map([[roleKey, after]]) },
       await this.everyPlace(),
     );
   }
@@ -104,31 +122,35 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     before,
     after,
   }: EngineSettingsSave): Promise<readonly string[]> {
-    const roles = await this.rolesNamedByPipelines();
+    const office = await this.officeCascade(await this.pipelineRoleSources.rolesNamed());
     return this.newlyIncapableProblems(
-      { roles, officeDefault: before.officeDefault, engines: before.engines },
-      { roles, officeDefault: after.officeDefault, engines: after.engines },
+      { ...office, officeDefault: before.officeDefault, engines: before.engines },
+      { ...office, officeDefault: after.officeDefault, engines: after.engines },
       await this.everyPlace(),
     );
   }
 
   /**
    * Roles newly named in Agent Stages are weighed where their sessions would run: a Task's in its
-   * Project, the library's outside any Project and in every Project.
+   * Project, the library's outside any Project and in every Project. A Role other Stages already
+   * name in a place passed the check there.
    */
   async newlyNamedRolesProblems({
     roleKeys,
     projectId,
   }: NewlyNamedRoles): Promise<readonly string[]> {
     if (roleKeys.length === 0) return [];
-    const office = await this.officeCascade(await this.withRoleOverrides(roleKeys));
+    const named = await this.pipelineRoleSources.rolesNamed();
+    const after = await this.officeCascade(
+      mergedRolesNamed(named, rolesNamedWhere(roleKeys, projectId)),
+    );
     const places =
       projectId === undefined
         ? await this.everyPlace()
         : (await this.projects.engineLevelsOfEveryProject())
             .filter((project) => project.projectId === projectId)
             .map(unchangedPlace);
-    return this.newlyIncapableProblems({ ...office, roles: [] }, office, places);
+    return this.newlyIncapableProblems({ ...after, rolesNamed: named }, after, places);
   }
 
   /** In each place, what `after` puts on an incapable engine that `before` didn't, named by `after`. */
@@ -137,15 +159,22 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     after: OfficeCascade,
     places: readonly Place[],
   ): string[] {
-    const onIncapableEngines = (office: OfficeCascade, project: ProjectCascadeLevels | undefined) =>
-      rolesOnIncapableEngines(office.roles, office.officeDefault, project, (engineId) =>
-        this.missingCapabilitiesAmong(office.engines, engineId),
+    const onIncapableEngines = (
+      office: OfficeCascade,
+      projectId: string | undefined,
+      project: ProjectCascadeLevels | undefined,
+    ) =>
+      rolesOnIncapableEngines(
+        pipelineRolesIn(office, projectId),
+        office.officeDefault,
+        project,
+        (engineId) => this.missingCapabilitiesAmong(office.engines, engineId),
       );
     return places.flatMap((place) =>
       incapableEngineProblems(
         newlyOnIncapableEngines(
-          onIncapableEngines(before, place.before),
-          onIncapableEngines(after, place.after),
+          onIncapableEngines(before, place.projectId, place.before),
+          onIncapableEngines(after, place.projectId, place.after),
         ),
         {
           roleTitle: (roleKey) => this.roleCards.roleTitle(roleKey),
@@ -166,9 +195,10 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     return engine ? this.engineSessions.missingCapabilitiesOf(engine) : [];
   }
 
-  private async officeCascade(roles: readonly PipelineRole[]): Promise<OfficeCascade> {
+  private async officeCascade(rolesNamed: PipelineRolesNamed): Promise<OfficeCascade> {
     return {
-      roles,
+      rolesNamed,
+      roleOverrides: await this.roleOverridesOf(rolesNamedAnywhere(rolesNamed)),
       officeDefault: await this.engineModels.officeDefault(),
       engines: await this.engineModels.engines(),
     };
@@ -180,21 +210,34 @@ export class PipelineRoleCapabilityChecks implements OnModuleInit {
     return [OUTSIDE_ANY_PROJECT, ...projects.map(unchangedPlace)];
   }
 
-  private async rolesNamedByPipelines(): Promise<PipelineRole[]> {
-    return this.withRoleOverrides([...(await this.pipelineRoles.rolesNamed())]);
-  }
-
-  private async withRoleOverrides(roleKeys: readonly string[]): Promise<PipelineRole[]> {
-    return Promise.all(
-      roleKeys.map(async (roleKey) => ({
-        roleKey,
-        roleOverride: (await this.roleCards.find(roleKey))?.card.roleOverride ?? null,
-      })),
+  private async roleOverridesOf(
+    roleKeys: ReadonlySet<string>,
+  ): Promise<ReadonlyMap<string, EngineModel | null>> {
+    return new Map(
+      await Promise.all(
+        [...roleKeys].map(
+          async (roleKey) =>
+            [roleKey, (await this.roleCards.find(roleKey))?.card.roleOverride ?? null] as const,
+        ),
+      ),
     );
   }
 }
 
+/** The Roles named where sessions run in the Project, or outside any, each with its override. */
+function pipelineRolesIn(office: OfficeCascade, projectId: string | undefined): PipelineRole[] {
+  return [...rolesNamedIn(office.rolesNamed, projectId)].map((roleKey) => ({
+    roleKey,
+    roleOverride: office.roleOverrides.get(roleKey) ?? null,
+  }));
+}
+
 /** A Project whose levels a save of something else leaves as they are. */
 function unchangedPlace(project: ProjectWithCascadeLevels): Place {
-  return { projectName: project.projectName, before: project, after: project };
+  return {
+    projectId: project.projectId,
+    projectName: project.projectName,
+    before: project,
+    after: project,
+  };
 }

@@ -14,7 +14,6 @@ import { RoleService } from "../../application/role-service.js";
 import type { ProjectWithCascadeLevels } from "../../domain/engine-cascade.js";
 import { aRoleCard } from "../../domain/role.fixtures.js";
 import { EngineCascadeModule } from "../../engine-cascade.module.js";
-import { KnownPipelineRoles } from "../../ports/known-pipeline-roles.js";
 import { KnownProjectLevels } from "../../ports/known-project-levels.js";
 import { ProjectLevelsSaves } from "../../ports/project-levels-saves.js";
 
@@ -50,14 +49,10 @@ class TwoProjects implements KnownProjectLevels {
   }
 }
 
-/** No save of the Projects' levels to check, and no Pipeline naming a Role. */
+/** No save of the Projects' levels to check. */
 @Injectable()
-class NoChecks implements ProjectLevelsSaves, KnownPipelineRoles {
+class NoChecks implements ProjectLevelsSaves {
   register(): void {}
-
-  async rolesNamed(): Promise<ReadonlySet<string>> {
-    return new Set();
-  }
 }
 
 @Module({ providers: [TwoProjects, NoChecks], exports: [TwoProjects, NoChecks] })
@@ -80,7 +75,6 @@ beforeEach(async () => {
         imports: [TwoProjectsModule],
         knownProjectLevels: TwoProjects,
         projectLevelsSaves: NoChecks,
-        knownPipelineRoles: NoChecks,
       }),
     ],
   }));

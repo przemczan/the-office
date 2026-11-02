@@ -3,6 +3,7 @@ import { Injectable, Module, type DynamicModule, type ModuleMetadata } from "@ne
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { ProposalAppliers } from "../../conversations/index.js";
 import { EngineSessions, FIRST_CLAUDE_CODE_ENGINE } from "../../engine/index.js";
+import { PipelineRoleSources } from "../../people/index.js";
 import { TaskPaused, TaskResumed, TaskStateChanged } from "../../work/index.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { ProjectDefaults, type ProjectDefault } from "./project-defaults.js";
@@ -672,7 +673,7 @@ export class ProposalDraftsForTests extends ProposalDrafts {
 
 /**
  * The ports' stand-ins, the Stage Threads' sessions on the engine `imports` give, and the registry
- * of Conversations' Proposal appliers, which Pipelines fills.
+ * of Conversations' Proposal appliers and People's of the Roles Stages name, which Pipelines fills.
  */
 @Module({})
 export class PipelinesPortsForTestsModule {
@@ -693,6 +694,7 @@ export class PipelinesPortsForTestsModule {
       ProposalDraftsForTests,
       StageRoleEnginesForTests,
       ProposalAppliers,
+      PipelineRoleSources,
     ];
     return { module: PipelinesPortsForTestsModule, imports, providers, exports: providers };
   }

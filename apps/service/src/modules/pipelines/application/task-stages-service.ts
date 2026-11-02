@@ -14,6 +14,7 @@ import {
   editTaskStages,
   firstStageToWork,
   followsPipeline,
+  isFinished,
   lockedStageCount,
   makeTaskStages,
   type TaskStages,
@@ -26,9 +27,6 @@ import { StartedTasks } from "../ports/started-tasks.js";
 import { TaskStagesRepository } from "../ports/task-stages-repository.js";
 import { PipelineLibrary } from "./pipeline-library.js";
 import { RoleFillings } from "./role-fillings.js";
-
-/** States in which a Task keeps the Stages it has: its work is over. */
-const FINISHED_STATES: readonly string[] = ["done", "dropped"];
 
 /**
  * Each Task's own Stages: copied from its library Pipeline as the Task starts, or as the user first
@@ -157,7 +155,7 @@ export class TaskStagesService implements OnModuleInit {
     const { state, pipelineId, projectId } = await this.tasks.read(taskId);
     const own = await this.ownOrCopied(taskId, pipelineId);
     const runs = await this.runs.list(taskId);
-    const problems = FINISHED_STATES.includes(state)
+    const problems = isFinished(state)
       ? [{ text: "A Task that is done or dropped keeps its Stages." }]
       : [
           ...editProblems(own, edited, runs, await this.roleFillings.of(edited)),

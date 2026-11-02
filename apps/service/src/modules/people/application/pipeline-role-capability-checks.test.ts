@@ -9,11 +9,12 @@ import {
   type EngineModel,
 } from "../../engine/index.js";
 import type { ProjectCascadeLevels } from "../domain/engine-cascade.js";
+import type { PipelineRolesNamed } from "../domain/pipeline-roles-named.js";
 import { aRoleCard } from "../domain/role.fixtures.js";
-import { KnownPipelineRoles } from "../ports/known-pipeline-roles.js";
 import { KnownProjectLevels } from "../ports/known-project-levels.js";
 import { ProjectLevelsSaves, type ProjectLevelsSave } from "../ports/project-levels-saves.js";
 import { PipelineRoleCapabilityChecks } from "./pipeline-role-capability-checks.js";
+import { PipelineRoleSources } from "./pipeline-role-sources.js";
 import { RoleCards, type SessionRole } from "./role-cards.js";
 import { RoleOverrideChecks } from "./role-override-checks.js";
 
@@ -54,6 +55,13 @@ let check: (save: ProjectLevelsSave) => Promise<readonly string[]>;
 let roleOverrideChecks: RoleOverrideChecks;
 let engineSettingsChecks: EngineSettingsChecks;
 let checks: PipelineRoleCapabilityChecks;
+/** The library names the Developer and the Reviewer; a test adds open Tasks' Roles by Project. */
+let rolesNamed: PipelineRolesNamed;
+
+/** The CTO named by an open Task's own Stages in the Project, as Pipelines would tell it. */
+function ctoNamedByATaskIn(projectId: string): void {
+  rolesNamed = { ...rolesNamed, byProject: new Map([[projectId, new Set(["cto"])]]) };
+}
 
 beforeEach(async () => {
   const roleCards: Pick<RoleCards, "find" | "roleTitle"> = {
@@ -75,9 +83,7 @@ beforeEach(async () => {
     missingCapabilitiesOf: (engine): readonly EngineCapability[] =>
       engine.id === "local" ? ["officeTools"] : [],
   };
-  const pipelineRoles: KnownPipelineRoles = {
-    rolesNamed: async () => new Set(["developer", "reviewer"]),
-  };
+  rolesNamed = { everywhere: new Set(["developer", "reviewer"]), byProject: new Map() };
   const projects: KnownProjectLevels = {
     engineLevelsOf: async () => projectLevels[0]!,
     engineLevelsOfEveryProject: async () => projectLevels,
@@ -93,13 +99,14 @@ beforeEach(async () => {
       { provide: RoleCards, useValue: roleCards },
       { provide: EngineModels, useValue: engineModels },
       { provide: EngineSessions, useValue: engineSessions },
-      { provide: KnownPipelineRoles, useValue: pipelineRoles },
+      PipelineRoleSources,
       { provide: KnownProjectLevels, useValue: projects },
       { provide: ProjectLevelsSaves, useValue: saves },
       RoleOverrideChecks,
       EngineSettingsChecks,
     ],
   }).compile();
+  moduleRef.get(PipelineRoleSources).register(async () => rolesNamed);
   await moduleRef.init();
   roleOverrideChecks = moduleRef.get(RoleOverrideChecks);
   engineSettingsChecks = moduleRef.get(EngineSettingsChecks);
@@ -145,6 +152,17 @@ describe("PipelineRoleCapabilityChecks on a save of a Project's levels", () => {
       ),
     ).resolves.toEqual([]);
   });
+
+  it("counts an open Task's Roles in its own Project only", async () => {
+    const ctoOnLocal = { roleOverrides: [{ roleKey: "cto", ...local }] };
+
+    ctoNamedByATaskIn("admin-panel");
+    await expect(check(aSave({}, ctoOnLocal))).resolves.toEqual([
+      "In Admin panel, the Cto would run on Local models, which can't use Office tools, as their Pipelines' Agent Stages need.",
+    ]);
+    ctoNamedByATaskIn("billing");
+    await expect(check(aSave({}, ctoOnLocal))).resolves.toEqual([]);
+  });
 });
 
 describe("PipelineRoleCapabilityChecks on a save of a Role override", () => {
@@ -169,6 +187,16 @@ describe("PipelineRoleCapabilityChecks on a save of a Role override", () => {
     await expect(
       roleOverrideChecks.problemsOf({ roleKey: "cto", before: null, after: local }),
     ).resolves.toEqual([]);
+  });
+
+  it("weighs a Role only an open Task names in the Task's Project only", async () => {
+    ctoNamedByATaskIn("billing");
+
+    await expect(
+      roleOverrideChecks.problemsOf({ roleKey: "cto", before: null, after: local }),
+    ).resolves.toEqual([
+      "In Billing, the Cto would run on Local models, which can't use Office tools, as their Pipelines' Agent Stages need.",
+    ]);
   });
 });
 
@@ -202,6 +230,20 @@ describe("PipelineRoleCapabilityChecks on a save of Settings › Engines", () =>
     );
   });
 
+  it("weighs a Role only an open Task names in the Task's Project only", async () => {
+    ctoNamedByATaskIn("billing");
+
+    await expect(
+      engineSettingsChecks.problemsOf({
+        before: settings,
+        after: { ...settings, officeDefault: local },
+      }),
+    ).resolves.toEqual([
+      "Outside any Project, the Reviewer would run on Local models, which can't use Office tools, as their Pipelines' Agent Stages need.",
+      "In Billing, the Reviewer and the Cto would run on Local models, which can't use Office tools, as their Pipelines' Agent Stages need.",
+    ]);
+  });
+
   it("lets through a save that changes nothing for the Roles a Pipeline names", async () => {
     await expect(
       engineSettingsChecks.problemsOf({ before: settings, after: settings }),
@@ -225,6 +267,17 @@ describe("PipelineRoleCapabilityChecks on Roles a save of Stages newly names", (
     await expect(
       checks.newlyNamedRolesProblems({ roleKeys: ["cto"], projectId: "admin-panel" }),
     ).resolves.toHaveLength(1);
+  });
+
+  it("lets through a Role an open Task already names in the place", async () => {
+    ctoNamedByATaskIn("admin-panel");
+
+    await expect(
+      checks.newlyNamedRolesProblems({ roleKeys: ["cto"], projectId: "admin-panel" }),
+    ).resolves.toEqual([]);
+    await expect(
+      checks.newlyNamedRolesProblems({ roleKeys: ["cto"], projectId: undefined }),
+    ).resolves.toEqual([]);
   });
 
   it("weighs a Role's own override", async () => {
