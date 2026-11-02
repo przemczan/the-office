@@ -141,6 +141,8 @@ export const roleCardOptionsSchema = z.object({
       /** Each engine Settings › Engines lists, by its id. */
       engine: engineIdSchema,
       models: z.array(z.string()),
+      /** One of `models`: what picking the engine fills in. */
+      defaultModel: z.string(),
       /** What the engine declares it can't do, which the card names under its Engine field. */
       missingCapabilities: z.array(engineCapabilitySchema),
     }),
@@ -155,6 +157,27 @@ export const roleCardOptionsSchema = z.object({
   taskLimits: z.object({ lowest: z.number().int(), highest: z.number().int() }),
 });
 export type RoleCardOptions = z.infer<typeof roleCardOptionsSchema>;
+
+/** The levels of the engine cascade, least specific first (spec §5.4). */
+export const engineCascadeLevelSchema = z.enum([
+  "office-default",
+  "project-default",
+  "role-override",
+  "project-role-override",
+]);
+export type EngineCascadeLevel = z.infer<typeof engineCascadeLevelSchema>;
+
+/** An engine and model a Role runs on, and the level of the cascade they come from. */
+export const engineInCascadeSchema = engineModelSchema.extend({ level: engineCascadeLevelSchema });
+export type EngineInCascade = z.infer<typeof engineInCascadeSchema>;
+
+/** GET /roles/:key/engine-cascade: what the Role card says applies, for a Role someone fills. */
+export const roleEngineCascadeSchema = z.object({
+  outsideProjects: engineInCascadeSchema,
+  /** Only the Projects whose engine or model differs from `outsideProjects`. */
+  elsewhereInProjects: z.array(engineInCascadeSchema.extend({ projectId: z.string() })),
+});
+export type RoleEngineCascade = z.infer<typeof roleEngineCascadeSchema>;
 
 /**
  * A part of a Role card as its change history names it, down to each capability and switch.

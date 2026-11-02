@@ -2,6 +2,8 @@ import {
   effortSchema,
   sessionDefaultSchema,
   type Capabilities,
+  type EngineCascadeLevel,
+  type EngineInCascade,
   type EngineCapability,
   type EngineId,
   type HardSwitchKey,
@@ -149,6 +151,22 @@ export function worksWithText(
   return roleOverride
     ? `${modelLabel(roleOverride.model)} · ${effortText} · ${engineName(roleOverride.engineId)}`
     : `Office default · ${effortText}`;
+}
+
+/** Where the engine and model a Role runs on come from, in the glossary's terms. */
+export const ENGINE_CASCADE_LEVEL_WORDS: Readonly<Record<EngineCascadeLevel, string>> = {
+  "office-default": "the Office default",
+  "project-default": "the Project default",
+  "role-override": "the Role override",
+  "project-role-override": "the Project's Role override",
+};
+
+/** "Sonnet 5.5 on Work account, from the Office default". */
+export function engineInCascadeText(
+  { engineId, model, level }: EngineInCascade,
+  engineName: (engineId: EngineId) => string,
+): string {
+  return `${modelLabel(model)} on ${engineName(engineId)}, from ${ENGINE_CASCADE_LEVEL_WORDS[level]}`;
 }
 
 export function taskLimitLabel(limit: TaskLimit): string {

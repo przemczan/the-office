@@ -2,7 +2,7 @@ import { Test } from "@nestjs/testing";
 import { describe, expect, it } from "vitest";
 import { EngineModels, type EngineModel } from "../../engine/index.js";
 import { EngineSettingsForTests } from "../../engine/index.fixtures.js";
-import type { ProjectCascadeLevels } from "../domain/engine-cascade.js";
+import type { ProjectCascadeLevels, ProjectWithCascadeLevels } from "../domain/engine-cascade.js";
 import { aRoleCard } from "../domain/role.fixtures.js";
 import { RoleNotFound } from "../domain/role-not-found.js";
 import { KnownProjectLevels } from "../ports/known-project-levels.js";
@@ -19,12 +19,22 @@ async function cascadeWith(roleOverride: EngineModel | null): Promise<EngineCasc
       return { roleKey, cardVersion: 1, card: aRoleCard({ roleOverride }) };
     },
   };
+  const forcedProject: ProjectCascadeLevels = {
+    projectDefault,
+    useForEveryRole: true,
+    roleOverrides: [],
+  };
   const projects: KnownProjectLevels = {
-    engineLevelsOf: async (): Promise<ProjectCascadeLevels> => ({
-      projectDefault,
-      useForEveryRole: true,
-      roleOverrides: [],
-    }),
+    engineLevelsOf: async () => forcedProject,
+    engineLevelsOfEveryProject: async (): Promise<readonly ProjectWithCascadeLevels[]> => [
+      { projectId: "the-project", ...forcedProject },
+      {
+        projectId: "a-quiet-project",
+        projectDefault: null,
+        useForEveryRole: false,
+        roleOverrides: [],
+      },
+    ],
   };
   const moduleRef = await Test.createTestingModule({
     providers: [
@@ -63,7 +73,21 @@ describe("EngineCascade", () => {
     });
   });
 
+  it("lists only the Projects where something else applies", async () => {
+    const cascade = await cascadeWith(null);
+
+    await expect(cascade.acrossProjects("developer")).resolves.toEqual({
+      outsideProjects: { ...officeDefault, level: "office-default" },
+      elsewhereInProjects: [
+        { projectId: "the-project", ...projectDefault, level: "project-default" },
+      ],
+    });
+  });
+
   it("refuses a Role nobody fills", async () => {
     await expect((await cascadeWith(null)).of("reviewer")).rejects.toThrow(RoleNotFound);
+    await expect((await cascadeWith(null)).acrossProjects("reviewer")).rejects.toThrow(
+      RoleNotFound,
+    );
   });
 });

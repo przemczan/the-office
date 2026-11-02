@@ -1,4 +1,4 @@
-import type { ProjectCascadeLevels } from "../domain/engine-cascade.js";
+import type { ProjectCascadeLevels, ProjectWithCascadeLevels } from "../domain/engine-cascade.js";
 
 /**
  * Each Project's levels of the engine cascade. A port rather than the Projects module itself,
@@ -8,4 +8,6 @@ import type { ProjectCascadeLevels } from "../domain/engine-cascade.js";
 export abstract class KnownProjectLevels {
   /** Throws when there is no such Project. */
   abstract engineLevelsOf(projectId: string): Promise<ProjectCascadeLevels>;
+
+  abstract engineLevelsOfEveryProject(): Promise<readonly ProjectWithCascadeLevels[]>;
 }

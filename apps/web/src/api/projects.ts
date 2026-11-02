@@ -26,6 +26,7 @@ import {
 } from "@the-office/contracts";
 import { getFromApi, sendToApi } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
+import { ENGINE_CASCADE } from "./people.ts";
 
 const PROJECTS = ["projects"] as const;
 /** Apart from the Projects' key, since Sign in with GitHub changes it too. */
@@ -212,9 +213,9 @@ export const projectEventInvalidations: Readonly<
   "project.publishing-mode-changed": () => [PROJECTS],
   "project.default-pipeline-changed": () => [PROJECTS],
   "project.use-project-skills-changed": () => [PROJECTS],
-  "project.project-default-changed": () => [PROJECTS],
-  "project.use-for-every-role-changed": () => [PROJECTS],
-  "project.role-override-changed": () => [PROJECTS],
+  "project.project-default-changed": () => [PROJECTS, ENGINE_CASCADE],
+  "project.use-for-every-role-changed": () => [PROJECTS, ENGINE_CASCADE],
+  "project.role-override-changed": () => [PROJECTS, ENGINE_CASCADE],
 };
 
 /** A clone that started, moved on or finished is read again by its id. */

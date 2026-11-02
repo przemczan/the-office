@@ -152,7 +152,7 @@ describe("GET /api/presets", () => {
 });
 
 describe("GET /api/role-card-options", () => {
-  it("offers each engine's models and what it can't do, the known Roles, how each switch is seen to and where an MCP tool starts", async () => {
+  it("offers each engine's models, its default model and what it can't do, the known Roles, how each switch is seen to and where an MCP tool starts", async () => {
     const options = roleCardOptionsSchema.parse(await get("/role-card-options"));
 
     const models = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"];
@@ -160,6 +160,7 @@ describe("GET /api/role-card-options", () => {
     expect(options.engines).toContainEqual({
       engine: "claude-code",
       models,
+      defaultModel: "claude-sonnet-5-5",
       missingCapabilities: [],
     });
     expect(options.knownRoles).toContainEqual({ key: "devops", title: "Devops" });

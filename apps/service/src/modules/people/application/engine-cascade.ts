@@ -1,6 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { EngineModels } from "../../engine/index.js";
-import { engineInCascade, type EngineInCascade } from "../domain/engine-cascade.js";
+import {
+  engineInCascade,
+  roleEngineCascade,
+  type EngineInCascade,
+  type RoleEngineCascade,
+} from "../domain/engine-cascade.js";
 import { KnownProjectLevels } from "../ports/known-project-levels.js";
 import { RoleCards } from "./role-cards.js";
 
@@ -24,5 +29,18 @@ export class EngineCascade {
       roleOverride: card.roleOverride,
       project: projectId === undefined ? undefined : await this.projects.engineLevelsOf(projectId),
     });
+  }
+
+  /**
+   * What the Role `roleKey` runs on outside any Project, and the Projects where something else
+   * applies, as its card says. Throws RoleNotFound when nobody fills the Role.
+   */
+  async acrossProjects(roleKey: string): Promise<RoleEngineCascade> {
+    const { card } = await this.roleCards.forNewSession(roleKey);
+    return roleEngineCascade(
+      roleKey,
+      { officeDefault: await this.engineModels.officeDefault(), roleOverride: card.roleOverride },
+      await this.projects.engineLevelsOfEveryProject(),
+    );
   }
 }

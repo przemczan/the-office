@@ -129,6 +129,7 @@ test("a person's page shows who they are and their Role card from the presets", 
   await expect(permissions).toContainText("Change RolesNever");
   await expect(roleCardGroup(page, "Work")).toContainText("3 at once");
   await expect(roleCardGroup(page, "Engine")).toContainText("Office default · effort high");
+  await expect(roleCardGroup(page, "Engine")).toContainText("from the Office default");
   await expect(page.getByText("Hired", { exact: true })).toBeVisible();
   await page.screenshot({
     path: path.join(SCREENSHOTS, "light-1600-person-role-card.png"),
@@ -166,7 +167,8 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   await form.getByLabel("Task limit").selectOption("4");
   await form.getByText("Prefer to continue", { exact: true }).click();
   await form.getByRole("combobox", { name: "Engine" }).selectOption({ label: "Claude Code" });
-  await form.getByLabel("Model").selectOption("claude-sonnet-5-5");
+  // Picking an engine fills in its default model.
+  await expect(form.getByLabel("Model")).toHaveValue("claude-sonnet-5-5");
   await form.getByRole("tab", { name: "Max" }).click();
   await form.getByText("Chat", { exact: true }).click();
   await form.getByText("Consultant", { exact: true }).click();
@@ -200,6 +202,9 @@ test("the user edits every field of a Role card, and it holds after a reload", a
   await expect(roleCardGroup(page, "Engine")).toContainText(
     "Sonnet 5.5 · effort max · Claude Code",
   );
+  await expect(roleCardGroup(page, "Engine")).toContainText(
+    "Sonnet 5.5 on Claude Code, from the Role override",
+  );
   const capabilities = roleCardGroup(page, "Capabilities").getByRole("listitem");
   await expect(capabilities.filter({ hasText: "Chat" })).toHaveClass("on");
   await expect(capabilities.filter({ hasText: "Consultant" })).toHaveClass("on");
@@ -220,6 +225,39 @@ test("the user edits every field of a Role card, and it holds after a reload", a
     path: path.join(SCREENSHOTS, "light-1600-role-card-changed.png"),
     fullPage: true,
   });
+});
+
+test("the Role card lists the Projects where another engine or model applies, and where it comes from", async ({
+  page,
+}) => {
+  const repository = await createTemporaryRepository();
+  const haiku = { engineId: "claude-code", model: "claude-haiku-5-5" };
+  let project: Project | undefined;
+  try {
+    project = await addedProject(page, repository, "Cascade shop", "CS");
+    await page.goto("/people/developer/role");
+    const engine = roleCardGroup(page, "Engine");
+    await expect(engine).toContainText("Sonnet 5.5 on Claude Code, from the Role override");
+    const elsewhere = engine.getByRole("list", { name: "Projects where something else applies" });
+    await expect(elsewhere).toHaveCount(0);
+
+    // The card follows a Project's change as it lands.
+    const overridden = await page.request.put(
+      `/api/projects/${project.id}/role-overrides/developer`,
+      { data: { roleOverride: haiku } },
+    );
+    expect(overridden.ok()).toBe(true);
+    await expect(elsewhere).toHaveText(
+      "In Cascade shop: Haiku 5.5 on Claude Code, from the Project's Role override",
+    );
+  } finally {
+    if (project) {
+      await page.request.put(`/api/projects/${project.id}/role-overrides/developer`, {
+        data: { roleOverride: null },
+      });
+    }
+    await repository.remove();
+  }
 });
 
 test("a Role card the service refuses names every reason, and keeps what was typed", async ({

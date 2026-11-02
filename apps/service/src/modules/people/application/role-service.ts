@@ -52,6 +52,8 @@ export interface RoleCardOptions {
   readonly engines: readonly {
     readonly engine: EngineId;
     readonly models: readonly string[];
+    /** One of `models`: what picking the engine fills in. */
+    readonly defaultModel: string;
     /** What the engine declares it can't do. */
     readonly missingCapabilities: readonly EngineCapability[];
   }[];
@@ -184,6 +186,7 @@ export class RoleService {
       engines: engines.map((engine) => ({
         engine: engine.id,
         models: offeredModels(engine),
+        defaultModel: engine.defaultModel,
         missingCapabilities: this.engineSessions.missingCapabilitiesOf(engine),
       })),
       knownRoles: [...KNOWN_ROLES].map(([key, title]) => ({ key, title })),

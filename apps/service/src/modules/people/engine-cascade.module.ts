@@ -1,5 +1,6 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
 import { EngineModule } from "../engine/index.js";
+import { EngineCascadeController } from "./adapters/http/engine-cascade.controller.js";
 import { EngineCascade } from "./application/engine-cascade.js";
 import { PeopleModule } from "./people.module.js";
 import { KnownProjectLevels } from "./ports/known-project-levels.js";
@@ -20,6 +21,7 @@ export class EngineCascadeModule {
     return {
       module: EngineCascadeModule,
       imports: [...imports, PeopleModule, EngineModule],
+      controllers: [EngineCascadeController],
       providers: [{ provide: KnownProjectLevels, useExisting: knownProjectLevels }, EngineCascade],
       exports: [EngineCascade],
     };

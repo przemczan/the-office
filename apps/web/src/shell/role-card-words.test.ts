@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   changeLine,
+  engineInCascadeText,
   hardSwitchValueLabel,
   missingCapabilitiesWords,
   proposedFieldChanges,
@@ -34,6 +35,16 @@ describe("the Role card's words", () => {
     expect(worksWithText({ roleOverride, effort: "max" }, names.engineName)).toBe(
       "Sonnet 5.5 · effort max · Work account",
     );
+  });
+
+  it("says what applies and the level of the cascade it comes from", () => {
+    const applies = { engineId: "claude-code", model: "claude-haiku-5-5" };
+    expect(engineInCascadeText({ ...applies, level: "office-default" }, names.engineName)).toBe(
+      "Haiku 5.5 on Work account, from the Office default",
+    );
+    expect(
+      engineInCascadeText({ ...applies, level: "project-role-override" }, names.engineName),
+    ).toBe("Haiku 5.5 on Work account, from the Project's Role override");
   });
 
   it("names what an engine can't do, and nothing when it can do everything", () => {

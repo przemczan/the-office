@@ -162,6 +162,20 @@ export class ProjectService {
     return { projectDefault, useForEveryRole, roleOverrides };
   }
 
+  /** Every Project's levels of the engine cascade, with its id, in the list's order. */
+  async engineLevelsOfEveryProject(): Promise<
+    readonly (ProjectEngineLevels & { readonly projectId: string })[]
+  > {
+    return (await this.repository.list()).map(
+      ({ id, projectDefault, useForEveryRole, roleOverrides }) => ({
+        projectId: id,
+        projectDefault,
+        useForEveryRole,
+        roleOverrides,
+      }),
+    );
+  }
+
   /** Sessions already running keep the engine and model they started on. */
   async changeProjectDefault(id: string, projectDefault: EngineModel | null): Promise<Project> {
     if (projectDefault !== null) await this.checks.checkEngineModel(projectDefault);

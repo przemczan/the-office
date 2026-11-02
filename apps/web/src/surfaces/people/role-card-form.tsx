@@ -422,12 +422,7 @@ function EngineFields({
               change({ roleOverride: null });
               return;
             }
-            // Another engine offers other models.
-            const model =
-              roleOverride && engine.models.includes(roleOverride.model)
-                ? roleOverride.model
-                : (engine.models[0] ?? "");
-            change({ roleOverride: { engineId: engine.engine, model } });
+            change({ roleOverride: { engineId: engine.engine, model: engine.defaultModel } });
           }}
         />
         {roleOverride && (

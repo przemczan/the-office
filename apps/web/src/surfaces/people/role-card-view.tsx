@@ -1,13 +1,17 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { Role, RoleCardOptions, RoleMcpServer, Skill } from "@the-office/contracts";
 import { Badge, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
+import { roleQueries } from "../../api/people.ts";
+import { projectQueries } from "../../api/projects.ts";
 import { SkillChip } from "../../shell/skill-chip.tsx";
 import { RoleCardGroup, RoleCardValue } from "./role-card-layout.tsx";
 import {
   ASKS_YOU_UNTIL_HIRED,
   CAPABILITIES,
   ENFORCEMENT_LABELS,
+  engineInCascadeText,
   HARD_SWITCH_LABELS,
   hardSwitchValueLabel,
   missingCapabilitiesWords,
@@ -64,6 +68,7 @@ export function RoleCardView({
           {worksWithText(card, engineName)}
           {cantDo && <span className="role-card-note">{cantDo}</span>}
         </RoleCardValue>
+        {role.letGoAt === null && <EngineThatApplies roleKey={role.key} />}
       </RoleCardGroup>
       <RoleCardGroup group="capabilities">
         <ul className="role-card-capabilities">
@@ -129,6 +134,30 @@ export function RoleCardView({
         )}
       </RoleCardGroup>
     </div>
+  );
+}
+
+/** The engine cascade's result for a Role someone fills, and the Projects where it differs. */
+function EngineThatApplies({ roleKey }: { readonly roleKey: string }): ReactNode {
+  const cascade = useQuery(roleQueries.engineCascade(roleKey)).data;
+  const projects = useQuery(projectQueries.list()).data;
+  const engineName = useEngineName();
+  if (!cascade) return null;
+  const projectName = (projectId: string): string =>
+    projects?.find(({ id }) => id === projectId)?.name ?? projectId;
+  return (
+    <RoleCardValue label="Runs on">
+      {engineInCascadeText(cascade.outsideProjects, engineName)}
+      {cascade.elsewhereInProjects.length > 0 && (
+        <ul className="role-card-elsewhere" aria-label="Projects where something else applies">
+          {cascade.elsewhereInProjects.map((inProject) => (
+            <li key={inProject.projectId}>
+              In {projectName(inProject.projectId)}: {engineInCascadeText(inProject, engineName)}
+            </li>
+          ))}
+        </ul>
+      )}
+    </RoleCardValue>
   );
 }
 

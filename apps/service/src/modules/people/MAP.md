@@ -1,6 +1,6 @@
 # People: module map
 
-**Owns:** Roles hired from presets (Planner, Developer, Reviewer, CTO, Devops, Office Manager) or from scratch (keyed from the card's title by `roleKeyFor`, never a preset's key), Role cards and their versions (`roles`, `role_card_versions`), each version with who proposed it when the user applied a Proposal or an Agent changed it with `change_role` (`proposed_by`, "proposed by" in `GET /roles/:key/changes`), authority and Hard switches, Task limits, the Role override (`roleOverride`, an engine and model or none for the Office default; presets carry none); the engine cascade (`EngineCascade.of(roleKey, projectId?)`, the engine, model and level for a Role in a Project or in no Project, `domain/engine-cascade.ts`), provided by `EngineCascadeModule.register({ imports, knownProjectLevels })` apart from `PeopleModule`; each person's Memory (`memory_notes`, append-only notes, deleted one at a time or all).
+**Owns:** Roles hired from presets (Planner, Developer, Reviewer, CTO, Devops, Office Manager) or from scratch (keyed from the card's title by `roleKeyFor`, never a preset's key), Role cards and their versions (`roles`, `role_card_versions`), each version with who proposed it when the user applied a Proposal or an Agent changed it with `change_role` (`proposed_by`, "proposed by" in `GET /roles/:key/changes`), authority and Hard switches, Task limits, the Role override (`roleOverride`, an engine and model or none for the Office default; presets carry none); the engine cascade (`EngineCascade.of(roleKey, projectId?)`, the engine, model and level for a Role in a Project or in no Project, `domain/engine-cascade.ts`), and what the Role card says of it (`acrossProjects`, `GET /roles/:key/engine-cascade`: outside any Project, and the Projects where another engine or model applies), provided by `EngineCascadeModule.register({ imports, knownProjectLevels })` apart from `PeopleModule`; each person's Memory (`memory_notes`, append-only notes, deleted one at a time or all).
 
 **Talks to:** calls Engine (profiles; the engines, and the models each offers now through `EngineModels`, which the card checks are handed: `roleCardProblems`, `hireFromScratch` and `changeRoleCard` take `ModelsOffered`, a lookup by engine from `EngineModels.modelsOffered`; the Office default from `EngineModels.officeDefault`) Skills (a Role's skills) and MCP servers (a Role's servers with their tools, `RoleMcpServers.byRole`/`serversOf`, listed on the card with each tool's setting from `mcp-tool-settings.ts`, Consult Devops when unset). Work and Pipelines read cards through their `KnownPeople` ports, bound to `RoleCards` in [app.module.ts](../../app.module.ts); Conversations reads them through the index, and applies Proposals of Roles through `RoleService` (`hireFromScratch`/`hire`/`changeCard` with `proposedBy`, and `change_role`'s held call through `reword`; `hiringProblems`/`presetHiringProblems`/`cardChangeProblems` judge one as it is drafted, saving nothing).
 
@@ -18,6 +18,7 @@ RoleCards, Consultant, SessionRole, RoleService, EngineCascade, EngineCascadeLev
 
 ## HTTP routes (under `/api`)
 
+- `GET /roles/:key/engine-cascade`: EngineCascadeController.ofRole
 - `GET /roles/:key/memory`: MemoryController.read
 - `POST /roles/:key/memory`: MemoryController.write
 - `DELETE /roles/:key/memory/:noteId`: MemoryController.remove
@@ -47,10 +48,11 @@ RoleCards, Consultant, SessionRole, RoleService, EngineCascade, EngineCascadeLev
 
 ### adapters/http/
 
+- `engine-cascade.controller.ts`: EngineCascadeController
 - `memory.controller.ts`: MemoryController
 - `role-refusals.filter.ts`: RoleRefusalsFilter
 - `roles.controller.ts`: RolesController
-- Tests: roles.controller.test.ts
+- Tests: engine-cascade.controller.test.ts, roles.controller.test.ts
 
 ### adapters/office-tools/
 
@@ -80,7 +82,7 @@ RoleCards, Consultant, SessionRole, RoleService, EngineCascade, EngineCascadeLev
 
 ### domain/
 
-- `engine-cascade.ts`: ENGINE_CASCADE_LEVELS, EngineCascadeLevel, EngineInCascade, ProjectCascadeLevels, EngineCascadeLevels, engineInCascade
+- `engine-cascade.ts`: ENGINE_CASCADE_LEVELS, EngineCascadeLevel, EngineInCascade, ProjectCascadeLevels, EngineCascadeLevels, engineInCascade, ProjectWithCascadeLevels, RoleEngineCascade, roleEngineCascade
 - `hard-switches.ts`: HARD_SWITCH_KEYS, HardSwitchKey, HARD_SWITCH_LABELS, HardSwitchEnforcement, HARD_SWITCH_ENFORCEMENT, HardSwitchValue, HardSwitches, ALLOWED, ASK_ME, NEVER, consult, hardSwitchesProblems, hardSwitchInEffect, switchesAskingYouUntilHired, sameHardSwitchValue
 - `known-roles.ts`: OFFICE_MANAGER, CTO, DEVOPS, KNOWN_ROLES
 - `mcp-tool-settings.ts`: McpToolSettings, MCP_TOOL_DEFAULT, mcpToolKey, mcpToolSetting, mcpToolSettingsFor, mcpToolSettingsProblems, noWiderThan, narrowedMcpToolSetting

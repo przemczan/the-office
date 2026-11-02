@@ -8,7 +8,7 @@ import type {
 import { Button, Card, Icon, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { changeEngineSettings, engineSettingsQuery } from "../../../api/engine.ts";
-import { roleCardQueries } from "../../../api/people.ts";
+import { ENGINE_CASCADE, roleCardQueries } from "../../../api/people.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
@@ -61,8 +61,11 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
     onSuccess: async (result) => {
       queryClient.setQueryData(engineSettingsQuery().queryKey, result);
       setDraft(draftOf(result));
-      // The Role card offers each engine's models.
-      await queryClient.invalidateQueries(roleCardQueries.options());
+      // The Role card offers each engine's models and says what the Office default gives.
+      await Promise.all([
+        queryClient.invalidateQueries(roleCardQueries.options()),
+        queryClient.invalidateQueries({ queryKey: ENGINE_CASCADE }),
+      ]);
       showToast("Engines saved. Sessions started from now on use them.");
     },
   });

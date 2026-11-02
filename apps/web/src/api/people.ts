@@ -5,6 +5,7 @@ import {
   presetListSchema,
   roleCardOptionsSchema,
   roleChangeListSchema,
+  roleEngineCascadeSchema,
   roleListSchema,
   roleSchema,
   type Hire,
@@ -18,6 +19,8 @@ import { deleteFromApi, getFromApi, sendToApi } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
 const ROLES = ["roles"] as const;
+/** Apart from ROLES, since Projects and the Office default change it too. */
+export const ENGINE_CASCADE = ["engine-cascade"] as const;
 
 export const roleQueries = {
   /** Every Role someone fills, in hiring order. */
@@ -42,6 +45,13 @@ export const roleQueries = {
     queryOptions({
       queryKey: [...ROLES, key, "memory"],
       queryFn: ({ signal }) => getFromApi(memoryPath(key), memorySchema, signal),
+    }),
+  /** What the Role runs on outside any Project, and the Projects where something else applies. */
+  engineCascade: (key: string) =>
+    queryOptions({
+      queryKey: [...ENGINE_CASCADE, key],
+      queryFn: ({ signal }) =>
+        getFromApi(`${rolePath(key)}/engine-cascade`, roleEngineCascadeSchema, signal),
     }),
 };
 
@@ -111,7 +121,7 @@ export const roleEventInvalidations: Readonly<
   "role.hired": () => [ROLES],
   "role.let-go": () => [ROLES],
   "role.hired-back": () => [ROLES],
-  "role.card-changed": () => [ROLES],
+  "role.card-changed": () => [ROLES, ENGINE_CASCADE],
   "role.memory-changed": () => [ROLES],
 };
 
