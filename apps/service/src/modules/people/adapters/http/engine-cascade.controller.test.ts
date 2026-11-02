@@ -14,7 +14,9 @@ import { RoleService } from "../../application/role-service.js";
 import type { ProjectWithCascadeLevels } from "../../domain/engine-cascade.js";
 import { aRoleCard } from "../../domain/role.fixtures.js";
 import { EngineCascadeModule } from "../../engine-cascade.module.js";
+import { KnownPipelineRoles } from "../../ports/known-pipeline-roles.js";
 import { KnownProjectLevels } from "../../ports/known-project-levels.js";
+import { ProjectLevelsSaves } from "../../ports/project-levels-saves.js";
 
 const haiku = { engineId: "claude-code", model: "claude-haiku-5-5" };
 
@@ -36,7 +38,17 @@ class TwoProjects implements KnownProjectLevels {
   }
 }
 
-@Module({ providers: [TwoProjects], exports: [TwoProjects] })
+/** No save of the Projects' levels to check, and no Pipeline naming a Role. */
+@Injectable()
+class NoChecks implements ProjectLevelsSaves, KnownPipelineRoles {
+  register(): void {}
+
+  async rolesNamed(): Promise<ReadonlySet<string>> {
+    return new Set();
+  }
+}
+
+@Module({ providers: [TwoProjects, NoChecks], exports: [TwoProjects, NoChecks] })
 class TwoProjectsModule {}
 
 let officeData: string;
@@ -55,6 +67,8 @@ beforeEach(async () => {
       EngineCascadeModule.register({
         imports: [TwoProjectsModule],
         knownProjectLevels: TwoProjects,
+        projectLevelsSaves: NoChecks,
+        knownPipelineRoles: NoChecks,
       }),
     ],
   }));

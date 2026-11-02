@@ -28,6 +28,10 @@ import { OfficeKnownHosts } from "../../../../platform/git-identity/office-known
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { McpServerLibrary } from "../../../mcp-servers/index.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../../pipelines/index.js";
+import {
+  EngineLevelsChecks,
+  type EngineLevelsSave,
+} from "../../application/engine-levels-checks.js";
 import { ProjectsModule } from "../../projects.module.js";
 import {
   createTemporaryRepository,
@@ -415,6 +419,38 @@ describe("the Project's engine levels", () => {
       { reasons: ["Choose a model the engine offers."] },
       { reasons: ["Choose a Project default before using it for every Role."] },
     ]);
+  });
+  it("refuses a save a registered check refuses, before keeping it", async () => {
+    const project = await addProject();
+    const saves: EngineLevelsSave[] = [];
+    app.get(EngineLevelsChecks).register(async (save) => {
+      saves.push(save);
+      return save.after.projectDefault
+        ? ["In this Project, the Developer would run on Local models."]
+        : [];
+    });
+    published = [];
+
+    const response = await send("PUT", `/projects/${project.id}/project-default`, {
+      projectDefault: SONNET,
+    });
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toMatchObject({
+      reasons: ["In this Project, the Developer would run on Local models."],
+    });
+    const levels = { projectDefault: null, useForEveryRole: false, roleOverrides: [] };
+    expect(saves).toEqual([
+      {
+        projectId: project.id,
+        projectName: project.name,
+        before: levels,
+        after: { ...levels, projectDefault: SONNET },
+      },
+    ]);
+    const read = await fetch(`${url}/api/projects/${project.id}`);
+    expect(projectSchema.parse(await read.json())).toMatchObject({ projectDefault: null });
+    expect(published).toEqual([]);
   });
 });
 

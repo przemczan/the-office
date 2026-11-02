@@ -53,6 +53,17 @@ describe("PipelineLibrary", () => {
     await expect(library.has("nightly")).resolves.toBe(false);
   });
 
+  it("names each Role its Agent Stages name once", async () => {
+    const builtInRoles = builtInPipelines.flatMap((pipeline) =>
+      pipeline.stages.flatMap((stage) => (stage.kind === "agent" ? [stage.role] : [])),
+    );
+
+    const named = await library.rolesNamed();
+
+    expect(builtInRoles.length).toBeGreaterThan(0);
+    expect([...named]).toEqual(expect.arrayContaining(builtInRoles));
+  });
+
   it("lists a Pipeline added later after the built-ins, and reads it as saved until removed", async () => {
     const added = aPipeline();
     await repository.add(added);

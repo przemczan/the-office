@@ -76,7 +76,7 @@ export function EngineBlock({ project }: { readonly project: Project }): ReactNo
           value={project.projectDefault}
           engines={engines}
           // Cleared only with "Use for every Role" off, which the service enforces as well.
-          noneLabel={project.useForEveryRole ? undefined : "None"}
+          noneLabel={project.useForEveryRole ? undefined : "Office default"}
           disabled={options.data === undefined || saving}
           onChange={(projectDefault) => choosingDefault.mutate(projectDefault)}
         />

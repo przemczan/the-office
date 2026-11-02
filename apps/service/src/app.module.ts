@@ -36,6 +36,7 @@ import {
 } from "./modules/pipelines/index.js";
 import {
   BaseCheckouts,
+  EngineLevelsChecks,
   ProjectService,
   ProjectsFromRepositories,
   ProjectsModule,
@@ -74,8 +75,10 @@ export class AppModule {
       knownPipelines: PipelineLibrary,
     });
     const engineCascade = EngineCascadeModule.register({
-      imports: [projects],
+      imports: [projects, PipelineLibraryModule],
       knownProjectLevels: ProjectService,
+      projectLevelsSaves: EngineLevelsChecks,
+      knownPipelineRoles: PipelineLibrary,
     });
     const conversations = ConversationsModule.register({
       imports: [projects, engineCascade],

@@ -1,10 +1,10 @@
 # People: module map
 
-**Owns:** Roles hired from presets (Planner, Developer, Reviewer, CTO, Devops, Office Manager) or from scratch (keyed from the card's title by `roleKeyFor`, never a preset's key), Role cards and their versions (`roles`, `role_card_versions`), each version with who proposed it when the user applied a Proposal or an Agent changed it with `change_role` (`proposed_by`, "proposed by" in `GET /roles/:key/changes`), authority and Hard switches, Task limits, the Role override (`roleOverride`, an engine and model or none for the Office default; presets carry none); the engine cascade (`EngineCascade.of(roleKey, projectId?)`, the engine, model and level for a Role in a Project or in no Project, `domain/engine-cascade.ts`), and what the Role card says of it (`acrossProjects`, `GET /roles/:key/engine-cascade`: outside any Project, and the Projects where another engine or model applies), provided by `EngineCascadeModule.register({ imports, knownProjectLevels })` apart from `PeopleModule`; each person's Memory (`memory_notes`, append-only notes, deleted one at a time or all).
+**Owns:** Roles hired from presets (Planner, Developer, Reviewer, CTO, Devops, Office Manager) or from scratch (keyed from the card's title by `roleKeyFor`, never a preset's key), Role cards and their versions (`roles`, `role_card_versions`), each version with who proposed it when the user applied a Proposal or an Agent changed it with `change_role` (`proposed_by`, "proposed by" in `GET /roles/:key/changes`), authority and Hard switches, Task limits, the Role override (`roleOverride`, an engine and model or none for the Office default; presets carry none); the engine cascade (`EngineCascade.of(roleKey, projectId?)`, the engine, model and level for a Role in a Project or in no Project, `domain/engine-cascade.ts`), and what the Role card says of it (`acrossProjects`, `GET /roles/:key/engine-cascade`: outside any Project, and the Projects where another engine or model applies), provided by `EngineCascadeModule.register({ imports, knownProjectLevels, projectLevelsSaves, knownPipelineRoles })` apart from `PeopleModule`; the capability check on the cascade's saves (`PipelineRoleCapabilityChecks`, pure `domain/pipeline-role-capabilities.ts`): a save that would newly put a Role a Pipeline names on an engine lacking `officeTools` or `outputSchema` is refused, naming the Roles and the Project, so far on a Project's levels only; each person's Memory (`memory_notes`, append-only notes, deleted one at a time or all).
 
 **Talks to:** calls Engine (profiles; the engines, and the models each offers now through `EngineModels`, which the card checks are handed: `roleCardProblems`, `hireFromScratch` and `changeRoleCard` take `ModelsOffered`, a lookup by engine from `EngineModels.modelsOffered`; the Office default from `EngineModels.officeDefault`) Skills (a Role's skills) and MCP servers (a Role's servers with their tools, `RoleMcpServers.byRole`/`serversOf`, listed on the card with each tool's setting from `mcp-tool-settings.ts`, Consult Devops when unset). Work and Pipelines read cards through their `KnownPeople` ports, bound to `RoleCards` in [app.module.ts](../../app.module.ts); Conversations reads them through the index, and applies Proposals of Roles through `RoleService` (`hireFromScratch`/`hire`/`changeCard` with `proposedBy`, and `change_role`'s held call through `reword`; `hiringProblems`/`presetHiringProblems`/`cardChangeProblems` judge one as it is drafted, saving nothing).
 
-**Traps:** the card names no engine or model of its own, only `roleOverride`; history entries saved before task 47 step 2b2b still name the fields `engine` and `model` (`RoleCardField`, migration 0083 left them in `role_card_versions.changes`). Conversations' runners and Work's Usage estimate take the engine and model from `EngineCascade`, which tests that stand in for People replace with `EngineCascadeStandIn` (`index.fixtures.ts`). Projects' levels come through the `KnownProjectLevels` port, which [app.module.ts](../../app.module.ts) binds to `ProjectService`, since Projects will ask People for the Roles; People never imports Projects. a person let go keeps the Role's key (`letGoAt`), so nothing else can be hired into it until `hireBack`; `RoleCards.find` and `forResumedSession` treat them as not filling it, while `RoleService.read`/`list` still show them. A Role hired from a preset has the preset's fixed key, so only `adapters/http/roles.controller.test.ts` hires from the presets ([testing](../../../docs/testing.md)).
+**Traps:** the card names no engine or model of its own, only `roleOverride`; history entries saved before task 47 step 2b2b still name the fields `engine` and `model` (`RoleCardField`, migration 0083 left them in `role_card_versions.changes`). Conversations' runners and Work's Usage estimate take the engine and model from `EngineCascade`, which tests that stand in for People replace with `EngineCascadeStandIn` (`index.fixtures.ts`). Projects' levels come through the `KnownProjectLevels` port, which [app.module.ts](../../app.module.ts) binds to `ProjectService`, and the capability check registers with Projects' saves through the `ProjectLevelsSaves` port, bound to Projects' `EngineLevelsChecks` registry (Projects can't ask People, which reads Projects); People never imports Projects. The Roles a Pipeline names come through `KnownPipelineRoles`, bound to `PipelineLibrary`, since Pipelines reads People. a person let go keeps the Role's key (`letGoAt`), so nothing else can be hired into it until `hireBack`; `RoleCards.find` and `forResumedSession` treat them as not filling it, while `RoleService.read`/`list` still show them. A Role hired from a preset has the preset's fixed key, so only `adapters/http/roles.controller.test.ts` hires from the presets ([testing](../../../docs/testing.md)).
 
 <!-- Generated by `npm run maps` from the code; edit only above this line. -->
 
@@ -75,10 +75,11 @@ RoleCards, Consultant, SessionRole, RoleService, EngineCascade, EngineCascadeLev
 
 - `engine-cascade.ts`: EngineCascade
 - `memory-service.ts`: Memory, MemoryService
+- `pipeline-role-capability-checks.ts`: PipelineRoleCapabilityChecks
 - `role-cards.ts`: SessionRole, Consultant, RoleCards
 - `role-history.ts`: RoleHistoryEntry, roleHistory
 - `role-service.ts`: RoleWithAssignments, RoleCardOptions, RoleService
-- Tests: engine-cascade.test.ts, memory-service.test.ts, role-cards.test.ts
+- Tests: engine-cascade.test.ts, memory-service.test.ts, pipeline-role-capability-checks.test.ts, role-cards.test.ts
 
 ### domain/
 
@@ -89,6 +90,7 @@ RoleCards, Consultant, SessionRole, RoleService, EngineCascade, EngineCascadeLev
 - `memory-note-not-found.ts`: MemoryNoteNotFound
 - `memory-note.ts`: MEMORY_NOTE_LENGTH, MemoryNoteSource, MemoryNote, MemoryNoteDraft, writeMemoryNote
 - `permission-profile.ts`: RUN_PERMISSIONS, RunPermission, PermissionProfile, PermissionNarrowing, narrowedPermissionProfile, permissionNarrowingProblems
+- `pipeline-role-capabilities.ts`: PIPELINE_ROLE_CAPABILITIES, PipelineRoleCapability, PipelineRole, RoleOnIncapableEngine, rolesOnIncapableEngines, newlyOnIncapableEngines, IncapableEngineNames, incapableEngineProblems
 - `presets.ts`: Preset, PRESETS, presetFor
 - `role-card-changes.ts`: RoleCardField, RoleCardValue, RoleCardFieldChange, roleCardChanges
 - `role-card-version-not-found.ts`: RoleCardVersionNotFound
@@ -101,10 +103,12 @@ RoleCards, Consultant, SessionRole, RoleService, EngineCascade, EngineCascadeLev
 - `role.fixtures.ts`: OFFERED_MODELS, aRoleCard, aRole
 - `role.ts`: Role, RoleCardVersion
 - `task-limit.ts`: TaskLimit, LOWEST_TASK_LIMIT, HIGHEST_TASK_LIMIT, taskLimitProblem
-- Tests: engine-cascade.test.ts, hard-switches.test.ts, mcp-tool-settings.test.ts, memory-note.test.ts, permission-profile.test.ts, presets.test.ts, role-card-changes.test.ts, role-card.test.ts, role-changes.test.ts, role-key.test.ts, task-limit.test.ts
+- Tests: engine-cascade.test.ts, hard-switches.test.ts, mcp-tool-settings.test.ts, memory-note.test.ts, permission-profile.test.ts, pipeline-role-capabilities.test.ts, presets.test.ts, role-card-changes.test.ts, role-card.test.ts, role-changes.test.ts, role-key.test.ts, task-limit.test.ts
 
 ### ports/
 
+- `known-pipeline-roles.ts`: KnownPipelineRoles
 - `known-project-levels.ts`: KnownProjectLevels
 - `memory-repository.ts`: MemoryRepository
+- `project-levels-saves.ts`: ProjectLevelsSave, ProjectLevelsSaves
 - `role-repository.ts`: RoleUpdate, RoleRepository

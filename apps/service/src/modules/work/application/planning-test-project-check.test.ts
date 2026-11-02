@@ -53,6 +53,7 @@ import {
 } from "../../pipelines/index.js";
 import {
   BaseCheckouts,
+  EngineLevelsChecks,
   ProjectService,
   ProjectsFromRepositories,
   ProjectsModule,
@@ -103,8 +104,10 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             knownPipelines: PipelineLibrary,
           });
           const engineCascade = EngineCascadeModule.register({
-            imports: [projects],
+            imports: [projects, PipelineLibraryModule],
             knownProjectLevels: ProjectService,
+            projectLevelsSaves: EngineLevelsChecks,
+            knownPipelineRoles: PipelineLibrary,
           });
           const conversations = ConversationsModule.register({
             imports: [projects, engineCascade],

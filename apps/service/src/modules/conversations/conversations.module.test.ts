@@ -10,7 +10,12 @@ import { TelemetryModule } from "../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../pipelines/index.js";
 import { EngineCascadeModule } from "../people/index.js";
-import { BaseCheckouts, ProjectService, ProjectsModule } from "../projects/index.js";
+import {
+  BaseCheckouts,
+  EngineLevelsChecks,
+  ProjectService,
+  ProjectsModule,
+} from "../projects/index.js";
 import { ConversationsModule } from "./conversations.module.js";
 import { ProjectBases } from "./ports/project-bases.js";
 import { GitHubModule } from "../github/index.js";
@@ -26,8 +31,10 @@ beforeAll(async () => {
     knownPipelines: PipelineLibrary,
   });
   const engineCascade = EngineCascadeModule.register({
-    imports: [projects],
+    imports: [projects, PipelineLibraryModule],
     knownProjectLevels: ProjectService,
+    projectLevelsSaves: EngineLevelsChecks,
+    knownPipelineRoles: PipelineLibrary,
   });
   ({ app } = await startTestApplication({
     database: true,

@@ -17,6 +17,7 @@ import { PostgresProjectRepository } from "./adapters/postgres/postgres-project-
 import { ShellCommandRunner } from "./adapters/shell/shell-command-runner.js";
 import { ProjectWebEvents } from "./adapters/websocket/project-web-events.js";
 import { BaseCheckouts } from "./application/base-checkouts.js";
+import { EngineLevelsChecks } from "./application/engine-levels-checks.js";
 import { EnvironmentChecks } from "./application/environment-checks.js";
 import { LocalRepositories } from "./application/local-repositories.js";
 import { RepositoriesByUrl } from "./application/repositories-by-url.js";
@@ -75,6 +76,7 @@ export class ProjectsModule {
         EnvironmentChecks,
         RepositoryClones,
         ProjectChecks,
+        EngineLevelsChecks,
         LocalRepositories,
         RepositoriesByUrl,
         ProjectService,
@@ -89,7 +91,13 @@ export class ProjectsModule {
         ProjectWebEvents,
         ProjectOfficeTools,
       ],
-      exports: [BaseCheckouts, ProjectService, ProjectsFromRepositories, TaskWorktrees],
+      exports: [
+        BaseCheckouts,
+        EngineLevelsChecks,
+        ProjectService,
+        ProjectsFromRepositories,
+        TaskWorktrees,
+      ],
     };
   }
 }

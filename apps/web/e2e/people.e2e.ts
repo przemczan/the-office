@@ -286,7 +286,7 @@ test("the Project page's Engine block sets the Project default, uses it for ever
     await expect(useForEveryRole).toHaveAttribute("aria-checked", "true");
     // While it is on, the Project default can't be cleared.
     await expect(
-      projectDefault.getByLabel("Engine").getByRole("option", { name: "None" }),
+      projectDefault.getByLabel("Engine").getByRole("option", { name: "Office default" }),
     ).toHaveCount(0);
 
     // The force wins over the Developer's Role override on his card.

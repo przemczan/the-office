@@ -29,6 +29,7 @@ import {
   type ProjectChanges,
 } from "../domain/project-changes.js";
 import { ProjectNotFound } from "../domain/project-not-found.js";
+import { ProjectRefused } from "../domain/project-refused.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
 import {
   proposedCommandsProblems,
@@ -36,6 +37,7 @@ import {
 } from "../domain/proposed-commands.js";
 import { CLONE_REMOTE, Git } from "../ports/git.js";
 import { ProjectRepository } from "../ports/project-repository.js";
+import { EngineLevelsChecks } from "./engine-levels-checks.js";
 import { ProjectChecks } from "./project-checks.js";
 
 /**
@@ -49,6 +51,7 @@ export class ProjectService {
     private readonly checks: ProjectChecks,
     private readonly git: Git,
     private readonly events: EventBus,
+    private readonly engineLevelsChecks: EngineLevelsChecks,
   ) {}
 
   /** Refuses with every reason, before saving, when the Project breaks a rule. */
@@ -158,32 +161,29 @@ export class ProjectService {
 
   /** The Project's levels of the engine cascade; throws ProjectNotFound when there is none. */
   async engineLevelsOf(id: string): Promise<ProjectEngineLevels> {
-    const { projectDefault, useForEveryRole, roleOverrides } = await this.read(id);
-    return { projectDefault, useForEveryRole, roleOverrides };
+    return engineLevelsOf(await this.read(id));
   }
 
   /** Every Project's levels of the engine cascade, with its id, in the list's order. */
   async engineLevelsOfEveryProject(): Promise<
     readonly (ProjectEngineLevels & { readonly projectId: string })[]
   > {
-    return (await this.repository.list()).map(
-      ({ id, projectDefault, useForEveryRole, roleOverrides }) => ({
-        projectId: id,
-        projectDefault,
-        useForEveryRole,
-        roleOverrides,
-      }),
-    );
+    return (await this.repository.list()).map((project) => ({
+      projectId: project.id,
+      ...engineLevelsOf(project),
+    }));
   }
 
   /** Sessions already running keep the engine and model they started on. */
   async changeProjectDefault(id: string, projectDefault: EngineModel | null): Promise<Project> {
     if (projectDefault !== null) await this.checks.checkEngineModel(projectDefault);
-    return this.update(id, (project) => changeProjectDefault(project, projectDefault));
+    return this.changeEngineLevels(id, (project) => changeProjectDefault(project, projectDefault));
   }
 
   async changeUseForEveryRole(id: string, useForEveryRole: boolean): Promise<Project> {
-    return this.update(id, (project) => changeUseForEveryRole(project, useForEveryRole));
+    return this.changeEngineLevels(id, (project) =>
+      changeUseForEveryRole(project, useForEveryRole),
+    );
   }
 
   /** Sets the Role's override in the Project, or removes it when `roleOverride` is null. */
@@ -193,7 +193,31 @@ export class ProjectService {
     roleOverride: EngineModel | null,
   ): Promise<Project> {
     if (roleOverride !== null) await this.checks.checkEngineModel(roleOverride);
-    return this.update(id, (project) => changeRoleOverride(project, roleKey, roleOverride));
+    return this.changeEngineLevels(id, (project) =>
+      changeRoleOverride(project, roleKey, roleOverride),
+    );
+  }
+
+  /**
+   * Refuses, before saving, a change of the engine levels that a registered check refuses. The
+   * check weighs the Project as read just before, so a change made in between goes unchecked.
+   */
+  private async changeEngineLevels(
+    id: string,
+    change: (project: Project) => ProjectChange<DomainEvent> | undefined,
+  ): Promise<Project> {
+    const project = await this.read(id);
+    const changed = change(project)?.project;
+    if (changed) {
+      const problems = await this.engineLevelsChecks.problemsOf({
+        projectId: id,
+        projectName: project.name,
+        before: engineLevelsOf(project),
+        after: engineLevelsOf(changed),
+      });
+      if (problems.length > 0) throw new ProjectRefused(problems);
+    }
+    return this.update(id, change);
   }
 
   /** Sessions already running keep the skills they started with. */
@@ -216,6 +240,14 @@ export class ProjectService {
     for (const event of events) await this.events.publish(event);
     return project;
   }
+}
+
+function engineLevelsOf({
+  projectDefault,
+  useForEveryRole,
+  roleOverrides,
+}: ProjectEngineLevels): ProjectEngineLevels {
+  return { projectDefault, useForEveryRole, roleOverrides };
 }
 
 function withResolvedPath(newProject: NewProject): NewProject {

@@ -21,4 +21,10 @@ export class PipelineLibrary {
   async has(id: string): Promise<boolean> {
     return (await this.find(id)) !== undefined;
   }
+
+  /** The Roles the library's Agent Stages name, each once. */
+  async rolesNamed(): Promise<ReadonlySet<string>> {
+    const stages = (await this.list()).flatMap((pipeline) => pipeline.stages);
+    return new Set(stages.flatMap((stage) => (stage.kind === "agent" ? [stage.role] : [])));
+  }
 }
