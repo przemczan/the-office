@@ -2,6 +2,7 @@ import { Module } from "@nestjs/common";
 import { EngineSettingsController } from "./adapters/http/engine-settings.controller.js";
 import { PostgresEngineSettings } from "./adapters/postgres/postgres-engine-settings.js";
 import { EngineModels } from "./application/engine-models.js";
+import { EngineSettingsChecks } from "./application/engine-settings-checks.js";
 import { EngineSettingsService } from "./application/engine-settings-service.js";
 import { ModelPrices } from "./application/model-prices.js";
 import { EngineSettingsRepository } from "./ports/engine-settings-repository.js";
@@ -16,9 +17,16 @@ import { EngineSettingsRepository } from "./ports/engine-settings-repository.js"
   providers: [
     { provide: EngineSettingsRepository, useClass: PostgresEngineSettings },
     EngineSettingsService,
+    EngineSettingsChecks,
     EngineModels,
     ModelPrices,
   ],
-  exports: [EngineSettingsService, EngineModels, ModelPrices, EngineSettingsRepository],
+  exports: [
+    EngineSettingsService,
+    EngineSettingsChecks,
+    EngineModels,
+    ModelPrices,
+    EngineSettingsRepository,
+  ],
 })
 export class EngineSettingsModule {}

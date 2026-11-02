@@ -36,6 +36,7 @@ import { RoleRefused } from "../domain/role-refused.js";
 import { HIGHEST_TASK_LIMIT, LOWEST_TASK_LIMIT } from "../domain/task-limit.js";
 import { RoleRepository } from "../ports/role-repository.js";
 import { roleHistory, type RoleHistoryEntry } from "./role-history.js";
+import { RoleOverrideChecks } from "./role-override-checks.js";
 
 /**
  * A Role with what its card names from the libraries: its skills, which the Skills module keeps,
@@ -104,6 +105,7 @@ export class RoleService {
     private readonly engineModels: EngineModels,
     private readonly engineSessions: EngineSessions,
     private readonly events: EventBus,
+    private readonly roleOverrideChecks: RoleOverrideChecks,
   ) {}
 
   /**
@@ -168,10 +170,13 @@ export class RoleService {
     proposedBy?: string,
   ): Promise<RoleChange<RoleHired>> {
     const roleKey = roleKeyFor(card.title);
-    const skillProblems = await this.roleSkills.problemsWith(skills);
     const offered = await this.engineModels.modelsOffered();
     const filledBy = await this.repository.find(roleKey);
-    return refusingAlso(skillProblems, () =>
+    const problems = [
+      ...(await this.roleSkills.problemsWith(skills)),
+      ...(await this.roleOverrideProblems(roleKey, filledBy, card)),
+    ];
+    return refusingAlso(problems, () =>
       hireFromScratch(roleKey, card, offered, filledBy, hiredAt, proposedBy),
     );
   }
@@ -235,9 +240,12 @@ export class RoleService {
     proposedBy?: string,
   ): Promise<RoleWithAssignments> {
     const offered = await this.engineModels.modelsOffered();
+    const filledBy = await this.repository.find(key);
     const problems = [
       ...roleCardProblems(key, trimmedRoleCard(edit), offered),
       ...(await this.roleSkills.problemsWith(skills)),
+      // Nobody filling the Role is refused as RoleNotFound by the update below.
+      ...(filledBy ? await this.roleOverrideProblems(key, filledBy, edit) : []),
     ];
     if (problems.length > 0) throw new RoleRefused(problems);
     const { role, event } = await this.repository.update(key, (stored) =>
@@ -258,7 +266,26 @@ export class RoleService {
   async cardChangeProblems(key: string, edit: RoleCard): Promise<readonly string[]> {
     const { role } = await this.read(key);
     const offered = await this.engineModels.modelsOffered();
-    return refusalReasons(() => Promise.resolve(changeRoleCard(role, edit, offered, new Date())));
+    const reasons = await refusalReasons(() =>
+      Promise.resolve(changeRoleCard(role, edit, offered, new Date())),
+    );
+    return [...new Set([...reasons, ...(await this.roleOverrideProblems(key, role, edit))])];
+  }
+
+  /**
+   * What the registered checks refuse in giving the Role `roleKey`, `stored` until now, the card
+   * `edit`. They weigh the Role as read just before, so a change made in between goes unchecked.
+   */
+  private roleOverrideProblems(
+    roleKey: string,
+    stored: Role | undefined,
+    edit: RoleCard,
+  ): Promise<readonly string[]> {
+    return this.roleOverrideChecks.problemsOf({
+      roleKey,
+      before: stored?.card.roleOverride ?? null,
+      after: edit.roleOverride,
+    });
   }
 
   /**

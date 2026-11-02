@@ -41,9 +41,10 @@ export function engineInCascade(
   return at("office-default", officeDefault);
 }
 
-/** A Project's levels of the cascade, with its id. */
+/** A Project's levels of the cascade, with its id and name. */
 export interface ProjectWithCascadeLevels extends ProjectCascadeLevels {
   readonly projectId: string;
+  readonly projectName: string;
 }
 
 /** What a Role runs on outside any Project, and in each Project where something else applies. */
@@ -63,8 +64,8 @@ export function roleEngineCascade(
   return {
     outsideProjects,
     elsewhereInProjects: projects
-      .map(({ projectId, ...project }) => ({
-        projectId,
+      .map((project) => ({
+        projectId: project.projectId,
         ...engineInCascade(roleKey, { ...officeLevels, project }),
       }))
       .filter(

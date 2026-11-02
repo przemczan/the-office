@@ -29,6 +29,10 @@ import { EventStreamModule } from "../../../../platform/websocket/event-stream.m
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { FAKE_STDIO_MCP_SERVER } from "../../../../platform/mcp/fake-mcp-servers.fixtures.js";
 import { RoleSkills, SkillLibrary } from "../../../skills/index.js";
+import {
+  RoleOverrideChecks,
+  type RoleOverrideSave,
+} from "../../application/role-override-checks.js";
 import { RoleService } from "../../application/role-service.js";
 import { PRESETS } from "../../domain/presets.js";
 import { PeopleModule } from "../../people.module.js";
@@ -472,6 +476,42 @@ describe("PUT /api/roles/:key/card", () => {
     expect(await reasonsOf(response)).toEqual([
       "Choose an engine Settings › Engines lists, and a model it offers.",
     ]);
+  });
+
+  it("refuses a Role override a registered check refuses, before keeping it, and says so when asked first", async () => {
+    const hired = await hire("developer", "Ada");
+    const roleOverride = { engineId: "claude-code", model: "claude-haiku-5-5" };
+    const refusal = "Outside any Project, the Developer would run on Local models.";
+    const saves: RoleOverrideSave[] = [];
+    app.get(RoleOverrideChecks).register(async (save) => {
+      saves.push(save);
+      return save.after ? [refusal] : [];
+    });
+    published = [];
+
+    const asked = await app
+      .get(RoleService)
+      .cardChangeProblems("developer", { ...editOf(hired), roleOverride });
+    const response = await send("PUT", "/roles/developer/card", { ...editOf(hired), roleOverride });
+
+    expect(asked).toEqual([refusal]);
+    expect(await reasonsOf(response)).toEqual([refusal]);
+    const save = { roleKey: "developer", before: null, after: roleOverride };
+    expect(saves).toEqual([save, save]);
+    expect(roleSchema.parse(await get("/roles/developer")).card.roleOverride).toBeNull();
+    expect(published).toEqual([]);
+  });
+
+  it("refuses hiring from scratch with a Role override a registered check refuses", async () => {
+    const { card } = roleSchema.parse(await hire("developer", "Ada"));
+    const roleOverride = { engineId: "claude-code", model: "claude-haiku-5-5" };
+    app.get(RoleOverrideChecks).register(async (save) => (save.after ? ["Not there."] : []));
+
+    const response = await send("POST", "/roles", {
+      card: { ...card, title: `Analyst ${randomUUID().slice(0, 8)}`, roleOverride },
+    });
+
+    expect(await reasonsOf(response)).toEqual(["Not there."]);
   });
 
   it("gives the Role exactly the skills the card names, for its next sessions", async () => {

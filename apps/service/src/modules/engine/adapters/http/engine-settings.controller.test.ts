@@ -8,6 +8,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
+import {
+  EngineSettingsChecks,
+  type EngineSettingsSave,
+} from "../../application/engine-settings-checks.js";
 import { EngineSettingsModule } from "../../engine-settings.module.js";
 import { EngineAdded, EngineRemoved } from "../../domain/engine-events.js";
 import { DEFAULT_ENGINE_SETTINGS, FIRST_OFFICE_DEFAULT } from "../../domain/engine-settings.js";
@@ -198,6 +202,31 @@ describe("/api/settings/engines", () => {
       "Pick the Office default among the engines listed.",
     ]);
     expect(await repository.read()).toEqual(DEFAULT_ENGINE_SETTINGS);
+  });
+
+  it("refuses settings a registered check refuses, keeping and announcing none", async () => {
+    const refusal = "Outside any Project, the Developer would run on Strata.";
+    const saves: EngineSettingsSave[] = [];
+    app.get(EngineSettingsChecks).register(async (save) => {
+      saves.push(save);
+      return save.after.officeDefault.engineId === "strata" ? [refusal] : [];
+    });
+    const announced: EngineAdded[] = [];
+    app.get(EventBus).subscribe(EngineAdded, (event) => void announced.push(event));
+    const strataDefault = { engineId: "strata", model: "qwen3.8-flash" };
+
+    const refused = await put({ ...strataEdit, officeDefault: strataDefault });
+
+    expect(refused.status).toBe(422);
+    expect(engineSettingsRefusalSchema.parse(await refused.json()).reasons).toEqual([refusal]);
+    expect(saves).toHaveLength(1);
+    expect(saves[0]?.before).toEqual(DEFAULT_ENGINE_SETTINGS);
+    expect(saves[0]?.after).toMatchObject({
+      engines: [FIRST_CLAUDE_CODE_ENGINE, { id: "strata", name: "Strata" }],
+      officeDefault: strataDefault,
+    });
+    expect(await repository.read()).toEqual(DEFAULT_ENGINE_SETTINGS);
+    expect(announced).toEqual([]);
   });
 
   it("refuses a model without its context window in words, as Settings › Engines shows them", async () => {

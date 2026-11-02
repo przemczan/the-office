@@ -8,6 +8,11 @@ export type { UsageWindowRatios } from "./domain/usage-window-samples.js";
 export { EngineDown, UsageWindowsChanged, UsageWindowsRead } from "./domain/engine-events.js";
 export { EngineModels } from "./application/engine-models.js";
 export {
+  EngineSettingsChecks,
+  type EngineCascadeSettings,
+  type EngineSettingsSave,
+} from "./application/engine-settings-checks.js";
+export {
   FIRST_CLAUDE_CODE_ENGINE,
   hasUsageWindows,
   offeredModels,

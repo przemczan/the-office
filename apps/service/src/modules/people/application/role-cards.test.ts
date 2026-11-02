@@ -18,6 +18,7 @@ import { RoleCardVersionNotFound } from "../domain/role-card-version-not-found.j
 import { RoleNotFound } from "../domain/role-not-found.js";
 import { RoleRepository } from "../ports/role-repository.js";
 import { RoleCards } from "./role-cards.js";
+import { RoleOverrideChecks } from "./role-override-checks.js";
 import { RoleService } from "./role-service.js";
 
 let app: INestApplication;
@@ -42,6 +43,7 @@ beforeAll(async () => {
     providers: [
       { provide: RoleRepository, useClass: PostgresRoleRepository },
       RoleService,
+      RoleOverrideChecks,
       RoleCards,
     ],
   }));

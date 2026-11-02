@@ -164,12 +164,13 @@ export class ProjectService {
     return engineLevelsOf(await this.read(id));
   }
 
-  /** Every Project's levels of the engine cascade, with its id, in the list's order. */
+  /** Every Project's levels of the engine cascade, with its id and name, in the list's order. */
   async engineLevelsOfEveryProject(): Promise<
-    readonly (ProjectEngineLevels & { readonly projectId: string })[]
+    readonly (ProjectEngineLevels & { readonly projectId: string; readonly projectName: string })[]
   > {
     return (await this.repository.list()).map((project) => ({
       projectId: project.id,
+      projectName: project.name,
       ...engineLevelsOf(project),
     }));
   }

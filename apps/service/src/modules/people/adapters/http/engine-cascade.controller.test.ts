@@ -23,8 +23,20 @@ const haiku = { engineId: "claude-code", model: "claude-haiku-5-5" };
 @Injectable()
 class TwoProjects implements KnownProjectLevels {
   private readonly projects: readonly ProjectWithCascadeLevels[] = [
-    { projectId: "forced", projectDefault: haiku, useForEveryRole: true, roleOverrides: [] },
-    { projectId: "quiet", projectDefault: null, useForEveryRole: false, roleOverrides: [] },
+    {
+      projectId: "forced",
+      projectName: "Forced",
+      projectDefault: haiku,
+      useForEveryRole: true,
+      roleOverrides: [],
+    },
+    {
+      projectId: "quiet",
+      projectName: "Quiet",
+      projectDefault: null,
+      useForEveryRole: false,
+      roleOverrides: [],
+    },
   ];
 
   async engineLevelsOf(projectId: string): Promise<ProjectWithCascadeLevels> {

@@ -6,8 +6,10 @@ import {
   type EngineSettings,
   type EngineSettingsEdit,
 } from "../domain/engine-settings.js";
+import { EngineSettingsRefused } from "../domain/engine-settings-refused.js";
 import type { Engine } from "../domain/engines.js";
 import { EngineSettingsRepository } from "../ports/engine-settings-repository.js";
+import { EngineSettingsChecks } from "./engine-settings-checks.js";
 
 /**
  * Settings › Engines: the engines, the Office default and the search endpoint, Office-wide.
@@ -18,6 +20,7 @@ export class EngineSettingsService {
   constructor(
     private readonly repository: EngineSettingsRepository,
     private readonly events: EventBus,
+    private readonly checks: EngineSettingsChecks,
   ) {}
 
   current(): Promise<EngineSettings> {
@@ -25,12 +28,15 @@ export class EngineSettingsService {
   }
 
   /**
-   * Keeps the settings `edit` makes, refusing with every reason when they break a rule, and
-   * announces each engine added or removed.
+   * Keeps the settings `edit` makes, refusing with every reason when they break a rule or a
+   * registered check refuses them, and announces each engine added or removed. The checks weigh
+   * the settings as read just before, so a change made in between goes unchecked.
    */
   async change(edit: EngineSettingsEdit): Promise<EngineSettings> {
     const stored = await this.repository.read();
     const changed = changedEngineSettings(stored, edit);
+    const problems = await this.checks.problemsOf({ before: stored, after: changed });
+    if (problems.length > 0) throw new EngineSettingsRefused(problems);
     await this.repository.replace(changed);
     for (const { id, kind } of enginesMissingFrom(changed.engines, stored.engines)) {
       await this.events.publish(new EngineAdded(id, kind));

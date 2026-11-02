@@ -27,9 +27,10 @@ async function cascadeWith(roleOverride: EngineModel | null): Promise<EngineCasc
   const projects: KnownProjectLevels = {
     engineLevelsOf: async () => forcedProject,
     engineLevelsOfEveryProject: async (): Promise<readonly ProjectWithCascadeLevels[]> => [
-      { projectId: "the-project", ...forcedProject },
+      { projectId: "the-project", projectName: "The project", ...forcedProject },
       {
         projectId: "a-quiet-project",
+        projectName: "A quiet project",
         projectDefault: null,
         useForEveryRole: false,
         roleOverrides: [],
