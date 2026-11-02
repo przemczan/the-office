@@ -21,10 +21,14 @@ export { ModelPrices } from "./application/model-prices.js";
 export { READ_ONLY_GIT_COMMANDS } from "./domain/git-commands.js";
 export { READ_ONLY_SHELL_RULE } from "./domain/office-rules.js";
 export { EngineModule } from "./engine.module.js";
+export { EngineAccountsModule } from "./engine-accounts.module.js";
 // For other modules' tests: sessions replay scripts, with no model calls.
 export { ScriptedEngine, type StandInEngine } from "./adapters/scripted/scripted-engine.js";
 export { readRecording, type SessionScript } from "./adapters/scripted/session-script.js";
 export { ScriptedEngineModule } from "./scripted-engine.module.js";
+// So no end-to-end test runs the binary's login.
+export { ClaudeCodeAccounts } from "./ports/claude-code-accounts.js";
+export { StandInClaudeCodeAccounts } from "./adapters/scripted/stand-in-claude-code-accounts.js";
 // So a stand-in for this engine declares what it can't do, as the Role card names it.
 export { OPENAI_COMPATIBLE_API_CAPABILITIES } from "./adapters/openai-compatible-api/openai-compatible-api-engine.js";
 export type { NewSession } from "./ports/agent-engine.js";

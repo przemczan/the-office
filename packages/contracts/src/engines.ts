@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { webEventSchema } from "./events.js";
 
 /** What an engine can do beyond starting a session and taking messages; the Role card names those it can't. */
 export const engineCapabilitySchema = z.enum([
@@ -137,6 +138,35 @@ export const engineSettingsEditSchema = z.object({
   modelPrices: z.array(offeredModelSchema),
 });
 export type EngineSettingsEdit = z.infer<typeof engineSettingsEditSchema>;
+
+/**
+ * GET /settings/engines/:engineId/account: a Claude Code engine's account as `claude auth status`
+ * gives it, the email and plan null when signed out or not told.
+ */
+export const engineAccountSchema = z.object({
+  signedIn: z.boolean(),
+  email: z.string().nullable(),
+  /** The Claude subscription, such as `max` or `pro`. */
+  plan: z.string().nullable(),
+});
+export type EngineAccount = z.infer<typeof engineAccountSchema>;
+
+/**
+ * POST /settings/engines/:engineId/sign-in: the Sign in started. Where there is a display the
+ * browser opens by itself; this page signs in from any browser and gives a code to paste back.
+ */
+export const engineSignInSchema = z.object({ url: z.url() });
+export type EngineSignIn = z.infer<typeof engineSignInSchema>;
+
+/** POST /settings/engines/:engineId/sign-in/code: the code the sign-in page gave. */
+export const engineSignInCodeSchema = z.object({ code: z.string().trim().min(1) });
+export type EngineSignInCode = z.infer<typeof engineSignInCodeSchema>;
+
+/** A Sign in of a Claude Code engine ended, so an open Settings page refetches its account. */
+export const engineWebEventSchema = z.discriminatedUnion("type", [
+  webEventSchema.extend({ type: z.literal("engine.account-changed"), engineId: engineIdSchema }),
+]);
+export type EngineWebEvent = z.infer<typeof engineWebEventSchema>;
 
 /**
  * The id the Engine module gives an engine added as `name` (its `engineIdFor`): its letters and

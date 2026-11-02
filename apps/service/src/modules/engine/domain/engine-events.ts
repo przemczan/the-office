@@ -1,4 +1,5 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { EngineId } from "./engines.js";
 import type { UsageWindows } from "./usage-windows.js";
 
 /** The account's usage windows changed, as read after the engine signalled a rate limit (spec §5.4). */
@@ -17,6 +18,16 @@ export class UsageWindowsRead extends DomainEvent {
     readonly windows: UsageWindows,
     readonly readAt: Date,
   ) {
+    super();
+  }
+}
+
+/**
+ * A Sign in of a Claude Code engine ended, signed in or not, so its account may differ now
+ * (spec §5.4).
+ */
+export class EngineAccountChanged extends DomainEvent {
+  constructor(readonly engineId: EngineId) {
     super();
   }
 }

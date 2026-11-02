@@ -11,6 +11,7 @@ import {
 } from "./modules/conversations/index.js";
 import {
   DayUsage,
+  EngineAccountsModule,
   EngineModule,
   ModelPrices,
   UsageWindowSamples,
@@ -114,6 +115,7 @@ export class AppModule {
       imports: [
         conversations,
         DatabaseModule.forRoot({ url: config.databaseUrl }),
+        EngineAccountsModule,
         EngineModule,
         EventsModule,
         EventStreamModule,

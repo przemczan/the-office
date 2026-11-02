@@ -15,11 +15,13 @@ await launch("built", async (appModule) => {
   // Loaded once telemetry has started, as launch.ts asks.
   const { Test } = await import("@nestjs/testing");
   const {
+    ClaudeCodeAccounts,
     EngineModule,
     OPENAI_COMPATIBLE_API_CAPABILITIES,
     readRecording,
     ScriptedEngine,
     ScriptedEngineModule,
+    StandInClaudeCodeAccounts,
   } = await import("./modules/engine/index.js");
   const { Schedule } = await import("./platform/schedule/schedule.js");
   const { TimerSchedule } = await import("./platform/schedule/timer-schedule.js");
@@ -43,6 +45,8 @@ await launch("built", async (appModule) => {
         "openai-compatible-api": apiEngine,
       }),
     )
+    .overrideProvider(ClaudeCodeAccounts)
+    .useValue(new StandInClaudeCodeAccounts())
     .overrideProvider(Schedule)
     .useFactory({ factory: () => new TimerSchedule(E2E_DAY_MS) })
     .overrideProvider(HostKeyScanner)
