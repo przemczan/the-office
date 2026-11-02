@@ -6,13 +6,19 @@ import {
   newProjectSchema,
   projectCommandKeySchema,
   publishingModeChangeSchema,
+  projectDefaultChangeSchema,
   projectSkillListSchema,
+  roleOverrideChangeSchema,
+  useForEveryRoleChangeSchema,
   useProjectSkillsChangeSchema,
   type CommandChange,
   type DefaultPipelineChange,
   type InstallInputsChange,
   type NewProject,
   type Project as ProjectResponse,
+  type ProjectDefaultChange,
+  type RoleOverrideChange,
+  type UseForEveryRoleChange,
   type ProjectRemoteNeeds,
   type RemoteNeeds as RemoteNeedsResponse,
   type ProjectCommandKey,
@@ -112,6 +118,31 @@ export class ProjectsController {
   ): Promise<ProjectResponse> {
     return toProjectResponse(await this.projects.changeDefaultPipeline(id, defaultPipeline));
   }
+
+  @Put(":id/project-default")
+  async changeProjectDefault(
+    @Param("id") id: string,
+    @Body(new ContractPipe(projectDefaultChangeSchema)) { projectDefault }: ProjectDefaultChange,
+  ): Promise<ProjectResponse> {
+    return toProjectResponse(await this.projects.changeProjectDefault(id, projectDefault));
+  }
+
+  @Put(":id/use-for-every-role")
+  async changeUseForEveryRole(
+    @Param("id") id: string,
+    @Body(new ContractPipe(useForEveryRoleChangeSchema)) { useForEveryRole }: UseForEveryRoleChange,
+  ): Promise<ProjectResponse> {
+    return toProjectResponse(await this.projects.changeUseForEveryRole(id, useForEveryRole));
+  }
+
+  @Put(":id/role-overrides/:roleKey")
+  async changeRoleOverride(
+    @Param("id") id: string,
+    @Param("roleKey") roleKey: string,
+    @Body(new ContractPipe(roleOverrideChangeSchema)) { roleOverride }: RoleOverrideChange,
+  ): Promise<ProjectResponse> {
+    return toProjectResponse(await this.projects.changeRoleOverride(id, roleKey, roleOverride));
+  }
 }
 
 function toProjectResponse(project: Project): ProjectResponse {
@@ -132,6 +163,13 @@ function toProjectResponse(project: Project): ProjectResponse {
       prependPath: [...project.environment.prependPath],
     },
     useProjectSkills: project.useProjectSkills,
+    projectDefault: project.projectDefault && { ...project.projectDefault },
+    useForEveryRole: project.useForEveryRole,
+    roleOverrides: project.roleOverrides.map(({ roleKey, engineId, model }) => ({
+      roleKey,
+      engineId,
+      model,
+    })),
     addedAt: project.addedAt.toISOString(),
   };
 }

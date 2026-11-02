@@ -1,3 +1,4 @@
+import type { EngineModel } from "../../engine/index.js";
 import type { ProjectEnvironment } from "./project-environment.js";
 
 /** The commands a Project runs, each a command line for the platform's shell. */
@@ -43,7 +44,24 @@ export interface Project {
   readonly environment: ProjectEnvironment;
   /** Whether sessions in this Project also get the repository's own skills (spec §2.6). */
   readonly useProjectSkills: boolean;
+  /** The engine cascade's Project levels (spec §5.4), set in the Project page's Engine block. */
+  readonly projectDefault: EngineModel | null;
+  /** Whether the Project default wins over the Office-wide Role overrides; set only with one. */
+  readonly useForEveryRole: boolean;
+  /** At most one per Role, winning over every other level in this Project. */
+  readonly roleOverrides: readonly ProjectRoleOverride[];
   readonly addedAt: Date;
+}
+
+/** The Project's levels of the engine cascade, which People resolves. */
+export type ProjectEngineLevels = Pick<
+  Project,
+  "projectDefault" | "useForEveryRole" | "roleOverrides"
+>;
+
+/** The engine and model the Role `roleKey` runs on in a Project. */
+export interface ProjectRoleOverride extends EngineModel {
+  readonly roleKey: string;
 }
 
 /** What the user gives when adding a Project; the rest is set by The Office. */

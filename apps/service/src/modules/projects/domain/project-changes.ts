@@ -1,4 +1,5 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { EngineModel } from "../../engine/index.js";
 import {
   commandProblem,
   installInputsProblems,
@@ -14,10 +15,13 @@ import {
 import {
   ProjectAdded,
   ProjectCommandChanged,
+  ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
   ProjectEnvironmentChanged,
   ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
+  ProjectRoleOverrideChanged,
+  ProjectUseForEveryRoleChanged,
   ProjectUseProjectSkillsChanged,
 } from "./project-events.js";
 import {
@@ -93,6 +97,9 @@ export function addProject(
     repositoryUrl: newProject.repositoryUrl ?? null,
     environment: UNCHANGED_ENVIRONMENT,
     useProjectSkills: true,
+    projectDefault: null,
+    useForEveryRole: false,
+    roleOverrides: [],
     addedAt,
   };
   return { project, event: new ProjectAdded(project) };
@@ -172,6 +179,74 @@ export function changeDefaultPipeline(
     project: { ...project, defaultPipeline },
     event: new ProjectDefaultPipelineChanged(project.id, defaultPipeline),
   };
+}
+
+/**
+ * Undefined when it is already the Project default. That the engine is listed and offers the model
+ * is checked by the caller, which can ask the Engine module.
+ */
+export function changeProjectDefault(
+  project: Project,
+  projectDefault: EngineModel | null,
+): ProjectChange<ProjectDefaultChanged> | undefined {
+  if (sameEngineModel(project.projectDefault, projectDefault)) return undefined;
+  if (projectDefault === null && project.useForEveryRole) {
+    throw new ProjectRefused([
+      'Turn off "Use for every Role" before leaving the Project without a default.',
+    ]);
+  }
+  return {
+    project: { ...project, projectDefault },
+    event: new ProjectDefaultChanged(project.id, projectDefault),
+  };
+}
+
+/** Undefined when the Project default already is, or isn't, used for every Role. */
+export function changeUseForEveryRole(
+  project: Project,
+  useForEveryRole: boolean,
+): ProjectChange<ProjectUseForEveryRoleChanged> | undefined {
+  if (project.useForEveryRole === useForEveryRole) return undefined;
+  if (useForEveryRole && project.projectDefault === null) {
+    throw new ProjectRefused(["Choose a Project default before using it for every Role."]);
+  }
+  return {
+    project: { ...project, useForEveryRole },
+    event: new ProjectUseForEveryRoleChanged(project.id, useForEveryRole),
+  };
+}
+
+/**
+ * Sets the Role's override in the Project, or removes it when `roleOverride` is null; undefined
+ * when that is already so. That the engine offers the model is checked by the caller; that a Role
+ * is filled under `roleKey` is not, since People reads these levels and not the other way round.
+ */
+export function changeRoleOverride(
+  project: Project,
+  roleKey: string,
+  roleOverride: EngineModel | null,
+): ProjectChange<ProjectRoleOverrideChanged> | undefined {
+  if (roleKey.trim() === "") throw new ProjectRefused(["A Role override names its Role."]);
+  const current = project.roleOverrides.find((override) => override.roleKey === roleKey) ?? null;
+  if (sameEngineModel(current, roleOverride)) return undefined;
+  const others = project.roleOverrides.filter((override) => override.roleKey !== roleKey);
+  const roleOverrides =
+    roleOverride === null
+      ? others
+      : current === null
+        ? [...others, { roleKey, ...roleOverride }]
+        : project.roleOverrides.map((override) =>
+            override.roleKey === roleKey ? { roleKey, ...roleOverride } : override,
+          );
+  return {
+    project: { ...project, roleOverrides },
+    event: new ProjectRoleOverrideChanged(project.id, roleKey, roleOverride),
+  };
+}
+
+function sameEngineModel(first: EngineModel | null, second: EngineModel | null): boolean {
+  if (first === null || second === null) return first === second;
+  return first.engineId === second.engineId && first.model === second.model;
 }
 
 /** Undefined when the Project already does, or doesn't, use its own skills. */

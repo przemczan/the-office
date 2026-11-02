@@ -16,11 +16,12 @@ import { MANIFEST_CHARACTERS } from "./repository-folder.js";
 import { ProjectChecks } from "./project-checks.js";
 import { officeIdentityForTests } from "../../../platform/git-identity/office-identity.fixtures.js";
 import type { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
+import type { EngineModels } from "../../engine/index.js";
 
 let repository: TemporaryRepository;
 const git = new CommandLineGit(new RepositoryLocks(), officeIdentityForTests());
 const localRepositories = new LocalRepositories(
-  new ProjectChecks(git, {} as KnownPipelines, {} as OfficeDataDirectory),
+  new ProjectChecks(git, {} as KnownPipelines, {} as OfficeDataDirectory, {} as EngineModels),
   git,
 );
 

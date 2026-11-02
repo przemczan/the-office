@@ -6,16 +6,22 @@ import {
   changeDefaultPipeline,
   changeEnvironment,
   changeInstallInputs,
+  changeProjectDefault,
   changePublishingMode,
+  changeRoleOverride,
+  changeUseForEveryRole,
   changeUseProjectSkills,
 } from "./project-changes.js";
 import {
   ProjectAdded,
   ProjectCommandChanged,
+  ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
   ProjectEnvironmentChanged,
   ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
+  ProjectRoleOverrideChanged,
+  ProjectUseForEveryRoleChanged,
   ProjectUseProjectSkillsChanged,
 } from "./project-events.js";
 import { aNewProject, aProject } from "./project.fixtures.js";
@@ -169,5 +175,99 @@ describe("changeUseProjectSkills", () => {
     expect(change?.event).toBeInstanceOf(ProjectUseProjectSkillsChanged);
     expect(change?.event).toMatchObject({ projectId: "admin-panel", useProjectSkills: false });
     expect(changeUseProjectSkills(aProject(), true)).toBeUndefined();
+  });
+});
+
+const SONNET = { engineId: "claude-code", model: "claude-sonnet-5-5" };
+const HAIKU = { engineId: "claude-code", model: "claude-haiku-5-5" };
+
+describe("changeProjectDefault", () => {
+  it("sets the Project default, clears it, and changes nothing when it already is", () => {
+    const change = changeProjectDefault(aProject(), SONNET);
+
+    expect(change?.project.projectDefault).toEqual(SONNET);
+    expect(change?.event).toBeInstanceOf(ProjectDefaultChanged);
+    expect(change?.event).toMatchObject({ projectId: "admin-panel", projectDefault: SONNET });
+    expect(
+      changeProjectDefault(aProject({ projectDefault: SONNET }), { ...SONNET }),
+    ).toBeUndefined();
+    expect(changeProjectDefault(aProject({ projectDefault: SONNET }), null)?.project).toEqual(
+      aProject(),
+    );
+    expect(changeProjectDefault(aProject(), null)).toBeUndefined();
+  });
+
+  it("refuses to clear the default while it is used for every Role", () => {
+    const forced = aProject({ projectDefault: SONNET, useForEveryRole: true });
+
+    expect(() => changeProjectDefault(forced, null)).toThrow(
+      new ProjectRefused([
+        'Turn off "Use for every Role" before leaving the Project without a default.',
+      ]),
+    );
+    expect(changeProjectDefault(forced, HAIKU)?.project.projectDefault).toEqual(HAIKU);
+  });
+});
+
+describe("changeUseForEveryRole", () => {
+  it("forces the Project default on every Role, and changes nothing when it already is", () => {
+    const change = changeUseForEveryRole(aProject({ projectDefault: SONNET }), true);
+
+    expect(change?.project.useForEveryRole).toBe(true);
+    expect(change?.event).toBeInstanceOf(ProjectUseForEveryRoleChanged);
+    expect(change?.event).toMatchObject({ projectId: "admin-panel", useForEveryRole: true });
+    expect(changeUseForEveryRole(aProject(), false)).toBeUndefined();
+  });
+
+  it("refuses it without a Project default", () => {
+    expect(() => changeUseForEveryRole(aProject(), true)).toThrow(
+      new ProjectRefused(["Choose a Project default before using it for every Role."]),
+    );
+  });
+});
+
+describe("changeRoleOverride", () => {
+  it("adds a Role's override, replaces it in place, and removes it", () => {
+    const added = changeRoleOverride(aProject(), "cto", SONNET);
+    expect(added?.project.roleOverrides).toEqual([{ roleKey: "cto", ...SONNET }]);
+    expect(added?.event).toBeInstanceOf(ProjectRoleOverrideChanged);
+    expect(added?.event).toMatchObject({
+      projectId: "admin-panel",
+      roleKey: "cto",
+      roleOverride: SONNET,
+    });
+
+    const two = aProject({
+      roleOverrides: [
+        { roleKey: "cto", ...SONNET },
+        { roleKey: "reviewer", ...SONNET },
+      ],
+    });
+    expect(changeRoleOverride(two, "cto", HAIKU)?.project.roleOverrides).toEqual([
+      { roleKey: "cto", ...HAIKU },
+      { roleKey: "reviewer", ...SONNET },
+    ]);
+
+    const removed = changeRoleOverride(two, "cto", null);
+    expect(removed?.project.roleOverrides).toEqual([{ roleKey: "reviewer", ...SONNET }]);
+    expect(removed?.event).toBeInstanceOf(ProjectRoleOverrideChanged);
+    expect(removed?.event).toMatchObject({
+      projectId: "admin-panel",
+      roleKey: "cto",
+      roleOverride: null,
+    });
+  });
+
+  it("changes nothing when the override already is so", () => {
+    const project = aProject({ roleOverrides: [{ roleKey: "cto", ...SONNET }] });
+
+    expect(changeRoleOverride(project, "cto", { ...SONNET })).toBeUndefined();
+    expect(changeRoleOverride(project, "reviewer", null)).toBeUndefined();
+  });
+
+  it("refuses an override that names no Role", () => {
+    expect(() => changeRoleOverride(aProject(), " ", SONNET)).toThrow(
+      new ProjectRefused(["A Role override names its Role."]),
+    );
   });
 });

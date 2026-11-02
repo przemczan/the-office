@@ -212,6 +212,9 @@ export const projectEventInvalidations: Readonly<
   "project.publishing-mode-changed": () => [PROJECTS],
   "project.default-pipeline-changed": () => [PROJECTS],
   "project.use-project-skills-changed": () => [PROJECTS],
+  "project.project-default-changed": () => [PROJECTS],
+  "project.use-for-every-role-changed": () => [PROJECTS],
+  "project.role-override-changed": () => [PROJECTS],
 };
 
 /** A clone that started, moved on or finished is read again by its id. */

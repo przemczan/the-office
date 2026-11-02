@@ -1,6 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { asc, eq } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
+import type { EngineModel } from "../../../engine/index.js";
 import type { Project } from "../../domain/project.js";
 import type { ProjectChanges } from "../../domain/project-changes.js";
 import { ProjectNotFound } from "../../domain/project-not-found.js";
@@ -66,6 +67,10 @@ function toRow(project: Project): ProjectRow {
     defaultPipeline: project.defaultPipeline,
     environment: project.environment,
     useProjectSkills: project.useProjectSkills,
+    projectDefaultEngineId: project.projectDefault?.engineId ?? null,
+    projectDefaultModel: project.projectDefault?.model ?? null,
+    useForEveryRole: project.useForEveryRole,
+    roleOverrides: project.roleOverrides,
     addedAt: project.addedAt,
   };
 }
@@ -89,6 +94,14 @@ function toProject(row: ProjectRow): Project {
     defaultPipeline: row.defaultPipeline,
     environment: row.environment,
     useProjectSkills: row.useProjectSkills,
+    projectDefault: projectDefaultOf(row),
+    useForEveryRole: row.useForEveryRole,
+    roleOverrides: row.roleOverrides,
     addedAt: row.addedAt,
   };
+}
+
+function projectDefaultOf(row: ProjectRow): EngineModel | null {
+  const { projectDefaultEngineId: engineId, projectDefaultModel: model } = row;
+  return engineId === null || model === null ? null : { engineId, model };
 }

@@ -1,4 +1,5 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
+import type { EngineModel } from "../../engine/index.js";
 import type { Project, ProjectCommandKey, PublishingMode } from "./project.js";
 import type { ProjectEnvironment } from "./project-environment.js";
 
@@ -52,6 +53,36 @@ export class ProjectDefaultPipelineChanged extends DomainEvent {
   constructor(
     readonly projectId: string,
     readonly defaultPipeline: string,
+  ) {
+    super();
+  }
+}
+
+/** Sessions started from now on run on the new Project default; null when the Project has none. */
+export class ProjectDefaultChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly projectDefault: EngineModel | null,
+  ) {
+    super();
+  }
+}
+
+export class ProjectUseForEveryRoleChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly useForEveryRole: boolean,
+  ) {
+    super();
+  }
+}
+
+/** The Role's override in the Project; null when it was removed. */
+export class ProjectRoleOverrideChanged extends DomainEvent {
+  constructor(
+    readonly projectId: string,
+    readonly roleKey: string,
+    readonly roleOverride: EngineModel | null,
   ) {
     super();
   }

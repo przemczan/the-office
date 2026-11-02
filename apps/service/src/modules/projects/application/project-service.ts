@@ -2,12 +2,14 @@ import { isAbsolute, resolve } from "node:path";
 import { Injectable } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
+import type { EngineModel } from "../../engine/index.js";
 import {
   projectIdFor,
   trimmedNewProject,
   type NewProject,
   type Project,
   type ProjectCommandKey,
+  type ProjectEngineLevels,
   type PublishingMode,
 } from "../domain/project.js";
 import {
@@ -18,7 +20,10 @@ import {
   changeDefaultPipeline,
   changeEnvironment,
   changeInstallInputs,
+  changeProjectDefault,
   changePublishingMode,
+  changeRoleOverride,
+  changeUseForEveryRole,
   changeUseProjectSkills,
   type ProjectChange,
   type ProjectChanges,
@@ -149,6 +154,32 @@ export class ProjectService {
   async changeDefaultPipeline(id: string, defaultPipeline: string): Promise<Project> {
     await this.checks.checkDefaultPipeline(defaultPipeline);
     return this.update(id, (project) => changeDefaultPipeline(project, defaultPipeline));
+  }
+
+  /** The Project's levels of the engine cascade; throws ProjectNotFound when there is none. */
+  async engineLevelsOf(id: string): Promise<ProjectEngineLevels> {
+    const { projectDefault, useForEveryRole, roleOverrides } = await this.read(id);
+    return { projectDefault, useForEveryRole, roleOverrides };
+  }
+
+  /** Sessions already running keep the engine and model they started on. */
+  async changeProjectDefault(id: string, projectDefault: EngineModel | null): Promise<Project> {
+    if (projectDefault !== null) await this.checks.checkEngineModel(projectDefault);
+    return this.update(id, (project) => changeProjectDefault(project, projectDefault));
+  }
+
+  async changeUseForEveryRole(id: string, useForEveryRole: boolean): Promise<Project> {
+    return this.update(id, (project) => changeUseForEveryRole(project, useForEveryRole));
+  }
+
+  /** Sets the Role's override in the Project, or removes it when `roleOverride` is null. */
+  async changeRoleOverride(
+    id: string,
+    roleKey: string,
+    roleOverride: EngineModel | null,
+  ): Promise<Project> {
+    if (roleOverride !== null) await this.checks.checkEngineModel(roleOverride);
+    return this.update(id, (project) => changeRoleOverride(project, roleKey, roleOverride));
   }
 
   /** Sessions already running keep the skills they started with. */

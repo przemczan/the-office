@@ -1,6 +1,8 @@
 import { join, resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
+import { EngineModels, FIRST_CLAUDE_CODE_ENGINE } from "../../engine/index.js";
+import { EngineSettingsForTests } from "../../engine/index.fixtures.js";
 import { aNewProject } from "../domain/project.fixtures.js";
 import { ProjectRefused } from "../domain/project-refused.js";
 import { Git, type FolderInspection, type Upstream } from "../ports/git.js";
@@ -83,7 +85,12 @@ const OFFICE_DATA = resolve("/office-data");
 const CLONE = join(OFFICE_DATA, "repositories", "github.com", "acme", "shop");
 
 function checksWith(git: Git = new FakeGit()): ProjectChecks {
-  return new ProjectChecks(git, new FakePipelines(), new OfficeDataDirectory(OFFICE_DATA));
+  return new ProjectChecks(
+    git,
+    new FakePipelines(),
+    new OfficeDataDirectory(OFFICE_DATA),
+    new EngineModels(new EngineSettingsForTests()),
+  );
 }
 
 async function reasonsOf(checking: Promise<void>): Promise<readonly string[]> {
@@ -186,6 +193,30 @@ describe("ProjectChecks.checkDefaultPipeline", () => {
     await expect(checksWith().checkDefaultPipeline("quick-fix")).resolves.toBeUndefined();
     expect(await reasonsOf(checksWith().checkDefaultPipeline("nightly"))).toEqual([
       'There is no Pipeline "nightly".',
+    ]);
+  });
+});
+
+describe("ProjectChecks.checkEngineModel", () => {
+  const engineId = FIRST_CLAUDE_CODE_ENGINE.id;
+
+  it("passes a listed engine with a model it offers", async () => {
+    await expect(
+      checksWith().checkEngineModel({ engineId, model: "claude-haiku-5-5" }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("refuses an engine Settings › Engines doesn't list", async () => {
+    expect(
+      await reasonsOf(
+        checksWith().checkEngineModel({ engineId: "gone", model: "claude-haiku-5-5" }),
+      ),
+    ).toEqual(['There is no engine "gone".']);
+  });
+
+  it("refuses a model the engine doesn't offer", async () => {
+    expect(await reasonsOf(checksWith().checkEngineModel({ engineId, model: "gpt-oss" }))).toEqual([
+      "Choose a model the engine offers.",
     ]);
   });
 });

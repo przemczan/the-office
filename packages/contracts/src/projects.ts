@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { engineModelSchema } from "./engines.js";
 import { webEventSchema } from "./events.js";
 
 export const projectCommandKeySchema = z.enum(["install", "build", "lint", "test"]);
@@ -82,12 +83,22 @@ export type RemoteNeeds = z.infer<typeof remoteNeedsSchema>;
 export const projectRemoteNeedsSchema = z.object({ remoteNeeds: remoteNeedsSchema.nullable() });
 export type ProjectRemoteNeeds = z.infer<typeof projectRemoteNeedsSchema>;
 
+/** The engine and model a Role runs on in a Project, winning over every other level. */
+export const projectRoleOverrideSchema = engineModelSchema.extend({ roleKey: z.string() });
+export type ProjectRoleOverride = z.infer<typeof projectRoleOverrideSchema>;
+
 export const projectSchema = newProjectSchema.extend({
   id: z.string().min(1),
   /** What the repository was cloned from; null for a Project added by its path. */
   repositoryUrl: z.string().nullable(),
   environment: projectEnvironmentSchema,
   useProjectSkills: z.boolean(),
+  /** The engine cascade's Project levels (spec §5.4); null when the Project has no default. */
+  projectDefault: engineModelSchema.nullable(),
+  /** Only with a Project default: it wins over the Office-wide Role overrides. */
+  useForEveryRole: z.boolean(),
+  /** At most one per Role. */
+  roleOverrides: z.array(projectRoleOverrideSchema),
   addedAt: z.iso.datetime(),
 });
 export type Project = z.infer<typeof projectSchema>;
@@ -119,6 +130,20 @@ export type DefaultPipelineChange = z.infer<typeof defaultPipelineChangeSchema>;
 /** PUT /projects/:id/use-project-skills */
 export const useProjectSkillsChangeSchema = z.object({ useProjectSkills: z.boolean() });
 export type UseProjectSkillsChange = z.infer<typeof useProjectSkillsChangeSchema>;
+
+/** PUT /projects/:id/project-default; null leaves the Project without one. */
+export const projectDefaultChangeSchema = z.object({
+  projectDefault: engineModelSchema.nullable(),
+});
+export type ProjectDefaultChange = z.infer<typeof projectDefaultChangeSchema>;
+
+/** PUT /projects/:id/use-for-every-role */
+export const useForEveryRoleChangeSchema = z.object({ useForEveryRole: z.boolean() });
+export type UseForEveryRoleChange = z.infer<typeof useForEveryRoleChangeSchema>;
+
+/** PUT /projects/:id/role-overrides/:roleKey; null removes the Role's override. */
+export const roleOverrideChangeSchema = z.object({ roleOverride: engineModelSchema.nullable() });
+export type RoleOverrideChange = z.infer<typeof roleOverrideChangeSchema>;
 
 /** How a Project command ended. */
 export const commandOutcomeSchema = z.enum([
@@ -227,6 +252,18 @@ export const projectWebEventSchema = z.discriminatedUnion("type", [
   }),
   webEventSchema.extend({
     type: z.literal("project.default-pipeline-changed"),
+    projectId: z.string(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("project.project-default-changed"),
+    projectId: z.string(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("project.use-for-every-role-changed"),
+    projectId: z.string(),
+  }),
+  webEventSchema.extend({
+    type: z.literal("project.role-override-changed"),
     projectId: z.string(),
   }),
   webEventSchema.extend({

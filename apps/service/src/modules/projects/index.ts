@@ -10,13 +10,16 @@ export {
 export {
   ProjectAdded,
   ProjectCommandChanged,
+  ProjectDefaultChanged,
   ProjectDefaultPipelineChanged,
   ProjectEnvironmentChanged,
   ProjectInstallInputsChanged,
   ProjectPublishingModeChanged,
+  ProjectRoleOverrideChanged,
+  ProjectUseForEveryRoleChanged,
   ProjectUseProjectSkillsChanged,
 } from "./domain/project-events.js";
-export type { NewProject } from "./domain/project.js";
+export type { NewProject, ProjectEngineLevels, ProjectRoleOverride } from "./domain/project.js";
 export { ProjectNotFound } from "./domain/project-not-found.js";
 export { ProjectRefused } from "./domain/project-refused.js";
 export { proposedCommandFields, type ProjectCommandFields } from "./domain/proposed-commands.js";

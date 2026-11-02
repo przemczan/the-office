@@ -22,6 +22,9 @@ export function aProject(fields: Partial<Project> = {}): Project {
     repositoryUrl: null,
     environment: UNCHANGED_ENVIRONMENT,
     useProjectSkills: true,
+    projectDefault: null,
+    useForEveryRole: false,
+    roleOverrides: [],
     addedAt: new Date("2026-10-25T09:00:00.000Z"),
     ...fields,
   };

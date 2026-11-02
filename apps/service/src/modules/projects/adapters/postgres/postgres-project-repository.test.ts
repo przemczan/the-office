@@ -40,6 +40,22 @@ describe("PostgresProjectRepository", () => {
     await expect(repository.find(project.id)).resolves.toEqual(project);
   });
 
+  it("keeps the Project's engine levels", async () => {
+    const project = {
+      ...aProjectOfItsOwn(),
+      projectDefault: { engineId: "claude-code", model: "claude-sonnet-5-5" },
+      useForEveryRole: true,
+      roleOverrides: [
+        { roleKey: "cto", engineId: "claude-code", model: "claude-opus-5-5" },
+        { roleKey: "reviewer", engineId: "strata", model: "qwen3-coder" },
+      ],
+    };
+
+    await repository.add(project);
+
+    await expect(repository.find(project.id)).resolves.toEqual(project);
+  });
+
   it("lists Projects in the order they were added", async () => {
     const earlier = aProjectOfItsOwn();
     const later = { ...aProjectOfItsOwn(), addedAt: new Date(earlier.addedAt.getTime() + 1000) };

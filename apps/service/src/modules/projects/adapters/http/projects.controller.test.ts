@@ -356,6 +356,68 @@ describe("PUT /api/projects/:id/publishing-mode and /default-pipeline", () => {
   });
 });
 
+// `claude-code` is listed in the shared database and can't be removed, so no test lists its own.
+const SONNET = { engineId: "claude-code", model: "claude-sonnet-5-5" };
+const HAIKU = { engineId: "claude-code", model: "claude-haiku-5-5" };
+
+describe("the Project's engine levels", () => {
+  it("keeps the Project default, its use for every Role and the Role overrides", async () => {
+    const project = await addProject();
+    expect(project).toMatchObject({
+      projectDefault: null,
+      useForEveryRole: false,
+      roleOverrides: [],
+    });
+    published = [];
+
+    await send("PUT", `/projects/${project.id}/project-default`, { projectDefault: SONNET });
+    await send("PUT", `/projects/${project.id}/use-for-every-role`, { useForEveryRole: true });
+    await send("PUT", `/projects/${project.id}/role-overrides/cto`, { roleOverride: HAIKU });
+    await send("PUT", `/projects/${project.id}/role-overrides/reviewer`, { roleOverride: SONNET });
+    const response = await send("PUT", `/projects/${project.id}/role-overrides/reviewer`, {
+      roleOverride: null,
+    });
+
+    expect(response.status).toBe(200);
+    const expected = {
+      projectDefault: SONNET,
+      useForEveryRole: true,
+      roleOverrides: [{ roleKey: "cto", ...HAIKU }],
+    };
+    expect(projectSchema.parse(await response.json())).toMatchObject(expected);
+    const read = await fetch(`${url}/api/projects/${project.id}`);
+    expect(projectSchema.parse(await read.json())).toMatchObject(expected);
+    expect(webEvents()).toEqual([
+      { type: "project.project-default-changed", projectId: project.id },
+      { type: "project.use-for-every-role-changed", projectId: project.id },
+      { type: "project.role-override-changed", projectId: project.id },
+      { type: "project.role-override-changed", projectId: project.id },
+      { type: "project.role-override-changed", projectId: project.id },
+    ]);
+  });
+
+  it("refuses an engine that isn't listed, a model it doesn't offer, and a force without a default", async () => {
+    const project = await addProject();
+
+    const responses = await Promise.all([
+      send("PUT", `/projects/${project.id}/project-default`, {
+        projectDefault: { engineId: "gone", model: "claude-sonnet-5-5" },
+      }),
+      send("PUT", `/projects/${project.id}/role-overrides/cto`, {
+        roleOverride: { engineId: "claude-code", model: "gpt-oss" },
+      }),
+      send("PUT", `/projects/${project.id}/use-for-every-role`, { useForEveryRole: true }),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([422, 422, 422]);
+    expect(await Promise.all(responses.map((response) => response.json()))).toMatchObject([
+      { reasons: ['There is no engine "gone".'] },
+      { reasons: ["Choose a model the engine offers."] },
+      { reasons: ["Choose a Project default before using it for every Role."] },
+    ]);
+  });
+});
+
 describe("the repository's own skills", () => {
   it("lists them from the repository, read-only, and switches their use", async () => {
     const skillFolder = join(repository.path, ".claude", "skills", "deploy");

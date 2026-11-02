@@ -1,6 +1,7 @@
 import { isAbsolute, resolve } from "node:path";
 import { Injectable } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
+import { EngineModels, offeredModels, type EngineModel } from "../../engine/index.js";
 import { newProjectProblems, trimmedNewProject, type NewProject } from "../domain/project.js";
 import { environmentProblems, type ProjectEnvironment } from "../domain/project-environment.js";
 import { ProjectRefused } from "../domain/project-refused.js";
@@ -8,13 +9,14 @@ import { CLONE_REMOTE, Git, type FolderInspection } from "../ports/git.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
 import { clonePathOf, readRepositoryUrl } from "./repository-url.js";
 
-/** The rules of a Project that need git or the Pipelines, next to the domain's own. */
+/** The rules of a Project that need git, the Pipelines or the engines, next to the domain's own. */
 @Injectable()
 export class ProjectChecks {
   constructor(
     private readonly git: Git,
     private readonly pipelines: KnownPipelines,
     private readonly officeData: OfficeDataDirectory,
+    private readonly engines: EngineModels,
   ) {}
 
   /** Refuses with every reason the Project can't be added, before anything is saved. */
@@ -50,6 +52,15 @@ export class ProjectChecks {
   async checkDefaultPipeline(pipelineId: string): Promise<void> {
     const problems = await this.pipelineProblems(pipelineId);
     if (problems.length > 0) throw new ProjectRefused(problems);
+  }
+
+  /** Refuses an engine Settings › Engines doesn't list, or a model it doesn't offer. */
+  async checkEngineModel({ engineId, model }: EngineModel): Promise<void> {
+    const engine = await this.engines.find(engineId);
+    if (engine === undefined) throw new ProjectRefused([`There is no engine "${engineId}".`]);
+    if (!offeredModels(engine).includes(model)) {
+      throw new ProjectRefused(["Choose a model the engine offers."]);
+    }
   }
 
   /**
