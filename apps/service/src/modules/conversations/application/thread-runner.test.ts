@@ -646,40 +646,6 @@ describe("continuing a Thread", () => {
     });
   });
 
-  // Until step 1c3 of task 47 a card on `-p` names another engine than one on the Agent SDK, though
-  // both run on the Claude Code engine, whose own switch picks the fallback.
-  it("starts a warm Thread fresh on the engine its person's card switched to", async () => {
-    await startOn([
-      started(...aTurn("brief", "Hello.")),
-      started(...aTurn("brief", "Still here.")),
-    ]);
-    const thread = await threads.startInChat(roleKey);
-    await runner.send(thread.id, "Hello.");
-    await answered(thread.id, 3);
-    versions.push({ ...PLANNER, engine: "claude-code-p" });
-
-    await runner.send(thread.id, "Still there?");
-    const log = await answered(thread.id, 6);
-
-    const [first, fresh] = engine.sessions;
-    expect(engine.sessions).toHaveLength(2);
-    expect(fresh?.id).not.toBe(first?.id);
-    expect(forgotten).toEqual([first?.id]);
-    expect(drafts(log)[3]).toEqual(
-      contextLine({
-        move: "fresh",
-        reason: "engine-changed",
-        contextTokens: 32_000,
-        briefTokens: expect.any(Number),
-      }),
-    );
-    expect((await threads.read(thread.id)).session).toMatchObject({
-      id: fresh?.id,
-      cardVersion: 2,
-      engine: "claude-code-p",
-    });
-  });
-
   it("starts a cooled Thread fresh once Settings lowers the size threshold below its context", async () => {
     await startWith(started(...aTurn("brief", "Hello.")));
     const thread = await threads.startInChat(roleKey);
@@ -762,6 +728,32 @@ describe("a Thread on the OpenAI-compatible API, its own sessions on a fake serv
     const body = z.object({ messages: z.array(z.looseObject({ role: z.string() })) });
     return api.server.requests.map((request) => body.parse(request.body).messages);
   }
+
+  it("starts a warm Thread fresh on the engine its person's card switched to", async () => {
+    api.server.script(textReply(["It deploys on push."]));
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Read the deploy workflow.");
+    await answered(thread.id, 3);
+    versions.push({ ...PLANNER });
+    engine.queue(started(...aTurn("brief", "Still here.")));
+
+    await runner.send(thread.id, "Still there?");
+    const log = await answered(thread.id, 6);
+
+    expect(drafts(log)[3]).toEqual(
+      contextLine({
+        move: "fresh",
+        reason: "engine-changed",
+        contextTokens: expect.any(Number),
+        briefTokens: expect.any(Number),
+      }),
+    );
+    expect((await threads.read(thread.id)).session).toMatchObject({
+      id: engine.sessions[0]?.id,
+      cardVersion: 2,
+      engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+    });
+  });
 
   it("resumes a cooled Thread with a small context from the conversation the engine kept", async () => {
     api.server.script(textReply(["It deploys ", "on push."]), textReply(["The tests run first."]));

@@ -82,7 +82,7 @@ describe("a Thread on a Task", () => {
       id: "session-1",
       roleKey: "planner",
       cardVersion: 1,
-      engine: "agent-sdk" as const,
+      engineId: "claude-code",
       startedAt: AT,
       lastCallAt: undefined,
       contextTokens: 0,
@@ -263,7 +263,7 @@ describe("a Thread's tokens", () => {
   const session: ThreadSession = {
     id: "session-1",
     roleKey: "planner",
-    engine: "agent-sdk",
+    engineId: "claude-code",
     cardVersion: 1,
     startedAt: AT,
     lastCallAt: AT,

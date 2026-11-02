@@ -1,5 +1,4 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
-import type { RoleCard } from "../../people/index.js";
 import { isApproval } from "./consult.js";
 import type { ContextDecision } from "./context-policy.js";
 import {
@@ -249,18 +248,14 @@ function titleOf(messages: readonly Message[]): string | undefined {
  */
 export function freshSession(
   id: string,
-  {
-    roleKey,
-    cardVersion,
-    card,
-  }: Pick<ThreadSession, "roleKey" | "cardVersion"> & { readonly card: Pick<RoleCard, "engine"> },
+  { roleKey, cardVersion, engineId }: Pick<ThreadSession, "roleKey" | "cardVersion" | "engineId">,
   startedAt: Date,
 ): ThreadSession {
   return {
     id,
     roleKey,
     cardVersion,
-    engine: card.engine,
+    engineId,
     startedAt,
     lastCallAt: undefined,
     contextTokens: 0,

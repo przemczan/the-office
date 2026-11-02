@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { engineModelOf, type EngineId } from "../../engine/index.js";
+import type { EngineId } from "../../engine/index.js";
 import type { TokenTotals } from "../domain/thread.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 
@@ -33,9 +33,7 @@ export class TaskTokens {
     const byEngineId = new Map<EngineId, number>();
     for (const { stageThread, session, tokens } of threads) {
       if (!stageThread || !session) continue;
-      // A Thread's session keeps no model, so an API one counts on the kind's own id until step 1c3
-      // of task 47 has the session name its engine.
-      const { engineId } = engineModelOf(session.engine, "");
+      const { engineId } = session;
       byEngineId.set(engineId, (byEngineId.get(engineId) ?? 0) + countedTokens(tokens));
     }
     return [...byEngineId].map(([engineId, tokens]) => ({ engineId, tokens }));

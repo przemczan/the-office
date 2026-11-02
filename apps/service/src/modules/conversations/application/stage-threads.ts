@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 import { Injectable, Logger } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { EngineSessions, engineModelOf, type RoleEngine } from "../../engine/index.js";
+import {
+  EngineSessions,
+  engineModelOf,
+  type EngineId,
+  type RoleEngine,
+} from "../../engine/index.js";
 import { SessionMcpServers, type LeftOutMcpServer } from "../../mcp-servers/index.js";
 import {
   mcpToolSettingsFor,
@@ -277,7 +282,7 @@ export class StageThreads {
         session: previous?.session,
         roleKey: request.roleKey,
         sessionDefault: current.card.sessionDefault,
-        engine: current.card.engine,
+        engineId: cardEngineId(current.card),
         override: request.declared === undefined ? previous?.override : undefined,
         declared: request.declared,
         briefTokens: brief.tokens,
@@ -386,7 +391,7 @@ export class StageThreads {
       {
         threadId: previous.id,
         roleKey: role.roleKey,
-        engine: session.engine,
+        engine: role.card.engine,
         model: stageModel(request, role.card),
         folder: request.folder,
         began: now,
@@ -417,7 +422,7 @@ export class StageThreads {
     );
     await this.repository.add(thread);
     await this.events.publish(event);
-    const session = freshSession(randomUUID(), role, now);
+    const session = freshSession(randomUUID(), { ...role, engineId: cardEngineId(role.card) }, now);
     await this.change(thread.id, (latest) =>
       beginStageWork(
         latest,
@@ -451,7 +456,7 @@ export class StageThreads {
       {
         threadId: thread.id,
         roleKey: role.roleKey,
-        engine: session.engine,
+        engine: role.card.engine,
         model: stageModel(request, role.card),
         folder: request.folder,
         began: now,
@@ -486,14 +491,15 @@ export class StageThreads {
 
   private settingsOf(
     threadId: string,
-    { id, engine }: ThreadSession,
+    { id, engineId }: ThreadSession,
     request: StageThreadRequest,
     { roleKey, card }: SessionRole,
     skills: Awaited<ReturnType<SessionSkills["prepare"]>>,
     mcpServers: SessionSettings["mcpServers"],
   ): SessionSettings {
     return {
-      ...engineModelOf(engine, stageModel(request, card)),
+      engineId,
+      model: engineModelOf(card.engine, stageModel(request, card)).model,
       folder: request.folder,
       environment: request.environment,
       effort: request.effort ?? card.effort,
@@ -715,6 +721,11 @@ const STAGE_ENDING = "The Stage is ending. Send your message once it has ended."
 /** The Stage's own model, else the Role card's. */
 function stageModel(request: StageThreadRequest, card: SessionRole["card"]): string {
   return request.model ?? card.model;
+}
+
+/** The engine `card` picks, by its id, which a session starts on and resumes only on. */
+function cardEngineId(card: SessionRole["card"]): EngineId {
+  return engineModelOf(card.engine, card.model).engineId;
 }
 
 function messageOf(error: unknown): string {

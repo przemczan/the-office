@@ -18,7 +18,7 @@ function aContinuation(
     now: NOW,
     session: {
       roleKey: "planner",
-      engine: "agent-sdk",
+      engineId: "claude-code",
       lastCallAt: new Date(NOW.getTime() - minutesSinceLastCall * MINUTE),
       contextTokens,
       startContextTokens: 0,
@@ -26,7 +26,7 @@ function aContinuation(
     },
     roleKey: "planner",
     sessionDefault: "context-policy",
-    engine: "agent-sdk",
+    engineId: "claude-code",
     override: undefined,
     briefTokens: 3_000,
     ...fields,
@@ -38,7 +38,7 @@ function cooledFrom33k(contextTokens: number): Continuation {
   return aContinuation(90, contextTokens, {
     session: {
       roleKey: "planner",
-      engine: "agent-sdk",
+      engineId: "claude-code",
       lastCallAt: new Date(NOW.getTime() - 90 * MINUTE),
       contextTokens,
       startContextTokens: 33_000,
@@ -96,7 +96,7 @@ describe("the Context policy", () => {
       aContinuation(0, 48_000, {
         session: {
           roleKey: "planner",
-          engine: "agent-sdk",
+          engineId: "claude-code",
           lastCallAt: undefined,
           contextTokens: 48_000,
           startContextTokens: 0,
@@ -155,7 +155,7 @@ describe("a session whose context filled up", () => {
       aContinuation(1, 820_000, {
         session: {
           roleKey: "planner",
-          engine: "agent-sdk",
+          engineId: "claude-code",
           lastCallAt: new Date(NOW.getTime() - MINUTE),
           contextTokens: 820_000,
           startContextTokens: 33_000,
@@ -176,11 +176,11 @@ describe("a session whose context filled up", () => {
   });
 
   it("starts fresh when the person's card picks another engine, whatever would resume", () => {
-    const onTheFallback = { engine: "claude-code-p" } as const;
+    const onAnotherAccount = { engineId: "second-account" } as const;
     const resuming = [
-      aContinuation(5, 40_000, onTheFallback),
-      aContinuation(90, 40_000, { ...onTheFallback, override: "continue-anyway" }),
-      aContinuation(5, 40_000, { ...onTheFallback, declared: "continue" }),
+      aContinuation(5, 40_000, onAnotherAccount),
+      aContinuation(90, 40_000, { ...onAnotherAccount, override: "continue-anyway" }),
+      aContinuation(5, 40_000, { ...onAnotherAccount, declared: "continue" }),
     ];
 
     for (const continuation of resuming) {
@@ -196,7 +196,7 @@ describe("a session whose context filled up", () => {
   });
 
   it("leaves the engine out when nobody fills the Role any more", () => {
-    expect(decideContext(aContinuation(5, 40_000, { engine: undefined }))).toMatchObject({
+    expect(decideContext(aContinuation(5, 40_000, { engineId: undefined }))).toMatchObject({
       move: "resume",
       reason: "cache-warm",
     });

@@ -27,7 +27,7 @@ const TASK_HOME = { kind: "task", taskId: "task-1" } as const;
 const SESSION: ThreadSession = {
   id: "session-1",
   roleKey: "planner",
-  engine: "agent-sdk",
+  engineId: "claude-code",
   cardVersion: 1,
   startedAt: AT,
   lastCallAt: AT,

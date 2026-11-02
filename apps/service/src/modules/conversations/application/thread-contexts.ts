@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { engineModelOf } from "../../engine/index.js";
 import { RoleCards } from "../../people/index.js";
 import { decideContext, type ContextDecision } from "../domain/context-policy.js";
 import type { Thread } from "../domain/thread.js";
@@ -27,7 +28,7 @@ export class ThreadContexts {
         roleKey: thread.roleKey,
         // Nobody fills the Role any more: its Threads stay readable, and nobody answers.
         sessionDefault: role?.card.sessionDefault ?? "context-policy",
-        engine: role?.card.engine,
+        engineId: role && engineModelOf(role.card.engine, role.card.model).engineId,
         override: thread.override,
         briefTokens: brief.tokens,
       },

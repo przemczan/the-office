@@ -354,13 +354,14 @@ export class ThreadRunner implements OnModuleDestroy {
     readonly role: SessionRole;
     readonly newSession: ThreadSession | undefined;
   }> {
+    const { engineId } = engineModelOf(current.card.engine, current.card.model);
     const decision = decideContext(
       {
         now,
         session: thread.session,
         roleKey: thread.roleKey,
         sessionDefault: current.card.sessionDefault,
-        engine: current.card.engine,
+        engineId,
         override: thread.override,
         briefTokens: place.brief.tokens,
       },
@@ -370,7 +371,9 @@ export class ThreadRunner implements OnModuleDestroy {
     const role = resumed
       ? await this.roleCards.forResumedSession(resumed.roleKey, resumed.cardVersion)
       : current;
-    const newSession = resumed ? undefined : freshSession(randomUUID(), role, now);
+    const newSession = resumed
+      ? undefined
+      : freshSession(randomUUID(), { ...current, engineId }, now);
     return { decision, role, newSession };
   }
 
@@ -447,13 +450,14 @@ export class ThreadRunner implements OnModuleDestroy {
 
   private settingsOf(
     thread: Thread,
-    { id, engine }: ThreadSession,
+    { id, engineId }: ThreadSession,
     { roleKey, card }: SessionRole,
     { skills, mcpServers }: Pick<SessionSettings, "skills" | "mcpServers">,
     place: SessionPlace,
   ): SessionSettings {
     return {
-      ...engineModelOf(engine, card.model),
+      engineId,
+      model: engineModelOf(card.engine, card.model).model,
       folder: place.folder,
       environment: place.environment,
       effort: card.effort,
