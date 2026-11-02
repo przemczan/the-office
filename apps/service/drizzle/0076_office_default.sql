@@ -1,0 +1,2 @@
+ALTER TABLE "engine_settings" ADD COLUMN "office_default_engine_id" text DEFAULT 'claude-code' NOT NULL;--> statement-breakpoint
+ALTER TABLE "engine_settings" ADD COLUMN "office_default_model" text DEFAULT 'claude-sonnet-5-5' NOT NULL;

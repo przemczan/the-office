@@ -19,31 +19,50 @@ export const apiEndpointModelSchema = z.object({
 });
 export type ApiEndpointModel = z.infer<typeof apiEndpointModelSchema>;
 
-/**
- * A server on the OpenAI-compatible API, as Settings › Engines lists it. Its `id` is made from
- * the name when it is added and kept when it is renamed: a Role's Model field names it.
- */
-export const apiEndpointSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  baseUrl: z.string(),
-  /** The key itself is never sent back. */
-  keySet: z.boolean(),
-  models: z.array(apiEndpointModelSchema),
-});
-export type ApiEndpoint = z.infer<typeof apiEndpointSchema>;
-
 /** The web search WebSearch goes through for the OpenAI-compatible API: SearXNG's JSON API. */
 export const searchEndpointSchema = z.object({ baseUrl: z.string() });
 export type SearchEndpoint = z.infer<typeof searchEndpointSchema>;
 
 /**
- * An engine's id, kept in the database, so it never changes: caps, readings, each day's use and
- * Model prices are kept by it. Both Claude Code engines spend one account's credits, so they share
- * `claude-code`; the OpenAI-compatible API's is `openai-compatible-api`.
+ * An engine's id, made from its name when it is added and kept on a rename: caps, readings, each
+ * day's use and Model prices are kept by it.
  */
 export const engineIdSchema = z.string().min(1);
 export type EngineId = z.infer<typeof engineIdSchema>;
+
+/** A Claude Code account, which may run on the `-p` fallback instead of the Agent SDK. */
+export const claudeCodeEngineSchema = z.object({
+  id: engineIdSchema,
+  name: z.string(),
+  kind: z.literal("claude-code"),
+  /** One of the Claude models, which picking the engine fills in. */
+  defaultModel: z.string(),
+  claudeCodeP: z.boolean(),
+});
+export type ClaudeCodeEngine = z.infer<typeof claudeCodeEngineSchema>;
+
+/** An API endpoint of the OpenAI-compatible API. */
+export const apiEngineSchema = z.object({
+  id: engineIdSchema,
+  name: z.string(),
+  kind: z.literal("openai-compatible-api"),
+  /** One of its models, by its id there. */
+  defaultModel: z.string(),
+  baseUrl: z.string(),
+  /** The key itself is never sent back. */
+  keySet: z.boolean(),
+  models: z.array(apiEndpointModelSchema),
+});
+export type ApiEngine = z.infer<typeof apiEngineSchema>;
+
+/** An engine the user lists in Settings › Engines (spec §5.4). */
+export const engineSchema = z.discriminatedUnion("kind", [claudeCodeEngineSchema, apiEngineSchema]);
+export type Engine = z.infer<typeof engineSchema>;
+export type EngineKind = Engine["kind"];
+
+/** An engine and one of its models, by its id there. */
+export const engineModelSchema = z.object({ engineId: engineIdSchema, model: z.string() });
+export type EngineModel = z.infer<typeof engineModelSchema>;
 
 /**
  * Whether the account behind `engineId` has usage windows, and so Window caps: only the Claude Code
@@ -66,11 +85,12 @@ export const modelPriceSchema = z.object({
 export type ModelPrice = z.infer<typeof modelPriceSchema>;
 
 /**
- * A model offered on an engine id, as its Model field names it (`<endpoint id>/<model id>` on the
- * API), with its Model price; null when it has none, which gives "no cost".
+ * A model that may be priced, with its Model price; null when it has none, which gives "no cost".
+ * A Claude model's `engineId` is null: its price is shared by every Claude Code engine. An API
+ * engine's model is priced on that engine.
  */
 export const offeredModelSchema = z.object({
-  engineId: engineIdSchema,
+  engineId: engineIdSchema.nullable(),
   model: z.string(),
   price: modelPriceSchema.nullable(),
 });
@@ -78,34 +98,49 @@ export type OfferedModel = z.infer<typeof offeredModelSchema>;
 
 /** GET and PUT /settings/engines: the Office-wide settings of the engines. */
 export const engineSettingsSchema = z.object({
-  apiEndpoints: z.array(apiEndpointSchema),
+  /** In the order Settings › Engines lists them. */
+  engines: z.array(engineSchema),
+  /** The engine and model every Role runs on unless something more specific applies. */
+  officeDefault: engineModelSchema,
   /** Null until the user sets one; WebSearch is refused meanwhile. */
   searchEndpoint: searchEndpointSchema.nullable(),
-  /** Every model offered now, the Claude Code engines' first, then each API endpoint's. */
+  /** Every model offered now: the Claude models first, then each API engine's. */
   modelPrices: z.array(offeredModelSchema),
 });
 export type EngineSettings = z.infer<typeof engineSettingsSchema>;
 
-/**
- * An API endpoint as Settings › Engines saves it: without an `id` when it is new. Without a `key`
- * it keeps the one kept; an empty key means none, as on a local server. A context window that
- * isn't a positive whole number is refused with words (422), not by the contract.
- */
-export const apiEndpointEditSchema = apiEndpointSchema
-  .omit({ id: true, keySet: true, models: true })
-  .extend({
-    id: z.string().optional(),
-    key: z.string().optional(),
-    models: z.array(apiEndpointModelSchema.extend({ contextWindow: z.number() })),
-  });
-export type ApiEndpointEdit = z.infer<typeof apiEndpointEditSchema>;
+/** A Claude Code engine as Settings › Engines saves it: without an `id` when it is new. */
+export const claudeCodeEngineEditSchema = claudeCodeEngineSchema.extend({
+  id: engineIdSchema.optional(),
+});
+export type ClaudeCodeEngineEdit = z.infer<typeof claudeCodeEngineEditSchema>;
 
 /**
- * PUT /settings/engines: every API endpoint, in order, the search endpoint and the Model prices.
- * A price of a model the saved API endpoints no longer offer is dropped.
+ * An API engine as Settings › Engines saves it: without an `id` when it is new. Without a `key` it
+ * keeps the one kept; an empty key means none, as on a local server. A context window that isn't
+ * a positive whole number is refused with words (422), not by the contract.
+ */
+export const apiEngineEditSchema = apiEngineSchema.omit({ keySet: true, models: true }).extend({
+  id: engineIdSchema.optional(),
+  key: z.string().optional(),
+  models: z.array(apiEndpointModelSchema.extend({ contextWindow: z.number() })),
+});
+export type ApiEngineEdit = z.infer<typeof apiEngineEditSchema>;
+
+export const engineEditSchema = z.discriminatedUnion("kind", [
+  claudeCodeEngineEditSchema,
+  apiEngineEditSchema,
+]);
+export type EngineEdit = z.infer<typeof engineEditSchema>;
+
+/**
+ * PUT /settings/engines: every engine, in order, the Office default, the search endpoint and the
+ * Model prices. An engine left out is removed. A price of a model the saved engines no longer
+ * offer is dropped.
  */
 export const engineSettingsEditSchema = z.object({
-  apiEndpoints: z.array(apiEndpointEditSchema),
+  engines: z.array(engineEditSchema),
+  officeDefault: engineModelSchema,
   searchEndpoint: searchEndpointSchema.nullable(),
   modelPrices: z.array(offeredModelSchema),
 });
@@ -130,11 +165,11 @@ export function apiEndpointModel(endpointId: string, modelId: string): string {
 }
 
 /**
- * The id the Engine module gives an API endpoint added as `name` (its `apiEndpointIdFor`): its
- * letters and digits, apart from `taken`. The web names a drafted endpoint's models by it, so a
- * Model price typed before Save lands on the model the service saves.
+ * The id the Engine module gives an engine added as `name` (its `engineIdFor`): its letters and
+ * digits, apart from `taken`. The web names a drafted engine's models by it, so a Model price typed
+ * before Save lands on the model the service saves.
  */
-export function apiEndpointIdFor(name: string, taken: ReadonlySet<string>): string {
+export function engineIdFor(name: string, taken: ReadonlySet<string>): string {
   const base = name
     .trim()
     .normalize("NFKD")

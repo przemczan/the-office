@@ -7,8 +7,8 @@ import {
 import { EngineSettingsRepository } from "../ports/engine-settings-repository.js";
 
 /**
- * Settings › Engines: the API endpoints and the search endpoint, Office-wide. Each session reads
- * them as it starts, so a change applies to the next one.
+ * Settings › Engines: the engines, the Office default and the search endpoint, Office-wide.
+ * Each session reads them as it starts, so a change applies to the next one.
  */
 @Injectable()
 export class EngineSettingsService {

@@ -2,9 +2,13 @@ import { describe, expect, it } from "vitest";
 import {
   changedEngineSettings,
   DEFAULT_ENGINE_SETTINGS,
+  FIRST_OFFICE_DEFAULT,
   offeredModelPrices,
-  type ApiEndpointEdit,
+  type ApiEngineEdit,
+  type ClaudeCodeEngineEdit,
+  type EngineEdit,
   type EngineSettings,
+  type EngineSettingsEdit,
 } from "./engine-settings.js";
 import { EngineSettingsRefused } from "./engine-settings-refused.js";
 import { FIRST_CLAUDE_CODE_ENGINE, type ApiEngine } from "./engines.js";
@@ -20,25 +24,36 @@ const strata: ApiEngine = {
   models: [{ id: "qwen3.8-flash", contextWindow: 100_000 }],
 };
 const stored: EngineSettings = {
+  ...DEFAULT_ENGINE_SETTINGS,
   engines: [FIRST_CLAUDE_CODE_ENGINE, strata],
-  searchEndpoint: null,
-  modelPrices: [],
 };
 
-const DEFAULT_ENGINE_SETTINGS_EDIT = { apiEndpoints: [], searchEndpoint: null, modelPrices: [] };
-
-function anEdit(fields: Partial<ApiEndpointEdit> = {}): ApiEndpointEdit {
-  const { id, name, baseUrl, models } = strata;
-  return { id, name, baseUrl, models, ...fields };
+function claudeCodeEdit(fields: Partial<ClaudeCodeEngineEdit> = {}): ClaudeCodeEngineEdit {
+  return { ...FIRST_CLAUDE_CODE_ENGINE, ...fields };
 }
 
-function refusal(
-  settings: EngineSettings,
-  apiEndpoints: readonly ApiEndpointEdit[],
-  modelPrices: readonly OfferedModel[] = [],
-): unknown {
+function strataEdit(fields: Partial<ApiEngineEdit> = {}): ApiEngineEdit {
+  const { id, name, kind, defaultModel, baseUrl, models } = strata;
+  return { id, name, kind, defaultModel, baseUrl, models, ...fields };
+}
+
+/** An edit listing the Claude Code engine, then `engines`, with nothing else set. */
+function editOf(
+  engines: readonly EngineEdit[],
+  fields: Partial<EngineSettingsEdit> = {},
+): EngineSettingsEdit {
+  return {
+    engines: [claudeCodeEdit(), ...engines],
+    officeDefault: FIRST_OFFICE_DEFAULT,
+    searchEndpoint: null,
+    modelPrices: [],
+    ...fields,
+  };
+}
+
+function refusal(settings: EngineSettings, edit: EngineSettingsEdit): unknown {
   try {
-    changedEngineSettings(settings, { apiEndpoints, searchEndpoint: null, modelPrices });
+    changedEngineSettings(settings, edit);
   } catch (error) {
     if (error instanceof EngineSettingsRefused) return error.reasons;
     throw error;
@@ -47,22 +62,24 @@ function refusal(
 }
 
 function priced(
-  apiEndpoints: readonly ApiEndpointEdit[],
+  engines: readonly EngineEdit[],
   modelPrices: readonly OfferedModel[],
 ): EngineSettings {
-  return changedEngineSettings(stored, { apiEndpoints, searchEndpoint: null, modelPrices });
+  return changedEngineSettings(stored, editOf(engines, { modelPrices }));
 }
 
 describe("changedEngineSettings", () => {
-  it("gives a new API endpoint an id made from its name, apart from the ones listed", () => {
-    const changed = changedEngineSettings(stored, {
-      apiEndpoints: [
-        anEdit({ name: "Old Strata" }),
-        anEdit({ id: undefined, name: " Strata ", key: " sk-new " }),
-      ],
-      searchEndpoint: { baseUrl: " http://127.0.0.1:8888 " },
-      modelPrices: [],
-    });
+  it("gives a new engine an id made from its name, apart from the ones listed", () => {
+    const changed = changedEngineSettings(
+      stored,
+      editOf(
+        [
+          strataEdit({ name: "Old Strata" }),
+          strataEdit({ id: undefined, name: " Strata ", key: " sk-new " }),
+        ],
+        { searchEndpoint: { baseUrl: " http://127.0.0.1:8888 " } },
+      ),
+    );
 
     expect(changed).toEqual({
       engines: [
@@ -70,104 +87,152 @@ describe("changedEngineSettings", () => {
         { ...strata, name: "Old Strata" },
         { ...strata, id: "strata-2", key: "sk-new" },
       ],
+      officeDefault: FIRST_OFFICE_DEFAULT,
       searchEndpoint: { baseUrl: "http://127.0.0.1:8888" },
       modelPrices: [],
     });
   });
 
-  it("keeps an endpoint's id and key when it is renamed, and clears the key when it is empty", () => {
-    const renamed = changedEngineSettings(stored, {
-      apiEndpoints: [anEdit({ name: "Strata box" })],
-      searchEndpoint: null,
-      modelPrices: [],
-    });
-    const cleared = changedEngineSettings(stored, {
-      apiEndpoints: [anEdit({ key: "" })],
-      searchEndpoint: null,
-      modelPrices: [],
-    });
+  it("never gives a new engine the id of one removed in the same save", () => {
+    const changed = changedEngineSettings(stored, editOf([strataEdit({ id: undefined })]));
 
-    expect(renamed.engines).toEqual([FIRST_CLAUDE_CODE_ENGINE, { ...strata, name: "Strata box" }]);
+    expect(changed.engines.map(({ id }) => id)).toEqual(["claude-code", "strata-2"]);
+  });
+
+  it("keeps an engine's id when it is renamed, and an API engine's key unless it is emptied", () => {
+    const renamed = changedEngineSettings(
+      stored,
+      editOf([], {
+        engines: [
+          claudeCodeEdit({
+            name: "Work account",
+            claudeCodeP: true,
+            defaultModel: "claude-opus-5-5",
+          }),
+          strataEdit({ name: "Strata box" }),
+        ],
+      }),
+    );
+    const cleared = changedEngineSettings(stored, editOf([strataEdit({ key: "" })]));
+
+    expect(renamed.engines).toEqual([
+      {
+        ...FIRST_CLAUDE_CODE_ENGINE,
+        name: "Work account",
+        claudeCodeP: true,
+        defaultModel: "claude-opus-5-5",
+      },
+      { ...strata, name: "Strata box" },
+    ]);
     expect(cleared.engines).toEqual([FIRST_CLAUDE_CODE_ENGINE, { ...strata, key: "" }]);
   });
 
-  it("keeps an API engine's default model while it offers it, else takes its first", () => {
-    const coder = { id: "coder", contextWindow: 32_000 };
-    const kept = changedEngineSettings(stored, {
-      apiEndpoints: [anEdit({ models: [coder, ...strata.models] })],
-      searchEndpoint: null,
-      modelPrices: [],
-    });
-    const dropped = changedEngineSettings(stored, {
-      apiEndpoints: [anEdit({ models: [coder] })],
-      searchEndpoint: null,
-      modelPrices: [],
-    });
-
-    expect(kept.engines[1]?.defaultModel).toBe("qwen3.8-flash");
-    expect(dropped.engines[1]?.defaultModel).toBe("coder");
+  it("removes the API engines left out", () => {
+    expect(changedEngineSettings(stored, editOf([]))).toEqual(DEFAULT_ENGINE_SETTINGS);
   });
 
-  it("gives a new API engine an id apart from the Claude Code engines'", () => {
-    const changed = changedEngineSettings(stored, {
-      apiEndpoints: [anEdit({ id: undefined, name: "Claude Code" })],
-      searchEndpoint: null,
-      modelPrices: [],
-    });
+  it("keeps an Office default on an API engine's model", () => {
+    const officeDefault = { engineId: "strata", model: "qwen3.8-flash" };
 
-    expect(changed.engines.map(({ id }) => id)).toEqual(["claude-code", "claude-code-2"]);
-  });
-
-  it("removes the API endpoints left out and keeps the Claude Code engines", () => {
-    expect(changedEngineSettings(stored, DEFAULT_ENGINE_SETTINGS_EDIT)).toEqual(
-      DEFAULT_ENGINE_SETTINGS,
-    );
+    expect(
+      changedEngineSettings(stored, editOf([strataEdit()], { officeDefault })).officeDefault,
+    ).toEqual(officeDefault);
   });
 
   it("refuses with every reason", () => {
     expect(
-      refusal(stored, [
-        anEdit({ name: "", baseUrl: "ftp://strata" }),
-        anEdit({ id: undefined, name: "!!!", models: [] }),
-        anEdit({
-          id: undefined,
-          name: "Local",
-          models: [
-            { id: "qwen", contextWindow: 1_000 },
-            { id: " qwen ", contextWindow: 0.5 },
-            { id: "", contextWindow: 1_000 },
-          ],
-        }),
-        anEdit({ id: undefined, name: "local" }),
-        anEdit({ id: undefined, name: "N".repeat(41) }),
-      ]),
+      refusal(
+        stored,
+        editOf([
+          strataEdit({ name: "", baseUrl: "ftp://strata" }),
+          strataEdit({ id: undefined, name: "!!!", models: [] }),
+          strataEdit({
+            id: undefined,
+            name: "Local",
+            defaultModel: "qwen",
+            models: [
+              { id: "qwen", contextWindow: 1_000 },
+              { id: " qwen ", contextWindow: 0.5 },
+              { id: "", contextWindow: 1_000 },
+            ],
+          }),
+          strataEdit({ id: undefined, name: "local" }),
+          strataEdit({ id: undefined, name: "N".repeat(41) }),
+        ]),
+      ),
     ).toEqual([
-      "Give each API endpoint a name.",
-      "Give the API endpoint a base URL starting with http:// or https://.",
+      "Give each engine a name.",
+      "Give the engine a base URL starting with http:// or https://.",
       'Give "!!!" a name with letters or digits.',
       'Give "!!!" at least one model.',
+      'Pick the default model of "!!!" among its models.',
       '"Local" lists the model "qwen" twice.',
       'Give each model of "Local" its context window, in tokens.',
       'Give each model of "Local" its id.',
-      "An API endpoint's name may be at most 40 characters.",
-      'Two API endpoints are called "local".',
+      "An engine's name may be at most 40 characters.",
+      'Two engines are called "local".',
     ]);
   });
 
-  it("refuses an endpoint removed meanwhile, or listed twice", () => {
-    const reason = "The API endpoints changed meanwhile; open Settings › Engines again.";
+  it("refuses a default model the engine doesn't offer", () => {
+    expect(
+      refusal(
+        stored,
+        editOf([], {
+          engines: [
+            claudeCodeEdit({ defaultModel: "claude-gone-1" }),
+            strataEdit({ defaultModel: "gone" }),
+          ],
+        }),
+      ),
+    ).toEqual([
+      'Pick the default model of "Claude Code" among its models.',
+      'Pick the default model of "Strata" among its models.',
+    ]);
+  });
 
-    expect(refusal(DEFAULT_ENGINE_SETTINGS, [anEdit()])).toEqual([reason]);
-    expect(refusal(stored, [anEdit(), anEdit({ name: "Again" })])).toEqual([reason]);
+  it("refuses an Office default on an engine not listed, or on a model its engine doesn't offer", () => {
+    expect(
+      refusal(
+        stored,
+        editOf([], { officeDefault: { engineId: "strata", model: "qwen3.8-flash" } }),
+      ),
+    ).toEqual(["Pick the Office default among the engines listed."]);
+    expect(
+      refusal(stored, editOf([], { officeDefault: { engineId: "claude-code", model: "qwen3" } })),
+    ).toEqual([`Pick the Office default's model among the models of "Claude Code".`]);
+  });
+
+  it("keeps one Claude Code engine until each has its own account", () => {
+    expect(
+      refusal(stored, editOf([claudeCodeEdit({ id: undefined, name: "Second account" })])),
+    ).toEqual(["The Office runs one Claude Code engine for now."]);
+    expect(
+      refusal(
+        stored,
+        editOf([], {
+          engines: [strataEdit()],
+          officeDefault: { engineId: "strata", model: "qwen3.8-flash" },
+        }),
+      ),
+    ).toEqual(["The Claude Code engine can't be removed yet."]);
+  });
+
+  it("refuses an engine removed meanwhile, listed twice, or of another kind", () => {
+    const reason = "The engines changed meanwhile; open Settings › Engines again.";
+
+    expect(refusal(DEFAULT_ENGINE_SETTINGS, editOf([strataEdit()]))).toEqual([reason]);
+    expect(refusal(stored, editOf([strataEdit(), strataEdit({ name: "Again" })]))).toEqual([
+      reason,
+    ]);
+    expect(refusal(stored, editOf([strataEdit({ id: "claude-code", name: "Again" })]))).toEqual(
+      expect.arrayContaining([reason]),
+    );
   });
 
   it("refuses a search endpoint that isn't a web address", () => {
     expect(() =>
-      changedEngineSettings(stored, {
-        apiEndpoints: [],
-        searchEndpoint: { baseUrl: "searxng" },
-        modelPrices: [],
-      }),
+      changedEngineSettings(stored, editOf([], { searchEndpoint: { baseUrl: "searxng" } })),
     ).toThrow(
       new EngineSettingsRefused([
         "Give the search endpoint a base URL starting with http:// or https://.",
@@ -183,7 +248,7 @@ describe("Model prices", () => {
 
   it("keeps a price per Claude model and per API engine and model, dropping models with none", () => {
     const changed = priced(
-      [anEdit()],
+      [strataEdit()],
       [
         { engineId: null, model: "claude-sonnet-5-5", price: sonnet },
         { engineId: null, model: "claude-opus-5-5", price: null },
@@ -220,12 +285,13 @@ describe("Model prices", () => {
     expect(
       refusal(
         stored,
-        [anEdit()],
-        [
-          sonnetPrice,
-          sonnetPrice,
-          { engineId: "strata", model: strataFlash, price: { ...flash, output: -1 } },
-        ],
+        editOf([strataEdit()], {
+          modelPrices: [
+            sonnetPrice,
+            sonnetPrice,
+            { engineId: "strata", model: strataFlash, price: { ...flash, output: -1 } },
+          ],
+        }),
       ),
     ).toEqual([
       'The model "claude-sonnet-5-5" is priced twice.',

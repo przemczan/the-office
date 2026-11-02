@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { asc, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import type { EngineSettings } from "../../domain/engine-settings.js";
+import { FIRST_OFFICE_DEFAULT, type EngineSettings } from "../../domain/engine-settings.js";
 import type { Engine } from "../../domain/engines.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { engines, engineSettings, modelPrices } from "./engine-settings.schema.js";
@@ -25,6 +25,9 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
     const searchEndpointUrl = row?.searchEndpointUrl ?? null;
     return {
       engines: rows.map(engineOf),
+      officeDefault: row
+        ? { engineId: row.officeDefaultEngineId, model: row.officeDefaultModel }
+        : FIRST_OFFICE_DEFAULT,
       searchEndpoint: searchEndpointUrl === null ? null : { baseUrl: searchEndpointUrl },
       modelPrices: prices.map(({ engineId, model, ...price }) => ({ engineId, model, price })),
     };
@@ -32,17 +35,22 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
 
   async replace({
     engines: listed,
+    officeDefault,
     searchEndpoint,
     modelPrices: priced,
   }: EngineSettings): Promise<void> {
-    const searchEndpointUrl = searchEndpoint?.baseUrl ?? null;
+    const settingsRow = {
+      searchEndpointUrl: searchEndpoint?.baseUrl ?? null,
+      officeDefaultEngineId: officeDefault.engineId,
+      officeDefaultModel: officeDefault.model,
+    };
     await this.database.transaction(async (transaction) => {
       await transaction.delete(engines);
       if (listed.length > 0) await transaction.insert(engines).values(listed.map(engineRowOf));
       await transaction
         .insert(engineSettings)
-        .values({ searchEndpointUrl })
-        .onConflictDoUpdate({ target: engineSettings.id, set: { searchEndpointUrl } });
+        .values(settingsRow)
+        .onConflictDoUpdate({ target: engineSettings.id, set: settingsRow });
       await transaction.delete(modelPrices);
       if (priced.length > 0) {
         await transaction

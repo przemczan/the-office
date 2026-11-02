@@ -6,8 +6,12 @@ import { EngineSettingsRepository } from "./engine-settings-repository.js";
  * on the OpenAI-compatible API and every Role card check would read.
  */
 export class EngineSettingsForTests extends EngineSettingsRepository {
-  constructor(private settings: EngineSettings = DEFAULT_ENGINE_SETTINGS) {
+  private settings: EngineSettings;
+
+  /** The defaults with what `settings` gives. */
+  constructor(settings: Partial<EngineSettings> = {}) {
     super();
+    this.settings = { ...DEFAULT_ENGINE_SETTINGS, ...settings };
   }
 
   async read(): Promise<EngineSettings> {

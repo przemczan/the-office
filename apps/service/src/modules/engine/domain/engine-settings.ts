@@ -1,12 +1,14 @@
-import { apiEndpointIdFor, type ApiEndpointModel } from "./api-endpoints.js";
 import { EngineSettingsRefused } from "./engine-settings-refused.js";
 import {
   CLAUDE_CODE_MODELS,
+  engineIdFor,
   FIRST_CLAUDE_CODE_ENGINE,
   offeredModels,
   type ApiEngine,
+  type ClaudeCodeEngine,
   type Engine,
   type EngineId,
+  type EngineModel,
 } from "./engines.js";
 import { pricedModels, type OfferedModel, type PricedModel } from "./model-prices.js";
 
@@ -19,38 +21,50 @@ export interface SearchEndpoint {
 export interface EngineSettings {
   /** In the order Settings › Engines lists them. */
   readonly engines: readonly Engine[];
+  /** The engine and model every Role runs on unless something more specific applies. */
+  readonly officeDefault: EngineModel;
   /** Null until the user sets one. */
   readonly searchEndpoint: SearchEndpoint | null;
   /** Only the models offered now that have a Model price. */
   readonly modelPrices: readonly PricedModel[];
 }
 
+/** The first Claude Code engine on its default model, as the upgrade leaves it. */
+export const FIRST_OFFICE_DEFAULT: EngineModel = {
+  engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+  model: FIRST_CLAUDE_CODE_ENGINE.defaultModel,
+};
+
 export const DEFAULT_ENGINE_SETTINGS: EngineSettings = {
   engines: [FIRST_CLAUDE_CODE_ENGINE],
+  officeDefault: FIRST_OFFICE_DEFAULT,
   searchEndpoint: null,
   modelPrices: [],
 };
 
+/** A Claude Code engine as Settings › Engines saves it: without an `id` when it is new. */
+export type ClaudeCodeEngineEdit = Omit<ClaudeCodeEngine, "id"> & { readonly id?: EngineId };
+
 /**
- * An API engine as Settings › Engines saves it, by the API endpoint's fields until step 1c of task
- * 47 gives the engines their own: without an `id` when it is new, and without a
- * `key` when it keeps the one kept.
+ * An API engine as Settings › Engines saves it: without an `id` when it is new, and without a `key`
+ * when it keeps the one kept.
  */
-export interface ApiEndpointEdit {
-  readonly id?: string;
-  readonly name: string;
-  readonly baseUrl: string;
+export type ApiEngineEdit = Omit<ApiEngine, "id" | "key"> & {
+  readonly id?: EngineId;
   readonly key?: string;
-  readonly models: readonly ApiEndpointModel[];
-}
+};
+
+export type EngineEdit = ClaudeCodeEngineEdit | ApiEngineEdit;
 
 export interface EngineSettingsEdit {
-  readonly apiEndpoints: readonly ApiEndpointEdit[];
+  /** Every engine, in order; one left out is removed. */
+  readonly engines: readonly EngineEdit[];
+  readonly officeDefault: EngineModel;
   readonly searchEndpoint: SearchEndpoint | null;
   readonly modelPrices: readonly OfferedModel[];
 }
 
-export const API_ENDPOINT_NAME_LENGTH = 40;
+export const ENGINE_NAME_LENGTH = 40;
 
 /** The API engines among `engines`, in their order. */
 export function apiEngines(engines: readonly Engine[]): readonly ApiEngine[] {
@@ -86,23 +100,20 @@ function modelsPricedUnder(
 }
 
 /**
- * The settings `edit` makes of `stored`: the Claude Code engines kept, then the API engines in its
- * order, a new one given its id, each keeping its key unless the edit gives one and its default
- * model while it still offers it, and the Model prices of the models offered.
- * Refuses with every reason when they break a rule.
+ * The settings `edit` makes of `stored`: the engines in its order, a new one given its id from its
+ * name and an API engine keeping its key unless the edit gives one; the Office default; and the
+ * Model prices of the models offered. Refuses with every reason when they break a rule.
  */
 export function changedEngineSettings(
   stored: EngineSettings,
   edit: EngineSettingsEdit,
 ): EngineSettings {
   const problems: string[] = [];
-  const changedApiEngines = changedApiEnginesOf(stored.engines, edit.apiEndpoints, problems);
-  for (const engine of changedApiEngines) problems.push(...apiEngineProblems(engine));
-  problems.push(...duplicateNameProblems(changedApiEngines));
-  const engines = [
-    ...stored.engines.filter(({ kind }) => kind === "claude-code"),
-    ...changedApiEngines,
-  ];
+  const engines = changedEnginesOf(stored.engines, edit.engines, problems);
+  for (const engine of engines) problems.push(...engineProblems(engine));
+  problems.push(...duplicateNameProblems(engines), ...claudeCodeEngineProblems(engines));
+  const officeDefault = { engineId: edit.officeDefault.engineId, model: edit.officeDefault.model };
+  problems.push(...officeDefaultProblems(officeDefault, engines));
   const searchEndpoint = edit.searchEndpoint && { baseUrl: edit.searchEndpoint.baseUrl.trim() };
   if (searchEndpoint && !isWebAddress(searchEndpoint.baseUrl)) {
     problems.push("Give the search endpoint a base URL starting with http:// or https://.");
@@ -113,55 +124,63 @@ export function changedEngineSettings(
     problems,
   );
   if (problems.length > 0) throw new EngineSettingsRefused([...new Set(problems)]);
-  return { engines, searchEndpoint, modelPrices };
+  return { engines, officeDefault, searchEndpoint, modelPrices };
 }
 
-function changedApiEnginesOf(
+function changedEnginesOf(
   stored: readonly Engine[],
-  edits: readonly ApiEndpointEdit[],
+  edits: readonly EngineEdit[],
   problems: string[],
-): ApiEngine[] {
-  const storedById = new Map(apiEngines(stored).map((engine) => [engine.id, engine]));
-  // An API engine never takes the id of another kind's engine.
-  const otherIds = stored
-    .filter(({ kind }) => kind !== "openai-compatible-api")
-    .map(({ id }) => id);
+): Engine[] {
+  const storedById = new Map(stored.map((engine) => [engine.id, engine]));
+  // A new engine never takes a listed engine's id, nor one the edit names.
   const taken = new Set([
-    ...otherIds,
+    ...storedById.keys(),
     ...edits.flatMap(({ id }) => (id === undefined ? [] : [id])),
   ]);
   const seen = new Set<string>();
   return edits.map((edit) => {
     const name = edit.name.trim();
     const kept = edit.id === undefined ? undefined : storedById.get(edit.id);
-    if (edit.id !== undefined && (!kept || seen.has(edit.id))) {
-      problems.push("The API endpoints changed meanwhile; open Settings › Engines again.");
+    if (edit.id !== undefined && (kept?.kind !== edit.kind || seen.has(edit.id))) {
+      problems.push("The engines changed meanwhile; open Settings › Engines again.");
     }
-    const id = edit.id ?? apiEndpointIdFor(name, taken);
+    const id = edit.id ?? engineIdFor(name, taken);
     taken.add(id);
     seen.add(id);
-    const models = edit.models.map((model) => ({ ...model, id: model.id.trim() }));
-    const keptDefault = models.find((model) => model.id === kept?.defaultModel);
+    const common = { id, name, defaultModel: edit.defaultModel.trim() };
+    if (edit.kind === "claude-code") {
+      return { ...common, kind: edit.kind, claudeCodeP: edit.claudeCodeP };
+    }
+    const keptKey = kept?.kind === "openai-compatible-api" ? kept.key : "";
     return {
-      id,
-      name,
-      kind: "openai-compatible-api",
-      defaultModel: (keptDefault ?? models[0])?.id ?? "",
+      ...common,
+      kind: edit.kind,
       baseUrl: edit.baseUrl.trim(),
-      key: edit.key?.trim() ?? kept?.key ?? "",
-      models,
+      key: edit.key?.trim() ?? keptKey,
+      models: edit.models.map((model) => ({ ...model, id: model.id.trim() })),
     };
   });
 }
 
-function apiEngineProblems({ id, name, baseUrl, models }: ApiEngine): string[] {
+function engineProblems(engine: Engine): string[] {
+  const { id, name } = engine;
   const problems: string[] = [];
-  if (name === "") problems.push("Give each API endpoint a name.");
+  if (name === "") problems.push("Give each engine a name.");
   else if (id === "") problems.push(`Give "${name}" a name with letters or digits.`);
-  if (name.length > API_ENDPOINT_NAME_LENGTH) {
-    problems.push(`An API endpoint's name may be at most ${API_ENDPOINT_NAME_LENGTH} characters.`);
+  if (name.length > ENGINE_NAME_LENGTH) {
+    problems.push(`An engine's name may be at most ${ENGINE_NAME_LENGTH} characters.`);
   }
-  const called = name === "" ? "the API endpoint" : `"${name}"`;
+  const called = name === "" ? "the engine" : `"${name}"`;
+  if (engine.kind === "openai-compatible-api") problems.push(...apiEngineProblems(engine, called));
+  if (!offeredModels(engine).includes(engine.defaultModel)) {
+    problems.push(`Pick the default model of ${called} among its models.`);
+  }
+  return problems;
+}
+
+function apiEngineProblems({ baseUrl, models }: ApiEngine, called: string): string[] {
+  const problems: string[] = [];
   if (!isWebAddress(baseUrl)) {
     problems.push(`Give ${called} a base URL starting with http:// or https://.`);
   }
@@ -180,15 +199,40 @@ function apiEngineProblems({ id, name, baseUrl, models }: ApiEngine): string[] {
   return problems;
 }
 
-function duplicateNameProblems(endpoints: readonly ApiEngine[]): string[] {
+function duplicateNameProblems(engines: readonly Engine[]): string[] {
   const names = new Set<string>();
   const problems: string[] = [];
-  for (const { name } of endpoints) {
+  for (const { name } of engines) {
     const folded = name.toLowerCase();
-    if (name !== "" && names.has(folded)) problems.push(`Two API endpoints are called "${name}".`);
+    if (name !== "" && names.has(folded)) problems.push(`Two engines are called "${name}".`);
     names.add(folded);
   }
   return problems;
+}
+
+/*
+ * One Claude Code engine for now: until each has its own account (step 1e of task 47) and Window
+ * caps follow the engine's kind (1d), a second would share the first's account; and until 1c2,
+ * Role cards reach the first by their engine's kind.
+ */
+function claudeCodeEngineProblems(engines: readonly Engine[]): string[] {
+  if (!engines.some(({ id }) => id === FIRST_CLAUDE_CODE_ENGINE.id)) {
+    return ["The Claude Code engine can't be removed yet."];
+  }
+  const count = engines.filter(({ kind }) => kind === "claude-code").length;
+  return count > 1 ? ["The Office runs one Claude Code engine for now."] : [];
+}
+
+function officeDefaultProblems(
+  { engineId, model }: EngineModel,
+  engines: readonly Engine[],
+): string[] {
+  const engine = engines.find(({ id }) => id === engineId);
+  if (engine === undefined) return ["Pick the Office default among the engines listed."];
+  if (!offeredModels(engine).includes(model)) {
+    return [`Pick the Office default's model among the models of "${engine.name}".`];
+  }
+  return [];
 }
 
 function isWebAddress(text: string): boolean {

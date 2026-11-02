@@ -106,20 +106,27 @@ async function officeOnTheEndpoint(): Promise<Api> {
     ],
   }));
   const { api } = checkApi(url);
+  const saved = engineSettingsSchema.parse(await api("GET", "/settings/engines"));
   const settings = engineSettingsSchema.parse(
     await api("PUT", "/settings/engines", {
-      apiEndpoints: [
+      engines: [
+        ...saved.engines.filter(({ kind }) => kind === "claude-code"),
         {
           name: "Strata",
+          kind: "openai-compatible-api",
+          defaultModel: MODEL,
           baseUrl: BASE_URL,
           key: "",
           models: [{ id: MODEL, contextWindow: CONTEXT_WINDOW }],
         },
       ],
+      officeDefault: saved.officeDefault,
       searchEndpoint: null,
+      modelPrices: [],
     }),
   );
-  const model = `${settings.apiEndpoints[0]?.id ?? ""}/${MODEL}`;
+  const strata = settings.engines.find(({ kind }) => kind === "openai-compatible-api");
+  const model = `${strata?.id ?? ""}/${MODEL}`;
   const hired = roleSchema.parse(
     await api("POST", "/roles", { roleKey: "developer", name: "Ada" }),
   );

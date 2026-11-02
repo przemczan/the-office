@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CLAUDE_CODE_MODELS,
+  engineIdFor,
   engineModelOf,
   FIRST_CLAUDE_CODE_ENGINE,
   hasUsageWindows,
@@ -57,5 +58,19 @@ describe("engineModelOf, the engine a Role card's engine and Model field run on"
       engineId: "openai-compatible-api",
       model: "coder",
     });
+  });
+});
+
+describe("an added engine's id", () => {
+  it("keeps the name's letters and digits, joined by dashes", () => {
+    expect(engineIdFor(" Strata · Büro 2 ", new Set())).toBe("strata-buro-2");
+  });
+
+  it("numbers an id that is taken", () => {
+    expect(engineIdFor("Strata", new Set(["strata", "strata-2"]))).toBe("strata-3");
+  });
+
+  it("is empty for a name without letters or digits", () => {
+    expect(engineIdFor("!!!", new Set())).toBe("");
   });
 });

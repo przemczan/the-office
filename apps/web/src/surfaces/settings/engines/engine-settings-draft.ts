@@ -1,8 +1,10 @@
 import {
-  apiEndpointIdFor,
-  apiEndpointModel,
-  type ApiEndpoint,
-  type ApiEndpointEdit,
+  engineIdFor,
+  type ApiEngine,
+  type ApiEngineEdit,
+  type ClaudeCodeEngineEdit,
+  type EngineId,
+  type EngineModel,
   type EngineSettings,
   type EngineSettingsEdit,
   type OfferedModel,
@@ -15,7 +17,10 @@ import { NO_PRICE_TEXT, priceOf, priceTextOf, type ModelPriceText } from "./mode
  * since a key is never sent back and an edit without one keeps it.
  */
 export interface EngineSettingsDraft {
-  readonly apiEndpoints: readonly ApiEndpointEdit[];
+  /** Sent back as saved: Settings › Engines lists them in step 1f of task 47. */
+  readonly claudeCodeEngines: readonly ClaudeCodeEngineEdit[];
+  readonly apiEndpoints: readonly ApiEngineEdit[];
+  readonly officeDefault: EngineModel;
   readonly searchEndpoint: SearchEndpoint | null;
   /**
    * Each model's Model price as its fields read, by `offeredModelKey`. Kept apart from the models
@@ -24,21 +29,27 @@ export interface EngineSettingsDraft {
   readonly modelPrices: Readonly<Record<string, ModelPriceText>>;
 }
 
-/** A model offered on an engine id, as the Model prices card lists it. */
+/** A model the Model prices card lists; a Claude model's engine is null. */
 export type PricedModel = Pick<OfferedModel, "engineId" | "model">;
 
+/** A drafted API endpoint with the id Save gives it. */
+export type DraftedEndpoint = ApiEngineEdit & { readonly id: EngineId };
+
 export function draftOf({
-  apiEndpoints,
+  engines,
+  officeDefault,
   searchEndpoint,
   modelPrices,
 }: EngineSettings): EngineSettingsDraft {
   return {
-    apiEndpoints: apiEndpoints.map(({ id, name, baseUrl, models }) => ({
-      id,
-      name,
-      baseUrl,
+    claudeCodeEngines: engines.flatMap((engine) =>
+      engine.kind === "claude-code" ? [{ ...engine }] : [],
+    ),
+    apiEndpoints: savedApiEngines(engines).map(({ keySet: _keySet, models, ...engine }) => ({
+      ...engine,
       models: models.map((model) => ({ ...model })),
     })),
+    officeDefault: { ...officeDefault },
     searchEndpoint: searchEndpoint && { ...searchEndpoint },
     modelPrices: Object.fromEntries(
       modelPrices.flatMap((offered) =>
@@ -48,49 +59,52 @@ export function draftOf({
   };
 }
 
+/** The API engines among the saved engines, in order. */
+export function savedApiEngines(engines: EngineSettings["engines"]): readonly ApiEngine[] {
+  return engines.filter((engine): engine is ApiEngine => engine.kind === "openai-compatible-api");
+}
+
 export function offeredModelKey({ engineId, model }: PricedModel): string {
-  return `${engineId} ${model}`;
+  return JSON.stringify([engineId, model]);
 }
 
 /**
  * The drafted API endpoints with the ids Save gives them, in order: a new one's made from its
- * name, so its models read by name and a price typed before Save lands on them.
+ * name, apart from every saved engine's and every drafted one's, so its models read by name and a
+ * price typed before Save lands on them.
  */
 export function draftedEndpoints(
-  apiEndpoints: readonly ApiEndpointEdit[],
-): readonly (ApiEndpointEdit & { readonly id: string })[] {
-  const taken = new Set(apiEndpoints.flatMap(({ id }) => (id === undefined ? [] : [id])));
-  return apiEndpoints.map((endpoint) => {
-    const id = endpoint.id ?? apiEndpointIdFor(endpoint.name, taken);
+  draft: EngineSettingsDraft,
+  saved: EngineSettings,
+): readonly DraftedEndpoint[] {
+  const taken = new Set([
+    ...saved.engines.map(({ id }) => id),
+    ...draft.apiEndpoints.flatMap(({ id }) => (id === undefined ? [] : [id])),
+  ]);
+  return draft.apiEndpoints.map((endpoint) => {
+    const id = endpoint.id ?? engineIdFor(endpoint.name, taken);
     taken.add(id);
     return { ...endpoint, id, name: endpoint.name.trim() };
   });
 }
 
 /**
- * Every model the draft offers, as Save prices them: the Claude Code engines' as `saved` lists
- * them, then each drafted API endpoint's, each once; one without an id yet is left out.
+ * Every model the draft offers, as Save prices them: the Claude models as `saved` lists them,
+ * then each drafted API endpoint's, each once; one without an id yet is left out.
  */
 export function offeredModelsOf(
   draft: EngineSettingsDraft,
   saved: EngineSettings,
 ): readonly PricedModel[] {
-  const claudeCode = saved.modelPrices
-    .filter(({ engineId }) => engineId !== "openai-compatible-api")
+  const claudeModels = saved.modelPrices
+    .filter(({ engineId }) => engineId === null)
     .map(({ engineId, model }) => ({ engineId, model }));
-  const apiModels = draftedEndpoints(draft.apiEndpoints).flatMap(({ id: endpointId, models }) =>
-    models
-      .map(({ id }) => id.trim())
-      .filter((modelId) => endpointId !== "" && modelId !== "")
-      .map((modelId) => apiEndpointModel(endpointId, modelId)),
+  const apiModels = draftedEndpoints(draft, saved).flatMap(({ id: engineId, models }) =>
+    [...new Set(models.map(({ id }) => id.trim()))]
+      .filter((model) => engineId !== "" && model !== "")
+      .map((model) => ({ engineId, model })),
   );
-  return [
-    ...claudeCode,
-    ...[...new Set(apiModels)].map((model) => ({
-      engineId: "openai-compatible-api",
-      model,
-    })),
-  ];
+  return [...claudeModels, ...apiModels];
 }
 
 /** A model's price fields in the draft: empty for a model without a price. */
@@ -110,10 +124,23 @@ export function engineSettingsEditOf(
     modelPrices.push({ ...offered, price });
   }
   return {
-    apiEndpoints: [...draft.apiEndpoints],
+    engines: [...draft.claudeCodeEngines, ...draft.apiEndpoints.map(withOfferedDefaultModel)],
+    officeDefault: draft.officeDefault,
     searchEndpoint: draft.searchEndpoint,
     modelPrices,
   };
+}
+
+/**
+ * The endpoint with a default model it offers: the one it has while it still lists it, else its
+ * first, until Settings › Engines lets the user pick it.
+ */
+function withOfferedDefaultModel(endpoint: ApiEngineEdit): ApiEngineEdit {
+  const models = endpoint.models.map(({ id }) => id.trim());
+  const defaultModel = models.includes(endpoint.defaultModel)
+    ? endpoint.defaultModel
+    : (models[0] ?? "");
+  return { ...endpoint, defaultModel };
 }
 
 /** Whether Save would change anything; a price typed for a model no longer offered doesn't count. */
@@ -126,14 +153,18 @@ export function draftChanged(draft: EngineSettingsDraft, saved: EngineSettings):
 
 function whatSaveSees(draft: EngineSettingsDraft, saved: EngineSettings): unknown {
   return {
+    claudeCodeEngines: draft.claudeCodeEngines,
     apiEndpoints: draft.apiEndpoints,
+    officeDefault: draft.officeDefault,
     searchEndpoint: draft.searchEndpoint,
     modelPrices: offeredModelsOf(draft, saved).map((offered) => priceTextIn(draft, offered)),
   };
 }
 
-export const NEW_API_ENDPOINT: ApiEndpointEdit = {
+export const NEW_API_ENDPOINT: ApiEngineEdit = {
   name: "",
+  kind: "openai-compatible-api",
+  defaultModel: "",
   baseUrl: "",
   models: [{ id: "", contextWindow: 0 }],
 };
@@ -141,7 +172,7 @@ export const NEW_API_ENDPOINT: ApiEndpointEdit = {
 /** What saving does with an API endpoint's key: kept as it is, a new one, or none. */
 export type KeyOnSave = "kept-set" | "kept-none" | "new" | "removed";
 
-export function keyOnSave(edit: ApiEndpointEdit, saved: ApiEndpoint | undefined): KeyOnSave {
+export function keyOnSave(edit: ApiEngineEdit, saved: ApiEngine | undefined): KeyOnSave {
   if (edit.key === undefined) return saved?.keySet ? "kept-set" : "kept-none";
   if (edit.key !== "") return "new";
   return saved?.keySet ? "removed" : "kept-none";

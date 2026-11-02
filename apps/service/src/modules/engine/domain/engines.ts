@@ -47,6 +47,23 @@ export const FIRST_CLAUDE_CODE_ENGINE: ClaudeCodeEngine = {
   claudeCodeP: false,
 };
 
+/**
+ * The id an engine added as `name` is given: its letters and digits, apart from `taken`.
+ * Contracts' `engineIdFor` mirrors it for the web; a change here goes there too.
+ */
+export function engineIdFor(name: string, taken: ReadonlySet<string>): string {
+  const base = name
+    .normalize("NFKD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  if (base === "" || !taken.has(base)) return base;
+  let suffix = 2;
+  while (taken.has(`${base}-${suffix}`)) suffix += 1;
+  return `${base}-${suffix}`;
+}
+
 /** The models `engine` offers, by their ids there. */
 export function offeredModels(engine: Engine): readonly string[] {
   return engine.kind === "claude-code" ? CLAUDE_CODE_MODELS : engine.models.map(({ id }) => id);
@@ -61,7 +78,7 @@ export function hasUsageWindows(engine: Engine): boolean {
 }
 
 /**
- * What a Role card names as its engine until step 1c of task 47 makes it an engine id: the Agent
+ * What a Role card names as its engine until step 1c2 of task 47 makes it an engine id: the Agent
  * SDK or the `-p` fallback, both on the first Claude Code engine, or the OpenAI-compatible API, on
  * the engine its Model field's `<endpoint>/` names.
  */

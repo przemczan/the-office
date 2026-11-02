@@ -1,7 +1,7 @@
 import {
   parseApiEndpointModel,
-  type ApiEndpoint,
   type Effort,
+  type Engine,
   type EngineId,
 } from "@the-office/contracts";
 
@@ -12,10 +12,7 @@ const ENGINE_ID_LABELS: Readonly<Record<EngineId, string>> = {
   "openai-compatible-api": "OpenAI-compatible API",
 };
 
-/** The engine ids Model prices list, in order, until Settings › Engines lists the engines. */
-export const ENGINE_IDS: readonly EngineId[] = Object.keys(ENGINE_ID_LABELS);
-
-/** What an engine id spends on, as Model prices and caps name it; an unknown id as it is. */
+/** What an engine id spends on, as caps and Usage estimates name it; an unknown id as it is. */
 export function engineIdLabel(engineId: EngineId): string {
   return ENGINE_ID_LABELS[engineId] ?? engineId;
 }
@@ -34,10 +31,10 @@ export const EFFORT_LABELS: Readonly<Record<Effort, string>> = {
  */
 export function modelLabel(
   model: string,
-  apiEndpoints: readonly Pick<ApiEndpoint, "id" | "name">[] = [],
+  engines: readonly Pick<Engine, "id" | "name">[] = [],
 ): string {
   const named = parseApiEndpointModel(model);
-  const endpoint = named && apiEndpoints.find(({ id }) => id === named.endpointId);
+  const endpoint = named && engines.find(({ id }) => id === named.endpointId);
   if (named && endpoint) return `${endpoint.name} · ${named.modelId}`;
   const match = /^claude-([a-z]+)-(\d+)-(\d+)$/.exec(model);
   if (!match) return model;

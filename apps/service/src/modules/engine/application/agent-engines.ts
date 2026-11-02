@@ -10,7 +10,7 @@ export class AgentEngines {
   constructor(private readonly adapters: Readonly<Record<RoleEngine, AgentEngine>>) {}
 
   /**
-   * The adapter of `engine`. A Role card naming `-p` keeps it until step 1c of task 47 moves such
+   * The adapter of `engine`. A Role card naming `-p` keeps it until step 1c2 of task 47 moves such
    * Roles to the engine with its switch off.
    */
   of(engine: Engine, roleEngine?: RoleEngine): AgentEngine {

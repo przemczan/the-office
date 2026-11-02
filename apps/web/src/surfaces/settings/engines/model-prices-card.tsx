@@ -1,9 +1,8 @@
-import type { ApiEndpoint } from "@the-office/contracts";
 import { Card, Input } from "@the-office/ui";
 import type { ReactNode } from "react";
-import { ENGINE_IDS, engineIdLabel, modelLabel } from "../../../shell/engine-words.ts";
+import { modelLabel } from "../../../shell/engine-words.ts";
 import { SettingsCardTitle } from "../settings-card-parts.tsx";
-import type { PricedModel } from "./engine-settings-draft.ts";
+import type { DraftedEndpoint, PricedModel } from "./engine-settings-draft.ts";
 import {
   PRICE_KIND_LABELS,
   PRICE_KINDS,
@@ -20,7 +19,7 @@ export function ModelPricesCard({
 }: {
   readonly offered: readonly PricedModel[];
   /** The drafted API endpoints with their ids, so their models read by name. */
-  readonly apiEndpoints: readonly Pick<ApiEndpoint, "id" | "name">[];
+  readonly apiEndpoints: readonly Pick<DraftedEndpoint, "id" | "name">[];
   readonly priceTextOf: (model: PricedModel) => ModelPriceText;
   readonly change: (model: PricedModel, text: ModelPriceText) => void;
 }): ReactNode {
@@ -30,26 +29,59 @@ export function ModelPricesCard({
         What each model costs, in dollars per million tokens. Every cost in The Office is priced by
         them. A model left without one has no cost, which never holds a Start.
       </p>
-      {ENGINE_IDS.map((engineId) => {
-        const models = offered.filter((model) => model.engineId === engineId);
-        return (
-          <section key={engineId} className="model-prices" aria-label={engineIdLabel(engineId)}>
-            <h3 className="model-prices-engine">{engineIdLabel(engineId)}</h3>
-            {models.length === 0 && engineId === "openai-compatible-api" && (
-              <p className="settings-note">No API endpoint offers a model yet.</p>
-            )}
-            {models.map((model) => (
-              <ModelPriceFields
-                key={model.model}
-                label={modelLabel(model.model, apiEndpoints)}
-                text={priceTextOf(model)}
-                change={(text) => change(model, text)}
-              />
-            ))}
-          </section>
-        );
-      })}
+      <ModelPricesOf
+        title="Claude Code engines"
+        models={offered.filter(({ engineId }) => engineId === null)}
+        labelOf={(model) => modelLabel(model)}
+        priceTextOf={priceTextOf}
+        change={change}
+      />
+      {apiEndpoints
+        .filter(({ id }) => id !== "")
+        .map(({ id, name }) => (
+          <ModelPricesOf
+            key={id}
+            title={name}
+            models={offered.filter(({ engineId }) => engineId === id)}
+            labelOf={(model) => `${name} · ${model}`}
+            priceTextOf={priceTextOf}
+            change={change}
+          />
+        ))}
+      {!offered.some(({ engineId }) => engineId !== null) && (
+        <p className="settings-note">No API endpoint offers a model yet.</p>
+      )}
     </Card>
+  );
+}
+
+/** The price fields of the models priced under one engine id, or the Claude models'. */
+function ModelPricesOf({
+  title,
+  models,
+  labelOf,
+  priceTextOf,
+  change,
+}: {
+  readonly title: string;
+  readonly models: readonly PricedModel[];
+  readonly labelOf: (model: string) => string;
+  readonly priceTextOf: (model: PricedModel) => ModelPriceText;
+  readonly change: (model: PricedModel, text: ModelPriceText) => void;
+}): ReactNode {
+  if (models.length === 0) return null;
+  return (
+    <section className="model-prices" aria-label={title}>
+      <h3 className="model-prices-engine">{title}</h3>
+      {models.map((model) => (
+        <ModelPriceFields
+          key={model.model}
+          label={labelOf(model.model)}
+          text={priceTextOf(model)}
+          change={(text) => change(model, text)}
+        />
+      ))}
+    </section>
   );
 }
 

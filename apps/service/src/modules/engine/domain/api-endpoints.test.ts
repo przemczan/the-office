@@ -1,10 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  apiEndpointIdFor,
-  apiEndpointModel,
-  apiEndpointModels,
-  parseApiEndpointModel,
-} from "./api-endpoints.js";
+import { apiEndpointModel, apiEndpointModels, parseApiEndpointModel } from "./api-endpoints.js";
 import type { ApiEngine } from "./engines.js";
 
 const strata: ApiEngine = {
@@ -43,19 +38,5 @@ describe("a Role's Model field on an API endpoint", () => {
       "strata/org/coder:q4",
       "local/qwen3.8-flash",
     ]);
-  });
-});
-
-describe("apiEndpointIdFor", () => {
-  it("keeps the name's letters and digits, joined by dashes", () => {
-    expect(apiEndpointIdFor(" Strata · Büro 2 ", new Set())).toBe("strata-buro-2");
-  });
-
-  it("numbers an id that is taken", () => {
-    expect(apiEndpointIdFor("Strata", new Set(["strata", "strata-2"]))).toBe("strata-3");
-  });
-
-  it("is empty for a name without letters or digits", () => {
-    expect(apiEndpointIdFor("!!!", new Set())).toBe("");
   });
 });

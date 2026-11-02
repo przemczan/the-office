@@ -33,7 +33,7 @@ export class TaskTokens {
     const byEngineId = new Map<EngineId, number>();
     for (const { stageThread, session, tokens } of threads) {
       if (!stageThread || !session) continue;
-      // A Thread's session keeps no model, so an API one counts on the kind's own id until step 1c
+      // A Thread's session keeps no model, so an API one counts on the kind's own id until step 1c2
       // of task 47 has the session name its engine.
       const { engineId } = engineModelOf(session.engine, "");
       byEngineId.set(engineId, (byEngineId.get(engineId) ?? 0) + countedTokens(tokens));

@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
-  ApiEndpoint,
-  ApiEndpointEdit,
   ApiEndpointModel,
+  ApiEngine,
+  ApiEngineEdit,
   EngineSettings,
   EngineSettingsEdit,
 } from "@the-office/contracts";
@@ -25,6 +25,7 @@ import {
   offeredModelKey,
   offeredModelsOf,
   priceTextIn,
+  savedApiEngines,
   searchEndpointOf,
   type EngineSettingsDraft,
 } from "./engine-settings-draft.ts";
@@ -62,7 +63,7 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
       showToast("Engines saved. Sessions started from now on use them.");
     },
   });
-  const changeEndpoint = (index: number, edit: ApiEndpointEdit): void =>
+  const changeEndpoint = (index: number, edit: ApiEngineEdit): void =>
     setDraft({
       ...draft,
       apiEndpoints: draft.apiEndpoints.map((endpoint, at) => (at === index ? edit : endpoint)),
@@ -80,7 +81,7 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
               // An endpoint added since the last Save has no id yet, so its place is its identity.
               key={index}
               edit={endpoint}
-              saved={saved.apiEndpoints.find(({ id }) => id === endpoint.id)}
+              saved={savedApiEngines(saved.engines).find(({ id }) => id === endpoint.id)}
               change={(edit) => changeEndpoint(index, edit)}
               remove={() =>
                 setDraft({
@@ -117,7 +118,7 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
       </Card>
       <ModelPricesCard
         offered={offeredModelsOf(draft, saved)}
-        apiEndpoints={draftedEndpoints(draft.apiEndpoints)}
+        apiEndpoints={draftedEndpoints(draft, saved)}
         priceTextOf={(model) => priceTextIn(draft, model)}
         change={(model, text) =>
           setDraft({
@@ -151,10 +152,10 @@ function ApiEndpointFields({
   change,
   remove,
 }: {
-  readonly edit: ApiEndpointEdit;
+  readonly edit: ApiEngineEdit;
   /** Undefined while the endpoint isn't saved yet. */
-  readonly saved: ApiEndpoint | undefined;
-  readonly change: (edit: ApiEndpointEdit) => void;
+  readonly saved: ApiEngine | undefined;
+  readonly change: (edit: ApiEngineEdit) => void;
   readonly remove: () => void;
 }): ReactNode {
   const called = edit.name === "" ? "the new API endpoint" : edit.name;
@@ -246,7 +247,7 @@ function ApiEndpointFields({
 }
 
 /** The endpoint with `key` as saving takes it: undefined keeps the one kept, empty removes it. */
-function withKey(edit: ApiEndpointEdit, key: string | undefined): ApiEndpointEdit {
+function withKey(edit: ApiEngineEdit, key: string | undefined): ApiEngineEdit {
   const { key: _kept, ...rest } = edit;
   return key === undefined ? rest : { ...rest, key };
 }

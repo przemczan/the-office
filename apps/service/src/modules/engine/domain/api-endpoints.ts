@@ -32,20 +32,3 @@ export function apiEndpointModels(
     models.map((model) => apiEndpointModel(id, model.id)),
   );
 }
-
-/**
- * The id an endpoint added as `name` is given: its letters and digits, apart from `taken`.
- * Contracts' `apiEndpointIdFor` mirrors it for the web; a change here goes there too.
- */
-export function apiEndpointIdFor(name: string, taken: ReadonlySet<string>): string {
-  const base = name
-    .normalize("NFKD")
-    .replace(/\p{M}/gu, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-  if (base === "" || !taken.has(base)) return base;
-  let suffix = 2;
-  while (taken.has(`${base}-${suffix}`)) suffix += 1;
-  return `${base}-${suffix}`;
-}

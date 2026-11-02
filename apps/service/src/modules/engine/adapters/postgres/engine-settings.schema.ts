@@ -11,6 +11,7 @@ import {
   unique,
 } from "drizzle-orm/pg-core";
 import type { ApiEndpointModel } from "../../domain/api-endpoints.js";
+import { FIRST_OFFICE_DEFAULT } from "../../domain/engine-settings.js";
 import type { EngineId, EngineKind } from "../../domain/engines.js";
 
 /**
@@ -47,6 +48,12 @@ export const engineSettings = pgTable(
     id: smallint("id").primaryKey().default(1),
     /** Null until the user sets the search endpoint. */
     searchEndpointUrl: text("search_endpoint_url"),
+    /** The Office default: an engine and one of its models. */
+    officeDefaultEngineId: text("office_default_engine_id")
+      .$type<EngineId>()
+      .notNull()
+      .default(FIRST_OFFICE_DEFAULT.engineId),
+    officeDefaultModel: text("office_default_model").notNull().default(FIRST_OFFICE_DEFAULT.model),
   },
   (table) => [check("engine_settings_one_row", sql`${table.id} = 1`)],
 );
