@@ -28,7 +28,13 @@ import {
   ProposalService,
   ThreadService,
 } from "../../conversations/index.js";
-import { DayUsage, EngineModule, ModelPrices, UsageWindowState } from "../../engine/index.js";
+import {
+  DayUsage,
+  EngineModule,
+  ModelPrices,
+  UsageWindowSamples,
+  UsageWindowState,
+} from "../../engine/index.js";
 import { PeopleModule, RoleCards } from "../../people/index.js";
 import {
   PipelineLibrary,
@@ -125,6 +131,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                 usageHistory: UsageHistory,
                 modelPrices: ModelPrices,
                 accountWindows: UsageWindowState,
+                accountWindowRatios: UsageWindowSamples,
                 dayUsage: DayUsage,
                 taskTokens: TaskTokens,
               }),

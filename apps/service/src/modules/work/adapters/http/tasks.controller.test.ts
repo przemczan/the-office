@@ -64,6 +64,7 @@ import {
   UsageHistoryForTests,
   WorkSettingsForTests,
   AccountWindowsForTests,
+  AccountWindowRatiosForTests,
   DayUsageForTests,
   TaskTokensForTests,
 } from "../../ports/work-ports.fixtures.js";
@@ -1629,10 +1630,11 @@ describe("Usage estimates", () => {
   }
 
   it("carries the Planner's estimate on the Task, and in the Start check by the Office-wide ratios", async () => {
-    work.app.get(UsageHistoryForTests).usageRatios = {
-      percentUsedPerToken: { fiveHour: 0.0001, sevenDay: 0.00001 },
-      dollarsPerToken: 0.00001,
+    work.app.get(AccountWindowRatiosForTests).windowRatios = {
+      fiveHour: 0.0001,
+      sevenDay: 0.00001,
     };
+    work.app.get(UsageHistoryForTests).officeDollarsPerToken = 0.00001;
     const task = await estimatedTask(90_000);
 
     expect((await readTask(task.id)).estimatedTokens).toBe(90_000);
@@ -1642,15 +1644,18 @@ describe("Usage estimates", () => {
     });
   });
 
-  it("estimates from the done Tasks of the Project and Pipeline once they are 3, over the Planner's", async () => {
+  it("estimates from the done Tasks of the Project and Pipeline once they are 3, over the Planner's, windows by the ratios", async () => {
     const done = await doneTask();
     const history = work.app.get(UsageHistoryForTests);
     const stageUsage = {
       tokens: { input: 1000, output: 500, cacheRead: 9000, cacheCreation: 500 },
       samples: 3,
-      windows: { fiveHour: { percentUsed: 1.5, samples: 3 }, sevenDay: undefined },
     };
     history.stageUsages.set(done.id, new Map([["implement", stageUsage]]));
+    work.app.get(AccountWindowRatiosForTests).windowRatios = {
+      fiveHour: 0.00075,
+      sevenDay: undefined,
+    };
     // The Developer works on the Haiku model; cost isn't ticked, so only the service sees it.
     work.app.get(ModelPricesForTests).dollarsPerToken.set("claude-haiku-5-5", 0.00001);
     const task = await estimatedTask(90_000);
@@ -1685,9 +1690,9 @@ const HOUR = 60 * 60 * 1000;
 
 /** The 5-hour window read now at `percentUsed`, resetting `resetsIn` from now; desks to spare. */
 async function windowRead(percentUsed: number, resetsIn: number): Promise<void> {
-  work.app.get(UsageHistoryForTests).usageRatios = {
-    percentUsedPerToken: { fiveHour: 0.0001, sevenDay: undefined },
-    dollarsPerToken: undefined,
+  work.app.get(AccountWindowRatiosForTests).windowRatios = {
+    fiveHour: 0.0001,
+    sevenDay: undefined,
   };
   await sendJson(work, "PUT", "/settings/office-wide-limit", { officeWideLimit: 12 });
   work.app.get(AccountWindowsForTests).reading = {

@@ -8,15 +8,9 @@ import type {
   StageRunDecision,
   StageTokens,
   AskedInterruption,
-  UsageWindowReading,
 } from "../../domain/stage-run.js";
 import { StageRunRepository, type StageRunThread } from "../../ports/stage-run-repository.js";
 import { stageRuns } from "./stage-runs.schema.js";
-import {
-  storedUsageWindowReading,
-  usageWindowReadingOf,
-  type StoredUsageWindowReading,
-} from "./stored-usage-windows.js";
 
 @Injectable()
 export class PostgresStageRunRepository extends StageRunRepository {
@@ -27,11 +21,7 @@ export class PostgresStageRunRepository extends StageRunRepository {
   async saveNew(run: StageRun): Promise<boolean> {
     const saved = await this.database
       .insert(stageRuns)
-      .values({
-        ...run,
-        usageWindowsAtStart: run.usageWindowsAtStart.map(storedUsageWindowReading),
-        usageWindowsAtEnd: storedOrNone(run.usageWindowsAtEnd),
-      })
+      .values(run)
       .onConflictDoNothing({ target: [stageRuns.taskId, stageRuns.number] })
       .returning({ id: stageRuns.id });
     return saved.length > 0;
@@ -39,23 +29,6 @@ export class PostgresStageRunRepository extends StageRunRepository {
 
   async saveThread(runId: string, thread: StageRunThread): Promise<void> {
     await this.database.update(stageRuns).set(thread).where(eq(stageRuns.id, runId));
-  }
-
-  async saveUsageWindowsAtStart(
-    runId: string,
-    readings: readonly UsageWindowReading[],
-  ): Promise<void> {
-    await this.database
-      .update(stageRuns)
-      .set({ usageWindowsAtStart: readings.map(storedUsageWindowReading) })
-      .where(eq(stageRuns.id, runId));
-  }
-
-  async saveUsageWindowsAtEnd(runId: string, reading: UsageWindowReading): Promise<void> {
-    await this.database
-      .update(stageRuns)
-      .set({ usageWindowsAtEnd: storedUsageWindowReading(reading) })
-      .where(eq(stageRuns.id, runId));
   }
 
   async saveHeadCommit(runId: string, headCommit: string): Promise<void> {
@@ -120,22 +93,10 @@ function stageRunOf(row: typeof stageRuns.$inferSelect): StageRun {
     session: row.session ?? undefined,
     engine: row.engine ?? undefined,
     model: row.model ?? undefined,
-    usageWindowsAtStart: row.usageWindowsAtStart.map(usageWindowReadingOf),
-    usageWindowsAtEnd: readingOrNone(row.usageWindowsAtEnd),
     headCommit: row.headCommit ?? undefined,
     heldBy: row.heldBy ?? undefined,
     gateAction: row.gateAction ?? undefined,
     outcome: row.outcome ?? undefined,
     endedAt: row.endedAt ?? undefined,
   };
-}
-
-function storedOrNone(
-  reading: UsageWindowReading | undefined,
-): StoredUsageWindowReading | undefined {
-  return reading === undefined ? undefined : storedUsageWindowReading(reading);
-}
-
-function readingOrNone(stored: StoredUsageWindowReading | null): UsageWindowReading | undefined {
-  return stored === null ? undefined : usageWindowReadingOf(stored);
 }

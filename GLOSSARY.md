@@ -95,7 +95,7 @@ What a model costs per million tokens of each kind (input, output, cache writes,
 _Avoid_: Rate, pricing, price table
 
 **Reading source**:
-Where a reading of the usage windows came from: the account's usage endpoint, or the rate-limit headers of the engine's last model reply. The two round differently, so a Stage run's window change is taken only between two readings of one source; a reading whose source is unknown counts in no Usage estimate.
+Where a reading of the usage windows came from: the account's usage endpoint, or the rate-limit headers of the engine's last model reply. The two round differently, so the window % per token a Usage estimate uses is learnt only from successive readings of one source; a reading whose source is unknown is paired with none.
 _Avoid_: Full answer, short answer, kind
 
 **Files to change**:

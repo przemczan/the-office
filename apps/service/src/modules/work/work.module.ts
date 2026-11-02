@@ -80,6 +80,7 @@ import { InitiativeThreads } from "./ports/initiative-threads.js";
 import { KnownPeople } from "./ports/known-people.js";
 import { KnownPipelines } from "./ports/known-pipelines.js";
 import { ModelPrices } from "./ports/model-prices.js";
+import { AccountWindowRatios } from "./ports/account-window-ratios.js";
 import { AccountWindows } from "./ports/account-windows.js";
 import { DayUsage } from "./ports/day-usage.js";
 import { KnownProjects } from "./ports/known-projects.js";
@@ -124,6 +125,7 @@ export interface WorkModuleOptions {
   readonly usageHistory: Type<UsageHistory>;
   readonly modelPrices: Type<ModelPrices>;
   readonly accountWindows: Type<AccountWindows>;
+  readonly accountWindowRatios: Type<AccountWindowRatios>;
   readonly dayUsage: Type<DayUsage>;
   readonly taskTokens: Type<TaskTokens>;
 }
@@ -152,6 +154,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
     usageHistory,
     modelPrices,
     accountWindows,
+    accountWindowRatios,
     dayUsage,
     taskTokens,
   }: WorkModuleOptions): DynamicModule {
@@ -201,6 +204,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: UsageHistory, useExisting: usageHistory },
         { provide: ModelPrices, useExisting: modelPrices },
         { provide: AccountWindows, useExisting: accountWindows },
+        { provide: AccountWindowRatios, useExisting: accountWindowRatios },
         { provide: DayUsage, useExisting: dayUsage },
         { provide: TaskTokens, useExisting: taskTokens },
         IdeaService,

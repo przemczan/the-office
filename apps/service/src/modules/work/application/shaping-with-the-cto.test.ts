@@ -38,6 +38,7 @@ import {
   KnownProjectsForTests,
   NewProjectsForTests,
   AccountWindowsForTests,
+  AccountWindowRatiosForTests,
   DayUsageForTests,
   TaskTokensForTests,
   ModelPricesForTests,
@@ -142,6 +143,7 @@ const STAND_INS = [
   UsageHistoryForTests,
   ModelPricesForTests,
   AccountWindowsForTests,
+  AccountWindowRatiosForTests,
   DayUsageForTests,
   TaskTokensForTests,
 ];
@@ -205,6 +207,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         usageHistory: UsageHistoryForTests,
         modelPrices: ModelPricesForTests,
         accountWindows: AccountWindowsForTests,
+        accountWindowRatios: AccountWindowRatiosForTests,
         dayUsage: DayUsageForTests,
         taskTokens: TaskTokensForTests,
       }),

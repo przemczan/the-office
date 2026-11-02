@@ -23,6 +23,11 @@ export function addedTokens(one: TokenUsage, other: TokenUsage): TokenUsage {
   };
 }
 
+/** Tokens as every token count gives them: input, output and cache writes, not cache reads. */
+export function countedTokens({ input, output, cacheCreation }: TokenUsage): number {
+  return input + output + cacheCreation;
+}
+
 /** Text the Agent wrote. */
 export interface TextEvent {
   readonly kind: "text";

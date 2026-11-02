@@ -314,8 +314,6 @@ export class StageThreadsForTests extends StageThreads {
       model,
       nextTurn,
       askedDecision: async () => asked,
-      usageWindows: async () =>
-        sessionEnded ? undefined : this.sessions.readUsageWindows(engine, session),
       send: (text, why) => {
         this.sent.push({ threadId, text, why });
         session.send({ id: randomUUID(), text }, "later");

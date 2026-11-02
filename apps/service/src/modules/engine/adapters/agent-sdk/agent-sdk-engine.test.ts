@@ -21,6 +21,8 @@ import { UsageWindowState } from "../../application/usage-window-state.js";
 import { describeAgentEngineContract } from "../../ports/agent-engine.contract.js";
 import type { AgentEngine } from "../../ports/agent-engine.js";
 import { DayUsageForTests } from "../../ports/day-usage-repository.fixtures.js";
+import { UsageWindowSamplesForTests } from "../../ports/usage-window-sample-repository.fixtures.js";
+import { UsageWindowSamples } from "../../application/usage-window-samples.js";
 import type { EngineSession } from "../../ports/engine-session.js";
 import type { OfficeTool } from "../../ports/office-tool.js";
 import type { SessionEvent, TurnEndedEvent } from "../../ports/session-events.js";
@@ -176,6 +178,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
         new UsageWindowState(events),
         registry,
         new DayUsage(new DayUsageForTests(), new ManualSchedule()),
+        new UsageWindowSamples(new UsageWindowSamplesForTests()),
       );
 
       const session = await sessions.start({

@@ -80,8 +80,6 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     tokens: NO_STAGE_TOKENS,
     engine: undefined,
     model: undefined,
-    usageWindowsAtStart: [],
-    usageWindowsAtEnd: undefined,
     decisions,
     heldBy: undefined,
     sentBack: undefined,

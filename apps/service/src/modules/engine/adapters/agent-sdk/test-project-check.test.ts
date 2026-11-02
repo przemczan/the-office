@@ -21,6 +21,8 @@ import { OfficeToolRegistry } from "../../application/office-tool-registry.js";
 import { UsageWindowState } from "../../application/usage-window-state.js";
 import { UsageWindowsChanged } from "../../domain/engine-events.js";
 import { DayUsageForTests } from "../../ports/day-usage-repository.fixtures.js";
+import { UsageWindowSamplesForTests } from "../../ports/usage-window-sample-repository.fixtures.js";
+import { UsageWindowSamples } from "../../application/usage-window-samples.js";
 import type { EngineSession } from "../../ports/engine-session.js";
 import type { SessionEvent, ToolCallEvent } from "../../ports/session-events.js";
 import { RecordingEngine } from "../scripted/recording-engine.js";
@@ -94,6 +96,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
           new UsageWindowState(events),
           new OfficeToolRegistry(),
           new DayUsage(new DayUsageForTests(), new ManualSchedule()),
+          new UsageWindowSamples(new UsageWindowSamplesForTests()),
         );
         const sessionId = randomUUID();
         const session = await sessions.start({

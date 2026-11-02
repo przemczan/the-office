@@ -28,8 +28,6 @@ function aRun(stageKey: string, decisions: StageRunDecision[]): StageRun {
     tokens: NO_STAGE_TOKENS,
     engine: undefined,
     model: undefined,
-    usageWindowsAtStart: [],
-    usageWindowsAtEnd: undefined,
     decisions,
     heldBy: undefined,
     sentBack: undefined,

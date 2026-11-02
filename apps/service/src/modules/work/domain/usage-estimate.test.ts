@@ -6,8 +6,8 @@ import {
   tasksInHistory,
   type EstimatedStage,
   type StageTokens,
+  type EngineWindowRatios,
   type StageUsage,
-  type UsageRatios,
 } from "./usage-estimate.js";
 
 // Implement on the Agent SDK and Review on the `-p` fallback: both spend on the Claude Code account.
@@ -27,26 +27,17 @@ const SUMMARY: EstimatedStage = {
   model: "llama",
 };
 
-const readsWindowsOnClaudeCode = (engineId: string): boolean => engineId === "claude-code";
-
 function tokens(input: number, output = 0, cacheRead = 0, cacheCreation = 0): StageTokens {
   return { input, output, cacheRead, cacheCreation };
 }
 
-function usage(
-  stageTokens: StageTokens,
-  samples: number,
-  fiveHour?: number,
-  sevenDay?: number,
-): StageUsage {
-  return {
-    tokens: stageTokens,
-    samples,
-    windows: {
-      fiveHour: fiveHour === undefined ? undefined : { percentUsed: fiveHour, samples },
-      sevenDay: sevenDay === undefined ? undefined : { percentUsed: sevenDay, samples },
-    },
-  };
+// Only the Claude Code engines read windows, so only their engine id has ratios.
+const WINDOW_RATIOS: EngineWindowRatios = new Map([
+  ["claude-code", { fiveHour: 0.001, sevenDay: 0.0005 }],
+]);
+
+function usage(stageTokens: StageTokens, samples: number): StageUsage {
+  return { tokens: stageTokens, samples };
 }
 
 describe("stageEngineAndModel", () => {
@@ -77,10 +68,10 @@ describe("tasksInHistory", () => {
 });
 
 describe("historyUsage", () => {
-  it("sums each Stage's median counted tokens, windows and cost per engine id", () => {
+  it("sums each Stage's median counted tokens and cost per engine id, windows by its ratios", () => {
     const history = new Map([
-      ["implement", usage(tokens(1000, 200, 5000, 300), 3, 2, 0.5)],
-      ["review", usage(tokens(400, 100), 3, 1, 0.25)],
+      ["implement", usage(tokens(1000, 200, 5000, 300), 3)],
+      ["review", usage(tokens(400, 100), 3)],
       ["summary", usage(tokens(50, 50), 3)],
     ]);
     const costs = new Map([
@@ -89,13 +80,11 @@ describe("historyUsage", () => {
       ["summary", 0.01],
     ]);
 
-    expect(
-      historyUsage([IMPLEMENT, REVIEW, SUMMARY], history, costs, readsWindowsOnClaudeCode),
-    ).toEqual([
+    expect(historyUsage([IMPLEMENT, REVIEW, SUMMARY], history, costs, WINDOW_RATIOS)).toEqual([
       {
         engineId: "claude-code",
         tokens: 2000,
-        windows: { fiveHour: 3, sevenDay: 0.75 },
+        windows: { fiveHour: 2, sevenDay: 1 },
         cost: 0.35,
       },
       {
@@ -107,51 +96,59 @@ describe("historyUsage", () => {
     ]);
   });
 
-  it("adds nothing for a Stage that never ran, and no window or cost when one Stage that ran has none", () => {
+  it("adds nothing for a Stage that never ran, and no cost when one Stage that ran has none", () => {
     const history = new Map([
-      ["implement", usage(tokens(1000), 3, 2)],
-      ["review", usage(tokens(500), 3, undefined, undefined)],
+      ["implement", usage(tokens(1000), 3)],
+      ["review", usage(tokens(500), 3)],
     ]);
     const unpriced = new Map([
       ["implement", 0.3],
       ["review", undefined],
     ]);
 
-    expect(historyUsage([IMPLEMENT, REVIEW], history, unpriced, readsWindowsOnClaudeCode)).toEqual([
+    expect(historyUsage([IMPLEMENT, REVIEW], history, unpriced, WINDOW_RATIOS)).toEqual([
       {
         engineId: "claude-code",
         tokens: 1500,
-        windows: { fiveHour: undefined, sevenDay: undefined },
+        windows: { fiveHour: 1.5, sevenDay: 0.75 },
         cost: undefined,
       },
     ]);
     expect(
       historyUsage(
         [IMPLEMENT, REVIEW],
-        new Map([["implement", usage(tokens(1000), 3, 2, 1)]]),
+        new Map([["implement", usage(tokens(1000), 3)]]),
         new Map([["implement", 0.3]]),
-        readsWindowsOnClaudeCode,
+        WINDOW_RATIOS,
       ),
     ).toEqual([
-      { engineId: "claude-code", tokens: 1000, windows: { fiveHour: 2, sevenDay: 1 }, cost: 0.3 },
+      { engineId: "claude-code", tokens: 1000, windows: { fiveHour: 1, sevenDay: 0.5 }, cost: 0.3 },
     ]);
+  });
+
+  it("gives no window without its ratio", () => {
+    const fiveHourOnly: EngineWindowRatios = new Map([
+      ["claude-code", { fiveHour: 0.001, sevenDay: undefined }],
+    ]);
+
+    expect(
+      historyUsage(
+        [IMPLEMENT],
+        new Map([["implement", usage(tokens(1000), 3)]]),
+        new Map([["implement", 0.3]]),
+        fiveHourOnly,
+      )[0]?.windows,
+    ).toEqual({ fiveHour: 1, sevenDay: undefined });
   });
 });
 
 describe("plannerUsage", () => {
-  const ratios: UsageRatios = {
-    percentUsedPerToken: { fiveHour: 0.001, sevenDay: undefined },
-    dollarsPerToken: 0.5,
-  };
-
   it("splits the Planner's tokens evenly over the Agent Stages per engine id, with window % and cost by the ratios", () => {
-    expect(
-      plannerUsage([IMPLEMENT, REVIEW, SUMMARY], 9000, ratios, readsWindowsOnClaudeCode),
-    ).toEqual([
+    expect(plannerUsage([IMPLEMENT, REVIEW, SUMMARY], 9000, WINDOW_RATIOS, 0.5)).toEqual([
       {
         engineId: "claude-code",
         tokens: 6000,
-        windows: { fiveHour: 6, sevenDay: undefined },
+        windows: { fiveHour: 6, sevenDay: 3 },
         cost: 3000,
       },
       {
@@ -163,13 +160,8 @@ describe("plannerUsage", () => {
     ]);
   });
 
-  it("gives tokens alone when no done Task gives a ratio", () => {
-    const none: UsageRatios = {
-      percentUsedPerToken: { fiveHour: undefined, sevenDay: undefined },
-      dollarsPerToken: undefined,
-    };
-
-    expect(plannerUsage([IMPLEMENT], 5000, none, readsWindowsOnClaudeCode)).toEqual([
+  it("gives tokens alone when no ratio is known", () => {
+    expect(plannerUsage([IMPLEMENT], 5000, new Map(), undefined)).toEqual([
       {
         engineId: "claude-code",
         tokens: 5000,

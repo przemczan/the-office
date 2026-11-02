@@ -10,7 +10,6 @@ import type {
   StageTokens,
   AskedInterruption,
 } from "../../domain/stage-run.js";
-import type { StoredUsageWindowReading } from "./stored-usage-windows.js";
 
 /** Each run of a started Task's Stages; the number keeps one walk per Task. */
 export const stageRuns = pgTable(
@@ -39,15 +38,6 @@ export const stageRuns = pgTable(
       .$type<StageTokens>()
       .notNull()
       .default({ input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }),
-    /**
-     * The usage windows as read after the session opened, one reading of each source, and after its
-     * last turn.
-     */
-    usageWindowsAtStart: jsonb("usage_windows_at_start")
-      .$type<readonly StoredUsageWindowReading[]>()
-      .notNull()
-      .default([]),
-    usageWindowsAtEnd: jsonb("usage_windows_at_end").$type<StoredUsageWindowReading>(),
     /** The Decisions the walk opened on the run, with the user's answers. */
     decisions: jsonb("decisions").$type<readonly StageRunDecision[]>().notNull().default([]),
     /** What the user asked of the run while it ran: pause or stop. */

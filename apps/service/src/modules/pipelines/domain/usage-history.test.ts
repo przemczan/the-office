@@ -1,43 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { aStageRun } from "./stage-run.fixtures.js";
-import { NO_STAGE_TOKENS, type StageTokens, type UsageWindowReading } from "./stage-run.js";
-import {
-  latestTasksRuns,
-  stageUsages,
-  tokensByModel,
-  usageRatios,
-  windowChangeOf,
-} from "./usage-history.js";
-
-const RESET = new Date("2026-11-01T15:00:00Z");
+import { NO_STAGE_TOKENS, type StageTokens } from "./stage-run.js";
+import { dollarsPerToken, latestTasksRuns, stageUsages, tokensByModel } from "./usage-history.js";
 
 function tokens(input: number, output = 0, cacheCreation = 0, cacheRead = 0): StageTokens {
   return { input, output, cacheRead, cacheCreation };
 }
-
-function aReading(
-  fiveHour: number,
-  officeTokensSoFar: number,
-  fields: Partial<UsageWindowReading> = {},
-): UsageWindowReading {
-  return {
-    fiveHour: { percentUsed: fiveHour, resetsAt: RESET },
-    sevenDay: { percentUsed: 10, resetsAt: new Date("2026-11-05T00:00:00Z") },
-    source: "rate-limit-headers",
-    readAt: new Date("2026-11-01T12:00:00Z"),
-    officeTokensSoFar: tokens(officeTokensSoFar),
-    ...fields,
-  };
-}
-
-/** A run of 1,000 tokens over which the 5-hour window went from 20% to 30%, as the Office used 1,000. */
-const aReadRun = (fields: Parameters<typeof aStageRun>[0] = {}) =>
-  aStageRun({
-    tokens: tokens(1_000),
-    usageWindowsAtStart: [aReading(20, 5_000)],
-    usageWindowsAtEnd: aReading(30, 6_000, { readAt: new Date("2026-11-01T12:10:00Z") }),
-    ...fields,
-  });
 
 describe("a Stage's samples", () => {
   it("takes the median of each token kind, one sample per done Task", () => {
@@ -79,123 +47,6 @@ describe("a Stage's samples", () => {
     expect(usages.get("review")?.samples).toBe(1);
     expect(usages.get("implement")?.samples).toBe(1);
   });
-
-  it("pools window % per token over the runs whose readings count, applied to the median tokens", () => {
-    const aRunOf = (taskId: string, runTokens: number, fiveHourAtEnd: number) =>
-      aReadRun({
-        taskId,
-        tokens: tokens(runTokens),
-        usageWindowsAtEnd: aReading(fiveHourAtEnd, 5_000 + runTokens),
-      });
-    const usage = stageUsages([
-      aRunOf("a", 1_000, 21),
-      aRunOf("b", 1_000, 20),
-      aRunOf("c", 2_000, 21),
-      aReadRun({ taskId: "d", tokens: tokens(1_000), usageWindowsAtEnd: undefined }),
-    ]).get("implement");
-
-    expect(usage?.samples).toBe(4);
-    expect(usage?.tokens.input).toBe(1_000);
-    // 2 points over 4,000 tokens, at the median's 1,000; per-run medians would give 1 point.
-    expect(usage?.windows.fiveHour).toEqual({ percentUsed: 0.5, samples: 3 });
-    expect(usage?.windows.sevenDay).toEqual({ percentUsed: 0, samples: 3 });
-  });
-
-  it("pools a Task's runs one by one, so a run without readings leaves its others counting", () => {
-    const usage = stageUsages([
-      aReadRun({ taskId: "a", number: 1 }),
-      aReadRun({ taskId: "a", number: 2, usageWindowsAtEnd: undefined }),
-    ]).get("implement");
-
-    expect(usage?.windows.fiveHour).toEqual({ percentUsed: 20, samples: 1 });
-  });
-
-  it("has no window change when no sample's readings count", () => {
-    const usage = stageUsages([aStageRun()]).get("implement");
-
-    expect(usage?.windows).toEqual({ fiveHour: undefined, sevenDay: undefined });
-  });
-});
-
-describe("a run's window change", () => {
-  it("is the window's change scaled by the run's share of the Office's tokens", () => {
-    const run = aReadRun({ tokens: tokens(250, 100, 150, 9_999) });
-
-    expect(windowChangeOf(run, "fiveHour")).toBe(5);
-  });
-
-  it("is the whole change when the run's tokens are all the Office's", () => {
-    expect(windowChangeOf(aReadRun(), "fiveHour")).toBe(10);
-  });
-
-  it("counts a window that began during the run from 0%", () => {
-    const run = aReadRun({
-      usageWindowsAtStart: [
-        aReading(0, 5_000, { fiveHour: { percentUsed: 0, resetsAt: undefined } }),
-      ],
-    });
-
-    expect(windowChangeOf(run, "fiveHour")).toBe(30);
-  });
-
-  it("is undefined without both readings", () => {
-    expect(windowChangeOf(aReadRun({ usageWindowsAtStart: [] }), "fiveHour")).toBeUndefined();
-    expect(windowChangeOf(aReadRun({ usageWindowsAtEnd: undefined }), "fiveHour")).toBeUndefined();
-  });
-
-  it("compares the end reading with the start reading of its own source", () => {
-    const run = aReadRun({
-      usageWindowsAtStart: [
-        aReading(28, 5_000, { source: "usage-endpoint" }),
-        aReading(27, 5_000, { source: "rate-limit-headers" }),
-      ],
-      usageWindowsAtEnd: aReading(27, 6_000, { source: "rate-limit-headers" }),
-    });
-
-    expect(windowChangeOf(run, "fiveHour")).toBe(0);
-  });
-
-  it("is undefined without a start reading of the end reading's source", () => {
-    const run = aReadRun({
-      usageWindowsAtStart: [aReading(28, 5_000, { source: "usage-endpoint" })],
-    });
-
-    expect(windowChangeOf(run, "fiveHour")).toBeUndefined();
-  });
-
-  it("is undefined when the readings' source is unknown, as on runs kept before it was", () => {
-    const unknown = { source: undefined };
-    const run = aReadRun({
-      usageWindowsAtStart: [aReading(20, 5_000, unknown)],
-      usageWindowsAtEnd: aReading(30, 6_000, unknown),
-    });
-
-    expect(windowChangeOf(run, "fiveHour")).toBeUndefined();
-  });
-
-  it("is undefined when the window reset during the run", () => {
-    const run = aReadRun({
-      usageWindowsAtEnd: aReading(30, 6_000, { readAt: RESET }),
-    });
-
-    expect(windowChangeOf(run, "fiveHour")).toBeUndefined();
-    expect(windowChangeOf(run, "sevenDay")).toBe(0);
-  });
-
-  it("is undefined when the window's use went down", () => {
-    const run = aReadRun({ usageWindowsAtEnd: aReading(5, 6_000) });
-
-    expect(windowChangeOf(run, "fiveHour")).toBeUndefined();
-  });
-
-  it("is undefined when the Office's tokens went down or didn't move, as across a restart", () => {
-    expect(
-      windowChangeOf(aReadRun({ usageWindowsAtEnd: aReading(30, 100) }), "fiveHour"),
-    ).toBeUndefined();
-    expect(
-      windowChangeOf(aReadRun({ usageWindowsAtEnd: aReading(30, 5_000) }), "fiveHour"),
-    ).toBeUndefined();
-  });
 });
 
 describe("the latest done Tasks", () => {
@@ -225,34 +76,19 @@ describe("the latest done Tasks", () => {
   });
 });
 
-describe("the Office-wide ratios", () => {
-  it("gives window % per token over the runs whose readings count", () => {
-    const ratios = usageRatios(
-      [aReadRun(), aReadRun({ number: 2, tokens: tokens(500), usageWindowsAtEnd: undefined })],
-      [],
-    );
-
-    expect(ratios.percentUsedPerToken).toEqual({ fiveHour: 10 / 1_000, sevenDay: 0 });
-  });
-
-  it("gives dollars per token over the priced tokens only", () => {
-    const ratios = usageRatios(
-      [],
-      [
+describe("the Office-wide dollars per token", () => {
+  it("are taken over the priced tokens only", () => {
+    expect(
+      dollarsPerToken([
         { tokens: tokens(1_000, 0, 0, 50_000), dollars: 2 },
         { tokens: tokens(3_000), dollars: 1 },
         { tokens: tokens(9_000), dollars: undefined },
-      ],
-    );
-
-    expect(ratios.dollarsPerToken).toBe(3 / 4_000);
+      ]),
+    ).toBe(3 / 4_000);
   });
 
-  it("gives none without runs to learn from", () => {
-    expect(usageRatios([aStageRun()], [])).toEqual({
-      percentUsedPerToken: { fiveHour: undefined, sevenDay: undefined },
-      dollarsPerToken: undefined,
-    });
+  it("are none without priced tokens", () => {
+    expect(dollarsPerToken([{ tokens: tokens(9_000), dollars: undefined }])).toBeUndefined();
   });
 
   it("sums tokens by engine and model, leaving out runs kept before they were recorded", () => {

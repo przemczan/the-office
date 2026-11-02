@@ -84,8 +84,6 @@ describe("UsageHistory", () => {
       { tokens: inputTokens(7_000) },
     );
 
-    const ratios = await history.ratios([taskId]);
-
-    expect(ratios.dollarsPerToken).toBe(4 / 4_000);
+    expect(await history.dollarsPerToken([taskId])).toBe(4 / 4_000);
   });
 });

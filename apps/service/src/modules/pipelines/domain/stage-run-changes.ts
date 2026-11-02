@@ -31,8 +31,6 @@ export function startStageRun(
     headCommit: undefined,
     commandRuns: [],
     tokens: NO_STAGE_TOKENS,
-    usageWindowsAtStart: [],
-    usageWindowsAtEnd: undefined,
     decisions: [],
     heldBy: undefined,
     gateAction: undefined,

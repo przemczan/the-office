@@ -33,14 +33,19 @@ import { startTestApplication } from "../../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../../test/test-database.js";
 import { AppModule } from "../../../app.module.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
+import { UsageWindowSamples, UsageWindowState } from "../../engine/index.js";
 import type { StageRun } from "../domain/stage-run.js";
-import { USAGE_WINDOW_NAMES, windowChangeOf } from "../domain/usage-history.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StageInterpreter } from "./stage-interpreter.js";
 import { UsageHistory } from "./usage-history.js";
 
 /** What the Agent SDK's usage query answered, each time, before the adapter reads it. */
 const usageAnswers = vi.hoisted((): { readonly at: Date; readonly answer: unknown }[] => []);
+
+/** Each pair of successive readings of one source the Engine judged, and what it kept of it. */
+const judgedPairs = vi.hoisted(
+  (): { readonly earlier: unknown; readonly later: unknown; readonly sample: unknown }[] => [],
+);
 
 vi.mock("../../engine/adapters/claude-code/sdk-events.js", async (importOriginal) => {
   const original: { usageWindows: (answer: unknown) => unknown } = await importOriginal();
@@ -59,11 +64,31 @@ vi.mock("../../engine/adapters/claude-code/sdk-events.js", async (importOriginal
   };
 });
 
+vi.mock("../../engine/domain/usage-window-samples.js", async (importOriginal) => {
+  const original: { sampleBetween: (earlier: unknown, later: unknown) => unknown } =
+    await importOriginal();
+  return {
+    ...original,
+    sampleBetween: (earlier: unknown, later: unknown) => {
+      const sample = original.sampleBetween(earlier, later);
+      judgedPairs.push({ earlier, later, sample });
+      return sample;
+    },
+  };
+});
+
+/** A pair the Engine kept, as the mock above records it. */
+interface KeptPair {
+  readonly tokens: number;
+  readonly fiveHour: number | undefined;
+  readonly sevenDay: number | undefined;
+}
+
 /**
- * Task 37's check on the Test Project (docs/tasks/37-usage-estimates.md, step 7): two one-line
- * Tasks on Quick fix edited down to Implement, on the Agent SDK engine and Haiku. The first runs to
- * Done; its Stage run's readings, the usage query's raw answers and the history's samples show how
- * fine `utilization` is. Then the Claude Code engines' 5-hour cap is lowered below the use, so the
+ * Task 37's check on the Test Project (docs/tasks/37-usage-estimates.md, steps 7 to 7c): two
+ * one-line Tasks on Quick fix edited down to Implement, on the Agent SDK engine and Haiku. The first
+ * runs to Done; the usage query's raw answers and the pairs of readings the Engine judged show how
+ * the Office-wide window ratio is learnt. Then the Claude Code engines' 5-hour cap is lowered below the use, so the
  * second Task's Start waits in the queue with the cap's words, and raised again, which releases it
  * to run to Done. No Planner session runs: the user writes each Plan. Nothing is published: the
  * Pipeline has no Publish, and the base is a local branch with no upstream. Live, so it runs only
@@ -96,7 +121,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
   "Task 37's check on the Test Project",
   () => {
     it(
-      "keeps a Stage run's readings, and holds a Start on a lowered 5-hour cap until it is raised",
+      "keeps pairs of readings for the window ratio, and holds a Start on a lowered 5-hour cap until it is raised",
       async () => {
         const testProject = TEST_PROJECT ?? "";
         const scratch = await mkdtemp(join(tmpdir(), "office-usage-check-"));
@@ -115,6 +140,12 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             ...usageAnswers.map(
               ({ at, answer }) => `  ${at.toISOString()} ${JSON.stringify(answer)}`,
             ),
+            "Pairs judged so far (earlier, later, kept):",
+            ...judgedPairs.flatMap(({ earlier, later, sample }) => [
+              `  ${JSON.stringify(earlier)}`,
+              `    ${JSON.stringify(later)}`,
+              `    ${JSON.stringify(sample ?? null)}`,
+            ]),
           );
         };
         const base = `office-check-37-${randomBytes(4).toString("hex")}`;
@@ -142,6 +173,8 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           const { api } = checkApi(url);
           const runs = app.get(StageRunRepository, { strict: false });
           const history = app.get(UsageHistory, { strict: false });
+          const windows = app.get(UsageWindowState, { strict: false });
+          const windowSamples = app.get(UsageWindowSamples, { strict: false });
           const interpreter = app.get(StageInterpreter, { strict: false });
           await hireOnHaiku(api, [
             ["planner", "Jan"],
@@ -165,13 +198,13 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           await note(...firstRuns.flatMap(runLines));
           await noteUsageAnswers();
 
-          const lastReading = firstRuns.at(-1)?.usageWindowsAtEnd;
-          if (!lastReading) throw new Error("The first run kept no reading at its end.");
+          const lastReading = windows.of("claude-code");
+          if (!lastReading) throw new Error("The first run read no windows.");
           const used = lastReading.fiveHour.percentUsed;
           const resetsAt = lastReading.fiveHour.resetsAt;
           const cap = Math.ceil(used) - 1;
           await note(
-            `5-hour window at the first run's end: ${used}% used, resets ${resetsAt?.toISOString() ?? "never read"}; cap to set ${cap}%`,
+            `5-hour window as last read (${lastReading.source ?? "unknown"}): ${used}% used, resets ${resetsAt?.toISOString() ?? "never read"}; cap to set ${cap}%`,
           );
           if (cap < 1)
             throw new Error(`The 5-hour window reads ${used}%: no cap of 1% or more is under it.`);
@@ -215,10 +248,16 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           await note(...(await runs.list(second)).flatMap(runLines));
           await noteUsageAnswers();
           const usages = await history.of([first, second]);
+          const kept = judgedPairs.flatMap(({ sample }) =>
+            sample === undefined ? [] : [sample as KeptPair],
+          );
           await note(
             "History of both Tasks:",
             ...[...usages].map(([stageKey, usage]) => `  ${stageKey}: ${JSON.stringify(usage)}`),
+            `Pairs judged ${judgedPairs.length}, kept ${kept.length}; this check's ratio: ${JSON.stringify(ratiosOf(kept))}`,
+            `The Office's ratio (every kept pair in the database): ${JSON.stringify(await windowSamples.ratios("claude-code"))}`,
           );
+          expect(kept.length).toBeGreaterThan(0);
         } finally {
           await app?.close();
           for (const taskId of taskIds)
@@ -281,19 +320,22 @@ async function untilDone(api: Api, taskId: string): Promise<Task> {
   return task;
 }
 
-/** A run's readings, each with its source, and the change each window gives between a pair of one source. */
+/** A run's engine, model and tokens. */
 function runLines(run: StageRun): string[] {
-  const pairedSource = run.usageWindowsAtEnd?.source ?? "unknown";
   return [
     `Run ${run.number} of ${run.stageKey} on ${run.engine ?? "no engine"} / ${run.model ?? "no model"}, tokens ${JSON.stringify(run.tokens)}`,
-    ...run.usageWindowsAtStart.map(
-      (reading) => `  at start (${reading.source ?? "unknown"}): ${JSON.stringify(reading)}`,
-    ),
-    `  at end (${pairedSource}): ${JSON.stringify(run.usageWindowsAtEnd ?? null)}`,
-    `  change between the ${pairedSource} pair: ${USAGE_WINDOW_NAMES.map(
-      (window) => `${window} ${windowChangeOf(run, window) ?? "none"}`,
-    ).join(", ")}`,
   ];
+}
+
+/** Each window's changes summed over the tokens of the pairs that give it, as the Engine pools them. */
+function ratiosOf(pairs: readonly KeptPair[]): Record<"fiveHour" | "sevenDay", number | null> {
+  const ratioOf = (window: "fiveHour" | "sevenDay"): number | null => {
+    const giving = pairs.filter((pair) => pair[window] !== undefined);
+    const tokens = giving.reduce((total, pair) => total + pair.tokens, 0);
+    const change = giving.reduce((total, pair) => total + (pair[window] ?? 0), 0);
+    return tokens === 0 ? null : change / tokens;
+  };
+  return { fiveHour: ratioOf("fiveHour"), sevenDay: ratioOf("sevenDay") };
 }
 
 /** The settings with the Claude Code engines' 5-hour Window cap at `cap`. */

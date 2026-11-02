@@ -1,5 +1,11 @@
 import { Injectable } from "@nestjs/common";
-import { ENGINES, EngineSessions, engineIdOf, type EngineId } from "../../engine/index.js";
+import {
+  ENGINE_IDS,
+  ENGINES,
+  EngineSessions,
+  engineIdOf,
+  type EngineId,
+} from "../../engine/index.js";
 import type { Task } from "../domain/task.js";
 import {
   HISTORY_WINS_AT,
@@ -7,13 +13,13 @@ import {
   plannerUsage,
   stageEngineAndModel,
   tasksInHistory,
+  type EngineWindowRatios,
   type EstimatedStage,
-  type ReadsUsageWindows,
   type StageUsages,
   type UsageEstimate,
   type UsageMeasure,
-  type UsageRatios,
 } from "../domain/usage-estimate.js";
+import { AccountWindowRatios } from "../ports/account-window-ratios.js";
 import { KnownPeople } from "../ports/known-people.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
 import { ModelPrices } from "../ports/model-prices.js";
@@ -41,6 +47,7 @@ export class UsageEstimates {
     private readonly prices: ModelPrices,
     private readonly engines: EngineSessions,
     private readonly settings: WorkSettings,
+    private readonly windowRatios: AccountWindowRatios,
   ) {}
 
   /** The Task's, its done Tasks found among `everyTask`; undefined with no measure ticked. */
@@ -71,14 +78,18 @@ export class UsageEstimates {
     return (await this.settings.usageSettings()).measures;
   }
 
-  /** Estimates Tasks among `everyTask`, reading each Project and Pipeline's history once. */
+  /**
+   * Estimates Tasks among `everyTask`, reading each Project and Pipeline's history, and the
+   * Office-wide ratios, once.
+   */
   private estimating(
     everyTask: readonly Task[],
     measures: readonly UsageMeasure[],
   ): (task: Task) => Promise<UsageEstimate> {
     const done = everyTask.filter(({ state }) => state === "done");
     const histories = new Map<string, Promise<StageUsages>>();
-    let ratios: Promise<UsageRatios> | undefined;
+    let windowRatios: Promise<EngineWindowRatios> | undefined;
+    let dollarsPerToken: Promise<number | undefined> | undefined;
     const historyOf = ({ projectId, pipelineId }: Task): Promise<StageUsages> => {
       const key = JSON.stringify([projectId, pipelineId]);
       const ids = done
@@ -88,23 +99,25 @@ export class UsageEstimates {
       histories.set(key, history);
       return history;
     };
-    const officeRatios = (): Promise<UsageRatios> =>
-      (ratios ??= this.history.ratios(done.map(({ id }) => id)));
+    const officeWindowRatios = (): Promise<EngineWindowRatios> =>
+      (windowRatios ??= this.engineWindowRatios());
+    const officeDollarsPerToken = (): Promise<number | undefined> =>
+      (dollarsPerToken ??= this.history.dollarsPerToken(done.map(({ id }) => id)));
     return async (task) => {
       const stages = await this.estimatedStages(task.pipelineId);
       const history = await historyOf(task);
       const tasks = tasksInHistory(stages, history);
       if (tasks >= HISTORY_WINS_AT) {
         const costs = await this.stageCosts(stages, history);
-        const engines = historyUsage(stages, history, costs, this.readsUsageWindows);
+        const engines = historyUsage(stages, history, costs, await officeWindowRatios());
         return { basis: { source: "history", tasks }, engines, measures };
       }
       if (task.estimatedTokens !== undefined && stages.length > 0) {
         const engines = plannerUsage(
           stages,
           task.estimatedTokens,
-          await officeRatios(),
-          this.readsUsageWindows,
+          await officeWindowRatios(),
+          await officeDollarsPerToken(),
         );
         return { basis: { source: "planner" }, engines, measures };
       }
@@ -141,9 +154,22 @@ export class UsageEstimates {
     return new Map(costs);
   }
 
-  private readonly readsUsageWindows: ReadsUsageWindows = (engineId) =>
-    ENGINES.some(
+  /** The window ratios of each engine id one of whose engines reads the account's windows. */
+  private async engineWindowRatios(): Promise<EngineWindowRatios> {
+    const engineIds = ENGINE_IDS.filter((engineId) => this.readsUsageWindows(engineId));
+    return new Map(
+      await Promise.all(
+        engineIds.map(
+          async (engineId) => [engineId, await this.windowRatios.ratios(engineId)] as const,
+        ),
+      ),
+    );
+  }
+
+  private readsUsageWindows(engineId: EngineId): boolean {
+    return ENGINES.some(
       (engine) =>
         engineIdOf(engine) === engineId && this.engines.capabilitiesOf(engine).usageWindows,
     );
+  }
 }

@@ -1,14 +1,13 @@
 import { Injectable } from "@nestjs/common";
 import { ENGINES, engineIdOf, ModelPrices, type Engine } from "../../engine/index.js";
 import {
+  dollarsPerToken,
   latestTasksRuns,
   stageUsages,
   tokensByModel,
-  usageRatios,
   type ModelTokens,
   type PricedTokens,
   type StageUsages,
-  type UsageRatios,
 } from "../domain/usage-history.js";
 import type { StageRun } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
@@ -24,19 +23,18 @@ export class UsageHistory {
     private readonly prices: ModelPrices,
   ) {}
 
-  /** Each Stage's median tokens and window changes over the latest of `doneTaskIds`. */
+  /** Each Stage's median tokens over the latest of `doneTaskIds`. */
   async of(doneTaskIds: readonly string[]): Promise<StageUsages> {
     return stageUsages(await this.latestRuns(doneTaskIds));
   }
 
   /**
-   * Window % and dollars per token over the latest of `doneTaskIds`: the Office's done Tasks, for
-   * ratios that hold Office-wide. A run is priced by its own engine and model.
+   * Dollars per counted token over the latest of `doneTaskIds`: the Office's done Tasks, for a
+   * ratio that holds Office-wide. A run is priced by its own engine and model.
    */
-  async ratios(doneTaskIds: readonly string[]): Promise<UsageRatios> {
+  async dollarsPerToken(doneTaskIds: readonly string[]): Promise<number | undefined> {
     const runs = await this.latestRuns(doneTaskIds);
-    const priced = await Promise.all(tokensByModel(runs).map((each) => this.priced(each)));
-    return usageRatios(runs, priced);
+    return dollarsPerToken(await Promise.all(tokensByModel(runs).map((each) => this.priced(each))));
   }
 
   private async latestRuns(doneTaskIds: readonly string[]): Promise<readonly StageRun[]> {

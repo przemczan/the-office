@@ -30,6 +30,7 @@ import { AgentEngines } from "./agent-engines.js";
 import { DayUsage } from "./day-usage.js";
 import { EngineCallSpans, SessionCosts, type SessionTelemetry } from "./engine-call-spans.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
+import { UsageWindowSamples } from "./usage-window-samples.js";
 import { UsageWindowState, type UsageWindowReading } from "./usage-window-state.js";
 
 /** What a caller runs a session with: the Office tools by name, from the registry. */
@@ -52,7 +53,8 @@ export interface SessionStart {
 /**
  * Runs sessions on the engine each names for the other modules, and watches each: a span per engine call
  * with its tokens and cost, the usage windows read on each rate-limit signal and when a caller
- * asks, the Office's tokens so far on each engine, each day's use, and an "engine down" event when
+ * asks, paired Office-wide into what the windows move by per token, the Office's tokens so far on
+ * each engine, each day's use, and an "engine down" event when
  * the engine can't start a session or stops running one (spec §5.4).
  */
 @Injectable()
@@ -69,6 +71,7 @@ export class EngineSessions {
     private readonly usageWindows: UsageWindowState,
     private readonly officeTools: OfficeToolRegistry,
     private readonly dayUsage: DayUsage,
+    private readonly windowSamples: UsageWindowSamples,
   ) {}
 
   capabilitiesOf(engine: Engine): EngineCapabilities {
@@ -165,7 +168,17 @@ export class EngineSessions {
       officeTokensSoFar: this.officeTokensSoFar.get(engineIdOf(engine)) ?? NO_TOKENS,
     };
     await this.usageWindows.update(reading);
+    await this.keepSample(engine, reading);
     return reading;
+  }
+
+  /** A failure to keep a pair of readings is logged: the reading stands. */
+  private async keepSample(engine: Engine, reading: UsageWindowReading): Promise<void> {
+    try {
+      await this.windowSamples.add(engineIdOf(engine), reading);
+    } catch (error) {
+      this.logger.error(`Keeping a pair of usage readings failed: ${messageOf(error)}`);
+    }
   }
 
   /** A failure to keep the day's use is logged: the session runs on, and its turn is reported. */

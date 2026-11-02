@@ -2,14 +2,17 @@ import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { Module, type DynamicModule } from "@nestjs/common";
 import type { ScriptedEngine } from "./adapters/scripted/scripted-engine.js";
 import { PostgresDayUsage } from "./adapters/postgres/postgres-day-usage.js";
+import { PostgresUsageWindowSamples } from "./adapters/postgres/postgres-usage-window-samples.js";
 import { AgentEngines } from "./application/agent-engines.js";
 import { DayUsage } from "./application/day-usage.js";
 import { EngineSessions } from "./application/engine-sessions.js";
 import { OfficeToolRegistry } from "./application/office-tool-registry.js";
+import { UsageWindowSamples } from "./application/usage-window-samples.js";
 import { UsageWindowState } from "./application/usage-window-state.js";
 import type { Engine } from "./domain/engines.js";
 import { EngineSettingsModule } from "./engine-settings.module.js";
 import { DayUsageRepository } from "./ports/day-usage-repository.js";
+import { UsageWindowSampleRepository } from "./ports/usage-window-sample-repository.js";
 import { AgentEngine } from "./ports/agent-engine.js";
 
 /**
@@ -32,12 +35,15 @@ export class ScriptedEngineModule {
         UsageWindowState,
         { provide: DayUsageRepository, useClass: PostgresDayUsage },
         DayUsage,
+        { provide: UsageWindowSampleRepository, useClass: PostgresUsageWindowSamples },
+        UsageWindowSamples,
         EngineSessions,
       ],
       exports: [
         EngineSessions,
         OfficeToolRegistry,
         UsageWindowState,
+        UsageWindowSamples,
         DayUsage,
         EngineSettingsModule,
       ],

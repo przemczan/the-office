@@ -9,7 +9,7 @@
 - A Publish Stage's `publishTarget` absent means the Project's publishing mode: Stages stored before it was added carry none, so never require it.
 - An Agent Stage's `permissions` narrow its Role card's profile through People's `narrowedPermissionProfile` (in `AgentStageRunner.open` and `sessionAhead`, the Brief's commands too); absent keeps the card's, and Stages stored before carry none. A setting wider than the card is flagged in the library and refused for a Task (`RoleFillings.permissionProblems`, not `staffingProblems`, which holds Tasks); at run time the card's applies. MCP tools the Role's servers don't have are ignored.
 - The built-ins live twice: `builtInPipelines` and the `pipelines` migration's seed, which `pipeline-library.test.ts` compares; a change to a built-in needs a migration too. Once seeded, the table is the library, and the user's edits of a built-in stand.
-- `UsageHistoryModule` holds `StageRunRepository` and `UsageHistory` apart, as `PipelineLibraryModule` holds the library, so Work can import it: it must never depend on a port bound to Work. Work names the done Tasks (`UsageHistory.of(doneTaskIds)`, `ratios(doneTaskIds)`), as Pipelines keeps no Project or done time; the latest 20 by their last run's end are kept.
+- `UsageHistoryModule` holds `StageRunRepository` and `UsageHistory` apart, as `PipelineLibraryModule` holds the library, so Work can import it: it must never depend on a port bound to Work. Work names the done Tasks (`UsageHistory.of(doneTaskIds)`, each Stage's median tokens; `dollarsPerToken(doneTaskIds)`; window % is the Engine's, not kept per run), as Pipelines keeps no Project or done time; the latest 20 by their last run's end are kept.
 - The service's tests share one database across files run in parallel: a test makes Pipelines of its own under a unique name and never changes or removes a built-in.
 - `EventBus.publish` waits for its handlers, so the interpreter walks in the background (`walkInBackground`); awaiting the walk would hold Start's request for the whole Pipeline.
 - An edit of a Task's Stages and the walk's start of each run take one per-Task lock (`TaskStagesService.holding`), and the walk reads the Stages afresh each move: start a run anywhere else and an edit can change the Stage under it.
@@ -26,7 +26,7 @@
 
 ## Public entry (`index.ts`)
 
-AlarmResumes, PipelineLibrary, TaskStagesService, UsageHistory, StageUsage, StageUsages, UsageRatios, UsageWindowName, WindowChange, DefinitionOfDoneNotMet, GateContinued, GateDropped, GateReached, NoRetriesLeft, PipelineCompleted, SentBackFromGate, StageRunEnded, StageRunStarted, WentBackToStage, TaskStagesEdited, TaskStagesMade, PipelineLibraryModule, PipelinesModule, UsageHistoryModule, StageDecisions, TaskCommands, TaskUsage, TaskGit
+AlarmResumes, PipelineLibrary, TaskStagesService, UsageHistory, StageUsage, StageUsages, DefinitionOfDoneNotMet, GateContinued, GateDropped, GateReached, NoRetriesLeft, PipelineCompleted, SentBackFromGate, StageRunEnded, StageRunStarted, WentBackToStage, TaskStagesEdited, TaskStagesMade, PipelineLibraryModule, PipelinesModule, UsageHistoryModule, StageDecisions, TaskCommands, TaskUsage, TaskGit
 
 ## Domain events
 
@@ -95,7 +95,6 @@ AlarmResumes, PipelineLibrary, TaskStagesService, UsageHistory, StageUsage, Stag
 - `postgres-task-stages-repository.ts`: PostgresTaskStagesRepository
 - `staffing-holds.schema.ts`: staffingHolds
 - `stage-runs.schema.ts`: stageRuns
-- `stored-usage-windows.ts`: StoredUsageWindowReading, storedUsageWindowReading, usageWindowReadingOf
 - `task-stages.schema.ts`: taskStages
 
 ### adapters/websocket/
@@ -153,7 +152,7 @@ AlarmResumes, PipelineLibrary, TaskStagesService, UsageHistory, StageUsage, Stag
 - `stage-run-changes.ts`: NewStageRun, startStageRun, endStageRun
 - `stage-run-events.ts`: StageRunStarted, StageRunEnded, StopHeldAsPause, StageSkipped, BudgetReached, WentBackToStage, NoRetriesLeft, DefinitionOfDoneNotMet, GateReached, GateContinued, SentBackFromGate, GateDropped, PipelineCompleted
 - `stage-run.fixtures.ts`: aStageRun
-- `stage-run.ts`: StageRecommendation, StageDecision, StageOutcome, StageInterruption, AskedInterruption, BaseMoved, BudgetReached, StageSessionMove, StageTokens, UsageWindow, ReadingSource, UsageWindowReading, NO_STAGE_TOKENS, addTokens, StageOutcomeStatus, CarriedFailure, GateAction, SentBack, StageDecisionKind, WalkAnswer, StageRunDecision, AgentRunDecision, WalkRunDecision, WalkDecisionKind, StageRun
+- `stage-run.ts`: StageRecommendation, StageDecision, StageOutcome, StageInterruption, AskedInterruption, BaseMoved, BudgetReached, StageSessionMove, StageTokens, NO_STAGE_TOKENS, addTokens, StageOutcomeStatus, CarriedFailure, GateAction, SentBack, StageDecisionKind, WalkAnswer, StageRunDecision, AgentRunDecision, WalkRunDecision, WalkDecisionKind, StageRun
 - `stage-staffing.ts`: RoleFilling, staffingProblems
 - `stage.fixtures.ts`: agentStage, scriptStage, gate
 - `stage.ts`: Stage, StageKind, STAGE_KIND_NAMES, ScriptStageCommand, PublishTarget, StageSession, Effort, OnFailure, AgentStage, ScriptStage, Gate
@@ -161,7 +160,7 @@ AlarmResumes, PipelineLibrary, TaskStagesService, UsageHistory, StageUsage, Stag
 - `task-stages-events.ts`: TaskStagesMade, TaskStagesEdited, TaskStagesReset
 - `task-stages.ts`: TaskStages, TaskTrace, makeTaskStages, followsPipeline, lockedStageCount, firstStageToWork, editProblems, editTaskStages
 - `test-results.ts`: TestResultState, TestResult, latestTestResults
-- `usage-history.ts`: HISTORY_TASKS, UsageWindowName, USAGE_WINDOW_NAMES, WindowChange, StageUsage, StageUsages, PricedTokens, ModelTokens, UsageRatios, countedTokens, latestTasksRuns, stageUsages, tokensByModel, usageRatios, windowChangeOf
+- `usage-history.ts`: HISTORY_TASKS, StageUsage, StageUsages, PricedTokens, ModelTokens, countedTokens, latestTasksRuns, stageUsages, tokensByModel, dollarsPerToken
 - `walk-decisions.ts`: DecisionAnswer, WalkDecision, walkDecision, walkAnswerOf, asksTheCtoFirst, agentDecision, AcceptedIssue, acceptedIssues
 - Tests: agent-stage-brief.test.ts, built-in-pipelines.test.ts, followed-hard-switches.test.ts, gate.test.ts, library-pipeline.test.ts, pipeline-walk.test.ts, pipeline.test.ts, publish.test.ts, script-stage-outcome.test.ts, stage-budget.test.ts, stage-commit.test.ts, stage-progress.test.ts, stage-result.test.ts, stage-staffing.test.ts, task-stages.test.ts, test-results.test.ts, usage-history.test.ts, walk-decisions.test.ts
 

@@ -6,7 +6,6 @@ import type {
   StageSessionMove,
   StageTokens,
   AskedInterruption,
-  UsageWindowReading,
 } from "../domain/stage-run.js";
 
 /** The Stage Thread a run works in, how its session began, and what the session runs on. */
@@ -26,15 +25,6 @@ export abstract class StageRunRepository {
   abstract saveNew(run: StageRun): Promise<boolean>;
 
   abstract saveThread(runId: string, thread: StageRunThread): Promise<void>;
-
-  /** Saves the readings taken after the run's session opened, replacing those saved before. */
-  abstract saveUsageWindowsAtStart(
-    runId: string,
-    readings: readonly UsageWindowReading[],
-  ): Promise<void>;
-
-  /** Saves the reading taken after the run's last turn. */
-  abstract saveUsageWindowsAtEnd(runId: string, reading: UsageWindowReading): Promise<void>;
 
   /** Saves the commit The Office left the Task's branch at after the run. */
   abstract saveHeadCommit(runId: string, headCommit: string): Promise<void>;

@@ -16,9 +16,10 @@ import {
   countedTokens,
   type StageTokens,
   type StageUsages,
-  type UsageRatios,
+  type WindowRatios,
 } from "../domain/usage-estimate.js";
 import { DEFAULT_USAGE_SETTINGS, type UsageSettings } from "../domain/usage-settings.js";
+import { AccountWindowRatios } from "./account-window-ratios.js";
 import { AccountWindows } from "./account-windows.js";
 import { DayUsage, type ModelDayUsage } from "./day-usage.js";
 import { FireAlarmRepository } from "./fire-alarm-repository.js";
@@ -284,7 +285,8 @@ export class ProposalDraftsForTests extends ProposalDrafts {
 @Injectable()
 export class UsageHistoryForTests extends UsageHistory {
   readonly stageUsages = new Map<string, StageUsages>();
-  usageRatios: UsageRatios = NO_USAGE_RATIOS;
+  /** Office-wide, as the test gives it; undefined is "no cost". */
+  officeDollarsPerToken: number | undefined;
 
   /** The usages of the first named Task a test gave some for. */
   async of(doneTaskIds: readonly string[]): Promise<StageUsages> {
@@ -292,15 +294,10 @@ export class UsageHistoryForTests extends UsageHistory {
     return (given === undefined ? undefined : this.stageUsages.get(given)) ?? new Map();
   }
 
-  async ratios(): Promise<UsageRatios> {
-    return this.usageRatios;
+  async dollarsPerToken(): Promise<number | undefined> {
+    return this.officeDollarsPerToken;
   }
 }
-
-const NO_USAGE_RATIOS: UsageRatios = {
-  percentUsedPerToken: { fiveHour: undefined, sevenDay: undefined },
-  dollarsPerToken: undefined,
-};
 
 /** Every model the test prices costs its dollars per counted token; the rest have no price. */
 @Injectable()
@@ -323,6 +320,19 @@ export class AccountWindowsForTests extends AccountWindows {
 
   of(engineId: EngineId): AccountWindowsReading | undefined {
     return hasUsageWindows(engineId) ? this.reading : undefined;
+  }
+}
+
+/**
+ * The window ratios of the test's own, so no test pools the pairs every other file's sessions'
+ * readings keep: none unless a test gives some, which count for every engine id with windows.
+ */
+@Injectable()
+export class AccountWindowRatiosForTests extends AccountWindowRatios {
+  windowRatios: WindowRatios = { fiveHour: undefined, sevenDay: undefined };
+
+  async ratios(): Promise<WindowRatios> {
+    return this.windowRatios;
   }
 }
 
@@ -353,6 +363,7 @@ const PORTS = [
   UsageHistoryForTests,
   ModelPricesForTests,
   AccountWindowsForTests,
+  AccountWindowRatiosForTests,
   DayUsageForTests,
   TaskTokensForTests,
   KnownProjectsForTests,

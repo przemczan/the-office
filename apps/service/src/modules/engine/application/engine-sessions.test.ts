@@ -22,6 +22,7 @@ import {
   type EngineCapabilities,
 } from "../ports/agent-engine.js";
 import { DayUsageForTests } from "../ports/day-usage-repository.fixtures.js";
+import { UsageWindowSamplesForTests } from "../ports/usage-window-sample-repository.fixtures.js";
 import type { EngineSession } from "../ports/engine-session.js";
 import type { SessionEvent, TurnEndedEvent } from "../ports/session-events.js";
 import type { OfficeTool } from "../ports/office-tool.js";
@@ -29,6 +30,7 @@ import { AgentEngines } from "./agent-engines.js";
 import { DayUsage } from "./day-usage.js";
 import { EngineSessions, type SessionSettings } from "./engine-sessions.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
+import { UsageWindowSamples } from "./usage-window-samples.js";
 import { UsageWindowState } from "./usage-window-state.js";
 
 class CollectingMetricReader extends MetricReader {
@@ -128,6 +130,7 @@ function setUpOn(engines: Readonly<Record<Engine, ScriptedEngine>>) {
   officeTools.register(NOTE_TOOL);
   const schedule = new ManualSchedule();
   const dayUsage = new DayUsage(new DayUsageForTests(), schedule);
+  const windowSamples = new UsageWindowSamples(new UsageWindowSamplesForTests());
   const sessions = new EngineSessions(
     new AgentEngines(engines),
     telemetry,
@@ -135,8 +138,9 @@ function setUpOn(engines: Readonly<Record<Engine, ScriptedEngine>>) {
     usageWindows,
     officeTools,
     dayUsage,
+    windowSamples,
   );
-  return { sessions, spans, published, usageWindows, dayUsage, schedule };
+  return { sessions, spans, published, usageWindows, dayUsage, schedule, windowSamples };
 }
 
 /** Reads a session's events until its `count`th turn has ended. */
@@ -534,6 +538,49 @@ describe("EngineSessions' readings of the usage windows", () => {
 
     await expect(sessions.readUsageWindows("agent-sdk", session)).resolves.toBe(undefined);
     expect(usageWindows.current).toBe(undefined);
+    await session.end();
+  });
+
+  it("pairs successive readings of one source into window % per counted token", async () => {
+    const resetsAt = new Date(Date.now() + 60 * 60_000);
+    const earlier = {
+      ...WINDOWS,
+      fiveHour: { percentUsed: 12, resetsAt },
+      sevenDay: { percentUsed: 31, resetsAt },
+    };
+    const later = {
+      ...WINDOWS,
+      fiveHour: { percentUsed: 13, resetsAt },
+      sevenDay: { percentUsed: 33, resetsAt },
+    };
+    const { sessions, windowSamples } = setUp([
+      [
+        { step: "start", brief: { id: "brief", text: "Begin." } },
+        turnEnded("brief", 0.01),
+        { step: "read-usage-windows", windows: earlier },
+        { step: "send", message: { id: "next", text: "Go on." }, priority: "next" },
+        turnEnded("next", 0.03),
+        { step: "read-usage-windows", windows: later },
+        { step: "end" },
+      ],
+    ]);
+    const session = await sessions.start({
+      id: "s-1",
+      settings: SETTINGS,
+      brief: message("Begin."),
+    });
+    await turns(session, 1);
+    await sessions.readUsageWindows("agent-sdk", session);
+    session.send(message("Go on."), "next");
+    await turns(session, 1);
+
+    await sessions.readUsageWindows("agent-sdk", session);
+
+    // One turn of 4 + 12 + 200 counted tokens between the readings.
+    await expect(windowSamples.ratios("claude-code")).resolves.toEqual({
+      fiveHour: 1 / 216,
+      sevenDay: 2 / 216,
+    });
     await session.end();
   });
 

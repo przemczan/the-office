@@ -98,30 +98,6 @@ export interface StageTokens {
   readonly cacheCreation: number;
 }
 
-/** One of the account's usage windows as read (spec §5.4). */
-export interface UsageWindow {
-  /** From 0 to 100. */
-  readonly percentUsed: number;
-  /** Undefined while the window has not begun, which counts as unused: its use is then 0. */
-  readonly resetsAt: Date | undefined;
-}
-
-/** Where a reading's numbers came from (the glossary's Reading source). */
-export type ReadingSource = "usage-endpoint" | "rate-limit-headers";
-
-/**
- * The 5-hour and 7-day windows as read around a run, each judged on its own, with the Office's
- * tokens so far on the engines with windows, so the run's share of a window's change can be told.
- */
-export interface UsageWindowReading {
-  readonly fiveHour: UsageWindow;
-  readonly sevenDay: UsageWindow;
-  /** Undefined when unknown, as on a run kept before readings had one. */
-  readonly source: ReadingSource | undefined;
-  readonly readAt: Date;
-  readonly officeTokensSoFar: StageTokens;
-}
-
 export const NO_STAGE_TOKENS: StageTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
 
 export function addTokens(total: StageTokens, more: StageTokens): StageTokens {
@@ -268,14 +244,6 @@ export interface StageRun {
   readonly model: string | undefined;
   /** Its engine calls' tokens; none for a run that made none. */
   readonly tokens: StageTokens;
-  /**
-   * The usage windows as read after the run's session opened, one reading of each source it gave
-   * in the order read, so the end reading has one of its own source to be compared with, and after
-   * its last turn. None on an engine without windows, when a read failed, and for runs kept before
-   * they were read.
-   */
-  readonly usageWindowsAtStart: readonly UsageWindowReading[];
-  readonly usageWindowsAtEnd: UsageWindowReading | undefined;
   /** The Decisions the walk opened on the run, at most one of each kind. */
   readonly decisions: readonly StageRunDecision[];
   /**
