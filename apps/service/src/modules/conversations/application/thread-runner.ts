@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, Logger, type OnModuleDestroy } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { EngineSessions } from "../../engine/index.js";
+import { EngineSessions, engineModelOf } from "../../engine/index.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
 import { mcpToolSettingsFor, RoleCards, type SessionRole } from "../../people/index.js";
 import { ApprovalHolds } from "./approval-holds.js";
@@ -453,10 +453,9 @@ export class ThreadRunner implements OnModuleDestroy {
     place: SessionPlace,
   ): SessionSettings {
     return {
-      engine,
+      ...engineModelOf(engine, card.model),
       folder: place.folder,
       environment: place.environment,
-      model: card.model,
       effort: card.effort,
       instructions: place.instructions(card),
       skills: skills && {

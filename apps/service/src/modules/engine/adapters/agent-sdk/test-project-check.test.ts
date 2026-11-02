@@ -105,7 +105,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
         const session = await sessions.start({
           id: sessionId,
           settings: {
-            engine: "agent-sdk",
+            engineId: "claude-code",
             folder: worktree,
             environment: Object.fromEntries(
               Object.entries(process.env).filter(

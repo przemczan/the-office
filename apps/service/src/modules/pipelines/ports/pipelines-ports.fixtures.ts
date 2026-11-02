@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable, Module, type DynamicModule, type ModuleMetadata } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { ProposalAppliers } from "../../conversations/index.js";
-import { EngineSessions } from "../../engine/index.js";
+import { EngineSessions, FIRST_CLAUDE_CODE_ENGINE } from "../../engine/index.js";
 import { TaskPaused, TaskResumed, TaskStateChanged } from "../../work/index.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { ProjectDefaults, type ProjectDefault } from "./project-defaults.js";
@@ -269,7 +269,7 @@ export class StageThreadsForTests extends StageThreads {
     const session = await this.sessions.start({
       id: randomUUID(),
       settings: {
-        engine,
+        engineId: FIRST_CLAUDE_CODE_ENGINE.id,
         folder: request.folder,
         environment: request.environment,
         model,

@@ -14,11 +14,16 @@ import { ScriptedEngine } from "../adapters/scripted/scripted-engine.js";
 import type { SessionScript } from "../adapters/scripted/session-script.js";
 import { EngineDown, UsageWindowsChanged, UsageWindowsRead } from "../domain/engine-events.js";
 import { DEFAULT_ENGINE_SETTINGS } from "../domain/engine-settings.js";
-import { FIRST_CLAUDE_CODE_ENGINE, type RoleEngine } from "../domain/engines.js";
+import {
+  FIRST_CLAUDE_CODE_ENGINE,
+  type ApiEngine,
+  type ClaudeCodeEngine,
+} from "../domain/engines.js";
 import { EngineSettingsForTests } from "../ports/engine-settings-repository.fixtures.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import {
   CapabilityMissing,
+  EngineNotListed,
   ModelNotOffered,
   SessionSkillsDiffer,
   type EngineCapabilities,
@@ -28,7 +33,7 @@ import { UsageWindowSamplesForTests } from "../ports/usage-window-sample-reposit
 import type { EngineSession } from "../ports/engine-session.js";
 import type { SessionEvent, TurnEndedEvent } from "../ports/session-events.js";
 import type { OfficeTool } from "../ports/office-tool.js";
-import { AgentEngines } from "./agent-engines.js";
+import { AgentEngines, type EngineAdapter } from "./agent-engines.js";
 import { EngineModels } from "./engine-models.js";
 import { DayUsage } from "./day-usage.js";
 import { EngineSessions, type SessionSettings } from "./engine-sessions.js";
@@ -53,8 +58,26 @@ const NOTE_TOOL: OfficeTool = {
   run: () => Promise.resolve({ text: "Noted.", isError: false }),
 };
 
+/** A second Claude Code engine, on the `-p` fallback. */
+const FALLBACK: ClaudeCodeEngine = {
+  ...FIRST_CLAUDE_CODE_ENGINE,
+  id: "fallback",
+  name: "Fallback",
+  claudeCodeP: true,
+};
+
+const LAB: ApiEngine = {
+  id: "lab",
+  name: "Lab",
+  kind: "openai-compatible-api",
+  defaultModel: "coder",
+  baseUrl: "http://localhost:11434/v1",
+  key: "",
+  models: [{ id: "coder", contextWindow: 32_000 }],
+};
+
 const SETTINGS: SessionSettings = {
-  engine: "agent-sdk",
+  engineId: FIRST_CLAUDE_CODE_ENGINE.id,
   folder: "/work/task-1",
   environment: {},
   model: "claude-haiku-5-5",
@@ -117,8 +140,8 @@ function setUp(scripts: readonly SessionScript[], capabilities: Partial<EngineCa
 }
 
 function setUpOn(
-  engines: Readonly<Record<RoleEngine, ScriptedEngine>>,
-  settings = new EngineSettingsForTests(),
+  engines: Readonly<Record<EngineAdapter, ScriptedEngine>>,
+  settings = new EngineSettingsForTests({ engines: [FIRST_CLAUDE_CODE_ENGINE, FALLBACK, LAB] }),
 ) {
   const spans = new InMemorySpanExporter();
   const tracerProvider = new TracerProvider({
@@ -302,10 +325,23 @@ describe("EngineSessions", () => {
     await expect(
       sessions.start({
         id: "s-1",
-        settings: { ...SETTINGS, engine: "openai-compatible-api" },
+        settings: ON_THE_API,
         brief: message("Begin."),
       }),
     ).rejects.toThrow(ModelNotOffered);
+    expect(published).toEqual([]);
+  });
+
+  it("refuses an engine Settings › Engines no longer lists without announcing the engine down", async () => {
+    const { sessions, published } = setUp([ONE_TURN]);
+
+    await expect(
+      sessions.start({
+        id: "s-1",
+        settings: { ...SETTINGS, engineId: "gone" },
+        brief: message("Begin."),
+      }),
+    ).rejects.toThrow(new EngineNotListed("gone"));
     expect(published).toEqual([]);
   });
 
@@ -342,8 +378,9 @@ const ONE_TURN: SessionScript = [
   turnEnded("brief", 0.01),
   { step: "end" },
 ];
+const ON_THE_API: SessionSettings = { ...SETTINGS, engineId: LAB.id, model: "coder" };
 const RESUMED: SessionScript = [{ step: "resume" }, { step: "end" }];
-const ON_THE_FALLBACK: SessionSettings = { ...SETTINGS, engine: "claude-code-p" };
+const ON_THE_FALLBACK: SessionSettings = { ...SETTINGS, engineId: FALLBACK.id };
 
 /** The Agent SDK's stand-in can do everything; the fallback's no Office tools or usage windows. */
 function twoEngines(scripts: {
@@ -366,7 +403,7 @@ function twoEngines(scripts: {
   };
 }
 
-describe("EngineSessions on an engine per Role", () => {
+describe("EngineSessions on each engine's adapter", () => {
   it("starts and resumes each session on the engine it names", async () => {
     const { sessions, agentSdk, claudeCodeP } = twoEngines({
       agentSdk: [RESUMED],
@@ -387,11 +424,11 @@ describe("EngineSessions on an engine per Role", () => {
     expect(agentSdk.sessions.map((session) => session.id)).toEqual(["s-2"]);
   });
 
-  it("reads each engine's own capabilities", () => {
+  it("reads each engine's own capabilities", async () => {
     const { sessions } = twoEngines({});
 
-    expect(sessions.capabilitiesOf("agent-sdk").officeTools).toBe(true);
-    expect(sessions.capabilitiesOf("claude-code-p")).toMatchObject({
+    expect((await sessions.capabilitiesOf(FIRST_CLAUDE_CODE_ENGINE.id)).officeTools).toBe(true);
+    await expect(sessions.capabilitiesOf(FALLBACK.id)).resolves.toMatchObject({
       officeTools: false,
       usageWindows: false,
       interrupt: true,
@@ -441,8 +478,6 @@ describe("EngineSessions on an engine per Role", () => {
   });
 });
 
-const ON_THE_API: SessionSettings = { ...SETTINGS, engine: "openai-compatible-api" };
-
 /** A turn, then the windows as a caller reads them. */
 function turnThenWindows(windows: UsageWindows): SessionScript {
   return [
@@ -454,7 +489,7 @@ function turnThenWindows(windows: UsageWindows): SessionScript {
 }
 
 describe("EngineSessions' readings of the usage windows", () => {
-  it("gives when they were read and the Office's tokens so far on the engines with windows", async () => {
+  it("gives when they were read and the Office's tokens so far on the engine read", async () => {
     const { sessions, usageWindows } = setUpOn({
       "agent-sdk": new ScriptedEngine([turnThenWindows(WINDOWS)]),
       "claude-code-p": new ScriptedEngine([turnThenWindows(WINDOWS)]),
@@ -487,7 +522,7 @@ describe("EngineSessions' readings of the usage windows", () => {
     expect(reading).toEqual({
       ...WINDOWS,
       readAt: expect.any(Date),
-      officeTokensSoFar: { input: 8, output: 24, cacheRead: 48_000, cacheCreation: 400 },
+      officeTokensSoFar: { input: 4, output: 12, cacheRead: 24_000, cacheCreation: 200 },
     });
     expect(reading?.readAt.getTime()).toBeGreaterThanOrEqual(before.getTime());
     expect(usageWindows.current).toEqual(reading);
@@ -609,7 +644,7 @@ describe("EngineSessions' readings of the usage windows", () => {
   describe("each day's use", () => {
     const TURN_TOKENS = { input: 4, output: 12, cacheRead: 24_000, cacheCreation: 200 };
 
-    it("counts every turn by engine and model, an API model on its endpoint's engine", async () => {
+    it("counts every turn by engine and model", async () => {
       const { sessions, dayUsage } = setUpOn({
         "agent-sdk": new ScriptedEngine([ONE_TURN, ONE_TURN]),
         "claude-code-p": new ScriptedEngine([ONE_TURN]),
@@ -619,19 +654,19 @@ describe("EngineSessions' readings of the usage windows", () => {
       await oneTurn(sessions, SETTINGS);
       await oneTurn(sessions, { ...SETTINGS, model: "claude-sonnet-5-5" });
       await oneTurn(sessions, ON_THE_FALLBACK);
-      await oneTurn(sessions, { ...ON_THE_API, model: "lab/coder" });
+      await oneTurn(sessions, ON_THE_API);
 
       expect(await dayUsage.today("claude-code")).toEqual(
         expect.arrayContaining([
-          {
-            model: "claude-haiku-5-5",
-            tokens: { input: 8, output: 24, cacheRead: 48_000, cacheCreation: 400 },
-          },
+          { model: "claude-haiku-5-5", tokens: TURN_TOKENS },
           { model: "claude-sonnet-5-5", tokens: TURN_TOKENS },
         ]),
       );
       expect(await dayUsage.today("claude-code")).toHaveLength(2);
-      expect(await dayUsage.today("lab")).toEqual([{ model: "coder", tokens: TURN_TOKENS }]);
+      expect(await dayUsage.today(FALLBACK.id)).toEqual([
+        { model: "claude-haiku-5-5", tokens: TURN_TOKENS },
+      ]);
+      expect(await dayUsage.today(LAB.id)).toEqual([{ model: "coder", tokens: TURN_TOKENS }]);
     });
 
     it("starts each day at local midnight on the service", async () => {

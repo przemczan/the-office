@@ -381,7 +381,7 @@ async function firstTurnTokens(
   const session = await on.get(EngineSessions).start({
     id: randomUUID(),
     settings: {
-      engine: "agent-sdk",
+      engineId: "claude-code",
       folder: worktree,
       environment: Object.fromEntries(
         Object.entries(process.env).filter(

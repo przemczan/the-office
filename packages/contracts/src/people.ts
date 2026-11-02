@@ -2,7 +2,7 @@ import { z } from "zod";
 import { engineCapabilitySchema } from "./engines.js";
 import { webEventSchema } from "./events.js";
 
-/** What a Role card names as its engine until step 1c2 of task 47 makes it an engine id. */
+/** What a Role card names as its engine until step 1c3 of task 47 makes it an engine id. */
 export const roleEngineSchema = z.enum(["agent-sdk", "claude-code-p", "openai-compatible-api"]);
 export type RoleEngine = z.infer<typeof roleEngineSchema>;
 

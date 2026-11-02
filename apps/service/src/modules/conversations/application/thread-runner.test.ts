@@ -12,6 +12,8 @@ import { OfficeDataModule } from "../../../platform/office-data/office-data.modu
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import {
+  EngineModels,
+  FIRST_CLAUDE_CODE_ENGINE,
   OfficeToolRegistry,
   ScriptedEngine,
   ScriptedEngineModule,
@@ -19,6 +21,7 @@ import {
 } from "../../engine/index.js";
 import {
   apiEngineOnFakeServer,
+  EngineSettingsForTests,
   textReply,
   type ApiEngineOnFakeServer,
 } from "../../engine/index.fixtures.js";
@@ -85,8 +88,6 @@ const WINDOW = 1_000_000;
 
 let app: INestApplication;
 let engine: ScriptedEngine;
-/** The `-p` fallback's stand-in, for a card switched to it. */
-let fallback: ScriptedEngine;
 let officeData: string;
 /** Each card version of the Planner's Role, from 1, under a key of this test's own. */
 let versions: Card[];
@@ -149,20 +150,27 @@ afterEach(async () => {
 
 /** Boots the runner on a scripted engine that replays `scripts`, one per session opened. */
 async function startWith(...scripts: SessionScript[]): Promise<void> {
-  await startOn(scripts, []);
+  await startOn(scripts);
+}
+
+/** The engine settings with `api`'s endpoint beside the Claude Code engine. */
+function listing(api: ApiEngineOnFakeServer) {
+  const engines = [FIRST_CLAUDE_CODE_ENGINE, api.endpoint];
+  return {
+    provide: EngineModels,
+    useValue: new EngineModels(new EngineSettingsForTests({ engines })),
+  };
 }
 
 /**
- * Boots the runner with the Agent SDK's stand-in replaying `scripts`, the fallback's its own, and
- * the OpenAI-compatible API on `apiEngine`.
+ * Boots the runner with the Agent SDK's stand-in replaying `scripts`, and the OpenAI-compatible API
+ * on `api`, its endpoint listed beside the Claude Code engine.
  */
 async function startOn(
   scripts: readonly SessionScript[],
-  fallbackScripts: readonly SessionScript[],
-  apiEngine: ApiEngineOnFakeServer["engine"] = new ScriptedEngine([]),
+  api?: ApiEngineOnFakeServer,
 ): Promise<void> {
   engine = new ScriptedEngine(scripts);
-  fallback = new ScriptedEngine(fallbackScripts);
   forgotten = [];
   prepared = [];
   mcpServers = sessionMcpServersStandIn(mcpServersOnStart, mcpServersOnResume);
@@ -196,8 +204,8 @@ async function startOn(
       OfficeDataModule.forRoot(officeData),
       ScriptedEngineModule.register({
         "agent-sdk": engine,
-        "claude-code-p": fallback,
-        "openai-compatible-api": apiEngine,
+        "claude-code-p": new ScriptedEngine([]),
+        "openai-compatible-api": api?.engine ?? new ScriptedEngine([]),
       }),
       // Signed in with GitHub, as the app may be, so a session holding the token would show.
       GitHubModule.register(),
@@ -230,7 +238,10 @@ async function startOn(
       FireAlarmInThreads,
       DecisionOfficeTools,
     ],
-    overrides: [signedInWithGitHubForTests(GITHUB_USER_TOKEN)],
+    overrides: [
+      signedInWithGitHubForTests(GITHUB_USER_TOKEN),
+      ...(api === undefined ? [] : [listing(api)]),
+    ],
   }));
   // As the Projects and People modules register theirs.
   for (const name of CHAT_OFFICE_TOOLS) {
@@ -635,11 +646,13 @@ describe("continuing a Thread", () => {
     });
   });
 
+  // Until step 1c3 of task 47 a card on `-p` names another engine than one on the Agent SDK, though
+  // both run on the Claude Code engine, whose own switch picks the fallback.
   it("starts a warm Thread fresh on the engine its person's card switched to", async () => {
-    await startOn(
-      [started(...aTurn("brief", "Hello."))],
-      [started(...aTurn("brief", "Still here."))],
-    );
+    await startOn([
+      started(...aTurn("brief", "Hello.")),
+      started(...aTurn("brief", "Still here.")),
+    ]);
     const thread = await threads.startInChat(roleKey);
     await runner.send(thread.id, "Hello.");
     await answered(thread.id, 3);
@@ -648,9 +661,8 @@ describe("continuing a Thread", () => {
     await runner.send(thread.id, "Still there?");
     const log = await answered(thread.id, 6);
 
-    const [first] = engine.sessions;
-    const [fresh] = fallback.sessions;
-    expect(engine.sessions).toHaveLength(1);
+    const [first, fresh] = engine.sessions;
+    expect(engine.sessions).toHaveLength(2);
     expect(fresh?.id).not.toBe(first?.id);
     expect(forgotten).toEqual([first?.id]);
     expect(drafts(log)[3]).toEqual(
@@ -738,7 +750,7 @@ describe("a Thread on the OpenAI-compatible API, its own sessions on a fake serv
   beforeEach(async () => {
     api = await apiEngineOnFakeServer(officeData);
     versions = [{ ...PLANNER, engine: "openai-compatible-api", model: api.model }];
-    await startOn([], [], api.engine);
+    await startOn([], api);
   });
 
   afterEach(async () => {

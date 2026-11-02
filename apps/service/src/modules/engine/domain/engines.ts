@@ -78,7 +78,7 @@ export function hasUsageWindows(engine: Engine): boolean {
 }
 
 /**
- * What a Role card names as its engine until step 1c2 of task 47 makes it an engine id: the Agent
+ * What a Role card names as its engine until step 1c3 of task 47 makes it an engine id: the Agent
  * SDK or the `-p` fallback, both on the first Claude Code engine, or the OpenAI-compatible API, on
  * the engine its Model field's `<endpoint>/` names.
  */

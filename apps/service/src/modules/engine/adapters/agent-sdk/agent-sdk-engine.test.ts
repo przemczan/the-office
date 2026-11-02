@@ -186,7 +186,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
 
       const session = await sessions.start({
         id: randomUUID(),
-        settings: { ...options(folder), engine: "agent-sdk", officeTools: ["note"] },
+        settings: { ...options(folder), engineId: "claude-code", officeTools: ["note"] },
         brief: message(
           'Call the note tool once with the word "tangerine", then reply with the single word: done',
         ),

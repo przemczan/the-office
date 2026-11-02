@@ -10,6 +10,8 @@ import { OpenAiCompatibleApiEngine } from "./openai-compatible-api-engine.js";
 /** The OpenAI-compatible API engine itself, its one API endpoint a fake server. */
 export interface ApiEngineOnFakeServer {
   readonly engine: AgentEngine;
+  /** The engine Settings › Engines lists for the endpoint, which sessions name by its id. */
+  readonly endpoint: ApiEngine;
   readonly server: FakeChatCompletionsServer;
   /** The endpoint's one model, as a Role's Model field names it. */
   readonly model: string;
@@ -36,5 +38,5 @@ export async function apiEngineOnFakeServer(officeData: string): Promise<ApiEngi
     new OfficeDataDirectory(officeData),
     new SdkMcpClient(),
   );
-  return { engine, server, model: apiEndpointModel(endpoint.id, "coder:q4") };
+  return { engine, endpoint, server, model: apiEndpointModel(endpoint.id, "coder:q4") };
 }

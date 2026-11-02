@@ -64,6 +64,17 @@ export class ModelNotOffered extends Error {
   }
 }
 
+/**
+ * A session on an engine Settings › Engines no longer lists: refused before it starts, in words
+ * saying why.
+ */
+export class EngineNotListed extends Error {
+  constructor(readonly engineId: string) {
+    super(`Settings › Engines lists no engine ${engineId}; pick another engine on the Role card.`);
+    this.name = "EngineNotListed";
+  }
+}
+
 export interface NewSession {
   /** Chosen by the caller, so what is named after the session, such as its skills folder, exists before it starts. */
   readonly id: string;

@@ -212,7 +212,7 @@ function duplicateNameProblems(engines: readonly Engine[]): string[] {
 
 /*
  * One Claude Code engine for now: until each has its own account (step 1e of task 47) and Window
- * caps follow the engine's kind (1d), a second would share the first's account; and until 1c2,
+ * caps follow the engine's kind (1d), a second would share the first's account; and until 1c3,
  * Role cards reach the first by their engine's kind.
  */
 function claudeCodeEngineProblems(engines: readonly Engine[]): string[] {

@@ -1,5 +1,11 @@
-import type { Engine, RoleEngine } from "../domain/engines.js";
+import type { Engine } from "../domain/engines.js";
 import type { AgentEngine } from "../ports/agent-engine.js";
+
+/**
+ * A way of running a session, each with its adapter: the Agent SDK, the `-p` fallback, or The
+ * Office's own loop on an API endpoint.
+ */
+export type EngineAdapter = "agent-sdk" | "claude-code-p" | "openai-compatible-api";
 
 /**
  * An adapter per way of running a session (spec §5.4); the module binds one to each. An API engine
@@ -7,20 +13,16 @@ import type { AgentEngine } from "../ports/agent-engine.js";
  * is on.
  */
 export class AgentEngines {
-  constructor(private readonly adapters: Readonly<Record<RoleEngine, AgentEngine>>) {}
+  constructor(private readonly adapters: Readonly<Record<EngineAdapter, AgentEngine>>) {}
 
-  /**
-   * The adapter of `engine`. A Role card naming `-p` keeps it until step 1c2 of task 47 moves such
-   * Roles to the engine with its switch off.
-   */
-  of(engine: Engine, roleEngine?: RoleEngine): AgentEngine {
+  /** The adapter of `engine`. */
+  of(engine: Engine): AgentEngine {
     if (engine.kind === "openai-compatible-api") return this.adapters["openai-compatible-api"];
-    const claudeCodeP = engine.claudeCodeP || roleEngine === "claude-code-p";
-    return this.adapters[claudeCodeP ? "claude-code-p" : "agent-sdk"];
+    return this.adapters[engine.claudeCodeP ? "claude-code-p" : "agent-sdk"];
   }
 
-  /** The adapter a Role card's engine names, for what it can do. */
-  named(roleEngine: RoleEngine): AgentEngine {
-    return this.adapters[roleEngine];
+  /** The adapter a Role card's engine names, for what it can do, until step 1c3 of task 47. */
+  named(adapter: EngineAdapter): AgentEngine {
+    return this.adapters[adapter];
   }
 }

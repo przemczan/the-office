@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable, Logger } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { EngineSessions, type RoleEngine } from "../../engine/index.js";
+import { EngineSessions, engineModelOf, type RoleEngine } from "../../engine/index.js";
 import { SessionMcpServers, type LeftOutMcpServer } from "../../mcp-servers/index.js";
 import {
   mcpToolSettingsFor,
@@ -493,10 +493,9 @@ export class StageThreads {
     mcpServers: SessionSettings["mcpServers"],
   ): SessionSettings {
     return {
-      engine,
+      ...engineModelOf(engine, stageModel(request, card)),
       folder: request.folder,
       environment: request.environment,
-      model: stageModel(request, card),
       effort: request.effort ?? card.effort,
       instructions: workThreadInstructions(card, request.session.instructions),
       skills: {
@@ -610,7 +609,8 @@ export class StageThreads {
       },
       interrupt: async () => {
         if (!turnRunning || sessionEnded) return;
-        if (!this.engine.capabilitiesOf(engine).interrupt) return endSession();
+        const { engineId } = engineModelOf(engine, model);
+        if (!(await this.engine.capabilitiesOf(engineId)).interrupt) return endSession();
         await session.interrupt().catch(async (error: unknown) => {
           this.logger.warn(`Thread ${threadId}'s turn wasn't interrupted: ${messageOf(error)}`);
           await endSession();
