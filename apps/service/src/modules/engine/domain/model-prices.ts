@@ -41,7 +41,7 @@ export function pricedModels(
   const seen = new Set<string>();
   const priced: PricedModel[] = [];
   for (const { engineId, model, price } of edits) {
-    const key = JSON.stringify([engineId, model]);
+    const key = priceKeyOf({ engineId, model });
     if (seen.has(key)) problems.push(`The model "${model}" is priced twice.`);
     seen.add(key);
     if (price === null || !offeredOn(engineId).includes(model)) continue;
@@ -53,6 +53,32 @@ export function pricedModels(
   return priced;
 }
 
+/**
+ * The stored prices kept beside what an edit prices, so a removed engine's history stays priced
+ * (spec §5.4): those whose engine is no longer listed (no Claude Code engine, for a Claude model's),
+ * and those already kept, until the edit prices that model again, as when an engine added back
+ * under its name takes its id back. `offeredBefore` gives the stored engines' models,
+ * `offeredNow` the edited ones'.
+ */
+export function keptModelPrices(
+  stored: readonly PricedModel[],
+  edited: readonly PricedModel[],
+  offeredBefore: OfferedOn,
+  offeredNow: OfferedOn,
+): PricedModel[] {
+  const editedKeys = new Set(edited.map(priceKeyOf));
+  return stored.filter(
+    (each) =>
+      !editedKeys.has(priceKeyOf(each)) &&
+      (offeredNow(each.engineId).length === 0 ||
+        !offeredBefore(each.engineId).includes(each.model)),
+  );
+}
+
+function priceKeyOf({ engineId, model }: Pick<PricedModel, "engineId" | "model">): string {
+  return JSON.stringify([engineId, model]);
+}
+
 function isPrice({ input, output, cacheWrites, cacheReads }: ModelPrice): boolean {
   return [input, output, cacheWrites, cacheReads].every(
     (dollars) => Number.isFinite(dollars) && dollars >= 0,
@@ -62,7 +88,7 @@ function isPrice({ input, output, cacheWrites, cacheReads }: ModelPrice): boolea
 /**
  * The Model price of `model` on `engineId`: the API engine's own, or else the Claude model's when
  * the engine is no API engine. `engines` are those listed now; a removed one is priced by what is
- * kept of it.
+ * kept of it, an API engine when prices of its own are kept.
  */
 export function priceOf(
   prices: readonly PricedModel[],
@@ -73,5 +99,6 @@ export function priceOf(
   if (own) return own.price;
   const engine = engines.find(({ id }) => id === engineId);
   if (engine?.kind === "openai-compatible-api") return undefined;
+  if (engine === undefined && prices.some((each) => each.engineId === engineId)) return undefined;
   return prices.find((each) => each.engineId === null && each.model === model)?.price;
 }

@@ -65,4 +65,10 @@ describe("ModelPrices", () => {
       await prices.costOf({ engineId: "lab", model: "claude-sonnet-5-5" }, tokens),
     ).toBeUndefined();
   });
+
+  it("reads a removed engine with prices of its own kept as an API engine", async () => {
+    expect(
+      await prices.costOf({ engineId: "removed", model: "claude-sonnet-5-5" }, tokens),
+    ).toBeUndefined();
+  });
 });

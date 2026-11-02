@@ -342,6 +342,74 @@ describe("Model prices", () => {
     expect(changed.modelPrices).toEqual([]);
   });
 
+  it("keeps a removed engine's prices, the Claude models' too once no Claude Code engine is left", () => {
+    const pricedStored: EngineSettings = {
+      ...stored,
+      modelPrices: [
+        { engineId: null, model: "claude-sonnet-5-5", price: sonnet },
+        { engineId: "strata", model: strataFlash, price: flash },
+      ],
+    };
+
+    const withoutStrata = settingsWithoutEngine(pricedStored, {
+      engineId: "strata",
+      replacement: FIRST_CLAUDE_CODE_ENGINE,
+    });
+    const withoutClaudeCode = settingsWithoutEngine(withoutStrata, {
+      engineId: "claude-code",
+      replacement: null,
+    });
+
+    expect(withoutStrata.modelPrices).toEqual(pricedStored.modelPrices);
+    expect(withoutClaudeCode.modelPrices).toEqual(pricedStored.modelPrices);
+    expect(offeredModelPrices(withoutClaudeCode)).toEqual([]);
+  });
+
+  it("keeps a kept price when an engine takes its id back unpriced, until the edit prices it", () => {
+    const removedStrata: EngineSettings = {
+      ...stored,
+      engines: [FIRST_CLAUDE_CODE_ENGINE],
+      modelPrices: [{ engineId: "strata", model: strataFlash, price: flash }],
+    };
+    const strataAgain = strataEdit({ id: undefined, key: "sk-strata" });
+    const repriced = { ...flash, output: 1 };
+
+    const unpriced = changedEngineSettings(
+      removedStrata,
+      editOf([strataAgain], {
+        modelPrices: [{ engineId: "strata", model: strataFlash, price: null }],
+      }),
+    );
+    const repricedSettings = changedEngineSettings(
+      removedStrata,
+      editOf([strataAgain], {
+        modelPrices: [{ engineId: "strata", model: strataFlash, price: repriced }],
+      }),
+    );
+
+    expect(unpriced.engines.map(({ id }) => id)).toEqual(["claude-code", "strata"]);
+    expect(unpriced.modelPrices).toEqual(removedStrata.modelPrices);
+    expect(repricedSettings.modelPrices).toEqual([
+      { engineId: "strata", model: strataFlash, price: repriced },
+    ]);
+  });
+
+  it("drops a price the edit clears on a model the engines offered already", () => {
+    const pricedStored: EngineSettings = {
+      ...stored,
+      modelPrices: [{ engineId: "strata", model: strataFlash, price: flash }],
+    };
+
+    const changed = changedEngineSettings(
+      pricedStored,
+      editOf([strataEdit()], {
+        modelPrices: [{ engineId: "strata", model: strataFlash, price: null }],
+      }),
+    );
+
+    expect(changed.modelPrices).toEqual([]);
+  });
+
   it("refuses a negative price and a model priced twice", () => {
     const sonnetPrice: OfferedModel = {
       engineId: null,

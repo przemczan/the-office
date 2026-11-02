@@ -1,5 +1,6 @@
 import type { INestApplication } from "@nestjs/common";
 import { gte } from "drizzle-orm";
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
@@ -47,5 +48,18 @@ describe("PostgresUsageWindowSamples", () => {
     ]);
     const kept = await samples.latest("claude-code", 10);
     expect(kept.map(({ readAt }) => readAt)).not.toContainEqual(sampleAt(2101, 1).readAt);
+  });
+
+  it("forgets every pair of one engine id, and no other's", async () => {
+    const removed = `removed-${randomUUID()}`;
+    const kept = `kept-${randomUUID()}`;
+    await samples.add(removed, sampleAt(2101, 1), 10);
+    await samples.add(removed, sampleAt(2102, 2), 10);
+    await samples.add(kept, sampleAt(2101, 1), 10);
+
+    await samples.forget(removed);
+
+    expect(await samples.latest(removed, 10)).toEqual([]);
+    expect(await samples.latest(kept, 10)).toEqual([sampleAt(2101, 1)]);
   });
 });

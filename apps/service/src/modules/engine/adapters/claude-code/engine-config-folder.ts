@@ -1,4 +1,4 @@
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, readdir, rm } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import type { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import type { EngineId } from "../../domain/engines.js";
@@ -43,6 +43,19 @@ export function ownEngineConfigFolder(officeData: OfficeDataDirectory, engineId:
     throw new NotAnEngineConfigFolder(engineId);
   }
   return folder;
+}
+
+/** The ids of the engines with a folder in the engines' folder; none while it is missing. */
+export async function engineIdsWithConfigFolders(
+  officeData: OfficeDataDirectory,
+): Promise<EngineId[]> {
+  try {
+    const entries = await readdir(officeData.folder("engines"), { withFileTypes: true });
+    return entries.filter((entry) => entry.isDirectory()).map(({ name }) => name);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
 }
 
 /** Removes the engine's own folder with everything in it. */

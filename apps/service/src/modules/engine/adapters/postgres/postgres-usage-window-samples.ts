@@ -49,4 +49,8 @@ export class PostgresUsageWindowSamples extends UsageWindowSampleRepository {
       sevenDay: sevenDay ?? undefined,
     }));
   }
+
+  async forget(engineId: EngineId): Promise<void> {
+    await this.database.delete(usageWindowSamples).where(eq(usageWindowSamples.engineId, engineId));
+  }
 }

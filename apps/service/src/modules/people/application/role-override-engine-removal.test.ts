@@ -107,11 +107,13 @@ describe("a Role override saved while an engine is removed", () => {
     await hold.reached;
     const saving = roles.changeCard(role.key, { ...role.card, roleOverride: ON_RACING }, []);
     const hiring = roles.hireFromScratch(aCardOfItsOwn({ roleOverride: ON_RACING }), []);
+    // Settled from now: the saves are refused while the removal still announces itself.
+    const saves = Promise.allSettled([saving, hiring]);
     hold.release();
     await removing;
 
-    await expect(saving).rejects.toThrow(RoleRefused);
-    await expect(hiring).rejects.toThrow(RoleRefused);
+    const refused = { status: "rejected", reason: expect.any(RoleRefused) };
+    expect(await saves).toEqual([refused, refused]);
     expect((await roles.read(role.key)).role.card.roleOverride).toBeNull();
   });
 });

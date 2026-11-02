@@ -44,4 +44,9 @@ export class UsageWindowState {
     }
     await this.events.publish(new UsageWindowsRead(reading, reading.readAt));
   }
+
+  /** Drops `engineId`'s reading, so Now no longer lists it. */
+  forget(engineId: EngineId): void {
+    this.readings.delete(engineId);
+  }
 }

@@ -44,4 +44,20 @@ describe("PostgresDayUsage", () => {
       (await dayUsage.on(DAY, "openai-compatible-api")).filter((usage) => usage.model === model),
     ).toEqual([{ model, tokens: turn }]);
   });
+
+  it("forgets every day's use on one engine, and no other's", async () => {
+    const removed = `removed-${randomUUID()}`;
+    const kept = `kept-${randomUUID()}`;
+    const turn = { input: 1, output: 2, cacheRead: 3, cacheCreation: 4 };
+    await dayUsage.add(DAY, removed, "model", turn);
+    await dayUsage.add("2001-03-05", removed, "model", turn);
+    await dayUsage.add(DAY, kept, "model", turn);
+
+    await dayUsage.forget(removed);
+
+    expect(await dayUsage.on(DAY, removed)).toEqual([]);
+    expect(await dayUsage.on("2001-03-05", removed)).toEqual([]);
+    expect(await dayUsage.on(DAY, kept)).toEqual([{ model: "model", tokens: turn }]);
+    await dayUsage.forget(kept);
+  });
 });

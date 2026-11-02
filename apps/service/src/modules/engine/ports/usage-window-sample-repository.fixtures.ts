@@ -16,4 +16,8 @@ export class UsageWindowSamplesForTests extends UsageWindowSampleRepository {
   async latest(engineId: EngineId, limit: number): Promise<readonly UsageWindowSample[]> {
     return (this.samples.get(engineId) ?? []).slice(0, limit);
   }
+
+  async forget(engineId: EngineId): Promise<void> {
+    this.samples.delete(engineId);
+  }
 }

@@ -57,4 +57,7 @@ export abstract class ClaudeCodeAccounts {
    * sessions' transcripts with it, when the engine is removed.
    */
   abstract removeConfigFolder(engineId: EngineId): Promise<void>;
+
+  /** The ids of the engines whose config folder is there, listed or not. */
+  abstract engineIdsWithConfigFolders(): Promise<readonly EngineId[]>;
 }

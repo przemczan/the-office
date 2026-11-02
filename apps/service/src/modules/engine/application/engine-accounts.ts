@@ -1,4 +1,4 @@
-import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
+import { Injectable, Logger, type OnApplicationBootstrap, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { EngineAccount } from "../domain/engine-account.js";
 import { EngineAccountChanged, EngineAdded, EngineRemoved } from "../domain/engine-events.js";
@@ -21,7 +21,7 @@ export class NotAClaudeCodeEngine extends Error {
  * is added and removed once the sessions running on it have ended.
  */
 @Injectable()
-export class EngineAccounts implements OnModuleInit {
+export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
   private readonly logger = new Logger(EngineAccounts.name);
 
   constructor(
@@ -39,6 +39,22 @@ export class EngineAccounts implements OnModuleInit {
       // Not awaited: the removal is done, and its sessions may run for minutes yet.
       if (kind === "claude-code") void this.removeFolderAfterSessions(engineId);
     });
+  }
+
+  /**
+   * Removes the folder of every engine no longer listed: one removed while the service stopped
+   * before its sessions ended, which an engine added again under its name would otherwise take
+   * back, its login included.
+   */
+  async onApplicationBootstrap(): Promise<void> {
+    try {
+      const listed = new Set((await this.engineModels.engines()).map(({ id }) => id));
+      for (const engineId of await this.accounts.engineIdsWithConfigFolders()) {
+        if (!listed.has(engineId)) await this.accounts.removeConfigFolder(engineId);
+      }
+    } catch (error) {
+      this.logger.error(`Removing the folders of removed engines failed: ${messageOf(error)}`);
+    }
   }
 
   /**

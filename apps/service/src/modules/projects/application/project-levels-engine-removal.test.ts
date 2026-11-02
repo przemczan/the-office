@@ -127,12 +127,14 @@ describe("a Project level saved while an engine is removed", () => {
     await hold.reached;
     const settingDefault = projects.changeProjectDefault(project.id, ON_RACING);
     const settingOverride = projects.changeRoleOverride(project.id, "developer", ON_RACING);
+    // Settled from now: the saves are refused while the removal still announces itself.
+    const saves = Promise.allSettled([settingDefault, settingOverride]);
     hold.release();
     await removing;
 
     const noEngine = new ProjectRefused([`There is no engine "${RACING.id}".`]);
-    await expect(settingDefault).rejects.toEqual(noEngine);
-    await expect(settingOverride).rejects.toEqual(noEngine);
+    const refused = { status: "rejected", reason: noEngine };
+    expect(await saves).toEqual([refused, refused]);
     const levels = await projects.engineLevelsOf(project.id);
     expect(levels).toMatchObject({ projectDefault: null, roleOverrides: [] });
   });

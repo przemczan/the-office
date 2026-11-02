@@ -38,4 +38,8 @@ export class PostgresDayUsage extends DayUsageRepository {
       tokens: { input, output, cacheRead, cacheCreation },
     }));
   }
+
+  async forget(engineId: EngineId): Promise<void> {
+    await this.database.delete(engineDayUsage).where(eq(engineDayUsage.engineId, engineId));
+  }
 }

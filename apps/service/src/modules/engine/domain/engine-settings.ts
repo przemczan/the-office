@@ -11,7 +11,12 @@ import {
   type EngineId,
   type EngineModel,
 } from "./engines.js";
-import { pricedModels, type OfferedModel, type PricedModel } from "./model-prices.js";
+import {
+  keptModelPrices,
+  pricedModels,
+  type OfferedModel,
+  type PricedModel,
+} from "./model-prices.js";
 
 /** The web search WebSearch goes through for the OpenAI-compatible API: SearXNG's JSON API. */
 export interface SearchEndpoint {
@@ -107,7 +112,8 @@ function modelsPricedUnder(
 /**
  * The settings `edit` makes of `stored`: the engines in its order, a new one given its id from its
  * name and an API engine keeping its key unless the edit gives one; the Office default; and the
- * Model prices of the models offered. Refuses with every reason when they break a rule.
+ * Model prices of the models offered, a removed engine's kept (`keptModelPrices`). Refuses with
+ * every reason when they break a rule.
  */
 export function changedEngineSettings(
   stored: EngineSettings,
@@ -147,13 +153,16 @@ function settingsOf(
   if (searchEndpoint && !isWebAddress(searchEndpoint.baseUrl)) {
     problems.push("Give the search endpoint a base URL starting with http:// or https://.");
   }
-  const modelPrices = pricedModels(
-    edit.modelPrices,
-    (engineId) => modelsPricedUnder(engines, engineId),
-    problems,
+  const offeredNow = (engineId: EngineId | null) => modelsPricedUnder(engines, engineId);
+  const edited = pricedModels(edit.modelPrices, offeredNow, problems);
+  const kept = keptModelPrices(
+    stored.modelPrices,
+    edited,
+    (engineId) => modelsPricedUnder(stored.engines, engineId),
+    offeredNow,
   );
   if (problems.length > 0) throw new EngineSettingsRefused([...new Set(problems)]);
-  return { engines, officeDefault, searchEndpoint, modelPrices };
+  return { engines, officeDefault, searchEndpoint, modelPrices: [...edited, ...kept] };
 }
 
 function changedEnginesOf(

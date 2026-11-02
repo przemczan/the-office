@@ -18,6 +18,7 @@ import {
 import {
   ownEngineConfigFolder,
   preparedEngineConfigFolder,
+  engineIdsWithConfigFolders,
   removeEngineConfigFolder,
 } from "./engine-config-folder.js";
 import {
@@ -133,6 +134,10 @@ export class ClaudeCodeCliAccounts extends ClaudeCodeAccounts implements OnModul
   async removeConfigFolder(engineId: EngineId): Promise<void> {
     await this.signIns.get(engineId)?.end();
     await removeEngineConfigFolder(this.officeData, engineId);
+  }
+
+  engineIdsWithConfigFolders(): Promise<readonly EngineId[]> {
+    return engineIdsWithConfigFolders(this.officeData);
   }
 
   async onModuleDestroy(): Promise<void> {

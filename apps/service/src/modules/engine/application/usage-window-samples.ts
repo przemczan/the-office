@@ -1,5 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import type { EngineId } from "../domain/engines.js";
+import type { ReadingSource } from "../domain/usage-windows.js";
 import {
   pooledRatios,
   POOLED_SAMPLES,
@@ -21,7 +22,7 @@ export class UsageWindowSamples {
    * The last reading of each engine id and source. In memory, as the Office's tokens are, so no
    * pair spans a restart.
    */
-  private readonly lastReadings = new Map<string, PairedReading>();
+  private readonly lastReadings = new Map<EngineId, Map<ReadingSource, PairedReading>>();
 
   constructor(private readonly repository: UsageWindowSampleRepository) {}
 
@@ -32,11 +33,12 @@ export class UsageWindowSamples {
       ...reading,
       officeTokens: countedTokens(reading.officeTokensSoFar),
     };
-    const key = JSON.stringify([engineId, reading.source]);
-    const earlier = this.lastReadings.get(key);
+    const bySource = this.lastReadings.get(engineId) ?? new Map<ReadingSource, PairedReading>();
+    const earlier = bySource.get(reading.source);
     // With no turn ended since, the earlier reading stays the start, so what moves now counts later.
     if (earlier !== undefined && paired.officeTokens <= earlier.officeTokens) return;
-    this.lastReadings.set(key, paired);
+    bySource.set(reading.source, paired);
+    this.lastReadings.set(engineId, bySource);
     const sample = earlier === undefined ? undefined : sampleBetween(earlier, paired);
     if (sample !== undefined) await this.repository.add(engineId, sample, POOLED_SAMPLES);
   }
@@ -44,5 +46,11 @@ export class UsageWindowSamples {
   /** Window % per counted token over the latest pairs on `engineId`. */
   async ratios(engineId: EngineId): Promise<UsageWindowRatios> {
     return pooledRatios(await this.repository.latest(engineId, POOLED_SAMPLES));
+  }
+
+  /** Drops `engineId`'s pairs and last readings, so its next reading pairs with none. */
+  async forget(engineId: EngineId): Promise<void> {
+    this.lastReadings.delete(engineId);
+    await this.repository.forget(engineId);
   }
 }

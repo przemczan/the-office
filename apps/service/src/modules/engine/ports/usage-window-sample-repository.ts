@@ -8,4 +8,7 @@ export abstract class UsageWindowSampleRepository {
 
   /** The latest `limit` of `engineId`'s, newest first. */
   abstract latest(engineId: EngineId, limit: number): Promise<readonly UsageWindowSample[]>;
+
+  /** Drops every one of `engineId`'s. */
+  abstract forget(engineId: EngineId): Promise<void>;
 }

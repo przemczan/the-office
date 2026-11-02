@@ -9,6 +9,7 @@ import type { SessionOptions } from "../../ports/session-options.js";
 import { toolDecision } from "../office-rules/tool-decision.js";
 import {
   engineConfigFolder,
+  engineIdsWithConfigFolders,
   NotAnEngineConfigFolder,
   preparedEngineConfigFolder,
   removeEngineConfigFolder,
@@ -84,6 +85,18 @@ describe("the engine's config folder", () => {
     const folder = await preparedEngineConfigFolder(officeData, FIRST_CLAUDE_CODE_ENGINE.id);
 
     expect((await stat(folder)).mode & 0o777).toBe(0o700);
+  });
+
+  it("lists the engines with a folder, none before the engines' folder is made", async () => {
+    await expect(engineIdsWithConfigFolders(officeData)).resolves.toEqual([]);
+    await keptFile(engineConfigFolder(officeData, "work-account"));
+    await keptFile(engineConfigFolder(officeData, "home-account"));
+    await writeFile(join(officeData.folder("engines"), "stray.txt"), "");
+
+    expect((await engineIdsWithConfigFolders(officeData)).toSorted()).toEqual([
+      "home-account",
+      "work-account",
+    ]);
   });
 
   describe("removed with its engine", () => {

@@ -25,4 +25,9 @@ export class DayUsage {
   today(engineId: EngineId): Promise<readonly ModelDayUsage[]> {
     return this.repository.on(dayOf(this.schedule.now()), engineId);
   }
+
+  /** Drops every day's use on `engineId`. */
+  forget(engineId: EngineId): Promise<void> {
+    return this.repository.forget(engineId);
+  }
 }

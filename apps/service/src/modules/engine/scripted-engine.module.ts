@@ -7,6 +7,7 @@ import { AgentEngines, type EngineAdapter } from "./application/agent-engines.js
 import { DayUsage } from "./application/day-usage.js";
 import { EngineSessions } from "./application/engine-sessions.js";
 import { OfficeToolRegistry } from "./application/office-tool-registry.js";
+import { RemovedEngineUsage } from "./application/removed-engine-usage.js";
 import { UsageWindowSamples } from "./application/usage-window-samples.js";
 import { UsageWindowState } from "./application/usage-window-state.js";
 import { EngineSettingsModule } from "./engine-settings.module.js";
@@ -38,6 +39,7 @@ export class ScriptedEngineModule {
         DayUsage,
         { provide: UsageWindowSampleRepository, useClass: PostgresUsageWindowSamples },
         UsageWindowSamples,
+        RemovedEngineUsage,
         EngineSessions,
       ],
       exports: [

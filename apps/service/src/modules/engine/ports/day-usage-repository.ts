@@ -14,4 +14,7 @@ export abstract class DayUsageRepository {
 
   /** What each model on `engineId` used on `day`; a model with no use there is left out. */
   abstract on(day: string, engineId: EngineId): Promise<readonly ModelDayUsage[]>;
+
+  /** Drops every day's use on `engineId`. */
+  abstract forget(engineId: EngineId): Promise<void>;
 }

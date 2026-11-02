@@ -81,4 +81,9 @@ export class StandInClaudeCodeAccounts extends ClaudeCodeAccounts {
     this.signedIn.delete(engineId);
     return Promise.resolve();
   }
+
+  /** The engines signed in, as their folders would hold their logins. */
+  engineIdsWithConfigFolders(): Promise<readonly EngineId[]> {
+    return Promise.resolve([...this.signedIn.keys()]);
+  }
 }
