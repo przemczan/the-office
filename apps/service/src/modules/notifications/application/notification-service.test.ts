@@ -65,6 +65,19 @@ function reading(percentUsed: number): UsageWindowsChanged {
   });
 }
 
+function down(engineId: string, engineName: string): EngineDown {
+  return new EngineDown("s1", engineId, engineName, "Signed out.");
+}
+
+function claudeCodeDown(): EngineDown {
+  return new EngineDown("s1", "claude-code", "Claude Code", "Claude Code didn't start.");
+}
+
+/** A turn of a session on the engine came back, so that engine answers again. */
+function turnEndedOn(engineId: string): TurnEnded {
+  return new TurnEnded({ session: { engineId } } as TurnEnded["thread"], new Date());
+}
+
 async function routingOf(response: Response): Promise<NotificationRouting> {
   expect(response.status).toBe(200);
   return notificationRoutingSchema.parse(await response.json());
@@ -285,29 +298,47 @@ describe("NotificationService", () => {
     const people = app.get(KnownPeopleForTests);
     people.hired.add("developer");
     await events.publish(reading(91));
-    await events.publish(new EngineDown("s1", "Claude Code didn't start."));
+    await events.publish(claudeCodeDown());
     // The engine answers again and the user opens Now, which handles both.
-    await events.publish(new TurnEnded({} as TurnEnded["thread"], new Date()));
+    await events.publish(turnEndedOn("claude-code"));
     await reportActivity({ kind: "now" });
 
     people.hired.add("office-manager");
     await events.publish(reading(4));
     await events.publish(reading(93));
-    await events.publish(new EngineDown("s1", "Claude Code didn't start."));
+    await events.publish(claudeCodeDown());
 
     expect(raised.map(({ notification }) => [notification.roleKey, notification.line])).toEqual([
       [undefined, "91% of the 5-hour window is used."],
-      [undefined, "The engine is down: Claude Code didn't start."],
+      [undefined, "Claude Code is down: Claude Code didn't start."],
       ["office-manager", "The 5-hour window reset, so we have all of it again."],
       ["office-manager", "We've used 93% of the 5-hour window."],
-      ["office-manager", "I can't reach the engine: Claude Code didn't start."],
+      ["office-manager", "I can't reach Claude Code: Claude Code didn't start."],
     ]);
     const open = await openNotifications();
     expect(open.find(({ id }) => id === raised[4]?.notification.id)?.roleKey).toBe(
       "office-manager",
     );
     // One engine down is open at a time on the shared database: the engine answers again.
-    await events.publish(new TurnEnded({} as TurnEnded["thread"], new Date()));
+    await events.publish(turnEndedOn("claude-code"));
+  });
+
+  it("raises each engine's down on its own, handled when that engine answers again", async () => {
+    // Engine ids no other file raises, as the database is shared.
+    await events.publish(down("work-account", "Work account"));
+    await events.publish(down("home-account", "Home account"));
+    await events.publish(down("work-account", "Work account"));
+
+    expect(raised.map(({ notification }) => notification.line)).toEqual([
+      "Work account is down: Signed out.",
+      "Home account is down: Signed out.",
+    ]);
+    const [work, home] = raised.map(({ notification }) => notification.id);
+    await events.publish(turnEndedOn("work-account"));
+    expect(cleared).toContain(work);
+    expect(cleared).not.toContain(home);
+    await events.publish(turnEndedOn("home-account"));
+    expect(cleared).toContain(home);
   });
 
   describe("the routing", () => {

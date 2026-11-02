@@ -347,14 +347,19 @@ describe("EngineSessions", () => {
     expect(published).toEqual([]);
   });
 
-  it("announces the engine down when it can't start a session", async () => {
+  it("announces the engine down, naming the engine, when it can't start a session", async () => {
     const { sessions, published } = setUp([]);
 
     await expect(
       sessions.start({ id: "s-1", settings: SETTINGS, brief: message("Begin.") }),
     ).rejects.toThrow("No script is left");
     expect(published).toEqual([
-      expect.objectContaining({ sessionId: "s-1", reason: expect.stringContaining("No script") }),
+      expect.objectContaining({
+        sessionId: "s-1",
+        engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+        engineName: FIRST_CLAUDE_CODE_ENGINE.name,
+        reason: expect.stringContaining("No script"),
+      }),
     ]);
     expect(published[0]).toBeInstanceOf(EngineDown);
   });

@@ -235,7 +235,9 @@ describe("NotificationDelivery", () => {
       const decision = { id: randomUUID(), taskId: randomUUID() };
       await schedule.advanceTo(new Date(2100, 0, testDay, 23, 30));
       await events.publish(decisionEvent(DecisionOpened, decision));
-      await events.publish(new EngineDown("s1", "Claude Code didn't start."));
+      await events.publish(
+        new EngineDown("s1", "claude-code", "Claude Code", "Claude Code didn't start."),
+      );
       const [waiting, down] = raisedNotifications();
 
       expect(waiting).toMatchObject({

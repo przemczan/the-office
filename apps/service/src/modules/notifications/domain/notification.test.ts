@@ -16,6 +16,8 @@ import {
   type NotificationDraft,
 } from "./notification.js";
 
+const CLAUDE_CODE = { id: "claude-code", name: "Claude Code" };
+
 const AT = new Date("2026-10-27T09:00:00Z");
 
 function raised(draft: NotificationDraft) {
@@ -41,7 +43,7 @@ describe("the Notifications' content", () => {
         taskPaused("t1", "developer", "stop"),
         windowNearlyUsed(90, undefined),
         windowReset(undefined),
-        engineDown("Claude Code didn't start.", undefined),
+        engineDown(CLAUDE_CODE, "Claude Code didn't start.", undefined),
       ].map(content),
     ).toEqual([
       ["needs-you.decision", "developer", "I need your answer: Keep the query string?"],
@@ -56,7 +58,7 @@ describe("the Notifications' content", () => {
       ["outcomes.task-paused", "developer", "I stopped where I was."],
       ["office.window.nearly-used", null, "90% of the 5-hour window is used."],
       ["office.window.reset", null, "The 5-hour window reset."],
-      ["office.down.engine", null, "The engine is down: Claude Code didn't start."],
+      ["office.down.engine", null, "Claude Code is down: Claude Code didn't start."],
     ]);
   });
 
@@ -103,7 +105,7 @@ describe("the Notifications' content", () => {
       [
         windowNearlyUsed(91.6, "office-manager"),
         windowReset("office-manager"),
-        engineDown("Claude Code didn't start.", "office-manager"),
+        engineDown(CLAUDE_CODE, "Claude Code didn't start.", "office-manager"),
       ].map(content),
     ).toEqual([
       ["office.window.nearly-used", "office-manager", "We've used 92% of the 5-hour window."],
@@ -115,7 +117,7 @@ describe("the Notifications' content", () => {
       [
         "office.down.engine",
         "office-manager",
-        "I can't reach the engine: Claude Code didn't start.",
+        "I can't reach Claude Code: Claude Code didn't start.",
       ],
     ]);
     expect(windowReset("office-manager").pointsTo).toEqual({ kind: "office" });
@@ -160,6 +162,15 @@ describe("handles", () => {
   it("clears a Gate once the user acts at it", () => {
     expect(handles({ kind: "gate-acted", taskId: "t1" }, gate)).toBe(true);
   });
+
+  it("clears an engine down once that engine answers again", () => {
+    const down = raised(engineDown(CLAUDE_CODE, "Signed out.", undefined));
+    const unnamed = { ...down, pointsTo: { kind: "office" } as const };
+
+    expect(handles({ kind: "engine-answered", engineId: "claude-code" }, down)).toBe(true);
+    expect(handles({ kind: "engine-answered", engineId: "work-account" }, down)).toBe(false);
+    expect(handles({ kind: "engine-answered", engineId: "work-account" }, unnamed)).toBe(true);
+  });
 });
 
 describe("windowMove", () => {
@@ -181,5 +192,18 @@ describe("samePointer", () => {
 
     expect(samePointer(one, reordered)).toBe(true);
     expect(samePointer(one, { ...one, kind: "needs-you.gate" })).toBe(false);
+  });
+
+  it("keeps each engine's down apart", () => {
+    const down = engineDown(CLAUDE_CODE, "Signed out.", undefined);
+    const other = engineDown(
+      { id: "work-account", name: "Work account" },
+      "Signed out.",
+      undefined,
+    );
+
+    expect(down.pointsTo).toEqual({ kind: "office", engineId: "claude-code" });
+    expect(samePointer(down, other)).toBe(false);
+    expect(samePointer(down, engineDown(CLAUDE_CODE, "Gone.", "office-manager"))).toBe(true);
   });
 });

@@ -6,7 +6,10 @@ import type { DomainEvent } from "../../../../platform/events/domain-event.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
+import { EngineSettingsService } from "../../application/engine-settings-service.js";
 import { EngineAccountChanged } from "../../domain/engine-events.js";
+import { FIRST_OFFICE_DEFAULT, type EngineSettingsEdit } from "../../domain/engine-settings.js";
+import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
 import { EngineAccountsModule } from "../../engine-accounts.module.js";
 import { ClaudeCodeAccounts } from "../../ports/claude-code-accounts.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
@@ -16,9 +19,25 @@ import {
   StandInClaudeCodeAccounts,
 } from "../scripted/stand-in-claude-code-accounts.js";
 
+/** The stand-in, telling what happened to each engine's folder. */
+class FolderRecordingAccounts extends StandInClaudeCodeAccounts {
+  readonly folders: string[] = [];
+
+  override prepareConfigFolder(engineId: string): Promise<void> {
+    this.folders.push(`made ${engineId}`);
+    return super.prepareConfigFolder(engineId);
+  }
+
+  override removeConfigFolder(engineId: string): Promise<void> {
+    this.folders.push(`removed ${engineId}`);
+    return super.removeConfigFolder(engineId);
+  }
+}
+
 let app: INestApplication;
 let url: string;
 let published: DomainEvent[];
+let accounts: FolderRecordingAccounts;
 
 beforeEach(async () => {
   const repository = new EngineSettingsForTests();
@@ -37,11 +56,12 @@ beforeEach(async () => {
       },
     ],
   });
+  accounts = new FolderRecordingAccounts();
   ({ app, url } = await startTestApplication({
     imports: [EventsModule, EventStreamModule, EngineAccountsModule],
     overrides: [
       { provide: EngineSettingsRepository, useValue: repository },
-      { provide: ClaudeCodeAccounts, useValue: new StandInClaudeCodeAccounts() },
+      { provide: ClaudeCodeAccounts, useValue: accounts },
     ],
   }));
   published = [];
@@ -84,6 +104,28 @@ describe("/api/settings/engines/:engineId account and Sign in", () => {
       .poll(() => published)
       .toEqual([expect.objectContaining({ engineId: "claude-code" })]);
     expect(published[0]).toBeInstanceOf(EngineAccountChanged);
+  });
+
+  it("makes a Claude Code engine's folder when it is added, and removes it, signed out, with it", async () => {
+    const service = app.get(EngineSettingsService);
+    const edit = async (engines: EngineSettingsEdit["engines"]): Promise<void> => {
+      await service.change({
+        engines,
+        officeDefault: FIRST_OFFICE_DEFAULT,
+        searchEndpoint: null,
+        modelPrices: [],
+      });
+    };
+    const second = { name: "Second account", kind: "claude-code", claudeCodeP: false } as const;
+    await edit([FIRST_CLAUDE_CODE_ENGINE, { ...second, defaultModel: "claude-haiku-5-5" }]);
+    await post("second-account/sign-in");
+    await post("second-account/sign-in/code", { code: "a-code" });
+
+    await edit([FIRST_CLAUDE_CODE_ENGINE]);
+
+    // The API engine Strata, removed too, has no folder.
+    expect(accounts.folders).toEqual(["made second-account", "removed second-account"]);
+    await expect(accounts.account("second-account")).resolves.toEqual({ signedIn: false });
   });
 
   it("refuses an engine that is no Claude Code engine, or none listed", async () => {

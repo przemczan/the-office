@@ -1,7 +1,7 @@
-import { Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { EngineAccount } from "../domain/engine-account.js";
-import { EngineAccountChanged } from "../domain/engine-events.js";
+import { EngineAccountChanged, EngineAdded, EngineRemoved } from "../domain/engine-events.js";
 import type { EngineId } from "../domain/engines.js";
 import { ClaudeCodeAccounts } from "../ports/claude-code-accounts.js";
 import { EngineModels } from "./engine-models.js";
@@ -15,10 +15,11 @@ export class NotAClaudeCodeEngine extends Error {
 
 /**
  * Each Claude Code engine's account (spec §5.4): its status, and Sign in, whose end is announced
- * as `EngineAccountChanged`.
+ * as `EngineAccountChanged`. The account lies in the engine's config folder, made when the engine
+ * is added and removed with it.
  */
 @Injectable()
-export class EngineAccounts {
+export class EngineAccounts implements OnModuleInit {
   private readonly logger = new Logger(EngineAccounts.name);
 
   constructor(
@@ -26,6 +27,15 @@ export class EngineAccounts {
     private readonly engineModels: EngineModels,
     private readonly events: EventBus,
   ) {}
+
+  onModuleInit(): void {
+    this.events.subscribe(EngineAdded, async ({ engineId, kind }) => {
+      if (kind === "claude-code") await this.accounts.prepareConfigFolder(engineId);
+    });
+    this.events.subscribe(EngineRemoved, async ({ engineId, kind }) => {
+      if (kind === "claude-code") await this.accounts.removeConfigFolder(engineId);
+    });
+  }
 
   async account(engineId: EngineId): Promise<EngineAccount> {
     await this.requireClaudeCode(engineId);

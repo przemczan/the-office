@@ -101,7 +101,7 @@ export class EngineSessions {
     this.costs.started(id);
     const spans = this.spansOf(id, options, settings.telemetry);
     spans.messageSent(brief.id);
-    return this.watch(id, settings, spans, () => engine.start({ id, options, brief }));
+    return this.watch(id, listed, settings, spans, () => engine.start({ id, options, brief }));
   }
 
   /**
@@ -113,7 +113,7 @@ export class EngineSessions {
     const engine = this.engines.of(listed);
     const options = this.optionsOf(listed, settings);
     const spans = this.spansOf(sessionId, options, settings.telemetry);
-    return this.watch(sessionId, settings, spans, () => engine.resume(sessionId, options));
+    return this.watch(sessionId, listed, settings, spans, () => engine.resume(sessionId, options));
   }
 
   private async listed(engineId: EngineId): Promise<Engine> {
@@ -143,6 +143,7 @@ export class EngineSessions {
 
   private async watch(
     sessionId: string,
+    engine: Engine,
     settings: SessionSettings,
     spans: EngineCallSpans,
     open: () => Promise<EngineSession>,
@@ -152,7 +153,7 @@ export class EngineSessions {
       session = await open();
     } catch (error) {
       spans.stopped(error);
-      if (!isRefusal(error)) await this.engineDown(sessionId, error);
+      if (!isRefusal(error)) await this.engineDown(sessionId, engine, error);
       throw error;
     }
     return new WatchedSession(session, spans, {
@@ -161,7 +162,7 @@ export class EngineSessions {
       },
       turnEnded: (usage) => this.turnEnded(settings, usage),
       failed: async (error) => {
-        if (!isRefusal(error)) await this.engineDown(sessionId, error);
+        if (!isRefusal(error)) await this.engineDown(sessionId, engine, error);
       },
     });
   }
@@ -217,9 +218,10 @@ export class EngineSessions {
     }
   }
 
-  private async engineDown(sessionId: string, error: unknown): Promise<void> {
-    this.logger.error(`The engine is down for session ${sessionId}: ${messageOf(error)}`);
-    await this.events.publish(new EngineDown(sessionId, messageOf(error)));
+  private async engineDown(sessionId: string, engine: Engine, error: unknown): Promise<void> {
+    const reason = messageOf(error);
+    this.logger.error(`The engine ${engine.id} is down for session ${sessionId}: ${reason}`);
+    await this.events.publish(new EngineDown(sessionId, engine.id, engine.name, reason));
   }
 }
 

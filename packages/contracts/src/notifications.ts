@@ -190,8 +190,8 @@ export const pointerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("gate"), taskId: z.uuid(), stageKey: z.string().min(1) }),
   z.object({ kind: z.literal("task"), taskId: z.uuid() }),
   z.object({ kind: z.literal("initiative"), initiativeId: z.uuid() }),
-  /** The Office's own state, on Now and the status strip. */
-  z.object({ kind: z.literal("office") }),
+  /** The Office's own state, on Now and the status strip; an engine down names its engine. */
+  z.object({ kind: z.literal("office"), engineId: z.string().min(1).optional() }),
   /** Now, where Needs you and Since you left show what a Notification gathered. */
   z.object({ kind: z.literal("since-you-left") }),
 ]);

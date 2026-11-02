@@ -6,7 +6,10 @@ import {
 } from "@the-office/contracts";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { EventBus } from "../../../../platform/events/event-bus.js";
+import { EventsModule } from "../../../../platform/events/events.module.js";
 import { EngineSettingsModule } from "../../engine-settings.module.js";
+import { EngineAdded, EngineRemoved } from "../../domain/engine-events.js";
 import { DEFAULT_ENGINE_SETTINGS, FIRST_OFFICE_DEFAULT } from "../../domain/engine-settings.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
@@ -45,7 +48,7 @@ let repository: EngineSettingsForTests;
 beforeEach(async () => {
   repository = new EngineSettingsForTests();
   ({ app, url } = await startTestApplication({
-    imports: [EngineSettingsModule],
+    imports: [EventsModule, EngineSettingsModule],
     overrides: [{ provide: EngineSettingsRepository, useValue: repository }],
   }));
 });
@@ -147,6 +150,27 @@ describe("/api/settings/engines", () => {
     expect((await repository.read()).engines).toEqual([
       expect.objectContaining({ id: "claude-code", name: "Work account" }),
       expect.objectContaining({ id: "strata", name: "Strata box", key: KEY }),
+    ]);
+  });
+
+  it("announces each engine added and removed, by its id and kind alone", async () => {
+    const announced: (EngineAdded | EngineRemoved)[] = [];
+    const events = app.get(EventBus);
+    events.subscribe(EngineAdded, (event) => void announced.push(event));
+    events.subscribe(EngineRemoved, (event) => void announced.push(event));
+    const secondAccount = { name: "Second account", kind: "claude-code", claudeCodeP: false };
+
+    await put({
+      ...strataEdit,
+      engines: [...strataEdit.engines, { ...secondAccount, defaultModel: "claude-haiku-5-5" }],
+    });
+    await put({ ...strataEdit, engines: [FIRST_CLAUDE_CODE_ENGINE] });
+
+    expect(announced.map((event) => [event.constructor.name, event.engineId, event.kind])).toEqual([
+      ["EngineAdded", "strata", "openai-compatible-api"],
+      ["EngineAdded", "second-account", "claude-code"],
+      ["EngineRemoved", "strata", "openai-compatible-api"],
+      ["EngineRemoved", "second-account", "claude-code"],
     ]);
   });
 

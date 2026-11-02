@@ -14,7 +14,7 @@ import {
   SignInNotRunning,
   type SignIn,
 } from "../../ports/claude-code-accounts.js";
-import { preparedEngineConfigFolder } from "./engine-config-folder.js";
+import { preparedEngineConfigFolder, removeEngineConfigFolder } from "./engine-config-folder.js";
 import { sessionEnvironment } from "./session-settings.js";
 
 /** How the Claude Code binary is run: the pinned one in the service, a stand-in in tests. */
@@ -100,6 +100,15 @@ export class ClaudeCodeCliAccounts extends ClaudeCodeAccounts implements OnModul
     if (running === undefined) return Promise.reject(new SignInNotRunning(engineId));
     running.enter(code);
     return Promise.resolve();
+  }
+
+  async prepareConfigFolder(engineId: EngineId): Promise<void> {
+    await preparedEngineConfigFolder(this.officeData, engineId);
+  }
+
+  async removeConfigFolder(engineId: EngineId): Promise<void> {
+    await this.signIns.get(engineId)?.end();
+    await removeEngineConfigFolder(this.officeData, engineId);
   }
 
   async onModuleDestroy(): Promise<void> {

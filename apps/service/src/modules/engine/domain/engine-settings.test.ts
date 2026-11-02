@@ -203,10 +203,19 @@ describe("changedEngineSettings", () => {
     ).toEqual([`Pick the Office default's model among the models of "Claude Code".`]);
   });
 
-  it("keeps one Claude Code engine until each has its own account", () => {
-    expect(
-      refusal(stored, editOf([claudeCodeEdit({ id: undefined, name: "Second account" })])),
-    ).toEqual(["The Office runs one Claude Code engine for now."]);
+  it("adds a second Claude Code engine, with an id of its own", () => {
+    const changed = changedEngineSettings(
+      stored,
+      editOf([claudeCodeEdit({ id: undefined, name: "Second account" })]),
+    );
+
+    expect(changed.engines.filter(({ kind }) => kind === "claude-code")).toEqual([
+      expect.objectContaining({ id: "claude-code" }),
+      expect.objectContaining({ id: "second-account", name: "Second account" }),
+    ]);
+  });
+
+  it("keeps the first Claude Code engine until removing an engine moves what names it", () => {
     expect(
       refusal(
         stored,

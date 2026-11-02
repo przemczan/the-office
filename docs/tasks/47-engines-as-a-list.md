@@ -138,7 +138,7 @@ Every step leaves `npm run verify` passing. A service step that changes a contra
   - `POST /settings/engines/:id/sign-in` runs the pinned binary's `auth login` with the engine's folder (`engineConfigFolder`) and gives the page that signs in by a pasted code; `POST …/sign-in/code` hands the login that code. `GET …/account` gives what `auth status --json` gives: signed in, email, plan. An event announces the change.
   - Try the sign-in by hand first: does the login open the browser and finish with no TTY under the service, on Windows and on Linux? Spawn it with stdin not a TTY on a temporary folder, watch its output for about 15 s, kill it, never finish it. Log what you find; if it needs a TTY, stop and ask.
   - Commit.
-- [ ] 1e3. Each Claude Code engine's folder and the engine down, in Engine and Notifications, about 60k:
+- [x] 1e3. Each Claude Code engine's folder and the engine down, in Engine and Notifications, about 60k:
   - The folder is made when a Claude Code engine is added and removed with it, its Sign in ended; `claudeCodeEngineProblems`' second-engine refusal goes (its refusal of removing `claude-code` stays until 3a).
   - `EngineDown` carries the engine's id and name, and the Notification names the engine. Check how `office.down.engine` Notifications replace one another: by kind alone, a second engine's would take the first's place.
   - Commit.
@@ -150,6 +150,11 @@ Every step leaves `npm run verify` passing. A service step that changes a contra
   - e2e tests. Commit.
 
   Read: the State; `apps/web/src/surfaces/settings/MAP.md` (Engines); `settings/engines/engines-section.tsx`, `engine-settings-draft.ts`, `model-prices-card.tsx`; `apps/web/e2e/MAP.md`.
+- [ ] 1f2. The windows by engine, in Engine and Notifications, about 50k (found in 1e3: two engines' readings alternating would raise false "reset" and "nearly used"):
+  - `UsageWindowsChanged` names its engine; Notifications keep each engine's 5-hour window apart (`windowPercent`, one for every engine today) and name the engine in the window words; Now's windows by engine id.
+  - Commit.
+
+  Read: the State; `engine/application/usage-window-state.ts`; `notifications/MAP.md`; `notification-service.ts` (`subscribeToOffice`); `now-service.ts` (grep `UsageWindowsChanged`); `notification.ts` (`windowNearlyUsed`, `windowReset`).
 - [ ] 1g. Web, the engines by name everywhere else, about 80k:
   - Office limits sets the caps per engine.
   - Now and the status strip show each Claude Code engine's windows, by name.
@@ -190,7 +195,8 @@ Every step leaves `npm run verify` passing. A service step that changes a contra
 - [ ] 3a. Removing an engine, in Engine, People and Projects, about 90k:
   - `DELETE /settings/engines/:id` with a replacement id, or none when it is the only engine. It moves every reference, falls back to the replacement's default model, and refuses a replacement that fails the capability check.
   - With no engine, starting a session is refused with words.
-  - Running sessions finish, and their Threads start fresh.
+  - Running sessions finish, and their Threads start fresh. Since 1e3 a removed Claude Code engine's folder goes at once (`EngineRemoved`), under any session still running on it: wait for those sessions, or move the removal after them.
+  - An id is reserved only while its engine is listed: a Claude Code engine removed and added again under its name takes its old id back, with the old account's day usage, window samples and ratios, and caps. Clear or move them on removal.
   - Commit.
 
   Read: the State; `engine/application/engine-settings-service.ts`; `engine/application/engine-sessions.ts` (start, by symbol); the cascade from 2b; `conversations/domain/context-policy.ts` l. 120–145.
@@ -204,8 +210,10 @@ Every step leaves `npm run verify` passing. A service step that changes a contra
 
 ## State
 
-Steps 0, 1a–1e and 1e2 are done; 1e3 (the folders, a second engine, `EngineDown`) is next.
-- Engines are rows of `engines` (`engine/domain/engines.ts`; `engineIdFor` gives `[a-z0-9-]` ids, safe as folder names). `GET`/`PUT /settings/engines` carry the engines, the Office default, the search endpoint and prices. `claudeCodeEngineProblems` still refuses a second Claude Code engine and removing `claude-code` (1e3 lifts the first, 3a the second).
+Steps 0, 1a–1e, 1e2 and 1e3 are done; 1f (web, Settings › Engines) is next.
+- Engines are rows of `engines` (`engine/domain/engines.ts`; `engineIdFor` gives `[a-z0-9-]` ids, safe as folder names). `GET`/`PUT /settings/engines` carry the engines, the Office default, the search endpoint and prices. Several Claude Code engines may be listed; `claudeCodeEngineProblems` refuses only removing `claude-code` (until 3a).
+- Folders (1e3): `EngineSettingsService.change` publishes `EngineAdded`/`EngineRemoved` (id and kind only) after saving; `EngineAccounts` (so only where `EngineAccountsModule` runs) makes a Claude Code engine's folder (`ClaudeCodeAccounts.prepareConfigFolder`) and removes it, ending its Sign in (`removeConfigFolder` → `removeEngineConfigFolder`, refusing any id not naming a folder directly in `<office-data>/engines/`). The stand-in signs the engine out instead. A failure is logged by the event bus, the save kept.
+- Engine down (1e3): `EngineDown(sessionId, engineId, engineName, reason)`; the Notification says "<name> is down: …" / "I can't reach <name>: …" and points to `{ kind: "office", engineId }` (contract `pointerSchema` too, optional), so each engine's is kept apart and handled by a turn ending on that engine (`TurnEnded`'s `thread.session.engineId`). One stored before has no `engineId` and any engine's turn handles it.
 - Accounts (1e2): `EngineAccountsModule` (in `AppModule`, not in `EngineModule`/`ScriptedEngineModule`, whose tests lack the web event stream) holds `EngineAccountsController` (`GET …/:engineId/account`, `POST …/sign-in` → `{ url }`, `POST …/sign-in/code` → 204; 404 not a Claude Code engine, 409 no Sign in under way, 502 the binary failed), `EngineAccounts` (publishes `EngineAccountChanged` when a login ends, forwarded as `engine.account-changed`) and the port `ClaudeCodeAccounts`, bound to `ClaudeCodeCliAccounts` (one login per engine, ended by a new one, after 15 min, or at shutdown). The e2e service binds `StandInClaudeCodeAccounts` (signed in as `stand-in@example.com` by any code). Status parsing: `domain/engine-account.ts`.
 - `auth login` with no TTY (2.1.310, Windows, probed on temp folders, never finished): prints at once `If the browser didn't open, visit: <url>` (redirect `platform.claude.com/oauth/code/callback`, a code to paste) and `Paste code here if prompted >`, opens the browser through `BROWSER` or `rundll32` with a `localhost` callback (a listener seen), reads a code piped on stdin (a bogus one: "Invalid code…" on stderr, still waiting), and never ends by itself, stdin closed or not. On Linux with no `DISPLAY` the binary opens no browser (read in the binary), so the code paste is the way there. Unconfirmed until step 4: a real code completing the login, and the signed-in fields `email`/`subscriptionType`. Open for the user: spec §5.4 says "the browser opening"; the code paste (added here) is not in it yet.
 - Sessions: `EngineSessions` hands every adapter `SessionOptions.engine` (the listed `Engine`) and the model by its id there; `SessionSettings` omits it. The API adapter reads its endpoint from it (`apiEndpointModel`/`parseApiEndpointModel` are gone; `api-endpoints.ts` keeps only `ApiEndpointModel`).
@@ -235,3 +243,4 @@ Traps:
 - 2026-11-02 · step 1d: caps judged by the engine's kind in Work, not the contract, cap waits naming the engine; Stage runs keep the engine's id and name (migration 0079) and the old-run pricing bridge is gone; next is 1e, each Claude Code engine's account.
 - 2026-11-02 · step 1e: Claude Code sessions run with `CLAUDE_CONFIG_DIR` on the engine's own folder in the Office data, refused to Agents; every adapter gets its engine, `apiEndpointModel` gone; Threads on Claude Code start fresh (0080); Sign in split to 1e2; next is 1e2.
 - 2026-11-02 · step 1e2: Sign in runs `auth login` on the engine's folder, giving its page and taking a pasted code, `GET …/account` reads `auth status`, `engine.account-changed` announces a login's end; the login works with no TTY; folders, a second engine and `EngineDown` split to 1e3; next is 1e3.
+- 2026-11-02 · step 1e3: a Claude Code engine's folder is made when added and removed with it, its Sign in ended; a second Claude Code engine is allowed; `EngineDown` and its Notification name the engine, each engine's kept and handled apart; next is 1f, Settings › Engines, then 1f2, the windows by engine.

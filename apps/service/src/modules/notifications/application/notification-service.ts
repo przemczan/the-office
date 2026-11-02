@@ -181,11 +181,16 @@ export class NotificationService implements OnModuleInit {
         await this.raise(windowReset(await this.officeManager()));
       }
     });
-    this.events.subscribe(EngineDown, async ({ reason }) =>
-      this.raise(engineDown(reason, await this.officeManager())),
+    this.events.subscribe(EngineDown, async ({ engineId, engineName, reason }) =>
+      this.raise(
+        engineDown({ id: engineId, name: engineName }, reason, await this.officeManager()),
+      ),
     );
-    // A turn that ended came back from the engine, which therefore answers again.
-    this.events.subscribe(TurnEnded, () => this.handle({ kind: "engine-answered" }));
+    // A turn that ended came back from its session's engine, which therefore answers again.
+    this.events.subscribe(TurnEnded, async ({ thread }) => {
+      if (thread.session)
+        await this.handle({ kind: "engine-answered", engineId: thread.session.engineId });
+    });
   }
 
   /** Who the Office kinds come from: the Office Manager while one is hired. */

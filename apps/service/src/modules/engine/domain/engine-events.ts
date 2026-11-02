@@ -1,5 +1,5 @@
 import { DomainEvent } from "../../../platform/events/domain-event.js";
-import type { EngineId } from "./engines.js";
+import type { EngineId, EngineKind } from "./engines.js";
 import type { UsageWindows } from "./usage-windows.js";
 
 /** The account's usage windows changed, as read after the engine signalled a rate limit (spec §5.4). */
@@ -23,6 +23,29 @@ export class UsageWindowsRead extends DomainEvent {
 }
 
 /**
+ * Settings › Engines added an engine, so a Claude Code engine's config folder is made. It carries
+ * no more than the id and kind: an API engine's key never travels in an event.
+ */
+export class EngineAdded extends DomainEvent {
+  constructor(
+    readonly engineId: EngineId,
+    readonly kind: EngineKind,
+  ) {
+    super();
+  }
+}
+
+/** Settings › Engines removed an engine, so a Claude Code engine's config folder goes with it. */
+export class EngineRemoved extends DomainEvent {
+  constructor(
+    readonly engineId: EngineId,
+    readonly kind: EngineKind,
+  ) {
+    super();
+  }
+}
+
+/**
  * A Sign in of a Claude Code engine ended, signed in or not, so its account may differ now
  * (spec §5.4).
  */
@@ -36,6 +59,9 @@ export class EngineAccountChanged extends DomainEvent {
 export class EngineDown extends DomainEvent {
   constructor(
     readonly sessionId: string,
+    readonly engineId: EngineId,
+    /** The engine's name in Settings › Engines as the session opened. */
+    readonly engineName: string,
     /** In the engine's words. */
     readonly reason: string,
   ) {

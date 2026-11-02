@@ -1,5 +1,5 @@
-import { mkdir } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, rm } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import type { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import type { EngineId } from "../../domain/engines.js";
 
@@ -23,4 +23,27 @@ export async function preparedEngineConfigFolder(
   const folder = engineConfigFolder(officeData, engineId);
   await mkdir(folder, { recursive: true, mode: 0o700 });
   return folder;
+}
+
+/** An engine id that names no folder of its own under the engines' folder. */
+export class NotAnEngineConfigFolder extends Error {
+  constructor(readonly engineId: EngineId) {
+    super(`"${engineId}" names no engine's own folder in the Office data directory.`);
+  }
+}
+
+/**
+ * Removes the engine's folder with everything in it. Only a folder directly in the engines' folder
+ * is removed: an id that leads anywhere else is refused, as removing it could take the data
+ * directory or the user's files.
+ */
+export async function removeEngineConfigFolder(
+  officeData: OfficeDataDirectory,
+  engineId: EngineId,
+): Promise<void> {
+  const folder = resolve(engineConfigFolder(officeData, engineId));
+  if (dirname(folder) !== resolve(officeData.folder("engines"))) {
+    throw new NotAnEngineConfigFolder(engineId);
+  }
+  await rm(folder, { recursive: true, force: true });
 }

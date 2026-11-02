@@ -35,4 +35,13 @@ export abstract class ClaudeCodeAccounts {
 
   /** Hands the Sign in under way the code the sign-in page gave; `SignInNotRunning` without one. */
   abstract enterCode(engineId: EngineId, code: string): Promise<void>;
+
+  /** Makes the engine's config folder, where it signs in, when the engine is added. */
+  abstract prepareConfigFolder(engineId: EngineId): Promise<void>;
+
+  /**
+   * Ends any Sign in under way on the engine and removes its config folder, its account and its
+   * sessions' transcripts with it, when the engine is removed.
+   */
+  abstract removeConfigFolder(engineId: EngineId): Promise<void>;
 }

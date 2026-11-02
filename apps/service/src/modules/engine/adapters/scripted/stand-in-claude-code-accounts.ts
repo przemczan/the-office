@@ -46,4 +46,16 @@ export class StandInClaudeCodeAccounts extends ClaudeCodeAccounts {
     end();
     return Promise.resolve();
   }
+
+  /** A stand-in keeps no folder. */
+  prepareConfigFolder(_engineId: EngineId): Promise<void> {
+    return Promise.resolve();
+  }
+
+  /** Its account goes with it, as the folder would take it. */
+  removeConfigFolder(engineId: EngineId): Promise<void> {
+    this.signIns.get(engineId)?.();
+    this.signedIn.delete(engineId);
+    return Promise.resolve();
+  }
 }

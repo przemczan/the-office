@@ -1,4 +1,4 @@
-import { mkdtemp, rm, stat } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -7,7 +7,12 @@ import { currentOperatingSystem } from "../../../../platform/os/current-operatin
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
 import type { SessionOptions } from "../../ports/session-options.js";
 import { toolDecision } from "../office-rules/tool-decision.js";
-import { engineConfigFolder, preparedEngineConfigFolder } from "./engine-config-folder.js";
+import {
+  engineConfigFolder,
+  NotAnEngineConfigFolder,
+  preparedEngineConfigFolder,
+  removeEngineConfigFolder,
+} from "./engine-config-folder.js";
 import { claudeCodeOfficeRules } from "./session-office-rules.js";
 
 const SESSION_ID = "0b0e6a47-3f9e-4f8e-9a51-2a3c4d5e6f70";
@@ -42,6 +47,14 @@ function decide(tool: string, input: unknown) {
   return toolDecision(rules, {}, tool, input);
 }
 
+/** A file that must outlive every removal but its own folder's. */
+async function keptFile(folder: string): Promise<string> {
+  await mkdir(folder, { recursive: true });
+  const file = join(folder, "keep.txt");
+  await writeFile(file, "kept");
+  return file;
+}
+
 beforeEach(async () => {
   officeData = new OfficeDataDirectory(await mkdtemp(join(tmpdir(), "office-engine-folder-")));
 });
@@ -71,6 +84,32 @@ describe("the engine's config folder", () => {
     const folder = await preparedEngineConfigFolder(officeData, FIRST_CLAUDE_CODE_ENGINE.id);
 
     expect((await stat(folder)).mode & 0o777).toBe(0o700);
+  });
+
+  describe("removed with its engine", () => {
+    it("with everything in it, leaving the other engines' folders", async () => {
+      const removed = await keptFile(engineConfigFolder(officeData, "work-account"));
+      const other = await keptFile(engineConfigFolder(officeData, "home-account"));
+
+      await removeEngineConfigFolder(officeData, "work-account");
+
+      await expect(stat(join(removed, ".."))).rejects.toMatchObject({ code: "ENOENT" });
+      await expect(readFile(other, "utf8")).resolves.toBe("kept");
+      await expect(removeEngineConfigFolder(officeData, "work-account")).resolves.toBeUndefined();
+    });
+
+    it("never when the id leads outside the engines' folder", async () => {
+      const outside = await keptFile(join(officeData.path, "outside"));
+      const engines = await keptFile(engineConfigFolder(officeData, "home-account"));
+
+      for (const engineId of ["", ".", "..", "../outside", "home-account/..", outside]) {
+        await expect(removeEngineConfigFolder(officeData, engineId)).rejects.toBeInstanceOf(
+          NotAnEngineConfigFolder,
+        );
+      }
+      await expect(readFile(outside, "utf8")).resolves.toBe("kept");
+      await expect(readFile(engines, "utf8")).resolves.toBe("kept");
+    });
   });
 
   describe("refused to the session's Agent", () => {

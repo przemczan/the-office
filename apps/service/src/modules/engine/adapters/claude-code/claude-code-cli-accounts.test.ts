@@ -130,6 +130,23 @@ describe("the Claude Code accounts through the binary", () => {
     );
   });
 
+  it("makes an engine's folder when it is added, and removes it with its account and Sign in", async () => {
+    await accounts.prepareConfigFolder("work");
+    expect((await stat(engineConfigFolder(officeData, "work"))).isDirectory()).toBe(true);
+    const first = await accounts.signIn("work");
+    await accounts.enterCode("work", "good-code");
+    await first.ended;
+    const second = await accounts.signIn("work");
+
+    await accounts.removeConfigFolder("work");
+
+    await second.ended;
+    await expect(accounts.enterCode("work", "good-code")).rejects.toThrow(SignInNotRunning);
+    await expect(stat(engineConfigFolder(officeData, "work"))).rejects.toMatchObject({
+      code: "ENOENT",
+    });
+  });
+
   it("ends every Sign in under way as the service stops", async () => {
     const signIn = await accounts.signIn("work");
 

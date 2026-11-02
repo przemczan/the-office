@@ -211,17 +211,13 @@ function duplicateNameProblems(engines: readonly Engine[]): string[] {
 }
 
 /*
- * One Claude Code engine for now: until each has its own account (step 1e of task 47) and Window
- * caps follow the engine's kind (1d), a second would share the first's account. The first stays
- * until removing an engine moves what names it (3a): the presets hire onto it, and Stage runs from
- * before engine ids are priced on it (1d).
+ * The first Claude Code engine stays until removing an engine moves what names it (step 3a of
+ * task 47): the presets hire onto it.
  */
 function claudeCodeEngineProblems(engines: readonly Engine[]): string[] {
-  if (!engines.some(({ id }) => id === FIRST_CLAUDE_CODE_ENGINE.id)) {
-    return ["The Claude Code engine can't be removed yet."];
-  }
-  const count = engines.filter(({ kind }) => kind === "claude-code").length;
-  return count > 1 ? ["The Office runs one Claude Code engine for now."] : [];
+  return engines.some(({ id }) => id === FIRST_CLAUDE_CODE_ENGINE.id)
+    ? []
+    : ["The Claude Code engine can't be removed yet."];
 }
 
 function officeDefaultProblems(

@@ -13,8 +13,11 @@ export type Pointer =
   | { readonly kind: "gate"; readonly taskId: string; readonly stageKey: string }
   | { readonly kind: "task"; readonly taskId: string }
   | { readonly kind: "initiative"; readonly initiativeId: string }
-  /** The Office's own state, as Now and the status strip show it. */
-  | { readonly kind: "office" }
+  /**
+   * The Office's own state, as Now and the status strip show it; an engine down names its engine,
+   * so each engine's is raised, and handled, on its own.
+   */
+  | { readonly kind: "office"; readonly engineId?: string }
   /** Now, where Needs you and Since you left show what a Notification gathered. */
   | { readonly kind: "since-you-left" };
 
@@ -208,13 +211,20 @@ export function windowReset(officeManager: string | undefined): NotificationDraf
   );
 }
 
-export function engineDown(reason: string, officeManager: string | undefined): NotificationDraft {
-  return officeKind(
-    "office.down.engine",
-    officeManager,
-    `I can't reach the engine: ${reason}`,
-    `The engine is down: ${reason}`,
-  );
+export function engineDown(
+  engine: { readonly id: string; readonly name: string },
+  reason: string,
+  officeManager: string | undefined,
+): NotificationDraft {
+  return {
+    ...officeKind(
+      "office.down.engine",
+      officeManager,
+      `I can't reach ${engine.name}: ${reason}`,
+      `${engine.name} is down: ${reason}`,
+    ),
+    pointsTo: { kind: "office", engineId: engine.id },
+  };
 }
 
 function officeKind(
@@ -259,7 +269,8 @@ export type Handling =
   /** The user opened Now, where the 5-hour window shows. */
   | { readonly kind: "now-opened" }
   | { readonly kind: "window-reset" }
-  | { readonly kind: "engine-answered" };
+  /** A turn came back from the engine, which therefore answers again. */
+  | { readonly kind: "engine-answered"; readonly engineId: string };
 
 export function handles(handling: Handling, { kind, pointsTo }: Notification): boolean {
   switch (handling.kind) {
@@ -281,7 +292,7 @@ export function handles(handling: Handling, { kind, pointsTo }: Notification): b
     case "window-reset":
       return kind === "office.window.nearly-used";
     case "engine-answered":
-      return kind === "office.down.engine";
+      return kind === "office.down.engine" && isAbout(pointsTo, handling.engineId);
   }
 }
 
@@ -298,6 +309,11 @@ export function samePointer(
     fields.length === otherFields.size &&
     fields.every(([field, value]) => otherFields.get(field) === value)
   );
+}
+
+/** An engine down raised before engines were named stands for any engine. */
+function isAbout(pointsTo: Pointer, engineId: string): boolean {
+  return pointsTo.kind === "office" && (pointsTo.engineId ?? engineId) === engineId;
 }
 
 function pointsAt(pointsTo: Pointer, taskId: string): boolean {
