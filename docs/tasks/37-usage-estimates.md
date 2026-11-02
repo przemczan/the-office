@@ -1,6 +1,6 @@
 # 37 · Usage estimates
 
-Status: in progress
+Status: done
 
 ## Goal
 
@@ -12,31 +12,31 @@ Caps are per account for the Claude Code engines, one set for the OpenAI-compati
 
 ## Definition of Done
 
-- [ ] Each Agent Stage run keeps its engine and model. Each reading of the usage windows carries when it was read, its Reading source and the Office's tokens so far on the engines with windows; the Engine keeps the pairs of successive readings of one source that count. Check: Pipelines and Engine tests with the scripted engine; the migrations.
+- [x] Each Agent Stage run keeps its engine and model. Each reading of the usage windows carries when it was read, its Reading source and the Office's tokens so far on the engines with windows; the Engine keeps the pairs of successive readings of one source that count. Check: Pipelines and Engine tests with the scripted engine; the migrations.
 - [x] The Engine counts each day's tokens by engine id and model, kind by kind, from every turn of every session. "Today" starts at local midnight on the service, as in §2.7. Check: Engine tests; the migration.
-- [ ] Settings › Engines sets a Model price for each model it offers: input, output, cache writes and cache reads, in dollars per million tokens. They are kept in the database. A model with no price gives "no cost", which never holds a Start. Check: service tests of the settings and of a cost; e2e test of the prices.
-- [ ] A Task's Usage estimate is per engine, the engine being the one each Stage's Role picks.
+- [x] Settings › Engines sets a Model price for each model it offers: input, output, cache writes and cache reads, in dollars per million tokens. They are kept in the database. A model with no price gives "no cost", which never holds a Start. Check: service tests of the settings and of a cost; e2e test of the prices.
+- [x] A Task's Usage estimate is per engine, the engine being the one each Stage's Role picks.
   - For each Stage, a sample is the sum of that Stage's runs in one done Task of the same Project and Pipeline, among the last 20, so loops and send-backs count. The median is taken of each token kind.
   - Window % is the estimate's tokens, from history or the Planner, times the engine id's Office-wide window % per counted token (the user, 2026-11-02, as `utilization` is whole percents and a Stage run never gets a like-with-like pair). A pair of successive readings counts only when both have one known Reading source and the Office's tokens went up between them; a window's part only when it didn't reset between them or go down. The ratio pools the latest pairs: the changes summed over their tokens. It mixes models, a limit the user accepted.
   - Cost is the median tokens at the current Model prices.
   - Below 3 done Tasks, the Planner's tokens stand in, split evenly over the Agent Stages. Their cost comes from the Office-wide dollars per token. With no history at all they are "no estimate".
 
   Check: domain tests of medians, pairs, resets, sources, prices and the fallback.
-- [ ] The Planner's `write_plan` takes an optional token estimate, shown with the Plan. Check: Work tests; the contract's schemas.
-- [ ] Settings › Office limits ticks the measures (any number; none turns estimates off; tokens and the 5-hour window by default), and sets the caps: one set for the Claude Code engines' account, one for the OpenAI-compatible API. Window caps default to 90%; the Daily caps are off unless set. Check: service tests; e2e test of the card.
-- [ ] Start waits in the queue when a ticked measure's cap that an engine the Task uses falls under would be passed (the Task's estimates on the engines under one cap add up):
+- [x] The Planner's `write_plan` takes an optional token estimate, shown with the Plan. Check: Work tests; the contract's schemas.
+- [x] Settings › Office limits ticks the measures (any number; none turns estimates off; tokens and the 5-hour window by default), and sets the caps: one set for the Claude Code engines' account, one for the OpenAI-compatible API. Window caps default to 90%; the Daily caps are off unless set. Check: service tests; e2e test of the card.
+- [x] Start waits in the queue when a ticked measure's cap that an engine the Task uses falls under would be passed (the Task's estimates on the engines under one cap add up):
   - A window: its use, plus the estimates of Tasks started since the reading, plus this Task's estimate. A window with no reading, or whose reset has passed, counts as unused.
   - A Daily cap: the day's actual use on the engines under it, plus what is left of the estimates of Tasks in progress, plus this Task's.
 
   A Task with no estimate is weighed on the use plus the other Tasks' estimates, its own part left out. The reason names the cap's engines, the cap, the use, the estimate and the reset. The Task starts anyway when every exceeded cap resets within an hour. The queue is released on each new reading, an hour before the earliest reset that frees a waiting Task, and at that reset. Check: domain tests of each cap and the hour; Work tests of the timers and of two Starts on one reading.
-- [ ] The estimate, or "no estimate", shows with where it came from (history of n Tasks, or the Planner):
+- [x] The estimate, or "no estimate", shows with where it came from (history of n Tasks, or the Planner):
   - on Ready Task cards;
   - on the Task page's Ready block;
   - in the Start flow;
   - on queued Tasks on the board and on Now.
 
   Check: e2e tests.
-- [ ] Seen once live on the Test Project with the Agent SDK engine and the cheapest model. Check: the run summarised in State, covering:
+- [x] Seen once live on the Test Project with the Agent SDK engine and the cheapest model. Check: the run summarised in State, covering:
   - the pairs of readings kept and the ratio they give;
   - how fine `utilization` is;
   - a Start held by a lowered cap and released.
@@ -209,11 +209,11 @@ Chosen while writing, for the user to review:
   - Re-run the live check once and record the pairs and the ratio in State. Commit.
 
   Read: the State; `engine/application/engine-sessions.ts` (`readUsageWindows`, `turnEnded`); `engine/application/usage-window-state.ts`; `engine/application/day-usage.ts` and its Postgres adapter (the pattern); `pipelines/domain/usage-history.ts`; `work/domain/usage-estimate.ts` (`historyUsage`, `plannerUsage`); `work/application/usage-estimates.ts`; `work/ports/usage-history.ts`.
-- [ ] 8. Close: every box ticked with its check, `npm run verify:linux`; archive the Progress log; the task `done` here and in the README. Commit.
+- [x] 8. Close: every box ticked with its check, `npm run verify:linux`; archive the Progress log; the task `done` here and in the README. Commit.
 
 ## State
 
-- Steps 1a–7c done; next, 8, closing. Engine: `EngineSessions.readUsageWindows` reads the windows into `UsageWindowState` (`readAt`, `officeTokensSoFar`); a window not begun is 0% with no `resetsAt`. Engine ids (`claude-code`, `openai-compatible-api`) key caps, readings, day use (`DayUsage.today`) and Model prices; `engineIdOf` is the one mapping, task 47 replaces it.
+- Done (step 8, 2026-11-02): every box ticked with its check; `npm run verify` and `npm run verify:linux` passed. Engine: `EngineSessions.readUsageWindows` reads the windows into `UsageWindowState` (`readAt`, `officeTokensSoFar`); a window not begun is 0% with no `resetsAt`. Engine ids (`claude-code`, `openai-compatible-api`) key caps, readings, day use (`DayUsage.today`) and Model prices; `engineIdOf` is the one mapping, task 47 replaces it.
 - Pipelines: `StageRun` keeps `engine` and `model` (0068; its reading columns dropped in 0074). `UsageHistory.of(doneTaskIds)` (median tokens per Stage) / `dollarsPerToken(doneTaskIds)` in `UsageHistoryModule`, over the latest 20; rules in `pipelines/domain/usage-history.ts`. Prices: `model_prices` (0070), `ModelPrices.costOf`; web card in Settings › Engines.
 - Planner's estimate (3b): `Task.estimatedTokens` (`tasks.estimated_tokens` bigint, 0071), written by `write_plan`'s optional `estimatedTokens`, carried by `PUT /tasks/:id/plan` and `taskSchema` (nullable); left out keeps the Task's; a whole number above 0. The web's `PlanConfirmation` leaves it out; the Plan shows it (6b).
 - Usage estimate (3b): `work/domain/usage-estimate.ts` (`historyUsage`, `plannerUsage`, `tasksInHistory`, `stageEngineAndModel`), `application/usage-estimates.ts` (`UsageEstimates.of(task, everyTask)`, `ofReadyTasks()`), in `StartCheck.usageEstimate` and `GET /usage-estimates` (`usage-estimates.controller.ts`); contract `usageEstimateSchema` (`basis`: history of n Tasks, planner, or none; `engines`: ticked measures only, null where none). Ports `UsageHistory`, `ModelPrices` and `AccountWindowRatios` (Work's own types), bound in `app.module.ts`; fakes in `work-ports.fixtures.ts`. `KnownPerson.card` gains `engine`, `model`; `KnownPipelines.find` gives `KnownPipeline` (Stage keys, models).
@@ -237,19 +237,4 @@ Chosen while writing, for the user to review:
 
 ## Progress
 
-- 2026-11-01 · step 0: wrote the task file, amended spec §2.1, §2.2, §2.7, §3, §4, §5.4 and §8 and the glossary with the user's answers; next, step 1a, the readings through a Stage Thread.
-- 2026-11-01 · step 1a: readings with `readAt` and the Office's tokens so far, through `StageThread.usageWindows()` (Engine, Conversations, Pipelines' port); caps reworded per account; next, step 1b, Stage runs keep engine, model and readings.
-- 2026-11-01 · step 1b: Stage runs keep engine, model and the windows read as the session opens and after its last turn (migration 0068); a window not begun now counts as unused, judged one at a time; next, step 1c, the day's use per engine and model.
-- 2026-11-01 · step 1c: each day's use per engine id and model in `engine_day_usage` (migration 0069), added on every turn's end, `DayUsage.today(engineId)`; caps, readings and day use keyed by engine id via `engineIdOf` (steps 4–6a reworded); next, step 2a, Model prices.
-- 2026-11-01 · step 2a: Model prices in `model_prices` (migration 0070) keyed by engine id and model, carried whole by `GET`/`PUT /settings/engines` as every offered model with its price or none; `ModelPrices.costOf(engineId, model, tokens)` exported; next, step 2b, the Prices card.
-- 2026-11-01 · step 2b: Settings › Engines' Model prices card, a row of four prices per offered model in the section's one draft, a new API endpoint's priced before Save by contracts' `apiEndpointIdFor` mirror; e2e in `people.e2e.ts`; next, step 3a, the history estimate.
-- 2026-11-01 · step 3a: `UsageHistory.of(doneTaskIds)` (each Stage's median tokens and window changes, sample counts) and `ratios(doneTaskIds)` (window % and dollars per token) over the latest 20 done Tasks, in its own `UsageHistoryModule` for Work; next, step 3b, the Planner's estimate and the Task's Usage estimate.
-- 2026-11-01 · step 3b: the Planner's `estimatedTokens` on the Plan (migration 0071) through `write_plan` and `PUT /tasks/:id/plan`; the Task's Usage estimate per engine, from history at 3 done Tasks or the Planner's tokens by Office-wide ratios, in the Start check and `GET /usage-estimates`; next, step 4, the measures and caps.
-- 2026-11-02 · step 4: the ticked measures and each engine id's caps in `work_settings` and `engine_caps` (migration 0072) through `GET`/`PUT /settings/usage`, whose `UsageSettingsChanged` releases the queue; estimates read the ticked measures and are grouped by engine id, not engine; next, step 5a, the window wait.
-- 2026-11-02 · step 5a: Start waits on a ticked Window cap its estimate would pass, with the Tasks started since the reading and the hour's exception (`domain/cap-waits.ts`); the queue releases on Engine's new `UsageWindowsRead`, on `TaskQueued` and on a timer an hour before and at the reset; next, step 5b, the Daily caps.
-- 2026-11-02 · step 5b: the Daily caps, today's priced use plus what is left of the started Tasks' estimates plus this Task's, resetting at local midnight with the hour exception; a Task with no estimate now counts the other Tasks' estimates too; next, step 6a, the Usage card.
-- 2026-11-02 · step 6a: Settings › Office limits' Usage card, the measures as checkboxes and each engine id's Window and Daily caps in one draft with Save and Discard, the 5-hour window's use from Now; `usage-settings.changed` web event; next, step 6b, the estimate where a Task starts.
-- 2026-11-02 · step 6b: the Usage estimate on Ready cards, beside Start, in the Ready block and on queued Tasks on the board and Now (`UsageEstimateLine`), the Planner's estimate under the Plan; `queue.e2e.ts` empties the queue after each test, as a queuing Start now releases it; next, step 7, the live check.
-- 2026-11-02 · step 7: live check on the Test Project (Agent SDK, Haiku): readings kept on each Stage run; `utilization` is whole percents and the usage query's first answer in a session runs a point above later ones; a lowered 5-hour cap queued a Start with its words and giving it back released it; next, the user's answer on the sample rule, then step 8.
-- 2026-11-02 · step 7b: readings keep their Reading source, a run's window change is taken between readings of one source, and each Stage's window estimate is pooled over its runs (migration 0073); `mcp-servers.e2e.ts:27` waits as long for turning on as for the review; live, no start reading of the headers' source forms; next, the user's answer, then step 8.
-- 2026-11-02 · step 7c: window % per token learnt Office-wide from successive readings of one source, kept in `usage_window_samples` (latest 500), applied to every estimate's tokens; per-Stage window changes, the runner's readings and `stage_runs`' reading columns removed (migration 0074); live, one endpoint pair of 32,709 tokens kept at 0; next, step 8, closing.
+The log is in [archive/37-usage-estimates.md](archive/37-usage-estimates.md).
