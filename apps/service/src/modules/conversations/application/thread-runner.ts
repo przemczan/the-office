@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, Logger, type OnModuleDestroy } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { EngineSessions } from "../../engine/index.js";
+import { EngineSessions, NoEngineListed } from "../../engine/index.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
 import {
   EngineCascade,
@@ -374,7 +374,9 @@ export class ThreadRunner implements OnModuleDestroy {
     readonly model: string;
     readonly newSession: ThreadSession | undefined;
   }> {
-    const applying = await this.engineCascade.of(thread.roleKey, place.project?.id);
+    const applying = await this.engineCascade
+      .of(thread.roleKey, place.project?.id)
+      .catch(refusedWithoutEngine);
     const decision = decideContext(
       {
         now,
@@ -675,4 +677,10 @@ export class ThreadRunner implements OnModuleDestroy {
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/** No engine listed refuses the message in words, before anything is logged. */
+function refusedWithoutEngine(error: unknown): never {
+  if (error instanceof NoEngineListed) throw new ThreadRefused([error.message]);
+  throw error;
 }

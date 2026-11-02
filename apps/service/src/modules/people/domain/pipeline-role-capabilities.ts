@@ -27,16 +27,19 @@ export interface RoleOnIncapableEngine {
 
 /**
  * The Roles of `roles` whose engine in the cascade, in `project` or in no Project, lacks a
- * capability their Agent Stages need. `missingCapabilities` gives what an engine can't do.
+ * capability their Agent Stages need; a Role on no engine, with none listed, lacks nothing here.
+ * `missingCapabilities` gives what an engine can't do.
  */
 export function rolesOnIncapableEngines(
   roles: readonly PipelineRole[],
-  officeDefault: EngineModel,
+  officeDefault: EngineModel | null,
   project: ProjectCascadeLevels | undefined,
   missingCapabilities: (engineId: string) => readonly EngineCapability[],
 ): RoleOnIncapableEngine[] {
   return roles.flatMap(({ roleKey, roleOverride }) => {
-    const { engineId } = engineInCascade(roleKey, { officeDefault, roleOverride, project });
+    const applying = engineInCascade(roleKey, { officeDefault, roleOverride, project });
+    if (applying === null) return [];
+    const { engineId } = applying;
     const missing = PIPELINE_ROLE_CAPABILITIES.filter((capability) =>
       missingCapabilities(engineId).includes(capability),
     );

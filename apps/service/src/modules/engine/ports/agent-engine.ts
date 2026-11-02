@@ -75,6 +75,14 @@ export class EngineNotListed extends Error {
   }
 }
 
+/** No session starts while Settings › Engines lists no engine, the only one removed (spec §5.4). */
+export class NoEngineListed extends Error {
+  constructor() {
+    super("Settings › Engines lists no engine, so no session starts; add one there first.");
+    this.name = "NoEngineListed";
+  }
+}
+
 export interface NewSession {
   /** Chosen by the caller, so what is named after the session, such as its skills folder, exists before it starts. */
   readonly id: string;

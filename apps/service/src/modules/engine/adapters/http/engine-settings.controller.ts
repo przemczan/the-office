@@ -34,13 +34,13 @@ export class EngineSettingsController {
     return response(await this.settings.change(edit));
   }
 
-  /** Moves everything naming the engine to the replacement, then removes it. */
+  /** Moves everything naming the engine to the replacement, or to none for the only engine, then removes it. */
   @Delete(":engineId")
   async remove(
     @Param("engineId") engineId: string,
     @Query(new ContractPipe(engineRemovalSchema)) { replacement }: EngineRemovalRequest,
   ): Promise<EngineSettingsResponse> {
-    return response(await this.settings.remove(engineId, replacement));
+    return response(await this.settings.remove(engineId, replacement ?? null));
   }
 }
 
@@ -48,7 +48,7 @@ function response(settings: EngineSettings): EngineSettingsResponse {
   const { engines, officeDefault, searchEndpoint } = settings;
   return {
     engines: engines.map(engineResponse),
-    officeDefault: { ...officeDefault },
+    officeDefault: officeDefault && { ...officeDefault },
     searchEndpoint,
     modelPrices: offeredModelPrices(settings).map(({ engineId, model, price }) => ({
       engineId,

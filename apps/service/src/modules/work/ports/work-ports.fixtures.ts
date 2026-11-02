@@ -143,7 +143,7 @@ export class KnownPeopleForTests extends KnownPeople {
 export class KnownEngineCascadeForTests extends KnownEngineCascade {
   readonly inProject = new Map<string, EngineModel>();
 
-  async of(_roleKey: string, projectId: string): Promise<EngineModel> {
+  async applying(_roleKey: string, projectId: string): Promise<EngineModel | null> {
     return (
       this.inProject.get(projectId) ?? {
         engineId: FIRST_CLAUDE_CODE_ENGINE.id,

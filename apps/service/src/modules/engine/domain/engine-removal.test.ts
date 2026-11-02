@@ -52,6 +52,15 @@ describe("movedEngineModel", () => {
 
     expect(movedEngineModel(reference, removal)).toBe(reference);
   });
+
+  it("moves a reference to none when the only engine goes", () => {
+    expect(
+      movedEngineModel(
+        { engineId: "claude-code", model: "claude-sonnet-5-5" },
+        { engineId: "claude-code", replacement: null },
+      ),
+    ).toBeNull();
+  });
 });
 
 describe("engineRemovalAmong", () => {
@@ -64,15 +73,21 @@ describe("engineRemovalAmong", () => {
     });
   });
 
-  it("refuses an engine not listed, the only engine, and a replacement not listed or the engine itself", () => {
+  it("removes the only engine with no replacement", () => {
+    expect(engineRemovalAmong([strata], "strata", null)).toEqual({
+      engineId: "strata",
+      replacement: null,
+    });
+  });
+
+  it("refuses an engine not listed, and a replacement not listed, the engine itself or none while others are", () => {
     expect(refusal(engines, "gone", "strata")).toEqual([
       "The engines changed meanwhile; open Settings › Engines again.",
-    ]);
-    expect(refusal([strata], "strata", "strata")).toEqual([
-      '"Strata" is the only engine; add another before removing it.',
     ]);
     const pickAnother = 'Pick the engine that takes over from "Strata" among the other engines.';
     expect(refusal(engines, "strata", "gone")).toEqual([pickAnother]);
     expect(refusal(engines, "strata", "strata")).toEqual([pickAnother]);
+    expect(refusal(engines, "strata", null)).toEqual([pickAnother]);
+    expect(refusal([strata], "strata", "strata")).toEqual([pickAnother]);
   });
 });

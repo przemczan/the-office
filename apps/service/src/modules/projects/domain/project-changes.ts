@@ -79,14 +79,19 @@ export function changeCommandsAsProposed(
 /**
  * Moves the Project default and each Role override where `move` puts them, as the user removing
  * an engine moves them (spec §5.4), each with its own event; none when nothing names the engine.
+ * Moved to none, with the only engine, the Project default takes "Use for every Role" with it.
  */
 export function moveEngineLevels(
   project: Project,
-  move: (reference: EngineModel) => EngineModel,
+  move: (reference: EngineModel) => EngineModel | null,
 ): ProjectChanges {
   const { projectDefault } = project;
+  const movedDefault = projectDefault && move(projectDefault);
   return changesInTurn(project, [
-    (current) => (projectDefault ? changeProjectDefault(current, move(projectDefault)) : undefined),
+    // A Project default moved to none takes "Use for every Role" with it.
+    (current) =>
+      projectDefault && movedDefault === null ? changeUseForEveryRole(current, false) : undefined,
+    (current) => (projectDefault ? changeProjectDefault(current, movedDefault) : undefined),
     ...project.roleOverrides.map(
       ({ roleKey, engineId, model }) =>
         (current: Project) =>

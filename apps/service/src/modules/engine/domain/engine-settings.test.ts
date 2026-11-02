@@ -207,6 +207,27 @@ describe("changedEngineSettings", () => {
     ).toEqual([`Pick the Office default's model among the models of "Claude Code".`]);
   });
 
+  it("refuses no Office default while an engine is listed", () => {
+    expect(refusal(DEFAULT_ENGINE_SETTINGS, editOf([], { officeDefault: null }))).toEqual([
+      "Pick the Office default among the engines listed.",
+    ]);
+  });
+
+  it("gives the first engine saved after none the Office default, on its default model", () => {
+    const none: EngineSettings = { ...DEFAULT_ENGINE_SETTINGS, engines: [], officeDefault: null };
+
+    expect(
+      changedEngineSettings(none, { ...editOf([]), engines: [], officeDefault: null }),
+    ).toEqual(none);
+    expect(
+      changedEngineSettings(none, {
+        ...editOf([]),
+        engines: [strataEdit({ id: undefined })],
+        officeDefault: null,
+      }).officeDefault,
+    ).toEqual({ engineId: "strata", model: "qwen3.8-flash" });
+  });
+
   it("adds a second Claude Code engine, with an id of its own", () => {
     const changed = changedEngineSettings(
       stored,
@@ -271,6 +292,19 @@ describe("settingsWithoutEngine", () => {
 
     expect(changed.engines).toEqual([strata]);
     expect(changed.officeDefault).toEqual({ engineId: "strata", model: "qwen3.8-flash" });
+  });
+
+  it("leaves no Office default when the only engine goes", () => {
+    const only: EngineSettings = {
+      ...DEFAULT_ENGINE_SETTINGS,
+      engines: [FIRST_CLAUDE_CODE_ENGINE],
+    };
+
+    expect(settingsWithoutEngine(only, { engineId: "claude-code", replacement: null })).toEqual({
+      ...only,
+      engines: [],
+      officeDefault: null,
+    });
   });
 });
 

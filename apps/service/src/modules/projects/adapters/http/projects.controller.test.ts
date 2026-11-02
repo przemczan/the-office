@@ -441,6 +441,36 @@ describe("the Project's engine levels", () => {
     ]);
   });
 
+  it("moves the levels naming the only engine, removed, to none, the force going with the default", async () => {
+    const project = await addProject();
+    const removed = `removed-${randomUUID()}`;
+    const projectDefault = { engineId: removed, model: "claude-sonnet-5-5" };
+    await app.get(ProjectRepository).update(project.id, (stored) => ({
+      project: {
+        ...stored,
+        projectDefault,
+        useForEveryRole: true,
+        roleOverrides: [{ roleKey: "cto", engineId: removed, model: "gpt-oss" }],
+      },
+      events: [new ProjectDefaultChanged(stored.id, projectDefault)],
+    }));
+    published = [];
+
+    await app.get(ProjectLevelMoves).moveProjectLevels({ engineId: removed, replacement: null });
+
+    const read = await fetch(`${url}/api/projects/${project.id}`);
+    expect(projectSchema.parse(await read.json())).toMatchObject({
+      projectDefault: null,
+      useForEveryRole: false,
+      roleOverrides: [],
+    });
+    expect(webEvents()).toEqual([
+      { type: "project.use-for-every-role-changed", projectId: project.id },
+      { type: "project.project-default-changed", projectId: project.id },
+      { type: "project.role-override-changed", projectId: project.id },
+    ]);
+  });
+
   it("refuses an engine that isn't listed, a model it doesn't offer, and a force without a default", async () => {
     const project = await addProject();
 

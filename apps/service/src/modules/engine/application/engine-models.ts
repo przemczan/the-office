@@ -30,8 +30,11 @@ export class EngineModels {
     return (engineId) => offered.get(engineId) ?? [];
   }
 
-  /** The engine and model of the engine cascade's least specific level (spec §5.4). */
-  async officeDefault(): Promise<EngineModel> {
+  /**
+   * The engine and model of the engine cascade's least specific level (spec §5.4); none only while
+   * no engine is listed.
+   */
+  async officeDefault(): Promise<EngineModel | null> {
     return (await this.settings.read()).officeDefault;
   }
 }

@@ -1,6 +1,6 @@
 import { Test } from "@nestjs/testing";
 import { describe, expect, it } from "vitest";
-import { EngineModels, type EngineModel } from "../../engine/index.js";
+import { EngineModels, NoEngineListed, type EngineModel } from "../../engine/index.js";
 import { EngineSettingsForTests } from "../../engine/index.fixtures.js";
 import type { ProjectCascadeLevels, ProjectWithCascadeLevels } from "../domain/engine-cascade.js";
 import { aRoleCard } from "../domain/role.fixtures.js";
@@ -12,7 +12,10 @@ import { RoleCards, type SessionRole } from "./role-cards.js";
 const officeDefault = { engineId: "claude-code", model: "claude-sonnet-5-5" };
 const projectDefault = { engineId: "claude-code", model: "claude-haiku-5-5" };
 
-async function cascadeWith(roleOverride: EngineModel | null): Promise<EngineCascade> {
+async function cascadeWith(
+  roleOverride: EngineModel | null,
+  office: EngineModel | null = officeDefault,
+): Promise<EngineCascade> {
   const roleCards: Pick<RoleCards, "forNewSession"> = {
     forNewSession: async (roleKey): Promise<SessionRole> => {
       if (roleKey !== "developer") throw new RoleNotFound(roleKey);
@@ -43,7 +46,7 @@ async function cascadeWith(roleOverride: EngineModel | null): Promise<EngineCasc
       { provide: RoleCards, useValue: roleCards },
       {
         provide: EngineModels,
-        useValue: new EngineModels(new EngineSettingsForTests({ officeDefault })),
+        useValue: new EngineModels(new EngineSettingsForTests({ officeDefault: office })),
       },
       { provide: KnownProjectLevels, useValue: projects },
     ],
@@ -82,6 +85,16 @@ describe("EngineCascade", () => {
       elsewhereInProjects: [
         { projectId: "the-project", ...projectDefault, level: "project-default" },
       ],
+    });
+  });
+
+  it("refuses a session in words while no engine is listed, and gives none to ask about", async () => {
+    const cascade = await cascadeWith(null, null);
+
+    await expect(cascade.of("developer")).rejects.toThrow(NoEngineListed);
+    await expect(cascade.applying("developer")).resolves.toBeNull();
+    await expect(cascade.acrossProjects("developer")).resolves.toMatchObject({
+      outsideProjects: null,
     });
   });
 

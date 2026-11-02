@@ -210,6 +210,20 @@ describe("moveRoleOverride", () => {
     );
   });
 
+  it("saves an override moved to none, as the only engine goes, as the next version", () => {
+    const change = moveRoleOverride(
+      aRole({ card: aRoleCard({ roleOverride: onStrata }) }),
+      () => null,
+      at,
+    );
+
+    expect(change?.role.card.roleOverride).toBeNull();
+    expect(change?.role.cardVersion).toBe(2);
+    expect(change?.event).toEqual(
+      new RoleCardChanged(change!.role, [{ field: "roleOverride", from: onStrata, to: null }]),
+    );
+  });
+
   it("changes nothing when the override stays, or there is none", () => {
     expect(
       moveRoleOverride(

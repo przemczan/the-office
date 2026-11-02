@@ -48,14 +48,19 @@ export const engineSettings = pgTable(
     id: smallint("id").primaryKey().default(1),
     /** Null until the user sets the search endpoint. */
     searchEndpointUrl: text("search_endpoint_url"),
-    /** The Office default: an engine and one of its models. */
+    /** The Office default: an engine and one of its models, both null while no engine is listed. */
     officeDefaultEngineId: text("office_default_engine_id")
       .$type<EngineId>()
-      .notNull()
       .default(FIRST_OFFICE_DEFAULT.engineId),
-    officeDefaultModel: text("office_default_model").notNull().default(FIRST_OFFICE_DEFAULT.model),
+    officeDefaultModel: text("office_default_model").default(FIRST_OFFICE_DEFAULT.model),
   },
-  (table) => [check("engine_settings_one_row", sql`${table.id} = 1`)],
+  (table) => [
+    check("engine_settings_one_row", sql`${table.id} = 1`),
+    check(
+      "engine_settings_office_default_whole",
+      sql`(${table.officeDefaultEngineId} IS NULL) = (${table.officeDefaultModel} IS NULL)`,
+    ),
+  ],
 );
 
 /**

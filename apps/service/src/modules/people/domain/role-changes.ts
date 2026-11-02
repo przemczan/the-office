@@ -148,17 +148,19 @@ export function changeRoleCard(
 
 /**
  * Saves the card as its next version with its Role override where `move` puts it, as the user
- * removing an engine moves it (spec §5.4); undefined when the override stays. A let-go Role's card
+ * removing an engine moves it (spec §5.4), to none with the only engine; undefined when the
+ * override stays. A let-go Role's card
  * moves too, as hiring the person back restores it.
  */
 export function moveRoleOverride(
   role: Role,
-  move: (reference: EngineModel) => EngineModel,
+  move: (reference: EngineModel) => EngineModel | null,
   savedAt: Date,
 ): RoleChange<RoleCardChanged> | undefined {
   const { roleOverride } = role.card;
-  const moved = roleOverride && move(roleOverride);
-  if (!moved || sameEngineModel(moved, roleOverride)) return undefined;
+  if (roleOverride === null) return undefined;
+  const moved = move(roleOverride);
+  if (moved && sameEngineModel(moved, roleOverride)) return undefined;
   const card = { ...role.card, roleOverride: moved };
   const changed: Role = {
     ...role,

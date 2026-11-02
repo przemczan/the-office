@@ -39,5 +39,6 @@ export { StandInClaudeCodeAccounts } from "./adapters/scripted/stand-in-claude-c
 // So a stand-in for this engine declares what it can't do, as the Role card names it.
 export { OPENAI_COMPATIBLE_API_CAPABILITIES } from "./adapters/openai-compatible-api/openai-compatible-api-engine.js";
 export type { NewSession } from "./ports/agent-engine.js";
+export { NoEngineListed } from "./ports/agent-engine.js";
 export type { EngineSession } from "./ports/engine-session.js";
 export type { ApprovalCall, ApprovalHold } from "./ports/session-options.js";

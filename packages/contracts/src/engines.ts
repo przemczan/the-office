@@ -93,8 +93,11 @@ export type OfferedModel = z.infer<typeof offeredModelSchema>;
 export const engineSettingsSchema = z.object({
   /** In the order Settings › Engines lists them. */
   engines: z.array(engineSchema),
-  /** The engine and model every Role runs on unless something more specific applies. */
-  officeDefault: engineModelSchema,
+  /**
+   * The engine and model every Role runs on unless something more specific applies; null only
+   * while no engine is listed, the only one removed.
+   */
+  officeDefault: engineModelSchema.nullable(),
   /** Null until the user sets one; WebSearch is refused meanwhile. */
   searchEndpoint: searchEndpointSchema.nullable(),
   /** Every model offered now: the Claude models first, then each API engine's. */
@@ -133,7 +136,8 @@ export type EngineEdit = z.infer<typeof engineEditSchema>;
  */
 export const engineSettingsEditSchema = z.object({
   engines: z.array(engineEditSchema),
-  officeDefault: engineModelSchema,
+  /** Null only with no engine listed; with any listed, one is picked (422 otherwise). */
+  officeDefault: engineModelSchema.nullable(),
   searchEndpoint: searchEndpointSchema.nullable(),
   modelPrices: z.array(offeredModelSchema),
 });
@@ -141,11 +145,13 @@ export type EngineSettingsEdit = z.infer<typeof engineSettingsEditSchema>;
 
 /**
  * DELETE /settings/engines/:engineId?replacement=<engine id>: the engine that takes over everything
- * naming the removed one; the answer is the settings left, as GET gives them. A replacement not
- * listed, or one failing the capability check, is refused with words (422).
+ * naming the removed one; the answer is the settings left, as GET gives them. Without a replacement
+ * the only engine is removed and every reference moves to none, so no session starts until an
+ * engine is added. A replacement not listed, none while other engines are, or one failing the
+ * capability check, is refused with words (422).
  */
 export const engineRemovalSchema = z.object({
-  replacement: engineIdSchema,
+  replacement: engineIdSchema.optional(),
 });
 export type EngineRemoval = z.infer<typeof engineRemovalSchema>;
 

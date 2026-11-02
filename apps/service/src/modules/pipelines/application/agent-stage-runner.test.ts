@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { currentOperatingSystem } from "../../../platform/os/current-operating-system.js";
-import type { SessionScript } from "../../engine/index.js";
+import { EngineModels, type SessionScript } from "../../engine/index.js";
 import type { Stage } from "../domain/stage.js";
 import type { StageOutcome } from "../domain/stage-run.js";
 import { STAGE_RESULT_SCHEMA } from "../domain/stage-result.js";
@@ -351,6 +351,44 @@ describe("AgentStageRunner", () => {
       error: 'Nobody fills the Role "developer" this Stage needs: hire them on People.',
     });
     expect(pipelines.stageThreads.requests).toEqual([]);
+  });
+
+  it("fails the Stage in words, with no session ahead, while no engine is listed", async () => {
+    pipelines = await startPipelinesApplication();
+    // The only engine removed; spied, as every test file shares the engine settings.
+    vi.spyOn(pipelines.app.get(EngineModels), "engines").mockResolvedValue([]);
+    if (implement.kind !== "agent") throw new Error("Implement is an Agent Stage.");
+    const { run } = startStageRun(
+      {
+        id: randomUUID(),
+        taskId: randomUUID(),
+        stageKey: implement.key,
+        carriedFailure: undefined,
+        sentBack: undefined,
+      },
+      0,
+      new Date(),
+    );
+
+    const outcome = await pipelines.app.get(AgentStageRunner).run({
+      stage: implement,
+      run,
+      stages: [implement],
+      earlierRuns: [],
+      interruption: new StageRunInterruption(),
+    });
+
+    expect(outcome).toEqual({
+      status: "failed",
+      error: "Settings › Engines lists no engine, so no session starts; add one there first.",
+    });
+    expect(pipelines.stageThreads.requests).toEqual([]);
+    // The all clear shows nothing resuming.
+    await expect(
+      pipelines.app
+        .get(AgentStageRunner)
+        .sessionAhead(run.taskId, { stage: implement, stages: [implement], earlierRuns: [] }),
+    ).resolves.toBeUndefined();
   });
 });
 

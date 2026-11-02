@@ -21,7 +21,8 @@ export interface EngineSettingsDraft {
   /** Saved before the API endpoints, as Save sends them; a saved one is never left out. */
   readonly claudeCodeEngines: readonly ClaudeCodeEngineEdit[];
   readonly apiEndpoints: readonly ApiEngineEdit[];
-  readonly officeDefault: EngineModel;
+  /** None only while no engine is listed; Save asks for one once an engine is. */
+  readonly officeDefault: EngineModel | null;
   readonly searchEndpoint: SearchEndpoint | null;
   /**
    * Each model's Model price as its fields read, by `offeredModelKey`. Kept apart from the models
@@ -58,7 +59,7 @@ export function draftOf({
       ...engine,
       models: models.map((model) => ({ ...model })),
     })),
-    officeDefault: { ...officeDefault },
+    officeDefault: officeDefault && { ...officeDefault },
     searchEndpoint: searchEndpoint && { ...searchEndpoint },
     modelPrices: Object.fromEntries(
       modelPrices.flatMap((offered) =>

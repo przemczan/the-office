@@ -22,8 +22,11 @@ export interface SearchEndpoint {
 export interface EngineSettings {
   /** In the order Settings › Engines lists them. */
   readonly engines: readonly Engine[];
-  /** The engine and model every Role runs on unless something more specific applies. */
-  readonly officeDefault: EngineModel;
+  /**
+   * The engine and model every Role runs on unless something more specific applies; none only
+   * while no engine is listed, so nothing runs.
+   */
+  readonly officeDefault: EngineModel | null;
   /** Null until the user sets one. */
   readonly searchEndpoint: SearchEndpoint | null;
   /** Only the models offered now that have a Model price. */
@@ -60,7 +63,8 @@ export type EngineEdit = ClaudeCodeEngineEdit | ApiEngineEdit;
 export interface EngineSettingsEdit {
   /** Every engine, in order; a saved one left out is refused, as removing one moves what names it. */
   readonly engines: readonly EngineEdit[];
-  readonly officeDefault: EngineModel;
+  /** None only with no engine listed. */
+  readonly officeDefault: EngineModel | null;
   readonly searchEndpoint: SearchEndpoint | null;
   readonly modelPrices: readonly OfferedModel[];
 }
@@ -114,7 +118,7 @@ export function changedEngineSettings(
 
 /**
  * The settings once the removal is done: the engine gone and the Office default moved by
- * `movedEngineModel`, the rest kept. Refuses with every reason when they break a rule.
+ * `movedEngineModel`, to none with the only engine, the rest kept. Refuses with every reason when they break a rule.
  */
 export function settingsWithoutEngine(
   stored: EngineSettings,
@@ -122,7 +126,7 @@ export function settingsWithoutEngine(
 ): EngineSettings {
   const edit: EngineSettingsEdit = {
     engines: stored.engines.filter(({ id }) => id !== removal.engineId),
-    officeDefault: movedEngineModel(stored.officeDefault, removal),
+    officeDefault: stored.officeDefault && movedEngineModel(stored.officeDefault, removal),
     searchEndpoint: stored.searchEndpoint,
     modelPrices: stored.modelPrices,
   };
@@ -137,7 +141,7 @@ function settingsOf(
   const engines = changedEnginesOf(stored.engines, edit.engines, problems);
   for (const engine of engines) problems.push(...engineProblems(engine));
   problems.push(...duplicateNameProblems(engines));
-  const officeDefault = { engineId: edit.officeDefault.engineId, model: edit.officeDefault.model };
+  const officeDefault = officeDefaultOf(edit.officeDefault, engines, stored.engines);
   problems.push(...officeDefaultProblems(officeDefault, engines));
   const searchEndpoint = edit.searchEndpoint && { baseUrl: edit.searchEndpoint.baseUrl.trim() };
   if (searchEndpoint && !isWebAddress(searchEndpoint.baseUrl)) {
@@ -243,10 +247,28 @@ function leftOutEngineProblems(stored: readonly Engine[], edits: readonly Engine
     .map(({ name }) => `Remove "${name}" on its own, so what names it moves to another engine.`);
 }
 
+/**
+ * The Office default the edit names; with none named while no engine was listed, the first engine
+ * saved takes it on its default model, so sessions start again once an engine is added (spec §5.4).
+ */
+function officeDefaultOf(
+  edited: EngineModel | null,
+  engines: readonly Engine[],
+  stored: readonly Engine[],
+): EngineModel | null {
+  if (edited) return { engineId: edited.engineId, model: edited.model };
+  const [first] = engines;
+  return first && stored.length === 0 ? { engineId: first.id, model: first.defaultModel } : null;
+}
+
 function officeDefaultProblems(
-  { engineId, model }: EngineModel,
+  officeDefault: EngineModel | null,
   engines: readonly Engine[],
 ): string[] {
+  if (officeDefault === null) {
+    return engines.length === 0 ? [] : ["Pick the Office default among the engines listed."];
+  }
+  const { engineId, model } = officeDefault;
   const engine = engines.find(({ id }) => id === engineId);
   if (engine === undefined) return ["Pick the Office default among the engines listed."];
   if (!offeredModels(engine).includes(model)) {

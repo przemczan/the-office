@@ -729,6 +729,20 @@ describe("continuing a Thread", () => {
     await expect(runner.send(thread.id, "Hello again.")).rejects.toThrow(ThreadRefused);
     await expect(threads.messages(thread.id)).resolves.toHaveLength(3);
   });
+
+  it("refuses a message in words while no engine is listed, logging nothing", async () => {
+    await startWith(started(...aTurn("brief", "Hello.")));
+    const thread = await threads.startInChat(roleKey);
+    cascade.removeEveryEngine();
+
+    await expect(runner.send(thread.id, "Hello.")).rejects.toThrow(
+      new ThreadRefused([
+        "Settings › Engines lists no engine, so no session starts; add one there first.",
+      ]),
+    );
+    await expect(threads.messages(thread.id)).resolves.toHaveLength(0);
+    expect(engine.sessions).toHaveLength(0);
+  });
 });
 
 /** The Thread's first exchange, its session then ended as when the service stops, and cooled. */

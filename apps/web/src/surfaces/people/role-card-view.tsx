@@ -147,7 +147,9 @@ function EngineThatApplies({ roleKey }: { readonly roleKey: string }): ReactNode
     projects?.find(({ id }) => id === projectId)?.name ?? projectId;
   return (
     <RoleCardValue label="Runs on">
-      {engineInCascadeText(cascade.outsideProjects, engineName)}
+      {cascade.outsideProjects
+        ? engineInCascadeText(cascade.outsideProjects, engineName)
+        : "No engine: add one in Settings › Engines"}
       {cascade.elsewhereInProjects.length > 0 && (
         <ul className="role-card-elsewhere" aria-label="Projects where something else applies">
           {cascade.elsewhereInProjects.map((inProject) => (

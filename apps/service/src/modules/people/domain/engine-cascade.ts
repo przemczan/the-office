@@ -22,38 +22,46 @@ export interface ProjectCascadeLevels {
   readonly roleOverrides: readonly (EngineModel & { readonly roleKey: string })[];
 }
 
-/** The levels with the Project default and each Role override where `move` puts them. */
+/**
+ * The levels with the Project default and each Role override where `move` puts them; one moved to
+ * none is dropped, and "Use for every Role" goes with the Project default.
+ */
 export function movedProjectLevels(
   levels: ProjectCascadeLevels,
-  move: (reference: EngineModel) => EngineModel,
+  move: (reference: EngineModel) => EngineModel | null,
 ): ProjectCascadeLevels {
+  const projectDefault = levels.projectDefault && move(levels.projectDefault);
   return {
-    projectDefault: levels.projectDefault && move(levels.projectDefault),
-    useForEveryRole: levels.useForEveryRole,
-    roleOverrides: levels.roleOverrides.map((override) => ({
-      roleKey: override.roleKey,
-      ...move(override),
-    })),
+    projectDefault,
+    useForEveryRole: levels.useForEveryRole && projectDefault !== null,
+    roleOverrides: levels.roleOverrides.flatMap((override) => {
+      const moved = move(override);
+      return moved ? [{ roleKey: override.roleKey, ...moved }] : [];
+    }),
   };
 }
 
 /** What the cascade weighs for one Role: in no Project, only the Office levels. */
 export interface EngineCascadeLevels {
-  readonly officeDefault: EngineModel;
+  /** None only while no engine is listed. */
+  readonly officeDefault: EngineModel | null;
   readonly roleOverride: EngineModel | null;
   readonly project?: ProjectCascadeLevels;
 }
 
-/** The most specific level set for the Role `roleKey` wins; the Office default always is. */
+/**
+ * The most specific level set for the Role `roleKey` wins; none when no level is, which happens
+ * only while no engine is listed, as the Office default is set whenever one is.
+ */
 export function engineInCascade(
   roleKey: string,
   { officeDefault, roleOverride, project }: EngineCascadeLevels,
-): EngineInCascade {
+): EngineInCascade | null {
   const projectRoleOverride = project?.roleOverrides.find((each) => each.roleKey === roleKey);
   if (projectRoleOverride) return at("project-role-override", projectRoleOverride);
   if (roleOverride && !project?.useForEveryRole) return at("role-override", roleOverride);
   if (project?.projectDefault) return at("project-default", project.projectDefault);
-  return at("office-default", officeDefault);
+  return officeDefault && at("office-default", officeDefault);
 }
 
 /** A Project's levels of the cascade, with its id and name. */
@@ -64,7 +72,8 @@ export interface ProjectWithCascadeLevels extends ProjectCascadeLevels {
 
 /** What a Role runs on outside any Project, and in each Project where something else applies. */
 export interface RoleEngineCascade {
-  readonly outsideProjects: EngineInCascade;
+  /** None while no engine is listed. */
+  readonly outsideProjects: EngineInCascade | null;
   /** In the order given, only the Projects whose engine or model differs. */
   readonly elsewhereInProjects: readonly (EngineInCascade & { readonly projectId: string })[];
 }
@@ -78,15 +87,13 @@ export function roleEngineCascade(
   const outsideProjects = engineInCascade(roleKey, officeLevels);
   return {
     outsideProjects,
-    elsewhereInProjects: projects
-      .map((project) => ({
-        projectId: project.projectId,
-        ...engineInCascade(roleKey, { ...officeLevels, project }),
-      }))
-      .filter(
-        ({ engineId, model }) =>
-          engineId !== outsideProjects.engineId || model !== outsideProjects.model,
-      ),
+    elsewhereInProjects: projects.flatMap((project) => {
+      const applying = engineInCascade(roleKey, { ...officeLevels, project });
+      if (applying === null) return [];
+      const same =
+        applying.engineId === outsideProjects?.engineId && applying.model === outsideProjects.model;
+      return same ? [] : [{ projectId: project.projectId, ...applying }];
+    }),
   };
 }
 

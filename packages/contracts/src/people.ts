@@ -173,7 +173,8 @@ export type EngineInCascade = z.infer<typeof engineInCascadeSchema>;
 
 /** GET /roles/:key/engine-cascade: what the Role card says applies, for a Role someone fills. */
 export const roleEngineCascadeSchema = z.object({
-  outsideProjects: engineInCascadeSchema,
+  /** Null while no engine is listed, so nothing runs. */
+  outsideProjects: engineInCascadeSchema.nullable(),
   /** Only the Projects whose engine or model differs from `outsideProjects`. */
   elsewhereInProjects: z.array(engineInCascadeSchema.extend({ projectId: z.string() })),
 });

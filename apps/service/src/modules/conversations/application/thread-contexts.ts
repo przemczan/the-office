@@ -34,8 +34,9 @@ export class ThreadContexts {
       this.briefOf(thread),
       this.settings.current(),
     ]);
-    // Nobody fills the Role any more: its Threads stay readable, and nobody answers.
-    const applying = role && (await this.engineCascade.of(thread.roleKey, projectId));
+    // Nobody fills the Role any more, or no engine is listed: its Threads stay readable, and
+    // nobody answers.
+    const applying = role && (await this.engineCascade.applying(thread.roleKey, projectId));
     return decideContext(
       {
         now,

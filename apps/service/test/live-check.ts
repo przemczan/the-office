@@ -117,9 +117,11 @@ export async function hireOnHaiku(
   api: Api,
   hires: readonly (readonly [roleKey: string, name: string])[],
 ): Promise<void> {
-  const engineId =
-    CHECK_ENGINE ??
-    engineSettingsSchema.parse(await api("GET", "/settings/engines")).officeDefault.engineId;
+  const { officeDefault } = engineSettingsSchema.parse(await api("GET", "/settings/engines"));
+  const engineId = CHECK_ENGINE ?? officeDefault?.engineId;
+  if (engineId === undefined) {
+    throw new Error("Settings › Engines lists no engine; add one before a live check.");
+  }
   for (const [roleKey, name] of hires) {
     const hired = roleSchema.parse(await api("POST", "/roles", { roleKey, name }));
     await api("PUT", `/roles/${roleKey}/card`, {

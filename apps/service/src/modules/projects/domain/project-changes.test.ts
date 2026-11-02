@@ -262,6 +262,28 @@ describe("moveEngineLevels", () => {
     ]);
   });
 
+  it("moves every level to none when the only engine goes, turning off the force first", () => {
+    const project = aProject({
+      projectDefault: SONNET,
+      useForEveryRole: true,
+      roleOverrides: [{ roleKey: "cto", ...HAIKU }],
+    });
+
+    const { project: moved, events } = moveEngineLevels(project, () => null);
+
+    expect(moved).toEqual({
+      ...project,
+      projectDefault: null,
+      useForEveryRole: false,
+      roleOverrides: [],
+    });
+    expect(events.map((event) => event.constructor)).toEqual([
+      ProjectUseForEveryRoleChanged,
+      ProjectDefaultChanged,
+      ProjectRoleOverrideChanged,
+    ]);
+  });
+
   it("changes nothing when nothing names the engine", () => {
     const project = aProject({ roleOverrides: [{ roleKey: "cto", ...LOCAL }] });
 

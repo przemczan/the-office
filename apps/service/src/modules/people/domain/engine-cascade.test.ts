@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { engineInCascade, type ProjectCascadeLevels } from "./engine-cascade.js";
+import {
+  engineInCascade,
+  movedProjectLevels,
+  roleEngineCascade,
+  type ProjectCascadeLevels,
+} from "./engine-cascade.js";
 
 const officeDefault = { engineId: "claude-code", model: "claude-sonnet-5-5" };
 const roleOverride = { engineId: "claude-code", model: "claude-opus-5-5" };
@@ -65,6 +70,43 @@ describe("the engine cascade", () => {
     expect(engineInCascade("developer", { officeDefault, roleOverride, project })).toEqual({
       ...projectDefault,
       level: "project-default",
+    });
+  });
+
+  it("gives none when no level is set, as while no engine is listed", () => {
+    expect(
+      engineInCascade("developer", {
+        officeDefault: null,
+        roleOverride: null,
+        project: aProject(),
+      }),
+    ).toBeNull();
+    expect(
+      roleEngineCascade("developer", { officeDefault: null, roleOverride: null }, [
+        { projectId: "p1", projectName: "Shop", ...aProject() },
+      ]),
+    ).toEqual({ outsideProjects: null, elsewhereInProjects: [] });
+  });
+});
+
+describe("movedProjectLevels", () => {
+  it("drops levels moved to none, and the force with the Project default", () => {
+    const project = aProject({
+      projectDefault,
+      useForEveryRole: true,
+      roleOverrides: [
+        { roleKey: "developer", ...projectRoleOverride },
+        { roleKey: "reviewer", ...roleOverride },
+      ],
+    });
+    const moved = movedProjectLevels(project, (reference) =>
+      reference.engineId === "claude-code" ? reference : null,
+    );
+
+    expect(moved).toEqual({
+      projectDefault: null,
+      useForEveryRole: false,
+      roleOverrides: [{ roleKey: "reviewer", ...roleOverride }],
     });
   });
 });

@@ -2,11 +2,12 @@ import { Inject, Injectable } from "@nestjs/common";
 import { asc, sql } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
 import { FIRST_OFFICE_DEFAULT, type EngineSettings } from "../../domain/engine-settings.js";
-import type { Engine } from "../../domain/engines.js";
+import type { Engine, EngineModel } from "../../domain/engines.js";
 import { EngineSettingsRepository } from "../../ports/engine-settings-repository.js";
 import { engines, engineSettings, modelPrices } from "./engine-settings.schema.js";
 
 type EngineRow = typeof engines.$inferSelect;
+type EngineSettingsRow = typeof engineSettings.$inferSelect;
 
 @Injectable()
 export class PostgresEngineSettings extends EngineSettingsRepository {
@@ -25,9 +26,7 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
     const searchEndpointUrl = row?.searchEndpointUrl ?? null;
     return {
       engines: rows.map(engineOf),
-      officeDefault: row
-        ? { engineId: row.officeDefaultEngineId, model: row.officeDefaultModel }
-        : FIRST_OFFICE_DEFAULT,
+      officeDefault: row ? officeDefaultOf(row) : FIRST_OFFICE_DEFAULT,
       searchEndpoint: searchEndpointUrl === null ? null : { baseUrl: searchEndpointUrl },
       modelPrices: prices.map(({ engineId, model, ...price }) => ({ engineId, model, price })),
     };
@@ -41,8 +40,8 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
   }: EngineSettings): Promise<void> {
     const settingsRow = {
       searchEndpointUrl: searchEndpoint?.baseUrl ?? null,
-      officeDefaultEngineId: officeDefault.engineId,
-      officeDefaultModel: officeDefault.model,
+      officeDefaultEngineId: officeDefault?.engineId ?? null,
+      officeDefaultModel: officeDefault?.model ?? null,
     };
     await this.database.transaction(async (transaction) => {
       await transaction.delete(engines);
@@ -59,6 +58,13 @@ export class PostgresEngineSettings extends EngineSettingsRepository {
       }
     });
   }
+}
+
+function officeDefaultOf({
+  officeDefaultEngineId: engineId,
+  officeDefaultModel: model,
+}: EngineSettingsRow): EngineModel | null {
+  return engineId === null || model === null ? null : { engineId, model };
 }
 
 function engineOf({

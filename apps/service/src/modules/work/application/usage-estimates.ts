@@ -122,7 +122,7 @@ export class UsageEstimates {
 
   /**
    * The Task's Pipeline's Agent Stages with the engine and model the cascade gives each in the
-   * Task's Project; a vacant Role's are left out.
+   * Task's Project; a vacant Role's are left out, and every Stage while no engine is listed.
    */
   private async estimatedStages({
     pipelineId,
@@ -133,8 +133,10 @@ export class UsageEstimates {
       (pipeline?.stages ?? []).map(async (stage) => {
         const person = stage.role === undefined ? undefined : await this.people.find(stage.role);
         if (!person) return [];
-        const { engineId, model } = await this.engineCascade.of(person.roleKey, projectId);
-        return [{ key: stage.key, engineId, model }];
+        const applying = await this.engineCascade.applying(person.roleKey, projectId);
+        return applying
+          ? [{ key: stage.key, engineId: applying.engineId, model: applying.model }]
+          : [];
       }),
     );
     return stages.flat();

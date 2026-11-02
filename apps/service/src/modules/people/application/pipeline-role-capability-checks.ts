@@ -39,7 +39,7 @@ interface OfficeCascade {
   readonly rolesNamed: PipelineRolesNamed;
   /** Each named Role's override; a Role nobody fills has none. */
   readonly roleOverrides: ReadonlyMap<string, EngineModel | null>;
-  readonly officeDefault: EngineModel;
+  readonly officeDefault: EngineModel | null;
   readonly engines: readonly Engine[];
 }
 

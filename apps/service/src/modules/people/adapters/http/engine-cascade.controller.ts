@@ -13,7 +13,7 @@ export class EngineCascadeController {
   async ofRole(@Param("key") key: string): Promise<RoleEngineCascadeResponse> {
     const { outsideProjects, elsewhereInProjects } = await this.cascade.acrossProjects(key);
     return {
-      outsideProjects: { ...outsideProjects },
+      outsideProjects: outsideProjects && { ...outsideProjects },
       elsewhereInProjects: elsewhereInProjects.map((inProject) => ({ ...inProject })),
     };
   }

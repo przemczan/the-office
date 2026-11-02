@@ -1,4 +1,4 @@
-import { Injectable } from "@nestjs/common";
+import { Injectable, Logger } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { EngineAdded, EngineRemoved } from "../domain/engine-events.js";
 import { engineRemovalAmong } from "../domain/engine-removal.js";
@@ -20,6 +20,8 @@ import { EngineSettingsChecks } from "./engine-settings-checks.js";
  */
 @Injectable()
 export class EngineSettingsService {
+  private readonly logger = new Logger(EngineSettingsService.name);
+
   constructor(
     private readonly repository: EngineSettingsRepository,
     private readonly events: EventBus,
@@ -49,14 +51,17 @@ export class EngineSettingsService {
   }
 
   /**
-   * Removes the engine `engineId`, moving everything naming it to `replacementId` (spec §5.4), and
-   * announces it. Refused with every reason, before anything moves, when the removal or the moved
-   * levels break a rule or a registered check. The other modules' references move first and the
-   * engine goes last: a move failing part way leaves the engine listed and every moved reference on
-   * the replacement, also listed, so nothing names an engine that is gone, and removing it again
-   * moves the rest.
+   * Removes the engine `engineId`, moving everything naming it to `replacementId`, or to none when
+   * it is the only engine (spec §5.4), and announces it. Refused with every reason, before anything
+   * moves, when the removal or the moved levels break a rule or a registered check. The other
+   * modules' references move first and the engine goes after: a move failing part way leaves the
+   * engine listed and every moved reference on the replacement, also listed, so nothing names an
+   * engine that is gone, and removing it again moves the rest. Once the engine is gone and
+   * announced, the references move once more, for any set to it meanwhile; from then on a save
+   * naming it is refused, as it is no longer listed. That last move failing is logged, not thrown:
+   * the removal is done and can't be repeated.
    */
-  async remove(engineId: EngineId, replacementId: EngineId): Promise<EngineSettings> {
+  async remove(engineId: EngineId, replacementId: EngineId | null): Promise<EngineSettings> {
     const stored = await this.repository.read();
     const removal = engineRemovalAmong(stored.engines, engineId, replacementId);
     const changed = settingsWithoutEngine(stored, removal);
@@ -66,6 +71,11 @@ export class EngineSettingsService {
     await this.repository.replace(changed);
     const removed = stored.engines.find(({ id }) => id === engineId);
     if (removed) await this.events.publish(new EngineRemoved(removed.id, removed.kind));
+    await this.referenceMoves.moveEach(removal).catch((error: unknown) => {
+      this.logger.error(
+        `Moving what was set to the removed engine ${engineId} failed: ${messageOf(error)}`,
+      );
+    });
     return changed;
   }
 }
@@ -74,4 +84,8 @@ export class EngineSettingsService {
 function enginesMissingFrom(engines: readonly Engine[], others: readonly Engine[]): Engine[] {
   const otherIds = new Set(others.map(({ id }) => id));
   return engines.filter(({ id }) => !otherIds.has(id));
+}
+
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }

@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { EngineModels } from "../../engine/index.js";
+import { EngineModels, NoEngineListed } from "../../engine/index.js";
 import {
   engineInCascade,
   roleEngineCascade,
@@ -19,10 +19,18 @@ export class EngineCascade {
   ) {}
 
   /**
-   * The engine and model the Role `roleKey` runs on in the Project `projectId`, or in no Project
-   * (the Office levels only). Throws RoleNotFound when nobody fills the Role.
+   * The engine and model a session of the Role `roleKey` runs on in the Project `projectId`, or in
+   * no Project (the Office levels only). Throws RoleNotFound when nobody fills the Role, and
+   * NoEngineListed, in words, while no engine is listed.
    */
   async of(roleKey: string, projectId?: string): Promise<EngineInCascade> {
+    const applying = await this.applying(roleKey, projectId);
+    if (applying === null) throw new NoEngineListed();
+    return applying;
+  }
+
+  /** As `of`, but none while no engine is listed. */
+  async applying(roleKey: string, projectId?: string): Promise<EngineInCascade | null> {
     const { card } = await this.roleCards.forNewSession(roleKey);
     return engineInCascade(roleKey, {
       officeDefault: await this.engineModels.officeDefault(),

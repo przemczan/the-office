@@ -1,0 +1,3 @@
+ALTER TABLE "engine_settings" ALTER COLUMN "office_default_engine_id" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "engine_settings" ALTER COLUMN "office_default_model" DROP NOT NULL;--> statement-breakpoint
+ALTER TABLE "engine_settings" ADD CONSTRAINT "engine_settings_office_default_whole" CHECK (("engine_settings"."office_default_engine_id" IS NULL) = ("engine_settings"."office_default_model" IS NULL));

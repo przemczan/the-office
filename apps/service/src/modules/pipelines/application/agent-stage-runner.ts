@@ -1,6 +1,6 @@
 import { isResolveStage } from "../domain/resolve-stages.js";
 import { Injectable, Logger, type OnModuleInit } from "@nestjs/common";
-import { EngineModels, READ_ONLY_GIT_COMMANDS } from "../../engine/index.js";
+import { EngineModels, NoEngineListed, READ_ONLY_GIT_COMMANDS } from "../../engine/index.js";
 import { narrowedPermissionProfile } from "../../people/index.js";
 import {
   AGENT_STAGE_INSTRUCTIONS,
@@ -119,6 +119,9 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
         status: "failed",
         error: `Nobody fills the Role "${stage.role}" this Stage needs: hire them on People.`,
       };
+    }
+    if (await this.noEngineListed()) {
+      return { status: "failed", error: new NoEngineListed().message };
     }
     // Before the session's first engine call; a budget reached leaves git and the worktree alone.
     const reached = await this.budgetCheck(work);
@@ -278,14 +281,15 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
 
   /**
    * What the Stage's session would be were it to begin now, decided as `open` decides it: for what
-   * the all clear shows will resume (spec §2.8). Undefined when nobody fills the Stage's Role.
+   * the all clear shows will resume (spec §2.8). Undefined when nobody fills the Stage's Role, or
+   * no engine is listed.
    */
   async sessionAhead(
     taskId: string,
     { stage, stages, earlierRuns }: Pick<StageWork<"agent">, "stage" | "stages" | "earlierRuns">,
   ): Promise<StageSessionAhead | undefined> {
     const person = await this.people.find(stage.role);
-    if (!person) return undefined;
+    if (!person || (await this.noEngineListed())) return undefined;
     const task = await this.records.read(taskId);
     const { run } = narrowedPermissionProfile(person.card.permissionProfile, stage.permissions);
     const commands = allowedCommands(run, task.project.commands, READ_ONLY_GIT_COMMANDS);
@@ -296,6 +300,11 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       ...stageSessionOf(stage, stages, earlierRuns),
       record: await this.recordOf(taskId, person.card, commands, task, stages, earlierRuns),
     });
+  }
+
+  /** The only engine removed: no session starts until one is added (spec §5.4). */
+  private async noEngineListed(): Promise<boolean> {
+    return (await this.engineModels.engines()).length === 0;
   }
 
   /** The Task's record a new session of the Stage's is briefed with, naming the `commands` it may run. */
