@@ -109,8 +109,9 @@ export function tasksInHistory(stages: readonly EstimatedStage[], history: Stage
 
 /**
  * Each Stage's median, summed per engine id. A Stage the history never ran adds nothing. A window
- * is estimated only when every Stage on the engine id that ran has a change of it; cost only when every
- * such Stage's model has a price (`stageCosts`, dollars by Stage key).
+ * is estimated only when every Stage on the engine id that ran has a run whose readings count, so
+ * its window estimate is pooled from them; cost only when every such Stage's model has a price
+ * (`stageCosts`, dollars by Stage key).
  */
 export function historyUsage(
   stages: readonly EstimatedStage[],

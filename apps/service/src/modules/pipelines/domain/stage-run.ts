@@ -106,6 +106,9 @@ export interface UsageWindow {
   readonly resetsAt: Date | undefined;
 }
 
+/** Where a reading's numbers came from (the glossary's Reading source). */
+export type ReadingSource = "usage-endpoint" | "rate-limit-headers";
+
 /**
  * The 5-hour and 7-day windows as read around a run, each judged on its own, with the Office's
  * tokens so far on the engines with windows, so the run's share of a window's change can be told.
@@ -113,6 +116,8 @@ export interface UsageWindow {
 export interface UsageWindowReading {
   readonly fiveHour: UsageWindow;
   readonly sevenDay: UsageWindow;
+  /** Undefined when unknown, as on a run kept before readings had one. */
+  readonly source: ReadingSource | undefined;
   readonly readAt: Date;
   readonly officeTokensSoFar: StageTokens;
 }
@@ -264,10 +269,12 @@ export interface StageRun {
   /** Its engine calls' tokens; none for a run that made none. */
   readonly tokens: StageTokens;
   /**
-   * The usage windows as read after the run's session opened and after its last turn. Undefined
-   * on an engine without windows, when a read failed, and for runs kept before they were read.
+   * The usage windows as read after the run's session opened, one reading of each source it gave
+   * in the order read, so the end reading has one of its own source to be compared with, and after
+   * its last turn. None on an engine without windows, when a read failed, and for runs kept before
+   * they were read.
    */
-  readonly usageWindowsAtStart: UsageWindowReading | undefined;
+  readonly usageWindowsAtStart: readonly UsageWindowReading[];
   readonly usageWindowsAtEnd: UsageWindowReading | undefined;
   /** The Decisions the walk opened on the run, at most one of each kind. */
   readonly decisions: readonly StageRunDecision[];

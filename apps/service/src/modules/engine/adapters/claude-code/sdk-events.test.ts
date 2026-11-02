@@ -308,7 +308,45 @@ describe("usageWindows", () => {
     ).toEqual({
       fiveHour: { percentUsed: 12.5, resetsAt: new Date("2026-10-25T18:00:00Z") },
       sevenDay: { percentUsed: 0, resetsAt: undefined },
+      source: undefined,
     });
+  });
+
+  it("tells the usage endpoint's own answer by its limits", () => {
+    expect(
+      usageWindows({
+        rate_limits_available: true,
+        rate_limits: {
+          five_hour: { utilization: 28, resets_at: "2026-11-02T04:30:00.412337+00:00" },
+          seven_day: { utilization: 26, resets_at: "2026-11-07T08:00:00.412337+00:00" },
+          limits: [],
+        } as never,
+      })?.source,
+    ).toBe("usage-endpoint");
+  });
+
+  it("tells an answer built from the rate-limit headers by its resets at whole seconds", () => {
+    expect(
+      usageWindows({
+        rate_limits_available: true,
+        rate_limits: {
+          five_hour: { utilization: 27, resets_at: "2026-11-02T04:30:00.000Z" },
+          seven_day: { utilization: 25, resets_at: "2026-11-07T08:00:00.000Z" },
+        },
+      })?.source,
+    ).toBe("rate-limit-headers");
+  });
+
+  it("leaves the source unknown for the endpoint's answer kept from earlier, without its limits", () => {
+    expect(
+      usageWindows({
+        rate_limits_available: true,
+        rate_limits: {
+          five_hour: { utilization: 28, resets_at: "2026-11-02T04:30:00.412337+00:00" },
+          seven_day: { utilization: 26, resets_at: "2026-11-07T08:00:00.000Z" },
+        },
+      })?.source,
+    ).toBe(undefined);
   });
 
   it("reads a window without its use or its reset as not begun, so unused", () => {
@@ -323,6 +361,7 @@ describe("usageWindows", () => {
     ).toEqual({
       fiveHour: { percentUsed: 0, resetsAt: undefined },
       sevenDay: { percentUsed: 0, resetsAt: undefined },
+      source: undefined,
     });
   });
 

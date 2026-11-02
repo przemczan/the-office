@@ -9,6 +9,7 @@ function readingAt(readAt: Date): UsageWindowReading {
   return {
     fiveHour: { percentUsed: 40, resetsAt: new Date("2026-11-02T12:00:00.000Z") },
     sevenDay: { percentUsed: 10, resetsAt: undefined },
+    source: "rate-limit-headers",
     readAt,
     officeTokensSoFar: NO_TOKENS,
   };

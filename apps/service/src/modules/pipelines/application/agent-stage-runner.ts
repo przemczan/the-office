@@ -39,7 +39,7 @@ import {
 import { KnownPeople, type KnownPerson } from "../ports/known-people.js";
 import type { HardSwitchOnCard } from "../domain/stage-permissions.js";
 import { acceptedIssues, agentDecision } from "../domain/walk-decisions.js";
-import { StageRunRepository, type UsageWindowsMoment } from "../ports/stage-run-repository.js";
+import { StageRunRepository } from "../ports/stage-run-repository.js";
 import {
   StageThreads,
   type AskedDecision,
@@ -164,10 +164,10 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     try {
       const { threadId, move, engine, model } = thread;
       await this.runs.saveThread(work.run.id, { threadId, session: move.move, engine, model });
-      await this.keepUsageWindows(work, thread, "start");
+      await this.keepUsageWindowsAtStart(work, thread);
       const result = await this.resultOf(work, thread);
       // After the last turn and before the session ends, which can read no windows.
-      await this.keepUsageWindows(work, thread, "end");
+      await this.keepUsageWindowsAtEnd(work, thread);
       // A held run keeps it too, so its answer waits for the user's Resume.
       const asked = await thread.askedDecision();
       if (asked) await this.keep(work, asked);
@@ -361,14 +361,29 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
     return reached && budgetOutcome(stage.name, reached);
   }
 
-  /** Keeps the usage windows as read now, for the run's share of them (spec §2.1, Usage estimates). */
-  private async keepUsageWindows(
+  /**
+   * Keeps the usage windows as read now, for the run's share of them (spec §2.1, Usage estimates).
+   * A session's first read answers from the usage endpoint and its later ones from the headers,
+   * as the end's will, so an endpoint reading is followed by a second read for one of each source.
+   */
+  private async keepUsageWindowsAtStart(
     work: StageWork<"agent">,
     thread: StageThread,
-    moment: UsageWindowsMoment,
+  ): Promise<void> {
+    const first = await thread.usageWindows();
+    if (!first) return;
+    const second = first.source === "usage-endpoint" ? await thread.usageWindows() : undefined;
+    const readings =
+      second?.source === undefined || second.source === first.source ? [first] : [first, second];
+    await this.runs.saveUsageWindowsAtStart(work.run.id, readings);
+  }
+
+  private async keepUsageWindowsAtEnd(
+    work: StageWork<"agent">,
+    thread: StageThread,
   ): Promise<void> {
     const reading = await thread.usageWindows();
-    if (reading) await this.runs.saveUsageWindows(work.run.id, moment, reading);
+    if (reading) await this.runs.saveUsageWindowsAtEnd(work.run.id, reading);
   }
 
   /**

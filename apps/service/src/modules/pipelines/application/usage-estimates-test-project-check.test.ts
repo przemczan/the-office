@@ -34,6 +34,7 @@ import { testDatabaseUrl } from "../../../../test/test-database.js";
 import { AppModule } from "../../../app.module.js";
 import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 import type { StageRun } from "../domain/stage-run.js";
+import { USAGE_WINDOW_NAMES, windowChangeOf } from "../domain/usage-history.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { StageInterpreter } from "./stage-interpreter.js";
 import { UsageHistory } from "./usage-history.js";
@@ -280,11 +281,18 @@ async function untilDone(api: Api, taskId: string): Promise<Task> {
   return task;
 }
 
+/** A run's readings, each with its source, and the change each window gives between a pair of one source. */
 function runLines(run: StageRun): string[] {
+  const pairedSource = run.usageWindowsAtEnd?.source ?? "unknown";
   return [
     `Run ${run.number} of ${run.stageKey} on ${run.engine ?? "no engine"} / ${run.model ?? "no model"}, tokens ${JSON.stringify(run.tokens)}`,
-    `  at start: ${JSON.stringify(run.usageWindowsAtStart ?? null)}`,
-    `  at end:   ${JSON.stringify(run.usageWindowsAtEnd ?? null)}`,
+    ...run.usageWindowsAtStart.map(
+      (reading) => `  at start (${reading.source ?? "unknown"}): ${JSON.stringify(reading)}`,
+    ),
+    `  at end (${pairedSource}): ${JSON.stringify(run.usageWindowsAtEnd ?? null)}`,
+    `  change between the ${pairedSource} pair: ${USAGE_WINDOW_NAMES.map(
+      (window) => `${window} ${windowChangeOf(run, window) ?? "none"}`,
+    ).join(", ")}`,
   ];
 }
 

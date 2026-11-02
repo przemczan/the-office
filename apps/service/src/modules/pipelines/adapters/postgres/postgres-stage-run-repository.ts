@@ -10,11 +10,7 @@ import type {
   AskedInterruption,
   UsageWindowReading,
 } from "../../domain/stage-run.js";
-import {
-  StageRunRepository,
-  type StageRunThread,
-  type UsageWindowsMoment,
-} from "../../ports/stage-run-repository.js";
+import { StageRunRepository, type StageRunThread } from "../../ports/stage-run-repository.js";
 import { stageRuns } from "./stage-runs.schema.js";
 import {
   storedUsageWindowReading,
@@ -33,7 +29,7 @@ export class PostgresStageRunRepository extends StageRunRepository {
       .insert(stageRuns)
       .values({
         ...run,
-        usageWindowsAtStart: storedOrNone(run.usageWindowsAtStart),
+        usageWindowsAtStart: run.usageWindowsAtStart.map(storedUsageWindowReading),
         usageWindowsAtEnd: storedOrNone(run.usageWindowsAtEnd),
       })
       .onConflictDoNothing({ target: [stageRuns.taskId, stageRuns.number] })
@@ -45,15 +41,20 @@ export class PostgresStageRunRepository extends StageRunRepository {
     await this.database.update(stageRuns).set(thread).where(eq(stageRuns.id, runId));
   }
 
-  async saveUsageWindows(
+  async saveUsageWindowsAtStart(
     runId: string,
-    moment: UsageWindowsMoment,
-    reading: UsageWindowReading,
+    readings: readonly UsageWindowReading[],
   ): Promise<void> {
-    const stored = storedUsageWindowReading(reading);
     await this.database
       .update(stageRuns)
-      .set(moment === "start" ? { usageWindowsAtStart: stored } : { usageWindowsAtEnd: stored })
+      .set({ usageWindowsAtStart: readings.map(storedUsageWindowReading) })
+      .where(eq(stageRuns.id, runId));
+  }
+
+  async saveUsageWindowsAtEnd(runId: string, reading: UsageWindowReading): Promise<void> {
+    await this.database
+      .update(stageRuns)
+      .set({ usageWindowsAtEnd: storedUsageWindowReading(reading) })
       .where(eq(stageRuns.id, runId));
   }
 
@@ -119,7 +120,7 @@ function stageRunOf(row: typeof stageRuns.$inferSelect): StageRun {
     session: row.session ?? undefined,
     engine: row.engine ?? undefined,
     model: row.model ?? undefined,
-    usageWindowsAtStart: readingOrNone(row.usageWindowsAtStart),
+    usageWindowsAtStart: row.usageWindowsAtStart.map(usageWindowReadingOf),
     usageWindowsAtEnd: readingOrNone(row.usageWindowsAtEnd),
     headCommit: row.headCommit ?? undefined,
     heldBy: row.heldBy ?? undefined,

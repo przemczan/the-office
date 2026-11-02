@@ -44,7 +44,10 @@ test("the user adds an MCP server by the form, reviews it and turns it on", asyn
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-mcp-servers-review.png") });
   await dialog.getByRole("button", { name: "Turn it on" }).click();
 
-  await expect(page.getByText("e2e-form-server is on. Assign it on a Role card.")).toBeVisible();
+  // Turning it on connects again to list the tools anew, as long as the review's connection.
+  await expect(page.getByText("e2e-form-server is on. Assign it on a Role card.")).toBeVisible(
+    CONNECTING,
+  );
   await expect(row(page, "e2e-form-server")).toContainText("On");
   await expect(row(page, "e2e-form-server")).toContainText("1 Server value");
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-mcp-servers.png") });

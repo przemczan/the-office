@@ -136,7 +136,17 @@ const scriptStep = z.discriminatedUnion("step", [
   z.object({ step: z.literal("interrupt") }),
   z.object({
     step: z.literal("read-usage-windows"),
-    windows: absent(z.object({ fiveHour: usageWindow, sevenDay: usageWindow })),
+    windows: absent(
+      z.object({
+        fiveHour: usageWindow,
+        sevenDay: usageWindow,
+        // Recordings made before readings had a source leave it out.
+        source: z
+          .enum(["usage-endpoint", "rate-limit-headers"])
+          .nullish()
+          .transform((value) => value ?? undefined),
+      }),
+    ),
   }),
   z.object({
     step: z.literal("read-context-usage"),

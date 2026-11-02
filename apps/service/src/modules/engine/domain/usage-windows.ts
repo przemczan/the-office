@@ -7,12 +7,21 @@ export interface UsageWindow {
 }
 
 /**
+ * Where a reading's numbers came from (spec §5.4, the glossary's Reading source): the account's
+ * usage endpoint, or the rate-limit headers of the engine's last model reply. The two round
+ * differently, so only readings of one source are compared.
+ */
+export type ReadingSource = "usage-endpoint" | "rate-limit-headers";
+
+/**
  * The account's quota (spec §5.4): the 5-hour and the 7-day window, each judged on its own, so a
  * window not begun yet leaves the other's reading standing.
  */
 export interface UsageWindows {
   readonly fiveHour: UsageWindow;
   readonly sevenDay: UsageWindow;
+  /** Undefined when the answer doesn't tell. */
+  readonly source: ReadingSource | undefined;
 }
 
 export function sameUsageWindows(one: UsageWindows, other: UsageWindows): boolean {

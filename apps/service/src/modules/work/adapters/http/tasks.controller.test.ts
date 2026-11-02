@@ -1703,7 +1703,9 @@ async function newReading(): Promise<void> {
   if (!reading) throw new Error("No reading to read again.");
   windows.reading = { ...reading, readAt: new Date() };
   const { readAt, fiveHour, sevenDay } = windows.reading;
-  await work.app.get(EventBus).publish(new UsageWindowsRead({ fiveHour, sevenDay }, readAt));
+  await work.app
+    .get(EventBus)
+    .publish(new UsageWindowsRead({ fiveHour, sevenDay, source: "rate-limit-headers" }, readAt));
 }
 
 describe("Window caps", () => {

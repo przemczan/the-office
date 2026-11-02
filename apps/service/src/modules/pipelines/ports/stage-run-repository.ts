@@ -17,9 +17,6 @@ export interface StageRunThread {
   readonly model: string;
 }
 
-/** When a run's usage windows were read: after its session opened, or after its last turn. */
-export type UsageWindowsMoment = "start" | "end";
-
 /** Where each Task's Stage runs are kept. */
 export abstract class StageRunRepository {
   /**
@@ -30,11 +27,14 @@ export abstract class StageRunRepository {
 
   abstract saveThread(runId: string, thread: StageRunThread): Promise<void>;
 
-  abstract saveUsageWindows(
+  /** Saves the readings taken after the run's session opened, replacing those saved before. */
+  abstract saveUsageWindowsAtStart(
     runId: string,
-    moment: UsageWindowsMoment,
-    reading: UsageWindowReading,
+    readings: readonly UsageWindowReading[],
   ): Promise<void>;
+
+  /** Saves the reading taken after the run's last turn. */
+  abstract saveUsageWindowsAtEnd(runId: string, reading: UsageWindowReading): Promise<void>;
 
   /** Saves the commit The Office left the Task's branch at after the run. */
   abstract saveHeadCommit(runId: string, headCommit: string): Promise<void>;

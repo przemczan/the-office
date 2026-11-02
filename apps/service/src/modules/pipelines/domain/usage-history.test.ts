@@ -23,6 +23,7 @@ function aReading(
   return {
     fiveHour: { percentUsed: fiveHour, resetsAt: RESET },
     sevenDay: { percentUsed: 10, resetsAt: new Date("2026-11-05T00:00:00Z") },
+    source: "rate-limit-headers",
     readAt: new Date("2026-11-01T12:00:00Z"),
     officeTokensSoFar: tokens(officeTokensSoFar),
     ...fields,
@@ -33,7 +34,7 @@ function aReading(
 const aReadRun = (fields: Parameters<typeof aStageRun>[0] = {}) =>
   aStageRun({
     tokens: tokens(1_000),
-    usageWindowsAtStart: aReading(20, 5_000),
+    usageWindowsAtStart: [aReading(20, 5_000)],
     usageWindowsAtEnd: aReading(30, 6_000, { readAt: new Date("2026-11-01T12:10:00Z") }),
     ...fields,
   });
@@ -79,18 +80,34 @@ describe("a Stage's samples", () => {
     expect(usages.get("implement")?.samples).toBe(1);
   });
 
-  it("gives the median window change over the samples whose every run's readings count", () => {
+  it("pools window % per token over the runs whose readings count, applied to the median tokens", () => {
+    const aRunOf = (taskId: string, runTokens: number, fiveHourAtEnd: number) =>
+      aReadRun({
+        taskId,
+        tokens: tokens(runTokens),
+        usageWindowsAtEnd: aReading(fiveHourAtEnd, 5_000 + runTokens),
+      });
     const usage = stageUsages([
-      aReadRun({ taskId: "a", number: 1 }),
-      aReadRun({ taskId: "a", number: 2 }),
-      aReadRun({ taskId: "b" }),
-      aReadRun({ taskId: "c", number: 1 }),
-      aReadRun({ taskId: "c", number: 2, usageWindowsAtEnd: undefined }),
+      aRunOf("a", 1_000, 21),
+      aRunOf("b", 1_000, 20),
+      aRunOf("c", 2_000, 21),
+      aReadRun({ taskId: "d", tokens: tokens(1_000), usageWindowsAtEnd: undefined }),
     ]).get("implement");
 
-    expect(usage?.samples).toBe(3);
-    expect(usage?.windows.fiveHour).toEqual({ percentUsed: 15, samples: 2 });
-    expect(usage?.windows.sevenDay).toEqual({ percentUsed: 0, samples: 2 });
+    expect(usage?.samples).toBe(4);
+    expect(usage?.tokens.input).toBe(1_000);
+    // 2 points over 4,000 tokens, at the median's 1,000; per-run medians would give 1 point.
+    expect(usage?.windows.fiveHour).toEqual({ percentUsed: 0.5, samples: 3 });
+    expect(usage?.windows.sevenDay).toEqual({ percentUsed: 0, samples: 3 });
+  });
+
+  it("pools a Task's runs one by one, so a run without readings leaves its others counting", () => {
+    const usage = stageUsages([
+      aReadRun({ taskId: "a", number: 1 }),
+      aReadRun({ taskId: "a", number: 2, usageWindowsAtEnd: undefined }),
+    ]).get("implement");
+
+    expect(usage?.windows.fiveHour).toEqual({ percentUsed: 20, samples: 1 });
   });
 
   it("has no window change when no sample's readings count", () => {
@@ -113,19 +130,47 @@ describe("a run's window change", () => {
 
   it("counts a window that began during the run from 0%", () => {
     const run = aReadRun({
-      usageWindowsAtStart: aReading(0, 5_000, {
-        fiveHour: { percentUsed: 0, resetsAt: undefined },
-      }),
+      usageWindowsAtStart: [
+        aReading(0, 5_000, { fiveHour: { percentUsed: 0, resetsAt: undefined } }),
+      ],
     });
 
     expect(windowChangeOf(run, "fiveHour")).toBe(30);
   });
 
   it("is undefined without both readings", () => {
-    expect(
-      windowChangeOf(aReadRun({ usageWindowsAtStart: undefined }), "fiveHour"),
-    ).toBeUndefined();
+    expect(windowChangeOf(aReadRun({ usageWindowsAtStart: [] }), "fiveHour")).toBeUndefined();
     expect(windowChangeOf(aReadRun({ usageWindowsAtEnd: undefined }), "fiveHour")).toBeUndefined();
+  });
+
+  it("compares the end reading with the start reading of its own source", () => {
+    const run = aReadRun({
+      usageWindowsAtStart: [
+        aReading(28, 5_000, { source: "usage-endpoint" }),
+        aReading(27, 5_000, { source: "rate-limit-headers" }),
+      ],
+      usageWindowsAtEnd: aReading(27, 6_000, { source: "rate-limit-headers" }),
+    });
+
+    expect(windowChangeOf(run, "fiveHour")).toBe(0);
+  });
+
+  it("is undefined without a start reading of the end reading's source", () => {
+    const run = aReadRun({
+      usageWindowsAtStart: [aReading(28, 5_000, { source: "usage-endpoint" })],
+    });
+
+    expect(windowChangeOf(run, "fiveHour")).toBeUndefined();
+  });
+
+  it("is undefined when the readings' source is unknown, as on runs kept before it was", () => {
+    const unknown = { source: undefined };
+    const run = aReadRun({
+      usageWindowsAtStart: [aReading(20, 5_000, unknown)],
+      usageWindowsAtEnd: aReading(30, 6_000, unknown),
+    });
+
+    expect(windowChangeOf(run, "fiveHour")).toBeUndefined();
   });
 
   it("is undefined when the window reset during the run", () => {

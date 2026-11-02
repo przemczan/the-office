@@ -1334,6 +1334,7 @@ describe("Office tools on a Stage", () => {
     const windows = {
       fiveHour: { percentUsed: 12, resetsAt: new Date("2026-11-01T18:00:00Z") },
       sevenDay: { percentUsed: 31, resetsAt: new Date("2026-11-05T09:00:00Z") },
+      source: "rate-limit-headers" as const,
     };
     await startWith(started(...aTurn({ status: "done" }), { step: "read-usage-windows", windows }));
     const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));

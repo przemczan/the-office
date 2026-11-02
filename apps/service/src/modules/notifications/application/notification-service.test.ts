@@ -61,6 +61,7 @@ function reading(percentUsed: number): UsageWindowsChanged {
   return new UsageWindowsChanged({
     fiveHour: { percentUsed, resetsAt: new Date("2026-10-27T12:00:00Z") },
     sevenDay: { percentUsed: 10, resetsAt: undefined },
+    source: "rate-limit-headers",
   });
 }
 

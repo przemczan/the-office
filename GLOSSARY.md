@@ -76,6 +76,7 @@ _Avoid_: Backlog (a Task state), waiting list, pending
 
 **Overlap**:
 Two Tasks in one Project whose Plans expect to change some of the same files; Start warns of it before a Task joins one in progress.
+_Avoid_: Conflict (git's, found at Publish), collision, clash
 
 **Usage estimate**:
 What a Ready Task's whole Pipeline is expected to use on each engine it uses, in the measures ticked in Settings › Office limits (tokens, the 5-hour window, the 7-day window, cost); from done Tasks of the same Project and Pipeline, else the Planner's estimate in the Plan.
@@ -92,7 +93,10 @@ _Avoid_: Budget, quota, daily limit
 **Model price**:
 What a model costs per million tokens of each kind (input, output, cache writes, cache reads), set in Settings › Engines; every cost in The Office is priced by it.
 _Avoid_: Rate, pricing, price table
-_Avoid_: Conflict (git's, found at Publish), collision, clash
+
+**Reading source**:
+Where a reading of the usage windows came from: the account's usage endpoint, or the rate-limit headers of the engine's last model reply. The two round differently, so a Stage run's window change is taken only between two readings of one source; a reading whose source is unknown counts in no Usage estimate.
+_Avoid_: Full answer, short answer, kind
 
 **Files to change**:
 The files and folders a Plan expects to change, written by the Planner with the Plan and confirmed with it; a folder covers the files under it. Start weighs an Overlap on them.

@@ -6,7 +6,7 @@ import type {
   SDKResultMessage,
   SDKUserMessage,
 } from "@anthropic-ai/claude-agent-sdk";
-import type { UsageWindow, UsageWindows } from "../../domain/usage-windows.js";
+import type { ReadingSource, UsageWindow, UsageWindows } from "../../domain/usage-windows.js";
 import type {
   RateLimitStatus,
   SessionEvent,
@@ -216,10 +216,34 @@ export function usageWindows({
 }: Pick<SDKControlGetUsageResponse, "rate_limits_available" | "rate_limits">):
   UsageWindows | undefined {
   if (!available || windows === null) return undefined;
-  return { fiveHour: usageWindow(windows.five_hour), sevenDay: usageWindow(windows.seven_day) };
+  return {
+    fiveHour: usageWindow(windows.five_hour),
+    sevenDay: usageWindow(windows.seven_day),
+    source: readingSourceOf(windows),
+  };
 }
 
-type UsageQueryWindow = NonNullable<SDKControlGetUsageResponse["rate_limits"]>["five_hour"];
+type UsageQueryWindows = NonNullable<SDKControlGetUsageResponse["rate_limits"]>;
+type UsageQueryWindow = UsageQueryWindows["five_hour"];
+
+/** A reset the CLI makes from a header's epoch seconds, with `toISOString`: whole seconds. */
+const HEADER_RESET = /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.000Z$/;
+
+/**
+ * The query isn't typed for its source, so it is told from the answer's shape (seen in the CLI and
+ * on a live account, task 37's step 7): the endpoint's own answer carries its `limits`; one the CLI
+ * builds from the headers drops them and gives each reset at whole seconds. Anything else, such as
+ * the endpoint's answer kept from an earlier session, is undefined.
+ */
+function readingSourceOf(windows: UsageQueryWindows): ReadingSource | undefined {
+  if ("limits" in windows && Array.isArray(windows.limits)) return "usage-endpoint";
+  const resets = [windows.five_hour, windows.seven_day].flatMap((window) =>
+    window?.resets_at ? [window.resets_at] : [],
+  );
+  return resets.length > 0 && resets.every((reset) => HEADER_RESET.test(reset))
+    ? "rate-limit-headers"
+    : undefined;
+}
 
 /** A window the query gives without its use or its reset is read as not begun, so unused. */
 function usageWindow(window: UsageQueryWindow): UsageWindow {

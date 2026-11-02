@@ -70,6 +70,7 @@ const SETTINGS: SessionSettings = {
 const WINDOWS = {
   fiveHour: { percentUsed: 12, resetsAt: new Date("2026-10-25T18:00:00Z") },
   sevenDay: { percentUsed: 31, resetsAt: new Date("2026-10-30T09:00:00Z") },
+  source: "rate-limit-headers" as const,
 };
 
 function turnEnded(consumed: string, sessionCostUsd: number): SessionScript[number] {

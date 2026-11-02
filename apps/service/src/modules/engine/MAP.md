@@ -179,7 +179,7 @@ EngineSessions, EngineCapability, OfficeToolRegistry, OfficeTool, OfficeToolResu
 - `session-rules.ts`: PathSemantics, SessionRules
 - `shell-commands.ts`: ShellDialect, Redirect, SimpleCommand, UnreadableCommand, simpleCommands, programWords, programName
 - `skill-listing.ts`: listingProblems
-- `usage-windows.ts`: UsageWindow, UsageWindows, sameUsageWindows
+- `usage-windows.ts`: UsageWindow, ReadingSource, UsageWindows, sameUsageWindows
 - Tests: api-endpoints.test.ts, directory-change.test.ts, engine-settings.test.ts, office-rules.test.ts, shell-commands.test.ts
 
 ### ports/

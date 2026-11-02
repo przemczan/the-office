@@ -13,7 +13,10 @@ export const HISTORY_TASKS = 20;
 export type UsageWindowName = keyof Pick<UsageWindowReading, "fiveHour" | "sevenDay">;
 export const USAGE_WINDOW_NAMES: readonly UsageWindowName[] = ["fiveHour", "sevenDay"];
 
-/** The median of a Stage's window samples, in percentage points, and how many there were. */
+/**
+ * A Stage's window estimate, in percentage points: its window % per counted token, pooled over the
+ * runs whose readings count, times its median tokens; with how many runs were pooled.
+ */
 export interface WindowChange {
   readonly percentUsed: number;
   readonly samples: number;
@@ -22,7 +25,7 @@ export interface WindowChange {
 /**
  * What one Stage used in the done Tasks: the median of each token kind over its samples, a sample
  * being the sum of its runs in one Task, so loops and send-backs count. Each window has its own
- * samples, as only some runs' readings count; undefined with none.
+ * runs, as only some runs' readings count; undefined with none.
  */
 export interface StageUsage {
   readonly tokens: StageTokens;
@@ -104,13 +107,7 @@ export function usageRatios(
   runs: readonly StageRun[],
   priced: readonly PricedTokens[],
 ): UsageRatios {
-  const windowRatio = (window: UsageWindowName): number | undefined => {
-    const counted = runs.flatMap((run) => {
-      const change = windowChangeOf(run, window);
-      return change === undefined ? [] : [{ amount: change, tokens: countedTokens(run.tokens) }];
-    });
-    return ratio(counted);
-  };
+  const windowRatio = (window: UsageWindowName) => ratio(windowParts(runs, window));
   return {
     percentUsedPerToken: { fiveHour: windowRatio("fiveHour"), sevenDay: windowRatio("sevenDay") },
     dollarsPerToken: ratio(
@@ -122,14 +119,17 @@ export function usageRatios(
 }
 
 /**
- * The run's share of a window's change, in percentage points; undefined unless both readings
- * exist, the window didn't reset during the run, and the Office's tokens didn't go down (a restart
- * between the readings). The change is scaled by the run's share of the Office's tokens between
- * the readings, which takes out parallel runs and chats.
+ * The run's share of a window's change, in percentage points, between its end reading and the
+ * latest start reading of the same source (the glossary's Reading source); undefined unless both
+ * exist with a known source, the window didn't reset during the run, it didn't go down, and the
+ * Office's tokens didn't go down (a restart between the readings). The change is scaled by the
+ * run's share of the Office's tokens between the readings, which takes out parallel runs and chats.
  */
 export function windowChangeOf(run: StageRun, window: UsageWindowName): number | undefined {
-  const { usageWindowsAtStart: start, usageWindowsAtEnd: end } = run;
-  if (start === undefined || end === undefined) return undefined;
+  const end = run.usageWindowsAtEnd;
+  if (end?.source === undefined) return undefined;
+  const start = run.usageWindowsAtStart.findLast(({ source }) => source === end.source);
+  if (start === undefined) return undefined;
   const officeTokens =
     countedTokens(end.officeTokensSoFar) - countedTokens(start.officeTokensSoFar);
   if (officeTokens <= 0) return undefined;
@@ -141,28 +141,42 @@ export function windowChangeOf(run: StageRun, window: UsageWindowName): number |
   return change * Math.min(1, countedTokens(run.tokens) / officeTokens);
 }
 
+/**
+ * `utilization` comes in whole percents, so one run's change is mostly 0 or 1 (task 37's step 7):
+ * the Stage's runs are pooled into one window % per counted token, applied to its median tokens.
+ */
 function stageUsage(runs: readonly StageRun[]): StageUsage {
   const samples = [...groupBy(runs, ({ taskId }) => taskId).values()];
   const tokens = samples.map((sample) => sample.map((run) => run.tokens).reduce(addTokens));
+  const medianTokens: StageTokens = {
+    input: median(tokens.map(({ input }) => input)),
+    output: median(tokens.map(({ output }) => output)),
+    cacheRead: median(tokens.map(({ cacheRead }) => cacheRead)),
+    cacheCreation: median(tokens.map(({ cacheCreation }) => cacheCreation)),
+  };
   const windowChange = (window: UsageWindowName): WindowChange | undefined => {
-    const changes = samples.flatMap((sample) => {
-      const each = sample.map((run) => windowChangeOf(run, window));
-      return each.every((one): one is number => one !== undefined) ? [sum(each)] : [];
-    });
-    return changes.length === 0
+    const parts = windowParts(runs, window);
+    const perToken = ratio(parts);
+    return perToken === undefined
       ? undefined
-      : { percentUsed: median(changes), samples: changes.length };
+      : { percentUsed: perToken * countedTokens(medianTokens), samples: parts.length };
   };
   return {
-    tokens: {
-      input: median(tokens.map(({ input }) => input)),
-      output: median(tokens.map(({ output }) => output)),
-      cacheRead: median(tokens.map(({ cacheRead }) => cacheRead)),
-      cacheCreation: median(tokens.map(({ cacheCreation }) => cacheCreation)),
-    },
+    tokens: medianTokens,
     samples: samples.length,
     windows: { fiveHour: windowChange("fiveHour"), sevenDay: windowChange("sevenDay") },
   };
+}
+
+/** Each run's share of the window's change with its counted tokens, over the runs whose readings count. */
+function windowParts(
+  runs: readonly StageRun[],
+  window: UsageWindowName,
+): readonly { amount: number; tokens: number }[] {
+  return runs.flatMap((run) => {
+    const change = windowChangeOf(run, window);
+    return change === undefined ? [] : [{ amount: change, tokens: countedTokens(run.tokens) }];
+  });
 }
 
 function lastEndOfEachTask(runs: readonly StageRun[]): ReadonlyMap<string, number> {

@@ -63,7 +63,7 @@ function runs(...ran: readonly Ran[]): StageRun[] {
     tokens: each.tokens ?? NO_STAGE_TOKENS,
     engine: undefined,
     model: undefined,
-    usageWindowsAtStart: undefined,
+    usageWindowsAtStart: [],
     usageWindowsAtEnd: undefined,
     decisions: each.decisions ?? [],
     heldBy: undefined,

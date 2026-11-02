@@ -114,18 +114,26 @@ describe("AgentStageRunner", () => {
   });
 
   it("keeps the session's engine and model, and the usage windows read as it opens and after its last turn", async () => {
-    const atStart = {
-      fiveHour: { percentUsed: 0, resetsAt: undefined },
+    const fromEndpoint = {
+      fiveHour: { percentUsed: 1, resetsAt: new Date("2026-11-01T18:00:00Z") },
       sevenDay: { percentUsed: 20, resetsAt: new Date("2026-11-07T08:00:00Z") },
+      source: "usage-endpoint" as const,
+    };
+    const fromHeaders = {
+      fiveHour: { percentUsed: 0, resetsAt: new Date("2026-11-01T18:00:00Z") },
+      sevenDay: { percentUsed: 19, resetsAt: new Date("2026-11-07T08:00:00Z") },
+      source: "rate-limit-headers" as const,
     };
     const atEnd = {
       fiveHour: { percentUsed: 3, resetsAt: new Date("2026-11-01T18:00:00Z") },
       sevenDay: { percentUsed: 21, resetsAt: new Date("2026-11-07T08:00:00Z") },
+      source: "rate-limit-headers" as const,
     };
     pipelines = await startPipelinesApplication([
       [
         ...anAgentSession(aDoneResult()),
-        { step: "read-usage-windows", windows: atStart },
+        { step: "read-usage-windows", windows: fromEndpoint },
+        { step: "read-usage-windows", windows: fromHeaders },
         { step: "read-usage-windows", windows: atEnd },
       ],
     ]);
@@ -138,7 +146,10 @@ describe("AgentStageRunner", () => {
     expect(run).toMatchObject({
       engine: "agent-sdk",
       model: "claude-haiku-4-5",
-      usageWindowsAtStart: { ...atStart, readAt: expect.any(Date) },
+      usageWindowsAtStart: [
+        { ...fromEndpoint, readAt: expect.any(Date) },
+        { ...fromHeaders, readAt: expect.any(Date) },
+      ],
       usageWindowsAtEnd: {
         ...atEnd,
         readAt: expect.any(Date),
@@ -146,8 +157,30 @@ describe("AgentStageRunner", () => {
       },
     });
     expect(run?.usageWindowsAtEnd?.readAt.getTime()).toBeGreaterThanOrEqual(
-      run?.usageWindowsAtStart?.readAt.getTime() ?? Infinity,
+      run?.usageWindowsAtStart[1]?.readAt.getTime() ?? Infinity,
     );
+  });
+
+  it("reads once at the start when the first reading is from the headers", async () => {
+    const fromHeaders = {
+      fiveHour: { percentUsed: 0, resetsAt: new Date("2026-11-01T18:00:00Z") },
+      sevenDay: { percentUsed: 19, resetsAt: new Date("2026-11-07T08:00:00Z") },
+      source: "rate-limit-headers" as const,
+    };
+    const atEnd = { ...fromHeaders, fiveHour: { ...fromHeaders.fiveHour, percentUsed: 2 } };
+    pipelines = await startPipelinesApplication([
+      [
+        ...anAgentSession(aDoneResult()),
+        { step: "read-usage-windows", windows: fromHeaders },
+        { step: "read-usage-windows", windows: atEnd },
+      ],
+    ]);
+
+    const taskId = await walkStages(pipelines, [implement]);
+
+    const [run] = await runsOf(pipelines, taskId);
+    expect(run?.usageWindowsAtStart).toMatchObject([fromHeaders]);
+    expect(run?.usageWindowsAtEnd).toMatchObject(atEnd);
   });
 
   it("keeps no usage windows when the engine read none", async () => {
@@ -157,7 +190,7 @@ describe("AgentStageRunner", () => {
 
     const [run] = await runsOf(pipelines, taskId);
     expect(run).toMatchObject({ engine: "agent-sdk", model: "scripted" });
-    expect(run?.usageWindowsAtStart).toBe(undefined);
+    expect(run?.usageWindowsAtStart).toEqual([]);
     expect(run?.usageWindowsAtEnd).toBe(undefined);
   });
 

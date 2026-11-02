@@ -16,7 +16,7 @@ export function aStageRun(fields: Partial<StageRun> = {}): StageRun {
     headCommit: undefined,
     commandRuns: [],
     tokens: NO_STAGE_TOKENS,
-    usageWindowsAtStart: undefined,
+    usageWindowsAtStart: [],
     usageWindowsAtEnd: undefined,
     decisions: [],
     heldBy: undefined,
