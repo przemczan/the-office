@@ -142,7 +142,7 @@ export class RoleService {
     const { role, event } = await this.hiringFromScratch(card, skills, hiredAt, proposedBy);
     if (!(await this.repository.add(role))) {
       // Someone was hired into the Role meanwhile: refuse as if they had been there before.
-      const offered = await this.engineModels.offeredOn(card.engine);
+      const offered = await this.engineModels.modelsOffered();
       hireFromScratch(role.key, card, offered, await this.repository.find(role.key), hiredAt);
       throw new Error(`The Role "${role.key}" was filled and emptied again while hiring.`);
     }
@@ -167,7 +167,7 @@ export class RoleService {
   ): Promise<RoleChange<RoleHired>> {
     const roleKey = roleKeyFor(card.title);
     const skillProblems = await this.roleSkills.problemsWith(skills);
-    const offered = await this.engineModels.offeredOn(card.engine);
+    const offered = await this.engineModels.modelsOffered();
     const filledBy = await this.repository.find(roleKey);
     return refusingAlso(skillProblems, () =>
       hireFromScratch(roleKey, card, offered, filledBy, hiredAt, proposedBy),
@@ -231,7 +231,7 @@ export class RoleService {
     skills: readonly string[],
     proposedBy?: string,
   ): Promise<RoleWithAssignments> {
-    const offered = await this.engineModels.offeredOn(edit.engine);
+    const offered = await this.engineModels.modelsOffered();
     const problems = [
       ...roleCardProblems(key, trimmedRoleCard(edit), offered),
       ...(await this.roleSkills.problemsWith(skills)),
@@ -254,7 +254,7 @@ export class RoleService {
    */
   async cardChangeProblems(key: string, edit: RoleCard): Promise<readonly string[]> {
     const { role } = await this.read(key);
-    const offered = await this.engineModels.offeredOn(edit.engine);
+    const offered = await this.engineModels.modelsOffered();
     return refusalReasons(() => Promise.resolve(changeRoleCard(role, edit, offered, new Date())));
   }
 

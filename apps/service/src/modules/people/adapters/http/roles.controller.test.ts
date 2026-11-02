@@ -448,6 +448,34 @@ describe("PUT /api/roles/:key/card", () => {
     ]);
   });
 
+  it("saves a Role override and clears it back to the Office default", async () => {
+    const hired = await hire("developer", "Ada");
+    const roleOverride = { engineId: "claude-code", model: "claude-haiku-5-5" };
+
+    const set = await send("PUT", "/roles/developer/card", { ...editOf(hired), roleOverride });
+    const cleared = await send("PUT", "/roles/developer/card", {
+      ...editOf(hired),
+      roleOverride: null,
+    });
+
+    expect(set.status).toBe(200);
+    expect(roleSchema.parse(await set.json()).card.roleOverride).toEqual(roleOverride);
+    expect(roleSchema.parse(await cleared.json()).card.roleOverride).toBeNull();
+  });
+
+  it("refuses a Role override on an engine Settings › Engines doesn't list", async () => {
+    const hired = await hire("developer", "Ada");
+
+    const response = await send("PUT", "/roles/developer/card", {
+      ...editOf(hired),
+      roleOverride: { engineId: "removed", model: "claude-haiku-5-5" },
+    });
+
+    expect(await reasonsOf(response)).toEqual([
+      "Choose an engine Settings › Engines lists, and a model it offers.",
+    ]);
+  });
+
   it("gives the Role exactly the skills the card names, for its next sessions", async () => {
     const hired = await hire("planner", "Jan");
     const [grilling, tdd] = [await anOnSkill(), await anOnSkill()];

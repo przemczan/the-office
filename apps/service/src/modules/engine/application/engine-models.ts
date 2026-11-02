@@ -1,8 +1,8 @@
 import { Injectable } from "@nestjs/common";
-import { offeredModels, type Engine, type EngineId } from "../domain/engines.js";
+import { offeredModels, type Engine, type EngineId, type EngineModel } from "../domain/engines.js";
 import { EngineSettingsRepository } from "../ports/engine-settings-repository.js";
 
-/** The engines listed now, and the models each offers, by their ids there. */
+/** The engines listed now, the models each offers, by their ids there, and the Office default. */
 @Injectable()
 export class EngineModels {
   constructor(private readonly settings: EngineSettingsRepository) {}
@@ -20,5 +20,18 @@ export class EngineModels {
   async offeredOn(engineId: EngineId): Promise<readonly string[]> {
     const engine = await this.find(engineId);
     return engine === undefined ? [] : offeredModels(engine);
+  }
+
+  /** A lookup of the models each engine listed now offers, giving none for an engine not listed. */
+  async modelsOffered(): Promise<(engineId: EngineId) => readonly string[]> {
+    const offered = new Map(
+      (await this.engines()).map((engine) => [engine.id, offeredModels(engine)]),
+    );
+    return (engineId) => offered.get(engineId) ?? [];
+  }
+
+  /** The engine and model of the engine cascade's least specific level (spec §5.4). */
+  async officeDefault(): Promise<EngineModel> {
+    return (await this.settings.read()).officeDefault;
   }
 }

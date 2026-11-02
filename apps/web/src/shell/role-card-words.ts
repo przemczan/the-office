@@ -107,6 +107,7 @@ const FIELD_LABELS: Readonly<Record<RoleCardField, string>> = {
   instructions: "Instructions",
   engine: "Engine",
   model: "Model",
+  roleOverride: "Engine and model",
   effort: "Effort",
   taskLimit: "Task limit",
   sessionDefault: "Session default",
@@ -296,7 +297,9 @@ export function fieldValueText(
 ): string {
   if (typeof value === "boolean") return value ? "on" : "off";
   if (typeof value === "number") return String(value);
+  if (value === null) return "Office default";
   if (typeof value === "object") {
+    if ("engineId" in value) return `${engineName(value.engineId)} · ${modelLabel(value.model)}`;
     return "kind" in value
       ? hardSwitchValueLabel(value, roleTitles)
       : [...permissionProfileLines(value), ...mcpToolSettingLines(value.mcpTools, roleTitles)].join(

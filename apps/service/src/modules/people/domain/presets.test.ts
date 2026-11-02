@@ -70,4 +70,8 @@ describe("PRESETS", () => {
 
     expect(roleCardProblems(preset.roleKey, card, OFFERED_MODELS)).toEqual([]);
   });
+
+  it.each(PRESETS)("run on the Office default, with no Role override ($roleKey)", (preset) => {
+    expect(preset.card.roleOverride).toBeNull();
+  });
 });

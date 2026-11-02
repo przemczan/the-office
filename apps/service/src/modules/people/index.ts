@@ -1,5 +1,11 @@
 export { RoleCards, type Consultant, type SessionRole } from "./application/role-cards.js";
 export { RoleService } from "./application/role-service.js";
+export { EngineCascade } from "./application/engine-cascade.js";
+export type {
+  EngineCascadeLevel,
+  EngineInCascade,
+  ProjectCascadeLevels,
+} from "./domain/engine-cascade.js";
 export { MemoryService } from "./application/memory-service.js";
 export { RoleCardChanged, RoleHired, RoleHiredBack, RoleLetGo } from "./domain/role-events.js";
 export {
@@ -23,3 +29,4 @@ export type { RoleCard } from "./domain/role-card.js";
 export { RoleNotFound } from "./domain/role-not-found.js";
 export { RoleRefused } from "./domain/role-refused.js";
 export { PeopleModule } from "./people.module.js";
+export { EngineCascadeModule } from "./engine-cascade.module.js";

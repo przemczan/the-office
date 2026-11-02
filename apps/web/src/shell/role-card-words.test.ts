@@ -46,6 +46,16 @@ describe("the Role card's words", () => {
     expect(changeLine({ field: "engine", from: "claude-code", to: "people-strata" }, names)).toBe(
       "Engine Work account → people-strata",
     );
+    expect(
+      changeLine(
+        {
+          field: "roleOverride",
+          from: null,
+          to: { engineId: "claude-code", model: "claude-haiku-5-5" },
+        },
+        names,
+      ),
+    ).toBe("Engine and model Office default → Work account · Haiku 5.5");
     expect(changeLine({ field: "taskLimit", from: 3, to: "none" }, names)).toBe(
       "Task limit 3 → none",
     );

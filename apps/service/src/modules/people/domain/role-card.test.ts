@@ -3,6 +3,11 @@ import { consult } from "./hard-switches.js";
 import { aRoleCard, OFFERED_MODELS } from "./role.fixtures.js";
 import { roleCardProblems, trimmedRoleCard } from "./role-card.js";
 
+/** The fixture engines, and a local one offering one model of its own. */
+function withLocalEngine(engineId: string): readonly string[] {
+  return engineId === "local" ? ["qwen3-coder"] : OFFERED_MODELS(engineId);
+}
+
 describe("trimmedRoleCard", () => {
   it("keeps the texts without their surrounding spaces", () => {
     const card = trimmedRoleCard(aRoleCard({ name: " Ada ", title: "Developer\n" }));
@@ -64,5 +69,30 @@ describe("roleCardProblems", () => {
     expect(roleCardProblems("developer", aRoleCard({ taskLimit: "none" }), OFFERED_MODELS)).toEqual(
       [],
     );
+  });
+
+  it("accepts a Role override on a listed engine, with a model it offers", () => {
+    const card = aRoleCard({ roleOverride: { engineId: "local", model: "qwen3-coder" } });
+
+    expect(roleCardProblems("developer", card, withLocalEngine)).toEqual([]);
+  });
+
+  it("refuses a Role override on an engine not listed, or with a model it doesn't offer", () => {
+    const refusal = ["Choose an engine Settings › Engines lists, and a model it offers."];
+
+    expect(
+      roleCardProblems(
+        "developer",
+        aRoleCard({ roleOverride: { engineId: "removed", model: "qwen3-coder" } }),
+        withLocalEngine,
+      ),
+    ).toEqual(refusal);
+    expect(
+      roleCardProblems(
+        "developer",
+        aRoleCard({ roleOverride: { engineId: "local", model: "claude-opus-5-5" } }),
+        withLocalEngine,
+      ),
+    ).toEqual(refusal);
   });
 });

@@ -15,6 +15,7 @@ export function blankRoleCard({ engines, taskLimits }: RoleCardOptions): RoleCar
     instructions: "",
     engine: offered.engine,
     model,
+    roleOverride: null,
     effort: "medium",
     capabilities: { sharedMemory: false, chat: true, consultant: false },
     permissionProfile: { edit: false, run: "read-only-git", web: false, mcpTools: {} },

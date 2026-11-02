@@ -67,6 +67,7 @@ const CTO_ROLE: SessionRole = {
     instructions: "Agree the outcome first, then the Tasks.",
     engine: "claude-code",
     model: "claude-haiku-5-5",
+    roleOverride: null,
     effort: "low",
     capabilities: { sharedMemory: true, chat: true, consultant: true },
     permissionProfile: { edit: false, run: "read-only-git", web: true, mcpTools: {} },

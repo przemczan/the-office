@@ -41,4 +41,23 @@ describe("roleCardChanges", () => {
       "hardSwitches.publishOutsideThePipeline",
     ]);
   });
+
+  it("names a Role override set, changed or cleared, none reading as the Office default", () => {
+    const opus = { engineId: "claude-code", model: "claude-opus-5-5" };
+    const haiku = { engineId: "claude-code", model: "claude-haiku-5-5" };
+    const none = aRoleCard({ roleOverride: null });
+
+    expect(roleCardChanges(none, aRoleCard({ roleOverride: opus }))).toEqual([
+      { field: "roleOverride", from: null, to: opus },
+    ]);
+    expect(
+      roleCardChanges(aRoleCard({ roleOverride: opus }), aRoleCard({ roleOverride: haiku })),
+    ).toEqual([{ field: "roleOverride", from: opus, to: haiku }]);
+    expect(roleCardChanges(aRoleCard({ roleOverride: haiku }), none)).toEqual([
+      { field: "roleOverride", from: haiku, to: null },
+    ]);
+    expect(
+      roleCardChanges(aRoleCard({ roleOverride: { ...opus } }), aRoleCard({ roleOverride: opus })),
+    ).toEqual([]);
+  });
 });

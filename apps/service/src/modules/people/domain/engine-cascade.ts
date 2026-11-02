@@ -1,0 +1,46 @@
+import type { EngineModel } from "../../engine/index.js";
+
+/** The levels of the engine cascade, least specific first (spec §5.4). */
+export const ENGINE_CASCADE_LEVELS = [
+  "office-default",
+  "project-default",
+  "role-override",
+  "project-role-override",
+] as const;
+export type EngineCascadeLevel = (typeof ENGINE_CASCADE_LEVELS)[number];
+
+/** The engine and model a session of a Role runs on, and the level they come from. */
+export interface EngineInCascade extends EngineModel {
+  readonly level: EngineCascadeLevel;
+}
+
+/** A Project's levels of the cascade, which the Projects module keeps. */
+export interface ProjectCascadeLevels {
+  readonly projectDefault: EngineModel | null;
+  /** "Use for every Role": the Project default wins over the Office-wide Role overrides. */
+  readonly useForEveryRole: boolean;
+  readonly roleOverrides: readonly (EngineModel & { readonly roleKey: string })[];
+}
+
+/** What the cascade weighs for one Role: in no Project, only the Office levels. */
+export interface EngineCascadeLevels {
+  readonly officeDefault: EngineModel;
+  readonly roleOverride: EngineModel | null;
+  readonly project?: ProjectCascadeLevels;
+}
+
+/** The most specific level set for the Role `roleKey` wins; the Office default always is. */
+export function engineInCascade(
+  roleKey: string,
+  { officeDefault, roleOverride, project }: EngineCascadeLevels,
+): EngineInCascade {
+  const projectRoleOverride = project?.roleOverrides.find((each) => each.roleKey === roleKey);
+  if (projectRoleOverride) return at("project-role-override", projectRoleOverride);
+  if (roleOverride && !project?.useForEveryRole) return at("role-override", roleOverride);
+  if (project?.projectDefault) return at("project-default", project.projectDefault);
+  return at("office-default", officeDefault);
+}
+
+function at(level: EngineCascadeLevel, { engineId, model }: EngineModel): EngineInCascade {
+  return { engineId, model, level };
+}

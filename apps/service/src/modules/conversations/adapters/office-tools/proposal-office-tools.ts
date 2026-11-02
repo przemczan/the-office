@@ -18,7 +18,8 @@ import {
 } from "../../domain/proposal.js";
 import { refusedToTheAgent } from "./refused-to-the-agent.js";
 
-const roleCardFieldsSchema = roleCardSchema.omit({ skills: true }).extend({
+// A Role override is the user's to set on the card: a proposed Role runs on the Office default.
+const roleCardFieldsSchema = roleCardSchema.omit({ skills: true, roleOverride: true }).extend({
   name: z
     .string()
     .describe(
@@ -175,7 +176,7 @@ function newRole(
   return (
     nameProblem(card.data.name, card.data.title) ?? {
       kind: "hire",
-      card: card.data,
+      card: { ...card.data, roleOverride: null },
       skills: skills ?? [],
       roleKey: undefined,
     }

@@ -10,6 +10,7 @@ export function aProposedCard(fields: Partial<RoleCard> = {}): RoleCard {
     instructions: "Run the tests and try the change as the user would.",
     engine: "claude-code",
     model: "claude-sonnet-5-5",
+    roleOverride: null,
     effort: "medium",
     capabilities: { sharedMemory: false, chat: true, consultant: false },
     permissionProfile: { edit: false, run: "read-only-git", web: false, mcpTools: {} },

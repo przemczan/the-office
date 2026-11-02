@@ -1,9 +1,9 @@
 import { presetFor } from "./presets.js";
 import type { Role } from "./role.js";
-import type { RoleCard } from "./role-card.js";
+import type { ModelsOffered, RoleCard } from "./role-card.js";
 
-/** The models a fixture card's engine offers: the Claude Code engines' list (`EngineModels`). */
-export const OFFERED_MODELS: readonly string[] = [
+/** The models every fixture engine offers: the Claude Code engines' list (`EngineModels`). */
+export const OFFERED_MODELS: ModelsOffered = () => [
   "claude-opus-5-5",
   "claude-sonnet-5-5",
   "claude-haiku-5-5",

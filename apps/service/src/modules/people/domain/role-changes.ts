@@ -6,6 +6,7 @@ import {
   personNameProblems,
   roleCardProblems,
   trimmedRoleCard,
+  type ModelsOffered,
   type RoleCard,
 } from "./role-card.js";
 import { roleCardChanges } from "./role-card-changes.js";
@@ -55,13 +56,13 @@ export function hire(
 export function hireFromScratch(
   roleKey: string,
   edit: RoleCard,
-  offeredModels: readonly string[],
+  modelsOffered: ModelsOffered,
   filledBy: Role | undefined,
   hiredAt: Date,
   proposedBy?: string,
 ): RoleChange<RoleHired> {
   const card = trimmedRoleCard(edit);
-  const problems = roleCardProblems(roleKey, card, offeredModels);
+  const problems = roleCardProblems(roleKey, card, modelsOffered);
   const presetTitle = KNOWN_ROLES.get(roleKey);
   if (roleKey === "" && card.title !== "") {
     problems.push("Give the Role a title with letters or digits.");
@@ -120,7 +121,7 @@ export function hireBack(role: Role, hiredBackAt: Date): RoleChange<RoleHiredBac
 export function changeRoleCard(
   role: Role,
   edit: RoleCard,
-  offeredModels: readonly string[],
+  modelsOffered: ModelsOffered,
   savedAt: Date,
   proposedBy?: string,
 ): RoleChange<RoleCardChanged> | undefined {
@@ -130,7 +131,7 @@ export function changeRoleCard(
     ]);
   }
   const card = trimmedRoleCard(edit);
-  const problems = roleCardProblems(role.key, card, offeredModels);
+  const problems = roleCardProblems(role.key, card, modelsOffered);
   if (problems.length > 0) throw new RoleRefused(problems);
   const changes = roleCardChanges(role.card, card);
   if (changes.length === 0) return undefined;

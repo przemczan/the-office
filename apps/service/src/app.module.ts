@@ -19,7 +19,7 @@ import {
 } from "./modules/engine/index.js";
 import { GitHubAccess, GitHubModule } from "./modules/github/index.js";
 import { NotificationsModule } from "./modules/notifications/index.js";
-import { PeopleModule, RoleCards } from "./modules/people/index.js";
+import { EngineCascadeModule, PeopleModule, RoleCards } from "./modules/people/index.js";
 import {
   AlarmResumes,
   PipelineLibrary,
@@ -67,6 +67,10 @@ export class AppModule {
     const projects = ProjectsModule.register({
       imports: [PipelineLibraryModule, github],
       knownPipelines: PipelineLibrary,
+    });
+    const engineCascade = EngineCascadeModule.register({
+      imports: [projects],
+      knownProjectLevels: ProjectService,
     });
     const conversations = ConversationsModule.register({
       imports: [projects],
@@ -116,6 +120,7 @@ export class AppModule {
         conversations,
         DatabaseModule.forRoot({ url: config.databaseUrl }),
         EngineAccountsModule,
+        engineCascade,
         EngineModule,
         EventsModule,
         EventStreamModule,

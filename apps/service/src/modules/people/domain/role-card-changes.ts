@@ -1,3 +1,4 @@
+import type { EngineModel } from "../../engine/index.js";
 import {
   HARD_SWITCH_KEYS,
   sameHardSwitchValue,
@@ -29,11 +30,14 @@ const CAPABILITY_KEYS = [
 /** A part of a Role card as its change history names it, down to each capability and switch. */
 export type RoleCardField =
   | (typeof PLAIN_FIELDS)[number]
+  | "roleOverride"
   | `capabilities.${keyof Capabilities}`
   | "permissionProfile"
   | `hardSwitches.${HardSwitchKey}`;
 
-export type RoleCardValue = string | TaskLimit | boolean | PermissionProfile | HardSwitchValue;
+/** A Role override of none reads as the Office default. */
+export type RoleCardValue =
+  string | TaskLimit | boolean | PermissionProfile | HardSwitchValue | EngineModel | null;
 
 /** One part of the card, from what it was to what it became. */
 export interface RoleCardFieldChange {
@@ -49,6 +53,9 @@ export function roleCardChanges(before: RoleCard, after: RoleCard): RoleCardFiel
     if (before[field] !== after[field]) {
       changes.push({ field, from: before[field], to: after[field] });
     }
+  }
+  if (!sameRoleOverride(before.roleOverride, after.roleOverride)) {
+    changes.push({ field: "roleOverride", from: before.roleOverride, to: after.roleOverride });
   }
   for (const key of CAPABILITY_KEYS) {
     const from = before.capabilities[key];
@@ -68,6 +75,10 @@ export function roleCardChanges(before: RoleCard, after: RoleCard): RoleCardFiel
     if (!sameHardSwitchValue(from, to)) changes.push({ field: `hardSwitches.${key}`, from, to });
   }
   return changes;
+}
+
+function sameRoleOverride(first: EngineModel | null, second: EngineModel | null): boolean {
+  return first?.engineId === second?.engineId && first?.model === second?.model;
 }
 
 function samePermissionProfile(first: PermissionProfile, second: PermissionProfile): boolean {

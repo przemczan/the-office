@@ -1,4 +1,4 @@
-import type { EngineId } from "../../engine/index.js";
+import type { EngineId, EngineModel } from "../../engine/index.js";
 import { hardSwitchesProblems, type HardSwitches } from "./hard-switches.js";
 import { mcpToolSettingsProblems } from "./mcp-tool-settings.js";
 import type { PermissionProfile } from "./permission-profile.js";
@@ -45,6 +45,11 @@ export interface RoleCard {
   readonly engine: EngineId;
   /** One of the models the engine offers, by its id there. */
   readonly model: string;
+  /**
+   * The engine and model the Role runs on wherever no Project sets its own (the engine cascade,
+   * spec §5.4); none means the Office default.
+   */
+  readonly roleOverride: EngineModel | null;
   readonly effort: Effort;
   readonly capabilities: Capabilities;
   readonly permissionProfile: PermissionProfile;
@@ -70,14 +75,14 @@ export function trimmedRoleCard<Card extends RoleCard>(card: Card): Card {
   };
 }
 
-/**
- * Why the card of the Role `roleKey` can't be saved, in the UI's words; empty when it can.
- * `offeredModels` are the models the card's engine offers now, which the Engine module answers.
- */
+/** The models the engine listed as `engineId` offers now, none when it isn't listed; Engine answers. */
+export type ModelsOffered = (engineId: EngineId) => readonly string[];
+
+/** Why the card of the Role `roleKey` can't be saved, in the UI's words; empty when it can. */
 export function roleCardProblems(
   roleKey: string,
   card: RoleCard,
-  offeredModels: readonly string[],
+  modelsOffered: ModelsOffered,
 ): string[] {
   const problems = [
     ...personNameProblems(card.name),
@@ -97,8 +102,12 @@ export function roleCardProblems(
   ];
   if (/\n\s*\n/.test(card.responsibilities.trim()))
     problems.push("The responsibilities are one paragraph.");
-  if (!offeredModels.includes(card.model)) {
+  if (!modelsOffered(card.engine).includes(card.model)) {
     problems.push("Choose a model the engine offers.");
+  }
+  const { roleOverride } = card;
+  if (roleOverride && !modelsOffered(roleOverride.engineId).includes(roleOverride.model)) {
+    problems.push("Choose an engine Settings › Engines lists, and a model it offers.");
   }
   const limitProblem = taskLimitProblem(card.taskLimit);
   if (limitProblem) problems.push(limitProblem);

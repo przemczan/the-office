@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { engineCapabilitySchema, engineIdSchema } from "./engines.js";
+import { engineCapabilitySchema, engineIdSchema, engineModelSchema } from "./engines.js";
 import { webEventSchema } from "./events.js";
 
 /** How hard the model thinks. */
@@ -74,6 +74,8 @@ export const roleCardSchema = z.object({
   engine: engineIdSchema,
   /** One of the engine's models, by its id there. */
   model: z.string(),
+  /** The engine and model the Role runs on outside a Project's own levels; null: the Office default. */
+  roleOverride: engineModelSchema.nullable(),
   effort: effortSchema,
   capabilities: capabilitiesSchema,
   permissionProfile: permissionProfileSchema,
@@ -166,6 +168,7 @@ export const roleCardFieldSchema = z.enum([
   "instructions",
   "engine",
   "model",
+  "roleOverride",
   "effort",
   "taskLimit",
   "sessionDefault",
@@ -185,6 +188,8 @@ const roleCardValueSchema = z.union([
   z.boolean(),
   permissionProfileSchema,
   hardSwitchValueSchema,
+  engineModelSchema,
+  z.null(),
 ]);
 
 /**
