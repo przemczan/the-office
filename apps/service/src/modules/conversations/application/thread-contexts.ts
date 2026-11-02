@@ -1,13 +1,22 @@
 import { Injectable } from "@nestjs/common";
 import { EngineCascade, RoleCards } from "../../people/index.js";
+import type { Brief } from "../domain/brief.js";
 import { decideContext, type ContextDecision } from "../domain/context-policy.js";
 import type { Thread } from "../domain/thread.js";
 import { Briefs } from "./briefs.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
+import { TaskThreadSetups } from "./task-thread-setups.js";
+
+/** The Brief of a Thread's next session, and the Project the engine cascade is asked in. */
+interface ThreadBrief {
+  readonly brief: Brief;
+  /** A Thread on a Task's Project; undefined for a chat's or an Initiative's, as the runner asks. */
+  readonly projectId: string | undefined;
+}
 
 /**
  * What a Thread's next message would do to its session now, for its label (spec §2.5). The engine
- * comes from the cascade's Office levels: the Thread's Project isn't read here yet.
+ * comes from the cascade in the Thread's Project, as `ThreadRunner` and `StageThreads` ask it.
  */
 @Injectable()
 export class ThreadContexts {
@@ -15,17 +24,18 @@ export class ThreadContexts {
     private readonly roleCards: RoleCards,
     private readonly engineCascade: EngineCascade,
     private readonly briefs: Briefs,
+    private readonly taskThreads: TaskThreadSetups,
     private readonly settings: ContextPolicySettingsService,
   ) {}
 
   async of(thread: Thread, now: Date = new Date()): Promise<ContextDecision> {
-    const [role, brief, settings] = await Promise.all([
+    const [role, { brief, projectId }, settings] = await Promise.all([
       this.roleCards.find(thread.roleKey),
-      this.briefs.forThread(thread),
+      this.briefOf(thread),
       this.settings.current(),
     ]);
     // Nobody fills the Role any more: its Threads stay readable, and nobody answers.
-    const applying = role && (await this.engineCascade.of(thread.roleKey));
+    const applying = role && (await this.engineCascade.of(thread.roleKey, projectId));
     return decideContext(
       {
         now,
@@ -38,5 +48,19 @@ export class ThreadContexts {
       },
       settings,
     );
+  }
+
+  /** A Thread on a Task is set up once, for both its Brief and its Project. */
+  private async briefOf(thread: Thread): Promise<ThreadBrief> {
+    const { home } = thread;
+    if (home.kind !== "task") {
+      return { brief: await this.briefs.forThread(thread), projectId: undefined };
+    }
+    const setup = await this.taskThreads.of({
+      threadId: thread.id,
+      taskId: home.taskId,
+      roleKey: thread.roleKey,
+    });
+    return { brief: await this.briefs.forTaskThread(thread, setup), projectId: setup.projectId };
   }
 }

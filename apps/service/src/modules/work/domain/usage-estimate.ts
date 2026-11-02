@@ -1,4 +1,4 @@
-import type { EngineId, EngineModel } from "../../engine/index.js";
+import type { EngineId } from "../../engine/index.js";
 
 /*
  * A Ready Task's Usage estimate (spec §2.1): what its whole Pipeline is expected to use on each
@@ -45,12 +45,11 @@ export type WindowRatios = Readonly<Record<UsageWindowName, number | undefined>>
 /** Each engine id's window ratios; an engine whose account has no usage windows has none. */
 export type EngineWindowRatios = ReadonlyMap<EngineId, WindowRatios>;
 
-/** A Stage of a Pipeline in the library; an Agent Stage names its Role, and may name a model. */
+/** A Stage of a Pipeline in the library; an Agent Stage names its Role. */
 export interface PipelineStage {
   readonly key: string;
   readonly name: string;
   readonly role?: string;
-  readonly model?: string;
 }
 
 /** An Agent Stage with the engine id its engine spends on and the model it would work with. */
@@ -58,14 +57,6 @@ export interface EstimatedStage {
   readonly key: string;
   readonly engineId: EngineId;
   readonly model: string;
-}
-
-/**
- * The engine and model an Agent Stage works with: the engine the cascade gives its Role, and its
- * own model or else the cascade's, as the Stage runner opens its session.
- */
-export function stageEngineAndModel(stage: PipelineStage, applying: EngineModel): EngineModel {
-  return { engineId: applying.engineId, model: stage.model ?? applying.model };
 }
 
 /** Each window's %; undefined where there is no estimate of it. */

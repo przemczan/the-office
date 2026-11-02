@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   historyUsage,
   plannerUsage,
-  stageEngineAndModel,
   tasksInHistory,
   type EstimatedStage,
   type StageTokens,
@@ -39,23 +38,6 @@ const WINDOW_RATIOS: EngineWindowRatios = new Map([
 function usage(stageTokens: StageTokens, samples: number): StageUsage {
   return { tokens: stageTokens, samples };
 }
-
-describe("stageEngineAndModel", () => {
-  it("takes the cascade's engine, and the Stage's own model or else the cascade's", () => {
-    const applying = { engineId: "claude-code", model: "claude-opus-5-5" };
-
-    expect(stageEngineAndModel({ key: "a", name: "A", role: "developer" }, applying)).toEqual({
-      engineId: "claude-code",
-      model: "claude-opus-5-5",
-    });
-    expect(
-      stageEngineAndModel(
-        { key: "a", name: "A", role: "developer", model: "claude-haiku-5-5" },
-        applying,
-      ),
-    ).toEqual({ engineId: "claude-code", model: "claude-haiku-5-5" });
-  });
-});
 
 describe("tasksInHistory", () => {
   it("counts the most samples any of the Stages has", () => {

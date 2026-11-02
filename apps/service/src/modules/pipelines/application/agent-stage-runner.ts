@@ -249,7 +249,6 @@ export class AgentStageRunner implements StageRunner<"agent">, OnModuleInit {
       projectId: task.project.id,
       roleKey: stage.role,
       stageName: stage.name,
-      model: stage.model,
       effort: stage.effort,
       ...stageSessionOf(stage, stages, earlierRuns),
       // What the user wrote that the held run's session ended before taking goes with this run.

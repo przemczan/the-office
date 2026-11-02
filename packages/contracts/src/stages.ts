@@ -44,8 +44,6 @@ export const stageSchema = z.discriminatedUnion("kind", [
     session: z.enum(["fresh", "continue"]),
     /** Tokens. */
     budget: z.int().positive(),
-    /** One of the engine's models; absent keeps the Role's. */
-    model: z.string().min(1).optional(),
     /** Absent keeps the Role's. */
     effort: effortSchema.optional(),
     /** Absent keeps the Role card's profile whole. */

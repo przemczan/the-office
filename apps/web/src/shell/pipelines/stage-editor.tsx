@@ -19,7 +19,7 @@ import {
   Textarea,
 } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { EFFORT_LABELS, modelLabel } from "../engine-words.ts";
+import { EFFORT_LABELS } from "../engine-words.ts";
 import {
   addStage,
   canContinue,
@@ -60,7 +60,7 @@ const PUBLISH_TARGET_NAMES: Readonly<Record<PublishTarget, string>> = {
 /** The most times a failure may go back, as the click-through offers. */
 const MOST_ROUNDS = 9;
 
-/** A Select's value for "keep the Role's model or effort": the Stage leaves it out. */
+/** A Select's value for "keep the Role's effort": the Stage leaves it out. */
 const ROLE_DEFAULT = "";
 
 export interface StageEditorProps {
@@ -263,7 +263,6 @@ function StageSummary({
     stage.kind === "agent" &&
       (stage.session === "continue" ? "continues the session" : "fresh session"),
     stage.kind === "agent" && `${thousands(stage.budget)}k budget`,
-    stage.kind === "agent" && stage.model !== undefined && modelLabel(stage.model),
     stage.kind === "agent" &&
       stage.effort !== undefined &&
       `effort ${EFFORT_LABELS[stage.effort].toLowerCase()}`,
@@ -410,10 +409,6 @@ function AgentFields({
 }): ReactNode {
   const continuing = canContinue(stages, index);
   const role = roles.find(({ key }) => key === stage.role);
-  const engine = role?.card.roleOverride?.engineId;
-  const models =
-    options.engines.find((offered) => offered.engine === engine)?.models ??
-    options.engines.flatMap((offered) => offered.models);
   return (
     <>
       <Select
@@ -431,17 +426,6 @@ function AgentFields({
         }
       />
       <BudgetInput stage={stage} change={change} />
-      <Select
-        label="Model"
-        value={stage.model ?? ROLE_DEFAULT}
-        options={[
-          { value: ROLE_DEFAULT, label: "Role default" },
-          ...models.map((model) => ({ value: model, label: modelLabel(model) })),
-        ]}
-        onChange={(model) =>
-          change({ ...stage, model: model === ROLE_DEFAULT ? undefined : model })
-        }
-      />
       <Select
         label="Effort"
         value={stage.effort ?? ROLE_DEFAULT}

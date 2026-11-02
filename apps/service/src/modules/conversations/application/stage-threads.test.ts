@@ -202,7 +202,6 @@ function aStage(fields: Partial<StageThreadRequest>): StageThreadRequest {
     projectId: "admin-panel",
     roleKey: "unset",
     stageName: "Implement",
-    model: undefined,
     effort: undefined,
     declared: "fresh",
     previousThreadId: undefined,
@@ -362,11 +361,17 @@ describe("StageThreads", () => {
     ]);
   });
 
-  it("opens the session with the Stage's own model and effort over the cascade's and the Role card's", async () => {
+  it("opens the session on the cascade's model, with the Stage's own effort over the Role card's", async () => {
     await startWith(started(...aTurn({ status: "done" })));
     const ada = aPerson("Ada");
+    const request = aStage({ roleKey: ada, effort: "low" });
+    cascade.set(
+      ada,
+      { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-haiku-5-5" },
+      request.projectId,
+    );
 
-    await aStageRun(aStage({ roleKey: ada, model: "claude-haiku-5-5", effort: "low" }));
+    await aStageRun(request);
 
     expect(engine.sessions[0]?.options).toMatchObject({ model: "claude-haiku-5-5", effort: "low" });
   });

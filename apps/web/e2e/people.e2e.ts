@@ -813,7 +813,8 @@ test("Edit for this Task swaps the Pipeline and sets every field of its Stages, 
     const implement = editorRow(page, "Implement");
     await implement.getByRole("button", { name: "Edit Implement" }).click();
     await implement.getByLabel("Who works it").selectOption("reviewer");
-    await implement.getByLabel("Model").selectOption("claude-haiku-5-5");
+    // A Stage has no model of its own: the engine cascade gives it.
+    await expect(implement.getByLabel("Model")).toHaveCount(0);
     await implement.getByLabel("Effort").selectOption("high");
     await implement.getByLabel("Budget").fill("120");
     await implement.getByLabel("Brief").fill("Keep the filters in the address.");
@@ -878,7 +879,6 @@ test("Edit for this Task swaps the Pipeline and sets every field of its Stages, 
       {
         ...libraryImplement,
         role: "reviewer",
-        model: "claude-haiku-5-5",
         effort: "high",
         budget: 120_000,
         brief: "Keep the filters in the address.",
@@ -908,7 +908,7 @@ test("Edit for this Task swaps the Pipeline and sets every field of its Stages, 
     // The editor opens on what was saved.
     await page.getByRole("button", { name: "Edit for this Task" }).click();
     await editorRow(page, "Implement").getByRole("button", { name: "Edit Implement" }).click();
-    await expect(editorRow(page, "Implement").getByLabel("Model")).toHaveValue("claude-haiku-5-5");
+    await expect(editorRow(page, "Implement").getByLabel("Effort")).toHaveValue("high");
     await expect(editorRow(page, "Implement").getByLabel("Budget")).toHaveValue("120");
     await expect(editorRow(page, "Implement").getByLabel("Runs", { exact: true })).toHaveValue(
       "read-only-git",

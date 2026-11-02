@@ -33,11 +33,8 @@ describe("stageProblems", () => {
     expect(stageProblems([])).toEqual([{ text: "A Pipeline needs at least one Stage." }]);
   });
 
-  it("takes a Stage's own model and effort, and refuses a blank model", () => {
-    expect(stageProblems([agentStage({ model: "claude-haiku-5-5", effort: "low" })])).toEqual([]);
-    expect(problemTexts([agentStage({ model: " " })])).toEqual([
-      "Stage 1 · Implement: choose a model, or keep the Role's.",
-    ]);
+  it("takes a Stage's own effort", () => {
+    expect(stageProblems([agentStage({ effort: "low" })])).toEqual([]);
   });
 
   it("names the Stage each problem is on", () => {

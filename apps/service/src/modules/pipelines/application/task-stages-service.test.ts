@@ -128,7 +128,7 @@ describe("Edit for this Task", () => {
     expect((await service.edit(taskId, withGate)).editedForTask).toBe(true);
     expect(
       await refusalOf(
-        service.edit(taskId, [{ ...implement, model: "claude-haiku-5-5" }, ...withGate.slice(1)]),
+        service.edit(taskId, [{ ...implement, effort: "low" }, ...withGate.slice(1)]),
       ),
     ).toEqual(["Stage 1 · Implement: it has started, so it stays as it is, where it is."]);
   });

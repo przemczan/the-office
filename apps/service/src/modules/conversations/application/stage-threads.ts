@@ -88,8 +88,6 @@ export interface StageThreadRequest {
   /** The key of the Stage's Role, whose person works it. */
   readonly roleKey: string;
   readonly stageName: string;
-  /** The Stage's own model; undefined keeps the Role card's. */
-  readonly model: string | undefined;
   /** The Stage's own effort; undefined keeps the Role card's. */
   readonly effort: SessionSettings["effort"] | undefined;
   /** The session the Stage declares, which wins at a Stage boundary (spec §2.5). */
@@ -396,7 +394,7 @@ export class StageThreads {
         threadId: previous.id,
         roleKey: role.roleKey,
         engine: session.engineId,
-        model: stageModel(request, applying),
+        model: applying.model,
         folder: request.folder,
         began: now,
       },
@@ -470,7 +468,7 @@ export class StageThreads {
         threadId: thread.id,
         roleKey: role.roleKey,
         engine: applying.engineId,
-        model: stageModel(request, applying),
+        model: applying.model,
         folder: request.folder,
         began: now,
       },
@@ -513,7 +511,7 @@ export class StageThreads {
   ): SessionSettings {
     return {
       engineId,
-      model: stageModel(request, applying),
+      model: applying.model,
       folder: request.folder,
       environment: request.environment,
       effort: request.effort ?? card.effort,
@@ -730,11 +728,6 @@ interface Carrying {
 }
 
 const STAGE_ENDING = "The Stage is ending. Send your message once it has ended.";
-
-/** The Stage's own model, else the engine cascade's. */
-function stageModel(request: StageThreadRequest, applying: EngineModel): string {
-  return request.model ?? applying.model;
-}
 
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);

@@ -67,7 +67,6 @@ function agentStageProblems(stage: AgentStage, previous: Stage | undefined): str
   if (!isPositiveWholeNumber(stage.budget)) {
     problems.push("its budget must be a whole number of tokens above 0.");
   }
-  if (stage.model?.trim() === "") problems.push("choose a model, or keep the Role's.");
   if (
     stage.session === "continue" &&
     (previous?.kind !== "agent" || previous.role !== stage.role)

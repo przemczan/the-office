@@ -57,8 +57,6 @@ export interface AgentStage extends StageFields {
   readonly session: StageSession;
   /** Tokens the Stage may use; reaching them asks the user. */
   readonly budget: number;
-  /** The engine's model for this Stage; absent keeps the Role's. */
-  readonly model?: string;
   /** Absent keeps the Role's. */
   readonly effort?: Effort;
   /** Narrows the Role card's permission profile; absent keeps it whole. */

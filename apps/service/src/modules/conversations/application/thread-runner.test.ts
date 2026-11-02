@@ -786,6 +786,27 @@ describe("a Thread on the OpenAI-compatible API, its own sessions on a fake serv
     });
   });
 
+  it("labels a Thread on a Task with the engine the cascade gives in the Task's Project", async () => {
+    await startWith(started(...aTurn("brief", "What must be true when it is done?")));
+    cascade.set(roleKey, { engineId: "lab", model: "llama" });
+    cascade.set(
+      roleKey,
+      { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-haiku-5-5" },
+      "admin-panel",
+    );
+    const opened = await planningThread();
+    await runner.send(opened.id, PLAN_IT);
+    await answered(opened.id, 3);
+
+    const label = await app.get(ThreadContexts).of(await threads.read(opened.id));
+
+    expect(engine.sessions[0]?.options).toMatchObject({
+      engine: { id: FIRST_CLAUDE_CODE_ENGINE.id },
+      model: "claude-haiku-5-5",
+    });
+    expect(label).toMatchObject({ move: "resume", reason: "cache-warm" });
+  });
+
   it("resumes a cooled Thread with a small context from the conversation the engine kept", async () => {
     api.server.script(textReply(["It deploys ", "on push."]), textReply(["The tests run first."]));
     const thread = await cooledAfterFirstAnswer(12_000);

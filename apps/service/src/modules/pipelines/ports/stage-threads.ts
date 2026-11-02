@@ -31,8 +31,6 @@ export interface StageThreadRequest {
   /** The key of the Stage's Role, whose person works it. */
   readonly roleKey: string;
   readonly stageName: string;
-  /** The Stage's own model; undefined keeps the Role card's. */
-  readonly model: string | undefined;
   /** The Stage's own effort; undefined keeps the Role card's. */
   readonly effort: Effort | undefined;
   /**

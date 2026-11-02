@@ -11,7 +11,7 @@ export abstract class KnownPipelines {
   abstract find(id: string): Promise<KnownPipeline | undefined>;
 }
 
-/** A Pipeline with its Stages' keys and models, which a Usage estimate is made of. */
+/** A Pipeline with its Stages' keys and Roles, which a Usage estimate is made of. */
 export interface KnownPipeline extends PlanningPipeline {
   readonly stages: readonly PipelineStage[];
 }

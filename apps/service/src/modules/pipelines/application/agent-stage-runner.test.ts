@@ -116,15 +116,13 @@ describe("AgentStageRunner", () => {
   it("keeps the session's engine and model", async () => {
     pipelines = await startPipelinesApplication([anAgentSession(aDoneResult())]);
 
-    const taskId = await walkStages(pipelines, [
-      anAgentStage("implement", { name: "Implement", model: "claude-haiku-4-5" }),
-    ]);
+    const taskId = await walkStages(pipelines, [anAgentStage("implement", { name: "Implement" })]);
 
     const [run] = await runsOf(pipelines, taskId);
     expect(run).toMatchObject({
       engineId: "claude-code",
       engineName: "Claude Code",
-      model: "claude-haiku-4-5",
+      model: "scripted",
     });
   });
 

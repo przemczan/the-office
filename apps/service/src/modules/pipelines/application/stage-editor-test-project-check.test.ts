@@ -6,7 +6,6 @@ import { fileURLToPath } from "node:url";
 import type { INestApplication } from "@nestjs/common";
 import {
   pipelineSchema,
-  roleSchema,
   stagesCheckSchema,
   taskStagesSchema,
   type Stage,
@@ -36,8 +35,8 @@ import { GITHUB_SITE } from "../../../platform/git-identity/github-site.js";
 /**
  * Task 15's check on the Test Project (docs/tasks/15-stage-editor.md, step 4): a Ready Task on
  * Quick fix is edited for the Task through the API, as the Stage editor saves it: a Gate before
- * Publish, and Implement on Haiku while the Developer's Role card says Sonnet. The walk must run
- * the edited copy, Implement's session on the Stage's model, and wait at the Gate; the library's
+ * Publish, and Implement on low effort. The walk must run the edited copy, Implement's session on
+ * the Stage's effort (its model the engine cascade's), and wait at the Gate; the library's
  * Quick fix stays as it was. The Task is dropped at the Gate, so nothing is published, and its base
  * is a local branch that tracks no remote, so Publish could not leave the workstation anyway.
  * Live, so it runs only with OFFICE_ENGINE_TESTS=live and OFFICE_TEST_PROJECT=<the Test Project's
@@ -51,9 +50,6 @@ const WEB_APP = fileURLToPath(new URL("../../../../../web", import.meta.url));
 const PLANNER_OPENING_MS = 240_000;
 /** How long the walk may take to reach the Gate: the install before the first run takes the longest. */
 const WALK_MS = 30 * 60_000;
-/** The Developer's Role card model, which the edited Implement Stage overrides and never runs. */
-const ROLE_MODEL = "claude-sonnet-5-5";
-const STAGE_MODEL = "claude-haiku-5-5";
 
 const README_LINE = "Edited for this Task by The Office's check of task 15.";
 const TASK: CheckTask = {
@@ -76,7 +72,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
   "Task 15's check on the Test Project",
   () => {
     it(
-      "runs a Ready Task's Stages as edited for the Task: Implement on its own model, then waits at an added Gate",
+      "runs a Ready Task's Stages as edited for the Task: Implement on its own effort, then waits at an added Gate",
       async () => {
         const testProject = TEST_PROJECT ?? "";
         const scratch = await mkdtemp(join(tmpdir(), "office-stage-editor-check-"));
@@ -119,8 +115,6 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             ["planner", "Jan"],
             ["developer", "Ada"],
           ]);
-          const developer = roleSchema.parse(await api("GET", "/roles/developer"));
-          await api("PUT", "/roles/developer/card", { ...developer.card, model: ROLE_MODEL });
           const project = await addTestProject(api, testProject, {
             baseBranch: base,
             publishingMode: "merge",
@@ -178,8 +172,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           );
           expect(waitingAtGate).toBe(true);
           expect(implementSessions.length).toBeGreaterThan(0);
-          for (const session of implementSessions) expect(session.model).toBe(STAGE_MODEL);
-          expect(started.map(({ model }) => model)).not.toContain(ROLE_MODEL);
+          for (const session of implementSessions) expect(session.effort).toBe("low");
 
           await api("POST", `/tasks/${taskId}/gate/drop`);
           const dropped = await untilWalkStops(api, taskId, WALK_MS);
@@ -202,16 +195,16 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
   },
 );
 
-/** Quick fix as the check edits it for the Task: Implement on its own model, a Gate before Publish. */
+/** Quick fix as the check edits it for the Task: Implement on its own effort, a Gate before Publish. */
 function editedForTheCheck(stages: readonly Stage[]): Stage[] {
-  const onItsOwnModel = stages.map((stage) =>
+  const onItsOwnEffort = stages.map((stage) =>
     stage.kind === "agent" && stage.key === "implement"
-      ? { ...stage, model: STAGE_MODEL, effort: "low" as const }
+      ? { ...stage, effort: "low" as const }
       : stage,
   );
-  const publishAt = onItsOwnModel.findIndex(({ key }) => key === "publish");
+  const publishAt = onItsOwnEffort.findIndex(({ key }) => key === "publish");
   if (publishAt < 0) throw new Error("Quick fix has no Publish.");
-  return onItsOwnModel.toSpliced(publishAt, 0, GATE);
+  return onItsOwnEffort.toSpliced(publishAt, 0, GATE);
 }
 
 /** Throws unless `branch` tracks no remote branch, so Publish could only fail on it. */

@@ -5,7 +5,6 @@ import {
   HISTORY_WINS_AT,
   historyUsage,
   plannerUsage,
-  stageEngineAndModel,
   tasksInHistory,
   type EngineWindowRatios,
   type EstimatedStage,
@@ -134,8 +133,8 @@ export class UsageEstimates {
       (pipeline?.stages ?? []).map(async (stage) => {
         const person = stage.role === undefined ? undefined : await this.people.find(stage.role);
         if (!person) return [];
-        const applying = await this.engineCascade.of(person.roleKey, projectId);
-        return [{ key: stage.key, ...stageEngineAndModel(stage, applying) }];
+        const { engineId, model } = await this.engineCascade.of(person.roleKey, projectId);
+        return [{ key: stage.key, engineId, model }];
       }),
     );
     return stages.flat();
