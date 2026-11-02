@@ -2,9 +2,10 @@ import { randomUUID } from "node:crypto";
 import { Injectable, Logger } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { EngineSessions, type EngineId } from "../../engine/index.js";
+import { EngineSessions, type EngineId, type EngineModel } from "../../engine/index.js";
 import { SessionMcpServers, type LeftOutMcpServer } from "../../mcp-servers/index.js";
 import {
+  EngineCascade,
   mcpToolSettingsFor,
   RoleCards,
   type McpToolSettings,
@@ -196,6 +197,7 @@ export class StageThreads {
   constructor(
     private readonly repository: ThreadRepository,
     private readonly roleCards: RoleCards,
+    private readonly engineCascade: EngineCascade,
     private readonly engine: EngineSessions,
     private readonly sessionSkills: SessionSkills,
     private readonly sessionMcpServers: SessionMcpServers,
@@ -208,7 +210,7 @@ export class StageThreads {
   /** Throws RoleNotFound when nobody fills the Stage's Role. */
   async open(request: StageThreadRequest): Promise<StageThread> {
     const now = new Date();
-    const { current, previous, brief, move } = await this.decide(request, now);
+    const { current, applying, previous, brief, move } = await this.decide(request, now);
     const undelivered =
       previous && request.carryMessagesSince
         ? undeliveredSince(await this.repository.messages(previous.id), request.carryMessagesSince)
@@ -221,14 +223,14 @@ export class StageThreads {
           : undefined,
     };
     if (move.move === "resume" && previous?.session) {
-      return this.continueIn(previous, carrying, move, brief, now);
+      return this.continueIn(previous, carrying, applying, move, brief, now);
     }
     if (previous?.session) await this.forget(previous.session.id);
     // The user's choice is spent on this run, as a message spends it (`beginStageWork`).
     if (previous?.override) {
       await this.change(previous.id, (latest) => chooseOverride(latest, undefined, now));
     }
-    return this.startIn(carrying, current, move, brief, now);
+    return this.startIn(carrying, current, applying, move, brief, now);
   }
 
   /**
@@ -248,18 +250,21 @@ export class StageThreads {
   /**
    * The Context policy's move for the Stage's session (spec §2.5): going on in its Thread, the
    * Stage takes the user's choice in that Thread's context label, which Resume's label shows; at a
-   * Stage boundary the declared session wins.
+   * Stage boundary the declared session wins. The engine and model come from the engine cascade
+   * for the Task's Project; a changed engine starts the session fresh.
    */
   private async decide(
     request: StageSessionRequest,
     now: Date,
   ): Promise<{
     readonly current: SessionRole;
+    readonly applying: EngineModel;
     readonly previous: Thread | undefined;
     readonly brief: Brief;
     readonly move: ContextDecision;
   }> {
     const current = await this.roleCards.forNewSession(request.roleKey);
+    const applying = await this.engineCascade.of(request.roleKey, request.projectId);
     const previous = await this.previousThread(request.previousThreadId);
     const brief = taskThreadBrief({
       record: request.record,
@@ -277,14 +282,14 @@ export class StageThreads {
         session: previous?.session,
         roleKey: request.roleKey,
         sessionDefault: current.card.sessionDefault,
-        engineId: current.card.engine,
+        engineId: applying.engineId,
         override: request.declared === undefined ? previous?.override : undefined,
         declared: request.declared,
         briefTokens: brief.tokens,
       },
       await this.settings.current(),
     );
-    return { current, previous, brief, move };
+    return { current, applying, previous, brief, move };
   }
 
   /**
@@ -352,10 +357,14 @@ export class StageThreads {
     return thread;
   }
 
-  /** The previous Stage's session goes on in its Thread, given the Stage's work alone. */
+  /**
+   * The previous Stage's session goes on in its Thread, given the Stage's work alone, on its own
+   * engine and the model the cascade gives now.
+   */
   private async continueIn(
     previous: Thread,
     { request, carried }: Carrying,
+    applying: EngineModel,
     move: ContextDecision,
     brief: Brief,
     now: Date,
@@ -377,7 +386,7 @@ export class StageThreads {
       leftOut = servers.leftOut;
       return this.engine.resume(
         session.id,
-        this.settingsOf(previous.id, session, request, role, skills, servers.servers),
+        this.settingsOf(previous.id, session, request, role, applying, skills, servers.servers),
       );
     });
     const work = { id: randomUUID(), text: request.work };
@@ -386,8 +395,8 @@ export class StageThreads {
       {
         threadId: previous.id,
         roleKey: role.roleKey,
-        engine: role.card.engine,
-        model: stageModel(request, role.card),
+        engine: session.engineId,
+        model: stageModel(request, applying),
         folder: request.folder,
         began: now,
       },
@@ -401,6 +410,7 @@ export class StageThreads {
   private async startIn(
     { request, carried }: Carrying,
     role: SessionRole,
+    applying: EngineModel,
     move: ContextDecision,
     brief: Brief,
     now: Date,
@@ -417,7 +427,7 @@ export class StageThreads {
     );
     await this.repository.add(thread);
     await this.events.publish(event);
-    const session = freshSession(randomUUID(), { ...role, engineId: role.card.engine }, now);
+    const session = freshSession(randomUUID(), { ...role, engineId: applying.engineId }, now);
     await this.change(thread.id, (latest) =>
       beginStageWork(
         latest,
@@ -440,7 +450,15 @@ export class StageThreads {
       });
       return this.engine.start({
         id: session.id,
-        settings: this.settingsOf(thread.id, session, request, role, skills, servers.servers),
+        settings: this.settingsOf(
+          thread.id,
+          session,
+          request,
+          role,
+          applying,
+          skills,
+          servers.servers,
+        ),
         brief: {
           id: briefId,
           text: withLeftOutServers(openingMessage(brief.text, request.work), servers.leftOut),
@@ -451,8 +469,8 @@ export class StageThreads {
       {
         threadId: thread.id,
         roleKey: role.roleKey,
-        engine: role.card.engine,
-        model: stageModel(request, role.card),
+        engine: applying.engineId,
+        model: stageModel(request, applying),
         folder: request.folder,
         began: now,
       },
@@ -489,12 +507,13 @@ export class StageThreads {
     { id, engineId }: ThreadSession,
     request: StageThreadRequest,
     { roleKey, card }: SessionRole,
+    applying: EngineModel,
     skills: Awaited<ReturnType<SessionSkills["prepare"]>>,
     mcpServers: SessionSettings["mcpServers"],
   ): SessionSettings {
     return {
       engineId,
-      model: stageModel(request, card),
+      model: stageModel(request, applying),
       folder: request.folder,
       environment: request.environment,
       effort: request.effort ?? card.effort,
@@ -712,9 +731,9 @@ interface Carrying {
 
 const STAGE_ENDING = "The Stage is ending. Send your message once it has ended.";
 
-/** The Stage's own model, else the Role card's. */
-function stageModel(request: StageThreadRequest, card: SessionRole["card"]): string {
-  return request.model ?? card.model;
+/** The Stage's own model, else the engine cascade's. */
+function stageModel(request: StageThreadRequest, applying: EngineModel): string {
+  return request.model ?? applying.model;
 }
 
 function messageOf(error: unknown): string {

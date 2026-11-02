@@ -77,6 +77,7 @@ import { IdeaCards } from "./ports/idea-cards.js";
 import { IdeaRepository } from "./ports/idea-repository.js";
 import { InitiativeRepository } from "./ports/initiative-repository.js";
 import { InitiativeThreads } from "./ports/initiative-threads.js";
+import { KnownEngineCascade } from "./ports/known-engine-cascade.js";
 import { KnownPeople } from "./ports/known-people.js";
 import { KnownPipelines } from "./ports/known-pipelines.js";
 import { ModelPrices } from "./ports/model-prices.js";
@@ -113,6 +114,7 @@ export interface WorkModuleOptions {
   readonly newProjects: Type<NewProjects>;
   readonly projectWorktrees: Type<ProjectWorktrees>;
   readonly knownPeople: Type<KnownPeople>;
+  readonly knownEngineCascade: Type<KnownEngineCascade>;
   readonly knownPipelines: Type<KnownPipelines>;
   readonly sessionPeople: Type<SessionPeople>;
   readonly ideaCards: Type<IdeaCards>;
@@ -142,6 +144,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
     newProjects,
     projectWorktrees,
     knownPeople,
+    knownEngineCascade,
     knownPipelines,
     sessionPeople,
     ideaCards,
@@ -192,6 +195,7 @@ export class WorkModule implements NestModule, OnApplicationBootstrap {
         { provide: NewProjects, useExisting: newProjects },
         { provide: ProjectWorktrees, useExisting: projectWorktrees },
         { provide: KnownPeople, useExisting: knownPeople },
+        { provide: KnownEngineCascade, useExisting: knownEngineCascade },
         { provide: KnownPipelines, useExisting: knownPipelines },
         { provide: SessionPeople, useExisting: sessionPeople },
         { provide: IdeaCards, useExisting: ideaCards },

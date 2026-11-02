@@ -24,7 +24,8 @@ import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { ScriptedEngine, ScriptedEngineModule } from "../../../engine/index.js";
-import { RoleCards, type SessionRole } from "../../../people/index.js";
+import { EngineCascade, RoleCards, type SessionRole } from "../../../people/index.js";
+import { EngineCascadeStandIn } from "../../../people/index.fixtures.js";
 import { McpServersModule } from "../../../mcp-servers/index.js";
 import { SkillsModule } from "../../../skills/index.js";
 import { Briefs } from "../../application/briefs.js";
@@ -111,6 +112,7 @@ beforeEach(async () => {
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       { provide: RoleCards, useValue: roleCards },
+      { provide: EngineCascade, useValue: new EngineCascadeStandIn() },
       { provide: ProjectBases, useValue: bases },
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
       ContextPolicySettingsService,

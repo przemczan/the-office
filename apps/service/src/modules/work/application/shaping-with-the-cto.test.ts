@@ -25,17 +25,20 @@ import {
 } from "../../engine/index.js";
 import {
   CTO,
+  EngineCascade,
   MemoryService,
   PeopleModule,
   RoleCards,
   type SessionRole,
 } from "../../people/index.js";
+import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../pipelines/index.js";
 import { ProjectService } from "../../projects/index.js";
 import { THE_USER } from "../domain/author.js";
 import type { Initiative } from "../domain/initiative.js";
 import {
   KnownProjectsForTests,
+  KnownEngineCascadeForTests,
   NewProjectsForTests,
   AccountWindowsForTests,
   AccountWindowRatiosForTests,
@@ -139,6 +142,7 @@ class ListProjectsStandIn {
 const STAND_INS = [
   NoProjectBases,
   KnownProjectsForTests,
+  KnownEngineCascadeForTests,
   NewProjectsForTests,
   ProjectWorktreesForTests,
   UsageHistoryForTests,
@@ -152,10 +156,12 @@ const STAND_INS = [
 /** Projects' service, which Conversations judges Devops' Proposals by; none is drafted here. */
 const NO_PROJECT_SERVICE = { provide: ProjectService, useValue: {} };
 
+const ENGINE_CASCADE = { provide: EngineCascade, useValue: new EngineCascadeStandIn() };
+
 @Module({
   imports: [EngineModule],
-  providers: [...STAND_INS, NO_PROJECT_SERVICE, ListProjectsStandIn],
-  exports: [...STAND_INS, ProjectService],
+  providers: [...STAND_INS, NO_PROJECT_SERVICE, ENGINE_CASCADE, ListProjectsStandIn],
+  exports: [...STAND_INS, ProjectService, EngineCascade],
 })
 class StandInsModule {}
 
@@ -196,6 +202,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
         newProjects: NewProjectsForTests,
         projectWorktrees: ProjectWorktreesForTests,
         knownPeople: RoleCards,
+        knownEngineCascade: KnownEngineCascadeForTests,
         knownPipelines: PipelineLibrary,
         sessionPeople: ThreadService,
         ideaCards: ThreadService,

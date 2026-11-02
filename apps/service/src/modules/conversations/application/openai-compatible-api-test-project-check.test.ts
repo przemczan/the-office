@@ -131,8 +131,7 @@ async function officeOnTheEndpoint(): Promise<Api> {
   );
   await api("PUT", "/roles/developer/card", {
     ...hired.card,
-    engine: strata?.id,
-    model: MODEL,
+    roleOverride: strata && { engineId: strata.id, model: MODEL },
     skills: [],
     capabilities: { ...hired.card.capabilities, chat: true },
   });

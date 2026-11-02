@@ -17,6 +17,7 @@ import {
   type SessionScript,
 } from "../../engine/index.js";
 import {
+  EngineCascade,
   OFFICE_MANAGER,
   PeopleModule,
   RoleCards,
@@ -24,6 +25,7 @@ import {
   RoleService,
   type SessionRole,
 } from "../../people/index.js";
+import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { ProposalOfficeTools } from "../adapters/office-tools/proposal-office-tools.js";
@@ -136,6 +138,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       { provide: ProjectBases, useValue: bases },
       { provide: SessionSkills, useValue: sessionSkills },
+      { provide: EngineCascade, useValue: new EngineCascadeStandIn() },
       { provide: SessionMcpServers, useValue: sessionMcpServersStandIn().service },
       { provide: ConversationsSettings, useValue: new ConversationsSettingsForTests() },
       ContextPolicySettingsService,

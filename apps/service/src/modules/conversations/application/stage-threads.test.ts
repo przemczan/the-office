@@ -13,12 +13,14 @@ import { OfficeDataModule } from "../../../platform/office-data/office-data.modu
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { CONSULT_TOOL, OPEN_DECISION_TOOL } from "@the-office/contracts";
 import {
+  FIRST_CLAUDE_CODE_ENGINE,
   OfficeToolRegistry,
   ScriptedEngine,
   ScriptedEngineModule,
   type SessionScript,
 } from "../../engine/index.js";
-import { DEVOPS, RoleCards, type SessionRole } from "../../people/index.js";
+import { DEVOPS, EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
+import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { SessionMcpServers, type PreparedMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
@@ -77,6 +79,7 @@ let stageThreads: StageThreads;
 let repository: ThreadRepository;
 /** The people of this test, by Role key, each under a key of its own. */
 let people: Map<string, SessionRole>;
+let cascade: EngineCascadeStandIn;
 let forgotten: string[];
 /** What the MCP servers module stands in for, and the servers it gives new and resumed sessions. */
 let mcpServers: SessionMcpServersStandIn;
@@ -87,6 +90,7 @@ const NO_MCP_SERVERS: PreparedMcpServers = { servers: [], leftOut: [] };
 beforeEach(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-stage-threads-"));
   people = new Map();
+  cascade = new EngineCascadeStandIn();
   mcpServersOnStart = NO_MCP_SERVERS;
   mcpServersOnResume = NO_MCP_SERVERS;
 });
@@ -151,6 +155,7 @@ async function startOn(scripted: ScriptedEngine): Promise<void> {
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       { provide: RoleCards, useValue: roleCards },
+      { provide: EngineCascade, useValue: cascade },
       { provide: ProjectBases, useValue: bases },
       { provide: SessionSkills, useValue: sessionSkills },
       { provide: SessionMcpServers, useValue: mcpServers.service },
@@ -313,6 +318,11 @@ describe("StageThreads", () => {
     await startWith(started(...aTurn({ status: "done" })));
     const ada = aPerson("Ada");
     const request = aStage({ roleKey: ada });
+    cascade.set(
+      ada,
+      { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-opus-5-5" },
+      request.projectId,
+    );
     await anAnsweredDecision(request.taskId, ada);
 
     const { stageThread, turn } = await aStageRun(request);
@@ -339,6 +349,7 @@ describe("StageThreads", () => {
       environment: request.environment,
       profile: PROFILE,
       outputSchema: OUTPUT_SCHEMA,
+      engine: { id: FIRST_CLAUDE_CODE_ENGINE.id },
       model: "claude-opus-5-5",
     });
     expect(session?.options.instructions).toContain("You are Ada, the Developer");
@@ -351,7 +362,7 @@ describe("StageThreads", () => {
     ]);
   });
 
-  it("opens the session with the Stage's own model and effort over the Role card's", async () => {
+  it("opens the session with the Stage's own model and effort over the cascade's and the Role card's", async () => {
     await startWith(started(...aTurn({ status: "done" })));
     const ada = aPerson("Ada");
 

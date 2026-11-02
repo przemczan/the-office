@@ -14,6 +14,7 @@ import {
   type UsageMeasure,
 } from "../domain/usage-estimate.js";
 import { AccountWindowRatios } from "../ports/account-window-ratios.js";
+import { KnownEngineCascade } from "../ports/known-engine-cascade.js";
 import { KnownPeople } from "../ports/known-people.js";
 import { KnownPipelines } from "../ports/known-pipelines.js";
 import { ModelPrices } from "../ports/model-prices.js";
@@ -37,6 +38,7 @@ export class UsageEstimates {
     private readonly tasks: TaskRepository,
     private readonly pipelines: KnownPipelines,
     private readonly people: KnownPeople,
+    private readonly engineCascade: KnownEngineCascade,
     private readonly history: UsageHistory,
     private readonly prices: ModelPrices,
     private readonly settings: WorkSettings,
@@ -64,7 +66,7 @@ export class UsageEstimates {
 
   /** The engine ids the Task's Pipeline's Agent Stages spend on, estimated or not. */
   async engineIdsOf(task: Task): Promise<readonly EngineId[]> {
-    const stages = await this.estimatedStages(task.pipelineId);
+    const stages = await this.estimatedStages(task);
     return [...new Set(stages.map(({ engineId }) => engineId))];
   }
 
@@ -98,7 +100,7 @@ export class UsageEstimates {
     const officeDollarsPerToken = (): Promise<number | undefined> =>
       (dollarsPerToken ??= this.history.dollarsPerToken(done.map(({ id }) => id)));
     return async (task) => {
-      const stages = await this.estimatedStages(task.pipelineId);
+      const stages = await this.estimatedStages(task);
       const history = await historyOf(task);
       const tasks = tasksInHistory(stages, history);
       if (tasks >= HISTORY_WINS_AT) {
@@ -119,14 +121,21 @@ export class UsageEstimates {
     };
   }
 
-  /** The Pipeline's Agent Stages with their engine and model; a vacant Role's are left out. */
-  private async estimatedStages(pipelineId: string): Promise<readonly EstimatedStage[]> {
+  /**
+   * The Task's Pipeline's Agent Stages with the engine and model the cascade gives each in the
+   * Task's Project; a vacant Role's are left out.
+   */
+  private async estimatedStages({
+    pipelineId,
+    projectId,
+  }: Task): Promise<readonly EstimatedStage[]> {
     const pipeline = await this.pipelines.find(pipelineId);
     const stages = await Promise.all(
       (pipeline?.stages ?? []).map(async (stage) => {
         const person = stage.role === undefined ? undefined : await this.people.find(stage.role);
         if (!person) return [];
-        return [{ key: stage.key, ...stageEngineAndModel(stage, person.card) }];
+        const applying = await this.engineCascade.of(person.roleKey, projectId);
+        return [{ key: stage.key, ...stageEngineAndModel(stage, applying) }];
       }),
     );
     return stages.flat();

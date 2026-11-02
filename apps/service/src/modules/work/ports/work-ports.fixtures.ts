@@ -25,6 +25,7 @@ import { DayUsage, type ModelDayUsage } from "./day-usage.js";
 import { FireAlarmRepository } from "./fire-alarm-repository.js";
 import { IdeaCards } from "./idea-cards.js";
 import { InitiativeThreads, type InitiativeThreadOpening } from "./initiative-threads.js";
+import { KnownEngineCascade } from "./known-engine-cascade.js";
 import { KnownPeople, type KnownPerson } from "./known-people.js";
 import { KnownProjects, type KnownProject } from "./known-projects.js";
 import { NewProjects, type AddedProject } from "./new-projects.js";
@@ -133,6 +134,24 @@ export class KnownPeopleForTests extends KnownPeople {
         model: "claude-haiku-5-5",
       },
     };
+  }
+}
+
+/**
+ * Every Role runs on the first Claude Code engine on Haiku, unless `inProject` gives the Project's
+ * own engine and model.
+ */
+@Injectable()
+export class KnownEngineCascadeForTests extends KnownEngineCascade {
+  readonly inProject = new Map<string, EngineModel>();
+
+  async of(_roleKey: string, projectId: string): Promise<EngineModel> {
+    return (
+      this.inProject.get(projectId) ?? {
+        engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+        model: "claude-haiku-5-5",
+      }
+    );
   }
 }
 
@@ -370,6 +389,7 @@ const PORTS = [
   NewProjectsForTests,
   ProjectWorktreesForTests,
   KnownPeopleForTests,
+  KnownEngineCascadeForTests,
   SessionPeopleForTests,
   IdeaCardsForTests,
   SessionTasksForTests,

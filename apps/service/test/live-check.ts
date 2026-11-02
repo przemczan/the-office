@@ -2,7 +2,8 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import {
   decisionListSchema,
-  engineSchema,
+  engineIdSchema,
+  engineSettingsSchema,
   ideaSchema,
   messageListSchema,
   projectSchema,
@@ -105,23 +106,25 @@ export function tokensOf(tokens: Readonly<Record<string, number>>): number {
   return Object.values(tokens).reduce((sum, part) => sum + part, 0);
 }
 
-/** The engine a check's Roles work with, when OFFICE_CHECK_ENGINE names one; the preset's otherwise. */
-const CHECK_ENGINE = engineSchema.optional().parse(process.env["OFFICE_CHECK_ENGINE"]);
+/** The engine a check's Roles work with, when OFFICE_CHECK_ENGINE names one. */
+const CHECK_ENGINE = engineIdSchema.optional().parse(process.env["OFFICE_CHECK_ENGINE"]);
 
 /**
- * Hires each Role from its preset on Haiku at low effort, the cheapest that proves a check, on
- * the engine OFFICE_CHECK_ENGINE names, if any.
+ * Hires each Role from its preset on Haiku at low effort, the cheapest that proves a check, as a
+ * Role override on the engine OFFICE_CHECK_ENGINE names, else the Office default's.
  */
 export async function hireOnHaiku(
   api: Api,
   hires: readonly (readonly [roleKey: string, name: string])[],
 ): Promise<void> {
+  const engineId =
+    CHECK_ENGINE ??
+    engineSettingsSchema.parse(await api("GET", "/settings/engines")).officeDefault.engineId;
   for (const [roleKey, name] of hires) {
     const hired = roleSchema.parse(await api("POST", "/roles", { roleKey, name }));
     await api("PUT", `/roles/${roleKey}/card`, {
       ...hired.card,
-      engine: CHECK_ENGINE ?? hired.card.engine,
-      model: "claude-haiku-5-5",
+      roleOverride: { engineId, model: "claude-haiku-5-5" },
       effort: "low",
       skills: [],
     });

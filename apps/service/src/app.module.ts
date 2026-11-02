@@ -19,7 +19,12 @@ import {
 } from "./modules/engine/index.js";
 import { GitHubAccess, GitHubModule } from "./modules/github/index.js";
 import { NotificationsModule } from "./modules/notifications/index.js";
-import { EngineCascadeModule, PeopleModule, RoleCards } from "./modules/people/index.js";
+import {
+  EngineCascade,
+  EngineCascadeModule,
+  PeopleModule,
+  RoleCards,
+} from "./modules/people/index.js";
 import {
   AlarmResumes,
   PipelineLibrary,
@@ -73,15 +78,23 @@ export class AppModule {
       knownProjectLevels: ProjectService,
     });
     const conversations = ConversationsModule.register({
-      imports: [projects],
+      imports: [projects, engineCascade],
       projectBases: BaseCheckouts,
     });
     const work = WorkModule.register({
-      imports: [projects, conversations, PeopleModule, PipelineLibraryModule, UsageHistoryModule],
+      imports: [
+        projects,
+        conversations,
+        engineCascade,
+        PeopleModule,
+        PipelineLibraryModule,
+        UsageHistoryModule,
+      ],
       knownProjects: ProjectService,
       newProjects: ProjectsFromRepositories,
       projectWorktrees: TaskWorktrees,
       knownPeople: RoleCards,
+      knownEngineCascade: EngineCascade,
       knownPipelines: PipelineLibrary,
       sessionPeople: ThreadService,
       ideaCards: ThreadService,

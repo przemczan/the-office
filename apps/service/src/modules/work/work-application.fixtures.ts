@@ -12,6 +12,7 @@ import { WebEventForwarding } from "../../platform/websocket/web-event-forwardin
 import {
   IdeaCardsForTests,
   InitiativeThreadsForTests,
+  KnownEngineCascadeForTests,
   KnownPeopleForTests,
   KnownProjectsForTests,
   AccountWindowsForTests,
@@ -62,6 +63,7 @@ export async function startWorkApplication(
         newProjects: NewProjectsForTests,
         projectWorktrees: ProjectWorktreesForTests,
         knownPeople: KnownPeopleForTests,
+        knownEngineCascade: KnownEngineCascadeForTests,
         knownPipelines: PipelineLibrary,
         sessionPeople: SessionPeopleForTests,
         ideaCards: IdeaCardsForTests,

@@ -9,7 +9,8 @@ import { OfficeDataModule } from "../../platform/office-data/office-data.module.
 import { TelemetryModule } from "../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../platform/websocket/event-stream.module.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../pipelines/index.js";
-import { BaseCheckouts, ProjectsModule } from "../projects/index.js";
+import { EngineCascadeModule } from "../people/index.js";
+import { BaseCheckouts, ProjectService, ProjectsModule } from "../projects/index.js";
 import { ConversationsModule } from "./conversations.module.js";
 import { ProjectBases } from "./ports/project-bases.js";
 import { GitHubModule } from "../github/index.js";
@@ -19,10 +20,14 @@ let officeData: string;
 
 beforeAll(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-conversations-"));
-  // As AppModule builds them: one Projects module, given to Conversations too.
+  // As AppModule builds them: one Projects module, given to the engine cascade and Conversations.
   const projects = ProjectsModule.register({
     imports: [PipelineLibraryModule, GitHubModule.register()],
     knownPipelines: PipelineLibrary,
+  });
+  const engineCascade = EngineCascadeModule.register({
+    imports: [projects],
+    knownProjectLevels: ProjectService,
   });
   ({ app } = await startTestApplication({
     database: true,
@@ -32,7 +37,10 @@ beforeAll(async () => {
       TelemetryModule,
       OfficeDataModule.forRoot(officeData),
       projects,
-      ConversationsModule.register({ imports: [projects], projectBases: BaseCheckouts }),
+      ConversationsModule.register({
+        imports: [projects, engineCascade],
+        projectBases: BaseCheckouts,
+      }),
     ],
   }));
 });

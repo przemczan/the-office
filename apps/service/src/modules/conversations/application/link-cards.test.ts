@@ -17,7 +17,8 @@ import {
   ScriptedEngineModule,
   type SessionScript,
 } from "../../engine/index.js";
-import { OFFICE_MANAGER, RoleCards, type SessionRole } from "../../people/index.js";
+import { EngineCascade, OFFICE_MANAGER, RoleCards, type SessionRole } from "../../people/index.js";
+import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { LinkCardOfficeTools } from "../adapters/office-tools/link-card-office-tools.js";
@@ -139,6 +140,7 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       { provide: RoleCards, useValue: roleCards },
+      { provide: EngineCascade, useValue: new EngineCascadeStandIn() },
       { provide: ProjectBases, useValue: bases },
       { provide: SessionSkills, useValue: sessionSkills },
       { provide: SessionMcpServers, useValue: sessionMcpServersStandIn().service },

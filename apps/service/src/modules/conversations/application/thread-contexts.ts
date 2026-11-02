@@ -1,15 +1,19 @@
 import { Injectable } from "@nestjs/common";
-import { RoleCards } from "../../people/index.js";
+import { EngineCascade, RoleCards } from "../../people/index.js";
 import { decideContext, type ContextDecision } from "../domain/context-policy.js";
 import type { Thread } from "../domain/thread.js";
 import { Briefs } from "./briefs.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 
-/** What a Thread's next message would do to its session now, for its label (spec §2.5). */
+/**
+ * What a Thread's next message would do to its session now, for its label (spec §2.5). The engine
+ * comes from the cascade's Office levels: the Thread's Project isn't read here yet.
+ */
 @Injectable()
 export class ThreadContexts {
   constructor(
     private readonly roleCards: RoleCards,
+    private readonly engineCascade: EngineCascade,
     private readonly briefs: Briefs,
     private readonly settings: ContextPolicySettingsService,
   ) {}
@@ -20,14 +24,15 @@ export class ThreadContexts {
       this.briefs.forThread(thread),
       this.settings.current(),
     ]);
+    // Nobody fills the Role any more: its Threads stay readable, and nobody answers.
+    const applying = role && (await this.engineCascade.of(thread.roleKey));
     return decideContext(
       {
         now,
         session: thread.session,
         roleKey: thread.roleKey,
-        // Nobody fills the Role any more: its Threads stay readable, and nobody answers.
         sessionDefault: role?.card.sessionDefault ?? "context-policy",
-        engineId: role?.card.engine,
+        engineId: applying?.engineId,
         override: thread.override,
         briefTokens: brief.tokens,
       },

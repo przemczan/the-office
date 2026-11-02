@@ -61,14 +61,11 @@ export interface EstimatedStage {
 }
 
 /**
- * The engine and model an Agent Stage works with: its Role's engine, and its own model or else its
- * Role's, as the Stage runner opens its session. The one place this is decided.
+ * The engine and model an Agent Stage works with: the engine the cascade gives its Role, and its
+ * own model or else the cascade's, as the Stage runner opens its session.
  */
-export function stageEngineAndModel(
-  stage: PipelineStage,
-  role: { readonly engine: EngineId; readonly model: string },
-): EngineModel {
-  return { engineId: role.engine, model: stage.model ?? role.model };
+export function stageEngineAndModel(stage: PipelineStage, applying: EngineModel): EngineModel {
+  return { engineId: applying.engineId, model: stage.model ?? applying.model };
 }
 
 /** Each window's %; undefined where there is no estimate of it. */

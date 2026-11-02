@@ -39,11 +39,12 @@ import {
 import {
   DayUsage,
   EngineModule,
+  FIRST_CLAUDE_CODE_ENGINE,
   ModelPrices,
   UsageWindowSamples,
   UsageWindowState,
 } from "../../engine/index.js";
-import { PeopleModule, RoleCards } from "../../people/index.js";
+import { EngineCascade, EngineCascadeModule, PeopleModule, RoleCards } from "../../people/index.js";
 import {
   PipelineLibrary,
   PipelineLibraryModule,
@@ -101,8 +102,12 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
             imports: [PipelineLibraryModule, GitHubModule.register()],
             knownPipelines: PipelineLibrary,
           });
-          const conversations = ConversationsModule.register({
+          const engineCascade = EngineCascadeModule.register({
             imports: [projects],
+            knownProjectLevels: ProjectService,
+          });
+          const conversations = ConversationsModule.register({
+            imports: [projects, engineCascade],
             projectBases: BaseCheckouts,
           });
           let url: string;
@@ -123,6 +128,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                 imports: [
                   projects,
                   conversations,
+                  engineCascade,
                   PeopleModule,
                   PipelineLibraryModule,
                   UsageHistoryModule,
@@ -131,6 +137,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
                 newProjects: ProjectsFromRepositories,
                 projectWorktrees: TaskWorktrees,
                 knownPeople: RoleCards,
+                knownEngineCascade: EngineCascade,
                 knownPipelines: PipelineLibrary,
                 sessionPeople: ThreadService,
                 ideaCards: ThreadService,
@@ -157,7 +164,7 @@ describe.runIf(MODE === "live" && TEST_PROJECT !== undefined)(
           );
           await api("PUT", "/roles/planner/card", {
             ...hired.card,
-            model: "claude-haiku-5-5",
+            roleOverride: { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-haiku-5-5" },
             effort: "low",
             skills: [],
           });

@@ -25,7 +25,8 @@ import {
   textReply,
   type ApiEngineOnFakeServer,
 } from "../../engine/index.fixtures.js";
-import { RoleCards, type SessionRole } from "../../people/index.js";
+import { EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
+import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { SessionMcpServers, type PreparedMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
@@ -91,6 +92,7 @@ let engine: ScriptedEngine;
 let officeData: string;
 /** Each card version of the Planner's Role, from 1, under a key of this test's own. */
 let versions: Card[];
+let cascade: EngineCascadeStandIn;
 let roleKey: string;
 const NO_SESSION_REASON = "This Task is Done, so its conversation can't go on.";
 /** The user's first message in a planning Thread, which starts the Planner. */
@@ -139,6 +141,8 @@ beforeEach(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-threads-"));
   versions = [PLANNER];
   roleKey = `role-${randomUUID()}`;
+  cascade = new EngineCascadeStandIn();
+  cascade.set(roleKey, { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-opus-5-5" });
   mcpServersOnStart = NO_MCP_SERVERS;
   mcpServersOnResume = NO_MCP_SERVERS;
 });
@@ -213,6 +217,7 @@ async function startOn(
     providers: [
       { provide: ThreadRepository, useClass: PostgresThreadRepository },
       { provide: RoleCards, useValue: roleCards },
+      { provide: EngineCascade, useValue: cascade },
       { provide: ProjectBases, useValue: bases },
       { provide: SessionSkills, useValue: sessionSkills },
       { provide: SessionMcpServers, useValue: mcpServers.service },
@@ -594,7 +599,7 @@ describe("continuing a Thread", () => {
     // The service restarts, the cache cools, and the card changes meanwhile.
     await runner.onModuleDestroy();
     await cooled(thread.id, 12_000);
-    versions.push({ ...PLANNER, model: "claude-sonnet-5-5", effort: "low" });
+    versions.push({ ...PLANNER, effort: "low" });
 
     await runner.send(thread.id, "Still there?");
     const log = await answered(thread.id, 6);
@@ -610,6 +615,31 @@ describe("continuing a Thread", () => {
     ]);
   });
 
+  it("resumes a Thread on its engine and the model the cascade gives now", async () => {
+    await startWith(started(...aTurn("brief", "Hello.")), [
+      { step: "resume" },
+      sent("m-2"),
+      ...aTurn("m-2", "Back again."),
+    ]);
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "Hello.");
+    await answered(thread.id, 3);
+    await runner.onModuleDestroy();
+    await cooled(thread.id, 12_000);
+    cascade.set(roleKey, { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-haiku-5-5" });
+
+    await runner.send(thread.id, "Still there?");
+    await answered(thread.id, 6);
+
+    const [first, resumed] = engine.sessions;
+    expect(resumed?.id).toBe(first?.id);
+    expect(first?.options.model).toBe("claude-opus-5-5");
+    expect(resumed?.options).toMatchObject({
+      engine: { id: FIRST_CLAUDE_CODE_ENGINE.id },
+      model: "claude-haiku-5-5",
+    });
+  });
+
   it("starts a cooled Thread with a large context fresh, briefed from its log, on the current card", async () => {
     await startWith(
       started(...aTurn("brief", "It deploys on push.")),
@@ -619,7 +649,8 @@ describe("continuing a Thread", () => {
     await runner.send(thread.id, "Read the deploy workflow.");
     await answered(thread.id, 3);
     await cooled(thread.id, 80_000);
-    versions.push({ ...PLANNER, model: "claude-sonnet-5-5" });
+    versions.push({ ...PLANNER, effort: "low" });
+    cascade.set(roleKey, { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-sonnet-5-5" });
 
     await runner.send(thread.id, "And the tests?");
     const log = await answered(thread.id, 6);
@@ -627,7 +658,7 @@ describe("continuing a Thread", () => {
     const [first, fresh] = engine.sessions;
     expect(fresh?.id).not.toBe(first?.id);
     expect(forgotten).toEqual([first?.id]);
-    expect(fresh?.options.model).toBe("claude-sonnet-5-5");
+    expect(fresh?.options).toMatchObject({ model: "claude-sonnet-5-5", effort: "low" });
     const brief = fresh?.received[0];
     expect(brief?.step === "start" && brief.brief.text).toMatch(
       /in a fresh session[\s\S]*## The Thread\n\nRead the deploy workflow[\s\S]*The user: Read the deploy workflow\.\n\nYou: It deploys on push\.[\s\S]*## The user's message\n\nAnd the tests\?$/,
@@ -715,7 +746,7 @@ describe("a Thread on the OpenAI-compatible API, its own sessions on a fake serv
 
   beforeEach(async () => {
     api = await apiEngineOnFakeServer(officeData);
-    versions = [{ ...PLANNER, engine: api.endpoint.id, model: api.endpoint.defaultModel }];
+    cascade.set(roleKey, { engineId: api.endpoint.id, model: api.endpoint.defaultModel });
     await startOn([], api);
   });
 
@@ -729,12 +760,12 @@ describe("a Thread on the OpenAI-compatible API, its own sessions on a fake serv
     return api.server.requests.map((request) => body.parse(request.body).messages);
   }
 
-  it("starts a warm Thread fresh on the engine its person's card switched to", async () => {
+  it("starts a warm Thread fresh on the engine the cascade switched to", async () => {
     api.server.script(textReply(["It deploys on push."]));
     const thread = await threads.startInChat(roleKey);
     await runner.send(thread.id, "Read the deploy workflow.");
     await answered(thread.id, 3);
-    versions.push({ ...PLANNER });
+    cascade.set(roleKey, { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-sonnet-5-5" });
     engine.queue(started(...aTurn("brief", "Still here.")));
 
     await runner.send(thread.id, "Still there?");
@@ -750,7 +781,7 @@ describe("a Thread on the OpenAI-compatible API, its own sessions on a fake serv
     );
     expect((await threads.read(thread.id)).session).toMatchObject({
       id: engine.sessions[0]?.id,
-      cardVersion: 2,
+      cardVersion: 1,
       engineId: FIRST_CLAUDE_CODE_ENGINE.id,
     });
   });

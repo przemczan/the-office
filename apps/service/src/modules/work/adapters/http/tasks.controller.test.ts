@@ -56,6 +56,7 @@ import { PLANNER } from "../../domain/planning.js";
 import { changeStartedTaskState } from "../../domain/task-changes.js";
 import {
   FireAlarmRepositoryForTests,
+  KnownEngineCascadeForTests,
   KnownPeopleForTests,
   ModelPricesForTests,
   ProjectWorktreesForTests,
@@ -1674,6 +1675,22 @@ describe("Usage estimates", () => {
     });
     const { usageEstimate } = await work.app.get(StartService).check(task.id);
     expect(usageEstimate?.engines[0]?.cost).toBeCloseTo(0.02);
+  });
+
+  it("estimates each Stage on the engine the cascade gives its Role in the Task's Project", async () => {
+    const task = await estimatedTask(90_000);
+    const cascade = work.app.get(KnownEngineCascadeForTests);
+    cascade.inProject.set(task.projectId, { engineId: "lab", model: "llama" });
+
+    try {
+      const { usageEstimate } = await work.app.get(StartService).check(task.id);
+
+      expect(usageEstimate?.engines).toEqual([
+        expect.objectContaining({ engineId: "lab", tokens: 90_000 }),
+      ]);
+    } finally {
+      cascade.inProject.delete(task.projectId);
+    }
   });
 
   it("gives no estimate without history or the Planner's tokens", async () => {

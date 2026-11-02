@@ -42,7 +42,8 @@ import {
   ScriptedEngineModule,
   type SessionScript,
 } from "../../engine/index.js";
-import { DEVOPS, RoleCards, type SessionRole } from "../../people/index.js";
+import { EngineCascade, DEVOPS, RoleCards, type SessionRole } from "../../people/index.js";
+import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { TaskWorktrees } from "../../projects/index.js";
 import { SKILL_UPDATE_CHECK, SkillLibrary } from "../../skills/index.js";
 import { LIST_SOURCE_SKILLS_TOOL, READ_SKILL_UPDATE_TOOL } from "../domain/session-instructions.js";
@@ -107,6 +108,7 @@ beforeEach(async () => {
     ],
     overrides: [
       { provide: RoleCards, useValue: ROLE_CARDS },
+      { provide: EngineCascade, useValue: new EngineCascadeStandIn() },
       // Nina's Memory is People's, kept by her Role, which the stand-in above has no row for.
       sessionMemoryProvider(),
       // A chat reads every Project's base branch, which would run git in other test files' own
