@@ -189,6 +189,12 @@ describe("PipelineRoleCapabilityChecks on a save of a Role override", () => {
     ).resolves.toEqual([]);
   });
 
+  it("lets through no Role override before or after, as a preset hire brings, even where the Role runs on an incapable engine", async () => {
+    await expect(
+      roleOverrideChecks.problemsOf({ roleKey: "reviewer", before: null, after: null }),
+    ).resolves.toEqual([]);
+  });
+
   it("weighs a Role only an open Task names in the Task's Project only", async () => {
     ctoNamedByATaskIn("billing");
 

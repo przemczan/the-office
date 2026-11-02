@@ -395,6 +395,42 @@ describe("POST /api/roles/:key/let-go and /hire-back", () => {
   it("answers 404 for a Role nobody was hired into", async () => {
     expect((await send("POST", "/roles/developer/let-go", {})).status).toBe(404);
   });
+
+  it("refuses hiring back a person whose Role override a registered check refuses", async () => {
+    const hired = await hire("developer", "Ada");
+    const roleOverride = { engineId: "claude-code", model: "claude-haiku-5-5" };
+    await send("PUT", "/roles/developer/card", { ...editOf(hired), roleOverride });
+    await send("POST", "/roles/developer/let-go", {});
+    const refusal = "Outside any Project, the Developer would run on Local models.";
+    const saves: RoleOverrideSave[] = [];
+    app.get(RoleOverrideChecks).register(async (save) => {
+      saves.push(save);
+      return save.after ? [refusal] : [];
+    });
+    published = [];
+
+    const response = await send("POST", "/roles/developer/hire-back", {});
+
+    expect(await reasonsOf(response)).toEqual([refusal]);
+    expect(saves).toEqual([{ roleKey: "developer", before: null, after: roleOverride }]);
+    expect(roleSchema.parse(await get("/roles/developer")).letGoAt).not.toBeNull();
+    expect(published).toEqual([]);
+  });
+});
+
+describe("POST /api/roles from a preset", () => {
+  it("passes the check with no Role override before or after, so it can't change the cascade", async () => {
+    const saves: RoleOverrideSave[] = [];
+    app.get(RoleOverrideChecks).register(async (save) => {
+      saves.push(save);
+      return save.before === save.after ? [] : ["Changed the cascade."];
+    });
+
+    const role = await hire("developer", "Ada");
+
+    expect(role.card.roleOverride).toBeNull();
+    expect(saves).toEqual([{ roleKey: "developer", before: null, after: null }]);
+  });
 });
 
 describe("PUT /api/roles/:key/card", () => {

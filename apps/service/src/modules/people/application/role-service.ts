@@ -18,7 +18,7 @@ import {
 } from "../domain/hard-switches.js";
 import { KNOWN_ROLES } from "../domain/known-roles.js";
 import { MCP_TOOL_DEFAULT } from "../domain/mcp-tool-settings.js";
-import { PRESETS, type Preset } from "../domain/presets.js";
+import { PRESETS, presetFor, type Preset } from "../domain/presets.js";
 import type { Role } from "../domain/role.js";
 import { roleCardProblems, trimmedRoleCard, type RoleCard } from "../domain/role-card.js";
 import {
@@ -115,8 +115,7 @@ export class RoleService {
    */
   async hire(roleKey: string, name: string, proposedBy?: string): Promise<RoleWithAssignments> {
     const hiredAt = new Date();
-    const filledBy = await this.repository.find(roleKey);
-    const { role, event } = hire(roleKey, name, filledBy, hiredAt, proposedBy);
+    const { role, event } = await this.hiringFromPreset(roleKey, name, hiredAt, proposedBy);
     if (!(await this.repository.add(role))) {
       // Someone was hired into the Role meanwhile: refuse as if they had been there before.
       hire(roleKey, name, await this.repository.find(roleKey), hiredAt);
@@ -128,8 +127,20 @@ export class RoleService {
 
   /** Every reason hiring `name` from the preset would be refused now, saving nothing. */
   async presetHiringProblems(roleKey: string, name: string): Promise<readonly string[]> {
+    return refusalReasons(() => this.hiringFromPreset(roleKey, name, new Date()));
+  }
+
+  /** Presets carry no Role override today; the check still weighs the card the hire brings. */
+  private async hiringFromPreset(
+    roleKey: string,
+    name: string,
+    hiredAt: Date,
+    proposedBy?: string,
+  ): Promise<RoleChange<RoleHired>> {
     const filledBy = await this.repository.find(roleKey);
-    return refusalReasons(async () => hire(roleKey, name, filledBy, new Date()));
+    const preset = presetFor(roleKey);
+    const problems = preset ? await this.roleOverrideProblems(roleKey, filledBy, preset.card) : [];
+    return refusingAlso(problems, () => hire(roleKey, name, filledBy, hiredAt, proposedBy));
   }
 
   /**
@@ -279,7 +290,7 @@ export class RoleService {
   private roleOverrideProblems(
     roleKey: string,
     stored: Role | undefined,
-    edit: RoleCard,
+    edit: Pick<RoleCard, "roleOverride">,
   ): Promise<readonly string[]> {
     return this.roleOverrideChecks.problemsOf({
       roleKey,
@@ -313,8 +324,18 @@ export class RoleService {
     return this.withAssignments(role);
   }
 
-  /** Hires the person let go back into their Role, with their card, Memory and chats as they were. */
+  /**
+   * Hires the person let go back into their Role, with their card, Memory and chats as they were.
+   * Refused when the Role override returning with the card fails a registered check: while let go,
+   * the Role ran without it.
+   */
   async hireBack(key: string): Promise<RoleWithAssignments> {
+    const person = await this.repository.find(key);
+    // Anyone else (nobody let go, never hired) is refused by the change below.
+    if (person?.letGoAt) {
+      const problems = await this.roleOverrideProblems(key, undefined, person.card);
+      if (problems.length > 0) throw new RoleRefused(problems);
+    }
     const { role, event } = await this.repository.changeStanding(key, (stored) =>
       hireBack(stored, new Date()),
     );
