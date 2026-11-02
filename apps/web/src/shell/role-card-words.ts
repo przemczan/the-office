@@ -3,6 +3,7 @@ import {
   sessionDefaultSchema,
   type Capabilities,
   type EngineCapability,
+  type EngineId,
   type HardSwitchKey,
   type HardSwitchValue,
   type PermissionProfile,
@@ -128,7 +129,12 @@ export function roleTitlesOf(options: RoleCardOptions): RoleTitles {
   return new Map(options.knownRoles.map(({ key, title }) => [key, title]));
 }
 
-/** "Opus 5.5" for the engine's "claude-opus-5-5"; an id of another shape as it is. */
+/** What a field's value may name by key or id, as the change history and Proposals show it. */
+export interface FieldValueNames {
+  readonly roleTitles: RoleTitles;
+  readonly engineName: (engineId: EngineId) => string;
+}
+
 export function taskLimitLabel(limit: TaskLimit): string {
   return limit === "none" ? "None: talks only and never works a Stage" : `${limit} at once`;
 }
@@ -223,10 +229,10 @@ export function fieldLabel(field: RoleCardField): string {
 }
 
 /** One line of the change history, such as "Model Opus 5.5 → Sonnet 5.5". */
-export function changeLine(change: RoleCardFieldChange, roleTitles: RoleTitles): string {
+export function changeLine(change: RoleCardFieldChange, names: FieldValueNames): string {
   const label = FIELD_LABELS[change.field];
   if (LONG_TEXT_FIELDS.has(change.field)) return `${label} edited`;
-  return `${label} ${fieldValueText(change.field, change.from, roleTitles)} → ${fieldValueText(change.field, change.to, roleTitles)}`;
+  return `${label} ${fieldValueText(change.field, change.from, names)} → ${fieldValueText(change.field, change.to, names)}`;
 }
 
 /**
@@ -282,11 +288,11 @@ export function skillsChangeLine({
   return `Skills ${parts.join("; ")}`;
 }
 
-/** A field's value in words, such as "on", "Opus 5.5" or "Consult Devops". */
+/** A field's value in words, such as "on", "Opus 5.5", "Work account" or "Consult Devops". */
 export function fieldValueText(
   field: RoleCardField,
   value: RoleCardFieldChange["to"],
-  roleTitles: RoleTitles,
+  { roleTitles, engineName }: FieldValueNames,
 ): string {
   if (typeof value === "boolean") return value ? "on" : "off";
   if (typeof value === "number") return String(value);
@@ -298,6 +304,8 @@ export function fieldValueText(
         );
   }
   switch (field) {
+    case "engine":
+      return engineName(value);
     case "model":
       return modelLabel(value);
     case "effort":

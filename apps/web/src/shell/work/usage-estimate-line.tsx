@@ -3,6 +3,7 @@ import type { UsageEstimate } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { taskQueries } from "../../api/work.ts";
+import { useEngineName } from "../use-engine-name.ts";
 import { usageEstimateWords } from "./usage-estimate-words.ts";
 import "./usage-estimate-line.css";
 
@@ -15,11 +16,12 @@ export function UsageEstimateLine({
 }: {
   readonly estimate: UsageEstimate | null | undefined;
 }): ReactNode {
+  const engineName = useEngineName();
   if (!estimate) return null;
   return (
     <span className="usage-estimate" role="note" aria-label="Usage estimate">
       <Icon name="gauge" size={13} />
-      <span>{usageEstimateWords(estimate)}</span>
+      <span>{usageEstimateWords(estimate, engineName)}</span>
     </span>
   );
 }

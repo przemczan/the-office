@@ -1,11 +1,11 @@
 import {
+  type EngineId,
   type EngineUsageEstimate,
   type UsageEstimate,
   type UsageEstimateBasis,
   type UsageMeasure,
 } from "@the-office/contracts";
 import { tokensShort } from "../conversation/context-words.ts";
-import { engineIdLabel } from "../engine-words.ts";
 
 /** The measures in the order Settings › Office limits ticks them and an estimate gives them. */
 export const MEASURES = [
@@ -23,11 +23,14 @@ export const MEASURE_LABELS: Readonly<Record<UsageMeasure, string>> = {
 };
 
 /**
- * A Usage estimate as one line: each ticked measure, per engine id when the Task spends on several,
- * then where it came from (spec §2.1, "Usage estimates"): "Expected: 120k tokens · 6% of the
- * 5-hour window, from the history of 4 done Tasks."
+ * A Usage estimate as one line: each ticked measure, per engine by its name when the Task spends on
+ * several, then where it came from (spec §2.1, "Usage estimates"): "Expected: 120k tokens · 6% of
+ * the 5-hour window, from the history of 4 done Tasks."
  */
-export function usageEstimateWords({ basis, engines }: UsageEstimate): string {
+export function usageEstimateWords(
+  { basis, engines }: UsageEstimate,
+  engineName: (engineId: EngineId) => string,
+): string {
   const [only] = engines;
   if (basis.source === "none" || !only) {
     return "No estimate: fewer than 3 done Tasks to learn from, and no Planner's estimate.";
@@ -36,7 +39,7 @@ export function usageEstimateWords({ basis, engines }: UsageEstimate): string {
     engines.length === 1
       ? measuresWords(only)
       : engines
-          .map((engine) => `${engineIdLabel(engine.engineId)}: ${measuresWords(engine)}`)
+          .map((engine) => `${engineName(engine.engineId)}: ${measuresWords(engine)}`)
           .join("; ");
   return `Expected: ${perEngine}, ${basisWords(basis)}`;
 }

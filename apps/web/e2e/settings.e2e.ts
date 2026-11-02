@@ -45,9 +45,9 @@ test("Office limits' Usage keeps the ticked measures and the caps across reloads
   const measures = usage.getByRole("group", { name: "Usage estimates in" });
   const measure = (name: string) =>
     measures.locator("label").filter({ hasText: name }).getByRole("checkbox");
-  const claudeCode = usage.getByRole("region", { name: "Claude Code engines" });
+  // Each engine's caps under its name; people.e2e.ts checks an API engine's.
+  const claudeCode = usage.getByRole("region", { name: "Claude Code", exact: true });
   const fiveHourCap = claudeCode.getByLabel("5-hour window");
-  // Only the first Claude Code engine is listed here; an API engine's caps come with step 1g of task 47.
   const dailyTokens = claudeCode.getByLabel("Tokens a day");
   const save = usage.getByRole("button", { name: "Save" });
 

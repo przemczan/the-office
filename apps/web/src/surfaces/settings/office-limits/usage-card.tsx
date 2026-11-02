@@ -1,13 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { Now, UsageSettings } from "@the-office/contracts";
+import type { EngineId, Now, UsageSettings } from "@the-office/contracts";
 import { Button, Card, Checkbox, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { nowQueries } from "../../../api/notifications.ts";
 import { changeUsageSettings, usageSettingsQuery } from "../../../api/work.ts";
-import { engineIdLabel } from "../../../shell/engine-words.ts";
 import { resetWords } from "../../../shell/notifications/now-words.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
+import { useEngineName } from "../../../shell/use-engine-name.ts";
 import { MEASURE_LABELS, MEASURES } from "../../../shell/work/usage-estimate-words.ts";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
 import {
@@ -115,7 +115,7 @@ function EngineCapsFields({
   readonly caps: CapsText;
   readonly change: (kind: CapKind, text: string) => void;
 }): ReactNode {
-  const label = engineIdLabel(caps.engineId);
+  const name = useEngineName()(caps.engineId);
   const field = (kind: CapKind): ReactNode => (
     <Input
       label={CAP_FIELDS[kind].label}
@@ -127,19 +127,19 @@ function EngineCapsFields({
     />
   );
   return (
-    <section className="usage-engine" aria-label={label}>
-      <h3 className="usage-engine-name">{label}</h3>
+    <section className="usage-engine" aria-label={name}>
+      <h3 className="usage-engine-name">{name}</h3>
       {caps.windows && (
         <>
-          <WindowsUse />
-          <fieldset className="usage-caps" aria-label={`Window caps of the ${label}`}>
+          <WindowsUse engineId={caps.engineId} />
+          <fieldset className="usage-caps" aria-label={`${name}'s window caps`}>
             <span className="usage-caps-kind">Window caps</span>
             {field("fiveHour")}
             {field("sevenDay")}
           </fieldset>
         </>
       )}
-      <fieldset className="usage-caps" aria-label={`Daily caps of the ${label}`}>
+      <fieldset className="usage-caps" aria-label={`${name}'s daily caps`}>
         <span className="usage-caps-kind">Daily caps</span>
         {field("dailyTokens")}
         {field("dailyDollars")}
@@ -149,17 +149,18 @@ function EngineCapsFields({
 }
 
 /**
- * The Claude Code account's 5-hour window as the engine last read it, as the status strip shows it;
- * Now carries no 7-day window.
+ * The engine's 5-hour window as it last read it, as the status strip shows it; Now carries no
+ * 7-day window.
  */
-function WindowsUse(): ReactNode {
+function WindowsUse({ engineId }: { readonly engineId: EngineId }): ReactNode {
   const now = useQuery(nowQueries.now());
   if (!now.data) return null;
-  return <p className="settings-note">{fiveHourWords(now.data.fiveHourWindows[0])}</p>;
+  const fiveHour = now.data.fiveHourWindows.find((each) => each.engineId === engineId);
+  return <p className="settings-note">{fiveHourWords(fiveHour)}</p>;
 }
 
-function fiveHourWords(window: Now["fiveHourWindows"][number] | undefined): string {
-  if (!window) return "The 5-hour window hasn't been read yet: it is read as each Stage runs.";
-  const resets = resetWords(window.resetsAt);
-  return `The 5-hour window: ${Math.round(window.percentUsed)}% used${resets ? ` · ${resets}` : ""}`;
+function fiveHourWords(fiveHour: Now["fiveHourWindows"][number] | undefined): string {
+  if (!fiveHour) return "The 5-hour window hasn't been read yet: it is read as each Stage runs.";
+  const resets = resetWords(fiveHour.resetsAt);
+  return `The 5-hour window: ${Math.round(fiveHour.percentUsed)}% used${resets ? ` · ${resets}` : ""}`;
 }

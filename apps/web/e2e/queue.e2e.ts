@@ -1,8 +1,10 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  engineSettingsSchema,
   nowSchema,
   projectSchema,
   taskSchema,
+  type ApiEngine,
   type NewProject,
   type Project,
   type StartAnswer,
@@ -20,6 +22,17 @@ import { createTemporaryRepository, type TemporaryRepository } from "./temporary
 const ONLY_DESK = "The Office-wide limit is reached: the only desk is in use.";
 const CAP_WAIT =
   "The Claude Code engine's 5-hour window would pass its 90% cap: 80% used, 6% expected of the Tasks started since it was read and 6% of this Task. It resets at 12:00.";
+
+/** An API engine the Usage estimate test lists in the browser only. */
+const LOCAL_MODELS: ApiEngine = {
+  id: "local-models",
+  name: "Local models",
+  kind: "openai-compatible-api",
+  defaultModel: "coder:q4",
+  baseUrl: "http://127.0.0.1:8090/v1",
+  keySet: false,
+  models: [{ id: "coder:q4", contextWindow: 100_000 }],
+};
 
 let repository: TemporaryRepository;
 
@@ -180,19 +193,24 @@ test("a Ready Task's Usage estimate shows on its card, beside Start, in the Read
         basis: { source: "planner" },
         engines: [
           { engineId: "claude-code", tokens: 60_000, fiveHourWindow: 3, cost: 0.6 },
-          { engineId: "openai-compatible-api", tokens: 40_000, cost: null },
+          { engineId: LOCAL_MODELS.id, tokens: 40_000, cost: null },
         ],
       },
     },
     { taskId: unknown.id, usageEstimate: { basis: { source: "none" }, engines: [] } },
   ];
   await page.route("**/api/usage-estimates", (route) => route.fulfill({ json: estimates }));
+  // The estimate names an API engine by its name; listed for this page only, so nothing else sees it.
+  await page.route("**/api/settings/engines", async (route) => {
+    const listed = engineSettingsSchema.parse(await (await route.fetch()).json());
+    await route.fulfill({ json: { ...listed, engines: [...listed.engines, LOCAL_MODELS] } });
+  });
   const check: StartCheck = { refusals: [], waits: [], overlaps: [], usageEstimate: fromHistory };
   await page.route(`**/api/tasks/${learned.id}/start`, (route) => route.fulfill({ json: check }));
   const HISTORY_WORDS =
     "Expected: 120k tokens · 6% of the 5-hour window · $1.20, from the history of 4 done Tasks.";
   const PLANNER_WORDS =
-    "Expected: Claude Code engines: 60k tokens · 3% of the 5-hour window · $0.60; OpenAI-compatible API: 40k tokens · no cost, from the Planner's estimate.";
+    "Expected: Claude Code: 60k tokens · 3% of the 5-hour window · $0.60; Local models: 40k tokens · no cost, from the Planner's estimate.";
 
   await page.goto("/work");
   const estimateOn = (title: string) =>

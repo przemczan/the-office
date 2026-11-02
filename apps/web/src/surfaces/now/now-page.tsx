@@ -9,7 +9,7 @@ import type {
   RunningTask,
 } from "@the-office/contracts";
 import { Avatar, Badge } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { nowQueries } from "../../api/notifications.ts";
 import { roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
@@ -18,9 +18,11 @@ import { PAUSED_BY_THE_ALARM } from "../../shell/fire-alarm/fire-alarm-words.ts"
 import { Desk, Feed, Panel, PanelHeading } from "../../shell/desk.tsx";
 import { EmptyCard, ItemCard } from "../../shell/item-card.tsx";
 import { NeedsYouFeed } from "../../shell/notifications/needs-you-feed.tsx";
+import { useFiveHourWindows } from "../../shell/notifications/use-five-hour-windows.ts";
 import { useNeedsYou } from "../../shell/notifications/use-needs-you.ts";
 import {
   desksWords,
+  fiveHourWindowName,
   inStageWords,
   OUTCOME_EDGES,
   OUTCOME_NAMES,
@@ -283,16 +285,16 @@ function FinishedCard({
 }
 
 function TodaysTokens({ now }: { readonly now: Now }): ReactNode {
-  const fiveHour = now.fiveHourWindows[0];
+  const fiveHourWindows = useFiveHourWindows(now);
   return (
     <p className="now-tokens">
       <TokenCount tokens={now.tokensToday} label="tokens today" strong />
-      {fiveHour && (
-        <>
+      {fiveHourWindows.map((fiveHour) => (
+        <Fragment key={fiveHour.engineId}>
           {" "}
-          · <b>{Math.round(fiveHour.percentUsed)}%</b> of the 5-hour window
-        </>
-      )}
+          · <b>{Math.round(fiveHour.percentUsed)}%</b> of {fiveHourWindowName(fiveHour)}
+        </Fragment>
+      ))}
     </p>
   );
 }

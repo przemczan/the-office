@@ -12,14 +12,21 @@ import {
   type DesktopPermission as Permission,
 } from "./notifications/desktop-channel.ts";
 import { personOf } from "./notifications/notification-words.ts";
-import { doneSinceYouLeft, needsYouWords, resetWords } from "./notifications/now-words.ts";
+import {
+  doneSinceYouLeft,
+  fiveHourWindowName,
+  needsYouWords,
+  resetWords,
+  type NamedFiveHourWindow,
+} from "./notifications/now-words.ts";
+import { useFiveHourWindows } from "./notifications/use-five-hour-windows.ts";
 import { useNeedsYou } from "./notifications/use-needs-you.ts";
 import { useNeedsYouPanel } from "./notifications/use-needs-you-panel.ts";
 import { TokenCount } from "./token-count.tsx";
 
 /**
  * The Office-wide figures under the top bar (spec §4), live from `now.changed`: what needs the
- * user in the Projects shown, which opens the Needs you panel, desks in use, tokens today, the 5-hour window, Tasks
+ * user in the Projects shown, which opens the Needs you panel, desks in use, tokens today, each engine's 5-hour window, Tasks
  * touched and done since the user left, and the fire alarm's state, its desks at 0 while it is on.
  * While the web has lost the service it says so first,
  * and the Office's own Notifications (the window, the engine) show here until they clear, by the
@@ -63,8 +70,7 @@ export function StatusStrip(): ReactNode {
 }
 
 function Figures({ now }: { readonly now: Now }): ReactNode {
-  const fiveHour = now.fiveHourWindows[0];
-  const resets = fiveHour && resetWords(fiveHour.resetsAt);
+  const fiveHourWindows = useFiveHourWindows(now);
   // While the alarm is on nothing runs at a desk, though its Tasks keep theirs.
   const inUse = now.fireAlarm ? 0 : now.desks.inUse;
   return (
@@ -79,15 +85,9 @@ function Figures({ now }: { readonly now: Now }): ReactNode {
       <span className="shell-strip-stat">
         <TokenCount tokens={now.tokensToday} label="tokens today" strong />
       </span>
-      {fiveHour && (
-        <span className="shell-strip-stat wide">
-          <b>{Math.round(fiveHour.percentUsed)}%</b> of the 5-hour window
-          <span className="shell-strip-meter" aria-hidden="true">
-            <i style={{ width: `${Math.min(100, Math.max(0, fiveHour.percentUsed))}%` }} />
-          </span>
-          {resets && <span className="shell-strip-faint">{resets}</span>}
-        </span>
-      )}
+      {fiveHourWindows.map((fiveHour) => (
+        <FiveHourWindowFigure key={fiveHour.engineId} fiveHour={fiveHour} />
+      ))}
       <span className="shell-strip-stat wide">
         <b>{now.tasksTouched}</b> Tasks touched
       </span>
@@ -96,6 +96,19 @@ function Figures({ now }: { readonly now: Now }): ReactNode {
         <b>{doneSinceYouLeft(now)}</b> done since you left
       </span>
     </>
+  );
+}
+
+function FiveHourWindowFigure({ fiveHour }: { readonly fiveHour: NamedFiveHourWindow }): ReactNode {
+  const resets = resetWords(fiveHour.resetsAt);
+  return (
+    <span className="shell-strip-stat wide">
+      <b>{Math.round(fiveHour.percentUsed)}%</b> of {fiveHourWindowName(fiveHour)}
+      <span className="shell-strip-meter" aria-hidden="true">
+        <i style={{ width: `${Math.min(100, Math.max(0, fiveHour.percentUsed))}%` }} />
+      </span>
+      {resets && <span className="shell-strip-faint">{resets}</span>}
+    </span>
   );
 }
 

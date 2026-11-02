@@ -1,16 +1,6 @@
-import type { Effort, EngineId } from "@the-office/contracts";
+import type { Effort } from "@the-office/contracts";
 
 /** The words for a model and its effort, wherever a Role card or a Stage names them. */
-
-const ENGINE_ID_LABELS: Readonly<Record<EngineId, string>> = {
-  "claude-code": "Claude Code engines",
-  "openai-compatible-api": "OpenAI-compatible API",
-};
-
-/** What an engine id spends on, as caps and Usage estimates name it; an unknown id as it is. */
-export function engineIdLabel(engineId: EngineId): string {
-  return ENGINE_ID_LABELS[engineId] ?? engineId;
-}
 
 export const EFFORT_LABELS: Readonly<Record<Effort, string>> = {
   low: "Low",

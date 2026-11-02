@@ -12,6 +12,11 @@ const roleTitles = new Map([
   ["devops", "Devops"],
   ["cto", "CTO"],
 ]);
+const engineNames = new Map([["claude-code", "Work account"]]);
+const names = {
+  roleTitles,
+  engineName: (engineId: string) => engineNames.get(engineId) ?? engineId,
+};
 
 describe("the Role card's words", () => {
   it("gives a Task limit in a few words", () => {
@@ -36,18 +41,21 @@ describe("the Role card's words", () => {
 
   it("writes each change of the history in the card's words", () => {
     expect(
-      changeLine({ field: "model", from: "claude-opus-5-5", to: "claude-sonnet-5-5" }, roleTitles),
+      changeLine({ field: "model", from: "claude-opus-5-5", to: "claude-sonnet-5-5" }, names),
     ).toBe("Model Opus 5.5 → Sonnet 5.5");
-    expect(changeLine({ field: "taskLimit", from: 3, to: "none" }, roleTitles)).toBe(
+    expect(changeLine({ field: "engine", from: "claude-code", to: "people-strata" }, names)).toBe(
+      "Engine Work account → people-strata",
+    );
+    expect(changeLine({ field: "taskLimit", from: 3, to: "none" }, names)).toBe(
       "Task limit 3 → none",
     );
     expect(
       changeLine(
         { field: "sessionDefault", from: "context-policy", to: "always-start-fresh" },
-        roleTitles,
+        names,
       ),
     ).toBe("Session default Context policy → Always start fresh");
-    expect(changeLine({ field: "capabilities.chat", from: false, to: true }, roleTitles)).toBe(
+    expect(changeLine({ field: "capabilities.chat", from: false, to: true }, names)).toBe(
       "Chat off → on",
     );
     expect(
@@ -57,7 +65,7 @@ describe("the Role card's words", () => {
           from: { kind: "consult", role: "cto" },
           to: { kind: "never" },
         },
-        roleTitles,
+        names,
       ),
     ).toBe("Publish outside the Pipeline Consult CTO → Never");
     const profile = { edit: false, run: "read-only-git", web: true, mcpTools: {} } as const;
@@ -68,12 +76,12 @@ describe("the Role card's words", () => {
           from: profile,
           to: { ...profile, mcpTools: { "github/search": { kind: "allowed" } } },
         },
-        roleTitles,
+        names,
       ),
     ).toBe(
       "Permission profile Reads files only, Runs read-only git only, Searches and fetches the web → Reads files only, Runs read-only git only, Searches and fetches the web, MCP tool github/search Allowed",
     );
-    expect(changeLine({ field: "instructions", from: "Old.", to: "New." }, roleTitles)).toBe(
+    expect(changeLine({ field: "instructions", from: "Old.", to: "New." }, names)).toBe(
       "Instructions edited",
     );
   });

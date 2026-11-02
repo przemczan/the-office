@@ -394,14 +394,15 @@ function ProposedChanges({
   readonly change: ProposedRoleChange;
   readonly roleTitles: RoleTitles;
 }): ReactNode {
+  const names = { roleTitles, engineName: useEngineName() };
   return (
     <ul className="proposal-changes">
       {proposedFieldChanges(change.from, change.to).map(({ field, from, to }) => (
         <li key={field}>
           <span className="proposal-change-label">{fieldLabel(field)}</span>
-          <span className="proposal-change-from">{fieldValueText(field, from, roleTitles)}</span>
+          <span className="proposal-change-from">{fieldValueText(field, from, names)}</span>
           <Icon name="arrow-right" size={14} aria-label="to" />
-          <span className="proposal-change-to">{fieldValueText(field, to, roleTitles)}</span>
+          <span className="proposal-change-to">{fieldValueText(field, to, names)}</span>
         </li>
       ))}
     </ul>

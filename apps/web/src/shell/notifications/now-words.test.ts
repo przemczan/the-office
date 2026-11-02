@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   desksWords,
   doneSinceYouLeft,
+  fiveHourWindowName,
   inStageWords,
+  namedFiveHourWindows,
   needsYouWords,
   sinceWords,
 } from "./now-words.ts";
@@ -56,5 +58,39 @@ describe("doneSinceYouLeft", () => {
     expect(
       doneSinceYouLeft({ sinceYouLeft: [finished("done"), finished("failed"), finished("done")] }),
     ).toBe(2);
+  });
+});
+
+const reading = (engineId: string, percentUsed: number) => ({
+  engineId,
+  percentUsed,
+  resetsAt: null,
+});
+
+describe("namedFiveHourWindows", () => {
+  const engines = [
+    { id: "home", name: "Home account" },
+    { id: "work", name: "Work account" },
+  ];
+
+  it("names each window and orders them as the engines are listed, an unlisted one last", () => {
+    const named = namedFiveHourWindows(
+      [reading("removed", 5), reading("work", 40), reading("home", 70)],
+      engines,
+    );
+    expect(named.map(({ engineName, percentUsed }) => [engineName, percentUsed])).toEqual([
+      ["Home account", 70],
+      ["Work account", 40],
+      ["removed", 5],
+    ]);
+    expect(named.map(fiveHourWindowName)).toEqual([
+      "Home account's 5-hour window",
+      "Work account's 5-hour window",
+      "removed's 5-hour window",
+    ]);
+  });
+
+  it("leaves out an engine not read yet", () => {
+    expect(namedFiveHourWindows([], engines)).toEqual([]);
   });
 });

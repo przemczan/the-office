@@ -7,7 +7,13 @@ import { roleCardQueries, roleQueries } from "../../api/people.ts";
 import { skillQueries } from "../../api/skills.ts";
 import { dayAndClockOf } from "../../shell/time.ts";
 import { PersonBlock } from "./role-card-layout.tsx";
-import { changeLine, roleTitlesOf, skillsChangeLine } from "../../shell/role-card-words.ts";
+import {
+  changeLine,
+  roleTitlesOf,
+  skillsChangeLine,
+  type FieldValueNames,
+} from "../../shell/role-card-words.ts";
+import { useEngineName } from "../../shell/use-engine-name.ts";
 import { RoleCardView } from "./role-card-view.tsx";
 
 /** The Role card, read-only, beside its change history. */
@@ -41,10 +47,11 @@ function ChangesBlock({
 }): ReactNode {
   const changes = useQuery(roleQueries.changes(roleKey));
   const roles = useQuery(roleQueries.list()).data;
+  const names = { roleTitles: roleTitlesOf(options), engineName: useEngineName() };
   return (
     <PersonBlock icon="history" title="Changes">
       {changes.data && (
-        <Timeline items={changes.data.map((change) => itemOf(change, options, roles))} />
+        <Timeline items={changes.data.map((change) => itemOf(change, names, roles))} />
       )}
       <p className="person-note">Each change applies from the next session started.</p>
     </PersonBlock>
@@ -53,7 +60,7 @@ function ChangesBlock({
 
 function itemOf(
   change: RoleChange,
-  options: RoleCardOptions,
+  names: FieldValueNames,
   roles: readonly Role[] | undefined,
 ): TimelineItem {
   const time = dayAndClockOf(change.at);
@@ -76,7 +83,7 @@ function itemOf(
         icon: "pencil",
         title: `Role card version ${change.cardVersion}`,
         description: [
-          ...change.changes.map((fieldChange) => changeLine(fieldChange, roleTitlesOf(options))),
+          ...change.changes.map((fieldChange) => changeLine(fieldChange, names)),
           ...(change.proposedBy === null ? [] : [proposedByLine(change.proposedBy, roles)]),
         ].join(" · "),
         time,

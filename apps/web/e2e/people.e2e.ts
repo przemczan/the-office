@@ -330,6 +330,16 @@ test("the user lists an API endpoint in Settings › Engines and puts Mia on one
     "org/coder:q4 · effort medium · People Strata",
   );
   await expect(roleCardGroup(page, "Engine")).toContainText("It has no usage windows");
+  await expect(
+    page.getByRole("listitem").filter({ hasText: "Engine Claude Code → People Strata" }),
+  ).toBeVisible();
+
+  // An API engine has Daily caps only: it has no usage windows.
+  await page.goto("/settings/office-limits");
+  const strataCaps = page.getByRole("region", { name: "People Strata", exact: true });
+  await expect(strataCaps.getByRole("group", { name: "People Strata's daily caps" })).toBeVisible();
+  await expect(strataCaps.getByLabel("Tokens a day")).toHaveValue("");
+  await expect(strataCaps.getByLabel("5-hour window")).toHaveCount(0);
 });
 
 // Here, not in settings.e2e.ts: a Save sends every API endpoint, so one from a page read before the

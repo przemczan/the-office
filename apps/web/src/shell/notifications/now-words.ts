@@ -1,5 +1,5 @@
 import type { BadgeProps } from "@the-office/ui";
-import type { CurrentStage, Now, TaskOutcome } from "@the-office/contracts";
+import type { CurrentStage, Engine, Now, TaskOutcome } from "@the-office/contracts";
 import type { CardEdge } from "../item-card.tsx";
 import { clockOf, durationWords, momentWords } from "../time.ts";
 
@@ -49,4 +49,30 @@ export function resetWords(resetsAt: string | null): string | undefined {
 /** How many of the outcomes since the user left are Done. */
 export function doneSinceYouLeft({ sinceYouLeft }: Pick<Now, "sinceYouLeft">): number {
   return sinceYouLeft.filter(({ outcome }) => outcome === "done").length;
+}
+
+export type FiveHourWindow = Now["fiveHourWindows"][number];
+export type NamedFiveHourWindow = FiveHourWindow & { readonly engineName: string };
+
+/**
+ * Each engine's 5-hour window, named and in the order Settings › Engines lists the engines; a
+ * reading of an engine no longer listed comes last, by its id, until the service forgets it.
+ */
+export function namedFiveHourWindows(
+  windows: readonly FiveHourWindow[],
+  engines: readonly Pick<Engine, "id" | "name">[],
+): NamedFiveHourWindow[] {
+  const listed = engines.flatMap((engine) => {
+    const window = windows.find(({ engineId }) => engineId === engine.id);
+    return window ? [{ ...window, engineName: engine.name }] : [];
+  });
+  const unlisted = windows
+    .filter(({ engineId }) => !engines.some(({ id }) => id === engineId))
+    .map((window) => ({ ...window, engineName: window.engineId }));
+  return [...listed, ...unlisted];
+}
+
+/** "Work account's 5-hour window", as the window's Notifications name it. */
+export function fiveHourWindowName({ engineName }: NamedFiveHourWindow): string {
+  return `${engineName}'s 5-hour window`;
 }
