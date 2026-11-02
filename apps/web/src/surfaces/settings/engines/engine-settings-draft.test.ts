@@ -2,11 +2,14 @@ import type { ApiEngine, ClaudeCodeEngine, EngineSettings } from "@the-office/co
 import { describe, expect, it } from "vitest";
 import {
   draftChanged,
-  draftedEndpoints,
+  draftedEngines,
   draftOf,
   engineSettingsEditOf,
   keyOnSave,
   NEW_API_ENDPOINT,
+  newClaudeCodeEngine,
+  officeDefaultChoicesOf,
+  offeredDefaultModel,
   offeredModelKey,
   offeredModelsOf,
   searchEndpointOf,
@@ -101,12 +104,70 @@ describe("Settings › Engines' draft", () => {
       { engineId: "strata", model: "qwen3" },
       { engineId: "strata-2", model: "coder" },
     ]);
-    expect(draftedEndpoints(draft, SAVED).map(({ id, name }) => ({ id, name }))).toEqual([
-      { id: "strata", name: "Strata" },
-      { id: "strata-2", name: "Strata" },
-      { id: "local", name: "Local" },
-      // Never a saved engine's id, of any kind.
-      { id: "claude-code-2", name: "Claude Code" },
+    expect(draftedEngines(draft, SAVED).apiEndpoints.map(({ id, name }) => ({ id, name }))).toEqual(
+      [
+        { id: "strata", name: "Strata" },
+        { id: "strata-2", name: "Strata" },
+        { id: "local", name: "Local" },
+        // Never a saved engine's id, of any kind.
+        { id: "claude-code-2", name: "Claude Code" },
+      ],
+    );
+  });
+
+  it("gives new engines their ids in the order Save sends them, the Claude Code engines first", () => {
+    const draft = {
+      ...draftOf(SAVED),
+      claudeCodeEngines: [
+        ...draftOf(SAVED).claudeCodeEngines,
+        { ...newClaudeCodeEngine(SAVED), name: "Work" },
+      ],
+      apiEndpoints: [{ ...NEW_API_ENDPOINT, name: "Work" }],
+    };
+
+    const drafted = draftedEngines(draft, SAVED);
+    expect(drafted.claudeCodeEngines.map(({ id }) => id)).toEqual(["claude-code", "work"]);
+    expect(drafted.apiEndpoints.map(({ id }) => id)).toEqual(["work-2"]);
+  });
+
+  it("adds a Claude Code engine on the first one's default model, with the -p switch off", () => {
+    expect(newClaudeCodeEngine(SAVED)).toEqual({
+      name: "",
+      kind: "claude-code",
+      defaultModel: "claude-sonnet-5-5",
+      claudeCodeP: false,
+    });
+  });
+
+  it("keeps an endpoint's default model while it offers it, else takes its first", () => {
+    const models = [
+      { id: " qwen3 ", contextWindow: 1 },
+      { id: "coder", contextWindow: 1 },
+    ];
+    const endpoint = { ...NEW_API_ENDPOINT, models };
+
+    expect(offeredDefaultModel({ ...endpoint, defaultModel: "coder" })).toBe("coder");
+    expect(offeredDefaultModel({ ...endpoint, defaultModel: "gone" })).toBe("qwen3");
+    expect(offeredDefaultModel({ ...endpoint, models: [] })).toBe("");
+  });
+
+  it("offers the saved engines still drafted for the Office default, each with its models", () => {
+    const draft = {
+      ...draftOf(SAVED),
+      claudeCodeEngines: [
+        ...draftOf(SAVED).claudeCodeEngines,
+        { ...newClaudeCodeEngine(SAVED), name: "New" },
+      ],
+    };
+
+    expect(officeDefaultChoicesOf(draft, SAVED)).toEqual([
+      {
+        id: "claude-code",
+        name: "Claude Code",
+        defaultModel: "claude-sonnet-5-5",
+        models: ["claude-sonnet-5-5"],
+      },
+      { id: "strata", name: "Strata", defaultModel: "qwen3", models: ["qwen3"] },
     ]);
   });
 

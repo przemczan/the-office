@@ -1,6 +1,7 @@
 import path from "node:path";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  engineSettingsSchema,
   ideaSchema,
   OPEN_DECISION_TOOL,
   pipelineListSchema,
@@ -361,6 +362,64 @@ test("the user sets Model prices in Settings › Engines, a new API endpoint's b
   ).toBeVisible();
   await page.reload();
   await expect(haiku.getByLabel("Input")).toHaveValue("");
+});
+
+// Here for the same reason as the test above. The engine it adds is removed through the API at the
+// end, since each engine has its caps: Office limits' Save, in settings.e2e.ts, names every engine.
+test("the user adds a Claude Code engine with its default model and -p switch, and picks the Office default", async ({
+  page,
+}) => {
+  await page.goto("/settings/engines");
+  await page.getByRole("button", { name: "Add a Claude Code engine" }).click();
+  const added = page.getByRole("group", { name: "the new Claude Code engine" });
+  await expect(added.getByLabel("Default model")).toHaveValue("claude-sonnet-5-5");
+  await added.getByLabel("Name", { exact: true }).fill("Second account");
+  const second = page.getByRole("group", { name: "Second account" });
+  await second.getByLabel("Default model").selectOption({ label: "Haiku 5.5" });
+  await second.getByRole("switch").click();
+  await page.getByRole("button", { name: "Save", exact: true }).click();
+  await expect(
+    page.getByText("Engines saved. Sessions started from now on use them."),
+  ).toBeVisible();
+
+  await page.reload();
+  await expect(second.getByLabel("Name", { exact: true })).toHaveValue("Second account");
+  await expect(second.getByLabel("Default model")).toHaveValue("claude-haiku-5-5");
+  await expect(second.getByRole("switch")).toHaveAttribute("aria-checked", "true");
+  // A saved engine is removed by its own dialog, which moves what names it.
+  await expect(second.getByRole("button", { name: "Remove Second account" })).toHaveCount(0);
+  await expect(
+    page.getByRole("group", { name: "People Strata", exact: true }).getByLabel("Default model"),
+  ).toHaveValue("org/coder:q4");
+
+  const officeDefault = page.getByRole("group", { name: "Office default" });
+  const engine = officeDefault.getByRole("combobox", { name: "Engine" });
+  const model = officeDefault.getByRole("combobox", { name: "Model" });
+  await expect(engine).toHaveValue("claude-code");
+  await expect(model).toHaveValue("claude-sonnet-5-5");
+  await engine.selectOption({ label: "Second account" });
+  // Picking an engine fills in its default model.
+  await expect(model).toHaveValue("claude-haiku-5-5");
+  await engine.selectOption({ label: "People Strata" });
+  await expect(model).toHaveValue("org/coder:q4");
+  await page.getByRole("button", { name: "Discard" }).click();
+  await expect(engine).toHaveValue("claude-code");
+
+  const saved = engineSettingsSchema.parse(
+    await (await page.request.get("/api/settings/engines")).json(),
+  );
+  const kept = await page.request.put("/api/settings/engines", {
+    data: {
+      ...saved,
+      engines: saved.engines
+        .filter(({ name }) => name !== "Second account")
+        // An endpoint without its key keeps the one kept.
+        .map((listed) =>
+          listed.kind === "claude-code" ? listed : { ...listed, keySet: undefined },
+        ),
+    },
+  });
+  expect(kept.ok()).toBe(true);
 });
 
 test("Assign… in Settings › Skills gives a skill to the people chosen", async ({ page }) => {

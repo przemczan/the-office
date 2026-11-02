@@ -152,12 +152,17 @@ Every step leaves `npm run verify` passing. A service step that changes a contra
   - Tests on fakes and temp folders. Commit.
 
   Read: the State; `engine/MAP.md`; `engine/domain/engine-account.ts`; `engine/application/engine-accounts.ts`; `engine/ports/claude-code-accounts.ts`; `engine/adapters/claude-code/claude-code-cli-accounts.ts`, `engine-config-folder.ts`; `engine/adapters/http/engine-accounts.controller.ts`; `packages/contracts/src/engines.ts` l. 142–169.
-- [ ] 1f. Web, Settings › Engines, about 100k:
-  - The engines list: Add (Claude Code or API endpoint), rename, Sign in with the account's status (the sign-in page as a link and a field for its code, refetched on `engine.account-changed`), "Paste a token instead" (a token box, `PUT …/:engineId/token`, its 400 words shown), "Sign out" on a signed-in engine (`DELETE …/:engineId/sign-in`), the account line (email and plan, that a pasted token signs it in, or "Signed out"), the `-p` switch, the default model.
+- [x] 1f. Web, Settings › Engines, the list, about 70k (split: sizing put the whole step over 120k, so the account went to 1fb):
+  - The engines list: Add (Claude Code or API endpoint), rename, the `-p` switch, the default model.
   - The Office default, the search endpoint, and the prices card keyed as decided.
   - e2e tests. Commit.
 
   Read: the State; `apps/web/src/surfaces/settings/MAP.md` (Engines); `settings/engines/engines-section.tsx`, `engine-settings-draft.ts`, `model-prices-card.tsx`; `apps/web/e2e/MAP.md`.
+- [ ] 1fb. Web, a Claude Code engine's account, about 60k:
+  - On each saved Claude Code engine: the account line (email and plan, that a pasted token signs it in, or "Signed out"), Sign in (the sign-in page as a link and a field for its code), "Paste a token instead" (a token box, `PUT …/:engineId/token`, its 400 words shown), "Sign out" on a signed-in engine (`DELETE …/:engineId/sign-in`); the account refetched on `engine.account-changed` and on each call's success.
+  - e2e tests. Commit.
+
+  Read: the State; `apps/web/src/surfaces/settings/MAP.md` (Engines); `settings/engines/claude-code-engine-fields.tsx`; `apps/web/src/api/engine.ts`, `github.ts` (the event invalidations); `apps/web/e2e/MAP.md`.
 - [ ] 1f2. The windows by engine, in Engine and Notifications, about 50k (found in 1e3: two engines' readings alternating would raise false "reset" and "nearly used"):
   - `UsageWindowsChanged` names its engine; Notifications keep each engine's 5-hour window apart (`windowPercent`, one for every engine today) and name the engine in the window words; Now's windows by engine id.
   - Commit.
@@ -218,7 +223,8 @@ Every step leaves `npm run verify` passing. A service step that changes a contra
 
 ## State
 
-Steps 0, 1a–1e and 1e2–1e4 are done; next is 1f (web, Settings › Engines), then 1f2.
+Steps 0, 1a–1e, 1e2–1e4 and 1f are done; next is 1fb (web, a Claude Code engine's account), then 1f2.
+- Settings › Engines (1f): one "Engines" card, the Claude Code engines first (`claude-code-engine-fields.tsx`: Name, Default model from the Claude models `GET` prices, the switch "The -p fallback"), then the API endpoints (`api-endpoint-fields.tsx`, now with a Default model select); "Add a Claude Code engine" and "Add an API endpoint". A Claude Code engine has Remove only before its first Save; a saved API endpoint keeps its old Remove until 3b. The "Office default" card (`office-default-card.tsx`) offers the saved engines still listed, picking one filling in its default model. `draftedEngines` gives new ids in Save's order across both kinds. For 1fb: put the account part in `ClaudeCodeEngineFields`, only when `edit.id` is set (an unsaved engine's account would 404).
 - Pasted token (1e4, the user's answer of 2026-11-02): `PUT /settings/engines/:engineId/token` `{ token }` (contract `enginePastedTokenSchema`, shape `sk-ant-oat01-[\w-]+`, 400 in words that never name it; 204) writes `<office-data>/engines/<id>/.credentials.json` = `{ claudeAiOauth: { accessToken, refreshToken: null, expiresAt: now + 1 year, scopes: ["user:inference"] } }` (`adapters/claude-code/engine-credentials.ts`, written beside and renamed, mode 0600, behind `ownEngineConfigFolder`'s guard), ending any Sign in under way. `DELETE …/:engineId/sign-in` (204) is Sign out: it removes that file, ending any Sign in. Both publish `EngineAccountChanged`. The domain's `PastedToken` reads as `[a pasted token]` in `String`, JSON and `inspect`; only `reveal()` gives it. No session or adapter change: sessions read the folder through `CLAUDE_CONFIG_DIR`, and `sessionEnvironment` drops any `CLAUDE_*` of the service.
 - How the card knows: `holdsPastedToken` reads the file; `refreshToken: null` means a pasted token (only The Office writes one; a Sign in's carries a refresh token, unconfirmed until step 4). Then `engineAccountOf(output, true)` drops any email or plan an earlier Sign in left in `.claude.json`. Account contract: `{ signedIn, pastedToken, email, plan }`. No marker, no table, no migration.
 - Probed (2.1.310, Windows, bogus token, temp folder, `auth status` only): the file reads `loggedIn: true, authMethod: "claude.ai"`, no email; `auth status` leaves it unchanged; removing it reads signed out (exit 1); `accessToken` alone reads signed out. Linux read the same in the earlier probe.
@@ -226,7 +232,8 @@ Steps 0, 1a–1e and 1e2–1e4 are done; next is 1f (web, Settings › Engines),
 - Accounts (1e2): `EngineAccountsModule` (in `AppModule` only) holds `EngineAccountsController` (`GET …/account`, `POST …/sign-in` → `{ url }`, `POST …/sign-in/code` → 204, `PUT …/token`, `DELETE …/sign-in`; 404 not a Claude Code engine, 409 no Sign in under way, 400 no token, 502 the binary failed), `EngineAccounts` and the port `ClaudeCodeAccounts` (`ClaudeCodeCliAccounts`; the e2e service binds `StandInClaudeCodeAccounts`: a code signs in `STAND_IN_ACCOUNT`, a token `STAND_IN_PASTED_TOKEN_ACCOUNT`). Unconfirmed until step 4: a real code completing the login, and `email`/`subscriptionType`.
 - Folders (1e, 1e3): `<office-data>/engines/<id>/` (`engine-config-folder.ts`), made when a Claude Code engine is added or a session starts, removed on `EngineRemoved`; `claudeCodeOfficeRules` refuses it as Office data. Engine down names the engine (`EngineDown`, Notification pointer `{ kind: "office", engineId }`).
 - Engines are rows of `engines`; `GET`/`PUT /settings/engines` carry the engines, Office default, search endpoint and prices. `PUT` drops any engine left out, which deletes its folder and account. `claudeCodeEngineProblems` refuses only removing `claude-code` (until 3a).
-- Until 1f shows Sign in, a real Claude Code session on the workstation runs signed out (engine down). Live adapter tests need `<temp>/office-engine-data/engines/claude-code/` signed in (testing.md).
+- Until 1fb shows Sign in, a real Claude Code session on the workstation runs signed out (engine down). Live adapter tests need `<temp>/office-engine-data/engines/claude-code/` signed in (testing.md).
+- e2e: the Claude Code engine test (people.e2e.ts) removes its engine at its end by `PUT /api/settings/engines`, since each engine has caps and Office limits' Save names every engine.
 - Web: `shell/use-engine-name.ts` labels engines. Known gaps: Usage estimate words and Office limits label by `engineIdLabel` (1g); a removed API engine's prices are dropped on save (3a).
 
 Traps:
@@ -253,3 +260,4 @@ Traps:
 - 2026-11-02 · step 1e4 (stopped): spec §5.4 names the code paste and "Paste a token instead"; step 1e4 written, 1f given the token box; `auth status` probed with a token; stopped on whether Agents can read `CLAUDE_CODE_OAUTH_TOKEN` (§6, options in State); next is the user's answer, then 1e4.
 - 2026-11-02 · step 1e4 (stopped again): the token on `CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR` probed: read on Linux, not on Windows (the binary reads a descriptor only as a socket or through `/proc`); a token in the folder's `.credentials.json` reads as signed in on both; nothing built; next is the user's choice (options in State), then 1e4.
 - 2026-11-02 · step 1e4: a pasted `claude setup-token` token is written into the engine's folder as its `.credentials.json` (`PUT …/:engineId/token`), Sign out removes it (`DELETE …/:engineId/sign-in`), the account tells a pasted token; spec §5.4 and §6 say so; next is 1f, Settings › Engines.
+- 2026-11-02 · step 1f: Settings › Engines lists the Claude Code engines and API endpoints with Add of each kind, a default model on every engine, the -p fallback switch and the Office default; the account split off to 1fb; next is 1fb, Sign in, the token and Sign out.

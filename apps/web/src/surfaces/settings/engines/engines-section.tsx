@@ -1,12 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
-  ApiEndpointModel,
-  ApiEngine,
   ApiEngineEdit,
+  ClaudeCodeEngineEdit,
   EngineSettings,
   EngineSettingsEdit,
 } from "@the-office/contracts";
-import { Button, Card, Icon, IconButton, Input } from "@the-office/ui";
+import { Button, Card, Icon, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { changeEngineSettings, engineSettingsQuery } from "../../../api/engine.ts";
 import { roleCardQueries } from "../../../api/people.ts";
@@ -14,14 +13,17 @@ import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
+import { ApiEndpointFields } from "./api-endpoint-fields.tsx";
+import { ClaudeCodeEngineFields } from "./claude-code-engine-fields.tsx";
 import {
+  claudeModelsOf,
   draftChanged,
-  draftedEndpoints,
+  draftedEngines,
   draftOf,
   engineSettingsEditOf,
-  KEY_ON_SAVE_WORDS,
-  keyOnSave,
   NEW_API_ENDPOINT,
+  newClaudeCodeEngine,
+  officeDefaultChoicesOf,
   offeredModelKey,
   offeredModelsOf,
   priceTextIn,
@@ -30,11 +32,12 @@ import {
   type EngineSettingsDraft,
 } from "./engine-settings-draft.ts";
 import { ModelPricesCard } from "./model-prices-card.tsx";
+import { OfficeDefaultCard } from "./office-default-card.tsx";
 import "./engines.css";
 
 /**
- * Settings › Engines: the API endpoints of the OpenAI-compatible API, the Search endpoint and the
- * Model prices, one draft saved whole.
+ * Settings › Engines: the engines, the Office default, the Search endpoint and the Model prices,
+ * one draft saved whole.
  */
 export function EnginesSection(): ReactNode {
   usePageHeading({ title: "Settings", crumb: "Engines" });
@@ -58,11 +61,18 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
     onSuccess: async (result) => {
       queryClient.setQueryData(engineSettingsQuery().queryKey, result);
       setDraft(draftOf(result));
-      // The Role card offers the API endpoints' models.
+      // The Role card offers each engine's models.
       await queryClient.invalidateQueries(roleCardQueries.options());
       showToast("Engines saved. Sessions started from now on use them.");
     },
   });
+  const changeClaudeCodeEngine = (index: number, edit: ClaudeCodeEngineEdit): void =>
+    setDraft({
+      ...draft,
+      claudeCodeEngines: draft.claudeCodeEngines.map((engine, at) =>
+        at === index ? edit : engine,
+      ),
+    });
   const changeEndpoint = (index: number, edit: ApiEngineEdit): void =>
     setDraft({
       ...draft,
@@ -70,15 +80,35 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
     });
   return (
     <>
-      <Card title={<SettingsCardTitle icon="server">API endpoints</SettingsCardTitle>}>
+      <Card title={<SettingsCardTitle icon="server">Engines</SettingsCardTitle>}>
         <p className="settings-note">
-          Servers on the OpenAI-compatible API, such as a local LLM. A Role on the OpenAI-compatible
-          API works on one of their models, picked in its Model field.
+          What sessions run on: each Claude Code engine is one Claude account, each API endpoint a
+          server on the OpenAI-compatible API, such as a local LLM.
         </p>
-        <div className="api-endpoints">
+        <div className="engines">
+          {draft.claudeCodeEngines.map((engine, index) => (
+            <ClaudeCodeEngineFields
+              // An engine added since the last Save has no id yet, so its place is its identity.
+              key={index}
+              edit={engine}
+              claudeModels={claudeModelsOf(saved)}
+              change={(edit) => changeClaudeCodeEngine(index, edit)}
+              // Leaving a saved engine out of a Save removes it, its folder and its account.
+              remove={
+                engine.id === undefined
+                  ? () =>
+                      setDraft({
+                        ...draft,
+                        claudeCodeEngines: draft.claudeCodeEngines.filter(
+                          (_engine, at) => at !== index,
+                        ),
+                      })
+                  : undefined
+              }
+            />
+          ))}
           {draft.apiEndpoints.map((endpoint, index) => (
             <ApiEndpointFields
-              // An endpoint added since the last Save has no id yet, so its place is its identity.
               key={index}
               edit={endpoint}
               saved={savedApiEngines(saved.engines).find(({ id }) => id === endpoint.id)}
@@ -92,7 +122,20 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
             />
           ))}
         </div>
-        <div>
+        <div className="engines-add">
+          <Button
+            variant="secondary"
+            size="sm"
+            iconLeft={<Icon name="plus" size={14} />}
+            onClick={() =>
+              setDraft({
+                ...draft,
+                claudeCodeEngines: [...draft.claudeCodeEngines, newClaudeCodeEngine(saved)],
+              })
+            }
+          >
+            Add a Claude Code engine
+          </Button>
           <Button
             variant="secondary"
             size="sm"
@@ -105,6 +148,11 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
           </Button>
         </div>
       </Card>
+      <OfficeDefaultCard
+        officeDefault={draft.officeDefault}
+        choices={officeDefaultChoicesOf(draft, saved)}
+        change={(officeDefault) => setDraft({ ...draft, officeDefault })}
+      />
       <Card title={<SettingsCardTitle icon="search">Search endpoint</SettingsCardTitle>}>
         <Input
           label="Base URL"
@@ -118,7 +166,7 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
       </Card>
       <ModelPricesCard
         offered={offeredModelsOf(draft, saved)}
-        apiEndpoints={draftedEndpoints(draft, saved)}
+        apiEndpoints={draftedEngines(draft, saved).apiEndpoints}
         priceTextOf={(model) => priceTextIn(draft, model)}
         change={(model, text) =>
           setDraft({
@@ -144,110 +192,4 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
       </div>
     </>
   );
-}
-
-function ApiEndpointFields({
-  edit,
-  saved,
-  change,
-  remove,
-}: {
-  readonly edit: ApiEngineEdit;
-  /** Undefined while the endpoint isn't saved yet. */
-  readonly saved: ApiEngine | undefined;
-  readonly change: (edit: ApiEngineEdit) => void;
-  readonly remove: () => void;
-}): ReactNode {
-  const called = edit.name === "" ? "the new API endpoint" : edit.name;
-  const key = keyOnSave(edit, saved);
-  const changeModel = (index: number, model: ApiEndpointModel): void =>
-    change({ ...edit, models: edit.models.map((kept, at) => (at === index ? model : kept)) });
-  return (
-    <fieldset className="api-endpoint" aria-label={called}>
-      <div className="api-endpoint-fields">
-        <Input
-          label="Name"
-          value={edit.name}
-          onChange={(event) => change({ ...edit, name: event.target.value })}
-        />
-        <Input
-          label="Base URL"
-          placeholder="http://127.0.0.1:8080/v1"
-          value={edit.baseUrl}
-          onChange={(event) => change({ ...edit, baseUrl: event.target.value })}
-        />
-        <Input
-          label="Key"
-          type="password"
-          autoComplete="off"
-          hint={KEY_ON_SAVE_WORDS[key]}
-          value={edit.key ?? ""}
-          // Emptying the field keeps the key; only "Remove the key" removes it.
-          onChange={({ target: { value } }) => change(withKey(edit, value || undefined))}
-          suffix={
-            key === "kept-set" ? (
-              <Button variant="ghost" size="sm" onClick={() => change(withKey(edit, ""))}>
-                Remove the key
-              </Button>
-            ) : key === "removed" ? (
-              <Button variant="ghost" size="sm" onClick={() => change(withKey(edit, undefined))}>
-                Keep the key
-              </Button>
-            ) : undefined
-          }
-        />
-      </div>
-      <div className="api-endpoint-models" role="group" aria-label={`Models of ${called}`}>
-        {edit.models.map((model, index) => (
-          // A model's id is what the user edits, so its place is its identity.
-          <div key={index} className="api-endpoint-model">
-            <Input
-              label="Model"
-              hint={index === 0 ? "Its id on the server." : undefined}
-              value={model.id}
-              onChange={(event) => changeModel(index, { ...model, id: event.target.value })}
-            />
-            <Input
-              label="Context window"
-              inputMode="numeric"
-              suffix="tokens"
-              value={model.contextWindow === 0 ? "" : String(model.contextWindow)}
-              onChange={(event) =>
-                changeModel(index, { ...model, contextWindow: Number(event.target.value) || 0 })
-              }
-            />
-            <IconButton
-              size="sm"
-              icon={<Icon name="x" size={14} />}
-              label={`Remove the model ${model.id || "without an id"}`}
-              onClick={() =>
-                change({ ...edit, models: edit.models.filter((_model, at) => at !== index) })
-              }
-            />
-          </div>
-        ))}
-      </div>
-      <div className="api-endpoint-actions">
-        <Button
-          variant="ghost"
-          size="sm"
-          iconLeft={<Icon name="plus" size={14} />}
-          onClick={() =>
-            change({ ...edit, models: [...edit.models, { id: "", contextWindow: 0 }] })
-          }
-        >
-          Add a model
-        </Button>
-        <Button variant="danger-ghost" size="sm" onClick={remove}>
-          Remove {called}
-        </Button>
-      </div>
-    </fieldset>
-  );
-}
-
-/** The endpoint with `key` as saving takes it: undefined keeps the one kept, empty removes it. */
-function withKey(edit: ApiEngineEdit, key: string | undefined): ApiEngineEdit {
-  const { key: _kept, ...rest } = edit;
-  return key === undefined ? rest : { ...rest, key };
 }

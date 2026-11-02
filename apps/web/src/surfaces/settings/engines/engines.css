@@ -1,11 +1,12 @@
-/* Settings › Engines: each API endpoint as a block of its fields and its models. */
-.api-endpoints {
+/* Settings › Engines: each engine as a block of its fields, an API endpoint's with its models. */
+.engines {
   display: flex;
   flex-direction: column;
   gap: 12px;
   margin: 12px 0;
 }
 
+.claude-code-engine,
 .api-endpoint {
   display: flex;
   flex-direction: column;
@@ -16,7 +17,7 @@
   border-radius: var(--radius-card);
 }
 
-.api-endpoint-fields {
+.engine-fields {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
@@ -35,9 +36,19 @@
   gap: 12px;
 }
 
-.api-endpoint-actions {
+.engine-actions {
   display: flex;
   justify-content: space-between;
+}
+
+.engine-actions > :only-child {
+  margin-left: auto;
+}
+
+.engines-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 /* The Model prices card: per engine id, a row per model with its four prices. */
@@ -70,7 +81,7 @@
 }
 
 @media (max-width: 960px) {
-  .api-endpoint-fields {
+  .engine-fields {
     grid-template-columns: 1fr;
   }
 
