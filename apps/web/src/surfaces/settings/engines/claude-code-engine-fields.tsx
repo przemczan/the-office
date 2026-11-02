@@ -2,10 +2,12 @@ import type { ClaudeCodeEngineEdit } from "@the-office/contracts";
 import { Button, Input, Select, Switch } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { modelLabel } from "../../../shell/engine-words.ts";
+import { ClaudeCodeEngineAccount } from "./claude-code-engine-account.tsx";
 
 /**
- * A Claude Code engine's fields: its name, default model and `-p` switch. Only one not saved yet
- * can be removed here; removing a saved one moves what names it, which its own dialog asks.
+ * A Claude Code engine's fields: its name, default model and `-p` switch, and once saved its
+ * account (one not saved has no folder to sign in yet). Only one not saved yet can be removed here;
+ * removing a saved one moves what names it, which its own dialog asks.
  */
 export function ClaudeCodeEngineFields({
   edit,
@@ -42,6 +44,7 @@ export function ClaudeCodeEngineFields({
         checked={edit.claudeCodeP}
         onChange={(claudeCodeP) => change({ ...edit, claudeCodeP })}
       />
+      {edit.id !== undefined && <ClaudeCodeEngineAccount key={edit.id} engineId={edit.id} />}
       {remove && (
         <div className="engine-actions">
           <Button variant="danger-ghost" size="sm" onClick={remove}>

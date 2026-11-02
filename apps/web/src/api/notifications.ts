@@ -11,7 +11,12 @@ import {
   type NotificationRouting,
   type NotificationTiming,
 } from "@the-office/contracts";
-import { deleteFromApiReturning, getFromApi, postToApi, sendToApi } from "./api-client.ts";
+import {
+  deleteFromApiReturning,
+  getFromApi,
+  sendToApi,
+  sendToApiWithNoAnswer,
+} from "./api-client.ts";
 import type { EventCacheUpdates } from "./event-stream-provider.tsx";
 
 export const nowQueries = {
@@ -69,7 +74,7 @@ export function resetRouting(level: string): Promise<NotificationRouting> {
  * the user opened, which handles the Notifications pointing at it.
  */
 export function reportActivity(activity: Activity): Promise<void> {
-  return postToApi("/activity", activity);
+  return sendToApiWithNoAnswer("POST", "/activity", activity);
 }
 
 /**

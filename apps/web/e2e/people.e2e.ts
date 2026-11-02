@@ -16,6 +16,8 @@ import {
   taskStagesSchema,
   threadListSchema,
   threadSchema,
+  type ClaudeCodeEngineEdit,
+  type EngineSettings,
   type NewProject,
   type Project,
   type Stage,
@@ -62,6 +64,31 @@ async function setDevelopersTaskLimit(page: Page, taskLimit: TaskLimit): Promise
 
 function roleCardGroup(page: Page, group: string) {
   return page.getByRole("region", { name: group });
+}
+
+/**
+ * Saves Settings › Engines through the API with the engines `change` gives from those saved, as a
+ * test cleans up after adding one: an engine left out is removed.
+ */
+async function saveEngines(
+  page: Page,
+  change: (
+    saved: EngineSettings["engines"],
+  ) => readonly (EngineSettings["engines"][number] | ClaudeCodeEngineEdit)[],
+): Promise<void> {
+  const saved = engineSettingsSchema.parse(
+    await (await page.request.get("/api/settings/engines")).json(),
+  );
+  const kept = await page.request.put("/api/settings/engines", {
+    data: {
+      ...saved,
+      engines: change(saved.engines).map((engine) =>
+        // An endpoint without its key keeps the one kept.
+        engine.kind === "claude-code" ? engine : { ...engine, keySet: undefined },
+      ),
+    },
+  });
+  expect(kept.ok()).toBe(true);
 }
 
 test("the user hires the Planner, a Developer, a Reviewer, the CTO and the Office Manager from the presets", async ({
@@ -405,21 +432,66 @@ test("the user adds a Claude Code engine with its default model and -p switch, a
   await page.getByRole("button", { name: "Discard" }).click();
   await expect(engine).toHaveValue("claude-code");
 
-  const saved = engineSettingsSchema.parse(
-    await (await page.request.get("/api/settings/engines")).json(),
+  await saveEngines(page, (saved) => saved.filter(({ name }) => name !== "Second account"));
+});
+
+test("the user signs a Claude Code engine in by its sign-in page's code, pastes a token instead, and signs it out", async ({
+  page,
+}) => {
+  const name = "Account check";
+  await saveEngines(page, (saved) => [
+    ...saved,
+    { kind: "claude-code", name, defaultModel: "claude-haiku-5-5", claudeCodeP: false },
+  ]);
+  await page.goto("/settings/engines");
+  const account = page
+    .getByRole("group", { name, exact: true })
+    .getByRole("group", { name: "Account" });
+  await expect(account.getByText("Signed out", { exact: true })).toBeVisible();
+  await expect(account.getByRole("button", { name: "Sign out" })).toHaveCount(0);
+
+  await account.getByRole("button", { name: "Sign in" }).click();
+  // The stand-in's page; the user signs in there, in any browser, and brings its code back.
+  await expect(account.getByRole("link", { name: "the sign-in page" })).toHaveAttribute(
+    "href",
+    "https://claude.com/cai/oauth/authorize?stand-in=true",
   );
-  const kept = await page.request.put("/api/settings/engines", {
-    data: {
-      ...saved,
-      engines: saved.engines
-        .filter(({ name }) => name !== "Second account")
-        // An endpoint without its key keeps the one kept.
-        .map((listed) =>
-          listed.kind === "claude-code" ? listed : { ...listed, keySet: undefined },
-        ),
-    },
-  });
-  expect(kept.ok()).toBe(true);
+  await account.getByLabel("Code").fill("stand-in-code");
+  await account.getByRole("button", { name: "Finish" }).click();
+  await expect(account.getByText("Signed in as stand-in@example.com · Claude Max")).toBeVisible();
+  await expect(account.getByLabel("Code")).toHaveCount(0);
+
+  // A Sign out from elsewhere reaches the open page by `engine.account-changed`.
+  const engineId = engineSettingsSchema
+    .parse(await (await page.request.get("/api/settings/engines")).json())
+    .engines.find((engine) => engine.name === name)?.id;
+  expect(engineId).toBeDefined();
+  const signedOut = await page.request.delete(`/api/settings/engines/${engineId}/sign-in`);
+  expect(signedOut.status()).toBe(204);
+  await expect(account.getByText("Signed out", { exact: true })).toBeVisible();
+
+  await account.getByRole("button", { name: "Paste a token instead" }).click();
+  const token = account.getByLabel("Token");
+  await expect(token).toHaveAttribute("type", "password");
+  await token.fill("not-a-token");
+  await account.getByRole("button", { name: "Save the token" }).click();
+  await expect(
+    account.getByText("That is no token from `claude setup-token`: one starts with sk-ant-oat01-."),
+  ).toBeVisible();
+  await token.fill("sk-ant-oat01-stand-in");
+  await account.getByRole("button", { name: "Save the token" }).click();
+  await expect(account.getByText("A pasted token signs it in")).toBeVisible();
+  // The token is never shown again: the box is gone, and reopened it is empty.
+  await expect(account.getByLabel("Token")).toHaveCount(0);
+  await account.getByRole("button", { name: "Paste a token instead" }).click();
+  await expect(account.getByLabel("Token")).toHaveValue("");
+  await account.getByRole("button", { name: "Cancel" }).click();
+
+  await account.getByRole("button", { name: "Sign out" }).click();
+  await expect(account.getByText("Signed out", { exact: true })).toBeVisible();
+  await expect(account.getByRole("button", { name: "Sign out" })).toHaveCount(0);
+
+  await saveEngines(page, (saved) => saved.filter((engine) => engine.name !== name));
 });
 
 test("Assign… in Settings › Skills gives a skill to the people chosen", async ({ page }) => {

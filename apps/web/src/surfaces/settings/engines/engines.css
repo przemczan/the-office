@@ -45,6 +45,55 @@
   margin-left: auto;
 }
 
+/* A saved Claude Code engine's account: its line and actions, then what a Sign in or a token asks. */
+.engine-account {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.engine-account-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.engine-account-line {
+  overflow-wrap: anywhere;
+}
+
+.engine-account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.engine-account-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.engine-account-hint {
+  margin: 0;
+  font: var(--type-caption);
+}
+
+.engine-account-link {
+  color: var(--accent);
+}
+
+.engine-account-entry {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: end;
+  gap: 8px;
+}
+
 .engines-add {
   display: flex;
   flex-wrap: wrap;

@@ -90,10 +90,14 @@ export async function sendFileToApi<Schema extends z.ZodType>(
   return answerOf(response, schema);
 }
 
-/** Posts `body` as JSON to `path` under /api; the service answers with no body. */
-export async function postToApi(path: `/${string}`, body: unknown): Promise<void> {
+/** Sends `body` as JSON to `path` under /api; the service answers with no body. */
+export async function sendToApiWithNoAnswer(
+  method: "POST" | "PUT",
+  path: `/${string}`,
+  body: unknown,
+): Promise<void> {
   const response = await fetch(`${API_PATH}${path}`, {
-    method: "POST",
+    method,
     headers: { Accept: "application/json", "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });

@@ -52,9 +52,9 @@ import {
   deleteFromApi,
   deleteFromApiReturning,
   getFromApi,
-  postToApi,
   sendFileToApi,
   sendToApi,
+  sendToApiWithNoAnswer,
 } from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
@@ -376,7 +376,7 @@ export function takeOutOfQueue(taskId: string): Promise<void> {
 
 /** Move up: one place in the queue, past the Task ahead of it. */
 export function moveUpInQueue(taskId: string): Promise<void> {
-  return postToApi(`/queue/${encodeURIComponent(taskId)}/move-up`, {});
+  return sendToApiWithNoAnswer("POST", `/queue/${encodeURIComponent(taskId)}/move-up`, {});
 }
 
 /** Pause: held once the Agent's current turn ends, its edits kept (spec §2.4). */
