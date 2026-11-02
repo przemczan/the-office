@@ -17,6 +17,7 @@ import { AgentEngines } from "../../application/agent-engines.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
 import { preparedEngineConfigFolder } from "../claude-code/engine-config-folder.js";
 import { EngineModels } from "../../application/engine-models.js";
+import { RunningEngineSessions } from "../../application/running-engine-sessions.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
 import { DayUsage } from "../../application/day-usage.js";
 import { EngineSessions } from "../../application/engine-sessions.js";
@@ -186,6 +187,7 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
         new DayUsage(new DayUsageForTests(), new ManualSchedule()),
         new UsageWindowSamples(new UsageWindowSamplesForTests()),
         new EngineModels(new EngineSettingsForTests()),
+        new RunningEngineSessions(),
       );
 
       const session = await sessions.start({

@@ -32,6 +32,7 @@ import { EngineModels } from "./engine-models.js";
 import { DayUsage } from "./day-usage.js";
 import { EngineCallSpans, SessionCosts, type SessionTelemetry } from "./engine-call-spans.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
+import { RunningEngineSessions } from "./running-engine-sessions.js";
 import { UsageWindowSamples } from "./usage-window-samples.js";
 import { UsageWindowState, type UsageWindowReading } from "./usage-window-state.js";
 
@@ -77,6 +78,7 @@ export class EngineSessions {
     private readonly dayUsage: DayUsage,
     private readonly windowSamples: UsageWindowSamples,
     private readonly engineModels: EngineModels,
+    private readonly running: RunningEngineSessions,
   ) {}
 
   /** What the engine listed as `engineId` can do; refused when Settings › Engines lists none. */
@@ -95,13 +97,17 @@ export class EngineSessions {
   }
 
   async start({ id, settings, brief }: SessionStart): Promise<EngineSession> {
-    const listed = await this.listed(settings.engineId);
-    const engine = this.engines.of(listed);
-    const options = this.optionsOf(listed, settings);
-    this.costs.started(id);
-    const spans = this.spansOf(id, options, settings.telemetry);
-    spans.messageSent(brief.id);
-    return this.watch(id, listed, settings, spans, () => engine.start({ id, options, brief }));
+    return this.counted(settings.engineId, async (ended) => {
+      const listed = await this.listed(settings.engineId);
+      const engine = this.engines.of(listed);
+      const options = this.optionsOf(listed, settings);
+      this.costs.started(id);
+      const spans = this.spansOf(id, options, settings.telemetry);
+      spans.messageSent(brief.id);
+      return this.watch(id, listed, settings, spans, ended, () =>
+        engine.start({ id, options, brief }),
+      );
+    });
   }
 
   /**
@@ -109,11 +115,32 @@ export class EngineSessions {
    * breaks its cached prefix, and another engine has no such session.
    */
   async resume(sessionId: string, settings: SessionSettings): Promise<EngineSession> {
-    const listed = await this.listed(settings.engineId);
-    const engine = this.engines.of(listed);
-    const options = this.optionsOf(listed, settings);
-    const spans = this.spansOf(sessionId, options, settings.telemetry);
-    return this.watch(sessionId, listed, settings, spans, () => engine.resume(sessionId, options));
+    return this.counted(settings.engineId, async (ended) => {
+      const listed = await this.listed(settings.engineId);
+      const engine = this.engines.of(listed);
+      const options = this.optionsOf(listed, settings);
+      const spans = this.spansOf(sessionId, options, settings.telemetry);
+      return this.watch(sessionId, listed, settings, spans, ended, () =>
+        engine.resume(sessionId, options),
+      );
+    });
+  }
+
+  /**
+   * Counts the session on `engineId` as running from before its engine is looked up until it
+   * ends, or until opening it fails.
+   */
+  private async counted(
+    engineId: EngineId,
+    open: (ended: () => void) => Promise<EngineSession>,
+  ): Promise<EngineSession> {
+    const ended = this.running.started(engineId);
+    try {
+      return await open(ended);
+    } catch (error) {
+      ended();
+      throw error;
+    }
   }
 
   private async listed(engineId: EngineId): Promise<Engine> {
@@ -146,6 +173,7 @@ export class EngineSessions {
     engine: Engine,
     settings: SessionSettings,
     spans: EngineCallSpans,
+    ended: () => void,
     open: () => Promise<EngineSession>,
   ): Promise<EngineSession> {
     let session: EngineSession;
@@ -164,6 +192,7 @@ export class EngineSessions {
       failed: async (error) => {
         if (!isRefusal(error)) await this.engineDown(sessionId, engine, error);
       },
+      ended,
     });
   }
 
@@ -229,6 +258,8 @@ interface SessionWatch {
   readonly rateLimited: () => Promise<void>;
   readonly turnEnded: (usage: TokenUsage) => Promise<void>;
   readonly failed: (error: unknown) => Promise<void>;
+  /** The session's events have closed or failed: it runs no more. */
+  readonly ended: () => void;
 }
 
 /** A session as the engine runs it, its events read as they come so each is watched when it happens. */
@@ -288,6 +319,8 @@ class WatchedSession implements EngineSession {
       this.spans.stopped(error);
       await this.watch.failed(error);
       this.reported.fail(error);
+    } finally {
+      this.watch.ended();
     }
   }
 

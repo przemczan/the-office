@@ -16,6 +16,7 @@ import { Telemetry } from "../../../../platform/telemetry/telemetry.js";
 import { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
 import { AgentEngines } from "../../application/agent-engines.js";
 import { EngineModels } from "../../application/engine-models.js";
+import { RunningEngineSessions } from "../../application/running-engine-sessions.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
 import { DayUsage } from "../../application/day-usage.js";
 import { EngineSessions } from "../../application/engine-sessions.js";
@@ -100,6 +101,7 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
           new DayUsage(new DayUsageForTests(), new ManualSchedule()),
           new UsageWindowSamples(new UsageWindowSamplesForTests()),
           new EngineModels(new EngineSettingsForTests()),
+          new RunningEngineSessions(),
         );
         const sessionId = randomUUID();
         const session = await sessions.start({

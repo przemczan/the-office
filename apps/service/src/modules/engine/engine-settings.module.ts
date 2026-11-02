@@ -6,11 +6,13 @@ import { EngineReferenceMoves } from "./application/engine-reference-moves.js";
 import { EngineSettingsChecks } from "./application/engine-settings-checks.js";
 import { EngineSettingsService } from "./application/engine-settings-service.js";
 import { ModelPrices } from "./application/model-prices.js";
+import { RunningEngineSessions } from "./application/running-engine-sessions.js";
 import { EngineSettingsRepository } from "./ports/engine-settings-repository.js";
 
 /**
  * The engines' Office-wide settings, the models they make each engine offer and what tokens on
- * them cost (`ModelPrices`). Both `EngineModule` and `ScriptedEngineModule` hold it, so a test on
+ * them cost (`ModelPrices`), and the sessions running on each (`RunningEngineSessions`), one count
+ * for both the sessions and the accounts. Both `EngineModule` and `ScriptedEngineModule` hold it, so a test on
  * scripted engines keeps them; the OpenAI-compatible API engine reads its API endpoints, keys included, from the repository.
  */
 @Module({
@@ -22,6 +24,7 @@ import { EngineSettingsRepository } from "./ports/engine-settings-repository.js"
     EngineReferenceMoves,
     EngineModels,
     ModelPrices,
+    RunningEngineSessions,
   ],
   exports: [
     EngineSettingsService,
@@ -30,6 +33,7 @@ import { EngineSettingsRepository } from "./ports/engine-settings-repository.js"
     EngineModels,
     ModelPrices,
     EngineSettingsRepository,
+    RunningEngineSessions,
   ],
 })
 export class EngineSettingsModule {}

@@ -7,6 +7,7 @@ import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { EngineSettingsService } from "../../application/engine-settings-service.js";
+import { RunningEngineSessions } from "../../application/running-engine-sessions.js";
 import { EngineAccountChanged } from "../../domain/engine-events.js";
 import { FIRST_CLAUDE_CODE_ENGINE } from "../../domain/engines.js";
 import { EngineAccountsModule } from "../../engine-accounts.module.js";
@@ -85,6 +86,23 @@ function send(method: string, path: string, body?: unknown): Promise<Response> {
   });
 }
 
+/** Adds the Claude Code engine "Second account", whose id is `second-account`. */
+async function addSecondAccount(service: EngineSettingsService): Promise<void> {
+  const stored = await service.current();
+  await service.change({
+    ...stored,
+    engines: [
+      ...stored.engines,
+      {
+        name: "Second account",
+        kind: "claude-code",
+        claudeCodeP: false,
+        defaultModel: "claude-haiku-5-5",
+      },
+    ],
+  });
+}
+
 async function account(engineId: string): Promise<unknown> {
   const response = await fetch(`${url}/api/settings/engines/${engineId}/account`);
   expect(response.status).toBe(200);
@@ -119,12 +137,7 @@ describe("/api/settings/engines/:engineId account and Sign in", () => {
 
   it("makes a Claude Code engine's folder when it is added, and removes it, signed out, with it", async () => {
     const service = app.get(EngineSettingsService);
-    const stored = await service.current();
-    const second = { name: "Second account", kind: "claude-code", claudeCodeP: false } as const;
-    await service.change({
-      ...stored,
-      engines: [...stored.engines, { ...second, defaultModel: "claude-haiku-5-5" }],
-    });
+    await addSecondAccount(service);
     await post("second-account/sign-in");
     await post("second-account/sign-in/code", { code: "a-code" });
 
@@ -132,8 +145,39 @@ describe("/api/settings/engines/:engineId account and Sign in", () => {
     // The API engine Strata has no folder.
     await service.remove("strata", FIRST_CLAUDE_CODE_ENGINE.id);
 
-    expect(accounts.folders).toEqual(["made second-account", "removed second-account"]);
+    await expect
+      .poll(() => accounts.folders)
+      .toEqual(["made second-account", "removed second-account"]);
     await expect(accounts.account("second-account")).resolves.toEqual({ signedIn: false });
+  });
+
+  it("removes a removed engine's folder only once the sessions running on it have ended", async () => {
+    const service = app.get(EngineSettingsService);
+    await addSecondAccount(service);
+    const ended = app.get(RunningEngineSessions).started("second-account");
+
+    await service.remove("second-account", FIRST_CLAUDE_CODE_ENGINE.id);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(accounts.folders).toEqual(["made second-account"]);
+
+    ended();
+    await expect
+      .poll(() => accounts.folders)
+      .toEqual(["made second-account", "removed second-account"]);
+  });
+
+  it("keeps the folder of an engine added again under its name while its sessions ran", async () => {
+    const service = app.get(EngineSettingsService);
+    await addSecondAccount(service);
+    const running = app.get(RunningEngineSessions);
+    const ended = running.started("second-account");
+    await service.remove("second-account", FIRST_CLAUDE_CODE_ENGINE.id);
+    await addSecondAccount(service);
+
+    ended();
+    await running.allEnded("second-account");
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(accounts.folders).toEqual(["made second-account", "made second-account"]);
   });
 
   it("signs in by a pasted token, never answered back, and signs out", async () => {

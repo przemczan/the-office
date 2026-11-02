@@ -37,6 +37,7 @@ import type { SessionEvent, TurnEndedEvent } from "../ports/session-events.js";
 import type { OfficeTool } from "../ports/office-tool.js";
 import { AgentEngines, type EngineAdapter } from "./agent-engines.js";
 import { EngineModels } from "./engine-models.js";
+import { RunningEngineSessions } from "./running-engine-sessions.js";
 import { DayUsage } from "./day-usage.js";
 import { EngineSessions, type SessionSettings } from "./engine-sessions.js";
 import { OfficeToolRegistry } from "./office-tool-registry.js";
@@ -162,6 +163,7 @@ function setUpOn(
   const schedule = new ManualSchedule();
   const dayUsage = new DayUsage(new DayUsageForTests(), schedule);
   const windowSamples = new UsageWindowSamples(new UsageWindowSamplesForTests());
+  const running = new RunningEngineSessions();
   const sessions = new EngineSessions(
     new AgentEngines(engines),
     telemetry,
@@ -171,8 +173,9 @@ function setUpOn(
     dayUsage,
     windowSamples,
     new EngineModels(settings),
+    running,
   );
-  return { sessions, spans, published, usageWindows, dayUsage, schedule, windowSamples };
+  return { sessions, spans, published, usageWindows, dayUsage, schedule, windowSamples, running };
 }
 
 /** Reads a session's events until its `count`th turn has ended. */
@@ -351,6 +354,32 @@ describe("EngineSessions", () => {
       }),
     ).rejects.toThrow(new EngineNotListed("gone"));
     expect(published).toEqual([]);
+  });
+
+  it("counts a session as running on its engine until its events end, and one refused not at all", async () => {
+    const { sessions, running } = setUp([ONE_TURN]);
+    const allEnded = vi.fn<() => void>();
+    await expect(
+      sessions.start({
+        id: "s-0",
+        settings: { ...SETTINGS, engineId: "gone" },
+        brief: message("Begin."),
+      }),
+    ).rejects.toThrow(EngineNotListed);
+    await running.allEnded("gone");
+
+    const session = await sessions.start({
+      id: "s-1",
+      settings: SETTINGS,
+      brief: message("Begin."),
+    });
+    void running.allEnded(SETTINGS.engineId).then(allEnded);
+    await turns(session, 1);
+    await Promise.resolve();
+    expect(allEnded).not.toHaveBeenCalled();
+
+    await session.end();
+    await expect.poll(() => allEnded.mock.calls.length).toBe(1);
   });
 
   it("announces the engine down, naming the engine, when it can't start a session", async () => {
