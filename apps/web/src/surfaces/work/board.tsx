@@ -10,6 +10,7 @@ import { useProjectFilter } from "../../shell/project-filter/use-project-filter.
 import { ProjectMark } from "../../shell/project-mark.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { PriorityIcon, TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
+import { UsageEstimateLine, useUsageEstimate } from "../../shell/work/usage-estimate-line.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { NOT_STARTED, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
@@ -207,6 +208,8 @@ function BoardCard({
   const project = projects?.find(({ id }) => id === task.projectId);
   const movable = NOT_STARTED.includes(task.state);
   const foot = queued ? <QueuedMark queued={queued} /> : footOf(task, planner, waiting);
+  // Only Ready Tasks, queued ones too, have one.
+  const usageEstimate = useUsageEstimate(task.id);
   const classes = [
     "board-card",
     waiting ? "edge-decision" : EDGES[task.state],
@@ -247,7 +250,12 @@ function BoardCard({
         ))}
       </div>
       {blockers.length > 0 && <BlockedMark blockers={blockers} />}
-      {foot && <div className="board-card-foot">{foot}</div>}
+      {(foot || usageEstimate) && (
+        <div className="board-card-foot">
+          {foot}
+          <UsageEstimateLine estimate={usageEstimate} />
+        </div>
+      )}
     </article>
   );
 }

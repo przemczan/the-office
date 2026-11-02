@@ -9,6 +9,7 @@ import { Button, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { startTask, taskQueries } from "../../api/work.ts";
 import { useToast } from "../../shell/toasts.tsx";
+import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
 import { QueueActions, QueuedMark, useQueued } from "./queue-parts.tsx";
 
 /**
@@ -16,7 +17,8 @@ import { QueueActions, QueuedMark, useQueued } from "./queue-parts.tsx";
  * vacant Role refuses it; while only a limit holds it, Start says the Task joins the queue (spec
  * §2.1, "A queue for Start"). An Overlap with a Task in progress in the Project names it and the
  * files, and Start becomes "Start anyway" or "Queue behind it" (spec §2.1, "Overlaps at Start"). A
- * queued Task shows its place, reasons and the queue's actions.
+ * queued Task shows its place, reasons and the queue's actions. Beside Start, the Task's Usage
+ * estimate.
  */
 export function StartButton({ task }: { readonly task: Task }): ReactNode {
   const ready = task.state === "ready";
@@ -102,8 +104,20 @@ function OverlapNote({ overlaps }: { readonly overlaps: readonly Overlap[] }): R
   );
 }
 
-/** Why Start can't run the Task now: the refusals, else the waits it would queue behind. */
+/**
+ * What Start would do with the Task now: the refusals, else the waits it would queue behind (a cap's
+ * in the service's words), then its Usage estimate.
+ */
 function StartNote({ check }: { readonly check: StartCheck }): ReactNode {
+  return (
+    <>
+      <HeldNote check={check} />
+      <UsageEstimateLine estimate={check.usageEstimate} />
+    </>
+  );
+}
+
+function HeldNote({ check }: { readonly check: StartCheck }): ReactNode {
   if (check.refusals.length > 0) {
     return (
       <span className="task-head-note">

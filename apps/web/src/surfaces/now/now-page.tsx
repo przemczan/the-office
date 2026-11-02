@@ -13,6 +13,7 @@ import type { ReactNode } from "react";
 import { nowQueries } from "../../api/notifications.ts";
 import { roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
+import { taskQueries } from "../../api/work.ts";
 import { PAUSED_BY_THE_ALARM } from "../../shell/fire-alarm/fire-alarm-words.ts";
 import { Desk, Feed, Panel, PanelHeading } from "../../shell/desk.tsx";
 import { EmptyCard, ItemCard } from "../../shell/item-card.tsx";
@@ -32,6 +33,7 @@ import { narrowed, type Narrowed } from "../../shell/project-filter/project-filt
 import { useProjectFilter } from "../../shell/project-filter/use-project-filter.ts";
 import { momentWords } from "../../shell/time.ts";
 import { useClock } from "../../shell/use-clock.ts";
+import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
 import { TASK_STATE_NAMES, TASK_STATE_TONES } from "../../shell/work/work-words.ts";
 import { AlarmPanel } from "./alarm-panel.tsx";
 import "./now.css";
@@ -176,7 +178,10 @@ function RunningCard({
   );
 }
 
-/** The queue for Start, first place first: each Task starts by itself once a desk and its person are free. */
+/**
+ * The queue for Start, first place first: each Task starts by itself once a desk and its person are
+ * free and its caps allow it; each with its Usage estimate, read from Work beside the `now` query.
+ */
 function QueueFeed({
   queue,
   projects,
@@ -185,6 +190,7 @@ function QueueFeed({
   readonly projects: readonly Project[] | undefined;
 }): ReactNode {
   const { shown, elsewhere } = useNarrowedByProject(queue);
+  const usageEstimates = useQuery(taskQueries.usageEstimates()).data;
   return (
     <>
       {shown.length === 0 && <EmptyCard>Nothing is queued in these Projects.</EmptyCard>}
@@ -201,6 +207,9 @@ function QueueFeed({
             <div className="now-item-sub">
               Place {task.place} · {task.reasons.join(" ")}
             </div>
+            <UsageEstimateLine
+              estimate={usageEstimates?.find(({ taskId }) => taskId === task.taskId)?.usageEstimate}
+            />
           </div>
         </ItemCard>
       ))}

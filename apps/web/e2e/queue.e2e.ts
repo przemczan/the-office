@@ -8,6 +8,8 @@ import {
   type StartAnswer,
   type StartCheck,
   type Task,
+  type TaskUsageEstimateList,
+  type UsageEstimate,
 } from "@the-office/contracts";
 import { queryOfficeDatabase } from "./office-database.ts";
 import { createTemporaryRepository, type TemporaryRepository } from "./temporary-repository.ts";
@@ -16,6 +18,8 @@ import { createTemporaryRepository, type TemporaryRepository } from "./temporary
 // Tasks seeded into it here would otherwise start or leave at another file's release.
 
 const ONLY_DESK = "The Office-wide limit is reached: the only desk is in use.";
+const CAP_WAIT =
+  "The Claude Code engines' 5-hour window would pass its 90% cap: 80% used, 6% expected of the Tasks started since it was read and 6% of this Task. It resets at 12:00.";
 
 let repository: TemporaryRepository;
 
@@ -34,6 +38,12 @@ test.afterAll(async ({ request }) => {
   }
   await queryOfficeDatabase("delete from queue", []);
   await repository.remove();
+});
+
+// A Start that queues releases the whole queue, which would start a Task seeded here whose desk is
+// free and open its sessions, so no test leaves one behind.
+test.afterEach(async () => {
+  await queryOfficeDatabase("delete from queue", []);
 });
 
 async function addedProject(page: Page, name: string, label: string): Promise<Project> {
@@ -67,11 +77,11 @@ async function readyTask(page: Page, project: Project, title: string): Promise<T
 }
 
 /** Seeds the Task last in the queue, as a Start that only waits leaves it. */
-async function queued(task: Task): Promise<void> {
+async function queued(task: Task, reason = ONLY_DESK): Promise<void> {
   await queryOfficeDatabase(
     `insert into queue (task_id, place, queued_at, reasons)
        values ($1, (select coalesce(max(place), 0) + 1 from queue), now(), $2)`,
-    [task.id, [ONLY_DESK]],
+    [task.id, [reason]],
   );
 }
 
@@ -146,6 +156,73 @@ test("Start says when it only queues the Task, and what holds it", async ({ page
   await expect(page.getByRole("button", { name: "Take out of the queue" })).toBeVisible();
 });
 
+test("a Ready Task's Usage estimate shows on its card, beside Start, in the Ready block and on Now when queued, with where it came from and a cap's wait in the service's words", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Queue estimates", "QE");
+  const learned = await readyTask(page, project, "Estimate the export's columns");
+  await queryOfficeDatabase(`update tasks set estimated_tokens = 90000 where id = $1`, [
+    learned.id,
+  ]);
+  const planned = await readyTask(page, project, "Estimate the inbox filters");
+  const unknown = await readyTask(page, project, "Estimate the empty state");
+  await queued(planned, CAP_WAIT);
+  // The estimates as the service gives them; Work's own tests cover how they are reached.
+  const fromHistory: UsageEstimate = {
+    basis: { source: "history", tasks: 4 },
+    engines: [{ engineId: "claude-code", tokens: 120_000, fiveHourWindow: 6, cost: 1.2 }],
+  };
+  const estimates: TaskUsageEstimateList = [
+    { taskId: learned.id, usageEstimate: fromHistory },
+    {
+      taskId: planned.id,
+      usageEstimate: {
+        basis: { source: "planner" },
+        engines: [
+          { engineId: "claude-code", tokens: 60_000, fiveHourWindow: 3, cost: 0.6 },
+          { engineId: "openai-compatible-api", tokens: 40_000, cost: null },
+        ],
+      },
+    },
+    { taskId: unknown.id, usageEstimate: { basis: { source: "none" }, engines: [] } },
+  ];
+  await page.route("**/api/usage-estimates", (route) => route.fulfill({ json: estimates }));
+  const check: StartCheck = { refusals: [], waits: [], overlaps: [], usageEstimate: fromHistory };
+  await page.route(`**/api/tasks/${learned.id}/start`, (route) => route.fulfill({ json: check }));
+  const HISTORY_WORDS =
+    "Expected: 120k tokens · 6% of the 5-hour window · $1.20, from the history of 4 done Tasks.";
+  const PLANNER_WORDS =
+    "Expected: Claude Code engines: 60k tokens · 3% of the 5-hour window · $0.60; OpenAI-compatible API: 40k tokens · no cost, from the Planner's estimate.";
+
+  await page.goto("/work");
+  const estimateOn = (title: string) =>
+    page.getByRole("article", { name: title }).getByRole("note", { name: "Usage estimate" });
+  await expect(estimateOn(learned.title)).toHaveText(HISTORY_WORDS);
+  await expect(estimateOn(unknown.title)).toHaveText(
+    "No estimate: fewer than 3 done Tasks to learn from, and no Planner's estimate.",
+  );
+  const queuedCard = page.getByRole("article", { name: planned.title });
+  await expect(queuedCard).toContainText(`Place 1 · ${CAP_WAIT}`);
+  await expect(estimateOn(planned.title)).toHaveText(PLANNER_WORDS);
+
+  await page.goto("/now");
+  const queuedOnNow = page.getByRole("article", { name: `Queued: ${planned.title}` });
+  await expect(queuedOnNow).toContainText(CAP_WAIT);
+  await expect(queuedOnNow.getByRole("note", { name: "Usage estimate" })).toHaveText(PLANNER_WORDS);
+
+  await page.goto(`/tasks/${learned.id}`);
+  // Beside Start and in the Ready block.
+  await expect(page.getByRole("note", { name: "Usage estimate" })).toHaveText([
+    HISTORY_WORDS,
+    HISTORY_WORDS,
+  ]);
+  await expect(
+    page
+      .getByRole("region", { name: "Plan" })
+      .getByText("The Planner expects the whole Pipeline to use about 90k tokens."),
+  ).toBeVisible();
+});
+
 test("Start warns of an Overlap with a Task in progress, naming it and the files, and queues behind it", async ({
   page,
 }) => {
@@ -176,7 +253,8 @@ test("Start warns of an Overlap with a Task in progress, naming it and the files
   await page.getByRole("button", { name: "Queue behind it" }).click();
 
   await expect(page.getByText(`${task.title} is queued, place`)).toBeVisible();
-  // Last in the queue, behind those the tests before left there.
+  // Read again after the release that queuing sets off, so its reasons are the release's.
+  await page.reload();
   await expect(
     page.getByText(
       /^Place \d+ · Queued behind "Rework the sign-in" until it is Done or Dropped\.$/,

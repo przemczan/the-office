@@ -15,6 +15,7 @@ import {
   taskQueries,
   type PlanConfirmation,
 } from "../../api/work.ts";
+import { tokensShort } from "../../shell/conversation/context-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
 import { PartEditor } from "./part-editor.tsx";
@@ -121,11 +122,26 @@ export function PlanBlock({ task, planner }: PartProps): ReactNode {
         <>
           <p className="task-plan">{task.plan}</p>
           <FilesToChange files={task.filesToChange} />
+          <PlannersEstimate estimatedTokens={task.estimatedTokens} />
         </>
       ) : (
         <p className="task-quiet">No Plan yet.</p>
       )}
     </RecordBlock>
+  );
+}
+
+/** The Planner's token estimate for the whole Pipeline, the Usage estimate below 3 done Tasks. */
+function PlannersEstimate({
+  estimatedTokens,
+}: {
+  readonly estimatedTokens: number | null;
+}): ReactNode {
+  if (estimatedTokens === null) return null;
+  return (
+    <p className="task-quiet">
+      The Planner expects the whole Pipeline to use about {tokensShort(estimatedTokens)} tokens.
+    </p>
   );
 }
 

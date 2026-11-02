@@ -1,19 +1,5 @@
 import type { EngineCaps, EngineId, UsageMeasure, UsageSettings } from "@the-office/contracts";
-
-/** The measures in the order their checkboxes show. */
-export const MEASURES = [
-  "tokens",
-  "fiveHourWindow",
-  "sevenDayWindow",
-  "cost",
-] as const satisfies readonly UsageMeasure[];
-
-export const MEASURE_LABELS: Readonly<Record<UsageMeasure, string>> = {
-  tokens: "Tokens",
-  fiveHourWindow: "5-hour window",
-  sevenDayWindow: "7-day window",
-  cost: "Cost",
-};
+import { MEASURES } from "../../../shell/work/usage-estimate-words.ts";
 
 export type CapKind = "fiveHour" | "sevenDay" | "dailyTokens" | "dailyDollars";
 

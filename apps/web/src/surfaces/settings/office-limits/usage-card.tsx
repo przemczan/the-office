@@ -8,14 +8,13 @@ import { ENGINE_ID_LABELS } from "../../../shell/engine-words.ts";
 import { resetWords } from "../../../shell/notifications/now-words.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
+import { MEASURE_LABELS, MEASURES } from "../../../shell/work/usage-estimate-words.ts";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
 import {
   capFieldProblem,
   capTextOf,
   draftChanged,
   draftOf,
-  MEASURE_LABELS,
-  MEASURES,
   usageSettingsOf,
   withCapText,
   withMeasure,

@@ -18,6 +18,7 @@ import {
   startCheckSchema,
   taskListSchema,
   taskSchema,
+  taskUsageEstimateListSchema,
   usageSettingsSchema,
   type Attachment,
   type AttachmentOwner,
@@ -43,6 +44,7 @@ import {
   type FireAlarm,
   type Task,
   type TaskPlacement,
+  type TaskUsageEstimateList,
   type UsageSettings,
   type WorkWebEvent,
 } from "@the-office/contracts";
@@ -187,6 +189,16 @@ export const taskQueries = {
     queryOptions({
       queryKey: [...TASKS, "queue"],
       queryFn: ({ signal }): Promise<QueuedTask[]> => getFromApi("/queue", queueSchema, signal),
+    }),
+  /**
+   * Every Ready Task's Usage estimate, queued ones too; empty with no measure ticked. Under the
+   * Tasks' key, so any Task event and a change of the measures refresh it.
+   */
+  usageEstimates: () =>
+    queryOptions({
+      queryKey: [...TASKS, "usage-estimates"],
+      queryFn: ({ signal }): Promise<TaskUsageEstimateList> =>
+        getFromApi("/usage-estimates", taskUsageEstimateListSchema, signal),
     }),
   /** Why Start would be refused now; under the Task's key, so any Task event refreshes it. */
   startCheck: (id: string) =>
