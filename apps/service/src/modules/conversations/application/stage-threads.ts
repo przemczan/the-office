@@ -2,12 +2,7 @@ import { randomUUID } from "node:crypto";
 import { Injectable, Logger } from "@nestjs/common";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import {
-  EngineSessions,
-  engineModelOf,
-  type EngineId,
-  type RoleEngine,
-} from "../../engine/index.js";
+import { EngineSessions, type EngineId } from "../../engine/index.js";
 import { SessionMcpServers, type LeftOutMcpServer } from "../../mcp-servers/index.js";
 import {
   mcpToolSettingsFor,
@@ -162,8 +157,8 @@ interface CarriedMessages {
 export interface StageThread {
   readonly threadId: string;
   readonly move: ContextDecision;
-  /** The engine and model the session runs on. */
-  readonly engine: RoleEngine;
+  /** The engine the session runs on, by its id, and the model, by its id there. */
+  readonly engine: EngineId;
   readonly model: string;
   /** The person's turn running now, as it ends. */
   nextTurn(): Promise<StageTurn>;
@@ -282,7 +277,7 @@ export class StageThreads {
         session: previous?.session,
         roleKey: request.roleKey,
         sessionDefault: current.card.sessionDefault,
-        engineId: cardEngineId(current.card),
+        engineId: current.card.engine,
         override: request.declared === undefined ? previous?.override : undefined,
         declared: request.declared,
         briefTokens: brief.tokens,
@@ -422,7 +417,7 @@ export class StageThreads {
     );
     await this.repository.add(thread);
     await this.events.publish(event);
-    const session = freshSession(randomUUID(), { ...role, engineId: cardEngineId(role.card) }, now);
+    const session = freshSession(randomUUID(), { ...role, engineId: role.card.engine }, now);
     await this.change(thread.id, (latest) =>
       beginStageWork(
         latest,
@@ -499,7 +494,7 @@ export class StageThreads {
   ): SessionSettings {
     return {
       engineId,
-      model: engineModelOf(card.engine, stageModel(request, card)).model,
+      model: stageModel(request, card),
       folder: request.folder,
       environment: request.environment,
       effort: request.effort ?? card.effort,
@@ -615,8 +610,7 @@ export class StageThreads {
       },
       interrupt: async () => {
         if (!turnRunning || sessionEnded) return;
-        const { engineId } = engineModelOf(engine, model);
-        if (!(await this.engine.capabilitiesOf(engineId)).interrupt) return endSession();
+        if (!(await this.engine.capabilitiesOf(engine)).interrupt) return endSession();
         await session.interrupt().catch(async (error: unknown) => {
           this.logger.warn(`Thread ${threadId}'s turn wasn't interrupted: ${messageOf(error)}`);
           await endSession();
@@ -704,7 +698,7 @@ export class StageThreads {
 interface StageWorkPlace {
   readonly threadId: string;
   readonly roleKey: string;
-  readonly engine: RoleEngine;
+  readonly engine: EngineId;
   readonly model: string;
   readonly folder: string;
   readonly began: Date;
@@ -721,11 +715,6 @@ const STAGE_ENDING = "The Stage is ending. Send your message once it has ended."
 /** The Stage's own model, else the Role card's. */
 function stageModel(request: StageThreadRequest, card: SessionRole["card"]): string {
   return request.model ?? card.model;
-}
-
-/** The engine `card` picks, by its id, which a session starts on and resumes only on. */
-function cardEngineId(card: SessionRole["card"]): EngineId {
-  return engineModelOf(card.engine, card.model).engineId;
 }
 
 function messageOf(error: unknown): string {

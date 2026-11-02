@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { engineModelOf, ModelPrices, ROLE_ENGINES, type RoleEngine } from "../../engine/index.js";
+import { FIRST_CLAUDE_CODE_ENGINE, ModelPrices, type EngineModel } from "../../engine/index.js";
 import {
   dollarsPerToken,
   latestTasksRuns,
@@ -43,13 +43,21 @@ export class UsageHistory {
 
   // Cost is linear in tokens, so one price per engine and model covers all its runs.
   private async priced({ engine, model, tokens }: ModelTokens): Promise<PricedTokens> {
-    const dollars = isRoleEngine(engine)
-      ? await this.prices.costOf(engineModelOf(engine, model), tokens)
-      : undefined;
-    return { tokens, dollars };
+    return { tokens, dollars: await this.prices.costOf(engineModelOf(engine, model), tokens) };
   }
 }
 
-function isRoleEngine(engine: string): engine is RoleEngine {
-  return (ROLE_ENGINES as readonly string[]).includes(engine);
+/**
+ * The engine and model a Stage run kept. Until step 1d of task 47 moves them, runs from before
+ * the Role card named an engine id keep the way it ran (`agent-sdk`, `claude-code-p`, both on the
+ * first Claude Code engine, or `openai-compatible-api` with the model as `<endpoint>/<model>`).
+ */
+function engineModelOf(engine: string, model: string): EngineModel {
+  if (engine === "agent-sdk" || engine === "claude-code-p") {
+    return { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model };
+  }
+  const at = model.indexOf("/");
+  return engine === "openai-compatible-api" && at > 0
+    ? { engineId: model.slice(0, at), model: model.slice(at + 1) }
+    : { engineId: engine, model };
 }

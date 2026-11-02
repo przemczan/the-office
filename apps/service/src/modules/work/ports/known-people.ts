@@ -1,4 +1,4 @@
-import type { RoleEngine } from "../../engine/index.js";
+import type { EngineId } from "../../engine/index.js";
 import type { TaskLimit } from "../domain/task-start.js";
 
 /** The people Work's use cases turn to, which the People module keeps; the composition root binds it. */
@@ -13,7 +13,7 @@ export interface KnownPerson {
     readonly name: string;
     readonly taskLimit: TaskLimit;
     /** The engine and model the person works with; a Usage estimate is per engine. */
-    readonly engine: RoleEngine;
+    readonly engine: EngineId;
     readonly model: string;
   };
 }

@@ -1,4 +1,4 @@
-import { parseApiEndpointModel, type ApiEndpointModel } from "./api-endpoints.js";
+import type { ApiEndpointModel } from "./api-endpoints.js";
 
 /** Made from the engine's name when it is added and kept on a rename (spec §5.4). */
 export type EngineId = string;
@@ -77,30 +77,8 @@ export function hasUsageWindows(engine: Engine): boolean {
   return engine.kind === "claude-code";
 }
 
-/**
- * What a Role card names as its engine until step 1c3 of task 47 makes it an engine id: the Agent
- * SDK or the `-p` fallback, both on the first Claude Code engine, or the OpenAI-compatible API, on
- * the engine its Model field's `<endpoint>/` names.
- */
-export const ROLE_ENGINES = ["agent-sdk", "claude-code-p", "openai-compatible-api"] as const;
-export type RoleEngine = (typeof ROLE_ENGINES)[number];
-
 /** An engine and one of its models, by its id there. */
 export interface EngineModel {
   readonly engineId: EngineId;
   readonly model: string;
-}
-
-/**
- * The engine a Role card's engine and Model field run on, with the model by its id there. An API
- * model naming no endpoint stays on the kind's own id, as the upgrade keeps such usage.
- */
-export function engineModelOf(roleEngine: RoleEngine, model: string): EngineModel {
-  if (roleEngine !== "openai-compatible-api") {
-    return { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model };
-  }
-  const named = parseApiEndpointModel(model);
-  return named === undefined
-    ? { engineId: roleEngine, model }
-    : { engineId: named.endpointId, model: named.modelId };
 }

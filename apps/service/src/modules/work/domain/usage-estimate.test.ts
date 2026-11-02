@@ -42,15 +42,18 @@ function usage(stageTokens: StageTokens, samples: number): StageUsage {
 
 describe("stageEngineAndModel", () => {
   it("takes the Role's engine, and the Stage's own model or else the Role's", () => {
-    const role = { engine: "agent-sdk", model: "claude-opus-5-5" } as const;
+    const role = { engine: "claude-code", model: "claude-opus-5-5" };
 
-    expect(stageEngineAndModel({ key: "a", name: "A", role: "developer" }, role)).toEqual(role);
+    expect(stageEngineAndModel({ key: "a", name: "A", role: "developer" }, role)).toEqual({
+      engineId: "claude-code",
+      model: "claude-opus-5-5",
+    });
     expect(
       stageEngineAndModel(
         { key: "a", name: "A", role: "developer", model: "claude-haiku-5-5" },
         role,
       ),
-    ).toEqual({ engine: "agent-sdk", model: "claude-haiku-5-5" });
+    ).toEqual({ engineId: "claude-code", model: "claude-haiku-5-5" });
   });
 });
 

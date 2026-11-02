@@ -235,29 +235,6 @@ test("the user hires a person from scratch, filling the whole Role card", async 
   await expect(roleCardGroup(page, "Work")).toContainText("1 at once");
 });
 
-test("the user switches a Role to Claude Code -p with one of its models, and the card shows it", async ({
-  page,
-}) => {
-  await page.goto("/people/data-analyst/role/edit");
-  const form = page.locator("form.role-card-form");
-  const engine = form.getByRole("combobox", { name: "Engine" });
-  await expect(engine).toHaveValue("agent-sdk");
-  await engine.selectOption({ label: "Claude Code -p" });
-  await form.getByLabel("Model").selectOption({ label: "Haiku 5.5" });
-  await page.getByRole("button", { name: "Save changes" }).click();
-
-  await expect(
-    page.getByText("Role card saved. Mia works with it from the next session."),
-  ).toBeVisible();
-  await expect(page).toHaveURL(/\/people\/data-analyst\/role$/);
-  await page.reload();
-  await expect(roleCardGroup(page, "Engine")).toContainText(
-    "Haiku 5.5 · effort medium · Claude Code -p",
-  );
-  const changes = page.getByRole("listitem").filter({ hasText: "Role card version 2" });
-  await expect(changes).toContainText("Engine Agent SDK → Claude Code -p");
-});
-
 test("the user lets a person go, finds their page kept and read-only, and hires them back", async ({
   page,
 }) => {
@@ -312,19 +289,17 @@ test("the user lists an API endpoint in Settings › Engines and puts Mia on one
 
   await page.goto("/people/data-analyst/role/edit");
   const form = page.locator("form.role-card-form");
-  await form.getByRole("combobox", { name: "Engine" }).selectOption({
-    label: "OpenAI-compatible API",
-  });
+  await form.getByRole("combobox", { name: "Engine" }).selectOption({ label: "People Strata" });
   await expect(
     form.getByText("It has no usage windows, so the 5-hour window doesn't count it."),
   ).toBeVisible();
-  await form.getByLabel("Model").selectOption({ label: "People Strata · org/coder:q4" });
+  await form.getByLabel("Model").selectOption({ label: "org/coder:q4" });
   await page.getByRole("button", { name: "Save changes" }).click();
 
   await expect(page).toHaveURL(/\/people\/data-analyst\/role$/);
   await page.reload();
   await expect(roleCardGroup(page, "Engine")).toContainText(
-    "People Strata · org/coder:q4 · effort medium · OpenAI-compatible API",
+    "org/coder:q4 · effort medium · People Strata",
   );
   await expect(roleCardGroup(page, "Engine")).toContainText("It has no usage windows");
 });

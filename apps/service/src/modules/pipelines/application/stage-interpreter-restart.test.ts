@@ -119,7 +119,7 @@ async function aRunLeftRunning(
     await runs.saveThread(run.id, {
       threadId,
       session: "fresh",
-      engine: "agent-sdk",
+      engine: "claude-code",
       model: "scripted",
     });
   }

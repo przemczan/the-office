@@ -9,13 +9,11 @@ export { EngineDown, UsageWindowsChanged, UsageWindowsRead } from "./domain/engi
 export { EngineModels } from "./application/engine-models.js";
 export {
   FIRST_CLAUDE_CODE_ENGINE,
-  ROLE_ENGINES,
-  engineModelOf,
   hasUsageWindows,
+  offeredModels,
   type Engine,
   type EngineId,
   type EngineModel,
-  type RoleEngine,
 } from "./domain/engines.js";
 export { DayUsage } from "./application/day-usage.js";
 export type { ModelDayUsage } from "./ports/day-usage-repository.js";

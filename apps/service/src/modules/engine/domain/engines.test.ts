@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   CLAUDE_CODE_MODELS,
   engineIdFor,
-  engineModelOf,
   FIRST_CLAUDE_CODE_ENGINE,
   hasUsageWindows,
   offeredModels,
@@ -31,33 +30,6 @@ describe("an engine", () => {
   it("has usage windows only on Claude Code", () => {
     expect(hasUsageWindows(FIRST_CLAUDE_CODE_ENGINE)).toBe(true);
     expect(hasUsageWindows(strata)).toBe(false);
-  });
-});
-
-// The upgrade's migration (drizzle/0075_engines.sql) splits kept usage the same way.
-describe("engineModelOf, the engine a Role card's engine and Model field run on", () => {
-  it.each(["agent-sdk", "claude-code-p"] as const)(
-    "runs %s on the first Claude Code engine",
-    (roleEngine) => {
-      expect(engineModelOf(roleEngine, "claude-haiku-5-5")).toEqual({
-        engineId: "claude-code",
-        model: "claude-haiku-5-5",
-      });
-    },
-  );
-
-  it("runs an API model on its endpoint's engine, split at the first /", () => {
-    expect(engineModelOf("openai-compatible-api", "strata/org/coder:q4")).toEqual({
-      engineId: "strata",
-      model: "org/coder:q4",
-    });
-  });
-
-  it("keeps an API model naming no endpoint on the kind's own id", () => {
-    expect(engineModelOf("openai-compatible-api", "coder")).toEqual({
-      engineId: "openai-compatible-api",
-      model: "coder",
-    });
   });
 });
 

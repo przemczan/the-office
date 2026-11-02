@@ -1,5 +1,5 @@
 import { Injectable } from "@nestjs/common";
-import { EngineModels, EngineSessions, engineModelOf, type EngineId } from "../../engine/index.js";
+import { EngineModels, EngineSessions, type EngineId } from "../../engine/index.js";
 import type { Task } from "../domain/task.js";
 import {
   HISTORY_WINS_AT,
@@ -127,8 +127,7 @@ export class UsageEstimates {
       (pipeline?.stages ?? []).map(async (stage) => {
         const person = stage.role === undefined ? undefined : await this.people.find(stage.role);
         if (!person) return [];
-        const { engine, model } = stageEngineAndModel(stage, person.card);
-        return [{ key: stage.key, ...engineModelOf(engine, model) }];
+        return [{ key: stage.key, ...stageEngineAndModel(stage, person.card) }];
       }),
     );
     return stages.flat();

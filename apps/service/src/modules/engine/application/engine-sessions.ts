@@ -28,7 +28,7 @@ import {
   type TokenUsage,
 } from "../ports/session-events.js";
 import type { SessionOptions } from "../ports/session-options.js";
-import { AgentEngines, type EngineAdapter } from "./agent-engines.js";
+import { AgentEngines } from "./agent-engines.js";
 import { EngineModels } from "./engine-models.js";
 import { DayUsage } from "./day-usage.js";
 import { EngineCallSpans, SessionCosts, type SessionTelemetry } from "./engine-call-spans.js";
@@ -90,9 +90,9 @@ export class EngineSessions {
     return this.engines.of(engine).capabilities.usageWindows;
   }
 
-  /** What an adapter declares it can't do, which the Role card names until step 1c3 of task 47. */
-  missingCapabilitiesOf(adapter: EngineAdapter): readonly EngineCapability[] {
-    return missingCapabilities(this.engines.named(adapter).capabilities);
+  /** What `engine` declares it can't do, which the Role card names under its Engine field. */
+  missingCapabilitiesOf(engine: Engine): readonly EngineCapability[] {
+    return missingCapabilities(this.engines.of(engine).capabilities);
   }
 
   async start({ id, settings, brief }: SessionStart): Promise<EngineSession> {

@@ -19,8 +19,7 @@ import {
   Textarea,
 } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import { EFFORT_LABELS } from "../engine-words.ts";
-import { useModelLabel } from "../use-model-label.ts";
+import { EFFORT_LABELS, modelLabel } from "../engine-words.ts";
 import {
   addStage,
   canContinue,
@@ -258,7 +257,6 @@ function StageSummary({
   roles,
   commandLines,
 }: StageEditorProps & { readonly stage: Stage; readonly name: string }): ReactNode {
-  const modelLabel = useModelLabel();
   const onFailure = stage.kind !== "gate" ? stage.onFailure : undefined;
   const target = onFailure && stages.find(({ key }) => key === onFailure.goBackTo);
   const details = [
@@ -410,7 +408,6 @@ function AgentFields({
   readonly stage: AgentStage;
   readonly change: (stage: Stage) => void;
 }): ReactNode {
-  const modelLabel = useModelLabel();
   const continuing = canContinue(stages, index);
   const role = roles.find(({ key }) => key === stage.role);
   const engine = role?.card.engine;

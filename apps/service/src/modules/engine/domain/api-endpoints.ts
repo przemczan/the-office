@@ -5,30 +5,22 @@ export interface ApiEndpointModel {
 }
 
 /**
- * Splits a Role's Model field into the endpoint and the model. The endpoint's id never holds it,
- * while a model's id may (`org/model:q4`), so the field is split at its first one.
+ * Joins and splits an API endpoint's model as the API adapter is handed it until step 1e of task
+ * 47 hands every adapter its engine. The endpoint's id never holds it, while a model's id may
+ * (`org/model:q4`), so the name is split at its first one.
  */
 const MODEL_SEPARATOR = "/";
 
-/** An API endpoint and one of its models, as a Role's Model field names them: `strata/qwen3`. */
+/** An API endpoint and one of its models, as the API adapter is handed them: `strata/qwen3`. */
 export function apiEndpointModel(endpointId: string, modelId: string): string {
   return `${endpointId}${MODEL_SEPARATOR}${modelId}`;
 }
 
-/** The API endpoint and the model a Model field names; undefined when it names no endpoint. */
+/** The API endpoint and the model `apiEndpointModel` joined; undefined when it names no endpoint. */
 export function parseApiEndpointModel(
   model: string,
 ): { readonly endpointId: string; readonly modelId: string } | undefined {
   const at = model.indexOf(MODEL_SEPARATOR);
   if (at <= 0 || at === model.length - 1) return undefined;
   return { endpointId: model.slice(0, at), modelId: model.slice(at + 1) };
-}
-
-/** Every model the API endpoints offer, as a Role's Model field names them, in their order. */
-export function apiEndpointModels(
-  endpoints: readonly { readonly id: string; readonly models: readonly ApiEndpointModel[] }[],
-): readonly string[] {
-  return endpoints.flatMap(({ id, models }) =>
-    models.map((model) => apiEndpointModel(id, model.id)),
-  );
 }

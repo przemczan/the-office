@@ -20,9 +20,4 @@ export class AgentEngines {
     if (engine.kind === "openai-compatible-api") return this.adapters["openai-compatible-api"];
     return this.adapters[engine.claudeCodeP ? "claude-code-p" : "agent-sdk"];
   }
-
-  /** The adapter a Role card's engine names, for what it can do, until step 1c3 of task 47. */
-  named(adapter: EngineAdapter): AgentEngine {
-    return this.adapters[adapter];
-  }
 }

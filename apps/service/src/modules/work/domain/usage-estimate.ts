@@ -1,4 +1,4 @@
-import type { RoleEngine, EngineId } from "../../engine/index.js";
+import type { EngineId, EngineModel } from "../../engine/index.js";
 
 /*
  * A Ready Task's Usage estimate (spec §2.1): what its whole Pipeline is expected to use on each
@@ -66,9 +66,9 @@ export interface EstimatedStage {
  */
 export function stageEngineAndModel(
   stage: PipelineStage,
-  role: { readonly engine: RoleEngine; readonly model: string },
-): { readonly engine: RoleEngine; readonly model: string } {
-  return { engine: role.engine, model: stage.model ?? role.model };
+  role: { readonly engine: EngineId; readonly model: string },
+): EngineModel {
+  return { engineId: role.engine, model: stage.model ?? role.model };
 }
 
 /** What a Pipeline is expected to use on one engine id; undefined where there is no estimate. */

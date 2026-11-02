@@ -121,7 +121,7 @@ describe("AgentStageRunner", () => {
     ]);
 
     const [run] = await runsOf(pipelines, taskId);
-    expect(run).toMatchObject({ engine: "agent-sdk", model: "claude-haiku-4-5" });
+    expect(run).toMatchObject({ engine: "claude-code", model: "claude-haiku-4-5" });
   });
 
   it("narrows the Role card's profile by the Stage's permissions, never widening it, and briefs the narrowed commands", async () => {

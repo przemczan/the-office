@@ -126,18 +126,17 @@ async function officeOnTheEndpoint(): Promise<Api> {
     }),
   );
   const strata = settings.engines.find(({ kind }) => kind === "openai-compatible-api");
-  const model = `${strata?.id ?? ""}/${MODEL}`;
   const hired = roleSchema.parse(
     await api("POST", "/roles", { roleKey: "developer", name: "Ada" }),
   );
   await api("PUT", "/roles/developer/card", {
     ...hired.card,
-    engine: "openai-compatible-api",
-    model,
+    engine: strata?.id,
+    model: MODEL,
     skills: [],
     capabilities: { ...hired.card.capabilities, chat: true },
   });
-  await note(`The Developer on ${model}`);
+  await note(`The Developer on ${strata?.id}/${MODEL}`);
   return api;
 }
 

@@ -1,10 +1,6 @@
 import { z } from "zod";
-import { engineCapabilitySchema } from "./engines.js";
+import { engineCapabilitySchema, engineIdSchema } from "./engines.js";
 import { webEventSchema } from "./events.js";
-
-/** What a Role card names as its engine until step 1c3 of task 47 makes it an engine id. */
-export const roleEngineSchema = z.enum(["agent-sdk", "claude-code-p", "openai-compatible-api"]);
-export type RoleEngine = z.infer<typeof roleEngineSchema>;
 
 /** How hard the model thinks. */
 export const effortSchema = z.enum(["low", "medium", "high", "xhigh", "max"]);
@@ -74,8 +70,9 @@ export const roleCardSchema = z.object({
   title: z.string(),
   responsibilities: z.string(),
   instructions: z.string(),
-  engine: roleEngineSchema,
-  /** One of the engine's models, by its id. */
+  /** One of the engines Settings › Engines lists, by its id. */
+  engine: engineIdSchema,
+  /** One of the engine's models, by its id there. */
   model: z.string(),
   effort: effortSchema,
   capabilities: capabilitiesSchema,
@@ -143,7 +140,8 @@ export const presetListSchema = z.array(presetSchema);
 export const roleCardOptionsSchema = z.object({
   engines: z.array(
     z.object({
-      engine: roleEngineSchema,
+      /** Each engine Settings › Engines lists, by its id. */
+      engine: engineIdSchema,
       models: z.array(z.string()),
       /** What the engine declares it can't do, which the card names under its Engine field. */
       missingCapabilities: z.array(engineCapabilitySchema),

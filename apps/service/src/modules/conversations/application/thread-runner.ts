@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { Injectable, Logger, type OnModuleDestroy } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { EngineSessions, engineModelOf } from "../../engine/index.js";
+import { EngineSessions } from "../../engine/index.js";
 import { SessionMcpServers } from "../../mcp-servers/index.js";
 import { mcpToolSettingsFor, RoleCards, type SessionRole } from "../../people/index.js";
 import { ApprovalHolds } from "./approval-holds.js";
@@ -354,14 +354,13 @@ export class ThreadRunner implements OnModuleDestroy {
     readonly role: SessionRole;
     readonly newSession: ThreadSession | undefined;
   }> {
-    const { engineId } = engineModelOf(current.card.engine, current.card.model);
     const decision = decideContext(
       {
         now,
         session: thread.session,
         roleKey: thread.roleKey,
         sessionDefault: current.card.sessionDefault,
-        engineId,
+        engineId: current.card.engine,
         override: thread.override,
         briefTokens: place.brief.tokens,
       },
@@ -373,7 +372,7 @@ export class ThreadRunner implements OnModuleDestroy {
       : current;
     const newSession = resumed
       ? undefined
-      : freshSession(randomUUID(), { ...current, engineId }, now);
+      : freshSession(randomUUID(), { ...current, engineId: current.card.engine }, now);
     return { decision, role, newSession };
   }
 
@@ -457,7 +456,7 @@ export class ThreadRunner implements OnModuleDestroy {
   ): SessionSettings {
     return {
       engineId,
-      model: engineModelOf(card.engine, card.model).model,
+      model: card.model,
       folder: place.folder,
       environment: place.environment,
       effort: card.effort,

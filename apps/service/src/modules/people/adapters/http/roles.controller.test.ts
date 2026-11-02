@@ -156,16 +156,12 @@ describe("GET /api/role-card-options", () => {
     const options = roleCardOptionsSchema.parse(await get("/role-card-options"));
 
     const models = ["claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5"];
-    // The API endpoints' models are Office-wide settings, which other test files change.
-    expect(options.engines).toEqual([
-      { engine: "agent-sdk", models, missingCapabilities: [] },
-      { engine: "claude-code-p", models, missingCapabilities: [] },
-      {
-        engine: "openai-compatible-api",
-        models: expect.any(Array),
-        missingCapabilities: ["usageWindows"],
-      },
-    ]);
+    // The engines are Office-wide settings, which other test files add API engines to.
+    expect(options.engines).toContainEqual({
+      engine: "claude-code",
+      models,
+      missingCapabilities: [],
+    });
     expect(options.knownRoles).toContainEqual({ key: "devops", title: "Devops" });
     expect(options.hardSwitches).toEqual([
       { key: "runInstalls", enforcement: "followed" },

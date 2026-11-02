@@ -212,8 +212,9 @@ function duplicateNameProblems(engines: readonly Engine[]): string[] {
 
 /*
  * One Claude Code engine for now: until each has its own account (step 1e of task 47) and Window
- * caps follow the engine's kind (1d), a second would share the first's account; and until 1c3,
- * Role cards reach the first by their engine's kind.
+ * caps follow the engine's kind (1d), a second would share the first's account. The first stays
+ * until removing an engine moves what names it (3a): the presets hire onto it, and Stage runs from
+ * before engine ids are priced on it (1d).
  */
 function claudeCodeEngineProblems(engines: readonly Engine[]): string[] {
   if (!engines.some(({ id }) => id === FIRST_CLAUDE_CODE_ENGINE.id)) {

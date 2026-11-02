@@ -1,6 +1,5 @@
 import { SdkMcpClient } from "../../../../platform/mcp/sdk-mcp-client.js";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
-import { apiEndpointModel } from "../../domain/api-endpoints.js";
 import type { ApiEngine } from "../../domain/engines.js";
 import type { AgentEngine } from "../../ports/agent-engine.js";
 import { EngineSettingsForTests } from "../../ports/engine-settings-repository.fixtures.js";
@@ -10,11 +9,9 @@ import { OpenAiCompatibleApiEngine } from "./openai-compatible-api-engine.js";
 /** The OpenAI-compatible API engine itself, its one API endpoint a fake server. */
 export interface ApiEngineOnFakeServer {
   readonly engine: AgentEngine;
-  /** The engine Settings › Engines lists for the endpoint, which sessions name by its id. */
+  /** The engine Settings › Engines lists for the endpoint, which sessions name by its id, on its one model, its default. */
   readonly endpoint: ApiEngine;
   readonly server: FakeChatCompletionsServer;
-  /** The endpoint's one model, as a Role's Model field names it. */
-  readonly model: string;
 }
 
 /**
@@ -38,5 +35,5 @@ export async function apiEngineOnFakeServer(officeData: string): Promise<ApiEngi
     new OfficeDataDirectory(officeData),
     new SdkMcpClient(),
   );
-  return { engine, endpoint, server, model: apiEndpointModel(endpoint.id, "coder:q4") };
+  return { engine, endpoint, server };
 }

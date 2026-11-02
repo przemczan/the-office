@@ -715,7 +715,7 @@ describe("a Thread on the OpenAI-compatible API, its own sessions on a fake serv
 
   beforeEach(async () => {
     api = await apiEngineOnFakeServer(officeData);
-    versions = [{ ...PLANNER, engine: "openai-compatible-api", model: api.model }];
+    versions = [{ ...PLANNER, engine: api.endpoint.id, model: api.endpoint.defaultModel }];
     await startOn([], api);
   });
 

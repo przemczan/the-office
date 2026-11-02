@@ -1,9 +1,7 @@
 import {
   effortSchema,
-  roleEngineSchema,
   sessionDefaultSchema,
   type Capabilities,
-  type RoleEngine,
   type EngineCapability,
   type HardSwitchKey,
   type HardSwitchValue,
@@ -46,12 +44,6 @@ export const CAPABILITIES: readonly CapabilityInfo[] = [
     hint: "Other Agents may consult them on a Task",
   },
 ];
-
-export const ENGINE_LABELS: Readonly<Record<RoleEngine, string>> = {
-  "agent-sdk": "Agent SDK",
-  "claude-code-p": "Claude Code -p",
-  "openai-compatible-api": "OpenAI-compatible API",
-};
 
 /** What the card says, under its Engine field, of each thing the engine declares it can't do. */
 const MISSING_CAPABILITY_WORDS: Readonly<Record<EngineCapability, string>> = {
@@ -308,8 +300,6 @@ export function fieldValueText(
   switch (field) {
     case "model":
       return modelLabel(value);
-    case "engine":
-      return labelIn(roleEngineSchema, (engine) => ENGINE_LABELS[engine], value);
     case "effort":
       return labelIn(effortSchema, (effort) => EFFORT_LABELS[effort], value);
     case "sessionDefault":

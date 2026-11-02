@@ -7,7 +7,7 @@ export function aPlannerCard(fields: Partial<SessionRole["card"]> = {}): Session
     title: "Planner",
     responsibilities: "Writes each Task's Plan and Definition of Done with you.",
     instructions: "Plan in conversation: ask what is unclear.",
-    engine: "agent-sdk",
+    engine: "claude-code",
     model: "claude-opus-5-5",
     effort: "high",
     capabilities: { sharedMemory: false, chat: true, consultant: true },

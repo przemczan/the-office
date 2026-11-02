@@ -1562,7 +1562,7 @@ const DEVELOPER_CARD: SessionRole["card"] = {
   title: "Developer",
   responsibilities: "Builds what the Plan says.",
   instructions: "Keep each change small.",
-  engine: "agent-sdk",
+  engine: "claude-code",
   model: "claude-haiku-4-5",
   effort: "low",
   capabilities: { sharedMemory: false, chat: true, consultant: false },

@@ -27,8 +27,8 @@ import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { skillQueries } from "../../api/skills.ts";
 import { initiativeQueries, officeWideLimitQuery, taskQueries } from "../../api/work.ts";
-import { EFFORT_LABELS } from "../engine-words.ts";
-import { useModelLabel } from "../use-model-label.ts";
+import { EFFORT_LABELS, modelLabel } from "../engine-words.ts";
+import { useEngineName } from "../use-engine-name.ts";
 import { personName, roleName } from "../person-name.ts";
 import {
   COMMAND_KEYS,
@@ -40,7 +40,6 @@ import {
 import { RefusalAlert } from "../refusal-alert.tsx";
 import {
   CAPABILITIES,
-  ENGINE_LABELS,
   fieldLabel,
   fieldValueText,
   HARD_SWITCH_LABELS,
@@ -327,7 +326,7 @@ function ProposedCard({
   readonly card: RoleCard;
   readonly roleTitles: RoleTitles;
 }): ReactNode {
-  const modelLabel = useModelLabel();
+  const engineName = useEngineName();
   const capabilities = CAPABILITIES.filter(({ key }) => card.capabilities[key]);
   return (
     <dl className="proposal-fields">
@@ -341,7 +340,7 @@ function ProposedCard({
       <ProposedField label="Task limit">{taskLimitLabel(card.taskLimit)}</ProposedField>
       <ProposedField label="Works with">
         {modelLabel(card.model)} · effort {EFFORT_LABELS[card.effort].toLowerCase()} ·{" "}
-        {ENGINE_LABELS[card.engine]}
+        {engineName(card.engine)}
         <span className="proposal-note">
           Sessions: {SESSION_DEFAULTS[card.sessionDefault].label}
         </span>

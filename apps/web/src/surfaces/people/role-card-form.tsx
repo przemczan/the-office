@@ -39,7 +39,7 @@ import {
   roleQueries,
 } from "../../api/people.ts";
 import { skillQueries } from "../../api/skills.ts";
-import { EFFORT_LABELS } from "../../shell/engine-words.ts";
+import { EFFORT_LABELS, modelLabel } from "../../shell/engine-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { personName } from "../../shell/person-name.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
@@ -56,7 +56,6 @@ import {
   ASKS_YOU_UNTIL_HIRED,
   CAPABILITIES,
   ENFORCEMENT_LABELS,
-  ENGINE_LABELS,
   HARD_SWITCH_LABELS,
   hardSwitchChoiceOf,
   hardSwitchChoices,
@@ -65,7 +64,7 @@ import {
   RUN_LABELS,
   SESSION_DEFAULTS,
 } from "../../shell/role-card-words.ts";
-import { useModelLabel } from "../../shell/use-model-label.ts";
+import { useEngineName } from "../../shell/use-engine-name.ts";
 
 /** "Edit Role": the person's whole Role card as a form, saved as its next version. */
 export function RoleCardEditPage(): ReactNode {
@@ -400,7 +399,7 @@ function EngineFields({
   options,
   change,
 }: FieldsProps & { readonly options: RoleCardOptions }): ReactNode {
-  const modelLabel = useModelLabel();
+  const engineName = useEngineName();
   const picked = options.engines.find(({ engine }) => engine === draft.engine);
   return (
     <RoleCardGroup group="engine">
@@ -411,7 +410,7 @@ function EngineFields({
           value={draft.engine}
           options={options.engines.map(({ engine }) => ({
             value: engine,
-            label: ENGINE_LABELS[engine],
+            label: engineName(engine),
           }))}
           onChange={(value) => {
             const engine = options.engines.find((offered) => offered.engine === value);

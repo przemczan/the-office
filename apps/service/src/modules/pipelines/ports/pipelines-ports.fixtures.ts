@@ -264,7 +264,7 @@ export class StageThreadsForTests extends StageThreads {
   async open(request: StageThreadRequest): Promise<StageThread> {
     this.requests.push(request);
     const threadId = randomUUID();
-    const engine = "agent-sdk";
+    const engine = "claude-code";
     const model = request.model ?? "scripted";
     const session = await this.sessions.start({
       id: randomUUID(),

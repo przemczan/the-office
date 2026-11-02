@@ -147,24 +147,6 @@ export const engineSettingsEditSchema = z.object({
 export type EngineSettingsEdit = z.infer<typeof engineSettingsEditSchema>;
 
 /**
- * The API endpoint and the model a Role's Model field names on the OpenAI-compatible API
- * (`strata/org/coder:q4`), split at the first `/` as the Engine module splits it; undefined when
- * it names no endpoint.
- */
-export function parseApiEndpointModel(
-  model: string,
-): { readonly endpointId: string; readonly modelId: string } | undefined {
-  const at = model.indexOf("/");
-  if (at <= 0 || at === model.length - 1) return undefined;
-  return { endpointId: model.slice(0, at), modelId: model.slice(at + 1) };
-}
-
-/** An API endpoint's model as a Role's Model field names it: `strata/org/coder:q4`. */
-export function apiEndpointModel(endpointId: string, modelId: string): string {
-  return `${endpointId}/${modelId}`;
-}
-
-/**
  * The id the Engine module gives an engine added as `name` (its `engineIdFor`): its letters and
  * digits, apart from `taken`. The web names a drafted engine's models by it, so a Model price typed
  * before Save lands on the model the service saves.
