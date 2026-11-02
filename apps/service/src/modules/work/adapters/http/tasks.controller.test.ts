@@ -1758,8 +1758,9 @@ describe("Window caps", () => {
   });
 
   it("releases a Task the window holds an hour before the window resets", async () => {
-    await windowRead(95, HOUR + 500);
+    // Read after making the Task, so the 500 ms margin covers only the Start.
     const task = await sixPercentTask();
+    await windowRead(95, HOUR + 500);
 
     const answer = startAnswerSchema.parse(await (await requestStart(task.id)).json());
 
