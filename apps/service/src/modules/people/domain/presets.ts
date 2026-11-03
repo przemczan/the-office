@@ -52,6 +52,7 @@ const developer: Preset = {
       "Work from the Plan and the Definition of Done. Keep the change small and the tests green. End every Stage with a Handover note.",
       "Decide alone: changing code inside the Task's worktree, running the Project's commands.",
       "Consult the CTO first: an architecture question the Plan leaves open.",
+      "Consult Devops first: a check that cannot run because the machine or the Project's setup lacks something (a database that refuses its login, a missing service or tool). Do not ask the user to supply it or work around it yourself.",
       "Ask the user: changing the Definition of Done or a public API.",
     ].join("\n\n"),
     roleOverride: null,
