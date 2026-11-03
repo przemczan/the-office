@@ -3,7 +3,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { startTestApplication } from "../../../../test/test-application.js";
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
@@ -13,6 +13,7 @@ import { OfficeDataModule } from "../../../platform/office-data/office-data.modu
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { CONSULT_TOOL, OPEN_DECISION_TOOL } from "@the-office/contracts";
 import {
+  EngineModels,
   FIRST_CLAUDE_CODE_ENGINE,
   OfficeToolRegistry,
   ScriptedEngine,
@@ -895,6 +896,24 @@ describe("Stop", () => {
       closing: { kind: "held", heldBy: "stop", text: "Stopped by the user." },
     });
     expect(receivedSteps()).toEqual(["start", "end"]);
+  });
+
+  it("interrupts a turn whose engine was removed while it ran, as it finishes on the old engine", async () => {
+    const command = aCommand("npm-test");
+    await startWith(
+      started(command.call, { step: "interrupt" }, anInterruptedTurn, {
+        step: "read-context-usage",
+        usage: { tokens: 30_000, window: 1_000_000 },
+      }),
+    );
+    const stageThread = await stageThreads.open(aStage({ roleKey: aPerson("Ada") }));
+    const turn = stageThread.nextTurn();
+    vi.spyOn(app.get(EngineModels), "engines").mockResolvedValue([]);
+
+    await stageThread.interrupt();
+
+    await expect(turn).resolves.toMatchObject({ problem: "The turn was interrupted." });
+    expect(receivedSteps()).toEqual(["start", "interrupt"]);
   });
 
   it("carries the user's message the stopped session never took into the Stage's next run, delivered once a turn takes it", async () => {

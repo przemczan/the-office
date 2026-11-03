@@ -180,6 +180,17 @@ describe("handles", () => {
     expect(handles({ kind: "engine-answered", engineId: "work-account" }, unnamed)).toBe(true);
   });
 
+  it("clears every Notification about an engine once it is removed, and only those", () => {
+    const down = raised(engineDown(CLAUDE_CODE, "Signed out.", undefined));
+    const nearlyUsed = raised(windowNearlyUsed(CLAUDE_CODE, 92, undefined));
+    const unnamed = { ...down, pointsTo: { kind: "office" } as const };
+
+    expect(handles({ kind: "engine-removed", engineId: "claude-code" }, down)).toBe(true);
+    expect(handles({ kind: "engine-removed", engineId: "claude-code" }, nearlyUsed)).toBe(true);
+    expect(handles({ kind: "engine-removed", engineId: "work-account" }, down)).toBe(false);
+    expect(handles({ kind: "engine-removed", engineId: "claude-code" }, unnamed)).toBe(false);
+  });
+
   it("clears only that engine's nearly used window when its window resets, and every one on Now", () => {
     const nearlyUsed = raised(windowNearlyUsed(CLAUDE_CODE, 92, undefined));
     const unnamed = { ...nearlyUsed, pointsTo: { kind: "office" } as const };

@@ -293,7 +293,9 @@ export type Handling =
   | { readonly kind: "now-opened" }
   | { readonly kind: "window-reset"; readonly engineId: string }
   /** A turn came back from the engine, which therefore answers again. */
-  | { readonly kind: "engine-answered"; readonly engineId: string };
+  | { readonly kind: "engine-answered"; readonly engineId: string }
+  /** Settings › Engines removed the engine, so nothing about it is left to act on. */
+  | { readonly kind: "engine-removed"; readonly engineId: string };
 
 export function handles(handling: Handling, { kind, pointsTo }: Notification): boolean {
   switch (handling.kind) {
@@ -316,6 +318,8 @@ export function handles(handling: Handling, { kind, pointsTo }: Notification): b
       return kind === "office.window.nearly-used" && isAbout(pointsTo, handling.engineId);
     case "engine-answered":
       return kind === "office.down.engine" && isAbout(pointsTo, handling.engineId);
+    case "engine-removed":
+      return pointsTo.kind === "office" && pointsTo.engineId === handling.engineId;
   }
 }
 

@@ -378,7 +378,9 @@ export class StageThreads {
       ),
     );
     let leftOut: readonly LeftOutMcpServer[] = [];
+    let canInterrupt = false;
     const opened = await this.opening(previous.id, undefined, async () => {
+      canInterrupt = (await this.engine.capabilitiesOf(session.engineId)).interrupt;
       const skills = await this.sessionSkills.rebuild(session.id);
       const servers = await this.sessionMcpServers.rebuild(session.id, request.folder);
       leftOut = servers.leftOut;
@@ -394,6 +396,7 @@ export class StageThreads {
         threadId: previous.id,
         roleKey: role.roleKey,
         engine: session.engineId,
+        canInterrupt,
         model: applying.model,
         folder: request.folder,
         began: now,
@@ -434,7 +437,9 @@ export class StageThreads {
       ),
     );
     const briefId = randomUUID();
+    let canInterrupt = false;
     const opened = await this.opening(thread.id, session.id, async () => {
+      canInterrupt = (await this.engine.capabilitiesOf(applying.engineId)).interrupt;
       const skills = await this.sessionSkills.prepare({
         sessionId: session.id,
         roleKey: role.roleKey,
@@ -468,6 +473,7 @@ export class StageThreads {
         threadId: thread.id,
         roleKey: role.roleKey,
         engine: applying.engineId,
+        canInterrupt,
         model: applying.model,
         folder: request.folder,
         began: now,
@@ -551,7 +557,7 @@ export class StageThreads {
    * again, and delivered once a turn has taken the work, as a barge-in is.
    */
   private async live(
-    { threadId, roleKey, engine, model, folder, began }: StageWorkPlace,
+    { threadId, roleKey, engine, canInterrupt, model, folder, began }: StageWorkPlace,
     move: ContextDecision,
     session: EngineSession,
     carried: CarriedMessages | undefined,
@@ -627,7 +633,7 @@ export class StageThreads {
       },
       interrupt: async () => {
         if (!turnRunning || sessionEnded) return;
-        if (!(await this.engine.capabilitiesOf(engine)).interrupt) return endSession();
+        if (!canInterrupt) return endSession();
         await session.interrupt().catch(async (error: unknown) => {
           this.logger.warn(`Thread ${threadId}'s turn wasn't interrupted: ${messageOf(error)}`);
           await endSession();
@@ -716,6 +722,11 @@ interface StageWorkPlace {
   readonly threadId: string;
   readonly roleKey: string;
   readonly engine: EngineId;
+  /**
+   * Read as the session opens: Stop must still reach a session whose engine was removed since,
+   * as it finishes on the old engine (spec §5.4).
+   */
+  readonly canInterrupt: boolean;
   readonly model: string;
   readonly folder: string;
   readonly began: Date;

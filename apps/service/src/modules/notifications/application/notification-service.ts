@@ -8,7 +8,7 @@ import {
   DecisionReopened,
   TurnEnded,
 } from "../../conversations/index.js";
-import { EngineDown, UsageWindowsChanged } from "../../engine/index.js";
+import { EngineDown, EngineRemoved, UsageWindowsChanged } from "../../engine/index.js";
 import { CTO, OFFICE_MANAGER } from "../../people/index.js";
 import {
   DefinitionOfDoneNotMet,
@@ -190,6 +190,10 @@ export class NotificationService implements OnModuleInit {
         engineDown({ id: engineId, name: engineName }, reason, await this.officeManager()),
       ),
     );
+    this.events.subscribe(EngineRemoved, async ({ engineId }) => {
+      this.windowPercents.delete(engineId);
+      await this.handle({ kind: "engine-removed", engineId });
+    });
     // A turn that ended came back from its session's engine, which therefore answers again.
     this.events.subscribe(TurnEnded, async ({ thread }) => {
       if (thread.session)
