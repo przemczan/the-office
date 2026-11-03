@@ -72,11 +72,11 @@ async function soundTheAlarm(pipelines: PipelinesApplication, taskId: string): P
     .publish(new AlarmSounded(since, new Date(since.getTime() + 60_000)));
 }
 
-/** Runs `action` once, as the first Stage's first turn runs. */
+/** Runs `action` once, as the first Stage's first turn runs, which waits for it. */
 function whileTheFirstTurnRuns(pipelines: PipelinesApplication, action: () => Promise<void>): void {
   pipelines.stageThreads.whileTurnRuns = () => {
     pipelines.stageThreads.whileTurnRuns = undefined;
-    void action();
+    return action();
   };
 }
 

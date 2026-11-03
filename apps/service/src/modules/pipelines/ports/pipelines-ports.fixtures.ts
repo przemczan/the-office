@@ -253,8 +253,11 @@ export class StageThreadsForTests extends StageThreads {
   readonly ended: ({ readonly threadId: string } & Parameters<StageThread["end"]>[0])[] = [];
   /** The Threads whose running turn The Office interrupted, in order. */
   readonly interrupted: string[] = [];
-  /** Told as The Office waits on each turn, while it runs, such as for the user to stop it. */
-  whileTurnRuns: ((threadId: string) => void) | undefined = undefined;
+  /**
+   * Told as The Office waits on each turn, while it runs, such as for the user to stop it. The
+   * turn goes on once what it returns settles, so what a test reads there can't miss the turn.
+   */
+  whileTurnRuns: ((threadId: string) => void | Promise<void>) | undefined = undefined;
   /**
    * The Decision the person opens with an Office tool as each turn runs, as a test has them ask;
    * none unless one is set. It waits until the Stage's work ends.
@@ -310,7 +313,7 @@ export class StageThreadsForTests extends StageThreads {
     let asked: AskedDecision | undefined;
     const nextTurn = async (): Promise<StageTurn> => {
       asked ??= this.asksInTurn?.(request);
-      this.whileTurnRuns?.(threadId);
+      await this.whileTurnRuns?.(threadId);
       for (;;) {
         const next = await events.next();
         if (next.done) throw new Error(`Session ${session.id} ended without a turn.`);

@@ -1440,6 +1440,11 @@ describe("when a session doesn't answer", () => {
     await startWith(started(sent("never")));
     const thread = await threads.startInChat(roleKey);
     await runner.send(thread.id, "Hello.");
+    // Test files share one database: recovering every Thread would fail those answering in others.
+    const answering = repository.answering.bind(repository);
+    vi.spyOn(repository, "answering").mockImplementation(async () =>
+      (await answering()).filter(({ id }) => id === thread.id),
+    );
 
     await app.get(InterruptedAnswers).recover();
 
