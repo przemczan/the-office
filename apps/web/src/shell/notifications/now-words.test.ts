@@ -118,16 +118,16 @@ describe("namedUsageWindows", () => {
   });
 });
 
-describe("usageFigureWords", () => {
-  const named = (engineName: string, percentUsed: number): NamedUsageWindows => ({
-    ...reading(engineName, percentUsed),
-    engineName,
-  });
-  const shown = (parts: readonly UsageFigurePart[]): string =>
-    parts
-      .map(({ before, figure, after }) => [before, figure, after].filter(Boolean).join(" "))
-      .join(" · ");
+const named = (engineName: string, percentUsed: number): NamedUsageWindows => ({
+  ...reading(engineName, percentUsed),
+  engineName,
+});
+const shown = (parts: readonly UsageFigurePart[]): string =>
+  parts
+    .map(({ before, figure, after }) => [before, figure, after].filter(Boolean).join(" "))
+    .join(" · ");
 
+describe("usageFigureWords", () => {
   it("shows nothing until an engine is read", () => {
     expect(usageFigureWords([])).toEqual([]);
   });

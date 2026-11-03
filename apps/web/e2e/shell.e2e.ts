@@ -175,17 +175,34 @@ test.describe("the rail's toggle", () => {
   });
 });
 
+const claudeCode = (id: string, name: string): Engine => ({
+  id,
+  name,
+  kind: "claude-code",
+  defaultModel: "claude-sonnet-5-5",
+  claudeCodeP: false,
+});
+
+/** The engines as Settings › Engines lists them, and their windows as they were first read. */
+async function stubEngines(
+  page: Page,
+  engines: readonly Engine[],
+  usageWindows: Now["usageWindows"],
+): Promise<void> {
+  await page.route(/\/api\/settings\/engines$/, async (route) => {
+    const settings = (await (await route.fetch()).json()) as EngineSettings;
+    await route.fulfill({ json: { ...settings, engines } });
+  });
+  await page.route(/\/api\/now$/, async (route) => {
+    const now = (await (await route.fetch()).json()) as Now;
+    await route.fulfill({ json: { ...now, usageWindows } });
+  });
+}
+
 test.describe("the usage figure", () => {
   test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
 
   const RESETS_AT = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-  const claudeCode = (id: string, name: string): Engine => ({
-    id,
-    name,
-    kind: "claude-code",
-    defaultModel: "claude-sonnet-5-5",
-    claudeCodeP: false,
-  });
   /** Listed in Settings › Engines, it has no usage windows, so the service reads none. */
   const API_ENGINE: Engine = {
     id: "local-models",
@@ -201,22 +218,6 @@ test.describe("the usage figure", () => {
     fiveHour: { percentUsed: fiveHour, resetsAt: RESETS_AT },
     sevenDay: { percentUsed: 17, resetsAt: RESETS_AT },
   });
-
-  /** The engines as Settings › Engines lists them, and their windows as they were first read. */
-  async function stubEngines(
-    page: Page,
-    engines: readonly Engine[],
-    usageWindows: Now["usageWindows"],
-  ): Promise<void> {
-    await page.route(/\/api\/settings\/engines$/, async (route) => {
-      const settings = (await (await route.fetch()).json()) as EngineSettings;
-      await route.fulfill({ json: { ...settings, engines } });
-    });
-    await page.route(/\/api\/now$/, async (route) => {
-      const now = (await (await route.fetch()).json()) as Now;
-      await route.fulfill({ json: { ...now, usageWindows } });
-    });
-  }
 
   test("one engine shows both windows, the meter and the reset, and opens nothing", async ({
     page,
