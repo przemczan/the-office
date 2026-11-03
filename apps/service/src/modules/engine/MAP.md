@@ -198,7 +198,7 @@ EngineSessions, EngineCapability, OfficeToolRegistry, OfficeTool, OfficeToolResu
 - `engine-account.ts`: EngineAccount, EngineAccountUnreadable, engineAccountOf
 - `engine-events.ts`: UsageWindowsChanged, UsageWindowsRead, EngineAdded, EngineRemoved, EngineAccountChanged, EngineDown
 - `engine-removal.ts`: EngineRemoval, MovedEngineReference, movedEngineReference, movedEngineModel, engineRemovalAmong
-- `engine-settings-refused.ts`: EngineSettingsRefused
+- `engine-settings-refused.ts`: EngineSettingsRefused, ENGINES_CHANGED_MEANWHILE
 - `engine-settings.ts`: SearchEndpoint, EngineSettings, FIRST_OFFICE_DEFAULT, DEFAULT_ENGINE_SETTINGS, ClaudeCodeEngineEdit, ApiEngineEdit, EngineEdit, EngineSettingsEdit, ENGINE_NAME_LENGTH, apiEngines, offeredModelPrices, changedEngineSettings, settingsWithoutEngine
 - `engines.ts`: EngineId, EngineKind, ClaudeCodeEngine, ApiEngine, Engine, CLAUDE_CODE_MODELS, FIRST_CLAUDE_CODE_ENGINE, engineIdFor, offeredModels, hasUsageWindows, EngineModel
 - `git-commands.ts`: READ_ONLY_GIT_COMMANDS, isGit, gitChange

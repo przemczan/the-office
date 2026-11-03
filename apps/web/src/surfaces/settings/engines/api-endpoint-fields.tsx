@@ -19,8 +19,8 @@ export function ApiEndpointFields({
   /** Undefined while the endpoint isn't saved yet. */
   readonly saved: ApiEngine | undefined;
   readonly change: (edit: ApiEngineEdit) => void;
-  /** Only an endpoint not saved yet; removing a saved one moves what names it, which its own dialog asks. */
-  readonly remove: (() => void) | undefined;
+  /** Drops one not saved yet from the draft; opens the remove dialog for a saved one. */
+  readonly remove: () => void;
 }): ReactNode {
   const called = edit.name === "" ? "the new API endpoint" : edit.name;
   const key = keyOnSave(edit, saved);
@@ -111,11 +111,9 @@ export function ApiEndpointFields({
         >
           Add a model
         </Button>
-        {remove && (
-          <Button variant="danger-ghost" size="sm" onClick={remove}>
-            Remove {called}
-          </Button>
-        )}
+        <Button variant="danger-ghost" size="sm" onClick={remove}>
+          Remove {called}
+        </Button>
       </div>
     </fieldset>
   );

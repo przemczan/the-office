@@ -81,7 +81,9 @@ describe("engineRemovalAmong", () => {
   });
 
   it("refuses an engine not listed, and a replacement not listed, the engine itself or none while others are", () => {
-    expect(refusal(engines, "gone", "strata")).toEqual(["The engines changed meanwhile."]);
+    expect(refusal(engines, "gone", "strata")).toEqual([
+      "The engines changed meanwhile; reload the page.",
+    ]);
     const pickAnother = 'Pick the engine that takes over from "Strata" among the other engines.';
     expect(refusal(engines, "strata", "gone")).toEqual([pickAnother]);
     expect(refusal(engines, "strata", "strata")).toEqual([pickAnother]);

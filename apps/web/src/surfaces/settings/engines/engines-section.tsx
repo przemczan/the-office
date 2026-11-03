@@ -2,13 +2,15 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   ApiEngineEdit,
   ClaudeCodeEngineEdit,
+  EngineId,
   EngineSettings,
   EngineSettingsEdit,
 } from "@the-office/contracts";
 import { Button, Card, Icon, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { changeEngineSettings, engineSettingsQuery } from "../../../api/engine.ts";
-import { ENGINE_CASCADE, roleCardQueries } from "../../../api/people.ts";
+import { ENGINE_CASCADE, roleCardQueries, roleQueries } from "../../../api/people.ts";
+import { projectQueries } from "../../../api/projects.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
@@ -33,6 +35,7 @@ import {
 } from "./engine-settings-draft.ts";
 import { ModelPricesCard } from "./model-prices-card.tsx";
 import { OfficeDefaultCard } from "./office-default-card.tsx";
+import { RemoveEngineDialog } from "./remove-engine-dialog.tsx";
 import "./engines.css";
 
 /**
@@ -56,19 +59,32 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
   const toSave = engineSettingsEditOf(draft, saved);
   const queryClient = useQueryClient();
   const showToast = useToast();
+  const [removing, setRemoving] = useState<EngineId | undefined>();
+  const takeSaved = async (result: EngineSettings): Promise<void> => {
+    queryClient.setQueryData(engineSettingsQuery().queryKey, result);
+    setDraft(draftOf(result));
+    // The Role card offers each engine's models and says what the Office default gives.
+    await Promise.all([
+      queryClient.invalidateQueries(roleCardQueries.options()),
+      queryClient.invalidateQueries({ queryKey: ENGINE_CASCADE }),
+    ]);
+  };
   const saving = useMutation({
     mutationFn: (sent: EngineSettingsEdit) => changeEngineSettings(sent),
     onSuccess: async (result) => {
-      queryClient.setQueryData(engineSettingsQuery().queryKey, result);
-      setDraft(draftOf(result));
-      // The Role card offers each engine's models and says what the Office default gives.
-      await Promise.all([
-        queryClient.invalidateQueries(roleCardQueries.options()),
-        queryClient.invalidateQueries({ queryKey: ENGINE_CASCADE }),
-      ]);
+      await takeSaved(result);
       showToast("Engines saved. Sessions started from now on use them.");
     },
   });
+  const takeRemoval = async (left: EngineSettings): Promise<void> => {
+    // The removal moved Role overrides and Project levels too.
+    await Promise.all([
+      takeSaved(left),
+      queryClient.invalidateQueries(roleQueries.list()),
+      queryClient.invalidateQueries(projectQueries.list()),
+    ]);
+    showToast("Engine removed. What named it moved to the replacement.");
+  };
   const changeClaudeCodeEngine = (index: number, edit: ClaudeCodeEngineEdit): void =>
     setDraft({
       ...draft,
@@ -96,17 +112,16 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
               edit={engine}
               claudeModels={claudeModelsOf(saved)}
               change={(edit) => changeClaudeCodeEngine(index, edit)}
-              // A saved engine is removed on its own, which moves what names it.
-              remove={
+              // A saved engine is removed by its dialog, which moves what names it.
+              remove={() =>
                 engine.id === undefined
-                  ? () =>
-                      setDraft({
-                        ...draft,
-                        claudeCodeEngines: draft.claudeCodeEngines.filter(
-                          (_engine, at) => at !== index,
-                        ),
-                      })
-                  : undefined
+                  ? setDraft({
+                      ...draft,
+                      claudeCodeEngines: draft.claudeCodeEngines.filter(
+                        (_engine, at) => at !== index,
+                      ),
+                    })
+                  : setRemoving(engine.id)
               }
             />
           ))}
@@ -116,14 +131,13 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
               edit={endpoint}
               saved={savedApiEngines(saved.engines).find(({ id }) => id === endpoint.id)}
               change={(edit) => changeEndpoint(index, edit)}
-              remove={
+              remove={() =>
                 endpoint.id === undefined
-                  ? () =>
-                      setDraft({
-                        ...draft,
-                        apiEndpoints: draft.apiEndpoints.filter((_endpoint, at) => at !== index),
-                      })
-                  : undefined
+                  ? setDraft({
+                      ...draft,
+                      apiEndpoints: draft.apiEndpoints.filter((_endpoint, at) => at !== index),
+                    })
+                  : setRemoving(endpoint.id)
               }
             />
           ))}
@@ -196,6 +210,15 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
           Save
         </Button>
       </div>
+      {removing !== undefined && (
+        <RemoveEngineDialog
+          engineId={removing}
+          saved={saved}
+          unsavedChanges={dirty}
+          onRemoved={takeRemoval}
+          onClose={() => setRemoving(undefined)}
+        />
+      )}
     </>
   );
 }

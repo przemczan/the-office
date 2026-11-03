@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import {
   engineAccountSchema,
+  engineRemovalPreviewSchema,
   engineSettingsSchema,
   engineSignInSchema,
   engineWebEventSchema,
@@ -9,7 +10,13 @@ import {
   type EngineSignIn,
   type EngineWebEvent,
 } from "@the-office/contracts";
-import { deleteFromApi, getFromApi, sendToApi, sendToApiWithNoAnswer } from "./api-client.ts";
+import {
+  deleteFromApi,
+  deleteFromApiReturning,
+  getFromApi,
+  sendToApi,
+  sendToApiWithNoAnswer,
+} from "./api-client.ts";
 import type { EventInvalidations } from "./event-stream-provider.tsx";
 
 const ENGINE_SETTINGS = ["settings", "engines"] as const;
@@ -35,6 +42,36 @@ export const engineSettingsQuery = () =>
  */
 export function changeEngineSettings(edit: EngineSettingsEdit): Promise<EngineSettings> {
   return sendToApi("PUT", "/settings/engines", edit, engineSettingsSchema);
+}
+
+/**
+ * What removing the engine with `replacement` taking over would move, and the words it would be
+ * refused with; null replaces it with none, which only the only engine takes. Under the settings'
+ * key, so a removal or a Save reads it again.
+ */
+export const engineRemovalQuery = (engineId: string, replacement: string | null) =>
+  queryOptions({
+    queryKey: [...ENGINE_SETTINGS, engineId, "removal", replacement],
+    queryFn: ({ signal }) =>
+      getFromApi(
+        `${enginePath(engineId)}/removal${replacementQuery(replacement)}`,
+        engineRemovalPreviewSchema,
+        signal,
+      ),
+  });
+
+/**
+ * Removes the engine, moving everything that names it to `replacement` (none only for the only
+ * engine); answers with the settings left.
+ */
+export function removeEngine(
+  engineId: string,
+  replacement: string | null,
+): Promise<EngineSettings> {
+  return deleteFromApiReturning(
+    `${enginePath(engineId)}${replacementQuery(replacement)}`,
+    engineSettingsSchema,
+  );
 }
 
 /** A saved Claude Code engine's account, as `claude auth status` gives it for its folder. */
@@ -76,4 +113,8 @@ export const engineEventInvalidations: Readonly<
 
 function enginePath(engineId: string): `/${string}` {
   return `/settings/engines/${encodeURIComponent(engineId)}`;
+}
+
+function replacementQuery(replacement: string | null): string {
+  return replacement === null ? "" : `?replacement=${encodeURIComponent(replacement)}`;
 }

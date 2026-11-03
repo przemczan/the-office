@@ -88,12 +88,17 @@ async function saveEngines(
   expect(kept.ok()).toBe(true);
 }
 
-/** Removes the engine called `name` through the API, as a test cleans up after adding one. */
-async function removeEngine(page: Page, name: string): Promise<void> {
+/** The id of the engine called `name`, empty when none is listed. */
+async function engineIdOf(page: Page, name: string): Promise<string> {
   const saved = engineSettingsSchema.parse(
     await (await page.request.get("/api/settings/engines")).json(),
   );
-  const engineId = saved.engines.find((engine) => engine.name === name)?.id ?? "";
+  return saved.engines.find((engine) => engine.name === name)?.id ?? "";
+}
+
+/** Removes the engine called `name` through the API, as a test cleans up after adding one. */
+async function removeEngine(page: Page, name: string): Promise<void> {
+  const engineId = await engineIdOf(page, name);
   const removed = await page.request.delete(
     `/api/settings/engines/${encodeURIComponent(engineId)}?replacement=claude-code`,
   );
@@ -554,8 +559,7 @@ test("the user adds a Claude Code engine with its default model and -p switch, a
   await expect(second.getByLabel("Name", { exact: true })).toHaveValue("Second account");
   await expect(second.getByLabel("Default model")).toHaveValue("claude-haiku-5-5");
   await expect(second.getByRole("switch")).toHaveAttribute("aria-checked", "true");
-  // A saved engine is removed by its own dialog, which moves what names it.
-  await expect(second.getByRole("button", { name: "Remove Second account" })).toHaveCount(0);
+  await expect(second.getByRole("button", { name: "Remove Second account" })).toBeVisible();
   await expect(
     page.getByRole("group", { name: "People Strata", exact: true }).getByLabel("Default model"),
   ).toHaveValue("org/coder:q4");
@@ -574,6 +578,85 @@ test("the user adds a Claude Code engine with its default model and -p switch, a
   await expect(engine).toHaveValue("claude-code");
 
   await removeEngine(page, "Second account");
+});
+
+test("the user removes an engine through its dialog, and what named it moves to the replacement", async ({
+  page,
+}) => {
+  const repository = await createTemporaryRepository();
+  const miasCard = roleSchema.parse(
+    await (await page.request.get("/api/roles/data-analyst")).json(),
+  ).card;
+  let project: Project | undefined;
+  try {
+    // An engine of the test's own: removing one moves every reference to it, whoever made it.
+    await saveEngines(page, (saved) => [
+      ...saved,
+      {
+        kind: "claude-code",
+        name: "Leaving account",
+        defaultModel: "claude-sonnet-5-5",
+        claudeCodeP: false,
+      },
+    ]);
+    const leaving = await engineIdOf(page, "Leaving account");
+    project = await addedProject(page, repository, "Removal shop", "RS");
+    const overridden = await page.request.put("/api/roles/data-analyst/card", {
+      data: { ...miasCard, roleOverride: { engineId: leaving, model: "claude-haiku-5-5" } },
+    });
+    expect(overridden.ok()).toBe(true);
+    const defaulted = await page.request.put(`/api/projects/${project.id}/project-default`, {
+      data: { projectDefault: { engineId: leaving, model: "claude-sonnet-5-5" } },
+    });
+    expect(defaulted.ok()).toBe(true);
+
+    await page.goto("/settings/engines");
+    await page.getByRole("button", { name: "Remove Leaving account" }).click();
+    const dialog = page.getByRole("dialog");
+    const replacement = dialog.getByLabel("Replacement");
+    const moves = dialog.getByRole("list", { name: "What moves" });
+    const confirm = dialog.getByRole("button", { name: "Remove Leaving account" });
+    // The Office default's engine is suggested.
+    await expect(replacement).toHaveValue("claude-code");
+    await expect(moves.getByRole("listitem")).toHaveCount(2);
+    await expect(
+      moves.getByRole("listitem").filter({ hasText: "The Role override of Mia · Data Analyst" }),
+    ).toContainText("Haiku 5.5 on Leaving account → Haiku 5.5 on Claude Code");
+    await expect(
+      moves.getByRole("listitem").filter({ hasText: "The Project default of Removal shop" }),
+    ).toContainText("Sonnet 5.5 on Leaving account → Sonnet 5.5 on Claude Code");
+    await expect(confirm).toBeEnabled();
+
+    // A replacement without a model a reference named gives its default model.
+    await replacement.selectOption({ label: "People Strata" });
+    await expect(
+      moves.getByRole("listitem").filter({ hasText: "The Role override of Mia · Data Analyst" }),
+    ).toContainText("Haiku 5.5 on Leaving account → org/coder:q4 on People Strata");
+
+    await replacement.selectOption({ label: "Claude Code" });
+    await expect(confirm).toBeEnabled();
+    await confirm.click();
+    await expect(
+      page.getByText("Engine removed. What named it moved to the replacement."),
+    ).toBeVisible();
+    await expect(page.getByRole("group", { name: "Leaving account" })).toHaveCount(0);
+
+    const mia = roleSchema.parse(await (await page.request.get("/api/roles/data-analyst")).json());
+    expect(mia.card.roleOverride).toEqual({ engineId: "claude-code", model: "claude-haiku-5-5" });
+    const shop = projectSchema.parse(
+      await (await page.request.get(`/api/projects/${project.id}`)).json(),
+    );
+    expect(shop.projectDefault).toEqual({ engineId: "claude-code", model: "claude-sonnet-5-5" });
+  } finally {
+    await page.request.put("/api/roles/data-analyst/card", { data: miasCard });
+    if (project) {
+      await page.request.put(`/api/projects/${project.id}/project-default`, {
+        data: { projectDefault: null },
+      });
+    }
+    if (await engineIdOf(page, "Leaving account")) await removeEngine(page, "Leaving account");
+    await repository.remove();
+  }
 });
 
 test("the user signs a Claude Code engine in by its sign-in page's code, pastes a token instead, and signs it out", async ({

@@ -506,7 +506,7 @@ describe("GET /api/settings/engines/:engineId/removal", () => {
     const pickAnother = 'Pick the engine that takes over from "Strata" among the other engines.';
 
     expect(await reasonsOf(await previewOf("gone", "claude-code"))).toEqual([
-      "The engines changed meanwhile.",
+      "The engines changed meanwhile; reload the page.",
     ]);
     expect(await reasonsOf(await previewOf("strata", "gone"))).toEqual([pickAnother]);
     expect(await reasonsOf(await previewOf("strata"))).toEqual([pickAnother]);

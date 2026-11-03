@@ -241,7 +241,7 @@ describe("changedEngineSettings", () => {
   });
 
   it("refuses an engine removed meanwhile, listed twice, or of another kind", () => {
-    const reason = "The engines changed meanwhile.";
+    const reason = "The engines changed meanwhile; reload the page.";
 
     expect(refusal(DEFAULT_ENGINE_SETTINGS, editOf([strataEdit()]))).toEqual([reason]);
     expect(refusal(stored, editOf([strataEdit(), strataEdit({ name: "Again" })]))).toEqual([

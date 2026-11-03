@@ -142,3 +142,31 @@
     grid-column: 1 / -1;
   }
 }
+
+/* The remove dialog: the replacement, what moves from where to where, and what refuses it. */
+.engine-removal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.engine-removal-moves {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.engine-removal-moves > li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font: var(--type-body-sm);
+  overflow-wrap: anywhere;
+}
+
+.engine-removal-place {
+  color: var(--fg-2);
+}

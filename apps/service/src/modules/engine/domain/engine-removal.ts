@@ -1,4 +1,4 @@
-import { EngineSettingsRefused } from "./engine-settings-refused.js";
+import { EngineSettingsRefused, ENGINES_CHANGED_MEANWHILE } from "./engine-settings-refused.js";
 import { offeredModels, type Engine, type EngineId, type EngineModel } from "./engines.js";
 
 /**
@@ -66,7 +66,7 @@ export function engineRemovalAmong(
 ): EngineRemoval {
   const removed = engines.find(({ id }) => id === engineId);
   if (removed === undefined) {
-    throw new EngineSettingsRefused(["The engines changed meanwhile."]);
+    throw new EngineSettingsRefused([ENGINES_CHANGED_MEANWHILE]);
   }
   if (replacementId === null && engines.length === 1) return { engineId, replacement: null };
   const replacement = engines.find(({ id }) => id === replacementId && id !== engineId);

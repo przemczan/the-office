@@ -5,3 +5,6 @@ export class EngineSettingsRefused extends Error {
     this.name = "EngineSettingsRefused";
   }
 }
+
+/** The engines a page was read with are no longer the ones listed, as when another tab saved. */
+export const ENGINES_CHANGED_MEANWHILE = "The engines changed meanwhile; reload the page.";

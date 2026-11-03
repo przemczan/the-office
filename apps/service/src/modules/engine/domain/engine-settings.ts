@@ -1,5 +1,5 @@
 import { movedEngineModel, type EngineRemoval } from "./engine-removal.js";
-import { EngineSettingsRefused } from "./engine-settings-refused.js";
+import { EngineSettingsRefused, ENGINES_CHANGED_MEANWHILE } from "./engine-settings-refused.js";
 import {
   CLAUDE_CODE_MODELS,
   engineIdFor,
@@ -181,7 +181,7 @@ function changedEnginesOf(
     const name = edit.name.trim();
     const kept = edit.id === undefined ? undefined : storedById.get(edit.id);
     if (edit.id !== undefined && (kept?.kind !== edit.kind || seen.has(edit.id))) {
-      problems.push("The engines changed meanwhile.");
+      problems.push(ENGINES_CHANGED_MEANWHILE);
     }
     const id = edit.id ?? engineIdFor(name, taken);
     taken.add(id);

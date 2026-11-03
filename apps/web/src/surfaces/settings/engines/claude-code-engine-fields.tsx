@@ -6,8 +6,7 @@ import { ClaudeCodeEngineAccount } from "./claude-code-engine-account.tsx";
 
 /**
  * A Claude Code engine's fields: its name, default model and `-p` switch, and once saved its
- * account (one not saved has no folder to sign in yet). Only one not saved yet can be removed here;
- * removing a saved one moves what names it, which its own dialog asks.
+ * account (one not saved has no folder to sign in yet).
  */
 export function ClaudeCodeEngineFields({
   edit,
@@ -18,8 +17,8 @@ export function ClaudeCodeEngineFields({
   readonly edit: ClaudeCodeEngineEdit;
   readonly claudeModels: readonly string[];
   readonly change: (edit: ClaudeCodeEngineEdit) => void;
-  /** Undefined once the engine is saved. */
-  readonly remove: (() => void) | undefined;
+  /** Drops one not saved yet from the draft; opens the remove dialog for a saved one. */
+  readonly remove: () => void;
 }): ReactNode {
   const called = edit.name === "" ? "the new Claude Code engine" : edit.name;
   return (
@@ -45,13 +44,11 @@ export function ClaudeCodeEngineFields({
         onChange={(claudeCodeP) => change({ ...edit, claudeCodeP })}
       />
       {edit.id !== undefined && <ClaudeCodeEngineAccount key={edit.id} engineId={edit.id} />}
-      {remove && (
-        <div className="engine-actions">
-          <Button variant="danger-ghost" size="sm" onClick={remove}>
-            Remove {called}
-          </Button>
-        </div>
-      )}
+      <div className="engine-actions">
+        <Button variant="danger-ghost" size="sm" onClick={remove}>
+          Remove {called}
+        </Button>
+      </div>
     </fieldset>
   );
 }
