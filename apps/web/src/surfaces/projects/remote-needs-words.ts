@@ -1,4 +1,5 @@
 import type { RemoteNeeds } from "@the-office/contracts";
+import { sshHostName } from "../../shell/ssh-host-name.ts";
 
 /** The Project page's line on its remote: which part of the Office identity it needs, and what is missing. */
 export interface RemoteNeedsLine {
@@ -19,7 +20,7 @@ export function remoteNeedsLine(needs: RemoteNeeds): RemoteNeedsLine {
       };
     case "ssh":
       return {
-        needs: `Its remote, ${hostOf(needs.host, needs.port)}, is reached over ssh with the Office ssh key, whose public half the host needs.`,
+        needs: `Its remote, ${sshHostName(needs)}, is reached over ssh with the Office ssh key, whose public half the host needs.`,
         missing: needs.missing.map(
           (missing) =>
             ({
@@ -50,11 +51,4 @@ export function remoteNeedsLine(needs: RemoteNeeds): RemoteNeedsLine {
         inSettings: false,
       };
   }
-}
-
-const SSH_PORT = 22;
-
-/** ssh's own port is left out, as a remote's URL leaves it out. */
-function hostOf(host: string, port: number): string {
-  return port === SSH_PORT ? host : `${host}:${port}`;
 }

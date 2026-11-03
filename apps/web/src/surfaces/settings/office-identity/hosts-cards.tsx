@@ -1,10 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  SSH_PORT,
-  type HostKey,
-  type TrustedHost,
-  type UnconfirmedHost,
-} from "@the-office/contracts";
+import type { HostKey, TrustedHost, UnconfirmedHost } from "@the-office/contracts";
 import { Badge, Button, Card, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import {
@@ -13,6 +8,7 @@ import {
   scanHost,
 } from "../../../api/office-identity.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
+import { sshHostName } from "../../../shell/ssh-host-name.ts";
 import { useToast } from "../../../shell/toasts.tsx";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
 
@@ -34,7 +30,7 @@ export function HostsCards(): ReactNode {
             ) : (
               <ul className="known-hosts">
                 {knownHosts.data.unconfirmed.map((host) => (
-                  <UnconfirmedHostItem key={hostName(host)} host={host} />
+                  <UnconfirmedHostItem key={sshHostName(host)} host={host} />
                 ))}
               </ul>
             ))}
@@ -52,7 +48,7 @@ export function HostsCards(): ReactNode {
             ) : (
               <ul className="known-hosts">
                 {knownHosts.data.trusted.map((host) => (
-                  <TrustedHostItem key={hostName(host)} host={host} />
+                  <TrustedHostItem key={sshHostName(host)} host={host} />
                 ))}
               </ul>
             ))}
@@ -64,7 +60,7 @@ export function HostsCards(): ReactNode {
 }
 
 function TrustedHostItem({ host }: { readonly host: TrustedHost }): ReactNode {
-  const name = hostName(host);
+  const name = sshHostName(host);
   return (
     <li className="known-host" aria-label={name}>
       <div className="office-identity-row">
@@ -83,7 +79,7 @@ function TrustedHostItem({ host }: { readonly host: TrustedHost }): ReactNode {
 }
 
 function UnconfirmedHostItem({ host }: { readonly host: UnconfirmedHost }): ReactNode {
-  const name = hostName(host);
+  const name = sshHostName(host);
   const queryClient = useQueryClient();
   const showToast = useToast();
   const scanning = useMutation({ mutationFn: () => scanHost(host) });
@@ -140,6 +136,3 @@ function UnconfirmedHostItem({ host }: { readonly host: UnconfirmedHost }): Reac
 }
 
 /** As ssh names the host: bare on its own port, else `host:port`. */
-function hostName({ host, port }: { readonly host: string; readonly port: number }): string {
-  return port === SSH_PORT ? host : `${host}:${port}`;
-}

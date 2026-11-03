@@ -11,6 +11,7 @@ import { useState, type ReactNode } from "react";
 import { changeEngineSettings, engineSettingsQuery } from "../../../api/engine.ts";
 import { ENGINE_CASCADE, roleCardQueries, roleQueries } from "../../../api/people.ts";
 import { projectQueries } from "../../../api/projects.ts";
+import { usageSettingsQuery } from "../../../api/work.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
@@ -63,10 +64,12 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
   const takeSaved = async (result: EngineSettings): Promise<void> => {
     queryClient.setQueryData(engineSettingsQuery().queryKey, result);
     setDraft(draftOf(result));
-    // The Role card offers each engine's models and says what the Office default gives.
+    // The Role card offers each engine's models and says what the Office default gives; the
+    // Usage card has caps for each engine.
     await Promise.all([
       queryClient.invalidateQueries(roleCardQueries.options()),
       queryClient.invalidateQueries({ queryKey: ENGINE_CASCADE }),
+      queryClient.invalidateQueries(usageSettingsQuery()),
     ]);
   };
   const saving = useMutation({

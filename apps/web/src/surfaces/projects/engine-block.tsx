@@ -65,6 +65,12 @@ export function EngineBlock({ project }: { readonly project: Project }): ReactNo
   const engines = options.data?.engines ?? [];
   const saving = choosingDefault.isPending || forcing.isPending || overriding.isPending;
   const failure = choosingDefault.error ?? forcing.error ?? overriding.error ?? options.error;
+  // A refusal says why the last change wasn't saved, so the next change clears it.
+  const clearRefusals = (): void => {
+    choosingDefault.reset();
+    forcing.reset();
+    overriding.reset();
+  };
   return (
     <ProjectBlock
       icon="cpu"
@@ -78,14 +84,20 @@ export function EngineBlock({ project }: { readonly project: Project }): ReactNo
           // Cleared only with "Use for every Role" off, which the service enforces as well.
           noneLabel={project.useForEveryRole ? undefined : "Office default"}
           disabled={options.data === undefined || saving}
-          onChange={(projectDefault) => choosingDefault.mutate(projectDefault)}
+          onChange={(projectDefault) => {
+            clearRefusals();
+            choosingDefault.mutate(projectDefault);
+          }}
         />
       </div>
       <div className="project-engine-switch">
         <Switch
           checked={project.useForEveryRole}
           disabled={project.projectDefault === null || saving}
-          onChange={(use) => forcing.mutate(use)}
+          onChange={(use) => {
+            clearRefusals();
+            forcing.mutate(use);
+          }}
           label="Use for every Role"
           description={
             project.projectDefault === null
@@ -99,7 +111,10 @@ export function EngineBlock({ project }: { readonly project: Project }): ReactNo
         roles={roles.data}
         engines={engines}
         disabled={options.data === undefined || saving}
-        onChange={(change) => overriding.mutate(change)}
+        onChange={(change) => {
+          clearRefusals();
+          overriding.mutate(change);
+        }}
       />
       {failure && (
         <p className="project-block-error" role="alert">

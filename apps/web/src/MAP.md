@@ -60,6 +60,7 @@
 - `skill-chip.tsx`: SkillChip
 - `skill-update-diff.tsx`: SkillUpdateDiff
 - `skill-words.ts`: pinnedVersionLabel, samePinnedVersion, sourceLabel
+- `ssh-host-name.ts`: sshHostName
 - `status-strip.tsx`: StatusStrip
 - `time.ts`: dayOf, dayAndClockOf, clockOf, momentWords, durationWords
 - `toasts.tsx`: Notice, Notices, ToastProvider, useToast, useNotices

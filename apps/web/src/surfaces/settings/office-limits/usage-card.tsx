@@ -35,7 +35,13 @@ export function UsageCard(): ReactNode {
   const settings = useQuery(usageSettingsQuery());
   return (
     <>
-      {settings.data && <UsageSettingsForm saved={settings.data} />}
+      {settings.data && (
+        // Drafted afresh once the engines change, as it holds caps for each of them.
+        <UsageSettingsForm
+          key={settings.data.caps.map(({ engineId }) => engineId).join(" ")}
+          saved={settings.data}
+        />
+      )}
       <SettingsProblem title="The usage settings can't be read" error={settings.error} />
     </>
   );

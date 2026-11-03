@@ -45,10 +45,7 @@ export function ClaudeCodeEngineAccount({ engineId }: { readonly engineId: strin
   };
   const signingIn = useMutation({
     mutationFn: () => startEngineSignIn(engineId),
-    onSuccess: ({ url }) => {
-      setCode("");
-      setAsking({ kind: "code", signInPage: url });
-    },
+    onSuccess: ({ url }) => ask({ kind: "code", signInPage: url }),
   });
   const enteringCode = useMutation({
     mutationFn: (typed: string) => enterEngineSignInCode(engineId, typed),
@@ -63,9 +60,12 @@ export function ClaudeCodeEngineAccount({ engineId }: { readonly engineId: strin
     onSuccess: accountChanged,
   });
 
+  // What was typed for one ask never carries into the next, a token least of all.
   const ask = (next: Asking) => {
     enteringCode.reset();
     pastingToken.reset();
+    setCode("");
+    setToken("");
     setAsking(next);
   };
 

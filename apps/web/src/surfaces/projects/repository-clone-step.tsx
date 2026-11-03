@@ -25,7 +25,6 @@ export function useRepositoryCloning(): RepositoryCloning {
     onSuccess: async (clone) => {
       const query = projectQueries.repositoryClone(clone.id);
       queryClient.setQueryData(query.queryKey, clone);
-      setCloneId(clone.id);
       // Its events may have come before the query was there to refresh.
       await queryClient.invalidateQueries(query);
     },
@@ -36,7 +35,9 @@ export function useRepositoryCloning(): RepositoryCloning {
   });
   const current = cloneId === undefined ? undefined : clone.data;
   return {
-    start: (url) => starting.mutate(url),
+    // Followed here rather than in the mutation's own onSuccess, which runs even after `forget`
+    // reset it: a clone the user moved away from never takes over the dialog.
+    start: (url) => starting.mutate(url, { onSuccess: (started) => setCloneId(started.id) }),
     refusal: starting.error,
     clone: current,
     busy: starting.isPending || current?.state === "cloning",

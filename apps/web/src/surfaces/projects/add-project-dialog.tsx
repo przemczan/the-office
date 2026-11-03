@@ -99,9 +99,11 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
   // A repository by its git URL or from GitHub is cloned before the form opens.
   const step = cloned || whereItIs === "folder" ? "form" : whereItIs;
   const forgetClone = (): void => {
+    // A name the clone filled in goes with it, so the next one fills its own; a written one stays.
+    const filledName = cloned && repositoryNameOf(cloned.url);
     cloning.forget();
     setFilledFrom(undefined);
-    change({ path: "", repositoryUrl: undefined });
+    change({ path: "", repositoryUrl: undefined, ...(draft.name === filledName && { name: "" }) });
   };
   const whereItIsControl = (
     <Field label="Where it is">
