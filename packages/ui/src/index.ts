@@ -138,8 +138,9 @@ export {
   type TabsProps,
 } from "../../../design-system/components/navigation/Tabs.jsx";
 export { Topbar, type TopbarProps } from "../../../design-system/components/navigation/Topbar.jsx";
-export { Dialog, type DialogProps } from "../../../design-system/components/overlays/Dialog.jsx";
-export { Drawer, type DrawerProps } from "../../../design-system/components/overlays/Drawer.jsx";
+export { type DialogProps } from "../../../design-system/components/overlays/Dialog.jsx";
+export { type DrawerProps } from "../../../design-system/components/overlays/Drawer.jsx";
+export { Dialog, Drawer } from "./overlays.tsx";
 export {
   Menu,
   type MenuItem,

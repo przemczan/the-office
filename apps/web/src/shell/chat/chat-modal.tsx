@@ -29,12 +29,7 @@ export function ChatModal(): ReactNode {
   }, [chat]);
   if (!chat.roleKey || !role.data) return null;
   return (
-    <div
-      className="chat-overlay"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) chat.close();
-      }}
-    >
+    <div className="chat-overlay">
       <div
         className="chat-dialog"
         role="dialog"
