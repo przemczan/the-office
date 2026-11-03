@@ -1,15 +1,21 @@
 import path from "node:path";
+import zlib from "node:zlib";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
+  attachmentSchema,
   ideaSchema,
   projectSchema,
   presetListSchema,
   recordPath,
   roleSchema,
   taskSchema,
+  type Attachment,
   type NewProject,
   type Project,
+  type Stage,
+  type StageRun,
   type Task,
+  type TaskStages,
 } from "@the-office/contracts";
 import { taskWorktreePath } from "./office-data.ts";
 import { queryOfficeDatabase } from "./office-database.ts";
@@ -621,10 +627,14 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
     "Keep the path.",
   );
   await page.getByRole("dialog").getByLabel("Close").click();
-  const image = await page.request.get(
-    (await record.getByRole("link", { name: "screen.png" }).getAttribute("href")) ?? "",
-  );
+  await record.getByRole("button", { name: "View screen.png" }).click();
+  const original = page
+    .getByRole("dialog")
+    .filter({ hasText: "screen.png" })
+    .getByRole("link", { name: "Open the original" });
+  const image = await page.request.get((await original.getAttribute("href")) ?? "");
   expect(image.headers()["content-type"]).toBe("image/png");
+  await page.keyboard.press("Escape");
   const download = page.waitForEvent("download");
   await record.getByRole("link", { name: "export.zip" }).click();
   expect((await download).suggestedFilename()).toBe("export.zip");
@@ -641,6 +651,164 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
   await expect(
     page.getByRole("article", { name: "Remember the page per tab" }).getByText("Task page"),
   ).toBeVisible();
+});
+
+/** A PNG chunk: its length, type, data and checksum. */
+function pngChunk(type: string, data: Buffer): Buffer {
+  const typed = Buffer.concat([Buffer.from(type, "ascii"), data]);
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(zlib.crc32(typed));
+  return Buffer.concat([length, typed, crc]);
+}
+
+/** A solid PNG of `rgb`, so a screenshot shows the images apart. */
+function aPng(rgb: readonly [number, number, number], width = 320, height = 200): Buffer {
+  const header = Buffer.alloc(13);
+  header.writeUInt32BE(width, 0);
+  header.writeUInt32BE(height, 4);
+  header.set([8, 2, 0, 0, 0], 8);
+  const row = Buffer.concat([Buffer.from([0]), Buffer.from(Array(width).fill(rgb).flat())]);
+  return Buffer.concat([
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    pngChunk("IHDR", header),
+    pngChunk("IDAT", zlib.deflateSync(Buffer.concat(Array(height).fill(row)))),
+    pngChunk("IEND", Buffer.alloc(0)),
+  ]);
+}
+
+async function attachedImage(
+  page: Page,
+  task: Task,
+  name: string,
+  png: Buffer,
+): Promise<Attachment> {
+  const response = await page.request.post(
+    `/api/tasks/${task.id}/attachments/files?${new URLSearchParams({ fileName: name, mediaType: "image/png" })}`,
+    { headers: { "content-type": "application/octet-stream" }, data: png },
+  );
+  expect(response.status()).toBe(201);
+  return attachmentSchema.parse(await response.json());
+}
+
+/** A run of a Stage, as GET /tasks/:id/stages answers it. */
+function aStageRun(
+  number: number,
+  startedAt: string,
+  endedAt: string | null,
+  gateAction: StageRun["gateAction"] = null,
+): StageRun {
+  return {
+    id: crypto.randomUUID(),
+    number,
+    startedAt,
+    endedAt,
+    threadId: null,
+    session: null,
+    tokens: { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 },
+    carriedFailure: null,
+    sentBack: null,
+    commandRuns: [],
+    gateAction,
+    outcome: null,
+  };
+}
+
+test("a Task's images show by round, the Gate shows the current one, and the viewer steps through them", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Gallery rounds", "GR");
+  const task = await createdTask(page, project, "Gallery of two rounds");
+  const workStarted = new Date(Date.now() - 60_000).toISOString();
+  const firstLook = await attachedImage(page, task, "first-look.png", aPng([230, 120, 60]));
+  const firstDetail = await attachedImage(page, task, "first-detail.png", aPng([60, 140, 200]));
+  const sentBackAt = new Date(Date.parse(firstDetail.addedAt) + 1).toISOString();
+  const secondLook = await attachedImage(page, task, "second-look.png", aPng([80, 170, 90]));
+  expect(Date.parse(secondLook.addedAt)).toBeGreaterThan(Date.parse(sentBackAt));
+  expect(Date.parse(firstLook.addedAt)).toBeGreaterThan(Date.parse(workStarted));
+  // A send-back is a Gate run's, which only a walk of Agent sessions makes: the Stages are answered
+  // as a walk would leave them, waiting at the Gate again after one send-back.
+  const implement: Stage = {
+    kind: "agent",
+    key: "implement",
+    name: "Implement",
+    optional: false,
+    role: "developer",
+    brief: "Do it.",
+    session: "fresh",
+    budget: 100_000,
+  };
+  const look: Stage = { kind: "gate", key: "look", name: "UI acceptance", optional: false };
+  const noTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+  const stages: TaskStages = {
+    stages: [
+      {
+        stage: implement,
+        state: "done",
+        tokens: noTokens,
+        wentBack: null,
+        runs: [aStageRun(1, workStarted, sentBackAt), aStageRun(3, sentBackAt, sentBackAt)],
+      },
+      {
+        stage: look,
+        state: "waiting-on-you",
+        tokens: noTokens,
+        wentBack: null,
+        runs: [
+          aStageRun(2, sentBackAt, sentBackAt, {
+            kind: "send-back",
+            stageKey: "implement",
+            feedback: "Make the buttons bigger.",
+          }),
+          aStageRun(4, secondLook.addedAt, null),
+        ],
+      },
+    ],
+    editedForTask: false,
+    lockedStages: 2,
+    testResults: [],
+  };
+  await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
+  await page.goto(`/tasks/${task.id}`);
+
+  const record = page.getByRole("region", { name: "Record" });
+  const attachments = record.getByRole("region", { name: "Attachments" });
+  const roundTwo = attachments.getByRole("group", { name: "Round 2" });
+  const roundOne = attachments.getByRole("group", { name: "Round 1" });
+  await expect(roundTwo).toContainText("Sent back: Make the buttons bigger.");
+  await expect(roundTwo.getByRole("button", { name: "View second-look.png" })).toBeVisible();
+  await expect(roundOne.getByRole("button", { name: "View first-look.png" })).toBeHidden();
+  await roundOne.getByText("Round 1").click();
+  await expect(roundOne.getByRole("button", { name: "View first-look.png" })).toBeVisible();
+  await expect(roundOne.getByRole("button", { name: "View first-detail.png" })).toBeVisible();
+
+  const gate = page.getByRole("region", { name: "Gate attachments" });
+  await expect(gate.getByRole("button", { name: /^View / })).toHaveCount(1);
+  await expect(gate.getByRole("button", { name: "View second-look.png" })).toBeVisible();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-attachment-rounds.png") });
+
+  await roundOne.getByRole("button", { name: "View first-look.png" }).click();
+  const viewer = page.getByRole("dialog");
+  await expect(viewer.getByRole("heading", { name: "first-look.png" })).toBeVisible();
+  await expect(viewer).toContainText("1 of 3 · Round 1 · Added by You");
+  await expect(viewer.getByRole("link", { name: "Open the original" })).toHaveAttribute(
+    "href",
+    `/api/attachments/${firstLook.id}/content`,
+  );
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-attachment-viewer.png") });
+  await viewer.getByRole("button", { name: "Next" }).click();
+  await expect(viewer.getByRole("heading", { name: "first-detail.png" })).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await expect(viewer.getByRole("heading", { name: "second-look.png" })).toBeVisible();
+  await expect(viewer).toContainText("3 of 3 · Round 2");
+  await expect(viewer.getByRole("button", { name: "Next" })).toBeDisabled();
+  await page.keyboard.press("ArrowLeft");
+  await expect(viewer.getByRole("heading", { name: "first-detail.png" })).toBeVisible();
+  await viewer.getByRole("button", { name: "Previous" }).click();
+  await expect(viewer.getByRole("heading", { name: "first-look.png" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(viewer).toHaveCount(0);
 });
 
 test("a Task's Changes tab lists the files its branch changed with their lines and the diff, and opens them in the editor while the Task has its worktree", async ({

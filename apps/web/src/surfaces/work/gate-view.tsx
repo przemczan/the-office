@@ -1,10 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Attachment, Role, Task, TaskStage, TestResult } from "@the-office/contracts";
+import type { Role, Task, TaskStage, TestResult } from "@the-office/contracts";
 import type { ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
-import { attachmentContentUrl, attachmentQueries } from "../../api/work.ts";
-import { AttachmentChips } from "../../shell/attachments/attachment-chips.tsx";
+import { attachmentQueries } from "../../api/work.ts";
+import { AttachmentGallery } from "../../shell/attachments/attachment-gallery.tsx";
+import { attachmentRounds, oneRound } from "../../shell/attachments/attachment-rounds.ts";
 import { GateActions } from "../../shell/work/gate-actions.tsx";
 import { waitingGateOf, type WaitingGate } from "../../shell/work/gate-words.ts";
 import { RecordBlock } from "./record-block.tsx";
@@ -59,7 +60,7 @@ function GateView({
           Look at the work so far, then Continue, Send back with notes, or Drop.
         </p>
         <StageResults waiting={waiting} taskStages={taskStages} />
-        <GateAttachments task={task} />
+        <GateAttachments task={task} taskStages={taskStages} />
         <GateActions task={task} waiting={waiting} roles={roles} />
       </RecordBlock>
       {changes && <ChangesView changes={changes} testResults={testResults} />}
@@ -94,38 +95,27 @@ function StageResults({
   );
 }
 
-/** The Task's Attachments, where the screenshots an Agent attached for the Gate are. */
-function GateAttachments({ task }: { readonly task: Task }): ReactNode {
+/**
+ * The current round's Attachments, where the screenshots an Agent attached for the Gate are; the
+ * earlier rounds stay on the Task's record.
+ */
+function GateAttachments({
+  task,
+  taskStages,
+}: {
+  readonly task: Task;
+  readonly taskStages: readonly TaskStage[];
+}): ReactNode {
   const attachments = useQuery(attachmentQueries.of({ kind: "task", taskId: task.id })).data;
-  const images = (attachments ?? []).filter(({ kind }) => kind === "image");
+  const current = attachmentRounds(attachments ?? [], taskStages).at(-1)?.attachments ?? [];
   return (
     <section className="gate-part" aria-label="Gate attachments">
       <h4 className="gate-heading">Attachments</h4>
-      {images.length > 0 && <GateScreenshots images={images} />}
-      {attachments?.length === 0 ? (
-        <p className="task-quiet">None</p>
+      {attachments && current.length === 0 ? (
+        <p className="task-quiet">None in this round</p>
       ) : (
-        <AttachmentChips attachments={attachments ?? []} />
+        <AttachmentGallery rounds={oneRound(current)} />
       )}
     </section>
-  );
-}
-
-/** The image Attachments as thumbnails, each opening the full picture, for a look without the diff. */
-function GateScreenshots({ images }: { readonly images: readonly Attachment[] }): ReactNode {
-  return (
-    <div className="gate-screenshots">
-      {images.map((image) => (
-        <a
-          key={image.id}
-          className="gate-screenshot"
-          href={attachmentContentUrl(image.id)}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <img src={attachmentContentUrl(image.id)} alt={image.name} loading="lazy" />
-        </a>
-      ))}
-    </div>
   );
 }

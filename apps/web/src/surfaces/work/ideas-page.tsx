@@ -19,7 +19,8 @@ import {
   taskQueries,
 } from "../../api/work.ts";
 import { AddAttachmentDialog } from "../../shell/attachments/add-attachment-dialog.tsx";
-import { AttachmentChips } from "../../shell/attachments/attachment-chips.tsx";
+import { AttachmentGallery } from "../../shell/attachments/attachment-gallery.tsx";
+import { oneRound } from "../../shell/attachments/attachment-rounds.ts";
 import { useCopyRecordLink } from "../../shell/copy-record-link.ts";
 import { EmptyCard } from "../../shell/item-card.tsx";
 import { InOtherProjectsNote } from "../../shell/project-filter/in-other-projects-note.tsx";
@@ -222,7 +223,7 @@ function IdeaCard({
         </span>
       </div>
       {idea.notes !== "" && <p className="idea-card-notes">{idea.notes}</p>}
-      <AttachmentChips attachments={attachments.data ?? []} />
+      <AttachmentGallery rounds={oneRound(attachments.data ?? [])} />
       <div className="idea-card-options">
         {offered.map((action) => {
           const { label, icon, mutation } = actions[action];
