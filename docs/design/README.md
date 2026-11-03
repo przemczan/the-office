@@ -2,15 +2,11 @@
 
 Pages here are **proposals**: interactive mock-ups to look at and compare before anything is built. They are not the UI spec.
 
-- [**The Task page**](task-page.html): a full-width Pipeline rail with each Stage's history, a full-width Needs you card under it with room for screenshots, a tabbed record (Overview with its foldable blocks, Changes, Attachments by round), and a conversation that shows every Thread as one timeline, with a Details switch that hides tool calls. A scenario switcher at the top shows it in Planning, Running, Waiting on you, Failed with a loop-back and Done, at wide and narrow width, in the Light and Dark palettes.
+- [**The Task page**](task-page.html): a full-width Pipeline rail with each Stage's history, a full-width Needs you card under it with room for screenshots, a tabbed record (Overview with its foldable blocks, Changes, Attachments by round), and a conversation that shows every Thread as one timeline of chapters, with a Details switch that hides tool calls. A scenario switcher at the top shows it in Planning, Running, Waiting on you, Failed with a loop-back and Done, at wide and narrow width, in the Light and Dark palettes.
 
-## Still to choose: the chat flow
+## The chat flow: Chapters
 
-The Chat flow switch offers three ways to lay out the one timeline. All three draw a clear boundary where a Thread starts, join one author's neighbouring messages into a turn, leave regular messages on the plain surface and keep your own neutral. Decisions, Handover notes and a failed run's line keep their colour. "Transcript", "Chapters" and "Spine" are names for comparing them here, not new terms.
-
-1. **Transcript:** a shaded band opens each Thread and turns sit flat under their avatars. Everything stays readable in one scroll.
-2. **Chapters:** each Thread is a box. The ones behind you fold to one line with their Handover note, so a long Task stays short.
-3. **Spine:** a Thread is one line down the column, cut where it ends. Your turns sit across from it, like a dialogue.
+The user chose Chapters from the three flows compared here. Each Thread is a box. The Thread you're on and any Thread with an open Decision stay unfolded; the others fold to one line with their Handover note, so a long Task stays short. One author's neighbouring messages join into a turn, regular messages sit on the plain surface, and your own stay neutral. Decisions, Handover notes and a failed run's line keep their colour. "Chapter" is this design's name, not a glossary term: in the app it is simply a Thread.
 
 ## What the implementation must keep
 

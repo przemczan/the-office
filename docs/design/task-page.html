@@ -1851,7 +1851,8 @@
         padding: 14px 16px;
         display: flex;
         flex-direction: column;
-        gap: 20px;
+        gap: 10px;
+        background: var(--surface-sunken);
         overscroll-behavior: contain;
       }
       /* A Handover note or a Decision: the cards that stand out from the plain turns around them. */
@@ -1932,9 +1933,13 @@
         color: var(--fg-1);
         font-weight: 600;
       }
-      .turn.mine .avatar {
-        background: var(--neutral-subtle);
-        color: var(--neutral-fg);
+      .turn-by .avatar {
+        display: none;
+      }
+      .turn.mine {
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: var(--surface-sunken);
       }
       .tool-calls {
         display: grid;
@@ -1988,21 +1993,38 @@
       .message-answering i:nth-child(3) {
         animation-delay: 0.3s;
       }
+      /* A chapter: each Thread is a box of its own, and the ones behind you fold to a line. */
       .segment,
       .segment-body {
         display: flex;
         flex-direction: column;
         min-width: 0;
       }
+      .segment {
+        flex: none;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .segment.live {
+        border-color: var(--border-strong);
+      }
       .segment-body {
         gap: 12px;
+        padding: 12px;
       }
       .segment-head {
         position: sticky;
         top: -14px;
         z-index: 1;
+        padding: 7px 12px 7px 6px;
+        border-radius: var(--radius-card) var(--radius-card) 0 0;
+        background: var(--surface);
         font-size: var(--text-xs);
         color: var(--fg-2);
+      }
+      .segment.open .segment-head {
+        border-bottom: 1px solid var(--border-subtle);
       }
       .segment-line {
         display: flex;
@@ -2017,63 +2039,20 @@
       .segment-head .grow {
         flex: 1;
       }
+      /* In a narrow drawer the time wraps; it stays on the right, under the state. */
+      .segment-head .faint {
+        margin-left: auto;
+      }
       .segment-state.failed {
         color: var(--danger-fg);
       }
       .segment-why {
         margin-top: 2px;
+        padding-left: 26px;
         font: var(--type-caption);
         color: var(--fg-3);
       }
 
-      /* Flow 1, Transcript: a shaded band opens each Thread; turns sit flat under avatars. */
-      .flow-transcript .segment-head {
-        margin: 0 -16px 12px;
-        padding: 7px 16px;
-        background: var(--surface-sunken);
-        border-block: 1px solid var(--border);
-      }
-      .flow-transcript .turn .message-text {
-        padding-left: 26px;
-      }
-
-      /* Flow 2, Chapters: each Thread is a box of its own, and the ones behind you fold to a line. */
-      .flow-chapters {
-        gap: 10px;
-        background: var(--surface-sunken);
-      }
-      .flow-chapters .segment {
-        flex: none;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-card);
-        background: var(--surface);
-      }
-      .flow-chapters .segment.live {
-        border-color: var(--border-strong);
-      }
-      .flow-chapters .segment-head {
-        padding: 7px 12px 7px 6px;
-        border-radius: var(--radius-card) var(--radius-card) 0 0;
-        background: var(--surface);
-      }
-      .flow-chapters .segment.open .segment-head {
-        border-bottom: 1px solid var(--border-subtle);
-        border-radius: var(--radius-card) var(--radius-card) 0 0;
-      }
-      .flow-chapters .segment-why {
-        padding-left: 26px;
-      }
-      .flow-chapters .segment-body {
-        padding: 12px;
-      }
-      .flow-chapters .turn-by .avatar {
-        display: none;
-      }
-      .flow-chapters .turn.mine {
-        padding: 6px 10px;
-        border-radius: 8px;
-        background: var(--surface-sunken);
-      }
       .chapter-toggle {
         display: inline-grid;
         place-items: center;
@@ -2108,56 +2087,6 @@
         cursor: pointer;
       }
 
-      /* Flow 3, Spine: a Thread is one line down the column, cut where it ends; your turns sit across from it. */
-      .flow-spine {
-        gap: 28px;
-      }
-      .flow-spine .segment-head {
-        margin: 0 -16px;
-        padding: 6px 16px;
-        background: var(--surface);
-      }
-      .flow-spine .segment-why {
-        padding-left: 28px;
-      }
-      .flow-spine .segment-body {
-        margin-left: 10px;
-        padding: 8px 0 2px 17px;
-        border-left: 2px solid var(--border);
-      }
-      .flow-spine .segment.live .segment-body {
-        border-left-color: var(--border-strong);
-      }
-      .flow-spine .turn.own .turn-by {
-        display: none;
-      }
-      .flow-spine .turn.mine {
-        align-self: flex-end;
-        max-width: 85%;
-        padding: 7px 12px;
-        border-radius: 12px;
-        background: var(--surface-sunken);
-      }
-      .flow-spine .turn.mine .person {
-        display: none;
-      }
-      .flow-spine .thread-end {
-        position: relative;
-      }
-      .flow-spine .thread-end::before {
-        content: "";
-        position: absolute;
-        top: 50%;
-        left: -22px;
-        width: 8px;
-        height: 8px;
-        margin-top: -4px;
-        border-radius: 50%;
-        background: var(--fg-3);
-      }
-      .flow-spine .thread-end.failed::before {
-        background: var(--danger);
-      }
       .new-pill {
         flex: none;
         align-self: center;
@@ -2370,10 +2299,6 @@
       <div class="group">
         <span class="label">Scenario</span>
         <div class="seg" id="scenario-switch"></div>
-      </div>
-      <div class="group">
-        <span class="label">Chat flow</span>
-        <div class="seg" id="flow-switch"></div>
       </div>
       <div class="group">
         <span class="label">Width</span>
@@ -3332,13 +3257,12 @@ About 600k tokens over the whole Pipeline.`;
 
       const view = {
         scenario: "waiting",
-        chatFlow: "transcript",
         narrow: false,
         palette: "light",
         data: null,
         selectedStage: null,
         unread: 0,
-        foldedChapters: {},
+        chapterFolds: {},
         viewedShots: null,
         drawerOpen: false,
         recordTab: "overview",
@@ -4260,13 +4184,12 @@ About 600k tokens over the whole Pipeline.`;
         return groups;
       }
 
-      function turnHtml({ author, at, texts }, thread) {
-        const whose = author === "you" ? "mine" : author === thread.roleKey ? "own" : "";
-        return `<div class="turn ${whose}"><div class="turn-by">${personTag(author)}<span>${clock(at)}</span></div><div class="message-text">${texts.map(markdown).join("")}</div></div>`;
+      function turnHtml({ author, at, texts }) {
+        return `<div class="turn ${author === "you" ? "mine" : ""}"><div class="turn-by">${personTag(author)}<span>${clock(at)}</span></div><div class="message-text">${texts.map(markdown).join("")}</div></div>`;
       }
 
       function messageHtml(group, thread) {
-        if (group.kind === "turn") return turnHtml(group, thread);
+        if (group.kind === "turn") return turnHtml(group);
         if (group.kind === "tools")
           return `<div class="tool-calls">${group.texts.map((text) => `<div class="tool-call">${ICON.wrench}<span class="message-summary">${esc(text)}</span></div>`).join("")}</div>`;
         if (group.kind === "end")
@@ -4330,11 +4253,16 @@ About 600k tokens over the whole Pipeline.`;
       const threadsInOrder = () =>
         [...view.data.threads].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));
 
-      /** Chapters: the Thread you're on and any Thread holding an open Decision start unfolded. */
+      /** The Thread you're on and any Thread holding an open Decision start unfolded. */
       function chapterOpen(t) {
         const current = view.data.liveThreadId ?? threadsInOrder().at(-1).id;
         const waiting = openDecisions().some((d) => d.threadId === t.id);
-        return view.foldedChapters[t.id] ?? (t.id === current || waiting);
+        return view.chapterFolds[t.id] ?? (t.id === current || waiting);
+      }
+
+      function liveChapterFolded() {
+        const { liveThreadId } = view.data;
+        return Boolean(liveThreadId) && !chapterOpen(threadById(liveThreadId));
       }
 
       function chapterSummary(t) {
@@ -4348,17 +4276,15 @@ About 600k tokens over the whole Pipeline.`;
         return `<button class="chapter-summary" data-action="toggle-chapter" data-thread="${t.id}">${esc(words.join(" · "))}</button>`;
       }
 
-      /** The boundary every flow draws: who, where, how the Thread began and how it stands. */
+      /** The boundary of a chapter: who, where, how the Thread began and how it stands. */
       function threadHead(t, isLive) {
         const found = stageOfThread(t.id);
         const opening = t.messages.find((m) => m.kind === "start");
         const showWhy = opening && (opening.failedBefore || view.showDetails);
         const why = showWhy ? opening.text.split(" · ").slice(2).join(" · ") : "";
         const outcome = outcomeWords(found ? found.run : null);
-        const toggle =
-          view.chatFlow === "chapters"
-            ? `<button class="chapter-toggle" data-action="toggle-chapter" data-thread="${t.id}" aria-expanded="${chapterOpen(t)}" aria-label="Fold ${esc(t.title)}">${ICON.chev}</button>`
-            : "";
+        const open = chapterOpen(t);
+        const toggle = `<button class="chapter-toggle" data-action="toggle-chapter" data-thread="${t.id}" aria-expanded="${open}" aria-label="${open ? "Fold" : "Unfold"} ${esc(t.title)}">${ICON.chev}</button>`;
         return `<div class="segment-head"><div class="segment-line">${toggle}${personTag(t.roleKey, "sm", personLabel(t.roleKey))}<span>${esc(threadPlace(t))}</span><span class="grow"></span>
               ${found ? `<button class="stage-chip" data-action="select-stage" data-stage="${found.taskStage.stage.key}">◆ rail</button>` : ""}
               ${isLive ? liveBadge() : `<span class="segment-state ${outcome === "Failed" ? "failed" : ""}">${outcome}</span>`}<span class="faint">${clock(t.startedAt)}</span></div>
@@ -4366,7 +4292,7 @@ About 600k tokens over the whole Pipeline.`;
       }
 
       function segmentHtml(t, isLive) {
-        const open = view.chatFlow !== "chapters" || chapterOpen(t);
+        const open = chapterOpen(t);
         const body = `<div class="segment-body">${groupedMessages(visibleMessages(t))
           .map((group) => messageHtml(group, t))
           .join("")}${workingHtml(t)}</div>`;
@@ -4384,7 +4310,7 @@ About 600k tokens over the whole Pipeline.`;
         const header = `<div class="thread-head"><span class="grow"><span class="name">Conversation</span><div class="sub">Every Thread of this Task in order, the newest last</div></span>${detailsSwitch()}</div>${liveNow}`;
         return (
           header +
-          `<div class="message-list flow-${view.chatFlow}" id="messages">${segments}${newMessagesPill()}</div>` +
+          `<div class="message-list" id="messages">${segments}${newMessagesPill()}</div>` +
           composer(live)
         );
       }
@@ -4392,8 +4318,7 @@ About 600k tokens over the whole Pipeline.`;
       function renderConversation() {
         const conversation = $("conversation");
         const previous = $("messages");
-        const place = `${view.scenario}/${view.chatFlow}`;
-        const keepScroll = previous?.dataset.place === place ? previous.scrollTop : null;
+        const keepScroll = previous?.dataset.scenario === view.scenario ? previous.scrollTop : null;
         const typing = document.activeElement?.closest(".composer textarea");
         const caret = typing?.selectionStart;
         const close = `<div class="drawer-close" style="justify-content:flex-end;padding:6px 8px 0"><button class="btn ghost xs icon" data-action="close-drawer" aria-label="Close the conversation">${ICON.close}</button></div>`;
@@ -4405,7 +4330,7 @@ About 600k tokens over the whole Pipeline.`;
           composerBox.setSelectionRange(caret, caret);
         }
         const messages = $("messages");
-        messages.dataset.place = place;
+        messages.dataset.scenario = view.scenario;
         messages.scrollTop = keepScroll !== null ? keepScroll : messages.scrollHeight;
         messages.addEventListener("scroll", clearUnreadAtEnd, { passive: true });
 
@@ -4421,7 +4346,7 @@ About 600k tokens over the whole Pipeline.`;
       }
 
       function clearUnreadAtEnd() {
-        if (view.unread && !drawerClosed() && messagesAtEnd()) {
+        if (view.unread && !drawerClosed() && !liveChapterFolded() && messagesAtEnd()) {
           view.unread = 0;
           renderConversation();
         }
@@ -4444,7 +4369,7 @@ About 600k tokens over the whole Pipeline.`;
           next += 1;
           const atEnd = messagesAtEnd();
           const shown = view.showDetails || message.kind !== "tool";
-          if (shown && (drawerClosed() || !atEnd)) view.unread += 1;
+          if (shown && (drawerClosed() || liveChapterFolded() || !atEnd)) view.unread += 1;
           renderConversation();
           // Only follow new messages when already at the end; never jump the page.
           if (atEnd) $("messages").scrollTop = $("messages").scrollHeight;
@@ -4502,7 +4427,7 @@ About 600k tokens over the whole Pipeline.`;
         view.data = SCENARIOS[key].build();
         view.selectedStage = null;
         view.unread = 0;
-        view.foldedChapters = {};
+        view.chapterFolds = {};
         view.recordTab = "overview";
         view.sendBackOpen = false;
         view.composerDraft = "";
@@ -4526,16 +4451,6 @@ About 600k tokens over the whole Pipeline.`;
           Object.entries(SCENARIOS).map(([k, s]) => [k, s.label]),
           view.scenario,
           "scenario",
-        );
-        segmented(
-          "flow-switch",
-          [
-            ["transcript", "1 · Transcript"],
-            ["chapters", "2 · Chapters"],
-            ["spine", "3 · Spine"],
-          ],
-          view.chatFlow,
-          "chat-flow",
         );
         segmented(
           "width-switch",
@@ -4574,7 +4489,7 @@ About 600k tokens over the whole Pipeline.`;
         element.scrollIntoView({ block: "start", behavior: "smooth" });
 
       function openThread(id) {
-        if (view.chatFlow === "chapters") view.foldedChapters[id] = true;
+        view.chapterFolds[id] = true;
         renderConversation();
         if (isNarrow()) {
           view.drawerOpen = true;
@@ -4611,12 +4526,6 @@ About 600k tokens over the whole Pipeline.`;
 
       const ACTIONS = {
         scenario: (el) => loadScenario(el.dataset.value),
-        "chat-flow": (el) => {
-          view.chatFlow = el.dataset.value;
-          view.foldedChapters = {};
-          renderSwitches();
-          renderConversation();
-        },
         width: (el) => {
           view.narrow = el.dataset.value === "narrow";
           $("viewport").classList.toggle("narrow-demo", view.narrow);
@@ -4668,8 +4577,9 @@ About 600k tokens over the whole Pipeline.`;
         "open-thread": (el) => openThread(el.dataset.thread),
         "toggle-chapter": (el) => {
           const t = threadById(el.dataset.thread);
-          view.foldedChapters[t.id] = !chapterOpen(t);
+          view.chapterFolds[t.id] = !chapterOpen(t);
           renderConversation();
+          clearUnreadAtEnd();
         },
         "show-needs": () => {
           view.drawerOpen = false;
@@ -4678,6 +4588,7 @@ About 600k tokens over the whole Pipeline.`;
         },
         "to-latest": () => {
           view.unread = 0;
+          view.chapterFolds[view.data.liveThreadId] = true;
           renderConversation();
           $("messages").scrollTop = $("messages").scrollHeight;
         },
