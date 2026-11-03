@@ -773,7 +773,7 @@ test("a Task's images show by round, the Gate shows the current one, and the vie
   await page.goto(`/tasks/${task.id}`);
 
   const record = page.getByRole("region", { name: "Record" });
-  const attachments = record.getByRole("region", { name: "Attachments" });
+  const attachments = record.getByRole("region", { name: "Attachments", exact: true });
   const roundTwo = attachments.getByRole("group", { name: "Round 2" });
   const roundOne = attachments.getByRole("group", { name: "Round 1" });
   await expect(roundTwo).toContainText("Sent back: Make the buttons bigger.");
