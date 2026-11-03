@@ -930,10 +930,14 @@
       .runs {
         list-style: none;
         margin: 0;
-        padding: 0 0 0 14px;
-        border-left: 2px solid var(--border);
+        padding: 0 0 0 20px;
+        /* The line is a background, as a border would clip the run markers that sit on it. */
+        background: linear-gradient(var(--border), var(--border)) 5px 0 / 2px 100% no-repeat local;
         display: grid;
         gap: 10px;
+        /* A Stage with many runs scrolls here, so the conversation below stays within reach. */
+        max-height: min(240px, 26vh);
+        overflow-y: auto;
       }
       .run {
         position: relative;
@@ -3228,7 +3232,6 @@ About 600k tokens over the whole Pipeline.`;
             <span class="node-who">${who.avatar}${esc(who.label)}</span>
             <span class="node-state">${state === "running" ? '<span class="dot live" style="display:inline-block;margin-right:4px;vertical-align:1px"></span>' : ""}${STATE_WORDS[state]}${ts.wentBack ? ` · went back to ${byKey(ts.wentBack.stageKey).name}` : ""}</span>
             <span class="node-meta">${facts}</span>
-            
           </span>
         </button>`;
       }
@@ -3248,6 +3251,7 @@ About 600k tokens over the whole Pipeline.`;
               : at && at.state !== "done"
                 ? `At ${at.stage.name}: ${STATE_WORDS[at.state].toLowerCase()}`
                 : `${doneCount} of ${stages.length} Stages walked`;
+        const railScrollLeft = $("rail-scroll")?.scrollLeft ?? 0;
         $("rail").innerHTML = `
           <div class="rail-top"><span class="overline">Pipeline · Full</span><span class="muted">${caption} · select a Stage for its history</span></div>
           <div class="rail-scroll" id="rail-scroll">
@@ -3257,7 +3261,25 @@ About 600k tokens over the whole Pipeline.`;
               ${stages.map((ts, i) => nodeHtml(ts, i, current)).join("")}
             </div>
           </div>`;
+        $("rail-scroll").scrollLeft = railScrollLeft;
         requestAnimationFrame(layoutRail);
+      }
+
+      /** Narrow: the rail scrolls, so a Stage that's out of view is brought to the middle of it. */
+      function revealNode(key) {
+        const scroller = $("rail-scroll");
+        const node = scroller.querySelector(`.node[data-stage="${key}"]`);
+        const area = scroller.getBoundingClientRect();
+        const box = node.getBoundingClientRect();
+        if (box.left < area.left || box.right > area.right)
+          scroller.scrollLeft += box.left - area.left - (area.width - box.width) / 2;
+        return node;
+      }
+
+      function revealCurrentStage() {
+        const { stages } = view.data;
+        const at = stages[currentIndex(stages)];
+        if (at) revealNode(at.stage.key);
       }
 
       /** Positions the track, its fill and the loop-back arcs from where the nodes landed. */
@@ -3429,6 +3451,7 @@ About 600k tokens over the whole Pipeline.`;
         renderRail();
         renderHistory();
         fitConversation();
+        revealNode(key).focus({ preventScroll: true });
         if (view.selectedStage)
           $("history").scrollIntoView({ block: "nearest", behavior: "smooth" });
       }
@@ -3721,7 +3744,7 @@ About 600k tokens over the whole Pipeline.`;
       function composer(live) {
         const { task } = view.data;
         if (task.state === "done") {
-          return `<div class="composer"><div class="ended">This Task is Done and its working copy has been removed, so you can read this conversation but not continue it. To keep working, start a new Task.</div></div>`;
+          return `<div class="composer"><div class="ended">This Task is Done and its worktree has been removed, so you can read this conversation but not continue it. To keep working, start a new Task.</div></div>`;
         }
         const place = threadPlace(live).replace(/, run \d+$/, "");
         const p = PEOPLE[live.roleKey];
@@ -3754,9 +3777,7 @@ About 600k tokens over the whole Pipeline.`;
           : "";
         const foot = readOnly
           ? `<div class="composer"><div class="ended">Read-only: this Thread's run has ended. <button class="linklike" data-action="back-to-live">Back to live</button> to write to ${personName(live.roleKey)}.</div></div>`
-          : live
-            ? composer(live)
-            : composer(null);
+          : composer(live);
         return renderEarlier() + header + body + foot;
       }
 
@@ -3806,10 +3827,13 @@ About 600k tokens over the whole Pipeline.`;
 
         const n = needsCount();
         $("drawer-handle").innerHTML =
-          `${ICON.chat}Conversation${view.data.liveThreadId ? ' <span class="dot live"></span>' : ""}${n ? ` <span class="count-pill">${n}</span>` : ""}`;
+          `${ICON.chat}Conversation${view.data.liveThreadId ? ' <span class="dot live"></span>' : ""}${view.unread ? ` <span class="unread">${view.unread}</span>` : ""}${n ? ` <span class="count-pill">${n}</span>` : ""}`;
       }
 
-      /** Running scenario: new messages arrive in the live Thread; while you read another, they count as unread. */
+      const readingLive = () => view.concept === "timeline" || !view.viewingThreadId;
+      const drawerClosed = () => isNarrow() && !view.drawerOpen;
+
+      /** Running scenario: new messages arrive in the live Thread; while you read another or the drawer is closed, they count as unread. */
       function startLiveScript() {
         clearInterval(view.liveTimer);
         const script = view.data.liveScript;
@@ -3823,15 +3847,13 @@ About 600k tokens over the whole Pipeline.`;
           const live = threadById(view.data.liveThreadId);
           live.messages.push({ ...script[next], at: new Date(NOW).toISOString() });
           next += 1;
-          const reading =
-            view.concept === "threads" && view.viewingThreadId && view.viewingThreadId !== live.id;
-          if (reading) view.unread += 1;
+          if (!readingLive() || drawerClosed()) view.unread += 1;
           const messages = $("messages");
           const atBottom =
             messages && messages.scrollHeight - messages.scrollTop - messages.clientHeight < 40;
           renderConversation();
           // Only follow new messages when already at the end; never jump the page.
-          if (!reading && atBottom) $("messages").scrollTop = $("messages").scrollHeight;
+          if (readingLive() && atBottom) $("messages").scrollTop = $("messages").scrollHeight;
         }, 6000);
       }
 
@@ -3901,6 +3923,7 @@ About 600k tokens over the whole Pipeline.`;
         view.earlierOpen = view.data.liveThreadId === null;
         renderSwitches();
         renderAll();
+        revealCurrentStage();
         startLiveScript();
       }
 
@@ -3991,6 +4014,7 @@ About 600k tokens over the whole Pipeline.`;
           requestAnimationFrame(() => {
             layoutRail();
             fitConversation();
+            revealCurrentStage();
           });
         },
         palette: (el) => {
@@ -4068,6 +4092,10 @@ About 600k tokens over the whole Pipeline.`;
         "open-drawer": () => {
           view.drawerOpen = true;
           $("viewport").classList.add("drawer-open");
+          if (readingLive() && view.unread) {
+            view.unread = 0;
+            renderConversation();
+          }
         },
         "close-drawer": () => {
           view.drawerOpen = false;
@@ -4084,11 +4112,8 @@ About 600k tokens over the whole Pipeline.`;
         view.selectedStage = next;
         renderRail();
         renderHistory();
-        const node = document.querySelector(`.node[data-stage="${next}"]`);
-        if (node) {
-          node.focus({ preventScroll: true });
-          node.scrollIntoView({ block: "nearest", inline: "nearest" });
-        }
+        fitConversation();
+        revealNode(next).focus({ preventScroll: true });
       }
 
       document.addEventListener("click", (event) => {
