@@ -1,5 +1,6 @@
 import { execFile, spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import type { OnModuleDestroy } from "@nestjs/common";
+import { KeyedLocks } from "../../../../platform/locks/keyed-locks.js";
 import type { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import type { ProcessTrees } from "../../../../platform/os/process-trees.js";
 import {
@@ -54,6 +55,8 @@ const SIGN_IN_PAGE = /visit:\s*(https:\/\/\S+)/;
  */
 export class ClaudeCodeCliAccounts extends ClaudeCodeAccounts implements OnModuleDestroy {
   private readonly signIns = new Map<EngineId, RunningSignIn>();
+  /** Each engine's login changes in turn, so no Sign in starts unseen by the next change. */
+  private readonly loginChanges = new KeyedLocks();
 
   constructor(
     /** Found at each command, so a service without the binary still starts. */
@@ -89,17 +92,20 @@ export class ClaudeCodeCliAccounts extends ClaudeCodeAccounts implements OnModul
   }
 
   async signIn(engineId: EngineId): Promise<SignIn> {
-    await this.signIns.get(engineId)?.end();
-    const { command, args } = this.cli();
-    const child = spawn(command, [...args, "auth", "login", "--claudeai"], {
-      env: await this.environmentOf(engineId),
-      stdio: "pipe",
-      detached: this.processTrees.detached,
-      windowsHide: true,
+    const running = await this.loginChanges.run(engineId, async () => {
+      await this.signIns.get(engineId)?.end();
+      const { command, args } = this.cli();
+      const child = spawn(command, [...args, "auth", "login", "--claudeai"], {
+        env: await this.environmentOf(engineId),
+        stdio: "pipe",
+        detached: this.processTrees.detached,
+        windowsHide: true,
+      });
+      const started = new RunningSignIn(child, this.processTrees);
+      this.signIns.set(engineId, started);
+      void started.ended.then(() => this.forget(engineId, started));
+      return started;
     });
-    const running = new RunningSignIn(child, this.processTrees);
-    this.signIns.set(engineId, running);
-    void running.ended.then(() => this.forget(engineId, running));
     try {
       return { url: await running.page, ended: running.ended };
     } catch (error) {
@@ -110,30 +116,35 @@ export class ClaudeCodeCliAccounts extends ClaudeCodeAccounts implements OnModul
 
   enterCode(engineId: EngineId, code: string): Promise<void> {
     const running = this.signIns.get(engineId);
-    if (running === undefined) return Promise.reject(new SignInNotRunning(engineId));
-    running.enter(code);
+    if (running?.enter(code) !== true) return Promise.reject(new SignInNotRunning(engineId));
     return Promise.resolve();
   }
 
-  async setPastedToken(engineId: EngineId, token: PastedToken): Promise<void> {
-    await this.signIns.get(engineId)?.end();
-    const folder = ownEngineConfigFolder(this.officeData, engineId);
-    await preparedEngineConfigFolder(this.officeData, engineId);
-    await writePastedToken(folder, token, new Date());
+  setPastedToken(engineId: EngineId, token: PastedToken): Promise<void> {
+    return this.loginChanges.run(engineId, async () => {
+      await this.signIns.get(engineId)?.end();
+      const folder = ownEngineConfigFolder(this.officeData, engineId);
+      await preparedEngineConfigFolder(this.officeData, engineId);
+      await writePastedToken(folder, token, new Date());
+    });
   }
 
-  async signOut(engineId: EngineId): Promise<void> {
-    await this.signIns.get(engineId)?.end();
-    await removeEngineCredentials(ownEngineConfigFolder(this.officeData, engineId));
+  signOut(engineId: EngineId): Promise<void> {
+    return this.loginChanges.run(engineId, async () => {
+      await this.signIns.get(engineId)?.end();
+      await removeEngineCredentials(ownEngineConfigFolder(this.officeData, engineId));
+    });
   }
 
   async prepareConfigFolder(engineId: EngineId): Promise<void> {
     await preparedEngineConfigFolder(this.officeData, engineId);
   }
 
-  async removeConfigFolder(engineId: EngineId): Promise<void> {
-    await this.signIns.get(engineId)?.end();
-    await removeEngineConfigFolder(this.officeData, engineId);
+  removeConfigFolder(engineId: EngineId): Promise<void> {
+    return this.loginChanges.run(engineId, async () => {
+      await this.signIns.get(engineId)?.end();
+      await removeEngineConfigFolder(this.officeData, engineId);
+    });
   }
 
   engineIdsWithConfigFolders(): Promise<readonly EngineId[]> {
@@ -171,6 +182,8 @@ class RunningSignIn {
       child.once("error", () => resolve());
     });
     this.page = this.pageOf(child);
+    // A code pasted while the login exits meets a closing pipe; `enter` says so instead.
+    child.stdin.on("error", () => undefined);
     // A rejected page is awaited by the Sign in; this only keeps a late rejection quiet.
     this.page.catch(() => undefined);
     const giveUp = setTimeout(() => void this.end(), SIGN_IN_TIMEOUT_MS);
@@ -178,8 +191,11 @@ class RunningSignIn {
     void this.ended.then(() => clearTimeout(giveUp));
   }
 
-  enter(code: string): void {
+  /** Whether the login could still take the code. */
+  enter(code: string): boolean {
+    if (!this.child.stdin.writable) return false;
     this.child.stdin.write(`${code.trim()}\n`);
+    return true;
   }
 
   async end(): Promise<void> {

@@ -44,11 +44,15 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
   /**
    * Removes the folder of every engine no longer listed: one removed while the service stopped
    * before its sessions ended, which an engine added again under its name would otherwise take
-   * back, its login included.
+   * back, its login included. An API engine listed under a removed one's id has no folder of its own.
    */
   async onApplicationBootstrap(): Promise<void> {
     try {
-      const listed = new Set((await this.engineModels.engines()).map(({ id }) => id));
+      const listed = new Set(
+        (await this.engineModels.engines())
+          .filter(({ kind }) => kind === "claude-code")
+          .map(({ id }) => id),
+      );
       for (const engineId of await this.accounts.engineIdsWithConfigFolders()) {
         if (!listed.has(engineId)) await this.accounts.removeConfigFolder(engineId);
       }
@@ -59,13 +63,13 @@ export class EngineAccounts implements OnModuleInit, OnApplicationBootstrap {
 
   /**
    * Removes the removed engine's folder once no session runs on it, as a running session finishes
-   * on the old engine. An engine added again meanwhile under its name has taken its id back
-   * (`engineIdFor`), and the folder with it.
+   * on the old engine. A Claude Code engine added again meanwhile under its name has taken its id
+   * back (`engineIdFor`), and the folder with it; an API engine has no use for it.
    */
   private async removeFolderAfterSessions(engineId: EngineId): Promise<void> {
     try {
       await this.runningSessions.allEnded(engineId);
-      if (await this.engineModels.find(engineId)) return;
+      if ((await this.engineModels.find(engineId))?.kind === "claude-code") return;
       await this.accounts.removeConfigFolder(engineId);
     } catch (error) {
       this.logger.error(
