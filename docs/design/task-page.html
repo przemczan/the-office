@@ -702,9 +702,6 @@
         padding-top: var(--marker-top);
         min-width: 100%;
       }
-      .rail-inner.has-loops {
-        --marker-top: 42px;
-      }
       .rail-track,
       .rail-fill {
         position: absolute;
@@ -1343,14 +1340,36 @@
       .drawer-close {
         display: none;
       }
-      /* Capped so the live Thread keeps its place; past the cap it scrolls inside itself. */
+      /*
+       * Takes the height its actions need, so they are never cut off; the live Thread's messages give
+       * way first, down to their minimum. Only past that does it scroll inside itself.
+       */
       .needs {
-        flex: none;
+        flex: 0 1 auto;
+        min-height: 0;
         padding: 10px 12px;
         border-bottom: 1px solid var(--border);
         background: color-mix(in oklab, var(--warning-subtle) 70%, var(--surface));
-        max-height: 40%;
         overflow: auto;
+      }
+      /* Shown only while some of Needs you is out of view, so nothing waits unseen below the fold. */
+      .needs-more {
+        display: none;
+        position: sticky;
+        bottom: -10px;
+        margin: 6px -12px -10px;
+        padding: 14px 12px 8px;
+        background: linear-gradient(
+          transparent,
+          color-mix(in oklab, var(--warning-subtle) 70%, var(--surface)) 45%
+        );
+        text-align: center;
+      }
+      .needs.overflowing .needs-more {
+        display: block;
+      }
+      .needs-more svg {
+        transform: rotate(90deg);
       }
       .needs.empty {
         background: var(--surface);
@@ -3169,6 +3188,12 @@ About 600k tokens over the whole Pipeline.`;
         return [...loops.values()];
       }
 
+      /** Room above the track for the loop-back arcs, one level per loop (see layoutRail). */
+      function railHeadroom(stages) {
+        const loops = loopBacks(stages).length;
+        return loops ? `--marker-top: ${26 + loops * 16}px` : "";
+      }
+
       function nodeHtml(ts, index, current) {
         const { stage, state, runs } = ts;
         const who = stageWorker(stage);
@@ -3226,7 +3251,7 @@ About 600k tokens over the whole Pipeline.`;
         $("rail").innerHTML = `
           <div class="rail-top"><span class="overline">Pipeline · Full</span><span class="muted">${caption} · select a Stage for its history</span></div>
           <div class="rail-scroll" id="rail-scroll">
-            <div class="rail-inner ${loopBacks(stages).length ? "has-loops" : ""}" id="rail-inner" role="tablist" aria-label="Stages">
+            <div class="rail-inner" id="rail-inner" style="${railHeadroom(stages)}" role="tablist" aria-label="Stages">
               <div class="rail-track" id="rail-track"></div><div class="rail-fill" id="rail-fill"></div>
               <svg class="rail-arcs" id="rail-arcs" aria-hidden="true"></svg>
               ${stages.map((ts, i) => nodeHtml(ts, i, current)).join("")}
@@ -3240,6 +3265,11 @@ About 600k tokens over the whole Pipeline.`;
         const inner = $("rail-inner");
         if (!inner) return;
         const { stages } = view.data;
+        // Shorter loops nest under longer ones: each is one level higher than the loops it spans.
+        const indexOf = (key) => stages.findIndex((ts) => ts.stage.key === key);
+        const loops = loopBacks(stages)
+          .map((loop) => ({ ...loop, span: Math.abs(indexOf(loop.from) - indexOf(loop.to)) }))
+          .sort((a, b) => a.span - b.span);
         const box = inner.getBoundingClientRect();
         const centers = {};
         inner.querySelectorAll(".node").forEach((node) => {
@@ -3264,7 +3294,6 @@ About 600k tokens over the whole Pipeline.`;
 
         const svg = $("rail-arcs");
         inner.querySelectorAll(".arc-label").forEach((l) => l.remove());
-        const loops = loopBacks(stages);
         svg.innerHTML =
           '<defs><marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 1L9 5 0 9z" fill="var(--danger)"/></marker></defs>' +
           loops
@@ -3272,7 +3301,7 @@ About 600k tokens over the whole Pipeline.`;
               const a = centers[loop.from],
                 b = centers[loop.to];
               const y = a.top - 2,
-                height = Math.min(42, 22 + Math.abs(a.x - b.x) / 12) + i * 4;
+                height = 28 + i * 21;
               const x1 = a.x - 4,
                 x2 = b.x + 2 + i * 9;
               const label = document.createElement("button");
@@ -3323,7 +3352,7 @@ About 600k tokens over the whole Pipeline.`;
           .filter(Boolean)
           .join(" · ");
         const carried = r.carriedFailure
-          ? `<div class="carried">↺ Briefed with ${esc(byKey(r.carriedFailure.stageKey).name)}'s failure, round ${r.carriedFailure.round} of ${r.carriedFailure.rounds}</div>`
+          ? `<div class="carried">↺ Briefed with what failed in ${esc(byKey(r.carriedFailure.stageKey).name)}, round ${r.carriedFailure.round} of ${r.carriedFailure.rounds}</div>`
           : "";
         const text = o
           ? o.status === "failed"
@@ -3603,7 +3632,7 @@ About 600k tokens over the whole Pipeline.`;
         return `<div class="needs" role="region" aria-label="Needs you">
           <div class="needs-head"><span class="count-pill">${n}</span><span class="title">Needs you</span><span class="grow"></span>
             <button class="btn ghost xs" data-action="collapse-needs">${view.needsCollapsed ? "Show" : "Fold"}</button></div>
-          ${view.needsCollapsed ? "" : `<div class="needs-list">${cards}</div>`}
+          ${view.needsCollapsed ? "" : `<div class="needs-list">${cards}</div><div class="needs-more"><button class="btn xs" data-action="show-all-needs">${ICON.chev} More that needs you below</button></div>`}
         </div>`;
       }
 
@@ -3770,6 +3799,10 @@ About 600k tokens over the whole Pipeline.`;
           messages.scrollTop = keepScroll !== null ? keepScroll : messages.scrollHeight;
         }
 
+        const needs = conversation.querySelector(".needs");
+        if (needs) needs.addEventListener("scroll", updateNeedsCue, { passive: true });
+        requestAnimationFrame(updateNeedsCue);
+
         const n = needsCount();
         $("drawer-handle").innerHTML =
           `${ICON.chat}Conversation${view.data.liveThreadId ? ' <span class="dot live"></span>' : ""}${n ? ` <span class="count-pill">${n}</span>` : ""}`;
@@ -3822,6 +3855,7 @@ About 600k tokens over the whole Pipeline.`;
         const conversation = $("conversation");
         if (isNarrow()) {
           conversation.style.height = "";
+          updateNeedsCue();
           return;
         }
         const scroller = $("scroller");
@@ -3831,6 +3865,27 @@ About 600k tokens over the whole Pipeline.`;
           messages && messages.scrollHeight - messages.scrollTop - messages.clientHeight < 40;
         conversation.style.height = `${Math.max(420, scroller.clientHeight - Math.max(top, 12) - 16)}px`;
         if (atEnd) messages.scrollTop = messages.scrollHeight;
+        updateNeedsCue();
+      }
+
+      function updateNeedsCue() {
+        const needs = document.querySelector(".needs:not(.empty)");
+        if (!needs) return;
+        const hiddenBelow = needs.scrollHeight - needs.scrollTop - needs.clientHeight > 4;
+        needs.classList.toggle("overflowing", hiddenBelow);
+      }
+
+      /** Wide: scrolls the page until the column has the whole window; then whatever is left scrolls into view. */
+      function showAllNeeds() {
+        const scroller = $("scroller");
+        if (!isNarrow()) {
+          const top =
+            $("conversation").getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+          scroller.scrollTop += top - 12;
+          fitConversation();
+        }
+        const needs = document.querySelector(".needs");
+        needs.scrollTo({ top: needs.scrollHeight, behavior: "smooth" });
       }
 
       function loadScenario(key) {
@@ -3988,6 +4043,7 @@ About 600k tokens over the whole Pipeline.`;
           view.viewingThreadId = null;
           renderConversation();
         },
+        "show-all-needs": showAllNeeds,
         "toggle-earlier": () => {
           view.earlierOpen = !view.earlierOpen;
           renderConversation();
