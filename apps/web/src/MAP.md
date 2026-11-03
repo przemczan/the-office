@@ -24,7 +24,7 @@
 - `github.ts`: gitHubQueries, gitHubAppManifestForm, startGitHubSignIn, signOutOfGitHub, gitHubEventInvalidations
 - `mcp-servers.ts`: mcpServerQueries, addMcpServer, readPastedConfig, changeMcpServer, changeMcpServerState, assignMcpServer, removeMcpServer, mcpServerEventInvalidations
 - `notifications.ts`: nowQueries, notificationQueries, setTiming, setRoutingChannel, resetRouting, reportActivity, notificationEventCacheUpdates
-- `office-identity.ts`: officeIdentityQueries, scanHost, confirmFingerprint
+- `office-identity.ts`: officeIdentityQueries, regenerateSshKey, scanHost, confirmFingerprint
 - `people.ts`: ENGINE_CASCADE, roleQueries, roleCardQueries, hire, changeRoleCard, filledRoleKeys, letGoOfPerson, hirePersonBack, addMemoryNote, deleteMemoryNote, clearMemory, roleEventInvalidations
 - `pipelines.ts`: pipelineQueries, addPipeline, duplicatePipeline, savePipeline, removePipeline, editTaskStages, continueAtGate, sendBackFromGate, dropAtGate, pipelineEventInvalidations
 - `projects.ts`: REMOTE_NEEDS, projectQueries, taskChangesKey, addProject, startRepositoryClone, changeCommand, changeInstallInputs, startEnvironmentCheck, changePublishingMode, changeDefaultPipeline, changeProjectDefault, changeUseForEveryRole, changeRoleOverride, changeUseProjectSkills, changeProjectServerValues, projectEventInvalidations, repositoryCloneEventInvalidations

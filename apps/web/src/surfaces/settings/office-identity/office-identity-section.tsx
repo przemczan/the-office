@@ -1,12 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import type { OfficeSshKey } from "@the-office/contracts";
 import { Button, Card, Icon } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { officeIdentityQueries } from "../../../api/office-identity.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
 import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
 import { GitHubCard } from "./github-card.tsx";
 import { HostsCards } from "./hosts-cards.tsx";
+import { RegenerateSshKeyDialog } from "./regenerate-ssh-key-dialog.tsx";
+import { maskedPublicKey } from "./ssh-key-words.ts";
 import "./office-identity.css";
 
 /**
@@ -31,11 +34,25 @@ export function OfficeIdentitySection(): ReactNode {
 
 function SshKeyCard(): ReactNode {
   const sshKey = useQuery(officeIdentityQueries.sshKey());
+  const queryClient = useQueryClient();
   const showToast = useToast();
+  const [shown, setShown] = useState(false);
+  const [regenerating, setRegenerating] = useState(false);
   const copy = (publicKey: string): void => {
     navigator.clipboard.writeText(publicKey).then(
       () => showToast("The Office ssh key's public half copied."),
-      () => showToast("The key couldn't be copied. Select it and copy it instead."),
+      () => {
+        // Shown, the key can be selected and copied by hand.
+        setShown(true);
+        showToast("The key couldn't be copied. Select it and copy it instead.");
+      },
+    );
+  };
+  const regenerated = (newKey: OfficeSshKey): void => {
+    queryClient.setQueryData(officeIdentityQueries.sshKey().queryKey, newKey);
+    setShown(true);
+    showToast(
+      "The Office ssh key is new. Add its public half to each host The Office reaches over ssh.",
     );
   };
   return (
@@ -48,10 +65,22 @@ function SshKeyCard(): ReactNode {
         </p>
         {sshKey.data && (
           <>
-            <p className="office-ssh-key" aria-label="The Office ssh key's public half">
-              {sshKey.data.publicKey}
+            <p
+              className={shown ? "office-ssh-key" : "office-ssh-key office-ssh-key-masked"}
+              aria-label="The Office ssh key's public half"
+            >
+              {shown ? sshKey.data.publicKey : maskedPublicKey(sshKey.data.publicKey)}
             </p>
-            <div>
+            <div className="office-identity-row">
+              <Button
+                variant="secondary"
+                size="sm"
+                iconLeft={<Icon name={shown ? "eye-off" : "eye"} size={14} />}
+                aria-pressed={shown}
+                onClick={() => setShown(!shown)}
+              >
+                {shown ? "Hide" : "Show"}
+              </Button>
               <Button
                 variant="secondary"
                 size="sm"
@@ -60,11 +89,25 @@ function SshKeyCard(): ReactNode {
               >
                 Copy the public key
               </Button>
+              <Button
+                variant="danger-ghost"
+                size="sm"
+                iconLeft={<Icon name="refresh-cw" size={14} />}
+                onClick={() => setRegenerating(true)}
+              >
+                Regenerate…
+              </Button>
             </div>
           </>
         )}
         <SettingsProblem title="The Office ssh key can't be read" error={sshKey.error} />
       </div>
+      {regenerating && (
+        <RegenerateSshKeyDialog
+          onRegenerated={regenerated}
+          onClose={() => setRegenerating(false)}
+        />
+      )}
     </Card>
   );
 }

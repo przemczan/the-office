@@ -4,6 +4,7 @@ import {
   Controller,
   Get,
   HttpCode,
+  InternalServerErrorException,
   Post,
   UnprocessableEntityException,
 } from "@nestjs/common";
@@ -35,6 +36,18 @@ export class OfficeIdentityController {
   @Get("ssh-key")
   async publicKey(): Promise<OfficeSshKeyResponse> {
     return { publicKey: await this.sshKey.publicKey() };
+  }
+
+  /** A new key in place of the current one, which a failure keeps; answers the new public half. */
+  @Post("ssh-key/regenerate")
+  @HttpCode(200)
+  async regenerate(): Promise<OfficeSshKeyResponse> {
+    try {
+      return { publicKey: await this.sshKey.regenerate() };
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      throw new InternalServerErrorException({ message: reason, reasons: [reason] });
+    }
   }
 
   @Get("known-hosts")
