@@ -35,6 +35,20 @@
   user-select: all;
 }
 
+.office-ssh-key-masked {
+  color: var(--fg-2);
+  user-select: none;
+}
+
+.regenerate-ssh-key-consequences {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.5;
+}
+
 .known-hosts {
   display: flex;
   flex-direction: column;

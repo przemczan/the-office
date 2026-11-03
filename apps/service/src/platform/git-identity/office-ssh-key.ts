@@ -3,6 +3,7 @@ import { access, readFile, rm, writeFile } from "node:fs/promises";
 import { hostname } from "node:os";
 import { Injectable } from "@nestjs/common";
 import { currentOperatingSystem } from "../os/current-operating-system.js";
+import { moveWhenFree } from "../os/move-when-free.js";
 import { IdentityFolder } from "./identity-folder.js";
 
 const KEYGEN_TIMEOUT_MS = 30_000;
@@ -16,8 +17,9 @@ const KEYGEN_TIMEOUT_MS = 30_000;
 export class OfficeSshKey {
   readonly privateKeyPath: string;
   readonly publicKeyPath: string;
-  private readonly keygen = currentOperatingSystem().sshPrograms.keygen;
+  protected readonly keygen: string = currentOperatingSystem().sshPrograms.keygen;
   private ready: Promise<void> | undefined;
+  private regenerating: Promise<void> = Promise.resolve();
 
   constructor(private readonly folder: IdentityFolder) {
     this.privateKeyPath = folder.file("office_ssh_key");
@@ -26,6 +28,8 @@ export class OfficeSshKey {
 
   /** The public half, in the `ssh-ed25519 <key> <comment>` form a host takes. */
   async publicKey(): Promise<string> {
+    // A regeneration in flight replaces the halves one after the other: read once it is done.
+    await this.regenerating;
     await this.ensure();
     return (await readFile(this.publicKeyPath, "utf8")).trim();
   }
@@ -40,11 +44,37 @@ export class OfficeSshKey {
    * a private half left alone. A public half without its private one is no key and is replaced.
    */
   ensure(): Promise<void> {
-    this.ready ??= this.make().catch((error: unknown) => {
-      this.ready = undefined;
-      throw error;
-    });
+    this.ready ??= this.regenerating
+      .then(() => this.make())
+      .catch((error: unknown) => {
+        this.ready = undefined;
+        throw error;
+      });
     return this.ready;
+  }
+
+  /**
+   * Replaces the key with a new one and answers its public half. The new key is made beside the
+   * current one and moved over it only once made, so a failure keeps the current key. Git commands
+   * already running finish with the key they loaded.
+   */
+  regenerate(): Promise<string> {
+    // An ensure() in flight finishes first, so it doesn't make a key over the new one. It is the one
+    // in flight now: one asked for later waits for this regeneration, and waiting on it would deadlock.
+    const ensuring = this.ready?.catch(() => undefined);
+    const regenerated = this.regenerating
+      .then(() => ensuring)
+      .then(() => this.makeAgain())
+      .catch((error: unknown) => {
+        // The halves may be part-way replaced: the next ensure() looks at them again.
+        this.ready = undefined;
+        throw error;
+      });
+    this.regenerating = regenerated.then(
+      () => undefined,
+      () => undefined,
+    );
+    return regenerated;
   }
 
   private async make(): Promise<void> {
@@ -56,19 +86,43 @@ export class OfficeSshKey {
       }
     } else {
       await rm(this.publicKeyPath, { force: true });
-      await this.runKeygen([
-        "-q",
-        "-t",
-        "ed25519",
-        "-N",
-        "",
-        "-C",
-        `the-office@${hostname()}`,
-        "-f",
-        this.privateKeyPath,
-      ]);
+      await this.makeNewKey(this.privateKeyPath);
     }
     await currentOperatingSystem().restrictToOwner(this.privateKeyPath, "file");
+  }
+
+  private async makeAgain(): Promise<string> {
+    await this.folder.prepare();
+    const newPrivateKeyPath = `${this.privateKeyPath}.new`;
+    const newPublicKeyPath = `${newPrivateKeyPath}.pub`;
+    // ssh-keygen won't overwrite what a failed attempt left.
+    await Promise.all([
+      rm(newPrivateKeyPath, { force: true }),
+      rm(newPublicKeyPath, { force: true }),
+    ]);
+    await this.makeNewKey(newPrivateKeyPath);
+    await currentOperatingSystem().restrictToOwner(newPrivateKeyPath, "file");
+    // The public half goes first: stopped in between, a private half left alone gets its public
+    // half again from ensure(), never the other key's.
+    await rm(this.publicKeyPath, { force: true });
+    await moveWhenFree(newPrivateKeyPath, this.privateKeyPath);
+    await moveWhenFree(newPublicKeyPath, this.publicKeyPath);
+    this.ready = Promise.resolve();
+    return (await readFile(this.publicKeyPath, "utf8")).trim();
+  }
+
+  private async makeNewKey(privateKeyPath: string): Promise<void> {
+    await this.runKeygen([
+      "-q",
+      "-t",
+      "ed25519",
+      "-N",
+      "",
+      "-C",
+      `the-office@${hostname()}`,
+      "-f",
+      privateKeyPath,
+    ]);
   }
 
   private runKeygen(keygenArguments: readonly string[]): Promise<string> {

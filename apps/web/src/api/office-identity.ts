@@ -5,6 +5,7 @@ import {
   scannedHostSchema,
   type HostKeyConfirmation,
   type KnownHosts,
+  type OfficeSshKey,
   type ScannedHost,
   type SshHost,
 } from "@the-office/contracts";
@@ -29,6 +30,11 @@ export const officeIdentityQueries = {
       queryFn: ({ signal }) => getFromApi("/office-identity/known-hosts", knownHostsSchema, signal),
     }),
 };
+
+/** Replaces the Office ssh key with a new one, answering its public half; a failure keeps the key. */
+export function regenerateSshKey(): Promise<OfficeSshKey> {
+  return sendToApi("POST", "/office-identity/ssh-key/regenerate", {}, officeSshKeySchema);
+}
 
 /** The keys the host presents now, for the user to compare with the host's own fingerprints. */
 export function scanHost(host: SshHost): Promise<ScannedHost> {

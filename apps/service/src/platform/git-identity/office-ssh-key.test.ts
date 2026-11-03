@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -13,6 +13,11 @@ import { OfficeSshKey } from "./office-ssh-key.js";
 
 const run = promisify(execFile);
 const { keygen } = currentOperatingSystem().sshPrograms;
+
+/** An ssh-keygen that refuses every key, as one with no room left would. */
+class FailingKeygenSshKey extends OfficeSshKey {
+  protected override readonly keygen = join(tmpdir(), "no-such-ssh-keygen");
+}
 
 describe("OfficeSshKey", { timeout: 30_000 }, () => {
   let officeData: string;
@@ -63,6 +68,49 @@ describe("OfficeSshKey", { timeout: 30_000 }, () => {
 
     expect(remade).not.toBe(made);
     expect(await readFile(sshKey.privateKeyPath, "utf8")).toContain("OPENSSH PRIVATE KEY");
+  });
+
+  it("regenerates the key in place, readable by its owner only", async () => {
+    const made = await sshKey.publicKey();
+
+    const [regenerated, again] = await Promise.all([sshKey.regenerate(), sshKey.regenerate()]);
+
+    expect(regenerated).toMatch(/^ssh-ed25519 [A-Za-z0-9+/]+ the-office@/);
+    expect(regenerated).not.toBe(made);
+    expect(again).not.toBe(regenerated);
+    expect(await sshKey.publicKey()).toBe(again);
+    expect(await isOwnerOnly(sshKey.privateKeyPath)).toBe(true);
+    const { stdout } = await run(keygen, ["-y", "-f", sshKey.privateKeyPath]);
+    expect(stdout.split(" ").slice(0, 2)).toEqual(again.split(" ").slice(0, 2));
+    expect(await readdir(join(officeData, "identity"))).not.toContain("office_ssh_key.new");
+  });
+
+  it("regenerates a key never made before", async () => {
+    const regenerated = await sshKey.regenerate();
+
+    expect(await sshKey.publicKey()).toBe(regenerated);
+  });
+
+  it("lets a git command's ensure() made during a regeneration wait for it", async () => {
+    const regenerating = sshKey.regenerate();
+    const ensured = sshKey.ensure();
+
+    const [regenerated] = await Promise.all([regenerating, ensured]);
+
+    expect(await sshKey.publicKey()).toBe(regenerated);
+  });
+
+  it("keeps the current key when ssh-keygen fails", async () => {
+    const made = await sshKey.publicKey();
+    const privateHalf = await readFile(sshKey.privateKeyPath, "utf8");
+    const failing = new FailingKeygenSshKey(
+      new IdentityFolder(new OfficeDataDirectory(officeData)),
+    );
+
+    await expect(failing.regenerate()).rejects.toThrow(/ssh-keygen could not make/);
+
+    expect(await failing.publicKey()).toBe(made);
+    expect(await readFile(sshKey.privateKeyPath, "utf8")).toBe(privateHalf);
   });
 
   it("has the fingerprint ssh-keygen shows", async () => {

@@ -66,6 +66,20 @@ describe("the Office identity's routes", { timeout: 30_000 }, () => {
     expect(second).toEqual(first);
   });
 
+  it("regenerates the Office ssh key and answers its new public half, never its private one", async () => {
+    const before = officeSshKeySchema.parse(await (await fetch(`${url}/ssh-key`)).json());
+
+    const regenerated = await post("/ssh-key/regenerate", {});
+    const text = await regenerated.text();
+    const after = officeSshKeySchema.parse(await (await fetch(`${url}/ssh-key`)).json());
+
+    expect(regenerated.status).toBe(200);
+    expect(JSON.parse(text)).toEqual(after);
+    expect(after.publicKey).toMatch(/^ssh-ed25519 \S+ the-office@/);
+    expect(after.publicKey).not.toBe(before.publicKey);
+    expect(text).not.toContain("PRIVATE KEY");
+  });
+
   it("scans an Unconfirmed host and trusts the key whose fingerprint the user confirms", async () => {
     await app.get(OfficeKnownHosts).addUnconfirmed("git.example.com", 2222);
     expect(await knownHosts()).toEqual({

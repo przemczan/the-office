@@ -4,6 +4,7 @@ import {
   GITHUB_SIGN_IN_FAILED_PARAMETER,
   knownHostsSchema,
   OFFICE_IDENTITY_SETTINGS_PATH,
+  officeSshKeySchema,
 } from "@the-office/contracts";
 import { FAKE_GITHUB_URL, installApp } from "./fake-github.ts";
 import { serveRepository } from "./git-host.ts";
@@ -141,13 +142,66 @@ test("why registering or signing in failed is shown until dismissed", async ({ p
   await expect(page).toHaveURL(OFFICE_IDENTITY_SETTINGS_PATH);
 });
 
-test("the Office ssh key's public half is shown, never its private half", async ({ page }) => {
-  await page.goto(OFFICE_IDENTITY_SETTINGS_PATH);
+test.describe("the Office ssh key", () => {
+  test.use({ permissions: ["clipboard-read", "clipboard-write"] });
 
-  const publicKey = page.getByLabel("The Office ssh key's public half");
-  await expect(publicKey).toHaveText(/^ssh-ed25519 \S+ the-office@/);
-  await expect(publicKey).not.toContainText("PRIVATE KEY");
-  await expect(page.getByRole("button", { name: "Copy the public key" })).toBeVisible();
+  test("its public half is masked until shown, copied whole either way, never its private half", async ({
+    page,
+  }) => {
+    const { publicKey: whole } = officeSshKeySchema.parse(
+      await (await page.request.get("/api/office-identity/ssh-key")).json(),
+    );
+    await page.goto(OFFICE_IDENTITY_SETTINGS_PATH);
+
+    const publicKey = page.getByLabel("The Office ssh key's public half");
+    await expect(publicKey).toHaveText(/^ssh-ed25519 •+ the-office@/);
+    await page.getByRole("button", { name: "Copy the public key" }).click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(whole);
+
+    await page.getByRole("button", { name: "Show", exact: true }).click();
+    await expect(publicKey).toHaveText(whole);
+    await expect(publicKey).not.toContainText("PRIVATE KEY");
+    await page.getByRole("button", { name: "Hide", exact: true }).click();
+    await expect(publicKey).toHaveText(/^ssh-ed25519 •+ the-office@/);
+  });
+
+  test("regenerating it needs the consequences acknowledged, and Cancel keeps the key", async ({
+    page,
+  }) => {
+    await page.goto(OFFICE_IDENTITY_SETTINGS_PATH);
+    await page.getByRole("button", { name: "Show", exact: true }).click();
+    const publicKey = page.getByLabel("The Office ssh key's public half");
+    await expect(publicKey).toHaveText(/^ssh-ed25519 [^•\s]+ the-office@/);
+    const before = await publicKey.textContent();
+
+    await page.getByRole("button", { name: "Regenerate…" }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText("deleted for good");
+    await expect(dialog).toContainText("Settings › SSH and GPG keys");
+    await expect(dialog).toContainText(
+      "Sign in with GitHub, https remotes and the Trusted hosts are not affected",
+    );
+    const regenerate = dialog.getByRole("button", { name: "Regenerate the key" });
+    await expect(regenerate).toBeDisabled();
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(publicKey).toHaveText(before ?? "");
+
+    await page.getByRole("button", { name: "Regenerate…" }).click();
+    const understood = dialog
+      .locator("label")
+      .filter({ hasText: "I understand The Office loses access to every ssh host" })
+      .getByRole("checkbox");
+    await understood.click();
+    await expect(understood).toHaveAttribute("aria-checked", "true");
+    await expect(regenerate).toBeEnabled();
+    await regenerate.click();
+
+    await expect(dialog).toBeHidden();
+    await expect(publicKey).toHaveText(/^ssh-ed25519 [^•\s]+ the-office@/);
+    await expect(publicKey).not.toHaveText(before ?? "");
+    await expect(page.getByText("The Office ssh key is new.")).toBeVisible();
+  });
 });
 
 test("an Unconfirmed host becomes a Trusted host once its fingerprint is confirmed", async ({
