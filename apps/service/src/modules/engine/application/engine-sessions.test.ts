@@ -176,7 +176,7 @@ function setUpOn(
     windowSamples,
     new EngineModels(settings),
     running,
-    new BusyWork(events),
+    new BusyWork(new EventBus()),
   );
   return { sessions, spans, published, usageWindows, dayUsage, schedule, windowSamples, running };
 }
