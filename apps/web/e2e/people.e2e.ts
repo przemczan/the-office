@@ -111,6 +111,12 @@ async function openEngine(
 }
 
 /** The selected engine's tabs: only one engine's fields show at a time. */
+/** Adds an engine of the kind through "Add an engine", which selects it. */
+async function addEngine(page: Page, kind: "Claude Code" | "API endpoint"): Promise<void> {
+  await page.getByRole("button", { name: "Add an engine" }).click();
+  await page.getByRole("menu").getByRole("button", { name: kind, exact: true }).click();
+}
+
 function shownEngine(page: Page): Locator {
   return page.locator(".engine-detail");
 }
@@ -445,12 +451,12 @@ test("the user lists an API endpoint in Settings › Engines and puts Mia on one
 }) => {
   await page.goto("/settings/engines");
   // An engine added and removed before Save leaves another one shown.
-  await page.getByRole("button", { name: "Add a Claude Code engine" }).click();
+  await addEngine(page, "Claude Code");
   await page.getByRole("button", { name: "Remove the new Claude Code engine" }).click();
   await expect(shownEngine(page)).toHaveCount(1);
   await expect(page.getByRole("group", { name: "Claude Code", exact: true })).toBeVisible();
 
-  await page.getByRole("button", { name: "Add an API endpoint" }).click();
+  await addEngine(page, "API endpoint");
   const endpoint = shownEngine(page);
   await expect(endpoint).toHaveCount(1);
   await expect(page.getByRole("group", { name: "the new API endpoint" })).toBeVisible();
@@ -515,7 +521,7 @@ test("the user sets Model prices in Settings › Engines, a new API endpoint's b
   page,
 }) => {
   await page.goto("/settings/engines");
-  await page.getByRole("button", { name: "Add an API endpoint" }).click();
+  await addEngine(page, "API endpoint");
   const endpoint = shownEngine(page);
   await endpoint.getByLabel("Name", { exact: true }).fill("Priced Strata");
   await endpoint.getByLabel("Base URL").fill("http://127.0.0.1:8081/v1");
@@ -602,7 +608,7 @@ test("the user adds a Claude Code engine with its default model and -p switch, a
   page,
 }) => {
   await page.goto("/settings/engines");
-  await page.getByRole("button", { name: "Add a Claude Code engine" }).click();
+  await addEngine(page, "Claude Code");
   const added = page.getByRole("group", { name: "the new Claude Code engine" });
   await expect(added.getByLabel("Default model")).toHaveValue("claude-sonnet-5-5");
   await added.getByLabel("Name", { exact: true }).fill("Second account");
@@ -1520,6 +1526,11 @@ async function waitForAnotherTaskAndStopWaiting(page: Page, project: Project): P
   ).toBeVisible();
 
   await page.goto(taskUrl);
+  // The start check read on load is answered first: one still on its way when the blocker goes
+  // would land after it, saying Blocked.
+  await expect(
+    page.getByText(`Blocked by "${blockerTitle}", which must be Done first.`),
+  ).toBeVisible();
   await dependencies.getByRole("button", { name: `Stop waiting for ${blockerTitle}` }).click();
   await expect(dependencies.getByRole("region", { name: "Must be Done first" })).toHaveCount(0);
   await expect(start).toBeEnabled();

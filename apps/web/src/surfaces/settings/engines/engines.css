@@ -49,6 +49,10 @@
   text-overflow: ellipsis;
 }
 
+.engine-list-add {
+  margin: 2px 4px 8px;
+}
+
 .engine-list-empty {
   padding: 8px 10px 0;
 }

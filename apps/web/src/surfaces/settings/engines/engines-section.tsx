@@ -164,16 +164,21 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
           })}
           shown={shown}
           select={(at) => select(at)}
-          addClaudeCodeEngine={() => {
-            setDraft({
-              ...draft,
-              claudeCodeEngines: [...draft.claudeCodeEngines, newClaudeCodeEngine(saved)],
-            });
-            select({ kind: "claude-code", index: draft.claudeCodeEngines.length }, "settings");
-          }}
-          addApiEndpoint={() => {
-            setDraft({ ...draft, apiEndpoints: [...draft.apiEndpoints, NEW_API_ENDPOINT] });
-            select({ kind: "openai-compatible-api", index: draft.apiEndpoints.length }, "settings");
+          add={{
+            "claude-code": () => {
+              setDraft({
+                ...draft,
+                claudeCodeEngines: [...draft.claudeCodeEngines, newClaudeCodeEngine(saved)],
+              });
+              select({ kind: "claude-code", index: draft.claudeCodeEngines.length }, "settings");
+            },
+            "openai-compatible-api": () => {
+              setDraft({ ...draft, apiEndpoints: [...draft.apiEndpoints, NEW_API_ENDPOINT] });
+              select(
+                { kind: "openai-compatible-api", index: draft.apiEndpoints.length },
+                "settings",
+              );
+            },
           }}
         />
         <div className="library-detail">
@@ -206,8 +211,7 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
           ) : (
             <Card>
               <p className="settings-note">
-                No engine is listed, so no session starts. Add a Claude Code engine or an API
-                endpoint.
+                No engine is listed, so no session starts. Add one with "Add an engine".
               </p>
             </Card>
           )}

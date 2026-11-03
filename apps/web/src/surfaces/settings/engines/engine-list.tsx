@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { EngineEdit } from "@the-office/contracts";
-import { Badge, Button, Icon } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { Badge, Button, Icon, Menu } from "@the-office/ui";
+import { useState, type ReactNode } from "react";
 import { engineAccountQuery } from "../../../api/engine.ts";
 import {
   apiEndpointSummary,
@@ -22,24 +22,24 @@ export interface EngineRow {
 }
 
 /**
- * Settings › Engines' list: a row per engine, the Claude Code engines first, as Save sends them,
- * and the two Adds, each selecting the engine it adds.
+ * Settings › Engines' list: "Add an engine" on top, a menu of the kinds, each selecting the engine
+ * it adds, then a row per engine, the Claude Code engines first, as Save sends them.
  */
 export function EngineList({
   rows,
   shown,
   select,
-  addClaudeCodeEngine,
-  addApiEndpoint,
+  add,
 }: {
   readonly rows: readonly EngineRow[];
   readonly shown: EngineSelection | undefined;
   readonly select: (selection: EngineSelection) => void;
-  readonly addClaudeCodeEngine: () => void;
-  readonly addApiEndpoint: () => void;
+  /** Adds an engine of each kind; a new kind is one more entry in the menu. */
+  readonly add: Readonly<Record<EngineEdit["kind"], () => void>>;
 }): ReactNode {
   return (
     <div className="library-list">
+      <AddEngineMenu add={add} />
       <nav aria-label="Engines">
         {rows.map((row) => (
           <EngineListItem
@@ -51,28 +51,42 @@ export function EngineList({
         ))}
       </nav>
       {rows.length === 0 && <p className="settings-note engine-list-empty">No engine yet.</p>}
-      <div className="library-list-actions">
-        <Button
-          variant="secondary"
-          size="sm"
-          iconLeft={<Icon name="plus" size={14} />}
-          onClick={addClaudeCodeEngine}
-        >
-          Add a Claude Code engine
-        </Button>
-        <Button
-          variant="secondary"
-          size="sm"
-          iconLeft={<Icon name="plus" size={14} />}
-          onClick={addApiEndpoint}
-        >
-          Add an API endpoint
-        </Button>
-      </div>
       <p className="settings-note engine-list-note">
         Each Claude Code engine is one Claude account, each API endpoint a server on the
         OpenAI-compatible API, such as a local LLM.
       </p>
+    </div>
+  );
+}
+
+function AddEngineMenu({
+  add,
+}: {
+  readonly add: Readonly<Record<EngineEdit["kind"], () => void>>;
+}): ReactNode {
+  const [open, setOpen] = useState(false);
+  const kinds = Object.keys(ENGINE_KIND_LABELS) as EngineEdit["kind"][];
+  return (
+    <div className="engine-list-add">
+      <Menu
+        open={open}
+        onOpenChange={setOpen}
+        align="start"
+        width={220}
+        trigger={
+          <Button
+            variant="secondary"
+            size="sm"
+            iconLeft={<Icon name="plus" size={14} />}
+            iconRight={<Icon name="chevron-down" size={14} />}
+            aria-haspopup="menu"
+            aria-expanded={open}
+          >
+            Add an engine
+          </Button>
+        }
+        items={kinds.map((kind) => ({ label: ENGINE_KIND_LABELS[kind], onSelect: add[kind] }))}
+      />
     </div>
   );
 }
