@@ -93,6 +93,8 @@ export class FakeGitHub {
   signedInUser = "office-user";
   /** Whether the user cancels on the authorize page instead of authorizing. */
   cancelAuthorization = false;
+  /** Whether the token endpoint fails as GitHub's does when it is down: HTTP 503, an HTML page. */
+  tokenEndpointDown = false;
   /** The App's installations, which tests add to. */
   readonly installations: FakeInstallations;
   /** The pull requests opened on the installed repositories. */
@@ -318,6 +320,10 @@ export class FakeGitHub {
     accept: string | undefined,
     response: ServerResponse,
   ): void {
+    if (this.tokenEndpointDown) {
+      response.writeHead(503, { "content-type": "text/html" }).end("<h1>Unicorn!</h1>");
+      return;
+    }
     const answer = this.exchangeAnswer(parameters);
     if (accept?.includes("application/json")) {
       sendJson(response, 200, answer);

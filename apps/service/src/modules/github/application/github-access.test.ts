@@ -203,6 +203,28 @@ describe("GitHubAccess", () => {
     expect(signIns.signIn).toEqual({ status: "signed-in", login: "office-user", tokens: before });
   });
 
+  it("keeps the sign-in when GitHub fails with a server error on the refresh, failing the command", async () => {
+    await signInWithGitHub();
+    const before = expireUserToken(MINUTE_MS);
+    github.tokenEndpointDown = true;
+
+    await expect(access.userToken()).rejects.toThrow(
+      "GitHub couldn't answer renewing the sign-in (HTTP 503). The GitHub token couldn't be renewed; try again once GitHub can be reached.",
+    );
+
+    expect(signIns.signIn).toEqual({ status: "signed-in", login: "office-user", tokens: before });
+  });
+
+  it("says a renewed token that couldn't be kept in its own words, never the store's", async () => {
+    await signInWithGitHub();
+    expireUserToken(MINUTE_MS);
+    signIns.replace = () => Promise.reject(new Error("Failed query: params: secret-token"));
+
+    await expect(access.userToken()).rejects.toThrow(
+      "The renewed GitHub token couldn't be kept. Try again; sign in again if it keeps failing.",
+    );
+  });
+
   it("lists every repository of the App's installations, every page, leaving out suspended ones", async () => {
     await signInWithGitHub();
     const many = Array.from({ length: 120 }, (_, index) => ({

@@ -130,6 +130,8 @@ export class OfficeIdentity {
       this.operatingSystem.gitHomeDirectory(inherited),
       sameVariableName,
     );
+    const globalConfig = await this.gitHome.globalConfigIncluding(userConfig.files);
+    // Last, as nothing after it can fail: a grant no command releases would stay good.
     const gitHubGrant = await this.gitHubGrant(remote);
     return gitCommandIdentity({
       remote,
@@ -143,7 +145,7 @@ export class OfficeIdentity {
       },
       home: {
         home: this.gitHome.path,
-        globalConfig: await this.gitHome.globalConfigIncluding(userConfig.files),
+        globalConfig,
         xdgConfigHome: userConfig.xdgConfigHome,
         kerberosCredentialCache: this.gitHome.noKerberosTickets,
       },

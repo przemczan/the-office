@@ -277,12 +277,16 @@ export class GitHubRestApi extends GitHubApi {
 
 /**
  * GitHub's answer at its token endpoint: the tokens, or its refusal in an `error` field, which it
- * gives whatever the status.
+ * gives whatever the status. Without one, a server error or rate limit says GitHub couldn't answer
+ * now, which ends no sign-in: the refresh token was most likely never used.
  */
 async function tokenAnswerOf(response: Response, askedFor: string): Promise<TokenAnswer> {
   const body: unknown = await response.json().catch(() => undefined);
   const refusal = refusalSchema.safeParse(body);
   if (refusal.success) return { kind: "refused", error: refusal.data.error };
+  if (response.status >= 500 || response.status === 429) {
+    throw new GitHubUnreachable(`GitHub couldn't answer ${askedFor} (HTTP ${response.status})`);
+  }
   const parsed = userTokensSchema.safeParse(body);
   if (response.status !== 200 || !parsed.success) {
     throw new GitHubApiFailure(

@@ -100,8 +100,22 @@ export class GitHubAccess {
       throw error;
     }
     if (answer.kind === "refused") return this.signOutBecause(refreshRefusalReason(answer.error));
-    await this.signIns.replace({ ...signedIn, tokens: answer.tokens });
+    await this.keepRenewed({ ...signedIn, tokens: answer.tokens });
     return answer.tokens.accessToken;
+  }
+
+  /**
+   * Keeps the renewed tokens. A failure is said in words of its own: the store's error may quote
+   * what it was writing, the tokens, and its words reach git's output.
+   */
+  private async keepRenewed(signedIn: SignedIn): Promise<void> {
+    try {
+      await this.signIns.replace(signedIn);
+    } catch {
+      throw new GitHubAccessFailed(
+        "The renewed GitHub token couldn't be kept. Try again; sign in again if it keeps failing.",
+      );
+    }
   }
 
   private async signOutBecause(text: string): Promise<undefined> {
