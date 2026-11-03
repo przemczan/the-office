@@ -1715,7 +1715,7 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
       { headers: { "content-type": "application/octet-stream" }, data: A_SCREENSHOT },
     );
     expect(uploaded.status()).toBe(201);
-    await expect(attachments.getByRole("img", { name: "settings.png" })).toBeVisible();
+    await expect(attachments.getByRole("button", { name: "View settings.png" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Files changed" })).toBeVisible();
     await expect(stages.getByText(/^Waiting on you/)).toBeVisible();
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-gate.png") });

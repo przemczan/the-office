@@ -885,12 +885,23 @@ body,
   gap: 8px;
   min-width: 0;
   font: var(--type-body-sm);
+  list-style: none;
   cursor: pointer;
 }
 
-.attachment-round-heading::marker,
 .attachment-round-heading::-webkit-details-marker {
+  display: none;
+}
+
+.attachment-round-chevron {
+  display: inline-flex;
+  align-self: center;
   color: var(--fg-3);
+  transition: transform 120ms ease;
+}
+
+.attachment-round[open] .attachment-round-chevron {
+  transform: rotate(90deg);
 }
 
 .attachment-round-name {

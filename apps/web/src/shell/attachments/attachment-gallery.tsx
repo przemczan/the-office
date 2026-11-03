@@ -1,4 +1,5 @@
 import type { Attachment } from "@the-office/contracts";
+import { Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { attachmentContentUrl } from "../../api/work.ts";
 import { AttachmentChips } from "./attachment-chips.tsx";
@@ -64,6 +65,9 @@ function RoundSection({
   return (
     <details className="attachment-round" open={newest} aria-label={name}>
       <summary className="attachment-round-heading" title={sentBackWith ?? undefined}>
+        <span className="attachment-round-chevron">
+          <Icon name="chevron-right" size={14} />
+        </span>
         <span className="attachment-round-name">{name}</span>
         {sentBackWith !== null && (
           <span className="attachment-round-feedback">Sent back: {sentBackWith}</span>
