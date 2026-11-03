@@ -97,6 +97,24 @@ async function engineIdOf(page: Page, name: string): Promise<string> {
 }
 
 /** Removes the engine called `name` through the API, as a test cleans up after adding one. */
+/** Selects the engine called `name` in Settings › Engines' list, then its tab. */
+async function openEngine(
+  page: Page,
+  name: string,
+  tab: "Settings" | "Account" | "Models and prices" = "Settings",
+): Promise<void> {
+  await page
+    .getByRole("navigation", { name: "Engines" })
+    .getByRole("button", { name: new RegExp(`^${name}`) })
+    .click();
+  await page.getByRole("tab", { name: tab, exact: true }).click();
+}
+
+/** The selected engine's tabs: only one engine's fields show at a time. */
+function shownEngine(page: Page): Locator {
+  return page.locator(".engine-detail");
+}
+
 async function removeEngine(page: Page, name: string): Promise<void> {
   const engineId = await engineIdOf(page, name);
   const removed = await page.request.delete(
@@ -426,11 +444,23 @@ test("the user lists an API endpoint in Settings › Engines and puts Mia on one
   page,
 }) => {
   await page.goto("/settings/engines");
+  // An engine added and removed before Save leaves another one shown.
+  await page.getByRole("button", { name: "Add a Claude Code engine" }).click();
+  await page.getByRole("button", { name: "Remove the new Claude Code engine" }).click();
+  await expect(shownEngine(page)).toHaveCount(1);
+  await expect(page.getByRole("group", { name: "Claude Code", exact: true })).toBeVisible();
+
   await page.getByRole("button", { name: "Add an API endpoint" }).click();
-  const endpoint = page.locator("fieldset.api-endpoint").last();
+  const endpoint = shownEngine(page);
+  await expect(endpoint).toHaveCount(1);
+  await expect(page.getByRole("group", { name: "the new API endpoint" })).toBeVisible();
+  await expect(
+    page.getByRole("navigation", { name: "Engines" }).getByLabel("It offers no model yet"),
+  ).toBeVisible();
   await endpoint.getByLabel("Name", { exact: true }).fill("People Strata");
   await endpoint.getByLabel("Base URL").fill("http://127.0.0.1:8080/v1");
   await endpoint.getByLabel("Key").fill("sk-people");
+  await page.getByRole("tab", { name: "Models and prices" }).click();
   await endpoint.getByLabel("Model", { exact: true }).fill("org/coder:q4");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   // The model has no context window yet.
@@ -445,6 +475,7 @@ test("the user lists an API endpoint in Settings › Engines and puts Mia on one
     page.getByText("Engines saved. Sessions started from now on use them."),
   ).toBeVisible();
   await page.reload();
+  await openEngine(page, "People Strata");
   await expect(endpoint.getByLabel("Name", { exact: true })).toHaveValue("People Strata");
   await expect(endpoint.getByLabel("Key")).toHaveValue("");
   await expect(endpoint.getByText("A key is set. It is never shown")).toBeVisible();
@@ -485,9 +516,10 @@ test("the user sets Model prices in Settings › Engines, a new API endpoint's b
 }) => {
   await page.goto("/settings/engines");
   await page.getByRole("button", { name: "Add an API endpoint" }).click();
-  const endpoint = page.locator("fieldset.api-endpoint").last();
+  const endpoint = shownEngine(page);
   await endpoint.getByLabel("Name", { exact: true }).fill("Priced Strata");
   await endpoint.getByLabel("Base URL").fill("http://127.0.0.1:8081/v1");
+  await page.getByRole("tab", { name: "Models and prices" }).click();
   await endpoint.getByLabel("Model", { exact: true }).fill("local:q8");
   await endpoint.getByLabel("Context window").fill("8000");
 
@@ -503,9 +535,27 @@ test("the user sets Model prices in Settings › Engines, a new API endpoint's b
     await group.getByLabel("Cache reads").fill(cacheReads ?? "");
   };
   await fillPrice(local, ["0", "0", "0", "0"]);
+  await openEngine(page, "Claude Code", "Models and prices");
+  await expect(
+    endpoint.getByText("The Claude models' prices are shared by every Claude Code engine"),
+  ).toBeVisible();
   await haiku.getByLabel("Input").fill("1");
   await expect(haiku.getByText("Give all four, or none for no price.")).toHaveCount(3);
   await expect(page.getByRole("button", { name: "Save", exact: true })).toBeDisabled();
+  // Out of sight, the price still holds Save, and the Save bar says where.
+  await openEngine(page, "Priced Strata");
+  await expect(haiku).toHaveCount(0);
+  await expect(
+    page.getByText("A price under Models and prices of Claude Code needs fixing before Save."),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("navigation", { name: "Engines" })
+      .getByLabel("A Claude model's price needs fixing")
+      .first(),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Show it" }).click();
+  await expect(haiku.getByLabel("Input")).toHaveValue("1");
 
   await fillPrice(haiku, ["1", "5", "1.25", "0.1"]);
   await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -513,14 +563,18 @@ test("the user sets Model prices in Settings › Engines, a new API endpoint's b
     page.getByText("Engines saved. Sessions started from now on use them."),
   ).toBeVisible();
   await page.reload();
+  await openEngine(page, "Claude Code", "Models and prices");
   await expect(haiku.getByLabel("Cache writes")).toHaveValue("1.25");
+  await openEngine(page, "Priced Strata", "Models and prices");
   await expect(local.getByLabel("Output")).toHaveValue("0");
+  await openEngine(page, "People Strata", "Models and prices");
   await expect(
     page
       .getByRole("group", { name: "Model price of People Strata · org/coder:q4" })
       .getByLabel("Input"),
   ).toHaveValue("");
 
+  await openEngine(page, "Claude Code", "Models and prices");
   await haiku.getByLabel("Output").fill("6");
   await page.getByRole("button", { name: "Discard" }).click();
   await expect(haiku.getByLabel("Output")).toHaveValue("5");
@@ -533,8 +587,13 @@ test("the user sets Model prices in Settings › Engines, a new API endpoint's b
   ).toBeVisible();
   await removeEngine(page, "Priced Strata");
   await page.reload();
+  await openEngine(page, "Claude Code", "Models and prices");
   await expect(haiku.getByLabel("Input")).toHaveValue("");
-  await expect(local).toHaveCount(0);
+  await expect(
+    page
+      .getByRole("navigation", { name: "Engines" })
+      .getByRole("button", { name: /^Priced Strata/ }),
+  ).toHaveCount(0);
 });
 
 // Here for the same reason as the test above. The engine it adds is removed through the API at the
@@ -550,16 +609,28 @@ test("the user adds a Claude Code engine with its default model and -p switch, a
   const second = page.getByRole("group", { name: "Second account" });
   await second.getByLabel("Default model").selectOption({ label: "Haiku 5.5" });
   await second.getByRole("switch").click();
+  await page.getByRole("tab", { name: "Account" }).click();
+  await expect(second.getByText("It has no folder to sign in yet")).toBeVisible();
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(
     page.getByText("Engines saved. Sessions started from now on use them."),
   ).toBeVisible();
 
   await page.reload();
+  const list = page.getByRole("navigation", { name: "Engines" });
+  await expect(list.getByRole("button", { name: /^Claude Code/ })).toContainText("Office default");
+  await expect(list.getByRole("button", { name: /^Second account/ })).toContainText(
+    "Claude Code · Signed out · Haiku 5.5",
+  );
+  await expect(list.getByRole("button", { name: /^People Strata/ })).toContainText(
+    "API endpoint · 1 model",
+  );
+  await openEngine(page, "Second account");
   await expect(second.getByLabel("Name", { exact: true })).toHaveValue("Second account");
   await expect(second.getByLabel("Default model")).toHaveValue("claude-haiku-5-5");
   await expect(second.getByRole("switch")).toHaveAttribute("aria-checked", "true");
-  await expect(second.getByRole("button", { name: "Remove Second account" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Remove Second account" })).toBeVisible();
+  await openEngine(page, "People Strata");
   await expect(
     page.getByRole("group", { name: "People Strata", exact: true }).getByLabel("Default model"),
   ).toHaveValue("org/coder:q4");
@@ -611,6 +682,7 @@ test("the user removes an engine through its dialog, and what named it moves to 
     expect(defaulted.ok()).toBe(true);
 
     await page.goto("/settings/engines");
+    await openEngine(page, "Leaving account");
     await page.getByRole("button", { name: "Remove Leaving account" }).click();
     const dialog = page.getByRole("dialog");
     const replacement = dialog.getByLabel("Replacement");
@@ -640,6 +712,8 @@ test("the user removes an engine through its dialog, and what named it moves to 
       page.getByText("Engine removed. What named it moved to the replacement."),
     ).toBeVisible();
     await expect(page.getByRole("group", { name: "Leaving account" })).toHaveCount(0);
+    // Another engine shows in its place.
+    await expect(shownEngine(page)).toHaveCount(1);
 
     const mia = roleSchema.parse(await (await page.request.get("/api/roles/data-analyst")).json());
     expect(mia.card.roleOverride).toEqual({ engineId: "claude-code", model: "claude-haiku-5-5" });
@@ -668,6 +742,7 @@ test("the user signs a Claude Code engine in by its sign-in page's code, pastes 
     { kind: "claude-code", name, defaultModel: "claude-haiku-5-5", claudeCodeP: false },
   ]);
   await page.goto("/settings/engines");
+  await openEngine(page, name, "Account");
   const account = page
     .getByRole("group", { name, exact: true })
     .getByRole("group", { name: "Account" });

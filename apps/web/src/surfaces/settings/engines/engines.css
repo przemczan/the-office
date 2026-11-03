@@ -1,48 +1,113 @@
-/* Settings › Engines: each engine as a block of its fields, an API endpoint's with its models. */
-.engines {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 12px 0;
+/* Settings › Engines: the Defaults above the list of engines (settings.css' `.library-list`) beside
+   the selected engine's tabs. */
+.engine-defaults {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: 24px;
 }
 
-.claude-code-engine,
-.api-endpoint {
+.engine-default {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.engine-default-title {
+  margin: 0;
+  font: var(--type-label);
+  color: var(--fg-1);
+}
+
+.engine-default-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* A row of the list is a button, styled as a library item. */
+.engine-item {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.engine-item-name {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.engine-item-name .library-item-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.engine-list-empty {
+  padding: 8px 10px 0;
+}
+
+.engine-list-note {
+  margin: 8px 4px 4px;
+}
+
+.engine-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.engine-tab {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin: 0;
+}
+
+.engine-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* An API endpoint's models: each its id, context window and Remove, its four prices under them. */
+.api-endpoint-models {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.api-endpoint-model {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   padding: 12px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
 }
 
-.engine-fields {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
-}
-
-.api-endpoint-models {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.api-endpoint-model {
+.api-endpoint-model-head {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
   align-items: end;
   gap: 12px;
 }
 
-.engine-actions {
+.engine-tab-actions {
   display: flex;
-  justify-content: space-between;
 }
 
-.engine-actions > :only-child {
-  margin-left: auto;
+.settings-actions-state.engine-save-held {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  color: var(--warning-fg);
 }
 
 /* A saved Claude Code engine's account: its line and actions, then what a Sign in or a token asks. */
@@ -50,8 +115,6 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding-top: 12px;
-  border-top: 1px solid var(--border-subtle);
 }
 
 .engine-account-status {
@@ -94,24 +157,11 @@
   gap: 8px;
 }
 
-.engines-add {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-/* The Model prices card: per engine id, a row per model with its four prices. */
-.model-prices {
+/* Models and prices: a row per model with its four prices. */
+.engine-prices {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 12px;
-}
-
-.model-prices-engine {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
 }
 
 .model-price {
@@ -130,6 +180,8 @@
 }
 
 @media (max-width: 960px) {
+  .engine-defaults,
+  .engine-default-fields,
   .engine-fields {
     grid-template-columns: 1fr;
   }

@@ -1,0 +1,103 @@
+import type { ApiEngine, EngineEdit, EngineId } from "@the-office/contracts";
+import { Button, Card, Tabs } from "@the-office/ui";
+import type { ReactNode } from "react";
+import { SettingsCardTitle } from "../settings-card-parts.tsx";
+import { ApiEndpointFields } from "./api-endpoint-fields.tsx";
+import { ClaudeCodeEngineAccount } from "./claude-code-engine-account.tsx";
+import { ClaudeCodeEngineFields } from "./claude-code-engine-fields.tsx";
+import {
+  ENGINE_KIND_LABELS,
+  ENGINE_TAB_LABELS,
+  engineCalled,
+  engineTabsOf,
+  type EngineTab,
+} from "./engine-list-words.ts";
+import type { PricedModel } from "./engine-settings-draft.ts";
+import { ApiEndpointModels, ClaudeModelPrices, type PriceFields } from "./engine-prices.tsx";
+
+/**
+ * The selected engine: its name with Remove, and its tabs: Settings, a Claude Code engine's
+ * Account, and Models and prices.
+ */
+export function EngineDetail({
+  engine,
+  tab,
+  selectTab,
+  claudeModels,
+  savedEndpoint,
+  pricedModels,
+  draftedId,
+  prices,
+  change,
+  remove,
+}: {
+  readonly engine: EngineEdit;
+  readonly tab: EngineTab;
+  readonly selectTab: (tab: EngineTab) => void;
+  readonly claudeModels: readonly string[];
+  /** The API endpoint as saved, undefined for one not saved yet or a Claude Code engine. */
+  readonly savedEndpoint: ApiEngine | undefined;
+  /** The models its Models and prices prices. */
+  readonly pricedModels: readonly PricedModel[];
+  /** The id Save gives it: empty while a new one has no name. */
+  readonly draftedId: EngineId;
+  readonly prices: PriceFields;
+  readonly change: (edit: EngineEdit) => void;
+  /** Drops one not saved yet from the draft; opens the remove dialog for a saved one. */
+  readonly remove: () => void;
+}): ReactNode {
+  const called = engineCalled(engine);
+  return (
+    <Card
+      title={
+        <SettingsCardTitle icon={engine.kind === "claude-code" ? "terminal" : "server"}>
+          {called}
+        </SettingsCardTitle>
+      }
+      subtitle={ENGINE_KIND_LABELS[engine.kind]}
+      actions={
+        <Button variant="danger-ghost" size="sm" onClick={remove}>
+          Remove {called}
+        </Button>
+      }
+    >
+      <div className="engine-detail" role="group" aria-label={called}>
+        <Tabs
+          tabs={engineTabsOf(engine.kind).map((value) => ({
+            value,
+            label: ENGINE_TAB_LABELS[value],
+          }))}
+          value={tab}
+          onChange={(value) =>
+            selectTab(engineTabsOf(engine.kind).find((each) => each === value) ?? "settings")
+          }
+        />
+        {engine.kind === "claude-code" ? (
+          tab === "settings" ? (
+            <ClaudeCodeEngineFields edit={engine} claudeModels={claudeModels} change={change} />
+          ) : tab === "account" ? (
+            engine.id === undefined ? (
+              <p className="settings-note">
+                It has no folder to sign in yet: Save, then sign it in to its Claude account here.
+              </p>
+            ) : (
+              <ClaudeCodeEngineAccount key={engine.id} engineId={engine.id} />
+            )
+          ) : (
+            <ClaudeModelPrices models={pricedModels} prices={prices} />
+          )
+        ) : tab === "prices" ? (
+          <ApiEndpointModels
+            edit={engine}
+            engineId={draftedId}
+            called={called}
+            change={change}
+            prices={prices}
+          />
+        ) : (
+          <ApiEndpointFields edit={engine} saved={savedEndpoint} change={change} />
+        )}
+      </div>
+    </Card>
+  );
+}

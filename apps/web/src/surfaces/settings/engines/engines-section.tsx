@@ -1,12 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
-  ApiEngineEdit,
-  ClaudeCodeEngineEdit,
+  EngineEdit,
   EngineId,
   EngineSettings,
   EngineSettingsEdit,
 } from "@the-office/contracts";
-import { Button, Card, Icon, Input } from "@the-office/ui";
+import { Button, Card, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { changeEngineSettings, engineSettingsQuery } from "../../../api/engine.ts";
 import { ENGINE_CASCADE, roleCardQueries, roleQueries } from "../../../api/people.ts";
@@ -15,9 +14,21 @@ import { usageSettingsQuery } from "../../../api/work.ts";
 import { usePageHeading } from "../../../shell/page-heading.tsx";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
-import { SettingsCardTitle, SettingsProblem } from "../settings-card-parts.tsx";
-import { ApiEndpointFields } from "./api-endpoint-fields.tsx";
-import { ClaudeCodeEngineFields } from "./claude-code-engine-fields.tsx";
+import { SettingsProblem } from "../settings-card-parts.tsx";
+import { DefaultsCard } from "./defaults-card.tsx";
+import { EngineDetail } from "./engine-detail.tsx";
+import { EngineList } from "./engine-list.tsx";
+import {
+  engineAt,
+  engineProblem,
+  engineSelectionsOf,
+  engineTabsOf,
+  pricedModelsAt,
+  saveHeldBy,
+  shownSelection,
+  type EngineSelection,
+  type EngineTab,
+} from "./engine-list-words.ts";
 import {
   claudeModelsOf,
   draftChanged,
@@ -28,20 +39,16 @@ import {
   newClaudeCodeEngine,
   officeDefaultChoicesOf,
   offeredModelKey,
-  offeredModelsOf,
   priceTextIn,
   savedApiEngines,
-  searchEndpointOf,
   type EngineSettingsDraft,
 } from "./engine-settings-draft.ts";
-import { ModelPricesCard } from "./model-prices-card.tsx";
-import { OfficeDefaultCard } from "./office-default-card.tsx";
 import { RemoveEngineDialog } from "./remove-engine-dialog.tsx";
 import "./engines.css";
 
 /**
- * Settings › Engines: the engines, the Office default, the Search endpoint and the Model prices,
- * one draft saved whole.
+ * Settings › Engines: the Defaults (the Office default and the Search endpoint) above the list of
+ * engines beside the selected one's tabs, one draft saved whole.
  */
 export function EnginesSection(): ReactNode {
   usePageHeading({ title: "Settings", crumb: "Engines" });
@@ -56,8 +63,12 @@ export function EnginesSection(): ReactNode {
 
 function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): ReactNode {
   const [draft, setDraft] = useState<EngineSettingsDraft>(() => draftOf(saved));
+  // An engine added since the last Save has no id yet, so the selection is its place in the draft.
+  const [selection, setSelection] = useState<EngineSelection | undefined>();
+  const [tab, setTab] = useState<EngineTab>("settings");
   const dirty = draftChanged(draft, saved);
   const toSave = engineSettingsEditOf(draft, saved);
+  const held = toSave === undefined ? saveHeldBy(draft, saved) : undefined;
   const queryClient = useQueryClient();
   const showToast = useToast();
   const [removing, setRemoving] = useState<EngineId | undefined>();
@@ -88,125 +99,139 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
     ]);
     showToast("Engine removed. What named it moved to the replacement.");
   };
-  const changeClaudeCodeEngine = (index: number, edit: ClaudeCodeEngineEdit): void =>
-    setDraft({
-      ...draft,
-      claudeCodeEngines: draft.claudeCodeEngines.map((engine, at) =>
-        at === index ? edit : engine,
-      ),
-    });
-  const changeEndpoint = (index: number, edit: ApiEngineEdit): void =>
-    setDraft({
-      ...draft,
-      apiEndpoints: draft.apiEndpoints.map((endpoint, at) => (at === index ? edit : endpoint)),
-    });
+
+  // A removal or a Discard may take the selected engine away: its neighbour shows instead.
+  const shown = shownSelection(draft, selection);
+  const engine = shown && engineAt(draft, shown);
+  const shownTab = engine && engineTabsOf(engine.kind).includes(tab) ? tab : "settings";
+  const select = (next: EngineSelection, nextTab: EngineTab = tab): void => {
+    setSelection(next);
+    setTab(nextTab);
+  };
+  const changeEngine = ({ kind, index }: EngineSelection, edit: EngineEdit): void =>
+    setDraft(
+      edit.kind === "claude-code"
+        ? {
+            ...draft,
+            claudeCodeEngines: draft.claudeCodeEngines.map((kept, at) =>
+              at === index && kind === "claude-code" ? edit : kept,
+            ),
+          }
+        : {
+            ...draft,
+            apiEndpoints: draft.apiEndpoints.map((kept, at) =>
+              at === index && kind === "openai-compatible-api" ? edit : kept,
+            ),
+          },
+    );
+  // A saved engine is removed by its dialog, which moves what names it.
+  const removeEngine = ({ kind, index }: EngineSelection, edit: EngineEdit): void => {
+    if (edit.id !== undefined) {
+      setRemoving(edit.id);
+      return;
+    }
+    setDraft(
+      kind === "claude-code"
+        ? { ...draft, claudeCodeEngines: draft.claudeCodeEngines.filter((_, at) => at !== index) }
+        : { ...draft, apiEndpoints: draft.apiEndpoints.filter((_, at) => at !== index) },
+    );
+  };
+  const drafted = draftedEngines(draft, saved);
   return (
     <>
-      <Card title={<SettingsCardTitle icon="server">Engines</SettingsCardTitle>}>
-        <p className="settings-note">
-          What sessions run on: each Claude Code engine is one Claude account, each API endpoint a
-          server on the OpenAI-compatible API, such as a local LLM.
-        </p>
-        <div className="engines">
-          {draft.claudeCodeEngines.map((engine, index) => (
-            <ClaudeCodeEngineFields
-              // An engine added since the last Save has no id yet, so its place is its identity.
-              key={index}
-              edit={engine}
-              claudeModels={claudeModelsOf(saved)}
-              change={(edit) => changeClaudeCodeEngine(index, edit)}
-              // A saved engine is removed by its dialog, which moves what names it.
-              remove={() =>
-                engine.id === undefined
-                  ? setDraft({
-                      ...draft,
-                      claudeCodeEngines: draft.claudeCodeEngines.filter(
-                        (_engine, at) => at !== index,
-                      ),
-                    })
-                  : setRemoving(engine.id)
-              }
-            />
-          ))}
-          {draft.apiEndpoints.map((endpoint, index) => (
-            <ApiEndpointFields
-              key={index}
-              edit={endpoint}
-              saved={savedApiEngines(saved.engines).find(({ id }) => id === endpoint.id)}
-              change={(edit) => changeEndpoint(index, edit)}
-              remove={() =>
-                endpoint.id === undefined
-                  ? setDraft({
-                      ...draft,
-                      apiEndpoints: draft.apiEndpoints.filter((_endpoint, at) => at !== index),
-                    })
-                  : setRemoving(endpoint.id)
-              }
-            />
-          ))}
-        </div>
-        <div className="engines-add">
-          <Button
-            variant="secondary"
-            size="sm"
-            iconLeft={<Icon name="plus" size={14} />}
-            onClick={() =>
-              setDraft({
-                ...draft,
-                claudeCodeEngines: [...draft.claudeCodeEngines, newClaudeCodeEngine(saved)],
-              })
-            }
-          >
-            Add a Claude Code engine
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            iconLeft={<Icon name="plus" size={14} />}
-            onClick={() =>
-              setDraft({ ...draft, apiEndpoints: [...draft.apiEndpoints, NEW_API_ENDPOINT] })
-            }
-          >
-            Add an API endpoint
-          </Button>
-        </div>
-      </Card>
-      <OfficeDefaultCard
+      <DefaultsCard
         officeDefault={draft.officeDefault}
         choices={officeDefaultChoicesOf(draft, saved)}
-        change={(officeDefault) => setDraft({ ...draft, officeDefault })}
+        searchEndpoint={draft.searchEndpoint}
+        changeOfficeDefault={(officeDefault) => setDraft({ ...draft, officeDefault })}
+        changeSearchEndpoint={(searchEndpoint) => setDraft({ ...draft, searchEndpoint })}
       />
-      <Card title={<SettingsCardTitle icon="search">Search endpoint</SettingsCardTitle>}>
-        <Input
-          label="Base URL"
-          hint="SearXNG, with json among its search formats. WebSearch on the OpenAI-compatible API goes through it, and is refused while none is set."
-          placeholder="http://127.0.0.1:8888"
-          value={draft.searchEndpoint?.baseUrl ?? ""}
-          onChange={(event) =>
-            setDraft({ ...draft, searchEndpoint: searchEndpointOf(event.target.value) })
-          }
+      <div className="settings-split">
+        <EngineList
+          rows={engineSelectionsOf(draft).flatMap((at) => {
+            const listed = engineAt(draft, at);
+            return listed
+              ? [
+                  {
+                    selection: at,
+                    engine: listed,
+                    officeDefault:
+                      listed.id !== undefined && listed.id === draft.officeDefault?.engineId,
+                    problem: engineProblem(draft, saved, at),
+                  },
+                ]
+              : [];
+          })}
+          shown={shown}
+          select={(at) => select(at)}
+          addClaudeCodeEngine={() => {
+            setDraft({
+              ...draft,
+              claudeCodeEngines: [...draft.claudeCodeEngines, newClaudeCodeEngine(saved)],
+            });
+            select({ kind: "claude-code", index: draft.claudeCodeEngines.length }, "settings");
+          }}
+          addApiEndpoint={() => {
+            setDraft({ ...draft, apiEndpoints: [...draft.apiEndpoints, NEW_API_ENDPOINT] });
+            select({ kind: "openai-compatible-api", index: draft.apiEndpoints.length }, "settings");
+          }}
         />
-      </Card>
-      <ModelPricesCard
-        offered={offeredModelsOf(draft, saved)}
-        apiEndpoints={draftedEngines(draft, saved).apiEndpoints}
-        priceTextOf={(model) => priceTextIn(draft, model)}
-        change={(model, text) =>
-          setDraft({
-            ...draft,
-            modelPrices: { ...draft.modelPrices, [offeredModelKey(model)]: text },
-          })
-        }
-      />
+        <div className="library-detail">
+          {shown && engine ? (
+            <EngineDetail
+              // Each engine starts on its own fields, never another's left in place.
+              key={`${shown.kind}-${shown.index}`}
+              engine={engine}
+              tab={shownTab}
+              selectTab={setTab}
+              claudeModels={claudeModelsOf(saved)}
+              savedEndpoint={savedApiEngines(saved.engines).find(({ id }) => id === engine.id)}
+              pricedModels={pricedModelsAt(draft, saved, shown)}
+              draftedId={
+                (shown.kind === "claude-code"
+                  ? drafted.claudeCodeEngines[shown.index]?.id
+                  : drafted.apiEndpoints[shown.index]?.id) ?? ""
+              }
+              prices={{
+                priceTextOf: (model) => priceTextIn(draft, model),
+                change: (model, text) =>
+                  setDraft({
+                    ...draft,
+                    modelPrices: { ...draft.modelPrices, [offeredModelKey(model)]: text },
+                  }),
+              }}
+              change={(edit) => changeEngine(shown, edit)}
+              remove={() => removeEngine(shown, engine)}
+            />
+          ) : (
+            <Card>
+              <p className="settings-note">
+                No engine is listed, so no session starts. Add a Claude Code engine or an API
+                endpoint.
+              </p>
+            </Card>
+          )}
+        </div>
+      </div>
       {saving.error && <RefusalAlert title="The engines weren't saved" error={saving.error} />}
       <div className="settings-actions">
-        <span className="settings-actions-state">{dirty ? "Unsaved changes" : "Saved"}</span>
+        {held ? (
+          <span className="settings-actions-state engine-save-held" role="status">
+            <Icon name="triangle-alert" size={14} />
+            {held.line}
+            <Button variant="ghost" size="sm" onClick={() => select(held.selection, "prices")}>
+              Show it
+            </Button>
+          </span>
+        ) : (
+          <span className="settings-actions-state">{dirty ? "Unsaved changes" : "Saved"}</span>
+        )}
         <Button variant="secondary" disabled={!dirty} onClick={() => setDraft(draftOf(saved))}>
           Discard
         </Button>
         <Button
           loading={saving.isPending}
-          // A Model price's fields show what holds it.
+          // The Save bar names the engine whose price holds it.
           disabled={!dirty || toSave === undefined}
           onClick={() => toSave && saving.mutate(toSave)}
         >
