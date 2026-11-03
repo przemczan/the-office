@@ -27,6 +27,7 @@ await launch("built", async (appModule) => {
   const { TimerSchedule } = await import("./platform/schedule/timer-schedule.js");
   const { HostKeyScanner } = await import("./platform/git-identity/host-key-scanner.js");
   const { hostKeyOf } = await import("./platform/git-identity/host-keys.js");
+  const { OfficeLogger } = await import("./platform/telemetry/office-logger.js");
   const scannedKey = hostKeyOf(hostKey);
   if (!scannedKey) throw new Error(`OFFICE_E2E_HOST_KEY is no ssh public key: ${hostKey}`);
   const scanner: InstanceType<typeof HostKeyScanner> = {
@@ -51,6 +52,8 @@ await launch("built", async (appModule) => {
     .useFactory({ factory: () => new TimerSchedule(E2E_DAY_MS) })
     .overrideProvider(HostKeyScanner)
     .useValue(scanner)
+    // The testing module's own logger shows errors alone; the service logs as main.ts's does.
+    .setLogger(new OfficeLogger())
     .compile();
   return moduleRef.createNestApplication({ ...HTTP_APPLICATION_OPTIONS, abortOnError: false });
 });

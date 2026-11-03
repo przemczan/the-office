@@ -60,13 +60,15 @@ BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsChe
 
 ### adapters/git/
 
+- `command-line-git.fixtures.ts`: serviceVariables, WorktreeMaker, exists
 - `command-line-git.ts`: CommandLineGit
 - `git-branch-tip.ts`: readBranchTip
 - `git-clone.ts`: remoteBranchesOf, reachedUrlOf, cloneRepository, progressOf
 - `git-process.ts`: GitCall, GitResult, GitProcess
+- `publishing-testbed.fixtures.ts`: PUBLISHING_TEST, pullRequestText, PullRequestsForTests, PublishingTestbed
 - `repository-locks.ts`: RepositoryLocks
 - `temporary-repository.fixtures.ts`: REAL_GIT_TEST, TemporaryRepository, createTemporaryRepository, gitIn, commitOnOrigin
-- Tests: command-line-git.test.ts, repository-locks.test.ts
+- Tests: command-line-git-branches.test.ts, command-line-git-identity.test.ts, command-line-git-locks.test.ts, command-line-git-merges.test.ts, command-line-git-worktrees.test.ts, repository-locks.test.ts
 
 ### adapters/github/
 
@@ -128,7 +130,7 @@ BaseCheckouts, BaseCheckout, ProjectService, EngineLevelsChecks, EngineLevelsChe
 - `script-commands.ts`: ScriptCommandKey, MovedFiles, ScriptCommandRun, ScriptCommands
 - `task-worktrees.ts`: SessionWorktree, TaskWorktrees
 - `worktrees.ts`: BaseBranch, TaskWorktree, InstallOptions, Installation, TaskChanges, ThrowawayWorktree, Worktrees
-- Tests: base-checkouts.test.ts, command-environment.test.ts, local-repositories.test.ts, project-checks.test.ts, project-levels-engine-removal.test.ts, publishing.test.ts, repositories-by-url.test.ts, repository-url.test.ts, resolving.test.ts, script-commands.test.ts, worktrees.test.ts
+- Tests: base-checkouts.test.ts, command-environment.test.ts, local-repositories.test.ts, project-checks.test.ts, project-levels-engine-removal.test.ts, publishing-branch-only.test.ts, publishing-merge.test.ts, publishing-pull-request.test.ts, repositories-by-url.test.ts, repository-url.test.ts, resolving.test.ts, script-commands.test.ts, worktrees.test.ts
 
 ### domain/
 

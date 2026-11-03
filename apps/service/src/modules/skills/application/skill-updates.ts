@@ -58,12 +58,17 @@ export class SkillUpdates {
     private readonly events: EventBus,
   ) {}
 
-  /** Reads each Source once, one after another; a Source it can't read keeps what it noted. */
+  /**
+   * Reads each Source once, one after another; a Source it can't read keeps what it noted, and one
+   * failing in any other way is logged, so neither keeps the Sources after it unchecked for a day.
+   */
   async check(): Promise<void> {
     for (const [repository, skills] of installedByRepository(await this.repository.list())) {
-      const now = await this.pinnedVersionNow(repository);
-      if (!now) continue;
-      for (const skill of skills) await this.note(skill.name, now);
+      try {
+        await this.checkSource(repository, skills);
+      } catch (error) {
+        this.logger.warn(`The update check of ${repository} failed: ${(error as Error).message}`);
+      }
     }
   }
 
@@ -139,6 +144,12 @@ export class SkillUpdates {
     const skill = await this.repository.find(name);
     if (!skill) throw new SkillNotFound(name);
     return skill;
+  }
+
+  private async checkSource(repository: string, skills: readonly Skill[]): Promise<void> {
+    const now = await this.pinnedVersionNow(repository);
+    if (!now) return;
+    for (const skill of skills) await this.note(skill.name, now);
   }
 
   private async pinnedVersionNow(repository: string): Promise<PinnedVersion | undefined> {

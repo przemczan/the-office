@@ -12,12 +12,15 @@ import { OfficeDataModule } from "../../../platform/office-data/office-data.modu
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import { ManualSchedule } from "../../../platform/schedule/schedule.fixtures.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
+import { OfficeIdentity } from "../../../platform/git-identity/office-identity.js";
 import {
   createSourceRepository,
   sourceSkillMd,
   type SourceRepository,
 } from "../adapters/git/source-repository.fixtures.js";
-import type { PinnedVersion } from "../domain/installed-source.js";
+import { GitSourceFetcher } from "../adapters/git/git-source-fetcher.js";
+import type { PinnedVersion, RemoteRef } from "../domain/installed-source.js";
+import { SourceFetcher } from "../ports/source-fetcher.js";
 import { SkillUpdateFound, SkillUpdateGone } from "../domain/skill-events.js";
 import { SkillsModule } from "../skills.module.js";
 import { SkillLibrary } from "./skill-library.js";
@@ -32,6 +35,17 @@ let library: SkillLibrary;
 let schedule: ManualSchedule;
 let source: SourceRepository;
 let published: DomainEvent[];
+let fetcher: SourceFetcherWithAFailure;
+
+/** The real Sources, but reading the refs of `failingUrl` fails as nothing foreseen does. */
+class SourceFetcherWithAFailure extends GitSourceFetcher {
+  failingUrl: string | undefined = undefined;
+
+  override async refs(url: string): Promise<readonly RemoteRef[]> {
+    if (url === this.failingUrl) throw new Error("Something unforeseen.");
+    return super.refs(url);
+  }
+}
 
 beforeEach(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-skill-updates-"));
@@ -39,8 +53,16 @@ beforeEach(async () => {
   ({ app } = await startTestApplication({
     database: true,
     imports: [EventsModule, EventStreamModule, OfficeDataModule.forRoot(officeData), SkillsModule],
-    overrides: [{ provide: Schedule, useValue: schedule }],
+    overrides: [
+      { provide: Schedule, useValue: schedule },
+      {
+        provide: SourceFetcher,
+        useFactory: (identity: OfficeIdentity) => new SourceFetcherWithAFailure(identity),
+        inject: [OfficeIdentity],
+      },
+    ],
   }));
+  fetcher = app.get<SourceFetcherWithAFailure>(SourceFetcher);
   library = app.get(SkillLibrary);
   published = [];
   app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));
@@ -136,5 +158,25 @@ describe("the daily update check", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
     await schedule.runDaily(SKILL_UPDATE_CHECK);
 
     expect((await library.read(name)).update).toEqual({ tag: "v2", commit: newer });
+  });
+
+  it("checks the Sources after one that fails in an unforeseen way", async () => {
+    const failing = await createSourceRepository();
+    try {
+      const first = `first-${randomUUID().slice(0, 8)}`;
+      await failing.write(`${first}/SKILL.md`, sourceSkillMd("First.", first));
+      const pinnedVersion = { commit: failing.commit() };
+      await library.install({ repository: failing.url, folder: first, pinnedVersion });
+      const name = await installed();
+      fetcher.failingUrl = failing.url;
+      await source.write("CHANGELOG.md", "more\n");
+      const newer = source.commit();
+
+      await schedule.runDaily(SKILL_UPDATE_CHECK);
+
+      expect((await library.read(name)).update).toEqual({ commit: newer });
+    } finally {
+      await failing.remove();
+    }
   });
 });

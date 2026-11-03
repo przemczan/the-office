@@ -4,7 +4,7 @@
 // fake GitHub server, and a host key scanner that finds one fixed key. Run on Node type stripping,
 // from apps/web.
 import { spawn } from "node:child_process";
-import { mkdirSync, rmSync } from "node:fs";
+import { mkdirSync, openSync, rmSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { Client } from "pg";
 import { fakeGitHubVariables, startFakeGitHub } from "./fake-github.ts";
@@ -22,6 +22,9 @@ import { hostKeyVariables } from "./ssh-host.ts";
 // The service on a scripted engine, which replays SESSIONS: the tests make no model call.
 const SERVICE_MAIN = fileURLToPath(new URL("../../service/dist/e2e.js", import.meta.url));
 const SESSIONS = fileURLToPath(new URL("./sessions.jsonl", import.meta.url));
+// What the service logs, kept beside the run's artifacts: Playwright shows only its standard error,
+// where Nest writes errors alone, so a warning (a daily job that failed) is read here.
+const SERVICE_LOG = fileURLToPath(new URL("../e2e-results/service.log", import.meta.url));
 
 await recreateDatabase(E2E_DATABASE_SERVER, E2E_DATABASE_NAME);
 const officeData = E2E_OFFICE_DATA;
@@ -29,9 +32,10 @@ rmSync(officeData, { recursive: true, force: true });
 mkdirSync(officeData, { recursive: true });
 rmSync(E2E_GIT_HOST_FOLDER, { recursive: true, force: true });
 mkdirSync(E2E_GIT_HOST_FOLDER, { recursive: true });
+mkdirSync(fileURLToPath(new URL("../e2e-results/", import.meta.url)), { recursive: true });
 const fakeGitHub = await startFakeGitHub();
 const service = spawn(process.execPath, ["--enable-source-maps", SERVICE_MAIN], {
-  stdio: "inherit",
+  stdio: ["ignore", openSync(SERVICE_LOG, "w"), "inherit"],
   env: {
     ...E2E_ENVIRONMENT,
     ...gitHostVariables(),
