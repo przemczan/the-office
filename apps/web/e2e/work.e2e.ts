@@ -607,7 +607,7 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
     { name: "export.zip", mimeType: "application/zip", buffer: Buffer.from("zip bytes") },
   ];
   const addAttachment = record
-    .getByRole("region", { name: "Attachments" })
+    .getByRole("region", { name: "Attachments", exact: true })
     .getByRole("button", { name: "Add" });
   for (const file of files) {
     await addAttachment.click();
@@ -773,7 +773,7 @@ test("a Task's images show by round, the Gate shows the current one, and the vie
   await page.goto(`/tasks/${task.id}`);
 
   const record = page.getByRole("region", { name: "Record" });
-  const attachments = record.getByRole("region", { name: "Attachments" });
+  const attachments = record.getByRole("region", { name: "Attachments", exact: true });
   const roundTwo = attachments.getByRole("group", { name: "Round 2" });
   const roundOne = attachments.getByRole("group", { name: "Round 1" });
   await expect(roundTwo).toContainText("Sent back: Make the buttons bigger.");
