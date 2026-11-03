@@ -16,13 +16,24 @@ interface StartWithEstimate {
 export class StartsSinceReading {
   private starts: StartWithEstimate[] = [];
 
+  /** Only the engines with usage windows are kept: no reading ever shows the rest's use. */
   record(at: Date, estimate: readonly EngineUsage[]): void {
-    this.starts.push({ at, estimate });
+    const withWindows = estimate.filter(({ windows }) => windows !== undefined);
+    if (withWindows.length > 0) this.starts.push({ at, estimate: withWindows });
   }
 
-  /** A new reading shows what the Tasks started before it used. */
-  forgetUntil(readAt: Date): void {
-    this.starts = this.starts.filter(({ at }) => at > readAt);
+  /**
+   * A new reading of `engineId`'s windows shows what the Tasks started before it used there; what
+   * they are expected to use on the other engines still counts until those are read.
+   */
+  forgetUntil(engineId: EngineId, readAt: Date): void {
+    this.starts = this.starts
+      .map((start) =>
+        start.at > readAt
+          ? start
+          : { ...start, estimate: start.estimate.filter((usage) => usage.engineId !== engineId) },
+      )
+      .filter(({ estimate }) => estimate.length > 0);
   }
 
   /** What the Tasks started after `readAt` are expected to use of each window on `engineId`, in %. */

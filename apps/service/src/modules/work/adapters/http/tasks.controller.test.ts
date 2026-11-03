@@ -1316,7 +1316,13 @@ async function newReading(): Promise<void> {
   const { readAt, fiveHour, sevenDay } = windows.reading;
   await work.app
     .get(EventBus)
-    .publish(new UsageWindowsRead({ fiveHour, sevenDay, source: "rate-limit-headers" }, readAt));
+    .publish(
+      new UsageWindowsRead(
+        FIRST_CLAUDE_CODE_ENGINE.id,
+        { fiveHour, sevenDay, source: "rate-limit-headers" },
+        readAt,
+      ),
+    );
 }
 
 describe("Window caps", () => {

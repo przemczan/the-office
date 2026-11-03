@@ -191,7 +191,7 @@ FireAlarmService, IdeaService, OfficeLimits, QueueService, StageScreenshots, Tas
 - `task-records.ts`: TaskRecord, TaskRecords
 - `task-service.ts`: TaskService
 - `usage-estimates.ts`: TaskUsageEstimate, UsageEstimates
-- Tests: fire-alarm-test-project-check.test.ts, planning-test-project-check.test.ts, removed-engine-caps.test.ts, shaping-with-the-cto.test.ts, stage-screenshots.test.ts, task-records.test.ts, test-project-check.test.ts
+- Tests: fire-alarm-test-project-check.test.ts, planning-test-project-check.test.ts, removed-engine-caps.test.ts, shaping-with-the-cto.test.ts, stage-screenshots.test.ts, starts-since-reading.test.ts, task-records.test.ts, test-project-check.test.ts
 
 ### domain/
 

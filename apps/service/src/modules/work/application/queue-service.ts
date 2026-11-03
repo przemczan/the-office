@@ -53,9 +53,10 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     this.events.subscribe(RoleCardChanged, () => this.release());
     // What Start queued while the fire alarm was on waits no longer.
     this.events.subscribe(AllClearGiven, () => this.release());
-    // The reading shows what the Tasks started before it use, so their estimates count no more.
-    this.events.subscribe(UsageWindowsRead, ({ readAt }) => {
-      this.startsSinceReading.forgetUntil(readAt);
+    // The reading shows what the Tasks started before it use of its engine, so their estimates
+    // there count no more.
+    this.events.subscribe(UsageWindowsRead, ({ engineId, readAt }) => {
+      this.startsSinceReading.forgetUntil(engineId, readAt);
       return this.release();
     });
     // A Task a cap holds sets the timer for when the cap resets.

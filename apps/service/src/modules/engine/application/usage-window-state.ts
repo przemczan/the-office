@@ -42,7 +42,7 @@ export class UsageWindowState {
     if (previous === undefined || !sameUsageWindows(previous, reading)) {
       await this.events.publish(new UsageWindowsChanged(engine.id, engine.name, reading));
     }
-    await this.events.publish(new UsageWindowsRead(reading, reading.readAt));
+    await this.events.publish(new UsageWindowsRead(engine.id, reading, reading.readAt));
   }
 
   /** Drops `engineId`'s reading, so Now no longer lists it. */

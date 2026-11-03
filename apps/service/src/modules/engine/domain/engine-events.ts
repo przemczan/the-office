@@ -18,11 +18,13 @@ export class UsageWindowsChanged extends DomainEvent {
 }
 
 /**
- * The account's usage windows were read, changed or not: each reading tells what The Office used
- * of them since, so what was expected of the Starts before it is known now (spec §2.1).
+ * An engine's account's usage windows were read, changed or not: each reading tells what The Office
+ * used of them since, so what was expected of the Starts before it on that engine is known now
+ * (spec §2.1).
  */
 export class UsageWindowsRead extends DomainEvent {
   constructor(
+    readonly engineId: EngineId,
     readonly windows: UsageWindows,
     readonly readAt: Date,
   ) {
