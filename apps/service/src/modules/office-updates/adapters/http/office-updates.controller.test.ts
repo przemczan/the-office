@@ -159,6 +159,18 @@ describe("Settings › Updates", () => {
     expect((await officeUpdate()).scheduled).toBeUndefined();
     await expect(readFile(join(updateFolder, "request.json"))).rejects.toThrow("ENOENT");
   });
+
+  it("keeps the update scheduled, and lets it be cancelled, when its request can't be written", async () => {
+    await start();
+    await checkout.pushNewer("Newer");
+    // A folder where the request goes, so writing it fails.
+    await mkdir(join(updateFolder, "request.json"));
+
+    expect((await send("POST", "/schedule")).status).toBe(204);
+    expect((await officeUpdate()).scheduled).toBeDefined();
+    expect((await send("DELETE", "/schedule")).status).toBe(204);
+    expect((await officeUpdate()).scheduled).toBeUndefined();
+  });
 });
 
 describe("What the launcher did, told at boot", () => {
