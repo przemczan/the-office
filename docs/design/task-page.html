@@ -1398,42 +1398,114 @@
         background: var(--danger-subtle);
       }
 
-      .attachments {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 12px;
+      /* Attachments: shell/attachments/attachment-gallery.tsx, by round. */
+      .attachments-tab {
+        padding: 14px 16px;
       }
-      .attachment {
+      .attachments-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 10px;
+        font-size: var(--text-sm);
+      }
+      .attachment-gallery,
+      .attachment-round-content {
         display: flex;
         flex-direction: column;
-        overflow: hidden;
+        gap: 8px;
       }
-      .attachment-preview {
-        display: grid;
-        place-items: center;
-        width: 100%;
-        aspect-ratio: 16 / 10;
-        padding: 0;
-        border: 0;
-        border-bottom: 1px solid var(--border);
-        background: var(--surface-sunken);
+      .attachment-round {
+        border-top: 1px solid var(--border);
+        padding-top: 8px;
+      }
+      .attachment-round:first-child {
+        border-top: 0;
+        padding-top: 0;
+      }
+      .attachment-round[open] > summary {
+        margin-bottom: 8px;
+      }
+      .attachment-round > summary {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-width: 0;
+        font: var(--type-body-sm);
+        list-style: none;
+        cursor: pointer;
+      }
+      .attachment-round > summary::-webkit-details-marker {
+        display: none;
+      }
+      .attachment-round .chev {
+        display: inline-flex;
         color: var(--fg-3);
+        transition: transform var(--duration-fast);
       }
-      button.attachment-preview {
+      .attachment-round[open] .chev {
+        transform: rotate(90deg);
+      }
+      .attachment-round-name {
+        flex: none;
+        font-weight: 600;
+      }
+      .attachment-round-feedback {
+        overflow: hidden;
+        color: var(--fg-3);
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      /* One size wherever a screenshot shows: the live app's 160 by 100. */
+      .attachment-thumbnails {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .attachment-thumbnail {
+        display: block;
+        flex: none;
+        width: 160px;
+        height: 100px;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface-sunken);
         cursor: zoom-in;
       }
-      .attachment-preview svg[viewBox="0 0 640 400"] {
+      .attachment-thumbnail:hover,
+      .attachment-thumbnail:focus-visible {
+        border-color: var(--border-strong);
+      }
+      .attachment-thumbnail svg {
         display: block;
         width: 100%;
         height: 100%;
       }
-      .attachment-body {
-        padding: 8px 12px 10px;
-        font-size: var(--text-sm);
-        overflow-wrap: anywhere;
+      .attachment-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
       }
-      .attachment-body .faint {
+      .attachment-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        max-width: 100%;
+        height: 26px;
+        padding: 0 8px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-control);
+        background: var(--surface);
+        color: var(--fg-3);
         font-size: var(--text-xs);
+      }
+      .attachment-chip a {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       .tab-empty {
         padding: var(--pad-card);
@@ -1574,31 +1646,19 @@
         padding: 6px 10px;
         resize: vertical;
       }
-      .shots {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 12px;
-      }
-      .shot {
-        display: grid;
-        gap: 4px;
-        padding: 0;
-        border: 0;
-        background: none;
-        color: var(--fg-2);
+      /* A Task can gather many screenshots: past this height they scroll, so Needs you stays small. */
+      .needs-attachments-head {
+        margin-bottom: 6px;
         font: var(--type-caption);
-        text-align: left;
-        cursor: zoom-in;
+        color: var(--fg-2);
       }
-      .shot svg {
-        display: block;
-        width: 100%;
-        height: auto;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-md);
+      .needs-attachments-scroll {
+        max-height: 176px;
+        overflow-y: auto;
+        overscroll-behavior: contain;
       }
-      .shot:hover svg {
-        border-color: var(--border-strong);
+      .facts + .needs-attachments {
+        margin-top: 12px;
       }
       .facts {
         display: grid;
@@ -1696,65 +1756,6 @@
         display: none;
       }
 
-      .earlier {
-        flex: none;
-        border-bottom: 1px solid var(--border);
-      }
-      .earlier-head {
-        width: 100%;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 16px;
-        border: 0;
-        background: none;
-        cursor: pointer;
-        font-size: var(--text-sm);
-        text-align: left;
-      }
-      .earlier-head:hover {
-        background: var(--surface-hover);
-      }
-      .earlier-head .chev {
-        color: var(--fg-3);
-        transition: transform var(--duration-fast);
-        flex: none;
-      }
-      .earlier.open .earlier-head .chev {
-        transform: rotate(90deg);
-      }
-      .earlier-head .summary {
-        flex: 1;
-        min-width: 0;
-        color: var(--fg-3);
-        font-size: var(--text-xs);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .earlier-list {
-        max-height: 240px;
-        overflow: auto;
-        padding: 0 12px 8px;
-      }
-      .earlier:not(.open) .earlier-list {
-        display: none;
-      }
-      .earlier.fill {
-        flex: 1;
-        min-height: 0;
-        overflow: auto;
-        border-bottom: 0;
-      }
-      .earlier.fill .earlier-list {
-        max-height: none;
-      }
-      .group-label {
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        padding: 8px 4px 3px;
-      }
       .stage-chip {
         display: inline-flex;
         align-items: center;
@@ -1772,51 +1773,6 @@
         border-color: var(--border-strong);
         color: var(--fg-1);
       }
-      .thread-line {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 0 6px;
-        border-radius: var(--radius-md);
-        font-size: var(--text-sm);
-      }
-      .thread-line:hover {
-        background: var(--surface-hover);
-      }
-      .thread-line[aria-current="true"] {
-        background: var(--surface-selected);
-      }
-      .thread-line .person {
-        font-weight: 500;
-        white-space: nowrap;
-      }
-      .thread-open {
-        flex: 1;
-        min-width: 0;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 0;
-        border: 0;
-        background: none;
-        font-size: inherit;
-        text-align: left;
-        cursor: pointer;
-      }
-      .thread-open .grow {
-        flex: 1;
-        min-width: 0;
-        color: var(--fg-2);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-      .thread-open .when {
-        color: var(--fg-3);
-        font-size: var(--text-xs);
-        white-space: nowrap;
-      }
-
       .thread-head {
         flex: none;
         display: flex;
@@ -1874,20 +1830,6 @@
       .switch-label[aria-checked="true"] .switch::after {
         left: 14px;
       }
-      .readonly-bar {
-        flex: none;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 16px;
-        background: var(--info-subtle);
-        border-bottom: 1px solid var(--info-border);
-        color: var(--info-fg);
-        font-size: var(--text-xs);
-      }
-      .readonly-bar .grow {
-        flex: 1;
-      }
       .unread {
         min-width: 18px;
         height: 18px;
@@ -1909,28 +1851,22 @@
         padding: 14px 16px;
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        gap: 20px;
         overscroll-behavior: contain;
       }
+      /* A Handover note or a Decision: the cards that stand out from the plain turns around them. */
       .message {
-        max-width: 92%;
         padding: 10px 12px;
         border-radius: 10px;
-        background: var(--surface-sunken);
         font: var(--type-body-sm);
         line-height: 1.55;
         color: var(--fg-1);
-      }
-      .message.mine {
-        margin-left: auto;
-        background: var(--accent-subtle);
       }
       .message.handover-note {
         border: 1px solid var(--info-border);
         background: var(--info-subtle);
       }
       .message.decision-card {
-        max-width: 100%;
         border: 1px solid var(--warning-border);
         background: var(--warning-subtle);
       }
@@ -1946,10 +1882,6 @@
       .message-by .person {
         color: var(--fg-2);
       }
-      .message-by .at {
-        margin-left: auto;
-        font-weight: 400;
-      }
       .message-text {
         overflow-wrap: anywhere;
       }
@@ -1961,8 +1893,7 @@
       }
       .message-text code {
         font-size: 12px;
-        background: var(--surface);
-        border: 1px solid var(--border-subtle);
+        background: var(--surface-sunken);
         padding: 0 4px;
         border-radius: 4px;
       }
@@ -1982,17 +1913,43 @@
         font: var(--type-caption);
         color: var(--success-fg);
       }
-      .message-line {
-        display: flex;
-        align-items: baseline;
-        gap: 6px;
+      /* A turn: one author's neighbouring messages, on the column's own surface. */
+      .turn {
         min-width: 0;
+        font: var(--type-body-sm);
+        line-height: 1.55;
+        color: var(--fg-1);
+      }
+      .turn-by {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 2px;
         font: var(--type-caption);
         color: var(--fg-3);
       }
-      .message-line svg {
+      .turn-by .person {
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+      .turn.mine .avatar {
+        background: var(--neutral-subtle);
+        color: var(--neutral-fg);
+      }
+      .tool-calls {
+        display: grid;
+        gap: 2px;
+        min-width: 0;
+        color: var(--fg-3);
+      }
+      .tool-call {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+      }
+      .tool-call svg {
         flex: none;
-        align-self: center;
       }
       .message-summary {
         min-width: 0;
@@ -2002,16 +1959,11 @@
         white-space: nowrap;
         text-overflow: ellipsis;
       }
-      .message-office {
-        padding: 6px 10px;
-        border: 1px dashed var(--border);
-        border-radius: 8px;
+      .thread-end {
         font: var(--type-caption);
-        color: var(--fg-2);
-        text-align: center;
+        color: var(--fg-3);
       }
-      .message-office.failed {
-        border-color: var(--danger-border);
+      .thread-end.failed {
         color: var(--danger-fg);
       }
       .message-answering {
@@ -2040,29 +1992,171 @@
       .segment-body {
         display: flex;
         flex-direction: column;
-        gap: 10px;
+        min-width: 0;
+      }
+      .segment-body {
+        gap: 12px;
       }
       .segment-head {
         position: sticky;
         top: -14px;
         z-index: 1;
-        margin: 0 -16px;
-        padding: 6px 16px;
+        font-size: var(--text-xs);
+        color: var(--fg-2);
+      }
+      .segment-line {
         display: flex;
         flex-wrap: wrap;
         gap: 4px 8px;
         align-items: center;
-        background: var(--surface);
-        border-block: 1px solid var(--border-subtle);
-        font-size: var(--text-xs);
-        color: var(--fg-2);
       }
       .segment-head .person {
         color: var(--fg-1);
-        font-weight: 500;
+        font-weight: 600;
       }
       .segment-head .grow {
         flex: 1;
+      }
+      .segment-state.failed {
+        color: var(--danger-fg);
+      }
+      .segment-why {
+        margin-top: 2px;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+
+      /* Flow 1, Transcript: a shaded band opens each Thread; turns sit flat under avatars. */
+      .flow-transcript .segment-head {
+        margin: 0 -16px 12px;
+        padding: 7px 16px;
+        background: var(--surface-sunken);
+        border-block: 1px solid var(--border);
+      }
+      .flow-transcript .turn .message-text {
+        padding-left: 26px;
+      }
+
+      /* Flow 2, Chapters: each Thread is a box of its own, and the ones behind you fold to a line. */
+      .flow-chapters {
+        gap: 10px;
+        background: var(--surface-sunken);
+      }
+      .flow-chapters .segment {
+        flex: none;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .flow-chapters .segment.live {
+        border-color: var(--border-strong);
+      }
+      .flow-chapters .segment-head {
+        padding: 7px 12px 7px 6px;
+        border-radius: var(--radius-card) var(--radius-card) 0 0;
+        background: var(--surface);
+      }
+      .flow-chapters .segment.open .segment-head {
+        border-bottom: 1px solid var(--border-subtle);
+        border-radius: var(--radius-card) var(--radius-card) 0 0;
+      }
+      .flow-chapters .segment-why {
+        padding-left: 26px;
+      }
+      .flow-chapters .segment-body {
+        padding: 12px;
+      }
+      .flow-chapters .turn-by .avatar {
+        display: none;
+      }
+      .flow-chapters .turn.mine {
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: var(--surface-sunken);
+      }
+      .chapter-toggle {
+        display: inline-grid;
+        place-items: center;
+        width: 20px;
+        height: 20px;
+        padding: 0;
+        border: 0;
+        border-radius: 4px;
+        background: none;
+        color: var(--fg-3);
+        cursor: pointer;
+        transition: transform var(--duration-fast);
+      }
+      .chapter-toggle:hover {
+        background: var(--surface-hover);
+      }
+      .chapter-toggle[aria-expanded="true"] {
+        transform: rotate(90deg);
+      }
+      .chapter-summary {
+        display: block;
+        width: 100%;
+        padding: 0 12px 8px 32px;
+        overflow: hidden;
+        border: 0;
+        background: none;
+        color: var(--fg-3);
+        font: var(--type-caption);
+        text-align: left;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+
+      /* Flow 3, Spine: a Thread is one line down the column, cut where it ends; your turns sit across from it. */
+      .flow-spine {
+        gap: 28px;
+      }
+      .flow-spine .segment-head {
+        margin: 0 -16px;
+        padding: 6px 16px;
+        background: var(--surface);
+      }
+      .flow-spine .segment-why {
+        padding-left: 28px;
+      }
+      .flow-spine .segment-body {
+        margin-left: 10px;
+        padding: 8px 0 2px 17px;
+        border-left: 2px solid var(--border);
+      }
+      .flow-spine .segment.live .segment-body {
+        border-left-color: var(--border-strong);
+      }
+      .flow-spine .turn.own .turn-by {
+        display: none;
+      }
+      .flow-spine .turn.mine {
+        align-self: flex-end;
+        max-width: 85%;
+        padding: 7px 12px;
+        border-radius: 12px;
+        background: var(--surface-sunken);
+      }
+      .flow-spine .turn.mine .person {
+        display: none;
+      }
+      .flow-spine .thread-end {
+        position: relative;
+      }
+      .flow-spine .thread-end::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: -22px;
+        width: 8px;
+        height: 8px;
+        margin-top: -4px;
+        border-radius: 50%;
+        background: var(--fg-3);
+      }
+      .flow-spine .thread-end.failed::before {
+        background: var(--danger);
       }
       .new-pill {
         flex: none;
@@ -2152,11 +2246,18 @@
       .lightbox-head {
         display: flex;
         align-items: center;
-        justify-content: space-between;
-        gap: 12px;
+        gap: 8px;
         padding: 8px 8px 8px 16px;
         border-bottom: 1px solid var(--border-subtle);
         font: var(--type-card-title);
+      }
+      .lightbox-head .grow {
+        flex: 1;
+        min-width: 0;
+      }
+      .lightbox-head .faint {
+        font: var(--type-caption);
+        white-space: nowrap;
       }
       .lightbox svg[viewBox="0 0 640 400"] {
         display: block;
@@ -2271,8 +2372,8 @@
         <div class="seg" id="scenario-switch"></div>
       </div>
       <div class="group">
-        <span class="label">Conversation</span>
-        <div class="seg" id="concept-switch"></div>
+        <span class="label">Chat flow</span>
+        <div class="seg" id="flow-switch"></div>
       </div>
       <div class="group">
         <span class="label">Width</span>
@@ -2738,6 +2839,46 @@ About 600k tokens over the whole Pipeline.`;
         },
       };
 
+      /** The same export with another column marked: enough pictures to show how a long list behaves. */
+      const shotOf = (title, marked) => ({ ...SHOTS.today, title, marked });
+      Object.assign(SHOTS, {
+        dates: shotOf("Dates in UTC", 0),
+        customers: shotOf("Customer names quoted", 1),
+        amounts: shotOf("Amounts in minor units", 2),
+        currency: shotOf("Currency in the last column", 3),
+        header: shotOf("The header row", 0),
+        october: shotOf("October, first page", 1),
+        november: shotOf("November, first page", 2),
+        refunds: shotOf("Refunds as negative amounts", 2),
+      });
+
+      const screenshot = (name, shot, size, round) => ({
+        name,
+        kind: "image",
+        by: "reviewer",
+        size,
+        shot,
+        round,
+      });
+
+      /** A round is the work between one Gate send-back and the next (shell/attachments/attachment-rounds.ts). */
+      const ROUND_FEEDBACK = { 2: "Show every column as a spreadsheet opens it." };
+
+      const reviewAttachments = () => [
+        { name: "usage-sample.csv", kind: "file", by: "reviewer", size: "4 KB", round: 1 },
+        screenshot("usage-csv-today.png", "today", "84 KB", 1),
+        screenshot("usage-csv-dates.png", "dates", "83 KB", 1),
+        screenshot("usage-csv-with-decimal.png", "decimal", "91 KB", 2),
+        screenshot("usage-csv-customers.png", "customers", "86 KB", 2),
+        screenshot("usage-csv-amounts.png", "amounts", "85 KB", 2),
+        screenshot("usage-csv-currency.png", "currency", "84 KB", 2),
+        screenshot("usage-csv-header.png", "header", "79 KB", 2),
+        screenshot("usage-csv-october.png", "october", "88 KB", 2),
+        screenshot("usage-csv-november.png", "november", "87 KB", 2),
+        screenshot("usage-csv-refunds.png", "refunds", "82 KB", 2),
+        { name: "review-notes.md", kind: "document", by: "reviewer", size: "2 KB", round: 2 },
+      ];
+
       /* ---------- Scenarios ---------- */
 
       function taskStage(stage, state, runs, wentBack = null) {
@@ -2941,23 +3082,7 @@ About 600k tokens over the whole Pipeline.`;
               decisions: ["d-units", "d-decimal"],
               dodMet: [1, 2, 3, 4, 5, 6],
               dodMetBy: "Review & fix, run 5",
-              attachments: [
-                { name: "usage-sample.csv", kind: "file", by: "reviewer", size: "4 KB" },
-                {
-                  name: "usage-csv-today.png",
-                  kind: "image",
-                  by: "reviewer",
-                  size: "84 KB",
-                  shot: "today",
-                },
-                {
-                  name: "usage-csv-with-decimal.png",
-                  kind: "image",
-                  by: "reviewer",
-                  size: "91 KB",
-                  shot: "decimal",
-                },
-              ],
+              attachments: reviewAttachments(),
               gate: { stageKey: "gate" },
             };
           },
@@ -3160,22 +3285,14 @@ About 600k tokens over the whole Pipeline.`;
               dodMet: [1, 2, 3, 4, 5, 6],
               dodMetBy: "Review & fix, run 5",
               attachments: [
-                { name: "usage-sample.csv", kind: "file", by: "reviewer", size: "4 KB" },
+                ...reviewAttachments(),
                 {
-                  name: "usage-csv-today.png",
-                  kind: "image",
-                  by: "reviewer",
-                  size: "84 KB",
-                  shot: "today",
+                  name: "Pull request #482",
+                  kind: "link",
+                  by: "office",
+                  size: "github.com",
+                  round: 2,
                 },
-                {
-                  name: "usage-csv-with-decimal.png",
-                  kind: "image",
-                  by: "reviewer",
-                  size: "91 KB",
-                  shot: "decimal",
-                },
-                { name: "Pull request #482", kind: "link", by: "office", size: "github.com" },
               ],
               published: "#482",
             };
@@ -3215,14 +3332,14 @@ About 600k tokens over the whole Pipeline.`;
 
       const view = {
         scenario: "waiting",
-        concept: "timeline",
+        chatFlow: "transcript",
         narrow: false,
         palette: "light",
         data: null,
         selectedStage: null,
-        viewingThreadId: null,
         unread: 0,
-        earlierOpen: false,
+        foldedChapters: {},
+        viewedShots: null,
         drawerOpen: false,
         recordTab: "overview",
         showDetails: store.get("showDetails", false),
@@ -3327,10 +3444,6 @@ About 600k tokens over the whole Pipeline.`;
           : m < 60
             ? `${m}m`
             : `${Math.floor(m / 60)}h ${m % 60}m`;
-      };
-      const relative = (iso) => {
-        const m = Math.round((NOW - Date.parse(iso)) / 60000);
-        return m < 1 ? "just now" : m < 60 ? `${m}m ago` : `${Math.floor(m / 60)}h ${m % 60}m ago`;
       };
       const runDuration = (r) =>
         (r.endedAt ? Date.parse(r.endedAt) : NOW) - Date.parse(r.startedAt);
@@ -3831,14 +3944,52 @@ About 600k tokens over the whole Pipeline.`;
         </section>`;
       }
 
-      function attachmentCard(attachment) {
-        const { name, kind, size, by, shot } = attachment;
-        const preview = shot
-          ? `<button class="attachment-preview" data-action="open-shot" data-shot="${shot}" aria-label="Open ${esc(name)}">${shotSvg(shot)}</button>`
-          : `<span class="attachment-preview">${kind === "link" ? ICON.link : ICON.file}</span>`;
-        return `<article class="attachment card">${preview}
-          <div class="attachment-body"><a href="#" data-action="toast" data-text="Opens the Attachment.">${esc(name)}</a><div class="faint">${esc(size)} · by ${personLink(by)}</div></div>
-        </article>`;
+      function attachmentChip({ name, kind, size, by }) {
+        return `<span class="attachment-chip">${kind === "link" ? ICON.link : ICON.file}<a href="#" data-action="toast" data-text="Opens the Attachment.">${esc(name)}</a>${esc(size)} · ${personLink(by)}</span>`;
+      }
+
+      const isScreenshot = ({ shot }) => Boolean(shot);
+
+      /** The Task's Attachments by round, oldest first. */
+      function attachmentRounds() {
+        const numbers = [...new Set(view.data.attachments.map(({ round }) => round))].sort();
+        return numbers.map((number) => ({
+          number,
+          sentBackWith: ROUND_FEEDBACK[number] ?? null,
+          attachments: view.data.attachments.filter(({ round }) => round === number),
+        }));
+      }
+
+      const shotsOf = (attachments) => attachments.filter(isScreenshot).map(({ shot }) => shot);
+
+      /** Each thumbnail opens the viewer, which steps through every picture of `viewable`. */
+      function thumbnails(keys, viewable = keys) {
+        const items = keys.map((key) => {
+          const title = esc(SHOTS[key].title);
+          return `<button type="button" class="attachment-thumbnail" data-action="open-shot" data-shot="${key}" data-viewable="${viewable.join(" ")}" aria-label="View ${title}" title="${title}">${shotSvg(key)}</button>`;
+        });
+        return `<div class="attachment-thumbnails">${items.join("")}</div>`;
+      }
+
+      function roundContent(attachments, viewable) {
+        const keys = shotsOf(attachments);
+        const others = attachments.filter((attachment) => !isScreenshot(attachment));
+        return `<div class="attachment-round-content">${keys.length ? thumbnails(keys, viewable) : ""}${others.length ? `<div class="attachment-chips">${others.map(attachmentChip).join("")}</div>` : ""}</div>`;
+      }
+
+      /** With several rounds the newest is open on top and the earlier ones fold under their headings; with one, no heading. */
+      function attachmentGallery() {
+        const rounds = attachmentRounds();
+        const viewable = shotsOf(view.data.attachments);
+        if (rounds.length === 1) return roundContent(rounds[0].attachments, viewable);
+        const sections = rounds.toReversed().map(
+          ({ number, sentBackWith, attachments }, index) =>
+            `<details class="attachment-round" ${index === 0 ? "open" : ""}>
+              <summary title="${esc(sentBackWith ?? "")}"><span class="chev">${ICON.chev}</span><span class="attachment-round-name">Round ${number}</span>${sentBackWith ? `<span class="attachment-round-feedback">Sent back: ${esc(sentBackWith)}</span>` : ""}</summary>
+              ${roundContent(attachments, viewable)}
+            </details>`,
+        );
+        return `<div class="attachment-gallery">${sections.join("")}</div>`;
       }
 
       function renderRecord() {
@@ -3910,7 +4061,7 @@ About 600k tokens over the whole Pipeline.`;
           <div class="diff"><div class="diff-head">apps/api/src/modules/reports/usage-csv.ts</div><pre>${DIFF.map(([k, l]) => `<span class="${k}">${k === "a" ? "+" : k === "d" ? "−" : " "} ${esc(l)}</span>`).join("")}</pre></div>
         </div>`;
         const attachmentsTab = attachments.length
-          ? `<div class="attachments">${attachments.map(attachmentCard).join("")}</div>`
+          ? `<div class="card attachments-tab"><div class="attachments-head"><span class="muted">${attachments.length} Attachments</span><button class="btn xs" data-action="toast" data-text="Adds an Attachment to this round.">Add</button></div>${attachmentGallery()}</div>`
           : '<div class="card tab-empty">Agents and you can attach documents, screenshots, files and links here.</div>';
         $("record").innerHTML =
           tabs +
@@ -3941,8 +4092,8 @@ About 600k tokens over the whole Pipeline.`;
         return `<svg viewBox="0 0 640 400" role="img" aria-label="${esc(SHOTS[key].title)}"><rect width="640" height="400" fill="#fff"/><rect width="640" height="44" fill="#ecece6"/><circle cx="20" cy="22" r="5" fill="#c9c9c2"/><circle cx="38" cy="22" r="5" fill="#c9c9c2"/><circle cx="56" cy="22" r="5" fill="#c9c9c2"/>${highlight}<rect y="44" width="640" height="56" fill="#f6f6f2" opacity="0.7"/>${columns.map((text, column) => cell(text, column, 78, 600)).join("")}${lines}</svg>`;
       }
 
-      const shotsHtml = (keys) =>
-        `<div class="shots">${keys.map((key) => `<button class="shot" data-action="open-shot" data-shot="${key}">${shotSvg(key)}<span>${esc(SHOTS[key].title)}</span></button>`).join("")}</div>`;
+      const screenshotsHtml = (keys) =>
+        `<section class="needs-attachments" aria-label="Screenshots"><div class="needs-attachments-head">Screenshots · ${keys.length}</div><div class="needs-attachments-scroll" tabindex="0">${thumbnails(keys)}</div></section>`;
 
       const factsHtml = (facts) =>
         `<div class="facts">${facts.map(([value, label]) => `<div class="fact"><b>${value}</b>${esc(label)}</div>`).join("")}</div>`;
@@ -3962,7 +4113,11 @@ About 600k tokens over the whole Pipeline.`;
 
       function decisionCard(d) {
         const t = threadById(d.threadId);
-        const side = d.screenshots ? shotsHtml(d.screenshots) : d.facts ? factsHtml(d.facts) : "";
+        const side = d.screenshots
+          ? screenshotsHtml(d.screenshots)
+          : d.facts
+            ? factsHtml(d.facts)
+            : "";
         return askCard({
           badge: '<span class="badge warning">Decision</span>',
           who: personTag(d.roleKey),
@@ -3985,19 +4140,22 @@ About 600k tokens over the whole Pipeline.`;
             s.runs.length &&
             !s.runs.every((r) => r.outcome && r.outcome.skipped),
         );
+        const latestRound = attachmentRounds().at(-1);
+        const latestShots = latestRound ? shotsOf(latestRound.attachments) : [];
         return askCard({
           badge: '<span class="badge accent">Gate</span>',
           who: '<span class="muted">before Publish</span>',
           place: `<button class="linklike" data-action="select-stage" data-stage="${ts.stage.key}">on the rail · ${clock(ts.runs[ts.runs.length - 1].startedAt)}</button>`,
-          side: factsHtml([
-            [CHANGES.length, "Files changed"],
-            [`<span class="add">+${added}</span> <span class="del">−${removed}</span>`, "Lines"],
-            ["Passed", "Tests"],
-            [
-              `${view.data.dodMet.length} of ${view.data.task.definitionOfDone.length}`,
-              "Definition of Done",
-            ],
-          ]),
+          side:
+            factsHtml([
+              [CHANGES.length, "Files changed"],
+              [`<span class="add">+${added}</span> <span class="del">−${removed}</span>`, "Lines"],
+              ["Passed", "Tests"],
+              [
+                `${view.data.dodMet.length} of ${view.data.task.definitionOfDone.length}`,
+                "Definition of Done",
+              ],
+            ]) + (latestShots.length ? screenshotsHtml(latestShots) : ""),
           body: `<p class="ask-q">Look at the changes and let the work continue to Publish</p>
             <div class="ask-actions">
               <button class="btn accent" data-action="toast" data-text="Continue: Publish runs next.">Continue</button>
@@ -4076,29 +4234,47 @@ About 600k tokens over the whole Pipeline.`;
           `<span class="count-pill">${n}</span><b>Needs you</b><span class="grow">${esc(section.querySelector(".ask-q").textContent)}</span><button class="btn xs" data-action="show-needs">Show</button>`;
       }
 
-      /** Tool calls and routine run lines: the noise the Details switch hides. A failed run always shows. */
-      const isDetail = (message) =>
-        message.kind === "tool" ||
-        (message.kind === "start" && !message.failedBefore) ||
-        (message.kind === "end" && !message.failedRun);
-
+      /** Tool calls: the noise the Details switch hides. */
       const visibleMessages = (t) =>
-        view.showDetails ? t.messages : t.messages.filter((m) => !isDetail(m));
+        view.showDetails ? t.messages : t.messages.filter((m) => m.kind !== "tool");
 
-      function messageHtml(msg, thread) {
-        if (msg.kind === "say") {
-          return `<div class="message ${msg.author === "you" ? "mine" : ""}"><div class="message-by">${personTag(msg.author)}<span class="at">${clock(msg.at)}</span></div><div class="message-text">${markdown(msg.text)}</div></div>`;
+      /** One author's neighbouring messages read as one turn, and neighbouring tool calls as one block. The Thread's head says how it began. */
+      function groupedMessages(messages) {
+        const groups = [];
+        for (const message of messages) {
+          const last = groups.at(-1);
+          if (message.kind === "start") continue;
+          if (message.kind === "say" && last?.kind === "turn" && last.author === message.author)
+            last.texts.push(message.text);
+          else if (message.kind === "say")
+            groups.push({
+              kind: "turn",
+              author: message.author,
+              at: message.at,
+              texts: [message.text],
+            });
+          else if (message.kind === "tool" && last?.kind === "tools") last.texts.push(message.text);
+          else if (message.kind === "tool") groups.push({ kind: "tools", texts: [message.text] });
+          else groups.push(message);
         }
-        if (msg.kind === "tool")
-          return `<div class="message-line">${ICON.wrench}<span class="message-summary">${esc(msg.text)}</span></div>`;
-        if (msg.kind === "start")
-          return `<div class="message-office ${msg.failedBefore ? "failed" : ""}">${esc(msg.text)}</div>`;
-        if (msg.kind === "end")
-          return `<div class="message-office ${msg.failedRun ? "failed" : ""}">${esc(msg.text)}</div>`;
-        if (msg.kind === "handover")
-          return `<div class="message handover-note"><div class="message-by">${ICON.note}Handover note · ${personLink(thread.roleKey)}</div><div class="message-text">${inline(msg.text)}</div></div>`;
-        if (msg.kind === "decision") {
-          const d = decision(msg.decisionId);
+        return groups;
+      }
+
+      function turnHtml({ author, at, texts }, thread) {
+        const whose = author === "you" ? "mine" : author === thread.roleKey ? "own" : "";
+        return `<div class="turn ${whose}"><div class="turn-by">${personTag(author)}<span>${clock(at)}</span></div><div class="message-text">${texts.map(markdown).join("")}</div></div>`;
+      }
+
+      function messageHtml(group, thread) {
+        if (group.kind === "turn") return turnHtml(group, thread);
+        if (group.kind === "tools")
+          return `<div class="tool-calls">${group.texts.map((text) => `<div class="tool-call">${ICON.wrench}<span class="message-summary">${esc(text)}</span></div>`).join("")}</div>`;
+        if (group.kind === "end")
+          return `<div class="thread-end ${group.failedRun ? "failed" : ""}">${esc(group.text)} · ${clock(group.at)}</div>`;
+        if (group.kind === "handover")
+          return `<div class="message handover-note"><div class="message-by">${ICON.note}Handover note · ${personLink(thread.roleKey)}</div><div class="message-text">${inline(group.text)}</div></div>`;
+        if (group.kind === "decision") {
+          const d = decision(group.decisionId);
           const by = '<div class="message-by"><span class="badge warning">Decision</span></div>';
           if (d.answer === null)
             return `<div class="message decision-card">${by}<div class="message-text decision-question">${esc(d.question)}</div><p class="decision-hint">Waits on you. <button class="linklike" data-action="show-needs">Answer it in Needs you</button></p></div>`;
@@ -4116,65 +4292,18 @@ About 600k tokens over the whole Pipeline.`;
       }
 
       const detailsSwitch = () =>
-        `<button class="switch-label" role="switch" aria-checked="${view.showDetails}" data-action="toggle-details" title="Tool calls and the lines that open and close a run">Details<span class="switch"></span></button>`;
+        `<button class="switch-label" role="switch" aria-checked="${view.showDetails}" data-action="toggle-details" title="Tool calls">Details<span class="switch"></span></button>`;
 
       const newMessagesPill = () =>
-        view.unread && readingLive()
+        view.unread
           ? `<button class="btn xs new-pill" data-action="to-latest">${view.unread} new ${view.unread === 1 ? "message" : "messages"}</button>`
           : "";
-
-      function earlierThreads() {
-        const live = view.data.liveThreadId;
-        const groups = new Map();
-        const sorted = [...view.data.threads]
-          .filter((t) => t.id !== live)
-          .sort((a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt));
-        for (const t of sorted) {
-          const found = stageOfThread(t.id);
-          const key = found ? found.taskStage.stage.key : "planning";
-          if (!groups.has(key))
-            groups.set(key, {
-              name: found ? found.taskStage.stage.name : "Planning",
-              stageKey: found ? key : null,
-              threads: [],
-            });
-          groups.get(key).threads.push({ t, run: found ? found.run : null });
-        }
-        return [...groups.values()];
-      }
 
       function outcomeWords(run) {
         if (!run) return "Plan confirmed";
         if (!run.outcome) return "Running";
         if (run.outcome.status === "failed") return "Failed";
         return "Done";
-      }
-
-      function renderEarlier() {
-        const groups = earlierThreads();
-        const count = groups.reduce((a, g) => a + g.threads.length, 0);
-        if (!count) return "";
-        const latest = groups[0].threads[0];
-        return `<div class="earlier ${view.earlierOpen ? "open" : ""} ${view.data.liveThreadId === null && !view.viewingThreadId ? "fill" : ""}">
-          <button class="earlier-head" data-action="toggle-earlier" aria-expanded="${view.earlierOpen}"><span class="chev">${ICON.chev}</span><b style="font-weight:600">Earlier Threads</b><span class="faint">${count}</span>
-            <span class="summary">Latest: ${personName(latest.t.roleKey)} in ${esc(groups[0].name)} · ${outcomeWords(latest.run)}</span></button>
-          <div class="earlier-list">${groups
-            .map(
-              (g) => `
-            <div class="group-label">${g.stageKey ? `<button class="stage-chip" data-action="select-stage" data-stage="${g.stageKey}" title="Show ${esc(g.name)} on the rail">◆ ${esc(g.name)}</button>` : `<span class="stage-chip" style="cursor:default">Planning</span>`}</div>
-            ${g.threads
-              .map(
-                ({
-                  t,
-                  run,
-                }) => `<div class="thread-line" aria-current="${view.viewingThreadId === t.id}">${personTag(t.roleKey)}
-              <button class="thread-open" data-action="open-thread" data-thread="${t.id}"><span class="grow">${run ? `Run ${run.number} · ` : ""}${outcomeWords(run)}</span><span class="when">${relative(t.startedAt)}</span></button></div>`,
-              )
-              .join("")}`,
-            )
-            .join("")}
-          </div>
-        </div>`;
       }
 
       function composer(live) {
@@ -4198,48 +4327,56 @@ About 600k tokens over the whole Pipeline.`;
       const liveBadge = () =>
         '<span class="badge accent"><span class="dot live"></span>Live</span>';
 
-      function renderThreadsConcept() {
-        const live = view.data.liveThreadId ? threadById(view.data.liveThreadId) : null;
-        const viewing = view.viewingThreadId ? threadById(view.viewingThreadId) : live;
-        const readOnly = viewing && live && viewing.id !== live.id;
-        let header;
-        if (!viewing) {
-          header = `<div class="thread-head" style="border-top:1px solid var(--border)"><span class="grow"><span class="name">No Thread is live</span><div class="sub">The Pipeline has ended; open an earlier Thread above to read it.</div></span></div>`;
-        } else if (readOnly || !live) {
-          header = `${live ? `<div class="readonly-bar"><span class="grow">Reading an earlier Thread. It's read-only.</span><button class="btn xs" data-action="back-to-live"><span class="dot live"></span>Back to live${view.unread ? ` <span class="unread">${view.unread}</span>` : ""}</button></div>` : ""}
-            <div class="thread-head">${personTag(viewing.roleKey, "lg", personLabel(viewing.roleKey))}<span class="grow"><div class="sub">${esc(threadPlace(viewing))} · ${kTokens(sumTokens(viewing.tokens))} tokens · started ${clock(viewing.startedAt)}</div></span>${detailsSwitch()}${live ? "" : '<button class="btn ghost xs" data-action="close-thread">Close</button>'}</div>`;
-        } else {
-          header = `<div class="thread-head">${personTag(live.roleKey, "lg", personLabel(live.roleKey))}<span class="grow"><div class="sub">${esc(threadPlace(live))} · ${kTokens(sumTokens(live.tokens))} tokens</div></span>${detailsSwitch()}${liveBadge()}</div>`;
-        }
-        const body = viewing
-          ? `<div class="message-list" id="messages">${visibleMessages(viewing)
-              .map((m) => messageHtml(m, viewing))
-              .join("")}${workingHtml(viewing)}${newMessagesPill()}</div>`
-          : "";
-        const foot = readOnly
-          ? `<div class="composer"><div class="ended">Read-only: this Thread's run has ended. <button class="linklike" data-action="back-to-live">Back to live</button> to write to ${personName(live.roleKey)}.</div></div>`
-          : composer(live);
-        return renderEarlier() + header + body + foot;
+      const threadsInOrder = () =>
+        [...view.data.threads].sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));
+
+      /** Chapters: the Thread you're on and any Thread holding an open Decision start unfolded. */
+      function chapterOpen(t) {
+        const current = view.data.liveThreadId ?? threadsInOrder().at(-1).id;
+        const waiting = openDecisions().some((d) => d.threadId === t.id);
+        return view.foldedChapters[t.id] ?? (t.id === current || waiting);
       }
 
-      function renderTimelineConcept() {
-        const live = view.data.liveThreadId ? threadById(view.data.liveThreadId) : null;
-        const ordered = [...view.data.threads].sort(
-          (a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt),
-        );
-        const segments = ordered
-          .map((t) => {
-            const found = stageOfThread(t.id);
-            const isLive = live && t.id === live.id;
-            return `<div class="segment" id="seg-${t.id}">
-            <div class="segment-head">${personTag(t.roleKey)}<span>${esc(threadPlace(t))}</span><span class="grow"></span>
+      function chapterSummary(t) {
+        const said = t.messages.filter((m) => m.kind === "say").length;
+        const handover = t.messages.find((m) => m.kind === "handover");
+        const words = [
+          `${said} ${said === 1 ? "message" : "messages"}`,
+          `${kTokens(sumTokens(t.tokens))} tokens`,
+        ];
+        if (handover) words.push(handover.text.replaceAll("`", ""));
+        return `<button class="chapter-summary" data-action="toggle-chapter" data-thread="${t.id}">${esc(words.join(" · "))}</button>`;
+      }
+
+      /** The boundary every flow draws: who, where, how the Thread began and how it stands. */
+      function threadHead(t, isLive) {
+        const found = stageOfThread(t.id);
+        const opening = t.messages.find((m) => m.kind === "start");
+        const showWhy = opening && (opening.failedBefore || view.showDetails);
+        const why = showWhy ? opening.text.split(" · ").slice(2).join(" · ") : "";
+        const outcome = outcomeWords(found ? found.run : null);
+        const toggle =
+          view.chatFlow === "chapters"
+            ? `<button class="chapter-toggle" data-action="toggle-chapter" data-thread="${t.id}" aria-expanded="${chapterOpen(t)}" aria-label="Fold ${esc(t.title)}">${ICON.chev}</button>`
+            : "";
+        return `<div class="segment-head"><div class="segment-line">${toggle}${personTag(t.roleKey, "sm", personLabel(t.roleKey))}<span>${esc(threadPlace(t))}</span><span class="grow"></span>
               ${found ? `<button class="stage-chip" data-action="select-stage" data-stage="${found.taskStage.stage.key}">◆ rail</button>` : ""}
-              <span class="faint">${isLive ? "Live" : outcomeWords(found ? found.run : null)}</span></div>
-            <div class="segment-body">${visibleMessages(t)
-              .map((m) => messageHtml(m, t))
-              .join("")}${workingHtml(t)}</div>
-          </div>`;
-          })
+              ${isLive ? liveBadge() : `<span class="segment-state ${outcome === "Failed" ? "failed" : ""}">${outcome}</span>`}<span class="faint">${clock(t.startedAt)}</span></div>
+            ${why ? `<div class="segment-why">${esc(why)}</div>` : ""}</div>`;
+      }
+
+      function segmentHtml(t, isLive) {
+        const open = view.chatFlow !== "chapters" || chapterOpen(t);
+        const body = `<div class="segment-body">${groupedMessages(visibleMessages(t))
+          .map((group) => messageHtml(group, t))
+          .join("")}${workingHtml(t)}</div>`;
+        return `<div class="segment ${isLive ? "live" : ""} ${open ? "open" : ""}" id="seg-${t.id}">${threadHead(t, isLive)}${open ? body : chapterSummary(t)}</div>`;
+      }
+
+      function timelineHtml() {
+        const live = view.data.liveThreadId ? threadById(view.data.liveThreadId) : null;
+        const segments = threadsInOrder()
+          .map((t) => segmentHtml(t, t === live))
           .join("");
         const liveNow = live
           ? `<div class="timeline-live">${liveBadge()}${personTag(live.roleKey)}<span class="muted">in ${esc(threadPlace(live))}</span></div>`
@@ -4247,7 +4384,7 @@ About 600k tokens over the whole Pipeline.`;
         const header = `<div class="thread-head"><span class="grow"><span class="name">Conversation</span><div class="sub">Every Thread of this Task in order, the newest last</div></span>${detailsSwitch()}</div>${liveNow}`;
         return (
           header +
-          `<div class="message-list" id="messages">${segments}${newMessagesPill()}</div>` +
+          `<div class="message-list flow-${view.chatFlow}" id="messages">${segments}${newMessagesPill()}</div>` +
           composer(live)
         );
       }
@@ -4255,16 +4392,12 @@ About 600k tokens over the whole Pipeline.`;
       function renderConversation() {
         const conversation = $("conversation");
         const previous = $("messages");
-        const keepScroll =
-          previous &&
-          previous.dataset.thread === `${view.scenario}/${view.concept}/${view.viewingThreadId}`
-            ? previous.scrollTop
-            : null;
+        const place = `${view.scenario}/${view.chatFlow}`;
+        const keepScroll = previous?.dataset.place === place ? previous.scrollTop : null;
         const typing = document.activeElement?.closest(".composer textarea");
         const caret = typing?.selectionStart;
         const close = `<div class="drawer-close" style="justify-content:flex-end;padding:6px 8px 0"><button class="btn ghost xs icon" data-action="close-drawer" aria-label="Close the conversation">${ICON.close}</button></div>`;
-        conversation.innerHTML =
-          close + (view.concept === "threads" ? renderThreadsConcept() : renderTimelineConcept());
+        conversation.innerHTML = close + timelineHtml();
         // Live messages re-render the column; whoever is writing keeps their place.
         const composerBox = typing && conversation.querySelector(".composer textarea");
         if (composerBox) {
@@ -4272,17 +4405,14 @@ About 600k tokens over the whole Pipeline.`;
           composerBox.setSelectionRange(caret, caret);
         }
         const messages = $("messages");
-        if (messages) {
-          messages.dataset.thread = `${view.scenario}/${view.concept}/${view.viewingThreadId}`;
-          messages.scrollTop = keepScroll !== null ? keepScroll : messages.scrollHeight;
-          messages.addEventListener("scroll", clearUnreadAtEnd, { passive: true });
-        }
+        messages.dataset.place = place;
+        messages.scrollTop = keepScroll !== null ? keepScroll : messages.scrollHeight;
+        messages.addEventListener("scroll", clearUnreadAtEnd, { passive: true });
 
         $("drawer-handle").innerHTML =
           `${ICON.chat}Conversation${view.data.liveThreadId ? ' <span class="dot live"></span>' : ""}${view.unread ? ` <span class="unread">${view.unread}</span>` : ""}`;
       }
 
-      const readingLive = () => view.concept === "timeline" || !view.viewingThreadId;
       const drawerClosed = () => isNarrow() && !view.drawerOpen;
 
       function messagesAtEnd() {
@@ -4291,13 +4421,13 @@ About 600k tokens over the whole Pipeline.`;
       }
 
       function clearUnreadAtEnd() {
-        if (view.unread && readingLive() && !drawerClosed() && messagesAtEnd()) {
+        if (view.unread && !drawerClosed() && messagesAtEnd()) {
           view.unread = 0;
           renderConversation();
         }
       }
 
-      /** Running scenario: new messages arrive in the live Thread; while you read another or the drawer is closed, they count as unread. */
+      /** Running scenario: new messages arrive in the live Thread; while you read further up or the drawer is closed, they count as unread. */
       function startLiveScript() {
         clearInterval(view.liveTimer);
         const script = view.data.liveScript;
@@ -4313,11 +4443,11 @@ About 600k tokens over the whole Pipeline.`;
           live.messages.push(message);
           next += 1;
           const atEnd = messagesAtEnd();
-          const shown = view.showDetails || !isDetail(message);
-          if (shown && (!readingLive() || drawerClosed() || !atEnd)) view.unread += 1;
+          const shown = view.showDetails || message.kind !== "tool";
+          if (shown && (drawerClosed() || !atEnd)) view.unread += 1;
           renderConversation();
           // Only follow new messages when already at the end; never jump the page.
-          if (readingLive() && atEnd) $("messages").scrollTop = $("messages").scrollHeight;
+          if (atEnd) $("messages").scrollTop = $("messages").scrollHeight;
         }, 6000);
       }
 
@@ -4371,12 +4501,11 @@ About 600k tokens over the whole Pipeline.`;
         view.scenario = key;
         view.data = SCENARIOS[key].build();
         view.selectedStage = null;
-        view.viewingThreadId = null;
         view.unread = 0;
+        view.foldedChapters = {};
         view.recordTab = "overview";
         view.sendBackOpen = false;
         view.composerDraft = "";
-        view.earlierOpen = view.data.liveThreadId === null;
         renderSwitches();
         renderAll();
         revealCurrentStage();
@@ -4399,13 +4528,14 @@ About 600k tokens over the whole Pipeline.`;
           "scenario",
         );
         segmented(
-          "concept-switch",
+          "flow-switch",
           [
-            ["timeline", "One timeline"],
-            ["threads", "Threads"],
+            ["transcript", "1 · Transcript"],
+            ["chapters", "2 · Chapters"],
+            ["spine", "3 · Spine"],
           ],
-          view.concept,
-          "concept",
+          view.chatFlow,
+          "chat-flow",
         );
         segmented(
           "width-switch",
@@ -4443,23 +4573,33 @@ About 600k tokens over the whole Pipeline.`;
       const revealInPage = (element) =>
         element.scrollIntoView({ block: "start", behavior: "smooth" });
 
-      /** Wide: the column can start below the window, where a Thread opening in it would go unseen. */
-      function revealConversation() {
-        const conversation = $("conversation");
-        const windowBottom = $("scroller").getBoundingClientRect().bottom;
-        if (conversation.getBoundingClientRect().bottom > windowBottom) revealInPage(conversation);
-      }
-
       function openThread(id) {
-        view.viewingThreadId = id === view.data.liveThreadId ? null : id;
-        if (view.viewingThreadId === null) view.unread = 0;
+        if (view.chatFlow === "chapters") view.foldedChapters[id] = true;
         renderConversation();
         if (isNarrow()) {
           view.drawerOpen = true;
           $("viewport").classList.add("drawer-open");
         }
-        if (view.concept === "timeline") revealInPage($(`seg-${id}`));
-        else if (!isNarrow()) revealConversation();
+        revealInPage($(`seg-${id}`));
+      }
+
+      /** The viewer: one picture, stepping through the ones it was opened on. */
+      function viewShot(keys, index) {
+        view.viewedShots = { keys, index };
+        const key = keys[index];
+        const rounds = attachmentRounds();
+        const round = view.data.attachments.find(({ shot }) => shot === key)?.round;
+        const step = (by, label, sign) =>
+          `<button class="btn ghost xs icon" data-action="step-shot" data-step="${by}" aria-label="${label}" ${keys[index + by] ? "" : "disabled"}>${sign}</button>`;
+        $("lightbox").innerHTML =
+          `<div class="lightbox-head"><span class="grow">${esc(SHOTS[key].title)}</span><span class="faint">${rounds.length > 1 && round ? `Round ${round} · ` : ""}${index + 1} of ${keys.length}</span>${step(-1, "Previous screenshot", "‹")}${step(1, "Next screenshot", "›")}<button class="btn ghost xs icon" data-action="close-shot" aria-label="Close the screenshot">${ICON.close}</button></div>${shotSvg(key)}`;
+      }
+
+      function stepShot(by) {
+        const { keys, index } = view.viewedShots;
+        if (!keys[index + by]) return;
+        viewShot(keys, index + by);
+        $("lightbox").querySelector(`[data-step="${by}"]:not(:disabled)`)?.focus();
       }
 
       function showRecordTab(tab) {
@@ -4471,10 +4611,9 @@ About 600k tokens over the whole Pipeline.`;
 
       const ACTIONS = {
         scenario: (el) => loadScenario(el.dataset.value),
-        concept: (el) => {
-          view.concept = el.dataset.value;
-          view.viewingThreadId = null;
-          view.unread = 0;
+        "chat-flow": (el) => {
+          view.chatFlow = el.dataset.value;
+          view.foldedChapters = {};
           renderSwitches();
           renderConversation();
         },
@@ -4527,13 +4666,9 @@ About 600k tokens over the whole Pipeline.`;
           fitConversation();
         },
         "open-thread": (el) => openThread(el.dataset.thread),
-        "back-to-live": () => {
-          view.viewingThreadId = null;
-          view.unread = 0;
-          renderConversation();
-        },
-        "close-thread": () => {
-          view.viewingThreadId = null;
+        "toggle-chapter": (el) => {
+          const t = threadById(el.dataset.thread);
+          view.foldedChapters[t.id] = !chapterOpen(t);
           renderConversation();
         },
         "show-needs": () => {
@@ -4553,15 +4688,12 @@ About 600k tokens over the whole Pipeline.`;
         },
         person: (el) => toast(`Opens ${personName(el.dataset.role)}'s page.`),
         "open-shot": (el) => {
-          const lightbox = $("lightbox");
-          lightbox.innerHTML = `<div class="lightbox-head">${esc(SHOTS[el.dataset.shot].title)}<button class="btn ghost xs icon" data-action="close-shot" aria-label="Close the screenshot">${ICON.close}</button></div>${shotSvg(el.dataset.shot)}`;
-          lightbox.showModal();
+          const keys = el.dataset.viewable.split(" ");
+          viewShot(keys, keys.indexOf(el.dataset.shot));
+          $("lightbox").showModal();
         },
+        "step-shot": (el) => stepShot(Number(el.dataset.step)),
         "close-shot": () => $("lightbox").close(),
-        "toggle-earlier": () => {
-          view.earlierOpen = !view.earlierOpen;
-          renderConversation();
-        },
         "send-back": () => {
           view.sendBackOpen = !view.sendBackOpen;
           renderNeeds();
@@ -4578,7 +4710,7 @@ About 600k tokens over the whole Pipeline.`;
         "open-drawer": () => {
           view.drawerOpen = true;
           $("viewport").classList.add("drawer-open");
-          if (readingLive() && view.unread) {
+          if (view.unread) {
             view.unread = 0;
             renderConversation();
           }
@@ -4619,8 +4751,13 @@ About 600k tokens over the whole Pipeline.`;
       });
 
       document.addEventListener("keydown", (event) => {
+        if ($("lightbox").open) {
+          if (event.key === "ArrowRight") stepShot(1);
+          if (event.key === "ArrowLeft") stepShot(-1);
+          return;
+        }
         const typing = event.target.closest("input, textarea, select");
-        if (typing || $("lightbox").open) return;
+        if (typing) return;
         if (event.key === "Escape") {
           if (view.drawerOpen) ACTIONS["close-drawer"]();
           else if (view.selectedStage) ACTIONS["close-history"]();
