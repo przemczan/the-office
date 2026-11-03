@@ -12,8 +12,8 @@ export abstract class LibraryFolder {
   abstract keep(skillName: string, files: readonly SkillFile[]): Promise<string>;
 
   /**
-   * The files of the skill's version with `filesHash`, in path order. Throws SkillVersionMissing
-   * when the library doesn't have them as they were kept.
+   * The files of the skill's version with `filesHash`, in path order. Throws SkillVersionNotKept
+   * when it has no such version, and SkillVersionMissing when the files aren't as they were kept.
    */
   abstract read(skillName: string, filesHash: string): Promise<readonly SkillFile[]>;
 

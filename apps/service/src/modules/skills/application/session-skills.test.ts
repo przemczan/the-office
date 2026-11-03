@@ -8,6 +8,7 @@ import type { INestApplication } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../test/test-application.js";
 import { EventsModule } from "../../../platform/events/events.module.js";
+import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { OfficeDataModule } from "../../../platform/office-data/office-data.module.js";
 import { TelemetryModule } from "../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
@@ -18,24 +19,50 @@ import {
   type ProjectCheckout,
 } from "../adapters/git/project-checkout.fixtures.js";
 import { SessionSkillsNotFound } from "../domain/session-skills-not-found.js";
-import { SkillVersionMissing } from "../domain/skill-version-missing.js";
+import { FilesystemLibraryFolder } from "../adapters/filesystem/filesystem-library-folder.js";
+import { everyoneHere } from "../adapters/postgres/everyone-here.fixtures.js";
+import type { SkillFile } from "../domain/skill-files.js";
+import { SkillVersionMissing, SkillVersionNotKept } from "../domain/skill-version-missing.js";
+import { LibraryFolder } from "../ports/library-folder.js";
 import { SkillsModule } from "../skills.module.js";
 import { RoleSkills } from "./role-skills.js";
 import { SessionSkills, type PreparedSkills } from "./session-skills.js";
 import { SkillLibrary } from "./skill-library.js";
 
+/** The library's folder, doing what the test asks while a skill's files are read. */
+class LibraryFolderWhileReading extends FilesystemLibraryFolder {
+  whileReading: (skillName: string) => Promise<void> = async () => undefined;
+
+  override async read(skillName: string, filesHash: string): Promise<readonly SkillFile[]> {
+    await this.whileReading(skillName);
+    return super.read(skillName, filesHash);
+  }
+}
+
 let officeData: string;
 let checkout: ProjectCheckout;
 let app: INestApplication;
 let library: SkillLibrary;
+let libraryFolder: LibraryFolderWhileReading;
 let sessionSkills: SessionSkills;
+/** The test's skills for everyone, in its own app only (testing.md). */
+let forEveryone: Set<string>;
 
 async function start(): Promise<void> {
   ({ app } = await startTestApplication({
     database: true,
     imports: [EventsModule, EventStreamModule, OfficeDataModule.forRoot(officeData), SkillsModule],
+    overrides: [
+      everyoneHere(() => forEveryone),
+      {
+        provide: LibraryFolder,
+        useFactory: (directory: OfficeDataDirectory) => new LibraryFolderWhileReading(directory),
+        inject: [OfficeDataDirectory],
+      },
+    ],
   }));
   library = app.get(SkillLibrary);
+  libraryFolder = app.get(LibraryFolder);
   sessionSkills = app.get(SessionSkills);
 }
 
@@ -63,6 +90,7 @@ function sessionFolder(sessionId: string): string {
 describe("SessionSkills", () => {
   beforeEach(async () => {
     officeData = await mkdtemp(join(tmpdir(), "office-session-skills-"));
+    forEveryone = new Set();
     checkout = await createProjectCheckout();
     await checkout.write(".claude/skills/deploy/SKILL.md", projectSkillMd("deploy", "Deploys."));
     await checkout.write(".claude/commands/ship.md", "Ship it.");
@@ -84,17 +112,13 @@ describe("SessionSkills", () => {
     await anOnSkill(style);
     await anOnSkill(unused);
     const sessionId = randomUUID();
+    forEveryone.add(style);
 
-    // A skill for everyone reaches every session prepared on the shared database, so it is
-    // for everyone only as long as this session takes to prepare.
-    await library.changeEveryone(style, true);
-    const prepared = await sessionSkills
-      .prepare({
-        sessionId,
-        roleKey: await aRoleWith(tdd),
-        project: { folder: checkout.path, useProjectSkills: true },
-      })
-      .finally(() => library.remove(style));
+    const prepared = await sessionSkills.prepare({
+      sessionId,
+      roleKey: await aRoleWith(tdd),
+      project: { folder: checkout.path, useProjectSkills: true },
+    });
 
     expect(prepared.folder).toBe(sessionFolder(sessionId));
     const officeNames = [`office:${style}`, `office:${tdd}`].toSorted();
@@ -178,6 +202,60 @@ describe("SessionSkills", () => {
       project: undefined,
     });
     expect(next.versions).toEqual([{ name, version: 2, filesHash: expect.any(String) }]);
+  });
+
+  describe("a skill removed while a session is prepared", () => {
+    it("is left out, and the session starts and resumes without it", async () => {
+      const [kept, removed] = [aName("tdd"), aName("grilling")];
+      await anOnSkill(kept);
+      await anOnSkill(removed);
+      const sessionId = randomUUID();
+      libraryFolder.whileReading = async (skillName) => {
+        if (skillName === removed) await library.remove(removed);
+      };
+
+      const prepared = await sessionSkills.prepare({
+        sessionId,
+        roleKey: await aRoleWith(kept, removed),
+        project: undefined,
+      });
+
+      expect(prepared.names).toEqual([`office:${kept}`]);
+      expect(prepared.versions.map((skill) => skill.name)).toEqual([kept]);
+      expect(await readdir(join(prepared.folder, "skills"))).toEqual([kept]);
+      await expect(sessionSkills.rebuild(sessionId)).resolves.toEqual(prepared);
+    });
+
+    it("is left out when its files went with it", async () => {
+      const removed = aName("tdd");
+      await anOnSkill(removed);
+      libraryFolder.whileReading = async () => {
+        await library.remove(removed);
+        await rm(join(officeData, "skills", removed), { recursive: true, force: true });
+      };
+
+      const prepared = await sessionSkills.prepare({
+        sessionId: randomUUID(),
+        roleKey: await aRoleWith(removed),
+        project: undefined,
+      });
+
+      expect(prepared.versions).toEqual([]);
+    });
+
+    it("fails the session when a skill still listed has no files, keeping nothing of it", async () => {
+      const name = aName("tdd");
+      await anOnSkill(name);
+      await rm(join(officeData, "skills", name), { recursive: true, force: true });
+      const sessionId = randomUUID();
+
+      await expect(
+        sessionSkills.prepare({ sessionId, roleKey: await aRoleWith(name), project: undefined }),
+      ).rejects.toThrow(SkillVersionNotKept);
+
+      await expect(sessionSkills.rebuild(sessionId)).rejects.toThrow(SessionSkillsNotFound);
+      await expect(readdir(sessionFolder(sessionId))).rejects.toThrow("ENOENT");
+    });
   });
 
   it("refuses to rebuild a session it has no record of", async () => {

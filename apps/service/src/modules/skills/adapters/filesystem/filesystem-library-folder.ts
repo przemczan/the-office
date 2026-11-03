@@ -4,7 +4,7 @@ import { Injectable } from "@nestjs/common";
 import { OfficeDataDirectory } from "../../../../platform/office-data/office-data-directory.js";
 import { skillNameProblems } from "../../domain/skill.js";
 import { skillFilesHash, sortedByPath, type SkillFile } from "../../domain/skill-files.js";
-import { SkillVersionMissing } from "../../domain/skill-version-missing.js";
+import { SkillVersionMissing, SkillVersionNotKept } from "../../domain/skill-version-missing.js";
 import { LibraryFolder } from "../../ports/library-folder.js";
 import {
   exists,
@@ -40,7 +40,7 @@ export class FilesystemLibraryFolder extends LibraryFolder {
   async read(skillName: string, filesHash: string): Promise<readonly SkillFile[]> {
     const folder = this.versionFolder(skillName, filesHash);
     const missing = (reason: string) => new SkillVersionMissing(skillName, filesHash, reason);
-    if (!(await exists(folder))) throw missing("they were never kept, or were removed.");
+    if (!(await exists(folder))) throw new SkillVersionNotKept(skillName, filesHash);
     const files = await readSkillFiles(folder, (path) =>
       missing(`"${path}" is not a regular file.`),
     );
