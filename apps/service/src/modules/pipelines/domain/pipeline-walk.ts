@@ -246,7 +246,7 @@ function afterFailure(
 
 /**
  * The Task's tokens reached the Stage's budget, which always asks the user (spec §2.3), never a
- * loop: a raise runs the Stage again; the raise itself is replayed by `stageBudget`.
+ * loop: a raise runs the Stage again as it was briefed; the raise itself is replayed by `stageBudget`.
  */
 function afterBudget(
   walk: Walk,
@@ -259,7 +259,7 @@ function afterBudget(
   const answer = answerOf(run, "budget");
   switch (answer.kind) {
     case "raise-budget":
-      walk.position = at(walk.position.index);
+      // The Stage stays where it is with what it carried: the user's feedback or the failure.
       return undefined;
     case "drop":
       return { move: "drop" };

@@ -781,6 +781,19 @@ describe("nextMove at a Gate", () => {
     );
   });
 
+  it("keeps the feedback for a sent-back Stage that reached its budget, once the user raises it", () => {
+    const overBudget: StageOutcome = {
+      status: "failed",
+      error: "Over.",
+      budgetReached: { used: 120_000, budget: 100_000 },
+    };
+    const raise = decided("budget", { kind: "raise-budget", tokens: 120_000 });
+
+    expect(
+      nextMove(gated, atTheGate(sendBack, ["write", overBudget, raise]), NO_DEFINITION_OF_DONE),
+    ).toEqual({ move: "run", stage: gated[0], carriedFailure: undefined, sentBack });
+  });
+
   it("waits at the Gate again after the work it sent back", () => {
     const ran = atTheGate(sendBack, ["write", done], ["check", done], ["look", GATE_REACHED]);
 
