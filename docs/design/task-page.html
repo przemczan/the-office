@@ -3302,8 +3302,9 @@ About 600k tokens over the whole Pipeline.`;
                 b = centers[loop.to];
               const y = a.top - 2,
                 height = 28 + i * 21;
+              // A longer loop lands left of a shorter one on the same Stage, so the arcs nest instead of crossing.
               const x1 = a.x - 4,
-                x2 = b.x + 2 + i * 9;
+                x2 = b.x + 6 - i * 12;
               const label = document.createElement("button");
               label.className = "arc-label";
               label.type = "button";
