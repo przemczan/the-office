@@ -91,6 +91,15 @@ describe("OfficeSshKey", { timeout: 30_000 }, () => {
     expect(await sshKey.publicKey()).toBe(regenerated);
   });
 
+  it("lets a git command's ensure() made during a regeneration wait for it", async () => {
+    const regenerating = sshKey.regenerate();
+    const ensured = sshKey.ensure();
+
+    const [regenerated] = await Promise.all([regenerating, ensured]);
+
+    expect(await sshKey.publicKey()).toBe(regenerated);
+  });
+
   it("keeps the current key when ssh-keygen fails", async () => {
     const made = await sshKey.publicKey();
     const privateHalf = await readFile(sshKey.privateKeyPath, "utf8");

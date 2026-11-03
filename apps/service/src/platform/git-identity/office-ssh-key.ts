@@ -59,7 +59,17 @@ export class OfficeSshKey {
    * already running finish with the key they loaded.
    */
   regenerate(): Promise<string> {
-    const regenerated = this.regenerating.then(() => this.makeAgain());
+    // An ensure() in flight finishes first, so it doesn't make a key over the new one. It is the one
+    // in flight now: one asked for later waits for this regeneration, and waiting on it would deadlock.
+    const ensuring = this.ready?.catch(() => undefined);
+    const regenerated = this.regenerating
+      .then(() => ensuring)
+      .then(() => this.makeAgain())
+      .catch((error: unknown) => {
+        // The halves may be part-way replaced: the next ensure() looks at them again.
+        this.ready = undefined;
+        throw error;
+      });
     this.regenerating = regenerated.then(
       () => undefined,
       () => undefined,
@@ -82,8 +92,6 @@ export class OfficeSshKey {
   }
 
   private async makeAgain(): Promise<string> {
-    // An ensure() in flight finishes first, so it doesn't make a key over the new one.
-    await this.ready?.catch(() => undefined);
     await this.folder.prepare();
     const newPrivateKeyPath = `${this.privateKeyPath}.new`;
     const newPublicKeyPath = `${newPrivateKeyPath}.pub`;
