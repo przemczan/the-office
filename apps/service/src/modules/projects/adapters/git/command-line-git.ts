@@ -153,7 +153,7 @@ export class CommandLineGit extends Git {
     await this.locked(repositoryPath, () =>
       this.process.output({
         folder: repositoryPath,
-        gitArguments: ["remote", "set-url", remote, url],
+        gitArguments: ["remote", "set-url", "--", remote, url],
       }),
     );
   }

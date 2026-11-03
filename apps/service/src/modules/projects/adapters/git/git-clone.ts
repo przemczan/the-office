@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 import { moveWhenFree } from "../../../../platform/os/move-when-free.js";
 import type { CloneProgress } from "../../domain/repository-clone.js";
-import { CLONE_REMOTE, type CloneRequest, type RemoteBranches } from "../../ports/git.js";
+import {
+  CLONE_REMOTE,
+  GitCommandFailed,
+  type CloneRequest,
+  type RemoteBranches,
+} from "../../ports/git.js";
 import type { GitProcess } from "./git-process.js";
 
 /** Reading a remote's branches is one round trip, however large the repository. */
@@ -63,9 +68,20 @@ export async function cloneRepository(git: GitProcess, request: CloneRequest): P
       onStandardError: progressReader(request.onProgress),
     });
     await moveWhenFree(cloning, request.folder);
+  } catch (error) {
+    throw error instanceof GitCommandFailed ? withoutProgress(error) : error;
   } finally {
     await rm(cloning, { recursive: true, force: true, maxRetries: REMOVE_RETRIES });
   }
+}
+
+/** A failed clone in git's words alone: what it printed of its progress, and where, says nothing. */
+function withoutProgress(failure: GitCommandFailed): GitCommandFailed {
+  const words = failure.detail
+    .split(/[\r\n]/)
+    .map((line) => line.trim())
+    .filter((line) => line !== "" && progressOf(line) === undefined);
+  return new GitCommandFailed(failure.gitArguments, failure.exitCode, words.join("\n"));
 }
 
 /** Reads git's progress, which rewrites one line with `\r` and may arrive cut anywhere. */

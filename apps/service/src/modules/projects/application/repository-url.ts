@@ -18,8 +18,11 @@ export type RepositoryUrlReading =
   | { readonly kind: "url"; readonly repositoryUrl: RepositoryUrl }
   | { readonly kind: "refused"; readonly problem: string };
 
-/** `[user@]host:path` or `[user@][host]:path`, as git's scp-like syntax reads it. */
-const SCP_LIKE = /^(?:[^@/]+@)?(?:\[([^\]/]+)\]|([^:/[\]]+)):(.*)$/;
+/**
+ * `[user@]host:path` or `[user@][host]:path`, as git's scp-like syntax reads it; a user starting
+ * with `-` is no user, so an option never passes for a URL.
+ */
+const SCP_LIKE = /^(?:[^@/-][^@/]*@)?(?:\[([^\]/]+)\]|([^:/[\]]+)):(.*)$/;
 /** A host name or IPv4 address, which also names a folder on every system. */
 const HOST = /^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/;
 /** A segment of the path that also names a folder on every system. */

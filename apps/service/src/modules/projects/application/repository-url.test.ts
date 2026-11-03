@@ -58,6 +58,7 @@ describe("readRepositoryUrl", () => {
     ["https://example.com/acme/con", /under the name "con"/],
     ["https://example.com/acme/sh%3Ap", /under the name "sh%3Ap"/],
     ["https://[::1]/acme/shop", /on \[::1\]\.$/],
+    ["--upload-pack=touch@example.com:acme/shop", /on --upload-pack=touch@example\.com\.$/],
     ["", /^Give the repository's URL\.$/],
   ])("refuses %s", (given, problem) => {
     expect(problemOf(given)).toMatch(problem);
