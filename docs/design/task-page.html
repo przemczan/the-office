@@ -1668,6 +1668,19 @@
         text-overflow: ellipsis;
       }
 
+      .record {
+        scroll-margin-top: 64px;
+      }
+
+      .timeline-live {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 14px;
+        border-bottom: 1px solid var(--border);
+        font-size: var(--text-xs);
+      }
+
       .conversation {
         position: sticky;
         top: calc(12px + var(--pin-room, 0px));
@@ -3214,6 +3227,7 @@ About 600k tokens over the whole Pipeline.`;
         recordTab: "overview",
         showDetails: store.get("showDetails", false),
         sendBackOpen: false,
+        composerDraft: "",
         liveTimer: null,
       };
 
@@ -3574,10 +3588,10 @@ About 600k tokens over the whole Pipeline.`;
           task.state === "planning"
             ? "Starts once you confirm the Plan, the Definition of Done and the Pipeline"
             : task.state === "done"
-              ? `All ${stages.length} Stages walked`
+              ? `All ${stages.length} Stages finished`
               : at && at.state !== "done"
                 ? `At ${at.stage.name}: ${STATE_WORDS[at.state].toLowerCase()}`
-                : `${doneCount} of ${stages.length} Stages walked`;
+                : `${doneCount} of ${stages.length} Stages finished`;
         const railScrollLeft = $("rail-scroll")?.scrollLeft ?? 0;
         $("rail").innerHTML = `
           <div class="rail-top"><span class="overline">Pipeline · Full</span><span class="muted">${caption} · select a Stage for its history</span></div>
@@ -3979,12 +3993,15 @@ About 600k tokens over the whole Pipeline.`;
             [CHANGES.length, "Files changed"],
             [`<span class="add">+${added}</span> <span class="del">−${removed}</span>`, "Lines"],
             ["Passed", "Tests"],
-            [`${view.data.dodMet.length} of 6`, "Definition of Done"],
+            [
+              `${view.data.dodMet.length} of ${view.data.task.definitionOfDone.length}`,
+              "Definition of Done",
+            ],
           ]),
           body: `<p class="ask-q">Look at the changes and let the work continue to Publish</p>
             <div class="ask-actions">
               <button class="btn accent" data-action="toast" data-text="Continue: Publish runs next.">Continue</button>
-              <button class="btn" data-action="record-tab" data-tab="changes">Open Changes</button>
+              <button class="btn" data-action="open-changes">Open Changes</button>
               <button class="btn" data-action="send-back" aria-expanded="${view.sendBackOpen}">Send back…</button>
               <button class="btn danger" data-action="toast" data-text="Drop Task asks you to confirm first.">Drop Task</button>
             </div>
@@ -4001,24 +4018,25 @@ About 600k tokens over the whole Pipeline.`;
       }
 
       function planningCards() {
-        const proposal = (place, question, context, actions) =>
+        const { task } = view.data;
+        const confirmCard = (place, question, context, actions) =>
           askCard({
-            badge: '<span class="badge info">Proposal</span>',
+            badge: '<span class="badge info">To confirm</span>',
             who: personTag("planner"),
             place: `<span class="faint">${place}</span>`,
             body: `<p class="ask-q">${question}</p><p class="ask-ctx">${context}</p><div class="ask-actions">${actions}</div>`,
           });
         return (
-          proposal(
+          confirmCard(
             "Plan and Definition of Done",
             "Confirm the Plan and the Definition of Done",
-            "3 files to change · 6 statements · about 600k tokens",
+            `${task.filesToChange.length} files to change · ${task.definitionOfDone.length} statements · about ${kTokens(task.estimatedTokens)} tokens`,
             '<button class="btn primary" data-action="toast" data-text="Confirms both; the Task becomes Ready once the Pipeline is set.">Confirm both</button><button class="btn" data-action="open-fold" data-block="plan">Read the Plan</button>',
           ) +
-          proposal(
+          confirmCard(
             "Pipeline",
             "Angela proposes the Full Pipeline",
-            esc(view.data.task.proposedPipeline.reason),
+            esc(task.proposedPipeline.reason),
             '<button class="btn primary" data-action="toast" data-text="Takes the Full Pipeline.">Take Full</button><button class="btn" data-action="toast" data-text="Keeps the Project\'s default, Quick fix.">Keep Quick fix</button>',
           )
         );
@@ -4026,7 +4044,8 @@ About 600k tokens over the whole Pipeline.`;
 
       function needsSummary(decisions, gate) {
         const parts = [];
-        if (view.data.task.state === "planning") parts.push("Angela's proposals to confirm");
+        if (view.data.task.state === "planning")
+          parts.push("Angela's Plan and Pipeline to confirm");
         if (decisions.length)
           parts.push(`${decisions.length} ${decisions.length === 1 ? "Decision" : "Decisions"}`);
         if (gate) parts.push("the Gate before Publish");
@@ -4171,7 +4190,7 @@ About 600k tokens over the whole Pipeline.`;
             : "Continues the session";
         return `<div class="composer">
           <div class="to">To ${personTag(live.roleKey, "sm", `${p.name} · ${p.role}`)}<span class="to-place">, in ${esc(place)}</span></div>
-          <div class="compose-box"><textarea placeholder="Write to ${p.name}…" aria-label="Message to ${p.name}"></textarea><button class="btn ghost icon" aria-label="Mention someone" data-action="toast" data-text="Opens the @ picker.">${ICON.at}</button><button class="btn primary icon" aria-label="Send" data-action="toast" data-text="Sends your message to ${p.name}.">${ICON.send}</button></div>
+          <div class="compose-box"><textarea placeholder="Write to ${p.name}…" aria-label="Message to ${p.name}">${esc(view.composerDraft)}</textarea><button class="btn ghost icon" aria-label="Mention someone" data-action="toast" data-text="Opens the @ picker.">${ICON.at}</button><button class="btn primary icon" aria-label="Send" data-action="toast" data-text="Sends your message to ${p.name}.">${ICON.send}</button></div>
           <div class="context-label">${note} · ${kTokens(live.context.contextTokens)} tokens of context · cache warm</div>
         </div>`;
       }
@@ -4215,14 +4234,17 @@ About 600k tokens over the whole Pipeline.`;
             return `<div class="segment" id="seg-${t.id}">
             <div class="segment-head">${personTag(t.roleKey)}<span>${esc(threadPlace(t))}</span><span class="grow"></span>
               ${found ? `<button class="stage-chip" data-action="select-stage" data-stage="${found.taskStage.stage.key}">◆ rail</button>` : ""}
-              ${isLive ? liveBadge() : `<span class="faint">${outcomeWords(found ? found.run : null)}</span>`}</div>
+              <span class="faint">${isLive ? "Live" : outcomeWords(found ? found.run : null)}</span></div>
             <div class="segment-body">${visibleMessages(t)
               .map((m) => messageHtml(m, t))
               .join("")}${workingHtml(t)}</div>
           </div>`;
           })
           .join("");
-        const header = `<div class="thread-head"><span class="grow"><span class="name">Conversation</span><div class="sub">Every Thread of this Task in order, the newest last</div></span>${detailsSwitch()}</div>`;
+        const liveNow = live
+          ? `<div class="timeline-live">${liveBadge()}${personTag(live.roleKey)}<span class="muted">in ${esc(threadPlace(live))}</span></div>`
+          : "";
+        const header = `<div class="thread-head"><span class="grow"><span class="name">Conversation</span><div class="sub">Every Thread of this Task in order, the newest last</div></span>${detailsSwitch()}</div>${liveNow}`;
         return (
           header +
           `<div class="message-list" id="messages">${segments}${newMessagesPill()}</div>` +
@@ -4238,9 +4260,17 @@ About 600k tokens over the whole Pipeline.`;
           previous.dataset.thread === `${view.scenario}/${view.concept}/${view.viewingThreadId}`
             ? previous.scrollTop
             : null;
+        const typing = document.activeElement?.closest(".composer textarea");
+        const caret = typing?.selectionStart;
         const close = `<div class="drawer-close" style="justify-content:flex-end;padding:6px 8px 0"><button class="btn ghost xs icon" data-action="close-drawer" aria-label="Close the conversation">${ICON.close}</button></div>`;
         conversation.innerHTML =
           close + (view.concept === "threads" ? renderThreadsConcept() : renderTimelineConcept());
+        // Live messages re-render the column; whoever is writing keeps their place.
+        const composerBox = typing && conversation.querySelector(".composer textarea");
+        if (composerBox) {
+          composerBox.focus();
+          composerBox.setSelectionRange(caret, caret);
+        }
         const messages = $("messages");
         if (messages) {
           messages.dataset.thread = `${view.scenario}/${view.concept}/${view.viewingThreadId}`;
@@ -4345,6 +4375,7 @@ About 600k tokens over the whole Pipeline.`;
         view.unread = 0;
         view.recordTab = "overview";
         view.sendBackOpen = false;
+        view.composerDraft = "";
         view.earlierOpen = view.data.liveThreadId === null;
         renderSwitches();
         renderAll();
@@ -4409,18 +4440,33 @@ About 600k tokens over the whole Pipeline.`;
         return $("viewport").getBoundingClientRect().width <= 900;
       }
 
+      const revealInPage = (element) =>
+        element.scrollIntoView({ block: "start", behavior: "smooth" });
+
+      /** Wide: the column can start below the window, where a Thread opening in it would go unseen. */
+      function revealConversation() {
+        const conversation = $("conversation");
+        const windowBottom = $("scroller").getBoundingClientRect().bottom;
+        if (conversation.getBoundingClientRect().bottom > windowBottom) revealInPage(conversation);
+      }
+
       function openThread(id) {
         view.viewingThreadId = id === view.data.liveThreadId ? null : id;
         if (view.viewingThreadId === null) view.unread = 0;
-        if (view.concept === "timeline") {
-          renderConversation();
-          const seg = $(`seg-${id}`);
-          if (seg) seg.scrollIntoView({ block: "start", behavior: "smooth" });
-        } else renderConversation();
+        renderConversation();
         if (isNarrow()) {
           view.drawerOpen = true;
           $("viewport").classList.add("drawer-open");
         }
+        if (view.concept === "timeline") revealInPage($(`seg-${id}`));
+        else if (!isNarrow()) revealConversation();
+      }
+
+      function showRecordTab(tab) {
+        view.recordTab = tab;
+        renderRecord();
+        view.drawerOpen = false;
+        $("viewport").classList.remove("drawer-open");
       }
 
       const ACTIONS = {
@@ -4459,16 +4505,13 @@ About 600k tokens over the whole Pipeline.`;
           const remembered = store.get(key, {});
           remembered[el.dataset.block] = true;
           store.set(key, remembered);
-          view.recordTab = "overview";
-          renderRecord();
-          view.drawerOpen = false;
-          $("viewport").classList.remove("drawer-open");
+          showRecordTab("overview");
+          revealInPage($("record"));
         },
-        "record-tab": (el) => {
-          view.recordTab = el.dataset.tab;
-          renderRecord();
-          view.drawerOpen = false;
-          $("viewport").classList.remove("drawer-open");
+        "record-tab": (el) => showRecordTab(el.dataset.tab),
+        "open-changes": () => {
+          showRecordTab("changes");
+          revealInPage($("record"));
         },
         "select-stage": (el) => {
           view.drawerOpen = false;
@@ -4569,6 +4612,10 @@ About 600k tokens over the whole Pipeline.`;
         if (!el || el.disabled) return;
         if (el.tagName === "A") event.preventDefault();
         ACTIONS[el.dataset.action](el);
+      });
+
+      document.addEventListener("input", (event) => {
+        if (event.target.matches(".composer textarea")) view.composerDraft = event.target.value;
       });
 
       document.addEventListener("keydown", (event) => {
