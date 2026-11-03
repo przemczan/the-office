@@ -1,8 +1,10 @@
 import { Link, useRouterState, type LinkProps } from "@tanstack/react-router";
-import { Icon, Logo, Tooltip } from "@the-office/ui";
+import { Logo } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { useBrandTone } from "./brand-tone.ts";
 import { PaletteMenu } from "./palette-menu.tsx";
+import { RailItemFace, RailItemTooltip } from "./rail-item.tsx";
+import { useRailExpansion } from "./rail-store.ts";
 
 interface Surface {
   readonly to: NonNullable<LinkProps["to"]>;
@@ -21,12 +23,19 @@ const SURFACES: readonly Surface[] = [
 
 const SETTINGS: Surface = { to: "/settings", label: "Settings", icon: "settings-2" };
 
-/** The icon rail: the mark, the surfaces, then Settings and the palette at its foot. */
+const RAIL_ID = "shell-rail";
+
+/**
+ * The rail: the mark, the surfaces, then Settings, the palette and the toggle at its foot. Icons
+ * only until the user expands it to show the labels too.
+ */
 export function Rail(): ReactNode {
+  const { expanded } = useRailExpansion();
   return (
-    <nav className="shell-rail" aria-label="Surfaces">
+    <nav id={RAIL_ID} className="shell-rail" aria-label="Surfaces" data-expanded={expanded}>
       <Link to="/now" className="shell-rail-mark" aria-label="The Office">
         <Logo variant="mark" size={30} tone={useBrandTone()} />
+        {expanded && <span className="shell-rail-name">The Office</span>}
       </Link>
       {SURFACES.map((surface) => (
         <RailLink key={surface.to} surface={surface} />
@@ -34,6 +43,7 @@ export function Rail(): ReactNode {
       <span className="shell-rail-spacer" />
       <RailLink surface={SETTINGS} />
       <PaletteMenu />
+      <RailToggle />
     </nav>
   );
 }
@@ -42,7 +52,7 @@ function RailLink({ surface }: { readonly surface: Surface }): ReactNode {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const alsoActive = surface.alsoOn?.some((start) => pathname.startsWith(start)) ?? false;
   return (
-    <Tooltip content={surface.label} side="right">
+    <RailItemTooltip label={surface.label}>
       <Link
         to={surface.to}
         className={alsoActive ? "shell-rail-item active" : "shell-rail-item"}
@@ -50,8 +60,27 @@ function RailLink({ surface }: { readonly surface: Surface }): ReactNode {
         activeProps={{ className: "active", "aria-current": "page" }}
         aria-label={surface.label}
       >
-        <Icon name={surface.icon} size={18} strokeWidth={1.6} />
+        <RailItemFace icon={surface.icon} label={surface.label} />
       </Link>
-    </Tooltip>
+    </RailItemTooltip>
+  );
+}
+
+function RailToggle(): ReactNode {
+  const { expanded, toggle } = useRailExpansion();
+  const label = expanded ? "Collapse sidebar" : "Expand sidebar";
+  return (
+    <RailItemTooltip label={label}>
+      <button
+        type="button"
+        className="shell-rail-item shell-rail-toggle"
+        aria-label={label}
+        aria-expanded={expanded}
+        aria-controls={RAIL_ID}
+        onClick={toggle}
+      >
+        <RailItemFace icon={expanded ? "panel-left-close" : "panel-left-open"} label={label} />
+      </button>
+    </RailItemTooltip>
   );
 }

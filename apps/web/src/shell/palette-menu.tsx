@@ -1,13 +1,6 @@
-import {
-  Icon,
-  Menu,
-  PALETTES,
-  PaletteSwatch,
-  Tooltip,
-  useAppearance,
-  type Palette,
-} from "@the-office/ui";
+import { Icon, Menu, PALETTES, PaletteSwatch, useAppearance, type Palette } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
+import { RailItemFace, RailItemTooltip } from "./rail-item.tsx";
 
 const PALETTE_IDS = Object.keys(PALETTES) as Palette[];
 
@@ -24,11 +17,11 @@ export function PaletteMenu(): ReactNode {
         width={180}
         trigger={
           // The label would cover the open menu.
-          <Tooltip content="Theme" side="right" open={open ? false : undefined}>
+          <RailItemTooltip label="Theme" open={open ? false : undefined}>
             <button type="button" className="shell-rail-item" aria-label="Theme">
-              <Icon name="palette" size={18} strokeWidth={1.6} />
+              <RailItemFace icon="palette" label="Theme" />
             </button>
-          </Tooltip>
+          </RailItemTooltip>
         }
         items={[
           { heading: "Palette" },

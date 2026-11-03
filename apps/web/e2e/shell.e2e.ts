@@ -58,6 +58,35 @@ for (const palette of PALETTES) {
         }
       });
 
+      test("the page follows the rail's width, icon-only and expanded", async ({ page }) => {
+        await page.goto("/now");
+        const rail = page.getByRole("navigation", { name: "Surfaces" });
+        const main = page.locator(".shell-main");
+        const pageStartsAfterRail = async (): Promise<void> => {
+          // Settled once the width transition ends.
+          await expect
+            .poll(async () => {
+              const railBox = await rail.boundingBox();
+              const mainBox = await main.boundingBox();
+              return railBox && mainBox && mainBox.x - (railBox.x + railBox.width);
+            })
+            .toBe(0);
+        };
+
+        await pageStartsAfterRail();
+        expect((await rail.boundingBox())?.width).toBe(56);
+
+        await rail.getByRole("button", { name: "Expand sidebar" }).click();
+        await expect.poll(async () => (await rail.boundingBox())?.width).toBe(208);
+        await pageStartsAfterRail();
+        // No part of the page is pushed past the window's edge.
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(width);
+        await page.mouse.move(width / 2, 600);
+        await page.screenshot({
+          path: path.join(SCREENSHOTS, `${palette}-${width}-now-rail-expanded.png`),
+        });
+      });
+
       test(`Now's panels fold to ${panels}`, async ({ page }) => {
         await page.goto("/now");
 
@@ -93,6 +122,51 @@ test.describe("the palette", () => {
     await expect(html).toHaveAttribute("data-theme", "dark");
     await page.reload();
     await expect(html).toHaveAttribute("data-palette", "dark");
+  });
+});
+
+test.describe("the rail's toggle", () => {
+  test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
+
+  test("expands the rail to show its labels, kept over a reload, and collapses it again", async ({
+    page,
+  }) => {
+    await page.goto("/now");
+    const rail = page.getByRole("navigation", { name: "Surfaces" });
+    const labels = ["Now", "Work", "People", "Projects", "Settings", "Theme"];
+    const expand = rail.getByRole("button", { name: "Expand sidebar" });
+    await expect(expand).toHaveAttribute("aria-expanded", "false");
+    for (const label of labels) await expect(rail.getByText(label, { exact: true })).toHaveCount(0);
+
+    await expand.click();
+
+    const collapse = rail.getByRole("button", { name: "Collapse sidebar" });
+    await expect(collapse).toHaveAttribute("aria-expanded", "true");
+    for (const label of labels) await expect(rail.getByText(label, { exact: true })).toBeVisible();
+    // The label is shown, so no tooltip repeats it.
+    await rail.getByRole("link", { name: "Work", exact: true }).hover();
+    await expect(page.getByRole("tooltip")).toHaveCount(0);
+    // The Theme menu still opens beside its button, past the rail's edge.
+    await rail.getByRole("button", { name: "Theme" }).click();
+    const menuLeft = await page
+      .getByRole("menu")
+      .evaluate((menu) => menu.getBoundingClientRect().left);
+    const railRight = await rail.evaluate((nav) => nav.getBoundingClientRect().right);
+    expect(menuLeft).toBeGreaterThan(railRight);
+    await page.keyboard.press("Escape");
+
+    await page.reload();
+    await expect(collapse).toBeVisible();
+    await expect(rail.getByText("Projects", { exact: true })).toBeVisible();
+
+    await collapse.click();
+
+    await expect(expand).toHaveAttribute("aria-expanded", "false");
+    for (const label of labels) await expect(rail.getByText(label, { exact: true })).toHaveCount(0);
+    await rail.getByRole("link", { name: "Work", exact: true }).hover();
+    await expect(page.getByRole("tooltip")).toHaveText("Work");
+    await page.reload();
+    await expect(expand).toBeVisible();
   });
 });
 

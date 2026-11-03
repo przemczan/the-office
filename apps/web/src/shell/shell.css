@@ -9,26 +9,57 @@ body,
 
 .shell {
   display: grid;
-  grid-template-columns: 56px minmax(0, 1fr);
+  /* The rail sets its own width, icon-only or expanded, and the page takes the rest. */
+  grid-template-columns: auto minmax(0, 1fr);
   grid-template-rows: 56px 48px minmax(0, 1fr);
   height: 100vh;
 }
 
 /* ---- rail */
 .shell-rail {
+  --rail-width: 56px;
   grid-row: 1 / 4;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 6px;
+  width: var(--rail-width);
   padding: 12px 0;
   background: var(--sidebar-bg);
   border-right: 1px solid var(--border);
+  transition: width var(--duration-base) var(--ease-out);
+}
+
+/* Expanded, each item's label shows beside its icon, which stays where the icon rail has it. */
+.shell-rail[data-expanded="true"] {
+  --rail-width: 208px;
+  align-items: stretch;
+  padding: 12px 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shell-rail {
+    transition: none;
+  }
 }
 
 .shell-rail-mark {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   margin-bottom: 14px;
+  color: var(--fg-1);
+  text-decoration: none;
+}
+
+.shell-rail[data-expanded="true"] .shell-rail-mark {
+  padding-left: 15px;
+}
+
+.shell-rail-name {
+  font: 600 15px/1 var(--font-sans);
+  letter-spacing: var(--tracking-tight);
+  white-space: nowrap;
 }
 
 .shell-rail-item {
@@ -68,8 +99,31 @@ body,
   background: var(--accent);
 }
 
+.shell-rail[data-expanded="true"] .shell-rail-item {
+  flex: none;
+  justify-content: flex-start;
+  gap: 12px;
+  width: 100%;
+  padding: 0 11px;
+}
+
+.shell-rail-label {
+  overflow: hidden;
+  font: var(--type-body-sm);
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .shell-rail-spacer {
   flex: 1;
+}
+
+/* The Menu wraps its trigger, so its wrappers stretch with the expanded item. */
+.shell-rail[data-expanded="true"] .shell-palette-menu,
+.shell-rail[data-expanded="true"] .shell-palette-menu > div,
+.shell-rail[data-expanded="true"] .shell-palette-menu > div > span {
+  width: 100%;
 }
 
 /* The design system's Menu opens below its trigger; at the foot of the rail it opens to the
