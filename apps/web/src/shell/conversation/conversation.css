@@ -433,6 +433,32 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
+/* ---- Allow changes: the Caretaker's Thread reads only, or a banner says changes are allowed */
+.thread-changes {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.thread-changes.allowed {
+  border-bottom-color: var(--warning-border);
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
+}
+
+.thread-changes svg {
+  flex: none;
+}
+
+.thread-changes-text {
+  flex: 1;
+}
+
 .decision-consultation svg,
 .decision-passed-on svg,
 .thread-consultation svg {

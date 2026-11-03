@@ -23,6 +23,7 @@ function aContinuation(
       contextTokens,
       startContextTokens: 0,
       full: false,
+      changesAllowed: false,
     },
     roleKey: "planner",
     sessionDefault: "context-policy",
@@ -43,6 +44,7 @@ function cooledFrom33k(contextTokens: number): Continuation {
       contextTokens,
       startContextTokens: 33_000,
       full: false,
+      changesAllowed: false,
     },
   });
 }
@@ -101,6 +103,7 @@ describe("the Context policy", () => {
           contextTokens: 48_000,
           startContextTokens: 0,
           full: false,
+          changesAllowed: false,
         },
       }),
     );
@@ -160,6 +163,7 @@ describe("a session whose context filled up", () => {
           contextTokens: 820_000,
           startContextTokens: 33_000,
           full: true,
+          changesAllowed: false,
         },
         override: "continue-anyway",
       }),
@@ -193,6 +197,33 @@ describe("a session whose context filled up", () => {
         alternatives: [],
       });
     }
+  });
+
+  it("starts fresh once changes are allowed in the Thread or switched off, whatever would resume", () => {
+    const allowed = aContinuation(5, 40_000, { changesAllowed: true });
+    const base = aContinuation(5, 40_000);
+    const switchedOff = {
+      ...base,
+      session: base.session && { ...base.session, changesAllowed: true },
+    };
+
+    for (const continuation of [
+      allowed,
+      { ...allowed, override: "continue-anyway" as const },
+      switchedOff,
+    ]) {
+      expect(decideContext(continuation)).toEqual({
+        move: "fresh",
+        reason: "changes-switched",
+        cacheWarm: false,
+        contextTokens: 40_000,
+        briefTokens: 3_000,
+        alternatives: [],
+      });
+    }
+    expect(decideContext({ ...switchedOff, changesAllowed: true })).toMatchObject({
+      move: "resume",
+    });
   });
 
   it("leaves the engine out when nobody fills the Role any more", () => {

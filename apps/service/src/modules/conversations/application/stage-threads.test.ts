@@ -62,6 +62,8 @@ import { FireAlarmLifts } from "./fire-alarm-lifts.js";
 import { ApprovalHolds } from "./approval-holds.js";
 import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
 import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
+import { ChangesAllowedRepository } from "../ports/changes-allowed-repository.js";
+import { PostgresChangesAllowedRepository } from "../adapters/postgres/postgres-changes-allowed-repository.js";
 import {
   sessionMcpServersStandIn,
   type SessionMcpServersStandIn,
@@ -171,6 +173,7 @@ async function startOn(scripted: ScriptedEngine): Promise<void> {
       FireAlarmLifts,
       ApprovalHolds,
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
+      { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
       MentionedRecords,
       WorkRecords,
       StageThreads,

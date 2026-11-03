@@ -24,7 +24,7 @@ import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
 import { ScriptedEngine, ScriptedEngineModule } from "../../../engine/index.js";
-import { EngineCascade, RoleCards, type SessionRole } from "../../../people/index.js";
+import { CARETAKER, EngineCascade, RoleCards, type SessionRole } from "../../../people/index.js";
 import { EngineCascadeStandIn } from "../../../people/index.fixtures.js";
 import { McpServersModule } from "../../../mcp-servers/index.js";
 import { SkillsModule } from "../../../skills/index.js";
@@ -39,6 +39,7 @@ import { SessionPlaces } from "../../application/session-places.js";
 import { InitiativeThreadSetups } from "../../application/initiative-thread-setups.js";
 import { TaskThreadSetups } from "../../application/task-thread-setups.js";
 import { ThreadContexts } from "../../application/thread-contexts.js";
+import { AllowChanges } from "../../application/allow-changes.js";
 import { StageThreads } from "../../application/stage-threads.js";
 import { ThreadRunner } from "../../application/thread-runner.js";
 import { MentionedRecords } from "../../application/mentioned-records.js";
@@ -66,6 +67,8 @@ import { FireAlarmLifts } from "../../application/fire-alarm-lifts.js";
 import { ApprovalHolds } from "../../application/approval-holds.js";
 import { FireAlarmLiftRepository } from "../../ports/fire-alarm-lift-repository.js";
 import { PostgresFireAlarmLiftRepository } from "../postgres/postgres-fire-alarm-lift-repository.js";
+import { ChangesAllowedRepository } from "../../ports/changes-allowed-repository.js";
+import { PostgresChangesAllowedRepository } from "../postgres/postgres-changes-allowed-repository.js";
 
 let app: INestApplication;
 let url: string;
@@ -123,11 +126,13 @@ beforeEach(async () => {
       InitiativeThreadSetups,
       SessionPlaces,
       ThreadContexts,
+      AllowChanges,
       ThreadRunner,
       FireAlarmInThreads,
       FireAlarmLifts,
       ApprovalHolds,
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
+      { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
       MentionedRecords,
       WorkRecords,
       StageThreads,
@@ -467,6 +472,7 @@ describe("a Decision", () => {
         contextTokens: 34_000,
         startContextTokens: 33_000,
         full: false,
+        changesAllowed: false,
       },
     });
     await app.get(ThreadRepository).add(thread);
@@ -634,6 +640,7 @@ async function withSession(home: (roleKey: string) => Thread["home"]): Promise<{
       contextTokens: 34_000,
       startContextTokens: 33_000,
       full: false,
+      changesAllowed: false,
     },
   });
   await app.get(ThreadRepository).add(thread);
@@ -793,5 +800,46 @@ describe("the fire alarm's lifts", () => {
     ]);
     expect([lifted, listed, takenBack]).toEqual([[thread.id], [thread.id], []]);
     expect(nobody.status).toBe(404);
+  });
+});
+
+describe("Allow changes", () => {
+  it("is switched on and off in the Caretaker's chat, with a line each time, and refused elsewhere", async () => {
+    people.set(CARETAKER, {
+      roleKey: CARETAKER,
+      cardVersion: 1,
+      card: aPlannerCard({ name: "Sam", title: "Caretaker" }),
+    });
+    const thread = threadSchema.parse(
+      await (await send("POST", `/chats/${CARETAKER}/threads`)).json(),
+    );
+    const elsewhere = threadSchema.parse(
+      await (await send("POST", `/chats/${aPerson("Jan", true)}/threads`)).json(),
+    );
+
+    const allowed = threadSchema.parse(
+      await (await send("PUT", `/threads/${thread.id}/allow-changes`)).json(),
+    );
+    const switchedOff = threadSchema.parse(
+      await (await send("DELETE", `/threads/${thread.id}/allow-changes`)).json(),
+    );
+    const refused = await send("PUT", `/threads/${elsewhere.id}/allow-changes`);
+    const log = messageListSchema.parse(await (await get(`/threads/${thread.id}/messages`)).json());
+
+    expect([thread.changesAllowed, allowed.changesAllowed, switchedOff.changesAllowed]).toEqual([
+      false,
+      true,
+      false,
+    ]);
+    expect(elsewhere.changesAllowed).toBeNull();
+    expect(log.map((message) => message.kind === "changes-allowed" && message.allowed)).toEqual([
+      true,
+      false,
+    ]);
+    expect(refused.status).toBe(422);
+    expect(threadRefusalSchema.parse(await refused.json()).reasons).toEqual([
+      "Only the Caretaker's chat has Allow changes.",
+    ]);
+    expect((await send("PUT", `/threads/${randomUUID()}/allow-changes`)).status).toBe(404);
   });
 });

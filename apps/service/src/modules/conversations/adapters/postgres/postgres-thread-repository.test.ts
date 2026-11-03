@@ -49,6 +49,7 @@ describe("PostgresThreadRepository", () => {
         contextTokens: 41_000,
         startContextTokens: 33_000,
         full: false,
+        changesAllowed: false,
       },
       override: "start-fresh",
       tokens: { input: 10, output: 200, cacheRead: 30_000, cacheCreation: 11_000 },
@@ -108,6 +109,7 @@ describe("PostgresThreadRepository", () => {
       contextTokens: 0,
       startContextTokens: undefined,
       full: false,
+      changesAllowed: false,
     };
     const thread = aThreadOfItsOwn(roleKey, { session });
     await repository.add(thread);

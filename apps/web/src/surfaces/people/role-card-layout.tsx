@@ -67,6 +67,16 @@ export function RoleCardValue({
   );
 }
 
+/** Under what the Caretaker's card fixes: capabilities, permission profile, Hard switches, Task limit. */
+export function FixedForTheCaretaker(): ReactNode {
+  return (
+    <p className="role-card-fixed">
+      <Icon name="lock" size={12} />
+      Built in: fixed for the Caretaker.
+    </p>
+  );
+}
+
 /** A block of a person's page: a card with an icon in its title. */
 export function PersonBlock({
   icon,

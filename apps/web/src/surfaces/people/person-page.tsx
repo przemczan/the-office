@@ -76,7 +76,15 @@ function PersonHead({ role }: { readonly role: Role }): ReactNode {
             <Icon name="layers" size={12} />
             {taskLimitShort(card.taskLimit)}
           </span>
-          <span>· Hired {dayOf(role.hiredAt)}</span>
+          {/* The Caretaker is never hired: it comes with The Office. */}
+          {role.builtIn ? (
+            <span className="person-chip">
+              <Icon name="lock" size={12} />
+              Built in
+            </span>
+          ) : (
+            <span>· Hired {dayOf(role.hiredAt)}</span>
+          )}
           {role.letGoAt && <span>· Let go {dayOf(role.letGoAt)}</span>}
         </div>
       </div>
@@ -113,13 +121,15 @@ function PersonHead({ role }: { readonly role: Role }): ReactNode {
                 Edit Role
               </Button>
             )}
-            <Button
-              variant="secondary"
-              iconLeft={<Icon name="user-minus" size={14} />}
-              onClick={() => setLetting(true)}
-            >
-              Let go
-            </Button>
+            {!role.builtIn && (
+              <Button
+                variant="secondary"
+                iconLeft={<Icon name="user-minus" size={14} />}
+                onClick={() => setLetting(true)}
+              >
+                Let go
+              </Button>
+            )}
           </>
         )}
       </div>

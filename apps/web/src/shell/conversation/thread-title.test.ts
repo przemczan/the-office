@@ -22,6 +22,7 @@ function aThread(fields: Partial<Thread>): Thread {
     startedAt: "2026-10-26T09:00:00.000Z",
     stageThread: false,
     consultation: null,
+    changesAllowed: null,
     ...fields,
   };
 }

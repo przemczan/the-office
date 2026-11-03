@@ -31,7 +31,9 @@ export type ContextReason =
   /** The context neared its limit and the person wrote a Handover note: never resumed. */
   | "context-full"
   /** The person's Role card picks another engine than the session runs on, which can't resume it. */
-  | "engine-changed";
+  | "engine-changed"
+  /** The user allowed changes in the Caretaker's Thread or switched them off: other rules apply. */
+  | "changes-switched";
 
 export interface ContextPolicySettings {
   /** How long the prompt cache stays warm after a call. */
@@ -63,7 +65,13 @@ export interface Continuation {
   readonly session:
     | Pick<
         ThreadSession,
-        "roleKey" | "engineId" | "lastCallAt" | "contextTokens" | "startContextTokens" | "full"
+        | "roleKey"
+        | "engineId"
+        | "lastCallAt"
+        | "contextTokens"
+        | "startContextTokens"
+        | "full"
+        | "changesAllowed"
       >
     | undefined;
   /** Who answers next, by the key of the Role they fill. */
@@ -80,6 +88,8 @@ export interface Continuation {
   readonly declared?: "fresh" | "continue";
   /** What a Brief for a fresh session takes, estimated. */
   readonly briefTokens: number;
+  /** Whether changes are allowed in the Thread now (a Caretaker's, spec §2.4); undefined is no. */
+  readonly changesAllowed?: boolean;
 }
 
 /** What the user may choose instead, with its estimated cost in tokens. */
@@ -99,8 +109,8 @@ export interface ContextDecision {
   readonly briefTokens: number | undefined;
   /**
    * "Start fresh" with what a Brief takes, or "Continue anyway" with the context to read back or
-   * re-cache; none for a new Thread, a hand-off, a full context or a changed engine, which have no
-   * session to choose between.
+   * re-cache; none for a new Thread, a hand-off, a full context, a changed engine or a switch of
+   * Allow changes, which have no session to choose between.
    */
   readonly alternatives: readonly ContextAlternative[];
 }
@@ -134,6 +144,14 @@ export function decideContext(
       contextTokens: session.contextTokens,
       move: "fresh",
       reason: "engine-changed",
+    };
+  }
+  if (session.changesAllowed !== (continuation.changesAllowed ?? false)) {
+    return {
+      ...withoutSession(briefTokens),
+      contextTokens: session.contextTokens,
+      move: "fresh",
+      reason: "changes-switched",
     };
   }
   const cacheWarm = isWarm(session.lastCallAt, continuation.now, settings);

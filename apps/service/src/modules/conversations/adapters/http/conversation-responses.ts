@@ -9,14 +9,17 @@ import {
   type ProposedChange as ProposedChangeResponse,
   type Thread as ThreadResponse,
 } from "@the-office/contracts";
-import type { ContextDecision } from "../../domain/context-policy.js";
+import type { ThreadReading } from "../../application/thread-contexts.js";
 import type { Decision, DecisionAnswer } from "../../domain/decision.js";
 import type { NewProject } from "../../../projects/index.js";
 import type { Message } from "../../domain/message.js";
 import type { Proposal, ProposedChange, ProposedProjectCommands } from "../../domain/proposal.js";
 import { tokensSoFar, type Thread } from "../../domain/thread.js";
 
-export function toThreadResponse(thread: Thread, context: ContextDecision): ThreadResponse {
+export function toThreadResponse(
+  thread: Thread,
+  { context, changesAllowed }: ThreadReading,
+): ThreadResponse {
   return {
     id: thread.id,
     home: thread.home,
@@ -38,6 +41,7 @@ export function toThreadResponse(thread: Thread, context: ContextDecision): Thre
     consultation: thread.consultation
       ? { ...thread.consultation, askerRoleKey: thread.consultation.askerRoleKey ?? null }
       : null,
+    changesAllowed: changesAllowed ?? null,
   };
 }
 

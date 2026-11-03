@@ -1,4 +1,5 @@
 import type { EngineId, EngineModel } from "../../engine/index.js";
+import { builtInCardProblems } from "./caretaker.js";
 import { hardSwitchesProblems, type HardSwitches } from "./hard-switches.js";
 import { mcpToolSettingsProblems } from "./mcp-tool-settings.js";
 import type { PermissionProfile } from "./permission-profile.js";
@@ -106,6 +107,7 @@ export function roleCardProblems(
   if (limitProblem) problems.push(limitProblem);
   problems.push(...hardSwitchesProblems(roleKey, card.hardSwitches));
   problems.push(...mcpToolSettingsProblems(roleKey, card.permissionProfile.mcpTools));
+  problems.push(...builtInCardProblems(roleKey, card));
   return problems;
 }
 

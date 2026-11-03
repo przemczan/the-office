@@ -88,6 +88,7 @@ describe("a Thread on a Task", () => {
       contextTokens: 0,
       startContextTokens: undefined,
       full: false,
+      changesAllowed: false,
     };
     const decision = {
       move: "fresh",
@@ -270,6 +271,7 @@ describe("a Thread's tokens", () => {
     contextTokens: 30_000,
     startContextTokens: 30_000,
     full: false,
+    changesAllowed: false,
   };
   const earlier = { input: 10, output: 200, cacheRead: 5_000, cacheCreation: 1_000 };
   const soFar = { input: 3, output: 90, cacheRead: 9_000, cacheCreation: 0 };

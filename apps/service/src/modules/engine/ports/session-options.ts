@@ -108,6 +108,16 @@ export interface SessionOptions {
   /** Undefined for a session with no skill at all, not even the Project's. */
   readonly skills: SessionSkills | undefined;
   readonly profile: PermissionProfile;
+  /**
+   * Whether the session reaches the whole workstation, refused only the secrets: a Caretaker
+   * Thread with changes allowed, working in the home folder (spec §6). Undefined for every other.
+   */
+  readonly workstation?: boolean;
+  /**
+   * What the Agent can do about a call its folders or profile refuse, which the refusal adds,
+   * such as asking the user to Allow changes; undefined when there is nothing to add.
+   */
+  readonly refusalAdvice?: string;
   readonly officeTools: readonly OfficeTool[];
   /** The Role's MCP servers that run in the session; none when it has none. */
   readonly mcpServers: readonly SessionMcpServer[];

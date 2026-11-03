@@ -46,7 +46,7 @@ import { personName } from "../../shell/person-name.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { blankRoleCard } from "./blank-role-card.ts";
-import { RoleCardGroup } from "./role-card-layout.tsx";
+import { FixedForTheCaretaker, RoleCardGroup } from "./role-card-layout.tsx";
 import { McpServerFields } from "./role-card-mcp-server-fields.tsx";
 import {
   assignedMcpServersOf,
@@ -247,6 +247,8 @@ function RoleCardForm({
   const unsaved =
     cardUnsaved || (ownRoleKey !== undefined && assignmentsFor(ownRoleKey).length > 0);
   const editing = subject.kind === "role";
+  // The Caretaker's capabilities, permission profile, Hard switches and Task limit are fixed.
+  const fixed = subject.kind === "role" && subject.role.builtIn;
   return (
     <form
       id={formId}
@@ -265,14 +267,15 @@ function RoleCardForm({
       <Card>
         <div className="role-card">
           <IdentityFields draft={draft} change={change} />
-          <WorkFields draft={draft} options={options} change={change} />
+          <WorkFields draft={draft} options={options} fixed={fixed} change={change} />
           <EngineFields draft={draft} options={options} change={change} />
-          <CapabilityFields draft={draft} change={change} />
+          <CapabilityFields draft={draft} fixed={fixed} change={change} />
           <PermissionFields
             ownRoleKey={ownRoleKey}
             draft={draft}
             options={options}
             hiredRoles={hiredRoles}
+            fixed={fixed}
             change={change}
           />
           <SkillFields draft={draft} library={library} change={change} />
@@ -329,6 +332,11 @@ interface FieldsProps {
   change(fields: Partial<RoleCard>): void;
 }
 
+/** The built-in Caretaker's card, whose fixed fields show but don't change. */
+interface FixedProps {
+  readonly fixed: boolean;
+}
+
 function IdentityFields({ draft, change }: FieldsProps): ReactNode {
   return (
     <RoleCardGroup group="identity">
@@ -358,8 +366,9 @@ function IdentityFields({ draft, change }: FieldsProps): ReactNode {
 function WorkFields({
   draft,
   options,
+  fixed,
   change,
-}: FieldsProps & { readonly options: RoleCardOptions }): ReactNode {
+}: FieldsProps & FixedProps & { readonly options: RoleCardOptions }): ReactNode {
   return (
     <RoleCardGroup group="work">
       <Textarea
@@ -374,8 +383,10 @@ function WorkFields({
         hint="Agents on Stages at once. None means no Pipeline may name the Role."
         value={String(draft.taskLimit)}
         options={taskLimitOptions(options)}
+        disabled={fixed}
         onChange={(value) => change({ taskLimit: taskLimitOf(value) })}
       />
+      {fixed && <FixedForTheCaretaker />}
       <Field
         label="Session default"
         hint="What a Thread does once its cache has cooled, an hour after the last call. A Stage's own choice still wins at a Stage boundary."
@@ -422,18 +433,20 @@ function EngineFields({
   );
 }
 
-function CapabilityFields({ draft, change }: FieldsProps): ReactNode {
+function CapabilityFields({ draft, fixed, change }: FieldsProps & FixedProps): ReactNode {
   return (
     <RoleCardGroup group="capabilities">
       {CAPABILITIES.map(({ key, label, hint }) => (
         <Switch
           key={key}
           checked={draft.capabilities[key]}
+          disabled={fixed}
           onChange={(on) => change({ capabilities: { ...draft.capabilities, [key]: on } })}
           label={label}
           description={hint}
         />
       ))}
+      {fixed && <FixedForTheCaretaker />}
     </RoleCardGroup>
   );
 }
@@ -443,13 +456,15 @@ function PermissionFields({
   draft,
   options,
   hiredRoles,
+  fixed,
   change,
-}: FieldsProps & {
-  /** Undefined while the Role is yet to be hired. */
-  readonly ownRoleKey: string | undefined;
-  readonly options: RoleCardOptions;
-  readonly hiredRoles: ReadonlySet<string>;
-}): ReactNode {
+}: FieldsProps &
+  FixedProps & {
+    /** Undefined while the Role is yet to be hired. */
+    readonly ownRoleKey: string | undefined;
+    readonly options: RoleCardOptions;
+    readonly hiredRoles: ReadonlySet<string>;
+  }): ReactNode {
   const consultable = options.knownRoles.filter(({ key }) => key !== ownRoleKey);
   const changeSwitch = (key: HardSwitchKey, value: HardSwitchValue): void =>
     change({ hardSwitches: { ...draft.hardSwitches, [key]: value } });
@@ -464,12 +479,14 @@ function PermissionFields({
         <div className="role-card-profile">
           <Switch
             checked={draft.permissionProfile.edit}
+            disabled={fixed}
             onChange={(edit) => changeProfile({ edit })}
             label="Edits files in its worktree"
           />
           <Select
             label="Runs"
             value={draft.permissionProfile.run}
+            disabled={fixed}
             options={runPermissionSchema.options.map((run) => ({
               value: run,
               label: RUN_LABELS[run],
@@ -478,6 +495,7 @@ function PermissionFields({
           />
           <Switch
             checked={draft.permissionProfile.web}
+            disabled={fixed}
             onChange={(web) => changeProfile({ web })}
             label="Searches and fetches the web"
           />
@@ -496,10 +514,12 @@ function PermissionFields({
             hint={hint}
             value={hardSwitchChoiceOf(value)}
             options={hardSwitchChoices(consultable)}
+            disabled={fixed}
             onChange={(choice) => changeSwitch(key, hardSwitchValueOf(choice))}
           />
         );
       })}
+      {fixed && <FixedForTheCaretaker />}
     </RoleCardGroup>
   );
 }

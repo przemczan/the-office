@@ -87,5 +87,7 @@ function reasonWords(reason: ContextReason, contextTokens: number, personName: s
       return "context full, Handover note written";
     case "engine-changed":
       return "engine changed";
+    case "changes-switched":
+      return "Allow changes switched";
   }
 }

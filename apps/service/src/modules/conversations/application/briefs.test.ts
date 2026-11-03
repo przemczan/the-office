@@ -100,6 +100,7 @@ const A_SESSION = {
   contextTokens: 48_000,
   startContextTokens: 33_000,
   full: false,
+  changesAllowed: false,
 };
 
 describe("Briefs", () => {

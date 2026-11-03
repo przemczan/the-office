@@ -104,6 +104,11 @@ export const roleSchema = z.object({
   cardSavedAt: z.iso.datetime(),
   /** When the person was let go; null while they fill the Role. */
   letGoAt: z.iso.datetime().nullable(),
+  /**
+   * The built-in Caretaker (spec §2.2): never hired or let go; their capabilities, permission
+   * profile, Hard switches and Task limit are fixed.
+   */
+  builtIn: z.boolean(),
   /** The switches whose Consult value names a Role nobody fills, so they ask the user for now. */
   askingYouUntilHired: z.array(hardSwitchKeySchema),
   /** In name order. */

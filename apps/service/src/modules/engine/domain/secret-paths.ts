@@ -14,17 +14,18 @@ const HOME = /^~(?=$|[\\/])/;
 const HOME_VARIABLES: ReadonlySet<string> = new Set(["HOME", "USERPROFILE"]);
 
 /**
- * Finds the secrets of spec §6 in what a tool call names: the user's (SSH keys, credentials,
- * browser profiles) and The Office's own files. The session's own folders are never secret, so
- * its worktree inside the Office data directory stays its own.
+ * Finds the secrets of spec §6 in what a tool call names: the user's and The Office's (SSH keys,
+ * credentials, browser profiles), and The Office's own files. The session's own folders are never
+ * secret, so its worktree inside the Office data directory stays its own; a session reaching the
+ * workstation is refused the secrets alone, wherever it works.
  */
 export class SecretPaths {
-  /** Each user secret inside the home folder by its names from there, as `cd ~ && cat .ssh/id` names it. */
+  /** Each secret inside the home folder by its names from there, as `cd ~ && cat .ssh/id` names it. */
   private readonly homeTails: readonly { readonly secret: string; readonly names: string[] }[];
 
   constructor(private readonly rules: SessionRules) {
     const home = rules.paths.names(rules.homeFolder);
-    this.homeTails = rules.userSecrets
+    this.homeTails = rules.secrets
       .filter((secret) => rules.paths.isWithin(secret, rules.homeFolder))
       .map((secret) => ({ secret, names: rules.paths.names(secret).slice(home.length) }))
       .filter(({ names }) => names.length > 0);
@@ -51,13 +52,15 @@ export class SecretPaths {
   }
 
   private byPath(candidate: string, directory: string): string | undefined {
-    const { paths, workingFolder, readableFolders, userSecrets, officeFiles, cloneFolders } =
+    const { paths, workingFolder, readableFolders, secrets, officeFiles, cloneFolders } =
       this.rules;
     const path = paths.resolve(directory, candidate);
     const within = (folder: string) => paths.isWithin(path, folder);
+    // Its working folder, the home folder, holds secrets of its own.
+    if (this.rules.workstation) return secrets.find(within);
     if ([workingFolder, ...readableFolders].some(within)) return undefined;
-    const userSecret = userSecrets.find(within);
-    if (userSecret !== undefined || cloneFolders.some(within)) return userSecret;
+    const secret = secrets.find(within);
+    if (secret !== undefined || cloneFolders.some(within)) return secret;
     return officeFiles.find(within);
   }
 

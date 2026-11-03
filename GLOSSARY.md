@@ -283,3 +283,11 @@ _Avoid_: Dashboard, report, overview
 **Proposal**:
 A new or changed Role card or Office setting drafted by the Office Manager, which takes effect only when the user confirms it.
 _Avoid_: Suggestion, draft, request
+
+**Caretaker**:
+The built-in person who looks after the workstation and The Office: always present, never hired or let go, with a chat only.
+_Avoid_: Admin, sysadmin, system agent
+
+**Allow changes**:
+A Caretaker Thread's switch, confirmed by the user, under which the Caretaker can do everything on the workstation but touch secrets; kept per Thread, off in a new one.
+_Avoid_: Admin mode, unlock, elevated mode

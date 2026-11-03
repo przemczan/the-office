@@ -29,7 +29,17 @@ export type MessageDraft =
   | IdeaCard
   | OfficeStatusCard
   | ContextLine
+  | ChangesAllowedLine
   | StageWorkClosing;
+
+/**
+ * The user allowed changes in the Caretaker's Thread, or switched them off: The Office's line
+ * (spec §2.4).
+ */
+interface ChangesAllowedLine {
+  readonly kind: "changes-allowed";
+  readonly allowed: boolean;
+}
 
 /**
  * The line a Stage's work in its Thread may close with: why the person couldn't answer, in the

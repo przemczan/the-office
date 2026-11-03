@@ -3,6 +3,7 @@ import { EngineCascade, RoleCards } from "../../people/index.js";
 import type { Brief } from "../domain/brief.js";
 import { decideContext, type ContextDecision } from "../domain/context-policy.js";
 import type { Thread } from "../domain/thread.js";
+import { AllowChanges } from "./allow-changes.js";
 import { Briefs } from "./briefs.js";
 import { ContextPolicySettingsService } from "./context-policy-settings.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
@@ -12,6 +13,13 @@ interface ThreadBrief {
   readonly brief: Brief;
   /** A Thread on a Task's Project; undefined for a chat's or an Initiative's, as the runner asks. */
   readonly projectId: string | undefined;
+}
+
+/** What a Thread's reading shows besides its record. */
+export interface ThreadReading {
+  readonly context: ContextDecision;
+  /** Undefined for a Thread with no Allow changes switch: any but the Caretaker's chat. */
+  readonly changesAllowed: boolean | undefined;
 }
 
 /**
@@ -26,13 +34,25 @@ export class ThreadContexts {
     private readonly briefs: Briefs,
     private readonly taskThreads: TaskThreadSetups,
     private readonly settings: ContextPolicySettingsService,
+    private readonly allowChanges: AllowChanges,
   ) {}
 
-  async of(thread: Thread, now: Date = new Date()): Promise<ContextDecision> {
-    const [role, { brief, projectId }, settings] = await Promise.all([
+  /** The Thread's context, and whether changes are allowed in it. */
+  async read(thread: Thread): Promise<ThreadReading> {
+    const changesAllowed = await this.allowChanges.inThread(thread);
+    return { context: await this.of(thread, new Date(), changesAllowed), changesAllowed };
+  }
+
+  async of(
+    thread: Thread,
+    now: Date = new Date(),
+    changesAllowed?: boolean,
+  ): Promise<ContextDecision> {
+    const [role, { brief, projectId }, settings, allowed] = await Promise.all([
       this.roleCards.find(thread.roleKey),
       this.briefOf(thread),
       this.settings.current(),
+      changesAllowed ?? this.allowChanges.inThread(thread),
     ]);
     // Nobody fills the Role any more, or no engine is listed: its Threads stay readable, and
     // nobody answers.
@@ -46,6 +66,7 @@ export class ThreadContexts {
         engineId: applying?.engineId,
         override: thread.override,
         briefTokens: brief.tokens,
+        changesAllowed: allowed,
       },
       settings,
     );

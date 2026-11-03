@@ -36,6 +36,12 @@ describe("a Thread's context label", () => {
         "Jan",
       ),
     ).toBe("Fresh · context full, Handover note written · brief ~2.9k");
+    expect(
+      contextLabel(
+        { move: "fresh", reason: "changes-switched", contextTokens: 12_000, briefTokens: 1_200 },
+        "Sam",
+      ),
+    ).toBe("Fresh · Allow changes switched · brief ~1.2k");
   });
 
   it("counts tokens in thousands from a thousand", () => {

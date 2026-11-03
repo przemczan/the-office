@@ -25,6 +25,33 @@ export function chatInstructions(card: SessionPersonCard, roleKey: string): stri
 }
 
 /**
+ * What a refusal tells the Caretaker while their Thread only reads (spec §2.4): allowing changes
+ * is the user's call, never the Agent's.
+ */
+export const ALLOW_CHANGES_ADVICE =
+  "Say what you would change and why, and ask the user to Allow changes in this Thread.";
+
+/**
+ * The standing instructions of the Caretaker's chat (spec §2.4): it reads as any chat does until
+ * the user allows changes in the Thread; then it reaches the whole workstation but secrets.
+ */
+export function caretakerChatInstructions(
+  card: SessionPersonCard,
+  changesAllowed: boolean,
+): string {
+  return [
+    ...personInstructions(card),
+    changesAllowed
+      ? "The user allowed changes in this Thread: you work in their home folder, and you may read and edit any file and run any command on the workstation, The Office's data folder and every git command included. Their secrets stay refused: SSH keys, the Claude, GitHub CLI and AWS credentials, browser profiles, the Office identity and the database credentials. Say what you are about to change before you change it, and prefer what can be undone. The engine's own Edit and Write may still refuse .git, .claude and .mcp.json: change those with a command."
+      : `This Thread only reads until the user allows changes: you may read each Project's base branch with Read, Grep and Glob (${READ_ONLY_SHELL_RULE}), search and fetch the web, and read The Office's records with its tools. Diagnose first; to change a file or run a command that changes something, ${lowerFirst(ALLOW_CHANGES_ADVICE)}`,
+  ].join("\n\n");
+}
+
+function lowerFirst(text: string): string {
+  return text.charAt(0).toLowerCase() + text.slice(1);
+}
+
+/**
  * The standing instructions of a session on a Task or an Initiative: who the person is, their
  * card's instructions, and what they do in the Thread, as the module keeping Work words it.
  */

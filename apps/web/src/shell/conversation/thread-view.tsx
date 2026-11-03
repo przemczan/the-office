@@ -12,6 +12,7 @@ import { roleQueries } from "../../api/people.ts";
 import { roleName } from "../person-name.ts";
 import { AlarmNote } from "../fire-alarm/alarm-note.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
+import { AllowChangesBar } from "./allow-changes.tsx";
 import { Composer } from "./composer.tsx";
 import { ContextBar } from "./context-bar.tsx";
 import { useHandoverNotes } from "./handover-notes.tsx";
@@ -59,6 +60,10 @@ export function ThreadView({
     <section className="thread-view" aria-label={threadTitle(thread.data, personName)}>
       <ThreadTitle thread={thread.data} personName={personName} />
       <ContextBar thread={thread.data} personName={personName} />
+      {/* Only the Caretaker's chat has the switch. */}
+      {thread.data.changesAllowed !== null && readOnlyReason === undefined && (
+        <AllowChangesBar thread={thread.data} />
+      )}
       {thread.data.consultation !== null && (
         <ConsultationNote askerRoleKey={thread.data.consultation.askerRoleKey} />
       )}
