@@ -514,6 +514,7 @@ export class ThreadRunner implements OnModuleDestroy {
       // Asked at each call, so an alarm sounding or lifted mid-session holds or frees the next.
       toolHold: () => this.fireAlarmLifts.heldReason(thread.id),
       approvalHold: this.approvalHolds.of(id),
+      turnLabel: turnLabelOf(card.name, thread),
       telemetry: {
         span: { ...place.span, "office.thread": thread.id, "office.role": roleKey },
         metric: { "office.conversation.home": thread.home.kind },
@@ -683,4 +684,13 @@ function messageOf(error: unknown): string {
 function refusedWithoutEngine(error: unknown): never {
   if (error instanceof NoEngineListed) throw new ThreadRefused([error.message]);
   throw error;
+}
+
+/** Who works where, as a scheduled Office update lists a turn it waits for. */
+function turnLabelOf(personName: string, thread: Thread): string {
+  if (thread.consultation) return `${personName} in a Consultation`;
+  const where = thread.home.kind === "task" ? "a Task's Thread" : "a chat";
+  return thread.title
+    ? `${personName} in ${where}, "${thread.title}"`
+    : `${personName} in ${where}`;
 }

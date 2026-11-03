@@ -2,8 +2,13 @@ import { Injectable } from "@nestjs/common";
 import type { WebEvent } from "@the-office/contracts";
 import type { DomainEvent, DomainEventClass } from "../events/domain-event.js";
 
-/** Maps a domain event to the contract event the web receives; occurredAt is filled in. */
-export type ToWebEvent<Event extends DomainEvent> = (event: Event) => Omit<WebEvent, "occurredAt">;
+/**
+ * Maps a domain event to the contract event the web receives; occurredAt is filled in. Undefined
+ * keeps this one inside the service.
+ */
+export type ToWebEvent<Event extends DomainEvent> = (
+  event: Event,
+) => Omit<WebEvent, "occurredAt"> | undefined;
 
 /**
  * Which domain events reach the web, and as what. A module registers its own events from its
@@ -25,7 +30,7 @@ export class WebEventForwarding {
   }
 
   toWebEvent(event: DomainEvent): WebEvent | undefined {
-    const toWebEvent = this.mappings.get(event.constructor as DomainEventClass);
-    return toWebEvent && { ...toWebEvent(event), occurredAt: event.occurredAt.toISOString() };
+    const webEvent = this.mappings.get(event.constructor as DomainEventClass)?.(event);
+    return webEvent && { ...webEvent, occurredAt: event.occurredAt.toISOString() };
   }
 }

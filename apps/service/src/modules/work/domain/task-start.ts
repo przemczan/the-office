@@ -38,6 +38,8 @@ export interface StartConditions {
   readonly officeWideLimit: number;
   /** What the Task is expected to use, against the caps of the engines it spends on. */
   readonly usage: UsageAtStart;
+  /** Why a scheduled Office update holds every Start, in the UI's words; undefined when none is. */
+  readonly officeUpdateHold: string | undefined;
 }
 
 /**
@@ -55,7 +57,7 @@ export interface HeldAtStart {
 /**
  * Why the Task can't start now, sorted as Start treats them (spec §2.1, "A queue for Start"): a
  * refusal (not Ready, a Task it waits for isn't Done, a vacant Role, a person who only talks) stops
- * Start; a wait (the fire alarm, the Office-wide limit, its person's Task limit, a cap it would
+ * Start; a wait (the fire alarm, a scheduled Office update, the Office-wide limit, its person's Task limit, a cap it would
  * pass) only holds the Task until the all clear, a desk and its person are free, and the cap
  * allows it. Both are empty when it can start.
  */
@@ -91,6 +93,7 @@ export function startReasons(
     refusals: [...blockedProblems(blockers), ...personRefusals(stage, conditions.person)],
     waits: [
       ...(fireAlarmOn ? [FIRE_ALARM_ON] : []),
+      ...(conditions.officeUpdateHold ? [conditions.officeUpdateHold] : []),
       ...officeWideLimitWaits(conditions.officeWideLimit, others),
       ...taskLimitWaits(stage, conditions.person, others),
       ...capWaitsAtStart(conditions.usage).waits,

@@ -47,7 +47,12 @@ export async function runLauncher(options: LauncherOptions): Promise<number> {
   }
 }
 
-function startService({ service: [program, ...args], serviceDirectory, environment, updateFolder }: LauncherOptions) {
+function startService({
+  service: [program, ...args],
+  serviceDirectory,
+  environment,
+  updateFolder,
+}: LauncherOptions) {
   mkdirSync(updateFolder, { recursive: true });
   return spawn(program, args, {
     cwd: serviceDirectory,
@@ -71,9 +76,15 @@ async function updateOnce(options: LauncherOptions): Promise<void> {
   try {
     const result = await runOfficeUpdate(options);
     if (!result) options.log("The service asked for an update, but no request was written.");
-    else if (result.outcome === "updated") options.log(`Updated The Office from ${result.from} to ${result.to}.`);
-    else options.log(`The Office's update to ${result.to} failed at ${result.failedStep}; back at ${result.from}.`);
+    else if (result.outcome === "updated")
+      options.log(`Updated The Office from ${result.from} to ${result.to}.`);
+    else
+      options.log(
+        `The Office's update to ${result.to} failed at ${result.failedStep}; back at ${result.from}.`,
+      );
   } catch (error) {
-    options.log(`The Office's update failed: ${error instanceof Error ? error.message : String(error)}`);
+    options.log(
+      `The Office's update failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }

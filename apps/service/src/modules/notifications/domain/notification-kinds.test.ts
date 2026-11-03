@@ -40,6 +40,9 @@ describe("ROUTING_LEVELS", () => {
       "office.down.service",
       "office.down.engine",
       "office.alarm-lifted",
+      "office.update",
+      "office.update.done",
+      "office.update.failed",
     ]);
   });
 });
@@ -63,6 +66,8 @@ describe("channelsOf", () => {
       "office.down.service": ["in-app", "desktop", "phone"],
       "office.down.engine": ["in-app", "desktop", "phone"],
       "office.alarm-lifted": ["in-app"],
+      "office.update.done": ["in-app"],
+      "office.update.failed": ["in-app"],
     });
   });
 

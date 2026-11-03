@@ -23,7 +23,12 @@ process.exitCode = await runLauncher({
   repository,
   updateFolder: updateFolder(process.env),
   commands: NPM_COMMANDS,
-  service: [process.execPath, "--enable-source-maps", "--env-file-if-exists=../../.env", "dist/main.js"],
+  service: [
+    process.execPath,
+    "--enable-source-maps",
+    "--env-file-if-exists=../../.env",
+    "dist/main.js",
+  ],
   serviceDirectory: join(repository, "apps", "service"),
   environment: process.env,
   log: (line) => console.log(`[launcher] ${line}`),

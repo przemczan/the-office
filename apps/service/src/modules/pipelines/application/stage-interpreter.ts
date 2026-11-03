@@ -11,6 +11,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { Schedule, type Wait } from "../../../platform/schedule/schedule.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { DecisionAnswered } from "../../conversations/index.js";
+import { OfficeUpdateCancelled, OfficeUpdateHold } from "../../office-updates/index.js";
 import { CTO } from "../../people/index.js";
 import {
   AlarmSounded,
@@ -113,6 +114,8 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
   /** The fire alarm's hard stop of the runs going on as it sounded, until it comes. */
   private hardStop: Wait | undefined;
   private stopping = false;
+  /** Tasks whose walk a scheduled Office update held at their next Stage, walked on once cancelled. */
+  private readonly heldForUpdate = new Set<string>();
 
   constructor(
     private readonly taskStages: TaskStagesService,
@@ -127,6 +130,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     private readonly telemetry: Telemetry,
     private readonly staffingHolds: StaffingHolds,
     private readonly schedule: Schedule,
+    private readonly updateHold: OfficeUpdateHold,
   ) {}
 
   onModuleInit(): void {
@@ -137,6 +141,7 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     );
     this.events.subscribe(AlarmSounded, ({ hardStopAt }) => this.hardStopAt(hardStopAt));
     this.events.subscribe(TaskStopped, ({ taskId }) => this.interrupt(taskId, "stop"));
+    this.events.subscribe(OfficeUpdateCancelled, () => this.walkHeldForUpdate());
     this.events.subscribe(DecisionAnswered, ({ decision }) => {
       if (!decision.answer) return;
       const { answeredAt: _answeredAt, ...answer } = decision.answer;
@@ -357,6 +362,11 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     await this.events.publish(ended.event);
   }
 
+  private walkHeldForUpdate(): void {
+    for (const taskId of this.heldForUpdate) this.walkInBackground(taskId);
+    this.heldForUpdate.clear();
+  }
+
   /** Resolves once the Task's walks, if any go on, have stopped. */
   async walked(taskId: string): Promise<void> {
     for (let walk = this.walks.get(taskId); walk; walk = this.walks.get(taskId)) await walk;
@@ -428,6 +438,12 @@ export class StageInterpreter implements OnModuleInit, OnApplicationBootstrap, O
     }
     if (move.move !== "run") return { step: "halt", move, stages, runs };
     if (this.stopping) return { step: "over" };
+    // At the Stage boundary, until the update is cancelled or the service stops for it; a Gate does
+    // no work, so it still asks the user.
+    if (this.updateHold.isScheduled() && move.stage.kind !== "gate") {
+      this.heldForUpdate.add(taskId);
+      return { step: "over" };
+    }
     const { stage, carriedFailure, sentBack } = move;
     const started = startStageRun(
       { id: randomUUID(), taskId, stageKey: stage.key, carriedFailure, sentBack },

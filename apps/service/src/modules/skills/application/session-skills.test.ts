@@ -460,6 +460,7 @@ async function firstTurnTokens(
     id: randomUUID(),
     settings: {
       engineId: "claude-code",
+      turnLabel: "Jim in a chat",
       folder: worktree,
       environment: Object.fromEntries(
         Object.entries(process.env).filter(

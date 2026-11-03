@@ -540,6 +540,7 @@ export class StageThreads {
       mcpServers,
       outputSchema: request.session.outputSchema,
       approvalHold: this.approvalHolds.of(id),
+      turnLabel: `${card.name} in the Stage ${request.stageName}`,
       telemetry: {
         span: {
           "office.task": request.taskId,

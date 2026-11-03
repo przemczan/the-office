@@ -9,6 +9,7 @@ import {
   TurnEnded,
 } from "../../conversations/index.js";
 import { EngineDown, EngineRemoved, UsageWindowsChanged } from "../../engine/index.js";
+import { OfficeUpdated, OfficeUpdateFailed, shortCommit } from "../../office-updates/index.js";
 import { CTO, OFFICE_MANAGER } from "../../people/index.js";
 import {
   DefinitionOfDoneNotMet,
@@ -32,6 +33,8 @@ import {
   handles,
   initiativeDone,
   notificationOf,
+  officeUpdated,
+  officeUpdateFailed,
   samePointer,
   taskDone,
   taskFailed,
@@ -67,6 +70,7 @@ export type Page =
   | { readonly kind: "now" }
   | { readonly kind: "task"; readonly taskId: string }
   | { readonly kind: "initiative"; readonly initiativeId: string }
+  | { readonly kind: "office-update" }
   | { readonly kind: "elsewhere" };
 
 /**
@@ -114,6 +118,7 @@ export class NotificationService implements OnModuleInit {
     if (page.kind === "initiative") {
       await this.handle({ kind: "initiative-opened", initiativeId: page.initiativeId });
     }
+    if (page.kind === "office-update") await this.handle({ kind: "office-update-opened" });
   }
 
   private subscribeToNeedsYou(): void {
@@ -193,6 +198,17 @@ export class NotificationService implements OnModuleInit {
     this.events.subscribe(EngineRemoved, async ({ engineId }) => {
       this.windowPercents.delete(engineId);
       await this.handle({ kind: "engine-removed", engineId });
+    });
+    // A newer update's result replaces what the last one's said.
+    this.events.subscribe(OfficeUpdated, async ({ to }) => {
+      await this.handle({ kind: "office-update-opened" });
+      await this.raise(officeUpdated(shortCommit(to), await this.officeManager()));
+    });
+    this.events.subscribe(OfficeUpdateFailed, async ({ from, failedStep }) => {
+      await this.handle({ kind: "office-update-opened" });
+      await this.raise(
+        officeUpdateFailed(failedStep, shortCommit(from), await this.officeManager()),
+      );
     });
     // A turn that ended came back from its session's engine, which therefore answers again.
     this.events.subscribe(TurnEnded, async ({ thread }) => {

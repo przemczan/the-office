@@ -16,6 +16,7 @@ function conditionsFor(role: string, taskLimit = 1, officeWideLimit = 3): StartC
     person: { name: `The ${role}`, taskLimit },
     officeWideLimit,
     usage: NO_USAGE_AT_START,
+    officeUpdateHold: undefined,
   };
 }
 

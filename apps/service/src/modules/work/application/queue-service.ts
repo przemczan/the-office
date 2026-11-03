@@ -1,4 +1,5 @@
 import { Injectable, Logger, type OnModuleDestroy, type OnModuleInit } from "@nestjs/common";
+import { OfficeUpdateCancelled } from "../../office-updates/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { UsageWindowsRead } from "../../engine/index.js";
 import { RoleCardChanged } from "../../people/index.js";
@@ -53,6 +54,8 @@ export class QueueService implements OnModuleInit, OnModuleDestroy {
     this.events.subscribe(RoleCardChanged, () => this.release());
     // What Start queued while the fire alarm was on waits no longer.
     this.events.subscribe(AllClearGiven, () => this.release());
+    // Nor what it queued while an Office update was scheduled.
+    this.events.subscribe(OfficeUpdateCancelled, () => this.release());
     // The reading shows what the Tasks started before it use of its engine, so their estimates
     // there count no more.
     this.events.subscribe(UsageWindowsRead, ({ engineId, readAt }) => {

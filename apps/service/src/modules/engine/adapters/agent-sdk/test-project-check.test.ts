@@ -1,4 +1,5 @@
 import { OTLPMetricExporter } from "@opentelemetry/exporter-metrics-otlp-proto";
+import { BusyWork } from "../../../office-updates/index.js";
 import { OTLPTraceExporter } from "@opentelemetry/exporter-trace-otlp-proto";
 import { MeterProvider, PeriodicExportingMetricReader } from "@opentelemetry/sdk-metrics";
 import { BatchSpanProcessor, TracerProvider } from "@opentelemetry/sdk-trace";
@@ -102,12 +103,14 @@ describe.runIf((MODE === "live" || MODE === "record") && TEST_PROJECT !== undefi
           new UsageWindowSamples(new UsageWindowSamplesForTests()),
           new EngineModels(new EngineSettingsForTests()),
           new RunningEngineSessions(),
+          new BusyWork(events),
         );
         const sessionId = randomUUID();
         const session = await sessions.start({
           id: sessionId,
           settings: {
             engineId: "claude-code",
+            turnLabel: "Jim in a chat",
             folder: worktree,
             environment: Object.fromEntries(
               Object.entries(process.env).filter(

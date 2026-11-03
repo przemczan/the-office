@@ -1,3 +1,4 @@
+import { fileURLToPath } from "node:url";
 import { Module, type DynamicModule } from "@nestjs/common";
 import {
   ConversationsModule,
@@ -44,6 +45,7 @@ import {
   TaskWorktrees,
 } from "./modules/projects/index.js";
 import { McpServersModule } from "./modules/mcp-servers/index.js";
+import { OfficeUpdatesModule } from "./modules/office-updates/index.js";
 import { SkillsModule } from "./modules/skills/index.js";
 import {
   FireAlarmService,
@@ -65,9 +67,16 @@ import { TelemetryModule } from "./platform/telemetry/telemetry.module.js";
 import { WebAppModule, type WebAppOptions } from "./platform/web-app/web-app.module.js";
 import { EventStreamModule } from "./platform/websocket/event-stream.module.js";
 
+// The Office's own git checkout, from this file in apps/service/src/ or dist/.
+const OFFICE_CHECKOUT = fileURLToPath(new URL("../../../", import.meta.url));
+
 @Module({})
 export class AppModule {
-  static register(config: OfficeConfig, webApp: WebAppOptions): DynamicModule {
+  static register(
+    config: OfficeConfig,
+    webApp: WebAppOptions,
+    officeCheckout: string = OFFICE_CHECKOUT,
+  ): DynamicModule {
     // One instance, so every token read goes through the same sign-in changes and refreshes once.
     const github = GitHubModule.register({ web: config.gitHub.webUrl, api: config.gitHub.apiUrl });
     // One instance, so every git change on a repository goes through the same locks.
@@ -147,6 +156,10 @@ export class AppModule {
         McpServersModule,
         OfficeDataModule.forRoot(config.officeDataDirectory),
         OfficeIdentityHttpModule,
+        OfficeUpdatesModule.register({
+          checkout: officeCheckout,
+          updateFolder: config.officeUpdateFolder,
+        }),
         NotificationsModule.register({
           imports: [work, conversations, pipelines, PeopleModule, EngineModule],
           officeTasks: TaskService,

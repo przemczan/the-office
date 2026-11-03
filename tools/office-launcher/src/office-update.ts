@@ -29,7 +29,12 @@ export type UpdateStep = "fetch" | "merge" | "install" | "build";
 
 /** What `result.json` holds once an update is over; the service reads it as it starts. */
 export type UpdateResult =
-  | { readonly outcome: "updated"; readonly from: string; readonly to: string; readonly finishedAt: string }
+  | {
+      readonly outcome: "updated";
+      readonly from: string;
+      readonly to: string;
+      readonly finishedAt: string;
+    }
   | {
       readonly outcome: "failed";
       readonly from: string;
@@ -50,7 +55,9 @@ export const LOG_FILE = "log.txt";
  * that again. Either way `result.json` tells the next run of the service how it went, and `log.txt`
  * holds every step's output. Undefined when nothing was asked.
  */
-export async function runOfficeUpdate(options: OfficeUpdateOptions): Promise<UpdateResult | undefined> {
+export async function runOfficeUpdate(
+  options: OfficeUpdateOptions,
+): Promise<UpdateResult | undefined> {
   const target = takeRequest(options.updateFolder);
   if (!target) return undefined;
   const log = openSync(join(options.updateFolder, LOG_FILE), "w");
@@ -113,7 +120,12 @@ async function update(
 }
 
 /** Runs one step with its output in the log; whether it succeeded. */
-function runLogged(step: string, [program, ...args]: Command, cwd: string, log: number): Promise<boolean> {
+function runLogged(
+  step: string,
+  [program, ...args]: Command,
+  cwd: string,
+  log: number,
+): Promise<boolean> {
   writeFileSync(log, `\n== ${step}: ${[program, ...args].join(" ")}\n`);
   return new Promise((resolve) => {
     const child = spawn(program, args, { cwd, stdio: ["ignore", log, log] });

@@ -12,6 +12,7 @@ const SECTIONS = [
   { to: "/settings/office-identity", icon: "fingerprint", label: "Office identity" },
   { to: "/settings/office-limits", icon: "gauge", label: "Office limits" },
   { to: "/settings/notifications", icon: "bell", label: "Notifications" },
+  { to: "/settings/updates", icon: "refresh-cw", label: "Updates" },
   { to: "/settings/appearance", icon: "palette", label: "Appearance" },
 ] as const;
 

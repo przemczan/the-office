@@ -19,7 +19,9 @@ export type Pointer =
    */
   | { readonly kind: "office"; readonly engineId?: string }
   /** Now, where Needs you and Since you left show what a Notification gathered. */
-  | { readonly kind: "since-you-left" };
+  | { readonly kind: "since-you-left" }
+  /** Settings › Updates, with the last Office update's result and its log. */
+  | { readonly kind: "office-update" };
 
 /**
  * A Notification that stands for others rather than for a kind (spec §2.7 Defaults): Outcomes
@@ -231,6 +233,36 @@ export function engineDown(
   );
 }
 
+/** The launcher updated The Office to `to` (spec §5.1 Defaults, "Updating The Office"). */
+export function officeUpdated(to: string, officeManager: string | undefined): NotificationDraft {
+  return {
+    ...officeKind(
+      "office.update.done",
+      officeManager,
+      `I updated The Office to ${to}.`,
+      `The Office updated to ${to}.`,
+    ),
+    pointsTo: { kind: "office-update" },
+  };
+}
+
+/** The launcher's update failed at `step` and went back to `from`; the log is in Settings › Updates. */
+export function officeUpdateFailed(
+  step: string,
+  from: string,
+  officeManager: string | undefined,
+): NotificationDraft {
+  return {
+    ...officeKind(
+      "office.update.failed",
+      officeManager,
+      `The Office's update failed at ${step}, so I took it back to ${from}. The log is in Settings › Updates.`,
+      `The Office's update failed at ${step}; it is back on ${from}. The log is in Settings › Updates.`,
+    ),
+    pointsTo: { kind: "office-update" },
+  };
+}
+
 interface NamedEngine {
   readonly id: string;
   readonly name: string;
@@ -295,7 +327,9 @@ export type Handling =
   /** A turn came back from the engine, which therefore answers again. */
   | { readonly kind: "engine-answered"; readonly engineId: string }
   /** Settings › Engines removed the engine, so nothing about it is left to act on. */
-  | { readonly kind: "engine-removed"; readonly engineId: string };
+  | { readonly kind: "engine-removed"; readonly engineId: string }
+  /** The user opened Settings › Updates, or a newer update's result replaces the last one's. */
+  | { readonly kind: "office-update-opened" };
 
 export function handles(handling: Handling, { kind, pointsTo }: Notification): boolean {
   switch (handling.kind) {
@@ -320,6 +354,8 @@ export function handles(handling: Handling, { kind, pointsTo }: Notification): b
       return kind === "office.down.engine" && isAbout(pointsTo, handling.engineId);
     case "engine-removed":
       return pointsTo.kind === "office" && pointsTo.engineId === handling.engineId;
+    case "office-update-opened":
+      return pointsTo.kind === "office-update";
   }
 }
 

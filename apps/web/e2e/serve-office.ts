@@ -4,11 +4,14 @@
 // fake GitHub server, and a host key scanner that finds one fixed key. Run on Node type stripping,
 // from apps/web.
 import { spawn } from "node:child_process";
-import { mkdirSync, openSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, openSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "pg";
 import { fakeGitHubVariables, startFakeGitHub } from "./fake-github.ts";
 import { E2E_GIT_HOST_FOLDER, gitHostVariables } from "./git-host.ts";
+import { createOfficeCheckout } from "./office-checkout.ts";
 import { E2E_OFFICE_DATA } from "./office-data.ts";
 import {
   E2E_DATABASE_NAME,
@@ -33,6 +36,8 @@ mkdirSync(officeData, { recursive: true });
 rmSync(E2E_GIT_HOST_FOLDER, { recursive: true, force: true });
 mkdirSync(E2E_GIT_HOST_FOLDER, { recursive: true });
 mkdirSync(fileURLToPath(new URL("../e2e-results/", import.meta.url)), { recursive: true });
+const officeCheckoutFolder = mkdtempSync(path.join(tmpdir(), "office-e2e-checkout-"));
+const officeCheckout = createOfficeCheckout(officeCheckoutFolder);
 const fakeGitHub = await startFakeGitHub();
 const service = spawn(process.execPath, ["--enable-source-maps", SERVICE_MAIN], {
   stdio: ["ignore", openSync(SERVICE_LOG, "w"), "inherit"],
@@ -45,12 +50,16 @@ const service = spawn(process.execPath, ["--enable-source-maps", SERVICE_MAIN], 
     OFFICE_PORT: required("OFFICE_PORT"),
     OFFICE_DATA_DIR: officeData,
     OFFICE_ENGINE_SCRIPTS: SESSIONS,
+    OFFICE_E2E_CHECKOUT: officeCheckout,
+    // As the launcher would set it; the tests never let an update go ahead.
+    OFFICE_UPDATE_FOLDER: path.join(officeData, "update"),
   },
 });
 service.on("exit", (code) => {
   fakeGitHub.kill();
   rmSync(officeData, { recursive: true, force: true });
   rmSync(E2E_GIT_HOST_FOLDER, { recursive: true, force: true });
+  rmSync(officeCheckoutFolder, { recursive: true, force: true });
   process.exit(code ?? 1);
 });
 for (const signal of ["SIGINT", "SIGTERM"] as const) process.on(signal, () => service.kill(signal));

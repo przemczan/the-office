@@ -14,6 +14,7 @@ import type { StageOutcome } from "../domain/stage-run.js";
 import { StageRunRepository } from "../ports/stage-run-repository.js";
 import { TaskCommands } from "../ports/task-commands.js";
 import { TaskRecords, type TaskRecord } from "../ports/task-records.js";
+import { BusyWork } from "../../office-updates/index.js";
 import { PublishStage } from "./publish-stage.js";
 import { StageGit } from "./stage-git.js";
 import type { StageRunner, StageWork } from "./stage-runner.js";
@@ -36,16 +37,29 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
     private readonly stageGit: StageGit,
     private readonly runs: StageRunRepository,
     private readonly publish: PublishStage,
+    private readonly busyWork: BusyWork,
   ) {}
 
   onModuleInit(): void {
     this.runners.register("script", this);
   }
 
-  async run(work: StageWork<"script">): Promise<StageOutcome> {
+  /** A Publish, or the Stage's command, is busy work a scheduled Office update waits for. */
+  run(work: StageWork<"script">): Promise<StageOutcome> {
+    const { name, command } = work.stage;
+    return command === "publish"
+      ? this.busyWork.during({ kind: "publish", label: `Publish in the Stage ${name}` }, () =>
+          this.publish.run(work),
+        )
+      : this.busyWork.during({ kind: "script-stage", label: `The Script Stage ${name}` }, () =>
+          this.runCommand(work),
+        );
+  }
+
+  private async runCommand(work: StageWork<"script">): Promise<StageOutcome> {
     const { stage, run } = work;
     const command = stage.command;
-    if (command === "publish") return this.publish.run(work);
+    if (command === "publish") throw new Error("A Publish runs no Project command.");
     const task = await this.records.read(run.taskId);
     const { expected, refusal } = await this.stageGit.start(work, task);
     if (refusal) return refusal;
