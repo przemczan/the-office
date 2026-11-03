@@ -146,13 +146,18 @@ test.describe("the rail's toggle", () => {
     // The label is shown, so no tooltip repeats it.
     await rail.getByRole("link", { name: "Work", exact: true }).hover();
     await expect(page.getByRole("tooltip")).toHaveCount(0);
-    // The Theme menu still opens beside its button, past the rail's edge.
-    await rail.getByRole("button", { name: "Theme" }).click();
-    const menuLeft = await page
+    // The Theme menu still opens beside its button, not over it; like the icon rail's, it meets
+    // the rail's edge.
+    const theme = rail.getByRole("button", { name: "Theme" });
+    await theme.click();
+    const menuBox = await page
       .getByRole("menu")
-      .evaluate((menu) => menu.getBoundingClientRect().left);
-    const railRight = await rail.evaluate((nav) => nav.getBoundingClientRect().right);
-    expect(menuLeft).toBeGreaterThan(railRight);
+      .evaluate((menu) => menu.getBoundingClientRect().toJSON() as DOMRect);
+    const themeBox = await theme.evaluate(
+      (button) => button.getBoundingClientRect().toJSON() as DOMRect,
+    );
+    expect(menuBox.left).toBeGreaterThan(themeBox.right);
+    expect(menuBox.top).toBeLessThan(themeBox.bottom);
     await page.keyboard.press("Escape");
 
     await page.reload();

@@ -52,7 +52,9 @@ body,
   text-decoration: none;
 }
 
+/* Clipped while the rail widens, so the name doesn't spill over the top bar. */
 .shell-rail[data-expanded="true"] .shell-rail-mark {
+  overflow: hidden;
   padding-left: 15px;
 }
 
