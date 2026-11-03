@@ -127,6 +127,10 @@
         --radius-control: var(--radius-md);
         --radius-badge: var(--radius-sm);
         --control-xs: 24px;
+        --type-card-title: 600 var(--text-md) / 1.4 var(--font-sans);
+        --type-body-sm: 400 var(--text-sm) / 1.45 var(--font-sans);
+        --type-caption: 400 var(--text-xs) / 1.4 var(--font-sans);
+        --type-mono: 400 var(--text-sm) / 1.5 var(--font-mono);
         --control-sm: 28px;
         --control-md: 32px;
 
@@ -273,8 +277,8 @@
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        height: var(--control-sm);
-        padding: 0 10px;
+        height: var(--control-md);
+        padding: 0 12px;
         border: 1px solid var(--border-strong);
         border-radius: var(--radius-control);
         background: var(--surface);
@@ -328,9 +332,16 @@
         background: var(--control-hover);
       }
       .btn.xs {
-        height: var(--control-xs);
-        padding: 0 8px;
-        font-size: var(--text-xs);
+        height: var(--control-sm);
+        padding: 0 10px;
+      }
+      .btn.icon {
+        justify-content: center;
+        width: var(--control-md);
+        padding: 0;
+      }
+      .btn.xs.icon {
+        width: var(--control-sm);
       }
       .linklike {
         border: 0;
@@ -350,9 +361,9 @@
       .badge {
         display: inline-flex;
         align-items: center;
-        gap: 5px;
-        height: 20px;
-        padding: 0 7px;
+        gap: 6px;
+        height: 22px;
+        padding: 0 8px;
         border-radius: var(--radius-badge);
         font-size: var(--text-xs);
         font-weight: 500;
@@ -415,44 +426,88 @@
       }
 
       .avatar {
-        --c: var(--gray-500);
-        width: 22px;
-        height: 22px;
+        width: 24px;
+        height: 24px;
         border-radius: 50%;
         flex: none;
         display: inline-grid;
         place-items: center;
-        font-size: 11px;
+        overflow: hidden;
+        font-size: 9px;
         font-weight: 600;
-        color: var(--white);
-        background: var(--c);
-        box-shadow: 0 0 0 2px var(--surface);
+        line-height: 1;
+        color: var(--avatar-fg, var(--gray-700));
+        background: var(--avatar-bg, var(--gray-100));
       }
       .avatar.lg {
-        width: 28px;
-        height: 28px;
+        width: 32px;
+        height: 32px;
         font-size: 12px;
       }
       .avatar.sm {
-        width: 18px;
-        height: 18px;
-        font-size: 10px;
-      }
-      .avatar.you {
-        background: var(--surface-inverse);
-        color: var(--fg-inverse);
-      }
-      .avatar.office {
-        background: var(--neutral-subtle);
-        color: var(--fg-2);
-        box-shadow: 0 0 0 1px var(--border-strong);
+        width: 20px;
+        height: 20px;
+        font-size: 8px;
       }
       .avatar.command {
         border-radius: var(--radius-sm);
         background: var(--neutral-subtle);
         color: var(--fg-2);
-        box-shadow: 0 0 0 1px var(--border-strong);
         font-family: var(--font-mono);
+      }
+      /* A person's name and avatar lead to their page; You and The Office aren't people, so they stay plain. */
+      .person {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        min-width: 0;
+        color: inherit;
+        text-decoration: none;
+        border-radius: var(--radius-sm);
+      }
+      a.person:hover {
+        color: var(--fg-1);
+      }
+      a.person:hover .person-name,
+      a.person-name:hover {
+        text-decoration: underline;
+        text-underline-offset: 2px;
+      }
+      a.person:hover .avatar {
+        box-shadow: 0 0 0 2px var(--border-strong);
+      }
+      a.person-name {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      /* Scrollbars follow the palette (Chromium and Safari; Firefox takes the colours below). */
+      @supports selector(::-webkit-scrollbar) {
+        ::-webkit-scrollbar {
+          width: 10px;
+          height: 10px;
+        }
+        ::-webkit-scrollbar-track,
+        ::-webkit-scrollbar-corner {
+          background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+          border: 3px solid transparent;
+          border-radius: var(--radius-full);
+          background: var(--border-strong) padding-box;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+          background: var(--fg-3) padding-box;
+        }
+      }
+      @supports not selector(::-webkit-scrollbar) {
+        * {
+          scrollbar-width: thin;
+          scrollbar-color: var(--border-strong) transparent;
+        }
+      }
+      html[data-theme="dark"] {
+        color-scheme: dark;
       }
 
       @keyframes pulse-dot {
@@ -578,7 +633,6 @@
         background: var(--surface);
         border: 1px solid var(--border);
         border-radius: var(--radius-card);
-        box-shadow: var(--shadow-1);
       }
 
       /* ---------- Head ---------- */
@@ -670,9 +724,6 @@
         align-items: center;
         padding-top: 18px;
       }
-      .needs-banner {
-        display: none;
-      }
 
       /* ---------- Pipeline rail ---------- */
       .rail {
@@ -693,7 +744,6 @@
         overflow-x: auto;
         overflow-y: hidden;
         padding: 0 8px 10px;
-        scrollbar-width: thin;
       }
       .rail-inner {
         --marker-top: 14px;
@@ -754,23 +804,35 @@
         align-items: center;
         gap: 2px;
         padding: 0 6px 8px;
+        text-align: center;
+        border-radius: var(--radius-lg);
+      }
+      .node-hit {
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        padding: 0;
         border: 0;
         background: none;
         cursor: pointer;
-        text-align: center;
         border-radius: var(--radius-lg);
+      }
+      .node .person {
+        position: relative;
+        z-index: 3;
+        white-space: nowrap;
       }
       .node:hover .node-body {
         background: var(--surface-hover);
       }
-      .node[aria-selected="true"] .node-body {
+      .node.selected .node-body {
         background: var(--surface-selected);
         box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--accent) 35%, transparent);
       }
-      .node:focus-visible {
+      .node-hit:focus-visible {
         box-shadow: none;
       }
-      .node:focus-visible .node-body {
+      .node:has(.node-hit:focus-visible) .node-body {
         box-shadow: var(--focus-ring);
       }
       .marker {
@@ -1047,44 +1109,52 @@
       /* ---------- Body: record | conversation ---------- */
       .body {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(380px, 460px);
-        gap: 16px;
+        grid-template-columns: minmax(0, 1.4fr) minmax(360px, 1fr);
+        gap: var(--gap-panel);
         align-items: start;
       }
 
       /* Record */
       .tabs {
         display: flex;
-        gap: 2px;
+        gap: 20px;
         border-bottom: 1px solid var(--border);
         margin-bottom: 12px;
+        overflow-x: auto;
+        overflow-y: hidden;
       }
       .tab {
-        border: 0;
-        background: none;
-        padding: 8px 10px;
-        margin-bottom: -1px;
-        font-size: var(--text-sm);
-        font-weight: 500;
-        color: var(--fg-2);
-        cursor: pointer;
-        border-bottom: 2px solid transparent;
         display: inline-flex;
-        gap: 6px;
         align-items: center;
+        gap: 6px;
+        height: 38px;
+        margin-bottom: -1px;
+        padding: 0;
+        border: 0;
+        border-bottom: 2px solid transparent;
+        background: transparent;
+        color: var(--fg-3);
+        font-size: 13px;
+        font-weight: 500;
+        line-height: 1;
+        white-space: nowrap;
+        cursor: pointer;
+        transition:
+          color var(--duration-fast),
+          border-color var(--duration-fast);
       }
       .tab[aria-selected="true"] {
+        border-bottom-color: var(--accent);
         color: var(--fg-1);
-        border-bottom-color: var(--fg-1);
-      }
-      .tab:disabled {
-        color: var(--fg-disabled);
-        cursor: not-allowed;
+        font-weight: 600;
       }
       .tab .count {
-        font-size: 11px;
-        color: var(--fg-3);
-        font-weight: 400;
+        padding: 3px 5px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--surface-sunken);
+        color: var(--fg-2);
+        font: 500 11px/1 var(--font-mono);
       }
       .folds {
         display: grid;
@@ -1092,30 +1162,27 @@
       }
       .fold {
         overflow: hidden;
-        border-left: 3px solid var(--border-strong);
       }
-      .fold[data-tone="info"] {
-        border-left-color: var(--info);
-      }
-      .fold[data-tone="success"] {
-        border-left-color: var(--success);
-      }
-      .fold[data-tone="warning"] {
-        border-left-color: var(--warning);
-      }
-      .fold-head {
-        width: 100%;
+      .fold-row {
         display: flex;
         align-items: center;
         gap: 10px;
-        padding: 11px 14px;
+        padding-right: 14px;
+      }
+      .fold-row:hover {
+        background: var(--surface-hover);
+      }
+      .fold-head {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 12px 0 12px 16px;
         border: 0;
         background: none;
         cursor: pointer;
         text-align: left;
-      }
-      .fold-head:hover {
-        background: var(--surface-hover);
       }
       .fold-head .chev {
         flex: none;
@@ -1126,9 +1193,12 @@
         transform: rotate(90deg);
       }
       .fold-title {
-        font-weight: 600;
-        font-size: var(--text-md);
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
         flex: none;
+        margin-right: 4px;
+        font: var(--type-card-title);
       }
       .fold-summary {
         flex: 1;
@@ -1149,7 +1219,7 @@
         align-items: center;
       }
       .fold-body {
-        padding: 2px 18px 16px 38px;
+        padding: 2px 18px 16px 16px;
         font-size: var(--text-sm);
       }
       .fold:not(.open) .fold-body {
@@ -1328,67 +1398,73 @@
         background: var(--danger-subtle);
       }
 
-      /* Conversation */
-      .conversation {
-        position: sticky;
-        top: 12px;
-        height: 520px;
+      .attachments {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 12px;
+      }
+      .attachment {
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-card);
-        box-shadow: var(--shadow-1);
       }
-      .drawer-close {
-        display: none;
-      }
-      /*
-       * Takes the height its actions need, so they are never cut off; the live Thread's messages give
-       * way first, down to their minimum. Only past that does it scroll inside itself.
-       */
-      .needs {
-        flex: 0 1 auto;
-        min-height: 0;
-        padding: 10px 12px;
+      .attachment-preview {
+        display: grid;
+        place-items: center;
+        width: 100%;
+        aspect-ratio: 16 / 10;
+        padding: 0;
+        border: 0;
         border-bottom: 1px solid var(--border);
-        background: color-mix(in oklab, var(--warning-subtle) 70%, var(--surface));
-        overflow: auto;
+        background: var(--surface-sunken);
+        color: var(--fg-3);
       }
-      /* Shown only while some of Needs you is out of view, so nothing waits unseen below the fold. */
-      .needs-more {
-        display: none;
-        position: sticky;
-        bottom: -10px;
-        margin: 6px -12px -10px;
-        padding: 14px 12px 8px;
-        background: linear-gradient(
-          transparent,
-          color-mix(in oklab, var(--warning-subtle) 70%, var(--surface)) 45%
-        );
-        text-align: center;
+      button.attachment-preview {
+        cursor: zoom-in;
       }
-      .needs.overflowing .needs-more {
+      .attachment-preview svg[viewBox="0 0 640 400"] {
         display: block;
+        width: 100%;
+        height: 100%;
       }
-      .needs-more svg {
-        transform: rotate(90deg);
+      .attachment-body {
+        padding: 8px 12px 10px;
+        font-size: var(--text-sm);
+        overflow-wrap: anywhere;
       }
-      .needs.empty {
-        background: var(--surface);
+      .attachment-body .faint {
+        font-size: var(--text-xs);
+      }
+      .tab-empty {
+        padding: var(--pad-card);
+        color: var(--fg-2);
+        font-size: var(--text-sm);
+      }
+
+      /* Needs you: the page's full width under the rail, so a Decision has room for its screenshots. */
+      .needs-you {
+        margin-bottom: var(--gap-panel);
+        padding: var(--pad-card);
+        border-color: var(--warning-border);
+        scroll-margin-top: 12px;
+      }
+      .needs-you.clear {
+        padding: 10px 16px;
+        border-color: var(--border);
       }
       .needs-head {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
         gap: 8px;
+        margin-bottom: 12px;
       }
-      .needs-head .title {
-        font-weight: 600;
+      .needs-head h2 {
+        margin: 0;
+        font: var(--type-card-title);
+      }
+      .needs-head .muted {
         font-size: var(--text-sm);
-      }
-      .needs-head .grow {
-        flex: 1;
       }
       .count-pill {
         min-width: 18px;
@@ -1403,115 +1479,146 @@
         place-items: center;
       }
       .needs-list {
-        display: grid;
-        gap: 8px;
-        margin-top: 8px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
       }
       .ask {
-        background: var(--surface);
-        border: 1px solid var(--border);
-        border-left: 3px solid var(--warning);
-        border-radius: var(--radius-lg);
-        padding: 10px 12px;
-        box-shadow: var(--shadow-1);
+        flex: 1 1 420px;
+        min-width: 0;
+        container: ask / inline-size;
+        padding: 14px 16px;
+        border: 1px solid var(--warning-border);
+        border-radius: 10px;
+        background: var(--warning-subtle);
       }
-      .ask.gate {
-        border-left-color: var(--accent);
+      .ask.has-side {
+        flex-basis: 100%;
       }
-      .ask.office {
-        border-left-color: var(--danger);
+      .ask-grid {
+        display: grid;
+        gap: 14px;
+      }
+      @container ask (min-width: 760px) {
+        .ask-grid.has-side {
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+          gap: 24px;
+        }
       }
       .ask-kind {
         display: flex;
+        flex-wrap: wrap;
         align-items: center;
-        gap: 6px;
+        gap: 6px 8px;
         font-size: var(--text-xs);
         color: var(--fg-2);
+      }
+      .ask-kind .person {
+        color: var(--fg-1);
+        font-weight: 500;
       }
       .ask-kind .grow {
         flex: 1;
       }
       .ask-q {
-        margin: 6px 0 8px;
+        margin: 10px 0 0;
         font-weight: 600;
-        font-size: var(--text-sm);
+        font-size: var(--text-md);
         line-height: 1.4;
       }
-      .ask-ctx {
-        font-size: var(--text-xs);
+      .ask-ctx,
+      .why {
+        margin: 6px 0 0;
+        font: var(--type-body-sm);
         color: var(--fg-2);
-        margin: 0 0 8px;
       }
       .ask-actions {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
+        margin-top: 12px;
       }
       .option {
-        text-align: left;
         height: auto;
-        min-height: var(--control-sm);
-        padding: 4px 10px;
+        min-height: var(--control-md);
+        padding: 5px 12px;
+        text-align: left;
         white-space: normal;
-      }
-      .option .rec {
-        font-size: 10px;
-        font-weight: 600;
-        color: var(--fg-on-accent);
-        background: var(--accent);
-        padding: 1px 5px;
-        border-radius: 3px;
-        margin-left: 2px;
       }
       .free {
         display: flex;
-        gap: 6px;
-        margin-top: 8px;
+        gap: 8px;
+        margin-top: 10px;
       }
       .free input,
       .sendback textarea,
       .sendback select {
         flex: 1;
         min-width: 0;
-        height: var(--control-sm);
+        height: var(--control-md);
         border: 1px solid var(--border-strong);
         border-radius: var(--radius-control);
         background: var(--surface);
         color: var(--fg-1);
-        padding: 0 8px;
+        padding: 0 10px;
         font: inherit;
         font-size: var(--text-sm);
       }
       .sendback {
-        margin-top: 8px;
+        margin-top: 10px;
         display: grid;
         gap: 6px;
       }
       .sendback textarea {
         height: 56px;
-        padding: 6px 8px;
+        padding: 6px 10px;
         resize: vertical;
       }
-      .why {
-        font-size: var(--text-xs);
-        color: var(--fg-3);
-        margin-top: 6px;
+      .shots {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 12px;
       }
-      .details {
-        margin-top: 8px;
-        font-size: var(--text-xs);
-      }
-      .details summary {
-        cursor: pointer;
+      .shot {
+        display: grid;
+        gap: 4px;
+        padding: 0;
+        border: 0;
+        background: none;
         color: var(--fg-2);
-        width: max-content;
-        max-width: 100%;
+        font: var(--type-caption);
+        text-align: left;
+        cursor: zoom-in;
       }
-      .details summary:hover {
+      .shot svg {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+      }
+      .shot:hover svg {
+        border-color: var(--border-strong);
+      }
+      .facts {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+        gap: 8px;
+        align-content: start;
+      }
+      .fact {
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--surface);
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .fact b {
+        display: block;
+        margin-bottom: 2px;
+        font: var(--type-card-title);
         color: var(--fg-1);
-      }
-      .details .ask-ctx {
-        margin: 6px 0 0;
       }
       .nothing {
         display: flex;
@@ -1523,6 +1630,58 @@
       .nothing svg {
         color: var(--success);
       }
+      /* Takes over whenever the Needs you card itself is out of the window, so it never goes unseen. */
+      .needs-pin {
+        position: absolute;
+        top: 8px;
+        left: var(--pad-page);
+        right: var(--pad-page);
+        z-index: 15;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 44px;
+        padding: 0 8px 0 12px;
+        border: 1px solid var(--warning-border);
+        border-radius: 10px;
+        background: var(--warning-subtle);
+        box-shadow: var(--shadow-2);
+        font-size: var(--text-sm);
+      }
+      .needs-pin[hidden] {
+        display: none;
+      }
+      .needs-pin.below {
+        top: auto;
+        bottom: 12px;
+      }
+      .needs-pin b {
+        flex: none;
+        font-weight: 600;
+      }
+      .needs-pin .grow {
+        flex: 1;
+        min-width: 0;
+        color: var(--fg-2);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .conversation {
+        position: sticky;
+        top: calc(12px + var(--pin-room, 0px));
+        height: 520px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+      }
+      .drawer-close {
+        display: none;
+      }
 
       .earlier {
         flex: none;
@@ -1533,7 +1692,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 8px 12px;
+        padding: 8px 16px;
         border: 0;
         background: none;
         cursor: pointer;
@@ -1563,7 +1722,7 @@
       .earlier-list {
         max-height: 240px;
         overflow: auto;
-        padding: 0 8px 8px;
+        padding: 0 12px 8px;
       }
       .earlier:not(.open) .earlier-list {
         display: none;
@@ -1601,16 +1760,11 @@
         color: var(--fg-1);
       }
       .thread-line {
-        width: 100%;
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 6px 6px;
-        border: 0;
+        padding: 0 6px;
         border-radius: var(--radius-md);
-        background: none;
-        cursor: pointer;
-        text-align: left;
         font-size: var(--text-sm);
       }
       .thread-line:hover {
@@ -1619,11 +1773,24 @@
       .thread-line[aria-current="true"] {
         background: var(--surface-selected);
       }
-      .thread-line .who {
+      .thread-line .person {
         font-weight: 500;
         white-space: nowrap;
       }
-      .thread-line .grow {
+      .thread-open {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 0;
+        border: 0;
+        background: none;
+        font-size: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .thread-open .grow {
         flex: 1;
         min-width: 0;
         color: var(--fg-2);
@@ -1631,7 +1798,7 @@
         overflow: hidden;
         text-overflow: ellipsis;
       }
-      .thread-line .when {
+      .thread-open .when {
         color: var(--fg-3);
         font-size: var(--text-xs);
         white-space: nowrap;
@@ -1641,42 +1808,65 @@
         flex: none;
         display: flex;
         align-items: center;
-        gap: 8px;
-        padding: 10px 12px;
-        border-bottom: 1px solid var(--border);
+        gap: 12px;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border-subtle);
       }
       .thread-head .grow {
         flex: 1;
         min-width: 0;
       }
       .thread-head .name {
-        font-weight: 600;
-        font-size: var(--text-sm);
+        font: var(--type-card-title);
       }
       .thread-head .sub {
-        font-size: var(--text-xs);
-        color: var(--fg-2);
+        font: var(--type-caption);
+        color: var(--fg-3);
       }
-      .live-badge {
+      .switch-label {
+        flex: none;
         display: inline-flex;
         align-items: center;
-        gap: 5px;
-        height: 20px;
-        padding: 0 7px;
-        border-radius: var(--radius-full);
-        background: var(--accent-subtle);
-        color: var(--accent-subtle-fg);
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
+        gap: 6px;
+        padding: 0;
+        border: 0;
+        background: none;
+        color: var(--fg-2);
+        font: var(--type-caption);
+        cursor: pointer;
+      }
+      .switch {
+        position: relative;
+        width: 28px;
+        height: 16px;
+        border-radius: 999px;
+        background: var(--gray-200);
+        transition: background var(--duration-fast) var(--ease-out);
+      }
+      .switch::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--white);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        transition: left var(--duration-base) var(--ease-out);
+      }
+      .switch-label[aria-checked="true"] .switch {
+        background: var(--accent);
+      }
+      .switch-label[aria-checked="true"] .switch::after {
+        left: 14px;
       }
       .readonly-bar {
         flex: none;
         display: flex;
         align-items: center;
         gap: 8px;
-        padding: 8px 12px;
+        padding: 8px 16px;
         background: var(--info-subtle);
         border-bottom: 1px solid var(--info-border);
         color: var(--info-fg);
@@ -1698,155 +1888,182 @@
         place-items: center;
       }
 
-      .messages {
+      /* Messages: shell/conversation/conversation.css */
+      .message-list {
         flex: 1;
         min-height: 56px;
         overflow: auto;
-        padding: 12px 12px 4px;
+        padding: 14px 16px;
         display: flex;
         flex-direction: column;
         gap: 10px;
         overscroll-behavior: contain;
       }
-      .msg {
-        display: grid;
-        grid-template-columns: 28px 1fr;
-        gap: 8px;
-      }
-      .msg .who {
-        font-size: var(--text-xs);
-        color: var(--fg-2);
-        display: flex;
-        gap: 6px;
-        align-items: baseline;
-      }
-      .msg .who b {
-        color: var(--fg-1);
-        font-weight: 600;
-      }
-      .msg .text {
-        font-size: var(--text-sm);
+      .message {
+        max-width: 92%;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: var(--surface-sunken);
+        font: var(--type-body-sm);
         line-height: 1.55;
-        margin-top: 1px;
+        color: var(--fg-1);
       }
-      .msg .text p {
+      .message.mine {
+        margin-left: auto;
+        background: var(--accent-subtle);
+      }
+      .message.handover-note {
+        border: 1px solid var(--info-border);
+        background: var(--info-subtle);
+      }
+      .message.decision-card {
+        max-width: 100%;
+        border: 1px solid var(--warning-border);
+        background: var(--warning-subtle);
+      }
+      .message-by {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 4px;
+        font: var(--type-caption);
+        font-weight: 500;
+        color: var(--fg-3);
+      }
+      .message-by .person {
+        color: var(--fg-2);
+      }
+      .message-by .at {
+        margin-left: auto;
+        font-weight: 400;
+      }
+      .message-text {
+        overflow-wrap: anywhere;
+      }
+      .message-text p {
         margin: 0 0 6px;
       }
-      .msg .text p:last-child {
+      .message-text p:last-child {
         margin: 0;
       }
-      .msg .text code {
+      .message-text code {
         font-size: 12px;
-        background: var(--surface-sunken);
+        background: var(--surface);
         border: 1px solid var(--border-subtle);
         padding: 0 4px;
         border-radius: 4px;
       }
-      .msg.you .text {
-        background: var(--surface-sunken);
-        border: 1px solid var(--border-subtle);
-        border-radius: 10px;
-        padding: 6px 10px;
+      .decision-question {
+        font-weight: 500;
       }
-      .tool {
-        margin-left: 36px;
+      .decision-hint {
+        margin: 6px 0 0;
+        font: var(--type-caption);
+        color: var(--fg-3);
+      }
+      .decision-answered {
         display: flex;
+        align-items: center;
         gap: 6px;
-        align-items: center;
-        font-family: var(--font-mono);
-        font-size: 11.5px;
-        color: var(--fg-3);
+        margin-top: 8px;
+        font: var(--type-caption);
+        color: var(--success-fg);
       }
-      .tool + .tool {
-        margin-top: -6px;
-      }
-      .divider {
+      .message-line {
         display: flex;
-        align-items: center;
-        gap: 8px;
-        font-size: 11px;
+        align-items: baseline;
+        gap: 6px;
+        min-width: 0;
+        font: var(--type-caption);
         color: var(--fg-3);
-        margin: 4px 0;
       }
-      .divider::before,
-      .divider::after {
-        content: "";
-        flex: 1;
-        height: 1px;
-        background: var(--border);
+      .message-line svg {
+        flex: none;
+        align-self: center;
       }
-      .divider.fail {
+      .message-summary {
+        min-width: 0;
+        overflow: hidden;
+        font: var(--type-mono);
+        font-size: 11px;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .message-office {
+        padding: 6px 10px;
+        border: 1px dashed var(--border);
+        border-radius: 8px;
+        font: var(--type-caption);
+        color: var(--fg-2);
+        text-align: center;
+      }
+      .message-office.failed {
+        border-color: var(--danger-border);
         color: var(--danger-fg);
       }
-      .inline-card {
-        margin-left: 36px;
-        border: 1px solid var(--border);
-        border-left: 3px solid var(--warning);
-        border-radius: var(--radius-md);
-        padding: 8px 10px;
-        font-size: var(--text-sm);
-        background: var(--surface);
-      }
-      .inline-card.answered {
-        border-left-color: var(--success);
-      }
-      .inline-card.note {
-        border-left-color: var(--border-strong);
-        background: var(--surface-sunken);
-      }
-      .typing {
-        margin-left: 36px;
+      .message-answering {
         display: inline-flex;
         gap: 6px;
         align-items: center;
-        font-size: var(--text-xs);
+        min-width: 0;
+        font: var(--type-caption);
         color: var(--fg-3);
       }
-      .typing i {
+      .message-answering i {
+        flex: none;
         width: 5px;
         height: 5px;
         border-radius: 50%;
         background: var(--fg-3);
         animation: blink 1.2s infinite;
       }
-      .typing i:nth-child(2) {
+      .message-answering i:nth-child(2) {
         animation-delay: 0.15s;
       }
-      .typing i:nth-child(3) {
+      .message-answering i:nth-child(3) {
         animation-delay: 0.3s;
+      }
+      .segment,
+      .segment-body {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
       }
       .segment-head {
         position: sticky;
-        top: -12px;
+        top: -14px;
         z-index: 1;
-        margin: 6px -12px 0;
-        padding: 6px 12px;
+        margin: 0 -16px;
+        padding: 6px 16px;
         display: flex;
-        gap: 8px;
+        flex-wrap: wrap;
+        gap: 4px 8px;
         align-items: center;
         background: var(--surface);
         border-block: 1px solid var(--border-subtle);
         font-size: var(--text-xs);
         color: var(--fg-2);
       }
+      .segment-head .person {
+        color: var(--fg-1);
+        font-weight: 500;
+      }
       .segment-head .grow {
         flex: 1;
       }
-      .segment.past .msg,
-      .segment.past .tool {
-        opacity: 0.78;
-      }
       .new-pill {
+        flex: none;
         align-self: center;
         position: sticky;
-        bottom: 4px;
+        bottom: 0;
         z-index: 2;
+        box-shadow: var(--shadow-2);
       }
 
       .composer {
         flex: none;
-        border-top: 1px solid var(--border);
-        padding: 8px 12px 10px;
+        border-top: 1px solid var(--border-subtle);
+        padding: 10px 16px 12px;
       }
       .to {
         display: flex;
@@ -1856,34 +2073,34 @@
         color: var(--fg-2);
         margin-bottom: 6px;
       }
-      .to b {
+      .to .person {
         color: var(--fg-1);
         font-weight: 600;
+      }
+      .to-place {
+        margin-left: -6px;
       }
       .compose-box {
         display: flex;
         gap: 8px;
         align-items: flex-end;
-        border: 1px solid var(--border-strong);
-        border-radius: var(--radius-lg);
-        padding: 6px 6px 6px 10px;
-        background: var(--surface);
-      }
-      .compose-box:focus-within {
-        border-color: var(--border-focus);
-        box-shadow: var(--focus-ring);
       }
       .compose-box textarea {
         flex: 1;
-        border: 0;
-        outline: 0;
-        resize: none;
-        background: none;
+        min-width: 0;
+        height: 56px;
+        padding: 6px 10px;
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-control);
+        background: var(--surface);
         color: var(--fg-1);
-        font: inherit;
-        font-size: var(--text-sm);
-        height: 40px;
-        padding: 3px 0;
+        font: var(--type-body-sm);
+        resize: none;
+      }
+      .compose-box textarea:focus {
+        outline: 0;
+        border-color: var(--border-focus);
+        box-shadow: var(--focus-ring);
       }
       .context-label {
         display: flex;
@@ -1905,6 +2122,33 @@
       .drawer-handle,
       .scrim {
         display: none;
+      }
+      .lightbox {
+        width: min(1040px, 92vw);
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        color: var(--fg-1);
+        box-shadow: var(--shadow-3);
+      }
+      .lightbox::backdrop {
+        background: var(--overlay);
+      }
+      .lightbox-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 8px 8px 8px 16px;
+        border-bottom: 1px solid var(--border-subtle);
+        font: var(--type-card-title);
+      }
+      .lightbox svg[viewBox="0 0 640 400"] {
+        display: block;
+        width: 100%;
+        height: auto;
       }
       .toast {
         position: absolute;
@@ -1936,21 +2180,8 @@
         .head-actions {
           padding-top: 0;
         }
-        .needs-banner {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          margin: 0 0 12px;
-          padding: 8px 12px;
-          border-radius: var(--radius-lg);
-          background: var(--warning-subtle);
-          border: 1px solid var(--warning-border);
-          color: var(--warning-fg);
-          font-size: var(--text-sm);
-          font-weight: 500;
-        }
-        .needs-banner .grow {
-          flex: 1;
+        .needs-pin.below {
+          bottom: 68px;
         }
         .rail-inner {
           min-width: max-content;
@@ -2047,14 +2278,15 @@
     <div class="viewport" id="viewport">
       <div class="scroller" id="scroller">
         <header class="head" id="head"></header>
-        <div class="needs-banner" id="needs-banner"></div>
         <section class="rail card" id="rail" aria-label="Pipeline"></section>
         <section class="history card" id="history" hidden aria-live="polite"></section>
+        <section class="needs-you card" id="needs" aria-label="Needs you"></section>
         <div class="body">
           <main class="record" id="record"></main>
           <aside class="conversation" id="conversation" aria-label="Conversation"></aside>
         </div>
       </div>
+      <div class="needs-pin" id="needs-pin" hidden></div>
       <div class="scrim" data-action="close-drawer"></div>
       <button
         class="btn primary drawer-handle"
@@ -2064,6 +2296,7 @@
       ></button>
       <div class="toast" id="toast" role="status"></div>
     </div>
+    <dialog class="lightbox" id="lightbox" aria-label="Screenshot"></dialog>
 
     <script>
       "use strict";
@@ -2076,9 +2309,9 @@
 
       /** Display-only: the people filling each Role. */
       const PEOPLE = {
-        planner: { name: "Angela", role: "Planner", colour: "var(--violet-500)" },
-        developer: { name: "Jim", role: "Developer", colour: "var(--blue-500)" },
-        reviewer: { name: "Oscar", role: "Reviewer", colour: "var(--teal-500)" },
+        planner: { name: "Angela", role: "Planner" },
+        developer: { name: "Jim", role: "Developer" },
+        reviewer: { name: "Oscar", role: "Reviewer" },
       };
 
       /** The Full Pipeline, with an optional docs Stage and a Gate before Publish (Stage, from stages.ts). */
@@ -2424,6 +2657,7 @@ About 600k tokens over the whole Pipeline.`;
             option: 1,
             reason: "Finance reads it at a glance and the Plan's contract holds.",
           },
+          screenshots: ["today", "decimal"],
           askedAt: ago(18),
           putTo: null,
           passedOn: [],
@@ -2450,12 +2684,44 @@ About 600k tokens over the whole Pipeline.`;
             reason:
               "The fix left is small, and a fresh run with the same budget may stop at the same place.",
           },
+          facts: [
+            ["406k of 400k", "Tokens"],
+            ["3", "Failing tests"],
+            ["Run 6", "Last run"],
+          ],
           askedAt: ago(18),
           putTo: null,
           passedOn: [],
           answer: null,
           answeredAt: null,
           answeredBy: null,
+        },
+      };
+
+      /** Pictures of the export for a Decision or an Attachment; a screenshot keeps its own colours in either palette. */
+      const SHOTS = {
+        today: {
+          title: "usage-report.csv as it is now",
+          columns: ["date", "customer", "amount", "currency"],
+          rows: [
+            ["2026-10-01", "Northwind", "129900", "EUR"],
+            ["2026-10-02", "Contoso", "48050", "EUR"],
+            ["2026-10-02", "Fabrikam", "7300", "USD"],
+            ["2026-10-03", "Northwind", "215000", "EUR"],
+            ["2026-10-04", "Adventure", "99", "USD"],
+          ],
+        },
+        decimal: {
+          title: "usage-report.csv with amount_decimal",
+          columns: ["date", "customer", "amount", "amount_decimal", "currency"],
+          marked: 3,
+          rows: [
+            ["2026-10-01", "Northwind", "129900", "1299.00", "EUR"],
+            ["2026-10-02", "Contoso", "48050", "480.50", "EUR"],
+            ["2026-10-02", "Fabrikam", "7300", "73.00", "USD"],
+            ["2026-10-03", "Northwind", "215000", "2150.00", "EUR"],
+            ["2026-10-04", "Adventure", "99", "0.99", "USD"],
+          ],
         },
       };
 
@@ -2664,6 +2930,20 @@ About 600k tokens over the whole Pipeline.`;
               dodMetBy: "Review & fix, run 5",
               attachments: [
                 { name: "usage-sample.csv", kind: "file", by: "reviewer", size: "4 KB" },
+                {
+                  name: "usage-csv-today.png",
+                  kind: "image",
+                  by: "reviewer",
+                  size: "84 KB",
+                  shot: "today",
+                },
+                {
+                  name: "usage-csv-with-decimal.png",
+                  kind: "image",
+                  by: "reviewer",
+                  size: "91 KB",
+                  shot: "decimal",
+                },
               ],
               gate: { stageKey: "gate" },
             };
@@ -2868,6 +3148,20 @@ About 600k tokens over the whole Pipeline.`;
               dodMetBy: "Review & fix, run 5",
               attachments: [
                 { name: "usage-sample.csv", kind: "file", by: "reviewer", size: "4 KB" },
+                {
+                  name: "usage-csv-today.png",
+                  kind: "image",
+                  by: "reviewer",
+                  size: "84 KB",
+                  shot: "today",
+                },
+                {
+                  name: "usage-csv-with-decimal.png",
+                  kind: "image",
+                  by: "reviewer",
+                  size: "91 KB",
+                  shot: "decimal",
+                },
                 { name: "Pull request #482", kind: "link", by: "office", size: "github.com" },
               ],
               published: "#482",
@@ -2908,7 +3202,7 @@ About 600k tokens over the whole Pipeline.`;
 
       const view = {
         scenario: "waiting",
-        concept: "threads",
+        concept: "timeline",
         narrow: false,
         palette: "light",
         data: null,
@@ -2917,8 +3211,8 @@ About 600k tokens over the whole Pipeline.`;
         unread: 0,
         earlierOpen: false,
         drawerOpen: false,
-        recordTab: "record",
-        needsCollapsed: false,
+        recordTab: "overview",
+        showDetails: store.get("showDetails", false),
         sendBackOpen: false,
         liveTimer: null,
       };
@@ -3028,6 +3322,11 @@ About 600k tokens over the whole Pipeline.`;
         (r.endedAt ? Date.parse(r.endedAt) : NOW) - Date.parse(r.startedAt);
 
       const ICON = {
+        wrench:
+          '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M10.2 2.3a3.6 3.6 0 0 0-4.6 4.6L2 10.5a1.7 1.7 0 0 0 2.4 2.4L8 9.3a3.6 3.6 0 0 0 4.6-4.6l-2.2 2.2-1.9-.5-.5-1.9z"/></svg>',
+        note: '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M3 3h10v6.5L9.5 13H3z"/><path d="M9.5 13V9.5H13"/></svg>',
+        at: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="2.8"/><path d="M10.8 5.2v3.6a1.8 1.8 0 0 0 3.6 0V8a6.4 6.4 0 1 0-2.5 5"/></svg>',
+        send: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V3M3.5 7.5 8 3l4.5 4.5"/></svg>',
         check:
           '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.5l3 3 6-7"/></svg>',
         cross:
@@ -3072,13 +3371,40 @@ About 600k tokens over the whole Pipeline.`;
         dropped: ["Dropped", ""],
       };
 
+      /** The tint comes from the name, as the Avatar in packages/ui does it. */
+      const AVATAR_TINTS = ["blue", "green", "amber", "ember", "gray", "red"];
+
       function avatar(roleKey, size = "") {
-        if (roleKey === "you") return `<span class="avatar you ${size}" title="You">Y</span>`;
-        if (roleKey === null || roleKey === "office")
-          return `<span class="avatar office ${size}" title="The Office">O</span>`;
-        const p = PEOPLE[roleKey];
-        return `<span class="avatar ${size}" style="--c:${p.colour}" title="${esc(p.name)} · ${esc(p.role)}">${esc(p.name[0])}</span>`;
+        const name = personName(roleKey);
+        let hash = 0;
+        for (const character of name) hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
+        const tint = AVATAR_TINTS[hash % AVATAR_TINTS.length];
+        const initials = name
+          .split(/\s+/)
+          .slice(0, 2)
+          .map((word) => word[0])
+          .join("")
+          .toUpperCase();
+        return `<span class="avatar ${size}" style="--avatar-bg:var(--${tint}-100);--avatar-fg:var(--${tint}-700)" aria-hidden="true">${initials}</span>`;
       }
+
+      const personLinkAttributes = (roleKey) =>
+        `href="#/people/${roleKey}" data-action="person" data-role="${roleKey}" title="Open ${personName(roleKey)}'s page"`;
+
+      /** Avatar and name, leading to the person's page. */
+      function personTag(roleKey, size = "sm", label = personName(roleKey)) {
+        const content = `${avatar(roleKey, size)}<span class="person-name">${esc(label)}</span>`;
+        return PEOPLE[roleKey]
+          ? `<a class="person" ${personLinkAttributes(roleKey)}>${content}</a>`
+          : `<span class="person">${content}</span>`;
+      }
+
+      /** A person's name inside a sentence. */
+      const personLink = (roleKey) =>
+        PEOPLE[roleKey]
+          ? `<a class="person-name" ${personLinkAttributes(roleKey)}>${personName(roleKey)}</a>`
+          : personName(roleKey);
+
       const personName = (roleKey) =>
         roleKey === "you"
           ? "You"
@@ -3088,11 +3414,10 @@ About 600k tokens over the whole Pipeline.`;
       const personLabel = (roleKey) =>
         PEOPLE[roleKey] ? `${PEOPLE[roleKey].name} · ${PEOPLE[roleKey].role}` : personName(roleKey);
 
-      function stageWorker(stage) {
-        if (stage.kind === "agent")
-          return { avatar: avatar(stage.role, "sm"), label: PEOPLE[stage.role].name };
-        if (stage.kind === "gate") return { avatar: avatar("you", "sm"), label: "You" };
-        return { avatar: '<span class="avatar command sm">$</span>', label: "Project command" };
+      function stageWorker(stage, size = "sm") {
+        if (stage.kind === "agent") return personTag(stage.role, size);
+        if (stage.kind === "gate") return personTag("you", size);
+        return `<span class="person"><span class="avatar command ${size}">$</span><span class="person-name">Project command</span></span>`;
       }
 
       const decision = (id) =>
@@ -3151,11 +3476,6 @@ About 600k tokens over the whole Pipeline.`;
             </div>
           </div>
           <div class="head-actions">${actions}<button class="btn ghost" aria-label="More actions" data-action="toast" data-text="More: Edit for this Task, Duplicate, Drop Task.">···</button></div>`;
-
-        const n = needsCount();
-        const banner = $("needs-banner");
-        banner.hidden = n === 0;
-        banner.innerHTML = `<span class="count-pill">${n}</span><span class="grow">${n === 1 ? "One thing needs" : `${n} things need`} you on this Task</span><button class="btn xs" data-action="open-drawer">Open</button>`;
       }
 
       /* ===================== Pipeline rail ===================== */
@@ -3200,7 +3520,6 @@ About 600k tokens over the whole Pipeline.`;
 
       function nodeHtml(ts, index, current) {
         const { stage, state, runs } = ts;
-        const who = stageWorker(stage);
         const time = runs.reduce((a, r) => a + runDuration(r), 0);
         const tok = sumTokens(ts.tokens);
         const glyph =
@@ -3224,16 +3543,24 @@ About 600k tokens over the whole Pipeline.`;
                 ]
                   .filter(Boolean)
                   .join(" · ");
-        const classes = ["node", state, stage.kind, index > current ? "future" : ""].join(" ");
-        return `<button class="${classes}" role="tab" data-stage="${stage.key}" aria-selected="${view.selectedStage === stage.key}" title="${esc(stage.name)}: ${STATE_WORDS[state]}">
+        const selected = view.selectedStage === stage.key;
+        const classes = [
+          "node",
+          state,
+          stage.kind,
+          index > current ? "future" : "",
+          selected ? "selected" : "",
+        ].join(" ");
+        return `<div class="${classes}" data-stage="${stage.key}">
+          <button class="node-hit" role="tab" data-stage="${stage.key}" aria-selected="${selected}" aria-label="${esc(stage.name)}: ${STATE_WORDS[state]}" title="${esc(stage.name)}: ${STATE_WORDS[state]}"></button>
           <span class="marker">${glyph}</span>
           <span class="node-body">
             <span class="node-name">${esc(stage.name)}${stage.optional ? '<span class="node-optional"> · optional</span>' : ""}</span>
-            <span class="node-who">${who.avatar}${esc(who.label)}</span>
+            <span class="node-who">${stageWorker(stage)}</span>
             <span class="node-state">${state === "running" ? '<span class="dot live" style="display:inline-block;margin-right:4px;vertical-align:1px"></span>' : ""}${STATE_WORDS[state]}${ts.wentBack ? ` · went back to ${byKey(ts.wentBack.stageKey).name}` : ""}</span>
             <span class="node-meta">${facts}</span>
           </span>
-        </button>`;
+        </div>`;
       }
 
       function renderRail() {
@@ -3275,6 +3602,9 @@ About 600k tokens over the whole Pipeline.`;
           scroller.scrollLeft += box.left - area.left - (area.width - box.width) / 2;
         return node;
       }
+
+      const focusNode = (key) =>
+        revealNode(key).querySelector(".node-hit").focus({ preventScroll: true });
 
       function revealCurrentStage() {
         const { stages } = view.data;
@@ -3395,7 +3725,7 @@ About 600k tokens over the whole Pipeline.`;
           : "";
         const handover =
           o && o.handoverNote
-            ? `<div class="handover"><span class="overline">Handover note · ${esc(personName(ts.stage.role))}</span>${inline(o.handoverNote)}</div>`
+            ? `<div class="handover"><span class="overline">Handover note · ${personLink(ts.stage.role)}</span>${inline(o.handoverNote)}</div>`
             : "";
         const open = thread
           ? `<button class="btn xs" data-action="open-thread" data-thread="${thread.id}">${thread.id === view.data.liveThreadId ? "Open its Thread · live" : "Open its Thread"}</button>`
@@ -3415,7 +3745,6 @@ About 600k tokens over the whole Pipeline.`;
         const { stages } = view.data;
         const index = stages.findIndex((ts) => ts.stage.key === view.selectedStage);
         const ts = stages[index];
-        const who = stageWorker(ts.stage);
         const kindWords =
           ts.stage.kind === "agent"
             ? `Agent Stage · ${PEOPLE[ts.stage.role].name} · ${PEOPLE[ts.stage.role].role} · budget ${kTokens(ts.stage.budget)} tokens`
@@ -3428,7 +3757,7 @@ About 600k tokens over the whole Pipeline.`;
         panel.hidden = false;
         panel.innerHTML = `
           <div class="history-head">
-            ${who.avatar.replace("sm", "lg")}<h2>${esc(ts.stage.name)}</h2><span class="badge">${STATE_WORDS[ts.state]}</span>
+            <h2>${esc(ts.stage.name)}</h2>${stageWorker(ts.stage)}<span class="badge">${STATE_WORDS[ts.state]}</span>
             <span class="grow"></span>
             <span class="faint" style="font-size:11px"><span class="kbd">←</span> <span class="kbd">→</span> Stages · <span class="kbd">Esc</span> close</span>
             <button class="btn ghost xs" data-action="step-stage" data-step="-1" aria-label="Previous Stage" ${index === 0 ? "disabled" : ""}>${ICON.left}</button>
@@ -3451,14 +3780,14 @@ About 600k tokens over the whole Pipeline.`;
         renderRail();
         renderHistory();
         fitConversation();
-        revealNode(key).focus({ preventScroll: true });
+        focusNode(key);
         if (view.selectedStage)
           $("history").scrollIntoView({ block: "nearest", behavior: "smooth" });
       }
 
       /* ===================== Record ===================== */
 
-      const BLOCKS = ["plan", "dod", "dependencies", "attachments", "origin"];
+      const BLOCK_ICONS = { plan: "file", dod: "check", dependencies: "task", origin: "idea" };
 
       function foldOpen(block) {
         const remembered = store.get(`folds.${view.data.task.id}`, {});
@@ -3474,15 +3803,28 @@ About 600k tokens over the whole Pipeline.`;
         renderRecord();
       }
 
-      function fold(block, title, summary, side, body, tone = "") {
+      function fold(block, title, summary, side, body) {
         const open = foldOpen(block);
-        return `<section class="fold card ${open ? "open" : ""}" data-tone="${tone}">
-          <button class="fold-head" data-action="fold" data-block="${block}" aria-expanded="${open}">
-            <span class="chev">${ICON.chev}</span><span class="fold-title">${title}</span>
-            <span class="fold-summary">${summary}</span><span class="fold-side">${side}</span>
-          </button>
+        return `<section class="fold card ${open ? "open" : ""}">
+          <div class="fold-row">
+            <button class="fold-head" data-action="fold" data-block="${block}" aria-expanded="${open}">
+              <span class="chev">${ICON.chev}</span><span class="fold-title">${ICON[BLOCK_ICONS[block]].replace("<svg", '<svg width="15" height="15"')}${title}</span>
+              <span class="fold-summary">${summary}</span>
+            </button>
+            <span class="fold-side">${side}</span>
+          </div>
           <div class="fold-body">${body}</div>
         </section>`;
+      }
+
+      function attachmentCard(attachment) {
+        const { name, kind, size, by, shot } = attachment;
+        const preview = shot
+          ? `<button class="attachment-preview" data-action="open-shot" data-shot="${shot}" aria-label="Open ${esc(name)}">${shotSvg(shot)}</button>`
+          : `<span class="attachment-preview">${kind === "link" ? ICON.link : ICON.file}</span>`;
+        return `<article class="attachment card">${preview}
+          <div class="attachment-body"><a href="#" data-action="toast" data-text="Opens the Attachment.">${esc(name)}</a><div class="faint">${esc(size)} · by ${personLink(by)}</div></div>
+        </article>`;
       }
 
       function renderRecord() {
@@ -3492,7 +3834,7 @@ About 600k tokens over the whole Pipeline.`;
         const proposed = (confirmed) =>
           confirmed
             ? '<span class="badge success">Confirmed</span>'
-            : `<span class="badge info">${avatar("planner", "sm")} Proposed by Angela</span>`;
+            : `<span class="badge info">${personTag("planner", "sm", "Proposed by Angela")}</span>`;
 
         const plan = fold(
           "plan",
@@ -3503,7 +3845,6 @@ About 600k tokens over the whole Pipeline.`;
            <div class="overline" style="margin-top:12px">Files to change</div>
            <ul class="files">${task.filesToChange.map((f) => `<li>${ICON.file}${esc(f)}</li>`).join("")}</ul>
            ${planning ? '<div class="block-foot"><button class="btn xs" data-action="toast" data-text="Opens the Plan in the editor.">Edit Plan</button><span>Angela updates it as you talk in the Thread.</span></div>' : ""}`,
-          planning ? "info" : "",
         );
 
         const met = new Set(dodMet);
@@ -3521,7 +3862,6 @@ About 600k tokens over the whole Pipeline.`;
               : `<span class="badge">${met.size} / ${task.definitionOfDone.length}</span>`,
           `<ul class="dod">${task.definitionOfDone.map((s, i) => `<li><span class="check ${met.has(i + 1) ? "on" : ""}">${met.has(i + 1) ? ICON.check.replace("<svg", '<svg width="10" height="10"') : ""}</span><span><span class="n">${i + 1}.</span>${inline(s)}</span></li>`).join("")}</ul>
            ${view.data.dodMetBy ? `<div class="block-foot">Checked as of ${esc(view.data.dodMetBy)}</div>` : ""}`,
-          planning ? "info" : met.size === task.definitionOfDone.length ? "success" : "",
         );
 
         const deps = fold(
@@ -3530,18 +3870,6 @@ About 600k tokens over the whole Pipeline.`;
           `Waits on ${task.blockedBy.length} Task · Done, so it doesn't block`,
           "",
           `<div class="rows"><div class="row"><span class="ico">${ICON.task}</span><span class="grow"><a href="#" data-action="toast" data-text="Opens that Task's page.">${esc(OTHER_TASK.title)}</a><div class="faint" style="font-size:var(--text-xs)">Must be Done before this Task starts</div></span><span class="badge success">Done</span></div></div>`,
-        );
-
-        const att = fold(
-          "attachments",
-          "Attachments",
-          attachments.length
-            ? `${attachments.length} · ${attachments.map((a) => a.name).join(", ")}`
-            : "None yet",
-          attachments.length ? `<span class="badge">${attachments.length}</span>` : "",
-          attachments.length
-            ? `<div class="rows">${attachments.map((a) => `<div class="row"><span class="ico">${a.kind === "link" ? ICON.link : ICON.file}</span><span class="grow"><a href="#" data-action="toast" data-text="Opens the Attachment.">${esc(a.name)}</a><div class="faint" style="font-size:var(--text-xs)">${esc(a.size)} · by ${esc(personName(a.by))}</div></span></div>`).join("")}</div>`
-            : '<div class="muted">Agents and you can attach documents, screenshots, files and links here.</div>',
         );
 
         const origin = fold(
@@ -3555,42 +3883,83 @@ About 600k tokens over the whole Pipeline.`;
           </div>`,
         );
 
-        const changesAvailable = !planning;
         const added = CHANGES.reduce((a, c) => a + c.added, 0),
           removed = CHANGES.reduce((a, c) => a + c.removed, 0);
-        const tabs = `<div class="tabs" role="tablist">
-          <button class="tab" role="tab" data-action="record-tab" data-tab="record" aria-selected="${view.recordTab === "record"}">Record</button>
-          <button class="tab" role="tab" data-action="record-tab" data-tab="changes" aria-selected="${view.recordTab === "changes"}" ${changesAvailable ? "" : 'disabled title="No changes before the Task starts"'}>Changes <span class="count">${changesAvailable ? `${CHANGES.length} files` : ""}</span></button>
-        </div>`;
-        const changes = `<div class="card" style="padding:14px 16px">
+        const tab = (key, label, count) =>
+          `<button class="tab" role="tab" data-action="record-tab" data-tab="${key}" aria-selected="${view.recordTab === key}">${label}${count ? ` <span class="count">${count}</span>` : ""}</button>`;
+        const tabs = `<div class="tabs" role="tablist">${tab("overview", "Overview")}${tab("changes", "Changes", planning ? 0 : CHANGES.length)}${tab("attachments", "Attachments", attachments.length)}</div>`;
+        const changes = planning
+          ? '<div class="card tab-empty">No changes yet: the Task hasn\'t started.</div>'
+          : `<div class="card" style="padding:14px 16px">
           <div class="changes-sum"><b>${CHANGES.length} files</b><span class="add num">+${added}</span><span class="del num">−${removed}</span><span class="badge success">Tests passed · run 4</span><span class="grow" style="flex:1"></span><a href="#" data-action="toast" data-text="Opens the Task's worktree in VS Code.">Open in editor</a></div>
           <div class="rows">${CHANGES.map((c) => `<div class="row"><span class="mono grow">${esc(c.path)}</span>${c.status === "added" ? '<span class="badge info">new</span>' : ""}<span class="mono add">+${c.added}</span><span class="mono del">−${c.removed}</span></div>`).join("")}</div>
           <div class="diff"><div class="diff-head">apps/api/src/modules/reports/usage-csv.ts</div><pre>${DIFF.map(([k, l]) => `<span class="${k}">${k === "a" ? "+" : k === "d" ? "−" : " "} ${esc(l)}</span>`).join("")}</pre></div>
         </div>`;
+        const attachmentsTab = attachments.length
+          ? `<div class="attachments">${attachments.map(attachmentCard).join("")}</div>`
+          : '<div class="card tab-empty">Agents and you can attach documents, screenshots, files and links here.</div>';
         $("record").innerHTML =
           tabs +
-          (view.recordTab === "changes" && changesAvailable
-            ? changes
-            : `<div class="folds">${plan}${dod}${deps}${att}${origin}</div>`);
+          {
+            overview: `<div class="folds">${plan}${dod}${deps}${origin}</div>`,
+            changes,
+            attachments: attachmentsTab,
+          }[view.recordTab];
       }
 
       /* ===================== Conversation ===================== */
 
+      function shotSvg(key) {
+        const { columns, rows, marked } = SHOTS[key];
+        const width = 640 / columns.length;
+        const cell = (text, column, y, weight) =>
+          `<text x="${column * width + 8}" y="${y}" font-family="monospace" font-size="14" font-weight="${weight}" fill="#26261f">${esc(text)}</text>`;
+        const lines = rows
+          .map(
+            (row, index) =>
+              `<line x1="0" x2="640" y1="${100 + index * 56}" y2="${100 + index * 56}" stroke="#e4e4de"/>${row.map((text, column) => cell(text, column, 134 + index * 56, 400)).join("")}`,
+          )
+          .join("");
+        const highlight =
+          marked === undefined
+            ? ""
+            : `<rect x="${marked * width}" y="44" width="${width}" height="356" fill="#fff1c7"/>`;
+        return `<svg viewBox="0 0 640 400" role="img" aria-label="${esc(SHOTS[key].title)}"><rect width="640" height="400" fill="#fff"/><rect width="640" height="44" fill="#ecece6"/><circle cx="20" cy="22" r="5" fill="#c9c9c2"/><circle cx="38" cy="22" r="5" fill="#c9c9c2"/><circle cx="56" cy="22" r="5" fill="#c9c9c2"/>${highlight}<rect y="44" width="640" height="56" fill="#f6f6f2" opacity="0.7"/>${columns.map((text, column) => cell(text, column, 78, 600)).join("")}${lines}</svg>`;
+      }
+
+      const shotsHtml = (keys) =>
+        `<div class="shots">${keys.map((key) => `<button class="shot" data-action="open-shot" data-shot="${key}">${shotSvg(key)}<span>${esc(SHOTS[key].title)}</span></button>`).join("")}</div>`;
+
+      const factsHtml = (facts) =>
+        `<div class="facts">${facts.map(([value, label]) => `<div class="fact"><b>${value}</b>${esc(label)}</div>`).join("")}</div>`;
+
+      /** One thing that needs the user: what and why on the left, what to look at on the right when there's room. */
+      function askCard({ badge, who, place, body, side = "" }) {
+        return `<article class="ask ${side ? "has-side" : ""}">
+          <div class="ask-grid ${side ? "has-side" : ""}">
+            <div>
+              <div class="ask-kind">${badge}${who}<span class="grow"></span>${place}</div>
+              ${body}
+            </div>
+            ${side ? `<div>${side}</div>` : ""}
+          </div>
+        </article>`;
+      }
+
       function decisionCard(d) {
-        const asker = d.roleKey
-          ? `${avatar(d.roleKey, "sm")}<b style="color:var(--fg-1)">${personName(d.roleKey)}</b> asks`
-          : `${avatar(null, "sm")}<b style="color:var(--fg-1)">The Office</b> asks`;
         const t = threadById(d.threadId);
-        return `<div class="ask ${d.roleKey ? "" : "office"}">
-          <div class="ask-kind">${asker}<span>· Decision</span><span class="grow"></span><button class="linklike" style="font-size:11px" data-action="open-thread" data-thread="${d.threadId}">in ${esc(threadPlace(t))} · ${clock(d.askedAt)}</button></div>
-          <p class="ask-q">${esc(d.question)}</p>
-          <div class="ask-actions">${d.options.map((o, i) => `<button class="btn option ${i === d.recommendation.option ? "primary" : ""}" data-action="answer" data-decision="${d.id}" data-option="${i}">${esc(o)}${i === d.recommendation.option ? ' <span class="rec">Recommended</span>' : ""}</button>`).join("")}</div>
-          <details class="details"><summary>Context, why it's recommended, or your own answer</summary>
+        const side = d.screenshots ? shotsHtml(d.screenshots) : d.facts ? factsHtml(d.facts) : "";
+        return askCard({
+          badge: '<span class="badge warning">Decision</span>',
+          who: personTag(d.roleKey),
+          place: `<button class="linklike" data-action="open-thread" data-thread="${d.threadId}">in ${esc(threadPlace(t))} · ${clock(d.askedAt)}</button>`,
+          side,
+          body: `<p class="ask-q">${esc(d.question)}</p>
             <p class="ask-ctx">${esc(d.context)}</p>
-            <div class="why">${personName(d.roleKey)} recommends it: ${esc(d.recommendation.reason)}</div>
-            <div class="free"><input placeholder="Answer in your own words" aria-label="Your answer" /><button class="btn" data-action="answer" data-decision="${d.id}" data-option="free">Answer</button></div>
-          </details>
-        </div>`;
+            <div class="ask-actions">${d.options.map((o, i) => `<button class="btn option ${i === d.recommendation.option ? "primary" : ""}" data-action="answer" data-decision="${d.id}" data-option="${i}">${esc(o)}</button>`).join("")}</div>
+            <p class="why">${personLink(d.roleKey)} recommends “${esc(d.options[d.recommendation.option])}”: ${esc(d.recommendation.reason)}</p>
+            <div class="free"><input placeholder="Or answer in your own words" aria-label="Your answer" /><button class="btn" data-action="answer" data-decision="${d.id}" data-option="free">Answer</button></div>`,
+        });
       }
 
       function gateCard(ts) {
@@ -3602,88 +3971,137 @@ About 600k tokens over the whole Pipeline.`;
             s.runs.length &&
             !s.runs.every((r) => r.outcome && r.outcome.skipped),
         );
-        return `<div class="ask gate">
-          <div class="ask-kind">${avatar("you", "sm")}<b style="color:var(--fg-1)">Gate</b><span>· before Publish</span><span class="grow"></span><button class="linklike" style="font-size:11px" data-action="select-stage" data-stage="${ts.stage.key}">on the rail · ${clock(ts.runs[ts.runs.length - 1].startedAt)}</button></div>
-          <p class="ask-q">Look at the changes and let the work continue to Publish</p>
-          <p class="ask-ctx">${CHANGES.length} files · <span class="add">+${added}</span> <span class="del">−${removed}</span> · Tests passed · Definition of Done ${view.data.dodMet.length} of 6 checked · <button class="linklike" data-action="record-tab" data-tab="changes">Open Changes</button></p>
-          <div class="ask-actions">
-            <button class="btn accent" data-action="toast" data-text="Continue: Publish runs next.">Continue</button>
-            <button class="btn" data-action="send-back" aria-expanded="${view.sendBackOpen}">Send back…</button>
-            <button class="btn danger" data-action="toast" data-text="Drop Task asks you to confirm first.">Drop Task</button>
-          </div>
-          ${
-            view.sendBackOpen
-              ? `<div class="sendback">
-            <select aria-label="Send back to">${agentStages.map((s) => `<option>${esc(s.stage.name)} · ${PEOPLE[s.stage.role].name}</option>`).join("")}</select>
-            <textarea placeholder="Say what should change"></textarea>
-            <div><button class="btn primary xs" data-action="toast" data-text="Sends the work back with your feedback in the Stage's Brief.">Send back</button></div>
-          </div>`
-              : ""
-          }
-        </div>`;
+        return askCard({
+          badge: '<span class="badge accent">Gate</span>',
+          who: '<span class="muted">before Publish</span>',
+          place: `<button class="linklike" data-action="select-stage" data-stage="${ts.stage.key}">on the rail · ${clock(ts.runs[ts.runs.length - 1].startedAt)}</button>`,
+          side: factsHtml([
+            [CHANGES.length, "Files changed"],
+            [`<span class="add">+${added}</span> <span class="del">−${removed}</span>`, "Lines"],
+            ["Passed", "Tests"],
+            [`${view.data.dodMet.length} of 6`, "Definition of Done"],
+          ]),
+          body: `<p class="ask-q">Look at the changes and let the work continue to Publish</p>
+            <div class="ask-actions">
+              <button class="btn accent" data-action="toast" data-text="Continue: Publish runs next.">Continue</button>
+              <button class="btn" data-action="record-tab" data-tab="changes">Open Changes</button>
+              <button class="btn" data-action="send-back" aria-expanded="${view.sendBackOpen}">Send back…</button>
+              <button class="btn danger" data-action="toast" data-text="Drop Task asks you to confirm first.">Drop Task</button>
+            </div>
+            ${
+              view.sendBackOpen
+                ? `<div class="sendback">
+              <select aria-label="Send back to">${agentStages.map((s) => `<option>${esc(s.stage.name)} · ${PEOPLE[s.stage.role].name}</option>`).join("")}</select>
+              <textarea placeholder="Say what should change"></textarea>
+              <div><button class="btn primary xs" data-action="toast" data-text="Sends the work back with your feedback in the Stage's Brief.">Send back</button></div>
+            </div>`
+                : ""
+            }`,
+        });
       }
 
       function planningCards() {
-        return `<div class="ask">
-            <div class="ask-kind">${avatar("planner", "sm")}<b style="color:var(--fg-1)">Angela</b><span>· Plan and Definition of Done</span></div>
-            <p class="ask-q">Confirm the Plan and the Definition of Done</p>
-            <p class="ask-ctx">3 files to change · 6 statements · about 600k tokens</p>
-            <div class="ask-actions"><button class="btn primary" data-action="toast" data-text="Confirms both; the Task becomes Ready once the Pipeline is set.">Confirm both</button><button class="btn" data-action="open-fold" data-block="plan">Read the Plan</button></div>
-          </div>
-          <div class="ask">
-            <div class="ask-kind">${avatar("planner", "sm")}<b style="color:var(--fg-1)">Angela</b><span>· Pipeline</span></div>
-            <p class="ask-q">Angela proposes the Full Pipeline</p>
-            <p class="ask-ctx">${esc(view.data.task.proposedPipeline.reason)}</p>
-            <div class="ask-actions"><button class="btn primary" data-action="toast" data-text="Takes the Full Pipeline.">Take Full</button><button class="btn" data-action="toast" data-text="Keeps the Project's default, Quick fix.">Keep Quick fix</button></div>
-          </div>`;
+        const proposal = (place, question, context, actions) =>
+          askCard({
+            badge: '<span class="badge info">Proposal</span>',
+            who: personTag("planner"),
+            place: `<span class="faint">${place}</span>`,
+            body: `<p class="ask-q">${question}</p><p class="ask-ctx">${context}</p><div class="ask-actions">${actions}</div>`,
+          });
+        return (
+          proposal(
+            "Plan and Definition of Done",
+            "Confirm the Plan and the Definition of Done",
+            "3 files to change · 6 statements · about 600k tokens",
+            '<button class="btn primary" data-action="toast" data-text="Confirms both; the Task becomes Ready once the Pipeline is set.">Confirm both</button><button class="btn" data-action="open-fold" data-block="plan">Read the Plan</button>',
+          ) +
+          proposal(
+            "Pipeline",
+            "Angela proposes the Full Pipeline",
+            esc(view.data.task.proposedPipeline.reason),
+            '<button class="btn primary" data-action="toast" data-text="Takes the Full Pipeline.">Take Full</button><button class="btn" data-action="toast" data-text="Keeps the Project\'s default, Quick fix.">Keep Quick fix</button>',
+          )
+        );
+      }
+
+      function needsSummary(decisions, gate) {
+        const parts = [];
+        if (view.data.task.state === "planning") parts.push("Angela's proposals to confirm");
+        if (decisions.length)
+          parts.push(`${decisions.length} ${decisions.length === 1 ? "Decision" : "Decisions"}`);
+        if (gate) parts.push("the Gate before Publish");
+        return parts.join(" · ");
       }
 
       function renderNeeds() {
         const decisions = openDecisions();
         const gate = gateWaiting();
         const n = needsCount();
+        const section = $("needs");
+        section.classList.toggle("clear", n === 0);
         if (n === 0) {
           const words =
             view.data.task.state === "done"
               ? "Nothing needs you: this Task is Done."
               : "Nothing needs you right now. You'll see it here first.";
-          return `<div class="needs empty"><div class="nothing">${ICON.ok}${words}</div></div>`;
+          section.innerHTML = `<div class="nothing">${ICON.ok}${words}</div>`;
+          return;
         }
         const cards =
           (view.data.task.state === "planning" ? planningCards() : "") +
           decisions.map(decisionCard).join("") +
           (gate ? gateCard(gate) : "");
-        return `<div class="needs" role="region" aria-label="Needs you">
-          <div class="needs-head"><span class="count-pill">${n}</span><span class="title">Needs you</span><span class="grow"></span>
-            <button class="btn ghost xs" data-action="collapse-needs">${view.needsCollapsed ? "Show" : "Fold"}</button></div>
-          ${view.needsCollapsed ? "" : `<div class="needs-list">${cards}</div><div class="needs-more"><button class="btn xs" data-action="show-all-needs">${ICON.chev} More that needs you below</button></div>`}
-        </div>`;
+        section.innerHTML = `<header class="needs-head"><span class="count-pill">${n}</span><h2>Needs you</h2><span class="muted">${needsSummary(decisions, gate)}</span></header>
+          <div class="needs-list">${cards}</div>`;
+        $("needs-pin").innerHTML =
+          `<span class="count-pill">${n}</span><b>Needs you</b><span class="grow">${esc(section.querySelector(".ask-q").textContent)}</span><button class="btn xs" data-action="show-needs">Show</button>`;
       }
+
+      /** Tool calls and routine run lines: the noise the Details switch hides. A failed run always shows. */
+      const isDetail = (message) =>
+        message.kind === "tool" ||
+        (message.kind === "start" && !message.failedBefore) ||
+        (message.kind === "end" && !message.failedRun);
+
+      const visibleMessages = (t) =>
+        view.showDetails ? t.messages : t.messages.filter((m) => !isDetail(m));
 
       function messageHtml(msg, thread) {
         if (msg.kind === "say") {
-          return `<div class="msg ${msg.author === "you" ? "you" : ""}">${avatar(msg.author, "lg")}<div><div class="who"><b>${personName(msg.author)}</b><span>${clock(msg.at)}</span></div><div class="text">${markdown(msg.text)}</div></div></div>`;
+          return `<div class="message ${msg.author === "you" ? "mine" : ""}"><div class="message-by">${personTag(msg.author)}<span class="at">${clock(msg.at)}</span></div><div class="message-text">${markdown(msg.text)}</div></div>`;
         }
-        if (msg.kind === "tool") return `<div class="tool">› ${esc(msg.text)}</div>`;
+        if (msg.kind === "tool")
+          return `<div class="message-line">${ICON.wrench}<span class="message-summary">${esc(msg.text)}</span></div>`;
         if (msg.kind === "start")
-          return `<div class="divider ${msg.failedBefore ? "fail" : ""}">${esc(msg.text)}</div>`;
+          return `<div class="message-office ${msg.failedBefore ? "failed" : ""}">${esc(msg.text)}</div>`;
         if (msg.kind === "end")
-          return `<div class="divider ${msg.failedRun ? "fail" : ""}">${esc(msg.text)}</div>`;
+          return `<div class="message-office ${msg.failedRun ? "failed" : ""}">${esc(msg.text)}</div>`;
         if (msg.kind === "handover")
-          return `<div class="inline-card note"><span class="overline">Handover note · ${personName(thread.roleKey)}</span><div>${inline(msg.text)}</div></div>`;
+          return `<div class="message handover-note"><div class="message-by">${ICON.note}Handover note · ${personLink(thread.roleKey)}</div><div class="message-text">${inline(msg.text)}</div></div>`;
         if (msg.kind === "decision") {
           const d = decision(msg.decisionId);
+          const by = '<div class="message-by"><span class="badge warning">Decision</span></div>';
           if (d.answer === null)
-            return `<div class="inline-card"><span class="overline">Decision · waits on you</span><div><b>${esc(d.question)}</b></div><div class="faint" style="font-size:var(--text-xs);margin-top:2px">Answer it in Needs you, at the top.</div></div>`;
+            return `<div class="message decision-card">${by}<div class="message-text decision-question">${esc(d.question)}</div><p class="decision-hint">Waits on you. <button class="linklike" data-action="show-needs">Answer it in Needs you</button></p></div>`;
           const answer = d.answer.kind === "option" ? d.options[d.answer.option] : d.answer.text;
-          return `<div class="inline-card answered"><span class="overline">Decision · answered by you at ${clock(d.answeredAt)}</span><div>${esc(d.question)}</div><div style="margin-top:4px">${ICON.check.replace("<svg", '<svg width="12" height="12" style="color:var(--success);vertical-align:-1px"')} <b>${esc(answer)}</b></div></div>`;
+          return `<div class="message decision-card">${by}<div class="message-text decision-question">${esc(d.question)}</div><div class="decision-answered">${ICON.check.replace("<svg", '<svg width="12" height="12"')}<span>You answered at ${clock(d.answeredAt)}: <b>${esc(answer)}</b></span></div></div>`;
         }
         return "";
       }
 
-      const typingHtml = (t) =>
-        t.state === "answering"
-          ? `<div class="typing"><i></i><i></i><i></i>${personName(t.roleKey)} is working</div>`
+      function workingHtml(t) {
+        if (t.state !== "answering") return "";
+        const tools = t.messages.filter((m) => m.kind === "tool");
+        const latest = !view.showDetails && tools.length ? tools[tools.length - 1].text : "";
+        return `<div class="message-answering"><i></i><i></i><i></i>${personName(t.roleKey)} is working<span class="message-summary">${esc(latest)}</span></div>`;
+      }
+
+      const detailsSwitch = () =>
+        `<button class="switch-label" role="switch" aria-checked="${view.showDetails}" data-action="toggle-details" title="Tool calls and the lines that open and close a run">Details<span class="switch"></span></button>`;
+
+      const newMessagesPill = () =>
+        view.unread && readingLive()
+          ? `<button class="btn xs new-pill" data-action="to-latest">${view.unread} new ${view.unread === 1 ? "message" : "messages"}</button>`
           : "";
 
       function earlierThreads() {
@@ -3730,9 +4148,8 @@ About 600k tokens over the whole Pipeline.`;
                 ({
                   t,
                   run,
-                }) => `<button class="thread-line" data-action="open-thread" data-thread="${t.id}" aria-current="${view.viewingThreadId === t.id}">
-              ${avatar(t.roleKey, "sm")}<span class="who">${personName(t.roleKey)}</span>
-              <span class="grow">${run ? `Run ${run.number} · ` : ""}${outcomeWords(run)}</span><span class="when">${relative(t.startedAt)}</span></button>`,
+                }) => `<div class="thread-line" aria-current="${view.viewingThreadId === t.id}">${personTag(t.roleKey)}
+              <button class="thread-open" data-action="open-thread" data-thread="${t.id}"><span class="grow">${run ? `Run ${run.number} · ` : ""}${outcomeWords(run)}</span><span class="when">${relative(t.startedAt)}</span></button></div>`,
               )
               .join("")}`,
             )
@@ -3753,11 +4170,14 @@ About 600k tokens over the whole Pipeline.`;
             ? "Your message lands at the next safe point"
             : "Continues the session";
         return `<div class="composer">
-          <div class="to">To ${avatar(live.roleKey, "sm")}<span><b>${p.name} · ${p.role}</b>, in ${esc(place)}</span></div>
-          <div class="compose-box"><textarea placeholder="Write to ${p.name}…" aria-label="Message to ${p.name}"></textarea><button class="btn primary" data-action="toast" data-text="Sends your message to ${p.name}.">Send</button></div>
+          <div class="to">To ${personTag(live.roleKey, "sm", `${p.name} · ${p.role}`)}<span class="to-place">, in ${esc(place)}</span></div>
+          <div class="compose-box"><textarea placeholder="Write to ${p.name}…" aria-label="Message to ${p.name}"></textarea><button class="btn ghost icon" aria-label="Mention someone" data-action="toast" data-text="Opens the @ picker.">${ICON.at}</button><button class="btn primary icon" aria-label="Send" data-action="toast" data-text="Sends your message to ${p.name}.">${ICON.send}</button></div>
           <div class="context-label">${note} · ${kTokens(live.context.contextTokens)} tokens of context · cache warm</div>
         </div>`;
       }
+
+      const liveBadge = () =>
+        '<span class="badge accent"><span class="dot live"></span>Live</span>';
 
       function renderThreadsConcept() {
         const live = view.data.liveThreadId ? threadById(view.data.liveThreadId) : null;
@@ -3768,12 +4188,14 @@ About 600k tokens over the whole Pipeline.`;
           header = `<div class="thread-head" style="border-top:1px solid var(--border)"><span class="grow"><span class="name">No Thread is live</span><div class="sub">The Pipeline has ended; open an earlier Thread above to read it.</div></span></div>`;
         } else if (readOnly || !live) {
           header = `${live ? `<div class="readonly-bar"><span class="grow">Reading an earlier Thread. It's read-only.</span><button class="btn xs" data-action="back-to-live"><span class="dot live"></span>Back to live${view.unread ? ` <span class="unread">${view.unread}</span>` : ""}</button></div>` : ""}
-            <div class="thread-head">${avatar(viewing.roleKey, "lg")}<span class="grow"><span class="name">${personLabel(viewing.roleKey)}</span><div class="sub">${esc(threadPlace(viewing))} · ${kTokens(sumTokens(viewing.tokens))} tokens · started ${clock(viewing.startedAt)}</div></span>${live ? "" : '<button class="btn ghost xs" data-action="close-thread">Close</button>'}</div>`;
+            <div class="thread-head">${personTag(viewing.roleKey, "lg", personLabel(viewing.roleKey))}<span class="grow"><div class="sub">${esc(threadPlace(viewing))} · ${kTokens(sumTokens(viewing.tokens))} tokens · started ${clock(viewing.startedAt)}</div></span>${detailsSwitch()}${live ? "" : '<button class="btn ghost xs" data-action="close-thread">Close</button>'}</div>`;
         } else {
-          header = `<div class="thread-head">${avatar(live.roleKey, "lg")}<span class="grow"><span class="name">${personLabel(live.roleKey)}</span><div class="sub">${esc(threadPlace(live))} · ${kTokens(sumTokens(live.tokens))} tokens</div></span><span class="live-badge"><span class="dot live"></span>Live</span></div>`;
+          header = `<div class="thread-head">${personTag(live.roleKey, "lg", personLabel(live.roleKey))}<span class="grow"><div class="sub">${esc(threadPlace(live))} · ${kTokens(sumTokens(live.tokens))} tokens</div></span>${detailsSwitch()}${liveBadge()}</div>`;
         }
         const body = viewing
-          ? `<div class="messages" id="messages">${viewing.messages.map((m) => messageHtml(m, viewing)).join("")}${typingHtml(viewing)}</div>`
+          ? `<div class="message-list" id="messages">${visibleMessages(viewing)
+              .map((m) => messageHtml(m, viewing))
+              .join("")}${workingHtml(viewing)}${newMessagesPill()}</div>`
           : "";
         const foot = readOnly
           ? `<div class="composer"><div class="ended">Read-only: this Thread's run has ended. <button class="linklike" data-action="back-to-live">Back to live</button> to write to ${personName(live.roleKey)}.</div></div>`
@@ -3790,16 +4212,22 @@ About 600k tokens over the whole Pipeline.`;
           .map((t) => {
             const found = stageOfThread(t.id);
             const isLive = live && t.id === live.id;
-            return `<div class="segment ${isLive ? "live" : "past"}" id="seg-${t.id}">
-            <div class="segment-head">${avatar(t.roleKey, "sm")}<b style="color:var(--fg-1)">${personName(t.roleKey)}</b><span>${esc(threadPlace(t))}</span><span class="grow"></span>
+            return `<div class="segment" id="seg-${t.id}">
+            <div class="segment-head">${personTag(t.roleKey)}<span>${esc(threadPlace(t))}</span><span class="grow"></span>
               ${found ? `<button class="stage-chip" data-action="select-stage" data-stage="${found.taskStage.stage.key}">◆ rail</button>` : ""}
-              ${isLive ? '<span class="live-badge"><span class="dot live"></span>Live</span>' : `<span class="faint">${outcomeWords(found ? found.run : null)}</span>`}</div>
-            <div style="display:flex;flex-direction:column;gap:10px;padding-top:10px">${t.messages.map((m) => messageHtml(m, t)).join("")}${typingHtml(t)}</div>
+              ${isLive ? liveBadge() : `<span class="faint">${outcomeWords(found ? found.run : null)}</span>`}</div>
+            <div class="segment-body">${visibleMessages(t)
+              .map((m) => messageHtml(m, t))
+              .join("")}${workingHtml(t)}</div>
           </div>`;
           })
           .join("");
-        const header = `<div class="thread-head"><span class="grow"><span class="name">One timeline</span><div class="sub">Every Thread of this Task in order; the live one last</div></span>${live ? `<span class="live-badge"><span class="dot live"></span>${personName(live.roleKey)} live</span>` : ""}</div>`;
-        return header + `<div class="messages" id="messages">${segments}</div>` + composer(live);
+        const header = `<div class="thread-head"><span class="grow"><span class="name">Conversation</span><div class="sub">Every Thread of this Task in order, the newest last</div></span>${detailsSwitch()}</div>`;
+        return (
+          header +
+          `<div class="message-list" id="messages">${segments}${newMessagesPill()}</div>` +
+          composer(live)
+        );
       }
 
       function renderConversation() {
@@ -3810,28 +4238,34 @@ About 600k tokens over the whole Pipeline.`;
           previous.dataset.thread === `${view.scenario}/${view.concept}/${view.viewingThreadId}`
             ? previous.scrollTop
             : null;
-        const close = `<div class="drawer-close" style="justify-content:flex-end;padding:6px 8px 0"><button class="btn ghost xs" data-action="close-drawer" aria-label="Close the conversation">${ICON.close}</button></div>`;
+        const close = `<div class="drawer-close" style="justify-content:flex-end;padding:6px 8px 0"><button class="btn ghost xs icon" data-action="close-drawer" aria-label="Close the conversation">${ICON.close}</button></div>`;
         conversation.innerHTML =
-          close +
-          renderNeeds() +
-          (view.concept === "threads" ? renderThreadsConcept() : renderTimelineConcept());
+          close + (view.concept === "threads" ? renderThreadsConcept() : renderTimelineConcept());
         const messages = $("messages");
         if (messages) {
           messages.dataset.thread = `${view.scenario}/${view.concept}/${view.viewingThreadId}`;
           messages.scrollTop = keepScroll !== null ? keepScroll : messages.scrollHeight;
+          messages.addEventListener("scroll", clearUnreadAtEnd, { passive: true });
         }
 
-        const needs = conversation.querySelector(".needs");
-        if (needs) needs.addEventListener("scroll", updateNeedsCue, { passive: true });
-        requestAnimationFrame(updateNeedsCue);
-
-        const n = needsCount();
         $("drawer-handle").innerHTML =
-          `${ICON.chat}Conversation${view.data.liveThreadId ? ' <span class="dot live"></span>' : ""}${view.unread ? ` <span class="unread">${view.unread}</span>` : ""}${n ? ` <span class="count-pill">${n}</span>` : ""}`;
+          `${ICON.chat}Conversation${view.data.liveThreadId ? ' <span class="dot live"></span>' : ""}${view.unread ? ` <span class="unread">${view.unread}</span>` : ""}`;
       }
 
       const readingLive = () => view.concept === "timeline" || !view.viewingThreadId;
       const drawerClosed = () => isNarrow() && !view.drawerOpen;
+
+      function messagesAtEnd() {
+        const messages = $("messages");
+        return messages && messages.scrollHeight - messages.scrollTop - messages.clientHeight < 40;
+      }
+
+      function clearUnreadAtEnd() {
+        if (view.unread && readingLive() && !drawerClosed() && messagesAtEnd()) {
+          view.unread = 0;
+          renderConversation();
+        }
+      }
 
       /** Running scenario: new messages arrive in the live Thread; while you read another or the drawer is closed, they count as unread. */
       function startLiveScript() {
@@ -3845,15 +4279,15 @@ About 600k tokens over the whole Pipeline.`;
             return;
           }
           const live = threadById(view.data.liveThreadId);
-          live.messages.push({ ...script[next], at: new Date(NOW).toISOString() });
+          const message = { ...script[next], at: new Date(NOW).toISOString() };
+          live.messages.push(message);
           next += 1;
-          if (!readingLive() || drawerClosed()) view.unread += 1;
-          const messages = $("messages");
-          const atBottom =
-            messages && messages.scrollHeight - messages.scrollTop - messages.clientHeight < 40;
+          const atEnd = messagesAtEnd();
+          const shown = view.showDetails || !isDetail(message);
+          if (shown && (!readingLive() || drawerClosed() || !atEnd)) view.unread += 1;
           renderConversation();
           // Only follow new messages when already at the end; never jump the page.
-          if (readingLive() && atBottom) $("messages").scrollTop = $("messages").scrollHeight;
+          if (readingLive() && atEnd) $("messages").scrollTop = $("messages").scrollHeight;
         }, 6000);
       }
 
@@ -3864,6 +4298,7 @@ About 600k tokens over the whole Pipeline.`;
         renderRail();
         renderHistory();
         renderRecord();
+        renderNeeds();
         // Sized before it's filled, so a Thread opens at its newest message.
         fitConversation();
         renderConversation();
@@ -3875,40 +4310,31 @@ About 600k tokens over the whole Pipeline.`;
        * composer is always in view; it grows to the full height as the page scrolls. Narrow: a drawer.
        */
       function fitConversation() {
+        updateNeedsPin();
         const conversation = $("conversation");
         if (isNarrow()) {
           conversation.style.height = "";
-          updateNeedsCue();
           return;
         }
         const scroller = $("scroller");
         const top = conversation.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
-        const messages = $("messages");
-        const atEnd =
-          messages && messages.scrollHeight - messages.scrollTop - messages.clientHeight < 40;
-        conversation.style.height = `${Math.max(420, scroller.clientHeight - Math.max(top, 12) - 16)}px`;
-        if (atEnd) messages.scrollTop = messages.scrollHeight;
-        updateNeedsCue();
+        const stuckAt = parseFloat(getComputedStyle(conversation).top);
+        const atEnd = messagesAtEnd();
+        conversation.style.height = `${Math.max(420, scroller.clientHeight - Math.max(top, stuckAt) - 16)}px`;
+        if (atEnd) $("messages").scrollTop = $("messages").scrollHeight;
       }
 
-      function updateNeedsCue() {
-        const needs = document.querySelector(".needs:not(.empty)");
-        if (!needs) return;
-        const hiddenBelow = needs.scrollHeight - needs.scrollTop - needs.clientHeight > 4;
-        needs.classList.toggle("overflowing", hiddenBelow);
-      }
-
-      /** Wide: scrolls the page until the column has the whole window; then whatever is left scrolls into view. */
-      function showAllNeeds() {
+      /** Shows the slim bar while the Needs you card is above or below the window, at the edge it went past. */
+      function updateNeedsPin() {
+        const pin = $("needs-pin");
         const scroller = $("scroller");
-        if (!isNarrow()) {
-          const top =
-            $("conversation").getBoundingClientRect().top - scroller.getBoundingClientRect().top;
-          scroller.scrollTop += top - 12;
-          fitConversation();
-        }
-        const needs = document.querySelector(".needs");
-        needs.scrollTo({ top: needs.scrollHeight, behavior: "smooth" });
+        const area = scroller.getBoundingClientRect();
+        const card = $("needs").getBoundingClientRect();
+        const above = card.bottom < area.top + 72;
+        const below = card.top > area.bottom - 96;
+        pin.hidden = needsCount() === 0 || !(above || below);
+        pin.classList.toggle("below", below);
+        scroller.style.setProperty("--pin-room", !pin.hidden && above ? "52px" : "0px");
       }
 
       function loadScenario(key) {
@@ -3917,9 +4343,8 @@ About 600k tokens over the whole Pipeline.`;
         view.selectedStage = null;
         view.viewingThreadId = null;
         view.unread = 0;
-        view.recordTab = "record";
+        view.recordTab = "overview";
         view.sendBackOpen = false;
-        view.needsCollapsed = false;
         view.earlierOpen = view.data.liveThreadId === null;
         renderSwitches();
         renderAll();
@@ -3945,8 +4370,8 @@ About 600k tokens over the whole Pipeline.`;
         segmented(
           "concept-switch",
           [
-            ["threads", "Threads"],
             ["timeline", "One timeline"],
+            ["threads", "Threads"],
           ],
           view.concept,
           "concept",
@@ -4034,7 +4459,7 @@ About 600k tokens over the whole Pipeline.`;
           const remembered = store.get(key, {});
           remembered[el.dataset.block] = true;
           store.set(key, remembered);
-          view.recordTab = "record";
+          view.recordTab = "overview";
           renderRecord();
           view.drawerOpen = false;
           $("viewport").classList.remove("drawer-open");
@@ -4068,18 +4493,36 @@ About 600k tokens over the whole Pipeline.`;
           view.viewingThreadId = null;
           renderConversation();
         },
-        "show-all-needs": showAllNeeds,
+        "show-needs": () => {
+          view.drawerOpen = false;
+          $("viewport").classList.remove("drawer-open");
+          $("needs").scrollIntoView({ block: "start", behavior: "smooth" });
+        },
+        "to-latest": () => {
+          view.unread = 0;
+          renderConversation();
+          $("messages").scrollTop = $("messages").scrollHeight;
+        },
+        "toggle-details": () => {
+          view.showDetails = !view.showDetails;
+          store.set("showDetails", view.showDetails);
+          renderConversation();
+        },
+        person: (el) => toast(`Opens ${personName(el.dataset.role)}'s page.`),
+        "open-shot": (el) => {
+          const lightbox = $("lightbox");
+          lightbox.innerHTML = `<div class="lightbox-head">${esc(SHOTS[el.dataset.shot].title)}<button class="btn ghost xs icon" data-action="close-shot" aria-label="Close the screenshot">${ICON.close}</button></div>${shotSvg(el.dataset.shot)}`;
+          lightbox.showModal();
+        },
+        "close-shot": () => $("lightbox").close(),
         "toggle-earlier": () => {
           view.earlierOpen = !view.earlierOpen;
           renderConversation();
         },
-        "collapse-needs": () => {
-          view.needsCollapsed = !view.needsCollapsed;
-          renderConversation();
-        },
         "send-back": () => {
           view.sendBackOpen = !view.sendBackOpen;
-          renderConversation();
+          renderNeeds();
+          fitConversation();
         },
         answer: (el) => {
           const d = decision(el.dataset.decision);
@@ -4113,11 +4556,11 @@ About 600k tokens over the whole Pipeline.`;
         renderRail();
         renderHistory();
         fitConversation();
-        revealNode(next).focus({ preventScroll: true });
+        focusNode(next);
       }
 
       document.addEventListener("click", (event) => {
-        const node = event.target.closest(".node, .arc-label");
+        const node = event.target.closest(".node-hit, .arc-label");
         if (node) {
           selectStage(node.dataset.stage);
           return;
@@ -4130,7 +4573,7 @@ About 600k tokens over the whole Pipeline.`;
 
       document.addEventListener("keydown", (event) => {
         const typing = event.target.closest("input, textarea, select");
-        if (typing) return;
+        if (typing || $("lightbox").open) return;
         if (event.key === "Escape") {
           if (view.drawerOpen) ACTIONS["close-drawer"]();
           else if (view.selectedStage) ACTIONS["close-history"]();
@@ -4152,6 +4595,9 @@ About 600k tokens over the whole Pipeline.`;
         fitConversation();
       }).observe($("viewport"));
       $("scroller").addEventListener("scroll", fitConversation, { passive: true });
+      $("lightbox").addEventListener("click", (event) => {
+        if (event.target === event.currentTarget) event.currentTarget.close();
+      });
 
       view.palette = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
       document.documentElement.dataset.theme = view.palette;
