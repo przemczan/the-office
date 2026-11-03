@@ -5,6 +5,7 @@ import type {
   Now,
   NeedsYouItem,
   RunningTask,
+  UsageWindow,
 } from "../../domain/now.js";
 
 export function toNowResponse(now: Now): NowResponse {
@@ -20,13 +21,20 @@ export function toNowResponse(now: Now): NowResponse {
     tokensToday: now.tokensToday,
     tasksTouched: now.tasksTouched,
     desks: now.desks,
-    fiveHourWindows: now.fiveHourWindows.map(({ engineId, percentUsed, resetsAt }) => ({
+    usageWindows: now.usageWindows.map(({ engineId, fiveHour, sevenDay }) => ({
       engineId,
-      percentUsed,
-      resetsAt: resetsAt?.toISOString() ?? null,
+      fiveHour: toUsageWindowResponse(fiveHour),
+      sevenDay: toUsageWindowResponse(sevenDay),
     })),
     fireAlarm: now.fireAlarm ? toFireAlarmResponse(now.fireAlarm) : null,
   };
+}
+
+function toUsageWindowResponse({
+  percentUsed,
+  resetsAt,
+}: UsageWindow): NowResponse["usageWindows"][number]["fiveHour"] {
+  return { percentUsed, resetsAt: resetsAt?.toISOString() ?? null };
 }
 
 function toNeedsYouResponse(item: NeedsYouItem): NowResponse["needsYou"][number] {

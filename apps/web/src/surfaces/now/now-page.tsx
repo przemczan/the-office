@@ -18,7 +18,7 @@ import { PAUSED_BY_THE_ALARM } from "../../shell/fire-alarm/fire-alarm-words.ts"
 import { Desk, Feed, Panel, PanelHeading } from "../../shell/desk.tsx";
 import { EmptyCard, ItemCard } from "../../shell/item-card.tsx";
 import { NeedsYouFeed } from "../../shell/notifications/needs-you-feed.tsx";
-import { useFiveHourWindows } from "../../shell/notifications/use-five-hour-windows.ts";
+import { useUsageWindows } from "../../shell/notifications/use-usage-windows.ts";
 import { useNeedsYou } from "../../shell/notifications/use-needs-you.ts";
 import {
   desksWords,
@@ -26,6 +26,7 @@ import {
   inStageWords,
   OUTCOME_EDGES,
   OUTCOME_NAMES,
+  percentWords,
   OUTCOME_TONES,
   sinceWords,
 } from "../../shell/notifications/now-words.ts";
@@ -285,14 +286,14 @@ function FinishedCard({
 }
 
 function TodaysTokens({ now }: { readonly now: Now }): ReactNode {
-  const fiveHourWindows = useFiveHourWindows(now);
+  const usageWindows = useUsageWindows(now);
   return (
     <p className="now-tokens">
       <TokenCount tokens={now.tokensToday} label="tokens today" strong />
-      {fiveHourWindows.map((fiveHour) => (
-        <Fragment key={fiveHour.engineId}>
+      {usageWindows.map((windows) => (
+        <Fragment key={windows.engineId}>
           {" "}
-          · <b>{Math.round(fiveHour.percentUsed)}%</b> of {fiveHourWindowName(fiveHour)}
+          · <b>{percentWords(windows.fiveHour)}</b> of {fiveHourWindowName(windows)}
         </Fragment>
       ))}
     </p>

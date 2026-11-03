@@ -14,7 +14,7 @@ function nowWith(parts: Pick<Now, "needsYou" | "running">): Now {
     tokensToday: NO_TOKENS,
     tasksTouched: 0,
     desks: { inUse: parts.running.length, limit: 3 },
-    fiveHourWindows: [],
+    usageWindows: [],
     fireAlarm: undefined,
   };
 }

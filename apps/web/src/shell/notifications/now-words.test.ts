@@ -5,9 +5,14 @@ import {
   doneSinceYouLeft,
   fiveHourWindowName,
   inStageWords,
-  namedFiveHourWindows,
+  namedUsageWindows,
   needsYouWords,
+  resetMomentWords,
   sinceWords,
+  usageFigureLabel,
+  usageFigureWords,
+  type NamedUsageWindows,
+  type UsageFigurePart,
 } from "./now-words.ts";
 
 describe("needsYouWords", () => {
@@ -61,24 +66,39 @@ describe("doneSinceYouLeft", () => {
   });
 });
 
-const reading = (engineId: string, percentUsed: number) => ({
-  engineId,
-  percentUsed,
-  resetsAt: null,
+describe("resetMomentWords", () => {
+  const now = new Date(2026, 9, 27, 9, 30);
+
+  it("shows the clock for a reset today, and the day for one on another", () => {
+    expect(resetMomentWords(new Date(2026, 9, 27, 14, 20).toISOString(), now)).toBe("resets 14:20");
+    expect(resetMomentWords(new Date(2026, 9, 30, 9, 0).toISOString(), now)).toBe(
+      "resets 30 Oct, 09:00",
+    );
+  });
+
+  it("says nothing while the window has not begun", () => {
+    expect(resetMomentWords(null, now)).toBeUndefined();
+  });
 });
 
-describe("namedFiveHourWindows", () => {
+const reading = (engineId: string, percentUsed: number) => ({
+  engineId,
+  fiveHour: { percentUsed, resetsAt: null },
+  sevenDay: { percentUsed: 17, resetsAt: null },
+});
+
+describe("namedUsageWindows", () => {
   const engines = [
     { id: "home", name: "Home account" },
     { id: "work", name: "Work account" },
   ];
 
   it("names each window and orders them as the engines are listed, an unlisted one last", () => {
-    const named = namedFiveHourWindows(
+    const named = namedUsageWindows(
       [reading("removed", 5), reading("work", 40), reading("home", 70)],
       engines,
     );
-    expect(named.map(({ engineName, percentUsed }) => [engineName, percentUsed])).toEqual([
+    expect(named.map(({ engineName, fiveHour }) => [engineName, fiveHour.percentUsed])).toEqual([
       ["Home account", 70],
       ["Work account", 40],
       ["removed", 5],
@@ -90,7 +110,55 @@ describe("namedFiveHourWindows", () => {
     ]);
   });
 
-  it("leaves out an engine not read yet", () => {
-    expect(namedFiveHourWindows([], engines)).toEqual([]);
+  it("leaves out an engine with no windows read, such as the OpenAI-compatible API", () => {
+    expect(namedUsageWindows([], engines)).toEqual([]);
+    expect(
+      namedUsageWindows([reading("work", 40)], engines).map(({ engineId }) => engineId),
+    ).toEqual(["work"]);
+  });
+});
+
+describe("usageFigureWords", () => {
+  const named = (engineName: string, percentUsed: number): NamedUsageWindows => ({
+    ...reading(engineName, percentUsed),
+    engineName,
+  });
+  const shown = (parts: readonly UsageFigurePart[]): string =>
+    parts
+      .map(({ before, figure, after }) => [before, figure, after].filter(Boolean).join(" "))
+      .join(" · ");
+
+  it("shows nothing until an engine is read", () => {
+    expect(usageFigureWords([])).toEqual([]);
+  });
+
+  it("shows one engine's two windows, rounded", () => {
+    expect(shown(usageFigureWords([named("Home", 41.6)]))).toBe("5h 42% · 7d 17%");
+  });
+
+  it("shows two or three engines' 5-hour windows in their order, each by its engine", () => {
+    const parts = usageFigureWords([named("Home", 42), named("Work", 80), named("Spare", 12)]);
+
+    expect(shown(parts)).toBe("5h 42% · 80% · 12%");
+    expect(parts.map(({ engineName }) => engineName)).toEqual(["Home", "Work", "Spare"]);
+    expect(shown(usageFigureWords([named("Home", 42), named("Work", 80)]))).toBe("5h 42% · 80%");
+  });
+
+  it("shows the highest 5-hour window and a count from four engines", () => {
+    const windows = [10, 80, 30, 20, 79.4].map((percent, index) => named(`E${index}`, percent));
+
+    expect(shown(usageFigureWords(windows))).toBe("5h 80% max · 5 engines");
+    expect(shown(usageFigureWords(windows.slice(0, 4)))).toBe("5h 80% max · 4 engines");
+  });
+});
+
+describe("usageFigureLabel", () => {
+  it("names every engine's 5-hour window", () => {
+    const windows = [
+      { ...reading("home", 42), engineName: "Home account" },
+      { ...reading("work", 80), engineName: "Work account" },
+    ];
+
+    expect(usageFigureLabel(windows)).toBe("5-hour window: Home account 42%, Work account 80%");
   });
 });

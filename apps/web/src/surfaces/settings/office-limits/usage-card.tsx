@@ -154,18 +154,15 @@ function EngineCapsFields({
   );
 }
 
-/**
- * The engine's 5-hour window as it last read it, as the status strip shows it; Now carries no
- * 7-day window.
- */
+/** The engine's 5-hour window as it last read it. */
 function WindowsUse({ engineId }: { readonly engineId: EngineId }): ReactNode {
   const now = useQuery(nowQueries.now());
   if (!now.data) return null;
-  const fiveHour = now.data.fiveHourWindows.find((each) => each.engineId === engineId);
-  return <p className="settings-note">{fiveHourWords(fiveHour)}</p>;
+  const windows = now.data.usageWindows.find((each) => each.engineId === engineId);
+  return <p className="settings-note">{fiveHourWords(windows?.fiveHour)}</p>;
 }
 
-function fiveHourWords(fiveHour: Now["fiveHourWindows"][number] | undefined): string {
+function fiveHourWords(fiveHour: Now["usageWindows"][number]["fiveHour"] | undefined): string {
   if (!fiveHour) return "The 5-hour window hasn't been read yet: it is read as each Stage runs.";
   const resets = resetWords(fiveHour.resetsAt);
   return `The 5-hour window: ${Math.round(fiveHour.percentUsed)}% used${resets ? ` · ${resets}` : ""}`;

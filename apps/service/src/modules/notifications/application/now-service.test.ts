@@ -121,8 +121,12 @@ describe("NowService", () => {
     const usage = app.get(AccountUsageForTests).readingsByEngine;
     usage.set("claude-code", {
       fiveHour: { percentUsed: 42, resetsAt: new Date("2026-10-27T12:00:00Z") },
+      sevenDay: { percentUsed: 17, resetsAt: new Date("2026-10-30T09:00:00Z") },
     });
-    usage.set("work-account", { fiveHour: { percentUsed: 0, resetsAt: undefined } });
+    usage.set("work-account", {
+      fiveHour: { percentUsed: 0, resetsAt: undefined },
+      sevenDay: { percentUsed: 5, resetsAt: new Date("2026-11-01T09:00:00Z") },
+    });
 
     const now = await readNow();
 
@@ -150,9 +154,17 @@ describe("NowService", () => {
       },
     ]);
     expect(now.desks).toEqual({ inUse: 1, limit: 4 });
-    expect(now.fiveHourWindows).toEqual([
-      { engineId: "claude-code", percentUsed: 42, resetsAt: "2026-10-27T12:00:00.000Z" },
-      { engineId: "work-account", percentUsed: 0, resetsAt: null },
+    expect(now.usageWindows).toEqual([
+      {
+        engineId: "claude-code",
+        fiveHour: { percentUsed: 42, resetsAt: "2026-10-27T12:00:00.000Z" },
+        sevenDay: { percentUsed: 17, resetsAt: "2026-10-30T09:00:00.000Z" },
+      },
+      {
+        engineId: "work-account",
+        fiveHour: { percentUsed: 0, resetsAt: null },
+        sevenDay: { percentUsed: 5, resetsAt: "2026-11-01T09:00:00.000Z" },
+      },
     ]);
   });
 

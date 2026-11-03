@@ -1,15 +1,8 @@
 import type { MenuItem, MenuProps } from "@the-office/ui";
-import {
-  useCallback,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useCallback, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { menuPlacement } from "./menu-placement.ts";
 import { useClosedFromOutside } from "./use-closed-from-outside.ts";
+import { usePlacedList } from "./use-placed-list.ts";
 
 /**
  * The design system's Menu, its list drawn on the page's body, fixed to the window, so a scrolling
@@ -80,37 +73,4 @@ function FloatingMenuItem({
       {item.shortcut && <kbd>{item.shortcut}</kbd>}
     </button>
   );
-}
-
-/**
- * Places the open list where `menuPlacement` says, measured and set on the element before it paints
- * (the list is hidden until then, `.floating-menu`), and again as the page scrolls or the window
- * resizes, since the list is fixed to the window and its trigger moves.
- */
-function usePlacedList(
-  open: boolean,
-  anchor: RefObject<HTMLDivElement | null>,
-  list: RefObject<HTMLDivElement | null>,
-  align: "start" | "end",
-): void {
-  useLayoutEffect(() => {
-    const trigger = anchor.current;
-    const element = list.current;
-    if (!open || !trigger || !element) return;
-    const place = (): void => {
-      const viewport = { width: window.innerWidth, height: window.innerHeight };
-      const size = { width: element.offsetWidth, height: element.offsetHeight };
-      const { top, left } = menuPlacement(trigger.getBoundingClientRect(), size, viewport, align);
-      element.style.setProperty("top", `${top}px`);
-      element.style.setProperty("left", `${left}px`);
-      element.style.setProperty("visibility", "visible");
-    };
-    place();
-    window.addEventListener("scroll", place, true);
-    window.addEventListener("resize", place);
-    return () => {
-      window.removeEventListener("scroll", place, true);
-      window.removeEventListener("resize", place);
-    };
-  }, [open, align, anchor, list]);
 }

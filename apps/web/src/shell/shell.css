@@ -234,6 +234,7 @@ body,
 }
 
 .shell-strip-needs-you,
+.shell-strip-usage,
 .shell-strip-action {
   padding: 4px 8px;
   margin: 0 -8px;
@@ -254,6 +255,7 @@ body,
 }
 
 .shell-strip-needs-you:hover,
+.shell-strip-usage:hover,
 .shell-strip-action:hover {
   background: var(--surface-sunken);
 }
@@ -281,6 +283,40 @@ body,
   display: block;
   height: 100%;
   background: var(--fg-3);
+}
+
+/* The list under the usage figure; `.floating-menu` draws and places it. */
+.shell-usage-list {
+  font: var(--type-body-sm);
+  color: var(--fg-2);
+  white-space: nowrap;
+}
+
+.shell-usage-list ul {
+  display: grid;
+  margin: 0;
+  padding: 0 8px;
+  list-style: none;
+}
+
+.shell-usage-list li {
+  display: grid;
+  gap: 2px;
+  padding: 8px 0;
+}
+
+.shell-usage-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.shell-usage-list b {
+  color: var(--fg-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.shell-usage-engine {
+  color: var(--fg-1);
+  font-weight: 600;
 }
 
 /* ---- page */

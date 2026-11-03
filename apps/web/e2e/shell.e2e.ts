@@ -2,8 +2,8 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { expect, test, type WebSocketRoute } from "@playwright/test";
-import type { Notification } from "@the-office/contracts";
+import { expect, test, type Page, type WebSocketRoute } from "@playwright/test";
+import type { Engine, EngineSettings, Notification, Now } from "@the-office/contracts";
 import { desktopShown, focusTab, recordDesktopNotifications } from "./desktop-notifications.ts";
 
 /** Saved on every run, for a person to compare with the click-through's. */
@@ -172,6 +172,151 @@ test.describe("the rail's toggle", () => {
     await expect(page.getByRole("tooltip")).toHaveText("Work");
     await page.reload();
     await expect(expand).toBeVisible();
+  });
+});
+
+test.describe("the usage figure", () => {
+  test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
+
+  const RESETS_AT = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  const claudeCode = (id: string, name: string): Engine => ({
+    id,
+    name,
+    kind: "claude-code",
+    defaultModel: "claude-sonnet-5-5",
+    claudeCodeP: false,
+  });
+  /** Listed in Settings › Engines, it has no usage windows, so the service reads none. */
+  const API_ENGINE: Engine = {
+    id: "local-models",
+    name: "Local models",
+    kind: "openai-compatible-api",
+    defaultModel: "a-model",
+    baseUrl: "https://models.example.test/v1",
+    keySet: true,
+    models: [{ id: "a-model", contextWindow: 100_000 }],
+  };
+  const windowsOf = (engineId: string, fiveHour: number): Now["usageWindows"][number] => ({
+    engineId,
+    fiveHour: { percentUsed: fiveHour, resetsAt: RESETS_AT },
+    sevenDay: { percentUsed: 17, resetsAt: RESETS_AT },
+  });
+
+  /** The engines as Settings › Engines lists them, and their windows as they were first read. */
+  async function stubEngines(
+    page: Page,
+    engines: readonly Engine[],
+    usageWindows: Now["usageWindows"],
+  ): Promise<void> {
+    await page.route(/\/api\/settings\/engines$/, async (route) => {
+      const settings = (await (await route.fetch()).json()) as EngineSettings;
+      await route.fulfill({ json: { ...settings, engines } });
+    });
+    await page.route(/\/api\/now$/, async (route) => {
+      const now = (await (await route.fetch()).json()) as Now;
+      await route.fulfill({ json: { ...now, usageWindows } });
+    });
+  }
+
+  test("one engine shows both windows, the meter and the reset, and opens nothing", async ({
+    page,
+  }) => {
+    await stubEngines(
+      page,
+      [claudeCode("home", "Home account"), API_ENGINE],
+      [windowsOf("home", 42)],
+    );
+    await page.goto("/now");
+    const strip = page.getByRole("status", { name: "Status strip" });
+
+    await expect(strip).toContainText("5h 42% · 7d 17%");
+    await expect(strip).toContainText(/resets \d\d:\d\d|resets \d+ \w+, \d\d:\d\d/);
+    await expect(strip.locator(".shell-strip-meter")).toBeVisible();
+    await expect(strip.getByRole("button", { name: /5-hour window/ })).toHaveCount(0);
+
+    await page.screenshot({ path: path.join(SCREENSHOTS, "usage-figure-one-engine.png") });
+
+    await strip.getByText("5h 42%").click();
+    await expect(page.getByRole("dialog", { name: "Usage by engine" })).toHaveCount(0);
+  });
+
+  test("the Now page and Office limits keep showing each engine's 5-hour window", async ({
+    page,
+  }) => {
+    // Office limits lists the real engine's caps, so the reading is that engine's.
+    await stubEngines(
+      page,
+      [claudeCode("claude-code", "Home account")],
+      [windowsOf("claude-code", 42)],
+    );
+
+    await page.goto("/now");
+    await expect(page.locator(".now-tokens")).toContainText("42% of Home account's 5-hour window");
+
+    await page.goto("/settings/office-limits");
+    await expect(page.getByText(/^The 5-hour window: 42% used · resets /)).toBeVisible();
+  });
+
+  test("three engines show each 5-hour window in the engines' order, and open a list of each", async ({
+    page,
+  }) => {
+    await stubEngines(
+      page,
+      [
+        claudeCode("home", "Home account"),
+        API_ENGINE,
+        claudeCode("work", "Work account"),
+        claudeCode("spare", "Spare account"),
+      ],
+      [windowsOf("work", 80), windowsOf("spare", 12), windowsOf("home", 42)],
+    );
+    await page.goto("/now");
+    const strip = page.getByRole("status", { name: "Status strip" });
+    const figure = strip.getByRole("button", {
+      name: "5-hour window: Home account 42%, Work account 80%, Spare account 12%",
+    });
+
+    await expect(figure).toHaveText("5h 42% · 80% · 12%");
+    await expect(figure.getByTitle("Work account")).toHaveText("80%");
+    await expect(strip.locator(".shell-strip-meter")).toHaveCount(0);
+
+    const list = page.getByRole("dialog", { name: "Usage by engine" });
+    await figure.click();
+    const engines = list.getByRole("listitem");
+    await expect(engines).toHaveCount(3);
+    await expect(engines.nth(0)).toContainText("Home account");
+    await expect(engines.nth(0)).toContainText(/5h 42% resets .+ · 7d 17% resets /);
+    await expect(engines.nth(1)).toContainText("Work account");
+    await expect(engines.nth(2)).toContainText("Spare account");
+    await expect(list).not.toContainText("Local models");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "usage-figure-list.png") });
+
+    await page.keyboard.press("Escape");
+    await expect(list).toHaveCount(0);
+    await figure.click();
+    await expect(list).toBeVisible();
+    await page.mouse.click(800, 600);
+    await expect(list).toHaveCount(0);
+    await figure.click();
+    await figure.click();
+    await expect(list).toHaveCount(0);
+  });
+
+  test("five engines show the highest 5-hour window and their number", async ({ page }) => {
+    const percents = [10, 80, 30, 20, 40];
+    const ids = percents.map((_, index) => `engine-${index}`);
+    await stubEngines(
+      page,
+      ids.map((id) => claudeCode(id, id)),
+      ids.map((id, index) => windowsOf(id, percents[index] ?? 0)),
+    );
+    await page.goto("/now");
+    const strip = page.getByRole("status", { name: "Status strip" });
+
+    await expect(strip.getByRole("button", { name: /5-hour window/ })).toHaveText(
+      "5h 80% max · 5 engines",
+    );
+    await page.screenshot({ path: path.join(SCREENSHOTS, "usage-figure-five-engines.png") });
   });
 });
 

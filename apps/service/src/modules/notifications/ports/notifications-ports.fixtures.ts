@@ -1,7 +1,7 @@
 import { Module } from "@nestjs/common";
 import { OfficeToolRegistry } from "../../engine/index.js";
 import type {
-  FiveHourWindow,
+  EngineUsageWindows,
   NowFireAlarm,
   OfficeTask,
   OpenDecision,
@@ -83,7 +83,7 @@ export class KnownPeopleForTests extends KnownPeople {
 }
 
 export class AccountUsageForTests extends AccountUsage {
-  readonly readingsByEngine = new Map<string, { readonly fiveHour: FiveHourWindow }>();
+  readonly readingsByEngine = new Map<string, Omit<EngineUsageWindows, "engineId">>();
 }
 
 /** Keeps the sessions an Office status card was posted in. */
