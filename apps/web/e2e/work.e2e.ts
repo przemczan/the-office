@@ -786,6 +786,9 @@ test("a Task's images show by round, the Gate shows the current one, and the vie
   const gate = page.getByRole("region", { name: "Gate attachments" });
   await expect(gate.getByRole("button", { name: /^View / })).toHaveCount(1);
   await expect(gate.getByRole("button", { name: "View second-look.png" })).toBeVisible();
+  await gate.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-gate-attachments.png") });
+  await attachments.scrollIntoViewIfNeeded();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-attachment-rounds.png") });
 
   await roundOne.getByRole("button", { name: "View first-look.png" }).click();

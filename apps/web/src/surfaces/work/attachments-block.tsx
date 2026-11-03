@@ -57,7 +57,8 @@ function useRoundsOf(
 ): AttachmentRound[] {
   const taskId = owner.kind === "task" ? owner.taskId : "";
   const taskStages = useQuery({ ...pipelineQueries.taskStages(taskId), enabled: taskId !== "" });
-  if (owner.kind !== "task") return oneRound(attachments);
-  // Until the Stages come, the rounds aren't known: nothing rather than one round that then splits.
+  // Without the Stages, as when they fail to load, the rounds aren't known: all in one.
+  if (owner.kind !== "task" || taskStages.isError) return oneRound(attachments);
+  // Until the Stages come: nothing rather than one round that then splits.
   return taskStages.data ? attachmentRounds(attachments, taskStages.data.stages ?? []) : [];
 }

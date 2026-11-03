@@ -34,6 +34,8 @@ export function AttachmentViewer({
   const hasNext = index < images.length - 1;
   useEffect(() => {
     const step = (event: KeyboardEvent): void => {
+      // Alt+← is the browser's Back, not a step.
+      if (event.altKey || event.ctrlKey || event.metaKey) return;
       if (event.key === "ArrowLeft" && hasPrevious) onStep(index - 1);
       if (event.key === "ArrowRight" && hasNext) onStep(index + 1);
     };
