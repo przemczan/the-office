@@ -180,7 +180,14 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
     const scheduled = this.hold.scheduled;
     if (!scheduled || this.exiting || this.busyWork.list().length > 0) return;
     this.exiting = true;
-    await this.folder.writeRequest(scheduled.target.commit);
+    try {
+      await this.folder.writeRequest(scheduled.target.commit);
+    } catch (error) {
+      // Left scheduled, so the user sees it and can cancel it, or the next change tries again.
+      this.exiting = false;
+      this.logger.error(`The Office update's request wasn't written: ${String(error)}`);
+      return;
+    }
     this.logger.log(`Stopping to update The Office to ${scheduled.target.commit}.`);
     for (const listener of this.readyListeners) listener();
   }
