@@ -122,13 +122,13 @@ export const fireAlarmOnNowSchema = z.object({
 });
 export type FireAlarmOnNow = z.infer<typeof fireAlarmOnNowSchema>;
 
-/** Now and the status strip: what needs the user, what runs, and the Office's figures. */
 /** One of an account's usage windows; `resetsAt` is null while the window has not begun. */
 export const usageWindowSchema = z.object({
   percentUsed: z.number(),
   resetsAt: z.iso.datetime().nullable(),
 });
 
+/** Now and the status strip: what needs the user, what runs, and the Office's figures. */
 export const nowSchema = z.object({
   needsYou: z.array(needsYouItemSchema),
   running: z.array(runningTaskSchema),
@@ -143,7 +143,7 @@ export const nowSchema = z.object({
   tasksTouched: z.number().int().nonnegative(),
   /** The running Tasks against the Office-wide limit. */
   desks: z.object({ inUse: z.number().int().nonnegative(), limit: z.number().int().positive() }),
-  /** Each engine's whose account's windows were read, in the order each was first read. */
+  /** Each engine whose account's windows were read, in the order each was first read. */
   usageWindows: z.array(
     z.object({
       engineId: engineIdSchema,

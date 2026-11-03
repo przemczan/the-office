@@ -1,10 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { EngineId, Now, UsageSettings } from "@the-office/contracts";
+import type { EngineId, UsageSettings } from "@the-office/contracts";
 import { Button, Card, Checkbox, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { nowQueries } from "../../../api/notifications.ts";
 import { changeUsageSettings, usageSettingsQuery } from "../../../api/work.ts";
-import { resetWords } from "../../../shell/notifications/now-words.ts";
+import {
+  percentWords,
+  resetWords,
+  type UsageWindow,
+} from "../../../shell/notifications/now-words.ts";
 import { RefusalAlert } from "../../../shell/refusal-alert.tsx";
 import { useToast } from "../../../shell/toasts.tsx";
 import { useEngineName } from "../../../shell/use-engine-name.ts";
@@ -162,8 +166,8 @@ function WindowsUse({ engineId }: { readonly engineId: EngineId }): ReactNode {
   return <p className="settings-note">{fiveHourWords(windows?.fiveHour)}</p>;
 }
 
-function fiveHourWords(fiveHour: Now["usageWindows"][number]["fiveHour"] | undefined): string {
+function fiveHourWords(fiveHour: UsageWindow | undefined): string {
   if (!fiveHour) return "The 5-hour window hasn't been read yet: it is read as each Stage runs.";
   const resets = resetWords(fiveHour.resetsAt);
-  return `The 5-hour window: ${Math.round(fiveHour.percentUsed)}% used${resets ? ` · ${resets}` : ""}`;
+  return `The 5-hour window: ${percentWords(fiveHour)} used${resets ? ` · ${resets}` : ""}`;
 }

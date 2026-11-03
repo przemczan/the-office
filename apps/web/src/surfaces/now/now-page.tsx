@@ -18,16 +18,16 @@ import { PAUSED_BY_THE_ALARM } from "../../shell/fire-alarm/fire-alarm-words.ts"
 import { Desk, Feed, Panel, PanelHeading } from "../../shell/desk.tsx";
 import { EmptyCard, ItemCard } from "../../shell/item-card.tsx";
 import { NeedsYouFeed } from "../../shell/notifications/needs-you-feed.tsx";
-import { useUsageWindows } from "../../shell/notifications/use-usage-windows.ts";
 import { useNeedsYou } from "../../shell/notifications/use-needs-you.ts";
+import { useUsageWindows } from "../../shell/notifications/use-usage-windows.ts";
 import {
   desksWords,
   fiveHourWindowName,
   inStageWords,
   OUTCOME_EDGES,
   OUTCOME_NAMES,
-  percentWords,
   OUTCOME_TONES,
+  percentWords,
   sinceWords,
 } from "../../shell/notifications/now-words.ts";
 import { ProjectChip } from "../../shell/project-chip.tsx";
