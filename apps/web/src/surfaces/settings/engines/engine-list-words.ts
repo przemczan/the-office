@@ -155,11 +155,14 @@ export function engineProblem(
   return undefined;
 }
 
-/** The first engine whose prices hold Save, and what the Save bar says of it. */
+/**
+ * The first engine whose prices hold Save, and what the Save bar says of it. A Claude model's price
+ * still holds Save once no Claude Code engine is listed to show it: then the line alone.
+ */
 export function saveHeldBy(
   draft: EngineSettingsDraft,
   saved: EngineSettings,
-): { readonly selection: EngineSelection; readonly line: string } | undefined {
+): { readonly selection: EngineSelection | undefined; readonly line: string } | undefined {
   for (const selection of engineSelectionsOf(draft)) {
     const engine = engineAt(draft, selection);
     if (engine && pricesHoldSave(draft, saved, selection)) {
@@ -168,6 +171,12 @@ export function saveHeldBy(
         line: `A price under Models and prices of ${engineCalled(engine)} needs fixing before Save.`,
       };
     }
+  }
+  if (pricesHoldSave(draft, saved, { kind: "claude-code", index: 0 })) {
+    return {
+      selection: undefined,
+      line: "A Claude model's price needs fixing before Save: add a Claude Code engine to show it, or Discard.",
+    };
   }
   return undefined;
 }

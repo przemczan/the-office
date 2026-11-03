@@ -178,6 +178,18 @@ describe("what holds Save in Settings › Engines", () => {
     expect(saveHeldBy(draft, SAVED)?.selection).toEqual(CLAUDE_CODE_FIRST);
   });
 
+  it("still names a Claude model's price on the Save bar once no Claude Code engine shows it", () => {
+    const draft = withHalfAPrice(
+      { ...draftOf(SAVED), claudeCodeEngines: [] },
+      offeredModelKey({ engineId: null, model: "claude-sonnet-5-5" }),
+    );
+
+    expect(saveHeldBy(draft, SAVED)).toEqual({
+      selection: undefined,
+      line: "A Claude model's price needs fixing before Save: add a Claude Code engine to show it, or Discard.",
+    });
+  });
+
   it("marks an API endpoint without a model, which the service refuses", () => {
     const draft = { ...draftOf(SAVED), apiEndpoints: [NEW_API_ENDPOINT] };
 

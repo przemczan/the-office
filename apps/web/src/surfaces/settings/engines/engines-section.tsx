@@ -219,9 +219,15 @@ function EngineSettingsForm({ saved }: { readonly saved: EngineSettings }): Reac
           <span className="settings-actions-state engine-save-held" role="status">
             <Icon name="triangle-alert" size={14} />
             {held.line}
-            <Button variant="ghost" size="sm" onClick={() => select(held.selection, "prices")}>
-              Show it
-            </Button>
+            {held.selection && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => held.selection && select(held.selection, "prices")}
+              >
+                Show it
+              </Button>
+            )}
           </span>
         ) : (
           <span className="settings-actions-state">{dirty ? "Unsaved changes" : "Saved"}</span>

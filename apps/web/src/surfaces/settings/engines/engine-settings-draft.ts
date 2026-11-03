@@ -31,7 +31,7 @@ export interface EngineSettingsDraft {
   readonly modelPrices: Readonly<Record<string, ModelPriceText>>;
 }
 
-/** A model the Model prices card lists; a Claude model's engine is null. */
+/** A model an engine's Models and prices lists; a Claude model's engine is null. */
 export type PricedModel = Pick<OfferedModel, "engineId" | "model">;
 
 /** A drafted engine with the id Save gives it. */
