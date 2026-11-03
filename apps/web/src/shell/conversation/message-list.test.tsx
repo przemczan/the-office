@@ -8,8 +8,44 @@ declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
 }
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
-// jsdom lays nothing out; the list scrolls to its end as lines come.
-Element.prototype.scrollIntoView = () => undefined;
+// scrollIntoView scrolls the page around the list too; only the list may scroll.
+Element.prototype.scrollIntoView = () => {
+  throw new Error("Only the message list scrolls, never the page around it.");
+};
+
+it("scrolls only the list to its end as a message comes or the person starts to answer", () => {
+  const page = document.createElement("div");
+  const root = createRoot(page);
+  const at = "2026-11-01T10:00:00.000Z";
+  const messages: Message[] = [];
+  const show = (answering: boolean): void =>
+    act(() =>
+      root.render(
+        <MessageList
+          messages={[...messages]}
+          personName="Jan"
+          answering={answering}
+          stageThread={false}
+        />,
+      ),
+    );
+  show(false);
+  const list = page.querySelector<HTMLElement>(".message-list");
+  if (list === null) throw new Error("No message list.");
+  // jsdom lays nothing out: the list says how tall its lines are.
+  let height = 0;
+  Object.defineProperty(list, "scrollHeight", { get: () => height });
+
+  height = 300;
+  messages.push({ at, id: "1", kind: "person", roleKey: "developer", text: "Hello" });
+  show(false);
+  expect(list.scrollTop).toBe(300);
+
+  height = 500;
+  show(true);
+  expect(list.scrollTop).toBe(500);
+  act(() => root.unmount());
+});
 
 it("shows the person working from the moment a turn starts, before any output", () => {
   const page = document.createElement("div");

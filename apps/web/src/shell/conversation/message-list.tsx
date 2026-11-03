@@ -47,21 +47,25 @@ export function MessageList({
   readonly stageThread: boolean;
 }): ReactNode {
   const list = useRef<HTMLDivElement>(null);
-  const end = useRef<HTMLDivElement>(null);
   const shownLinkedTo = useRef(false);
   // What the list shows at its end: each new message, or the person starting to answer, scrolls to it.
-  // A Decision's link opens the list at its card instead, once.
+  // A Decision's link opens the list at its card instead, once. Only the list scrolls, never the page
+  // around it, so scrollIntoView, which scrolls every scrolling ancestor, is left out.
   const lines = messages.length + (answering ? 1 : 0);
   useEffect(() => {
-    if (lines === 0) return;
+    const scroller = list.current;
+    if (lines === 0 || scroller === null) return;
     const linkedTo = shownLinkedTo.current
       ? null
-      : list.current?.querySelector(".decision-card.linked-to");
+      : scroller.querySelector(".decision-card.linked-to");
     if (linkedTo) {
       shownLinkedTo.current = true;
-      linkedTo.scrollIntoView({ block: "center" });
+      const card = linkedTo.getBoundingClientRect();
+      const view = scroller.getBoundingClientRect();
+      scroller.scrollTop +=
+        card.top - view.top - scroller.clientTop - (scroller.clientHeight - card.height) / 2;
     } else {
-      end.current?.scrollIntoView({ block: "end" });
+      scroller.scrollTop = scroller.scrollHeight;
     }
   }, [lines]);
   return (
@@ -81,7 +85,6 @@ export function MessageList({
           {personName} is working…
         </div>
       )}
-      <div ref={end} />
     </div>
   );
 }
