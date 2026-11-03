@@ -4,6 +4,7 @@ import {
   engineSettingsEditSchema,
   type EngineRemoval as EngineRemovalRequest,
   type Engine as EngineResponse,
+  type EngineRemovalPreview as EngineRemovalPreviewResponse,
   type EngineSettings as EngineSettingsResponse,
   type EngineSettingsEdit as EngineSettingsEditRequest,
 } from "@the-office/contracts";
@@ -15,7 +16,8 @@ import { EngineSettingsRefusalFilter } from "./engine-settings-refusal.filter.js
 
 /**
  * Settings › Engines: the engines, an API engine's key never sent back, the Office default, the
- * search endpoint, and every offered model's Model price; removing an engine with its replacement.
+ * search endpoint, and every offered model's Model price; removing an engine with its replacement,
+ * and what that would move.
  */
 @Controller("settings/engines")
 @UseFilters(EngineSettingsRefusalFilter)
@@ -32,6 +34,24 @@ export class EngineSettingsController {
     @Body(new ContractPipe(engineSettingsEditSchema)) edit: EngineSettingsEditRequest,
   ): Promise<EngineSettingsResponse> {
     return response(await this.settings.change(edit));
+  }
+
+  /** What removing the engine with this replacement would move, and why it would be refused. */
+  @Get(":engineId/removal")
+  async removalPreview(
+    @Param("engineId") engineId: string,
+    @Query(new ContractPipe(engineRemovalSchema)) { replacement }: EngineRemovalRequest,
+  ): Promise<EngineRemovalPreviewResponse> {
+    const { moves, problems } = await this.settings.removalPreview(engineId, replacement ?? null);
+    return {
+      moves: moves.map(({ roleKey, project, from, to }) => ({
+        roleKey,
+        project: project && { ...project },
+        from: { ...from },
+        to: to && { ...to },
+      })),
+      problems: [...problems],
+    };
   }
 
   /** Moves everything naming the engine to the replacement, or to none for the only engine, then removes it. */

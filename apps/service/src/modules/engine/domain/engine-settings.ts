@@ -181,7 +181,7 @@ function changedEnginesOf(
     const name = edit.name.trim();
     const kept = edit.id === undefined ? undefined : storedById.get(edit.id);
     if (edit.id !== undefined && (kept?.kind !== edit.kind || seen.has(edit.id))) {
-      problems.push("The engines changed meanwhile; open Settings › Engines again.");
+      problems.push("The engines changed meanwhile.");
     }
     const id = edit.id ?? engineIdFor(name, taken);
     taken.add(id);

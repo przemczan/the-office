@@ -1,7 +1,11 @@
 import { Injectable } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { EngineAdded, EngineRemoved } from "../domain/engine-events.js";
-import { engineRemovalAmong } from "../domain/engine-removal.js";
+import {
+  engineRemovalAmong,
+  type EngineRemoval,
+  type MovedEngineReference,
+} from "../domain/engine-removal.js";
 import {
   changedEngineSettings,
   settingsWithoutEngine,
@@ -76,19 +80,63 @@ export class EngineSettingsService {
     return changed;
   }
 
+  /**
+   * What removing the engine `engineId` with `replacementId` taking over would do, doing nothing:
+   * each reference it would move, and the reasons it would be refused, if any. Refused in words
+   * like the removal when the engine or the replacement isn't listed.
+   */
+  async removalPreview(
+    engineId: EngineId,
+    replacementId: EngineId | null,
+  ): Promise<EngineRemovalPreview> {
+    const { stored, removal, changed, problems } = await this.plannedRemoval(
+      engineId,
+      replacementId,
+    );
+    // Where `settingsWithoutEngine` puts the Office default, as `remove` keeps it.
+    const officeDefault: MovedEngineReference[] =
+      stored.officeDefault?.engineId === engineId
+        ? [{ roleKey: null, project: null, from: stored.officeDefault, to: changed.officeDefault }]
+        : [];
+    return { moves: [...officeDefault, ...(await this.referenceMoves.movesOf(removal))], problems };
+  }
+
   private async removedWithReferencesMoved(
     engineId: EngineId,
     replacementId: EngineId | null,
   ): Promise<{ readonly removed: Engine | undefined; readonly changed: EngineSettings }> {
-    const stored = await this.repository.read();
-    const removal = engineRemovalAmong(stored.engines, engineId, replacementId);
-    const changed = settingsWithoutEngine(stored, removal);
-    const problems = await this.checks.problemsOf({ before: stored, after: changed, removal });
+    const { stored, removal, changed, problems } = await this.plannedRemoval(
+      engineId,
+      replacementId,
+    );
     if (problems.length > 0) throw new EngineSettingsRefused(problems);
     await this.referenceMoves.moveEach(removal);
     await this.repository.replace(changed);
     return { removed: stored.engines.find(({ id }) => id === engineId), changed };
   }
+
+  /** The removal weighed against the stored settings, shared by `remove` and `removalPreview`. */
+  private async plannedRemoval(
+    engineId: EngineId,
+    replacementId: EngineId | null,
+  ): Promise<{
+    readonly stored: EngineSettings;
+    readonly removal: EngineRemoval;
+    readonly changed: EngineSettings;
+    readonly problems: readonly string[];
+  }> {
+    const stored = await this.repository.read();
+    const removal = engineRemovalAmong(stored.engines, engineId, replacementId);
+    const changed = settingsWithoutEngine(stored, removal);
+    const problems = await this.checks.problemsOf({ before: stored, after: changed, removal });
+    return { stored, removal, changed, problems };
+  }
+}
+
+/** What a removal would move, and why it would be refused; no reasons when it would go through. */
+export interface EngineRemovalPreview {
+  readonly moves: readonly MovedEngineReference[];
+  readonly problems: readonly string[];
 }
 
 /** The engines of `engines` that `others` doesn't list. */

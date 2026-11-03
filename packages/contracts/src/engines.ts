@@ -156,6 +156,32 @@ export const engineRemovalSchema = z.object({
 export type EngineRemoval = z.infer<typeof engineRemovalSchema>;
 
 /**
+ * A level naming the engine being removed, where it stands and where the removal puts it (none
+ * when the only engine goes). What it belongs to tells the level: a Role and a Project for a
+ * Project's Role override, a Project alone for its Project default, a Role alone for its Role
+ * override, neither for the Office default.
+ */
+export const movedEngineReferenceSchema = z.object({
+  roleKey: z.string().nullable(),
+  project: z.object({ id: z.string(), name: z.string() }).nullable(),
+  from: engineModelSchema,
+  to: engineModelSchema.nullable(),
+});
+export type MovedEngineReference = z.infer<typeof movedEngineReferenceSchema>;
+
+/**
+ * GET /settings/engines/:engineId/removal?replacement=<engine id>: what DELETE with the same
+ * replacement would do, doing nothing. `problems` holds the words it would be refused with (the
+ * capability check), none when it would go through. An engine or replacement not listed, or none
+ * while other engines are, is refused as DELETE refuses it (422).
+ */
+export const engineRemovalPreviewSchema = z.object({
+  moves: z.array(movedEngineReferenceSchema),
+  problems: z.array(z.string()),
+});
+export type EngineRemovalPreview = z.infer<typeof engineRemovalPreviewSchema>;
+
+/**
  * GET /settings/engines/:engineId/account: a Claude Code engine's account as `claude auth status`
  * gives it, the email and plan null when signed out, signed in by a pasted token, or not told.
  */

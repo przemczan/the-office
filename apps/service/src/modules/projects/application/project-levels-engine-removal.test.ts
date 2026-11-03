@@ -121,7 +121,7 @@ describe("a Project level saved while an engine is removed", () => {
   it("is refused when the removal started first, as a Project default and a Role override", async () => {
     const project = await aProjectOfItsOwn();
     const hold = aHold();
-    app.get(EngineReferenceMoves).register(hold.wait);
+    app.get(EngineReferenceMoves).register({ movesOf: async () => [], move: hold.wait });
 
     const removing = removeRacing();
     await hold.reached;
@@ -137,5 +137,40 @@ describe("a Project level saved while an engine is removed", () => {
     expect(await saves).toEqual([refused, refused]);
     const levels = await projects.engineLevelsOf(project.id);
     expect(levels).toMatchObject({ projectDefault: null, roleOverrides: [] });
+  });
+});
+
+describe("removing an engine a Project's levels name", () => {
+  it("previews the moves it then makes, the Project default and a Role override", async () => {
+    const { id, name } = await aProjectOfItsOwn();
+    await projects.changeProjectDefault(id, ON_RACING);
+    await projects.changeRoleOverride(id, "developer", {
+      engineId: RACING.id,
+      model: "claude-opus-5-5",
+    });
+    const settings = app.get(EngineSettingsService);
+
+    const preview = await settings.removalPreview(RACING.id, FIRST_CLAUDE_CODE_ENGINE.id);
+    await removeRacing();
+
+    const moved = await projects.read(id);
+    const project = { id, name };
+    expect(preview).toEqual({
+      moves: [
+        { roleKey: null, project, from: ON_RACING, to: moved.projectDefault },
+        {
+          roleKey: "developer",
+          project,
+          from: { engineId: RACING.id, model: "claude-opus-5-5" },
+          to: { engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-opus-5-5" },
+        },
+      ],
+      problems: [],
+    });
+    expect(moved.projectDefault).toEqual({
+      engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+      model: "claude-haiku-5-5",
+    });
+    expect(moved.roleOverrides).toEqual([expect.objectContaining(preview.moves[1]!.to)]);
   });
 });

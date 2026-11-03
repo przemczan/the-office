@@ -101,7 +101,7 @@ describe("a Role override saved while an engine is removed", () => {
   it("is refused when the removal started first, on the card and on a hire from scratch", async () => {
     const { role } = await roles.hireFromScratch(aCardOfItsOwn(), []);
     const hold = aHold();
-    app.get(EngineReferenceMoves).register(hold.wait);
+    app.get(EngineReferenceMoves).register({ movesOf: async () => [], move: hold.wait });
 
     const removing = removeRacing();
     await hold.reached;
@@ -115,5 +115,22 @@ describe("a Role override saved while an engine is removed", () => {
     const refused = { status: "rejected", reason: expect.any(RoleRefused) };
     expect(await saves).toEqual([refused, refused]);
     expect((await roles.read(role.key)).role.card.roleOverride).toBeNull();
+  });
+});
+
+describe("removing an engine a Role override names", () => {
+  it("previews the move it then makes", async () => {
+    const { role } = await roles.hireFromScratch(aCardOfItsOwn({ roleOverride: ON_RACING }), []);
+    const settings = app.get(EngineSettingsService);
+
+    const preview = await settings.removalPreview(RACING.id, FIRST_CLAUDE_CODE_ENGINE.id);
+    await removeRacing();
+
+    const moved = (await roles.read(role.key)).role.card.roleOverride;
+    expect(moved).toEqual({ engineId: FIRST_CLAUDE_CODE_ENGINE.id, model: "claude-haiku-5-5" });
+    expect(preview).toEqual({
+      moves: [{ roleKey: role.key, project: null, from: ON_RACING, to: moved }],
+      problems: [],
+    });
   });
 });

@@ -1,5 +1,6 @@
 import type { INestApplication } from "@nestjs/common";
 import {
+  engineRemovalPreviewSchema,
   engineSettingsRefusalSchema,
   engineSettingsSchema,
   type EngineSettingsEdit,
@@ -8,7 +9,10 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
-import { EngineReferenceMoves } from "../../application/engine-reference-moves.js";
+import {
+  EngineReferenceMoves,
+  type EngineReferences,
+} from "../../application/engine-reference-moves.js";
 import { EngineSettingsService } from "../../application/engine-settings-service.js";
 import {
   EngineSettingsChecks,
@@ -71,6 +75,20 @@ function put(body: unknown): Promise<Response> {
     headers: { "content-type": "application/json" },
     body: JSON.stringify(body),
   });
+}
+
+/** References that move by `move` and tell of no move beforehand. */
+function moving(move: EngineReferences["move"]): EngineReferences {
+  return { movesOf: async () => [], move };
+}
+
+function previewOf(engineId: string, replacement?: string): Promise<Response> {
+  const query = replacement === undefined ? "" : `?replacement=${replacement}`;
+  return fetch(`${url}/api/settings/engines/${engineId}/removal${query}`);
+}
+
+async function reasonsOf(refused: Response): Promise<string[]> {
+  return engineSettingsRefusalSchema.parse(await refused.json()).reasons;
 }
 
 function remove(engineId: string, replacement?: string): Promise<Response> {
@@ -277,9 +295,11 @@ describe("DELETE /api/settings/engines/:engineId", () => {
 
   it("moves what names the engine to the replacement while it is still listed, then removes it", async () => {
     const moves: { removal: EngineRemoval; listed: string[] }[] = [];
-    app.get(EngineReferenceMoves).register(async (removal) => {
-      moves.push({ removal, listed: (await repository.read()).engines.map(({ id }) => id) });
-    });
+    app.get(EngineReferenceMoves).register(
+      moving(async (removal) => {
+        moves.push({ removal, listed: (await repository.read()).engines.map(({ id }) => id) });
+      }),
+    );
     const announced: EngineRemoved[] = [];
     app.get(EventBus).subscribe(EngineRemoved, (event) => void announced.push(event));
 
@@ -313,7 +333,7 @@ describe("DELETE /api/settings/engines/:engineId", () => {
       return save.removal ? [refusal] : [];
     });
     const moves: EngineRemoval[] = [];
-    app.get(EngineReferenceMoves).register(async (removal) => void moves.push(removal));
+    app.get(EngineReferenceMoves).register(moving(async (removal) => void moves.push(removal)));
 
     const refused = await remove("strata", "claude-code");
 
@@ -335,9 +355,11 @@ describe("DELETE /api/settings/engines/:engineId", () => {
 
   it("keeps the engine listed when a move fails, so removing it again moves the rest", async () => {
     let failing = true;
-    app.get(EngineReferenceMoves).register(async () => {
-      if (failing) throw new Error("The database went away.");
-    });
+    app.get(EngineReferenceMoves).register(
+      moving(async () => {
+        if (failing) throw new Error("The database went away.");
+      }),
+    );
 
     expect((await remove("strata", "claude-code")).status).toBe(500);
     expect((await repository.read()).engines.map(({ id }) => id)).toEqual([
@@ -350,14 +372,16 @@ describe("DELETE /api/settings/engines/:engineId", () => {
   });
 
   it("keeps a save of the engines waiting until the removal is done, so it can't list the engine again", async () => {
-    let moving!: () => void;
-    const moveStarted = new Promise<void>((resolve) => (moving = resolve));
+    let moveStartedNow!: () => void;
+    const moveStarted = new Promise<void>((resolve) => (moveStartedNow = resolve));
     let releaseMove!: () => void;
     const moveHeld = new Promise<void>((resolve) => (releaseMove = resolve));
-    app.get(EngineReferenceMoves).register(async () => {
-      moving();
-      await moveHeld;
-    });
+    app.get(EngineReferenceMoves).register(
+      moving(async () => {
+        moveStartedNow();
+        await moveHeld;
+      }),
+    );
     const settings = app.get(EngineSettingsService);
 
     const removing = settings.remove("strata", "claude-code");
@@ -388,7 +412,7 @@ describe("DELETE /api/settings/engines/:engineId", () => {
 
   it("removes the only engine with no replacement, moving every reference to none", async () => {
     const moves: EngineRemoval[] = [];
-    app.get(EngineReferenceMoves).register(async (removal) => void moves.push(removal));
+    app.get(EngineReferenceMoves).register(moving(async (removal) => void moves.push(removal)));
     expect((await remove("strata", "claude-code")).status).toBe(200);
     moves.length = 0;
 
@@ -414,5 +438,77 @@ describe("DELETE /api/settings/engines/:engineId", () => {
 
     expect(added.status).toBe(200);
     expect(engineSettingsSchema.parse(await added.json()).officeDefault).toEqual(strataDefault);
+  });
+});
+
+describe("GET /api/settings/engines/:engineId/removal", () => {
+  const strataDefault = { engineId: "strata", model: "qwen3.8-flash" };
+  const developerOnStrata = {
+    roleKey: "developer",
+    project: null,
+    from: strataDefault,
+    to: FIRST_OFFICE_DEFAULT,
+  };
+
+  beforeEach(async () => {
+    const saved = await put({ ...strataEdit, officeDefault: strataDefault });
+    if (!saved.ok) throw new Error(`Strata wasn't saved: ${saved.status}`);
+  });
+
+  it("lists the Office default and every registered move, the check's refusals too, moving nothing", async () => {
+    const removals: EngineRemoval[] = [];
+    app.get(EngineReferenceMoves).register({
+      movesOf: async (removal) => (removals.push(removal), [developerOnStrata]),
+      move: async () => {
+        throw new Error("A preview moves nothing.");
+      },
+    });
+    const refusal = "Outside any Project, the Developer would run on Claude Code.";
+    app.get(EngineSettingsChecks).register(async ({ removal }) => (removal ? [refusal] : []));
+
+    const preview = await previewOf("strata", "claude-code");
+
+    expect(preview.status).toBe(200);
+    expect(engineRemovalPreviewSchema.parse(await preview.json())).toEqual({
+      moves: [
+        { roleKey: null, project: null, from: strataDefault, to: FIRST_OFFICE_DEFAULT },
+        developerOnStrata,
+      ],
+      problems: [refusal],
+    });
+    expect(removals).toEqual([{ engineId: "strata", replacement: FIRST_CLAUDE_CODE_ENGINE }]);
+    expect((await repository.read()).officeDefault).toEqual(strataDefault);
+  });
+
+  it("lists no move of the Office default when it names another engine", async () => {
+    expect((await remove("strata", "claude-code")).status).toBe(200);
+    expect((await put(strataEdit)).status).toBe(200);
+
+    const preview = await previewOf("strata", "claude-code");
+
+    expect(engineRemovalPreviewSchema.parse(await preview.json())).toEqual({
+      moves: [],
+      problems: [],
+    });
+  });
+
+  it("moves everything to none for the only engine", async () => {
+    expect((await remove("claude-code", "strata")).status).toBe(200);
+
+    const preview = await previewOf("strata");
+
+    expect(engineRemovalPreviewSchema.parse(await preview.json()).moves).toEqual([
+      { roleKey: null, project: null, from: strataDefault, to: null },
+    ]);
+  });
+
+  it("refuses as the removal does an engine not listed, a replacement not listed, or none", async () => {
+    const pickAnother = 'Pick the engine that takes over from "Strata" among the other engines.';
+
+    expect(await reasonsOf(await previewOf("gone", "claude-code"))).toEqual([
+      "The engines changed meanwhile.",
+    ]);
+    expect(await reasonsOf(await previewOf("strata", "gone"))).toEqual([pickAnother]);
+    expect(await reasonsOf(await previewOf("strata"))).toEqual([pickAnother]);
   });
 });
