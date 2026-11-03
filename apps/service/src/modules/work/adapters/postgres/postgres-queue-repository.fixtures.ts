@@ -12,7 +12,8 @@ import { tasks } from "./work.schema.js";
 /**
  * The queue on the shared database, narrowed to the test's own Projects: every app with Work releases
  * the queue on its own events and weighs each queued Task by its own stand-ins, so without this one
- * file's release starts or refuses another file's queued Tasks (apps/service/docs/testing.md).
+ * file's release starts or refuses another file's queued Tasks, and another file's started Tasks take
+ * this one's desks (apps/service/docs/testing.md).
  */
 export class OwnProjectsQueueRepository extends PostgresQueueRepository {
   constructor(
@@ -36,7 +37,10 @@ export class OwnProjectsQueueRepository extends PostgresQueueRepository {
     return super.start(id, (task, held, queue) =>
       decide(
         task,
-        held,
+        {
+          ...held,
+          startedTasks: held.startedTasks.filter(({ projectId }) => this.isOwn(projectId)),
+        },
         queue.filter(({ taskId }) => own.has(taskId)),
       ),
     );
@@ -46,12 +50,12 @@ export class OwnProjectsQueueRepository extends PostgresQueueRepository {
     decide: (queue: readonly QueuedTask[], held: HeldForRelease) => Release,
   ): Promise<Release> {
     return super.release((queue, held) => {
-      const own = new Set(
-        held.tasks.filter((task) => this.isOwn(task.projectId)).map((task) => task.id),
-      );
+      // A queued Task's blockers are its own Project's in the tests that queue.
+      const ownTasks = held.tasks.filter((task) => this.isOwn(task.projectId));
+      const own = new Set(ownTasks.map((task) => task.id));
       return decide(
         queue.filter(({ taskId }) => own.has(taskId)),
-        held,
+        { ...held, tasks: ownTasks },
       );
     });
   }

@@ -18,7 +18,7 @@ import {
   sourceSkillMd,
   type SourceRepository,
 } from "../adapters/git/source-repository.fixtures.js";
-import { GitSourceFetcher } from "../adapters/git/git-source-fetcher.js";
+import { OwnSourcesFetcher } from "../adapters/git/git-source-fetcher.fixtures.js";
 import type { PinnedVersion, RemoteRef } from "../domain/installed-source.js";
 import { SourceFetcher } from "../ports/source-fetcher.js";
 import { SkillUpdateFound, SkillUpdateGone } from "../domain/skill-events.js";
@@ -36,9 +36,11 @@ let schedule: ManualSchedule;
 let source: SourceRepository;
 let published: DomainEvent[];
 let fetcher: SourceFetcherWithAFailure;
+/** The test's own Sources: no other is read, so no other file's skills are checked here. */
+let ownSourceUrls: string[];
 
-/** The real Sources, but reading the refs of `failingUrl` fails as nothing foreseen does. */
-class SourceFetcherWithAFailure extends GitSourceFetcher {
+/** The test's own Sources, but reading the refs of `failingUrl` fails as nothing foreseen does. */
+class SourceFetcherWithAFailure extends OwnSourcesFetcher {
   failingUrl: string | undefined = undefined;
 
   override async refs(url: string): Promise<readonly RemoteRef[]> {
@@ -50,6 +52,7 @@ class SourceFetcherWithAFailure extends GitSourceFetcher {
 beforeEach(async () => {
   officeData = await mkdtemp(join(tmpdir(), "office-skill-updates-"));
   schedule = new ManualSchedule();
+  ownSourceUrls = [];
   ({ app } = await startTestApplication({
     database: true,
     imports: [EventsModule, EventStreamModule, OfficeDataModule.forRoot(officeData), SkillsModule],
@@ -57,7 +60,8 @@ beforeEach(async () => {
       { provide: Schedule, useValue: schedule },
       {
         provide: SourceFetcher,
-        useFactory: (identity: OfficeIdentity) => new SourceFetcherWithAFailure(identity),
+        useFactory: (identity: OfficeIdentity) =>
+          new SourceFetcherWithAFailure(identity, () => ownSourceUrls),
         inject: [OfficeIdentity],
       },
     ],
@@ -67,6 +71,7 @@ beforeEach(async () => {
   published = [];
   app.get(EventBus).subscribeToEveryEvent((event) => void published.push(event));
   source = await createSourceRepository();
+  ownSourceUrls.push(source.url);
 });
 
 afterEach(async () => {
@@ -162,6 +167,7 @@ describe("the daily update check", { timeout: GIT_TEST_TIMEOUT_MS }, () => {
 
   it("checks the Sources after one that fails in an unforeseen way", async () => {
     const failing = await createSourceRepository();
+    ownSourceUrls.push(failing.url);
     try {
       const first = `first-${randomUUID().slice(0, 8)}`;
       await failing.write(`${first}/SKILL.md`, sourceSkillMd("First.", first));

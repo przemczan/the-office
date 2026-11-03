@@ -45,6 +45,7 @@ import {
 import { EngineCascade, DEVOPS, RoleCards, type SessionRole } from "../../people/index.js";
 import { ownProjectsStartedTasks } from "../../pipelines/index.fixtures.js";
 import { ownProjectsQueue } from "../../work/index.fixtures.js";
+import { ownSources } from "../../skills/index.fixtures.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { TaskWorktrees } from "../../projects/index.js";
 import { SKILL_UPDATE_CHECK, SkillLibrary } from "../../skills/index.js";
@@ -88,6 +89,8 @@ let url: string;
  * next test's script off the shared queue and show up among its sessions.
  */
 let engine: ScriptedEngine;
+/** The test's own Sources (`aSource`): no other is read, so its update check reads no other file's. */
+let ownSourceUrls: string[];
 
 /** The whole app boots for each test: slow under a full run. */
 const BOOT_TIMEOUT_MS = 30_000;
@@ -95,6 +98,7 @@ const BOOT_TIMEOUT_MS = 30_000;
 beforeEach(async () => {
   folder = await mkdtemp(join(tmpdir(), "office-devops-proposals-"));
   engine = new ScriptedEngine([]);
+  ownSourceUrls = [];
   ({ app, url } = await startTestApplication({
     imports: [
       AppModule.register(
@@ -120,6 +124,7 @@ beforeEach(async () => {
       // what it starts, so neither its releases nor its start touch other files' Tasks.
       ownProjectsQueue(),
       ownProjectsStartedTasks(),
+      ownSources(() => ownSourceUrls),
     ],
     moduleOverrides: [{ module: EngineModule, useModule: ScriptedEngineModule.register(engine) }],
   }));
@@ -976,6 +981,7 @@ async function aSource(
   if (tagged) await git("tag", "--annotate", "--message", "First", "v1.0.0");
   const bare = `${checkout}.git`;
   await run("git", ["clone", "--bare", "--quiet", checkout, bare]);
+  ownSourceUrls.push(pathToFileURL(bare).href);
   const head = async () =>
     (await run("git", ["rev-parse", "HEAD"], { cwd: checkout })).stdout.trim();
   return {
