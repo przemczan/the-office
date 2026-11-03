@@ -96,7 +96,6 @@ async function engineIdOf(page: Page, name: string): Promise<string> {
   return saved.engines.find((engine) => engine.name === name)?.id ?? "";
 }
 
-/** Removes the engine called `name` through the API, as a test cleans up after adding one. */
 /** Selects the engine called `name` in Settings › Engines' list, then its tab. */
 async function openEngine(
   page: Page,
@@ -110,17 +109,18 @@ async function openEngine(
   await page.getByRole("tab", { name: tab, exact: true }).click();
 }
 
-/** The selected engine's tabs: only one engine's fields show at a time. */
 /** Adds an engine of the kind through "Add an engine", which selects it. */
 async function addEngine(page: Page, kind: "Claude Code" | "API endpoint"): Promise<void> {
   await page.getByRole("button", { name: "Add an engine" }).click();
   await page.getByRole("menu").getByRole("button", { name: kind, exact: true }).click();
 }
 
+/** The selected engine's tabs: only one engine's fields show at a time. */
 function shownEngine(page: Page): Locator {
   return page.locator(".engine-detail");
 }
 
+/** Removes the engine called `name` through the API, as a test cleans up after adding one. */
 async function removeEngine(page: Page, name: string): Promise<void> {
   const engineId = await engineIdOf(page, name);
   const removed = await page.request.delete(
