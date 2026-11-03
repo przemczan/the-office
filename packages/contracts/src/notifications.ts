@@ -170,6 +170,8 @@ export const notificationKindSchema = z.enum([
   "office.down.service",
   "office.down.engine",
   "office.alarm-lifted",
+  "office.update.done",
+  "office.update.failed",
 ]);
 export type NotificationKind = z.infer<typeof notificationKindSchema>;
 
@@ -205,6 +207,8 @@ export const pointerSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("office"), engineId: z.string().min(1).optional() }),
   /** Now, where Needs you and Since you left show what a Notification gathered. */
   z.object({ kind: z.literal("since-you-left") }),
+  /** Settings › Updates, with the last Office update's result and its log. */
+  z.object({ kind: z.literal("office-update") }),
 ]);
 export type Pointer = z.infer<typeof pointerSchema>;
 
@@ -265,6 +269,7 @@ export const activitySchema = z.object({
     z.object({ kind: z.literal("now") }),
     z.object({ kind: z.literal("task"), taskId: z.uuid() }),
     z.object({ kind: z.literal("initiative"), initiativeId: z.uuid() }),
+    z.object({ kind: z.literal("office-update") }),
     z.object({ kind: z.literal("elsewhere") }),
   ]),
 });

@@ -47,6 +47,7 @@ import { StageThreads } from "./stage-threads.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
 import { TaskThreadSetups } from "./task-thread-setups.js";
 import { ThreadContexts } from "./thread-contexts.js";
+import { AllowChanges } from "./allow-changes.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { MentionedRecords } from "./mentioned-records.js";
 import { WorkRecords } from "./work-records.js";
@@ -55,6 +56,8 @@ import { FireAlarmLifts } from "./fire-alarm-lifts.js";
 import { ApprovalHolds } from "./approval-holds.js";
 import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
 import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
+import { ChangesAllowedRepository } from "../ports/changes-allowed-repository.js";
+import { PostgresChangesAllowedRepository } from "../adapters/postgres/postgres-changes-allowed-repository.js";
 import { sessionMcpServersStandIn } from "./session-mcp-servers.fixtures.js";
 
 type Step = SessionScript[number];
@@ -162,10 +165,12 @@ async function startWith(...scripts: SessionScript[]): Promise<void> {
       InitiativeThreadSetups,
       SessionPlaces,
       ThreadContexts,
+      AllowChanges,
       ThreadRunner,
       FireAlarmLifts,
       ApprovalHolds,
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
+      { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
       MentionedRecords,
       WorkRecords,
       StageThreads,

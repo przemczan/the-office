@@ -57,7 +57,12 @@ function ChatHead({
         <Link to="/people/$roleKey" params={{ roleKey: role.key }} search={{}}>
           {personName(role)}
         </Link>
-        <div className="chat-head-sub">Reads every Project and changes no file</div>
+        <div className="chat-head-sub">
+          {/* The Caretaker's chat changes the workstation in a Thread with Allow changes on. */}
+          {role.builtIn
+            ? "Reads, and changes only in a Thread where you allow changes"
+            : "Reads every Project and changes no file"}
+        </div>
       </div>
       <IconButton icon={<Icon name="x" size={16} />} label="Close (Esc)" onClick={onClose} />
     </header>

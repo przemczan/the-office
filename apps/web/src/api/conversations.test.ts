@@ -26,6 +26,7 @@ function aStageThread(id: string, tokens: TokenTotals): Thread {
     startedAt: "2026-10-26T09:00:00.000Z",
     stageThread: true,
     consultation: null,
+    changesAllowed: null,
   };
 }
 

@@ -39,6 +39,7 @@ export function windows({ variables, homeDirectory }: UserEnvironment): Operatin
   return {
     name: "Windows",
     defaultOfficeDataDirectory: win32.join(localAppData, "the-office"),
+    officeUpdateRefusal: "Updating The Office runs on Linux only.",
     paths: windowsPaths,
     defaultShell: commandPrompt(variables),
     agentShells: [gitBash(variables), windowsPowerShell(variables)],

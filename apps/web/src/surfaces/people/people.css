@@ -107,6 +107,14 @@
   font: var(--type-caption);
 }
 
+.person-tile-built-in {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--fg-3);
+  font: var(--type-caption);
+}
+
 .person-tile-limit {
   margin-left: auto;
   color: var(--fg-3);
@@ -299,6 +307,15 @@
 
 .role-card-note {
   display: block;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.role-card-fixed {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
   font: var(--type-caption);
   color: var(--fg-3);
 }

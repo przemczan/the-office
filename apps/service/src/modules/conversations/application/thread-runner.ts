@@ -110,7 +110,8 @@ interface LiveSession {
  * Runs Threads (spec §2.4, §2.5): each message the user sends goes through the Context policy,
  * which resumes the Thread's session, or starts a fresh one with a Brief; what the session reports
  * goes into The Office's log as it comes. Where a session works is its home's (SessionPlaces); in
- * every home it reads and changes no file: a chat and a Task's planning only read (spec §6).
+ * every home it reads and changes no file: a chat and a Task's planning only read (spec §6), but
+ * for the Caretaker's chat with changes allowed (spec §2.4).
  */
 @Injectable()
 export class ThreadRunner implements OnModuleDestroy {
@@ -386,6 +387,7 @@ export class ThreadRunner implements OnModuleDestroy {
         engineId: applying.engineId,
         override: thread.override,
         briefTokens: place.brief.tokens,
+        changesAllowed: place.workstation,
       },
       await this.settings.current(),
     );
@@ -395,7 +397,11 @@ export class ThreadRunner implements OnModuleDestroy {
       : current;
     const newSession = resumed
       ? undefined
-      : freshSession(randomUUID(), { ...current, engineId: applying.engineId }, now);
+      : freshSession(
+          randomUUID(),
+          { ...current, engineId: applying.engineId, changesAllowed: place.workstation },
+          now,
+        );
     return { decision, role, model: applying.model, newSession };
   }
 
@@ -496,14 +502,17 @@ export class ThreadRunner implements OnModuleDestroy {
         expected: skills.expected,
         overrides: skills.overrides,
       },
-      // Only reads (spec §6): the card's profile, narrowed. Its MCP tools keep their settings; one
-      // waiting on approval is refused in a chat, which opens no Decision (`HeldCalls`).
+      // Only reads (spec §6): the card's profile, narrowed, but in the Caretaker's Thread with
+      // changes allowed. Its MCP tools keep their settings; one waiting on approval is refused in a
+      // chat, which opens no Decision (`HeldCalls`).
       profile: {
-        edit: false,
-        run: { kind: "read-only-git" },
-        web: card.permissionProfile.web,
+        edit: place.workstation,
+        run: { kind: place.workstation ? "anything" : "read-only-git" },
+        web: place.workstation || card.permissionProfile.web,
         mcpTools: mcpToolSettingsFor(card.permissionProfile.mcpTools, mcpServers),
       },
+      workstation: place.workstation,
+      refusalAdvice: place.refusalAdvice,
       officeTools: sessionOfficeTools(
         place.officeTools,
         card,
@@ -514,6 +523,7 @@ export class ThreadRunner implements OnModuleDestroy {
       // Asked at each call, so an alarm sounding or lifted mid-session holds or frees the next.
       toolHold: () => this.fireAlarmLifts.heldReason(thread.id),
       approvalHold: this.approvalHolds.of(id),
+      turnLabel: turnLabelOf(card.name, thread),
       telemetry: {
         span: { ...place.span, "office.thread": thread.id, "office.role": roleKey },
         metric: { "office.conversation.home": thread.home.kind },
@@ -683,4 +693,13 @@ function messageOf(error: unknown): string {
 function refusedWithoutEngine(error: unknown): never {
   if (error instanceof NoEngineListed) throw new ThreadRefused([error.message]);
   throw error;
+}
+
+/** Who works where, as a scheduled Office update lists a turn it waits for. */
+function turnLabelOf(personName: string, thread: Thread): string {
+  if (thread.consultation) return `${personName} in a Consultation`;
+  const where = thread.home.kind === "task" ? "a Task's Thread" : "a chat";
+  return thread.title
+    ? `${personName} in ${where}, "${thread.title}"`
+    : `${personName} in ${where}`;
 }

@@ -91,3 +91,25 @@ it("shows an MCP server that didn't start as The Office's line, with why when th
   ]);
   act(() => root.unmount());
 });
+
+it("shows Allow changes switched on and off as The Office's lines", () => {
+  const page = document.createElement("div");
+  const root = createRoot(page);
+  const at = "2026-11-03T10:00:00.000Z";
+  const messages: Message[] = [
+    { at, id: "1", kind: "changes-allowed", allowed: true },
+    { at, id: "2", kind: "changes-allowed", allowed: false },
+  ];
+
+  act(() =>
+    root.render(
+      <MessageList messages={messages} personName="Sam" answering={false} stageThread={false} />,
+    ),
+  );
+
+  expect([...page.querySelectorAll(".message-office")].map((shown) => shown.textContent)).toEqual([
+    "Changes allowed",
+    "Changes switched off",
+  ]);
+  act(() => root.unmount());
+});

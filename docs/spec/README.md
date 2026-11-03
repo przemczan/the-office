@@ -62,6 +62,7 @@ Where each default lives (the old §9):
 - Agents wait on the user without blocking a tool call: [2.4 Conversations](2.4-conversations.md#defaults)
 - Windows and Linux: [5.1 Shape](5.1-shape.md#defaults)
 - Only The Office's own pages reach the service: [5.1 Shape](5.1-shape.md#defaults)
+- Updating The Office: [5.1 Shape](5.1-shape.md#defaults)
 - Install inputs: [5.5 Git and isolation](5.5-git-and-isolation.md#defaults)
 - A skill's new version waits for review too: [2.6 Skills](2.6-skills.md#defaults)
 - Editing a skill: [2.6 Skills](2.6-skills.md#defaults)

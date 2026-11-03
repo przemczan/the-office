@@ -36,6 +36,8 @@ export interface ThreadSessionRow {
   readonly contextTokens: number;
   readonly startContextTokens: number | null;
   readonly full: boolean;
+  /** Absent on sessions saved before Allow changes: none had changes allowed. */
+  readonly changesAllowed?: boolean;
 }
 
 /**

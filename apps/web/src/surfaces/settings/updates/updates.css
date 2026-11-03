@@ -1,0 +1,38 @@
+/* Settings › Updates: the version, an available update, a scheduled one and the last result. */
+.updates-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.updates-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.updates-version code,
+.updates-commits code {
+  font: var(--type-mono);
+}
+
+.updates-available {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.updates-commits,
+.updates-busy {
+  margin: 0;
+  padding-left: 18px;
+  font: var(--type-caption);
+  line-height: 1.6;
+  color: var(--fg-2);
+}
+
+.updates-link {
+  color: var(--accent);
+  font: var(--type-caption);
+}

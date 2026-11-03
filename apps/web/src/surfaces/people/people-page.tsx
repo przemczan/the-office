@@ -7,6 +7,7 @@ import { roleCardQueries, roleQueries } from "../../api/people.ts";
 import { useChat } from "../../shell/chat/use-chat.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { HireDialog } from "./hire-dialog.tsx";
+import { inGridOrder } from "./people-order.ts";
 import { CAPABILITIES, taskLimitShort } from "../../shell/role-card-words.ts";
 import "./people.css";
 
@@ -22,9 +23,8 @@ export function PeoplePage(): ReactNode {
     <div className="people-page">
       {roles.error && <Alert tone="danger" title={roles.error.message} />}
       <div className="people-grid">
-        {roles.data?.map((role) => (
-          <PersonCard key={role.key} role={role} />
-        ))}
+        {roles.data &&
+          inGridOrder(roles.data).map((role) => <PersonCard key={role.key} role={role} />)}
         <article className="person-tile hire-tile">
           <div className="person-tile-head">
             <span className="hire-icon">
@@ -91,6 +91,12 @@ function PersonCard({ role }: { readonly role: Role }): ReactNode {
             <span className="visually-hidden">{label}</span>
           </span>
         ))}
+        {role.builtIn && (
+          <span className="person-tile-built-in">
+            <Icon name="lock" size={12} />
+            Built in
+          </span>
+        )}
         {role.letGoAt && <span className="person-tile-let-go">Let go</span>}
         <span className="person-tile-limit">{taskLimitShort(card.taskLimit)}</span>
       </div>

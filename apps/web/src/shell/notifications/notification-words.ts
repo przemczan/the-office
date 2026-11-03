@@ -14,8 +14,9 @@ export const OFFICE_TITLE = "The Office";
 const OFFICE_MANAGER = "office-manager";
 
 /**
- * Where opening a Notification goes: the Task or the Initiative it is about, or Now for the
- * Office's own state, with the Office Manager's chat over it when they speak.
+ * Where opening a Notification goes: the Task or the Initiative it is about, Settings › Updates for
+ * an Office update, or Now for the Office's own state, with the Office Manager's chat over it when
+ * they speak.
  */
 export type NotificationTarget =
   | { readonly to: "/tasks/$taskId"; readonly params: { readonly taskId: string } }
@@ -23,7 +24,8 @@ export type NotificationTarget =
       readonly to: "/work/initiatives/$initiativeId";
       readonly params: { readonly initiativeId: string };
     }
-  | { readonly to: "/now"; readonly search?: { readonly chat: string } };
+  | { readonly to: "/now"; readonly search?: { readonly chat: string } }
+  | { readonly to: "/settings/updates" };
 
 /**
  * An Office kind opens Now even when it opens the Office Manager's chat, since opening Now is what
@@ -38,6 +40,7 @@ export function targetOf({
     return roleKey ? { to: "/now", search: { chat: roleKey } } : { to: "/now" };
   }
   if (pointsTo.kind === "since-you-left") return { to: "/now" };
+  if (pointsTo.kind === "office-update") return { to: "/settings/updates" };
   if (pointsTo.kind === "initiative") {
     return {
       to: "/work/initiatives/$initiativeId",

@@ -167,6 +167,19 @@ export function chooseContextOverride(
   return sendToApi("PUT", `${threadPath(id)}/context-override`, { override }, threadSchema);
 }
 
+/**
+ * Allow changes in the Caretaker's Thread, as the user confirmed (spec §2.4): its session ends, and
+ * the next message starts one reaching the workstation but secrets.
+ */
+export function allowChanges(id: string): Promise<Thread> {
+  return sendToApi("PUT", `${threadPath(id)}/allow-changes`, {}, threadSchema);
+}
+
+/** "Switch off": the Thread's session ends at once, and the Caretaker only reads again. */
+export function switchChangesOff(id: string): Promise<Thread> {
+  return deleteFromApiReturning(`${threadPath(id)}/allow-changes`, threadSchema);
+}
+
 /** The person who asked takes the answer in their Thread, which this answers with. */
 export function answerDecision(id: string, answer: DecisionAnswer): Promise<Thread> {
   return sendToApi("POST", `/decisions/${encodeURIComponent(id)}/answer`, answer, threadSchema);

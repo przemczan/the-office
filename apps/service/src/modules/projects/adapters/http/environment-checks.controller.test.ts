@@ -22,6 +22,7 @@ import { OfficeDataModule } from "../../../../platform/office-data/office-data.m
 import { TelemetryModule } from "../../../../platform/telemetry/telemetry.module.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { WebEventForwarding } from "../../../../platform/websocket/web-event-forwarding.js";
+import { BusyWorkChanged } from "../../../office-updates/index.js";
 import { PipelineLibrary, PipelineLibraryModule } from "../../../pipelines/index.js";
 import { EnvironmentCheckFinished } from "../../domain/environment-check-events.js";
 import { ProjectsModule } from "../../projects.module.js";
@@ -183,9 +184,10 @@ describe("POST /api/projects/:id/environment-check", CHECK_TIMEOUT, () => {
     );
     await expect(environmentOf(project)).resolves.toEqual(GREETING);
     expect(await throwawayWorktrees(project)).toEqual([]);
-    const webEvents = published.map((event) =>
-      projectWebEventSchema.parse(app.get(WebEventForwarding).toWebEvent(event)),
-    );
+    // A check is busy work too, but BusyWorkChanged stays inside the service while no update is scheduled.
+    const webEvents = published
+      .filter((event) => !(event instanceof BusyWorkChanged))
+      .map((event) => projectWebEventSchema.parse(app.get(WebEventForwarding).toWebEvent(event)));
     expect(webEvents.map((event) => event.type)).toEqual([
       "project.environment-check-changed",
       ...Array<string>(10).fill("project.environment-check-changed"),

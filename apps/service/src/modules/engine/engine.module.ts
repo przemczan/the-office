@@ -1,4 +1,5 @@
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
+import { BusyWorkModule } from "../office-updates/index.js";
 import { Module } from "@nestjs/common";
 import { McpClientModule } from "../../platform/mcp/mcp-client.module.js";
 import { AgentSdkEngine } from "./adapters/agent-sdk/agent-sdk-engine.js";
@@ -20,7 +21,7 @@ import { DayUsageRepository } from "./ports/day-usage-repository.js";
 import { UsageWindowSampleRepository } from "./ports/usage-window-sample-repository.js";
 
 @Module({
-  imports: [EngineSettingsModule, ScheduleModule, McpClientModule],
+  imports: [EngineSettingsModule, ScheduleModule, McpClientModule, BusyWorkModule],
   controllers: [SessionEndpointsController],
   providers: [
     AgentSdkEngine,

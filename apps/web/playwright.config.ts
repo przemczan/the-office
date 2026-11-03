@@ -11,7 +11,11 @@ export default defineConfig({
   reporter: [["list"]],
   use: { baseURL: `http://localhost:${PORT}`, trace: "retain-on-failure" },
   projects: [
-    { name: "chromium", use: { ...devices["Desktop Chrome"] }, testIgnore: "**/queue.e2e.ts" },
+    {
+      name: "chromium",
+      use: { ...devices["Desktop Chrome"] },
+      testIgnore: ["**/queue.e2e.ts", "**/updates.e2e.ts"],
+    },
     // The queue is one for the Office and any release weighs all of it: its test runs alone, after
     // every other file.
     {
@@ -19,6 +23,13 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
       testMatch: "**/queue.e2e.ts",
       dependencies: ["chromium"],
+    },
+    // A scheduled Office update holds every Start and each Task's next Stage: it runs alone, last.
+    {
+      name: "updates",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: "**/updates.e2e.ts",
+      dependencies: ["queue"],
     },
   ],
   webServer: {

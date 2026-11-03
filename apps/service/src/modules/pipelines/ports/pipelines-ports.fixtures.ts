@@ -295,6 +295,7 @@ export class StageThreadsForTests extends StageThreads {
       id: randomUUID(),
       settings: {
         engineId: FIRST_CLAUDE_CODE_ENGINE.id,
+        turnLabel: `Someone in the Stage ${request.stageName}`,
         folder: request.folder,
         environment: request.environment,
         model,

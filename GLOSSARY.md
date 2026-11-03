@@ -154,6 +154,14 @@ _Avoid_: Trigger, panic, stop all
 The user's act that turns the Fire alarm off, after seeing on Now what will resume, how and at what cost, with Resume, Hold or Drop per Task.
 _Avoid_: Lift, reset, unpause
 
+**Office update**:
+Moving The Office itself to the newest commit of its own checkout's upstream: found by its daily check, scheduled by the user's Update in Settings › Updates, held until nothing is busy, then installed by the launcher as The Office restarts. Not a Skill's Update.
+_Avoid_: Upgrade, self-update, release, deploy
+
+**Launcher**:
+What `npm start` runs: it starts The Office's service, and when the service stops for an Office update, installs the update and starts it again.
+_Avoid_: Supervisor, wrapper, runner
+
 **Notification**:
 A signal outside the page the user is on that something waits for them or has happened; it opens that thing and is cleared by handling it, never by reading the Notification itself.
 _Avoid_: Alert, inbox item, notice
@@ -249,7 +257,7 @@ The release of its Source an installed Skill is held at: the Source's newest tag
 _Avoid_: Latest, tracked version
 
 **Update**:
-A newer pinned version than an installed Skill's, found by The Office's daily check of its Source and shown as "Update available". Devops drafts it as a Proposal; applying it saves the Skill's next version, as an edit or an upload does, and pins it there.
+A newer pinned version than an installed Skill's, found by The Office's daily check of its Source and shown as "Update available". Devops drafts it as a Proposal; applying it saves the Skill's next version, as an edit or an upload does, and pins it there. Not an Office update.
 _Avoid_: Upgrade, new release
 
 **MCP server**:
@@ -275,3 +283,11 @@ _Avoid_: Dashboard, report, overview
 **Proposal**:
 A new or changed Role card or Office setting drafted by the Office Manager, which takes effect only when the user confirms it.
 _Avoid_: Suggestion, draft, request
+
+**Caretaker**:
+The built-in person who looks after the workstation and The Office: always present, never hired or let go, with a chat only.
+_Avoid_: Admin, sysadmin, system agent
+
+**Allow changes**:
+A Caretaker Thread's switch, confirmed by the user, under which the Caretaker can do everything on the workstation but touch secrets; kept per Thread, off in a new one.
+_Avoid_: Admin mode, unlock, elevated mode

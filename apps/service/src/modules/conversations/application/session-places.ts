@@ -1,6 +1,10 @@
+import { homedir } from "node:os";
 import { Injectable, Logger } from "@nestjs/common";
+import { CARETAKER } from "../../people/index.js";
 import type { Brief } from "../domain/brief.js";
 import {
+  ALLOW_CHANGES_ADVICE,
+  caretakerChatInstructions,
   chatOfficeTools,
   CONSULTATION_OFFICE_TOOLS,
   chatInstructions,
@@ -10,6 +14,7 @@ import {
 } from "../domain/session-instructions.js";
 import type { Thread } from "../domain/thread.js";
 import { ThreadRefused } from "../domain/thread-refused.js";
+import { ChangesAllowedRepository } from "../ports/changes-allowed-repository.js";
 import { ProjectBases } from "../ports/project-bases.js";
 import { Briefs } from "./briefs.js";
 import { InitiativeThreadSetups } from "./initiative-thread-setups.js";
@@ -27,6 +32,13 @@ export interface SessionPlace {
     | { readonly id: string; readonly folder: string; readonly useProjectSkills: boolean }
     | undefined;
   readonly officeTools: readonly string[];
+  /**
+   * The session reaches the whole workstation but secrets, from the home folder: the Caretaker's
+   * Thread with changes allowed (spec §2.4). Every other session only reads.
+   */
+  readonly workstation: boolean;
+  /** What a refusal tells the Agent to do about it, such as asking to Allow changes. */
+  readonly refusalAdvice: string | undefined;
   readonly brief: Brief;
   /** What its engine calls are tagged with, beside the Thread and the person. */
   readonly span: Readonly<Record<string, string>>;
@@ -38,7 +50,8 @@ export interface SessionPlace {
 /**
  * A chat session, or one on an Initiative, reads every Project's base branch with the service's own
  * variables (spec §6); a session on a Task works in the Task's worktree. The module keeping Work
- * sets up what a session on a Task or an Initiative is given.
+ * sets up what a session on a Task or an Initiative is given. The Caretaker's chat with changes
+ * allowed works in the home folder instead (spec §2.4).
  */
 @Injectable()
 export class SessionPlaces {
@@ -49,6 +62,7 @@ export class SessionPlaces {
     private readonly briefs: Briefs,
     private readonly taskThreads: TaskThreadSetups,
     private readonly initiativeThreads: InitiativeThreadSetups,
+    private readonly changesAllowed: ChangesAllowedRepository,
   ) {}
 
   async of(thread: Thread): Promise<SessionPlace> {
@@ -79,6 +93,8 @@ export class SessionPlaces {
         useProjectSkills: setup.useProjectSkills,
       },
       officeTools: thread.consultation ? CONSULTATION_OFFICE_TOOLS : setup.officeTools,
+      workstation: false,
+      refusalAdvice: undefined,
       brief: await this.briefs.forTaskThread(thread, setup),
       span: { "office.task": taskId },
       instructions: (card) =>
@@ -91,12 +107,41 @@ export class SessionPlaces {
   }
 
   private async chat(thread: Thread): Promise<SessionPlace> {
-    return {
-      ...this.basesPlace(thread),
+    const chat = {
       officeTools: chatOfficeTools(thread.roleKey),
       brief: await this.briefs.forThread(thread),
       span: {},
+    };
+    if (thread.roleKey === CARETAKER) return { ...chat, ...(await this.caretakerPlace(thread)) };
+    return {
+      ...this.basesPlace(thread),
+      ...chat,
+      workstation: false,
+      refusalAdvice: undefined,
       instructions: (card) => chatInstructions(card, thread.roleKey),
+    };
+  }
+
+  /** The Caretaker reads as any chat does until the user allows changes in the Thread. */
+  private async caretakerPlace(
+    thread: Thread,
+  ): Promise<Omit<SessionPlace, "officeTools" | "brief" | "span">> {
+    if (!(await this.changesAllowed.isAllowed(thread.id))) {
+      return {
+        ...this.basesPlace(thread),
+        workstation: false,
+        refusalAdvice: ALLOW_CHANGES_ADVICE,
+        instructions: (card) => caretakerChatInstructions(card, false),
+      };
+    }
+    return {
+      folder: homedir(),
+      environment: serviceEnvironment(),
+      project: undefined,
+      workstation: true,
+      refusalAdvice: undefined,
+      instructions: (card) => caretakerChatInstructions(card, true),
+      ready: () => Promise.resolve(),
     };
   }
 
@@ -111,6 +156,8 @@ export class SessionPlaces {
     return {
       ...this.basesPlace(thread),
       officeTools: setup.officeTools,
+      workstation: false,
+      refusalAdvice: undefined,
       brief: await this.briefs.forInitiativeThread(thread, setup),
       span: { "office.initiative": initiativeId },
       instructions: (card) => workThreadInstructions(card, setup.instructions),

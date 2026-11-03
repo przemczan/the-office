@@ -1,7 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import type { Now } from "@the-office/contracts";
 import { useState, type ReactNode } from "react";
 import { notificationQueries, nowQueries } from "../api/notifications.ts";
+import { officeUpdateQueries } from "../api/office-updates.ts";
 import { useEventStreamStatus } from "../api/event-stream-provider.tsx";
 import { roleQueries } from "../api/people.ts";
 import { alarmStateWords } from "./fire-alarm/fire-alarm-words.ts";
@@ -21,7 +23,8 @@ import { UsageFigure } from "./usage-figure.tsx";
 /**
  * The Office-wide figures under the top bar (spec §4), live from `now.changed`: what needs the
  * user in the Projects shown, which opens the Needs you panel, desks in use, tokens today, the usage figure, Tasks
- * touched and done since the user left, and the fire alarm's state, its desks at 0 while it is on.
+ * touched and done since the user left, an Office update while one is scheduled, and the fire
+ * alarm's state, its desks at 0 while it is on.
  * While the web has lost the service it says so first,
  * and the Office's own Notifications (the window, the engine) show here until they clear, by the
  * Office Manager's name once one speaks them.
@@ -52,6 +55,7 @@ export function StatusStrip(): ReactNode {
       })}
       {now && <Figures now={now} />}
       <span className="shell-grow" />
+      <ScheduledUpdate />
       <DesktopPermission />
       {now && (
         <span className={`shell-strip-alarm${now.fireAlarm ? " on" : ""}`}>
@@ -60,6 +64,20 @@ export function StatusStrip(): ReactNode {
         </span>
       )}
     </div>
+  );
+}
+
+/** "Update scheduled" while an Office update waits, opening Settings › Updates. */
+function ScheduledUpdate(): ReactNode {
+  const scheduled = useQuery(officeUpdateQueries.officeUpdate()).data?.scheduled;
+  if (!scheduled) return null;
+  const waiting = scheduled.busy.length;
+  return (
+    <Link to="/settings/updates" className="shell-strip-stat shell-strip-update">
+      <span className="shell-dot running" />
+      Update scheduled
+      {waiting > 0 && `, waiting for ${waiting === 1 ? "1 thing" : `${waiting} things`}`}
+    </Link>
   );
 }
 

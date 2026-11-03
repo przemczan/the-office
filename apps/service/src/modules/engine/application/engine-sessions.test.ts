@@ -1,4 +1,5 @@
 import { MeterProvider, MetricReader } from "@opentelemetry/sdk-metrics";
+import { BusyWork } from "../../office-updates/index.js";
 import {
   InMemorySpanExporter,
   SimpleSpanProcessor,
@@ -96,6 +97,7 @@ const SETTINGS: SessionSettings = {
   mcpServers: [],
   instructions: "",
   outputSchema: undefined,
+  turnLabel: "Jim in a chat",
 };
 
 const WINDOWS = {
@@ -174,6 +176,7 @@ function setUpOn(
     windowSamples,
     new EngineModels(settings),
     running,
+    new BusyWork(new EventBus()),
   );
   return { sessions, spans, published, usageWindows, dayUsage, schedule, windowSamples, running };
 }

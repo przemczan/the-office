@@ -5,16 +5,19 @@ import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { promisify } from "node:util";
 import {
+  officeUpdateSchema,
   pipelineSchema,
   projectSchema,
   queueSchema,
   startAnswerSchema,
   taskSchema,
   taskStagesSchema,
+  type OfficeUpdate,
   type Pipeline,
   type Task,
   type TaskStage,
 } from "@the-office/contracts";
+import type { INestApplication } from "@nestjs/common";
 import { describe, expect, it, vi } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
 import { testDatabaseUrl } from "../../../../../test/test-database.js";
@@ -28,6 +31,11 @@ import {
   type NewSession,
   type SessionScript,
 } from "../../../engine/index.js";
+import {
+  createOfficeCheckout,
+  type OfficeCheckoutForTests,
+} from "../../../office-updates/index.fixtures.js";
+import { BusyWork, OfficeUpdates } from "../../../office-updates/index.js";
 import { MemoryService, RoleCards, type SessionRole } from "../../../people/index.js";
 import { ownProjectsStartedTasks } from "../../../pipelines/index.fixtures.js";
 import { PLANNER } from "../../domain/planning.js";
@@ -69,6 +77,94 @@ describe("The queue, through the scripted engine", () => {
         expect(await office.queue()).toEqual([]);
         await office.send("POST", `/tasks/${second.id}/drop`);
       } finally {
+        await office.close();
+      }
+    },
+    REAL_GIT_TEST_MS,
+  );
+});
+
+describe("An Office update, through the scripted engine", () => {
+  it(
+    "waits for a Stage's turn, queues new Starts meanwhile, and not for a Task waiting on you",
+    async () => {
+      const office = await startOffice({ taskLimit: 2 });
+      try {
+        const [newest] = await office.checkout.pushNewer("A newer Office");
+        const pipeline = await office.aPipeline();
+        const first = await office.readyTask(pipeline.id);
+        const second = await office.readyTask(pipeline.id);
+        const ready = vi.fn<() => void>();
+        office.app.get(OfficeUpdates).onReadyToUpdate(ready);
+        const turn = holdTurn(office.engine, first.id);
+        office.engine.queue(DEVELOPER_SESSION);
+
+        await office.send("POST", `/tasks/${first.id}/start`);
+        await turn.started;
+        expect((await office.send("POST", "/office-update/schedule")).status).toBe(204);
+        const queued = startAnswerSchema.parse(
+          await (await office.send("POST", `/tasks/${second.id}/start`)).json(),
+        );
+
+        expect(queued.queued?.reasons).toEqual(["An update is scheduled."]);
+        const scheduled = await officeUpdateOf(office);
+        expect(scheduled.scheduled?.target.commit).toBe(newest);
+        expect(scheduled.scheduled?.busy).toEqual([
+          { kind: "turn", label: `${DEVELOPER_NAME} in the Stage Build` },
+        ]);
+        expect(ready).not.toHaveBeenCalled();
+        turn.release();
+        // At its Gate, Waiting on you: nothing of it is busy.
+        await office.untilState(first.id, "waiting-on-you");
+        await vi.waitFor(() => expect(ready).toHaveBeenCalledOnce());
+        const request = JSON.parse(
+          await readFile(join(office.updateFolder, "request.json"), "utf8"),
+        );
+        expect(request).toEqual({ target: newest });
+        expect((await office.send("DELETE", "/office-update/schedule")).status).toBe(422);
+      } finally {
+        await office.close();
+      }
+    },
+    REAL_GIT_TEST_MS,
+  );
+
+  it(
+    "holds a Task's next Stage at its boundary, and Cancel releases it and the queued Start",
+    async () => {
+      const office = await startOffice({ taskLimit: 2 });
+      // Something else is busy all along, so the update never goes ahead.
+      const endBusy = office.app.get(BusyWork).begin({ kind: "clone", label: "A clone" });
+      try {
+        await office.checkout.pushNewer("A newer Office");
+        const pipeline = await office.aPipeline([
+          developerStage(office, "check", "Check"),
+          REVIEW_GATE,
+        ]);
+        const first = await office.readyTask(pipeline.id);
+        const second = await office.readyTask((await office.aPipeline()).id);
+        const turn = holdTurn(office.engine, first.id);
+        office.engine.queue(DEVELOPER_SESSION, DEVELOPER_SESSION, DEVELOPER_SESSION);
+
+        await office.send("POST", `/tasks/${first.id}/start`);
+        await turn.started;
+        expect((await office.send("POST", "/office-update/schedule")).status).toBe(204);
+        await office.send("POST", `/tasks/${second.id}/start`);
+        turn.release();
+        await vi.waitFor(async () =>
+          expect((await office.stagesOf(first.id))[0]?.runs[0]?.endedAt).toBeTruthy(),
+        );
+        // Long enough for a walk that went on to start its next Stage's run.
+        await new Promise((resolve) => setTimeout(resolve, 500));
+
+        expect((await office.stagesOf(first.id))[1]?.runs).toEqual([]);
+        expect(await office.queue()).toEqual([second.id]);
+        expect((await office.send("DELETE", "/office-update/schedule")).status).toBe(204);
+        await office.untilState(first.id, "waiting-on-you");
+        await office.untilState(second.id, "waiting-on-you");
+        expect(await office.queue()).toEqual([]);
+      } finally {
+        endBusy();
         await office.close();
       }
     },
@@ -230,6 +326,42 @@ class EditingEngine extends ScriptedEngine {
   }
 }
 
+const NOTHING = (): void => undefined;
+
+/** Holds the Task's first session from starting, its brief sent: a turn going on until released. */
+function holdTurn(
+  engine: EditingEngine,
+  taskId: string,
+): { readonly started: Promise<void>; release(): void } {
+  let release = NOTHING;
+  let begun = NOTHING;
+  const started = new Promise<void>((resolve) => (begun = resolve));
+  const released = new Promise<void>((resolve) => (release = resolve));
+  engine.editAtStart(taskId, async () => {
+    begun();
+    await released;
+  });
+  return { started, release };
+}
+
+/** Another Agent Stage of the test's Developer. */
+function developerStage(office: Office, key: string, name: string): object {
+  return {
+    kind: "agent",
+    key,
+    name,
+    optional: false,
+    role: office.developerKey,
+    brief: "Check it.",
+    session: "fresh",
+    budget: 100_000,
+  };
+}
+
+async function officeUpdateOf(office: Office): Promise<OfficeUpdate> {
+  return officeUpdateSchema.parse(await (await office.send("GET", "/office-update")).json());
+}
+
 const REVIEW_GATE = { kind: "gate", key: "review", name: "Review", optional: false } as const;
 const PUBLISH = {
   kind: "script",
@@ -240,7 +372,13 @@ const PUBLISH = {
 } as const;
 
 interface Office {
+  readonly app: INestApplication;
   readonly engine: EditingEngine;
+  /** The service's own checkout, behind which a newer commit can be pushed. */
+  readonly checkout: OfficeCheckoutForTests;
+  /** The folder the launcher would share with the service. */
+  readonly updateFolder: string;
+  readonly developerKey: string;
   /** The Project's repository, whose `main` tracks the one in a bare `origin` beside it. */
   readonly repository: string;
   readonly originPath: string;
@@ -262,6 +400,9 @@ interface Office {
  */
 async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
   const folder = await mkdtemp(join(tmpdir(), "office-queue-walk-"));
+  const checkout = await createOfficeCheckout(join(folder, "office"));
+  const updateFolder = join(folder, "update");
+  await mkdir(updateFolder);
   const engine = new EditingEngine([]);
   const developerKey = `queue-developer-${randomUUID().slice(0, 8)}`;
   const settings = new WorkSettingsForTests();
@@ -277,8 +418,10 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
           databaseUrl: testDatabaseUrl(),
           officeDataDirectory: join(folder, "data"),
           gitHub: GITHUB_SITE,
+          officeUpdateFolder: updateFolder,
         },
         { directory: folder, source: "built" },
+        checkout.path,
       ),
     ],
     overrides: [
@@ -321,7 +464,11 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
   );
   ownProjectIds = [project.id];
   return {
+    app,
     engine,
+    checkout,
+    updateFolder,
+    developerKey,
     repository,
     originPath,
     send,

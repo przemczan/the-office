@@ -1,6 +1,6 @@
 import { randomInt, randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import type { INestApplication } from "@nestjs/common";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -25,13 +25,14 @@ import {
   textReply,
   type ApiEngineOnFakeServer,
 } from "../../engine/index.fixtures.js";
-import { EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
+import { CARETAKER, EngineCascade, RoleCards, type SessionRole } from "../../people/index.js";
 import { EngineCascadeStandIn } from "../../people/index.fixtures.js";
 import { SessionMcpServers, type PreparedMcpServers } from "../../mcp-servers/index.js";
 import { SessionSkills } from "../../skills/index.js";
 import { DecisionOfficeTools } from "../adapters/office-tools/decision-office-tools.js";
 import { PostgresThreadRepository } from "../adapters/postgres/postgres-thread-repository.js";
 import {
+  ALLOW_CHANGES_ADVICE,
   CHANGE_ROLE_TOOL,
   CHAT_OFFICE_TOOLS,
   HANDOVER_REQUEST,
@@ -57,6 +58,7 @@ import { aPlannerCard } from "./session-role.fixtures.js";
 import { SessionPlaces } from "./session-places.js";
 import { TaskThreadSetups, type TaskThreadSetup } from "./task-thread-setups.js";
 import { ThreadContexts } from "./thread-contexts.js";
+import { AllowChanges } from "./allow-changes.js";
 import { StageThreads } from "./stage-threads.js";
 import { ThreadRunner } from "./thread-runner.js";
 import { MentionedRecords } from "./mentioned-records.js";
@@ -69,6 +71,8 @@ import { FireAlarmLifts, HELD_BY_THE_FIRE_ALARM } from "./fire-alarm-lifts.js";
 import { ApprovalHolds } from "./approval-holds.js";
 import { FireAlarmLiftRepository } from "../ports/fire-alarm-lift-repository.js";
 import { PostgresFireAlarmLiftRepository } from "../adapters/postgres/postgres-fire-alarm-lift-repository.js";
+import { ChangesAllowedRepository } from "../ports/changes-allowed-repository.js";
+import { PostgresChangesAllowedRepository } from "../adapters/postgres/postgres-changes-allowed-repository.js";
 import {
   sessionMcpServersStandIn,
   type SessionMcpServersStandIn,
@@ -230,10 +234,12 @@ async function startOn(
       InitiativeThreadSetups,
       SessionPlaces,
       ThreadContexts,
+      AllowChanges,
       ThreadRunner,
       FireAlarmLifts,
       ApprovalHolds,
       { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
+      { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
       MentionedRecords,
       WorkRecords,
       StageThreads,
@@ -1577,6 +1583,119 @@ describe("chats during the fire alarm", () => {
     expect(nextSounding).toBe(HELD_BY_THE_FIRE_ALARM);
     await expect(lifts.heldReason(thread.id)).resolves.toBe(HELD_BY_THE_FIRE_ALARM);
     await expect(lifts.lifted()).resolves.toEqual([]);
+  });
+});
+
+/** The lines of the log that say how the Thread's session went. */
+function switchLines(log: readonly Message[]): MessageDraft[] {
+  return drafts(log).filter(({ kind }) => kind === "context" || kind === "changes-allowed");
+}
+
+describe("the Caretaker's chat", () => {
+  beforeEach(() => {
+    roleKey = CARETAKER;
+  });
+
+  it("only reads in a new Thread, a refusal telling the Agent to ask the user to Allow changes", async () => {
+    await startWith(started(...aTurn("brief", "The disk is nearly full.")));
+    const thread = await threads.startInChat(roleKey);
+
+    await runner.send(thread.id, "Why is the build slow?");
+    await answered(thread.id, 3);
+
+    expect(engine.sessions[0]?.options).toMatchObject({
+      folder: join(officeData, "bases"),
+      profile: { edit: false, run: { kind: "read-only-git" }, web: true },
+      workstation: false,
+      refusalAdvice: ALLOW_CHANGES_ADVICE,
+    });
+    expect(engine.sessions[0]?.options.instructions).toContain(
+      "This Thread only reads until the user allows changes",
+    );
+    await expect(app.get(AllowChanges).inThread(thread)).resolves.toBe(false);
+  });
+
+  it("starts the next session on the workstation once changes are allowed, and only reads again once switched off", async () => {
+    await startWith(
+      started(...aTurn("brief", "The cache folder is 40 GB."), { step: "end" }),
+      started(...aTurn("brief", "Cleared it."), { step: "end" }),
+      started(...aTurn("brief", "It is 2 GB now.")),
+    );
+    const allowChanges = app.get(AllowChanges);
+    const thread = await threads.startInChat(roleKey);
+    await runner.send(thread.id, "What fills the disk?");
+    await answered(thread.id, 3);
+
+    await allowChanges.allow(thread.id);
+    await runner.send(thread.id, "Clear the cache.");
+    const allowedLog = await answered(thread.id, 7);
+    const whileAllowed = await threads.read(thread.id);
+    await allowChanges.switchOff(thread.id);
+    await runner.send(thread.id, "How big is it now?");
+    const log = await answered(thread.id, 11);
+
+    const [readOnly, onTheWorkstation, readOnlyAgain] = engine.sessions;
+    expect(readOnly?.received.at(-1)).toEqual({ step: "end" });
+    expect(onTheWorkstation?.options).toMatchObject({
+      folder: homedir(),
+      profile: { edit: true, run: { kind: "anything" }, web: true },
+      workstation: true,
+    });
+    expect(onTheWorkstation?.options.refusalAdvice).toBeUndefined();
+    expect(onTheWorkstation?.options.instructions).toContain("The user allowed changes");
+    expect(whileAllowed.session).toMatchObject({ id: onTheWorkstation?.id, changesAllowed: true });
+    expect(drafts(allowedLog).at(3)).toEqual({ kind: "changes-allowed", allowed: true });
+    expect(onTheWorkstation?.received.at(-1)).toEqual({ step: "end" });
+    expect(readOnlyAgain?.options).toMatchObject({
+      folder: join(officeData, "bases"),
+      workstation: false,
+    });
+    expect(switchLines(log)).toEqual([
+      contextLine({ move: "fresh", reason: "new-thread", briefTokens: expect.any(Number) }),
+      { kind: "changes-allowed", allowed: true },
+      contextLine({
+        move: "fresh",
+        reason: "changes-switched",
+        contextTokens: 32_000,
+        briefTokens: expect.any(Number),
+      }),
+      { kind: "changes-allowed", allowed: false },
+      contextLine({
+        move: "fresh",
+        reason: "changes-switched",
+        contextTokens: 32_000,
+        briefTokens: expect.any(Number),
+      }),
+    ]);
+  });
+
+  it("holds every call of a session with changes allowed while the fire alarm is on", async () => {
+    await startWith(started(...aTurn("brief", "Done.")));
+    const thread = await threads.startInChat(roleKey);
+    await app.get(AllowChanges).allow(thread.id);
+    await runner.send(thread.id, "Update the toolchain.");
+    await answered(thread.id, 4);
+    app.get(FireAlarmInThreads).readFrom(() => Promise.resolve(aSounding()));
+
+    await expect(engine.sessions[0]?.options.toolHold?.()).resolves.toBe(HELD_BY_THE_FIRE_ALARM);
+  });
+
+  it("starts each new Thread with changes off, and keeps the switch in the Caretaker's chat alone", async () => {
+    await startWith();
+    const allowChanges = app.get(AllowChanges);
+    const allowed = await threads.startInChat(roleKey);
+    await allowChanges.allow(allowed.id);
+    const fresh = await threads.startInChat(roleKey);
+    roleKey = `role-${randomUUID()}`;
+    const elsewhere = await threads.startInChat(roleKey);
+
+    await expect(allowChanges.inThread(allowed)).resolves.toBe(true);
+    await expect(allowChanges.inThread(fresh)).resolves.toBe(false);
+    await expect(allowChanges.inThread(elsewhere)).resolves.toBeUndefined();
+    await expect(allowChanges.allow(elsewhere.id)).rejects.toThrow(
+      "Only the Caretaker's chat has Allow changes.",
+    );
+    await expect(threads.messages(fresh.id)).resolves.toEqual([]);
   });
 });
 

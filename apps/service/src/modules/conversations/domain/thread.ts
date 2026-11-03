@@ -65,6 +65,11 @@ export interface ThreadSession {
    * resumed, and the Thread continues fresh (spec §2.5).
    */
   readonly full: boolean;
+  /**
+   * It started with changes allowed in its Caretaker Thread, reaching the workstation (spec §2.4):
+   * switching them on or off never resumes it, as it runs under other rules.
+   */
+  readonly changesAllowed: boolean;
 }
 
 /** What the user chose for the Thread's next message: "Start fresh" or "Continue anyway". */

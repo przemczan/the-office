@@ -326,6 +326,7 @@ function toSession(row: ThreadSessionRow): ThreadSession {
     startedAt: new Date(row.startedAt),
     lastCallAt: row.lastCallAt === null ? undefined : new Date(row.lastCallAt),
     startContextTokens: row.startContextTokens ?? undefined,
+    changesAllowed: row.changesAllowed ?? false,
   };
 }
 

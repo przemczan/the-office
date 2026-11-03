@@ -62,20 +62,47 @@ const DEVELOPER: PermissionProfile = {
   mcpTools: {},
 };
 
-function rulesOn(platform: Platform, profile: PermissionProfile = DEVELOPER): OfficeRules {
+/** How a session's rules differ from a Task's Developer's in its worktree. */
+interface SessionReach {
+  readonly profile?: PermissionProfile;
+  readonly workstation?: boolean;
+  readonly refusalAdvice?: string;
+}
+
+/** A chat's: it only reads (spec §6). */
+const READ_ONLY: PermissionProfile = {
+  edit: false,
+  run: { kind: "read-only-git" },
+  web: true,
+  mcpTools: {},
+};
+
+function rulesOn(
+  platform: Platform,
+  { profile = DEVELOPER, workstation = false, refusalAdvice }: SessionReach = {},
+): OfficeRules {
+  const { paths } = platform.system;
   return new OfficeRules({
-    workingFolder: platform.worktree,
+    workingFolder: workstation ? platform.home : platform.worktree,
     readableFolders: [platform.skillsFolder],
     profile,
-    userSecrets: platform.system.secretPaths,
-    officeFiles: [platform.dataDirectory, platform.officeEnvFile],
-    cloneFolders: [platform.system.paths.join(platform.dataDirectory, "repositories")],
+    workstation,
+    // As the engine names them: the user's, then The Office's.
+    secrets: [
+      ...platform.system.secretPaths,
+      paths.join(platform.dataDirectory, "engines"),
+      paths.join(platform.dataDirectory, "identity"),
+      platform.officeEnvFile,
+    ],
+    officeFiles: [platform.dataDirectory],
+    cloneFolders: [paths.join(platform.dataDirectory, "repositories")],
     homeFolder: platform.home,
     environment:
       platform === WINDOWS
         ? { USERPROFILE: platform.home, APPDATA: raw`C:\Users\office\AppData\Roaming` }
         : { HOME: platform.home },
-    paths: platform.system.paths,
+    paths,
+    refusalAdvice,
   });
 }
 
@@ -287,20 +314,17 @@ describe.each([WINDOWS, LINUX])("OfficeRules on $name paths", (platform) => {
 
   describe("the permission profile", () => {
     const reviewer = rulesOn(platform, {
-      edit: false,
-      run: {
-        kind: "project-commands",
-        commandLines: ["npm test", "npm run lint && npm run typecheck"],
+      profile: {
+        edit: false,
+        run: {
+          kind: "project-commands",
+          commandLines: ["npm test", "npm run lint && npm run typecheck"],
+        },
+        web: false,
+        mcpTools: {},
       },
-      web: false,
-      mcpTools: {},
     });
-    const planner = rulesOn(platform, {
-      edit: false,
-      run: { kind: "read-only-git" },
-      web: true,
-      mcpTools: {},
-    });
+    const planner = rulesOn(platform, { profile: READ_ONLY });
 
     it("refuses edits and the web where the profile has none", () => {
       expect(reviewer.decide({ kind: "edit", paths: ["src/app.ts"] })).toEqual({
@@ -398,12 +422,14 @@ const mcpCall = (tool: string): AgentAction => ({ kind: "mcp-tool", server: "git
 
 describe("OfficeRules on MCP tools", () => {
   const rules = rulesOn(LINUX, {
-    ...DEVELOPER,
-    mcpTools: {
-      "github/list_issues": { kind: "allowed" },
-      "github/create_issue": { kind: "consult", role: "devops" },
-      "github/merge": { kind: "ask-me" },
-      "github/delete_repo": { kind: "never" },
+    profile: {
+      ...DEVELOPER,
+      mcpTools: {
+        "github/list_issues": { kind: "allowed" },
+        "github/create_issue": { kind: "consult", role: "devops" },
+        "github/merge": { kind: "ask-me" },
+        "github/delete_repo": { kind: "never" },
+      },
     },
   });
 
@@ -429,6 +455,102 @@ describe("OfficeRules on MCP tools", () => {
     expect(rules.decide(mcpCall("unknown"))).toEqual({
       allowed: false,
       reason: "Not available in The Office: the github/unknown MCP tool.",
+    });
+  });
+});
+
+const ALLOW_CHANGES = "Ask the user to Allow changes in this Thread to change anything.";
+
+describe.each([WINDOWS, LINUX])("OfficeRules of the Caretaker on $name paths", (platform) => {
+  const join = (...names: string[]) => platform.system.paths.join(...names);
+  const readOnly = rulesOn(platform, { profile: READ_ONLY, refusalAdvice: ALLOW_CHANGES });
+  const workstation = rulesOn(platform, { workstation: true });
+  const dialect = platform.dialects[0] ?? "bash";
+
+  /** Every secret the engine names, as a file inside it. */
+  const secrets = [
+    join(platform.home, ".ssh", "id_ed25519"),
+    join(platform.home, ".claude", ".credentials.json"),
+    join(platform.home, ".aws", "credentials"),
+    join(platform.dataDirectory, "engines", "claude-code", ".credentials.json"),
+    join(platform.dataDirectory, "identity", "office_ssh_key"),
+    platform.officeEnvFile,
+    ...platform.system.secretPaths.map((secret) => join(secret, "file")),
+  ];
+
+  describe("while changes aren't allowed", () => {
+    it.each([
+      ["an edit", { kind: "edit", paths: ["src/app.ts"] }],
+      ["a command", command(dialect, "npm install")],
+      ["a git change", command(dialect, "git commit -m 'fix'")],
+      ["a read outside its folders", { kind: "read", paths: [platform.systemFile] }],
+    ] as const)("refuses %s, telling the Agent to ask the user", (_, action) => {
+      expect(readOnly.decide(action)).toEqual({
+        allowed: false,
+        reason: expect.stringMatching(/ Ask the user to Allow changes in this Thread/),
+      });
+    });
+
+    it("reads as a chat does", () => {
+      expect(readOnly.decide({ kind: "read", paths: ["README.md"] })).toEqual({ allowed: true });
+      expect(readOnly.decide(command(dialect, "git log -3"))).toEqual({ allowed: true });
+      expect(readOnly.decide({ kind: "web" })).toEqual({ allowed: true });
+    });
+
+    it("refuses a secret without the advice, as allowing changes would not change it", () => {
+      expect(readOnly.decide({ kind: "read", paths: ["~/.ssh/id_ed25519"] })).toEqual({
+        allowed: false,
+        reason: expect.not.stringContaining("Allow changes"),
+      });
+    });
+  });
+
+  describe("with changes allowed", () => {
+    it.each([
+      ["a system file", platform.systemFile],
+      ["The Office's data folder", join(platform.dataDirectory, "settings.json")],
+      ["a worktree's .git", join(platform.worktree, ".git", "config")],
+      ["a worktree's .claude", join(platform.worktree, ".claude", "settings.json")],
+      ["a worktree's .mcp.json", join(platform.worktree, ".mcp.json")],
+      ["the user's own Claude settings", join(platform.home, ".claude", "settings.json")],
+      ["a file in the home folder", "notes.txt"],
+    ])("reads and edits %s", (_, path) => {
+      expect(workstation.decide({ kind: "read", paths: [path] })).toEqual({ allowed: true });
+      expect(workstation.decide({ kind: "edit", paths: [path] })).toEqual({ allowed: true });
+    });
+
+    it.each(platform.dialects)("runs any command, every git command included, in %s", (shell) => {
+      for (const commandLine of [
+        "npm install -g pnpm",
+        "git commit -am 'fix'",
+        "git push origin HEAD",
+        `git -C '${platform.worktree}' reset --hard`,
+        `ls '${platform.dataDirectory}'`,
+        "npm test > /tmp/results.txt",
+      ]) {
+        expect(workstation.decide(command(shell, commandLine))).toEqual({ allowed: true });
+      }
+    });
+
+    it.each(secrets)("refuses reading, editing and naming in a command %s", (secret) => {
+      const refusal = {
+        allowed: false,
+        reason: expect.stringContaining("holds secrets, which Agents never read or change"),
+      };
+      expect(workstation.decide({ kind: "read", paths: [secret] })).toEqual(refusal);
+      expect(workstation.decide({ kind: "edit", paths: [secret] })).toEqual(refusal);
+      expect(workstation.decide(command(dialect, `cat '${secret}'`))).toEqual(refusal);
+    });
+
+    it("refuses secrets named from its working folder, the home folder", () => {
+      for (const commandLine of ["cat .ssh/id_ed25519", "cd ~ && cat .aws/credentials"]) {
+        expect(workstation.decide(command(dialect, commandLine))).toMatchObject({
+          allowed: false,
+        });
+      }
+      expect(workstation.decide({ kind: "read", paths: [".ssh"] })).toMatchObject({
+        allowed: false,
+      });
     });
   });
 });

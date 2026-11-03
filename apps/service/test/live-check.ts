@@ -79,6 +79,8 @@ export function messageLine(message: Message): string {
       return `refusal ${message.tool}: ${message.reason}`;
     case "mcp-server-not-started":
       return `mcp-server-not-started ${message.server}: ${message.reason ?? "(no reason)"}`;
+    case "changes-allowed":
+      return `changes-allowed: ${message.allowed ? "on" : "off"}`;
   }
 }
 

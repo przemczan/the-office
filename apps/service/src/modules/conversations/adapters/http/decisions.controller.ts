@@ -43,6 +43,6 @@ export class DecisionsController {
     @Body(new ContractPipe(decisionAnswerSchema)) answer: DecisionAnswer,
   ): Promise<ThreadResponse> {
     const thread = await this.decisions.answer(id, answer);
-    return toThreadResponse(thread, await this.contexts.of(thread));
+    return toThreadResponse(thread, await this.contexts.read(thread));
   }
 }

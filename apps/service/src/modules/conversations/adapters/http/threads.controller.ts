@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -23,6 +24,7 @@ import {
   type ThreadTitle,
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
+import { AllowChanges } from "../../application/allow-changes.js";
 import { DecisionService } from "../../application/decision-service.js";
 import { LinkCards } from "../../application/link-cards.js";
 import { ProposalService } from "../../application/proposal-service.js";
@@ -44,6 +46,7 @@ export class ThreadsController {
     private readonly decisions: DecisionService,
     private readonly proposals: ProposalService,
     private readonly linkCards: LinkCards,
+    private readonly allowChanges: AllowChanges,
   ) {}
 
   @Get("chats/:roleKey/threads")
@@ -101,6 +104,21 @@ export class ThreadsController {
   }
 
   /**
+   * Allows changes in the Caretaker's Thread, as the user confirmed (spec §2.4): its session ends,
+   * and the next message starts one reaching the workstation but secrets.
+   */
+  @Put("threads/:id/allow-changes")
+  async allow(@Param("id", ParseUUIDPipe) id: string): Promise<ThreadResponse> {
+    return this.toResponse(await this.allowChanges.allow(id));
+  }
+
+  /** Switches changes off in the Thread: its session ends, and the Caretaker only reads again. */
+  @Delete("threads/:id/allow-changes")
+  async switchOff(@Param("id", ParseUUIDPipe) id: string): Promise<ThreadResponse> {
+    return this.toResponse(await this.allowChanges.switchOff(id));
+  }
+
+  /**
    * The log, with each Decision's card and answer showing the Decision as it is now, each
    * Proposal's card the Proposal, and each Link card whether its person was let go.
    */
@@ -135,7 +153,7 @@ export class ThreadsController {
   }
 
   private async toResponse(thread: Thread): Promise<ThreadResponse> {
-    return toThreadResponse(thread, await this.contexts.of(thread));
+    return toThreadResponse(thread, await this.contexts.read(thread));
   }
 }
 

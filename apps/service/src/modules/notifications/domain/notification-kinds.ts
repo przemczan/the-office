@@ -16,6 +16,8 @@ export const NOTIFICATION_KINDS = [
   "office.down.service",
   "office.down.engine",
   "office.alarm-lifted",
+  "office.update.done",
+  "office.update.failed",
 ] as const;
 export type NotificationKind = (typeof NOTIFICATION_KINDS)[number];
 

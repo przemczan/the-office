@@ -11,6 +11,11 @@ export interface OfficeConfig {
   readonly officeDataDirectory: string;
   /** Where GitHub is: GitHub's own, or a stand-in such as the end-to-end tests' fake. */
   readonly gitHub: GitHubSite;
+  /**
+   * Where the launcher reads an Office update request and leaves its result
+   * (docs/running-the-office.md); absent when the service runs without it, as under `npm run dev`.
+   */
+  readonly officeUpdateFolder?: string;
 }
 
 /** Values that depend on the operating system, supplied by the platform layer. */
@@ -57,6 +62,10 @@ const environmentSchema = z.object({
     blankAsUnset,
     z.string().refine(isAbsolute, "must be an absolute path").optional(),
   ),
+  OFFICE_UPDATE_FOLDER: z.preprocess(
+    blankAsUnset,
+    z.string().refine(isAbsolute, "must be an absolute path").optional(),
+  ),
   OFFICE_GITHUB_URL: z.preprocess(
     blankAsUnset,
     z.url({ protocol: /^https?$/, error: WEB_ADDRESS }).default(GITHUB_SITE.webUrl),
@@ -85,6 +94,9 @@ export function readOfficeConfig(
     databaseUrl: result.data.DATABASE_URL,
     officeDataDirectory: result.data.OFFICE_DATA_DIR ?? defaults.officeDataDirectory(),
     gitHub: { webUrl: result.data.OFFICE_GITHUB_URL, apiUrl: result.data.OFFICE_GITHUB_API_URL },
+    ...(result.data.OFFICE_UPDATE_FOLDER && {
+      officeUpdateFolder: result.data.OFFICE_UPDATE_FOLDER,
+    }),
   };
 }
 

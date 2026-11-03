@@ -44,7 +44,8 @@ export const READ_ONLY_SHELL_RULE = `the shell runs only ${READ_ONLY_GIT} and re
 
 /**
  * The Office rules, which no profile loosens (git, secrets, protected paths, the folders a session
- * reads and edits), and then the session's permission profile, applied as data (spec §6).
+ * reads and edits), and then the session's permission profile, applied as data (spec §6). A
+ * session reaching the workstation is held to the secrets alone, and then its profile.
  */
 export class OfficeRules {
   private readonly secrets: SecretPaths;
@@ -61,13 +62,13 @@ export class OfficeRules {
       case "unavailable":
         return refused(`Not available in The Office: the ${action.tool} tool.`);
       case "web":
-        return this.rules.profile.web ? ALLOWED : notAllowed("searching or fetching the web");
+        return this.rules.profile.web ? ALLOWED : this.notAllowed("searching or fetching the web");
       case "read":
         return firstRefusal(action.paths, (path) => this.readRefusal(path));
       case "edit":
         return this.rules.profile.edit
           ? firstRefusal(action.paths, (path) => this.editRefusal(path))
-          : notAllowed("editing files");
+          : this.notAllowed("editing files");
       case "command":
         return this.commandDecision(action.commandLine, action.dialect);
       case "mcp-tool":
@@ -83,7 +84,7 @@ export class OfficeRules {
       case "allowed":
         return ALLOWED;
       case "never":
-        return notAllowed(`the ${server}/${tool} MCP tool`);
+        return refused(notAllowedReason(`the ${server}/${tool} MCP tool`));
       case "consult":
       case "ask-me":
         return {
@@ -97,32 +98,49 @@ export class OfficeRules {
   private readRefusal(path: string): string | undefined {
     const { paths, workingFolder, readableFolders } = this.rules;
     const secret = this.secretRefusal(path);
-    if (secret !== undefined) return secret;
+    if (secret !== undefined || this.rules.workstation) return secret;
     const resolved = paths.resolve(workingFolder, path);
     return [workingFolder, ...readableFolders].some((folder) => paths.isWithin(resolved, folder))
       ? undefined
-      : `Refused by The Office: ${path} is outside this session's folders; read only inside ${workingFolder}.`;
+      : this.advised(
+          `Refused by The Office: ${path} is outside this session's folders; read only inside ${workingFolder}.`,
+        );
   }
 
   private editRefusal(path: string): string | undefined {
     const { paths, workingFolder } = this.rules;
     const secret = this.secretRefusal(path);
-    if (secret !== undefined) return secret;
+    if (secret !== undefined || this.rules.workstation) return secret;
     const resolved = paths.resolve(workingFolder, path);
     if (!paths.isWithin(resolved, workingFolder)) {
-      return `Refused by The Office: ${path} is outside the worktree; edit only inside ${workingFolder}.`;
+      return this.advised(
+        `Refused by The Office: ${path} is outside the worktree; edit only inside ${workingFolder}.`,
+      );
     }
     const names = paths.names(resolved).slice(paths.names(workingFolder).length);
     return names.some((name) => PROTECTED_NAMES.has(name))
-      ? "Refused by The Office: .git, .claude and .mcp.json are The Office's to change; Agents never write there."
+      ? this.advised(
+          "Refused by The Office: .git, .claude and .mcp.json are The Office's to change; Agents never write there.",
+        )
       : undefined;
   }
 
   private secretRefusal(word: string, directory?: string): string | undefined {
     const secret = this.secrets.namedBy(word, directory);
-    return secret === undefined
-      ? undefined
+    if (secret === undefined) return undefined;
+    return this.rules.workstation
+      ? `Refused by The Office: ${secret} holds secrets, which Agents never read or change, even with changes allowed.`
       : `Refused by The Office: ${secret} holds the user's secrets or The Office's own files, which Agents never read or change.`;
+  }
+
+  /** The refusal with what the Agent can do about it, when the session says. */
+  private advised(reason: string): string {
+    const { refusalAdvice } = this.rules;
+    return refusalAdvice === undefined ? reason : `${reason} ${refusalAdvice}`;
+  }
+
+  private notAllowed(what: string): ToolDecision {
+    return refused(this.advised(notAllowedReason(what)));
   }
 
   private commandDecision(commandLine: string, dialect: ShellDialect): ToolDecision {
@@ -133,12 +151,12 @@ export class OfficeRules {
       if (!(error instanceof UnreadableCommand)) throw error;
       return refused(`Refused by The Office: ${error.reason}; write the command out plainly.`);
     }
-    const refusal =
-      this.officeRefusalAlong(commands, dialect) ??
-      this.firstCommandRefusal(commands, (command) =>
-        this.profileCommandRefusal(command, dialect, this.rules.profile.run),
-      );
-    return refusal === undefined ? ALLOWED : refused(refusal);
+    const officeRefusal = this.officeRefusalAlong(commands, dialect);
+    if (officeRefusal !== undefined) return refused(officeRefusal);
+    const profileRefusal = this.firstCommandRefusal(commands, (command) =>
+      this.profileCommandRefusal(command, dialect, this.rules.profile.run),
+    );
+    return profileRefusal === undefined ? ALLOWED : refused(this.advised(profileRefusal));
   }
 
   private firstCommandRefusal(
@@ -185,7 +203,10 @@ export class OfficeRules {
     return [...new Set(command.inMainShell ? moved : [...directories, ...moved])];
   }
 
-  /** Secrets and git, which hold under every profile, for a command run in any of `directories`. */
+  /**
+   * Secrets and git, which hold under every profile, for a command run in any of `directories`; only
+   * the secrets for a session reaching the workstation.
+   */
   private officeCommandRefusal(
     command: SimpleCommand,
     dialect: ShellDialect,
@@ -197,13 +218,16 @@ export class OfficeRules {
         if (secret !== undefined) return secret;
       }
     }
+    if (this.rules.workstation) return undefined;
     const outsideWrite = this.outsideWriteRefusal(command, directories);
     if (outsideWrite !== undefined) return outsideWrite;
     const program = programWords(command, dialect);
     const change = isGit(program) ? gitChange(program) : undefined;
     return change === undefined
       ? undefined
-      : `Refused by The Office: Agents never change git (${change}); The Office commits, branches and publishes. Only ${READ_ONLY_GIT} runs.`;
+      : this.advised(
+          `Refused by The Office: Agents never change git (${change}); The Office commits, branches and publishes. Only ${READ_ONLY_GIT} runs.`,
+        );
   }
 
   /**
@@ -225,7 +249,9 @@ export class OfficeRules {
           (directory) => !paths.isWithin(paths.resolve(directory, expanded), workingFolder),
         )
       ) {
-        return `Refused by The Office: ${target} is outside the worktree, and writes outside it are refused; keep a command's output in the shell, or write it inside ${workingFolder}.`;
+        return this.advised(
+          `Refused by The Office: ${target} is outside the worktree, and writes outside it are refused; keep a command's output in the shell, or write it inside ${workingFolder}.`,
+        );
       }
     }
     return undefined;
@@ -293,10 +319,6 @@ function firstRefusal(
 
 function refused(reason: string): ToolDecision {
   return { allowed: false, reason };
-}
-
-function notAllowed(what: string): ToolDecision {
-  return refused(notAllowedReason(what));
 }
 
 function notAllowedReason(what: string): string {

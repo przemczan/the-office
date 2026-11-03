@@ -29,6 +29,9 @@ import { FireAlarmInThreads } from "./application/fire-alarm-in-threads.js";
 import { FireAlarmLifts } from "./application/fire-alarm-lifts.js";
 import { PostgresFireAlarmLiftRepository } from "./adapters/postgres/postgres-fire-alarm-lift-repository.js";
 import { FireAlarmLiftRepository } from "./ports/fire-alarm-lift-repository.js";
+import { AllowChanges } from "./application/allow-changes.js";
+import { PostgresChangesAllowedRepository } from "./adapters/postgres/postgres-changes-allowed-repository.js";
+import { ChangesAllowedRepository } from "./ports/changes-allowed-repository.js";
 import { InterruptedAnswers } from "./application/interrupted-answers.js";
 import { LinkCards } from "./application/link-cards.js";
 import { InitiativeThreadSetups } from "./application/initiative-thread-setups.js";
@@ -80,6 +83,7 @@ export class ConversationsModule {
         { provide: ProjectBases, useExisting: projectBases },
         { provide: ConversationsSettings, useClass: PostgresConversationsSettings },
         { provide: FireAlarmLiftRepository, useClass: PostgresFireAlarmLiftRepository },
+        { provide: ChangesAllowedRepository, useClass: PostgresChangesAllowedRepository },
         ContextPolicySettingsService,
         ThreadService,
         Briefs,
@@ -96,6 +100,7 @@ export class ConversationsModule {
         Consultations,
         FireAlarmInThreads,
         FireAlarmLifts,
+        AllowChanges,
         StageThreads,
         StageDecisions,
         TaskTokens,

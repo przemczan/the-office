@@ -254,6 +254,15 @@ body,
   color: var(--fg-1);
 }
 
+.shell-strip-update {
+  color: var(--fg-1);
+  text-decoration: none;
+}
+
+.shell-strip-update:hover {
+  text-decoration: underline;
+}
+
 .shell-strip-needs-you:hover,
 .shell-strip-usage:hover,
 .shell-strip-action:hover {

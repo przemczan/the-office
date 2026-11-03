@@ -12,6 +12,11 @@ export interface OperatingSystem {
   readonly name: string;
   /** Where the Office data directory lives when OFFICE_DATA_DIR is not set (docs/tasks/build-defaults.md). */
   readonly defaultOfficeDataDirectory: string;
+  /**
+   * Why The Office can't update itself here, in the UI's words; absent where its launcher updates
+   * it (docs/running-the-office.md).
+   */
+  readonly officeUpdateRefusal?: string;
   readonly paths: PathRules;
   /** The shell a Project's commands run in. */
   readonly defaultShell: Shell;

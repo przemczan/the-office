@@ -186,6 +186,12 @@ function MessageItem({
       );
     case "context":
       return <ContextLine line={message} personName={personName} />;
+    case "changes-allowed":
+      return (
+        <div className="message-office">
+          {message.allowed ? "Changes allowed" : "Changes switched off"}
+        </div>
+      );
     case "failure":
       return (
         <div className="message-line failed">

@@ -1,4 +1,5 @@
 import { Injectable } from "@nestjs/common";
+import { OFFICE_UPDATE_SCHEDULED, OfficeUpdateHold } from "../../office-updates/index.js";
 import { EngineModels, type EngineId } from "../../engine/index.js";
 import type { DailyCapsAtStart, UsageAtStart, WindowsAtStart } from "../domain/cap-waits.js";
 import type { Task } from "../domain/task.js";
@@ -38,6 +39,7 @@ export class StartConditionsReader {
     private readonly startsSinceReading: StartsSinceReading,
     private readonly dailyCaps: DailyCaps,
     private readonly engineModels: EngineModels,
+    private readonly updateHold: OfficeUpdateHold,
   ) {}
 
   async of(task: Task): Promise<StartConditions> {
@@ -63,6 +65,7 @@ export class StartConditionsReader {
     const now = new Date();
     const daily = await this.dailyCaps.of(usageSettings.caps, everyTask);
     const engineNames = new Map(engines.map(({ id, name }) => [id, name] as const));
+    const officeUpdateHold = this.updateHold.isScheduled() ? OFFICE_UPDATE_SCHEDULED : undefined;
     return async (task) => {
       const [pipeline, usage] = await Promise.all([
         this.pipelines.find(task.pipelineId),
@@ -70,7 +73,13 @@ export class StartConditionsReader {
       ]);
       const stage = pipeline && firstAgentStage(pipeline.stages);
       const person = stage && (await this.people.find(stage.role));
-      return { stages: pipeline?.stages, person: person?.card, officeWideLimit, usage };
+      return {
+        stages: pipeline?.stages,
+        person: person?.card,
+        officeWideLimit,
+        usage,
+        officeUpdateHold,
+      };
     };
   }
 

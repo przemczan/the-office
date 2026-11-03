@@ -52,6 +52,7 @@ export const contextReasonSchema = z.enum([
   "stage-declared",
   "context-full",
   "engine-changed",
+  "changes-switched",
 ]);
 export type ContextReason = z.infer<typeof contextReasonSchema>;
 
@@ -106,6 +107,11 @@ export const threadSchema = z.object({
       askerRoleKey: z.string().nullable(),
     })
     .nullable(),
+  /**
+   * Whether changes are allowed in it: the Caretaker reaches the whole workstation but secrets
+   * (spec §2.4). Null for every Thread but the Caretaker's chat's, where there is no such switch.
+   */
+  changesAllowed: z.boolean().nullable(),
 });
 export type Thread = z.infer<typeof threadSchema>;
 
@@ -459,6 +465,8 @@ export const messageSchema = z.discriminatedUnion("kind", [
     /** The Brief the session started with, for the user to read; null when it had none. */
     brief: z.string().nullable(),
   }),
+  /** The user allowed changes in the Caretaker's Thread, or switched them off: The Office's line. */
+  z.object({ ...messageFields, kind: z.literal("changes-allowed"), allowed: z.boolean() }),
   /** Why the person couldn't answer. */
   z.object({ ...messageFields, kind: z.literal("failure"), reason: z.string() }),
   /**

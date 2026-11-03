@@ -3,6 +3,7 @@ import { Logger, type DynamicModule, type INestApplication } from "@nestjs/commo
 import { NestFactory } from "@nestjs/core";
 import { AppModule } from "./app.module.js";
 import { InterruptedAnswers } from "./modules/conversations/index.js";
+import { OfficeUpdates } from "./modules/office-updates/index.js";
 import { FireAlarmService, QueueService } from "./modules/work/index.js";
 import { InvalidOfficeConfigError } from "./platform/config/invalid-office-config-error.js";
 import { readOfficeConfig, type OfficeConfig } from "./platform/config/office-config.js";
@@ -16,6 +17,9 @@ import type { WebAppSource } from "./platform/web-app/web-app.module.js";
 const WEB_APP_DIRECTORY = fileURLToPath(new URL("../../web/", import.meta.url));
 
 const SHUTDOWN_SIGNALS = ["SIGINT", "SIGTERM"] as const;
+
+/** What the service exits with to have its launcher update it (tools/office-launcher). */
+const UPDATE_EXIT_CODE = 75;
 
 const logger = new Logger("Office");
 
@@ -71,6 +75,19 @@ function closeOnShutdownSignal(app: INestApplication, telemetry: StartedTelemetr
 }
 
 /**
+ * Closes the service, then telemetry, once a scheduled Office update finds nothing busy, and exits
+ * with the code that has the launcher install the update and start the service again.
+ */
+function closeForUpdate(app: INestApplication, telemetry: StartedTelemetry): void {
+  app.get(OfficeUpdates).onReadyToUpdate(() => {
+    void app
+      .close()
+      .finally(() => telemetry.shutdown())
+      .finally(() => process.exit(UPDATE_EXIT_CODE));
+  });
+}
+
+/**
  * Puts right the answers the last run cut short, finishes a fire alarm's sounding it stopped
  * during (spec §2.8), which also pauses again the Tasks an all clear it stopped during had resumed
  * before turning the alarm off, then releases the kept queue (spec §2.1), since a desk may have been freed
@@ -87,13 +104,15 @@ async function start(
   telemetry: StartedTelemetry,
   webApp: WebAppSource,
   create: CreateApp,
+  officeCheckout: string | undefined,
 ): Promise<void> {
   const config = readConfig();
   const app = await create(
-    AppModule.register(config, { directory: WEB_APP_DIRECTORY, source: webApp }),
+    AppModule.register(config, { directory: WEB_APP_DIRECTORY, source: webApp }, officeCheckout),
   );
   await serve(app, config, takeUpWhereTheOfficeStopped);
   closeOnShutdownSignal(app, telemetry);
+  closeForUpdate(app, telemetry);
 }
 
 function describeStartFailure(error: unknown): string {
@@ -101,16 +120,20 @@ function describeStartFailure(error: unknown): string {
   return `The Office cannot start. ${error instanceof Error ? error.message : String(error)}`;
 }
 
-/** Starts The Office; a failure to start is logged and ends the process with exit code 1. */
+/**
+ * Starts The Office; a failure to start is logged and ends the process with exit code 1.
+ * `officeCheckout` stands in for The Office's own checkout, as in the end-to-end tests.
+ */
 export async function runOffice(
   telemetry: StartedTelemetry,
   webApp: WebAppSource,
   create: CreateApp = createApp,
+  officeCheckout?: string,
 ): Promise<void> {
   // Before anything logs, so a start failure is exported too; Nest and every Logger use it.
   Logger.overrideLogger(new OfficeLogger());
   try {
-    await start(telemetry, webApp, create);
+    await start(telemetry, webApp, create, officeCheckout);
   } catch (error) {
     logger.fatal(describeStartFailure(error));
     process.exitCode = 1;

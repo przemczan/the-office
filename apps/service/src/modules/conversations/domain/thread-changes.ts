@@ -248,7 +248,12 @@ function titleOf(messages: readonly Message[]): string | undefined {
  */
 export function freshSession(
   id: string,
-  { roleKey, cardVersion, engineId }: Pick<ThreadSession, "roleKey" | "cardVersion" | "engineId">,
+  {
+    roleKey,
+    cardVersion,
+    engineId,
+    changesAllowed,
+  }: Pick<ThreadSession, "roleKey" | "cardVersion" | "engineId" | "changesAllowed">,
   startedAt: Date,
 ): ThreadSession {
   return {
@@ -261,6 +266,7 @@ export function freshSession(
     contextTokens: 0,
     startContextTokens: undefined,
     full: false,
+    changesAllowed,
   };
 }
 

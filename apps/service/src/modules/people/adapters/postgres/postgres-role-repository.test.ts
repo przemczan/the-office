@@ -2,6 +2,9 @@ import { randomUUID } from "node:crypto";
 import type { INestApplication } from "@nestjs/common";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { startTestApplication } from "../../../../../test/test-application.js";
+import { CARETAKER_FIXED_PARTS } from "../../domain/caretaker.js";
+import { CARETAKER } from "../../domain/known-roles.js";
+import { roleCardProblems } from "../../domain/role-card.js";
 import { aRole, aRoleCard, OFFERED_MODELS } from "../../domain/role.fixtures.js";
 import type { Role } from "../../domain/role.js";
 import { changeRoleCard } from "../../domain/role-changes.js";
@@ -29,6 +32,24 @@ function aRoleOfItsOwn(fields: Partial<Role> = {}): Role {
 }
 
 describe("PostgresRoleRepository", () => {
+  it("holds the built-in Caretaker on a fresh database, their card's fixed parts as fixed", async () => {
+    const caretaker = await repository.find(CARETAKER);
+
+    expect(caretaker).toMatchObject({
+      key: CARETAKER,
+      cardVersion: 1,
+      letGoAt: undefined,
+      card: {
+        title: "Caretaker",
+        capabilities: CARETAKER_FIXED_PARTS.capabilities,
+        permissionProfile: { ...CARETAKER_FIXED_PARTS.permissionProfile, mcpTools: {} },
+        hardSwitches: CARETAKER_FIXED_PARTS.hardSwitches,
+        taskLimit: "none",
+      },
+    });
+    expect(caretaker && roleCardProblems(CARETAKER, caretaker.card, OFFERED_MODELS)).toEqual([]);
+  });
+
   it("keeps a Role as it was hired, with its card as version 1", async () => {
     const role = aRoleOfItsOwn();
 

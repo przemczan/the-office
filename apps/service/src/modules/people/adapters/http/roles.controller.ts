@@ -16,6 +16,7 @@ import { switchesAskingYouUntilHired } from "../../domain/hard-switches.js";
 import { mcpToolSetting } from "../../domain/mcp-tool-settings.js";
 import type { Preset } from "../../domain/presets.js";
 import { RoleRefusalsFilter } from "./role-refusals.filter.js";
+import { isBuiltIn } from "../../domain/caretaker.js";
 
 @Controller()
 @UseFilters(RoleRefusalsFilter)
@@ -118,6 +119,7 @@ function toRoleResponse(
     hiredAt: role.hiredAt.toISOString(),
     cardSavedAt: role.cardSavedAt.toISOString(),
     letGoAt: role.letGoAt?.toISOString() ?? null,
+    builtIn: isBuiltIn(role.key),
     askingYouUntilHired: switchesAskingYouUntilHired(role.card.hardSwitches, hiredRoles),
     mcpServers: mcpServers.map((server) => ({
       name: server.name,

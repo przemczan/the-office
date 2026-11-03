@@ -3,6 +3,7 @@ import { EventBus } from "../../../platform/events/event-bus.js";
 import { AsyncChannel } from "../../../platform/streams/async-channel.js";
 import { Telemetry } from "../../../platform/telemetry/telemetry.js";
 import { EngineDown } from "../domain/engine-events.js";
+import { BusyWork } from "../../office-updates/index.js";
 import type { Engine, EngineId, EngineModel } from "../domain/engines.js";
 import type { UsageWindows } from "../domain/usage-windows.js";
 import {
@@ -45,6 +46,11 @@ export type SessionSettings = Omit<SessionOptions, "officeTools" | "engine"> &
     readonly officeTools: readonly string[];
     /** What the caller tags the session's engine calls with, beside the engine's own attributes. */
     readonly telemetry?: SessionTelemetry;
+    /**
+     * Who works where, in the UI's words, as a scheduled Office update lists a turn it waits for:
+     * "Jim in the Stage Implement".
+     */
+    readonly turnLabel: string;
   };
 
 export interface SessionStart {
@@ -79,6 +85,7 @@ export class EngineSessions {
     private readonly windowSamples: UsageWindowSamples,
     private readonly engineModels: EngineModels,
     private readonly running: RunningEngineSessions,
+    private readonly busyWork: BusyWork,
   ) {}
 
   /** What the engine listed as `engineId` can do; refused when Settings › Engines lists none. */
@@ -102,7 +109,7 @@ export class EngineSessions {
       const engine = this.engines.of(listed);
       const options = this.optionsOf(listed, settings);
       this.costs.started(id);
-      const spans = this.spansOf(id, options, settings.telemetry);
+      const spans = this.spansOf(id, options, settings);
       spans.messageSent(brief.id);
       return this.watch(id, listed, settings, spans, ended, () =>
         engine.start({ id, options, brief }),
@@ -119,7 +126,7 @@ export class EngineSessions {
       const listed = await this.listed(settings.engineId);
       const engine = this.engines.of(listed);
       const options = this.optionsOf(listed, settings);
-      const spans = this.spansOf(sessionId, options, settings.telemetry);
+      const spans = this.spansOf(sessionId, options, settings);
       return this.watch(sessionId, listed, settings, spans, ended, () =>
         engine.resume(sessionId, options),
       );
@@ -155,7 +162,12 @@ export class EngineSessions {
 
   private optionsOf(
     engine: Engine,
-    { telemetry: _telemetry, engineId: _engineId, ...settings }: SessionSettings,
+    {
+      telemetry: _telemetry,
+      engineId: _engineId,
+      turnLabel: _turnLabel,
+      ...settings
+    }: SessionSettings,
   ): SessionOptions {
     return { ...settings, engine, officeTools: this.officeTools.named(settings.officeTools) };
   }
@@ -163,9 +175,17 @@ export class EngineSessions {
   private spansOf(
     sessionId: string,
     options: SessionOptions,
-    telemetry: SessionTelemetry | undefined,
+    { telemetry, turnLabel }: SessionSettings,
   ): EngineCallSpans {
-    return new EngineCallSpans(this.telemetry, this.costs, sessionId, options, telemetry);
+    const countBusy = () => this.busyWork.begin({ kind: "turn", label: turnLabel });
+    return new EngineCallSpans(
+      this.telemetry,
+      this.costs,
+      sessionId,
+      options,
+      telemetry,
+      countBusy,
+    );
   }
 
   private async watch(

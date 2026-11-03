@@ -607,7 +607,7 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
     { name: "export.zip", mimeType: "application/zip", buffer: Buffer.from("zip bytes") },
   ];
   const addAttachment = record
-    .getByRole("region", { name: "Attachments" })
+    .getByRole("region", { name: "Attachments", exact: true })
     .getByRole("button", { name: "Add" });
   for (const file of files) {
     await addAttachment.click();

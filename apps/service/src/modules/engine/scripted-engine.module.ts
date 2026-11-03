@@ -1,3 +1,4 @@
+import { BusyWorkModule } from "../office-updates/index.js";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { Module, type DynamicModule } from "@nestjs/common";
 import type { ScriptedEngine } from "./adapters/scripted/scripted-engine.js";
@@ -30,7 +31,7 @@ export class ScriptedEngineModule {
   ): DynamicModule {
     return {
       module: ScriptedEngineModule,
-      imports: [EngineSettingsModule, ScheduleModule],
+      imports: [EngineSettingsModule, ScheduleModule, BusyWorkModule],
       providers: [
         { provide: AgentEngines, useValue: new AgentEngines(perEngine(engines)) },
         OfficeToolRegistry,

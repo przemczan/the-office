@@ -17,6 +17,7 @@ import { EventsModule } from "../../../platform/events/events.module.js";
 import { EventStreamModule } from "../../../platform/websocket/event-stream.module.js";
 import { DecisionAnswered, DecisionOpened, TurnEnded } from "../../conversations/index.js";
 import { EngineDown, UsageWindowsChanged } from "../../engine/index.js";
+import { OfficeUpdated, OfficeUpdateFailed } from "../../office-updates/index.js";
 import { CTO } from "../../people/index.js";
 import { GateContinued, GateReached, NoRetriesLeft } from "../../pipelines/index.js";
 import { InitiativeStateChanged, TaskStateChanged } from "../../work/index.js";
@@ -343,6 +344,29 @@ describe("NotificationService", () => {
     );
     // One engine down is open at a time on the shared database: the engine answers again.
     await events.publish(turnEndedOn("claude-code"));
+  });
+
+  it("tells an Office update's result, the newer replacing the older, handled on Settings › Updates", async () => {
+    const from = "1234567aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const to = "89abcdefbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    await events.publish(new OfficeUpdated(from, to, new Date()));
+    await events.publish(new OfficeUpdateFailed(to, from, "the build", new Date()));
+
+    expect(raised.map(({ notification }) => [notification.kind, notification.line])).toEqual([
+      ["office.update.done", "The Office updated to 89abcde."],
+      [
+        "office.update.failed",
+        "The Office's update failed at the build; it is back on 89abcde. The log is in Settings › Updates.",
+      ],
+    ]);
+    const open = (await openNotifications()).filter(({ kind }) => kind.startsWith("office.update"));
+    expect(open.map(({ kind, pointsTo }) => [kind, pointsTo])).toEqual([
+      ["office.update.failed", { kind: "office-update" }],
+    ]);
+    await reportActivity({ kind: "office-update" });
+    expect(
+      (await openNotifications()).filter(({ kind }) => kind.startsWith("office.update")),
+    ).toEqual([]);
   });
 
   it("raises each engine's down on its own, handled when that engine answers again", async () => {

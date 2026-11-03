@@ -1,6 +1,7 @@
 import { Module, type DynamicModule, type ModuleMetadata, type Type } from "@nestjs/common";
 import { ScheduleModule } from "../../platform/schedule/schedule.module.js";
 import { EngineModule } from "../engine/index.js";
+import { BusyWorkModule } from "../office-updates/index.js";
 import { PipelineProposals } from "./adapters/conversations/pipeline-proposals.js";
 import { PipelineLibraryController } from "./adapters/http/pipeline-library.controller.js";
 import { TaskGateController } from "./adapters/http/task-gate.controller.js";
@@ -96,6 +97,7 @@ export class PipelinesModule {
         UsageHistoryModule,
         EngineModule,
         ScheduleModule,
+        BusyWorkModule,
         ...imports,
       ],
       controllers: [TaskStagesController, TaskGateController, PipelineLibraryController],

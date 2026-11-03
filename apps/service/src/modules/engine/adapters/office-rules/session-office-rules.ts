@@ -16,7 +16,7 @@ export interface EngineRuleParts {
 /**
  * The Office rules one session is held to (spec §6): its folder, its skills folder and the
  * engine's own readable folders readable, The Office's own files not; Projects' clones in its data
- * directory are no Office files.
+ * directory are no Office files. A session reaching the workstation is refused the secrets alone.
  */
 export function sessionOfficeRules(
   operatingSystem: OperatingSystem,
@@ -31,11 +31,22 @@ export function sessionOfficeRules(
       ...engine.readableFolders,
     ],
     profile: options.profile,
-    userSecrets: operatingSystem.secretPaths,
-    officeFiles: [officeData.path, OFFICE_ENV_FILE],
+    workstation: options.workstation === true,
+    secrets: [...operatingSystem.secretPaths, ...officeSecrets(officeData)],
+    officeFiles: [officeData.path],
     cloneFolders: [officeData.folder("repositories")],
     homeFolder: homedir(),
     environment: engine.environment,
     paths: operatingSystem.paths,
+    refusalAdvice: options.refusalAdvice,
   });
+}
+
+/**
+ * The Office's secrets: each Claude Code engine's account folder, which holds its credentials, the
+ * Office identity's folder, which holds its ssh key, and the `.env` holding the database
+ * credentials.
+ */
+function officeSecrets(officeData: OfficeDataDirectory): string[] {
+  return [officeData.folder("engines"), officeData.folder("identity"), OFFICE_ENV_FILE];
 }

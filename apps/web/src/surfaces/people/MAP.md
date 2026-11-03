@@ -1,10 +1,12 @@
 # People surface: map
 
-**Owns:** the People grid and a person's page: Overview, Work, Conversations, Role card (with "proposed by" in its changes), and hiring: from a preset (`hire-dialog.tsx`), from scratch, or from a Proposal's card edited first (`/hire?proposal=…`, "Edit the proposed Role", saved by applying the Proposal). It reads the service through `src/api/` (see [the web app's map](../../MAP.md)); the Role card's words live in the shell (`shell/role-card-words.ts`), since a chat's Proposal card shows them too.
+**Owns:** the People grid (the built-in Caretaker pinned first with a "Built in" mark, `people-order.ts`) and a person's page: Overview, Work, Conversations, Role card (with "proposed by" in its changes), and hiring: from a preset (`hire-dialog.tsx`), from scratch, or from a Proposal's card edited first (`/hire?proposal=…`, "Edit the proposed Role", saved by applying the Proposal). It reads the service through `src/api/` (see [the web app's map](../../MAP.md)); the Role card's words live in the shell (`shell/role-card-words.ts`), since a chat's Proposal card shows them too.
 
 The Role card's Engine and Model (`EngineFields` in `role-card-form.tsx`, its pair `EngineModelFields` in `shell/engine-model-fields.tsx`, shared with the Project page's Engine block) set the Role override, "Office default" being none, picking an engine filling in its default model (`/role-card-options`' `defaultModel`); the view, the Overview and a Proposal's card say it through `worksWithText`. The view's "Runs on" (`EngineThatApplies`, for a Role someone fills) says what the cascade gives outside any Project and where it comes from, and lists the Projects where another engine or model applies (`roleQueries.engineCascade`, under its own `ENGINE_CASCADE` key, invalidated by `role.card-changed`, the Projects' engine events and a Settings › Engines save).
 
 The Role card's MCP servers (`role-card-mcp-server-fields.tsx`, `role-mcp-servers.ts`): the form ticks the library's servers and sets each tool of a ticked server that is on, its names too long for sessions left out (the library's `toolsTooLong`); the view shows the Role's `mcpServers`, on with each tool's setting, or off.
+
+The Caretaker (`role.builtIn`) has no Let go action, and its card's capabilities, permission profile's edit, run and web, Hard switches and Task limit show disabled in the form and noted in the view (`FixedForTheCaretaker`), as the service refuses a change to them; its MCP servers and their tool settings stay editable.
 
 **Traps:** the MCP servers module keeps a Role's servers, so Save sends the card (only when it changed, as an unchanged one would add an empty version) and then `PUT /mcp-servers/:name/roles` for each server whose tick changed, with the library's Roles plus or minus this one; hiring assigns after, with the new key. The card keeps only the tool settings the user set: choosing the options' `mcpToolDefault` removes the key, and unticking a server drops its tools' keys. An MCP tool may consult the card's own Role only when the default names it (Devops' card).
 
@@ -21,15 +23,16 @@ The Role card's MCP servers (`role-card-mcp-server-fields.tsx`, `role-mcp-server
 - `memory-groups.ts`: MemoryGroup, ALL_PROJECTS, memoryGroups
 - `memory-tab.tsx`: MemoryTab
 - `overview-tab.tsx`: OverviewTab
+- `people-order.ts`: inGridOrder
 - `people-page.tsx`: PeoplePage
 - `person-page.tsx`: PersonPage
 - `person-tasks.ts`: PersonTask, personTasks, WorkFilter, WORK_FILTERS, inFilter
 - `role-card-form.tsx`: RoleCardEditPage, HireFromScratchPage
-- `role-card-layout.tsx`: ROLE_CARD_GROUPS, RoleCardGroup, RoleCardValue, PersonBlock
+- `role-card-layout.tsx`: ROLE_CARD_GROUPS, RoleCardGroup, RoleCardValue, FixedForTheCaretaker, PersonBlock
 - `role-card-mcp-server-fields.tsx`: McpServerFields
 - `role-card-tab.tsx`: RoleCardTab
 - `role-card-view.tsx`: RoleCardView
 - `role-mcp-servers.ts`: assignedMcpServersOf, mcpServerAssignments, sessionToolsOf, mcpToolSettingOf, withMcpToolSetting, withoutServerToolSettings
 - `session-skills.ts`: sessionSkillsOf
 - `work-tab.tsx`: WorkTab
-- Tests: memory-groups.test.ts, person-tasks.test.ts, role-mcp-servers.test.ts
+- Tests: memory-groups.test.ts, people-order.test.ts, person-tasks.test.ts, role-mcp-servers.test.ts

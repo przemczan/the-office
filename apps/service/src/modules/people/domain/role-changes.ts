@@ -1,5 +1,6 @@
 import type { DomainEvent } from "../../../platform/events/domain-event.js";
 import type { EngineModel } from "../../engine/index.js";
+import { isBuiltIn } from "./caretaker.js";
 import { KNOWN_ROLES } from "./known-roles.js";
 import { presetFor } from "./presets.js";
 import type { Role } from "./role.js";
@@ -52,7 +53,8 @@ export function hire(
 /**
  * Hires the person on `card` into a new Role keyed `roleKey`, which the card's title makes, as the
  * user wrote the card or applied a Proposal of it by the person `proposedBy`. Refuses with every
- * reason: a card that breaks a rule, a key the presets keep, or a Role `filledBy` someone already.
+ * reason: a card that breaks a rule, a key the presets or the Caretaker keep, or a Role `filledBy`
+ * someone already.
  */
 export function hireFromScratch(
   roleKey: string,
@@ -69,6 +71,8 @@ export function hireFromScratch(
     problems.push("Give the Role a title with letters or digits.");
   } else if (presetTitle) {
     problems.push(`Hire the ${presetTitle} Role from its preset.`);
+  } else if (isBuiltIn(roleKey)) {
+    problems.push("The Caretaker is built in: nobody else is hired into their Role.");
   } else if (filledBy) {
     problems.push(roleTakenProblem(filledBy));
   }
@@ -92,8 +96,11 @@ function roleTakenProblem({ card, letGoAt }: Role): string {
     : `${card.name} already fills the ${card.title} Role.`;
 }
 
-/** Lets the person go: refused when they were let go already. */
+/** Lets the person go: refused when they were let go already, and for the built-in Caretaker. */
 export function letGo(role: Role, letGoAt: Date): RoleChange<RoleLetGo> {
+  if (isBuiltIn(role.key)) {
+    throw new RoleRefused([`${role.card.name} is the built-in Caretaker: never let go.`]);
+  }
   if (role.letGoAt) {
     throw new RoleRefused([
       `${role.card.name} was let go from the ${role.card.title} Role already.`,

@@ -34,6 +34,7 @@ const SESSION: ThreadSession = {
   contextTokens: 34_000,
   startContextTokens: 33_000,
   full: false,
+  changesAllowed: false,
 };
 
 const DRAFT: DecisionDraft = {

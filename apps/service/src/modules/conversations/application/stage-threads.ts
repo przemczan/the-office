@@ -428,7 +428,11 @@ export class StageThreads {
     );
     await this.repository.add(thread);
     await this.events.publish(event);
-    const session = freshSession(randomUUID(), { ...role, engineId: applying.engineId }, now);
+    const session = freshSession(
+      randomUUID(),
+      { ...role, engineId: applying.engineId, changesAllowed: false },
+      now,
+    );
     await this.change(thread.id, (latest) =>
       beginStageWork(
         latest,
@@ -540,6 +544,7 @@ export class StageThreads {
       mcpServers,
       outputSchema: request.session.outputSchema,
       approvalHold: this.approvalHolds.of(id),
+      turnLabel: `${card.name} in the Stage ${request.stageName}`,
       telemetry: {
         span: {
           "office.task": request.taskId,

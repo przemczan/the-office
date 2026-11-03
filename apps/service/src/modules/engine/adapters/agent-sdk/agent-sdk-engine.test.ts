@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { BusyWork } from "../../../office-updates/index.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -188,11 +189,17 @@ describe.runIf(MODE === "live" || MODE === "record")("AgentSdkEngine on a live s
         new UsageWindowSamples(new UsageWindowSamplesForTests()),
         new EngineModels(new EngineSettingsForTests()),
         new RunningEngineSessions(),
+        new BusyWork(events),
       );
 
       const session = await sessions.start({
         id: randomUUID(),
-        settings: { ...options(folder), engineId: "claude-code", officeTools: ["note"] },
+        settings: {
+          ...options(folder),
+          engineId: "claude-code",
+          officeTools: ["note"],
+          turnLabel: "Jim in a chat",
+        },
         brief: message(
           'Call the note tool once with the word "tangerine", then reply with the single word: done',
         ),

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { rmdir } from "node:fs/promises";
 import { Injectable, Logger, type BeforeApplicationShutdown } from "@nestjs/common";
+import { BusyWork } from "../../office-updates/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import { OfficeDataDirectory } from "../../../platform/office-data/office-data-directory.js";
 import { currentOperatingSystem } from "../../../platform/os/current-operating-system.js";
@@ -48,6 +49,7 @@ export class RepositoryClones implements BeforeApplicationShutdown {
     private readonly projects: ProjectService,
     private readonly officeData: OfficeDataDirectory,
     private readonly events: EventBus,
+    private readonly busyWork: BusyWork,
   ) {}
 
   /**
@@ -89,9 +91,12 @@ export class RepositoryClones implements BeforeApplicationShutdown {
     };
     const running: RunningClone = { clone, stop: new AbortController(), done: Promise.resolve() };
     this.clones.set(clone.id, running);
-    running.done = this.run(running).catch((error: unknown) => {
-      this.logger.error(`The clone of ${clone.url} could not finish.`, error);
-    });
+    const busy = { kind: "clone", label: `The clone of ${clone.url}` } as const;
+    running.done = this.busyWork
+      .during(busy, () => this.run(running))
+      .catch((error: unknown) => {
+        this.logger.error(`The clone of ${clone.url} could not finish.`, error);
+      });
     return running;
   }
 

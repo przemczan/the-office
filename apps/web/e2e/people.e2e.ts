@@ -140,11 +140,87 @@ test("the user hires the Planner, a Developer, a Reviewer, the CTO and the Offic
   await hireFromPreset(page, "Office Manager", "Marta");
 
   await page.goto("/people");
-  await expect(page.getByText("5 people")).toBeVisible();
+  // The Caretaker is there before any hire.
+  await expect(page.getByText("6 people")).toBeVisible();
   for (const name of ["Jan", "Ada", "Ola", "Bob", "Marta"]) {
     await expect(page.getByRole("heading", { name, exact: true })).toBeVisible();
   }
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-people.png") });
+});
+
+test("the Caretaker is built in: pinned first, never let go, its card's fixed parts read-only", async ({
+  page,
+}) => {
+  await page.goto("/people");
+  const first = page.locator(".people-grid .person-card").first();
+  await expect(first.getByRole("heading", { name: "Sam", exact: true })).toBeVisible();
+  await expect(first).toContainText("Caretaker");
+  await expect(first).toContainText("Built in");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-caretaker-people.png") });
+
+  await first.getByRole("link", { name: "Sam", exact: true }).click();
+  await expect(page).toHaveURL(/\/people\/caretaker$/);
+  await expect(page.getByRole("button", { name: "Open the chat" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Let go" })).toHaveCount(0);
+
+  await page.getByRole("tab", { name: "Role card" }).click();
+  for (const group of ["Work", "Capabilities", "Permissions"]) {
+    await expect(roleCardGroup(page, group)).toContainText("Built in: fixed for the Caretaker.");
+  }
+  await expect(roleCardGroup(page, "Permissions")).toContainText("Change RolesNever");
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-caretaker-role-card.png"),
+    fullPage: true,
+  });
+
+  // The form shows the fixed parts but doesn't change them; the rest stays editable.
+  await page.getByRole("button", { name: "Edit Role" }).click();
+  await expect(page.getByLabel("Task limit")).toBeDisabled();
+  await expect(page.getByLabel("Runs")).toBeDisabled();
+  await roleCardGroup(page, "Capabilities").getByText("Chat", { exact: true }).click();
+  await expect(page.getByText("You have unsaved changes.")).toHaveCount(0);
+  await expect(page.getByLabel("Title")).toBeEditable();
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page).toHaveURL(/\/people\/caretaker\/role$/);
+});
+
+// Allowing changes ends the Thread's session, if any: a Thread with no message opens none.
+test("the user allows changes in a Caretaker Thread, confirmed, then switches them off", async ({
+  page,
+}) => {
+  await page.goto("/people");
+  await page.getByRole("button", { name: "Open the chat with Sam" }).click();
+  const chat = chatWith(page, "Sam");
+  await chat.getByRole("button", { name: "New thread" }).first().click();
+  await expect(chat.getByText("The Caretaker only reads in this Thread.")).toBeVisible();
+
+  await chat.getByRole("button", { name: "Allow changes", exact: true }).click();
+  // Opened over the chat, the confirmation is a dialog of its own, named by its heading.
+  const confirm = chat
+    .getByRole("dialog")
+    .filter({ has: page.getByRole("heading", { name: "Allow changes in this Thread?" }) });
+  await expect(confirm).toContainText("git push included");
+  await expect(confirm).toContainText("Your secrets stay refused");
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-caretaker-allow-changes-confirm.png"),
+  });
+  await confirm.getByRole("button", { name: "Allow changes", exact: true }).click();
+  await expect(confirm).toHaveCount(0);
+
+  const banner = chat.getByText(
+    "Changes allowed in this Thread: the Caretaker can do anything on the workstation except read your secrets",
+  );
+  await expect(banner).toBeVisible();
+  await expect(chat.getByText("Changes allowed", { exact: true })).toBeVisible();
+  await expect(chat.getByRole("button", { name: "Allow changes", exact: true })).toHaveCount(0);
+  await page.screenshot({
+    path: path.join(SCREENSHOTS, "light-1600-caretaker-changes-allowed-banner.png"),
+  });
+
+  await chat.getByRole("button", { name: "Switch off" }).click();
+  await expect(banner).toHaveCount(0);
+  await expect(chat.getByText("Changes switched off", { exact: true })).toBeVisible();
+  await expect(chat.getByRole("button", { name: "Allow changes", exact: true })).toBeVisible();
 });
 
 test("a person's page shows who they are and their Role card from the presets", async ({

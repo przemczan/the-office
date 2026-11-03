@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { SkillChip } from "../../shell/skill-chip.tsx";
-import { RoleCardGroup, RoleCardValue } from "./role-card-layout.tsx";
+import { FixedForTheCaretaker, RoleCardGroup, RoleCardValue } from "./role-card-layout.tsx";
 import {
   ASKS_YOU_UNTIL_HIRED,
   CAPABILITIES,
@@ -55,7 +55,10 @@ export function RoleCardView({
         <RoleCardValue label="Instructions">
           <span className="role-card-instructions">{card.instructions}</span>
         </RoleCardValue>
-        <RoleCardValue label="Task limit">{taskLimitLabel(card.taskLimit)}</RoleCardValue>
+        <RoleCardValue label="Task limit">
+          {taskLimitLabel(card.taskLimit)}
+          {role.builtIn && <FixedForTheCaretaker />}
+        </RoleCardValue>
         <RoleCardValue label="Session default">
           {SESSION_DEFAULTS[card.sessionDefault].label}
           <span className="role-card-note">
@@ -80,6 +83,7 @@ export function RoleCardView({
             </li>
           ))}
         </ul>
+        {role.builtIn && <FixedForTheCaretaker />}
       </RoleCardGroup>
       <RoleCardGroup group="permissions">
         <RoleCardValue label="Permission profile">
@@ -103,6 +107,7 @@ export function RoleCardView({
             ))}
           </ul>
         </RoleCardValue>
+        {role.builtIn && <FixedForTheCaretaker />}
       </RoleCardGroup>
       <RoleCardGroup group="skills">
         {skills.length > 0 ? (

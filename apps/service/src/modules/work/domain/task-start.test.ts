@@ -23,6 +23,7 @@ const conditions: StartConditions = {
   person: { name: "Ada", taskLimit: 2 },
   officeWideLimit: 3,
   usage: NO_USAGE_AT_START,
+  officeUpdateHold: undefined,
 };
 
 /** A Task already started elsewhere, by default on another Project and another person. */
@@ -188,6 +189,15 @@ describe("startReasons", () => {
     expect(startReasons(ready, conditions, alarmOn)).toEqual({
       refusals: [],
       waits: ["The fire alarm is on."],
+    });
+  });
+
+  it("waits while an Office update is scheduled, with its reason", () => {
+    const updateScheduled = { ...conditions, officeUpdateHold: "An update is scheduled." };
+
+    expect(startReasons(ready, updateScheduled, held([]))).toEqual({
+      refusals: [],
+      waits: ["An update is scheduled."],
     });
   });
 

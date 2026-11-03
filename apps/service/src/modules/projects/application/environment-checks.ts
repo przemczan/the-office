@@ -1,4 +1,5 @@
 import { Injectable, Logger, type BeforeApplicationShutdown } from "@nestjs/common";
+import { BusyWork } from "../../office-updates/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
 import type { CommandRun } from "../domain/command-run.js";
 import type { Check, CommandCheck, EnvironmentCheck } from "../domain/environment-check.js";
@@ -48,6 +49,7 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
     private readonly commands: ProjectCommandRunner,
     private readonly repository: EnvironmentCheckRepository,
     private readonly events: EventBus,
+    private readonly busyWork: BusyWork,
   ) {}
 
   /**
@@ -71,9 +73,15 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
     );
     const running: RunningCheck = { check, stop: new AbortController(), done: Promise.resolve() };
     this.running.set(projectId, running);
-    running.done = this.run(project, running, event).catch((error: unknown) => {
-      this.logger.error(`The environment check of ${projectId} could not finish.`, error);
-    });
+    const busy = {
+      kind: "environment-check",
+      label: `The environment check of the Project "${project.name}"`,
+    } as const;
+    running.done = this.busyWork
+      .during(busy, () => this.run(project, running, event))
+      .catch((error: unknown) => {
+        this.logger.error(`The environment check of ${projectId} could not finish.`, error);
+      });
     return check;
   }
 

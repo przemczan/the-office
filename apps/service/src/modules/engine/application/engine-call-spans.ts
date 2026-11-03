@@ -47,6 +47,8 @@ export class EngineCallSpans {
   /** Messages sent and not yet taken by a turn. */
   private readonly waiting = new Set<string>();
   private open: OpenCall | undefined;
+  /** Ends the count of the open call as busy work, which a scheduled Office update waits for. */
+  private endBusy: (() => void) | undefined;
   private readonly spanAttributes: TelemetryAttributes;
   private readonly metricAttributes: TelemetryAttributes;
 
@@ -56,6 +58,7 @@ export class EngineCallSpans {
     private readonly sessionId: string,
     options: SessionOptions,
     caller: SessionTelemetry | undefined,
+    private readonly countBusy: () => () => void,
   ) {
     const features = promptFeatures(options);
     this.spanAttributes = {
@@ -80,7 +83,7 @@ export class EngineCallSpans {
   turnEnded(turn: TurnEndedEvent): void {
     for (const messageId of turn.consumedMessageIds) this.waiting.delete(messageId);
     this.open?.end(turn);
-    this.open = undefined;
+    this.closed();
     if (this.waiting.size > 0) this.begin();
   }
 
@@ -91,12 +94,19 @@ export class EngineCallSpans {
     } else {
       this.open?.fail(error);
     }
+    this.closed();
+  }
+
+  private closed(): void {
     this.open = undefined;
+    this.endBusy?.();
+    this.endBusy = undefined;
   }
 
   private begin(): void {
     const call = new OpenCall();
     this.open = call;
+    this.endBusy = this.countBusy();
     this.telemetry
       .inSpan(ENGINE_CALL, this.spanAttributes, async (span) => {
         const turn = await call.ended;
