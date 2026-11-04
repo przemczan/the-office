@@ -65,7 +65,7 @@ it("shows the person working from the moment a turn starts, before any output", 
     );
 
   show(true);
-  expect(page.querySelector('[role="status"]')?.textContent).toBe("Jan is working…");
+  expect(page.querySelector('[role="status"]')?.textContent).toBe("Jan is working");
   show(false);
   expect(page.querySelector('[role="status"]')).toBeNull();
   act(() => root.unmount());

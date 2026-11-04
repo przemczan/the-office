@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearch } from "@tanstack/react-router";
-import type { Decision, Pipeline, Role, Task, TaskStages } from "@the-office/contracts";
-import { Badge, Button, Icon } from "@the-office/ui";
+import type { Decision, Pipeline, Role, Task, TaskStage, TaskStages } from "@the-office/contracts";
+import { Button, Icon } from "@the-office/ui";
 import { useEffect, useState, type ReactNode } from "react";
 import { decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
@@ -21,7 +21,7 @@ import { GateCard } from "./gate-card.tsx";
 import { gateQuestion } from "./gate-card-words.ts";
 import { needsYouClearWords, needsYouSummary, waitingOnYou } from "./needs-you-words.ts";
 import { useQueued } from "./queue-parts.tsx";
-import { RecordBlock } from "./record-block.tsx";
+import { chapterPlace, chapterWork } from "./timeline-words.ts";
 import { useInView } from "./use-in-view.ts";
 
 /**
@@ -61,7 +61,7 @@ function NothingWaits({ task }: { readonly task: Task }): ReactNode {
   const queued = useQueued(task.id) !== undefined;
   return (
     <section className="needs-you-clear" aria-label="Needs you">
-      <Icon name={task.state === "dropped" ? "x" : "check"} size={14} />
+      <Icon name={task.state === "dropped" ? "x" : "circle-check"} size={16} />
       <div className="needs-you-clear-words">
         {needsYouClearWords(task.state, queued)}
         {task.state === "ready" && !queued && <StartsUsing task={task} />}
@@ -100,27 +100,28 @@ function WhatWaits({
   const count = onYou.length + (waiting ? 1 : 0);
   const headline = onYou[0]?.question ?? (waiting && gateQuestion(waiting));
   const needsYou = (
-    <div className="needs-you-card" ref={setCard}>
-      <RecordBlock
-        icon="hand"
-        title="Needs you"
-        actions={
-          <span className="needs-you-summary">
-            {count > 0 && <Badge tone="warning">{count}</Badge>}
-            {needsYouSummary(decisions, waiting !== undefined)}
-          </span>
-        }
-      >
-        <div className="needs-you-list">
-          {decisions.map((decision) => (
-            <WaitingDecision key={decision.id} decision={decision} roles={roles} />
-          ))}
-          {waiting && (
-            <GateCard task={task} taskStages={taskStages} waiting={waiting} roles={roles} />
-          )}
-        </div>
-      </RecordBlock>
-    </div>
+    <section className="needs-you-card" aria-label="Needs you" ref={setCard}>
+      <header className="needs-you-head">
+        {count > 0 && <span className="needs-you-count">{count}</span>}
+        <h3>Needs you</h3>
+        <span className="needs-you-summary">
+          {needsYouSummary(decisions, waiting !== undefined)}
+        </span>
+      </header>
+      <div className="needs-you-list">
+        {decisions.map((decision) => (
+          <WaitingDecision
+            key={decision.id}
+            decision={decision}
+            roles={roles}
+            stages={taskStages.stages ?? []}
+          />
+        ))}
+        {waiting && (
+          <GateCard task={task} taskStages={taskStages} waiting={waiting} roles={roles} />
+        )}
+      </div>
+    </section>
   );
   return (
     <>
@@ -146,9 +147,11 @@ function WhatWaits({
 function WaitingDecision({
   decision,
   roles,
+  stages,
 }: {
   readonly decision: Decision;
   readonly roles: readonly Role[] | undefined;
+  readonly stages: readonly TaskStage[];
 }): ReactNode {
   const thread = useQuery(threadQueries.one(decision.threadId)).data;
   const bringThreadIntoView = useBringThreadIntoView();
@@ -163,13 +166,15 @@ function WaitingDecision({
       place={
         thread && (
           <Link
+            className="needs-you-place"
             from="/tasks/$taskId"
             to="."
             search={(shown) => ({ ...shown, taskThread: thread.id })}
             resetScroll={false}
             onClick={() => bringThreadIntoView(thread.id)}
           >
-            in {thread.title ?? "its Thread"} · {clockOf(decision.askedAt)}
+            in {chapterPlace(thread, chapterWork(stages, thread.id)) || "its Thread"} ·{" "}
+            {clockOf(decision.askedAt)}
           </Link>
         )
       }
@@ -193,7 +198,7 @@ function NeedsYouBar({
   return (
     <div className="needs-you-bar-place">
       <div className="needs-you-bar" role="group" aria-label="Needs you, out of view">
-        <Badge tone="warning">{count}</Badge>
+        <span className="needs-you-count">{count}</span>
         <strong>Needs you</strong>
         <span className="needs-you-bar-question">
           <MarkdownText text={question} inline />

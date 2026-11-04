@@ -1,5 +1,5 @@
 import type { Role, Stage, TaskStage, TaskState } from "@the-office/contracts";
-import { durationWords } from "../../shell/time.ts";
+import { shortDurationWords } from "../../shell/time.ts";
 import { NO_TOKENS } from "../../shell/token-words.ts";
 import { scriptCommandLine, STAGE_STATE_WORDS, timeTaken, type StageNames } from "./stage-words.ts";
 
@@ -58,6 +58,9 @@ export function railScrollLeft(
 /** The line over the rail: "At Tests: running", or how far the Task has come. */
 export function railCaption(stages: readonly TaskStage[], taskState: TaskState): string {
   if (taskState === "done") return `All ${stages.length} Stages finished`;
+  if (taskState === "planning") {
+    return "Starts once you confirm the Plan, the Definition of Done and the Pipeline";
+  }
   const current = currentStageIndex(stages);
   if (current < 0) return "Not started";
   const at = stages[current];
@@ -97,7 +100,7 @@ export function railRunsWords(
   if (state === "skipped") return "Not needed";
   if (runs.length === 0) return walkStarted ? "Not run yet" : "Not started";
   const count = runs.length === 1 ? "1 run" : `${runs.length} runs`;
-  const time = durationWords(timeTaken(runs, now));
+  const time = shortDurationWords(timeTaken(runs, now));
   return `${count} · ${time}${state === "running" ? " so far" : ""}`;
 }
 

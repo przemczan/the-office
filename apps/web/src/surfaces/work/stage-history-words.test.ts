@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import { NO_TOKENS } from "../../shell/token-words.ts";
 import {
   carriedFailureWords,
-  commandRunWords,
+  commandMarkWords,
+  commandTimeWords,
   gateChoiceWords,
   runBadge,
   runResultText,
@@ -98,12 +99,12 @@ describe("stageHistoryLine", () => {
 describe("runTimeWords", () => {
   it("gives a finished run's times and how long it took", () => {
     const words = runTimeWords(aRun(), now);
-    expect(words).toMatch(/^\d\d:00 → \d\d:18 · 18 min$/);
+    expect(words).toMatch(/^\d\d:00 → \d\d:18 · 18m$/);
   });
 
   it("says a run still going goes on until now", () => {
     const words = runTimeWords(aRun({ endedAt: null }), now);
-    expect(words).toMatch(/^\d\d:00 → now · 30 min so far$/);
+    expect(words).toMatch(/^\d\d:00 → now · 30m so far$/);
   });
 });
 
@@ -165,7 +166,7 @@ describe("runResultText", () => {
     const outcome = done({ summary: "Continued.", handoverNote: null });
     expect(runResultText(aTaskStage(look), aRun({ outcome }))).toBeUndefined();
     expect(runResultText(aTaskStage(look, { state: "waiting-on-you" }), aRun())).toMatch(/^Waits/);
-    expect(runResultText(aTaskStage(implement, { state: "running" }), aRun())).toBeUndefined();
+    expect(runResultText(aTaskStage(implement, { state: "running" }), aRun())).toBe("Working now.");
   });
 });
 
@@ -184,12 +185,15 @@ describe("a run's other words", () => {
   });
 
   it("says what a command came to, and why it ran when that isn't plain", () => {
-    const run = { commandLine: "npm test", durationMs: 120_000 };
-    expect(commandRunWords({ ...run, purpose: "command", outcome: "passed" })).toBe(
-      "passed · 2 min",
-    );
-    expect(commandRunWords({ ...run, purpose: "re-run", outcome: "could-not-run" })).toBe(
-      "re-run · could not run · 2 min",
-    );
+    const run = {
+      commandLine: "npm test",
+      durationMs: 120_000,
+      purpose: "command",
+      outcome: "passed",
+    } as const;
+    expect(commandMarkWords({ ...run, outcome: "passed" })).toBe("passed");
+    expect(commandMarkWords({ ...run, outcome: "could-not-run" })).toBe("could not run");
+    expect(commandTimeWords({ ...run, purpose: "command" })).toBe("2m");
+    expect(commandTimeWords({ ...run, purpose: "re-run" })).toBe("re-run · 2m");
   });
 });

@@ -3,10 +3,11 @@ import { countedTokens, type Role, type StageRun, type TaskStage } from "@the-of
 import { Badge, Icon, IconButton } from "@the-office/ui";
 import { useEffect, useRef, type ReactNode } from "react";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
-import { TokenCount } from "../../shell/token-count.tsx";
+import { TokenFigure } from "../../shell/token-count.tsx";
 import {
   carriedFailureWords,
-  commandRunWords,
+  commandMarkWords,
+  commandTimeWords,
   gateChoiceWords,
   runBadge,
   runResultText,
@@ -15,6 +16,7 @@ import {
 } from "./stage-history-words.ts";
 import { useBringThreadIntoView } from "./conversation-drawer.tsx";
 import { railStateWords, stageWorkerWords } from "./stage-rail-words.ts";
+import { StageWorker } from "./stage-worker.tsx";
 import { SESSION_WORDS, type StageNames } from "./stage-words.ts";
 
 /**
@@ -63,7 +65,9 @@ export function StageHistory({
     >
       <div className="stage-history-head">
         <h3>{stage.name}</h3>
-        <span className="stage-history-worker">{stageWorkerWords(taskStage, roles)}</span>
+        <span className="stage-history-worker">
+          <StageWorker taskStage={taskStage} roles={roles} />
+        </span>
         <Badge>{railStateWords(taskStage, names)}</Badge>
         <span className="stage-history-keys">
           <kbd>←</kbd> <kbd>→</kbd> Stages · <kbd>Esc</kbd> close
@@ -98,6 +102,7 @@ export function StageHistory({
               run={run}
               taskId={taskId}
               taskStage={taskStage}
+              roles={roles}
               names={names}
               now={now}
             />
@@ -114,12 +119,14 @@ function RunEntry({
   run,
   taskId,
   taskStage,
+  roles,
   names,
   now,
 }: {
   readonly run: StageRun;
   readonly taskId: string;
   readonly taskStage: TaskStage;
+  readonly roles: readonly Role[] | undefined;
   readonly names: StageNames;
   readonly now: Date;
 }): ReactNode {
@@ -128,16 +135,18 @@ function RunEntry({
   const badge = runBadge(run, taskStage.state);
   const result = runResultText(taskStage, run);
   return (
-    <li className="stage-history-run">
+    <li className={`stage-history-run stage-history-run-${badge.tone}`}>
       <div className="stage-history-run-head">
         <strong>Run {run.number}</strong>
-        <Badge tone={badge.tone}>{badge.words}</Badge>
+        <Badge tone={badge.tone} dot={taskStage.state === "running" && outcome === null}>
+          {badge.words}
+        </Badge>
         <span className="stage-history-facts">
           {runTimeWords(run, now)}
           {countedTokens(run.tokens) > 0 && (
             <>
               {" · "}
-              <TokenCount tokens={run.tokens} label="tokens" />
+              <TokenFigure tokens={run.tokens} /> tokens
             </>
           )}
           {session && ` · ${SESSION_WORDS[session]}`}
@@ -152,7 +161,7 @@ function RunEntry({
             resetScroll={false}
             onClick={() => bringThreadIntoView(threadId)}
           >
-            Open its Thread
+            {outcome === null ? "Open its Thread · live" : "Open its Thread"}
           </Link>
         )}
       </div>
@@ -177,7 +186,11 @@ function RunEntry({
           {commandRuns.map((commandRun, place) => (
             // A run's commands never change or reorder, and the same one can run twice.
             <li key={place}>
-              <code>{commandRun.commandLine}</code> {commandRunWords(commandRun)}
+              <code>{commandRun.commandLine}</code>{" "}
+              <span className={`stage-history-command-${commandRun.outcome}`}>
+                {commandMarkWords(commandRun)}
+              </span>{" "}
+              <span className="stage-history-command-time">{commandTimeWords(commandRun)}</span>
             </li>
           ))}
         </ul>
@@ -190,7 +203,7 @@ function RunEntry({
       )}
       {outcome?.handoverNote && (
         <div className="stage-history-note">
-          <p className="stage-history-label">Handover note</p>
+          <p className="overline">Handover note · {stageWorkerWords(taskStage, roles)}</p>
           <MarkdownText text={outcome.handoverNote} />
         </div>
       )}

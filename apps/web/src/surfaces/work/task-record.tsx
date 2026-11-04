@@ -11,8 +11,8 @@ export function TaskRecord({ task }: { readonly task: Task }): ReactNode {
   const planner = usePlanner()?.card.name ?? "The Planner";
   return (
     <section className="task-record" aria-label="Record">
-      <DefinitionOfDoneBlock task={task} planner={planner} />
       <PlanBlock task={task} planner={planner} />
+      <DefinitionOfDoneBlock task={task} planner={planner} />
       <DependenciesBlock task={task} />
       <OriginBlock
         record={{ kind: "task", id: task.id }}

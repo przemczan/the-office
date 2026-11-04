@@ -41,7 +41,7 @@ export function DependenciesBlock({ task }: { readonly task: Task }): ReactNode 
   return (
     <RecordFold
       fold={fold}
-      icon="git-fork"
+      icon="square-check"
       title="Dependencies"
       summary={dependenciesSummary(blockers, waiting)}
       side={

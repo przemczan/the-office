@@ -65,8 +65,8 @@ export function ThreadComposer({
         <Composer
           placeholder={
             stageRunning
-              ? `Message ${personName}… (lands at the next safe point)`
-              : `Message ${personName}…`
+              ? `Write to ${personName}… (lands at the next safe point)`
+              : `Write to ${personName}…`
           }
           busy={(answering && !stageRunning) || closed}
           busyHint={

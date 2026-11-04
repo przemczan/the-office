@@ -48,6 +48,7 @@
 - `page-heading.tsx`: PageHeading, usePageHeadingState, PageHeadingProvider, usePageHeading
 - `palette-menu.tsx`: PaletteMenu
 - `person-name.ts`: personName, roleName
+- `person-tag.tsx`: PersonTag, NamedTag
 - `project-chip.tsx`: ProjectChip
 - `project-mark.tsx`: ProjectMark
 - `project-words.ts`: publishingLabel, COMMAND_KEYS, COMMAND_LABELS, INSTALL_INPUTS_LABEL, installInputsLine
@@ -65,9 +66,9 @@
 - `skill-words.ts`: pinnedVersionLabel, samePinnedVersion, sourceLabel
 - `ssh-host-name.ts`: sshHostName
 - `status-strip.tsx`: StatusStrip
-- `time.ts`: dayOf, dayAndClockOf, clockOf, momentWords, durationWords
+- `time.ts`: dayOf, dayAndClockOf, clockOf, momentWords, durationWords, shortDurationWords
 - `toasts.tsx`: Notice, Notices, ToastProvider, useToast, useNotices
-- `token-count.tsx`: TokenCount, TokenMeter
+- `token-count.tsx`: TokenCount, TokenFigure, TokenMeter
 - `token-words.ts`: NO_TOKENS, sumTokens, tokenKindLines
 - `top-bar.tsx`: TopBar
 - `unified-diff-view.tsx`: UnifiedDiffView

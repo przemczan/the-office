@@ -47,7 +47,7 @@ export function DefinitionOfDoneBlock({ task, planner }: PartProps): ReactNode {
   return (
     <RecordFold
       fold={fold}
-      icon="list-checks"
+      icon="check"
       title="Definition of Done"
       summary={definitionOfDoneSummary(task, reportedMet)}
       side={
@@ -106,7 +106,7 @@ export function PlanBlock({ task, planner }: PartProps): ReactNode {
   return (
     <RecordFold
       fold={fold}
-      icon="map"
+      icon="file"
       title="Plan"
       summary={planSummary(task)}
       side={

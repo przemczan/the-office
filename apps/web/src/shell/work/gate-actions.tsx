@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Role, Stage, Task, TaskStages } from "@the-office/contracts";
-import { Button, Icon, Select } from "@the-office/ui";
+import { Button, Select } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import {
   continueAtGate,
@@ -25,6 +25,9 @@ import {
  * What the user does at the Gate a Task waits at: Continue, Send back with notes, or Drop. The same
  * in the Task's Needs you card, on Now and in the Needs you panel.
  */
+/** Bordered as the buttons beside it, in the colour of what can't be undone. */
+const DROP_LOOK = { color: "var(--danger-fg)" } as const;
+
 export function GateActions({
   task,
   waiting,
@@ -45,14 +48,14 @@ export function GateActions({
     <>
       <div className="gate-actions">
         <Button
-          variant="primary"
-          iconLeft={<Icon name="check" size={14} />}
+          variant="accent"
           loading={continuing.isPending}
           disabled={busy}
           onClick={() => continuing.mutate()}
         >
           {continueLabel(waiting)}
         </Button>
+        {alongside}
         {waiting.sendBackTargets.length > 0 && (
           <Button
             variant="secondary"
@@ -63,10 +66,14 @@ export function GateActions({
             {sendingBack ? "Cancel" : "Send back with notes…"}
           </Button>
         )}
-        <Button variant="secondary" disabled={busy} onClick={() => setDropping(true)}>
+        <Button
+          variant="secondary"
+          style={DROP_LOOK}
+          disabled={busy}
+          onClick={() => setDropping(true)}
+        >
           Drop
         </Button>
-        {alongside}
       </div>
       {continuing.error && (
         <RefusalAlert title="The Task didn't continue" error={continuing.error} />

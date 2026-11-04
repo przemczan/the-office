@@ -32,6 +32,7 @@ export function MessageList({
   stageThread,
   details,
   inTimeline = false,
+  foot,
 }: {
   readonly messages: readonly Message[];
   readonly personName: string;
@@ -43,6 +44,8 @@ export function MessageList({
   readonly details: boolean;
   /** One chapter of a timeline, which scrolls and lands on a linked card itself. */
   readonly inTimeline?: boolean;
+  /** What closes the log, after the last message. */
+  readonly foot?: ReactNode;
 }): ReactNode {
   const list = useRef<HTMLDivElement>(null);
   const shownLinkedTo = useRef(false);
@@ -87,6 +90,7 @@ export function MessageList({
           Tool activity is hidden. Turn on Details to see it.
         </p>
       )}
+      {foot}
     </div>
   );
 }
@@ -101,8 +105,12 @@ function Working({
 }): ReactNode {
   return (
     <div className="message-answering" role="status">
-      <Icon name="loader" size={14} />
-      {personName} is working…
+      <span className="message-answering-dots" aria-hidden="true">
+        <i />
+        <i />
+        <i />
+      </span>
+      {personName} is working
       {toolCall && <ToolCallWords call={toolCall} />}
     </div>
   );
@@ -225,7 +233,7 @@ function MessageItem({
         <div className="message handover-note">
           <div className="message-by">
             <Icon name="sticky-note" size={12} />
-            Handover note from {personName}
+            Handover note · {personName}
           </div>
           <div className="message-text">
             <MarkdownText text={message.text} />
@@ -262,7 +270,9 @@ function MessageItem({
       return (
         <div className="message-line failed">
           <Icon name="circle-alert" size={12} />
-          <span className="message-summary">{message.reason}</span>
+          <span className="message-summary">
+            {message.reason} · {clockOf(message.at)}
+          </span>
         </div>
       );
     case "held":

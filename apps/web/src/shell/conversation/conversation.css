@@ -34,6 +34,17 @@
   flex: none;
 }
 
+/* !important: the design system's labelled Switch styles itself inline. */
+.details-switch label {
+  gap: 6px !important;
+  align-items: center !important;
+}
+
+.details-switch label > span:first-child > span {
+  font: var(--type-caption) !important;
+  color: var(--fg-2) !important;
+}
+
 .thread-title h3 {
   overflow: hidden;
   margin: 0;
@@ -120,8 +131,13 @@
 /* A chapter of a timeline, which does the scrolling. */
 .message-list.in-timeline {
   flex: none;
-  padding: 6px 8px 10px;
+  gap: 12px;
+  padding: 12px;
   overflow: visible;
+}
+
+.in-timeline .message {
+  max-width: none;
 }
 
 .message {
@@ -247,6 +263,11 @@
   color: var(--danger-fg);
 }
 
+/* !important: the design system's Icon sets its display inline. */
+.in-timeline .message-line.failed > svg {
+  display: none !important;
+}
+
 .message-line.failed .message-summary,
 .message-line.held .message-summary {
   font: var(--type-caption);
@@ -307,9 +328,32 @@
 .message-answering {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font: var(--type-body-sm);
-  color: var(--fg-2);
+  gap: 6px;
+  min-width: 0;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.message-answering-dots {
+  display: inline-flex;
+  flex: none;
+  gap: 6px;
+}
+
+.message-answering-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--fg-3);
+  animation: message-answering-blink 1.2s infinite;
+}
+
+.message-answering-dots i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.message-answering-dots i:nth-child(3) {
+  animation-delay: 0.3s;
 }
 
 .message-details-hidden {
@@ -324,20 +368,21 @@
   text-overflow: ellipsis;
 }
 
-.message-answering svg {
-  color: var(--accent);
-  animation: message-answering-spin 1s linear infinite;
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .message-answering svg {
+  .message-answering-dots i {
     animation: none;
   }
 }
 
-@keyframes message-answering-spin {
-  to {
-    transform: rotate(360deg);
+@keyframes message-answering-blink {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+
+  40% {
+    opacity: 1;
   }
 }
 
@@ -473,6 +518,10 @@
   margin-left: auto;
 }
 
+.needs-you-place + .decision-copy-link {
+  margin-left: 0;
+}
+
 .decision-question {
   font-weight: 500;
 }
@@ -551,6 +600,14 @@
   align-items: flex-end;
   gap: 8px;
   margin-top: 10px;
+}
+
+/* One line, beside its button. !important: the design system's Textarea styles itself inline. */
+.decision-free-answer textarea {
+  height: var(--control-md) !important;
+  padding-block: 5px !important;
+  box-shadow: none !important;
+  resize: none !important;
 }
 
 .decision-free-answer > :first-child {

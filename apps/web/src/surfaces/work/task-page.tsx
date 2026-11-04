@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import type { Pipeline, Project, Task, Thread } from "@the-office/contracts";
-import { Tabs } from "@the-office/ui";
+import { Icon, Tabs } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
@@ -133,27 +133,33 @@ function TaskHead({
   return (
     <header className="task-head">
       <div className="task-head-grow">
-        <h2>{task.title}</h2>
-        <div className="task-head-meta">
+        <div className="task-head-crumb">
+          <ProjectChip projectId={task.projectId} projects={projects} />
+        </div>
+        <div className="task-head-title">
+          <h2>{task.title}</h2>
           <TaskStateBadge
             state={task.state}
             pausedByAlarm={task.pausedByAlarm}
             stopped={stoppedAtCurrentStage(taskStages?.stages ?? [])}
           />
           {waitingOnYou(task) && <TaskStateBadge state="waiting-on-you" />}
-          <ProjectChip projectId={task.projectId} projects={projects} />
-          <span>· Pipeline {pipelineLabel(pipeline?.name ?? REMOVED_PIPELINE, editedForTask)}</span>
-          <span>· {PRIORITY_NAMES[task.priority]} priority</span>
-          <span>
-            ·{" "}
-            {task.estimatedTokens === null ? (
-              <TokenCount tokens={tokens} label="tokens" />
-            ) : (
-              <TokenMeter tokens={tokens} estimatedTokens={task.estimatedTokens} />
-            )}
-          </span>
         </div>
-        <TaskTags task={task} />
+        <div className="task-head-meta">
+          <span className="task-head-priority">
+            <Icon name="flag" size={12} />
+            {PRIORITY_NAMES[task.priority]} priority
+          </span>
+          <span>
+            Pipeline <b>{pipelineLabel(pipeline?.name ?? REMOVED_PIPELINE, editedForTask)}</b>
+          </span>
+          {task.estimatedTokens === null ? (
+            <TokenCount tokens={tokens} label="tokens" />
+          ) : (
+            <TokenMeter tokens={tokens} estimatedTokens={task.estimatedTokens} />
+          )}
+          <TaskTags task={task} />
+        </div>
       </div>
       <div className="task-head-actions">
         <PlanButton task={task} variant="primary" />

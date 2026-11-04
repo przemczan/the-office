@@ -1807,8 +1807,10 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(handoverNote.locator("code")).toHaveText("next");
 
   // Every Thread is a chapter, in the order they started.
-  await expect(conversation.locator(".chapter-title").first()).toHaveText(/^Planning · Jan/);
-  await expect(conversation.locator(".chapter-title").nth(1)).toHaveText(/^Implement/);
+  await expect(conversation.locator(".chapter-toggle").first()).toHaveAccessibleName(
+    /^Planning · Jan/,
+  );
+  await expect(conversation.locator(".chapter-toggle").nth(1)).toHaveAccessibleName(/^Implement/);
 
   // Folded to one line, a chapter shows its tokens and Handover note, and no log.
   const foldImplement = async (): Promise<void> => {
@@ -2114,7 +2116,7 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await expect(rail.getByRole("region", { name: "Stage history: UI acceptance" })).toContainText(
       "You continued",
     );
-    await expect(page.locator(".task-head-meta").getByText("Done", { exact: true })).toBeVisible();
+    await expect(page.locator(".task-head-title").getByText("Done", { exact: true })).toBeVisible();
     // Publish removed the worktree, so its conversations are read-only, with the reason.
     const finishedConversation = page.getByRole("complementary", { name: "Conversation" });
     await expect(finishedConversation.getByRole("note")).toContainText(
@@ -2540,7 +2542,9 @@ test("a running Task takes a barge-in and a Planner message, and new messages le
     // A window too low for the foot still reaches it.
     await handle.click();
     await motionSettled(page);
-    await composer.scrollIntoViewIfNeeded();
+    await conversation.evaluate((panel) => {
+      panel.scrollTop = panel.scrollHeight;
+    });
     await expect(composer).toBeInViewport({ ratio: 1 });
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-900x300-drawer.png") });
     await composer.fill("");

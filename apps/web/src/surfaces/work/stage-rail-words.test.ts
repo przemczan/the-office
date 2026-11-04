@@ -143,9 +143,15 @@ describe("railCaption", () => {
   ];
 
   it("says the Task hasn't started until a Stage ran, a Task dropped before that too", () => {
-    for (const state of ["backlog", "planning", "ready", "dropped"] as const) {
+    for (const state of ["backlog", "ready", "dropped"] as const) {
       expect(railCaption([aTaskStage(implement)], state)).toBe("Not started");
     }
+  });
+
+  it("says what Planning waits on before the Task can start", () => {
+    expect(railCaption([aTaskStage(implement)], "planning")).toBe(
+      "Starts once you confirm the Plan, the Definition of Done and the Pipeline",
+    );
   });
 
   it("names the Stage holding the walk and its state", () => {
@@ -220,12 +226,12 @@ describe("railRunsWords", () => {
 
   it("counts runs and their time", () => {
     const done = aTaskStage(tests, { state: "done", runs: [aRun(), aRun({ number: 2 })] });
-    expect(railRunsWords(done, true, now)).toBe("2 runs · 36 min");
+    expect(railRunsWords(done, true, now)).toBe("2 runs · 36m");
   });
 
   it("counts a running Stage's time until now", () => {
     const running = aTaskStage(tests, { state: "running", runs: [aRun({ endedAt: null })] });
-    expect(railRunsWords(running, true, now)).toBe("1 run · 30 min so far");
+    expect(railRunsWords(running, true, now)).toBe("1 run · 30m so far");
   });
 });
 

@@ -2,6 +2,8 @@ import type { StageRun, TaskStage, Thread } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import { NO_TOKENS } from "../../shell/token-words.ts";
 import {
+  chapterPlace,
+  chapterStanding,
   chapterWork,
   chaptersStartingOpen,
   foldedLine,
@@ -86,6 +88,10 @@ describe("chapterWork", () => {
         { key: "fix", name: "Fix" },
       ],
       handoverNote: "Latest note.",
+      runNumber: undefined,
+      outcome: "Failed",
+      why: undefined,
+      finishedRuns: [],
     });
   });
 
@@ -94,6 +100,10 @@ describe("chapterWork", () => {
     expect(chapterWork(stages, "consultation")).toEqual({
       stages: [],
       handoverNote: undefined,
+      runNumber: undefined,
+      outcome: undefined,
+      why: undefined,
+      finishedRuns: [],
     });
   });
 });
@@ -111,5 +121,30 @@ describe("foldedLine", () => {
 
   it("is only the tokens without a Handover note", () => {
     expect(foldedLine(thread, undefined)).toBe("12k tokens");
+  });
+});
+
+describe("how a chapter reads", () => {
+  const thread = aThread("implement", "2026-11-04T10:00:00.000Z", {
+    title: "Implement",
+    stageThread: true,
+    consultation: null,
+  });
+
+  it("says where the work is and why it came back", () => {
+    const carriedFailure = { stageKey: "tests", round: 1, rounds: 2 };
+    const run = { number: 3, threadId: "implement", carriedFailure, outcome: null } as StageRun;
+    const work = chapterWork([aStage("Implement", [run]), aStage("Tests", [])], "implement");
+    expect(chapterPlace(thread, work)).toBe("Implement, run 3");
+    expect(work.why).toBe("Tests failed, round 1 of 2");
+    expect(chapterStanding(thread, work, true)).toBe("Running");
+  });
+
+  it("reads a Planning Thread by its Plan", () => {
+    const planning = { ...thread, title: "Planning", stageThread: false };
+    const work = chapterWork([], "planning");
+    expect(chapterPlace(planning, work)).toBe("Planning");
+    expect(chapterStanding(planning, work, true)).toBe("Plan confirmed");
+    expect(chapterStanding(planning, work, false)).toBeUndefined();
   });
 });

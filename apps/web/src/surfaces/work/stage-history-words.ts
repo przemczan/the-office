@@ -7,7 +7,7 @@ import {
 } from "@the-office/contracts";
 import type { BadgeProps } from "@the-office/ui";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
-import { durationWords, momentWords } from "../../shell/time.ts";
+import { momentWords, shortDurationWords } from "../../shell/time.ts";
 import {
   budgetWords,
   gateActionWords,
@@ -64,10 +64,10 @@ function stageKindWords(
   return `Agent Stage · ${who} · budget ${tokensShort(stage.budget)} tokens`;
 }
 
-/** "14:02 → 14:20 · 18 min", a run still going "14:02 → now · 18 min so far". */
+/** "14:02 → 14:20 · 18m", a run still going "14:02 → now · 18m so far". */
 export function runTimeWords({ startedAt, endedAt }: StageRun, now: Date): string {
   const end = endedAt ? Date.parse(endedAt) : now.getTime();
-  const taken = durationWords(Math.max(0, end - Date.parse(startedAt)));
+  const taken = shortDurationWords(Math.max(0, end - Date.parse(startedAt)));
   const until = endedAt ? momentWords(endedAt, now) : "now";
   return `${momentWords(startedAt, now)} → ${until} · ${taken}${endedAt ? "" : " so far"}`;
 }
@@ -103,9 +103,10 @@ export function runBadge(
 export function runResultText({ stage, state }: TaskStage, run: StageRun): string | undefined {
   const { outcome } = run;
   if (!outcome) {
-    return stage.kind === "gate" && state === "waiting-on-you"
-      ? "Waits for you to look at the changes and let the work continue."
-      : undefined;
+    if (stage.kind === "gate" && state === "waiting-on-you") {
+      return "Waits for you to look at the changes and let the work continue.";
+    }
+    return stage.kind !== "gate" && state === "running" ? "Working now." : undefined;
   }
   switch (outcome.status) {
     case "done":
@@ -134,9 +135,14 @@ export function gateChoiceWords(action: GateAction, names: StageNames): string {
   return `You ${gateActionWords(action, names)}`;
 }
 
-/** "passed · 2 min", "re-run · failed · 2 min". */
-export function commandRunWords({ purpose, outcome, durationMs }: CommandRun): string {
-  return [COMMAND_PURPOSE_WORDS[purpose], COMMAND_OUTCOME_WORDS[outcome], durationWords(durationMs)]
+/** How a command came out: "passed", "failed". */
+export function commandMarkWords({ outcome }: CommandRun): string {
+  return COMMAND_OUTCOME_WORDS[outcome];
+}
+
+/** What it ran for, when that needs saying, and how long it took: "2m", "re-run · 2m". */
+export function commandTimeWords({ purpose, durationMs }: CommandRun): string {
+  return [COMMAND_PURPOSE_WORDS[purpose], shortDurationWords(durationMs)]
     .filter((part) => part !== undefined)
     .join(" · ");
 }

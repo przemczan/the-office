@@ -1,6 +1,13 @@
 import type { Thread } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { liveThread, toLineNow, toLinePicked, writableThreads, type ToLine } from "./to-line.ts";
+import {
+  liveThread,
+  toLineNow,
+  toLinePicked,
+  workingThread,
+  writableThreads,
+  type ToLine,
+} from "./to-line.ts";
 
 function aThread(id: string, startedAt: string, fields: Partial<Thread> = {}): Thread {
   return { id, startedAt, stageThread: false, state: "waiting", ...fields } as Thread;
@@ -116,5 +123,19 @@ describe("toLineNow", () => {
     const none = onLive(undefined);
     expect(toLineNow(none, [], undefined, false)).toBe(none);
     expect(toLineNow(none, ["implement"], "implement", false)).toEqual(onLive("implement"));
+  });
+});
+
+describe("workingThread", () => {
+  const onPlanning = { ...planning, consultation: null };
+  const onStage = { ...stageEnded, consultation: null };
+
+  it("is the closed Stage Thread holding the Decision, not the Thread To writes to", () => {
+    const working = workingThread([onPlanning, onStage], [onPlanning], new Set([onStage.id]));
+    expect(working?.id).toBe(onStage.id);
+  });
+
+  it("is Planning while no Stage has run", () => {
+    expect(workingThread([onPlanning], [onPlanning], NO_DECISION)?.id).toBe(onPlanning.id);
   });
 });

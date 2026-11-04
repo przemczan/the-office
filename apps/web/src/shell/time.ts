@@ -36,3 +36,11 @@ export function durationWords(milliseconds: number): string {
   const rest = minutes % 60;
   return rest === 0 ? `${Math.floor(minutes / 60)}h` : `${Math.floor(minutes / 60)}h ${rest} min`;
 }
+
+/** As short as the rail's columns need: "18m", "1h 10m"; under a minute "40s". */
+export function shortDurationWords(milliseconds: number): string {
+  const minutes = Math.round(milliseconds / 60_000);
+  if (minutes < 1) return `${Math.max(1, Math.round(milliseconds / 1000))}s`;
+  if (minutes < 60) return `${minutes}m`;
+  return `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+}

@@ -988,7 +988,7 @@ test("selecting a Stage opens its history, with the loop-back on the rail and th
   await expect(loop).toHaveAccessibleName(
     "Tests failed and went back to Implement 1 time, of at most 3",
   );
-  await expect(loop).toHaveText("1 of 3");
+  await expect(loop).toHaveText("↺ 1 of 3");
   await expect(stageButton("UI acceptance")).toHaveAttribute("aria-current", "step");
 
   await loop.click();
@@ -998,7 +998,7 @@ test("selecting a Stage opens its history, with the loop-back on the rail and th
     "2 tests failed.",
   );
   await expect(testsHistory.getByRole("list", { name: "Commands" })).toContainText(
-    "npm test failed · 1 min",
+    "npm test failed 1m",
   );
   await expect(testsHistory.getByRole("link", { name: "Open its Thread" })).toHaveCount(0);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-stage-history.png") });

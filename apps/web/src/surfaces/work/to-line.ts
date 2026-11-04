@@ -38,6 +38,24 @@ export function liveThread(
   );
 }
 
+/**
+ * Where the record's work stands, whether or not it takes a message: a Stage Thread is closed at its
+ * Decision or a Gate, yet that is where the Task is. An ended record's comes to its newest Stage's.
+ */
+export function workingThread(
+  threads: readonly Thread[],
+  writable: readonly Thread[],
+  holdingOpenDecision: ReadonlySet<string>,
+): Thread | undefined {
+  const inOrder = threadsInOrder(threads);
+  return (
+    writable.findLast(({ stageThread, consultation }) => stageThread || consultation !== null) ??
+    inOrder.findLast(({ id }) => holdingOpenDecision.has(id)) ??
+    inOrder.findLast(({ stageThread }) => stageThread) ??
+    inOrder.at(-1)
+  );
+}
+
 /** The line on a Thread the user chose, by the To line or by following a link. */
 export function toLinePicked(
   threadId: string | undefined,

@@ -54,11 +54,14 @@ export function ThreadLog({
   thread,
   personName,
   inTimeline = false,
+  foot,
 }: {
   readonly thread: Thread;
   readonly personName: string;
   /** The log is a chapter of a timeline, which does the scrolling. */
   readonly inTimeline?: boolean;
+  /** What closes the log, after the last message. */
+  readonly foot?: ReactNode;
 }): ReactNode {
   const messages = useQuery(threadQueries.messages(thread.id));
   const details = useDetails();
@@ -74,6 +77,7 @@ export function ThreadLog({
         stageThread={thread.stageThread}
         details={details.on}
         inTimeline={inTimeline}
+        foot={foot}
       />
     </>
   );
@@ -123,15 +127,17 @@ export function ThreadTitle({
       <header className="thread-title">
         {children ?? <h3>{threadTitle(thread, personName)}</h3>}
         {thread.title !== null && (
-          <IconButton
-            icon={<Icon name="pencil" size={14} />}
-            label="Rename the Thread"
-            size="sm"
-            onClick={() => {
-              setTitle(thread.title ?? "");
-              setEditing(true);
-            }}
-          />
+          <span className="thread-rename">
+            <IconButton
+              icon={<Icon name="pencil" size={14} />}
+              label="Rename the Thread"
+              size="sm"
+              onClick={() => {
+                setTitle(thread.title ?? "");
+                setEditing(true);
+              }}
+            />
+          </span>
         )}
       </header>
     );

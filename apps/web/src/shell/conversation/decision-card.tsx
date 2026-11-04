@@ -16,6 +16,7 @@ import { useCopyRecordLink } from "../copy-record-link.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { answerWords, namedAttachments } from "./decision-words.ts";
+import { NamedTag, PersonTag } from "../person-tag.tsx";
 import { MessageField } from "./message-field.tsx";
 import "./conversation.css";
 
@@ -54,7 +55,14 @@ export function DecisionCard({
       elementId={landing ? decisionCardElementId(decision.id) : undefined}
       place={place}
       side={
-        attachments.length > 0 && <CardAttachments title="Attachments" attachments={attachments} />
+        attachments.length > 0 && (
+          <CardAttachments
+            title={
+              attachments.every(({ kind }) => kind === "image") ? "Screenshots" : "Attachments"
+            }
+            attachments={attachments}
+          />
+        )
       }
     >
       <DecisionDetail decision={decision} roles={roles} />
@@ -181,7 +189,7 @@ function DecisionFrame({
       <CardColumns side={side}>
         <div className="message-by">
           <Badge tone="warning">Decision</Badge>
-          {askerName(decision, personName)}
+          <AskerTag decision={decision} personName={personName} />
           {place}
           <IconButton
             className="decision-copy-link"
@@ -204,6 +212,20 @@ function DecisionFrame({
         {children}
       </CardColumns>
     </section>
+  );
+}
+
+function AskerTag({
+  decision: { roleKey },
+  personName,
+}: {
+  readonly decision: Decision;
+  readonly personName: string;
+}): ReactNode {
+  return roleKey === null ? (
+    <NamedTag name="The Office" />
+  ) : (
+    <PersonTag roleKey={roleKey} name={personName} />
   );
 }
 
@@ -274,7 +296,6 @@ function OpenDecision({
         {decision.options.map((option, index) => (
           <Button
             key={option}
-            size="sm"
             variant={index === recommended ? "primary" : "secondary"}
             disabled={busy}
             title={waitHint}
@@ -297,21 +318,15 @@ function OpenDecision({
       >
         <MessageField
           label="Your answer"
-          rows={2}
-          placeholder="Or answer in your own words…"
+          rows={1}
+          placeholder="Or answer in your own words"
           value={freeAnswer}
           onChange={setFreeAnswer}
           canSend={canSendFreeAnswer}
           busyReason={waitHint}
           onSend={sendFreeAnswer}
         />
-        <Button
-          size="sm"
-          variant="secondary"
-          type="submit"
-          disabled={!canSendFreeAnswer}
-          title={waitHint}
-        >
+        <Button variant="secondary" type="submit" disabled={!canSendFreeAnswer} title={waitHint}>
           Answer
         </Button>
       </form>

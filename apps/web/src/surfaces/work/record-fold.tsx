@@ -1,8 +1,6 @@
-import { Card, Icon } from "@the-office/ui";
+import { Icon } from "@the-office/ui";
 import { useId, type ReactNode } from "react";
 import type { Fold } from "./record-folds.ts";
-
-const FOLDED_BODY = { display: "none" } as const;
 
 /**
  * A block of a record that folds to one line, its summary. Its side stays reachable either way. A
@@ -25,29 +23,27 @@ export function RecordFold({
 }): ReactNode {
   const bodyId = useId();
   return (
-    <section aria-label={title}>
-      <Card
-        title={
-          <button
-            type="button"
-            className="record-fold-head"
-            aria-expanded={fold.isOpen}
-            aria-controls={bodyId}
-            onClick={fold.toggle}
-          >
-            <Icon name="chevron-right" size={14} />
-            <span className="task-block-title">
-              <Icon name={icon} size={15} strokeWidth={1.6} />
-              {title}
-            </span>
-            <span className="record-fold-summary">{summary}</span>
-          </button>
-        }
-        actions={side}
-        bodyStyle={fold.isOpen ? undefined : FOLDED_BODY}
-      >
-        <div id={bodyId}>{children}</div>
-      </Card>
+    <section className="record-fold" aria-label={title}>
+      <div className="record-fold-row">
+        <button
+          type="button"
+          className="record-fold-head"
+          aria-expanded={fold.isOpen}
+          aria-controls={bodyId}
+          onClick={fold.toggle}
+        >
+          <Icon name="chevron-right" size={14} />
+          <span className="task-block-title">
+            <Icon name={icon} size={15} strokeWidth={1.6} />
+            {title}
+          </span>
+          <span className="record-fold-summary">{summary}</span>
+        </button>
+        {side !== undefined && <div className="record-fold-side">{side}</div>}
+      </div>
+      <div id={bodyId} className="record-fold-body" hidden={!fold.isOpen}>
+        {children}
+      </div>
     </section>
   );
 }

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Thread } from "@the-office/contracts";
-import { Select } from "@the-office/ui";
+import { Avatar, Icon } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { ContextBar } from "../../shell/conversation/context-bar.tsx";
@@ -9,7 +9,7 @@ import { threadTitle } from "../../shell/conversation/thread-title.ts";
 import { NO_WRITABLE_THREAD_WORDS } from "./to-line.ts";
 
 /**
- * Under the timeline: the To line, the context label of the Thread it names and the one composer,
+ * Under the timeline: the To line, the one composer and the context label of the Thread it names,
  * or why nothing can be written.
  */
 export function TimelineFoot({
@@ -18,6 +18,7 @@ export function TimelineFoot({
   toId,
   closedUnderDraft,
   personName,
+  personLabel,
   readOnlyReason,
   onDrafting,
   onSent,
@@ -28,6 +29,7 @@ export function TimelineFoot({
   readonly toId: string | undefined;
   readonly closedUnderDraft: string | undefined;
   readonly personName: (thread: Thread) => string;
+  readonly personLabel: (thread: Thread) => string;
   /** Why the record's Threads can be read but not continued, once it ended. */
   readonly readOnlyReason: string | undefined;
   readonly onDrafting: (drafting: boolean) => void;
@@ -50,13 +52,22 @@ export function TimelineFoot({
     <div className="timeline-foot">
       <div className="timeline-to">
         <span aria-hidden="true">To</span>
-        <Select
-          aria-label="To"
-          size="sm"
-          value={to.id}
-          options={offered.map((thread) => ({ value: thread.id, label: title(thread) }))}
-          onChange={onPick}
-        />
+        {/* The person shows; the list over them, unseen, is what is pressed and read out. */}
+        <span className="timeline-to-pick">
+          <span className="timeline-to-shown" aria-hidden="true">
+            <Avatar name={personName(to)} size="xs" />
+            <strong>{personLabel(to)}</strong>
+            {to.title !== null && <span className="timeline-to-place">, in {to.title}</span>}
+            {offered.length > 1 && <Icon name="chevron-down" size={12} />}
+          </span>
+          <select aria-label="To" value={to.id} onChange={(event) => onPick(event.target.value)}>
+            {offered.map((thread) => (
+              <option key={thread.id} value={thread.id}>
+                {title(thread)}
+              </option>
+            ))}
+          </select>
+        </span>
       </div>
       {closed && (
         <p className="timeline-to-moved" role="status">
@@ -86,7 +97,6 @@ function WritingTo({
   const latest = useQuery(threadQueries.one(thread.id)).data ?? thread;
   return (
     <>
-      <ContextBar thread={latest} personName={personName} />
       <ThreadComposer
         thread={latest}
         personName={personName}
@@ -94,6 +104,7 @@ function WritingTo({
         onDrafting={onDrafting}
         onSent={onSent}
       />
+      <ContextBar thread={latest} personName={personName} />
     </>
   );
 }

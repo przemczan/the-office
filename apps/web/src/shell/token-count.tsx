@@ -1,10 +1,8 @@
 import { countedTokens, type TokenTotals } from "@the-office/contracts";
-import { Icon, ProgressBar, Tooltip } from "@the-office/ui";
+import { Icon, Tooltip } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { tokensShort } from "./conversation/context-words.ts";
 import { tokenKindLines } from "./token-words.ts";
-
-const METER_BAR = { width: 64 } as const;
 
 /**
  * A token count as every place shows it, cache reads left out (`countedTokens`), with the info icon
@@ -30,6 +28,18 @@ export function TokenCount({
   );
 }
 
+/** Just the number, where what is around it says what it counts; hovering it gives each kind. */
+export function TokenFigure({ tokens }: { readonly tokens: TokenTotals }): ReactNode {
+  const lines = tokenKindLines(tokens);
+  return (
+    <Tooltip content={<TokenKinds lines={lines} />}>
+      <button type="button" className="token-figure" aria-label={lines.join(" ")}>
+        {tokensShort(countedTokens(tokens))}
+      </button>
+    </Tooltip>
+  );
+}
+
 /** The tokens used against the Planner's estimate: "45k of ~120k tokens ⓘ" beside a small bar. */
 export function TokenMeter({
   tokens,
@@ -41,7 +51,15 @@ export function TokenMeter({
   const used = countedTokens(tokens);
   return (
     <span className="token-meter" title="Tokens used of the Planner's estimate">
-      <ProgressBar value={used} max={estimatedTokens} size="sm" style={METER_BAR} />
+      <span
+        className="token-meter-bar"
+        role="progressbar"
+        aria-label="Tokens used of the Planner's estimate"
+        aria-valuenow={Math.min(used, estimatedTokens)}
+        aria-valuemax={estimatedTokens}
+      >
+        <i style={{ width: `${Math.min(100, (used * 100) / Math.max(estimatedTokens, 1))}%` }} />
+      </span>
       <span className="token-count">
         {tokensShort(used)} of ~{tokensShort(estimatedTokens)} tokens
         <TokenInfo tokens={tokens} />
@@ -54,18 +72,20 @@ export function TokenMeter({
 function TokenInfo({ tokens }: { readonly tokens: TokenTotals }): ReactNode {
   const lines = tokenKindLines(tokens);
   return (
-    <Tooltip
-      content={
-        <span className="token-kinds">
-          {lines.map((line) => (
-            <span key={line}>{line}</span>
-          ))}
-        </span>
-      }
-    >
+    <Tooltip content={<TokenKinds lines={lines} />}>
       <button type="button" className="token-info" aria-label={lines.join(" ")}>
         <Icon name="info" size={12} />
       </button>
     </Tooltip>
+  );
+}
+
+function TokenKinds({ lines }: { readonly lines: readonly string[] }): ReactNode {
+  return (
+    <span className="token-kinds">
+      {lines.map((line) => (
+        <span key={line}>{line}</span>
+      ))}
+    </span>
   );
 }

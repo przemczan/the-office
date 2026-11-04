@@ -53,7 +53,7 @@ export function GateCard({
         }
       >
         <div className="message-by">
-          <Badge tone="info">Gate</Badge>
+          <Badge tone="accent">Gate</Badge>
           {waiting.gate.name}
           {reachedAt !== undefined && <span className="gate-place">{clockOf(reachedAt)}</span>}
         </div>

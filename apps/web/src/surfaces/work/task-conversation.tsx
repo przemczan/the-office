@@ -63,6 +63,7 @@ export function TaskConversation({
   }
   return (
     <ThreadTimeline
+      record="Task"
       threads={threads}
       asked={asked}
       work={{
@@ -70,6 +71,7 @@ export function TaskConversation({
         waitingOnYou: new Set(
           decisions?.filter(({ putTo }) => putTo === null).map(({ threadId }) => threadId),
         ),
+        planConfirmed: task.planConfirmed,
         workOf: (threadId) => chapterWork(stages ?? [], threadId),
         onShowStage: (stageKey) => {
           drawer.close();
