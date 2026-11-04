@@ -1063,10 +1063,6 @@
         color: var(--fg-2);
         font-variant-numeric: tabular-nums;
       }
-      .run-note {
-        margin-top: 8px;
-        font-size: var(--text-sm);
-      }
       .carried {
         margin-top: 6px;
         font-size: var(--text-xs);
@@ -1074,31 +1070,6 @@
         display: flex;
         gap: 6px;
         align-items: center;
-      }
-      .handover {
-        margin-top: 8px;
-        padding: 8px 10px;
-        border-radius: var(--radius-md);
-        background: var(--surface-sunken);
-        border: 1px solid var(--border-subtle);
-        font-size: var(--text-sm);
-      }
-      .handover .overline {
-        display: block;
-        margin-bottom: 3px;
-      }
-      .cmd {
-        margin-top: 6px;
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        font-size: var(--text-xs);
-      }
-      .cmd code {
-        background: var(--surface-sunken);
-        border: 1px solid var(--border-subtle);
-        padding: 1px 6px;
-        border-radius: 4px;
       }
 
       /* ---------- Body: record | conversation ---------- */
@@ -2300,31 +2271,6 @@
       .history-empty {
         font-size: var(--text-sm);
       }
-      .run.shown {
-        background: var(--surface-selected);
-      }
-      .run-shown {
-        font-size: var(--text-xs);
-      }
-      .run .run-facts {
-        margin-top: 2px;
-      }
-      .run-thread {
-        display: flex;
-        flex-direction: column;
-        min-height: 0;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-card);
-        background: var(--surface);
-      }
-      .run-thread.empty {
-        align-items: center;
-        justify-content: center;
-        padding: 24px;
-        font-size: var(--text-sm);
-        background: var(--surface-sunken);
-      }
-      .run-thread-head,
       .run-thread-foot {
         display: flex;
         align-items: center;
@@ -2332,14 +2278,10 @@
         padding: 8px 12px;
         font-size: var(--text-xs);
       }
-      .run-thread-head {
-        border-bottom: 1px solid var(--border-subtle);
-      }
       .run-thread-foot {
         border-top: 1px solid var(--border-subtle);
         color: var(--fg-3);
       }
-      .run-thread-head .grow,
       .run-thread-foot .grow {
         flex: 1;
         min-width: 0;
@@ -2432,6 +2374,193 @@
       .drawer-close {
         justify-content: flex-end;
         padding: 6px 8px 0;
+      }
+
+      /* ---------- Round 2, second pass: the run list, the run's details, the side panel ---------- */
+      .history-modal.sheet {
+        margin: 0 0 0 auto;
+        width: min(1000px, 78vw);
+        height: 100vh;
+        max-height: none;
+        border-width: 0 0 0 1px;
+        border-radius: 0;
+        animation: sheet-in var(--duration-slow) var(--ease-out);
+      }
+      @keyframes sheet-in {
+        from {
+          transform: translateX(40px);
+          opacity: 0;
+        }
+      }
+      .history-panes .runs > li {
+        display: block;
+      }
+      .history-panes .runs > li > .run {
+        display: grid;
+        gap: 3px;
+        width: 100%;
+        text-align: left;
+        font: inherit;
+        color: inherit;
+        cursor: pointer;
+      }
+      .history-panes .run:hover {
+        background: var(--surface-hover);
+      }
+      .history-panes .run.shown {
+        background: var(--surface-selected);
+        box-shadow: inset 0 0 0 1px var(--border-strong);
+      }
+      .run-gist {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        font-size: var(--text-xs);
+        color: var(--fg-2);
+      }
+      .run-details {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+      }
+      .run-details-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px 10px;
+        padding: 10px 14px;
+        border-bottom: 1px solid var(--border-subtle);
+        font-size: var(--text-xs);
+      }
+      .run-details-head .title {
+        font-size: var(--text-sm);
+        font-weight: 600;
+      }
+      .run-details-head .grow {
+        flex: 1;
+      }
+      .run-tabs {
+        flex: none;
+        margin: 0;
+        padding: 0 14px;
+      }
+      .run-details-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 14px 18px 18px;
+      }
+      .run-outcome {
+        margin: 0 0 10px;
+        font-weight: 500;
+      }
+      .handover-read {
+        max-width: 72ch;
+        margin-top: 14px;
+        padding: 14px 18px;
+        border: 1px solid var(--info-border);
+        border-radius: var(--radius-lg);
+        background: var(--info-subtle);
+      }
+      .handover-read .md {
+        margin-top: 6px;
+        line-height: 1.6;
+      }
+      .handover-start {
+        display: -webkit-box;
+        overflow: hidden;
+        -webkit-line-clamp: 4;
+        -webkit-box-orient: vertical;
+      }
+      .handover-start h2,
+      .handover-start h3 {
+        font-size: inherit;
+        margin: 0;
+      }
+      .log-title {
+        margin: 16px 0 8px;
+      }
+      .command-log + .command-log {
+        margin-top: 12px;
+      }
+      .command-log-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+        font-size: var(--text-xs);
+      }
+      .terminal {
+        margin: 0;
+        padding: 10px 12px;
+        overflow-x: auto;
+        border-radius: var(--radius-md);
+        background: var(--gray-950);
+        color: var(--gray-100);
+        font: 12px/1.55 var(--font-mono);
+        white-space: pre;
+      }
+      .run-details .composer {
+        border-top: 1px solid var(--border-subtle);
+      }
+      .stage-strip {
+        display: flex;
+        gap: 6px;
+        overflow-x: auto;
+        margin-bottom: 12px;
+        padding-bottom: 2px;
+      }
+      .stage-strip-item {
+        display: inline-flex;
+        flex: none;
+        align-items: center;
+        gap: 6px;
+        height: var(--control-sm);
+        padding: 0 10px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-full);
+        background: var(--surface);
+        color: var(--fg-2);
+        font-size: var(--text-xs);
+        cursor: pointer;
+      }
+      .stage-strip-item[aria-selected="true"] {
+        border-color: var(--border-strong);
+        background: var(--surface-selected);
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+      .strip-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--border-strong);
+      }
+      .stage-strip-item.done .strip-dot {
+        background: var(--success);
+      }
+      .stage-strip-item.failed .strip-dot {
+        background: var(--danger);
+      }
+      .stage-strip-item.running .strip-dot {
+        background: var(--accent);
+      }
+      .stage-strip-item.waiting-on-you .strip-dot {
+        background: var(--warning);
+      }
+      .thread-empty .btn {
+        margin: 10px 0;
+      }
+      .thread-empty p {
+        margin: 0;
+      }
+      .to .cache {
+        margin-right: 2px;
       }
 
       /* ---------- Narrow: 900px and under ---------- */
@@ -2694,10 +2823,15 @@ About 600k tokens over the whole Pipeline.`;
 
       const OTHER_TASK = { id: "7a1c", title: "Page the usage report's query", state: "done" };
 
+      const DESCRIPTION = `Customers keep asking for the usage report in a spreadsheet. Add a CSV export next to the PDF one, so finance can open it in Excel.
+
+Same columns as the report. It has to cope with our biggest accounts, about 200k rows a month.`;
+
       function baseTask(id, state) {
         return {
           id,
           title: "Export the usage report as CSV",
+          description: DESCRIPTION,
           projectId: "ledger",
           priority: "high",
           tags: ["reports", "export"],
@@ -2903,6 +3037,23 @@ About 600k tokens over the whole Pipeline.`;
         say(84, "reviewer", "Reading the diff against the Definition of Done."),
         tool(83, "Read the Task's diff · 7 files"),
       ];
+
+      /** A Handover note as long as real ones get, with its own headings. */
+      const REVIEW_HANDOVER = `## Where I am
+All six statements of the Definition of Done are met. I fixed one thing: dates went out in the server's local time, so \`usageCsv\` now writes \`toISOString()\`, which is UTC, as statement 4 asks.
+
+## What I checked
+- \`npm run verify\` passes, 214 tests.
+- A 200k-row export peaks at 61 MB of heap (\`scripts/export-load.mjs --rows 200000\`), so the export streams and never holds the rows.
+- The download's name is \`usage-report-2026-10.csv\` and its \`Content-Type\` is \`text/csv; charset=utf-8\`.
+- The button sits after Export PDF on wide and narrow toolbars.
+
+## What is left
+Nothing for the Definition of Done. One thing for you: amounts are in minor units (129900 for 1,299.00), as the Plan says. Finance may read that wrong in a spreadsheet; a second column, \`amount_decimal\`, would cost nothing.
+
+## What to watch
+- The column order follows \`UsageRow\`. Adding a field there changes the CSV for everyone who imports it.
+- \`formatMoney\` is still shared with the PDF export. I didn't touch it.`;
 
       /** Messages the Running scenario adds to the live Thread while the page is open. */
       const LIVE_SCRIPT = [
@@ -3124,8 +3275,33 @@ About 600k tokens over the whole Pipeline.`;
       }
 
       const SCENARIOS = {
+        placeholder: {
+          label: "Backlog, described",
+          build() {
+            return {
+              task: {
+                ...baseTask("task-placeholder", "backlog"),
+                plan: "",
+                planConfirmed: false,
+                filesToChange: [],
+                estimatedTokens: null,
+                definitionOfDone: [],
+                definitionOfDoneConfirmed: false,
+                blockedBy: [],
+              },
+              stages: STAGES.map((s) => taskStage(s, "pending", [])),
+              threads: [personThread("planner", 0, [])],
+              people: ["planner"],
+              liveThreadId: null,
+              decisions: [],
+              dodMet: [],
+              dodMetBy: null,
+              attachments: [],
+            };
+          },
+        },
         backlog: {
-          label: "Backlog, written by you",
+          label: "Backlog, planned by you",
           build() {
             return {
               task: { ...baseTask("task-backlog", "backlog"), blockedBy: [] },
@@ -3218,10 +3394,7 @@ About 600k tokens over the whole Pipeline.`;
                     85,
                     52,
                     148000,
-                    done(
-                      "All six statements met.",
-                      "Fixed: dates in UTC (ISO 8601). Checked: a 200k-row export peaks at 61 MB, so it streams. Nothing left; the Gate is next.",
-                    ),
+                    done("All six statements met.", REVIEW_HANDOVER),
                     { threadId: "th-review-1", session: "fresh" },
                   ),
                 ]),
@@ -3256,10 +3429,7 @@ About 600k tokens over the whole Pipeline.`;
                     "reviewer",
                     "Verify passes and a 200k-row export peaks at 61 MB, so it streams. All six statements are met.",
                   ),
-                  note(
-                    52,
-                    "Fixed: dates in UTC (ISO 8601). Checked: a 200k-row export peaks at 61 MB, so it streams. Nothing left; the Gate is next.",
-                  ),
+                  note(52, REVIEW_HANDOVER),
                   end(52, "Review & fix · run 5 done · 148k tokens"),
                 ]),
                 personThread("developer", 0, []),
@@ -3423,10 +3593,7 @@ About 600k tokens over the whole Pipeline.`;
                     85,
                     52,
                     148000,
-                    done(
-                      "All six statements met.",
-                      "Fixed: dates in UTC (ISO 8601). Checked: a 200k-row export peaks at 61 MB. Nothing left; the Gate is next.",
-                    ),
+                    done("All six statements met.", REVIEW_HANDOVER),
                     { threadId: "th-review-1", session: "fresh" },
                   ),
                 ]),
@@ -3478,10 +3645,7 @@ About 600k tokens over the whole Pipeline.`;
                     "Dates go out in the server's local time; statement 4 asks for ISO 8601 in UTC. Writing them in UTC.",
                   ),
                   tool(66, "Run npm run verify"),
-                  note(
-                    52,
-                    "Fixed: dates in UTC (ISO 8601). Checked: a 200k-row export peaks at 61 MB. Nothing left; the Gate is next.",
-                  ),
+                  note(52, REVIEW_HANDOVER),
                   end(52, "Review & fix · run 5 done · 148k tokens"),
                 ]),
                 personThread("developer", 0, []),
@@ -3561,6 +3725,8 @@ About 600k tokens over the whole Pipeline.`;
         selectedRun: null,
         /** Where the Stage history opens: "modal", or "subpage" in place of what sits under the rail. */
         historyMode: store.get("historyMode", "modal"),
+        /** Per run: "summary" or "thread", once the user picks one. */
+        historyTab: {},
         /** The person whose tab the conversation shows. */
         conversationTab: "planner",
         /** Per Thread: "auto", "continue" or "fresh" for the next message. */
@@ -3811,10 +3977,16 @@ About 600k tokens over the whole Pipeline.`;
             .filter((t) => !t.stageThread)
             .reduce((a, t) => a + sumTokens(t.tokens), 0);
         const [stateWord, tone] = TASK_STATE[task.state];
-        const pct = Math.min(100, Math.round((used / task.estimatedTokens) * 100));
+        const pct = task.estimatedTokens
+          ? Math.min(100, Math.round((used / task.estimatedTokens) * 100))
+          : 0;
         const actions = {
           backlog:
-            '<button class="btn" data-action="toast" data-text="Plan with… picks who plans it; the Task goes to Planning.">Plan with…</button><button class="btn primary" data-action="toast" data-text="Mark Ready: the Plan and the Definition of Done are confirmed, so the Task can skip Planning.">Mark Ready</button>',
+            // Mark Ready shows in Backlog only once the user has written and confirmed both parts.
+            '<button class="btn" data-action="toast" data-text="Plan with… picks who plans it; the Task goes to Planning.">Plan with…</button>' +
+            (task.planConfirmed && task.definitionOfDoneConfirmed
+              ? '<button class="btn primary" data-action="toast" data-text="Mark Ready: the Plan and the Definition of Done are confirmed, so the Task can skip Planning.">Mark Ready</button>'
+              : ""),
           planning:
             '<button class="btn primary" disabled title="Confirm the Plan, the Definition of Done and the Pipeline first">Mark Ready</button>',
           "in-progress":
@@ -3833,7 +4005,7 @@ About 600k tokens over the whole Pipeline.`;
             <div class="meta-row">
               <span class="priority">${ICON.flag} High priority</span><span class="sep">·</span>
               <span>Pipeline <b style="font-weight:500;color:var(--fg-1)">Full</b>${task.state === "planning" ? " (proposed)" : ""}</span><span class="sep">·</span>
-              <span class="meter" title="Tokens used of the Planner's estimate"><span class="bar"><i style="width:${pct}%"></i></span><span class="num">${kTokens(used)} of ~${kTokens(task.estimatedTokens)} tokens</span></span><span class="sep">·</span>
+              ${task.estimatedTokens ? `<span class="meter" title="Tokens used of the Planner's estimate"><span class="bar"><i style="width:${pct}%"></i></span><span class="num">${kTokens(used)} of ~${kTokens(task.estimatedTokens)} tokens</span></span>` : `<span class="num">${kTokens(used)} tokens</span>`}<span class="sep">·</span>
               <span>${task.tags.map((t) => `#${t}`).join(" ")}</span>
             </div>
           </div>
@@ -4069,94 +4241,169 @@ About 600k tokens over the whole Pipeline.`;
         "waiting-on-you": '<span class="badge warning">Waiting on you</span>',
       };
 
-      /** The run whose Thread shows beside the list: the one picked, else the newest. */
+      /** The run the details show: the one picked, else the newest. */
       function shownRun(ts) {
         return ts.runs.find((r) => r.id === view.selectedRun) ?? ts.runs.at(-1) ?? null;
       }
 
-      function runHtml(ts, r) {
-        const o = r.outcome;
-        const state = runState(ts, r);
-        const tok = sumTokens(r.tokens);
-        const facts = [
+      function runFacts(ts, r) {
+        return [
           `${clock(r.startedAt)} → ${r.endedAt ? clock(r.endedAt) : "now"}`,
           span(runDuration(r)),
-          ts.stage.kind === "agent" ? `${kTokens(tok)} tokens` : null,
-          r.session ? `${r.session} session` : null,
+          ts.stage.kind === "agent" ? `${kTokens(sumTokens(r.tokens))} tokens` : null,
         ]
           .filter(Boolean)
           .join(" · ");
+      }
+
+      function runOutcomeText(ts, r) {
+        const o = r.outcome;
+        if (o) return o.status === "failed" ? o.error : o.summary;
+        return ts.stage.kind === "gate"
+          ? "Waits for you to look at the changes and let the work continue."
+          : "Working now.";
+      }
+
+      /** A run in the list: what it is and how it ended, in a line or two; the rest is on the right. */
+      function runItemHtml(ts, r) {
+        const state = runState(ts, r);
+        const shown = shownRun(ts) === r;
+        return `<li><button class="run ${state} ${shown ? "shown" : ""}" data-action="show-run" data-run="${r.id}" aria-pressed="${shown}">
+          <span class="run-line"><span class="title">Run ${r.number}</span>${RUN_BADGE[state]}${r.carriedFailure ? '<span class="faint" title="Briefed with what failed">↺</span>' : ""}</span>
+          <span class="run-facts">${runFacts(ts, r)}</span>
+          <span class="run-gist">${esc(runOutcomeText(ts, r).replaceAll("`", ""))}</span>
+        </button></li>`;
+      }
+
+      /** What a run handed on, at reading width: the note is often long, with its own headings. */
+      function summaryHtml(ts, r) {
+        const o = r.outcome;
         const carried = r.carriedFailure
           ? `<div class="carried">↺ Briefed with what failed in ${esc(byKey(r.carriedFailure.stageKey).name)}, round ${r.carriedFailure.round} of ${r.carriedFailure.rounds}</div>`
           : "";
-        const text = o
-          ? o.status === "failed"
-            ? o.error
-            : o.summary
-          : ts.stage.kind === "gate"
-            ? "Waits for you to look at the changes and let the work continue."
-            : "Working now.";
-        const commands = r.commandRuns
-          .map(
-            (c) =>
-              `<div class="cmd"><code>${esc(c.commandLine)}</code><span class="${c.outcome === "passed" ? "add" : "del"}">${c.outcome}</span><span class="faint">${c.purpose === "re-run" ? "re-run · " : ""}${span(c.durationMs)}</span></div>`,
-          )
-          .join("");
         const gate = r.gateAction
-          ? `<div class="run-note muted">You chose: ${r.gateAction.kind === "continue" ? "Continue" : r.gateAction.kind === "drop" ? "Drop" : "Send back"}</div>`
+          ? `<p class="muted">You chose: ${r.gateAction.kind === "continue" ? "Continue" : r.gateAction.kind === "drop" ? "Drop" : "Send back"}</p>`
           : "";
-        const handover =
+        const note =
           o && o.handoverNote
-            ? `<div class="handover"><span class="overline">Handover note · ${personLink(ts.stage.role)}</span>${inline(o.handoverNote)}</div>`
-            : "";
-        const shown = shownRun(ts) === r;
-        const choosable = ts.runs.filter((run) => run.threadId).length > 1;
-        const pick =
-          r.threadId && choosable && !shown
-            ? `<button class="btn xs" data-action="show-run" data-run="${r.id}">Show its Thread</button>`
-            : r.threadId && choosable
-              ? '<span class="faint run-shown">Thread shown</span>'
+            ? `<section class="handover-read"><div class="overline">Handover note · ${personLink(ts.stage.role)}</div><div class="md">${markdown(o.handoverNote)}</div></section>`
+            : ts.stage.kind === "agent" && o
+              ? '<p class="faint">No Handover note.</p>'
               : "";
-        return `<li class="run ${state} ${shown && r.threadId ? "shown" : ""}">
-          <div class="run-line"><span class="title">Run ${r.number}</span>${RUN_BADGE[state]}<span class="grow"></span>${pick}</div>
-          <div class="run-facts">${facts}</div>
-          ${carried}<div class="run-note">${inline(text)}</div>${commands}${gate}${handover}
-        </li>`;
+        const waiting =
+          ts.stage.kind === "gate" && !o
+            ? '<p><button class="linklike" data-action="show-needs">Answer it in Needs you</button></p>'
+            : "";
+        return `<div class="run-summary">${carried}<p class="run-outcome">${inline(runOutcomeText(ts, r))}</p>${gate}${waiting}${note}</div>`;
       }
 
-      /** A run's Thread, read-only: it follows a running Stage live; writing to its person is in their tab. */
-      function runThreadHtml(ts) {
-        const r = shownRun(ts);
-        const t = r && r.threadId ? threadById(r.threadId) : null;
-        if (!t) {
-          const words =
-            ts.stage.kind === "gate"
-              ? "A Gate has no Thread: it waits for you in Needs you."
-              : ts.stage.kind === "script"
-                ? "A Project command has no Thread: its commands and results are in each run."
-                : "This run has no Thread.";
-          return `<div class="run-thread empty"><span class="muted">${words}</span></div>`;
-        }
+      /** Each command the run started, with its whole output. */
+      function logHtml(r) {
+        if (!r.commandRuns.length) return '<p class="faint">No commands ran.</p>';
+        return r.commandRuns
+          .map(
+            (c) =>
+              `<section class="command-log"><div class="command-log-head"><code>${esc(c.commandLine)}</code><span class="${c.outcome === "passed" ? "add" : "del"}">${c.outcome}</span><span class="faint">${c.purpose === "re-run" ? "re-run · " : ""}${span(c.durationMs)}</span></div><pre class="terminal">${esc(commandOutput(c))}</pre></section>`,
+          )
+          .join("");
+      }
+
+      /** Display-only: a command's output, made up from what the mock knows of it. */
+      function commandOutput(c) {
+        if (c.commandLine.startsWith("git push"))
+          return [
+            "$ git push -u origin task/export-usage-csv",
+            "To github.com:ledger/ledger.git",
+            " * [new branch]      task/export-usage-csv -> task/export-usage-csv",
+            "$ gh pr create --fill",
+            "https://github.com/ledger/ledger/pull/482",
+          ].join("\n");
+        const passed = c.outcome === "passed";
+        const toolbar = passed
+          ? " ✓ src/surfaces/reports/UsageToolbar.test.tsx (6 tests) 412ms"
+          : [
+              " ✗ src/surfaces/reports/UsageToolbar.test.tsx (6 tests | 2 failed) 398ms",
+              "   ✗ UsageToolbar > shows Export PDF first",
+              '     Expected: ["Export PDF", "Print"]',
+              '     Received: ["Export PDF", "Export CSV", "Print"]',
+              "   ✗ UsageToolbar > keeps the button order on narrow screens",
+            ].join("\n");
+        const only = c.commandLine.includes("UsageToolbar");
+        return [
+          `$ ${c.commandLine}`,
+          "",
+          ...(only
+            ? []
+            : [
+                " ✓ src/modules/reports/usage-csv.test.ts (14 tests) 1.2s",
+                " ✓ src/modules/reports/reports.controller.test.ts (9 tests) 860ms",
+                " ✓ src/modules/reports/pdf/rows.test.ts (21 tests) 640ms",
+              ]),
+          toolbar,
+          "",
+          passed
+            ? " Test Files  38 passed (38)\n      Tests  214 passed (214)"
+            : ` Test Files  1 failed | ${only ? 0 : 37} passed\n      Tests  2 failed | ${only ? 4 : 212} passed`,
+        ].join("\n");
+      }
+
+      /** A run's Thread, following a running Stage live; while it runs, a message lands at its next safe point. */
+      function runThreadHtml(ts, r) {
+        const t = threadById(r.threadId);
         const live = t.id === view.data.liveThreadId;
         const body = groupedMessages(visibleMessages(t))
           .map((group) => messageHtml(group, t))
           .join("");
-        const own = personThreadOf(t.roleKey);
-        const ended = ["done", "dropped"].includes(view.data.task.state);
-        const write =
-          own && !ended
-            ? `<button class="btn xs" data-action="ask-person" data-role="${t.roleKey}">Write to ${personName(t.roleKey)}</button>`
-            : "";
-        return `<div class="run-thread">
-          <div class="run-thread-head">${personTag(t.roleKey, "sm", personLabel(t.roleKey))}<span class="muted">${esc(threadPlace(t))}</span><span class="grow"></span>${live ? liveBadge() : ""}${detailsSwitch()}</div>
-          <div class="run-thread-body" id="run-thread-body">${body}${workingHtml(t)}</div>
-          <div class="run-thread-foot">${ICON.chat}<span class="grow">Read-only: a Stage's Thread is the record of its run.${write ? ` To ask ${personName(t.roleKey)} about it, write in ${personName(t.roleKey)}'s tab.` : ""}</span>${write}</div>
-        </div>`;
+        const name = personName(t.roleKey);
+        const foot = live
+          ? `<div class="composer"><div class="to">To ${personTag(t.roleKey, "sm", personLabel(t.roleKey))}<span class="to-place">, in ${esc(threadPlace(t))}: lands at the next safe point</span></div><div class="compose-box"><textarea class="textarea" placeholder="Write to ${name} while the Stage runs…" aria-label="Message to ${name} in the running Stage"></textarea><button class="btn primary icon" aria-label="Send" data-action="toast" data-text="Sends it to the running Stage; ${name} reads it at the next safe point.">${ICON.send}</button></div></div>`
+          : `<div class="run-thread-foot">${ICON.chat}<span class="grow">This run has ended, so its Thread is read-only.</span>${personThreadOf(t.roleKey) && !["done", "dropped"].includes(view.data.task.state) ? `<button class="btn xs" data-action="ask-person" data-role="${t.roleKey}">Ask ${name} about it</button>` : ""}</div>`;
+        return `<div class="run-thread-body" id="run-thread-body">${body}${workingHtml(t)}</div>${foot}`;
       }
 
-      /** The history of the selected Stage, the same in the window and in the page. */
-      function historyContent(ts, index) {
-        const { stages } = view.data;
+      /** The tabs of an Agent run's details: what it handed on, and its Thread. */
+      function detailTab(ts, r) {
+        const wanted = view.historyTab[r.id];
+        if (wanted) return wanted;
+        return r.outcome === null ? "thread" : "summary";
+      }
+
+      /** Everything about the run picked in the list. */
+      function runDetailsHtml(ts) {
+        const r = shownRun(ts);
+        const state = runState(ts, r);
+        const head = `<div class="run-details-head"><span class="title">Run ${r.number}</span>${RUN_BADGE[state]}<span class="faint">${runFacts(ts, r)}${r.session ? ` · ${r.session} session` : ""}</span><span class="grow"></span>${r.threadId ? detailsSwitch() : ""}</div>`;
+        if (ts.stage.kind === "agent" && r.threadId) {
+          const tab = detailTab(ts, r);
+          const t = threadById(r.threadId);
+          const tabButton = (key, label) =>
+            `<button class="tab" role="tab" data-action="history-tab" data-run="${r.id}" data-tab="${key}" aria-selected="${tab === key}">${label}</button>`;
+          const tabs = `<div class="tabs run-tabs" role="tablist">${tabButton("summary", "Summary")}${tabButton("thread", `Thread${t.id === view.data.liveThreadId ? ' <span class="dot live"></span>' : ""}`)}</div>`;
+          const panel =
+            tab === "summary"
+              ? `<div class="run-details-body">${summaryHtml(ts, r)}</div>`
+              : runThreadHtml(ts, r);
+          return `<div class="run-details">${head}${tabs}${panel}</div>`;
+        }
+        const log =
+          ts.stage.kind === "script"
+            ? `<div class="overline log-title">Log</div>${logHtml(r)}`
+            : "";
+        return `<div class="run-details">${head}<div class="run-details-body">${summaryHtml(ts, r)}${log}</div></div>`;
+      }
+
+      /** All the Stages, to move between them without closing the history. */
+      function stageStripHtml() {
+        return `<div class="stage-strip" role="tablist" aria-label="Stages">${view.data.stages
+          .map(
+            (ts) =>
+              `<button class="stage-strip-item ${ts.state}" role="tab" data-action="select-stage" data-stage="${ts.stage.key}" aria-selected="${ts.stage.key === view.selectedStage}"><span class="strip-dot"></span>${esc(ts.stage.name)}</button>`,
+          )
+          .join("")}</div>`;
+      }
+
+      /** The history of the selected Stage, the same in every version. */
+      function historyContent(ts) {
         const kindWords =
           ts.stage.kind === "agent"
             ? `Agent Stage · ${PEOPLE[ts.stage.role].name} · ${PEOPLE[ts.stage.role].role} · budget ${kTokens(ts.stage.budget)} tokens`
@@ -4167,27 +4414,26 @@ About 600k tokens over the whole Pipeline.`;
           ? ` · on failure goes back to ${byKey(ts.stage.onFailure.goBackTo).name}, at most ${ts.stage.onFailure.rounds} times`
           : "";
         const closeButton =
-          view.historyMode === "modal"
-            ? `<button class="btn ghost xs icon" data-action="close-history" aria-label="Close the Stage history">${ICON.close}</button>`
-            : "";
+          view.historyMode === "subpage"
+            ? ""
+            : `<button class="btn ghost xs icon" data-action="close-history" aria-label="Close the Stage history">${ICON.close}</button>`;
         const runs = ts.runs.length
           ? `<div class="history-panes">
               <ol class="runs">${[...ts.runs]
                 .reverse()
-                .map((r) => runHtml(ts, r))
+                .map((r) => runItemHtml(ts, r))
                 .join("")}</ol>
-              ${runThreadHtml(ts)}
+              ${runDetailsHtml(ts)}
             </div>`
           : `<div class="muted history-empty">${["planning", "backlog"].includes(view.data.task.state) ? "Runs once the Task starts." : "Hasn't run yet."}</div>`;
         return `<div class="history-head">
             <h2>${esc(ts.stage.name)}</h2>${stageWorker(ts.stage)}<span class="badge">${STATE_WORDS[ts.state]}</span>
             <span class="grow"></span>
-            <span class="faint keys"><span class="kbd">←</span> <span class="kbd">→</span> Stages · <span class="kbd">Esc</span> ${view.historyMode === "modal" ? "close" : "back"}</span>
-            <button class="btn ghost xs icon" data-action="step-stage" data-step="-1" aria-label="Previous Stage" ${index === 0 ? "disabled" : ""}>${ICON.left}</button>
-            <button class="btn ghost xs icon" data-action="step-stage" data-step="1" aria-label="Next Stage" ${index === stages.length - 1 ? "disabled" : ""}>${ICON.right}</button>
+            <span class="faint keys"><span class="kbd">←</span> <span class="kbd">→</span> Stages · <span class="kbd">Esc</span> ${view.historyMode === "subpage" ? "back" : "close"}</span>
             ${closeButton}
           </div>
           <div class="history-sub">${kindWords}${loop}${ts.runs.length ? ` · ${kTokens(sumTokens(ts.tokens))} tokens over ${ts.runs.length} ${ts.runs.length === 1 ? "run" : "runs"}` : ""}</div>
+          ${view.historyMode === "subpage" ? "" : stageStripHtml()}
           ${runs}`;
       }
 
@@ -4196,13 +4442,15 @@ About 600k tokens over the whole Pipeline.`;
         return !body || body.scrollHeight - body.scrollTop - body.clientHeight < 40;
       }
 
-      /** Version 1 opens a window over the page; version 2 takes the place of everything under the rail. */
+      /** 1 opens a window over the page, 2 a panel from the side, 3 takes the place of everything under the rail. */
       function renderHistory() {
         const modal = $("history-modal");
         const page = $("history-page");
         const index = view.data.stages.findIndex((ts) => ts.stage.key === view.selectedStage);
         const previous = $("run-thread-body");
         const keepScroll = previous && !threadBodyAtEnd() ? previous.scrollTop : null;
+        const typing = document.activeElement?.closest(".run-details textarea");
+        const draft = typing?.value;
         modal.innerHTML = "";
         page.innerHTML = "";
         if (index < 0) {
@@ -4211,21 +4459,27 @@ About 600k tokens over the whole Pipeline.`;
           $("body").hidden = false;
           return;
         }
-        const content = historyContent(view.data.stages[index], index);
-        if (view.historyMode === "modal") {
-          page.hidden = true;
-          $("body").hidden = false;
-          modal.innerHTML = `<div class="history-window">${content}</div>`;
-          if (!modal.open) modal.showModal();
-        } else {
+        const content = historyContent(view.data.stages[index]);
+        if (view.historyMode === "subpage") {
           if (modal.open) modal.close();
           $("body").hidden = true;
           page.hidden = false;
           page.innerHTML = `<div class="history-back"><button class="btn" data-action="close-history">${ICON.left} Back to the Task</button><span class="muted">Stage history of ${esc(view.data.stages[index].stage.name)}</span></div><div class="card history-card">${content}</div>`;
+        } else {
+          page.hidden = true;
+          $("body").hidden = false;
+          modal.classList.toggle("sheet", view.historyMode === "sheet");
+          modal.innerHTML = `<div class="history-window">${content}</div>`;
+          if (!modal.open) modal.showModal();
         }
         // A reader who scrolled up in the Thread stays put while it updates; else it follows the end.
         const body = $("run-thread-body");
         if (body) body.scrollTop = keepScroll ?? body.scrollHeight;
+        const box = typing && document.querySelector(".run-details textarea");
+        if (box) {
+          box.value = draft;
+          box.focus();
+        }
       }
 
       function selectStage(key) {
@@ -4253,14 +4507,20 @@ About 600k tokens over the whole Pipeline.`;
 
       /* ===================== Record ===================== */
 
-      const BLOCK_ICONS = { plan: "file", dod: "check", dependencies: "task", origin: "idea" };
+      const BLOCK_ICONS = {
+        description: "note",
+        plan: "file",
+        dod: "check",
+        dependencies: "task",
+        origin: "idea",
+      };
 
       function foldOpen(block) {
         const remembered = store.get(`folds.${view.data.task.id}`, {});
         if (block in remembered) return remembered[block];
         // By default the Plan and Definition of Done are open while Planning and folded once the Task runs.
         const notStarted = ["backlog", "planning"].includes(view.data.task.state);
-        return notStarted && (block === "plan" || block === "dod");
+        return notStarted && ["description", "plan", "dod"].includes(block);
       }
       function toggleFold(block) {
         const key = `folds.${view.data.task.id}`;
@@ -4336,38 +4596,63 @@ About 600k tokens over the whole Pipeline.`;
         const { task, dodMet, attachments } = view.data;
         const planning = task.state === "planning";
         const notStarted = planning || task.state === "backlog";
-        const firstLine = task.plan.split("\n")[0].replace(/\*\*/g, "");
+        const firstLine = (text) => text.split("\n")[0].replace(/\*\*/g, "");
         // Each part is confirmed on its own block; Before Ready only lists what Mark Ready waits for.
         const proposed = (confirmed, part) =>
           confirmed
             ? '<span class="badge success">Confirmed</span>'
             : `<span class="badge info">${personTag("planner", "sm", "Proposed by Angela")}</span><button class="btn primary xs" data-action="toast" data-text="Confirms the ${part} as it reads.">Confirm</button>`;
 
-        const plan = fold(
-          "plan",
-          "Plan",
-          `${esc(firstLine)} · ${task.filesToChange.length} files`,
-          proposed(task.planConfirmed, "Plan"),
-          `<div class="md">${markdown(task.plan)}</div>
+        // What the user wants, in their words: optional, as the title alone is enough to plan from.
+        const description = fold(
+          "description",
+          "Description",
+          task.description ? esc(firstLine(task.description)) : "None: the title is all there is",
+          `<button class="btn xs" data-action="toast" data-text="Opens the Description in the editor.">${task.description ? "Edit" : "Add"}</button>`,
+          task.description
+            ? `<div class="md">${markdown(task.description)}</div>`
+            : '<div class="muted" style="font-size:var(--text-sm)">Add what the title leaves out, so the Planner can start from it.</div>',
+        );
+
+        const plan = task.plan
+          ? fold(
+              "plan",
+              "Plan",
+              `${esc(firstLine(task.plan))} · ${task.filesToChange.length} files`,
+              proposed(task.planConfirmed, "Plan"),
+              `<div class="md">${markdown(task.plan)}</div>
            <div class="overline" style="margin-top:12px">Files to change</div>
            <ul class="files">${task.filesToChange.map((f) => `<li>${ICON.file}${esc(f)}</li>`).join("")}</ul>
            ${notStarted ? `<div class="block-foot"><button class="btn xs" data-action="toast" data-text="Opens the Plan in the editor.">Edit Plan</button><span>${planning ? "Angela updates it as you talk in Angela's tab." : "Written by you."}</span></div>` : ""}`,
-        );
+            )
+          : fold(
+              "plan",
+              "Plan",
+              "No Plan yet",
+              '<button class="btn xs" data-action="toast" data-text="Opens the Plan in the editor.">Write it</button>',
+              '<div class="muted" style="font-size:var(--text-sm)">No Plan yet. Make a plan with Angela from the Planner\'s tab, or write it yourself.</div>',
+            );
 
         const met = new Set(dodMet);
-        const dodSummary = notStarted
-          ? `${task.definitionOfDone.length} statements · ${task.definitionOfDoneConfirmed ? "confirmed" : "not confirmed yet"}`
-          : `${met.size} of ${task.definitionOfDone.length} checked`;
+        const dodSummary = !task.definitionOfDone.length
+          ? "No Definition of Done yet"
+          : notStarted
+            ? `${task.definitionOfDone.length} statements · ${task.definitionOfDoneConfirmed ? "confirmed" : "not confirmed yet"}`
+            : `${met.size} of ${task.definitionOfDone.length} checked`;
         const dod = fold(
           "dod",
           "Definition of Done",
           dodSummary,
-          notStarted
-            ? proposed(task.definitionOfDoneConfirmed, "Definition of Done")
-            : met.size === task.definitionOfDone.length
-              ? '<span class="badge success">All met</span>'
-              : `<span class="badge">${met.size} / ${task.definitionOfDone.length}</span>`,
-          `<ul class="dod">${task.definitionOfDone.map((s, i) => `<li><span class="check ${met.has(i + 1) ? "on" : ""}">${met.has(i + 1) ? ICON.check.replace("<svg", '<svg width="10" height="10"') : ""}</span><span><span class="n">${i + 1}.</span>${inline(s)}</span></li>`).join("")}</ul>
+          !task.definitionOfDone.length
+            ? '<button class="btn xs" data-action="toast" data-text="Opens the Definition of Done in the editor.">Write it</button>'
+            : notStarted
+              ? proposed(task.definitionOfDoneConfirmed, "Definition of Done")
+              : met.size === task.definitionOfDone.length
+                ? '<span class="badge success">All met</span>'
+                : `<span class="badge">${met.size} / ${task.definitionOfDone.length}</span>`,
+          !task.definitionOfDone.length
+            ? '<div class="muted" style="font-size:var(--text-sm)">No Definition of Done yet. Angela proposes one while planning, or write it yourself.</div>'
+            : `<ul class="dod">${task.definitionOfDone.map((s, i) => `<li><span class="check ${met.has(i + 1) ? "on" : ""}">${met.has(i + 1) ? ICON.check.replace("<svg", '<svg width="10" height="10"') : ""}</span><span><span class="n">${i + 1}.</span>${inline(s)}</span></li>`).join("")}</ul>
            ${view.data.dodMetBy ? `<div class="block-foot">Checked as of ${esc(view.data.dodMetBy)}</div>` : ""}`,
         );
 
@@ -4412,7 +4697,7 @@ About 600k tokens over the whole Pipeline.`;
         $("record").innerHTML =
           tabs +
           {
-            overview: `<div class="folds">${plan}${dod}${deps}${origin}</div>`,
+            overview: `<div class="folds">${description}${plan}${dod}${deps}${origin}</div>`,
             changes,
             attachments: attachmentsTab,
           }[view.recordTab];
@@ -4636,8 +4921,11 @@ About 600k tokens over the whole Pipeline.`;
         const gate = gateWaiting();
         const n = needsCount();
         const { task } = view.data;
+        const written = task.plan !== "" || task.definitionOfDone.length > 0;
         const beforeReady =
-          task.state === "planning" || task.state === "backlog" ? beforeReadyHtml() : "";
+          task.state === "planning" || (task.state === "backlog" && written)
+            ? beforeReadyHtml()
+            : "";
         if (n === 0 && beforeReady) {
           $("needs").innerHTML = beforeReady;
           return;
@@ -4696,7 +4984,7 @@ About 600k tokens over the whole Pipeline.`;
         if (group.kind === "end")
           return `<div class="thread-end ${group.failedRun ? "failed" : ""}">${esc(group.text)} · ${clock(group.at)}</div>`;
         if (group.kind === "handover")
-          return `<div class="message handover-note"><div class="message-by">${ICON.note}Handover note · ${personLink(thread.roleKey)}</div><div class="message-text">${inline(group.text)}</div></div>`;
+          return `<div class="message handover-note"><div class="message-by">${ICON.note}Handover note · ${personLink(thread.roleKey)}</div><div class="message-text handover-start">${markdown(group.text)}</div>${stageOfThread(thread.id) ? `<button class="linklike" data-action="read-handover" data-run="${stageOfThread(thread.id).run.id}">Read it in full</button>` : ""}</div>`;
         if (group.kind === "decision") {
           const d = decision(group.decisionId);
           const by = '<div class="message-by"><span class="badge warning">Decision</span></div>';
@@ -4753,9 +5041,8 @@ About 600k tokens over the whole Pipeline.`;
 
       function conversationTabs() {
         const tab = (roleKey) => {
-          const t = personThreadOf(roleKey);
           const working = runningStageOf(roleKey);
-          return `<button class="tab" role="tab" data-action="conversation-tab" data-role="${roleKey}" aria-selected="${view.conversationTab === roleKey}">${avatar(roleKey, "sm")}${personName(roleKey)}${working ? '<span class="dot live" title="Working in a Stage now"></span>' : ""}${cacheMark(t)}</button>`;
+          return `<button class="tab" role="tab" data-action="conversation-tab" data-role="${roleKey}" aria-selected="${view.conversationTab === roleKey}">${avatar(roleKey, "sm")}${personName(roleKey)}${working ? '<span class="dot live" title="Working in a Stage now"></span>' : ""}</button>`;
         };
         return `<div class="tabs conversation-tabs" role="tablist" aria-label="People on this Task">${tabPeople().map(tab).join("")}</div>`;
       }
@@ -4799,10 +5086,7 @@ About 600k tokens over the whole Pipeline.`;
           return `<div class="composer"><div class="ended">This Task is ${task.state === "done" ? "Done" : "Dropped"} and its worktree has been removed, so you can read these Threads but not continue them. To keep working, start a new Task.</div></div>`;
         }
         const p = PEOPLE[t.roleKey];
-        const working = runningStageOf(t.roleKey);
-        const to = working
-          ? `<div class="to">To ${personTag(t.roleKey, "sm", `${p.name} · ${p.role}`)}<select class="select xs" aria-label="Where it lands"><option>in this Thread</option><option>in ${esc(working.stage.name)}, running: lands at the next safe point</option></select></div>`
-          : `<div class="to">To ${personTag(t.roleKey, "sm", `${p.name} · ${p.role}`)}<span class="to-place">, in this Thread</span></div>`;
+        const to = `<div class="to">To ${cacheMark(t)}${personTag(t.roleKey, "sm", `${p.name} · ${p.role}`)}<span class="to-place">, in this Thread</span></div>`;
         return `<div class="composer">
           ${to}
           <div class="compose-box"><textarea class="textarea" placeholder="Ask ${p.name} anything about this Task…" aria-label="Message to ${p.name}">${esc(view.composerDraft)}</textarea><button class="btn ghost icon" aria-label="Mention someone" data-action="toast" data-text="Opens the @ picker.">${ICON.at}</button><button class="btn primary icon" aria-label="Send" data-action="toast" data-text="Sends your message to ${p.name}.">${ICON.send}</button></div>
@@ -4833,14 +5117,16 @@ About 600k tokens over the whole Pipeline.`;
               ? `Worked on ${stages.join(" · ")}`
               : "";
         const banner = working
-          ? `<div class="working-now"><span class="dot live"></span><span class="grow">${personName(roleKey)} is working on ${esc(working.stage.name)} now.</span><button class="linklike" data-action="select-stage" data-stage="${working.stage.key}">Watch it in the Stage history</button></div>`
+          ? `<div class="working-now"><span class="dot live"></span><span class="grow">${personName(roleKey)} is working on ${esc(working.stage.name)} now. To write into that work, open its Stage history.</span><button class="linklike" data-action="select-stage" data-stage="${working.stage.key}">Open the Stage history</button></div>`
           : "";
         const body = t.messages.length
           ? groupedMessages(visibleMessages(t))
               .map((group) => messageHtml(group, t))
               .join("")
-          : `<div class="thread-empty">${esc(emptyThreadWords(roleKey))}</div>`;
-        return `<div class="thread-head"><span class="grow"><span class="name">${esc(personLabel(roleKey))}</span><div class="sub">${esc(sub)}</div></span>${cacheMark(t)}${detailsSwitch()}</div>
+          : roleKey === "planner" && view.data.task.state === "backlog"
+            ? `<div class="thread-empty"><p>${esc(personName(roleKey))} plans from the title${view.data.task.description ? " and the Description" : ""}, so there is nothing more to write.</p><button class="btn primary" data-action="toast" data-text="Angela starts planning; the Task goes to Planning.">Make a plan</button><p class="faint">Or write to ${esc(personName(roleKey))} first, below.</p></div>`
+            : `<div class="thread-empty">${esc(emptyThreadWords(roleKey))}</div>`;
+        return `<div class="thread-head"><span class="grow"><span class="name">${esc(personLabel(roleKey))}</span><div class="sub">${esc(sub)}</div></span>${detailsSwitch()}</div>
           ${banner}
           <div class="message-list" id="messages">${body}</div>
           ${composer(t)}`;
@@ -4851,7 +5137,7 @@ About 600k tokens over the whole Pipeline.`;
         const previous = $("messages");
         const key = `${view.scenario}/${view.conversationTab}`;
         const keepScroll = previous?.dataset.key === key ? previous.scrollTop : null;
-        const typing = document.activeElement?.closest(".composer textarea");
+        const typing = document.activeElement?.closest("#conversation .composer textarea");
         const caret = typing?.selectionStart;
         const close = `<div class="drawer-close"><button class="btn ghost xs icon" data-action="close-drawer" aria-label="Close the conversation">${ICON.close}</button></div>`;
         conversation.innerHTML = close + conversationTabs() + personPanelHtml(view.conversationTab);
@@ -4955,6 +5241,7 @@ About 600k tokens over the whole Pipeline.`;
         view.data = SCENARIOS[key].build();
         view.selectedStage = null;
         view.selectedRun = null;
+        view.historyTab = {};
         view.recordTab = "overview";
         view.sendBackOpen = false;
         view.details = null;
@@ -4989,7 +5276,8 @@ About 600k tokens over the whole Pipeline.`;
           "history-switch",
           [
             ["modal", "1 · Window"],
-            ["subpage", "2 · In the page"],
+            ["sheet", "2 · Side panel"],
+            ["subpage", "3 · In the page"],
           ],
           view.historyMode,
           "history-mode",
@@ -5133,6 +5421,15 @@ About 600k tokens over the whole Pipeline.`;
           view.selectedRun = el.dataset.run;
           renderHistory();
         },
+        "history-tab": (el) => {
+          view.historyTab[el.dataset.run] = el.dataset.tab;
+          renderHistory();
+        },
+        "read-handover": (el) => {
+          view.selectedRun = el.dataset.run;
+          view.historyTab[el.dataset.run] = "summary";
+          renderHistory();
+        },
         "open-thread": (el) => openThread(el.dataset.thread),
         "ask-person": (el) => {
           closeDialogs();
@@ -5225,7 +5522,8 @@ About 600k tokens over the whole Pipeline.`;
       });
 
       document.addEventListener("input", (event) => {
-        if (event.target.matches(".composer textarea")) view.composerDraft = event.target.value;
+        if (event.target.matches("#conversation .composer textarea"))
+          view.composerDraft = event.target.value;
       });
 
       document.addEventListener("keydown", (event) => {
@@ -5254,7 +5552,7 @@ About 600k tokens over the whole Pipeline.`;
       });
 
       $("history-modal").addEventListener("close", () => {
-        if (view.selectedStage && view.historyMode === "modal") closeHistory();
+        if (view.selectedStage && view.historyMode !== "subpage") closeHistory();
       });
       $("details-modal").addEventListener("close", () => {
         view.details = null;
