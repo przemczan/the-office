@@ -103,6 +103,8 @@ export const decisions = pgTable(
     options: jsonb("options").$type<readonly string[]>().notNull(),
     recommendation: jsonb("recommendation").$type<Recommendation>().notNull(),
     askedAt: timestamp("asked_at", { withTimezone: true }).notNull(),
+    /** The Task's Attachments it is about; Work keeps them, so no foreign key holds them. */
+    attachmentIds: jsonb("attachment_ids").$type<readonly string[]>().notNull().default([]),
     /** The Consultant's Role key while the Decision waits on them; null when it waits on the user. */
     putTo: text("put_to"),
     /** The Consultants who passed it on, the first one first; `passedOnAt` as an ISO time. */

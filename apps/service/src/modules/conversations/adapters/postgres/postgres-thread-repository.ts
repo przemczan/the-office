@@ -188,6 +188,15 @@ export class PostgresThreadRepository extends ThreadRepository {
     return rows.map(toDecision);
   }
 
+  async unansweredOn(taskId: string): Promise<readonly Decision[]> {
+    const rows = await this.database
+      .select()
+      .from(decisions)
+      .where(and(eq(decisions.taskId, taskId), isNull(decisions.answeredAt)))
+      .orderBy(asc(decisions.askedAt), asc(decisions.id));
+    return rows.map(toDecision);
+  }
+
   async proposal(id: string): Promise<Proposal | undefined> {
     const [row] = await this.database.select().from(proposals).where(eq(proposals.id, id));
     return row && toProposal(row);

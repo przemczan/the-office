@@ -44,6 +44,7 @@ function aDecisionOn(taskId: string): Decision {
     answer: null,
     answeredAt: null,
     putTo: null,
+    attachmentIds: [],
     passedOn: [],
     answeredBy: null,
   };

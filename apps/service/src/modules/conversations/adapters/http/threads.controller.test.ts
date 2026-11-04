@@ -494,6 +494,7 @@ describe("a Decision", () => {
       threadId: thread.id,
       taskId: decision.taskId,
       roleKey: thread.roleKey,
+      attachmentIds: [],
       askedAt: decision.askedAt.toISOString(),
       putTo: null,
       passedOn: [],
@@ -616,6 +617,35 @@ describe("a Decision", () => {
     });
     const open = decisionListSchema.parse(await (await get("/decisions/open")).json());
     expect(open.map(({ id }) => id)).not.toContain(decision.id);
+  });
+
+  it("lists a Task's unanswered Decisions, those with a Consultant too, the first asked first", async () => {
+    const { decision } = await opened();
+    const taskId = decision.taskId;
+    const inAnotherThread = await withSession(() => ({ kind: "task", taskId }));
+    const withConsultant = await app
+      .get(DecisionService)
+      .open(inAnotherThread.sessionId, draft, "devops");
+    const { decision: onAnotherTask } = await opened();
+
+    const unanswered = decisionListSchema.parse(
+      await (await get(`/tasks/${taskId}/decisions/unanswered`)).json(),
+    );
+    const open = decisionListSchema.parse(await (await get("/decisions/open")).json());
+
+    expect(unanswered.map(({ id, putTo }) => [id, putTo])).toEqual([
+      [decision.id, null],
+      [withConsultant.id, "devops"],
+    ]);
+    expect(open.map(({ id }) => id)).not.toContain(withConsultant.id);
+    expect(unanswered.map(({ id }) => id)).not.toContain(onAnotherTask.id);
+
+    await app.get(DecisionService).answer(withConsultant.id, { kind: "option", option: 0 });
+
+    const left = decisionListSchema.parse(
+      await (await get(`/tasks/${taskId}/decisions/unanswered`)).json(),
+    );
+    expect(left.map(({ id }) => id)).toEqual([decision.id]);
   });
 });
 

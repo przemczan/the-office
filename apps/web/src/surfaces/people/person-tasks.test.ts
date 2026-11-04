@@ -132,6 +132,7 @@ describe("the Work tab's filters", () => {
     answer: null,
     answeredAt: null,
     putTo: null,
+    attachmentIds: [],
     passedOn: [],
     answeredBy: null,
   };

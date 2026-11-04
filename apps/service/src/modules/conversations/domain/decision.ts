@@ -12,6 +12,8 @@ export interface DecisionDraft {
   readonly context: string;
   readonly options: readonly string[];
   readonly recommendation: Recommendation;
+  /** The Task's Attachments it is about, of any kind, by their ids. */
+  readonly attachmentIds?: readonly string[] | undefined;
 }
 
 /** How the user answers a Decision: one of its options, or a free answer in their own words. */
@@ -50,6 +52,7 @@ export interface Decision extends DecisionDraft {
    */
   readonly roleKey: string | undefined;
   readonly askedAt: Date;
+  readonly attachmentIds: readonly string[];
   /**
    * The Consultant it waits on, by the key of their Role: they answer it in a Consultation, and
    * the user may answer it in their place. Undefined while it waits on the user.
@@ -74,6 +77,19 @@ export function decisionProblems({ question, options, recommendation }: Decision
   }
   if (recommendation.reason.trim() === "") problems.push("Say why you recommend it.");
   return problems;
+}
+
+/** What's wrong with the Attachments a Decision names, given those its Task has. */
+export function attachmentProblems(
+  named: readonly string[],
+  ofTheTask: readonly string[],
+): string[] {
+  const others = named.filter((id) => !ofTheTask.includes(id));
+  return others.length === 0
+    ? []
+    : [
+        `A Decision names Attachments of its own Task only, and these aren't: ${others.join(", ")}.`,
+      ];
 }
 
 /** Every problem with the user's answer to an open Decision, in the UI's words. */

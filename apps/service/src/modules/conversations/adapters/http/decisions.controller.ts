@@ -21,7 +21,7 @@ import { ThreadContexts } from "../../application/thread-contexts.js";
 import { toDecisionResponse, toThreadResponse } from "./conversation-responses.js";
 import { ThreadRefusalsFilter } from "./thread-refusals.filter.js";
 
-@Controller("decisions")
+@Controller()
 @UseFilters(ThreadRefusalsFilter)
 export class DecisionsController {
   constructor(
@@ -30,13 +30,21 @@ export class DecisionsController {
   ) {}
 
   /** Every Decision waiting on the user, the first asked first: Waiting on you, and Needs you. */
-  @Get("open")
+  @Get("decisions/open")
   async listOpen(): Promise<DecisionResponse[]> {
     return (await this.decisions.listOpen()).map(toDecisionResponse);
   }
 
+  /** The Task's Decisions nobody has answered, those with a Consultant too: its Needs you card. */
+  @Get("tasks/:taskId/decisions/unanswered")
+  async listUnansweredOn(
+    @Param("taskId", ParseUUIDPipe) taskId: string,
+  ): Promise<DecisionResponse[]> {
+    return (await this.decisions.listUnansweredOn(taskId)).map(toDecisionResponse);
+  }
+
   /** The user's answer; the person who asked takes it in its Thread, which this answers with. */
-  @Post(":id/answer")
+  @Post("decisions/:id/answer")
   @HttpCode(HttpStatus.ACCEPTED)
   async answer(
     @Param("id", ParseUUIDPipe) id: string,

@@ -66,6 +66,9 @@ export abstract class ThreadRepository {
   /** Every Decision waiting on the user, the first asked first. */
   abstract openDecisions(): Promise<readonly Decision[]>;
 
+  /** Every Decision on the Task nobody has answered, a Consultant's too, the first asked first. */
+  abstract unansweredOn(taskId: string): Promise<readonly Decision[]>;
+
   abstract proposal(id: string): Promise<Proposal | undefined>;
 
   /** The Thread's Proposals, open, applied and declined, the first drafted first. */

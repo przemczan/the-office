@@ -5,6 +5,7 @@ import { KeyedLocks } from "../../../platform/locks/keyed-locks.js";
 import { TaskPipelineConfirmed } from "../../work/index.js";
 import type { Pipeline, StageProblem } from "../domain/pipeline.js";
 import { agentStageRoles, newlyNamedRoles, type Stage } from "../domain/stage.js";
+import { reportedMet } from "../domain/pipeline-walk.js";
 import { stagesProgress, type TaskProgress } from "../domain/stage-progress.js";
 import type { StageRun } from "../domain/stage-run.js";
 import { staffingProblems } from "../domain/stage-staffing.js";
@@ -211,5 +212,6 @@ function progressOf(own: TaskStages, runs: readonly StageRun[]): TaskProgress {
     stages: stagesProgress(stages, runs),
     editedForTask: own.editedForTask,
     lockedStages: lockedStageCount(stages, runs),
+    definitionOfDoneMet: reportedMet(runs),
   };
 }

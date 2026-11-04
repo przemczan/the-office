@@ -8,13 +8,15 @@ export interface WorkRecordSource {
   taskRecord(taskId: string): Promise<string | undefined>;
   /** The Task's title, which a Link card's note links to it by. */
   taskTitle(taskId: string): Promise<string | undefined>;
+  /** The ids of the Task's Attachments, which a Decision on it may name. */
+  taskAttachmentIds(taskId: string): Promise<readonly string[]>;
   initiativeRecord(initiativeId: string): Promise<string | undefined>;
   ideaRecord(ideaId: string): Promise<string | undefined>;
 }
 
 /**
  * Where the module keeping Tasks, Initiatives and Ideas gives Conversations their records, for the ones the user
- * mentions in a message and the Tasks a Link card is about. That module calls Conversations to open its Threads, so it registers here
+ * mentions in a message, the Tasks a Link card is about and the Attachments a Decision names. That module calls Conversations to open its Threads, so it registers here
  * instead of being called through a port, as with TaskThreadSetups.
  */
 @Injectable()
@@ -32,6 +34,10 @@ export class WorkRecords implements WorkRecordSource {
 
   taskTitle(taskId: string): Promise<string | undefined> {
     return this.registered().taskTitle(taskId);
+  }
+
+  taskAttachmentIds(taskId: string): Promise<readonly string[]> {
+    return this.registered().taskAttachmentIds(taskId);
   }
 
   initiativeRecord(initiativeId: string): Promise<string | undefined> {

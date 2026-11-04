@@ -28,6 +28,8 @@ export type StageOutcome = (
        * numbers in its Brief, from 1. Undefined for a Script Stage, which reports none.
        */
       readonly definitionOfDoneMet?: readonly number[];
+      /** The pull request a Publish opened. Undefined on runs stored before it was kept. */
+      readonly pullRequestUrl?: string;
       /** Set on an optional Stage's run recorded as skipped, which ran nothing. */
       readonly skipped?: true;
     }

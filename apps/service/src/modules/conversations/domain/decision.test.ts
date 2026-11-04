@@ -133,6 +133,7 @@ describe("opening a Decision", () => {
       taskId: "task-1",
       roleKey: "planner",
       askedAt: AT,
+      attachmentIds: [],
       passedOn: [],
       answer: undefined,
     };
@@ -164,6 +165,32 @@ describe("opening a Decision", () => {
     expect(
       refusalOf(() => openDecision(aThread({ home: TASK_HOME }), { ...opening, options: [] })),
     ).toEqual(["Give the user at least two options.", "Recommend one of the options."]);
+  });
+
+  it("names the Task's Attachments it is about, each once", () => {
+    const { decision } = openDecision(aThread({ home: TASK_HOME }), {
+      ...DRAFT,
+      id: "decision-3",
+      askedAt: AT,
+      attachmentIds: ["screenshot", "report", "screenshot"],
+      attachmentsOfTheTask: ["report", "screenshot", "notes"],
+    });
+
+    expect(decision?.attachmentIds).toEqual(["screenshot", "report"]);
+  });
+
+  it("is refused for an Attachment that isn't the Task's", () => {
+    const opening = {
+      ...DRAFT,
+      id: "decision-4",
+      askedAt: AT,
+      attachmentIds: ["screenshot", "of-another-task"],
+      attachmentsOfTheTask: ["screenshot"],
+    };
+
+    expect(refusalOf(() => openDecision(aThread({ home: TASK_HOME }), opening))).toEqual([
+      "A Decision names Attachments of its own Task only, and these aren't: of-another-task.",
+    ]);
   });
 });
 

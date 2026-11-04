@@ -249,6 +249,7 @@ export function toDecisionResponse({ answer, askedAt, ...decision }: Decision): 
     })),
     options: [...decision.options],
     recommendation: { ...decision.recommendation },
+    attachmentIds: [...decision.attachmentIds],
     askedAt: askedAt.toISOString(),
     answer: answer ? toAnswerResponse(answer) : null,
     answeredAt: answer?.answeredAt.toISOString() ?? null,

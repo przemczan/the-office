@@ -12,7 +12,7 @@ import { TaskNotFound } from "../../domain/task-not-found.js";
 
 /**
  * Gives Conversations the records of the Tasks, Initiatives and Ideas the user mentions in a chat,
- * worded as `read_task`, `read_initiative` and `read_idea` word them, and the titles of the Tasks a Link card is about.
+ * worded as `read_task`, `read_initiative` and `read_idea` word them, the titles of the Tasks a Link card is about, and the Attachments of a Task a Decision may name.
  */
 @Injectable()
 export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
@@ -45,6 +45,11 @@ export class MentionedWorkRecords implements WorkRecordSource, OnModuleInit {
       if (error instanceof TaskNotFound) return undefined;
       throw error;
     }
+  }
+
+  async taskAttachmentIds(taskId: string): Promise<readonly string[]> {
+    const attachments = await this.attachments.listOf({ kind: "task", taskId });
+    return attachments.map(({ id }) => id);
   }
 
   async initiativeRecord(initiativeId: string): Promise<string | undefined> {

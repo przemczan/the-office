@@ -400,6 +400,7 @@ describe("StageInterpreter's Decisions", () => {
           threadId: (await runsOf(pipelines, taskId))[0]?.threadId ?? "",
           taskId,
           roleKey: "developer",
+          attachmentIds: [],
           askedAt: new Date(),
           passedOn: [],
           answer: { kind: "option", option: 0, answeredAt: new Date() },

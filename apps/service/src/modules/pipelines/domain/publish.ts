@@ -133,6 +133,7 @@ export function publishOutcome(publication: Publication): StageOutcome {
       return {
         status: "done",
         summary: `Pushed ${publication.branch} and opened the pull request ${publication.url}`,
+        pullRequestUrl: publication.url,
       };
     case "merged": {
       const { branch, into, commit, baseTakenIn } = publication;

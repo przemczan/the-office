@@ -8,6 +8,7 @@ import { openDecision, recordDecisionAnswer } from "../domain/thread-changes.js"
 import { ThreadRefused } from "../domain/thread-refused.js";
 import { ThreadRepository } from "../ports/thread-repository.js";
 import { ThreadRunner, type Answerer } from "./thread-runner.js";
+import { WorkRecords } from "./work-records.js";
 
 /**
  * The Decisions use cases (spec §2.4): an Agent opens one in the Thread it works in on a Task, and
@@ -20,17 +21,26 @@ export class DecisionService {
     private readonly repository: ThreadRepository,
     private readonly runner: ThreadRunner,
     private readonly events: EventBus,
+    private readonly work: WorkRecords,
   ) {}
 
   /**
    * Opens a Decision in the Thread whose engine session is `sessionId`. Refused for a session no
-   * Thread has now, in a chat, while the Thread waits on another, and with what is asked wrong.
+   * Thread has now, in a chat, while the Thread waits on another, and with what is asked wrong,
+   * such as an Attachment that isn't the Task's.
    */
   async open(sessionId: string, draft: DecisionDraft, putTo?: string): Promise<Decision> {
     const thread = await this.repository.findBySession(sessionId);
     if (!thread) throw new ThreadRefused(["The Office doesn't know this session's Thread."]);
+    const attachmentsOfTheTask = await this.attachmentsToCheck(thread, draft);
     const { thread: waiting, event } = await this.repository.update(thread.id, (latest) =>
-      openDecision(latest, { ...draft, putTo, id: randomUUID(), askedAt: new Date() }),
+      openDecision(latest, {
+        ...draft,
+        putTo,
+        attachmentsOfTheTask,
+        id: randomUUID(),
+        askedAt: new Date(),
+      }),
     );
     if (event) await this.events.publish(event);
     if (!waiting.openDecision) throw new Error(`Thread ${thread.id} opened no Decision.`);
@@ -72,6 +82,14 @@ export class DecisionService {
     return this.repository.openDecisions();
   }
 
+  /**
+   * Every Decision on the Task nobody has answered, in any of its Threads, the first asked first:
+   * those waiting on the user, and those put to a Consultant, which the user may take over.
+   */
+  listUnansweredOn(taskId: string): Promise<readonly Decision[]> {
+    return this.repository.unansweredOn(taskId);
+  }
+
   /** How many Decisions on the Task wait on the user, in any of its Threads. */
   async openOn(taskId: string): Promise<number> {
     const open = await this.repository.openDecisions();
@@ -81,5 +99,14 @@ export class DecisionService {
   /** The Thread's Decisions, open and answered, which its log's cards show. */
   listInThread(threadId: string): Promise<readonly Decision[]> {
     return this.repository.decisionsIn(threadId);
+  }
+
+  /** The Task's Attachments, read only for a Decision that names some. */
+  private async attachmentsToCheck(
+    { home }: Thread,
+    { attachmentIds = [] }: DecisionDraft,
+  ): Promise<readonly string[]> {
+    if (home.kind !== "task" || attachmentIds.length === 0) return [];
+    return this.work.taskAttachmentIds(home.taskId);
   }
 }

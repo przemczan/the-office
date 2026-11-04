@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { ideaSchema, initiativeSchema, taskSchema } from "@the-office/contracts";
+import { attachmentSchema, ideaSchema, initiativeSchema, taskSchema } from "@the-office/contracts";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { WorkRecords } from "../../../conversations/index.js";
 import {
@@ -56,6 +56,31 @@ describe("the records of mentioned Tasks, Initiatives and Ideas", () => {
     expect(taskRecord).toContain("No Plan yet.");
     expect(ideaRecord).toMatch(/^Dark mode \(Idea [\w-]+\)\n- in the Project [\w-]+; new/);
     expect(ideaRecord).toContain("For the night shift.");
+  });
+
+  it("give a Task's own Attachments, of any kind, which a Decision may name", async () => {
+    const projectId = `project-${randomUUID()}`;
+    const aTask = async (title: string) =>
+      taskSchema.parse(
+        await (
+          await sendJson(work, "POST", "/tasks", { title, projectId, priority: "normal" })
+        ).json(),
+      );
+    const attached = async (taskId: string) =>
+      attachmentSchema.parse(
+        await (
+          await sendJson(work, "POST", `/tasks/${taskId}/attachments/links`, {
+            name: "Preview",
+            url: "https://example.com/preview",
+          })
+        ).json(),
+      );
+    const [task, another] = await Promise.all(["The export", "The import"].map(aTask));
+    if (!task || !another) throw new Error("The Tasks weren't created.");
+    const own = await attached(task.id);
+    await attached(another.id);
+
+    await expect(work.app.get(WorkRecords).taskAttachmentIds(task.id)).resolves.toEqual([own.id]);
   });
 
   it("name the Tasks a Task waits for, and one dropped as no longer blocking", async () => {

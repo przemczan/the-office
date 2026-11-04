@@ -32,8 +32,16 @@ export function toStageProblemResponse({ stageIndex, text }: StageProblem): Stag
  * code; no Stages while the Task follows its library Pipeline.
  */
 export function toTaskStagesResponse(progress: TaskProgress | undefined): TaskStagesResponse {
-  if (!progress) return { stages: null, editedForTask: false, lockedStages: 0, testResults: [] };
-  const { stages, editedForTask, lockedStages } = progress;
+  if (!progress) {
+    return {
+      stages: null,
+      editedForTask: false,
+      lockedStages: 0,
+      testResults: [],
+      definitionOfDoneMet: [],
+    };
+  }
+  const { stages, editedForTask, lockedStages, definitionOfDoneMet } = progress;
   // Each Stage's own runs in their order, which is all the latest results are read from.
   const testResults = latestTestResults(
     stages.map(({ stage }) => stage),
@@ -44,6 +52,7 @@ export function toTaskStagesResponse(progress: TaskProgress | undefined): TaskSt
     editedForTask,
     lockedStages,
     testResults: testResults.map((result) => ({ ...result, detail: result.detail ?? null })),
+    definitionOfDoneMet: [...definitionOfDoneMet],
   };
 }
 
@@ -130,6 +139,8 @@ function toOutcomeResponse(outcome: StageOutcome): StageRunOutcomeResponse {
         status: "done",
         summary: outcome.summary,
         skipped: outcome.skipped ?? false,
+        definitionOfDoneMet: outcome.definitionOfDoneMet ? [...outcome.definitionOfDoneMet] : null,
+        pullRequestUrl: outcome.pullRequestUrl ?? null,
         handoverNote,
       };
     case "needs-decision":

@@ -49,11 +49,23 @@ export class DecisionOfficeTools implements OnModuleInit {
           .int()
           .describe("The option you recommend, by its number in the list, counting from 1."),
         why: z.string().describe("Why you recommend it, in a sentence."),
+        attachments: z
+          .array(z.string())
+          .optional()
+          .describe(
+            "The Task's Attachments this Decision is about, of any kind, by their ids, for the user to see on its card. Leave it out when it is about none.",
+          ),
       }),
-      run: ({ question, context, options, recommended, why }, { sessionId }) =>
+      run: ({ question, context, options, recommended, why, attachments }, { sessionId }) =>
         this.open(
           sessionId,
-          { question, context, options, recommendation: { option: recommended - 1, reason: why } },
+          {
+            question,
+            context,
+            options,
+            recommendation: { option: recommended - 1, reason: why },
+            attachmentIds: attachments,
+          },
           `The Decision is open in this Thread, waiting on the user. ${END_YOUR_TURN}`,
         ),
     });

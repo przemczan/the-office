@@ -131,6 +131,7 @@ describe("publishOutcome", () => {
       status: "done",
       summary:
         "Pushed office/task-1 and opened the pull request https://github.com/notnullsoft/admin/pull/7",
+      pullRequestUrl: "https://github.com/notnullsoft/admin/pull/7",
     });
   });
 

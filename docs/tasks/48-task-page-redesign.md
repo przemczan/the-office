@@ -86,7 +86,7 @@ Places the mock doesn't show:
 Sized from the task-file steps so far: 5 and 6 are the largest. Every step leaves the page working and moves the e2e tests it breaks. `Record`, `Conversation` and `Stage results` are looked up in [work.e2e.ts](../../apps/web/e2e/work.e2e.ts) and [people.e2e.ts](../../apps/web/e2e/people.e2e.ts), which also has about 12 such lines.
 
 - [x] 0. Settle the questions. Rewrite this file from the answers; update spec 4, the glossary and the click-through.
-- [ ] 1. Contracts and service: `definitionOfDoneMet` on the outcome, `pullRequestUrl` on Publish's outcome, Attachments on a Decision (contract, `open_decision`, storage), the read of a Task's unanswered Decisions, those with a Consultant included. No web change beyond types. Read: the pipelines and conversations maps; [pipeline-responses.ts](../../apps/service/src/modules/pipelines/adapters/http/pipeline-responses.ts).
+- [x] 1. Contracts and service: `definitionOfDoneMet` on the outcome, `pullRequestUrl` on Publish's outcome, Attachments on a Decision (contract, `open_decision`, storage), the read of a Task's unanswered Decisions, those with a Consultant included. No web change beyond types. Read: the pipelines and conversations maps; [pipeline-responses.ts](../../apps/service/src/modules/pipelines/adapters/http/pipeline-responses.ts).
 - [ ] 2. The page's frame: the head with the pull request button, the record's three tabs, the folds and their memory; Attachments moves to its tab. Read: `task-page.tsx`, `task-record.tsx`, `router.tsx` (the Task route's search), the mock's `renderHead`, `renderRecord`, `fold`.
 - [ ] 3. The Pipeline rail and Stage history, in `packages/ui` where generic and in `surfaces/work/` otherwise; the Stages block goes. Read: `stage-words.ts`, the mock's `renderRail`, `layoutRail`, `loopBacks`, `runHtml`.
 - [ ] 4. The Needs you card and its slim bar, with a Decision's Attachments, the Gate's facts and Before Ready; the Gate block leaves the record; `?decision=` lands on the card; a Thread shows a Decision's short form. Read: `gate-view.tsx`, `decision-card.tsx`, `ready-block.tsx`, the mock's `renderNeeds`, `updateNeedsPin`.
@@ -98,7 +98,11 @@ Sized from the task-file steps so far: 5 and 6 are the largest. Every step leave
 
 ## State
 
-Nothing built yet. The user settled all the questions on 2026-11-04: see [What was settled](#what-was-settled). Spec 4, spec 2.4, the glossary and the click-through describe the new page. Next is step 1; steps 5 and 6 are the largest.
+Step 1 is built: the contracts and service carry what the page needs, and the web only has the new fields in its test fixtures. The user settled all the questions on 2026-11-04: see [What was settled](#what-was-settled). Next is step 2; steps 5 and 6 are the largest.
+
+- `GET /tasks/:id/stages` answers `definitionOfDoneMet`, the statement numbers Reported met by the walk's rule (`reportedMet`). Each done outcome also has its own run's report (null for a Script Stage) and `pullRequestUrl` (null but on a Publish that opened one, so an older run reads as none). The web reads the top-level field and never works it out from the outcomes; the head's button takes the latest Publish run's `pullRequestUrl`.
+- `Decision.attachmentIds` is always a list; `open_decision` takes an optional `attachments` and refuses any that isn't the Task's.
+- `GET /tasks/:taskId/decisions/unanswered` is the Needs you card's read, with `putTo` set on those with a Consultant. No web query uses it yet: step 4 adds one, and has to refetch it on the Decision events as `decisionQueries.open()` does.
 
 Traps for the build:
 
@@ -110,8 +114,10 @@ Traps for the build:
 - `MessageList` scrolls to the end on each new message; the timeline must not, and it must not scroll the page around it (the comment at [message-list.tsx:52](../../apps/web/src/shell/conversation/message-list.tsx#L52)).
 - `AttachmentGallery` and `attachmentRounds` are on main, whatever the design README says.
 - An e2e run after a web change goes through the root `npm run test:e2e`, which rebuilds.
+- An Attachment removed after its Decision opened stays in `attachmentIds`: the card looks each id up among the Task's Attachments and leaves out what isn't there.
 
 ## Progress
 
 - 2026-11-04 · drafted from docs/design: compared with the page, contracts and service; 15 questions listed; next is settling them with the user.
 - 2026-11-04 · step 0: the user settled the questions; this file, spec 4 and 2.4, the glossary and the click-through rewritten; task 48 is current, task 49 added; next is step 1.
+- 2026-11-04 · step 1: `definitionOfDoneMet` on the outcome and the Task's Stages, `pullRequestUrl` on Publish's outcome, Attachments on a Decision, and the read of a Task's unanswered Decisions; next is step 2.

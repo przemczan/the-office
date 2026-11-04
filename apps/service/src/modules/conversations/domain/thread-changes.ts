@@ -3,6 +3,7 @@ import { isApproval } from "./consult.js";
 import type { ContextDecision } from "./context-policy.js";
 import {
   answerProblems,
+  attachmentProblems,
   decisionProblems,
   type Decision,
   type DecisionAnswer,
@@ -342,6 +343,8 @@ export interface DecisionOpening extends DecisionDraft {
   readonly byTheOffice?: boolean;
   /** The Consultant, by the key of their Role, the Agent's question is put to instead of the user. */
   readonly putTo?: string;
+  /** The ids of the Task's Attachments, which are all a Decision may name. */
+  readonly attachmentsOfTheTask?: readonly string[];
 }
 
 /**
@@ -351,7 +354,15 @@ export interface DecisionOpening extends DecisionDraft {
  */
 export function openDecision(
   thread: Thread,
-  { id, askedAt, byTheOffice = false, putTo, ...draft }: DecisionOpening,
+  {
+    id,
+    askedAt,
+    byTheOffice = false,
+    putTo,
+    attachmentsOfTheTask = [],
+    attachmentIds = [],
+    ...draft
+  }: DecisionOpening,
 ): ThreadChange<DecisionOpened> {
   if (thread.home.kind !== "task") {
     throw new ThreadRefused([
@@ -363,10 +374,14 @@ export function openDecision(
       `Your Decision "${thread.openDecision.question}" still waits on the user. End your turn: their answer comes as your next message.`,
     ]);
   }
-  const problems = decisionProblems(draft);
+  const problems = [
+    ...decisionProblems(draft),
+    ...attachmentProblems(attachmentIds, attachmentsOfTheTask),
+  ];
   if (problems.length > 0) throw new ThreadRefused(problems);
   const decision: Decision = {
     ...draft,
+    attachmentIds: [...new Set(attachmentIds)],
     id,
     threadId: thread.id,
     taskId: thread.home.taskId,

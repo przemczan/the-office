@@ -7,6 +7,7 @@ import {
 } from "@the-office/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Stage } from "../../domain/stage.js";
+import type { StageOutcome } from "../../domain/stage-run.js";
 import {
   aDoneResult,
   anAgentSession,
@@ -16,6 +17,7 @@ import {
   walkStages,
   type PipelinesApplication,
 } from "../../pipelines-application.fixtures.js";
+import { StageRunRepository } from "../../ports/stage-run-repository.js";
 
 const tests: Stage = {
   kind: "script",
@@ -24,6 +26,15 @@ const tests: Stage = {
   optional: false,
   command: "test",
   onFailure: { goBackTo: "implement", rounds: 2 },
+};
+
+const publish: Stage = {
+  kind: "script",
+  key: "publish",
+  name: "Publish",
+  optional: false,
+  command: "publish",
+  onFailure: undefined,
 };
 
 let pipelines: PipelinesApplication | undefined;
@@ -65,6 +76,7 @@ describe("GET /api/tasks/:id/stages", () => {
       editedForTask: false,
       lockedStages: 0,
       testResults: [],
+      definitionOfDoneMet: [],
     });
   });
 
@@ -99,6 +111,8 @@ describe("GET /api/tasks/:id/stages", () => {
           status: "done",
           summary: "Added the field.",
           skipped: false,
+          definitionOfDoneMet: [1, 2],
+          pullRequestUrl: null,
           handoverNote: "The form is done; check the list.",
         },
       },
@@ -109,6 +123,57 @@ describe("GET /api/tasks/:id/stages", () => {
     expect(testResults).toEqual([
       { stageKey: tests.key, name: tests.name, state: "passed", detail: "`npm run test` passed." },
     ]);
+  });
+
+  it("gives what each run reported and what stands by the walk's rule: a later report lowers it", async () => {
+    pipelines = await startPipelinesApplication([
+      anAgentSession(aDoneResult("Wrote it.", "Check it.", [1, 2])),
+      anAgentSession(aDoneResult("Looked at it.", "One still fails.", [2])),
+    ]);
+    const taskId = await walkStages(pipelines, [
+      anAgentStage("write"),
+      anAgentStage("look"),
+      tests,
+    ]);
+
+    const { stages, definitionOfDoneMet } = await stagesOf(taskId);
+
+    expect(stages?.map(({ runs }) => runs[0]?.outcome)).toMatchObject([
+      { definitionOfDoneMet: [1, 2] },
+      { definitionOfDoneMet: [2] },
+      { definitionOfDoneMet: null },
+    ]);
+    expect(definitionOfDoneMet).toEqual([2]);
+  });
+
+  it("gives the pull request Publish opened on its outcome, from what Publish did", async () => {
+    pipelines = await startPipelinesApplication();
+    const taskId = await walkStages(pipelines, [publish]);
+
+    const { stages } = await stagesOf(taskId);
+
+    expect(stages?.[0]?.runs[0]?.outcome).toMatchObject({
+      status: "done",
+      pullRequestUrl: "https://github.com/notnullsoft/admin/pull/7",
+    });
+  });
+
+  it("reads a Publish run stored before the pull request was kept, as having none", async () => {
+    pipelines = await startPipelinesApplication();
+    const taskId = await walkStages(pipelines, [publish]);
+    const [run] = await runsOf(pipelines, taskId);
+    if (!run) throw new Error("Publish didn't run.");
+    const older: StageOutcome = {
+      status: "done",
+      summary: "Pushed it and opened the pull request.",
+    };
+    await pipelines.app
+      .get(StageRunRepository, { strict: false })
+      .saveEnded({ ...run, outcome: older });
+
+    const { stages } = await stagesOf(taskId);
+
+    expect(stages?.[0]?.runs[0]?.outcome).toMatchObject({ status: "done", pullRequestUrl: null });
   });
 });
 

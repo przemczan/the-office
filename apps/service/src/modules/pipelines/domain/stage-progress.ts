@@ -41,6 +41,8 @@ export interface TaskProgress {
   readonly editedForTask: boolean;
   /** How many Stages, from the first, have started and are locked (`lockedStageCount`). */
   readonly lockedStages: number;
+  /** The Definition of Done statements Reported met, by their numbers (`reportedMet`). */
+  readonly definitionOfDoneMet: readonly number[];
 }
 
 /** Each of the Task's Stages, in order, with where it stands from the Task's runs. */

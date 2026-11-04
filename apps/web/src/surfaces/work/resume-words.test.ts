@@ -115,7 +115,14 @@ describe("resumeWords", () => {
     const script = aRun({ threadId: null, session: null });
     expect(resumeWords(heldWork({ latestRun: script, thread: undefined })).label).toBe("Resume");
     const done = aRun({
-      outcome: { status: "done", summary: "Done.", skipped: false, handoverNote: "Left: nothing." },
+      outcome: {
+        status: "done",
+        summary: "Done.",
+        skipped: false,
+        definitionOfDoneMet: null,
+        pullRequestUrl: null,
+        handoverNote: "Left: nothing.",
+      },
     });
     expect(resumeWords(heldWork({ latestRun: done })).label).toBe("Resume");
   });

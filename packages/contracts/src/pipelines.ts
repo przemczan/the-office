@@ -80,6 +80,14 @@ export const stageRunOutcomeSchema = z.discriminatedUnion("status", [
     summary: z.string(),
     /** An optional Stage skipped, which ran nothing. */
     skipped: z.boolean(),
+    /**
+     * The Definition of Done statements this run's Agent reported met, by their numbers from 1; null
+     * for a run that reports none, such as a Script Stage's. What stands for the Task is
+     * `TaskStages.definitionOfDoneMet`.
+     */
+    definitionOfDoneMet: z.array(z.int().positive()).nullable(),
+    /** The pull request a Publish opened; null for any other run, and a Publish before it was kept. */
+    pullRequestUrl: z.url().nullable(),
     ...handoverNoteField,
   }),
   z.object({ status: z.literal("needs-decision"), question: z.string(), ...handoverNoteField }),
@@ -193,6 +201,11 @@ export type TestResult = z.infer<typeof testResultSchema>;
  */
 export const taskStagesSchema = z.object({
   stages: z.array(taskStageSchema).nullable(),
+  /**
+   * The Definition of Done statements Reported met, by their numbers from 1: the walk's own rule over
+   * all the Task's runs, so a later run can take one back.
+   */
+  definitionOfDoneMet: z.array(z.int().positive()),
   /** Whether the user edited them for the Task: the Pipeline's label says so. */
   editedForTask: z.boolean(),
   /** How many Stages, from the first, have started: an edit keeps them as they are, where they are. */

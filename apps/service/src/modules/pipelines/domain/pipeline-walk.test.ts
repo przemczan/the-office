@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GATE_REACHED } from "./gate.js";
-import { nextMove, unmetStatements } from "./pipeline-walk.js";
+import { nextMove, reportedMet, unmetStatements } from "./pipeline-walk.js";
 import {
   RESOLVE_GATE_KEY,
   RESOLVE_KEY,
@@ -814,5 +814,15 @@ describe("unmetStatements", () => {
     expect(unmetStatements(DEFINITION_OF_DONE, ran)).toEqual([]);
     expect(unmetStatements(DEFINITION_OF_DONE, ran.slice(0, 1))).toEqual(["The name persists"]);
     expect(unmetStatements(DEFINITION_OF_DONE, [])).toEqual(DEFINITION_OF_DONE);
+  });
+});
+
+describe("reportedMet", () => {
+  it("lets a later report take back what an earlier one said, down to nothing", () => {
+    const ran = runs(["write", meeting(1, 2)], ["look", meeting(2)], ["check", done]);
+
+    expect(reportedMet(ran)).toEqual([2]);
+    expect(reportedMet([...ran, ...runs(["look", meeting()])])).toEqual([]);
+    expect(reportedMet([])).toEqual([]);
   });
 });

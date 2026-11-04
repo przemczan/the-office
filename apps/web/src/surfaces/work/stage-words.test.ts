@@ -57,6 +57,8 @@ const handedOver = {
   status: "done",
   summary: "Added the field.",
   skipped: false,
+  definitionOfDoneMet: null,
+  pullRequestUrl: null,
   handoverNote: "Backoff capped at 30 s.",
 } as const;
 
@@ -122,7 +124,14 @@ describe("stageProgressLine", () => {
       },
     });
     const skipped = aRun({
-      outcome: { status: "done", summary: "Skipped: met.", skipped: true, handoverNote: null },
+      outcome: {
+        status: "done",
+        summary: "Skipped: met.",
+        skipped: true,
+        definitionOfDoneMet: null,
+        pullRequestUrl: null,
+        handoverNote: null,
+      },
     });
 
     expect(
@@ -177,6 +186,8 @@ describe("stageProgressLine at a Gate", () => {
     status: "done",
     summary: "The Task reached the Gate and waited for the user.",
     skipped: false,
+    definitionOfDoneMet: null,
+    pullRequestUrl: null,
     handoverNote: null,
   } as const;
 
@@ -221,6 +232,8 @@ describe("stageProgressLine of a Script Stage sent back from a Gate", () => {
         status: "done",
         summary: "`npm test` passed.",
         skipped: false,
+        definitionOfDoneMet: null,
+        pullRequestUrl: null,
         handoverNote: null,
       },
       sentBack: { gateKey: "look", feedback: "Run them on the new data." },

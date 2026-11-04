@@ -66,6 +66,7 @@ async function answering(taskId: string, option: number): Promise<void> {
         taskId,
         roleKey: "devops",
         ...asked.draft,
+        attachmentIds: [],
         askedAt: new Date(),
         passedOn: [],
         answer: { kind: "option", option, answeredAt: new Date() },

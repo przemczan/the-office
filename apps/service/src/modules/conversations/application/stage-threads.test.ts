@@ -1199,6 +1199,45 @@ describe("Office tools on a Stage", () => {
     expect(await repository.decision(id)).toMatchObject({ roleKey: ada, answer: { option: 0 } });
   });
 
+  it("open a Decision naming the Task's Attachments, and refuse one from another record", async () => {
+    await startWith(started(...aTurn({ status: "done" })));
+    const request = anAskingStage(aPerson("Ada"));
+    const [screenshot, report, ofAnotherTask] = [randomUUID(), randomUUID(), randomUUID()];
+    app.get(WorkRecords).provide({
+      taskRecord: () => Promise.resolve(undefined),
+      taskTitle: () => Promise.resolve(undefined),
+      taskAttachmentIds: (taskId) =>
+        Promise.resolve(taskId === request.taskId ? [screenshot, report] : [ofAnotherTask]),
+      initiativeRecord: () => Promise.resolve(undefined),
+      ideaRecord: () => Promise.resolve(undefined),
+    });
+    const { stageThread } = await aStageRun(request);
+    const { threadId } = stageThread;
+
+    const refused = await callInStage(threadId, OPEN_DECISION_TOOL, {
+      ...WHICH_PAGE,
+      attachments: [screenshot, ofAnotherTask],
+    });
+
+    expect(refused).toEqual({
+      text: `A Decision names Attachments of its own Task only, and these aren't: ${ofAnotherTask}.`,
+      isError: true,
+    });
+    expect((await threadOf(threadId)).openDecision).toBeUndefined();
+
+    const opened = await callInStage(threadId, OPEN_DECISION_TOOL, {
+      ...WHICH_PAGE,
+      attachments: [screenshot, report],
+    });
+
+    expect(opened.isError).toBe(false);
+    const decision = (await threadOf(threadId)).openDecision;
+    expect(decision?.attachmentIds).toEqual([screenshot, report]);
+    expect(await repository.decision(decision?.id ?? "")).toMatchObject({
+      attachmentIds: [screenshot, report],
+    });
+  });
+
   it("take the user's answer while the Stage still runs, and the Stage still reads the Decision", async () => {
     await startWith(
       started(

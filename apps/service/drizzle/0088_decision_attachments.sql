@@ -1,0 +1,1 @@
+ALTER TABLE "decisions" ADD COLUMN "attachment_ids" jsonb DEFAULT '[]'::jsonb NOT NULL;

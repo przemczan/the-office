@@ -285,6 +285,7 @@ async function startOn(
   app.get(WorkRecords).provide({
     taskRecord: (taskId) => Promise.resolve(workRecords.get(taskId)),
     taskTitle: () => Promise.resolve(undefined),
+    taskAttachmentIds: () => Promise.resolve([]),
     initiativeRecord: (initiativeId) => Promise.resolve(workRecords.get(initiativeId)),
     ideaRecord: (ideaId) => Promise.resolve(workRecords.get(ideaId)),
   });
@@ -1138,6 +1139,7 @@ describe("a Decision", () => {
       context: "Archived Projects have no worktree.",
       options: ["Only active Projects", "Every Project"],
       recommendation: { option: 0, reason: "It is what the export is for." },
+      attachmentIds: [],
       askedAt: expect.any(Date),
       passedOn: [],
       answer: undefined,

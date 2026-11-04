@@ -135,17 +135,23 @@ export function nextMove(
 }
 
 /**
- * The Definition of Done statements not reported met: those missing from the report of the last
- * Agent Stage run that ended done (spec §2.3). Script Stages report none.
+ * The numbers, from 1, of the Definition of Done statements Reported met: the report of the last
+ * Agent Stage run that ended done (spec §2.3), so a later report takes back what it leaves out.
+ * Script Stages report none. `runs` are the Task's, oldest first.
  */
+export function reportedMet(runs: readonly StageRun[]): readonly number[] {
+  const reports = runs.flatMap(({ outcome }) =>
+    outcome?.status === "done" && outcome.definitionOfDoneMet ? [outcome.definitionOfDoneMet] : [],
+  );
+  return reports.at(-1) ?? [];
+}
+
+/** The Definition of Done statements not Reported met. */
 export function unmetStatements(
   definitionOfDone: readonly string[],
   runs: readonly StageRun[],
 ): string[] {
-  const reports = runs.flatMap(({ outcome }) =>
-    outcome?.status === "done" && outcome.definitionOfDoneMet ? [outcome.definitionOfDoneMet] : [],
-  );
-  const met = new Set(reports.at(-1));
+  const met = new Set(reportedMet(runs));
   return definitionOfDone.filter((_statement, index) => !met.has(index + 1));
 }
 

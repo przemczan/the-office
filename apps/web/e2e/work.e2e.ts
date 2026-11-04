@@ -768,6 +768,7 @@ test("a Task's images show by round, the Gate shows the current one, and the vie
     editedForTask: false,
     lockedStages: 2,
     testResults: [],
+    definitionOfDoneMet: [],
   };
   await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
   await page.goto(`/tasks/${task.id}`);

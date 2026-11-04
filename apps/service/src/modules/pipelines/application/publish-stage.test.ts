@@ -64,6 +64,7 @@ describe("A Publish Stage", () => {
     expect(published?.outcome).toEqual({
       status: "done",
       summary: `Pushed office/task and opened the pull request ${PULL_REQUEST}`,
+      pullRequestUrl: PULL_REQUEST,
     });
     expect(published?.headCommit).toBe(implemented?.headCommit);
     expect(pipelines.commands.ran).toEqual([]);
@@ -328,6 +329,7 @@ describe("A Publish Stage", () => {
     expect((await runsOf(pipelines, taskId)).at(-1)?.outcome).toEqual({
       status: "done",
       summary: `Pushed office/task and opened the pull request ${PULL_REQUEST}\n\nThe Office couldn't remove the Task's worktree, which stays: EBUSY: resource busy or locked, rmdir 'D:\\office\\worktrees\\task'`,
+      pullRequestUrl: PULL_REQUEST,
     });
   });
 

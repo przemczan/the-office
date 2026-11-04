@@ -192,6 +192,11 @@ export const decisionSchema = z.object({
   options: z.array(z.string()).min(2),
   /** The option the Agent recommends, by its index in `options`, and why. */
   recommendation: z.object({ option: z.number().int().nonnegative(), reason: z.string() }),
+  /**
+   * The Task's Attachments it is about, of any kind, by their ids. One removed since no longer shows
+   * among the Task's, while the id stays here.
+   */
+  attachmentIds: z.array(z.string()),
   askedAt: z.iso.datetime(),
   /**
    * The Consultant it waits on, by the key of their Role, in a Consultation; null while it waits on
@@ -210,7 +215,10 @@ export const decisionSchema = z.object({
 });
 export type Decision = z.infer<typeof decisionSchema>;
 
-/** GET /decisions/open: every Decision waiting on the user, the first asked first. */
+/**
+ * GET /decisions/open: every Decision waiting on the user, the first asked first. GET
+ * /tasks/:taskId/decisions/unanswered: the Task's nobody has answered, those put to a Consultant too.
+ */
 export const decisionListSchema = z.array(decisionSchema);
 
 /**
