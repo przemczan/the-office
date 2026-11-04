@@ -53,8 +53,13 @@ describe("testsFact", () => {
     expect(testsFact([aResult("not-run"), aResult("skipped")])).toBe("Not run");
   });
 
-  it("still reads Passed beside a check placed after the Gate", () => {
-    expect(testsFact([aResult("passed"), aResult("not-run")])).toBe("Passed");
+  it("reads Not run when any check didn't run, however many passed", () => {
+    expect(testsFact([aResult("passed"), aResult("not-run")])).toBe("Not run");
+    expect(testsFact([aResult("passed"), aResult("skipped")])).toBe("Not run");
+  });
+
+  it("still counts a failed one beside a check that didn't run", () => {
+    expect(testsFact([aResult("failed"), aResult("not-run")])).toBe("1 failed");
   });
 });
 

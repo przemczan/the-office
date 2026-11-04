@@ -168,6 +168,9 @@ test("dragging a card reorders its column, and the order survives a reload", asy
   const titles = ["Order first", "Order second", "Order third"];
   for (const title of titles) await createdTask(page, project, title);
   await page.goto("/work");
+  // Only this Project's cards: one added by a test running alongside moves these under the drag.
+  await page.getByRole("button", { name: /^Project filter:/ }).click();
+  await page.getByRole("button", { name: "Show only Board order" }).click();
   await expect.poll(() => titlesIn(page, "Backlog", titles)).toEqual(titles);
 
   const backlog = column(page, "Backlog");
@@ -254,6 +257,11 @@ test('the user tags a Task in "+ Task" and on its page, and the board shows its 
     .click();
   await expect(tags).toContainText("firmware");
   await expect(tags).not.toContainText("needs-review");
+  // The page shows a change as it is sent, so wait for the save itself before reloading.
+  const taskUrl = `/api/tasks/${page.url().split("/").at(-1)}`;
+  await expect
+    .poll(async () => ((await (await page.request.get(taskUrl)).json()) as { tags: string[] }).tags)
+    .toEqual(["ble", "firmware"]);
 
   await page.reload();
   await expect(tags).toContainText("ble");

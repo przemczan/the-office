@@ -21,14 +21,12 @@ export function linesChanged(files: readonly ChangedFile[]): {
   };
 }
 
-/**
- * "2 failed", "Passed", or "Not run". A check placed after the Gate hasn't run yet, so one passed
- * beside it still reads as Passed.
- */
+/** "2 failed"; else "Not run" while any check hasn't run, or none has; else "Passed". */
 export function testsFact(results: readonly TestResult[]): string {
   const failed = results.filter(({ state }) => state === "failed").length;
   if (failed > 0) return `${failed} failed`;
-  return results.some(({ state }) => state === "passed") ? "Passed" : "Not run";
+  const allPassed = results.length > 0 && results.every(({ state }) => state === "passed");
+  return allPassed ? "Passed" : "Not run";
 }
 
 /** The Reported met count, from the service's numbers. */

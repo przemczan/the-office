@@ -341,7 +341,15 @@ export type StartAnswer = z.infer<typeof startAnswerSchema>;
  * reasons it isn't met yet, built from the same rules that refuse Mark Ready.
  */
 export const readinessSchema = z.object({
-  lines: z.array(z.object({ label: z.string(), met: z.boolean(), problems: z.array(z.string()) })),
+  lines: z.array(
+    z.object({
+      /** What the line is about, so the page can offer what settles it. */
+      part: z.enum(["plan", "definition-of-done", "pipeline", "decisions"]),
+      label: z.string(),
+      met: z.boolean(),
+      problems: z.array(z.string()),
+    }),
+  ),
 });
 export type Readiness = z.infer<typeof readinessSchema>;
 

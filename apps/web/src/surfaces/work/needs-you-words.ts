@@ -1,5 +1,7 @@
 import type { Decision, TaskState } from "@the-office/contracts";
 
+const NOTHING_NEEDS_YOU = "Nothing needs you right now. You'll see it here first.";
+
 /** A Decision with a Consultant waits on them, so it isn't counted, though the user may take it over. */
 export function waitingOnYou(decisions: readonly Decision[]): readonly Decision[] {
   return decisions.filter(({ putTo }) => putTo === null);
@@ -16,8 +18,18 @@ export function needsYouSummary(decisions: readonly Decision[], atGate: boolean)
   ].join(" · ");
 }
 
-export function nothingNeedsYouWords(state: TaskState): string {
-  return state === "done"
-    ? "Nothing needs you: this Task is Done."
-    : "Nothing needs you right now. You'll see it here first.";
+/** What the card's place says when nothing waits: where the Task stands. */
+export function needsYouClearWords(state: TaskState, queued: boolean): string {
+  switch (state) {
+    case "done":
+      return "Nothing needs you: this Task is Done.";
+    case "dropped":
+      return "This Task was dropped.";
+    case "ready":
+      return queued
+        ? NOTHING_NEEDS_YOU
+        : "Ready: start it when you want; nothing starts by itself.";
+    default:
+      return NOTHING_NEEDS_YOU;
+  }
 }

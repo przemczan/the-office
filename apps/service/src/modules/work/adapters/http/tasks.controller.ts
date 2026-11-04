@@ -170,7 +170,8 @@ export class TasksController {
   async readiness(@Param("id", ParseUUIDPipe) id: string): Promise<Readiness> {
     const lines = await this.planning.readiness(id);
     return {
-      lines: lines.map(({ label, problems }) => ({
+      lines: lines.map(({ part, label, problems }) => ({
+        part,
         label,
         met: problems.length === 0,
         problems: [...problems],

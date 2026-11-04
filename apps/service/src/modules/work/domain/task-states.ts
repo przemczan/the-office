@@ -47,6 +47,7 @@ export function stateChangeProblems(task: Task, to: TaskState): string[] {
 
 /** One condition of Ready, as the "Before Ready" checklist names it; `problems` is empty once met. */
 export interface ReadinessLine {
+  readonly part: "plan" | "definition-of-done" | "pipeline" | "decisions";
   readonly label: string;
   readonly problems: readonly string[];
 }
@@ -59,15 +60,24 @@ export interface ReadinessLine {
  */
 export function readinessLines(task: Task, openDecisions: number): ReadinessLine[] {
   return [
-    { label: "Plan confirmed", problems: planProblems(task) },
-    { label: "Definition of Done confirmed", problems: definitionOfDoneProblems(task) },
+    { part: "plan", label: "Plan confirmed", problems: planProblems(task) },
     {
+      part: "definition-of-done",
+      label: "Definition of Done confirmed",
+      problems: definitionOfDoneProblems(task),
+    },
+    {
+      part: "pipeline",
       label: "Pipeline taken or declined",
       problems: task.proposedPipeline
         ? ["Take or decline the proposed Pipeline before the Task can be Ready."]
         : [],
     },
-    { label: "No Decision waiting", problems: openDecisionProblems(openDecisions) },
+    {
+      part: "decisions",
+      label: "No Decision waiting",
+      problems: openDecisionProblems(openDecisions),
+    },
   ];
 }
 

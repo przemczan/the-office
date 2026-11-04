@@ -902,6 +902,26 @@
   color: var(--fg-2);
 }
 
+.needs-you-clear-words {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+/* Before Ready and what waits share the row when there is room for both to read. */
+.needs-you-beside {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.needs-you-beside > * {
+  flex: 1 1 420px;
+  min-width: 0;
+}
+
 .needs-you-summary {
   display: inline-flex;
   align-items: center;
@@ -1317,23 +1337,41 @@
   line-height: 1.5;
 }
 
-.task-checklist li {
+.task-checklist > li {
   display: flex;
   align-items: flex-start;
   gap: 8px;
   color: var(--fg-2);
 }
 
-.task-checklist svg {
+.task-checklist > li > svg {
   flex: none;
   margin-top: 3px;
+}
+
+.before-ready-line {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  min-width: 0;
+}
+
+.before-ready-line > span {
+  flex: 1 1 200px;
+}
+
+.before-ready-line > .task-proposed-pipeline,
+.before-ready-refusal {
+  flex-basis: 100%;
 }
 
 .task-checklist-met {
   color: var(--fg-1);
 }
 
-.task-checklist-met svg {
+.task-checklist-met > svg {
   color: var(--success-fg);
 }
 

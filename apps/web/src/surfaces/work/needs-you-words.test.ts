@@ -1,6 +1,6 @@
 import type { Decision } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { needsYouSummary, nothingNeedsYouWords, waitingOnYou } from "./needs-you-words.ts";
+import { needsYouClearWords, needsYouSummary, waitingOnYou } from "./needs-you-words.ts";
 
 function decisionPutTo(putTo: string | null): Decision {
   return {
@@ -50,14 +50,31 @@ describe("needsYouSummary", () => {
   });
 });
 
-describe("nothingNeedsYouWords", () => {
+describe("needsYouClearWords", () => {
+  const NOTHING = "Nothing needs you right now. You'll see it here first.";
+
   it("says a Done Task is done", () => {
-    expect(nothingNeedsYouWords("done")).toBe("Nothing needs you: this Task is Done.");
+    expect(needsYouClearWords("done", false)).toBe("Nothing needs you: this Task is Done.");
   });
 
-  it("says the card will show what comes", () => {
-    expect(nothingNeedsYouWords("in-progress")).toBe(
-      "Nothing needs you right now. You'll see it here first.",
+  it("says a Dropped Task was dropped", () => {
+    expect(needsYouClearWords("dropped", false)).toBe("This Task was dropped.");
+  });
+
+  it("leaves a Ready Task's Start to the user", () => {
+    expect(needsYouClearWords("ready", false)).toBe(
+      "Ready: start it when you want; nothing starts by itself.",
     );
+  });
+
+  it.each(["backlog", "in-progress", "paused"] as const)(
+    "says the card will show what comes on a Task in %s",
+    (state) => {
+      expect(needsYouClearWords(state, false)).toBe(NOTHING);
+    },
+  );
+
+  it("has nothing to ask of a queued Task, which starts when its turn comes", () => {
+    expect(needsYouClearWords("ready", true)).toBe(NOTHING);
   });
 });

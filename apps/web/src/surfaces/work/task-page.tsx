@@ -55,11 +55,11 @@ export function TaskPage(): ReactNode {
     <div className="task-page">
       <TaskHead task={record} projects={projects.data} pipeline={pipeline} threads={threads.data} />
       <PipelineRail key={record.id} task={record} pipeline={pipeline} />
-      <NeedsYouCard key={`needs-you-${record.id}`} task={record} />
+      <NeedsYouCard key={`needs-you-${record.id}`} task={record} pipeline={pipeline} />
       <div className="task-columns">
         <div className="task-record-column" id={RECORD_ELEMENT_ID}>
           <RecordTabs task={record} shown={recordTab} />
-          <RecordTabContent task={record} pipeline={pipeline} shown={recordTab} />
+          <RecordTabContent task={record} shown={recordTab} />
         </div>
         <TaskConversation task={record} threads={threads.data} shownFirst={taskThread} />
       </div>
@@ -148,11 +148,9 @@ function countOf(items: readonly unknown[] | undefined): { readonly count?: numb
 
 function RecordTabContent({
   task,
-  pipeline,
   shown,
 }: {
   readonly task: Task;
-  readonly pipeline: Pipeline | undefined;
   readonly shown: RecordTab | undefined;
 }): ReactNode {
   switch (shown) {
@@ -169,6 +167,6 @@ function RecordTabContent({
         </div>
       );
     case undefined:
-      return <TaskRecord task={task} pipeline={pipeline} />;
+      return <TaskRecord task={task} />;
   }
 }

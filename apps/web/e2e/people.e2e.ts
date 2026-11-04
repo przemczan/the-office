@@ -1463,17 +1463,21 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   const record = page.getByRole("region", { name: "Record" });
   const plan = record.getByRole("region", { name: "Plan", exact: true });
   const definitionOfDone = record.getByRole("region", { name: "Definition of Done" });
-  const proposedPipeline = record.getByRole("region", { name: "Proposed Pipeline" });
+  // In Planning Before Ready holds the card's place, beside the open Decision.
+  const beforeReady = page.getByRole("region", { name: "Before Ready" });
+  const readinessLine = (label: string): Locator =>
+    beforeReady.getByRole("listitem").filter({ hasText: label });
+  const proposedPipeline = readinessLine("Pipeline taken or declined");
   await expect(plan.getByText("Proposed by Jan")).toBeVisible();
   await expect(definitionOfDone.getByText("The tests pass.")).toBeVisible();
   await expect(proposedPipeline.getByText(/A small change with tests/)).toBeVisible();
+  const beforeReadyBox = await beforeReady.boundingBox();
+  const needsYouBox = await needsYou.boundingBox();
+  expect(needsYouBox?.y).toBe(beforeReadyBox?.y);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-planning.png") });
 
   // Mark Ready waits for every line of "Before Ready", and each line ticks as it is met.
   const markReady = page.getByRole("button", { name: "Mark Ready" });
-  const beforeReady = record.getByRole("region", { name: "Before Ready" });
-  const readinessLine = (label: string): Locator =>
-    beforeReady.getByRole("listitem").filter({ hasText: label });
   await expect(markReady).toBeDisabled();
   await expect(readinessLine("Plan confirmed")).toContainText(
     "Confirm the Plan before the Task can be Ready.",
@@ -1483,9 +1487,17 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   );
   await expect(beforeReady.locator(".task-checklist-met")).toHaveCount(0);
 
-  await plan.getByRole("button", { name: "Confirm" }).click();
+  await expect(plan.getByRole("button", { name: "Confirm" })).toHaveCount(0);
+  await readinessLine("Plan confirmed").getByRole("button", { name: "Confirm" }).click();
   await expect(plan.getByText("Confirmed")).toBeVisible();
   await expect(readinessLine("Plan confirmed")).toHaveClass(/task-checklist-met/);
+  await expect(readinessLine("Plan confirmed").getByRole("button")).toHaveCount(0);
+  await readinessLine("Definition of Done confirmed")
+    .getByRole("button", { name: "Confirm" })
+    .click();
+  await expect(definitionOfDone.getByText("Confirmed")).toBeVisible();
+  await expect(readinessLine("Definition of Done confirmed")).toHaveClass(/task-checklist-met/);
+  // A part stays editable, and the user's own words are confirmed as they are saved.
   await definitionOfDone.getByRole("button", { name: "Edit" }).click();
   await definitionOfDone
     .getByRole("textbox")
@@ -1500,7 +1512,7 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await expect(proposedPipeline.getByLabel("Another Pipeline")).toContainText("Document");
   await proposedPipeline.getByRole("button", { name: "Use Quick fix" }).click();
   await expect(page.getByRole("region", { name: "Pipeline · Quick fix" })).toBeVisible();
-  await expect(record.getByText(/A small change with tests/)).toHaveCount(0);
+  await expect(page.getByText(/A small change with tests/)).toHaveCount(0);
   await expect(readinessLine("Pipeline taken or declined")).toHaveClass(/task-checklist-met/);
   await expect(markReady).toBeDisabled();
 
@@ -1516,11 +1528,8 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await expect(
     page.getByText("Sign-in returns to the page is Ready. Starting it is your call."),
   ).toBeVisible();
-  await expect(
-    record
-      .getByRole("region", { name: "Ready", exact: true })
-      .getByText("Ready: start it when you want; nothing starts by itself."),
-  ).toBeVisible();
+  await expect(needsYou).toContainText("Ready: start it when you want; nothing starts by itself.");
+  await expect(beforeReady).toHaveCount(0);
 
   // Start says why the Task can't start, here while Implement's person only talks; the next test
   // starts it.
@@ -1856,12 +1865,22 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await expect(page.locator(".task-head").getByText("Waiting on you")).toBeVisible();
     await expect(rail.getByText("At UI acceptance: waiting on you")).toBeVisible();
     await expect(page.getByRole("region", { name: "Needs you" })).toContainText("a Gate");
-    await expect(gate.locator(".gate-fact", { hasText: "Tests" })).toContainText("Passed");
+    // Tests passed, but the Build after the Gate has not run yet.
+    await expect(gate.locator(".gate-fact", { hasText: "Tests" })).toContainText("Not run");
     await expect(gate.locator(".gate-fact", { hasText: "Definition of Done" })).toContainText(
       "of 1",
     );
     await expect(gate.locator(".gate-fact", { hasText: "Files changed" })).toBeVisible();
     await expect(gate.locator(".gate-fact", { hasText: "Lines" })).toContainText("+");
+
+    // Out of view the slim bar counts the Gate and asks what its card asks.
+    const slimBar = page.getByRole("group", { name: "Needs you, out of view" });
+    await page.setViewportSize({ width: 1600, height: 300 });
+    await page.locator(".shell-main").evaluate((scroller) => {
+      scroller.scrollTop = scroller.scrollHeight;
+    });
+    await expect(slimBar).toContainText("Look at the changes and let the work");
+    await page.setViewportSize({ width: 1600, height: 900 });
     const attachments = gate.getByRole("region", { name: "Screenshots" });
     await expect(attachments).toHaveCount(0);
     // A screenshot, as Work attaches the ones an Agent lists, shows as a picture.
@@ -2040,6 +2059,9 @@ test("a Task's Needs you card continues past a Gate and drops the Task at one", 
     await page.getByRole("dialog").getByRole("button", { name: "Drop the Task" }).click();
     await expect(gate).toHaveCount(0);
     await expect(page.locator(".task-head").getByText("Dropped")).toBeVisible();
+    await expect(needsYou).toHaveText("This Task was dropped.");
+    await expect(page.getByText("This Task was dropped, so you can read")).toBeVisible();
+    await expect(page.getByLabel("Message")).toHaveCount(0);
   } finally {
     await repository.remove();
   }
@@ -2150,7 +2172,7 @@ test("the user reads a Consultation on the Task, sees its Decision wait on the C
     // Taking it over: the user answers in the card, and Jan takes the answer in the asking Thread.
     await decision.getByRole("button", { name: CONSULTATION_OPTION }).click();
     await expect(decision).toHaveCount(0);
-    await expect(needsYou).toContainText("Nothing needs you");
+    await expect(needsYou).toContainText("Ready: start it when you want");
     await expect(inThread).toContainText(`Answered: ${CONSULTATION_OPTION}`);
     await expect(conversation.getByText("Then the migration goes first.")).toBeVisible();
   } finally {

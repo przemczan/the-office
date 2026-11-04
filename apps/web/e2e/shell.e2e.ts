@@ -202,6 +202,9 @@ async function stubEngines(
 test.describe("the usage figure", () => {
   test.use({ colorScheme: "light", viewport: { width: 1600, height: 900 } });
 
+  // A read still in a route when a test ends would fail it: its response is gone by then.
+  test.afterEach(({ page }) => page.unrouteAll({ behavior: "ignoreErrors" }));
+
   const RESETS_AT = new Date(Date.now() + 60 * 60 * 1000).toISOString();
   /** Listed in Settings › Engines, it has no usage windows, so the service reads none. */
   const API_ENGINE: Engine = {
@@ -361,8 +364,6 @@ test.describe("losing the service", () => {
     reachable = true;
     await expect(strip).not.toContainText("Reconnecting");
     await expect(notice).toHaveCount(0);
-    // Reconnecting refetches the queries, so a read of the roles may still be in the route then.
-    await page.unrouteAll({ behavior: "ignoreErrors" });
   });
 });
 

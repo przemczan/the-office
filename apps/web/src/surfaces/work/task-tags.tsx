@@ -6,12 +6,16 @@ import { useToast } from "../../shell/toasts.tsx";
 import { tagsInUse } from "./tag-words.ts";
 import { TagsInput } from "./tags-input.tsx";
 
-/** The Task's Tags on its page, saved as each is added or removed, in any state. */
+/**
+ * The Task's Tags on its page, saved as each is added or removed, in any state. Each save sends the
+ * whole list, so one scope keeps two quick changes in order: the last one sent wins.
+ */
 export function TaskTags({ task }: { readonly task: Task }): ReactNode {
   const queryClient = useQueryClient();
   const showToast = useToast();
   const tasks = useQuery(taskQueries.list());
   const saving = useMutation({
+    scope: { id: `tags-${task.id}` },
     mutationFn: (tags: readonly string[]) => changeTags(task.id, tags),
     onError: (error) => showToast(error.message),
     onSettled: () => queryClient.invalidateQueries({ queryKey: TASKS }),

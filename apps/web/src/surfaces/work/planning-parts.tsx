@@ -4,14 +4,13 @@ import {
   useQueryClient,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import type { Pipeline, Task } from "@the-office/contracts";
-import { Badge, Button, Icon, Select, Textarea } from "@the-office/ui";
+import type { Task } from "@the-office/contracts";
+import { Badge, Button, Icon, Textarea } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import {
   confirmDefinitionOfDone,
   confirmPlan,
-  setPipeline,
   taskQueries,
   type PlanConfirmation,
 } from "../../api/work.ts";
@@ -61,8 +60,6 @@ export function DefinitionOfDoneBlock({ task, planner }: PartProps): ReactNode {
               planner={planner}
               written={written}
               confirmed={task.definitionOfDoneConfirmed}
-              confirming={confirming.isPending}
-              onConfirm={() => confirming.mutate(task.definitionOfDone, { onError: fold.open })}
               onEdit={() => {
                 fold.open();
                 setEditing(true);
@@ -119,13 +116,6 @@ export function PlanBlock({ task, planner }: PartProps): ReactNode {
             planner={planner}
             written={written}
             confirmed={task.planConfirmed}
-            confirming={confirming.isPending}
-            onConfirm={() =>
-              confirming.mutate(
-                { plan: task.plan, filesToChange: [...task.filesToChange] },
-                { onError: fold.open },
-              )
-            }
             onEdit={() => {
               fold.open();
               setEditing(true);
@@ -241,90 +231,18 @@ function PlanEditor({
   );
 }
 
-/**
- * The Pipeline the Planner proposes, with why, until the user takes it, keeps the one the Task
- * follows or chooses another from the library; each ends the proposal.
- */
-export function ProposedPipeline({
-  task,
-  pipeline,
-  planner,
-}: {
-  readonly task: Task;
-  /** The Pipeline the Task follows now. */
-  readonly pipeline: Pipeline | undefined;
-  readonly planner: string;
-}): ReactNode {
-  const pipelines = useQuery(pipelineQueries.list());
-  const choosing = useRecordChange(task, (pipelineId: string) => setPipeline(task.id, pipelineId));
-  const proposed = task.proposedPipeline;
-  if (proposed === null) return null;
-  const nameOf = (id: string): string =>
-    pipelines.data?.find((candidate) => candidate.id === id)?.name ?? id;
-  const proposedName = nameOf(proposed.pipelineId);
-  const current = pipeline?.name ?? task.pipelineId;
-  const same = proposed.pipelineId === task.pipelineId;
-  const others =
-    pipelines.data?.filter(({ id }) => id !== proposed.pipelineId && id !== task.pipelineId) ?? [];
-  return (
-    <div className="task-proposed-pipeline">
-      <p>
-        <Badge tone="warning">Proposed by {planner}</Badge> {proposedName}
-        {same && " (the one it follows)"}: {proposed.reason}
-      </p>
-      {NOT_STARTED.includes(task.state) && (
-        <div className="task-part-actions">
-          <Button
-            size="sm"
-            loading={choosing.isPending && choosing.variables === proposed.pipelineId}
-            onClick={() => choosing.mutate(proposed.pipelineId)}
-          >
-            {same ? "Confirm" : `Use ${proposedName}`}
-          </Button>
-          {!same && (
-            <Button
-              size="sm"
-              variant="secondary"
-              loading={choosing.isPending && choosing.variables === task.pipelineId}
-              onClick={() => choosing.mutate(task.pipelineId)}
-            >
-              Keep {current}
-            </Button>
-          )}
-          {others.length > 0 && (
-            <Select
-              aria-label="Another Pipeline"
-              size="sm"
-              placeholder="Another Pipeline…"
-              value=""
-              disabled={choosing.isPending}
-              options={others.map(({ id, name }) => ({ value: id, label: name }))}
-              onChange={(pipelineId) => choosing.mutate(pipelineId)}
-            />
-          )}
-        </div>
-      )}
-      {choosing.error && <RefusalAlert title="The Pipeline wasn't set" error={choosing.error} />}
-    </div>
-  );
-}
-
-/** Where a part stands, and Confirm and Edit while the Task hasn't started. */
+/** Where a part stands, and Edit while the Task hasn't started; Before Ready holds Confirm. */
 function PartActions({
   task,
   planner,
   written,
   confirmed,
-  confirming,
-  onConfirm,
   onEdit,
 }: {
   readonly task: Task;
   readonly planner: string;
   readonly written: boolean;
   readonly confirmed: boolean;
-  readonly confirming: boolean;
-  readonly onConfirm: () => void;
   readonly onEdit: () => void;
 }): ReactNode {
   const editable = NOT_STARTED.includes(task.state);
@@ -336,13 +254,8 @@ function PartActions({
         ) : (
           <Badge tone="warning">Proposed by {planner}</Badge>
         ))}
-      {editable && written && !confirmed && (
-        <Button size="sm" loading={confirming} onClick={onConfirm}>
-          Confirm
-        </Button>
-      )}
       {editable && (
-        <Button size="sm" variant="secondary" disabled={confirming} onClick={onEdit}>
+        <Button size="sm" variant="secondary" onClick={onEdit}>
           Edit
         </Button>
       )}

@@ -1,11 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearch } from "@tanstack/react-router";
-import type { Decision, Role, Task, TaskStages } from "@the-office/contracts";
+import type { Decision, Pipeline, Role, Task, TaskStages } from "@the-office/contracts";
 import { Badge, Button, Icon } from "@the-office/ui";
 import { useEffect, useState, type ReactNode } from "react";
 import { decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
+import { taskQueries } from "../../api/work.ts";
 import {
   bringDecisionCardIntoView,
   DecisionCard,
@@ -13,35 +14,65 @@ import {
 import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { clockOf } from "../../shell/time.ts";
 import { waitingGateOf, type WaitingGate } from "../../shell/work/gate-words.ts";
+import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
+import { BeforeReady } from "./before-ready.tsx";
 import { GateCard } from "./gate-card.tsx";
 import { gateQuestion } from "./gate-card-words.ts";
-import { needsYouSummary, nothingNeedsYouWords, waitingOnYou } from "./needs-you-words.ts";
+import { needsYouClearWords, needsYouSummary, waitingOnYou } from "./needs-you-words.ts";
+import { useQueued } from "./queue-parts.tsx";
 import { RecordBlock } from "./record-block.tsx";
 import { useInView } from "./use-in-view.ts";
 
 /**
  * What waits on the user on this Task, under the rail and answered there (spec §4): its Decisions,
- * those with a Consultant marked and not counted, and the Gate it waits at. It says so when nothing
- * waits.
+ * those with a Consultant marked and not counted, and the Gate it waits at. In Planning this place
+ * holds Before Ready, beside any Decision. Otherwise it says where the Task stands.
  */
-export function NeedsYouCard({ task }: { readonly task: Task }): ReactNode {
+export function NeedsYouCard({
+  task,
+  pipeline,
+}: {
+  readonly task: Task;
+  readonly pipeline: Pipeline | undefined;
+}): ReactNode {
   const decisions = useQuery(decisionQueries.unanswered(task.id)).data;
   const taskStages = useQuery(pipelineQueries.taskStages(task.id)).data;
   if (!decisions || !taskStages) return null;
+  if (task.state === "dropped") return <NothingWaits task={task} />;
   const waiting = taskStages.stages ? waitingGateOf(taskStages.stages) : undefined;
+  const beforeReady =
+    task.state === "planning" ? <BeforeReady task={task} pipeline={pipeline} /> : undefined;
   if (decisions.length > 0 || waiting) {
     return (
-      <WhatWaits task={task} decisions={decisions} taskStages={taskStages} waiting={waiting} />
+      <WhatWaits
+        task={task}
+        decisions={decisions}
+        taskStages={taskStages}
+        waiting={waiting}
+        beforeReady={beforeReady}
+      />
     );
   }
-  // The record's Before Ready says what waits, until it moves into this card.
-  if (task.state === "planning") return null;
+  return beforeReady ?? <NothingWaits task={task} />;
+}
+
+function NothingWaits({ task }: { readonly task: Task }): ReactNode {
+  const queued = useQueued(task.id) !== undefined;
   return (
     <section className="needs-you-clear" aria-label="Needs you">
-      <Icon name="check" size={14} />
-      {nothingNeedsYouWords(task.state)}
+      <Icon name={task.state === "dropped" ? "x" : "check"} size={14} />
+      <div className="needs-you-clear-words">
+        {needsYouClearWords(task.state, queued)}
+        {task.state === "ready" && !queued && <StartsUsing task={task} />}
+      </div>
     </section>
   );
+}
+
+/** The Usage estimate Start weighs, from the same start check as Start in the head. */
+function StartsUsing({ task }: { readonly task: Task }): ReactNode {
+  const check = useQuery(taskQueries.startCheck(task.id));
+  return <UsageEstimateLine estimate={check.data?.usageEstimate} />;
 }
 
 function WhatWaits({
@@ -49,11 +80,13 @@ function WhatWaits({
   decisions,
   taskStages,
   waiting,
+  beforeReady,
 }: {
   readonly task: Task;
   readonly decisions: readonly Decision[];
   readonly taskStages: TaskStages;
   readonly waiting: WaitingGate | undefined;
+  readonly beforeReady: ReactNode;
 }): ReactNode {
   const [card, setCard] = useState<HTMLElement | null>(null);
   const inView = useInView(card);
@@ -65,6 +98,29 @@ function WhatWaits({
   const onYou = waitingOnYou(decisions);
   const count = onYou.length + (waiting ? 1 : 0);
   const headline = onYou[0]?.question ?? (waiting && gateQuestion(waiting));
+  const needsYou = (
+    <div className="needs-you-card" ref={setCard}>
+      <RecordBlock
+        icon="hand"
+        title="Needs you"
+        actions={
+          <span className="needs-you-summary">
+            {count > 0 && <Badge tone="warning">{count}</Badge>}
+            {needsYouSummary(decisions, waiting !== undefined)}
+          </span>
+        }
+      >
+        <div className="needs-you-list">
+          {decisions.map((decision) => (
+            <WaitingDecision key={decision.id} decision={decision} roles={roles} />
+          ))}
+          {waiting && (
+            <GateCard task={task} taskStages={taskStages} waiting={waiting} roles={roles} />
+          )}
+        </div>
+      </RecordBlock>
+    </div>
+  );
   return (
     <>
       {headline !== undefined && !inView && (
@@ -74,27 +130,14 @@ function WhatWaits({
           onShow={() => card?.scrollIntoView({ block: "start" })}
         />
       )}
-      <div className="needs-you-card" ref={setCard}>
-        <RecordBlock
-          icon="hand"
-          title="Needs you"
-          actions={
-            <span className="needs-you-summary">
-              {count > 0 && <Badge tone="warning">{count}</Badge>}
-              {needsYouSummary(decisions, waiting !== undefined)}
-            </span>
-          }
-        >
-          <div className="needs-you-list">
-            {decisions.map((decision) => (
-              <WaitingDecision key={decision.id} decision={decision} roles={roles} />
-            ))}
-            {waiting && (
-              <GateCard task={task} taskStages={taskStages} waiting={waiting} roles={roles} />
-            )}
-          </div>
-        </RecordBlock>
-      </div>
+      {beforeReady ? (
+        <div className="needs-you-beside">
+          {beforeReady}
+          {needsYou}
+        </div>
+      ) : (
+        needsYou
+      )}
     </>
   );
 }

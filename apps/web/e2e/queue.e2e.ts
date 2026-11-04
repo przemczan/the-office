@@ -169,7 +169,7 @@ test("Start says when it only queues the Task, and what holds it", async ({ page
   await expect(page.getByRole("button", { name: "Take out of the queue" })).toBeVisible();
 });
 
-test("a Ready Task's Usage estimate shows on its card, beside Start, in the Ready block and on Now when queued, with where it came from and a cap's wait in the service's words", async ({
+test("a Ready Task's Usage estimate shows on its card, beside Start, under the rail and on Now when queued, with where it came from and a cap's wait in the service's words", async ({
   page,
 }) => {
   const project = await addedProject(page, "Queue estimates", "QE");
@@ -229,7 +229,7 @@ test("a Ready Task's Usage estimate shows on its card, beside Start, in the Read
   await expect(queuedOnNow.getByRole("note", { name: "Usage estimate" })).toHaveText(PLANNER_WORDS);
 
   await page.goto(`/tasks/${learned.id}`);
-  // Beside Start and in the Ready block.
+  // Beside Start and in the card's place under the rail.
   await expect(page.getByRole("note", { name: "Usage estimate" })).toHaveText([
     HISTORY_WORDS,
     HISTORY_WORDS,
