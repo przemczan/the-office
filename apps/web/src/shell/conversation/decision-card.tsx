@@ -5,21 +5,23 @@ import {
   type UseMutationResult,
 } from "@tanstack/react-query";
 import { Link, useSearch } from "@tanstack/react-router";
-import type { Decision, DecisionAnswer, Role, Thread } from "@the-office/contracts";
+import type { Attachment, Decision, DecisionAnswer, Role, Thread } from "@the-office/contracts";
 import { Badge, Button, Icon, IconButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { answerDecision, decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
+import { attachmentQueries } from "../../api/work.ts";
+import { CardAttachments, CardColumns } from "../attachments/card-attachments.tsx";
 import { useCopyRecordLink } from "../copy-record-link.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
-import { answerWords } from "./decision-words.ts";
+import { answerWords, namedAttachments } from "./decision-words.ts";
 import { MessageField } from "./message-field.tsx";
 import "./conversation.css";
 
 /**
  * An open Decision whole (spec §2.4): the question, what they found, the options with the one
- * recommended, and a free answer. It shows where the user answers it: on Now, in the Needs you
+ * recommended, a free answer, and the Attachments it names beside them. It shows where the user answers it: on Now, in the Needs you
  * panel and in the Task's Needs you card. Follow-ups are ordinary messages in its Thread, and leave
  * it open, except in a Stage Thread, where The Office sends the messages once no Stage runs.
  * Nothing is answered while the person is still answering. The Office's own Decisions about the
@@ -31,6 +33,7 @@ export function DecisionCard({
   answering,
   followUps,
   place,
+  landing = false,
 }: {
   readonly decision: Decision;
   readonly personName: string;
@@ -39,14 +42,20 @@ export function DecisionCard({
   readonly followUps: boolean;
   /** Where it was asked, when the card shows beside its Thread on the Task's page. */
   readonly place?: ReactNode;
+  /** The card a link to the Decision lands on: the page's, not the panel's open over it. */
+  readonly landing?: boolean;
 }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
+  const attachments = useNamedAttachments(decision);
   return (
     <DecisionFrame
       decision={decision}
       personName={personName}
-      elementId={decisionCardElementId(decision.id)}
+      elementId={landing ? decisionCardElementId(decision.id) : undefined}
       place={place}
+      side={
+        attachments.length > 0 && <CardAttachments title="Attachments" attachments={attachments} />
+      }
     >
       <DecisionDetail decision={decision} roles={roles} />
       <OpenDecision
@@ -58,6 +67,14 @@ export function DecisionCard({
       />
     </DecisionFrame>
   );
+}
+
+function useNamedAttachments(decision: Decision): readonly Attachment[] {
+  const { data } = useQuery({
+    ...attachmentQueries.of({ kind: "task", taskId: decision.taskId }),
+    enabled: decision.attachmentIds.length > 0,
+  });
+  return namedAttachments(decision, data ?? []);
 }
 
 /**
@@ -134,12 +151,15 @@ function DecisionFrame({
   personName,
   elementId,
   place,
+  side,
   children,
 }: {
   readonly decision: Decision;
   readonly personName: string;
-  readonly elementId?: string;
+  readonly elementId?: string | undefined;
   readonly place?: ReactNode;
+  /** What to look at beside the Decision. */
+  readonly side?: ReactNode;
   readonly children: ReactNode;
 }): ReactNode {
   const copyLink = useCopyRecordLink();
@@ -151,29 +171,31 @@ function DecisionFrame({
       aria-label={`Decision: ${decision.question}`}
       aria-current={linkedTo || undefined}
     >
-      <div className="message-by">
-        <Badge tone="warning">Decision</Badge>
-        {askerName(decision, personName)}
-        {place}
-        <IconButton
-          className="decision-copy-link"
-          icon={<Icon name="link" size={12} />}
-          label="Copy link"
-          size="xs"
-          onClick={() =>
-            copyLink({
-              kind: "decision",
-              taskId: decision.taskId,
-              threadId: decision.threadId,
-              decisionId: decision.id,
-            })
-          }
-        />
-      </div>
-      <div className="message-text decision-question">
-        <MarkdownText text={decision.question} />
-      </div>
-      {children}
+      <CardColumns side={side}>
+        <div className="message-by">
+          <Badge tone="warning">Decision</Badge>
+          {askerName(decision, personName)}
+          {place}
+          <IconButton
+            className="decision-copy-link"
+            icon={<Icon name="link" size={12} />}
+            label="Copy link"
+            size="xs"
+            onClick={() =>
+              copyLink({
+                kind: "decision",
+                taskId: decision.taskId,
+                threadId: decision.threadId,
+                decisionId: decision.id,
+              })
+            }
+          />
+        </div>
+        <div className="message-text decision-question">
+          <MarkdownText text={decision.question} />
+        </div>
+        {children}
+      </CardColumns>
     </section>
   );
 }

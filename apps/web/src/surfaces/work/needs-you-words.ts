@@ -5,12 +5,13 @@ export function waitingOnYou(decisions: readonly Decision[]): readonly Decision[
   return decisions.filter(({ putTo }) => putTo === null);
 }
 
-/** The card's head: how many Decisions wait on the user, then how many on a Consultant. */
-export function needsYouSummary(decisions: readonly Decision[]): string {
+/** The card's head: how many Decisions wait on the user, the Gate, then how many on a Consultant. */
+export function needsYouSummary(decisions: readonly Decision[], atGate: boolean): string {
   const onYou = waitingOnYou(decisions).length;
   const onConsultants = decisions.length - onYou;
   return [
     ...(onYou > 0 ? [`${onYou} ${onYou === 1 ? "Decision" : "Decisions"}`] : []),
+    ...(atGate ? ["a Gate"] : []),
     ...(onConsultants > 0 ? [`${onConsultants} waiting on a Consultant`] : []),
   ].join(" · ");
 }

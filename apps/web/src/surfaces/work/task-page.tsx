@@ -19,7 +19,7 @@ import { PipelineRail } from "./pipeline-rail.tsx";
 import { NeedsYouCard } from "./needs-you-card.tsx";
 import { MarkReadyButton, PlanButton } from "./planning-actions.tsx";
 import { PullRequestButton } from "./pull-request-button.tsx";
-import { recordTabOf, type RecordTab } from "./record-tab.ts";
+import { RECORD_ELEMENT_ID, recordTabOf, type RecordTab } from "./record-tab.ts";
 import { RunControls } from "./run-controls.tsx";
 import { StartButton } from "./start-action.tsx";
 import { ChangesTab } from "./task-changes.tsx";
@@ -57,7 +57,7 @@ export function TaskPage(): ReactNode {
       <PipelineRail key={record.id} task={record} pipeline={pipeline} />
       <NeedsYouCard key={`needs-you-${record.id}`} task={record} />
       <div className="task-columns">
-        <div className="task-record-column">
+        <div className="task-record-column" id={RECORD_ELEMENT_ID}>
           <RecordTabs task={record} shown={recordTab} />
           <RecordTabContent task={record} pipeline={pipeline} shown={recordTab} />
         </div>

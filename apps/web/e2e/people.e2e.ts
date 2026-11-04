@@ -1774,6 +1774,19 @@ const A_SCREENSHOT = Buffer.from(
   "base64",
 );
 
+/** The Task's Stages: a Gate first, so it waits there with no session, then Build. */
+async function seedGateFirst(page: Page, taskId: string): Promise<void> {
+  const edited = await page.request.put(`/api/tasks/${taskId}/stages`, {
+    data: {
+      stages: [
+        { kind: "gate", key: "first-look", name: "First look", optional: false },
+        { kind: "script", key: "build", name: "Build", optional: false, command: "build" },
+      ],
+    },
+  });
+  expect(edited.status()).toBe(200);
+}
+
 /**
  * Edits the Task's Stages for it before it starts, as the Stage editor saves them: Quick fix's
  * Implement and Tests, then a Gate before a Build.
@@ -1842,11 +1855,15 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await expect(gate).toBeVisible();
     await expect(page.locator(".task-head").getByText("Waiting on you")).toBeVisible();
     await expect(rail.getByText("At UI acceptance: waiting on you")).toBeVisible();
-    const results = gate.getByRole("region", { name: "Stage results" });
-    await expect(results).toContainText("Implement");
-    await expect(results).toContainText("Tests");
-    const attachments = gate.getByRole("region", { name: "Gate attachments" });
-    await expect(attachments).toContainText("None");
+    await expect(page.getByRole("region", { name: "Needs you" })).toContainText("a Gate");
+    await expect(gate.locator(".gate-fact", { hasText: "Tests" })).toContainText("Passed");
+    await expect(gate.locator(".gate-fact", { hasText: "Definition of Done" })).toContainText(
+      "of 1",
+    );
+    await expect(gate.locator(".gate-fact", { hasText: "Files changed" })).toBeVisible();
+    await expect(gate.locator(".gate-fact", { hasText: "Lines" })).toContainText("+");
+    const attachments = gate.getByRole("region", { name: "Screenshots" });
+    await expect(attachments).toHaveCount(0);
     // A screenshot, as Work attaches the ones an Agent lists, shows as a picture.
     const uploaded = await page.request.post(
       `/api/tasks/${taskId}/attachments/files?${new URLSearchParams({ fileName: "settings.png", mediaType: "image/png" })}`,
@@ -1854,9 +1871,13 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     );
     expect(uploaded.status()).toBe(201);
     await expect(attachments.getByRole("button", { name: "View settings.png" })).toBeVisible();
-    await expect(page.getByRole("region", { name: "Files changed" })).toBeVisible();
     await expect(acceptance.getByText("Waiting on you", { exact: true })).toBeVisible();
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-gate.png") });
+
+    // The diff is a click away, in the Changes tab, brought into view.
+    await gate.getByRole("link", { name: "Open Changes" }).click();
+    await expect(page).toHaveURL(/recordTab=changes/);
+    await expect(page.getByRole("region", { name: "Files changed" })).toBeInViewport();
 
     // The Gate waits on Now too, with its actions.
     await page.goto("/");
@@ -1978,6 +1999,47 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await expect(page.getByRole("status", { name: "Status strip" })).toContainText(
       "done since you left",
     );
+  } finally {
+    await repository.remove();
+  }
+});
+
+// After the test above: a Task's Done here would collapse with that one's, which it reads as a toast.
+test("a Task's Needs you card continues past a Gate and drops the Task at one", async ({
+  page,
+}) => {
+  const repository = await createTemporaryRepository();
+  try {
+    const project = await addedProject(page, repository, "Looked at", "LA", PASSING_COMMANDS);
+    const needsYou = page.getByRole("region", { name: "Needs you" });
+    const gate = page.getByRole("region", { name: "Gate · First look" });
+
+    const continued = await readyTask(page, project.id, "Goes on past the look");
+    await seedGateFirst(page, continued);
+    await page.goto(`/tasks/${continued}`);
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    // Build comes after the Gate, so nothing has checked the code yet.
+    await expect(gate.locator(".gate-fact", { hasText: "Tests" })).toContainText("Not run");
+    await expect(gate.locator(".gate-fact", { hasText: "Definition of Done" })).toContainText(
+      "0 of 1",
+    );
+    await expect(gate.getByRole("button", { name: "Send back with notes…" })).toHaveCount(0);
+    await gate.getByRole("button", { name: "Continue to Build" }).click();
+    await expect(page.getByText("Continuing to Build.")).toBeVisible();
+    await expect(gate).toHaveCount(0);
+    // No Agent reported the Definition of Done met, so the walk asks before the Task can end. It
+    // must end here: a run outliving the repository would fail on the next test's page.
+    await needsYou.getByRole("button", { name: "Mark the Task Done" }).click();
+    await expect(needsYou).toContainText("Nothing needs you: this Task is Done.");
+
+    const dropped = await readyTask(page, project.id, "Ends at the look");
+    await seedGateFirst(page, dropped);
+    await page.goto(`/tasks/${dropped}`);
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await gate.getByRole("button", { name: "Drop", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Drop the Task" }).click();
+    await expect(gate).toHaveCount(0);
+    await expect(page.locator(".task-head").getByText("Dropped")).toBeVisible();
   } finally {
     await repository.remove();
   }

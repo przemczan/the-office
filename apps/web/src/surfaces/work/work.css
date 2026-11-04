@@ -921,6 +921,63 @@
   scroll-margin-top: 16px;
 }
 
+/* The Gate reads as a Decision does beside it. */
+.message.needs-you-gate {
+  max-width: 100%;
+  border: 1px solid var(--warning-border);
+  background: var(--warning-subtle);
+}
+
+.needs-you-gate .gate-actions {
+  margin-top: 10px;
+}
+
+.gate-place {
+  margin-left: auto;
+  color: var(--fg-3);
+}
+
+.gate-question {
+  font-weight: 500;
+}
+
+.gate-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+/* The value reads first, though a term comes before its description in the markup. */
+.gate-fact {
+  display: flex;
+  flex-direction: column-reverse;
+  justify-content: flex-end;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.gate-fact dt {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.gate-fact dd {
+  margin: 0 0 2px;
+  font: var(--type-card-title);
+  color: var(--fg-1);
+}
+
+.gate-fact-failed dd {
+  color: var(--danger-fg);
+}
+
+.gate-facts + .card-attachments {
+  margin-top: 12px;
+}
+
 /* Sticky at both edges and empty, so the bar costs the page no room; its margin takes back the gap. */
 .needs-you-bar-place {
   position: sticky;
@@ -976,44 +1033,6 @@
   flex-direction: column;
   gap: 16px;
   min-width: 0;
-}
-
-/* ---- the Gate inline on the record: its results, Attachments and actions, then the Changes */
-
-.task-gate {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.gate-part {
-  margin-top: 14px;
-}
-
-.gate-heading {
-  margin: 0 0 6px;
-  font: var(--type-overline);
-  color: var(--fg-3);
-}
-
-.gate-results {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.gate-results > li {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  font: var(--type-body-sm);
-}
-
-.gate-result-name {
-  font-weight: 600;
 }
 
 /* ---- the Changes tab: files with their lines, the diff, the latest test results */

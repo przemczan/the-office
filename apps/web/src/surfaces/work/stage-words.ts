@@ -1,19 +1,17 @@
-import {
-  countedTokens,
-  type ContextMove,
-  type GateAction,
-  type Stage,
-  type StageRun,
-  type StageState,
-  type TaskStage,
-  type Thread,
-  type TokenTotals,
+import type {
+  ContextMove,
+  GateAction,
+  Stage,
+  StageRun,
+  StageState,
+  TaskStage,
+  Thread,
+  TokenTotals,
 } from "@the-office/contracts";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
-import { durationWords } from "../../shell/time.ts";
 import { sumTokens } from "../../shell/token-words.ts";
 
-/** The words of a Task's Stages that the rail, the Stage history and the Gate share. */
+/** The words of a Task's Stages that the rail and the Stage history share. */
 
 export const STAGE_STATE_WORDS: Readonly<Record<StageState, string>> = {
   pending: "Pending",
@@ -60,32 +58,6 @@ export function stageRule(stage: Stage, names: StageNames): string[] {
 }
 
 /**
- * "Done · 18 min · 41k tokens · fresh session", then what the Stage's latest run came to: its line
- * among the Gate's Stage results.
- */
-export function stageProgressLine(
-  taskStage: TaskStage,
-  names: StageNames,
-  now: Date = new Date(),
-): string {
-  const { state, runs } = taskStage;
-  const tokens = countedTokens(taskStage.tokens);
-  const latest = runs.at(-1);
-  if (state === "pending" || !latest) {
-    return [STAGE_STATE_WORDS.pending, ...stageRule(taskStage.stage, names)].join(" · ");
-  }
-  return [
-    STAGE_STATE_WORDS[state],
-    state !== "skipped" ? durationWords(timeTaken(runs, now)) : undefined,
-    tokens > 0 ? `${tokensShort(tokens)} tokens` : undefined,
-    latest.session ? SESSION_WORDS[latest.session] : undefined,
-    resultWords(taskStage, latest, names),
-  ]
-    .filter((part) => part !== undefined)
-    .join(" · ");
-}
-
-/**
  * The pull request of the Task's newest Publish that ran to the end. A Publish going again doesn't
  * hide the one already open; undefined when that run kept none, as a run from before it was kept.
  */
@@ -118,42 +90,6 @@ export function timeTaken(runs: readonly StageRun[], now: Date): number {
   }, 0);
 }
 
-function resultWords(
-  { stage, wentBack }: TaskStage,
-  latest: StageRun,
-  names: StageNames,
-): string | undefined {
-  const { outcome, carriedFailure, sentBack } = latest;
-  if (!outcome) {
-    if (carriedFailure) {
-      return `round ${carriedFailure.round} of ${carriedFailure.rounds} after ${names(carriedFailure.stageKey)} failed`;
-    }
-    return sentBack ? `sent back from ${names(sentBack.gateKey)}` : undefined;
-  }
-  switch (outcome.status) {
-    case "done":
-      if (outcome.skipped) return "the Definition of Done was already met";
-      if (stage.kind === "gate")
-        return latest.gateAction ? gateActionWords(latest.gateAction, names) : undefined;
-      // An Agent's summary is in its Handover note and Thread; a script's is its command's result.
-      if (stage.kind !== "script") return undefined;
-      // A Script Stage can't read a Gate's feedback: the row tells it ran again for it.
-      return sentBack
-        ? `${outcome.summary} · sent back from ${names(sentBack.gateKey)}`
-        : outcome.summary;
-    case "needs-decision":
-      return outcome.question;
-    case "failed": {
-      const why = outcome.budgetReached
-        ? budgetWords(outcome.budgetReached)
-        : headLine(outcome.error);
-      return wentBack
-        ? `${why} · back to ${names(wentBack.stageKey)}, round ${wentBack.round} of ${wentBack.rounds}`
-        : why;
-    }
-  }
-}
-
 /** "reached its budget: 120k of 100k tokens". */
 export function budgetWords({
   used,
@@ -165,7 +101,7 @@ export function budgetWords({
   return `reached its budget: ${tokensShort(used)} of ${tokensShort(budget)} tokens`;
 }
 
-/** What the user did at a Gate, as its Stage results and its history say it. */
+/** What the user did at a Gate, as its Stage history says it. */
 export function gateActionWords(action: GateAction, names: StageNames): string {
   switch (action.kind) {
     case "continue":

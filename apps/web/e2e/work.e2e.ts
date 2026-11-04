@@ -381,7 +381,11 @@ test("the Project filter narrows the board and Ideas, remembered by the browser,
 });
 
 /** An open Decision on the Task, in a Thread of its own, as a Stage's session would ask it. */
-async function seedDecision(task: Task, question: string): Promise<void> {
+async function seedDecision(
+  task: Task,
+  question: string,
+  attachmentIds: readonly string[] = [],
+): Promise<void> {
   const threadId = crypto.randomUUID();
   await queryOfficeDatabase(
     `insert into threads (id, home_kind, home_id, role_key, title, state, tokens, started_at)
@@ -389,9 +393,9 @@ async function seedDecision(task: Task, question: string): Promise<void> {
     [threadId, task.id, { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }],
   );
   await queryOfficeDatabase(
-    `insert into decisions (id, thread_id, task_id, role_key, question, context, options, recommendation, asked_at)
-     values ($1, $2, $3, 'developer', $4, 'Both work.', '["Yes", "No"]', '{"option":0,"reason":"It is simpler."}', now())`,
-    [crypto.randomUUID(), threadId, task.id, question],
+    `insert into decisions (id, thread_id, task_id, role_key, question, context, options, recommendation, attachment_ids, asked_at)
+     values ($1, $2, $3, 'developer', $4, 'Both work.', '["Yes", "No"]', '{"option":0,"reason":"It is simpler."}', $5, now())`,
+    [crypto.randomUUID(), threadId, task.id, question, JSON.stringify(attachmentIds)],
   );
 }
 
@@ -710,6 +714,54 @@ async function attachedImage(
   return attachmentSchema.parse(await response.json());
 }
 
+test("a Decision's card shows the Attachments it names: pictures with the viewer, others as chips", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Decision pictures", "DP");
+  const task = await createdTask(page, project, "Choose a look");
+  const pictures = [];
+  for (const [index, name] of ["today.png", "wider.png", "taller.png", "plain.png"].entries()) {
+    pictures.push(await attachedImage(page, task, name, aPng([60 * index, 120, 200])));
+  }
+  const removed = await attachedImage(page, task, "removed.png", aPng([200, 60, 60]));
+  const link = await page.request.post(`/api/tasks/${task.id}/attachments/links`, {
+    data: { name: "The brand guide", url: "https://example.com/brand-guide" },
+  });
+  expect(link.status()).toBe(201);
+  const { id: linkId } = attachmentSchema.parse(await link.json());
+  const notNamed = await attachedImage(page, task, "not-named.png", aPng([10, 10, 10]));
+  const question = "Which look should the export take?";
+  await seedDecision(task, question, [...pictures.map(({ id }) => id), removed.id, linkId]);
+  expect((await page.request.delete(`/api/attachments/${removed.id}`)).status()).toBe(204);
+
+  await page.goto(`/tasks/${task.id}`);
+  const card = page
+    .getByRole("region", { name: "Needs you" })
+    .getByRole("region", { name: `Decision: ${question}` });
+  const attachments = card.getByRole("region", { name: "Attachments" });
+  await expect(attachments).toContainText("Attachments · 5");
+  await expect(attachments.getByRole("button", { name: /^View / })).toHaveCount(4);
+  await expect(attachments.getByRole("link", { name: "The brand guide" })).toBeVisible();
+  await expect(attachments.getByRole("button", { name: `View ${notNamed.name}` })).toHaveCount(0);
+  await expect(attachments.getByRole("button", { name: "View removed.png" })).toHaveCount(0);
+  // Beside the question on the page's full width, at the one screenshot size.
+  const size = await attachments.getByRole("button", { name: "View today.png" }).boundingBox();
+  expect(size).toMatchObject({ width: 160, height: 100 });
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-decision-attachments.png") });
+
+  await attachments.getByRole("button", { name: "View wider.png" }).click();
+  const viewer = page.getByRole("dialog");
+  await expect(viewer).toContainText("2 of 4");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-decision-viewer.png") });
+  await page.keyboard.press("ArrowRight");
+  await expect(viewer.getByRole("heading", { name: "taller.png" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(viewer).toHaveCount(0);
+
+  await card.getByRole("button", { name: "Yes", exact: true }).click();
+  await expect(page.getByRole("region", { name: `Decision: ${question}` })).toHaveCount(0);
+});
+
 /** A moment of the morning a test's fixed Stage runs happened in. */
 function at(minute: number): string {
   return new Date(Date.UTC(2026, 10, 3, 9, minute)).toISOString();
@@ -981,7 +1033,7 @@ test("a Task's images show by round, the Gate shows the current one, and the vie
   await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
   await page.goto(`/tasks/${task.id}`);
 
-  const gate = page.getByRole("region", { name: "Gate attachments" });
+  const gate = page.getByRole("region", { name: "Screenshots" });
   await expect(gate.getByRole("button", { name: /^View / })).toHaveCount(1);
   await expect(gate.getByRole("button", { name: "View second-look.png" })).toBeVisible();
   await gate.scrollIntoViewIfNeeded();

@@ -23,16 +23,19 @@ import {
 
 /**
  * What the user does at the Gate a Task waits at: Continue, Send back with notes, or Drop. The same
- * on the Task's record, on Now and in the Needs you panel.
+ * in the Task's Needs you card, on Now and in the Needs you panel.
  */
 export function GateActions({
   task,
   waiting,
   roles,
+  alongside,
 }: {
   readonly task: Task;
   readonly waiting: WaitingGate;
   readonly roles: readonly Role[] | undefined;
+  /** Another way on from the Gate, in the same row. */
+  readonly alongside?: ReactNode;
 }): ReactNode {
   const [sendingBack, setSendingBack] = useState(false);
   const [dropping, setDropping] = useState(false);
@@ -63,6 +66,7 @@ export function GateActions({
         <Button variant="secondary" disabled={busy} onClick={() => setDropping(true)}>
           Drop
         </Button>
+        {alongside}
       </div>
       {continuing.error && (
         <RefusalAlert title="The Task didn't continue" error={continuing.error} />

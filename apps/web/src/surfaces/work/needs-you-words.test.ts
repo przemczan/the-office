@@ -31,15 +31,22 @@ describe("waitingOnYou", () => {
 
 describe("needsYouSummary", () => {
   it("counts the Decisions waiting on the user", () => {
-    expect(needsYouSummary([decisionPutTo(null)])).toBe("1 Decision");
-    expect(needsYouSummary([decisionPutTo(null), decisionPutTo(null)])).toBe("2 Decisions");
+    expect(needsYouSummary([decisionPutTo(null)], false)).toBe("1 Decision");
+    expect(needsYouSummary([decisionPutTo(null), decisionPutTo(null)], false)).toBe("2 Decisions");
   });
 
   it("names those waiting on a Consultant apart", () => {
-    expect(needsYouSummary([decisionPutTo(null), decisionPutTo("developer")])).toBe(
+    expect(needsYouSummary([decisionPutTo(null), decisionPutTo("developer")], false)).toBe(
       "1 Decision · 1 waiting on a Consultant",
     );
-    expect(needsYouSummary([decisionPutTo("developer")])).toBe("1 waiting on a Consultant");
+    expect(needsYouSummary([decisionPutTo("developer")], false)).toBe("1 waiting on a Consultant");
+  });
+
+  it("names the Gate after the Decisions", () => {
+    expect(needsYouSummary([], true)).toBe("a Gate");
+    expect(needsYouSummary([decisionPutTo(null), decisionPutTo("developer")], true)).toBe(
+      "1 Decision · a Gate · 1 waiting on a Consultant",
+    );
   });
 });
 

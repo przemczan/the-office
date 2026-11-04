@@ -999,6 +999,40 @@ body,
   object-position: top left;
 }
 
+/* Beside a card's words once the card itself is wide enough, under them before that. */
+.card-columns-place {
+  container-type: inline-size;
+}
+
+.card-columns {
+  display: grid;
+  gap: 14px;
+}
+
+.card-columns > * {
+  min-width: 0;
+}
+
+@container (min-width: 760px) {
+  .card-columns {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+    gap: 24px;
+  }
+}
+
+.card-attachments-head {
+  margin-bottom: 6px;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+/* A row and most of the next: what is cut off shows there is more. */
+.card-attachments-scroll {
+  max-height: 176px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .attachment-viewer {
   display: flex;
   flex-direction: column;
