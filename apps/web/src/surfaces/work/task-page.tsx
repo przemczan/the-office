@@ -52,7 +52,7 @@ export function TaskPage(): ReactNode {
   return (
     <div className="task-page">
       <TaskHead task={record} projects={projects.data} pipeline={pipeline} threads={threads.data} />
-      <PipelineRail task={record} pipeline={pipeline} />
+      <PipelineRail key={record.id} task={record} pipeline={pipeline} />
       <div className="task-columns">
         <div className="task-record-column">
           <RecordTabs task={record} shown={recordTab} />

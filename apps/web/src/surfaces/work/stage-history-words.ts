@@ -1,0 +1,142 @@
+import {
+  countedTokens,
+  type GateAction,
+  type Role,
+  type StageRun,
+  type TaskStage,
+} from "@the-office/contracts";
+import type { BadgeProps } from "@the-office/ui";
+import { tokensShort } from "../../shell/conversation/context-words.ts";
+import { durationWords, momentWords } from "../../shell/time.ts";
+import {
+  budgetWords,
+  gateActionWords,
+  STAGE_STATE_WORDS,
+  stageRule,
+  type StageNames,
+} from "./stage-words.ts";
+
+/** The words of a Stage's history: what the Stage is, and each of its runs. */
+
+type CommandRun = StageRun["commandRuns"][number];
+
+const COMMAND_OUTCOME_WORDS: Readonly<Record<CommandRun["outcome"], string>> = {
+  passed: "passed",
+  failed: "failed",
+  "could-not-run": "could not run",
+  "timed-out": "timed out",
+  stopped: "stopped",
+};
+
+const COMMAND_PURPOSE_WORDS: Readonly<Record<CommandRun["purpose"], string | undefined>> = {
+  install: "install",
+  command: undefined,
+  "re-run": "re-run",
+};
+
+/** The line under a Stage's name: its kind, its rule and what its runs came to. */
+export function stageHistoryLine(
+  taskStage: TaskStage,
+  roles: readonly Pick<Role, "key" | "card">[] | undefined,
+  names: StageNames,
+): string {
+  const { stage, runs, tokens } = taskStage;
+  const spent = countedTokens(tokens);
+  return [
+    stageKindWords(taskStage, roles),
+    ...stageRule(stage, names),
+    spent > 0
+      ? `${tokensShort(spent)} tokens over ${runs.length === 1 ? "1 run" : `${runs.length} runs`}`
+      : undefined,
+  ]
+    .filter((part) => part !== undefined)
+    .join(" · ");
+}
+
+function stageKindWords(
+  { stage }: TaskStage,
+  roles: readonly Pick<Role, "key" | "card">[] | undefined,
+): string {
+  if (stage.kind === "gate") return "Gate · waits for you";
+  if (stage.kind === "script") return `Project command · ${stage.command}`;
+  const role = roles?.find(({ key }) => key === stage.role);
+  const who = role ? `${role.card.name} · ${role.card.title}` : "Nobody yet";
+  return `Agent Stage · ${who} · budget ${tokensShort(stage.budget)} tokens`;
+}
+
+/** "14:02 → 14:20 · 18 min", a run still going "14:02 → now · 18 min so far". */
+export function runTimeWords({ startedAt, endedAt }: StageRun, now: Date): string {
+  const end = endedAt ? Date.parse(endedAt) : now.getTime();
+  const taken = durationWords(Math.max(0, end - Date.parse(startedAt)));
+  const until = endedAt ? momentWords(endedAt, now) : "now";
+  return `${momentWords(startedAt, now)} → ${until} · ${taken}${endedAt ? "" : " so far"}`;
+}
+
+/** How a run stands, as its badge says it. The Stage's state speaks for a run still going. */
+export function runBadge(
+  { outcome }: StageRun,
+  state: TaskStage["state"],
+): { readonly words: string; readonly tone: BadgeProps["tone"] } {
+  if (!outcome) {
+    return { words: STAGE_STATE_WORDS[state], tone: state === "running" ? "accent" : "warning" };
+  }
+  switch (outcome.status) {
+    case "done":
+      return outcome.skipped
+        ? { words: STAGE_STATE_WORDS.skipped, tone: "neutral" }
+        : { words: STAGE_STATE_WORDS.done, tone: "success" };
+    // The Decision may long be answered, so this says what the run came to, not what waits now.
+    case "needs-decision":
+      return { words: "Opened a Decision", tone: "warning" };
+    case "failed":
+      if (outcome.interrupted === "stop") {
+        return { words: STAGE_STATE_WORDS.stopped, tone: "warning" };
+      }
+      if (outcome.interrupted === "pause" || outcome.interrupted === "alarm") {
+        return { words: STAGE_STATE_WORDS.paused, tone: "warning" };
+      }
+      return { words: STAGE_STATE_WORDS.failed, tone: "danger" };
+  }
+}
+
+/** What a run came to, in Markdown. A Gate's run tells it by the user's action instead. */
+export function runResultText({ stage, state }: TaskStage, run: StageRun): string | undefined {
+  const { outcome } = run;
+  if (!outcome) {
+    return stage.kind === "gate" && state === "waiting-on-you"
+      ? "Waits for you to look at the changes and let the work continue."
+      : undefined;
+  }
+  switch (outcome.status) {
+    case "done":
+      if (outcome.skipped) return "The Definition of Done was already met.";
+      if (stage.kind === "gate") return undefined;
+      return outcome.summary === outcome.handoverNote ? undefined : outcome.summary;
+    case "needs-decision":
+      return outcome.question;
+    case "failed":
+      return outcome.budgetReached
+        ? `The Task ${budgetWords(outcome.budgetReached)}.`
+        : outcome.error;
+  }
+}
+
+/** "Briefed with what failed in Tests, round 1 of 3". */
+export function carriedFailureWords(
+  { stageKey, round, rounds }: NonNullable<StageRun["carriedFailure"]>,
+  names: StageNames,
+): string {
+  return `Briefed with what failed in ${names(stageKey)}, round ${round} of ${rounds}`;
+}
+
+/** "You sent back to Implement": what the user did at a Gate's run. */
+export function gateChoiceWords(action: GateAction, names: StageNames): string {
+  return `You ${gateActionWords(action, names)}`;
+}
+
+/** "passed · 2 min", "re-run · failed · 2 min". */
+export function commandRunWords({ purpose, outcome, durationMs }: CommandRun): string {
+  return [COMMAND_PURPOSE_WORDS[purpose], COMMAND_OUTCOME_WORDS[outcome], durationWords(durationMs)]
+    .filter((part) => part !== undefined)
+    .join(" · ");
+}

@@ -85,3 +85,58 @@ export function railRunsWords(
   const time = durationWords(timeTaken(runs, now));
   return `${count} · ${time}${state === "running" ? " so far" : ""}`;
 }
+
+/** The trips back from a failing Stage to an earlier one, at its height among the rail's arcs. */
+export interface LoopBack {
+  readonly from: string;
+  readonly to: string;
+  readonly fromIndex: number;
+  readonly toIndex: number;
+  /** How many times the work went back, which a resumed run doesn't add to. */
+  readonly count: number;
+  /** How many it may, with any rounds the user allowed since. */
+  readonly rounds: number;
+  /** Shorter loops sit under the longer ones they may span, from 0. */
+  readonly level: number;
+}
+
+/**
+ * The rail's loop-backs, from the runs' `carriedFailure`. A run counts as a trip when the failing
+ * Stage ran just before it: a run resumed after a Decision or a Pause carries the same failure. A
+ * Stage the user let run again in place goes nowhere to draw, and a Gate's send-back is no loop.
+ */
+export function loopBacks(stages: readonly TaskStage[]): readonly LoopBack[] {
+  const runs = stages
+    .flatMap(({ stage, runs: stageRuns }) => stageRuns.map((run) => ({ key: stage.key, run })))
+    .toSorted((earlier, later) => earlier.run.number - later.run.number);
+  const indexOf = (key: string): number => stages.findIndex(({ stage }) => stage.key === key);
+  const loops = new Map<string, Omit<LoopBack, "level">>();
+  runs.forEach(({ key: to, run: { carriedFailure } }, place) => {
+    if (!carriedFailure || runs[place - 1]?.key !== carriedFailure.stageKey) return;
+    const from = carriedFailure.stageKey;
+    const [fromIndex, toIndex] = [indexOf(from), indexOf(to)];
+    if (fromIndex <= toIndex) return;
+    const count = (loops.get(`${from}>${to}`)?.count ?? 0) + 1;
+    loops.set(`${from}>${to}`, {
+      from,
+      to,
+      fromIndex,
+      toIndex,
+      count,
+      rounds: carriedFailure.rounds,
+    });
+  });
+  return [...loops.values()]
+    .toSorted((one, other) => spanOf(one) - spanOf(other))
+    .map((loop, level) => ({ ...loop, level }));
+}
+
+function spanOf({ fromIndex, toIndex }: Pick<LoopBack, "fromIndex" | "toIndex">): number {
+  return fromIndex - toIndex;
+}
+
+/** What a loop-back's mark says in full. */
+export function loopBackWords({ from, to, count, rounds }: LoopBack, names: StageNames): string {
+  const times = count === 1 ? "1 time" : `${count} times`;
+  return `${names(from)} failed and went back to ${names(to)} ${times}, of at most ${rounds}`;
+}

@@ -711,6 +711,11 @@ async function attachedImage(
   return attachmentSchema.parse(await response.json());
 }
 
+/** A moment of the morning a test's fixed Stage runs happened in. */
+function at(minute: number): string {
+  return new Date(Date.UTC(2026, 10, 3, 9, minute)).toISOString();
+}
+
 /** A run of a Stage, as GET /tasks/:id/stages answers it. */
 function aStageRun(
   number: number,
@@ -733,6 +738,191 @@ function aStageRun(
     outcome: null,
   };
 }
+
+test("selecting a Stage opens its history, with the loop-back on the rail and the keys to step and close", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Stage history", "SH");
+  const task = await createdTask(page, project, "A Task that looped");
+  const threadId = crypto.randomUUID();
+  const implement: Stage = {
+    kind: "agent",
+    key: "implement",
+    name: "Implement",
+    optional: false,
+    role: "developer",
+    brief: "Do it.",
+    session: "fresh",
+    budget: 100_000,
+  };
+  const tests: Stage = {
+    kind: "script",
+    key: "tests",
+    name: "Tests",
+    optional: false,
+    command: "test",
+    onFailure: { goBackTo: "implement", rounds: 3 },
+  };
+  const look: Stage = { kind: "gate", key: "look", name: "UI acceptance", optional: false };
+  const tokens = { input: 40_000, output: 2_000, cacheRead: 900_000, cacheCreation: 0 };
+  const noTokens = { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 };
+  const done = {
+    status: "done",
+    skipped: false,
+    definitionOfDoneMet: null,
+    pullRequestUrl: null,
+    handoverNote: null,
+  } as const;
+  const stages: TaskStages = {
+    stages: [
+      {
+        stage: implement,
+        state: "done",
+        tokens,
+        wentBack: null,
+        runs: [
+          { ...aStageRun(1, at(0), at(5)), threadId, session: "fresh", tokens },
+          {
+            ...aStageRun(3, at(6), at(9)),
+            threadId,
+            session: "resume",
+            carriedFailure: { stageKey: "tests", round: 1, rounds: 3 },
+            outcome: {
+              ...done,
+              summary: "Fixed the test.",
+              handoverNote: "The **redirect** moved.",
+            },
+          },
+          {
+            ...aStageRun(6, at(14), at(15)),
+            threadId,
+            session: "resume",
+            sentBack: { gateKey: "look", feedback: "Make the buttons bigger." },
+            outcome: { ...done, summary: "Made them bigger." },
+          },
+        ],
+      },
+      {
+        stage: tests,
+        state: "done",
+        tokens: noTokens,
+        wentBack: null,
+        runs: [
+          {
+            ...aStageRun(2, at(5), at(6)),
+            commandRuns: [
+              {
+                purpose: "command",
+                commandLine: "npm test",
+                outcome: "failed",
+                durationMs: 60_000,
+              },
+            ],
+            outcome: {
+              status: "failed",
+              error: "2 tests failed.",
+              budgetReached: null,
+              interrupted: null,
+              handoverNote: null,
+            },
+          },
+          { ...aStageRun(4, at(9), at(10)), outcome: { ...done, summary: "Tests passed." } },
+          { ...aStageRun(7, at(15), at(16)), outcome: { ...done, summary: "Tests passed." } },
+        ],
+      },
+      {
+        stage: look,
+        state: "waiting-on-you",
+        tokens: noTokens,
+        wentBack: null,
+        runs: [
+          aStageRun(5, at(10), at(14), {
+            kind: "send-back",
+            stageKey: "implement",
+            feedback: "Make the buttons bigger.",
+          }),
+          aStageRun(8, at(16), null),
+        ],
+      },
+    ],
+    editedForTask: false,
+    lockedStages: 3,
+    testResults: [],
+    definitionOfDoneMet: [],
+  };
+  await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
+  await page.goto(`/tasks/${task.id}`);
+
+  const rail = page.getByRole("region", { name: /^Pipeline · / });
+  const stageButton = (name: string): Locator => rail.getByRole("button", { name, exact: true });
+  const historyOf = (name: string): Locator =>
+    rail.getByRole("region", { name: `Stage history: ${name}` });
+
+  // Tests went back once; the Gate's send-back draws nothing.
+  const loop = rail.getByRole("button", { name: /failed and went back/ });
+  await expect(loop).toHaveCount(1);
+  await expect(loop).toHaveAccessibleName(
+    "Tests failed and went back to Implement 1 time, of at most 3",
+  );
+  await expect(loop).toHaveText("1 of 3");
+  await expect(stageButton("UI acceptance")).toHaveAttribute("aria-current", "step");
+
+  await loop.click();
+  const testsHistory = historyOf("Tests");
+  await expect(stageButton("Tests")).toHaveAttribute("aria-expanded", "true");
+  await expect(testsHistory.getByRole("listitem").filter({ hasText: "Run 2" })).toContainText(
+    "2 tests failed.",
+  );
+  await expect(testsHistory.getByRole("list", { name: "Commands" })).toContainText(
+    "npm test failed · 1 min",
+  );
+  await expect(testsHistory.getByRole("link", { name: "Open its Thread" })).toHaveCount(0);
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-stage-history.png") });
+
+  await page.keyboard.press("ArrowLeft");
+  const implementHistory = historyOf("Implement");
+  await expect(testsHistory).toHaveCount(0);
+  await expect(stageButton("Implement")).toBeFocused();
+  await expect(implementHistory).toContainText("Agent Stage");
+  const runs = implementHistory.locator(".stage-history-run");
+  await expect(runs).toHaveCount(3);
+  // Newest first, and the one Thread of all three runs is reached from each.
+  await expect(runs.nth(0)).toContainText("Run 6");
+  await expect(runs.nth(0)).toContainText("Sent back from UI acceptance");
+  await expect(runs.nth(0)).toContainText("Make the buttons bigger.");
+  await expect(runs.nth(1)).toContainText("Briefed with what failed in Tests, round 1 of 3");
+  await expect(runs.nth(1)).toContainText("Fixed the test.");
+  await expect(runs.nth(1)).toContainText("continued session");
+  await expect(runs.nth(1).locator("strong", { hasText: "redirect" })).toBeVisible();
+  await expect(runs.nth(2)).toContainText("42k tokens");
+  await expect(runs.nth(2)).toContainText("fresh session");
+  const threadLinks = implementHistory.getByRole("link", { name: "Open its Thread" });
+  await expect(threadLinks).toHaveCount(3);
+  await expect(threadLinks.first()).toHaveAttribute("href", new RegExp(`taskThread=${threadId}`));
+
+  // The arrows stop at the ends, and the panel's own buttons move focus to the Stage too.
+  await page.keyboard.press("ArrowLeft");
+  await expect(implementHistory).toBeVisible();
+  await implementHistory.getByRole("button", { name: "Next Stage" }).click();
+  await expect(stageButton("Tests")).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  const gateHistory = historyOf("UI acceptance");
+  await expect(gateHistory).toContainText("You sent back to Implement");
+  await expect(gateHistory).toContainText("Waits for you to look at the changes");
+
+  // A click on the panel's text leaves the keys working; Esc gives focus back to the Stage.
+  await gateHistory.getByText("You sent back to Implement").click();
+  await page.keyboard.press("Escape");
+  await expect(gateHistory).toHaveCount(0);
+  await expect(stageButton("UI acceptance")).toBeFocused();
+  await expect(stageButton("UI acceptance")).toHaveAttribute("aria-expanded", "false");
+
+  // The same Stage again opens, and a second click closes.
+  await stageButton("Tests").click();
+  await expect(testsHistory).toBeVisible();
+  await stageButton("Tests").click();
+  await expect(testsHistory).toHaveCount(0);
+});
 
 test("a Task's images show by round, the Gate shows the current one, and the viewer steps through them", async ({
   page,

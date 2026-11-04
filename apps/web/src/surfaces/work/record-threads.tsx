@@ -11,16 +11,19 @@ import { threadTabs, withTabShown, type ThreadTabs } from "./thread-tabs.ts";
 /**
  * The Threads beside a record, a Task's or an Initiative's (prototypes/app/task.js), each a tab
  * placed and shown by `threadTabs`: at first the newest first, showing `shownFirst` when it is one
- * of them, else the newest.
+ * of them, else the newest, and later any Thread `shownFirst` changes to.
  */
 export function RecordThreads({
   threads,
   shownFirst,
+  onShown,
   readOnlyReason,
   empty,
 }: {
   readonly threads: readonly Thread[] | undefined;
   readonly shownFirst?: string | undefined;
+  /** The user picked a tab: an address holding `shownFirst` keeps up, so a link to it works again. */
+  readonly onShown?: (threadId: string) => void;
   /** Why the record's Threads can be read but not continued, once it ended. */
   readonly readOnlyReason: string | undefined;
   /** Shown while the record has no Thread yet. */
@@ -57,7 +60,10 @@ export function RecordThreads({
               type="button"
               className="task-thread"
               aria-pressed={thread.id === shown.id}
-              onClick={() => setTabs(withTabShown(current, thread.id))}
+              onClick={() => {
+                setTabs(withTabShown(current, thread.id));
+                onShown?.(thread.id);
+              }}
             >
               <Icon name="message-circle" size={13} />
               {threadTitle(thread, personName(thread))}

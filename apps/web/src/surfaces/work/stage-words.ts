@@ -29,7 +29,7 @@ export const STAGE_STATE_WORDS: Readonly<Record<StageState, string>> = {
   failed: "Failed",
 };
 
-const SESSION_WORDS: Readonly<Record<ContextMove, string>> = {
+export const SESSION_WORDS: Readonly<Record<ContextMove, string>> = {
   resume: "continued session",
   fresh: "fresh session",
   "hand-off": "hand-off with a Brief",
@@ -38,13 +38,13 @@ const SESSION_WORDS: Readonly<Record<ContextMove, string>> = {
 /** Names a Stage by its key, as the Stages it is among call it. */
 export type StageNames = (key: string) => string;
 
-/** The Task's Pipeline as its Stages block names it, saying when it was edited for the Task. */
 /**
  * A Task's Pipeline once the library no longer has it: a running or done Task keeps the copy of
  * the Stages it started with, so it may name a Pipeline removed since.
  */
 export const REMOVED_PIPELINE = "removed from the library";
 
+/** The Task's Pipeline as the rail names it, saying when it was edited for the Task. */
 export function pipelineLabel(pipelineName: string, editedForTask: boolean): string {
   return editedForTask ? `${pipelineName} · edited for this Task` : pipelineName;
 }
@@ -150,7 +150,7 @@ function resultWords(
       return outcome.question;
     case "failed": {
       const why = outcome.budgetReached
-        ? `reached its budget: ${tokensShort(outcome.budgetReached.used)} of ${tokensShort(outcome.budgetReached.budget)} tokens`
+        ? budgetWords(outcome.budgetReached)
         : headLine(outcome.error);
       return wentBack
         ? `${why} · back to ${names(wentBack.stageKey)}, round ${wentBack.round} of ${wentBack.rounds}`
@@ -159,8 +159,19 @@ function resultWords(
   }
 }
 
-/** What the user did at a Gate, as its Stage row says it. */
-function gateActionWords(action: GateAction, names: StageNames): string {
+/** "reached its budget: 120k of 100k tokens". */
+export function budgetWords({
+  used,
+  budget,
+}: {
+  readonly used: number;
+  readonly budget: number;
+}): string {
+  return `reached its budget: ${tokensShort(used)} of ${tokensShort(budget)} tokens`;
+}
+
+/** What the user did at a Gate, as its Stage row and its history say it. */
+export function gateActionWords(action: GateAction, names: StageNames): string {
   switch (action.kind) {
     case "continue":
       return "continued";

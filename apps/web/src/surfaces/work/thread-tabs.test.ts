@@ -29,6 +29,18 @@ describe("threadTabs", () => {
     expect(threadTabs(empty, ["a"])).toEqual({ order: ["a"], shownId: "a", fresh: new Set() });
   });
 
+  it("shows the Thread a link on the page changes the address to", () => {
+    const tabs = threadTabs(undefined, ["c", "b", "a"], "c");
+    const followed = threadTabs(tabs, ["c", "b", "a"], "a");
+    expect(followed.shownId).toBe("a");
+    expect(threadTabs(withTabShown(followed, "b"), ["c", "b", "a"], "a").shownId).toBe("b");
+  });
+
+  it("stays where it is when the address asks for a Thread not among them", () => {
+    const tabs = threadTabs(undefined, ["b", "a"]);
+    expect(threadTabs(tabs, ["b", "a"], "gone").shownId).toBe("b");
+  });
+
   it("gives the same tabs back while no Thread is added", () => {
     const tabs = threadTabs(undefined, ["b", "a"]);
     expect(threadTabs(tabs, ["b", "a"])).toBe(tabs);

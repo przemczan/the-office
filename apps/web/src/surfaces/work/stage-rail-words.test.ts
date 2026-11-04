@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { NO_TOKENS } from "../../shell/token-words.ts";
 import {
   currentStageIndex,
+  loopBacks,
+  loopBackWords,
   railCaption,
   railRunsWords,
   railStateWords,
@@ -187,5 +189,120 @@ describe("railRunsWords", () => {
   it("counts a running Stage's time until now", () => {
     const running = aTaskStage(tests, { state: "running", runs: [aRun({ endedAt: null })] });
     expect(railRunsWords(running, true, now)).toBe("1 run · 30 min so far");
+  });
+});
+
+function carried(stageKey: string, round: number, rounds = 3): StageRun["carriedFailure"] {
+  return { stageKey, round, rounds };
+}
+
+describe("loopBacks", () => {
+  const failedOutcome = {
+    status: "failed",
+    error: "A test failed.",
+    budgetReached: null,
+    interrupted: null,
+    handoverNote: null,
+  } as const;
+  const lint: Stage = { ...tests, key: "lint", name: "Lint" };
+  it("finds none on a walk that never went back", () => {
+    const stages = [
+      aTaskStage(implement, { runs: [aRun({ number: 1 })] }),
+      aTaskStage(tests, { runs: [aRun({ number: 2 })] }),
+    ];
+    expect(loopBacks(stages)).toEqual([]);
+  });
+
+  it("counts each trip from the failing Stage back to the earlier one", () => {
+    const stages = [
+      aTaskStage(implement, {
+        runs: [
+          aRun({ number: 1 }),
+          aRun({ number: 3, carriedFailure: carried("tests", 1) }),
+          aRun({ number: 5, carriedFailure: carried("tests", 2) }),
+        ],
+      }),
+      aTaskStage(tests, {
+        runs: [
+          aRun({ number: 2, outcome: failedOutcome }),
+          aRun({ number: 4, outcome: failedOutcome }),
+        ],
+      }),
+    ];
+    expect(loopBacks(stages)).toEqual([
+      { from: "tests", to: "implement", fromIndex: 1, toIndex: 0, count: 2, rounds: 3, level: 0 },
+    ]);
+    expect(loopBackWords(loopBacks(stages)[0]!, names)).toBe(
+      "Tests failed and went back to Implement 2 times, of at most 3",
+    );
+  });
+
+  it("doesn't count a run resumed with the failure it already carried", () => {
+    const stages = [
+      aTaskStage(implement, {
+        runs: [
+          aRun({ number: 1 }),
+          aRun({ number: 3, carriedFailure: carried("tests", 1) }),
+          aRun({ number: 4, carriedFailure: carried("tests", 1) }),
+        ],
+      }),
+      aTaskStage(tests, { runs: [aRun({ number: 2, outcome: failedOutcome })] }),
+    ];
+    expect(loopBacks(stages).map(({ count }) => count)).toEqual([1]);
+  });
+
+  it("takes the rounds of the latest trip, as the user may have allowed more", () => {
+    const stages = [
+      aTaskStage(implement, {
+        runs: [
+          aRun({ number: 2, carriedFailure: carried("tests", 1, 1) }),
+          aRun({ number: 4, carriedFailure: carried("tests", 2, 2) }),
+        ],
+      }),
+      aTaskStage(tests, { runs: [aRun({ number: 1 }), aRun({ number: 3 })] }),
+    ];
+    expect(loopBacks(stages).map(({ rounds }) => rounds)).toEqual([2]);
+  });
+
+  it("puts a shorter loop under a longer one", () => {
+    const stages = [
+      aTaskStage(implement, {
+        runs: [aRun({ number: 5, carriedFailure: carried("lint", 1) })],
+      }),
+      aTaskStage(tests, {
+        runs: [aRun({ number: 1 }), aRun({ number: 3, carriedFailure: carried("review", 1) })],
+      }),
+      aTaskStage(review, { runs: [aRun({ number: 2 })] }),
+      aTaskStage(lint, { runs: [aRun({ number: 4 })] }),
+    ];
+    expect(loopBacks(stages).map(({ from, to, level }) => [from, to, level])).toEqual([
+      ["review", "tests", 0],
+      ["lint", "implement", 1],
+    ]);
+  });
+
+  it("draws nothing for a Stage run again in place, or for a Stage no longer on the rail", () => {
+    const stages = [
+      aTaskStage(implement, {
+        runs: [aRun({ number: 2, carriedFailure: carried("gone", 1) })],
+      }),
+      aTaskStage(tests, {
+        runs: [aRun({ number: 3 }), aRun({ number: 4, carriedFailure: carried("tests", 1, 1) })],
+      }),
+    ];
+    expect(loopBacks(stages)).toEqual([]);
+  });
+
+  it("draws no arc for a Gate's send-back", () => {
+    const stages = [
+      aTaskStage(implement, {
+        runs: [
+          aRun({ number: 1 }),
+          aRun({ number: 3, sentBack: { gateKey: "review", feedback: "Bigger." } }),
+        ],
+      }),
+      aTaskStage(review, { runs: [aRun({ number: 2 })] }),
+    ];
+    expect(loopBacks(stages)).toEqual([]);
   });
 });

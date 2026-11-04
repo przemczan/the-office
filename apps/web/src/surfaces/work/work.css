@@ -590,11 +590,13 @@
   list-style: none;
 }
 
+/* Over a selected Stage's background, under the markers. */
 .pipeline-rail-line,
 .pipeline-rail-reached {
   position: absolute;
-  top: 10px;
+  z-index: 1;
   height: 2px;
+  pointer-events: none;
   border-radius: 2px;
 }
 
@@ -607,16 +609,217 @@
 }
 
 .pipeline-rail-stage {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 2px;
   align-items: center;
   min-width: 0;
   padding: 0 6px;
+  border-radius: var(--radius-control);
   text-align: center;
 }
 
+.pipeline-rail-stage:hover {
+  background: var(--surface-sunken);
+}
+
+.pipeline-rail-stage-selected,
+.pipeline-rail-stage-selected:hover {
+  background: var(--accent-subtle);
+}
+
+/* The Stage's button covers its column; what else in the column is a control sits above it. */
+.pipeline-rail-button {
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.pipeline-rail-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-control);
+}
+
+.pipeline-rail-button:focus-visible::after {
+  box-shadow: var(--focus-ring);
+}
+
+.pipeline-rail-runs .token-info {
+  position: relative;
+  z-index: 1;
+}
+
+/* A bracket, not an SVG curve: its ends are shares of the width, so it follows the columns. */
+.pipeline-rail-arc {
+  position: absolute;
+  border: 1.5px solid var(--danger);
+  border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+}
+
+/* The arrowhead, on the end where the work landed. */
+.pipeline-rail-arc::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: -5px;
+  border: 4px solid transparent;
+  border-top: 6px solid var(--danger);
+  border-bottom: 0;
+}
+
+.pipeline-rail-arc-mark {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  padding: 1px 6px;
+  border: 1px solid var(--danger-border);
+  border-radius: 999px;
+  background: var(--surface);
+  font: var(--type-caption);
+  white-space: nowrap;
+  color: var(--danger-fg);
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+}
+
+.pipeline-rail-arc-mark:focus-visible {
+  outline: 0;
+  box-shadow: var(--focus-ring);
+}
+
+.stage-history {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border-subtle);
+  outline: 0;
+}
+
+.stage-history-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.stage-history-head h3 {
+  margin: 0;
+  font: 600 14px/1.4 var(--font-sans);
+  color: var(--fg-1);
+}
+
+.stage-history-worker,
+.stage-history-keys,
+.stage-history-line,
+.stage-history-facts {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.stage-history-keys {
+  margin-left: auto;
+}
+
+.stage-history-line {
+  margin: 4px 0 10px;
+}
+
+.stage-history-runs {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stage-history-run {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-control);
+}
+
+.stage-history-run-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font: 500 13px/1.4 var(--font-sans);
+  color: var(--fg-1);
+}
+
+.stage-history-facts .token-info {
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.stage-history-thread {
+  margin-left: auto;
+  font: var(--type-caption);
+  color: var(--accent-fg);
+}
+
+.stage-history-carried {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--danger-fg);
+}
+
+.stage-history-text,
+.stage-history-note {
+  font: var(--type-caption);
+  line-height: 1.5;
+  color: var(--fg-2);
+  overflow-wrap: anywhere;
+}
+
+/* A failed run's error can be a whole test log. */
+.stage-history-text {
+  overflow-y: auto;
+  max-height: 200px;
+}
+
+.stage-history-note {
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--surface-sunken);
+}
+
+.stage-history-label {
+  margin: 0;
+  font-weight: 600;
+}
+
+.stage-history-commands {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
 .pipeline-rail-marker {
+  position: relative;
+  z-index: 2;
   display: grid;
   place-items: center;
   width: 22px;

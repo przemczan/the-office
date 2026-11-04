@@ -1,3 +1,4 @@
+import { useNavigate } from "@tanstack/react-router";
 import { ENDED_TASK_CONVERSATION_WORDS, type Task, type Thread } from "@the-office/contracts";
 import type { ReactNode } from "react";
 import { EmptyCard } from "../../shell/item-card.tsx";
@@ -19,10 +20,18 @@ export function TaskConversation({
   readonly shownFirst: string | undefined;
 }): ReactNode {
   const planner = usePlanner();
+  const navigate = useNavigate({ from: "/tasks/$taskId" });
   return (
     <RecordThreads
       threads={threads}
       shownFirst={shownFirst}
+      onShown={(threadId) => {
+        void navigate({
+          search: (search) => ({ ...search, taskThread: threadId }),
+          replace: true,
+          resetScroll: false,
+        });
+      }}
       readOnlyReason={ENDED_TASK_CONVERSATION_WORDS[task.state]}
       empty={
         <EmptyCard>

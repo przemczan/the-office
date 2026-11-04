@@ -1687,6 +1687,27 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   ]);
   await expect(handoverNote.locator("code")).toHaveText("next");
 
+  // The history reaches a run's Thread, however many times the reader looks away and comes back.
+  const rail = page.getByRole("region", { name: /^Pipeline · / });
+  await rail.getByRole("button", { name: "Implement", exact: true }).click();
+  const openThread = rail
+    .getByRole("region", { name: "Stage history: Implement" })
+    .getByRole("link", { name: "Open its Thread" })
+    .first();
+  const otherTab = conversation
+    .getByRole("group", { name: "Threads" })
+    .getByRole("button")
+    .filter({ hasNotText: /^Implement/ })
+    .first();
+  const lookAwayAndComeBack = async (): Promise<void> => {
+    await otherTab.click();
+    await expect(implementTab).toHaveAttribute("aria-pressed", "false");
+    await openThread.click();
+    await expect(implementTab).toHaveAttribute("aria-pressed", "true");
+  };
+  await lookAwayAndComeBack();
+  await lookAwayAndComeBack();
+
   // Publish fails, as the repository has no remote: The Office asks Bob, the CTO, first, who passes
   // it on to the user. Waiting for that keeps the next test's sessions after Bob's.
   await expect
