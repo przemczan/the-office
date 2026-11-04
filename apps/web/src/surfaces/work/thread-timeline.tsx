@@ -9,16 +9,18 @@ import { DetailsSwitch } from "../../shell/conversation/details-switch.tsx";
 import { ThreadLog, ThreadTitle } from "../../shell/conversation/thread-view.tsx";
 import { clockOf } from "../../shell/time.ts";
 import { newMessagesWords, useNewMessages } from "./new-messages.ts";
-import { threadTabs, withTabSeen, type ThreadTabs } from "./thread-tabs.ts";
+import { threadsSeen, withThreadSeen, type ThreadsSeen } from "./threads-seen.ts";
 import { TimelineFoot } from "./timeline-foot.tsx";
 import {
   chaptersStartingOpen,
   foldedLine,
+  NO_TIMELINE_WORK,
   threadsInOrder,
   withChapterOpen,
   withChaptersStarted,
   type ChapterFolds,
   type ChapterWork,
+  type TimelineWork,
 } from "./timeline-words.ts";
 import { liveThread, toLineNow, toLinePicked, writableThreads, type ToLine } from "./to-line.ts";
 import { chapterElementId, useTimelineScroll } from "./use-timeline-scroll.ts";
@@ -33,35 +35,28 @@ const NO_FOLDS: ChapterFolds = new Map();
 export function ThreadTimeline({
   threads,
   asked,
-  holdingOpenDecision,
-  waitingOnYou,
-  workOf,
+  work = NO_TIMELINE_WORK,
   onAsked,
-  onShowStage,
   readOnlyReason,
 }: {
   readonly threads: readonly Thread[];
   /** The Thread the address names. */
   readonly asked: string | undefined;
-  readonly holdingOpenDecision: ReadonlySet<string>;
-  /** Those of them whose Decision is the user's to answer, not a Consultant's. */
-  readonly waitingOnYou: ReadonlySet<string>;
-  readonly workOf: (threadId: string) => ChapterWork;
+  readonly work?: TimelineWork;
   /** The address keeps up, so that a link to a Thread works again; undefined takes it off. */
   readonly onAsked: (threadId: string | undefined) => void;
-  /** A chapter's way to the rail. */
-  readonly onShowStage: (stageKey: string) => void;
   /** Why the record's Threads can be read but not continued, once it ended. */
   readonly readOnlyReason: string | undefined;
 }): ReactNode {
   const roles = useQuery(roleQueries.list()).data;
-  const [tabs, setTabs] = useState<ThreadTabs>();
+  const [seen, setSeen] = useState<ThreadsSeen>();
   const [folds, setFolds] = useState(NO_FOLDS);
   const [line, setLine] = useState<ToLine>();
   const [drafting, setDrafting] = useState(false);
   const { scroller, chapters, follows, follow } = useTimelineScroll(asked);
-  const seen = threadTabs(
-    tabs,
+  const { holdingOpenDecision, waitingOnYou, workOf, onShowStage } = work;
+  const placed = threadsSeen(
+    seen,
     threads.map(({ id }) => id),
     asked,
   );
@@ -69,15 +64,16 @@ export function ThreadTimeline({
   const writableIds = writable.map(({ id }) => id);
   const live = liveThread(writable, holdingOpenDecision)?.id;
   // A link followed unfolds its Thread, even one the user folded, and writes there if it can.
-  const followed = asked !== undefined && (tabs === undefined || tabs.asked !== asked);
+  const followed = asked !== undefined && (seen === undefined || seen.asked !== asked);
   const to =
     followed && writableIds.includes(asked)
       ? toLinePicked(asked, live)
       : toLineNow(line, writableIds, live, drafting);
   const toId = to.threadId;
-  const current = toId !== undefined && seen.fresh.has(toId) ? withTabSeen(seen, toId) : seen;
+  const current =
+    toId !== undefined && placed.fresh.has(toId) ? withThreadSeen(placed, toId) : placed;
   // A change in the Threads changes these here, before they are drawn.
-  if (current !== tabs) setTabs(current);
+  if (current !== seen) setSeen(current);
   if (to !== line) setLine(to);
   const started = withChaptersStarted(
     folds,
@@ -95,7 +91,7 @@ export function ThreadTimeline({
   const personName = (thread: Thread): string => nameOf(thread.roleKey, roles);
   const toggle = (threadId: string, open: boolean): void => {
     setFolds(withChapterOpen(unfolded, threadId, open));
-    if (open) setTabs(withTabSeen(current, threadId));
+    if (open) setSeen(withThreadSeen(current, threadId));
     // Folded, the Thread the address names couldn't be reached again by the same link.
     else if (threadId === asked) onAsked(undefined);
   };

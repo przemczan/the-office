@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { Attachment, AttachmentOwner } from "@the-office/contracts";
+import type { Attachment, AttachmentOwner, Initiative } from "@the-office/contracts";
 import { Button } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
@@ -11,9 +11,12 @@ import {
   oneRound,
   type AttachmentRound,
 } from "../../shell/attachments/attachment-rounds.ts";
+import { attachmentsSummary } from "./initiative-words.ts";
 import { RecordBlock } from "./record-block.tsx";
+import { RecordFold } from "./record-fold.tsx";
+import { useFold } from "./record-folds.ts";
 
-/** A Task's or an Initiative's Attachments on its record, a Task's by round, with Add. */
+/** A Task's Attachments in their tab, by round, with Add. */
 export function AttachmentsBlock({
   owner,
   ownerTitle,
@@ -21,32 +24,88 @@ export function AttachmentsBlock({
   readonly owner: AttachmentOwner;
   readonly ownerTitle: string;
 }): ReactNode {
-  const attachments = useQuery(attachmentQueries.of(owner));
-  const rounds = useRoundsOf(owner, attachments.data ?? []);
   const [adding, setAdding] = useState(false);
   return (
     <RecordBlock
       icon="paperclip"
       title="Attachments"
-      actions={
-        <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
-          Add
-        </Button>
+      actions={<AddButton onClick={() => setAdding(true)} />}
+    >
+      <AttachmentsBody
+        owner={owner}
+        ownerTitle={ownerTitle}
+        adding={adding}
+        onAdded={() => setAdding(false)}
+      />
+    </RecordBlock>
+  );
+}
+
+/** An Initiative's Attachments, a fold of its record, with Add. */
+export function InitiativeAttachments({
+  initiative,
+}: {
+  readonly initiative: Initiative;
+}): ReactNode {
+  const owner: AttachmentOwner = { kind: "initiative", initiativeId: initiative.id };
+  const fold = useFold({ kind: "initiative", id: initiative.id }, "attachments", true);
+  const attachments = useQuery(attachmentQueries.of(owner));
+  const [adding, setAdding] = useState(false);
+  return (
+    <RecordFold
+      fold={fold}
+      icon="paperclip"
+      title="Attachments"
+      summary={attachmentsSummary(attachments.data?.length ?? 0)}
+      side={
+        <AddButton
+          onClick={() => {
+            fold.open();
+            setAdding(true);
+          }}
+        />
       }
     >
+      <AttachmentsBody
+        owner={owner}
+        ownerTitle={initiative.name}
+        adding={adding}
+        onAdded={() => setAdding(false)}
+      />
+    </RecordFold>
+  );
+}
+
+function AddButton({ onClick }: { readonly onClick: () => void }): ReactNode {
+  return (
+    <Button size="sm" variant="secondary" onClick={onClick}>
+      Add
+    </Button>
+  );
+}
+
+function AttachmentsBody({
+  owner,
+  ownerTitle,
+  adding,
+  onAdded,
+}: {
+  readonly owner: AttachmentOwner;
+  readonly ownerTitle: string;
+  readonly adding: boolean;
+  readonly onAdded: () => void;
+}): ReactNode {
+  const attachments = useQuery(attachmentQueries.of(owner));
+  const rounds = useRoundsOf(owner, attachments.data ?? []);
+  return (
+    <>
       {attachments.data?.length === 0 ? (
         <p className="task-quiet">None</p>
       ) : (
         <AttachmentGallery rounds={rounds} />
       )}
-      {adding && (
-        <AddAttachmentDialog
-          owner={owner}
-          ownerTitle={ownerTitle}
-          onClose={() => setAdding(false)}
-        />
-      )}
-    </RecordBlock>
+      {adding && <AddAttachmentDialog owner={owner} ownerTitle={ownerTitle} onClose={onAdded} />}
+    </>
   );
 }
 

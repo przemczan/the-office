@@ -1,6 +1,7 @@
 import type { Initiative, InitiativeState, Task } from "@the-office/contracts";
 import type { BadgeProps } from "@the-office/ui";
 import { blockersOf, blockingTasksOf } from "./dependency-words.ts";
+import { firstLine, withoutMarkdownMarks } from "./stage-words.ts";
 
 export const INITIATIVE_STATE_TONES: Readonly<
   Record<InitiativeState, NonNullable<BadgeProps["tone"]>>
@@ -55,6 +56,17 @@ export function initiativeProgress(
 export function progressWords({ done, counted, readyToStart }: InitiativeProgress): string {
   const ready = readyToStart > 0 ? ` · ${readyToStart} ready to start` : "";
   return `${done} of ${counted} ${counted === 1 ? "Task" : "Tasks"} done${ready}`;
+}
+
+/** The Outcome block's folded line. */
+export function outcomeSummary(outcome: string): string {
+  return outcome === "" ? "Not written yet" : withoutMarkdownMarks(firstLine(outcome));
+}
+
+/** The Attachments block's folded line. */
+export function attachmentsSummary(count: number): string {
+  if (count === 0) return "None";
+  return `${count} ${count === 1 ? "Attachment" : "Attachments"}`;
 }
 
 /** A Task in the graph; a blocker from outside the Initiative is drawn too, marked. */

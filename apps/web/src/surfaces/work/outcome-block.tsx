@@ -4,8 +4,10 @@ import { useState, type ReactNode } from "react";
 import { writeInitiativeOutcome } from "../../api/work.ts";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
+import { outcomeSummary } from "./initiative-words.ts";
 import { PartEditor } from "./part-editor.tsx";
-import { RecordBlock } from "./record-block.tsx";
+import { RecordFold } from "./record-fold.tsx";
+import { useFold } from "./record-folds.ts";
 import { useInitiativeChange } from "./use-initiative-change.ts";
 
 /**
@@ -13,18 +15,28 @@ import { useInitiativeChange } from "./use-initiative-change.ts";
  * once it is active, it changes only by the CTO's Proposal (spec §2.1 Defaults).
  */
 export function OutcomeBlock({ initiative }: { readonly initiative: Initiative }): ReactNode {
+  const fold = useFold({ kind: "initiative", id: initiative.id }, "outcome", true);
   const [editing, setEditing] = useState(false);
   const writing = useInitiativeChange(initiative, (outcome: string) =>
     writeInitiativeOutcome(initiative.id, { outcome }),
   );
   return (
-    <RecordBlock
+    <RecordFold
+      fold={fold}
       icon="target"
       title="Outcome"
-      actions={
+      summary={outcomeSummary(initiative.outcome)}
+      side={
         initiative.state === "shaping" &&
         !editing && (
-          <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              fold.open();
+              setEditing(true);
+            }}
+          >
             Edit
           </Button>
         )
@@ -46,6 +58,6 @@ export function OutcomeBlock({ initiative }: { readonly initiative: Initiative }
       ) : (
         <MarkdownText text={initiative.outcome} />
       )}
-    </RecordBlock>
+    </RecordFold>
   );
 }

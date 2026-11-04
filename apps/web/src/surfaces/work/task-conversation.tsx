@@ -49,11 +49,14 @@ export function TaskConversation({
       <ThreadTimeline
         threads={threads}
         asked={asked}
-        holdingOpenDecision={new Set(decisions?.map(({ threadId }) => threadId))}
-        waitingOnYou={
-          new Set(decisions?.filter(({ putTo }) => putTo === null).map(({ threadId }) => threadId))
-        }
-        workOf={(threadId) => chapterWork(stages ?? [], threadId)}
+        work={{
+          holdingOpenDecision: new Set(decisions?.map(({ threadId }) => threadId)),
+          waitingOnYou: new Set(
+            decisions?.filter(({ putTo }) => putTo === null).map(({ threadId }) => threadId),
+          ),
+          workOf: (threadId) => chapterWork(stages ?? [], threadId),
+          onShowStage,
+        }}
         onAsked={(threadId) => {
           void navigate({
             search: ({ taskThread: _named, ...search }) => ({
@@ -64,7 +67,6 @@ export function TaskConversation({
             resetScroll: false,
           });
         }}
-        onShowStage={onShowStage}
         readOnlyReason={ENDED_TASK_CONVERSATION_WORDS[task.state]}
       />
     </aside>

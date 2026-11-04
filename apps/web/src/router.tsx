@@ -124,11 +124,20 @@ const initiativesRoute = createRoute({
   staticData: { title: "Work" },
 });
 
+/** An Initiative's page, showing one of its Threads first, as a Task's page does. */
+export interface InitiativeSearch {
+  readonly initiativeThread?: string;
+}
+
 // An Initiative's page, at the path its links name (`recordPath`), outside Work's tabs as a Task's is.
 const initiativeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "work/initiatives/$initiativeId",
   component: InitiativePage,
+  validateSearch: (search: Record<string, unknown>): InitiativeSearch =>
+    typeof search["initiativeThread"] === "string"
+      ? { initiativeThread: search["initiativeThread"] }
+      : {},
   // Until the Initiative is read; the page then names it.
   staticData: { title: "Work" },
 });

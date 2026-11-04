@@ -12,7 +12,7 @@
 
 - `app.tsx`: App
 - `main.tsx`
-- `router.tsx`: OverPageSearch, IdeasSearch, TaskSearch, HireSearch, OfficeIdentitySearch, router
+- `router.tsx`: OverPageSearch, IdeasSearch, InitiativeSearch, TaskSearch, HireSearch, OfficeIdentitySearch, router
 
 ### api/
 

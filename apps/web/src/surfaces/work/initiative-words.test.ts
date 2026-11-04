@@ -1,6 +1,12 @@
 import type { Task } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { initiativeProgress, progressWords, taskGraph } from "./initiative-words.ts";
+import {
+  attachmentsSummary,
+  initiativeProgress,
+  outcomeSummary,
+  progressWords,
+  taskGraph,
+} from "./initiative-words.ts";
 
 const INITIATIVE_ID = "3f0c2b1a-9d8e-4f7a-8b6c-5d4e3f2a1b0c";
 
@@ -92,5 +98,18 @@ describe("initiativeProgress", () => {
 
     expect(progress).toEqual({ done: 1, counted: 3, readyToStart: 1 });
     expect(progressWords(progress)).toBe("1 of 3 Tasks done · 1 ready to start");
+  });
+});
+
+describe("the folded lines", () => {
+  it("opens with the outcome's first line, without its Markdown", () => {
+    expect(outcomeSummary("")).toBe("Not written yet");
+    expect(outcomeSummary("**Monthly** exports\n\nAnd more.")).toBe("Monthly exports");
+  });
+
+  it("counts the Attachments", () => {
+    expect(attachmentsSummary(0)).toBe("None");
+    expect(attachmentsSummary(1)).toBe("1 Attachment");
+    expect(attachmentsSummary(2)).toBe("2 Attachments");
   });
 });

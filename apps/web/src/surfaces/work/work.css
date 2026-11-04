@@ -1557,31 +1557,6 @@
   color: var(--fg-2);
 }
 
-.task-threads {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.task-thread {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 28px;
-  padding: 0 10px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  font: var(--type-body-sm);
-  color: var(--fg-2);
-  cursor: pointer;
-}
-
-.task-thread[aria-pressed="true"] {
-  border-color: var(--fg-1);
-  color: var(--fg-1);
-}
-
 @media (max-width: 1280px) {
   .task-columns {
     grid-template-columns: minmax(0, 1fr);

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useParams } from "@tanstack/react-router";
+import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import {
   ENDED_INITIATIVE_CONVERSATION_WORDS,
   type Initiative,
@@ -16,7 +16,7 @@ import { EmptyCard } from "../../shell/item-card.tsx";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { useCto } from "../../shell/work/use-cto.ts";
-import { AttachmentsBlock } from "./attachments-block.tsx";
+import { InitiativeAttachments } from "./attachments-block.tsx";
 import { InitiativeActions } from "./initiative-actions.tsx";
 import { InitiativeProjects, InitiativeStateBadge } from "./initiative-parts.tsx";
 import { initiativeProgress, progressWords, tasksOfInitiative } from "./initiative-words.ts";
@@ -24,12 +24,12 @@ import { MissingRecord } from "./missing-record.tsx";
 import { OriginBlock } from "./origin-block.tsx";
 import { OutcomeBlock } from "./outcome-block.tsx";
 import { RecordBlock } from "./record-block.tsx";
-import { RecordThreads } from "./record-threads.tsx";
 import { TaskGraph } from "./task-graph.tsx";
+import { ThreadTimeline } from "./thread-timeline.tsx";
 
 /**
  * An Initiative's page (prototypes/app/work.js `initiativePage`): its Tasks as a graph across
- * Projects, its record, and its conversation with the CTO.
+ * Projects, its record's folds, and its Threads with the CTO as the Task page's timeline.
  */
 export function InitiativePage(): ReactNode {
   const { initiativeId } = useParams({ from: "/work/initiatives/$initiativeId" });
@@ -66,16 +66,13 @@ export function InitiativePage(): ReactNode {
         <section className="task-record" aria-label="Record">
           {record.state === "shaping" && <ShapingNote cto={cto} />}
           <OutcomeBlock initiative={record} />
-          <AttachmentsBlock
-            owner={{ kind: "initiative", initiativeId: record.id }}
-            ownerTitle={record.name}
-          />
+          <InitiativeAttachments initiative={record} />
           <OriginBlock
             record={{ kind: "initiative", id: record.id }}
             ideaId={record.originIdeaId}
           />
         </section>
-        <InitiativeConversation initiative={record} cto={cto} />
+        <InitiativeConversation key={record.id} initiative={record} cto={cto} />
       </div>
     </div>
   );
@@ -173,13 +170,14 @@ function InitiativeConversation({
   readonly initiative: Initiative;
   readonly cto: Role | undefined;
 }): ReactNode {
-  const threads = useQuery(threadQueries.onInitiative(initiative.id));
+  const { initiativeThread } = useSearch({ from: "/work/initiatives/$initiativeId" });
+  const navigate = useNavigate({ from: "/work/initiatives/$initiativeId" });
+  const threads = useQuery(threadQueries.onInitiative(initiative.id)).data;
   const readOnlyReason = ENDED_INITIATIVE_CONVERSATION_WORDS[initiative.state];
-  return (
-    <RecordThreads
-      threads={threads.data}
-      readOnlyReason={readOnlyReason}
-      empty={
+  if (!threads) return null;
+  if (threads.length === 0) {
+    return (
+      <aside className="task-conversation" aria-label="Conversation">
         <EmptyCard>
           No conversation on {initiative.name} yet.
           {readOnlyReason === undefined &&
@@ -189,8 +187,24 @@ function InitiativeConversation({
               " Hire a CTO to shape it with them."
             ))}
         </EmptyCard>
-      }
-    />
+      </aside>
+    );
+  }
+  return (
+    <aside className="task-conversation" aria-label="Conversation">
+      <ThreadTimeline
+        threads={threads}
+        asked={initiativeThread}
+        onAsked={(threadId) => {
+          void navigate({
+            search: threadId === undefined ? {} : { initiativeThread: threadId },
+            replace: true,
+            resetScroll: false,
+          });
+        }}
+        readOnlyReason={readOnlyReason}
+      />
+    </aside>
   );
 }
 

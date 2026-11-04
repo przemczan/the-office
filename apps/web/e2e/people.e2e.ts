@@ -3172,6 +3172,17 @@ async function seedInitiativeProposal(
   );
 }
 
+/** An older Thread on the Initiative, so that the To line doesn't start on it; gives its id. */
+async function seedOlderInitiativeThread(initiativeId: string, title: string): Promise<string> {
+  const threadId = crypto.randomUUID();
+  await queryOfficeDatabase(
+    `insert into threads (id, home_kind, home_id, role_key, title, state, tokens, started_at)
+     values ($1, 'initiative', $2, 'cto', $3, 'waiting', $4, now() - interval '1 day')`,
+    [threadId, initiativeId, title, { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }],
+  );
+  return threadId;
+}
+
 /** "Add a Task" on the Initiative page, in `projectName`, waiting for the Tasks named. */
 async function addTaskToInitiative(
   page: Page,
@@ -3197,9 +3208,9 @@ async function addTaskToInitiative(
   await expect(page.getByText(`${title} is in Backlog.`)).toBeVisible();
 }
 
-// The engine replays the last session in e2e/sessions.jsonl: Bob writes the outcome while the
-// Initiative is shaped, then proposes a new one once it is active.
-test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confirms it, applies Bob's Proposal and drops it", async ({
+// The engine replays the last sessions in e2e/sessions.jsonl: Bob writes the outcome while the
+// Initiative is shaped, then proposes a new one once it is active, and answers in a chosen Thread.
+test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confirms it, applies Bob's Proposal, folds a block, writes in a chosen Thread and drops it", async ({
   page,
 }) => {
   const repository = await createTemporaryRepository();
@@ -3316,6 +3327,11 @@ test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confi
     await graph.getByRole("link", { name: /Usage export in the API/ }).click();
     await expect(dependencies).toContainText("Usage table schema");
     await page.goto(initiativeUrl);
+    await expect(
+      conversation.getByText(
+        "The Initiative is active, so I proposed the new outcome for you to apply.",
+      ),
+    ).toBeVisible();
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-initiative.png") });
 
     await page.goto("/work/initiatives");
@@ -3323,7 +3339,46 @@ test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confi
       "0 of 3 Tasks done",
     );
 
+    // A block stays folded across a reload, down to its one line.
     await page.goto(initiativeUrl);
+    const attachments = record.getByRole("region", { name: "Attachments" });
+    await attachments.getByRole("button", { name: /^Attachments/ }).click();
+    await page.reload();
+    await expect(attachments.getByRole("button", { name: /^Attachments/ })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    await expect(attachments.getByText("1 Attachment")).toBeVisible();
+    await expect(attachments.getByText("Usage export sketch")).toBeHidden();
+
+    // The page has no rail, no tabs and no Needs you card, only the timeline's one Details switch.
+    await expect(page.getByRole("region", { name: /^Pipeline · / })).toHaveCount(0);
+    await expect(page.getByRole("tab")).toHaveCount(0);
+    await expect(page.getByRole("region", { name: "Needs you" })).toHaveCount(0);
+    await expect(detailsSwitch(conversation)).toHaveCount(1);
+
+    // The To line starts on the newest Thread, and the user chooses an older one, which unfolds
+    // and goes in the address; Bob answers there.
+    const pricingThreadId = await seedOlderInitiativeThread(initiativeId, "Pricing");
+    await page.reload();
+    const toLine = conversation.getByLabel("To", { exact: true });
+    await expect(toLine.locator("option:checked")).toHaveText(/^Shaping/);
+    const pricing = conversation.getByRole("region", { name: "Pricing · Bob" });
+    const pricingFold = pricing.getByRole("button", { name: /^Pricing · Bob/ });
+    await expect(pricingFold).toHaveAttribute("aria-expanded", "false");
+    await toLine.selectOption({ label: "Pricing · Bob" });
+    await expect(pricingFold).toHaveAttribute("aria-expanded", "true");
+    await expect(page).toHaveURL(new RegExp(`initiativeThread=${pricingThreadId}$`));
+    await message.fill("Should exports cost extra?");
+    await message.press("Enter");
+    await expect(pricing.getByText("Should exports cost extra?")).toBeVisible();
+    await expect(pricing.getByText("No: exports come with every plan.")).toBeVisible();
+
+    // A link naming a Thread opens the page on it.
+    await page.goto(`${initiativeUrl}?initiativeThread=${pricingThreadId}`);
+    await expect(pricingFold).toHaveAttribute("aria-expanded", "true");
+    await expect(toLine.locator("option:checked")).toHaveText(/^Pricing/);
+
     await page.getByRole("button", { name: "More for Usage exports for customers" }).click();
     await page.getByRole("menu").getByRole("button", { name: "Drop the Initiative" }).click();
     await expect(

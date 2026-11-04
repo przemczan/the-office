@@ -9,6 +9,24 @@ export interface ChapterWork {
   readonly handoverNote: string | undefined;
 }
 
+/** What a record's Decisions and Stages add to its Threads. */
+export interface TimelineWork {
+  readonly holdingOpenDecision: ReadonlySet<string>;
+  /** Those of them whose Decision is the user's to answer, not a Consultant's. */
+  readonly waitingOnYou: ReadonlySet<string>;
+  readonly workOf: (threadId: string) => ChapterWork;
+  /** A chapter's way to the rail. */
+  readonly onShowStage: (stageKey: string) => void;
+}
+
+/** A record with no Decisions and no Stages, as an Initiative is: its Threads are all it has. */
+export const NO_TIMELINE_WORK: TimelineWork = {
+  holdingOpenDecision: new Set(),
+  waitingOnYou: new Set(),
+  workOf: () => ({ stages: [], handoverNote: undefined }),
+  onShowStage: () => undefined,
+};
+
 /**
  * Which chapters are unfolded, by Thread. A chapter once unfolded stays as it is until the user
  * folds it: a Decision answered, or a new Thread taken up, must not fold text under the reader.
