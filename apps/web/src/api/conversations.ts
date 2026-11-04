@@ -93,6 +93,20 @@ export const decisionQueries = {
       queryKey: [...DECISIONS, "open"],
       queryFn: ({ signal }) => getFromApi("/decisions/open", decisionListSchema, signal),
     }),
+  /**
+   * Every Decision on the Task nobody has answered, the first asked first: those waiting on the
+   * user, and those with a Consultant (`putTo`), which the user may take over.
+   */
+  unanswered: (taskId: string) =>
+    queryOptions({
+      queryKey: [...DECISIONS, "unanswered", taskId],
+      queryFn: ({ signal }) =>
+        getFromApi(
+          `/tasks/${encodeURIComponent(taskId)}/decisions/unanswered`,
+          decisionListSchema,
+          signal,
+        ),
+    }),
 };
 
 export const proposalQueries = {

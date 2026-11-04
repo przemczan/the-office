@@ -1442,10 +1442,15 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   const message = conversation.getByLabel("Message");
   await message.fill("Signing in should bring me back to the page I was on.");
   await message.press("Enter");
-  const decision = conversation.getByRole("region", { name: `Decision: ${QUERY_QUESTION}` });
+  const needsYou = page.getByRole("region", { name: "Needs you" });
+  const decision = needsYou.getByRole("region", { name: `Decision: ${QUERY_QUESTION}` });
   await expect(
     decision.getByText("Jan recommends “Keep the query string”: Filters live in the query string."),
   ).toBeVisible();
+  await expect(needsYou).toContainText("1 Decision");
+  const inThread = conversation.getByRole("region", { name: `Decision: ${QUERY_QUESTION}` });
+  await expect(inThread).toContainText("Waits on you.");
+  await expect(inThread.getByRole("button", { name: "Keep the query string" })).toHaveCount(0);
   await expect(conversation.getByText(OPEN_DECISION_TOOL)).toHaveCount(0);
   // The first context line opens to show the Brief the session started with.
   const brief = conversation.locator(".message-brief-text");
@@ -1501,7 +1506,8 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
 
   await decision.getByRole("button", { name: "Keep the query string" }).click();
   await expect(conversation.getByText("The query string stays, as the Plan says.")).toBeVisible();
-  await expect(decision.getByText("Answered")).toBeVisible();
+  await expect(decision).toHaveCount(0);
+  await expect(inThread).toContainText("Answered: Keep the query string");
   await expect(page.getByText("Waiting on you", { exact: true })).toHaveCount(0);
   await expect(readinessLine("No Decision waiting")).toHaveClass(/task-checklist-met/);
 
@@ -1649,10 +1655,38 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(implementTab).toHaveAttribute("aria-pressed", "true");
   await expect(implementTab).not.toContainText("New");
   const decision = conversation.getByRole("region", { name: `Decision: ${PAGE_QUESTION}` });
-  await expect(decision).toBeVisible();
+  const onTheCard = page
+    .getByRole("region", { name: "Needs you" })
+    .getByRole("region", { name: `Decision: ${PAGE_QUESTION}` });
+  await expect(onTheCard).toBeVisible();
   // Between Stages The Office sends the Stage Thread's messages, so no follow-up is offered.
-  await expect(decision.getByText(/A question first\?/)).toHaveCount(0);
+  await expect(onTheCard.getByText(/A question first\?/)).toHaveCount(0);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-waiting-on-you.png") });
+
+  // Out of view the slim bar keeps it in sight, and its Show and the Thread's link bring it back,
+  // the link each time it is followed. By the keyboard: in so short a window a toast covers them.
+  const slimBar = page.getByRole("group", { name: "Needs you, out of view" });
+  const scrollToTheEnd = (): Promise<void> =>
+    page.locator(".shell-main").evaluate((scroller) => {
+      scroller.scrollTop = scroller.scrollHeight;
+    });
+  await expect(slimBar).toHaveCount(0);
+  await page.setViewportSize({ width: 1600, height: 300 });
+  await scrollToTheEnd();
+  await expect(slimBar).toBeInViewport();
+  await expect(slimBar).toContainText(PAGE_QUESTION);
+  await slimBar.getByRole("button", { name: "Show" }).press("Enter");
+  await expect(onTheCard).toBeInViewport();
+  await expect(slimBar).toHaveCount(0);
+  await scrollToTheEnd();
+  await expect(slimBar).toBeInViewport();
+  await decision.getByRole("link", { name: "Answer it in Needs you" }).press("Enter");
+  await expect(onTheCard).toHaveAttribute("aria-current", "true");
+  await expect(onTheCard).toBeInViewport();
+  await scrollToTheEnd();
+  await decision.getByRole("link", { name: "Answer it in Needs you" }).press("Enter");
+  await expect(onTheCard).toBeInViewport();
+  await page.setViewportSize({ width: 1600, height: 1000 });
 
   await page.goto("/work");
   const card = page
@@ -1677,10 +1711,11 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(onNow).toHaveCount(0);
 
   await page.goto(signIn.taskUrl);
-  await expect(decision.getByText("Answered")).toBeVisible();
+  await expect(decision.getByText("Answered: The page it started from")).toBeVisible();
   await expect(
     conversation.getByText("Signing in now returns to the page it started from."),
   ).toBeVisible();
+  await expect(page.getByRole("region", { name: "Needs you" })).toContainText("Nothing needs you");
   // The Stage ran again in the asking Thread, continuing its session.
   await expect(implement.getByText("Done", { exact: true })).toBeVisible();
   await expect(implement).toContainText("2 runs · ");
@@ -1949,6 +1984,7 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
 });
 
 const CONSULTATION_QUESTION = "Is the migration safe to run on the live data?";
+const CONSULTATION_OPTION = "Yes";
 
 /**
  * Puts to Adam, the Developer, the Decision Jan asked on the Task, and opens the Consultation he
@@ -1960,8 +1996,14 @@ async function seedConsultation(taskId: string, plannerThreadId: string): Promis
   const consultationId = crypto.randomUUID();
   await queryOfficeDatabase(
     `insert into decisions (id, thread_id, task_id, role_key, question, context, options, recommendation, asked_at, put_to)
-     values ($1, $2, $3, 'planner', $4, 'The migration rewrites every row.', '["Yes", "No"]', '{"option":0,"reason":"It ran on the copy."}', now(), 'developer')`,
-    [decisionId, plannerThreadId, taskId, CONSULTATION_QUESTION],
+     values ($1, $2, $3, 'planner', $4, 'The migration rewrites every row.', $5, '{"option":0,"reason":"It ran on the copy."}', now(), 'developer')`,
+    [
+      decisionId,
+      plannerThreadId,
+      taskId,
+      CONSULTATION_QUESTION,
+      JSON.stringify([CONSULTATION_OPTION, "No"]),
+    ],
   );
   await queryOfficeDatabase(
     `insert into thread_messages (id, thread_id, body, at) values ($1, $2, $3, now())`,
@@ -1988,8 +2030,8 @@ async function seedConsultation(taskId: string, plannerThreadId: string): Promis
   return decisionId;
 }
 
-// The engine replays the next session in e2e/sessions.jsonl: Adam's reply once the user joins the
-// Consultation.
+// The engine replays the next sessions in e2e/sessions.jsonl: Adam's reply once the user joins the
+// Consultation, then Jan's once the user takes the Decision over.
 test("the user reads a Consultation on the Task, sees its Decision wait on the Consultant, and joins it", async ({
   page,
 }) => {
@@ -2006,11 +2048,20 @@ test("the user reads a Consultation on the Task, sees its Decision wait on the C
     await page.goto(`/tasks/${taskId}`);
     const conversation = page.getByRole("complementary", { name: "Conversation" });
     await conversation.getByRole("button", { name: /^Planning/ }).click();
-    // The Decision waits on Adam, not on the user: no count on the Thread, and nothing in Needs you.
-    const decision = conversation.getByRole("region", {
+    // The Decision waits on Adam, not on the user: no count on the Thread or the card, nothing on
+    // Now, and the card offers the take-over.
+    const needsYou = page.getByRole("region", { name: "Needs you" });
+    const decision = needsYou.getByRole("region", {
       name: `Decision: ${CONSULTATION_QUESTION}`,
     });
     await expect(decision).toContainText("Waiting on Adam in a Consultation");
+    await expect(needsYou).toContainText("1 waiting on a Consultant");
+    await expect(needsYou.getByText(/^\d+$/)).toHaveCount(0);
+    const inThread = conversation.getByRole("region", {
+      name: `Decision: ${CONSULTATION_QUESTION}`,
+    });
+    await expect(inThread).toContainText("Waiting on Adam in a Consultation.");
+    await expect(inThread.getByRole("link", { name: "Take it over in Needs you" })).toBeVisible();
     await expect(conversation.getByText("Decision waiting on you")).toHaveCount(0);
     await page.goto("/");
     await expect(
@@ -2030,10 +2081,16 @@ test("the user reads a Consultation on the Task, sees its Decision wait on the C
 
     // The Decision's link, as Copy link gives it, opens the Task at its card, marked.
     await page.goto(recordPath({ kind: "decision", taskId, threadId: planning.id, decisionId }));
-    await expect(
-      conversation.getByRole("region", { name: `Decision: ${CONSULTATION_QUESTION}` }),
-    ).toHaveAttribute("aria-current", "true");
+    await expect(decision).toHaveAttribute("aria-current", "true");
+    await expect(decision).toBeInViewport();
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-decision-link.png") });
+
+    // Taking it over: the user answers in the card, and Jan takes the answer in the asking Thread.
+    await decision.getByRole("button", { name: CONSULTATION_OPTION }).click();
+    await expect(decision).toHaveCount(0);
+    await expect(needsYou).toContainText("Nothing needs you");
+    await expect(inThread).toContainText(`Answered: ${CONSULTATION_OPTION}`);
+    await expect(conversation.getByText("Then the migration goes first.")).toBeVisible();
   } finally {
     await repository.remove();
   }

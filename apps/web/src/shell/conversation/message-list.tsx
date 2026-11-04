@@ -12,8 +12,6 @@ import {
   PROPOSE_PROJECT_COMMANDS_TOOL,
   PROPOSE_ROLE_TOOL,
   SHOW_OFFICE_STATUS_TOOL,
-  type Decision,
-  type DecisionAnswer,
   type Message,
   type MessageDelivery,
 } from "@the-office/contracts";
@@ -23,7 +21,8 @@ import { roleQueries } from "../../api/people.ts";
 import { roleName } from "../person-name.ts";
 import { contextLabel } from "./context-words.ts";
 import { MarkdownText } from "../markdown-text.tsx";
-import { DecisionCard } from "./decision-card.tsx";
+import { DecisionInThread } from "./decision-card.tsx";
+import { answerWords } from "./decision-words.ts";
 import { IdeaCard } from "./idea-card.tsx";
 import { LinkCard } from "./link-card.tsx";
 import { OfficeStatusCard } from "./office-status-card.tsx";
@@ -75,7 +74,6 @@ export function MessageList({
           key={message.id}
           message={message}
           personName={personName}
-          answering={answering}
           stageThread={stageThread}
         />
       ))}
@@ -112,12 +110,10 @@ function shown(message: Message): boolean {
 function MessageItem({
   message,
   personName,
-  answering,
   stageThread,
 }: {
   readonly message: Message;
   readonly personName: string;
-  readonly answering: boolean;
   readonly stageThread: boolean;
 }): ReactNode {
   switch (message.kind) {
@@ -208,14 +204,7 @@ function MessageItem({
         </div>
       );
     case "decision":
-      return (
-        <DecisionCard
-          decision={message.decision}
-          personName={personName}
-          answering={answering}
-          followUps={!stageThread}
-        />
-      );
+      return <DecisionInThread decision={message.decision} personName={personName} />;
     case "decision-answer":
       return (
         <div className="message mine">
@@ -297,9 +286,4 @@ function ContextLine({
       )}
     </details>
   );
-}
-
-/** The user's answer to a Decision in words: the chosen option's, or their own. */
-function answerWords(answer: DecisionAnswer, { options }: Decision): string {
-  return answer.kind === "option" ? (options[answer.option] ?? "") : answer.text;
 }

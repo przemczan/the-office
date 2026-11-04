@@ -16,6 +16,7 @@ import { PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { AttachmentsBlock } from "./attachments-block.tsx";
 import { MissingRecord } from "./missing-record.tsx";
 import { PipelineRail } from "./pipeline-rail.tsx";
+import { NeedsYouCard } from "./needs-you-card.tsx";
 import { MarkReadyButton, PlanButton } from "./planning-actions.tsx";
 import { PullRequestButton } from "./pull-request-button.tsx";
 import { recordTabOf, type RecordTab } from "./record-tab.ts";
@@ -29,8 +30,9 @@ import { TaskTags } from "./task-tags.tsx";
 import { TokenCount, TokenMeter } from "../../shell/token-count.tsx";
 
 /**
- * The Task page (prototypes/app/task.js): its head and Pipeline rail across the page, then its
- * record on the left, as Overview, Changes or Attachments, and its conversation on the right.
+ * The Task page (prototypes/app/task.js): its head, Pipeline rail and Needs you card across the
+ * page, then its record on the left, as Overview, Changes or Attachments, and its conversation on
+ * the right.
  */
 export function TaskPage(): ReactNode {
   const { taskId } = useParams({ from: "/tasks/$taskId" });
@@ -53,6 +55,7 @@ export function TaskPage(): ReactNode {
     <div className="task-page">
       <TaskHead task={record} projects={projects.data} pipeline={pipeline} threads={threads.data} />
       <PipelineRail key={record.id} task={record} pipeline={pipeline} />
+      <NeedsYouCard key={`needs-you-${record.id}`} task={record} />
       <div className="task-columns">
         <div className="task-record-column">
           <RecordTabs task={record} shown={recordTab} />

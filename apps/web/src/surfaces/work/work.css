@@ -890,6 +890,73 @@
   color: var(--fg-3);
 }
 
+/* ---- Needs you: what waits on the user, under the rail, and its slim bar while out of view */
+.needs-you-clear {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.needs-you-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.needs-you-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.needs-you-card,
+.needs-you-list .decision-card {
+  scroll-margin-top: 16px;
+}
+
+/* Sticky at both edges and empty, so the bar costs the page no room; its margin takes back the gap. */
+.needs-you-bar-place {
+  position: sticky;
+  top: 8px;
+  bottom: 56px;
+  z-index: 15;
+  height: 0;
+  margin-bottom: calc(-1 * var(--gap-panel));
+}
+
+.needs-you-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 8px 0 12px;
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-card);
+  background: var(--warning-subtle);
+  box-shadow: var(--shadow-2);
+}
+
+.needs-you-bar strong {
+  flex: none;
+  font-weight: 600;
+}
+
+.needs-you-bar-question {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .task-columns {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(360px, 1fr);

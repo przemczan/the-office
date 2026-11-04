@@ -4,7 +4,7 @@ import {
   useQueryClient,
   type UseMutationResult,
 } from "@tanstack/react-query";
-import { useSearch } from "@tanstack/react-router";
+import { Link, useSearch } from "@tanstack/react-router";
 import type { Decision, DecisionAnswer, Role, Thread } from "@the-office/contracts";
 import { Badge, Button, Icon, IconButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
@@ -13,42 +13,148 @@ import { roleQueries } from "../../api/people.ts";
 import { useCopyRecordLink } from "../copy-record-link.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
+import { answerWords } from "./decision-words.ts";
 import { MessageField } from "./message-field.tsx";
 import "./conversation.css";
 
 /**
- * A Decision as a card in the asking person's Thread (spec §2.4): the question, what they found,
- * the options with the one they recommend, and a free answer. Follow-ups are ordinary messages in
- * the composer below, and leave it open, except in a Stage Thread, where The Office sends the
- * messages once no Stage runs. Nothing is answered while the person is still answering.
- * The Office's own Decisions about the Task's Pipeline show in the same Thread, as The Office's.
- * Its link mentions it in a chat, and opens the Task's page at this card, marked.
+ * An open Decision whole (spec §2.4): the question, what they found, the options with the one
+ * recommended, and a free answer. It shows where the user answers it: on Now, in the Needs you
+ * panel and in the Task's Needs you card. Follow-ups are ordinary messages in its Thread, and leave
+ * it open, except in a Stage Thread, where The Office sends the messages once no Stage runs.
+ * Nothing is answered while the person is still answering. The Office's own Decisions about the
+ * Task's Pipeline show the same way, as The Office's.
  */
 export function DecisionCard({
   decision,
   personName,
   answering,
   followUps,
+  place,
 }: {
   readonly decision: Decision;
   readonly personName: string;
   readonly answering: boolean;
-  /** The user can ask the person something first in the composer below. */
+  /** The user can ask the person something first in the Thread. */
   readonly followUps: boolean;
+  /** Where it was asked, when the card shows beside its Thread on the Task's page. */
+  readonly place?: ReactNode;
 }): ReactNode {
-  const asker = askerName(decision, personName);
   const roles = useQuery(roleQueries.list()).data;
+  return (
+    <DecisionFrame
+      decision={decision}
+      personName={personName}
+      elementId={decisionCardElementId(decision.id)}
+      place={place}
+    >
+      <DecisionDetail decision={decision} roles={roles} />
+      <OpenDecision
+        decision={decision}
+        personName={personName}
+        answering={answering}
+        followUps={followUps}
+        consultantName={decision.putTo === null ? undefined : consultantName(decision.putTo, roles)}
+      />
+    </DecisionFrame>
+  );
+}
+
+/**
+ * A Decision in its Thread: while open a short form with the way to its card, in the Task's Needs
+ * you, then its answered form.
+ */
+export function DecisionInThread({
+  decision,
+  personName,
+}: {
+  readonly decision: Decision;
+  readonly personName: string;
+}): ReactNode {
+  const roles = useQuery(roleQueries.list()).data;
+  return (
+    <DecisionFrame decision={decision} personName={personName}>
+      {decision.answer === null ? (
+        <p className="decision-hint">
+          {decision.putTo === null
+            ? "Waits on you."
+            : `Waiting on ${consultantName(decision.putTo, roles)} in a Consultation.`}{" "}
+          <LinkToDecisionCard decision={decision} />
+        </p>
+      ) : (
+        <>
+          <DecisionDetail decision={decision} roles={roles} />
+          <div className="decision-answered">
+            <Icon name="check" size={12} />
+            <span>
+              {decision.answeredBy === null
+                ? "Answered: "
+                : `Answered by ${consultantName(decision.answeredBy, roles)}: `}
+              <MarkdownText text={answerWords(decision.answer, decision)} inline />
+            </span>
+          </div>
+        </>
+      )}
+    </DecisionFrame>
+  );
+}
+
+/**
+ * Brings the Decision's whole card into view, if the page shows it. The address alone can't: a
+ * link followed again leaves it as it was.
+ */
+export function bringDecisionCardIntoView(decisionId: string): void {
+  document.getElementById(decisionCardElementId(decisionId))?.scrollIntoView({ block: "start" });
+}
+
+function decisionCardElementId(decisionId: string): string {
+  return `decision-card-${decisionId}`;
+}
+
+/** The way from a Thread to the card, keeping what the Task's page has open. */
+function LinkToDecisionCard({ decision }: { readonly decision: Decision }): ReactNode {
+  return (
+    <Link
+      to="/tasks/$taskId"
+      params={{ taskId: decision.taskId }}
+      search={(shown) => ({ ...shown, taskThread: decision.threadId, decision: decision.id })}
+      onClick={() => bringDecisionCardIntoView(decision.id)}
+    >
+      {decision.putTo === null ? "Answer it in Needs you" : "Take it over in Needs you"}
+    </Link>
+  );
+}
+
+/**
+ * What every form of a Decision has: who asked, the question, and its link, which mentions it in a
+ * chat and opens the Task's page at it, marked.
+ */
+function DecisionFrame({
+  decision,
+  personName,
+  elementId,
+  place,
+  children,
+}: {
+  readonly decision: Decision;
+  readonly personName: string;
+  readonly elementId?: string;
+  readonly place?: ReactNode;
+  readonly children: ReactNode;
+}): ReactNode {
   const copyLink = useCopyRecordLink();
   const linkedTo = useSearch({ strict: false }).decision === decision.id;
   return (
     <section
+      id={elementId}
       className={`message decision-card${linkedTo ? " linked-to" : ""}`}
       aria-label={`Decision: ${decision.question}`}
       aria-current={linkedTo || undefined}
     >
       <div className="message-by">
         <Badge tone="warning">Decision</Badge>
-        {asker}
+        {askerName(decision, personName)}
+        {place}
         <IconButton
           className="decision-copy-link"
           icon={<Icon name="link" size={12} />}
@@ -67,6 +173,21 @@ export function DecisionCard({
       <div className="message-text decision-question">
         <MarkdownText text={decision.question} />
       </div>
+      {children}
+    </section>
+  );
+}
+
+/** What the person found, and who passed the Decision on. */
+function DecisionDetail({
+  decision,
+  roles,
+}: {
+  readonly decision: Decision;
+  readonly roles: readonly Role[] | undefined;
+}): ReactNode {
+  return (
+    <>
       {decision.context !== "" && (
         <div className="decision-context">
           <MarkdownText text={decision.context} />
@@ -80,25 +201,7 @@ export function DecisionCard({
           </span>
         </p>
       ))}
-      {decision.answer === null ? (
-        <OpenDecision
-          decision={decision}
-          personName={personName}
-          answering={answering}
-          followUps={followUps}
-          consultantName={
-            decision.putTo === null ? undefined : consultantName(decision.putTo, roles)
-          }
-        />
-      ) : (
-        <div className="decision-answered">
-          <Icon name="check" size={12} />
-          {decision.answeredBy === null
-            ? "Answered"
-            : `Answered by ${consultantName(decision.answeredBy, roles)}`}
-        </div>
-      )}
-    </section>
+    </>
   );
 }
 
@@ -185,7 +288,7 @@ function OpenDecision({
       </form>
       {followUps && !byTheOffice && (
         <p className="decision-hint">
-          A question first? Ask {personName} below; the Decision stays open.
+          A question first? Ask {personName} in the Thread; the Decision stays open.
         </p>
       )}
       {answeringDecision.error && (
@@ -215,6 +318,7 @@ function useAnswering(decision: Decision): UseMutationResult<Thread, Error, Deci
       await Promise.all([
         queryClient.invalidateQueries(threadQueries.messages(thread.id)),
         queryClient.invalidateQueries(decisionQueries.open()),
+        queryClient.invalidateQueries(decisionQueries.unanswered(decision.taskId)),
       ]);
     },
   });
