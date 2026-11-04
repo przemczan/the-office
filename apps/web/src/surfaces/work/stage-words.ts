@@ -91,6 +91,24 @@ export function latestHandoverNote({ runs }: TaskStage): string | undefined {
 }
 
 /** The command line a Script Stage ran, as the Project names it, once it has run it. */
+/**
+ * The pull request of the Task's newest Publish that ran to the end. A Publish going again doesn't
+ * hide the one already open; undefined when that run kept none, as a run from before it was kept.
+ */
+export function pullRequestUrlOf(
+  taskStages: readonly TaskStage[] | null | undefined,
+): string | undefined {
+  const newest = (taskStages ?? [])
+    .filter(({ stage }) => stage.kind === "script" && stage.command === "publish")
+    .flatMap(({ runs }) => runs)
+    .flatMap(({ number, outcome }) =>
+      outcome?.status === "done" && !outcome.skipped ? [{ number, outcome }] : [],
+    )
+    .toSorted((earlier, later) => earlier.number - later.number)
+    .at(-1);
+  return newest?.outcome.pullRequestUrl ?? undefined;
+}
+
 export function scriptCommandLine({ runs }: TaskStage): string | undefined {
   return runs
     .flatMap(({ commandRuns }) => commandRuns)

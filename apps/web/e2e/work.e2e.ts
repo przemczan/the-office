@@ -606,9 +606,10 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
     { name: "screen.png", mimeType: "image/png", buffer: Buffer.from("not really a png") },
     { name: "export.zip", mimeType: "application/zip", buffer: Buffer.from("zip bytes") },
   ];
-  const addAttachment = record
-    .getByRole("region", { name: "Attachments", exact: true })
-    .getByRole("button", { name: "Add" });
+  await page.getByRole("tab", { name: "Attachments" }).click();
+  await expect(page).toHaveURL(/recordTab=attachments/);
+  const attachments = page.getByRole("region", { name: "Attachments", exact: true });
+  const addAttachment = attachments.getByRole("button", { name: "Add" });
   for (const file of files) {
     await addAttachment.click();
     await page.getByRole("dialog").getByLabel("File to attach").setInputFiles(file);
@@ -622,12 +623,14 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
   await expect(page.getByText("https://example.com/sign-in attached.")).toBeVisible();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task.png") });
 
-  await record.getByRole("button", { name: "plan.md" }).click();
+  await expect(page.getByRole("tab", { name: "Attachments" })).toContainText("4");
+  await page.reload();
+  await attachments.getByRole("button", { name: "plan.md" }).click();
   await expect(page.getByRole("dialog").filter({ hasText: "plan.md" })).toContainText(
     "Keep the path.",
   );
   await page.getByRole("dialog").getByLabel("Close").click();
-  await record.getByRole("button", { name: "View screen.png" }).click();
+  await attachments.getByRole("button", { name: "View screen.png" }).click();
   const original = page
     .getByRole("dialog")
     .filter({ hasText: "screen.png" })
@@ -636,12 +639,11 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
   expect(image.headers()["content-type"]).toBe("image/png");
   await page.keyboard.press("Escape");
   const download = page.waitForEvent("download");
-  await record.getByRole("link", { name: "export.zip" }).click();
+  await attachments.getByRole("link", { name: "export.zip" }).click();
   expect((await download).suggestedFilename()).toBe("export.zip");
-  await expect(record.getByRole("link", { name: "https://example.com/sign-in" })).toHaveAttribute(
-    "target",
-    "_blank",
-  );
+  await expect(
+    attachments.getByRole("link", { name: "https://example.com/sign-in" }),
+  ).toHaveAttribute("target", "_blank");
 
   await page.getByRole("button", { name: "Idea", exact: true }).click();
   await page.keyboard.type("Remember the page per tab");
@@ -773,8 +775,14 @@ test("a Task's images show by round, the Gate shows the current one, and the vie
   await page.route(`**/api/tasks/${task.id}/stages`, (route) => route.fulfill({ json: stages }));
   await page.goto(`/tasks/${task.id}`);
 
-  const record = page.getByRole("region", { name: "Record" });
-  const attachments = record.getByRole("region", { name: "Attachments", exact: true });
+  const gate = page.getByRole("region", { name: "Gate attachments" });
+  await expect(gate.getByRole("button", { name: /^View / })).toHaveCount(1);
+  await expect(gate.getByRole("button", { name: "View second-look.png" })).toBeVisible();
+  await gate.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-gate-attachments.png") });
+
+  await page.getByRole("tab", { name: "Attachments" }).click();
+  const attachments = page.getByRole("region", { name: "Attachments", exact: true });
   const roundTwo = attachments.getByRole("group", { name: "Round 2" });
   const roundOne = attachments.getByRole("group", { name: "Round 1" });
   await expect(roundTwo).toContainText("Sent back: Make the buttons bigger.");
@@ -783,12 +791,6 @@ test("a Task's images show by round, the Gate shows the current one, and the vie
   await roundOne.getByText("Round 1").click();
   await expect(roundOne.getByRole("button", { name: "View first-look.png" })).toBeVisible();
   await expect(roundOne.getByRole("button", { name: "View first-detail.png" })).toBeVisible();
-
-  const gate = page.getByRole("region", { name: "Gate attachments" });
-  await expect(gate.getByRole("button", { name: /^View / })).toHaveCount(1);
-  await expect(gate.getByRole("button", { name: "View second-look.png" })).toBeVisible();
-  await gate.scrollIntoViewIfNeeded();
-  await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-gate-attachments.png") });
   await attachments.scrollIntoViewIfNeeded();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-attachment-rounds.png") });
 

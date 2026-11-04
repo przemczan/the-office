@@ -36,6 +36,7 @@ import { boardFiltersOf } from "./surfaces/work/board-filters.ts";
 import { IdeasPage } from "./surfaces/work/ideas-page.tsx";
 import { InitiativePage } from "./surfaces/work/initiative-page.tsx";
 import { InitiativesList } from "./surfaces/work/initiatives-list.tsx";
+import { recordTabOf, type RecordTab } from "./surfaces/work/record-tab.ts";
 import { TaskPage } from "./surfaces/work/task-page.tsx";
 import { WorkPage } from "./surfaces/work/work-page.tsx";
 
@@ -133,12 +134,12 @@ const initiativeRoute = createRoute({
 });
 
 /**
- * A Task's page, showing one of its Threads first, as one opened from a person's page, and its
- * Changes tab instead of the record's overview; a Decision's link also scrolls to its card.
+ * A Task's page, showing one of its Threads first, as one opened from a person's page, and a tab
+ * of its record instead of Overview; a Decision's link also scrolls to its card.
  */
 export interface TaskSearch {
   readonly taskThread?: string;
-  readonly recordTab?: "changes";
+  readonly recordTab?: RecordTab;
   readonly decision?: string;
 }
 
@@ -147,11 +148,14 @@ const taskRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "tasks/$taskId",
   component: TaskPage,
-  validateSearch: (search: Record<string, unknown>): TaskSearch => ({
-    ...(typeof search["taskThread"] === "string" && { taskThread: search["taskThread"] }),
-    ...(search["recordTab"] === "changes" && { recordTab: "changes" as const }),
-    ...(typeof search["decision"] === "string" && { decision: search["decision"] }),
-  }),
+  validateSearch: (search: Record<string, unknown>): TaskSearch => {
+    const recordTab = recordTabOf(search["recordTab"]);
+    return {
+      ...(typeof search["taskThread"] === "string" && { taskThread: search["taskThread"] }),
+      ...(recordTab !== undefined && { recordTab }),
+      ...(typeof search["decision"] === "string" && { decision: search["decision"] }),
+    };
+  },
   // Until the Task is read; the page then names it.
   staticData: { title: "Work" },
 });

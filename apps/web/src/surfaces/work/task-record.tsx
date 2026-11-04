@@ -14,7 +14,6 @@ import { pipelineQueries } from "../../api/pipelines.ts";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
-import { AttachmentsBlock } from "./attachments-block.tsx";
 import { DependenciesBlock } from "./dependencies-block.tsx";
 import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
 import { GateBlock } from "./gate-view.tsx";
@@ -34,8 +33,8 @@ import {
 import { TokenInfo } from "../../shell/token-count.tsx";
 
 /**
- * The Task's record: the Gate it waits at, if any; what must be true, how, its Stages, its
- * dependencies, its Attachments and where it came from.
+ * The Task's Overview: the Gate it waits at, if any; what must be true, how, its Stages, its
+ * dependencies and where it came from.
  */
 export function TaskRecord({
   task,
@@ -55,7 +54,6 @@ export function TaskRecord({
       <PlanBlock task={task} planner={planner} />
       <StagesBlock task={task} pipeline={pipeline} planner={planner} roles={roles.data} />
       <DependenciesBlock task={task} />
-      <AttachmentsBlock owner={{ kind: "task", taskId: task.id }} ownerTitle={task.title} />
       {task.originIdeaId !== null && <OriginBlock ideaId={task.originIdeaId} />}
     </section>
   );
