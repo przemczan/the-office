@@ -7,7 +7,15 @@ import {
   type TaskStage,
 } from "@the-office/contracts";
 import { Button, Icon } from "@the-office/ui";
-import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { TokenCount } from "../../shell/token-count.tsx";
@@ -23,6 +31,7 @@ import {
   loopBackWords,
   railCaption,
   railRunsWords,
+  railScrollLeft,
   railStateWords,
   stagesOnRail,
   stageWorkerWords,
@@ -126,6 +135,7 @@ function StageTrack({
   const historyId = useId();
   const names = stageNamesOf(stages.map(({ stage }) => stage));
   const current = currentStageIndex(stages);
+  const scroller = useCurrentStageInView(current, stages.length);
   const reached = Math.max(current, 0);
   const firstMarker = 50 / stages.length;
   const loops = loopBacks(stages);
@@ -161,7 +171,7 @@ function StageTrack({
   return (
     <div onKeyDown={onKeyDown}>
       <p className="pipeline-rail-caption">{railCaption(stages, task.state)}</p>
-      <div className="pipeline-rail-scroll">
+      <div className="pipeline-rail-scroll" ref={scroller}>
         <div
           className="pipeline-rail-stages"
           style={{
@@ -231,6 +241,32 @@ function StageTrack({
       )}
     </div>
   );
+}
+
+/**
+ * Keeps the current Stage in the rail's view when the Stages don't fit: when the Task moves on and
+ * when the rail changes width, and otherwise leaves a reader's scrolling alone. Only `scrollLeft`
+ * moves, as scrollIntoView would scroll the page too.
+ */
+function useCurrentStageInView(
+  current: number,
+  stageCount: number,
+): RefObject<HTMLDivElement | null> {
+  const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const view = scroller.current;
+    if (view === null || current < 0) return;
+    let width: number | undefined;
+    // It reports once on being observed, which is the Task moving on; its height changes too.
+    const resizing = new ResizeObserver(() => {
+      if (view.clientWidth === width) return;
+      width = view.clientWidth;
+      view.scrollLeft = railScrollLeft(current, stageCount, view.scrollWidth, width);
+    });
+    resizing.observe(view);
+    return () => resizing.disconnect();
+  }, [current, stageCount]);
+  return scroller;
 }
 
 /** A loop-back's arc from the failing Stage to where the work went back; its mark selects that Stage. */

@@ -40,6 +40,16 @@ export function currentStageIndex(stages: readonly TaskStage[]): number {
   return holding >= 0 ? holding : stages.findLastIndex(({ runs }) => runs.length > 0);
 }
 
+/** Where the rail's scroller centres a Stage, its columns being equal shares of what it scrolls. */
+export function railScrollLeft(
+  stageIndex: number,
+  stageCount: number,
+  scrollWidth: number,
+  clientWidth: number,
+): number {
+  return ((stageIndex + 0.5) * scrollWidth) / stageCount - clientWidth / 2;
+}
+
 /** The line over the rail: "At Tests: running", or how far the Task has come. */
 export function railCaption(stages: readonly TaskStage[], taskState: TaskState): string {
   if (taskState === "done") return `All ${stages.length} Stages finished`;

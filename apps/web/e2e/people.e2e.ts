@@ -1160,6 +1160,28 @@ test("a person's Work tab lists the Tasks whose Stages they work, in the Project
 
 /** A Stage's row in the open Stage editor, which the user opens to change its fields. */
 /** A Stage among the rail's, not a run of its history. */
+/** A window narrow enough that the Stages of `seedGatedStages` don't fit across the rail. */
+const NARROW_WIDTH_PX = 640;
+
+/** Changes the palette the system asks for and waits for the buttons' colours to finish changing. */
+async function showPalette(page: Page, palette: "light" | "dark"): Promise<void> {
+  await page.emulateMedia({ colorScheme: palette });
+  await expect(page.locator("html")).toHaveAttribute("data-palette", palette);
+  await page.waitForFunction(() => document.getAnimations().length === 0);
+}
+
+async function scrollLeftOf(scroller: Locator): Promise<number> {
+  return scroller.evaluate((view) => view.scrollLeft);
+}
+
+/** Whether a Stage's whole column shows inside the rail's scroller. */
+async function stageIsInRailView(rail: Locator, stage: Locator): Promise<boolean> {
+  const view = await rail.locator(".pipeline-rail-scroll").boundingBox();
+  const shown = await stage.boundingBox();
+  if (view === null || shown === null) return false;
+  return shown.x >= view.x && shown.x + shown.width <= view.x + view.width;
+}
+
 function stageOnRail(rail: Locator, name: string): Locator {
   return rail
     .getByRole("list", { name: "Stages" })
@@ -1781,7 +1803,8 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   const openThread = history.getByRole("link", { name: "Open its Thread" }).first();
   await openThread.click();
   await expect(implementToggle).toHaveAttribute("aria-expanded", "true");
-  await expect(implementToggle).toBeInViewport();
+  // The chapter's end, where its newest messages are: taller than the timeline, its head is above.
+  await expect(implementChapter).toBeInViewport();
   await foldImplement();
   await openThread.click();
   await expect(implementToggle).toHaveAttribute("aria-expanded", "true");
@@ -1935,6 +1958,19 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
       scroller.scrollTop = scroller.scrollHeight;
     });
     await expect(slimBar).toContainText("Look at the changes and let the work");
+
+    // In a narrow window the Stages don't fit, and the rail goes to the current one by itself.
+    await page.setViewportSize({ width: NARROW_WIDTH_PX, height: 900 });
+    await expect.poll(() => stageIsInRailView(rail, acceptance)).toBe(true);
+    expect(await scrollLeftOf(rail.locator(".pipeline-rail-scroll"))).toBeGreaterThan(0);
+    await page.locator(".shell-main").evaluate((scroller) => {
+      scroller.scrollTop = 0;
+    });
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-640-task-rail.png") });
+    await showPalette(page, "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-640-task-rail.png") });
+    await showPalette(page, "light");
+
     await page.setViewportSize({ width: 1600, height: 900 });
     const attachments = gate.getByRole("region", { name: "Screenshots" });
     await expect(attachments).toHaveCount(0);

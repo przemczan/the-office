@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { NO_TOKENS } from "../../shell/token-words.ts";
 import {
   currentStageIndex,
+  railScrollLeft,
   loopBacks,
   loopBackWords,
   railCaption,
@@ -72,6 +73,12 @@ describe("stagesOnRail", () => {
 
   it("has nothing to draw once the library lost the Pipeline", () => {
     expect(stagesOnRail(null, undefined)).toEqual([]);
+  });
+});
+
+describe("railScrollLeft", () => {
+  it("centres the Stage's column in the rail's view", () => {
+    expect(railScrollLeft(3, 6, 900, 300)).toBe(375);
   });
 });
 

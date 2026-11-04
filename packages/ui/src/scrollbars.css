@@ -1,0 +1,39 @@
+/* Every scrollbar in the palette's colours. The browser's own parts, the scrollbar's corner and the
+   form controls, follow `color-scheme`, which the design system's base names as `data-theme`. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+/* In Chromium `scrollbar-color` would switch these off, so it is only for the browsers without them. */
+@supports selector(::-webkit-scrollbar) {
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: var(--radius-full);
+    background: var(--border-strong) padding-box;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--fg-3) padding-box;
+  }
+}
+
+@supports not selector(::-webkit-scrollbar) {
+  :root {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-strong) transparent;
+  }
+}
