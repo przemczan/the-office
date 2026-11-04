@@ -3,6 +3,18 @@
 Pages here are **proposals**: interactive mock-ups to look at and compare before anything is built. They are not the UI spec, and an adopted one stays as it was made.
 
 - [**The Task page**](task-page.html), **adopted** by [task 48](../tasks/48-task-page-redesign.md): a full-width Pipeline rail with each Stage's history, a full-width Needs you card under it with room for screenshots, a tabbed record (Overview with its foldable blocks, Changes, Attachments by round), and a conversation that shows every Thread as one timeline of chapters, with a Details switch that hides tool calls. A scenario switcher at the top shows it in Planning, Running, Waiting on you, Failed with a loop-back and Done, at wide and narrow width, in the Light and Dark palettes.
+- [**The Task page, round 2**](task-page-2.html), **proposed** for task 51 from the user's notes of 2026-11-04 on the page task 48 built. It starts from a copy of the adopted page, and its "Stage history" switch shows the two versions to choose from. It adds a Backlog scenario.
+
+## Round 2: what it changes
+
+- **Backlog:** a Task whose Plan and Definition of Done the user wrote and confirmed offers Mark Ready beside Plan with…, so Planning is optional (the user's answer of 2026-11-04; spec 2.1 changes with task 51).
+- **Before Ready:** a read-only checklist. Confirm goes back to the Plan's and the Definition of Done's blocks, and the Planner's Pipeline proposal sits inside the rail, at its bottom, centred. With nothing waiting, Before Ready takes the Needs you card's place.
+- **The rail:** a loop-back is drawn square, up, across and down, with small rounded corners.
+- **The Stage history** shows each run with its Thread beside it, read-only and following a running Stage live. Version 1 opens it in a window over the page; version 2 shows it in place of everything under the rail, with "Back to the Task" above it.
+- **Layout:** Needs you and Before Ready sit above the tabs in the record's column; the conversation keeps its own column, at the same widths.
+- **A Decision** with nothing to look at is answered in place, each answer on its own line and the user's own words last. One with Attachments shows its question, the recommended answer with Accept, and Open details, a window with the context, every answer and the pictures. **The Gate** shows what it waits for, Continue and Show details, a window with its four facts, this round's pictures, Open Changes, Send back with notes… and Drop.
+- **The conversation** has a tab for the Planner and for each person who ran a Stage of the Task, each with that person's one Thread on the Task, written in at any time (task 49, pulled into task 51). A tab marks the cache warm, with the minutes left of its hour, or cold, and the composer offers Auto, Continue and Start fresh with what each does. While the person's Stage runs, the tab says so, links to the Stage history, and the To line chooses between the person's Thread and the running Stage, where the message lands at the next safe point. Stage Threads live only in the Stage history.
+- **Components:** where a part of today's page looks almost like a `packages/ui` component (a button, a select, a tab) but is styled on its own, the build uses the component. Parts made for one feature, such as the rail, stay.
 
 ## The chat flow: Chapters
 
