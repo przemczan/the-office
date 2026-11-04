@@ -51,7 +51,7 @@ export function TokenMeter({
 }
 
 /** The info icon beside a count, its tooltip giving each kind and what it costs. */
-export function TokenInfo({ tokens }: { readonly tokens: TokenTotals }): ReactNode {
+function TokenInfo({ tokens }: { readonly tokens: TokenTotals }): ReactNode {
   const lines = tokenKindLines(tokens);
   return (
     <Tooltip

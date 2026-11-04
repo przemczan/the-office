@@ -2,7 +2,6 @@ import type { Stage, StageRun, TaskStage } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   pipelineLabel,
-  latestHandoverNote,
   scriptCommandLine,
   stageNamesOf,
   stageProgressLine,
@@ -147,8 +146,8 @@ describe("stageProgressLine", () => {
   });
 });
 
-describe("the Stage's Handover note and command", () => {
-  it("takes the latest note any run wrote, and the command a Script Stage ran", () => {
+describe("scriptCommandLine", () => {
+  it("takes the command a Script Stage ran, not its install", () => {
     const ran = aRun({
       commandRuns: [
         { purpose: "install", commandLine: "npm ci", outcome: "passed", durationMs: 9_000 },
@@ -156,11 +155,6 @@ describe("the Stage's Handover note and command", () => {
       ],
     });
 
-    expect(
-      latestHandoverNote(
-        aTaskStage(implement, { runs: [aRun({ outcome: handedOver }), aRun({ endedAt: null })] }),
-      ),
-    ).toBe("Backoff capped at 30 s.");
     expect(scriptCommandLine(aTaskStage(tests, { runs: [ran] }))).toBe("npm test");
   });
 });

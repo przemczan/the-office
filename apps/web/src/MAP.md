@@ -67,7 +67,7 @@
 - `status-strip.tsx`: StatusStrip
 - `time.ts`: dayOf, dayAndClockOf, clockOf, momentWords, durationWords
 - `toasts.tsx`: Notice, Notices, ToastProvider, useToast, useNotices
-- `token-count.tsx`: TokenCount, TokenMeter, TokenInfo
+- `token-count.tsx`: TokenCount, TokenMeter
 - `token-words.ts`: NO_TOKENS, sumTokens, tokenKindLines
 - `top-bar.tsx`: TopBar
 - `unified-diff-view.tsx`: UnifiedDiffView

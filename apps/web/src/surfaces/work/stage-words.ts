@@ -13,10 +13,7 @@ import { tokensShort } from "../../shell/conversation/context-words.ts";
 import { durationWords } from "../../shell/time.ts";
 import { sumTokens } from "../../shell/token-words.ts";
 
-/**
- * The words of the Task page's Stages block (prototypes/app/task.js): "Done · 18 min · 41k tokens ·
- * fresh session", then what the Stage's latest run came to.
- */
+/** The words of a Task's Stages that the rail, the Stage history and the Gate share. */
 
 export const STAGE_STATE_WORDS: Readonly<Record<StageState, string>> = {
   pending: "Pending",
@@ -62,7 +59,10 @@ export function stageRule(stage: Stage, names: StageNames): string[] {
   ].filter((part) => part !== undefined);
 }
 
-/** The line under a started Task's Stage: its state, time, tokens, session and latest result. */
+/**
+ * "Done · 18 min · 41k tokens · fresh session", then what the Stage's latest run came to: its line
+ * among the Gate's Stage results.
+ */
 export function stageProgressLine(
   taskStage: TaskStage,
   names: StageNames,
@@ -85,12 +85,6 @@ export function stageProgressLine(
     .join(" · ");
 }
 
-/** The latest Handover note an Agent wrote at the Stage, if any. */
-export function latestHandoverNote({ runs }: TaskStage): string | undefined {
-  return runs.findLast((run) => run.outcome?.handoverNote)?.outcome?.handoverNote ?? undefined;
-}
-
-/** The command line a Script Stage ran, as the Project names it, once it has run it. */
 /**
  * The pull request of the Task's newest Publish that ran to the end. A Publish going again doesn't
  * hide the one already open; undefined when that run kept none, as a run from before it was kept.
@@ -109,6 +103,7 @@ export function pullRequestUrlOf(
   return newest?.outcome.pullRequestUrl ?? undefined;
 }
 
+/** The command line a Script Stage ran, as the Project names it, once it has run it. */
 export function scriptCommandLine({ runs }: TaskStage): string | undefined {
   return runs
     .flatMap(({ commandRuns }) => commandRuns)
@@ -170,7 +165,7 @@ export function budgetWords({
   return `reached its budget: ${tokensShort(used)} of ${tokensShort(budget)} tokens`;
 }
 
-/** What the user did at a Gate, as its Stage row and its history say it. */
+/** What the user did at a Gate, as its Stage results and its history say it. */
 export function gateActionWords(action: GateAction, names: StageNames): string {
   switch (action.kind) {
     case "continue":

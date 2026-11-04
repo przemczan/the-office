@@ -596,7 +596,6 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
   const rail = page.getByRole("region", { name: /^Pipeline · / });
   await expect(rail.getByText("Not started").first()).toBeVisible();
   for (const stage of ["Implement", "Tests", "Review & fix", "Publish"]) {
-    await expect(record.getByText(stage, { exact: true })).toBeVisible();
     await expect(rail.getByText(stage, { exact: true })).toBeVisible();
   }
   const origin = record.getByRole("region", { name: "Origin" });

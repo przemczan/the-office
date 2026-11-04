@@ -1251,107 +1251,6 @@
   color: var(--success-fg);
 }
 
-.task-stages {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.task-stage {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 10px 0;
-  border-top: 1px solid var(--border-subtle);
-}
-
-.task-stage:first-child {
-  border-top: 0;
-  padding-top: 0;
-}
-
-.task-stage-number {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border: 1px solid var(--border);
-  border-radius: 50%;
-  font: var(--type-caption);
-  color: var(--fg-2);
-}
-
-.task-stage-name {
-  font: 500 13px/1.4 var(--font-sans);
-  color: var(--fg-1);
-}
-
-.task-stage-who {
-  font-weight: 400;
-  color: var(--fg-3);
-}
-
-.task-stage-detail {
-  margin-top: 2px;
-  font: var(--type-caption);
-  color: var(--fg-3);
-}
-
-.task-stage-detail .token-info {
-  margin-left: 4px;
-  vertical-align: middle;
-}
-
-.task-stage-done .task-stage-number {
-  border-color: var(--success-border);
-  background: var(--success-subtle);
-  color: var(--success-fg);
-}
-
-.task-stage-running .task-stage-number {
-  border-color: var(--success);
-  background: var(--success);
-  color: var(--fg-on-accent);
-}
-
-.task-stage-waiting-on-you .task-stage-number {
-  border-color: var(--warning-border);
-  background: var(--warning-subtle);
-  color: var(--warning-fg);
-}
-
-.task-stage-paused .task-stage-number,
-.task-stage-stopped .task-stage-number {
-  border-color: var(--warning-border);
-  color: var(--warning-fg);
-}
-
-.task-stage-failed .task-stage-number {
-  border-color: var(--danger-border);
-  background: var(--danger-subtle);
-  color: var(--danger-fg);
-}
-
-.task-stage-note {
-  display: flex;
-  gap: 6px;
-  align-items: baseline;
-  margin-top: 6px;
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: var(--surface-sunken);
-  font: var(--type-caption);
-  line-height: 1.5;
-  color: var(--fg-2);
-}
-
-.task-stage-note-label {
-  font-weight: 600;
-}
-
 .task-conversation {
   display: flex;
   flex-direction: column;
@@ -1445,7 +1344,6 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 14px;
   padding: 10px 12px;
   border: 1px solid var(--warning-border);
   border-radius: 8px;

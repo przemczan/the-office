@@ -1143,6 +1143,14 @@ test("a person's Work tab lists the Tasks whose Stages they work, in the Project
 });
 
 /** A Stage's row in the open Stage editor, which the user opens to change its fields. */
+/** A Stage among the rail's, not a run of its history. */
+function stageOnRail(rail: Locator, name: string): Locator {
+  return rail
+    .getByRole("list", { name: "Stages" })
+    .getByRole("listitem")
+    .filter({ has: rail.page().getByRole("button", { name, exact: true }) });
+}
+
 function editorRow(page: Page, name: string) {
   return page.getByRole("dialog").getByRole("list", { name: "Stages" }).getByRole("listitem", {
     name,
@@ -1234,7 +1242,7 @@ test("Edit for this Task swaps the Pipeline and sets every field of its Stages, 
 
     await page.reload();
     await expect(
-      page.getByRole("region", { name: "Stages · Quick fix · edited for this Task" }),
+      page.getByRole("region", { name: "Pipeline · Quick fix · edited for this Task" }),
     ).toBeVisible();
     const own = taskStagesSchema.parse(
       await (await page.request.get(`/api/tasks/${taskId}/stages`)).json(),
@@ -1450,10 +1458,10 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   const record = page.getByRole("region", { name: "Record" });
   const plan = record.getByRole("region", { name: "Plan", exact: true });
   const definitionOfDone = record.getByRole("region", { name: "Definition of Done" });
-  const stages = record.getByRole("region", { name: /^Stages · / });
+  const proposedPipeline = record.getByRole("region", { name: "Proposed Pipeline" });
   await expect(plan.getByText("Proposed by Jan")).toBeVisible();
   await expect(definitionOfDone.getByText("The tests pass.")).toBeVisible();
-  await expect(stages.getByText(/A small change with tests/)).toBeVisible();
+  await expect(proposedPipeline.getByText(/A small change with tests/)).toBeVisible();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-planning.png") });
 
   // Mark Ready waits for every line of "Before Ready", and each line ticks as it is met.
@@ -1484,9 +1492,9 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   await expect(definitionOfDone.getByText("Confirmed")).toBeVisible();
   await expect(readinessLine("Definition of Done confirmed")).toHaveClass(/task-checklist-met/);
   await expect(readinessLine("Pipeline taken or declined")).not.toHaveClass(/task-checklist-met/);
-  await expect(stages.getByLabel("Another Pipeline")).toContainText("Document");
-  await stages.getByRole("button", { name: "Use Quick fix" }).click();
-  await expect(record.getByRole("region", { name: "Stages · Quick fix" })).toBeVisible();
+  await expect(proposedPipeline.getByLabel("Another Pipeline")).toContainText("Document");
+  await proposedPipeline.getByRole("button", { name: "Use Quick fix" }).click();
+  await expect(page.getByRole("region", { name: "Pipeline · Quick fix" })).toBeVisible();
   await expect(record.getByText(/A small change with tests/)).toHaveCount(0);
   await expect(readinessLine("Pipeline taken or declined")).toHaveClass(/task-checklist-met/);
   await expect(markReady).toBeDisabled();
@@ -1626,11 +1634,9 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await page.goto(signIn.taskUrl);
   await page.getByRole("button", { name: "Start", exact: true }).click();
 
-  const stages = page.getByRole("region", { name: "Stages · Quick fix" });
+  const rail = page.getByRole("region", { name: "Pipeline · Quick fix" });
   const conversation = page.getByRole("complementary", { name: "Conversation" });
-  const implement = stages
-    .getByRole("listitem")
-    .filter({ has: page.getByText("Implement", { exact: true }) });
+  const implement = stageOnRail(rail, "Implement");
   await expect(page.locator(".task-head").getByText("Waiting on you")).toBeVisible();
   await expect(implement).toContainText("Waiting on you");
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
@@ -1676,10 +1682,14 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
     conversation.getByText("Signing in now returns to the page it started from."),
   ).toBeVisible();
   // The Stage ran again in the asking Thread, continuing its session.
-  await expect(implement).toContainText("continued session");
-  await expect(implement).toContainText("Done · ");
+  await expect(implement.getByText("Done", { exact: true })).toBeVisible();
+  await expect(implement).toContainText("2 runs · ");
+  await rail.getByRole("button", { name: "Implement", exact: true }).click();
+  const history = rail.getByRole("region", { name: "Stage history: Implement" });
+  const newestRun = history.locator(".stage-history-run").first();
+  await expect(newestRun).toContainText("continued session");
   // The Handover note is Markdown: its heading and list show as such, not as one long line.
-  const handoverNote = stages.locator(".task-stage-note");
+  const handoverNote = newestRun.locator(".stage-history-note");
   await expect(handoverNote.getByText("Redirect", { exact: true })).toBeVisible();
   await expect(handoverNote.getByRole("listitem")).toHaveText([
     "The redirect keeps the path and the query string.",
@@ -1688,12 +1698,7 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(handoverNote.locator("code")).toHaveText("next");
 
   // The history reaches a run's Thread, however many times the reader looks away and comes back.
-  const rail = page.getByRole("region", { name: /^Pipeline · / });
-  await rail.getByRole("button", { name: "Implement", exact: true }).click();
-  const openThread = rail
-    .getByRole("region", { name: "Stage history: Implement" })
-    .getByRole("link", { name: "Open its Thread" })
-    .first();
+  const openThread = history.getByRole("link", { name: "Open its Thread" }).first();
   const otherTab = conversation
     .getByRole("group", { name: "Threads" })
     .getByRole("button")
@@ -1796,13 +1801,11 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     expect(await desktopShown(page)).toEqual([]);
 
     const gate = page.getByRole("region", { name: "Gate · UI acceptance" });
-    const stages = page.getByRole("region", { name: "Stages · Quick fix" });
-    const implement = stages
-      .getByRole("listitem")
-      .filter({ has: page.getByText("Implement", { exact: true }) });
+    const rail = page.getByRole("region", { name: "Pipeline · Quick fix" });
+    const implement = stageOnRail(rail, "Implement");
+    const acceptance = stageOnRail(rail, "UI acceptance");
     await expect(gate).toBeVisible();
     await expect(page.locator(".task-head").getByText("Waiting on you")).toBeVisible();
-    const rail = page.getByRole("region", { name: /^Pipeline · Quick fix/ });
     await expect(rail.getByText("At UI acceptance: waiting on you")).toBeVisible();
     const results = gate.getByRole("region", { name: "Stage results" });
     await expect(results).toContainText("Implement");
@@ -1817,7 +1820,7 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     expect(uploaded.status()).toBe(201);
     await expect(attachments.getByRole("button", { name: "View settings.png" })).toBeVisible();
     await expect(page.getByRole("region", { name: "Files changed" })).toBeVisible();
-    await expect(stages.getByText(/^Waiting on you/)).toBeVisible();
+    await expect(acceptance.getByText("Waiting on you", { exact: true })).toBeVisible();
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-gate.png") });
 
     // The Gate waits on Now too, with its actions.
@@ -1852,8 +1855,13 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     const conversation = page.getByRole("complementary", { name: "Conversation" });
     await expect(conversation.getByRole("button", { name: /^Implement/ })).toHaveCount(2);
     await expect(gate).toBeVisible();
-    await expect(implement).toContainText("Done · ");
-    await expect(implement).not.toContainText("round");
+    await expect(implement.getByText("Done", { exact: true })).toBeVisible();
+    await expect(implement).toContainText("2 runs · ");
+    await rail.getByRole("button", { name: "Implement", exact: true }).click();
+    const implementHistory = rail.getByRole("region", { name: "Stage history: Implement" });
+    await expect(implementHistory.locator(".stage-history-run")).toHaveCount(2);
+    await expect(implementHistory).toContainText("Sent back from UI acceptance");
+    await expect(implementHistory.locator(".stage-history-carried")).toHaveCount(0);
     // The Thread shows the Brief, not the Stage's work, which the run was briefed from.
     const own = taskStagesSchema.parse(
       await (await page.request.get(`/api/tasks/${taskId}/stages`)).json(),
@@ -1915,10 +1923,10 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
       .poll(async () => Number(/^\((\d+)\)/.exec(await page.title())?.[1] ?? 0))
       .toBeLessThan(unreadBefore);
     await expect(gate).toHaveCount(0);
-    const acceptance = stages
-      .getByRole("listitem")
-      .filter({ has: page.getByText("UI acceptance", { exact: true }) });
-    await expect(acceptance).toContainText("continued");
+    await rail.getByRole("button", { name: "UI acceptance", exact: true }).click();
+    await expect(rail.getByRole("region", { name: "Stage history: UI acceptance" })).toContainText(
+      "You continued",
+    );
     await expect(page.locator(".task-head-meta").getByText("Done", { exact: true })).toBeVisible();
     // Publish removed the worktree, so its conversations are read-only, with the reason.
     const finishedConversation = page.getByRole("complementary", { name: "Conversation" });
