@@ -851,36 +851,43 @@
         width: 12px;
         height: 12px;
       }
-      .node.gate .marker {
+      .node.gate .marker,
+      .mini-stage.gate .marker {
         border-radius: 5px;
         transform: rotate(45deg);
         width: 21px;
         height: 21px;
         margin: 1.5px 0;
       }
-      .node.gate .marker svg {
+      .node.gate .marker svg,
+      .mini-stage.gate .marker svg {
         transform: rotate(-45deg);
       }
-      .node.done .marker {
+      .node.done .marker,
+      .mini-stage.done .marker {
         background: var(--success);
         border-color: var(--success);
         color: var(--white);
       }
-      .node.failed .marker {
+      .node.failed .marker,
+      .mini-stage.failed .marker {
         background: var(--danger);
         border-color: var(--danger);
         color: var(--white);
       }
-      .node.waiting-on-you .marker {
+      .node.waiting-on-you .marker,
+      .mini-stage.waiting-on-you .marker {
         background: var(--warning);
         border-color: var(--warning);
         color: var(--gray-950);
       }
-      .node.running .marker {
+      .node.running .marker,
+      .mini-stage.running .marker {
         border-color: var(--accent);
         color: var(--accent);
       }
-      .node.running .marker::after {
+      .node.running .marker::after,
+      .mini-stage.running .marker::after {
         content: "";
         position: absolute;
         inset: -3px;
@@ -888,7 +895,8 @@
         border: 2px solid var(--accent);
         animation: pulse-ring 1.6s var(--ease-out) infinite;
       }
-      .node.skipped .marker {
+      .node.skipped .marker,
+      .mini-stage.skipped .marker {
         border-style: dashed;
       }
       .node.pending.future .marker {
@@ -955,20 +963,6 @@
           opacity: 0;
           transform: translateY(-4px);
         }
-      }
-      .history-head {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
-      }
-      .history-head h2 {
-        margin: 0;
-        font-size: var(--text-lg);
-        font-weight: 600;
-      }
-      .history-head .grow {
-        flex: 1;
       }
       .kbd {
         font-family: var(--font-mono);
@@ -1974,40 +1968,6 @@
       .scrim {
         display: none;
       }
-      .lightbox {
-        width: min(1040px, 92vw);
-        padding: 0;
-        overflow: hidden;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-card);
-        background: var(--surface);
-        color: var(--fg-1);
-        box-shadow: var(--shadow-3);
-      }
-      .lightbox::backdrop {
-        background: var(--overlay);
-      }
-      .lightbox-head {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 8px 8px 16px;
-        border-bottom: 1px solid var(--border-subtle);
-        font: var(--type-card-title);
-      }
-      .lightbox-head .grow {
-        flex: 1;
-        min-width: 0;
-      }
-      .lightbox-head .faint {
-        font: var(--type-caption);
-        white-space: nowrap;
-      }
-      .lightbox svg[viewBox="0 0 640 400"] {
-        display: block;
-        width: 100%;
-        height: auto;
-      }
       .toast {
         position: absolute;
         left: 50%;
@@ -2183,78 +2143,8 @@
       }
 
       /* ---------- Round 2: the details window of a Decision or the Gate, and the Stage history window ---------- */
-      .modal {
-        padding: 0;
-        overflow: hidden;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-card);
-        background: var(--surface);
-        color: var(--fg-1);
-        box-shadow: var(--shadow-3);
-      }
-      .modal::backdrop {
-        background: var(--overlay);
-      }
-      .details-modal {
-        width: min(760px, 94vw);
-        max-height: 88vh;
-      }
-      .details-modal[open] {
-        display: flex;
-        flex-direction: column;
-      }
-      .modal-head {
-        display: flex;
-        flex-wrap: wrap;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 10px 10px 16px;
-        border-bottom: 1px solid var(--border-subtle);
-        font-size: var(--text-xs);
-        color: var(--fg-2);
-      }
-      .modal-head .grow {
-        flex: 1;
-      }
-      .modal-body {
-        padding: 4px 18px 18px;
-        overflow-y: auto;
-      }
-      .modal-body .facts,
-      .modal-body .needs-attachments {
-        margin-top: 14px;
-      }
-      .history-modal {
-        width: min(1180px, 94vw);
-        height: min(86vh, 900px);
-      }
-      .history-window {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        padding: 14px 16px 16px;
-      }
 
       /* ---------- Round 2: the Stage history in the page, in place of what sits under the rail ---------- */
-      .history-page {
-        animation: drop-in var(--duration-base) var(--ease-out);
-      }
-      .history-back {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 10px;
-        font-size: var(--text-sm);
-      }
-      .history-card {
-        display: flex;
-        flex-direction: column;
-        height: max(460px, calc(100cqh - 250px));
-        padding: 14px 16px 16px;
-      }
-      .history-head .keys {
-        font-size: 11px;
-      }
       .history-panes {
         flex: 1;
         min-height: 0;
@@ -2377,21 +2267,6 @@
       }
 
       /* ---------- Round 2, second pass: the run list, the run's details, the side panel ---------- */
-      .history-modal.sheet {
-        margin: 0 0 0 auto;
-        width: min(1000px, 78vw);
-        height: 100vh;
-        max-height: none;
-        border-width: 0 0 0 1px;
-        border-radius: 0;
-        animation: sheet-in var(--duration-slow) var(--ease-out);
-      }
-      @keyframes sheet-in {
-        from {
-          transform: translateX(40px);
-          opacity: 0;
-        }
-      }
       .history-panes .runs > li {
         display: block;
       }
@@ -2445,8 +2320,12 @@
       }
       .run-tabs {
         flex: none;
+        align-items: center;
         margin: 0;
         padding: 0 14px;
+      }
+      .run-tabs .grow {
+        flex: 1;
       }
       .run-details-body {
         flex: 1;
@@ -2508,51 +2387,6 @@
       .run-details .composer {
         border-top: 1px solid var(--border-subtle);
       }
-      .stage-strip {
-        display: flex;
-        gap: 6px;
-        overflow-x: auto;
-        margin-bottom: 12px;
-        padding-bottom: 2px;
-      }
-      .stage-strip-item {
-        display: inline-flex;
-        flex: none;
-        align-items: center;
-        gap: 6px;
-        height: var(--control-sm);
-        padding: 0 10px;
-        border: 1px solid var(--border);
-        border-radius: var(--radius-full);
-        background: var(--surface);
-        color: var(--fg-2);
-        font-size: var(--text-xs);
-        cursor: pointer;
-      }
-      .stage-strip-item[aria-selected="true"] {
-        border-color: var(--border-strong);
-        background: var(--surface-selected);
-        color: var(--fg-1);
-        font-weight: 600;
-      }
-      .strip-dot {
-        width: 8px;
-        height: 8px;
-        border-radius: 50%;
-        background: var(--border-strong);
-      }
-      .stage-strip-item.done .strip-dot {
-        background: var(--success);
-      }
-      .stage-strip-item.failed .strip-dot {
-        background: var(--danger);
-      }
-      .stage-strip-item.running .strip-dot {
-        background: var(--accent);
-      }
-      .stage-strip-item.waiting-on-you .strip-dot {
-        background: var(--warning);
-      }
       .thread-empty .btn {
         margin: 10px 0;
       }
@@ -2561,6 +2395,210 @@
       }
       .to .cache {
         margin-right: 2px;
+      }
+
+      /* ---------- Windows: three sizes, one frame ---------- */
+      .modal {
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-card);
+        background: var(--surface);
+        color: var(--fg-1);
+        box-shadow: var(--shadow-3);
+      }
+      .modal[open] {
+        display: flex;
+        flex-direction: column;
+      }
+      .modal::backdrop {
+        background: var(--overlay);
+      }
+      .modal.sm {
+        width: min(440px, 94vw);
+        max-height: 86vh;
+      }
+      .modal.md {
+        width: min(720px, 94vw);
+        max-height: 86vh;
+      }
+      .modal.lg {
+        width: min(1180px, 94vw);
+        max-height: min(86vh, 900px);
+      }
+      /* A window whose content changes as you move in it keeps one height, so it doesn't jump. */
+      .modal.tall {
+        height: min(86vh, 900px);
+      }
+      .window-head {
+        flex: none;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 10px;
+        padding: 10px 10px 10px 18px;
+        border-bottom: 1px solid var(--border-subtle);
+        font-size: var(--text-sm);
+        color: var(--fg-2);
+      }
+      .window-head h2 {
+        margin: 0;
+        font-size: var(--text-lg);
+        font-weight: 600;
+        color: var(--fg-1);
+      }
+      .window-head b {
+        color: var(--fg-1);
+      }
+      .window-head .grow {
+        flex: 1;
+      }
+      .window-head .keys {
+        font-size: 11px;
+      }
+      .window-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        padding: 4px 18px 18px;
+      }
+      .window-body > .facts,
+      .window-body > .needs-attachments {
+        margin-top: 14px;
+      }
+      .window-foot {
+        flex: none;
+        border-top: 1px solid var(--border-subtle);
+        background: var(--surface-sunken);
+      }
+      .window-step {
+        padding: 12px 18px 0;
+      }
+      .window-actions {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 18px;
+      }
+      .window-actions-start {
+        display: flex;
+        flex: 1;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .field-label {
+        font: var(--type-caption);
+        color: var(--fg-2);
+      }
+      .sendback {
+        margin-top: 0;
+      }
+      .shot-view {
+        margin-top: 14px;
+      }
+      .shot-view svg {
+        display: block;
+        width: 100%;
+        height: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+      }
+      .answer-choices {
+        display: grid;
+        gap: 6px;
+        margin-top: 14px;
+      }
+      .answer-choice {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-control);
+        font-size: var(--text-sm);
+        cursor: pointer;
+      }
+      .answer-choice:hover {
+        background: var(--surface-hover);
+      }
+      .answer-choice.picked {
+        border-color: var(--border-focus);
+        background: var(--surface-selected);
+      }
+      .answer-choice .grow {
+        flex: 1;
+      }
+      .answer-choice input {
+        margin: 0;
+        accent-color: var(--accent);
+      }
+      .own-words {
+        width: 100%;
+        height: 72px;
+      }
+
+      /* ---------- The Stage history window's mini rail ---------- */
+      .mini-rail {
+        flex: none;
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(84px, 1fr);
+        margin: 10px 0 8px;
+        overflow-x: auto;
+      }
+      .mini-stage {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 6px 6px;
+        border: 0;
+        border-radius: var(--radius-md);
+        background: transparent;
+        color: var(--fg-2);
+        font: inherit;
+        font-size: var(--text-xs);
+        cursor: pointer;
+      }
+      /* The line between the marks: each half belongs to the Stage on its side. */
+      .mini-stage::before {
+        content: "";
+        position: absolute;
+        top: 15px;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background: var(--border);
+      }
+      .mini-stage:first-child::before {
+        left: 50%;
+      }
+      .mini-stage:last-child::before {
+        right: 50%;
+      }
+      .mini-stage:hover {
+        background: var(--surface-hover);
+      }
+      .mini-stage.selected {
+        background: var(--surface-selected);
+        color: var(--fg-1);
+        font-weight: 600;
+      }
+      .mini-stage.selected .marker {
+        box-shadow: 0 0 0 3px var(--accent-subtle);
+      }
+      .mini-name {
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .history-sub {
+        flex: none;
       }
 
       /* ---------- Narrow: 900px and under ---------- */
@@ -2654,10 +2692,6 @@
         <div class="seg" id="scenario-switch"></div>
       </div>
       <div class="group">
-        <span class="label">Stage history</span>
-        <div class="seg" id="history-switch"></div>
-      </div>
-      <div class="group">
         <span class="label">Width</span>
         <div class="seg" id="width-switch"></div>
       </div>
@@ -2675,7 +2709,6 @@
       <div class="scroller" id="scroller">
         <header class="head" id="head"></header>
         <section class="rail card" id="rail" aria-label="Pipeline"></section>
-        <section class="history-page" id="history-page" hidden aria-live="polite"></section>
         <div class="body" id="body">
           <div class="work-column">
             <div class="needs-area" id="needs"></div>
@@ -2694,9 +2727,9 @@
       ></button>
       <div class="toast" id="toast" role="status"></div>
     </div>
-    <dialog class="modal history-modal" id="history-modal" aria-label="Stage history"></dialog>
-    <dialog class="modal details-modal" id="details-modal"></dialog>
-    <dialog class="lightbox" id="lightbox" aria-label="Screenshot"></dialog>
+    <dialog class="modal lg tall" id="history-modal" aria-label="Stage history"></dialog>
+    <dialog class="modal lg" id="details-modal"></dialog>
+    <dialog class="modal lg" id="lightbox" aria-label="Screenshot"></dialog>
 
     <script>
       "use strict";
@@ -3723,8 +3756,6 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
         selectedStage: null,
         /** The run whose Thread the Stage history shows; null shows the newest. */
         selectedRun: null,
-        /** Where the Stage history opens: "modal", or "subpage" in place of what sits under the rail. */
-        historyMode: store.get("historyMode", "modal"),
         /** Per run: "summary" or "thread", once the user picks one. */
         historyTab: {},
         /** The person whose tab the conversation shows. */
@@ -3738,6 +3769,8 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
         sendBackOpen: false,
         /** What the details window shows: { kind: "decision", id } or { kind: "gate" }. */
         details: null,
+        /** The answer picked in a Decision's window: an option's index or "free". */
+        detailsAnswer: null,
         composerDraft: "",
         liveTimer: null,
       };
@@ -3966,6 +3999,17 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
       const gateWaiting = () =>
         view.data.stages.find((ts) => ts.stage.kind === "gate" && ts.state === "waiting-on-you");
       const needsCount = () => openDecisions().length + (gateWaiting() ? 1 : 0);
+
+      /**
+       * Every window: a head with what it is and its X, a body, and a bar at the foot with the
+       * window's actions on the left and Close, always, on the right. A step an action needs first
+       * (Send back's notes) opens over the bar, and the bar's actions become the step's.
+       */
+      function windowFrame({ head, body, actions = "", step = "", close }) {
+        return `<div class="window-head">${head}<span class="grow"></span><button class="btn ghost xs icon" data-action="${close}" aria-label="Close">${ICON.close}</button></div>
+          <div class="window-body">${body}</div>
+          <div class="window-foot">${step ? `<div class="window-step">${step}</div>` : ""}<div class="window-actions"><span class="window-actions-start">${actions}</span><button class="btn" data-action="${close}">Close</button></div></div>`;
+      }
 
       /* ===================== Head ===================== */
 
@@ -4372,13 +4416,14 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
       function runDetailsHtml(ts) {
         const r = shownRun(ts);
         const state = runState(ts, r);
-        const head = `<div class="run-details-head"><span class="title">Run ${r.number}</span>${RUN_BADGE[state]}<span class="faint">${runFacts(ts, r)}${r.session ? ` · ${r.session} session` : ""}</span><span class="grow"></span>${r.threadId ? detailsSwitch() : ""}</div>`;
+        const head = `<div class="run-details-head"><span class="title">Run ${r.number}</span>${RUN_BADGE[state]}<span class="faint">${runFacts(ts, r)}${r.session ? ` · ${r.session} session` : ""}</span></div>`;
         if (ts.stage.kind === "agent" && r.threadId) {
           const tab = detailTab(ts, r);
           const t = threadById(r.threadId);
           const tabButton = (key, label) =>
             `<button class="tab" role="tab" data-action="history-tab" data-run="${r.id}" data-tab="${key}" aria-selected="${tab === key}">${label}</button>`;
-          const tabs = `<div class="tabs run-tabs" role="tablist">${tabButton("summary", "Summary")}${tabButton("thread", `Thread${t.id === view.data.liveThreadId ? ' <span class="dot live"></span>' : ""}`)}</div>`;
+          // Details hides tool activity, which only the Thread has, so the switch sits on its tab's row.
+          const tabs = `<div class="tabs run-tabs" role="tablist">${tabButton("summary", "Summary")}${tabButton("thread", `Thread${t.id === view.data.liveThreadId ? ' <span class="dot live"></span>' : ""}`)}${tab === "thread" ? `<span class="grow"></span>${detailsSwitch()}` : ""}</div>`;
           const panel =
             tab === "summary"
               ? `<div class="run-details-body">${summaryHtml(ts, r)}</div>`
@@ -4392,18 +4437,24 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
         return `<div class="run-details">${head}<div class="run-details-body">${summaryHtml(ts, r)}${log}</div></div>`;
       }
 
-      /** All the Stages, to move between them without closing the history. */
-      function stageStripHtml() {
-        return `<div class="stage-strip" role="tablist" aria-label="Stages">${view.data.stages
-          .map(
-            (ts) =>
-              `<button class="stage-strip-item ${ts.state}" role="tab" data-action="select-stage" data-stage="${ts.stage.key}" aria-selected="${ts.stage.key === view.selectedStage}"><span class="strip-dot"></span>${esc(ts.stage.name)}</button>`,
-          )
-          .join("")}</div>`;
+      /** The Pipeline in small, as the rail draws it: each Stage's mark and name, to move between them. */
+      function miniRailHtml() {
+        const items = view.data.stages.map((ts) => {
+          const glyph =
+            {
+              done: ICON.check,
+              failed: ICON.cross,
+              "waiting-on-you": ICON.pause,
+              skipped: ICON.dash,
+            }[ts.state] || "";
+          const selected = ts.stage.key === view.selectedStage;
+          return `<button class="mini-stage ${ts.state} ${ts.stage.kind} ${selected ? "selected" : ""}" role="tab" data-action="select-stage" data-stage="${ts.stage.key}" aria-selected="${selected}" title="${esc(ts.stage.name)}: ${STATE_WORDS[ts.state]}"><span class="marker">${glyph}</span><span class="mini-name">${esc(ts.stage.name)}</span></button>`;
+        });
+        return `<div class="mini-rail" role="tablist" aria-label="Stages">${items.join("")}</div>`;
       }
 
-      /** The history of the selected Stage, the same in every version. */
-      function historyContent(ts) {
+      /** The Stage history window's head and body. */
+      function historyWindow(ts) {
         const kindWords =
           ts.stage.kind === "agent"
             ? `Agent Stage · ${PEOPLE[ts.stage.role].name} · ${PEOPLE[ts.stage.role].role} · budget ${kTokens(ts.stage.budget)} tokens`
@@ -4413,10 +4464,6 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
         const loop = ts.stage.onFailure
           ? ` · on failure goes back to ${byKey(ts.stage.onFailure.goBackTo).name}, at most ${ts.stage.onFailure.rounds} times`
           : "";
-        const closeButton =
-          view.historyMode === "subpage"
-            ? ""
-            : `<button class="btn ghost xs icon" data-action="close-history" aria-label="Close the Stage history">${ICON.close}</button>`;
         const runs = ts.runs.length
           ? `<div class="history-panes">
               <ol class="runs">${[...ts.runs]
@@ -4426,15 +4473,10 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
               ${runDetailsHtml(ts)}
             </div>`
           : `<div class="muted history-empty">${["planning", "backlog"].includes(view.data.task.state) ? "Runs once the Task starts." : "Hasn't run yet."}</div>`;
-        return `<div class="history-head">
-            <h2>${esc(ts.stage.name)}</h2>${stageWorker(ts.stage)}<span class="badge">${STATE_WORDS[ts.state]}</span>
-            <span class="grow"></span>
-            <span class="faint keys"><span class="kbd">←</span> <span class="kbd">→</span> Stages · <span class="kbd">Esc</span> ${view.historyMode === "subpage" ? "back" : "close"}</span>
-            ${closeButton}
-          </div>
-          <div class="history-sub">${kindWords}${loop}${ts.runs.length ? ` · ${kTokens(sumTokens(ts.tokens))} tokens over ${ts.runs.length} ${ts.runs.length === 1 ? "run" : "runs"}` : ""}</div>
-          ${view.historyMode === "subpage" ? "" : stageStripHtml()}
-          ${runs}`;
+        return {
+          head: `<h2>${esc(ts.stage.name)}</h2>${stageWorker(ts.stage)}<span class="badge">${STATE_WORDS[ts.state]}</span><span class="faint keys"><span class="kbd">←</span> <span class="kbd">→</span> Stages</span>`,
+          body: `${miniRailHtml()}<div class="history-sub">${kindWords}${loop}${ts.runs.length ? ` · ${kTokens(sumTokens(ts.tokens))} tokens over ${ts.runs.length} ${ts.runs.length === 1 ? "run" : "runs"}` : ""}</div>${runs}`,
+        };
       }
 
       function threadBodyAtEnd() {
@@ -4442,40 +4484,27 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
         return !body || body.scrollHeight - body.scrollTop - body.clientHeight < 40;
       }
 
-      /** 1 opens a window over the page, 2 a panel from the side, 3 takes the place of everything under the rail. */
       function renderHistory() {
         const modal = $("history-modal");
-        const page = $("history-page");
         const index = view.data.stages.findIndex((ts) => ts.stage.key === view.selectedStage);
         const previous = $("run-thread-body");
         const keepScroll = previous && !threadBodyAtEnd() ? previous.scrollTop : null;
         const typing = document.activeElement?.closest(".run-details textarea");
         const draft = typing?.value;
-        modal.innerHTML = "";
-        page.innerHTML = "";
         if (index < 0) {
           if (modal.open) modal.close();
-          page.hidden = true;
-          $("body").hidden = false;
+          modal.innerHTML = "";
           return;
         }
-        const content = historyContent(view.data.stages[index]);
-        if (view.historyMode === "subpage") {
-          if (modal.open) modal.close();
-          $("body").hidden = true;
-          page.hidden = false;
-          page.innerHTML = `<div class="history-back"><button class="btn" data-action="close-history">${ICON.left} Back to the Task</button><span class="muted">Stage history of ${esc(view.data.stages[index].stage.name)}</span></div><div class="card history-card">${content}</div>`;
-        } else {
-          page.hidden = true;
-          $("body").hidden = false;
-          modal.classList.toggle("sheet", view.historyMode === "sheet");
-          modal.innerHTML = `<div class="history-window">${content}</div>`;
-          if (!modal.open) modal.showModal();
-        }
+        modal.innerHTML = windowFrame({
+          ...historyWindow(view.data.stages[index]),
+          close: "close-history",
+        });
+        if (!modal.open) modal.showModal();
         // A reader who scrolled up in the Thread stays put while it updates; else it follows the end.
         const body = $("run-thread-body");
         if (body) body.scrollTop = keepScroll ?? body.scrollHeight;
-        const box = typing && document.querySelector(".run-details textarea");
+        const box = typing && modal.querySelector(".run-details textarea");
         if (box) {
           box.value = draft;
           box.focus();
@@ -4488,10 +4517,6 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
         renderRail();
         renderHistory();
         fitConversation();
-        if (view.historyMode === "subpage") {
-          focusNode(key);
-          $("history-page").scrollIntoView({ block: "nearest", behavior: "smooth" });
-        }
       }
 
       function closeHistory() {
@@ -4821,32 +4846,69 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
       }
 
       /** The Gate's details window: the four facts, this round's pictures and every action. */
-      function gateDetailsHtml() {
-        const agentStages = view.data.stages.filter(
+      /** Where the Gate can send the work back to: the Agent Stages that ran. */
+      const sendBackTargets = () =>
+        view.data.stages.filter(
           (s) =>
             s.stage.kind === "agent" &&
             s.runs.length &&
             !s.runs.every((r) => r.outcome && r.outcome.skipped),
         );
+
+      function gateDetailsBody() {
         const latestRound = attachmentRounds().at(-1);
         const latestShots = latestRound ? shotsOf(latestRound.attachments) : [];
-        const sendBack = view.sendBackOpen
-          ? `<div class="sendback">
-              <select class="select" aria-label="Send back to">${agentStages.map((s) => `<option>${esc(s.stage.name)} · ${PEOPLE[s.stage.role].name}</option>`).join("")}</select>
-              <textarea class="textarea" placeholder="Say what should change"></textarea>
-              <div><button class="btn primary xs" data-action="toast" data-text="Sends the work back with your notes in the Stage's Brief.">Send back</button></div>
-            </div>`
-          : "";
         return `<p class="ask-q">${GATE_DESCRIPTION}</p>
           ${gateFacts()}
-          ${latestShots.length ? screenshotsHtml(latestShots, false) : ""}
-          <div class="ask-actions">
-            <button class="btn primary" data-action="toast" data-text="Continue: Publish runs next.">Continue</button>
-            <button class="btn" data-action="open-changes">Open Changes</button>
-            <button class="btn" data-action="send-back" aria-expanded="${view.sendBackOpen}">${view.sendBackOpen ? "Cancel" : "Send back with notes…"}</button>
-            <button class="btn danger" data-action="toast" data-text="Drop asks you to confirm first.">Drop</button>
-          </div>
-          ${sendBack}`;
+          ${latestShots.length ? screenshotsHtml(latestShots, false) : ""}`;
+      }
+
+      /** Send back takes a second step: its notes open over the bar, whose actions become its own. */
+      function gateDetailsFoot() {
+        if (!view.sendBackOpen)
+          return {
+            actions: `<button class="btn primary" data-action="toast" data-text="Continue: Publish runs next.">Continue</button>
+              <button class="btn" data-action="open-changes">Open Changes</button>
+              <button class="btn" data-action="send-back">Send back with notes…</button>
+              <button class="btn danger" data-action="toast" data-text="Drop asks you to confirm first.">Drop</button>`,
+          };
+        return {
+          step: `<div class="sendback">
+              <label class="field-label" for="send-back-to">Send back to</label>
+              <select class="select" id="send-back-to">${sendBackTargets()
+                .map((s) => `<option>${esc(s.stage.name)} · ${PEOPLE[s.stage.role].name}</option>`)
+                .join("")}</select>
+              <label class="field-label" for="send-back-notes">Notes</label>
+              <textarea class="textarea" id="send-back-notes" placeholder="Say what should change"></textarea>
+            </div>`,
+          actions: `<button class="btn primary" data-action="toast" data-text="Sends the work back with your notes in the Stage's Brief.">Send back</button>
+              <button class="btn" data-action="send-back">Cancel</button>`,
+        };
+      }
+
+      /** In the window a Decision is answered as a form: pick an answer, or write your own, then Answer. */
+      function decisionDetailsBody(d) {
+        const picked = view.detailsAnswer ?? d.recommendation.option;
+        const option = (value, label, extra = "") =>
+          `<label class="answer-choice ${picked === value ? "picked" : ""}"><input type="radio" name="answer" data-action="pick-answer" data-value="${value}" ${picked === value ? "checked" : ""} /><span class="grow">${label}</span>${extra}</label>`;
+        const options = d.options
+          .map((o, i) =>
+            option(
+              i,
+              esc(o),
+              i === d.recommendation.option ? '<span class="badge info">Recommended</span>' : "",
+            ),
+          )
+          .join("");
+        const own =
+          option("free", "In your own words") +
+          (picked === "free"
+            ? '<textarea class="textarea own-words" placeholder="Your answer" aria-label="Your answer"></textarea>'
+            : "");
+        return `<p class="ask-q">${esc(d.question)}</p><p class="ask-ctx">${esc(d.context)}</p>
+          ${d.screenshots ? screenshotsHtml(d.screenshots, false) : ""}
+          <div class="answer-choices" role="radiogroup" aria-label="Answers">${options}${own}</div>
+          <p class="why">${personLink(d.roleKey)} recommends “${esc(d.options[d.recommendation.option])}”: ${esc(d.recommendation.reason)}</p>`;
       }
 
       function renderDetails() {
@@ -4856,19 +4918,21 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
           if (dialog.open) dialog.close();
           return;
         }
-        let title, who, body;
+        let head, body, foot;
         if (details.kind === "decision") {
           const d = decision(details.id);
-          title = "Decision";
-          who = `${personTag(d.roleKey)}${decisionPlace(d)}`;
-          body = `<p class="ask-q">${esc(d.question)}</p><p class="ask-ctx">${esc(d.context)}</p>${d.screenshots ? screenshotsHtml(d.screenshots, false) : ""}${answersHtml(d)}`;
+          head = `<span class="badge warning">Decision</span>${personTag(d.roleKey)}${decisionPlace(d)}`;
+          body = decisionDetailsBody(d);
+          foot = {
+            actions: `<button class="btn primary" data-action="answer-picked" data-decision="${d.id}">Answer</button>`,
+          };
         } else {
-          title = "Gate";
-          who = '<span class="muted">before Publish</span>';
-          body = gateDetailsHtml();
+          head = '<span class="badge accent">Gate</span><span class="muted">before Publish</span>';
+          body = gateDetailsBody();
+          foot = gateDetailsFoot();
         }
-        dialog.setAttribute("aria-label", title);
-        dialog.innerHTML = `<div class="modal-head"><span class="badge ${details.kind === "gate" ? "accent" : "warning"}">${title}</span>${who}<span class="grow"></span><button class="btn ghost xs icon" data-action="close-details" aria-label="Close">${ICON.close}</button></div><div class="modal-body">${body}</div>`;
+        dialog.setAttribute("aria-label", details.kind === "gate" ? "Gate" : "Decision");
+        dialog.innerHTML = windowFrame({ head, body, ...foot, close: "close-details" });
         if (!dialog.open) dialog.showModal();
       }
 
@@ -5273,16 +5337,6 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
           "scenario",
         );
         segmented(
-          "history-switch",
-          [
-            ["modal", "1 · Window"],
-            ["sheet", "2 · Side panel"],
-            ["subpage", "3 · In the page"],
-          ],
-          view.historyMode,
-          "history-mode",
-        );
-        segmented(
           "width-switch",
           [
             ["wide", "Window"],
@@ -5346,8 +5400,11 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
         const round = view.data.attachments.find(({ shot }) => shot === key)?.round;
         const step = (by, label, sign) =>
           `<button class="btn ghost xs icon" data-action="step-shot" data-step="${by}" aria-label="${label}" ${keys[index + by] ? "" : "disabled"}>${sign}</button>`;
-        $("lightbox").innerHTML =
-          `<div class="lightbox-head"><span class="grow">${esc(SHOTS[key].title)}</span><span class="faint">${rounds.length > 1 && round ? `Round ${round} · ` : ""}${index + 1} of ${keys.length}</span>${step(-1, "Previous screenshot", "‹")}${step(1, "Next screenshot", "›")}<button class="btn ghost xs icon" data-action="close-shot" aria-label="Close the screenshot">${ICON.close}</button></div>${shotSvg(key)}`;
+        $("lightbox").innerHTML = windowFrame({
+          head: `<b>${esc(SHOTS[key].title)}</b><span class="faint">${rounds.length > 1 && round ? `Round ${round} · ` : ""}${index + 1} of ${keys.length}</span>${step(-1, "Previous screenshot", "‹")}${step(1, "Next screenshot", "›")}`,
+          body: `<div class="shot-view">${shotSvg(key)}</div>`,
+          close: "close-shot",
+        });
       }
 
       function stepShot(by) {
@@ -5366,13 +5423,6 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
 
       const ACTIONS = {
         scenario: (el) => loadScenario(el.dataset.value),
-        "history-mode": (el) => {
-          view.historyMode = el.dataset.value;
-          store.set("historyMode", view.historyMode);
-          renderSwitches();
-          renderHistory();
-          fitConversation();
-        },
         width: (el) => {
           view.narrow = el.dataset.value === "narrow";
           $("viewport").classList.toggle("narrow-demo", view.narrow);
@@ -5459,7 +5509,22 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
               ? { kind: "gate" }
               : { kind: "decision", id: el.dataset.decision };
           view.sendBackOpen = false;
+          view.detailsAnswer = null;
           renderDetails();
+        },
+        "pick-answer": (el) => {
+          view.detailsAnswer = el.dataset.value === "free" ? "free" : Number(el.dataset.value);
+          renderDetails();
+          $("details-modal").querySelector(".own-words")?.focus();
+        },
+        "answer-picked": (el) => {
+          const d = decision(el.dataset.decision);
+          const picked = view.detailsAnswer ?? d.recommendation.option;
+          toast(
+            picked === "free"
+              ? "Sends your own answer to the Decision."
+              : `Answers: "${d.options[picked]}".`,
+          );
         },
         "close-details": () => {
           view.details = null;
@@ -5506,7 +5571,6 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
         renderRail();
         renderHistory();
         fitConversation();
-        if (view.historyMode === "subpage") focusNode(next);
       }
 
       document.addEventListener("click", (event) => {
@@ -5537,7 +5601,6 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
         if (event.key === "Escape") {
           // The window's own Esc closes it (its cancel event); in the page, Esc goes back.
           if (view.drawerOpen) ACTIONS["close-drawer"]();
-          else if (view.selectedStage && view.historyMode === "subpage") closeHistory();
           return;
         }
         if (!view.selectedStage) return;
@@ -5552,7 +5615,7 @@ Nothing for the Definition of Done. One thing for you: amounts are in minor unit
       });
 
       $("history-modal").addEventListener("close", () => {
-        if (view.selectedStage && view.historyMode !== "subpage") closeHistory();
+        if (view.selectedStage) closeHistory();
       });
       $("details-modal").addEventListener("close", () => {
         view.details = null;
