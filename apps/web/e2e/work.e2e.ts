@@ -593,8 +593,11 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
   // Out of Planning the blocks are folded to one line.
   await expect(record.getByText("Not written yet", { exact: true })).toBeVisible();
   await expect(record.getByText("No Plan yet", { exact: true })).toBeVisible();
+  const rail = page.getByRole("region", { name: /^Pipeline · / });
+  await expect(rail.getByText("Not started").first()).toBeVisible();
   for (const stage of ["Implement", "Tests", "Review & fix", "Publish"]) {
     await expect(record.getByText(stage, { exact: true })).toBeVisible();
+    await expect(rail.getByText(stage, { exact: true })).toBeVisible();
   }
   const origin = record.getByRole("region", { name: "Origin" });
   await expect(origin.getByText("Idea: Sign-in keeps the page")).toBeVisible();

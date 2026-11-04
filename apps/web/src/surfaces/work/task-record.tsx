@@ -7,15 +7,14 @@ import {
   type Task,
   type TaskStage,
 } from "@the-office/contracts";
-import { Button, Icon } from "@the-office/ui";
-import { useState, type ReactNode } from "react";
+import { Icon } from "@the-office/ui";
+import type { ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
 import { DependenciesBlock } from "./dependencies-block.tsx";
-import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
 import { GateBlock } from "./gate-view.tsx";
 import { DefinitionOfDoneBlock, PlanBlock, ProposedPipeline } from "./planning-parts.tsx";
 import { OriginBlock } from "./origin-block.tsx";
@@ -80,32 +79,20 @@ function StagesBlock({
   readonly roles: readonly Role[] | undefined;
 }): ReactNode {
   const taskStages = useQuery(pipelineQueries.taskStages(task.id)).data;
-  const [editing, setEditing] = useState(false);
   const own = taskStages?.stages;
-  const finished = task.state === "done" || task.state === "dropped";
+  const proposing = NOT_STARTED.includes(task.state) && task.proposedPipeline !== null;
+  if (!own && !pipeline && !proposing) return null;
   return (
     <RecordBlock
       icon="route"
       title={`Stages · ${pipelineLabel(pipeline?.name ?? REMOVED_PIPELINE, taskStages?.editedForTask ?? false)}`}
-      actions={
-        !finished && (
-          <Button size="sm" variant="secondary" onClick={() => setEditing(true)}>
-            Edit for this Task
-          </Button>
-        )
-      }
     >
-      {NOT_STARTED.includes(task.state) && (
-        <ProposedPipeline task={task} pipeline={pipeline} planner={planner} />
-      )}
+      {proposing && <ProposedPipeline task={task} pipeline={pipeline} planner={planner} />}
       {own ? (
         <TaskStageList taskStages={own} roles={roles} />
-      ) : pipeline ? (
-        <StageList stages={pipeline.stages} roles={roles} />
       ) : (
-        <p className="task-quiet">Its Pipeline was removed from the library.</p>
+        pipeline && <StageList stages={pipeline.stages} roles={roles} />
       )}
-      {editing && <EditTaskStagesDialog task={task} onClose={() => setEditing(false)} />}
     </RecordBlock>
   );
 }

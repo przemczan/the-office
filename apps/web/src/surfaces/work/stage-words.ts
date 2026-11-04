@@ -116,7 +116,7 @@ export function scriptCommandLine({ runs }: TaskStage): string | undefined {
 }
 
 /** Every run's time, a running one's until now. */
-function timeTaken(runs: readonly StageRun[], now: Date): number {
+export function timeTaken(runs: readonly StageRun[], now: Date): number {
   return runs.reduce((sum, run) => {
     const end = run.endedAt ? Date.parse(run.endedAt) : now.getTime();
     return sum + Math.max(0, end - Date.parse(run.startedAt));

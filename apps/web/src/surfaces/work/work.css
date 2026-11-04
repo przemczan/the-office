@@ -565,6 +565,128 @@
   border-radius: var(--radius-control);
 }
 
+.pipeline-rail-caption {
+  margin: 0 0 10px;
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+/* A Stage keeps a minimum width, so a narrow page scrolls the rail rather than squeezing it. */
+.pipeline-rail-scroll {
+  overflow-x: auto;
+}
+
+.pipeline-rail-stages {
+  position: relative;
+}
+
+.pipeline-rail-stages ol {
+  position: relative;
+  display: grid;
+  grid-auto-columns: minmax(0, 1fr);
+  grid-auto-flow: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pipeline-rail-line,
+.pipeline-rail-reached {
+  position: absolute;
+  top: 10px;
+  height: 2px;
+  border-radius: 2px;
+}
+
+.pipeline-rail-line {
+  background: var(--border);
+}
+
+.pipeline-rail-reached {
+  background: var(--success);
+}
+
+.pipeline-rail-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: center;
+  min-width: 0;
+  padding: 0 6px;
+  text-align: center;
+}
+
+.pipeline-rail-marker {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  margin-bottom: 4px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.pipeline-rail-name {
+  font: 500 13px/1.4 var(--font-sans);
+  color: var(--fg-1);
+}
+
+.pipeline-rail-optional,
+.pipeline-rail-worker,
+.pipeline-rail-runs {
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.pipeline-rail-worker {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pipeline-rail-state {
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.pipeline-rail-stage-done .pipeline-rail-marker {
+  border-color: var(--success-border);
+  background: var(--success-subtle);
+  color: var(--success-fg);
+}
+
+.pipeline-rail-stage-running .pipeline-rail-marker {
+  border-color: var(--success);
+  background: var(--success);
+  color: var(--fg-on-accent);
+}
+
+.pipeline-rail-stage-waiting-on-you .pipeline-rail-marker {
+  border-color: var(--warning-border);
+  background: var(--warning-subtle);
+  color: var(--warning-fg);
+}
+
+.pipeline-rail-stage-paused .pipeline-rail-marker,
+.pipeline-rail-stage-stopped .pipeline-rail-marker {
+  border-color: var(--warning-border);
+  color: var(--warning-fg);
+}
+
+.pipeline-rail-stage-failed .pipeline-rail-marker {
+  border-color: var(--danger-border);
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+}
+
+.pipeline-rail-stage-skipped .pipeline-rail-name {
+  color: var(--fg-3);
+}
+
 .task-columns {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(360px, 1fr);

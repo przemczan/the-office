@@ -1631,7 +1631,7 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   const implement = stages
     .getByRole("listitem")
     .filter({ has: page.getByText("Implement", { exact: true }) });
-  await expect(page.getByText("Waiting on you", { exact: true })).toBeVisible();
+  await expect(page.locator(".task-head").getByText("Waiting on you")).toBeVisible();
   await expect(implement).toContainText("Waiting on you");
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Stop" })).toBeVisible();
@@ -1780,7 +1780,9 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
       .getByRole("listitem")
       .filter({ has: page.getByText("Implement", { exact: true }) });
     await expect(gate).toBeVisible();
-    await expect(page.getByText("Waiting on you", { exact: true })).toBeVisible();
+    await expect(page.locator(".task-head").getByText("Waiting on you")).toBeVisible();
+    const rail = page.getByRole("region", { name: /^Pipeline · Quick fix/ });
+    await expect(rail.getByText("At UI acceptance: waiting on you")).toBeVisible();
     const results = gate.getByRole("region", { name: "Stage results" });
     await expect(results).toContainText("Implement");
     await expect(results).toContainText("Tests");
@@ -1846,7 +1848,7 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     // Edit for this Task while it runs: the started Stages are locked, Build after them changes,
     // and the library's Quick fix stays as it is.
     const library = await (await page.request.get("/api/pipelines")).json();
-    await stages.getByRole("button", { name: "Edit for this Task" }).click();
+    await rail.getByRole("button", { name: "Edit for this Task" }).click();
     for (const name of ["Implement", "Tests", "UI acceptance"]) {
       await expect(editorRow(page, name)).toContainText("started, so it can't be changed");
       await expect(editorRow(page, name).getByRole("button", { name: `Edit ${name}` })).toHaveCount(
