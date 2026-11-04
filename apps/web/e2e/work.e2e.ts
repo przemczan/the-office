@@ -981,6 +981,23 @@ test("selecting a Stage opens its history, with the loop-back on the rail and th
   await expect(testsHistory).toBeVisible();
   await stageButton("Tests").click();
   await expect(testsHistory).toHaveCount(0);
+
+  // In a window too narrow for the Stages the loop-back's arc scrolls with them.
+  await page.setViewportSize({ width: 420, height: 800 });
+  const stagesScroller = rail.locator(".pipeline-rail-scroll");
+  await expect
+    .poll(() => stagesScroller.evaluate((view) => view.scrollWidth - view.clientWidth))
+    .toBeGreaterThan(0);
+  await stagesScroller.evaluate((view) => {
+    view.scrollLeft = (view.scrollWidth - view.clientWidth) / 2;
+  });
+  await rail.screenshot({ path: path.join(SCREENSHOTS, "light-420-rail-arcs-scrolled.png") });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+  await page.waitForFunction(() => document.getAnimations().length === 0);
+  await rail.screenshot({ path: path.join(SCREENSHOTS, "dark-420-rail-arcs-scrolled.png") });
+  await page.emulateMedia({ colorScheme: "light" });
+  await page.setViewportSize({ width: 1600, height: 900 });
 });
 
 test("a Task's images show by round, the Gate shows the current one, and the viewer steps through them", async ({

@@ -1162,12 +1162,22 @@ test("a person's Work tab lists the Tasks whose Stages they work, in the Project
 /** A Stage among the rail's, not a run of its history. */
 /** A window narrow enough that the Stages of `seedGatedStages` don't fit across the rail. */
 const NARROW_WIDTH_PX = 640;
+const DRAWER_WIDTH_PX = 900;
 
 /** Changes the palette the system asks for and waits for the buttons' colours to finish changing. */
 async function showPalette(page: Page, palette: "light" | "dark"): Promise<void> {
   await page.emulateMedia({ colorScheme: palette });
   await expect(page.locator("html")).toHaveAttribute("data-palette", palette);
-  await page.waitForFunction(() => document.getAnimations().length === 0);
+  await motionSettled(page);
+}
+
+/** Waits out what is changing; a running Task's "is working" line never stops. */
+async function motionSettled(page: Page): Promise<void> {
+  await page.waitForFunction(() =>
+    document
+      .getAnimations()
+      .every((animation) => animation.effect?.getComputedTiming().iterations === Infinity),
+  );
 }
 
 async function scrollLeftOf(scroller: Locator): Promise<number> {
@@ -1180,6 +1190,17 @@ async function stageIsInRailView(rail: Locator, stage: Locator): Promise<boolean
   const shown = await stage.boundingBox();
   if (view === null || shown === null) return false;
   return shown.x >= view.x && shown.x + shown.width <= view.x + view.width;
+}
+
+function conversationHandle(page: Page): Locator {
+  return page.getByRole("button", { name: /^Conversation/ });
+}
+
+/** How far the window itself scrolls sideways, which nothing on a page should make it do. */
+function windowOverflow(page: Page): Promise<number> {
+  return page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
 }
 
 function stageOnRail(rail: Locator, name: string): Locator {
@@ -2272,6 +2293,27 @@ test("the user reads a Consultation on the Task, sees its Decision wait on the C
     await expect(decision).toBeInViewport();
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-decision-link.png") });
 
+    // In a drawer's window the link lands on the card, so the drawer stays closed, and the way
+    // from the Thread to the card closes it, followed again too. The card's way to its Thread
+    // opens it, though the Decision is still in the address.
+    await page.setViewportSize({ width: DRAWER_WIDTH_PX, height: 800 });
+    await page.reload();
+    await expect(decision).toBeInViewport();
+    await expect(conversation).toBeHidden();
+    const takeOverLink = inThread.getByRole("link", { name: "Take it over in Needs you" });
+    for (const followed of ["first", "again"]) {
+      await conversationHandle(page).click();
+      await expect(takeOverLink, followed).toBeVisible();
+      await takeOverLink.click();
+      await expect(conversation, followed).toBeHidden();
+      await expect(decision, followed).toBeInViewport();
+    }
+    await decision.getByRole("link", { name: /^in Planning/ }).click();
+    await expect(conversation).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(conversation).toBeHidden();
+    await page.setViewportSize({ width: 1600, height: 900 });
+
     // Taking it over: the user answers in the card, and Jan takes the answer in the asking Thread.
     await decision.getByRole("button", { name: CONSULTATION_OPTION }).click();
     await expect(decision).toHaveCount(0);
@@ -2394,7 +2436,117 @@ test("a running Task takes a barge-in and a Planner message, and new messages le
     await expect(newMessages).toHaveCount(0);
     await expect.poll(fromTheEnd).toBeLessThan(40);
 
-    // The turn took all three, and the Stage went on to its Gate.
+    // Full width the conversation is a column, with no way to close it.
+    const closeDrawer = page.getByRole("button", { name: "Close the conversation" });
+    await expect(conversation).toBeVisible();
+    await expect(conversationHandle(page)).toHaveCount(0);
+    await expect(closeDrawer).toHaveCount(0);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-conversation.png") });
+    await showPalette(page, "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-conversation.png") });
+    await showPalette(page, "light");
+
+    // In a narrow window it is a drawer, closed at first, and the page keeps to the window.
+    await page.setViewportSize({ width: DRAWER_WIDTH_PX, height: 800 });
+    const handle = conversationHandle(page);
+    await expect(handle).toBeVisible();
+    await expect(conversation).toBeHidden();
+    for (const width of [1100, 730]) {
+      await page.setViewportSize({ width, height: 800 });
+      await expect.poll(() => windowOverflow(page), `at ${width}`).toBe(0);
+    }
+    await page.setViewportSize({ width: DRAWER_WIDTH_PX, height: 800 });
+    expect(await windowOverflow(page)).toBe(0);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-900-drawer-closed.png") });
+
+    // It opens with focus inside, and each way of closing keeps a draft and gives focus back.
+    await handle.click();
+    await expect(conversation).toBeFocused();
+    await composer.fill("Keep this draft");
+    await page.keyboard.press("Escape");
+    await expect(conversation).toBeHidden();
+    await expect(handle).toBeFocused();
+
+    await handle.click();
+    await expect(composer).toHaveValue("Keep this draft");
+    await closeDrawer.click();
+    await expect(conversation).toBeHidden();
+    await expect(handle).toBeFocused();
+
+    await handle.click();
+    await expect(composer).toHaveValue("Keep this draft");
+    await motionSettled(page);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-900-drawer-open.png") });
+    await showPalette(page, "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-900-drawer-open.png") });
+    await showPalette(page, "light");
+
+    // Tab stays in the drawer, and the page behind the dimming doesn't scroll.
+    for (let press = 0; press < 40; press += 1) await page.keyboard.press("Tab");
+    expect(await conversation.evaluate((panel) => panel.contains(document.activeElement))).toBe(
+      true,
+    );
+    const pageBehind = await scrollTopOf(pageScroller);
+    await page.mouse.move(100, 400);
+    await page.mouse.wheel(0, 400);
+    await timeline.hover();
+    await page.mouse.wheel(0, 4000);
+    await expect.poll(fromTheEnd).toBeLessThan(40);
+    expect(await scrollTopOf(pageScroller)).toBe(pageBehind);
+
+    await page.mouse.click(100, 400);
+    await expect(conversation).toBeHidden();
+    await expect(handle).toBeFocused();
+
+    // What lands in a closed drawer counts on the handle and is read on opening. The user's
+    // message and the answer.
+    await sendFromElsewhere("One more thing");
+    await expect(handle).toContainText("2");
+    await expect(handle).toHaveAccessibleName("Conversation 2 new messages");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-900-drawer-count.png") });
+    await showPalette(page, "dark");
+    await page.screenshot({ path: path.join(SCREENSHOTS, "dark-900-drawer-count.png") });
+    await showPalette(page, "light");
+    await handle.click();
+    await expect(implementChapter.getByText("The drawer heard you.")).toBeVisible();
+    await expect(newMessages).toHaveCount(0);
+    await expect(handle).toHaveAccessibleName("Conversation");
+    await page.keyboard.press("Escape");
+
+    // A run's way to its Thread opens the drawer, followed again too; a chapter's way to the rail
+    // closes it and leaves focus on the Stage.
+    const pipelineRail = page.getByRole("region", { name: /^Pipeline · / });
+    const implementOnRail = pipelineRail.getByRole("button", { name: "Implement", exact: true });
+    await implementOnRail.click();
+    const openItsThread = page.getByRole("link", { name: "Open its Thread" }).first();
+    for (const followed of ["first", "again"]) {
+      await openItsThread.click();
+      await expect(conversation, followed).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(conversation, followed).toBeHidden();
+    }
+    await openItsThread.click();
+    await implementChapter.getByRole("button", { name: "Show Implement on the rail" }).click();
+    await expect(conversation).toBeHidden();
+    await expect(implementOnRail).toBeFocused();
+
+    // A window that widens shows the column again, with no dimming left when it narrows.
+    await handle.click();
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await expect(conversation).toBeVisible();
+    await page.setViewportSize({ width: DRAWER_WIDTH_PX, height: 300 });
+    await expect(conversation).toBeHidden();
+
+    // A window too low for the foot still reaches it.
+    await handle.click();
+    await motionSettled(page);
+    await composer.scrollIntoViewIfNeeded();
+    await expect(composer).toBeInViewport({ ratio: 1 });
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-900x300-drawer.png") });
+    await composer.fill("");
+    await page.setViewportSize({ width: 1600, height: 900 });
+
+    // The turn took them all, and the Stage went on to its Gate.
     await expect(implementChapter.getByText("Lands at the next safe point")).toHaveCount(0);
     const gate = page.getByRole("region", { name: "Gate · UI acceptance" });
     await gate.getByRole("button", { name: "Drop", exact: true }).click();
@@ -3414,6 +3566,27 @@ test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confi
     await page.goto(`${initiativeUrl}?initiativeThread=${pricingThreadId}`);
     await expect(pricingFold).toHaveAttribute("aria-expanded", "true");
     await expect(toLine.locator("option:checked")).toHaveText(/^Pricing/);
+
+    // In a narrow window the conversation is a drawer here too: a link naming a Thread opens it,
+    // and it keeps a draft.
+    await page.setViewportSize({ width: DRAWER_WIDTH_PX, height: 800 });
+    await page.reload();
+    await expect(conversation).toBeVisible();
+    await expect(toLine.locator("option:checked")).toHaveText(/^Pricing/);
+    await message.fill("A thought for later");
+    await motionSettled(page);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-900-initiative-drawer.png") });
+    await page.mouse.click(100, 400);
+    await expect(conversation).toBeHidden();
+    expect(await windowOverflow(page)).toBe(0);
+    await page.screenshot({ path: path.join(SCREENSHOTS, "light-900-initiative.png") });
+    await conversationHandle(page).click();
+    await expect(message).toHaveValue("A thought for later");
+    await page.getByRole("button", { name: "Close the conversation" }).click();
+    await expect(conversation).toBeHidden();
+    await page.setViewportSize({ width: 1600, height: 900 });
+    await expect(conversation).toBeVisible();
+    await message.fill("");
 
     await page.getByRole("button", { name: "More for Usage exports for customers" }).click();
     await page.getByRole("menu").getByRole("button", { name: "Drop the Initiative" }).click();

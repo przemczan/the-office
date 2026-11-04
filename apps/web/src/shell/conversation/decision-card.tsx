@@ -7,7 +7,7 @@ import {
 import { Link, useSearch } from "@tanstack/react-router";
 import type { Attachment, Decision, DecisionAnswer, Role, Thread } from "@the-office/contracts";
 import { Badge, Button, Icon, IconButton } from "@the-office/ui";
-import { useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { answerDecision, decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { attachmentQueries } from "../../api/work.ts";
@@ -128,14 +128,21 @@ function decisionCardElementId(decisionId: string): string {
   return `decision-card-${decisionId}`;
 }
 
+/** What the page does as a link leaves for the card, such as clearing what lies over it. */
+export const DecisionCardLinkContext = createContext<() => void>(() => undefined);
+
 /** The way from a Thread to the card, keeping what the Task's page has open. */
 function LinkToDecisionCard({ decision }: { readonly decision: Decision }): ReactNode {
+  const clearTheWay = useContext(DecisionCardLinkContext);
   return (
     <Link
       to="/tasks/$taskId"
       params={{ taskId: decision.taskId }}
       search={(shown) => ({ ...shown, taskThread: decision.threadId, decision: decision.id })}
-      onClick={() => bringDecisionCardIntoView(decision.id)}
+      onClick={() => {
+        clearTheWay();
+        bringDecisionCardIntoView(decision.id);
+      }}
     >
       {decision.putTo === null ? "Answer it in Needs you" : "Take it over in Needs you"}
     </Link>

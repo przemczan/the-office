@@ -82,7 +82,9 @@
 {"step":"event","event":{"kind":"text","text":"The columns are in order.","withinToolCall":null}}
 {"step":"send","message":{"id":"running-folded","text":"A message the user writes while the Stage runs"},"priority":"next"}
 {"step":"event","event":{"kind":"text","text":"The export is done.","withinToolCall":null}}
-{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-running","running-barge-in","running-reader-away","running-folded"],"usage":{"input":2,"output":240,"cacheRead":30400,"cacheCreation":90},"sessionCostUsd":0.01,"output":{"status":"done","summary":"Sign-in returns to the page it started from.","handoverNote":"## Redirect\n\n- The redirect keeps the path and the query string.\n- `next` is checked against the Office's own pages.","definitionOfDoneMet":[1,2]},"errors":[]}}
+{"step":"send","message":{"id":"running-drawer","text":"A message the user writes while the Stage runs"},"priority":"next"}
+{"step":"event","event":{"kind":"text","text":"The drawer heard you.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-running","running-barge-in","running-reader-away","running-folded","running-drawer"],"usage":{"input":2,"output":240,"cacheRead":30400,"cacheCreation":90},"sessionCostUsd":0.01,"output":{"status":"done","summary":"Sign-in returns to the page it started from.","handoverNote":"## Redirect\n\n- The redirect keeps the path and the query string.\n- `next` is checked against the Office's own pages.","definitionOfDoneMet":[1,2]},"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
 {"step":"end"}
 {"step":"start","brief":{"id":"brief-running-planner","text":"Jan takes a message on a running Task"}}

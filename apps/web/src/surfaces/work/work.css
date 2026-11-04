@@ -1393,12 +1393,90 @@
   background: none;
 }
 
+/* Closed it keeps its layout, as the timeline goes on measuring; only opening skips the delay, or
+   the panel couldn't take focus yet. */
+.conversation-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-drawer);
+  width: min(440px, 94vw);
+  max-height: none;
+  overflow-y: auto;
+  border-width: 0 0 0 1px;
+  border-radius: 0;
+  outline: none;
+  box-shadow: var(--shadow-3);
+  visibility: hidden;
+  transform: translateX(104%);
+  transition:
+    transform var(--duration-slow) var(--ease-out),
+    visibility 0s linear var(--duration-slow);
+}
+
+.conversation-drawer.open {
+  visibility: visible;
+  transform: none;
+  transition: transform var(--duration-slow) var(--ease-out);
+}
+
+/* In a low window the panel scrolls instead, so the foot can't push out of it. */
+.conversation-drawer .timeline-view {
+  min-height: 120px;
+}
+
+.conversation-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-drawer) - 1);
+  background: var(--overlay);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-slow);
+}
+
+.conversation-scrim.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.conversation-handle {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: var(--z-sticky);
+}
+
+/* Room for the handle at the page's end. */
+.task-page:has(.conversation-handle) {
+  padding-bottom: 72px;
+}
+
+.conversation-unread {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  margin-left: 8px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--white);
+  font: 700 11px/1 var(--font-sans);
+}
+
 /* ---- the timeline: every Thread as a chapter of one log, over one composer */
 .timeline-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+}
+
+.timeline-head-title {
+  flex: 1;
+  min-width: 0;
 }
 
 .timeline-head h3 {

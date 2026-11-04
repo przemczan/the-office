@@ -105,7 +105,7 @@
 - `composer.tsx`: PrefilledNote, Composer
 - `context-bar.tsx`: ContextBar
 - `context-words.ts`: MOVE_WORDS, OVERRIDE_WORDS, OVERRIDE_HINTS, tokensShort, contextDetail, contextLabel
-- `decision-card.tsx`: DecisionCard, DecisionInThread, bringDecisionCardIntoView
+- `decision-card.tsx`: DecisionCard, DecisionInThread, bringDecisionCardIntoView, DecisionCardLinkContext
 - `decision-words.ts`: answerWords, namedAttachments
 - `details-store.ts`: DETAILS_STORAGE_KEY, DetailsStore, createDetailsStore, Details, useDetails
 - `details-switch.tsx`: DetailsSwitch

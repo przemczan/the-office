@@ -17,6 +17,7 @@ import { usePageHeading } from "../../shell/page-heading.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { useCto } from "../../shell/work/use-cto.ts";
 import { InitiativeAttachments } from "./attachments-block.tsx";
+import { ConversationDrawerProvider, useDrawerFollowsAddress } from "./conversation-drawer.tsx";
 import { InitiativeActions } from "./initiative-actions.tsx";
 import { InitiativeProjects, InitiativeStateBadge } from "./initiative-parts.tsx";
 import { initiativeProgress, progressWords, tasksOfInitiative } from "./initiative-words.ts";
@@ -62,18 +63,20 @@ export function InitiativePage(): ReactNode {
         projects={projects.data}
         cto={cto}
       />
-      <div className="task-columns">
-        <section className="task-record" aria-label="Record">
-          {record.state === "shaping" && <ShapingNote cto={cto} />}
-          <OutcomeBlock initiative={record} />
-          <InitiativeAttachments initiative={record} />
-          <OriginBlock
-            record={{ kind: "initiative", id: record.id }}
-            ideaId={record.originIdeaId}
-          />
-        </section>
-        <InitiativeConversation key={record.id} initiative={record} cto={cto} />
-      </div>
+      <ConversationDrawerProvider key={record.id}>
+        <div className="task-columns">
+          <section className="task-record" aria-label="Record">
+            {record.state === "shaping" && <ShapingNote cto={cto} />}
+            <OutcomeBlock initiative={record} />
+            <InitiativeAttachments initiative={record} />
+            <OriginBlock
+              record={{ kind: "initiative", id: record.id }}
+              ideaId={record.originIdeaId}
+            />
+          </section>
+          <InitiativeConversation initiative={record} cto={cto} />
+        </div>
+      </ConversationDrawerProvider>
     </div>
   );
 }
@@ -174,6 +177,11 @@ function InitiativeConversation({
   const navigate = useNavigate({ from: "/work/initiatives/$initiativeId" });
   const threads = useQuery(threadQueries.onInitiative(initiative.id)).data;
   const readOnlyReason = ENDED_INITIATIVE_CONVERSATION_WORDS[initiative.state];
+  useDrawerFollowsAddress(
+    threads && threads.length > 0
+      ? { threadId: initiativeThread, decisionId: undefined, decisionIsOpen: false }
+      : undefined,
+  );
   if (!threads) return null;
   if (threads.length === 0) {
     return (
@@ -191,20 +199,18 @@ function InitiativeConversation({
     );
   }
   return (
-    <aside className="task-conversation" aria-label="Conversation">
-      <ThreadTimeline
-        threads={threads}
-        asked={initiativeThread}
-        onAsked={(threadId) => {
-          void navigate({
-            search: threadId === undefined ? {} : { initiativeThread: threadId },
-            replace: true,
-            resetScroll: false,
-          });
-        }}
-        readOnlyReason={readOnlyReason}
-      />
-    </aside>
+    <ThreadTimeline
+      threads={threads}
+      asked={initiativeThread}
+      onAsked={(threadId) => {
+        void navigate({
+          search: threadId === undefined ? {} : { initiativeThread: threadId },
+          replace: true,
+          resetScroll: false,
+        });
+      }}
+      readOnlyReason={readOnlyReason}
+    />
   );
 }
 

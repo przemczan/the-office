@@ -8,6 +8,11 @@ import { threadTitle } from "../../shell/conversation/thread-title.ts";
 import { DetailsSwitch } from "../../shell/conversation/details-switch.tsx";
 import { ThreadLog, ThreadTitle } from "../../shell/conversation/thread-view.tsx";
 import { clockOf } from "../../shell/time.ts";
+import {
+  CloseConversation,
+  ConversationPanel,
+  useConversationDrawer,
+} from "./conversation-drawer.tsx";
 import { newMessagesWords, useNewMessages } from "./new-messages.ts";
 import { threadsSeen, withThreadSeen, type ThreadsSeen } from "./threads-seen.ts";
 import { TimelineFoot } from "./timeline-foot.tsx";
@@ -30,7 +35,8 @@ const NO_FOLDS: ChapterFolds = new Map();
 /**
  * Every Thread of a record as chapters of one log, in the order they started, over one composer.
  * The Thread the user is on is the one the To line writes to, else, with none writable, where the
- * address sends them or the newest. A folded chapter draws none of its messages.
+ * address sends them or the newest. A folded chapter draws none of its messages. It stays mounted
+ * in a closed drawer, where everything landing counts as out of view.
  */
 export function ThreadTimeline({
   threads,
@@ -54,6 +60,8 @@ export function ThreadTimeline({
   const [line, setLine] = useState<ToLine>();
   const [drafting, setDrafting] = useState(false);
   const { scroller, chapters, follows, follow } = useTimelineScroll(asked);
+  const drawer = useConversationDrawer();
+  const outOfSight = drawer.narrow && !drawer.open;
   const { holdingOpenDecision, waitingOnYou, workOf, onShowStage } = work;
   const placed = threadsSeen(
     seen,
@@ -83,7 +91,7 @@ export function ThreadTimeline({
   if (unfolded !== folds) setFolds(unfolded);
   const newMessages = useNewMessages(
     [toId ?? current.shownId, live].filter((threadId) => threadId !== undefined),
-    (threadId) => unfolded.get(threadId) === true && follows(threadId),
+    (threadId) => !outOfSight && unfolded.get(threadId) === true && follows(threadId),
   );
 
   const newestThreadId = newMessages.threadId;
@@ -100,13 +108,14 @@ export function ThreadTimeline({
     follow(threadsInOrder(threads).at(-1)?.id === threadId ? undefined : threadId);
   };
   return (
-    <>
+    <ConversationPanel unread={newMessages.count}>
       <header className="timeline-head">
-        <div>
+        <div className="timeline-head-title">
           <h3>Conversation</h3>
           <p>Every Thread in order, the newest last</p>
         </div>
         <DetailsSwitch />
+        <CloseConversation />
       </header>
       <div className="timeline-view">
         <div className="timeline" ref={scroller}>
@@ -149,7 +158,7 @@ export function ThreadTimeline({
           onAsked(threadId);
         }}
       />
-    </>
+    </ConversationPanel>
   );
 }
 

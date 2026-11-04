@@ -157,10 +157,13 @@ body,
 }
 
 .shell-top h1 {
+  min-width: 0;
   margin: 0;
+  overflow: hidden;
   font: var(--type-section-title);
   letter-spacing: var(--tracking-tight);
   white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .shell-top-crumb {
@@ -437,6 +440,14 @@ body,
   }
 }
 
+/* The rail carries the mark, and a narrow window's top bar needs the room. */
+@media (max-width: 1000px) {
+  .shell-top-lockup,
+  .shell-top-divider {
+    display: none;
+  }
+}
+
 /* One panel. The phone's own layout (bottom tabs, no rail) is tier 2. */
 @media (max-width: 720px) {
   .desk {
@@ -450,8 +461,6 @@ body,
     padding: 0 14px;
   }
 
-  .shell-top-lockup,
-  .shell-top-divider,
   .shell-strip-meter,
   .shell-strip-separator,
   .shell-strip-stat.wide {

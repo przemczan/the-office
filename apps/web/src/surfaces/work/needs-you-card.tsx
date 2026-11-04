@@ -16,13 +16,13 @@ import { clockOf } from "../../shell/time.ts";
 import { waitingGateOf, type WaitingGate } from "../../shell/work/gate-words.ts";
 import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
 import { BeforeReady } from "./before-ready.tsx";
+import { useBringThreadIntoView } from "./conversation-drawer.tsx";
 import { GateCard } from "./gate-card.tsx";
 import { gateQuestion } from "./gate-card-words.ts";
 import { needsYouClearWords, needsYouSummary, waitingOnYou } from "./needs-you-words.ts";
 import { useQueued } from "./queue-parts.tsx";
 import { RecordBlock } from "./record-block.tsx";
 import { useInView } from "./use-in-view.ts";
-import { bringChapterIntoView } from "./use-timeline-scroll.ts";
 
 /**
  * What waits on the user on this Task, under the rail and answered there (spec §4): its Decisions,
@@ -151,6 +151,7 @@ function WaitingDecision({
   readonly roles: readonly Role[] | undefined;
 }): ReactNode {
   const thread = useQuery(threadQueries.one(decision.threadId)).data;
+  const bringThreadIntoView = useBringThreadIntoView();
   const personName = roles?.find(({ key }) => key === decision.roleKey)?.card.name ?? "The Office";
   return (
     <DecisionCard
@@ -166,7 +167,7 @@ function WaitingDecision({
             to="."
             search={(shown) => ({ ...shown, taskThread: thread.id })}
             resetScroll={false}
-            onClick={() => bringChapterIntoView(thread.id)}
+            onClick={() => bringThreadIntoView(thread.id)}
           >
             in {thread.title ?? "its Thread"} · {clockOf(decision.askedAt)}
           </Link>

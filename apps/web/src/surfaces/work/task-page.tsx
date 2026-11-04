@@ -14,6 +14,7 @@ import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { AttachmentsBlock } from "./attachments-block.tsx";
+import { ConversationDrawerProvider } from "./conversation-drawer.tsx";
 import { MissingRecord } from "./missing-record.tsx";
 import { PipelineRail } from "./pipeline-rail.tsx";
 import { NeedsYouCard } from "./needs-you-card.tsx";
@@ -86,7 +87,7 @@ function TaskBody({
 }): ReactNode {
   const [selectedStageKey, setSelectedStageKey] = useState<string>();
   return (
-    <>
+    <ConversationDrawerProvider>
       <PipelineRail
         task={task}
         pipeline={pipeline}
@@ -109,7 +110,7 @@ function TaskBody({
           }}
         />
       </div>
-    </>
+    </ConversationDrawerProvider>
   );
 }
 

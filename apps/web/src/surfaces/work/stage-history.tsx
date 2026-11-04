@@ -13,9 +13,9 @@ import {
   runTimeWords,
   stageHistoryLine,
 } from "./stage-history-words.ts";
+import { useBringThreadIntoView } from "./conversation-drawer.tsx";
 import { railStateWords, stageWorkerWords } from "./stage-rail-words.ts";
 import { SESSION_WORDS, type StageNames } from "./stage-words.ts";
-import { bringChapterIntoView } from "./use-timeline-scroll.ts";
 
 /**
  * The selected Stage's runs, the newest first. Clicking anywhere in it focuses it, so the rail's
@@ -124,6 +124,7 @@ function RunEntry({
   readonly now: Date;
 }): ReactNode {
   const { carriedFailure, sentBack, commandRuns, gateAction, outcome, session, threadId } = run;
+  const bringThreadIntoView = useBringThreadIntoView();
   const badge = runBadge(run, taskStage.state);
   const result = runResultText(taskStage, run);
   return (
@@ -149,7 +150,7 @@ function RunEntry({
             params={{ taskId }}
             search={(search) => ({ ...search, taskThread: threadId })}
             resetScroll={false}
-            onClick={() => bringChapterIntoView(threadId)}
+            onClick={() => bringThreadIntoView(threadId)}
           >
             Open its Thread
           </Link>
