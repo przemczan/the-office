@@ -123,10 +123,11 @@
 - `office-status-card.tsx`: OfficeStatusCard
 - `office-status-words.ts`: waitingWords, pausedWords
 - `proposal-card.tsx`: ProposalCard
-- `thread-composer.tsx`: ThreadComposer
+- `thread-composer.tsx`: ThreadComposer, ReadOnlyNote
 - `thread-drafts.tsx`: ThreadDrafts, ThreadDraftsProvider, useThreadDrafts
 - `thread-title.ts`: threadTitle
 - `thread-view.tsx`: ThreadView, ThreadLog, ThreadTitle
+- `thread-writing.ts`: takesMessages
 - Tests: context-words.test.ts, decision-words.test.ts, details-store.test.ts, link-card-words.test.ts, mention-words.test.ts, message-field.test.tsx, message-groups.test.ts, message-list-kinds.test.tsx, message-list.test.tsx, message-visibility.test.ts, office-status-words.test.ts, thread-title.test.ts
 
 ### shell/fire-alarm/

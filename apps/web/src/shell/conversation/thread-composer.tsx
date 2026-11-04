@@ -10,16 +10,19 @@ import { RefusalAlert } from "../refusal-alert.tsx";
 import { Composer } from "./composer.tsx";
 import { useHandoverNotes } from "./handover-notes.tsx";
 import { useThreadDrafts } from "./thread-drafts.tsx";
+import { takesMessages } from "./thread-writing.ts";
 
 /**
  * Writing in a Thread: the composer with whatever waits to go in it, or why nothing more can be
- * written. Keyed by the Thread's id, as the composer owns the draft once it has read it.
+ * written. A chat keys it by the Thread's id, as the composer owns the draft once it has read it;
+ * the timeline doesn't, so its draft goes with the To line. Only chats' Threads have one waiting.
  */
 export function ThreadComposer({
   thread,
   personName,
   readOnlyReason,
   autoFocus = true,
+  onDrafting,
 }: {
   readonly thread: Thread;
   readonly personName: string;
@@ -27,6 +30,7 @@ export function ThreadComposer({
   readonly readOnlyReason?: string | undefined;
   /** Focus scrolls the page, so a composer that isn't the page's whole point leaves it out. */
   readonly autoFocus?: boolean;
+  readonly onDrafting?: (drafting: boolean) => void;
 }): ReactNode {
   const threadId = thread.id;
   const roles = useQuery(roleQueries.list()).data;
@@ -45,10 +49,8 @@ export function ThreadComposer({
     },
   });
   const answering = thread.state === "answering";
-  // While its Stage runs, a Stage Thread takes the user's message at the next safe point (barge-in);
-  // between Stages The Office sends its messages, so it takes none from the user.
   const stageRunning = answering && thread.stageThread;
-  const closed = thread.stageThread && !answering;
+  const closed = !takesMessages(thread);
   return (
     <>
       {sending.error && <RefusalAlert title="The message wasn't sent" error={sending.error} />}
@@ -74,6 +76,7 @@ export function ThreadComposer({
           }
           startingDraft={startingDraft}
           autoFocus={autoFocus}
+          onDrafting={onDrafting}
           onSend={(text, fromNote) =>
             sending.mutateAsync({
               text,
@@ -83,11 +86,18 @@ export function ThreadComposer({
           onLeaveNoteOut={() => handoverNotes.clear(threadId)}
         />
       ) : (
-        <p className="thread-read-only" role="note">
-          <Icon name="lock" size={14} />
-          {readOnlyReason}
-        </p>
+        <ReadOnlyNote reason={readOnlyReason} />
       )}
     </>
+  );
+}
+
+/** Why nothing can be written, where a composer would be. */
+export function ReadOnlyNote({ reason }: { readonly reason: string }): ReactNode {
+  return (
+    <p className="thread-read-only" role="note">
+      <Icon name="lock" size={14} />
+      {reason}
+    </p>
   );
 }

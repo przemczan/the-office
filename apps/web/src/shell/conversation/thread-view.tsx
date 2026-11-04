@@ -91,8 +91,8 @@ function ConsultationNote({ askerRoleKey }: { readonly askerRoleKey: string | nu
     <p className="thread-consultation" role="note">
       <Icon name="users" size={12} />
       {asker === null
-        ? "The Office asks first here; the Task's Pipeline waits on this answer. Write here to join; answer the Decision in Needs you to take it over."
-        : `${asker} waits on this answer. Write here to join; answer the Decision in Needs you to take it over.`}
+        ? "The Office asks first here; the Task's Pipeline waits on this answer. Choose this Thread in To to join; answer the Decision in Needs you to take it over."
+        : `${asker} waits on this answer. Choose this Thread in To to join; answer the Decision in Needs you to take it over.`}
     </p>
   );
 }

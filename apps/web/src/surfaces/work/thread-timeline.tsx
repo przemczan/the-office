@@ -1,16 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Role, Thread } from "@the-office/contracts";
-import { Button, Icon } from "@the-office/ui";
+import { Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
-import { ContextBar } from "../../shell/conversation/context-bar.tsx";
-import { ThreadComposer } from "../../shell/conversation/thread-composer.tsx";
 import { threadTitle } from "../../shell/conversation/thread-title.ts";
 import { DetailsSwitch } from "../../shell/conversation/details-switch.tsx";
 import { ThreadLog, ThreadTitle } from "../../shell/conversation/thread-view.tsx";
 import { clockOf } from "../../shell/time.ts";
-import { threadTabs, withTabSeen, withTabShown, type ThreadTabs } from "./thread-tabs.ts";
+import { threadTabs, withTabSeen, type ThreadTabs } from "./thread-tabs.ts";
+import { TimelineFoot } from "./timeline-foot.tsx";
 import {
   chaptersStartingOpen,
   foldedLine,
@@ -20,14 +19,15 @@ import {
   type ChapterFolds,
   type ChapterWork,
 } from "./timeline-words.ts";
+import { liveThread, toLineNow, toLinePicked, writableThreads, type ToLine } from "./to-line.ts";
 import { chapterElementId, useTimelineScroll } from "./use-timeline-scroll.ts";
 
 const NO_FOLDS: ChapterFolds = new Map();
 
 /**
  * Every Thread of a record as chapters of one log, in the order they started, over one composer.
- * `threadTabs` keeps the Thread the user is on: where the address sends them, else the newest, and
- * it stays that Thread when a new one starts. A folded chapter reads none of its messages.
+ * The Thread the user is on is the one the To line writes to, else, with none writable, where the
+ * address sends them or the newest. A folded chapter reads none of its messages.
  */
 export function ThreadTimeline({
   threads,
@@ -56,24 +56,35 @@ export function ThreadTimeline({
   const roles = useQuery(roleQueries.list()).data;
   const [tabs, setTabs] = useState<ThreadTabs>();
   const [folds, setFolds] = useState(NO_FOLDS);
+  const [line, setLine] = useState<ToLine>();
+  const [drafting, setDrafting] = useState(false);
   const { scroller, chapters } = useTimelineScroll(asked);
-  const current = threadTabs(
+  const seen = threadTabs(
     tabs,
     threads.map(({ id }) => id),
     asked,
   );
-  // A Thread added since the last render changes these here, before they are drawn.
+  const writable = writableThreads(threads, readOnlyReason);
+  const writableIds = writable.map(({ id }) => id);
+  const live = liveThread(writable, holdingOpenDecision)?.id;
+  // A link followed unfolds its Thread, even one the user folded, and writes there if it can.
+  const followed = asked !== undefined && (tabs === undefined || tabs.asked !== asked);
+  const to =
+    followed && writableIds.includes(asked)
+      ? toLinePicked(asked, live)
+      : toLineNow(line, writableIds, live, drafting);
+  const toId = to.threadId;
+  const current = toId !== undefined && seen.fresh.has(toId) ? withTabSeen(seen, toId) : seen;
+  // A change in the Threads changes these here, before they are drawn.
   if (current !== tabs) setTabs(current);
+  if (to !== line) setLine(to);
   const started = withChaptersStarted(
     folds,
-    chaptersStartingOpen(current.shownId, holdingOpenDecision),
+    chaptersStartingOpen(toId ?? current.shownId, holdingOpenDecision),
   );
-  // A link followed unfolds its Thread, even one the user folded.
-  const followed = asked !== undefined && tabs !== undefined && tabs.asked !== asked;
   const unfolded = followed ? withChapterOpen(started, asked, true) : started;
   if (unfolded !== folds) setFolds(unfolded);
 
-  const shown = threads.find(({ id }) => id === current.shownId);
   const personName = (thread: Thread): string => nameOf(thread.roleKey, roles);
   const toggle = (threadId: string, open: boolean): void => {
     setFolds(withChapterOpen(unfolded, threadId, open));
@@ -101,26 +112,26 @@ export function ThreadTimeline({
               open={unfolded.get(thread.id) === true}
               isNew={current.fresh.has(thread.id)}
               waiting={waitingOnYou.has(thread.id)}
-              writingHere={thread.id === current.shownId}
-              canWrite={readOnlyReason === undefined}
               onToggle={(open) => toggle(thread.id, open)}
               onShowStage={onShowStage}
-              onWriteHere={() => {
-                setTabs(withTabShown(current, thread.id));
-                onAsked(thread.id);
-              }}
             />
           ))}
         </div>
       </div>
-      {shown && (
-        <TimelineFoot
-          key={shown.id}
-          threadId={shown.id}
-          personName={personName(shown)}
-          readOnlyReason={readOnlyReason}
-        />
-      )}
+      <TimelineFoot
+        threads={threads}
+        writable={writable}
+        toId={toId}
+        closedUnderDraft={to.closedUnderDraft}
+        personName={personName}
+        readOnlyReason={readOnlyReason}
+        onDrafting={setDrafting}
+        onPick={(threadId) => {
+          setLine(toLinePicked(threadId, live));
+          setFolds(withChapterOpen(unfolded, threadId, true));
+          onAsked(threadId);
+        }}
+      />
     </>
   );
 }
@@ -132,11 +143,8 @@ function ThreadChapter({
   open,
   isNew,
   waiting,
-  writingHere,
-  canWrite,
   onToggle,
   onShowStage,
-  onWriteHere,
 }: {
   readonly thread: Thread;
   readonly personName: string;
@@ -145,11 +153,8 @@ function ThreadChapter({
   /** Started while the page was open and not looked at yet. */
   readonly isNew: boolean;
   readonly waiting: boolean;
-  readonly writingHere: boolean;
-  readonly canWrite: boolean;
   readonly onToggle: (open: boolean) => void;
   readonly onShowStage: (stageKey: string) => void;
-  readonly onWriteHere: () => void;
 }): ReactNode {
   const title = threadTitle(thread, personName);
   return (
@@ -188,11 +193,6 @@ function ThreadChapter({
             </button>
           ))}
           <span>{clockOf(thread.startedAt)}</span>
-          {canWrite && !writingHere && (
-            <Button size="sm" variant="ghost" onClick={onWriteHere}>
-              Write here
-            </Button>
-          )}
         </div>
       </div>
       {open ? (
@@ -215,34 +215,6 @@ function ChapterLog({
 }): ReactNode {
   const thread = useQuery(threadQueries.one(threadId)).data;
   return thread ? <ThreadLog thread={thread} personName={personName} inTimeline /> : null;
-}
-
-/** The Thread being written in, under the timeline, its context label over the composer. */
-function TimelineFoot({
-  threadId,
-  personName,
-  readOnlyReason,
-}: {
-  readonly threadId: string;
-  readonly personName: string;
-  readonly readOnlyReason: string | undefined;
-}): ReactNode {
-  const thread = useQuery(threadQueries.one(threadId)).data;
-  if (!thread) return null;
-  return (
-    <div className="timeline-foot">
-      {readOnlyReason === undefined && (
-        <p className="timeline-writing-in">Writing in {threadTitle(thread, personName)}</p>
-      )}
-      <ContextBar thread={thread} personName={personName} />
-      <ThreadComposer
-        thread={thread}
-        personName={personName}
-        readOnlyReason={readOnlyReason}
-        autoFocus={false}
-      />
-    </div>
-  );
 }
 
 function nameOf(roleKey: string, roles: readonly Role[] | undefined): string {

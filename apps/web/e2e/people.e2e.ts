@@ -1676,17 +1676,15 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(implement).toContainText("Waiting on you");
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Stop" })).toBeVisible();
-  // Implement's chapter comes after Planning's, marked new, and the user stays where they were; it
-  // starts unfolded, as it holds the open Decision.
+  // Implement's chapter comes after Planning's, unfolded as it holds the open Decision.
+  // Its session ended at the Decision, so its Thread is closed and the To line stays on Planning.
   const implementChapter = conversation.getByRole("region", { name: /^Implement/ });
   const implementToggle = implementChapter.getByRole("button", { name: /^Implement/ });
-  const writeInImplement = implementChapter.getByRole("button", { name: "Write here" });
-  await expect(implementChapter).toContainText("New");
+  const toLine = conversation.getByLabel("To", { exact: true });
   await expect(implementToggle).toHaveAttribute("aria-expanded", "true");
-  await writeInImplement.click();
-  await expect(writeInImplement).toHaveCount(0);
-  await expect(conversation.getByText(/^Writing in Implement/)).toBeVisible();
-  await expect(implementChapter).not.toContainText("New");
+  await expect(toLine.locator("option:checked")).toHaveText(/^Planning/);
+  await expect(toLine.getByRole("option")).toHaveCount(1);
+  await expect(conversation.getByLabel("Context")).toBeVisible();
   const decision = conversation.getByRole("region", { name: `Decision: ${PAGE_QUESTION}` });
   const onTheCard = page
     .getByRole("region", { name: "Needs you" })
@@ -1819,7 +1817,10 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
       return JSON.stringify(await open.json());
     })
     .toContain('\\"Publish\\" failed, with no round to go back to.');
-  await conversation.getByRole("button", { name: /^Consultation · The Office and Bob/ }).click();
+  // As the newest writable Thread, it is where the To line goes, so it unfolds by itself.
+  await expect(conversation.getByLabel("To", { exact: true }).locator("option:checked")).toHaveText(
+    /^Consultation · The Office and Bob/,
+  );
   await expect(
     conversation
       .getByRole("note")
@@ -2185,7 +2186,7 @@ test("the user reads a Consultation on the Task, sees its Decision wait on the C
 
     await page.goto(`/tasks/${taskId}`);
     const conversation = page.getByRole("complementary", { name: "Conversation" });
-    // Planning holds the open Decision and the Consultation is the newest: both start unfolded.
+    // Planning holds the open Decision, so the To line starts there and it starts unfolded.
     await expect(conversation.getByRole("button", { name: /^Planning/ })).toHaveAttribute(
       "aria-expanded",
       "true",
@@ -2210,7 +2211,14 @@ test("the user reads a Consultation on the Task, sees its Decision wait on the C
       page.getByRole("region", { name: `Decision: ${CONSULTATION_QUESTION}` }),
     ).toHaveCount(0);
 
+    // Joining: a draft goes with the To line to the Consultation, which unfolds, and Adam answers
+    // the user there.
     await page.goto(`/tasks/${taskId}`);
+    const toLine = conversation.getByLabel("To", { exact: true });
+    await expect(toLine.locator("option:checked")).toHaveText(/^Planning/);
+    await conversation.getByLabel("Message").fill("Is the rollback tested?");
+    await toLine.selectOption({ label: "Consultation · Jan and Adam" });
+    await expect(conversation.getByLabel("Message")).toHaveValue("Is the rollback tested?");
     await expect(
       conversation.getByRole("button", { name: /^Consultation · Jan and Adam/ }),
     ).toHaveAttribute("aria-expanded", "true");
@@ -2219,8 +2227,6 @@ test("the user reads a Consultation on the Task, sees its Decision wait on the C
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-consultation.png") });
     await conversation.screenshot({ path: path.join(SCREENSHOTS, "light-1600-timeline.png") });
 
-    // Joining: the user writes in the Consultation, and Adam answers them there.
-    await conversation.getByLabel("Message").fill("Is the rollback tested?");
     await conversation.getByLabel("Message").press("Enter");
     await expect(conversation.getByText("Yes: the rollback runs in the tests.")).toBeVisible();
 

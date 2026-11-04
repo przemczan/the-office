@@ -1519,10 +1519,24 @@
   flex: none;
 }
 
-.timeline-writing-in {
-  margin: 0 0 4px;
+.timeline-to {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
   font: var(--type-caption);
   color: var(--fg-3);
+}
+
+.timeline-to > :last-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.timeline-to-moved {
+  margin: 0 0 6px;
+  font: var(--type-caption);
+  color: var(--fg-2);
 }
 
 .task-threads {
