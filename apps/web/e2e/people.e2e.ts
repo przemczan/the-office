@@ -1595,6 +1595,7 @@ async function waitForAnotherTaskAndStopWaiting(page: Page, project: Project): P
       .getByText(`Blocked by ${blockerTitle}`),
   ).toBeVisible();
   await page.goto(`/tasks/${blocker.id}`);
+  await dependencies.getByRole("button", { name: /^Dependencies/ }).click();
   await expect(
     dependencies
       .getByRole("region", { name: "Waiting for this Task" })
@@ -2870,11 +2871,9 @@ test("the user shapes an Idea into an Initiative with Bob, adds its Tasks, confi
     await expect(
       record.getByRole("region", { name: "Attachments" }).getByText("Usage export sketch"),
     ).toBeVisible();
-    await expect(
-      record
-        .getByRole("region", { name: "Started from the Idea" })
-        .getByRole("link", { name: "Usage exports for customers" }),
-    ).toBeVisible();
+    const origin = record.getByRole("region", { name: "Origin" });
+    await origin.getByRole("button", { name: /^Origin/ }).click();
+    await expect(origin.getByRole("link", { name: "Usage exports for customers" })).toBeVisible();
 
     // Bob writes the outcome straight onto the page while it is being shaped; the user edits it.
     const conversation = page.getByRole("complementary", { name: "Conversation" });

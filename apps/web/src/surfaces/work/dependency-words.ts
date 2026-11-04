@@ -20,6 +20,19 @@ export function waitingFor(task: Task, tasks: readonly Task[]): Task[] {
   return tasks.filter((each) => each.blockedBy.includes(task.id) && each.state !== "dropped");
 }
 
+/** The Dependencies' folded line. */
+export function dependenciesSummary(blockers: readonly Task[], waiting: readonly Task[]): string {
+  const parts = [
+    ...(blockers.length > 0
+      ? [`Waits on ${blockers.length} ${blockers.length === 1 ? "Task" : "Tasks"}`]
+      : []),
+    ...(waiting.length > 0
+      ? [`${waiting.length} ${waiting.length === 1 ? "waits" : "wait"} for it`]
+      : []),
+  ];
+  return parts.length > 0 ? parts.join(" · ") : "None";
+}
+
 /**
  * The Tasks this one could wait for: any in any Project that can still hold it back, leaving out
  * itself, its blockers already, and every Task that waits for it, which would close a cycle.

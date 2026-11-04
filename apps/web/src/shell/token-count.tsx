@@ -1,8 +1,10 @@
 import { countedTokens, type TokenTotals } from "@the-office/contracts";
-import { Icon, Tooltip } from "@the-office/ui";
+import { Icon, ProgressBar, Tooltip } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { tokensShort } from "./conversation/context-words.ts";
 import { tokenKindLines } from "./token-words.ts";
+
+const METER_BAR = { width: 64 } as const;
 
 /**
  * A token count as every place shows it, cache reads left out (`countedTokens`), with the info icon
@@ -24,6 +26,26 @@ export function TokenCount({
     <span className="token-count">
       {strong ? <b>{count}</b> : count} {label}
       <TokenInfo tokens={tokens} />
+    </span>
+  );
+}
+
+/** The tokens used against the Planner's estimate: "45k of ~120k tokens ⓘ" beside a small bar. */
+export function TokenMeter({
+  tokens,
+  estimatedTokens,
+}: {
+  readonly tokens: TokenTotals;
+  readonly estimatedTokens: number;
+}): ReactNode {
+  const used = countedTokens(tokens);
+  return (
+    <span className="token-meter" title="Tokens used of the Planner's estimate">
+      <ProgressBar value={used} max={estimatedTokens} size="sm" style={METER_BAR} />
+      <span className="token-count">
+        {tokensShort(used)} of ~{tokensShort(estimatedTokens)} tokens
+        <TokenInfo tokens={tokens} />
+      </span>
     </span>
   );
 }

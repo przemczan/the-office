@@ -54,7 +54,11 @@ export function TaskRecord({
       <PlanBlock task={task} planner={planner} />
       <StagesBlock task={task} pipeline={pipeline} planner={planner} roles={roles.data} />
       <DependenciesBlock task={task} />
-      {task.originIdeaId !== null && <OriginBlock ideaId={task.originIdeaId} />}
+      <OriginBlock
+        record={{ kind: "task", id: task.id }}
+        ideaId={task.originIdeaId}
+        initiativeId={task.initiativeId}
+      />
     </section>
   );
 }

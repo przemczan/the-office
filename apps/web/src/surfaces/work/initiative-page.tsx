@@ -70,7 +70,10 @@ export function InitiativePage(): ReactNode {
             owner={{ kind: "initiative", initiativeId: record.id }}
             ownerTitle={record.name}
           />
-          <OriginBlock ideaId={record.originIdeaId} />
+          <OriginBlock
+            record={{ kind: "initiative", id: record.id }}
+            ideaId={record.originIdeaId}
+          />
         </section>
         <InitiativeConversation initiative={record} cto={cto} />
       </div>

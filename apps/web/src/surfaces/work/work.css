@@ -730,6 +730,58 @@
   gap: 8px;
 }
 
+.record-fold-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The design system's Card leaves the space under its head to its body, which a fold hides. */
+.record-fold-head[aria-expanded="false"] {
+  margin-bottom: 14px;
+}
+
+.record-fold-head > svg {
+  flex: none;
+  color: var(--fg-3);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.record-fold-head[aria-expanded="true"] > svg {
+  transform: rotate(90deg);
+}
+
+.record-fold-head .task-block-title {
+  flex: none;
+}
+
+.record-fold-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-2);
+  font: var(--type-body-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.record-fold-head[aria-expanded="true"] .record-fold-summary {
+  visibility: hidden;
+}
+
+.task-plan-text {
+  font: var(--type-body-sm);
+  line-height: 1.55;
+}
+
 .task-plan,
 .task-quiet {
   margin: 0;
@@ -742,7 +794,8 @@
   color: var(--fg-3);
 }
 
-.task-plan + .task-quiet {
+.task-plan + .task-quiet,
+.task-plan-text + .task-quiet {
   margin-top: 6px;
 }
 
@@ -834,6 +887,12 @@
   padding-left: 18px;
   font: var(--type-body-sm);
   line-height: 1.5;
+}
+
+.task-dod-met {
+  margin-right: 6px;
+  color: var(--success-fg);
+  vertical-align: -1px;
 }
 
 .task-checklist {

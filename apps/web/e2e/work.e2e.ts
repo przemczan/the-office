@@ -590,13 +590,27 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
     page.getByRole("heading", { name: "Sign-in keeps the page", level: 2 }),
   ).toBeVisible();
   const record = page.getByRole("region", { name: "Record" });
-  await expect(record.getByText(/Not written yet\./)).toBeVisible();
-  await expect(record.getByText("No Plan yet.")).toBeVisible();
+  // Out of Planning the blocks are folded to one line.
+  await expect(record.getByText("Not written yet", { exact: true })).toBeVisible();
+  await expect(record.getByText("No Plan yet", { exact: true })).toBeVisible();
   for (const stage of ["Implement", "Tests", "Review & fix", "Publish"]) {
     await expect(record.getByText(stage, { exact: true })).toBeVisible();
   }
-  await expect(record.getByText("Started from the Idea")).toBeVisible();
-  await expect(record.getByText("Users land on the home page.")).toBeVisible();
+  const origin = record.getByRole("region", { name: "Origin" });
+  await expect(origin.getByText("Idea: Sign-in keeps the page")).toBeVisible();
+  await expect(origin.getByText("Users land on the home page.")).toBeHidden();
+  const originFold = origin.getByRole("button", { name: /^Origin/ });
+  await originFold.click();
+  await expect(origin.getByText("Users land on the home page.")).toBeVisible();
+  await expect(originFold).toHaveAttribute("aria-expanded", "true");
+
+  // The fold is this browser's memory of this Task, so it survives a reload.
+  await page.reload();
+  await expect(origin.getByText("Users land on the home page.")).toBeVisible();
+  await originFold.click();
+  await expect(origin.getByText("Users land on the home page.")).toBeHidden();
+  await page.reload();
+  await expect(originFold).toHaveAttribute("aria-expanded", "false");
   await expect(page.getByRole("complementary", { name: "Conversation" })).toContainText(
     "Planning opens one with",
   );

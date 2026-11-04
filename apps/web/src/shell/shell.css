@@ -652,6 +652,12 @@ body,
 }
 
 /* ---- a token count with its info icon (token-count.tsx) */
+.token-meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .token-count {
   display: inline-flex;
   align-items: center;

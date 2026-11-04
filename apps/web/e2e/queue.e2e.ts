@@ -234,10 +234,11 @@ test("a Ready Task's Usage estimate shows on its card, beside Start, in the Read
     HISTORY_WORDS,
     HISTORY_WORDS,
   ]);
+  await expect(page.getByText("0 of ~90k tokens")).toBeVisible();
+  const plan = page.getByRole("region", { name: "Plan" });
+  await plan.getByRole("button", { name: /^Plan/ }).click();
   await expect(
-    page
-      .getByRole("region", { name: "Plan" })
-      .getByText("The Planner expects the whole Pipeline to use about 90k tokens."),
+    plan.getByText("The Planner expects the whole Pipeline to use about 90k tokens."),
   ).toBeVisible();
 });
 

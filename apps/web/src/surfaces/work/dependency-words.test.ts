@@ -1,6 +1,12 @@
 import type { Task } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { blockerCandidates, blockersOf, blockingTasksOf, waitingFor } from "./dependency-words.ts";
+import {
+  blockerCandidates,
+  blockersOf,
+  blockingTasksOf,
+  dependenciesSummary,
+  waitingFor,
+} from "./dependency-words.ts";
 
 function aTask(id: string, fields: Partial<Task> = {}): Task {
   return {
@@ -72,5 +78,20 @@ describe("blockerCandidates", () => {
     const withBlocker = { ...schema, blockedBy: ["queue"] };
 
     expect(ids(blockerCandidates(withBlocker, tasks))).toEqual(["flash"]);
+  });
+});
+
+describe("dependenciesSummary", () => {
+  const one = [aTask("schema")];
+  const two = [aTask("schema"), aTask("flash")];
+
+  it("names what it waits on and what waits for it", () => {
+    expect(dependenciesSummary(one, [])).toBe("Waits on 1 Task");
+    expect(dependenciesSummary(two, one)).toBe("Waits on 2 Tasks · 1 waits for it");
+    expect(dependenciesSummary([], two)).toBe("2 wait for it");
+  });
+
+  it("says when there are none", () => {
+    expect(dependenciesSummary([], [])).toBe("None");
   });
 });

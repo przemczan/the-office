@@ -17,14 +17,18 @@ import {
 } from "../../api/work.ts";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
 import { RefusalAlert } from "../../shell/refusal-alert.tsx";
+import { MarkdownText } from "../../shell/markdown-text.tsx";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
+import { DefinitionOfDoneStatements, ReportedMetBadge } from "./definition-of-done-statements.tsx";
 import { PartEditor } from "./part-editor.tsx";
-import { statementsOf } from "./planning-words.ts";
-import { RecordBlock } from "./record-block.tsx";
+import { definitionOfDoneSummary, planSummary, statementsOf } from "./planning-words.ts";
+import { RecordFold } from "./record-fold.tsx";
+import { useFold, type Fold } from "./record-folds.ts";
 
 /**
  * The Plan and the Definition of Done the Planner writes are proposed until the user confirms
- * them as shown or saves an edit; both stay editable until the Task starts.
+ * them as shown or saves an edit; both stay editable until the Task starts. They start open while
+ * the Task is in Planning, where the user reads them.
  */
 interface PartProps {
   readonly task: Task;
@@ -37,22 +41,34 @@ export function DefinitionOfDoneBlock({ task, planner }: PartProps): ReactNode {
     confirmDefinitionOfDone(task.id, statements),
   );
   const [editing, setEditing] = useState(false);
+  const fold = usePartFold(task, "definition-of-done");
+  const reportedMet = useQuery(pipelineQueries.taskStages(task.id)).data?.definitionOfDoneMet ?? [];
+  const started = !NOT_STARTED.includes(task.state);
   const written = task.definitionOfDone.length > 0;
   return (
-    <RecordBlock
+    <RecordFold
+      fold={fold}
       icon="list-checks"
       title="Definition of Done"
-      actions={
-        !editing && (
-          <PartActions
-            task={task}
-            planner={planner}
-            written={written}
-            confirmed={task.definitionOfDoneConfirmed}
-            confirming={confirming.isPending}
-            onConfirm={() => confirming.mutate(task.definitionOfDone)}
-            onEdit={() => setEditing(true)}
-          />
+      summary={definitionOfDoneSummary(task, reportedMet)}
+      side={
+        started && written ? (
+          <ReportedMetBadge statements={task.definitionOfDone} met={reportedMet} />
+        ) : (
+          !editing && (
+            <PartActions
+              task={task}
+              planner={planner}
+              written={written}
+              confirmed={task.definitionOfDoneConfirmed}
+              confirming={confirming.isPending}
+              onConfirm={() => confirming.mutate(task.definitionOfDone, { onError: fold.open })}
+              onEdit={() => {
+                fold.open();
+                setEditing(true);
+              }}
+            />
+          )
         )
       }
     >
@@ -72,29 +88,31 @@ export function DefinitionOfDoneBlock({ task, planner }: PartProps): ReactNode {
           onCancel={() => setEditing(false)}
         />
       ) : written ? (
-        <ul className="task-dod">
-          {task.definitionOfDone.map((statement) => (
-            <li key={statement}>{statement}</li>
-          ))}
-        </ul>
+        <DefinitionOfDoneStatements
+          statements={task.definitionOfDone}
+          met={started ? reportedMet : undefined}
+        />
       ) : (
         <p className="task-quiet">
           Not written yet. {planner} proposes it during planning; a Task can't be Ready without one.
         </p>
       )}
-    </RecordBlock>
+    </RecordFold>
   );
 }
 
 export function PlanBlock({ task, planner }: PartProps): ReactNode {
   const confirming = useRecordChange(task, (plan: PlanConfirmation) => confirmPlan(task.id, plan));
   const [editing, setEditing] = useState(false);
+  const fold = usePartFold(task, "plan");
   const written = task.plan !== "";
   return (
-    <RecordBlock
+    <RecordFold
+      fold={fold}
       icon="map"
       title="Plan"
-      actions={
+      summary={planSummary(task)}
+      side={
         !editing && (
           <PartActions
             task={task}
@@ -103,9 +121,15 @@ export function PlanBlock({ task, planner }: PartProps): ReactNode {
             confirmed={task.planConfirmed}
             confirming={confirming.isPending}
             onConfirm={() =>
-              confirming.mutate({ plan: task.plan, filesToChange: [...task.filesToChange] })
+              confirming.mutate(
+                { plan: task.plan, filesToChange: [...task.filesToChange] },
+                { onError: fold.open },
+              )
             }
-            onEdit={() => setEditing(true)}
+            onEdit={() => {
+              fold.open();
+              setEditing(true);
+            }}
           />
         )
       }
@@ -120,15 +144,21 @@ export function PlanBlock({ task, planner }: PartProps): ReactNode {
         />
       ) : written ? (
         <>
-          <p className="task-plan">{task.plan}</p>
+          <div className="task-plan-text">
+            <MarkdownText text={task.plan} />
+          </div>
           <FilesToChange files={task.filesToChange} />
           <PlannersEstimate estimatedTokens={task.estimatedTokens} />
         </>
       ) : (
         <p className="task-quiet">No Plan yet.</p>
       )}
-    </RecordBlock>
+    </RecordFold>
   );
+}
+
+function usePartFold(task: Task, block: string): Fold {
+  return useFold({ kind: "task", id: task.id }, block, task.state === "planning");
 }
 
 /** The Planner's token estimate for the whole Pipeline, the Usage estimate below 3 done Tasks. */

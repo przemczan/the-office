@@ -10,9 +10,15 @@ import { RefusalAlert } from "../../shell/refusal-alert.tsx";
 import { useToast } from "../../shell/toasts.tsx";
 import { TaskStateBadge } from "../../shell/work/task-state-badge.tsx";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
-import { blockerCandidates, blockersOf, waitingFor } from "./dependency-words.ts";
+import {
+  blockerCandidates,
+  blockersOf,
+  dependenciesSummary,
+  waitingFor,
+} from "./dependency-words.ts";
 import { useRecordChange } from "./planning-parts.tsx";
-import { RecordBlock } from "./record-block.tsx";
+import { RecordFold } from "./record-fold.tsx";
+import { useFold } from "./record-folds.ts";
 
 /**
  * What the Task must wait for and what waits for it, in any Project (prototypes/app/task.js
@@ -23,6 +29,7 @@ export function DependenciesBlock({ task }: { readonly task: Task }): ReactNode 
   const tasks = useQuery(taskQueries.list()).data ?? [];
   const projects = useQuery(projectQueries.list()).data;
   const [adding, setAdding] = useState(false);
+  const fold = useFold({ kind: "task", id: task.id }, "dependencies", false);
   const removing = useRecordChange(task, (blockerId: string) =>
     removeDependency(task.id, blockerId),
   );
@@ -32,12 +39,21 @@ export function DependenciesBlock({ task }: { readonly task: Task }): ReactNode 
   const waiting = waitingFor(task, tasks);
   if (!changeable && blockers.length === 0 && waiting.length === 0) return null;
   return (
-    <RecordBlock
+    <RecordFold
+      fold={fold}
       icon="git-fork"
       title="Dependencies"
-      actions={
+      summary={dependenciesSummary(blockers, waiting)}
+      side={
         changeable && (
-          <Button size="sm" variant="secondary" onClick={() => setAdding(true)}>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              fold.open();
+              setAdding(true);
+            }}
+          >
             Add
           </Button>
         )
@@ -74,7 +90,7 @@ export function DependenciesBlock({ task }: { readonly task: Task }): ReactNode 
           onClose={() => setAdding(false)}
         />
       )}
-    </RecordBlock>
+    </RecordFold>
   );
 }
 

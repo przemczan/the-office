@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
+import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import type { Pipeline, Project, Task, Thread } from "@the-office/contracts";
 import { Tabs } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
-import { attachmentQueries, initiativeQueries, taskQueries } from "../../api/work.ts";
+import { attachmentQueries, taskQueries } from "../../api/work.ts";
 import { pipelineLabel, REMOVED_PIPELINE, taskTokens } from "./stage-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
@@ -25,7 +25,7 @@ import { TaskConversation } from "./task-conversation.tsx";
 import { TaskMenu } from "./task-menu.tsx";
 import { TaskRecord } from "./task-record.tsx";
 import { TaskTags } from "./task-tags.tsx";
-import { TokenCount } from "../../shell/token-count.tsx";
+import { TokenCount, TokenMeter } from "../../shell/token-count.tsx";
 
 /**
  * The Task page (prototypes/app/task.js): its record on the left, as Overview, Changes or
@@ -87,9 +87,13 @@ function TaskHead({
           <ProjectChip projectId={task.projectId} projects={projects} />
           <span>· Pipeline {pipelineLabel(pipeline?.name ?? REMOVED_PIPELINE, editedForTask)}</span>
           <span>· {PRIORITY_NAMES[task.priority]} priority</span>
-          {task.initiativeId !== null && <InitiativeLink initiativeId={task.initiativeId} />}
           <span>
-            · <TokenCount tokens={tokens} label="tokens" />
+            ·{" "}
+            {task.estimatedTokens === null ? (
+              <TokenCount tokens={tokens} label="tokens" />
+            ) : (
+              <TokenMeter tokens={tokens} estimatedTokens={task.estimatedTokens} />
+            )}
           </span>
         </div>
         <TaskTags task={task} />
@@ -103,17 +107,6 @@ function TaskHead({
         <TaskMenu task={task} />
       </div>
     </header>
-  );
-}
-
-/** The Initiative the Task is part of, by its name now. */
-function InitiativeLink({ initiativeId }: { readonly initiativeId: string }): ReactNode {
-  const name = useQuery(initiativeQueries.one(initiativeId)).data?.name;
-  if (name === undefined) return null;
-  return (
-    <Link to="/work/initiatives/$initiativeId" params={{ initiativeId }}>
-      · Initiative {name}
-    </Link>
   );
 }
 

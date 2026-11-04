@@ -1,5 +1,5 @@
 import type { TaskStage } from "@the-office/contracts";
-import { Button, Icon } from "@the-office/ui";
+import { Icon, LinkButton } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { pullRequestUrlOf } from "./stage-words.ts";
 
@@ -12,12 +12,9 @@ export function PullRequestButton({
   const url = pullRequestUrlOf(taskStages);
   if (url === undefined) return null;
   return (
-    <Button
-      variant="secondary"
-      iconRight={<Icon name="external-link" size={14} />}
-      onClick={() => window.open(url, "_blank", "noopener,noreferrer")}
-    >
+    <LinkButton href={url} target="_blank" rel="noopener noreferrer">
       Open pull request
-    </Button>
+      <Icon name="external-link" size={14} />
+    </LinkButton>
   );
 }

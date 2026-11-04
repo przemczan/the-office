@@ -1,7 +1,7 @@
 import type { StageRun, TaskStage } from "@the-office/contracts";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { NO_TOKENS } from "../../shell/token-words.ts";
 import { PullRequestButton } from "./pull-request-button.tsx";
 
@@ -47,33 +47,27 @@ function publishStage(...outcomes: readonly StageRun["outcome"][]): TaskStage {
   };
 }
 
-function buttonOf(taskStage: TaskStage): HTMLButtonElement | null {
+function linkOf(taskStage: TaskStage): HTMLAnchorElement | null {
   const page = document.createElement("div");
   act(() => createRoot(page).render(<PullRequestButton taskStages={[taskStage]} />));
-  return page.querySelector("button");
+  return page.querySelector("a");
 }
 
 describe("the head's pull request button", () => {
-  afterEach(() => {
-    vi.restoreAllMocks();
-  });
-
-  it("opens the pull request the Task's Publish opened", () => {
-    const open = vi.spyOn(window, "open").mockReturnValue(null);
-    const button = buttonOf(publishStage(published(PULL_REQUEST_URL)));
-    expect(button?.textContent).toContain("Open pull request");
-    act(() => button?.click());
-    expect(open).toHaveBeenCalledWith(PULL_REQUEST_URL, "_blank", "noopener,noreferrer");
+  it("links to the pull request the Task's Publish opened, in a new tab", () => {
+    const link = linkOf(publishStage(published(PULL_REQUEST_URL)));
+    expect(link?.textContent).toContain("Open pull request");
+    expect(link?.getAttribute("href")).toBe(PULL_REQUEST_URL);
+    expect(link?.target).toBe("_blank");
+    expect(link?.rel).toBe("noopener noreferrer");
   });
 
   it("isn't there on an older run, which kept no pull request", () => {
-    expect(buttonOf(publishStage(published(null)))).toBeNull();
+    expect(linkOf(publishStage(published(null)))).toBeNull();
   });
 
   it("stays while Publish goes again or is skipped, as the pull request is still open", () => {
-    expect(buttonOf(publishStage(published(PULL_REQUEST_URL), null))).not.toBeNull();
-    expect(
-      buttonOf(publishStage(published(PULL_REQUEST_URL), published(null, true))),
-    ).not.toBeNull();
+    expect(linkOf(publishStage(published(PULL_REQUEST_URL), null))).not.toBeNull();
+    expect(linkOf(publishStage(published(PULL_REQUEST_URL), published(null, true)))).not.toBeNull();
   });
 });
