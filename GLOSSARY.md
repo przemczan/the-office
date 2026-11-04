@@ -130,6 +130,10 @@ _Avoid_: Reference, tag, attachment (an Attachment is added to a record, not nam
 What a new session is given to pick up work: the record of the Task or Initiative, the person's memory when they keep one, the records mentioned in the message it starts on, and the previous Stage's Handover note.
 _Avoid_: Prompt, context dump, summary
 
+**Details**:
+The switch on a conversation that shows or hides tool activity and the context lines with their Brief.
+_Avoid_: Verbose, debug, show tools
+
 **Handover note**:
 A few lines written for whoever continues: by an Agent at the end of a Stage (where it is, what is left, what to watch), or by the Office Manager when it points the user to someone else.
 _Avoid_: Summary, transcript, report
@@ -189,6 +193,22 @@ _Avoid_: Phase, step (as a noun for the record)
 **Gate**:
 A Stage at which the Task waits for the user to look at the work so far and let it continue.
 _Avoid_: Checkpoint, approval step
+
+**Pipeline rail**:
+The full-width line on the Task page that shows every Stage of the Task and where the Task is.
+_Avoid_: Timeline, progress bar, stepper
+
+**Stage history**:
+What opens when a Stage is selected on the Pipeline rail: each of its runs, with its times, tokens, session, outcome and Handover note.
+_Avoid_: Run log, Stage details
+
+**Reported met**:
+A Definition of Done statement that the last Agent to report on it says is met; an Agent's word, which nobody verified, and a later run can take it back.
+_Avoid_: Checked, verified, done
+
+**Before Ready**:
+The card on a Task page in Planning that lists what must be confirmed before the user can Mark Ready; not part of Needs you.
+_Avoid_: To confirm, checklist
 
 ### Agents
 

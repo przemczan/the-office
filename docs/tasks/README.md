@@ -62,7 +62,7 @@ Decided with the user on 2026-10-27: a fix is built where it is found only when 
 
 ## Tier 3: on need
 
-Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written when it becomes current, after the [open questions](../spec/8-open-questions-and-risks.md) it needs are settled with the user. Task 28, the phone, waits until after tier 3 (the user, 2026-10-31). Task 46, a Project from a git repository, was added on 2026-10-31 to come right after task 36; it keeps its number so the others keep theirs. Task 47, engines as a list with a cascade of defaults and overrides, was added on 2026-11-01 to come right after task 37.
+Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written when it becomes current, after the [open questions](../spec/8-open-questions-and-risks.md) it needs are settled with the user. Task 28, the phone, waits until after tier 3 (the user, 2026-10-31). Task 46, a Project from a git repository, was added on 2026-10-31 to come right after task 36; it keeps its number so the others keep theirs. Task 47, engines as a list with a cascade of defaults and overrides, was added on 2026-11-01 to come right after task 37. Task 48, the Task page redesign, was put ahead of task 38 on 2026-11-04 so that task 39 builds on its Attachments tab. Task 49, for questions to an Agent at a Gate or after a Task ended (which session answers, whose budget, whether it can change code, whether it holds the Gate), was added the same day; it needs a spec change.
 
 | # | Task | Surface | Status |
 | --- | --- | --- | --- |
@@ -72,6 +72,7 @@ Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written
 | 46 | [A Project from a git repository, and Sign in with GitHub](46-project-from-git-repository.md) | Projects | done |
 | 37 | [Usage estimates](37-usage-estimates.md) | Now | done |
 | 47 | [Engines as a list: Claude Code per account with a simple sign-in, and the engine cascade (Office, Project, Role)](47-engines-as-a-list.md) | Settings and Projects | done |
+| 48 | [The Task page redesign](48-task-page-redesign.md) | Work and the Task page | in progress |
 | 38 | Archive, and moving Tasks between Projects | Work | todo |
 | 39 | Attachment versions | Work and the Task page | todo |
 | 40 | Stage templates in the Pipeline library | Projects | todo |
@@ -79,6 +80,7 @@ Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written
 | 42 | Email and chat-app Notifications | Now | todo |
 | 43 | Talking to The Office from chat apps | Conversations | todo |
 | 44 | Stack-specific checks for installs and publishing | Projects | todo |
+| 49 | Talking to an Agent when no Stage runs | Conversations | todo |
 | 45 | The tier 3 acceptance run | All | todo |
 
 ## After tier 3: the remaining fixes
