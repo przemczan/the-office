@@ -9,6 +9,7 @@ import { AllowChangesBar } from "./allow-changes.tsx";
 import { ContextBar } from "./context-bar.tsx";
 import { useDetails } from "./details-store.ts";
 import { DetailsSwitch } from "./details-switch.tsx";
+import type { LogLine } from "./message-groups.ts";
 import { MessageList } from "./message-list.tsx";
 import { ThreadComposer } from "./thread-composer.tsx";
 import { threadTitle } from "./thread-title.ts";
@@ -54,14 +55,14 @@ export function ThreadLog({
   thread,
   personName,
   inTimeline = false,
-  foot,
+  logLines,
 }: {
   readonly thread: Thread;
   readonly personName: string;
   /** The log is a chapter of a timeline, which does the scrolling. */
   readonly inTimeline?: boolean;
-  /** What closes the log, after the last message. */
-  readonly foot?: ReactNode;
+  /** What isn't a message but belongs in the log by its time. */
+  readonly logLines?: readonly LogLine[];
 }): ReactNode {
   const messages = useQuery(threadQueries.messages(thread.id));
   const details = useDetails();
@@ -77,7 +78,7 @@ export function ThreadLog({
         stageThread={thread.stageThread}
         details={details.on}
         inTimeline={inTimeline}
-        foot={foot}
+        {...(logLines && { logLines })}
       />
     </>
   );

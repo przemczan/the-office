@@ -318,7 +318,7 @@ function OpenDecision({
       >
         <MessageField
           label="Your answer"
-          rows={1}
+          rows={2}
           placeholder="Or answer in your own words"
           value={freeAnswer}
           onChange={setFreeAnswer}

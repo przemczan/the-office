@@ -39,9 +39,9 @@ export const NOT_STARTED: readonly TaskState[] = ["backlog", "planning", "ready"
 /** How a state's badge reads: running green, waiting on someone amber, ended by how it ended. */
 export const TASK_STATE_TONES: Readonly<Record<TaskState, NonNullable<BadgeProps["tone"]>>> = {
   backlog: "neutral",
-  planning: "info",
+  planning: "neutral",
   ready: "neutral",
-  "in-progress": "accent",
+  "in-progress": "success",
   "waiting-on-you": "warning",
   paused: "warning",
   done: "success",

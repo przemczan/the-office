@@ -225,6 +225,12 @@
   color: var(--danger-fg);
 }
 
+.message-log-line {
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
 .message-line {
   display: flex;
   align-items: baseline;
@@ -603,7 +609,7 @@
 }
 
 /* One line, beside its button. !important: the design system's Textarea styles itself inline. */
-.decision-free-answer textarea {
+.needs-you-list .decision-free-answer textarea {
   height: var(--control-md) !important;
   padding-block: 5px !important;
   box-shadow: none !important;

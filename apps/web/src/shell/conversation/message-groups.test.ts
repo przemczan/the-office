@@ -1,6 +1,11 @@
 import type { Message } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { groupedMessages, type MessageGroup } from "./message-groups.ts";
+import {
+  groupedMessages,
+  withLogLines,
+  type LogLine,
+  type MessageGroup,
+} from "./message-groups.ts";
 
 const at = "2026-11-04T10:00:00.000Z";
 
@@ -110,5 +115,35 @@ describe("groupedMessages", () => {
 
   it("has nothing to group in an empty log", () => {
     expect(groupedMessages([])).toEqual([]);
+  });
+});
+
+function atMinute(minute: number): string {
+  return `2026-11-03T10:${String(minute).padStart(2, "0")}:00.000Z`;
+}
+
+function said(id: string, minute: number): Message {
+  return { ...fromPerson(id), at: atMinute(minute) };
+}
+
+function cardAt(id: string, minute: number): Message {
+  return { ...linkCard(id), at: atMinute(minute) };
+}
+
+function line(id: string, minute: number): LogLine {
+  return { id, at: atMinute(minute), words: id };
+}
+
+describe("withLogLines", () => {
+  it("puts a line where it happened, and what came after everything at the end", () => {
+    const groups = groupedMessages([said("first", 1), cardAt("card", 5), said("second", 9)]);
+    const pieces = withLogLines(groups, [line("late", 12), line("run ended", 3)]);
+    expect(pieces.map((piece) => (piece.kind === "line" ? piece.line.id : piece.id))).toEqual([
+      "first",
+      "run ended",
+      "card",
+      "second",
+      "late",
+    ]);
   });
 });

@@ -13,6 +13,8 @@ import { IdeaCard } from "./idea-card.tsx";
 import { LinkCard } from "./link-card.tsx";
 import {
   groupedMessages,
+  withLogLines,
+  type LogLine,
   type MessageGroup,
   type ToolCall,
   type TurnMessage,
@@ -20,6 +22,8 @@ import {
 import { latestToolCall, onlyDetailsWouldShow, visibleMessages } from "./message-visibility.ts";
 import { OfficeStatusCard } from "./office-status-card.tsx";
 import { ProposalCard } from "./proposal-card.tsx";
+
+const NO_LOG_LINES: readonly LogLine[] = [];
 
 /**
  * The Office's log of a Thread (spec §2.4): the user's messages and the person's, what the person
@@ -32,7 +36,7 @@ export function MessageList({
   stageThread,
   details,
   inTimeline = false,
-  foot,
+  logLines = NO_LOG_LINES,
 }: {
   readonly messages: readonly Message[];
   readonly personName: string;
@@ -44,8 +48,8 @@ export function MessageList({
   readonly details: boolean;
   /** One chapter of a timeline, which scrolls and lands on a linked card itself. */
   readonly inTimeline?: boolean;
-  /** What closes the log, after the last message. */
-  readonly foot?: ReactNode;
+  /** What isn't a message but belongs in the log by its time. */
+  readonly logLines?: readonly LogLine[];
 }): ReactNode {
   const list = useRef<HTMLDivElement>(null);
   const shownLinkedTo = useRef(false);
@@ -76,9 +80,20 @@ export function MessageList({
       aria-live="polite"
       ref={list}
     >
-      {groupedMessages(visible).map((group) => (
-        <GroupItem key={group.id} group={group} personName={personName} stageThread={stageThread} />
-      ))}
+      {withLogLines(groupedMessages(visible), logLines).map((piece) =>
+        piece.kind === "line" ? (
+          <p key={piece.line.id} className="message-log-line">
+            {piece.line.words}
+          </p>
+        ) : (
+          <GroupItem
+            key={piece.id}
+            group={piece}
+            personName={personName}
+            stageThread={stageThread}
+          />
+        ),
+      )}
       {answering && (
         <Working
           personName={personName}
@@ -90,7 +105,6 @@ export function MessageList({
           Tool activity is hidden. Turn on Details to see it.
         </p>
       )}
-      {foot}
     </div>
   );
 }

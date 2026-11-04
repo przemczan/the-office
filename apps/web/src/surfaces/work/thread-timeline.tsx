@@ -75,7 +75,8 @@ export function ThreadTimeline({
   const { scroller, chapters, follows, follow } = useTimelineScroll(asked);
   const drawer = useConversationDrawer();
   const outOfSight = drawer.narrow && !drawer.open;
-  const { holdingOpenDecision, waitingOnYou, planConfirmed, workOf, onShowStage } = work;
+  const { holdingOpenDecision, waitingOnYou, workGoesOn, planConfirmed, workOf, onShowStage } =
+    work;
   const placed = threadsSeen(
     seen,
     threads.map(({ id }) => id),
@@ -112,8 +113,7 @@ export function ThreadTimeline({
 
   const personName = (thread: Thread): string => nameOf(thread.roleKey, roles);
   const personLabel = (thread: Thread): string => labelOf(thread.roleKey, roles);
-  // An ended record's work is over, so nothing in it is live.
-  const shownLive = readOnlyReason === undefined ? working : undefined;
+  const shownLive = workGoesOn ? working : undefined;
   const toggle = (threadId: string, open: boolean): void => {
     setFolds(withChapterOpen(unfolded, threadId, open));
     if (open) setSeen(withThreadSeen(current, threadId));
@@ -305,16 +305,7 @@ function ChapterLog({
 }): ReactNode {
   const thread = useQuery(threadQueries.one(threadId)).data;
   return thread ? (
-    <ThreadLog
-      thread={thread}
-      personName={personName}
-      inTimeline
-      foot={finishedRuns.map(({ id, words }) => (
-        <p key={id} className="chapter-run-end">
-          {words}
-        </p>
-      ))}
-    />
+    <ThreadLog thread={thread} personName={personName} inTimeline logLines={finishedRuns} />
   ) : null;
 }
 

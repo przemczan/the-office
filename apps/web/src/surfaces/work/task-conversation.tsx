@@ -11,6 +11,9 @@ import { PlanButton } from "./planning-actions.tsx";
 import { ThreadTimeline } from "./thread-timeline.tsx";
 import { chapterWork } from "./timeline-words.ts";
 
+/** Held, waiting to start or ended, nothing in the Task is live. */
+const WORK_GOES_ON: readonly Task["state"][] = ["planning", "in-progress", "waiting-on-you"];
+
 /**
  * The Threads on the Task. Planning opens the first, with the Planner (task 11); Stages open
  * theirs as they run (task 12).
@@ -71,6 +74,7 @@ export function TaskConversation({
         waitingOnYou: new Set(
           decisions?.filter(({ putTo }) => putTo === null).map(({ threadId }) => threadId),
         ),
+        workGoesOn: WORK_GOES_ON.includes(task.state),
         planConfirmed: task.planConfirmed,
         workOf: (threadId) => chapterWork(stages ?? [], threadId),
         onShowStage: (stageKey) => {

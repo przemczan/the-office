@@ -1,5 +1,6 @@
 import { countedTokens, type StageRun, type TaskStage, type Thread } from "@the-office/contracts";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
+import type { LogLine } from "../../shell/conversation/message-groups.ts";
 import { clockOf } from "../../shell/time.ts";
 import { stageNamesOf, withoutMarkdownMarks, type StageNames } from "./stage-words.ts";
 
@@ -15,7 +16,7 @@ export interface ChapterWork {
   /** What sent its first run here, when that was a failure or a Gate. */
   readonly why: string | undefined;
   /** A line for each run it finished; a failed run has its own in the log. */
-  readonly finishedRuns: readonly { readonly id: string; readonly words: string }[];
+  readonly finishedRuns: readonly LogLine[];
 }
 
 /** What a record's Decisions and Stages add to its Threads. */
@@ -23,6 +24,8 @@ export interface TimelineWork {
   readonly holdingOpenDecision: ReadonlySet<string>;
   /** Those of them whose Decision is the user's to answer, not a Consultant's. */
   readonly waitingOnYou: ReadonlySet<string>;
+  /** The record's work goes on now, so a Thread can read as Live. */
+  readonly workGoesOn: boolean;
   /** The user confirmed the Plan, which is how a Planning Thread stands once its work is done. */
   readonly planConfirmed: boolean;
   readonly workOf: (threadId: string) => ChapterWork;
@@ -43,6 +46,7 @@ const NO_CHAPTER_WORK: ChapterWork = {
 export const NO_TIMELINE_WORK: TimelineWork = {
   holdingOpenDecision: new Set(),
   waitingOnYou: new Set(),
+  workGoesOn: false,
   planConfirmed: false,
   workOf: () => NO_CHAPTER_WORK,
   onShowStage: () => undefined,
@@ -104,8 +108,8 @@ export function chapterWork(stages: readonly TaskStage[], threadId: string): Cha
     outcome: latest && runOutcome(latest),
     why: runs[0] && whyItRan(runs[0].run, names),
     finishedRuns: runs.flatMap(({ name, run }) =>
-      run.outcome?.status === "done" && !run.outcome.skipped
-        ? [{ id: run.id, words: finishedRunWords(name, run) }]
+      run.outcome?.status === "done" && !run.outcome.skipped && run.endedAt !== null
+        ? [{ id: run.id, at: run.endedAt, words: finishedRunWords(name, run, run.endedAt) }]
         : [],
     ),
   };
@@ -125,11 +129,11 @@ function whyItRan({ carriedFailure, sentBack }: StageRun, names: StageNames): st
 }
 
 /** "Implement · run 1 done · 212k tokens · 12:38". */
-function finishedRunWords(name: string, { number, tokens, endedAt }: StageRun): string {
+function finishedRunWords(name: string, { number, tokens }: StageRun, endedAt: string): string {
   return [
     `${name} · run ${number} done`,
     `${tokensShort(countedTokens(tokens))} tokens`,
-    ...(endedAt === null ? [] : [clockOf(endedAt)]),
+    clockOf(endedAt),
   ].join(" · ");
 }
 

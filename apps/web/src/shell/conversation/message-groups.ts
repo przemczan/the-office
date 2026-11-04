@@ -21,6 +21,34 @@ export type MessageGroup =
       readonly message: Exclude<Message, TurnMessage | ToolCall>;
     };
 
+/** A line that isn't a message, such as a run ending, placed in the log by when it happened. */
+export interface LogLine {
+  readonly id: string;
+  readonly at: string;
+  readonly words: string;
+}
+
+export type LogPiece = MessageGroup | { readonly kind: "line"; readonly line: LogLine };
+
+/** The groups with each line before the first group that started after it, the rest at the end. */
+export function withLogLines(
+  groups: readonly MessageGroup[],
+  lines: readonly LogLine[],
+): readonly LogPiece[] {
+  const waiting = lines.toSorted((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  const asPiece = (line: LogLine): LogPiece => ({ kind: "line", line });
+  const pieces = groups.flatMap((group): LogPiece[] => {
+    const before = waiting.filter(({ at }) => Date.parse(at) < Date.parse(startOf(group)));
+    waiting.splice(0, before.length);
+    return [...before.map(asPiece), group];
+  });
+  return [...pieces, ...waiting.map(asPiece)];
+}
+
+function startOf(group: MessageGroup): string {
+  return group.kind === "alone" ? group.message.at : group.messages[0].at;
+}
+
 /**
  * One author's neighbouring messages as a turn, and neighbouring tool calls as one block. Anything
  * else stands alone and ends the turn before it: a card or a line said between two messages stays
