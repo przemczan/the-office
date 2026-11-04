@@ -1865,8 +1865,8 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
     await expect(page.locator(".task-head").getByText("Waiting on you")).toBeVisible();
     await expect(rail.getByText("At UI acceptance: waiting on you")).toBeVisible();
     await expect(page.getByRole("region", { name: "Needs you" })).toContainText("a Gate");
-    // Tests passed, but the Build after the Gate has not run yet.
-    await expect(gate.locator(".gate-fact", { hasText: "Tests" })).toContainText("Not run");
+    // Only the checks before the Gate count: the Build after it hasn't had its turn.
+    await expect(gate.locator(".gate-fact", { hasText: "Tests" })).toContainText("Passed");
     await expect(gate.locator(".gate-fact", { hasText: "Definition of Done" })).toContainText(
       "of 1",
     );

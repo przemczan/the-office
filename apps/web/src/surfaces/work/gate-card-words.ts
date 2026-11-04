@@ -21,7 +21,21 @@ export function linesChanged(files: readonly ChangedFile[]): {
   };
 }
 
-/** "2 failed"; else "Not run" while any check hasn't run, or none has; else "Passed". */
+/**
+ * The checks a Gate answers for: those before it. One after it, such as a Build, hasn't had its
+ * turn, so it says nothing about the work the Gate shows.
+ */
+export function testsBeforeGate(
+  results: readonly TestResult[],
+  taskStages: readonly TaskStage[],
+  { gate }: Pick<WaitingGate, "gate">,
+): TestResult[] {
+  const gateAt = taskStages.findIndex(({ stage }) => stage.key === gate.key);
+  const before = taskStages.slice(0, gateAt).map(({ stage }) => stage.key);
+  return results.filter(({ stageKey }) => before.includes(stageKey));
+}
+
+/** Of the checks before the Gate: "2 failed"; else "Not run" if any didn't, or none is; else "Passed". */
 export function testsFact(results: readonly TestResult[]): string {
   const failed = results.filter(({ state }) => state === "failed").length;
   if (failed > 0) return `${failed} failed`;

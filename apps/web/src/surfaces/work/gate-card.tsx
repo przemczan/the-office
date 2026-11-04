@@ -14,6 +14,7 @@ import {
   gateQuestion,
   linesChanged,
   picturesOfThisRound,
+  testsBeforeGate,
   testsFact,
 } from "./gate-card-words.ts";
 import { RECORD_ELEMENT_ID } from "./record-tab.ts";
@@ -46,7 +47,7 @@ export function GateCard({
       <CardColumns
         side={
           <>
-            <GateFacts task={task} taskStages={taskStages} />
+            <GateFacts task={task} taskStages={taskStages} waiting={waiting} />
             {pictures.length > 0 && <CardAttachments title="Screenshots" attachments={pictures} />}
           </>
         }
@@ -66,18 +67,20 @@ export function GateCard({
 function GateFacts({
   task,
   taskStages,
+  waiting,
 }: {
   readonly task: Task;
   readonly taskStages: TaskStages;
+  readonly waiting: WaitingGate;
 }): ReactNode {
   const changes = useQuery(projectQueries.taskChanges(task.projectId, task.id)).data;
-  const { testResults } = taskStages;
+  const checks = testsBeforeGate(taskStages.testResults, taskStages.stages ?? [], waiting);
   return (
     <dl className="gate-facts">
       <GateFact label="Files changed">{changes?.files.length ?? "–"}</GateFact>
       <GateFact label="Lines">{changes ? <LinesFact changes={changes} /> : "–"}</GateFact>
-      <GateFact label="Tests" failed={testResults.some(({ state }) => state === "failed")}>
-        {testsFact(testResults)}
+      <GateFact label="Tests" failed={checks.some(({ state }) => state === "failed")}>
+        {testsFact(checks)}
       </GateFact>
       <GateFact label="Definition of Done">
         {definitionOfDoneFact(task, taskStages.definitionOfDoneMet)}

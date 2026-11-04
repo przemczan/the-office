@@ -13,11 +13,20 @@ import {
   gateQuestion,
   linesChanged,
   picturesOfThisRound,
+  testsBeforeGate,
   testsFact,
 } from "./gate-card-words.ts";
 
 function aResult(state: TestResultState): TestResult {
   return { stageKey: state, name: state, state, detail: null };
+}
+
+function resultOf(stageKey: string, state: TestResultState): TestResult {
+  return { ...aResult(state), stageKey };
+}
+
+function stageKeyed(key: string): TaskStage {
+  return { stage: { key } } as TaskStage;
 }
 
 function aFile(lines: ChangedFile["lines"]): ChangedFile {
@@ -36,6 +45,33 @@ describe("gateQuestion", () => {
 
   it("says the work finishes at the last Stage", () => {
     expect(gateQuestion({ next: undefined })).toBe("Look at the changes and let the work finish");
+  });
+});
+
+describe("testsBeforeGate", () => {
+  const stages = ["implement", "tests", "ui-acceptance", "build"].map(stageKeyed);
+  const gate = {
+    kind: "gate",
+    key: "ui-acceptance",
+    name: "UI acceptance",
+    optional: false,
+  } as const;
+
+  it("leaves out a check after the Gate, so a Build still to come reads as Passed", () => {
+    const tests = resultOf("tests", "passed");
+    const checks = testsBeforeGate([tests, resultOf("build", "not-run")], stages, { gate });
+    expect(checks).toEqual([tests]);
+    expect(testsFact(checks)).toBe("Passed");
+  });
+
+  it("keeps a check before the Gate that didn't run", () => {
+    const results = [resultOf("implement", "passed"), resultOf("tests", "not-run")];
+    expect(testsFact(testsBeforeGate(results, stages, { gate }))).toBe("Not run");
+  });
+
+  it("reads Not run with no check before the Gate", () => {
+    const results = [resultOf("build", "passed")];
+    expect(testsFact(testsBeforeGate(results, stages, { gate }))).toBe("Not run");
   });
 });
 

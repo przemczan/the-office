@@ -18,7 +18,7 @@
 - `dependency-words.ts`: blockersOf, blockingTasksOf, canHoldBack, waitingFor, dependenciesSummary, blockerCandidates
 - `edit-task-stages-dialog.tsx`: EditTaskStagesDialog
 - `filter-bar.tsx`: FilterBar
-- `gate-card-words.ts`: gateQuestion, linesChanged, testsFact, definitionOfDoneFact, picturesOfThisRound
+- `gate-card-words.ts`: gateQuestion, linesChanged, testsBeforeGate, testsFact, definitionOfDoneFact, picturesOfThisRound
 - `gate-card.tsx`: GateCard
 - `ideas-page.tsx`: IdeasPage
 - `initiative-actions.tsx`: InitiativeActions
