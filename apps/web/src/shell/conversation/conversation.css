@@ -17,6 +17,23 @@
   border-bottom: 1px solid var(--border-subtle);
 }
 
+.thread-view-head {
+  display: flex;
+  align-items: center;
+  padding-right: 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.thread-view-head .thread-title {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+}
+
+.details-switch {
+  flex: none;
+}
+
 .thread-title h3 {
   overflow: hidden;
   margin: 0;
@@ -293,6 +310,12 @@
   gap: 8px;
   font: var(--type-body-sm);
   color: var(--fg-2);
+}
+
+.message-answering .message-summary {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .message-answering svg {

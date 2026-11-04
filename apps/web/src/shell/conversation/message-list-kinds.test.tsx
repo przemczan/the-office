@@ -86,12 +86,21 @@ const EVERY_KIND: { readonly [Kind in Message["kind"]]: readonly [Message, strin
   ],
 };
 
-function shownLog(messages: readonly Message[]): HTMLElement {
+function shownLog(
+  messages: readonly Message[],
+  { details = true, answering = false } = {},
+): HTMLElement {
   const page = document.createElement("div");
   act(() =>
     createRoot(page).render(
       <QueryClientProvider client={new QueryClient()}>
-        <MessageList messages={messages} personName="Jan" answering={false} stageThread />
+        <MessageList
+          messages={messages}
+          personName="Jan"
+          answering={answering}
+          stageThread
+          details={details}
+        />
       </QueryClientProvider>,
     ),
   );
@@ -131,5 +140,43 @@ describe("MessageList's kinds", () => {
     expect(
       [...log.querySelectorAll(".message-delivery")].map(({ textContent }) => textContent),
     ).toEqual(["Delivered", "Lands at the next safe point"]);
+  });
+});
+
+describe("MessageList with Details off", () => {
+  const [toolCall] = EVERY_KIND["tool-activity"];
+
+  it("shows every kind but tool activity and context lines", () => {
+    const { "tool-activity": tool, context, ...shown } = EVERY_KIND;
+    const every = Object.values(EVERY_KIND);
+    const log = shownLog(
+      every.map(([message]) => message),
+      { details: false },
+    );
+    for (const [, words] of Object.values(shown)) expect(log.textContent).toContain(words);
+    expect(log.textContent).not.toContain(tool[1]);
+    expect(log.textContent).not.toContain(context[1]);
+  });
+
+  it("keeps the delivery marks", () => {
+    const log = shownLog([written("a", "First", "not-delivered")], { details: false });
+    expect(log.querySelector(".message-delivery")?.textContent).toContain("Not delivered");
+  });
+
+  it("joins a turn across a hidden line", () => {
+    const log = shownLog([fromPerson("a", "Before"), toolCall, fromPerson("b", "After")], {
+      details: false,
+    });
+    expect(log.querySelectorAll(".turn")).toHaveLength(1);
+  });
+
+  it("shows the latest tool line beside is working", () => {
+    const working = shownLog([toolCall], { details: false, answering: true });
+    expect(working.querySelector(".message-answering")?.textContent).toContain("Read");
+  });
+
+  it("leaves the tool line to the log with Details on", () => {
+    const working = shownLog([toolCall], { answering: true });
+    expect(working.querySelector(".message-answering")?.textContent).not.toContain("Read");
   });
 });

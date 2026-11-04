@@ -1394,6 +1394,13 @@
 }
 
 /* ---- the timeline: every Thread as a chapter of one log, over one composer */
+.timeline-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .timeline-head h3 {
   margin: 0;
   font: var(--type-card-title);

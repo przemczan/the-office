@@ -11,6 +11,7 @@
 - `attachments-block.tsx`: AttachmentsBlock
 - `before-ready.tsx`: BeforeReady
 - `board-filters.ts`: boardFiltersOf, withoutBoardFilters, hasBoardFilters, sameBoardFilters, withBoardFilter, withTagToggled, tagsOffered, boardFilter
+- `board-placement.ts`: placementAmong
 - `board.tsx`: Board
 - `changes-words.ts`: fileLineWords, TEST_RESULT_WORDS, editorLink, diffOfFile
 - `definition-of-done-statements.tsx`: DefinitionOfDoneStatements, ReportedMetBadge
@@ -72,4 +73,4 @@
 - `use-shaping.ts`: useShaping, useShapingIntoInitiative
 - `use-timeline-scroll.ts`: TimelineScroll, chapterElementId, bringChapterIntoView, useTimelineScroll
 - `work-page.tsx`: WorkPage
-- Tests: board-filters.test.ts, changes-words.test.ts, dependency-words.test.ts, gate-card-words.test.ts, initiative-words.test.ts, needs-you-words.test.ts, planning-parts.test.tsx, planning-words.test.ts, pull-request-button.test.tsx, record-folds.test.ts, resume-words.test.ts, stage-history-words.test.ts, stage-rail-words.test.ts, stage-words.test.ts, tag-words.test.ts, thread-tabs.test.ts, timeline-words.test.ts
+- Tests: board-filters.test.ts, board-placement.test.ts, changes-words.test.ts, dependency-words.test.ts, gate-card-words.test.ts, initiative-words.test.ts, needs-you-words.test.ts, planning-parts.test.tsx, planning-words.test.ts, pull-request-button.test.tsx, record-folds.test.ts, resume-words.test.ts, stage-history-words.test.ts, stage-rail-words.test.ts, stage-words.test.ts, tag-words.test.ts, thread-tabs.test.ts, timeline-words.test.ts

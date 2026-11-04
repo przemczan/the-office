@@ -15,6 +15,7 @@ import { usePlanner } from "../../shell/work/use-planner.ts";
 import { useWaitingOnYouInItsState } from "../../shell/work/waiting-on-you.ts";
 import { NOT_STARTED, PRIORITY_NAMES } from "../../shell/work/work-words.ts";
 import { tagsOffered } from "./board-filters.ts";
+import { placementAmong } from "./board-placement.ts";
 import { blockingTasksOf } from "./dependency-words.ts";
 import { FilterBar } from "./filter-bar.tsx";
 import { PlanButton } from "./planning-actions.tsx";
@@ -80,6 +81,9 @@ export function Board(): ReactNode {
   const waitingOnYou = useWaitingOnYouInItsState();
   const planner = usePlanner()?.card.name;
 
+  const cardsOf = (column: Column): Task[] =>
+    matching.filter((task) => column.states.includes(task.state) && inProjectFilter(task));
+
   const drop = (column: Column, event: DragEvent): void => {
     event.preventDefault();
     const task = dragged;
@@ -90,18 +94,8 @@ export function Board(): ReactNode {
       showToast("A Task changes state through its actions: Plan, Mark Ready, Start.");
       return;
     }
-    const others = tasks.data.filter(
-      (other) => column.states.includes(other.state) && other.id !== task.id,
-    );
-    const before = cardUnder(event);
-    const at = before === undefined ? others.length : others.findIndex(({ id }) => id === before);
-    const placement = {
-      above: others[at - 1]?.id ?? null,
-      below: others[at]?.id ?? null,
-    };
-    // Dropped back onto its own place.
-    if (placement.above === (previousOf(tasks.data, column, task)?.id ?? null)) return;
-    placing.mutate({ task, placement });
+    const placement = placementAmong(cardsOf(column), task, cardUnder(event));
+    if (placement) placing.mutate({ task, placement });
   };
 
   return (
@@ -124,9 +118,7 @@ export function Board(): ReactNode {
       {tasks.error && <Alert tone="danger" title={tasks.error.message} />}
       <div className="board">
         {COLUMNS.map((column) => {
-          const cards = matching.filter(
-            (task) => column.states.includes(task.state) && inProjectFilter(task),
-          );
+          const cards = cardsOf(column);
           return (
             <section key={column.key} className="board-column" aria-label={column.label}>
               <h3>
@@ -348,13 +340,6 @@ function moved(list: readonly Task[], task: Task, { above, below }: TaskPlacemen
       ? others.findIndex(({ id }) => id === below)
       : others.findIndex(({ id }) => id === above) + 1;
   return [...others.slice(0, at), task, ...others.slice(at)];
-}
-
-/** The card in the column just above `task`, which a drop right back onto its place names. */
-function previousOf(list: readonly Task[], column: Column, task: Task): Task | undefined {
-  const cards = list.filter(({ state }) => column.states.includes(state));
-  const index = cards.findIndex(({ id }) => id === task.id);
-  return index > 0 ? cards[index - 1] : undefined;
 }
 
 /** The id of the card the pointer is over, if any. */

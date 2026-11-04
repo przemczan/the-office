@@ -1,20 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import {
-  CAPTURE_IDEA_TOOL,
-  DECISION_TOOLS,
-  POST_LINK_CARD_TOOL,
-  PROPOSE_LIBRARY_PIPELINE_TOOL,
-  PROPOSE_PROJECT_TOOL,
-  PROPOSE_SKILL_INSTALL_TOOL,
-  PROPOSE_SKILL_TOOL,
-  PROPOSE_SKILL_UPDATE_TOOL,
-  PROPOSE_OFFICE_SETTING_TOOL,
-  PROPOSE_PROJECT_COMMANDS_TOOL,
-  PROPOSE_ROLE_TOOL,
-  SHOW_OFFICE_STATUS_TOOL,
-  type Message,
-  type MessageDelivery,
-} from "@the-office/contracts";
+import type { Message, MessageDelivery } from "@the-office/contracts";
 import { Icon } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
@@ -32,6 +17,7 @@ import {
   type ToolCall,
   type TurnMessage,
 } from "./message-groups.ts";
+import { latestToolCall, visibleMessages } from "./message-visibility.ts";
 import { OfficeStatusCard } from "./office-status-card.tsx";
 import { ProposalCard } from "./proposal-card.tsx";
 
@@ -44,6 +30,7 @@ export function MessageList({
   personName,
   answering,
   stageThread,
+  details,
   inTimeline = false,
 }: {
   readonly messages: readonly Message[];
@@ -52,6 +39,8 @@ export function MessageList({
   readonly answering: boolean;
   /** The user's messages say whether they reached the person, as one written while the Stage runs waits. */
   readonly stageThread: boolean;
+  /** The Details switch: tool activity and the context lines show. */
+  readonly details: boolean;
   /** One chapter of a timeline, which scrolls and lands on a linked card itself. */
   readonly inTimeline?: boolean;
 }): ReactNode {
@@ -60,7 +49,8 @@ export function MessageList({
   // What the list shows at its end: each new message, or the person starting to answer, scrolls to it.
   // A Decision's link opens the list at its card instead, once. Only the list scrolls, never the page
   // around it, so scrollIntoView, which scrolls every scrolling ancestor, is left out.
-  const lines = messages.length + (answering ? 1 : 0);
+  const visible = visibleMessages(messages, details);
+  const lines = visible.length + (answering ? 1 : 0);
   useEffect(() => {
     const scroller = list.current;
     if (inTimeline || lines === 0 || scroller === null) return;
@@ -83,37 +73,34 @@ export function MessageList({
       aria-live="polite"
       ref={list}
     >
-      {groupedMessages(messages.filter(shown)).map((group) => (
+      {groupedMessages(visible).map((group) => (
         <GroupItem key={group.id} group={group} personName={personName} stageThread={stageThread} />
       ))}
       {answering && (
-        <div className="message-answering" role="status">
-          <Icon name="loader" size={14} />
-          {personName} is working…
-        </div>
+        <Working
+          personName={personName}
+          toolCall={details ? undefined : latestToolCall(messages)}
+        />
       )}
     </div>
   );
 }
 
-/** A card shows its tool's call, so the call's activity line is left out. */
-const TOOLS_SHOWN_AS_CARDS: readonly string[] = [
-  ...DECISION_TOOLS,
-  PROPOSE_ROLE_TOOL,
-  PROPOSE_OFFICE_SETTING_TOOL,
-  PROPOSE_PROJECT_COMMANDS_TOOL,
-  PROPOSE_LIBRARY_PIPELINE_TOOL,
-  PROPOSE_PROJECT_TOOL,
-  PROPOSE_SKILL_INSTALL_TOOL,
-  PROPOSE_SKILL_TOOL,
-  PROPOSE_SKILL_UPDATE_TOOL,
-  POST_LINK_CARD_TOOL,
-  CAPTURE_IDEA_TOOL,
-  SHOW_OFFICE_STATUS_TOOL,
-];
-
-function shown(message: Message): boolean {
-  return message.kind !== "tool-activity" || !TOOLS_SHOWN_AS_CARDS.includes(message.tool);
+/** The person is answering, with the tool call they are on while Details hides the log's own. */
+function Working({
+  personName,
+  toolCall,
+}: {
+  readonly personName: string;
+  readonly toolCall: ToolCall | undefined;
+}): ReactNode {
+  return (
+    <div className="message-answering" role="status">
+      <Icon name="loader" size={14} />
+      {personName} is working…
+      {toolCall && <ToolCallWords call={toolCall} />}
+    </div>
+  );
 }
 
 function GroupItem({
@@ -201,14 +188,22 @@ function TurnFrame({
 function ToolCalls({ calls }: { readonly calls: readonly ToolCall[] }): ReactNode {
   return (
     <div className="tool-calls">
-      {calls.map(({ id, tool, summary }) => (
-        <div key={id} className="message-line">
+      {calls.map((call) => (
+        <div key={call.id} className="message-line">
           <Icon name="wrench" size={12} />
-          <span className="message-tool">{tool}</span>
-          {summary !== "" && <span className="message-summary">{summary}</span>}
+          <ToolCallWords call={call} />
         </div>
       ))}
     </div>
+  );
+}
+
+function ToolCallWords({ call: { tool, summary } }: { readonly call: ToolCall }): ReactNode {
+  return (
+    <>
+      <span className="message-tool">{tool}</span>
+      {summary !== "" && <span className="message-summary">{summary}</span>}
+    </>
   );
 }
 

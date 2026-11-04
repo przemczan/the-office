@@ -7,6 +7,8 @@ import { roleQueries } from "../../api/people.ts";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { AllowChangesBar } from "./allow-changes.tsx";
 import { ContextBar } from "./context-bar.tsx";
+import { useDetails } from "./details-store.ts";
+import { DetailsSwitch } from "./details-switch.tsx";
 import { MessageList } from "./message-list.tsx";
 import { ThreadComposer } from "./thread-composer.tsx";
 import { threadTitle } from "./thread-title.ts";
@@ -27,7 +29,10 @@ export function ThreadView({
   if (!thread.data) return null;
   return (
     <section className="thread-view" aria-label={threadTitle(thread.data, personName)}>
-      <ThreadTitle thread={thread.data} personName={personName} />
+      <div className="thread-view-head">
+        <ThreadTitle thread={thread.data} personName={personName} />
+        <DetailsSwitch />
+      </div>
       <ContextBar thread={thread.data} personName={personName} />
       {/* Only the Caretaker's chat has the switch. */}
       {thread.data.changesAllowed !== null && readOnlyReason === undefined && (
@@ -56,6 +61,7 @@ export function ThreadLog({
   readonly inTimeline?: boolean;
 }): ReactNode {
   const messages = useQuery(threadQueries.messages(thread.id));
+  const details = useDetails();
   return (
     <>
       {thread.consultation !== null && (
@@ -66,6 +72,7 @@ export function ThreadLog({
         personName={personName}
         answering={thread.state === "answering"}
         stageThread={thread.stageThread}
+        details={details.on}
         inTimeline={inTimeline}
       />
     </>

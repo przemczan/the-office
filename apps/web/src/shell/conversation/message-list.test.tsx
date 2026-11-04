@@ -26,6 +26,7 @@ it("scrolls only the list to its end as a message comes or the person starts to 
           personName="Jan"
           answering={answering}
           stageThread={false}
+          details
         />,
       ),
     );
@@ -53,7 +54,13 @@ it("shows the person working from the moment a turn starts, before any output", 
   const show = (answering: boolean): void =>
     act(() =>
       root.render(
-        <MessageList messages={[]} personName="Jan" answering={answering} stageThread={false} />,
+        <MessageList
+          messages={[]}
+          personName="Jan"
+          answering={answering}
+          stageThread={false}
+          details
+        />,
       ),
     );
 
@@ -81,7 +88,13 @@ it("shows an MCP server that didn't start as The Office's line, with why when th
 
   act(() =>
     root.render(
-      <MessageList messages={messages} personName="Jan" answering={false} stageThread={true} />,
+      <MessageList
+        messages={messages}
+        personName="Jan"
+        answering={false}
+        stageThread={true}
+        details
+      />,
     ),
   );
 
@@ -103,7 +116,13 @@ it("shows Allow changes switched on and off as The Office's lines", () => {
 
   act(() =>
     root.render(
-      <MessageList messages={messages} personName="Sam" answering={false} stageThread={false} />,
+      <MessageList
+        messages={messages}
+        personName="Sam"
+        answering={false}
+        stageThread={false}
+        details
+      />,
     ),
   );
 

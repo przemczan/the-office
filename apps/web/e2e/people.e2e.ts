@@ -957,6 +957,11 @@ function contextLabel(page: Page) {
   return chatWith(page, "Jan").getByLabel("Context");
 }
 
+/** The Details switch of a chat or the Task page's conversation. */
+function detailsSwitch(place: Locator) {
+  return place.getByRole("group", { name: "Details" }).getByRole("switch");
+}
+
 // The engine replays e2e/sessions.jsonl: the Planner's first session, then a fresh one.
 test("the user chats with the Planner, who reads but changes nothing", async ({ page }) => {
   await page.goto("/people");
@@ -970,8 +975,14 @@ test("the user chats with the Planner, who reads but changes nothing", async ({ 
   await chat.getByLabel("Message").press("Enter");
 
   await expect(chat.getByText("It deploys to production on every push to main.")).toBeVisible();
-  await expect(chat.getByText(/deploy-production\.yml$/)).toBeVisible();
+  // Details starts off: the tool call and the context line hide, the refusal never does.
   await expect(chat.getByText("This session only reads: changes happen on Tasks.")).toBeVisible();
+  await expect(detailsSwitch(chat)).toHaveAttribute("aria-checked", "false");
+  await expect(chat.getByText(/deploy-production\.yml$/)).toHaveCount(0);
+  await expect(chat.locator(".message-office")).toHaveCount(0);
+  await detailsSwitch(chat).click();
+  await expect(chat.getByText(/deploy-production\.yml$/)).toBeVisible();
+  await expect(chat.locator(".message-office").first()).toBeVisible();
   await expect(chat.getByRole("heading", { name: "Read the deploy workflow" })).toBeVisible();
   await expect(contextLabel(page)).toHaveText("Continuing · cache warm · 32k context");
   await expect(chat.getByText("32k tokens in this Thread")).toBeVisible();
@@ -987,6 +998,11 @@ test("the user chats with the Planner, who reads but changes nothing", async ({ 
   await expect(chat.getByText("The tests run with npm test.")).toBeVisible();
   await expect(chat.getByText(/^Fresh · you chose it · brief ~\d/)).toBeVisible();
   await expect(contextLabel(page)).toHaveText("Continuing · cache warm · 21k context");
+
+  // The browser remembers the switch.
+  await page.reload();
+  await expect(detailsSwitch(chatWith(page, "Jan"))).toHaveAttribute("aria-checked", "true");
+  await expect(chatWith(page, "Jan").getByText(/^Fresh · you chose it · brief ~\d/)).toBeVisible();
 });
 
 test("a Thread is renamed, and an old one stays readable and continues", async ({ page }) => {
@@ -1451,11 +1467,15 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
   const inThread = conversation.getByRole("region", { name: `Decision: ${QUERY_QUESTION}` });
   await expect(inThread).toContainText("Waits on you.");
   await expect(inThread.getByRole("button", { name: "Keep the query string" })).toHaveCount(0);
-  await expect(conversation.getByText(OPEN_DECISION_TOOL)).toHaveCount(0);
   // The first context line opens to show the Brief the session started with.
+  const briefToggle = conversation.getByText("Brief", { exact: true });
+  await expect(briefToggle).toHaveCount(0);
+  await detailsSwitch(conversation).click();
+  // A card shows its tool's call, so even Details leaves the line out.
+  await expect(conversation.getByText(OPEN_DECISION_TOOL)).toHaveCount(0);
   const brief = conversation.locator(".message-brief-text");
   await expect(brief).toBeHidden();
-  await conversation.getByText("Brief", { exact: true }).click();
+  await briefToggle.first().click();
   await expect(brief).toContainText("You are planning a Task with the user");
   await expect(brief).toContainText("Sign-in returns to the page (Task ");
   await expect(page.getByText("Waiting on you", { exact: true })).toBeVisible();
@@ -2269,6 +2289,7 @@ test("the user mentions a Task with @ in a chat, and the person is briefed with 
       chat.getByRole("heading", { name: "Is @Export the invoices as CSV…" }),
     ).toBeVisible();
     // The session started with the Task's record in its Brief.
+    await detailsSwitch(chat).click();
     await chat.locator("summary", { hasText: "Brief" }).click();
     await expect(chat.getByText("Records the user mentioned")).toBeVisible();
     await expect(chat.getByText(`Export the invoices as CSV (Task ${task.id})`)).toBeVisible();

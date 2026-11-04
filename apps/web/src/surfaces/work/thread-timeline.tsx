@@ -7,6 +7,7 @@ import { roleQueries } from "../../api/people.ts";
 import { ContextBar } from "../../shell/conversation/context-bar.tsx";
 import { ThreadComposer } from "../../shell/conversation/thread-composer.tsx";
 import { threadTitle } from "../../shell/conversation/thread-title.ts";
+import { DetailsSwitch } from "../../shell/conversation/details-switch.tsx";
 import { ThreadLog, ThreadTitle } from "../../shell/conversation/thread-view.tsx";
 import { clockOf } from "../../shell/time.ts";
 import { threadTabs, withTabSeen, withTabShown, type ThreadTabs } from "./thread-tabs.ts";
@@ -83,8 +84,11 @@ export function ThreadTimeline({
   return (
     <>
       <header className="timeline-head">
-        <h3>Conversation</h3>
-        <p>Every Thread in order, the newest last</p>
+        <div>
+          <h3>Conversation</h3>
+          <p>Every Thread in order, the newest last</p>
+        </div>
+        <DetailsSwitch />
       </header>
       <div className="timeline" ref={scroller}>
         <div className="timeline-chapters" ref={chapters}>
