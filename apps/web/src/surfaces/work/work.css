@@ -1016,7 +1016,8 @@
   padding: 0 8px 0 12px;
   border: 1px solid var(--warning-border);
   border-radius: var(--radius-card);
-  background: var(--warning-subtle);
+  /* Dark's subtle tone is see-through, and the bar sits over the page. */
+  background: linear-gradient(var(--warning-subtle), var(--warning-subtle)), var(--surface);
   box-shadow: var(--shadow-2);
 }
 
@@ -1453,6 +1454,11 @@
   padding-bottom: 72px;
 }
 
+/* The slim bar's lower stop clears the handle, which would cover its button. */
+.task-page:has(.conversation-handle) .needs-you-bar-place {
+  bottom: 112px;
+}
+
 .conversation-unread {
   display: inline-grid;
   place-items: center;
@@ -1638,6 +1644,20 @@
 @media (max-width: 1280px) {
   .task-columns {
     grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Beside the record it stays in the window as the page scrolls; useConversationFit sets its height. */
+@media (min-width: 1281px) {
+  .task-conversation {
+    position: sticky;
+    top: 12px;
+    max-height: none;
+  }
+
+  /* Clear of the slim bar, which may show whenever the card holds something. */
+  .task-page:has(.needs-you-card) .task-conversation {
+    top: 60px;
   }
 }
 

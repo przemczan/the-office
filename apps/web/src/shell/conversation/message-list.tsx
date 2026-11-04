@@ -17,7 +17,7 @@ import {
   type ToolCall,
   type TurnMessage,
 } from "./message-groups.ts";
-import { latestToolCall, visibleMessages } from "./message-visibility.ts";
+import { latestToolCall, onlyDetailsWouldShow, visibleMessages } from "./message-visibility.ts";
 import { OfficeStatusCard } from "./office-status-card.tsx";
 import { ProposalCard } from "./proposal-card.tsx";
 
@@ -81,6 +81,11 @@ export function MessageList({
           personName={personName}
           toolCall={details ? undefined : latestToolCall(messages)}
         />
+      )}
+      {onlyDetailsWouldShow(messages, details, answering) && (
+        <p className="message-details-hidden">
+          Tool activity is hidden. Turn on Details to see it.
+        </p>
       )}
     </div>
   );

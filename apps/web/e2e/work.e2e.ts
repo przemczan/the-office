@@ -66,6 +66,26 @@ async function createdTask(page: Page, project: Project, title: string): Promise
   return taskSchema.parse(await response.json());
 }
 
+/** A Thread of the Task, seeded with the messages. */
+async function seedThread(
+  taskId: string,
+  title: string,
+  messages: readonly Record<string, unknown>[],
+): Promise<void> {
+  const threadId = crypto.randomUUID();
+  await queryOfficeDatabase(
+    `insert into threads (id, home_kind, home_id, role_key, title, state, tokens, started_at)
+     values ($1, 'task', $2, 'developer', $3, 'waiting', $4, now())`,
+    [threadId, taskId, title, { input: 0, output: 0, cacheRead: 0, cacheCreation: 0 }],
+  );
+  for (const message of messages) {
+    await queryOfficeDatabase(
+      `insert into thread_messages (id, thread_id, body, at) values ($1, $2, $3, now())`,
+      [crypto.randomUUID(), threadId, { roleKey: "developer", ...message }],
+    );
+  }
+}
+
 function column(page: Page, state: string): Locator {
   return page.getByRole("region", { name: state, exact: true });
 }
@@ -77,6 +97,51 @@ async function titlesIn(page: Page, state: string, titles: readonly string[]): P
     .evaluateAll((cards) => cards.map((card) => card.getAttribute("aria-label") ?? ""));
   return shown.filter((title) => titles.includes(title));
 }
+
+test("the conversation's foot stays in the window beside the record, and a chapter of only tool activity says so", async ({
+  page,
+}) => {
+  const project = await addedProject(page, "Conversation fit", "CF");
+  const task = await createdTask(page, project, "A long conversation");
+  const words = "Enough words to take a line or two in the column, as a real log would read.";
+  await seedThread(
+    task.id,
+    "Reading",
+    Array.from({ length: 3 }, (_, index) => ({
+      kind: "tool-activity",
+      tool: "Read",
+      summary: `Read file ${index}`,
+    })),
+  );
+  await seedThread(task.id, "Nothing yet", []);
+  await seedThread(
+    task.id,
+    "Long",
+    Array.from({ length: 40 }, () => ({ kind: "person", text: words })),
+  );
+  await page.goto(`/tasks/${task.id}`);
+
+  const conversation = page.getByRole("complementary", { name: "Conversation" });
+  const pageScroller = page.locator(".shell-main");
+  const footBottom = async (): Promise<number> => {
+    const box = await conversation.boundingBox();
+    if (box === null) throw new Error("The conversation shows.");
+    return box.y + box.height;
+  };
+  await expect(conversation.getByText(words).first()).toBeVisible();
+  await pageScroller.evaluate((view) => view.scrollTo({ top: view.scrollHeight }));
+  await expect.poll(footBottom).toBeLessThanOrEqual(900);
+  await pageScroller.evaluate((view) => view.scrollTo({ top: 0 }));
+  await expect.poll(async () => (await conversation.boundingBox())?.height).toBeGreaterThan(300);
+
+  const hidden = "Tool activity is hidden. Turn on Details to see it.";
+  await conversation.getByRole("button", { name: "Reading" }).first().click();
+  await conversation.getByRole("button", { name: "Nothing yet" }).first().click();
+  await expect(conversation.getByText(hidden)).toHaveCount(1);
+  await conversation.getByRole("group", { name: "Details" }).getByRole("switch").click();
+  await expect(conversation.getByText("Read file 0")).toBeVisible();
+  await expect(conversation.getByText(hidden)).toHaveCount(0);
+});
 
 test("the user captures an Idea from Now in a few keystrokes", async ({ page }) => {
   await page.goto("/now");

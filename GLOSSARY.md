@@ -118,6 +118,10 @@ _Avoid_: Approval, prompt, question (as a noun for the record)
 One continuous exchange within a conversation on a Task, an Initiative or a person's chat; a fresh Thread starts without the previous one's context.
 _Avoid_: Session, chat (for the record), channel
 
+**Turn**:
+One author's neighbouring messages in a Thread, shown together under one name.
+_Avoid_: Bubble
+
 **Consultation**:
 A Thread on a Task in which an Agent asks a Consultant for an answer, or for approval of a call past a Hard switch; the user can read, join or take it over.
 _Avoid_: Delegation, escalation (for this), handoff

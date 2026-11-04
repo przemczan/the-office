@@ -13,6 +13,7 @@ import {
 } from "react";
 import { DecisionCardLinkContext } from "../../shell/conversation/decision-card.tsx";
 import { drawerMoveOn, type DrawerAddress } from "./conversation-drawer-address.ts";
+import { useConversationFit } from "./conversation-fit.ts";
 import { newMessagesWords } from "./new-messages.ts";
 import { bringChapterIntoView } from "./use-timeline-scroll.ts";
 
@@ -99,7 +100,7 @@ export function ConversationPanel({
   readonly children: ReactNode;
 }): ReactNode {
   const { narrow, open, show, close } = useConversationDrawer();
-  const panel = useRef<HTMLElement>(null);
+  const panel = useConversationFit();
   useDrawerFocus(open, panel);
   const onKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
     // React events bubble through portals, and the Attachment viewer has its own Esc.

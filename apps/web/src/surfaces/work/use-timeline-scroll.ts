@@ -106,6 +106,8 @@ export function useTimelineScroll(landOn: string | undefined): TimelineScroll {
     };
     const growing = new ResizeObserver(settle);
     growing.observe(content);
+    // The panel changes height as the page scrolls (useConversationFit), which must not lose the end.
+    growing.observe(view);
     const takingOver = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
     for (const event of takingOver) {
       view.addEventListener(event, takeOverChapter, { passive: true });

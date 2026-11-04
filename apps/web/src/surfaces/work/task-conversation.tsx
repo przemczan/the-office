@@ -43,16 +43,21 @@ export function TaskConversation({
       : undefined,
   );
   if (!threads) return null;
+  const readOnlyReason = ENDED_TASK_CONVERSATION_WORDS[task.state];
   if (threads.length === 0) {
     return (
       <aside className="task-conversation" aria-label="Conversation">
-        <EmptyCard>
-          No conversation on {task.title} yet. Planning opens one with{" "}
-          {planner?.card.name ?? "the Planner"}.
-          <div className="task-conversation-start">
-            <PlanButton task={task} />
-          </div>
-        </EmptyCard>
+        {readOnlyReason === undefined ? (
+          <EmptyCard>
+            No conversation on {task.title} yet. Planning opens one with{" "}
+            {planner?.card.name ?? "the Planner"}.
+            <div className="task-conversation-start">
+              <PlanButton task={task} />
+            </div>
+          </EmptyCard>
+        ) : (
+          <EmptyCard>No conversation on {task.title}.</EmptyCard>
+        )}
       </aside>
     );
   }
@@ -81,7 +86,7 @@ export function TaskConversation({
           resetScroll: false,
         });
       }}
-      readOnlyReason={ENDED_TASK_CONVERSATION_WORDS[task.state]}
+      readOnlyReason={readOnlyReason}
     />
   );
 }

@@ -61,6 +61,23 @@ export function visibleMessages(messages: readonly Message[], details: boolean):
   );
 }
 
+/**
+ * Whether the Details switch alone leaves a Thread's log empty, so it says why: a Thread with no
+ * messages, or one where the person is answering, has nothing to explain.
+ */
+export function onlyDetailsWouldShow(
+  messages: readonly Message[],
+  details: boolean,
+  answering: boolean,
+): boolean {
+  return (
+    !details &&
+    !answering &&
+    visibleMessages(messages, false).length === 0 &&
+    visibleMessages(messages, true).length > 0
+  );
+}
+
 /** The tool call that says what the person is doing now, while Details hides the log's own. */
 export function latestToolCall(messages: readonly Message[]): ToolCall | undefined {
   return messages

@@ -1,6 +1,6 @@
 import { CAPTURE_IDEA_TOOL, type Message } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
-import { latestToolCall, visibleMessages } from "./message-visibility.ts";
+import { latestToolCall, onlyDetailsWouldShow, visibleMessages } from "./message-visibility.ts";
 
 const at = "2026-11-04T10:00:00.000Z";
 
@@ -62,6 +62,34 @@ describe("visibleMessages", () => {
 
   it.each([true, false])("leaves out a tool call shown as a card, Details %s", (details) => {
     expect(visibleMessages([toolCall("card", CAPTURE_IDEA_TOOL)], details)).toEqual([]);
+  });
+});
+
+describe("onlyDetailsWouldShow", () => {
+  const onlyActivity = [toolCall("read", "Read"), contextLine];
+
+  it("is so when Details off hides all there is", () => {
+    expect(onlyDetailsWouldShow(onlyActivity, false, false)).toBe(true);
+  });
+
+  it("is not so with Details on", () => {
+    expect(onlyDetailsWouldShow(onlyActivity, true, false)).toBe(false);
+  });
+
+  it("is not so in a Thread with no messages", () => {
+    expect(onlyDetailsWouldShow([], false, false)).toBe(false);
+  });
+
+  it("is not so when something else shows", () => {
+    expect(onlyDetailsWouldShow([...onlyActivity, said], false, false)).toBe(false);
+  });
+
+  it("is not so while the person is working, which shows", () => {
+    expect(onlyDetailsWouldShow(onlyActivity, false, true)).toBe(false);
+  });
+
+  it("is not so for a tool call Details on wouldn't show either", () => {
+    expect(onlyDetailsWouldShow([toolCall("idea", CAPTURE_IDEA_TOOL)], false, false)).toBe(false);
   });
 });
 
