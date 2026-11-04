@@ -40,6 +40,11 @@ export function currentStageIndex(stages: readonly TaskStage[]): number {
   return holding >= 0 ? holding : stages.findLastIndex(({ runs }) => runs.length > 0);
 }
 
+/** Whether the Stage the walk has reached was stopped, an earlier Stage's old Stop not counting. */
+export function stoppedAtCurrentStage(stages: readonly TaskStage[]): boolean {
+  return stages[currentStageIndex(stages)]?.state === "stopped";
+}
+
 /** Where the rail's scroller centres a Stage, its columns being equal shares of what it scrolls. */
 export function railScrollLeft(
   stageIndex: number,

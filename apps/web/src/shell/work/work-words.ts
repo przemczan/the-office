@@ -1,5 +1,6 @@
 import type { BadgeProps } from "@the-office/ui";
 import type { Author, Idea, Priority, Role, TaskState } from "@the-office/contracts";
+import { PAUSED_BY_THE_ALARM } from "../fire-alarm/fire-alarm-words.ts";
 
 /** Each Task state as the UI names it (spec §2.1). */
 export const TASK_STATE_NAMES: Readonly<Record<TaskState, string>> = {
@@ -12,6 +13,25 @@ export const TASK_STATE_NAMES: Readonly<Record<TaskState, string>> = {
   done: "Done",
   dropped: "Dropped",
 };
+
+/** A Stage the user stopped, and the Task held there. */
+export const STOPPED = "Stopped";
+
+/**
+ * How a Task's state reads, a Paused one by what holds it. Stop leaves the Task Paused (spec §2.1)
+ * and only its held Stage knows, so `stopped` can come only from a page that has the Task's Stages.
+ */
+export function taskStateWords(
+  state: TaskState,
+  {
+    pausedByAlarm = false,
+    stopped = false,
+  }: { readonly pausedByAlarm?: boolean; readonly stopped?: boolean } = {},
+): string {
+  if (state !== "paused") return TASK_STATE_NAMES[state];
+  if (pausedByAlarm) return PAUSED_BY_THE_ALARM;
+  return stopped ? STOPPED : TASK_STATE_NAMES.paused;
+}
 
 /** The states before In progress: the Task can still be reordered and its priority changed. */
 export const NOT_STARTED: readonly TaskState[] = ["backlog", "planning", "ready"];

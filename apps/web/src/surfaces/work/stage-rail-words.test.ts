@@ -11,6 +11,7 @@ import {
   railStateWords,
   stagesOnRail,
   stageWorkerWords,
+  stoppedAtCurrentStage,
 } from "./stage-rail-words.ts";
 import { stageNamesOf, STAGE_STATE_WORDS } from "./stage-words.ts";
 
@@ -103,6 +104,35 @@ describe("currentStageIndex", () => {
       aTaskStage(review),
     ];
     expect(currentStageIndex(stages)).toBe(1);
+  });
+});
+
+describe("stoppedAtCurrentStage", () => {
+  it("is true when the Stage holding the walk was stopped", () => {
+    const stages = [
+      aTaskStage(implement, { state: "done", runs: [aRun()] }),
+      aTaskStage(tests, { state: "stopped", runs: [aRun()] }),
+    ];
+
+    expect(stoppedAtCurrentStage(stages)).toBe(true);
+  });
+
+  it("is false when the walk is held at a Stage the user paused", () => {
+    expect(stoppedAtCurrentStage([aTaskStage(implement, { state: "paused" })])).toBe(false);
+  });
+
+  it("goes by the Stage the walk has reached, not one stopped further on", () => {
+    const stages = [
+      aTaskStage(implement, { state: "paused", runs: [aRun()] }),
+      aTaskStage(tests, { state: "stopped", runs: [aRun()] }),
+    ];
+
+    expect(stoppedAtCurrentStage(stages)).toBe(false);
+  });
+
+  it("is false before any Stage ran", () => {
+    expect(stoppedAtCurrentStage([aTaskStage(implement)])).toBe(false);
+    expect(stoppedAtCurrentStage([])).toBe(false);
   });
 });
 

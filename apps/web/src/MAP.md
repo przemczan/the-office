@@ -191,5 +191,5 @@
 - `use-idea-planning.ts`: useIdeaPlanning, useOnPlanned
 - `use-planner.ts`: usePlanner
 - `waiting-on-you.ts`: waitsOnYou, waitsOnYouInItsState, useWaitingOnYou, useWaitingOnYouInItsState
-- `work-words.ts`: TASK_STATE_NAMES, NOT_STARTED, TASK_STATE_TONES, PRIORITY_NAMES, PRIORITY_ICONS, authorName, projectIdsOfIdea
-- Tests: gate-words.test.ts, usage-estimate-words.test.ts, waiting-on-you.test.ts
+- `work-words.ts`: TASK_STATE_NAMES, STOPPED, taskStateWords, NOT_STARTED, TASK_STATE_TONES, PRIORITY_NAMES, PRIORITY_ICONS, authorName, projectIdsOfIdea
+- Tests: gate-words.test.ts, usage-estimate-words.test.ts, waiting-on-you.test.ts, work-words.test.ts

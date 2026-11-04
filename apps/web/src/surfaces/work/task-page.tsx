@@ -7,6 +7,7 @@ import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { attachmentQueries, taskQueries } from "../../api/work.ts";
+import { stoppedAtCurrentStage } from "./stage-rail-words.ts";
 import { pipelineLabel, REMOVED_PIPELINE, taskTokens } from "./stage-words.ts";
 import { usePageHeading } from "../../shell/page-heading.tsx";
 import { ProjectChip } from "../../shell/project-chip.tsx";
@@ -134,7 +135,11 @@ function TaskHead({
       <div className="task-head-grow">
         <h2>{task.title}</h2>
         <div className="task-head-meta">
-          <TaskStateBadge state={task.state} pausedByAlarm={task.pausedByAlarm} />
+          <TaskStateBadge
+            state={task.state}
+            pausedByAlarm={task.pausedByAlarm}
+            stopped={stoppedAtCurrentStage(taskStages?.stages ?? [])}
+          />
           {waitingOnYou(task) && <TaskStateBadge state="waiting-on-you" />}
           <ProjectChip projectId={task.projectId} projects={projects} />
           <span>· Pipeline {pipelineLabel(pipeline?.name ?? REMOVED_PIPELINE, editedForTask)}</span>

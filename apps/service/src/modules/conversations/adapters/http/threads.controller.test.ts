@@ -622,7 +622,11 @@ describe("a Decision", () => {
   it("lists a Task's unanswered Decisions, those with a Consultant too, the first asked first", async () => {
     const { decision } = await opened();
     const taskId = decision.taskId;
-    const inAnotherThread = await withSession(() => ({ kind: "task", taskId }));
+    // In a Stage Thread the answer is only recorded. Anywhere else it goes to a session, and with
+    // no script that fails in the background, opening the Decision again under the last read.
+    const inAnotherThread = await withSession(() => ({ kind: "task", taskId }), {
+      stageThread: true,
+    });
     const withConsultant = await app
       .get(DecisionService)
       .open(inAnotherThread.sessionId, draft, "devops");
@@ -650,7 +654,10 @@ describe("a Decision", () => {
 });
 
 /** A Thread at `home` with a session of its own person, by the session's id. */
-async function withSession(home: (roleKey: string) => Thread["home"]): Promise<{
+async function withSession(
+  home: (roleKey: string) => Thread["home"],
+  { stageThread = false }: { readonly stageThread?: boolean } = {},
+): Promise<{
   readonly thread: Thread;
   readonly sessionId: string;
 }> {
@@ -660,6 +667,7 @@ async function withSession(home: (roleKey: string) => Thread["home"]): Promise<{
     id: randomUUID(),
     home: home(roleKey),
     roleKey,
+    stageThread,
     session: {
       id: sessionId,
       roleKey,

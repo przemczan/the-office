@@ -14,7 +14,6 @@ import { nowQueries } from "../../api/notifications.ts";
 import { roleQueries } from "../../api/people.ts";
 import { projectQueries } from "../../api/projects.ts";
 import { taskQueries } from "../../api/work.ts";
-import { PAUSED_BY_THE_ALARM } from "../../shell/fire-alarm/fire-alarm-words.ts";
 import { Desk, Feed, Panel, PanelHeading } from "../../shell/desk.tsx";
 import { EmptyCard, ItemCard } from "../../shell/item-card.tsx";
 import { NeedsYouFeed } from "../../shell/notifications/needs-you-feed.tsx";
@@ -37,7 +36,7 @@ import { useProjectFilter } from "../../shell/project-filter/use-project-filter.
 import { momentWords } from "../../shell/time.ts";
 import { useClock } from "../../shell/use-clock.ts";
 import { UsageEstimateLine } from "../../shell/work/usage-estimate-line.tsx";
-import { TASK_STATE_NAMES, TASK_STATE_TONES } from "../../shell/work/work-words.ts";
+import { TASK_STATE_TONES, taskStateWords } from "../../shell/work/work-words.ts";
 import { AlarmPanel } from "./alarm-panel.tsx";
 import "./now.css";
 import { TokenCount } from "../../shell/token-count.tsx";
@@ -141,9 +140,10 @@ function RunningCard({
   readonly clock: Date;
 }): ReactNode {
   const { stage } = task;
-  const pausedByAlarm = useQuery(nowQueries.now()).data?.fireAlarm?.paused.some(
-    ({ taskId }) => taskId === task.taskId,
-  );
+  const pausedByAlarm =
+    useQuery(nowQueries.now()).data?.fireAlarm?.paused.some(
+      ({ taskId }) => taskId === task.taskId,
+    ) ?? false;
   const person = stage?.role ? roles?.find(({ key }) => key === stage.role) : undefined;
   return (
     <ItemCard
@@ -158,7 +158,7 @@ function RunningCard({
           <ProjectChip projectId={task.projectId} projects={projects} />
           {task.state !== "in-progress" && (
             <Badge tone={TASK_STATE_TONES[task.state]}>
-              {pausedByAlarm ? PAUSED_BY_THE_ALARM : TASK_STATE_NAMES[task.state]}
+              {taskStateWords(task.state, { pausedByAlarm })}
             </Badge>
           )}
         </div>

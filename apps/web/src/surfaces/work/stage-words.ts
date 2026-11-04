@@ -10,6 +10,7 @@ import type {
 } from "@the-office/contracts";
 import { tokensShort } from "../../shell/conversation/context-words.ts";
 import { sumTokens } from "../../shell/token-words.ts";
+import { STOPPED } from "../../shell/work/work-words.ts";
 
 /** The words of a Task's Stages that the rail and the Stage history share. */
 
@@ -18,7 +19,7 @@ export const STAGE_STATE_WORDS: Readonly<Record<StageState, string>> = {
   running: "Running",
   "waiting-on-you": "Waiting on you",
   paused: "Paused",
-  stopped: "Stopped",
+  stopped: STOPPED,
   done: "Done",
   skipped: "Skipped",
   failed: "Failed",
