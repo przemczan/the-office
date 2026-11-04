@@ -364,6 +364,8 @@ test.describe("losing the service", () => {
     reachable = true;
     await expect(strip).not.toContainText("Reconnecting");
     await expect(notice).toHaveCount(0);
+    // Reconnecting reads the Roles again: a read still in flight as the test ends would fail the next.
+    await page.unrouteAll({ behavior: "ignoreErrors" });
   });
 });
 

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import type { Pipeline, Project, Task, Thread } from "@the-office/contracts";
 import { Tabs } from "@the-office/ui";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
@@ -21,6 +21,7 @@ import { MarkReadyButton, PlanButton } from "./planning-actions.tsx";
 import { PullRequestButton } from "./pull-request-button.tsx";
 import { RECORD_ELEMENT_ID, recordTabOf, type RecordTab } from "./record-tab.ts";
 import { RunControls } from "./run-controls.tsx";
+import { focusStage } from "./stage-selection.ts";
 import { StartButton } from "./start-action.tsx";
 import { ChangesTab } from "./task-changes.tsx";
 import { TaskConversation } from "./task-conversation.tsx";
@@ -54,21 +55,61 @@ export function TaskPage(): ReactNode {
   return (
     <div className="task-page">
       <TaskHead task={record} projects={projects.data} pipeline={pipeline} threads={threads.data} />
-      <PipelineRail key={record.id} task={record} pipeline={pipeline} />
-      <NeedsYouCard key={`needs-you-${record.id}`} task={record} pipeline={pipeline} />
+      <TaskBody
+        key={record.id}
+        task={record}
+        pipeline={pipeline}
+        threads={threads.data}
+        taskThread={taskThread}
+        recordTab={recordTab}
+      />
+    </div>
+  );
+}
+
+/**
+ * All under the head, keyed by Task: what it holds, such as the rail's selection, means nothing on
+ * the next one, where the same Pipeline's Stages have the same keys.
+ */
+function TaskBody({
+  task,
+  pipeline,
+  threads,
+  taskThread,
+  recordTab,
+}: {
+  readonly task: Task;
+  readonly pipeline: Pipeline | undefined;
+  readonly threads: readonly Thread[] | undefined;
+  readonly taskThread: string | undefined;
+  readonly recordTab: RecordTab | undefined;
+}): ReactNode {
+  const [selectedStageKey, setSelectedStageKey] = useState<string>();
+  return (
+    <>
+      <PipelineRail
+        task={task}
+        pipeline={pipeline}
+        selectedKey={selectedStageKey}
+        onSelect={setSelectedStageKey}
+      />
+      <NeedsYouCard task={task} pipeline={pipeline} />
       <div className="task-columns">
         <div className="task-record-column" id={RECORD_ELEMENT_ID}>
-          <RecordTabs task={record} shown={recordTab} />
-          <RecordTabContent task={record} shown={recordTab} />
+          <RecordTabs task={task} shown={recordTab} />
+          <RecordTabContent task={task} shown={recordTab} />
         </div>
         <TaskConversation
-          key={`conversation-${record.id}`}
-          task={record}
-          threads={threads.data}
+          task={task}
+          threads={threads}
           asked={taskThread}
+          onShowStage={(stageKey) => {
+            setSelectedStageKey(stageKey);
+            focusStage(stageKey);
+          }}
         />
       </div>
-    </div>
+    </>
   );
 }
 

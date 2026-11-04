@@ -115,6 +115,7 @@
 - `mention-picker.tsx`: Mentions, useMentions
 - `mention-words.ts`: MENTION_KINDS, MentionKind, Mentionable, MentionQuery, MENTIONS_SHOWN, mentionQueryAt, mentionables, matchingMentionables, withMentionLinks
 - `message-field.tsx`: MessageField
+- `message-groups.ts`: TurnMessage, ToolCall, MessageGroup, groupedMessages
 - `message-list.tsx`: MessageList
 - `office-status-card.tsx`: OfficeStatusCard
 - `office-status-words.ts`: waitingWords, pausedWords
@@ -123,7 +124,7 @@
 - `thread-drafts.tsx`: ThreadDrafts, ThreadDraftsProvider, useThreadDrafts
 - `thread-title.ts`: threadTitle
 - `thread-view.tsx`: ThreadView, ThreadLog, ThreadTitle
-- Tests: context-words.test.ts, decision-words.test.ts, link-card-words.test.ts, mention-words.test.ts, message-field.test.tsx, message-list.test.tsx, office-status-words.test.ts, thread-title.test.ts
+- Tests: context-words.test.ts, decision-words.test.ts, link-card-words.test.ts, mention-words.test.ts, message-field.test.tsx, message-groups.test.ts, message-list-kinds.test.tsx, message-list.test.tsx, office-status-words.test.ts, thread-title.test.ts
 
 ### shell/fire-alarm/
 

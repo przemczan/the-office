@@ -1472,6 +1472,23 @@
   color: var(--fg-3);
 }
 
+.chapter-stage {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--fg-2);
+  cursor: pointer;
+}
+
+.chapter-stage:hover {
+  color: var(--fg-1);
+  text-decoration: underline;
+}
+
 .chapter-line {
   display: block;
   overflow: hidden;

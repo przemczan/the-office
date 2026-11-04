@@ -1768,6 +1768,29 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await openThread.click();
   await expect(implementToggle).toHaveAttribute("aria-expanded", "true");
 
+  // The chapter's head comes back to the rail: a link followed selects its Stage, however often,
+  // and leaves the rail's keys working with focus on it.
+  const toTheRail = implementChapter.getByRole("button", { name: "Show Implement on the rail" });
+  const implementOnRail = rail.getByRole("button", { name: "Implement", exact: true });
+  await implementOnRail.click();
+  await expect(history).toHaveCount(0);
+  await toTheRail.click();
+  await expect(history).toBeVisible();
+  await expect(implementOnRail).toBeFocused();
+  await toTheRail.click();
+  await expect(history).toBeVisible();
+  await page.keyboard.press("ArrowRight");
+  await expect(history).toHaveCount(0);
+  await page.keyboard.press("ArrowLeft");
+  await expect(history).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(history).toHaveCount(0);
+  await expect(implementOnRail).toBeFocused();
+
+  // The messages of a chapter read as turns, the Decision still between them.
+  await expect(implementChapter.locator(".turn").first()).toBeVisible();
+  await expect(decision).toBeVisible();
+
   // Publish fails, as the repository has no remote: The Office asks Bob, the CTO, first, who passes
   // it on to the user. Waiting for that keeps the next test's sessions after Bob's.
   await expect

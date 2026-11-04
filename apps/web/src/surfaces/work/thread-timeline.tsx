@@ -35,6 +35,7 @@ export function ThreadTimeline({
   waitingOnYou,
   workOf,
   onAsked,
+  onShowStage,
   readOnlyReason,
 }: {
   readonly threads: readonly Thread[];
@@ -46,6 +47,8 @@ export function ThreadTimeline({
   readonly workOf: (threadId: string) => ChapterWork;
   /** The address keeps up, so that a link to a Thread works again; undefined takes it off. */
   readonly onAsked: (threadId: string | undefined) => void;
+  /** A chapter's way to the rail. */
+  readonly onShowStage: (stageKey: string) => void;
   /** Why the record's Threads can be read but not continued, once it ended. */
   readonly readOnlyReason: string | undefined;
 }): ReactNode {
@@ -97,6 +100,7 @@ export function ThreadTimeline({
               writingHere={thread.id === current.shownId}
               canWrite={readOnlyReason === undefined}
               onToggle={(open) => toggle(thread.id, open)}
+              onShowStage={onShowStage}
               onWriteHere={() => {
                 setTabs(withTabShown(current, thread.id));
                 onAsked(thread.id);
@@ -127,6 +131,7 @@ function ThreadChapter({
   writingHere,
   canWrite,
   onToggle,
+  onShowStage,
   onWriteHere,
 }: {
   readonly thread: Thread;
@@ -139,6 +144,7 @@ function ThreadChapter({
   readonly writingHere: boolean;
   readonly canWrite: boolean;
   readonly onToggle: (open: boolean) => void;
+  readonly onShowStage: (stageKey: string) => void;
   readonly onWriteHere: () => void;
 }): ReactNode {
   const title = threadTitle(thread, personName);
@@ -164,7 +170,19 @@ function ThreadChapter({
             </span>
           )}
           {/* A Thread's title names the Stage it began in; a `continue` session goes on to others. */}
-          {work.stageNames.length > 1 && <span>{work.stageNames.join(" · ")}</span>}
+          {work.stages.map(({ key, name }) => (
+            <button
+              key={key}
+              type="button"
+              className="chapter-stage"
+              aria-label={`Show ${name} on the rail`}
+              title={`Show ${name} on the rail`}
+              onClick={() => onShowStage(key)}
+            >
+              <Icon name="route" size={12} />
+              {name}
+            </button>
+          ))}
           <span>{clockOf(thread.startedAt)}</span>
           {canWrite && !writingHere && (
             <Button size="sm" variant="ghost" onClick={onWriteHere}>

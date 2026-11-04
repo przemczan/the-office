@@ -19,12 +19,19 @@ import { Icon } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { roleName } from "../person-name.ts";
+import { clockOf } from "../time.ts";
 import { contextLabel } from "./context-words.ts";
 import { MarkdownText } from "../markdown-text.tsx";
 import { DecisionInThread } from "./decision-card.tsx";
 import { answerWords } from "./decision-words.ts";
 import { IdeaCard } from "./idea-card.tsx";
 import { LinkCard } from "./link-card.tsx";
+import {
+  groupedMessages,
+  type MessageGroup,
+  type ToolCall,
+  type TurnMessage,
+} from "./message-groups.ts";
 import { OfficeStatusCard } from "./office-status-card.tsx";
 import { ProposalCard } from "./proposal-card.tsx";
 
@@ -76,13 +83,8 @@ export function MessageList({
       aria-live="polite"
       ref={list}
     >
-      {messages.filter(shown).map((message) => (
-        <MessageItem
-          key={message.id}
-          message={message}
-          personName={personName}
-          stageThread={stageThread}
-        />
+      {groupedMessages(messages.filter(shown)).map((group) => (
+        <GroupItem key={group.id} group={group} personName={personName} stageThread={stageThread} />
       ))}
       {answering && (
         <div className="message-answering" role="status">
@@ -114,41 +116,110 @@ function shown(message: Message): boolean {
   return message.kind !== "tool-activity" || !TOOLS_SHOWN_AS_CARDS.includes(message.tool);
 }
 
-function MessageItem({
-  message,
+function GroupItem({
+  group,
   personName,
   stageThread,
 }: {
-  readonly message: Message;
+  readonly group: MessageGroup;
   readonly personName: string;
   readonly stageThread: boolean;
 }): ReactNode {
+  switch (group.kind) {
+    case "turn":
+      return <Turn messages={group.messages} personName={personName} stageThread={stageThread} />;
+    case "tool-calls":
+      return <ToolCalls calls={group.messages} />;
+    case "alone":
+      return <MessageItem message={group.message} personName={personName} />;
+  }
+}
+
+/** One author's run of messages under one line; each of the user's keeps its own delivery mark. */
+function Turn({
+  messages,
+  personName,
+  stageThread,
+}: {
+  readonly messages: readonly [TurnMessage, ...TurnMessage[]];
+  readonly personName: string;
+  readonly stageThread: boolean;
+}): ReactNode {
+  const [opening] = messages;
+  return (
+    <TurnFrame
+      mine={opening.kind === "user"}
+      by={<TurnAuthor opening={opening} personName={personName} />}
+      at={opening.at}
+    >
+      {messages.map((message) => (
+        <div key={message.id}>
+          <div className="message-text">
+            <MarkdownText text={message.text} />
+          </div>
+          {stageThread && message.kind === "user" && <DeliveryMark delivery={message.delivery} />}
+        </div>
+      ))}
+    </TurnFrame>
+  );
+}
+
+function TurnAuthor({
+  opening,
+  personName,
+}: {
+  readonly opening: TurnMessage;
+  readonly personName: string;
+}): ReactNode {
+  if (opening.kind === "person") return personName;
+  if (opening.handoverNoteFrom === null) return "You";
+  return <HandoverNoteFrom roleKey={opening.handoverNoteFrom} />;
+}
+
+function TurnFrame({
+  mine,
+  by,
+  at,
+  children,
+}: {
+  readonly mine: boolean;
+  readonly by: ReactNode;
+  readonly at: string;
+  readonly children: ReactNode;
+}): ReactNode {
+  return (
+    <div className={mine ? "turn mine" : "turn"}>
+      <div className="turn-by">
+        <span className="turn-author">{by}</span>
+        <span>{clockOf(at)}</span>
+      </div>
+      <div className="turn-messages">{children}</div>
+    </div>
+  );
+}
+
+function ToolCalls({ calls }: { readonly calls: readonly ToolCall[] }): ReactNode {
+  return (
+    <div className="tool-calls">
+      {calls.map(({ id, tool, summary }) => (
+        <div key={id} className="message-line">
+          <Icon name="wrench" size={12} />
+          <span className="message-tool">{tool}</span>
+          {summary !== "" && <span className="message-summary">{summary}</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MessageItem({
+  message,
+  personName,
+}: {
+  readonly message: Extract<MessageGroup, { kind: "alone" }>["message"];
+  readonly personName: string;
+}): ReactNode {
   switch (message.kind) {
-    case "user":
-      return (
-        <div className="message mine">
-          <div className="message-by">
-            {message.handoverNoteFrom === null ? (
-              "You"
-            ) : (
-              <HandoverNoteFrom roleKey={message.handoverNoteFrom} />
-            )}
-          </div>
-          <div className="message-text">
-            <MarkdownText text={message.text} />
-          </div>
-          {stageThread && <DeliveryMark delivery={message.delivery} />}
-        </div>
-      );
-    case "person":
-      return (
-        <div className="message">
-          <div className="message-by">{personName}</div>
-          <div className="message-text">
-            <MarkdownText text={message.text} />
-          </div>
-        </div>
-      );
     case "handover-note":
       return (
         <div className="message handover-note">
@@ -159,14 +230,6 @@ function MessageItem({
           <div className="message-text">
             <MarkdownText text={message.text} />
           </div>
-        </div>
-      );
-    case "tool-activity":
-      return (
-        <div className="message-line">
-          <Icon name="wrench" size={12} />
-          <span className="message-tool">{message.tool}</span>
-          {message.summary !== "" && <span className="message-summary">{message.summary}</span>}
         </div>
       );
     case "refusal":
@@ -214,12 +277,11 @@ function MessageItem({
       return <DecisionInThread decision={message.decision} personName={personName} />;
     case "decision-answer":
       return (
-        <div className="message mine">
-          <div className="message-by">You · answering the Decision</div>
+        <TurnFrame mine by="You · answering the Decision" at={message.at}>
           <div className="message-text">
             <MarkdownText text={answerWords(message.answer, message.decision)} />
           </div>
-        </div>
+        </TurnFrame>
       );
     case "proposal":
       return <ProposalCard proposal={message.proposal} />;

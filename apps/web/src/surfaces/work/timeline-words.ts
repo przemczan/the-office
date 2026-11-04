@@ -5,7 +5,7 @@ import { withoutMarkdownMarks } from "./stage-words.ts";
 /** What a Thread did on the Task's Stages. A Consultation has no run, so it did none of this. */
 export interface ChapterWork {
   /** One Thread can span several runs and Stages, as a `continue` session resumes in it. */
-  readonly stageNames: readonly string[];
+  readonly stages: readonly { readonly key: string; readonly name: string }[];
   readonly handoverNote: string | undefined;
 }
 
@@ -50,7 +50,7 @@ export function withChapterOpen(
 export function chapterWork(stages: readonly TaskStage[], threadId: string): ChapterWork {
   const worked = stages.flatMap(({ stage, runs }) => {
     const own = runs.filter((run) => run.threadId === threadId);
-    return own.length > 0 ? [{ name: stage.name, runs: own }] : [];
+    return own.length > 0 ? [{ key: stage.key, name: stage.name, runs: own }] : [];
   });
   const notes = worked
     .flatMap(({ runs }) => runs)
@@ -58,7 +58,10 @@ export function chapterWork(stages: readonly TaskStage[], threadId: string): Cha
       outcome?.handoverNote ? [{ startedAt, note: outcome.handoverNote }] : [],
     )
     .toSorted((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt));
-  return { stageNames: worked.map(({ name }) => name), handoverNote: notes.at(-1)?.note };
+  return {
+    stages: worked.map(({ key, name }) => ({ key, name })),
+    handoverNote: notes.at(-1)?.note,
+  };
 }
 
 /** A folded chapter's line: only what the page already has, so no Thread's messages are read. */

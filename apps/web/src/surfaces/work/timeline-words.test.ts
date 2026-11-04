@@ -29,7 +29,7 @@ function aRun(threadId: string | null, startedAt: string, handoverNote: string |
 }
 
 function aStage(name: string, runs: StageRun[]): TaskStage {
-  return { stage: { name }, runs } as unknown as TaskStage;
+  return { stage: { key: name.toLowerCase(), name }, runs } as unknown as TaskStage;
 }
 
 describe("threadsInOrder", () => {
@@ -81,7 +81,10 @@ describe("chapterWork", () => {
       aStage("Fix", [aRun("spanning", "2026-11-04T10:30:00.000Z", "Latest note.")]),
     ];
     expect(chapterWork(stages, "spanning")).toEqual({
-      stageNames: ["Implement", "Fix"],
+      stages: [
+        { key: "implement", name: "Implement" },
+        { key: "fix", name: "Fix" },
+      ],
       handoverNote: "Latest note.",
     });
   });
@@ -89,7 +92,7 @@ describe("chapterWork", () => {
   it("finds nothing for a Consultation, which has no run", () => {
     const stages = [aStage("Implement", [aRun("asker", "2026-11-04T10:00:00.000Z", "Note.")])];
     expect(chapterWork(stages, "consultation")).toEqual({
-      stageNames: [],
+      stages: [],
       handoverNote: undefined,
     });
   });

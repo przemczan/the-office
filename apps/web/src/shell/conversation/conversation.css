@@ -117,14 +117,51 @@
   color: var(--fg-1);
 }
 
-.message.mine {
-  margin-left: auto;
-  background: var(--accent-subtle);
-}
-
 .message.handover-note {
   border: 1px solid var(--info-border);
   background: var(--info-subtle);
+}
+
+.turn {
+  min-width: 0;
+  font: var(--type-body-sm);
+  line-height: 1.55;
+  color: var(--fg-1);
+}
+
+.turn.mine {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--surface-sunken);
+}
+
+.turn-by {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.turn-author {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--fg-1);
+}
+
+.turn-messages {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tool-calls {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 
 .message-by {

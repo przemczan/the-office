@@ -18,11 +18,13 @@ export function TaskConversation({
   task,
   threads,
   asked,
+  onShowStage,
 }: {
   readonly task: Task;
   readonly threads: readonly Thread[] | undefined;
   /** The Thread the address names. */
   readonly asked: string | undefined;
+  readonly onShowStage: (stageKey: string) => void;
 }): ReactNode {
   const planner = usePlanner();
   const navigate = useNavigate({ from: "/tasks/$taskId" });
@@ -62,6 +64,7 @@ export function TaskConversation({
             resetScroll: false,
           });
         }}
+        onShowStage={onShowStage}
         readOnlyReason={ENDED_TASK_CONVERSATION_WORDS[task.state]}
       />
     </aside>

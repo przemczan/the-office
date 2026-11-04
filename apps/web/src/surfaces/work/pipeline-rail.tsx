@@ -7,7 +7,7 @@ import {
   type TaskStage,
 } from "@the-office/contracts";
 import { Button, Icon } from "@the-office/ui";
-import { useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useId, useState, type KeyboardEvent, type ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { TokenCount } from "../../shell/token-count.tsx";
@@ -16,6 +16,7 @@ import { NOT_STARTED } from "../../shell/work/work-words.ts";
 import { EditTaskStagesDialog } from "./edit-task-stages-dialog.tsx";
 import { RecordBlock } from "./record-block.tsx";
 import { StageHistory } from "./stage-history.tsx";
+import { focusStage, stageElementId } from "./stage-selection.ts";
 import {
   currentStageIndex,
   loopBacks,
@@ -58,9 +59,14 @@ const STATE_ICONS: Readonly<Partial<Record<TaskStage["state"], string>>> = {
 export function PipelineRail({
   task,
   pipeline,
+  selectedKey,
+  onSelect,
 }: {
   readonly task: Task;
   readonly pipeline: Pipeline | undefined;
+  /** The Stage whose history is open; the page holds it, as a chapter's link selects too. */
+  readonly selectedKey: string | undefined;
+  readonly onSelect: (stageKey: string | undefined) => void;
 }): ReactNode {
   const taskStages = useQuery(pipelineQueries.taskStages(task.id)).data;
   const roles = useQuery(roleQueries.list()).data;
@@ -82,7 +88,13 @@ export function PipelineRail({
       }
     >
       {stages.length > 0 ? (
-        <StageTrack stages={stages} task={task} roles={roles} />
+        <StageTrack
+          stages={stages}
+          task={task}
+          roles={roles}
+          selectedKey={selectedKey}
+          onSelect={onSelect}
+        />
       ) : (
         <p className="task-quiet">Its Pipeline was removed from the library.</p>
       )}
@@ -101,15 +113,17 @@ function StageTrack({
   stages,
   task,
   roles,
+  selectedKey,
+  onSelect,
 }: {
   readonly stages: readonly TaskStage[];
   readonly task: Task;
   readonly roles: readonly Role[] | undefined;
+  readonly selectedKey: string | undefined;
+  readonly onSelect: (stageKey: string | undefined) => void;
 }): ReactNode {
   const now = useClock();
   const historyId = useId();
-  const stageList = useRef<HTMLOListElement>(null);
-  const [selectedKey, setSelectedKey] = useState<string>();
   const names = stageNamesOf(stages.map(({ stage }) => stage));
   const current = currentStageIndex(stages);
   const reached = Math.max(current, 0);
@@ -123,10 +137,9 @@ function StageTrack({
 
   /** Focus follows the selection to the Stage, as what had it may just have gone or been disabled. */
   const select = (key: string | undefined, focusIndex: number): void => {
-    setSelectedKey(key);
-    stageList.current?.children[focusIndex]
-      ?.querySelector<HTMLButtonElement>(".pipeline-rail-button")
-      ?.focus();
+    onSelect(key);
+    const focused = stages[focusIndex];
+    if (focused) focusStage(focused.stage.key);
   };
   const toggle = (index: number): void => {
     select(index === selected ? undefined : stages[index]?.stage.key, index);
@@ -168,7 +181,7 @@ function StageTrack({
               width: `${(reached * 100) / stages.length}%`,
             }}
           />
-          <ol ref={stageList} aria-label="Stages">
+          <ol aria-label="Stages">
             {stages.map((taskStage, index) => (
               <RailStage
                 key={taskStage.stage.key}
@@ -295,6 +308,7 @@ function RailStage({
         {/* Stretched over the column, so the token info beside it stays a button of its own. */}
         <button
           type="button"
+          id={stageElementId(stage.key)}
           className="pipeline-rail-button"
           aria-expanded={isSelected}
           aria-controls={isSelected ? historyId : undefined}
