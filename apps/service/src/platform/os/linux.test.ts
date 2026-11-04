@@ -31,6 +31,10 @@ describe("linux", () => {
     });
   });
 
+  it("lets The Office update itself", () => {
+    expect(linux({ variables: {}, homeDirectory }).officeUpdateRefusal).toBeUndefined();
+  });
+
   describe("paths", () => {
     const { paths } = linux({ variables: {}, homeDirectory });
 

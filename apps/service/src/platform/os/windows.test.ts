@@ -40,6 +40,12 @@ describe("windows", () => {
     });
   });
 
+  it("refuses updating The Office", () => {
+    expect(windows({ variables: {}, homeDirectory }).officeUpdateRefusal).toBe(
+      "Updating The Office runs on Linux only.",
+    );
+  });
+
   describe("paths", () => {
     const { paths } = windows({ variables: {}, homeDirectory });
 

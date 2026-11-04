@@ -28,6 +28,7 @@ await launch(
       ScriptedEngineModule,
       StandInClaudeCodeAccounts,
     } = await import("./modules/engine/index.js");
+    const { UpdateSystem } = await import("./modules/office-updates/index.js");
     const { Schedule } = await import("./platform/schedule/schedule.js");
     const { TimerSchedule } = await import("./platform/schedule/timer-schedule.js");
     const { HostKeyScanner } = await import("./platform/git-identity/host-key-scanner.js");
@@ -57,6 +58,9 @@ await launch(
       .useFactory({ factory: () => new TimerSchedule(E2E_DAY_MS) })
       .overrideProvider(HostKeyScanner)
       .useValue(scanner)
+      // Settings › Updates is tested on both systems, though Windows doesn't offer updating.
+      .overrideProvider(UpdateSystem)
+      .useValue({ refusal: undefined })
       // The testing module's own logger shows errors alone; the service logs as main.ts's does.
       .setLogger(new OfficeLogger())
       .compile();

@@ -17,3 +17,4 @@ export {
 } from "./domain/office-update-events.js";
 export { BusyWorkModule } from "./busy-work.module.js";
 export { OfficeUpdatesModule, type OfficeUpdatesOptions } from "./office-updates.module.js";
+export { UpdateSystem } from "./ports/update-system.js";

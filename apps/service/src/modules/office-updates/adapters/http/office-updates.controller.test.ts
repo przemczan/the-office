@@ -13,6 +13,7 @@ import { EventBus } from "../../../../platform/events/event-bus.js";
 import { EventsModule } from "../../../../platform/events/events.module.js";
 import { Schedule } from "../../../../platform/schedule/schedule.js";
 import type { ManualSchedule } from "../../../../platform/schedule/schedule.fixtures.js";
+import { currentOperatingSystem } from "../../../../platform/os/current-operating-system.js";
 import { EventStreamModule } from "../../../../platform/websocket/event-stream.module.js";
 import { BusyWork } from "../../application/busy-work.js";
 import { OFFICE_UPDATE_CHECK } from "../../application/office-updates.js";
@@ -23,6 +24,7 @@ import {
 } from "../../domain/office-update-events.js";
 import { LOCAL_CHANGES, NO_LAUNCHER } from "../../domain/update-refusal.js";
 import { OfficeUpdatesModule } from "../../office-updates.module.js";
+import { updateSystem } from "../../ports/update-system.fixtures.js";
 import {
   createOfficeCheckout,
   type OfficeCheckoutForTests,
@@ -46,7 +48,8 @@ afterEach(async () => {
   await rm(folder, { recursive: true, force: true });
 });
 
-async function start(launched = true): Promise<void> {
+/** On a system that updates The Office, whichever the tests run on, unless told `overrides`. */
+async function start(launched = true, overrides = [updateSystem()]): Promise<void> {
   const started = await startTestApplication({
     imports: [
       EventsModule,
@@ -57,6 +60,7 @@ async function start(launched = true): Promise<void> {
       }),
     ],
     providers: [AnnouncedResults],
+    overrides,
   });
   app = started.app;
   url = started.url;
@@ -140,6 +144,21 @@ describe("Settings › Updates", () => {
     await start();
     expect(await refusalOf(send("POST", "/schedule"))).toEqual(["The Office is up to date."]);
     expect(await refusalOf(send("DELETE", "/schedule"))).toEqual(["No update is scheduled."]);
+  });
+
+  it("refuses Update where the system doesn't offer it, before any other reason", async () => {
+    const refusal = "Updating The Office runs elsewhere.";
+    await start(false, [updateSystem(refusal)]);
+    await checkout.pushNewer("Newer");
+
+    expect((await officeUpdate()).refusal).toBe(refusal);
+    expect(await refusalOf(send("POST", "/schedule"))).toEqual([refusal]);
+  });
+
+  it("takes the system's refusal from the system it runs on", async () => {
+    await start(true, []);
+
+    expect((await officeUpdate()).refusal).toBe(currentOperatingSystem().officeUpdateRefusal);
   });
 
   it("schedules an update, shows what it waits for, and cancels it", async () => {

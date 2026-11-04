@@ -1,6 +1,5 @@
 import { Injectable, Logger, type OnApplicationBootstrap, type OnModuleInit } from "@nestjs/common";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import { currentOperatingSystem } from "../../../platform/os/current-operating-system.js";
 import { Schedule } from "../../../platform/schedule/schedule.js";
 import type { BusyItem } from "../domain/busy-item.js";
 import type { OfficeCommit } from "../domain/office-commit.js";
@@ -17,6 +16,7 @@ import { stepWords, type OfficeUpdateResult } from "../domain/office-update-resu
 import { NO_LAUNCHER, updateRefusal, type CheckoutState } from "../domain/update-refusal.js";
 import { OfficeCheckout } from "../ports/office-checkout.js";
 import { UpdateFolder } from "../ports/update-folder.js";
+import { UpdateSystem } from "../ports/update-system.js";
 import { BusyWork } from "./busy-work.js";
 import { OfficeUpdateHold, type ScheduledOfficeUpdate } from "./office-update-hold.js";
 
@@ -65,6 +65,7 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
   constructor(
     private readonly checkout: OfficeCheckout,
     private readonly folder: UpdateFolder,
+    private readonly system: UpdateSystem,
     private readonly hold: OfficeUpdateHold,
     private readonly busyWork: BusyWork,
     private readonly events: EventBus,
@@ -168,7 +169,7 @@ export class OfficeUpdates implements OnModuleInit, OnApplicationBootstrap {
   private refusal(): string | undefined {
     const context = {
       launched: this.folder.launched,
-      systemRefusal: currentOperatingSystem().officeUpdateRefusal,
+      systemRefusal: this.system.refusal,
     };
     return this.found
       ? updateRefusal(this.found.state, context)

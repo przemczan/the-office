@@ -33,6 +33,7 @@ import {
 } from "../../../engine/index.js";
 import {
   createOfficeCheckout,
+  updateSystem,
   type OfficeCheckoutForTests,
 } from "../../../office-updates/index.fixtures.js";
 import { BusyWork, OfficeUpdates } from "../../../office-updates/index.js";
@@ -96,7 +97,7 @@ describe("An Office update, through the scripted engine", () => {
         const second = await office.readyTask(pipeline.id);
         const ready = vi.fn<() => void>();
         office.app.get(OfficeUpdates).onReadyToUpdate(ready);
-        const turn = holdTurn(office.engine, first.id);
+        const turn = office.holdTurn(first.id);
         office.engine.queue(DEVELOPER_SESSION);
 
         await office.send("POST", `/tasks/${first.id}/start`);
@@ -143,7 +144,7 @@ describe("An Office update, through the scripted engine", () => {
         ]);
         const first = await office.readyTask(pipeline.id);
         const second = await office.readyTask((await office.aPipeline()).id);
-        const turn = holdTurn(office.engine, first.id);
+        const turn = office.holdTurn(first.id);
         office.engine.queue(DEVELOPER_SESSION, DEVELOPER_SESSION, DEVELOPER_SESSION);
 
         await office.send("POST", `/tasks/${first.id}/start`);
@@ -328,11 +329,13 @@ class EditingEngine extends ScriptedEngine {
 
 const NOTHING = (): void => undefined;
 
+interface HeldTurn {
+  readonly started: Promise<void>;
+  release(): void;
+}
+
 /** Holds the Task's first session from starting, its brief sent: a turn going on until released. */
-function holdTurn(
-  engine: EditingEngine,
-  taskId: string,
-): { readonly started: Promise<void>; release(): void } {
+function holdTurn(engine: EditingEngine, taskId: string): HeldTurn {
   let release = NOTHING;
   let begun = NOTHING;
   const started = new Promise<void>((resolve) => (begun = resolve));
@@ -390,6 +393,8 @@ interface Office {
   stagesOf(taskId: string): Promise<readonly TaskStage[]>;
   /** The Office's own Tasks in the queue. */
   queue(): Promise<string[]>;
+  /** Holds the Task's first session, a turn going on, until released or until `close`. */
+  holdTurn(taskId: string): HeldTurn;
   close(): Promise<void>;
 }
 
@@ -428,12 +433,14 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
       { provide: WorkSettings, useValue: settings },
       { provide: RoleCards, useValue: roleCardsOf(developerKey, taskLimit) },
       { provide: MemoryService, useValue: NO_MEMORY },
+      updateSystem(),
       ownProjectsQueue(() => ownProjectIds),
       ownProjectsStartedTasks(() => ownProjectIds),
     ],
     moduleOverrides: [{ module: EngineModule, useModule: ScriptedEngineModule.register(engine) }],
   });
   const ownIds: string[] = [];
+  const heldTurns: HeldTurn[] = [];
   const send = (method: string, path: string, body?: unknown): Promise<Response> =>
     fetch(`${url}/api${path}`, {
       method,
@@ -525,7 +532,15 @@ async function startOffice({ taskLimit } = { taskLimit: 1 }): Promise<Office> {
       const queue = queueSchema.parse(await (await send("GET", "/queue")).json());
       return queue.map(({ taskId }) => taskId).filter((taskId) => ownIds.includes(taskId));
     },
+    holdTurn(taskId) {
+      const turn = holdTurn(engine, taskId);
+      heldTurns.push(turn);
+      return turn;
+    },
     async close() {
+      // A test that failed mid-turn would otherwise hang here, hiding its own failure: the service
+      // waits for the turn as it closes.
+      for (const turn of heldTurns) turn.release();
       for (const id of ownIds) await send("POST", `/tasks/${id}/drop`);
       await app.close();
       await rm(folder, { recursive: true, force: true });
