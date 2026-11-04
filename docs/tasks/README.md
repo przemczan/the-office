@@ -72,7 +72,7 @@ Order accepted by the user on 2026-10-31. As in tier 2, a task's file is written
 | 46 | [A Project from a git repository, and Sign in with GitHub](46-project-from-git-repository.md) | Projects | done |
 | 37 | [Usage estimates](37-usage-estimates.md) | Now | done |
 | 47 | [Engines as a list: Claude Code per account with a simple sign-in, and the engine cascade (Office, Project, Role)](47-engines-as-a-list.md) | Settings and Projects | done |
-| 48 | [The Task page redesign](48-task-page-redesign.md) | Work and the Task page | in progress |
+| 48 | [The Task page redesign](48-task-page-redesign.md) | Work and the Task page | done |
 | 51 | The Task page, round 2: the user's notes on task 48's page, with task 49 ([design proposal](../design/task-page-2.html)) | Work and the Task page | todo |
 | 50 | Office instructions: general guidelines for everyone | Settings | todo |
 | 38 | Archive, and moving Tasks between Projects | Work | todo |
