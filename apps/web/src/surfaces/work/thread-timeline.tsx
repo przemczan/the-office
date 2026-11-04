@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Role, Thread } from "@the-office/contracts";
-import { Icon } from "@the-office/ui";
+import { Button, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
@@ -8,6 +8,7 @@ import { threadTitle } from "../../shell/conversation/thread-title.ts";
 import { DetailsSwitch } from "../../shell/conversation/details-switch.tsx";
 import { ThreadLog, ThreadTitle } from "../../shell/conversation/thread-view.tsx";
 import { clockOf } from "../../shell/time.ts";
+import { newMessagesWords, useNewMessages } from "./new-messages.ts";
 import { threadTabs, withTabSeen, type ThreadTabs } from "./thread-tabs.ts";
 import { TimelineFoot } from "./timeline-foot.tsx";
 import {
@@ -27,7 +28,7 @@ const NO_FOLDS: ChapterFolds = new Map();
 /**
  * Every Thread of a record as chapters of one log, in the order they started, over one composer.
  * The Thread the user is on is the one the To line writes to, else, with none writable, where the
- * address sends them or the newest. A folded chapter reads none of its messages.
+ * address sends them or the newest. A folded chapter draws none of its messages.
  */
 export function ThreadTimeline({
   threads,
@@ -58,7 +59,7 @@ export function ThreadTimeline({
   const [folds, setFolds] = useState(NO_FOLDS);
   const [line, setLine] = useState<ToLine>();
   const [drafting, setDrafting] = useState(false);
-  const { scroller, chapters } = useTimelineScroll(asked);
+  const { scroller, chapters, follows, follow } = useTimelineScroll(asked);
   const seen = threadTabs(
     tabs,
     threads.map(({ id }) => id),
@@ -84,6 +85,12 @@ export function ThreadTimeline({
   );
   const unfolded = followed ? withChapterOpen(started, asked, true) : started;
   if (unfolded !== folds) setFolds(unfolded);
+  const newMessages = useNewMessages(
+    [toId ?? current.shownId, live].filter((threadId) => threadId !== undefined),
+    (threadId) => unfolded.get(threadId) === true && follows(threadId),
+  );
+
+  const newestThreadId = newMessages.threadId;
 
   const personName = (thread: Thread): string => nameOf(thread.roleKey, roles);
   const toggle = (threadId: string, open: boolean): void => {
@@ -91,6 +98,10 @@ export function ThreadTimeline({
     if (open) setTabs(withTabSeen(current, threadId));
     // Folded, the Thread the address names couldn't be reached again by the same link.
     else if (threadId === asked) onAsked(undefined);
+  };
+  const goToNewest = (threadId: string): void => {
+    toggle(threadId, true);
+    follow(threadsInOrder(threads).at(-1)?.id === threadId ? undefined : threadId);
   };
   return (
     <>
@@ -101,22 +112,31 @@ export function ThreadTimeline({
         </div>
         <DetailsSwitch />
       </header>
-      <div className="timeline" ref={scroller}>
-        <div className="timeline-chapters" ref={chapters}>
-          {threadsInOrder(threads).map((thread) => (
-            <ThreadChapter
-              key={thread.id}
-              thread={thread}
-              personName={personName(thread)}
-              work={workOf(thread.id)}
-              open={unfolded.get(thread.id) === true}
-              isNew={current.fresh.has(thread.id)}
-              waiting={waitingOnYou.has(thread.id)}
-              onToggle={(open) => toggle(thread.id, open)}
-              onShowStage={onShowStage}
-            />
-          ))}
+      <div className="timeline-view">
+        <div className="timeline" ref={scroller}>
+          <div className="timeline-chapters" ref={chapters}>
+            {threadsInOrder(threads).map((thread) => (
+              <ThreadChapter
+                key={thread.id}
+                thread={thread}
+                personName={personName(thread)}
+                work={workOf(thread.id)}
+                open={unfolded.get(thread.id) === true}
+                isNew={current.fresh.has(thread.id)}
+                waiting={waitingOnYou.has(thread.id)}
+                onToggle={(open) => toggle(thread.id, open)}
+                onShowStage={onShowStage}
+              />
+            ))}
+          </div>
         </div>
+        {newestThreadId !== undefined && (
+          <div className="timeline-new-messages">
+            <Button size="sm" onClick={() => goToNewest(newestThreadId)}>
+              {newMessagesWords(newMessages.count)}
+            </Button>
+          </div>
+        )}
       </div>
       <TimelineFoot
         threads={threads}
@@ -126,6 +146,7 @@ export function ThreadTimeline({
         personName={personName}
         readOnlyReason={readOnlyReason}
         onDrafting={setDrafting}
+        onSent={goToNewest}
         onPick={(threadId) => {
           setLine(toLinePicked(threadId, live));
           setFolds(withChapterOpen(unfolded, threadId, true));

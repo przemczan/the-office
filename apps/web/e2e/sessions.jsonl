@@ -71,6 +71,25 @@
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-consult-take-over"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
 {"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
 {"step":"end"}
+{"step":"start","brief":{"id":"brief-running","text":"Implement the running Task"}}
+{"step":"event","event":{"kind":"text","text":"I am reading the export's columns.\n\n- Column 1 keeps its place.\n- Column 2 keeps its place.\n- Column 3 keeps its place.\n- Column 4 keeps its place.\n- Column 5 keeps its place.\n- Column 6 keeps its place.\n- Column 7 keeps its place.\n- Column 8 keeps its place.\n- Column 9 keeps its place.\n- Column 10 keeps its place.\n- Column 11 keeps its place.\n- Column 12 keeps its place.\n- Column 13 keeps its place.\n- Column 14 keeps its place.\n- Column 15 keeps its place.\n- Column 16 keeps its place.\n- Column 17 keeps its place.\n- Column 18 keeps its place.\n- Column 19 keeps its place.\n- Column 20 keeps its place.\n- Column 21 keeps its place.\n- Column 22 keeps its place.\n- Column 23 keeps its place.\n- Column 24 keeps its place.\n- Column 25 keeps its place.\n- Column 26 keeps its place.\n- Column 27 keeps its place.\n- Column 28 keeps its place.\n- Column 29 keeps its place.\n- Column 30 keeps its place.\n- Column 31 keeps its place.\n- Column 32 keeps its place.\n- Column 33 keeps its place.\n- Column 34 keeps its place.\n- Column 35 keeps its place.\n- Column 36 keeps its place.\n- Column 37 keeps its place.\n- Column 38 keeps its place.\n- Column 39 keeps its place.\n- Column 40 keeps its place.","withinToolCall":null}}
+{"step":"send","message":{"id":"running-barge-in","text":"A message the user writes while the Stage runs"},"priority":"next"}
+{"step":"event","event":{"kind":"text","text":"I will keep the CSV's header row.","withinToolCall":null}}
+{"step":"send","message":{"id":"running-reader-away","text":"A message the user writes while the Stage runs"},"priority":"next"}
+{"step":"event","event":{"kind":"tool-call","callId":"running-1","tool":"Read","officeTool":false,"input":{"file_path":"README.md"},"withinToolCall":null}}
+{"step":"event","event":{"kind":"tool-result","callId":"running-1","text":"","isError":false}}
+{"step":"event","event":{"kind":"text","text":"The header row is in.","withinToolCall":null}}
+{"step":"event","event":{"kind":"text","text":"The columns are in order.","withinToolCall":null}}
+{"step":"send","message":{"id":"running-folded","text":"A message the user writes while the Stage runs"},"priority":"next"}
+{"step":"event","event":{"kind":"text","text":"The export is done.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-running","running-barge-in","running-reader-away","running-folded"],"usage":{"input":2,"output":240,"cacheRead":30400,"cacheCreation":90},"sessionCostUsd":0.01,"output":{"status":"done","summary":"Sign-in returns to the page it started from.","handoverNote":"## Redirect\n\n- The redirect keeps the path and the query string.\n- `next` is checked against the Office's own pages.","definitionOfDoneMet":[1,2]},"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"end"}
+{"step":"start","brief":{"id":"brief-running-planner","text":"Jan takes a message on a running Task"}}
+{"step":"event","event":{"kind":"text","text":"The Plan already covers the header row.","withinToolCall":null}}
+{"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-running-planner"],"usage":{"input":3,"output":30,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}
+{"step":"read-context-usage","usage":{"tokens":30100,"window":1000000}}
+{"step":"end"}
 {"step":"start","brief":{"id":"brief-mention","text":"A new chat Thread mentioning a Task"}}
 {"step":"event","event":{"kind":"text","text":"I read the Task: it has no Plan yet, so nothing is done.","withinToolCall":null}}
 {"step":"event","event":{"kind":"turn-ended","outcome":"completed","consumedMessageIds":["brief-mention"],"usage":{"input":3,"output":40,"cacheRead":0,"cacheCreation":30000},"sessionCostUsd":0.01,"output":null,"errors":[]}}

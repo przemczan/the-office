@@ -1412,10 +1412,28 @@
   color: var(--fg-3);
 }
 
+.timeline-view {
+  position: relative;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Positioned, so a visually hidden label in a chapter is clipped here and can't stretch the page. */
 .timeline {
+  position: relative;
   flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
+}
+
+/* Over the scroller, not in it: inside, it would count towards how far the end is. */
+.timeline-new-messages {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .timeline-chapters {

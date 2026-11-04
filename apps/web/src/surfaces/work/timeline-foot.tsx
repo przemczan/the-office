@@ -20,6 +20,7 @@ export function TimelineFoot({
   personName,
   readOnlyReason,
   onDrafting,
+  onSent,
   onPick,
 }: {
   readonly threads: readonly Thread[];
@@ -30,6 +31,7 @@ export function TimelineFoot({
   /** Why the record's Threads can be read but not continued, once it ended. */
   readonly readOnlyReason: string | undefined;
   readonly onDrafting: (drafting: boolean) => void;
+  readonly onSent: (threadId: string) => void;
   readonly onPick: (threadId: string) => void;
 }): ReactNode {
   const to = threads.find(({ id }) => id === toId);
@@ -61,7 +63,7 @@ export function TimelineFoot({
           {title(closed)} stopped taking messages, so this now goes to {title(to)}.
         </p>
       )}
-      <WritingTo thread={to} personName={personName(to)} onDrafting={onDrafting} />
+      <WritingTo thread={to} personName={personName(to)} onDrafting={onDrafting} onSent={onSent} />
     </div>
   );
 }
@@ -74,10 +76,12 @@ function WritingTo({
   thread,
   personName,
   onDrafting,
+  onSent,
 }: {
   readonly thread: Thread;
   readonly personName: string;
   readonly onDrafting: (drafting: boolean) => void;
+  readonly onSent: (threadId: string) => void;
 }): ReactNode {
   const latest = useQuery(threadQueries.one(thread.id)).data ?? thread;
   return (
@@ -88,6 +92,7 @@ function WritingTo({
         personName={personName}
         autoFocus={false}
         onDrafting={onDrafting}
+        onSent={onSent}
       />
     </>
   );

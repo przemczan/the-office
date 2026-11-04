@@ -2254,6 +2254,123 @@ test("the user reads a Consultation on the Task, sees its Decision wait on the C
   }
 });
 
+function scrollTopOf(scroller: Locator): Promise<number> {
+  return scroller.evaluate((view) => view.scrollTop);
+}
+
+// The engine replays the next sessions in e2e/sessions.jsonl. Implement's waits at each message the
+// script has the user send, which is what keeps the Stage running; then Jan's, in Planning.
+test("a running Task takes a barge-in and a Planner message, and new messages leave a reader who scrolled up where they are", async ({
+  page,
+}) => {
+  const repository = await createTemporaryRepository();
+  try {
+    const project = await addedProject(page, repository, "Running", "RU", PASSING_COMMANDS);
+    const taskId = await readyTask(page, project.id, "Export keeps its columns");
+    await seedGatedStages(page, taskId);
+    await page.goto(`/tasks/${taskId}`);
+
+    const conversation = page.getByRole("complementary", { name: "Conversation" });
+    const toLine = conversation.getByLabel("To", { exact: true });
+    const composer = conversation.getByLabel("Message");
+    const timeline = conversation.locator(".timeline");
+    const implementChapter = conversation.getByRole("region", { name: /^Implement/ });
+    const planningOption = toLine.getByRole("option", { name: /^Planning/ });
+    const implementOption = toLine.getByRole("option", { name: /^Implement/ });
+    const pickTo = async (option: Locator): Promise<void> => {
+      await toLine.selectOption({ label: (await option.textContent()) ?? "" });
+    };
+    const fromTheEnd = (): Promise<number> =>
+      timeline.evaluate((view) => view.scrollHeight - view.scrollTop - view.clientHeight);
+
+    // To follows the Stage as it starts, with no click.
+    await expect(toLine.locator("option:checked")).toHaveText(/^Planning/);
+    await page.getByRole("button", { name: "Start", exact: true }).click();
+    await expect(toLine.locator("option:checked")).toHaveText(/^Implement/);
+    await expect(conversation.getByText("I am reading the export's columns.")).toBeVisible();
+    await expect(composer).toHaveAttribute("placeholder", /lands at the next safe point/);
+    await expect.poll(fromTheEnd).toBeLessThan(40);
+
+    // A barge-in lands at the next safe point, and waits to be taken until the turn ends.
+    await composer.fill("Keep the header row");
+    await composer.press("Enter");
+    await expect(implementChapter.getByText("Keep the header row")).toBeVisible();
+    await expect(implementChapter.getByText("Lands at the next safe point")).toBeVisible();
+    await expect(implementChapter.getByText("I will keep the CSV's header row.")).toBeVisible();
+    await expect.poll(fromTheEnd).toBeLessThan(40);
+    await expect(page.locator(".task-head").getByText("Running")).toBeVisible();
+
+    // The Planner answers beside the running Stage, and To stays where the user put it.
+    await pickTo(planningOption);
+    await composer.fill("Does the Plan cover the header row?");
+    await composer.press("Enter");
+    const plannerAnswer = conversation.getByText("The Plan already covers the header row.");
+    await expect(plannerAnswer).toBeVisible();
+    const inTheTimeline = await timeline.boundingBox();
+    const answerBox = await plannerAnswer.boundingBox();
+    if (inTheTimeline === null || answerBox === null) throw new Error("Nothing was drawn.");
+    expect(answerBox.y + answerBox.height).toBeLessThanOrEqual(
+      inTheTimeline.y + inTheTimeline.height,
+    );
+    await expect(toLine.locator("option:checked")).toHaveText(/^Planning/);
+    await expect(page.locator(".task-head").getByText("Running")).toBeVisible();
+
+    // A reader who scrolled up stays there, the page too; the button brings them to the end.
+    await pickTo(implementOption);
+    await expect(implementChapter.getByText("I will keep the CSV's header row.")).toBeVisible();
+    await expect.poll(fromTheEnd).toBeLessThan(40);
+    await timeline.hover();
+    await page.mouse.wheel(0, -400);
+    await expect.poll(fromTheEnd).toBeGreaterThan(40);
+    const pageScroller = page.locator(".shell-main");
+    const readingAt = await scrollTopOf(timeline);
+    const pageAt = await scrollTopOf(pageScroller);
+    const implementThread = threadListSchema
+      .parse(await (await page.request.get(`/api/tasks/${taskId}/threads`)).json())
+      .find(({ stageThread }) => stageThread);
+    if (!implementThread) throw new Error("The Stage opened no Thread.");
+    const sendFromElsewhere = async (text: string): Promise<void> => {
+      const sent = await page.request.post(`/api/threads/${implementThread.id}/messages`, {
+        data: { text },
+      });
+      expect(sent.ok()).toBe(true);
+    };
+    await sendFromElsewhere("Check the order too");
+    // The user's message and the two answers; the tool line between them hides with Details off.
+    const newMessages = conversation.getByRole("button", { name: /new messages?$/ });
+    await expect(newMessages).toHaveText("3 new messages");
+    expect(await scrollTopOf(timeline)).toBe(readingAt);
+    expect(await scrollTopOf(pageScroller)).toBe(pageAt);
+    await newMessages.click();
+    await expect.poll(fromTheEnd).toBeLessThan(40);
+    await expect(newMessages).toHaveCount(0);
+    await expect(implementChapter.getByText("The columns are in order.")).toBeVisible();
+    expect(await scrollTopOf(pageScroller)).toBe(pageAt);
+
+    // What lands in a folded chapter counts too, and the button unfolds it.
+    const implementToggle = implementChapter.getByRole("button", { name: /^Implement/ });
+    await implementToggle.click();
+    await expect(implementToggle).toHaveAttribute("aria-expanded", "false");
+    await sendFromElsewhere("That is all");
+    await newMessages.click();
+    await expect(implementToggle).toHaveAttribute("aria-expanded", "true");
+    await expect(implementChapter.getByText("The export is done.")).toBeVisible();
+    await expect(newMessages).toHaveCount(0);
+    await expect.poll(fromTheEnd).toBeLessThan(40);
+
+    // The turn took all three, and the Stage went on to its Gate.
+    await expect(implementChapter.getByText("Lands at the next safe point")).toHaveCount(0);
+    const gate = page.getByRole("region", { name: "Gate · UI acceptance" });
+    await gate.getByRole("button", { name: "Drop", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Drop the Task" }).click();
+    await expect(page.getByRole("region", { name: "Needs you" })).toContainText(
+      "This Task was dropped",
+    );
+  } finally {
+    await repository.remove();
+  }
+});
+
 // The engine replays the last session in e2e/sessions.jsonl: Jan's answer in a new chat Thread.
 test("the user mentions a Task with @ in a chat, and the person is briefed with its record", async ({
   page,

@@ -23,6 +23,7 @@ export function ThreadComposer({
   readOnlyReason,
   autoFocus = true,
   onDrafting,
+  onSent,
 }: {
   readonly thread: Thread;
   readonly personName: string;
@@ -31,6 +32,7 @@ export function ThreadComposer({
   /** Focus scrolls the page, so a composer that isn't the page's whole point leaves it out. */
   readonly autoFocus?: boolean;
   readonly onDrafting?: (drafting: boolean) => void;
+  readonly onSent?: (threadId: string) => void;
 }): ReactNode {
   const threadId = thread.id;
   const roles = useQuery(roleQueries.list()).data;
@@ -45,6 +47,7 @@ export function ThreadComposer({
       if (handoverNoteFrom !== undefined) handoverNotes.clear(threadId);
       threadDrafts.clear(threadId);
       queryClient.setQueryData(threadQueries.one(answering.id).queryKey, answering);
+      onSent?.(answering.id);
       await queryClient.invalidateQueries(threadQueries.messages(answering.id));
     },
   });
