@@ -15,6 +15,7 @@ import {
 } from "./stage-history-words.ts";
 import { railStateWords, stageWorkerWords } from "./stage-rail-words.ts";
 import { SESSION_WORDS, type StageNames } from "./stage-words.ts";
+import { bringChapterIntoView } from "./use-timeline-scroll.ts";
 
 /**
  * The selected Stage's runs, the newest first. Clicking anywhere in it focuses it, so the rail's
@@ -148,6 +149,7 @@ function RunEntry({
             params={{ taskId }}
             search={(search) => ({ ...search, taskThread: threadId })}
             resetScroll={false}
+            onClick={() => bringChapterIntoView(threadId)}
           >
             Open its Thread
           </Link>

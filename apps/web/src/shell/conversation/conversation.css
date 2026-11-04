@@ -100,6 +100,13 @@
   overflow: auto;
 }
 
+/* A chapter of a timeline, which does the scrolling. */
+.message-list.in-timeline {
+  flex: none;
+  padding: 6px 8px 10px;
+  overflow: visible;
+}
+
 .message {
   max-width: 92%;
   padding: 10px 12px;

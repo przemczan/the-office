@@ -45,7 +45,12 @@ function withThreadsAdded(tabs: ThreadTabs, threadIds: readonly string[]): Threa
 
 /** The tabs with `threadId` shown, no longer new. */
 export function withTabShown(tabs: ThreadTabs, threadId: string): ThreadTabs {
+  return { ...withTabSeen(tabs, threadId), shownId: threadId };
+}
+
+/** The tabs with `threadId` looked at, so no longer new. */
+export function withTabSeen(tabs: ThreadTabs, threadId: string): ThreadTabs {
   const fresh = new Set(tabs.fresh);
   fresh.delete(threadId);
-  return { ...tabs, shownId: threadId, fresh };
+  return { ...tabs, fresh };
 }

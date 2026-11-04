@@ -37,6 +37,7 @@ export function MessageList({
   personName,
   answering,
   stageThread,
+  inTimeline = false,
 }: {
   readonly messages: readonly Message[];
   readonly personName: string;
@@ -44,6 +45,8 @@ export function MessageList({
   readonly answering: boolean;
   /** The user's messages say whether they reached the person, as one written while the Stage runs waits. */
   readonly stageThread: boolean;
+  /** One chapter of a timeline, which scrolls and lands on a linked card itself. */
+  readonly inTimeline?: boolean;
 }): ReactNode {
   const list = useRef<HTMLDivElement>(null);
   const shownLinkedTo = useRef(false);
@@ -53,7 +56,7 @@ export function MessageList({
   const lines = messages.length + (answering ? 1 : 0);
   useEffect(() => {
     const scroller = list.current;
-    if (lines === 0 || scroller === null) return;
+    if (inTimeline || lines === 0 || scroller === null) return;
     const linkedTo = shownLinkedTo.current
       ? null
       : scroller.querySelector(".decision-card.linked-to");
@@ -66,9 +69,13 @@ export function MessageList({
     } else {
       scroller.scrollTop = scroller.scrollHeight;
     }
-  }, [lines]);
+  }, [inTimeline, lines]);
   return (
-    <div className="message-list" aria-live="polite" ref={list}>
+    <div
+      className={inTimeline ? "message-list in-timeline" : "message-list"}
+      aria-live="polite"
+      ref={list}
+    >
       {messages.filter(shown).map((message) => (
         <MessageItem
           key={message.id}

@@ -1573,7 +1573,7 @@ test("the user plans a Task with the Planner to Ready, answering a Decision", as
     page
       .getByRole("complementary", { name: "Conversation" })
       .getByRole("button", { name: /^Planning · Jan/ }),
-  ).toHaveAttribute("aria-pressed", "true");
+  ).toHaveAttribute("aria-expanded", "true");
 });
 
 /**
@@ -1656,13 +1656,17 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   await expect(implement).toContainText("Waiting on you");
   await expect(page.getByRole("button", { name: "Pause" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Stop" })).toBeVisible();
-  // Implement's tab comes after the one shown, marked new, and the user stays where they were.
-  const implementTab = conversation.getByRole("button", { name: /^Implement/ });
-  await expect(implementTab).toContainText("New");
-  await expect(implementTab).toHaveAttribute("aria-pressed", "false");
-  await implementTab.click();
-  await expect(implementTab).toHaveAttribute("aria-pressed", "true");
-  await expect(implementTab).not.toContainText("New");
+  // Implement's chapter comes after Planning's, marked new, and the user stays where they were; it
+  // starts unfolded, as it holds the open Decision.
+  const implementChapter = conversation.getByRole("region", { name: /^Implement/ });
+  const implementToggle = implementChapter.getByRole("button", { name: /^Implement/ });
+  const writeInImplement = implementChapter.getByRole("button", { name: "Write here" });
+  await expect(implementChapter).toContainText("New");
+  await expect(implementToggle).toHaveAttribute("aria-expanded", "true");
+  await writeInImplement.click();
+  await expect(writeInImplement).toHaveCount(0);
+  await expect(conversation.getByText(/^Writing in Implement/)).toBeVisible();
+  await expect(implementChapter).not.toContainText("New");
   const decision = conversation.getByRole("region", { name: `Decision: ${PAGE_QUESTION}` });
   const onTheCard = page
     .getByRole("region", { name: "Needs you" })
@@ -1741,21 +1745,28 @@ test("the user starts the planned Task and answers its Developer's Decision, whi
   ]);
   await expect(handoverNote.locator("code")).toHaveText("next");
 
-  // The history reaches a run's Thread, however many times the reader looks away and comes back.
-  const openThread = history.getByRole("link", { name: "Open its Thread" }).first();
-  const otherTab = conversation
-    .getByRole("group", { name: "Threads" })
-    .getByRole("button")
-    .filter({ hasNotText: /^Implement/ })
-    .first();
-  const lookAwayAndComeBack = async (): Promise<void> => {
-    await otherTab.click();
-    await expect(implementTab).toHaveAttribute("aria-pressed", "false");
-    await openThread.click();
-    await expect(implementTab).toHaveAttribute("aria-pressed", "true");
+  // Every Thread is a chapter, in the order they started.
+  await expect(conversation.locator(".chapter-title").first()).toHaveText(/^Planning · Jan/);
+  await expect(conversation.locator(".chapter-title").nth(1)).toHaveText(/^Implement/);
+
+  // Folded to one line, a chapter shows its tokens and Handover note, and no log.
+  const foldImplement = async (): Promise<void> => {
+    await implementToggle.click();
+    await expect(implementToggle).toHaveAttribute("aria-expanded", "false");
+    await expect(implementChapter.locator(".message-list")).toHaveCount(0);
   };
-  await lookAwayAndComeBack();
-  await lookAwayAndComeBack();
+  await foldImplement();
+  await expect(implementChapter.locator(".chapter-line")).toHaveText(/tokens · Redirect/);
+
+  // The history reaches a run's Thread, however many times the reader folds it and comes back,
+  // unfolding it and scrolling the timeline to it.
+  const openThread = history.getByRole("link", { name: "Open its Thread" }).first();
+  await openThread.click();
+  await expect(implementToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(implementToggle).toBeInViewport();
+  await foldImplement();
+  await openThread.click();
+  await expect(implementToggle).toHaveAttribute("aria-expanded", "true");
 
   // Publish fails, as the repository has no remote: The Office asks Bob, the CTO, first, who passes
   // it on to the user. Waiting for that keeps the next test's sessions after Bob's.
@@ -2131,7 +2142,11 @@ test("the user reads a Consultation on the Task, sees its Decision wait on the C
 
     await page.goto(`/tasks/${taskId}`);
     const conversation = page.getByRole("complementary", { name: "Conversation" });
-    await conversation.getByRole("button", { name: /^Planning/ }).click();
+    // Planning holds the open Decision and the Consultation is the newest: both start unfolded.
+    await expect(conversation.getByRole("button", { name: /^Planning/ })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
     // The Decision waits on Adam, not on the user: no count on the Thread or the card, nothing on
     // Now, and the card offers the take-over.
     const needsYou = page.getByRole("region", { name: "Needs you" });
@@ -2153,10 +2168,13 @@ test("the user reads a Consultation on the Task, sees its Decision wait on the C
     ).toHaveCount(0);
 
     await page.goto(`/tasks/${taskId}`);
-    await conversation.getByRole("button", { name: /^Consultation · Jan and Adam/ }).click();
+    await expect(
+      conversation.getByRole("button", { name: /^Consultation · Jan and Adam/ }),
+    ).toHaveAttribute("aria-expanded", "true");
     await expect(conversation.getByRole("note")).toContainText("Jan waits on this answer");
     await expect(conversation.getByText("I read the migration: it is reversible.")).toBeVisible();
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-consultation.png") });
+    await conversation.screenshot({ path: path.join(SCREENSHOTS, "light-1600-timeline.png") });
 
     // Joining: the user writes in the Consultation, and Adam answers them there.
     await conversation.getByLabel("Message").fill("Is the rollback tested?");
@@ -2175,6 +2193,13 @@ test("the user reads a Consultation on the Task, sees its Decision wait on the C
     await expect(needsYou).toContainText("Ready: start it when you want");
     await expect(inThread).toContainText(`Answered: ${CONSULTATION_OPTION}`);
     await expect(conversation.getByText("Then the migration goes first.")).toBeVisible();
+
+    // A chapter's head renames its Thread.
+    const planningChapter = conversation.getByRole("region", { name: /^Planning/ });
+    await planningChapter.getByRole("button", { name: "Rename the Thread" }).click();
+    await planningChapter.getByLabel("Thread title").fill("Migration talk");
+    await planningChapter.getByRole("button", { name: "Save" }).click();
+    await expect(conversation.getByRole("button", { name: /^Migration talk · Jan/ })).toBeVisible();
   } finally {
     await repository.remove();
   }

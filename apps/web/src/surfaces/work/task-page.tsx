@@ -61,7 +61,12 @@ export function TaskPage(): ReactNode {
           <RecordTabs task={record} shown={recordTab} />
           <RecordTabContent task={record} shown={recordTab} />
         </div>
-        <TaskConversation task={record} threads={threads.data} shownFirst={taskThread} />
+        <TaskConversation
+          key={`conversation-${record.id}`}
+          task={record}
+          threads={threads.data}
+          asked={taskThread}
+        />
       </div>
     </div>
   );

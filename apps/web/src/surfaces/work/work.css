@@ -1393,6 +1393,114 @@
   background: none;
 }
 
+/* ---- the timeline: every Thread as a chapter of one log, over one composer */
+.timeline-head h3 {
+  margin: 0;
+  font: var(--type-card-title);
+}
+
+.timeline-head p {
+  margin: 0;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.timeline {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+.timeline-chapters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.chapter {
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+}
+
+.chapter-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding: 4px 8px;
+}
+
+.chapter-head .thread-title {
+  flex: 1 1 200px;
+  min-width: 0;
+  min-height: 28px;
+  padding: 0;
+  border-bottom: 0;
+}
+
+.chapter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: var(--type-body-sm);
+  font-weight: 600;
+  color: var(--fg-1);
+  cursor: pointer;
+}
+
+.chapter-toggle > svg {
+  flex: none;
+  color: var(--fg-3);
+}
+
+.chapter-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.chapter-facts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
+.chapter-line {
+  display: block;
+  overflow: hidden;
+  width: 100%;
+  padding: 0 8px 6px 28px;
+  border: 0;
+  background: none;
+  font: var(--type-caption);
+  color: var(--fg-2);
+  text-align: left;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.chapter .thread-consultation {
+  margin: 0 8px 8px;
+}
+
+.timeline-foot {
+  flex: none;
+}
+
+.timeline-writing-in {
+  margin: 0 0 4px;
+  font: var(--type-caption);
+  color: var(--fg-3);
+}
+
 .task-threads {
   display: flex;
   flex-wrap: wrap;

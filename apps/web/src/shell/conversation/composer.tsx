@@ -20,6 +20,7 @@ export function Composer({
   busyHint,
   prefilledNote,
   startingDraft,
+  autoFocus = true,
   onSend,
   onLeaveNoteOut,
 }: {
@@ -31,6 +32,7 @@ export function Composer({
   readonly prefilledNote?: PrefilledNote;
   /** A draft the user starts from, such as a question a page asks for them. */
   readonly startingDraft?: string;
+  readonly autoFocus?: boolean;
   /**
    * Resolves once the message is taken; the draft is kept when it rejects. `fromNote` says the
    * message started from the prefilled Handover note.
@@ -87,7 +89,7 @@ export function Composer({
           canSend={canSend}
           busyReason={busy ? busyHint : undefined}
           onSend={() => void send()}
-          autoFocus
+          autoFocus={autoFocus}
           onKeyDownFirst={mentions.onKeyDownFirst}
           onCaret={mentions.onCaret}
         />

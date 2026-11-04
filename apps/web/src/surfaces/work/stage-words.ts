@@ -118,6 +118,13 @@ export function firstLine(text: string): string {
   return plain(headLine(text));
 }
 
+/** A line of Markdown as plain words: no list or heading mark, no bold, no code spans. */
+export function withoutMarkdownMarks(line: string): string {
+  return plain(line)
+    .replace(/^\s*(?:#+|[-*+]|\d+\.)\s+/, "")
+    .replace(/\*\*|__/g, "");
+}
+
 /** A result's first line, still in Markdown. */
 function headLine(text: string): string {
   return text.split("\n", 1)[0] ?? "";

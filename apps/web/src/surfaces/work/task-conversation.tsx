@@ -1,10 +1,14 @@
+import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { ENDED_TASK_CONVERSATION_WORDS, type Task, type Thread } from "@the-office/contracts";
 import type { ReactNode } from "react";
+import { decisionQueries } from "../../api/conversations.ts";
+import { pipelineQueries } from "../../api/pipelines.ts";
 import { EmptyCard } from "../../shell/item-card.tsx";
 import { usePlanner } from "../../shell/work/use-planner.ts";
 import { PlanButton } from "./planning-actions.tsx";
-import { RecordThreads } from "./record-threads.tsx";
+import { ThreadTimeline } from "./thread-timeline.tsx";
+import { chapterWork } from "./timeline-words.ts";
 
 /**
  * The Threads on the Task. Planning opens the first, with the Planner (task 11); Stages open
@@ -13,27 +17,21 @@ import { RecordThreads } from "./record-threads.tsx";
 export function TaskConversation({
   task,
   threads,
-  shownFirst,
+  asked,
 }: {
   readonly task: Task;
   readonly threads: readonly Thread[] | undefined;
-  readonly shownFirst: string | undefined;
+  /** The Thread the address names. */
+  readonly asked: string | undefined;
 }): ReactNode {
   const planner = usePlanner();
   const navigate = useNavigate({ from: "/tasks/$taskId" });
-  return (
-    <RecordThreads
-      threads={threads}
-      shownFirst={shownFirst}
-      onShown={(threadId) => {
-        void navigate({
-          search: (search) => ({ ...search, taskThread: threadId }),
-          replace: true,
-          resetScroll: false,
-        });
-      }}
-      readOnlyReason={ENDED_TASK_CONVERSATION_WORDS[task.state]}
-      empty={
+  const decisions = useQuery(decisionQueries.unanswered(task.id)).data;
+  const stages = useQuery(pipelineQueries.taskStages(task.id)).data?.stages;
+  if (!threads) return null;
+  if (threads.length === 0) {
+    return (
+      <aside className="task-conversation" aria-label="Conversation">
         <EmptyCard>
           No conversation on {task.title} yet. Planning opens one with{" "}
           {planner?.card.name ?? "the Planner"}.
@@ -41,7 +39,31 @@ export function TaskConversation({
             <PlanButton task={task} />
           </div>
         </EmptyCard>
-      }
-    />
+      </aside>
+    );
+  }
+  return (
+    <aside className="task-conversation" aria-label="Conversation">
+      <ThreadTimeline
+        threads={threads}
+        asked={asked}
+        holdingOpenDecision={new Set(decisions?.map(({ threadId }) => threadId))}
+        waitingOnYou={
+          new Set(decisions?.filter(({ putTo }) => putTo === null).map(({ threadId }) => threadId))
+        }
+        workOf={(threadId) => chapterWork(stages ?? [], threadId)}
+        onAsked={(threadId) => {
+          void navigate({
+            search: ({ taskThread: _named, ...search }) => ({
+              ...search,
+              ...(threadId !== undefined && { taskThread: threadId }),
+            }),
+            replace: true,
+            resetScroll: false,
+          });
+        }}
+        readOnlyReason={ENDED_TASK_CONVERSATION_WORDS[task.state]}
+      />
+    </aside>
   );
 }

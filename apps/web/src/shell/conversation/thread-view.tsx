@@ -1,23 +1,14 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from "@tanstack/react-query";
-import type { NewMessage, Thread } from "@the-office/contracts";
+import type { Thread } from "@the-office/contracts";
 import { Button, Icon, IconButton, Input } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
-import {
-  homeThreadsQuery,
-  renameThread,
-  sendMessage,
-  threadQueries,
-} from "../../api/conversations.ts";
+import { homeThreadsQuery, renameThread, threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
-import { roleName } from "../person-name.ts";
-import { AlarmNote } from "../fire-alarm/alarm-note.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
 import { AllowChangesBar } from "./allow-changes.tsx";
-import { Composer } from "./composer.tsx";
 import { ContextBar } from "./context-bar.tsx";
-import { useHandoverNotes } from "./handover-notes.tsx";
 import { MessageList } from "./message-list.tsx";
-import { useThreadDrafts } from "./thread-drafts.tsx";
+import { ThreadComposer } from "./thread-composer.tsx";
 import { threadTitle } from "./thread-title.ts";
 import "./conversation.css";
 
@@ -30,32 +21,10 @@ export function ThreadView({
   readonly threadId: string;
   readonly personName: string;
   /** Why nothing more can be written here; the Thread stays readable and has no composer. */
-  readonly readOnlyReason?: string;
+  readonly readOnlyReason?: string | undefined;
 }): ReactNode {
   const thread = useQuery(threadQueries.one(threadId));
-  const messages = useQuery(threadQueries.messages(threadId));
-  const roles = useQuery(roleQueries.list()).data;
-  const handoverNotes = useHandoverNotes();
-  // Read once: the Thread's view is keyed by its id, and the composer owns the draft from then on.
-  const [handoverNote] = useState(() => handoverNotes.waitingIn(threadId));
-  const threadDrafts = useThreadDrafts();
-  const [startingDraft] = useState(() => threadDrafts.waitingIn(threadId));
-  const queryClient = useQueryClient();
-  const sending = useMutation({
-    mutationFn: (message: NewMessage) => sendMessage(threadId, message),
-    onSuccess: async (answering, { handoverNoteFrom }) => {
-      if (handoverNoteFrom !== undefined) handoverNotes.clear(threadId);
-      threadDrafts.clear(threadId);
-      queryClient.setQueryData(threadQueries.one(answering.id).queryKey, answering);
-      await queryClient.invalidateQueries(threadQueries.messages(answering.id));
-    },
-  });
   if (!thread.data) return null;
-  const answering = thread.data.state === "answering";
-  // While its Stage runs, a Stage Thread takes the user's message at the next safe point (barge-in);
-  // between Stages The Office sends its messages, so it takes none from the user.
-  const stageRunning = answering && thread.data.stageThread;
-  const closed = thread.data.stageThread && !answering;
   return (
     <section className="thread-view" aria-label={threadTitle(thread.data, personName)}>
       <ThreadTitle thread={thread.data} personName={personName} />
@@ -64,52 +33,42 @@ export function ThreadView({
       {thread.data.changesAllowed !== null && readOnlyReason === undefined && (
         <AllowChangesBar thread={thread.data} />
       )}
-      {thread.data.consultation !== null && (
-        <ConsultationNote askerRoleKey={thread.data.consultation.askerRoleKey} />
+      <ThreadLog thread={thread.data} personName={personName} />
+      <ThreadComposer
+        key={threadId}
+        thread={thread.data}
+        personName={personName}
+        readOnlyReason={readOnlyReason}
+      />
+    </section>
+  );
+}
+
+/** What was said in a Thread, under a Consultation's note. */
+export function ThreadLog({
+  thread,
+  personName,
+  inTimeline = false,
+}: {
+  readonly thread: Thread;
+  readonly personName: string;
+  /** The log is a chapter of a timeline, which does the scrolling. */
+  readonly inTimeline?: boolean;
+}): ReactNode {
+  const messages = useQuery(threadQueries.messages(thread.id));
+  return (
+    <>
+      {thread.consultation !== null && (
+        <ConsultationNote askerRoleKey={thread.consultation.askerRoleKey} />
       )}
       <MessageList
         messages={messages.data ?? []}
         personName={personName}
-        answering={answering}
-        stageThread={thread.data.stageThread}
+        answering={thread.state === "answering"}
+        stageThread={thread.stageThread}
+        inTimeline={inTimeline}
       />
-      {sending.error && <RefusalAlert title="The message wasn't sent" error={sending.error} />}
-      {readOnlyReason === undefined && !thread.data.stageThread && (
-        // A Stage's session is held at its safe point instead.
-        <AlarmNote threadId={threadId} personName={personName} />
-      )}
-      {readOnlyReason === undefined ? (
-        <Composer
-          placeholder={
-            stageRunning
-              ? `Message ${personName}… (lands at the next safe point)`
-              : `Message ${personName}…`
-          }
-          busy={(answering && !stageRunning) || closed}
-          busyHint={
-            closed
-              ? "You write here while a Stage runs"
-              : `${personName} is still answering. Send it once they finish.`
-          }
-          prefilledNote={
-            handoverNote && { text: handoverNote.text, writer: roleName(handoverNote.from, roles) }
-          }
-          startingDraft={startingDraft}
-          onSend={(text, fromNote) =>
-            sending.mutateAsync({
-              text,
-              ...(fromNote && handoverNote ? { handoverNoteFrom: handoverNote.from } : {}),
-            })
-          }
-          onLeaveNoteOut={() => handoverNotes.clear(threadId)}
-        />
-      ) : (
-        <p className="thread-read-only" role="note">
-          <Icon name="lock" size={14} />
-          {readOnlyReason}
-        </p>
-      )}
-    </section>
+    </>
   );
 }
 
@@ -131,13 +90,15 @@ function ConsultationNote({ askerRoleKey }: { readonly askerRoleKey: string | nu
   );
 }
 
-/** The Thread's title, renamed in place. */
-function ThreadTitle({
+/** The Thread's title, renamed in place. `children` read as the title instead, as a chapter's toggle. */
+export function ThreadTitle({
   thread,
   personName,
+  children,
 }: {
   readonly thread: Thread;
   readonly personName: string;
+  readonly children?: ReactNode;
 }): ReactNode {
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(thread.title ?? "");
@@ -153,7 +114,7 @@ function ThreadTitle({
   if (!editing) {
     return (
       <header className="thread-title">
-        <h3>{threadTitle(thread, personName)}</h3>
+        {children ?? <h3>{threadTitle(thread, personName)}</h3>}
         {thread.title !== null && (
           <IconButton
             icon={<Icon name="pencil" size={14} />}

@@ -22,6 +22,7 @@ import { needsYouClearWords, needsYouSummary, waitingOnYou } from "./needs-you-w
 import { useQueued } from "./queue-parts.tsx";
 import { RecordBlock } from "./record-block.tsx";
 import { useInView } from "./use-in-view.ts";
+import { bringChapterIntoView } from "./use-timeline-scroll.ts";
 
 /**
  * What waits on the user on this Task, under the rail and answered there (spec §4): its Decisions,
@@ -164,6 +165,8 @@ function WaitingDecision({
             from="/tasks/$taskId"
             to="."
             search={(shown) => ({ ...shown, taskThread: thread.id })}
+            resetScroll={false}
+            onClick={() => bringChapterIntoView(thread.id)}
           >
             in {thread.title ?? "its Thread"} · {clockOf(decision.askedAt)}
           </Link>

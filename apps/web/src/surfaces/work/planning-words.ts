@@ -1,6 +1,6 @@
 import type { Task } from "@the-office/contracts";
 import { NOT_STARTED } from "../../shell/work/work-words.ts";
-import { firstLine } from "./stage-words.ts";
+import { firstLine, withoutMarkdownMarks } from "./stage-words.ts";
 
 /** The Definition of Done as the user writes it, one statement per line; blank lines say nothing. */
 export function statementsOf(text: string): string[] {
@@ -32,9 +32,7 @@ export function definitionOfDoneSummary(
 /** The Plan's folded line: its first line without its Markdown marks, and the files it expects. */
 export function planSummary({ plan, filesToChange }: Pick<Task, "plan" | "filesToChange">): string {
   if (plan === "") return "No Plan yet";
-  const opening = firstLine(plan)
-    .replace(/^\s*(?:#+|[-*+]|\d+\.)\s+/, "")
-    .replace(/\*\*|__/g, "");
+  const opening = withoutMarkdownMarks(firstLine(plan));
   if (filesToChange.length === 0) return opening;
   return `${opening} · ${filesToChange.length} ${filesToChange.length === 1 ? "file" : "files"}`;
 }
