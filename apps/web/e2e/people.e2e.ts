@@ -1249,7 +1249,7 @@ test("Edit for this Task swaps the Pipeline and sets every field of its Stages, 
     const created = await page.request.post("/api/tasks", {
       data: { title: "Keep the filters on reload", projectId: project.id, priority: "normal" },
     });
-    const { id: taskId } = taskSchema.parse(await created.json());
+    const { id: taskId, pipelineId } = taskSchema.parse(await created.json());
     const library = pipelineListSchema.parse(
       await (await page.request.get("/api/pipelines")).json(),
     );
@@ -1261,6 +1261,26 @@ test("Edit for this Task swaps the Pipeline and sets every field of its Stages, 
     await dialog.getByLabel("Pipeline").selectOption("quick-fix");
     await expect(editorRow(page, "Publish")).toBeVisible();
     await expect(editorRow(page, "Review & fix")).toHaveCount(0);
+
+    // Another Pipeline is a draft: closing the window leaves the Task as it was.
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    const untouched = taskSchema.parse(
+      await (await page.request.get(`/api/tasks/${taskId}`)).json(),
+    );
+    expect(untouched.pipelineId).toBe(pipelineId);
+
+    // Saved alone, the swap keeps the Task following the library.
+    await page.getByRole("button", { name: "Edit for this Task" }).click();
+    await dialog.getByLabel("Pipeline").selectOption("quick-fix");
+    await dialog.getByRole("button", { name: "Save for this Task" }).click();
+    await expect(page.getByText("Stages saved for Keep the filters on reload.")).toBeVisible();
+    await expect(
+      page.getByRole("region", { name: "Pipeline · Quick fix", exact: true }),
+    ).toBeVisible();
+
+    await page.getByRole("button", { name: "Edit for this Task" }).click();
+    await expect(dialog.getByLabel("Pipeline")).toHaveValue("quick-fix");
 
     // A Gate goes before Publish, opened to be named.
     await dialog.getByRole("button", { name: "Gate", exact: true }).click();
@@ -1447,8 +1467,6 @@ test("the user gives Ola an MCP server on the Role card, sets a tool, and a Stag
     await page.getByRole("button", { name: "Edit for this Task" }).click();
     const pipeline = page.getByRole("dialog").getByLabel("Pipeline");
     await pipeline.selectOption("quick-fix");
-    // The swap lands by starting the editor again, which would drop any edit made before it.
-    await expect(pipeline).toHaveValue("quick-fix");
     const implement = editorRow(page, "Implement");
     await implement.getByRole("button", { name: "Edit Implement" }).click();
     await implement.getByLabel("Who works it").selectOption("reviewer");

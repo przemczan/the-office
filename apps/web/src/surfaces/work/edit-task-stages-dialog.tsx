@@ -25,7 +25,8 @@ import { STAGE_STATE_WORDS } from "./stage-words.ts";
 
 /**
  * "Edit for this Task": the Stage editor on the Task's own copy of its Pipeline, and the Pipeline
- * swapped for another while the Task hasn't started. The library Pipeline stays as it is.
+ * swapped for another while the Task hasn't started. All of it is a draft until Save; closing the
+ * window drops it. The library Pipeline stays as it is.
  */
 export function EditTaskStagesDialog({
   task,
@@ -44,8 +45,6 @@ export function EditTaskStagesDialog({
   }
   return (
     <EditTaskStagesForm
-      // A swapped Pipeline starts the edit again from its Stages.
-      key={task.pipelineId}
       task={task}
       taskStages={taskStages.data}
       library={library.data}
@@ -74,11 +73,15 @@ function EditTaskStagesForm({
   readonly project: Project;
   readonly onClose: () => void;
 }): ReactNode {
-  const pipeline = library.find(({ id }) => id === task.pipelineId);
-  const [stages, setStages] = useState<readonly Stage[]>(
-    () => taskStages.stages?.map(({ stage }) => stage) ?? pipeline?.stages ?? [],
-  );
+  const stagesOf = (pipelineId: string): readonly Stage[] =>
+    (pipelineId === task.pipelineId ? taskStages.stages?.map(({ stage }) => stage) : undefined) ??
+    library.find(({ id }) => id === pipelineId)?.stages ??
+    [];
+  const [chosenPipelineId, setChosenPipelineId] = useState(task.pipelineId);
+  const [stages, setStages] = useState(() => stagesOf(task.pipelineId));
   const [edited, setEdited] = useState(false);
+  const pipeline = library.find(({ id }) => id === chosenPipelineId);
+  const swapped = chosenPipelineId !== task.pipelineId;
   const check = useQuery({
     ...pipelineQueries.stagesCheck(task.id, stages),
     placeholderData: keepPreviousData,
@@ -86,21 +89,29 @@ function EditTaskStagesForm({
   const problems = check.data?.problems ?? [];
   const queryClient = useQueryClient();
   const showToast = useToast();
+  const swapping = useRecordChange(task, async (pipelineId: string) => {
+    const changed = await setPipeline(task.id, pipelineId);
+    // The swap sets aside the Task's own Stages.
+    await queryClient.invalidateQueries(pipelineQueries.taskStages(task.id));
+    return changed;
+  });
   const saving = useMutation({
-    mutationFn: () => editTaskStages(task.id, stages),
-    onSuccess: (saved) => {
-      queryClient.setQueryData(pipelineQueries.taskStages(task.id).queryKey, saved);
+    mutationFn: async () => {
+      // In this order: the swap resets the Task's own Stages, so an edit saved before it would go.
+      if (swapped) await swapping.mutateAsync(chosenPipelineId);
+      // A swap alone keeps the Task following the library, so it saves no Stages of its own.
+      if (edited) {
+        const saved = await editTaskStages(task.id, stages);
+        queryClient.setQueryData(pipelineQueries.taskStages(task.id).queryKey, saved);
+      }
+    },
+    onSuccess: () => {
       showToast(`Stages saved for ${task.title}.`);
       onClose();
     },
   });
-  const swapping = useRecordChange(task, async (pipelineId: string) => {
-    const swapped = await setPipeline(task.id, pipelineId);
-    // The edit starts again from the new Pipeline's Stages once the Task's own are set aside.
-    await queryClient.invalidateQueries(pipelineQueries.taskStages(task.id));
-    return swapped;
-  });
   const notStarted = NOT_STARTED.includes(task.state);
+  const editWaits = edited && (problems.length > 0 || check.isFetching);
   const lockedNotes = (taskStages.stages ?? [])
     .slice(0, taskStages.lockedStages)
     .map(({ state }) => `${STAGE_STATE_WORDS[state]}: started, so it can't be changed`);
@@ -110,13 +121,16 @@ function EditTaskStagesForm({
       title={`Stages of ${task.title}`}
       onClose={onClose}
       actions={
-        <Button
-          loading={saving.isPending}
-          disabled={!edited || problems.length > 0 || check.isFetching}
-          onClick={() => saving.mutate()}
-        >
-          Save for this Task
-        </Button>
+        <>
+          <Button
+            loading={saving.isPending}
+            disabled={(!edited && !swapped) || editWaits}
+            onClick={() => saving.mutate()}
+          >
+            Save for this Task
+          </Button>
+          <span className="dialog-hint">Nothing changes on the Task until you save.</span>
+        </>
       }
     >
       <div className="work-form">
@@ -130,17 +144,23 @@ function EditTaskStagesForm({
         {notStarted && (
           <Select
             label="Pipeline"
-            hint="Another Pipeline brings its own Stages, and sets aside those edited for this Task."
-            value={task.pipelineId}
-            disabled={swapping.isPending}
+            hint="Another Pipeline brings its own Stages. Saving it sets aside those edited for this Task."
+            value={chosenPipelineId}
+            disabled={saving.isPending}
             options={library.map(({ id, name }) => ({ value: id, label: name }))}
-            onChange={(pipelineId) => swapping.mutate(pipelineId)}
+            onChange={(pipelineId) => {
+              setChosenPipelineId(pipelineId);
+              setStages(stagesOf(pipelineId));
+              setEdited(false);
+            }}
           />
         )}
-        {swapping.error && (
-          <RefusalAlert title="The Pipeline wasn't swapped" error={swapping.error} />
+        {saving.error && (
+          <RefusalAlert
+            title={swapping.error ? "The Pipeline wasn't swapped" : "The Stages weren't saved"}
+            error={saving.error}
+          />
         )}
-        {saving.error && <RefusalAlert title="The Stages weren't saved" error={saving.error} />}
         <StageEditor
           stages={stages}
           onChange={(changed) => {
