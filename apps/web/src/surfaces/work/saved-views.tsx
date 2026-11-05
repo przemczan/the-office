@@ -107,18 +107,13 @@ function SaveViewDialog({
   });
   return (
     <Dialog
+      size="medium"
       title="Save the view"
-      width={440}
       onClose={onClose}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" form={formId} loading={saving.isPending}>
-            Save view
-          </Button>
-        </>
+        <Button type="submit" form={formId} loading={saving.isPending}>
+          Save view
+        </Button>
       }
     >
       <form

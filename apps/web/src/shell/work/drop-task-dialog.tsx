@@ -22,22 +22,18 @@ export function DropTaskDialog({
   const dropping = useDroppingTask(drop, onClose);
   return (
     <Dialog
+      size="small"
       title={`Drop ${task.title}?`}
-      tone="danger"
-      width={480}
       onClose={onClose}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="danger" loading={dropping.isPending} onClick={() => dropping.mutate()}>
-            Drop the Task
-          </Button>
-        </>
+        <Button variant="danger" loading={dropping.isPending} onClick={() => dropping.mutate()}>
+          Drop the Task
+        </Button>
       }
     >
-      <WhatDroppingDoes error={dropping.error} />
+      <div className="dialog-stack">
+        <WhatDroppingDoes error={dropping.error} />
+      </div>
     </Dialog>
   );
 }

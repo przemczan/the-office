@@ -191,7 +191,7 @@ test("an Idea with Attachments is shaped into a Task in Backlog, and another is 
   await capture.getByLabel("Name").fill("CSV conventions");
   await capture.getByRole("button", { name: "Add the link" }).click();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-idea-capture.png") });
-  await capture.getByRole("button", { name: "Capture" }).click();
+  await capture.getByLabel("Idea").press("Enter");
   await expect(page.getByText("Idea captured: Export usage as CSV.")).toBeVisible();
 
   await page.goto("/work/ideas");
@@ -205,7 +205,11 @@ test("an Idea with Attachments is shaped into a Task in Backlog, and another is 
   await expect(page.getByRole("dialog").filter({ hasText: "format.md" })).toContainText(
     "One row per day.",
   );
-  await page.getByRole("dialog").filter({ hasText: "format.md" }).getByLabel("Close").click();
+  await page
+    .getByRole("dialog")
+    .filter({ hasText: "format.md" })
+    .getByRole("button", { name: "Close", exact: true })
+    .click();
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-ideas.png") });
 
   await card.getByRole("button", { name: "Shape into a Task" }).click();
@@ -679,7 +683,7 @@ test("the user saves the board's filters as a view, applies it and removes it", 
   await views.getByRole("button", { name: "Save view…" }).click();
   const dialog = page.getByRole("dialog").filter({ hasText: "Save the view" });
   await dialog.getByLabel("Name").fill(name);
-  await dialog.getByRole("button", { name: "Save view" }).click();
+  await dialog.getByLabel("Name").press("Enter");
   await expect(dialog).toBeHidden();
   const view = views.getByRole("button", { name, exact: true });
   await expect(view).toHaveAttribute("aria-pressed", "true");
@@ -856,7 +860,7 @@ test("a Task's page shows its record, takes Attachments of every kind and opens 
   await expect(page.getByRole("dialog").filter({ hasText: "plan.md" })).toContainText(
     "Keep the path.",
   );
-  await page.getByRole("dialog").getByLabel("Close").click();
+  await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
   await attachments.getByRole("button", { name: "View screen.png" }).click();
   const original = page
     .getByRole("dialog")

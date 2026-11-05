@@ -62,24 +62,21 @@ export function CaptureIdeaDialog({
   });
   return (
     <Dialog
+      size="medium"
       title="Capture an Idea"
-      width={560}
       onClose={onClose}
       actions={
         <>
-          <span className="capture-idea-hint">Shape it into a Task later, in Work › Ideas.</span>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
           <Button type="submit" form={formId} loading={capturing.isPending}>
             Capture
           </Button>
+          <span className="dialog-hint">Shape it into a Task later, in Work › Ideas.</span>
         </>
       }
     >
       <form
         id={formId}
-        className="capture-idea-form"
+        className="dialog-stack"
         onSubmit={(event) => {
           event.preventDefault();
           capturing.mutate(draft);

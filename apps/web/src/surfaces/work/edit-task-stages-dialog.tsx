@@ -106,25 +106,20 @@ function EditTaskStagesForm({
     .map(({ state }) => `${STAGE_STATE_WORDS[state]}: started, so it can't be changed`);
   return (
     <Dialog
+      size="medium"
       title={`Stages of ${task.title}`}
-      width={760}
       onClose={onClose}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            loading={saving.isPending}
-            disabled={!edited || problems.length > 0 || check.isFetching}
-            onClick={() => saving.mutate()}
-          >
-            Save for this Task
-          </Button>
-        </>
+        <Button
+          loading={saving.isPending}
+          disabled={!edited || problems.length > 0 || check.isFetching}
+          onClick={() => saving.mutate()}
+        >
+          Save for this Task
+        </Button>
       }
     >
-      <div className="work-form edit-task-stages">
+      <div className="work-form">
         <Alert tone="info">
           Changes apply to <b>{task.title}</b> only.{" "}
           {pipeline

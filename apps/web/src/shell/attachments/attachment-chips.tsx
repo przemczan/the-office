@@ -87,7 +87,7 @@ export function DocumentDialog({
 }): ReactNode {
   const text = useQuery(attachmentQueries.document(document.id));
   return (
-    <Dialog title={document.name} width={720} onClose={onClose}>
+    <Dialog size="large" title={document.name} onClose={onClose}>
       {text.error && <Alert tone="danger" title={text.error.message} />}
       {text.data !== undefined && <pre className="attachment-document">{text.data}</pre>}
     </Dialog>

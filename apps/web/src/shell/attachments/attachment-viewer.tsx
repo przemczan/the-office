@@ -47,12 +47,11 @@ export function AttachmentViewer({
   const original = attachmentContentUrl(image.id);
   return (
     <Dialog
+      size="large"
       title={image.name}
-      width={1040}
       onClose={onClose}
       actions={
         <>
-          <span className="dialog-hint">← → to step, Esc to close</span>
           <Button
             variant="secondary"
             iconLeft={<Icon name="chevron-left" size={14} />}
@@ -69,6 +68,7 @@ export function AttachmentViewer({
           >
             Next
           </Button>
+          <span className="dialog-hint">← → to step, Esc to close</span>
         </>
       }
     >

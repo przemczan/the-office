@@ -151,42 +151,39 @@ function AddDependencyDialog({
   const blockerId = found.some(({ id }) => id === chosen) ? chosen : undefined;
   return (
     <Dialog
+      size="medium"
       title="What must be Done first?"
-      description={`${task.title} can't start until the Task chosen here is Done. It can be in any Project.`}
-      width={520}
       onClose={onClose}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            loading={adding.isPending}
-            disabled={blockerId === undefined}
-            onClick={() => {
-              if (blockerId !== undefined) adding.mutate(blockerId, { onSuccess: onClose });
-            }}
-          >
-            Add
-          </Button>
-        </>
+        <Button
+          loading={adding.isPending}
+          disabled={blockerId === undefined}
+          onClick={() => {
+            if (blockerId !== undefined) adding.mutate(blockerId, { onSuccess: onClose });
+          }}
+        >
+          Add
+        </Button>
       }
     >
-      {adding.error && <RefusalAlert title="It can't wait for that Task" error={adding.error} />}
-      {candidates.length === 0 ? (
-        <p className="task-quiet">
-          No other Task can hold it back: the rest are Done, Dropped, or already wait for it.
+      <div className="dialog-stack">
+        <p className="dialog-text">
+          {task.title} can't start until the Task chosen here is Done. It can be in any Project.
         </p>
-      ) : (
-        <div className="task-dependencies-choice">
-          <Input
-            aria-label="Find a Task"
-            placeholder="Find a Task by its title"
-            iconLeft={<Icon name="search" size={14} />}
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-          />
-          <div className="task-dependencies-options">
+        {adding.error && <RefusalAlert title="It can't wait for that Task" error={adding.error} />}
+        {candidates.length === 0 ? (
+          <p className="task-quiet">
+            No other Task can hold it back: the rest are Done, Dropped, or already wait for it.
+          </p>
+        ) : (
+          <>
+            <Input
+              aria-label="Find a Task"
+              placeholder="Find a Task by its title"
+              iconLeft={<Icon name="search" size={14} />}
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
             {found.length === 0 ? (
               <p className="task-quiet">No Task's title has “{search.trim()}”.</p>
             ) : (
@@ -204,9 +201,9 @@ function AddDependencyDialog({
                 onChange={setChosen}
               />
             )}
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </div>
     </Dialog>
   );
 }

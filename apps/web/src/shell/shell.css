@@ -1104,9 +1104,7 @@ body,
 }
 
 .attachment-picker,
-.attachment-link-fields,
-.attachment-dialog,
-.capture-idea-form {
+.attachment-link-fields {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1122,17 +1120,14 @@ body,
 }
 
 .attachment-document {
-  max-height: 60vh;
   margin: 0;
-  overflow: auto;
   font: var(--type-mono);
   font-size: 12px;
   line-height: 1.6;
   white-space: pre-wrap;
 }
 
-/* A quiet line at the start of a dialog's actions. */
-.capture-idea-hint,
+/* A quiet line beside a dialog's actions. */
 .dialog-hint {
   margin-right: auto;
   font: var(--type-caption);

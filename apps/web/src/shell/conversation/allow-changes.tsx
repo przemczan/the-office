@@ -66,34 +66,30 @@ export function AllowChangesBar({ thread }: { readonly thread: Thread }): ReactN
       </p>
       {confirming && (
         <Dialog
+          size="small"
           title="Allow changes in this Thread?"
-          tone="danger"
-          width={480}
           onClose={() => setConfirming(false)}
           actions={
-            <>
-              <Button variant="secondary" onClick={() => setConfirming(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="danger"
-                loading={switching.isPending}
-                onClick={() => switching.mutate(true)}
-              >
-                Allow changes
-              </Button>
-            </>
+            <Button
+              variant="danger"
+              loading={switching.isPending}
+              onClick={() => switching.mutate(true)}
+            >
+              Allow changes
+            </Button>
           }
         >
-          {switching.error && (
-            <RefusalAlert title="Changes weren't allowed" error={switching.error} />
-          )}
-          <p className="dialog-text">
-            The Caretaker can read and edit any file and run any command on the workstation in this
-            Thread, git push included. Your secrets stay refused: SSH keys, credentials, browser
-            profiles, the Office identity and the database credentials.
-          </p>
-          <p className="dialog-text">The Caretaker's session restarts under the new rules.</p>
+          <div className="dialog-stack">
+            {switching.error && (
+              <RefusalAlert title="Changes weren't allowed" error={switching.error} />
+            )}
+            <p className="dialog-text">
+              The Caretaker can read and edit any file and run any command on the workstation in
+              this Thread, git push included. Your secrets stay refused: SSH keys, credentials,
+              browser profiles, the Office identity and the database credentials.
+            </p>
+            <p className="dialog-text">The Caretaker's session restarts under the new rules.</p>
+          </div>
         </Dialog>
       )}
     </>

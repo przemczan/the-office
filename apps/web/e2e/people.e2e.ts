@@ -196,8 +196,8 @@ test("the user allows changes in a Caretaker Thread, confirmed, then switches th
   await expect(chat.getByText("The Caretaker only reads in this Thread.")).toBeVisible();
 
   await chat.getByRole("button", { name: "Allow changes", exact: true }).click();
-  // Opened over the chat, the confirmation is a dialog of its own, named by its heading.
-  const confirm = chat
+  // Opened over the chat, on the body, the confirmation is named by its heading.
+  const confirm = page
     .getByRole("dialog")
     .filter({ has: page.getByRole("heading", { name: "Allow changes in this Thread?" }) });
   await expect(confirm).toContainText("git push included");
@@ -1370,7 +1370,7 @@ test("Edit for this Task swaps the Pipeline and sets every field of its Stages, 
       "read-only-git",
     );
     await expect(editorRow(page, "Tests")).toContainText("on failure back to Review, at most 2×");
-    await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
 
     // From the board card's menu, selecting and typing in the editor leaves the card where it is.
     await page.goto("/work");
@@ -1392,7 +1392,7 @@ test("Edit for this Task swaps the Pipeline and sets every field of its Stages, 
     await page.keyboard.type(" again");
     await expect(page).toHaveURL(/\/work$/);
     await expect(editorRow(page, "Implement again")).toBeVisible();
-    await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Close", exact: true }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
   } finally {
     await repository.remove();
@@ -3670,11 +3670,10 @@ test("Marta's chat shows the Ideas she captured, planned from their cards, and t
     await newIdea.getByRole("button", { name: `Plan as a Task with ${planner.name}` }).click();
 
     // The Project picker opens over the chat, which is a dialog itself.
-    const choosing = marta.getByRole("dialog");
-    await expect(choosing).toContainText("Which Project is the Task in?");
+    const choosing = page.getByRole("dialog").filter({ hasText: "Which Project is the Task in?" });
     await expect(choosing).toContainText("Usage reports");
     await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-idea-card-project.png") });
-    await choosing.getByRole("button", { name: "Cancel" }).click();
+    await choosing.getByRole("button", { name: "Close", exact: true }).click();
     await expect(choosing).toHaveCount(0);
     await newIdea.getByRole("link", { name: "Open in Ideas" }).click();
     await expect(page).toHaveURL(new RegExp(`/work/ideas\\?idea=${officeWide.id}`));

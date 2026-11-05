@@ -5,7 +5,6 @@ import { useState, type ReactNode } from "react";
 import { projectQueries } from "../../api/projects.ts";
 import { ProjectChip } from "../project-chip.tsx";
 import { RefusalAlert } from "../refusal-alert.tsx";
-import "./shape-idea-dialog.css";
 
 /**
  * An Office-wide Idea becomes a Task in one Project, chosen here: shaped into a Task, or planned
@@ -28,29 +27,24 @@ export function ShapeIdeaDialog({
   const projectId = chosen ?? projects.data?.[0]?.id;
   return (
     <Dialog
+      size="medium"
       title="Which Project is the Task in?"
-      description={`${idea.title} is Office-wide. A Task belongs to one Project.`}
-      width={480}
       onClose={onClose}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            loading={shaping.isPending}
-            disabled={projectId === undefined}
-            onClick={() => {
-              if (projectId !== undefined) shaping.mutate(projectId, { onSuccess: onClose });
-            }}
-          >
-            {actionLabel}
-          </Button>
-        </>
+        <Button
+          loading={shaping.isPending}
+          disabled={projectId === undefined}
+          onClick={() => {
+            if (projectId !== undefined) shaping.mutate(projectId, { onSuccess: onClose });
+          }}
+        >
+          {actionLabel}
+        </Button>
       }
     >
-      {shaping.error && <RefusalAlert title="The Idea can't be shaped" error={shaping.error} />}
-      <div className="shape-idea-projects">
+      <div className="dialog-stack">
+        <p className="dialog-text">{idea.title} is Office-wide. A Task belongs to one Project.</p>
+        {shaping.error && <RefusalAlert title="The Idea can't be shaped" error={shaping.error} />}
         <RadioGroup
           options={(projects.data ?? []).map((project) => ({
             value: project.id,

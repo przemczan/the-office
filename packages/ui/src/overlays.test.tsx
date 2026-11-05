@@ -50,9 +50,8 @@ const button = (scope: string, name: string): Element | undefined =>
 const barButtons = (): string[] => [...document.querySelectorAll(".dialog-bar button")].map(nameOf);
 
 describe.each([
-  ["Dialog", (onClose: () => void) => <Dialog title="Remove Project" onClose={onClose} />],
   [
-    "Dialog with the frame",
+    "Dialog",
     (onClose: () => void) => <Dialog size="small" title="Remove Project" onClose={onClose} />,
   ],
   ["Drawer", (onClose: () => void) => <Drawer title="New Task" onClose={onClose} />],
@@ -191,9 +190,10 @@ describe("Dialog's frame", () => {
   it("leaves Escape to a window opened over it, such as the picture viewer", () => {
     const onCloseUnder = vi.fn<() => void>();
     const onCloseOver = vi.fn<() => void>();
+    show(<Dialog size="large" title="Decision" onClose={onCloseUnder} />);
     show(
       <Dialog size="large" title="Decision" onClose={onCloseUnder}>
-        <Dialog title="today.png" onClose={onCloseOver} />
+        <Dialog size="large" title="today.png" onClose={onCloseOver} />
       </Dialog>,
     );
 
@@ -209,6 +209,7 @@ describe("Dialog's frame", () => {
     const onCloseUnder = vi.fn<() => void>();
     const windows = (): ReactNode => <WindowWithViewer onCloseUnder={() => onCloseUnder()} />;
     show(windows());
+    pressOn(button(".dialog-body", "View today.png"));
     show(windows());
 
     act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
@@ -219,11 +220,13 @@ describe("Dialog's frame", () => {
 });
 
 function WindowWithViewer({ onCloseUnder }: { readonly onCloseUnder: () => void }): ReactNode {
-  const [viewing, setViewing] = useState(true);
+  const [viewing, setViewing] = useState(false);
   return (
     <Dialog size="large" title="Decision" onClose={onCloseUnder}>
+      <button onClick={() => setViewing(true)}>View today.png</button>
       {viewing && (
         <Dialog
+          size="large"
           title="today.png"
           onClose={() => {
             flushSync(() => setViewing(false));

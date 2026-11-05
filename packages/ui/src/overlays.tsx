@@ -1,19 +1,15 @@
-// The design system's Dialog and Drawer close on a press on their dimmed backdrop. A window in The
-// Office closes only by Escape, its X or its Close button (docs/spec/4.1-ui-rules.md#windows), so
-// the Drawer, and the design system's Dialog while it is still used, get a press landing on the
-// backdrop itself stopped before the design system's handler sees it. design-system/ stays as
-// exported, hence the wrapper rather than an edit there. The conversation's drawer on the Task and
-// Initiative pages is the exception, closing on a press outside: a side view with its draft kept,
-// not a window, and built apart from these (apps/web/src/surfaces/work/conversation-drawer.tsx).
+// `Dialog` is the window of docs/spec/4.1-ui-rules.md#windows: three sizes and one frame, closed only
+// by Escape, its X or its Close button. The design system's Drawer closes on a press on its dimmed
+// backdrop, so a press landing on the backdrop itself is stopped before its handler sees it.
+// design-system/ stays as exported, hence the wrapper rather than an edit there. The conversation's
+// drawer on the Task and Initiative pages is the exception, closing on a press outside: a side view
+// with its draft kept, not a window, and built apart from these
+// (apps/web/src/surfaces/work/conversation-drawer.tsx).
 import { useEffect, useId, useRef, type MouseEvent, type ReactNode, type RefObject } from "react";
 import { createPortal } from "react-dom";
 import { Button } from "../../../design-system/components/core/Button.jsx";
 import { Icon } from "../../../design-system/components/core/Icon.jsx";
 import { IconButton } from "../../../design-system/components/core/IconButton.jsx";
-import {
-  Dialog as DesignSystemDialog,
-  type DialogProps as DesignSystemDialogProps,
-} from "../../../design-system/components/overlays/Dialog.jsx";
 import {
   Drawer as DesignSystemDrawer,
   type DrawerProps,
@@ -27,7 +23,7 @@ export interface DialogStep {
   readonly onCancel: () => void;
 }
 
-interface DialogFrameProps {
+interface DialogContentProps {
   readonly open?: boolean;
   /** What the window is: its title, or its badge and whose it is. */
   readonly title: ReactNode;
@@ -41,7 +37,7 @@ interface DialogFrameProps {
 /** A confirmation (small), a form (medium), or something to read or look at (large). */
 export type DialogSize = "small" | "medium" | "large";
 
-type DialogFrameSizeProps =
+type DialogSizeProps =
   | { readonly size: "small" | "medium"; readonly keepsHeight?: never }
   | {
       readonly size: "large";
@@ -49,21 +45,7 @@ type DialogFrameSizeProps =
       readonly keepsHeight?: boolean;
     };
 
-/** The design system's Dialog as it was before spec 4.1's frame; task 51's step 6 moves every caller off it and removes it. */
-type DesignSystemShapedDialogProps = DesignSystemDialogProps & { readonly size?: never };
-
-export type DialogProps = (DialogFrameProps & DialogFrameSizeProps) | DesignSystemShapedDialogProps;
-
-export function Dialog(props: DialogProps): ReactNode {
-  if (props.size === undefined) {
-    return (
-      <KeepOpenOnBackdropPress inline={props.inline}>
-        <DesignSystemDialog {...props} />
-      </KeepOpenOnBackdropPress>
-    );
-  }
-  return <DialogFrame {...props} />;
-}
+export type DialogProps = DialogContentProps & DialogSizeProps;
 
 export function Drawer(props: DrawerProps): ReactNode {
   return (
@@ -73,7 +55,7 @@ export function Drawer(props: DrawerProps): ReactNode {
   );
 }
 
-function DialogFrame({
+export function Dialog({
   open = true,
   size,
   keepsHeight = false,
@@ -82,7 +64,7 @@ function DialogFrame({
   actions,
   step,
   onClose,
-}: DialogFrameProps & DialogFrameSizeProps): ReactNode {
+}: DialogProps): ReactNode {
   const titleId = useId();
   const frame = useRef<HTMLDivElement>(null);
   useCloseOnEscape(open, onClose, frame);
