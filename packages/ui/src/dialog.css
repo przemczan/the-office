@@ -1,0 +1,88 @@
+/* The window of docs/spec/4.1-ui-rules.md#windows: three sizes, a head with its X, a body that
+   scrolls while the head and the bar stay, a step over the bar, and the bar with Close on the right. */
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: grid;
+  place-items: center;
+  padding: var(--space-6) 0;
+  background: var(--overlay);
+}
+
+.dialog-frame {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: 100%;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-dialog);
+  background: var(--surface-raised);
+  box-shadow: var(--shadow-3);
+  color: var(--fg-1);
+}
+
+.dialog-frame.small {
+  max-width: min(440px, 94vw);
+}
+
+.dialog-frame.medium {
+  max-width: min(720px, 94vw);
+}
+
+.dialog-frame.large {
+  max-width: min(1180px, 94vw);
+  max-height: 86vh;
+}
+
+.dialog-frame.large.keeps-height {
+  height: 86vh;
+}
+
+.dialog-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-3) var(--space-3) var(--space-5);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dialog-head h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font: var(--type-card-title);
+  letter-spacing: var(--tracking-tight);
+}
+
+.dialog-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-4) var(--space-5);
+  font: var(--type-body);
+}
+
+.dialog-step {
+  flex: none;
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+}
+
+.dialog-bar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--surface-sunken);
+}
+
+.dialog-bar-gap {
+  flex: 1;
+}
