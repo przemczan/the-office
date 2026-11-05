@@ -984,12 +984,22 @@ test("a Decision with Attachments is accepted on its card, or answered in its de
   });
   expect(link.status()).toBe(201);
   const { id: linkId } = attachmentSchema.parse(await link.json());
+  const brief = await page.request.post(
+    `/api/tasks/${task.id}/attachments/files?${new URLSearchParams({ fileName: "brief.md", mediaType: "text/markdown" })}`,
+    {
+      headers: { "content-type": "application/octet-stream" },
+      data: Buffer.from("# Brief\n\nKeep it plain."),
+    },
+  );
+  expect(brief.status()).toBe(201);
+  const { id: briefId } = attachmentSchema.parse(await brief.json());
   const notNamed = await attachedImage(page, task, "not-named.png", aPng([10, 10, 10]));
   const question = "Which look should the export take?";
   const seeded = await seedDecision(task, question, [
     ...pictures.map(({ id }) => id),
     removed.id,
     linkId,
+    briefId,
   ]);
   expect((await page.request.delete(`/api/attachments/${removed.id}`)).status()).toBe(204);
   const answers = await catchAnswers(page, seeded);
@@ -1003,7 +1013,7 @@ test("a Decision with Attachments is accepted on its card, or answered in its de
   await expect(recommended).toContainText("Yes");
   await expect(recommended).toContainText("It is simpler.");
   await expect(card.getByRole("region", { name: "Details" })).toContainText(
-    "2 answers · 5 Attachments",
+    "2 answers · 6 Attachments",
   );
   await expect(card.getByRole("button", { name: /^View / })).toHaveCount(0);
   await expect(card.getByText("Both work.")).toHaveCount(0);
@@ -1036,7 +1046,7 @@ test("a Decision with Attachments is accepted on its card, or answered in its de
   await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-decision-window.png") });
   await page.emulateMedia({ colorScheme: "light" });
 
-  // The picture viewer opens over the window, and Esc closes the viewer alone.
+  // The Attachment viewer opens over the window, and Esc closes the viewer alone.
   await details.getByRole("button", { name: "View wider.png" }).click();
   await expect(page.getByRole("heading", { name: "wider.png" })).toBeVisible();
   await expect(page.getByText("2 of 4")).toBeVisible();
@@ -1046,7 +1056,31 @@ test("a Decision with Attachments is accepted on its card, or answered in its de
   await expect(page.getByRole("heading", { name: "taller.png" })).toHaveCount(0);
   await expect(details).toBeVisible();
 
+  // A document opens over the window just the same.
+  await details.getByRole("button", { name: "brief.md" }).click();
+  await expect(page.getByRole("heading", { name: "brief.md" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { name: "brief.md" })).toHaveCount(0);
+  await expect(details).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(details).toHaveCount(0);
+
+  // Over the Needs you panel, one Esc closes the viewer alone and the next the panel.
+  await page
+    .getByRole("status", { name: "Status strip" })
+    .getByRole("button", { name: /needs? you/ })
+    .click();
+  const panel = page.getByRole("dialog").filter({ hasText: "oldest first" });
+  await panel.getByRole("button", { name: "View wider.png" }).click();
+  await expect(page.getByRole("heading", { name: "wider.png" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { name: "wider.png" })).toHaveCount(0);
+  await expect(panel).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveCount(0);
+
   // Picking another answer, then Answer in the bar.
+  await card.getByRole("button", { name: "Open details" }).click();
   await answerChoices.getByRole("radio", { name: "No", exact: true }).check();
   await details.getByRole("button", { name: "Answer", exact: true }).click();
   await expect
@@ -1460,7 +1494,7 @@ test("a Task's images show by round, the Gate shows the current one, and the vie
   const gate = gateWindow.getByRole("region", { name: "Screenshots" });
   await expect(gate.getByRole("button", { name: /^View / })).toHaveCount(1);
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-gate-attachments.png") });
-  // The picture viewer is the one window that opens on another, and Esc closes it first.
+  // The Attachment viewer is the one window that opens on another, and Esc closes it first.
   await gate.getByRole("button", { name: "View second-look.png" }).click();
   await expect(page.getByRole("heading", { name: "second-look.png" })).toBeVisible();
   await page.keyboard.press("Escape");
@@ -1551,6 +1585,10 @@ test("a Task's Changes tab lists the files its branch changed with their lines a
     changes.getByRole("link", { name: "Open backoff.ts in the editor" }),
   ).toHaveAttribute("href", new RegExp(`${worktreeUrl}/backoff\\.ts$`));
   await page.screenshot({ path: path.join(SCREENSHOTS, "light-1600-task-changes.png") });
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+  await page.screenshot({ path: path.join(SCREENSHOTS, "dark-1600-task-changes.png") });
+  await page.emulateMedia({ colorScheme: "light" });
 
   await page.getByRole("tab", { name: "Overview" }).click();
   await expect(page.getByRole("region", { name: "Record" })).toBeVisible();

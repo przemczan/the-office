@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Readiness, Task } from "@the-office/contracts";
-import { Icon } from "@the-office/ui";
+import { Icon, TextButton } from "@the-office/ui";
 import type { ReactNode } from "react";
 import { decisionQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
@@ -83,7 +83,7 @@ function OnBlock({
   return (
     <>
       {written ? "Confirm it " : "Write it "}
-      <LinkButton onClick={() => void showBlock(block)}>{children}</LinkButton>
+      <TextButton onClick={() => void showBlock(block)}>{children}</TextButton>
     </>
   );
 }
@@ -97,9 +97,9 @@ function OnRail({ task }: { readonly task: Task }): ReactNode {
   return (
     <>
       {planner} proposes {name} ·{" "}
-      <LinkButton onClick={() => bringIntoView(PIPELINE_PROPOSAL_ELEMENT_ID)}>
+      <TextButton onClick={() => bringIntoView(PIPELINE_PROPOSAL_ELEMENT_ID)}>
         confirm it on the rail
-      </LinkButton>
+      </TextButton>
     </>
   );
 }
@@ -109,21 +109,7 @@ function InNeedsYou({ task }: { readonly task: Task }): ReactNode {
   return (
     <>
       {open} open,{" "}
-      <LinkButton onClick={() => bringIntoView(NEEDS_YOU_ELEMENT_ID)}>in Needs you</LinkButton>
+      <TextButton onClick={() => bringIntoView(NEEDS_YOU_ELEMENT_ID)}>in Needs you</TextButton>
     </>
-  );
-}
-
-function LinkButton({
-  onClick,
-  children,
-}: {
-  readonly onClick: () => void;
-  readonly children: ReactNode;
-}): ReactNode {
-  return (
-    <button type="button" className="before-ready-link" onClick={onClick}>
-      {children}
-    </button>
   );
 }

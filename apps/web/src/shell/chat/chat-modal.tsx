@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import type { Role, Thread } from "@the-office/contracts";
-import { Avatar, Button, EmptyState, Icon, IconButton } from "@the-office/ui";
-import { useEffect, type ReactNode } from "react";
+import { Avatar, Button, EmptyState, Icon, IconButton, useCloseOnEscape } from "@the-office/ui";
+import { useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { startChatThread, threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
 import { ThreadView } from "../conversation/thread-view.tsx";
@@ -19,18 +20,14 @@ import "./chat.css";
 export function ChatModal(): ReactNode {
   const chat = useChat();
   const role = useQuery({ ...roleQueries.one(chat.roleKey ?? ""), enabled: !!chat.roleKey });
-  useEffect(() => {
-    if (!chat.roleKey) return;
-    const closeOnEscape = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") chat.close();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [chat]);
+  const frame = useRef<HTMLDivElement>(null);
+  useCloseOnEscape(!!chat.roleKey && !!role.data, chat.close, frame);
   if (!chat.roleKey || !role.data) return null;
-  return (
+  // On the body, as a window is, so that it comes after the Needs you panel it opens over.
+  return createPortal(
     <div className="chat-overlay">
       <div
+        ref={frame}
         className="chat-dialog"
         role="dialog"
         aria-modal="true"
@@ -39,7 +36,8 @@ export function ChatModal(): ReactNode {
         <ChatHead role={role.data} onClose={chat.close} />
         <ChatBody role={role.data} />
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

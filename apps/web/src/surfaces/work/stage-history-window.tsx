@@ -1,5 +1,5 @@
 import { countedTokens, type Role, type StageRun, type TaskStage } from "@the-office/contracts";
-import { Badge, Dialog, Icon, isInTopmostWindow } from "@the-office/ui";
+import { Badge, Dialog, Icon, isTopmost } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { TokenFigure } from "../../shell/token-count.tsx";
 import { useClock } from "../../shell/use-clock.ts";
@@ -181,7 +181,7 @@ function RunItem({
 
 /**
  * ← and → move between Stages wherever focus is in the window, which is why they are heard on the
- * document. They stay with a field being typed in, and with a picture viewer opened over the window.
+ * document. They stay with a field being typed in, and with an Attachment viewer opened over the window.
  */
 function useArrowKeysStep(
   content: RefObject<HTMLElement | null>,
@@ -190,7 +190,7 @@ function useArrowKeysStep(
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
-      if (isTyping(event.target) || !isInTopmostWindow(content.current)) return;
+      if (isTyping(event.target) || !isTopmost(content.current)) return;
       event.preventDefault();
       step(event.key === "ArrowLeft" ? -1 : 1);
     };

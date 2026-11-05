@@ -7,7 +7,7 @@ import type {
   TestResult,
   TestResultState,
 } from "@the-office/contracts";
-import { Badge, Button, Icon } from "@the-office/ui";
+import { Badge, Button, FoldButton, Icon } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { pipelineQueries } from "../../api/pipelines.ts";
 import { projectQueries } from "../../api/projects.ts";
@@ -124,8 +124,7 @@ function FileRow({
   return (
     <li>
       <div className="changes-file-head">
-        <button type="button" className="changes-fold" aria-expanded={unfolded} onClick={onToggle}>
-          <Icon name={unfolded ? "chevron-down" : "chevron-right"} size={14} />
+        <FoldButton className="changes-fold" unfolded={unfolded} onClick={onToggle}>
           <span className="changes-path">
             {file.previousPath !== null && `${file.previousPath} → `}
             {file.path}
@@ -139,7 +138,7 @@ function FileRow({
               <span className="changes-removed">{lines.removed}</span>
             </>
           )}
-        </button>
+        </FoldButton>
         {worktreePath !== null && !file.deleted && (
           <a
             className="changes-open-file"

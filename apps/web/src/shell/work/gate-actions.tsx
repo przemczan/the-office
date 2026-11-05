@@ -22,9 +22,6 @@ import {
   type WaitingGate,
 } from "./gate-words.ts";
 
-/** Bordered as the buttons beside it, in the colour of what can't be undone. */
-const DROP_LOOK = { color: "var(--danger-fg)" } as const;
-
 /**
  * What the user does at the Gate a Task waits at, on Now and in the Needs you panel: Continue, Send
  * back with notes, or Drop. A Task's own page has the same actions in its Gate's window.
@@ -63,12 +60,7 @@ export function GateActions({
             {sendingBack ? "Cancel" : SEND_BACK_WITH_NOTES}
           </Button>
         )}
-        <Button
-          variant="secondary"
-          style={DROP_LOOK}
-          disabled={busy}
-          onClick={() => setDropping(true)}
-        >
+        <Button variant="danger-ghost" disabled={busy} onClick={() => setDropping(true)}>
           Drop
         </Button>
       </div>

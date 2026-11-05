@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ConversationTab, TabConsultation, Task, ThreadContext } from "@the-office/contracts";
-import { Avatar } from "@the-office/ui";
+import { Avatar, Card } from "@the-office/ui";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { openPersonsThread, sendMessage, threadQueries } from "../../api/conversations.ts";
 import { CacheMark } from "../../shell/conversation/cache-mark.tsx";
@@ -112,15 +112,17 @@ function TabConsultationBlock({
 }): ReactNode {
   return (
     <section className="tab-consultation" aria-label={`Consultation: ${question}`}>
-      <p className="tab-consultation-head">
-        Consultation · {answeredAt === null ? `${personName} is on it` : clockOf(answeredAt)}
-      </p>
-      <p className="tab-consultation-question">{question}</p>
-      {note === null ? (
-        <PersonsThread threadId={threadId} personName={personName} />
-      ) : (
-        <MarkdownText text={note} />
-      )}
+      <Card variant="sunken" padding="sm">
+        <p className="tab-consultation-head">
+          Consultation · {answeredAt === null ? `${personName} is on it` : clockOf(answeredAt)}
+        </p>
+        <p className="tab-consultation-question">{question}</p>
+        {note === null ? (
+          <PersonsThread threadId={threadId} personName={personName} />
+        ) : (
+          <MarkdownText text={note} />
+        )}
+      </Card>
     </section>
   );
 }

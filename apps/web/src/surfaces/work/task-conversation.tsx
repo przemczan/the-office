@@ -6,7 +6,7 @@ import {
   type Task,
   type Thread,
 } from "@the-office/contracts";
-import { Avatar, Button, Tabs } from "@the-office/ui";
+import { Avatar, Button, Tabs, TextButton } from "@the-office/ui";
 import { useState, type ReactNode } from "react";
 import { decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { pipelineQueries } from "../../api/pipelines.ts";
@@ -196,9 +196,9 @@ function WorkingNow({
       <span className="working-now-words">
         {personName} is working on {stageName} now. To write into that work, open its Stage history.
       </span>
-      <button type="button" className="working-now-link" onClick={onOpen}>
+      <TextButton className="working-now-link" onClick={onOpen}>
         Open the Stage history
-      </button>
+      </TextButton>
     </div>
   );
 }

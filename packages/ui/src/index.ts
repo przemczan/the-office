@@ -142,12 +142,15 @@ export { type DrawerProps } from "../../../design-system/components/overlays/Dra
 export {
   Dialog,
   Drawer,
-  isInTopmostWindow,
+  isTopmost,
+  useCloseOnEscape,
   type DialogProps,
   type DialogSize,
   type DialogStep,
 } from "./overlays.tsx";
+export { FoldButton } from "./fold-button.tsx";
 export { LinkButton } from "./link-button.tsx";
+export { TextButton } from "./text-button.tsx";
 export { RadioList, type RadioListOption, type RadioListProps } from "./radio-list.tsx";
 export {
   Menu,

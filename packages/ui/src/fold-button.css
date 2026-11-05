@@ -1,0 +1,22 @@
+.fold-button {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.fold-button > svg {
+  flex: none;
+  color: var(--fg-3);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.fold-button[aria-expanded="true"] > svg {
+  transform: rotate(90deg);
+}

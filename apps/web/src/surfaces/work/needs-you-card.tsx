@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link, useSearch } from "@tanstack/react-router";
 import type { Decision, Role, Task, TaskStage, TaskStages } from "@the-office/contracts";
-import { Button, Icon } from "@the-office/ui";
+import { Badge, Button, Icon } from "@the-office/ui";
 import { useEffect, useState, type ReactNode } from "react";
 import { decisionQueries, threadQueries } from "../../api/conversations.ts";
 import { roleQueries } from "../../api/people.ts";
@@ -109,7 +109,11 @@ function WhatWaits({
       ref={setCard}
     >
       <header className="needs-you-head">
-        {count > 0 && <span className="needs-you-count">{count}</span>}
+        {count > 0 && (
+          <Badge tone="warning" size="sm">
+            {count}
+          </Badge>
+        )}
         <h3>Needs you</h3>
         <span className="needs-you-summary">
           {needsYouSummary(decisions, waiting !== undefined)}
@@ -210,7 +214,9 @@ function NeedsYouBar({
   return (
     <div className="needs-you-bar-place">
       <div className="needs-you-bar" role="group" aria-label="Needs you, out of view">
-        <span className="needs-you-count">{count}</span>
+        <Badge tone="warning" size="sm">
+          {count}
+        </Badge>
         <strong>Needs you</strong>
         <span className="needs-you-bar-question">
           <MarkdownText text={question} inline />

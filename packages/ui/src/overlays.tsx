@@ -108,17 +108,25 @@ export function Dialog({
   );
 }
 
-/** Whether nothing is open over this part of a window, such as the picture viewer, which comes later in the document. */
-export function isInTopmostWindow(element: Element | null): boolean {
-  const windows = document.querySelectorAll('[aria-modal="true"]');
-  return windows[windows.length - 1]?.contains(element) ?? false;
+/**
+ * Whether nothing is open over this part of the page. Windows are on the body and the panels in the
+ * app, so what opened over another comes later in the document.
+ */
+export function isTopmost(element: Element | null): boolean {
+  if (element === null) return false;
+  const opened = document.querySelectorAll('[aria-modal="true"]');
+  const topmost = opened[opened.length - 1];
+  return topmost === undefined || topmost.contains(element);
 }
 
-/** Escape closes the window, unless one opened over it, which closes first. */
-function useCloseOnEscape(
+/**
+ * Escape closes `element`, a window or a panel, unless something opened over it, which closes
+ * alone: one press closes only the topmost thing.
+ */
+export function useCloseOnEscape(
   open: boolean,
   onClose: () => void,
-  frame: RefObject<HTMLDivElement | null>,
+  element: RefObject<HTMLElement | null>,
 ): void {
   // Read in the capture phase, before any window handles the key: the browser lets React commit
   // between two listeners, so the window over this one can be gone by the time this one's turn
@@ -127,18 +135,22 @@ function useCloseOnEscape(
   useEffect(() => {
     if (!open) return;
     const noteWhetherTopmost = (): void => {
-      topmostAtKeyPress.current = isInTopmostWindow(frame.current);
+      topmostAtKeyPress.current = isTopmost(element.current);
     };
     const closeOnEscape = (event: KeyboardEvent): void => {
-      if (event.key === "Escape" && topmostAtKeyPress.current) onClose();
+      if (event.key !== "Escape" || !topmostAtKeyPress.current) return;
+      // Kept from `window`, where the design system's Drawer listens for Escape with no idea of
+      // what is over it. A field's own Escape, as the mention picker's, comes before `document`.
+      event.stopPropagation();
+      onClose();
     };
     window.addEventListener("keydown", noteWhetherTopmost, { capture: true });
-    window.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("keydown", closeOnEscape);
     return () => {
       window.removeEventListener("keydown", noteWhetherTopmost, { capture: true });
-      window.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("keydown", closeOnEscape);
     };
-  }, [open, onClose, frame]);
+  }, [open, onClose, element]);
 }
 
 function KeepOpenOnBackdropPress({

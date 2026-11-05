@@ -1,4 +1,4 @@
-import { Icon } from "@the-office/ui";
+import { FoldButton, Icon } from "@the-office/ui";
 import { useId, type ReactNode } from "react";
 import type { Fold } from "./record-folds.ts";
 
@@ -28,20 +28,18 @@ export function RecordFold({
   return (
     <section id={id} className="record-fold" aria-label={title}>
       <div className="record-fold-row">
-        <button
-          type="button"
+        <FoldButton
           className="record-fold-head"
-          aria-expanded={fold.isOpen}
+          unfolded={fold.isOpen}
           aria-controls={bodyId}
           onClick={fold.toggle}
         >
-          <Icon name="chevron-right" size={14} />
           <span className="task-block-title">
             <Icon name={icon} size={15} strokeWidth={1.6} />
             {title}
           </span>
           <span className="record-fold-summary">{summary}</span>
-        </button>
+        </FoldButton>
         {side !== undefined && <div className="record-fold-side">{side}</div>}
       </div>
       <div id={bodyId} className="record-fold-body" hidden={!fold.isOpen}>

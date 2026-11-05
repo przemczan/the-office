@@ -161,19 +161,6 @@
 
 .handover-note-read {
   margin-top: 4px;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--fg-2);
-  font: var(--type-body-sm);
-  text-decoration: underline;
-  text-decoration-color: var(--border-strong);
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.handover-note-read:hover {
-  color: var(--text-link-hover);
 }
 
 .turn {

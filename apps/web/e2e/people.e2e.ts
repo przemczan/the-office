@@ -2259,6 +2259,15 @@ test("a Gate holds the Task for the user, sends the work back with feedback, the
       path: path.join(SCREENSHOTS, "light-1600-needs-you-panel.png"),
       animations: "disabled",
     });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "dark-1600-needs-you-panel.png"),
+      animations: "disabled",
+    });
+    await waiting.screenshot({ path: path.join(SCREENSHOTS, "dark-gate-actions.png") });
+    await page.emulateMedia({ colorScheme: "light" });
+    await waiting.screenshot({ path: path.join(SCREENSHOTS, "light-gate-actions.png") });
     await waiting.getByRole("button", { name: "Continue to Build" }).click();
     await expect(page.getByText("Continuing to Build.")).toBeVisible();
     await expect(waiting).toHaveCount(0);
@@ -2622,6 +2631,17 @@ test("a running Task takes a barge-in and a Planner message, and new messages le
     // A barge-in from the Stage history lands at the next safe point, and waits to be taken until
     // the turn ends. The window opens on the running Thread, which follows live, and a draft stays
     // as the user reads the Summary.
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "light-1600-working-now.png"),
+      animations: "disabled",
+    });
+    await page.emulateMedia({ colorScheme: "dark" });
+    await expect(page.locator("html")).toHaveAttribute("data-palette", "dark");
+    await page.screenshot({
+      path: path.join(SCREENSHOTS, "dark-1600-working-now.png"),
+      animations: "disabled",
+    });
+    await page.emulateMedia({ colorScheme: "light" });
     await conversation.getByRole("button", { name: "Open the Stage history" }).click();
     const history = page.getByRole("dialog", { name: /^Stage history: Implement/ });
     const runningRun = history.getByRole("region", { name: "Run 1", exact: true });

@@ -72,6 +72,14 @@
   gap: var(--space-3);
 }
 
+/* Words in a window's body, or a step's. */
+.dialog-text {
+  margin: 0;
+  font: var(--type-body-sm);
+  line-height: 1.55;
+  color: var(--fg-2);
+}
+
 .dialog-step {
   flex: none;
   padding: var(--space-3) var(--space-5);
@@ -92,4 +100,11 @@
 
 .dialog-bar-gap {
   flex: 1;
+}
+
+/* A quiet line in the bar, after the actions. */
+.dialog-hint {
+  margin-right: auto;
+  font: var(--type-caption);
+  color: var(--fg-3);
 }

@@ -1,4 +1,4 @@
-import { Button, Icon, IconButton } from "@the-office/ui";
+import { Button, Icon, IconButton, useCloseOnEscape } from "@the-office/ui";
 import {
   createContext,
   useContext,
@@ -102,11 +102,11 @@ export function ConversationPanel({
   const { narrow, open, show, close } = useConversationDrawer();
   const panel = useConversationFit();
   useDrawerFocus(open, panel);
+  useCloseOnEscape(open, close, panel);
   const onKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
-    // React events bubble through portals, and the Attachment viewer has its own Esc.
+    // React events bubble through portals, and a window opened from here keeps its own Tab.
     if (!open || !event.currentTarget.contains(event.target as Node)) return;
-    if (event.key === "Escape") close();
-    else if (event.key === "Tab") keepTabIn(event);
+    if (event.key === "Tab") keepTabIn(event);
   };
   const panelClass = `task-conversation${narrow ? " conversation-drawer" : ""}${open ? " open" : ""}`;
   return (

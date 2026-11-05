@@ -1127,13 +1127,6 @@ body,
   white-space: pre-wrap;
 }
 
-/* A quiet line beside a dialog's actions. */
-.dialog-hint {
-  margin-right: auto;
-  font: var(--type-caption);
-  color: var(--fg-3);
-}
-
 /* A Notification's toast: the person, then the line and what it is about, which open it. */
 .notice-person {
   display: inline-flex;

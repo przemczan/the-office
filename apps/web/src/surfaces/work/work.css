@@ -31,13 +31,6 @@
   gap: 6px;
 }
 
-.dialog-text {
-  margin: 0;
-  font: var(--type-body-sm);
-  line-height: 1.55;
-  color: var(--fg-2);
-}
-
 /* ---- the board: a column per state, cards by priority then manual order */
 .board {
   display: grid;
@@ -1355,18 +1348,6 @@
   font: var(--type-card-title);
 }
 
-.needs-you-count {
-  display: inline-grid;
-  place-items: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
-  background: var(--warning);
-  font: 700 11px/1 var(--font-sans);
-  color: var(--gray-950);
-}
-
 .needs-you-clear-words {
   display: flex;
   flex-wrap: wrap;
@@ -1610,28 +1591,13 @@
 }
 
 .changes-fold {
-  display: flex;
-  flex: 1;
-  align-items: center;
   gap: 10px;
-  min-width: 0;
   padding: 6px 4px;
-  border: 0;
   border-radius: 4px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
 }
 
 .changes-fold:hover {
   background: var(--control-hover);
-}
-
-.changes-fold svg {
-  flex: none;
-  color: var(--fg-3);
 }
 
 .changes-path {
@@ -1714,18 +1680,8 @@
 }
 
 .record-fold-head {
-  display: flex;
-  flex: 1;
   gap: 8px;
-  align-items: center;
-  min-width: 0;
   padding: 12px 0 12px 16px;
-  border: none;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
 }
 
 .record-fold-side {
@@ -1738,16 +1694,6 @@
 .record-fold-body {
   padding: 2px 18px 16px 16px;
   font-size: var(--text-sm);
-}
-
-.record-fold-head > svg {
-  flex: none;
-  color: var(--fg-3);
-  transition: transform var(--duration-fast) var(--ease-out);
-}
-
-.record-fold-head[aria-expanded="true"] > svg {
-  transform: rotate(90deg);
 }
 
 .record-fold-head .task-block-title {
@@ -1915,22 +1861,6 @@
 }
 
 /* A link to where a line is settled, in the line's words. */
-.before-ready-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  color: var(--accent-subtle-fg);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.before-ready-link:focus-visible {
-  outline: 0;
-  border-radius: var(--radius-sm);
-  box-shadow: var(--focus-ring);
-}
-
 .task-checklist-met {
   color: var(--fg-1);
 }
@@ -2241,32 +2171,10 @@
 
 .working-now-link {
   flex: none;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--fg-2);
-  font: inherit;
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-
-.working-now-link:hover {
-  color: var(--text-link-hover);
-}
-
-.working-now-link:focus-visible {
-  outline: 0;
-  border-radius: var(--radius-sm);
-  box-shadow: var(--focus-ring);
 }
 
 .tab-consultation {
   margin: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-card);
-  background: var(--surface-sunken);
 }
 
 .tab-consultation-head {

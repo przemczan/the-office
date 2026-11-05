@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import type { Message, MessageDelivery } from "@the-office/contracts";
-import { Icon } from "@the-office/ui";
+import { Icon, TextButton } from "@the-office/ui";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { roleQueries } from "../../api/people.ts";
 import { roleName } from "../person-name.ts";
@@ -364,9 +364,9 @@ function HandoverNoteItem({
         <MarkdownText text={text} />
       </div>
       {readInFull && (
-        <button type="button" className="handover-note-read" onClick={readInFull}>
+        <TextButton className="handover-note-read" onClick={readInFull}>
           Read it in full
-        </button>
+        </TextButton>
       )}
     </div>
   );

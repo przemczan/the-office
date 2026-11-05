@@ -1,8 +1,8 @@
-import { act, useState, type ReactNode } from "react";
+import { act, useRef, useState, type ReactNode } from "react";
 import { flushSync } from "react-dom";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Dialog, Drawer } from "./index.ts";
+import { Dialog, Drawer, useCloseOnEscape } from "./index.ts";
 
 declare global {
   var IS_REACT_ACT_ENVIRONMENT: boolean;
@@ -25,6 +25,13 @@ afterEach(() => {
 
 function show(element: ReactNode): void {
   act(() => root.render(element));
+}
+
+/** As a real key press: from the page up to `window`, where the design system's Drawer listens. */
+function pressEscape(target: Element = document.body): void {
+  act(() => {
+    target.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+  });
 }
 
 function pressOn(element: Element | null | undefined): void {
@@ -78,7 +85,7 @@ describe.each([
     const onClose = vi.fn<() => void>();
     show(overlay(onClose));
 
-    act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+    pressEscape();
 
     expect(onClose).toHaveBeenCalledOnce();
   });
@@ -175,7 +182,7 @@ describe("Dialog's frame", () => {
     const onClose = vi.fn<() => void>();
     show(<Dialog open={false} size="small" title="Drop" onClose={onClose} />);
 
-    act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+    pressEscape();
 
     expect(document.querySelector("[role=dialog]")).toBeNull();
     expect(onClose).not.toHaveBeenCalled();
@@ -187,7 +194,7 @@ describe("Dialog's frame", () => {
     expect(document.querySelector("[role=dialog]")?.closest("body > *")).not.toBe(page);
   });
 
-  it("leaves Escape to a window opened over it, such as the picture viewer", () => {
+  it("leaves Escape to a window opened over it, such as the Attachment viewer", () => {
     const onCloseUnder = vi.fn<() => void>();
     const onCloseOver = vi.fn<() => void>();
     show(<Dialog size="large" title="Decision" onClose={onCloseUnder} />);
@@ -197,7 +204,7 @@ describe("Dialog's frame", () => {
       </Dialog>,
     );
 
-    act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+    pressEscape();
 
     expect(onCloseOver).toHaveBeenCalledOnce();
     expect(onCloseUnder).not.toHaveBeenCalled();
@@ -212,12 +219,110 @@ describe("Dialog's frame", () => {
     pressOn(button(".dialog-body", "View today.png"));
     show(windows());
 
-    act(() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+    pressEscape();
 
     expect(document.querySelectorAll("[role=dialog]")).toHaveLength(1);
     expect(onCloseUnder).not.toHaveBeenCalled();
   });
+
+  it("closes alone over a panel, and the next Escape closes the panel", () => {
+    const onClosePanel = vi.fn<() => void>();
+    show(<PanelWithWindow onClosePanel={onClosePanel} />);
+    pressOn(button("aside", "Open details"));
+
+    pressEscape();
+
+    expect(document.querySelector(".dialog-frame")).toBeNull();
+    expect(onClosePanel).not.toHaveBeenCalled();
+
+    pressEscape();
+
+    expect(onClosePanel).toHaveBeenCalledOnce();
+  });
+
+  it("leaves the panel's X working after an Escape closed the window over it", () => {
+    const onClosePanel = vi.fn<() => void>();
+    show(<PanelWithWindow onClosePanel={onClosePanel} />);
+    pressOn(button("aside", "Open details"));
+    pressEscape();
+
+    pressOn(document.querySelector('aside button[aria-label="Close"]'));
+
+    expect(onClosePanel).toHaveBeenCalledOnce();
+  });
 });
+
+describe("useCloseOnEscape", () => {
+  it("closes a panel that is no window, from anywhere on the page", () => {
+    const onClose = vi.fn<() => void>();
+    show(<SidePanel onClose={onClose} />);
+
+    pressEscape();
+
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("leaves a window opened from the panel to close alone, with focus still in the panel", () => {
+    const onClose = vi.fn<() => void>();
+    show(<SidePanel onClose={onClose} />);
+    const opener = document.querySelector(".side-panel button") ?? document.body;
+    pressOn(opener);
+
+    pressEscape(opener);
+
+    expect(document.querySelector(".dialog-frame")).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+
+    pressEscape(opener);
+
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("does nothing while closed", () => {
+    const onClose = vi.fn<() => void>();
+    show(<SidePanel open={false} onClose={onClose} />);
+
+    pressEscape();
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+function PanelWithWindow({ onClosePanel }: { readonly onClosePanel: () => void }): ReactNode {
+  const [details, setDetails] = useState(false);
+  return (
+    <Drawer title="Needs you" onClose={onClosePanel}>
+      <button onClick={() => setDetails(true)}>Open details</button>
+      {details && (
+        <Dialog
+          size="large"
+          title="Decision"
+          onClose={() => {
+            flushSync(() => setDetails(false));
+          }}
+        />
+      )}
+    </Drawer>
+  );
+}
+
+function SidePanel({
+  open = true,
+  onClose,
+}: {
+  readonly open?: boolean;
+  readonly onClose: () => void;
+}): ReactNode {
+  const panel = useRef<HTMLElement>(null);
+  const [details, setDetails] = useState(false);
+  useCloseOnEscape(open, onClose, panel);
+  return (
+    <aside ref={panel} className="side-panel">
+      <button onClick={() => setDetails(true)}>Open details</button>
+      {details && <Dialog size="large" title="Decision" onClose={() => setDetails(false)} />}
+    </aside>
+  );
+}
 
 function WindowWithViewer({ onCloseUnder }: { readonly onCloseUnder: () => void }): ReactNode {
   const [viewing, setViewing] = useState(false);

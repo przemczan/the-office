@@ -1,0 +1,21 @@
+.text-button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--fg-2);
+  font: inherit;
+  text-decoration: underline;
+  text-decoration-color: var(--border-strong);
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.text-button:hover {
+  color: var(--text-link-hover);
+}
+
+.text-button:focus-visible {
+  outline: 0;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--focus-ring);
+}

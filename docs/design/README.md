@@ -3,7 +3,7 @@
 Pages here are **proposals**: interactive mock-ups to look at and compare before anything is built. They are not the UI spec, and an adopted one stays as it was made.
 
 - [**The Task page**](task-page.html), **adopted** by [task 48](../tasks/48-task-page-redesign.md): a full-width Pipeline rail with each Stage's history, a full-width Needs you card under it with room for screenshots, a tabbed record (Overview with its foldable blocks, Changes, Attachments by round), and a conversation that shows every Thread as one timeline of chapters, with a Details switch that hides tool calls. A scenario switcher at the top shows it in Planning, Running, Waiting on you, Failed with a loop-back and Done, at wide and narrow width, in the Light and Dark palettes.
-- [**The Task page, round 2**](task-page-2.html), **proposed** for task 51 from the user's notes of 2026-11-04 on the page task 48 built. It starts from a copy of the adopted page and adds two Backlog scenarios.
+- [**The Task page, round 2**](task-page-2.html), **adopted** by [task 51](../tasks/51-task-page-round-2.md), from the user's notes of 2026-11-04 on the page task 48 built. It starts from a copy of the adopted page and adds two Backlog scenarios.
 
 ## Round 2: what it changes
 
