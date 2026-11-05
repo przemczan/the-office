@@ -1,6 +1,6 @@
 # 51 · The Task page, round 2
 
-Status: todo
+Status: in progress
 
 ## Goal
 
@@ -17,7 +17,7 @@ Every window in the app follows the new [UI rules](../spec/4.1-ui-rules.md): thr
 
 ## Definition of Done
 
-- [ ] Spec 2.1, 2.4, 2.5 and 4, the glossary and the click-through describe the new page and the new conversation. Check: read each changed line against [What was settled](#what-was-settled).
+- [x] Spec 2.1, 2.4, 2.5 and 4, the glossary and the click-through describe the new page and the new conversation. Check: read each changed line against [What was settled](#what-was-settled), done 2026-11-05.
 - [ ] A Task has an optional Description: a field in "+ Task" under the title, a block above the Plan with Edit, and part of the Planner's Brief. Check: service test of creating and editing it, and of the Brief holding it; e2e of creating a Task with one and of seeing it above the Plan.
 - [ ] In Backlog, the Planner's tab offers Make a plan, which starts Planning from the title and the Description with no message to write. Mark Ready shows in Backlog once the Plan and the Definition of Done are confirmed and nothing else holds Ready, and takes the Task to Ready without Planning. Check: service test of Mark Ready from Backlog and of its refusals; e2e of Make a plan, and of writing both parts by hand and marking Ready.
 - [ ] Confirm sits on the Plan's and the Definition of Done's blocks. Before Ready is read-only, each unmet line saying where it is settled. The Planner's Pipeline proposal sits in the rail, under the Stages and centred. A loop-back is drawn square. Check: e2e of confirming each part and the Pipeline in their new places; web test of the loop-back's path.
@@ -85,7 +85,7 @@ The user's answers of 2026-11-04 and 2026-11-05.
 - **The Pipeline in small** at the top of the body: each Stage's rail mark and its name under it, joined by the line, the selected one highlighted. Pressing one, or ← and →, moves to it.
 - **Runs:** on the left, newest first, each a whole button. It shows the run's number, state and times, its tokens for an Agent Stage, a ↺ when it was briefed with a failure, and two lines of its outcome, with no commands. On the right is everything about the run picked, by default the newest:
   - An **Agent run** has two tabs. **Summary** has the outcome, the carried failure, the Gate action, and the Handover note as Markdown at reading width in its own tinted box. **Thread** has the run's Thread and the Details switch on the tab's row. An ended run opens on Summary and a running one on Thread. The choice is kept per run while the window is open.
-  - A **Project command's run** has its outcome, then each command's line, result, duration and whole output, in a terminal block. The output is new: the service keeps each command's output, capped (the cap settled in step 0).
+  - A **Project command's run** has its outcome, then each command's line, result, duration and whole output, in a terminal block. The output is new: the service keeps each command's output, capped to the last 64 KB of each command's output, with a line saying how much was cut.
   - A **Gate's run** has what it waits for and a link to Needs you.
 - **Writing to a running Stage** happens only in its Thread tab here, as barge-in does today: the To line names the person and the Stage, and a message lands at the next safe point. An ended run's Thread is read-only, with "Ask <name> about it" opening that person's tab.
 - **A Handover note in a Thread** shows its first four lines and "Read it in full", which opens that run's Summary. A view of every run's note on the Task was proposed and left out until reading run by run turns out tedious.
@@ -109,18 +109,18 @@ The user's answers of 2026-11-04 and 2026-11-05.
 
 ### To settle in step 0
 
-Task 49's questions, which the people's tabs answer, each with a proposal:
+Task 49's questions, which the people's tabs answer, each with a proposal; all settled by the user on 2026-11-05 as proposed:
 
-- **Which session answers:** the person's own Thread is its own session, under the Context policy like any chat Thread. Its first session's Brief is the record: title, Description, Plan, Definition of Done, Stage results, answered Decisions, the diff summary, and that person's Handover notes on this Task. *Proposed.*
-- **Whose budget:** its tokens count to the Thread and to the Task, never to a Stage's budget, and the Usage estimate and Window caps see them as any session's. *Proposed.*
-- **Whether it can change code:** no. It reads the Task's worktree but doesn't edit it or run commands that change it. Changes go through a Stage: Send back at the Gate, or a running Stage's Thread. *Proposed.* This is how `ThreadRunner` runs every session but the Caretaker's with changes allowed (`thread-runner.ts:505-513`: `edit: false`, read-only git), so it costs nothing to build.
+- **Which session answers:** the person's own Thread is its own session, under the Context policy like any chat Thread. Its first session's Brief is the record: title, Description, Plan, Definition of Done, Stage results, answered Decisions, the diff summary, and that person's Handover notes on this Task. *Settled: the user, 2026-11-05.*
+- **Whose budget:** its tokens count to the Thread and to the Task, never to a Stage's budget, and the Usage estimate and Window caps see them as any session's. *Settled: the user, 2026-11-05.*
+- **Whether it can change code:** no. It reads the Task's worktree but doesn't edit it or run commands that change it. Changes go through a Stage: Send back at the Gate, or a running Stage's Thread. *Settled: the user, 2026-11-05.* This is how `ThreadRunner` runs every session but the Caretaker's with changes allowed (`thread-runner.ts:505-513`: `edit: false`, read-only git), so it costs nothing to build.
 - **The Planner's Thread outside Planning:** proposing a Plan, a Definition of Done or a Pipeline is refused outside Planning (`planning-changes.ts`, `proposingProblems`), and a Task never moves back to Planning. Once the Task is Ready, the Planner gets the read-only tools of the other people's Threads, with the Planning instructions swapped for theirs. *Settled: the user, 2026-11-05.*
 - **Make a plan and Plan with…:** two actions, as in [What was settled](#what-was-settled). *Settled: the user, 2026-11-05.* In Backlog the Planner's tab has no composer, as today: nothing is written until one of the two buttons moves the Task to Planning. Compared with today, the only addition is Make a plan.
-- **Whether it holds the Gate:** no. Asking doesn't hold or release anything; only Continue, Send back and Drop act at the Gate. *Proposed.*
-- **While the person's Stage runs:** the two sessions run side by side. The tab's session reads what the worktree holds then. *Proposed.*
-- **Consultations:** a Consultant who answered a Decision on the Task gets a tab. Their Consultation shows in it, above their Thread on the Task, with its note. *Proposed; the user hasn't said.*
-- **The command output's cap:** the last 64 KB of each command's output, the rest dropped with a line saying how much was cut. *Proposed.*
-- **New messages in another tab:** a tab whose Thread got a message the user hasn't seen shows a count. Inside a tab, the "new messages" button works as today. *Proposed.*
+- **Whether it holds the Gate:** no. Asking doesn't hold or release anything; only Continue, Send back and Drop act at the Gate. *Settled: the user, 2026-11-05.*
+- **While the person's Stage runs:** the two sessions run side by side. The tab's session reads what the worktree holds then. *Settled: the user, 2026-11-05.*
+- **Consultations:** a Consultant who answered a Decision on the Task gets a tab. Their Consultation shows in it, above their Thread on the Task, with its note. *Settled: the user, 2026-11-05.*
+- **The command output's cap:** the last 64 KB of each command's output, the rest dropped with a line saying how much was cut. *Settled: the user, 2026-11-05.*
+- **New messages in another tab:** a tab whose Thread got a message the user hasn't seen shows a count. Inside a tab, the "new messages" button works as today. *Settled: the user, 2026-11-05.*
 
 ## Kept from task 48
 
@@ -143,7 +143,7 @@ The address's `taskThread` now names a person's tab, or a Stage run whose histor
 
 Sized from task 48's steps, where one task-file step ran 140 to 280k tokens of context: a step touching both the service and the web is split.
 
-- [ ] 0. Settle [To settle in step 0](#to-settle-in-step-0) with the user. Then update spec 2.1 (Planning optional, the Description), 2.4 (a person's Thread on a Task; Stage Threads in the Stage history, written in while running), 2.5 (the cache's time left shown), 4 (the Task page), the glossary (Description, the Plan's entry) and the click-through. Read: spec 2.1, 2.4, 2.5 and 4; the glossary's Task, Plan and Thread entries.
+- [x] 0. Settle [To settle in step 0](#to-settle-in-step-0) with the user. Then update spec 2.1 (Planning optional, the Description), 2.4 (a person's Thread on a Task; Stage Threads in the Stage history, written in while running), 2.5 (the cache's time left shown), 4 (the Task page), the glossary (Description, the Plan's entry) and the click-through. Read: spec 2.1, 2.4, 2.5 and 4; the glossary's Task, Plan and Thread entries.
 - [ ] 1. `packages/ui`'s `Dialog`: the three sizes, the frame with its bar (actions on the left, Close on the right) and a step over the bar. A web test of the frame. No surface moves yet. Read: `packages/ui/src/overlays.tsx`, `design-system/components/overlays/Dialog.jsx` (it has `width` and right-aligned `actions`; the wrapper adds what the rules need).
 - [ ] 2a. Service: the Description (contract, storage, `POST /tasks` and an edit, the Planner's Brief); Mark Ready from Backlog in the Work rules; Make a plan, which moves the Task to Planning with the Planner starting at once from the record (Plan with… keeps today's empty Thread); the checklist's labels. Read: the work map; `planning-service.ts` (`plan`, `openPlanningThread`); `task-states.ts` (`NEXT_STATES` has no Backlog → Ready; `readinessLines` holds the labels, still "Pipeline taken or declined" and "No Decision waiting"); `task-changes.ts` (`markTaskReady`); `thread-service.ts` (`openOnTask`, `startOnInitiative`); `packages/contracts/src/work.ts` (`newTaskSchema`, `taskSchema`). Grep the subscribers of `TaskStateChanged` (Notifications, Now, the queue, Initiatives) for one that assumes Ready comes from Planning.
 - [ ] 2b. Web: the Description in "+ Task" and its block above the Plan; Mark Ready in Backlog; Confirm on the blocks; Before Ready read-only; the Pipeline proposal in the rail; square loop-backs. The blocks' Edit already shows in Backlog (`NOT_STARTED` in `planning-parts.tsx`), and the service confirms either part in Backlog; only the empty blocks' words ("proposes it during planning") change. Where each Before Ready line is settled is the web's, mapped from the line's `part`. Read: `before-ready.tsx`, `planning-parts.tsx`, `task-record.tsx`, `pipeline-rail.tsx`, `new-task-dialog.tsx`.
@@ -157,16 +157,20 @@ Sized from task 48's steps, where one task-file step ran 140 to 280k tokens of c
 
 ## State
 
-Not started. The design was settled with the user over 2026-11-04 and 2026-11-05 in three passes of the mock-up (commits `952dc7d`, `315ab62`, `3ddbe4c`). The UI rules were written as [spec 4.1](../spec/4.1-ui-rules.md) at the user's request, and CLAUDE.md points to them.
+Step 0 done (2026-11-05): every "To settle" item settled by the user as proposed. Spec 2.1 (Planning optional, Description, Make a plan and Plan with…), 2.4 (a person's Thread on a Task and its rules; barge-in from the Stage history), 2.5 (Description in the Brief, the person's Thread's Brief, the cache mark, Auto / Continue / Start fresh) and 4 (the Task page, round 2; the Initiative page keeps task 48's timeline) rewritten; the glossary has Description, and new Plan, Thread, Stage history and Before Ready entries. The click-through (`.scratch/…/app/task.js`, with `work.js`, `data.js`, `app.css`) draws round 2; `.scratch` is git-ignored, so it is local and not in the commits. Its other dialogs still have the old foot: step 6 brings them to spec 4.1, as `O.windowFrame` in `task.js` does.
+
+Open for step 5a: the settled Brief is the first session's; what a later fresh session of a person's Thread on a Task is briefed with is not settled (the record again is the likely default; ask the user then).
 
 Traps for the build:
 
 - "Window cap" is already a glossary term (a usage window). The UI rules call a dialog a window in prose only; in code it stays `Dialog`.
-- Stage Threads take messages only while their Stage runs (spec 2.4). The people's Threads are new and are not Stage Threads: keep `stageThread` false on them, or a message would wait for a safe point that never comes.
-- A command's output isn't stored today (`stageCommandRunSchema` has no output); 4b needs 4a.
-- `threadContextSchema` has only `cacheWarm`; the minutes left need the warm-until time from the service, not a guess in the web. It is the session's `lastCallAt` plus the settings' cache window (`context-policy.ts`, `isWarm`); the web counts down from it.
-- `PlanningThreadSetup` is the only setup of a Thread on a Task, and it ignores the person: every such Thread gets the Planning instructions and tools, `write_plan` and `propose_pipeline` among them. 5a must set up by person, with a read-only tool set for all but the Planner in Planning.
-- `taskThread` links come from the People surface and record mentions too. Under its new meaning (a person's tab, or a Stage run), each one must still land.
-- The mock-up leaves the Initiative page out; it keeps `ThreadTimeline` and its To line, so 5b must not remove what the Initiative page still uses.
+- Stage Threads take messages only while their Stage runs (spec 2.4). The people's Threads are not Stage Threads: keep `stageThread` false on them, or a message would wait for a safe point that never comes.
+- A command's output isn't stored today (`stageCommandRunSchema` has no output); 4b needs 4a. The cap is the last 64 KB per command, with a line saying how much was cut.
+- `threadContextSchema` has only `cacheWarm`; the minutes left need the warm-until time from the service (the session's `lastCallAt` plus the cache window, `context-policy.ts` `isWarm`); the web counts down from it.
+- `PlanningThreadSetup` is the only setup of a Thread on a Task, and it ignores the person. 5a sets up by person: read-only tools (as `thread-runner.ts:505-513`) for all but the Planner in Planning; its tokens count to the Thread and the Task, never a Stage's budget.
+- `taskThread` links come from the People surface and record mentions too; under its new meaning (a person's tab, or a Stage run) each must still land.
+- The Initiative page keeps `ThreadTimeline` and its To line; 5b must not remove what it still uses.
 
 ## Progress
+
+- 2026-11-05 · step 0: the user settled every open item as proposed; spec 2.1, 2.4, 2.5 and 4, the glossary and the (local) click-through describe round 2; next is step 1, `Dialog`'s sizes and frame.

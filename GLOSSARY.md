@@ -50,9 +50,13 @@ _Avoid_: Plan, epic, roadmap, effort
 One unit of work in a Project, done when its Definition of Done is met: a published change, an Attachment, or both.
 _Avoid_: Job, ticket, issue
 
+**Description**:
+A Task's optional account, in the user's own words, of what they want; it sits above the Plan, and the Planner plans from it and the title.
+_Avoid_: Summary, brief, notes, using "description" for the Plan
+
 **Plan**:
-A Task's description of how it will be implemented, produced before implementation starts.
-_Avoid_: Using "plan" for an Initiative
+How a Task will be implemented, written by the user or with the Planner before implementation starts.
+_Avoid_: Using "plan" for an Initiative or for the Description
 
 **Definition of Done**:
 A Task's plain-language statement of what must be true when it is done; the Task ends when it is met.
@@ -115,7 +119,7 @@ A question an Agent puts to the user and waits on before continuing.
 _Avoid_: Approval, prompt, question (as a noun for the record)
 
 **Thread**:
-One continuous exchange within a conversation on a Task, an Initiative or a person's chat; a fresh Thread starts without the previous one's context.
+One continuous exchange within a conversation on a Task, an Initiative or a person's chat; a fresh Thread starts without the previous one's context. On a Task, each person has one Thread of their own, in their tab, and each Stage run has its Stage Thread, shown in the Stage history.
 _Avoid_: Session, chat (for the record), channel
 
 **Turn**:
@@ -203,7 +207,7 @@ The full-width line on the Task page that shows every Stage of the Task and wher
 _Avoid_: Timeline, progress bar, stepper
 
 **Stage history**:
-What opens when a Stage is selected on the Pipeline rail: each of its runs, with its times, tokens, session, outcome and Handover note.
+The window that opens when a Stage is selected on the Pipeline rail: the Pipeline in small to move between Stages, the Stage's runs as a list, and the run picked with its Summary (outcome and Handover note) and its Thread, or a Project command's output.
 _Avoid_: Run log, Stage details
 
 **Reported met**:
@@ -211,7 +215,7 @@ A Definition of Done statement that the last Agent to report on it says is met; 
 _Avoid_: Checked, verified, done
 
 **Before Ready**:
-The card on a Task page in Planning that lists what must be confirmed before the user can Mark Ready; not part of Needs you.
+The read-only card on a Task page that lists what Ready needs (Plan confirmed, Definition of Done confirmed, Pipeline chosen, No Decision open), each unmet line linking to where it is settled; it takes Needs you's place when nothing waits, and is not part of Needs you.
 _Avoid_: To confirm, checklist
 
 ### Agents
