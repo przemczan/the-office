@@ -49,6 +49,7 @@ export class ShellCommandRunner extends CommandRunner {
           : undefined,
       durationMs,
       output: output.text(),
+      droppedOutputBytes: output.droppedBytes,
     };
   }
 
@@ -131,6 +132,7 @@ function afterOutput(child: ChildProcess): Promise<void> {
 class OutputEnd {
   private readonly chunks: Buffer[] = [];
   private bytes = 0;
+  droppedBytes = 0;
 
   constructor(private readonly limitBytes: number) {}
 
@@ -138,7 +140,9 @@ class OutputEnd {
     this.chunks.push(chunk);
     this.bytes += chunk.length;
     while (this.bytes - (this.chunks[0]?.length ?? 0) >= this.limitBytes) {
-      this.bytes -= this.chunks.shift()?.length ?? 0;
+      const dropped = this.chunks.shift()?.length ?? 0;
+      this.bytes -= dropped;
+      this.droppedBytes += dropped;
     }
   }
 

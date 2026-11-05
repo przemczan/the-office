@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Param,
   ParseUUIDPipe,
   Post,
@@ -12,6 +13,7 @@ import {
 } from "@nestjs/common";
 import {
   taskStagesEditSchema,
+  type StageRunCommandOutputs,
   type StagesCheck,
   type TaskStagesEdit,
   type TaskStages as TaskStagesResponse,
@@ -29,6 +31,17 @@ export class TaskStagesController {
   @Get(":id/stages")
   async read(@Param("id", ParseUUIDPipe) id: string): Promise<TaskStagesResponse> {
     return toTaskStagesResponse(await this.taskStages.progress(id));
+  }
+
+  /** What a run's commands printed, for the Stage history; apart from the Stages, read often. */
+  @Get(":id/stage-runs/:runId/command-outputs")
+  async commandOutputs(
+    @Param("id", ParseUUIDPipe) id: string,
+    @Param("runId", ParseUUIDPipe) runId: string,
+  ): Promise<StageRunCommandOutputs> {
+    const outputs = await this.taskStages.commandOutputs(id, runId);
+    if (!outputs) throw new NotFoundException(`The Task has no Stage run "${runId}".`);
+    return { outputs: [...outputs] };
   }
 
   /** Edit for this Task: the Task's Stages replaced, the library Pipeline left as it is. */

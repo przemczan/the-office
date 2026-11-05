@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import type { CommandRun } from "./command-run.js";
 import {
   finishEnvironmentCheck,
   progressEnvironmentCheck,
@@ -10,7 +9,7 @@ import {
   EnvironmentCheckProgressed,
   EnvironmentCheckStarted,
 } from "./environment-check-events.js";
-import type { EnvironmentCheck } from "./environment-check.js";
+import type { CheckedCommandRun, EnvironmentCheck } from "./environment-check.js";
 import { aProject } from "./project.fixtures.js";
 
 const startedAt = new Date("2026-10-25T10:00:00.000Z");
@@ -21,7 +20,10 @@ const environment = {
   prependPath: [],
 };
 
-function aRun(commandLine: string, outcome: CommandRun["outcome"] = "passed"): CommandRun {
+function aRun(
+  commandLine: string,
+  outcome: CheckedCommandRun["outcome"] = "passed",
+): CheckedCommandRun {
   return { commandLine, outcome, exitCode: 0, durationMs: 1200, output: "" };
 }
 

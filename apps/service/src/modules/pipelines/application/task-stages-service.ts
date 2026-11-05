@@ -84,6 +84,11 @@ export class TaskStagesService implements OnModuleInit {
     return own && progressOf(own, await this.runs.list(taskId));
   }
 
+  /** What each command of the Task's run printed, in its order; undefined for no such run. */
+  commandOutputs(taskId: string, runId: string): Promise<readonly string[] | undefined> {
+    return this.runs.commandOutputs(taskId, runId);
+  }
+
   /**
    * The user's edit of the Task's Stages for that Task, which leaves the library Pipeline as it is;
    * refused with every reason the edited Stages can't run, or change a Stage that has started.

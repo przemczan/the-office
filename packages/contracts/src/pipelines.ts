@@ -118,6 +118,13 @@ export const stageCommandRunSchema = z.object({
 });
 
 /**
+ * GET /tasks/:id/stage-runs/:runId/command-outputs: what each of the run's commands printed, in the
+ * order of its `commandRuns`, read apart from the Stages as it can be 64 KB each.
+ */
+export const stageRunCommandOutputsSchema = z.object({ outputs: z.array(z.string()) });
+export type StageRunCommandOutputs = z.infer<typeof stageRunCommandOutputsSchema>;
+
+/**
  * What the user did at a Gate: let the work continue, send it back to an earlier Agent Stage with
  * their feedback, or drop the Task.
  */

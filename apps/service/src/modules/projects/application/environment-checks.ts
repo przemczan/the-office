@@ -1,7 +1,6 @@
 import { Injectable, Logger, type BeforeApplicationShutdown } from "@nestjs/common";
 import { BusyWork } from "../../office-updates/index.js";
 import { EventBus } from "../../../platform/events/event-bus.js";
-import type { CommandRun } from "../domain/command-run.js";
 import type { Check, CommandCheck, EnvironmentCheck } from "../domain/environment-check.js";
 import {
   finishEnvironmentCheck,
@@ -187,7 +186,7 @@ export class EnvironmentChecks implements BeforeApplicationShutdown {
   ): Promise<void> {
     if (running.stop.signal.aborted) return;
     await this.progress(running, { ...check, state: "running" });
-    const run: CommandRun = await this.commands.run({
+    const { wholeOutput: _shownOnlyInTheStageHistory, ...run } = await this.commands.run({
       commandLine: check.commandLine,
       folder: worktree.path,
       environment: running.check.environment,

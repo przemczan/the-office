@@ -37,6 +37,11 @@ export const stageRuns = pgTable(
     headCommit: text("head_commit"),
     /** The Project commands The Office ran for the run. */
     commandRuns: jsonb("command_runs").$type<readonly StageCommandRun[]>().notNull().default([]),
+    /**
+     * Each command's whole output, in the order of `commandRuns`. Apart from them so the walk, which
+     * reads every run at each move, doesn't load up to 64 KB a command.
+     */
+    commandOutputs: jsonb("command_outputs").$type<readonly string[]>().notNull().default([]),
     /** The run's engine calls' tokens. */
     tokens: jsonb("tokens")
       .$type<StageTokens>()

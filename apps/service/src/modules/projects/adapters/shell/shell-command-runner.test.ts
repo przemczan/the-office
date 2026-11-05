@@ -81,6 +81,14 @@ describe("ProjectCommandRunner with ShellCommandRunner", () => {
     expect(commandRun.durationMs).toBeGreaterThan(0);
   });
 
+  it("keeps the last 64 KB of a long output, saying how much was cut", async () => {
+    const commandRun = await run(`node -e "process.stdout.write('x'.repeat(70 * 1024))"`);
+
+    const [cutLine, kept] = commandRun.wholeOutput.split("\n");
+    expect(cutLine).toBe("… 6 KB cut from the start");
+    expect(kept).toHaveLength(64 * 1024);
+  });
+
   it("records a command that failed, with its exit code", async () => {
     await expect(run(`node -e "process.exit(3)"`)).resolves.toMatchObject({
       outcome: "failed",

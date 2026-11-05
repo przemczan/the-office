@@ -11,7 +11,13 @@ import {
   walkStages,
   type PipelinesApplication,
 } from "../pipelines-application.fixtures.js";
-import { aCommandRun, aTaskRecord, PLANNED_COMMIT } from "../ports/pipelines-ports.fixtures.js";
+import {
+  aCommandRun,
+  aTaskRecord,
+  PLANNED_COMMIT,
+  recordedRun,
+} from "../ports/pipelines-ports.fixtures.js";
+import { StageRunRepository } from "../ports/stage-run-repository.js";
 
 let pipelines: PipelinesApplication;
 
@@ -49,7 +55,7 @@ describe("ScriptStageRunner", () => {
     expect(pipelines.commands.ran).toEqual([{ taskId, key: "test", stageRunId: run?.id }]);
     expect(pipelines.stageThreads.requests).toEqual([]);
     expect(run?.outcome).toEqual({ status: "done", summary: "`npm test` passed." });
-    expect(run?.commandRuns).toEqual([{ ...passing, purpose: "command" }]);
+    expect(run?.commandRuns).toEqual([recordedRun(passing, "command")]);
     // A Script Stage reports no Definition of Done met, so the user is asked at the end.
     expect(pipelines.tasks.changes).toEqual([{ taskId, state: "waiting-on-you" }]);
   });
@@ -79,7 +85,25 @@ describe("ScriptStageRunner", () => {
     const taskId = await walkStages(pipelines, [tests]);
 
     const [run] = await runsOf(pipelines, taskId);
-    expect(run?.commandRuns).toEqual([{ ...passing, purpose: "command", movedFiles }]);
+    expect(run?.commandRuns).toEqual([recordedRun(passing, "command", { movedFiles })]);
+  });
+
+  it("keeps each command's whole output, apart from the run, in the order they ran", async () => {
+    pipelines = await startPipelinesApplication();
+    const install = { ...aCommandRun("npm ci", "passed"), wholeOutput: "added 12 packages" };
+    pipelines.commands.installations.push({ kind: "ran", run: install });
+    pipelines.commands.commandRuns.push([
+      { ...failing, wholeOutput: "… 6 KB cut from the start\nfirst" },
+      { ...failing, wholeOutput: "second" },
+    ]);
+
+    const taskId = await walkStages(pipelines, [tests]);
+
+    const [run] = await runsOf(pipelines, taskId);
+    const outputs = await pipelines.app
+      .get(StageRunRepository)
+      .commandOutputs(taskId, run?.id ?? "");
+    expect(outputs).toEqual(["added 12 packages", "… 6 KB cut from the start\nfirst", "second"]);
   });
 
   it("fails when the test command fails on its re-run too, handing what it printed to the Agent that fixes it", async () => {
@@ -115,7 +139,7 @@ describe("ScriptStageRunner", () => {
       error:
         "Installing the Project's dependencies failed: `npm ci` couldn't be run: the shell couldn't start it, as when its program isn't installed.\n\nWhat it printed:\n\n```\n'npm' is not recognized\n```\n\nThe Stage's command didn't run.",
     });
-    expect(run?.commandRuns).toEqual([{ ...install, purpose: "install" }]);
+    expect(run?.commandRuns).toEqual([recordedRun(install, "install")]);
   });
 
   it("commits nothing after a test run, which leaves the worktree restored, and expects HEAD where it was", async () => {

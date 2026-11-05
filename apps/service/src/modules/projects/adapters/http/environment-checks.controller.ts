@@ -17,8 +17,7 @@ import {
 } from "@the-office/contracts";
 import { ContractPipe } from "../../../../platform/http/contract-pipe.js";
 import { EnvironmentChecks } from "../../application/environment-checks.js";
-import type { CommandRun } from "../../domain/command-run.js";
-import type { Check, EnvironmentCheck } from "../../domain/environment-check.js";
+import type { Check, CheckedCommandRun, EnvironmentCheck } from "../../domain/environment-check.js";
 import { ProjectRefusalsFilter } from "./project-refusals.filter.js";
 
 @Controller("projects/:id/environment-check")
@@ -80,7 +79,7 @@ function toCheckResponse(check: Check): EnvironmentCheckResponse["checks"][numbe
   };
 }
 
-function toCommandRunResponse(run: CommandRun): CommandRunResponse {
+function toCommandRunResponse(run: CheckedCommandRun): CommandRunResponse {
   return {
     commandLine: run.commandLine,
     outcome: run.outcome,

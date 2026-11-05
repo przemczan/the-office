@@ -23,7 +23,14 @@ import {
 } from "./stage-threads.js";
 import { StageRoleEngines, type NewlyNamedStageRoles } from "./stage-role-engines.js";
 import { StartedTasks, type StartedTask, type WalkTaskState } from "./started-tasks.js";
-import type { CommandRun, Installation, ScriptCommandRun } from "../domain/stage-command-run.js";
+import type {
+  CommandRun,
+  Installation,
+  MovedFiles,
+  ScriptCommandRun,
+  StageCommandPurpose,
+  StageCommandRun,
+} from "../domain/stage-command-run.js";
 import type { PublishTarget } from "../domain/stage.js";
 import type { StageWorkClosing } from "../domain/stage-interruption.js";
 import type { DecisionAnswer } from "../domain/walk-decisions.js";
@@ -541,8 +548,19 @@ export function aCommandRun(
     exitCode: outcome === "passed" ? 0 : 1,
     durationMs: 1200,
     output,
+    wholeOutput: output,
     movedFiles: undefined,
   };
+}
+
+/** A command run as a Stage run records it: its whole output is read apart from it. */
+export function recordedRun(
+  run: CommandRun,
+  purpose: StageCommandPurpose,
+  fields: { readonly movedFiles?: MovedFiles } = {},
+): StageCommandRun {
+  const { wholeOutput: _keptApart, ...recorded } = run;
+  return { ...recorded, purpose, ...fields };
 }
 
 /**

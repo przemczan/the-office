@@ -15,9 +15,12 @@ export interface CommandRun {
   readonly durationMs: number;
   /** What it printed, filtered by filteredOutput. */
   readonly output: string;
+  /** What it printed for the user to read, as wholeOutputOf keeps it. */
+  readonly wholeOutput: string;
 }
 
 const OUTPUT_LIMIT = 6000;
+const WHOLE_OUTPUT_LIMIT_BYTES = 64 * 1024;
 const CONTEXT_LINES = 3;
 const TAIL_LINES = 30;
 
@@ -61,4 +64,32 @@ function withGapsCounted(lines: readonly string[], indexes: readonly number[]): 
 
 function keptEnd(text: string): string {
   return text.length <= OUTPUT_LIMIT ? text : `… the start left out\n${text.slice(-OUTPUT_LIMIT)}`;
+}
+
+/**
+ * The last 64 KB of what a command printed, for the Stage history (spec §4), under a line saying
+ * how much was cut. `droppedBytes` counts what never reached `printed`. Nothing is filtered but
+ * colours, and the NUL characters Postgres can't store.
+ */
+export function wholeOutputOf(printed: string, droppedBytes: number): string {
+  const bytes = new TextEncoder().encode(
+    printed.replace(TERMINAL_ESCAPE, "").replaceAll("\0", "").replaceAll("\r\n", "\n").trimEnd(),
+  );
+  const start = characterStartFrom(bytes, Math.max(0, bytes.length - WHOLE_OUTPUT_LIMIT_BYTES));
+  const kept = new TextDecoder().decode(bytes.subarray(start));
+  const cutBytes = droppedBytes + start;
+  return cutBytes === 0 ? kept : `… ${sizeInWords(cutBytes)} cut from the start\n${kept}`;
+}
+
+/** The first byte at or after `index` that starts a UTF-8 character, not one inside it. */
+function characterStartFrom(bytes: Uint8Array, index: number): number {
+  let start = index;
+  while (((bytes[start] ?? 0) & 0b1100_0000) === 0b1000_0000) start++;
+  return start;
+}
+
+function sizeInWords(bytes: number): string {
+  if (bytes < 1024) return `${bytes} ${bytes === 1 ? "byte" : "bytes"}`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }

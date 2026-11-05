@@ -19,6 +19,8 @@ export interface FinishedCommand {
   readonly durationMs: number;
   /** What it printed to standard output and error, as it came; only the end of a long output. */
   readonly output: string;
+  /** How much of a long output's start isn't in `output`. */
+  readonly droppedOutputBytes: number;
 }
 
 /** Runs a command line in the platform's shell. */

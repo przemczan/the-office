@@ -1,13 +1,16 @@
 import { randomUUID } from "node:crypto";
 import {
+  stageRunCommandOutputsSchema,
   stagesCheckSchema,
   stagesEditRefusalSchema,
   taskStagesSchema,
+  type StageRunCommandOutputs,
   type TaskStages,
 } from "@the-office/contracts";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Stage } from "../../domain/stage.js";
 import type { StageOutcome } from "../../domain/stage-run.js";
+import { aStageRun } from "../../domain/stage-run.fixtures.js";
 import {
   aDoneResult,
   anAgentSession,
@@ -17,6 +20,7 @@ import {
   walkStages,
   type PipelinesApplication,
 } from "../../pipelines-application.fixtures.js";
+import { aCommandRun, recordedRun } from "../../ports/pipelines-ports.fixtures.js";
 import { StageRunRepository } from "../../ports/stage-run-repository.js";
 
 const tests: Stage = {
@@ -48,6 +52,15 @@ async function stagesOf(taskId: string): Promise<TaskStages> {
   const response = await fetch(`${await pipelines.app.getUrl()}/api/tasks/${taskId}/stages`);
   expect(response.status).toBe(200);
   return taskStagesSchema.parse(await response.json());
+}
+
+async function commandOutputsOf(taskId: string, runId: string): Promise<StageRunCommandOutputs> {
+  if (!pipelines) throw new Error("The application isn't started.");
+  const response = await fetch(
+    `${await pipelines.app.getUrl()}/api/tasks/${taskId}/stage-runs/${runId}/command-outputs`,
+  );
+  expect(response.status).toBe(200);
+  return stageRunCommandOutputsSchema.parse(await response.json());
 }
 
 async function edit(taskId: string, stages: readonly Stage[]): Promise<Response> {
@@ -123,6 +136,33 @@ describe("GET /api/tasks/:id/stages", () => {
     expect(testResults).toEqual([
       { stageKey: tests.key, name: tests.name, state: "passed", detail: "`npm run test` passed." },
     ]);
+  });
+
+  it("gives a run's commands' whole outputs apart from the Stages", async () => {
+    pipelines = await startPipelinesApplication();
+    pipelines.commands.commandRuns.push([
+      { ...aCommandRun("npm test", "passed", "filtered"), wholeOutput: "every line it printed" },
+    ]);
+    const taskId = await walkStages(pipelines, [tests]);
+    const [run] = await runsOf(pipelines, taskId);
+
+    expect(await commandOutputsOf(taskId, run?.id ?? "")).toEqual({
+      outputs: ["every line it printed"],
+    });
+    expect(JSON.stringify(await stagesOf(taskId))).not.toContain("every line it printed");
+  });
+
+  it("gives a run kept before whole outputs its filtered output, and refuses another Task's run", async () => {
+    pipelines = await startPipelinesApplication();
+    const id = randomUUID();
+    const taskId = randomUUID();
+    const commandRuns = [recordedRun(aCommandRun("npm test", "failed", "FAIL one"), "command")];
+    await pipelines.app.get(StageRunRepository).saveNew(aStageRun({ id, taskId, commandRuns }));
+
+    expect(await commandOutputsOf(taskId, id)).toEqual({ outputs: ["FAIL one"] });
+
+    const url = `${await pipelines.app.getUrl()}/api/tasks/${randomUUID()}/stage-runs/${id}/command-outputs`;
+    expect((await fetch(url)).status).toBe(404);
   });
 
   it("gives what each run reported and what stands by the walk's rule: a later report lowers it", async () => {

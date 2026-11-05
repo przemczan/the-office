@@ -10,6 +10,8 @@ export interface CommandRun {
   readonly durationMs: number;
   /** What it printed, cut to what tells why it failed and the end. */
   readonly output: string;
+  /** What it printed for the user to read: its last 64 KB, with a line saying how much was cut. */
+  readonly wholeOutput: string;
 }
 
 /** The files a test run wrote into the worktree, moved out of it so no commit holds them. */
@@ -32,11 +34,16 @@ export interface ScriptCommandRun extends CommandRun {
  */
 export type StageCommandPurpose = "install" | "command" | "re-run";
 
-/** A command a Stage run ran, as the run records it. */
-export interface StageCommandRun extends CommandRun {
+/** A command a Stage run ran, as the run records it; its whole output is read apart from it. */
+export interface StageCommandRun extends Omit<CommandRun, "wholeOutput"> {
   readonly purpose: StageCommandPurpose;
   /** The files a test run wrote, moved out of the worktree; undefined for none. */
   readonly movedFiles?: MovedFiles;
+}
+
+/** A command a Stage run ran, as it is saved. */
+export interface StageCommandRunWithOutput extends StageCommandRun {
+  readonly wholeOutput: string;
 }
 
 /** Whether the install before a Stage ran, and how it went. */
@@ -44,7 +51,7 @@ export type Installation =
   { readonly kind: "up-to-date" } | { readonly kind: "ran"; readonly run: CommandRun };
 
 /** The install's run when it ran, as a Stage run records it. */
-export function installRuns(installation: Installation): StageCommandRun[] {
+export function installRuns(installation: Installation): StageCommandRunWithOutput[] {
   return installation.kind === "ran" ? [{ ...installation.run, purpose: "install" }] : [];
 }
 
@@ -56,7 +63,7 @@ export function failedInstall(installation: Installation): CommandRun | undefine
 }
 
 /** A Script Stage's command's runs, in order: the first, then a re-run when there was one. */
-export function commandRunsOf(runs: readonly ScriptCommandRun[]): StageCommandRun[] {
+export function commandRunsOf(runs: readonly ScriptCommandRun[]): StageCommandRunWithOutput[] {
   return runs.map(({ movedFiles, ...run }, index) => ({
     ...run,
     purpose: index === 0 ? "command" : "re-run",

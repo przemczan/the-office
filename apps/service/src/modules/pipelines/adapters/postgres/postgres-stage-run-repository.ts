@@ -1,7 +1,7 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { and, asc, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, eq, getTableColumns, inArray, isNull } from "drizzle-orm";
 import { DATABASE, type Database } from "../../../../platform/database/database.js";
-import type { StageCommandRun } from "../../domain/stage-command-run.js";
+import type { StageCommandRunWithOutput } from "../../domain/stage-command-run.js";
 import type {
   GateAction,
   StageRun,
@@ -11,6 +11,8 @@ import type {
 } from "../../domain/stage-run.js";
 import { StageRunRepository, type StageRunThread } from "../../ports/stage-run-repository.js";
 import { stageRuns } from "./stage-runs.schema.js";
+
+const { commandOutputs: _readOnlyByRun, ...stageRunColumns } = getTableColumns(stageRuns);
 
 @Injectable()
 export class PostgresStageRunRepository extends StageRunRepository {
@@ -35,8 +37,17 @@ export class PostgresStageRunRepository extends StageRunRepository {
     await this.database.update(stageRuns).set({ headCommit }).where(eq(stageRuns.id, runId));
   }
 
-  async saveCommandRuns(runId: string, commandRuns: readonly StageCommandRun[]): Promise<void> {
-    await this.database.update(stageRuns).set({ commandRuns }).where(eq(stageRuns.id, runId));
+  async saveCommandRuns(
+    runId: string,
+    commandRuns: readonly StageCommandRunWithOutput[],
+  ): Promise<void> {
+    await this.database
+      .update(stageRuns)
+      .set({
+        commandRuns: commandRuns.map(({ wholeOutput: _keptApart, ...run }) => run),
+        commandOutputs: commandRuns.map(({ wholeOutput }) => wholeOutput),
+      })
+      .where(eq(stageRuns.id, runId));
   }
 
   async saveTokens(runId: string, tokens: StageTokens): Promise<void> {
@@ -66,7 +77,7 @@ export class PostgresStageRunRepository extends StageRunRepository {
 
   async list(taskId: string): Promise<readonly StageRun[]> {
     const rows = await this.database
-      .select()
+      .select(stageRunColumns)
       .from(stageRuns)
       .where(eq(stageRuns.taskId, taskId))
       .orderBy(asc(stageRuns.number));
@@ -76,15 +87,23 @@ export class PostgresStageRunRepository extends StageRunRepository {
   async listOfTasks(taskIds: readonly string[]): Promise<readonly StageRun[]> {
     if (taskIds.length === 0) return [];
     const rows = await this.database
-      .select()
+      .select(stageRunColumns)
       .from(stageRuns)
       .where(inArray(stageRuns.taskId, [...taskIds]))
       .orderBy(asc(stageRuns.taskId), asc(stageRuns.number));
     return rows.map(stageRunOf);
   }
+
+  async commandOutputs(taskId: string, runId: string): Promise<readonly string[] | undefined> {
+    const [row] = await this.database
+      .select({ commandRuns: stageRuns.commandRuns, commandOutputs: stageRuns.commandOutputs })
+      .from(stageRuns)
+      .where(and(eq(stageRuns.taskId, taskId), eq(stageRuns.id, runId)));
+    return row?.commandRuns.map(({ output }, index) => row.commandOutputs[index] ?? output);
+  }
 }
 
-function stageRunOf(row: typeof stageRuns.$inferSelect): StageRun {
+function stageRunOf(row: Omit<typeof stageRuns.$inferSelect, "commandOutputs">): StageRun {
   return {
     ...row,
     carriedFailure: row.carriedFailure ?? undefined,

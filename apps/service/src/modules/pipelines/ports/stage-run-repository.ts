@@ -1,4 +1,4 @@
-import type { StageCommandRun } from "../domain/stage-command-run.js";
+import type { StageCommandRunWithOutput } from "../domain/stage-command-run.js";
 import type {
   GateAction,
   StageRun,
@@ -34,7 +34,10 @@ export abstract class StageRunRepository {
   abstract saveHeadCommit(runId: string, headCommit: string): Promise<void>;
 
   /** Saves the Project commands The Office ran for the run, replacing those saved before. */
-  abstract saveCommandRuns(runId: string, commandRuns: readonly StageCommandRun[]): Promise<void>;
+  abstract saveCommandRuns(
+    runId: string,
+    commandRuns: readonly StageCommandRunWithOutput[],
+  ): Promise<void>;
 
   /** Saves the run's tokens so far, replacing those saved before. */
   abstract saveTokens(runId: string, tokens: StageTokens): Promise<void>;
@@ -54,9 +57,15 @@ export abstract class StageRunRepository {
   /** Saves how the run ended. */
   abstract saveEnded(run: StageRun): Promise<void>;
 
-  /** The Task's runs, oldest first. */
+  /** The Task's runs, oldest first, without their commands' whole outputs. */
   abstract list(taskId: string): Promise<readonly StageRun[]>;
 
-  /** The runs of each of the Tasks, each Task's oldest first. */
+  /** The runs of each of the Tasks, each Task's oldest first, as `list` gives them. */
   abstract listOfTasks(taskIds: readonly string[]): Promise<readonly StageRun[]>;
+
+  /**
+   * What each command of the Task's run printed, in the order of its command runs; a run saved
+   * before whole outputs were kept gives the filtered output it has. Undefined for no such run.
+   */
+  abstract commandOutputs(taskId: string, runId: string): Promise<readonly string[] | undefined>;
 }

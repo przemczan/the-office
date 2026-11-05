@@ -7,7 +7,7 @@ import {
   commandRunsOf,
   failedInstall,
   installRuns,
-  type StageCommandRun,
+  type StageCommandRunWithOutput,
 } from "../domain/stage-command-run.js";
 import { interruptedOutcome } from "../domain/stage-interruption.js";
 import type { StageOutcome } from "../domain/stage-run.js";
@@ -111,7 +111,7 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
     { run, interruption }: StageWork<"script">,
     task: TaskRecord,
     expected: ExpectedHead,
-    ran: readonly StageCommandRun[],
+    ran: readonly StageCommandRunWithOutput[],
   ): Promise<StageOutcome> {
     const stoppedBy = interruption.requested;
     if (!stoppedBy) {
@@ -126,7 +126,7 @@ export class ScriptStageRunner implements StageRunner<"script">, OnModuleInit {
 }
 
 /** Only The Office stops a command; one that ended by itself first gives the run its outcome. */
-function anyStopped(runs: readonly StageCommandRun[]): boolean {
+function anyStopped(runs: readonly StageCommandRunWithOutput[]): boolean {
   return runs.some(({ outcome }) => outcome === "stopped");
 }
 

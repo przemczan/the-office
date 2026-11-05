@@ -23,6 +23,7 @@ import {
 } from "../pipelines-application.fixtures.js";
 import {
   aCommandRun,
+  recordedRun,
   aPerson,
   aTaskRecord,
   PLANNED_COMMIT,
@@ -319,7 +320,7 @@ describe("AgentStageRunner", () => {
       "## The install before this Stage\n\nInstalling the Project's dependencies failed: `npm ci` failed with exit code 1.\n\nWhat it printed:\n\n```\nnpm ERR! Missing: left-pad\n```",
     );
     const [run] = await runsOf(pipelines, taskId);
-    expect(run?.commandRuns).toEqual([{ ...install, purpose: "install" }]);
+    expect(run?.commandRuns).toEqual([recordedRun(install, "install")]);
     expect(run?.outcome?.status).toBe("done");
   });
 

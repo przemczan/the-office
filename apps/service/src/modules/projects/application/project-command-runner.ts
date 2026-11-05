@@ -1,6 +1,6 @@
 import { Injectable } from "@nestjs/common";
 import { currentOperatingSystem } from "../../../platform/os/current-operating-system.js";
-import { filteredOutput, type CommandRun } from "../domain/command-run.js";
+import { filteredOutput, wholeOutputOf, type CommandRun } from "../domain/command-run.js";
 import type { ProjectEnvironment } from "../domain/project-environment.js";
 import { CommandRunner } from "../ports/command-runner.js";
 import { commandEnvironment } from "./command-environment.js";
@@ -42,6 +42,7 @@ export class ProjectCommandRunner {
       exitCode: finished.exitCode,
       durationMs: finished.durationMs,
       output: filteredOutput(finished.output),
+      wholeOutput: wholeOutputOf(finished.output, finished.droppedOutputBytes),
     };
   }
 

@@ -9,6 +9,7 @@ function aRun(fields: Partial<CommandRun>): CommandRun {
     exitCode: 1,
     durationMs: 1000,
     output: "",
+    wholeOutput: "",
     ...fields,
   };
 }

@@ -4,6 +4,9 @@ import type { ProjectEnvironment } from "./project-environment.js";
 
 export type CheckState = "waiting" | "running" | "passed" | "failed" | "skipped";
 
+/** A check's command as it is kept: the whole output is only for the Stage history. */
+export type CheckedCommandRun = Omit<CommandRun, "wholeOutput">;
+
 /** Where the check's worktree started. */
 export interface CheckedBase {
   readonly commit: string;
@@ -26,7 +29,7 @@ export interface CommandCheck {
   readonly state: CheckState;
   /** As it was when the check started, so a command changed meanwhile doesn't mix in. */
   readonly commandLine: string;
-  readonly run?: CommandRun;
+  readonly run?: CheckedCommandRun;
 }
 
 export type Check = WorktreeCheck | CommandCheck;

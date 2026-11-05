@@ -20,6 +20,7 @@
 - Resolve (spec 2.3, "Conflicts at Publish"): a Publish run that conflicts puts Resolve, its Test and a Gate (keys `office:resolve…`, `domain/resolve-stages.ts`) before that Publish, derived from the runs and never stored: read the Stages as walked (`walkedStages`) wherever runs meet them (the walk, progress, the Gate, staffing), and strip them from an edit (`withoutResolveStages`). The Resolve Agent Stage's git is The Office's around the Agent's turn (`ResolveStageGit`, through `TaskPublishing`): no commit of its own, the merge committed once no marker is left; a round its Gate sent back is an ordinary Agent round on the merged branch, committed as any Stage's; dropping the Task aborts a merge left in progress (Work's `TaskStateChanged`).
 - What the all clear would resume (`AlarmResumes`, pure `domain/alarm-resume.ts`, read by Notifications' Now): from the walk's next move, an Agent Stage's session as `AgentStageRunner.sessionAhead` asks `StageThreads.sessionAhead` (the same `stageSessionOf` and record as a run's `open`), a warm cache counted at a tenth of its context; none while the held run still runs. A run the alarm held shows Paused.
 - The fire alarm (spec 2.8) is the `alarm` interruption: held after the Agent's turn as a Pause, its edits kept, but its Project commands stopped now, so a Script Stage stops at once; a Publish takes no interruption and finishes. `AlarmSounded` schedules the hard stop (`Schedule.once`) of the runs going on then, which cuts their turns short (`StageRunInterruption.hardStop`, `cutShortBy`), edits kept. At boot an In progress Task is held through `StartedTasks.holdForFireAlarm` before anything walks, and a run left running on a Task the alarm paused ends held by it.
+- A command's whole output (Projects' `wholeOutput`, its last 64 KB) is saved beside its run in `stage_runs.command_outputs`, in the order of `commandRuns`, and read only by `GET /tasks/:id/stage-runs/:runId/command-outputs`; `list` and `listOfTasks` leave it out, as the walk reads every run at each move and the web refetches the Stages at each event. The `output` on a command run is the filtered one, which the Brief and the failure's words use; a run saved before `command_outputs` answers with that.
 - `StaffingHolds` pauses a Task whose next Stages nobody can work, behind a Decision kept in `staffing_holds`; the interpreter asks it on every `TaskResumed` before walking, so a Resume while the lack stands pauses the Task again.
 
 **Open:** after Publish removes the worktree, a message to the Task's Planning Thread opens a session in a folder that no longer exists (task 14).
@@ -49,6 +50,7 @@ AlarmResumes, PipelineLibrary, TaskStagesService, UsageHistory, StageUsage, Stag
 - `POST /tasks/:id/gate/send-back`: TaskGateController.sendBack
 - `POST /tasks/:id/gate/drop`: TaskGateController.drop
 - `GET /tasks/:id/stages`: TaskStagesController.read
+- `GET /tasks/:id/stage-runs/:runId/command-outputs`: TaskStagesController.commandOutputs
 - `PUT /tasks/:id/stages`: TaskStagesController.edit
 - `POST /tasks/:id/stages/check`: TaskStagesController.check
 
@@ -147,7 +149,7 @@ AlarmResumes, PipelineLibrary, TaskStagesService, UsageHistory, StageUsage, Stag
 - `script-stage-outcome.ts`: scriptStageOutcome, installFailure
 - `staffing-decision.ts`: STAFFING_OPTIONS, staffingHoldReason, staffingDecision
 - `stage-budget.ts`: stageBudget, budgetReached, budgetOutcome, tokensWords
-- `stage-command-run.ts`: CommandOutcome, CommandRun, MovedFiles, ScriptCommandRun, StageCommandPurpose, StageCommandRun, Installation, installRuns, failedInstall, commandRunsOf, howItEnded
+- `stage-command-run.ts`: CommandOutcome, CommandRun, MovedFiles, ScriptCommandRun, StageCommandPurpose, StageCommandRun, StageCommandRunWithOutput, Installation, installRuns, failedInstall, commandRunsOf, howItEnded
 - `stage-commit.ts`: ExpectedHead, stageCommitMessage, headProblem
 - `stage-interruption.ts`: CutShortBy, actsNow, stopsCommands, waitsForTheTurn, outranks, RESTARTED, notStartedOutcome, interruptedOutcome, StageWorkClosing, closingOf
 - `stage-permissions.ts`: HardSwitchOnCard, StagePermissions
@@ -172,7 +174,7 @@ AlarmResumes, PipelineLibrary, TaskStagesService, UsageHistory, StageUsage, Stag
 
 - `known-people.ts`: KnownPerson, KnownPeople
 - `pipeline-repository.ts`: PipelineRepository
-- `pipelines-ports.fixtures.ts`: StageRoleEnginesForTests, ProjectDefaultsForTests, StartedTasksForTests, aTaskRecord, TaskRecordsForTests, aPerson, KnownPeopleForTests, StageThreadsForTests, StageDecisionsForTests, TaskUsageForTests, TaskThreadSessionsForTests, TaskScreenshotsForTests, PLANNED_COMMIT, TaskGitForTests, aCommandRun, TaskCommandsForTests, RESOLVED_COMMIT, TaskPublishingForTests, ProposalDraftsForTests, PipelinesPortsForTestsModule
+- `pipelines-ports.fixtures.ts`: StageRoleEnginesForTests, ProjectDefaultsForTests, StartedTasksForTests, aTaskRecord, TaskRecordsForTests, aPerson, KnownPeopleForTests, StageThreadsForTests, StageDecisionsForTests, TaskUsageForTests, TaskThreadSessionsForTests, TaskScreenshotsForTests, PLANNED_COMMIT, TaskGitForTests, aCommandRun, recordedRun, TaskCommandsForTests, RESOLVED_COMMIT, TaskPublishingForTests, ProposalDraftsForTests, PipelinesPortsForTestsModule
 - `project-defaults.ts`: ProjectDefault, ProjectDefaults
 - `proposal-drafts.ts`: ProposedPipelineChange, ProposalDrafts
 - `staffing-hold-repository.ts`: StaffingHoldRepository
