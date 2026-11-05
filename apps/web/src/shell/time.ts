@@ -22,10 +22,21 @@ export function clockOf(isoTime: string): string {
   return CLOCK.format(new Date(isoTime));
 }
 
+export function sameDay(first: Date | string, second: Date | string): boolean {
+  return new Date(first).toDateString() === new Date(second).toDateString();
+}
+
+/** "Today", "Yesterday", and "25 Oct" before. */
+export function dayLineWords(isoTime: string, now: Date = new Date()): string {
+  if (sameDay(isoTime, now)) return "Today";
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  return sameDay(isoTime, yesterday) ? "Yesterday" : dayOf(isoTime, now);
+}
+
 /** "14:02" today, "25 Oct, 14:02" before. */
 export function momentWords(isoTime: string, now: Date = new Date()): string {
-  const today = new Date(isoTime).toDateString() === now.toDateString();
-  return today ? clockOf(isoTime) : dayAndClockOf(isoTime, now);
+  return sameDay(isoTime, now) ? clockOf(isoTime) : dayAndClockOf(isoTime, now);
 }
 
 /** "18 min", "1h 10 min"; under a minute as "<1 min". */

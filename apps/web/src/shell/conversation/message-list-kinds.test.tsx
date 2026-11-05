@@ -183,10 +183,76 @@ describe("MessageList's kinds", () => {
     const log = shownLog([{ ...toolCall, summary: LONG_COMMAND }]);
     expect(log.querySelector(".tool-calls .message-summary")?.textContent).toBe(LONG_COMMAND);
   });
+
+  it("shows a lone tool call with nothing to open", () => {
+    const [toolCall] = EVERY_KIND["tool-activity"];
+    expect(shownLog([toolCall]).querySelector("details")).toBeNull();
+  });
+
+  it("folds neighbouring tool calls to their count and the latest, opening to every call", () => {
+    const [toolCall] = EVERY_KIND["tool-activity"];
+    const log = shownLog([
+      { ...toolCall, id: "first", summary: "a.ts" },
+      { ...toolCall, id: "latest", summary: LONG_COMMAND },
+    ]);
+    const fold = log.querySelector<HTMLDetailsElement>("details.tool-calls");
+    expect(fold?.open).toBe(false);
+    expect(fold?.querySelector(".tool-call-count")?.textContent).toBe("2 tool calls");
+    expect(fold?.querySelector(".tool-call-latest")?.textContent).toBe(`Read ${LONG_COMMAND}`);
+    expect(
+      [...(fold?.querySelectorAll("li .message-summary") ?? [])].map((call) => call.textContent),
+    ).toEqual(["a.ts", LONG_COMMAND]);
+  });
+
+  it("shows a failure and an MCP server that didn't start as a strip", () => {
+    const log = shownLog([EVERY_KIND.failure[0], EVERY_KIND["mcp-server-not-started"][0]]);
+    expect(log.querySelectorAll(".message-notice.failed")).toHaveLength(2);
+    expect(log.querySelector(".message-line")).toBeNull();
+  });
+
+  it("gives a refusal's reason the words' own span, to wrap beside its icon", () => {
+    const [refusal] = EVERY_KIND.refusal;
+    const notice = shownLog([refusal]).querySelector(".message-notice.refused");
+    expect(notice?.querySelector("span")?.textContent).toBe(
+      `${refusal.tool} refused: ${refusal.reason}`,
+    );
+  });
+
+  it("opens each day of a Thread that spans days with a day line", () => {
+    const [said] = EVERY_KIND.person;
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(today.getDate() - 1);
+    const log = shownLog([
+      { ...said, id: "before", at: yesterday.toISOString() },
+      { ...said, id: "after", at: today.toISOString() },
+    ]);
+    expect(log.querySelectorAll(".turn")).toHaveLength(2);
+    expect([...log.querySelectorAll(".message-log-line")].map((line) => line.textContent)).toEqual([
+      "Yesterday",
+      "Today",
+    ]);
+  });
+
+  it("has no day line in a Thread of one day", () => {
+    const [said] = EVERY_KIND.person;
+    expect(shownLog([said]).querySelector(".message-log-line")).toBeNull();
+  });
 });
 
 describe("MessageList with Details off", () => {
   const [toolCall] = EVERY_KIND["tool-activity"];
+
+  it("hides neighbouring tool calls, fold and all", () => {
+    const log = shownLog(
+      [
+        { ...toolCall, id: "first" },
+        { ...toolCall, id: "latest" },
+      ],
+      { details: false },
+    );
+    expect(log.querySelector(".tool-calls")).toBeNull();
+  });
 
   it("shows every kind but tool activity and context lines", () => {
     const { "tool-activity": tool, context, ...shown } = EVERY_KIND;

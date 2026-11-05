@@ -66,7 +66,7 @@
 - `skill-words.ts`: pinnedVersionLabel, samePinnedVersion, sourceLabel
 - `ssh-host-name.ts`: sshHostName
 - `status-strip.tsx`: StatusStrip
-- `time.ts`: dayOf, dayAndClockOf, clockOf, momentWords, durationWords, shortDurationWords
+- `time.ts`: dayOf, dayAndClockOf, clockOf, sameDay, dayLineWords, momentWords, durationWords, shortDurationWords
 - `toasts.tsx`: Notice, Notices, ToastProvider, useToast, useNotices
 - `token-count.tsx`: TokenCount, TokenFigure, TokenMeter
 - `token-words.ts`: NO_TOKENS, sumTokens, tokenKindLines
@@ -119,7 +119,7 @@
 - `mention-picker.tsx`: Mentions, useMentions
 - `mention-words.ts`: MENTION_KINDS, MentionKind, Mentionable, MentionQuery, MENTIONS_SHOWN, mentionQueryAt, mentionables, matchingMentionables, withMentionLinks
 - `message-field.tsx`: MessageField
-- `message-groups.ts`: TurnMessage, ToolCall, MessageGroup, LogLine, LogPiece, withLogLines, groupedMessages
+- `message-groups.ts`: TurnMessage, ToolCall, MessageGroup, LogLine, LogPiece, withLogLines, withDayLines, groupedMessages
 - `message-list.tsx`: HandoverNoteReader, MessageList
 - `message-visibility.ts`: visibleMessages, onlyDetailsWouldShow, latestToolCall
 - `office-status-card.tsx`: OfficeStatusCard

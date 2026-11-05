@@ -2,6 +2,7 @@ import type { Message } from "@the-office/contracts";
 import { describe, expect, it } from "vitest";
 import {
   groupedMessages,
+  withDayLines,
   withLogLines,
   type LogLine,
   type MessageGroup,
@@ -133,6 +134,38 @@ function cardAt(id: string, minute: number): Message {
 function line(id: string, minute: number): LogLine {
   return { id, at: atMinute(minute), words: id };
 }
+
+function onDay(id: string, day: number): Message {
+  return { ...fromPerson(id), at: new Date(2026, 10, day, 12).toISOString() };
+}
+
+describe("withDayLines", () => {
+  const now = new Date(2026, 10, 5, 12);
+  const shown = (messages: readonly Message[]): readonly string[] =>
+    withDayLines(withLogLines(groupedMessages(messages), []), now).map((piece) =>
+      piece.kind === "line" ? piece.line.words : piece.id,
+    );
+
+  it("adds nothing to a Thread of one day", () => {
+    expect(shown([onDay("first", 3), onDay("second", 3)])).toEqual(["first"]);
+  });
+
+  it("opens every day, the first too, in the words of the day", () => {
+    expect(shown([onDay("old", 2), onDay("before", 4), onDay("now", 5)])).toEqual([
+      "2 Nov",
+      "old",
+      "Yesterday",
+      "before",
+      "Today",
+      "now",
+    ]);
+  });
+
+  it("splits one author's turn at midnight, so the day line sits between", () => {
+    const turns = groupedMessages([onDay("first", 3), onDay("second", 4)]);
+    expect(turns).toHaveLength(2);
+  });
+});
 
 describe("withLogLines", () => {
   it("puts a line where it happened, and what came after everything at the end", () => {

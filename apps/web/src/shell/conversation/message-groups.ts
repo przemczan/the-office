@@ -1,4 +1,5 @@
 import type { Message } from "@the-office/contracts";
+import { dayLineWords, sameDay } from "../time.ts";
 
 export type TurnMessage = Extract<Message, { kind: "user" | "person" }>;
 export type ToolCall = Extract<Message, { kind: "tool-activity" }>;
@@ -49,10 +50,31 @@ function startOf(group: MessageGroup): string {
   return group.kind === "alone" ? group.message.at : group.messages[0].at;
 }
 
+/** A line opening each day, the first too, once what shows spans more than one. */
+export function withDayLines(
+  pieces: readonly LogPiece[],
+  now: Date = new Date(),
+): readonly LogPiece[] {
+  const [first] = pieces;
+  if (!first || pieces.every((piece) => sameDay(timeOf(piece), timeOf(first)))) return pieces;
+  return pieces.flatMap((piece, index) => {
+    const before = pieces[index - 1];
+    const at = timeOf(piece);
+    if (before && sameDay(timeOf(before), at)) return [piece];
+    const dayLine: LogLine = { id: `day-${at}`, at, words: dayLineWords(at, now) };
+    return [{ kind: "line", line: dayLine }, piece];
+  });
+}
+
+function timeOf(piece: LogPiece): string {
+  return piece.kind === "line" ? piece.line.at : startOf(piece);
+}
+
 /**
  * One author's neighbouring messages as a turn, and neighbouring tool calls as one block. Anything
  * else stands alone and ends the turn before it: a card or a line said between two messages stays
- * between them. Run it on what will show, so a line left out doesn't split a turn.
+ * between them, as a new day's line will. Run it on what will show, so a line left out doesn't
+ * split a turn.
  */
 export function groupedMessages(messages: readonly Message[]): MessageGroup[] {
   const groups: MessageGroup[] = [];
@@ -66,6 +88,7 @@ export function groupedMessages(messages: readonly Message[]): MessageGroup[] {
 }
 
 function joined(group: MessageGroup, message: Message): MessageGroup | undefined {
+  if (!sameDay(startOf(group), message.at)) return undefined;
   if (group.kind === "turn" && isTurnMessage(message) && sameAuthor(group.messages[0], message)) {
     return { ...group, messages: [...group.messages, message] };
   }

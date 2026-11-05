@@ -154,8 +154,12 @@ test("the conversation's foot stays in the window beside the record, and a Threa
   await page.goto(`/tasks/${toolsOnly.id}`);
   await expect(conversation.getByText(hidden)).toHaveCount(1);
   await conversation.getByRole("group", { name: "Details" }).getByRole("switch").click();
-  await expect(conversation.getByText("Read file 0")).toBeVisible();
+  const fold = conversation.getByText("3 tool calls");
+  await expect(fold).toBeVisible();
+  await expect(conversation.locator(".tool-call-latest")).toHaveText("Read Read file 2");
   await expect(conversation.getByText(hidden)).toHaveCount(0);
+  await fold.click();
+  await expect(conversation.getByText("Read file 0")).toBeVisible();
 });
 
 test("a tool call's command shows whole in a narrow window, and only a very long one scrolls", async ({
@@ -183,6 +187,7 @@ test("a tool call's command shows whole in a narrow window, and only a very long
   const details = conversation.getByRole("group", { name: "Details" }).getByRole("switch");
   await details.click();
 
+  await conversation.getByText("3 tool calls").click();
   const commands = conversation.locator(".tool-calls .message-summary");
   await expect(commands).toHaveCount(3);
   const [lines, scrolling, wrapped] = await Promise.all(

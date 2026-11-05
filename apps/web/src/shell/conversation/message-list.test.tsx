@@ -142,7 +142,9 @@ it("shows the person working from the moment a turn starts, before any output", 
     );
 
   show(true);
-  expect(page.querySelector('[role="status"]')?.textContent).toBe("Jan is working");
+  expect(page.querySelector('[role="status"] > span:not([aria-hidden])')?.textContent).toBe(
+    "Jan is working",
+  );
   show(false);
   expect(page.querySelector('[role="status"]')).toBeNull();
   act(() => root.unmount());
@@ -175,20 +177,21 @@ it("shows an MCP server that didn't start as The Office's line, with why when th
     ),
   );
 
-  expect([...page.querySelectorAll(".message-line")].map((shown) => shown.textContent)).toEqual([
+  expect([...page.querySelectorAll(".failed")].map((shown) => shown.textContent)).toEqual([
     "The MCP server github didn't start: It exited with code 1: token [a Server value] refused.",
     "The MCP server linear didn't start.",
   ]);
   act(() => root.unmount());
 });
 
-it("shows Allow changes switched on and off as The Office's lines", () => {
+it("shows Allow changes and a held Stage as The Office's small notes, a run on a hairline", () => {
   const page = document.createElement("div");
   const root = createRoot(page);
   const at = "2026-11-03T10:00:00.000Z";
   const messages: Message[] = [
     { at, id: "1", kind: "changes-allowed", allowed: true },
     { at, id: "2", kind: "changes-allowed", allowed: false },
+    { at, id: "3", kind: "held", heldBy: "pause", text: "Paused by you" },
   ];
 
   act(() =>
@@ -199,6 +202,7 @@ it("shows Allow changes switched on and off as The Office's lines", () => {
         answering={false}
         stageThread={false}
         details
+        logLines={[{ id: "run", at, words: "Implement · run 2 done" }]}
       />,
     ),
   );
@@ -206,6 +210,8 @@ it("shows Allow changes switched on and off as The Office's lines", () => {
   expect([...page.querySelectorAll(".message-office")].map((shown) => shown.textContent)).toEqual([
     "Changes allowed",
     "Changes switched off",
+    "Paused by you",
   ]);
+  expect(page.querySelector(".message-log-line")?.textContent).toBe("Implement · run 2 done");
   act(() => root.unmount());
 });

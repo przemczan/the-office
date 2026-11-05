@@ -13,6 +13,7 @@ import { IdeaCard } from "./idea-card.tsx";
 import { LinkCard } from "./link-card.tsx";
 import {
   groupedMessages,
+  withDayLines,
   withLogLines,
   type LogLine,
   type MessageGroup,
@@ -105,7 +106,7 @@ export function MessageList({
           leavesReaderBe && scrollHeight - scrollTop - clientHeight > FOLLOWING_DISTANCE_PX;
       }}
     >
-      {withLogLines(groupedMessages(visible), logLines).map((piece) =>
+      {withDayLines(withLogLines(groupedMessages(visible), logLines)).map((piece) =>
         piece.kind === "line" ? (
           <p key={piece.line.id} className="message-log-line">
             {piece.line.words}
@@ -145,12 +146,15 @@ function Working({
 }): ReactNode {
   return (
     <div className="message-answering" role="status">
+      <span aria-hidden="true">
+        <Avatar name={personName} size="xs" />
+      </span>
       <span className="message-answering-dots" aria-hidden="true">
         <i />
         <i />
         <i />
       </span>
-      {personName} is working
+      <span>{personName} is working</span>
       {toolCall && <ToolCallWords call={toolCall} />}
     </div>
   );
@@ -260,16 +264,47 @@ function TurnFrame({
   );
 }
 
-function ToolCalls({ calls }: { readonly calls: readonly ToolCall[] }): ReactNode {
+/** A lone call shows whole, with nothing to open; neighbouring calls fold. */
+function ToolCalls({ calls }: { readonly calls: readonly [ToolCall, ...ToolCall[]] }): ReactNode {
+  const [first, ...others] = calls;
+  const latest = others.at(-1);
+  if (latest) return <ToolCallFold calls={calls} latest={latest} />;
   return (
     <div className="tool-calls">
-      {calls.map((call) => (
-        <div key={call.id} className="message-line">
-          <Icon name="wrench" size={12} />
-          <ToolCallWords call={call} />
-        </div>
-      ))}
+      <div className="message-line">
+        <Icon name="wrench" size={12} />
+        <ToolCallWords call={first} />
+      </div>
     </div>
+  );
+}
+
+/** One line with the count and the latest call, opening to every call shown whole. */
+function ToolCallFold({
+  calls,
+  latest,
+}: {
+  readonly calls: readonly ToolCall[];
+  readonly latest: ToolCall;
+}): ReactNode {
+  return (
+    <details className="tool-calls tool-call-fold">
+      <summary>
+        <Icon name="chevron-right" size={12} />
+        <span className="tool-call-count">{calls.length} tool calls</span>
+        <span aria-hidden="true">·</span>
+        <span className="tool-call-latest">
+          {latest.tool} {latest.summary}
+        </span>
+      </summary>
+      <ul>
+        {calls.map((call) => (
+          <li key={call.id} className="message-line">
+            <ToolCallWords call={call} />
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 
@@ -302,17 +337,18 @@ function MessageItem({
       );
     case "refusal":
       return (
-        <div className="message-line refused">
+        <div className="message-notice refused">
           <Icon name="shield-x" size={12} />
-          <span className="message-tool">{message.tool} refused</span>
-          <span className="message-summary">{message.reason}</span>
+          <span>
+            <b>{message.tool} refused:</b> {message.reason}
+          </span>
         </div>
       );
     case "mcp-server-not-started":
       return (
-        <div className="message-line failed">
+        <div className="message-notice failed">
           <Icon name="triangle-alert" size={12} />
-          <span className="message-summary">
+          <span>
             The MCP server {message.server} didn't start
             {message.reason === null ? "." : `: ${message.reason}`}
           </span>
@@ -328,19 +364,19 @@ function MessageItem({
       );
     case "failure":
       return (
-        <div className="message-line failed">
+        <div className="message-notice failed">
           <Icon name="circle-alert" size={12} />
-          <span className="message-summary">
+          <span>
             {message.reason} · {clockOf(message.at)}
           </span>
         </div>
       );
     case "held":
       return (
-        <div className="message-line held">
+        <div className="message-office">
           {/* The fire alarm holds a Stage as a Pause does: it goes on after the all clear. */}
           <Icon name={message.heldBy === "stop" ? "square" : "pause"} size={12} />
-          <span className="message-summary">{message.text}</span>
+          <span>{message.text}</span>
         </div>
       );
     case "decision":

@@ -111,13 +111,18 @@
 /* ---- the log */
 .message-list {
   --turn-gutter: var(--space-10);
+  --thread-column: 720px;
+  --thread-edge: var(--space-5);
+
+  /* Centred at reading width in a large window, the edge's width in a narrow one. */
+  --thread-side: max(var(--thread-edge), calc((100% - var(--thread-column)) / 2));
 
   display: flex;
   flex: 1;
   flex-direction: column;
   gap: var(--space-5);
   min-height: 0;
-  padding: var(--space-5) var(--space-5) var(--space-6);
+  padding: var(--space-5) var(--thread-side) var(--space-6);
   overflow: auto;
   background: var(--surface);
 }
@@ -134,8 +139,10 @@
 
 /* A chapter of a timeline, which does the scrolling and paints the surface. */
 .message-list.in-timeline {
+  --thread-edge: var(--space-3);
+
   flex: none;
-  padding: 12px;
+  padding: var(--space-3) var(--thread-side);
   overflow: visible;
   background: none;
 }
@@ -231,9 +238,63 @@
 }
 
 .tool-calls {
-  display: grid;
-  gap: 2px;
   min-width: 0;
+}
+
+.tool-call-fold {
+  font: var(--type-caption);
+  color: var(--fg-2);
+}
+
+.tool-call-fold summary {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1-5);
+  max-width: 100%;
+  padding: var(--space-0-5) var(--space-1-5) var(--space-0-5) 0;
+  border-radius: var(--radius-sm);
+  list-style: none;
+  cursor: pointer;
+}
+
+.tool-call-fold summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool-call-fold summary:hover {
+  color: var(--fg-1);
+}
+
+.tool-call-fold summary > svg {
+  flex: none;
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.tool-call-fold[open] summary > svg {
+  transform: rotate(90deg);
+}
+
+.tool-call-count {
+  flex: none;
+}
+
+/* The one place a call takes one line, its line breaks collapsed: opening the fold shows it whole. */
+.tool-call-latest {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.tool-call-fold ul {
+  display: grid;
+  gap: var(--space-1);
+  margin: var(--space-1) 0 var(--space-0-5) var(--space-1-5);
+  padding: 0 0 0 var(--space-3);
+  border-left: 1px solid var(--border-strong);
+  list-style: none;
 }
 
 .message-by {
@@ -264,10 +325,23 @@
   color: var(--danger-fg);
 }
 
+/* A day or a run: a break in the Thread, on a hairline. */
 .message-log-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin: 0;
   font: var(--type-caption);
-  color: var(--fg-3);
+  color: var(--fg-2);
+  text-align: center;
+}
+
+.message-log-line::before,
+.message-log-line::after {
+  content: "";
+  flex: 1 1 var(--space-4);
+  height: 1px;
+  background: var(--border);
 }
 
 .message-line {
@@ -311,9 +385,8 @@
   flex-wrap: wrap;
 }
 
-.message-line.refused,
-.message-line.refused .message-tool {
-  color: var(--warning-fg);
+.tool-calls .message-line {
+  color: var(--fg-2);
 }
 
 .message-line.failed {
@@ -325,25 +398,63 @@
   display: none !important;
 }
 
-.message-line.failed .message-summary,
-.message-line.held .message-summary {
+.message-line.failed .message-summary {
   font: var(--type-caption);
   white-space: normal;
 }
 
-/* The user held the Stage: no failure, so it reads as plainly as the log's other lines. */
-.message-line.held {
-  color: var(--fg-2);
+/* What went wrong or was refused, in words that wrap beside their icon. */
+.message-notice {
+  display: flex;
+  gap: var(--space-1-5);
+  min-width: 0;
+  font: var(--type-caption);
+  overflow-wrap: anywhere;
 }
 
-/* The Office's own line: never a person's, never "System" (spec §9). */
+.message-notice svg {
+  flex: none;
+  margin-top: calc((1lh - 12px) / 2);
+}
+
+.message-notice b {
+  font-weight: 500;
+}
+
+.message-notice.refused {
+  color: var(--warning-fg);
+}
+
+.message-notice.failed {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-lg);
+  background: var(--danger-subtle);
+  color: var(--danger-fg);
+}
+
+/* The Office's own line, a small note: never a person's, never "System" (spec §9). */
 .message-office {
-  padding: 6px 10px;
-  border: 1px dashed var(--border);
-  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--space-1-5);
   font: var(--type-caption);
   color: var(--fg-2);
   text-align: center;
+}
+
+.message-office svg {
+  flex: none;
+}
+
+/* A few in a row read as one block, so they don't stripe the Thread. */
+.message-office + .message-office {
+  margin-top: calc(-1 * var(--space-3));
+}
+
+.message-office.message-brief {
+  display: block;
 }
 
 .message-brief summary {
@@ -371,11 +482,14 @@
 }
 
 .message-brief-text {
-  margin-top: 6px;
-  padding-top: 6px;
-  border-top: 1px dashed var(--border);
   max-height: 320px;
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
   overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  font: var(--type-body-sm);
+  color: var(--fg-1);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   text-align: left;
@@ -385,10 +499,10 @@
 .message-answering {
   display: flex;
   align-items: baseline;
-  gap: 6px;
+  gap: var(--space-2);
   min-width: 0;
   font: var(--type-caption);
-  color: var(--fg-3);
+  color: var(--fg-2);
 }
 
 .message-answering-dots {
