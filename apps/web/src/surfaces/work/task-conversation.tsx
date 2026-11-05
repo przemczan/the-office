@@ -145,7 +145,7 @@ function PeopleTabs({
           }}
         />
       )}
-      <div className="timeline-view">
+      <div className="timeline-view timeline-view-thread">
         <div className="timeline" ref={scroller}>
           <div className="timeline-chapters" ref={chapters}>
             <TabLog

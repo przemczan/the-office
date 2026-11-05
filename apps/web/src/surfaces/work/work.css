@@ -1958,6 +1958,19 @@
   padding: 14px 16px;
 }
 
+/* A Task's tab shows one Thread, so it needs no box: it sits on the plain surface, as any Thread. */
+.timeline-view-thread {
+  background: var(--surface);
+}
+
+.timeline-view-thread .timeline-chapters {
+  padding: var(--space-5) var(--space-5) var(--space-6);
+}
+
+.timeline-view-thread .message-list.in-timeline {
+  padding: 0;
+}
+
 /* Each Thread is a box of its own; the ones behind you fold to a line. */
 .chapter {
   flex: none;

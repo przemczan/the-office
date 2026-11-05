@@ -13,12 +13,12 @@ The user can always read a tool call's whole command, however narrow the window.
 - [x] A tool call keeps its whole text, line breaks included. Check: `tool-activity.test.ts`, with a command over 200 characters and one of several lines.
 - [x] Every command shows whole at any width: it wraps, and only a very long one scrolls in its place. The line beside "is working" wraps too. Check: a web test, and a screenshot at 380px of a command over 200 characters.
 - [x] A turn has its avatar, name and time on the left; the user's avatar is neutral. Neighbouring messages still join into one turn. Check: `message-list-kinds.test.tsx`.
-- [ ] The Thread sits on the plain surface, its text is 14px, and there is more space between turns than within one. Check: screenshots against the mock.
+- [x] The Thread sits on the plain surface, its text is 14px, and there is more space between turns than within one. Check: screenshots against the mock.
 - [x] Neighbouring tool calls fold to one line with their count and the latest call, and open to every call. Details hides them as today. Check: a web test.
 - [x] The Office's lines lose their dashed boxes: a day or a run sits on a hairline, the others are small centred notes. A Thread that spans days has a day line. Check: a web test of the day line, and `message-list.test.tsx`.
 - [x] A failure and an MCP server that didn't start show as a tinted strip; a refusal's reason wraps. Check: `message-list-kinds.test.tsx`.
 - [x] In a large window the Thread takes the whole width of its block. Check: a screenshot of the Stage history at 1600px.
-- [ ] The app matches the Rows mock in Light and Dark, at 380, 620 and 900px, on the Task page, the Stage history, a person's chat and the drawer. Check: screenshots, fed the mock's messages.
+- [x] The app matches the Rows mock in Light and Dark, at 380, 620 and 900px, on the Task page, the Stage history, a person's chat and the drawer. Check: screenshots, fed the mock's messages.
 - [x] Spec 4, the UI rules and the click-through say what changed. Check: read each changed line against [What was settled](#what-was-settled).
 
 ## Read first
@@ -39,6 +39,7 @@ With the user, 2026-11-05.
 
 - **Rows**, over Chat and Bubbles. The user's and the person's turns differ by their avatar and name only.
 - **The whole command** shows at any width, with no way for it to stay hidden.
+- **The plain surface everywhere:** a Task's Thread, on the page and in the drawer, leaves the sunken timeline for the plain surface with the mock's padding. An Initiative's chapters stay boxes on the timeline.
 - **The whole width:** after step 4 the user dropped the centred column: a Thread fills its block however wide the window. Long text outside a Thread keeps its reading width.
 
 **Chosen while planning, for the user to review**
@@ -54,10 +55,11 @@ With the user, 2026-11-05.
 - [x] 3. Tool calls fold; the Office's lines, the day line, the strips and the centred column. Read: `message-groups.ts`, `message-list.tsx` (`MessageItem`, `ContextLine`), `apps/web/e2e/people.e2e.ts` near `.message-office`.
 - [x] 4. Close: the screenshots against the mock, spec 4, the UI rules, the click-through, and `npm run verify:linux`.
 - [x] 5. The whole width: the Thread's column and its text's 72ch go, in the app, the UI rules and the click-through. Read: `conversation.css` (`.message-list`, `.turn`).
+- [x] 6. The plain surface on the Task page and in the drawer, the user's answer to the open question. Read: `task-conversation.tsx`, `work.css` (`.timeline-view`).
 
 ## State
 
-Steps 1 to 5 are built; `npm run verify:linux` and closing are left. Two DoD boxes stay open on one question for the user (below).
+Steps 1 to 6 are built; `npm run verify:linux` and closing are left.
 
 A tool call keeps its whole text; `.message-summary` shows it with `pre-wrap`, scrolling past 320px. A Turn is a row: `TurnFrame` takes its `avatar`, `by`, `at` and `labelled`; `.turn` is a grid of `--turn-gutter` and the words, 14px, Turns `--space-5` apart, messages within one `--space-2`. `ToolCalls`: a lone call is a plain line, two or more are `ToolCallFold`. `.message-office` is a centred note, `.message-log-line` sits on a hairline (`withDayLines`), `.message-notice` is the strip. The Thread fills its block, inset by `--thread-edge`; since step 5 the mock's column is a chosen difference.
 
@@ -67,7 +69,7 @@ Chosen differences: a lone call has no fold; a Context line keeps the word "Brie
 
 Other differences, left as built: a run has a line when it ends, not when it starts (the mock draws both); the drawer is at most about 430px wide at any window, so the mock's 620 and 900px don't arise there; a user's message with a Handover note shows its delivery in a Stage Thread, a case only the mock's data makes; the mock's Link, Idea and Office status cards were not seeded, being out of this task.
 
-Open, for the user: the Task page's and the drawer's Threads are still chapters on the sunken timeline, where the mock draws the plain surface, padded 12px against 20 and 24px. So "the plain surface" and "matches the mock" stay unticked until the user keeps them or asks for the change. The spec says nothing on it yet: the UI rules' "plain surface" line holds once this is settled.
+A Task's Thread, on the page and in the drawer, sits on the plain surface padded 20 and 24px (`.timeline-view-thread`); an Initiative's chapters keep their boxes on the sunken timeline.
 
 Outside this task: at 380px the status strip makes the page scroll 32px sideways, on every page, against the UI rules' Narrow rule.
 
@@ -80,3 +82,4 @@ The click-through shows Turns as rows; it has no tool calls, times or Office run
 - 2026-11-05 · step 3: neighbouring tool calls fold, The Office's lines lose their boxes, a Thread that spans days has day lines, failures are tinted strips, the Thread keeps a centred column and "is working" its avatar; next, step 4, the close.
 - 2026-11-05 · step 4: compared the running app with the Rows mock on the chat, the Stage history, the Task page and the drawer, fixed code in a Turn, and spec 4, the UI rules and the click-through say what changed; next, verify:linux and the user's answer on the Task page's chapters.
 - 2026-11-05 · step 5: the Thread fills its block at any width, its column and the text's 72ch gone, as the user asked; next, verify:linux and the user's answer on the Task page's chapters.
+- 2026-11-05 · step 6: a Task's Thread sits on the plain surface with the mock's padding, on the page and in the drawer, as the user answered; next, verify:linux and closing.
