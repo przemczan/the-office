@@ -105,33 +105,36 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
     setFilledFrom(undefined);
     change({ path: "", repositoryUrl: undefined, ...(draft.name === filledName && { name: "" }) });
   };
-  const whereItIsControl = (
-    <Field label="Where it is">
-      {/* A block of its own, so the control keeps its width rather than the form's. */}
-      <div>
-        <SegmentedControl
-          size="sm"
-          value={whereItIs}
-          options={WHERE_IT_IS_OPTIONS}
-          onChange={(value) => {
-            setWhereItIs(whereItIsOf(value));
-            forgetClone();
-          }}
-        />
-      </div>
-    </Field>
+  // First in each step, inside the step's own form or list so it takes the step's spacing.
+  const whereItIsBlock = (
+    <>
+      <p className="dialog-text">
+        A git repository on this workstation, or one cloned by its git URL or from GitHub. The
+        Office checks the folder and the branch before saving.
+      </p>
+      <Field label="Where it is">
+        {/* A block of its own, so the control keeps its width rather than the form's. */}
+        <div>
+          <SegmentedControl
+            size="sm"
+            value={whereItIs}
+            options={WHERE_IT_IS_OPTIONS}
+            onChange={(value) => {
+              setWhereItIs(whereItIsOf(value));
+              forgetClone();
+            }}
+          />
+        </div>
+      </Field>
+    </>
   );
   return (
     <Dialog
+      size="medium"
       title="Add a Project"
-      description="A git repository on this workstation, or one cloned by its git URL or from GitHub. The Office checks the folder and the branch before saving."
-      width={620}
       onClose={onClose}
       actions={
         <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
           {step === "git-url" && (
             <Button type="submit" form={cloneFormId} loading={cloning.busy}>
               Clone
@@ -147,11 +150,11 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
       }
     >
       {step === "github" && (
-        <GitHubRepositoryPicker cloning={cloning}>{whereItIsControl}</GitHubRepositoryPicker>
+        <GitHubRepositoryPicker cloning={cloning}>{whereItIsBlock}</GitHubRepositoryPicker>
       )}
       {step === "git-url" && (
         <RepositoryCloneStep formId={cloneFormId} cloning={cloning}>
-          {whereItIsControl}
+          {whereItIsBlock}
         </RepositoryCloneStep>
       )}
       {step === "form" && (
@@ -163,7 +166,7 @@ export function AddProjectDialog({ onClose }: { readonly onClose: () => void }):
             adding.mutate({ ...draft, mark, installInputs: installInputsFrom(installInputs) });
           }}
         >
-          {whereItIsControl}
+          {whereItIsBlock}
           {adding.error && (
             <RefusalAlert title="The Project can't be added yet" error={adding.error} />
           )}

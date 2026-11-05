@@ -51,19 +51,20 @@ export function ReviewSkillDialog({
   const failure = switching.error ?? removing.error ?? review.error;
   return (
     <Dialog
+      size="large"
       title={`Review ${name}`}
-      width={720}
       onClose={onClose}
       actions={
         <>
-          <Button
-            variant="danger-ghost"
-            iconLeft={<Icon name="trash-2" size={14} />}
-            loading={removing.isPending}
-            onClick={() => removing.mutate()}
-          >
-            Remove it
-          </Button>
+          {skill && (
+            <Button
+              variant={skill.state === "on" ? "secondary" : "primary"}
+              loading={switching.isPending}
+              onClick={() => switching.mutate(skill.state === "on" ? "off" : "on")}
+            >
+              {skill.state === "on" ? "Turn it off" : "Turn it on"}
+            </Button>
+          )}
           {skill && skill.source !== "installed" && (
             <Button
               variant="ghost"
@@ -77,24 +78,21 @@ export function ReviewSkillDialog({
               {skill.source === "written" ? "Edit" : "Upload a new version"}
             </Button>
           )}
-          <span className="skill-dialog-spacer" />
-          <Button variant="secondary" onClick={onClose}>
-            Later
+          <Button
+            variant="danger"
+            iconLeft={<Icon name="trash-2" size={14} />}
+            loading={removing.isPending}
+            onClick={() => removing.mutate()}
+          >
+            Remove it
           </Button>
-          {skill && (
-            <Button
-              variant={skill.state === "on" ? "secondary" : "primary"}
-              loading={switching.isPending}
-              onClick={() => switching.mutate(skill.state === "on" ? "off" : "on")}
-            >
-              {skill.state === "on" ? "Turn it off" : "Turn it on"}
-            </Button>
-          )}
         </>
       }
     >
-      {failure && <RefusalAlert title="That didn't work" error={failure} />}
-      {review.data && <Review review={review.data} />}
+      <div className="dialog-stack">
+        {failure && <RefusalAlert title="That didn't work" error={failure} />}
+        {review.data && <Review review={review.data} />}
+      </div>
     </Dialog>
   );
 }

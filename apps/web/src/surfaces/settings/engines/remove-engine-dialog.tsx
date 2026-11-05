@@ -52,25 +52,19 @@ export function RemoveEngineDialog({
   const refused = (preview.data?.problems.length ?? 0) > 0;
   return (
     <Dialog
+      size="medium"
       title={`Remove ${name}?`}
-      tone="danger"
-      width={560}
       onClose={onClose}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="danger"
-            loading={removing.isPending}
-            // Only what the service read for this replacement, and would let through, is confirmed.
-            disabled={!preview.data || refused}
-            onClick={() => removing.mutate()}
-          >
-            Remove {name}
-          </Button>
-        </>
+        <Button
+          variant="danger"
+          loading={removing.isPending}
+          // Only what the service read for this replacement, and would let through, is confirmed.
+          disabled={!preview.data || refused}
+          onClick={() => removing.mutate()}
+        >
+          Remove {name}
+        </Button>
       }
     >
       <div className="engine-removal">

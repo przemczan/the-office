@@ -39,19 +39,13 @@ export function HireDialog({
   });
   return (
     <Dialog
+      size="medium"
       title="Hire a Role"
-      description="One person fills each Role. Every setting can change later on the Role card."
-      width={560}
       onClose={onClose}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" form={formId} loading={hiring.isPending}>
-            {name.trim() === "" ? "Hire" : `Hire ${name.trim()}`}
-          </Button>
-        </>
+        <Button type="submit" form={formId} loading={hiring.isPending}>
+          {name.trim() === "" ? "Hire" : `Hire ${name.trim()}`}
+        </Button>
       }
     >
       <form
@@ -62,6 +56,9 @@ export function HireDialog({
           hiring.mutate({ roleKey, name });
         }}
       >
+        <p className="dialog-text">
+          One person fills each Role. Every setting can change later on the Role card.
+        </p>
         {hiring.error && (
           <RefusalAlert title="The person can't be hired yet" error={hiring.error} />
         )}

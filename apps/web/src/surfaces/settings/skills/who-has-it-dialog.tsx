@@ -60,18 +60,13 @@ function WhoHasItForm({
   };
   return (
     <Dialog
+      size="medium"
       title={`Who has ${skill.name}`}
-      width={520}
       onClose={onClose}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button loading={saving.isPending} onClick={() => saving.mutate()}>
-            Save
-          </Button>
-        </>
+        <Button loading={saving.isPending} onClick={() => saving.mutate()}>
+          Save
+        </Button>
       }
     >
       <div className="skill-form">

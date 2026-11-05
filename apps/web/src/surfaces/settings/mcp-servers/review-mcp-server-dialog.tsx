@@ -68,26 +68,11 @@ export function ReviewMcpServerDialog({
   const failure = switching.error ?? removing.error ?? review.error;
   return (
     <Dialog
+      size="large"
       title={`Review ${name}`}
-      width={720}
       onClose={onClose}
       actions={
         <>
-          <Button
-            variant="danger-ghost"
-            iconLeft={<Icon name="trash-2" size={14} />}
-            loading={removing.isPending}
-            onClick={() => removing.mutate()}
-          >
-            Remove it
-          </Button>
-          <Button variant="ghost" onClick={() => onOpen({ kind: "edit", name })}>
-            Edit
-          </Button>
-          <span className="skill-dialog-spacer" />
-          <Button variant="secondary" onClick={onClose}>
-            Later
-          </Button>
           {reviewed && (
             <Button
               variant={reviewed.server.state === "on" ? "secondary" : "primary"}
@@ -98,12 +83,25 @@ export function ReviewMcpServerDialog({
               {reviewed.server.state === "on" ? "Turn it off" : "Turn it on"}
             </Button>
           )}
+          <Button variant="ghost" onClick={() => onOpen({ kind: "edit", name })}>
+            Edit
+          </Button>
+          <Button
+            variant="danger"
+            iconLeft={<Icon name="trash-2" size={14} />}
+            loading={removing.isPending}
+            onClick={() => removing.mutate()}
+          >
+            Remove it
+          </Button>
         </>
       }
     >
-      {failure && <RefusalAlert title="That didn't work" error={failure} />}
-      {review.isPending && <p className="settings-note">Connecting to {name}…</p>}
-      {reviewed && <Review review={reviewed} />}
+      <div className="dialog-stack">
+        {failure && <RefusalAlert title="That didn't work" error={failure} />}
+        {review.isPending && <p className="settings-note">Connecting to {name}…</p>}
+        {reviewed && <Review review={reviewed} />}
+      </div>
     </Dialog>
   );
 }
@@ -111,7 +109,7 @@ export function ReviewMcpServerDialog({
 function Review({ review }: { readonly review: McpServerReview }): ReactNode {
   const { server } = review;
   return (
-    <div className="skill-review mcp-server-dialog-body">
+    <div className="skill-review">
       <DescriptionList items={serverItems(server)} />
       {review.connected ? (
         <ToolList tools={review.tools} toolsTooLong={review.toolsTooLong} />

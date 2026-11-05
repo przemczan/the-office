@@ -196,9 +196,7 @@
 }
 
 .file-view pre {
-  max-height: 320px;
   margin: 0;
-  overflow: auto;
   padding: 10px 12px;
   background: var(--surface);
   font: var(--type-mono);
@@ -213,10 +211,6 @@
   padding: 10px 12px;
   font: var(--type-caption);
   color: var(--fg-3);
-}
-
-.skill-dialog-spacer {
-  flex: 1;
 }
 
 @media (max-width: 980px) {

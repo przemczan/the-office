@@ -275,23 +275,19 @@ function ConfirmDeleteDialog({
 }): ReactNode {
   return (
     <Dialog
+      size="small"
       title={title}
-      tone="danger"
-      width={480}
       onClose={onClose}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="danger" loading={pending} onClick={onConfirm}>
-            {action}
-          </Button>
-        </>
+        <Button variant="danger" loading={pending} onClick={onConfirm}>
+          {action}
+        </Button>
       }
     >
-      {error && <RefusalAlert title="Nothing was deleted" error={error} />}
-      {children}
+      <div className="dialog-stack">
+        {error && <RefusalAlert title="Nothing was deleted" error={error} />}
+        {children}
+      </div>
     </Dialog>
   );
 }

@@ -28,33 +28,29 @@ export function LetGoDialog({
   });
   return (
     <Dialog
+      size="small"
       title={`Let ${card.name} go?`}
-      tone="danger"
-      width={480}
       onClose={onClose}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="danger" loading={letting.isPending} onClick={() => letting.mutate()}>
-            Let {card.name} go
-          </Button>
-        </>
+        <Button variant="danger" loading={letting.isPending} onClick={() => letting.mutate()}>
+          Let {card.name} go
+        </Button>
       }
     >
-      {letting.error && (
-        <RefusalAlert title={`${card.name} can't be let go`} error={letting.error} />
-      )}
-      <p className="dialog-text">
-        Nobody fills the {card.title} Role from then on. {card.name}'s Role card, Memory and chats
-        are kept, unused and readable, and you can hire {card.name} back.
-      </p>
-      <p className="dialog-text">
-        Tasks that still need {card.title} for a Stage are paused, each with a Decision to resume it
-        once someone fills the Role, or to drop it. A Stage {card.name} is working on finishes its
-        current turn first, as with Pause; to end it now, Stop the Task.
-      </p>
+      <div className="dialog-stack">
+        {letting.error && (
+          <RefusalAlert title={`${card.name} can't be let go`} error={letting.error} />
+        )}
+        <p className="dialog-text">
+          Nobody fills the {card.title} Role from then on. {card.name}'s Role card, Memory and chats
+          are kept, unused and readable, and you can hire {card.name} back.
+        </p>
+        <p className="dialog-text">
+          Tasks that still need {card.title} for a Stage are paused, each with a Decision to resume
+          it once someone fills the Role, or to drop it. A Stage {card.name} is working on finishes
+          its current turn first, as with Pause; to end it now, Stop the Task.
+        </p>
+      </div>
     </Dialog>
   );
 }

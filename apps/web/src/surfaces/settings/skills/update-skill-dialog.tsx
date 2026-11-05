@@ -60,48 +60,44 @@ export function UpdateSkillDialog({
   const to = proposal?.change.to ?? skill?.update;
   return (
     <Dialog
+      size="large"
       title={`Update ${name}?`}
-      width={720}
       onClose={onClose}
       actions={
-        <>
-          <span className="skill-dialog-spacer" />
-          <Button variant="secondary" onClick={onClose}>
-            Not now
+        proposal ? (
+          <Button loading={applying.isPending} onClick={() => applying.mutate(proposal.id)}>
+            Apply the update
           </Button>
-          {proposal ? (
-            <Button loading={applying.isPending} onClick={() => applying.mutate(proposal.id)}>
-              Apply the update
+        ) : (
+          devops.person &&
+          to && (
+            <Button loading={devops.asking} onClick={() => devops.ask(updateDraft(name, to))}>
+              Ask {devops.person.card.name} to propose it
             </Button>
-          ) : (
-            devops.person &&
-            to && (
-              <Button loading={devops.asking} onClick={() => devops.ask(updateDraft(name, to))}>
-                Ask {devops.person.card.name} to propose it
-              </Button>
-            )
-          )}
-        </>
+          )
+        )
       }
     >
-      {failure && <RefusalAlert title="That didn't work" error={failure} />}
-      {skill && installedFrom && to && (
-        <div className="skill-review">
-          <p className="skill-update-versions">
-            Version {pinnedVersionLabel(proposal?.change.from ?? installedFrom.pinnedVersion)}{" "}
-            <Icon name="arrow-right" size={13} aria-label="to" /> {pinnedVersionLabel(to)}
-          </p>
-          {proposal ? (
-            <ProposedUpdate
-              proposal={proposal}
-              drafter={roleName(proposal.draftedBy, roles.data)}
-              skill={skill}
-            />
-          ) : (
-            <NoProposalYet devopsName={devops.person?.card.name} to={to} />
-          )}
-        </div>
-      )}
+      <div className="dialog-stack">
+        {failure && <RefusalAlert title="That didn't work" error={failure} />}
+        {skill && installedFrom && to && (
+          <div className="skill-review">
+            <p className="skill-update-versions">
+              Version {pinnedVersionLabel(proposal?.change.from ?? installedFrom.pinnedVersion)}{" "}
+              <Icon name="arrow-right" size={13} aria-label="to" /> {pinnedVersionLabel(to)}
+            </p>
+            {proposal ? (
+              <ProposedUpdate
+                proposal={proposal}
+                drafter={roleName(proposal.draftedBy, roles.data)}
+                skill={skill}
+              />
+            ) : (
+              <NoProposalYet devopsName={devops.person?.card.name} to={to} />
+            )}
+          </div>
+        )}
+      </div>
     </Dialog>
   );
 }

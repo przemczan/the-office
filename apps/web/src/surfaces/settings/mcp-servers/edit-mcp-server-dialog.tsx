@@ -57,23 +57,18 @@ function EditMcpServerForm({
   });
   return (
     <Dialog
+      size="medium"
       title={`Edit ${saved.name}`}
-      width={680}
       onClose={onClose}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" form={formId} loading={saving.isPending}>
-            Save
-          </Button>
-        </>
+        <Button type="submit" form={formId} loading={saving.isPending}>
+          Save
+        </Button>
       }
     >
       <form
         id={formId}
-        className="skill-form mcp-server-dialog-body"
+        className="skill-form"
         onSubmit={(event) => {
           event.preventDefault();
           saving.mutate();

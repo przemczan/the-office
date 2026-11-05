@@ -65,6 +65,13 @@
   font: var(--type-body);
 }
 
+/* A body's parts one under another: a refusal above the words, or two paragraphs. */
+.dialog-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
 .dialog-step {
   flex: none;
   padding: var(--space-3) var(--space-5);

@@ -26,24 +26,18 @@ export function RegenerateSshKeyDialog({
   });
   return (
     <Dialog
+      size="small"
       title="Regenerate the Office ssh key?"
-      tone="danger"
-      width={560}
       onClose={onClose}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            variant="danger"
-            loading={regenerating.isPending}
-            disabled={!understood}
-            onClick={() => regenerating.mutate()}
-          >
-            Regenerate the key
-          </Button>
-        </>
+        <Button
+          variant="danger"
+          loading={regenerating.isPending}
+          disabled={!understood}
+          onClick={() => regenerating.mutate()}
+        >
+          Regenerate the key
+        </Button>
       }
     >
       <div className="office-identity-card-body">

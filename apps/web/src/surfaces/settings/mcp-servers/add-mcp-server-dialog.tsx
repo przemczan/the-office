@@ -59,23 +59,18 @@ export function AddMcpServerDialog({
   const failure = by === "paste" ? reading.error : adding.error;
   return (
     <Dialog
+      size="medium"
       title="Add an MCP server"
-      width={680}
       onClose={onClose}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            form={formId}
-            loading={reading.isPending || adding.isPending}
-            disabled={by === "paste" && config.trim() === ""}
-          >
-            {by === "paste" ? "Read the config" : "Add to the library"}
-          </Button>
-        </>
+        <Button
+          type="submit"
+          form={formId}
+          loading={reading.isPending || adding.isPending}
+          disabled={by === "paste" && config.trim() === ""}
+        >
+          {by === "paste" ? "Read the config" : "Add to the library"}
+        </Button>
       }
     >
       <div className="skill-tabs">
@@ -87,7 +82,7 @@ export function AddMcpServerDialog({
       </div>
       <form
         id={formId}
-        className="skill-form mcp-server-dialog-body"
+        className="skill-form"
         onSubmit={(event) => {
           event.preventDefault();
           if (by === "paste") reading.mutate(config);

@@ -144,26 +144,23 @@ function RemovePipelineDialog({
   });
   return (
     <Dialog
+      size="small"
       title={`Remove ${pipeline.name}?`}
-      tone="danger"
       onClose={onClose}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button variant="danger" loading={removing.isPending} onClick={() => removing.mutate()}>
-            Remove the Pipeline
-          </Button>
-        </>
+        <Button variant="danger" loading={removing.isPending} onClick={() => removing.mutate()}>
+          Remove the Pipeline
+        </Button>
       }
     >
-      <p className="dialog-text">
-        Running and finished Tasks keep the copy of its Stages they started with.
-      </p>
-      {removing.error && (
-        <RefusalAlert title={`${pipeline.name} can't be removed`} error={removing.error} />
-      )}
+      <div className="dialog-stack">
+        <p className="dialog-text">
+          Running and finished Tasks keep the copy of its Stages they started with.
+        </p>
+        {removing.error && (
+          <RefusalAlert title={`${pipeline.name} can't be removed`} error={removing.error} />
+        )}
+      </div>
     </Dialog>
   );
 }

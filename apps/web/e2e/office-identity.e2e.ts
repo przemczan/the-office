@@ -165,7 +165,7 @@ test.describe("the Office ssh key", () => {
     await expect(publicKey).toHaveText(/^ssh-ed25519 •+ the-office@/);
   });
 
-  test("regenerating it needs the consequences acknowledged, and Cancel keeps the key", async ({
+  test("regenerating it needs the consequences acknowledged, and Close keeps the key", async ({
     page,
   }) => {
     await page.goto(OFFICE_IDENTITY_SETTINGS_PATH);
@@ -183,7 +183,7 @@ test.describe("the Office ssh key", () => {
     );
     const regenerate = dialog.getByRole("button", { name: "Regenerate the key" });
     await expect(regenerate).toBeDisabled();
-    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await dialog.getByRole("button", { name: "Close", exact: true }).click();
     await expect(dialog).toBeHidden();
     await expect(publicKey).toHaveText(before ?? "");
 

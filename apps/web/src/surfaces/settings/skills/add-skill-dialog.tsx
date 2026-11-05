@@ -57,32 +57,26 @@ export function AddSkillDialog({
   const failure = { install: devops.error, upload: uploading.error, write: writing.error }[by];
   return (
     <Dialog
+      size="medium"
       title="Add a skill"
-      width={620}
       onClose={onClose}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
+        (by !== "install" || devops.person) && (
+          <Button
+            type="submit"
+            form={formId}
+            loading={devops.asking || uploading.isPending || writing.isPending}
+            disabled={
+              (by === "install" && source.trim() === "") || (by === "upload" && file === undefined)
+            }
+          >
+            {by === "install"
+              ? `Ask ${devops.person?.card.name ?? ""} to install it`
+              : by === "upload"
+                ? "Upload"
+                : "Add to the library"}
           </Button>
-          {(by !== "install" || devops.person) && (
-            <Button
-              type="submit"
-              form={formId}
-              loading={devops.asking || uploading.isPending || writing.isPending}
-              disabled={
-                (by === "install" && source.trim() === "") ||
-                (by === "upload" && file === undefined)
-              }
-            >
-              {by === "install"
-                ? `Ask ${devops.person?.card.name ?? ""} to install it`
-                : by === "upload"
-                  ? "Upload"
-                  : "Add to the library"}
-            </Button>
-          )}
-        </>
+        )
       }
     >
       <div className="skill-tabs">

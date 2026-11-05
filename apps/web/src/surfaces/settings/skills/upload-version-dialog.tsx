@@ -31,19 +31,13 @@ export function UploadVersionDialog({
   });
   return (
     <Dialog
+      size="medium"
       title={`Upload a new version of ${name}`}
-      description="Its SKILL.md names the same skill. Running sessions keep the version they started with."
-      width={560}
       onClose={onClose}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" form={formId} loading={uploading.isPending} disabled={!file}>
-            Upload
-          </Button>
-        </>
+        <Button type="submit" form={formId} loading={uploading.isPending} disabled={!file}>
+          Upload
+        </Button>
       }
     >
       <form
@@ -54,6 +48,9 @@ export function UploadVersionDialog({
           if (file) uploading.mutate(file);
         }}
       >
+        <p className="dialog-text">
+          Its SKILL.md names the same skill. Running sessions keep the version they started with.
+        </p>
         {uploading.error && (
           <RefusalAlert title="The new version can't be saved" error={uploading.error} />
         )}

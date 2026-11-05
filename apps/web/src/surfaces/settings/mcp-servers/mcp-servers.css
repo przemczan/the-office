@@ -15,15 +15,6 @@
   white-space: nowrap;
 }
 
-/* A form or review grows with the Server values and tools; it scrolls inside the dialog, as
-   `.shape-idea-projects` does. */
-.mcp-server-dialog-body {
-  max-height: calc(100vh - 280px);
-  margin: 0 -20px;
-  padding: 0 20px 4px;
-  overflow-y: auto;
-}
-
 .server-values {
   display: flex;
   flex-direction: column;

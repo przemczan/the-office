@@ -60,19 +60,13 @@ function EditForm({
   });
   return (
     <Dialog
+      size="medium"
       title={`Edit ${start.name}`}
-      description="Saving makes its next version, off until you review it. Running sessions keep theirs."
-      width={620}
       onClose={onClose}
       actions={
-        <>
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" form={formId} loading={editing.isPending}>
-            Save
-          </Button>
-        </>
+        <Button type="submit" form={formId} loading={editing.isPending}>
+          Save
+        </Button>
       }
     >
       <form
@@ -83,6 +77,9 @@ function EditForm({
           editing.mutate();
         }}
       >
+        <p className="dialog-text">
+          Saving makes its next version, off until you review it. Running sessions keep theirs.
+        </p>
         {editing.error && <RefusalAlert title="The skill can't be saved" error={editing.error} />}
         <SkillFields skill={written} onChange={setWritten} withName={false} />
       </form>
