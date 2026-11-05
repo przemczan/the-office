@@ -1,6 +1,6 @@
 # 52 · The Task page, round 3
 
-Status: in progress
+Status: done
 
 ## Goal
 
@@ -15,14 +15,14 @@ Six of the user's notes on the page task 51 built:
 
 ## Definition of Done
 
-- [ ] Loop-backs into one Stage land at one spot, one above the other, and arcs that don't overlap share a height. Check: `stage-rail-words.test.ts`, and a screenshot of the rail fed the stages of Task 2a6dd41c, in both palettes.
-- [ ] Save on the Plan and the Definition of Done doesn't confirm; the rules in [What was settled](#what-was-settled) hold. Check: `planning-changes.test.ts`, the Work controller's tests and a web test of the editor.
-- [ ] A changing Save on a Ready Task sends it back to Backlog. Check: the same tests, and a queued Task's case.
-- [ ] Before Ready's words follow their line at any width. Check: a screenshot at 1920px.
-- [ ] A Gate's run shows its Attachments in its details. Check: a web test, with two runs of one Gate.
-- [ ] Tooltips show over everything and stay in the window. Check: a `packages/ui` test, and screenshots of "tokens today" on Now and the status strip, and one inside a window.
-- [ ] Now and the Needs you panel show the Task page's Decision and Gate cards, under the Task's title and Project. Check: the web tests and e2e of Now and the panel, and a screenshot of Now beside the Task page in both palettes.
-- [ ] Spec 2.1 and 4, the glossary and the click-through say what was settled. Check: read each changed line against [What was settled](#what-was-settled).
+- [x] Loop-backs into one Stage land at one spot, one above the other, and arcs that don't overlap share a height. Check: `stage-rail-words.test.ts`, and a screenshot of the rail fed the stages of Task 2a6dd41c, in both palettes.
+- [x] Save on the Plan and the Definition of Done doesn't confirm; the rules in [What was settled](#what-was-settled) hold. Check: `planning-changes.test.ts`, the Work controller's tests and a web test of the editor.
+- [x] A changing Save on a Ready Task sends it back to Backlog. Check: the same tests, and a queued Task's case.
+- [x] Before Ready's words follow their line at any width. Check: a screenshot at 1920px.
+- [x] A Gate's run shows its Attachments in its details. Check: a web test, with two runs of one Gate.
+- [x] Tooltips show over everything and stay in the window. Check: a `packages/ui` test, and screenshots of "tokens today" on Now and the status strip, and one inside a window.
+- [x] Now and the Needs you panel show the Task page's Decision and Gate cards, under the Task's title and Project. Check: the web tests and e2e of Now and the panel, and a screenshot of Now beside the Task page in both palettes.
+- [x] Spec 2.1 and 4, the glossary and the click-through say what was settled. Check: read each changed line against [What was settled](#what-was-settled).
 
 ## Read first
 
@@ -59,11 +59,11 @@ With the user, 2026-11-05.
 - [x] 1. The small page fixes: the rail's loop-backs, Before Ready's line, a Gate run's Attachments, the Tooltip. Read: `stage-rail-words.ts`, `pipeline-rail.tsx`, `before-ready.tsx`, `run-details.tsx`, `gate-window.tsx`, `packages/ui/src/overlays.tsx`.
 - [x] 2. Save apart from Confirm, in the service and on the page, with the spec and the glossary. Read: `planning-changes.ts`, `planning-service.ts`, `task-states.ts`, `planning-parts.tsx`, spec 2.1.
 - [x] 3. Needs you on Now: the same cards, moved to the shell, with spec 4. Read: `needs-you-feed.tsx`, `gate-card.tsx`, `gate-window.tsx`, `needs-you-card.tsx`.
-- [ ] 4. Close: the Definition of Done's checks, `npm run verify:linux`.
+- [x] 4. Close: the Definition of Done's checks, `npm run verify:linux`.
 
 ## State
 
-Steps 1 to 3 are built; the Definition of Done's boxes wait for step 4, though their checks passed here.
+Done. `npm run verify` and `npm run verify:linux` pass.
 
 - **Rail:** `loopBacks` gives each arc the lowest height free of those it overlaps; a landing depends only on the Stage.
 - **Gate run's Attachments:** `attachmentsOfGateRun` in `attachment-rounds.ts` is the one rule, used by `run-details.tsx` and by `picturesOfThisRound` for the run the Gate waits in. Trap: "while it waits" is `gateAction === null`, as a Gate's run ends the moment the Task reaches it.
@@ -78,10 +78,6 @@ The live checks (`*-test-project-check.test.ts`) now call Confirm after Save; th
 - **Needs you on Now:** `GateCard`, `GateWindow`, `gate-card-words.ts`, `record-tab.ts` and `reportedMetCount` are in `shell/work/`, `NeedsYouList` holds the cards' shared look, and `needs-you-feed.tsx` puts them under the Task's title and Project chip. `GateActions`, `card-attachments.tsx` and the short form of an open Decision are gone. On Now a Decision shows when it was asked, not where. Open Changes from Now or the panel lands on the Task with the tab chosen, not scrolled to it, as the page isn't there yet to scroll.
 - Each waiting Gate on Now reads its Task's changes, one git diff in the service; each Decision its Thread, again on every `thread.*` event.
 
-For step 4: the checks above, and `npm run verify:linux`.
-
 ## Progress
 
-- 2026-11-05 · step 1: the rail's loop-backs land on one spot at the lowest free height, Before Ready's words follow their line, a Gate's run shows its Attachments, and the Tooltip draws on the body from `packages/ui`; next, step 2: Save apart from Confirm.
-- 2026-11-05 · step 2: Save is apart from Confirm in the service and on the page, a changing Save unconfirms and moves a Ready Task to Backlog and out of the queue, the badge reads Not confirmed, with spec 2.1 and 4, the glossary and the click-through; next, step 3: Needs you on Now.
-- 2026-11-05 · step 3: Now and the Needs you panel show the Task page's Decision and Gate cards under the Task's title and Project, moved to the shell with the Gate's window, with spec 2.4 and 4 and the click-through; next, step 4: close.
+Moved to [archive/52-task-page-round-3.md](archive/52-task-page-round-3.md).
